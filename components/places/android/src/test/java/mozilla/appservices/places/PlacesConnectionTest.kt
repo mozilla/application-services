@@ -12,6 +12,7 @@ import mozilla.appservices.places.uniffi.VisitTransition
 import mozilla.appservices.places.uniffi.FrecencyThresholdOption
 import mozilla.appservices.syncmanager.SyncManager
 import mozilla.appservices.places.uniffi.PlacesException
+import mozilla.appservices.places.uniffi.BookmarkItem
 import mozilla.components.service.glean.testing.GleanTestRule
 import org.junit.After
 import org.junit.Assert.assertEquals
@@ -359,25 +360,21 @@ class PlacesConnectionTest {
             title = "example folder"
         )
 
-        val item = db.getBookmark(itemGUID)!! as BookmarkItem
-        val sep = db.getBookmark(sepGUID)!! as BookmarkSeparator
-        val folder = db.getBookmark(folderGUID)!! as BookmarkFolder
+        val item = db.getBookmark(itemGUID)!! as BookmarkItem.Bookmark
+        val sep = db.getBookmark(sepGUID)!! as BookmarkItem.Separator
+        val folder = db.getBookmark(folderGUID)!! as BookmarkItem.Folder
 
-        assertEquals(item.type, BookmarkType.Bookmark)
-        assertEquals(sep.type, BookmarkType.Separator)
-        assertEquals(folder.type, BookmarkType.Folder)
+        assertEquals(item.b.title, "example")
+        assertEquals(item.b.url, "https://www.example.com/")
+        assertEquals(item.b.position, 1u)
+        assertEquals(item.b.parentGuid, BookmarkRoot.Unfiled.id)
 
-        assertEquals(item.title, "example")
-        assertEquals(item.url, "https://www.example.com/")
-        assertEquals(item.position, 1)
-        assertEquals(item.parentGUID, BookmarkRoot.Unfiled.id)
+        assertEquals(sep.s.position, 0u)
+        assertEquals(sep.s.parentGuid, BookmarkRoot.Unfiled.id)
 
-        assertEquals(sep.position, 0)
-        assertEquals(sep.parentGUID, BookmarkRoot.Unfiled.id)
-
-        assertEquals(folder.title, "example folder")
-        assertEquals(folder.position, 2)
-        assertEquals(folder.parentGUID, BookmarkRoot.Unfiled.id)
+        assertEquals(folder.f.title, "example folder")
+        assertEquals(folder.f.position, 2u)
+        assertEquals(folder.f.parentGuid, BookmarkRoot.Unfiled.id)
     }
 
     @Test

@@ -19,6 +19,8 @@ extension PlacesError: LocalizedError {
             return "PlacesError.InternalPanic: \(message)"
         case let .InvalidParent(message):
             return "PlacesError.InvalidParent: \(message)"
+        case let .JsonParseFailed(message):
+            return "PlacesError.JsonParseFailed: \(message)"
         case let .UrlParseFailed(message):
             return "PlacesError.UrlParseFailed: \(message)"
         case let .PlacesConnectionBusy(message):

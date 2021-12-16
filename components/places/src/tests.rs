@@ -19,7 +19,7 @@ use pretty_assertions::assert_eq;
 pub fn insert_json_tree(conn: &PlacesDb, jtree: Value) {
     let tree: BookmarkTreeNode = serde_json::from_value(jtree).expect("should be valid");
     let folder_node = match tree {
-        BookmarkTreeNode::Folder(folder_node) => folder_node,
+        BookmarkTreeNode::Folder { f: folder_node } => folder_node,
         _ => panic!("must be a folder"),
     };
     insert_tree(conn, &folder_node).expect("should insert");

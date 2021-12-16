@@ -4,7 +4,6 @@
 
 use super::super::bookmarks::FetchDepth;
 use super::*;
-use crate::msg_types::BookmarkNode as ProtoBookmark;
 
 /// This type basically exists to become a msg_types::BookmarkNode, but is
 /// slightly less of a pain to deal with in rust.
@@ -120,19 +119,6 @@ pub fn fetch_bookmark(
     }
 
     Ok(Some(bookmark))
-}
-
-pub fn update_bookmark_from_message(db: &PlacesDb, msg: ProtoBookmark) -> Result<()> {
-    let info = conversions::BookmarkUpdateInfo::from(msg);
-
-    let tx = db.begin_transaction()?;
-    let existing = get_raw_bookmark(db, &info.guid)?
-        .ok_or_else(|| InvalidPlaceInfo::NoSuchGuid(info.guid.to_string()))?;
-    let (guid, updatable) = info.into_updatable(existing.bookmark_type)?;
-
-    update_bookmark_in_tx(db, &guid, &updatable, existing)?;
-    tx.commit()?;
-    Ok(())
 }
 
 /// Call fetch_public_tree_with_depth with FetchDepth::Deepest.

@@ -3,12 +3,13 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
 use super::{
-    BookmarkPosition, BookmarkRootGuid, BookmarkTreeNode, InsertableBookmark, InsertableFolder,
-    InsertableItem, InsertableSeparator, PublicNode, RawBookmark, UpdatableBookmark,
-    UpdatableFolder, UpdatableItem, UpdatableSeparator, UpdateTreeLocation,
+    BookmarkPosition, BookmarkRootGuid, BookmarkTreeNode, BookmarkUpdateInfo, InsertableBookmark,
+    InsertableFolder, InsertableItem, InsertableSeparator, InvalidPlaceInfo, PublicNode,
+    RawBookmark, UpdatableBookmark, UpdatableFolder, UpdatableItem, UpdatableSeparator,
+    UpdateTreeLocation,
 };
 
-use crate::error::{InvalidPlaceInfo, Result};
+use crate::error::Result;
 use crate::msg_types;
 use crate::types::BookmarkType;
 use sync_guid::Guid as SyncGuid;
@@ -30,14 +31,14 @@ impl From<BookmarkTreeNode> for PublicNode {
 
         // Not the most idiomatic, but avoids a lot of duplication.
         match n {
-            BookmarkTreeNode::Bookmark(b) => {
+            BookmarkTreeNode::Bookmark { b } => {
                 result.title = b.title;
                 result.url = Some(b.url);
             }
-            BookmarkTreeNode::Separator(_) => {
+            BookmarkTreeNode::Separator { .. } => {
                 // No separator-specific properties.
             }
-            BookmarkTreeNode::Folder(f) => {
+            BookmarkTreeNode::Folder { f } => {
                 result.title = f.title;
                 let own_guid = &result.guid;
                 result.child_nodes = Some(
@@ -141,62 +142,47 @@ impl msg_types::BookmarkNode {
             .map(SyncGuid::from)
             .unwrap_or_else(|| BookmarkRootGuid::Unfiled.into());
 
-        let position = self
-            .position
-            .map_or(BookmarkPosition::Append, BookmarkPosition::Specific);
+        let position =
+            self.position
+                .map_or(BookmarkPosition::Append, |pos| BookmarkPosition::Specific {
+                    pos,
+                });
 
         Ok(match ty {
-            BookmarkType::Bookmark => InsertableItem::Bookmark(InsertableBookmark {
-                parent_guid,
-                position,
-                title: self.title,
-                // This will fail if Url is empty, but with a url parse error,
-                // which is what we want.
-                url: Url::parse(&self.url.unwrap_or_default())?,
-                guid: None,
-                date_added: None,
-                last_modified: None,
-            }),
-            BookmarkType::Separator => InsertableItem::Separator(InsertableSeparator {
-                parent_guid,
-                position,
-                guid: None,
-                date_added: None,
-                last_modified: None,
-            }),
-            BookmarkType::Folder => InsertableItem::Folder(InsertableFolder {
-                parent_guid,
-                position,
-                title: self.title,
-                guid: None,
-                date_added: None,
-                last_modified: None,
-            }),
+            BookmarkType::Bookmark => InsertableItem::Bookmark {
+                b: InsertableBookmark {
+                    parent_guid,
+                    position,
+                    title: self.title,
+                    // This will fail if Url is empty, but with a url parse error,
+                    // which is what we want.
+                    url: Url::parse(&self.url.unwrap_or_default())?,
+                    guid: None,
+                    date_added: None,
+                    last_modified: None,
+                },
+            },
+            BookmarkType::Separator => InsertableItem::Separator {
+                s: InsertableSeparator {
+                    parent_guid,
+                    position,
+                    guid: None,
+                    date_added: None,
+                    last_modified: None,
+                },
+            },
+            BookmarkType::Folder => InsertableItem::Folder {
+                f: InsertableFolder {
+                    parent_guid,
+                    position,
+                    title: self.title,
+                    guid: None,
+                    date_added: None,
+                    last_modified: None,
+                },
+            },
         })
     }
-}
-
-/// We don't require bookmark type for updates on the other side of the FFI,
-/// since the type is immutable, and iOS wants to be able to move bookmarks by
-/// GUID. We also don't/can't enforce as much in the Kotlin/Swift type system
-/// as we can/do in Rust.
-///
-/// This is a type that represents the data we get from the FFI, which we then
-/// turn into a `UpdatableItem` that we can actually use (we do this by
-/// reading the type out of the DB, but we can do that transactionally, so it's
-/// not a problem).
-///
-/// It's basically an intermediate between the protobuf message format and
-/// `UpdatableItem`, used to avoid needing to pass in the `type` to update, and
-/// to give us a place to check things that we can't enforce in Swift/Kotlin's
-/// type system, but that we do in Rust's.
-#[derive(Debug, Clone, PartialEq)]
-pub(crate) struct BookmarkUpdateInfo {
-    pub guid: SyncGuid,
-    pub title: Option<String>,
-    pub url: Option<String>,
-    pub parent_guid: Option<SyncGuid>,
-    pub position: Option<u32>,
 }
 
 impl BookmarkUpdateInfo {
@@ -215,46 +201,36 @@ impl BookmarkUpdateInfo {
 
         let location = match (self.parent_guid, self.position) {
             (None, None) => UpdateTreeLocation::None,
-            (None, Some(pos)) => UpdateTreeLocation::Position(BookmarkPosition::Specific(pos)),
-            (Some(parent_guid), pos) => UpdateTreeLocation::Parent(
-                parent_guid,
-                pos.map_or(BookmarkPosition::Append, BookmarkPosition::Specific),
-            ),
+            (None, Some(pos)) => UpdateTreeLocation::Position {
+                pos: BookmarkPosition::Specific { pos },
+            },
+            (Some(parent_guid), pos) => UpdateTreeLocation::Parent {
+                guid: parent_guid,
+                pos: pos.map_or(BookmarkPosition::Append, |p| BookmarkPosition::Specific {
+                    pos: p,
+                }),
+            },
         };
 
         let updatable = match ty {
-            BookmarkType::Bookmark => UpdatableItem::Bookmark(UpdatableBookmark {
-                location,
-                title: self.title,
-                url: self.url.map(|u| Url::parse(&u)).transpose()?,
-            }),
-            BookmarkType::Separator => UpdatableItem::Separator(UpdatableSeparator { location }),
-            BookmarkType::Folder => UpdatableItem::Folder(UpdatableFolder {
-                location,
-                title: self.title,
-            }),
+            BookmarkType::Bookmark => UpdatableItem::Bookmark {
+                b: UpdatableBookmark {
+                    location,
+                    title: self.title,
+                    url: self.url.map(|u| Url::parse(&u)).transpose()?,
+                },
+            },
+            BookmarkType::Separator => UpdatableItem::Separator {
+                s: UpdatableSeparator { location },
+            },
+            BookmarkType::Folder => UpdatableItem::Folder {
+                f: UpdatableFolder {
+                    location,
+                    title: self.title,
+                },
+            },
         };
 
         Ok((self.guid, updatable))
-    }
-}
-
-impl From<msg_types::BookmarkNode> for BookmarkUpdateInfo {
-    fn from(n: msg_types::BookmarkNode) -> Self {
-        Self {
-            // This is a bug in our code on the other side of the FFI,
-            // so expect should be fine.
-            guid: SyncGuid::from(n.guid.expect("Missing guid")),
-            title: n.title,
-            url: n.url,
-            parent_guid: n.parent_guid.map(SyncGuid::from),
-            position: n.position,
-        }
-    }
-}
-
-impl From<Vec<msg_types::BookmarkNode>> for msg_types::BookmarkNodeList {
-    fn from(nodes: Vec<msg_types::BookmarkNode>) -> Self {
-        Self { nodes }
     }
 }
