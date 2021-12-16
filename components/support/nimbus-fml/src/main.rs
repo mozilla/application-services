@@ -24,28 +24,67 @@ use std::{
     path::{Path, PathBuf},
 };
 
+const RELEASE_CHANNEL: &str = "release";
+
 fn main() -> Result<()> {
     let yaml = load_yaml!("cli.yaml");
     let matches = App::from_yaml(yaml).get_matches();
     let cwd = std::env::current_dir()?;
 
     let config = if matches.is_present("config") {
-        Some(file_path("config", &matches, &cwd)?)
+        util::slurp_config(&file_path("config", &matches, &cwd)?)?
     } else {
-        None
+        Default::default()
     };
 
     match matches.subcommand() {
-        ("struct", Some(cmd)) => workflows::generate_struct(
+        ("android", Some(cmd)) => match cmd.subcommand() {
+            ("features", Some(cmd)) => workflows::generate_struct(
+                Config {
+                    nimbus_object_name: cmd
+                        .value_of("class_name")
+                        .map(str::to_string)
+                        .or(config.nimbus_object_name),
+                    package_name: cmd
+                        .value_of("package")
+                        .map(str::to_string)
+                        .or(config.package_name),
+                },
+                GenerateStructCmd {
+                    language: TargetLanguage::Kotlin,
+                    manifest: file_path("INPUT", &matches, &cwd)?,
+                    output: file_path("output", &matches, &cwd)?,
+                    load_from_ir: matches.is_present("ir"),
+                    channel: matches
+                        .value_of("channel")
+                        .map(str::to_string)
+                        .unwrap_or_else(|| RELEASE_CHANNEL.into()),
+                },
+            )?,
+            _ => unimplemented!(),
+        },
+        ("experimenter", _) => workflows::generate_experimenter_manifest(
             config,
-            GenerateStructCmd {
-                manifest: file_path("INPUT", cmd, &cwd)?,
-                output: file_path("output", cmd, &cwd)?,
-                language: cmd
-                    .value_of("language")
-                    .expect("Language is required")
-                    .try_into()?,
-                load_from_ir: cmd.is_present("ir"),
+            GenerateExperimenterManifestCmd {
+                manifest: file_path("INPUT", &matches, &cwd)?,
+                output: file_path("output", &matches, &cwd)?,
+                load_from_ir: matches.is_present("ir"),
+                channel: matches
+                    .value_of("channel")
+                    .map(str::to_string)
+                    .unwrap_or_else(|| RELEASE_CHANNEL.into()),
+            },
+        )?,
+        ("intermediate-repr", _) => workflows::generate_ir(
+            config,
+            GenerateIRCmd {
+                manifest: file_path("INPUT", &matches, &cwd)?,
+                output: file_path("output", &matches, &cwd)?,
+                load_from_ir: matches.is_present("ir"),
+                channel: matches
+                    .value_of("channel")
+                    .map(str::to_string)
+                    .unwrap_or_else(|| RELEASE_CHANNEL.into()),
             },
         )?,
         (word, _) => unimplemented!("Command {} not implemented", word),
@@ -77,6 +116,21 @@ pub struct GenerateStructCmd {
     output: PathBuf,
     language: TargetLanguage,
     load_from_ir: bool,
+    channel: String,
+}
+
+pub struct GenerateExperimenterManifestCmd {
+    manifest: PathBuf,
+    output: PathBuf,
+    load_from_ir: bool,
+    channel: String,
+}
+
+pub struct GenerateIRCmd {
+    manifest: PathBuf,
+    output: PathBuf,
+    load_from_ir: bool,
+    channel: String,
 }
 
 #[derive(Copy, Clone, Eq, PartialEq, Hash)]

@@ -2,31 +2,18 @@
 * License, v. 2.0. If a copy of the MPL was not distributed with this
 * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-use crate::{backends, TargetLanguage};
+use crate::{backends, GenerateExperimenterManifestCmd, GenerateIRCmd, TargetLanguage};
 
 use crate::error::Result;
 use crate::intermediate_representation::FeatureManifest;
 use crate::parser::Parser;
 use crate::Config;
-use std::path::{Path, PathBuf};
+use std::path::Path;
 
 use crate::GenerateStructCmd;
 
-pub(crate) fn generate_struct(config: Option<PathBuf>, cmd: GenerateStructCmd) -> Result<()> {
-    let config = if let Some(path) = config {
-        Some(slurp_config(&path)?)
-    } else {
-        None
-    };
-
-    let ir = if !cmd.load_from_ir {
-        let parser: Parser = Parser::new(&cmd.manifest)?;
-        parser.get_intermediate_representation()?
-    } else {
-        let string = slurp_file(&cmd.manifest)?;
-        serde_json::from_str::<FeatureManifest>(&string)?
-    };
-
+pub(crate) fn generate_struct(config: Config, cmd: GenerateStructCmd) -> Result<()> {
+    let ir = load_feature_manifest(&cmd.manifest, cmd.load_from_ir, &cmd.channel)?;
     let language = cmd.language;
     match language {
         TargetLanguage::IR => {
@@ -39,30 +26,62 @@ pub(crate) fn generate_struct(config: Option<PathBuf>, cmd: GenerateStructCmd) -
     Ok(())
 }
 
-fn slurp_config(path: &Path) -> Result<Config> {
-    let string = std::fs::read_to_string(path)?;
-    Ok(serde_yaml::from_str::<Config>(&string)?)
+pub(crate) fn generate_experimenter_manifest(
+    config: Config,
+    cmd: GenerateExperimenterManifestCmd,
+) -> Result<()> {
+    let ir = load_feature_manifest(&cmd.manifest, cmd.load_from_ir, &cmd.channel)?;
+    backends::experimenter_manifest::generate_manifest(ir, config, cmd)?;
+    Ok(())
+}
+
+pub(crate) fn generate_ir(_config: Config, cmd: GenerateIRCmd) -> Result<()> {
+    let ir = load_feature_manifest(&cmd.manifest, cmd.load_from_ir, &cmd.channel)?;
+    std::fs::write(cmd.output, serde_json::to_string_pretty(&ir)?)?;
+    Ok(())
 }
 
 fn slurp_file(path: &Path) -> Result<String> {
     Ok(std::fs::read_to_string(path)?)
 }
 
+fn load_feature_manifest(
+    path: &Path,
+    load_from_ir: bool,
+    channel: &str,
+) -> Result<FeatureManifest> {
+    Ok(if !load_from_ir {
+        let parser: Parser = Parser::new(path, channel)?;
+        parser.get_intermediate_representation()?
+    } else {
+        let string = slurp_file(path)?;
+        serde_json::from_str::<FeatureManifest>(&string)?
+    })
+}
+
 #[cfg(test)]
 mod test {
-
     use std::convert::TryInto;
     use std::fs;
+    use std::path::PathBuf;
 
     use anyhow::anyhow;
+    use jsonschema::JSONSchema;
+    use tempdir::TempDir;
 
     use super::*;
     use crate::backends::kotlin;
     use crate::util::{generated_src_dir, join, pkg_dir};
 
+    const MANIFEST_PATHS: &[&str] = &[
+        "fixtures/ir/simple_nimbus_validation.json",
+        "fixtures/ir/simple_nimbus_validation.json",
+        "fixtures/ir/with_objects.json",
+        "fixtures/ir/full_homescreen.json",
+    ];
+
     // Given a manifest.fml and script.kts in the tests directory generate
     // a manifest.kt and run the script against it.
-    #[allow(dead_code)]
     fn generate_and_assert(test_script: &str, manifest: &str, is_ir: bool) -> Result<()> {
         let test_script = join(pkg_dir(), test_script);
         let pbuf = PathBuf::from(&test_script);
@@ -92,8 +111,9 @@ mod test {
             output: manifest_kt.clone().into(),
             load_from_ir: is_ir,
             language,
+            channel: "release".into(),
         };
-        generate_struct(None, cmd)?;
+        generate_struct(Default::default(), cmd)?;
         run_script_with_generated_code(language, manifest_kt, &test_script)?;
         Ok(())
     }
@@ -145,6 +165,47 @@ mod test {
     #[test]
     fn test_with_app_menu() -> Result<()> {
         generate_and_assert("test/app_menu.kts", "fixtures/ir/app_menu.json", true)?;
+        Ok(())
+    }
+
+    fn validate_against_experimenter_schema<P: AsRef<Path>>(
+        schema_path: P,
+        generated_json: &serde_json::Value,
+    ) -> Result<()> {
+        let schema = fs::read_to_string(&schema_path)?;
+        let schema: serde_json::Value = serde_json::from_str(&schema)?;
+        let compiled = JSONSchema::compile(&schema).expect("The schema is invalid");
+        let res = compiled.validate(generated_json);
+        if let Err(e) = res {
+            let mut errs: String = "Validation errors: \n".into();
+            for err in e {
+                errs.push_str(&format!("{}\n", err));
+            }
+            panic!("{}", errs);
+        }
+        Ok(())
+    }
+
+    #[test]
+    fn test_schema_validation() -> Result<()> {
+        for path in MANIFEST_PATHS {
+            let out_tmpdir = TempDir::new("schema_validation").unwrap();
+            let manifest_fml = join(pkg_dir(), path);
+            let curr_out = out_tmpdir.as_ref().join(path.split('/').last().unwrap());
+            let cmd = GenerateExperimenterManifestCmd {
+                manifest: manifest_fml.into(),
+                output: curr_out.clone(),
+                load_from_ir: true,
+                channel: "release".into(),
+            };
+            generate_experimenter_manifest(Default::default(), cmd)?;
+            let generated = fs::read_to_string(curr_out)?;
+            let generated_json = serde_json::from_str(&generated)?;
+            validate_against_experimenter_schema(
+                join(pkg_dir(), "ExperimentFeatureManifest.schema.json"),
+                &generated_json,
+            )?;
+        }
         Ok(())
     }
 }

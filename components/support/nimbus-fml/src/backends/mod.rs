@@ -218,4 +218,5 @@ impl Display for VariablesType {
     }
 }
 
+pub(crate) mod experimenter_manifest;
 pub(crate) mod kotlin;

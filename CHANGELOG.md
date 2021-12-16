@@ -1,3 +1,38 @@
+# v87.2.0 (_2021-12-15_)
+
+[Full Changelog](https://github.com/mozilla/application-services/compare/v87.1.0...v87.2.0)
+
+### ✨✨ What's New ✨✨
+
+#### ⛅️🔭🔬 Nimbus
+
+- Initial release of the Nimbus Feature Manifest Language tool (`nimbus-fml`).
+  - This is a significant upgrade to the Variables API, adding code-generation to Kotlin and Experimenter compatible manifest JSON.
+  - [RFC for language specification](https://github.com/mozilla/experimenter-docs/pull/156).
+  - This is the first release it is made available to client app's build processes.
+  - [Build on CI](https://github.com/mozilla/application-services/pull/4701) ready for application build processes to download.
+
+# v87.1.0 (_2021-12-02_)
+
+[Full Changelog](https://github.com/mozilla/application-services/compare/v87.0.0...v87.1.0)
+
+## Logins
+### What's changed
+  - The `update()` and `add_or_update()` methods will log rather than return an error when trying to update a duplicate login (#4648)
+
+## Logins, Places, SyncManager
+### What's Changed
+  - These packages all use `parking_lot::Mutex` instead of `std::Mutex`, meaning we should no
+    longer see errors about mutexes being poisoned.
+
+## Push
+### What's fixed
+  - Fixes a bug where the subscriptions would fail because the server didn't return the `uaid`, this seems to happen only when the client sends request that include the `uaid`.([#4697](https://github.com/mozilla/application-services/pull/4697))
+
+# General
+
+- We now use xcode 13.1 to generate our iOS build artifacts. ([#4692](https://github.com/mozilla/application-services/pull/4692))
+
 # v87.0.0 (_2021-11-17_)
 
 [Full Changelog](https://github.com/mozilla/application-services/compare/v86.2.0...v87.0.0)

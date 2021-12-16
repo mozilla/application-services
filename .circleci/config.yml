@@ -81,6 +81,21 @@ commands:
             ./rustup-init -y --no-modify-path
             rm rustup-init
             echo 'export PATH="$HOME/.cargo/bin:$PATH"' >> $BASH_ENV
+  install-ghr:
+    steps:
+      - run:
+          name: Install GHR
+          command: |
+            GHR=ghr_v0.12.0_darwin_amd64
+            GHR_SHA256=c868ef9fc5dd8c8a397b74d84051d83693c42dd59041cb17b66f90f563477249
+            curl -sfSL --retry 5 --retry-delay 10 -O "https://github.com/tcnksm/ghr/releases/download/v0.12.0/${GHR}.zip"
+            echo "${GHR_SHA256} *${GHR}.zip" | shasum -a 256 -c -
+            unzip "${GHR}.zip"
+
+            echo "export PATH=$PATH:$(pwd)/$GHR" >> $BASH_ENV
+      # Run in a different shell to source $BASH_ENV
+      - run: |
+          ghr --version
   build-libs:
     parameters:
       platform:
@@ -141,7 +156,6 @@ commands:
             - Carthage
   test-setup:
     steps:
-      - full-checkout
       - build-desktop-libs
       - setup-rust-target-version
       - setup-sccache
@@ -160,60 +174,31 @@ commands:
     steps:
       - run: automation/tests.py rust-tests
       - run: automation/tests.py nss-bindings
-
-  dependency-checks:
-    steps:
-      - run:
-          name: Check for security vulnerabilities in dependencies
-          command: |
-            cargo install cargo-audit
-            # Explanation for ignored issues:
-            #  * RUSTSEC-2021-0019:  Soundness issues in `xcb`, a clipboard library we only use for examples.
-            #                        There is currently no fixed version available.
-            #  * RUSTSEC-2020-0159:  A possible Segfault in `chrono`'s `localtime_r' invocation, at the time of this
-            #                        patch, there is no fixed versions available, but an issue is filed on chrono: https://github.com/chronotope/chrono/issues/602
-            #  * RUSTSEC-2020-0071: Related to the one above, `chrono` pulls in a version of `time` that has the same problem, where invocations of
-            #                       `localtime_r` could segfault, our code base doesn't trigger this, there is a PR on chrono that should
-            #                       fix this: https://github.com/chronotope/chrono/pull/578
-            #                       note that both the Nimbus-SDK and glean use chrono, so if we would like to move away from it, both projects
-            #                       need to do that before we can remove the ignores (assuming `chrono` doesn't release a fixed version)
-            #  * RUSTSEC-2018-0006: Uncontrolled recursion in `yaml-rust`, which is included by `clap` v2. `clap` itself already updated to a safe
-            #                       version of `yaml-rust`, which will be released in `v3` and additionally, 
-            #                       reading https://github.com/rustsec/advisory-db/issues/288, this is a false
-            #                       positive for clap and based on our dependency tree, we only use `yaml-rust` in `clap`.
-            cargo audit --ignore RUSTSEC-2021-0019 --ignore RUSTSEC-2020-0159 --ignore RUSTSEC-2020-0071 --ignore RUSTSEC-2018-0006
-      - run:
-          name: Check for any unrecorded changes in our dependency trees
-          command: |
-            pip3 install --require-hashes -r ./tools/requirements.txt
-            cargo metadata --locked > /dev/null
-            python3 ./tools/dependency_summary.py --check ./DEPENDENCIES.md
-            python3 ./tools/dependency_summary.py --all-ios-targets --package megazord_ios --check megazords/ios/DEPENDENCIES.md
-            python3 ./tools/dependency_summary.py --all-ios-targets --package ios_rust --check megazords/ios-rust/DEPENDENCIES.md
-            python3 ./tools/dependency_summary.py --all-android-targets --package megazord --check megazords/full/DEPENDENCIES.md
-            python3 ./tools/dependency_summary.py --all-android-targets --package megazord --format pom --check megazords/full/android/dependency-licenses.xml
-  bench-all:
-    steps:
-      - test-setup
-      - run:
-          name: Build and Run Benchmarks
-          command: cargo bench --all
   restore-sccache-cache:
     steps:
       - restore_cache:
           name: Restore sccache cache
-          key: sccache-cache-stable-{{ arch }}-{{ .Environment.CIRCLE_JOB }}
+          keys: 
+          # We have multiple keys to increase the chance of a cache hit
+          # in case the Cargo.lock is updated, we still want to retrieve
+          # some cache
+            - sccache-cache-stable-{{ arch }}-{{ .Environment.CIRCLE_JOB }}-{{ checksum "Cargo.lock" }}
+            - sccache-cache-stable-{{ arch }}-{{ .Environment.CIRCLE_JOB }}
+            - sccache-cache-stable-{{ arch }}
+
   save-sccache-cache:
+    parameters:
+      path:
+        type: string
+        default: "~/.cache/sccache"
     steps:
       - save_cache:
           name: Save sccache cache
-          # We use {{ epoch }} to always upload a fresh cache:
-          # Of course, restore_cache will not find this exact key,
-          # but it will fall back to the closest key (aka the most recent).
-          # See https://discuss.circleci.com/t/add-mechanism-to-update-existing-cache-key/9014/13
-          key: sccache-cache-stable-{{ arch }}-{{ .Environment.CIRCLE_JOB }}-{{ epoch }}
+          # We only upload a new cache if our Cargo.lock changed
+          # otherwise, we update the exact same key
+          key: sccache-cache-stable-{{ arch }}-{{ .Environment.CIRCLE_JOB }}-{{ checksum "Cargo.lock" }}
           paths:
-            - "~/.cache/sccache"
+            - <<parameters.path>>
       - sccache-stats-and-logs
   sccache-stats-and-logs:
     steps:
@@ -230,7 +215,7 @@ executors:
       - image: cimg/rust:1.53.0
   macos:
     macos:
-      xcode: 13.0.0
+      xcode: 13.1.0
     resource_class: m2.medium
 
 jobs:
@@ -253,6 +238,7 @@ jobs:
   Lint Rust with clippy:
     executor: docker
     steps:
+      - full-checkout
       - restore-sccache-cache
       - test-setup
       - run: ./automation/tests.py rust-clippy
@@ -261,6 +247,7 @@ jobs:
     executor: docker
     resource_class: large
     steps:
+      - full-checkout
       - test-setup
       - install-grcov
       # Test coverage support in Rust has been evolving rapidly, use nightly
@@ -287,19 +274,12 @@ jobs:
       - run:
           name: Lint Bash scripts with shellcheck
           command: sh automation/lint_bash_scripts.sh
-  Check Rust dependencies:
-    # This check has to be done on a mac, to be able to detect iOS-specific dependencies.
-    executor: macos
-    steps:
-      - install-rust
-      - full-checkout
-      - setup-rust-target-version
-      - dependency-checks
   Rust tests:
     executor: docker
     # We have to use a machine with more RAM for tests so we don't run out of memory.
     resource_class: large
     steps:
+      - full-checkout
       - restore-sccache-cache
       - test-setup
       - run-tests
@@ -309,6 +289,7 @@ jobs:
     # We have to use a machine with more RAM for tests so we don't run out of memory.
     resource_class: large
     steps:
+      - full-checkout
       - restore-sccache-cache
       - test-setup
       - setup-rust-min-version
@@ -321,27 +302,17 @@ jobs:
     executor: docker
     resource_class: large
     steps:
+      - full-checkout
       - restore-sccache-cache
       - test-setup
       - run: rustup override set beta
       - run-tests
       - save-sccache-cache
-  Rust benchmarks:
-    executor: docker
-    resource_class: large
-    steps:
-      - restore-sccache-cache
-      - bench-all
-      - save-sccache-cache
   iOS build and test:
     executor: macos
     steps:
-      # We do not use the ssccache cache helper commands as
-      # the macOS cache is in a different folder.
-      - restore_cache:
-          name: Restore sccache cache
-          key: sccache-cache-macos-{{ arch }}
       - full-checkout
+      - restore-sccache-cache
       - install-rust
       - setup-rust-target-version
       - run:
@@ -406,12 +377,8 @@ jobs:
           name: Build XCFramework archive
           command: |
             bash megazords/ios-rust/build-xcframework.sh --build-profile release
-      - save_cache:
-          name: Save sccache cache
-          key: sccache-cache-macos-{{ arch }}-{{ epoch }}
-          paths:
-            - "~/Library/Caches/Mozilla.sccache"
-      - sccache-stats-and-logs
+      - save-sccache-cache:
+          path: "~/Library/Caches/Mozilla.sccache"
       - run:
           name: "Create Carthage bin-only project specification"
           command: |
@@ -451,30 +418,57 @@ jobs:
       - full-checkout
       - attach_workspace:
           at: .
+      - install-ghr
       - run:
           name: Release Carthage archive on GitHub
           command: |
-            GHR=ghr_v0.12.0_darwin_amd64
-            GHR_SHA256=c868ef9fc5dd8c8a397b74d84051d83693c42dd59041cb17b66f90f563477249
-            curl -sfSL --retry 5 --retry-delay 10 -O "https://github.com/tcnksm/ghr/releases/download/v0.12.0/${GHR}.zip"
-            echo "${GHR_SHA256} *${GHR}.zip" | shasum -a 256 -c -
-            unzip "${GHR}.zip"
-            ./${GHR}/ghr -replace "${CIRCLE_TAG}" MozillaAppServices.framework.zip
+            ghr -replace "${CIRCLE_TAG}" MozillaAppServices.framework.zip
   XCFramework release:
     executor: macos
     steps:
       - full-checkout
       - attach_workspace:
           at: .
+      - install-ghr
       - run:
           name: Release XCFramework archive on GitHub
           command: |
-            GHR=ghr_v0.12.0_darwin_amd64
-            GHR_SHA256=c868ef9fc5dd8c8a397b74d84051d83693c42dd59041cb17b66f90f563477249
-            curl -sfSL --retry 5 --retry-delay 10 -O "https://github.com/tcnksm/ghr/releases/download/v0.12.0/${GHR}.zip"
-            echo "${GHR_SHA256} *${GHR}.zip" | shasum -a 256 -c -
-            unzip "${GHR}.zip"
-            ./${GHR}/ghr -replace "${CIRCLE_TAG}" megazords/ios-rust/MozillaRustComponents.xcframework.zip
+            ghr -replace "${CIRCLE_TAG}" megazords/ios-rust/MozillaRustComponents.xcframework.zip
+  build-nimbus-fml:
+    executor: macos
+    steps:
+      - full-checkout
+      - install-rust
+      - setup-rust-target-version
+      - run:
+          name: Build nimbus-fml
+          command: |
+            if [ -z "${CIRCLE_TAG}" ]; then
+              # On non-release builds do not update brew (takes ages).
+              echo 'export HOMEBREW_NO_AUTO_UPDATE=1' >> $BASH_ENV
+            fi
+            # Produces nimbus-fml.zip archive and a checksum.
+            ./components/support/nimbus-fml/scripts/build-dist.sh
+      - store_artifacts:
+          name: Store nimbus-fml build archive in workspace
+          path: nimbus-fml.zip
+          destination: nimbus-fml.zip
+      - store_artifacts:
+          name: Store nimbus-fml checksum in workspace
+          path: nimbus-fml.sha256
+          destination: nimbus-fml.sha256
+  release-nimbus-fml:
+    executor: macos
+    steps:
+      - full-checkout
+      - attach_workspace:
+          at: .
+      - install-ghr
+      - run:
+          name: Release nimbus-fml archive and checksum on Github
+          command: |
+            ghr -replace "${CIRCLE_TAG}" nimbus-fml.zip
+            ghr -replace "${CIRCLE_TAG}" nimbus-fml.sha256
 
 workflows:
   version: 2
@@ -490,22 +484,9 @@ workflows:
   check-protobuf-uptodate:
     jobs:
       - Check Protobuf files are up-to-date
-  check-dependencies:
-    jobs:
-      - Check Rust dependencies
   bash-lint:
     jobs:
       - Lint Bash scripts
-  check-dependencies-periodically:
-    jobs:
-      - Check Rust dependencies
-    triggers:
-      - schedule:
-          cron: "0 7 * * *"
-          filters:
-            branches:
-              only:
-                - main
   run-beta-tests-periodically:
     jobs:
       - Rust tests - beta
@@ -519,7 +500,6 @@ workflows:
   run-tests:
     jobs:
       - Rust tests
-      - Rust benchmarks
   run-tests-min-supported-version:
     jobs:
       - Rust tests - min supported rust version
@@ -543,6 +523,20 @@ workflows:
       - XCFramework release:
           requires:
             - iOS build and test
+          filters:
+            branches:
+              ignore: /.*/
+            tags:
+              only: /^v.*/
+  nimbus-artifacts:
+    jobs:
+      - build-nimbus-fml:
+          filters: # required since `Release` has tag filters AND requires `Build`
+            tags:
+              only: /.*/
+      - release-nimbus-fml:
+          requires:
+            - build-nimbus-fml
           filters:
             branches:
               ignore: /.*/
