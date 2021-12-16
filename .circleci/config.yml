@@ -156,7 +156,6 @@ commands:
             - Carthage
   test-setup:
     steps:
-      - full-checkout
       - build-desktop-libs
       - setup-rust-target-version
       - setup-sccache
@@ -175,28 +174,31 @@ commands:
     steps:
       - run: automation/tests.py rust-tests
       - run: automation/tests.py nss-bindings
-  bench-all:
-    steps:
-      - test-setup
-      - run:
-          name: Build and Run Benchmarks
-          command: cargo bench --all
   restore-sccache-cache:
     steps:
       - restore_cache:
           name: Restore sccache cache
-          key: sccache-cache-stable-{{ arch }}-{{ .Environment.CIRCLE_JOB }}
+          keys: 
+          # We have multiple keys to increase the chance of a cache hit
+          # in case the Cargo.lock is updated, we still want to retrieve
+          # some cache
+            - sccache-cache-stable-{{ arch }}-{{ .Environment.CIRCLE_JOB }}-{{ checksum "Cargo.lock" }}
+            - sccache-cache-stable-{{ arch }}-{{ .Environment.CIRCLE_JOB }}
+            - sccache-cache-stable-{{ arch }}
+
   save-sccache-cache:
+    parameters:
+      path:
+        type: string
+        default: "~/.cache/sccache"
     steps:
       - save_cache:
           name: Save sccache cache
-          # We use {{ epoch }} to always upload a fresh cache:
-          # Of course, restore_cache will not find this exact key,
-          # but it will fall back to the closest key (aka the most recent).
-          # See https://discuss.circleci.com/t/add-mechanism-to-update-existing-cache-key/9014/13
-          key: sccache-cache-stable-{{ arch }}-{{ .Environment.CIRCLE_JOB }}-{{ epoch }}
+          # We only upload a new cache if our Cargo.lock changed
+          # otherwise, we update the exact same key
+          key: sccache-cache-stable-{{ arch }}-{{ .Environment.CIRCLE_JOB }}-{{ checksum "Cargo.lock" }}
           paths:
-            - "~/.cache/sccache"
+            - <<parameters.path>>
       - sccache-stats-and-logs
   sccache-stats-and-logs:
     steps:
@@ -236,6 +238,7 @@ jobs:
   Lint Rust with clippy:
     executor: docker
     steps:
+      - full-checkout
       - restore-sccache-cache
       - test-setup
       - run: ./automation/tests.py rust-clippy
@@ -244,6 +247,7 @@ jobs:
     executor: docker
     resource_class: large
     steps:
+      - full-checkout
       - test-setup
       - install-grcov
       # Test coverage support in Rust has been evolving rapidly, use nightly
@@ -275,6 +279,7 @@ jobs:
     # We have to use a machine with more RAM for tests so we don't run out of memory.
     resource_class: large
     steps:
+      - full-checkout
       - restore-sccache-cache
       - test-setup
       - run-tests
@@ -284,6 +289,7 @@ jobs:
     # We have to use a machine with more RAM for tests so we don't run out of memory.
     resource_class: large
     steps:
+      - full-checkout
       - restore-sccache-cache
       - test-setup
       - setup-rust-min-version
@@ -296,27 +302,17 @@ jobs:
     executor: docker
     resource_class: large
     steps:
+      - full-checkout
       - restore-sccache-cache
       - test-setup
       - run: rustup override set beta
       - run-tests
       - save-sccache-cache
-  Rust benchmarks:
-    executor: docker
-    resource_class: large
-    steps:
-      - restore-sccache-cache
-      - bench-all
-      - save-sccache-cache
   iOS build and test:
     executor: macos
     steps:
-      # We do not use the ssccache cache helper commands as
-      # the macOS cache is in a different folder.
-      - restore_cache:
-          name: Restore sccache cache
-          key: sccache-cache-macos-{{ arch }}
       - full-checkout
+      - restore-sccache-cache
       - install-rust
       - setup-rust-target-version
       - run:
@@ -381,12 +377,8 @@ jobs:
           name: Build XCFramework archive
           command: |
             bash megazords/ios-rust/build-xcframework.sh --build-profile release
-      - save_cache:
-          name: Save sccache cache
-          key: sccache-cache-macos-{{ arch }}-{{ epoch }}
-          paths:
-            - "~/Library/Caches/Mozilla.sccache"
-      - sccache-stats-and-logs
+      - save-sccache-cache:
+          path: "~/Library/Caches/Mozilla.sccache"
       - run:
           name: "Create Carthage bin-only project specification"
           command: |
@@ -508,7 +500,6 @@ workflows:
   run-tests:
     jobs:
       - Rust tests
-      - Rust benchmarks
   run-tests-min-supported-version:
     jobs:
       - Rust tests - min supported rust version
