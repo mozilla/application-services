@@ -64,7 +64,7 @@ done
 # Finish up by executing the zip command.
 echo
 echo "## Preparing dist archive"
-checksum="shasum -a 256 $zipfile"
+checksum="shasum -a 256 $dist_file"
 if [[ $dry_run != "true" ]] ; then
     (cd "$target_dir" && $zip_cmd )
     $checksum > "$filename.sha256"
