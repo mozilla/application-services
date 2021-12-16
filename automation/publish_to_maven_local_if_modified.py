@@ -11,10 +11,15 @@ import hashlib
 import argparse
 from shared import run_cmd_checked, find_app_services_root, fatal_err
 import re
+import shutil
 
 LAST_CONTENTS_HASH_FILE = ".lastAutoPublishContentsHash"
 
 GITIGNORED_FILES_THAT_AFFECT_THE_BUILD = ["local.properties"]
+
+# XXX - this should look for an optional `settings.xml` - people using WSL might use that to
+# share the repo with "native" Windows and Android Studio.
+MAVEN_LOCAL_REPO = os.path.expanduser("~/.m2/repository/org/mozilla/appservices")
 
 parser = argparse.ArgumentParser(description="Publish android packages to local maven repo, but only if changed since last publish")
 parser.parse_args()
@@ -98,10 +103,11 @@ try:
 except FileNotFoundError:
     pass
 
-if contents_hash == last_contents_hash:
+if contents_hash == last_contents_hash and os.path.exists(MAVEN_LOCAL_REPO):
     print("Contents have not changed, no need to publish")
 else:
     print("Contents have changed, publishing")
+    shutil.rmtree(MAVEN_LOCAL_REPO, ignore_errors=True)
     run_cmd_checked(["./gradlew", "publishToMavenLocal", f"-Plocal={time.time_ns()}"])
     with open(LAST_CONTENTS_HASH_FILE, "w") as f:
         f.write(contents_hash)
