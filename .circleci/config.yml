@@ -389,16 +389,6 @@ jobs:
       - setup-rust-target-version
       - setup-sccache
       - setup-ios-environment
-      # XX: this will be removed when upgrading to rust 1.56+
-      - run:
-          name: Install Rust Nightly
-          command: |
-            # For now we need the nightly toolchain to build for the M1 simulator.
-            rustup install nightly
-            # For now we need to build the Rust stdlib from source for the M1 simulator.
-            rustup component add rust-src --toolchain nightly-x86_64-apple-darwin
-            rustup toolchain add nightly --profile minimal
-            rustup target add aarch64-apple-ios-sim --toolchain nightly
       - run:
           name: Build XCFramework archive
           command: |
@@ -441,6 +431,8 @@ jobs:
             if [ -n "${CIRCLE_PULL_REQUEST}" ]; then
               ./automation/maybe_run_fxios_tests.py << pipeline.git.base_revision >>
             fi
+      - save-sccache-cache:
+          path: "~/Library/Caches/Mozilla.sccache"
   Carthage release:
     executor: macos
     steps:
@@ -539,17 +531,13 @@ workflows:
     jobs:
       - iOS test
       - iOS build carthage:
-          filters: # required since `Carthage release` has tag filters AND requires this job
-            branches:
-              ignore: /.*/
+          filters: # required since `Carthage Release` has tag filters AND requires this job
             tags:
-              only: /^v.*/
+              only: /.*/
       - iOS build xcframework:
           filters: # required since `XCFramework release` has tag filters AND requires this job
-            branches:
-              ignore: /.*/
             tags:
-              only: /^v.*/
+              only: /.*/
       - Carthage release:
           requires:
             - iOS build carthage
@@ -569,7 +557,7 @@ workflows:
   nimbus-artifacts:
     jobs:
       - build-nimbus-fml:
-          filters: # required since `Release` has tag filters AND requires `Build`
+          filters: # required since `release-nimbus-fml` has tag filters AND requires this job
             tags:
               only: /.*/
       - release-nimbus-fml:
