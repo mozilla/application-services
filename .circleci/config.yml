@@ -535,17 +535,21 @@ workflows:
   coverage:
     jobs:
       - Generate code coverage
-  ios-artifacts:
+  ios-test-and-artifacts:
     jobs:
       - iOS test
       - iOS build carthage:
-        filters: # required since `Release` has tag filters AND requires `Build`
-          tags:
-            only: /.*/
+          filters: # required since `Carthage release` has tag filters AND requires this job
+            branches:
+              ignore: /.*/
+            tags:
+              only: /^v.*/
       - iOS build xcframework:
-        filters: # required since `Release` has tag filters AND requires `Build`
-          tags:
-            only: /.*/
+          filters: # required since `XCFramework release` has tag filters AND requires this job
+            branches:
+              ignore: /.*/
+            tags:
+              only: /^v.*/
       - Carthage release:
           requires:
             - iOS build carthage
