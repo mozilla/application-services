@@ -2909,11 +2909,11 @@ mod tests {
         let info_for_a = get_raw_bookmark(&writer, &guid_for_a)
             .expect("Should fetch info for A")
             .unwrap();
-        assert_eq!(info_for_a.sync_change_counter, 2);
+        assert_eq!(info_for_a._sync_change_counter, 2);
         let info_for_unfiled = get_raw_bookmark(&writer, &BookmarkRootGuid::Unfiled.as_guid())
             .expect("Should fetch info for unfiled")
             .unwrap();
-        assert_eq!(info_for_unfiled.sync_change_counter, 2);
+        assert_eq!(info_for_unfiled._sync_change_counter, 2);
 
         engine
             .sync_finished(
@@ -2929,11 +2929,11 @@ mod tests {
         let info_for_a = get_raw_bookmark(&writer, &guid_for_a)
             .expect("Should fetch info for A")
             .unwrap();
-        assert_eq!(info_for_a.sync_change_counter, 0);
+        assert_eq!(info_for_a._sync_change_counter, 0);
         let info_for_unfiled = get_raw_bookmark(&writer, &BookmarkRootGuid::Unfiled.as_guid())
             .expect("Should fetch info for unfiled")
             .unwrap();
-        assert_eq!(info_for_unfiled.sync_change_counter, 0);
+        assert_eq!(info_for_unfiled._sync_change_counter, 0);
 
         let mut tags_for_c = tags::get_tags_for_url(
             &writer,
@@ -4322,8 +4322,8 @@ mod tests {
             let bm = get_raw_bookmark(&writer, &guid.into())
                 .expect("must work")
                 .expect("must exist");
-            assert_eq!(bm.sync_status, SyncStatus::Normal, "{}", guid);
-            assert_eq!(bm.sync_change_counter, 0, "{}", guid);
+            assert_eq!(bm._sync_status, SyncStatus::Normal, "{}", guid);
+            assert_eq!(bm._sync_change_counter, 0, "{}", guid);
         }
         // And bookmarkEEEE wasn't on the server, so should be outgoing, and
         // it's parent too.

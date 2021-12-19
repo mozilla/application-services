@@ -24,15 +24,24 @@ struct ImportPlacesOptions {
 
 #[derive(Default, Debug, Clone)]
 struct LegacyPlaceVisit {
+    _id: i64,
     date: i64,
     visit_type: u8,
+    _from_visit: i64,
 }
 
 #[derive(Default, Debug, Clone)]
 struct LegacyPlace {
     id: i64,
+    _guid: String,
     url: String,
-    title: Option<String>,
+    _title: Option<String>,
+    _hidden: i64,
+    _typed: i64,
+    _last_visit_date: i64,
+    _visit_count: i64,
+    _description: Option<String>,
+    _preview_image_url: Option<String>,
     visits: Vec<LegacyPlaceVisit>,
 }
 
@@ -40,11 +49,20 @@ impl LegacyPlace {
     pub fn from_row(row: &rusqlite::Row<'_>) -> Self {
         Self {
             id: row.get_unwrap("place_id"),
-            title: row.get_unwrap("place_title"),
+            _guid: row.get_unwrap("place_guid"),
+            _title: row.get_unwrap("place_title"),
             url: row.get_unwrap("place_url"),
+            _description: row.get_unwrap("place_description"),
+            _preview_image_url: row.get_unwrap("place_preview_image_url"),
+            _typed: row.get_unwrap("place_typed"),
+            _hidden: row.get_unwrap("place_hidden"),
+            _visit_count: row.get_unwrap("place_visit_count"),
+            _last_visit_date: row.get_unwrap("place_last_visit_date"),
             visits: vec![LegacyPlaceVisit {
+                _id: row.get_unwrap("visit_id"),
                 date: row.get_unwrap("visit_date"),
                 visit_type: row.get_unwrap("visit_type"),
+                _from_visit: row.get_unwrap("visit_from_visit"),
             }],
         }
     }
@@ -56,7 +74,7 @@ impl LegacyPlace {
                     VisitTransition::from_primitive(v.visit_type).unwrap_or(VisitTransition::Link),
                 )
                 .with_at(types::Timestamp((v.date / 1000) as u64))
-                .with_title(self.title.clone())
+                .with_title(self._title.clone())
                 .with_is_remote(rand::random::<f64>() < options.remote_probability);
             places::storage::history::apply_observation_direct(db, obs)?;
         }
@@ -140,8 +158,10 @@ fn import_places(
         let id: i64 = row.get("place_id")?;
         if current_place.id == id {
             current_place.visits.push(LegacyPlaceVisit {
+                _id: row.get("visit_id")?,
                 date: row.get("visit_date")?,
                 visit_type: row.get("visit_type")?,
+                _from_visit: row.get("visit_from_visit")?,
             });
             continue;
         }

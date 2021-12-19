@@ -548,8 +548,7 @@ mod test {
     #[derive(Debug, Clone)]
     struct PostedData {
         body: String,
-        #[allow(dead_code)]
-        xius: ServerTimestamp,
+        _xius: ServerTimestamp,
         batch: Option<String>,
         commit: bool,
         payload_bytes: usize,
@@ -610,7 +609,7 @@ mod test {
             let mut post = PostedData {
                 body: String::from_utf8(body.into()).expect("Posted invalid utf8..."),
                 batch: batch.clone(),
-                xius,
+                _xius: xius,
                 commit,
                 payload_bytes: 0,
                 records: 0,

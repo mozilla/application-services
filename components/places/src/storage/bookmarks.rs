@@ -1119,13 +1119,11 @@ pub fn insert_tree(db: &PlacesDb, tree: &FolderNode) -> Result<()> {
 #[derive(Debug)]
 struct FetchedTreeRow {
     level: u32,
-    #[allow(dead_code)]
-    id: RowId,
+    _id: RowId,
     guid: SyncGuid,
     // parent and parent_guid are Option<> only to handle the root - we would
     // assert but they aren't currently used.
-    #[allow(dead_code)]
-    parent: Option<RowId>,
+    _parent: Option<RowId>,
     parent_guid: Option<SyncGuid>,
     node_type: BookmarkType,
     position: u32,
@@ -1140,9 +1138,9 @@ impl FetchedTreeRow {
         let url = row.get::<_, Option<String>>("url")?;
         Ok(Self {
             level: row.get("level")?,
-            id: row.get::<_, RowId>("id")?,
+            _id: row.get::<_, RowId>("id")?,
             guid: row.get::<_, String>("guid")?.into(),
-            parent: row.get::<_, Option<RowId>>("parent")?,
+            _parent: row.get::<_, Option<RowId>>("parent")?,
             parent_guid: row
                 .get::<_, Option<String>>("parentGuid")?
                 .map(SyncGuid::from),
@@ -1372,13 +1370,10 @@ pub(crate) struct RawBookmark {
     pub date_added: Timestamp,
     pub date_modified: Timestamp,
     pub guid: SyncGuid,
-    #[allow(dead_code)]
-    pub sync_status: SyncStatus,
-    #[allow(dead_code)]
-    pub sync_change_counter: u32,
+    pub _sync_status: SyncStatus,
+    pub _sync_change_counter: u32,
     pub child_count: u32,
-    #[allow(dead_code)]
-    pub grandparent_id: Option<RowId>,
+    pub _grandparent_id: Option<RowId>,
 }
 
 impl RawBookmark {
@@ -1401,12 +1396,12 @@ impl RawBookmark {
             date_added: row.get("dateAdded")?,
             date_modified: row.get("lastModified")?,
             guid: row.get::<_, String>("guid")?.into(),
-            sync_status: SyncStatus::from_u8(row.get::<_, u8>("_syncStatus")?),
-            sync_change_counter: row
+            _sync_status: SyncStatus::from_u8(row.get::<_, u8>("_syncStatus")?),
+            _sync_change_counter: row
                 .get::<_, Option<u32>>("syncChangeCounter")?
                 .unwrap_or_default(),
             child_count: row.get("_childCount")?,
-            grandparent_id: row.get("_grandparentId")?,
+            _grandparent_id: row.get("_grandparentId")?,
         })
     }
 }
@@ -1679,14 +1674,14 @@ mod tests {
         assert_eq!(rb.position, 0);
         assert_eq!(rb.title, Some("the title".into()));
         assert_eq!(rb.url, Some(url));
-        assert_eq!(rb.sync_status, SyncStatus::New);
-        assert_eq!(rb.sync_change_counter, 1);
+        assert_eq!(rb._sync_status, SyncStatus::New);
+        assert_eq!(rb._sync_change_counter, 1);
         assert!(global_change_tracker.changed());
         assert_eq!(rb.child_count, 0);
 
         let unfiled = get_raw_bookmark(&conn, &BookmarkRootGuid::Unfiled.as_guid())?
             .expect("should get unfiled");
-        assert_eq!(unfiled.sync_change_counter, 1);
+        assert_eq!(unfiled._sync_change_counter, 1);
 
         Ok(())
     }
@@ -2101,7 +2096,7 @@ mod tests {
         )?;
         let bm = get_raw_bookmark(&conn, &guid)?.expect("should exist");
         assert_eq!(bm.title, Some("the bookmark".to_string()));
-        assert_eq!(bm.sync_change_counter, 0);
+        assert_eq!(bm._sync_change_counter, 0);
 
         // Update to the same value is still not a change.
         update_bookmark(
@@ -2115,7 +2110,7 @@ mod tests {
         )?;
         let bm = get_raw_bookmark(&conn, &guid)?.expect("should exist");
         assert_eq!(bm.title, Some("the bookmark".to_string()));
-        assert_eq!(bm.sync_change_counter, 0);
+        assert_eq!(bm._sync_change_counter, 0);
 
         // Update to an empty string sets it to null
         update_bookmark(
@@ -2129,7 +2124,7 @@ mod tests {
         )?;
         let bm = get_raw_bookmark(&conn, &guid)?.expect("should exist");
         assert_eq!(bm.title, None);
-        assert_eq!(bm.sync_change_counter, 1);
+        assert_eq!(bm._sync_change_counter, 1);
 
         Ok(())
     }
@@ -2574,15 +2569,15 @@ mod tests {
 
         let bmk = get_raw_bookmark(&conn, &"bookmarkAAAA".into())?
             .expect("Should fetch A before resetting");
-        assert_eq!(bmk.sync_change_counter, 0);
-        assert_eq!(bmk.sync_status, SyncStatus::Normal);
+        assert_eq!(bmk._sync_change_counter, 0);
+        assert_eq!(bmk._sync_status, SyncStatus::Normal);
 
         bookmark_sync::reset(&conn, &EngineSyncAssociation::Disconnected)?;
 
         let bmk = get_raw_bookmark(&conn, &"bookmarkAAAA".into())?
             .expect("Should fetch A after resetting");
-        assert_eq!(bmk.sync_change_counter, 1);
-        assert_eq!(bmk.sync_status, SyncStatus::New);
+        assert_eq!(bmk._sync_change_counter, 1);
+        assert_eq!(bmk._sync_status, SyncStatus::New);
 
         // Ensure we reset Sync metadata, too.
         let global = get_meta::<SyncGuid>(&conn, GLOBAL_SYNCID_META_KEY)?;
