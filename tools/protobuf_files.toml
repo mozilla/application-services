@@ -4,6 +4,3 @@
 
 ["places_msg_types.proto"]
 dir = "../components/places/src/"
-
-["fetch_msg_types.proto"]
-dir = "../components/viaduct/src/"

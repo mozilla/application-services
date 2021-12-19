@@ -1,10 +1,10 @@
 /* This Source Code Form is subject to the terms of the Mozilla Public
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
-
-use ffi::FfiBackend;
+pub use ffi::FfiBackend;
+pub use ffi::FfiRequest;
+pub use ffi::FfiResponse;
 use once_cell::sync::OnceCell;
-
 mod ffi;
 
 pub fn note_backend(which: &str) {
@@ -35,7 +35,7 @@ pub fn set_backend(b: &'static dyn Backend) -> Result<(), crate::Error> {
 }
 
 pub(crate) fn get_backend() -> &'static dyn Backend {
-    *BACKEND.get_or_init(|| Box::leak(Box::new(FfiBackend)))
+    *BACKEND.get_or_init(|| Box::leak(Box::new(FfiBackend::new())))
 }
 
 pub fn send(request: crate::Request) -> Result<crate::Response, crate::Error> {

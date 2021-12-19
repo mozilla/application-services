@@ -1,0 +1,8 @@
+[bindings.kotlin]
+package_name = "mozilla.appservices.httpconfig.uniffi"
+cdylib_name = "megazord"
+
+[bindings.swift]
+ffi_module_name = "MozillaRustComponents"
+ffi_module_filename = "viaductFFI"
+generate_module_map = false

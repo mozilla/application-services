@@ -4,140 +4,108 @@
 
 package mozilla.appservices.httpconfig
 
-import com.google.protobuf.ByteString
-import mozilla.appservices.support.native.RustBuffer
+import mozilla.appservices.httpconfig.uniffi.FfiBackend
+import mozilla.appservices.httpconfig.uniffi.FfiRequest
+import mozilla.appservices.httpconfig.uniffi.FfiResponse
+import mozilla.appservices.httpconfig.uniffi.Fetcher
+import mozilla.appservices.httpconfig.uniffi.Method
 import mozilla.components.concept.fetch.Client
 import mozilla.components.concept.fetch.MutableHeaders
 import mozilla.components.concept.fetch.Request
+import mozilla.components.concept.fetch.Response
 import java.util.concurrent.TimeUnit
-import java.util.concurrent.locks.ReentrantReadWriteLock
-import kotlin.concurrent.read
-import kotlin.concurrent.write
+
+internal fun Method.into(): Request.Method {
+    return when (this) {
+        Method.GET -> Request.Method.GET
+        Method.POST -> Request.Method.POST
+        Method.HEAD -> Request.Method.HEAD
+        Method.OPTIONS -> Request.Method.OPTIONS
+        Method.DELETE -> Request.Method.DELETE
+        Method.PUT -> Request.Method.PUT
+        Method.TRACE -> Request.Method.TRACE
+        Method.CONNECT -> Request.Method.CONNECT
+    }
+}
+
+internal fun FfiRequest.into(): Request {
+    val headers = MutableHeaders()
+    for (h in this.headers) {
+        headers.append(h.key, h.value)
+    }
+    return Request(
+        url = this.url,
+        method = this.method.into(),
+        headers = headers,
+        connectTimeout = Pair(this.connectTimeoutSecs.toLong(), TimeUnit.SECONDS),
+        readTimeout = Pair(this.readTimeoutSecs.toLong(), TimeUnit.SECONDS),
+        body = if (this.body != null) {
+            Request.Body(this.body!!.toByteArray().inputStream())
+        } else {
+            null
+        },
+        redirect = if (this.followRedirects) {
+            Request.Redirect.FOLLOW
+        } else {
+            Request.Redirect.MANUAL
+        },
+        cookiePolicy = Request.CookiePolicy.OMIT,
+        useCaches = this.useCaches
+    )
+}
+
+internal fun Response.into(requestMethod: Method): FfiResponse {
+    val body = this.body.string().toByteArray().asList()
+    val headers = mutableMapOf<String, String>()
+    for (h in this.headers) {
+        headers[h.name] = h.value
+    }
+    return FfiResponse.Ok(requestMethod, this.url, this.status, body, headers)
+}
 
 /**
  * Singleton allowing management of the HTTP backend
  * used by Rust components.
  */
-object RustHttpConfig {
-    // Protects imp/client
-    private var lock = ReentrantReadWriteLock()
+object RustHttpConfig : Fetcher {
     @Volatile
     private var client: Lazy<Client>? = null
-    // Important note to future maintainers: if you mess around with
-    // this code, you have to make sure `imp` can't get GCed. Extremely
-    // bad things will happen if it does!
-    @Volatile
-    private var imp: CallbackImpl? = null
 
     /**
      * Set the HTTP client to be used by all Rust code.
      * the `Lazy`'s value is not read until the first request is made.
+     * NOTE: This should only be set once per application lifetime
+     *  otherwise it is a no-op
      */
     @Synchronized
     fun setClient(c: Lazy<Client>) {
-        lock.write {
+        if (client == null) {
             client = c
-            if (imp == null) {
-                imp = CallbackImpl()
-                LibViaduct.INSTANCE.viaduct_initialize(imp!!)
-            }
+            val ffiBackend = FfiBackend()
+            ffiBackend.setBackend(this)
         }
     }
 
-    internal fun convertRequest(request: MsgTypes.Request): Request {
-        val headers = MutableHeaders()
-        for (h in request.headersMap) {
-            headers.append(h.key, h.value)
-        }
-        return Request(
-                url = request.url,
-                method = convertMethod(request.method),
-                headers = headers,
-                connectTimeout = Pair(request.connectTimeoutSecs.toLong(), TimeUnit.SECONDS),
-                readTimeout = Pair(request.readTimeoutSecs.toLong(), TimeUnit.SECONDS),
-                body = if (request.hasBody()) {
-                    Request.Body(request.body.newInput())
-                } else {
-                    null
-                },
-                redirect = if (request.followRedirects) {
-                    Request.Redirect.FOLLOW
-                } else {
-                    Request.Redirect.MANUAL
-                },
-                cookiePolicy = Request.CookiePolicy.OMIT,
-                useCaches = request.useCaches
-        )
-    }
-
-    @Suppress("TooGenericExceptionCaught", "ReturnCount")
-    internal fun doFetch(b: RustBuffer.ByValue): RustBuffer.ByValue {
-        lock.read {
-            try {
-                val request = MsgTypes.Request.parseFrom(b.asCodedInputStream())
-                val rb = try {
-                    // Note: `client!!` is fine here, since if client is null,
-                    // we wouldn't have yet initialized
-                    val resp = client!!.value.fetch(convertRequest(request))
-                    val rb = MsgTypes.Response.newBuilder()
-                            .setUrl(resp.url)
-                            .setStatus(resp.status)
-                            .setBody(resp.body.useStream {
-                                ByteString.readFrom(it)
-                            })
-
-                    for (h in resp.headers) {
-                        rb.putHeaders(h.name, h.value)
-                    }
-                    rb
-                } catch (e: Throwable) {
-                    MsgTypes.Response.newBuilder().setExceptionMessage("fetch error: ${e.message ?: e.javaClass.canonicalName}")
-                }
-                val built = rb.build()
-                val needed = built.serializedSize
-                val outputBuf = LibViaduct.INSTANCE.viaduct_alloc_bytebuffer(needed)
-                try {
-                    // This is only null if we passed a negative number or something to
-                    // viaduct_alloc_bytebuffer.
-                    val stream = outputBuf.asCodedOutputStream()!!
-                    built.writeTo(stream)
-                    return outputBuf
-                } catch (e: Throwable) {
-                    // Note: we want to clean this up only if we are not returning it to rust.
-                    LibViaduct.INSTANCE.viaduct_destroy_bytebuffer(outputBuf)
-                    LibViaduct.INSTANCE.viaduct_log_error("Failed to write buffer: ${e.message}")
-                    throw e
-                }
-            } finally {
-                LibViaduct.INSTANCE.viaduct_destroy_bytebuffer(b)
-            }
-        }
-    }
-}
-
-internal fun convertMethod(m: MsgTypes.Request.Method): Request.Method {
-    return when (m) {
-        MsgTypes.Request.Method.GET -> Request.Method.GET
-        MsgTypes.Request.Method.POST -> Request.Method.POST
-        MsgTypes.Request.Method.HEAD -> Request.Method.HEAD
-        MsgTypes.Request.Method.OPTIONS -> Request.Method.OPTIONS
-        MsgTypes.Request.Method.DELETE -> Request.Method.DELETE
-        MsgTypes.Request.Method.PUT -> Request.Method.PUT
-        MsgTypes.Request.Method.TRACE -> Request.Method.TRACE
-        MsgTypes.Request.Method.CONNECT -> Request.Method.CONNECT
-    }
-}
-
-internal class CallbackImpl : RawFetchCallback {
+    /**
+     * Important: This can run concurrently on multiple threads
+     *  possibly at the same time. Do not introduce shared memory
+     */
     @Suppress("TooGenericExceptionCaught")
-    override fun invoke(b: RustBuffer.ByValue): RustBuffer.ByValue {
-        try {
-            return RustHttpConfig.doFetch(b)
+    override fun fetch(request: FfiRequest): FfiResponse {
+        // We don't need to lock here because if we end up here,
+        // it means that `setClient` was already called and it
+        // successfully registered this callback.
+        // `setClient` guarantees that the `client` can't change
+        // after it's set initially
+        return try {
+            // The `!!` is safe here because this callback can only be
+            // called after the client is set
+            client!!.value.fetch(request.into()).into(request.method)
         } catch (e: Throwable) {
-            LibViaduct.INSTANCE.viaduct_log_error("doFetch failed: ${e.message}")
-            // This is our last resort. It's bad news should we fail to
-            // return something from this function.
-            return RustBuffer.ByValue()
+            // Ideally, the catching of the error should happen in `uniffi`
+            // generated code and it should be converted to a proper Rust Error
+            // but until we add support for that, this should do
+            FfiResponse.Err(message = e.message.orEmpty())
         }
     }
 }

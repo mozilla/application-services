@@ -14,12 +14,30 @@ pub mod error;
 pub mod settings;
 pub use error::*;
 
-pub use backend::{note_backend, set_backend, Backend};
+pub use backend::FfiRequest;
+pub use backend::FfiResponse;
+pub use backend::{note_backend, set_backend, Backend, FfiBackend};
 pub use headers::{consts as header_names, Header, HeaderName, Headers, InvalidHeaderName};
 pub use settings::GLOBAL_SETTINGS;
 
-pub(crate) mod msg_types {
-    include!("mozilla.appservices.httpconfig.protobuf.rs");
+impl UniffiCustomTypeWrapper for Url {
+    type Wrapped = String;
+
+    fn wrap(val: Self::Wrapped) -> uniffi::Result<url::Url> {
+        match Url::parse(val.as_str()) {
+            Ok(url) => Ok(url),
+            Err(e) => Err(Error::UrlError(e)).map_err(Into::into),
+        }
+    }
+    fn unwrap(obj: Self) -> Self::Wrapped {
+        obj.into()
+    }
+}
+
+uniffi_macros::include_scaffolding!("viaduct");
+
+pub trait Fetcher: Send + Sync {
+    fn fetch(&self, req: FfiRequest) -> FfiResponse;
 }
 
 /// HTTP Methods.

@@ -3920,14 +3920,14 @@ checksum = "5fecdca9a5291cc2b8dcf7dc02453fee791a280f3743cb0905f8822ae463b3fe"
 name = "viaduct"
 version = "0.1.0"
 dependencies = [
- "ffi-support",
  "log",
  "once_cell",
- "prost",
- "prost-derive",
  "serde",
  "serde_json",
  "thiserror",
+ "uniffi",
+ "uniffi_build",
+ "uniffi_macros",
  "url",
 ]
 

@@ -1,11 +1,10 @@
-
 apply from: "$rootDir/build-scripts/component-common.gradle"
-apply from: "$rootDir/build-scripts/protobuf-common.gradle"
 apply from: "$rootDir/publish.gradle"
 
 dependencies {
     api "org.mozilla.components:concept-fetch:$android_components_version"
 }
 
+ext.configureUniFFIBindgen("../src/viaduct.udl")
 ext.dependsOnTheMegazord()
 ext.configurePublish()

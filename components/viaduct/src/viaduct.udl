@@ -1,0 +1,35 @@
+namespace viaduct {};
+
+[Wrapped]
+typedef string Url;
+
+callback interface Fetcher {
+    FfiResponse fetch(FfiRequest request);
+};
+
+dictionary FfiRequest {
+    Method method;
+    Url url;
+    sequence<i8>? body;
+    record<DOMString, string> headers;
+    boolean follow_redirects;
+    boolean use_caches;
+    i32 connect_timeout_secs;
+    i32 read_timeout_secs;
+};
+
+interface FfiBackend {
+    constructor();
+    void set_backend(Fetcher fetch);
+};
+
+[Enum]
+interface FfiResponse {
+    Err(string message);
+    Ok(Method req_method, Url url, i32 status, sequence<i8>? body, record<DOMString, string> headers);
+};
+
+enum Method {
+    "Get", "Head", "Post", "Put",
+    "Delete", "Connect", "Options", "Trace"
+};
