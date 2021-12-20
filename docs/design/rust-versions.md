@@ -20,6 +20,9 @@ but everything in the future is documented as "estimated".
 Ultimately though, that page defines 2 Rust versions - "Uses" and "Requires",
 and our policy revolves around these.
 
+There is a [Meta bug on Bugzilla](https://bugzilla.mozilla.org/show_bug.cgi?id=1504858) that keeps
+track of the latest versions mozilla-central uses as they are upgraded.
+
 # application-services Rust version policy
 
 Our official Rust version policy is:

@@ -873,7 +873,7 @@ mod tests {
         fn do_test(
             client: &dyn SetupStorageClient,
             root_key: &KeyBundle,
-            mut pgs: &mut PersistedGlobalState,
+            pgs: &mut PersistedGlobalState,
             engine_updates: Option<&HashMap<String, bool>>,
             old_state: GlobalState,
             expected_states: &[&str],
@@ -881,7 +881,7 @@ mod tests {
             let mut state_machine = SetupStateMachine::for_full_sync(
                 client,
                 root_key,
-                &mut pgs,
+                pgs,
                 engine_updates,
                 &NeverInterrupts,
             );

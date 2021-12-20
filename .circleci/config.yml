@@ -365,15 +365,6 @@ jobs:
           path: raw_xcodebuild.log
           destination: logs/raw_xcodebuild.log
       - run:
-          name: Install Rust Nightly
-          command: |
-            # For now we need the nightly toolchain to build for the M1 simulator.
-            rustup install nightly
-            # For now we need to build the Rust stdlib from source for the M1 simulator.
-            rustup component add rust-src --toolchain nightly-x86_64-apple-darwin
-            rustup toolchain add nightly --profile minimal
-            rustup target add aarch64-apple-ios-sim --toolchain nightly
-      - run:
           name: Build XCFramework archive
           command: |
             bash megazords/ios-rust/build-xcframework.sh --build-profile release

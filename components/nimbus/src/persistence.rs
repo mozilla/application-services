@@ -141,24 +141,24 @@ impl SingleStore {
 
     pub fn put<T: serde::Serialize + for<'de> serde::Deserialize<'de>>(
         &self,
-        mut writer: &mut Writer,
+        writer: &mut Writer,
         key: &str,
         persisted_data: &T,
     ) -> Result<()> {
         let persisted_json = serde_json::to_string(persisted_data)?;
         self.store
-            .put(&mut writer, key, &rkv::Value::Json(&persisted_json))?;
+            .put(writer, key, &rkv::Value::Json(&persisted_json))?;
         Ok(())
     }
 
     #[allow(dead_code)]
-    pub fn delete(&self, mut writer: &mut Writer, key: &str) -> Result<()> {
-        self.store.delete(&mut writer, key)?;
+    pub fn delete(&self, writer: &mut Writer, key: &str) -> Result<()> {
+        self.store.delete(writer, key)?;
         Ok(())
     }
 
-    pub fn clear(&self, mut writer: &mut Writer) -> Result<()> {
-        self.store.clear(&mut writer)?;
+    pub fn clear(&self, writer: &mut Writer) -> Result<()> {
+        self.store.clear(writer)?;
         Ok(())
     }
 
@@ -336,7 +336,7 @@ impl Database {
     /// to assume that this is unrecoverable and wipe the database, removing
     /// people from any existing enrollments and blowing away their experiment
     /// history, so that they don't get left in an inconsistent state.
-    fn migrate_v1_to_v2(&self, mut writer: &mut Writer) -> Result<()> {
+    fn migrate_v1_to_v2(&self, writer: &mut Writer) -> Result<()> {
         log::info!("Upgrading from version 1 to version 2");
 
         // use try_collect_all to read everything except records that serde
@@ -392,16 +392,16 @@ impl Database {
         log::debug!("updated enrollments = {:?}", updated_enrollments);
 
         // rewrite both stores
-        self.experiment_store.clear(&mut writer)?;
+        self.experiment_store.clear(writer)?;
         for experiment in updated_experiments {
             self.experiment_store
-                .put(&mut writer, &experiment.slug, &experiment)?;
+                .put(writer, &experiment.slug, &experiment)?;
         }
 
-        self.enrollment_store.clear(&mut writer)?;
+        self.enrollment_store.clear(writer)?;
         for enrollment in updated_enrollments {
             self.enrollment_store
-                .put(&mut writer, &enrollment.slug, &enrollment)?;
+                .put(writer, &enrollment.slug, &enrollment)?;
         }
         log::debug!("exiting migrate_v1_to_v2");
 

@@ -463,7 +463,7 @@ pub struct Parser {
     enums: Vec<EnumDef>,
     objects: Vec<ObjectDef>,
     features: Vec<FeatureDef>,
-    channels: Vec<String>,
+    _channels: Vec<String>,
 }
 
 impl Parser {
@@ -480,7 +480,7 @@ impl Parser {
             enums,
             objects,
             features,
-            channels: manifest.channels,
+            _channels: manifest.channels,
         })
     }
 
