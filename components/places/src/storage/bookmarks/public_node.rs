@@ -5,8 +5,8 @@
 use super::super::bookmarks::FetchDepth;
 use super::*;
 
-/// This type basically exists to become a msg_types::BookmarkNode, but is
-/// slightly less of a pain to deal with in rust.
+/// This type exists to help when we had protobufs, but now with uniffi it should
+/// be removed.
 #[derive(Debug, Clone)]
 pub struct PublicNode {
     pub node_type: BookmarkType,

@@ -10,6 +10,6 @@ pub use fxa_client;
 pub use glean_ffi;
 pub use logins;
 pub use nimbus;
-pub use places_ffi;
+pub use places;
 pub use rc_log_ffi;
 pub use viaduct_reqwest;

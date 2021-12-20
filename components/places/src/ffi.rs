@@ -6,7 +6,7 @@
 
 use crate::api::matcher::{self, search_frecent, SearchParams};
 use crate::api::places_api::places_api_new;
-use crate::error::{Error, ErrorKind, InvalidPlaceInfo, PlacesError};
+use crate::error::PlacesError;
 use crate::import::fennec::import_bookmarks;
 use crate::import::fennec::import_history;
 use crate::import::fennec::import_pinned_sites;
@@ -23,18 +23,12 @@ use crate::ConnectionType;
 use crate::VisitObservation;
 use crate::VisitTransition;
 use crate::{PlacesApi, PlacesDb};
-use ffi_support::{ConcurrentHandleMap, ErrorCode, ExternError};
 use parking_lot::Mutex;
 use sql_support::SqlInterruptHandle;
 use std::sync::Arc;
 use sync_guid::Guid;
 use types::Timestamp;
 use url::Url;
-
-lazy_static::lazy_static! {
-    pub static ref APIS: ConcurrentHandleMap<Arc<PlacesApi>> = ConcurrentHandleMap::new();
-    pub static ref CONNECTIONS: ConcurrentHandleMap<PlacesDb> = ConcurrentHandleMap::new();
-}
 
 // From https://searchfox.org/mozilla-central/rev/1674b86019a96f076e0f98f1d0f5f3ab9d4e9020/browser/components/newtab/lib/TopSitesFeed.jsm#87
 const SKIP_ONE_PAGE_FRECENCY_THRESHOLD: i64 = 101 + 1;
@@ -560,136 +554,6 @@ pub enum MatchReason {
     PreviousUse,
     Bookmark,
     Tags,
-}
-
-pub mod error_codes {
-    // Note: 0 (success) and -1 (panic) are reserved by ffi_support
-
-    /// An unexpected error occurred which likely cannot be meaningfully handled
-    /// by the application.
-    pub const UNEXPECTED: i32 = 1;
-
-    /// A URL was provided that we failed to parse
-    pub const URL_PARSE_ERROR: i32 = 2;
-
-    /// The requested operation failed because the database was busy
-    /// performing operations on a separate connection to the same DB.
-    pub const DATABASE_BUSY: i32 = 3;
-
-    /// The requested operation failed because it was interrupted
-    pub const DATABASE_INTERRUPTED: i32 = 4;
-
-    /// The requested operation failed because the store is corrupt
-    pub const DATABASE_CORRUPT: i32 = 5;
-
-    // Skip a bunch of spaces to make it clear these are part of a group,
-    // even as more and more errors get added. We're only exposing the
-    // InvalidPlaceInfo items that can actually be triggered, the others
-    // (if they happen accidentally) will come through as unexpected.
-
-    /// `InvalidParent`: Attempt to add a child to a non-folder.
-    pub const INVALID_PLACE_INFO_INVALID_PARENT: i32 = 64;
-
-    /// `NoItem`: The GUID provided does not exist.
-    pub const INVALID_PLACE_INFO_NO_ITEM: i32 = 64 + 1;
-
-    /// `UrlTooLong`: The provided URL cannot be inserted, as it is over the
-    /// maximum URL length.
-    pub const INVALID_PLACE_INFO_URL_TOO_LONG: i32 = 64 + 2;
-
-    /// `IllegalChange`: Attempt to change a property on a bookmark node that
-    /// cannot have that property. E.g. trying to edit the URL of a folder,
-    /// title of a separator, etc.
-    pub const INVALID_PLACE_INFO_ILLEGAL_CHANGE: i32 = 64 + 3;
-
-    /// `CannotUpdateRoot`: Attempt to modify a root in a way that is illegal, e.g. adding a child
-    /// to root________, updating properties of a root, deleting a root, etc.
-    pub const INVALID_PLACE_INFO_CANNOT_UPDATE_ROOT: i32 = 64 + 4;
-}
-
-fn get_code(err: &Error) -> ErrorCode {
-    ErrorCode::new(get_error_number(err))
-}
-
-fn get_error_number(err: &Error) -> i32 {
-    match err.kind() {
-        ErrorKind::InvalidPlaceInfo(info) => {
-            log::error!("Invalid place info: {}", info);
-            match &info {
-                InvalidPlaceInfo::InvalidParent(..) => {
-                    error_codes::INVALID_PLACE_INFO_INVALID_PARENT
-                }
-                InvalidPlaceInfo::NoSuchGuid(..) => error_codes::INVALID_PLACE_INFO_NO_ITEM,
-                InvalidPlaceInfo::UrlTooLong => error_codes::INVALID_PLACE_INFO_INVALID_PARENT,
-                InvalidPlaceInfo::IllegalChange(..) => {
-                    error_codes::INVALID_PLACE_INFO_ILLEGAL_CHANGE
-                }
-                InvalidPlaceInfo::CannotUpdateRoot(..) => {
-                    error_codes::INVALID_PLACE_INFO_CANNOT_UPDATE_ROOT
-                }
-                _ => error_codes::UNEXPECTED,
-            }
-        }
-        ErrorKind::UrlParseError(e) => {
-            log::error!("URL parse error: {}", e);
-            error_codes::URL_PARSE_ERROR
-        }
-        // Can't pattern match on `err` without adding a dep on the sqlite3-sys crate,
-        // so we just use a `if` guard.
-        ErrorKind::SqlError(rusqlite::Error::SqliteFailure(err, msg))
-            if err.code == rusqlite::ErrorCode::DatabaseBusy =>
-        {
-            log::error!("Database busy: {:?} {:?}", err, msg);
-            error_codes::DATABASE_BUSY
-        }
-        ErrorKind::SqlError(rusqlite::Error::SqliteFailure(err, _))
-            if err.code == rusqlite::ErrorCode::OperationInterrupted =>
-        {
-            log::info!("Operation interrupted");
-            error_codes::DATABASE_INTERRUPTED
-        }
-        ErrorKind::InterruptedError(_) => {
-            // Can't unify with the above ... :(
-            log::info!("Operation interrupted");
-            error_codes::DATABASE_INTERRUPTED
-        }
-        ErrorKind::Corruption(e) => {
-            log::info!("The store is corrupt: {}", e);
-            error_codes::DATABASE_CORRUPT
-        }
-        ErrorKind::SyncAdapterError(e) => {
-            use sync15::ErrorKind;
-            match e.kind() {
-                ErrorKind::StoreError(store_error) => {
-                    // If it's a type-erased version of one of our errors, try
-                    // and resolve it.
-                    if let Some(places_err) = store_error.downcast_ref::<Error>() {
-                        log::info!("Recursing to resolve places error");
-                        get_error_number(places_err)
-                    } else {
-                        log::error!("Unexpected sync error: {:?}", err);
-                        error_codes::UNEXPECTED
-                    }
-                }
-                _ => {
-                    // TODO: expose network errors...
-                    log::error!("Unexpected sync error: {:?}", err);
-                    error_codes::UNEXPECTED
-                }
-            }
-        }
-
-        err => {
-            log::error!("Unexpected error: {:?}", err);
-            error_codes::UNEXPECTED
-        }
-    }
-}
-
-impl From<Error> for ExternError {
-    fn from(e: Error) -> ExternError {
-        ExternError::new_error(get_code(&e), e.to_string())
-    }
 }
 
 uniffi_macros::include_scaffolding!("places");
