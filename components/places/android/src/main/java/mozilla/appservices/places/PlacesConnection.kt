@@ -4,7 +4,6 @@
 
 package mozilla.appservices.places
 
-import com.sun.jna.Pointer
 import mozilla.appservices.places.uniffi.BookmarkPosition
 import mozilla.appservices.places.uniffi.ConnectionType
 import mozilla.appservices.places.uniffi.DocumentType
@@ -34,7 +33,6 @@ import mozilla.components.service.glean.private.CounterMetricType
 import mozilla.components.service.glean.private.LabeledMetricType
 import org.json.JSONObject
 import java.lang.ref.WeakReference
-import java.util.concurrent.atomic.AtomicLong
 import org.mozilla.appservices.places.GleanMetrics.PlacesManager as PlacesManagerMetrics
 
 typealias Url = String
@@ -49,29 +47,18 @@ typealias Guid = String
  * @param path an absolute path to a file that will be used for the internal database.
  */
 class PlacesApi(path: String) : PlacesManager, AutoCloseable {
-    // As a temp work-around while we uniffi, we actually have 2 references to a PlacesApi - one
-    // via a handle in the old-school HandleMap, and the other via uniffi.
-    private var handle: AtomicLong = AtomicLong(0)
+    // References to our "api" object and the single writer connection.
     private var api: UniffiPlacesApi
     private var writeConn: PlacesWriterConnection
 
     init {
-        handle.set(
-            rustCall(this) { error ->
-                LibPlacesFFI.INSTANCE.places_api_new(path, error)
-            }
-        )
         // as per https://github.com/mozilla/uniffi-rs/pull/1063, there was some
         // pushback on allowing this to actually be a constructor, so it's a global
         // function instead :(
         api = placesApiNew(path)
 
-        // Our connections also live a double-life.
-        val connHandle = rustCall(this) { error ->
-            LibPlacesFFI.INSTANCE.places_connection_new(handle.get(), READ_WRITE, error)
-        }
         val uniffiConnection = api.newConnection(ConnectionType.READ_WRITE)
-        writeConn = PlacesWriterConnection(connHandle, uniffiConnection, this)
+        writeConn = PlacesWriterConnection(uniffiConnection, this)
     }
 
     companion object {
@@ -85,13 +72,8 @@ class PlacesApi(path: String) : PlacesManager, AutoCloseable {
     }
 
     override fun openReader(): PlacesReaderConnection {
-        // This is starting to get messy - we actually end up with 2 different raw uniffi
-        // connections inside a single PlacesReaderConnection. WCPGW?
-        val connHandle = rustCall(this) { error ->
-            LibPlacesFFI.INSTANCE.places_connection_new(handle.get(), READ_ONLY, error)
-        }
         val conn = api.newConnection(ConnectionType.READ_ONLY)
-        return PlacesReaderConnection(connHandle, conn)
+        return PlacesReaderConnection(conn)
     }
 
     override fun getWriter(): PlacesWriterConnection {
@@ -100,24 +82,7 @@ class PlacesApi(path: String) : PlacesManager, AutoCloseable {
 
     @Synchronized
     override fun close() {
-        // Take the write connection's handle and clear its reference to us.
-        val writeHandle = this.writeConn.takeHandle()
         this.writeConn.apiRef.clear()
-        val handle = this.handle.getAndSet(0L)
-        if (handle != 0L) {
-            if (writeHandle != 0L) {
-                try {
-                    rustCall(this) { err ->
-                        LibPlacesFFI.INSTANCE.places_api_return_write_conn(handle, writeHandle, err)
-                    }
-                } catch (e: PlacesException) {
-                    // Ignore it.
-                }
-            }
-            rustCall(this) { error ->
-                LibPlacesFFI.INSTANCE.places_api_destroy(handle, error)
-            }
-        }
     }
 
     override fun syncHistory(syncInfo: SyncAuthInfo): SyncTelemetryPing {
@@ -163,71 +128,18 @@ class PlacesApi(path: String) : PlacesManager, AutoCloseable {
     }
 }
 
-internal inline fun <U> rustCall(syncOn: Any, callback: (RustError.ByReference) -> U): U {
-    synchronized(syncOn) {
-        val e = RustError.ByReference()
-        val ret: U = callback(e)
-        if (e.isFailure()) {
-            throw e.intoException()
-        } else {
-            return ret
-        }
-    }
-}
-
-@Suppress("TooGenericExceptionThrown")
-internal inline fun rustCallForString(syncOn: Any, callback: (RustError.ByReference) -> Pointer?): String {
-    val cstring = rustCall(syncOn, callback)
-        ?: throw RuntimeException(
-            "Bug: Don't use this function when you can return" +
-                " null on success."
-        )
-    try {
-        return cstring.getString(0, "utf8")
-    } finally {
-        LibPlacesFFI.INSTANCE.places_destroy_string(cstring)
-    }
-}
-
-internal inline fun rustCallForOptString(syncOn: Any, callback: (RustError.ByReference) -> Pointer?): String? {
-    val cstring = rustCall(syncOn, callback)
-    try {
-        return cstring?.getString(0, "utf8")
-    } finally {
-        cstring?.let { LibPlacesFFI.INSTANCE.places_destroy_string(it) }
-    }
-}
-
 @Suppress("TooGenericExceptionCaught")
-open class PlacesConnection internal constructor(connHandle: Long, uniffiConn: UniffiPlacesConnection) : InterruptibleConnection, AutoCloseable {
-    // As a temp work-around while we uniffi, we actually have 2 references to a PlacesConnection- one
-    // via a handle in the old-school HandleMap, and the other via uniffi.
-    // Each method here will use one or the other, depending on whether it's been uniffi'd or not.
-    protected var handle: AtomicLong = AtomicLong(0)
+open class PlacesConnection internal constructor(uniffiConn: UniffiPlacesConnection) : InterruptibleConnection, AutoCloseable {
     protected var conn: UniffiPlacesConnection
     protected var interruptHandle: SqlInterruptHandle
 
     init {
-        handle.set(connHandle)
+        interruptHandle = uniffiConn.newInterruptHandle()
         conn = uniffiConn
-        try {
-            interruptHandle = this.conn.newInterruptHandle()
-        } catch (e: Throwable) {
-            rustCall { error ->
-                LibPlacesFFI.INSTANCE.places_connection_destroy(this.handle.getAndSet(0), error)
-            }
-            throw e
-        }
     }
 
     @Synchronized
     protected fun destroy() {
-        val handle = this.handle.getAndSet(0L)
-        if (handle != 0L) {
-            rustCall { error ->
-                LibPlacesFFI.INSTANCE.places_connection_destroy(handle, error)
-            }
-        }
         conn.destroy()
         interruptHandle.close()
     }
@@ -240,18 +152,6 @@ open class PlacesConnection internal constructor(connHandle: Long, uniffiConn: U
     override fun interrupt() {
         this.interruptHandle.interrupt()
     }
-
-    internal inline fun <U> rustCall(callback: (RustError.ByReference) -> U): U {
-        return rustCall(this, callback)
-    }
-
-    internal inline fun rustCallForString(callback: (RustError.ByReference) -> Pointer?): String {
-        return rustCallForString(this, callback)
-    }
-
-    internal inline fun rustCallForOptString(callback: (RustError.ByReference) -> Pointer?): String? {
-        return rustCallForOptString(this, callback)
-    }
 }
 
 /**
@@ -260,8 +160,8 @@ open class PlacesConnection internal constructor(connHandle: Long, uniffiConn: U
  *
  * This class is thread safe.
  */
-open class PlacesReaderConnection internal constructor(connHandle: Long, conn: UniffiPlacesConnection) :
-    PlacesConnection(connHandle, conn),
+open class PlacesReaderConnection internal constructor(conn: UniffiPlacesConnection) :
+    PlacesConnection(conn),
     ReadableHistoryConnection,
     ReadableHistoryMetadataConnection,
     ReadableBookmarksConnection {
@@ -399,8 +299,8 @@ fun visitTransitionSet(l: List<VisitType>): Int {
  *
  * This class is thread safe.
  */
-class PlacesWriterConnection internal constructor(connHandle: Long, conn: UniffiPlacesConnection, api: PlacesApi) :
-    PlacesReaderConnection(connHandle, conn),
+class PlacesWriterConnection internal constructor(conn: UniffiPlacesConnection, api: PlacesApi) :
+    PlacesReaderConnection(conn),
     WritableHistoryConnection,
     WritableHistoryMetadataConnection,
     WritableBookmarksConnection {
@@ -572,13 +472,6 @@ class PlacesWriterConnection internal constructor(connHandle: Long, conn: Uniffi
             // So we go through the non-writer connection destructor.
             destroy()
         }
-    }
-
-    @Synchronized
-    internal fun takeHandle(): PlacesConnectionHandle {
-        val handle = this.handle.getAndSet(0L)
-        interruptHandle.close()
-        return handle
     }
 
     private val writeQueryCounters: PlacesManagerCounterMetrics by lazy {

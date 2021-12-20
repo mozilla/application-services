@@ -8,11 +8,7 @@ exclude = ["/android", "/ios"]
 
 [features]
 log_query_plans = ["sql-support/log_query_plans"]
-# uniffi_hacks is a temp feature we can use to introduce hacks required for the uniffication
-# effort, but which must be removed before landing. A feature seems better than commenting out
-# code or XXX comments.
-uniffi_hacks = []
-default = ["uniffi_hacks"]
+default = []
 
 [dependencies]
 sync15 = { path = "../sync15" }
@@ -27,12 +23,9 @@ percent-encoding = "2.1"
 caseless = "0.2"
 sql-support = { path = "../support/sql" }
 types = { path = "../support/types" }
-ffi-support = "0.4"
 bitflags = "1.2"
 idna = "0.2"
 memchr = "2.3"
-prost = "0.8"
-prost-derive = "0.8"
 dogear = "0.4"
 interrupt-support = { path = "../support/interrupt" }
 error-support = { path = "../support/error" }
