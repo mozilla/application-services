@@ -138,7 +138,7 @@ pub(crate) fn object_literal(
         )
     };
 
-    let def = fm.find_object(id);
+    let def = fm.find_object(id).unwrap();
 
     let args: Vec<String> = literal_map
         .iter()

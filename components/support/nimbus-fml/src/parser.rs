@@ -320,7 +320,7 @@ fn collect_channel_defaults(
 ///
 /// # Returns
 /// Returns a transformed [`FeatureDef`] with its defaults merged
-fn merge_feature_defaults(
+pub fn merge_feature_defaults(
     feature_def: FeatureDef,
     channel: &str,
     supported_channels: &[String],

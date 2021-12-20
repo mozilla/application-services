@@ -50,13 +50,15 @@ fn load_feature_manifest(
     load_from_ir: bool,
     channel: &str,
 ) -> Result<FeatureManifest> {
-    Ok(if !load_from_ir {
+    let ir = if !load_from_ir {
         let parser: Parser = Parser::new(path, channel)?;
         parser.get_intermediate_representation()?
     } else {
         let string = slurp_file(path)?;
         serde_json::from_str::<FeatureManifest>(&string)?
-    })
+    };
+    ir.validate_manifest()?;
+    Ok(ir)
 }
 
 #[cfg(test)]
