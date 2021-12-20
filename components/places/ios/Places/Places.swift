@@ -11,8 +11,6 @@ import os.log
     import MozillaRustComponents
 #endif
 
-internal typealias APIHandle = UInt64
-internal typealias ConnectionHandle = UInt64
 internal typealias UniffiPlacesApi = PlacesApi
 internal typealias UniffiPlacesConnection = PlacesConnection
 public typealias Url = String
@@ -34,7 +32,6 @@ public enum PlacesApiError: Error {
  * (although it does not actually perform any pooling).
  */
 public class PlacesAPI {
-    private let handle: APIHandle
     private let writeConn: PlacesWriteConnection
     private let api: UniffiPlacesApi
 
@@ -49,60 +46,14 @@ public class PlacesAPI {
      * - Throws: `PlacesError` if initializing the database failed.
      */
     public init(path: String) throws {
-        let handle = try PlacesError.unwrap { error in
-            places_api_new(path, error)
-        }
-        self.handle = handle
         try api = placesApiNew(dbPath: path)
 
-        do {
-            let writeHandle = try PlacesError.unwrap { error in
-                places_connection_new(handle, Int32(PlacesConn_ReadWrite), error)
-            }
-            let uniffiConn = try api.newConnection(connType: ConnectionType.readWrite)
-            writeConn = try PlacesWriteConnection(handle: writeHandle, conn: uniffiConn)
+        let uniffiConn = try api.newConnection(connType: ConnectionType.readWrite)
+        writeConn = try PlacesWriteConnection(conn: uniffiConn)
 
-            interruptHandle = try api.newSyncConnInterruptHandle()
+        interruptHandle = try api.newSyncConnInterruptHandle()
 
-            writeConn.api = self
-        } catch let e {
-            // We failed to open the write connection (or the interrupt handle),
-            // even though the API was opened. This is... strange, but possible.
-            // Anyway, we want to clean up our API if this happens.
-            //
-            // If closing the API fails, it's probably caused by the same
-            // underlying problem as whatever made us fail to open the write
-            // connection, so we'd rather use the first error, since it's
-            // hopefully more descriptive.
-            PlacesError.unwrapOrLog { error in
-                places_api_destroy(handle, error)
-            }
-            // Note: We don't need to explicitly clean up `self.writeConn` in
-            // the case that it gets opened successfully, but initializing
-            // `self.interruptHandle` fails -- the `PlacesWriteConnection`
-            // `deinit` should still run and do the right thing.
-            throw e
-        }
-    }
-
-    deinit {
-        // Note: we shouldn't need to queue.sync with our queue in deinit (no more references
-        // exist to us), however we still need to sync with the write conn's queue, since it
-        // could still be in use.
-
-        self.writeConn.queue.sync {
-            // If the writer is still around (it should be), return it to the api.
-            let writeHandle = self.writeConn.takeHandle()
-            if writeHandle != 0 {
-                PlacesError.unwrapOrLog { error in
-                    places_api_return_write_conn(self.handle, writeHandle, error)
-                }
-            }
-        }
-
-        PlacesError.unwrapOrLog { error in
-            places_api_destroy(self.handle, error)
-        }
+        writeConn.api = self
     }
 
     /**
@@ -143,11 +94,8 @@ public class PlacesAPI {
      */
     open func openReader() throws -> PlacesReadConnection {
         return try queue.sync {
-            let connHandle = try PlacesError.unwrap { error in
-                places_connection_new(handle, Int32(PlacesConn_ReadOnly), error)
-            }
             let uniffiConn = try api.newConnection(connType: ConnectionType.readOnly)
-            return try PlacesReadConnection(handle: connHandle, conn: uniffiConn)
+            return try PlacesReadConnection(conn: uniffiConn, api: self)
         }
     }
 
@@ -253,17 +201,12 @@ public class PlacesAPI {
  * A read-only connection to the places database.
  */
 public class PlacesReadConnection {
-    // As a temp work-around while we uniffi, we actually have 2 references to a PlacesConnection- one
-    // via a handle in the old-school HandleMap, and the other via uniffi.
-    // Each method here will use one or the other, depending on whether it's been uniffi'd or not.
     fileprivate let queue = DispatchQueue(label: "com.mozilla.places.conn")
-    fileprivate var handle: ConnectionHandle
     fileprivate var conn: UniffiPlacesConnection
     fileprivate weak var api: PlacesAPI?
     fileprivate let interruptHandle: SqlInterruptHandle
 
-    fileprivate init(handle: ConnectionHandle, conn: UniffiPlacesConnection, api: PlacesAPI? = nil) throws {
-        self.handle = handle
+    fileprivate init(conn: UniffiPlacesConnection, api: PlacesAPI? = nil) throws {
         self.conn = conn
         self.api = api
         interruptHandle = try self.conn.newInterruptHandle()
@@ -273,24 +216,6 @@ public class PlacesReadConnection {
     fileprivate func checkApi() throws {
         if api == nil {
             throw PlacesApiError.connUseAfterApiClosed
-        }
-    }
-
-    // Note: caller synchronizes!
-    fileprivate func takeHandle() -> ConnectionHandle {
-        let handle = self.handle
-        self.handle = 0
-        return handle
-    }
-
-    deinit {
-        // Note: don't need to queue.sync in deinit -- no more references exist to us.
-        let handle = self.takeHandle()
-        if handle != 0 {
-            // In practice this can only fail if the rust code panics.
-            PlacesError.unwrapOrLog { err in
-                places_connection_destroy(handle, err)
-            }
         }
     }
 

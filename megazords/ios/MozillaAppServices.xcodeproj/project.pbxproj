@@ -70,12 +70,7 @@
 		CD5ECD192716FB88009D10CC /* QuantityMetric.swift in Sources */ = {isa = PBXBuildFile; fileRef = CD5ECD182716FB88009D10CC /* QuantityMetric.swift */; };
 		CD5ECD1B2716FB99009D10CC /* UrlMetric.swift in Sources */ = {isa = PBXBuildFile; fileRef = CD5ECD1A2716FB99009D10CC /* UrlMetric.swift */; };
 		CD85A45422361E890099BFA9 /* Places.swift in Sources */ = {isa = PBXBuildFile; fileRef = CD85A44922361E880099BFA9 /* Places.swift */; };
-		CD85A45522361E890099BFA9 /* RustPlacesAPI.h in Headers */ = {isa = PBXBuildFile; fileRef = CD85A44A22361E880099BFA9 /* RustPlacesAPI.h */; settings = {ATTRIBUTES = (Public, ); }; };
-		CD85A45722361E890099BFA9 /* String+Free_Places.swift in Sources */ = {isa = PBXBuildFile; fileRef = CD85A44D22361E880099BFA9 /* String+Free_Places.swift */; };
-		CD85A45822361E890099BFA9 /* Data+PlacesRustBuffer.swift in Sources */ = {isa = PBXBuildFile; fileRef = CD85A44E22361E880099BFA9 /* Data+PlacesRustBuffer.swift */; };
 		CD85A45922361E890099BFA9 /* Bookmark.swift in Sources */ = {isa = PBXBuildFile; fileRef = CD85A44F22361E880099BFA9 /* Bookmark.swift */; };
-		CD85A45A22361E890099BFA9 /* PlacesError.swift in Sources */ = {isa = PBXBuildFile; fileRef = CD85A45122361E880099BFA9 /* PlacesError.swift */; };
-		CDC0089F2236CAD100893800 /* places_msg_types.proto in Sources */ = {isa = PBXBuildFile; fileRef = CDC0089E2236CAD100893800 /* places_msg_types.proto */; };
 		CDC21B14221DCE3700AA71E5 /* RustLog.swift in Sources */ = {isa = PBXBuildFile; fileRef = CDC21B12221DCE3700AA71E5 /* RustLog.swift */; };
 		CDC21B15221DCE3700AA71E5 /* RustLogFFI.h in Headers */ = {isa = PBXBuildFile; fileRef = CDC21B13221DCE3700AA71E5 /* RustLogFFI.h */; settings = {ATTRIBUTES = (Public, ); }; };
 		CE0A9AB424E4A2CC00914A16 /* fxa_client.udl in Sources */ = {isa = PBXBuildFile; fileRef = CE0A9AB224E4A25C00914A16 /* fxa_client.udl */; };
@@ -223,12 +218,7 @@
 		CD5ECD182716FB88009D10CC /* QuantityMetric.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = QuantityMetric.swift; sourceTree = "<group>"; };
 		CD5ECD1A2716FB99009D10CC /* UrlMetric.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = UrlMetric.swift; sourceTree = "<group>"; };
 		CD85A44922361E880099BFA9 /* Places.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = Places.swift; sourceTree = "<group>"; };
-		CD85A44A22361E880099BFA9 /* RustPlacesAPI.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = RustPlacesAPI.h; sourceTree = "<group>"; };
-		CD85A44D22361E880099BFA9 /* String+Free_Places.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = "String+Free_Places.swift"; sourceTree = "<group>"; };
-		CD85A44E22361E880099BFA9 /* Data+PlacesRustBuffer.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = "Data+PlacesRustBuffer.swift"; sourceTree = "<group>"; };
 		CD85A44F22361E880099BFA9 /* Bookmark.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = Bookmark.swift; sourceTree = "<group>"; };
-		CD85A45122361E880099BFA9 /* PlacesError.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = PlacesError.swift; sourceTree = "<group>"; };
-		CDC0089E2236CAD100893800 /* places_msg_types.proto */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.protobuf; name = places_msg_types.proto; path = ../../src/places_msg_types.proto; sourceTree = "<group>"; };
 		CDC21B12221DCE3700AA71E5 /* RustLog.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = RustLog.swift; sourceTree = "<group>"; };
 		CDC21B13221DCE3700AA71E5 /* RustLogFFI.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = RustLogFFI.h; sourceTree = "<group>"; };
 		CE0A9AB224E4A25C00914A16 /* fxa_client.udl */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; name = fxa_client.udl; path = ../../src/fxa_client.udl; sourceTree = "<group>"; };
@@ -520,34 +510,13 @@
 			isa = PBXGroup;
 			children = (
 				1B9B8F0626743B7500C8A918 /* Generated */,
-				CDC0089E2236CAD100893800 /* places_msg_types.proto */,
 				1B9B8EFE267439CC00C8A918 /* places.udl */,
 				CD85A44922361E880099BFA9 /* Places.swift */,
-				CD85A44A22361E880099BFA9 /* RustPlacesAPI.h */,
-				CD85A44C22361E880099BFA9 /* Extensions */,
 				CD85A44F22361E880099BFA9 /* Bookmark.swift */,
-				CD85A45022361E880099BFA9 /* Errors */,
 				D9FA8C532644A170008344BF /* HistoryMetadata.swift */,
 			);
 			name = Places;
 			path = ../../components/places/ios/Places;
-			sourceTree = "<group>";
-		};
-		CD85A44C22361E880099BFA9 /* Extensions */ = {
-			isa = PBXGroup;
-			children = (
-				CD85A44D22361E880099BFA9 /* String+Free_Places.swift */,
-				CD85A44E22361E880099BFA9 /* Data+PlacesRustBuffer.swift */,
-			);
-			path = Extensions;
-			sourceTree = "<group>";
-		};
-		CD85A45022361E880099BFA9 /* Errors */ = {
-			isa = PBXGroup;
-			children = (
-				CD85A45122361E880099BFA9 /* PlacesError.swift */,
-			);
-			path = Errors;
 			sourceTree = "<group>";
 		};
 		CDC21B11221DCE3700AA71E5 /* RustLog */ = {
@@ -636,7 +605,6 @@
 				D05434A1225680D900FDE4EF /* MozillaAppServices.h in Headers */,
 				CDC21B15221DCE3700AA71E5 /* RustLogFFI.h in Headers */,
 				CE58B2F8242D54340089F091 /* RustViaductFFI.h in Headers */,
-				CD85A45522361E890099BFA9 /* RustPlacesAPI.h in Headers */,
 				BF1A879225064A4C00FED88E /* GleanFfi.h in Headers */,
 				990863A125F9D25A00032083 /* crashtestFFI.h in Headers */,
 				99FAA19B25E61D5D001E2231 /* fxa_clientFFI.h in Headers */,
@@ -804,7 +772,6 @@
 				CE13F19B23F330DF005187A7 /* FxAccountMigration.swift in Sources */,
 				CE0A9AB424E4A2CC00914A16 /* fxa_client.udl in Sources */,
 				BF1A879525064A6600FED88E /* Configuration.swift in Sources */,
-				CDC0089F2236CAD100893800 /* places_msg_types.proto in Sources */,
 				BF1A87B025064A8100FED88E /* LabeledMetric.swift in Sources */,
 				BF1A87AD25064A8100FED88E /* Lifetime.swift in Sources */,
 				BF1A87AF25064A8100FED88E /* MemoryDistributionMetric.swift in Sources */,
@@ -823,7 +790,6 @@
 				99FAA19F25E65CA5001E2231 /* FxAccountOAuth.swift in Sources */,
 				398A4149264986E200AA22F1 /* FeatureVariables.swift in Sources */,
 				BF1A87D025064AC000FED88E /* Sysctl.swift in Sources */,
-				CD85A45A22361E890099BFA9 /* PlacesError.swift in Sources */,
 				993D6D4F26B11E410075A820 /* SyncUnlockInfo.swift in Sources */,
 				BF1A87AB25064A8100FED88E /* DistributionData.swift in Sources */,
 				CD5ECD192716FB88009D10CC /* QuantityMetric.swift in Sources */,
@@ -837,9 +803,7 @@
 				BF1A87D125064AC000FED88E /* Unreachable.swift in Sources */,
 				CE2D04C5231822AC00AF5722 /* FxAccountManager.swift in Sources */,
 				CE1B09A3231863D7006226E1 /* KeychainWrapper+.swift in Sources */,
-				CD85A45722361E890099BFA9 /* String+Free_Places.swift in Sources */,
 				CE9FFA13242D4E7B0011029E /* Viaduct.swift in Sources */,
-				CD85A45822361E890099BFA9 /* Data+PlacesRustBuffer.swift in Sources */,
 				395992B825FBE40300E3185F /* NimbusApi.swift in Sources */,
 				BF1A87B925064A8100FED88E /* TimingDistributionMetric.swift in Sources */,
 				CD5ECD1B2716FB99009D10CC /* UrlMetric.swift in Sources */,

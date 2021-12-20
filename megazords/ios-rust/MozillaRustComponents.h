@@ -16,5 +16,3 @@
 #import "RustLogFFI.h"
 // This is the uniffi-ed header
 #import "placesFFI.h"
-// This is the ffi header and will be deleted after uniffi
-#import "RustPlacesAPI.h"

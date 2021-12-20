@@ -1508,7 +1508,6 @@ dependencies = [
  "logins",
  "nimbus-sdk",
  "places",
- "places-ffi",
  "push",
  "rc_log_ffi",
  "tabs",
@@ -1767,7 +1766,7 @@ dependencies = [
  "lazy_static",
  "logins",
  "nimbus-sdk",
- "places-ffi",
+ "places",
  "push",
  "rc_log_ffi",
  "sync_manager",
@@ -1784,7 +1783,7 @@ dependencies = [
  "glean-ffi",
  "logins",
  "nimbus-sdk",
- "places-ffi",
+ "places",
  "rc_log_ffi",
  "viaduct",
  "viaduct-reqwest",
@@ -2420,7 +2419,6 @@ dependencies = [
  "dogear",
  "env_logger 0.7.1",
  "error-support",
- "ffi-support",
  "idna",
  "interrupt-support",
  "lazy_static",
@@ -2429,8 +2427,6 @@ dependencies = [
  "parking_lot 0.5.5",
  "percent-encoding",
  "pretty_assertions",
- "prost",
- "prost-derive",
  "rusqlite",
  "serde",
  "serde_derive",
@@ -2459,27 +2455,6 @@ dependencies = [
  "tempdir",
  "types",
  "url",
-]
-
-[[package]]
-name = "places-ffi"
-version = "0.1.0"
-dependencies = [
- "ffi-support",
- "interrupt-support",
- "lazy_static",
- "log",
- "places",
- "prost",
- "serde_json",
- "sql-support",
- "sync-guid",
- "sync15",
- "types",
- "uniffi",
- "uniffi_macros",
- "url",
- "viaduct",
 ]
 
 [[package]]

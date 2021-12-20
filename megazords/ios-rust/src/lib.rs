@@ -11,7 +11,6 @@ pub use fxa_client;
 pub use logins;
 pub use nimbus;
 pub use places;
-pub use places_ffi;
 pub use push;
 pub use rc_log_ffi;
 pub use tabs;

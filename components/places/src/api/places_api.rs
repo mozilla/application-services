@@ -200,18 +200,7 @@ impl PlacesApi {
                 // We only allow one of these.
                 let mut guard = self.write_connection.lock();
                 match mem::replace(&mut *guard, None) {
-                    #[cfg(not(feature = "uniffi_hacks"))]
                     None => Err(ErrorKind::ConnectionAlreadyOpen.into()),
-                    #[cfg(feature = "uniffi_hacks")]
-                    None => {
-                        // welp, while doing uniffi we allow multiple writers.
-                        PlacesDb::open(
-                            self.db_name.clone(),
-                            ConnectionType::ReadWrite,
-                            self.id,
-                            self.coop_tx_lock.clone(),
-                        )
-                    }
                     Some(db) => Ok(db),
                 }
             }
@@ -257,12 +246,9 @@ impl PlacesApi {
         }
         if connection.conn_type() == ConnectionType::ReadWrite {
             // We only allow one of these.
-            #[cfg(not(feature = "uniffi_hacks"))]
-            {
-                let mut guard = self.write_connection.lock();
-                assert!((*guard).is_none());
-                *guard = Some(connection);
-            }
+            let mut guard = self.write_connection.lock();
+            assert!((*guard).is_none());
+            *guard = Some(connection);
         }
         Ok(())
     }
@@ -540,7 +526,6 @@ mod tests {
     use super::*;
     use sql_support::ConnExt;
 
-    #[cfg(not(feature = "uniffi_hacks"))]
     #[test]
     fn test_multi_writers_fails() {
         let api = new_mem_api();

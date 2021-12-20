@@ -11,7 +11,7 @@ crate-type = ["staticlib"]
 [dependencies]
 fxa-client = { path = "../../../components/fxa-client" }
 logins = { path = "../../../components/logins" }
-places-ffi = { path = "../../../components/places/ffi" }
+places = { path = "../../../components/places" }
 rc_log_ffi = { path = "../../../components/rc_log" }
 viaduct = { path = "../../../components/viaduct" }
 viaduct-reqwest = { path = "../../../components/support/viaduct-reqwest" }
