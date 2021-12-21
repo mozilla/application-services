@@ -163,7 +163,7 @@ interface WritableBookmarksConnection : ReadableBookmarksConnection {
     fun createFolder(
         parentGUID: Guid,
         title: String,
-        position: Int? = null
+        position: UInt? = null
     ): Guid
 
     /**
@@ -182,7 +182,7 @@ interface WritableBookmarksConnection : ReadableBookmarksConnection {
      */
     fun createSeparator(
         parentGUID: Guid,
-        position: Int? = null
+        position: UInt? = null
     ): Guid
 
     /**
@@ -207,7 +207,7 @@ interface WritableBookmarksConnection : ReadableBookmarksConnection {
         parentGUID: Guid,
         url: Url,
         title: String,
-        position: Int? = null
+        position: UInt? = null
     ): Guid
 
     /**
@@ -228,5 +228,5 @@ interface WritableBookmarksConnection : ReadableBookmarksConnection {
      * @throws InvalidParent If `info.parentGUID` is specified, but does not refer to a
      * folder node.
      */
-    fun updateBookmark(guid: Guid, parentGuid: Guid?, position: Int?, title: String?, url: Url?)
+    fun updateBookmark(guid: Guid, parentGuid: Guid?, position: UInt?, title: String?, url: Url?)
 }
