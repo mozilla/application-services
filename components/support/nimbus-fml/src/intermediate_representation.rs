@@ -788,7 +788,7 @@ mod unit_tests {
     fn test_validate_prop_defaults_int() -> Result<()> {
         let mut prop = PropDef {
             name: "key".into(),
-            doc: "simple string property".into(),
+            doc: "simple integer property".into(),
             typ: TypeRef::Int,
             default: json!(100),
         };
@@ -813,7 +813,7 @@ mod unit_tests {
     fn test_validate_prop_defaults_bool() -> Result<()> {
         let mut prop = PropDef {
             name: "key".into(),
-            doc: "simple string property".into(),
+            doc: "simple boolean property".into(),
             typ: TypeRef::Boolean,
             default: json!(true),
         };
@@ -838,7 +838,7 @@ mod unit_tests {
     fn test_validate_prop_defaults_bundle_image() -> Result<()> {
         let mut prop = PropDef {
             name: "key".into(),
-            doc: "simple string property".into(),
+            doc: "bundleImage string property".into(),
             typ: TypeRef::BundleImage("Icon".into()),
             default: json!("IconBlue"),
         };
@@ -864,7 +864,7 @@ mod unit_tests {
     fn test_validate_prop_defaults_bundle_text() -> Result<()> {
         let mut prop = PropDef {
             name: "key".into(),
-            doc: "simple string property".into(),
+            doc: "bundleText string property".into(),
             typ: TypeRef::BundleText("Text".into()),
             default: json!("BundledText"),
         };
@@ -890,7 +890,7 @@ mod unit_tests {
     fn test_validate_prop_defaults_option_null() -> Result<()> {
         let mut prop = PropDef {
             name: "key".into(),
-            doc: "simple string property".into(),
+            doc: "Optional boolean property".into(),
             typ: TypeRef::Option(Box::new(TypeRef::Boolean)),
             default: json!(null),
         };
