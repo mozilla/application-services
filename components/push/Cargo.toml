@@ -6,9 +6,6 @@ authors = ["jrconlin <me+crypt@jrconlin.com>", "Phil Jenvey <pjenvey@underboss.o
 license = "MPL-2.0"
 exclude = ["/android", "/ios"]
 
-[features]
-default = []
-
 [dependencies]
 serde = "1"
 serde_derive = "1"
