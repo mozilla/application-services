@@ -352,7 +352,7 @@ class PlacesConnectionTest {
 
         val sepGUID = db.createSeparator(
             parentGUID = BookmarkRoot.Unfiled.id,
-            position = 0
+            position = 0u
         )
 
         val folderGUID = db.createFolder(

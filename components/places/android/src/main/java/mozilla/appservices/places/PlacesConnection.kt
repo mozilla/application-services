@@ -518,7 +518,7 @@ class PlacesWriterConnection internal constructor(connHandle: Long, conn: Uniffi
         }
     }
 
-    override fun createFolder(parentGUID: Guid, title: String, position: Int?): Guid {
+    override fun createFolder(parentGUID: Guid, title: String, position: UInt?): Guid {
         val p = if (position == null) {
             BookmarkPosition.Append
         } else {
@@ -528,7 +528,7 @@ class PlacesWriterConnection internal constructor(connHandle: Long, conn: Uniffi
         return this.doInsert(InsertableBookmarkItem.Folder(folder))
     }
 
-    override fun createSeparator(parentGUID: Guid, position: Int?): Guid {
+    override fun createSeparator(parentGUID: Guid, position: UInt?): Guid {
         val p = if (position == null) {
             BookmarkPosition.Append
         } else {
@@ -538,7 +538,7 @@ class PlacesWriterConnection internal constructor(connHandle: Long, conn: Uniffi
         return this.doInsert(InsertableBookmarkItem.Separator(sep))
     }
 
-    override fun createBookmarkItem(parentGUID: Guid, url: Url, title: String, position: Int?): Guid {
+    override fun createBookmarkItem(parentGUID: Guid, url: Url, title: String, position: UInt?): Guid {
         val p = if (position == null) {
             BookmarkPosition.Append
         } else {
@@ -548,7 +548,7 @@ class PlacesWriterConnection internal constructor(connHandle: Long, conn: Uniffi
         return this.doInsert(InsertableBookmarkItem.Bookmark(bm))
     }
 
-    override fun updateBookmark(guid: Guid, parentGuid: Guid?, position: Int?, title: String?, url: Url?) {
+    override fun updateBookmark(guid: Guid, parentGuid: Guid?, position: UInt?, title: String?, url: Url?) {
         val p: UInt? = if (position == null) {
             null
         } else {
