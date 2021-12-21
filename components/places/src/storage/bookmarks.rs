@@ -434,8 +434,7 @@ impl Default for UpdateTreeLocation {
 #[derive(Debug, Clone)]
 pub struct BookmarkData {
     pub guid: SyncGuid,
-    pub parent_guid: Option<SyncGuid>,
-    // Always 0 if parent_guid is None
+    pub parent_guid: SyncGuid,
     pub position: u32,
     pub date_added: Timestamp,
     pub last_modified: Timestamp,
@@ -454,7 +453,7 @@ pub struct Separator {
     pub guid: SyncGuid,
     pub date_added: Timestamp,
     pub last_modified: Timestamp,
-    pub parent_guid: Option<SyncGuid>,
+    pub parent_guid: SyncGuid,
     pub position: u32,
 }
 
@@ -469,7 +468,8 @@ pub struct Folder {
     pub guid: SyncGuid,
     pub date_added: Timestamp,
     pub last_modified: Timestamp,
-    pub parent_guid: Option<SyncGuid>,
+    pub parent_guid: Option<SyncGuid>, // Option because the root is a folder but has no parent.
+    // Always 0 if parent_guid is None
     pub position: u32,
     pub title: Option<String>,
     pub child_guids: Option<Vec<SyncGuid>>,
@@ -506,7 +506,7 @@ impl From<PublicNode> for Item {
             BookmarkType::Bookmark => Item::Bookmark {
                 b: BookmarkData {
                     guid: n.guid,
-                    parent_guid: n.parent_guid,
+                    parent_guid: n.parent_guid.expect("bookmarks must have parents"),
                     position: n.position,
                     date_added: n.date_added,
                     last_modified: n.last_modified,
@@ -521,7 +521,7 @@ impl From<PublicNode> for Item {
                     guid: n.guid,
                     date_added: n.date_added,
                     last_modified: n.last_modified,
-                    parent_guid: n.parent_guid,
+                    parent_guid: n.parent_guid.expect("seps must have parents"),
                     position: n.position,
                 },
             },
