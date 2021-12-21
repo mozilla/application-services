@@ -131,6 +131,9 @@ class RustPackage:
     def has_default_features(self):
         return bool(self.cargo_metadata.get('features').get('default'))
 
+    def has_features(self):
+        return bool(self.cargo_metadata.get('features'))
+
     def has_changes(self, branch_changes):
         return any(path_is_relative_to(p, self.directory)
                    for p in branch_changes.paths)
@@ -173,6 +176,7 @@ def calc_rust_items(branch_changes=None, default_features_only=False):
     ]))
 
     packages = [RustPackage(p) for p in json_data['packages']]
+
     if branch_changes:
         packages = [p for p in packages if p.has_changes(branch_changes)]
 
@@ -183,7 +187,8 @@ def calc_rust_items(branch_changes=None, default_features_only=False):
         return
 
     for p in packages:
-        yield p, RustFeatures.ALL
+        if p.has_features():
+            yield p, RustFeatures.ALL
     for p in packages:
         if p.has_default_features():
             yield p, RustFeatures.NONE

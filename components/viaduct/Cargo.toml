@@ -9,9 +9,6 @@ exclude = ["/android", "/ios"]
 [lib]
 crate-type = ["lib"]
 
-[features]
-default = []
-
 [dependencies]
 url = "2.2"
 log = "0.4"
