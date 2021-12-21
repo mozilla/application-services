@@ -5,7 +5,21 @@
 // There is a companion gradle command `autoPublishForLocalDevelopment` that can be used to publish
 // the local development versions that are targetted by this script.
 
-logger.lifecycle("[local-appservices] adjusting ${project} to use locally published application-services modules")
+def version = null
+if (gradle.hasProperty("localProperties.autoPublish.application-services.dir")) {
+    //  We're doing local development using the autoPublish system.  This automatically rebuilds and
+    //  publishes application-services packages whenever the source changes.
+    // This version string will selected the latest build package
+    version = '0.0.1-SNAPSHOT-+'
+
+} else if (gradle.hasProperty("localProperties.branchBuild.application-services.version")) {
+    //  We're running a branch build.  Here the version is set to the git commit id in
+    //  local.properties
+    version = gradle.getProperty("localProperties.branchBuild.application-services.version")
+} else {
+    throw new Exception("substitute-local-appservices.gradle called from unexpected context")
+}
+logger.lifecycle("[local-appservices] adjusting ${project} to use locally published application-services modules (${version})")
 
 // Inject mavenLocal repository. This is where we're expected to publish modules.
 repositories {
@@ -22,13 +36,10 @@ configurations.all { config ->
                         return
                     }
 
-                    // For every org.mozilla.appservices.* module, substitute its version for one
-                    // formatted like `0.0.1-SNAPSHOT-*`. This syntax will pick the latest such version
-                    // published locally by the `autoPublishForLocalDevelopment` command.
                     def group = dependency.requested.group
                     if (group == 'org.mozilla.appservices') {
                         def name = dependency.requested.module
-                        dependency.useTarget([group: group, name: name, version: '0.0.1-SNAPSHOT-+'])
+                        dependency.useTarget([group: group, name: name, version: version])
                     }
                 }
             }
