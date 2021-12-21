@@ -16,7 +16,7 @@ mod matcher;
 pub mod persistence;
 mod sampling;
 mod updating;
-mod versioning;
+pub mod versioning;
 #[cfg(debug_assertions)]
 pub use evaluator::evaluate_enrollment;
 
@@ -97,10 +97,6 @@ impl NimbusClient {
         config: Option<RemoteSettingsConfig>,
         available_randomization_units: AvailableRandomizationUnits,
     ) -> Result<Self> {
-        log::info!(
-            "[NIMBUS DEBUG] Current version: {}",
-            app_context.app_version.as_ref().unwrap()
-        );
         let settings_client = Mutex::new(create_client(config)?);
 
         let mutable_state = Mutex::new(InternalMutableState {
