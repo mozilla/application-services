@@ -247,16 +247,16 @@ use crate::versioning::Version;
 fn is_minimum_version_transform(args: &[Value]) -> Result<Value> {
     let curr_version = args
         .get(0)
-        .ok_or(NimbusError::VersionParsingError("".into()))?;
+        .ok_or_else(|| NimbusError::VersionParsingError("".into()))?;
     let curr_version = curr_version
         .as_str()
-        .ok_or(NimbusError::VersionParsingError("".into()))?;
+        .ok_or_else(|| NimbusError::VersionParsingError("".into()))?;
     let min_version = args
         .get(1)
-        .ok_or(NimbusError::VersionParsingError("".into()))?;
+        .ok_or_else(|| NimbusError::VersionParsingError("".into()))?;
     let min_version = min_version
         .as_str()
-        .ok_or(NimbusError::VersionParsingError("".into()))?;
+        .ok_or_else(|| NimbusError::VersionParsingError("".into()))?;
     let min_version = Version::try_from(min_version)?;
     let curr_version = Version::try_from(curr_version)?;
     Ok(json!(curr_version >= min_version))

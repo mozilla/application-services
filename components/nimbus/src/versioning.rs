@@ -144,9 +144,9 @@ impl PartialOrd for VersionPart {
             _ => (),
         };
 
-        if self.str_b == "" && other.str_b != "" {
+        if self.str_b.is_empty() && !other.str_b.is_empty() {
             return Some(Ordering::Greater);
-        } else if other.str_b == "" && self.str_b != "" {
+        } else if other.str_b.is_empty() && !self.str_b.is_empty() {
             return Some(Ordering::Less);
         }
         let str_b_ord = self.str_b.partial_cmp(&other.str_b);
@@ -161,9 +161,9 @@ impl PartialOrd for VersionPart {
             _ => (),
         };
 
-        if self.extra_d == "" && other.extra_d != "" {
+        if self.extra_d.is_empty() && !other.extra_d.is_empty() {
             return Some(Ordering::Greater);
-        } else if other.extra_d == "" && self.extra_d != "" {
+        } else if other.extra_d.is_empty() && !self.extra_d.is_empty() {
             return Some(Ordering::Less);
         }
         let extra_d_ord = self.extra_d.partial_cmp(&other.extra_d);
@@ -236,7 +236,7 @@ impl TryFrom<&'_ str> for VersionPart {
                 value
             )));
         }
-        if value == "" {
+        if value.is_empty() {
             return Ok(Default::default());
         }
 
