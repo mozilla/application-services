@@ -84,7 +84,12 @@ mod test {
 
     // Given a manifest.fml and script.kts in the tests directory generate
     // a manifest.kt and run the script against it.
-    fn generate_and_assert(test_script: &str, manifest: &str, is_ir: bool) -> Result<()> {
+    fn generate_and_assert(
+        test_script: &str,
+        manifest: &str,
+        channel: &str,
+        is_ir: bool,
+    ) -> Result<()> {
         let test_script = join(pkg_dir(), test_script);
         let pbuf = PathBuf::from(&test_script);
         let ext = pbuf
@@ -113,7 +118,7 @@ mod test {
             output: manifest_kt.clone().into(),
             load_from_ir: is_ir,
             language,
-            channel: "release".into(),
+            channel: channel.into(),
         };
         generate_struct(Default::default(), cmd)?;
         run_script_with_generated_code(language, manifest_kt, &test_script)?;
@@ -139,6 +144,7 @@ mod test {
         generate_and_assert(
             "test/simple_nimbus_validation.kts",
             "fixtures/ir/simple_nimbus_validation.json",
+            "release",
             true,
         )?;
         Ok(())
@@ -149,6 +155,7 @@ mod test {
         generate_and_assert(
             "test/with_objects.kts",
             "fixtures/ir/with_objects.json",
+            "release",
             true,
         )?;
         Ok(())
@@ -159,14 +166,42 @@ mod test {
         generate_and_assert(
             "test/full_homescreen.kts",
             "fixtures/ir/full_homescreen.json",
+            "release",
             true,
         )?;
         Ok(())
     }
 
     #[test]
+    fn test_with_full_fenix_release() -> Result<()> {
+        generate_and_assert(
+            "test/fenix_release.kts",
+            "fixtures/fe/fenix.yaml",
+            "release",
+            false,
+        )?;
+        Ok(())
+    }
+
+    #[test]
+    fn test_with_full_fenix_nightly() -> Result<()> {
+        generate_and_assert(
+            "test/fenix_nightly.kts",
+            "fixtures/fe/fenix.yaml",
+            "nightly",
+            false,
+        )?;
+        Ok(())
+    }
+
+    #[test]
     fn test_with_app_menu() -> Result<()> {
-        generate_and_assert("test/app_menu.kts", "fixtures/ir/app_menu.json", true)?;
+        generate_and_assert(
+            "test/app_menu.kts",
+            "fixtures/ir/app_menu.json",
+            "release",
+            true,
+        )?;
         Ok(())
     }
 

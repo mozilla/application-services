@@ -247,16 +247,20 @@ impl FeatureManifest {
                 })?;
                 let mut seen = HashSet::new();
                 for variant in enum_def.variants() {
-                    if let Some(map_value) = map.get(&variant.name()) {
-                        self.validate_default_by_typ(map_type, map_value)?;
-                        seen.insert(variant.name());
-                    } else {
-                        return Err(FMLError::ValidationError(format!(
-                            "Default for enum map {} doesn't contain variant {}, {:?}",
-                            name,
-                            variant.name(),
-                            map
-                        )));
+                    let map_value = map.get(&variant.name());
+                    match (map_type.as_ref(), map_value) {
+                        (TypeRef::Option(_), None) => (),
+                        (_, None) => {
+                            return Err(FMLError::ValidationError(format!(
+                                "Default for enum map {} doesn't contain variant {}",
+                                name,
+                                variant.name()
+                            )))
+                        }
+                        (_, Some(inner)) => {
+                            self.validate_default_by_typ(map_type, inner)?;
+                            seen.insert(variant.name());
+                        }
                     }
                 }
                 for map_key in map.keys() {
@@ -759,6 +763,22 @@ mod unit_tests {
         Ok(())
     }
 
+    fn get_one_prop_feature_manifest(
+        obj_defs: Vec<ObjectDef>,
+        enum_defs: Vec<EnumDef>,
+        prop: &PropDef,
+    ) -> FeatureManifest {
+        FeatureManifest {
+            enum_defs,
+            obj_defs,
+            feature_defs: vec![FeatureDef {
+                props: vec![prop.clone()],
+                ..Default::default()
+            }],
+            ..Default::default()
+        }
+    }
+
     #[test]
     fn test_validate_prop_defaults_string() -> Result<()> {
         let mut prop = PropDef {
@@ -767,15 +787,7 @@ mod unit_tests {
             typ: TypeRef::String,
             default: json!("default!"),
         };
-        let mut fm: FeatureManifest = FeatureManifest {
-            feature_defs: vec![FeatureDef {
-                name: "feature".into(),
-                doc: "simple feature with one property".into(),
-                default: None,
-                props: vec![prop.clone()],
-            }],
-            ..Default::default()
-        };
+        let mut fm = get_one_prop_feature_manifest(vec![], vec![], &prop);
         fm.validate_prop_defaults(&prop)?;
         prop.default = json!(100);
         fm.feature_defs[0].props[0] = prop.clone();
@@ -792,15 +804,7 @@ mod unit_tests {
             typ: TypeRef::Int,
             default: json!(100),
         };
-        let mut fm: FeatureManifest = FeatureManifest {
-            feature_defs: vec![FeatureDef {
-                name: "feature".into(),
-                doc: "simple feature with one property".into(),
-                default: None,
-                props: vec![prop.clone()],
-            }],
-            ..Default::default()
-        };
+        let mut fm = get_one_prop_feature_manifest(vec![], vec![], &prop);
         fm.validate_prop_defaults(&prop)?;
         prop.default = json!("100");
         fm.feature_defs[0].props[0] = prop.clone();
@@ -817,15 +821,7 @@ mod unit_tests {
             typ: TypeRef::Boolean,
             default: json!(true),
         };
-        let mut fm: FeatureManifest = FeatureManifest {
-            feature_defs: vec![FeatureDef {
-                name: "feature".into(),
-                doc: "simple feature with one property".into(),
-                default: None,
-                props: vec![prop.clone()],
-            }],
-            ..Default::default()
-        };
+        let mut fm = get_one_prop_feature_manifest(vec![], vec![], &prop);
         fm.validate_prop_defaults(&prop)?;
         prop.default = json!("100");
         fm.feature_defs[0].props[0] = prop.clone();
@@ -842,15 +838,7 @@ mod unit_tests {
             typ: TypeRef::BundleImage("Icon".into()),
             default: json!("IconBlue"),
         };
-        let mut fm: FeatureManifest = FeatureManifest {
-            feature_defs: vec![FeatureDef {
-                name: "feature".into(),
-                doc: "simple feature with one property".into(),
-                default: None,
-                props: vec![prop.clone()],
-            }],
-            ..Default::default()
-        };
+        let mut fm = get_one_prop_feature_manifest(vec![], vec![], &prop);
         fm.validate_prop_defaults(&prop)?;
         prop.default = json!(100);
         fm.feature_defs[0].props[0] = prop.clone();
@@ -868,15 +856,7 @@ mod unit_tests {
             typ: TypeRef::BundleText("Text".into()),
             default: json!("BundledText"),
         };
-        let mut fm: FeatureManifest = FeatureManifest {
-            feature_defs: vec![FeatureDef {
-                name: "feature".into(),
-                doc: "simple feature with one property".into(),
-                default: None,
-                props: vec![prop.clone()],
-            }],
-            ..Default::default()
-        };
+        let mut fm = get_one_prop_feature_manifest(vec![], vec![], &prop);
         fm.validate_prop_defaults(&prop)?;
         prop.default = json!(100);
         fm.feature_defs[0].props[0] = prop.clone();
@@ -894,15 +874,7 @@ mod unit_tests {
             typ: TypeRef::Option(Box::new(TypeRef::Boolean)),
             default: json!(null),
         };
-        let mut fm: FeatureManifest = FeatureManifest {
-            feature_defs: vec![FeatureDef {
-                name: "feature".into(),
-                doc: "simple feature with one property".into(),
-                default: None,
-                props: vec![prop.clone()],
-            }],
-            ..Default::default()
-        };
+        let mut fm = get_one_prop_feature_manifest(vec![], vec![], &prop);
         fm.validate_prop_defaults(&prop)?;
         prop.default = json!(100);
         fm.feature_defs[0].props[0] = prop.clone();
@@ -916,19 +888,11 @@ mod unit_tests {
     fn test_validate_prop_defaults_nested_options() -> Result<()> {
         let prop = PropDef {
             name: "key".into(),
-            doc: "simple string property".into(),
+            doc: "nested boolean optional property".into(),
             typ: TypeRef::Option(Box::new(TypeRef::Option(Box::new(TypeRef::Boolean)))),
             default: json!(true),
         };
-        let fm: FeatureManifest = FeatureManifest {
-            feature_defs: vec![FeatureDef {
-                name: "feature".into(),
-                doc: "simple feature with one property".into(),
-                default: None,
-                props: vec![prop.clone()],
-            }],
-            ..Default::default()
-        };
+        let fm = get_one_prop_feature_manifest(vec![], vec![], &prop);
         fm.validate_prop_defaults(&prop)
             .expect_err("Should error out since we have a nested option");
         Ok(())
@@ -938,19 +902,11 @@ mod unit_tests {
     fn test_validate_prop_defaults_option_non_null() -> Result<()> {
         let mut prop = PropDef {
             name: "key".into(),
-            doc: "simple string property".into(),
+            doc: "optional boolean property".into(),
             typ: TypeRef::Option(Box::new(TypeRef::Boolean)),
             default: json!(true),
         };
-        let mut fm: FeatureManifest = FeatureManifest {
-            feature_defs: vec![FeatureDef {
-                name: "feature".into(),
-                doc: "simple feature with one property".into(),
-                default: None,
-                props: vec![prop.clone()],
-            }],
-            ..Default::default()
-        };
+        let mut fm = get_one_prop_feature_manifest(vec![], vec![], &prop);
         fm.validate_prop_defaults(&prop)?;
         prop.default = json!(100);
         fm.feature_defs[0].props[0] = prop.clone();
@@ -964,33 +920,25 @@ mod unit_tests {
     fn test_validate_prop_defaults_enum() -> Result<()> {
         let mut prop = PropDef {
             name: "key".into(),
-            doc: "simple string property".into(),
+            doc: "enum property".into(),
             typ: TypeRef::Enum("ButtonColor".into()),
             default: json!("blue"),
         };
-        let mut fm: FeatureManifest = FeatureManifest {
-            enum_defs: vec![EnumDef {
-                name: "ButtonColor".into(),
-                variants: vec![
-                    VariantDef {
-                        name: "blue".into(),
-                        ..Default::default()
-                    },
-                    VariantDef {
-                        name: "green".into(),
-                        ..Default::default()
-                    },
-                ],
-                ..Default::default()
-            }],
-            feature_defs: vec![FeatureDef {
-                name: "feature".into(),
-                doc: "simple feature with one property".into(),
-                default: None,
-                props: vec![prop.clone()],
-            }],
+        let enum_defs = vec![EnumDef {
+            name: "ButtonColor".into(),
+            variants: vec![
+                VariantDef {
+                    name: "blue".into(),
+                    ..Default::default()
+                },
+                VariantDef {
+                    name: "green".into(),
+                    ..Default::default()
+                },
+            ],
             ..Default::default()
-        };
+        }];
+        let mut fm = get_one_prop_feature_manifest(vec![], enum_defs, &prop);
         fm.validate_prop_defaults(&prop)?;
         prop.default = json!("green");
         fm.feature_defs[0].props[0] = prop.clone();
@@ -1011,7 +959,7 @@ mod unit_tests {
     fn test_validate_prop_defaults_enum_map() -> Result<()> {
         let mut prop = PropDef {
             name: "key".into(),
-            doc: "simple string property".into(),
+            doc: "enum map property".into(),
             typ: TypeRef::EnumMap(
                 Box::new(TypeRef::Enum("ButtonColor".into())),
                 Box::new(TypeRef::Int),
@@ -1021,29 +969,21 @@ mod unit_tests {
                 "green": 22,
             }),
         };
-        let mut fm: FeatureManifest = FeatureManifest {
-            enum_defs: vec![EnumDef {
-                name: "ButtonColor".into(),
-                variants: vec![
-                    VariantDef {
-                        name: "blue".into(),
-                        ..Default::default()
-                    },
-                    VariantDef {
-                        name: "green".into(),
-                        ..Default::default()
-                    },
-                ],
-                ..Default::default()
-            }],
-            feature_defs: vec![FeatureDef {
-                name: "feature".into(),
-                doc: "simple feature with one property".into(),
-                default: None,
-                props: vec![prop.clone()],
-            }],
+        let enum_defs = vec![EnumDef {
+            name: "ButtonColor".into(),
+            variants: vec![
+                VariantDef {
+                    name: "blue".into(),
+                    ..Default::default()
+                },
+                VariantDef {
+                    name: "green".into(),
+                    ..Default::default()
+                },
+            ],
             ..Default::default()
-        };
+        }];
+        let mut fm = get_one_prop_feature_manifest(vec![], enum_defs, &prop);
         fm.validate_prop_defaults(&prop)?;
         prop.default = json!({
             "blue": 1,
@@ -1065,22 +1005,14 @@ mod unit_tests {
     fn test_validate_prop_defaults_string_map() -> Result<()> {
         let mut prop = PropDef {
             name: "key".into(),
-            doc: "simple string property".into(),
+            doc: "string map property".into(),
             typ: TypeRef::StringMap(Box::new(TypeRef::Int)),
             default: json!({
                 "blue": 1,
                 "green": 22,
             }),
         };
-        let mut fm: FeatureManifest = FeatureManifest {
-            feature_defs: vec![FeatureDef {
-                name: "feature".into(),
-                doc: "simple feature with one property".into(),
-                default: None,
-                props: vec![prop.clone()],
-            }],
-            ..Default::default()
-        };
+        let mut fm = get_one_prop_feature_manifest(vec![], vec![], &prop);
         fm.validate_prop_defaults(&prop)?;
         prop.default = json!({
             "blue": 1,
@@ -1102,19 +1034,11 @@ mod unit_tests {
     fn test_validate_prop_defaults_list() -> Result<()> {
         let mut prop = PropDef {
             name: "key".into(),
-            doc: "simple string property".into(),
+            doc: "list property".into(),
             typ: TypeRef::List(Box::new(TypeRef::Int)),
             default: json!([1, 3, 100]),
         };
-        let mut fm: FeatureManifest = FeatureManifest {
-            feature_defs: vec![FeatureDef {
-                name: "feature".into(),
-                doc: "simple feature with one property".into(),
-                default: None,
-                props: vec![prop.clone()],
-            }],
-            ..Default::default()
-        };
+        let mut fm = get_one_prop_feature_manifest(vec![], vec![], &prop);
         fm.validate_prop_defaults(&prop)?;
         prop.default = json!([1, 2, "oops"]);
         fm.feature_defs[0].props[0] = prop.clone();
@@ -1143,90 +1067,82 @@ mod unit_tests {
                 "optional": 2,
             }),
         };
-        let mut fm: FeatureManifest = FeatureManifest {
-            obj_defs: vec![
-                ObjectDef {
-                    name: "SampleObj".into(),
-                    props: vec![
-                        PropDef {
-                            name: "int".into(),
-                            typ: TypeRef::Int,
-                            doc: "".into(),
-                            // defaults defined in ObjectDefs are not used
-                            default: json!(null),
-                        },
-                        PropDef {
-                            name: "string".into(),
-                            typ: TypeRef::String,
-                            doc: "".into(),
-                            // defaults defined in ObjectDefs are not used
-                            default: json!(null),
-                        },
-                        PropDef {
-                            name: "enum".into(),
-                            typ: TypeRef::Enum("ButtonColor".into()),
-                            doc: "".into(),
-                            // defaults defined in ObjectDefs are not used
-                            default: json!(null),
-                        },
-                        PropDef {
-                            name: "list".into(),
-                            typ: TypeRef::List(Box::new(TypeRef::Boolean)),
-                            doc: "".into(),
-                            // defaults defined in ObjectDefs are not used
-                            default: json!(null),
-                        },
-                        PropDef {
-                            name: "optional".into(),
-                            typ: TypeRef::Option(Box::new(TypeRef::Int)),
-                            doc: "".into(),
-                            default: json!(null),
-                        },
-                        PropDef {
-                            name: "nestedObj".into(),
-                            typ: TypeRef::Object("NestedObject".into()),
-                            doc: "".into(),
-                            default: json!(null),
-                        },
-                    ],
-                    ..Default::default()
-                },
-                ObjectDef {
-                    name: "NestedObject".into(),
-                    props: vec![PropDef {
-                        name: "enumMap".into(),
-                        typ: TypeRef::EnumMap(
-                            Box::new(TypeRef::Enum("ButtonColor".into())),
-                            Box::new(TypeRef::Int),
-                        ),
+        let obj_defs = vec![
+            ObjectDef {
+                name: "SampleObj".into(),
+                props: vec![
+                    PropDef {
+                        name: "int".into(),
+                        typ: TypeRef::Int,
+                        doc: "".into(),
+                        // defaults defined in ObjectDefs are not used
+                        default: json!(null),
+                    },
+                    PropDef {
+                        name: "string".into(),
+                        typ: TypeRef::String,
+                        doc: "".into(),
+                        // defaults defined in ObjectDefs are not used
+                        default: json!(null),
+                    },
+                    PropDef {
+                        name: "enum".into(),
+                        typ: TypeRef::Enum("ButtonColor".into()),
+                        doc: "".into(),
+                        // defaults defined in ObjectDefs are not used
+                        default: json!(null),
+                    },
+                    PropDef {
+                        name: "list".into(),
+                        typ: TypeRef::List(Box::new(TypeRef::Boolean)),
+                        doc: "".into(),
+                        // defaults defined in ObjectDefs are not used
+                        default: json!(null),
+                    },
+                    PropDef {
+                        name: "optional".into(),
+                        typ: TypeRef::Option(Box::new(TypeRef::Int)),
                         doc: "".into(),
                         default: json!(null),
-                    }],
-                    ..Default::default()
-                },
-            ],
-            enum_defs: vec![EnumDef {
-                name: "ButtonColor".into(),
-                variants: vec![
-                    VariantDef {
-                        name: "blue".into(),
-                        ..Default::default()
                     },
-                    VariantDef {
-                        name: "green".into(),
-                        ..Default::default()
+                    PropDef {
+                        name: "nestedObj".into(),
+                        typ: TypeRef::Object("NestedObject".into()),
+                        doc: "".into(),
+                        default: json!(null),
                     },
                 ],
                 ..Default::default()
-            }],
-            feature_defs: vec![FeatureDef {
-                name: "feature".into(),
-                doc: "simple feature with one property".into(),
-                default: None,
-                props: vec![prop.clone()],
-            }],
+            },
+            ObjectDef {
+                name: "NestedObject".into(),
+                props: vec![PropDef {
+                    name: "enumMap".into(),
+                    typ: TypeRef::EnumMap(
+                        Box::new(TypeRef::Enum("ButtonColor".into())),
+                        Box::new(TypeRef::Int),
+                    ),
+                    doc: "".into(),
+                    default: json!(null),
+                }],
+                ..Default::default()
+            },
+        ];
+        let enum_defs = vec![EnumDef {
+            name: "ButtonColor".into(),
+            variants: vec![
+                VariantDef {
+                    name: "blue".into(),
+                    ..Default::default()
+                },
+                VariantDef {
+                    name: "green".into(),
+                    ..Default::default()
+                },
+            ],
             ..Default::default()
-        };
+        }];
+        let mut fm = get_one_prop_feature_manifest(obj_defs, enum_defs, &prop);
         fm.validate_prop_defaults(&prop)?;
         prop.default = json!({
             "int": 1,
@@ -1290,6 +1206,39 @@ mod unit_tests {
         });
         fm.feature_defs[0].props[0] = prop.clone();
         // OK, because we are missing `optional` which is optional anyways
+        fm.validate_prop_defaults(&prop)?;
+        Ok(())
+    }
+
+    #[test]
+    fn test_validate_prop_defaults_enum_map_optional() -> Result<()> {
+        let prop = PropDef {
+            name: "key".into(),
+            doc: "enum map property".into(),
+            typ: TypeRef::EnumMap(
+                Box::new(TypeRef::Enum("ButtonColor".into())),
+                Box::new(TypeRef::Option(Box::new(TypeRef::Int))),
+            ),
+            default: json!({
+                "blue": 1,
+            }),
+        };
+        let enum_defs = vec![EnumDef {
+            name: "ButtonColor".into(),
+            variants: vec![
+                VariantDef {
+                    name: "blue".into(),
+                    ..Default::default()
+                },
+                VariantDef {
+                    name: "green".into(),
+                    ..Default::default()
+                },
+            ],
+            ..Default::default()
+        }];
+        let fm = get_one_prop_feature_manifest(vec![], enum_defs, &prop);
+        // OK because the value is optional, and thus it's okay if it's missing (green is missing from the default)
         fm.validate_prop_defaults(&prop)?;
         Ok(())
     }
