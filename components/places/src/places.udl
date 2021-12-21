@@ -335,7 +335,7 @@ enum BookmarkType {
 
 dictionary BookmarkData {
     Guid guid;
-    Guid? parent_guid;
+    Guid parent_guid;
     u32 position;
     Timestamp date_added;
     Timestamp last_modified;
@@ -347,7 +347,7 @@ dictionary BookmarkSeparator {
     Guid guid;
     Timestamp date_added;
     Timestamp last_modified;
-    Guid? parent_guid;
+    Guid parent_guid;
     u32 position;
 };
 
