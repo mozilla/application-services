@@ -16,6 +16,7 @@ mod matcher;
 pub mod persistence;
 mod sampling;
 mod updating;
+pub mod versioning;
 #[cfg(debug_assertions)]
 pub use evaluator::evaluate_enrollment;
 

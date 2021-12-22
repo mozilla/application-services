@@ -51,6 +51,8 @@ pub enum NimbusError {
     BackoffError(u64),
     #[error("Initialization of the database is not yet complete")]
     DatabaseNotReady,
+    #[error("Error parsing a sting into a version {0}")]
+    VersionParsingError(String),
 }
 
 impl<'a> From<jexl_eval::error::EvaluationError<'a>> for NimbusError {
