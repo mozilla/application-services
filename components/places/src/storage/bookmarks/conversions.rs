@@ -3,10 +3,12 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
 use super::{
-    BookmarkPosition, BookmarkTreeNode, BookmarkUpdateInfo, InvalidPlaceInfo, PublicNode,
-    RawBookmark, UpdatableBookmark, UpdatableFolder, UpdatableItem, UpdatableSeparator,
-    UpdateTreeLocation,
+    BookmarkPosition, BookmarkUpdateInfo, InvalidPlaceInfo, PublicNode, RawBookmark,
+    UpdatableBookmark, UpdatableFolder, UpdatableItem, UpdatableSeparator, UpdateTreeLocation,
 };
+
+// Consider moving BookmarkTreeNode conversions to json_tree? Kill PublicNode first?
+use super::json_tree::BookmarkTreeNode;
 
 use crate::error::Result;
 use crate::types::BookmarkType;
