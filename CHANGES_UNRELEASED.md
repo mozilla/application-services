@@ -18,3 +18,9 @@ Use the template below to make assigning a version number during the release cut
   - Description of the change with a link to the pull request ([#0000](https://github.com/mozilla/application-services/pull/0000))
 
 -->
+
+## [viaduct]
+
+### What's New
+
+- Add support for PATCH methods. ([#4751](https://github.com/mozilla/application-services/pull/4751))
