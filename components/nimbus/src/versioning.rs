@@ -37,13 +37,14 @@
 //! in order. `num_a` and `num_c` are compared by normal integer comparison, `str_b` and `extra_b` are compared
 //! by normal byte string comparison.
 //!
-//! ### Special values
+//! ### Special values and cases
 //! There two special characters that can be used in version parts:
 //! 1. The `*`. This can be used to represent the whole version part. If used, it will set the `num_a` to be
 //!     the maximum value possible ([`i32::MAX`]). This can only be used as the whole version part string. It will parsed
 //!     normally as the `*` ascii character if it is preceded or followed by any other characters.
 //! 1. The `+`. This can be used as the `str_b`. Whenever a `+` is used as a `str_b`, it increments the `num_a` by 1 and sets
 //!     the `str_b` to be equal to `pre`. For example, `2+` is the same as `3pre`
+//! 1. An empty `str_b` is always **greater** than a `str_b` with a value. For example, `93` > `93pre`
 //!
 //! ## Example version comparisons
 //! The following comparisons are taken directly from [the brief documentation in Mozilla-Central](https://searchfox.org/mozilla-central/rev/468a65168dd0bc3c7d602211a566c16e66416cce/xpcom/base/nsIVersionComparator.idl#9-31)
@@ -193,11 +194,15 @@ impl TryFrom<String> for Version {
     }
 }
 
-// NOTE: Helper, assumes that idx < value.len
-// will panic otherwise.
-// TODO: make this return a Result so it can be ?ed instead
-fn char_at(value: &str, idx: usize) -> char {
-    value.chars().nth(idx).unwrap()
+fn char_at(value: &str, idx: usize) -> Result<char, NimbusError> {
+    value.chars().nth(idx).ok_or_else(|| {
+        NimbusError::VersionParsingError(format!(
+            "Tried to access character {} in string {}, but it has size {}",
+            idx,
+            value,
+            value.len()
+        ))
+    })
 }
 
 fn is_num_c(c: char) -> bool {
@@ -209,7 +214,6 @@ fn is_num_c(c: char) -> bool {
     c.is_numeric() || c == '+' || c == '-'
 }
 
-//
 fn parse_version_num(val: i32, res: &mut i32) -> Result<(), NimbusError> {
     if *res == 0 {
         *res = val;
@@ -251,9 +255,9 @@ impl TryFrom<&'_ str> for VersionPart {
         // Step 1: Parse the num_a, it's guaranteed to be
         // a base-10 number, if it exists
         let mut curr_idx = 0;
-        while curr_idx < value.len() && char_at(value, curr_idx).is_numeric() {
+        while curr_idx < value.len() && char_at(value, curr_idx)?.is_numeric() {
             parse_version_num(
-                char_at(value, curr_idx).to_digit(10).unwrap() as i32,
+                char_at(value, curr_idx)?.to_digit(10).unwrap() as i32,
                 &mut res.num_a,
             )?;
             curr_idx += 1;
@@ -263,7 +267,7 @@ impl TryFrom<&'_ str> for VersionPart {
         }
         // Step 2: Parse the str_b. If str_b starts with a "+"
         // then we increment num_a, and set str_b to be "pre"
-        let first_char = char_at(value, curr_idx);
+        let first_char = char_at(value, curr_idx)?;
         if first_char == '+' {
             res.num_a += 1;
             res.str_b = "pre".into();
@@ -271,8 +275,8 @@ impl TryFrom<&'_ str> for VersionPart {
         }
         // otherwise, we parse until we either finish the string
         // or we find a numeric number, indicating the start of num_c
-        while curr_idx < value.len() && !is_num_c(char_at(value, curr_idx)) {
-            res.str_b.push(char_at(value, curr_idx));
+        while curr_idx < value.len() && !is_num_c(char_at(value, curr_idx)?) {
+            res.str_b.push(char_at(value, curr_idx)?);
             curr_idx += 1;
         }
 
@@ -281,9 +285,9 @@ impl TryFrom<&'_ str> for VersionPart {
         }
 
         // Step 3: Parse the num_c, similar to how we parsed num_a
-        while curr_idx < value.len() && char_at(value, curr_idx).is_numeric() {
+        while curr_idx < value.len() && char_at(value, curr_idx)?.is_numeric() {
             parse_version_num(
-                char_at(value, curr_idx).to_digit(10).unwrap() as i32,
+                char_at(value, curr_idx)?.to_digit(10).unwrap() as i32,
                 &mut res.num_c,
             )?;
             curr_idx += 1;
@@ -303,7 +307,7 @@ mod tests {
     use super::*;
     use crate::Result;
     #[test]
-    fn test_wild_card_to_verion_part() -> Result<()> {
+    fn test_wild_card_to_version_part() -> Result<()> {
         let s = "*";
         let version_part = VersionPart::try_from(s)?;
         assert_eq!(version_part.num_a, i32::MAX);
@@ -314,7 +318,7 @@ mod tests {
     }
 
     #[test]
-    fn test_empty_string_to_verion_part() -> Result<()> {
+    fn test_empty_string_to_version_part() -> Result<()> {
         let s = "";
         let version_part = VersionPart::try_from(s)?;
         assert_eq!(version_part.num_a, 0);
@@ -494,6 +498,16 @@ mod tests {
             },
             v1
         );
+        Ok(())
+    }
+
+    #[test]
+    fn test_exclamation_mark() -> Result<()> {
+        let v1 = Version::try_from("93.!")?;
+        let v2 = Version::try_from("93.1")?;
+        let v3 = Version::try_from("93.0-beta")?;
+        let v4 = Version::try_from("93.alpha")?;
+        assert!(v1 < v2 && v1 < v3 && v1 < v4);
         Ok(())
     }
 }
