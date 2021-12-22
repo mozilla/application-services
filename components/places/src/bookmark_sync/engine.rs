@@ -2158,8 +2158,8 @@ mod tests {
         // Insert two local bookmarks with the same URL A (so they'll have
         // identical tags) and a third with a different URL B, but one same
         // tag as A.
-        let local_bookmarks = &[
-            &InsertableBookmark {
+        let local_bookmarks = vec![
+            InsertableBookmark {
                 parent_guid: BookmarkRootGuid::Unfiled.as_guid(),
                 position: BookmarkPosition::Append,
                 date_added: None,
@@ -2169,7 +2169,7 @@ mod tests {
                 title: Some("A1".into()),
             }
             .into(),
-            &InsertableBookmark {
+            InsertableBookmark {
                 parent_guid: BookmarkRootGuid::Menu.as_guid(),
                 position: BookmarkPosition::Append,
                 date_added: None,
@@ -2179,7 +2179,7 @@ mod tests {
                 title: Some("A2".into()),
             }
             .into(),
-            &InsertableBookmark {
+            InsertableBookmark {
                 parent_guid: BookmarkRootGuid::Unfiled.as_guid(),
                 position: BookmarkPosition::Append,
                 date_added: None,
@@ -2198,7 +2198,7 @@ mod tests {
                 vec!["two", "three", "three", "four"],
             ),
         ];
-        for bm in local_bookmarks {
+        for bm in local_bookmarks.into_iter() {
             insert_bookmark(&writer, bm)?;
         }
         for (url, tags) in local_tags {
@@ -2556,7 +2556,7 @@ mod tests {
         // Insert local item with tagged URL.
         insert_bookmark(
             &writer,
-            &InsertableBookmark {
+            InsertableBookmark {
                 parent_guid: BookmarkRootGuid::Unfiled.as_guid(),
                 position: BookmarkPosition::Append,
                 date_added: None,

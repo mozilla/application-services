@@ -424,7 +424,7 @@ class PlacesWriterConnection internal constructor(conn: UniffiPlacesConnection, 
         } else {
             BookmarkPosition.Specific(position.toUInt())
         }
-        val folder = InsertableBookmarkFolder(parentGuid = parentGUID, position = p, title = title)
+        val folder = InsertableBookmarkFolder(parentGuid = parentGUID, position = p, title = title, children = emptyList())
         return this.doInsert(InsertableBookmarkItem.Folder(folder))
     }
 
