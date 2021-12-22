@@ -6,8 +6,11 @@
 
 use cli_support::fxa_creds::{get_cli_fxa, get_default_fxa_config};
 use places::storage::bookmarks::{
-    fetch_tree, insert_tree, BookmarkNode, BookmarkRootGuid, BookmarkTreeNode, FetchDepth,
-    FolderNode, SeparatorNode,
+    json_tree::{
+        fetch_tree, insert_tree, BookmarkNode, BookmarkTreeNode, FetchDepth, FolderNode,
+        SeparatorNode,
+    },
+    BookmarkRootGuid,
 };
 use places::types::BookmarkType;
 use places::{ConnectionType, PlacesApi, PlacesDb};
