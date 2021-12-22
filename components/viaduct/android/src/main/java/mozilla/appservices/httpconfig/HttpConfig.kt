@@ -22,7 +22,7 @@ sealed class ViaductClientError(msg: String) : Exception(msg)
 /**
  * Error indicating that the request method is not supported.
  */
-class UnsupportedRequestMethodError(method: String) : ViaductClientError("Unsupported HTTP method: $method")
+class UnsupportedRequestMethodError(method: MsgTypes.Request.Method) : ViaductClientError("Unsupported HTTP method: $method")
 
 /**
  * Singleton allowing management of the HTTP backend
