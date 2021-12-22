@@ -30,13 +30,13 @@ pub(crate) mod msg_types {
 pub enum Method {
     Get,
     Head,
-    Patch,
     Post,
     Put,
     Delete,
     Connect,
     Options,
     Trace,
+    Patch,
 }
 
 impl Method {
@@ -44,13 +44,13 @@ impl Method {
         match self {
             Method::Get => "GET",
             Method::Head => "HEAD",
-            Method::Patch => "PATCH",
             Method::Post => "POST",
             Method::Put => "PUT",
             Method::Delete => "DELETE",
             Method::Connect => "CONNECT",
             Method::Options => "OPTIONS",
             Method::Trace => "TRACE",
+            Method::Patch => "PATCH",
         }
     }
 }
