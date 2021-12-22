@@ -411,6 +411,7 @@ dictionary InsertableBookmarkFolder {
     Timestamp? date_added = null;
     Timestamp? last_modified = null;
     string? title = null;
+    sequence<InsertableBookmarkItem> children;
 };
 
 [Enum]

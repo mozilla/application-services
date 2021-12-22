@@ -1671,7 +1671,7 @@ mod tests {
         // add bookmark for the page we have a metadata entry
         bookmarks::insert_bookmark(
             &conn,
-            &InsertableItem::Bookmark {
+            InsertableItem::Bookmark {
                 b: InsertableBookmark {
                     parent_guid: BookmarkRootGuid::Unfiled.into(),
                     position: BookmarkPosition::Append,
@@ -1688,7 +1688,7 @@ mod tests {
         // add another bookmark to the "parent" of our metadata entry
         bookmarks::insert_bookmark(
             &conn,
-            &InsertableItem::Bookmark {
+            InsertableItem::Bookmark {
                 b: InsertableBookmark {
                     parent_guid: BookmarkRootGuid::Unfiled.into(),
                     position: BookmarkPosition::Append,
