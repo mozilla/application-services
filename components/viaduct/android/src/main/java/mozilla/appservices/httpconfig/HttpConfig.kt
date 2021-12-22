@@ -125,6 +125,7 @@ internal fun convertMethod(m: MsgTypes.Request.Method): Request.Method {
         MsgTypes.Request.Method.PUT -> Request.Method.PUT
         MsgTypes.Request.Method.TRACE -> Request.Method.TRACE
         MsgTypes.Request.Method.CONNECT -> Request.Method.CONNECT
+        MsgTypes.Request.Method.PATCH -> Request.Method.PATCH
     }
 }
 
