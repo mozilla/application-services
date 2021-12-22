@@ -2033,7 +2033,7 @@ mod tests {
             if let Some(title) = page.bookmark_title {
                 bookmarks::insert_bookmark(
                     &db,
-                    &InsertableBookmark {
+                    InsertableBookmark {
                         parent_guid: BookmarkRootGuid::Unfiled.into(),
                         position: BookmarkPosition::Append,
                         date_added: None,
@@ -2469,7 +2469,7 @@ mod tests {
         for (guid, url) in &[&b0, &b1, &b2] {
             bookmarks::insert_bookmark(
                 &conn,
-                &InsertableItem::Bookmark {
+                InsertableItem::Bookmark {
                     b: InsertableBookmark {
                         parent_guid: BookmarkRootGuid::Unfiled.into(),
                         position: BookmarkPosition::Append,
@@ -2586,7 +2586,7 @@ mod tests {
 
         bookmarks::insert_bookmark(
             &conn,
-            &InsertableBookmark {
+            InsertableBookmark {
                 parent_guid: BookmarkRootGuid::Unfiled.into(),
                 position: BookmarkPosition::Append,
                 date_added: None,

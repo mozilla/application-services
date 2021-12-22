@@ -108,7 +108,7 @@ fn do_import(db: &PlacesDb, root: BookmarkTreeNode) -> Result<()> {
             }
         };
         println!("importing {:?}", sub_root_folder.guid);
-        insert_tree(db, &sub_root_folder)?
+        insert_tree(db, sub_root_folder)?
     }
     Ok(())
 }

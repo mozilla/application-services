@@ -22,7 +22,7 @@ pub fn insert_json_tree(conn: &PlacesDb, jtree: Value) {
         BookmarkTreeNode::Folder { f: folder_node } => folder_node,
         _ => panic!("must be a folder"),
     };
-    insert_tree(conn, &folder_node).expect("should insert");
+    insert_tree(conn, folder_node).expect("should insert");
 }
 
 pub struct InvalidBookmarkIds {

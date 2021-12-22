@@ -564,7 +564,7 @@ public class PlacesWriteConnection: PlacesReadConnection {
         return try queue.sync {
             try self.checkApi()
             let p = position == nil ? BookmarkPosition.append : BookmarkPosition.specific(pos: position ?? 0)
-            let f = InsertableBookmarkFolder(parentGuid: parentGUID, position: p, title: title)
+            let f = InsertableBookmarkFolder(parentGuid: parentGUID, position: p, title: title, children: [])
             return try doInsert(item: InsertableBookmarkItem.folder(f: f))
         }
     }

@@ -488,7 +488,7 @@ impl PlacesConnection {
     }
 
     fn bookmarks_insert(&self, data: InsertableBookmarkItem) -> Result<Guid> {
-        self.with_conn(|conn| bookmarks::insert_bookmark(conn, &data))
+        self.with_conn(|conn| bookmarks::insert_bookmark(conn, data))
     }
 
     fn bookmarks_update(&self, item: BookmarkUpdateInfo) -> Result<()> {
