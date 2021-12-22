@@ -20,4 +20,7 @@ Use the template below to make assigning a version number during the release cut
 -->
 ## Nimbus
 ### What's new
-  - The Nimbus SDK now support minimum version targeting, where experiment creators can set `app_version|minimum_version({VERSION})` and the experiments will only target users running `VERSION` or higher. ([#4752](https://github.com/mozilla/application-services/pull/4752))
+  - The Nimbus SDK now support application version targeting, where experiment creators can set `app_version|versionCompare({VERSION}) >= 0` and the experiments will only target users running `VERSION` or higher. ([#4752](https://github.com/mozilla/application-services/pull/4752))
+      - The `versionCompare` transform will return a positive number if `app_version` is greater than
+      `VERSION`, a negative number if `app_version` is less than `VERSION` and zero if they are equal
+      - `VERSION` must be passed in as a string, for example: `app_version|versionCompare('95.!') >= 0` will target users who are on any version starting with `95` or above (`95.0`, `95.1`, `95.2.3-beta`, `96` etc..)
