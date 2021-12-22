@@ -30,6 +30,7 @@ pub(crate) mod msg_types {
 pub enum Method {
     Get,
     Head,
+    Patch,
     Post,
     Put,
     Delete,
@@ -43,6 +44,7 @@ impl Method {
         match self {
             Method::Get => "GET",
             Method::Head => "HEAD",
+            Method::Patch => "PATCH",
             Method::Post => "POST",
             Method::Put => "PUT",
             Method::Delete => "DELETE",
@@ -87,6 +89,11 @@ impl Request {
     /// Alias for `Request::new(Method::Get, url)`, for convenience.
     pub fn get(url: Url) -> Self {
         Self::new(Method::Get, url)
+    }
+
+    /// Alias for `Request::new(Method::Patch, url)`, for convenience.
+    pub fn patch(url: Url) -> Self {
+        Self::new(Method::Patch, url)
     }
 
     /// Alias for `Request::new(Method::Post, url)`, for convenience.

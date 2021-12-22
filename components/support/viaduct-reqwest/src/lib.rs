@@ -40,6 +40,7 @@ fn into_reqwest(request: viaduct::Request) -> Result<reqwest::blocking::Request,
     let method = match request.method {
         viaduct::Method::Get => reqwest::Method::GET,
         viaduct::Method::Head => reqwest::Method::HEAD,
+        viaduct::Method::Patch => reqwest::Method::PATCH,
         viaduct::Method::Post => reqwest::Method::POST,
         viaduct::Method::Put => reqwest::Method::PUT,
         viaduct::Method::Delete => reqwest::Method::DELETE,
