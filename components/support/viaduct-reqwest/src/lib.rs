@@ -46,6 +46,7 @@ fn into_reqwest(request: viaduct::Request) -> Result<reqwest::blocking::Request,
         viaduct::Method::Connect => reqwest::Method::CONNECT,
         viaduct::Method::Options => reqwest::Method::OPTIONS,
         viaduct::Method::Trace => reqwest::Method::TRACE,
+        viaduct::Method::Patch => reqwest::Method::PATCH,
     };
     let mut result = reqwest::blocking::Request::new(method, request.url);
     for h in request.headers {

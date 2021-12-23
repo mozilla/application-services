@@ -18,6 +18,10 @@ Use the template below to make assigning a version number during the release cut
   - Description of the change with a link to the pull request ([#0000](https://github.com/mozilla/application-services/pull/0000))
 
 -->
+## viaduct
+### What's New
+- Add support for PATCH methods. ([#4751](https://github.com/mozilla/application-services/pull/4751))
+
 ## Nimbus
 ### What's new
   - The Nimbus SDK now support application version targeting, where experiment creators can set `app_version|versionCompare({VERSION}) >= 0` and the experiments will only target users running `VERSION` or higher. ([#4752](https://github.com/mozilla/application-services/pull/4752))
