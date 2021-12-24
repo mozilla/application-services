@@ -46,10 +46,11 @@ use crate::storage::bookmarks::InsertableBookmark;
 
 use crate::storage::bookmarks::BookmarkUpdateInfo;
 
-type BookmarkItem = crate::storage::bookmarks::Item;
-type BookmarkFolder = crate::storage::bookmarks::Folder;
-type BookmarkSeparator = crate::storage::bookmarks::Separator;
-use crate::storage::bookmarks::BookmarkData;
+// And types used when fetching items.
+type BookmarkItem = crate::storage::bookmarks::fetch::Item;
+type BookmarkFolder = crate::storage::bookmarks::fetch::Folder;
+type BookmarkSeparator = crate::storage::bookmarks::fetch::Separator;
+use crate::storage::bookmarks::fetch::BookmarkData;
 
 impl UniffiCustomTypeWrapper for Url {
     type Wrapped = String;
@@ -427,10 +428,7 @@ impl PlacesConnection {
     }
 
     fn bookmarks_get_tree(&self, item_guid: &Guid) -> Result<Option<BookmarkItem>> {
-        self.with_conn(|conn| {
-            let node = bookmarks::public_node::fetch_public_tree(conn, item_guid)?;
-            Ok(node.map(BookmarkItem::from))
-        })
+        self.with_conn(|conn| bookmarks::fetch::fetch_tree(conn, item_guid))
     }
 
     fn bookmarks_get_by_guid(
@@ -439,39 +437,40 @@ impl PlacesConnection {
         get_direct_children: bool,
     ) -> Result<Option<BookmarkItem>> {
         self.with_conn(|conn| {
-            let bookmark = bookmarks::public_node::fetch_bookmark(conn, guid, get_direct_children)?;
+            let bookmark = bookmarks::fetch::fetch_bookmark(conn, guid, get_direct_children)?;
             Ok(bookmark.map(BookmarkItem::from))
         })
     }
 
     fn bookmarks_get_all_with_url(&self, url: Url) -> Result<Vec<BookmarkItem>> {
         self.with_conn(|conn| {
-            let bookmarks = bookmarks::public_node::fetch_bookmarks_by_url(conn, &url)?
+            // XXX - We should return the exact type - ie, BookmarkData rather than BookmarkItem.
+            Ok(bookmarks::fetch::fetch_bookmarks_by_url(conn, &url)?
                 .into_iter()
-                .map(BookmarkItem::from)
-                .collect();
-            Ok(bookmarks)
+                .map(|b| BookmarkItem::Bookmark { b })
+                .collect())
         })
     }
 
     fn bookmarks_search(&self, query: String, limit: i32) -> Result<Vec<BookmarkItem>> {
         self.with_conn(|conn| {
-            let bookmarks =
-                bookmarks::public_node::search_bookmarks(conn, query.as_str(), limit as u32)?
+            // XXX - We should return the exact type - ie, BookmarkData rather than BookmarkItem.
+            Ok(
+                bookmarks::fetch::search_bookmarks(conn, query.as_str(), limit as u32)?
                     .into_iter()
-                    .map(BookmarkItem::from)
-                    .collect();
-            Ok(bookmarks)
+                    .map(|b| BookmarkItem::Bookmark { b })
+                    .collect(),
+            )
         })
     }
 
     fn bookmarks_get_recent(&self, limit: i32) -> Result<Vec<BookmarkItem>> {
         self.with_conn(|conn| {
-            let bookmarks = bookmarks::public_node::recent_bookmarks(conn, limit as u32)?
+            // XXX - We should return the exact type - ie, BookmarkData rather than BookmarkItem.
+            Ok(bookmarks::fetch::recent_bookmarks(conn, limit as u32)?
                 .into_iter()
-                .map(BookmarkItem::from)
-                .collect();
-            Ok(bookmarks)
+                .map(|b| BookmarkItem::Bookmark { b })
+                .collect())
         })
     }
 
