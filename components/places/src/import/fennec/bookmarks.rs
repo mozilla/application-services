@@ -10,12 +10,13 @@ use crate::bookmark_sync::{
 use crate::db::db::PlacesDb;
 use crate::error::*;
 use crate::import::common::{attached_database, ExecuteOnDrop};
-use crate::storage::bookmarks::{bookmark_sync::create_synced_bookmark_roots, PublicNode};
-use crate::types::{BookmarkType, SyncStatus};
+use crate::storage::bookmarks::{bookmark_sync::create_synced_bookmark_roots, fetch::BookmarkData};
+use crate::types::SyncStatus;
 use rusqlite::NO_PARAMS;
 use serde_derive::*;
 use sql_support::ConnExt;
 use std::time::Instant;
+use sync_guid::Guid;
 use url::Url;
 
 // Fennec's bookmarks schema didn't meaningfully change since 17, so this could go as low as that version.
@@ -48,7 +49,7 @@ pub fn import(
 pub fn import_pinned_sites(
     places_api: &PlacesApi,
     path: impl AsRef<std::path::Path>,
-) -> Result<Vec<PublicNode>> {
+) -> Result<Vec<BookmarkData>> {
     let url = crate::util::ensure_url_path(path)?;
     do_pinned_sites_import(places_api, url)
 }
@@ -159,7 +160,7 @@ fn do_import(places_api: &PlacesApi, fennec_db_file_url: Url) -> Result<Bookmark
 fn do_pinned_sites_import(
     places_api: &PlacesApi,
     fennec_db_file_url: Url,
-) -> Result<Vec<PublicNode>> {
+) -> Result<Vec<BookmarkData>> {
     let conn_mutex = places_api.get_sync_connection()?;
     let conn = conn_mutex.lock();
     let scope = conn.begin_interrupt_scope();
@@ -177,11 +178,13 @@ fn do_pinned_sites_import(
     log::debug!("Fetching pinned websites");
     // Grab the pinned websites (they are stored as bookmarks).
     let mut stmt = conn.prepare(&FETCH_PINNED)?;
-    let pinned_rows = stmt.query_map(NO_PARAMS, public_node_from_fennec_pinned)?;
+    let pinned_rows = stmt.query_map(NO_PARAMS, bookmark_data_from_fennec_pinned)?;
     scope.err_if_interrupted()?;
     let mut pinned = Vec::new();
     for row in pinned_rows {
-        pinned.push(row?);
+        if let Some(bm) = row? {
+            pinned.push(bm);
+        }
     }
 
     log::info!("Successfully fetched pinned websites");
@@ -412,22 +415,26 @@ lazy_static::lazy_static! {
     ;
 }
 
-fn public_node_from_fennec_pinned(
+fn bookmark_data_from_fennec_pinned(
     row: &rusqlite::Row<'_>,
-) -> std::result::Result<PublicNode, rusqlite::Error> {
-    Ok(PublicNode {
-        node_type: BookmarkType::Bookmark,
+) -> std::result::Result<Option<BookmarkData>, rusqlite::Error> {
+    let url = match row
+        .get::<_, Option<String>>("url")?
+        .and_then(|s| Url::parse(&s).ok())
+    {
+        None => return Ok(None),
+        Some(url) => url,
+    };
+
+    Ok(Some(BookmarkData {
         guid: row.get::<_, String>("guid")?.into(),
-        parent_guid: None,
+        parent_guid: Guid::empty(),
         position: row.get("position")?,
         date_added: row.get("created")?,
         last_modified: row.get("modified")?,
         title: row.get::<_, Option<String>>("title")?,
-        url: row
-            .get::<_, Option<String>>("url")?
-            .and_then(|s| Url::parse(&s).ok()),
-        ..Default::default()
-    })
+        url,
+    }))
 }
 
 mod sql_fns {

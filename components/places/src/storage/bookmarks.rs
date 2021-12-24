@@ -22,12 +22,11 @@ use sync_guid::Guid as SyncGuid;
 use types::Timestamp;
 use url::Url;
 
-pub use public_node::PublicNode;
 pub use root_guid::{BookmarkRootGuid, USER_CONTENT_ROOTS};
 
 mod conversions;
+pub mod fetch;
 pub mod json_tree;
-pub mod public_node;
 mod root_guid;
 
 fn create_root(
@@ -468,133 +467,6 @@ pub enum UpdateTreeLocation {
 impl Default for UpdateTreeLocation {
     fn default() -> Self {
         UpdateTreeLocation::None
-    }
-}
-
-#[derive(Debug, Clone)]
-pub struct BookmarkData {
-    pub guid: SyncGuid,
-    pub parent_guid: SyncGuid,
-    pub position: u32,
-    pub date_added: Timestamp,
-    pub last_modified: Timestamp,
-    pub url: Url,
-    pub title: Option<String>,
-}
-
-impl From<BookmarkData> for Item {
-    fn from(b: BookmarkData) -> Self {
-        Item::Bookmark { b }
-    }
-}
-
-#[derive(Debug, Clone)]
-pub struct Separator {
-    pub guid: SyncGuid,
-    pub date_added: Timestamp,
-    pub last_modified: Timestamp,
-    pub parent_guid: SyncGuid,
-    pub position: u32,
-}
-
-impl From<Separator> for Item {
-    fn from(s: Separator) -> Self {
-        Item::Separator { s }
-    }
-}
-
-#[derive(Debug, Clone, Default)]
-pub struct Folder {
-    pub guid: SyncGuid,
-    pub date_added: Timestamp,
-    pub last_modified: Timestamp,
-    pub parent_guid: Option<SyncGuid>, // Option because the root is a folder but has no parent.
-    // Always 0 if parent_guid is None
-    pub position: u32,
-    pub title: Option<String>,
-    // Depending on the specific API request, either, both, or none of these `child_*` vecs
-    // will be populated.
-    pub child_guids: Option<Vec<SyncGuid>>,
-    pub child_nodes: Option<Vec<Item>>,
-}
-
-impl From<Folder> for Item {
-    fn from(f: Folder) -> Self {
-        Item::Folder { f }
-    }
-}
-
-// The type used to update the actual item.
-#[derive(Debug, Clone)]
-pub enum Item {
-    Bookmark { b: BookmarkData },
-    Separator { s: Separator },
-    Folder { f: Folder },
-}
-
-impl Item {
-    pub fn guid(&self) -> &SyncGuid {
-        match self {
-            Item::Bookmark { b } => &b.guid,
-            Item::Folder { f } => &f.guid,
-            Item::Separator { s } => &s.guid,
-        }
-    }
-}
-
-impl From<PublicNode> for Item {
-    fn from(n: PublicNode) -> Self {
-        match n.node_type {
-            BookmarkType::Bookmark => Item::Bookmark {
-                b: BookmarkData {
-                    guid: n.guid,
-                    parent_guid: n.parent_guid.expect("bookmarks must have parents"),
-                    position: n.position,
-                    date_added: n.date_added,
-                    last_modified: n.last_modified,
-                    // We can assume that the URL for an existing bookmark is populated
-                    // but we're covering the None case for the sake of the conversion.
-                    url: n.url.expect("bookmark to have a url"),
-                    title: n.title,
-                },
-            },
-            BookmarkType::Separator => Item::Separator {
-                s: Separator {
-                    guid: n.guid,
-                    date_added: n.date_added,
-                    last_modified: n.last_modified,
-                    parent_guid: n.parent_guid.expect("seps must have parents"),
-                    position: n.position,
-                },
-            },
-            BookmarkType::Folder => {
-                let child_nodes = n
-                    .child_nodes
-                    .clone()
-                    .map(|cn| cn.into_iter().map(Item::from).collect());
-
-                let child_guids: Option<Vec<SyncGuid>> =
-                    if n.child_guids.is_none() && child_nodes.is_some() {
-                        n.child_nodes
-                            .map(|cn| cn.into_iter().map(|n| n.guid).collect())
-                    } else {
-                        n.child_guids
-                    };
-
-                Item::Folder {
-                    f: Folder {
-                        guid: n.guid,
-                        date_added: n.date_added,
-                        last_modified: n.last_modified,
-                        parent_guid: n.parent_guid,
-                        position: n.position,
-                        title: n.title,
-                        child_guids,
-                        child_nodes,
-                    },
-                }
-            }
-        }
     }
 }
 
