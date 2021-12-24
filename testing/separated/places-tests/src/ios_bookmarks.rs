@@ -6,7 +6,7 @@ use dogear::Guid;
 use places::{
     api::places_api::{ConnectionType, PlacesApi},
     import::ios_bookmarks::IosBookmarkType,
-    storage::bookmarks,
+    storage::bookmarks::{self, fetch::Item},
     Result,
 };
 use rusqlite::Connection;
@@ -378,22 +378,28 @@ fn test_import_basic() -> Result<()> {
 
     let places_db = places_api.open_connection(ConnectionType::ReadOnly)?;
 
-    let sep =
-        bookmarks::public_node::fetch_bookmark(&places_db, &sync_guid(&sep_id), false)?.unwrap();
-    assert_eq!(sep.node_type, places::BookmarkType::Separator);
+    assert!(matches!(
+        bookmarks::fetch::fetch_bookmark(&places_db, &sync_guid(&sep_id), false)?.unwrap(),
+        Item::Separator { .. }
+    ));
 
     let bmk =
-        bookmarks::public_node::fetch_bookmark(&places_db, &sync_guid(&bmk_id), false)?.unwrap();
-    assert_eq!(bmk.node_type, places::BookmarkType::Bookmark);
+        match bookmarks::fetch::fetch_bookmark(&places_db, &sync_guid(&bmk_id), false)?.unwrap() {
+            Item::Bookmark { b } => b,
+            _ => panic!("expecting a bookmark"),
+        };
     assert_eq!(
         bmk.url,
-        Some(url::Url::parse("https://www.example.com/123").unwrap())
+        url::Url::parse("https://www.example.com/123").unwrap()
     );
-    assert_eq!(bmk.parent_guid, Some(sync_guid(&folder_id)));
+    assert_eq!(bmk.parent_guid, sync_guid(&folder_id));
 
-    let fld =
-        bookmarks::public_node::fetch_bookmark(&places_db, &sync_guid(&folder_id), false)?.unwrap();
-    assert_eq!(fld.node_type, places::BookmarkType::Folder);
+    let fld = match bookmarks::fetch::fetch_bookmark(&places_db, &sync_guid(&folder_id), false)?
+        .unwrap()
+    {
+        Item::Folder { f } => f,
+        _ => panic!("expecting a folder"),
+    };
     assert_eq!(fld.child_guids, Some(vec![sync_guid(&bmk_id)]));
 
     Ok(())
@@ -437,37 +443,51 @@ fn test_import_with_local() -> Result<()> {
     let places_db = places_api.open_connection(ConnectionType::ReadOnly)?;
 
     let bmk0 =
-        bookmarks::public_node::fetch_bookmark(&places_db, &sync_guid(&b0id), false)?.unwrap();
-    assert_eq!(bmk0.node_type, places::BookmarkType::Bookmark);
-    assert_eq!(bmk0.parent_guid, Some(sync_guid(&dogear::MOBILE_GUID)));
+        match bookmarks::fetch::fetch_bookmark(&places_db, &sync_guid(&b0id), false)?.unwrap() {
+            Item::Bookmark { b } => b,
+            _ => panic!("expecting a bookmark"),
+        };
+    assert_eq!(bmk0.parent_guid, sync_guid(&dogear::MOBILE_GUID));
     assert_eq!(
         bmk0.url,
-        Some(url::Url::parse("https://www.example.com/123").unwrap())
+        url::Url::parse("https://www.example.com/123").unwrap()
     );
 
     let bmk1 =
-        bookmarks::public_node::fetch_bookmark(&places_db, &sync_guid(&b1id), false)?.unwrap();
-    assert_eq!(bmk1.node_type, places::BookmarkType::Bookmark);
-    assert_eq!(bmk1.parent_guid, Some(sync_guid(&dogear::MOBILE_GUID)));
+        match bookmarks::fetch::fetch_bookmark(&places_db, &sync_guid(&b1id), false)?.unwrap() {
+            Item::Bookmark { b } => b,
+            _ => panic!("expecting a bookmark"),
+        };
+    assert_eq!(bmk1.parent_guid, sync_guid(&dogear::MOBILE_GUID));
     assert_eq!(
         bmk1.url,
-        Some(url::Url::parse("https://www.example.com/1%202%203").unwrap())
+        url::Url::parse("https://www.example.com/1%202%203").unwrap()
     );
 
     let bmk2 =
-        bookmarks::public_node::fetch_bookmark(&places_db, &sync_guid(&b2id), false)?.unwrap();
-    assert_eq!(bmk2.url, Some(url::Url::parse("http://💖.com/💖").unwrap()));
+        match bookmarks::fetch::fetch_bookmark(&places_db, &sync_guid(&b2id), false)?.unwrap() {
+            Item::Bookmark { b } => b,
+            _ => panic!("expecting a bookmark"),
+        };
+    assert_eq!(bmk2.url, url::Url::parse("http://💖.com/💖").unwrap());
 
     let bmk3 =
-        bookmarks::public_node::fetch_bookmark(&places_db, &sync_guid(&b3id), false)?.unwrap();
-    assert_eq!(bmk3.url, Some(url::Url::parse("http://😍.com/😍").unwrap()));
+        match bookmarks::fetch::fetch_bookmark(&places_db, &sync_guid(&b3id), false)?.unwrap() {
+            Item::Bookmark { b } => b,
+            _ => panic!("expecting a bookmark"),
+        };
+    assert_eq!(bmk3.url, url::Url::parse("http://😍.com/😍").unwrap());
 
-    let mobile = bookmarks::public_node::fetch_bookmark(
+    let mobile = match bookmarks::fetch::fetch_bookmark(
         &places_db,
         &sync_guid(&dogear::MOBILE_GUID),
         false,
     )?
-    .unwrap();
+    .unwrap()
+    {
+        Item::Folder { f } => f,
+        _ => panic!("expecting a bookmark"),
+    };
 
     assert_eq!(
         mobile.child_guids,

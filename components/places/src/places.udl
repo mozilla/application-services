@@ -155,12 +155,15 @@ interface PlacesConnection {
     [Throws=PlacesError]
     BookmarkItem? bookmarks_get_by_guid([ByRef] Guid guid, boolean get_direct_children);
 
+    // XXX - should return BookmarkData
     [Throws=PlacesError]
     sequence<BookmarkItem> bookmarks_get_all_with_url(Url url);
 
+    // XXX - should return BookmarkData
     [Throws=PlacesError]
     sequence<BookmarkItem> bookmarks_search(string query, i32 limit);
 
+    // XXX - should return BookmarkData
     [Throws=PlacesError]
     sequence<BookmarkItem> bookmarks_get_recent(i32 limit);
 
