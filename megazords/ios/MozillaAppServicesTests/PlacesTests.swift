@@ -60,14 +60,14 @@ enum CheckChildren {
 func checkTree(_ n: BookmarkItem, _ want: [String: Any], checkChildren: CheckChildren = .full) {
     switch n {
     case let .bookmark(b):
-        XCTAssert(b.parentGuid != nil || b.guid == BookmarkRoots.RootGUID)
+        XCTAssert(b.guid != BookmarkRoots.RootGUID)
         XCTAssert(dynCmp(b.guid, want["guid"]))
         XCTAssert(dynCmp(b.url, want["url"]))
         XCTAssert(dynCmp(b.title, want["title"]))
         XCTAssertNil(want["children"])
         XCTAssertNil(want["childGUIDs"])
     case let .separator(s):
-        XCTAssert(s.parentGuid != nil || s.guid == BookmarkRoots.RootGUID)
+        XCTAssert(s.guid != BookmarkRoots.RootGUID)
         XCTAssert(dynCmp(s.guid, want["guid"]))
         XCTAssertNil(want["url"])
         XCTAssertNil(want["children"])
