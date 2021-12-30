@@ -6,6 +6,7 @@ use crate::storage::{ClientRemoteTabs, RemoteTab};
 use crate::sync::record::{TabsRecord, TabsRecordTab};
 use crate::sync::store::TabsStore;
 use anyhow::Result;
+use interrupt_support::InterruptScope;
 use std::cell::{Cell, RefCell};
 use std::collections::HashMap;
 use std::sync::Arc;
@@ -82,17 +83,23 @@ pub struct TabsEngine {
     last_sync: Cell<Option<ServerTimestamp>>, // We use a cell because `sync_finished` doesn't take a mutable reference to &self.
     sync_store_assoc: RefCell<EngineSyncAssociation>,
     pub(crate) local_id: RefCell<String>,
+    interrupt_scope: InterruptScope,
 }
 
 impl TabsEngine {
-    pub fn new(store: Arc<TabsStore>) -> Self {
+    pub fn new(store: Arc<TabsStore>, interrupt_scope: InterruptScope) -> Self {
         Self {
             store,
             remote_clients: RefCell::default(),
             last_sync: Cell::default(),
             sync_store_assoc: RefCell::new(EngineSyncAssociation::Disconnected),
             local_id: RefCell::default(), // Will get replaced in `prepare_for_sync`.
+            interrupt_scope,
         }
+    }
+
+    fn err_if_interrupted(&self) -> Result<()> {
+        Ok(self.interrupt_scope.err_if_interrupted()?)
     }
 }
 
@@ -120,6 +127,7 @@ impl SyncEngine for TabsEngine {
         let mut remote_tabs = Vec::with_capacity(inbound.changes.len());
 
         for incoming in inbound.changes {
+            self.err_if_interrupted()?;
             if incoming.0.id() == local_id {
                 // That's our own record, ignore it.
                 continue;

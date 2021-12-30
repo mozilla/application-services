@@ -7,6 +7,7 @@
 
 use cli_support::fxa_creds::{get_cli_fxa, get_default_fxa_config};
 use cli_support::prompt::{prompt_char, prompt_string, prompt_usize};
+use interrupt_support::InterruptScope;
 use logins::encryption::{create_key, EncryptorDecryptor};
 use logins::migrate_sqlcipher_db::migrate_logins;
 use logins::{
@@ -482,7 +483,7 @@ fn main() -> Result<()> {
             }
             'R' | 'r' => {
                 log::info!("Resetting client.");
-                let engine = LoginsSyncEngine::new(Arc::clone(&store));
+                let engine = LoginsSyncEngine::new(Arc::clone(&store), InterruptScope::new());
                 if let Err(e) = engine.reset(&EngineSyncAssociation::Disconnected) {
                     log::warn!("Failed to reset! {}", e);
                 }

@@ -3,17 +3,17 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
 use crate::bookmark_sync::BookmarksSyncEngine;
-use crate::db::db::PlacesDb;
+use crate::db::db::{MutexPlacesDb, PlacesDb};
 use crate::error::*;
 use crate::history_sync::HistorySyncEngine;
 use crate::storage::{
     self, bookmarks::bookmark_sync, delete_meta, get_meta, history::history_sync, put_meta,
 };
 use crate::util::normalize_path;
+use interrupt_support::InterruptScope;
 use lazy_static::lazy_static;
 use parking_lot::Mutex;
 use rusqlite::OpenFlags;
-use sql_support::{SqlInterruptHandle, SqlInterruptScope};
 use std::cell::Cell;
 use std::collections::HashMap;
 use std::mem;
@@ -42,7 +42,10 @@ lazy_static::lazy_static! {
 
 // Called by the sync manager to get a sync engine via the PlacesApi previously
 // registered with the sync manager.
-pub fn get_registered_sync_engine(engine_id: &SyncEngineId) -> Option<Box<dyn SyncEngine>> {
+pub fn get_registered_sync_engine(
+    engine_id: &SyncEngineId,
+    interrupt_scope: InterruptScope,
+) -> Option<Box<dyn SyncEngine>> {
     match PLACES_API_FOR_SYNC_MANAGER.lock().upgrade() {
         None => {
             log::error!("get_registered_sync_engine: no PlacesApi registered");
@@ -50,8 +53,12 @@ pub fn get_registered_sync_engine(engine_id: &SyncEngineId) -> Option<Box<dyn Sy
         }
         Some(places_api) => match places_api.get_sync_connection() {
             Ok(db) => match engine_id {
-                SyncEngineId::Bookmarks => Some(Box::new(BookmarksSyncEngine::new(db))),
-                SyncEngineId::History => Some(Box::new(HistorySyncEngine::new(db))),
+                SyncEngineId::Bookmarks => {
+                    Some(Box::new(BookmarksSyncEngine::new(db, interrupt_scope)))
+                }
+                SyncEngineId::History => {
+                    Some(Box::new(HistorySyncEngine::new(db, interrupt_scope)))
+                }
                 _ => unreachable!("can't provide unknown engine: {}", engine_id),
             },
             Err(e) => {
@@ -59,6 +66,14 @@ pub fn get_registered_sync_engine(engine_id: &SyncEngineId) -> Option<Box<dyn Sy
                 None
             }
         },
+    }
+}
+
+// Called by the sync manager to interrupt the current sync query (if any)
+pub fn interrupt_current_sync_query() {
+    match PLACES_API_FOR_SYNC_MANAGER.lock().upgrade() {
+        None => log::error!("interrupt_current_sync_query: no PlacesApi registered"),
+        Some(places_api) => places_api.interrupt_current_sync_query(),
     }
 }
 
@@ -129,7 +144,7 @@ pub struct PlacesApi {
     //   called again, we reuse it.
     // - The outer mutex synchronizes the `get_sync_connection()` operation.  If multiple threads
     //   ran that at the same time there would be issues.
-    sync_connection: Mutex<Weak<Mutex<PlacesDb>>>,
+    sync_connection: Mutex<Weak<MutexPlacesDb>>,
     id: usize,
 }
 
@@ -217,7 +232,7 @@ impl PlacesApi {
     //   - Each connection is wrapped in a `Mutex<>` to synchronize access.
     //   - The mutex is then wrapped in an Arc<>.  If the last Arc<> returned is still alive, then
     //     get_sync_connection() will reuse it.
-    pub fn get_sync_connection(&self) -> Result<Arc<Mutex<PlacesDb>>> {
+    pub fn get_sync_connection(&self) -> Result<Arc<MutexPlacesDb>> {
         // First step: lock the outer mutex
         let mut conn = self.sync_connection.lock();
         match conn.upgrade() {
@@ -225,7 +240,7 @@ impl PlacesApi {
             Some(db) => Ok(db),
             // If not, create a new connection
             None => {
-                let db = Arc::new(Mutex::new(PlacesDb::open(
+                let db = Arc::new(MutexPlacesDb::new(PlacesDb::open(
                     self.db_name.clone(),
                     ConnectionType::Sync,
                     self.id,
@@ -235,6 +250,14 @@ impl PlacesApi {
                 *conn = Arc::downgrade(&db);
                 Ok(db)
             }
+        }
+    }
+
+    pub fn interrupt_current_sync_query(&self) {
+        // If our weak connection is alive, then interrupt the DB.  If not, then we can just
+        // return now, since there's nothing to interrupt.
+        if let Some(db) = self.sync_connection.lock().upgrade() {
+            db.interrupt();
         }
     }
 
@@ -284,16 +307,15 @@ impl PlacesApi {
         self.do_sync_one(
             "history",
             move |conn, mem_cached_state, disk_cached_state| {
-                let engine = HistorySyncEngine::new(conn);
+                let interrupt_scope = InterruptScope::new();
+                let engine = HistorySyncEngine::new(conn, interrupt_scope.clone());
                 sync_multiple(
                     &[&engine],
                     disk_cached_state,
                     mem_cached_state,
                     client_init,
                     key_bundle,
-                    // The interrupt system is not currently working (#1684), but we need to pass
-                    // in something, so let's use the engine scope.
-                    &engine.scope,
+                    &interrupt_scope,
                     None,
                 )
             },
@@ -305,19 +327,18 @@ impl PlacesApi {
         client_init: &sync15::Sync15StorageClientInit,
         key_bundle: &sync15::KeyBundle,
     ) -> Result<telemetry::SyncTelemetryPing> {
+        let interrupt_scope = InterruptScope::new();
         self.do_sync_one(
             "bookmarks",
             move |conn, mem_cached_state, disk_cached_state| {
-                let engine = BookmarksSyncEngine::new(conn);
+                let engine = BookmarksSyncEngine::new(conn, interrupt_scope.clone());
                 sync_multiple(
                     &[&engine],
                     disk_cached_state,
                     mem_cached_state,
                     client_init,
                     key_bundle,
-                    // The interrupt system is not currently working (#1684), but we need to pass
-                    // in something, so let's use the engine scope.
-                    &engine.scope,
+                    &interrupt_scope,
                     None,
                 )
             },
@@ -330,7 +351,7 @@ impl PlacesApi {
         syncer: F,
     ) -> Result<telemetry::SyncTelemetryPing>
     where
-        F: FnOnce(Arc<Mutex<PlacesDb>>, &mut MemoryCachedState, &mut Option<String>) -> SyncResult,
+        F: FnOnce(Arc<MutexPlacesDb>, &mut MemoryCachedState, &mut Option<String>) -> SyncResult,
     {
         let mut guard = self.sync_state.lock();
         let conn = self.get_sync_connection()?;
@@ -376,6 +397,7 @@ impl PlacesApi {
         key_bundle: &sync15::KeyBundle,
     ) -> Result<SyncResult> {
         let mut guard = self.sync_state.lock();
+        let interrupt_scope = InterruptScope::new();
         let conn = self.get_sync_connection()?;
         if guard.is_none() {
             *guard = Some(SyncState {
@@ -386,8 +408,8 @@ impl PlacesApi {
 
         let sync_state = guard.as_ref().unwrap();
 
-        let bm_engine = BookmarksSyncEngine::new(conn.clone());
-        let history_engine = HistorySyncEngine::new(conn.clone());
+        let bm_engine = BookmarksSyncEngine::new(conn.clone(), interrupt_scope.clone());
+        let history_engine = HistorySyncEngine::new(conn.clone(), interrupt_scope.clone());
         let mut mem_cached_state = sync_state.mem_cached_state.take();
         let mut disk_cached_state = sync_state.disk_cached_state.take();
 
@@ -398,9 +420,7 @@ impl PlacesApi {
             &mut mem_cached_state,
             client_init,
             key_bundle,
-            // The interrupt system is not currently working (#1684), but we need to pass
-            // in something, so let's use the engine scope.
-            &bm_engine.scope,
+            &interrupt_scope,
             None,
         );
         // even on failure we set the persisted state - sync itself takes care
@@ -448,34 +468,6 @@ impl PlacesApi {
 
         history_sync::reset(&conn.lock(), &sync15::EngineSyncAssociation::Disconnected)?;
         Ok(())
-    }
-
-    /// Create a new SqlInterruptScope for the syncing code
-    ///
-    /// The syncing code expects a SqlInterruptScope, but it's never been actually hooked up to
-    /// anything.  This method returns something to make the compiler happy, but we should replace
-    /// this with working code as part of #1684.
-    pub fn dummy_sync_interrupt_scope(&self) -> SqlInterruptScope {
-        SqlInterruptScope::new(Arc::new(AtomicUsize::new(0)))
-    }
-
-    // Deprecated/Broken interrupt handler method
-    // This should be removed as part of https://github.com/mozilla/application-services/issues/1684
-    //
-    // There are two issues with this one:
-    //   - As soon as this method returns, the sync connection will be dropped, which means the
-    //     SqlInterruptHandle will not work.
-    //   - We want the sync connection to be lazy, but we call this on initialization and force a
-    //     connection to be created.
-    // We have to use Arc in the return type to be able to properly
-    // pass the SqlInterruptHandle as an object through Uniffi
-    pub fn new_sync_conn_interrupt_handle(&self) -> Result<Arc<SqlInterruptHandle>> {
-        // Probably not necessary to lock here, since this should only get
-        // called in startup.
-        let _guard = self.sync_state.lock();
-        let conn = self.get_sync_connection()?;
-        let db = conn.lock();
-        Ok(Arc::new(db.new_interrupt_handle()))
     }
 }
 

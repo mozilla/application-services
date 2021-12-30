@@ -12,7 +12,7 @@
 
 use super::PersistablePayload;
 use crate::error::*;
-use interrupt_support::Interruptee;
+use interrupt_support::InterruptScope;
 use rusqlite::{types::ToSql, Connection, Row, NO_PARAMS};
 use sync15::{Payload, ServerTimestamp};
 use sync_guid::Guid;
@@ -23,7 +23,7 @@ pub(super) fn common_stage_incoming_records(
     conn: &Connection,
     table_name: &str,
     incoming: Vec<(PersistablePayload, ServerTimestamp)>,
-    signal: &dyn Interruptee,
+    signal: &InterruptScope,
 ) -> Result<()> {
     log::info!(
         "staging {} incoming records into {}",
@@ -305,7 +305,6 @@ fn reset_sync_change_counter(
 #[cfg(test)]
 pub(super) mod tests {
     use super::super::*;
-    use interrupt_support::NeverInterrupts;
     use rusqlite::NO_PARAMS;
     use serde_json::{json, Value};
     use sync15::ServerTimestamp;
@@ -347,7 +346,7 @@ pub(super) mod tests {
         ri.stage_incoming(
             tx,
             vec![(payload, ServerTimestamp::from_millis(0))],
-            &NeverInterrupts,
+            &InterruptScope::new(),
         )
         .expect("stage should work");
         let mut states = ri.fetch_incoming_states(tx).expect("fetch should work");
@@ -372,7 +371,7 @@ pub(super) mod tests {
         ri.stage_incoming(
             tx,
             vec![(payload, ServerTimestamp::from_millis(0))],
-            &NeverInterrupts,
+            &InterruptScope::new(),
         )
         .expect("stage should work");
         let mut states = ri.fetch_incoming_states(tx).expect("fetch should work");
@@ -399,7 +398,7 @@ pub(super) mod tests {
         ri.stage_incoming(
             tx,
             vec![(payload, ServerTimestamp::from_millis(0))],
-            &NeverInterrupts,
+            &InterruptScope::new(),
         )
         .expect("stage should work");
         let mut states = ri.fetch_incoming_states(tx).expect("fetch should work");
@@ -433,7 +432,7 @@ pub(super) mod tests {
                 (payload1, ServerTimestamp::from_millis(0)),
                 (payload2, ServerTimestamp::from_millis(0)),
             ],
-            &NeverInterrupts,
+            &InterruptScope::new(),
         )
         .expect("stage should work");
 

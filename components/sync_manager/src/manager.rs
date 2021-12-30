@@ -5,10 +5,10 @@
 use crate::error::*;
 use crate::types::{ServiceStatus, SyncEngineSelection, SyncParams, SyncReason, SyncResult};
 use crate::{reset, reset_all, wipe};
+use interrupt_support::InterruptScope;
 use parking_lot::Mutex;
 use std::collections::{HashMap, HashSet};
 use std::convert::TryFrom;
-use std::sync::{atomic::AtomicUsize, Arc};
 use std::time::SystemTime;
 use sync15::{
     self,
@@ -30,33 +30,61 @@ impl SyncManager {
         SyncEngineId::try_from(engine_name).map_err(SyncManagerError::UnknownEngine)
     }
 
-    fn get_engine(engine_id: &SyncEngineId) -> Option<Box<dyn SyncEngine>> {
+    // Interrupt any active sync operations
+    pub fn interrupt(&self) {
+        InterruptScope::interrupt();
+        places::interrupt_current_sync_query();
+    }
+
+    fn get_engine(
+        engine_id: &SyncEngineId,
+        interrupt_scope: InterruptScope,
+    ) -> Option<Box<dyn SyncEngine>> {
         match engine_id {
-            SyncEngineId::History => places::get_registered_sync_engine(engine_id),
-            SyncEngineId::Bookmarks => places::get_registered_sync_engine(engine_id),
-            SyncEngineId::Addresses => autofill::get_registered_sync_engine(engine_id),
-            SyncEngineId::CreditCards => autofill::get_registered_sync_engine(engine_id),
-            SyncEngineId::Passwords => logins::get_registered_sync_engine(engine_id),
-            SyncEngineId::Tabs => tabs::get_registered_sync_engine(engine_id),
+            SyncEngineId::History => places::get_registered_sync_engine(engine_id, interrupt_scope),
+            SyncEngineId::Bookmarks => {
+                places::get_registered_sync_engine(engine_id, interrupt_scope)
+            }
+            SyncEngineId::Addresses => {
+                autofill::get_registered_sync_engine(engine_id, interrupt_scope)
+            }
+            SyncEngineId::CreditCards => {
+                autofill::get_registered_sync_engine(engine_id, interrupt_scope)
+            }
+            SyncEngineId::Passwords => {
+                logins::get_registered_sync_engine(engine_id, interrupt_scope)
+            }
+            SyncEngineId::Tabs => tabs::get_registered_sync_engine(engine_id, interrupt_scope),
         }
     }
 
+    fn get_engine_from_name(
+        engine_name: &str,
+        interrupt_scope: InterruptScope,
+    ) -> Result<Option<Box<dyn SyncEngine>>> {
+        Ok(Self::get_engine(
+            &Self::get_engine_id(engine_name)?,
+            interrupt_scope,
+        ))
+    }
+
     pub fn wipe(&self, engine_name: &str) -> Result<()> {
-        if let Some(engine) = Self::get_engine(&Self::get_engine_id(engine_name)?) {
+        if let Some(engine) = Self::get_engine_from_name(engine_name, InterruptScope::new())? {
             engine.wipe()?;
         }
         Ok(())
     }
 
     pub fn reset(&self, engine_name: &str) -> Result<()> {
-        if let Some(engine) = Self::get_engine(&Self::get_engine_id(engine_name)?) {
+        if let Some(engine) = Self::get_engine_from_name(engine_name, InterruptScope::new())? {
             engine.reset(&EngineSyncAssociation::Disconnected)?;
         }
         Ok(())
     }
 
     pub fn reset_all(&self) -> Result<()> {
-        for (_, engine) in self.iter_registered_engines() {
+        let interrupt_scope = InterruptScope::new();
+        for (_, engine) in self.iter_registered_engines(&interrupt_scope) {
             engine.reset(&EngineSyncAssociation::Disconnected)?;
         }
         Ok(())
@@ -64,8 +92,9 @@ impl SyncManager {
 
     /// Disconnect engines from sync, deleting/resetting the sync-related data
     pub fn disconnect(&self) {
+        let interrupt_scope = InterruptScope::new();
         for engine_id in SyncEngineId::iter() {
-            if let Some(engine) = Self::get_engine(&engine_id) {
+            if let Some(engine) = Self::get_engine(&engine_id, interrupt_scope.clone()) {
                 if let Err(e) = engine.reset(&EngineSyncAssociation::Disconnected) {
                     log::error!("Failed to reset {}: {}", engine_id, e);
                 }
@@ -77,8 +106,9 @@ impl SyncManager {
 
     /// Perform a sync.  See [SyncParams] and [SyncResult] for details on how this works
     pub fn sync(&self, params: SyncParams) -> Result<SyncResult> {
+        let interrupt_scope = InterruptScope::new();
         let mut state = self.mem_cached_state.lock();
-        let engines = self.calc_engines_to_sync(&params.engines)?;
+        let engines = self.calc_engines_to_sync(&params.engines, &interrupt_scope)?;
         let next_sync_after = state.as_ref().and_then(|mcs| mcs.get_next_sync_after());
         if !backoff_in_effect(next_sync_after, &params) {
             log::info!("No backoff in effect (or we decided to ignore it), starting sync");
@@ -109,9 +139,7 @@ impl SyncManager {
     ) -> Result<SyncResult> {
         let key_bundle = sync15::KeyBundle::from_ksync_base64(&params.auth_info.sync_key)?;
         let tokenserver_url = url::Url::parse(&params.auth_info.tokenserver_url)?;
-        // TODO(issue 1684) this isn't ideal, we should have real support for interruption.
-        let p = Arc::new(AtomicUsize::new(0));
-        let interruptee = sql_support::SqlInterruptScope::new(p);
+        let interrupt_scope = InterruptScope::new();
         let mut mem_cached_state = state.take().unwrap_or_default();
         let mut disk_cached_state = params.persisted_state.take();
 
@@ -148,7 +176,7 @@ impl SyncManager {
             &mut mem_cached_state,
             &client_init,
             &key_bundle,
-            &interruptee,
+            &interrupt_scope,
             Some(sync15::SyncRequestInfo {
                 engines_to_state_change: engines_to_change,
                 is_user_action: matches!(params.reason, SyncReason::User),
@@ -186,12 +214,18 @@ impl SyncManager {
         })
     }
 
-    fn iter_registered_engines(&self) -> impl Iterator<Item = (SyncEngineId, Box<dyn SyncEngine>)> {
-        SyncEngineId::iter().filter_map(|id| Self::get_engine(&id).map(|engine| (id, engine)))
+    fn iter_registered_engines<'a>(
+        &'a self,
+        interrupt_scope: &'a InterruptScope,
+    ) -> impl Iterator<Item = (SyncEngineId, Box<dyn SyncEngine>)> + 'a {
+        SyncEngineId::iter().filter_map(move |id| {
+            Self::get_engine(&id, interrupt_scope.clone()).map(|engine| (id, engine))
+        })
     }
 
     pub fn get_available_engines(&self) -> Vec<String> {
-        self.iter_registered_engines()
+        let interrupt_scope = InterruptScope::new();
+        self.iter_registered_engines(&interrupt_scope)
             .map(|(name, _)| name.to_string())
             .collect()
     }
@@ -199,8 +233,9 @@ impl SyncManager {
     fn calc_engines_to_sync(
         &self,
         selection: &SyncEngineSelection,
+        interrupt_scope: &InterruptScope,
     ) -> Result<Vec<Box<dyn SyncEngine>>> {
-        let mut engine_map: HashMap<_, _> = self.iter_registered_engines().collect();
+        let mut engine_map: HashMap<_, _> = self.iter_registered_engines(interrupt_scope).collect();
         log::trace!(
             "Checking engines requested ({:?}) vs local engines ({:?})",
             selection,

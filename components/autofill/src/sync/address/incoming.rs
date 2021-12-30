@@ -12,7 +12,7 @@ use crate::sync::{
     IncomingRecord, IncomingState, LocalRecordInfo, Payload, PersistablePayload,
     ProcessIncomingRecordImpl, ServerTimestamp, SyncRecord,
 };
-use interrupt_support::Interruptee;
+use interrupt_support::InterruptScope;
 use rusqlite::{named_params, Transaction};
 use sql_support::ConnExt;
 use sync_guid::Guid as SyncGuid;
@@ -27,7 +27,7 @@ impl ProcessIncomingRecordImpl for IncomingAddressesImpl {
         &self,
         tx: &Transaction<'_>,
         incoming: Vec<(Payload, ServerTimestamp)>,
-        signal: &dyn Interruptee,
+        signal: &InterruptScope,
     ) -> Result<()> {
         let to_stage = incoming
             .into_iter()
@@ -244,7 +244,6 @@ mod tests {
     use crate::db::addresses::get_address;
     use crate::sync::common::tests::*;
 
-    use interrupt_support::NeverInterrupts;
     use rusqlite::NO_PARAMS;
     use serde_json::{json, Map, Value};
     use sql_support::ConnExt;
@@ -337,7 +336,7 @@ mod tests {
             ri.stage_incoming(
                 &tx,
                 array_to_incoming(tc.incoming_records),
-                &NeverInterrupts,
+                &InterruptScope::new(),
             )?;
 
             let payloads = tx.conn().query_rows_and_then_named(

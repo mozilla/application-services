@@ -28,6 +28,7 @@ use crate::login::*;
 use crate::schema;
 use crate::sync::SyncStatus;
 use crate::util;
+use interrupt_support::InterruptScope;
 use lazy_static::lazy_static;
 use rusqlite::{
     named_params,
@@ -35,10 +36,9 @@ use rusqlite::{
     Connection, NO_PARAMS,
 };
 use serde_derive::*;
-use sql_support::{self, ConnExt, SqlInterruptHandle, SqlInterruptScope};
+use sql_support::ConnExt;
 use std::ops::Deref;
 use std::path::Path;
-use std::sync::{atomic::AtomicUsize, Arc};
 use std::time::{Duration, Instant, SystemTime};
 use sync_guid::Guid;
 use url::{Host, Url};
@@ -65,7 +65,6 @@ pub struct MigrationMetrics {
 
 pub struct LoginDb {
     pub db: Connection,
-    interrupt_counter: Arc<AtomicUsize>,
 }
 
 impl LoginDb {
@@ -81,10 +80,7 @@ impl LoginDb {
         // do this on Android, or allow caller to configure it.
         db.set_pragma("temp_store", 2)?;
 
-        let mut logins = Self {
-            db,
-            interrupt_counter: Arc::new(AtomicUsize::new(0)),
-        };
+        let mut logins = Self { db };
         let tx = logins.db.transaction()?;
         schema::init(&tx)?;
         tx.commit()?;
@@ -97,18 +93,6 @@ impl LoginDb {
 
     pub fn open_in_memory() -> Result<Self> {
         Self::with_connection(Connection::open_in_memory()?)
-    }
-
-    pub fn new_interrupt_handle(&self) -> SqlInterruptHandle {
-        SqlInterruptHandle::new(
-            self.db.get_interrupt_handle(),
-            self.interrupt_counter.clone(),
-        )
-    }
-
-    #[inline]
-    pub fn begin_interrupt_scope(&self) -> SqlInterruptScope {
-        SqlInterruptScope::new(self.interrupt_counter.clone())
     }
 }
 
@@ -786,7 +770,7 @@ impl LoginDb {
 
     // Wipe is called both by Sync and also exposed publically, so it's
     // implemented here.
-    pub(crate) fn wipe(&self, scope: &SqlInterruptScope) -> Result<()> {
+    pub(crate) fn wipe(&self, scope: &InterruptScope) -> Result<()> {
         let tx = self.unchecked_transaction()?;
         log::info!("Executing wipe on password engine!");
         let now_ms = util::system_time_ms_i64(SystemTime::now());
@@ -1416,8 +1400,7 @@ mod tests {
             )
             .unwrap();
 
-        db.wipe(&db.begin_interrupt_scope())
-            .expect("wipe should work");
+        db.wipe(&InterruptScope::new()).expect("wipe should work");
 
         let expected_tombstone_count = 2;
         let actual_tombstone_count: i32 = db

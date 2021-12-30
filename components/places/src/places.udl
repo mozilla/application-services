@@ -30,9 +30,6 @@ interface PlacesApi {
     [Throws=PlacesError]
     PlacesConnection new_connection(ConnectionType conn_type);
 
-    [Throws=PlacesError]
-    SqlInterruptHandle new_sync_conn_interrupt_handle();
-
     [Self=ByArc]
     void register_with_sync_manager();
 

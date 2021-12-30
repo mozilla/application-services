@@ -10,6 +10,7 @@ use crate::bookmark_sync::{
 use crate::error::*;
 use crate::import::common::{attached_database, ExecuteOnDrop};
 use crate::types::SyncStatus;
+use interrupt_support::InterruptScope;
 use rusqlite::{named_params, NO_PARAMS};
 use sql_support::ConnExt;
 use std::collections::HashMap;
@@ -87,7 +88,7 @@ fn do_import_ios_bookmarks(places_api: &PlacesApi, ios_db_file_url: Url) -> Resu
     let conn_mutex = places_api.get_sync_connection()?;
     let conn = conn_mutex.lock();
 
-    let scope = conn.begin_interrupt_scope();
+    let interrupt_scope = InterruptScope::new();
 
     sql_fns::define_functions(&conn)?;
 
@@ -107,26 +108,26 @@ fn do_import_ios_bookmarks(places_api: &PlacesApi, ios_db_file_url: Url) -> Resu
     // connection.
     log::debug!("Clearing mirror to prepare for import");
     conn.execute_batch(&WIPE_MIRROR)?;
-    scope.err_if_interrupted()?;
+    interrupt_scope.err_if_interrupted()?;
 
     log::debug!("Creating staging table");
     conn.execute_batch(&CREATE_STAGING_TABLE)?;
 
     log::debug!("Importing from iOS to staging table");
     conn.execute_batch(&POPULATE_STAGING)?;
-    scope.err_if_interrupted()?;
+    interrupt_scope.err_if_interrupted()?;
 
     log::debug!("Populating missing entries in moz_places");
     conn.execute_batch(&FILL_MOZ_PLACES)?;
-    scope.err_if_interrupted()?;
+    interrupt_scope.err_if_interrupted()?;
 
     log::debug!("Populating mirror");
     conn.execute_batch(&POPULATE_MIRROR)?;
-    scope.err_if_interrupted()?;
+    interrupt_scope.err_if_interrupted()?;
 
     log::debug!("Populating mirror tags");
     populate_mirror_tags(&conn)?;
-    scope.err_if_interrupted()?;
+    interrupt_scope.err_if_interrupted()?;
 
     // Ideally we could just do this right after `CREATE_AND_POPULATE_STAGING`,
     // but we have constraints on the mirror structure that prevent this (and
@@ -135,23 +136,23 @@ fn do_import_ios_bookmarks(places_api: &PlacesApi, ios_db_file_url: Url) -> Resu
     // everything in one go, that seems harder to debug.
     log::debug!("Populating mirror structure");
     conn.execute_batch(POPULATE_MIRROR_STRUCTURE)?;
-    scope.err_if_interrupted()?;
+    interrupt_scope.err_if_interrupted()?;
 
     // log::debug!("Detaching iOS database");
     // drop(auto_detach);
     // scope.err_if_interrupted()?;
 
-    let mut merger = Merger::new(&conn, &scope, Default::default());
+    let mut merger = Merger::new(&conn, &interrupt_scope, Default::default());
     // We're already in a transaction.
     merger.set_external_transaction(true);
     log::debug!("Merging with local records");
     merger.merge()?;
-    scope.err_if_interrupted()?;
+    interrupt_scope.err_if_interrupted()?;
 
     // Update last modification time, sync status, etc
     log::debug!("Fixing up bookmarks");
     conn.execute_batch(&FIXUP_MOZ_BOOKMARKS)?;
-    scope.err_if_interrupted()?;
+    interrupt_scope.err_if_interrupted()?;
     log::debug!("Cleaning up mirror...");
     clear_mirror_on_drop.execute_now()?;
     log::debug!("Committing...");
@@ -160,7 +161,7 @@ fn do_import_ios_bookmarks(places_api: &PlacesApi, ios_db_file_url: Url) -> Resu
     // Note: update_frecencies manages its own transaction, which is fine,
     // since nothing that bad will happen if it is aborted.
     log::debug!("Updating frecencies");
-    update_frecencies(&conn, &scope)?;
+    update_frecencies(&conn, &interrupt_scope)?;
 
     log::info!("Successfully imported bookmarks!");
 

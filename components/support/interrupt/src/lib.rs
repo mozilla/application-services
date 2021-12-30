@@ -5,6 +5,17 @@
 #![allow(unknown_lints)]
 #![warn(rust_2018_idioms)]
 
+mod scopes;
+
+// The modern interface of this crate lives in the scopes module.
+pub use scopes::InterruptScope;
+
+/// The error returned by err_if_interrupted.
+#[derive(Debug, Clone, PartialEq)]
+pub struct Interrupted;
+
+// The legacy interface for this crate lives below this comment.
+
 // Note that in the future it might make sense to also add a trait for
 // an Interruptable, but we don't need this abstraction now and it's unclear
 // if we ever will.
@@ -32,10 +43,6 @@ impl Interruptee for NeverInterrupts {
         false
     }
 }
-
-/// The error returned by err_if_interrupted.
-#[derive(Debug, Clone, PartialEq)]
-pub struct Interrupted;
 
 impl std::fmt::Display for Interrupted {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {

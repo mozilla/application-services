@@ -16,6 +16,7 @@ log = "0.4"
 url = "2.2"
 error-support = { path = "../support/error" }
 interrupt-support = { path = "../support/interrupt" }
+sql-support = { path = "../support/sql" }
 sync-guid = { path = "../support/guid", features = ["random"] }
 thiserror = "1.0"
 anyhow = "1.0"

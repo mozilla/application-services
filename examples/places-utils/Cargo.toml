@@ -16,6 +16,7 @@ sync-guid = { path = "../../components/support/guid" }
 types = { path = "../../components/support/types" }
 sync15 = { path = "../../components/sync15" }
 viaduct-reqwest = { path = "../../components/support/viaduct-reqwest" }
+interrupt-support = { path = "../../components/support/interrupt" }
 serde = "1"
 serde_derive = "1"
 serde_json = "1"

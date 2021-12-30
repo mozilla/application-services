@@ -18,3 +18,8 @@ Use the template below to make assigning a version number during the release cut
   - Description of the change with a link to the pull request ([#0000](https://github.com/mozilla/application-services/pull/0000))
 
 -->
+
+## SyncManager
+
+### What's New
+  - Added the `interrupt()` method to interrupt the current sync operation (#1684)

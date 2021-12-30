@@ -16,6 +16,7 @@ use crate::encryption::EncryptorDecryptor;
 use crate::error::*;
 use crate::sync_merge_field_check;
 use incoming::IncomingCreditCardsImpl;
+use interrupt_support::InterruptScope;
 use outgoing::OutgoingCreditCardsImpl;
 use rusqlite::Transaction;
 use serde::{Deserialize, Serialize};
@@ -24,7 +25,10 @@ use sync_guid::Guid;
 use types::Timestamp;
 
 // The engine.
-pub(crate) fn create_engine(store: Arc<crate::Store>) -> ConfigSyncEngine<InternalCreditCard> {
+pub(crate) fn create_engine(
+    store: Arc<crate::Store>,
+    interrupt_scope: InterruptScope,
+) -> ConfigSyncEngine<InternalCreditCard> {
     ConfigSyncEngine::new(
         EngineConfig {
             namespace: "credit_cards".to_string(),
@@ -32,6 +36,7 @@ pub(crate) fn create_engine(store: Arc<crate::Store>) -> ConfigSyncEngine<Intern
         },
         store,
         Box::new(CreditCardsEngineStorageImpl {}),
+        interrupt_scope,
     )
 }
 
