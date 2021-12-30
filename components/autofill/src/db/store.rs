@@ -6,6 +6,7 @@ use crate::db::models::address::{Address, UpdatableAddressFields};
 use crate::db::models::credit_card::{CreditCard, UpdatableCreditCardFields};
 use crate::db::{addresses, credit_cards, AutofillDb};
 use crate::error::*;
+use interrupt_support::InterruptScope;
 use rusqlite::{
     types::{FromSql, ToSql},
     Connection,
@@ -26,15 +27,22 @@ lazy_static::lazy_static! {
 
 /// Called by the sync manager to get a sync engine via the store previously
 /// registered with the sync manager.
-pub fn get_registered_sync_engine(engine_id: &SyncEngineId) -> Option<Box<dyn SyncEngine>> {
+pub fn get_registered_sync_engine(
+    engine_id: &SyncEngineId,
+    interrupt_scope: InterruptScope,
+) -> Option<Box<dyn SyncEngine>> {
     let weak = STORE_FOR_MANAGER.lock().unwrap();
     match weak.upgrade() {
         None => None,
         Some(store) => match engine_id {
-            SyncEngineId::Addresses => Some(Box::new(crate::sync::address::create_engine(store))),
-            SyncEngineId::CreditCards => {
-                Some(Box::new(crate::sync::credit_card::create_engine(store)))
-            }
+            SyncEngineId::Addresses => Some(Box::new(crate::sync::address::create_engine(
+                store,
+                interrupt_scope,
+            ))),
+            SyncEngineId::CreditCards => Some(Box::new(crate::sync::credit_card::create_engine(
+                store,
+                interrupt_scope,
+            ))),
             // panicing here seems reasonable - it's a static error if this
             // it hit, not something that runtime conditions can influence.
             _ => unreachable!("can't provide unknown engine: {}", engine_id),
@@ -142,7 +150,8 @@ impl Store {
         credit_cards::scrub_encrypted_credit_card_data(&self.db.lock().unwrap().writer)?;
         // Force the sync engine to refetch data (only need to do this for the credit cards, since the
         // addresses engine doesn't store encrypted data).
-        crate::sync::credit_card::create_engine(self).reset_local_sync_data()?;
+        crate::sync::credit_card::create_engine(self, InterruptScope::new())
+            .reset_local_sync_data()?;
         Ok(())
     }
 
@@ -162,12 +171,21 @@ impl Store {
     // We could probably make the example work with the sync manager - but then
     // our example would link with places and logins etc, and it's not a big
     // deal really.
-    pub fn create_credit_cards_sync_engine(self: Arc<Self>) -> Box<dyn SyncEngine> {
-        Box::new(crate::sync::credit_card::create_engine(self))
+    pub fn create_credit_cards_sync_engine(
+        self: Arc<Self>,
+        interrupt_scope: InterruptScope,
+    ) -> Box<dyn SyncEngine> {
+        Box::new(crate::sync::credit_card::create_engine(
+            self,
+            interrupt_scope,
+        ))
     }
 
-    pub fn create_addresses_sync_engine(self: Arc<Self>) -> Box<dyn SyncEngine> {
-        Box::new(crate::sync::address::create_engine(self))
+    pub fn create_addresses_sync_engine(
+        self: Arc<Self>,
+        interrupt_scope: InterruptScope,
+    ) -> Box<dyn SyncEngine> {
+        Box::new(crate::sync::address::create_engine(self, interrupt_scope))
     }
 }
 

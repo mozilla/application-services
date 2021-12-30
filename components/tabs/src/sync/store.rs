@@ -5,7 +5,7 @@
 use crate::error::*;
 use crate::storage::{ClientRemoteTabs, RemoteTab, TabsStorage};
 use crate::sync::engine::TabsEngine;
-use interrupt_support::NeverInterrupts;
+use interrupt_support::InterruptScope;
 use std::cell::RefCell;
 use std::sync::{Arc, Mutex, Weak};
 use sync15::{
@@ -21,12 +21,18 @@ lazy_static::lazy_static! {
 
 /// Called by the sync manager to get a sync engine via the store previously
 /// registered with the sync manager.
-pub fn get_registered_sync_engine(engine_id: &SyncEngineId) -> Option<Box<dyn SyncEngine>> {
+pub fn get_registered_sync_engine(
+    engine_id: &SyncEngineId,
+    interrupt_scope: InterruptScope,
+) -> Option<Box<dyn SyncEngine>> {
     let weak = STORE_FOR_MANAGER.lock().unwrap();
     match weak.upgrade() {
         None => None,
         Some(store) => match engine_id {
-            SyncEngineId::Tabs => Some(Box::new(TabsEngine::new(Arc::clone(&store)))),
+            SyncEngineId::Tabs => Some(Box::new(TabsEngine::new(
+                Arc::clone(&store),
+                interrupt_scope,
+            ))),
             // panicing here seems reasonable - it's a static error if this
             // it hit, not something that runtime conditions can influence.
             _ => unreachable!("can't provide unknown engine: {}", engine_id),
@@ -75,7 +81,8 @@ impl TabsStore {
         local_id: &str,
     ) -> Result<telemetry::SyncTelemetryPing> {
         let mut mem_cached_state = MemoryCachedState::default();
-        let mut engine = TabsEngine::new(Arc::clone(&self));
+        let interrupt_scope = InterruptScope::new();
+        let mut engine = TabsEngine::new(Arc::clone(&self), interrupt_scope.clone());
         // Since we are syncing without the sync manager, there's no
         // command processor, therefore no clients engine, and in
         // consequence `TabsStore::prepare_for_sync` is never called
@@ -89,7 +96,7 @@ impl TabsStore {
             &mut mem_cached_state,
             storage_init,
             root_sync_key,
-            &NeverInterrupts,
+            &interrupt_scope,
             None,
         );
 

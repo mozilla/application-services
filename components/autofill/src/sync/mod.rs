@@ -10,7 +10,7 @@ pub mod engine;
 
 pub(crate) use crate::db::models::Metadata;
 use crate::error::Result;
-use interrupt_support::Interruptee;
+use interrupt_support::InterruptScope;
 use rusqlite::Transaction;
 use sync15::{OutgoingChangeset, Payload, ServerTimestamp};
 use sync_guid::Guid;
@@ -46,7 +46,7 @@ pub trait ProcessIncomingRecordImpl {
         &self,
         tx: &Transaction<'_>,
         incoming: Vec<(Payload, ServerTimestamp)>,
-        signal: &dyn Interruptee,
+        signal: &InterruptScope,
     ) -> Result<()>;
 
     /// Finish the incoming phase. This will typically caused staged records

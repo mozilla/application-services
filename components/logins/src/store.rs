@@ -6,6 +6,7 @@ use crate::encryption::EncryptorDecryptor;
 use crate::error::*;
 use crate::login::{EncryptedLogin, Login, LoginEntry};
 use crate::LoginsSyncEngine;
+use interrupt_support::InterruptScope;
 use parking_lot::Mutex;
 use std::path::Path;
 use std::sync::{Arc, Weak};
@@ -20,12 +21,18 @@ lazy_static::lazy_static! {
 
 /// Called by the sync manager to get a sync engine via the store previously
 /// registered with the sync manager.
-pub fn get_registered_sync_engine(engine_id: &SyncEngineId) -> Option<Box<dyn SyncEngine>> {
+pub fn get_registered_sync_engine(
+    engine_id: &SyncEngineId,
+    interrupt_scope: InterruptScope,
+) -> Option<Box<dyn SyncEngine>> {
     let weak = STORE_FOR_MANAGER.lock();
     match weak.upgrade() {
         None => None,
         Some(store) => match engine_id {
-            SyncEngineId::Passwords => Some(Box::new(LoginsSyncEngine::new(Arc::clone(&store)))),
+            SyncEngineId::Passwords => Some(Box::new(LoginsSyncEngine::new(
+                Arc::clone(&store),
+                interrupt_scope,
+            ))),
             // panicing here seems reasonable - it's a static error if this
             // it hit, not something that runtime conditions can influence.
             _ => unreachable!("can't provide unknown engine: {}", engine_id),
@@ -80,8 +87,7 @@ impl LoginStore {
         // TODO: this is exposed to android-components consumers - we should
         // check if anyone actually calls it.
         let db = self.db.lock();
-        let scope = db.begin_interrupt_scope();
-        db.wipe(&scope)?;
+        db.wipe(&InterruptScope::new())?;
         Ok(())
     }
 
@@ -94,7 +100,7 @@ impl LoginStore {
         // Reset should not exist here - all resets should be done via the
         // sync manager. It seems that actual consumers don't use this, but
         // some tests do, so it remains for now.
-        let engine = LoginsSyncEngine::new(Arc::clone(&self));
+        let engine = LoginsSyncEngine::new(Arc::clone(&self), InterruptScope::new());
         engine.do_reset(&EngineSyncAssociation::Disconnected)?;
         Ok(())
     }
@@ -133,7 +139,8 @@ impl LoginStore {
         tokenserver_url: String,
         local_encryption_key: String,
     ) -> Result<String> {
-        let mut engine = LoginsSyncEngine::new(Arc::clone(&self));
+        let scope = InterruptScope::new();
+        let mut engine = LoginsSyncEngine::new(Arc::clone(&self), scope.clone());
         engine
             .set_local_encryption_key(&local_encryption_key)
             .unwrap();
@@ -156,7 +163,7 @@ impl LoginStore {
             &mut mem_cached_state,
             storage_init,
             root_sync_key,
-            &engine.scope,
+            &scope,
             None,
         );
         // We always update the state - sync_multiple does the right thing
@@ -184,16 +191,6 @@ impl LoginStore {
     pub fn register_with_sync_manager(self: Arc<Self>) {
         let mut state = STORE_FOR_MANAGER.lock();
         *state = Arc::downgrade(&self);
-    }
-
-    // this isn't exposed by uniffi - currently the
-    // only consumer of this is our "example" (and hence why they
-    // are `pub` and not `pub(crate)`).
-    // We could probably make the example work with the sync manager - but then
-    // our example would link with places and logins etc, and it's not a big
-    // deal really.
-    pub fn create_logins_sync_engine(self: Arc<Self>) -> Box<dyn SyncEngine> {
-        Box::new(LoginsSyncEngine::new(self))
     }
 }
 

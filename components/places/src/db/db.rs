@@ -7,7 +7,7 @@ use crate::api::places_api::ConnectionType;
 use crate::error::*;
 use lazy_static::lazy_static;
 use parking_lot::Mutex;
-use rusqlite::{self, Connection, Transaction};
+use rusqlite::{self, Connection, InterruptHandle, Transaction};
 use sql_support::{
     open_database::{self, open_database_with_flags, ConnectionInitializer},
     ConnExt, SqlInterruptHandle, SqlInterruptScope,
@@ -204,6 +204,38 @@ impl Deref for PlacesDb {
     #[inline]
     fn deref(&self) -> &Connection {
         &self.db
+    }
+}
+
+/// PlacesDb that's behind a mutex
+///
+/// The one extra feature that this provides is interrupting the connection without having to take
+/// the mutex lock.
+pub struct MutexPlacesDb {
+    mutex: Mutex<PlacesDb>,
+    interrupt_handle: InterruptHandle,
+}
+
+impl MutexPlacesDb {
+    pub fn new(db: PlacesDb) -> Self {
+        let interrupt_handle = db.get_interrupt_handle();
+        Self {
+            mutex: Mutex::new(db),
+            interrupt_handle,
+        }
+    }
+
+    pub fn interrupt(&self) {
+        self.interrupt_handle.interrupt()
+    }
+}
+
+impl Deref for MutexPlacesDb {
+    type Target = Mutex<PlacesDb>;
+
+    #[inline]
+    fn deref(&self) -> &Mutex<PlacesDb> {
+        &self.mutex
     }
 }
 

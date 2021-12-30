@@ -8,8 +8,8 @@ use crate::encryption::EncryptorDecryptor;
 use crate::error::*;
 use crate::login::EncryptedLogin;
 use crate::util;
+use interrupt_support::InterruptScope;
 use rusqlite::{named_params, Connection};
-use sql_support::SqlInterruptScope;
 use std::time::SystemTime;
 use sync15::ServerTimestamp;
 use sync_guid::Guid;
@@ -88,7 +88,7 @@ impl UpdatePlan {
             .push((login, time.as_millis() as i64, is_override));
     }
 
-    fn perform_deletes(&self, conn: &Connection, scope: &SqlInterruptScope) -> Result<()> {
+    fn perform_deletes(&self, conn: &Connection, scope: &InterruptScope) -> Result<()> {
         sql_support::each_chunk(&self.delete_local, |chunk, _| -> Result<()> {
             conn.execute(
                 &format!(
@@ -114,7 +114,7 @@ impl UpdatePlan {
     }
 
     // These aren't batched but probably should be.
-    fn perform_mirror_updates(&self, conn: &Connection, scope: &SqlInterruptScope) -> Result<()> {
+    fn perform_mirror_updates(&self, conn: &Connection, scope: &InterruptScope) -> Result<()> {
         let sql = "
             UPDATE loginsM
             SET server_modified  = :server_modified,
@@ -153,7 +153,7 @@ impl UpdatePlan {
         Ok(())
     }
 
-    fn perform_mirror_inserts(&self, conn: &Connection, scope: &SqlInterruptScope) -> Result<()> {
+    fn perform_mirror_inserts(&self, conn: &Connection, scope: &InterruptScope) -> Result<()> {
         let sql = "
             INSERT OR IGNORE INTO loginsM (
                 is_overridden,
@@ -214,7 +214,7 @@ impl UpdatePlan {
         Ok(())
     }
 
-    fn perform_local_updates(&self, conn: &Connection, scope: &SqlInterruptScope) -> Result<()> {
+    fn perform_local_updates(&self, conn: &Connection, scope: &InterruptScope) -> Result<()> {
         let sql = format!(
             "UPDATE loginsL
              SET local_modified      = :local_modified,
@@ -254,7 +254,7 @@ impl UpdatePlan {
         Ok(())
     }
 
-    pub fn execute(&self, conn: &Connection, scope: &SqlInterruptScope) -> Result<()> {
+    pub fn execute(&self, conn: &Connection, scope: &InterruptScope) -> Result<()> {
         log::debug!("UpdatePlan: deleting records...");
         self.perform_deletes(conn, scope)?;
         log::debug!("UpdatePlan: Updating existing mirror records...");
@@ -290,7 +290,7 @@ mod tests {
             delete_local: vec![Guid::new("login2"), Guid::new("login3")],
             ..UpdatePlan::default()
         }
-        .execute(&db, &db.begin_interrupt_scope())
+        .execute(&db, &InterruptScope::new())
         .unwrap();
 
         assert_eq!(get_local_guids(&db), vec!["login1", "login4"]);
@@ -317,7 +317,7 @@ mod tests {
             ],
             ..UpdatePlan::default()
         }
-        .execute(&db, &db.begin_interrupt_scope())
+        .execute(&db, &InterruptScope::new())
         .unwrap();
         check_mirror_login(&db, "unchanged", "password", initial_modified, false);
         check_mirror_login(&db, "changed", "new-password", 20000, false);
@@ -334,7 +334,7 @@ mod tests {
             ],
             ..UpdatePlan::default()
         }
-        .execute(&db, &db.begin_interrupt_scope())
+        .execute(&db, &InterruptScope::new())
         .unwrap();
         check_mirror_login(&db, "login1", "new-password", 20000, false);
         check_mirror_login(&db, "login2", "new-password2", 21000, true);
@@ -354,7 +354,7 @@ mod tests {
             }],
             ..UpdatePlan::default()
         }
-        .execute(&db, &db.begin_interrupt_scope())
+        .execute(&db, &InterruptScope::new())
         .unwrap();
         check_local_login(&db, "login", "new-password", before_update);
     }

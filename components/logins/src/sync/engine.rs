@@ -13,8 +13,8 @@ use crate::schema;
 use crate::util;
 use crate::LoginDb;
 use crate::LoginStore;
+use interrupt_support::InterruptScope;
 use rusqlite::{named_params, NO_PARAMS};
-use sql_support::SqlInterruptScope;
 use sql_support::{self, ConnExt};
 use std::collections::HashSet;
 use std::sync::Arc;
@@ -27,7 +27,7 @@ use sync_guid::Guid;
 // The sync engine.
 pub struct LoginsSyncEngine {
     pub store: Arc<LoginStore>,
-    pub scope: sql_support::SqlInterruptScope,
+    pub interrupt_scope: InterruptScope,
     // It's unfortunate this is an Option<>, but tricky to change because sometimes we construct
     // an engine for, say, a `reset()` where this isn't needed or known.
     encdec: Option<EncryptorDecryptor>,
@@ -41,13 +41,16 @@ impl LoginsSyncEngine {
         })
     }
 
-    pub fn new(store: Arc<LoginStore>) -> Self {
-        let scope = store.db.lock().begin_interrupt_scope();
+    pub fn new(store: Arc<LoginStore>, interrupt_scope: InterruptScope) -> Self {
         Self {
             store,
-            scope,
+            interrupt_scope,
             encdec: None,
         }
+    }
+
+    fn err_if_interrupted(&self) -> Result<()> {
+        Ok(self.interrupt_scope.err_if_interrupted()?)
     }
 
     fn reconcile(
@@ -55,13 +58,12 @@ impl LoginsSyncEngine {
         records: Vec<SyncLoginData>,
         server_now: ServerTimestamp,
         telem: &mut telemetry::EngineIncoming,
-        scope: &SqlInterruptScope,
     ) -> Result<UpdatePlan> {
         let mut plan = UpdatePlan::default();
         let encdec = self.encdec()?;
 
         for mut record in records {
-            scope.err_if_interrupted()?;
+            self.err_if_interrupted()?;
             log::debug!("Processing remote change {}", record.guid());
             let upstream = if let Some(inbound) = record.inbound.0.take() {
                 inbound
@@ -113,13 +115,13 @@ impl LoginsSyncEngine {
         Ok(plan)
     }
 
-    fn execute_plan(&self, plan: UpdatePlan, scope: &SqlInterruptScope) -> Result<()> {
+    fn execute_plan(&self, plan: UpdatePlan) -> Result<()> {
         // Because rusqlite want a mutable reference to create a transaction
         // (as a way to save us from ourselves), we side-step that by creating
         // it manually.
         let db = self.store.db.lock();
         let tx = db.unchecked_transaction()?;
-        plan.execute(&tx, scope)?;
+        plan.execute(&tx, &self.interrupt_scope)?;
         tx.commit()?;
         Ok(())
     }
@@ -131,7 +133,6 @@ impl LoginsSyncEngine {
         &self,
         records: &[(sync15::Payload, ServerTimestamp)],
         telem: &mut telemetry::EngineIncoming,
-        scope: &SqlInterruptScope,
     ) -> Result<Vec<SyncLoginData>> {
         let mut sync_data = Vec::with_capacity(records.len());
         {
@@ -149,7 +150,7 @@ impl LoginsSyncEngine {
                 }
             }
         }
-        scope.err_if_interrupted()?;
+        self.err_if_interrupted()?;
 
         sql_support::each_chunk(
             &sync_data
@@ -210,7 +211,7 @@ impl LoginsSyncEngine {
                     } else {
                         sync_data[guid_idx].set_local(LocalLogin::from_row(row)?)?;
                     }
-                    scope.err_if_interrupted()?;
+                    self.err_if_interrupted()?;
                     Ok(())
                 })?;
                 // `rows` is an Iterator<Item = Result<()>>, so we need to collect to handle the errors.
@@ -221,11 +222,7 @@ impl LoginsSyncEngine {
         Ok(sync_data)
     }
 
-    fn fetch_outgoing(
-        &self,
-        st: ServerTimestamp,
-        scope: &SqlInterruptScope,
-    ) -> Result<OutgoingChangeset> {
+    fn fetch_outgoing(&self, st: ServerTimestamp) -> Result<OutgoingChangeset> {
         // Taken from iOS. Arbitrarily large, so that clients that want to
         // process deletions first can; for us it doesn't matter.
         const TOMBSTONE_SORTINDEX: i32 = 5_000_000;
@@ -237,7 +234,7 @@ impl LoginsSyncEngine {
             synced = SyncStatus::Synced as u8
         ))?;
         let rows = stmt.query_and_then(NO_PARAMS, |row| {
-            scope.err_if_interrupted()?;
+            self.err_if_interrupted()?;
             Ok(if row.get::<_, bool>("is_deleted")? {
                 Payload::new_tombstone(row.get::<_, String>("guid")?)
                     .with_sortindex(TOMBSTONE_SORTINDEX)
@@ -256,17 +253,16 @@ impl LoginsSyncEngine {
         &self,
         inbound: IncomingChangeset,
         telem: &mut telemetry::Engine,
-        scope: &SqlInterruptScope,
     ) -> Result<OutgoingChangeset> {
         let mut incoming_telemetry = telemetry::EngineIncoming::new();
-        let data = self.fetch_login_data(&inbound.changes, &mut incoming_telemetry, scope)?;
+        let data = self.fetch_login_data(&inbound.changes, &mut incoming_telemetry)?;
         let plan = {
-            let result = self.reconcile(data, inbound.timestamp, &mut incoming_telemetry, scope);
+            let result = self.reconcile(data, inbound.timestamp, &mut incoming_telemetry);
             telem.incoming(incoming_telemetry);
             result
         }?;
-        self.execute_plan(plan, scope)?;
-        self.fetch_outgoing(inbound.timestamp, scope)
+        self.execute_plan(plan)?;
+        self.fetch_outgoing(inbound.timestamp)
     }
 
     fn set_last_sync(&self, db: &LoginDb, last_sync: ServerTimestamp) -> Result<()> {
@@ -294,12 +290,7 @@ impl LoginsSyncEngine {
         db.get_meta::<String>(schema::GLOBAL_STATE_META_KEY)
     }
 
-    fn mark_as_synchronized(
-        &self,
-        guids: &[&str],
-        ts: ServerTimestamp,
-        scope: &SqlInterruptScope,
-    ) -> Result<()> {
+    fn mark_as_synchronized(&self, guids: &[&str], ts: ServerTimestamp) -> Result<()> {
         let db = self.store.db.lock();
         let tx = db.unchecked_transaction()?;
         sql_support::each_chunk(guids, |chunk, _| -> Result<()> {
@@ -310,7 +301,7 @@ impl LoginsSyncEngine {
                 ),
                 chunk,
             )?;
-            scope.err_if_interrupted()?;
+            self.err_if_interrupted()?;
 
             db.execute(
                 &format!(
@@ -326,7 +317,7 @@ impl LoginsSyncEngine {
                 ),
                 chunk,
             )?;
-            scope.err_if_interrupted()?;
+            self.err_if_interrupted()?;
 
             db.execute(
                 &format!(
@@ -335,7 +326,7 @@ impl LoginsSyncEngine {
                 ),
                 chunk,
             )?;
-            scope.err_if_interrupted()?;
+            self.err_if_interrupted()?;
             Ok(())
         })?;
         self.set_last_sync(&db, ts)?;
@@ -433,7 +424,7 @@ impl SyncEngine for LoginsSyncEngine {
     ) -> anyhow::Result<OutgoingChangeset> {
         assert_eq!(inbound.len(), 1, "logins only requests one item");
         let inbound = inbound.into_iter().next().unwrap();
-        Ok(self.do_apply_incoming(inbound, telem, &self.scope)?)
+        Ok(self.do_apply_incoming(inbound, telem)?)
     }
 
     fn sync_finished(
@@ -444,7 +435,6 @@ impl SyncEngine for LoginsSyncEngine {
         self.mark_as_synchronized(
             &records_synced.iter().map(Guid::as_str).collect::<Vec<_>>(),
             new_timestamp,
-            &self.scope,
         )?;
         Ok(())
     }
@@ -480,7 +470,7 @@ impl SyncEngine for LoginsSyncEngine {
 
     fn wipe(&self) -> anyhow::Result<()> {
         let db = self.store.db.lock();
-        db.wipe(&self.scope)?;
+        db.wipe(&self.interrupt_scope)?;
         Ok(())
     }
 }
@@ -500,26 +490,21 @@ mod tests {
         store: LoginStore,
         records: &[(sync15::Payload, ServerTimestamp)],
     ) -> (Vec<SyncLoginData>, telemetry::EngineIncoming) {
-        let mut engine = LoginsSyncEngine::new(Arc::new(store));
+        let mut engine = LoginsSyncEngine::new(Arc::new(store), InterruptScope::new());
         engine
             .set_local_encryption_key(&TEST_ENCRYPTION_KEY)
             .unwrap();
         let mut telem = sync15::telemetry::EngineIncoming::new();
-        (
-            engine
-                .fetch_login_data(records, &mut telem, &engine.scope)
-                .unwrap(),
-            telem,
-        )
+        (engine.fetch_login_data(records, &mut telem).unwrap(), telem)
     }
 
     fn run_fetch_outgoing(store: LoginStore) -> OutgoingChangeset {
-        let mut engine = LoginsSyncEngine::new(Arc::new(store));
+        let mut engine = LoginsSyncEngine::new(Arc::new(store), InterruptScope::new());
         engine
             .set_local_encryption_key(&TEST_ENCRYPTION_KEY)
             .unwrap();
         engine
-            .fetch_outgoing(sync15::ServerTimestamp(10000), &engine.scope)
+            .fetch_outgoing(sync15::ServerTimestamp(10000))
             .unwrap()
     }
 
@@ -791,7 +776,7 @@ mod tests {
             .record
             .id;
 
-        let mut engine = LoginsSyncEngine::new(Arc::new(store));
+        let mut engine = LoginsSyncEngine::new(Arc::new(store), InterruptScope::new());
         engine
             .set_local_encryption_key(&TEST_ENCRYPTION_KEY)
             .unwrap();

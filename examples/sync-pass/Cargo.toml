@@ -15,7 +15,7 @@ logins = { path = "../../components/logins" }
 sync15 = { path = "../../components/sync15" }
 sync-guid = { path = "../../components/support/guid" }
 log = "0.4"
-sql-support = { path = "../../components/support/sql" }
+interrupt-support = { path = "../../components/support/interrupt" }
 anyhow = "1.0"
 prettytable-rs = "0.8"
 fxa-client = { path = "../../components/fxa-client" }

@@ -119,6 +119,9 @@ interface SyncManager {
     [Throws=SyncManagerError]
     SyncResult sync(SyncParams params);
 
+    // Interrupt the currently in-progress sync
+    void interrupt();
+
     // Get a list of engine names available for syncing
     sequence<string> get_available_engines();
 };

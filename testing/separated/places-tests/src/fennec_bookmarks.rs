@@ -2,6 +2,7 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
+use interrupt_support::InterruptScope;
 use places::import::fennec::bookmarks::BookmarksMigrationResult;
 use places::storage::bookmarks::fetch::Item;
 use places::{api::places_api::PlacesApi, ErrorKind, Result};
@@ -860,7 +861,10 @@ fn do_test_sync_after_migrate(test_type: TimestampTestType) -> Result<()> {
         }),
     ];
 
-    let engine = BookmarksSyncEngine::new(places_api.get_sync_connection().unwrap());
+    let engine = BookmarksSyncEngine::new(
+        places_api.get_sync_connection().unwrap(),
+        InterruptScope::new(),
+    );
 
     let mut incoming =
         IncomingChangeset::new(engine.collection_name().to_string(), server_timestamp);

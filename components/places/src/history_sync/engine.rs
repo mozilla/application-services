@@ -2,13 +2,12 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-use crate::db::PlacesDb;
+use crate::db::{MutexPlacesDb, PlacesDb};
 use crate::error::*;
 use crate::storage::history::{delete_everything, history_sync::reset};
 use crate::storage::{get_meta, put_meta};
-use parking_lot::Mutex;
-use sql_support::SqlInterruptScope;
-use std::sync::{atomic::AtomicUsize, Arc};
+use interrupt_support::InterruptScope;
+use std::sync::Arc;
 use sync15::telemetry;
 use sync15::{
     CollSyncIds, CollectionRequest, EngineSyncAssociation, IncomingChangeset, OutgoingChangeset,
@@ -27,14 +26,14 @@ pub const COLLECTION_SYNCID_META_KEY: &str = "history_sync_id";
 
 fn do_apply_incoming(
     db: &PlacesDb,
-    scope: &SqlInterruptScope,
+    interrupt_scope: &InterruptScope,
     inbound: IncomingChangeset,
     telem: &mut telemetry::Engine,
 ) -> Result<OutgoingChangeset> {
     let timestamp = inbound.timestamp;
     let outgoing = {
         let mut incoming_telemetry = telemetry::EngineIncoming::new();
-        let result = apply_plan(db, inbound, &mut incoming_telemetry, scope);
+        let result = apply_plan(db, inbound, &mut incoming_telemetry, interrupt_scope);
         telem.incoming(incoming_telemetry);
         result
     }?;
@@ -65,17 +64,17 @@ fn do_sync_finished(
 
 // Short-lived struct that's constructed each sync
 pub struct HistorySyncEngine {
-    pub db: Arc<Mutex<PlacesDb>>,
+    pub db: Arc<MutexPlacesDb>,
     // Public because we use it in the [PlacesApi] sync methods.  We can probably make this private
     // once all syncing goes through the sync manager.
-    pub(crate) scope: SqlInterruptScope,
+    pub(crate) interrupt_scope: InterruptScope,
 }
 
 impl HistorySyncEngine {
-    pub fn new(db: Arc<Mutex<PlacesDb>>) -> Self {
+    pub fn new(db: Arc<MutexPlacesDb>, interrupt_scope: InterruptScope) -> Self {
         Self {
             db,
-            scope: SqlInterruptScope::new(Arc::new(AtomicUsize::new(0))),
+            interrupt_scope,
         }
     }
 }
@@ -93,7 +92,12 @@ impl SyncEngine for HistorySyncEngine {
         assert_eq!(inbound.len(), 1, "history only requests one item");
         let inbound = inbound.into_iter().next().unwrap();
         let conn = self.db.lock();
-        Ok(do_apply_incoming(&conn, &self.scope, inbound, telem)?)
+        Ok(do_apply_incoming(
+            &conn,
+            &self.interrupt_scope,
+            inbound,
+            telem,
+        )?)
     }
 
     fn sync_finished(

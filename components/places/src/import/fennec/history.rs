@@ -7,6 +7,7 @@ use crate::bookmark_sync::engine::update_frecencies;
 use crate::db::db::PlacesDb;
 use crate::error::*;
 use crate::import::common::attached_database;
+use interrupt_support::InterruptScope;
 use rusqlite::Connection;
 use serde_derive::*;
 use sql_support::ConnExt;
@@ -43,7 +44,7 @@ fn do_import(places_api: &PlacesApi, android_db_file_url: Url) -> Result<History
     let conn_mutex = places_api.get_sync_connection()?;
     let conn = conn_mutex.lock();
 
-    let scope = conn.begin_interrupt_scope();
+    let interrupt_scope = InterruptScope::new();
 
     define_sql_functions(&conn)?;
 
@@ -72,11 +73,11 @@ fn do_import(places_api: &PlacesApi, android_db_file_url: Url) -> Result<History
 
     log::debug!("Populating missing entries in moz_places");
     conn.execute_batch(&FILL_MOZ_PLACES)?;
-    scope.err_if_interrupted()?;
+    interrupt_scope.err_if_interrupted()?;
 
     log::debug!("Inserting the history visits");
     conn.execute_batch(&INSERT_HISTORY_VISITS)?;
-    scope.err_if_interrupted()?;
+    interrupt_scope.err_if_interrupted()?;
 
     log::debug!("Committing...");
     tx.commit()?;
@@ -84,7 +85,7 @@ fn do_import(places_api: &PlacesApi, android_db_file_url: Url) -> Result<History
     // Note: update_frecencies manages its own transaction, which is fine,
     // since nothing that bad will happen if it is aborted.
     log::debug!("Updating frecencies");
-    update_frecencies(&conn, &scope)?;
+    update_frecencies(&conn, &interrupt_scope)?;
 
     log::info!("Successfully imported history visits!");
 

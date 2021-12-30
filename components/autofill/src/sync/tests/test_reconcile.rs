@@ -24,8 +24,7 @@ use crate::sync::{do_incoming, SyncGuid};
 use crate::UpdatableAddressFields;
 use crate::{InternalAddress, Store};
 
-use interrupt_support::Interruptee;
-use interrupt_support::NeverInterrupts;
+use interrupt_support::InterruptScope;
 use rusqlite::{types::ToSql, Connection};
 use serde_json::{json, Map, Value};
 use sync15::Payload;
@@ -489,7 +488,7 @@ lazy_static::lazy_static! {
 fn save_to_mirror(
     conn: &Connection,
     records: Vec<AddressRecord>,
-    signal: &dyn Interruptee,
+    signal: &InterruptScope,
 ) -> Result<()> {
     log::info!("adding {} records to the mirror", records.len());
 
@@ -562,6 +561,7 @@ fn check_address_as_expected(address: &InternalAddress, expected: &Map<String, V
 #[test]
 fn test_reconcile_addresses() -> Result<()> {
     let _ = env_logger::try_init();
+    let scope = InterruptScope::new();
 
     let j = &ADDRESS_RECONCILE_TESTCASES;
     for test_case in j.as_array().unwrap() {
@@ -594,16 +594,16 @@ fn test_reconcile_addresses() -> Result<()> {
         map.insert("id".to_string(), serde_json::to_value(guid.clone())?);
         let payload = Payload::from_json(remote)?;
         log::debug!("staging {:?}", payload);
-        stage_incoming(db, vec![payload], &NeverInterrupts)?;
+        stage_incoming(db, vec![payload], &scope)?;
 
         // and finally, "parent" items are added to the mirror.
         let mut parent: AddressRecord = serde_json::from_value(test_case["parent"].clone())?;
         parent.guid = guid.clone();
         log::trace!("parent record: {:?}", parent);
-        save_to_mirror(db, vec![parent], &NeverInterrupts)?;
+        save_to_mirror(db, vec![parent], &scope)?;
 
         // OK, see what pops out!
-        do_incoming(db, &AddressesImpl {}, &NeverInterrupts)?;
+        do_incoming(db, &AddressesImpl {}, &scope)?;
 
         let all = addresses::get_all_addresses(&db)?;
         log::info!("local records ended up as: {:#?}", all);

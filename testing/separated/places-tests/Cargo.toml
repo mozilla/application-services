@@ -11,7 +11,7 @@ name = "places-integration-tests"
 
 [dev-dependencies]
 parking_lot = "0.5"
-sql-support = { path = "../../../components/support/sql" }
+interrupt-support = { path = "../../../components/support/interrupt" }
 sync-guid = { path = "../../../components/support/guid" }
 types = { path = "../../../components/support/types" }
 places = { path = "../../../components/places" }

@@ -14,6 +14,7 @@ use crate::db::models::address::InternalAddress;
 use crate::error::*;
 use crate::sync_merge_field_check;
 use incoming::IncomingAddressesImpl;
+use interrupt_support::InterruptScope;
 use outgoing::OutgoingAddressesImpl;
 use rusqlite::Transaction;
 use serde::{Deserialize, Serialize};
@@ -22,7 +23,10 @@ use sync_guid::Guid;
 use types::Timestamp;
 
 // The engine.
-pub(crate) fn create_engine(store: Arc<crate::Store>) -> ConfigSyncEngine<InternalAddress> {
+pub(crate) fn create_engine(
+    store: Arc<crate::Store>,
+    interrupt_scope: InterruptScope,
+) -> ConfigSyncEngine<InternalAddress> {
     ConfigSyncEngine::new(
         EngineConfig {
             namespace: "addresses".to_string(),
@@ -30,6 +34,7 @@ pub(crate) fn create_engine(store: Arc<crate::Store>) -> ConfigSyncEngine<Intern
         },
         store,
         Box::new(AddressesEngineStorageImpl {}),
+        interrupt_scope,
     )
 }
 

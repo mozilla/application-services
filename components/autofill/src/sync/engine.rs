@@ -5,6 +5,7 @@
 use super::{plan_incoming, ProcessIncomingRecordImpl, ProcessOutgoingRecordImpl, SyncRecord};
 use crate::error::*;
 use crate::Store;
+use interrupt_support::InterruptScope;
 use rusqlite::{
     types::{FromSql, ToSql},
     Connection, Transaction,
@@ -47,6 +48,7 @@ pub struct ConfigSyncEngine<T> {
     pub(crate) store: Arc<Store>,
     pub(crate) storage_impl: Box<dyn SyncEngineStorageImpl<T>>,
     local_enc_key: Option<String>,
+    interrupt_scope: InterruptScope,
 }
 
 impl<T> ConfigSyncEngine<T> {
@@ -54,11 +56,13 @@ impl<T> ConfigSyncEngine<T> {
         config: EngineConfig,
         store: Arc<Store>,
         storage_impl: Box<dyn SyncEngineStorageImpl<T>>,
+        interrupt_scope: InterruptScope,
     ) -> Self {
         Self {
             config,
             store,
             storage_impl,
+            interrupt_scope,
             local_enc_key: None,
         }
     }
@@ -81,6 +85,10 @@ impl<T> ConfigSyncEngine<T> {
         self.storage_impl.reset_storage(&tx)?;
         self.put_meta(&tx, LAST_SYNC_META_KEY, &0)?;
         Ok(())
+    }
+
+    fn err_if_interrupted(&self) -> Result<()> {
+        Ok(self.interrupt_scope.err_if_interrupted()?)
     }
 }
 
@@ -106,8 +114,6 @@ impl<T: SyncRecord + std::fmt::Debug> SyncEngine for ConfigSyncEngine<T> {
         let db = &self.store.db.lock().unwrap();
         crate::db::schema::create_empty_sync_temp_tables(&db.writer)?;
 
-        let signal = db.begin_interrupt_scope();
-
         // Stage all incoming items.
         let mut incoming_telemetry = telemetry::EngineIncoming::new();
         let timestamp = inbound.timestamp;
@@ -117,10 +123,10 @@ impl<T: SyncRecord + std::fmt::Debug> SyncEngine for ConfigSyncEngine<T> {
         let outgoing_impl = self.storage_impl.get_outgoing_impl(&self.local_enc_key)?;
 
         // The first step in the "apply incoming" process for syncing autofill records.
-        incoming_impl.stage_incoming(&tx, inbound.changes, &signal)?;
+        incoming_impl.stage_incoming(&tx, inbound.changes, &self.interrupt_scope)?;
         // 2nd step is to get "states" for each record...
         for state in incoming_impl.fetch_incoming_states(&tx)? {
-            signal.err_if_interrupted()?;
+            self.err_if_interrupted()?;
             // Finally get a "plan" and apply it.
             let action = plan_incoming(&*incoming_impl, &tx, state)?;
             super::apply_incoming_action(&*incoming_impl, &tx, action)?;
@@ -242,7 +248,7 @@ mod tests {
     // We use the credit-card engine here.
     fn create_engine() -> ConfigSyncEngine<InternalCreditCard> {
         let store = crate::db::store::Store::new_memory();
-        crate::sync::credit_card::create_engine(Arc::new(store))
+        crate::sync::credit_card::create_engine(Arc::new(store), InterruptScope::new())
     }
 
     pub fn clear_cc_tables(conn: &Connection) -> rusqlite::Result<(), rusqlite::Error> {

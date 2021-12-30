@@ -5,6 +5,7 @@
 #![warn(rust_2018_idioms)]
 
 use cli_support::fxa_creds::{get_cli_fxa, get_default_fxa_config};
+use interrupt_support::InterruptScope;
 use places::storage::bookmarks::{
     json_tree::{
         fetch_tree, insert_tree, BookmarkNode, BookmarkTreeNode, FetchDepth, FolderNode,
@@ -163,7 +164,6 @@ fn run_native_export(db: &PlacesDb, filename: String) -> Result<()> {
 
 #[allow(clippy::too_many_arguments)]
 fn sync(
-    api: &PlacesApi,
     mut engine_names: Vec<String>,
     cred_file: String,
     wipe_all: bool,
@@ -186,10 +186,12 @@ fn sync(
     // global state at all (however, we do reuse the in-memory state).
     let mut mem_cached_state = MemoryCachedState::default();
     let mut global_state: Option<String> = None;
+    let interrupt_scope = InterruptScope::new();
     let engines: Vec<Box<dyn SyncEngine>> = if engine_names.is_empty() {
         vec![
-            places::get_registered_sync_engine(&SyncEngineId::Bookmarks).unwrap(),
-            places::get_registered_sync_engine(&SyncEngineId::History).unwrap(),
+            places::get_registered_sync_engine(&SyncEngineId::Bookmarks, interrupt_scope.clone())
+                .unwrap(),
+            places::get_registered_sync_engine(&SyncEngineId::History, interrupt_scope).unwrap(),
         ]
     } else {
         engine_names.sort();
@@ -197,8 +199,11 @@ fn sync(
         engine_names
             .into_iter()
             .map(|name| {
-                places::get_registered_sync_engine(&SyncEngineId::try_from(name.as_ref()).unwrap())
-                    .unwrap()
+                places::get_registered_sync_engine(
+                    &SyncEngineId::try_from(name.as_ref()).unwrap(),
+                    interrupt_scope.clone(),
+                )
+                .unwrap()
             })
             .collect()
     };
@@ -219,6 +224,7 @@ fn sync(
 
     let mut error_to_report = None;
     let engines_to_sync: Vec<&dyn SyncEngine> = engines.iter().map(AsRef::as_ref).collect();
+    let interrupt_scope = InterruptScope::new();
 
     for n in 0..nsyncs {
         let mut result = sync_multiple(
@@ -227,7 +233,7 @@ fn sync(
             &mut mem_cached_state,
             &cli_fxa.client_init.clone(),
             &cli_fxa.root_sync_key,
-            &api.dummy_sync_interrupt_scope(),
+            &interrupt_scope,
             None,
         );
 
@@ -380,7 +386,6 @@ fn main() -> Result<()> {
             nsyncs,
             wait,
         } => sync(
-            &api,
             engines,
             credential_file,
             wipe_all,

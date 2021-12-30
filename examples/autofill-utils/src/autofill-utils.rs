@@ -13,7 +13,7 @@ use autofill::encryption::{create_key, EncryptorDecryptor};
 use autofill::error::Error;
 use cli_support::fxa_creds::{get_cli_fxa, get_default_fxa_config};
 use cli_support::prompt::{prompt_string, prompt_usize};
-use interrupt_support::NeverInterrupts; // XXX need a real interruptee!
+use interrupt_support::InterruptScope;
 use std::sync::Arc;
 use structopt::StructOpt;
 use sync15::{
@@ -364,6 +364,7 @@ fn run_sync(
 ) -> Result<()> {
     // XXX - need to add interrupts
     let cli_fxa = get_cli_fxa(get_default_fxa_config(), &cred_file)?;
+    let interrupt_scope = InterruptScope::new();
 
     if wipe_all {
         Sync15StorageClient::new(cli_fxa.client_init.clone())?.wipe_all_remote()?;
@@ -371,8 +372,8 @@ fn run_sync(
     let mut mem_cached_state = MemoryCachedState::default();
     let mut global_state: Option<String> = None;
     let mut engines: Vec<Box<dyn SyncEngine>> = vec![
-        Arc::clone(store).create_addresses_sync_engine(),
-        Arc::clone(store).create_credit_cards_sync_engine(),
+        Arc::clone(store).create_addresses_sync_engine(interrupt_scope.clone()),
+        Arc::clone(store).create_credit_cards_sync_engine(interrupt_scope.clone()),
     ];
     engines[1].set_local_encryption_key(key)?;
     for engine in &engines {
@@ -399,7 +400,7 @@ fn run_sync(
             &mut mem_cached_state,
             &cli_fxa.client_init.clone(),
             &cli_fxa.root_sync_key,
-            &NeverInterrupts,
+            &interrupt_scope,
             None,
         );
 
