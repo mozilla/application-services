@@ -15,6 +15,8 @@ use serde_derive::*;
 use std::convert::TryFrom;
 use std::fs::File;
 use std::io::{BufReader, BufWriter};
+use std::sync::Arc;
+use std::thread;
 use structopt::StructOpt;
 use sync15::{
     sync_multiple, EngineSyncAssociation, MemoryCachedState, SetupStorageClient,
@@ -155,6 +157,38 @@ fn run_native_export(db: &PlacesDb, filename: String) -> Result<()> {
 
     let tree = fetch_tree(db, &BookmarkRootGuid::Root.into(), &FetchDepth::Deepest)?.unwrap();
     serde_json::to_writer_pretty(writer, &tree)?;
+    Ok(())
+}
+
+fn run_open_connection_stress_test(api: Arc<PlacesApi>, threads: u32, number: u32) -> Result<()> {
+    // Create an Arc<PlacesApi> for each thread we want to create
+    let mut api_clones = Vec::new();
+    for _ in 0..threads {
+        api_clones.push(api.clone());
+    }
+
+    // Span the threads and let them do their job
+    let handles: Vec<thread::JoinHandle<()>> = api_clones
+        .into_iter()
+        .map(|api| {
+            thread::spawn(move || {
+                // Use ReadOnly connections since PlacesApi only allows an unlimited number
+                for _ in 0..number {
+                    //api.open_connection(ConnectionType::Sync).unwrap();
+                    api.get_sync_connection().unwrap();
+                }
+            })
+        })
+        .collect();
+
+    for handle in handles.into_iter() {
+        handle.join().unwrap();
+    }
+
+    println!(
+        "Sucessfully created {} threads that each opened {} connections",
+        threads, number
+    );
     Ok(())
 }
 
@@ -353,6 +387,18 @@ enum Command {
         /// Imports bookmarks from a desktop export
         input_file: String,
     },
+
+    #[structopt(name = "open-connection-stress-test")]
+    /// Test opening a connection from many different threads at once
+    OpenConnectionStressTest {
+        /// Number of threads to use
+        #[structopt(name = "threads", long, default_value = "4")]
+        threads: u32,
+
+        /// Number of times each thread opens a connection
+        #[structopt(name = "number", long, short = "n", default_value = "4")]
+        number: u32,
+    },
 }
 
 fn main() -> Result<()> {
@@ -390,5 +436,8 @@ fn main() -> Result<()> {
         Command::ImportBookmarks { input_file } => run_native_import(&db, input_file),
         Command::ImportIosBookmarks { input_file } => run_ios_import(&api, input_file),
         Command::ImportDesktopBookmarks { input_file } => run_desktop_import(&db, input_file),
+        Command::OpenConnectionStressTest { threads, number } => {
+            run_open_connection_stress_test(api, threads, number)
+        }
     }
 }

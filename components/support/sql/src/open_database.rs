@@ -109,7 +109,7 @@ fn do_open_database_with_flags<CI: ConnectionInitializer, P: AsRef<Path>>(
     log::debug!("{}: checking if initialization is necessary", CI::NAME);
     let run_init = should_init(&conn)?;
 
-    log::debug!("{}: preparing", CI::NAME);
+    log::debug!("{}: preparing (should_init: {})", CI::NAME, run_init);
     connection_initializer.prepare(&conn)?;
 
     if open_flags.contains(OpenFlags::SQLITE_OPEN_READ_WRITE) {
@@ -135,7 +135,9 @@ fn do_open_database_with_flags<CI: ConnectionInitializer, P: AsRef<Path>>(
         log::debug!("{}: finishing writable database open", CI::NAME);
         connection_initializer.finish(&tx)?;
         set_schema_version(&tx, CI::END_VERSION)?;
+        log::debug!("{}: commiting", CI::NAME);
         tx.commit()?;
+        log::debug!("{}: done", CI::NAME);
     } else {
         // There's an implied requirement that the first connection to a DB is
         // writable, so read-only connections do much less, but panic if stuff is wrong

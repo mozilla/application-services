@@ -73,6 +73,7 @@ pub fn init(conn: &Connection) -> rusqlite::Result<()> {
     log::debug!("Initializing schema");
     conn.execute_batch(CREATE_SHARED_SCHEMA_SQL)?;
     create_bookmark_roots(conn)?;
+    create_synced_bookmark_roots(conn)?;
     Ok(())
 }
 
@@ -99,7 +100,6 @@ pub fn finish(db: &Connection, conn_type: ConnectionType) -> rusqlite::Result<()
             db.execute_batch(&CREATE_SHARED_TRIGGERS_SQL)?;
             db.execute_batch(CREATE_SYNC_TEMP_TABLES_SQL)?;
             db.execute_batch(CREATE_SYNC_TRIGGERS_SQL)?;
-            create_synced_bookmark_roots(db)?;
         }
     }
     Ok(())
