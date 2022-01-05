@@ -18,6 +18,10 @@ Use the template below to make assigning a version number during the release cut
   - Description of the change with a link to the pull request ([#0000](https://github.com/mozilla/application-services/pull/0000))
 
 -->
+## Places
+### What's Changed
+- Switched to using sqlite shared-cached mode for connections to avoid "database is locked" errors ([#4764](https://github.com/mozilla/application-services/pull/4764))
+
 ## viaduct
 ### What's New
 - Add support for PATCH methods. ([#4751](https://github.com/mozilla/application-services/pull/4751))

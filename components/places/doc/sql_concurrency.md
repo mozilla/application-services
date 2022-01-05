@@ -33,3 +33,7 @@ However, this *will* still result in `SQLITE_BUSY` being possible. The 2 scenari
 * One of our "small and fast" writes isn't as small and fast as we expect - the sync writer will see `SQLITE_BUSY`. This generally isn't an actual problem - it's "just" a failed sync and the next sync might work fine.
 
 * Even with our "1000ms transaction budget", some other sync transactions still end up taking more than our timeout. This will result in one of the "small and fast" writes failing. Without building a retry queue, we may need to accept this data-loss - but we should work out strategies for understanding how often it happens.
+
+## Shared cache mode
+
+A very important gotcha for all of this is sqlite's "private cache" mode vs "shared cache" mode (https://sqlite.org/sharedcache.html).  When we open the database using the private cache mode, then the locking code doesn't seem to work properly.  If you have an open transaction with a read lock, then try to acquire a write lock, sqlite will immediately return an `SQLITE_BUSY` error.  To avoid this, we always open the database connection using the `SQLITE_OPEN_SHARED_CACHE` flag (see #4762 for more details).

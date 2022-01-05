@@ -12,9 +12,13 @@ use places::storage::bookmarks::{
 use places::types::BookmarkType;
 use places::{ConnectionType, PlacesApi, PlacesDb};
 use serde_derive::*;
+use sql_support::ConnExt;
 use std::convert::TryFrom;
 use std::fs::File;
 use std::io::{BufReader, BufWriter};
+use std::sync::Arc;
+use std::thread;
+use std::time::Duration;
 use structopt::StructOpt;
 use sync15::{
     sync_multiple, EngineSyncAssociation, MemoryCachedState, SetupStorageClient,
@@ -113,9 +117,10 @@ fn do_import(db: &PlacesDb, root: BookmarkTreeNode) -> Result<()> {
     Ok(())
 }
 
-fn run_desktop_import(db: &PlacesDb, filename: String) -> Result<()> {
+fn run_desktop_import(api: Arc<PlacesApi>, filename: String) -> Result<()> {
     println!("import from {}", filename);
 
+    let db = api.open_connection(ConnectionType::ReadWrite)?;
     let file = File::open(filename)?;
     let reader = BufReader::new(file);
     let m: DesktopItem = serde_json::from_reader(reader)?;
@@ -127,34 +132,83 @@ fn run_desktop_import(db: &PlacesDb, filename: String) -> Result<()> {
             return Ok(());
         }
     };
-    do_import(db, root)
+    do_import(&db, root)
 }
 
-fn run_ios_import(api: &PlacesApi, filename: String) -> Result<()> {
+fn run_ios_import(api: Arc<PlacesApi>, filename: String) -> Result<()> {
     println!("ios import from {}", filename);
-    places::import::import_ios_bookmarks(api, filename)?;
+    places::import::import_ios_bookmarks(&api, filename)?;
     println!("Import finished!");
     Ok(())
 }
 
-fn run_native_import(db: &PlacesDb, filename: String) -> Result<()> {
+fn run_native_import(api: Arc<PlacesApi>, filename: String) -> Result<()> {
     println!("import from {}", filename);
 
+    let db = api.open_connection(ConnectionType::ReadWrite)?;
     let file = File::open(filename)?;
     let reader = BufReader::new(file);
 
     let root: BookmarkTreeNode = serde_json::from_reader(reader)?;
-    do_import(db, root)
+    do_import(&db, root)
 }
 
-fn run_native_export(db: &PlacesDb, filename: String) -> Result<()> {
+fn run_native_export(api: Arc<PlacesApi>, filename: String) -> Result<()> {
     println!("export to {}", filename);
 
+    let db = api.open_connection(ConnectionType::ReadWrite)?;
     let file = File::create(filename)?;
     let writer = BufWriter::new(file);
 
-    let tree = fetch_tree(db, &BookmarkRootGuid::Root.into(), &FetchDepth::Deepest)?.unwrap();
+    let tree = fetch_tree(&db, &BookmarkRootGuid::Root.into(), &FetchDepth::Deepest)?.unwrap();
     serde_json::to_writer_pretty(writer, &tree)?;
+    Ok(())
+}
+
+fn run_open_connection_stress_test(
+    api: Arc<PlacesApi>,
+    writer: bool,
+    threads: u32,
+    number: u32,
+) -> Result<()> {
+    // Create an Arc<PlacesApi> for each thread we want to create
+    let mut api_clones = Vec::new();
+    for _ in 0..threads {
+        api_clones.push(api.clone());
+    }
+
+    let mut handles = Vec::new();
+
+    if writer {
+        handles.push(thread::spawn(move || {
+            let db = api.open_connection(ConnectionType::ReadWrite).unwrap();
+            // simulate a writer thread by starting a write transaction, sleeping for a bit,
+            // then committing.
+            let tx = db.unchecked_transaction_imm().unwrap();
+            thread::sleep(Duration::from_secs(2));
+            tx.commit().unwrap();
+        }));
+        // Sleep for a bit to make sure the writer starts before the syncers
+        thread::sleep(Duration::from_millis(100));
+    }
+
+    for api in api_clones {
+        handles.push(thread::spawn(move || {
+            // Just test that we can open a sync connection
+            for _ in 0..number {
+                api.get_sync_connection().unwrap();
+            }
+        }));
+    }
+
+    for handle in handles.into_iter() {
+        handle.join().unwrap();
+    }
+
+    println!(
+        "Sucessfully created {} threads that each opened {} connections",
+        threads, number
+    );
     Ok(())
 }
 
@@ -353,6 +407,22 @@ enum Command {
         /// Imports bookmarks from a desktop export
         input_file: String,
     },
+
+    #[structopt(name = "open-connection-stress-test")]
+    /// Test opening a connection from many different threads at once
+    OpenConnectionStressTest {
+        /// Should we create a thread that writes to the DB
+        #[structopt(name = "writer", long)]
+        writer: bool,
+
+        /// Number of threads to use
+        #[structopt(name = "threads", long, default_value = "4")]
+        threads: u32,
+
+        /// Number of times each thread opens a connection
+        #[structopt(name = "number", long, short = "n", default_value = "4")]
+        number: u32,
+    },
 }
 
 fn main() -> Result<()> {
@@ -363,7 +433,6 @@ fn main() -> Result<()> {
 
     let db_path = opts.database_path;
     let api = PlacesApi::new(&db_path)?;
-    let db = api.open_connection(ConnectionType::ReadWrite)?;
     // Needed to make the get_registered_sync_engine() calls work.
     api.clone().register_with_sync_manager();
 
@@ -386,9 +455,14 @@ fn main() -> Result<()> {
             nsyncs,
             wait,
         ),
-        Command::ExportBookmarks { output_file } => run_native_export(&db, output_file),
-        Command::ImportBookmarks { input_file } => run_native_import(&db, input_file),
-        Command::ImportIosBookmarks { input_file } => run_ios_import(&api, input_file),
-        Command::ImportDesktopBookmarks { input_file } => run_desktop_import(&db, input_file),
+        Command::ExportBookmarks { output_file } => run_native_export(api, output_file),
+        Command::ImportBookmarks { input_file } => run_native_import(api, input_file),
+        Command::ImportIosBookmarks { input_file } => run_ios_import(api, input_file),
+        Command::ImportDesktopBookmarks { input_file } => run_desktop_import(api, input_file),
+        Command::OpenConnectionStressTest {
+            writer,
+            threads,
+            number,
+        } => run_open_connection_stress_test(api, writer, threads, number),
     }
 }

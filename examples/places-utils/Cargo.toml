@@ -15,6 +15,7 @@ places = { path = "../../components/places" }
 sync-guid = { path = "../../components/support/guid" }
 types = { path = "../../components/support/types" }
 sync15 = { path = "../../components/sync15" }
+sql-support = { path = "../../components/support/sql" }
 viaduct-reqwest = { path = "../../components/support/viaduct-reqwest" }
 serde = "1"
 serde_derive = "1"
