@@ -254,13 +254,13 @@ public class PlacesReadConnection {
      *     - `PlacesError.panic`: If the rust code panics while completing this
      *                            operation. (If this occurs, please let us know).
      */
-    open func getBookmarksTree(rootGUID: Guid, recursive: Bool) throws -> BookmarkItem? {
+    open func getBookmarksTree(rootGUID: Guid, recursive: Bool) throws -> BookmarkNodeData? {
         return try queue.sync {
             try self.checkApi()
             if recursive {
-                return try self.conn.bookmarksGetTree(itemGuid: rootGUID)
+                return try self.conn.bookmarksGetTree(itemGuid: rootGUID)?.asBookmarkNodeData
             } else {
-                return try self.conn.bookmarksGetByGuid(guid: rootGUID, getDirectChildren: true)
+                return try self.conn.bookmarksGetByGuid(guid: rootGUID, getDirectChildren: true)?.asBookmarkNodeData
             }
         }
     }
@@ -289,10 +289,10 @@ public class PlacesReadConnection {
      *     - `PlacesError.panic`: If the rust code panics while completing this
      *                            operation. (If this occurs, please let us know).
      */
-    open func getBookmark(guid: Guid) throws -> BookmarkItem? {
+    open func getBookmark(guid: Guid) throws -> BookmarkNodeData? {
         return try queue.sync {
             try self.checkApi()
-            return try self.conn.bookmarksGetByGuid(guid: guid, getDirectChildren: false)
+            return try self.conn.bookmarksGetByGuid(guid: guid, getDirectChildren: false)?.asBookmarkNodeData
         }
     }
 
@@ -321,10 +321,11 @@ public class PlacesReadConnection {
      *     - `PlacesError.panic`: If the rust code panics while completing this
      *                            operation. (If this occurs, please let us know).
      */
-    open func getBookmarksWithURL(url: Url) throws -> [BookmarkItem] {
+    open func getBookmarksWithURL(url: Url) throws -> [BookmarkItemData] {
         return try queue.sync {
             try self.checkApi()
-            return try self.conn.bookmarksGetAllWithUrl(url: url)
+            let items = try self.conn.bookmarksGetAllWithUrl(url: url)
+            return toBookmarkItemDataList(items: items)
         }
     }
 
@@ -376,10 +377,11 @@ public class PlacesReadConnection {
      *     - `PlacesError.panic`: If the rust code panics while completing this
      *                            operation. (If this occurs, please let us know).
      */
-    open func searchBookmarks(query: String, limit: UInt) throws -> [BookmarkItem] {
+    open func searchBookmarks(query: String, limit: UInt) throws -> [BookmarkItemData] {
         return try queue.sync {
             try self.checkApi()
-            return try self.conn.bookmarksSearch(query: query, limit: Int32(limit))
+            let items = try self.conn.bookmarksSearch(query: query, limit: Int32(limit))
+            return toBookmarkItemDataList(items: items)
         }
     }
 
@@ -409,10 +411,11 @@ public class PlacesReadConnection {
      *                            operation. (If this occurs, please let us
      *                            know).
      */
-    open func getRecentBookmarks(limit: UInt) throws -> [BookmarkItem] {
+    open func getRecentBookmarks(limit: UInt) throws -> [BookmarkItemData] {
         return try queue.sync {
             try self.checkApi()
-            return try self.conn.bookmarksGetRecent(limit: Int32(limit))
+            let items = try self.conn.bookmarksGetRecent(limit: Int32(limit))
+            return toBookmarkItemDataList(items: items)
         }
     }
 

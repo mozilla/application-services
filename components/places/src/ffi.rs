@@ -18,7 +18,7 @@ use crate::storage::history_metadata::{
     HistoryMetadataObservation,
 };
 use crate::storage::{history, history_metadata};
-use crate::types::{BookmarkType, VisitTransitionSet};
+use crate::types::VisitTransitionSet;
 use crate::ConnectionType;
 use crate::VisitObservation;
 use crate::VisitTransition;
