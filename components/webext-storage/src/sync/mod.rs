@@ -272,21 +272,21 @@ mod tests {
                 key: $key.to_string(),
                 old_value: Some(json!($old)),
                 new_value: None,
-            };
+            }
         };
         ($key:literal, None, $new:tt) => {
             StorageValueChange {
                 key: $key.to_string(),
                 old_value: None,
                 new_value: Some(json!($new)),
-            };
+            }
         };
         ($key:literal, $old:tt, $new:tt) => {
             StorageValueChange {
                 key: $key.to_string(),
                 old_value: Some(json!($old)),
                 new_value: Some(json!($new)),
-            };
+            }
         };
     }
     macro_rules! changes {

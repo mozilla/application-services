@@ -3,6 +3,8 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
  */
 
+use std::convert::TryFrom;
+
 use crate::enrollment::{
     EnrolledReason, EnrollmentStatus, ExperimentEnrollment, NotEnrolledReason,
 };
@@ -14,6 +16,7 @@ use crate::{matcher::AppContext, sampling};
 use crate::{Branch, Experiment};
 use jexl_eval::Evaluator;
 use serde_derive::*;
+use serde_json::{json, Value};
 use uuid::Uuid;
 #[derive(Serialize, Deserialize, Debug, Clone, Default)]
 pub struct Bucket {}
@@ -219,7 +222,10 @@ fn targeting(
     expression_statement: &str,
     targeting_attributes: &TargetingAttributes,
 ) -> Option<EnrollmentStatus> {
-    match Evaluator::new().eval_in_context(expression_statement, targeting_attributes) {
+    match Evaluator::new()
+        .with_transform("versionCompare", |args| Ok(version_compare(args)?))
+        .eval_in_context(expression_statement, targeting_attributes)
+    {
         Ok(res) => match res.as_bool() {
             Some(true) => None,
             Some(false) => Some(EnrollmentStatus::NotEnrolled {
@@ -235,16 +241,154 @@ fn targeting(
     }
 }
 
+use crate::versioning::Version;
+
+fn version_compare(args: &[Value]) -> Result<Value> {
+    let curr_version = args.get(0).ok_or_else(|| {
+        NimbusError::VersionParsingError("current version doesn't exist in jexl transform".into())
+    })?;
+    let curr_version = curr_version.as_str().ok_or_else(|| {
+        NimbusError::VersionParsingError("current version in jexl transform is not a string".into())
+    })?;
+    let min_version = args.get(1).ok_or_else(|| {
+        NimbusError::VersionParsingError("minimum version doesn't exist in jexl transform".into())
+    })?;
+    let min_version = min_version.as_str().ok_or_else(|| {
+        NimbusError::VersionParsingError("minium version is not a string in jexl transform".into())
+    })?;
+    let min_version = Version::try_from(min_version)?;
+    let curr_version = Version::try_from(curr_version)?;
+    Ok(json!(if curr_version > min_version {
+        1
+    } else if curr_version < min_version {
+        -1
+    } else {
+        0
+    }))
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
     use crate::{BucketConfig, Experiment, RandomizationUnit};
 
     #[test]
+    fn test_minimum_version_targeting_passes() -> Result<()> {
+        // Here's our valid jexl statement
+        let expression_statement = "app_version|versionCompare('96.!') >= 0";
+        let ctx = AppContext {
+            app_version: Some("97pre.1.0-beta.1".into()),
+            ..Default::default()
+        };
+        let targeting_attributes = TargetingAttributes {
+            app_context: ctx,
+            ..Default::default()
+        };
+        assert_eq!(targeting(expression_statement, &targeting_attributes), None);
+        Ok(())
+    }
+
+    #[test]
+    fn test_minimum_version_targeting_fails() -> Result<()> {
+        // Here's our valid jexl statement
+        let expression_statement = "app_version|versionCompare('96+.0') >= 0";
+        let ctx = AppContext {
+            app_version: Some("96.1".into()),
+            ..Default::default()
+        };
+        let targeting_attributes = TargetingAttributes {
+            app_context: ctx,
+            ..Default::default()
+        };
+        assert_eq!(
+            targeting(expression_statement, &targeting_attributes),
+            Some(EnrollmentStatus::NotEnrolled {
+                reason: NotEnrolledReason::NotTargeted
+            })
+        );
+        Ok(())
+    }
+
+    #[test]
+    fn test_targeting_specific_verision() -> Result<()> {
+        // Here's our valid jexl statement that targets **only** 96 versions
+        let expression_statement =
+            "(app_version|versionCompare('96.!') >= 0) && (app_version|versionCompare('97.!') < 0)";
+        let ctx = AppContext {
+            app_version: Some("96.1".into()),
+            ..Default::default()
+        };
+        let targeting_attributes = TargetingAttributes {
+            app_context: ctx,
+            ..Default::default()
+        };
+        // OK 96.1 is a 96 version
+        assert_eq!(targeting(expression_statement, &targeting_attributes), None);
+        let ctx = AppContext {
+            app_version: Some("97.1".into()),
+            ..Default::default()
+        };
+        let targeting_attributes = TargetingAttributes {
+            app_context: ctx,
+            ..Default::default()
+        };
+        // Not targeted, version is 97
+        assert_eq!(
+            targeting(expression_statement, &targeting_attributes),
+            Some(EnrollmentStatus::NotEnrolled {
+                reason: NotEnrolledReason::NotTargeted
+            })
+        );
+
+        let ctx = AppContext {
+            app_version: Some("95.1".into()),
+            ..Default::default()
+        };
+        let targeting_attributes = TargetingAttributes {
+            app_context: ctx,
+            ..Default::default()
+        };
+
+        // Not targeted, version is 95
+        assert_eq!(
+            targeting(expression_statement, &targeting_attributes),
+            Some(EnrollmentStatus::NotEnrolled {
+                reason: NotEnrolledReason::NotTargeted
+            })
+        );
+
+        Ok(())
+    }
+
+    #[test]
+    fn test_targeting_invalid_transform() -> Result<()> {
+        let expression_statement = "app_version|invalid_transform('96+.0')";
+        let ctx = AppContext {
+            app_version: Some("96.1".into()),
+            ..Default::default()
+        };
+        let targeting_attributes = TargetingAttributes {
+            app_context: ctx,
+            ..Default::default()
+        };
+        let err = targeting(expression_statement, &targeting_attributes);
+        if let Some(e) = err {
+            if let EnrollmentStatus::Error { reason: _ } = e {
+                // OK
+            } else {
+                panic!("Should have returned an error since the transform doesn't exist")
+            }
+        } else {
+            panic!("Should not have been targeted")
+        }
+        Ok(())
+    }
+
+    #[test]
     fn test_targeting() {
         // Here's our valid jexl statement
         let expression_statement =
-            "app_id == '1010' && (app_version == '4.4' || locale == \"en-US\")";
+            "app_id == '1010' && (app_version|versionCompare('4.0') >= 0 || locale == \"en-US\")";
 
         // A matching context testing the logical AND + OR of the expression
         let targeting_attributes = AppContext {
@@ -288,6 +432,27 @@ mod tests {
         .into();
         assert_eq!(targeting(expression_statement, &targeting_attributes), None);
 
+        // A matching context testing the other branch of the logical OR
+        let targeting_attributes = AppContext {
+            app_name: "nimbus_test".to_string(),
+            app_id: "1010".to_string(),
+            channel: "test".to_string(),
+            app_version: Some("3.4".to_string()),
+            app_build: Some("1234".to_string()),
+            architecture: Some("x86_64".to_string()),
+            device_manufacturer: Some("Samsung".to_string()),
+            device_model: Some("Galaxy S10".to_string()),
+            locale: Some("en-US".to_string()),
+            os: Some("Android".to_string()),
+            os_version: Some("10".to_string()),
+            android_sdk_version: Some("29".to_string()),
+            debug_tag: None,
+            custom_targeting_attributes: None,
+            ..Default::default()
+        }
+        .into();
+        assert_eq!(targeting(expression_statement, &targeting_attributes), None);
+
         // A non-matching context testing the logical AND of the expression
         let non_matching_targeting = AppContext {
             app_name: "not_nimbus_test".to_string(),
@@ -317,9 +482,9 @@ mod tests {
         // A non-matching context testing the logical OR of the expression
         let non_matching_targeting = AppContext {
             app_name: "not_nimbus_test".to_string(),
-            app_id: "org.example.app".to_string(),
+            app_id: "1010".to_string(),
             channel: "test".to_string(),
-            app_version: Some("4.5".to_string()),
+            app_version: Some("3.5".to_string()),
             app_build: Some("1234".to_string()),
             architecture: Some("x86_64".to_string()),
             device_manufacturer: Some("Samsung".to_string()),

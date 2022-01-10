@@ -54,7 +54,13 @@
           "type": {
             "Object": "ExampleObject"
           },
-          "default": {}
+          "default": {
+            "a-string": "yes",
+            "a-number": 1,
+            "nested": {
+              "property-source": "example-object-property-via-constructor"
+            }
+          }
         },
         {
           "name": "an-object-with-new-defaults",
@@ -64,6 +70,7 @@
           },
           "default": {
             "a-string": "YES: overridden from the CONSTRUCTOR!",
+            "a-number": 2,
             "nested": {
               "property-source": "an-object-with-new-defaults-constructor"
             }
@@ -75,7 +82,13 @@
           "type": {
             "Object": "ExampleObject"
           },
-          "default": {}
+          "default": {
+            "a-string": "yes",
+            "a-number": 2,
+            "nested": {
+              "property-source": "example-object-property-via-constructor"
+            }
+          }
         }
       ],
       "default": {

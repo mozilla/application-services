@@ -1929,36 +1929,36 @@ mod tests {
         let node = tree
             .node_for_guid(&"qqVTRWhLBOu3".into())
             .expect("should exist");
-        assert_eq!(node.needs_merge, true);
+        assert!(node.needs_merge);
         assert_eq!(node.validity, Validity::Valid);
         assert_eq!(node.level(), 2);
-        assert_eq!(node.is_syncable(), true);
+        assert!(node.is_syncable());
 
         let node = tree
             .node_for_guid(&BookmarkRootGuid::Unfiled.as_guid().as_str().into())
             .expect("should exist");
-        assert_eq!(node.needs_merge, true);
+        assert!(node.needs_merge);
         assert_eq!(node.validity, Validity::Valid);
         assert_eq!(node.level(), 1);
-        assert_eq!(node.is_syncable(), true);
+        assert!(node.is_syncable());
 
         let node = tree
             .node_for_guid(&BookmarkRootGuid::Menu.as_guid().as_str().into())
             .expect("should exist");
-        assert_eq!(node.needs_merge, false);
+        assert!(!node.needs_merge);
         assert_eq!(node.validity, Validity::Valid);
         assert_eq!(node.level(), 1);
-        assert_eq!(node.is_syncable(), true);
+        assert!(node.is_syncable());
 
         let node = tree
             .node_for_guid(&BookmarkRootGuid::Root.as_guid().as_str().into())
             .expect("should exist");
         assert_eq!(node.validity, Validity::Valid);
         assert_eq!(node.level(), 0);
-        assert_eq!(node.is_syncable(), false);
+        assert!(!node.is_syncable());
 
         // We should have changes.
-        assert_eq!(db_has_changes(&conn).unwrap(), true);
+        assert!(db_has_changes(&conn).unwrap());
         Ok(())
     }
 
@@ -2003,38 +2003,38 @@ mod tests {
         let node = tree
             .node_for_guid(&"bookmark1___".into())
             .expect("should exist");
-        assert_eq!(node.needs_merge, true);
+        assert!(node.needs_merge);
         assert_eq!(node.level(), 2);
-        assert_eq!(node.is_syncable(), true);
+        assert!(node.is_syncable());
         assert_eq!(node.age, 10000);
 
         let node = tree
             .node_for_guid(&BookmarkRootGuid::Unfiled.as_guid().as_str().into())
             .expect("should exist");
-        assert_eq!(node.needs_merge, true);
+        assert!(node.needs_merge);
         assert_eq!(node.level(), 1);
-        assert_eq!(node.is_syncable(), true);
+        assert!(node.is_syncable());
 
         let node = tree
             .node_for_guid(&BookmarkRootGuid::Menu.as_guid().as_str().into())
             .expect("should exist");
-        assert_eq!(node.needs_merge, false);
+        assert!(!node.needs_merge);
         assert_eq!(node.level(), 1);
-        assert_eq!(node.is_syncable(), true);
+        assert!(node.is_syncable());
 
         let node = tree
             .node_for_guid(&BookmarkRootGuid::Root.as_guid().as_str().into())
             .expect("should exist");
-        assert_eq!(node.needs_merge, false);
+        assert!(!node.needs_merge);
         assert_eq!(node.level(), 0);
-        assert_eq!(node.is_syncable(), false);
+        assert!(!node.is_syncable());
         // hard to know the exact age of the root, but we know the max.
         let max_dur = SystemTime::now().duration_since(now).unwrap();
         let max_age = max_dur.as_secs() as i64 * 1000 + i64::from(max_dur.subsec_millis());
         assert!(node.age <= max_age);
 
         // We should have changes.
-        assert_eq!(db_has_changes(&syncer).unwrap(), true);
+        assert!(db_has_changes(&syncer).unwrap());
         Ok(())
     }
 
@@ -2909,11 +2909,11 @@ mod tests {
         let info_for_a = get_raw_bookmark(&writer, &guid_for_a)
             .expect("Should fetch info for A")
             .unwrap();
-        assert_eq!(info_for_a.sync_change_counter, 2);
+        assert_eq!(info_for_a._sync_change_counter, 2);
         let info_for_unfiled = get_raw_bookmark(&writer, &BookmarkRootGuid::Unfiled.as_guid())
             .expect("Should fetch info for unfiled")
             .unwrap();
-        assert_eq!(info_for_unfiled.sync_change_counter, 2);
+        assert_eq!(info_for_unfiled._sync_change_counter, 2);
 
         engine
             .sync_finished(
@@ -2929,11 +2929,11 @@ mod tests {
         let info_for_a = get_raw_bookmark(&writer, &guid_for_a)
             .expect("Should fetch info for A")
             .unwrap();
-        assert_eq!(info_for_a.sync_change_counter, 0);
+        assert_eq!(info_for_a._sync_change_counter, 0);
         let info_for_unfiled = get_raw_bookmark(&writer, &BookmarkRootGuid::Unfiled.as_guid())
             .expect("Should fetch info for unfiled")
             .unwrap();
-        assert_eq!(info_for_unfiled.sync_change_counter, 0);
+        assert_eq!(info_for_unfiled._sync_change_counter, 0);
 
         let mut tags_for_c = tags::get_tags_for_url(
             &writer,
@@ -4322,8 +4322,8 @@ mod tests {
             let bm = get_raw_bookmark(&writer, &guid.into())
                 .expect("must work")
                 .expect("must exist");
-            assert_eq!(bm.sync_status, SyncStatus::Normal, "{}", guid);
-            assert_eq!(bm.sync_change_counter, 0, "{}", guid);
+            assert_eq!(bm._sync_status, SyncStatus::Normal, "{}", guid);
+            assert_eq!(bm._sync_change_counter, 0, "{}", guid);
         }
         // And bookmarkEEEE wasn't on the server, so should be outgoing, and
         // it's parent too.

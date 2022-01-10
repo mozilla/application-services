@@ -96,10 +96,7 @@ impl SyncResult {
     pub(crate) fn set_sync_after(&mut self, backoff_duration: Duration) {
         let now = SystemTime::now();
         let toplevel = advance_backoff(now + backoff_duration, &self.result);
-        let sync_after = self
-            .engine_results
-            .values()
-            .fold(toplevel, |b, r| advance_backoff(b, r));
+        let sync_after = self.engine_results.values().fold(toplevel, advance_backoff);
         if sync_after <= now {
             self.next_sync_after = None;
         } else {

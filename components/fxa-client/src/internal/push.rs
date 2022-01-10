@@ -124,6 +124,9 @@ pub enum PushPayload {
     Unknown,
 }
 
+// Some of this structs fields are not read, except
+// when deserialized, we mark them as dead_code
+#[allow(dead_code)]
 #[derive(Debug, Deserialize)]
 pub struct CommandReceivedPushPayload {
     command: String,

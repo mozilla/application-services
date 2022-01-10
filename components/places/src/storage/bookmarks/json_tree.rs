@@ -431,14 +431,15 @@ fn inflate(
             .and_then(|guid| pseudo_tree.remove(guid))
         {
             parent.children = children;
-            for mut child in &mut parent.children {
-                inflate(&mut child, pseudo_tree);
+            for child in &mut parent.children {
+                inflate(child, pseudo_tree);
             }
         }
     }
 }
 
 #[derive(Debug)]
+#[allow(dead_code)]
 struct FetchedTreeRow {
     level: u32,
     id: RowId,

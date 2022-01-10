@@ -97,9 +97,6 @@ CFLAGS_x86_64_apple_ios="-target x86_64-apple-ios" \
 cargo_build aarch64-apple-ios
 
 # M1 iOS simulator.
-# It's currently in Nightly only and requires to build `libstd`.
-# We hope this will be available by default in Rust 1.56.0.
-BUILD_ARGS=(+nightly "${BUILD_ARGS[@]}" -Z build-std)
 cargo_build aarch64-apple-ios-sim
 
 # TODO: would it be useful to also include desktop builds here?
