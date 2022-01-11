@@ -330,12 +330,6 @@ enum PlacesError {
     "InternalPanic",
 };
 
-enum BookmarkType {
-    "Bookmark",
-    "Folder",
-    "Separator",
-};
-
 dictionary BookmarkData {
     Guid guid;
     Guid parent_guid;

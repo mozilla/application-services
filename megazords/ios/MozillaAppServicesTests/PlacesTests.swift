@@ -24,11 +24,11 @@ func dynCmp<T: Equatable>(_ optVal: T?, _ optDynVal: Any?) -> Bool {
 // It's a pain to pass `BookmarkNodeType.separator` into the JSON,
 // so this converts strings to it if a string was passed in. Returns
 // nil if the arg is nil.
-func typeFromAny(_ any: Any?) -> BookmarkType? {
+func typeFromAny(_ any: Any?) -> BookmarkNodeType? {
     guard let ty = any else {
         return nil
     }
-    if let result = ty as? BookmarkType {
+    if let result = ty as? BookmarkNodeType {
         return result
     }
     let str = ty as! String
@@ -57,62 +57,54 @@ enum CheckChildren {
 }
 
 // similar assert_json_tree from our rust code.
-func checkTree(_ n: BookmarkItem, _ want: [String: Any], checkChildren: CheckChildren = .full) {
-    switch n {
-    case let .bookmark(b):
-        XCTAssert(b.guid != BookmarkRoots.RootGUID)
-        XCTAssert(dynCmp(b.guid, want["guid"]))
-        XCTAssert(dynCmp(b.url, want["url"]))
-        XCTAssert(dynCmp(b.title, want["title"]))
-        XCTAssertNil(want["children"])
-        XCTAssertNil(want["childGUIDs"])
-    case let .separator(s):
-        XCTAssert(s.guid != BookmarkRoots.RootGUID)
-        XCTAssert(dynCmp(s.guid, want["guid"]))
-        XCTAssertNil(want["url"])
-        XCTAssertNil(want["children"])
-        XCTAssertNil(want["childGUIDs"])
-    case let .folder(f):
-        XCTAssert(f.parentGuid != nil || f.guid == BookmarkRoots.RootGUID)
-        XCTAssert(dynCmp(f.guid, want["guid"]))
-        XCTAssertNil(want["url"])
+func checkTree(_ n: BookmarkNodeData, _ want: [String: Any], checkChildren: CheckChildren = .full) {
+    XCTAssert(n.parentGUID != nil || n.guid == BookmarkRoots.RootGUID)
 
+    XCTAssert(dynCmp(n.guid, want["guid"]))
+    XCTAssert(dynCmp(n.type, typeFromAny(want["type"])))
+
+    switch n.type {
+    case .separator:
+        XCTAssert(n is BookmarkSeparatorData)
+    case .bookmark:
+        XCTAssert(n is BookmarkItemData)
+    case .folder:
+        XCTAssert(n is BookmarkFolderData)
+    }
+
+    if let bn = n as? BookmarkItemData {
+        XCTAssert(dynCmp(bn.url, want["url"]))
+        XCTAssert(dynCmp(bn.title, want["title"]))
+    } else {
+        XCTAssertNil(want["url"])
+    }
+
+    if let fn = n as? BookmarkFolderData {
         if checkChildren == .onlyGUIDs {
-            XCTAssertNil(f.childNodes)
+            XCTAssertNil(fn.children)
             // Make sure it's not getting provided accidentally
             XCTAssertNil(want["children"])
         }
-
         if let wantedChildren = want["children"] as? [[String: Any]] {
-            let children = f.childNodes!
+            let children = fn.children!
             XCTAssertEqual(children.count, wantedChildren.count)
             let nextCheckChildren = checkChildren == .onlyGUIDsInChildren ? .onlyGUIDs : checkChildren
             // we need `i` for comparing position, or we'd just use zip().
             for i in 0 ..< children.count {
                 let child = children[i]
-
-                switch child {
-                case let .bookmark(cb):
-                    XCTAssertEqual(cb.guid, f.childGuids![i])
-                    XCTAssertEqual(cb.parentGuid, f.guid)
-                    XCTAssertEqual(Int(cb.position), i)
-                case let .separator(cs):
-                    XCTAssertEqual(cs.guid, f.childGuids![i])
-                    XCTAssertEqual(cs.parentGuid, f.guid)
-                    XCTAssertEqual(Int(cs.position), i)
-                case let .folder(cf):
-                    XCTAssertEqual(cf.guid, f.childGuids![i])
-                    XCTAssertEqual(cf.parentGuid, f.guid)
-                    XCTAssertEqual(Int(cf.position), i)
-                }
-
+                XCTAssertEqual(child.guid, fn.childGUIDs[i])
+                XCTAssertEqual(child.parentGUID, fn.guid)
+                XCTAssertEqual(Int(child.position), i)
                 let wantChild = wantedChildren[i]
                 checkTree(child, wantChild, checkChildren: nextCheckChildren)
             }
         }
         if let wantedGUIDs = want["childGUIDs"] as? [String] {
-            XCTAssertEqual(wantedGUIDs, f.childGuids)
+            XCTAssertEqual(wantedGUIDs, fn.childGUIDs)
         }
+    } else {
+        XCTAssertNil(want["children"])
+        XCTAssertNil(want["childGUIDs"])
     }
 }
 
@@ -231,16 +223,9 @@ class PlacesTests: XCTestCase {
         ])
 
         // Check recursive: false
-        let noGrandkids = try! db.getBookmarksTree(rootGUID: BookmarkRoots.MenuFolderGUID, recursive: false)!
-        var expectedChildGuids = [String]()
+        let noGrandkids = try! db.getBookmarksTree(rootGUID: BookmarkRoots.MenuFolderGUID, recursive: false)! as! BookmarkFolderData
 
-        if case let .folder(folder) = got {
-            let childNode = folder.childNodes![0]
-
-            if case let .folder(childFolder) = childNode {
-                expectedChildGuids = childFolder.childGuids!
-            }
-        }
+        let expectedChildGuids = ((got as! BookmarkFolderData).children![0] as! BookmarkFolderData).childGUIDs
 
         checkTree(noGrandkids, [
             "guid": BookmarkRoots.MenuFolderGUID,
