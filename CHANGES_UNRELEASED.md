@@ -18,6 +18,9 @@ Use the template below to make assigning a version number during the release cut
   - Description of the change with a link to the pull request ([#0000](https://github.com/mozilla/application-services/pull/0000))
 
 -->
+## Supported Xcode Versions
+- As of Jan 2022, support for Xcode version 13.2.1 is upcoming. After the associated PR is merged AS side and a release is cut, Fx-iOS will update on their side to fully support this Xcode version. See Fx-iOS's Wiki for details. 
+
 ## viaduct
 ### What's New
 - Add support for PATCH methods. ([#4751](https://github.com/mozilla/application-services/pull/4751))
