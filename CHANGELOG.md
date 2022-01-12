@@ -1,3 +1,21 @@
+# v87.3.0 (_2022-01-11_)
+
+[Full Changelog](https://github.com/mozilla/application-services/compare/v87.2.0...v87.3.0)
+
+## Supported Xcode Versions
+- As of Jan 2022, support for Xcode version 13.2.1 is upcoming. After the associated PR is merged AS side and a release is cut, Fx-iOS will update on their side to fully support this Xcode version. See Fx-iOS's Wiki for details. 
+
+## viaduct
+### What's New
+- Add support for PATCH methods. ([#4751](https://github.com/mozilla/application-services/pull/4751))
+
+## Nimbus
+### What's new
+  - The Nimbus SDK now support application version targeting, where experiment creators can set `app_version|versionCompare({VERSION}) >= 0` and the experiments will only target users running `VERSION` or higher. ([#4752](https://github.com/mozilla/application-services/pull/4752))
+      - The `versionCompare` transform will return a positive number if `app_version` is greater than
+      `VERSION`, a negative number if `app_version` is less than `VERSION` and zero if they are equal
+      - `VERSION` must be passed in as a string, for example: `app_version|versionCompare('95.!') >= 0` will target users who are on any version starting with `95` or above (`95.0`, `95.1`, `95.2.3-beta`, `96` etc..)
+
 # v87.2.0 (_2021-12-15_)
 
 [Full Changelog](https://github.com/mozilla/application-services/compare/v87.1.0...v87.2.0)
