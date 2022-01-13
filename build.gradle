@@ -38,6 +38,7 @@ buildscript {
     ]
 
     repositories {
+        mavenCentral()
         google()
         jcenter()
         maven {
