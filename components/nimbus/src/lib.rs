@@ -583,10 +583,10 @@ pub struct Branch {
 
 impl Branch {
     fn get_feature_configs(&self) -> Vec<FeatureConfig> {
-        // There will never be a time when both `feature` and
-        // `features` are set
+        // Some versions of desktop need both, but features should be prioritized
+        // (https://mozilla-hub.atlassian.net/browse/SDK-440).
         match (&self.features, &self.feature) {
-            (Some(features), None) => features.clone(),
+            (Some(features), _) => features.clone(),
             (None, Some(feature)) => vec![feature.clone()],
             _ => Default::default(),
         }
@@ -1616,6 +1616,115 @@ mod test_schema_bw_compat {
         );
         assert!(exp.branches[0].features.is_none());
         assert!(exp.branches[1].features.is_none());
+    }
+
+    #[test]
+    fn test_feature_and_features_in_one_branch() {
+        // Single feature, no features
+        let branch: Branch = serde_json::from_value(json!(
+            {
+                "slug": "control",
+                "ratio": 1,
+                "feature": {
+                    "featureId": "feature1",
+                    "value": {
+                        "key": "value"
+                    }
+                }
+            }
+        ))
+        .unwrap();
+
+        let configs = branch.get_feature_configs();
+
+        assert_eq!(
+            configs,
+            vec![FeatureConfig {
+                feature_id: "feature1".to_string(),
+                value: json!({"key": "value"}).as_object().unwrap().clone()
+            }]
+        );
+
+        // No feature, multiple features
+        let branch: Branch = serde_json::from_value(json!(
+            {
+                "slug": "control",
+                "ratio": 1,
+                "features": [{
+                    "featureId": "feature1",
+                    "value": {
+                        "key": "value"
+                    }
+                },
+                {
+                    "featureId": "feature2",
+                    "value": {
+                        "key": "value"
+                    }
+                }]
+            }
+        ))
+        .unwrap();
+
+        let configs = branch.get_feature_configs();
+
+        assert_eq!(
+            configs,
+            vec![
+                FeatureConfig {
+                    feature_id: "feature1".to_string(),
+                    value: json!({"key": "value"}).as_object().unwrap().clone()
+                },
+                FeatureConfig {
+                    feature_id: "feature2".to_string(),
+                    value: json!({"key": "value"}).as_object().unwrap().clone()
+                }
+            ]
+        );
+
+        // Both feature AND features
+        // Some versions of desktop need both, but features are prioritized (https://mozilla-hub.atlassian.net/browse/SDK-440)
+        let branch: Branch = serde_json::from_value(json!(
+            {
+                "slug": "control",
+                "ratio": 1,
+                "feature": {
+                    "featureId": "wrong",
+                    "value": {
+                        "key": "value"
+                    }
+                },
+                "features": [{
+                    "featureId": "feature1",
+                    "value": {
+                        "key": "value"
+                    }
+                },
+                {
+                    "featureId": "feature2",
+                    "value": {
+                        "key": "value"
+                    }
+                }]
+            }
+        ))
+        .unwrap();
+
+        let configs = branch.get_feature_configs();
+
+        assert_eq!(
+            configs,
+            vec![
+                FeatureConfig {
+                    feature_id: "feature1".to_string(),
+                    value: json!({"key": "value"}).as_object().unwrap().clone()
+                },
+                FeatureConfig {
+                    feature_id: "feature2".to_string(),
+                    value: json!({"key": "value"}).as_object().unwrap().clone()
+                }
+            ]
+        );
     }
 
     #[test]

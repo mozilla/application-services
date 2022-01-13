@@ -18,3 +18,7 @@ Use the template below to make assigning a version number during the release cut
   - Description of the change with a link to the pull request ([#0000](https://github.com/mozilla/application-services/pull/0000))
 
 -->
+## Nimbus☁️🔬🔭
+
+### What's Changed
+  - The SDK is now tolerant to legacy experiment recipes that have both `feature` and `features` in their branches ([SDK-1989](https://github.com/mozilla/application-services/pull/4777))
