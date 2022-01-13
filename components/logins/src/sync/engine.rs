@@ -685,7 +685,12 @@ mod tests {
     fn test_bad_record() {
         let store = LoginStore::new_in_memory().unwrap();
         for id in ["dummy_000001", "dummy_000002", "dummy_000003"] {
-            insert_login(&store.db.lock(), id, Some("password"), Some("password"));
+            insert_login(
+                &store.db.lock().unwrap(),
+                id,
+                Some("password"),
+                Some("password"),
+            );
         }
         let (res, telem) = run_fetch_login_data(
             store,
