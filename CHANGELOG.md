@@ -1,3 +1,11 @@
+# v86.2.2 (_2022-01-13_)
+
+[Full Changelog](https://github.com/mozilla/application-services/compare/v86.2.1...v86.2.2)
+
+## Logins
+### What's changed
+  - The `update()` and `add_or_update()` methods will log rather than return an error when trying to update a duplicate login (#4648)
+
 # v86.2.1 (_2021-12-02_)
 
 [Full Changelog](https://github.com/mozilla/application-services/compare/v86.2.0...v86.2.1)
