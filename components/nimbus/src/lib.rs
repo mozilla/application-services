@@ -583,10 +583,8 @@ pub struct Branch {
 
 impl Branch {
     fn get_feature_configs(&self) -> Vec<FeatureConfig> {
-        // There will never be a time when both `feature` and
-        // `features` are set
         match (&self.features, &self.feature) {
-            (Some(features), None) => features.clone(),
+            (Some(features), _) => features.clone(),
             (None, Some(feature)) => vec![feature.clone()],
             _ => Default::default(),
         }
