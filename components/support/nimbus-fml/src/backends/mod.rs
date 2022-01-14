@@ -129,10 +129,10 @@ pub trait CodeType {
 
     /// A representation of the given literal for this type.
     /// N.B. `Literal` is aliased from `serde_json::Value`.
-    fn literal(
+    fn ct_literal(
         &self,
         oracle: &dyn CodeOracle,
-        renderer: &dyn LiteralRenderer,
+        ctx: &dyn Display, renderer: &dyn LiteralRenderer,
         literal: &Literal,
     ) -> String;
 
@@ -150,7 +150,7 @@ pub trait CodeType {
 }
 
 pub trait LiteralRenderer {
-    fn literal(&self, _oracle: &dyn CodeOracle, _typ: &TypeIdentifier, value: &Literal) -> String;
+    fn literal(&self, _oracle: &dyn CodeOracle, _typ: &TypeIdentifier, value: &Literal, ctx: &dyn Display) -> String;
 }
 
 impl<T, C> LiteralRenderer for T
@@ -158,8 +158,8 @@ where
     T: std::ops::Deref<Target = C>,
     C: LiteralRenderer,
 {
-    fn literal(&self, oracle: &dyn CodeOracle, typ: &TypeIdentifier, value: &Literal) -> String {
-        self.deref().literal(oracle, typ, value)
+    fn literal(&self, oracle: &dyn CodeOracle, typ: &TypeIdentifier, value: &Literal, ctx: &dyn Display) -> String {
+        self.deref().literal(oracle, typ, value, ctx)
     }
 }
 
@@ -196,7 +196,6 @@ pub enum VariablesType {
     Image,
     Int,
     String,
-    #[allow(dead_code)]
     Text,
     Variables,
 }

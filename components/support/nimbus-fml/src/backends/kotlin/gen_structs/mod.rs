@@ -11,6 +11,7 @@ use crate::{
     Config,
 };
 
+mod bundled;
 mod common;
 mod enum_;
 mod feature;

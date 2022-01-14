@@ -76,13 +76,13 @@ impl CodeType for ObjectCodeType {
         Some(format!("_mergeWith({})", default))
     }
 
-    fn literal(
+    fn ct_literal(
         &self,
         oracle: &dyn CodeOracle,
-        renderer: &dyn LiteralRenderer,
+        ctx: &dyn Display, renderer: &dyn LiteralRenderer,
         literal: &Literal,
     ) -> String {
-        renderer.literal(oracle, &TypeIdentifier::Object(self.id.clone()), literal)
+        renderer.literal(oracle, &TypeIdentifier::Object(self.id.clone()), literal, ctx)
     }
 }
 
@@ -112,14 +112,14 @@ impl CodeDeclaration for ObjectCodeDeclaration {
 }
 
 impl LiteralRenderer for ObjectCodeDeclaration {
-    fn literal(&self, oracle: &dyn CodeOracle, typ: &TypeIdentifier, value: &Literal) -> String {
-        object_literal(&self.fm, &self, oracle, typ, value)
+    fn literal(&self, oracle: &dyn CodeOracle, typ: &TypeIdentifier, value: &Literal, ctx: &dyn Display) -> String {
+        object_literal(&self.fm, ctx, &self, oracle, typ, value)
     }
 }
 
 pub(crate) fn object_literal(
     fm: &FeatureManifest,
-    renderer: &dyn LiteralRenderer,
+    ctx: &dyn Display, renderer: &dyn LiteralRenderer,
     oracle: &dyn CodeOracle,
     typ: &TypeIdentifier,
     value: &Literal,
@@ -127,7 +127,7 @@ pub(crate) fn object_literal(
     let id = if let TypeIdentifier::Object(id) = typ {
         id
     } else {
-        return oracle.find(typ).literal(oracle, renderer, value);
+        return oracle.find(typ).ct_literal(oracle, ctx, renderer, value);
     };
     let literal_map = if let Literal::Object(map) = value {
         map
@@ -148,7 +148,7 @@ pub(crate) fn object_literal(
             format!(
                 "{var_name} = {var_value}",
                 var_name = common::var_name(k),
-                var_value = oracle.find(&prop.typ).literal(oracle, renderer, v)
+                var_value = oracle.find(&prop.typ).ct_literal(oracle, ctx, renderer, v)
             )
         })
         .collect();
@@ -182,6 +182,7 @@ mod unit_tests {
             _oracle: &dyn CodeOracle,
             typ: &TypeIdentifier,
             _value: &Literal,
+            ctx: &dyn Display,
         ) -> String {
             if let TypeIdentifier::Object(nm) = typ {
                 format!("{}()", nm)
@@ -221,9 +222,10 @@ mod unit_tests {
         let ct = code_type("AnObject");
         let oracle = &*oracle();
         let finder = &TestRenderer;
+        let ctx = "ctx".to_string();
         assert_eq!(
             "AnObject()".to_string(),
-            ct.literal(oracle, finder, &json!({}))
+            ct.ct_literal(oracle, &ctx, finder, &json!({}))
         );
     }
 

@@ -7,6 +7,7 @@ package {{ package_name }}
 {%- else %}
 {%- endmatch %}
 
+import android.content.Context
 import org.mozilla.experiments.nimbus.Variables
 import org.mozilla.experiments.nimbus.FeaturesInterface
 import org.mozilla.experiments.nimbus.internal.FeatureHolder
@@ -32,8 +33,8 @@ object {{ nimbus_object }} {
         {%- let class_name = raw_name|class_name %}
         {{ f.doc()|comment("        ") }}
         val {{raw_name|var_name}}: FeatureHolder<{{class_name}}> by lazy {
-            FeatureHolder({ {{ nimbus_object }}.api }, {{ raw_name|quoted }}) { variables ->
-                {{ class_name }}(variables)
+            FeatureHolder({ {{ nimbus_object }}.api }, {{ raw_name|quoted }}) { context, variables ->
+                {{ class_name }}(context, variables)
             }
         }
         {%- endfor %}
