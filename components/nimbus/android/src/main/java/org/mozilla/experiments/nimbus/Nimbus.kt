@@ -46,6 +46,7 @@ typealias EnrolledExperiment = EnrolledExperiment
  * This is the main experiments API, which is exposed through the global [Nimbus] object.
  */
 interface NimbusInterface : FeaturesInterface {
+
     /**
      * Get the list of currently enrolled experiments
      *
@@ -292,7 +293,7 @@ class NimbusDelegate(
  */
 @Suppress("LargeClass", "LongParameterList")
 open class Nimbus(
-    private val context: Context,
+    override val context: Context,
     appInfo: NimbusAppInfo,
     server: NimbusServerSettings?,
     deviceInfo: NimbusDeviceInfo,

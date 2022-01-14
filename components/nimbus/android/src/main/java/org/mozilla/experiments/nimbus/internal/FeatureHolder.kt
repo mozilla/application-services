@@ -1,5 +1,6 @@
 package org.mozilla.experiments.nimbus.internal
 
+import android.content.Context
 import org.mozilla.experiments.nimbus.FeaturesInterface
 import org.mozilla.experiments.nimbus.Variables
 import java.lang.ref.WeakReference
@@ -7,13 +8,13 @@ import java.lang.ref.WeakReference
 class FeatureHolder<T>(
     private val apiFn: () -> FeaturesInterface?,
     private val featureId: String,
-    private val create: (Variables?) -> T
+    private val create: (Context?, Variables?) -> T
 ) {
     private var exposureRecorder: (() -> Unit)? = null
 
     fun value(): T {
         val api = apiFn()
-        val feature = create(api?.getVariables(featureId, false))
+        val feature = create(api?.context, api?.getVariables(featureId, false))
         api?.also { apiRef ->
             val weakRef = WeakReference(apiRef)
             exposureRecorder = {

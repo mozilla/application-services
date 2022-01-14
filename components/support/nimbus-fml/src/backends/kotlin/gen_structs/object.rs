@@ -182,7 +182,7 @@ mod unit_tests {
             _oracle: &dyn CodeOracle,
             typ: &TypeIdentifier,
             _value: &Literal,
-            ctx: &dyn Display,
+            _ctx: &dyn Display,
         ) -> String {
             if let TypeIdentifier::Object(nm) = typ {
                 format!("{}()", nm)
