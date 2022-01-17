@@ -19,7 +19,7 @@ pub fn literal(
     ctx: &dyn Display,
 ) -> Result<String, askama::Error> {
     let oracle = ConcreteCodeOracle;
-    Ok(oracle.find(type_).ct_literal(&oracle, ctx, renderer, literal))
+    Ok(oracle.find(type_).literal(&oracle, ctx, renderer, literal))
 }
 
 pub fn property(

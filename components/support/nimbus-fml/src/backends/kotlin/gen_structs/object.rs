@@ -76,13 +76,19 @@ impl CodeType for ObjectCodeType {
         Some(format!("_mergeWith({})", default))
     }
 
-    fn ct_literal(
+    fn literal(
         &self,
         oracle: &dyn CodeOracle,
-        ctx: &dyn Display, renderer: &dyn LiteralRenderer,
+        ctx: &dyn Display,
+        renderer: &dyn LiteralRenderer,
         literal: &Literal,
     ) -> String {
-        renderer.literal(oracle, &TypeIdentifier::Object(self.id.clone()), literal, ctx)
+        renderer.literal(
+            oracle,
+            &TypeIdentifier::Object(self.id.clone()),
+            literal,
+            ctx,
+        )
     }
 }
 
@@ -112,14 +118,21 @@ impl CodeDeclaration for ObjectCodeDeclaration {
 }
 
 impl LiteralRenderer for ObjectCodeDeclaration {
-    fn literal(&self, oracle: &dyn CodeOracle, typ: &TypeIdentifier, value: &Literal, ctx: &dyn Display) -> String {
+    fn literal(
+        &self,
+        oracle: &dyn CodeOracle,
+        typ: &TypeIdentifier,
+        value: &Literal,
+        ctx: &dyn Display,
+    ) -> String {
         object_literal(&self.fm, ctx, &self, oracle, typ, value)
     }
 }
 
 pub(crate) fn object_literal(
     fm: &FeatureManifest,
-    ctx: &dyn Display, renderer: &dyn LiteralRenderer,
+    ctx: &dyn Display,
+    renderer: &dyn LiteralRenderer,
     oracle: &dyn CodeOracle,
     typ: &TypeIdentifier,
     value: &Literal,
@@ -127,7 +140,7 @@ pub(crate) fn object_literal(
     let id = if let TypeIdentifier::Object(id) = typ {
         id
     } else {
-        return oracle.find(typ).ct_literal(oracle, ctx, renderer, value);
+        return oracle.find(typ).literal(oracle, ctx, renderer, value);
     };
     let literal_map = if let Literal::Object(map) = value {
         map
@@ -140,22 +153,17 @@ pub(crate) fn object_literal(
 
     let def = fm.find_object(id).unwrap();
 
-    let args: Vec<String> =
-    vec![
-        format!("_context = {ctx_name}", ctx_name = ctx)
-    ].into_iter().chain(
-    literal_map
-        .iter()
-        .map(|(k, v)| {
+    let args: Vec<String> = vec![format!("_context = {ctx_name}", ctx_name = ctx)]
+        .into_iter()
+        .chain(literal_map.iter().map(|(k, v)| {
             let prop = def.find_prop(k);
 
             format!(
                 "{var_name} = {var_value}",
                 var_name = common::var_name(k),
-                var_value = oracle.find(&prop.typ).ct_literal(oracle, ctx, renderer, v)
+                var_value = oracle.find(&prop.typ).literal(oracle, ctx, renderer, v)
             )
-        })
-    )
+        }))
         .collect();
 
     format!(
@@ -230,7 +238,7 @@ mod unit_tests {
         let ctx = "ctx".to_string();
         assert_eq!(
             "AnObject()".to_string(),
-            ct.ct_literal(oracle, &ctx, finder, &json!({}))
+            ct.literal(oracle, &ctx, finder, &json!({}))
         );
     }
 

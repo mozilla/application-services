@@ -2,11 +2,11 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
- use std::fmt::Display;
+use std::fmt::Display;
 
- use super::common::code_type;
- use crate::backends::{CodeOracle, CodeType, LiteralRenderer, VariablesType};
- use crate::intermediate_representation::Literal;
+use super::common::code_type;
+use crate::backends::{CodeOracle, CodeType, LiteralRenderer, VariablesType};
+use crate::intermediate_representation::Literal;
 
 pub(crate) struct TextCodeType;
 
@@ -48,10 +48,11 @@ impl CodeType for TextCodeType {
 
     /// A representation of the given literal for this type.
     /// N.B. `Literal` is aliased from `serde_json::Value`.
-    fn ct_literal(
+    fn literal(
         &self,
         _oracle: &dyn CodeOracle,
-        _ctx: &dyn Display, _renderer: &dyn LiteralRenderer,
+        _ctx: &dyn Display,
+        _renderer: &dyn LiteralRenderer,
         literal: &Literal,
     ) -> String {
         match literal {

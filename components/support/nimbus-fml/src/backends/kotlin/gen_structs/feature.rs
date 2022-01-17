@@ -45,7 +45,13 @@ impl CodeDeclaration for FeatureCodeDeclaration {
 }
 
 impl LiteralRenderer for FeatureCodeDeclaration {
-    fn literal(&self, oracle: &dyn CodeOracle, typ: &TypeIdentifier, value: &Literal, ctx: &dyn Display) -> String {
+    fn literal(
+        &self,
+        oracle: &dyn CodeOracle,
+        typ: &TypeIdentifier,
+        value: &Literal,
+        ctx: &dyn Display,
+    ) -> String {
         object_literal(&self.fm, ctx, &self, oracle, typ, value)
     }
 }

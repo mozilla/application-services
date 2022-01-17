@@ -68,10 +68,11 @@ impl CodeType for EnumCodeType {
 
     /// A representation of the given literal for this type.
     /// N.B. `Literal` is aliased from `serde_json::Value`.
-    fn ct_literal(
+    fn literal(
         &self,
         oracle: &dyn CodeOracle,
-        _ctx: &dyn Display, _renderer: &dyn LiteralRenderer,
+        _ctx: &dyn Display,
+        _renderer: &dyn LiteralRenderer,
         literal: &Literal,
     ) -> String {
         let variant = match literal {
@@ -160,15 +161,15 @@ mod unit_tests {
         let ctx = String::from("ctx");
         assert_eq!(
             "AEnum.FOO".to_string(),
-            ct.ct_literal(oracle, &ctx, finder, &json!("foo"))
+            ct.literal(oracle, &ctx, finder, &json!("foo"))
         );
         assert_eq!(
             "AEnum.BAR_BAZ".to_string(),
-            ct.ct_literal(oracle, &ctx, finder, &json!("barBaz"))
+            ct.literal(oracle, &ctx, finder, &json!("barBaz"))
         );
         assert_eq!(
             "AEnum.A_B_C".to_string(),
-            ct.ct_literal(oracle, &ctx, finder, &json!("a-b-c"))
+            ct.literal(oracle, &ctx, finder, &json!("a-b-c"))
         );
     }
 
