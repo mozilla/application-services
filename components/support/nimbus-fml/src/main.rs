@@ -67,6 +67,28 @@ fn main() -> Result<()> {
             )?,
             _ => unimplemented!(),
         },
+        ("ios", Some(cmd)) => match cmd.subcommand() {
+            ("features", Some(cmd)) => workflows::generate_struct(
+                Config {
+                    nimbus_object_name: cmd
+                        .value_of("class_name")
+                        .map(str::to_string)
+                        .or(config.nimbus_object_name),
+                    ..Default::default()
+                },
+                GenerateStructCmd {
+                    language: TargetLanguage::Swift,
+                    manifest: file_path("INPUT", &matches, &cwd)?,
+                    output: file_path("output", &matches, &cwd)?,
+                    load_from_ir: matches.is_present("ir"),
+                    channel: matches
+                        .value_of("channel")
+                        .map(str::to_string)
+                        .unwrap_or_else(|| RELEASE_CHANNEL.into()),
+                },
+            )?,
+            _ => unimplemented!(),
+        },
         ("experimenter", _) => workflows::generate_experimenter_manifest(
             config,
             GenerateExperimenterManifestCmd {

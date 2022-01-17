@@ -27,8 +27,14 @@ features:
         description: This is the map of the player type to a button
         type: Map<PlayerProfile, Button>
         default: {
-          "child": {},
-          "adult": {}
+          "child": {
+            "label": "Play game!",
+            "color": "green"
+          },
+          "adult": {
+            "label": "Play game!",
+            "color": "blue",
+          }
         }
     default:
       - channel: release
