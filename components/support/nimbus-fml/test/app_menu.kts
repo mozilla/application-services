@@ -3,9 +3,10 @@
 * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
 import org.mozilla.experiments.nimbus.MockNimbus
+import android.content.Context as MockContext
 
 // Exercise a map of booleans
-val feature = MyNimbus.features.appMenu.value()
+val feature = MyNimbus.features.appMenu.value(MockContext())
 assert(feature.itemEnabled[MenuItemId.START_GAME] == true)
 assert(feature.itemEnabled[MenuItemId.RESUME_GAME] == false)
 assert(feature.itemEnabled[MenuItemId.SETTINGS] == true)

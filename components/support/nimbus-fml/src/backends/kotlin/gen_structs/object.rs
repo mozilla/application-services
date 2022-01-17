@@ -240,7 +240,7 @@ mod unit_tests {
         let oracle = &*oracle();
 
         assert_eq!(
-            r#"v?.getVariables("the-property")"#.to_string(),
+            r#"v.getVariables("the-property")"#.to_string(),
             ct.value_getter(oracle, &"v", &"the-property")
         );
     }
@@ -249,7 +249,7 @@ mod unit_tests {
     fn test_getter_with_fallback() {
         let ct = code_type("AnObject");
         assert_eq!(
-            r#"vars?.getVariables("the-property")?.let(AnObject::create)?._mergeWith(default) ?: default"#
+            r#"vars.getVariables("the-property")?.let(AnObject::create)?._mergeWith(default) ?: default"#
             .to_string(),
             getter_with_fallback(&*ct, &"vars", &"the-property", &"default"));
     }

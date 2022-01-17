@@ -178,7 +178,7 @@ mod unit_tests {
         let oracle = &*oracle();
 
         assert_eq!(
-            r#"v?.getString("the-property")"#.to_string(),
+            r#"v.getString("the-property")"#.to_string(),
             ct.value_getter(oracle, &"v", &"the-property")
         );
     }
@@ -189,7 +189,7 @@ mod unit_tests {
         let oracle = &*oracle();
 
         assert_eq!(
-            r#"v?.getString("the-property")?.let(AEnum::enumValue) ?: def"#.to_string(),
+            r#"v.getString("the-property")?.let(AEnum::enumValue) ?: def"#.to_string(),
             ct.property_getter(oracle, &"v", &"the-property", &"def")
         );
     }
