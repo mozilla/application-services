@@ -66,9 +66,8 @@ import java.lang.IllegalArgumentException
  * will provide enough information the Experimenter to design an experiment.
  */
 interface Variables {
-    companion object {
-        val empty = NullVariables.instance
-    }
+    val context: Context
+
     /**
      * Finds a string typed value for this key. If none exists, `null` is returned.
      *
@@ -346,7 +345,6 @@ inline fun <K, reified V : Enum<V>> Map<K, String>.mapValuesAsEnums(): Map<K, V>
     }.toMap()
 
 interface VariablesWithContext : Variables {
-    val context: Context
     // Lower level accessors that can come across the FFI.
     // Platform specific types, deserialized from the lower level types.
     override fun getDrawableResource(key: String) = getString(key)?.let(this::asDrawableResource)
@@ -453,8 +451,4 @@ private inline fun <reified T> JSONObject.asMap(): Map<String, T>? {
 }
 
 // Another implementation of `Variables` may just return null for everything.
-class NullVariables : Variables {
-    companion object {
-        val instance = NullVariables()
-    }
-}
+class NullVariables(override val context: Context) : Variables

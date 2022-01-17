@@ -17,7 +17,7 @@ class MockNimbus(override val context: Context, val map: Map<String, JSONObject>
     )
 
     override fun getVariables(featureId: String, recordExposureEvent: Boolean): Variables =
-        map[featureId]?.let { json -> JSONVariables(context, json) } ?: Variables.empty
+        map[featureId]?.let { json -> JSONVariables(context, json) } ?: NullVariables(context)
 
     private var exposureCounts = mutableMapOf<String, Int>()
 

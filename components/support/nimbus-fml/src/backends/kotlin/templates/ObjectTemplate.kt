@@ -6,7 +6,6 @@
 {{ inner.doc()|comment("") }}
 public class {{class_name}}
     internal constructor(
-        private val _context: Context?,
         private val _variables: Variables? = null,
         internal val _defaults: Defaults) {
 {# The data class holds the default values that come from the manifest. They should completely

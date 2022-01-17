@@ -9,7 +9,6 @@
 {{ inner.doc()|comment("") }}
 public class {{class_name}}
     private constructor(
-        private val _context: Context?,
         private val _variables: Variables? = null,
         private val _defaults: Defaults) {
 {# The data class holds the default values that come from the manifest. They should completely
@@ -20,18 +19,16 @@ specify all values needed for the  feature #}
     {%- endfor %}
     )
 {# A constructor for Nimbus to use.  #}
-    constructor(_context: Context?, _variables: Variables? = null) : this(
-        _context,
+    constructor(_variables: Variables? = null) : this(
         _variables,
         Defaults()
     )
 {# A constructor for application tests to use.  #}
-    constructor(_context: Context? = null{% for p in inner.props() %}
-        {%- let t = p.typ() %},
-        {{p.name()|var_name}}: {{ t|type_label }}
+    constructor({% for p in inner.props() %}
+        {%- let t = p.typ() %}
+        {{p.name()|var_name}}: {{ t|type_label }}{% if !loop.last %},{% endif %}
     {%- endfor %}
     ) : this(
-        _context,
         _variables = null,
         _defaults = Defaults({% for p in inner.props() %}
         {%- let nm = p.name()|var_name %}{{ nm }} = {{ nm }}{% if !loop.last %}, {% endif %}

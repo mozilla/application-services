@@ -96,7 +96,7 @@ interface NimbusInterface : FeaturesInterface {
      * @return a [Variables] object used to configure the feature.
      */
     @AnyThread
-    override fun getVariables(featureId: String, recordExposureEvent: Boolean): Variables = NullVariables.instance
+    override fun getVariables(featureId: String, recordExposureEvent: Boolean): Variables = NullVariables(context)
 
     /**
      * Open the database and populate the SDK so as make it usable by feature developers.
@@ -381,7 +381,7 @@ open class Nimbus(
             }
             JSONVariables(context, json)
         }
-        ?: NullVariables.instance
+        ?: NullVariables(context)
 
     @WorkerThread
     override fun getExperimentBranches(experimentId: String): List<Branch>? = withCatchAll {
