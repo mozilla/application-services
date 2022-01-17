@@ -140,7 +140,11 @@ pub(crate) fn object_literal(
 
     let def = fm.find_object(id).unwrap();
 
-    let args: Vec<String> = literal_map
+    let args: Vec<String> =
+    vec![
+        format!("_context = {ctx_name}", ctx_name = ctx)
+    ].into_iter().chain(
+    literal_map
         .iter()
         .map(|(k, v)| {
             let prop = def.find_prop(k);
@@ -151,6 +155,7 @@ pub(crate) fn object_literal(
                 var_value = oracle.find(&prop.typ).ct_literal(oracle, ctx, renderer, v)
             )
         })
+    )
         .collect();
 
     format!(

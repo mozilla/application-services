@@ -8,6 +8,7 @@ package {{ package_name }}
 {%- endmatch %}
 
 import android.content.Context
+import org.mozilla.experiments.nimbus.NullVariables
 import org.mozilla.experiments.nimbus.Variables
 import org.mozilla.experiments.nimbus.FeaturesInterface
 import org.mozilla.experiments.nimbus.internal.FeatureHolder
