@@ -3,7 +3,7 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
 import Foundation
-import UIKit
+//import UIKit
 
 /// `Variables` provides a type safe key-value style interface to configure application features
 ///
@@ -62,21 +62,27 @@ public protocol Variables {
     /// Find a map for this key, and returns a map containing all the entries that have booleans
     /// as their values. If none exists, then `nil` is returned.
     func getBoolMap(_ key: String) -> [String: Bool]?
+    /**================================= **/
+    /** TODO: Bring the `UIImage` functions back, removed to be able to remove
+    * the `UIKit` dependency for testing
+    **/
+    /**================================= **/
 
-    /// Uses `getString(key: String)` to find the name of a drawable resource. If no value for `key`
-    /// exists, or no resource named with that value exists, then `nil` is returned.
-    ///
-    /// N.B. the `key` and type `Image` should be listed in the experiment manifest. The
-    /// names of the drawable resources should also be listed.
-    func getImage(_ key: String) -> UIImage?
 
-    /// Uses `getStringList(key: String)` to get a list of strings, then coerces the
-    /// strings in the list into Images. Values that cannot be coerced are omitted.
-    func getImageList(_ key: String) -> [UIImage]?
+    // /// Uses `getString(key: String)` to find the name of a drawable resource. If no value for `key`
+    // /// exists, or no resource named with that value exists, then `nil` is returned.
+    // ///
+    // /// N.B. the `key` and type `Image` should be listed in the experiment manifest. The
+    // /// names of the drawable resources should also be listed.
+    // func getImage(_ key: String) -> UIImage?
 
-    /// Uses `getStringList(key: String)` to get a list of strings, then coerces the
-    /// values into Images. Values that cannot be coerced are omitted.
-    func getImageMap(_ key: String) -> [String: UIImage]?
+    // /// Uses `getStringList(key: String)` to get a list of strings, then coerces the
+    // /// strings in the list into Images. Values that cannot be coerced are omitted.
+    // func getImageList(_ key: String) -> [UIImage]?
+
+    // /// Uses `getStringList(key: String)` to get a list of strings, then coerces the
+    // /// values into Images. Values that cannot be coerced are omitted.
+    // func getImageMap(_ key: String) -> [String: UIImage]?
 
     /// Uses `getString(key: String)` to find the name of a string resource. If a value exists, and
     /// a string resource exists with that name, then returns the string from the resource. If no
@@ -220,17 +226,17 @@ protocol VariablesWithBundle: Variables {
 }
 
 extension VariablesWithBundle {
-    func getImage(_ key: String) -> UIImage? {
-        return lookup(key, transform: asImage)
-    }
+    // func getImage(_ key: String) -> UIImage? {
+    //     return lookup(key, transform: asImage)
+    // }
 
-    func getImageList(_ key: String) -> [UIImage]? {
-        return lookupList(key, transform: asImage)
-    }
+    // func getImageList(_ key: String) -> [UIImage]? {
+    //     return lookupList(key, transform: asImage)
+    // }
 
-    func getImageMap(_ key: String) -> [String: UIImage]? {
-        return lookupMap(key, transform: asImage)
-    }
+    // func getImageMap(_ key: String) -> [String: UIImage]? {
+    //     return lookupMap(key, transform: asImage)
+    // }
 
     func getText(_ key: String) -> String? {
         return lookup(key, transform: asLocalizedString)
@@ -259,17 +265,17 @@ extension VariablesWithBundle {
         return getStringMap(key)?.compactMapValues(transform)
     }
 
-    /// Search through the resource bundles looking for an image of the given name.
-    ///
-    /// If no image is found in any of the `resourceBundles`, then the `nil` is returned.
-    func asImage(name: String) -> UIImage? {
-        for bundle in resourceBundles {
-            if let image = UIImage(named: name, in: bundle, compatibleWith: nil) {
-                return image
-            }
-        }
-        return nil
-    }
+    // /// Search through the resource bundles looking for an image of the given name.
+    // ///
+    // /// If no image is found in any of the `resourceBundles`, then the `nil` is returned.
+    // func asImage(name: String) -> UIImage? {
+    //     for bundle in resourceBundles {
+    //         if let image = UIImage(named: name, in: bundle, compatibleWith: nil) {
+    //             return image
+    //         }
+    //     }
+    //     return nil
+    // }
 
     /// Search through the resource bundles looking for localized strings with the given name.
     /// If the `name` contains exactly one slash, it is split up and the first part of the string is used
@@ -429,17 +435,17 @@ class NilVariables: Variables {
         return nil
     }
 
-    func getImage(_: String) -> UIImage? {
-        return nil
-    }
+    // func getImage(_: String) -> UIImage? {
+    //     return nil
+    // }
 
-    func getImageList(_: String) -> [UIImage]? {
-        return nil
-    }
+    // func getImageList(_: String) -> [UIImage]? {
+    //     return nil
+    // }
 
-    func getImageMap(_: String) -> [String: UIImage]? {
-        return nil
-    }
+    // func getImageMap(_: String) -> [String: UIImage]? {
+    //     return nil
+    // }
 
     func getText(_: String) -> String? {
         return nil

@@ -31,9 +31,40 @@ pub(crate) fn generate_struct(
 pub mod test {
     use std::{process::Command, path::{Path, PathBuf}, ffi::OsString};
     use anyhow::{Result, Context, bail};
+    use crate::util::{join, pkg_dir, sdk_dir};
+
     use tempdir::TempDir;
 
     use crate::{Config, error::FMLError};
+
+    // The root of the Android kotlin package structure
+    fn sdk_ios_dir() -> String {
+        join(sdk_dir(), "ios/Nimbus")
+    }
+
+    fn tests_dir() -> String {
+        join(pkg_dir(), "fixtures/ios/tests")
+    }
+
+    fn runtime_dir() -> String {
+        join(pkg_dir(), "fixtures/ios/runtime/MockNimbus.swift")
+    }
+
+    // The file with the swift implementation of FeatureVariables
+    fn variables_swift() -> String {
+        join(
+            sdk_ios_dir(),
+            "FeatureVariables.swift",
+        )
+    }
+
+    // The file with the swift implementation of FeatureVariables
+    fn features_swift() -> String {
+        join(
+            sdk_ios_dir(),
+            "FeatureInterface.swift",
+        )
+    }
 
     pub fn compile_manifest_swift(manifest_file: &Path, out_dir: &Path) -> Result<()> {
         let out_path = PathBuf::from(out_dir);
@@ -58,6 +89,9 @@ pub mod test {
             .arg("-parse-as-library")
             .arg("-L")
             .arg(&out_path)
+            .arg(&variables_swift())
+            .arg(&features_swift())
+            .arg(&runtime_dir())
             .arg(manifest_file)
             .spawn()
             .context("Failed to spawn `swiftc` when compiling bindings")?
@@ -120,6 +154,6 @@ pub mod test {
 
     #[test]
     fn smoke_test_script() -> Result<()> {
-        run_script_with_generated_code("fixtures/ios/FeatureManifest.swift".as_ref(), "fixtures/ios/script.swift".as_ref())
+        run_script_with_generated_code("fixtures/ios/tests/FeatureManifest.swift".as_ref(), "fixtures/ios/tests/script.swift".as_ref())
     }    
 }
