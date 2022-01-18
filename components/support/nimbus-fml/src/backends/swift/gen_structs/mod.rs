@@ -9,10 +9,11 @@ use crate::{
     intermediate_representation::{FeatureDef, FeatureManifest},
     Config,
 };
-
 //TODO:
-
-
+mod primitives;
+mod common;
+mod enum_;
+mod filters;
 #[derive(Template)]
 #[template(syntax = "swift", escape = "none", path = "FeatureManifestTemplate.swift")]
 pub struct FeatureManifestDeclaration<'a> {
@@ -32,19 +33,46 @@ impl<'a> FeatureManifestDeclaration<'a> {
     }
 
     pub fn members(&self) -> Vec<Box<dyn CodeDeclaration + 'a>> {
-        todo!()
+        let fm = self.fm;
+
+        // fm.iter_feature_defs()
+        //     .into_iter()
+        //     .map(|inner| {
+        //         Box::new(feature::FeatureCodeDeclaration::new(
+        //             fm,
+        //             &self.config,
+        //             inner,
+        //         )) as Box<dyn CodeDeclaration>
+        //     })
+        //     .chain(fm.iter_enum_defs().map(|inner| {
+        //         Box::new(enum_::EnumCodeDeclaration::new(fm, inner)) as Box<dyn CodeDeclaration>
+        //     }))
+        //     .chain(fm.iter_object_defs().into_iter().map(|inner| {
+        //         Box::new(object::ObjectCodeDeclaration::new(fm, inner)) as Box<dyn CodeDeclaration>
+        //     }))
+        //     .collect()
+        fm.iter_enum_defs().map(|inner| {
+                    Box::new(enum_::EnumCodeDeclaration::new(fm, inner)) as Box<dyn CodeDeclaration>
+                }).collect()
     }
 
     pub fn iter_feature_defs(&self) -> Vec<&FeatureDef> {
         todo!()
     }
-
     pub fn initialization_code(&self) -> Vec<String> {
-       todo!()
+        let oracle = &self.oracle;
+        self.members()
+            .into_iter()
+            .filter_map(|member| member.initialization_code(oracle))
+            .collect()
     }
 
     pub fn declaration_code(&self) -> Vec<String> {
-        todo!()
+        let oracle = &self.oracle;
+        self.members()
+            .into_iter()
+            .filter_map(|member| member.definition_code(oracle))
+            .collect()
     }
 
     pub fn imports(&self) -> Vec<String> {
@@ -57,7 +85,25 @@ pub struct ConcreteCodeOracle;
 
 impl ConcreteCodeOracle {
     fn create_code_type(&self, type_: TypeIdentifier) -> Box<dyn CodeType> {
-       todo!()
+        match type_ {
+            TypeIdentifier::Boolean => Box::new(primitives::BooleanCodeType),
+            TypeIdentifier::String => Box::new(primitives::StringCodeType),
+            TypeIdentifier::Int => Box::new(primitives::IntCodeType),
+
+            TypeIdentifier::Enum(id) => Box::new(enum_::EnumCodeType::new(id)),
+            // TypeIdentifier::Object(id) => Box::new(object::ObjectCodeType::new(id)),
+
+            // TypeIdentifier::Option(ref inner) => Box::new(structural::OptionalCodeType::new(inner)),
+            // TypeIdentifier::List(ref inner) => Box::new(structural::ListCodeType::new(inner)),
+            // TypeIdentifier::StringMap(ref v_type) => {
+            //     let k_type = &TypeIdentifier::String;
+            //     Box::new(structural::MapCodeType::new(k_type, v_type))
+            // }
+            // TypeIdentifier::EnumMap(ref k_type, ref v_type) => {
+            //     Box::new(structural::MapCodeType::new(k_type, v_type))
+            // }
+            _ => unimplemented!(),
+        }
     }
 }
 

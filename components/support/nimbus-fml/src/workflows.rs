@@ -249,6 +249,19 @@ mod test {
         Ok(())
     }
 
+
+    #[test]
+    fn test_with_app_menu_swift() -> Result<()> {
+        generate_and_assert(
+            "test/app_menu.swift",
+            "fixtures/ir/app_menu.json",
+            "release",
+            true,
+        )?;
+        Ok(())
+    }
+
+
     fn validate_against_experimenter_schema<P: AsRef<Path>>(
         schema_path: P,
         generated_json: &serde_json::Value,

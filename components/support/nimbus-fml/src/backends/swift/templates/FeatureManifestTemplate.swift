@@ -8,3 +8,12 @@ public func helloWorld() {
 public func mult(a: Int, b: Int) -> Int {
     return a * b
 }
+
+{%- for code in self.initialization_code() %}
+{{ code }}
+{%- endfor %}
+
+// Public interface members begin here.
+{% for code in self.declaration_code() %}
+{{- code }}
+{%- endfor %}
