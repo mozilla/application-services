@@ -52,7 +52,7 @@ pub(crate) mod code_type {
         };
 
         format!(
-            "{getter} ?: {fallback}",
+            "{getter} ?? {fallback}",
             getter = getter,
             fallback = default
         )

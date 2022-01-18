@@ -14,6 +14,7 @@ mod primitives;
 mod common;
 mod enum_;
 mod filters;
+mod object;
 #[derive(Template)]
 #[template(syntax = "swift", escape = "none", path = "FeatureManifestTemplate.swift")]
 pub struct FeatureManifestDeclaration<'a> {
@@ -53,7 +54,11 @@ impl<'a> FeatureManifestDeclaration<'a> {
         //     .collect()
         fm.iter_enum_defs().map(|inner| {
                     Box::new(enum_::EnumCodeDeclaration::new(fm, inner)) as Box<dyn CodeDeclaration>
-                }).collect()
+                })
+                .chain(fm.iter_object_defs().into_iter().map(|inner| {
+                            Box::new(object::ObjectCodeDeclaration::new(fm, inner)) as Box<dyn CodeDeclaration>
+                        }))
+                        .collect()
     }
 
     pub fn iter_feature_defs(&self) -> Vec<&FeatureDef> {
