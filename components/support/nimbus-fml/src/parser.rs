@@ -406,8 +406,12 @@ fn get_typeref_from_string(
         "String" => Ok(TypeRef::String),
         "Int" => Ok(TypeRef::Int),
         "Boolean" => Ok(TypeRef::Boolean),
-        "BundleText" => Ok(TypeRef::BundleText(type_name.unwrap())),
-        "BundleImage" => Ok(TypeRef::BundleImage(type_name.unwrap())),
+        "BundleText" | "Text" => Ok(TypeRef::BundleText(
+            type_name.unwrap_or_else(|| "".to_string()),
+        )),
+        "BundleImage" | "Drawable" | "Image" => Ok(TypeRef::BundleImage(
+            type_name.unwrap_or_else(|| "".to_string()),
+        )),
         "Enum" => Ok(TypeRef::Enum(type_name.unwrap())),
         "Object" => Ok(TypeRef::Object(type_name.unwrap())),
         "List" => Ok(TypeRef::List(Box::new(get_typeref_from_string(

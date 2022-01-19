@@ -267,6 +267,19 @@ interface Variables {
      */
     fun <T> getStringMap(key: String, transform: (String) -> T?): Map<String, T>? =
         getStringMap(key)?.mapValues(transform)
+
+    /**
+     * Synonym for [getDrawable(key: String)], for easier code generation.
+     */
+    fun getImage(key: String): Drawable? = getDrawable(key)
+    /**
+     * Synonym for [getDrawableList(key: String)], for easier code generation.
+     */
+    fun getImageList(key: String): List<Drawable>? = getDrawableList(key)
+    /**
+     * Synonym for [getDrawableMap(key: String)], for easier code generation.
+     */
+    fun getImageMap(key: String): Map<String, Drawable>? = getDrawableMap(key)
 }
 
 inline fun <reified T : Enum<T>> String.asEnum(): T? = try {

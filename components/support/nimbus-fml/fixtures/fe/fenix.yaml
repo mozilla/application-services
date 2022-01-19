@@ -37,15 +37,15 @@ features:
     variables:
       settings-title:
         description: The title of displayed in the Settings screen and app menu.
-        type: Option<String>
-        default: null
+        type: Option<Text>
+        default: app_menu_settings_title
       settings-punctuation:
         description: The emoji displayed in the Settings screen title.
-        type: String
-        default: ""
+        type: Text
+        default: app_menu_settings_punctuation
       settings-icon:
         description: The drawable displayed in the app menu for Settings
-        type: String
+        type: Drawable
         default: mozac_ic_settings
   search-term-groups:
     description: A feature allowing the grouping of URLs around the search term that it came from.

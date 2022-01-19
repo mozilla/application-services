@@ -45,10 +45,14 @@ fn main() -> Result<()> {
                         .value_of("class_name")
                         .map(str::to_string)
                         .or(config.nimbus_object_name),
-                    package_name: cmd
+                    nimbus_package: cmd
                         .value_of("package")
                         .map(str::to_string)
-                        .or(config.package_name),
+                        .or(config.nimbus_package),
+                    resource_package: cmd
+                        .value_of("r-package")
+                        .map(str::to_string)
+                        .or(config.resource_package),
                 },
                 GenerateStructCmd {
                     language: TargetLanguage::Kotlin,
@@ -107,8 +111,9 @@ fn file_path(name: &str, args: &ArgMatches, cwd: &Path) -> Result<PathBuf> {
 #[derive(Debug, Deserialize, Default)]
 #[serde(rename_all = "camelCase")]
 pub struct Config {
-    pub package_name: Option<String>,
+    pub nimbus_package: Option<String>,
     pub nimbus_object_name: Option<String>,
+    pub resource_package: Option<String>,
 }
 
 pub struct GenerateStructCmd {
