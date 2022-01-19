@@ -20,3 +20,10 @@ Use the template below to make assigning a version number during the release cut
 -->
 ## Supported Xcode Versions
 - Reverting the supported Xcode version from 13.2.1 to 13.1.0 to circumvent the issues with Swift Package Manager in Xcode 13.2.1. ([#4787](https://github.com/mozilla/application-services/pull/4787))
+## Nimbus☁️🔬🔭
+
+### What's New
+   - Add `Text` and `Image` support for the FML to access bundled resources ([#4784](https://github.com/mozilla/application-services/pull/4784)).
+
+### Breaking Change
+  - The `NimbusInterface` now exposes a `context: Context` property.
