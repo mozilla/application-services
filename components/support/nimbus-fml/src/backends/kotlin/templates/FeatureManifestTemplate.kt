@@ -29,6 +29,20 @@ import {{ self.config.resource_package_name() }}.R
  * An object for safely accessing feature configuration from Nimbus.
  *
  * This is generated.
+ *
+ * Before use to configure the application or any of its features, this class needs
+ * to be wired up to the SDK API. This is an object created by the application which connects to
+ * the Nimbus SDK and thence to the server.
+ *
+ * ```
+ * val nimbus: Nimbus = connectToNimbusSDK()
+ * {{ nimbus_object }}.api = nimbus
+ * ```
+ *
+ * Once initialized, this can be used to access typesafe configuration object via the `features` member.
+ *
+ * This class should not be edited manually, but changed by editing the `nimbus.fml.yaml` file, and
+ * re-running the `nimbus-fml` tool, which is likely already being used by the build script.
  */
 object {{ nimbus_object }} {
     class Features {

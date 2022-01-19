@@ -53,10 +53,8 @@ subcommands:
             - r_package:
                 help: The package name that contains the R class
                 long: r-package
-                short: r
                 value_name: R_PACKAGE
                 global: true
-                required: true
     - experimenter:
         about: Generate code for Experimenter
     - intermediate-repr:

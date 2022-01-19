@@ -9,13 +9,15 @@ package com.example.app
  *
  * This particular file contains references mentioned in the testing yaml files.
  */
+@Suppress("ClassNaming")
 object R {
+
     object string {
-        val app_menu_settings_punctuation = 1
-        val app_menu_settings_title = 2
+        const val app_menu_settings_punctuation = 1
+        const val app_menu_settings_title = 2
     }
 
     object drawable {
-        val mozac_ic_settings = 3
+        const val mozac_ic_settings = 3
     }
 }

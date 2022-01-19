@@ -50,7 +50,7 @@ fn main() -> Result<()> {
                         .map(str::to_string)
                         .or(config.nimbus_package),
                     resource_package: cmd
-                        .value_of("r-package")
+                        .value_of("r_package")
                         .map(str::to_string)
                         .or(config.resource_package),
                 },
