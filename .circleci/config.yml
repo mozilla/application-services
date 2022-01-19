@@ -478,6 +478,11 @@ jobs:
           name: Store nimbus-fml checksum in workspace
           path: nimbus-fml.sha256
           destination: nimbus-fml.sha256
+      - persist_to_workspace:
+          root: .
+          paths:
+            - nimbus-fml.sha256
+            - nimbus-fml.zip
   release-nimbus-fml:
     executor: macos
     steps:
