@@ -21,7 +21,7 @@ pub(crate) fn generate_struct(config: Config, cmd: GenerateStructCmd) -> Result<
             std::fs::write(cmd.output, contents)?;
         }
         TargetLanguage::Kotlin => backends::kotlin::generate_struct(ir, config, cmd)?,
-        TargetLanguage::Swift => backends::swift::generate_struct(ir, config, cmd)?
+        TargetLanguage::Swift => backends::swift::generate_struct(ir, config, cmd)?,
     };
     Ok(())
 }
@@ -72,7 +72,7 @@ mod test {
     use tempdir::TempDir;
 
     use super::*;
-    use crate::backends::{ kotlin, swift};
+    use crate::backends::{kotlin, swift};
     use crate::util::{generated_src_dir, join, pkg_dir};
 
     const MANIFEST_PATHS: &[&str] = &[
@@ -153,10 +153,11 @@ mod test {
         match language {
             TargetLanguage::Kotlin => {
                 kotlin::test::run_script_with_generated_code(manifest_out, test_script)?
-            },
-            TargetLanguage::Swift => {
-                swift::test::run_script_with_generated_code(manifest_out.as_ref(), test_script.as_ref())?
             }
+            TargetLanguage::Swift => swift::test::run_script_with_generated_code(
+                manifest_out.as_ref(),
+                test_script.as_ref(),
+            )?,
             _ => unimplemented!(),
         }
         Ok(())
@@ -249,7 +250,6 @@ mod test {
         Ok(())
     }
 
-
     #[test]
     fn test_with_app_menu_swift() -> Result<()> {
         generate_and_assert(
@@ -260,7 +260,6 @@ mod test {
         )?;
         Ok(())
     }
-
 
     fn validate_against_experimenter_schema<P: AsRef<Path>>(
         schema_path: P,

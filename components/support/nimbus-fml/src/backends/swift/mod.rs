@@ -25,17 +25,19 @@ pub(crate) fn generate_struct(
     Ok(())
 }
 
-
-
 #[cfg(test)]
 pub mod test {
-    use std::{process::Command, path::{Path, PathBuf}, ffi::OsString};
-    use anyhow::{Result, Context, bail};
     use crate::util::{join, pkg_dir, sdk_dir};
+    use anyhow::{bail, Context, Result};
+    use std::{
+        ffi::OsString,
+        path::{Path, PathBuf},
+        process::Command,
+    };
 
     use tempdir::TempDir;
 
-    use crate::{Config, error::FMLError};
+    use crate::{error::FMLError, Config};
 
     // The root of the Android kotlin package structure
     fn sdk_ios_dir() -> String {
@@ -52,18 +54,12 @@ pub mod test {
 
     // The file with the swift implementation of FeatureVariables
     fn variables_swift() -> String {
-        join(
-            sdk_ios_dir(),
-            "FeatureVariables.swift",
-        )
+        join(sdk_ios_dir(), "FeatureVariables.swift")
     }
 
     // The file with the swift implementation of FeatureVariables
     fn features_swift() -> String {
-        join(
-            sdk_ios_dir(),
-            "FeatureInterface.swift",
-        )
+        join(sdk_ios_dir(), "FeatureInterface.swift")
     }
 
     pub fn compile_manifest_swift(manifest_file: &Path, out_dir: &Path) -> Result<()> {
@@ -76,7 +72,7 @@ pub mod test {
         // Swift module from the REPL. Otherwise, we'll get "Couldn't lookup
         // symbols" when we try to import the module.
         // See https://bugs.swift.org/browse/SR-1191.
-    
+
         let status = Command::new("swiftc")
             .arg("-module-name")
             .arg("FeatureManifest")
@@ -102,15 +98,15 @@ pub mod test {
         }
         Ok(())
     }
-    
+
     pub fn run_script(out_dir: &Path, script_file: &Path) -> Result<()> {
         let mut cmd = Command::new("swift");
-    
+
         // Find any module maps and/or dylibs in the target directory, and tell swift to use them.
         // Listing the directory like this is a little bit hacky - it would be nicer if we could tell
         // Swift to load only the module(s) for the component under test, but the way we're calling
         // this test function doesn't allow us to pass that name in to the call.
-    
+
         cmd.arg("-I").arg(out_dir).arg("-L").arg(out_dir);
         for entry in PathBuf::from(out_dir)
             .read_dir()
@@ -118,7 +114,7 @@ pub mod test {
         {
             let entry = entry.context("Failed to list target directory when running script")?;
             if let Some(ext) = entry.path().extension() {
-                 if ext == "dylib" || ext == "so" {
+                if ext == "dylib" || ext == "so" {
                     let mut option = OsString::from("-l");
                     option.push(entry.path());
                     cmd.arg(option);
@@ -126,7 +122,7 @@ pub mod test {
             }
         }
         cmd.arg(script_file);
-    
+
         let status = cmd
             .spawn()
             .context("Failed to spawn `swift` when running script")?
@@ -154,6 +150,9 @@ pub mod test {
 
     #[test]
     fn smoke_test_script() -> Result<()> {
-        run_script_with_generated_code("fixtures/ios/tests/FeatureManifest.swift".as_ref(), "fixtures/ios/tests/script.swift".as_ref())
-    }    
+        run_script_with_generated_code(
+            "fixtures/ios/tests/FeatureManifest.swift".as_ref(),
+            "fixtures/ios/tests/script.swift".as_ref(),
+        )
+    }
 }

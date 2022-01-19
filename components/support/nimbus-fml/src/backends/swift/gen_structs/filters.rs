@@ -58,10 +58,7 @@ pub fn comment(txt: &dyn fmt::Display, spaces: &str) -> Result<String, askama::E
         .subsequent_indent(&indent2);
 
     let lines = fill(txt.to_string().as_str(), &options);
-    Ok(format!(
-        "{lines}",
-        lines = lines,
-    ))
+    Ok(format!("{lines}", lines = lines,))
 }
 
 pub fn quoted(txt: &dyn fmt::Display) -> Result<String, askama::Error> {

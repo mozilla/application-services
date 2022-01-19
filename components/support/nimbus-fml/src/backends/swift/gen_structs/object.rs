@@ -65,11 +65,11 @@ impl CodeType for ObjectCodeType {
     }
 
     fn create_transform(&self, oracle: &dyn CodeOracle) -> Option<String> {
-        Some(format!("{}::create", self.type_label(oracle)))
+        Some(format!("{}.create", self.type_label(oracle)))
     }
 
     fn merge_transform(&self, oracle: &dyn CodeOracle) -> Option<String> {
-        Some(format!("{}::mergeWith", self.type_label(oracle)))
+        Some(format!("{}.mergeWith", self.type_label(oracle)))
     }
 
     fn value_merger(&self, _oracle: &dyn CodeOracle, default: &dyn Display) -> Option<String> {
@@ -139,17 +139,17 @@ pub(crate) fn object_literal(
     };
 
     let def = fm.find_object(id).unwrap();
-
-    let args: Vec<String> = literal_map
+    let args: Vec<String> = def
+        .props()
         .iter()
-        .map(|(k, v)| {
-            let prop = def.find_prop(k);
-
-            format!(
-                "{var_name}: {var_value}",
-                var_name = common::var_name(k),
-                var_value = oracle.find(&prop.typ).literal(oracle, renderer, v)
-            )
+        .filter_map(|prop_def| {
+            literal_map.get(&prop_def.name()).map(|v| {
+                format!(
+                    "{var_name}: {var_value}",
+                    var_name = common::var_name(&prop_def.name()),
+                    var_value = oracle.find(&prop_def.typ).literal(oracle, renderer, v)
+                )
+            })
         })
         .collect();
 

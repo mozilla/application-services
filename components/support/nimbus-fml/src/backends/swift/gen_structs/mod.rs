@@ -10,13 +10,19 @@ use crate::{
     Config,
 };
 //TODO:
-mod primitives;
 mod common;
 mod enum_;
+mod feature;
 mod filters;
 mod object;
+mod primitives;
+mod structural;
 #[derive(Template)]
-#[template(syntax = "swift", escape = "none", path = "FeatureManifestTemplate.swift")]
+#[template(
+    syntax = "swift",
+    escape = "none",
+    path = "FeatureManifestTemplate.swift"
+)]
 pub struct FeatureManifestDeclaration<'a> {
     #[allow(dead_code)]
     config: Config,
@@ -36,34 +42,28 @@ impl<'a> FeatureManifestDeclaration<'a> {
     pub fn members(&self) -> Vec<Box<dyn CodeDeclaration + 'a>> {
         let fm = self.fm;
 
-        // fm.iter_feature_defs()
-        //     .into_iter()
-        //     .map(|inner| {
-        //         Box::new(feature::FeatureCodeDeclaration::new(
-        //             fm,
-        //             &self.config,
-        //             inner,
-        //         )) as Box<dyn CodeDeclaration>
-        //     })
-        //     .chain(fm.iter_enum_defs().map(|inner| {
-        //         Box::new(enum_::EnumCodeDeclaration::new(fm, inner)) as Box<dyn CodeDeclaration>
-        //     }))
-        //     .chain(fm.iter_object_defs().into_iter().map(|inner| {
-        //         Box::new(object::ObjectCodeDeclaration::new(fm, inner)) as Box<dyn CodeDeclaration>
-        //     }))
-        //     .collect()
-        fm.iter_enum_defs().map(|inner| {
-                    Box::new(enum_::EnumCodeDeclaration::new(fm, inner)) as Box<dyn CodeDeclaration>
-                })
-                .chain(fm.iter_object_defs().into_iter().map(|inner| {
-                            Box::new(object::ObjectCodeDeclaration::new(fm, inner)) as Box<dyn CodeDeclaration>
-                        }))
-                        .collect()
+        fm.iter_feature_defs()
+            .into_iter()
+            .map(|inner| {
+                Box::new(feature::FeatureCodeDeclaration::new(
+                    fm,
+                    &self.config,
+                    inner,
+                )) as Box<dyn CodeDeclaration>
+            })
+            .chain(fm.iter_enum_defs().map(|inner| {
+                Box::new(enum_::EnumCodeDeclaration::new(fm, inner)) as Box<dyn CodeDeclaration>
+            }))
+            .chain(fm.iter_object_defs().into_iter().map(|inner| {
+                Box::new(object::ObjectCodeDeclaration::new(fm, inner)) as Box<dyn CodeDeclaration>
+            }))
+            .collect()
     }
 
     pub fn iter_feature_defs(&self) -> Vec<&FeatureDef> {
-        todo!()
+        self.fm.iter_feature_defs().collect::<_>()
     }
+
     pub fn initialization_code(&self) -> Vec<String> {
         let oracle = &self.oracle;
         self.members()
@@ -81,7 +81,18 @@ impl<'a> FeatureManifestDeclaration<'a> {
     }
 
     pub fn imports(&self) -> Vec<String> {
-        todo!()
+        let oracle = &self.oracle;
+        let mut imports: Vec<String> = self
+            .members()
+            .into_iter()
+            .filter_map(|member| member.imports(oracle))
+            .flatten()
+            .collect::<HashSet<String>>()
+            .into_iter()
+            .collect();
+
+        imports.sort();
+        imports
     }
 }
 
@@ -96,17 +107,17 @@ impl ConcreteCodeOracle {
             TypeIdentifier::Int => Box::new(primitives::IntCodeType),
 
             TypeIdentifier::Enum(id) => Box::new(enum_::EnumCodeType::new(id)),
-            // TypeIdentifier::Object(id) => Box::new(object::ObjectCodeType::new(id)),
+            TypeIdentifier::Object(id) => Box::new(object::ObjectCodeType::new(id)),
 
-            // TypeIdentifier::Option(ref inner) => Box::new(structural::OptionalCodeType::new(inner)),
-            // TypeIdentifier::List(ref inner) => Box::new(structural::ListCodeType::new(inner)),
-            // TypeIdentifier::StringMap(ref v_type) => {
-            //     let k_type = &TypeIdentifier::String;
-            //     Box::new(structural::MapCodeType::new(k_type, v_type))
-            // }
-            // TypeIdentifier::EnumMap(ref k_type, ref v_type) => {
-            //     Box::new(structural::MapCodeType::new(k_type, v_type))
-            // }
+            TypeIdentifier::Option(ref inner) => Box::new(structural::OptionalCodeType::new(inner)),
+            TypeIdentifier::List(ref inner) => Box::new(structural::ListCodeType::new(inner)),
+            TypeIdentifier::StringMap(ref v_type) => {
+                let k_type = &TypeIdentifier::String;
+                Box::new(structural::MapCodeType::new(k_type, v_type))
+            }
+            TypeIdentifier::EnumMap(ref k_type, ref v_type) => {
+                Box::new(structural::MapCodeType::new(k_type, v_type))
+            }
             _ => unimplemented!(),
         }
     }
