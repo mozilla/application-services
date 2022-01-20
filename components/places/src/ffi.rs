@@ -386,24 +386,24 @@ impl PlacesConnection {
     // XXX - We probably need to document/name this a little better as it's specifically for
     // history and NOT bookmarks...
     fn wipe_local_history(&self) -> Result<()> {
-        self.with_conn(|conn| history::wipe_local(conn))
+        self.with_conn(history::wipe_local)
     }
 
     // Calls wipe_local_history but also updates the
     // sync metadata to only sync after most recent visit to prevent
     // further syncing of older data
     fn delete_everything_history(&self) -> Result<()> {
-        self.with_conn(|conn| history::delete_everything(conn))
+        self.with_conn(history::delete_everything)
     }
 
     // XXX - This just calls wipe_local under the hood...
     // should probably have this go away?
     fn prune_destructively(&self) -> Result<()> {
-        self.with_conn(|conn| history::prune_destructively(conn))
+        self.with_conn(history::prune_destructively)
     }
 
     fn run_maintenance(&self) -> Result<()> {
-        self.with_conn(|conn| storage::run_maintenance(conn))
+        self.with_conn(storage::run_maintenance)
     }
 
     fn query_autocomplete(&self, search: String, limit: i32) -> Result<Vec<SearchResult>> {
@@ -479,7 +479,7 @@ impl PlacesConnection {
     }
 
     fn bookmarks_delete_everything(&self) -> Result<()> {
-        self.with_conn(|conn| bookmarks::delete_everything(conn))
+        self.with_conn(bookmarks::delete_everything)
     }
 
     fn bookmarks_get_url_for_keyword(&self, keyword: String) -> Result<Option<Url>> {

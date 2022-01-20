@@ -431,8 +431,8 @@ fn inflate(
             .and_then(|guid| pseudo_tree.remove(guid))
         {
             parent.children = children;
-            for mut child in &mut parent.children {
-                inflate(&mut child, pseudo_tree);
+            for child in &mut parent.children {
+                inflate(child, pseudo_tree);
             }
         }
     }
@@ -441,11 +441,11 @@ fn inflate(
 #[derive(Debug)]
 struct FetchedTreeRow {
     level: u32,
-    id: RowId,
+    _id: RowId,
     guid: SyncGuid,
     // parent and parent_guid are Option<> only to handle the root - we would
     // assert but they aren't currently used.
-    parent: Option<RowId>,
+    _parent: Option<RowId>,
     parent_guid: Option<SyncGuid>,
     node_type: BookmarkType,
     position: u32,
@@ -460,9 +460,9 @@ impl FetchedTreeRow {
         let url = row.get::<_, Option<String>>("url")?;
         Ok(Self {
             level: row.get("level")?,
-            id: row.get::<_, RowId>("id")?,
+            _id: row.get::<_, RowId>("id")?,
             guid: row.get::<_, String>("guid")?.into(),
-            parent: row.get::<_, Option<RowId>>("parent")?,
+            _parent: row.get::<_, Option<RowId>>("parent")?,
             parent_guid: row
                 .get::<_, Option<String>>("parentGuid")?
                 .map(SyncGuid::from),
