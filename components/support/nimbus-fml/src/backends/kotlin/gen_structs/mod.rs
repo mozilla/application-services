@@ -11,6 +11,7 @@ use crate::{
     Config,
 };
 
+mod bundled;
 mod common;
 mod enum_;
 mod feature;
@@ -20,14 +21,20 @@ mod primitives;
 mod structural;
 
 impl Config {
-    fn package_name(&self) -> Option<String> {
-        self.package_name.clone()
+    fn nimbus_package_name(&self) -> Option<String> {
+        self.nimbus_package.clone()
     }
 
     fn nimbus_object_name(&self) -> String {
         self.nimbus_object_name
             .clone()
             .unwrap_or_else(|| "MyNimbus".into())
+    }
+
+    fn resource_package_name(&self) -> String {
+        self.resource_package
+            .clone()
+            .unwrap_or_else(|| panic!("The package with R.class needs to specified"))
     }
 }
 
@@ -115,6 +122,9 @@ impl ConcreteCodeOracle {
             TypeIdentifier::String => Box::new(primitives::StringCodeType),
             TypeIdentifier::Int => Box::new(primitives::IntCodeType),
 
+            TypeIdentifier::BundleText(_) => Box::new(bundled::TextCodeType),
+            TypeIdentifier::BundleImage(_) => Box::new(bundled::ImageCodeType),
+
             TypeIdentifier::Enum(id) => Box::new(enum_::EnumCodeType::new(id)),
             TypeIdentifier::Object(id) => Box::new(object::ObjectCodeType::new(id)),
 
@@ -127,7 +137,6 @@ impl ConcreteCodeOracle {
             TypeIdentifier::EnumMap(ref k_type, ref v_type) => {
                 Box::new(structural::MapCodeType::new(k_type, v_type))
             }
-            _ => unimplemented!(),
         }
     }
 }

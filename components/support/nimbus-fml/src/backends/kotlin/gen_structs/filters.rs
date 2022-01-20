@@ -2,7 +2,7 @@
 //  * License, v. 2.0. If a copy of the MPL was not distributed with this
 //  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 use super::{common, ConcreteCodeOracle};
-use std::fmt;
+use std::fmt::{self, Display};
 
 use crate::backends::{CodeOracle, LiteralRenderer, TypeIdentifier};
 use crate::intermediate_representation::Literal;
@@ -16,9 +16,10 @@ pub fn literal(
     type_: &TypeIdentifier,
     renderer: &dyn LiteralRenderer,
     literal: &Literal,
+    ctx: &dyn Display,
 ) -> Result<String, askama::Error> {
     let oracle = ConcreteCodeOracle;
-    Ok(oracle.find(type_).literal(&oracle, renderer, literal))
+    Ok(oracle.find(type_).literal(&oracle, ctx, renderer, literal))
 }
 
 pub fn property(

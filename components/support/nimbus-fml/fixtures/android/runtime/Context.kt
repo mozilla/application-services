@@ -8,15 +8,17 @@
  */
 package android.content
 
+import android.graphics.drawable.Drawable
+
 @Suppress("UNUSED_PARAMETER", "PACKAGE_OR_CLASSIFIER_REDECLARATION", "FunctionOnlyReturningConstant")
 class Context {
     val resources = Resources
 
     val packageName = "dummy.package.name"
 
-    fun getDrawable(res: Int): android.graphics.drawable.Drawable? = null
+    fun getDrawable(res: Int): Drawable = Drawable(res)
 
-    fun getString(res: Int): String? = null
+    fun getString(res: Int): String = "res:$res"
 }
 
 @Suppress("UNUSED_PARAMETER", "PACKAGE_OR_CLASSIFIER_REDECLARATION", "FunctionOnlyReturningConstant")

@@ -46,6 +46,7 @@ typealias EnrolledExperiment = EnrolledExperiment
  * This is the main experiments API, which is exposed through the global [Nimbus] object.
  */
 interface NimbusInterface : FeaturesInterface {
+
     /**
      * Get the list of currently enrolled experiments
      *
@@ -95,7 +96,7 @@ interface NimbusInterface : FeaturesInterface {
      * @return a [Variables] object used to configure the feature.
      */
     @AnyThread
-    override fun getVariables(featureId: String, recordExposureEvent: Boolean): Variables = NullVariables.instance
+    override fun getVariables(featureId: String, recordExposureEvent: Boolean): Variables = NullVariables(context)
 
     /**
      * Open the database and populate the SDK so as make it usable by feature developers.
@@ -292,7 +293,7 @@ class NimbusDelegate(
  */
 @Suppress("LargeClass", "LongParameterList")
 open class Nimbus(
-    private val context: Context,
+    override val context: Context,
     appInfo: NimbusAppInfo,
     server: NimbusServerSettings?,
     deviceInfo: NimbusDeviceInfo,
@@ -380,7 +381,7 @@ open class Nimbus(
             }
             JSONVariables(context, json)
         }
-        ?: NullVariables.instance
+        ?: NullVariables(context)
 
     @WorkerThread
     override fun getExperimentBranches(experimentId: String): List<Branch>? = withCatchAll {

@@ -4,12 +4,17 @@
 
 package org.mozilla.experiments.nimbus
 
+import android.content.Context
+
 /**
  * Small interface to get the feature variables out of the Nimbus SDK.
  *
  * This is intended to be standalone to allow for testing the Nimbus FML.
  */
 interface FeaturesInterface {
+
+    val context: Context
+
     /**
      * Get the variables needed to configure the feature given by `featureId`.
      *

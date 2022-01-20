@@ -79,10 +79,16 @@ impl CodeType for ObjectCodeType {
     fn literal(
         &self,
         oracle: &dyn CodeOracle,
+        ctx: &dyn Display,
         renderer: &dyn LiteralRenderer,
         literal: &Literal,
     ) -> String {
-        renderer.literal(oracle, &TypeIdentifier::Object(self.id.clone()), literal)
+        renderer.literal(
+            oracle,
+            &TypeIdentifier::Object(self.id.clone()),
+            literal,
+            ctx,
+        )
     }
 }
 
@@ -112,13 +118,20 @@ impl CodeDeclaration for ObjectCodeDeclaration {
 }
 
 impl LiteralRenderer for ObjectCodeDeclaration {
-    fn literal(&self, oracle: &dyn CodeOracle, typ: &TypeIdentifier, value: &Literal) -> String {
-        object_literal(&self.fm, &self, oracle, typ, value)
+    fn literal(
+        &self,
+        oracle: &dyn CodeOracle,
+        typ: &TypeIdentifier,
+        value: &Literal,
+        ctx: &dyn Display,
+    ) -> String {
+        object_literal(&self.fm, ctx, &self, oracle, typ, value)
     }
 }
 
 pub(crate) fn object_literal(
     fm: &FeatureManifest,
+    ctx: &dyn Display,
     renderer: &dyn LiteralRenderer,
     oracle: &dyn CodeOracle,
     typ: &TypeIdentifier,
@@ -127,7 +140,7 @@ pub(crate) fn object_literal(
     let id = if let TypeIdentifier::Object(id) = typ {
         id
     } else {
-        return oracle.find(typ).literal(oracle, renderer, value);
+        return oracle.find(typ).literal(oracle, ctx, renderer, value);
     };
     let literal_map = if let Literal::Object(map) = value {
         map
@@ -140,17 +153,17 @@ pub(crate) fn object_literal(
 
     let def = fm.find_object(id).unwrap();
 
-    let args: Vec<String> = literal_map
-        .iter()
-        .map(|(k, v)| {
+    let args: Vec<String> = vec![format!("_context = {ctx_name}", ctx_name = ctx)]
+        .into_iter()
+        .chain(literal_map.iter().map(|(k, v)| {
             let prop = def.find_prop(k);
 
             format!(
                 "{var_name} = {var_value}",
                 var_name = common::var_name(k),
-                var_value = oracle.find(&prop.typ).literal(oracle, renderer, v)
+                var_value = oracle.find(&prop.typ).literal(oracle, ctx, renderer, v)
             )
-        })
+        }))
         .collect();
 
     format!(
@@ -182,6 +195,7 @@ mod unit_tests {
             _oracle: &dyn CodeOracle,
             typ: &TypeIdentifier,
             _value: &Literal,
+            _ctx: &dyn Display,
         ) -> String {
             if let TypeIdentifier::Object(nm) = typ {
                 format!("{}()", nm)
@@ -221,9 +235,10 @@ mod unit_tests {
         let ct = code_type("AnObject");
         let oracle = &*oracle();
         let finder = &TestRenderer;
+        let ctx = "ctx".to_string();
         assert_eq!(
             "AnObject()".to_string(),
-            ct.literal(oracle, finder, &json!({}))
+            ct.literal(oracle, &ctx, finder, &json!({}))
         );
     }
 
@@ -233,7 +248,7 @@ mod unit_tests {
         let oracle = &*oracle();
 
         assert_eq!(
-            r#"v?.getVariables("the-property")"#.to_string(),
+            r#"v.getVariables("the-property")"#.to_string(),
             ct.value_getter(oracle, &"v", &"the-property")
         );
     }
@@ -242,7 +257,7 @@ mod unit_tests {
     fn test_getter_with_fallback() {
         let ct = code_type("AnObject");
         assert_eq!(
-            r#"vars?.getVariables("the-property")?.let(AnObject::create)?._mergeWith(default) ?: default"#
+            r#"vars.getVariables("the-property")?.let(AnObject::create)?._mergeWith(default) ?: default"#
             .to_string(),
             getter_with_fallback(&*ct, &"vars", &"the-property", &"default"));
     }

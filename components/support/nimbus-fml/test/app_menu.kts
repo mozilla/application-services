@@ -2,10 +2,11 @@
 * License, v. 2.0. If a copy of the MPL was not distributed with this
 * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
+import android.content.Context as MockContext
 import org.mozilla.experiments.nimbus.MockNimbus
 
 // Exercise a map of booleans
-val feature = MyNimbus.features.appMenu.value()
+val feature = MyNimbus.features.appMenu.value(MockContext())
 assert(feature.itemEnabled[MenuItemId.START_GAME] == true)
 assert(feature.itemEnabled[MenuItemId.RESUME_GAME] == false)
 assert(feature.itemEnabled[MenuItemId.SETTINGS] == true)

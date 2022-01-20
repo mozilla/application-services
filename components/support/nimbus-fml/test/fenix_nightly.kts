@@ -2,11 +2,15 @@
 * License, v. 2.0. If a copy of the MPL was not distributed with this
 * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
+import android.content.Context as MockContext
+import com.example.app.R
+import com.example.nightly.FxNimbus as MyNimbus
+import com.example.nightly.HomeScreenSection
 import org.mozilla.experiments.nimbus.MockNimbus
 
 // Test the default map with an enum to Boolean maping based
 // on the nighlty defaults
-val feature = MyNimbus.features.homescreen.value()
+val feature = MyNimbus.features.homescreen.value(MockContext())
 assert(feature.sectionsEnabled[HomeScreenSection.TOP_SITES] == true)
 assert(feature.sectionsEnabled[HomeScreenSection.JUMP_BACK_IN] == true)
 assert(feature.sectionsEnabled[HomeScreenSection.RECENTLY_SAVED] == true)
@@ -37,8 +41,8 @@ assert(api.isExposed("homescreen"))
 
 val validationFeature = MyNimbus.features.nimbusValidation.value()
 assert(validationFeature.settingsTitle == "hello")
-assert(validationFeature.settingsPunctuation == "")
-assert(validationFeature.settingsIcon == "mozac_ic_settings")
+assert(validationFeature.settingsPunctuation == "res:${R.string.app_menu_settings_punctuation}")
+assert(validationFeature.settingsIcon.res == R.drawable.mozac_ic_settings) { "Settings icon is ${validationFeature.settingsIcon.res}" }
 // Record the exposure and test it.
 MyNimbus.features.nimbusValidation.recordExposure()
 assert(api.isExposed("nimbus-validation"))

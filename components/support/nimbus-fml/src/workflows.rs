@@ -82,13 +82,32 @@ mod test {
         "fixtures/ir/full_homescreen.json",
     ];
 
-    // Given a manifest.fml and script.kts in the tests directory generate
-    // a manifest.kt and run the script against it.
     fn generate_and_assert(
         test_script: &str,
         manifest: &str,
         channel: &str,
         is_ir: bool,
+    ) -> Result<()> {
+        generate_and_assert_with_config(
+            test_script,
+            manifest,
+            channel,
+            is_ir,
+            Config {
+                resource_package: Some("com.example.app".to_string()),
+                ..Default::default()
+            },
+        )
+    }
+
+    // Given a manifest.fml and script.kts in the tests directory generate
+    // a manifest.kt and run the script against it.
+    fn generate_and_assert_with_config(
+        test_script: &str,
+        manifest: &str,
+        channel: &str,
+        is_ir: bool,
+        config: Config,
     ) -> Result<()> {
         let test_script = join(pkg_dir(), test_script);
         let pbuf = PathBuf::from(&test_script);
@@ -109,8 +128,9 @@ mod test {
         fs::create_dir_all(generated_src_dir())?;
 
         let manifest_kt = format!(
-            "{}.{}",
+            "{}_{}.{}",
             join(generated_src_dir(), file),
+            channel,
             language.extension()
         );
         let cmd = GenerateStructCmd {
@@ -120,7 +140,7 @@ mod test {
             language,
             channel: channel.into(),
         };
-        generate_struct(Default::default(), cmd)?;
+        generate_struct(config, cmd)?;
         run_script_with_generated_code(language, manifest_kt, &test_script)?;
         Ok(())
     }
@@ -174,22 +194,32 @@ mod test {
 
     #[test]
     fn test_with_full_fenix_release() -> Result<()> {
-        generate_and_assert(
+        generate_and_assert_with_config(
             "test/fenix_release.kts",
             "fixtures/fe/fenix.yaml",
             "release",
             false,
+            Config {
+                resource_package: Some("com.example.app".to_string()),
+                nimbus_object_name: Some("FxNimbus".to_string()),
+                nimbus_package: Some("com.example.release".to_string()),
+            },
         )?;
         Ok(())
     }
 
     #[test]
     fn test_with_full_fenix_nightly() -> Result<()> {
-        generate_and_assert(
+        generate_and_assert_with_config(
             "test/fenix_nightly.kts",
             "fixtures/fe/fenix.yaml",
             "nightly",
             false,
+            Config {
+                resource_package: Some("com.example.app".to_string()),
+                nimbus_object_name: Some("FxNimbus".to_string()),
+                nimbus_package: Some("com.example.nightly".to_string()),
+            },
         )?;
         Ok(())
     }

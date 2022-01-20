@@ -6,8 +6,8 @@
 {{ inner.doc()|comment("") }}
 public class {{class_name}}
     internal constructor(
-        private val _variables: Variables? = null,
-        internal val _defaults: Defaults) {
+        private val _variables: Variables,
+        private val _defaults: Defaults) {
 {# The data class holds the default values that come from the manifest. They should completely
 specify all values needed for the  feature #}
     data class Defaults({% for p in inner.props() %}
@@ -16,15 +16,29 @@ specify all values needed for the  feature #}
     {%- endfor %}
     )
 
-{#- A constructor for application tests to use.  #}
+{#- A constructor for application to use.  #}
+
 
     constructor(
-        _variables: Variables? = null, {% for p in inner.props() %}
+        _variables: Variables, {% for p in inner.props() %}
         {%- let t = p.typ() %}
-        {{p.name()|var_name}}: {{ t|type_label }} = {{ t|literal(self, p.default()) }}{% if !loop.last %},{% endif %}
+        {{p.name()|var_name}}: {{ t|type_label }} = {{ t|literal(self, p.default(), "_variables.context") }}{% if !loop.last %},{% endif %}
     {%- endfor %}
     ) : this(
         _variables = _variables,
+        _defaults = Defaults({% for p in inner.props() %}
+        {%- let nm = p.name()|var_name %}{{ nm }} = {{ nm }}{% if !loop.last %}, {% endif %}
+        {%- endfor %})
+    )
+
+{#- A constructor for application tests to use.  #}
+    constructor(
+        _context: Context, {% for p in inner.props() %}
+        {%- let t = p.typ() %}
+        {{p.name()|var_name}}: {{ t|type_label }} = {{ t|literal(self, p.default(), "_context") }}{% if !loop.last %},{% endif %}
+    {%- endfor %}
+    ) : this(
+        _variables = NullVariables(_context),
         _defaults = Defaults({% for p in inner.props() %}
         {%- let nm = p.name()|var_name %}{{ nm }} = {{ nm }}{% if !loop.last %}, {% endif %}
         {%- endfor %})

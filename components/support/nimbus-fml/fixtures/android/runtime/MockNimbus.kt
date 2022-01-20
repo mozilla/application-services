@@ -7,7 +7,7 @@ package org.mozilla.experiments.nimbus
 import android.content.Context
 import org.json.JSONObject
 
-class MockNimbus(val context: Context, val map: Map<String, JSONObject>) : FeaturesInterface {
+class MockNimbus(override val context: Context, val map: Map<String, JSONObject>) : FeaturesInterface {
 
     constructor(vararg pairs: Pair<String, String>, context: Context = Context()) : this(
         context,
@@ -17,7 +17,7 @@ class MockNimbus(val context: Context, val map: Map<String, JSONObject>) : Featu
     )
 
     override fun getVariables(featureId: String, recordExposureEvent: Boolean): Variables =
-        map[featureId]?.let { json -> JSONVariables(context, json) } ?: Variables.empty
+        map[featureId]?.let { json -> JSONVariables(context, json) } ?: NullVariables(context)
 
     private var exposureCounts = mutableMapOf<String, Int>()
 

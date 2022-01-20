@@ -66,7 +66,7 @@ pub(crate) mod code_type {
     ) -> String {
         let vt = ct.variables_type(oracle);
         format!(
-            "{vars}?.get{vt}(\"{prop}\")",
+            "{vars}.get{vt}(\"{prop}\")",
             vars = vars,
             vt = vt,
             prop = prop
