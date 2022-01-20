@@ -57,7 +57,7 @@ enum CheckChildren {
 }
 
 // similar assert_json_tree from our rust code.
-func checkTree(_ n: BookmarkNode, _ want: [String: Any], checkChildren: CheckChildren = .full) {
+func checkTree(_ n: BookmarkNodeData, _ want: [String: Any], checkChildren: CheckChildren = .full) {
     XCTAssert(n.parentGUID != nil || n.guid == BookmarkRoots.RootGUID)
 
     XCTAssert(dynCmp(n.guid, want["guid"]))
@@ -65,21 +65,21 @@ func checkTree(_ n: BookmarkNode, _ want: [String: Any], checkChildren: CheckChi
 
     switch n.type {
     case .separator:
-        XCTAssert(n is BookmarkSeparator)
+        XCTAssert(n is BookmarkSeparatorData)
     case .bookmark:
-        XCTAssert(n is BookmarkItem)
+        XCTAssert(n is BookmarkItemData)
     case .folder:
-        XCTAssert(n is BookmarkFolder)
+        XCTAssert(n is BookmarkFolderData)
     }
 
-    if let bn = n as? BookmarkItem {
+    if let bn = n as? BookmarkItemData {
         XCTAssert(dynCmp(bn.url, want["url"]))
         XCTAssert(dynCmp(bn.title, want["title"]))
     } else {
         XCTAssertNil(want["url"])
     }
 
-    if let fn = n as? BookmarkFolder {
+    if let fn = n as? BookmarkFolderData {
         if checkChildren == .onlyGUIDs {
             XCTAssertNil(fn.children)
             // Make sure it's not getting provided accidentally
@@ -115,7 +115,7 @@ func counter() -> Int {
 }
 
 @discardableResult
-func insertTree(_ db: PlacesWriteConnection, parent: String, tree: [String: Any]) -> String {
+func insertTree(_ db: PlacesWriteConnection, parent: Guid, tree: [String: Any]) -> String {
     let root = try! db.createFolder(parentGUID: parent, title: (tree["title"] as? String) ?? "folder \(counter())")
     for child in tree["children"] as! [[String: Any]] {
         switch typeFromAny(child["type"])! {
@@ -223,9 +223,9 @@ class PlacesTests: XCTestCase {
         ])
 
         // Check recursive: false
-        let noGrandkids = try! db.getBookmarksTree(rootGUID: BookmarkRoots.MenuFolderGUID, recursive: false)! as! BookmarkFolder
+        let noGrandkids = try! db.getBookmarksTree(rootGUID: BookmarkRoots.MenuFolderGUID, recursive: false)! as! BookmarkFolderData
 
-        let expectedChildGuids = ((got as! BookmarkFolder).children![0] as! BookmarkFolder).childGUIDs
+        let expectedChildGuids = ((got as! BookmarkFolderData).children![0] as! BookmarkFolderData).childGUIDs
 
         checkTree(noGrandkids, [
             "guid": BookmarkRoots.MenuFolderGUID,
@@ -371,7 +371,7 @@ class PlacesTests: XCTestCase {
             _ = try db.updateBookmarkNode(guid: "123", parentGUID: "456")
             XCTFail("Call did not throw")
         } catch let caughtError as PlacesError {
-            if case PlacesError.noSuchItem = caughtError {
+            if case PlacesError.UnknownBookmarkItem = caughtError {
             } else {
                 XCTFail("Not the correct error ")
             }
@@ -381,10 +381,10 @@ class PlacesTests: XCTestCase {
 
         // Testing a Uniffi-ed error
         do {
-            _ = try db.getLatestHistoryMetadataForUrl(url: "somerandomurl")
+            _ = try db.noteHistoryMetadataObservation(observation: HistoryMetadataObservation(url: "http://www.[].com"))
             XCTFail("Call did not throw")
         } catch let caughtError as PlacesError {
-            if case PlacesError.urlParseError = caughtError {
+            if case PlacesError.UrlParseFailed = caughtError {
             } else {
                 XCTAssertEqual(caughtError.localizedDescription, "Error")
                 XCTFail("Not the correct PlacesError")

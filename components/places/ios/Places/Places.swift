@@ -11,8 +11,18 @@ import os.log
     import MozillaRustComponents
 #endif
 
-internal typealias APIHandle = UInt64
-internal typealias ConnectionHandle = UInt64
+internal typealias UniffiPlacesApi = PlacesApi
+internal typealias UniffiPlacesConnection = PlacesConnection
+public typealias Url = String
+public typealias Guid = String
+
+/**
+ * This is specifically for throwing when there is
+ * API misuse and/or connection issues with PlacesReadConnection
+ */
+public enum PlacesApiError: Error {
+    case connUseAfterApiClosed
+}
 
 /**
  * This is something like a places connection manager. It primarialy exists to
@@ -22,10 +32,11 @@ internal typealias ConnectionHandle = UInt64
  * (although it does not actually perform any pooling).
  */
 public class PlacesAPI {
-    private let handle: APIHandle
     private let writeConn: PlacesWriteConnection
+    private let api: UniffiPlacesApi
+
     private let queue = DispatchQueue(label: "com.mozilla.places.api")
-    private let interruptHandle: InterruptHandle
+    private let interruptHandle: SqlInterruptHandle
 
     /**
      * Initialize a PlacesAPI
@@ -35,59 +46,14 @@ public class PlacesAPI {
      * - Throws: `PlacesError` if initializing the database failed.
      */
     public init(path: String) throws {
-        let handle = try PlacesError.unwrap { error in
-            places_api_new(path, error)
-        }
-        self.handle = handle
-        do {
-            let writeHandle = try PlacesError.unwrap { error in
-                places_connection_new(handle, Int32(PlacesConn_ReadWrite), error)
-            }
-            writeConn = try PlacesWriteConnection(handle: writeHandle)
+        try api = placesApiNew(dbPath: path)
 
-            interruptHandle = InterruptHandle(ptr: try PlacesError.unwrap { error in
-                places_new_sync_conn_interrupt_handle(handle, error)
-            })
+        let uniffiConn = try api.newConnection(connType: ConnectionType.readWrite)
+        writeConn = try PlacesWriteConnection(conn: uniffiConn)
 
-            writeConn.api = self
-        } catch let e {
-            // We failed to open the write connection (or the interrupt handle),
-            // even though the API was opened. This is... strange, but possible.
-            // Anyway, we want to clean up our API if this happens.
-            //
-            // If closing the API fails, it's probably caused by the same
-            // underlying problem as whatever made us fail to open the write
-            // connection, so we'd rather use the first error, since it's
-            // hopefully more descriptive.
-            PlacesError.unwrapOrLog { error in
-                places_api_destroy(handle, error)
-            }
-            // Note: We don't need to explicitly clean up `self.writeConn` in
-            // the case that it gets opened successfully, but initializing
-            // `self.interruptHandle` fails -- the `PlacesWriteConnection`
-            // `deinit` should still run and do the right thing.
-            throw e
-        }
-    }
+        interruptHandle = try api.newSyncConnInterruptHandle()
 
-    deinit {
-        // Note: we shouldn't need to queue.sync with our queue in deinit (no more references
-        // exist to us), however we still need to sync with the write conn's queue, since it
-        // could still be in use.
-
-        self.writeConn.queue.sync {
-            // If the writer is still around (it should be), return it to the api.
-            let writeHandle = self.writeConn.takeHandle()
-            if writeHandle != 0 {
-                PlacesError.unwrapOrLog { error in
-                    places_api_return_write_conn(self.handle, writeHandle, error)
-                }
-            }
-        }
-
-        PlacesError.unwrapOrLog { error in
-            places_api_destroy(self.handle, error)
-        }
+        writeConn.api = self
     }
 
     /**
@@ -117,9 +83,7 @@ public class PlacesAPI {
      */
     open func migrateBookmarksFromBrowserDb(path: String) throws {
         try queue.sync {
-            try PlacesError.unwrap { error in
-                places_bookmarks_import_from_ios(handle, path, error)
-            }
+            try self.api.placesBookmarksImportFromIos(dbPath: path)
         }
     }
 
@@ -130,10 +94,8 @@ public class PlacesAPI {
      */
     open func openReader() throws -> PlacesReadConnection {
         return try queue.sync {
-            let conn = try PlacesError.unwrap { error in
-                places_connection_new(handle, Int32(PlacesConn_ReadOnly), error)
-            }
-            return try PlacesReadConnection(handle: conn, api: self)
+            let uniffiConn = try api.newConnection(connType: ConnectionType.readOnly)
+            return try PlacesReadConnection(conn: uniffiConn, api: self)
         }
     }
 
@@ -168,15 +130,12 @@ public class PlacesAPI {
      */
     open func syncBookmarks(unlockInfo: SyncUnlockInfo) throws -> String {
         return try queue.sync {
-            let pingStr = try PlacesError.unwrap { err in
-                sync15_bookmarks_sync(handle,
-                                      unlockInfo.kid,
-                                      unlockInfo.fxaAccessToken,
-                                      unlockInfo.syncKey,
-                                      unlockInfo.tokenserverURL,
-                                      err)
-            }
-            return String(freeingPlacesString: pingStr)
+            return try self.api.bookmarksSync(
+                keyId: unlockInfo.kid,
+                accessToken: unlockInfo.fxaAccessToken,
+                syncKey: unlockInfo.syncKey,
+                tokenserverUrl: unlockInfo.tokenserverURL
+            )
         }
     }
 
@@ -201,9 +160,7 @@ public class PlacesAPI {
      */
     open func resetHistorySyncMetadata() throws {
         return try queue.sync {
-            try PlacesError.unwrap { err in
-                places_reset(handle, err)
-            }
+            try self.api.resetHistory()
         }
     }
 
@@ -223,9 +180,7 @@ public class PlacesAPI {
      */
     open func resetBookmarkSyncMetadata() throws {
         return try queue.sync {
-            try PlacesError.unwrap { err in
-                bookmarks_reset(handle, err)
-            }
+            return try self.api.bookmarksReset()
         }
     }
 
@@ -247,40 +202,20 @@ public class PlacesAPI {
  */
 public class PlacesReadConnection {
     fileprivate let queue = DispatchQueue(label: "com.mozilla.places.conn")
-    fileprivate var handle: ConnectionHandle
+    fileprivate var conn: UniffiPlacesConnection
     fileprivate weak var api: PlacesAPI?
-    fileprivate let interruptHandle: InterruptHandle
+    fileprivate let interruptHandle: SqlInterruptHandle
 
-    fileprivate init(handle: ConnectionHandle, api: PlacesAPI? = nil) throws {
-        self.handle = handle
+    fileprivate init(conn: UniffiPlacesConnection, api: PlacesAPI? = nil) throws {
+        self.conn = conn
         self.api = api
-        interruptHandle = InterruptHandle(ptr: try PlacesError.unwrap { error in
-            places_new_interrupt_handle(handle, error)
-        })
+        interruptHandle = try self.conn.newInterruptHandle()
     }
 
     // Note: caller synchronizes!
     fileprivate func checkApi() throws {
         if api == nil {
-            throw PlacesError.connUseAfterAPIClosed
-        }
-    }
-
-    // Note: caller synchronizes!
-    fileprivate func takeHandle() -> ConnectionHandle {
-        let handle = self.handle
-        self.handle = 0
-        return handle
-    }
-
-    deinit {
-        // Note: don't need to queue.sync in deinit -- no more references exist to us.
-        let handle = self.takeHandle()
-        if handle != 0 {
-            // In practice this can only fail if the rust code panics.
-            PlacesError.unwrapOrLog { err in
-                places_connection_destroy(handle, err)
-            }
+            throw PlacesApiError.connUseAfterApiClosed
         }
     }
 
@@ -319,23 +254,14 @@ public class PlacesReadConnection {
      *     - `PlacesError.panic`: If the rust code panics while completing this
      *                            operation. (If this occurs, please let us know).
      */
-    open func getBookmarksTree(rootGUID: String, recursive: Bool) throws -> BookmarkNode? {
+    open func getBookmarksTree(rootGUID: Guid, recursive: Bool) throws -> BookmarkNodeData? {
         return try queue.sync {
             try self.checkApi()
-            let buffer = try PlacesError.unwrap { (error: UnsafeMutablePointer<PlacesRustError>) -> PlacesRustBuffer in
-                if recursive {
-                    return bookmarks_get_tree(self.handle, rootGUID, error)
-                } else {
-                    return bookmarks_get_by_guid(self.handle, rootGUID, 1, error)
-                }
+            if recursive {
+                return try self.conn.bookmarksGetTree(itemGuid: rootGUID)?.asBookmarkNodeData
+            } else {
+                return try self.conn.bookmarksGetByGuid(guid: rootGUID, getDirectChildren: true)?.asBookmarkNodeData
             }
-            if buffer.data == nil {
-                return nil
-            }
-            defer { places_destroy_bytebuffer(buffer) }
-            // This should never fail, since we encoded it on the other side with Rust
-            let msg = try MsgTypes_BookmarkNode(serializedData: Data(placesRustBuffer: buffer))
-            return unpackProtobuf(msg: msg)
         }
     }
 
@@ -363,19 +289,10 @@ public class PlacesReadConnection {
      *     - `PlacesError.panic`: If the rust code panics while completing this
      *                            operation. (If this occurs, please let us know).
      */
-    open func getBookmark(guid: String) throws -> BookmarkNode? {
+    open func getBookmark(guid: Guid) throws -> BookmarkNodeData? {
         return try queue.sync {
             try self.checkApi()
-            let buffer = try PlacesError.unwrap { error in
-                bookmarks_get_by_guid(self.handle, guid, 0, error)
-            }
-            if buffer.data == nil {
-                return nil
-            }
-            defer { places_destroy_bytebuffer(buffer) }
-            // This could probably be try!
-            let msg = try MsgTypes_BookmarkNode(serializedData: Data(placesRustBuffer: buffer))
-            return unpackProtobuf(msg: msg)
+            return try self.conn.bookmarksGetByGuid(guid: guid, getDirectChildren: false)?.asBookmarkNodeData
         }
     }
 
@@ -404,16 +321,11 @@ public class PlacesReadConnection {
      *     - `PlacesError.panic`: If the rust code panics while completing this
      *                            operation. (If this occurs, please let us know).
      */
-    open func getBookmarksWithURL(url: String) throws -> [BookmarkItem] {
+    open func getBookmarksWithURL(url: Url) throws -> [BookmarkItemData] {
         return try queue.sync {
             try self.checkApi()
-            let buffer = try PlacesError.unwrap { error in
-                bookmarks_get_all_with_url(self.handle, url, error)
-            }
-            defer { places_destroy_bytebuffer(buffer) }
-            // This could probably be try!
-            let msg = try MsgTypes_BookmarkNodeList(serializedData: Data(placesRustBuffer: buffer))
-            return unpackProtobufItemList(msg: msg)
+            let items = try self.conn.bookmarksGetAllWithUrl(url: url)
+            return toBookmarkItemDataList(items: items)
         }
     }
 
@@ -435,16 +347,10 @@ public class PlacesReadConnection {
      *     - `PlacesError.panic`: If the rust code panics while completing this
      *                            operation. (If this occurs, please let us know).
      */
-    open func getBookmarkURLForKeyword(keyword: String) throws -> String? {
+    open func getBookmarkURLForKeyword(keyword: String) throws -> Url? {
         return try queue.sync {
             try self.checkApi()
-            let maybeURL = try PlacesError.tryUnwrap { error in
-                bookmarks_get_url_for_keyword(self.handle, keyword, error)
-            }
-            guard let url = maybeURL else {
-                return nil
-            }
-            return String(freeingPlacesString: url)
+            return try self.conn.bookmarksGetUrlForKeyword(keyword: keyword)
         }
     }
 
@@ -471,16 +377,11 @@ public class PlacesReadConnection {
      *     - `PlacesError.panic`: If the rust code panics while completing this
      *                            operation. (If this occurs, please let us know).
      */
-    open func searchBookmarks(query: String, limit: UInt) throws -> [BookmarkItem] {
+    open func searchBookmarks(query: String, limit: UInt) throws -> [BookmarkItemData] {
         return try queue.sync {
             try self.checkApi()
-            let buffer = try PlacesError.unwrap { error in
-                bookmarks_search(self.handle, query, Int32(limit), error)
-            }
-            defer { places_destroy_bytebuffer(buffer) }
-            // This could probably be try!
-            let msg = try MsgTypes_BookmarkNodeList(serializedData: Data(placesRustBuffer: buffer))
-            return unpackProtobufItemList(msg: msg)
+            let items = try self.conn.bookmarksSearch(query: query, limit: Int32(limit))
+            return toBookmarkItemDataList(items: items)
         }
     }
 
@@ -510,64 +411,46 @@ public class PlacesReadConnection {
      *                            operation. (If this occurs, please let us
      *                            know).
      */
-    open func getRecentBookmarks(limit: UInt) throws -> [BookmarkItem] {
+    open func getRecentBookmarks(limit: UInt) throws -> [BookmarkItemData] {
         return try queue.sync {
             try self.checkApi()
-            let buffer = try PlacesError.unwrap { error in
-                bookmarks_get_recent(self.handle, Int32(limit), error)
-            }
-            defer { places_destroy_bytebuffer(buffer) }
-            let msg = try MsgTypes_BookmarkNodeList(serializedData: Data(placesRustBuffer: buffer))
-            return unpackProtobufItemList(msg: msg)
+            let items = try self.conn.bookmarksGetRecent(limit: Int32(limit))
+            return toBookmarkItemDataList(items: items)
         }
     }
 
-    open func getLatestHistoryMetadataForUrl(url: String) throws -> HistoryMetadata? {
+    open func getLatestHistoryMetadataForUrl(url: Url) throws -> HistoryMetadata? {
         return try queue.sync {
             try self.checkApi()
-            return try PlacesError.unwrapWithUniffi { _ in
-                try placesGetLatestHistoryMetadataForUrl(handle: Int64(self.handle), url: url)
-            }
+            return try self.conn.getLatestHistoryMetadataForUrl(url: url)
         }
     }
 
     open func getHistoryMetadataSince(since: Int64) throws -> [HistoryMetadata] {
         return try queue.sync {
             try self.checkApi()
-            let result = try PlacesError.unwrapWithUniffi { _ in
-                try placesGetHistoryMetadataSince(handle: Int64(self.handle), start: since)
-            }
-            return result ?? []
+            return try self.conn.getHistoryMetadataSince(since: since)
         }
     }
 
     open func getHistoryMetadataBetween(start: Int64, end: Int64) throws -> [HistoryMetadata] {
         return try queue.sync {
             try self.checkApi()
-            let result = try PlacesError.unwrapWithUniffi { _ in
-                try placesGetHistoryMetadataBetween(handle: Int64(self.handle), start: start, end: end)
-            }
-            return result ?? []
+            return try self.conn.getHistoryMetadataBetween(start: start, end: end)
         }
     }
 
     open func getHighlights(weights: HistoryHighlightWeights, limit: Int32) throws -> [HistoryHighlight] {
         return try queue.sync {
             try self.checkApi()
-            let result = try PlacesError.unwrapWithUniffi { _ in
-                try placesGetHistoryHighlights(handle: Int64(self.handle), weights: weights, limit: limit)
-            }
-            return result ?? []
+            return try self.conn.getHistoryHighlights(weights: weights, limit: limit)
         }
     }
 
     open func queryHistoryMetadata(query: String, limit: Int32) throws -> [HistoryMetadata] {
         return try queue.sync {
             try self.checkApi()
-            let result = try PlacesError.unwrapWithUniffi { _ in
-                try placesQueryHistoryMetadata(handle: Int64(self.handle), query: query, limit: limit)
-            }
-            return result ?? []
+            return try self.conn.queryHistoryMetadata(query: query, limit: limit)
         }
     }
 
@@ -616,9 +499,7 @@ public class PlacesWriteConnection: PlacesReadConnection {
     open func runMaintenance() throws {
         return try queue.sync {
             try self.checkApi()
-            try PlacesError.unwrap { error in
-                places_run_maintenance(self.handle, error)
-            }
+            try self.conn.runMaintenance()
         }
     }
 
@@ -644,13 +525,10 @@ public class PlacesWriteConnection: PlacesReadConnection {
      *                            operation. (If this occurs, please let us know).
      */
     @discardableResult
-    open func deleteBookmarkNode(guid: String) throws -> Bool {
+    open func deleteBookmarkNode(guid: Guid) throws -> Bool {
         return try queue.sync {
             try self.checkApi()
-            let resByte = try PlacesError.unwrap { error in
-                bookmarks_delete(self.handle, guid, error)
-            }
-            return resByte != 0
+            return try self.conn.bookmarksDelete(id: guid)
         }
     }
 
@@ -682,15 +560,15 @@ public class PlacesWriteConnection: PlacesReadConnection {
      *                            operation. (If this occurs, please let us know).
      */
     @discardableResult
-    open func createFolder(parentGUID: String,
+    open func createFolder(parentGUID: Guid,
                            title: String,
-                           position: UInt32? = nil) throws -> String
+                           position: UInt32? = nil) throws -> Guid
     {
         return try queue.sync {
             try self.checkApi()
-            var msg = insertionMsg(type: .folder, parentGUID: parentGUID, position: position)
-            msg.title = title
-            return try doInsert(msg: msg)
+            let p = position == nil ? BookmarkPosition.append : BookmarkPosition.specific(pos: position ?? 0)
+            let f = InsertableBookmarkFolder(parentGuid: parentGUID, position: p, title: title, children: [])
+            return try doInsert(item: InsertableBookmarkItem.folder(f: f))
         }
     }
 
@@ -719,11 +597,12 @@ public class PlacesWriteConnection: PlacesReadConnection {
      *                            operation. (If this occurs, please let us know).
      */
     @discardableResult
-    open func createSeparator(parentGUID: String, position: UInt32? = nil) throws -> String {
+    open func createSeparator(parentGUID: Guid, position: UInt32? = nil) throws -> Guid {
         return try queue.sync {
             try self.checkApi()
-            let msg = insertionMsg(type: .separator, parentGUID: parentGUID, position: position)
-            return try doInsert(msg: msg)
+            let p = position == nil ? BookmarkPosition.append : BookmarkPosition.specific(pos: position ?? 0)
+            let s = InsertableBookmarkSeparator(parentGuid: parentGUID, position: p)
+            return try doInsert(item: InsertableBookmarkItem.separator(s: s))
         }
     }
 
@@ -763,16 +642,13 @@ public class PlacesWriteConnection: PlacesReadConnection {
     open func createBookmark(parentGUID: String,
                              url: String,
                              title: String?,
-                             position: UInt32? = nil) throws -> String
+                             position: UInt32? = nil) throws -> Guid
     {
         return try queue.sync {
             try self.checkApi()
-            var msg = insertionMsg(type: .bookmark, parentGUID: parentGUID, position: position)
-            msg.url = url
-            if let t = title {
-                msg.title = t
-            }
-            return try doInsert(msg: msg)
+            let p = position == nil ? BookmarkPosition.append : BookmarkPosition.specific(pos: position ?? 0)
+            let bm = InsertableBookmark(parentGuid: parentGUID, position: p, url: url, title: title)
+            return try doInsert(item: InsertableBookmarkItem.bookmark(b: bm))
         }
     }
 
@@ -827,64 +703,29 @@ public class PlacesWriteConnection: PlacesReadConnection {
      *     - `PlacesError.panic`: If the rust code panics while completing this
      *                            operation. (If this occurs, please let us know).
      */
-    open func updateBookmarkNode(guid: String,
-                                 parentGUID: String? = nil,
+    open func updateBookmarkNode(guid: Guid,
+                                 parentGUID: Guid? = nil,
                                  position: UInt32? = nil,
                                  title: String? = nil,
-                                 url: String? = nil) throws
+                                 url: Url? = nil) throws
     {
         try queue.sync {
             try self.checkApi()
-            var msg = MsgTypes_BookmarkNode()
-            msg.guid = guid
-            if let parent = parentGUID {
-                msg.parentGuid = parent
-            }
-            if let pos = position {
-                msg.position = pos
-            }
-            if let t = title {
-                msg.title = t
-            }
-            if let u = url {
-                msg.url = u
-            }
-            let data = try! msg.serializedData()
-            let size = Int32(data.count)
-            try data.withUnsafeBytes { bytes in
-                try PlacesError.unwrap { error in
-                    bookmarks_update(self.handle, bytes.bindMemory(to: UInt8.self).baseAddress!, size, error)
-                }
-            }
+            let data = BookmarkUpdateInfo(
+                guid: guid,
+                title: title,
+                url: url,
+                parentGuid: parentGUID,
+                position: position
+            )
+            try self.conn.bookmarksUpdate(data: data)
         }
     }
 
     // Helper for the various creation functions.
     // Note: Caller synchronizes
-    private func doInsert(msg: MsgTypes_BookmarkNode) throws -> String {
-        // This can only fail if we failed to set the `type` of the msg
-        let data = try! msg.serializedData()
-        let size = Int32(data.count)
-        return try data.withUnsafeBytes { bytes -> String in
-            let idStr = try PlacesError.unwrap { error in
-                bookmarks_insert(self.handle, bytes.bindMemory(to: UInt8.self).baseAddress!, size, error)
-            }
-            return String(freeingPlacesString: idStr)
-        }
-    }
-
-    // Remove the boilerplate common for all insertion messages
-    private func insertionMsg(type: BookmarkNodeType,
-                              parentGUID: String,
-                              position: UInt32?) -> MsgTypes_BookmarkNode
-    {
-        var msg = MsgTypes_BookmarkNode()
-        msg.nodeType = type.rawValue
-        msg.parentGuid = parentGUID
-        if let pos = position {
-            msg.position = pos
-        }
-        return msg
+    private func doInsert(item: InsertableBookmarkItem) throws -> Guid {
+        return try conn.bookmarksInsert(bookmark: item)
     }
 
     open func noteHistoryMetadataObservation(
@@ -892,7 +733,7 @@ public class PlacesWriteConnection: PlacesReadConnection {
     ) throws {
         try queue.sync {
             try self.checkApi()
-            try placesNoteHistoryMetadataObservation(handle: Int64(self.handle), data: observation)
+            try self.conn.noteHistoryMetadataObservation(data: observation)
         }
     }
 
@@ -931,41 +772,18 @@ public class PlacesWriteConnection: PlacesReadConnection {
     open func deleteHistoryMetadataOlderThan(olderThan: Int64) throws {
         try queue.sync {
             try self.checkApi()
-            try PlacesError.unwrapWithUniffi { _ in
-                try placesMetadataDeleteOlderThan(handle: Int64(self.handle), olderThan: olderThan)
-            }
+            try self.conn.metadataDeleteOlderThan(olderThan: olderThan)
         }
     }
 
     open func deleteHistoryMetadata(key: HistoryMetadataKey) throws {
         try queue.sync {
             try self.checkApi()
-            try PlacesError.unwrapWithUniffi { _ in
-                try placesMetadataDelete(
-                    handle: Int64(self.handle),
-                    url: key.url,
-                    referrerUrl: key.referrerUrl,
-                    searchTerm: key.searchTerm
-                )
-            }
-        }
-    }
-}
-
-// Wrapper around rust interrupt handle.
-private class InterruptHandle {
-    let ptr: OpaquePointer
-    init(ptr: OpaquePointer) {
-        self.ptr = ptr
-    }
-
-    deinit {
-        places_interrupt_handle_destroy(self.ptr)
-    }
-
-    func interrupt() {
-        PlacesError.unwrapOrLog { error in
-            places_interrupt(self.ptr, error)
+            try self.conn.metadataDelete(
+                url: key.url,
+                referrerUrl: key.referrerUrl,
+                searchTerm: key.searchTerm
+            )
         }
     }
 }

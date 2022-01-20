@@ -3,6 +3,7 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
 use places::import::fennec::bookmarks::BookmarksMigrationResult;
+use places::storage::bookmarks::fetch::Item;
 use places::{api::places_api::PlacesApi, ErrorKind, Result};
 use rusqlite::types::{ToSql, ToSqlOutput};
 use rusqlite::{Connection, NO_PARAMS};
@@ -378,7 +379,7 @@ fn test_import() -> Result<()> {
 fn test_timestamp_sanitization() -> Result<()> {
     use places::api::places_api::ConnectionType;
     use places::import::common::NOW;
-    use places::storage::bookmarks::public_node::fetch_bookmark;
+    use places::storage::bookmarks::fetch::fetch_bookmark;
     use std::time::{Duration, SystemTime};
 
     fn get_actual_timestamps(
@@ -407,8 +408,8 @@ fn test_timestamp_sanitization() -> Result<()> {
         let reader = places_api.open_connection(ConnectionType::ReadOnly)?;
         let b = fetch_bookmark(&reader, &Guid::from("bookmarkAAAA"), true)?.unwrap();
         // regardless of what our caller asserts, modified must never be earlier than created.
-        assert!(b.last_modified >= b.date_added);
-        Ok((b.date_added, b.last_modified))
+        assert!(b.last_modified() >= b.date_added());
+        Ok((*b.date_added(), *b.last_modified()))
     }
 
     let now = *NOW;
@@ -466,7 +467,7 @@ fn test_timestamp_sanitization() -> Result<()> {
 fn test_timestamp_sanitization_tags() -> Result<()> {
     use places::api::places_api::ConnectionType;
     use places::import::common::NOW;
-    use places::storage::bookmarks::public_node::fetch_bookmark;
+    use places::storage::bookmarks::fetch::fetch_bookmark;
     use std::time::{Duration, SystemTime};
 
     fn get_actual_timestamp(created: Timestamp, modified: Timestamp) -> Result<Timestamp> {
@@ -493,8 +494,8 @@ fn test_timestamp_sanitization_tags() -> Result<()> {
         let reader = places_api.open_connection(ConnectionType::ReadOnly)?;
         let b = fetch_bookmark(&reader, &Guid::from("bookmarkAAAA"), true)?.unwrap();
         // for items with tags, created and modified are always identical.
-        assert_eq!(b.date_added, b.last_modified);
-        Ok(b.date_added)
+        assert_eq!(b.date_added(), b.last_modified());
+        Ok(*b.date_added())
     }
 
     let now = *NOW;
@@ -534,7 +535,7 @@ fn test_timestamp_sanitization_tags() -> Result<()> {
 #[test]
 fn test_positions() -> Result<()> {
     use places::api::places_api::ConnectionType;
-    use places::storage::bookmarks::public_node::fetch_bookmark;
+    use places::storage::bookmarks::fetch::fetch_bookmark;
 
     let tmpdir = tempdir().unwrap();
     let fennec_path = tmpdir.path().join("browser.db");
@@ -577,28 +578,32 @@ fn test_positions() -> Result<()> {
     let places_api = PlacesApi::new(tmpdir.path().join("places.sqlite"))?;
     places::import::import_fennec_bookmarks(&places_api, fennec_path)?;
 
-    let unfiled = fetch_bookmark(
+    let unfiled = match fetch_bookmark(
         &places_api.open_connection(ConnectionType::ReadOnly)?,
         &Guid::from("unfiled_____"),
         true,
     )?
-    .expect("it exists");
+    .expect("it exists")
+    {
+        Item::Folder { f } => f,
+        _ => panic!("unfiled is a folder!"),
+    };
     let children = unfiled.child_nodes.expect("have children");
     assert_eq!(children.len(), 3);
     // They should be ordered by the position and the actual positions updated.
-    assert_eq!(children[0].guid, bm2);
-    assert_eq!(children[0].position, 0);
-    assert_eq!(children[1].guid, bm3);
-    assert_eq!(children[1].position, 1);
-    assert_eq!(children[2].guid, bm1);
-    assert_eq!(children[2].position, 2);
+    assert_eq!(*children[0].guid(), bm2);
+    assert_eq!(*children[0].position(), 0);
+    assert_eq!(*children[1].guid(), bm3);
+    assert_eq!(*children[1].position(), 1);
+    assert_eq!(*children[2].guid(), bm1);
+    assert_eq!(*children[2].position(), 2);
     Ok(())
 }
 
 #[test]
 fn test_null_parent() -> Result<()> {
     use places::api::places_api::ConnectionType;
-    use places::storage::bookmarks::public_node::fetch_bookmark;
+    use places::storage::bookmarks::fetch::fetch_bookmark;
 
     let tmpdir = tempdir().unwrap();
     let fennec_path = tmpdir.path().join("browser.db");
@@ -629,22 +634,26 @@ fn test_null_parent() -> Result<()> {
     places::import::import_fennec_bookmarks(&places_api, fennec_path)?;
 
     // should have ended up in unfiled.
-    let unfiled = fetch_bookmark(
+    let unfiled = match fetch_bookmark(
         &places_api.open_connection(ConnectionType::ReadOnly)?,
         &Guid::from("unfiled_____"),
         true,
     )?
-    .expect("it exists");
+    .expect("it exists")
+    {
+        Item::Folder { f } => f,
+        _ => panic!("unfiled is a folder!"),
+    };
     let children = unfiled.child_nodes.expect("have children");
     assert_eq!(children.len(), 1);
-    assert_eq!(children[0].guid, "folderAAAAAA");
+    assert_eq!(*children[0].guid(), "folderAAAAAA");
     Ok(())
 }
 
 #[test]
 fn test_invalid_utf8() -> Result<()> {
     use places::api::places_api::ConnectionType;
-    use places::storage::bookmarks::public_node::fetch_bookmark;
+    use places::storage::bookmarks::fetch::fetch_bookmark;
     use url::Url;
 
     let tmpdir = tempdir().unwrap();
@@ -691,16 +700,24 @@ fn test_invalid_utf8() -> Result<()> {
     let conn = places_api.open_connection(ConnectionType::ReadOnly)?;
 
     // should have ended up in unfiled.
-    let unfiled = fetch_bookmark(&conn, &Guid::from("unfiled_____"), true)?.expect("it exists");
+    let unfiled =
+        match fetch_bookmark(&conn, &Guid::from("unfiled_____"), true)?.expect("it exists") {
+            Item::Folder { f } => f,
+            _ => panic!("unfiled is a folder!"),
+        };
 
     let url = Url::parse(&format!("http://example.com/{}", fixed))?;
     assert!(bookmark_exists(&places_api, url.as_str())?);
 
     let children = unfiled.child_nodes.expect("have children");
     assert_eq!(children.len(), 1);
-    assert_eq!(children[0].title, Some(fixed));
+    let child = match &children[0] {
+        Item::Bookmark { b } => b,
+        _ => panic!("expecting a bookmark"),
+    };
+    assert_eq!(child.title, Some(fixed));
     // We can't know exactly what the fixed guid is, but it must be valid.
-    assert!(children[0].guid.is_valid_for_places());
+    assert!(child.guid.is_valid_for_places());
     // Can't check keyword or tags because we drop them except for sync users
     // (and for them, we've dropped them until their first sync)
     Ok(())

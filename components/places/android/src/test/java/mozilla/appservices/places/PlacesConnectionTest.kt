@@ -7,7 +7,12 @@ import androidx.test.core.app.ApplicationProvider
 import kotlinx.coroutines.runBlocking
 import mozilla.appservices.Megazord
 import mozilla.appservices.places.uniffi.DocumentType
+import mozilla.appservices.places.uniffi.VisitObservation
+import mozilla.appservices.places.uniffi.VisitTransition
+import mozilla.appservices.places.uniffi.FrecencyThresholdOption
 import mozilla.appservices.syncmanager.SyncManager
+import mozilla.appservices.places.uniffi.PlacesException
+import mozilla.appservices.places.uniffi.BookmarkItem
 import mozilla.components.service.glean.testing.GleanTestRule
 import org.junit.After
 import org.junit.Assert.assertEquals
@@ -75,7 +80,7 @@ class PlacesConnectionTest {
         )
 
         for (url in toAdd) {
-            db.noteObservation(VisitObservation(url = url, visitType = VisitType.LINK))
+            db.noteObservation(VisitObservation(url = url, visitType = VisitTransition.LINK))
         }
 
         val toSearch = listOf(
@@ -124,9 +129,9 @@ class PlacesConnectionTest {
     @Test
     fun testNoteObservationBadUrl() {
         try {
-            db.noteObservation(VisitObservation(url = "http://www.[].com", visitType = VisitType.LINK))
+            db.noteObservation(VisitObservation(url = "http://www.[].com", visitType = VisitTransition.LINK))
         } catch (e: PlacesException) {
-            assert(e is UrlParseFailed)
+            assert(e is PlacesException.UrlParseFailed)
         }
     }
     // Basically equivalent to test_get_visited in rust, but exercises the FFI,
@@ -146,7 +151,7 @@ class PlacesConnectionTest {
         )
 
         for (url in toAdd) {
-            db.noteObservation(VisitObservation(url = url, visitType = VisitType.LINK))
+            db.noteObservation(VisitObservation(url = url, visitType = VisitTransition.LINK))
         }
         // Should use the origin search
         assertEquals("https://www.example.com/", db.matchUrl("example.com"))
@@ -184,25 +189,25 @@ class PlacesConnectionTest {
     fun testObservingPreviewImage() {
         db.noteObservation(VisitObservation(
             url = "https://www.example.com/0",
-            visitType = VisitType.LINK)
+            visitType = VisitTransition.LINK)
         )
 
         db.noteObservation(VisitObservation(
             url = "https://www.example.com/1",
-            visitType = VisitType.LINK)
+            visitType = VisitTransition.LINK)
         )
 
         // Can change preview image.
         db.noteObservation(VisitObservation(
             url = "https://www.example.com/1",
-            visitType = VisitType.LINK,
+            visitType = VisitTransition.LINK,
             previewImageUrl = "https://www.example.com/1/previewImage.png")
         )
 
         // Can make an initial observation with the preview image.
         db.noteObservation(VisitObservation(
             url = "https://www.example.com/2",
-            visitType = VisitType.LINK,
+            visitType = VisitTransition.LINK,
             previewImageUrl = "https://www.example.com/2/previewImage.png")
         )
 
@@ -216,12 +221,12 @@ class PlacesConnectionTest {
 
     @Test
     fun testGetTopFrecentSiteInfos() {
-        db.noteObservation(VisitObservation(url = "https://www.example.com/1", visitType = VisitType.DOWNLOAD))
-        db.noteObservation(VisitObservation(url = "https://www.example.com/1", visitType = VisitType.EMBED))
-        db.noteObservation(VisitObservation(url = "https://www.example.com/1", visitType = VisitType.REDIRECT_PERMANENT))
-        db.noteObservation(VisitObservation(url = "https://www.example.com/1", visitType = VisitType.REDIRECT_TEMPORARY))
-        db.noteObservation(VisitObservation(url = "https://www.example.com/1", visitType = VisitType.FRAMED_LINK))
-        db.noteObservation(VisitObservation(url = "https://www.example.com/1", visitType = VisitType.RELOAD))
+        db.noteObservation(VisitObservation(url = "https://www.example.com/1", visitType = VisitTransition.DOWNLOAD))
+        db.noteObservation(VisitObservation(url = "https://www.example.com/1", visitType = VisitTransition.EMBED))
+        db.noteObservation(VisitObservation(url = "https://www.example.com/1", visitType = VisitTransition.REDIRECT_PERMANENT))
+        db.noteObservation(VisitObservation(url = "https://www.example.com/1", visitType = VisitTransition.REDIRECT_TEMPORARY))
+        db.noteObservation(VisitObservation(url = "https://www.example.com/1", visitType = VisitTransition.FRAMED_LINK))
+        db.noteObservation(VisitObservation(url = "https://www.example.com/1", visitType = VisitTransition.RELOAD))
 
         val toAdd = listOf(
             "https://www.example.com/123",
@@ -235,7 +240,7 @@ class PlacesConnectionTest {
         )
 
         for (url in toAdd) {
-            db.noteObservation(VisitObservation(url = url, visitType = VisitType.LINK))
+            db.noteObservation(VisitObservation(url = url, visitType = VisitTransition.LINK))
         }
 
         var infos = db.getTopFrecentSiteInfos(numItems = 0, frecencyThreshold = FrecencyThresholdOption.NONE)
@@ -279,11 +284,11 @@ class PlacesConnectionTest {
     // as well as the handling of invalid urls.
     @Test
     fun testGetVisitInfos() {
-        db.noteObservation(VisitObservation(url = "https://www.example.com/1", visitType = VisitType.LINK, at = 100000))
-        db.noteObservation(VisitObservation(url = "https://www.example.com/2a", visitType = VisitType.REDIRECT_TEMPORARY, at = 130000))
-        db.noteObservation(VisitObservation(url = "https://www.example.com/2b", visitType = VisitType.LINK, at = 150000))
-        db.noteObservation(VisitObservation(url = "https://www.example.com/3", visitType = VisitType.LINK, at = 200000))
-        db.noteObservation(VisitObservation(url = "https://www.example.com/4", visitType = VisitType.LINK, at = 250000))
+        db.noteObservation(VisitObservation(url = "https://www.example.com/1", visitType = VisitTransition.LINK, at = 100000))
+        db.noteObservation(VisitObservation(url = "https://www.example.com/2a", visitType = VisitTransition.REDIRECT_TEMPORARY, at = 130000))
+        db.noteObservation(VisitObservation(url = "https://www.example.com/2b", visitType = VisitTransition.LINK, at = 150000))
+        db.noteObservation(VisitObservation(url = "https://www.example.com/3", visitType = VisitTransition.LINK, at = 200000))
+        db.noteObservation(VisitObservation(url = "https://www.example.com/4", visitType = VisitTransition.LINK, at = 250000))
         var infos = db.getVisitInfos(125000, 225000, excludeTypes = listOf(VisitType.REDIRECT_TEMPORARY))
         assertEquals(2, infos.size)
         assertEquals("https://www.example.com/2b", infos[0].url)
@@ -297,15 +302,15 @@ class PlacesConnectionTest {
 
     @Test
     fun testGetVisitPage() {
-        db.noteObservation(VisitObservation(url = "https://www.example.com/1", visitType = VisitType.LINK, at = 100000))
-        db.noteObservation(VisitObservation(url = "https://www.example.com/2", visitType = VisitType.LINK, at = 110000))
-        db.noteObservation(VisitObservation(url = "https://www.example.com/3a", visitType = VisitType.REDIRECT_TEMPORARY, at = 120000))
-        db.noteObservation(VisitObservation(url = "https://www.example.com/3b", visitType = VisitType.REDIRECT_TEMPORARY, at = 130000))
-        db.noteObservation(VisitObservation(url = "https://www.example.com/4", visitType = VisitType.LINK, at = 140000))
-        db.noteObservation(VisitObservation(url = "https://www.example.com/5", visitType = VisitType.LINK, at = 150000))
-        db.noteObservation(VisitObservation(url = "https://www.example.com/6", visitType = VisitType.LINK, at = 160000))
-        db.noteObservation(VisitObservation(url = "https://www.example.com/7", visitType = VisitType.LINK, at = 170000))
-        db.noteObservation(VisitObservation(url = "https://www.example.com/8", visitType = VisitType.LINK, at = 180000))
+        db.noteObservation(VisitObservation(url = "https://www.example.com/1", visitType = VisitTransition.LINK, at = 100000))
+        db.noteObservation(VisitObservation(url = "https://www.example.com/2", visitType = VisitTransition.LINK, at = 110000))
+        db.noteObservation(VisitObservation(url = "https://www.example.com/3a", visitType = VisitTransition.REDIRECT_TEMPORARY, at = 120000))
+        db.noteObservation(VisitObservation(url = "https://www.example.com/3b", visitType = VisitTransition.REDIRECT_TEMPORARY, at = 130000))
+        db.noteObservation(VisitObservation(url = "https://www.example.com/4", visitType = VisitTransition.LINK, at = 140000))
+        db.noteObservation(VisitObservation(url = "https://www.example.com/5", visitType = VisitTransition.LINK, at = 150000))
+        db.noteObservation(VisitObservation(url = "https://www.example.com/6", visitType = VisitTransition.LINK, at = 160000))
+        db.noteObservation(VisitObservation(url = "https://www.example.com/7", visitType = VisitTransition.LINK, at = 170000))
+        db.noteObservation(VisitObservation(url = "https://www.example.com/8", visitType = VisitTransition.LINK, at = 180000))
 
         assertEquals(9, db.getVisitCount())
         assertEquals(7, db.getVisitCount(excludeTypes = listOf(VisitType.REDIRECT_TEMPORARY)))
@@ -347,7 +352,7 @@ class PlacesConnectionTest {
 
         val sepGUID = db.createSeparator(
             parentGUID = BookmarkRoot.Unfiled.id,
-            position = 0
+            position = 0u
         )
 
         val folderGUID = db.createFolder(
@@ -355,25 +360,21 @@ class PlacesConnectionTest {
             title = "example folder"
         )
 
-        val item = db.getBookmark(itemGUID)!! as BookmarkItem
-        val sep = db.getBookmark(sepGUID)!! as BookmarkSeparator
-        val folder = db.getBookmark(folderGUID)!! as BookmarkFolder
+        val item = db.getBookmark(itemGUID)!! as BookmarkItem.Bookmark
+        val sep = db.getBookmark(sepGUID)!! as BookmarkItem.Separator
+        val folder = db.getBookmark(folderGUID)!! as BookmarkItem.Folder
 
-        assertEquals(item.type, BookmarkType.Bookmark)
-        assertEquals(sep.type, BookmarkType.Separator)
-        assertEquals(folder.type, BookmarkType.Folder)
+        assertEquals(item.b.title, "example")
+        assertEquals(item.b.url, "https://www.example.com/")
+        assertEquals(item.b.position, 1u)
+        assertEquals(item.b.parentGuid, BookmarkRoot.Unfiled.id)
 
-        assertEquals(item.title, "example")
-        assertEquals(item.url, "https://www.example.com/")
-        assertEquals(item.position, 1)
-        assertEquals(item.parentGUID, BookmarkRoot.Unfiled.id)
+        assertEquals(sep.s.position, 0u)
+        assertEquals(sep.s.parentGuid, BookmarkRoot.Unfiled.id)
 
-        assertEquals(sep.position, 0)
-        assertEquals(sep.parentGUID, BookmarkRoot.Unfiled.id)
-
-        assertEquals(folder.title, "example folder")
-        assertEquals(folder.position, 2)
-        assertEquals(folder.parentGUID, BookmarkRoot.Unfiled.id)
+        assertEquals(folder.f.title, "example folder")
+        assertEquals(folder.f.position, 2u)
+        assertEquals(folder.f.parentGuid, BookmarkRoot.Unfiled.id)
     }
 
     @Test
@@ -381,17 +382,17 @@ class PlacesConnectionTest {
         assert(!PlacesManagerMetrics.writeQueryCount.testHasValue())
         assert(!PlacesManagerMetrics.writeQueryErrorCount["url_parse_failed"].testHasValue())
 
-        db.noteObservation(VisitObservation(url = "https://www.example.com/2a", visitType = VisitType.REDIRECT_TEMPORARY, at = 130000))
-        db.noteObservation(VisitObservation(url = "https://www.example.com/2b", visitType = VisitType.LINK, at = 150000))
-        db.noteObservation(VisitObservation(url = "https://www.example.com/3", visitType = VisitType.LINK, at = 200000))
+        db.noteObservation(VisitObservation(url = "https://www.example.com/2a", visitType = VisitTransition.REDIRECT_TEMPORARY, at = 130000))
+        db.noteObservation(VisitObservation(url = "https://www.example.com/2b", visitType = VisitTransition.LINK, at = 150000))
+        db.noteObservation(VisitObservation(url = "https://www.example.com/3", visitType = VisitTransition.LINK, at = 200000))
 
         assertEquals(3, PlacesManagerMetrics.writeQueryCount.testGetValue())
         assert(!PlacesManagerMetrics.writeQueryErrorCount["__other__"].testHasValue())
 
         try {
-            db.noteObservation(VisitObservation(url = "4", visitType = VisitType.REDIRECT_TEMPORARY, at = 160000))
+            db.noteObservation(VisitObservation(url = "4", visitType = VisitTransition.REDIRECT_TEMPORARY, at = 160000))
             fail("Should have thrown")
-        } catch (e: UrlParseFailed) {
+        } catch (e: PlacesException.UrlParseFailed) {
             // nothing to do here
         }
 
@@ -437,7 +438,7 @@ class PlacesConnectionTest {
                 title = "example"
             )
             fail("Should have thrown")
-        } catch (e: UrlParseFailed) {
+        } catch (e: PlacesException.UrlParseFailed) {
             // nothing to do here
         }
 
@@ -490,7 +491,7 @@ class PlacesConnectionTest {
                 url = "https://www.ifixit.com/News/35377/which-wireless-earbuds-are-the-least-evil",
                 title = "Are All Wireless Earbuds As Evil As AirPods?",
                 previewImageUrl = "https://valkyrie.cdn.ifixit.com/media/2020/02/03121341/bose_soundsport_13.jpg",
-                visitType = VisitType.LINK
+                visitType = VisitTransition.LINK
             )
         )
 
@@ -591,7 +592,7 @@ class PlacesConnectionTest {
             db.noteHistoryMetadataObservationViewTime(metaKeyBad, 200)
             assert(false) // should fail
         } catch (e: PlacesException) {
-            assert(e is UrlParseFailed)
+            assert(e is PlacesException.UrlParseFailed)
         }
     }
 

@@ -5,14 +5,11 @@
 use super::{fetch_page_info, new_page_info, PageInfo, RowId};
 use crate::db::PlacesDb;
 use crate::error::Result;
+use crate::ffi::{HistoryVisitInfo, HistoryVisitInfosWithBound, TopFrecentSiteInfo};
 use crate::frecency;
 use crate::hash;
 use crate::history_sync::engine::{
     COLLECTION_SYNCID_META_KEY, GLOBAL_SYNCID_META_KEY, LAST_SYNC_META_KEY,
-};
-use crate::msg_types::{
-    HistoryVisitInfo, HistoryVisitInfos, HistoryVisitInfosWithBound, TopFrecentSiteInfo,
-    TopFrecentSiteInfos,
 };
 use crate::observation::VisitObservation;
 use crate::storage::{delete_meta, delete_pending_temp_tables, get_meta, put_meta};
@@ -48,27 +45,25 @@ pub fn apply_observation_direct(
     db: &PlacesDb,
     visit_ob: VisitObservation,
 ) -> Result<Option<RowId>> {
-    let url = Url::parse(&visit_ob.url)?;
     // Don't insert urls larger than our length max.
-    if url.as_str().len() > super::URL_LENGTH_MAX {
+    if visit_ob.url.as_str().len() > super::URL_LENGTH_MAX {
         return Ok(None);
     }
     // Make sure we have a valid preview URL - it should parse, and not exceed max size.
     // In case the URL is too long, ignore it and proceed with the rest of the observation.
     // In case the URL is entirely invalid, let the caller know by failing.
     let preview_image_url = if let Some(ref piu) = visit_ob.preview_image_url {
-        let url = Url::parse(piu)?;
-        if url.as_str().len() > super::URL_LENGTH_MAX {
+        if piu.as_str().len() > super::URL_LENGTH_MAX {
             None
         } else {
-            Some(url)
+            Some(piu.clone())
         }
     } else {
         None
     };
-    let mut page_info = match fetch_page_info(db, &url)? {
+    let mut page_info = match fetch_page_info(db, &visit_ob.url)? {
         Some(info) => info.page,
-        None => new_page_info(db, &url, None)?,
+        None => new_page_info(db, &visit_ob.url, None)?,
     };
     let mut update_change_counter = false;
     let mut update_frec = false;
@@ -1223,7 +1218,7 @@ pub fn get_top_frecent_site_infos(
     db: &PlacesDb,
     num_items: i32,
     frecency_threshold: i64,
-) -> Result<TopFrecentSiteInfos> {
+) -> Result<Vec<TopFrecentSiteInfo>> {
     // Get the complement of the visit types that should be excluded.
     let allowed_types = VisitTransitionSet::for_specific(&[
         VisitTransition::Download,
@@ -1257,7 +1252,7 @@ pub fn get_top_frecent_site_infos(
         },
         TopFrecentSiteInfo::from_row,
     )?;
-    Ok(TopFrecentSiteInfos { infos })
+    Ok(infos)
 }
 
 pub fn get_visit_infos(
@@ -1265,7 +1260,7 @@ pub fn get_visit_infos(
     start: Timestamp,
     end: Timestamp,
     exclude_types: VisitTransitionSet,
-) -> Result<HistoryVisitInfos> {
+) -> Result<Vec<HistoryVisitInfo>> {
     let allowed_types = exclude_types.complement();
     let infos = db.query_rows_and_then_named_cached(
         "SELECT h.url, h.title, v.visit_date, v.visit_type, h.hidden, h.preview_image_url
@@ -1283,7 +1278,7 @@ pub fn get_visit_infos(
         },
         HistoryVisitInfo::from_row,
     )?;
-    Ok(HistoryVisitInfos { infos })
+    Ok(infos)
 }
 
 pub fn get_visit_count(db: &PlacesDb, exclude_types: VisitTransitionSet) -> Result<i64> {
@@ -1310,7 +1305,7 @@ pub fn get_visit_page(
     offset: i64,
     count: i64,
     exclude_types: VisitTransitionSet,
-) -> Result<HistoryVisitInfos> {
+) -> Result<Vec<HistoryVisitInfo>> {
     let allowed_types = exclude_types.complement();
     let infos = db.query_rows_and_then_named_cached(
         "SELECT h.url, h.title, v.visit_date, v.visit_type, h.hidden, h.preview_image_url
@@ -1329,7 +1324,7 @@ pub fn get_visit_page(
         },
         HistoryVisitInfo::from_row,
     )?;
-    Ok(HistoryVisitInfos { infos })
+    Ok(infos)
 }
 
 pub fn get_visit_page_with_bound(
@@ -1361,7 +1356,7 @@ pub fn get_visit_page_with_bound(
     )?;
 
     if let Some(l) = infos.last() {
-        if l.timestamp == bound {
+        if l.timestamp.as_millis_i64() == bound {
             // all items' timestamp are equal to the previous bound
             let offset = offset + infos.len() as i64;
             Ok(HistoryVisitInfosWithBound {
@@ -1378,7 +1373,7 @@ pub fn get_visit_page_with_bound(
                 .count() as i64;
             Ok(HistoryVisitInfosWithBound {
                 infos,
-                bound,
+                bound: bound.as_millis_i64(),
                 offset,
             })
         }
@@ -1854,8 +1849,9 @@ mod tests {
         // An observation with just a preview_image_url should not update it.
         apply_observation(
             &conn,
-            VisitObservation::new(pi.url.clone())
-                .with_preview_image_url(Some("https://www.example.com/preview.png".to_string())),
+            VisitObservation::new(pi.url.clone()).with_preview_image_url(Some(
+                Url::parse("https://www.example.com/preview.png").unwrap(),
+            )),
         )?;
         pi = fetch_page_info(&conn, &pi.url)?
             .expect("page should exist")
@@ -2037,7 +2033,7 @@ mod tests {
             if let Some(title) = page.bookmark_title {
                 bookmarks::insert_bookmark(
                     &db,
-                    &InsertableBookmark {
+                    InsertableBookmark {
                         parent_guid: BookmarkRootGuid::Unfiled.into(),
                         position: BookmarkPosition::Append,
                         date_added: None,
@@ -2473,15 +2469,17 @@ mod tests {
         for (guid, url) in &[&b0, &b1, &b2] {
             bookmarks::insert_bookmark(
                 &conn,
-                &InsertableItem::Bookmark(InsertableBookmark {
-                    parent_guid: BookmarkRootGuid::Unfiled.into(),
-                    position: BookmarkPosition::Append,
-                    date_added: None,
-                    last_modified: None,
-                    guid: Some(guid.clone()),
-                    url: url.clone(),
-                    title: None,
-                }),
+                InsertableItem::Bookmark {
+                    b: InsertableBookmark {
+                        parent_guid: BookmarkRootGuid::Unfiled.into(),
+                        position: BookmarkPosition::Append,
+                        date_added: None,
+                        last_modified: None,
+                        guid: Some(guid.clone()),
+                        url: url.clone(),
+                        title: None,
+                    },
+                },
             )
             .unwrap();
         }
@@ -2588,7 +2586,7 @@ mod tests {
 
         bookmarks::insert_bookmark(
             &conn,
-            &InsertableBookmark {
+            InsertableBookmark {
                 parent_guid: BookmarkRootGuid::Unfiled.into(),
                 position: BookmarkPosition::Append,
                 date_added: None,
@@ -2767,8 +2765,9 @@ mod tests {
         // Can observe preview url without an associated visit.
         assert!(apply_observation(
             &conn,
-            VisitObservation::new(url1.clone())
-                .with_preview_image_url(Some("https://www.example.com/image.png".to_string()))
+            VisitObservation::new(url1.clone()).with_preview_image_url(Some(
+                Url::parse("https://www.example.com/image.png").unwrap()
+            ))
         )
         .unwrap()
         .is_none());
@@ -2812,7 +2811,9 @@ mod tests {
         let another_visit_id = apply_observation(
             &conn,
             VisitObservation::new(Url::parse("https://www.example.com/another/").unwrap())
-                .with_preview_image_url(Some("https://www.example.com/funky/image.png".to_string()))
+                .with_preview_image_url(Some(
+                    Url::parse("https://www.example.com/funky/image.png").unwrap(),
+                ))
                 .with_visit_type(VisitTransition::Link),
         )
         .unwrap();
@@ -2829,34 +2830,6 @@ mod tests {
         assert_eq!(
             Some("https://www.example.com/funky/image.png".to_string()),
             db_preview_url
-        );
-    }
-
-    #[test]
-    fn test_bad_preview_url() {
-        let conn = PlacesDb::open_in_memory(ConnectionType::ReadWrite).unwrap();
-
-        // Observing a bad preview url as part of a visit observation fails.
-        assert!(
-            apply_observation(
-                &conn,
-                VisitObservation::new(Url::parse("https://www.example.com/").unwrap())
-                    .with_visit_type(VisitTransition::Link)
-                    .with_preview_image_url(Some("not at all a url".to_string())),
-            )
-            .is_err(),
-            "expected bad preview url to fail an observation"
-        );
-
-        // Observing a bad preview url by itself also fails.
-        assert!(
-            apply_observation(
-                &conn,
-                VisitObservation::new(Url::parse("https://www.example.com/").unwrap())
-                    .with_preview_image_url(Some("not at all a url".to_string())),
-            )
-            .is_err(),
-            "expected bad preview url to fail an observation"
         );
     }
 
@@ -2881,7 +2854,7 @@ mod tests {
             &conn,
             VisitObservation::new(Url::parse("https://www.example.com/").unwrap())
                 .with_visit_type(VisitTransition::Link)
-                .with_preview_image_url(url),
+                .with_preview_image_url(Url::parse(&url).unwrap()),
         )
         .unwrap();
         assert!(
@@ -3038,7 +3011,10 @@ mod tests {
         let infos_with_bound =
             get_visit_page_with_bound(&conn, now_i64 - 200_000, 7, 1, VisitTransitionSet::empty())
                 .unwrap();
-        assert_eq!(infos_with_bound.infos[0].url, "https://www.example.com/9",);
+        assert_eq!(
+            infos_with_bound.infos[0].url,
+            Url::parse("https://www.example.com/9").unwrap(),
+        );
 
         // test when offset fall on one item after visited_date changes
         let infos_with_bound =

@@ -20,4 +20,3 @@ autofill = { path = "../../components/autofill" }
 push = { path = "../../components/push" }
 tabs = { path = "../../components/tabs" }
 places = {path = "../../components/places" }
-places-ffi = { path = "../../components/places/ffi" }

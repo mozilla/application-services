@@ -2,8 +2,5 @@
 # `dir` refers to the directory where the protobuf file can be found, relative to this file location.
 # (Optional) `out_dir` refers to where the compiled rust file should be saved. If not present `dir` is used.
 
-["places_msg_types.proto"]
-dir = "../components/places/src/"
-
 ["fetch_msg_types.proto"]
 dir = "../components/viaduct/src/"

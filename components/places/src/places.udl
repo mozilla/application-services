@@ -2,30 +2,212 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
+[Wrapped]
+typedef string Url;
+[Wrapped]
+typedef i64 Timestamp;
+[Wrapped]
+typedef i32 VisitTransitionSet;
+[Wrapped]
+typedef string Guid;
+
 namespace places {
-    [Throws=ErrorWrapper]
-    HistoryMetadata? places_get_latest_history_metadata_for_url(i64 handle, string url);
+    [Throws=PlacesError]
+    PlacesApi places_api_new(string db_path);
+};
 
-    [Throws=ErrorWrapper]
-    sequence<HistoryMetadata> places_get_history_metadata_between(i64 handle, i64 start, i64 end);
+enum ConnectionType {
+    "ReadOnly",
+    "ReadWrite",
+    "Sync", // ideally we wouldn't need to expose this and should guard against it being used (it's internal only)
+};
 
-    [Throws=ErrorWrapper]
-    sequence<HistoryMetadata> places_get_history_metadata_since(i64 handle, i64 start);
+interface SqlInterruptHandle {
+     void interrupt();
+};
 
-    [Throws=ErrorWrapper]
-    sequence<HistoryMetadata> places_query_history_metadata(i64 handle, string query, i32 limit);
+interface PlacesApi {
+    [Throws=PlacesError]
+    PlacesConnection new_connection(ConnectionType conn_type);
 
-    [Throws=ErrorWrapper]
-    sequence<HistoryHighlight> places_get_history_highlights(i64 handle, HistoryHighlightWeights weights, i32 limit);
+    [Throws=PlacesError]
+    SqlInterruptHandle new_sync_conn_interrupt_handle();
 
-    [Throws=ErrorWrapper]
-    void places_note_history_metadata_observation(i64 handle, HistoryMetadataObservation data);
+    [Self=ByArc]
+    void register_with_sync_manager();
 
-    [Throws=ErrorWrapper]
-    void places_metadata_delete(i64 handle, string url, string? referrer_url, string? search_term);
+    [Throws=PlacesError]
+    void reset_history();
 
-    [Throws=ErrorWrapper]
-    void places_metadata_delete_older_than(i64 handle, i64 older_than);
+    [Throws=PlacesError]
+    string history_sync(string key_id, string access_token, string sync_key, Url tokenserver_url);
+
+    [Throws=PlacesError]
+    string bookmarks_sync(string key_id, string access_token, string sync_key, Url tokenserver_url);
+
+    [Throws=PlacesError]
+    sequence<BookmarkItem> places_pinned_sites_import_from_fennec(string db_path);
+
+    [Throws=PlacesError]
+    string places_history_import_from_fennec(string db_path);
+
+    [Throws=PlacesError]
+    string places_bookmarks_import_from_fennec(string db_path);
+
+    [Throws=PlacesError]
+    void places_bookmarks_import_from_ios(string db_path);
+
+    [Throws=PlacesError]
+    void bookmarks_reset();
+};
+
+interface PlacesConnection {
+
+    [Throws=PlacesError]
+    SqlInterruptHandle new_interrupt_handle();
+
+    [Throws=PlacesError]
+    HistoryMetadata? get_latest_history_metadata_for_url(Url url);
+
+    [Throws=PlacesError]
+    sequence<HistoryMetadata> get_history_metadata_between(Timestamp start, Timestamp end);
+
+    [Throws=PlacesError]
+    sequence<HistoryMetadata> get_history_metadata_since(Timestamp since);
+
+    [Throws=PlacesError]
+    sequence<SearchResult> query_autocomplete(string search, i32 limit);
+
+    [Throws=PlacesError]
+    void accept_result(string search_string, Url url);
+
+    [Throws=PlacesError]
+    Url? match_url(string query);
+
+    [Throws=PlacesError]
+    sequence<HistoryMetadata> query_history_metadata(string query, i32 limit);
+
+    [Throws=PlacesError]
+    sequence<HistoryHighlight> get_history_highlights(HistoryHighlightWeights weights, i32 limit);
+
+    [Throws=PlacesError]
+    void note_history_metadata_observation(HistoryMetadataObservation data);
+
+    [Throws=PlacesError]
+    void metadata_delete(Url url, Url? referrer_url, string? search_term);
+
+    [Throws=PlacesError]
+    void metadata_delete_older_than(Timestamp older_than);
+
+    [Throws=PlacesError]
+    void apply_observation(VisitObservation visit);
+
+    [Throws=PlacesError]
+    sequence<Url> get_visited_urls_in_range(Timestamp start, Timestamp end, boolean include_remote);
+
+    [Throws=PlacesError]
+    sequence<HistoryVisitInfo> get_visit_infos(Timestamp start_date, Timestamp end_date, VisitTransitionSet exclude_types);
+
+    [Throws=PlacesError]
+    i64 get_visit_count(VisitTransitionSet exclude_types);
+
+    [Throws=PlacesError]
+    sequence<HistoryVisitInfo> get_visit_page(i64 offset, i64 count, VisitTransitionSet exclude_types);
+
+    [Throws=PlacesError]
+    HistoryVisitInfosWithBound get_visit_page_with_bound(i64 bound, i64 offset, i64 count, VisitTransitionSet exclude_types);
+
+    [Throws=PlacesError]
+    sequence<boolean> get_visited(sequence<string> urls);
+
+    [Throws=PlacesError]
+    void delete_visits_for(string url);
+
+    [Throws=PlacesError]
+    void delete_visits_between(Timestamp start, Timestamp end);
+
+    [Throws=PlacesError]
+    void delete_visit(string url, Timestamp timestamp);
+
+    [Throws=PlacesError]
+    sequence<TopFrecentSiteInfo> get_top_frecent_site_infos(i32 num_items, FrecencyThresholdOption threshold_option);
+
+    // These three methods below are not actively being used by the consumers, we should investigate further
+    // and remove if so https://github.com/mozilla/application-services/issues/4719
+    [Throws=PlacesError]
+    void wipe_local_history();
+
+    //From a-c: will not remove any history from remote devices, but it will prevent deleted
+    // history from returning.
+    [Throws=PlacesError]
+    void delete_everything_history();
+
+    // Exactly the same as wipe_local_history
+    [Throws=PlacesError]
+    void prune_destructively();
+
+    [Throws=PlacesError]
+    void run_maintenance();
+
+    [Throws=PlacesError]
+    BookmarkItem? bookmarks_get_tree([ByRef] Guid item_guid);
+
+    [Throws=PlacesError]
+    BookmarkItem? bookmarks_get_by_guid([ByRef] Guid guid, boolean get_direct_children);
+
+    // XXX - should return BookmarkData
+    [Throws=PlacesError]
+    sequence<BookmarkItem> bookmarks_get_all_with_url(Url url);
+
+    // XXX - should return BookmarkData
+    [Throws=PlacesError]
+    sequence<BookmarkItem> bookmarks_search(string query, i32 limit);
+
+    // XXX - should return BookmarkData
+    [Throws=PlacesError]
+    sequence<BookmarkItem> bookmarks_get_recent(i32 limit);
+
+    [Throws=PlacesError]
+    boolean bookmarks_delete(Guid id);
+
+    [Throws=PlacesError]
+    void bookmarks_delete_everything();
+
+    [Throws=PlacesError]
+    Url? bookmarks_get_url_for_keyword(string keyword);
+
+    [Throws=PlacesError]
+    void bookmarks_update(BookmarkUpdateInfo data);
+
+    [Throws=PlacesError]
+    Guid bookmarks_insert(InsertableBookmarkItem bookmark);
+};
+
+/**
+ * Frecency threshold options for fetching top frecent sites. Requests a page that was visited
+ * with a frecency score greater or equal to the value associated with the enums
+ */
+enum FrecencyThresholdOption {
+// Returns all visited pages. The frecency score is 0
+  "None",
+// Skip visited pages that were only visited once. The frecency score is 101
+  "SkipOneTimePages",
+};
+
+dictionary SearchResult {
+    Url url;
+    string title;
+    i64 frecency;
+    sequence<MatchReason> reasons;
+};
+
+enum MatchReason {
+  "Keyword",
+  "Origin",
+  "UrlMatch",
+  "PreviousUse",
+  "Bookmark",
+  "Tags"
 };
 
 // Some kind of namespacing for uniffi would be ideal. Multiple udl/macro defns?
@@ -36,6 +218,21 @@ enum DocumentType {
     "Regular",
     // A media page.
     "Media",
+};
+
+enum VisitTransition {
+    // This transition type means the user followed a link.
+    "Link",
+    // This transition type means that the user typed the page's URL in the
+    // URL bar or selected it from UI (URL bar autocomplete results, etc)
+    "Typed",
+    "Bookmark",
+    "Embed",
+    "RedirectPermanent",
+    "RedirectTemporary",
+    "Download",
+    "FramedLink",
+    "Reload",
 };
 
 // This is used as an "input" to the api.
@@ -74,12 +271,149 @@ dictionary HistoryHighlight {
     string? preview_image_url;
 };
 
+dictionary HistoryVisitInfo {
+    Url url;
+    string? title;
+    Timestamp timestamp;
+    VisitTransition visit_type;
+    boolean is_hidden;
+    Url? preview_image_url;
+};
+
+dictionary HistoryVisitInfosWithBound {
+    sequence<HistoryVisitInfo> infos;
+    i64 bound;
+    i64 offset;
+};
+
+/**
+ * Encapsulates either information about a visit to a page, or meta information about the page,
+ * or both. Use [VisitType.UPDATE_PLACE] to differentiate an update from a visit.
+ */
+dictionary VisitObservation {
+    Url url;
+    string? title = null;
+    VisitTransition? visit_type;
+    boolean? is_error = null;
+    boolean? is_redirect_source = null;
+    boolean? is_permanent_redirect_source = null;
+    Timestamp? at = null;
+    Url? referrer = null;
+    boolean? is_remote = null;
+    Url? preview_image_url = null;
+};
+
 // Exists just to convince uniffi to generate `liftSequence*` helpers!
 dictionary Dummy {
     sequence<HistoryMetadata>? md;
 };
 
+dictionary TopFrecentSiteInfo {
+    Url url;
+    string? title;
+};
+
+
 [Error]
-enum ErrorWrapper {
-    "Wrapped"
+enum PlacesError {
+    "UnexpectedPlacesException",
+    "UrlParseFailed",
+    "JsonParseFailed",
+    "PlacesConnectionBusy",
+    "OperationInterrupted",
+    "BookmarksCorruption",
+    "InvalidParent",
+    "UnknownBookmarkItem",
+    "UrlTooLong",
+    "InvalidBookmarkUpdate", // XXX - can we kill this?
+    "CannotUpdateRoot",
+    "InternalPanic",
+};
+
+dictionary BookmarkData {
+    Guid guid;
+    Guid parent_guid;
+    u32 position;
+    Timestamp date_added;
+    Timestamp last_modified;
+    Url url;
+    string? title;
+};
+
+dictionary BookmarkSeparator {
+    Guid guid;
+    Timestamp date_added;
+    Timestamp last_modified;
+    Guid parent_guid;
+    u32 position;
+};
+
+dictionary BookmarkFolder {
+    Guid guid;
+    Timestamp date_added;
+    Timestamp last_modified;
+    Guid? parent_guid;
+    u32 position;
+    string? title;
+    sequence<Guid>? child_guids;
+    sequence<BookmarkItem>? child_nodes;
+};
+
+[Enum]
+interface BookmarkItem {
+    Bookmark(BookmarkData b);
+    Separator(BookmarkSeparator s);
+    Folder(BookmarkFolder f);
+};
+
+dictionary BookmarkUpdateInfo {
+    Guid guid;
+    string? title;
+    string? url;
+    Guid? parent_guid;
+    u32? position;
+};
+
+// Structs for inserting new bookmark items.
+
+// Where the item should be placed.
+[Enum]
+interface BookmarkPosition {
+    Specific(u32 pos);
+    Append();
+};
+
+dictionary InsertableBookmark {
+    Guid? guid = null;
+    Guid parent_guid;
+    BookmarkPosition position;
+    Timestamp? date_added = null;
+    Timestamp? last_modified = null;
+    Url url;
+    string? title = null;
+};
+
+dictionary InsertableBookmarkSeparator {
+    Guid? guid = null;
+    Guid parent_guid;
+    BookmarkPosition position;
+    Timestamp? date_added = null;
+    Timestamp? last_modified = null;
+};
+
+dictionary InsertableBookmarkFolder {
+    Guid? guid = null;
+    Guid parent_guid;
+    BookmarkPosition position;
+    Timestamp? date_added = null;
+    Timestamp? last_modified = null;
+    string? title = null;
+    sequence<InsertableBookmarkItem> children;
+};
+
+[Enum]
+interface InsertableBookmarkItem {
+    Bookmark(InsertableBookmark b);
+    Folder(InsertableBookmarkFolder f);
+    Separator(InsertableBookmarkSeparator s);
 };

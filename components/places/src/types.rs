@@ -17,8 +17,7 @@ pub struct InvalidVisitType;
 
 // NOTE: These discriminator values are the same as those used by Desktop
 // Firefox and are what is written to the database. We also duplicate them
-// in the android lib as constants on PlacesConnection, and in a couple
-// constants in visit_transition_set.rs
+// as constants in visit_transition_set.rs
 #[repr(u8)]
 #[derive(Debug, Copy, Clone, PartialEq, Eq, Hash)]
 pub enum VisitTransition {
