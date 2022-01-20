@@ -18,3 +18,5 @@ Use the template below to make assigning a version number during the release cut
   - Description of the change with a link to the pull request ([#0000](https://github.com/mozilla/application-services/pull/0000))
 
 -->
+## Supported Xcode Versions
+- Reverting the supported Xcode version from 13.2.1 to 13.1.0 to circumvent the issues with Swift Package Manager in Xcode 13.2.1. ([#4787](https://github.com/mozilla/application-services/pull/4787))
