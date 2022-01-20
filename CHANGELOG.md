@@ -1,3 +1,12 @@
+# v90.0.0 (_2022-01-20_)
+
+[Full Changelog](https://github.com/mozilla/application-services/compare/v89.0.0...v90.0.0)
+
+## Places
+
+### ⚠️ Breaking Changes ⚠️
+  - Places has been completely UniFFI-ed
+
 # v89.0.0 (_2022-01-20_)
 
 [Full Changelog](https://github.com/mozilla/application-services/compare/v88.0.0...v89.0.0)
