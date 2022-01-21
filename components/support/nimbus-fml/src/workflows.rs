@@ -250,7 +250,6 @@ mod test {
         Ok(())
     }
 
-
     #[test]
     fn test_with_objects_swift() -> Result<()> {
         generate_and_assert(
@@ -283,7 +282,6 @@ mod test {
         )?;
         Ok(())
     }
-
 
     fn validate_against_experimenter_schema<P: AsRef<Path>>(
         schema_path: P,

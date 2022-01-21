@@ -66,7 +66,6 @@ pub mod test {
         join(sdk_ios_dir(), "FeatureInterface.swift")
     }
 
-
     // The file with the swift implementation of FeatureVariables
     fn collections_swift() -> String {
         join(sdk_ios_dir(), "Collections+.swift")

@@ -58,7 +58,7 @@ impl CodeType for ObjectCodeType {
             "{getter} ?? {fallback}",
             getter = getter,
             fallback = default
-        ) 
+        )
     }
 
     fn value_getter(

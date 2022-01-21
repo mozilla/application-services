@@ -144,7 +144,7 @@ impl CodeType for MapCodeType {
                 v_type.create_transform(oracle),
             ) {
                 (Some(k), Some(v)) => format!("mapNotNull({k}, {v})", k = k, v = v),
-                (None, Some(v)) =>  format!("mapValuesNotNull({{{v}}})", v = v),
+                (None, Some(v)) => format!("mapValuesNotNull({{{v}}})", v = v),
                 // We could do something with keys, but it's only every strings and enums.
                 (Some(k), None) => format!("mapKeysNotNull({k})", k = k),
                 _ => return None,

@@ -138,7 +138,6 @@ pub struct Config {
     pub resource_package: Option<String>,
 }
 
-
 impl Config {
     fn package_name(&self) -> Option<String> {
         self.package_name.clone()
