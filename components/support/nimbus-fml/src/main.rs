@@ -138,6 +138,19 @@ pub struct Config {
     pub resource_package: Option<String>,
 }
 
+
+impl Config {
+    fn package_name(&self) -> Option<String> {
+        self.package_name.clone()
+    }
+
+    fn nimbus_object_name(&self) -> String {
+        self.nimbus_object_name
+            .clone()
+            .unwrap_or_else(|| "MyNimbus".into())
+    }
+}
+
 pub struct GenerateStructCmd {
     manifest: PathBuf,
     output: PathBuf,

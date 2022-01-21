@@ -5,7 +5,7 @@ import Foundation
 
 public class MockNimbus: FeaturesInterface {
     var map: [String: Any] = [:]
-    public init(pairs: (String, String)...) {
+    public init(_ pairs: (String, String)...) {
         for (key, value) in pairs {
             if let data = value.data(using: .utf8) {
                 do {

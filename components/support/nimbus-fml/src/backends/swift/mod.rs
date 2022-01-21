@@ -68,6 +68,11 @@ pub mod test {
         join(sdk_ios_dir(), "Collections+.swift")
     }
 
+    // The file with the swift implementation of FeatureVariables
+    fn feature_holder() -> String {
+        join(sdk_ios_dir(), "FeatureHolder.swift")
+    }
+
     pub fn compile_manifest_swift(manifest_file: &Path, out_dir: &Path) -> Result<()> {
         let out_path = PathBuf::from(out_dir);
         let manifest_file = PathBuf::from(manifest_file);
@@ -94,6 +99,7 @@ pub mod test {
             .arg(&collections_swift())
             .arg(&variables_swift())
             .arg(&features_swift())
+            .arg(&feature_holder())
             .arg(&runtime_dir())
             .arg(manifest_file)
             .spawn()

@@ -23,9 +23,9 @@ public class {{class_name}} {
     {#- A constructor for application tests to use.  #}
 
     public convenience init(
-        _variables: Variables? = nil, {% for p in inner.props() %}
+        _ _variables: Variables? = nil, {% for p in inner.props() %}
         {%- let t = p.typ() %}
-        {{p.name()|var_name}}: {{ t|type_label }} = {{ t|literal(self, p.default()) }}{% if !loop.last %},{% endif %}
+        _ {{p.name()|var_name}}: {{ t|type_label }} = {{ t|literal(self, p.default()) }}{% if !loop.last %},{% endif %}
     {%- endfor %}
     ) {
         self.init(_variables, Defaults())
@@ -36,7 +36,7 @@ public class {{class_name}} {
     {% for p in inner.props() %}
     {%- let prop_swift = p.name()|var_name %}
     {{ p.doc()|comment("    ") }}
-    lazy var {{ prop_swift }}: {{ p.typ()|type_label }} = {
+    public lazy var {{ prop_swift }}: {{ p.typ()|type_label }} = {
         {%- let defaults = format!("_defaults.{}", prop_swift) %}
         {{ p.typ()|property(p.name(), "_variables", defaults)}}
     }()

@@ -6,7 +6,7 @@
 /// A small protocol to get the feature variables out of the Nimbus SDK.
 ///
 /// This is intended to be standalone to allow for testing the Nimbus FML.
-protocol FeaturesInterface {
+public protocol FeaturesInterface: AnyObject {
      ///
      /// Get the variables needed to configure the feature given by `featureId`.
      ///

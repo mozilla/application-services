@@ -13,7 +13,7 @@ public enum {{ class_name }} {
                 {{v.name()|quoted}} : .{{v.name() | enum_variant_name}}{% if !loop.last %},{% endif %}{% endfor %}]
     }()
 
-    static func enumValue(_ s: String) -> {{class_name}}? {
+    public static func enumValue(_ s: String) -> {{class_name}}? {
         return enumMap[s]
     }
 }

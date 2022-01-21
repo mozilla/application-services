@@ -38,7 +38,7 @@ public class {{class_name}} {
     {% for p in inner.props() %}
     {%- let prop_swift = p.name()|var_name %}
     {{ p.doc()|comment("    ") }}
-    lazy var {{ prop_swift }}: {{ p.typ()|type_label }} = {
+    public lazy var {{ prop_swift }}: {{ p.typ()|type_label }} = {
         {%- let defaults = format!("_defaults.{}", prop_swift) %}
         {{ p.typ()|property(p.name(), "_variables", defaults)}}
     }()
