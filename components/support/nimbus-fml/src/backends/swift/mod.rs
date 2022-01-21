@@ -48,8 +48,12 @@ pub mod test {
         join(pkg_dir(), "fixtures/ios/tests")
     }
 
-    fn runtime_dir() -> String {
+    fn mock_nimbus_swift() -> String {
         join(pkg_dir(), "fixtures/ios/runtime/MockNimbus.swift")
+    }
+
+    fn mock_uiimage_swift() -> String {
+        join(pkg_dir(), "fixtures/ios/runtime/UIImage.swift")
     }
 
     // The file with the swift implementation of FeatureVariables
@@ -97,10 +101,11 @@ pub mod test {
             .arg("-L")
             .arg(&out_path)
             .arg(&collections_swift())
+            .arg(&mock_uiimage_swift())
             .arg(&variables_swift())
             .arg(&features_swift())
             .arg(&feature_holder())
-            .arg(&runtime_dir())
+            .arg(&mock_nimbus_swift())
             .arg(manifest_file)
             .spawn()
             .context("Failed to spawn `swiftc` when compiling bindings")?

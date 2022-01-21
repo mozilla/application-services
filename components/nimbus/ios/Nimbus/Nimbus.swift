@@ -66,7 +66,7 @@ private extension Nimbus {
 }
 
 // Glean integration
-extension Nimbus: NimbusTelemetryConfiguration {
+extension Nimbus: FeaturesInterface {
     public func recordExposureEvent(featureId: String) {
         // First we need a list of the active experiments that are enrolled.
         let activeExperiments = getActiveExperiments()
@@ -135,6 +135,36 @@ extension Nimbus: NimbusTelemetryConfiguration {
             }
         }
     }
+    
+    public func getExperimentBranch(experimentId: String) -> String? {
+        return catchAll {
+            try nimbusClient.getExperimentBranch(id: experimentId)
+        }
+    }
+
+    internal func getFeatureConfigVariablesJson(featureId: String) -> [String: Any]? {
+        return catchAll {
+            if let string = try nimbusClient.getFeatureConfigVariables(featureId: featureId),
+               let data = string.data(using: .utf8)
+            {
+                return try JSONSerialization.jsonObject(with: data, options: []) as? [String: Any]
+            } else {
+                return nil
+            }
+        }
+    }
+
+    public func getVariables(featureId: String, sendExposureEvent: Bool) -> Variables {
+        guard let json = getFeatureConfigVariablesJson(featureId: featureId) else {
+            return NilVariables.instance
+        }
+
+        if sendExposureEvent {
+            recordExposureEvent(featureId: featureId)
+        }
+
+        return JSONVariables(with: json, in: resourceBundles)
+    }
 }
 
 private extension Nimbus {
@@ -187,38 +217,6 @@ internal extension Nimbus {
     func resetTelemetryIdentifiersOnThisThread(_ identifiers: AvailableRandomizationUnits) throws {
         let changes = try nimbusClient.resetTelemetryIdentifiers(newRandomizationUnits: identifiers)
         postEnrollmentCalculation(changes)
-    }
-}
-
-extension Nimbus: NimbusFeatureConfiguration {
-    public func getExperimentBranch(experimentId: String) -> String? {
-        return catchAll {
-            try nimbusClient.getExperimentBranch(id: experimentId)
-        }
-    }
-
-    internal func getFeatureConfigVariablesJson(featureId: String) -> [String: Any]? {
-        return catchAll {
-            if let string = try nimbusClient.getFeatureConfigVariables(featureId: featureId),
-               let data = string.data(using: .utf8)
-            {
-                return try JSONSerialization.jsonObject(with: data, options: []) as? [String: Any]
-            } else {
-                return nil
-            }
-        }
-    }
-
-    public func getVariables(featureId: String, sendExposureEvent: Bool) -> Variables {
-        guard let json = getFeatureConfigVariablesJson(featureId: featureId) else {
-            return NilVariables.instance
-        }
-
-        if sendExposureEvent {
-            recordExposureEvent(featureId: featureId)
-        }
-
-        return JSONVariables(with: json, in: resourceBundles)
     }
 }
 

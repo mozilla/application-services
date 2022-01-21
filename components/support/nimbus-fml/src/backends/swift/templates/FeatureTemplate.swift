@@ -5,9 +5,9 @@
 
 {{ inner.doc()|comment("") }}
 public class {{class_name}} {
-    private var _variables: Variables? = nil
+    private var _variables: Variables
     var _defaults: Defaults
-    init(_ _variables: Variables? = nil,_ _defaults: Defaults) {
+    init(_ _variables: Variables = NilVariables.instance,_ _defaults: Defaults) {
         self._variables = _variables
         self._defaults = _defaults
     }
@@ -23,7 +23,7 @@ public class {{class_name}} {
     {#- A constructor for application tests to use.  #}
 
     public convenience init(
-        _ _variables: Variables? = nil, {% for p in inner.props() %}
+        _ _variables: Variables = NilVariables.instance, {% for p in inner.props() %}
         {%- let t = p.typ() %}
         _ {{p.name()|var_name}}: {{ t|type_label }} = {{ t|literal(self, p.default()) }}{% if !loop.last %},{% endif %}
     {%- endfor %}

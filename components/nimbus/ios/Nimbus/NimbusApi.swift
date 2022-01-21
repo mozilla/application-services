@@ -14,34 +14,10 @@ import Foundation
 /// enrollment will mostly use `NimbusUserConfiguration` methods. Application developers integrating
 /// `Nimbus` into their app should use the methods in `NimbusStartup`.
 ///
-public protocol NimbusApi: AnyObject,
-    NimbusStartup, NimbusFeatureConfiguration,
-    NimbusUserConfiguration, NimbusTelemetryConfiguration {}
+public protocol NimbusApi: FeaturesInterface, NimbusStartup,
+    NimbusUserConfiguration {}
 
-public protocol NimbusFeatureConfiguration {
-    /// Get the currently enrolled branch for the given experiment
-    ///
-    /// - Parameter featureId The string feature id that applies to the feature under experiment.
-    /// - Returns A String representing the branch-id or "slug"; or `nil` if not enrolled in this experiment.
-    ///
-    func getExperimentBranch(experimentId: String) -> String?
-
-    /// Get the variables needed to configure the feature given by `featureId`.
-    ///
-    /// - Parameters:
-    ///     - featureId The string feature id that identifies to the feature under experiment.
-    ///     - recordExposureEvent Passing `true` to this parameter will record the exposure
-    ///         event automatically if the client is enrolled in an experiment for the given `featureId`.
-    ///         Passing `false` here indicates that the application will manually record the exposure
-    ///         event by calling `recordExposureEvent`.
-    ///
-    /// See `recordExposureEvent` for more information on manually recording the event.
-    ///
-    /// - Returns a `Variables` object used to configure the feature.
-    func getVariables(featureId: String, sendExposureEvent: Bool) -> Variables
-}
-
-public extension NimbusFeatureConfiguration {
+public extension FeaturesInterface {
     /// Get the variables needed to configure the feature given by `featureId`.
     ///
     /// By default this sends an exposure event.
@@ -51,37 +27,8 @@ public extension NimbusFeatureConfiguration {
     ///
     /// - Returns a `Variables` object used to configure the feature.
     func getVariables(featureId: String) -> Variables {
-        return getVariables(featureId: featureId, sendExposureEvent: true)
+        return getVariables(featureId: featureId, sendExposureEvent: true) ?? NilVariables()
     }
-}
-
-public protocol NimbusTelemetryConfiguration {
-    /// Records the `exposure` event in telemetry.
-    ///
-    /// This is a manual function to accomplish the same purpose as passing `true` as the
-    /// `recordExposureEvent` property of the `getVariables` function. It is intended to be used
-    /// when requesting feature variables must occur at a different time than the actual user's
-    /// exposure to the feature within the app.
-    ///
-    /// - Examples:
-    ///     - If the `Variables` are needed at a different time than when the exposure to the feature
-    ///         actually happens, such as constructing a menu happening at a different time than the
-    ///         user seeing the menu.
-    ///     - If `getVariables` is required to be called multiple times for the same feature and it is
-    ///         desired to only record the exposure once, such as if `getVariables` were called
-    ///         with every keystroke.
-    ///
-    /// In the case where the use of this function is required, then the `getVariables` function
-    /// should be called with `false` so that the exposure event is not recorded when the variables
-    /// are fetched.
-    ///
-    /// This function is safe to call even when there is no active experiment for the feature. The SDK
-    /// will ensure that an event is only recorded for active experiments.
-    ///
-    /// - Parameter featureId string representing the id of the feature for which to record the exposure
-    ///     event.
-    ///
-    func recordExposureEvent(featureId: String)
 }
 
 public protocol NimbusStartup {

@@ -5,45 +5,33 @@
 import Foundation
 
 extension Dictionary {
-    func mapKeys<K1>(_ transform: (Key) -> K1?) -> Dictionary<K1, Value> {
-        let filtered: Dictionary<Key, Value> = self.filter() { (key, value) -> Bool in
-            return transform(key) != nil
-        }
-        let mapped = filtered.map() { (key, value) -> (K1, Value) in (transform(key)!, value)}
-        return Dictionary<K1, Value>(uniqueKeysWithValues: mapped)
-    }
-    
-    func mapValuesNotNull<V1>(_ transform: (Value) -> V1?) -> Dictionary<Key, V1> {
-        let filtered: Dictionary<Key, Value> = self.filter() { (key, value) -> Bool in
-            return transform(value) != nil
-        }
-        return filtered.mapValues() { (value) -> V1 in transform(value)!}
-    }
-    
-    func mapNotNull<K1, V1>(_ keyTransform: (Key) -> K1?, _ valueTransform: (Value) -> V1?) -> Dictionary<K1, V1> {
-        let filtered: Dictionary<Key, Value> = self.filter() { (key, value) -> Bool in
-            return keyTransform(key) != nil && valueTransform(value) != nil
-        }
-        let mapped = filtered.map() { (key, value) -> (K1, V1) in (keyTransform(key)!, valueTransform(value)!)}
-        return Dictionary<K1, V1>(uniqueKeysWithValues: mapped)
-    }
-    
-    func mergeWith(_ defaults: [Key:Value], _ valueTransform: ((Value, Value) -> Value?)? = nil) -> Dictionary<Key, Value> {
-        var target: Dictionary<Key, Value> = [:]
-        defaults.forEach() { (key, value) in
-            target[key] = value
-        }
-        self.forEach() { (key, value) in
-            var override: Value? = nil
-            if let defaultValue = defaults[key] {
-                override = valueTransform?(value, defaultValue)
-            }
-            if let override = override {
-                target[key] = override
-            } else {
-                target[key] = value
-            }
-        }
-        return target
-    }
+   internal func mapKeysNotNull<K1>(_ transform: (Key) -> K1?) -> Dictionary<K1, Value> {
+       let transformed: [(K1, Value)] = self.compactMap { k, v in
+           transform(k).flatMap { ($0, v) }
+       }
+       return Dictionary<K1, Value>(uniqueKeysWithValues: transformed)
+   }
+
+   internal func mapValuesNotNull<V1>(_ transform: (Value) -> V1?) -> Dictionary<Key, V1> {
+       return self.compactMapValues(transform)
+   }
+
+   internal func mapNotNull<K1, V1>(_ keyTransform: (Key) -> K1?, _ valueTransform: (Value) -> V1?) -> Dictionary<K1, V1> {
+       let transformed: [(K1, V1)] = self.compactMap { k, v in
+           guard let k1 = keyTransform(k),
+                 let v1 = valueTransform(v) else {
+                     return nil
+                 }
+           return (k1, v1)
+       }
+       return Dictionary<K1, V1>(uniqueKeysWithValues: transformed)
+   }
+
+   internal func mergeWith(_ defaults: [Key:Value], _ valueMerger: ((Value, Value) -> Value)? = nil) -> Dictionary<Key, Value> {
+       guard let valueMerger = valueMerger else {
+           return self.merging(defaults, uniquingKeysWith: { overide, _ in overide })
+       }
+
+       return self.merging(defaults, uniquingKeysWith: valueMerger)
+   }
 }

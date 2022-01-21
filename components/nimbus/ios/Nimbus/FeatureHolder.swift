@@ -2,10 +2,10 @@
 public class FeatureHolder<T> {
     private let apiFn: () -> FeaturesInterface?
     private let featureId: String
-    private let create: (Variables?) -> T
+    private let create: (Variables) -> T
     private var exposureRecorder: (() -> ())? = nil
     
-    public init(_ apiFn: @escaping () -> FeaturesInterface?, _ featureId: String, _ create: @escaping (Variables?) -> T) {
+    public init(_ apiFn: @escaping () -> FeaturesInterface?, _ featureId: String, _ create: @escaping (Variables) -> T) {
         self.apiFn = apiFn
         self.featureId = featureId
         self.create = create
@@ -13,7 +13,7 @@ public class FeatureHolder<T> {
 
     public func value() -> T {
         let api = self.apiFn()
-        let feature = self.create(api?.getVariables(featureId: featureId, recordExposureEvent: false))
+        let feature = self.create(api?.getVariables(featureId: featureId, sendExposureEvent: false) ?? NilVariables.instance)
         if let api = api {
             weak var weakApi = api
             self.exposureRecorder = { () in

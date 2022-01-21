@@ -18,11 +18,11 @@ public class MockNimbus: FeaturesInterface {
         }
     }
 
-    public func getVariables(featureId: String, recordExposureEvent: Bool = true) -> Variables? {
+    public func getVariables(featureId: String, sendExposureEvent: Bool = true) -> Variables {
         if let json = map[featureId] {
             return JSONVariables(with: json as! [String: Any])
         }
-        return nil
+        return NilVariables.instance
     }
 
     private var exposureCounts: [String: Int] = [:]
@@ -42,5 +42,9 @@ public class MockNimbus: FeaturesInterface {
 
     public func isExposed(featureId: String) -> Bool {
         getExposureCount(featureId: featureId) > 0
+    }
+
+    public func getExperimentBranch(experimentId: String) -> String? {
+        return nil
     }
 }

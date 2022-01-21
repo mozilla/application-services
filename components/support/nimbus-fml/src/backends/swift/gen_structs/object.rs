@@ -41,7 +41,7 @@ impl CodeType for ObjectCodeType {
         default: &dyn Display,
     ) -> String {
         let getter = self.value_getter(oracle, vars, prop);
-
+        println!("GETTTTTERRR IS: {}", getter);
         let getter = if let Some(mapper) = self.value_mapper(oracle) {
             format!("{mapper}({getter})", getter = getter, mapper = mapper)
         } else {
@@ -49,7 +49,7 @@ impl CodeType for ObjectCodeType {
         };
 
         let getter = if let Some(merger) = self.value_merger(oracle, default) {
-            format!("{getter}?.{merger}", getter = getter, merger = merger)
+            format!("{getter}.{merger}", getter = getter, merger = merger)
         } else {
             getter
         };

@@ -128,7 +128,7 @@ impl CodeType for MapCodeType {
     ) -> String {
         let v_type = oracle.find(&self.v_type);
         format!(
-            "{vars}?.get{vt}Map({prop})",
+            "{vars}.get{vt}Map({prop})",
             vars = vars,
             vt = v_type.variables_type(oracle),
             prop = common::quoted(prop),
@@ -144,9 +144,9 @@ impl CodeType for MapCodeType {
                 v_type.create_transform(oracle),
             ) {
                 (Some(k), Some(v)) => format!("mapNotNull({k}, {v})", k = k, v = v),
-                (None, Some(v)) =>  format!("mapValues({{{v}}})", v = v),
+                (None, Some(v)) =>  format!("mapValuesNotNull({{{v}}})", v = v),
                 // We could do something with keys, but it's only every strings and enums.
-                (Some(k), None) => format!("mapKeys({k})", k = k),
+                (Some(k), None) => format!("mapKeysNotNull({k})", k = k),
                 _ => return None,
             },
         )
@@ -274,7 +274,7 @@ impl CodeType for ListCodeType {
     ) -> String {
         let vtype = oracle.find(&self.inner).variables_type(oracle);
         format!(
-            "{vars}?.get{vt}List(\"{prop}\")",
+            "{vars}.get{vt}List(\"{prop}\")",
             vars = vars,
             vt = vtype,
             prop = prop
