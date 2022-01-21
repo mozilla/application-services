@@ -332,7 +332,11 @@ internal class JSONVariables: VariablesWithBundle {
     }
     
     func asVariablesMap() -> [String: Variables]? {
-        return nil
+        let j = json.mapValues() {(value) in
+            // TODO: filter out any possible json that can't be cast to the dictionary
+            return JSONVariables(with: value as! [String: Any])
+        }
+        return j
     }
     
     private let json: [String: Any]

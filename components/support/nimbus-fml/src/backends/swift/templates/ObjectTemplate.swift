@@ -44,14 +44,17 @@ public class {{class_name}} {
     }()
     {%- endfor %}
 
-    func _mergeWith(defaults: {{class_name}}) -> {{class_name}} {
+    func _mergeWith(_ defaults: {{class_name}}) -> {{class_name}} {
         return {{class_name}}(self._variables, defaults._defaults)
     }
-    static func create(variables: Variables) -> {{class_name}}? {
+    static func create(_ variables: Variables?) -> {{class_name}}? {
+        if variables == nil {
+            return nil
+        }
         return {{class_name}}(_variables: variables)
     }
 
-    static func mergeWith(overrides: {{class_name}}, defaults: {{class_name}}) -> {{class_name}} {
-            return overrides._mergeWith(defaults: defaults)
+    static func mergeWith(_ overrides: {{class_name}}, _ defaults: {{class_name}}) -> {{class_name}} {
+            return overrides._mergeWith(defaults)
     }
 }

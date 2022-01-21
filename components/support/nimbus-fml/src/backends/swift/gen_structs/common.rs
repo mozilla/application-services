@@ -75,6 +75,6 @@ pub(crate) mod code_type {
 
     pub(crate) fn value_mapper(ct: &dyn CodeType, oracle: &dyn CodeOracle) -> Option<String> {
         let transform = ct.create_transform(oracle)?;
-        Some(format!("let({})", transform))
+        Some(format!("map({})", transform))
     }
 }

@@ -240,17 +240,6 @@ mod test {
     }
 
     #[test]
-    fn smoke_test_ios_generate() -> Result<()> {
-        generate_and_assert(
-            "test/smoke_test.swift",
-            "fixtures/ir/app_menu.json",
-            "release",
-            true,
-        )?;
-        Ok(())
-    }
-
-    #[test]
     fn test_with_app_menu_swift() -> Result<()> {
         generate_and_assert(
             "test/app_menu.swift",
@@ -260,6 +249,41 @@ mod test {
         )?;
         Ok(())
     }
+
+
+    #[test]
+    fn test_with_objects_swift() -> Result<()> {
+        generate_and_assert(
+            "test/with_objects.swift",
+            "fixtures/ir/with_objects.json",
+            "release",
+            true,
+        )?;
+        Ok(())
+    }
+
+    #[test]
+    fn test_with_full_fenix_nightly_swift() -> Result<()> {
+        generate_and_assert(
+            "test/fenix_nightly.swift",
+            "fixtures/fe/fenix.yaml",
+            "nightly",
+            false,
+        )?;
+        Ok(())
+    }
+
+    #[test]
+    fn test_with_full_fenix_release_swift() -> Result<()> {
+        generate_and_assert(
+            "test/fenix_release.swift",
+            "fixtures/fe/fenix.yaml",
+            "release",
+            false,
+        )?;
+        Ok(())
+    }
+
 
     fn validate_against_experimenter_schema<P: AsRef<Path>>(
         schema_path: P,

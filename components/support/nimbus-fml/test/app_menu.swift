@@ -27,7 +27,7 @@ assert(feature.profileItems[PlayerProfile.child]![MenuItemId.settings]?.label ==
 
 assert(feature.profileItems[PlayerProfile.adult]![MenuItemId.startGame]?.label == "START")
 assert(feature.profileItems[PlayerProfile.adult]![MenuItemId.resumeGame]?.label == "RESUME")
-//assert(feature.profileItems[PlayerProfile.adult]![MenuItemId.settings]?.label == "settings")
+assert(feature.profileItems[PlayerProfile.adult]![MenuItemId.settings]?.label == "SETTINGS")
 
 // Now let's merge it with JSON we might have got from Rust.
 MyNimbus.api = MockNimbus(("app-menu",
@@ -79,6 +79,6 @@ assert(feature1.profileItems[PlayerProfile.child]![MenuItemId.startGame]?.label 
 assert(feature1.profileItems[PlayerProfile.child]![MenuItemId.resumeGame]?.label == "resume child-friendly game")
 assert(feature1.profileItems[PlayerProfile.child]![MenuItemId.settings]?.label == "child-friendly tweaks")
 
-//assert(feature1.profileItems[PlayerProfile.adult]![MenuItemId.startGame]?.label == "START NIMBUS")
-//assert(feature1.profileItems[PlayerProfile.adult]![MenuItemId.resumeGame]?.label == "RESUME NIMBUS")
-//assert(feature1.profileItems[PlayerProfile.adult]![MenuItemId.settings]?.label == "NIMBUS settings")
+assert(feature1.profileItems[PlayerProfile.adult]![MenuItemId.startGame]?.label == "START NIMBUS")
+assert(feature1.profileItems[PlayerProfile.adult]![MenuItemId.resumeGame]?.label == "RESUME NIMBUS")
+assert(feature1.profileItems[PlayerProfile.adult]![MenuItemId.settings]?.label == "NIMBUS settings")
