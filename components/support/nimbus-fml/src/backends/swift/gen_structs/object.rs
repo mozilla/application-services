@@ -72,7 +72,7 @@ impl CodeType for ObjectCodeType {
 
     fn value_mapper(&self, oracle: &dyn CodeOracle) -> Option<String> {
         let transform = self.create_transform(oracle)?;
-        Some(format!("{}", transform))
+        Some(transform)
     }
 
     /// The language specific expression that gets a value of the `prop` from the `vars` object.

@@ -20,6 +20,9 @@
 		395992B825FBE40300E3185F /* NimbusApi.swift in Sources */ = {isa = PBXBuildFile; fileRef = 395992B725FBE40300E3185F /* NimbusApi.swift */; };
 		398A4149264986E200AA22F1 /* FeatureVariables.swift in Sources */ = {isa = PBXBuildFile; fileRef = 398A4148264986E200AA22F1 /* FeatureVariables.swift */; };
 		39C13795264DAAB6003DC662 /* NimbusFeatureVariablesTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 39C13794264DAAB6003DC662 /* NimbusFeatureVariablesTests.swift */; };
+		4576AB502799F5BE008A2CA9 /* Collections+.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4576AB4E2799F5BE008A2CA9 /* Collections+.swift */; };
+		4576AB512799F5BE008A2CA9 /* FeatureInterface.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4576AB4F2799F5BE008A2CA9 /* FeatureInterface.swift */; };
+		4576AB53279A6375008A2CA9 /* FeatureHolder.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4576AB52279A6375008A2CA9 /* FeatureHolder.swift */; };
 		9908639E25F9CC5F00032083 /* crashtest.udl in Sources */ = {isa = PBXBuildFile; fileRef = 9908639B25F9CC3600032083 /* crashtest.udl */; };
 		990863A125F9D25A00032083 /* crashtestFFI.h in Headers */ = {isa = PBXBuildFile; fileRef = 9908639F25F9D25A00032083 /* crashtestFFI.h */; settings = {ATTRIBUTES = (Public, ); }; };
 		990863A425F9D48400032083 /* CrashTestTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 990863A325F9D48400032083 /* CrashTestTests.swift */; };
@@ -166,6 +169,9 @@
 		395992B725FBE40300E3185F /* NimbusApi.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NimbusApi.swift; sourceTree = "<group>"; };
 		398A4148264986E200AA22F1 /* FeatureVariables.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FeatureVariables.swift; sourceTree = "<group>"; };
 		39C13794264DAAB6003DC662 /* NimbusFeatureVariablesTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NimbusFeatureVariablesTests.swift; sourceTree = "<group>"; };
+		4576AB4E2799F5BE008A2CA9 /* Collections+.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = "Collections+.swift"; sourceTree = "<group>"; };
+		4576AB4F2799F5BE008A2CA9 /* FeatureInterface.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = FeatureInterface.swift; sourceTree = "<group>"; };
+		4576AB52279A6375008A2CA9 /* FeatureHolder.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = FeatureHolder.swift; sourceTree = "<group>"; };
 		9908639B25F9CC3600032083 /* crashtest.udl */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; name = crashtest.udl; path = ../src/crashtest.udl; sourceTree = "<group>"; };
 		9908639F25F9D25A00032083 /* crashtestFFI.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = crashtestFFI.h; sourceTree = "<group>"; };
 		990863A025F9D25A00032083 /* crashtest.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = crashtest.swift; sourceTree = "<group>"; };
@@ -294,6 +300,9 @@
 		394A807225EE927D00FAF26F /* Nimbus */ = {
 			isa = PBXGroup;
 			children = (
+				4576AB52279A6375008A2CA9 /* FeatureHolder.swift */,
+				4576AB4E2799F5BE008A2CA9 /* Collections+.swift */,
+				4576AB4F2799F5BE008A2CA9 /* FeatureInterface.swift */,
 				394A807525EE951D00FAF26F /* Generated */,
 				394A807325EE94C600FAF26F /* nimbus.udl */,
 				394A809725F94E1300FAF26F /* Nimbus.swift */,
@@ -759,6 +768,7 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				4576AB53279A6375008A2CA9 /* FeatureHolder.swift in Sources */,
 				1B5371D926FADCA500CC3AC7 /* Metrics.swift in Sources */,
 				1B9B8F0B26743C8700C8A918 /* HistoryMetadata.swift in Sources */,
 				1BE78F4926532325008B9A45 /* logins.udl in Sources */,
@@ -772,6 +782,7 @@
 				CE13F19B23F330DF005187A7 /* FxAccountMigration.swift in Sources */,
 				CE0A9AB424E4A2CC00914A16 /* fxa_client.udl in Sources */,
 				BF1A879525064A6600FED88E /* Configuration.swift in Sources */,
+				4576AB512799F5BE008A2CA9 /* FeatureInterface.swift in Sources */,
 				BF1A87B025064A8100FED88E /* LabeledMetric.swift in Sources */,
 				BF1A87AD25064A8100FED88E /* Lifetime.swift in Sources */,
 				BF1A87AF25064A8100FED88E /* MemoryDistributionMetric.swift in Sources */,
@@ -807,6 +818,7 @@
 				395992B825FBE40300E3185F /* NimbusApi.swift in Sources */,
 				BF1A87B925064A8100FED88E /* TimingDistributionMetric.swift in Sources */,
 				CD5ECD1B2716FB99009D10CC /* UrlMetric.swift in Sources */,
+				4576AB502799F5BE008A2CA9 /* Collections+.swift in Sources */,
 				CDC21B14221DCE3700AA71E5 /* RustLog.swift in Sources */,
 				CE13F19D23F448D0005187A7 /* FxAccountState.swift in Sources */,
 				BF1A879325064A4C00FED88E /* GleanMetrics.swift in Sources */,

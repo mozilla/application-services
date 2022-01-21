@@ -37,15 +37,11 @@ pub mod test {
 
     use tempdir::TempDir;
 
-    use crate::{error::FMLError, Config};
+    use crate::{error::FMLError};
 
     // The root of the Android kotlin package structure
     fn sdk_ios_dir() -> String {
         join(sdk_dir(), "ios/Nimbus")
-    }
-
-    fn tests_dir() -> String {
-        join(pkg_dir(), "fixtures/ios/tests")
     }
 
     fn mock_nimbus_swift() -> String {
