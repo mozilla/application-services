@@ -37,6 +37,9 @@ public protocol Variables {
     /// as their values. If none exists, then `nil` is returned.
     func getStringMap(_ key: String) -> [String: String]?
 
+    func asStringMap() -> [String: String]?
+
+
     /// Finds a integer typed value for this key. If none exists, `nil` is returned.
     ///
     /// N.B. the `key` and type `Int` should be listed in the experiment manifest.
@@ -50,6 +53,9 @@ public protocol Variables {
     /// as their values. If none exists, then `nil` is returned.
     func getIntMap(_ key: String) -> [String: Int]?
 
+    func asIntMap() -> [String: Int]?
+
+
     /// Finds a boolean typed value for this key. If none exists, `nil` is returned.
     ///
     /// N.B. the `key` and type `String` should be listed in the experiment manifest.
@@ -62,6 +68,9 @@ public protocol Variables {
     /// Find a map for this key, and returns a map containing all the entries that have booleans
     /// as their values. If none exists, then `nil` is returned.
     func getBoolMap(_ key: String) -> [String: Bool]?
+
+    func asBoolMap() -> [String: Bool]?
+
     /**================================= **/
     /** TODO: Bring the `UIImage` functions back, removed to be able to remove
     * the `UIKit` dependency for testing
@@ -115,6 +124,9 @@ public protocol Variables {
     /// If the value isn't a `JSONObject`, then returns `nil`. Values in the map that are not `JSONObject`s
     /// are omitted from the final map.
     func getVariablesMap(_ key: String) -> [String: Variables]?
+
+    func asVariablesMap() -> [String:Variables]?
+
 }
 
 public extension Variables {
@@ -307,6 +319,22 @@ extension VariablesWithBundle {
 /// A thin wrapper around the JSON produced by the `get_feature_variables_json(feature_id)` call, useful
 /// for configuring a feature, but without needing the developer to know about experiment specifics.
 internal class JSONVariables: VariablesWithBundle {
+    func asStringMap() -> [String : String]? {
+        return nil
+    }
+    
+    func asIntMap() -> [String : Int]? {
+        return nil
+    }
+    
+    func asBoolMap() -> [String : Bool]? {
+        return nil
+    }
+    
+    func asVariablesMap() -> [String: Variables]? {
+        return nil
+    }
+    
     private let json: [String: Any]
     internal let resourceBundles: [Bundle]
 
@@ -397,6 +425,22 @@ internal class JSONVariables: VariablesWithBundle {
 
 // Another implementation of `Variables` may just return nil for everything.
 class NilVariables: Variables {
+    func asStringMap() -> [String : String]? {
+        return nil
+    }
+    
+    func asIntMap() -> [String : Int]? {
+        return nil
+    }
+    
+    func asBoolMap() -> [String : Bool]? {
+        return nil
+    }
+    
+    func asVariablesMap() -> [String : Variables]? {
+        return nil
+    }
+    
     static let instance: Variables = NilVariables()
 
     func getString(_: String) -> String? {

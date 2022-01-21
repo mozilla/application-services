@@ -46,7 +46,7 @@ pub(crate) mod code_type {
         };
 
         let getter = if let Some(merger) = ct.value_merger(oracle, default) {
-            format!("{getter}?.{merger}", getter = getter, merger = merger)
+            format!("{getter}.{merger}", getter = getter, merger = merger)
         } else {
             getter
         };

@@ -62,6 +62,12 @@ pub mod test {
         join(sdk_ios_dir(), "FeatureInterface.swift")
     }
 
+
+    // The file with the swift implementation of FeatureVariables
+    fn collections_swift() -> String {
+        join(sdk_ios_dir(), "Collections+.swift")
+    }
+
     pub fn compile_manifest_swift(manifest_file: &Path, out_dir: &Path) -> Result<()> {
         let out_path = PathBuf::from(out_dir);
         let manifest_file = PathBuf::from(manifest_file);
@@ -85,6 +91,7 @@ pub mod test {
             .arg("-parse-as-library")
             .arg("-L")
             .arg(&out_path)
+            .arg(&collections_swift())
             .arg(&variables_swift())
             .arg(&features_swift())
             .arg(&runtime_dir())

@@ -143,37 +143,25 @@ impl CodeType for MapCodeType {
                 k_type.create_transform(oracle),
                 v_type.create_transform(oracle),
             ) {
-                // TODO: Figure out how to map both keys and values
-                (None, Some(v)) => {
-                    if v.starts_with('{') {
-                        format!("mapValues {v}", v = v)
-                    } else {
-                        format!("mapValues({v})", v = v)
-                    }
-                }
+                (Some(k), Some(v)) => format!("mapNotNull({k}, {v})", k = k, v = v),
+                (None, Some(v)) =>  format!("mapValues({{{v}}})", v = v),
                 // We could do something with keys, but it's only every strings and enums.
+                (Some(k), None) => format!("mapKeys({k})", k = k),
                 _ => return None,
             },
         )
     }
 
     fn value_merger(&self, oracle: &dyn CodeOracle, default: &dyn Display) -> Option<String> {
-        // TODO: Implement `mergeWith` in Collection+.swift?
-        // let v_type = oracle.find(&self.v_type);
-        // Some(match v_type.merge_transform(oracle) {
-        //     Some(transform) if transform.starts_with('{') => format!(
-        //         "mergeWith({default}) {transform}",
-        //         default = default,
-        //         transform = transform
-        //     ),
-        //     Some(transform) => format!(
-        //         "mergeWith({default}, {transform})",
-        //         default = default,
-        //         transform = transform
-        //     ),
-        //     None => format!("mergeWith({})", default),
-        // })
-        None
+        let v_type = oracle.find(&self.v_type);
+        Some(match v_type.merge_transform(oracle) {
+            Some(transform) => format!(
+                "mergeWith({default}, {transform})",
+                default = default,
+                transform = transform
+            ),
+            None => format!("mergeWith({})", default),
+        })
     }
 
     fn create_transform(&self, oracle: &dyn CodeOracle) -> Option<String> {
@@ -296,9 +284,9 @@ impl CodeType for ListCodeType {
     fn value_mapper(&self, oracle: &dyn CodeOracle) -> Option<String> {
         let transform = oracle.find(&self.inner).create_transform(oracle)?;
         Some(if transform.starts_with('{') {
-            format!("map {}", transform)
+            format!("compactMap {}", transform)
         } else {
-            format!("map({})", transform)
+            format!("compactMap({})", transform)
         })
     }
 
