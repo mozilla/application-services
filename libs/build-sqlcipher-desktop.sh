@@ -34,14 +34,16 @@ elif [[ -n "${CROSS_COMPILE_TARGET}" ]]; then
   echo "Cannot build SQLCipher for unrecognized target OS ${CROSS_COMPILE_TARGET}"
   exit 1
 elif [[ "$(uname -s)" == "Darwin" ]]; then
-  DIST_DIR=$(abspath "desktop/darwin/sqlcipher")
-  NSS_DIR=$(abspath "desktop/darwin/nss")
   TARGET_OS="macos"
   # We need to set this variable for switching libs based on different macos archs (M1 vs Intel)
   if [[ "$(uname -m)" == "arm64" ]]; then
     TARGET_ARCH="aarch64"
+    DIST_DIR=$(abspath "desktop/darwin-aarch64/sqlcipher")
+    NSS_DIR=$(abspath "desktop/darwin-aarch64/nss")
   else
     TARGET_ARCH="x86_64"
+    DIST_DIR=$(abspath "desktop/darwin-x86-64/sqlcipher")
+    NSS_DIR=$(abspath "desktop/darwin-x86-64/nss")
   fi
 elif [[ "$(uname -s)" == "Linux" ]]; then
   # This is a JNA weirdness: "x86-64" rather than "x86_64".
