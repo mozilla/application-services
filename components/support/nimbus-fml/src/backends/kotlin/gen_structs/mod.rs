@@ -20,24 +20,6 @@ mod object;
 mod primitives;
 mod structural;
 
-impl Config {
-    fn nimbus_package_name(&self) -> Option<String> {
-        self.nimbus_package.clone()
-    }
-
-    fn nimbus_object_name(&self) -> String {
-        self.nimbus_object_name
-            .clone()
-            .unwrap_or_else(|| "MyNimbus".into())
-    }
-
-    fn resource_package_name(&self) -> String {
-        self.resource_package
-            .clone()
-            .unwrap_or_else(|| panic!("The package with R.class needs to specified"))
-    }
-}
-
 #[derive(Template)]
 #[template(syntax = "kt", escape = "none", path = "FeatureManifestTemplate.kt")]
 pub struct FeatureManifestDeclaration<'a> {

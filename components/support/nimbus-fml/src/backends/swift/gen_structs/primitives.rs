@@ -51,6 +51,7 @@ impl CodeType for BooleanCodeType {
     fn literal(
         &self,
         _oracle: &dyn CodeOracle,
+        _ctx: &dyn Display,
         _renderer: &dyn LiteralRenderer,
         literal: &Literal,
     ) -> String {
@@ -110,6 +111,7 @@ impl CodeType for IntCodeType {
     fn literal(
         &self,
         _oracle: &dyn CodeOracle,
+        _ctx: &dyn Display,
         _renderer: &dyn LiteralRenderer,
         literal: &Literal,
     ) -> String {
@@ -165,6 +167,7 @@ impl CodeType for StringCodeType {
     fn literal(
         &self,
         _oracle: &dyn CodeOracle,
+        _ctx: &dyn Display,
         _renderer: &dyn LiteralRenderer,
         literal: &Literal,
     ) -> String {
@@ -200,6 +203,7 @@ mod unit_tests {
             _oracle: &dyn CodeOracle,
             _typ: &TypeIdentifier,
             _value: &Literal,
+            _ctx: &dyn Display,
         ) -> String {
             unreachable!()
         }
@@ -239,27 +243,30 @@ mod unit_tests {
     fn test_literal() {
         let oracle = &*oracle();
         let finder = &TestRenderer;
-
+        let ctx = String::from("ctx");
         let ct = bool_type();
-        assert_eq!("true".to_string(), ct.literal(oracle, finder, &json!(true)));
+        assert_eq!(
+            "true".to_string(),
+            ct.literal(oracle, &ctx, finder, &json!(true))
+        );
         assert_eq!(
             "false".to_string(),
-            ct.literal(oracle, finder, &json!(false))
+            ct.literal(oracle, &ctx, finder, &json!(false))
         );
 
         let ct = string_type();
         assert_eq!(
             r#""no""#.to_string(),
-            ct.literal(oracle, finder, &json!("no"))
+            ct.literal(oracle, &ctx, finder, &json!("no"))
         );
         assert_eq!(
             r#""yes""#.to_string(),
-            ct.literal(oracle, finder, &json!("yes"))
+            ct.literal(oracle, &ctx, finder, &json!("yes"))
         );
 
         let ct = int_type();
-        assert_eq!("1".to_string(), ct.literal(oracle, finder, &json!(1)));
-        assert_eq!("2".to_string(), ct.literal(oracle, finder, &json!(2)));
+        assert_eq!("1".to_string(), ct.literal(oracle, &ctx, finder, &json!(1)));
+        assert_eq!("2".to_string(), ct.literal(oracle, &ctx, finder, &json!(2)));
     }
 
     #[test]

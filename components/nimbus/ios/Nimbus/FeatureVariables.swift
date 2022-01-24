@@ -4,7 +4,7 @@
 
 import Foundation
 #if canImport(UIKit)
-import UIKit
+    import UIKit
 #endif
 
 /// `Variables` provides a type safe key-value style interface to configure application features
@@ -45,7 +45,6 @@ public protocol Variables {
     ///  - Returns: a `[String:String]` dictonary representing the whole variables object
     func asStringMap() -> [String: String]?
 
-
     /// Finds a integer typed value for this key. If none exists, `nil` is returned.
     ///
     /// N.B. the `key` and type `Int` should be listed in the experiment manifest.
@@ -64,7 +63,6 @@ public protocol Variables {
     ///  - Note: This function will omit any variables that could not be converted to Ints
     ///  - Returns: a `[String:Int]` dictonary representing the whole variables object
     func asIntMap() -> [String: Int]?
-
 
     /// Finds a boolean typed value for this key. If none exists, `nil` is returned.
     ///
@@ -85,21 +83,20 @@ public protocol Variables {
     ///  - Returns: a `[String:Bool]` dictonary representing the whole variables object
     func asBoolMap() -> [String: Bool]?
 
+    /// Uses `getString(key: String)` to find the name of a drawable resource. If no value for `key`
+    /// exists, or no resource named with that value exists, then `nil` is returned.
+    ///
+    /// N.B. the `key` and type `Image` should be listed in the experiment manifest. The
+    /// names of the drawable resources should also be listed.
+    func getImage(_ key: String) -> UIImage?
 
-     /// Uses `getString(key: String)` to find the name of a drawable resource. If no value for `key`
-     /// exists, or no resource named with that value exists, then `nil` is returned.
-     ///
-     /// N.B. the `key` and type `Image` should be listed in the experiment manifest. The
-     /// names of the drawable resources should also be listed.
-     func getImage(_ key: String) -> UIImage?
+    /// Uses `getStringList(key: String)` to get a list of strings, then coerces the
+    /// strings in the list into Images. Values that cannot be coerced are omitted.
+    func getImageList(_ key: String) -> [UIImage]?
 
-     /// Uses `getStringList(key: String)` to get a list of strings, then coerces the
-     /// strings in the list into Images. Values that cannot be coerced are omitted.
-     func getImageList(_ key: String) -> [UIImage]?
-
-     /// Uses `getStringList(key: String)` to get a list of strings, then coerces the
-     /// values into Images. Values that cannot be coerced are omitted.
-     func getImageMap(_ key: String) -> [String: UIImage]?
+    /// Uses `getStringList(key: String)` to get a list of strings, then coerces the
+    /// values into Images. Values that cannot be coerced are omitted.
+    func getImageMap(_ key: String) -> [String: UIImage]?
 
     /// Uses `getString(key: String)` to find the name of a string resource. If a value exists, and
     /// a string resource exists with that name, then returns the string from the resource. If no
@@ -137,7 +134,7 @@ public protocol Variables {
     /// will return `nil` if it cannot be converted
     ///  - Note: This function will omit any variables that could not be converted to a class representing variables
     ///  - Returns: a `[String:Variables]` dictonary representing the whole variables object
-    func asVariablesMap() -> [String:Variables]?
+    func asVariablesMap() -> [String: Variables]?
 }
 
 public extension Variables {
@@ -249,17 +246,17 @@ protocol VariablesWithBundle: Variables {
 }
 
 extension VariablesWithBundle {
-     func getImage(_ key: String) -> UIImage? {
-         return lookup(key, transform: asImage)
-     }
+    func getImage(_ key: String) -> UIImage? {
+        return lookup(key, transform: asImage)
+    }
 
-     func getImageList(_ key: String) -> [UIImage]? {
-         return lookupList(key, transform: asImage)
-     }
+    func getImageList(_ key: String) -> [UIImage]? {
+        return lookupList(key, transform: asImage)
+    }
 
-     func getImageMap(_ key: String) -> [String: UIImage]? {
-         return lookupMap(key, transform: asImage)
-     }
+    func getImageMap(_ key: String) -> [String: UIImage]? {
+        return lookupMap(key, transform: asImage)
+    }
 
     func getText(_ key: String) -> String? {
         return lookup(key, transform: asLocalizedString)
@@ -288,17 +285,17 @@ extension VariablesWithBundle {
         return getStringMap(key)?.compactMapValues(transform)
     }
 
-     /// Search through the resource bundles looking for an image of the given name.
-     ///
-     /// If no image is found in any of the `resourceBundles`, then the `nil` is returned.
-     func asImage(name: String) -> UIImage? {
-         for bundle in resourceBundles {
-             if let image = UIImage(named: name, in: bundle, compatibleWith: nil) {
-                 return image
-             }
-         }
-         return nil
-     }
+    /// Search through the resource bundles looking for an image of the given name.
+    ///
+    /// If no image is found in any of the `resourceBundles`, then the `nil` is returned.
+    func asImage(name: String) -> UIImage? {
+        for bundle in resourceBundles {
+            if let image = UIImage(named: name, in: bundle, compatibleWith: nil) {
+                return image
+            }
+        }
+        return nil
+    }
 
     /// Search through the resource bundles looking for localized strings with the given name.
     /// If the `name` contains exactly one slash, it is split up and the first part of the string is used
@@ -330,27 +327,27 @@ extension VariablesWithBundle {
 /// A thin wrapper around the JSON produced by the `get_feature_variables_json(feature_id)` call, useful
 /// for configuring a feature, but without needing the developer to know about experiment specifics.
 internal class JSONVariables: VariablesWithBundle {
-    func asStringMap() -> [String : String]? {
+    func asStringMap() -> [String: String]? {
         return nil
     }
-    
-    func asIntMap() -> [String : Int]? {
+
+    func asIntMap() -> [String: Int]? {
         return nil
     }
-    
-    func asBoolMap() -> [String : Bool]? {
+
+    func asBoolMap() -> [String: Bool]? {
         return nil
     }
-    
+
     func asVariablesMap() -> [String: Variables]? {
-        return json.compactMapValues() {(value) in
+        return json.compactMapValues { value in
             if let jsonMap = value as? [String: Any] {
                 return JSONVariables(with: jsonMap)
             }
             return nil
         }
     }
-    
+
     private let json: [String: Any]
     internal let resourceBundles: [Bundle]
 
@@ -441,22 +438,22 @@ internal class JSONVariables: VariablesWithBundle {
 
 // Another implementation of `Variables` may just return nil for everything.
 public class NilVariables: Variables {
-    public func asStringMap() -> [String : String]? {
+    public func asStringMap() -> [String: String]? {
         return nil
     }
-    
-    public func asIntMap() -> [String : Int]? {
+
+    public func asIntMap() -> [String: Int]? {
         return nil
     }
-    
-    public func asBoolMap() -> [String : Bool]? {
+
+    public func asBoolMap() -> [String: Bool]? {
         return nil
     }
-    
-    public func asVariablesMap() -> [String : Variables]? {
+
+    public func asVariablesMap() -> [String: Variables]? {
         return nil
     }
-    
+
     public static let instance: Variables = NilVariables()
 
     public func getString(_: String) -> String? {
@@ -496,15 +493,15 @@ public class NilVariables: Variables {
     }
 
     public func getImage(_: String) -> UIImage? {
-         return nil
-     }
+        return nil
+    }
 
     public func getImageList(_: String) -> [UIImage]? {
-     return nil
+        return nil
     }
 
     public func getImageMap(_: String) -> [String: UIImage]? {
-     return nil
+        return nil
     }
 
     public func getText(_: String) -> String? {

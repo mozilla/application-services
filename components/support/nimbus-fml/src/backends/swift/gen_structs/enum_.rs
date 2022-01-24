@@ -71,6 +71,7 @@ impl CodeType for EnumCodeType {
     fn literal(
         &self,
         oracle: &dyn CodeOracle,
+        _ctx: &dyn Display,
         _renderer: &dyn LiteralRenderer,
         literal: &Literal,
     ) -> String {
@@ -79,7 +80,11 @@ impl CodeType for EnumCodeType {
             _ => unreachable!(),
         };
 
-        format!("{}.{}", self.type_label(oracle),common::enum_variant_name(variant))
+        format!(
+            "{}.{}",
+            self.type_label(oracle),
+            common::enum_variant_name(variant)
+        )
     }
 }
 #[derive(Template)]
@@ -112,7 +117,6 @@ mod unit_tests {
 
     use super::*;
     use crate::backends::TypeIdentifier;
-
     struct TestCodeOracle;
     impl CodeOracle for TestCodeOracle {
         fn find(&self, _type_: &TypeIdentifier) -> Box<dyn CodeType> {
@@ -127,6 +131,7 @@ mod unit_tests {
             _oracle: &dyn CodeOracle,
             _typ: &TypeIdentifier,
             _value: &Literal,
+            _ctx: &dyn Display,
         ) -> String {
             unreachable!()
         }
@@ -152,17 +157,18 @@ mod unit_tests {
         let ct = code_type("AEnum");
         let oracle = &*oracle();
         let finder = &TestRenderer;
+        let ctx = String::from("ctx");
         assert_eq!(
             "AEnum.foo".to_string(),
-            ct.literal(oracle, finder, &json!("foo"))
+            ct.literal(oracle, &ctx, finder, &json!("foo"))
         );
         assert_eq!(
             "AEnum.barBaz".to_string(),
-            ct.literal(oracle, finder, &json!("barBaz"))
+            ct.literal(oracle, &ctx, finder, &json!("barBaz"))
         );
         assert_eq!(
             "AEnum.aBC".to_string(),
-            ct.literal(oracle, finder, &json!("a-b-c"))
+            ct.literal(oracle, &ctx, finder, &json!("a-b-c"))
         );
     }
 

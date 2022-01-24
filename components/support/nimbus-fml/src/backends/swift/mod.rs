@@ -37,7 +37,7 @@ pub mod test {
 
     use tempdir::TempDir;
 
-    use crate::{error::FMLError};
+    use crate::error::FMLError;
 
     // The root of the Android kotlin package structure
     fn sdk_ios_dir() -> String {
@@ -70,6 +70,12 @@ pub mod test {
     // The file with the swift implementation of FeatureVariables
     fn feature_holder() -> String {
         join(sdk_ios_dir(), "FeatureHolder.swift")
+    }
+
+    fn detect_swiftc() -> Result<bool> {
+        let output = Command::new("which").arg("swiftc").output()?;
+
+        Ok(output.status.success())
     }
 
     pub fn compile_manifest_swift(manifest_file: &Path, out_dir: &Path) -> Result<()> {
@@ -148,6 +154,10 @@ pub mod test {
     }
 
     pub fn run_script_with_generated_code(manifest_file: &Path, script: &Path) -> Result<()> {
+        if !detect_swiftc()? {
+            eprintln!("SDK-446 Install swift or add it the PATH to run tests");
+            return Ok(());
+        }
         let path = PathBuf::from(&manifest_file);
         let prefix = path
             .file_stem()

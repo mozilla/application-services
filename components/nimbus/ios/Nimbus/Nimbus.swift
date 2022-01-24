@@ -135,7 +135,7 @@ extension Nimbus: FeaturesInterface {
             }
         }
     }
-    
+
     public func getExperimentBranch(experimentId: String) -> String? {
         return catchAll {
             try nimbusClient.getExperimentBranch(id: experimentId)

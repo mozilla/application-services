@@ -1,13 +1,12 @@
 /* This Source Code Form is subject to the terms of the Mozilla
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
- import Foundation
+import Foundation
 
 /// A small protocol to get the feature variables out of the Nimbus SDK.
 ///
 /// This is intended to be standalone to allow for testing the Nimbus FML.
 public protocol FeaturesInterface: AnyObject {
-    
     /// Get the currently enrolled branch for the given experiment
     ///
     /// - Parameter featureId The string feature id that applies to the feature under experiment.
@@ -28,7 +27,6 @@ public protocol FeaturesInterface: AnyObject {
     ///
     /// - Returns a `Variables` object used to configure the feature.
     func getVariables(featureId: String, sendExposureEvent: Bool) -> Variables
-
 
     /// Records the `exposure` event in telemetry.
     ///
