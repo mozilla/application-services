@@ -18,3 +18,32 @@ Use the template below to make assigning a version number during the release cut
   - Description of the change with a link to the pull request ([#0000](https://github.com/mozilla/application-services/pull/0000))
 
 -->
+
+## Nimbus FML
+
+### What's New
+  - The Nimbus FML can now generate swift code for the feature manifest. ([#4780](https://github.com/mozilla/application-services/pull/4780))
+    - It can be invoked using:
+    ```sh
+    $ nimbus-fml <FEATURE_MANIFEST_YAML> -o <OUTPUT_NAME> ios features
+    ```
+    - You can check the support flags and options by running:
+    ```sh
+    $ nimbus-fml ios --help
+    ```
+    - The generated code exposes:
+      -  a high level nimbus object, whose name is configurable using the `--classname` option. By default the object is `MyNimbus`.
+      - All the enums and objects defined in the manifest as idiomatic Swift code.
+    - Usage:
+      - To access a feature's value:
+        ```swift
+        // MyNimbus.features.<featureNameCamelCase>.value(), for example:
+
+        let feature = MyNimbus.features.homepage.value();
+        ```
+      - To access a field in the feature:
+        ```swift
+        // feature.<propertyNameCamelCase>, for example:
+
+        assert(feature.sectionsEnabled[HomeScreenSection.topSites] == true)
+        ```

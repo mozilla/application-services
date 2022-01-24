@@ -27,7 +27,7 @@ public extension FeaturesInterface {
     ///
     /// - Returns a `Variables` object used to configure the feature.
     func getVariables(featureId: String) -> Variables {
-        return getVariables(featureId: featureId, sendExposureEvent: true) ?? NilVariables()
+        return getVariables(featureId: featureId, sendExposureEvent: true)
     }
 }
 
