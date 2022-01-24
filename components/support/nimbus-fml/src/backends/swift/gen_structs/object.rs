@@ -41,24 +41,17 @@ impl CodeType for ObjectCodeType {
         default: &dyn Display,
     ) -> String {
         let getter = self.value_getter(oracle, vars, prop);
-        println!("GETTTTTERRR IS: {}", getter);
         let getter = if let Some(mapper) = self.value_mapper(oracle) {
             format!("{mapper}({getter})", getter = getter, mapper = mapper)
         } else {
             getter
         };
 
-        let getter = if let Some(merger) = self.value_merger(oracle, default) {
+        if let Some(merger) = self.value_merger(oracle, default) {
             format!("{getter}.{merger}", getter = getter, merger = merger)
         } else {
             getter
-        };
-
-        format!(
-            "{getter} ?? {fallback}",
-            getter = getter,
-            fallback = default
-        )
+        }
     }
 
     fn value_getter(
@@ -252,7 +245,7 @@ mod unit_tests {
         let oracle = &*oracle();
 
         assert_eq!(
-            r#"v?.getVariables("the-property")"#.to_string(),
+            r#"v.getVariables("the-property")"#.to_string(),
             ct.value_getter(oracle, &"v", &"the-property")
         );
     }
@@ -261,7 +254,7 @@ mod unit_tests {
     fn test_getter_with_fallback() {
         let ct = code_type("AnObject");
         assert_eq!(
-            r#"vars?.getVariables("the-property")?.let(AnObject::create)?._mergeWith(default) ?: default"#
+            r#"AnObject.create(vars.getVariables("the-property"))._mergeWith(default) ?? default"#
             .to_string(),
             getter_with_fallback(&*ct, &"vars", &"the-property", &"default"));
     }

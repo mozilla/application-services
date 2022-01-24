@@ -268,19 +268,19 @@ mod unit_tests {
 
         let ct = bool_type();
         assert_eq!(
-            r#"v?.getBool("the-property")"#.to_string(),
+            r#"v.getBool("the-property")"#.to_string(),
             ct.value_getter(oracle, &"v", &"the-property")
         );
 
         let ct = string_type();
         assert_eq!(
-            r#"v?.getString("the-property")"#.to_string(),
+            r#"v.getString("the-property")"#.to_string(),
             ct.value_getter(oracle, &"v", &"the-property")
         );
 
         let ct = int_type();
         assert_eq!(
-            r#"v?.getInt("the-property")"#.to_string(),
+            r#"v.getInt("the-property")"#.to_string(),
             ct.value_getter(oracle, &"v", &"the-property")
         );
     }

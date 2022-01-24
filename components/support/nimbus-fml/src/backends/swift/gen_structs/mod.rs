@@ -9,7 +9,6 @@ use crate::{
     intermediate_representation::{FeatureDef, FeatureManifest},
     Config,
 };
-//TODO:
 mod common;
 mod enum_;
 mod feature;

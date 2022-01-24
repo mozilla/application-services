@@ -114,7 +114,7 @@ impl CodeType for MapCodeType {
     /// method signatures and property declarations.
     fn type_label(&self, oracle: &dyn CodeOracle) -> String {
         format!(
-            "[{k}:{v}]",
+            "[{k}: {v}]",
             k = oracle.find(&self.k_type).type_label(oracle),
             v = oracle.find(&self.v_type).type_label(oracle),
         )
@@ -144,7 +144,7 @@ impl CodeType for MapCodeType {
                 v_type.create_transform(oracle),
             ) {
                 (Some(k), Some(v)) => format!("mapNotNull({k}, {v})", k = k, v = v),
-                (None, Some(v)) => format!("mapValuesNotNull({{{v}}})", v = v),
+                (None, Some(v)) => format!("mapValuesNotNull({v})", v = v),
                 // We could do something with keys, but it's only every strings and enums.
                 (Some(k), None) => format!("mapKeysNotNull({k})", k = k),
                 _ => return None,
@@ -402,10 +402,10 @@ mod unit_tests {
     fn test_list_type_label() {
         let oracle = &*oracle();
         let ct = list_type("String");
-        assert_eq!("List<String>".to_string(), ct.type_label(oracle));
+        assert_eq!("[String]".to_string(), ct.type_label(oracle));
 
         let ct = list_type("AnEnum");
-        assert_eq!("List<AnEnum>".to_string(), ct.type_label(oracle));
+        assert_eq!("[AnEnum]".to_string(), ct.type_label(oracle));
     }
 
     #[test]
@@ -415,13 +415,13 @@ mod unit_tests {
 
         let ct = list_type("String");
         assert_eq!(
-            r#"listOf("x", "y", "z")"#.to_string(),
+            r#"["x", "y", "z"]"#.to_string(),
             ct.literal(oracle, finder, &json!(["x", "y", "z"]))
         );
 
         let ct = list_type("AnEnum");
         assert_eq!(
-            r#"listOf(AnEnum.X, AnEnum.Y, AnEnum.Z)"#.to_string(),
+            r#"[AnEnum.x, AnEnum.y, AnEnum.z]"#.to_string(),
             ct.literal(oracle, finder, &json!(["x", "y", "z"]))
         );
     }
@@ -432,19 +432,19 @@ mod unit_tests {
 
         let ct = list_type("AnEnum");
         assert_eq!(
-            r#"v?.getStringList("the-property")"#.to_string(),
+            r#"v.getStringList("the-property")"#.to_string(),
             ct.value_getter(oracle, &"v", &"the-property")
         );
 
         let ct = list_type("AnObject");
         assert_eq!(
-            r#"v?.getVariablesList("the-property")"#.to_string(),
+            r#"v.getVariablesList("the-property")"#.to_string(),
             ct.value_getter(oracle, &"v", &"the-property")
         );
 
         let ct = list_type("String");
         assert_eq!(
-            r#"v?.getStringList("the-property")"#.to_string(),
+            r#"v.getStringList("the-property")"#.to_string(),
             ct.value_getter(oracle, &"v", &"the-property")
         );
     }
@@ -453,20 +453,20 @@ mod unit_tests {
     fn test_list_getter_with_fallback() {
         let ct = list_type("String");
         assert_eq!(
-            r#"vars?.getStringList("the-property") ?: default"#.to_string(),
+            r#"vars.getStringList("the-property") ?? default"#.to_string(),
             getter_with_fallback(&*ct, &"vars", &"the-property", &"default")
         );
 
         let ct = list_type("AnEnum");
         assert_eq!(
-            r#"vars?.getStringList("the-property")?.mapNotNull(AnEnum::enumValue) ?: default"#
+            r#"vars.getStringList("the-property")?.compactMap(AnEnum.enumValue) ?? default"#
                 .to_string(),
             getter_with_fallback(&*ct, &"vars", &"the-property", &"default")
         );
 
         let ct = list_type("AnObject");
         assert_eq!(
-            r#"vars?.getVariablesList("the-property")?.mapNotNull(AnObject::create) ?: default"#
+            r#"vars.getVariablesList("the-property")?.compactMap(AnObject.create) ?? default"#
                 .to_string(),
             getter_with_fallback(&*ct, &"vars", &"the-property", &"default")
         );
@@ -476,10 +476,10 @@ mod unit_tests {
     fn test_map_type_label() {
         let oracle = &*oracle();
         let ct = map_type("String", "String");
-        assert_eq!("Map<String, String>".to_string(), ct.type_label(oracle));
+        assert_eq!("[String: String]".to_string(), ct.type_label(oracle));
 
         let ct = map_type("String", "AnEnum");
-        assert_eq!("Map<String, AnEnum>".to_string(), ct.type_label(oracle));
+        assert_eq!("[String: AnEnum]".to_string(), ct.type_label(oracle));
     }
 
     #[test]
@@ -489,13 +489,13 @@ mod unit_tests {
 
         let ct = map_type("String", "AnEnum");
         assert_eq!(
-            r#"mapOf("a" to AnEnum.A, "b" to AnEnum.B)"#.to_string(),
+            r#"["a": AnEnum.a, "b": AnEnum.b]"#.to_string(),
             ct.literal(oracle, finder, &json!({"a": "a", "b": "b"}))
         );
 
         let ct = map_type("AnEnum", "String");
         assert_eq!(
-            r#"mapOf(AnEnum.A to "a", AnEnum.B to "b")"#.to_string(),
+            r#"[AnEnum.a: "a", AnEnum.b: "b"]"#.to_string(),
             ct.literal(oracle, finder, &json!({"a": "a", "b": "b"}))
         );
     }
@@ -506,19 +506,19 @@ mod unit_tests {
 
         let ct = map_type("String", "AnEnum");
         assert_eq!(
-            r#"v?.getStringMap("the-property")"#.to_string(),
+            r#"v.getStringMap("the-property")"#.to_string(),
             ct.value_getter(oracle, &"v", &"the-property")
         );
 
         let ct = map_type("AnEnum", "String");
         assert_eq!(
-            r#"v?.getStringMap("the-property")"#.to_string(),
+            r#"v.getStringMap("the-property")"#.to_string(),
             ct.value_getter(oracle, &"v", &"the-property")
         );
 
         let ct = map_type("AnEnum", "Another");
         assert_eq!(
-            r#"v?.getStringMap("the-property")"#.to_string(),
+            r#"v.getStringMap("the-property")"#.to_string(),
             ct.value_getter(oracle, &"v", &"the-property")
         );
     }
@@ -529,27 +529,27 @@ mod unit_tests {
 
         let ct = map_type("String", "AnEnum");
         assert_eq!(
-             r#"v?.getStringMap("the-property")?.mapValues(AnEnum::enumValue)?.mergeWith(def) ?: def"#.to_string(),
+             r#"v.getStringMap("the-property")?.mapValuesNotNull(AnEnum.enumValue).mergeWith(def) ?? def"#.to_string(),
              ct.property_getter(oracle, &"v", &"the-property", &"def")
          );
 
         let ct = map_type("AnEnum", "String");
         assert_eq!(
-            r#"v?.getStringMap("the-property")?.mapKeys(AnEnum::enumValue)?.mergeWith(def) ?: def"#
+            r#"v.getStringMap("the-property")?.mapKeysNotNull(AnEnum.enumValue).mergeWith(def) ?? def"#
                 .to_string(),
             ct.property_getter(oracle, &"v", &"the-property", &"def")
         );
 
         let ct = map_type("AnEnum", "Another");
         assert_eq!(
-             r#"v?.getStringMap("the-property")?.mapEntries(AnEnum::enumValue, Another::enumValue)?.mergeWith(def) ?: def"#
+             r#"v.getStringMap("the-property")?.mapNotNull(AnEnum.enumValue, Another.enumValue).mergeWith(def) ?? def"#
                  .to_string(),
              ct.property_getter(oracle, &"v", &"the-property", &"def")
          );
 
         let ct = map_type("AnEnum", "AnObject");
         assert_eq!(
-             r#"v?.getVariablesMap("the-property")?.mapEntries(AnEnum::enumValue, AnObject::create)?.mergeWith(def, AnObject::mergeWith) ?: def"#.to_string(),
+             r#"v.getVariablesMap("the-property")?.mapNotNull(AnEnum.enumValue, AnObject.create).mergeWith(def, AnObject.mergeWith) ?? def"#.to_string(),
              ct.property_getter(oracle, &"v", &"the-property", &"def"));
     }
 }

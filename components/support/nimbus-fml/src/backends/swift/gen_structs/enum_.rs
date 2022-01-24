@@ -70,7 +70,7 @@ impl CodeType for EnumCodeType {
     /// N.B. `Literal` is aliased from `serde_json::Value`.
     fn literal(
         &self,
-        _oracle: &dyn CodeOracle,
+        oracle: &dyn CodeOracle,
         _renderer: &dyn LiteralRenderer,
         literal: &Literal,
     ) -> String {
@@ -79,7 +79,7 @@ impl CodeType for EnumCodeType {
             _ => unreachable!(),
         };
 
-        format!(".{}", common::enum_variant_name(variant))
+        format!("{}.{}", self.type_label(oracle),common::enum_variant_name(variant))
     }
 }
 #[derive(Template)]
@@ -153,15 +153,15 @@ mod unit_tests {
         let oracle = &*oracle();
         let finder = &TestRenderer;
         assert_eq!(
-            ".foo".to_string(),
+            "AEnum.foo".to_string(),
             ct.literal(oracle, finder, &json!("foo"))
         );
         assert_eq!(
-            ".barBaz".to_string(),
+            "AEnum.barBaz".to_string(),
             ct.literal(oracle, finder, &json!("barBaz"))
         );
         assert_eq!(
-            ".aBC".to_string(),
+            "AEnum.aBC".to_string(),
             ct.literal(oracle, finder, &json!("a-b-c"))
         );
     }
@@ -172,7 +172,7 @@ mod unit_tests {
         let oracle = &*oracle();
 
         assert_eq!(
-            r#"v?.getString("the-property")"#.to_string(),
+            r#"v.getString("the-property")"#.to_string(),
             ct.value_getter(oracle, &"v", &"the-property")
         );
     }
@@ -183,7 +183,7 @@ mod unit_tests {
         let oracle = &*oracle();
 
         assert_eq!(
-            r#"v?.getString("the-property")?.let(AEnum.enumValue) ?? def"#.to_string(),
+            r#"v.getString("the-property")?.map(AEnum.enumValue) ?? def"#.to_string(),
             ct.property_getter(oracle, &"v", &"the-property", &"def")
         );
     }
