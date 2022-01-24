@@ -33,17 +33,17 @@ pub fn property(
     Ok(ct.property_getter(oracle, vars, prop, default))
 }
 
-/// Get the idiomatic Kotlin rendering of a class name (for enums, records, errors, etc).
+/// Get the idiomatic Swift rendering of a class name (for enums, records, errors, etc).
 pub fn class_name(nm: &dyn fmt::Display) -> Result<String, askama::Error> {
     Ok(common::class_name(nm))
 }
 
-/// Get the idiomatic Kotlin rendering of a variable name.
+/// Get the idiomatic Swift rendering of a variable name.
 pub fn var_name(nm: &dyn fmt::Display) -> Result<String, askama::Error> {
     Ok(common::var_name(nm))
 }
 
-/// Get the idiomatic Kotlin rendering of an individual enum variant.
+/// Get the idiomatic Swift rendering of an individual enum variant.
 pub fn enum_variant_name(nm: &dyn fmt::Display) -> Result<String, askama::Error> {
     Ok(common::enum_variant_name(nm))
 }
@@ -51,7 +51,7 @@ pub fn enum_variant_name(nm: &dyn fmt::Display) -> Result<String, askama::Error>
 pub fn comment(txt: &dyn fmt::Display, spaces: &str) -> Result<String, askama::Error> {
     use textwrap::{fill, Options};
 
-    let indent1 = "///".to_string();
+    let indent1 = "/// ".to_string();
     let indent2 = format!("{} /// ", spaces);
 
     let options = Options::new(80)

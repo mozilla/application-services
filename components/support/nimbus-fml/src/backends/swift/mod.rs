@@ -15,10 +15,10 @@ pub(crate) fn generate_struct(
     config: Config,
     cmd: GenerateStructCmd,
 ) -> Result<()> {
-    let kt = gen_structs::FeatureManifestDeclaration::new(config, &manifest);
+    let fm = gen_structs::FeatureManifestDeclaration::new(config, &manifest);
 
     let path = cmd.output;
-    let contents = kt.render()?;
+    let contents = fm.render()?;
 
     std::fs::write(path, contents)?;
 

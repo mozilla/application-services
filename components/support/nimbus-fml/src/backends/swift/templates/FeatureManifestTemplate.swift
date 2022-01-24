@@ -9,15 +9,14 @@ import {{ imported_module }}
 {%- endfor %}
 
 {% let nimbus_object = self.config.nimbus_object_name() -%}
-/**
- * An object for safely accessing feature configuration from Nimbus.
- *
- * This is generated.
- */
+///
+/// An object for safely accessing feature configuration from Nimbus.
+///
+/// This is generated.
 public struct {{ nimbus_object }}Struct {
-    /**
-     * This should be populated at app launch.
-     */
+    ///
+    /// This should be populated at app launch.
+    ///
     public var api: FeaturesInterface? = nil
 
     public let features = Features()
