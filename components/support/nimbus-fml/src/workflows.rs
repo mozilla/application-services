@@ -291,6 +291,17 @@ mod test {
         Ok(())
     }
 
+    #[test]
+    fn test_with_full_firefox_ios() -> Result<()> {
+        generate_and_assert(
+            "test/firefox_ios_release.swift",
+            "fixtures/fe/ios.yaml",
+            "release",
+            false,
+        )?;
+        Ok(())
+    }
+
     fn validate_against_experimenter_schema<P: AsRef<Path>>(
         schema_path: P,
         generated_json: &serde_json::Value,

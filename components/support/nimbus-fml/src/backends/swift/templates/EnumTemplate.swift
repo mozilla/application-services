@@ -8,7 +8,10 @@ public enum {{ class_name }}: String {
     case {{ variant.name()|enum_variant_name }} = {{variant.name()|quoted}}
     {% endfor %}
 
-    public static func enumValue(_ s: String) -> {{class_name}}? {
-        {{class_name}}(rawValue: s)
+    public static func enumValue(_ s: String?) -> {{class_name}}? {
+        if let s = s {
+            return {{class_name}}(rawValue: s)
+        }
+        return nil
     }
 }

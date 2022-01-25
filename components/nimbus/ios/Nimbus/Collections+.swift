@@ -4,7 +4,7 @@
 
 import Foundation
 
-extension Dictionary {
+public extension Dictionary {
     func mapKeysNotNull<K1>(_ transform: (Key) -> K1?) -> [K1: Value] {
         let transformed: [(K1, Value)] = compactMap { k, v in
             transform(k).flatMap { ($0, v) }
@@ -12,7 +12,7 @@ extension Dictionary {
         return [K1: Value](uniqueKeysWithValues: transformed)
     }
 
-    func mapValuesNotNull<V1>(_ transform: (Value) -> V1?) -> [Key: V1] {
+    internal func mapValuesNotNull<V1>(_ transform: (Value) -> V1?) -> [Key: V1] {
         return compactMapValues(transform)
     }
 
