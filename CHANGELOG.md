@@ -1,3 +1,9 @@
+# v90.0.1 (_2022-01-24_)
+
+[Full Changelog](https://github.com/mozilla/application-services/compare/v90.0.0...v90.0.1)
+
+
+
 # v90.0.0 (_2022-01-20_)
 
 [Full Changelog](https://github.com/mozilla/application-services/compare/v89.0.0...v90.0.0)
