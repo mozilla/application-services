@@ -419,8 +419,19 @@ impl PlacesConnection {
         })
     }
 
-    fn accept_result(&self, search_string: String, url: Url) -> Result<()> {
-        self.with_conn(|conn| matcher::accept_result(conn, &search_string, &url))
+    fn accept_result(&self, search_string: String, url: String) -> Result<()> {
+        self.with_conn(|conn| {
+            match Url::parse(&url) {
+                Ok(url) => {
+                    matcher::accept_result(conn, &search_string, &url)?;
+                }
+                Err(_) => {
+                    log::warn!("Ignoring invalid URL in places_accept_result");
+                    return Ok(());
+                }
+            };
+            Ok(())
+        })
     }
 
     fn match_url(&self, query: String) -> Result<Option<Url>> {
@@ -442,13 +453,20 @@ impl PlacesConnection {
         })
     }
 
-    fn bookmarks_get_all_with_url(&self, url: Url) -> Result<Vec<BookmarkItem>> {
+    fn bookmarks_get_all_with_url(&self, url: String) -> Result<Vec<BookmarkItem>> {
         self.with_conn(|conn| {
             // XXX - We should return the exact type - ie, BookmarkData rather than BookmarkItem.
-            Ok(bookmarks::fetch::fetch_bookmarks_by_url(conn, &url)?
-                .into_iter()
-                .map(|b| BookmarkItem::Bookmark { b })
-                .collect())
+            match Url::parse(&url) {
+                Ok(url) => Ok(bookmarks::fetch::fetch_bookmarks_by_url(conn, &url)?
+                    .into_iter()
+                    .map(|b| BookmarkItem::Bookmark { b })
+                    .collect::<Vec<BookmarkItem>>()),
+                Err(e) => {
+                    // There are no bookmarks with the URL if it's invalid.
+                    log::warn!("Invalid URL passed to bookmarks_get_all_with_url, {}", e);
+                    Ok(Vec::<BookmarkItem>::new())
+                }
+            }
         })
     }
 
@@ -559,4 +577,30 @@ uniffi_macros::include_scaffolding!("places");
 // Exists just to convince uniffi to generate `liftSequence*` helpers!
 pub struct Dummy {
     md: Option<Vec<HistoryMetadata>>,
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::test::new_mem_connection;
+
+    #[test]
+    fn test_accept_result_with_invalid_url() {
+        let api = new_mem_connection();
+        let conn = PlacesConnection {
+            db: Mutex::new(api),
+        };
+        let invalid_url = "http://1234.56.78.90".to_string();
+        assert!(PlacesConnection::accept_result(&conn, "ample".to_string(), invalid_url).is_ok());
+    }
+
+    #[test]
+    fn test_bookmarks_get_all_with_url_with_invalid_url() {
+        let api = new_mem_connection();
+        let conn = PlacesConnection {
+            db: Mutex::new(api),
+        };
+        let invalid_url = "http://1234.56.78.90".to_string();
+        assert!(PlacesConnection::bookmarks_get_all_with_url(&conn, invalid_url).is_ok());
+    }
 }

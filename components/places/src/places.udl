@@ -79,7 +79,7 @@ interface PlacesConnection {
     sequence<SearchResult> query_autocomplete(string search, i32 limit);
 
     [Throws=PlacesError]
-    void accept_result(string search_string, Url url);
+    void accept_result(string search_string, string url);
 
     [Throws=PlacesError]
     Url? match_url(string query);
@@ -157,7 +157,7 @@ interface PlacesConnection {
 
     // XXX - should return BookmarkData
     [Throws=PlacesError]
-    sequence<BookmarkItem> bookmarks_get_all_with_url(Url url);
+    sequence<BookmarkItem> bookmarks_get_all_with_url(string url);
 
     // XXX - should return BookmarkData
     [Throws=PlacesError]
