@@ -2,6 +2,9 @@
 
 [Full Changelog](https://github.com/mozilla/application-services/compare/v90.0.0...v90.0.1)
 
+## Places
+  - Fixed an issue with previously consumed errors for invalid URLs were propagating to consumers and causing a crash
+    - Changed `bookmarks_get_all_with_url` and `accept_result` to accept a string instead of url
 
 
 # v90.0.0 (_2022-01-20_)
