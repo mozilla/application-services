@@ -5,14 +5,17 @@
 // This is the "umbrella header" for our combined Rust code library.
 // It needs to import all of the individual headers.
 
+#import "RustLogFFI.h"
+#import "RustViaductFFI.h"
+#import "autofillFFI.h"
 #import "crashtestFFI.h"
-#import "nimbusFFI.h"
 #import "fxa_clientFFI.h"
 #import "loginsFFI.h"
-#import "autofillFFI.h"
+#import "nimbusFFI.h"
 #import "pushFFI.h"
 #import "tabsFFI.h"
-#import "RustViaductFFI.h"
-#import "RustLogFFI.h"
 // This is the uniffi-ed header
 #import "placesFFI.h"
+// This is the ffi header and will be deleted after uniffi
+#import "RustPlacesAPI.h"
+#import "glean.h"
