@@ -25,6 +25,8 @@
 //    OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 //    SOFTWARE.
 
+// swiftlint:disable all
+
 import Foundation
 
 private let SecMatchLimit: String! = kSecMatchLimit as String

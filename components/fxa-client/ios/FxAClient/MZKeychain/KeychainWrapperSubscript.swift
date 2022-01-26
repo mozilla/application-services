@@ -6,6 +6,8 @@
 //  Copyright © 2020 Jason Rendel. All rights reserved.
 //
 
+// swiftlint:disable all
+
 import Foundation
 
 #if canImport(CoreGraphics)

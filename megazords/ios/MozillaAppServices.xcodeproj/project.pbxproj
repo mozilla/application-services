@@ -7,13 +7,13 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
-		1B0BF31627A0D68D00348DF7 /* KeychainWrapperSubscript.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1B0BF31327A0D68C00348DF7 /* KeychainWrapperSubscript.swift */; };
-		1B0BF31727A0D68D00348DF7 /* KeychainItemAccessibility.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1B0BF31427A0D68D00348DF7 /* KeychainItemAccessibility.swift */; };
-		1B0BF31827A0D68D00348DF7 /* KeychainWrapper.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1B0BF31527A0D68D00348DF7 /* KeychainWrapper.swift */; };
 		1B5371D926FADCA500CC3AC7 /* Metrics.swift in Sources */ = {isa = PBXBuildFile; fileRef = BF1A87D625064B4C00FED88E /* Metrics.swift */; };
 		1B9B8F00267439F800C8A918 /* places.udl in Sources */ = {isa = PBXBuildFile; fileRef = 1B9B8EFE267439CC00C8A918 /* places.udl */; };
 		1B9B8F0A26743B8800C8A918 /* placesFFI.h in Headers */ = {isa = PBXBuildFile; fileRef = 1B9B8F0826743B8800C8A918 /* placesFFI.h */; settings = {ATTRIBUTES = (Public, ); }; };
 		1B9B8F0B26743C8700C8A918 /* HistoryMetadata.swift in Sources */ = {isa = PBXBuildFile; fileRef = D9FA8C532644A170008344BF /* HistoryMetadata.swift */; };
+		1BD3484A27A0DF8900AA1422 /* KeychainWrapper.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1BD3484727A0DF8800AA1422 /* KeychainWrapper.swift */; };
+		1BD3484B27A0DF8900AA1422 /* KeychainItemAccessibility.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1BD3484827A0DF8800AA1422 /* KeychainItemAccessibility.swift */; };
+		1BD3484C27A0DF8900AA1422 /* KeychainWrapperSubscript.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1BD3484927A0DF8900AA1422 /* KeychainWrapperSubscript.swift */; };
 		1BE78F46265322DB008B9A45 /* loginsFFI.h in Headers */ = {isa = PBXBuildFile; fileRef = 1BE78F44265322DB008B9A45 /* loginsFFI.h */; settings = {ATTRIBUTES = (Public, ); }; };
 		1BE78F4926532325008B9A45 /* logins.udl in Sources */ = {isa = PBXBuildFile; fileRef = 1BE78F4826532325008B9A45 /* logins.udl */; };
 		394A807825EE951D00FAF26F /* nimbusFFI.h in Headers */ = {isa = PBXBuildFile; fileRef = 394A807625EE951D00FAF26F /* nimbusFFI.h */; settings = {ATTRIBUTES = (Public, ); }; };
@@ -156,12 +156,12 @@
 /* End PBXCopyFilesBuildPhase section */
 
 /* Begin PBXFileReference section */
-		1B0BF31327A0D68C00348DF7 /* KeychainWrapperSubscript.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; name = KeychainWrapperSubscript.swift; path = ../../MZKeychain/KeychainWrapperSubscript.swift; sourceTree = "<group>"; };
-		1B0BF31427A0D68D00348DF7 /* KeychainItemAccessibility.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; name = KeychainItemAccessibility.swift; path = ../../MZKeychain/KeychainItemAccessibility.swift; sourceTree = "<group>"; };
-		1B0BF31527A0D68D00348DF7 /* KeychainWrapper.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; name = KeychainWrapper.swift; path = ../../MZKeychain/KeychainWrapper.swift; sourceTree = "<group>"; };
 		1B9B8EFE267439CC00C8A918 /* places.udl */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; name = places.udl; path = ../../src/places.udl; sourceTree = "<group>"; };
 		1B9B8F0726743B8800C8A918 /* places.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; name = places.swift; path = ../../Generated/places.swift; sourceTree = "<group>"; };
 		1B9B8F0826743B8800C8A918 /* placesFFI.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = placesFFI.h; path = ../../Generated/placesFFI.h; sourceTree = "<group>"; };
+		1BD3484727A0DF8800AA1422 /* KeychainWrapper.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = KeychainWrapper.swift; sourceTree = "<group>"; };
+		1BD3484827A0DF8800AA1422 /* KeychainItemAccessibility.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = KeychainItemAccessibility.swift; sourceTree = "<group>"; };
+		1BD3484927A0DF8900AA1422 /* KeychainWrapperSubscript.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = KeychainWrapperSubscript.swift; sourceTree = "<group>"; };
 		1BE78F44265322DB008B9A45 /* loginsFFI.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = loginsFFI.h; sourceTree = "<group>"; };
 		1BE78F4826532325008B9A45 /* logins.udl */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; name = logins.udl; path = ../../src/logins.udl; sourceTree = "<group>"; };
 		394A807325EE94C600FAF26F /* nimbus.udl */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; name = nimbus.udl; path = ../../src/nimbus.udl; sourceTree = "<group>"; };
@@ -284,9 +284,9 @@
 		1B0BF31227A0D67900348DF7 /* MZKeychain */ = {
 			isa = PBXGroup;
 			children = (
-				1B0BF31427A0D68D00348DF7 /* KeychainItemAccessibility.swift */,
-				1B0BF31527A0D68D00348DF7 /* KeychainWrapper.swift */,
-				1B0BF31327A0D68C00348DF7 /* KeychainWrapperSubscript.swift */,
+				1BD3484827A0DF8800AA1422 /* KeychainItemAccessibility.swift */,
+				1BD3484727A0DF8800AA1422 /* KeychainWrapper.swift */,
+				1BD3484927A0DF8900AA1422 /* KeychainWrapperSubscript.swift */,
 			);
 			path = MZKeychain;
 			sourceTree = "<group>";
@@ -790,6 +790,7 @@
 				BF1A87AE25064A8100FED88E /* BooleanMetric.swift in Sources */,
 				CEFB1EB022EF708B0001E20F /* ResultError.swift in Sources */,
 				CE1B09A5231865BC006226E1 /* FxAccountStorage.swift in Sources */,
+				1BD3484C27A0DF8900AA1422 /* KeychainWrapperSubscript.swift in Sources */,
 				BF1A87B525064A8100FED88E /* CounterMetric.swift in Sources */,
 				CE13F19B23F330DF005187A7 /* FxAccountMigration.swift in Sources */,
 				CE0A9AB424E4A2CC00914A16 /* fxa_client.udl in Sources */,
@@ -806,7 +807,6 @@
 				CED443CD23CD13E5007E5FA6 /* FxAccountDeviceConstellation.swift in Sources */,
 				BF1A87B825064A8100FED88E /* JweMetric.swift in Sources */,
 				BF1A87B225064A8100FED88E /* DatetimeMetric.swift in Sources */,
-				1B0BF31827A0D68D00348DF7 /* KeychainWrapper.swift in Sources */,
 				BF1A87AA25064A8100FED88E /* RecordedExperimentData.swift in Sources */,
 				BF1A879125064A4C00FED88E /* Glean.swift in Sources */,
 				BF1A87C925064AB300FED88E /* ErrorType.swift in Sources */,
@@ -829,6 +829,7 @@
 				CE2D04C5231822AC00AF5722 /* FxAccountManager.swift in Sources */,
 				CE1B09A3231863D7006226E1 /* KeychainWrapper+.swift in Sources */,
 				CE9FFA13242D4E7B0011029E /* Viaduct.swift in Sources */,
+				1BD3484A27A0DF8900AA1422 /* KeychainWrapper.swift in Sources */,
 				395992B825FBE40300E3185F /* NimbusApi.swift in Sources */,
 				BF1A87B925064A8100FED88E /* TimingDistributionMetric.swift in Sources */,
 				CD5ECD1B2716FB99009D10CC /* UrlMetric.swift in Sources */,
@@ -845,8 +846,7 @@
 				CE1445AF23D6315200B1E808 /* FxAccountLogging.swift in Sources */,
 				BF1A87B325064A8100FED88E /* StringListMetric.swift in Sources */,
 				CD85A45922361E890099BFA9 /* Bookmark.swift in Sources */,
-				1B0BF31627A0D68D00348DF7 /* KeychainWrapperSubscript.swift in Sources */,
-				1B0BF31727A0D68D00348DF7 /* KeychainItemAccessibility.swift in Sources */,
+				1BD3484B27A0DF8900AA1422 /* KeychainItemAccessibility.swift in Sources */,
 				BF1A879725064A7300FED88E /* GleanDebugTools.swift in Sources */,
 				BF1A87CE25064AC000FED88E /* Logger.swift in Sources */,
 			);
