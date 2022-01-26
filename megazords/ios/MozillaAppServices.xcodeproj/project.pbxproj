@@ -7,6 +7,9 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
+		1B0BF31627A0D68D00348DF7 /* KeychainWrapperSubscript.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1B0BF31327A0D68C00348DF7 /* KeychainWrapperSubscript.swift */; };
+		1B0BF31727A0D68D00348DF7 /* KeychainItemAccessibility.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1B0BF31427A0D68D00348DF7 /* KeychainItemAccessibility.swift */; };
+		1B0BF31827A0D68D00348DF7 /* KeychainWrapper.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1B0BF31527A0D68D00348DF7 /* KeychainWrapper.swift */; };
 		1B5371D926FADCA500CC3AC7 /* Metrics.swift in Sources */ = {isa = PBXBuildFile; fileRef = BF1A87D625064B4C00FED88E /* Metrics.swift */; };
 		1B9B8F00267439F800C8A918 /* places.udl in Sources */ = {isa = PBXBuildFile; fileRef = 1B9B8EFE267439CC00C8A918 /* places.udl */; };
 		1B9B8F0A26743B8800C8A918 /* placesFFI.h in Headers */ = {isa = PBXBuildFile; fileRef = 1B9B8F0826743B8800C8A918 /* placesFFI.h */; settings = {ATTRIBUTES = (Public, ); }; };
@@ -87,7 +90,6 @@
 		CE3A2F38225BDE5300EA569C /* PlacesTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = CE3A2F37225BDE5300EA569C /* PlacesTests.swift */; };
 		CE58B2F8242D54340089F091 /* RustViaductFFI.h in Headers */ = {isa = PBXBuildFile; fileRef = CE58B2F7242D54340089F091 /* RustViaductFFI.h */; settings = {ATTRIBUTES = (Public, ); }; };
 		CE90D1BB23D7570A00FD9A5F /* FxAccountManagerTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = CE34DB3C23D0C9640027AD63 /* FxAccountManagerTests.swift */; };
-		CE96459923D7A77500B662F8 /* SwiftKeychainWrapper.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = CE96459823D7A77500B662F8 /* SwiftKeychainWrapper.framework */; };
 		CE96459C23D7A7D500B662F8 /* SwiftKeychainWrapper.framework in CopyFiles */ = {isa = PBXBuildFile; fileRef = CE96459823D7A77500B662F8 /* SwiftKeychainWrapper.framework */; settings = {ATTRIBUTES = (CodeSignOnCopy, RemoveHeadersOnCopy, ); }; };
 		CE9FFA13242D4E7B0011029E /* Viaduct.swift in Sources */ = {isa = PBXBuildFile; fileRef = CE9FFA12242D4E7B0011029E /* Viaduct.swift */; };
 		CEB1A06823D8A42D005BD4DD /* FxAccountMocks.swift in Sources */ = {isa = PBXBuildFile; fileRef = CEB1A06723D8A42D005BD4DD /* FxAccountMocks.swift */; };
@@ -95,7 +97,6 @@
 		CEDDBC8E23DB4CD600CFF5AA /* PersistedFirefoxAccount.swift in Sources */ = {isa = PBXBuildFile; fileRef = CEDDBC8D23DB4CD600CFF5AA /* PersistedFirefoxAccount.swift */; };
 		CEFB1EB022EF708B0001E20F /* ResultError.swift in Sources */ = {isa = PBXBuildFile; fileRef = CEFB1EAF22EF708B0001E20F /* ResultError.swift */; };
 		D05434A1225680D900FDE4EF /* MozillaAppServices.h in Headers */ = {isa = PBXBuildFile; fileRef = C852EEF2220A3C6800A6E79A /* MozillaAppServices.h */; settings = {ATTRIBUTES = (Public, ); }; };
-		EB7DE84D2214D30B00E7CF17 /* SwiftProtobuf.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = EB7DE84C2214D30B00E7CF17 /* SwiftProtobuf.framework */; };
 		EB879D7F221234EB00753DC9 /* MozillaAppServices.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = CE9D202020914D0D00F1C8FA /* MozillaAppServices.framework */; };
 		EB879D8B22123FD900753DC9 /* LoginsTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = EB879D8A22123FD900753DC9 /* LoginsTests.swift */; };
 /* End PBXBuildFile section */
@@ -155,6 +156,9 @@
 /* End PBXCopyFilesBuildPhase section */
 
 /* Begin PBXFileReference section */
+		1B0BF31327A0D68C00348DF7 /* KeychainWrapperSubscript.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; name = KeychainWrapperSubscript.swift; path = ../../MZKeychain/KeychainWrapperSubscript.swift; sourceTree = "<group>"; };
+		1B0BF31427A0D68D00348DF7 /* KeychainItemAccessibility.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; name = KeychainItemAccessibility.swift; path = ../../MZKeychain/KeychainItemAccessibility.swift; sourceTree = "<group>"; };
+		1B0BF31527A0D68D00348DF7 /* KeychainWrapper.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; name = KeychainWrapper.swift; path = ../../MZKeychain/KeychainWrapper.swift; sourceTree = "<group>"; };
 		1B9B8EFE267439CC00C8A918 /* places.udl */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; name = places.udl; path = ../../src/places.udl; sourceTree = "<group>"; };
 		1B9B8F0726743B8800C8A918 /* places.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; name = places.swift; path = ../../Generated/places.swift; sourceTree = "<group>"; };
 		1B9B8F0826743B8800C8A918 /* placesFFI.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = placesFFI.h; path = ../../Generated/placesFFI.h; sourceTree = "<group>"; };
@@ -260,9 +264,7 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				CE96459923D7A77500B662F8 /* SwiftKeychainWrapper.framework in Frameworks */,
 				C852EEEF220A2E9400A6E79A /* libmegazord_ios.a in Frameworks */,
-				EB7DE84D2214D30B00E7CF17 /* SwiftProtobuf.framework in Frameworks */,
 				C852EE9E220A283200A6E79A /* libsqlcipher.a in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
@@ -279,6 +281,16 @@
 /* End PBXFrameworksBuildPhase section */
 
 /* Begin PBXGroup section */
+		1B0BF31227A0D67900348DF7 /* MZKeychain */ = {
+			isa = PBXGroup;
+			children = (
+				1B0BF31427A0D68D00348DF7 /* KeychainItemAccessibility.swift */,
+				1B0BF31527A0D68D00348DF7 /* KeychainWrapper.swift */,
+				1B0BF31327A0D68C00348DF7 /* KeychainWrapperSubscript.swift */,
+			);
+			path = MZKeychain;
+			sourceTree = "<group>";
+		};
 		1B9B8F0626743B7500C8A918 /* Generated */ = {
 			isa = PBXGroup;
 			children = (
@@ -498,6 +510,7 @@
 		C852EEDA220A2A2B00A6E79A /* FxAClient */ = {
 			isa = PBXGroup;
 			children = (
+				1B0BF31227A0D67900348DF7 /* MZKeychain */,
 				99FAA19025E60D2C001E2231 /* Generated */,
 				CE0A9AB224E4A25C00914A16 /* fxa_client.udl */,
 				CE1B09A2231863D7006226E1 /* KeychainWrapper+.swift */,
@@ -793,6 +806,7 @@
 				CED443CD23CD13E5007E5FA6 /* FxAccountDeviceConstellation.swift in Sources */,
 				BF1A87B825064A8100FED88E /* JweMetric.swift in Sources */,
 				BF1A87B225064A8100FED88E /* DatetimeMetric.swift in Sources */,
+				1B0BF31827A0D68D00348DF7 /* KeychainWrapper.swift in Sources */,
 				BF1A87AA25064A8100FED88E /* RecordedExperimentData.swift in Sources */,
 				BF1A879125064A4C00FED88E /* Glean.swift in Sources */,
 				BF1A87C925064AB300FED88E /* ErrorType.swift in Sources */,
@@ -831,6 +845,8 @@
 				CE1445AF23D6315200B1E808 /* FxAccountLogging.swift in Sources */,
 				BF1A87B325064A8100FED88E /* StringListMetric.swift in Sources */,
 				CD85A45922361E890099BFA9 /* Bookmark.swift in Sources */,
+				1B0BF31627A0D68D00348DF7 /* KeychainWrapperSubscript.swift in Sources */,
+				1B0BF31727A0D68D00348DF7 /* KeychainItemAccessibility.swift in Sources */,
 				BF1A879725064A7300FED88E /* GleanDebugTools.swift in Sources */,
 				BF1A87CE25064AC000FED88E /* Logger.swift in Sources */,
 			);

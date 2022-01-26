@@ -10,12 +10,9 @@
 #import "autofillFFI.h"
 #import "crashtestFFI.h"
 #import "fxa_clientFFI.h"
+#import "glean.h"
 #import "loginsFFI.h"
 #import "nimbusFFI.h"
+#import "placesFFI.h"
 #import "pushFFI.h"
 #import "tabsFFI.h"
-// This is the uniffi-ed header
-#import "placesFFI.h"
-// This is the ffi header and will be deleted after uniffi
-#import "RustPlacesAPI.h"
-#import "glean.h"

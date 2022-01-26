@@ -130,8 +130,6 @@ cp "$THIS_DIR/MozillaRustComponents.h" "$COMMON/Headers"
 cp "$REPO_ROOT/components/rc_log/ios/RustLogFFI.h" "$COMMON/Headers"
 cp "$REPO_ROOT/components/viaduct/ios/RustViaductFFI.h" "$COMMON/Headers"
 cp "$REPO_ROOT/components/external/glean/glean-core/ffi/glean.h" "$COMMON/Headers"
-# This will go away after places becomes uniffi-ed
-cp "$REPO_ROOT/components/places/ios/Places/RustPlacesAPI.h" "$COMMON/Headers"
 # TODO: https://github.com/mozilla/uniffi-rs/issues/1060
 # it would be neat if there was a single UniFFI command that would spit out
 # all of the generated headers for all UniFFIed dependencies of a given crate.

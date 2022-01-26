@@ -9,19 +9,16 @@
 import Foundation
 
 #if canImport(CoreGraphics)
-import CoreGraphics
+    import CoreGraphics
 #endif
 
-public extension KeychainWrapper {
-        
+public extension MZKeychainWrapper {
     func remove(forKey key: Key) {
         removeObject(forKey: key.rawValue)
     }
-    
 }
 
-public extension KeychainWrapper {
-    
+public extension MZKeychainWrapper {
     subscript(key: Key) -> String? {
         get { return string(forKey: key) }
         set {
@@ -63,16 +60,16 @@ public extension KeychainWrapper {
     }
 
     #if canImport(CoreGraphics)
-    subscript(key: Key) -> CGFloat? {
-        get { return cgFloat(forKey: key) }
-        set {
-            guard let cgValue = newValue else { return }
-            let value = Float(cgValue)
-            set(value, forKey: key.rawValue)
+        subscript(key: Key) -> CGFloat? {
+            get { return cgFloat(forKey: key) }
+            set {
+                guard let cgValue = newValue else { return }
+                let value = Float(cgValue)
+                set(value, forKey: key.rawValue)
+            }
         }
-    }
     #endif
-    
+
     subscript(key: Key) -> Data? {
         get { return data(forKey: key) }
         set {
@@ -80,12 +77,9 @@ public extension KeychainWrapper {
             set(value, forKey: key.rawValue)
         }
     }
-
 }
 
-
-public extension KeychainWrapper {
-    
+public extension MZKeychainWrapper {
     func data(forKey key: Key) -> Data? {
         if let value = data(forKey: key.rawValue) {
             return value
@@ -97,7 +91,7 @@ public extension KeychainWrapper {
         if let value = bool(forKey: key.rawValue) {
             return value
         }
-        
+
         return nil
     }
 
@@ -105,7 +99,7 @@ public extension KeychainWrapper {
         if let value = integer(forKey: key.rawValue) {
             return value
         }
-        
+
         return nil
     }
 
@@ -113,25 +107,25 @@ public extension KeychainWrapper {
         if let value = float(forKey: key.rawValue) {
             return value
         }
-        
+
         return nil
     }
 
     #if canImport(CoreGraphics)
-    func cgFloat(forKey key: Key) -> CGFloat? {
-        if let value = float(forKey: key) {
-            return CGFloat(value)
+        func cgFloat(forKey key: Key) -> CGFloat? {
+            if let value = float(forKey: key) {
+                return CGFloat(value)
+            }
+
+            return nil
         }
-        
-        return nil
-    }
     #endif
 
     func double(forKey key: Key) -> Double? {
         if let value = double(forKey: key.rawValue) {
             return value
         }
-        
+
         return nil
     }
 
@@ -139,17 +133,13 @@ public extension KeychainWrapper {
         if let value = string(forKey: key.rawValue) {
             return value
         }
-        
+
         return nil
     }
-
 }
 
-
-public extension KeychainWrapper {
-    
+public extension MZKeychainWrapper {
     struct Key: Hashable, RawRepresentable, ExpressibleByStringLiteral {
-
         public var rawValue: String
 
         public init(rawValue: String) {
@@ -157,8 +147,7 @@ public extension KeychainWrapper {
         }
 
         public init(stringLiteral value: String) {
-            self.rawValue = value
+            rawValue = value
         }
     }
-    
 }
