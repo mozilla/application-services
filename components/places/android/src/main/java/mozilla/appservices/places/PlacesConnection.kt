@@ -334,23 +334,13 @@ class PlacesWriterConnection internal constructor(conn: UniffiPlacesConnection, 
         }
     }
 
-    override fun wipeLocal() {
-        this.conn.wipeLocalHistory()
-    }
 
     override fun runMaintenance() {
         this.conn.runMaintenance()
     }
 
-    override fun pruneDestructively() {
-        this.conn.pruneDestructively()
-    }
 
-    override fun deleteEverything() {
-        return writeQueryCounters.measure {
-            this.conn.deleteEverythingHistory()
-        }
-    }
+
 
     override fun deleteAllBookmarks() {
         return writeQueryCounters.measure {
@@ -802,13 +792,6 @@ interface WritableHistoryConnection : ReadableHistoryConnection {
      */
     fun noteObservation(data: VisitObservation)
 
-    /**
-     * Deletes all history visits, without recording tombstones.
-     *
-     * That is, these deletions will not be synced. Any changes which were
-     * pending upload on the next sync are discarded and will be lost.
-     */
-    fun wipeLocal()
 
     /**
      * Run periodic database maintenance. This might include, but is not limited
@@ -826,31 +809,6 @@ interface WritableHistoryConnection : ReadableHistoryConnection {
      */
     fun runMaintenance()
 
-    /**
-     * Aggressively prune history visits. These deletions are not intended
-     * to be synced, however due to the way history sync works, this can
-     * still cause data loss.
-     *
-     * As a result, this should only be called if a low disk space
-     * notification is received from the OS, and things like the network
-     * cache have already been cleared.
-     */
-    fun pruneDestructively()
-
-    /**
-     * Delete everything locally.
-     *
-     * This will not delete visits from remote devices, however it will
-     * prevent them from trickling in over time when future syncs occur.
-     *
-     * The difference between this and wipeLocal is that wipeLocal does
-     * not prevent the deleted visits from returning. For wipeLocal,
-     * the visits will return on the next full sync (which may be
-     * arbitrarially far in the future), wheras items which were
-     * deleted by deleteEverything (or potentially could have been)
-     * should not return.
-     */
-    fun deleteEverything()
 
     /**
      * Deletes all visits from the given URL. If the page has previously

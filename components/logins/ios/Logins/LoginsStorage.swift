@@ -44,11 +44,6 @@ open class LoginsStorage {
         }
     }
 
-    open func wipeLocal() throws {
-        try queue.sync {
-            try self.store.wipeLocal()
-        }
-    }
 
     /// Delete the record with the given ID. Returns false if no such record existed.
     open func delete(id: String) throws -> Bool {
