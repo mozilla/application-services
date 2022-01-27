@@ -6,9 +6,6 @@
 
 set -e
 
-yellow=`tput setaf 3`
-reset=`tput sgr0`
-
 if [[ ! -f "$(pwd)/libs/build-all.sh" ]]; then
   echo "ERROR: bootstrap-desktop.sh should be run from the root directory of the repo"
   exit 1
@@ -20,7 +17,7 @@ if [[ "$(uname -s)" == "Darwin" ]]; then
   if [[ "$(uname -m)" == "arm64" ]]; then
     APPSERVICES_PLATFORM_DIR="$(pwd)/libs/desktop/darwin-aarch64"
   else
-    APPSERVICES_PLATFORM_DIR="$(pwd)/libs/desktop/darwin-x86_64"
+    APPSERVICES_PLATFORM_DIR="$(pwd)/libs/desktop/darwin-x86-64"
   fi
 else
   APPSERVICES_PLATFORM_DIR="$(pwd)/libs/desktop/linux-x86-64"
@@ -41,8 +38,8 @@ fi
 # we need to tell them to update their env with the new arch-specific style
 if [[ "${NSS_DIR}" != *"desktop/darwin-"*  ]]; then
   echo ""
-  echo "${yellow}Your environment variables are outdated! Please use the updated values below"
-  echo "Please export or add to your shell initialization file (.zshenv, .bashrc etc.) the following:${reset}"
+  echo "!! Your environment variables are outdated! Please use the updated values below !!"
+  echo "Please export or add to your shell initialization file (.zshenv, .bashrc etc.) the following"
   echo ""
   echo "export SQLCIPHER_LIB_DIR=${APPSERVICES_PLATFORM_DIR}/sqlcipher/lib"
   echo "export SQLCIPHER_INCLUDE_DIR=${APPSERVICES_PLATFORM_DIR}/sqlcipher/include"
