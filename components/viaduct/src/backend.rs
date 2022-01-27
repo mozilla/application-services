@@ -47,6 +47,8 @@ pub fn validate_request(request: &crate::Request) -> Result<(), crate::Error> {
     if request.url.scheme() != "https"
         && request.url.host_str() != Some("localhost")
         && request.url.host_str() != Some("127.0.0.1")
+        && request.url.host_str() != Some("[::1]")
+        && request.url.host_str() != Some("[0:0:0:0:0:0:0:1]")
     {
         return Err(crate::Error::NonTlsUrl);
     }
@@ -93,5 +95,18 @@ mod tests {
             url::Url::parse("localhost:4242/").unwrap(),
         );
         assert!(validate_request(&localhost_request).is_err());
+
+        let localhost_request_shorthand_ipv6 = crate::Request::new(
+            crate::Method::Get,
+            url::Url::parse("http://[::1]").unwrap(),
+        );
+        assert!(validate_request(&localhost_request_shorthand_ipv6).is_ok());
+
+        let localhost_request_ipv6 = crate::Request::new(
+            crate::Method::Get,
+            url::Url::parse("http://[0:0:0:0:0:0:0:1]").unwrap(),
+        );
+        assert!(validate_request(&localhost_request_ipv6).is_ok());
+
     }
 }
