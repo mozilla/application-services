@@ -6,6 +6,9 @@
 
 set -e
 
+YELLOW=$"\033[1;33m"
+NC=$"\033[0m" # No Color
+
 if [[ ! -f "$(pwd)/libs/build-all.sh" ]]; then
   echo "ERROR: bootstrap-desktop.sh should be run from the root directory of the repo"
   exit 1
@@ -36,10 +39,10 @@ fi
 
 # If users previously have built NSS their env vars will still be pointing to darwin
 # we need to tell them to update their env with the new arch-specific style
-if [[ "${NSS_DIR}" != *"desktop/darwin-"*  ]]; then
+if [[ -z "${CI}" ]] && [[ "$(uname -s)" == "Darwin" ]] && [[ "${NSS_DIR}" != *"desktop/darwin-"*  ]]; then
   echo ""
-  echo "!! Your environment variables are outdated! Please use the updated values below !!"
-  echo "Please export or add to your shell initialization file (.zshenv, .bashrc etc.) the following"
+  echo -e "${YELLOW}!! Your environment variables are outdated! Please use the updated values below !!"
+  echo -e "Please export or add to your shell initialization file (.zshenv, .bashrc etc.) the following ${NC}"
   echo ""
   echo "export SQLCIPHER_LIB_DIR=${APPSERVICES_PLATFORM_DIR}/sqlcipher/lib"
   echo "export SQLCIPHER_INCLUDE_DIR=${APPSERVICES_PLATFORM_DIR}/sqlcipher/include"
