@@ -96,10 +96,8 @@ mod tests {
         );
         assert!(validate_request(&localhost_request).is_err());
 
-        let localhost_request_shorthand_ipv6 = crate::Request::new(
-            crate::Method::Get,
-            url::Url::parse("http://[::1]").unwrap(),
-        );
+        let localhost_request_shorthand_ipv6 =
+            crate::Request::new(crate::Method::Get, url::Url::parse("http://[::1]").unwrap());
         assert!(validate_request(&localhost_request_shorthand_ipv6).is_ok());
 
         let localhost_request_ipv6 = crate::Request::new(
@@ -107,6 +105,5 @@ mod tests {
             url::Url::parse("http://[0:0:0:0:0:0:0:1]").unwrap(),
         );
         assert!(validate_request(&localhost_request_ipv6).is_ok());
-
     }
 }
