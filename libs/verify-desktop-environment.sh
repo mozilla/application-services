@@ -20,7 +20,7 @@ if [[ "$(uname -s)" == "Darwin" ]]; then
   if [[ "$(uname -m)" == "arm64" ]]; then
     APPSERVICES_PLATFORM_DIR="$(pwd)/libs/desktop/darwin-aarch64"
   else
-    APPSERVICES_PLATFORM_DIR="$(pwd)/libs/desktop/darwin_x86-64"
+    APPSERVICES_PLATFORM_DIR="$(pwd)/libs/desktop/darwin-x86_64"
   fi
 else
   APPSERVICES_PLATFORM_DIR="$(pwd)/libs/desktop/linux-x86-64"

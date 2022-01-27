@@ -40,7 +40,7 @@ elif [[ "$(uname -s)" == "Darwin" ]]; then
     DIST_DIR=$(abspath "desktop/darwin-aarch64/nss")
     TARGET_ARCH="aarch64"
   else
-    DIST_DIR=$(abspath "desktop/darwin_x86-64/nss")
+    DIST_DIR=$(abspath "desktop/darwin-x86_64/nss")
     TARGET_ARCH="x86_64"
   fi
 elif [[ "$(uname -s)" == "Linux" ]]; then

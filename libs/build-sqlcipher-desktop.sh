@@ -42,8 +42,8 @@ elif [[ "$(uname -s)" == "Darwin" ]]; then
     NSS_DIR=$(abspath "desktop/darwin-aarch64/nss")
   else
     TARGET_ARCH="x86_64"
-    DIST_DIR=$(abspath "desktop/darwin_x86-64/sqlcipher")
-    NSS_DIR=$(abspath "desktop/darwin_x86-64/nss")
+    DIST_DIR=$(abspath "desktop/darwin-x86_64/sqlcipher")
+    NSS_DIR=$(abspath "desktop/darwin-x86_64/nss")
   fi
 elif [[ "$(uname -s)" == "Linux" ]]; then
   # This is a JNA weirdness: "x86-64" rather than "x86_64".
