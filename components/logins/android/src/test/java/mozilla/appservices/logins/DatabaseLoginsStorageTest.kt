@@ -197,6 +197,20 @@ class DatabaseLoginsStorageTest {
         finishAndClose(test)
     }
 
+    @Test
+    fun testWipeLocal() {
+        val test = getTestStore()
+        val logins = test.list()
+        assertEquals(2, logins.size)
+
+        test.wipeLocal()
+        assertEquals(0, test.list().size)
+
+        assertNull(test.get(logins[0].record.id))
+        assertNull(test.get(logins[1].record.id))
+
+        finishAndClose(test)
+    }
 
     @Test
     fun testMigrationMetrics() {

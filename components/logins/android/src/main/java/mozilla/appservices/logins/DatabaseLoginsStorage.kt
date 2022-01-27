@@ -37,6 +37,11 @@ class DatabaseLoginsStorage(dbPath: String) : AutoCloseable {
     }
 
     @Throws(LoginsStorageException::class)
+    fun wipeLocal() {
+        this.store.wipeLocal()
+    }
+
+    @Throws(LoginsStorageException::class)
     fun wipe() {
         this.store.wipe()
     }
@@ -199,6 +204,7 @@ class LoginsStoreCounterMetrics(
     inline fun <U> measure(callback: () -> U): U {
         return measureIgnoring({ false }, callback)
     }
+
     @Suppress("ComplexMethod", "TooGenericExceptionCaught")
     inline fun <U> measureIgnoring(
         shouldIgnore: (Exception) -> Boolean,
