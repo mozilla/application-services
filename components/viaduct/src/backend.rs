@@ -4,7 +4,6 @@
 
 use ffi::FfiBackend;
 use once_cell::sync::OnceCell;
-
 mod ffi;
 
 pub fn note_backend(which: &str) {
@@ -44,14 +43,12 @@ pub fn send(request: crate::Request) -> Result<crate::Response, crate::Error> {
 }
 
 pub fn validate_request(request: &crate::Request) -> Result<(), crate::Error> {
-    if request.url.scheme() != "https"
-        && request.url.host_str() != Some("localhost")
-        && request.url.host_str() != Some("127.0.0.1")
-        && request.url.host_str() != Some("[::1]")
-        && request.url.host_str() != Some("[0:0:0:0:0:0:0:1]")
-    {
-        return Err(crate::Error::NonTlsUrl);
-    }
+    match request.url.host() {
+        Some(url::Host::Domain(d)) => d != "localhost",
+        Some(url::Host::Ipv4(addr)) => !addr.is_loopback(),
+        Some(url::Host::Ipv6(addr)) => !addr.is_loopback(),
+        None => return Err(crate::Error::NonTlsUrl),
+    };
     Ok(())
 }
 
