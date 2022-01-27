@@ -43,12 +43,16 @@ pub fn send(request: crate::Request) -> Result<crate::Response, crate::Error> {
 }
 
 pub fn validate_request(request: &crate::Request) -> Result<(), crate::Error> {
-    match request.url.host() {
-        Some(url::Host::Domain(d)) => d != "localhost",
-        Some(url::Host::Ipv4(addr)) => !addr.is_loopback(),
-        Some(url::Host::Ipv6(addr)) => !addr.is_loopback(),
-        None => return Err(crate::Error::NonTlsUrl),
-    };
+    if request.url.scheme() != "https"
+        && match request.url.host() {
+            Some(url::Host::Domain(d)) => d != "localhost",
+            Some(url::Host::Ipv4(addr)) => !addr.is_loopback(),
+            Some(url::Host::Ipv6(addr)) => !addr.is_loopback(),
+            None => true,
+        }
+    {
+        return Err(crate::Error::NonTlsUrl);
+    }
     Ok(())
 }
 
