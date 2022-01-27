@@ -41,7 +41,6 @@ class DatabaseLoginsStorage(dbPath: String) : AutoCloseable {
         this.store.wipe()
     }
 
-
     @Throws(LoginsStorageException::class)
     fun delete(id: String): Boolean {
         return writeQueryCounters.measure {
@@ -200,7 +199,6 @@ class LoginsStoreCounterMetrics(
     inline fun <U> measure(callback: () -> U): U {
         return measureIgnoring({ false }, callback)
     }
-
     @Suppress("ComplexMethod", "TooGenericExceptionCaught")
     inline fun <U> measureIgnoring(
         shouldIgnore: (Exception) -> Boolean,

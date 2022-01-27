@@ -334,13 +334,9 @@ class PlacesWriterConnection internal constructor(conn: UniffiPlacesConnection, 
         }
     }
 
-
     override fun runMaintenance() {
         this.conn.runMaintenance()
     }
-
-
-
 
     override fun deleteAllBookmarks() {
         return writeQueryCounters.measure {
@@ -792,7 +788,6 @@ interface WritableHistoryConnection : ReadableHistoryConnection {
      */
     fun noteObservation(data: VisitObservation)
 
-
     /**
      * Run periodic database maintenance. This might include, but is not limited
      * to:
@@ -808,7 +803,6 @@ interface WritableHistoryConnection : ReadableHistoryConnection {
      * called.
      */
     fun runMaintenance()
-
 
     /**
      * Deletes all visits from the given URL. If the page has previously
