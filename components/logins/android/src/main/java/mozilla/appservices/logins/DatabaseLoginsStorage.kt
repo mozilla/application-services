@@ -37,13 +37,13 @@ class DatabaseLoginsStorage(dbPath: String) : AutoCloseable {
     }
 
     @Throws(LoginsStorageException::class)
-    fun wipeLocal() {
-        this.store.wipeLocal()
+    fun wipe() {
+        this.store.wipe()
     }
 
     @Throws(LoginsStorageException::class)
-    fun wipe() {
-        this.store.wipe()
+    fun wipeLocal() {
+        this.store.wipeLocal()
     }
 
     @Throws(LoginsStorageException::class)
