@@ -13,7 +13,7 @@ dictionary AppContext {
     string? os_version;
     string? android_sdk_version;
     string? debug_tag;
-    // Note that installation date is 
+    // Note that installation date is
     // the unix time, which is milliseconds since epoch
     i64? installation_date;
     string? home_directory;
@@ -153,7 +153,7 @@ interface NimbusClient {
 
     // A convenience method for apps to set the experiments from a local source
     // for either testing, or before the first fetch has finished.
-    // 
+    //
     // Experiments set with this method are not applied until `apply_pending_updates()` is called.
     [Throws=NimbusError]
     void set_experiments_locally(string experiments_json);
@@ -186,4 +186,15 @@ interface NimbusClient {
     //
     [Throws=NimbusError]
     sequence<EnrollmentChangeEvent> reset_telemetry_identifiers(AvailableRandomizationUnits new_randomization_units);
+
+    // This provides low level access to the targeting machinery for other uses by the application (e.g. messages)
+    NimbusTargetingHelper create_targeting_helper();
+};
+
+// [Custom]
+// typedef string JsonObject;
+
+interface NimbusTargetingHelper {
+    [Throws=NimbusError]
+    boolean eval_jexl(string expression /*, optional string? json_string = null */);
 };

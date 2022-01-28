@@ -45,7 +45,7 @@ use serde_derive::*;
 use serde_json::{Map, Value};
 use std::collections::HashSet;
 use std::path::{Path, PathBuf};
-use std::sync::Mutex;
+use std::sync::{Arc, Mutex};
 use updating::{read_and_remove_pending_experiments, write_pending_experiments};
 use uuid::Uuid;
 
@@ -119,7 +119,6 @@ impl NimbusClient {
         state.targeting_attributes = targeting_attributes;
     }
 
-    #[cfg(test)]
     pub fn get_targeting_attributes(&self) -> TargetingAttributes {
         let state = self.mutable_state.lock().unwrap();
         state.targeting_attributes.clone()
@@ -458,6 +457,13 @@ impl NimbusClient {
     fn db(&self) -> Result<&Database> {
         self.db.get_or_try_init(|| Database::new(&self.db_path))
     }
+
+    pub fn create_targeting_helper(&self) -> Arc<NimbusTargetingHelper> {
+        let helper = NimbusTargetingHelper {
+            targeting_context: self.get_targeting_attributes(),
+        };
+        Arc::new(helper)
+    }
 }
 
 #[derive(Debug, Clone)]
@@ -700,6 +706,43 @@ impl AvailableRandomizationUnits {
         }
     }
 }
+
+pub struct NimbusTargetingHelper {
+    targeting_context: TargetingAttributes,
+}
+
+impl NimbusTargetingHelper {
+    pub fn eval_jexl(&self, expr: String) -> Result<bool> {
+        // let json = match json_string {
+        //     Some(string) => {
+        //         let value: serde_json::Value = serde_json::from_str(&string)?;
+        //         value
+        //     },
+        //     _ => None,
+        // };
+        Ok(evaluator::jexl_eval(&expr, &self.targeting_context, None)?)
+    }
+}
+
+// type JsonObject = Map<String, Value>;
+
+// #[cfg(feature = "uniffi-bindings")]
+// impl UniffiCustomTypeConverter for JsonObject {
+//     type Builtin = String;
+
+//     fn into_custom(val: Self::Builtin) -> uniffi::Result<Self> {
+//         let json: Value = serde_json::from_str(&val)?;
+
+//         match json.as_object() {
+//             Some(obj) => Ok(obj.clone()),
+//             _ => Err(NimbusError::InternalError("Unexpected JSON-non-object in the bagging area")),
+//         }
+//     }
+
+//     fn from_custom(obj: Self) -> Self::Builtin {
+//         obj.into()
+//     }
+// }
 
 #[cfg(feature = "uniffi-bindings")]
 include!(concat!(env!("OUT_DIR"), "/nimbus.uniffi.rs"));
