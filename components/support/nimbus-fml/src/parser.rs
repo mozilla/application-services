@@ -611,8 +611,14 @@ mod unit_tests {
         assert!(
             player_mapping.default
                 == json!({
-                    "child": {},
-                    "adult": {}
+                    "child": {
+                        "label": "Play game!",
+                        "color": "green"
+                    },
+                    "adult": {
+                        "label": "Play game!",
+                        "color": "blue",
+                    }
                 })
         );
 

@@ -1,7 +1,6 @@
 /* This Source Code Form is subject to the terms of the Mozilla Public
- * License, v. 2.0. If a copy of the MPL was not distributed with this
- * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
-
+* License, v. 2.0. If a copy of the MPL was not distributed with this
+* file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 use askama::Template;
 use std::collections::HashSet;
 
@@ -10,8 +9,6 @@ use crate::{
     intermediate_representation::{FeatureDef, FeatureManifest},
     Config,
 };
-
-mod bundled;
 mod common;
 mod enum_;
 mod feature;
@@ -19,15 +16,19 @@ mod filters;
 mod object;
 mod primitives;
 mod structural;
-
 #[derive(Template)]
-#[template(syntax = "kt", escape = "none", path = "FeatureManifestTemplate.kt")]
+#[template(
+    syntax = "swift",
+    escape = "none",
+    path = "FeatureManifestTemplate.swift"
+)]
 pub struct FeatureManifestDeclaration<'a> {
     #[allow(dead_code)]
     config: Config,
     fm: &'a FeatureManifest,
     oracle: ConcreteCodeOracle,
 }
+
 impl<'a> FeatureManifestDeclaration<'a> {
     pub fn new(config: Config, fm: &'a FeatureManifest) -> Self {
         Self {
@@ -104,9 +105,6 @@ impl ConcreteCodeOracle {
             TypeIdentifier::String => Box::new(primitives::StringCodeType),
             TypeIdentifier::Int => Box::new(primitives::IntCodeType),
 
-            TypeIdentifier::BundleText(_) => Box::new(bundled::TextCodeType),
-            TypeIdentifier::BundleImage(_) => Box::new(bundled::ImageCodeType),
-
             TypeIdentifier::Enum(id) => Box::new(enum_::EnumCodeType::new(id)),
             TypeIdentifier::Object(id) => Box::new(object::ObjectCodeType::new(id)),
 
@@ -119,6 +117,7 @@ impl ConcreteCodeOracle {
             TypeIdentifier::EnumMap(ref k_type, ref v_type) => {
                 Box::new(structural::MapCodeType::new(k_type, v_type))
             }
+            _ => unimplemented!(),
         }
     }
 }

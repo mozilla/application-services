@@ -21,7 +21,7 @@ pub(crate) fn generate_struct(config: Config, cmd: GenerateStructCmd) -> Result<
             std::fs::write(cmd.output, contents)?;
         }
         TargetLanguage::Kotlin => backends::kotlin::generate_struct(ir, config, cmd)?,
-        _ => unimplemented!(),
+        TargetLanguage::Swift => backends::swift::generate_struct(ir, config, cmd)?,
     };
     Ok(())
 }
@@ -72,7 +72,7 @@ mod test {
     use tempdir::TempDir;
 
     use super::*;
-    use crate::backends::kotlin;
+    use crate::backends::{kotlin, swift};
     use crate::util::{generated_src_dir, join, pkg_dir};
 
     const MANIFEST_PATHS: &[&str] = &[
@@ -127,7 +127,7 @@ mod test {
 
         fs::create_dir_all(generated_src_dir())?;
 
-        let manifest_kt = format!(
+        let manifest_out = format!(
             "{}_{}.{}",
             join(generated_src_dir(), file),
             channel,
@@ -135,25 +135,29 @@ mod test {
         );
         let cmd = GenerateStructCmd {
             manifest: manifest_fml.into(),
-            output: manifest_kt.clone().into(),
+            output: manifest_out.clone().into(),
             load_from_ir: is_ir,
             language,
             channel: channel.into(),
         };
         generate_struct(config, cmd)?;
-        run_script_with_generated_code(language, manifest_kt, &test_script)?;
+        run_script_with_generated_code(language, manifest_out, &test_script)?;
         Ok(())
     }
 
     fn run_script_with_generated_code(
         language: TargetLanguage,
-        manifest_kt: String,
+        manifest_out: String,
         test_script: &str,
     ) -> Result<()> {
         match language {
             TargetLanguage::Kotlin => {
-                kotlin::test::run_script_with_generated_code(manifest_kt, test_script)?
+                kotlin::test::run_script_with_generated_code(manifest_out, test_script)?
             }
+            TargetLanguage::Swift => swift::test::run_script_with_generated_code(
+                manifest_out.as_ref(),
+                test_script.as_ref(),
+            )?,
             _ => unimplemented!(),
         }
         Ok(())
@@ -231,6 +235,69 @@ mod test {
             "fixtures/ir/app_menu.json",
             "release",
             true,
+        )?;
+        Ok(())
+    }
+
+    #[test]
+    fn test_with_app_menu_swift() -> Result<()> {
+        generate_and_assert(
+            "test/app_menu.swift",
+            "fixtures/ir/app_menu.json",
+            "release",
+            true,
+        )?;
+        Ok(())
+    }
+
+    #[test]
+    fn test_with_objects_swift() -> Result<()> {
+        generate_and_assert(
+            "test/with_objects.swift",
+            "fixtures/ir/with_objects.json",
+            "release",
+            true,
+        )?;
+        Ok(())
+    }
+
+    // The following test fails because the swift generated
+    // code does not support bundled text and images yet
+    // so it's ignored until that is implemented
+    #[test]
+    #[ignore]
+    fn test_with_full_fenix_nightly_swift() -> Result<()> {
+        generate_and_assert(
+            "test/fenix_nightly.swift",
+            "fixtures/fe/fenix.yaml",
+            "nightly",
+            false,
+        )?;
+        Ok(())
+    }
+
+    // The following test fails because the swift generated
+    // code does not support bundled text and images yet
+    // so it's ignored until that is implemented
+    #[test]
+    #[ignore]
+    fn test_with_full_fenix_release_swift() -> Result<()> {
+        generate_and_assert(
+            "test/fenix_release.swift",
+            "fixtures/fe/fenix.yaml",
+            "release",
+            false,
+        )?;
+        Ok(())
+    }
+
+    #[test]
+    fn test_with_full_firefox_ios() -> Result<()> {
+        generate_and_assert(
+            "test/firefox_ios_release.swift",
+            "fixtures/fe/ios.yaml",
+            "release",
+            false,
         )?;
         Ok(())
     }

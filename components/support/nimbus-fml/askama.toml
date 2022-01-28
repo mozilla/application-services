@@ -1,6 +1,6 @@
 [general]
 # Directories to search for templates, relative to the crate root.
-dirs = [ "src/backends/kotlin/templates", "src/bindings/swift/templates" ]
+dirs = [ "src/backends/kotlin/templates", "src/backends/swift/templates" ]
 
 [[syntax]]
 name = "kt"

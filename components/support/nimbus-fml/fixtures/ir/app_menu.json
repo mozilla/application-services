@@ -97,6 +97,25 @@
           ]
         },
         {
+          "name": "all-menu-items",
+          "doc": "All the menu items",
+          "type": {
+            "List": {
+              "Object": "MenuItem"
+            }
+          },
+          "default": [
+            {
+              "label": "Start Game",
+              "deeplink": "deeplink://start"
+            },
+            {
+              "label":"Resume Game",
+              "deeplink": "deeplink://start?continue=true"
+            }
+          ]
+        },
+        {
           "name": "items",
           "doc": "The menu items",
           "type": {
