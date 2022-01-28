@@ -37,9 +37,15 @@ Use the template below to make assigning a version number during the release cut
     - Usage:
       - To access a feature's value:
         ```swift
+        // MyNimbus is the class that holds all the features supported by Nimbus
+        // MyNimbus has an singleton instance, you can access it using the `shared` field:
+
+        let nimbus = MyNimbus.shared
+
+        // Then you can access the features using:
         // MyNimbus.features.<featureNameCamelCase>.value(), for example:
 
-        let feature = MyNimbus.features.homepage.value();
+        let feature = nimbus.features.homepage.value()
         ```
       - To access a field in the feature:
         ```swift

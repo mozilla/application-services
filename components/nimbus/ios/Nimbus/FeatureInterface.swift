@@ -7,13 +7,6 @@ import Foundation
 ///
 /// This is intended to be standalone to allow for testing the Nimbus FML.
 public protocol FeaturesInterface: AnyObject {
-    /// Get the currently enrolled branch for the given experiment
-    ///
-    /// - Parameter featureId The string feature id that applies to the feature under experiment.
-    /// - Returns A String representing the branch-id or "slug"; or `nil` if not enrolled in this experiment.
-    ///
-    func getExperimentBranch(experimentId: String) -> String?
-
     /// Get the variables needed to configure the feature given by `featureId`.
     ///
     /// - Parameters:

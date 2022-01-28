@@ -15,7 +15,17 @@ import Foundation
 /// `Nimbus` into their app should use the methods in `NimbusStartup`.
 ///
 public protocol NimbusApi: FeaturesInterface, NimbusStartup,
-    NimbusUserConfiguration {}
+    NimbusUserConfiguration, NimbusBranchInterface {}
+
+public protocol NimbusBranchInterface {
+    /// Get the currently enrolled branch for the given experiment
+    ///
+    /// - Parameter featureId The string feature id that applies to the feature under experiment.
+    /// - Returns A String representing the branch-id or "slug"; or `nil` if not enrolled in this experiment.
+    ///
+    /// - Note: Consumers of this API should switch to using the Feature Variables API
+    func getExperimentBranch(experimentId: String) -> String?
+}
 
 public extension FeaturesInterface {
     /// Get the variables needed to configure the feature given by `featureId`.

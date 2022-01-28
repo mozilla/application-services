@@ -43,8 +43,4 @@ public class MockNimbus: FeaturesInterface {
     public func isExposed(featureId: String) -> Bool {
         getExposureCount(featureId: featureId) > 0
     }
-
-    public func getExperimentBranch(experimentId: String) -> String? {
-        return nil
-    }
 }

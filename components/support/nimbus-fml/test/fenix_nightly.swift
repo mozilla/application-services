@@ -1,9 +1,13 @@
-// Test the default map with an enum to Boolean maping based
-// on the nighlty defaults
+/* This Source Code Form is subject to the terms of the Mozilla Public
+* License, v. 2.0. If a copy of the MPL was not distributed with this
+* file, You can obtain one at http://mozilla.org/MPL/2.0/. */
+
 import FeatureManifest
 import Foundation
 
-let feature = MyNimbus.features.homescreen.value()
+let nimbus = MyNimbus.shared;
+
+let feature = nimbus.features.homescreen.value()
 assert(feature.sectionsEnabled[HomeScreenSection.topSites] == true)
 assert(feature.sectionsEnabled[HomeScreenSection.jumpBackIn] == true)
 assert(feature.sectionsEnabled[HomeScreenSection.recentlySaved] == true)
@@ -26,8 +30,8 @@ let api = MockNimbus(("homescreen", """
     "enabled": true
 }
 """))
-MyNimbus.api = api
-let feature1 = MyNimbus.features.homescreen.value()
+shared.api = api
+let feature1 = nimbus.features.homescreen.value()
 assert(feature1.sectionsEnabled[HomeScreenSection.topSites] == true)
 assert(feature1.sectionsEnabled[HomeScreenSection.jumpBackIn] == true)
 assert(feature1.sectionsEnabled[HomeScreenSection.recentlySaved] == true)
@@ -35,19 +39,19 @@ assert(feature1.sectionsEnabled[HomeScreenSection.recentExplorations] == true)
 assert(feature1.sectionsEnabled[HomeScreenSection.pocket] == false)
 
 // Record the exposure and test it.
-MyNimbus.features.homescreen.recordExposure()
+nimbus.features.homescreen.recordExposure()
 assert(api.isExposed(featureId: "homescreen"))
 
-let validationFeature = MyNimbus.features.nimbusValidation.value()
+let validationFeature = nimbus.features.nimbusValidation.value()
 assert(validationFeature.settingsTitle == "hello")
 assert(validationFeature.settingsPunctuation == "")
 assert(validationFeature.settingsIcon == "mozac_ic_settings")
 // Record the exposure and test it.
-MyNimbus.features.nimbusValidation.recordExposure()
+nimbus.features.nimbusValidation.recordExposure()
 assert(api.isExposed(featureId: "nimbus-validation"))
 
-let searchTermGroupsFeature = MyNimbus.features.searchTermGroups.value()
+let searchTermGroupsFeature = nimbus.features.searchTermGroups.value()
 assert(searchTermGroupsFeature.enabled == true)
 
-MyNimbus.features.searchTermGroups.recordExposure()
+nimbus.features.searchTermGroups.recordExposure()
 assert(api.isExposed(featureId: "search-term-groups"))

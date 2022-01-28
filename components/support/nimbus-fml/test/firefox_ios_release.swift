@@ -1,9 +1,13 @@
-// Test the default map with an enum to Boolean maping based
-// on the nighlty defaults
+/* This Source Code Form is subject to the terms of the Mozilla Public
+* License, v. 2.0. If a copy of the MPL was not distributed with this
+* file, You can obtain one at http://mozilla.org/MPL/2.0/. */
+
 import FeatureManifest
 import Foundation
 
-let feature = MyNimbus.features.homescreen.value()
+let nimbus = MyNimbus.shared;
+
+let feature = nimbus.features.homescreen.value()
 assert(feature.sectionsEnabled[HomeScreenSection.topSites] == true)
 assert(feature.sectionsEnabled[HomeScreenSection.jumpBackIn] == false)
 assert(feature.sectionsEnabled[HomeScreenSection.recentlySaved] == false)
@@ -30,8 +34,8 @@ let api = MockNimbus(("homescreen", """
     }
 }
 """))
-MyNimbus.api = api
-let feature1 = MyNimbus.features.homescreen.value()
+nimbus.api = api
+let feature1 = nimbus.features.homescreen.value()
 assert(feature1.sectionsEnabled[HomeScreenSection.topSites] == true)
 assert(feature1.sectionsEnabled[HomeScreenSection.jumpBackIn] == false)
 assert(feature1.sectionsEnabled[HomeScreenSection.recentlySaved] == false)
@@ -41,19 +45,19 @@ assert(feature1.sectionsEnabled[HomeScreenSection.libraryShortcuts] == false)
 
 
 // Record the exposure and test it.
-MyNimbus.features.homescreen.recordExposure()
+nimbus.features.homescreen.recordExposure()
 assert(api.isExposed(featureId: "homescreen"))
 
-let validationFeature = MyNimbus.features.nimbusValidation.value()
+let validationFeature = nimbus.features.nimbusValidation.value()
 assert(validationFeature.settingsTitle == "hello")
 assert(validationFeature.settingsTitlePunctuation == "")
 assert(validationFeature.settingsIcon == "menu-Settings")
 // Record the exposure and test it.
-MyNimbus.features.nimbusValidation.recordExposure()
+nimbus.features.nimbusValidation.recordExposure()
 assert(api.isExposed(featureId: "nimbus-validation"))
 
-let search = MyNimbus.features.search.value()
+let search = nimbus.features.search.value()
 assert(search.spotlight.enabled == true)
 
-MyNimbus.features.search.recordExposure()
+nimbus.features.search.recordExposure()
 assert(api.isExposed(featureId: "search"))

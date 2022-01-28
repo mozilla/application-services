@@ -12,7 +12,7 @@ public extension Dictionary {
         return [K1: Value](uniqueKeysWithValues: transformed)
     }
 
-    internal func mapValuesNotNull<V1>(_ transform: (Value) -> V1?) -> [Key: V1] {
+    func mapValuesNotNull<V1>(_ transform: (Value) -> V1?) -> [Key: V1] {
         return compactMapValues(transform)
     }
 

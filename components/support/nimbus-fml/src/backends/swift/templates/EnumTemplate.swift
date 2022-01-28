@@ -9,9 +9,9 @@ public enum {{ class_name }}: String {
     {% endfor %}
 
     public static func enumValue(_ s: String?) -> {{class_name}}? {
-        if let s = s {
-            return {{class_name}}(rawValue: s)
+        guard let s = s else {
+            return nil
         }
-        return nil
+        return {{class_name}}(rawValue: s)
     }
 }

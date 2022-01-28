@@ -170,12 +170,4 @@ pub mod test {
         compile_manifest_swift(manifest_file, build_dir)?;
         run_script(build_dir, script)
     }
-
-    #[test]
-    fn smoke_test_script() -> Result<()> {
-        run_script_with_generated_code(
-            "fixtures/ios/tests/FeatureManifest.swift".as_ref(),
-            "fixtures/ios/tests/script.swift".as_ref(),
-        )
-    }
 }

@@ -65,7 +65,6 @@ private extension Nimbus {
     }
 }
 
-// Glean integration
 extension Nimbus: FeaturesInterface {
     public func recordExposureEvent(featureId: String) {
         // First we need a list of the active experiments that are enrolled.
@@ -133,12 +132,6 @@ extension Nimbus: FeaturesInterface {
                     experiment: event.experimentSlug
                 ))
             }
-        }
-    }
-
-    public func getExperimentBranch(experimentId: String) -> String? {
-        return catchAll {
-            try nimbusClient.getExperimentBranch(id: experimentId)
         }
     }
 
@@ -301,6 +294,14 @@ extension Nimbus: NimbusStartup {
     public func setExperimentsLocally(_ experimentsJson: String) {
         catchAll(dbQueue) {
             try self.setExperimentsLocallyOnThisThread(experimentsJson)
+        }
+    }
+}
+
+extension Nimbus: NimbusBranchInterface {
+    public func getExperimentBranch(experimentId: String) -> String? {
+        return catchAll {
+            try nimbusClient.getExperimentBranch(id: experimentId)
         }
     }
 }
