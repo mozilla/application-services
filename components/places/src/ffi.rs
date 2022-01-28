@@ -104,10 +104,12 @@ impl UniffiCustomTypeWrapper for Guid {
 }
 
 impl PlacesApi {
-    fn new_connection(&self, conn_type: ConnectionType) -> Result<Arc<PlacesConnection>> {
-        let db = self.open_connection(conn_type)?;
-        let connection = PlacesConnection { db: Mutex::new(db) };
-        Ok(Arc::new(connection))
+    fn get_read_connection(&self) -> Arc<PlacesConnection> {
+        self.read_connection.clone()
+    }
+
+    fn get_write_connection(&self) -> Arc<PlacesConnection> {
+        self.write_connection.clone()
     }
 
     // NOTE: These methods are unused on Android but will remain needed for
@@ -191,6 +193,10 @@ pub struct PlacesConnection {
 }
 
 impl PlacesConnection {
+    pub fn new(db: PlacesDb) -> Self {
+        Self { db: Mutex::new(db) }
+    }
+
     // A helper that gets the connection from the mutex and converts errors.
     fn with_conn<F, T>(&self, f: F) -> Result<T>
     where

@@ -5,6 +5,7 @@
 use crate::bookmark_sync::BookmarksSyncEngine;
 use crate::db::db::PlacesDb;
 use crate::error::*;
+use crate::ffi::PlacesConnection;
 use crate::history_sync::HistorySyncEngine;
 use crate::storage::{
     self, bookmarks::bookmark_sync, delete_meta, get_meta, history::history_sync, put_meta,
@@ -16,7 +17,6 @@ use rusqlite::OpenFlags;
 use sql_support::{SqlInterruptHandle, SqlInterruptScope};
 use std::cell::Cell;
 use std::collections::HashMap;
-use std::mem;
 use std::path::{Path, PathBuf};
 use std::sync::{
     atomic::{AtomicUsize, Ordering},
@@ -118,7 +118,8 @@ pub fn places_api_new(db_name: impl AsRef<Path>) -> Result<Arc<PlacesApi>> {
 /// can exist to the database at once.
 pub struct PlacesApi {
     db_name: PathBuf,
-    write_connection: Mutex<Option<PlacesDb>>,
+    pub read_connection: Arc<PlacesConnection>,
+    pub write_connection: Arc<PlacesConnection>,
     sync_state: Mutex<Option<SyncState>>,
     coop_tx_lock: Arc<Mutex<()>>,
     // Used for get_sync_connection()
@@ -158,15 +159,18 @@ impl PlacesApi {
                 // We always create a new read-write connection for an initial open so
                 // we can create the schema and/or do version upgrades.
                 let coop_tx_lock = Arc::new(Mutex::new(()));
-                let connection = PlacesDb::open(
+                let write_db = PlacesDb::open(
                     &db_name,
                     ConnectionType::ReadWrite,
                     id,
                     coop_tx_lock.clone(),
                 )?;
+                let read_db =
+                    PlacesDb::open(&db_name, ConnectionType::ReadOnly, id, coop_tx_lock.clone())?;
                 let new = PlacesApi {
                     db_name: db_name.clone(),
-                    write_connection: Mutex::new(Some(connection)),
+                    write_connection: Arc::new(PlacesConnection::new(write_db)),
+                    read_connection: Arc::new(PlacesConnection::new(read_db)),
                     sync_state: Mutex::new(None),
                     sync_connection: Mutex::new(Weak::new()),
                     id,
@@ -184,34 +188,6 @@ impl PlacesApi {
         Self::new_or_existing_into(&mut guard, db_name)
     }
 
-    /// Open a connection to the database.
-    pub fn open_connection(&self, conn_type: ConnectionType) -> Result<PlacesDb> {
-        match conn_type {
-            ConnectionType::ReadOnly => {
-                // make a new one - we can have as many of these as we want.
-                PlacesDb::open(
-                    self.db_name.clone(),
-                    ConnectionType::ReadOnly,
-                    self.id,
-                    self.coop_tx_lock.clone(),
-                )
-            }
-            ConnectionType::ReadWrite => {
-                // We only allow one of these.
-                let mut guard = self.write_connection.lock();
-                match mem::replace(&mut *guard, None) {
-                    None => Err(ErrorKind::ConnectionAlreadyOpen.into()),
-                    Some(db) => Ok(db),
-                }
-            }
-            ConnectionType::Sync => {
-                panic!("Use `get_sync_connection` to open a sync connection");
-            }
-        }
-    }
-
-    // Get a database connection to sync with
-    //
     // This function provides a couple features to facilitate sharing the connection between
     // different sync engines:
     //   - Each connection is wrapped in a `Mutex<>` to synchronize access.
@@ -236,21 +212,6 @@ impl PlacesApi {
                 Ok(db)
             }
         }
-    }
-
-    /// Close a connection to the database. If the connection is the write
-    /// connection, you can re-fetch it using open_connection.
-    pub fn close_connection(&self, connection: PlacesDb) -> Result<()> {
-        if connection.api_id() != self.id {
-            return Err(ErrorKind::WrongApiForClose.into());
-        }
-        if connection.conn_type() == ConnectionType::ReadWrite {
-            // We only allow one of these.
-            let mut guard = self.write_connection.lock();
-            assert!((*guard).is_none());
-            *guard = Some(connection);
-        }
-        Ok(())
     }
 
     fn get_disk_persisted_state(&self, conn: &PlacesDb) -> Result<Option<String>> {
@@ -518,104 +479,26 @@ pub mod test {
             .expect("should get a write connection");
         MemConnections { read, write, api }
     }
+
+    // Test-only PlacesAPI methods
+    impl PlacesApi {
+        // Open a PlacesDb connection using a PlacesApi
+        //
+        // This used to be a regular PlacesApi method, but we've refactored the code to always
+        // access the database through a `PlacesConnection` instance (`PlacesApi.read_connection`
+        // or `PlacesApi.write_connection`).  However, many of our tests still want to use the old
+        // method, so we define it here. Eventually we should consider refactoring the tests to use
+        // `PlacesConnection` instead of `PlacesDb`
+        pub fn open_connection(&self, conn_type: ConnectionType) -> Result<PlacesDb> {
+            PlacesDb::open(&self.db_name, conn_type, self.id, self.coop_tx_lock.clone())
+        }
+    }
 }
 
 #[cfg(test)]
 mod tests {
-    use super::test::*;
     use super::*;
     use sql_support::ConnExt;
-
-    #[test]
-    fn test_multi_writers_fails() {
-        let api = new_mem_api();
-        let writer1 = api
-            .open_connection(ConnectionType::ReadWrite)
-            .expect("should get writer");
-        api.open_connection(ConnectionType::ReadWrite)
-            .expect_err("should fail to get second writer");
-        // But we should be able to re-get it after closing it.
-        api.close_connection(writer1)
-            .expect("should be able to close");
-        api.open_connection(ConnectionType::ReadWrite)
-            .expect("should get a writer after closing the other");
-    }
-
-    #[test]
-    fn test_shared_memory() {
-        let api = new_mem_api();
-        let writer = api
-            .open_connection(ConnectionType::ReadWrite)
-            .expect("should get writer");
-        writer
-            .execute_batch(
-                "CREATE TABLE test_table (test_value INTEGER);
-                              INSERT INTO test_table VALUES (999)",
-            )
-            .expect("should insert");
-        let reader = api
-            .open_connection(ConnectionType::ReadOnly)
-            .expect("should get reader");
-        let val = reader
-            .query_one::<i64>("SELECT test_value FROM test_table")
-            .expect("should get value");
-        assert_eq!(val, 999);
-    }
-
-    #[test]
-    fn test_reader_before_writer() {
-        let api = new_mem_api();
-        let reader = api
-            .open_connection(ConnectionType::ReadOnly)
-            .expect("should get reader");
-        let writer = api
-            .open_connection(ConnectionType::ReadWrite)
-            .expect("should get writer");
-        writer
-            .execute_batch(
-                "CREATE TABLE test_table (test_value INTEGER);
-                              INSERT INTO test_table VALUES (999)",
-            )
-            .expect("should insert");
-        let val = reader
-            .query_one::<i64>("SELECT test_value FROM test_table")
-            .expect("should get value");
-        assert_eq!(val, 999);
-    }
-
-    #[test]
-    fn test_wrong_writer_close() {
-        let api = new_mem_api();
-        // Grab this so `api` doesn't think it still has a writer.
-        let _writer = api
-            .open_connection(ConnectionType::ReadWrite)
-            .expect("should get writer");
-
-        let fake_api = new_mem_api();
-        let fake_writer = fake_api
-            .open_connection(ConnectionType::ReadWrite)
-            .expect("should get writer 2");
-
-        // No PartialEq on ErrorKind, so we abuse match.
-        match api.close_connection(fake_writer).unwrap_err().kind() {
-            &ErrorKind::WrongApiForClose => {}
-            e => panic!("Expected error WrongApiForClose, got {:?}", e),
-        }
-    }
-
-    #[test]
-    fn test_valid_writer_close() {
-        let api = new_mem_api();
-        let writer = api
-            .open_connection(ConnectionType::ReadWrite)
-            .expect("should get writer");
-
-        api.close_connection(writer)
-            .expect("Should allow closing own connection");
-
-        // Make sure we can open it again.
-        assert!(api.open_connection(ConnectionType::ReadWrite).is_ok());
-    }
 
     #[test]
     fn test_old_db_version() -> Result<()> {
@@ -625,7 +508,6 @@ mod tests {
             let api = PlacesApi::new(&db_name)?;
             let conn = api.open_connection(ConnectionType::ReadWrite)?;
             conn.execute_batch("PRAGMA user_version = 1;")?;
-            api.close_connection(conn)?;
             api.id
         };
         let api2 = PlacesApi::new(&db_name)?;
