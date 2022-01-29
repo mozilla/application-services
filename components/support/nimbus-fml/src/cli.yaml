@@ -59,3 +59,14 @@ subcommands:
         about: Generate code for Experimenter
     - intermediate-repr:
         about: Generate the intermediate representation json
+    - ios:
+        about: Generate code for iOS
+        subcommands:
+            - features:
+                about: Generate feature structs against the Feature Variables API.
+        args:
+            - class_name:
+                help: The name of the class as it will be known by the app developer
+                long: classname
+                value_name: CLASSNAME
+                global: true

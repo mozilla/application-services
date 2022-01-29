@@ -3,10 +3,6 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
  * */
 
-//! Not complete yet
-//! This is where the error definitions can go
-//! TODO: Implement proper error handling, this would include defining the error enum,
-//! impl std::error::Error using `thiserror` and ensuring all errors are handled appropriately
 #[derive(Debug, thiserror::Error)]
 pub enum FMLError {
     #[error("IO error: {0}")]
