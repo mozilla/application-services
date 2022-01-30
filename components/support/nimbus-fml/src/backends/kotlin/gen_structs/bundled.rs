@@ -75,7 +75,7 @@ impl CodeType for ImageCodeType {
     /// The language specific label used to reference this type. This will be used in
     /// method signatures and property declarations.
     fn type_label(&self, _oracle: &dyn CodeOracle) -> String {
-        "Drawable".into()
+        "Res<Drawable>".into()
     }
 
     fn property_getter(
@@ -119,12 +119,12 @@ impl CodeType for ImageCodeType {
         match literal {
             serde_json::Value::String(v) => {
                 format!(
-                    r#"{context}.getDrawable(R.drawable.{id})"#,
+                    r#"Res.drawable({context}, R.drawable.{id})"#,
                     context = ctx,
                     id = v.to_snake_case()
                 )
             }
-            _ => unreachable!("Expecting a string"),
+            _ => unreachable!("Expecting a string matching an image/drawable resource"),
         }
     }
 }

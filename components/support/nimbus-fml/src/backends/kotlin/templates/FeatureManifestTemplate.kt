@@ -12,6 +12,7 @@ import android.graphics.drawable.Drawable
 import org.mozilla.experiments.nimbus.NullVariables
 import org.mozilla.experiments.nimbus.Variables
 import org.mozilla.experiments.nimbus.FeaturesInterface
+import org.mozilla.experiments.nimbus.Res
 import org.mozilla.experiments.nimbus.internal.FeatureHolder
 import org.mozilla.experiments.nimbus.internal.mapValues
 import org.mozilla.experiments.nimbus.internal.mapKeys

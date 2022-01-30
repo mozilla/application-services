@@ -16,6 +16,8 @@ class Context {
 
     val packageName = "dummy.package.name"
 
+    val theme = "a theme"
+
     fun getDrawable(res: Int): Drawable = Drawable(res)
 
     fun getString(res: Int): String = "res:$res"
@@ -24,4 +26,6 @@ class Context {
 @Suppress("UNUSED_PARAMETER", "PACKAGE_OR_CLASSIFIER_REDECLARATION", "FunctionOnlyReturningConstant")
 object Resources {
     fun getIdentifier(resName: String, defType: String, packageName: String): Int? = null
+
+    fun getDrawable(resId: Int, theme: String) = Drawable(resId)
 }

@@ -185,19 +185,19 @@ interface Variables {
      * N.B. the `key` and type `Image` should be listed in the experiment manifest. The
      * names of the drawable resources should also be listed.
      */
-    fun getDrawable(key: String): Drawable? = null
+    fun getDrawable(key: String): Res<Drawable>? = null
 
     /**
      * Uses `getStringList(key: String)` to get a list of strings, then coerces the
      * strings in the list into Drawables. Values that cannot be coerced are omitted.
      */
-    fun getDrawableList(key: String): List<Drawable>? = null
+    fun getDrawableList(key: String): List<Res<Drawable>>? = null
 
     /**
      * Uses `getStringList(key: String)` to get a list of strings, then coerces the
      * values into Drawables. Values that cannot be coerced are omitted.
      */
-    fun getDrawableMap(key: String): Map<String, Drawable>? = null
+    fun getDrawableMap(key: String): Map<String, Res<Drawable>>? = null
 
     // Get a child configuration object.
 
@@ -271,15 +271,15 @@ interface Variables {
     /**
      * Synonym for [getDrawable(key: String)], for easier code generation.
      */
-    fun getImage(key: String): Drawable? = getDrawable(key)
+    fun getImage(key: String): Res<Drawable>? = getDrawable(key)
     /**
      * Synonym for [getDrawableList(key: String)], for easier code generation.
      */
-    fun getImageList(key: String): List<Drawable>? = getDrawableList(key)
+    fun getImageList(key: String): List<Res<Drawable>>? = getDrawableList(key)
     /**
      * Synonym for [getDrawableMap(key: String)], for easier code generation.
      */
-    fun getImageMap(key: String): Map<String, Drawable>? = getDrawableMap(key)
+    fun getImageMap(key: String): Map<String, Res<Drawable>>? = getDrawableMap(key)
 }
 
 inline fun <reified T : Enum<T>> String.asEnum(): T? = try {
@@ -367,13 +367,13 @@ interface VariablesWithContext : Variables {
     override fun getTextMap(key: String): Map<String, String>? = getStringMap(key)?.mapValues(this::asText)
     override fun getDrawable(key: String) = getDrawableResource(key)?.let(this::asDrawable)
     override fun getDrawableList(key: String) = getStringList(key)?.mapNotNull(this::asDrawableResource)?.mapNotNull(this::asDrawable)
-    override fun getDrawableMap(key: String): Map<String, Drawable>? = getStringMap(key)?.mapValues(this::asDrawableResource)?.mapValues(this::asDrawable)
+    override fun getDrawableMap(key: String) = getStringMap(key)?.mapValues(this::asDrawableResource)?.mapValues(this::asDrawable)
 
     // These `as*` methods become useful when transforming values found in JSON to actual values
     // the app will use. They're broken out here so they can be re-used by codegen generating
     // defaults from manifest information.
     fun asText(res: Int) = context.getString(res)
-    fun asDrawable(res: Int) = context.getDrawable(res)
+    fun asDrawable(res: Int): Res<Drawable> = DrawableRes(context, res)
     fun asText(string: String): String? = asStringResource(string)?.let(this::asText) ?: string
     fun asStringResource(string: String) = context.getResource(string, "string")
     fun asDrawableResource(string: String) = context.getResource(string, "drawable")
@@ -465,3 +465,35 @@ private inline fun <reified T> JSONObject.asMap(): Map<String, T>? {
 
 // Another implementation of `Variables` may just return null for everything.
 class NullVariables(override val context: Context) : Variables
+
+/**
+ * Accessor object to allow callers access to the resource identifier as well as the
+ * convenience of getting the underlying resource.
+ *
+ * It is intended as a uniform way of accessing different resource types
+ * bundled with the app, through Nimbus.
+ */
+interface Res<T> {
+    /**
+     * The resource identifier
+     */
+    val resourceId: Int
+
+    /**
+     * The actual resource.
+     */
+    val resource: T
+
+    companion object {
+        fun drawable(context: Context, resId: Int): Res<Drawable> =
+            DrawableRes(context, resId)
+    }
+}
+
+internal class DrawableRes(
+    private val context: Context,
+    override val resourceId: Int
+) : Res<Drawable> {
+    override val resource: Drawable
+        get() = context.resources.getDrawable(resourceId, context.theme)
+}
