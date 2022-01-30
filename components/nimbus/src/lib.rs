@@ -712,15 +712,15 @@ pub struct NimbusTargetingHelper {
 }
 
 impl NimbusTargetingHelper {
-    pub fn eval_jexl(&self, expr: String) -> Result<bool> {
-        // let json = match json_string {
-        //     Some(string) => {
-        //         let value: serde_json::Value = serde_json::from_str(&string)?;
-        //         value
-        //     },
-        //     _ => None,
-        // };
-        Ok(evaluator::jexl_eval(&expr, &self.targeting_context, None)?)
+    pub fn eval_jexl(&self, expr: String, json_string: Option<String>) -> Result<bool> {
+        let json = match json_string {
+            Some(string) => {
+                let value: serde_json::Value = serde_json::from_str(&string)?;
+                Some(value)
+            },
+            _ => None,
+        };
+        Ok(evaluator::jexl_eval(&expr, &self.targeting_context, json)?)
     }
 }
 
