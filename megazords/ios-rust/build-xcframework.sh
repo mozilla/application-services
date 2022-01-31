@@ -89,7 +89,6 @@ cargo_build () {
 set -euvx
 
 # Intel iOS simulator
-# TODO: why is the env var necessary?
 CFLAGS_x86_64_apple_ios="-target x86_64-apple-ios" \
   cargo_build x86_64-apple-ios
 
@@ -130,6 +129,7 @@ mkdir -p "$COMMON/Headers"
 cp "$THIS_DIR/MozillaRustComponents.h" "$COMMON/Headers"
 cp "$REPO_ROOT/components/rc_log/ios/RustLogFFI.h" "$COMMON/Headers"
 cp "$REPO_ROOT/components/viaduct/ios/RustViaductFFI.h" "$COMMON/Headers"
+cp "$REPO_ROOT/components/external/glean/glean-core/ffi/glean.h" "$COMMON/Headers"
 # TODO: https://github.com/mozilla/uniffi-rs/issues/1060
 # it would be neat if there was a single UniFFI command that would spit out
 # all of the generated headers for all UniFFIed dependencies of a given crate.
@@ -174,4 +174,3 @@ rm -rf "$XCFRAMEWORK_ROOT/common"
 # Zip it all up into a bundle for distribution.
 
 (cd "$THIS_DIR" && zip -9 -r "$FRAMEWORK_NAME.xcframework.zip" "$FRAMEWORK_NAME.xcframework")
-rm -rf "$XCFRAMEWORK_ROOT"
