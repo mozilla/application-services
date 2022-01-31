@@ -26,6 +26,7 @@
 //    SOFTWARE.
 
 // swiftlint:disable all
+// swiftformat:disable all
 
 import Foundation
 
