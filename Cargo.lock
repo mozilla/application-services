@@ -888,11 +888,13 @@ dependencies = [
  "ctrlc",
  "find-places-db",
  "fxa-client",
+ "interrupt-support",
  "log",
  "places",
  "serde",
  "serde_derive",
  "serde_json",
+ "shutdown",
  "structopt",
  "sync-guid",
  "sync15",
@@ -2437,6 +2439,7 @@ dependencies = [
  "serde",
  "serde_derive",
  "serde_json",
+ "shutdown",
  "sql-support",
  "sync-guid",
  "sync15",
@@ -3258,6 +3261,14 @@ dependencies = [
  "cpufeatures",
  "digest",
  "opaque-debug",
+]
+
+[[package]]
+name = "shutdown"
+version = "0.1.0"
+dependencies = [
+ "lazy_static",
+ "parking_lot 0.5.5",
 ]
 
 [[package]]

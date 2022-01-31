@@ -43,8 +43,6 @@ fn do_import(places_api: &PlacesApi, android_db_file_url: Url) -> Result<History
     let conn_mutex = places_api.get_sync_connection()?;
     let conn = conn_mutex.lock();
 
-    let scope = conn.begin_interrupt_scope();
-
     define_sql_functions(&conn)?;
 
     // Not sure why, but apparently beginning a transaction sometimes
@@ -72,11 +70,11 @@ fn do_import(places_api: &PlacesApi, android_db_file_url: Url) -> Result<History
 
     log::debug!("Populating missing entries in moz_places");
     conn.execute_batch(&FILL_MOZ_PLACES)?;
-    scope.err_if_interrupted()?;
+    shutdown::err_if_shutdown()?;
 
     log::debug!("Inserting the history visits");
     conn.execute_batch(&INSERT_HISTORY_VISITS)?;
-    scope.err_if_interrupted()?;
+    shutdown::err_if_shutdown()?;
 
     log::debug!("Committing...");
     tx.commit()?;
@@ -84,7 +82,7 @@ fn do_import(places_api: &PlacesApi, android_db_file_url: Url) -> Result<History
     // Note: update_frecencies manages its own transaction, which is fine,
     // since nothing that bad will happen if it is aborted.
     log::debug!("Updating frecencies");
-    update_frecencies(&conn, &scope)?;
+    update_frecencies(&conn)?;
 
     log::info!("Successfully imported history visits!");
 

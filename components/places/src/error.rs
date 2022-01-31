@@ -43,6 +43,9 @@ pub enum ErrorKind {
     #[error("Operation interrupted")]
     InterruptedError(#[from] Interrupted),
 
+    #[error("Component shutdown")]
+    ShutdownError(#[from] shutdown::ShutdownError),
+
     #[error("Tried to close connection on wrong PlacesApi instance")]
     WrongApiForClose,
 
@@ -93,6 +96,7 @@ error_support::define_error! {
         (IoError, std::io::Error),
         (MergeError, dogear::Error),
         (InterruptedError, Interrupted),
+        (ShutdownError, shutdown::ShutdownError),
         (Utf8Error, std::str::Utf8Error),
         (OpenDatabaseError, sql_support::open_database::Error),
         (InvalidMetadataObservation, InvalidMetadataObservation),

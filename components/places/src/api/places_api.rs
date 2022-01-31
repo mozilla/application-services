@@ -14,7 +14,6 @@ use crate::util::normalize_path;
 use lazy_static::lazy_static;
 use parking_lot::Mutex;
 use rusqlite::OpenFlags;
-use sql_support::{SqlInterruptHandle, SqlInterruptScope};
 use std::cell::Cell;
 use std::collections::HashMap;
 use std::path::{Path, PathBuf};
@@ -110,7 +109,10 @@ pub struct SyncState {
 /// https://github.com/mozilla/uniffi-rs/pull/1063 would fix this, but got some pushback
 /// meaning we are forced into this unfortunate workaround.
 pub fn places_api_new(db_name: impl AsRef<Path>) -> Result<Arc<PlacesApi>> {
-    PlacesApi::new(db_name)
+    let api = PlacesApi::new(db_name)?;
+    let api_weakref: Weak<PlacesApi> = Arc::downgrade(&api);
+    shutdown::register_interrupt(api_weakref);
+    Ok(api)
 }
 
 /// The entry-point to the places API. This object gives access to database
@@ -252,9 +254,9 @@ impl PlacesApi {
                     mem_cached_state,
                     client_init,
                     key_bundle,
-                    // The interrupt system is not currently working (#1684), but we need to pass
-                    // in something, so let's use the engine scope.
-                    &engine.scope,
+                    // sync_multiple uses the old interrupt system, but we need to pass in
+                    // something, so let's use NeverInterrupts.  See #1684 for details.
+                    &interrupt_support::NeverInterrupts,
                     None,
                 )
             },
@@ -276,9 +278,9 @@ impl PlacesApi {
                     mem_cached_state,
                     client_init,
                     key_bundle,
-                    // The interrupt system is not currently working (#1684), but we need to pass
-                    // in something, so let's use the engine scope.
-                    &engine.scope,
+                    // sync_multiple uses the old interrupt system, but we need to pass in
+                    // something, so let's use NeverInterrupts.  See #1684 for details.
+                    &interrupt_support::NeverInterrupts,
                     None,
                 )
             },
@@ -359,9 +361,9 @@ impl PlacesApi {
             &mut mem_cached_state,
             client_init,
             key_bundle,
-            // The interrupt system is not currently working (#1684), but we need to pass
-            // in something, so let's use the engine scope.
-            &bm_engine.scope,
+            // sync_multiple uses the old interrupt system, but we need to pass in
+            // something, so let's use NeverInterrupts.  See #1684 for details.
+            &interrupt_support::NeverInterrupts,
             None,
         );
         // even on failure we set the persisted state - sync itself takes care
@@ -411,32 +413,24 @@ impl PlacesApi {
         Ok(())
     }
 
-    /// Create a new SqlInterruptScope for the syncing code
-    ///
-    /// The syncing code expects a SqlInterruptScope, but it's never been actually hooked up to
-    /// anything.  This method returns something to make the compiler happy, but we should replace
-    /// this with working code as part of #1684.
-    pub fn dummy_sync_interrupt_scope(&self) -> SqlInterruptScope {
-        SqlInterruptScope::new(Arc::new(AtomicUsize::new(0)))
-    }
-
-    // Deprecated/Broken interrupt handler method
-    // This should be removed as part of https://github.com/mozilla/application-services/issues/1684
+    // Deprecated method to open a PlacesDb connection using a PlacesApi
     //
-    // There are two issues with this one:
-    //   - As soon as this method returns, the sync connection will be dropped, which means the
-    //     SqlInterruptHandle will not work.
-    //   - We want the sync connection to be lazy, but we call this on initialization and force a
-    //     connection to be created.
-    // We have to use Arc in the return type to be able to properly
-    // pass the SqlInterruptHandle as an object through Uniffi
-    pub fn new_sync_conn_interrupt_handle(&self) -> Result<Arc<SqlInterruptHandle>> {
-        // Probably not necessary to lock here, since this should only get
-        // called in startup.
-        let _guard = self.sync_state.lock();
-        let conn = self.get_sync_connection()?;
-        let db = conn.lock();
-        Ok(Arc::new(db.new_interrupt_handle()))
+    // The new method to access the database is through the `PlacesConnection`.  However, there are
+    // a several parts of the code that still use this: autocomplete, the unittests, and the
+    // separated tests. We should refactor this code to use `PlacesConnection`, instead of
+    // `PlacesDb`.  This means either refactoring it to use that `PlacesConnection` API, or by
+    // giving it access to the `with_conn()` method and continuing to use the lower-level
+    // `PlacesDb` API.
+    pub fn open_connection(&self, conn_type: ConnectionType) -> Result<PlacesDb> {
+        PlacesDb::open(&self.db_name, conn_type, self.id, self.coop_tx_lock.clone())
+    }
+}
+
+impl shutdown::ShutdownInterrupt for PlacesApi {
+    fn interrupt(&self) {
+        self.read_connection.interrupt_handle.interrupt();
+        self.write_connection.interrupt_handle.interrupt();
+        // TODO interrupt the sync connection, if it's open
     }
 }
 
@@ -478,20 +472,6 @@ pub mod test {
             .open_connection(ConnectionType::ReadWrite)
             .expect("should get a write connection");
         MemConnections { read, write, api }
-    }
-
-    // Test-only PlacesAPI methods
-    impl PlacesApi {
-        // Open a PlacesDb connection using a PlacesApi
-        //
-        // This used to be a regular PlacesApi method, but we've refactored the code to always
-        // access the database through a `PlacesConnection` instance (`PlacesApi.read_connection`
-        // or `PlacesApi.write_connection`).  However, many of our tests still want to use the old
-        // method, so we define it here. Eventually we should consider refactoring the tests to use
-        // `PlacesConnection` instead of `PlacesDb`
-        pub fn open_connection(&self, conn_type: ConnectionType) -> Result<PlacesDb> {
-            PlacesDb::open(&self.db_name, conn_type, self.id, self.coop_tx_lock.clone())
-        }
     }
 }
 

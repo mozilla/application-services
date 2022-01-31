@@ -24,6 +24,7 @@ use crate::VisitObservation;
 use crate::VisitTransition;
 use crate::{PlacesApi, PlacesDb};
 use parking_lot::Mutex;
+use rusqlite::InterruptHandle;
 use sql_support::SqlInterruptHandle;
 use std::sync::Arc;
 use sync_guid::Guid;
@@ -190,11 +191,17 @@ impl PlacesApi {
 
 pub struct PlacesConnection {
     db: Mutex<PlacesDb>,
+    // InterruptHandle for interrupting queries at the start of shutdown.  We need to store this
+    // outside the Mutex.  We can't interrupt a query if we have to wait to lock the mutex.
+    pub(crate) interrupt_handle: InterruptHandle,
 }
 
 impl PlacesConnection {
     pub fn new(db: PlacesDb) -> Self {
-        Self { db: Mutex::new(db) }
+        Self {
+            interrupt_handle: db.get_interrupt_handle(),
+            db: Mutex::new(db),
+        }
     }
 
     // A helper that gets the connection from the mutex and converts errors.
@@ -206,9 +213,8 @@ impl PlacesConnection {
         Ok(f(&conn)?)
     }
 
-    // This should be refactored/removed as part of https://github.com/mozilla/application-services/issues/1684
-    // We have to use Arc in the return type to be able to properly
-    // pass the SqlInterruptHandle as an object through Uniffi
+    // SqlInterruptHandle for interrupting operations on this connection.  The main use case is
+    // interrupting autocomplete old queries as the user types more.
     fn new_interrupt_handle(&self) -> Result<Arc<SqlInterruptHandle>> {
         Ok(Arc::new(
             self.with_conn(|conn| Ok(conn.new_interrupt_handle()))?,
@@ -592,20 +598,14 @@ mod tests {
 
     #[test]
     fn test_accept_result_with_invalid_url() {
-        let api = new_mem_connection();
-        let conn = PlacesConnection {
-            db: Mutex::new(api),
-        };
+        let conn = PlacesConnection::new(new_mem_connection());
         let invalid_url = "http://1234.56.78.90".to_string();
         assert!(PlacesConnection::accept_result(&conn, "ample".to_string(), invalid_url).is_ok());
     }
 
     #[test]
     fn test_bookmarks_get_all_with_url_with_invalid_url() {
-        let api = new_mem_connection();
-        let conn = PlacesConnection {
-            db: Mutex::new(api),
-        };
+        let conn = PlacesConnection::new(new_mem_connection());
         let invalid_url = "http://1234.56.78.90".to_string();
         assert!(PlacesConnection::bookmarks_get_all_with_url(&conn, invalid_url).is_ok());
     }

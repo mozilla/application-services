@@ -531,8 +531,6 @@ pub fn fetch_tree(
         LEFT JOIN moz_places h ON h.id = d.fk
         ORDER BY d.level, d.parent, d.position"#;
 
-    let scope = db.begin_interrupt_scope();
-
     let mut stmt = db.conn().prepare(sql)?;
 
     let mut results =
@@ -599,7 +597,7 @@ pub fn fetch_tree(
         return Ok(Some((root, parent_guid, position)));
     }
 
-    scope.err_if_interrupted()?;
+    shutdown::err_if_shutdown()?;
     // For all remaining rows, build a pseudo-tree that maps parent GUIDs to
     // ordered children. We need this intermediate step because SQLite returns
     // results in level order, so we'll see a node's siblings and cousins (same
@@ -607,7 +605,7 @@ pub fn fetch_tree(
     let mut pseudo_tree: HashMap<SyncGuid, Vec<BookmarkTreeNode>> = HashMap::new();
     for result in results {
         let row = result?;
-        scope.err_if_interrupted()?;
+        shutdown::err_if_shutdown()?;
         // Check if we have done fetching the asked depth
         if let FetchDepth::Specific(d) = *target_depth {
             if row.level as usize > d + 1 {

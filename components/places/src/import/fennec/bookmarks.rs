@@ -58,8 +58,6 @@ fn do_import(places_api: &PlacesApi, fennec_db_file_url: Url) -> Result<Bookmark
     let conn_mutex = places_api.get_sync_connection()?;
     let conn = conn_mutex.lock();
 
-    let scope = conn.begin_interrupt_scope();
-
     sql_fns::define_functions(&conn)?;
 
     // Not sure why, but apparently beginning a transaction sometimes
@@ -87,26 +85,26 @@ fn do_import(places_api: &PlacesApi, fennec_db_file_url: Url) -> Result<Bookmark
     // connection.
     log::debug!("Clearing mirror to prepare for import");
     conn.execute_batch(WIPE_MIRROR)?;
-    scope.err_if_interrupted()?;
+    shutdown::err_if_shutdown()?;
 
     log::debug!("Populating mirror with the bookmarks roots");
     create_synced_bookmark_roots(&conn)?;
-    scope.err_if_interrupted()?;
+    shutdown::err_if_shutdown()?;
 
     log::debug!("Creating staging table");
     conn.execute_batch(&CREATE_STAGING_TABLE)?;
 
     log::debug!("Importing from Fennec to staging table");
     conn.execute_batch(&POPULATE_STAGING)?;
-    scope.err_if_interrupted()?;
+    shutdown::err_if_shutdown()?;
 
     log::debug!("Populating missing entries in moz_places");
     conn.execute_batch(&FILL_MOZ_PLACES)?;
-    scope.err_if_interrupted()?;
+    shutdown::err_if_shutdown()?;
 
     log::debug!("Populating mirror");
     conn.execute_batch(&POPULATE_MIRROR)?;
-    scope.err_if_interrupted()?;
+    shutdown::err_if_shutdown()?;
 
     // Ideally we could just do this right after `CREATE_AND_POPULATE_STAGING`,
     // but we have constraints on the mirror structure that prevent this (and
@@ -115,19 +113,19 @@ fn do_import(places_api: &PlacesApi, fennec_db_file_url: Url) -> Result<Bookmark
     // everything in one go, that seems harder to debug.
     log::debug!("Populating mirror structure");
     conn.execute_batch(POPULATE_MIRROR_STRUCTURE)?;
-    scope.err_if_interrupted()?;
+    shutdown::err_if_shutdown()?;
 
-    let mut merger = Merger::new(&conn, &scope, Default::default());
+    let mut merger = Merger::new(&conn, Default::default());
     // We're already in a transaction.
     merger.set_external_transaction(true);
     log::debug!("Merging with local records");
     merger.merge()?;
-    scope.err_if_interrupted()?;
+    shutdown::err_if_shutdown()?;
 
     // Update last modification time, sync status, etc
     log::debug!("Fixing up bookmarks");
     conn.execute_batch(&FIXUP_MOZ_BOOKMARKS)?;
-    scope.err_if_interrupted()?;
+    shutdown::err_if_shutdown()?;
     log::debug!("Cleaning up mirror...");
     clear_mirror_on_drop.execute_now()?;
     log::debug!("Committing...");
@@ -136,7 +134,7 @@ fn do_import(places_api: &PlacesApi, fennec_db_file_url: Url) -> Result<Bookmark
     // Note: update_frecencies manages its own transaction, which is fine,
     // since nothing that bad will happen if it is aborted.
     log::debug!("Updating frecencies");
-    update_frecencies(&conn, &scope)?;
+    update_frecencies(&conn)?;
 
     log::debug!("Counting Fenix bookmarks");
     let num_succeeded = select_count(&conn, &COUNT_FENIX_BOOKMARKS);
@@ -163,7 +161,6 @@ fn do_pinned_sites_import(
 ) -> Result<Vec<BookmarkData>> {
     let conn_mutex = places_api.get_sync_connection()?;
     let conn = conn_mutex.lock();
-    let scope = conn.begin_interrupt_scope();
 
     sql_fns::define_functions(&conn)?;
 
@@ -179,7 +176,7 @@ fn do_pinned_sites_import(
     // Grab the pinned websites (they are stored as bookmarks).
     let mut stmt = conn.prepare(&FETCH_PINNED)?;
     let pinned_rows = stmt.query_map(NO_PARAMS, bookmark_data_from_fennec_pinned)?;
-    scope.err_if_interrupted()?;
+    shutdown::err_if_shutdown()?;
     let mut pinned = Vec::new();
     for row in pinned_rows {
         if let Some(bm) = row? {

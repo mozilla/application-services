@@ -10,7 +10,7 @@ use parking_lot::Mutex;
 use rusqlite::{self, Connection, Transaction};
 use sql_support::{
     open_database::{self, open_database_with_flags, ConnectionInitializer},
-    ConnExt, SqlInterruptHandle, SqlInterruptScope,
+    ConnExt, SqlInterruptHandle,
 };
 use std::collections::HashMap;
 use std::ops::Deref;
@@ -155,11 +155,6 @@ impl PlacesDb {
             self.db.get_interrupt_handle(),
             self.interrupt_counter.clone(),
         )
-    }
-
-    #[inline]
-    pub fn begin_interrupt_scope(&self) -> SqlInterruptScope {
-        SqlInterruptScope::new(self.interrupt_counter.clone())
     }
 
     #[inline]

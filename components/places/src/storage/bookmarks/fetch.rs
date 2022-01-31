@@ -316,13 +316,12 @@ fn bookmark_from_row(row: &Row<'_>) -> Result<Option<BookmarkData>> {
 }
 
 pub fn search_bookmarks(db: &PlacesDb, search: &str, limit: u32) -> Result<Vec<BookmarkData>> {
-    let scope = db.begin_interrupt_scope();
     Ok(db
         .query_rows_into_cached::<Vec<Option<BookmarkData>>, _, _, _>(
             &SEARCH_QUERY,
             &[(":search", &search), (":limit", &limit)],
             |row| -> Result<_> {
-                scope.err_if_interrupted()?;
+                shutdown::err_if_shutdown()?;
                 bookmark_from_row(row)
             },
         )?
@@ -332,13 +331,12 @@ pub fn search_bookmarks(db: &PlacesDb, search: &str, limit: u32) -> Result<Vec<B
 }
 
 pub fn recent_bookmarks(db: &PlacesDb, limit: u32) -> Result<Vec<BookmarkData>> {
-    let scope = db.begin_interrupt_scope();
     Ok(db
         .query_rows_into_cached::<Vec<Option<BookmarkData>>, _, _, _>(
             &RECENT_BOOKMARKS_QUERY,
             &[(":limit", &limit)],
             |row| -> Result<_> {
-                scope.err_if_interrupted()?;
+                shutdown::err_if_shutdown()?;
                 bookmark_from_row(row)
             },
         )?

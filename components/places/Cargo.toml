@@ -28,6 +28,7 @@ idna = "0.2"
 memchr = "2.3"
 dogear = "0.4"
 interrupt-support = { path = "../support/interrupt" }
+shutdown = { path = "../support/shutdown" }
 error-support = { path = "../support/error" }
 sync-guid = { path = "../support/guid", features = ["rusqlite_support", "random"]}
 thiserror = "1.0"

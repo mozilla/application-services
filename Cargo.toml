@@ -22,6 +22,7 @@ members = [
     "components/support/rc_crypto/nss/nss_build_common",
     "components/support/rc_crypto/nss/nss_sys",
     "components/support/rc_crypto/nss/systest",
+    "components/support/shutdown",
     "components/support/sql",
     "components/support/sync15-traits",
     "components/support/types",

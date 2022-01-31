@@ -5,26 +5,15 @@
 #![warn(rust_2018_idioms)]
 
 use cli_support::fxa_creds::{get_cli_fxa, get_default_fxa_config};
-use places::storage::bookmarks::{
-    json_tree::{
-        fetch_tree, insert_tree, BookmarkNode, BookmarkTreeNode, FetchDepth, FolderNode,
-        SeparatorNode,
-    },
-    BookmarkRootGuid,
-};
-use places::types::BookmarkType;
-use places::{ConnectionType, PlacesApi, PlacesDb};
+use places::PlacesApi;
 use serde_derive::*;
 use std::convert::TryFrom;
-use std::fs::File;
-use std::io::{BufReader, BufWriter};
 use structopt::StructOpt;
 use sync15::{
     sync_multiple, EngineSyncAssociation, MemoryCachedState, SetupStorageClient,
     Sync15StorageClient, SyncEngine, SyncEngineId,
 };
 use sync_guid::Guid as SyncGuid;
-use types::Timestamp;
 use url::Url;
 use viaduct_reqwest::use_reqwest_backend;
 
@@ -43,127 +32,8 @@ struct DesktopItem {
     children: Vec<DesktopItem>,
 }
 
-fn convert_node(dm: DesktopItem) -> Option<BookmarkTreeNode> {
-    let bookmark_type = BookmarkType::from_u8_with_valid_url(dm.type_code, || dm.uri.is_some());
-
-    Some(match bookmark_type {
-        BookmarkType::Bookmark => {
-            let url = match dm.uri {
-                Some(uri) => uri,
-                None => {
-                    log::warn!("ignoring bookmark node without url: {:?}", dm);
-                    return None;
-                }
-            };
-            BookmarkNode {
-                guid: dm.guid,
-                date_added: dm.date_added.map(|v| Timestamp(v / 1000)),
-                last_modified: dm.last_modified.map(|v| Timestamp(v / 1000)),
-                title: dm.title,
-                url,
-            }
-            .into()
-        }
-        BookmarkType::Separator => SeparatorNode {
-            guid: dm.guid,
-            date_added: dm.date_added.map(|v| Timestamp(v / 1000)),
-            last_modified: dm.last_modified.map(|v| Timestamp(v / 1000)),
-        }
-        .into(),
-        BookmarkType::Folder => FolderNode {
-            guid: dm.guid,
-            date_added: dm.date_added.map(|v| Timestamp(v / 1000)),
-            last_modified: dm.last_modified.map(|v| Timestamp(v / 1000)),
-            title: dm.title,
-            children: dm.children.into_iter().filter_map(convert_node).collect(),
-        }
-        .into(),
-    })
-}
-
-fn do_import(db: &PlacesDb, root: BookmarkTreeNode) -> Result<()> {
-    // We need to import each of the sub-trees individually.
-    // Later we will want to get smarter around guids - currently we will
-    // fail to do this twice due to guid dupes - but that's OK for now.
-    let folder = match root {
-        BookmarkTreeNode::Folder { f } => f,
-        _ => {
-            println!("Imported node isn't a folder structure");
-            return Ok(());
-        }
-    };
-    let is_root = match folder.guid {
-        Some(ref guid) => BookmarkRootGuid::Root == *guid,
-        None => false,
-    };
-    if !is_root {
-        // later we could try and import a sub-tree.
-        println!("Imported tree isn't the root node");
-        return Ok(());
-    }
-
-    for sub_root_node in folder.children {
-        let sub_root_folder = match sub_root_node {
-            BookmarkTreeNode::Folder { f } => f,
-            _ => {
-                println!("Child of the root isn't a folder - skipping...");
-                continue;
-            }
-        };
-        println!("importing {:?}", sub_root_folder.guid);
-        insert_tree(db, sub_root_folder)?
-    }
-    Ok(())
-}
-
-fn run_desktop_import(db: &PlacesDb, filename: String) -> Result<()> {
-    println!("import from {}", filename);
-
-    let file = File::open(filename)?;
-    let reader = BufReader::new(file);
-    let m: DesktopItem = serde_json::from_reader(reader)?;
-    // convert mapping into our tree.
-    let root = match convert_node(m) {
-        Some(node) => node,
-        None => {
-            println!("Failed to read a tree from this file");
-            return Ok(());
-        }
-    };
-    do_import(db, root)
-}
-
-fn run_ios_import(api: &PlacesApi, filename: String) -> Result<()> {
-    println!("ios import from {}", filename);
-    places::import::import_ios_bookmarks(api, filename)?;
-    println!("Import finished!");
-    Ok(())
-}
-
-fn run_native_import(db: &PlacesDb, filename: String) -> Result<()> {
-    println!("import from {}", filename);
-
-    let file = File::open(filename)?;
-    let reader = BufReader::new(file);
-
-    let root: BookmarkTreeNode = serde_json::from_reader(reader)?;
-    do_import(db, root)
-}
-
-fn run_native_export(db: &PlacesDb, filename: String) -> Result<()> {
-    println!("export to {}", filename);
-
-    let file = File::create(filename)?;
-    let writer = BufWriter::new(file);
-
-    let tree = fetch_tree(db, &BookmarkRootGuid::Root.into(), &FetchDepth::Deepest)?.unwrap();
-    serde_json::to_writer_pretty(writer, &tree)?;
-    Ok(())
-}
-
 #[allow(clippy::too_many_arguments)]
 fn sync(
-    api: &PlacesApi,
     mut engine_names: Vec<String>,
     cred_file: String,
     wipe_all: bool,
@@ -227,7 +97,7 @@ fn sync(
             &mut mem_cached_state,
             &cli_fxa.client_init.clone(),
             &cli_fxa.root_sync_key,
-            &api.dummy_sync_interrupt_scope(),
+            &interrupt_support::NeverInterrupts,
             None,
         );
 
@@ -324,38 +194,6 @@ enum Command {
         #[structopt(name = "wait", long, default_value = "0")]
         wait: u64,
     },
-
-    #[structopt(name = "export-bookmarks")]
-    /// Exports bookmarks (but not in a way Desktop can import it!)
-    ExportBookmarks {
-        #[structopt(name = "output-file", long, short = "o")]
-        /// The name of the output file where the json will be written.
-        output_file: String,
-    },
-
-    #[structopt(name = "import-bookmarks")]
-    /// Import bookmarks from a 'native' export (ie, as exported by this utility)
-    ImportBookmarks {
-        #[structopt(name = "input-file", long, short = "i")]
-        /// The name of the file to read.
-        input_file: String,
-    },
-
-    #[structopt(name = "import-ios-bookmarks")]
-    /// Import bookmarks from an iOS browser.db
-    ImportIosBookmarks {
-        #[structopt(name = "input-file", long, short = "i")]
-        /// The name of the file to read.
-        input_file: String,
-    },
-
-    #[structopt(name = "import-desktop-bookmarks")]
-    /// Import bookmarks from JSON file exported by desktop Firefox
-    ImportDesktopBookmarks {
-        #[structopt(name = "input-file", long, short = "i")]
-        /// Imports bookmarks from a desktop export
-        input_file: String,
-    },
 }
 
 fn main() -> Result<()> {
@@ -366,9 +204,18 @@ fn main() -> Result<()> {
 
     let db_path = opts.database_path;
     let api = PlacesApi::new(&db_path)?;
-    let db = api.open_connection(ConnectionType::ReadWrite)?;
     // Needed to make the get_registered_sync_engine() calls work.
     api.clone().register_with_sync_manager();
+    ctrlc::set_handler(move || {
+        if !shutdown::in_shutdown() {
+            println!("\nCTRL-C detected, enabling shutdown mode\n");
+            shutdown::shutdown();
+        } else {
+            println!("\nCTRL-C detected disabling shutdown mode\n");
+            shutdown::restart();
+        }
+    })
+    .unwrap();
 
     match opts.cmd {
         Command::Sync {
@@ -380,7 +227,6 @@ fn main() -> Result<()> {
             nsyncs,
             wait,
         } => sync(
-            &api,
             engines,
             credential_file,
             wipe_all,
@@ -389,9 +235,5 @@ fn main() -> Result<()> {
             nsyncs,
             wait,
         ),
-        Command::ExportBookmarks { output_file } => run_native_export(&db, output_file),
-        Command::ImportBookmarks { input_file } => run_native_import(&db, input_file),
-        Command::ImportIosBookmarks { input_file } => run_ios_import(&api, input_file),
-        Command::ImportDesktopBookmarks { input_file } => run_desktop_import(&db, input_file),
     }
 }

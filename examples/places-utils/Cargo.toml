@@ -13,6 +13,8 @@ path = "src/places-utils.rs"
 [dev-dependencies]
 places = { path = "../../components/places" }
 sync-guid = { path = "../../components/support/guid" }
+interrupt-support = { path = "../../components/support/interrupt" }
+shutdown = { path = "../../components/support/shutdown" }
 types = { path = "../../components/support/types" }
 sync15 = { path = "../../components/sync15" }
 viaduct-reqwest = { path = "../../components/support/viaduct-reqwest" }
