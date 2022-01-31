@@ -4,28 +4,16 @@
 {%- match self.config.nimbus_package_name() %}
 {%- when Some with (package_name) %}
 package {{ package_name }}
-{%- else %}
-{%- endmatch %}
 
-import android.content.Context
-import android.graphics.drawable.Drawable
-import org.mozilla.experiments.nimbus.NullVariables
-import org.mozilla.experiments.nimbus.Variables
-import org.mozilla.experiments.nimbus.FeaturesInterface
-import org.mozilla.experiments.nimbus.Res
-import org.mozilla.experiments.nimbus.internal.FeatureHolder
-import org.mozilla.experiments.nimbus.internal.mapValues
-import org.mozilla.experiments.nimbus.internal.mapKeys
-import org.mozilla.experiments.nimbus.internal.mapEntries
-import org.mozilla.experiments.nimbus.internal.mergeWith
+{% else -%}
+{% endmatch %}
 
 {%- for imported_class in self.imports() %}
 import {{ imported_class }}
 {%- endfor %}
 
-import {{ self.config.resource_package_name() }}.R
+{%- let nimbus_object = self.config.nimbus_object_name() %}
 
-{% let nimbus_object = self.config.nimbus_object_name() -%}
 /**
  * An object for safely accessing feature configuration from Nimbus.
  *

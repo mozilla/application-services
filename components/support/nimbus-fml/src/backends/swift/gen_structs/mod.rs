@@ -6,7 +6,7 @@ use std::collections::HashSet;
 
 use crate::{
     backends::{CodeDeclaration, CodeOracle, CodeType, TypeIdentifier},
-    intermediate_representation::{FeatureDef, FeatureManifest},
+    intermediate_representation::{FeatureDef, FeatureManifest, TypeFinder},
     Config,
 };
 mod common;
@@ -86,6 +86,13 @@ impl<'a> FeatureManifestDeclaration<'a> {
             .into_iter()
             .filter_map(|member| member.imports(oracle))
             .flatten()
+            .chain(
+                self.fm
+                    .all_types()
+                    .into_iter()
+                    .filter_map(|type_| self.oracle.find(&type_).imports(oracle))
+                    .flatten(),
+            )
             .collect::<HashSet<String>>()
             .into_iter()
             .collect();

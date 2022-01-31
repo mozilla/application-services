@@ -16,7 +16,7 @@ use std::slice::Iter;
 /// Kotlin, Swift and JSON Schema.
 ///
 #[non_exhaustive]
-#[derive(Debug, Clone, PartialEq, Deserialize, Serialize)]
+#[derive(Debug, Clone, PartialEq, Deserialize, Serialize, Hash, Eq)]
 pub enum TypeRef {
     // Current primitives.
     String,
@@ -43,6 +43,33 @@ pub enum TypeRef {
     Option(Box<TypeRef>),
 }
 
+pub trait TypeFinder {
+    fn all_types(&self) -> HashSet<TypeRef> {
+        let mut types = HashSet::new();
+        self.find_types(&mut types);
+        types
+    }
+
+    fn find_types(&self, types: &mut HashSet<TypeRef>);
+}
+
+impl TypeFinder for TypeRef {
+    fn find_types(&self, types: &mut HashSet<TypeRef>) {
+        if types.insert(self.clone()) {
+            match self {
+                TypeRef::List(v) | TypeRef::Option(v) | TypeRef::StringMap(v) => {
+                    v.find_types(types)
+                }
+                TypeRef::EnumMap(k, v) => {
+                    k.find_types(types);
+                    v.find_types(types);
+                }
+                _ => {}
+            }
+        }
+    }
+}
+
 pub(crate) type StringId = String;
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Default)]
@@ -56,6 +83,20 @@ pub struct FeatureManifest {
     pub hints: HashMap<StringId, FromStringDef>,
     #[serde(rename = "features")]
     pub feature_defs: Vec<FeatureDef>,
+}
+
+impl TypeFinder for FeatureManifest {
+    fn find_types(&self, types: &mut HashSet<TypeRef>) {
+        for e in &self.enum_defs {
+            e.find_types(types);
+        }
+        for o in &self.obj_defs {
+            o.find_types(types);
+        }
+        for f in &self.feature_defs {
+            f.find_types(types);
+        }
+    }
 }
 
 impl FeatureManifest {
@@ -365,6 +406,13 @@ impl FeatureDef {
         self.default.clone()
     }
 }
+impl TypeFinder for FeatureDef {
+    fn find_types(&self, types: &mut HashSet<TypeRef>) {
+        for p in self.props() {
+            p.find_types(types);
+        }
+    }
+}
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Default)]
 pub struct EnumDef {
@@ -382,6 +430,12 @@ impl EnumDef {
     }
     pub fn variants(&self) -> Vec<VariantDef> {
         self.variants.clone()
+    }
+}
+
+impl TypeFinder for EnumDef {
+    fn find_types(&self, types: &mut HashSet<TypeRef>) {
+        types.insert(TypeRef::Enum(self.name()));
     }
 }
 
@@ -446,6 +500,13 @@ impl ObjectDef {
             .clone()
     }
 }
+impl TypeFinder for ObjectDef {
+    fn find_types(&self, types: &mut HashSet<TypeRef>) {
+        for p in self.props() {
+            p.find_types(types);
+        }
+    }
+}
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 pub struct PropDef {
@@ -468,6 +529,12 @@ impl PropDef {
     }
     pub fn default(&self) -> Literal {
         self.default.clone()
+    }
+}
+
+impl TypeFinder for PropDef {
+    fn find_types(&self, types: &mut HashSet<TypeRef>) {
+        types.insert(self.typ());
     }
 }
 

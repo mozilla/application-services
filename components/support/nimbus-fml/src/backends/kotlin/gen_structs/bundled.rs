@@ -67,6 +67,10 @@ impl CodeType for TextCodeType {
             _ => unreachable!("Expecting a string"),
         }
     }
+
+    fn imports(&self, _oracle: &dyn CodeOracle) -> Option<Vec<String>> {
+        Some(vec!["android.content.Context".to_string()])
+    }
 }
 
 pub(crate) struct ImageCodeType;
@@ -126,5 +130,12 @@ impl CodeType for ImageCodeType {
             }
             _ => unreachable!("Expecting a string matching an image/drawable resource"),
         }
+    }
+
+    fn imports(&self, _oracle: &dyn CodeOracle) -> Option<Vec<String>> {
+        Some(vec![
+            "android.graphics.drawable.Drawable".to_string(),
+            "org.mozilla.experiments.nimbus.Res".to_string(),
+        ])
     }
 }
