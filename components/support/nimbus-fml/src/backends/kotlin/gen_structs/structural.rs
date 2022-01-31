@@ -251,6 +251,31 @@ impl CodeType for MapCodeType {
 
         format!("mapOf({})", src.join(", "))
     }
+
+    fn imports(&self, oracle: &dyn CodeOracle) -> Option<Vec<String>> {
+        let k_type = oracle.find(&self.k_type);
+        let v_type = oracle.find(&self.v_type);
+        let mapper = match (
+            k_type.create_transform(oracle),
+            v_type.create_transform(oracle),
+        ) {
+            (Some(_), Some(_)) => {
+                Some("org.mozilla.experiments.nimbus.internal.mapEntries".to_string())
+            }
+            (None, Some(_)) => {
+                Some("org.mozilla.experiments.nimbus.internal.mapValues".to_string())
+            }
+            (Some(_), None) => Some("org.mozilla.experiments.nimbus.internal.mapKeys".to_string()),
+            _ => None,
+        };
+
+        let merger = "org.mozilla.experiments.nimbus.internal.mergeWith".to_string();
+
+        Some(match mapper {
+            Some(mapper) => vec![mapper, merger],
+            _ => vec![merger],
+        })
+    }
 }
 
 // List type

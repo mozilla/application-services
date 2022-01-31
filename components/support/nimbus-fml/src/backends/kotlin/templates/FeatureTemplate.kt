@@ -4,7 +4,7 @@
 {%- let raw_name = inner.name() %}
 
 {% let nimbus_object = self.nimbus_object_name() %}
-{% let class_name = inner.name()|class_name -%}
+{%- let class_name = inner.name()|class_name -%}
 
 {{ inner.doc()|comment("") }}
 public class {{class_name}}
@@ -23,7 +23,7 @@ specify all values needed for the  feature #}
 
     constructor(_variables: Variables, {% for p in inner.props() %}
     {%- let t = p.typ() %}
-    {{p.name()|var_name}}: {{ t|type_label }} = {{ t|literal(self, p.default(), "_variables.context") }}{% if !loop.last %},{% endif %}
+        {{p.name()|var_name}}: {{ t|type_label }} = {{ t|literal(self, p.default(), "_variables.context") }}{% if !loop.last %},{% endif %}
     {%- endfor %}
     ) : this(
         _variables = _variables,
@@ -40,5 +40,5 @@ specify all values needed for the  feature #}
         {%- let defaults = format!("_defaults.{}", prop_kt) %}
         {{ p.typ()|property(p.name(), "_variables", defaults)}}
     }
-    {%- endfor %}
+{% endfor %}
 }

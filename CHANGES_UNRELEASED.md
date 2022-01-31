@@ -53,3 +53,17 @@ Use the template below to make assigning a version number during the release cut
 
         assert(feature.sectionsEnabled[HomeScreenSection.topSites] == true)
         ```
+
+### ⚠️ Breaking Changes ⚠️
+
+  - **Android only**: Accessing drawables has changed to give access to the resource identifier.
+    - Migration path to the old behaviour is:
+
+    ```kotlin
+    let drawable: Drawable = MyNimbus.features.exampleFeature.demoDrawable
+    ```
+
+    becomes:
+    ```kotlin
+    let drawable: Drawable = MyNimbus.features.exampleFeature.demoDrawable.resource
+    ```

@@ -1,6 +1,7 @@
 {%- import "macros.kt" as kt %}
 {%- let inner = self.inner() %}
 {%- let raw_name = inner.name() %}
+
 {% let class_name = inner.name()|class_name -%}
 
 {{ inner.doc()|comment("") }}
@@ -18,7 +19,6 @@ specify all values needed for the  feature #}
 
 {#- A constructor for application to use.  #}
 
-
     constructor(
         _variables: Variables, {% for p in inner.props() %}
         {%- let t = p.typ() %}
@@ -32,6 +32,10 @@ specify all values needed for the  feature #}
     )
 
 {#- A constructor for application tests to use.  #}
+
+    /**
+     * A convenience constructor for testing/mocking purposes
+     */
     constructor(
         _context: Context, {% for p in inner.props() %}
         {%- let t = p.typ() %}
@@ -53,7 +57,7 @@ specify all values needed for the  feature #}
         {%- let defaults = format!("_defaults.{}", prop_kt) %}
         {{ p.typ()|property(p.name(), "_variables", defaults)}}
     }
-    {%- endfor %}
+{% endfor %}
 
     internal fun _mergeWith(defaults: {{class_name}}): {{class_name}} =
         {{class_name}}(_variables = this._variables, _defaults = defaults._defaults)
