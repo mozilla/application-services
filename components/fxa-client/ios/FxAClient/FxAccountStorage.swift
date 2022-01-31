@@ -3,15 +3,14 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
 import Foundation
-import SwiftKeychainWrapper
 
 class KeyChainAccountStorage {
-    internal var keychainWrapper: KeychainWrapper
+    internal var keychainWrapper: MZKeychainWrapper
     internal static var keychainKey: String = "accountJSON"
-    internal static var accessibility: KeychainItemAccessibility = .afterFirstUnlock
+    internal static var accessibility: MZKeychainItemAccessibility = .afterFirstUnlock
 
     init(keychainAccessGroup: String?) {
-        keychainWrapper = KeychainWrapper.sharedAppContainerKeychain(keychainAccessGroup: keychainAccessGroup)
+        keychainWrapper = MZKeychainWrapper.sharedAppContainerKeychain(keychainAccessGroup: keychainAccessGroup)
     }
 
     func read() -> PersistedFirefoxAccount? {
@@ -55,9 +54,9 @@ class KeyChainAccountStorage {
     }
 }
 
-public extension KeychainWrapper {
+public extension MZKeychainWrapper {
     func ensureStringItemAccessibility(
-        _ accessibility: SwiftKeychainWrapper.KeychainItemAccessibility,
+        _ accessibility: MZKeychainItemAccessibility,
         forKey key: String
     ) {
         if hasValue(forKey: key) {
