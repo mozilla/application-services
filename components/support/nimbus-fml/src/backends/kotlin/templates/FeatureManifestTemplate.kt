@@ -52,6 +52,10 @@ object {{ nimbus_object }} {
      */
     var api: FeaturesInterface? = null
 
+    /**
+     * Accessor object for generated configuration classes extracted from Nimbus, with built-in
+     * default values.
+     */
     val features = Features()
 }
 

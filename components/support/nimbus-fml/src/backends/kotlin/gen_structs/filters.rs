@@ -51,19 +51,20 @@ pub fn enum_variant_name(nm: &dyn fmt::Display) -> Result<String, askama::Error>
 pub fn comment(txt: &dyn fmt::Display, spaces: &str) -> Result<String, askama::Error> {
     use textwrap::{fill, Options};
 
-    let indent1 = "/** ".to_string();
-    let indent2 = format!("{} * ", spaces);
-    let indent3 = format!("{} */", spaces);
+    let indent_start = "/** ".to_string();
+    let indent_mid = format!("{} * ", spaces);
+    let indent_end = format!("{} */", spaces);
 
     let options = Options::new(80)
-        .initial_indent(&indent1)
-        .subsequent_indent(&indent2);
+        .initial_indent(&indent_mid)
+        .subsequent_indent(&indent_mid);
 
     let lines = fill(txt.to_string().as_str(), &options);
     Ok(format!(
-        "{lines}\n{indent}",
+        "{start}\n{lines}\n{indent}",
+        start = indent_start,
         lines = lines,
-        indent = indent3
+        indent = indent_end
     ))
 }
 
