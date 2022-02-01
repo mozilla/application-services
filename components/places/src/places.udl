@@ -278,6 +278,7 @@ dictionary HistoryVisitInfo {
     VisitTransition visit_type;
     boolean is_hidden;
     Url? preview_image_url;
+    boolean is_remote;
 };
 
 dictionary HistoryVisitInfosWithBound {

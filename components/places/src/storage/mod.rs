@@ -184,7 +184,7 @@ fn new_page_info(db: &PlacesDb, url: &Url, new_guid: Option<SyncGuid>) -> Result
 }
 
 impl HistoryVisitInfo {
-    pub(crate) fn from_row(row: &rusqlite::Row<'_>) -> Result<Self> {
+    fn from_row(row: &rusqlite::Row<'_>) -> Result<Self> {
         let visit_type = VisitTransition::from_primitive(row.get::<_, u8>("visit_type")?)
             // Do we have an existing error we use for this? For now they
             // probably don't care too much about VisitTransition, so this
@@ -203,6 +203,7 @@ impl HistoryVisitInfo {
                 Some(s) => Some(Url::parse(&s)?),
                 None => None,
             },
+            is_remote: !row.get("is_local")?,
         })
     }
 }
