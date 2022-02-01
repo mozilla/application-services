@@ -2,6 +2,13 @@
 
 # Unreleased Changes
 
+## Places
+
+### What's New
+
+  - The `HistoryVisitInfo` struct now has an `is_remote` boolean which indicates whether the
+    represented visit happened locally or remotely. ([#4810](https://github.com/mozilla/application-services/pull/4810))
+
 [Full Changelog](https://github.com/mozilla/application-services/compare/v91.0.0...main)
 
 <!-- WARNING: New entries should be added below this comment to ensure the `./automation/prepare-release.py` script works as expected.
