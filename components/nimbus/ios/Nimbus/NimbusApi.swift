@@ -15,7 +15,7 @@ import Foundation
 /// `Nimbus` into their app should use the methods in `NimbusStartup`.
 ///
 public protocol NimbusApi: FeaturesInterface, NimbusStartup,
-    NimbusUserConfiguration, NimbusBranchInterface {}
+    NimbusUserConfiguration, NimbusBranchInterface, GleanPlumbProtocol {}
 
 public protocol NimbusBranchInterface {
     /// Get the currently enrolled branch for the given experiment

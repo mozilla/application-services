@@ -306,6 +306,13 @@ extension Nimbus: NimbusBranchInterface {
     }
 }
 
+extension Nimbus: GleanPlumbProtocol {
+    public func createMessageHelper() -> GleanPlumbMessageHelper {
+        let targetingHelper = nimbusClient.createTargetingHelper()
+        return GleanPlumbMessageHelper(targetingHelper: targetingHelper)
+    }
+}
+
 public class NimbusDisabled: NimbusApi {
     public static let shared = NimbusDisabled()
 
@@ -349,5 +356,10 @@ public extension NimbusDisabled {
 
     func getExperimentBranches(_: String) -> [Branch]? {
         return nil
+    }
+
+    func createMessageHelper() -> GleanPlumbMessageHelper {
+        let targetingHelper = AlwaysFalseTargetingHelper()
+        return GleanPlumbMessageHelper(targetingHelper: targetingHelper)
     }
 }

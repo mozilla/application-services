@@ -369,7 +369,7 @@ class NimbusTests: XCTestCase {
     }
 }
 
-extension Device {
+private extension Device {
     static func isSimulator() -> Bool {
         return ProcessInfo.processInfo.environment["SIMULATOR_ROOT"] != nil
     }
