@@ -191,10 +191,11 @@ interface NimbusClient {
     NimbusTargetingHelper create_targeting_helper();
 };
 
-// [Custom]
-// typedef string JsonObject;
+// This will change to [Custom] when application-services adopts uniffi v0.17.
+[Wrapped]
+typedef string JsonObject;
 
 interface NimbusTargetingHelper {
     [Throws=NimbusError]
-    boolean eval_jexl(string expression, optional string? json_string = null);
+    boolean eval_jexl(string expression, optional JsonObject? json = null);
 };
