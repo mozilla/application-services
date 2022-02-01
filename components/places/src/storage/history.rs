@@ -1263,7 +1263,8 @@ pub fn get_visit_infos(
 ) -> Result<Vec<HistoryVisitInfo>> {
     let allowed_types = exclude_types.complement();
     let infos = db.query_rows_and_then_named_cached(
-        "SELECT h.url, h.title, v.visit_date, v.visit_type, h.hidden, h.preview_image_url
+        "SELECT h.url, h.title, v.visit_date, v.visit_type, h.hidden, h.preview_image_url,
+                v.is_local
          FROM moz_places h
          JOIN moz_historyvisits v
            ON h.id = v.place_id
@@ -1308,7 +1309,8 @@ pub fn get_visit_page(
 ) -> Result<Vec<HistoryVisitInfo>> {
     let allowed_types = exclude_types.complement();
     let infos = db.query_rows_and_then_named_cached(
-        "SELECT h.url, h.title, v.visit_date, v.visit_type, h.hidden, h.preview_image_url
+        "SELECT h.url, h.title, v.visit_date, v.visit_type, h.hidden, h.preview_image_url,
+                v.is_local
          FROM moz_places h
          JOIN moz_historyvisits v
            ON h.id = v.place_id
@@ -1336,7 +1338,8 @@ pub fn get_visit_page_with_bound(
 ) -> Result<HistoryVisitInfosWithBound> {
     let allowed_types = exclude_types.complement();
     let infos = db.query_rows_and_then_named_cached(
-        "SELECT h.url, h.title, v.visit_date, v.visit_type, h.hidden, h.preview_image_url
+        "SELECT h.url, h.title, v.visit_date, v.visit_type, h.hidden, h.preview_image_url,
+                v.is_local
          FROM moz_places h
          JOIN moz_historyvisits v
            ON h.id = v.place_id
@@ -2897,7 +2900,7 @@ mod tests {
         let now: Timestamp = SystemTime::now().into();
         let now_u64 = now.0;
         let now_i64 = now.0 as i64;
-        // (url, when, is_remote, (expected_always, expected_only_local)
+        // (url, title, when, is_remote, (expected_always, expected_only_local)
         let to_add = [
             (
                 "https://www.example.com/0",
@@ -2910,7 +2913,7 @@ mod tests {
                 "https://www.example.com/1",
                 "older 1",
                 now_u64 - 200_100,
-                false,
+                true,
                 (true, false),
             ),
             (
@@ -3003,7 +3006,9 @@ mod tests {
                 .unwrap();
         let infos = infos_with_bound.infos;
         assert_eq!(infos[0].title.as_ref().unwrap().as_str(), "older 1",);
+        assert!(infos[0].is_remote); // "older 1" is remote
         assert_eq!(infos[1].title.as_ref().unwrap().as_str(), "older 2",);
+        assert!(!infos[1].is_remote); // "older 2" is local
         assert_eq!(infos_with_bound.bound, now_i64 - 200_200,);
         assert_eq!(infos_with_bound.offset, 1,);
 

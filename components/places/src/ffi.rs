@@ -521,6 +521,7 @@ pub struct HistoryVisitInfo {
     pub visit_type: VisitTransition,
     pub is_hidden: bool,
     pub preview_image_url: Option<Url>,
+    pub is_remote: bool,
 }
 #[derive(Clone, PartialEq)]
 pub struct HistoryVisitInfosWithBound {
