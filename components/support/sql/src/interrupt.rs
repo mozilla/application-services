@@ -2,6 +2,7 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
+use crate::in_shutdown;
 use ffi_support::implement_into_ffi_by_pointer;
 use interrupt_support::Interruptee;
 use rusqlite::InterruptHandle;
@@ -55,11 +56,27 @@ pub struct SqlInterruptScope {
 }
 
 impl SqlInterruptScope {
+    /// Create a new `SqlInterruptScope`
     #[inline]
     pub fn new(ptr: Arc<AtomicUsize>) -> Self {
         let start_value = ptr.load(Ordering::SeqCst);
         Self { start_value, ptr }
     }
+
+    /// Create a new `SqlInterruptScope`, checking if we're in shutdown mode
+    ///
+    /// If we're in shutdown mode, then this will return `Err(interrupt_support::Interrupted)`
+    #[inline]
+    pub fn new_with_shutdown_check(
+        ptr: Arc<AtomicUsize>,
+    ) -> Result<Self, interrupt_support::Interrupted> {
+        if in_shutdown() {
+            Err(interrupt_support::Interrupted)
+        } else {
+            Ok(Self::new(ptr))
+        }
+    }
+
     /// Add this as an inherent method to reduce the amount of things users have to bring in.
     #[inline]
     pub fn err_if_interrupted(&self) -> Result<(), interrupt_support::Interrupted> {

@@ -8,7 +8,7 @@ use super::record::{
     SeparatorRecord,
 };
 use super::{SyncedBookmarkKind, SyncedBookmarkValidity};
-use crate::db::{GlobalChangeCounterTracker, PlacesDb};
+use crate::db::{GlobalChangeCounterTracker, PlacesDb, SharedPlacesDb};
 use crate::error::*;
 use crate::frecency::{calculate_frecency, DEFAULT_FRECENCY_SETTINGS};
 use crate::storage::{
@@ -23,7 +23,6 @@ use dogear::{
     self, AbortSignal, CompletionOps, Content, Item, MergedRoot, TelemetryEvent, Tree, UploadItem,
     UploadTombstone,
 };
-use parking_lot::Mutex;
 use rusqlite::{Row, NO_PARAMS};
 use sql_support::{self, ConnExt, SqlInterruptScope};
 use std::cell::RefCell;
@@ -887,14 +886,14 @@ pub(crate) fn update_frecencies(db: &PlacesDb, scope: &SqlInterruptScope) -> Res
 
 // Short-lived struct that's constructed each sync
 pub struct BookmarksSyncEngine {
-    db: Arc<Mutex<PlacesDb>>,
+    db: Arc<SharedPlacesDb>,
     // Pub so that it can be used by the PlacesApi methods.  Once all syncing goes through the
     // `SyncManager` we should be able to make this private.
     pub(crate) scope: SqlInterruptScope,
 }
 
 impl BookmarksSyncEngine {
-    pub fn new(db: Arc<Mutex<PlacesDb>>) -> Self {
+    pub fn new(db: Arc<SharedPlacesDb>) -> Self {
         Self {
             db,
             scope: SqlInterruptScope::new(Arc::new(AtomicUsize::new(0))),
@@ -1902,7 +1901,7 @@ mod tests {
         let conn = db.lock();
 
         // suck records into the database.
-        let interrupt_scope = api.dummy_sync_interrupt_scope();
+        let interrupt_scope = conn.begin_interrupt_scope()?;
 
         let mut incoming = IncomingChangeset::new(COLLECTION_NAME, ServerTimestamp(0));
 
@@ -1991,7 +1990,7 @@ mod tests {
             }),
         );
 
-        let interrupt_scope = syncer.begin_interrupt_scope();
+        let interrupt_scope = syncer.begin_interrupt_scope()?;
         let merger =
             Merger::with_localtime(&syncer, &interrupt_scope, ServerTimestamp(0), now.into());
 
@@ -2126,7 +2125,7 @@ mod tests {
 
         let sync_db = api.get_sync_connection().unwrap();
         let syncer = sync_db.lock();
-        let interrupt_scope = api.dummy_sync_interrupt_scope();
+        let interrupt_scope = syncer.begin_interrupt_scope().unwrap();
 
         update_frecencies(&syncer, &interrupt_scope).expect("Should update frecencies");
 
@@ -2707,7 +2706,7 @@ mod tests {
             },
         )?;
 
-        let interrupt_scope = db.begin_interrupt_scope();
+        let interrupt_scope = db.begin_interrupt_scope()?;
 
         let mut merger = Merger::new(&db, &interrupt_scope, ServerTimestamp(0));
         merger.merge()?;

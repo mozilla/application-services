@@ -163,7 +163,6 @@ fn run_native_export(db: &PlacesDb, filename: String) -> Result<()> {
 
 #[allow(clippy::too_many_arguments)]
 fn sync(
-    api: &PlacesApi,
     mut engine_names: Vec<String>,
     cred_file: String,
     wipe_all: bool,
@@ -227,7 +226,7 @@ fn sync(
             &mut mem_cached_state,
             &cli_fxa.client_init.clone(),
             &cli_fxa.root_sync_key,
-            &api.dummy_sync_interrupt_scope(),
+            &sql_support::ShutdownInterruptee,
             None,
         );
 
@@ -370,6 +369,12 @@ fn main() -> Result<()> {
     // Needed to make the get_registered_sync_engine() calls work.
     api.clone().register_with_sync_manager();
 
+    ctrlc::set_handler(move || {
+        println!("\nCTRL-C detected, enabling shutdown mode\n");
+        sql_support::shutdown();
+    })
+    .unwrap();
+
     match opts.cmd {
         Command::Sync {
             engines,
@@ -380,7 +385,6 @@ fn main() -> Result<()> {
             nsyncs,
             wait,
         } => sync(
-            &api,
             engines,
             credential_file,
             wipe_all,
