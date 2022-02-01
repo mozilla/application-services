@@ -12,7 +12,7 @@
 # CircleCI then stores this as an artifact, and pushes it to Github on each release.
 #
 # This will be downloaded and unzipped as part of the buid processes for iOS and Android.
-targets="aarch64-apple-darwin x86_64-unknown-linux-musl x86_64-apple-darwin"
+targets="aarch64-apple-darwin x86_64-unknown-linux-musl x86_64-apple-darwin x86_64-pc-windows-gnu"
 dry_run=false
 
 # Assume we're in $root_dir/components/support/nimbus-fml/scripts
@@ -30,12 +30,15 @@ prompt='$'
 # We'd like to run nimbus-fml on developer machines and the Android CIs (which are linux)
 echo "## Installing tools for cross compiling"
 install_musl_cross="brew install filosottile/musl-cross/musl-cross"
+install_mingw="brew install mingw-w64"
 cargo_clean="cargo clean"
 if [[ $dry_run != "true" ]] ; then
     $install_musl_cross
+    $install_mingw
     $cargo_clean
 else
     echo "$prompt $install_musl_cross"
+    echo "$prompt $install_mingw"
     echo "$prompt $cargo_clean"
 fi
 
@@ -47,7 +50,19 @@ for TARGET in $targets ; do
     echo
     echo "## Cross compiling for $TARGET"
     rustup="rustup target add $TARGET"
-    cargo_build="cargo build --release --target $TARGET"
+
+    case "$TARGET" in
+        x86_64-pc-windows-gnu)
+            CARGO_TARGET=x86_64-pc-windows-gnu
+            BINARY_NAME="$filename.exe"
+            ;;
+        *)
+            CARGO_TARGET="$TARGET"
+            BINARY_NAME="$filename"
+            ;;
+    esac
+
+    cargo_build="cargo build --release --target $CARGO_TARGET"
 
     if [[ $dry_run != "true" ]] ; then
         $rustup
@@ -58,7 +73,7 @@ for TARGET in $targets ; do
     fi
 
     # Keep building the zip command with the commands as we build them.
-    zip_cmd="$zip_cmd $TARGET/release/$filename"
+    zip_cmd="$zip_cmd $TARGET/release/$BINARY_NAME"
 done
 
 # Finish up by executing the zip command.
