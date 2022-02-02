@@ -58,7 +58,7 @@ fn do_import(places_api: &PlacesApi, fennec_db_file_url: Url) -> Result<Bookmark
     let conn_mutex = places_api.get_sync_connection()?;
     let conn = conn_mutex.lock();
 
-    let scope = conn.begin_interrupt_scope();
+    let scope = conn.begin_interrupt_scope()?;
 
     sql_fns::define_functions(&conn)?;
 
@@ -163,7 +163,7 @@ fn do_pinned_sites_import(
 ) -> Result<Vec<BookmarkData>> {
     let conn_mutex = places_api.get_sync_connection()?;
     let conn = conn_mutex.lock();
-    let scope = conn.begin_interrupt_scope();
+    let scope = conn.begin_interrupt_scope()?;
 
     sql_fns::define_functions(&conn)?;
 

@@ -86,7 +86,7 @@ pub fn search_frecent(conn: &PlacesDb, params: SearchParams) -> Result<Vec<Searc
 }
 
 pub fn match_url(conn: &PlacesDb, query: impl AsRef<str>) -> Result<Option<Url>> {
-    let scope = conn.begin_interrupt_scope();
+    let scope = conn.begin_interrupt_scope()?;
     let matcher = OriginOrUrl::new(query.as_ref());
     // Note: The matcher ignores the limit argument (it's a trait method)
     let results = matcher.search(conn, 1)?;
@@ -107,7 +107,7 @@ fn match_with_limit(
 ) -> Result<Vec<SearchResult>> {
     let mut results = Vec::new();
     let mut rem_results = max_results;
-    let scope = conn.begin_interrupt_scope();
+    let scope = conn.begin_interrupt_scope()?;
     for m in matchers {
         if rem_results == 0 {
             break;

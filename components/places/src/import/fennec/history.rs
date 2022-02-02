@@ -43,7 +43,7 @@ fn do_import(places_api: &PlacesApi, android_db_file_url: Url) -> Result<History
     let conn_mutex = places_api.get_sync_connection()?;
     let conn = conn_mutex.lock();
 
-    let scope = conn.begin_interrupt_scope();
+    let scope = conn.begin_interrupt_scope()?;
 
     define_sql_functions(&conn)?;
 

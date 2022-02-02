@@ -2,11 +2,10 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-use crate::db::PlacesDb;
+use crate::db::{PlacesDb, SharedPlacesDb};
 use crate::error::*;
 use crate::storage::history::{delete_everything, history_sync::reset};
 use crate::storage::{get_meta, put_meta};
-use parking_lot::Mutex;
 use sql_support::SqlInterruptScope;
 use std::sync::{atomic::AtomicUsize, Arc};
 use sync15::telemetry;
@@ -65,14 +64,14 @@ fn do_sync_finished(
 
 // Short-lived struct that's constructed each sync
 pub struct HistorySyncEngine {
-    pub db: Arc<Mutex<PlacesDb>>,
+    pub db: Arc<SharedPlacesDb>,
     // Public because we use it in the [PlacesApi] sync methods.  We can probably make this private
     // once all syncing goes through the sync manager.
     pub(crate) scope: SqlInterruptScope,
 }
 
 impl HistorySyncEngine {
-    pub fn new(db: Arc<Mutex<PlacesDb>>) -> Self {
+    pub fn new(db: Arc<SharedPlacesDb>) -> Self {
         Self {
             db,
             scope: SqlInterruptScope::new(Arc::new(AtomicUsize::new(0))),

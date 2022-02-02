@@ -3,7 +3,7 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
 use crate::bookmark_sync::BookmarksSyncEngine;
-use crate::db::db::PlacesDb;
+use crate::db::db::{PlacesDb, SharedPlacesDb};
 use crate::error::*;
 use crate::history_sync::HistorySyncEngine;
 use crate::storage::{
@@ -13,7 +13,7 @@ use crate::util::normalize_path;
 use lazy_static::lazy_static;
 use parking_lot::Mutex;
 use rusqlite::OpenFlags;
-use sql_support::{SqlInterruptHandle, SqlInterruptScope};
+use sql_support::{register_interrupt, SqlInterruptHandle};
 use std::cell::Cell;
 use std::collections::HashMap;
 use std::mem;
@@ -129,7 +129,7 @@ pub struct PlacesApi {
     //   called again, we reuse it.
     // - The outer mutex synchronizes the `get_sync_connection()` operation.  If multiple threads
     //   ran that at the same time there would be issues.
-    sync_connection: Mutex<Weak<Mutex<PlacesDb>>>,
+    sync_connection: Mutex<Weak<SharedPlacesDb>>,
     id: usize,
 }
 
@@ -217,7 +217,7 @@ impl PlacesApi {
     //   - Each connection is wrapped in a `Mutex<>` to synchronize access.
     //   - The mutex is then wrapped in an Arc<>.  If the last Arc<> returned is still alive, then
     //     get_sync_connection() will reuse it.
-    pub fn get_sync_connection(&self) -> Result<Arc<Mutex<PlacesDb>>> {
+    pub fn get_sync_connection(&self) -> Result<Arc<SharedPlacesDb>> {
         // First step: lock the outer mutex
         let mut conn = self.sync_connection.lock();
         match conn.upgrade() {
@@ -225,12 +225,13 @@ impl PlacesApi {
             Some(db) => Ok(db),
             // If not, create a new connection
             None => {
-                let db = Arc::new(Mutex::new(PlacesDb::open(
+                let db = Arc::new(SharedPlacesDb::new(PlacesDb::open(
                     self.db_name.clone(),
                     ConnectionType::Sync,
                     self.id,
                     self.coop_tx_lock.clone(),
                 )?));
+                register_interrupt(Arc::<SharedPlacesDb>::downgrade(&db));
                 // Store a weakref for next time
                 *conn = Arc::downgrade(&db);
                 Ok(db)
@@ -330,7 +331,7 @@ impl PlacesApi {
         syncer: F,
     ) -> Result<telemetry::SyncTelemetryPing>
     where
-        F: FnOnce(Arc<Mutex<PlacesDb>>, &mut MemoryCachedState, &mut Option<String>) -> SyncResult,
+        F: FnOnce(Arc<SharedPlacesDb>, &mut MemoryCachedState, &mut Option<String>) -> SyncResult,
     {
         let mut guard = self.sync_state.lock();
         let conn = self.get_sync_connection()?;
@@ -448,15 +449,6 @@ impl PlacesApi {
 
         history_sync::reset(&conn.lock(), &sync15::EngineSyncAssociation::Disconnected)?;
         Ok(())
-    }
-
-    /// Create a new SqlInterruptScope for the syncing code
-    ///
-    /// The syncing code expects a SqlInterruptScope, but it's never been actually hooked up to
-    /// anything.  This method returns something to make the compiler happy, but we should replace
-    /// this with working code as part of #1684.
-    pub fn dummy_sync_interrupt_scope(&self) -> SqlInterruptScope {
-        SqlInterruptScope::new(Arc::new(AtomicUsize::new(0)))
     }
 
     // Deprecated/Broken interrupt handler method
