@@ -1,3 +1,14 @@
+# v91.0.1 (_2022-02-02_)
+
+[Full Changelog](https://github.com/mozilla/application-services/compare/v91.0.0...v91.0.1)
+
+## Places
+
+### What's Changed
+  - The database initialization code now uses BEGIN IMMIDIATE to start a
+    transaction.  This will hopefully prevent `database is locked` errors when
+    opening a sync connection.
+
 # v91.0.0 (_2022-01-31_)
 
 [Full Changelog](https://github.com/mozilla/application-services/compare/v90.0.1...v91.0.0)
