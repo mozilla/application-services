@@ -1,14 +1,5 @@
 **See [the release process docs](docs/howtos/cut-a-new-release.md) for the steps to take when cutting a new release.**
 
-# Unreleased Changes
-
-## Places
-
-### What's New
-
-  - The `HistoryVisitInfo` struct now has an `is_remote` boolean which indicates whether the
-    represented visit happened locally or remotely. ([#4810](https://github.com/mozilla/application-services/pull/4810))
-
 [Full Changelog](https://github.com/mozilla/application-services/compare/v91.0.0...main)
 
 <!-- WARNING: New entries should be added below this comment to ensure the `./automation/prepare-release.py` script works as expected.
@@ -32,3 +23,8 @@ Use the template below to make assigning a version number during the release cut
   - The database initialization code now uses BEGIN IMMIDIATE to start a
     transaction.  This will hopefully prevent `database is locked` errors when
     opening a sync connection.
+
+### What's New
+
+  - The `HistoryVisitInfo` struct now has an `is_remote` boolean which indicates whether the
+    represented visit happened locally or remotely. ([#4810](https://github.com/mozilla/application-services/pull/4810))
