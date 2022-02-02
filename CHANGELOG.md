@@ -1,3 +1,19 @@
+# v91.0.1 (_2022-02-02_)
+
+[Full Changelog](https://github.com/mozilla/application-services/compare/v91.0.0...v91.0.1)
+
+## Places
+
+### What's Changed
+  - The database initialization code now uses BEGIN IMMIDIATE to start a
+    transaction.  This will hopefully prevent `database is locked` errors when
+    opening a sync connection.
+
+### What's New
+
+  - The `HistoryVisitInfo` struct now has an `is_remote` boolean which indicates whether the
+    represented visit happened locally or remotely. ([#4810](https://github.com/mozilla/application-services/pull/4810))
+
 # v91.0.0 (_2022-01-31_)
 
 [Full Changelog](https://github.com/mozilla/application-services/compare/v90.0.1...v91.0.0)
