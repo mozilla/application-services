@@ -5,6 +5,7 @@
 
 use std::convert::TryFrom;
 
+use crate::defaults::Defaults;
 use crate::enrollment::{
     EnrolledReason, EnrollmentStatus, ExperimentEnrollment, NotEnrolledReason,
 };
@@ -222,22 +223,41 @@ fn targeting(
     expression_statement: &str,
     targeting_attributes: &TargetingAttributes,
 ) -> Option<EnrollmentStatus> {
-    match Evaluator::new()
-        .with_transform("versionCompare", |args| Ok(version_compare(args)?))
-        .eval_in_context(expression_statement, targeting_attributes)
-    {
-        Ok(res) => match res.as_bool() {
-            Some(true) => None,
-            Some(false) => Some(EnrollmentStatus::NotEnrolled {
+    match jexl_eval(expression_statement, targeting_attributes, None) {
+        Ok(res) => match res {
+            true => None,
+            false => Some(EnrollmentStatus::NotEnrolled {
                 reason: NotEnrolledReason::NotTargeted,
-            }),
-            None => Some(EnrollmentStatus::Error {
-                reason: NimbusError::InvalidExpression.to_string(),
             }),
         },
         Err(e) => Some(EnrollmentStatus::Error {
-            reason: NimbusError::EvaluationError(e.to_string()).to_string(),
+            reason: e.to_string(),
         }),
+    }
+}
+
+pub fn jexl_eval(
+    expression_statement: &str,
+    targeting_attributes: &TargetingAttributes,
+    additional_context: Option<Value>,
+) -> Result<bool> {
+    let evaluator =
+        Evaluator::new().with_transform("versionCompare", |args| Ok(version_compare(args)?));
+
+    let res = match additional_context {
+        Some(overrides) => {
+            let defaults = serde_json::to_value(targeting_attributes)?;
+            let ctx = overrides.defaults(&defaults)?;
+            evaluator.eval_in_context(expression_statement, ctx)?
+        }
+        None => {
+            let ctx = targeting_attributes;
+            evaluator.eval_in_context(expression_statement, ctx)?
+        }
+    };
+    match res.as_bool() {
+        Some(v) => Ok(v),
+        None => Err(NimbusError::InvalidExpression),
     }
 }
 

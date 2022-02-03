@@ -45,7 +45,7 @@ use serde_derive::*;
 use serde_json::{Map, Value};
 use std::collections::HashSet;
 use std::path::{Path, PathBuf};
-use std::sync::Mutex;
+use std::sync::{Arc, Mutex};
 use updating::{read_and_remove_pending_experiments, write_pending_experiments};
 use uuid::Uuid;
 
@@ -113,13 +113,11 @@ impl NimbusClient {
         })
     }
 
-    #[cfg(test)]
     pub fn with_targeting_attributes(&mut self, targeting_attributes: TargetingAttributes) {
         let mut state = self.mutable_state.lock().unwrap();
         state.targeting_attributes = targeting_attributes;
     }
 
-    #[cfg(test)]
     pub fn get_targeting_attributes(&self) -> TargetingAttributes {
         let state = self.mutable_state.lock().unwrap();
         state.targeting_attributes.clone()
@@ -128,7 +126,9 @@ impl NimbusClient {
     pub fn initialize(&self) -> Result<()> {
         let db = self.db()?;
         // We're not actually going to write, we just want to exclude concurrent writers.
-        let writer = db.write()?;
+        let mut writer = db.write()?;
+
+        self.update_install_dates(db, &mut writer)?;
         self.database_cache.commit_and_update(db, writer)?;
         Ok(())
     }
@@ -237,16 +237,10 @@ impl NimbusClient {
         Ok(())
     }
 
-    pub fn apply_pending_experiments(&self) -> Result<Vec<EnrollmentChangeEvent>> {
-        log::info!("updating experiment list");
-        // If the application did not pass in an installation date,
-        // we check if we already persisted one on a previous run:
-        let db = self.db()?;
-        let mut writer = db.write()?;
-
-        let installation_date = self.get_installation_date(db, &mut writer)?;
+    fn update_install_dates(&self, db: &Database, writer: &mut Writer) -> Result<()> {
+        let installation_date = self.get_installation_date(db, writer)?;
         log::info!("[Nimbus] Installation Date: {}", installation_date);
-        let update_date = self.get_update_date(db, &mut writer)?;
+        let update_date = self.get_update_date(db, writer)?;
         log::info!("[Nimbus] Update Date: {}", update_date);
         let now = Utc::now();
         let duration_since_install = now - installation_date;
@@ -269,6 +263,17 @@ impl NimbusClient {
                 Some(duration_since_update.num_days() as i32);
         }
 
+        Ok(())
+    }
+
+    pub fn apply_pending_experiments(&self) -> Result<Vec<EnrollmentChangeEvent>> {
+        log::info!("updating experiment list");
+        // If the application did not pass in an installation date,
+        // we check if we already persisted one on a previous run:
+        let db = self.db()?;
+        let mut writer = db.write()?;
+
+        let state = self.mutable_state.lock().unwrap();
         let pending_updates = read_and_remove_pending_experiments(db, &mut writer)?;
         let res = match pending_updates {
             Some(new_experiments) => {
@@ -457,6 +462,13 @@ impl NimbusClient {
 
     fn db(&self) -> Result<&Database> {
         self.db.get_or_try_init(|| Database::new(&self.db_path))
+    }
+
+    pub fn create_targeting_helper(&self) -> Arc<NimbusTargetingHelper> {
+        let helper = NimbusTargetingHelper {
+            targeting_context: self.get_targeting_attributes(),
+        };
+        Arc::new(helper)
     }
 }
 
@@ -698,6 +710,41 @@ impl AvailableRandomizationUnits {
             RandomizationUnit::NimbusId => Some(nimbus_id),
             RandomizationUnit::ClientId => self.client_id.as_deref(),
         }
+    }
+}
+
+pub struct NimbusTargetingHelper {
+    targeting_context: TargetingAttributes,
+}
+
+impl NimbusTargetingHelper {
+    pub fn eval_jexl(&self, expr: String, value: Option<JsonObject>) -> Result<bool> {
+        let json = value.map(Value::Object);
+        evaluator::jexl_eval(&expr, &self.targeting_context, json)
+    }
+}
+
+type JsonObject = Map<String, Value>;
+
+// This will need to a UniffiCustomTypeConverter once uniffi 0.17
+// is released and adopted by application-services
+#[cfg(feature = "uniffi-bindings")]
+impl UniffiCustomTypeWrapper for JsonObject {
+    type Wrapped = String;
+
+    fn wrap(val: Self::Wrapped) -> uniffi::Result<JsonObject> {
+        let json: Value = serde_json::from_str(&val)?;
+
+        match json.as_object() {
+            Some(obj) => Ok(obj.clone()),
+            _ => Err(uniffi::deps::anyhow::anyhow!(
+                "Unexpected JSON-non-object in the bagging area"
+            )),
+        }
+    }
+
+    fn unwrap(obj: Self) -> Self::Wrapped {
+        serde_json::Value::Object(obj).to_string()
     }
 }
 

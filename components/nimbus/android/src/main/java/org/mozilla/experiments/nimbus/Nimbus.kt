@@ -45,7 +45,7 @@ typealias EnrolledExperiment = EnrolledExperiment
 /**
  * This is the main experiments API, which is exposed through the global [Nimbus] object.
  */
-interface NimbusInterface : FeaturesInterface {
+interface NimbusInterface : FeaturesInterface, GleanPlumbInterface {
 
     /**
      * Get the list of currently enrolled experiments
@@ -534,6 +534,9 @@ open class Nimbus(
     override fun recordExposureEvent(featureId: String) {
         recordExposure(featureId)
     }
+
+    override fun createMessageHelper(): GleanPlumbMessageHelper =
+        GleanPlumbMessageHelper(nimbusClient.createTargetingHelper())
 
     @VisibleForTesting(otherwise = VisibleForTesting.PRIVATE)
     internal fun recordExperimentTelemetry(experiments: List<EnrolledExperiment>) {

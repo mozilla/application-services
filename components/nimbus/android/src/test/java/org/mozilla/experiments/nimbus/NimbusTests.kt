@@ -34,7 +34,7 @@ import org.robolectric.RobolectricTestRunner
 import java.util.concurrent.Executors
 
 @RunWith(RobolectricTestRunner::class)
-class NimbusTest {
+class NimbusTests {
     private val context: Context
         get() = ApplicationProvider.getApplicationContext()
 
@@ -76,7 +76,8 @@ class NimbusTest {
         // init it with a mock client so we don't upload anything.
         val mockClient: Client = mock()
         `when`(mockClient.fetch(any())).thenReturn(
-            Response("URL", 200, mock(), mock()))
+            Response("URL", 200, mock(), mock())
+        )
         Glean.initialize(
             context,
             true,
@@ -90,13 +91,15 @@ class NimbusTest {
     @Test
     fun `recordExperimentTelemetry correctly records the experiment and branch`() {
         // Create a list of experiments to test the telemetry enrollment recording
-        val enrolledExperiments = listOf(EnrolledExperiment(
-            enrollmentId = "enrollment-id",
-            slug = "test-experiment",
-            featureIds = listOf(),
-            branchSlug = "test-branch",
-            userFacingDescription = "A test experiment for testing experiments",
-            userFacingName = "Test Experiment")
+        val enrolledExperiments = listOf(
+            EnrolledExperiment(
+                enrollmentId = "enrollment-id",
+                slug = "test-experiment",
+                featureIds = listOf(),
+                branchSlug = "test-branch",
+                userFacingDescription = "A test experiment for testing experiments",
+                userFacingName = "Test Experiment"
+            )
         )
 
         nimbus.recordExperimentTelemetry(experiments = enrolledExperiments)
@@ -142,27 +145,59 @@ class NimbusTest {
         val enrollmentEvents = NimbusEvents.enrollment.testGetValue()
         assertEquals("Event count must match", enrollmentEvents.count(), 1)
         val enrollmentEventExtras = enrollmentEvents.first().extra!!
-        assertEquals("Experiment slug must match", "test-experiment", enrollmentEventExtras["experiment"])
+        assertEquals(
+            "Experiment slug must match",
+            "test-experiment",
+            enrollmentEventExtras["experiment"]
+        )
         assertEquals("Experiment branch must match", "test-branch", enrollmentEventExtras["branch"])
-        assertEquals("Experiment enrollment-id must match", "test-enrollment-id", enrollmentEventExtras["enrollment_id"])
+        assertEquals(
+            "Experiment enrollment-id must match",
+            "test-enrollment-id",
+            enrollmentEventExtras["enrollment_id"]
+        )
 
         // Unenrollment
         assertTrue("Event must have a value", NimbusEvents.unenrollment.testHasValue())
         val unenrollmentEvents = NimbusEvents.unenrollment.testGetValue()
         assertEquals("Event count must match", unenrollmentEvents.count(), 1)
         val unenrollmentEventExtras = unenrollmentEvents.first().extra!!
-        assertEquals("Experiment slug must match", "test-experiment", unenrollmentEventExtras["experiment"])
-        assertEquals("Experiment branch must match", "test-branch", unenrollmentEventExtras["branch"])
-        assertEquals("Experiment enrollment-id must match", "test-enrollment-id", unenrollmentEventExtras["enrollment_id"])
+        assertEquals(
+            "Experiment slug must match",
+            "test-experiment",
+            unenrollmentEventExtras["experiment"]
+        )
+        assertEquals(
+            "Experiment branch must match",
+            "test-branch",
+            unenrollmentEventExtras["branch"]
+        )
+        assertEquals(
+            "Experiment enrollment-id must match",
+            "test-enrollment-id",
+            unenrollmentEventExtras["enrollment_id"]
+        )
 
         // Disqualification
         assertTrue("Event must have a value", NimbusEvents.disqualification.testHasValue())
         val disqualificationEvents = NimbusEvents.disqualification.testGetValue()
         assertEquals("Event count must match", disqualificationEvents.count(), 1)
         val disqualificationEventExtras = disqualificationEvents.first().extra!!
-        assertEquals("Experiment slug must match", "test-experiment", disqualificationEventExtras["experiment"])
-        assertEquals("Experiment branch must match", "test-branch", disqualificationEventExtras["branch"])
-        assertEquals("Experiment enrollment-id must match", "test-enrollment-id", disqualificationEventExtras["enrollment_id"])
+        assertEquals(
+            "Experiment slug must match",
+            "test-experiment",
+            disqualificationEventExtras["experiment"]
+        )
+        assertEquals(
+            "Experiment branch must match",
+            "test-branch",
+            disqualificationEventExtras["branch"]
+        )
+        assertEquals(
+            "Experiment enrollment-id must match",
+            "test-enrollment-id",
+            disqualificationEventExtras["enrollment_id"]
+        )
     }
 
     @Test
@@ -172,7 +207,10 @@ class NimbusTest {
         nimbus.setUpTestExperiments(packageName, appInfo)
 
         // Assert that there are no events to start with
-        assertFalse("There must not be any pre-existing events", NimbusEvents.exposure.testHasValue())
+        assertFalse(
+            "There must not be any pre-existing events",
+            NimbusEvents.exposure.testHasValue()
+        )
 
         // Record a valid exposure event in Glean that matches the featureId from the test experiment
         nimbus.recordExposureOnThisThread("about_welcome")
@@ -182,9 +220,16 @@ class NimbusTest {
         val enrollmentEvents = NimbusEvents.exposure.testGetValue()
         assertEquals("Event count must match", enrollmentEvents.count(), 1)
         val enrollmentEventExtras = enrollmentEvents.first().extra!!
-        assertEquals("Experiment slug must match", "test-experiment", enrollmentEventExtras["experiment"])
+        assertEquals(
+            "Experiment slug must match",
+            "test-experiment",
+            enrollmentEventExtras["experiment"]
+        )
         assertEquals("Experiment branch must match", "test-branch", enrollmentEventExtras["branch"])
-        assertNotNull("Experiment enrollment-id must not be null", enrollmentEventExtras["enrollment_id"])
+        assertNotNull(
+            "Experiment enrollment-id must not be null",
+            enrollmentEventExtras["enrollment_id"]
+        )
 
         // Attempt to record an event for a non-existent or feature we are not enrolled in an
         // experiment in to ensure nothing is recorded.
@@ -196,9 +241,20 @@ class NimbusTest {
         val enrollmentEventsTryTwo = NimbusEvents.exposure.testGetValue()
         assertEquals("Event count must match", enrollmentEventsTryTwo.count(), 1)
         val enrollmentEventExtrasTryTwo = enrollmentEventsTryTwo.first().extra!!
-        assertEquals("Experiment slug must match", "test-experiment", enrollmentEventExtrasTryTwo["experiment"])
-        assertEquals("Experiment branch must match", "test-branch", enrollmentEventExtrasTryTwo["branch"])
-        assertNotNull("Experiment enrollment-id must not be null", enrollmentEventExtrasTryTwo["enrollment_id"])
+        assertEquals(
+            "Experiment slug must match",
+            "test-experiment",
+            enrollmentEventExtrasTryTwo["experiment"]
+        )
+        assertEquals(
+            "Experiment branch must match",
+            "test-branch",
+            enrollmentEventExtrasTryTwo["branch"]
+        )
+        assertNotNull(
+            "Experiment enrollment-id must not be null",
+            enrollmentEventExtrasTryTwo["enrollment_id"]
+        )
     }
 
     @Test
@@ -221,9 +277,16 @@ class NimbusTest {
         val disqualificationEvents = NimbusEvents.disqualification.testGetValue()
         assertEquals("Event count must match", disqualificationEvents.count(), 1)
         val enrollmentEventExtras = disqualificationEvents.first().extra!!
-        assertEquals("Experiment slug must match", "test-experiment", enrollmentEventExtras["experiment"])
+        assertEquals(
+            "Experiment slug must match",
+            "test-experiment",
+            enrollmentEventExtras["experiment"]
+        )
         assertEquals("Experiment branch must match", "test-branch", enrollmentEventExtras["branch"])
-        assertNotNull("Experiment enrollment-id must not be null", enrollmentEventExtras["enrollment_id"])
+        assertNotNull(
+            "Experiment enrollment-id must not be null",
+            enrollmentEventExtras["enrollment_id"]
+        )
     }
 
     @Test
@@ -246,13 +309,21 @@ class NimbusTest {
         val disqualificationEvents = NimbusEvents.disqualification.testGetValue()
         assertEquals("Event count must match", disqualificationEvents.count(), 1)
         val enrollmentEventExtras = disqualificationEvents.first().extra!!
-        assertEquals("Experiment slug must match", "test-experiment", enrollmentEventExtras["experiment"])
+        assertEquals(
+            "Experiment slug must match",
+            "test-experiment",
+            enrollmentEventExtras["experiment"]
+        )
         assertEquals("Experiment branch must match", "test-branch", enrollmentEventExtras["branch"])
-        assertNotNull("Experiment enrollment-id must not be null", enrollmentEventExtras["enrollment_id"])
+        assertNotNull(
+            "Experiment enrollment-id must not be null",
+            enrollmentEventExtras["enrollment_id"]
+        )
     }
 
     private fun Nimbus.setUpTestExperiments(appId: String, appInfo: NimbusAppInfo) {
-        this.setExperimentsLocallyOnThisThread("""
+        this.setExperimentsLocallyOnThisThread(
+            """
                 {"data": [{
                   "schemaVersion": "1.0.0",
                   "slug": "test-experiment",
@@ -292,7 +363,8 @@ class NimbusTest {
                   "id": "test-experiment",
                   "last_modified": 1602197324372
                 }]}
-            """.trimIndent())
+            """.trimIndent()
+        )
         this.applyPendingExperimentsOnThisThread()
     }
 
