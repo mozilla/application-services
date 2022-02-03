@@ -531,7 +531,7 @@ pub fn fetch_tree(
         LEFT JOIN moz_places h ON h.id = d.fk
         ORDER BY d.level, d.parent, d.position"#;
 
-    let scope = db.begin_interrupt_scope();
+    let scope = db.begin_interrupt_scope()?;
 
     let mut stmt = db.conn().prepare(sql)?;
 

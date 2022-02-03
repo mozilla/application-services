@@ -158,8 +158,10 @@ impl PlacesDb {
     }
 
     #[inline]
-    pub fn begin_interrupt_scope(&self) -> SqlInterruptScope {
-        SqlInterruptScope::new(self.interrupt_counter.clone())
+    pub fn begin_interrupt_scope(&self) -> Result<SqlInterruptScope> {
+        Ok(SqlInterruptScope::new_with_shutdown_check(
+            self.interrupt_counter.clone(),
+        )?)
     }
 
     #[inline]
@@ -204,6 +206,46 @@ impl Deref for PlacesDb {
     #[inline]
     fn deref(&self) -> &Connection {
         &self.db
+    }
+}
+
+/// PlacesDB that's behind a Mutex so it can be shared between threads
+pub struct SharedPlacesDb {
+    db: Mutex<PlacesDb>,
+    interrupt_handle: SqlInterruptHandle,
+}
+
+impl SharedPlacesDb {
+    pub fn new(db: PlacesDb) -> Self {
+        Self {
+            interrupt_handle: db.new_interrupt_handle(),
+            db: Mutex::new(db),
+        }
+    }
+
+    /// Interrupt any current DB operation
+    ///
+    /// This method doesn't need to take the Mutex lock (which would defeat the point of
+    /// interruption, since taking the lock would need to wait for the operation to complete).
+    pub fn interrupt(&self) {
+        self.interrupt_handle.interrupt();
+    }
+}
+
+// Deref to a Mutex<PlacesDb>, which is how we will use SharedPlacesDb most of the time
+impl Deref for SharedPlacesDb {
+    type Target = Mutex<PlacesDb>;
+
+    #[inline]
+    fn deref(&self) -> &Mutex<PlacesDb> {
+        &self.db
+    }
+}
+
+// Also implement AsRef<SqlInterruptHandle> so that we can interrupt this at shutdown
+impl AsRef<SqlInterruptHandle> for SharedPlacesDb {
+    fn as_ref(&self) -> &SqlInterruptHandle {
+        &self.interrupt_handle
     }
 }
 
