@@ -45,6 +45,8 @@ class GleanPlumbTests: XCTestCase {
         XCTAssertTrue(try helper.evalJexl(expression: "test_value_from_json == 42", context: context))
 
         XCTAssertThrowsError(try helper.evalJexl(expression: "testValueFromJson == 42", context: context))
+
+        XCTAssertThrowsError(try helper.evalJexl(expression: "true", context: 1))
     }
 }
 
