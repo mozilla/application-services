@@ -21,7 +21,7 @@ buildscript {
         mockito_core_version = '2.28.2'
         roboelectric_core_version = '4.5.1'
         robolectric_core_version = '4.5.1'
-        rust_android_gradle_version = '0.8.3'
+        rust_android_gradle_version = '0.9.1'
         espresso_core_version = '3.3.0'
         protobuf_version = '3.11.4'
         gradle_protobuf_version = '0.8.14'
@@ -61,7 +61,7 @@ buildscript {
         // Publish.
         classpath "digital.wup:android-maven-publish:$maven_publish_version"
 
-        classpath "gradle.plugin.org.mozilla.rust-android-gradle:plugin:$rust_android_gradle_version"
+        classpath "org.mozilla.rust-android-gradle:plugin:$rust_android_gradle_version"
 
         // Yes, this is unusual.  We want to access some host-specific
         // computation at build time.
@@ -145,8 +145,8 @@ if (useDownloadedLibs) {
     task downloadDesktopLibs(type: Download) {
         src {
             switch (DefaultPlatform.RESOURCE_PREFIX) {
-                case 'darwin':
                 case 'darwin-x86-64':
+                case 'darwin-aarch64':
                     return "https://firefox-ci-tc.services.mozilla.com/api/index/v1/task/project.application-services.application-services.build.libs.desktop.macos.${rootProject.ext.libsGitSha}/artifacts/public/build/macos.tar.gz"
                 case 'linux-x86-64':
                     return "https://firefox-ci-tc.services.mozilla.com/api/index/v1/task/project.application-services.application-services.build.libs.desktop.linux.${rootProject.ext.libsGitSha}/artifacts/public/build/linux.tar.gz"
@@ -162,8 +162,8 @@ if (useDownloadedLibs) {
 
         dest {
             switch (DefaultPlatform.RESOURCE_PREFIX) {
-                case 'darwin':
                 case 'darwin-x86-64':
+                case 'darwin-aarch64':
                     return new File(buildDir, "libs.desktop.macos.${rootProject.ext.libsGitSha}.tar.gz")
                 case 'linux-x86-64':
                     return new File(buildDir, "libs.desktop.linux.${rootProject.ext.libsGitSha}.tar.gz")
@@ -229,9 +229,11 @@ ext.rustTargets = [
 
 // Generate libs for our current platform so we can run unit tests.
 switch (DefaultPlatform.RESOURCE_PREFIX) {
-    case 'darwin':
     case 'darwin-x86-64':
-        ext.nativeRustTarget = 'darwin'
+        ext.nativeRustTarget = 'darwin-x86-64'
+        break
+    case 'darwin-aarch64':
+        ext.nativeRustTarget = 'darwin-aarch64'
         break
     case 'linux-x86-64':
         ext.nativeRustTarget = 'linux-x86-64'
