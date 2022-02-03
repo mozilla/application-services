@@ -18,3 +18,7 @@ Use the template below to make assigning a version number during the release cut
   - Description of the change with a link to the pull request ([#0000](https://github.com/mozilla/application-services/pull/0000))
 
 -->
+
+## Autofill / Logins / Places / Sync Manager, Webext-Storage
+### What's Changed
+- Updated interruption handling and added support for shutdown-mode which interrupts all operations.

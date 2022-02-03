@@ -106,7 +106,7 @@ impl<T: SyncRecord + std::fmt::Debug> SyncEngine for ConfigSyncEngine<T> {
         let db = &self.store.db.lock().unwrap();
         crate::db::schema::create_empty_sync_temp_tables(&db.writer)?;
 
-        let signal = db.begin_interrupt_scope();
+        let signal = db.begin_interrupt_scope()?;
 
         // Stage all incoming items.
         let mut incoming_telemetry = telemetry::EngineIncoming::new();

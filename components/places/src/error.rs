@@ -310,3 +310,9 @@ impl From<serde_json::Error> for PlacesError {
         PlacesError::JsonParseFailed(format!("{}", e))
     }
 }
+
+impl From<Interrupted> for PlacesError {
+    fn from(e: Interrupted) -> PlacesError {
+        PlacesError::OperationInterrupted(e.to_string())
+    }
+}
