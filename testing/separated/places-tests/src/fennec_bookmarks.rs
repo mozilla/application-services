@@ -860,7 +860,7 @@ fn do_test_sync_after_migrate(test_type: TimestampTestType) -> Result<()> {
         }),
     ];
 
-    let engine = BookmarksSyncEngine::new(places_api.get_sync_connection().unwrap());
+    let engine = BookmarksSyncEngine::new(places_api.get_sync_connection().unwrap()).unwrap();
 
     let mut incoming =
         IncomingChangeset::new(engine.collection_name().to_string(), server_timestamp);
