@@ -625,9 +625,12 @@ impl<'a> EnrollmentsEvolver<'a> {
         );
         let next_rollouts = filter_experiments(next_experiments, Experiment::is_rollout);
 
-        // NB: Experiments require a lack of opt-out, but rollouts do not, so we set `is_user_participating` to `true`.
-        let (next_ro_enrollments, ro_events) =
-            self.evolve_enrollment_recipes(true, &prev_rollouts, &next_rollouts, &ro_enrollments)?;
+        let (next_ro_enrollments, ro_events) = self.evolve_enrollment_recipes(
+            is_user_participating,
+            &prev_rollouts,
+            &next_rollouts,
+            &ro_enrollments,
+        )?;
 
         enrollments.extend(next_ro_enrollments.into_iter());
         events.extend(ro_events.into_iter());
