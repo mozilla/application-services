@@ -220,8 +220,8 @@ executors:
       - image: cimg/rust:1.53.0
   macos:
     macos:
-      xcode: 13.1.0
-    resource_class: m2.medium
+      xcode: 13.2.1
+    resource_class: medium
 
 jobs:
   Check Swift formatting:
