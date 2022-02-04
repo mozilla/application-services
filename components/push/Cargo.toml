@@ -1,6 +1,6 @@
 [package]
 name = "push"
-edition = "2018"
+edition = "2021"
 version = "0.1.0"
 authors = ["jrconlin <me+crypt@jrconlin.com>", "Phil Jenvey <pjenvey@underboss.org>"]
 license = "MPL-2.0"

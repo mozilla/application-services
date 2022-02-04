@@ -63,7 +63,6 @@ fn load_feature_manifest(
 
 #[cfg(test)]
 mod test {
-    use std::convert::TryInto;
     use std::fs;
     use std::path::PathBuf;
 

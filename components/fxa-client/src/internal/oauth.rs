@@ -17,7 +17,6 @@ use jwcrypto::{EncryptionAlgorithm, EncryptionParameters};
 use rate_limiter::RateLimiter;
 use rc_crypto::digest;
 use serde_derive::*;
-use std::convert::{TryFrom, TryInto};
 use std::{
     collections::{HashMap, HashSet},
     iter::FromIterator,

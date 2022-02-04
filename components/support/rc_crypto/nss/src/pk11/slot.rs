@@ -7,7 +7,6 @@ use crate::{
     pk11::types::Slot,
     util::{ensure_nss_initialized, map_nss_secstatus, ScopedPtr},
 };
-use std::convert::TryFrom;
 
 pub fn generate_random(data: &mut [u8]) -> Result<()> {
     // `NSS_Init` will initialize the RNG with data from `/dev/urandom`.

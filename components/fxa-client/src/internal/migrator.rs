@@ -6,7 +6,6 @@ pub use crate::{FxAMigrationResult, MigrationState};
 
 use super::{error::*, scoped_keys::ScopedKey, scopes, FirefoxAccount};
 use serde_derive::*;
-use std::convert::TryFrom;
 use std::time::Instant;
 
 // Migration-related data that we may need to serialize in the persisted account state.

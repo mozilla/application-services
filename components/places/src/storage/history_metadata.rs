@@ -6,7 +6,6 @@ use crate::db::{PlacesDb, PlacesTransaction};
 use crate::error::*;
 use rusqlite::types::{FromSql, FromSqlResult, ToSql, ToSqlOutput, ValueRef};
 use sql_support::ConnExt;
-use std::convert::TryFrom;
 use std::vec::Vec;
 use sync_guid::Guid as SyncGuid;
 use types::Timestamp;

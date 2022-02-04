@@ -24,7 +24,6 @@ pub mod sql_fns {
     use crate::import::common::NOW;
     use crate::storage::URL_LENGTH_MAX;
     use rusqlite::{functions::Context, types::ValueRef, Result};
-    use std::convert::TryFrom;
     use types::Timestamp;
     use url::Url;
 

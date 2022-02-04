@@ -8,7 +8,6 @@ use crate::{
     util::{map_nss_secstatus, ScopedPtr},
 };
 use std::{
-    convert::TryFrom,
     ops::Deref,
     os::raw::{c_int, c_uchar, c_uint, c_void},
     ptr,

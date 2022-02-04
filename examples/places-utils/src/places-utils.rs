@@ -15,7 +15,6 @@ use places::storage::bookmarks::{
 use places::types::BookmarkType;
 use places::{ConnectionType, PlacesApi, PlacesDb};
 use serde_derive::*;
-use std::convert::TryFrom;
 use std::fs::File;
 use std::io::{BufReader, BufWriter};
 use structopt::StructOpt;
