@@ -218,7 +218,7 @@ mod autocomplete {
     use places::api::matcher::{search_frecent, SearchParams, SearchResult};
     use places::ErrorKind;
     use rusqlite::{Error as RusqlError, ErrorCode};
-    use sql_support::SqlInterruptHandle;
+    use interrupt_support::SqlInterruptHandle;
     use std::sync::{
         atomic::{AtomicUsize, Ordering},
         mpsc, Arc,

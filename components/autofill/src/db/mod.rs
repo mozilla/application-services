@@ -12,7 +12,7 @@ use crate::error::*;
 
 use rusqlite::{Connection, OpenFlags};
 use sql_support::open_database;
-use sql_support::SqlInterruptScope;
+use interrupt_support::SqlInterruptScope;
 use std::sync::{atomic::AtomicUsize, Arc};
 use std::{
     ops::{Deref, DerefMut},

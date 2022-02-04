@@ -2,9 +2,7 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-use crate::in_shutdown;
-use ffi_support::implement_into_ffi_by_pointer;
-use interrupt_support::Interruptee;
+use crate::{in_shutdown, Interruptee, Interrupted};
 use rusqlite::InterruptHandle;
 use std::sync::{
     atomic::{AtomicUsize, Ordering},
@@ -38,8 +36,6 @@ impl SqlInterruptHandle {
     }
 }
 
-implement_into_ffi_by_pointer!(SqlInterruptHandle);
-
 /// A helper that can be used to determine if an interrupt request has come in while
 /// the object lives. This is used to avoid a case where we aren't running any
 /// queries when the request to stop comes in, but we're still not done (for example,
@@ -65,13 +61,13 @@ impl SqlInterruptScope {
 
     /// Create a new `SqlInterruptScope`, checking if we're in shutdown mode
     ///
-    /// If we're in shutdown mode, then this will return `Err(interrupt_support::Interrupted)`
+    /// If we're in shutdown mode, then this will return `Err(Interrupted)`
     #[inline]
     pub fn new_with_shutdown_check(
         ptr: Arc<AtomicUsize>,
-    ) -> Result<Self, interrupt_support::Interrupted> {
+    ) -> Result<Self, Interrupted> {
         if in_shutdown() {
-            Err(interrupt_support::Interrupted)
+            Err(Interrupted)
         } else {
             Ok(Self::new(ptr))
         }
@@ -79,7 +75,7 @@ impl SqlInterruptScope {
 
     /// Add this as an inherent method to reduce the amount of things users have to bring in.
     #[inline]
-    pub fn err_if_interrupted(&self) -> Result<(), interrupt_support::Interrupted> {
+    pub fn err_if_interrupted(&self) -> Result<(), Interrupted> {
         <Self as Interruptee>::err_if_interrupted(self)
     }
 }

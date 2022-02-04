@@ -24,7 +24,7 @@ use crate::VisitObservation;
 use crate::VisitTransition;
 use crate::{PlacesApi, PlacesDb};
 use parking_lot::Mutex;
-use sql_support::{register_interrupt, SqlInterruptHandle};
+use interrupt_support::{register_interrupt, SqlInterruptHandle};
 use std::sync::Arc;
 use sync_guid::Guid;
 use types::Timestamp;

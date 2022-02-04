@@ -6,7 +6,7 @@ use crate::db::{PlacesDb, SharedPlacesDb};
 use crate::error::*;
 use crate::storage::history::{delete_everything, history_sync::reset};
 use crate::storage::{get_meta, put_meta};
-use sql_support::SqlInterruptScope;
+use interrupt_support::SqlInterruptScope;
 use std::sync::{atomic::AtomicUsize, Arc};
 use sync15::telemetry;
 use sync15::{

@@ -110,7 +110,7 @@ impl SyncManager {
         let tokenserver_url = url::Url::parse(&params.auth_info.tokenserver_url)?;
         // TODO(issue 1684) this isn't ideal, we should have real support for interruption.
         let p = Arc::new(AtomicUsize::new(0));
-        let interruptee = sql_support::SqlInterruptScope::new(p);
+        let interruptee = interrupt_support::SqlInterruptScope::new(p);
         let mut mem_cached_state = state.take().unwrap_or_default();
         let mut disk_cached_state = params.persisted_state.take();
 

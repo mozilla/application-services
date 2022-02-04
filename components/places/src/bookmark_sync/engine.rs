@@ -24,7 +24,8 @@ use dogear::{
     UploadTombstone,
 };
 use rusqlite::{Row, NO_PARAMS};
-use sql_support::{self, ConnExt, SqlInterruptScope};
+use interrupt_support::SqlInterruptScope;
+use sql_support::ConnExt;
 use std::cell::RefCell;
 use std::collections::HashMap;
 use std::fmt;
