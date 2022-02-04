@@ -49,6 +49,9 @@ use std::sync::{Arc, Mutex};
 use updating::{read_and_remove_pending_experiments, write_pending_experiments};
 use uuid::Uuid;
 
+#[cfg(test)]
+mod tests;
+
 const DEFAULT_TOTAL_BUCKETS: u32 = 10000;
 const DB_KEY_NIMBUS_ID: &str = "nimbus-id";
 pub const DB_KEY_INSTALLATION_DATE: &str = "installation-date";
@@ -545,7 +548,7 @@ impl Experiment {
         feature_ids.into_iter().collect()
     }
 
-    fn is_rollout(&self) -> bool {
+    pub(crate) fn is_rollout(&self) -> bool {
         self.is_rollout
     }
 }
@@ -594,7 +597,7 @@ pub struct Branch {
 }
 
 impl Branch {
-    fn get_feature_configs(&self) -> Vec<FeatureConfig> {
+    pub(crate) fn get_feature_configs(&self) -> Vec<FeatureConfig> {
         // Some versions of desktop need both, but features should be prioritized
         // (https://mozilla-hub.atlassian.net/browse/SDK-440).
         match (&self.features, &self.feature) {
@@ -624,7 +627,7 @@ pub struct BucketConfig {
 
 #[cfg(test)]
 impl BucketConfig {
-    fn always() -> Self {
+    pub(crate) fn always() -> Self {
         Self {
             start: 0,
             count: default_buckets(),
@@ -752,7 +755,7 @@ impl UniffiCustomTypeWrapper for JsonObject {
 include!(concat!(env!("OUT_DIR"), "/nimbus.uniffi.rs"));
 
 #[cfg(test)]
-mod tests {
+mod lib_tests {
     use std::io::Write;
 
     use super::*;
