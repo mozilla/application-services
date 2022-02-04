@@ -28,3 +28,7 @@ Use the template below to make assigning a version number during the release cut
 
 - JEXL is now available for evaluation from application code in Swift and Android ([#4813](https://github.com/mozilla/application-services/pull/4813)).
     This is the next piece of the puzzle for supporting Messaging Experiments.
+
+## Xcode
+
+- Bumped Xcode version from 13.1.0 -> 13.2.1

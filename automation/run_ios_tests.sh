@@ -2,8 +2,7 @@
 
 set -euvx
 
-carthage bootstrap --platform iOS --cache-builds
-
+./megazords/ios-rust/build-xcframework.sh --build-profile release
 set -o pipefail && \
 xcodebuild \
   -workspace ./megazords/ios/MozillaAppServices.xcodeproj/project.xcworkspace \

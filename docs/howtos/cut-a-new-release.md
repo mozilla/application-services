@@ -35,8 +35,8 @@
 
 **Note:** If you need to manually produce the iOS build for some reason (for example, if CircleCI cannot), someone with a mac needs to do the following steps:
     1. If necessary, set up for performing iOS builds using `./libs/verify-ios-environment.sh`.
-    2. Run `./build-carthage.sh` in the root of the repository.
-    3. Upload the resulting `MozillaAppServices.framework.zip` as an attachment on the github release.
+    2. Run `./megazords/ios-rust/build-xcframework.sh`
+    3. Upload the resulting `MozillaRustComponents.xcframework.zip` as an attachment on the github release.
 
 ---
 ## Make a new point-release from an existing release that is behind latest main.

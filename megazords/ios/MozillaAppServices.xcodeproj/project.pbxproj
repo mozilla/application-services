@@ -69,11 +69,7 @@
 		BF1A87D025064AC000FED88E /* Sysctl.swift in Sources */ = {isa = PBXBuildFile; fileRef = BF1A87CC25064AC000FED88E /* Sysctl.swift */; };
 		BF1A87D125064AC000FED88E /* Unreachable.swift in Sources */ = {isa = PBXBuildFile; fileRef = BF1A87CD25064AC000FED88E /* Unreachable.swift */; };
 		BF1A87D325064B1100FED88E /* sdk_generator.sh in Resources */ = {isa = PBXBuildFile; fileRef = BF1A87D225064B1100FED88E /* sdk_generator.sh */; };
-		C852EE9E220A283200A6E79A /* libsqlcipher.a in Frameworks */ = {isa = PBXBuildFile; fileRef = C852EE9D220A283200A6E79A /* libsqlcipher.a */; };
 		C852EED6220A29FE00A6E79A /* LoginsStorage.swift in Sources */ = {isa = PBXBuildFile; fileRef = C852EECD220A29FE00A6E79A /* LoginsStorage.swift */; };
-		C852EEEF220A2E9400A6E79A /* libmegazord_ios.a in Frameworks */ = {isa = PBXBuildFile; fileRef = C852EEEE220A2E9400A6E79A /* libmegazord_ios.a */; };
-		CD440A422238A08E003F004B /* SwiftProtobuf.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = EB7DE84C2214D30B00E7CF17 /* SwiftProtobuf.framework */; };
-		CD440A452238A703003F004B /* SwiftProtobuf.framework in CopyFiles */ = {isa = PBXBuildFile; fileRef = EB7DE84C2214D30B00E7CF17 /* SwiftProtobuf.framework */; settings = {ATTRIBUTES = (CodeSignOnCopy, RemoveHeadersOnCopy, ); }; };
 		CD4CFDD3221DFA5100EB3B33 /* LogTest.swift in Sources */ = {isa = PBXBuildFile; fileRef = CD4CFDD2221DFA5100EB3B33 /* LogTest.swift */; };
 		CD5ECD192716FB88009D10CC /* QuantityMetric.swift in Sources */ = {isa = PBXBuildFile; fileRef = CD5ECD182716FB88009D10CC /* QuantityMetric.swift */; };
 		CD5ECD1B2716FB99009D10CC /* UrlMetric.swift in Sources */ = {isa = PBXBuildFile; fileRef = CD5ECD1A2716FB99009D10CC /* UrlMetric.swift */; };
@@ -92,14 +88,12 @@
 		CE3A2F38225BDE5300EA569C /* PlacesTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = CE3A2F37225BDE5300EA569C /* PlacesTests.swift */; };
 		CE58B2F8242D54340089F091 /* RustViaductFFI.h in Headers */ = {isa = PBXBuildFile; fileRef = CE58B2F7242D54340089F091 /* RustViaductFFI.h */; settings = {ATTRIBUTES = (Public, ); }; };
 		CE90D1BB23D7570A00FD9A5F /* FxAccountManagerTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = CE34DB3C23D0C9640027AD63 /* FxAccountManagerTests.swift */; };
-		CE96459C23D7A7D500B662F8 /* SwiftKeychainWrapper.framework in CopyFiles */ = {isa = PBXBuildFile; fileRef = CE96459823D7A77500B662F8 /* SwiftKeychainWrapper.framework */; settings = {ATTRIBUTES = (CodeSignOnCopy, RemoveHeadersOnCopy, ); }; };
 		CE9FFA13242D4E7B0011029E /* Viaduct.swift in Sources */ = {isa = PBXBuildFile; fileRef = CE9FFA12242D4E7B0011029E /* Viaduct.swift */; };
 		CEB1A06823D8A42D005BD4DD /* FxAccountMocks.swift in Sources */ = {isa = PBXBuildFile; fileRef = CEB1A06723D8A42D005BD4DD /* FxAccountMocks.swift */; };
 		CED443CD23CD13E5007E5FA6 /* FxAccountDeviceConstellation.swift in Sources */ = {isa = PBXBuildFile; fileRef = CED443CC23CD13E5007E5FA6 /* FxAccountDeviceConstellation.swift */; };
 		CEDDBC8E23DB4CD600CFF5AA /* PersistedFirefoxAccount.swift in Sources */ = {isa = PBXBuildFile; fileRef = CEDDBC8D23DB4CD600CFF5AA /* PersistedFirefoxAccount.swift */; };
 		CEFB1EB022EF708B0001E20F /* ResultError.swift in Sources */ = {isa = PBXBuildFile; fileRef = CEFB1EAF22EF708B0001E20F /* ResultError.swift */; };
 		D05434A1225680D900FDE4EF /* MozillaAppServices.h in Headers */ = {isa = PBXBuildFile; fileRef = C852EEF2220A3C6800A6E79A /* MozillaAppServices.h */; settings = {ATTRIBUTES = (Public, ); }; };
-		EB879D7F221234EB00753DC9 /* MozillaAppServices.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = CE9D202020914D0D00F1C8FA /* MozillaAppServices.framework */; };
 		EB879D8B22123FD900753DC9 /* LoginsTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = EB879D8A22123FD900753DC9 /* LoginsTests.swift */; };
 /* End PBXBuildFile section */
 
@@ -150,14 +144,13 @@
 			dstPath = "";
 			dstSubfolderSpec = 10;
 			files = (
-				CE96459C23D7A7D500B662F8 /* SwiftKeychainWrapper.framework in CopyFiles */,
-				CD440A452238A703003F004B /* SwiftProtobuf.framework in CopyFiles */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
 /* End PBXCopyFilesBuildPhase section */
 
 /* Begin PBXFileReference section */
+		1B6FD2C0272B533D00858E16 /* MozillaRustComponents.xcframework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.xcframework; name = MozillaRustComponents.xcframework; path = "../ios-rust/MozillaRustComponents.xcframework"; sourceTree = "<group>"; };
 		1B9B8EFE267439CC00C8A918 /* places.udl */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; name = places.udl; path = ../../src/places.udl; sourceTree = "<group>"; };
 		1B9B8F0726743B8800C8A918 /* places.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; name = places.swift; path = ../../Generated/places.swift; sourceTree = "<group>"; };
 		1B9B8F0826743B8800C8A918 /* placesFFI.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = placesFFI.h; path = ../../Generated/placesFFI.h; sourceTree = "<group>"; };
@@ -224,9 +217,7 @@
 		BF1A87D225064B1100FED88E /* sdk_generator.sh */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.script.sh; name = sdk_generator.sh; path = ../sdk_generator.sh; sourceTree = "<group>"; };
 		BF1A87D625064B4C00FED88E /* Metrics.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = Metrics.swift; sourceTree = "<group>"; };
 		C852EE9A220A26E600A6E79A /* Info.plist */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
-		C852EE9D220A283200A6E79A /* libsqlcipher.a */ = {isa = PBXFileReference; lastKnownFileType = archive.ar; name = libsqlcipher.a; path = ../../libs/ios/universal/sqlcipher/lib/libsqlcipher.a; sourceTree = "<group>"; };
 		C852EECD220A29FE00A6E79A /* LoginsStorage.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = LoginsStorage.swift; sourceTree = "<group>"; };
-		C852EEEE220A2E9400A6E79A /* libmegazord_ios.a */ = {isa = PBXFileReference; lastKnownFileType = archive.ar; name = libmegazord_ios.a; path = ../../target/universal/release/libmegazord_ios.a; sourceTree = "<group>"; };
 		C852EEF2220A3C6800A6E79A /* MozillaAppServices.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = MozillaAppServices.h; sourceTree = "<group>"; };
 		CD4CFDD2221DFA5100EB3B33 /* LogTest.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LogTest.swift; sourceTree = "<group>"; };
 		CD5ECD182716FB88009D10CC /* QuantityMetric.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = QuantityMetric.swift; sourceTree = "<group>"; };
@@ -246,7 +237,6 @@
 		CE34DB3C23D0C9640027AD63 /* FxAccountManagerTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FxAccountManagerTests.swift; sourceTree = "<group>"; };
 		CE3A2F37225BDE5300EA569C /* PlacesTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PlacesTests.swift; sourceTree = "<group>"; };
 		CE58B2F7242D54340089F091 /* RustViaductFFI.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = RustViaductFFI.h; sourceTree = "<group>"; };
-		CE96459823D7A77500B662F8 /* SwiftKeychainWrapper.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = SwiftKeychainWrapper.framework; path = ../../Carthage/Build/iOS/SwiftKeychainWrapper.framework; sourceTree = "<group>"; };
 		CE9D202020914D0D00F1C8FA /* MozillaAppServices.framework */ = {isa = PBXFileReference; explicitFileType = wrapper.framework; includeInIndex = 0; path = MozillaAppServices.framework; sourceTree = BUILT_PRODUCTS_DIR; };
 		CE9FFA12242D4E7B0011029E /* Viaduct.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Viaduct.swift; sourceTree = "<group>"; };
 		CEB1A06723D8A42D005BD4DD /* FxAccountMocks.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FxAccountMocks.swift; sourceTree = "<group>"; };
@@ -254,7 +244,6 @@
 		CEDDBC8D23DB4CD600CFF5AA /* PersistedFirefoxAccount.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PersistedFirefoxAccount.swift; sourceTree = "<group>"; };
 		CEFB1EAF22EF708B0001E20F /* ResultError.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ResultError.swift; sourceTree = "<group>"; };
 		D9FA8C532644A170008344BF /* HistoryMetadata.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HistoryMetadata.swift; sourceTree = "<group>"; };
-		EB7DE84C2214D30B00E7CF17 /* SwiftProtobuf.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = SwiftProtobuf.framework; path = ../../Carthage/Build/iOS/SwiftProtobuf.framework; sourceTree = "<group>"; };
 		EB879D7A221234EB00753DC9 /* MozillaAppServicesTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = MozillaAppServicesTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		EB879D7E221234EB00753DC9 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
 		EB879D8A22123FD900753DC9 /* LoginsTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LoginsTests.swift; sourceTree = "<group>"; };
@@ -268,8 +257,6 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				C852EEEF220A2E9400A6E79A /* libmegazord_ios.a in Frameworks */,
-				C852EE9E220A283200A6E79A /* libsqlcipher.a in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -277,8 +264,6 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				CD440A422238A08E003F004B /* SwiftProtobuf.framework in Frameworks */,
-				EB879D7F221234EB00753DC9 /* MozillaAppServices.framework in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -588,10 +573,7 @@
 		CE9D203720914D4800F1C8FA /* Frameworks */ = {
 			isa = PBXGroup;
 			children = (
-				CE96459823D7A77500B662F8 /* SwiftKeychainWrapper.framework */,
-				EB7DE84C2214D30B00E7CF17 /* SwiftProtobuf.framework */,
-				C852EE9D220A283200A6E79A /* libsqlcipher.a */,
-				C852EEEE220A2E9400A6E79A /* libmegazord_ios.a */,
+				1B6FD2C0272B533D00858E16 /* MozillaRustComponents.xcframework */,
 			);
 			name = Frameworks;
 			sourceTree = "<group>";
@@ -652,8 +634,8 @@
 				CEEA12EF20AA1D630018998A /* Build Rust libraries */,
 				BF1A87712506468F00FED88E /* Generate Glean metrics */,
 				CE9D201B20914D0D00F1C8FA /* Sources */,
-				CE9D201C20914D0D00F1C8FA /* Frameworks */,
 				CE9D201D20914D0D00F1C8FA /* Headers */,
+				CE9D201C20914D0D00F1C8FA /* Frameworks */,
 				CE9D201E20914D0D00F1C8FA /* Resources */,
 			);
 			buildRules = (
@@ -663,6 +645,8 @@
 			dependencies = (
 			);
 			name = MozillaAppServices;
+			packageProductDependencies = (
+			);
 			productName = Logins;
 			productReference = CE9D202020914D0D00F1C8FA /* MozillaAppServices.framework */;
 			productType = "com.apple.product-type.framework";
@@ -693,7 +677,7 @@
 			isa = PBXProject;
 			attributes = {
 				LastSwiftUpdateCheck = 1010;
-				LastUpgradeCheck = 1300;
+				LastUpgradeCheck = 1320;
 				ORGANIZATIONNAME = Mozilla;
 				TargetAttributes = {
 					CE9D201F20914D0D00F1C8FA = {
@@ -714,6 +698,8 @@
 				Base,
 			);
 			mainGroup = CE9D201620914D0D00F1C8FA;
+			packageReferences = (
+			);
 			productRefGroup = CE9D202120914D0D00F1C8FA /* Products */;
 			projectDirPath = "";
 			projectRoot = "";
@@ -778,7 +764,7 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 			shellPath = /bin/sh;
-			shellScript = "bash $PWD/../../build-scripts/xc-universal-binary.sh libmegazord_ios.a megazord_ios $PWD/../.. $buildvariant\n\n\n";
+			shellScript = "bash  $PWD/../../megazords/ios-rust/build-xcframework.sh\n\n\n";
 		};
 /* End PBXShellScriptBuildPhase section */
 
@@ -795,6 +781,7 @@
 				BF1A87B625064A8100FED88E /* UuidMetric.swift in Sources */,
 				BF1A87AE25064A8100FED88E /* BooleanMetric.swift in Sources */,
 				CEFB1EB022EF708B0001E20F /* ResultError.swift in Sources */,
+				CE1B09A3231863D7006226E1 /* KeychainWrapper+.swift in Sources */,
 				CE1B09A5231865BC006226E1 /* FxAccountStorage.swift in Sources */,
 				1BD3484C27A0DF8900AA1422 /* KeychainWrapperSubscript.swift in Sources */,
 				BF1A87B525064A8100FED88E /* CounterMetric.swift in Sources */,
@@ -902,7 +889,6 @@
 			buildSettings = {
 				CLANG_WARN_QUOTED_INCLUDE_IN_FRAMEWORK_HEADER = YES;
 				IPHONEOS_DEPLOYMENT_TARGET = 12.0;
-				SWIFT_COMPILATION_MODE = wholemodule;
 				VALIDATE_WORKSPACE = NO;
 			};
 			name = Release;
@@ -910,20 +896,29 @@
 		CE9D202920914D0D00F1C8FA /* Debug */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
+				"EXCLUDED_ARCHS[sdk=iphonesimulator*]" = arm64;
+				FRAMEWORK_SEARCH_PATHS = (
+					"$(PROJECT_DIR)-rust/MozillaRustComponents.xcframework/ios-arm64_x86_64-simulator",
+					"$(PROJECT_DIR)-rust/MozillaRustComponents.xcframework/ios-arm64",
+				);
 				MACH_O_TYPE = mh_dylib;
 				OTHER_LDFLAGS = "-lc++";
 				PRODUCT_BUNDLE_IDENTIFIER = org.mozilla.MozillaAppServices;
-				VALIDATE_WORKSPACE = NO;
+				VALIDATE_WORKSPACE = YES;
 			};
 			name = Debug;
 		};
 		CE9D202A20914D0D00F1C8FA /* Release */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
+				FRAMEWORK_SEARCH_PATHS = (
+					"$(PROJECT_DIR)-rust/MozillaRustComponents.xcframework/ios-arm64_x86_64-simulator",
+					"$(PROJECT_DIR)-rust/MozillaRustComponents.xcframework/ios-arm64",
+				);
 				MACH_O_TYPE = mh_dylib;
 				OTHER_LDFLAGS = "-lc++";
 				PRODUCT_BUNDLE_IDENTIFIER = org.mozilla.MozillaAppServices;
-				VALIDATE_WORKSPACE = NO;
+				VALIDATE_WORKSPACE = YES;
 			};
 			name = Release;
 		};
@@ -939,7 +934,7 @@
 				OTHER_LDFLAGS = "-lc++";
 				PRODUCT_BUNDLE_IDENTIFIER = mozilla.org.MozillaAppServicesTests;
 				PRODUCT_NAME = "$(TARGET_NAME)";
-				VALIDATE_WORKSPACE = NO;
+				VALIDATE_WORKSPACE = YES;
 			};
 			name = Debug;
 		};
@@ -955,7 +950,7 @@
 				OTHER_LDFLAGS = "-lc++";
 				PRODUCT_BUNDLE_IDENTIFIER = mozilla.org.MozillaAppServicesTests;
 				PRODUCT_NAME = "$(TARGET_NAME)";
-				VALIDATE_WORKSPACE = NO;
+				VALIDATE_WORKSPACE = YES;
 			};
 			name = Release;
 		};

@@ -95,7 +95,6 @@ open class MZKeychainWrapper {
 
         // Remove accessibility attribute
         keychainQueryDictionary.removeValue(forKey: SecAttrAccessible)
-
         // Limit search results to one
         keychainQueryDictionary[SecMatchLimit] = kSecMatchLimitOne
 
@@ -375,7 +374,6 @@ open class MZKeychainWrapper {
             return false
         }
     }
-
     /// Remove all keychain data, including data not added through keychain wrapper.
     ///
     /// - Warning: This may remove custom keychain entries you did not add via SwiftKeychainWrapper.
@@ -396,7 +394,6 @@ open class MZKeychainWrapper {
     @discardableResult private class func deleteKeychainSecClass(_ secClass: AnyObject) -> Bool {
         let query = [SecClass: secClass]
         let status: OSStatus = SecItemDelete(query as CFDictionary)
-
         if status == errSecSuccess {
             return true
         } else {
@@ -413,7 +410,6 @@ open class MZKeychainWrapper {
         if let accessibility = accessibility {
             keychainQueryDictionary[SecAttrAccessible] = accessibility.keychainAttrValue
         }
-
         // Update
         let status: OSStatus = SecItemUpdate(keychainQueryDictionary as CFDictionary, updateDictionary as CFDictionary)
 
@@ -441,7 +437,6 @@ open class MZKeychainWrapper {
         if let accessibility = accessibility {
             keychainQueryDictionary[SecAttrAccessible] = accessibility.keychainAttrValue
         }
-
         // Set the keychain access group if defined
         if let accessGroup = self.accessGroup {
             keychainQueryDictionary[SecAttrAccessGroup] = accessGroup
