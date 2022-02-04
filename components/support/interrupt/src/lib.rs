@@ -5,6 +5,12 @@
 #![allow(unknown_lints)]
 #![warn(rust_2018_idioms)]
 
+mod shutdown;
+mod sql;
+
+pub use shutdown::*;
+pub use sql::*;
+
 // Note that in the future it might make sense to also add a trait for
 // an Interruptable, but we don't need this abstraction now and it's unclear
 // if we ever will.

@@ -9,7 +9,7 @@ use crate::error::*;
 use crate::login::EncryptedLogin;
 use crate::util;
 use rusqlite::{named_params, Connection};
-use sql_support::SqlInterruptScope;
+use interrupt_support::SqlInterruptScope;
 use std::time::SystemTime;
 use sync15::ServerTimestamp;
 use sync_guid::Guid;

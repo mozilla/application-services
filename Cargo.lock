@@ -868,6 +868,7 @@ dependencies = [
  "anyhow",
  "clap",
  "find-places-db",
+ "interrupt-support",
  "log",
  "places",
  "rand 0.7.3",
@@ -888,6 +889,7 @@ dependencies = [
  "ctrlc",
  "find-places-db",
  "fxa-client",
+ "interrupt-support",
  "log",
  "places",
  "serde",
@@ -1498,6 +1500,11 @@ dependencies = [
 [[package]]
 name = "interrupt-support"
 version = "0.1.0"
+dependencies = [
+ "lazy_static",
+ "parking_lot 0.5.5",
+ "rusqlite",
+]
 
 [[package]]
 name = "ios_rust"
@@ -3317,7 +3324,6 @@ dependencies = [
  "lazy_static",
  "log",
  "nss_build_common",
- "parking_lot 0.5.5",
  "rusqlite",
  "tempfile",
  "thiserror",

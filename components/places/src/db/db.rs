@@ -8,9 +8,10 @@ use crate::error::*;
 use lazy_static::lazy_static;
 use parking_lot::Mutex;
 use rusqlite::{self, Connection, Transaction};
+use interrupt_support::{SqlInterruptHandle, SqlInterruptScope};
 use sql_support::{
     open_database::{self, open_database_with_flags, ConnectionInitializer},
-    ConnExt, SqlInterruptHandle, SqlInterruptScope,
+    ConnExt, 
 };
 use std::collections::HashMap;
 use std::ops::Deref;

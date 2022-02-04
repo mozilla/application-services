@@ -2,7 +2,6 @@
 License, v. 2.0. If a copy of the MPL was not distributed with this
 * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-use interrupt_support::Interruptee;
 /// Shutdown handling for database operations
 ///
 /// This crate allows us to enter shutdown mode, causing all `SqlInterruptScope` instances that opt-in to
@@ -23,6 +22,7 @@ use interrupt_support::Interruptee;
 ///
 ///  See `PlacesDb::begin_interrupt_scope()` and `PlacesApi::new_connection()` for an example of
 ///  how this works.
+use crate::Interruptee;
 use parking_lot::Mutex;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Weak;

@@ -35,7 +35,8 @@ use rusqlite::{
     Connection, NO_PARAMS,
 };
 use serde_derive::*;
-use sql_support::{self, ConnExt, SqlInterruptHandle, SqlInterruptScope};
+use interrupt_support::{SqlInterruptHandle, SqlInterruptScope};
+use sql_support::ConnExt;
 use std::ops::Deref;
 use std::path::Path;
 use std::sync::{atomic::AtomicUsize, Arc};

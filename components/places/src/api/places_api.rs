@@ -13,7 +13,7 @@ use crate::util::normalize_path;
 use lazy_static::lazy_static;
 use parking_lot::Mutex;
 use rusqlite::OpenFlags;
-use sql_support::{register_interrupt, SqlInterruptHandle};
+use interrupt_support::{register_interrupt, SqlInterruptHandle};
 use std::cell::Cell;
 use std::collections::HashMap;
 use std::mem;

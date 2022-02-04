@@ -11,7 +11,7 @@ use std::path::Path;
 use std::result;
 
 use serde_json::Value as JsonValue;
-use sql_support::SqlInterruptHandle;
+use interrupt_support::SqlInterruptHandle;
 
 /// A store is used to access `storage.sync` data. It manages an underlying
 /// database connection, and exposes methods for reading and writing storage

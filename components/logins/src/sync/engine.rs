@@ -14,8 +14,8 @@ use crate::util;
 use crate::LoginDb;
 use crate::LoginStore;
 use rusqlite::{named_params, NO_PARAMS};
-use sql_support::SqlInterruptScope;
-use sql_support::{self, ConnExt};
+use interrupt_support::SqlInterruptScope;
+use sql_support::ConnExt;
 use std::collections::HashSet;
 use std::sync::Arc;
 use sync15::{
@@ -27,7 +27,7 @@ use sync_guid::Guid;
 // The sync engine.
 pub struct LoginsSyncEngine {
     pub store: Arc<LoginStore>,
-    pub scope: sql_support::SqlInterruptScope,
+    pub scope: SqlInterruptScope,
     // It's unfortunate this is an Option<>, but tricky to change because sometimes we construct
     // an engine for, say, a `reset()` where this isn't needed or known.
     encdec: Option<EncryptorDecryptor>,
