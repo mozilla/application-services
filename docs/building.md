@@ -39,7 +39,6 @@ a number of hours to complete.
     1. Install the system dependencies required for building NSS
         1. Install ninja: `brew install ninja`
         1. Install gyp (via https://github.com/mogemimi/pomdog/wiki/How-to-Install-GYP)
-    1. Install swift-protobuf: `brew install swift-protobuf`
     #### Windows
     *Install windows build tools*
 
