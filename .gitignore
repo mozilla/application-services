@@ -25,14 +25,21 @@ xcuserdata
 # UniFFI generated artifacts
 components/**/ios/Generated
 
+
+# XCFramework artifact
+megazords/ios-rust/MozillaRustComponents.xcframework*
+
 # Glean generated artifacts
 megazords/ios/MozillaAppServices/Generated/Metrics.swift
 megazords/ios/.venv
-megazords/ios-rust/MozillaRustComponents.xcframework*
 
 # Carthage generated artifacts
+# We no longer use Carthage, but those
+# artifacts may still live in local envirionments.
 Carthage
 MozillaAppServices.framework.zip
+
+# Xcode generated logs
 raw_xcodebuild.log
 raw_xcodetest.log
 
