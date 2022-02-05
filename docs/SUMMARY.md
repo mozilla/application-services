@@ -13,7 +13,6 @@
     - [How to build a new syncable component](howtos/building-a-rust-component.md)
     - [Naming Conventions](naming-conventions.md)
     - [How to convert a Rust Component to Uniffi](howtos/converting-a-component-to-uniffi.md)
-    - [How to know what to use when in the FFI](howtos/when-to-use-what-in-the-ffi.md)
     - [How to use Rust Components in Android](android-faqs.md)
     - [How to use Rust Components on iOS](howtos/consuming-rust-components-on-ios.md)
   - [Logging](logging.md)
