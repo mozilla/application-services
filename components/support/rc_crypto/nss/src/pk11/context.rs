@@ -10,7 +10,7 @@ use crate::{
     },
     util::{ensure_nss_initialized, map_nss_secstatus, ScopedPtr},
 };
-use std::{convert::TryFrom, ptr};
+use std::ptr;
 
 #[derive(Copy, Clone, Debug)]
 #[repr(u8)]

@@ -15,7 +15,6 @@ use crate::{
 // Currently only SHA256 supported
 pub use crate::pk11::context::HashAlgorithm;
 use nss_sys::SECOidTag;
-use std::convert::TryFrom;
 
 // ***** BASED ON THE FOLLOWING IMPLEMENTATION *****
 // https://searchfox.org/mozilla-central/rev/8ccea36c4fb09412609fb738c722830d7098602b/dom/crypto/WebCryptoTask.cpp#2567

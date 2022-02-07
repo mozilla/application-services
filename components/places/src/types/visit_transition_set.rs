@@ -4,7 +4,6 @@
 
 use super::{InvalidVisitType, VisitTransition};
 use rusqlite::types::ToSqlOutput;
-use std::convert::{TryFrom, TryInto};
 
 #[derive(Copy, Clone, Debug, Default, PartialEq, Eq, Hash)]
 pub struct VisitTransitionSet {

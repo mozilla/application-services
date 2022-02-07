@@ -19,10 +19,7 @@ use anyhow::{bail, Result};
 use clap::{App, ArgMatches};
 use serde::Deserialize;
 
-use std::{
-    convert::{TryFrom, TryInto},
-    path::{Path, PathBuf},
-};
+use std::path::{Path, PathBuf};
 
 const RELEASE_CHANNEL: &str = "release";
 

@@ -3,7 +3,7 @@ name = "places-integration-tests"
 version = "0.1.0"
 authors = ["sync-team@mozilla.com"]
 license = "MPL-2.0"
-edition = "2018"
+edition = "2021"
 
 [[test]]
 path = "src/tests.rs"

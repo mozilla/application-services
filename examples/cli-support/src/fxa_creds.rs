@@ -5,7 +5,6 @@
 /// Utilities for command-line utilities which want to use fxa credentials.
 use std::{
     collections::HashMap,
-    convert::TryInto,
     fs,
     io::{Read, Write},
 };
