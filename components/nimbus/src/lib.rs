@@ -15,6 +15,7 @@ mod defaults;
 mod matcher;
 pub mod persistence;
 mod sampling;
+mod strings;
 mod updating;
 pub mod versioning;
 #[cfg(debug_assertions)]
