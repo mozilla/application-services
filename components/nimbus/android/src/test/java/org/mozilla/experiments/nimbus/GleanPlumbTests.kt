@@ -94,45 +94,4 @@ class GleanPlumbTests {
             )
         )
     }
-
-    fun `invalid json throws an exception`() {
-        // This is only a problem if we allow access to strings being sent directly into Rust.
-        val developmentAppInfo = NimbusAppInfo(appName = "ThatApp", channel = "production")
-
-        val nimbus = Nimbus(
-            context = context,
-            appInfo = developmentAppInfo,
-            server = null,
-            deviceInfo = deviceInfo,
-            delegate = nimbusDelegate
-        )
-        nimbus.initializeOnThisThread()
-
-        val nimbusClient = NimbusClient(
-            nimbus.buildExperimentContext(context, developmentAppInfo, deviceInfo),
-            context.dataDir.absolutePath + "/test-path",
-            null,
-            AvailableRandomizationUnits(null, 0)
-        )
-
-        val helper = nimbusClient.createTargetingHelper()
-        assertTrue(helper.evalJexl("true", null))
-        assertTrue(helper.evalJexl("true", "{}"))
-
-        assertThrows("invalid json", NimbusException::class.java) {
-            helper.evalJexl("true", "{")
-        }
-
-        assertThrows("not an object", NimbusException::class.java) {
-            helper.evalJexl("true", "[]")
-        }
-
-        assertThrows("not an object", NimbusException::class.java) {
-            helper.evalJexl("true", "1")
-        }
-
-        assertThrows("not an object", NimbusException::class.java) {
-            helper.evalJexl("true", "true")
-        }
-    }
 }

@@ -30,9 +30,9 @@ class GleanPlumbMessageHelper(
 ) {
     fun evalJexl(expression: String): Boolean = targetingHelper.evalJexl(expression, null)
     fun evalJexl(expression: String, json: JSONObject) =
-        targetingHelper.evalJexl(expression, json.toString())
+        targetingHelper.evalJexl(expression, json)
 }
 
 class AlwaysFalseTargetingHelper : NimbusTargetingHelperInterface {
-    override fun evalJexl(expression: String, json: String?): Boolean = false
+    override fun evalJexl(expression: String, json: JSONObject?): Boolean = false
 }
