@@ -27,7 +27,6 @@ use rusqlite::{Row, NO_PARAMS};
 use sql_support::{self, ConnExt, SqlInterruptScope};
 use std::cell::RefCell;
 use std::collections::HashMap;
-use std::convert::TryFrom;
 use std::fmt;
 use std::sync::{atomic::AtomicUsize, Arc};
 use sync15::{

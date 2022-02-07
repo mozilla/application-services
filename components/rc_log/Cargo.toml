@@ -1,7 +1,7 @@
 [package]
 name = "rc_log_ffi"
 version = "0.1.0"
-edition = "2018"
+edition = "2021"
 authors = ["Thom Chiovoloni <tchiovoloni@mozilla.com>"]
 license = "MPL-2.0"
 exclude = ["/android", "/ios"]

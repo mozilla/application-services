@@ -40,7 +40,6 @@
 #![warn(rust_2018_idioms)]
 use serde_derive::*;
 use std::collections::HashMap;
-use std::convert::{TryFrom, TryInto};
 use thiserror::Error;
 
 // All the implementation details live in this "internal" module.

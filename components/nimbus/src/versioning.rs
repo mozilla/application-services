@@ -50,7 +50,6 @@
 //! The following comparisons are taken directly from [the brief documentation in Mozilla-Central](https://searchfox.org/mozilla-central/rev/468a65168dd0bc3c7d602211a566c16e66416cce/xpcom/base/nsIVersionComparator.idl#9-31)
 //! ```
 //! use nimbus::versioning::Version;
-//! use std::convert::TryFrom;
 //! let v1 = Version::try_from("1.0pre1").unwrap();
 //! let v2 = Version::try_from("1.0pre2").unwrap();
 //! let v3 = Version::try_from("1.0").unwrap();
@@ -85,10 +84,7 @@
 //!           < 1.1pre10a
 //!             < 1.1pre10
 
-use std::{
-    cmp::Ordering,
-    convert::{TryFrom, TryInto},
-};
+use std::cmp::Ordering;
 
 use crate::NimbusError;
 

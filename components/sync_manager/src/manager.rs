@@ -7,7 +7,6 @@ use crate::types::{ServiceStatus, SyncEngineSelection, SyncParams, SyncReason, S
 use crate::{reset, reset_all, wipe};
 use parking_lot::Mutex;
 use std::collections::{HashMap, HashSet};
-use std::convert::TryFrom;
 use std::sync::{atomic::AtomicUsize, Arc};
 use std::time::SystemTime;
 use sync15::{

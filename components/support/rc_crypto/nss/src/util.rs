@@ -4,7 +4,7 @@
 
 use crate::error::*;
 use nss_sys::*;
-use std::{convert::TryFrom, ffi::CString, os::raw::c_char, sync::Once};
+use std::{ffi::CString, os::raw::c_char, sync::Once};
 
 // This is the NSS version that this crate is claiming to be compatible with.
 // We check it at runtime using `NSS_VersionCheck`.
