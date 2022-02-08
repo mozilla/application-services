@@ -43,7 +43,7 @@ pub use matcher::AppContext;
 use once_cell::sync::OnceCell;
 use persistence::{Database, StoreId, Writer};
 use serde_derive::*;
-use serde_json::{Map, Value};
+use serde_json::{json, Map, Value};
 use std::collections::HashSet;
 use std::path::{Path, PathBuf};
 use std::sync::{Arc, Mutex};
@@ -713,6 +713,52 @@ impl AvailableRandomizationUnits {
         match wanted {
             RandomizationUnit::NimbusId => Some(nimbus_id),
             RandomizationUnit::ClientId => self.client_id.as_deref(),
+        }
+    }
+}
+
+pub struct NimbusStringHelper {
+    targeting_context: TargetingAttributes,
+}
+
+impl NimbusStringHelper {
+    pub fn get_uuid(&self, template: String) -> Option<String> {
+        if template.find("{uuid}").is_some() {
+            let uuid = Uuid::new_v4();
+            Some(uuid.to_string())
+        } else {
+            None
+        }
+    }
+
+    pub fn string_format(
+        &self,
+        template: String,
+        uuid: Option<String>,
+        additional_context: Option<JsonObject>,
+    ) -> Result<String> {
+        match (uuid, additional_context) {
+            (Some(uuid), Some(mut json)) => {
+                json.insert("uuid".to_string(), Value::String(uuid));
+                self.string_format(template, None, Some(json))
+            }
+            (None, Some(json)) => {
+                let context = serde_json::to_value(&self.targeting_context)?;
+                let json = Value::Object(json);
+                let json = json.defaults(&context)?;
+
+                strings::fmt_with_value(&template, &json)
+            }
+            (Some(uuid), None) => {
+                let json = json!({
+                    "uuid": uuid.to_string(),
+                })
+                .as_object()
+                .unwrap()
+                .to_owned();
+                self.string_format(template, None, Some(json))
+            }
+            _ => strings::fmt(&template, &self.targeting_context),
         }
     }
 }

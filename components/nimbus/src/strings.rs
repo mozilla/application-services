@@ -27,6 +27,7 @@ pub fn fmt_with_map(input: &str, context: &Map<String, Value>) -> String {
     let mut iter = input.char_indices();
     let mut last_index = 0;
 
+    // This is exceedingly simple; never refer to this as a parser.
     while let Some((index, c)) = iter.next() {
         if c == '{' {
             let open_index = index;
@@ -35,8 +36,11 @@ pub fn fmt_with_map(input: &str, context: &Map<String, Value>) -> String {
                     let close_index = index;
                     let field_name = &input[open_index + 1..close_index];
 
-                    let key = field_name.trim();
-                    let replace_string = match context.get(key) {
+                    // If we decided to embed JEXL into this templating language,
+                    // this would be the place to put it.
+                    // However, we'd likely want to make this be able to detect balanced braces,
+                    // which this does not.
+                    let replace_string = match context.get(field_name) {
                         Some(Value::Bool(v)) => format!("{}", v),
                         Some(Value::String(v)) => format!("{}", v),
                         Some(Value::Number(v)) => format!("{}", v),
