@@ -52,53 +52,53 @@ type BookmarkFolder = crate::storage::bookmarks::fetch::Folder;
 type BookmarkSeparator = crate::storage::bookmarks::fetch::Separator;
 use crate::storage::bookmarks::fetch::BookmarkData;
 
-impl UniffiCustomTypeWrapper for Url {
-    type Wrapped = String;
+impl UniffiCustomTypeConverter for Url {
+    type Builtin = String;
 
-    fn wrap(val: Self::Wrapped) -> uniffi::Result<url::Url> {
+    fn into_custom(val: Self::Builtin) -> uniffi::Result<url::Url> {
         match Url::parse(val.as_str()) {
             Ok(url) => Ok(url),
             Err(e) => Err(PlacesError::UrlParseFailed(e.to_string()).into()),
         }
     }
 
-    fn unwrap(obj: Self) -> Self::Wrapped {
+    fn from_custom(obj: Self) -> Self::Builtin {
         obj.into()
     }
 }
 
-impl UniffiCustomTypeWrapper for Timestamp {
-    type Wrapped = i64;
+impl UniffiCustomTypeConverter for Timestamp {
+    type Builtin = i64;
 
-    fn wrap(val: Self::Wrapped) -> uniffi::Result<Self> {
+    fn into_custom(val: Self::Builtin) -> uniffi::Result<Self> {
         Ok(Timestamp(val as u64))
     }
 
-    fn unwrap(obj: Self) -> Self::Wrapped {
+    fn from_custom(obj: Self) -> Self::Builtin {
         obj.as_millis() as i64
     }
 }
 
-impl UniffiCustomTypeWrapper for VisitTransitionSet {
-    type Wrapped = i32;
+impl UniffiCustomTypeConverter for VisitTransitionSet {
+    type Builtin = i32;
 
-    fn wrap(val: Self::Wrapped) -> uniffi::Result<Self> {
+    fn into_custom(val: Self::Builtin) -> uniffi::Result<Self> {
         Ok(VisitTransitionSet::from_u16(val as u16).expect("Bug: Invalid VisitTransitionSet"))
     }
 
-    fn unwrap(obj: Self) -> Self::Wrapped {
+    fn from_custom(obj: Self) -> Self::Builtin {
         VisitTransitionSet::into_u16(obj) as i32
     }
 }
 
-impl UniffiCustomTypeWrapper for Guid {
-    type Wrapped = String;
+impl UniffiCustomTypeConverter for Guid {
+    type Builtin = String;
 
-    fn wrap(val: Self::Wrapped) -> uniffi::Result<Guid> {
+    fn into_custom(val: Self::Builtin) -> uniffi::Result<Guid> {
         Ok(Guid::new(val.as_str()))
     }
 
-    fn unwrap(obj: Self) -> Self::Wrapped {
+    fn from_custom(obj: Self) -> Self::Builtin {
         obj.into()
     }
 }

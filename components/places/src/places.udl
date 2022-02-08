@@ -2,13 +2,13 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-[Wrapped]
+[Custom]
 typedef string Url;
-[Wrapped]
+[Custom]
 typedef i64 Timestamp;
-[Wrapped]
+[Custom]
 typedef i32 VisitTransitionSet;
-[Wrapped]
+[Custom]
 typedef string Guid;
 
 namespace places {
