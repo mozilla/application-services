@@ -93,7 +93,58 @@ mod message_tests {
         let helper = nimbus.create_targeting_helper();
         assert!(helper.eval_jexl("days_since_install == 10".to_string(), None)?);
 
-        assert!(helper.eval_jexl("days_since_update == 5".to_string(), None)?);
+        Ok(())
+    }
+
+    #[test]
+    fn test_string_helper() -> Result<()> {
+        let nimbus = common::new_test_client("string_helper_test")?;
+        nimbus.initialize()?;
+
+        let helper = nimbus.create_string_helper();
+
+        let context = json!({
+            "is_default_browser": true
+        });
+        let context = context.as_object().unwrap();
+
+        let template = "{channel} {app_name} is {is_default_browser} {uuid}".to_string();
+        assert_eq!(
+            helper.string_format(template.clone(), None, None)?,
+            "nightly fenix is {is_default_browser} {uuid}".to_string()
+        );
+
+        assert_eq!(
+            helper.string_format(template.clone(), None, Some(context.clone()))?,
+            "nightly fenix is true {uuid}".to_string()
+        );
+
+        assert_eq!(
+            helper.string_format(
+                template.clone(),
+                Some("EWE YOU EYE DEE".to_string()),
+                Some(context.clone())
+            )?,
+            "nightly fenix is true EWE YOU EYE DEE".to_string()
+        );
+
+        assert_eq!(
+            helper.string_format(template, Some("EWE YOU EYE DEE".to_string()), None)?,
+            "nightly fenix is {is_default_browser} EWE YOU EYE DEE".to_string()
+        );
+
+        // Test that UUID is generated only when uuid is in the template
+        let template = "my {not-uuid}".to_string();
+        let uuid = helper.get_uuid(template);
+        assert!(uuid.is_none());
+
+        let template = "my {uuid}".to_string();
+        let uuid = helper.get_uuid(template.clone());
+        assert!(uuid.is_some());
+        assert_ne!(
+            helper.string_format(template.clone(), uuid, None)?,
+            template
+        );
 
         Ok(())
     }

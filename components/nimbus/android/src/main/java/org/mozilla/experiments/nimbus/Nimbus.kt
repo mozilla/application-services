@@ -536,7 +536,10 @@ open class Nimbus(
     }
 
     override fun createMessageHelper(): GleanPlumbMessageHelper =
-        GleanPlumbMessageHelper(nimbusClient.createTargetingHelper())
+        GleanPlumbMessageHelper(
+            nimbusClient.createTargetingHelper(),
+            nimbusClient.createStringHelper()
+        )
 
     @VisibleForTesting(otherwise = VisibleForTesting.PRIVATE)
     internal fun recordExperimentTelemetry(experiments: List<EnrolledExperiment>) {
