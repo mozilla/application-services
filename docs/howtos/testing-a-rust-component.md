@@ -67,7 +67,7 @@ The Swift wrapper code for a component should have its own test suite, using App
 
 Due to the way that all rust components need to be compiled together into a single ["megazord"](../design/megazords.md)
 framework, this entire repository is a single Xcode project. The Swift tests for each component
-thus need to live under `megazords/ios/MozillaAppServicesTests/` rather than in the directory
+thus need to live under `megazords/ios-rust/MozillaTestServicesTests/` rather than in the directory
 for the corresponding component. (XXX TODO: is this true? it would be nice to find a way to avoid having
 them live separately because it makes them easy to overlook).
 

@@ -3,16 +3,8 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
 import Foundation
+import Glean
 import UIKit
-#if canImport(Sync15)
-    import Sync15
-#endif
-#if canImport(MozillaRustComponents)
-    import MozillaRustComponents
-#endif
-#if canImport(Glean)
-    @_exported import Glean
-#endif
 
 typealias LoginsStoreError = LoginsStorageError
 

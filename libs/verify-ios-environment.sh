@@ -20,6 +20,6 @@ fi
 echo ""
 echo "Looks good! You can do the following:"
 echo "- Open the XCode project:"
-echo "    open megazords/ios/MozillaAppServices.xcodeproj"
+echo "    open megazords/ios-rust/MozillaTestServices.xcodeproj"
 echo "- Run the iOS tests:"
 echo "    ./automation/run_ios_tests.sh"

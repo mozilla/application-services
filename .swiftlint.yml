@@ -12,6 +12,8 @@ excluded:
   - Carthage
   - "**/*/ios/Generated"
   - "megazords/ios/MozillaAppServicesTests"
+  - "megazords/ios-rust/MozillaTestServices/MozillaTestServicesTests"
+  - "megazords/ios-rust/MozillaTestServices/MozillaTestServices/Generated"
 
 disabled_rules:
   - file_length

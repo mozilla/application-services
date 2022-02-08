@@ -146,7 +146,7 @@ You will need to do the following steps to include the component in the megazord
 
 1. Add your component into the iOS ["megazord"](../design/megazords.md) through the Xcode project, which can only really by done using the Xcode application, which can only really be done if you're on a Mac.
 
-    1. Open `megazords/ios/MozillaAppServices.xcodeproj` in Xcode.
+    1. Open `megazords/ios-rust/MozillaTestServices.xcodeproj` in Xcode.
 
     1. In the Project navigator, add a new Group for your new component, pointing to
     the `./ios/` directory you created above. Add the following entries to the Group:
@@ -179,14 +179,14 @@ The result should look something like this:
 Build the project in Xcode to check whether that all worked correctly.
 
 To add Swift tests for your component API, create them in a file under
-`megazords/ios/MozillaAppServicesTests/`. Use this syntax to import
+`megazords/ios-rust/MozillaTestServicesTests/`. Use this syntax to import
 your component's bindings from the compiled megazord:
 
 ```
 @testable import MozillaAppServices
 ```
 
-In Xcode, navigate to the `MozillaAppServicesTests` Group and add your
+In Xcode, navigate to the `MozillaTestServicesTests` Group and add your
 new test file as an entry. Select the corresponding target, click on
 "Build Phases", and add your test file to the list of "Compile Sources".
 The result should look something like this:
