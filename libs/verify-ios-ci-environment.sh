@@ -22,11 +22,6 @@ rustup target add "${RUST_TARGETS[@]}"
 
 # If you add a dependency below, mention it in building.md in the iOS section!
 
-if ! [[ -x "$(command -v protoc-gen-swift)" ]]; then
-  echo 'Error: swift-protobuf needs to be installed. See https://github.com/apple/swift-protobuf#alternatively-install-via-homebrew for install instructions.' >&2
-  exit 1
-fi
-
 if ! [[ -x "$(command -v xcpretty)" ]]; then
   echo 'Error: xcpretty needs to be installed. See https://github.com/xcpretty/xcpretty#installation for install instructions.' >&2
   exit 1
