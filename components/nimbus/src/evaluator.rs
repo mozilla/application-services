@@ -3,7 +3,6 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
  */
 
-use crate::defaults::Defaults;
 use crate::enrollment::{
     EnrolledReason, EnrollmentStatus, ExperimentEnrollment, NotEnrolledReason,
 };
@@ -225,7 +224,7 @@ pub(crate) fn targeting(
     expression_statement: &str,
     targeting_attributes: &TargetingAttributes,
 ) -> Option<EnrollmentStatus> {
-    match jexl_eval(expression_statement, targeting_attributes, None) {
+    match jexl_eval(expression_statement, &targeting_attributes) {
         Ok(res) => match res {
             true => None,
             false => Some(EnrollmentStatus::NotEnrolled {
@@ -238,25 +237,18 @@ pub(crate) fn targeting(
     }
 }
 
-pub fn jexl_eval(
+// This is the common entry point to JEXL evaluation.
+// The targeting attributes and additional context should have been merged and calculated before
+// getting here.
+// Any additional transforms should be added here.
+pub fn jexl_eval<Context: serde::Serialize>(
     expression_statement: &str,
-    targeting_attributes: &TargetingAttributes,
-    additional_context: Option<Value>,
+    context: &Context,
 ) -> Result<bool> {
     let evaluator =
         Evaluator::new().with_transform("versionCompare", |args| Ok(version_compare(args)?));
 
-    let res = match additional_context {
-        Some(overrides) => {
-            let defaults = serde_json::to_value(targeting_attributes)?;
-            let ctx = overrides.defaults(&defaults)?;
-            evaluator.eval_in_context(expression_statement, ctx)?
-        }
-        None => {
-            let ctx = targeting_attributes;
-            evaluator.eval_in_context(expression_statement, ctx)?
-        }
-    };
+    let res = evaluator.eval_in_context(expression_statement, context)?;
     match res.as_bool() {
         Some(v) => Ok(v),
         None => Err(NimbusError::InvalidExpression),

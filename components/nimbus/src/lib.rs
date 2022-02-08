@@ -468,11 +468,13 @@ impl NimbusClient {
         self.db.get_or_try_init(|| Database::new(&self.db_path))
     }
 
-    pub fn create_targeting_helper(&self) -> Arc<NimbusTargetingHelper> {
-        let helper = NimbusTargetingHelper {
-            targeting_context: self.get_targeting_attributes(),
-        };
-        Arc::new(helper)
+    pub fn create_targeting_helper(
+        &self,
+        additional_context: Option<JsonObject>,
+    ) -> Result<Arc<NimbusTargetingHelper>> {
+        let helper =
+            NimbusTargetingHelper::new(&self.get_targeting_attributes(), additional_context)?;
+        Ok(Arc::new(helper))
     }
 
     pub fn create_string_helper(&self) -> Arc<NimbusStringHelper> {
@@ -771,13 +773,28 @@ impl NimbusStringHelper {
 }
 
 pub struct NimbusTargetingHelper {
-    targeting_context: TargetingAttributes,
+    context: Value,
 }
 
 impl NimbusTargetingHelper {
-    pub fn eval_jexl(&self, expr: String, value: Option<JsonObject>) -> Result<bool> {
-        let json = value.map(Value::Object);
-        evaluator::jexl_eval(&expr, &self.targeting_context, json)
+    fn new(
+        targeting_attributes: &TargetingAttributes,
+        context: Option<JsonObject>,
+    ) -> Result<Self> {
+        let context = context.map(Value::Object);
+        let targeting = serde_json::to_value(targeting_attributes)?;
+        let context = match context {
+            Some(v) => v.defaults(&targeting)?,
+            None => targeting,
+        };
+
+        Ok(Self { context })
+    }
+}
+
+impl NimbusTargetingHelper {
+    pub fn eval_jexl(&self, expr: String) -> Result<bool> {
+        evaluator::jexl_eval(&expr, &self.context)
     }
 }
 
