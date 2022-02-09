@@ -307,9 +307,28 @@ extension Nimbus: NimbusBranchInterface {
 }
 
 extension Nimbus: GleanPlumbProtocol {
-    public func createMessageHelper() -> GleanPlumbMessageHelper {
-        let targetingHelper = nimbusClient.createTargetingHelper()
-        return GleanPlumbMessageHelper(targetingHelper: targetingHelper)
+    public func createMessageHelper() throws -> GleanPlumbMessageHelper {
+        return try createMessageHelper(nil)
+    }
+
+    public func createMessageHelper(_ additionalContext: [String: Any]) throws -> GleanPlumbMessageHelper {
+        let string = String(data: try JSONSerialization.data(withJSONObject: additionalContext, options: []), encoding: .utf8)
+        return try createMessageHelper(string)
+    }
+
+    public func createMessageHelper<T: Encodable>(_ additionalContext: T) throws -> GleanPlumbMessageHelper {
+        let encoder = JSONEncoder()
+        encoder.keyEncodingStrategy = .convertToSnakeCase
+
+        let data = try encoder.encode(additionalContext)
+        let string = String(data: data, encoding: .utf8)!
+        return try createMessageHelper(string)
+    }
+
+    private func createMessageHelper(_ string: String?) throws -> GleanPlumbMessageHelper {
+        let targetingHelper = try nimbusClient.createTargetingHelper(additionalContext: string)
+        let stringHelper = try nimbusClient.createStringHelper(additionalContext: string)
+        return GleanPlumbMessageHelper(targetingHelper: targetingHelper, stringHelper: stringHelper)
     }
 }
 
@@ -358,8 +377,8 @@ public extension NimbusDisabled {
         return nil
     }
 
-    func createMessageHelper() -> GleanPlumbMessageHelper {
+    func createMessageHelper() throws -> GleanPlumbMessageHelper {
         let targetingHelper = AlwaysFalseTargetingHelper()
-        return GleanPlumbMessageHelper(targetingHelper: targetingHelper)
+        return GleanPlumbMessageHelper(targetingHelper: targetingHelper, stringHelper: NonStringHelper())
     }
 }

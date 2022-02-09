@@ -101,35 +101,32 @@ mod message_tests {
         let nimbus = common::new_test_client("string_helper_test")?;
         nimbus.initialize()?;
 
-        let helper = nimbus.create_string_helper();
-
         let context = json!({
             "is_default_browser": true
-        });
-        let context = context.as_object().unwrap();
+        })
+        .as_object()
+        .cloned();
+        let helper = nimbus.create_string_helper(context)?;
+        let no_ctx_helper = nimbus.create_string_helper(None)?;
 
         let template = "{channel} {app_name} is {is_default_browser} {uuid}".to_string();
         assert_eq!(
-            helper.string_format(template.clone(), None, None)?,
+            no_ctx_helper.string_format(template.clone(), None),
             "nightly fenix is {is_default_browser} {uuid}".to_string()
         );
 
         assert_eq!(
-            helper.string_format(template.clone(), None, Some(context.clone()))?,
+            helper.string_format(template.clone(), None),
             "nightly fenix is true {uuid}".to_string()
         );
 
         assert_eq!(
-            helper.string_format(
-                template.clone(),
-                Some("EWE YOU EYE DEE".to_string()),
-                Some(context.clone())
-            )?,
+            helper.string_format(template.clone(), Some("EWE YOU EYE DEE".to_string())),
             "nightly fenix is true EWE YOU EYE DEE".to_string()
         );
 
         assert_eq!(
-            helper.string_format(template, Some("EWE YOU EYE DEE".to_string()), None)?,
+            no_ctx_helper.string_format(template, Some("EWE YOU EYE DEE".to_string())),
             "nightly fenix is {is_default_browser} EWE YOU EYE DEE".to_string()
         );
 
@@ -141,10 +138,7 @@ mod message_tests {
         let template = "my {uuid}".to_string();
         let uuid = helper.get_uuid(template.clone());
         assert!(uuid.is_some());
-        assert_ne!(
-            helper.string_format(template.clone(), uuid, None)?,
-            template
-        );
+        assert_ne!(helper.string_format(template.clone(), uuid), template);
 
         Ok(())
     }

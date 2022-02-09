@@ -195,7 +195,8 @@ interface NimbusClient {
 
     // This provides a unified String interpolation library which exposes the application context.
     // It's first use is in GleanPlumb message helper, to add extra parameters to URLs.
-    NimbusStringHelper create_string_helper();
+    [Throws=NimbusError]
+    NimbusStringHelper create_string_helper(optional JsonObject? additional_context = null);
 };
 
 [Custom]
@@ -211,8 +212,7 @@ interface NimbusTargetingHelper {
 interface NimbusStringHelper {
     // Take the given template and find patterns that match the regular expression `{\w+}`.
     // Any matches are used as keys into the application context, the `additional_context` or the special case `uuid`.
-    [Throws=NimbusError]
-    string string_format(string template, optional string? uuid = null, optional JsonObject? additional_context = null);
+    string string_format(string template, optional string? uuid = null);
 
     // Generates an optional UUID to be passed into the `string_format` method.
     // If the return is not null, then it should be recorded with Glean as a UuidMetricType.

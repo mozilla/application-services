@@ -13,7 +13,7 @@ import org.mozilla.experiments.nimbus.internal.NimbusTargetingHelperInterface
  * Nimbus.
  */
 interface GleanPlumbInterface {
-    fun createMessageHelper(): GleanPlumbMessageHelper =
+    fun createMessageHelper(additionalContext: JSONObject? = null): GleanPlumbMessageHelper =
         GleanPlumbMessageHelper(
             AlwaysFalseTargetingHelper(),
             NonStringHelper()
@@ -35,14 +35,13 @@ class GleanPlumbMessageHelper(
 ) : NimbusStringHelperInterface by stringHelper, NimbusTargetingHelperInterface by targetingHelper
 
 internal class AlwaysFalseTargetingHelper : NimbusTargetingHelperInterface {
-    override fun evalJexl(expression: String, json: JSONObject?): Boolean = false
+    override fun evalJexl(expression: String): Boolean = false
 }
 
 internal class NonStringHelper : NimbusStringHelperInterface {
     override fun stringFormat(
         template: String,
-        uuid: String?,
-        additionalContext: JSONObject?
+        uuid: String?
     ): String = template
 
     override fun getUuid(template: String) = null

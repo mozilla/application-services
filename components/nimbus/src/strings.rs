@@ -5,12 +5,14 @@
 use crate::{NimbusError, Result};
 use serde_json::{value::Value, Map};
 
+#[allow(dead_code)]
 pub fn fmt<T: serde::Serialize>(template: &str, context: &T) -> Result<String> {
     let obj: Value = serde_json::to_value(context)?;
 
     fmt_with_value(template, &obj)
 }
 
+#[allow(dead_code)]
 pub fn fmt_with_value(template: &str, value: &Value) -> Result<String> {
     if let Value::Object(map) = value {
         Ok(fmt_with_map(template, map))

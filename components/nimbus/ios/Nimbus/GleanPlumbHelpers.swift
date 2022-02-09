@@ -9,7 +9,9 @@ import Foundation
  * Nimbus.
  */
 public protocol GleanPlumbProtocol {
-    func createMessageHelper() -> GleanPlumbMessageHelper
+    func createMessageHelper() throws -> GleanPlumbMessageHelper
+    func createMessageHelper(_ additionalContext: [String: Any]) throws -> GleanPlumbMessageHelper
+    func createMessageHelper<T: Codable>(_ additionalContext: T) throws -> GleanPlumbMessageHelper
 }
 
 /**
@@ -23,33 +25,38 @@ public protocol GleanPlumbProtocol {
  */
 public class GleanPlumbMessageHelper {
     private let targetingHelper: NimbusTargetingHelperProtocol
+    private let stringHelper: NimbusStringHelperProtocol
 
-    init(targetingHelper: NimbusTargetingHelperProtocol) {
+    init(targetingHelper: NimbusTargetingHelperProtocol, stringHelper: NimbusStringHelperProtocol) {
         self.targetingHelper = targetingHelper
+        self.stringHelper = stringHelper
     }
 
     public func evalJexl(expression: String) throws -> Bool {
-        try targetingHelper.evalJexl(expression: expression, json: nil)
+        try targetingHelper.evalJexl(expression: expression)
     }
 
-    public func evalJexl(expression: String, json: [String: Any]) throws -> Bool {
-        let string = String(data: try JSONSerialization.data(withJSONObject: json, options: []), encoding: .utf8)
-        return try targetingHelper.evalJexl(expression: expression, json: string)
+    public func getUuid(template: String) -> String? {
+        stringHelper.getUuid(template: template)
     }
 
-    public func evalJexl<T: Encodable>(expression: String, context: T) throws -> Bool {
-        let encoder = JSONEncoder()
-        encoder.keyEncodingStrategy = .convertToSnakeCase
-
-        let data = try encoder.encode(context)
-        let string = String(data: data, encoding: .utf8)!
-
-        return try targetingHelper.evalJexl(expression: expression, json: string)
+    public func stringFormat(template: String, uuid: String?) -> String {
+        stringHelper.stringFormat(template: template, uuid: uuid)
     }
 }
 
-public class AlwaysFalseTargetingHelper: NimbusTargetingHelperProtocol {
-    public func evalJexl(expression _: String, json _: String?) throws -> Bool {
+internal class AlwaysFalseTargetingHelper: NimbusTargetingHelperProtocol {
+    public func evalJexl(expression _: String) throws -> Bool {
         false
+    }
+}
+
+internal class NonStringHelper: NimbusStringHelperProtocol {
+    public func getUuid(template: String) -> String? {
+        nil
+    }
+
+    public func stringFormat(template: String, uuid: String?) -> String {
+        template
     }
 }
