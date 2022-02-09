@@ -7,11 +7,19 @@ import Foundation
 /**
  * Instances of this class are useful for implementing a messaging service based upon
  * Nimbus.
+ *
+ * The message helper is designed to help string interpolation and JEXL evalutaiuon against the context
+ * of the attrtibutes Nimbus already knows about.
+ *
+ * App-specific, additional context can be given at creation time.
+ *
+ * The helpers are designed to evaluate multiple messages at a time, however: since the context may change
+ * over time, the message helper should not be stored for long periods.
  */
 public protocol GleanPlumbProtocol {
     func createMessageHelper() throws -> GleanPlumbMessageHelper
-    func createMessageHelper(_ additionalContext: [String: Any]) throws -> GleanPlumbMessageHelper
-    func createMessageHelper<T: Codable>(_ additionalContext: T) throws -> GleanPlumbMessageHelper
+    func createMessageHelper(additionalContext: [String: Any]) throws -> GleanPlumbMessageHelper
+    func createMessageHelper<T: Encodable>(additionalContext: T) throws -> GleanPlumbMessageHelper
 }
 
 /**
@@ -44,6 +52,8 @@ public class GleanPlumbMessageHelper {
         stringHelper.stringFormat(template: template, uuid: uuid)
     }
 }
+
+// MARK: Dummy implementations
 
 internal class AlwaysFalseTargetingHelper: NimbusTargetingHelperProtocol {
     public func evalJexl(expression _: String) throws -> Bool {
