@@ -21,7 +21,7 @@ import org.junit.Test
 import org.junit.runner.RunWith
 import org.mozilla.experiments.nimbus.internal.NimbusException
 import org.robolectric.RobolectricTestRunner
-import java.util.*
+import java.util.UUID
 import java.util.concurrent.Executors
 
 @RunWith(RobolectricTestRunner::class)

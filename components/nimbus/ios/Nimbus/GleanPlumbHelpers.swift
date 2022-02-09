@@ -52,11 +52,11 @@ internal class AlwaysFalseTargetingHelper: NimbusTargetingHelperProtocol {
 }
 
 internal class NonStringHelper: NimbusStringHelperProtocol {
-    public func getUuid(template: String) -> String? {
+    public func getUuid(template _: String) -> String? {
         nil
     }
 
-    public func stringFormat(template: String, uuid: String?) -> String {
+    public func stringFormat(template: String, uuid _: String?) -> String {
         template
     }
 }

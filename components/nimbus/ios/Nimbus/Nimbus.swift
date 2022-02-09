@@ -376,9 +376,21 @@ public extension NimbusDisabled {
     func getExperimentBranches(_: String) -> [Branch]? {
         return nil
     }
+}
 
-    func createMessageHelper() throws -> GleanPlumbMessageHelper {
-        let targetingHelper = AlwaysFalseTargetingHelper()
-        return GleanPlumbMessageHelper(targetingHelper: targetingHelper, stringHelper: NonStringHelper())
+extension NimbusDisabled: GleanPlumbProtocol {
+    public func createMessageHelper(_ _: [String: Any]) throws -> GleanPlumbMessageHelper {
+        try createMessageHelper()
+    }
+
+    public func createMessageHelper<T: Codable>(_ _: T) throws -> GleanPlumbMessageHelper {
+        try createMessageHelper()
+    }
+
+    public func createMessageHelper() throws -> GleanPlumbMessageHelper {
+        GleanPlumbMessageHelper(
+            targetingHelper: AlwaysFalseTargetingHelper(),
+            stringHelper: NonStringHelper()
+        )
     }
 }
