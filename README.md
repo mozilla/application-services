@@ -51,7 +51,6 @@ The application-services library primary consumers are Fenix (Firefox on Android
 
 #### Firefox for iOS integration
 * Build instructions to test [Firefox iOS integration](docs/building.md#building-for-firefox-ios)
-* [Using local components in iOS](docs/howtos/locally-published-components-in-ios.md)
 
 #### Firefox Desktop
 * Build instructions to test [Firefox Desktop integration](docs/building.md#building-for-firefox-desktop)

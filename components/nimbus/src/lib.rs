@@ -729,13 +729,11 @@ impl NimbusTargetingHelper {
 
 type JsonObject = Map<String, Value>;
 
-// This will need to a UniffiCustomTypeConverter once uniffi 0.17
-// is released and adopted by application-services
 #[cfg(feature = "uniffi-bindings")]
-impl UniffiCustomTypeWrapper for JsonObject {
-    type Wrapped = String;
+impl UniffiCustomTypeConverter for JsonObject {
+    type Builtin = String;
 
-    fn wrap(val: Self::Wrapped) -> uniffi::Result<JsonObject> {
+    fn into_custom(val: Self::Builtin) -> uniffi::Result<Self> {
         let json: Value = serde_json::from_str(&val)?;
 
         match json.as_object() {
@@ -746,7 +744,7 @@ impl UniffiCustomTypeWrapper for JsonObject {
         }
     }
 
-    fn unwrap(obj: Self) -> Self::Wrapped {
+    fn from_custom(obj: Self) -> Self::Builtin {
         serde_json::Value::Object(obj).to_string()
     }
 }

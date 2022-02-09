@@ -39,7 +39,6 @@ a number of hours to complete.
     1. Install the system dependencies required for building NSS
         1. Install ninja: `brew install ninja`
         1. Install gyp (via https://github.com/mogemimi/pomdog/wiki/How-to-Install-GYP)
-    1. Install swift-protobuf: `brew install swift-protobuf`
     #### Windows
     *Install windows build tools*
 
@@ -109,6 +108,12 @@ Configure maven to use the native windows maven repository - then, when doing `.
 1. Run `./libs/verify-ios-environment.sh` to check your setup and environment
 variables.  
 1. Make any corrections recommended by the script and re-run.
-1. Follow the guide for [using local a-s builds in iOS](howtos/locally-published-components-in-ios.md)
 
+Once the script passes, you should be able to run the Xcode project.
 > Note: The built Xcode project is located at `megazords/ios/MozillaAppServices.xcodeproj`.
+
+
+### ⚠️ Locally building Firefox iOS against a local Application Services ⚠️
+
+We don't currently have good documentation on how to do this, in principle it's the same as [Locally building against Focus iOS](./howtos/locally-published-spm-in-ios.md). But the difference is significant enough that we have a bug on file ([#4825](https://github.com/mozilla/application-services/issues/4825)) to document it.
+

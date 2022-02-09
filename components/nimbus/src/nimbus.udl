@@ -191,8 +191,7 @@ interface NimbusClient {
     NimbusTargetingHelper create_targeting_helper();
 };
 
-// This will change to [Custom] when application-services adopts uniffi v0.17.
-[Wrapped]
+[Custom]
 typedef string JsonObject;
 
 interface NimbusTargetingHelper {

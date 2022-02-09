@@ -19,7 +19,8 @@ that comma separated list:
 
   - Use `x86` for running the app on most emulators (in rare cases, when you have a 64-bit emulator, you'll want `x86_64`)
   - If you're running the `android-components` or `fenix` unit tests, then you'll need the architecture of your machine:
-    - OSX: `darwin`
+    - OSX running Intel chips: `darwin-x86-64`
+    - OSX running M1 chips: `darwin-aarch64`
     - Linux: `linux-x86-64`:
     - Windows `win32-x86-64-gnu`
 

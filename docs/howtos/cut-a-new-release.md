@@ -28,7 +28,6 @@
         - We do not have automated test coverage for much of the network functionality at this point, so this is crucial.
         - You can do this using the smoketest instructions below.
             **Note:** iOS smoke tests can only be run on macs.
-            - Run the `./automation/smoke-test-firefox-ios.py` script to test integration with Firefox for iOS.
             - Run the `./automation/smoke-test-android-components.py` script to test integration with Android Components.
             - Run the `./automation/smoke-test-fenix.py` script to test integration with Fenix.
     5. Get it PRed and landed.
