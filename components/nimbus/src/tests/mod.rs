@@ -7,3 +7,4 @@ mod test_enrollment_bw_compat;
 mod test_lib;
 mod test_lib_bw_compat;
 mod test_lib_schema_deserialization;
+mod test_persistence;
