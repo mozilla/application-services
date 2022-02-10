@@ -32,3 +32,7 @@ Use the template below to make assigning a version number during the release cut
 ## Xcode
 
 - Bumped Xcode version from 13.1.0 -> 13.2.1
+
+## Nimbus FML
+### What's fixed
+- Fixes a bug where each time the fml is run, the ordering of features in the experimenter json is changed. ([#4819](https://github.com/mozilla/application-services/pull/4819))
