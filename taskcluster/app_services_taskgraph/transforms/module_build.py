@@ -16,9 +16,10 @@ def rustup_setup(config, tasks):
         task["run"].setdefault("pre-gradlew", [])
         task["run"]["pre-gradlew"].insert(0,
             [
-                "source",
-                "taskcluster/scripts/toolchain/rustup-setup.sh",
-                config.params["tasks_for"]
+                "git",
+                "submodule",
+                "update",
+                "--init",
             ]
         )
         yield task

@@ -6,6 +6,9 @@ job-defaults:
     run:
         resources:
             - 'libs'
+    fetches:
+      toolchain:
+        - rust
 
 android:
     description: 'Android libs (all architectures): build'
