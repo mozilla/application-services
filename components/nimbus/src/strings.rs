@@ -24,17 +24,18 @@ pub fn fmt_with_value(template: &str, value: &Value) -> Result<String> {
 }
 
 pub fn fmt_with_map(input: &str, context: &Map<String, Value>) -> String {
+    use unicode_segmentation::UnicodeSegmentation;
     let mut output = String::with_capacity(input.len());
 
-    let mut iter = input.char_indices();
+    let mut iter = input.grapheme_indices(true);
     let mut last_index = 0;
 
     // This is exceedingly simple; never refer to this as a parser.
     while let Some((index, c)) = iter.next() {
-        if c == '{' {
+        if c == "{" {
             let open_index = index;
             for (index, c) in iter.by_ref() {
-                if c == '}' {
+                if c == "}" {
                     let close_index = index;
                     let field_name = &input[open_index + 1..close_index];
 
@@ -90,10 +91,14 @@ mod unit_tests {
     fn test_unicode_boundaries() {
         let c = json!({
             "empty": "".to_string(),
+            "unicode": "a̐éö̲".to_string(),
+            "a̐éö̲": "unicode".to_string(),
         });
         let c = c.as_object().unwrap();
 
         assert_eq!(fmt_with_map("fîré{empty}ƒøüX", c), "fîréƒøüX".to_string());
+        assert_eq!(fmt_with_map("a̐éö̲{unicode}a̐éö̲", c), "a̐éö̲a̐éö̲a̐éö̲".to_string());
+        assert_eq!(fmt_with_map("is this {a̐éö̲}?", c), "is this unicode?".to_string());
     }
 
     #[test]
