@@ -5,8 +5,8 @@
 use crate::{
     enrollment::{EnrolledReason, EnrollmentStatus, ExperimentEnrollment},
     error::Result,
-    AppContext, AvailableRandomizationUnits, Experiment, NimbusClient, NimbusStringHelper, Path,
-    StoreId, TargetingAttributes, DB_KEY_APP_VERSION, DB_KEY_UPDATE_DATE,
+    AppContext, AvailableRandomizationUnits, Experiment, NimbusClient, Path, StoreId,
+    TargetingAttributes, DB_KEY_APP_VERSION, DB_KEY_UPDATE_DATE,
 };
 use chrono::{DateTime, Duration, Utc};
 use serde_json::json;
@@ -645,67 +645,5 @@ fn set_test_creation_date<P: AsRef<Path>>(date: DateTime<Utc>, path: P) -> Resul
 fn delete_test_creation_date<P: AsRef<Path>>(path: P) -> Result<()> {
     let test_path = path.as_ref().with_file_name("test.json");
     std::fs::remove_file(test_path)?;
-    Ok(())
-}
-
-#[test]
-fn test_string_helper() -> Result<()> {
-    let app_context = AppContext {
-        app_name: "fenix".to_string(),
-        app_id: "org.mozilla.fenix".to_string(),
-        channel: "nightly".to_string(),
-        ..Default::default()
-    };
-    let targeting_context = TargetingAttributes {
-        app_context,
-        days_since_install: Some(10),
-        days_since_update: None,
-        is_already_enrolled: false,
-    };
-    let helper = NimbusStringHelper { targeting_context };
-
-    let context = json!({
-        "is_default_browser": true
-    });
-    let context = context.as_object().unwrap();
-
-    let template = "{channel} {app_name} is {is_default_browser} {uuid}".to_string();
-    assert_eq!(
-        helper.string_format(template.clone(), None, None)?,
-        "nightly fenix is {is_default_browser} {uuid}".to_string()
-    );
-
-    assert_eq!(
-        helper.string_format(template.clone(), None, Some(context.clone()))?,
-        "nightly fenix is true {uuid}".to_string()
-    );
-
-    assert_eq!(
-        helper.string_format(
-            template.clone(),
-            Some("EWE YOU EYE DEE".to_string()),
-            Some(context.clone())
-        )?,
-        "nightly fenix is true EWE YOU EYE DEE".to_string()
-    );
-
-    assert_eq!(
-        helper.string_format(template.clone(), Some("EWE YOU EYE DEE".to_string()), None)?,
-        "nightly fenix is {is_default_browser} EWE YOU EYE DEE".to_string()
-    );
-
-    // Test that UUID is generated only when uuid is in the template
-    let template = "my {not-uuid}".to_string();
-    let uuid = helper.get_uuid(template.clone());
-    assert!(uuid.is_none());
-
-    let template = "my {uuid}".to_string();
-    let uuid = helper.get_uuid(template.clone());
-    assert!(uuid.is_some());
-    assert_ne!(
-        helper.string_format(template.clone(), uuid, None)?,
-        template
-    );
-
     Ok(())
 }

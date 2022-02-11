@@ -98,7 +98,10 @@ mod unit_tests {
 
         assert_eq!(fmt_with_map("fîré{empty}ƒøüX", c), "fîréƒøüX".to_string());
         assert_eq!(fmt_with_map("a̐éö̲{unicode}a̐éö̲", c), "a̐éö̲a̐éö̲a̐éö̲".to_string());
-        assert_eq!(fmt_with_map("is this {a̐éö̲}?", c), "is this unicode?".to_string());
+        assert_eq!(
+            fmt_with_map("is this {a̐éö̲}?", c),
+            "is this unicode?".to_string()
+        );
     }
 
     #[test]
