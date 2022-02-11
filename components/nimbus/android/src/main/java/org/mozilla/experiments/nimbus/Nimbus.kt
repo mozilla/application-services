@@ -535,8 +535,11 @@ open class Nimbus(
         recordExposure(featureId)
     }
 
-    override fun createMessageHelper(): GleanPlumbMessageHelper =
-        GleanPlumbMessageHelper(nimbusClient.createTargetingHelper())
+    override fun createMessageHelper(additionalContext: JSONObject?): GleanPlumbMessageHelper =
+        GleanPlumbMessageHelper(
+            nimbusClient.createTargetingHelper(additionalContext),
+            nimbusClient.createStringHelper(additionalContext)
+        )
 
     @VisibleForTesting(otherwise = VisibleForTesting.PRIVATE)
     internal fun recordExperimentTelemetry(experiments: List<EnrolledExperiment>) {

@@ -27,26 +27,57 @@ class GleanPlumbTests: XCTestCase {
     func testJexlHelper() throws {
         let nimbus = try createNimbus()
 
-        let helper = nimbus.createMessageHelper()
+        let helper = try nimbus.createMessageHelper()
         XCTAssertTrue(try helper.evalJexl(expression: "app_name == 'GleanPlumbTest'"))
         XCTAssertFalse(try helper.evalJexl(expression: "app_name == 'tseTbmulPnaelG'"))
 
         XCTAssertThrowsError(try helper.evalJexl(expression: "appName == 'snake_case_only'"))
     }
 
-    func testJexlHelperWithJson() throws {
+    func testJexlHelperWithJsonSerialization() throws {
         let nimbus = try createNimbus()
 
-        let helper = nimbus.createMessageHelper()
+        let helper = try nimbus.createMessageHelper(additionalContext: ["test_value_from_json": 42])
 
-        XCTAssertTrue(try helper.evalJexl(expression: "test_value_from_json == 42", json: ["test_value_from_json": 42]))
+        XCTAssertTrue(try helper.evalJexl(expression: "test_value_from_json == 42"))
+    }
 
+    func testJexlHelperWithJsonCodable() throws {
+        let nimbus = try createNimbus()
         let context = DummyContext(testValueFromJson: 42)
-        XCTAssertTrue(try helper.evalJexl(expression: "test_value_from_json == 42", context: context))
+        let helper = try nimbus.createMessageHelper(additionalContext: context)
 
-        XCTAssertThrowsError(try helper.evalJexl(expression: "testValueFromJson == 42", context: context))
+        // Snake case only
+        XCTAssertTrue(try helper.evalJexl(expression: "test_value_from_json == 42"))
+        XCTAssertThrowsError(try helper.evalJexl(expression: "testValueFromJson == 42"))
+    }
 
-        XCTAssertThrowsError(try helper.evalJexl(expression: "true", context: 1))
+    func testStringHelperWithJsonSerialization() throws {
+        let nimbus = try createNimbus()
+
+        let helper = try nimbus.createMessageHelper(additionalContext: ["test_value_from_json": 42])
+
+        XCTAssertEqual(helper.stringFormat(template: "{app_name} version {test_value_from_json}", uuid: nil), "GleanPlumbTest version 42")
+    }
+
+    func testStringHelperWithUUID() throws {
+        let nimbus = try createNimbus()
+        let helper = try nimbus.createMessageHelper()
+
+        XCTAssertNil(helper.getUuid(template: "No UUID"))
+
+        // If {uuid} is detected in the template, then we should record it as a glean metric
+        // so Glean can associate it with this UUID.
+        // In this way, we can give the UUID to third party services without them being able
+        // to build up a profile of the client.
+        // In the meantime, we're able to tie the UUID to the Glean client id while keeping the client id
+        // secret.
+        let uuid = helper.getUuid(template: "A {uuid} in here somewhere")
+        XCTAssertNotNil(uuid)
+        XCTAssertNotNil(UUID(uuidString: uuid!))
+
+        let uuid2 = helper.stringFormat(template: "{uuid}", uuid: uuid)
+        XCTAssertNotNil(UUID(uuidString: uuid2))
     }
 }
 

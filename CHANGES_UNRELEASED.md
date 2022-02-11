@@ -26,8 +26,10 @@ Use the template below to make assigning a version number during the release cut
 
 ### ✨ What's New ✨
 
-- JEXL is now available for evaluation from application code in Swift and Android ([#4813](https://github.com/mozilla/application-services/pull/4813)).
-    This is the next piece of the puzzle for supporting Messaging Experiments.
+- A message helper is now available to apps wanting to build a Messaging System on both Android and iOS. Both of these access the variables
+  provided by Nimbus, and can have app-specific variables added. This provides two functions:
+  - JEXL evaluation ([#4813](https://github.com/mozilla/application-services/pull/4813)) which evaluates boolean expressions.
+  - String interpolation ([#4831](https://github.com/mozilla/application-services/pull/4831)) which builds strings with templates at runtime.
 
 ## Xcode
 

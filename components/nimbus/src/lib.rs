@@ -15,6 +15,7 @@ mod defaults;
 mod matcher;
 pub mod persistence;
 mod sampling;
+mod strings;
 mod updating;
 pub mod versioning;
 #[cfg(debug_assertions)]
@@ -467,11 +468,33 @@ impl NimbusClient {
         self.db.get_or_try_init(|| Database::new(&self.db_path))
     }
 
-    pub fn create_targeting_helper(&self) -> Arc<NimbusTargetingHelper> {
-        let helper = NimbusTargetingHelper {
-            targeting_context: self.get_targeting_attributes(),
+    fn merge_additional_context(&self, context: Option<JsonObject>) -> Result<Value> {
+        let context = context.map(Value::Object);
+        let targeting = serde_json::to_value(self.get_targeting_attributes())?;
+        let context = match context {
+            Some(v) => v.defaults(&targeting)?,
+            None => targeting,
         };
-        Arc::new(helper)
+
+        Ok(context)
+    }
+
+    pub fn create_targeting_helper(
+        &self,
+        additional_context: Option<JsonObject>,
+    ) -> Result<Arc<NimbusTargetingHelper>> {
+        let context = self.merge_additional_context(additional_context)?;
+        let helper = NimbusTargetingHelper::new(context);
+        Ok(Arc::new(helper))
+    }
+
+    pub fn create_string_helper(
+        &self,
+        additional_context: Option<JsonObject>,
+    ) -> Result<Arc<NimbusStringHelper>> {
+        let context = self.merge_additional_context(additional_context)?;
+        let helper = NimbusStringHelper::new(context.as_object().unwrap().to_owned());
+        Ok(Arc::new(helper))
     }
 }
 
@@ -716,14 +739,47 @@ impl AvailableRandomizationUnits {
     }
 }
 
+pub struct NimbusStringHelper {
+    context: JsonObject,
+}
+
+impl NimbusStringHelper {
+    fn new(context: JsonObject) -> Self {
+        Self { context }
+    }
+
+    pub fn get_uuid(&self, template: String) -> Option<String> {
+        if template.contains("{uuid}") {
+            let uuid = Uuid::new_v4();
+            Some(uuid.to_string())
+        } else {
+            None
+        }
+    }
+
+    pub fn string_format(&self, template: String, uuid: Option<String>) -> String {
+        match uuid {
+            Some(uuid) => {
+                let mut map = self.context.clone();
+                map.insert("uuid".to_string(), Value::String(uuid));
+                strings::fmt_with_map(&template, &map)
+            }
+            _ => strings::fmt_with_map(&template, &self.context),
+        }
+    }
+}
+
 pub struct NimbusTargetingHelper {
-    targeting_context: TargetingAttributes,
+    context: Value,
 }
 
 impl NimbusTargetingHelper {
-    pub fn eval_jexl(&self, expr: String, value: Option<JsonObject>) -> Result<bool> {
-        let json = value.map(Value::Object);
-        evaluator::jexl_eval(&expr, &self.targeting_context, json)
+    fn new(context: Value) -> Self {
+        Self { context }
+    }
+
+    pub fn eval_jexl(&self, expr: String) -> Result<bool> {
+        evaluator::jexl_eval(&expr, &self.context)
     }
 }
 
