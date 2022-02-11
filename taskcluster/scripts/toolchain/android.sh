@@ -1,7 +1,8 @@
 #!/bin/bash
-set -e
+set -ex
 cd src
-. ./taskcluster/scripts/toolchain/rustup-setup.sh
+git submodule update --init
+./taskcluster/scripts/toolchain/setup-fetched-rust-toolchain.sh
 ./libs/verify-android-ci-environment.sh
 pushd libs
 ./build-all.sh android
