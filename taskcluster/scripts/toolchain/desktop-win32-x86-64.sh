@@ -1,7 +1,6 @@
 #!/bin/bash
 set -e
 cd src
-. ./taskcluster/scripts/toolchain/rustup-setup.sh
 pushd libs
 ./build-all.sh win32-x86-64
 popd

@@ -138,6 +138,13 @@ RUN \
         | tar -xz --strip-components=1 -C /usr/local/bin/ \
             sccache-0.2.11-x86_64-unknown-linux-musl/sccache
 
+ENV CCACHE=sccache \
+    RUSTC_WRAPPER=sccache \
+    SCCACHE_IDLE_TIMEOUT=1200 \
+    SCCACHE_CACHE_SIZE=40G \
+    SCCACHE_ERROR_LOG=/builds/worker/sccache.log \
+    RUST_LOG=sccache=info
+
 # tooltool
 RUN \
     curl -sfSL --retry 5 --retry-delay 10 \
@@ -149,10 +156,27 @@ RUN \
 
 ENV SHELL=/bin/bash \
     HOME=/builds/worker \
-    PATH=/builds/worker/.local/bin:$PATH
+    PATH=/builds/worker/.local/bin:/builds/worker/.cargo/bin:$PATH
 
 VOLUME /builds/worker/checkouts
 VOLUME /builds/worker/.cache
 
-# run-task expects to run as root
+# Switch to the worker user to install rust-up.
+# After startup, run-task will downgrade it's permissions to be this user
+USER worker
+
+# Rust setup
+ENV RUST_BACKTRACE=1 \
+    CARGO_INCREMENTAL=1
+
+RUN RUSTUP_PLATFORM='x86_64-unknown-linux-gnu' \
+    && RUSTUP_VERSION='1.24.1' \
+    && RUSTUP_SHA256='fb3a7425e3f10d51f0480ac3cdb3e725977955b2ba21c9bdac35309563b115e8' \
+    && curl -sfSL --retry 5 --retry-delay 10 -O "https://static.rust-lang.org/rustup/archive/${RUSTUP_VERSION}/${RUSTUP_PLATFORM}/rustup-init" \
+    && echo "${RUSTUP_SHA256} *rustup-init" | sha256sum -c - \
+    && chmod +x rustup-init \
+    && ./rustup-init -y --no-modify-path --default-toolchain none \
+    && rm rustup-init
+
+# run-task needs the initial user to be root
 USER root
