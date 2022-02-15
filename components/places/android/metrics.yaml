@@ -101,6 +101,11 @@ places_manager:
       - unknown_bookmark_item
       - url_too_long
       - cannot_update_root
+      - json_parse_failed
+      - places_connection_busy
+      - operation_interrupted
+      - unexpected_places_exception
+      - bookmarks_corruption
     bugs:
       - https://github.com/mozilla/application-services/issues/2300
       - https://github.com/mozilla/application-services/issues/2299
