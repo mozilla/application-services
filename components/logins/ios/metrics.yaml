@@ -15,7 +15,7 @@
 #  * Fenix for Andriod
 
 ---
-$schema: moz://mozilla.org/schemas/glean/metrics/1-0-0
+$schema: moz://mozilla.org/schemas/glean/metrics/2-0-0
 
 logins_store_migration:
 
