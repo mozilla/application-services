@@ -188,13 +188,33 @@ interface NimbusClient {
     sequence<EnrollmentChangeEvent> reset_telemetry_identifiers(AvailableRandomizationUnits new_randomization_units);
 
     // This provides low level access to the targeting machinery for other uses by the application (e.g. messages)
-    NimbusTargetingHelper create_targeting_helper();
+    // Additional parameters can be added via the optional JSON object. This allows for many JEXL expressions
+    // to be run across the same context.
+    [Throws=NimbusError]
+    NimbusTargetingHelper create_targeting_helper(optional JsonObject? additional_context = null);
+
+    // This provides a unified String interpolation library which exposes the application context.
+    // It's first use is in GleanPlumb message helper, to add extra parameters to URLs.
+    [Throws=NimbusError]
+    NimbusStringHelper create_string_helper(optional JsonObject? additional_context = null);
 };
 
 [Custom]
 typedef string JsonObject;
 
 interface NimbusTargetingHelper {
+    // Execute the given jexl expression and evaluate against the existing targeting parameters and context passed to
+    // the helper at construction.
     [Throws=NimbusError]
-    boolean eval_jexl(string expression, optional JsonObject? json = null);
+    boolean eval_jexl(string expression);
+};
+
+interface NimbusStringHelper {
+    // Take the given template and find patterns that match the regular expression `{\w+}`.
+    // Any matches are used as keys into the application context, the `additional_context` or the special case `uuid`.
+    string string_format(string template, optional string? uuid = null);
+
+    // Generates an optional UUID to be passed into the `string_format` method.
+    // If the return is not null, then it should be recorded with Glean as a UuidMetricType.
+    string? get_uuid(string template);
 };

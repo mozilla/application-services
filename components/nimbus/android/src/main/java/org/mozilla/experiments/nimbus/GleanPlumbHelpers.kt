@@ -5,6 +5,7 @@
 package org.mozilla.experiments.nimbus
 
 import org.json.JSONObject
+import org.mozilla.experiments.nimbus.internal.NimbusStringHelperInterface
 import org.mozilla.experiments.nimbus.internal.NimbusTargetingHelperInterface
 
 /**
@@ -12,8 +13,11 @@ import org.mozilla.experiments.nimbus.internal.NimbusTargetingHelperInterface
  * Nimbus.
  */
 interface GleanPlumbInterface {
-    fun createMessageHelper(): GleanPlumbMessageHelper =
-        GleanPlumbMessageHelper(AlwaysFalseTargetingHelper())
+    fun createMessageHelper(additionalContext: JSONObject? = null): GleanPlumbMessageHelper =
+        GleanPlumbMessageHelper(
+            AlwaysFalseTargetingHelper(),
+            NonStringHelper()
+        )
 }
 
 /**
@@ -26,13 +30,19 @@ interface GleanPlumbInterface {
  * It should also provide a similar function for String substitution, though this scheduled for EXP-2159.
  */
 class GleanPlumbMessageHelper(
-    private val targetingHelper: NimbusTargetingHelperInterface
-) {
-    fun evalJexl(expression: String): Boolean = targetingHelper.evalJexl(expression, null)
-    fun evalJexl(expression: String, json: JSONObject) =
-        targetingHelper.evalJexl(expression, json)
+    private val targetingHelper: NimbusTargetingHelperInterface,
+    private val stringHelper: NimbusStringHelperInterface
+) : NimbusStringHelperInterface by stringHelper, NimbusTargetingHelperInterface by targetingHelper
+
+internal class AlwaysFalseTargetingHelper : NimbusTargetingHelperInterface {
+    override fun evalJexl(expression: String): Boolean = false
 }
 
-class AlwaysFalseTargetingHelper : NimbusTargetingHelperInterface {
-    override fun evalJexl(expression: String, json: JSONObject?): Boolean = false
+internal class NonStringHelper : NimbusStringHelperInterface {
+    override fun stringFormat(
+        template: String,
+        uuid: String?
+    ): String = template
+
+    override fun getUuid(template: String) = null
 }

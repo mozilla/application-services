@@ -1,3 +1,28 @@
+# v91.1.0 (_2022-02-11_)
+
+[Full Changelog](https://github.com/mozilla/application-services/compare/v91.0.1...v91.1.0)
+
+## ⛅️🔬🔭 Nimbus SDK
+
+### What's fixed
+
+- Fixes a bug where disabling studies did not disable rollouts. ([#4807](https://github.com/mozilla/application-services/pull/4807))
+
+### ✨ What's New ✨
+
+- A message helper is now available to apps wanting to build a Messaging System on both Android and iOS. Both of these access the variables
+  provided by Nimbus, and can have app-specific variables added. This provides two functions:
+  - JEXL evaluation ([#4813](https://github.com/mozilla/application-services/pull/4813)) which evaluates boolean expressions.
+  - String interpolation ([#4831](https://github.com/mozilla/application-services/pull/4831)) which builds strings with templates at runtime.
+
+## Xcode
+
+- Bumped Xcode version from 13.1.0 -> 13.2.1
+
+## Nimbus FML
+### What's fixed
+- Fixes a bug where each time the fml is run, the ordering of features in the experimenter json is changed. ([#4819](https://github.com/mozilla/application-services/pull/4819))
+
 # v91.0.1 (_2022-02-02_)
 
 [Full Changelog](https://github.com/mozilla/application-services/compare/v91.0.0...v91.0.1)

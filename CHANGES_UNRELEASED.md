@@ -2,7 +2,7 @@
 
 # Unreleased Changes
 
-[Full Changelog](https://github.com/mozilla/application-services/compare/v91.0.1...main)
+[Full Changelog](https://github.com/mozilla/application-services/compare/v91.1.0...main)
 
 <!-- WARNING: New entries should be added below this comment to ensure the `./automation/prepare-release.py` script works as expected.
 
@@ -18,21 +18,3 @@ Use the template below to make assigning a version number during the release cut
   - Description of the change with a link to the pull request ([#0000](https://github.com/mozilla/application-services/pull/0000))
 
 -->
-## ⛅️🔬🔭 Nimbus SDK
-
-### What's fixed
-
-- Fixes a bug where disabling studies did not disable rollouts. ([#4807](https://github.com/mozilla/application-services/pull/4807))
-
-### ✨ What's New ✨
-
-- JEXL is now available for evaluation from application code in Swift and Android ([#4813](https://github.com/mozilla/application-services/pull/4813)).
-    This is the next piece of the puzzle for supporting Messaging Experiments.
-
-## Xcode
-
-- Bumped Xcode version from 13.1.0 -> 13.2.1
-
-## Nimbus FML
-### What's fixed
-- Fixes a bug where each time the fml is run, the ordering of features in the experimenter json is changed. ([#4819](https://github.com/mozilla/application-services/pull/4819))
