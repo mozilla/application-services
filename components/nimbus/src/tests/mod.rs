@@ -15,4 +15,5 @@ mod test_versioning;
 
 mod client {
     mod test_http_client;
+    mod test_null_client;
 }
