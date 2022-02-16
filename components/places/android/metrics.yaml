@@ -113,6 +113,7 @@ places_manager:
       - https://bugzilla.mozilla.org/show_bug.cgi?id=1607621
       - https://bugzilla.mozilla.org/show_bug.cgi?id=1649044
       - https://bugzilla.mozilla.org/show_bug.cgi?id=1694316
+      - https://github.com/mozilla/application-services/issues/4848
     data_sensitivity:
       - interaction
     notification_emails:
