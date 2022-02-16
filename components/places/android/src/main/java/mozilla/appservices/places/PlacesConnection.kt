@@ -988,6 +988,18 @@ class PlacesManagerCounterMetrics(
                 is PlacesException.CannotUpdateRoot -> {
                     errCount["cannot_update_root"].add()
                 }
+                is PlacesException.JsonParseFailed -> {
+                    errCount["json_parse_failed"].add()
+                }
+                is PlacesException.PlacesConnectionBusy -> {
+                    errCount["places_connection_busy"].add()
+                }
+                is PlacesException.BookmarksCorruption -> {
+                    errCount["bookmarks_corruption"].add()
+                }
+                is PlacesException.UnexpectedPlacesException -> {
+                    errCount["unexpected_places_exception"].add()
+                }
                 else -> {
                     errCount["__other__"].add()
                 }
