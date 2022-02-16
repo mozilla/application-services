@@ -19,6 +19,13 @@ Use the template below to make assigning a version number during the release cut
 
 -->
 
+## Places
+### ⚠️ Breaking Changes ⚠️
+- Removed some functions related to sync interruption.  These were never really completed and don't seem to be in use by iOS/Android code:
+  - `PlacesApi.new_sync_conn_interrupt_handle()`
+  - Swift only: `PlacesAPI.interrupt()`
+
 ## Autofill / Logins / Places / Sync Manager, Webext-Storage
 ### What's Changed
 - Updated interruption handling and added support for shutdown-mode which interrupts all operations.
+

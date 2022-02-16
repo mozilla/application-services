@@ -120,19 +120,3 @@ impl Interruptee for SqlInterruptScope {
         self.was_interrupted()
     }
 }
-
-#[cfg(test)]
-mod test {
-    use super::*;
-
-    // Make sure SqlInterruptHandle is Sync + Send so that it can be shared across threads with an
-    // Arc
-    #[test]
-    fn test_sync_send() {
-        fn is_sync<T: Sync>() {}
-        fn is_send<T: Send>() {}
-        // Make sure this compiles
-        is_sync::<SqlInterruptHandle>();
-        is_send::<SqlInterruptHandle>();
-    }
-}
