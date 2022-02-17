@@ -1,3 +1,705 @@
+# v91.1.0 (_2022-02-11_)
+
+[Full Changelog](https://github.com/mozilla/application-services/compare/v91.0.1...v91.1.0)
+
+## ⛅️🔬🔭 Nimbus SDK
+
+### What's fixed
+
+- Fixes a bug where disabling studies did not disable rollouts. ([#4807](https://github.com/mozilla/application-services/pull/4807))
+
+### ✨ What's New ✨
+
+- A message helper is now available to apps wanting to build a Messaging System on both Android and iOS. Both of these access the variables
+  provided by Nimbus, and can have app-specific variables added. This provides two functions:
+  - JEXL evaluation ([#4813](https://github.com/mozilla/application-services/pull/4813)) which evaluates boolean expressions.
+  - String interpolation ([#4831](https://github.com/mozilla/application-services/pull/4831)) which builds strings with templates at runtime.
+
+## Xcode
+
+- Bumped Xcode version from 13.1.0 -> 13.2.1
+
+## Nimbus FML
+### What's fixed
+- Fixes a bug where each time the fml is run, the ordering of features in the experimenter json is changed. ([#4819](https://github.com/mozilla/application-services/pull/4819))
+
+# v91.0.1 (_2022-02-02_)
+
+[Full Changelog](https://github.com/mozilla/application-services/compare/v91.0.0...v91.0.1)
+
+## Places
+
+### What's Changed
+  - The database initialization code now uses BEGIN IMMIDIATE to start a
+    transaction.  This will hopefully prevent `database is locked` errors when
+    opening a sync connection.
+
+### What's New
+
+  - The `HistoryVisitInfo` struct now has an `is_remote` boolean which indicates whether the
+    represented visit happened locally or remotely. ([#4810](https://github.com/mozilla/application-services/pull/4810))
+
+# v91.0.0 (_2022-01-31_)
+
+[Full Changelog](https://github.com/mozilla/application-services/compare/v90.0.1...v91.0.0)
+
+## Nimbus FML
+
+### What's New
+  - The Nimbus FML can now generate swift code for the feature manifest. ([#4780](https://github.com/mozilla/application-services/pull/4780))
+    - It can be invoked using:
+    ```sh
+    $ nimbus-fml <FEATURE_MANIFEST_YAML> -o <OUTPUT_NAME> ios features
+    ```
+    - You can check the support flags and options by running:
+    ```sh
+    $ nimbus-fml ios --help
+    ```
+    - The generated code exposes:
+      -  a high level nimbus object, whose name is configurable using the `--classname` option. By default the object is `MyNimbus`.
+      - All the enums and objects defined in the manifest as idiomatic Swift code.
+    - Usage:
+      - To access a feature's value:
+        ```swift
+        // MyNimbus is the class that holds all the features supported by Nimbus
+        // MyNimbus has an singleton instance, you can access it using the `shared` field:
+
+        let nimbus = MyNimbus.shared
+
+        // Then you can access the features using:
+        // MyNimbus.features.<featureNameCamelCase>.value(), for example:
+
+        let feature = nimbus.features.homepage.value()
+        ```
+      - To access a field in the feature:
+        ```swift
+        // feature.<propertyNameCamelCase>, for example:
+
+        assert(feature.sectionsEnabled[HomeScreenSection.topSites] == true)
+        ```
+
+### ⚠️ Breaking Changes ⚠️
+
+  - **Android only**: Accessing drawables has changed to give access to the resource identifier. ([#4801](https://github.com/mozilla/application-services/pull/4801))
+    - Migration path to the old behaviour is:
+
+    ```kotlin
+    let drawable: Drawable = MyNimbus.features.exampleFeature.demoDrawable
+    ```
+
+    becomes:
+    ```kotlin
+    let drawable: Drawable = MyNimbus.features.exampleFeature.demoDrawable.resource
+    ```
+## General iOS
+### What's changed
+- Moved `SwiftKeychainWrapper` from an external Swift Package to be bundled with FxA. This is due to issues Firefox iOS had with their dependency tree. ([#4797](https://github.com/mozilla/application-services/pull/4797))
+- Exposed all crates as targets for the XCFramework. ([#4797](https://github.com/mozilla/application-services/pull/4797))
+
+# v90.0.1 (_2022-01-24_)
+
+[Full Changelog](https://github.com/mozilla/application-services/compare/v90.0.0...v90.0.1)
+
+## Places
+  - Fixed an issue with previously consumed errors for invalid URLs were propagating to consumers and causing a crash
+    - Changed `bookmarks_get_all_with_url` and `accept_result` to accept a string instead of url
+
+
+# v90.0.0 (_2022-01-20_)
+
+[Full Changelog](https://github.com/mozilla/application-services/compare/v89.0.0...v90.0.0)
+
+## Places
+
+### ⚠️ Breaking Changes ⚠️
+  - Places has been completely UniFFI-ed
+
+# v89.0.0 (_2022-01-20_)
+
+[Full Changelog](https://github.com/mozilla/application-services/compare/v88.0.0...v89.0.0)
+
+## Supported Xcode Versions
+- Reverting the supported Xcode version from 13.2.1 to 13.1.0 to circumvent the issues with Swift Package Manager in Xcode 13.2.1. ([#4787](https://github.com/mozilla/application-services/pull/4787))
+## Nimbus☁️🔬🔭
+
+### What's New
+   - Add `Text` and `Image` support for the FML to access bundled resources ([#4784](https://github.com/mozilla/application-services/pull/4784)).
+
+### Breaking Change
+  - The `NimbusInterface` now exposes a `context: Context` property.
+
+# v88.0.0 (_2022-01-19_)
+
+[Full Changelog](https://github.com/mozilla/application-services/compare/v87.3.0...v88.0.0)
+
+## Nimbus☁️🔬🔭
+
+### What's Changed
+  - The SDK is now tolerant to legacy experiment recipes that have both `feature` and `features` in their branches ([SDK-1989](https://github.com/mozilla/application-services/pull/4777))
+
+## General
+
+### ⚠️ Breaking Changes ⚠️
+
+  - The bundled version of Glean has been updated to v43.0.2.
+    See [the Glean Changelog](https://github.com/mozilla/glean/blob/v43.0.2/CHANGELOG.md) for full details.
+    BREAKING CHANGE: Pass build info into initialize, which contains the build date.
+    A suitable instance is generated by `glean_parser` in `GleanMetrics.GleanBuild.info`.
+
+# v87.3.0 (_2022-01-11_)
+
+[Full Changelog](https://github.com/mozilla/application-services/compare/v87.2.0...v87.3.0)
+
+## Supported Xcode Versions
+- As of Jan 2022, support for Xcode version 13.2.1 is upcoming. After the associated PR is merged AS side and a release is cut, Fx-iOS will update on their side to fully support this Xcode version. See Fx-iOS's Wiki for details. 
+
+## viaduct
+### What's New
+- Add support for PATCH methods. ([#4751](https://github.com/mozilla/application-services/pull/4751))
+
+## Nimbus
+### What's new
+  - The Nimbus SDK now support application version targeting, where experiment creators can set `app_version|versionCompare({VERSION}) >= 0` and the experiments will only target users running `VERSION` or higher. ([#4752](https://github.com/mozilla/application-services/pull/4752))
+      - The `versionCompare` transform will return a positive number if `app_version` is greater than
+      `VERSION`, a negative number if `app_version` is less than `VERSION` and zero if they are equal
+      - `VERSION` must be passed in as a string, for example: `app_version|versionCompare('95.!') >= 0` will target users who are on any version starting with `95` or above (`95.0`, `95.1`, `95.2.3-beta`, `96` etc..)
+
+# v87.2.0 (_2021-12-15_)
+
+[Full Changelog](https://github.com/mozilla/application-services/compare/v87.1.0...v87.2.0)
+
+### ✨✨ What's New ✨✨
+
+#### ⛅️🔭🔬 Nimbus
+
+- Initial release of the Nimbus Feature Manifest Language tool (`nimbus-fml`).
+  - This is a significant upgrade to the Variables API, adding code-generation to Kotlin and Experimenter compatible manifest JSON.
+  - [RFC for language specification](https://github.com/mozilla/experimenter-docs/pull/156).
+  - This is the first release it is made available to client app's build processes.
+  - [Build on CI](https://github.com/mozilla/application-services/pull/4701) ready for application build processes to download.
+
+# v87.1.0 (_2021-12-02_)
+
+[Full Changelog](https://github.com/mozilla/application-services/compare/v87.0.0...v87.1.0)
+
+## Logins
+### What's changed
+  - The `update()` and `add_or_update()` methods will log rather than return an error when trying to update a duplicate login (#4648)
+
+## Logins, Places, SyncManager
+### What's Changed
+  - These packages all use `parking_lot::Mutex` instead of `std::Mutex`, meaning we should no
+    longer see errors about mutexes being poisoned.
+
+## Push
+### What's fixed
+  - Fixes a bug where the subscriptions would fail because the server didn't return the `uaid`, this seems to happen only when the client sends request that include the `uaid`.([#4697](https://github.com/mozilla/application-services/pull/4697))
+
+# General
+
+- We now use xcode 13.1 to generate our iOS build artifacts. ([#4692](https://github.com/mozilla/application-services/pull/4692))
+
+# v87.0.0 (_2021-11-17_)
+
+[Full Changelog](https://github.com/mozilla/application-services/compare/v86.2.0...v87.0.0)
+
+## Push
+### What's changed
+  - Push internally no longer uses the `error_support` dependency to simplify the code. It now directly defines exactly one error enum and exposes that to `uniffi`. This should have no implication to the consumer code ([#4650](https://github.com/mozilla/application-services/pull/4650))
+
+## Places
+### ⚠️ Breaking Changes ⚠️
+  - Switched sync manager integration to use `registerWithSyncManager()` like the other components ([#4627](https://github.com/mozilla/application-services/pull/4627))
+
+## SyncManager
+
+### ⚠️ Breaking Changes ⚠️
+  - Updated SyncManager to use UniFFI:
+    - SyncManager is now a class that gets instatiated rather than a singleton
+    - Added more SyncManagerException subclasses
+    - SyncParams.engines is now a SyncEngineSelection enum.
+      SyncEngineSelection's variants are All, or Some(engine_list).  This
+      replaces the old code which used null to signify all engines.
+    - SyncResult.telemetry was replaced with SyncResult.telemetryJson.
+    - There were a handful of naming changes:
+      - SyncAuthInfo.tokenserverURL -> SyncAuthInfo.tokenserverUrl
+      - DeviceSettings.type -> DeviceSettings.kind
+
+# v86.2.0 (_2021-11-02_)
+
+[Full Changelog](https://github.com/mozilla/application-services/compare/v86.1.0...v86.2.0)
+
+## Push
+### What's Changed
+  - We've changed the database schema to avoid confusion about the state of subscriptions and
+    in particular, avoid `SQL: UNIQUE constraint failed: push_record.channel_id` errors
+    reported in [#4575](https://github.com/mozilla/application-services/issues/4575). This is
+    technically a breaking change as a dictionary described in the UDL changed, but in practice,
+    none of our consumers used it, so we are not declaring it as breaking in this context.
+
+## Logins
+
+### What's New
+
+  - Added support for recording telemetry when the logins encryption key needs to be regenerated.
+
+# v86.1.0 (_2021-10-27_)
+
+[Full Changelog](https://github.com/mozilla/application-services/compare/v86.0.0...v86.1.0)
+
+## ⛅️🔬🔭 Nimbus
+
+### What's New
+
+  - Rollouts: allows winning branch promotion and targeting rollouts of features. [#4567](https://github.com/mozilla/application-services/pull/4567).
+    - for both Android and iOS.
+
+### What's fixed
+  - Fixed a bug in iOS where the installation date would be set to start of EPOCH ([#4597](https://github.com/mozilla/application-services/pull/4597))
+  - Fixed a bug in Android where we were missing disqualification events after a global opt-out ([#4606](https://github.com/mozilla/application-services/pull/4606))
+
+## Push
+
+  - We've changed how the push database is opened, which should mean we now automatically handle
+    some kinds of database corruption.
+
+## General
+### What's changed
+  - The bundled version of Glean has been updated to v42.0.1.
+    See [the Glean Changelog](https://github.com/mozilla/glean/blob/v42.0.1/CHANGELOG.md) for full details.
+    (Note there is a breaking change in Rust, but that doesn't impact consumers of Application Services)
+
+# v86.0.1 (_2021-10-28_)
+
+[Full Changelog](https://github.com/mozilla/application-services/compare/v86.0.0...v86.0.1)
+## Logins
+### What's Changed
+- Downgraded the log level of some logs, so now they should not show up in Sentry.
+
+
+# v86.0.0 (_2021-10-13_)
+
+[Full Changelog](https://github.com/mozilla/application-services/compare/v85.4.1...v86.0.0)
+
+## Logins
+
+### ⚠️ Breaking Changes ⚠️
+  - Rework logins to no longer use sqlcipher and instead use plain sqlite. This is a major change
+    with a massive impact on all consumers of this component, all of whom are already aware of
+    this change and have PRs in-progress.
+    ([#4549](https://github.com/mozilla/application-services/pull/4549))
+
+# v85.4.2 (_2021-10-20_)
+
+[Full Changelog](https://github.com/mozilla/application-services/compare/v85.4.1...v85.4.2)
+
+## Nimbus
+### What's fixed
+- Fixed a bug in iOS where the installation date would be set to start of EPOCH ([#4597](https://github.com/mozilla/application-services/pull/4597))
+
+
+# v85.4.1 (_2021-10-08_)
+
+[Full Changelog](https://github.com/mozilla/application-services/compare/v85.4.0...v85.4.1)
+
+## Logins
+
+- Metrics for the logins sqlcipher migration are included to help "bootstrap"
+  the metrics ready for the migration.
+
+# v85.4.0 (_2021-10-05_)
+
+[Full Changelog](https://github.com/mozilla/application-services/compare/v85.3.0...v85.4.0)
+
+## Sync
+
+### What's Changed
+
+- Clients engine now checks for tombstones and any deserialisation errors when receiving a client record, and ignores
+  it if either are present ([#4504](https://github.com/mozilla/application-services/pull/4504))
+
+## Nimbus
+### What's changed
+- The DTO changed to remove the `probeSets` and `enabled` fields that were previously unused. ([#4482](https://github.com/mozilla/application-services/pull/4482))
+- Nimbus will retry enrollment if it previously errored out on a previous enrollment.
+
+# v85.3.0 (_2021-09-30_)
+
+[Full Changelog](https://github.com/mozilla/application-services/compare/v85.2.0...v85.3.0)
+
+## Nimbus
+
+### What's new
+
+- Nimbus can now target on `is_already_enrolled`. Which is true only if the user is already enrolled in experiment. ([#4490](https://github.com/mozilla/application-services/pull/4490))
+- Nimbus can now target on `days_since_install` and `days_since_update`. Which reflect the days since the user installed the application and the days since the user last updated the application. ([#4491](https://github.com/mozilla/application-services/pull/4491))
+- Android only: the observer method `onExperimentsApplied()` is now called every time `applyPendingExperiments()` is called. This is to bring it in line with iOS.
+
+# v85.2.0 (_2021-09-28_)
+
+[Full Changelog](https://github.com/mozilla/application-services/compare/v85.1.0...v85.2.0)
+
+## Places
+### What's New
+  - Added Swift bindings for the following History Metadata APIs: `getHighlights` and `deleteHistoryMetadata`.
+
+# v85.1.0 (_2021-09-27_)
+
+[Full Changelog](https://github.com/mozilla/application-services/compare/v85.0.0...v85.1.0)
+
+## General
+
+### What's Changed
+
+- Rust toolchain has been bumped to 1.55 and minimum version bumped to 1.53 to comply with our [Rust Policy](https://github.com/mozilla/application-services/blob/main/docs/rust-versions.md#application-services-rust-version-policy)
+
+- Xcode has been updated to version 13
+  - application-services noq uses the new build system by default
+
+## Nimbus
+
+### What's Changed
+
+- 🐞🍏 Bugfix, iOS only — Increased visibility for `Dictionary` extensions when working with `FeatureVariables` and `enums`.
+
+
+# v85.0.0 (_2021-09-22_)
+
+[Full Changelog](https://github.com/mozilla/application-services/compare/v84.0.0...v85.0.0)
+
+## Places, Autofill, Webext-Storage
+
+### What's Changed
+
+- Databases which are detected as being corrupt as they are opened will be deleted and re-created.
+
+## Nimbus
+
+### What's New
+
+- [#4455][1]: For both iOS and Android: extra methods on `Variables` to support orderable items:
+  - `getEnum` to coerce strings into Enums.
+  - `get*List`, `get*Map` to get lists and maps of all types.
+  - Dictionary/Map extensions to map string keys to enum keys, and string values to enum values.
+- Nimbus now supports multiple features on each branch. This was added with backward compatibility to ensure support for both schemas. ([#4452](https://github.com/mozilla/application-services/pull/4452))
+### ⚠️ Breaking Changes ⚠️
+
+- [#4455][1]: Android only: method `Variables.getVariables(key, transform)`, `transform` changes type
+  from `(Variables) -> T` to `(Variables) -> T?`.
+
+[1]: https://github.com/mozilla/application-services/pull/4455
+
+# v84.0.0 (_2021-09-13_)
+
+[Full Changelog](https://github.com/mozilla/application-services/compare/v83.0.0...v84.0.0)
+
+## Places
+
+### ⚠️ Breaking Changes ⚠️
+  - `previewImageUrl` property was added to `HistoryMetadata` ([#4448](https://github.com/mozilla/application-services/pull/4448))
+### What's changed
+  - `previewImageUrl` was added to `VisitObservation`, allowing clients to make observations about the 'hero' image of the webpage ([#4448](https://github.com/mozilla/application-services/pull/4448))
+
+## Push
+### ⚠️ Breaking Changes ⚠️
+  - The push component now uses `uniffi`! Here are the Kotlin breaking changes related to that:
+     - `PushAPI` no longer exists, consumers should consumer `PushManager` directly
+     - `PushError` becomes `PushException`, and all specific errors are now `PushException` children, and can be retrieved using `PushException.{ExceptionName}`, for example `StorageError` becomes `PushException.StorageException`
+     - The `PushManager.decrypt` function now returns a `List<Byte>`, where it used to return `ByteArray`, the consumer can do the conversion using `.toByteArray()`
+     - All references to `channelID` become `channelId` (with a lowercase `d`)
+
+# v83.0.0 (_2021-09-08_)
+
+[Full Changelog](https://github.com/mozilla/application-services/compare/v82.3.0...v83.0.0)
+
+## Android
+
+### ⚠️ Breaking Changes ⚠️
+  - Many error classes have been renamed from `FooError` or `FooErrorException` to just `FooException`,
+    to be more in keeping with Java/Kotlin idioms.
+    - This is due to UniFFi now replacing trailing 'Error' named classes to 'Exception'
+
+## Autofill
+
+### ⚠️ Breaking Changes ⚠️
+  - The `Error` enum is now called `AutofillError` (`AutofillException` in Kotlin) to avoid conflicts with builtin names.
+
+## Push
+### ⚠️ Breaking Changes ⚠️
+- The `unsubscribeAll` API will now return nothing as opposed to a boolean. The boolean was misleading as it only ever returned true.
+  errors can be caught using exceptions. ([#4418](https://github.com/mozilla/application-services/pull/4418))
+### What's Changed
+ - The push `unsubscribe` API will no longer accept a null `channel_id` value, a valid `channel_id` must be presented, otherwise rust will panic and an error will be thrown to android.
+  note that this is not a breaking change, since our hand-written Kotlin code already ensures that the function can only be called with a valid, non-empty, non-nullable string. ([#4402](https://github.com/mozilla/application-services/pull/4402))
+
+## Nimbus
+
+### What's Changed
+
+- `DatabaseNotReady` exceptions are no longer reported to the error reporter on either Android or iOS. [#4438](https://github.com/mozilla/application-services/pull/4438)
+- `NimbusErrorException` has been renamed `NimbusException`. This internal API, so is not a breaking change.
+
+# v82.3.0 (_2021-08-30_)
+
+[Full Changelog](https://github.com/mozilla/application-services/compare/v82.2.0...v82.3.0)
+
+### What's New
+  - Changed how shared libraries are loaded to avoid an issue when both uniffi
+    and `Helpers.kt` wants to load the same library ([#4412](https://github.com/mozilla/application-services/pull/4412))
+
+
+# v82.2.0 (_2021-08-19_)
+
+[Full Changelog](https://github.com/mozilla/application-services/compare/v82.1.0...v82.2.0)
+
+## Push
+### What's changed
+  - The push component will now attempt to auto-recover from the server losing its UAID ([#4347](https://github.com/mozilla/application-services/pull/4347))
+    - The push component will return a new kotlin Error `UAIDNotRecognizedError` in cases where auto-recovering isn't possible (when subscribing)
+    - Two other new errors were defined that were used to be reported under a generic error:
+      - `JSONDeserializeError` for errors in deserialization
+      - `RequestError` for errors in sending a network request
+
+## Nimbus
+### What's changed
+   - Nimbus on iOS will now post a notification when it's done fetching experiments, to match what it does when applying experiments. ([#4378](https://github.com/mozilla/application-services/pull/4378))
+
+# v82.1.0 (_2021-07-30_)
+
+[Full Changelog](https://github.com/mozilla/application-services/compare/v82.0.0...v82.1.0)
+
+## Places
+
+### What's New
+
+- The Swift bindings for history metadata enums and structs now have
+  public initializers, allowing them to be used properly from Swift.
+  ([#4371](https://github.com/mozilla/application-services/pull/4371))
+
+
+# v82.0.0 (_2021-07-29_)
+
+[Full Changelog](https://github.com/mozilla/application-services/compare/v81.0.1...v82.0.0)
+
+## General
+
+### ⚠️ Breaking Changes ⚠️
+
+  - The bundled version of Glean has been updated to v39.0.4, which includes a new API
+    for recording extra event fields that have an explicit type..
+    ([#4356](https://github.com/mozilla/application-services/pull/4356))
+
+### What's New
+
+  - Added content signature and chain of trust verification features in `rc_crypto`,
+    and updated NSS to version 3.66.
+    ([#4195](https://github.com/mozilla/application-services/pull/4195))
+
+## Nimbus
+
+### What's Changed
+
+  - The Nimbus API now accepts application specific context as a part of its `appSettings`.
+    The consumers get to define this context for targeting purposes. This allows different consumers
+    to target on different fields without the SDK having to acknowledge all the fields.
+    ([#4359](https://github.com/mozilla/application-services/pull/4359))
+
+# v81.0.1 (_2021-07-19_)
+
+[Full Changelog](https://github.com/mozilla/application-services/compare/v81.0.0...v81.0.1)
+
+## Tabs
+### ⚠️ Breaking Changes ⚠️
+Note: Though this is technically a breaking change, we do not expect any consumers to have upgraded to v81. Since this was a bug that was introduced in v81 we're treating it as a bugfix.
+
+    - Tab struct member last_used is now a i64
+
+# v81.0.0 (_2021-07-13_)
+
+[Full Changelog](https://github.com/mozilla/application-services/compare/v80.0.1...v81.0.0)
+
+## Tabs
+### ⚠️ Breaking Changes ⚠️
+ - Tabs has been Uniffi-ed! ([#4192](https://github.com/mozilla/application-services/pull/4192))
+    - Manual calling of sync() is removed
+    - registerWithSyncManager() should be used instead
+    - Tab struct member lastUsed is now a U64
+## Nimbus
+### What's changed
+  - Fixed a bug where opt-in enrollments in experiments were not preserved when the application is restarted ([#4324](https://github.com/mozilla/application-services/pull/4324))
+  - The nimbus component now specifies the version of the server's api - currently V1. That was done to avoid redirects. ([#4319](https://github.com/mozilla/application-services/pull/4319))
+
+## Push
+### What's changed
+  - Fixed a bug where we don't delete a client's UAID locally when it's deleted on the server ([#4325](https://github.com/mozilla/application-services/pull/4325))
+
+
+# v80.0.1 (_2021-07-06_)
+
+[Full Changelog](https://github.com/mozilla/application-services/compare/v80.0.0...v80.0.1)
+
+## General
+
+### What's Changed
+
+- Updated CircleCI xcode version to 12.5.1
+
+[Full Changelog](https://github.com/mozilla/application-services/compare/v80.0.0...main)
+
+# v80.0.0 (_2021-06-24_)
+
+[Full Changelog](https://github.com/mozilla/application-services/compare/v79.0.2...v80.0.0)
+
+## fxa-client
+### ⚠️ Breaking Changes ⚠️
+  - The old StateV1 persisted state schema is now removed. ([#4218](https://github.com/mozilla/application-services/pull/4218))
+    Users on very old versions of this component will no longer be able to cleanly update to this version. Instead, the consumer code
+    will recieve an error indicating that the schema was not correctly formated.
+
+## Nimbus
+### What's Changed
+  - Nimbus SDK now supports different branches having different Feature Configs ([#4213](https://github.com/mozilla/application-services/pull/4213))
+
+## Other
+  - `./libs/build-all.sh` now displays a more helpful error message when a file fails checksum integrity test.
+
+# v79.0.2 (_2021-06-23_)
+
+[Full Changelog](https://github.com/mozilla/application-services/compare/v79.0.1...v79.0.2)
+
+- Removed hard crash for `migrateToPlaintextHeader` and allowed error to propagate for Logins
+
+# v79.0.1 (_2021-06-15_)
+
+[Full Changelog](https://github.com/mozilla/application-services/compare/v79.0.0...v79.0.1)
+
+## Logins
+
+- Fixed a bug on iOS where `getDbSaltForKey` would incorrectly trigger a fatal error
+  instead of propagating errors to the caller.
+
+## Dependencies
+
+- The version of UniFFI used to generate Rust component bindings was updated to v0.12.0.
+
+# v79.0.0 (_2021-06-09_)
+
+[Full Changelog](https://github.com/mozilla/application-services/compare/v78.0.0...v79.0.0)
+
+## Logins
+
+### ⚠️ Breaking changes ⚠️
+
+Logins now Uniffi-ed! While this is a very large change internally, the externally visible changes are:
+
+- The name and types of exceptions have changed - the base class for errors is LoginsStorageErrorException.
+- The struct `ServerPassword` (Android) and `LoginRecord` (iOS) is now named `Login` with the formSubmitURL field now formSubmitUrl
+
+## [viaduct-reqwest]
+
+### What's Changed
+
+- Update viaduct-reqwest to use reqwest 0.11. ([#4146](https://github.com/mozilla/application-services/pull/4146))
+
+# v78.0.0 (_2021-06-01_)
+
+[Full Changelog](https://github.com/mozilla/application-services/compare/v77.0.2...v78.0.0)
+
+## [places]
+
+### ⚠️ Breaking Changes ⚠️
+  - History Metadata API shape changed to follow an observation pattern, similar to what is present for History.
+    Shape of objects and related DB schema changed as well. See ([#4123](https://github.com/mozilla/application-services/pull/4123))
+
+# v77.0.2 (_2021-05-31_)
+
+[Full Changelog](https://github.com/mozilla/application-services/compare/v77.0.1...v77.0.2)
+
+## Autofill
+
+ - Fixed a failing assertion when handling local dupes during a sync (#4154)
+
+# v77.0.1 (_2021-05-24_)
+
+[Full Changelog](https://github.com/mozilla/application-services/compare/v77.0.0...v77.0.1)
+
+## CI-only to force iOS artifact build, 77.0.0 is not good for iOS
+  - add --force flag when installing swift-protobuf via homebrew (#4137) 
+
+# v77.0.0 (_2021-05-24_)
+
+[Full Changelog](https://github.com/mozilla/application-services/compare/v76.0.1...v77.0.0)
+
+## Logins
+
+ - Split the DB from the sync engine (#4129)
+ - Rename LoginStore to LoginsSyncEngine (#4124)
+
+## Nimbus ☁️🔬
+
+### What's New
+
+ - Both Android and iOS gain a `nimbus.getVariables(featureId: String)` and a new wrapper around JSON data coming straight from Remote Settings.
+ - Application features can only have a maximum of one experiment running at a time.
+ - Enable consuming applications to change the server collection being used. (#4076)
+
+### What's Changed
+ - Add manual feature exposure recording (#4120) 
+ - Android and iOS `Branch` objects no longer have access to a `FeatureConfig` object.
+ - Localized strings and images are provided by the app, but usable from nimbus. (#4133)
+
+### ⚠️ Breaking changes ⚠️
+ - Migrate the experiment database from version 1 to version 2 on first run .(#4078)  
+   - Various kinds of incorrectly specified feature and featureId
+   related fields will be detected, and any related experiments & enrollments
+   will be discarded.  
+   - Experiments & enrollments will also be discarded if they
+   are missing other required fields (eg schemaVersion).  
+   - If there is an error
+   during the database upgrade, the database will be wiped, since losing
+   existing enrollments is still less bad than having the database in an unknown
+   inconsistent state.
+
+# v76.0.1 (_2021-05-18_)
+
+[Full Changelog](https://github.com/mozilla/application-services/compare/v76.0.0...v76.0.1)
+
+## Autofill
+
+Fixed an error migrating from version 1 to version 2 of the database.
+
+# v76.0.0 (_2021-05-12_)
+
+[Full Changelog](https://github.com/mozilla/application-services/compare/v75.2.0...v76.0.0)
+
+## History Metadata Storage
+
+- Introduced a new experimental metadata storage API, part of libplaces.
+
+## Sync Manager
+
+- Removed support for the wipeAll command (#4006)
+
+## Autofill
+
+### What's Changed
+
+- Added support to scrub encrypted data to handle lost/corrupted client keys.
+  Scrubbed data will be replaced with remote data on the next sync.
+
+## Nimbus
+
+ - Added bucket and collections to `NimbusServerSettings`, with default values.
+ - Added `getAvailableExperiments()` method exposed by `NimbusClient`.
+ - At most one local experiment will be enrolled for any given `featureId`, and
+  to support this, the database can now have a NotEnrolledReason::FeatureConflict value.
+
+### ⚠️ Breaking changes ⚠️
+
+- Moved the `Nimbus` class and its test class from Android Components into this repository. Existing integrations should pass a delegate in to provide Nimbus with a thread to do I/O and networking on, and an Obsevrer.
+  Fixed in the complementary [android-components#10144](https://github.com/mozilla-mobile/android-components/pull/10144)
+
+
 # v75.2.0 (_2021-04-20_)
 
 [Full Changelog](https://github.com/mozilla/application-services/compare/v75.1.0...v75.2.0)
@@ -2830,4 +3532,3 @@ N/A
 
 - Clarified which exceptions are thrown in documentation in cases where it was unclear. ([#495](https://github.com/mozilla/application-services/pull/495))
 - Added `@Throws` annotations to all methods which can throw. ([#495](https://github.com/mozilla/application-services/pull/495))
-

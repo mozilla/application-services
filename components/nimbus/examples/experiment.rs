@@ -4,6 +4,7 @@
 
 use clap::{App, Arg, SubCommand};
 use env_logger::Env;
+use nimbus::TargetingAttributes;
 use nimbus::{
     error::Result, AppContext, AvailableRandomizationUnits, EnrollmentStatus, NimbusClient,
     RemoteSettingsConfig,
@@ -12,7 +13,6 @@ use std::collections::HashMap;
 use std::io::prelude::*;
 
 const DEFAULT_BASE_URL: &str = "https://firefox.settings.services.mozilla.com";
-const DEFAULT_BUCKET_NAME: &str = "main";
 const DEFAULT_COLLECTION_NAME: &str = "messaging-experiments";
 fn main() -> Result<()> {
     // We set the logging level to be `warn` here, meaning that only
@@ -170,12 +170,6 @@ fn main() -> Result<()> {
         .unwrap_or_else(|| "no-client-id-specified".to_string());
     log::info!("Client ID is {}", client_id);
 
-    let bucket_name = match config.get("bucket_name") {
-        Some(v) => v.as_str().unwrap(),
-        _ => DEFAULT_BUCKET_NAME,
-    };
-    log::info!("Bucket name is {}", bucket_name);
-
     let collection_name =
         matches
             .value_of("collection")
@@ -191,21 +185,21 @@ fn main() -> Result<()> {
         .value_of("db-path")
         .unwrap_or_else(|| match config.get("db_path") {
             Some(v) => v.as_str().unwrap(),
-            _ => &db_path_default,
+            _ => db_path_default,
         });
     log::info!("Database directory is {}", db_path);
 
     // initiate the optional config
     let config = RemoteSettingsConfig {
         server_url: server_url.to_string(),
-        bucket_name: bucket_name.to_string(),
         collection_name: collection_name.to_string(),
     };
 
     let aru = AvailableRandomizationUnits::with_client_id(&client_id);
 
     // Here we initialize our main `NimbusClient` struct
-    let nimbus_client = NimbusClient::new(context.clone(), "", Some(config), aru)?;
+    let nimbus_client = NimbusClient::new(context.clone(), db_path, Some(config), aru)?;
+    log::info!("Nimbus ID is {}", nimbus_client.nimbus_id()?);
 
     // Explicitly update experiments at least once for init purposes
     nimbus_client.fetch_experiments()?;
@@ -265,6 +259,15 @@ fn main() -> Result<()> {
             println!("Opting out of experiment '{}'", experiment);
             nimbus_client.opt_out(experiment.to_string())?;
         }
+        ("opt-out-all", _) => {
+            println!("======================================");
+            println!("Opting out of ALL experiments:");
+            let experiments = nimbus_client.get_all_experiments().unwrap();
+            for experiment in experiments {
+                println!("\t'{}'", &experiment.slug);
+                nimbus_client.opt_out(experiment.slug)?;
+            }
+        }
         // gen_uuid will generate a UUID that gets enrolled in a given number of
         // experiments, optionally settting the generated ID in the database.
         ("gen-uuid", Some(matches)) => {
@@ -287,11 +290,15 @@ fn main() -> Result<()> {
 
             let mut num_tries = 0;
             let aru = AvailableRandomizationUnits::with_client_id(&client_id);
+            let targeting_attributes = TargetingAttributes {
+                app_context: context,
+                ..Default::default()
+            };
             'outer: loop {
                 let uuid = uuid::Uuid::new_v4();
                 let mut num_of_experiments_enrolled = 0;
                 for exp in &all_experiments {
-                    let enr = nimbus::evaluate_enrollment(&uuid, &aru, &context.clone(), &exp)?;
+                    let enr = nimbus::evaluate_enrollment(&uuid, &aru, &targeting_attributes, exp)?;
                     if enr.status.is_enrolled() {
                         num_of_experiments_enrolled += 1;
                         if num_of_experiments_enrolled >= num {
@@ -345,7 +352,12 @@ fn main() -> Result<()> {
                 // options.
                 let uuid = uuid::Uuid::new_v4();
                 let aru = AvailableRandomizationUnits::with_client_id(&client_id);
-                let enrollment = nimbus::evaluate_enrollment(&uuid, &aru, &context.clone(), &exp)?;
+                let targeting_attributes = TargetingAttributes {
+                    app_context: context.clone(),
+                    ..Default::default()
+                };
+                let enrollment =
+                    nimbus::evaluate_enrollment(&uuid, &aru, &targeting_attributes, &exp)?;
                 let key = match enrollment.status.clone() {
                     EnrollmentStatus::Enrolled { .. } => "Enrolled",
                     EnrollmentStatus::NotEnrolled { .. } => "NotEnrolled",

@@ -2,7 +2,7 @@
 name = "sync-test"
 version = "0.1.0"
 authors = ["Thom Chiovoloni <tchiovoloni@mozilla.com>"]
-edition = "2018"
+edition = "2021"
 license = "MPL-2.0"
 
 [dependencies]
@@ -18,7 +18,7 @@ tabs = { path = "../../components/tabs" }
 fxa-client = { path = "../../components/fxa-client", features = ["integration_test"] }
 sync-guid = { path = "../../components/support/guid", features = ["rusqlite_support", "random"]}
 interrupt-support = { path = "../../components/support/interrupt" }
-url = "2.1"
+url = "2.2"
 env_logger = "0.7"
 log = "0.4"
 anyhow = "1.0"

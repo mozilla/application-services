@@ -1,144 +1,180 @@
 /* This Source Code Form is subject to the terms of the Mozilla Public
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
-use crate::db::{LoginDb, LoginStore, MigrationMetrics};
+use crate::db::LoginDb;
+use crate::encryption::EncryptorDecryptor;
 use crate::error::*;
-use crate::login::Login;
-use std::cell::Cell;
+use crate::login::{EncryptedLogin, Login, LoginEntry};
+use crate::LoginsSyncEngine;
+use parking_lot::Mutex;
 use std::path::Path;
-use sync15::{
-    sync_multiple, telemetry, EngineSyncAssociation, KeyBundle, MemoryCachedState,
-    Sync15StorageClientInit,
-};
+use std::sync::{Arc, Weak};
+use sync15::{sync_multiple, EngineSyncAssociation, MemoryCachedState, SyncEngine, SyncEngineId};
 
-// This store is a bundle of state to manage the login DB and to help the
-// SyncEngine.
-pub struct PasswordStore {
-    pub db: LoginDb,
-    pub mem_cached_state: Cell<MemoryCachedState>,
+// Our "sync manager" will use whatever is stashed here.
+lazy_static::lazy_static! {
+    // Mutex: just taken long enough to update the inner stuff - needed
+    //        to wrap the RefCell as they aren't `Sync`
+    static ref STORE_FOR_MANAGER: Mutex<Weak<LoginStore>> = Mutex::new(Weak::new());
 }
 
-impl PasswordStore {
-    pub fn new(path: impl AsRef<Path>, encryption_key: Option<&str>) -> Result<Self> {
-        let db = LoginDb::open(path, encryption_key)?;
-        Ok(Self {
-            db,
-            mem_cached_state: Cell::default(),
-        })
+/// Called by the sync manager to get a sync engine via the store previously
+/// registered with the sync manager.
+pub fn get_registered_sync_engine(engine_id: &SyncEngineId) -> Option<Box<dyn SyncEngine>> {
+    let weak = STORE_FOR_MANAGER.lock();
+    match weak.upgrade() {
+        None => None,
+        Some(store) => match create_sync_engine(store, engine_id) {
+            Ok(engine) => Some(engine),
+            Err(e) => {
+                log::error!("logins: get_registered_sync_engine: {}", e);
+                None
+            }
+        },
+    }
+}
+
+fn create_sync_engine(
+    store: Arc<LoginStore>,
+    engine_id: &SyncEngineId,
+) -> Result<Box<dyn SyncEngine>> {
+    match engine_id {
+        SyncEngineId::Passwords => Ok(Box::new(LoginsSyncEngine::new(Arc::clone(&store))?)),
+        // panicing here seems reasonable - it's a static error if this
+        // it hit, not something that runtime conditions can influence.
+        _ => unreachable!("can't provide unknown engine: {}", engine_id),
+    }
+}
+
+pub struct LoginStore {
+    pub db: Mutex<LoginDb>,
+}
+
+impl LoginStore {
+    pub fn new(path: impl AsRef<Path>) -> Result<Self> {
+        let db = Mutex::new(LoginDb::open(path)?);
+        Ok(Self { db })
     }
 
-    pub fn new_with_salt(path: impl AsRef<Path>, encryption_key: &str, salt: &str) -> Result<Self> {
-        let db = LoginDb::open_with_salt(path, encryption_key, salt)?;
-        Ok(Self {
-            db,
-            mem_cached_state: Cell::default(),
-        })
+    pub fn new_in_memory() -> Result<Self> {
+        let db = Mutex::new(LoginDb::open_in_memory()?);
+        Ok(Self { db })
     }
 
-    pub fn new_in_memory(encryption_key: Option<&str>) -> Result<Self> {
-        let db = LoginDb::open_in_memory(encryption_key)?;
-        Ok(Self {
-            db,
-            mem_cached_state: Cell::default(),
-        })
+    pub fn list(&self) -> Result<Vec<EncryptedLogin>> {
+        self.db.lock().get_all()
     }
 
-    pub fn list(&self) -> Result<Vec<Login>> {
-        self.db.get_all()
+    pub fn get(&self, id: &str) -> Result<Option<EncryptedLogin>> {
+        self.db.lock().get_by_id(id)
     }
 
-    pub fn get(&self, id: &str) -> Result<Option<Login>> {
-        self.db.get_by_id(id)
+    pub fn get_by_base_domain(&self, base_domain: &str) -> Result<Vec<EncryptedLogin>> {
+        self.db.lock().get_by_base_domain(base_domain)
     }
 
-    pub fn get_by_base_domain(&self, base_domain: &str) -> Result<Vec<Login>> {
-        self.db.get_by_base_domain(base_domain)
-    }
-
-    pub fn potential_dupes_ignoring_username(&self, login: Login) -> Result<Vec<Login>> {
-        self.db.potential_dupes_ignoring_username(&login)
+    pub fn find_login_to_update(&self, entry: LoginEntry, enc_key: &str) -> Result<Option<Login>> {
+        let encdec = EncryptorDecryptor::new(enc_key)?;
+        self.db.lock().find_login_to_update(entry, &encdec)
     }
 
     pub fn touch(&self, id: &str) -> Result<()> {
-        self.db.touch(id)
+        self.db.lock().touch(id)
     }
 
     pub fn delete(&self, id: &str) -> Result<bool> {
-        self.db.delete(id)
+        self.db.lock().delete(id)
     }
 
     pub fn wipe(&self) -> Result<()> {
-        let scope = self.db.begin_interrupt_scope();
-        self.db.wipe(&scope)?;
+        // This should not be exposed - it wipes the server too and there's
+        // no good reason to expose that to consumers. wipe_local makes some
+        // sense though.
+        // TODO: this is exposed to android-components consumers - we should
+        // check if anyone actually calls it.
+        let db = self.db.lock();
+        let scope = db.begin_interrupt_scope()?;
+        db.wipe(&scope)?;
         Ok(())
     }
 
     pub fn wipe_local(&self) -> Result<()> {
-        self.db.wipe_local()?;
+        self.db.lock().wipe_local()?;
         Ok(())
     }
 
-    pub fn reset(&self) -> Result<()> {
-        self.db.reset(&EngineSyncAssociation::Disconnected)?;
+    pub fn reset(self: Arc<Self>) -> Result<()> {
+        // Reset should not exist here - all resets should be done via the
+        // sync manager. It seems that actual consumers don't use this, but
+        // some tests do, so it remains for now.
+        let engine = LoginsSyncEngine::new(Arc::clone(&self))?;
+        engine.do_reset(&EngineSyncAssociation::Disconnected)?;
         Ok(())
     }
 
-    pub fn update(&self, login: Login) -> Result<()> {
-        self.db.update(login)
+    pub fn update(&self, id: &str, entry: LoginEntry, enc_key: &str) -> Result<EncryptedLogin> {
+        let encdec = EncryptorDecryptor::new(enc_key)?;
+        self.db.lock().update(id, entry, &encdec)
     }
 
-    pub fn add(&self, login: Login) -> Result<String> {
-        // Just return the record's ID (which we may have generated).
-        self.db.add(login).map(|record| record.guid.into_string())
+    pub fn add(&self, entry: LoginEntry, enc_key: &str) -> Result<EncryptedLogin> {
+        let encdec = EncryptorDecryptor::new(enc_key)?;
+        self.db.lock().add(entry, &encdec)
     }
 
-    pub fn import_multiple(&self, logins: &[Login]) -> Result<MigrationMetrics> {
-        self.db.import_multiple(logins)
+    pub fn add_or_update(&self, entry: LoginEntry, enc_key: &str) -> Result<EncryptedLogin> {
+        let encdec = EncryptorDecryptor::new(enc_key)?;
+        self.db.lock().add_or_update(entry, &encdec)
     }
 
-    pub fn disable_mem_security(&self) -> Result<()> {
-        self.db.disable_mem_security()
-    }
-
-    pub fn rekey_database(&self, new_encryption_key: &str) -> Result<()> {
-        self.db.rekey_database(new_encryption_key)
-    }
-
-    // This is basically exposed just for sync_pass_sql, but it doesn't seem
-    // unreasonable.
-    pub fn conn(&self) -> &rusqlite::Connection {
-        &self.db.db
-    }
-
-    pub fn new_interrupt_handle(&self) -> sql_support::SqlInterruptHandle {
-        self.db.new_interrupt_handle()
+    pub fn import_multiple(&self, logins: Vec<Login>, enc_key: &str) -> Result<String> {
+        let encdec = EncryptorDecryptor::new(enc_key)?;
+        let metrics = self.db.lock().import_multiple(logins, &encdec)?;
+        Ok(serde_json::to_string(&metrics)?)
     }
 
     /// A convenience wrapper around sync_multiple.
+    // Unfortunately, iOS still uses this until they use the sync manager
+    // This can almost die later - consumers should never call it (they should
+    // use the sync manager) and any of our examples probably can too!
+    // Once this dies, `mem_cached_state` can die too.
     pub fn sync(
-        &self,
-        storage_init: &Sync15StorageClientInit,
-        root_sync_key: &KeyBundle,
-    ) -> Result<telemetry::SyncTelemetryPing> {
-        // migrate our V1 state - this needn't live for long.
-        self.db.migrate_global_state()?;
+        self: Arc<Self>,
+        key_id: String,
+        access_token: String,
+        sync_key: String,
+        tokenserver_url: String,
+        local_encryption_key: String,
+    ) -> Result<String> {
+        let mut engine = LoginsSyncEngine::new(Arc::clone(&self))?;
+        engine
+            .set_local_encryption_key(&local_encryption_key)
+            .unwrap();
 
-        let mut disk_cached_state = self.db.get_global_state()?;
-        let mut mem_cached_state = self.mem_cached_state.take();
-        let store = LoginStore::new(&self.db);
+        // This is a bit hacky but iOS still uses sync() and we can only pass strings over ffi
+        // Below was ported from the "C" ffi code that does essentially the same thing
+        let storage_init = &sync15::Sync15StorageClientInit {
+            key_id,
+            access_token,
+            tokenserver_url: url::Url::parse(tokenserver_url.as_str())?,
+        };
+        let root_sync_key = &sync15::KeyBundle::from_ksync_base64(sync_key.as_str())?;
+
+        let mut disk_cached_state = engine.get_global_state()?;
+        let mut mem_cached_state = MemoryCachedState::default();
 
         let mut result = sync_multiple(
-            &[&store],
+            &[&engine],
             &mut disk_cached_state,
             &mut mem_cached_state,
             storage_init,
             root_sync_key,
-            &store.scope,
+            &engine.scope,
             None,
         );
         // We always update the state - sync_multiple does the right thing
         // if it needs to be dropped (ie, they will be None or contain Nones etc)
-        self.db.set_global_state(&disk_cached_state)?;
+        engine.set_global_state(&disk_cached_state)?;
 
         // for b/w compat reasons, we do some dances with the result.
         // XXX - note that this means telemetry isn't going to be reported back
@@ -148,68 +184,91 @@ impl PasswordStore {
             return Err(e.into());
         }
         match result.engine_results.remove("passwords") {
-            None | Some(Ok(())) => Ok(result.telemetry),
+            None | Some(Ok(())) => Ok(serde_json::to_string(&result.telemetry).unwrap()),
             Some(Err(e)) => Err(e.into()),
         }
     }
 
-    pub fn check_valid_with_no_dupes(&self, login: &Login) -> Result<()> {
-        self.db.check_valid_with_no_dupes(login)
+    // This allows the embedding app to say "make this instance available to
+    // the sync manager". The implementation is more like "offer to sync mgr"
+    // (thereby avoiding us needing to link with the sync manager) but
+    // `register_with_sync_manager()` is logically what's happening so that's
+    // the name it gets.
+    pub fn register_with_sync_manager(self: Arc<Self>) {
+        let mut state = STORE_FOR_MANAGER.lock();
+        *state = Arc::downgrade(&self);
+    }
+
+    // this isn't exposed by uniffi - currently the
+    // only consumer of this is our "example" (and hence why they
+    // are `pub` and not `pub(crate)`).
+    // We could probably make the example work with the sync manager - but then
+    // our example would link with places and logins etc, and it's not a big
+    // deal really.
+    pub fn create_logins_sync_engine(self: Arc<Self>) -> Result<Box<dyn SyncEngine>> {
+        Ok(Box::new(LoginsSyncEngine::new(self)?))
     }
 }
 
 #[cfg(test)]
 mod test {
     use super::*;
+    use crate::encryption::test_utils::{TEST_ENCRYPTION_KEY, TEST_ENCRYPTOR};
     use crate::util;
+    use crate::{LoginFields, SecureLoginFields};
     use more_asserts::*;
+    use std::cmp::Reverse;
     use std::time::SystemTime;
-    use sync_guid::Guid;
-    // Doesn't check metadata fields
-    fn assert_logins_equiv(a: &Login, b: &Login) {
-        assert_eq!(b.guid, a.guid);
-        assert_eq!(b.hostname, a.hostname);
-        assert_eq!(b.form_submit_url, a.form_submit_url);
-        assert_eq!(b.http_realm, a.http_realm);
-        assert_eq!(b.username, a.username);
-        assert_eq!(b.password, a.password);
-        assert_eq!(b.username_field, a.username_field);
-        assert_eq!(b.password_field, a.password_field);
+
+    fn assert_logins_equiv(a: &LoginEntry, b: &EncryptedLogin) {
+        let b_e = b.decrypt_fields(&TEST_ENCRYPTOR).unwrap();
+        assert_eq!(a.fields, b.fields);
+        assert_eq!(b_e.username, a.sec_fields.username);
+        assert_eq!(b_e.password, a.sec_fields.password);
     }
 
     #[test]
     fn test_general() {
-        let store = PasswordStore::new_in_memory(Some("secret")).unwrap();
+        let store = LoginStore::new_in_memory().unwrap();
         let list = store.list().expect("Grabbing Empty list to work");
         assert_eq!(list.len(), 0);
         let start_us = util::system_time_ms_i64(SystemTime::now());
 
-        let a = Login {
-            guid: "aaaaaaaaaaaa".into(),
-            hostname: "https://www.example.com".into(),
-            form_submit_url: Some("https://www.example.com".into()),
-            username: "coolperson21".into(),
-            password: "p4ssw0rd".into(),
-            username_field: "user_input".into(),
-            password_field: "pass_input".into(),
-            ..Login::default()
+        let a = LoginEntry {
+            fields: LoginFields {
+                origin: "https://www.example.com".into(),
+                form_action_origin: Some("https://www.example.com".into()),
+                username_field: "user_input".into(),
+                password_field: "pass_input".into(),
+                ..Default::default()
+            },
+            sec_fields: SecureLoginFields {
+                username: "coolperson21".into(),
+                password: "p4ssw0rd".into(),
+            },
         };
 
-        let b = Login {
-            // Note: no ID, should be autogenerated for us
-            hostname: "https://www.example2.com".into(),
-            http_realm: Some("Some String Here".into()),
-            username: "asdf".into(),
-            password: "fdsa".into(),
-            ..Login::default()
+        let b = LoginEntry {
+            fields: LoginFields {
+                origin: "https://www.example2.com".into(),
+                http_realm: Some("Some String Here".into()),
+                ..Default::default()
+            },
+            sec_fields: SecureLoginFields {
+                username: "asdf".into(),
+                password: "fdsa".into(),
+            },
         };
-
-        let a_id = store.add(a.clone()).expect("added a");
-        let b_id = store.add(b.clone()).expect("added b");
-
-        assert_eq!(a_id, a.guid);
-
-        assert_ne!(b_id, b.guid, "Should generate guid when none provided");
+        let a_id = store
+            .add(a.clone(), &TEST_ENCRYPTION_KEY)
+            .expect("added a")
+            .record
+            .id;
+        let b_id = store
+            .add(b.clone(), &TEST_ENCRYPTION_KEY)
+            .expect("added b")
+            .record
+            .id;
 
         let a_from_db = store
             .get(&a_id)
@@ -217,35 +276,29 @@ mod test {
             .expect("a to exist");
 
         assert_logins_equiv(&a, &a_from_db);
-        assert_ge!(a_from_db.time_created, start_us);
-        assert_ge!(a_from_db.time_password_changed, start_us);
-        assert_ge!(a_from_db.time_last_used, start_us);
-        assert_eq!(a_from_db.times_used, 1);
+        assert_ge!(a_from_db.record.time_created, start_us);
+        assert_ge!(a_from_db.record.time_password_changed, start_us);
+        assert_ge!(a_from_db.record.time_last_used, start_us);
+        assert_eq!(a_from_db.record.times_used, 1);
 
         let b_from_db = store
             .get(&b_id)
             .expect("Not to error getting b")
             .expect("b to exist");
 
-        assert_logins_equiv(
-            &b_from_db,
-            &Login {
-                guid: Guid::from(b_id.as_str()),
-                ..b.clone()
-            },
-        );
-        assert_ge!(b_from_db.time_created, start_us);
-        assert_ge!(b_from_db.time_password_changed, start_us);
-        assert_ge!(b_from_db.time_last_used, start_us);
-        assert_eq!(b_from_db.times_used, 1);
+        assert_logins_equiv(&LoginEntry { ..b.clone() }, &b_from_db);
+        assert_ge!(b_from_db.record.time_created, start_us);
+        assert_ge!(b_from_db.record.time_password_changed, start_us);
+        assert_ge!(b_from_db.record.time_last_used, start_us);
+        assert_eq!(b_from_db.record.times_used, 1);
 
         let mut list = store.list().expect("Grabbing list to work");
         assert_eq!(list.len(), 2);
 
         let mut expect = vec![a_from_db, b_from_db.clone()];
 
-        list.sort_by(|a, b| b.guid.cmp(&a.guid));
-        expect.sort_by(|a, b| b.guid.cmp(&a.guid));
+        list.sort_by_key(|b| Reverse(b.guid()));
+        expect.sort_by_key(|b| Reverse(b.guid()));
         assert_eq!(list, expect);
 
         store.delete(&a_id).expect("Successful delete");
@@ -260,7 +313,7 @@ mod test {
 
         let list = store
             .get_by_base_domain("example2.com")
-            .expect("Expect a list for this hostname");
+            .expect("Expect a list for this origin");
         assert_eq!(list.len(), 1);
         assert_eq!(list[0], b_from_db);
 
@@ -270,39 +323,54 @@ mod test {
         assert_eq!(list.len(), 0);
 
         let now_us = util::system_time_ms_i64(SystemTime::now());
-        let b2 = Login {
-            password: "newpass".into(),
-            guid: Guid::from(b_id.as_str()),
+        let b2 = LoginEntry {
+            sec_fields: SecureLoginFields {
+                username: b.sec_fields.username.to_owned(),
+                password: "newpass".into(),
+            },
             ..b
         };
 
-        store.update(b2.clone()).expect("update b should work");
+        store
+            .update(&b_id, b2.clone(), &TEST_ENCRYPTION_KEY)
+            .expect("update b should work");
 
         let b_after_update = store
             .get(&b_id)
             .expect("Not to error getting b")
             .expect("b to exist");
 
-        assert_logins_equiv(&b_after_update, &b2);
-        assert_ge!(b_after_update.time_created, start_us);
-        assert_le!(b_after_update.time_created, now_us);
-        assert_ge!(b_after_update.time_password_changed, now_us);
-        assert_ge!(b_after_update.time_last_used, now_us);
+        assert_logins_equiv(&b2, &b_after_update);
+        assert_ge!(b_after_update.record.time_created, start_us);
+        assert_le!(b_after_update.record.time_created, now_us);
+        assert_ge!(b_after_update.record.time_password_changed, now_us);
+        assert_ge!(b_after_update.record.time_last_used, now_us);
         // Should be two even though we updated twice
-        assert_eq!(b_after_update.times_used, 2);
+        assert_eq!(b_after_update.record.times_used, 2);
     }
 
     #[test]
-    fn test_rekey() {
-        let store = PasswordStore::new_in_memory(Some("secret")).unwrap();
-        store.rekey_database("new_encryption_key").unwrap();
-        let list = store.list().expect("Grabbing Empty list to work");
-        assert_eq!(list.len(), 0);
+    fn test_sync_manager_registration() {
+        let store = Arc::new(LoginStore::new_in_memory().unwrap());
+        assert_eq!(Arc::strong_count(&store), 1);
+        assert_eq!(Arc::weak_count(&store), 0);
+        Arc::clone(&store).register_with_sync_manager();
+        assert_eq!(Arc::strong_count(&store), 1);
+        assert_eq!(Arc::weak_count(&store), 1);
+        let registered = STORE_FOR_MANAGER.lock().upgrade().expect("should upgrade");
+        assert!(Arc::ptr_eq(&store, &registered));
+        drop(registered);
+        // should be no new references
+        assert_eq!(Arc::strong_count(&store), 1);
+        assert_eq!(Arc::weak_count(&store), 1);
+        // dropping the registered object should drop the registration.
+        drop(store);
+        assert!(STORE_FOR_MANAGER.lock().upgrade().is_none());
     }
 }
 
 #[test]
 fn test_send() {
     fn ensure_send<T: Send>() {}
-    ensure_send::<PasswordStore>();
+    ensure_send::<LoginStore>();
 }

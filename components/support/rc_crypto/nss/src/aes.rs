@@ -8,7 +8,6 @@ use crate::{
     util::{ensure_nss_initialized, map_nss_secstatus, ScopedPtr},
 };
 use std::{
-    convert::TryFrom,
     mem,
     os::raw::{c_uchar, c_uint},
 };
@@ -86,7 +85,7 @@ pub fn common_crypt(
     // Most of the following code is inspired by the Firefox WebCrypto implementation:
     // https://searchfox.org/mozilla-central/rev/f46e2bf881d522a440b30cbf5cf8d76fc212eaf4/dom/crypto/WebCryptoTask.cpp#566
     // CKA_ENCRYPT always is fine.
-    let sym_key = import_sym_key(mech, nss_sys::CKA_ENCRYPT.into(), &key)?;
+    let sym_key = import_sym_key(mech, nss_sys::CKA_ENCRYPT.into(), key)?;
     // Initialize the output buffer (enough space for padding / a full tag).
     let result_max_len = data
         .len()

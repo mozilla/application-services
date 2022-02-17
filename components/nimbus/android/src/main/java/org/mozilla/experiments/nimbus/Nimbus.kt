@@ -19,35 +19,34 @@ import androidx.core.content.pm.PackageInfoCompat
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.launch
 import mozilla.components.service.glean.Glean
+import org.json.JSONObject
 import org.mozilla.experiments.nimbus.GleanMetrics.NimbusEvents
 import org.mozilla.experiments.nimbus.internal.AppContext
 import org.mozilla.experiments.nimbus.internal.AvailableExperiment
 import org.mozilla.experiments.nimbus.internal.AvailableRandomizationUnits
-import org.mozilla.experiments.nimbus.internal.Branch
 import org.mozilla.experiments.nimbus.internal.EnrolledExperiment
 import org.mozilla.experiments.nimbus.internal.EnrollmentChangeEvent
 import org.mozilla.experiments.nimbus.internal.EnrollmentChangeEventType
-import org.mozilla.experiments.nimbus.internal.FeatureConfig
-import org.mozilla.experiments.nimbus.internal.NimbusErrorException
+import org.mozilla.experiments.nimbus.internal.ExperimentBranch
+import org.mozilla.experiments.nimbus.internal.NimbusException
 import org.mozilla.experiments.nimbus.internal.NimbusClient
 import org.mozilla.experiments.nimbus.internal.NimbusClientInterface
 import org.mozilla.experiments.nimbus.internal.RemoteSettingsConfig
 import java.io.File
 
-private const val EXPERIMENT_BUCKET_NAME = "main"
 private const val EXPERIMENT_COLLECTION_NAME = "nimbus-mobile-experiments"
 private const val NIMBUS_DATA_DIR: String = "nimbus_data"
 
 // Republish these classes from this package.
-typealias Branch = Branch
+typealias Branch = ExperimentBranch
 typealias AvailableExperiment = AvailableExperiment
 typealias EnrolledExperiment = EnrolledExperiment
-typealias FeatureConfig = FeatureConfig
 
 /**
  * This is the main experiments API, which is exposed through the global [Nimbus] object.
  */
-interface NimbusInterface {
+interface NimbusInterface : FeaturesInterface, GleanPlumbInterface {
+
     /**
      * Get the list of currently enrolled experiments
      *
@@ -80,6 +79,24 @@ interface NimbusInterface {
      * @return A list of [Branch]s
      */
     fun getExperimentBranches(experimentId: String): List<Branch>? = listOf()
+
+    /**
+     * Get the variables needed to configure the feature given by `featureId`.
+     *
+     * @param featureId The string feature id that identifies to the feature under experiment.
+     *
+     * @param recordExposureEvent Passing `true` to this parameter will record the exposure event
+     *      automatically if the client is enrolled in an experiment for the given [featureId].
+     *      Passing `false` here indicates that the application will manually record the exposure
+     *      event by calling the `recordExposureEvent` function at the time of the exposure to the
+     *      feature.
+     *
+     * See [recordExposureEvent] for more information on manually recording the event.
+     *
+     * @return a [Variables] object used to configure the feature.
+     */
+    @AnyThread
+    override fun getVariables(featureId: String, recordExposureEvent: Boolean): Variables = NullVariables(context)
 
     /**
      * Open the database and populate the SDK so as make it usable by feature developers.
@@ -156,6 +173,34 @@ interface NimbusInterface {
     fun resetTelemetryIdentifiers() = Unit
 
     /**
+     * Records the `exposure` event in telemetry.
+     *
+     * This is a manual function to accomplish the same purpose as passing `true` as the
+     * `recordExposureEvent` property of the [getVariables] function. It is intended to be used
+     * when requesting feature variables must occur at a different time than the actual user's
+     * exposure to the feature within the app.
+     *
+     * Examples:
+     * * If the [Variables] are needed at a different time than when the exposure to the feature
+     *   actually happens, such as constructing a menu happening at a different time than the user
+     *   seeing the menu.
+     * * If [getVariables] is required to be called multiple times for the same feature and it is
+     *   desired to only record the exposure once, such as if [getVariables] were called with every
+     *   keystroke.
+     *
+     * In the case where the use of this function is required, then the [getVariables] function
+     * should be called with `false` so that the exposure event is not recorded when the variables
+     * are fetched.
+     *
+     * This function is safe to call even when there is no active experiment for the feature. The SDK
+     * will ensure that an event is only recorded for active experiments.
+     *
+     * @param featureId string representing the id of the feature for which to record the exposure
+     *     event.
+     */
+    override fun recordExposureEvent(featureId: String) = Unit
+
+    /**
      * Control the opt out for all experiments at once. This is likely a user action.
      */
     var globalUserParticipation: Boolean
@@ -187,7 +232,6 @@ interface NimbusInterface {
  */
 data class NimbusServerSettings(
     val url: Uri,
-    val bucket: String = EXPERIMENT_BUCKET_NAME,
     val collection: String = EXPERIMENT_COLLECTION_NAME
 )
 
@@ -218,7 +262,13 @@ data class NimbusAppInfo(
      *
      * Examples: "nightly", "beta", "release"
      */
-    val channel: String
+    val channel: String,
+    /**
+     * Application derived attributes measured by the application, but useful for targeting of experiments.
+     *
+     * Example: mapOf("userType": "casual", "isFirstTime": "true")
+     */
+    val customTargetingAttributes: Map<String, String> = mapOf()
 )
 
 /**
@@ -243,7 +293,7 @@ class NimbusDelegate(
  */
 @Suppress("LargeClass", "LongParameterList")
 open class Nimbus(
-    private val context: Context,
+    override val context: Context,
     appInfo: NimbusAppInfo,
     server: NimbusServerSettings?,
     deviceInfo: NimbusDeviceInfo,
@@ -287,7 +337,6 @@ open class Nimbus(
         val remoteSettingsConfig = server?.let {
             RemoteSettingsConfig(
                 serverUrl = it.url.toString(),
-                bucketName = it.bucket,
                 collectionName = it.collection
             )
         }
@@ -305,17 +354,34 @@ open class Nimbus(
     // This is currently not available from the main thread.
     // see https://jira.mozilla.com/browse/SDK-191
     @WorkerThread
-    override fun getActiveExperiments(): List<EnrolledExperiment> =
+    override fun getActiveExperiments(): List<EnrolledExperiment> = withCatchAll {
         nimbusClient.getActiveExperiments()
+    } ?: emptyList()
 
     @WorkerThread
-    override fun getAvailableExperiments(): List<AvailableExperiment> =
+    override fun getAvailableExperiments(): List<AvailableExperiment> = withCatchAll {
         nimbusClient.getAvailableExperiments()
+    } ?: emptyList()
 
-    override fun getExperimentBranch(experimentId: String): String? {
-        recordExposure(experimentId)
-        return nimbusClient.getExperimentBranch(experimentId)
+    @AnyThread
+    @VisibleForTesting(otherwise = VisibleForTesting.PRIVATE)
+    internal fun getFeatureConfigVariablesJson(featureId: String) =
+        withCatchAll {
+            nimbusClient.getFeatureConfigVariables(featureId)?.let { JSONObject(it) }
+        }
+
+    override fun getExperimentBranch(experimentId: String): String? = withCatchAll {
+        nimbusClient.getExperimentBranch(experimentId)
     }
+
+    override fun getVariables(featureId: String, recordExposureEvent: Boolean): Variables =
+        getFeatureConfigVariablesJson(featureId)?.let { json ->
+            if (recordExposureEvent) {
+                recordExposure(featureId)
+            }
+            JSONVariables(context, json)
+        }
+        ?: NullVariables(context)
 
     @WorkerThread
     override fun getExperimentBranches(experimentId: String): List<Branch>? = withCatchAll {
@@ -328,11 +394,13 @@ open class Nimbus(
         try {
             thunk()
         } catch (e: Throwable) {
-            try {
-                errorReporter("Error in Nimbus Rust", e)
-            } catch (e1: Throwable) {
-                logger("Exception calling rust: $e")
-                logger("Exception reporting the exception: $e1")
+            if (e !is NimbusException.DatabaseNotReady) {
+                try {
+                    errorReporter("Error in Nimbus Rust", e)
+                } catch (e1: Throwable) {
+                    logger("Exception calling rust: $e")
+                    logger("Exception reporting the exception: $e1")
+                }
             }
             null
         }
@@ -361,9 +429,9 @@ open class Nimbus(
         try {
             nimbusClient.fetchExperiments()
             observer?.onExperimentsFetched()
-        } catch (e: NimbusErrorException.RequestError) {
+        } catch (e: NimbusException.RequestException) {
             errorReporter("Error fetching experiments from endpoint", e)
-        } catch (e: NimbusErrorException.ResponseError) {
+        } catch (e: NimbusException.ResponseException) {
             errorReporter("Error fetching experiments from endpoint", e)
         }
     }
@@ -381,7 +449,7 @@ open class Nimbus(
             nimbusClient.applyPendingExperiments().also(::recordExperimentTelemetryEvents)
             // Get the experiments to record in telemetry
             postEnrolmentCalculation()
-        } catch (e: NimbusErrorException.InvalidExperimentFormat) {
+        } catch (e: NimbusException.InvalidExperimentFormat) {
             errorReporter("Invalid experiment format", e)
         }
     }
@@ -389,10 +457,8 @@ open class Nimbus(
     @WorkerThread
     private fun postEnrolmentCalculation() {
         nimbusClient.getActiveExperiments().let {
-            if (it.any()) {
-                recordExperimentTelemetry(it)
-                observer?.onUpdatesApplied(it)
-            }
+            recordExperimentTelemetry(it)
+            observer?.onUpdatesApplied(it)
         }
     }
 
@@ -425,6 +491,7 @@ open class Nimbus(
     internal fun setGlobalUserParticipationOnThisThread(active: Boolean) = withCatchAll {
         val enrolmentChanges = nimbusClient.setGlobalUserParticipation(active)
         if (enrolmentChanges.isNotEmpty()) {
+            recordExperimentTelemetryEvents(enrolmentChanges)
             postEnrolmentCalculation()
         }
     }
@@ -432,9 +499,15 @@ open class Nimbus(
     override fun optOut(experimentId: String) {
         dbScope.launch {
             withCatchAll {
-                nimbusClient.optOut(experimentId).also(::recordExperimentTelemetryEvents)
+                optOutOnThisThread(experimentId)
             }
         }
+    }
+
+    @WorkerThread
+    @VisibleForTesting(otherwise = VisibleForTesting.PRIVATE)
+    internal fun optOutOnThisThread(experimentId: String) {
+        nimbusClient.optOut(experimentId).also(::recordExperimentTelemetryEvents)
     }
 
     override fun resetTelemetryIdentifiers() {
@@ -458,13 +531,27 @@ open class Nimbus(
         }
     }
 
+    override fun recordExposureEvent(featureId: String) {
+        recordExposure(featureId)
+    }
+
+    override fun createMessageHelper(additionalContext: JSONObject?): GleanPlumbMessageHelper =
+        GleanPlumbMessageHelper(
+            nimbusClient.createTargetingHelper(additionalContext),
+            nimbusClient.createStringHelper(additionalContext)
+        )
+
     @VisibleForTesting(otherwise = VisibleForTesting.PRIVATE)
     internal fun recordExperimentTelemetry(experiments: List<EnrolledExperiment>) {
         // Call Glean.setExperimentActive() for each active experiment.
         experiments.forEach { experiment ->
             // For now, we will just record the experiment id and the branch id. Once we can call
             // Glean from Rust, this will move to the nimbus-sdk Rust core.
-            Glean.setExperimentActive(experiment.slug, experiment.branchSlug)
+            Glean.setExperimentActive(
+                experiment.slug,
+                experiment.branchSlug,
+                mapOf("enrollmentId" to experiment.enrollmentId)
+            )
         }
     }
 
@@ -473,24 +560,24 @@ open class Nimbus(
         enrollmentChangeEvents.forEach { event ->
             when (event.change) {
                 EnrollmentChangeEventType.ENROLLMENT -> {
-                    NimbusEvents.enrollment.record(mapOf(
-                        NimbusEvents.enrollmentKeys.experiment to event.experimentSlug,
-                        NimbusEvents.enrollmentKeys.branch to event.branchSlug,
-                        NimbusEvents.enrollmentKeys.enrollmentId to event.enrollmentId
+                    NimbusEvents.enrollment.record(NimbusEvents.EnrollmentExtra(
+                        experiment = event.experimentSlug,
+                        branch = event.branchSlug,
+                        enrollmentId = event.enrollmentId
                     ))
                 }
                 EnrollmentChangeEventType.DISQUALIFICATION -> {
-                    NimbusEvents.disqualification.record(mapOf(
-                        NimbusEvents.disqualificationKeys.experiment to event.experimentSlug,
-                        NimbusEvents.disqualificationKeys.branch to event.branchSlug,
-                        NimbusEvents.disqualificationKeys.enrollmentId to event.enrollmentId
+                    NimbusEvents.disqualification.record(NimbusEvents.DisqualificationExtra(
+                        experiment = event.experimentSlug,
+                        branch = event.branchSlug,
+                        enrollmentId = event.enrollmentId
                     ))
                 }
                 EnrollmentChangeEventType.UNENROLLMENT -> {
-                    NimbusEvents.unenrollment.record(mapOf(
-                        NimbusEvents.unenrollmentKeys.experiment to event.experimentSlug,
-                        NimbusEvents.unenrollmentKeys.branch to event.branchSlug,
-                        NimbusEvents.unenrollmentKeys.enrollmentId to event.enrollmentId
+                    NimbusEvents.unenrollment.record(NimbusEvents.UnenrollmentExtra(
+                        experiment = event.experimentSlug,
+                        branch = event.branchSlug,
+                        enrollmentId = event.enrollmentId
                     ))
                 }
             }
@@ -498,9 +585,9 @@ open class Nimbus(
     }
 
     @VisibleForTesting(otherwise = VisibleForTesting.PRIVATE)
-    internal fun recordExposure(experimentId: String) {
+    internal fun recordExposure(featureId: String) {
         dbScope.launch {
-            recordExposureOnThisThread(experimentId)
+            recordExposureOnThisThread(featureId)
         }
     }
 
@@ -508,13 +595,13 @@ open class Nimbus(
     // for a "control" branch) is applied or shown to the user.
     @VisibleForTesting(otherwise = VisibleForTesting.PRIVATE)
     @WorkerThread
-    internal fun recordExposureOnThisThread(experimentId: String) = withCatchAll {
+    internal fun recordExposureOnThisThread(featureId: String) = withCatchAll {
         val activeExperiments = getActiveExperiments()
-        activeExperiments.find { it.slug == experimentId }?.also { experiment ->
-            NimbusEvents.exposure.record(mapOf(
-                NimbusEvents.exposureKeys.experiment to experiment.slug,
-                NimbusEvents.exposureKeys.branch to experiment.branchSlug,
-                NimbusEvents.exposureKeys.enrollmentId to experiment.enrollmentId
+        activeExperiments.find { it.featureIds.contains(featureId) }?.also { experiment ->
+            NimbusEvents.exposure.record(NimbusEvents.ExposureExtra(
+                experiment = experiment.slug,
+                branch = experiment.branchSlug,
+                enrollmentId = experiment.enrollmentId
             ))
         }
     }
@@ -542,6 +629,9 @@ open class Nimbus(
             deviceModel = Build.MODEL,
             locale = deviceInfo.localeTag,
             os = "Android",
-            osVersion = Build.VERSION.RELEASE)
+            osVersion = Build.VERSION.RELEASE,
+            installationDate = packageInfo?.firstInstallTime,
+            homeDirectory = context.applicationInfo?.dataDir,
+            customTargetingAttributes = appInfo.customTargetingAttributes)
     }
 }

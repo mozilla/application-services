@@ -252,7 +252,7 @@ const BASE64URL_BYTES: [u8; 256] = [
 
 impl Ord for Guid {
     fn cmp(&self, other: &Self) -> Ordering {
-        self.as_bytes().cmp(&other.as_bytes())
+        self.as_bytes().cmp(other.as_bytes())
     }
 }
 
@@ -416,8 +416,15 @@ mod test {
         assert!(!Guid::from("aaaabbbbccccd").is_valid_for_places()); // too long
         assert!(!Guid::from("aaaabbbbccc").is_valid_for_places()); // too short
         assert!(!Guid::from("aaaabbbbccc=").is_valid_for_places()); // right length, bad character
+        assert!(!Guid::empty().is_valid_for_places()); // empty isn't valid to insert.
     }
 
+    #[test]
+    fn test_valid_for_sync_server() {
+        assert!(!Guid::empty().is_valid_for_sync_server()); // empty isn't valid remotely.
+    }
+
+    #[allow(clippy::cmp_owned)] // See clippy note below.
     #[test]
     fn test_comparison() {
         assert_eq!(Guid::from("abcdabcdabcd"), "abcdabcdabcd");
@@ -442,6 +449,10 @@ mod test {
         );
 
         // order by data instead of length
+        // hrmph - clippy in 1.54-nightly complains about the below:
+        // 'error: this creates an owned instance just for comparison'
+        // '... help: try: `*"aaaaaa"`'
+        // and suggests a change that's wrong - so we've ignored the lint above.
         assert!(Guid::from("zzz") > Guid::from("aaaaaa"));
         assert!(Guid::from("ThisIsASolowGuid") < Guid::from("zzz"));
         assert!(Guid::from("ThisIsASolowGuid") > Guid::from("AnotherSlowGuid"));

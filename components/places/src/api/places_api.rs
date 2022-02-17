@@ -2,27 +2,27 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-use crate::bookmark_sync::engine::BookmarksEngine;
-use crate::db::db::PlacesDb;
+use crate::bookmark_sync::BookmarksSyncEngine;
+use crate::db::db::{PlacesDb, SharedPlacesDb};
 use crate::error::*;
-use crate::history_sync::engine::HistoryEngine;
+use crate::history_sync::HistorySyncEngine;
 use crate::storage::{
     self, bookmarks::bookmark_sync, delete_meta, get_meta, history::history_sync, put_meta,
 };
 use crate::util::normalize_path;
+use interrupt_support::register_interrupt;
 use lazy_static::lazy_static;
+use parking_lot::Mutex;
 use rusqlite::OpenFlags;
-use sql_support::SqlInterruptHandle;
 use std::cell::Cell;
 use std::collections::HashMap;
-use std::fs;
 use std::mem;
 use std::path::{Path, PathBuf};
 use std::sync::{
-    atomic::{AtomicBool, AtomicUsize, Ordering},
-    Arc, Mutex, Weak,
+    atomic::{AtomicUsize, Ordering},
+    Arc, Weak,
 };
-use sync15::{sync_multiple, telemetry, MemoryCachedState, SyncResult};
+use sync15::{sync_multiple, telemetry, MemoryCachedState, SyncEngine, SyncEngineId, SyncResult};
 
 // Not clear if this should be here, but this is the "global sync state"
 // which is persisted to disk and reused for all engines.
@@ -30,6 +30,45 @@ use sync15::{sync_multiple, telemetry, MemoryCachedState, SyncResult};
 // by a store or collection, so it's safe to storage globally rather than
 // per collection.
 pub const GLOBAL_STATE_META_KEY: &str = "global_sync_state_v2";
+
+// Our "sync manager" will use whatever is stashed here.
+lazy_static::lazy_static! {
+    // Mutex: just taken long enough to update the contents - needed to wrap
+    //        the Weak as it isn't `Sync`
+    // [Arc/Weak]: Stores the places api used to create the connection for
+    //             BookmarksSyncEngine/HistorySyncEngine
+    static ref PLACES_API_FOR_SYNC_MANAGER: Mutex<Weak<PlacesApi>> = Mutex::new(Weak::new());
+}
+
+// Called by the sync manager to get a sync engine via the PlacesApi previously
+// registered with the sync manager.
+pub fn get_registered_sync_engine(engine_id: &SyncEngineId) -> Option<Box<dyn SyncEngine>> {
+    match PLACES_API_FOR_SYNC_MANAGER.lock().upgrade() {
+        None => {
+            log::error!("places: get_registered_sync_engine: no PlacesApi registered");
+            None
+        }
+        Some(places_api) => match create_sync_engine(&places_api, engine_id) {
+            Ok(engine) => Some(engine),
+            Err(e) => {
+                log::error!("places: get_registered_sync_engine: {}", e);
+                None
+            }
+        },
+    }
+}
+
+fn create_sync_engine(
+    places_api: &PlacesApi,
+    engine_id: &SyncEngineId,
+) -> Result<Box<dyn SyncEngine>> {
+    let conn = places_api.get_sync_connection()?;
+    match engine_id {
+        SyncEngineId::Bookmarks => Ok(Box::new(BookmarksSyncEngine::new(conn)?)),
+        SyncEngineId::History => Ok(Box::new(HistorySyncEngine::new(conn)?)),
+        _ => unreachable!("can't provide unknown engine: {}", engine_id),
+    }
+}
 
 #[repr(u8)]
 #[derive(Debug, Copy, Clone, PartialEq)]
@@ -75,6 +114,13 @@ pub struct SyncState {
     pub disk_cached_state: Cell<Option<String>>,
 }
 
+/// For uniffi we need to expose our `Arc` returning constructor as a global function :(
+/// https://github.com/mozilla/uniffi-rs/pull/1063 would fix this, but got some pushback
+/// meaning we are forced into this unfortunate workaround.
+pub fn places_api_new(db_name: impl AsRef<Path>) -> Result<Arc<PlacesApi>> {
+    PlacesApi::new(db_name)
+}
+
 /// The entry-point to the places API. This object gives access to database
 /// connections and other helpers. It enforces that only 1 write connection
 /// can exist to the database at once.
@@ -83,9 +129,18 @@ pub struct PlacesApi {
     write_connection: Mutex<Option<PlacesDb>>,
     sync_state: Mutex<Option<SyncState>>,
     coop_tx_lock: Arc<Mutex<()>>,
-    sync_conn_active: AtomicBool,
+    // Used for get_sync_connection()
+    // - The inner mutux synchronizes sync operation (for example one of the [SyncEngine] methods).
+    //   This avoids issues like #867
+    // - The weak facilitates connection sharing.  When `get_sync_connection()` returns an Arc, we
+    //   keep a weak reference to it.  If the Arc is still alive when `get_sync_connection()` is
+    //   called again, we reuse it.
+    // - The outer mutex synchronizes the `get_sync_connection()` operation.  If multiple threads
+    //   ran that at the same time there would be issues.
+    sync_connection: Mutex<Weak<SharedPlacesDb>>,
     id: usize,
 }
+
 impl PlacesApi {
     /// Create a new, or fetch an already open, PlacesApi backed by a file on disk.
     pub fn new(db_name: impl AsRef<Path>) -> Result<Arc<Self>> {
@@ -103,7 +158,6 @@ impl PlacesApi {
     fn new_or_existing_into(
         target: &mut HashMap<PathBuf, Weak<PlacesApi>>,
         db_name: PathBuf,
-        delete_on_fail: bool,
     ) -> Result<Arc<Self>> {
         let id = ID_COUNTER.fetch_add(1, Ordering::SeqCst);
         match target.get(&db_name).and_then(Weak::upgrade) {
@@ -112,44 +166,30 @@ impl PlacesApi {
                 // We always create a new read-write connection for an initial open so
                 // we can create the schema and/or do version upgrades.
                 let coop_tx_lock = Arc::new(Mutex::new(()));
-                match PlacesDb::open(
+                let connection = PlacesDb::open(
                     &db_name,
                     ConnectionType::ReadWrite,
                     id,
                     coop_tx_lock.clone(),
-                ) {
-                    Ok(connection) => {
-                        let new = PlacesApi {
-                            db_name: db_name.clone(),
-                            write_connection: Mutex::new(Some(connection)),
-                            sync_state: Mutex::new(None),
-                            sync_conn_active: AtomicBool::new(false),
-                            id,
-                            coop_tx_lock,
-                        };
-                        let arc = Arc::new(new);
-                        target.insert(db_name, Arc::downgrade(&arc));
-                        Ok(arc)
-                    }
-                    Err(e) => {
-                        if !delete_on_fail {
-                            return Err(e);
-                        }
-                        if let ErrorKind::DatabaseUpgradeError = e.kind() {
-                            fs::remove_file(&db_name)?;
-                            Self::new_or_existing_into(target, db_name, false)
-                        } else {
-                            Err(e)
-                        }
-                    }
-                }
+                )?;
+                let new = PlacesApi {
+                    db_name: db_name.clone(),
+                    write_connection: Mutex::new(Some(connection)),
+                    sync_state: Mutex::new(None),
+                    sync_connection: Mutex::new(Weak::new()),
+                    id,
+                    coop_tx_lock,
+                };
+                let arc = Arc::new(new);
+                target.insert(db_name, Arc::downgrade(&arc));
+                Ok(arc)
             }
         }
     }
 
     fn new_or_existing(db_name: PathBuf) -> Result<Arc<Self>> {
-        let mut guard = APIS.lock().unwrap();
-        Self::new_or_existing_into(&mut guard, db_name, true)
+        let mut guard = APIS.lock();
+        Self::new_or_existing_into(&mut guard, db_name)
     }
 
     /// Open a connection to the database.
@@ -166,32 +206,45 @@ impl PlacesApi {
             }
             ConnectionType::ReadWrite => {
                 // We only allow one of these.
-                let mut guard = self.write_connection.lock().unwrap();
+                let mut guard = self.write_connection.lock();
                 match mem::replace(&mut *guard, None) {
                     None => Err(ErrorKind::ConnectionAlreadyOpen.into()),
                     Some(db) => Ok(db),
                 }
             }
             ConnectionType::Sync => {
-                panic!("Use `open_sync_connection` to open a sync connection");
+                panic!("Use `get_sync_connection` to open a sync connection");
             }
         }
     }
 
-    pub fn open_sync_connection(&self) -> Result<SyncConn<'_>> {
-        self.sync_conn_active
-            .compare_exchange(false, true, Ordering::SeqCst, Ordering::SeqCst)
-            .map_err(|_| ErrorKind::ConnectionAlreadyOpen)?;
-        let db = PlacesDb::open(
-            self.db_name.clone(),
-            ConnectionType::Sync,
-            self.id,
-            self.coop_tx_lock.clone(),
-        )?;
-        Ok(SyncConn {
-            db,
-            flag: &self.sync_conn_active,
-        })
+    // Get a database connection to sync with
+    //
+    // This function provides a couple features to facilitate sharing the connection between
+    // different sync engines:
+    //   - Each connection is wrapped in a `Mutex<>` to synchronize access.
+    //   - The mutex is then wrapped in an Arc<>.  If the last Arc<> returned is still alive, then
+    //     get_sync_connection() will reuse it.
+    pub fn get_sync_connection(&self) -> Result<Arc<SharedPlacesDb>> {
+        // First step: lock the outer mutex
+        let mut conn = self.sync_connection.lock();
+        match conn.upgrade() {
+            // If our Weak is still alive, then re-use that
+            Some(db) => Ok(db),
+            // If not, create a new connection
+            None => {
+                let db = Arc::new(SharedPlacesDb::new(PlacesDb::open(
+                    self.db_name.clone(),
+                    ConnectionType::Sync,
+                    self.id,
+                    self.coop_tx_lock.clone(),
+                )?));
+                register_interrupt(Arc::<SharedPlacesDb>::downgrade(&db));
+                // Store a weakref for next time
+                *conn = Arc::downgrade(&db);
+                Ok(db)
+            }
+        }
     }
 
     /// Close a connection to the database. If the connection is the write
@@ -202,7 +255,7 @@ impl PlacesApi {
         }
         if connection.conn_type() == ConnectionType::ReadWrite {
             // We only allow one of these.
-            let mut guard = self.write_connection.lock().unwrap();
+            let mut guard = self.write_connection.lock();
             assert!((*guard).is_none());
             *guard = Some(connection);
         }
@@ -210,14 +263,23 @@ impl PlacesApi {
     }
 
     fn get_disk_persisted_state(&self, conn: &PlacesDb) -> Result<Option<String>> {
-        Ok(get_meta::<String>(&conn, GLOBAL_STATE_META_KEY)?)
+        get_meta::<String>(conn, GLOBAL_STATE_META_KEY)
     }
 
     fn set_disk_persisted_state(&self, conn: &PlacesDb, state: &Option<String>) -> Result<()> {
         match state {
-            Some(ref s) => put_meta(&conn, GLOBAL_STATE_META_KEY, s),
-            None => delete_meta(&conn, GLOBAL_STATE_META_KEY),
+            Some(ref s) => put_meta(conn, GLOBAL_STATE_META_KEY, s),
+            None => delete_meta(conn, GLOBAL_STATE_META_KEY),
         }
+    }
+
+    // This allows the embedding app to say "make this instance available to
+    // the sync manager". The implementation is more like "offer to sync mgr"
+    // (thereby avoiding us needing to link with the sync manager) but
+    // `register_with_sync_manager()` is logically what's happening so that's
+    // the name it gets.
+    pub fn register_with_sync_manager(self: Arc<Self>) {
+        *PLACES_API_FOR_SYNC_MANAGER.lock() = Arc::downgrade(&self);
     }
 
     // NOTE: These should be deprecated as soon as possible - that will be once
@@ -231,17 +293,16 @@ impl PlacesApi {
         self.do_sync_one(
             "history",
             move |conn, mem_cached_state, disk_cached_state| {
-                let interruptee = conn.begin_interrupt_scope();
-                let engine = HistoryEngine::new(&conn, &interruptee);
-                sync_multiple(
+                let engine = HistorySyncEngine::new(conn)?;
+                Ok(sync_multiple(
                     &[&engine],
                     disk_cached_state,
                     mem_cached_state,
                     client_init,
                     key_bundle,
-                    &interruptee,
+                    &interrupt_support::ShutdownInterruptee,
                     None,
-                )
+                ))
             },
         )
     }
@@ -254,17 +315,16 @@ impl PlacesApi {
         self.do_sync_one(
             "bookmarks",
             move |conn, mem_cached_state, disk_cached_state| {
-                let interruptee = conn.begin_interrupt_scope();
-                let engine = BookmarksEngine::new(&conn, &interruptee);
-                sync_multiple(
+                let engine = BookmarksSyncEngine::new(conn)?;
+                Ok(sync_multiple(
                     &[&engine],
                     disk_cached_state,
                     mem_cached_state,
                     client_init,
                     key_bundle,
-                    &interruptee,
+                    &interrupt_support::ShutdownInterruptee,
                     None,
-                )
+                ))
             },
         )
     }
@@ -275,28 +335,29 @@ impl PlacesApi {
         syncer: F,
     ) -> Result<telemetry::SyncTelemetryPing>
     where
-        F: FnOnce(&SyncConn<'_>, &mut MemoryCachedState, &mut Option<String>) -> SyncResult,
+        F: FnOnce(
+            Arc<SharedPlacesDb>,
+            &mut MemoryCachedState,
+            &mut Option<String>,
+        ) -> Result<SyncResult>,
     {
-        let mut guard = self.sync_state.lock().unwrap();
-        let conn = self.open_sync_connection()?;
+        let mut guard = self.sync_state.lock();
+        let conn = self.get_sync_connection()?;
         if guard.is_none() {
             *guard = Some(SyncState {
                 mem_cached_state: Cell::default(),
-                disk_cached_state: Cell::new(self.get_disk_persisted_state(&conn)?),
+                disk_cached_state: Cell::new(self.get_disk_persisted_state(&conn.lock())?),
             });
         }
 
         let sync_state = guard.as_ref().unwrap();
-        // Note that this *must* be called before either history or bookmarks are
-        // synced, to ensure the shared global state is correct.
-        HistoryEngine::migrate_v1_global_state(&conn)?;
 
         let mut mem_cached_state = sync_state.mem_cached_state.take();
         let mut disk_cached_state = sync_state.disk_cached_state.take();
-        let mut result = syncer(&conn, &mut mem_cached_state, &mut disk_cached_state);
+        let mut result = syncer(conn.clone(), &mut mem_cached_state, &mut disk_cached_state)?;
         // even on failure we set the persisted state - sync itself takes care
         // to ensure this has been None'd out if necessary.
-        self.set_disk_persisted_state(&conn, &disk_cached_state)?;
+        self.set_disk_persisted_state(&conn.lock(), &disk_cached_state)?;
         sync_state.mem_cached_state.replace(mem_cached_state);
         sync_state.disk_cached_state.replace(disk_cached_state);
 
@@ -323,23 +384,19 @@ impl PlacesApi {
         client_init: &sync15::Sync15StorageClientInit,
         key_bundle: &sync15::KeyBundle,
     ) -> Result<SyncResult> {
-        let mut guard = self.sync_state.lock().unwrap();
-        let conn = self.open_sync_connection()?;
+        let mut guard = self.sync_state.lock();
+        let conn = self.get_sync_connection()?;
         if guard.is_none() {
             *guard = Some(SyncState {
                 mem_cached_state: Cell::default(),
-                disk_cached_state: Cell::new(self.get_disk_persisted_state(&conn)?),
+                disk_cached_state: Cell::new(self.get_disk_persisted_state(&conn.lock())?),
             });
         }
 
         let sync_state = guard.as_ref().unwrap();
-        // Note that counter-intuitively, this must be called before we do a
-        // bookmark sync too, to ensure the shared global state is correct.
-        HistoryEngine::migrate_v1_global_state(&conn)?;
 
-        let interruptee = conn.begin_interrupt_scope();
-        let bm_engine = BookmarksEngine::new(&conn, &interruptee);
-        let history_engine = HistoryEngine::new(&conn, &interruptee);
+        let bm_engine = BookmarksSyncEngine::new(conn.clone())?;
+        let history_engine = HistorySyncEngine::new(conn.clone())?;
         let mut mem_cached_state = sync_state.mem_cached_state.take();
         let mut disk_cached_state = sync_state.disk_cached_state.take();
 
@@ -350,12 +407,12 @@ impl PlacesApi {
             &mut mem_cached_state,
             client_init,
             key_bundle,
-            &interruptee,
+            &interrupt_support::ShutdownInterruptee,
             None,
         );
         // even on failure we set the persisted state - sync itself takes care
         // to ensure this has been None'd out if necessary.
-        if let Err(e) = self.set_disk_persisted_state(&conn, &disk_cached_state) {
+        if let Err(e) = self.set_disk_persisted_state(&conn.lock(), &disk_cached_state) {
             log::error!("Failed to persist the sync state: {:?}", e);
         }
         sync_state.mem_cached_state.replace(mem_cached_state);
@@ -366,87 +423,38 @@ impl PlacesApi {
 
     pub fn wipe_bookmarks(&self) -> Result<()> {
         // Take the lock to prevent syncing while we're doing this.
-        let _guard = self.sync_state.lock().unwrap();
-        let conn = self.open_sync_connection()?;
+        let _guard = self.sync_state.lock();
+        let conn = self.get_sync_connection()?;
 
-        // Somewhat ironically, we start by migrating from the legacy storage
-        // format. We *are* just going to delete it anyway, but the code is
-        // simpler if we can just reuse the existing path.
-        HistoryEngine::migrate_v1_global_state(&conn)?;
-
-        storage::bookmarks::delete_everything(&conn)?;
+        storage::bookmarks::delete_everything(&conn.lock())?;
         Ok(())
     }
 
     pub fn reset_bookmarks(&self) -> Result<()> {
         // Take the lock to prevent syncing while we're doing this.
-        let _guard = self.sync_state.lock().unwrap();
-        let conn = self.open_sync_connection()?;
+        let _guard = self.sync_state.lock();
+        let conn = self.get_sync_connection()?;
 
-        // Somewhat ironically, we start by migrating from the legacy storage
-        // format. We *are* just going to delete it anyway, but the code is
-        // simpler if we can just reuse the existing path.
-        HistoryEngine::migrate_v1_global_state(&conn)?;
-
-        bookmark_sync::reset(&conn, &sync15::EngineSyncAssociation::Disconnected)?;
+        bookmark_sync::reset(&conn.lock(), &sync15::EngineSyncAssociation::Disconnected)?;
         Ok(())
     }
 
     pub fn wipe_history(&self) -> Result<()> {
         // Take the lock to prevent syncing while we're doing this.
-        let _guard = self.sync_state.lock().unwrap();
-        let conn = self.open_sync_connection()?;
+        let _guard = self.sync_state.lock();
+        let conn = self.get_sync_connection()?;
 
-        // Somewhat ironically, we start by migrating from the legacy storage
-        // format. We *are* just going to delete it anyway, but the code is
-        // simpler if we can just reuse the existing path.
-        HistoryEngine::migrate_v1_global_state(&conn)?;
-
-        storage::history::delete_everything(&conn)?;
+        storage::history::delete_everything(&conn.lock())?;
         Ok(())
     }
 
     pub fn reset_history(&self) -> Result<()> {
         // Take the lock to prevent syncing while we're doing this.
-        let _guard = self.sync_state.lock().unwrap();
-        let conn = self.open_sync_connection()?;
+        let _guard = self.sync_state.lock();
+        let conn = self.get_sync_connection()?;
 
-        // Somewhat ironically, we start by migrating from the legacy storage
-        // format. We *are* just going to delete it anyway, but the code is
-        // simpler if we can just reuse the existing path.
-        HistoryEngine::migrate_v1_global_state(&conn)?;
-
-        history_sync::reset(&conn, &sync15::EngineSyncAssociation::Disconnected)?;
+        history_sync::reset(&conn.lock(), &sync15::EngineSyncAssociation::Disconnected)?;
         Ok(())
-    }
-
-    /// Get a new interrupt handle for the sync connection.
-    pub fn new_sync_conn_interrupt_handle(&self) -> Result<SqlInterruptHandle> {
-        // Probably not necessary to lock here, since this should only get
-        // called in startup.
-        let _guard = self.sync_state.lock().unwrap();
-        let conn = self.open_sync_connection()?;
-        Ok(conn.new_interrupt_handle())
-    }
-}
-
-/// Wrapper around PlacesDb that automatically sets a flag (`sync_conn_active`)
-/// to false when finished
-pub struct SyncConn<'api> {
-    db: PlacesDb,
-    flag: &'api AtomicBool,
-}
-
-impl<'a> Drop for SyncConn<'a> {
-    fn drop(&mut self) {
-        self.flag.store(false, Ordering::SeqCst)
-    }
-}
-
-impl<'a> std::ops::Deref for SyncConn<'a> {
-    type Target = PlacesDb;
-    fn deref(&self) -> &PlacesDb {
-        &self.db
     }
 }
 
@@ -459,6 +467,10 @@ pub mod test {
     static ATOMIC_COUNTER: AtomicUsize = AtomicUsize::new(0);
 
     pub fn new_mem_api() -> Arc<PlacesApi> {
+        // A bit hacky, but because this is a test-only function that almost all tests use,
+        // it's a convenient place to initialize logging for tests.
+        let _ = env_logger::try_init();
+
         let counter = ATOMIC_COUNTER.fetch_add(1, Ordering::Relaxed);
         PlacesApi::new_memory(&format!("test-api-{}", counter)).expect("should get an API")
     }
@@ -483,7 +495,7 @@ pub mod test {
         let write = api
             .open_connection(ConnectionType::ReadWrite)
             .expect("should get a write connection");
-        MemConnections { api, read, write }
+        MemConnections { read, write, api }
     }
 }
 

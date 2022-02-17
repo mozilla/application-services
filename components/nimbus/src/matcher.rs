@@ -5,37 +5,16 @@
 //! This module defines all the information needed to match a user with an experiment.
 //! Soon it will also include a `match` function of some sort that does the matching.
 //!
-//! It has two main types, the `Matcher` retrieved from the server, and the `AppContext`
+//! It contains the `AppContext`
 //! provided by the consuming client.
 //!
 use serde_derive::*;
-
-#[derive(Deserialize, Serialize, Debug, Clone, Default)]
-pub struct Matcher {
-    pub app_name: String,
-    pub app_id: String,
-    pub channel: String,
-    pub app_display_version: Option<String>,
-    pub app_min_version: Option<String>,
-    pub app_max_version: Option<String>,
-    pub app_build: Option<String>,
-    pub app_min_build: Option<String>,
-    pub app_max_build: Option<String>,
-    pub architecture: Option<String>,
-    pub device_manufacturer: Option<String>,
-    pub device_model: Option<String>,
-    pub locale: Option<String>,
-    pub os: Option<String>,
-    pub os_version: Option<String>,
-    pub android_sdk_version: Option<String>,
-    pub debug_tags: Vec<String>,
-}
-
+use std::collections::HashMap;
 /// The `AppContext` object represents the parameters and characteristics of the
 /// consuming application that we are interested in for targeting purposes. The
-/// `app_name`, `app_id`, and `channel` fields are not optional as they are expected
-/// to be provided by all consuming applications as they are used in the first
-/// pieces of targeting that help to ensure that an experiment is only processed
+/// `app_name` and `channel` fields are not optional as they are expected
+/// to be provided by all consuming applications as they are used in the top-level
+/// targeting that help to ensure that an experiment is only processed
 /// by the correct application.
 ///
 /// Definitions of the fields are as follows:
@@ -52,6 +31,9 @@ pub struct Matcher {
 /// - `os_version`: The user-visible version of the operating system (e.g. "1.2.3")
 /// - `android_sdk_version`: Android specific for targeting specific sdk versions
 /// - `debug_tag`: Used for debug purposes as a way to match only developer builds, etc.
+/// - `installation_date`: The date the application installed the app
+/// - `home_directory`: The application's home directory
+/// - `custom_targeting_attributes`: Contains attributes specific to the application, derived by the application
 #[derive(Deserialize, Serialize, Debug, Clone, Default)]
 pub struct AppContext {
     pub app_name: String,
@@ -67,4 +49,8 @@ pub struct AppContext {
     pub os_version: Option<String>,
     pub android_sdk_version: Option<String>,
     pub debug_tag: Option<String>,
+    pub installation_date: Option<i64>,
+    pub home_directory: Option<String>,
+    #[serde(flatten)]
+    pub custom_targeting_attributes: Option<HashMap<String, String>>,
 }

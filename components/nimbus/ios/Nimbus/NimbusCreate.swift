@@ -4,9 +4,6 @@
 
 import Foundation
 
-private let remoteSettingsBucket = "main"
-private let remoteSettingsCollection = "nimbus-mobile-experiments"
-
 private let logTag = "Nimbus.swift"
 private let logger = Logger(tag: logTag)
 
@@ -27,6 +24,7 @@ public extension Nimbus {
     ///     - server: the server that experiments will be downloaded from
     ///     - appSettings: the name and channel for the app
     ///     - dbPath: the path on disk for the database
+    ///     - resourceBundles: an optional array of `Bundle` objects that are used to lookup text and images
     ///     - enabled: intended for FeatureFlags. If false, then return a dummy `Nimbus` instance. Defaults to `true`.
     ///     - errorReporter: a closure capable of reporting errors. Defaults to using a logger.
     /// - Returns an implementation of `NimbusApi`.
@@ -36,6 +34,7 @@ public extension Nimbus {
         _ server: NimbusServerSettings?,
         appSettings: NimbusAppSettings,
         dbPath: String,
+        resourceBundles: [Bundle] = [Bundle.main],
         enabled: Bool = true,
         errorReporter: @escaping NimbusErrorReporter = defaultErrorReporter
     ) throws -> NimbusApi {
@@ -45,11 +44,9 @@ public extension Nimbus {
 
         let context = Nimbus.buildExperimentContext(appSettings)
         let remoteSettings = server.map { server -> RemoteSettingsConfig in
-            let url = server.url.absoluteString
-            return RemoteSettingsConfig(
-                serverUrl: url,
-                bucketName: remoteSettingsBucket,
-                collectionName: remoteSettingsCollection
+            RemoteSettingsConfig(
+                serverUrl: server.url.absoluteString,
+                collectionName: server.collection
             )
         }
         let nimbusClient = try NimbusClient(
@@ -61,7 +58,7 @@ public extension Nimbus {
             availableRandomizationUnits: AvailableRandomizationUnits(clientId: nil, dummy: 0)
         )
 
-        return Nimbus(nimbusClient: nimbusClient, errorReporter: errorReporter)
+        return Nimbus(nimbusClient: nimbusClient, resourceBundles: resourceBundles, errorReporter: errorReporter)
     }
 
     static func buildExperimentContext(
@@ -70,6 +67,17 @@ public extension Nimbus {
         device: UIDevice = .current
     ) -> AppContext {
         let info = bundle.infoDictionary ?? [:]
+        var inferredDateInstalledOn: Date? {
+            guard
+                let documentsURL = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask).last,
+                let attributes = try? FileManager.default.attributesOfItem(atPath: documentsURL.path)
+            else { return nil }
+            return attributes[.creationDate] as? Date
+        }
+        let installationDateSinceEpoch = inferredDateInstalledOn.map {
+            Int64(($0.timeIntervalSince1970 * 1000).rounded())
+        }
+
         return AppContext(
             appName: appSettings.appName,
             appId: info["CFBundleIdentifier"] as? String ?? "unknown",
@@ -83,7 +91,10 @@ public extension Nimbus {
             os: device.systemName,
             osVersion: device.systemVersion,
             androidSdkVersion: nil,
-            debugTag: "Nimbus.rs"
+            debugTag: "Nimbus.rs",
+            installationDate: installationDateSinceEpoch,
+            homeDirectory: nil,
+            customTargetingAttributes: appSettings.customTargetingAttributes
         )
     }
 }

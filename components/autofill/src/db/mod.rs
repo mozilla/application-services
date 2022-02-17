@@ -10,9 +10,10 @@ pub mod store;
 
 use crate::error::*;
 
+use interrupt_support::{SqlInterruptHandle, SqlInterruptScope};
 use rusqlite::{Connection, OpenFlags};
-use sql_support::SqlInterruptScope;
-use std::sync::{atomic::AtomicUsize, Arc};
+use sql_support::open_database;
+use std::sync::Arc;
 use std::{
     ops::{Deref, DerefMut},
     path::{Path, PathBuf},
@@ -21,7 +22,7 @@ use url::Url;
 
 pub struct AutofillDb {
     pub writer: Connection,
-    interrupt_counter: Arc<AtomicUsize>,
+    interrupt_handle: Arc<SqlInterruptHandle>,
 }
 
 impl AutofillDb {
@@ -35,7 +36,6 @@ impl AutofillDb {
         Self::new_named(name)
     }
 
-    #[allow(dead_code)]
     fn new_named(db_path: PathBuf) -> Result<Self> {
         // We always create the read-write connection for an initial open so
         // we can create the schema and/or do version upgrades.
@@ -44,19 +44,21 @@ impl AutofillDb {
             | OpenFlags::SQLITE_OPEN_CREATE
             | OpenFlags::SQLITE_OPEN_READ_WRITE;
 
-        let conn = Connection::open_with_flags(db_path, flags)?;
+        let conn = open_database::open_database_with_flags(
+            db_path,
+            flags,
+            &schema::AutofillConnectionInitializer,
+        )?;
 
-        #[allow(dead_code)]
-        init_sql_connection(&conn, true)?;
         Ok(Self {
+            interrupt_handle: Arc::new(SqlInterruptHandle::new(&conn)),
             writer: conn,
-            interrupt_counter: Arc::new(AtomicUsize::new(0)),
         })
     }
 
     #[inline]
-    pub fn begin_interrupt_scope(&self) -> SqlInterruptScope {
-        SqlInterruptScope::new(self.interrupt_counter.clone())
+    pub fn begin_interrupt_scope(&self) -> Result<SqlInterruptScope> {
+        Ok(self.interrupt_handle.begin_interrupt_scope()?)
     }
 }
 
@@ -72,17 +74,6 @@ impl DerefMut for AutofillDb {
     fn deref_mut(&mut self) -> &mut Self::Target {
         &mut self.writer
     }
-}
-
-fn init_sql_connection(conn: &Connection, is_writable: bool) -> Result<()> {
-    define_functions(&conn)?;
-    conn.set_prepared_statement_cache_capacity(128);
-    if is_writable {
-        let tx = conn.unchecked_transaction()?;
-        schema::init(&conn)?;
-        tx.commit()?;
-    };
-    Ok(())
 }
 
 fn unurl_path(p: impl AsRef<Path>) -> PathBuf {
@@ -124,20 +115,6 @@ fn normalize_path(p: impl AsRef<Path>) -> Result<PathBuf> {
     let mut canonical = parent.canonicalize()?;
     canonical.push(file_name);
     Ok(canonical)
-}
-
-#[allow(dead_code)]
-fn define_functions(c: &Connection) -> Result<()> {
-    use rusqlite::functions::FunctionFlags;
-    c.create_scalar_function(
-        "generate_guid",
-        0,
-        FunctionFlags::SQLITE_UTF8,
-        sql_fns::generate_guid,
-    )?;
-    c.create_scalar_function("now", 0, FunctionFlags::SQLITE_UTF8, sql_fns::now)?;
-
-    Ok(())
 }
 
 pub(crate) mod sql_fns {

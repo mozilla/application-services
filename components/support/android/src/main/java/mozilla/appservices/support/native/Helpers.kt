@@ -11,8 +11,14 @@ package mozilla.appservices.support.native
 import android.util.Log
 import com.google.protobuf.CodedOutputStream
 import com.google.protobuf.MessageLite
+import com.sun.jna.DefaultTypeMapper
+import com.sun.jna.FromNativeContext
 import com.sun.jna.Library
+import com.sun.jna.Memory
 import com.sun.jna.Native
+import com.sun.jna.Pointer
+import com.sun.jna.ToNativeContext
+import com.sun.jna.TypeConverter
 import java.nio.ByteBuffer
 import java.nio.ByteOrder
 
@@ -169,7 +175,26 @@ inline fun <reified Lib : Library> loadIndirect(
     componentVersion: String
 ): Lib {
     val mzLibrary = findMegazordLibraryName(componentName, componentVersion)
-    return Native.load<Lib>(mzLibrary, Lib::class.java)
+    // Rust code always expects strings to be UTF-8 encoded.
+    // Unfortunately, the `STRING_ENCODING` option doesn't seem to apply
+    // to function arguments, only to return values, so, if the default encoding
+    // is not UTF-8, we need to use an explicit TypeMapper to ensure that
+    // strings are handled correctly.
+    // Further, see also https://github.com/mozilla/uniffi-rs/issues/1044 - if
+    // this code and our uniffi-generated code don't agree on the options, it's
+    // possible our megazord gets loaded twice, breaking things in
+    // creative/obscure ways.
+    // We used to unconditionally set `options[Library.OPTION_STRING_ENCODING] = "UTF-8"`
+    // but we now only do it if we really need to. This means in practice, both
+    // us and uniffi agree everywhere we care about.
+    // Assuming uniffi fixes this in the same way we've done it here, there should be
+    // no need to adjust anything once that issue is fixed.
+    val options: MutableMap<String, Any> = mutableMapOf()
+    if (Native.getDefaultStringEncoding() != "UTF-8") {
+        options[Library.OPTION_STRING_ENCODING] = "UTF-8"
+        options[Library.OPTION_TYPE_MAPPER] = UTF8TypeMapper()
+    }
+    return Native.load<Lib>(mzLibrary, Lib::class.java, options)
 }
 
 // See the comment on full_megazord_get_version for background
@@ -238,4 +263,38 @@ internal fun checkFullMegazord(componentName: String, componentVersion: String):
         }
         false
     }
+}
+
+/**
+ * A JNA TypeMapper that always converts strings as UTF-8 bytes.
+ *
+ * Rust always expects strings to be in UTF-8, but JNA defaults to using the
+ * system encoding. This is *often* UTF-8, but not always. In cases where it
+ * isn't you can use this TypeMapper to ensure Strings are correctly
+ * interpreted by Rust.
+ *
+ * The logic here is essentially the same as what JNA does by default
+ * with String values, but explicitly using a fixed UTF-8 encoding.
+ *
+ */
+public class UTF8TypeMapper : DefaultTypeMapper() {
+    init {
+        addTypeConverter(String::class.java, UTF8TypeConverter())
+    }
+}
+
+internal class UTF8TypeConverter : TypeConverter {
+    override fun toNative(value: Any, context: ToNativeContext): Any {
+        val bytes = (value as String).toByteArray(Charsets.UTF_8)
+        val mem = Memory(bytes.size.toLong() + 1L)
+        mem.write(0, bytes, 0, bytes.size)
+        mem.setByte(bytes.size.toLong(), 0)
+        return mem
+    }
+
+    override fun fromNative(value: Any, context: FromNativeContext): Any {
+        return (value as Pointer).getString(0, Charsets.UTF_8.name())
+    }
+
+    override fun nativeType() = Pointer::class.java
 }

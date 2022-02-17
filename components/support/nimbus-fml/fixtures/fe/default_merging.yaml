@@ -1,0 +1,89 @@
+---
+features:
+  dialog-appearance:
+    description: This is the appearance of the dialog
+    variables:
+      positive:
+        description: This is a positive button
+        type: Button
+        default:
+          {
+            "label": "Ok then",
+            "color": "blue"
+          }
+      negative:
+        description: This is a negative button
+        type: Button
+        default:
+          {
+            "label": "Not this time",
+            "color": "red"
+          }
+      background-color:
+        description: This is the background color
+        type: String
+        default: white
+      player-mapping:
+        description: This is the map of the player type to a button
+        type: Map<PlayerProfile, Button>
+        default: {
+          "child": {},
+          "adult": {}
+        }
+    defaults:
+      - channel: release
+        value: {
+          "positive": {
+            "color": "green"
+          }
+        }
+      - channel: release
+        targeting: locale == en-US
+        value: {
+          "positive": {
+            "color": "green"
+          }
+        }
+      - channel: nightly
+        value: {
+          "positive": {
+            "color": "bright-red"
+          }
+        }
+      # A default without a channel, should apply
+      # to all
+      - value: {
+        "positive": {
+          "alt-text": "Go Ahead!"
+        },
+        "negative": {
+          "alt-text": "STOP"
+        }
+      }
+channels:
+  - release
+  - nightly
+  - debug
+types:
+  objects:
+    Button:
+      description: This is a button object
+      failable: true
+      fields:
+        label:
+          description: This is the label for the button
+          type: String
+          default: REQUIRED FIELD
+          required: true
+        color:
+          description: This is the color of the button
+          type: Option<String>
+          default: null
+  enums:
+    PlayerProfile:
+      description: This is an enum type
+      variants:
+        adult:
+          description: This represents an adult player profile
+        child:
+          description: This represents a child player profile

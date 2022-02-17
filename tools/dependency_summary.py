@@ -34,6 +34,7 @@ logging.basicConfig(level = logging.WARNING)
 ALL_ANDROID_TARGETS = [
     "armv7-linux-androideabi",
     "aarch64-linux-android",
+    "aarch64-apple-darwin",
     "i686-linux-android",
     "x86_64-linux-android",
     "x86_64-unknown-linux-gnu",
@@ -106,12 +107,6 @@ EXTRA_PACKAGE_METADATA = {
         "repository": "https://github.com/protocolbuffers/protobuf",
         "license": "BSD-3-Clause",
         "license_file": "https://raw.githubusercontent.com/protocolbuffers/protobuf/master/LICENSE",
-    },
-    "ext-swift-protobuf": {
-        "name": "swift-protobuf",
-        "repository": "https://github.com/apple/swift-protobuf",
-        "license": "Apache-2.0",
-        "license_file": "https://raw.githubusercontent.com/apple/swift-protobuf/master/LICENSE.txt"
     },
     "ext-swift-keychain-wrapper": {
         "name": "SwiftKeychainWrapper",
@@ -260,6 +255,15 @@ PACKAGE_METADATA_FIXUPS = {
             "fixup": "https://raw.githubusercontent.com/rust-lang/futures-rs/master/LICENSE-APACHE",
         }
     },
+    "typenum": {
+        "license": {
+            "check": "MIT OR Apache-2.0"
+        },
+        "license_file": {
+            "check": None,
+            "fixup": "LICENSE-APACHE",
+        }
+    },
     # These packages do not include their license file in their release distributions,
     # so we have to fetch it over the network. Each has been manually checked and resolved
     # to a final URL from which the file can be fetched (typically based on the *name* of
@@ -284,6 +288,27 @@ PACKAGE_METADATA_FIXUPS = {
             "fixup": "https://raw.githubusercontent.com/thomcc/rust-base16/master/LICENSE-CC0",
         }
     },
+    "bitvec": {
+        "license": {
+            "check": "MIT",
+        },
+        "license_file": {
+            "check": None,
+            "fixup": "https://raw.githubusercontent.com/bitvecto-rs/bitvec/develop/LICENSE.txt",
+        },
+    },
+    "cargo-platform": {
+        "repository": {
+            "check": "https://github.com/rust-lang/cargo",
+        },
+        "license": {
+            "check": "MIT OR Apache-2.0"
+        },
+        "license_file": {
+            "check": None,
+            "fixup": "https://raw.githubusercontent.com/rust-lang/cargo/master/LICENSE-APACHE",
+        }
+    },
     "failure_derive": {
         "repository": {
             "check": "https://github.com/rust-lang-nursery/failure",
@@ -292,6 +317,15 @@ PACKAGE_METADATA_FIXUPS = {
             "check": None,
             "fixup": "https://raw.githubusercontent.com/rust-lang-nursery/failure/master/LICENSE-APACHE",
         }
+    },
+    "funty": {
+        "license": {
+            "check": "MIT",
+        },
+        "license_file": {
+            "check": None,
+            "fixup": "https://raw.githubusercontent.com/myrrlyn/funty/master/LICENSE.txt",
+        },
     },
     "fxhash": {
         "license": {
@@ -341,6 +375,19 @@ PACKAGE_METADATA_FIXUPS = {
             "fixup": "https://raw.githubusercontent.com/Frommi/miniz_oxide/master/miniz_oxide/LICENSE-MIT.md",
         }
     },
+    "parking_lot_core": {
+        "repository": {
+            "check": "https://github.com/Amanieu/parking_lot",
+        },
+        "licence": {
+            "check": None,
+            "fixup": "Apache-2.0",
+        },
+        "license_file": {
+            "check": None,
+            "fixup": "https://github.com/Amanieu/parking_lot/blob/master/LICENSE-APACHE",
+        },
+    },
     "phf": {
         "repository": {
             "check": "https://github.com/sfackler/rust-phf",
@@ -379,30 +426,39 @@ PACKAGE_METADATA_FIXUPS = {
     },
     "prost-build": {
         "repository": {
-            "check": "https://github.com/danburkert/prost",
+            "check": "https://github.com/tokio-rs/prost",
         },
         "license_file": {
             "check": None,
-            "fixup": "https://raw.githubusercontent.com/danburkert/prost/master/LICENSE",
+            "fixup": "https://raw.githubusercontent.com/tokio-rs/prost/master/LICENSE",
         },
     },
     "prost-derive": {
         "repository": {
-            "check": "https://github.com/danburkert/prost",
+            "check": "https://github.com/tokio-rs/prost",
         },
         "license_file": {
             "check": None,
-            "fixup": "https://raw.githubusercontent.com/danburkert/prost/master/LICENSE",
+            "fixup": "https://raw.githubusercontent.com/tokio-rs/prost/master/LICENSE",
         },
     },
     "prost-types": {
         "repository": {
-            "check": "https://github.com/danburkert/prost",
+            "check": "https://github.com/tokio-rs/prost",
         },
         "license_file": {
             "check": None,
-            "fixup": "https://raw.githubusercontent.com/danburkert/prost/master/LICENSE",
+            "fixup": "https://raw.githubusercontent.com/tokio-rs/prost/master/LICENSE",
         },
+    },
+    "radium": {
+        "license": {
+            "check": "MIT"
+        },
+        "license_file": {
+            "check": None,
+            "fixup": "https://raw.githubusercontent.com/bitvecto-rs/radium/master/LICENSE.txt",
+        }
     },
     "security-framework": {
         "repository": {
@@ -430,6 +486,15 @@ PACKAGE_METADATA_FIXUPS = {
             "check": None,
             "fixup": "https://www.apache.org/licenses/LICENSE-2.0.txt",
         },
+    },
+    "tinyvec_macros": {
+        "license": {
+            "check": "MIT OR Apache-2.0 OR Zlib"
+        },
+        "license_file": {
+            "check": None,
+            "fixup": "https://raw.githubusercontent.com/Soveu/tinyvec_macros/master/LICENSE-APACHE.md",
+        }
     },
     "url_serde": {
         "repository": {
@@ -471,14 +536,17 @@ PACKAGE_METADATA_FIXUPS = {
             "fixup": "https://raw.githubusercontent.com/retep998/winapi-rs/0.3/LICENSE-MIT",
         },
     },
-    # These packages do not make it easy to infer a URL at which their license can be read,
-    # so we track it down by hand and hard-code it here.
-    "ansi_term": {
-        "repository": {
+    "wyz": {
+        "license": {
+            "check": "MIT",
+        },
+        "license_file": {
             "check": None,
-            "fixup": "https://github.com/ogham/rust-ansi-term",
+            "fixup": "https://raw.githubusercontent.com/myrrlyn/wyz/main/LICENSE.txt",
         },
     },
+    # These packages do not make it easy to infer a URL at which their license can be read,
+    # so we track it down by hand and hard-code it here.
     "c2-chacha": {
         "repository": {
             "check": "https://github.com/cryptocorrosion/cryptocorrosion",
@@ -491,13 +559,7 @@ PACKAGE_METADATA_FIXUPS = {
     "ffi-support": {
         "license_url": {
             "check": None,
-            "fixup": "https://raw.githubusercontent.com/mozilla/application-services/main/components/support/ffi/LICENSE-APACHE"
-        },
-    },
-    "humantime": {
-        "repository": {
-            "check": None,
-            "fixup": "https://github.com/tailhook/humantime",
+            "fixup": "https://raw.githubusercontent.com/mozilla/ffi-support/main/LICENSE-APACHE"
         },
     },
     "mime": {
@@ -669,19 +731,17 @@ PACKAGE_METADATA_FIXUPS = {
             "fixup": "https://raw.githubusercontent.com/LeopoldArkham/humansize/master/LICENSE-APACHE",
         }
     },
-    # cpuid-bool has been renamed to cpufeatures - it's a transitive dependency, so
-    # we expect this to become unnecessary as the dependent crate updates.
-    "cpuid-bool": {
-        "repository": {
-            "check": "https://github.com/RustCrypto/utils",
+
+    "encoding_rs": {
+        "license": {
+            "check": None,
+            "fixup": "(Apache-2.0 OR MIT) AND BSD-3-Clause"
         },
         "license_url": {
             "check": None,
-            # Moved in https://github.com/RustCrypto/utils/commit/b2d97b23e721f509fa6004175f3ffdf40d9e7402
-            "fixup": "https://github.com/RustCrypto/utils/blob/master/cpufeatures/LICENSE-APACHE"
-        },
-    },
-
+            "fixup": "https://raw.githubusercontent.com/hsivonen/encoding_rs/master/COPYRIGHT"
+        }
+    }
 }
 
 # Sets of common licence file names, by license type.
@@ -836,7 +896,6 @@ class WorkspaceMetadata(object):
                 extras.add("ext-jna")
                 extras.add("ext-protobuf")
             if self.target_is_ios(target):
-                extras.add("ext-swift-protobuf")
                 extras.add("ext-swift-keychain-wrapper")
         for dep in deps:
             name = self.pkgInfoById[dep]["name"]
@@ -920,6 +979,11 @@ class WorkspaceMetadata(object):
         based on whether it's acceptable at all, and then how convenient it is to work with
         here in the license summary tool...
         """
+        # Special case for `encoding_rs`, which is the only dependency in the
+        # tree that has an "AND" in its license
+        if licenseId == "(Apache-2.0 OR MIT) AND BSD-3-Clause":
+            return licenseId
+
         # Split "A/B" and "A OR B" into individual license names.
         licenses = set(l.strip()
                        for l in re.split(r"\s*(?:/|\sOR\s)\s*", licenseId))

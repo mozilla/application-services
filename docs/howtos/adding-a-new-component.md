@@ -1,6 +1,6 @@
 # Adding a new component to Application Services
 
-Each component in the Application Services repo has three parts (the Rust code,
+Each component in the Application Services repository has three parts (the Rust code,
 the Kotlin wrapper, and the Swift wrapper) so there are quite a few moving
 parts involved in adding a new component. This is a rapid-fire list of all
 the things you'll need to do if adding a new component from scratch.
@@ -20,14 +20,14 @@ Use [UniFFI](https://mozilla.github.io/uniffi-rs/) to define how your crate's
 API will get exposed to foreign-language bindings. By convention, put the interface
 definition file at `./components/<your_crate_name>/<your_crate_name>.udl`. Use
 the `builtin-bindgen` feature of UniFFI to simplify the build process, by
-putting this in your `Cargo.toml`:
+putting the following in your `Cargo.toml`:
 
 ```
 [build-dependencies]
 uniffi_build = { version = "<latest version here>", features=["builtin-bindgen"] }
 ```
 
-Include your new crate in the application-services workspace, by adding
+Include your new crate in the `application-services` workspace, by adding
 it to the `members` and `default-members` lists in the `Cargo.toml` at
 the root of the repository.
 
@@ -36,8 +36,8 @@ In order to be published to consumers, your crate must be included in the
 
 * For Android, add it as a dependency in `./megazords/full/Cargo.toml` and
   add a `pub use <your_crate_name>` to `./megazords/full/src/lib.rs`.
-* For iOS, add it as a dependency in `./megazords/ios/rust/Cargo.toml` and
-  add a `pub use <your_crate_name>` to `./megazords/ios/rust/src/lib.rs`.
+* For iOS, add it as a dependency in `./megazords/ios-rust/rust/Cargo.toml` and
+  add a `pub use <your_crate_name>` to `./megazords/ios-rust/src/lib.rs`.
 
 Run `cargo check -p <your_crate_name>` in the repository root to confirm that
 things are configured properly. This will also have the side-effect of updating
@@ -57,7 +57,7 @@ your own component's directory, and edit it to replace the references to
 Create a file `./components/<your_crate_name>/uniffi.toml` with the
 following contents:
 
-```
+```toml
 [bindings.kotlin]
 package_name = "mozilla.appservices.<your_crate_name>"
 cdylib_name = "megazord"
@@ -66,7 +66,7 @@ cdylib_name = "megazord"
 Create a file `./components/<your_crate_name>/android/src/main/AndroidManifest.xml`
 with the following contents:
 
-```
+```xml
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
     package="org.mozilla.appservices.<your_crate_name>" />
 ```
@@ -107,7 +107,7 @@ to confirm that this is all working correctly.
 
 
 ## The Swift Bindings
-
+### Creating the directory structure
 Make a `./components/<your_crate_name>/ios` subdirectory to contain
 Swift- and iOS-specific code. The UniFFI-generated swift bindings will
 be written to a subdirectory named `Generated`.
@@ -129,49 +129,54 @@ So you would end up with a directory structure something like this:
         * `Generated/`
           * Generated Swift code will be written into this directory.
 
+### Adding your component to the Swift Package Manager Megazord
+> *For more information on our how we ship components using the Swift Package Manager, check the [ADR that introduced the Swift Package Manager](../adr/0003-swift-packaging.md)*
 
-Edit `megazords/ios/MozillaAppServices.h` and add an import line for your component,
-like:
+You will need to do the following steps to include the component in the megazord:
+1. Update its `uniffi.toml` to include the following settings:
+    ```toml
+    [bindings.swift]
+    ffi_module_name = "MozillaRustComponents"
+    ffi_module_filename = "<crate_name>FFI"
+    ```
+1. Add the component as a dependency to the `Cargo.toml` in [`megazords/ios-rust/`](https://github.com/mozilla/application-services/blob/main/megazords/ios-rust/Cargo.toml)
+1. Add a `pub use` declaration for the component in [`megazords/ios-rust/src/lib.rs`](https://github.com/mozilla/application-services/blob/main/megazords/ios-rust/src/lib.rs)
+1. Add logic to the [`megazords/ios-rust/build-xcframework.sh`](https://github.com/mozilla/application-services/blob/main/megazords/ios-rust/build-xcframework.sh) to copy or generate its header file into the build
+1. Add an `#import` for its header file to [`megazords/ios-rust/MozillaRustComponents.h`](https://github.com/mozilla/application-services/blob/main/megazords/ios-rust/MozillaRustComponents.h) 
 
-```
-#import "uniffi_<your_crate_name>_Bridging-Header.h"
-```
+1. Add your component into the iOS ["megazord"](../design/megazords.md) through the Xcode project, which can only really by done using the Xcode application, which can only really be done if you're on a Mac.
 
-You will then need to add your component into the iOS ["megazord"](../design/megazords.md)
-XCode project, which can only really by done using the XCode application,
-which can only really be done if you're on a Mac.
+    1. Open `megazords/ios/MozillaAppServices.xcodeproj` in Xcode.
 
-Open `megazords/ios/MozillaAppServices.xcodeproj` in XCode.
-
-In the Project navigator, add a new Group for your new component, pointing to
-the `./ios/` directory you created above. Add the following entries to the Group:
-* The `.udl` file for you component, from `../src/<your_crate_name>.udl`.
-* Any hand-written `.swift `files for your component
-* A sub-group named "Generated", pointing to the `./Generated/` subdirectory, and
-  containing entries for the files generated by UniFFI:
-    * `<your_crate_name>.swift`
-    * `uniffi_<your_crate_name>-Bridging-Header.h`
+    1. In the Project navigator, add a new Group for your new component, pointing to
+    the `./ios/` directory you created above. Add the following entries to the Group:
+        * The `.udl` file for you component, from `../src/<your_crate_name>.udl`.
+        * Any hand-written `.swift `files for your component
+        * A sub-group named "Generated", pointing to the `./Generated/` subdirectory, and
+          containing entries for the files generated by UniFFI:
+            * `<your_crate_name>.swift`
+            * `<your_crate_name>FFI.h`
 
 The result should look something like this:
 
-![Screenshot of XCode Project Navigator](./img/xcode_add_component_1.png)
+![Screenshot of Xcode Project Navigator](./img/xcode_add_component_1.png)
 
 Click on the top-level "MozillaAppServices" project in the navigator,
 then go to "Build Phases" and add `<your_crate_name>.udl` to the list
-of "Compile Sources". This will trigger an XCode Build Rule that generates
+of "Compile Sources". This will trigger an Xcode Build Rule that generates
 the Swift bindings automatically. Also include any hand-written `.swift` files
 in this list.
 
 The result should look something like this:
 
-![Screenshot of XCode Compile Sources list](./img/xcode_add_component_2.png)
+![Screenshot of Xcode Compile Sources list](./img/xcode_add_component_2.png)
 
-In the same "Build Phases" screen, under the "Headers" section, add `uniffi_<your_crate_name>-Bridging-Header.h` to the list of Public headers.
+In the same "Build Phases" screen, under the "Headers" section, add `<your_crate_name>FFI.h` to the list of Public headers.
 The result should look something like this:
 
-![Screenshot of XCode Headers list](./img/xcode_add_component_3.png)
+![Screenshot of Xcode Headers list](./img/xcode_add_component_3.png)
 
-Build the project in XCode to check whether that all worked correctly.
+Build the project in Xcode to check whether that all worked correctly.
 
 To add Swift tests for your component API, create them in a file under
 `megazords/ios/MozillaAppServicesTests/`. Use this syntax to import
@@ -181,13 +186,26 @@ your component's bindings from the compiled megazord:
 @testable import MozillaAppServices
 ```
 
-In XCode, navigate to the `MozillaAppServicesTests` Group and add your
+In Xcode, navigate to the `MozillaAppServicesTests` Group and add your
 new test file as an entry. Select the corresponding target, click on
 "Build Phases", and add your test file to the list of "Compile Sources".
 The result should look something like this:
 
-![Screenshot of XCode Test Setup](./img/xcode_add_component_4.png)
+![Screenshot of Xcode Test Setup](./img/xcode_add_component_4.png)
 
-Use the XCode Test Navigator to run your tests and check whether
+Use the Xcode Test Navigator to run your tests and check whether
 they're passing.
+
+## Distribute your component with `rust-components-swift`
+
+To distribute your component with `rust-components-swift` follow the following steps:
+1. Add logic for dynamically generating any swift code to the [`generate.sh` script in the `rust-components-swift` repo](https://github.com/mozilla/rust-components-swift/blob/main/generate.sh). You can use that script to:
+    - Generate `uniffi` bindings
+    - Generate `Glean` metrics
+    - Copy over any handwritten code
+
+1. Edit the [`Package.swift` in the `rust-components-swift` repo](https://github.com/mozilla/rust-components-swift/blob/main/Package.swift) to add the new component
+    - Add a new library product for the component under `products`
+    - Add a corresponding target for the component under `targets`
+        - Make sure it depends on `MozillaRustComponentsWrapper` to pull in pre-compiled Rust Code, and any third-party Swift Packages it requires.
 

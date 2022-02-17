@@ -1,8 +1,8 @@
 <a href="https://codecov.io/gh/mozilla/application-services"> <img src="https://codecov.io/gh/mozilla/application-services/branch/main/graph/badge.svg?token=HxeUysUWqx"/> </a>
 
-## Firefox Application Services
+# Firefox Application Services
 
-Application Services (a-s) is collection of Rust Components that are used to enable Firefox applications to integrate with Firefox accounts, sync, experimentation, etc. Each component is built using a core of shared code written in Rust, wrapped with native language bindings for different platforms.
+Application Services (a-s) is a collection of Rust Components that are used to enable Firefox applications to integrate with Firefox accounts, sync, experimentation, etc. Each component is built using a core of shared code written in Rust, wrapped with native language bindings for different platforms.
 
 ### Contributing
 To contribute, please review the Mozilla [Community Participation Guidelines](https://www.mozilla.org/en-US/about/governance/policies/participation/) and then visit our [how to contribute](docs/contributing.md) guide.
@@ -11,10 +11,26 @@ To contribute, please review the Mozilla [Community Participation Guidelines](ht
 Get in touch with other community members on Matrix, or through issues here on GitHub.
 - Matrix: [#rust-components:mozilla.org](https://chat.mozilla.org/#/room/#rust-components:mozilla.org) ([How to connect](https://wiki.mozilla.org/Matrix#Connect_to_Matrix))
 
+# Documentation
+
+### High-level docs
+
+The [Application Services Book](https://mozilla.github.io/application-services/book/index.html) contains high-level documentation about the code in this repository.  It's built from the [./docs/](docs) directory.
+
+### Package docs
+
+We use rustdoc to document both the public API of the components and the various internal implementation details.  View them on [https://mozilla.github.io/application-services/book/rust-docs/fxa_client/index.html](https://mozilla.github.io/application-services/book/rust-docs/fxa_client/index.html).  Once you have completed the build steps, you can view the docs by running:
+
+```shell
+cargo doc --no-deps --document-private-items --open
+```
+
+# Building
+
 ### Building the Rust Components
 1. Clone or Download the repository:
 ```shell
-  $ git clone https://github.com/mozilla/application-services (or use the ssh link)
+  $ git clone https://github.com/mozilla/application-services # (or use the ssh link)
   $ cd application-services
   $ git submodule init
   $ git submodule update --recursive
@@ -35,37 +51,28 @@ The application-services library primary consumers are Fenix (Firefox on Android
 
 #### Firefox for iOS integration
 * Build instructions to test [Firefox iOS integration](docs/building.md#building-for-firefox-ios)
-* [Using local components in iOS](docs/howtos/locally-published-components-in-ios.md)
 
 #### Firefox Desktop
 * Build instructions to test [Firefox Desktop integration](docs/building.md#building-for-firefox-desktop)
 
-### Documentation
-We use rustdoc to document both the public API of the components and the various internal implementation details. Once you have completed the build steps, you can view the docs by running:
-
-```shell
-cargo doc --no-deps --document-private-items --open
-```
-
-The [./docs/](docs) directory holds internal documentation about working with the
-code in this repository
-
-### Rust Components
+# Rust Components
 
 [./components/](components) contains the source for each component, and its
   FFI bindings.
-* See [./components/logins/](components/logins) for an example, where you can
+
+> Please note that we are in the process of moving away from hand-written ffi code and instead favouring the use of the [uniffi](https://github.com/mozilla/uniffi-rs/) library.
+* See [./components/push/](components/places) for an example, where you can
     find:
-  * The shared [rust code](components/logins/src).
-  * The mapping into a [C FFI](components/logins/ffi).
-  * The [Kotlin bindings](components/logins/android) for use by Android
+  * The shared [rust code](components/places/src).
+  * The mapping into a [C FFI](components/places/ffi).
+  * The [Kotlin bindings](components/places/android) for use by Android
       applications.
-  * The [Swift bindings](components/logins/ios) for use by iOS applications.
+  * The [Swift bindings](components/places/ios) for use by iOS applications.
 * See [./components/fxa-client](components/fxa-client) for an example that uses
     [uniffi](https://github.com/mozilla/uniffi-rs/) to generate API wrappers for
     multiple languages, such as Kotlin and Swift.
 
-#### List of components
+### List of components
 * [autofill](components/autofill) - for storage and syncing of credit card and
   address information
 * [crashtest](components/crashtest) - testing-purposes (crashing the Rust code)
@@ -81,8 +88,6 @@ code in this repository
 * [rc_log](components/rc_log) - for connecting component log output to the
   application's log stream
 * [support](components/support) - low-level utility libraries
-  * [support/ffi](components/support/ffi) - utilities for building a component's
-    FFI bindings
   * [support/rc_crypto](components/rc_crypto) - handles cryptographic needs backed by Mozilla's
     [NSS](https://developer.mozilla.org/en-US/docs/Mozilla/Projects/NSS) library
   * [support/sql](components/support/sql) - utilities for storing data locally

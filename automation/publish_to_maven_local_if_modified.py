@@ -82,7 +82,7 @@ for nm in untracked_files:
     try:
         with open(nm, "rb") as f:
             contents_hash.update(f.read())
-    except FileNotFoundError:
+    except (FileNotFoundError, IsADirectoryError):
         pass
     contents_hash.update(b"\x00")
 contents_hash.update(b"\x00")

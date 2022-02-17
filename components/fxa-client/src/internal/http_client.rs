@@ -209,7 +209,7 @@ impl FxAClient for Client {
         scopes: &[&str],
     ) -> Result<OAuthTokenResponse> {
         let url = config.token_endpoint()?;
-        let key = derive_auth_key_from_session_token(&session_token)?;
+        let key = derive_auth_key_from_session_token(session_token)?;
         let body = json!({
             "client_id": config.client_id,
             "scope": scopes.join(" "),
@@ -294,7 +294,7 @@ impl FxAClient for Client {
         session_token: &str,
     ) -> Result<DuplicateTokenResponse> {
         let url = config.auth_url_path("v1/session/duplicate")?;
-        let key = derive_auth_key_from_session_token(&session_token)?;
+        let key = derive_auth_key_from_session_token(session_token)?;
         let duplicate_body = json!({
             "reason": "migration"
         });
@@ -792,6 +792,53 @@ pub enum DeviceType {
     #[serde(other)]
     #[serde(skip_serializing)] // Don't you dare trying.
     Unknown,
+}
+
+#[cfg(test)]
+mod device_type_tests {
+    use super::*;
+
+    #[test]
+    fn test_serde_ser() {
+        assert_eq!(
+            serde_json::to_string(&DeviceType::Desktop).unwrap(),
+            "\"desktop\""
+        );
+        assert_eq!(
+            serde_json::to_string(&DeviceType::Mobile).unwrap(),
+            "\"mobile\""
+        );
+        assert_eq!(
+            serde_json::to_string(&DeviceType::Tablet).unwrap(),
+            "\"tablet\""
+        );
+        assert_eq!(serde_json::to_string(&DeviceType::VR).unwrap(), "\"vr\"");
+        assert_eq!(serde_json::to_string(&DeviceType::TV).unwrap(), "\"tv\"");
+    }
+
+    #[test]
+    fn test_serde_de() {
+        assert!(matches!(
+            serde_json::from_str::<DeviceType>("\"desktop\"").unwrap(),
+            DeviceType::Desktop
+        ));
+        assert!(matches!(
+            serde_json::from_str::<DeviceType>("\"mobile\"").unwrap(),
+            DeviceType::Mobile
+        ));
+        assert!(matches!(
+            serde_json::from_str::<DeviceType>("\"tablet\"").unwrap(),
+            DeviceType::Tablet
+        ));
+        assert!(matches!(
+            serde_json::from_str::<DeviceType>("\"vr\"").unwrap(),
+            DeviceType::VR
+        ));
+        assert!(matches!(
+            serde_json::from_str::<DeviceType>("\"tv\"").unwrap(),
+            DeviceType::TV
+        ));
+    }
 }
 
 #[allow(clippy::option_option)]

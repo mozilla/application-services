@@ -40,6 +40,22 @@ CHANGELOG_FILE = "CHANGELOG.md"
 
 ensure_working_tree_clean()
 
+step_msg(f"Calculating remote owner {remote}")
+result = run_cmd_checked(["git", "remote", "get-url", remote], stdout=subprocess.PIPE)
+repo_url = result.stdout.decode('utf8').strip()
+repo_owner_patterns = [
+    r"git@github.com:(.*?)/application-services.git",
+    r'https://github.com/(.*?)/application-services.git',
+]
+for pattern in repo_owner_patterns:
+    match = re.match(pattern, repo_url)
+    if match:
+        repo_owner = match.group(1)
+        break
+else:
+    fatal_err(f"Error parsing remote URL: {repo_url}")
+print(f"Parsed github owner {repo_owner} for {repo_url}")
+
 step_msg(f"Updating remote {remote}")
 run_cmd_checked(["git", "remote", "update", remote])
 
@@ -86,9 +102,10 @@ with open(BUILDCONFIG_FILE, "w") as stream:
 with open(UNRELEASED_CHANGES_FILE, "r") as stream:
     unreleased_changes = stream.read()
 
-# Copy the text after the "Full Changelog" line in the unreleased changes file.
-to_find = re.escape("[Full Changelog]")
-changes = re.split(f"^{to_find}.+$", unreleased_changes, flags=re.MULTILINE)[1].strip()
+# Copy the text after the end of the header comment section in the unreleased changes file.
+to_find = re.escape("-->")
+
+changes = re.split(f"^{to_find}$", unreleased_changes, flags=re.MULTILINE)[1].strip()
 
 with open(CHANGELOG_FILE, "r") as stream:
     changelog = stream.read()
@@ -108,6 +125,21 @@ new_changes_unreleased = f"""**See [the release process docs](docs/howtos/cut-a-
 # Unreleased Changes
 
 [Full Changelog](https://github.com/mozilla/application-services/compare/{next_version_full}...main)
+
+<!-- WARNING: New entries should be added below this comment to ensure the `./automation/prepare-release.py` script works as expected.
+
+Use the template below to make assigning a version number during the release cutting process easier.
+
+## [Component Name]
+
+### ⚠️ Breaking Changes ⚠️
+  - Description of the change with a link to the pull request ([#0000](https://github.com/mozilla/application-services/pull/0000))
+### What's Changed
+  - Description of the change with a link to the pull request ([#0000](https://github.com/mozilla/application-services/pull/0000))
+### What's New
+  - Description of the change with a link to the pull request ([#0000](https://github.com/mozilla/application-services/pull/0000))
+
+-->
 """
 
 with open(CHANGELOG_FILE, "w") as stream:
@@ -126,4 +158,7 @@ response = input("Great! Would you like to push and open a pull-request? ([Y]/N)
 if response != "y" and response != "" and response != "yes":
     exit(0)
 run_cmd_checked(["git", "push", remote, release_branch])
-webbrowser.open_new_tab(f"https://github.com/mozilla/application-services/compare/{base_branch}...{release_branch}")
+if repo_owner == 'mozilla':
+    webbrowser.open_new_tab(f"https://github.com/mozilla/application-services/compare/{base_branch}...{release_branch}")
+else:
+    webbrowser.open_new_tab(f"https://github.com/mozilla/application-services/compare/{base_branch}...{repo_owner}:{release_branch}")

@@ -14,15 +14,31 @@ import Foundation
 /// enrollment will mostly use `NimbusUserConfiguration` methods. Application developers integrating
 /// `Nimbus` into their app should use the methods in `NimbusStartup`.
 ///
-public protocol NimbusApi: class, NimbusStartup, NimbusFeatureConfiguration, NimbusUserConfiguration {}
+public protocol NimbusApi: FeaturesInterface, NimbusStartup,
+    NimbusUserConfiguration, NimbusBranchInterface, GleanPlumbProtocol {}
 
-public protocol NimbusFeatureConfiguration {
+public protocol NimbusBranchInterface {
     /// Get the currently enrolled branch for the given experiment
     ///
     /// - Parameter featureId The string feature id that applies to the feature under experiment.
     /// - Returns A String representing the branch-id or "slug"; or `nil` if not enrolled in this experiment.
     ///
-    func getExperimentBranch(featureId: String) -> String?
+    /// - Note: Consumers of this API should switch to using the Feature Variables API
+    func getExperimentBranch(experimentId: String) -> String?
+}
+
+public extension FeaturesInterface {
+    /// Get the variables needed to configure the feature given by `featureId`.
+    ///
+    /// By default this sends an exposure event.
+    ///
+    /// - Parameters:
+    ///     - featureId The string feature id that identifies to the feature under experiment.
+    ///
+    /// - Returns a `Variables` object used to configure the feature.
+    func getVariables(featureId: String) -> Variables {
+        return getVariables(featureId: featureId, sendExposureEvent: true)
+    }
 }
 
 public protocol NimbusStartup {
@@ -132,25 +148,35 @@ public extension Notification.Name {
 /// This struct is used during in the `create` method to point `Nimbus` at the given `RemoteSettings` server.
 ///
 public struct NimbusServerSettings {
-    public init(url: URL) {
+    public init(url: URL, collection: String = remoteSettingsCollection) {
         self.url = url
+        self.collection = collection
     }
 
     public let url: URL
+    public let collection: String
 }
 
-/// Name and channel of the app, which should agree with what is specified in Experimenter.
+public let remoteSettingsCollection = "nimbus-mobile-experiments"
+
+/// Name, channel and specific context of the app which should agree with what is specified in Experimenter.
+/// The specifc context is there to capture any context that the SDK doesn't need to be explictly aware of.
 ///
 public struct NimbusAppSettings {
-    public init(appName: String, channel: String) {
+    public init(appName: String, channel: String, customTargetingAttributes: [String: String] = [String: String]()) {
         self.appName = appName
         self.channel = channel
+        self.customTargetingAttributes = customTargetingAttributes
     }
 
     public let appName: String
     public let channel: String
+    public let customTargetingAttributes: [String: String]
 }
 
 /// This error reporter is passed to `Nimbus` and any errors that are caught are reported via this type.
 ///
 public typealias NimbusErrorReporter = (Error) -> Void
+
+/// `ExperimentBranch` is a copy of the `Branch` without the `FeatureConfig`.
+public typealias Branch = ExperimentBranch

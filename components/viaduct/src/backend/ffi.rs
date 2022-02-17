@@ -11,7 +11,7 @@ ffi_support::implement_into_ffi_by_protobuf!(msg_types::Request);
 impl From<crate::Request> for msg_types::Request {
     fn from(request: crate::Request) -> Self {
         msg_types::Request {
-            url: request.url.into_string(),
+            url: request.url.to_string(),
             body: request.body,
             // Real weird that this needs to be specified as an i32, but
             // it certainly makes it convenient for us...

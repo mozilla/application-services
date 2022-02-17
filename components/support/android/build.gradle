@@ -1,51 +1,10 @@
-apply plugin: 'com.android.library'
-apply plugin: 'kotlin-android'
-apply plugin: 'kotlin-android-extensions'
 
-android {
-    ndkVersion rootProject.ext.build.ndkVersion
-    compileSdkVersion rootProject.ext.build.compileSdkVersion
-
-    defaultConfig {
-        minSdkVersion rootProject.ext.build['minSdkVersion']
-        targetSdkVersion rootProject.ext.build['targetSdkVersion']
-
-        testInstrumentationRunner "android.support.test.runner.AndroidJUnitRunner"
-    }
-
-    buildTypes {
-        release {
-            minifyEnabled false
-            proguardFiles getDefaultProguardFile('proguard-android.txt'), 'proguard-rules.pro'
-            consumerProguardFiles "$rootDir/proguard-rules-consumer-jna.pro"
-        }
-
-        withoutLib {
-            initWith release
-        }
-    }
-
-    // This is required to support new AndroidX support libraries.
-    // See mozilla-mobile/android-components#842
-    compileOptions {
-        sourceCompatibility rootProject.ext.build.jvmTargetCompatibility
-        targetCompatibility rootProject.ext.build.jvmTargetCompatibility
-    }
-
-    tasks.withType(org.jetbrains.kotlin.gradle.tasks.KotlinCompile).all {
-        kotlinOptions {
-            jvmTarget = rootProject.ext.build.jvmTargetCompatibility
-        }
-    }
-}
+apply from: "$rootDir/build-scripts/component-common.gradle"
+apply from: "$rootDir/publish.gradle"
 
 dependencies {
-    implementation "org.jetbrains.kotlin:kotlin-stdlib-jdk7:$kotlin_version"
-
     implementation "net.java.dev.jna:jna:$jna_version@aar"
-    api 'com.google.protobuf:protobuf-javalite:3.11.4'
+    implementation "com.google.protobuf:protobuf-javalite:$protobuf_version"
 }
-
-apply from: "$rootDir/publish.gradle"
 
 ext.configurePublish()

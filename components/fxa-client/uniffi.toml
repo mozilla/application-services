@@ -1,3 +1,8 @@
 [bindings.kotlin]
 package_name = "mozilla.appservices.fxaclient"
 cdylib_name = "megazord"
+
+[bindings.swift]
+ffi_module_name = "MozillaRustComponents"
+ffi_module_filename = "fxa_clientFFI"
+generate_module_map = false

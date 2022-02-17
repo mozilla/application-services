@@ -1,9 +1,11 @@
 package mozilla.appservices.remotetabs
 
 import mozilla.appservices.Megazord
+import mozilla.appservices.syncmanager.SyncManager
 import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
 import org.robolectric.annotation.Config
+import org.junit.Assert
 import org.junit.Before
 import org.junit.Test
 
@@ -15,15 +17,21 @@ class RemoteTabsTest {
     fun init() {
         Megazord.init()
     }
+
+    protected fun getTestStore(): TabsStore {
+        return TabsStore()
+    }
+
     @Test
-    fun doTest() {
-        RemoteTabsProvider().use { tabs ->
+    fun setLocalTabsTest() {
+        val store = getTestStore()
+        store.use { tabs ->
             tabs.setLocalTabs(listOf(
                 RemoteTab(
                     title = "cool things to look at in your remote tabs",
                     urlHistory = listOf("https://example.com"),
                     icon = null,
-                    lastUsed = null
+                    lastUsed = 0
                 ),
                 RemoteTab(
                     title = "cool things to look at in your remote tabs",
@@ -33,5 +41,21 @@ class RemoteTabsTest {
                 )
             ))
         }
+    }
+
+    @Test
+    fun getAllTest() {
+        val store = getTestStore()
+        store.getAll()
+    }
+
+    @Test
+    fun testRegisterWithSyncmanager() {
+        val syncManager = SyncManager()
+
+        Assert.assertFalse(syncManager.getAvailableEngines().contains("tabs"))
+
+        getTestStore().registerWithSyncManager()
+        Assert.assertTrue(syncManager.getAvailableEngines().contains("tabs"))
     }
 }

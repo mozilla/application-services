@@ -26,7 +26,6 @@ fn test_simple() -> Result<()> {
 
     let config = RemoteSettingsConfig {
         server_url: url.as_str().to_string(),
-        bucket_name: "doesn't matter".to_string(),
         collection_name: "doesn't matter".to_string(),
     };
 

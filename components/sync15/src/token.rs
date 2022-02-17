@@ -68,14 +68,13 @@ fn fixup_server_url(mut url: Url) -> url::Url {
     // or as directly specified by self-hosters. As a result, it may or may not have
     // the sync 1.5 suffix of "/1.0/sync/1.5", so add it on here if it does not.
     if url.as_str().ends_with("1.0/sync/1.5") {
-        url
+        // ok!
     } else if url.as_str().ends_with("1.0/sync/1.5/") {
         // Shouldn't ever be Err() here, but the result is `Result<PathSegmentsMut, ()>`
         // and I don't want to unwrap or add a new error type just for PathSegmentsMut failing.
         if let Ok(mut path) = url.path_segments_mut() {
             path.pop();
         }
-        url
     } else {
         // We deliberately don't use `.join()` here in order to preserve all path components.
         // For example, "http://example.com/token" should produce "http://example.com/token/1.0/sync/1.5"
@@ -84,8 +83,8 @@ fn fixup_server_url(mut url: Url) -> url::Url {
             path.pop_if_empty();
             path.extend(&["1.0", "sync", "1.5"]);
         }
-        url
-    }
+    };
+    url
 }
 
 impl TokenServerFetcher {

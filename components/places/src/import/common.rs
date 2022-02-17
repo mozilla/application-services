@@ -2,7 +2,7 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-use crate::api::places_api::SyncConn;
+use crate::db::PlacesDb;
 use crate::error::*;
 use rusqlite::named_params;
 use types::Timestamp;
@@ -24,7 +24,6 @@ pub mod sql_fns {
     use crate::import::common::NOW;
     use crate::storage::URL_LENGTH_MAX;
     use rusqlite::{functions::Context, types::ValueRef, Result};
-    use std::convert::TryFrom;
     use types::Timestamp;
     use url::Url;
 
@@ -60,7 +59,7 @@ pub mod sql_fns {
             return Ok(None);
         }
         if let Ok(url) = Url::parse(&href) {
-            Ok(Some(url.into_string()))
+            Ok(Some(url.into()))
         } else {
             Ok(None)
         }
@@ -80,7 +79,7 @@ pub mod sql_fns {
 }
 
 pub fn attached_database<'a>(
-    conn: &'a SyncConn<'a>,
+    conn: &'a PlacesDb,
     path: &Url,
     db_alias: &'static str,
 ) -> Result<ExecuteOnDrop<'a>> {
@@ -104,12 +103,12 @@ pub fn attached_database<'a>(
 /// automatically, as we can't report errors beyond logging when running
 /// Drop.
 pub struct ExecuteOnDrop<'a> {
-    conn: &'a SyncConn<'a>,
+    conn: &'a PlacesDb,
     sql: String,
 }
 
 impl<'a> ExecuteOnDrop<'a> {
-    pub fn new(conn: &'a SyncConn<'a>, sql: String) -> Self {
+    pub fn new(conn: &'a PlacesDb, sql: String) -> Self {
         Self { conn, sql }
     }
 

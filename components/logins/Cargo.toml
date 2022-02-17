@@ -1,6 +1,6 @@
 [package]
 name = "logins"
-edition = "2018"
+edition = "2021"
 version = "0.1.0"
 authors = ["Thom Chiovoloni <tchiovoloni@mozilla.com>"]
 license = "MPL-2.0"
@@ -15,24 +15,29 @@ sync15 = { path = "../sync15" }
 serde = "1"
 serde_derive = "1"
 serde_json = "1"
+parking_lot = "0.5"
 log = "0.4"
 lazy_static = "1.4"
-url = "2.1"
+url = "2.2"
 sql-support = { path = "../support/sql" }
-ffi-support = "0.4"
+jwcrypto = { path = "../support/jwcrypto" }
 interrupt-support = { path = "../support/interrupt" }
 error-support = { path = "../support/error" }
 sync-guid = { path = "../support/guid", features = ["rusqlite_support", "random"] }
-prost = "0.6"
-prost-derive = "0.6"
 thiserror = "1.0"
 anyhow = "1.0"
+uniffi = "^0.17"
+uniffi_macros = "^0.17"
 
 [dependencies.rusqlite]
 version = "0.24.2"
 features = ["sqlcipher", "limits", "unlock_notify"]
 
+[build-dependencies]
+uniffi_build = { version = "^0.17", features=["builtin-bindgen"] }
+
 [dev-dependencies]
 more-asserts = "0.2"
 tempdir = "0.3"
+tempfile = "3.2.0"
 env_logger = { version = "0.7", default-features = false }

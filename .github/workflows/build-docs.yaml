@@ -2,6 +2,7 @@ name: Build and Deploy
 on:   
   schedule:
     - cron: '0 1 * * *'
+  workflow_dispatch:
 jobs:
   build-and-deploy-docs:
     runs-on: ubuntu-latest
@@ -17,10 +18,8 @@ jobs:
           echo 'rust.targets=linux-x86-64' > local.properties
           curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y
           source $HOME/.cargo/env
-          cargo install mdbook mdbook-mermaid mdbook-open-on-gh
-          ./tools/build-book.sh
  
-      - name: Build Dependencies and Generate Rust Docs
+      - name: Build Dependencies
         env: 
           SQLCIPHER_LIB_DIR: ${{ github.workspace }}/libs/desktop/linux-x86-64/sqlcipher/lib
           SQLCIPHER_INCLUDE_DIR: ${{ github.workspace }}/libs/desktop/linux-x86-64/sqlcipher/include
@@ -34,10 +33,16 @@ jobs:
           cd ../..
           sudo apt-get install ninja-build zlib1g-dev tclsh python3
           ./libs/verify-desktop-environment.sh
-          cargo doc --no-deps
-          echo '<meta http-equiv=refresh content=0;url=fxa_client>' > target/doc/index.html
-          mkdir -p build/docs/rust-docs
-          cp -rf target/doc/* build/docs/rust-docs
+      
+      - name: Build mdbook
+        env: 
+          SQLCIPHER_LIB_DIR: ${{ github.workspace }}/libs/desktop/linux-x86-64/sqlcipher/lib
+          SQLCIPHER_INCLUDE_DIR: ${{ github.workspace }}/libs/desktop/linux-x86-64/sqlcipher/include
+          NSS_DIR: ${{ github.workspace }}/libs/desktop/linux-x86-64/nss
+          NSS_STATIC: 1 
+        run: |
+          cargo install mdbook mdbook-mermaid mdbook-open-on-gh
+          ./tools/build-book.sh
           
       - name: Deploy
         run: |

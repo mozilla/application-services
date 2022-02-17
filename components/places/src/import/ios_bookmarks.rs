@@ -4,7 +4,7 @@
 
 use crate::api::places_api::PlacesApi;
 use crate::bookmark_sync::{
-    engine::{BookmarksEngine, Merger},
+    engine::{update_frecencies, Merger},
     SyncedBookmarkKind,
 };
 use crate::error::*;
@@ -84,9 +84,10 @@ pub fn import_ios_bookmarks(
 }
 
 fn do_import_ios_bookmarks(places_api: &PlacesApi, ios_db_file_url: Url) -> Result<()> {
-    let conn = places_api.open_sync_connection()?;
+    let conn_mutex = places_api.get_sync_connection()?;
+    let conn = conn_mutex.lock();
 
-    let scope = conn.begin_interrupt_scope();
+    let scope = conn.begin_interrupt_scope()?;
 
     sql_fns::define_functions(&conn)?;
 
@@ -133,15 +134,14 @@ fn do_import_ios_bookmarks(places_api: &PlacesApi, ios_db_file_url: Url) -> Resu
     // could turn use `PRAGMA defer_foreign_keys = true`, but since we commit
     // everything in one go, that seems harder to debug.
     log::debug!("Populating mirror structure");
-    conn.execute_batch(&POPULATE_MIRROR_STRUCTURE)?;
+    conn.execute_batch(POPULATE_MIRROR_STRUCTURE)?;
     scope.err_if_interrupted()?;
 
     // log::debug!("Detaching iOS database");
     // drop(auto_detach);
     // scope.err_if_interrupted()?;
 
-    let engine = BookmarksEngine::new(&conn, &scope);
-    let mut merger = Merger::new(&engine, Default::default());
+    let mut merger = Merger::new(&conn, &scope, Default::default());
     // We're already in a transaction.
     merger.set_external_transaction(true);
     log::debug!("Merging with local records");
@@ -160,7 +160,7 @@ fn do_import_ios_bookmarks(places_api: &PlacesApi, ios_db_file_url: Url) -> Resu
     // Note: update_frecencies manages its own transaction, which is fine,
     // since nothing that bad will happen if it is aborted.
     log::debug!("Updating frecencies");
-    engine.update_frecencies()?;
+    update_frecencies(&conn, &scope)?;
 
     log::info!("Successfully imported bookmarks!");
 

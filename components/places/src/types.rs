@@ -5,7 +5,6 @@
 use rusqlite::types::{FromSql, FromSqlError, FromSqlResult, ToSql, ToSqlOutput, ValueRef};
 use rusqlite::Result as RusqliteResult;
 use serde::ser::{Serialize, Serializer};
-use std::convert::TryFrom;
 use std::fmt;
 
 mod visit_transition_set;
@@ -17,8 +16,7 @@ pub struct InvalidVisitType;
 
 // NOTE: These discriminator values are the same as those used by Desktop
 // Firefox and are what is written to the database. We also duplicate them
-// in the android lib as constants on PlacesConnection, and in a couple
-// constants in visit_transition_set.rs
+// as constants in visit_transition_set.rs
 #[repr(u8)]
 #[derive(Debug, Copy, Clone, PartialEq, Eq, Hash)]
 pub enum VisitTransition {

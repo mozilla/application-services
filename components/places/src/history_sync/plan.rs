@@ -225,7 +225,7 @@ pub fn apply_plan(
             }
             IncomingPlan::Delete => {
                 log::trace!("incoming: deleting {:?}", guid);
-                apply_synced_deletion(&db, &guid)?;
+                apply_synced_deletion(db, &guid)?;
                 telem.applied(1);
             }
             IncomingPlan::Apply {
@@ -240,13 +240,13 @@ pub fn apply_plan(
                     new_title,
                     visits
                 );
-                apply_synced_visits(&db, &guid, &url, new_title, visits)?;
+                apply_synced_visits(db, &guid, url, new_title, visits)?;
                 telem.applied(1);
             }
             IncomingPlan::Reconciled => {
                 telem.reconciled(1);
                 log::trace!("incoming: reconciled {:?}", guid);
-                apply_synced_reconciliation(&db, &guid)?;
+                apply_synced_reconciliation(db, &guid)?;
             }
         };
         if tx.should_commit() {
@@ -334,7 +334,7 @@ mod tests {
             "SELECT sync_status, sync_change_counter
                      FROM moz_places
                      WHERE url = :url;",
-            &[(":url", &url.clone().into_string())],
+            &[(":url", &String::from(url.clone()))],
             |row| {
                 Ok((
                     SyncStatus::from_u8(row.get::<_, u8>(0)?),
@@ -863,7 +863,7 @@ mod tests {
         // should still have only 1 visit and it should still be local.
         let (_page, visits) = fetch_visits(&db, &url, 2)?.expect("page exists");
         assert_eq!(visits.len(), 1);
-        assert_eq!(visits[0].is_local, true);
+        assert!(visits[0].is_local);
         // The item should have changed to Normal and have no change counter.
         assert_eq!(get_sync(&db, &url), (SyncStatus::Normal, 0));
         Ok(())

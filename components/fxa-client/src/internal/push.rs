@@ -124,6 +124,9 @@ pub enum PushPayload {
     Unknown,
 }
 
+// Some of this structs fields are not read, except
+// when deserialized, we mark them as dead_code
+#[allow(dead_code)]
 #[derive(Debug, Deserialize)]
 pub struct CommandReceivedPushPayload {
     command: String,
@@ -163,7 +166,7 @@ mod tests {
     #[test]
     fn test_deserialize_send_tab_command() {
         let json = "{\"version\":1,\"command\":\"fxaccounts:command_received\",\"data\":{\"command\":\"send-tab-recv\",\"index\":1,\"sender\":\"bobo\",\"url\":\"https://mozilla.org\"}}";
-        let _: PushPayload = serde_json::from_str(&json).unwrap();
+        let _: PushPayload = serde_json::from_str(json).unwrap();
     }
 
     #[test]

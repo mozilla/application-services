@@ -10,8 +10,11 @@ use crate::error::{NimbusError, Result};
 // it must be noted that the rkv documentation explicitly says "To use rkv in
 // production/release environments at Mozilla, you may do so with the "SafeMode"
 // backend", so we really should get more guidance here.)
+use crate::enrollment::ExperimentEnrollment;
+use crate::Experiment;
 use core::iter::Iterator;
 use rkv::{StoreError, StoreOptions};
+use std::collections::HashSet;
 use std::fs;
 use std::path::Path;
 
@@ -20,8 +23,8 @@ use std::path::Path;
 // increment `DB_VERSION` and implement some migration logic in `maybe_upgrade`.
 //
 // ⚠️ Warning : Altering the type of `DB_VERSION` would itself require a DB migration. ⚠️
-const DB_KEY_DB_VERSION: &str = "db_version";
-const DB_VERSION: u16 = 1;
+pub(crate) const DB_KEY_DB_VERSION: &str = "db_version";
+pub(crate) const DB_VERSION: u16 = 2;
 
 // Inspired by Glean - use a feature to choose between the backends.
 // Select the LMDB-powered storage backend when the feature is not activated.
@@ -111,6 +114,11 @@ pub enum StoreId {
     ///                     current client instance.
     ///   * "user-opt-in":  bool, whether the user has explicitly opted in or out
     ///                     of participating in experiments.
+    ///   * "installation-date": a UTC DateTime string, defining the date the consuming app was
+    ///                     installed
+    ///   * "update-date": a UTC DateTime string, defining the date the consuming app was
+    ///                     last updated
+    ///   * "app-version": String, the version of the app last persisted
     Meta,
     /// Store containing pending updates to experiment data.
     ///
@@ -133,24 +141,24 @@ impl SingleStore {
 
     pub fn put<T: serde::Serialize + for<'de> serde::Deserialize<'de>>(
         &self,
-        mut writer: &mut Writer,
+        writer: &mut Writer,
         key: &str,
         persisted_data: &T,
     ) -> Result<()> {
         let persisted_json = serde_json::to_string(persisted_data)?;
         self.store
-            .put(&mut writer, key, &rkv::Value::Json(&persisted_json))?;
+            .put(writer, key, &rkv::Value::Json(&persisted_json))?;
         Ok(())
     }
 
     #[allow(dead_code)]
-    pub fn delete(&self, mut writer: &mut Writer, key: &str) -> Result<()> {
-        self.store.delete(&mut writer, key)?;
+    pub fn delete(&self, writer: &mut Writer, key: &str) -> Result<()> {
+        self.store.delete(writer, key)?;
         Ok(())
     }
 
-    pub fn clear(&self, mut writer: &mut Writer) -> Result<()> {
-        self.store.clear(&mut writer)?;
+    pub fn clear(&self, writer: &mut Writer) -> Result<()> {
+        self.store.clear(writer)?;
         Ok(())
     }
 
@@ -176,6 +184,40 @@ impl SingleStore {
         }
     }
 
+    /// Fork of collect_all that simply drops records that fail to read
+    /// rather than simply returning an error up the stack.  This likely
+    /// wants to be just a parameter to collect_all, but for now....
+    pub fn try_collect_all<'r, T, R>(&self, reader: &'r R) -> Result<Vec<T>>
+    where
+        R: Readable<'r>,
+        T: serde::Serialize + for<'de> serde::Deserialize<'de>,
+    {
+        let mut result = Vec::new();
+        let mut iter = self.store.iter_start(reader)?;
+        while let Some(Ok((_, data))) = iter.next() {
+            if let rkv::Value::Json(data) = data {
+                let unserialized = serde_json::from_str::<T>(data);
+                match unserialized {
+                    Ok(value) => result.push(value),
+                    Err(e) => {
+                        // If there is an error, we won't push this onto the
+                        // result Vec, but we won't blow up the entire
+                        // deserialization either.
+                        log::warn!(
+                            "try_collect_all: discarded a record while deserializing with: {:?}",
+                            e
+                        );
+                        log::warn!(
+                            "try_collect_all:   data that failed to deserialize: {:?}",
+                            data
+                        );
+                    }
+                };
+            }
+        }
+        Ok(result)
+    }
+
     pub fn collect_all<'r, T, R>(&self, reader: &'r R) -> Result<Vec<T>>
     where
         R: Readable<'r>,
@@ -185,7 +227,7 @@ impl SingleStore {
         let mut iter = self.store.iter_start(reader)?;
         while let Some(Ok((_, data))) = iter.next() {
             if let rkv::Value::Json(data) = data {
-                result.push(serde_json::from_str::<T>(&data)?);
+                result.push(serde_json::from_str::<T>(data)?);
             }
         }
         Ok(result)
@@ -227,26 +269,46 @@ impl Database {
     }
 
     fn maybe_upgrade(&self) -> Result<()> {
+        log::debug!("entered maybe upgrade");
         let mut writer = self.rkv.write()?;
         let db_version = self.meta_store.get::<u16, _>(&writer, DB_KEY_DB_VERSION)?;
         match db_version {
             Some(DB_VERSION) => {
                 // Already at the current version, no migration required.
+                log::info!("Already at version {}, no upgrade needed", DB_VERSION);
                 return Ok(());
             }
+            Some(1) => {
+                log::info!("Migrating database from v1 to v2");
+                match self.migrate_v1_to_v2(&mut writer) {
+                    Ok(_) => (),
+                    Err(e) => {
+                        // The idea here is that it's better to leave an
+                        // individual install with a clean empty database
+                        // than in an unknown inconsistent state, because it
+                        // allows them to start participating in experiments
+                        // again, rather than potentially repeating the upgrade
+                        // over and over at each embedding client restart.
+                        log::error!(
+                            "Error migrating database v1 to v2: {:?}.  Wiping experiments and enrollments",
+                            e
+                        );
+                        self.clear_experiments_and_enrollments(&mut writer)?;
+                    }
+                };
+            }
             None => {
+                log::info!("maybe_upgrade: no version number; wiping most stores");
                 // The "first" version of the database (= no version number) had un-migratable data
                 // for experiments and enrollments, start anew.
                 // XXX: We can most likely remove this behaviour once enough time has passed,
                 // since nimbus wasn't really shipped to production at the time anyway.
-                self.experiment_store.clear(&mut writer)?;
-                self.enrollment_store.clear(&mut writer)?;
+                self.clear_experiments_and_enrollments(&mut writer)?;
             }
             _ => {
-                log::error!("Unknown database version. Wiping everything.");
+                log::error!("Unknown database version. Wiping all stores.");
+                self.clear_experiments_and_enrollments(&mut writer)?;
                 self.meta_store.clear(&mut writer)?;
-                self.experiment_store.clear(&mut writer)?;
-                self.enrollment_store.clear(&mut writer)?;
             }
         }
         // It is safe to clear the update store (i.e. the pending experiments) on all schema upgrades
@@ -257,6 +319,92 @@ impl Database {
         self.meta_store
             .put(&mut writer, DB_KEY_DB_VERSION, &DB_VERSION)?;
         writer.commit()?;
+        log::debug!("maybe_upgrade: transaction committed");
+        Ok(())
+    }
+
+    fn clear_experiments_and_enrollments(&self, writer: &mut Writer) -> Result<(), NimbusError> {
+        self.experiment_store.clear(writer)?;
+        self.enrollment_store.clear(writer)?;
+        Ok(())
+    }
+
+    /// Migrates a v1 database to v2
+    ///
+    /// Note that any Err returns from this function (including stuff
+    /// propagated up via the ? operator) will cause maybe_update (our caller)
+    /// to assume that this is unrecoverable and wipe the database, removing
+    /// people from any existing enrollments and blowing away their experiment
+    /// history, so that they don't get left in an inconsistent state.
+    fn migrate_v1_to_v2(&self, writer: &mut Writer) -> Result<()> {
+        log::info!("Upgrading from version 1 to version 2");
+
+        // use try_collect_all to read everything except records that serde
+        // returns deserialization errors on.  Some logging of those errors
+        // happens, but it's not ideal.
+        let reader = self.read()?;
+
+        // XXX write a test to verify that we don't need to gc any
+        // enrollments that don't have experiments because the experiments
+        // were discarded either during try_collect_all (these wouldn't have been
+        // detected during the filtering phase) or during the filtering phase
+        // itself.  The test needs to run evolve_experiments, as that should
+        // correctly drop any orphans, even if the migrators aren't perfect.
+
+        let enrollments: Vec<ExperimentEnrollment> =
+            self.enrollment_store.try_collect_all(&reader)?;
+        let experiments: Vec<Experiment> = self.experiment_store.try_collect_all(&reader)?;
+
+        // figure out which experiments have records that need to be dropped
+        // and log that we're going to drop them and why
+        let empty_string = "".to_string();
+        let slugs_with_experiment_issues: HashSet<String> = experiments
+            .iter()
+            .filter_map(
+                    |e| {
+                let branch_with_empty_feature_ids =
+                    e.branches.iter().find(|b| b.feature.is_none() || b.feature.as_ref().unwrap().feature_id.is_empty());
+                if branch_with_empty_feature_ids.is_some() {
+                    log::warn!("{:?} experiment has branch missing a feature prop; experiment & enrollment will be discarded", &e.slug);
+                    Some(e.slug.to_owned())
+                } else if e.feature_ids.is_empty() || e.feature_ids.contains(&empty_string) {
+                    log::warn!("{:?} experiment has invalid feature_ids array; experiment & enrollment will be discarded", &e.slug);
+                    Some(e.slug.to_owned())
+                } else {
+                    None
+                }
+            })
+            .collect();
+        let slugs_to_discard: HashSet<_> = slugs_with_experiment_issues;
+
+        // filter out experiments to be dropped
+        let updated_experiments: Vec<Experiment> = experiments
+            .into_iter()
+            .filter(|e| !slugs_to_discard.contains(&e.slug))
+            .collect();
+        log::debug!("updated experiments = {:?}", updated_experiments);
+
+        // filter out enrollments to be dropped
+        let updated_enrollments: Vec<ExperimentEnrollment> = enrollments
+            .into_iter()
+            .filter(|e| !slugs_to_discard.contains(&e.slug))
+            .collect();
+        log::debug!("updated enrollments = {:?}", updated_enrollments);
+
+        // rewrite both stores
+        self.experiment_store.clear(writer)?;
+        for experiment in updated_experiments {
+            self.experiment_store
+                .put(writer, &experiment.slug, &experiment)?;
+        }
+
+        self.enrollment_store.clear(writer)?;
+        for enrollment in updated_enrollments {
+            self.enrollment_store
+                .put(writer, &enrollment.slug, &enrollment)?;
+        }
+        log::debug!("exiting migrate_v1_to_v2");
+
         Ok(())
     }
 
@@ -271,9 +419,9 @@ impl Database {
         }
     }
 
-    fn open_rkv<P: AsRef<Path>>(path: P) -> Result<Rkv> {
+    pub fn open_rkv<P: AsRef<Path>>(path: P) -> Result<Rkv> {
         let path = std::path::Path::new(path.as_ref()).join("db");
-        log::debug!("Database path: {:?}", path.display());
+        log::debug!("open_rkv: path =  {:?}", path.display());
         fs::create_dir_all(&path)?;
         let rkv = match rkv_new(&path) {
             Ok(rkv) => Ok(rkv),
@@ -357,92 +505,9 @@ impl Database {
         let mut iter = self.get_store(store_id).store.iter_start(&reader)?;
         while let Some(Ok((_, data))) = iter.next() {
             if let rkv::Value::Json(data) = data {
-                result.push(serde_json::from_str::<T>(&data)?);
+                result.push(serde_json::from_str::<T>(data)?);
             }
         }
         Ok(result)
     }
 }
-
-#[cfg(test)]
-mod tests {
-    use tempdir::TempDir;
-
-    use super::*;
-
-    #[test]
-    fn test_db_upgrade_no_version() -> Result<()> {
-        let path = "test_upgrade_1";
-        let tmp_dir = TempDir::new(path)?;
-
-        let rkv = Database::open_rkv(&tmp_dir)?;
-        let _meta_store = rkv.open_single("meta", StoreOptions::create())?;
-        let experiment_store =
-            SingleStore::new(rkv.open_single("experiments", StoreOptions::create())?);
-        let enrollment_store =
-            SingleStore::new(rkv.open_single("enrollments", StoreOptions::create())?);
-        let mut writer = rkv.write()?;
-        enrollment_store.put(&mut writer, "foo", &"bar".to_owned())?;
-        experiment_store.put(&mut writer, "bobo", &"tron".to_owned())?;
-        writer.commit()?;
-
-        let db = Database::new(&tmp_dir)?;
-        assert_eq!(db.get(StoreId::Meta, DB_KEY_DB_VERSION)?, Some(DB_VERSION));
-        assert!(db.collect_all::<String>(StoreId::Enrollments)?.is_empty());
-        assert!(db.collect_all::<String>(StoreId::Experiments)?.is_empty());
-
-        Ok(())
-    }
-
-    #[test]
-    fn test_db_upgrade_unknown_version() -> Result<()> {
-        let path = "test_upgrade_unknown";
-        let tmp_dir = TempDir::new(path)?;
-
-        let rkv = Database::open_rkv(&tmp_dir)?;
-        let meta_store = SingleStore::new(rkv.open_single("meta", StoreOptions::create())?);
-        let experiment_store =
-            SingleStore::new(rkv.open_single("experiments", StoreOptions::create())?);
-        let enrollment_store =
-            SingleStore::new(rkv.open_single("enrollments", StoreOptions::create())?);
-        let mut writer = rkv.write()?;
-        meta_store.put(&mut writer, DB_KEY_DB_VERSION, &u16::MAX)?;
-        enrollment_store.put(&mut writer, "foo", &"bar".to_owned())?;
-        experiment_store.put(&mut writer, "bobo", &"tron".to_owned())?;
-        writer.commit()?;
-        let db = Database::new(&tmp_dir)?;
-        assert_eq!(db.get(StoreId::Meta, DB_KEY_DB_VERSION)?, Some(DB_VERSION));
-        assert!(db.collect_all::<String>(StoreId::Enrollments)?.is_empty());
-        assert!(db.collect_all::<String>(StoreId::Experiments)?.is_empty());
-
-        Ok(())
-    }
-
-    #[test]
-    fn test_corrupt_db() -> Result<()> {
-        let path = "test_corrupt_db";
-        let tmp_dir = TempDir::new(path)?;
-
-        let db_dir = tmp_dir.path().join("db");
-        fs::create_dir(db_dir.clone())?;
-
-        // The database filename differs depending on the rkv mode.
-        #[cfg(feature = "rkv-safe-mode")]
-        let db_file = db_dir.join("data.safe.bin");
-        #[cfg(not(feature = "rkv-safe-mode"))]
-        let db_file = db_dir.join("data.mdb");
-
-        let garbage = b"Not a database!";
-        let garbage_len = garbage.len() as u64;
-        fs::write(&db_file, garbage)?;
-        assert_eq!(fs::metadata(&db_file)?.len(), garbage_len);
-        // Opening the DB should delete the corrupt file and replace it.
-        Database::new(&tmp_dir)?;
-        // Old contents should be removed and replaced with actual data.
-        assert_ne!(fs::metadata(&db_file)?.len(), garbage_len);
-        Ok(())
-    }
-}
-
-// TODO: Add unit tests
-// Possibly by using a trait for persistence and mocking it to test the persistence.

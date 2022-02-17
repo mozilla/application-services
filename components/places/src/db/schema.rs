@@ -2,23 +2,16 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-// XXXXXX - This has been cloned from logins/src/schema.rs, on Thom's
-// wip-sync-sql-store branch.
-// We should work out how to turn this into something that can use a shared
-// db.rs.
-
 use crate::api::places_api::ConnectionType;
 use crate::bookmark_sync::engine::LAST_SYNC_META_KEY;
-use crate::db::PlacesDb;
-use crate::error::*;
 use crate::storage::bookmarks::{
     bookmark_sync::create_synced_bookmark_roots, create_bookmark_roots,
 };
 use crate::types::SyncStatus;
-use rusqlite::NO_PARAMS;
+use rusqlite::Connection;
 use sql_support::ConnExt;
 
-const VERSION: i64 = 13;
+pub const VERSION: u32 = 15;
 
 // Shared schema and temp tables for the read-write and Sync connections.
 const CREATE_SHARED_SCHEMA_SQL: &str = include_str!("../../sql/create_shared_schema.sql");
@@ -76,31 +69,15 @@ fn update_origin_frecency_stats(op: &str) -> String {
     )
 }
 
-fn get_current_schema_version(db: &PlacesDb) -> Result<i64> {
-    Ok(db.query_one::<i64>("PRAGMA user_version")?)
+pub fn init(conn: &Connection) -> rusqlite::Result<()> {
+    log::debug!("Initializing schema");
+    conn.execute_batch(CREATE_SHARED_SCHEMA_SQL)?;
+    create_bookmark_roots(conn)?;
+    Ok(())
 }
 
-pub fn init(db: &PlacesDb) -> Result<()> {
-    let user_version = get_current_schema_version(db)?;
-    if user_version == 0 {
-        create(db)?;
-    } else if user_version != VERSION {
-        if user_version < VERSION {
-            upgrade(db, user_version)?;
-        } else {
-            log::warn!(
-                "Loaded future schema version {} (we only understand version {}). \
-                 Optimistically ",
-                user_version,
-                VERSION
-            );
-            // Downgrade the schema version, so that anything added with our
-            // schema is migrated forward when the newer library reads our
-            // database.
-            db.execute_batch(&format!("PRAGMA user_version = {};", VERSION))?;
-        }
-    }
-    match db.conn_type() {
+pub fn finish(db: &Connection, conn_type: ConnectionType) -> rusqlite::Result<()> {
+    match conn_type {
         // Read-only connections don't need temp tables or triggers, as they
         // can't write anything.
         ConnectionType::ReadOnly => {}
@@ -108,6 +85,7 @@ pub fn init(db: &PlacesDb) -> Result<()> {
         // The main read-write connection needs shared and main-specific
         // temp tables and triggers (for example, for writing tombstones).
         ConnectionType::ReadWrite => {
+            // Every writable connection needs these...
             db.execute_batch(CREATE_SHARED_TEMP_TABLES_SQL)?;
             db.execute_batch(&CREATE_SHARED_TRIGGERS_SQL)?;
             db.execute_batch(CREATE_MAIN_TRIGGERS_SQL)?;
@@ -127,71 +105,60 @@ pub fn init(db: &PlacesDb) -> Result<()> {
     Ok(())
 }
 
-/// Helper for upgrade. Intended use:
+/// Helper for migration - pre-dates MigrationLogic, hence it has slightly strange wiring.
+/// Intended use:
 ///
 /// ```rust,ignore
-/// migration(db, 2, 3, &[stuff, to, migrate, version2, to, version3], || Ok(()))?;
-/// migration(db, 3, 4, &[stuff, to, migrate, version3, to, version4], || Ok(()))?;
-/// migration(db, 4, 5, &[stuff, to, migrate, version4, to, version5], || Ok(()))?;
-/// assert_eq!(get_current_schema_version(), 5);
+/// migration(db, cur_ver, 2, &[stuff, to, migrate, version2, to, version3], || Ok(()))?;
+/// migration(db, cur_ver, 3, &[stuff, to, migrate, version3, to, version4], || Ok(()))?;
+/// migration(db, cur_ver, 4, &[stuff, to, migrate, version4, to, version5], || Ok(()))?;
 /// ```
 ///
 /// The callback parameter is if any extra logic is needed for the migration
 /// (for example, creating bookmark roots). In an ideal world, this would be an
 /// Option, but sadly, that can't typecheck.
-fn migration<F>(db: &PlacesDb, from: i64, to: i64, stmts: &[&str], extra_logic: F) -> Result<()>
+fn migration<F>(
+    db: &Connection,
+    cur_version: u32,
+    ours: u32,
+    stmts: &[&str],
+    extra_logic: F,
+) -> rusqlite::Result<()>
 where
-    F: FnOnce() -> Result<()>,
+    F: FnOnce() -> rusqlite::Result<()>,
 {
-    assert!(
-        to <= VERSION,
-        "Bug: Added migration without updating VERSION"
-    );
-    // In the future maybe we want to avoid calling this
-    let cur_version = get_current_schema_version(db)?;
-    if cur_version == from {
-        log::debug!("Upgrading schema from {} to {}", cur_version, to);
+    if cur_version == ours {
+        log::debug!("Upgrading schema from {} to {}", cur_version, ours);
         for stmt in stmts {
             db.execute_batch(stmt)?;
         }
-        db.execute_batch(&format!("PRAGMA user_version = {};", to))?;
         extra_logic()?;
-    } else {
-        log::debug!(
-            "Not executing places migration of v{} -> v{} on v{}",
-            from,
-            to,
-            cur_version
-        );
     }
     Ok(())
 }
 
-fn upgrade(db: &PlacesDb, from: i64) -> Result<()> {
+pub fn upgrade_from(db: &Connection, from: u32) -> rusqlite::Result<()> {
     log::debug!("Upgrading schema from {} to {}", from, VERSION);
-    if from == VERSION {
-        return Ok(());
-    }
 
-    migration(db, 2, 3, &[CREATE_SHARED_SCHEMA_SQL], || Ok(()))?;
+    migration(db, from, 2, &[CREATE_SHARED_SCHEMA_SQL], || Ok(()))?;
     migration(
         db,
+        from,
         3,
-        4,
         &[
             // Previous versions had an incomplete version of moz_bookmarks.
             "DROP TABLE moz_bookmarks",
             CREATE_SHARED_SCHEMA_SQL,
         ],
-        || create_bookmark_roots(&db.conn()),
+        || create_bookmark_roots(db.conn()),
     )?;
-    migration(db, 4, 5, &[CREATE_SHARED_SCHEMA_SQL], || Ok(()))?;
-    migration(db, 5, 6, &[CREATE_SHARED_SCHEMA_SQL], || Ok(()))?; // new tags tables.
-    migration(db, 6, 7, &[CREATE_SHARED_SCHEMA_SQL], || Ok(()))?; // bookmark syncing.
+    migration(db, from, 4, &[CREATE_SHARED_SCHEMA_SQL], || Ok(()))?;
+    migration(db, from, 5, &[CREATE_SHARED_SCHEMA_SQL], || Ok(()))?; // new tags tables.
+    migration(db, from, 6, &[CREATE_SHARED_SCHEMA_SQL], || Ok(()))?; // bookmark syncing.
     migration(
         db,
+        from,
         7,
-        8,
         &[
             // Changing `moz_bookmarks_synced_structure` to store multiple
             // parents, so we need to re-download all synced bookmarks.
@@ -204,8 +171,8 @@ fn upgrade(db: &PlacesDb, from: i64) -> Result<()> {
     )?;
     migration(
         db,
+        from,
         8,
-        9,
         &[
             // Bump change counter of New() items due to bookmarks `reset`
             // setting the counter to 0 instead of 1 (#1145)
@@ -220,8 +187,8 @@ fn upgrade(db: &PlacesDb, from: i64) -> Result<()> {
     )?;
     migration(
         db,
+        from,
         9,
-        10,
         &[
             // Add an index for synced bookmark URLs.
             "CREATE INDEX IF NOT EXISTS moz_bookmarks_synced_urls
@@ -231,8 +198,8 @@ fn upgrade(db: &PlacesDb, from: i64) -> Result<()> {
     )?;
     migration(
         db,
+        from,
         10,
-        11,
         &[
             // Add a new table to hold synced and migrated search keywords.
             "CREATE TABLE IF NOT EXISTS moz_keywords(
@@ -257,8 +224,8 @@ fn upgrade(db: &PlacesDb, from: i64) -> Result<()> {
     )?;
     migration(
         db,
+        from,
         11,
-        12,
         &[
             // Greatly helps the multi-join query in frecency.
             "CREATE INDEX IF NOT EXISTS visits_from_type_idx
@@ -268,8 +235,8 @@ fn upgrade(db: &PlacesDb, from: i64) -> Result<()> {
     )?;
     migration(
         db,
+        from,
         12,
-        13,
         &[
             // Reconciled items didn't end up with the correct syncStatus.
             // See #3504
@@ -280,24 +247,20 @@ fn upgrade(db: &PlacesDb, from: i64) -> Result<()> {
         ],
         || Ok(()),
     )?;
-
-    // Add more migrations here...
-
-    if get_current_schema_version(db)? == VERSION {
-        return Ok(());
-    }
-    Err(ErrorKind::DatabaseUpgradeError.into())
-}
-
-pub fn create(db: &PlacesDb) -> Result<()> {
-    log::debug!("Creating schema");
-    db.execute_batch(CREATE_SHARED_SCHEMA_SQL)?;
-    create_bookmark_roots(&db.conn())?;
-    db.execute(
-        &format!("PRAGMA user_version = {version}", version = VERSION),
-        NO_PARAMS,
+    migration(db, from, 13, &[CREATE_SHARED_SCHEMA_SQL], || Ok(()))?; // moz_places_metadata.
+    migration(
+        db,
+        from,
+        14,
+        &[
+            // Changing `moz_places_metadata` structure, drop and recreate it.
+            "DROP TABLE moz_places_metadata",
+            CREATE_SHARED_SCHEMA_SQL,
+        ],
+        || Ok(()),
     )?;
 
+    // Add more migrations here...
     Ok(())
 }
 
@@ -305,8 +268,14 @@ pub fn create(db: &PlacesDb) -> Result<()> {
 mod tests {
     use super::*;
     use crate::db::PlacesDb;
+    use crate::error::Result;
+    use rusqlite::NO_PARAMS;
     use sync_guid::Guid as SyncGuid;
     use url::Url;
+
+    fn get_current_schema_version(db: &PlacesDb) -> rusqlite::Result<u32> {
+        db.query_one::<u32>("PRAGMA user_version")
+    }
 
     #[test]
     fn test_create_schema_twice() {
@@ -316,11 +285,11 @@ mod tests {
     }
 
     fn has_tombstone(conn: &PlacesDb, guid: &SyncGuid) -> bool {
-        let count: Result<Option<u32>> = conn.try_query_row(
+        let count: rusqlite::Result<Option<u32>> = conn.try_query_row(
             "SELECT COUNT(*) from moz_places_tombstones
                      WHERE guid = :guid",
             &[(":guid", guid)],
-            |row| Ok(row.get::<_, u32>(0)?),
+            |row| row.get::<_, u32>(0),
             true,
         );
         count.unwrap().unwrap() == 1
@@ -337,9 +306,7 @@ mod tests {
                 (":guid", &guid),
                 (
                     ":url",
-                    &Url::parse("http://example.com")
-                        .expect("valid url")
-                        .into_string(),
+                    &String::from(Url::parse("http://example.com").expect("valid url")),
                 ),
             ],
         )
@@ -375,9 +342,7 @@ mod tests {
                 (":guid", &guid),
                 (
                     ":url",
-                    &Url::parse("http://example.com")
-                        .expect("valid url")
-                        .into_string(),
+                    &String::from(Url::parse("http://example.com").expect("valid url")),
                 ),
                 (":sync_status", &SyncStatus::Normal),
             ],
@@ -461,24 +426,20 @@ mod tests {
         // create the place.
         let conn = PlacesDb::open_in_memory(ConnectionType::ReadWrite).expect("no memory db");
         let guid1 = SyncGuid::random();
-        let url1 = Url::parse("http://example.com")
-            .expect("valid url")
-            .into_string();
+        let url1 = Url::parse("http://example.com").expect("valid url");
         let guid2 = SyncGuid::random();
-        let url2 = Url::parse("http://example2.com")
-            .expect("valid url")
-            .into_string();
+        let url2 = Url::parse("http://example2.com").expect("valid url");
 
         conn.execute_named_cached(
             "INSERT INTO moz_places (guid, url, url_hash) VALUES (:guid, :url, hash(:url))",
-            &[(":guid", &guid1), (":url", &url1)],
+            &[(":guid", &guid1), (":url", &String::from(url1))],
         )
         .expect("should work");
         let place_id1 = conn.last_insert_rowid();
 
         conn.execute_named_cached(
             "INSERT INTO moz_places (guid, url, url_hash) VALUES (:guid, :url, hash(:url))",
-            &[(":guid", &guid2), (":url", &url2)],
+            &[(":guid", &guid2), (":url", &String::from(url2))],
         )
         .expect("should work");
         let place_id2 = conn.last_insert_rowid();
@@ -521,13 +482,11 @@ mod tests {
         // create the place.
         let conn = PlacesDb::open_in_memory(ConnectionType::ReadWrite).expect("no memory db");
 
-        let url = Url::parse("http://example.com")
-            .expect("valid url")
-            .into_string();
+        let url = Url::parse("http://example.com").expect("valid url");
 
         conn.execute_named_cached(
             "INSERT INTO moz_places (guid, url, url_hash) VALUES ('fake_guid___', :url, hash(:url))",
-            &[(":url", &url)],
+            &[(":url", &String::from(url))],
         )
         .expect("should work");
         let place_id = conn.last_insert_rowid();
@@ -841,12 +800,12 @@ mod tests {
         .expect("should insert into moz_bookmarks_synced");
 
         // Now open a second connection to the same named in-memory database.
-        // This should do our migration.
+        // This should do our migration. It'll migrate to the latest schema version, not the next one.
         let upgrade = PlacesDb::open(path, ConnectionType::ReadWrite, 0, Default::default())
             .expect("Should open second in-memory database with shared cache");
         assert_eq!(
             get_current_schema_version(&upgrade)?,
-            13,
+            15,
             "Should upgrade schema without errors"
         );
         // One with no mirror entry should still be New

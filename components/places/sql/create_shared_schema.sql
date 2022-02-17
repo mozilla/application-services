@@ -237,3 +237,35 @@ CREATE TABLE IF NOT EXISTS moz_keywords(
                      ON DELETE RESTRICT,
     keyword TEXT NOT NULL UNIQUE
 );
+
+----------------------------------------------------------------------
+--------------------History Metadata----------------------------------
+----------------------------------------------------------------------
+
+-- These tables store metadata information related to moz_places.
+-- None of this data is synced for now.
+CREATE TABLE IF NOT EXISTS moz_places_metadata (
+    id INTEGER PRIMARY KEY,
+    created_at INTEGER NOT NULL DEFAULT 0,
+    updated_at INTEGER NOT NULL DEFAULT 0,
+
+    place_id INTEGER NOT NULL,
+
+    total_view_time INTEGER NOT NULL DEFAULT 0, -- a rolling aggregate
+    search_query_id INTEGER,
+    referrer_place_id INTEGER,
+    document_type INTEGER NOT NULL DEFAULT 0, -- 0=generic, 1=media
+    typing_time INTEGER NOT NULL DEFAULT 0,
+    key_presses INTEGER NOT NULL DEFAULT 0,
+
+    FOREIGN KEY(place_id) REFERENCES moz_places(id) ON DELETE CASCADE,
+    FOREIGN KEY(search_query_id) REFERENCES moz_places_metadata_search_queries(id) ON DELETE CASCADE,
+    FOREIGN KEY(referrer_place_id) REFERENCES moz_places(id) ON DELETE CASCADE
+
+    CHECK(place_id != referrer_place_id)
+);
+
+CREATE TABLE IF NOT EXISTS moz_places_metadata_search_queries (
+    id INTEGER PRIMARY KEY,
+    term TEXT NOT NULL UNIQUE
+);

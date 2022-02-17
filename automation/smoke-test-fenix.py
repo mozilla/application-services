@@ -28,7 +28,7 @@ group.add_argument("--remote-ac-repo-url",
 parser.add_argument("--branch",
                     help="Branch of fenix to use.")
 parser.add_argument("--ac-branch",
-                    default="master",
+                    default="main",
                     help="Branch of android-components to use.")
 parser.add_argument("--action",
                     # XXX TODO: it would be very nice to have a "launch the app" helper here as well.
@@ -83,7 +83,7 @@ elif action == "run-tests" or action is None:
     # It's not useful to us to run them all, so just pick the one that sounds like it's
     # least likely to be broken for unrelated reasons.
     step_msg("Running fenix tests")
-    run_cmd_checked(["./gradlew", "app:testGeckoBetaDebugUnitTest"], cwd=repo_path)
+    run_cmd_checked(["./gradlew", "app:testNightlyUnitTest"], cwd=repo_path)
     # XXX TODO: I would also like to run the sync integration tests described here:
     #   https://docs.google.com/document/d/1dhxlbGQBA6aJi2Xz-CsJZuGJPRReoL7nfm9cYu4HcZI/
     # However they do not currently pass reliably on my machine.

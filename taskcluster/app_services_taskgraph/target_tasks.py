@@ -2,7 +2,6 @@
 # License, v. 2.0. If a copy of the MPL was not distributed with this
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 
-from __future__ import absolute_import, print_function, unicode_literals
 
 from taskgraph.target_tasks import _target_task, filter_for_tasks_for
 
@@ -20,7 +19,7 @@ def target_tasks_default(full_task_graph, parameters, graph_config):
         return filter_for_tasks_for(task, parameters) \
             and task.attributes.get("run-on-pr-type", "all") in ("full-ci", "all")
 
-    return [l for l, task in full_task_graph.tasks.iteritems() if filter(task)]
+    return [l for l, task in full_task_graph.tasks.items() if filter(task)]
 
 
 @_target_task('pr-normal')
@@ -31,4 +30,4 @@ def target_tasks_default(full_task_graph, parameters, graph_config):
         return filter_for_tasks_for(task, parameters) \
                 and task.attributes.get("run-on-pr-type", "all") in ("normal-ci", "all")
 
-    return [l for l, task in full_task_graph.tasks.iteritems() if filter(task)]
+    return [l for l, task in full_task_graph.tasks.items() if filter(task)]

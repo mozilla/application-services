@@ -11,12 +11,13 @@ use std::os::raw::c_char;
 pub use autofill;
 pub use crashtest;
 pub use fxa_client;
-pub use logins_ffi;
+pub use logins;
 pub use nimbus;
-pub use places_ffi;
-pub use push_ffi;
+pub use places;
+pub use push;
 pub use rc_log_ffi;
-pub use sync_manager_ffi;
+pub use sync_manager;
+pub use tabs;
 pub use viaduct;
 
 /// In order to support the use case of consumers who don't know about megazords

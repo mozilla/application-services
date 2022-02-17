@@ -3,6 +3,7 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
 pub mod attached_clients;
+use super::scopes;
 use super::{
     error::*,
     http_client::{
@@ -16,7 +17,6 @@ use jwcrypto::{EncryptionAlgorithm, EncryptionParameters};
 use rate_limiter::RateLimiter;
 use rc_crypto::digest;
 use serde_derive::*;
-use std::convert::{TryFrom, TryInto};
 use std::{
     collections::{HashMap, HashSet},
     iter::FromIterator,
@@ -65,7 +65,7 @@ impl FirefoxAccount {
             None => match self.state.session_token {
                 Some(ref session_token) => self.client.create_access_token_using_session_token(
                     &self.state.config,
-                    &session_token,
+                    session_token,
                     &[scope],
                 )?,
                 None => return Err(ErrorKind::NoCachedToken(scope.to_string()).into()),
@@ -270,7 +270,7 @@ impl FirefoxAccount {
         self.clear_access_token_cache();
         let state = util::random_base64_url_string(16)?;
         let code_verifier = util::random_base64_url_string(43)?;
-        let code_challenge = digest::digest(&digest::SHA256, &code_verifier.as_bytes())?;
+        let code_challenge = digest::digest(&digest::SHA256, code_verifier.as_bytes())?;
         let code_challenge = base64::encode_config(&code_challenge, base64::URL_SAFE_NO_PAD);
         let scoped_keys_flow = ScopedKeysFlow::with_random_key()?;
         let jwk = scoped_keys_flow.get_public_key_jwk()?;
@@ -327,6 +327,7 @@ impl FirefoxAccount {
         resp: OAuthTokenResponse,
         scoped_keys_flow: Option<ScopedKeysFlow>,
     ) -> Result<()> {
+        let sync_scope_granted = resp.scope.split(' ').any(|s| s == scopes::OLD_SYNC);
         if let Some(ref jwe) = resp.keys_jwe {
             let scoped_keys_flow = scoped_keys_flow.ok_or({
                 ErrorKind::UnrecoverableServerError("Got a JWE but have no JWK to decrypt it.")
@@ -334,10 +335,19 @@ impl FirefoxAccount {
             let decrypted_keys = scoped_keys_flow.decrypt_keys_jwe(jwe)?;
             let scoped_keys: serde_json::Map<String, serde_json::Value> =
                 serde_json::from_str(&decrypted_keys)?;
+            if sync_scope_granted && !scoped_keys.contains_key(scopes::OLD_SYNC) {
+                log::error!(
+                    "Sync scope granted, but no sync scoped key (scope granted: {}, key scopes: {})",
+                    resp.scope,
+                    scoped_keys.keys().map(|s| s.as_ref()).collect::<Vec<&str>>().join(", ")
+                );
+            }
             for (scope, key) in scoped_keys {
                 let scoped_key: ScopedKey = serde_json::from_value(key)?;
                 self.state.scoped_keys.insert(scope, scoped_key);
             }
+        } else if sync_scope_granted {
+            log::error!("Sync scope granted, but keys_jwe is None");
         }
 
         // If the client requested a 'tokens/session' OAuth scope then as part of the code
@@ -419,7 +429,7 @@ impl FirefoxAccount {
         let scopes: Vec<&str> = old_refresh_token.scopes.iter().map(AsRef::as_ref).collect();
         let resp = self.client.create_refresh_token_using_session_token(
             &self.state.config,
-            &session_token,
+            session_token,
             &scopes,
         )?;
         let new_refresh_token = resp
@@ -721,7 +731,7 @@ mod tests {
         );
         let mut fxa = FirefoxAccount::with_config(config);
         let url = fxa
-            .begin_oauth_flow(&SCOPES, "test_webchannel_context_url", None)
+            .begin_oauth_flow(SCOPES, "test_webchannel_context_url", None)
             .unwrap();
         let url = Url::parse(&url).unwrap();
         let query_params: HashMap<_, _> = url.query_pairs().into_owned().collect();
@@ -743,8 +753,8 @@ mod tests {
         let mut fxa = FirefoxAccount::with_config(config);
         let url = fxa
             .begin_pairing_flow(
-                &PAIRING_URL,
-                &SCOPES,
+                PAIRING_URL,
+                SCOPES,
                 "test_webchannel_pairing_context_url",
                 None,
             )
@@ -774,8 +784,8 @@ mod tests {
         let mut fxa = FirefoxAccount::with_config(config);
         let url = fxa
             .begin_pairing_flow(
-                &PAIRING_URL,
-                &SCOPES,
+                PAIRING_URL,
+                SCOPES,
                 "test_pairing_flow_url",
                 Some(metrics_params),
             )
@@ -848,7 +858,7 @@ mod tests {
         let config = Config::stable_dev("12345678", "https://foo.bar");
         let mut fxa = FirefoxAccount::with_config(config);
         let url = fxa.begin_pairing_flow(
-            &PAIRING_URL,
+            PAIRING_URL,
             &["https://identity.mozilla.com/apps/oldsync"],
             "test_pairiong_flow_origin_mismatch",
             None,
@@ -888,7 +898,7 @@ mod tests {
         fxa.set_client(Arc::new(client));
 
         let auth_status = fxa.check_authorization_status().unwrap();
-        assert_eq!(auth_status.active, true);
+        assert!(auth_status.active);
     }
 
     #[test]

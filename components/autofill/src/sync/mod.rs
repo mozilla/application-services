@@ -65,7 +65,7 @@ pub trait ProcessIncomingRecordImpl {
         &self,
         tx: &Transaction<'_>,
         incoming: &Self::Record,
-    ) -> Result<Option<(Guid, Self::Record)>>;
+    ) -> Result<Option<Self::Record>>;
 
     fn update_local_record(
         &self,
@@ -294,7 +294,7 @@ fn plan_incoming<T: std::fmt::Debug + SyncRecord>(
                     //     metadata changes.
                     let metadata = incoming_record.metadata_mut();
                     metadata.merge(
-                        &local_record.metadata(),
+                        local_record.metadata(),
                         mirror.as_ref().map(|m| m.metadata()),
                     );
                     // a micro-optimization here would be to `::DoNothing` if
@@ -332,17 +332,17 @@ fn plan_incoming<T: std::fmt::Debug + SyncRecord>(
                         None => IncomingAction::Insert {
                             record: incoming_record,
                         },
-                        Some((old_guid, local_dupe)) => {
+                        Some(local_dupe) => {
                             assert_ne!(incoming_record.id(), local_dupe.id());
                             // The existing item is identical except for the metadata, so
                             // we still merge that metadata.
                             let metadata = incoming_record.metadata_mut();
                             metadata.merge(
-                                &local_dupe.metadata(),
+                                local_dupe.metadata(),
                                 mirror.as_ref().map(|m| m.metadata()),
                             );
                             IncomingAction::UpdateLocalGuid {
-                                old_guid,
+                                old_guid: local_dupe.id().clone(),
                                 record: incoming_record,
                             }
                         }

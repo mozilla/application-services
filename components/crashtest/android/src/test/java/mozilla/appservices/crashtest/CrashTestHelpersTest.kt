@@ -25,7 +25,7 @@ class CrashTestHelpersTest {
     fun testErrorsAreThrown() {
         try {
             triggerRustError()
-        } catch (e: CrashTestErrorException) {
+        } catch (e: CrashTestException) {
             assertEquals(e.message, "Error! From The Rust Code.")
         }
     }

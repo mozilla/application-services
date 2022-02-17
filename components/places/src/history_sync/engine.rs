@@ -2,18 +2,16 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-use crate::api::places_api::{ConnectionType, GLOBAL_STATE_META_KEY};
-use crate::db::PlacesDb;
+use crate::db::{PlacesDb, SharedPlacesDb};
 use crate::error::*;
 use crate::storage::history::{delete_everything, history_sync::reset};
-use rusqlite::types::{FromSql, ToSql};
-use rusqlite::Connection;
-use sql_support::SqlInterruptScope;
-use std::ops::Deref;
+use crate::storage::{get_meta, put_meta};
+use interrupt_support::SqlInterruptScope;
+use std::sync::Arc;
 use sync15::telemetry;
 use sync15::{
-    extract_v1_state, CollSyncIds, CollectionRequest, EngineSyncAssociation, IncomingChangeset,
-    OutgoingChangeset, ServerTimestamp, SyncEngine,
+    CollSyncIds, CollectionRequest, EngineSyncAssociation, IncomingChangeset, OutgoingChangeset,
+    ServerTimestamp, SyncEngine,
 };
 use sync_guid::Guid;
 
@@ -26,103 +24,62 @@ pub const LAST_SYNC_META_KEY: &str = "history_last_sync_time";
 pub const GLOBAL_SYNCID_META_KEY: &str = "history_global_sync_id";
 pub const COLLECTION_SYNCID_META_KEY: &str = "history_sync_id";
 
-// A HistoryEngine is short-lived and constructed each sync by something which
-// owns the connection and ClientInfo.
-pub struct HistoryEngine<'a> {
-    pub db: &'a PlacesDb,
-    interruptee: &'a SqlInterruptScope,
+fn do_apply_incoming(
+    db: &PlacesDb,
+    scope: &SqlInterruptScope,
+    inbound: IncomingChangeset,
+    telem: &mut telemetry::Engine,
+) -> Result<OutgoingChangeset> {
+    let timestamp = inbound.timestamp;
+    let outgoing = {
+        let mut incoming_telemetry = telemetry::EngineIncoming::new();
+        let result = apply_plan(db, inbound, &mut incoming_telemetry, scope);
+        telem.incoming(incoming_telemetry);
+        result
+    }?;
+    // write the timestamp now, so if we are interrupted creating outgoing
+    // changesets we don't need to re-reconcile what we just did.
+    put_meta(db, LAST_SYNC_META_KEY, &(timestamp.as_millis() as i64))?;
+    Ok(outgoing)
 }
 
-impl<'a> HistoryEngine<'a> {
-    pub fn new(db: &'a PlacesDb, interruptee: &'a SqlInterruptScope) -> Self {
-        assert_eq!(db.conn_type(), ConnectionType::Sync);
-        Self { db, interruptee }
-    }
+fn do_sync_finished(
+    db: &PlacesDb,
+    new_timestamp: ServerTimestamp,
+    records_synced: Vec<Guid>,
+) -> Result<()> {
+    log::info!(
+        "sync completed after uploading {} records",
+        records_synced.len()
+    );
+    finish_plan(db)?;
 
-    fn put_meta(&self, key: &str, value: &dyn ToSql) -> Result<()> {
-        crate::storage::put_meta(self.db, key, value)
-    }
+    // write timestamp to reflect what we just wrote.
+    put_meta(db, LAST_SYNC_META_KEY, &(new_timestamp.as_millis() as i64))?;
 
-    fn get_meta<T: FromSql>(&self, key: &str) -> Result<Option<T>> {
-        crate::storage::get_meta(self.db, key)
-    }
+    db.pragma_update(None, "wal_checkpoint", &"PASSIVE")?;
 
-    fn do_apply_incoming(
-        &self,
-        inbound: IncomingChangeset,
-        telem: &mut telemetry::Engine,
-    ) -> Result<OutgoingChangeset> {
-        let timestamp = inbound.timestamp;
-        let outgoing = {
-            let mut incoming_telemetry = telemetry::EngineIncoming::new();
-            let result = apply_plan(&self.db, inbound, &mut incoming_telemetry, self.interruptee);
-            telem.incoming(incoming_telemetry);
-            result
-        }?;
-        // write the timestamp now, so if we are interrupted creating outgoing
-        // changesets we don't need to re-reconcile what we just did.
-        self.put_meta(LAST_SYNC_META_KEY, &(timestamp.as_millis() as i64))?;
-        Ok(outgoing)
-    }
+    Ok(())
+}
 
-    fn do_sync_finished(
-        &self,
-        new_timestamp: ServerTimestamp,
-        records_synced: Vec<Guid>,
-    ) -> Result<()> {
-        log::info!(
-            "sync completed after uploading {} records",
-            records_synced.len()
-        );
-        finish_plan(&self.db)?;
+// Short-lived struct that's constructed each sync
+pub struct HistorySyncEngine {
+    pub db: Arc<SharedPlacesDb>,
+    // Public because we use it in the [PlacesApi] sync methods.  We can probably make this private
+    // once all syncing goes through the sync manager.
+    pub(crate) scope: SqlInterruptScope,
+}
 
-        // write timestamp to reflect what we just wrote.
-        self.put_meta(LAST_SYNC_META_KEY, &(new_timestamp.as_millis() as i64))?;
-
-        self.db.pragma_update(None, "wal_checkpoint", &"PASSIVE")?;
-
-        Ok(())
-    }
-
-    /// A utility we can kill by the end of 2019 ;) Or even mid-2019?
-    /// Note that this has no `self` - it just takes a connection. This is to
-    /// ease the migration process, because this needs to be executed before
-    /// bookmarks sync, otherwise the shared, persisted global state may be
-    /// written by bookmarks before we've had a chance to migrate `declined`
-    /// over.
-    pub fn migrate_v1_global_state(db: &PlacesDb) -> Result<()> {
-        if let Some(old_state) = crate::storage::get_meta(db, "history_global_state")? {
-            log::info!("there's old global state - migrating");
-            let tx = db.begin_transaction()?;
-            let (new_sync_ids, new_global_state) = extract_v1_state(old_state, "history");
-            if let Some(sync_ids) = new_sync_ids {
-                crate::storage::put_meta(db, GLOBAL_SYNCID_META_KEY, &sync_ids.global)?;
-                crate::storage::put_meta(db, COLLECTION_SYNCID_META_KEY, &sync_ids.coll)?;
-                log::info!("migrated the sync IDs");
-            }
-            if let Some(new_global_state) = new_global_state {
-                // The global state is truly global, but both "history" and "places"
-                // are going to write it - which is why it's important this
-                // function is run before bookmarks is synced.
-                crate::storage::put_meta(db, GLOBAL_STATE_META_KEY, &new_global_state)?;
-                log::info!("migrated the global state");
-            }
-            crate::storage::delete_meta(db, "history_global_state")?;
-            tx.commit()?;
-        }
-        Ok(())
+impl HistorySyncEngine {
+    pub fn new(db: Arc<SharedPlacesDb>) -> Result<Self> {
+        Ok(Self {
+            scope: db.begin_interrupt_scope()?,
+            db,
+        })
     }
 }
 
-impl<'a> Deref for HistoryEngine<'a> {
-    type Target = Connection;
-    #[inline]
-    fn deref(&self) -> &Connection {
-        &self.db
-    }
-}
-
-impl<'a> SyncEngine for HistoryEngine<'a> {
+impl SyncEngine for HistorySyncEngine {
     fn collection_name(&self) -> std::borrow::Cow<'static, str> {
         "history".into()
     }
@@ -134,7 +91,8 @@ impl<'a> SyncEngine for HistoryEngine<'a> {
     ) -> anyhow::Result<OutgoingChangeset> {
         assert_eq!(inbound.len(), 1, "history only requests one item");
         let inbound = inbound.into_iter().next().unwrap();
-        Ok(self.do_apply_incoming(inbound, telem)?)
+        let conn = self.db.lock();
+        Ok(do_apply_incoming(&conn, &self.scope, inbound, telem)?)
     }
 
     fn sync_finished(
@@ -142,7 +100,7 @@ impl<'a> SyncEngine for HistoryEngine<'a> {
         new_timestamp: ServerTimestamp,
         records_synced: Vec<Guid>,
     ) -> anyhow::Result<()> {
-        self.do_sync_finished(new_timestamp, records_synced)?;
+        do_sync_finished(&self.db.lock(), new_timestamp, records_synced)?;
         Ok(())
     }
 
@@ -150,10 +108,9 @@ impl<'a> SyncEngine for HistoryEngine<'a> {
         &self,
         server_timestamp: ServerTimestamp,
     ) -> anyhow::Result<Vec<CollectionRequest>> {
-        let since = ServerTimestamp(
-            self.get_meta::<i64>(LAST_SYNC_META_KEY)?
-                .unwrap_or_default(),
-        );
+        let conn = self.db.lock();
+        let since =
+            ServerTimestamp(get_meta::<i64>(&conn, LAST_SYNC_META_KEY)?.unwrap_or_default());
         Ok(if since == server_timestamp {
             vec![]
         } else {
@@ -165,8 +122,9 @@ impl<'a> SyncEngine for HistoryEngine<'a> {
     }
 
     fn get_sync_assoc(&self) -> anyhow::Result<EngineSyncAssociation> {
-        let global = self.get_meta(GLOBAL_SYNCID_META_KEY)?;
-        let coll = self.get_meta(COLLECTION_SYNCID_META_KEY)?;
+        let conn = self.db.lock();
+        let global = get_meta(&conn, GLOBAL_SYNCID_META_KEY)?;
+        let coll = get_meta(&conn, COLLECTION_SYNCID_META_KEY)?;
         Ok(if let (Some(global), Some(coll)) = (global, coll) {
             EngineSyncAssociation::Connected(CollSyncIds { global, coll })
         } else {
@@ -175,12 +133,12 @@ impl<'a> SyncEngine for HistoryEngine<'a> {
     }
 
     fn reset(&self, assoc: &EngineSyncAssociation) -> anyhow::Result<()> {
-        reset(&self.db, assoc)?;
+        reset(&self.db.lock(), assoc)?;
         Ok(())
     }
 
     fn wipe(&self) -> anyhow::Result<()> {
-        delete_everything(&self.db)?;
+        delete_everything(&self.db.lock())?;
         Ok(())
     }
 }

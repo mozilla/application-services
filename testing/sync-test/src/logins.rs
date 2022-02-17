@@ -4,16 +4,16 @@ http://creativecommons.org/publicdomain/zero/1.0/ */
 use crate::auth::TestClient;
 use crate::testing::TestGroup;
 use anyhow::Result;
-use logins::{Login, PasswordStore, Result as LoginResult};
+use logins::{Login, LoginStore, Result as LoginResult};
 // helpers...
 
 // Doesn't check metadata fields
 pub fn assert_logins_equiv(a: &Login, b: &Login) {
     assert_eq!(b.guid, a.guid, "id mismatch");
-    assert_eq!(b.hostname, a.hostname, "hostname mismatch");
+    assert_eq!(b.origin, a.origin, "origin mismatch");
     assert_eq!(
-        b.form_submit_url, a.form_submit_url,
-        "form_submit_url mismatch"
+        b.form_action_origin, a.form_action_origin,
+        "form_action_origin mismatch"
     );
     assert_eq!(b.http_realm, a.http_realm, "http_realm mismatch");
     assert_eq!(b.username, a.username, "username mismatch");
@@ -28,19 +28,19 @@ pub fn assert_logins_equiv(a: &Login, b: &Login) {
     );
 }
 
-pub fn times_used_for_id(s: &PasswordStore, id: &str) -> i64 {
+pub fn times_used_for_id(s: &LoginStore, id: &str) -> i64 {
     s.get(id)
         .expect("get() failed")
         .expect("Login doesn't exist")
         .times_used
 }
 
-pub fn add_login(s: &PasswordStore, l: Login) -> LoginResult<Login> {
+pub fn add_login(s: &LoginStore, l: Login) -> LoginResult<Login> {
     let id = s.add(l)?;
     Ok(s.get(&id)?.expect("Login we just added to exist"))
 }
 
-pub fn verify_login(s: &PasswordStore, l: &Login) {
+pub fn verify_login(s: &LoginStore, l: &Login) {
     let equivalent = s
         .get(&l.guid)
         .expect("get() to succeed")
@@ -48,7 +48,7 @@ pub fn verify_login(s: &PasswordStore, l: &Login) {
     assert_logins_equiv(&equivalent, l);
 }
 
-pub fn verify_missing_login(s: &PasswordStore, id: &str) {
+pub fn verify_missing_login(s: &LoginStore, id: &str) {
     assert!(
         s.get(id).expect("get() to succeed").is_none(),
         "Login {} should not exist",
@@ -57,7 +57,7 @@ pub fn verify_missing_login(s: &PasswordStore, id: &str) {
 }
 
 pub fn update_login<F: FnMut(&mut Login)>(
-    s: &PasswordStore,
+    s: &LoginStore,
     id: &str,
     mut callback: F,
 ) -> LoginResult<Login> {
@@ -67,7 +67,7 @@ pub fn update_login<F: FnMut(&mut Login)>(
     Ok(s.get(id)?.expect("Just updated this"))
 }
 
-pub fn touch_login(s: &PasswordStore, id: &str, times: usize) -> LoginResult<Login> {
+pub fn touch_login(s: &LoginStore, id: &str, times: usize) -> LoginResult<Login> {
     for _ in 0..times {
         s.touch(&id)?;
     }
@@ -92,8 +92,8 @@ fn test_login_general(c0: &mut TestClient, c1: &mut TestClient) {
         &c0.logins_store,
         Login {
             guid: l0id.into(),
-            hostname: "http://www.example.com".into(),
-            form_submit_url: Some("http://login.example.com".into()),
+            origin: "http://www.example.com".into(),
+            form_action_origin: Some("http://login.example.com".into()),
             username: "cool_username".into(),
             password: "hunter2".into(),
             username_field: "uname".into(),
@@ -110,7 +110,7 @@ fn test_login_general(c0: &mut TestClient, c1: &mut TestClient) {
         &c0.logins_store,
         Login {
             guid: l1id.into(),
-            hostname: "http://www.example.com".into(),
+            origin: "http://www.example.com".into(),
             http_realm: Some("Login".into()),
             username: "cool_username".into(),
             password: "sekret".into(),
@@ -199,8 +199,8 @@ fn test_login_deletes(c0: &mut TestClient, c1: &mut TestClient) {
         &c0.logins_store,
         Login {
             guid: l0id.into(),
-            hostname: "http://www.example.com".into(),
-            form_submit_url: Some("http://login.example.com".into()),
+            origin: "http://www.example.com".into(),
+            form_action_origin: Some("http://login.example.com".into()),
             username: "cool_username".into(),
             password: "hunter2".into(),
             username_field: "uname".into(),
@@ -214,7 +214,7 @@ fn test_login_deletes(c0: &mut TestClient, c1: &mut TestClient) {
         &c0.logins_store,
         Login {
             guid: l1id.into(),
-            hostname: "http://www.example.com".into(),
+            origin: "http://www.example.com".into(),
             http_realm: Some("Login".into()),
             username: "cool_username".into(),
             password: "sekret".into(),
@@ -227,7 +227,7 @@ fn test_login_deletes(c0: &mut TestClient, c1: &mut TestClient) {
         &c0.logins_store,
         Login {
             guid: l2id.into(),
-            hostname: "https://www.example.org".into(),
+            origin: "https://www.example.org".into(),
             http_realm: Some("Test".into()),
             username: "cool_username100".into(),
             password: "123454321".into(),
@@ -240,7 +240,7 @@ fn test_login_deletes(c0: &mut TestClient, c1: &mut TestClient) {
         &c0.logins_store,
         Login {
             guid: l3id.into(),
-            hostname: "https://www.example.net".into(),
+            origin: "https://www.example.net".into(),
             http_realm: Some("Http Realm".into()),
             username: "cool_username99".into(),
             password: "aaaaa".into(),

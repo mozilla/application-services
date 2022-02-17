@@ -2,7 +2,7 @@
 name = "megazord"
 version = "0.1.0"
 authors = ["application-services <application-services@mozilla.com>"]
-edition = "2018"
+edition = "2021"
 license = "MPL-2.0"
 
 [lib]
@@ -10,12 +10,13 @@ crate-type = ["cdylib"]
 
 [dependencies]
 fxa-client = { path = "../../components/fxa-client" }
-logins_ffi = { path = "../../components/logins/ffi" }
-places-ffi = { path = "../../components/places/ffi" }
-push-ffi = { path = "../../components/push/ffi" }
+logins = { path = "../../components/logins" }
+tabs = { path = "../../components/tabs/" }
+sync_manager = { path = "../../components/sync_manager/" }
+places = { path = "../../components/places" }
+push = { path = "../../components/push" }
 rc_log_ffi = { path = "../../components/rc_log" }
 viaduct = { path = "../../components/viaduct" }
-sync_manager_ffi = { path = "../../components/sync_manager/ffi" }
 nimbus-sdk = { path = "../../components/nimbus" }
 autofill = { path = "../../components/autofill" }
 crashtest = { path = "../../components/crashtest" }

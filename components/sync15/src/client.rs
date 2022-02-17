@@ -36,11 +36,11 @@ pub enum Sync15ClientResponse<T> {
 fn parse_seconds(seconds_str: &str) -> Option<u32> {
     let secs = seconds_str.parse::<f64>().ok()?.ceil();
     // Note: u32 doesn't impl TryFrom<f64> :(
-    if !secs.is_finite() || secs < 0.0 || secs >= f64::from(u32::max_value()) {
-        Some(secs as u32)
-    } else {
+    if !secs.is_finite() || secs < 0.0 || secs > f64::from(u32::max_value()) {
         log::warn!("invalid backoff value: {}", secs);
         None
+    } else {
+        Some(secs as u32)
     }
 }
 
@@ -448,5 +448,20 @@ mod test {
         fn ensure_send<T: Send>() {}
         // Compile will fail if not send.
         ensure_send::<Sync15StorageClient>();
+    }
+
+    #[test]
+    fn test_parse_seconds() {
+        assert_eq!(parse_seconds("1"), Some(1));
+        assert_eq!(parse_seconds("1.4"), Some(2));
+        assert_eq!(parse_seconds("1.5"), Some(2));
+        assert_eq!(parse_seconds("3600.0"), Some(3600));
+        assert_eq!(parse_seconds("3600"), Some(3600));
+        assert_eq!(parse_seconds("-1"), None);
+        assert_eq!(parse_seconds("inf"), None);
+        assert_eq!(parse_seconds("-inf"), None);
+        assert_eq!(parse_seconds("one-thousand"), None);
+        assert_eq!(parse_seconds("4294967295"), Some(4294967295));
+        assert_eq!(parse_seconds("4294967296"), None);
     }
 }

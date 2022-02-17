@@ -3,6 +3,18 @@ version: 2.1
 # ⚠️ If you add, rename or delete a job here, please also update .mergify.yml! ⚠️
 
 commands:
+  # Our policy for updating rust versions is at https://github.com/mozilla/application-services/tree/main/docs/rust-versions.md
+  # See also rust-toolchain in the root of this repo, which is used to specify our official target version.
+  setup-rust-target-version:
+    steps:
+      # So long as this is executed after the checkout it will use the version specified in rust-toolchain.yaml
+      - run: rustup update
+  # Our minimum supported rust version is specified here.
+  setup-rust-min-version:
+    steps:
+      # https://searchfox.org/mozilla-central/source/python/mozboot/mozboot/util.py#20
+      - run: rustup override set 1.57.0
+
   full-checkout:
     steps:
       - checkout
@@ -14,7 +26,7 @@ commands:
       - run:
           name: Install sccache
           command: |
-            SCCACHE_VERSION=0.2.13
+            SCCACHE_VERSION=v0.2.15
             if [ "$(uname)" == "Darwin" ]; then
               SCCACHE="sccache-${SCCACHE_VERSION}-x86_64-apple-darwin"
             else
@@ -61,21 +73,29 @@ commands:
           name: Install Rust
           command: |
             RUSTUP_PLATFORM=x86_64-apple-darwin
-            RUSTUP_VERSION=1.23.1
-            RUSTUP_SHA256=39101feb178a7e3e4443b09b36338e794a9e00385e5f44a2f7789aefb91354a9
+            RUSTUP_VERSION=1.24.1
+            RUSTUP_SHA256=d53e8000c8663e1704a2071f7042be917bc90cbc89c11e11c5dfdcb35b84c00e
             curl -sfSL --retry 5 --retry-delay 10 -O "https://static.rust-lang.org/rustup/archive/${RUSTUP_VERSION}/${RUSTUP_PLATFORM}/rustup-init"
             echo "${RUSTUP_SHA256} *rustup-init" | shasum -a 256 -c -
             chmod +x rustup-init
             ./rustup-init -y --no-modify-path
             rm rustup-init
             echo 'export PATH="$HOME/.cargo/bin:$PATH"' >> $BASH_ENV
-  setup-rust-toolchain:
+  install-ghr:
     steps:
       - run:
-          name: Set up Rust toolchain
+          name: Install GHR
           command: |
-            rustup update
-            rustc --version
+            GHR=ghr_v0.12.0_darwin_amd64
+            GHR_SHA256=c868ef9fc5dd8c8a397b74d84051d83693c42dd59041cb17b66f90f563477249
+            curl -sfSL --retry 5 --retry-delay 10 -O "https://github.com/tcnksm/ghr/releases/download/v0.12.0/${GHR}.zip"
+            echo "${GHR_SHA256} *${GHR}.zip" | shasum -a 256 -c -
+            unzip "${GHR}.zip"
+
+            echo "export PATH=$PATH:$(pwd)/$GHR" >> $BASH_ENV
+      # Run in a different shell to source $BASH_ENV
+      - run: |
+          ghr --version
   build-libs:
     parameters:
       platform:
@@ -97,7 +117,8 @@ commands:
             - libs/<<parameters.platform>>
   build-desktop-libs:
     steps:
-      - run: sudo apt-get install tcl
+      - run: sudo apt-get update
+      - run: sudo apt-get install python tcl
       - run:
           name: Install NSS build system dependencies
           command: sudo apt-get install ninja-build gyp zlib1g-dev
@@ -117,27 +138,10 @@ commands:
             popd
       - build-libs:
           platform: ios
-  carthage-bootstrap:
-    steps:
-      - run:
-          name: Determine XCode version
-          command: echo "$(xcodebuild -version)" >| xcode_version
-      - restore_cache:
-          name: Restore Carthage/ cache
-          key: carthage-dir-cache-{{ arch }}-{{ checksum "xcode_version" }}-{{ checksum "Cartfile.resolved" }}
-      - run:
-          name: Bootstrap Carthage dependencies
-          command: XCODE_XCCONFIG_FILE=`pwd`/xcconfig/xcode-12-fix-carthage-lipo.xcconfig carthage bootstrap --platform iOS --cache-builds
-      - save_cache:
-          name: Save Carthage/ cache
-          key: carthage-dir-cache-{{ arch }}-{{ checksum "xcode_version" }}-{{ checksum "Cartfile.resolved" }}
-          paths:
-            - Carthage
   test-setup:
     steps:
-      - full-checkout
       - build-desktop-libs
-      - setup-rust-toolchain
+      - setup-rust-target-version
       - setup-sccache
       # clipboard crate depends on some x11 libs.
       - run: sudo apt-get install libxcb-shape0-dev libxcb-xfixes0-dev
@@ -146,62 +150,39 @@ commands:
           echo 'export NSS_DIR=$(pwd)/libs/desktop/linux-x86-64/nss' >> $BASH_ENV
           echo 'export SQLCIPHER_LIB_DIR=$(pwd)/libs/desktop/linux-x86-64/sqlcipher/lib' >> $BASH_ENV
           echo 'export SQLCIPHER_INCLUDE_DIR=$(pwd)/libs/desktop/linux-x86-64/sqlcipher/include' >> $BASH_ENV
+          echo 'export RUST_LOG=trace' >> $BASH_ENV
       - run:
           name: Verify the build environment
           command: ./libs/verify-desktop-environment.sh
-  rust-tests:
-    parameters:
-      rust-version:
-        type: string
-        default: ""
+  run-tests:
     steps:
-      - test-setup
-      # Test with 1. only default features on, 2. all features on, 3. no features on.
-      # This is not perfect (really we want the cartesian product), but is good enough in practice.
-      - run:
-          name: Test (default features, no features, and all features)
-          command: RUSTUP_TOOLCHAIN="<<parameters.rust-version>>" automation/all_rust_tests.sh --verbose
-  dependency-checks:
-    steps:
-      - run:
-          name: Check for security vulnerabilities in dependencies
-          command: |
-            cargo install cargo-audit
-            # Explanation for ignored issues:
-            #  * RUSTSEC-2021-0019:  Soundness issues in `xcb`, a clipboard library we only use for examples.
-            #                        There is currently no fixed version available.
-            cargo audit --ignore RUSTSEC-2021-0019
-      - run:
-          name: Check for any unrecorded changes in our dependency trees
-          command: |
-            pip3 install --require-hashes -r ./tools/requirements.txt
-            cargo metadata --locked > /dev/null
-            python3 ./tools/dependency_summary.py --check ./DEPENDENCIES.md
-            python3 ./tools/dependency_summary.py --all-ios-targets --package megazord_ios --check megazords/ios/DEPENDENCIES.md
-            python3 ./tools/dependency_summary.py --all-android-targets --package megazord --check megazords/full/DEPENDENCIES.md
-            python3 ./tools/dependency_summary.py --all-android-targets --package megazord --format pom --check megazords/full/android/dependency-licenses.xml
-  bench-all:
-    steps:
-      - test-setup
-      - run:
-          name: Build and Run Benchmarks
-          command: cargo bench --all
+      - run: automation/tests.py rust-tests
+      - run: automation/tests.py nss-bindings
   restore-sccache-cache:
     steps:
       - restore_cache:
           name: Restore sccache cache
-          key: sccache-cache-stable-{{ arch }}-{{ .Environment.CIRCLE_JOB }}
+          keys: 
+          # We have multiple keys to increase the chance of a cache hit
+          # in case the Cargo.lock is updated, we still want to retrieve
+          # some cache
+            - sccache-cache-stable-{{ arch }}-{{ .Environment.CIRCLE_JOB }}-{{ checksum "Cargo.lock" }}
+            - sccache-cache-stable-{{ arch }}-{{ .Environment.CIRCLE_JOB }}
+            - sccache-cache-stable-{{ arch }}
+
   save-sccache-cache:
+    parameters:
+      path:
+        type: string
+        default: "~/.cache/sccache"
     steps:
       - save_cache:
           name: Save sccache cache
-          # We use {{ epoch }} to always upload a fresh cache:
-          # Of course, restore_cache will not find this exact key,
-          # but it will fall back to the closest key (aka the most recent).
-          # See https://discuss.circleci.com/t/add-mechanism-to-update-existing-cache-key/9014/13
-          key: sccache-cache-stable-{{ arch }}-{{ .Environment.CIRCLE_JOB }}-{{ epoch }}
+          # We only upload a new cache if our Cargo.lock changed
+          # otherwise, we update the exact same key
+          key: sccache-cache-stable-{{ arch }}-{{ .Environment.CIRCLE_JOB }}-{{ checksum "Cargo.lock" }}
           paths:
-            - "~/.cache/sccache"
+            - <<parameters.path>>
       - sccache-stats-and-logs
   sccache-stats-and-logs:
     steps:
@@ -209,41 +190,61 @@ commands:
       - store_artifacts:
           path: /tmp/sccache.log
           destination: logs/sccache.log
+  setup-ios-environment:
+    steps:
+      - run:
+          name: Toggle brew auto-updates
+          command: |
+            if [ -z "${CIRCLE_TAG}" ]; then
+              # On non-release builds do not update brew (takes ages).
+              echo 'export HOMEBREW_NO_AUTO_UPDATE=1' >> $BASH_ENV
+            fi
+      - build-ios-libs
+      - run:
+          name: Verify the build environment
+          command: ./libs/verify-ios-ci-environment.sh
+
+executors:
+  # Where possible we want to run jobs using docker, because it's cheaper.
+  # Unfortunately some of our jobs can only run successfully on macos.
+  docker:
+    docker:
+      - image: cimg/rust:1.53.0
+  macos:
+    macos:
+      xcode: 13.2.1
+    resource_class: macos.x86.medium.gen2
 
 jobs:
   Check Swift formatting:
-    macos:
-      xcode: "12.3.0"
+    executor: macos
     steps:
       - full-checkout
       # swiftlint moved? See https://github.com/Homebrew/discussions/discussions/691
       - run: brew update-reset
       - run: brew install swiftlint swiftformat
-      - run: swiftlint --strict
-      - run: swiftformat megazords components/*/ios --lint --swiftversion 4 --verbose
+      - run: ./automation/tests.py swiftlint
+      - run: ./automation/tests.py swiftformat
   Check Rust formatting:
-    docker:
-      - image: circleci/rust:latest
+    executor: docker
     resource_class: small
     steps:
       - full-checkout
-      - setup-rust-toolchain
-      - run: rustfmt --version
-      - run: cargo fmt --all -- --check
+      - setup-rust-target-version
+      - run: ./automation/tests.py rust-fmt
   Lint Rust with clippy:
-    docker:
-      - image: circleci/rust:latest
+    executor: docker
     steps:
-      - test-setup
+      - full-checkout
       - restore-sccache-cache
-      - run: cargo clippy --version
-      - run: bash automation/all_clippy_checks.sh
+      - test-setup
+      - run: ./automation/tests.py rust-clippy
       - save-sccache-cache
   Generate code coverage:
-    docker:
-      - image: circleci/rust:latest
+    executor: docker
     resource_class: large
     steps:
+      - full-checkout
       - test-setup
       - install-grcov
       # Test coverage support in Rust has been evolving rapidly, use nightly
@@ -254,10 +255,9 @@ jobs:
           command: grcov ./target/debug/ -s . -t lcov --llvm --ignore-not-existing --ignore "target/*" --ignore "/*" -o lcov.info
       - run:
           name: Upload to codecov.io
-          command: bash <(curl -s https://codecov.io/bash) -f lcov.info
+          command: ./automation/upload-to-codecov.sh
   Check Protobuf files are up-to-date:
-    docker:
-      - image: circleci/rust:latest
+    executor: docker
     resource_class: small
     steps:
       - full-checkout
@@ -271,142 +271,139 @@ jobs:
       - run:
           name: Lint Bash scripts with shellcheck
           command: sh automation/lint_bash_scripts.sh
-  Check Rust dependencies:
-    # This check has to be done on a mac, to be able to detect iOS-specific dependencies.
-    macos:
-      xcode: "12.3.0"
-    steps:
-      - install-rust
-      - setup-rust-toolchain
-      - full-checkout
-      - dependency-checks
   Rust tests:
-    docker:
-      - image: circleci/rust:latest
+    executor: docker
     # We have to use a machine with more RAM for tests so we don't run out of memory.
     resource_class: large
     steps:
+      - full-checkout
       - restore-sccache-cache
-      - rust-tests
+      - test-setup
+      - run-tests
+      - save-sccache-cache
+  Rust tests - min supported rust version:
+    executor: docker
+    # We have to use a machine with more RAM for tests so we don't run out of memory.
+    resource_class: large
+    steps:
+      - full-checkout
+      - restore-sccache-cache
+      - test-setup
+      - setup-rust-min-version
+      # tests.py doesn't support skipping tests, and we need to skip the systests on this rust version.
+      # It's not in the default workspace members, so just `cargo test` is OK.
+      - run: RUST_LOG=trace cargo test
       - save-sccache-cache
   # These run periodically (driven by cron).
   Rust tests - beta:
-    docker:
-      - image: circleci/rust:latest
+    executor: docker
     resource_class: large
     steps:
+      - full-checkout
       - restore-sccache-cache
-      - rust-tests:
-          rust-version: "beta"
+      - test-setup
+      - run: rustup override set beta
+      - run-tests
       - save-sccache-cache
-  Rust benchmarks:
-    docker:
-      - image: circleci/rust:latest
-    resource_class: large
+
+  iOS build xcframework:
+    executor: macos
     steps:
+      - full-checkout
       - restore-sccache-cache
-      - bench-all
-      - save-sccache-cache
-  iOS build and test:
-    macos:
-      xcode: "12.3.0"
+      - install-rust
+      - setup-rust-target-version
+      - setup-sccache
+      - setup-ios-environment
+      - run:
+          name: Build XCFramework archive
+          command: |
+            bash megazords/ios-rust/build-xcframework.sh --build-profile release
+      - save-sccache-cache:
+          path: "~/Library/Caches/Mozilla.sccache"
+      - store_artifacts:
+          name: Store XCFramework bundle in workspace
+          path: megazords/ios-rust/MozillaRustComponents.xcframework.zip
+          destination: dist/MozillaRustComponents.xcframework.zip
+      - run:
+          name: "XCFramework bundle checksum"
+          command: |
+            shasum -a 256 ./megazords/ios-rust/MozillaRustComponents.xcframework.zip
+            echo "Use the above checksum to depend on MozillaRustComponents.xcframework.zip as a Swift Package binary target"
+      - persist_to_workspace:
+          root: .
+          paths:
+            - megazords/ios-rust/MozillaRustComponents.xcframework.zip
+
+  iOS test:
+    executor: macos
     steps:
-      # We do not use the ssccache cache helper commands as
-      # the macOS cache is in a different folder.
-      - restore_cache:
-          name: Restore sccache cache
-          key: sccache-cache-macos-{{ arch }}
+      - full-checkout
+      - restore-sccache-cache
+      - install-rust
+      - setup-rust-target-version
+      - setup-ios-environment
+      - setup-sccache
+      - run:
+          name: Run XCode tests
+          command: ./automation/tests.py ios-tests
+      - store_artifacts:
+          path: raw_xcodetest.log
+          destination: logs/raw_xcodetest.log
+      - save-sccache-cache:
+          path: "~/Library/Caches/Mozilla.sccache"
+  XCFramework release:
+    executor: macos
+    steps:
+      - full-checkout
+      - attach_workspace:
+          at: .
+      - install-ghr
+      - run:
+          name: Release XCFramework archive on GitHub
+          command: |
+            ghr -replace "${CIRCLE_TAG}" megazords/ios-rust/MozillaRustComponents.xcframework.zip
+  build-nimbus-fml:
+    executor: macos
+    steps:
       - full-checkout
       - install-rust
-      - setup-rust-toolchain
+      - setup-rust-target-version
       - run:
-          name: Toggle brew auto-updates
+          name: Build nimbus-fml
           command: |
             if [ -z "${CIRCLE_TAG}" ]; then
               # On non-release builds do not update brew (takes ages).
               echo 'export HOMEBREW_NO_AUTO_UPDATE=1' >> $BASH_ENV
             fi
-      - setup-sccache
-      - build-ios-libs
-      - run:
-          name: Set up the build environment
-          command: |
-            brew install swift-protobuf
-      - carthage-bootstrap
-      - run:
-          name: Verify the build environment
-          command: ./libs/verify-ios-environment.sh
-      - run:
-          name: Run XCode tests
-          command: bash automation/run_ios_tests.sh
+            # Produces nimbus-fml.zip archive and a checksum.
+            ./components/support/nimbus-fml/scripts/build-dist.sh
       - store_artifacts:
-          path: raw_xcodetest.log
-          destination: logs/raw_xcodetest.log
-      - run:
-          name: (Optional) Run firefox-ios tests
-          command: |
-            # Only run these on PRs.
-            if [ -n "${CIRCLE_PULL_REQUEST}" ]; then
-              ./automation/maybe_run_fxios_tests.py << pipeline.git.base_revision >>
-            fi
-      - run:
-          name: Build Carthage archive
-          no_output_timeout: 20m
-          command: |
-            if [ -z "${CIRCLE_TAG}" ]; then
-              # XCode tests build in Debug configuration, save us a full
-              # Rust rebuild in Release mode by forcing Debug mode on
-              # non-release builds.
-              bash build-carthage.sh --out MozillaAppServices.framework.zip --configuration Debug
-            else
-              bash build-carthage.sh --out MozillaAppServices.framework.zip
-            fi
+          name: Store nimbus-fml build archive in workspace
+          path: nimbus-fml.zip
+          destination: nimbus-fml.zip
       - store_artifacts:
-          path: raw_xcodebuild.log
-          destination: logs/raw_xcodebuild.log
-      - save_cache:
-          name: Save sccache cache
-          key: sccache-cache-macos-{{ arch }}-{{ epoch }}
-          paths:
-            - "~/Library/Caches/Mozilla.sccache"
-      - sccache-stats-and-logs
-      - run:
-          name: "Create Carthage bin-only project specification"
-          command: |
-            ZIP_URL=https://circleci.com/api/v1.1/project/github/mozilla/application-services/$CIRCLE_BUILD_NUM/artifacts/0/dist/MozillaAppServices.framework.zip
-            echo "{\"0.0.1\":\"$ZIP_URL\"}" > mozilla.app-services.json
-      - store_artifacts:
-          path: MozillaAppServices.framework.zip
-          destination: dist/MozillaAppServices.framework.zip
-      - store_artifacts:
-          path: mozilla.app-services.json
-          destination: dist/mozilla.app-services.json
-      - run:
-          name: "Carthage binary snapshot URL"
-          command: |
-            JSON_URL=https://circleci.com/api/v1.1/project/github/mozilla/application-services/$CIRCLE_BUILD_NUM/artifacts/0/dist/mozilla.app-services.json
-            echo "Add the following line to your Cartfile:"
-            echo "binary \"$JSON_URL\" ~> 0.0.1-snapshot # mozilla/application-services@$CIRCLE_SHA1"
+          name: Store nimbus-fml checksum in workspace
+          path: nimbus-fml.sha256
+          destination: nimbus-fml.sha256
       - persist_to_workspace:
           root: .
           paths:
-            - MozillaAppServices.framework.zip
-  Carthage release:
-    macos:
-      xcode: "12.3.0"
+            - nimbus-fml.sha256
+            - nimbus-fml.zip
+  release-nimbus-fml:
+    executor: macos
     steps:
       - full-checkout
       - attach_workspace:
           at: .
+      - install-ghr
       - run:
-          name: Release Carthage archive on GitHub
+          name: Release nimbus-fml archive and checksum on Github
           command: |
-            GHR=ghr_v0.12.0_darwin_amd64
-            GHR_SHA256=c868ef9fc5dd8c8a397b74d84051d83693c42dd59041cb17b66f90f563477249
-            curl -sfSL --retry 5 --retry-delay 10 -O "https://github.com/tcnksm/ghr/releases/download/v0.12.0/${GHR}.zip"
-            echo "${GHR_SHA256} *${GHR}.zip" | shasum -a 256 -c -
-            unzip "${GHR}.zip"
-            ./${GHR}/ghr -replace "${CIRCLE_TAG}" MozillaAppServices.framework.zip
+            ghr -replace "${CIRCLE_TAG}" nimbus-fml.zip
+            ghr -replace "${CIRCLE_TAG}" nimbus-fml.sha256
+
 workflows:
   version: 2
   swiftlint:
@@ -421,22 +418,9 @@ workflows:
   check-protobuf-uptodate:
     jobs:
       - Check Protobuf files are up-to-date
-  check-dependencies:
-    jobs:
-      - Check Rust dependencies
   bash-lint:
     jobs:
       - Lint Bash scripts
-  check-dependencies-periodically:
-    jobs:
-      - Check Rust dependencies
-    triggers:
-      - schedule:
-          cron: "0 7 * * *"
-          filters:
-            branches:
-              only:
-                - main
   run-beta-tests-periodically:
     jobs:
       - Rust tests - beta
@@ -450,19 +434,36 @@ workflows:
   run-tests:
     jobs:
       - Rust tests
-      - Rust benchmarks
+  run-tests-min-supported-version:
+    jobs:
+      - Rust tests - min supported rust version
   coverage:
     jobs:
       - Generate code coverage
-  carthage-framework:
+  ios-test-and-artifacts:
     jobs:
-      - iOS build and test:
-          filters: # required since `Release` has tag filters AND requires `Build`
+      - iOS test
+      - iOS build xcframework:
+          filters: # required since `XCFramework release` has tag filters AND requires this job
             tags:
               only: /.*/
-      - Carthage release:
+      - XCFramework release:
           requires:
-            - iOS build and test
+            - iOS build xcframework
+          filters:
+            branches:
+              ignore: /.*/
+            tags:
+              only: /^v.*/
+  nimbus-artifacts:
+    jobs:
+      - build-nimbus-fml:
+          filters: # required since `release-nimbus-fml` has tag filters AND requires this job
+            tags:
+              only: /.*/
+      - release-nimbus-fml:
+          requires:
+            - build-nimbus-fml
           filters:
             branches:
               ignore: /.*/

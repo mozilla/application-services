@@ -14,10 +14,15 @@ fn main() {
         sqlcipher_lib_dir.to_string_lossy()
     );
 
-    let mut cfg = ctest::TestGenerator::new();
+    let mut cfg = ctest2::TestGenerator::new();
     cfg.header("blapit.h")
+        .header("cert.h")
+        .header("certt.h")
+        .header("certdb.h")
         .header("keyhi.h")
         .header("keythi.h")
+        .header("stdbool.h")
+        .header("mozpkix/pkixc.h")
         .header("nss.h")
         .header("pk11pub.h")
         .header("pkcs11n.h")
@@ -45,7 +50,9 @@ fn main() {
 
     cfg.skip_type(|s| {
         // Opaque types.
-        s == "PK11SlotInfo"
+        s == "CERTCertDBHandle"
+            || s == "CERTCertificate"
+            || s == "PK11SlotInfo"
             || s == "PK11SymKey"
             || s == "PK11Context"
             || s == "NSSInitContext"
@@ -58,6 +65,9 @@ fn main() {
     cfg.skip_struct(|s| {
         s == "SECKEYPublicKeyStr_u" // inline union
     });
+
+    // Obscure test failures only under WSL (#4165) so skip it.
+    cfg.skip_fn(|s| s == "PK11_CreateContextBySymKey");
 
     // Generate the tests, passing the path to the `*-sys` library as well as
     // the module to generate.

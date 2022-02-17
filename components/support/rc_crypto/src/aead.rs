@@ -293,11 +293,11 @@ mod test {
     fn test_cant_use_incorrectly_sized_key() {
         for algorithm in ALL_ALGORITHMS {
             let key_bytes = vec![0u8; algorithm.key_len() - 1];
-            let result = Key::new(&algorithm, &key_bytes);
+            let result = Key::new(algorithm, &key_bytes);
             assert!(result.is_err());
 
             let key_bytes = vec![0u8; algorithm.key_len() + 1];
-            let result = Key::new(&algorithm, &key_bytes);
+            let result = Key::new(algorithm, &key_bytes);
             assert!(result.is_err());
         }
     }
@@ -306,11 +306,11 @@ mod test {
     fn test_cant_use_incorrectly_sized_nonce() {
         for algorithm in ALL_ALGORITHMS {
             let nonce_bytes = vec![0u8; algorithm.nonce_len() - 1];
-            let result = Nonce::try_assume_unique_for_key(&algorithm, &nonce_bytes);
+            let result = Nonce::try_assume_unique_for_key(algorithm, &nonce_bytes);
             assert!(result.is_err());
 
             let nonce_bytes = vec![0u8; algorithm.nonce_len() + 1];
-            let result = Nonce::try_assume_unique_for_key(&algorithm, &nonce_bytes);
+            let result = Nonce::try_assume_unique_for_key(algorithm, &nonce_bytes);
             assert!(result.is_err());
         }
     }

@@ -4,8 +4,21 @@
 
 import Foundation
 
+// Depending on build setup, we may be importing Glean as a Swift module
+// or we may be compiled together with it. This detects whether Glean is
+// an external module and makes it available to our entire package if so.
+//
+// Note that the files under `./Utils` are copies of internal files from
+// Glean, and it's very important they they be excluded from any build
+// that is compiling us together with Glean.
+#if canImport(Glean)
+    @_exported import Glean
+#endif
+
 public class Nimbus: NimbusApi {
     private let nimbusClient: NimbusClientProtocol
+
+    private let resourceBundles: [Bundle]
 
     private let errorReporter: NimbusErrorReporter
 
@@ -23,9 +36,13 @@ public class Nimbus: NimbusApi {
         return queue
     }()
 
-    internal init(nimbusClient: NimbusClientProtocol, errorReporter: @escaping NimbusErrorReporter) {
+    internal init(nimbusClient: NimbusClientProtocol,
+                  resourceBundles: [Bundle],
+                  errorReporter: @escaping NimbusErrorReporter)
+    {
         self.errorReporter = errorReporter
         self.nimbusClient = nimbusClient
+        self.resourceBundles = resourceBundles
     }
 }
 
@@ -33,6 +50,8 @@ private extension Nimbus {
     func catchAll<T>(_ thunk: () throws -> T?) -> T? {
         do {
             return try thunk()
+        } catch NimbusError.DatabaseNotReady {
+            return nil
         } catch {
             errorReporter(error)
             return nil
@@ -46,20 +65,27 @@ private extension Nimbus {
     }
 }
 
-// Glean integration
-internal extension Nimbus {
-    func recordExposure(experimentId: String) {
+extension Nimbus: FeaturesInterface {
+    public func recordExposureEvent(featureId: String) {
+        // First we need a list of the active experiments that are enrolled.
         let activeExperiments = getActiveExperiments()
-        if let experiment = activeExperiments.first(where: { $0.slug == experimentId }) {
-            GleanMetrics.NimbusEvents.exposure.record(extra: [
-                .experiment: experiment.slug,
-                .branch: experiment.branchSlug,
-                .enrollmentId: experiment.enrollmentId,
-            ])
+
+        // Next, we search for any experiment that has a matching featureId. This depends on the
+        // fact that we can only be enrolled in a single experiment per feature, so there should
+        // only ever be zero or one experiments for a given featureId.
+        if let experiment = activeExperiments.first(where: { $0.featureIds.contains(featureId) }) {
+            // Finally, if we do have an experiment for the given featureId, we will record the
+            // exposure event in Glean. This is to protect against accidentally recording an event
+            // for an experiment without an active enrollment.
+            GleanMetrics.NimbusEvents.exposure.record(GleanMetrics.NimbusEvents.ExposureExtra(
+                branch: experiment.branchSlug,
+                enrollmentId: experiment.enrollmentId,
+                experiment: experiment.slug
+            ))
         }
     }
 
-    func postEnrollmentCalculation(_ events: [EnrollmentChangeEvent]) {
+    internal func postEnrollmentCalculation(_ events: [EnrollmentChangeEvent]) {
         // We need to update the experiment enrollment annotations in Glean
         // regardless of whether we recieved any events. Calling the
         // `setExperimentActive` function multiple times with the same
@@ -68,16 +94,13 @@ internal extension Nimbus {
         recordExperimentTelemetry(experiments)
 
         // Record enrollment change events, if any
-        if !events.isEmpty {
-            recordExperimentEvents(events)
+        recordExperimentEvents(events)
 
-            // We are only notifying observers when we have enrollment
-            // change events, to make the observer less chatty.
-            notifyOnExperimentsApplied(experiments)
-        }
+        // Inform any listeners that we're done here.
+        notifyOnExperimentsApplied(experiments)
     }
 
-    func recordExperimentTelemetry(_ experiments: [EnrolledExperiment]) {
+    internal func recordExperimentTelemetry(_ experiments: [EnrolledExperiment]) {
         for experiment in experiments {
             Glean.shared.setExperimentActive(
                 experimentId: experiment.slug,
@@ -87,29 +110,53 @@ internal extension Nimbus {
         }
     }
 
-    func recordExperimentEvents(_ events: [EnrollmentChangeEvent]) {
+    internal func recordExperimentEvents(_ events: [EnrollmentChangeEvent]) {
         for event in events {
             switch event.change {
             case .enrollment:
-                GleanMetrics.NimbusEvents.enrollment.record(extra: [
-                    .experiment: event.experimentSlug,
-                    .branch: event.branchSlug,
-                    .enrollmentId: event.enrollmentId,
-                ])
+                GleanMetrics.NimbusEvents.enrollment.record(GleanMetrics.NimbusEvents.EnrollmentExtra(
+                    branch: event.branchSlug,
+                    enrollmentId: event.enrollmentId,
+                    experiment: event.experimentSlug
+                ))
             case .disqualification:
-                GleanMetrics.NimbusEvents.disqualification.record(extra: [
-                    .experiment: event.experimentSlug,
-                    .branch: event.branchSlug,
-                    .enrollmentId: event.enrollmentId,
-                ])
+                GleanMetrics.NimbusEvents.disqualification.record(GleanMetrics.NimbusEvents.DisqualificationExtra(
+                    branch: event.branchSlug,
+                    enrollmentId: event.enrollmentId,
+                    experiment: event.experimentSlug
+                ))
             case .unenrollment:
-                GleanMetrics.NimbusEvents.unenrollment.record(extra: [
-                    .experiment: event.experimentSlug,
-                    .branch: event.branchSlug,
-                    .enrollmentId: event.enrollmentId,
-                ])
+                GleanMetrics.NimbusEvents.unenrollment.record(GleanMetrics.NimbusEvents.UnenrollmentExtra(
+                    branch: event.branchSlug,
+                    enrollmentId: event.enrollmentId,
+                    experiment: event.experimentSlug
+                ))
             }
         }
+    }
+
+    internal func getFeatureConfigVariablesJson(featureId: String) -> [String: Any]? {
+        return catchAll {
+            if let string = try nimbusClient.getFeatureConfigVariables(featureId: featureId),
+               let data = string.data(using: .utf8)
+            {
+                return try JSONSerialization.jsonObject(with: data, options: []) as? [String: Any]
+            } else {
+                return nil
+            }
+        }
+    }
+
+    public func getVariables(featureId: String, sendExposureEvent: Bool) -> Variables {
+        guard let json = getFeatureConfigVariablesJson(featureId: featureId) else {
+            return NilVariables.instance
+        }
+
+        if sendExposureEvent {
+            recordExposureEvent(featureId: featureId)
+        }
+
+        return JSONVariables(with: json, in: resourceBundles)
     }
 }
 
@@ -138,6 +185,7 @@ internal extension Nimbus {
 
     func fetchExperimentsOnThisThread() throws {
         try nimbusClient.fetchExperiments()
+        notifyOnExperimentsFetched()
     }
 
     func applyPendingExperimentsOnThisThread() throws {
@@ -162,14 +210,6 @@ internal extension Nimbus {
     func resetTelemetryIdentifiersOnThisThread(_ identifiers: AvailableRandomizationUnits) throws {
         let changes = try nimbusClient.resetTelemetryIdentifiers(newRandomizationUnits: identifiers)
         postEnrollmentCalculation(changes)
-    }
-}
-
-extension Nimbus: NimbusFeatureConfiguration {
-    public func getExperimentBranch(featureId: String) -> String? {
-        return catchAll {
-            try nimbusClient.getExperimentBranch(id: featureId)
-        }
     }
 }
 
@@ -258,6 +298,41 @@ extension Nimbus: NimbusStartup {
     }
 }
 
+extension Nimbus: NimbusBranchInterface {
+    public func getExperimentBranch(experimentId: String) -> String? {
+        return catchAll {
+            try nimbusClient.getExperimentBranch(id: experimentId)
+        }
+    }
+}
+
+extension Nimbus: GleanPlumbProtocol {
+    public func createMessageHelper() throws -> GleanPlumbMessageHelper {
+        return try createMessageHelper(string: nil)
+    }
+
+    public func createMessageHelper(additionalContext: [String: Any]) throws -> GleanPlumbMessageHelper {
+        let data = try JSONSerialization.data(withJSONObject: additionalContext, options: [])
+        let string = String(data: data, encoding: .utf8)
+        return try createMessageHelper(string: string)
+    }
+
+    public func createMessageHelper<T: Encodable>(additionalContext: T) throws -> GleanPlumbMessageHelper {
+        let encoder = JSONEncoder()
+        encoder.keyEncodingStrategy = .convertToSnakeCase
+
+        let data = try encoder.encode(additionalContext)
+        let string = String(data: data, encoding: .utf8)!
+        return try createMessageHelper(string: string)
+    }
+
+    private func createMessageHelper(string: String?) throws -> GleanPlumbMessageHelper {
+        let targetingHelper = try nimbusClient.createTargetingHelper(additionalContext: string)
+        let stringHelper = try nimbusClient.createStringHelper(additionalContext: string)
+        return GleanPlumbMessageHelper(targetingHelper: targetingHelper, stringHelper: stringHelper)
+    }
+}
+
 public class NimbusDisabled: NimbusApi {
     public static let shared = NimbusDisabled()
 
@@ -273,8 +348,12 @@ public extension NimbusDisabled {
         return []
     }
 
-    func getExperimentBranch(featureId _: String) -> String? {
+    func getExperimentBranch(experimentId _: String) -> String? {
         return nil
+    }
+
+    func getVariables(featureId _: String, sendExposureEvent _: Bool) -> Variables {
+        return NilVariables.instance
     }
 
     func initialize() {}
@@ -293,7 +372,26 @@ public extension NimbusDisabled {
 
     func resetTelemetryIdentifiers() {}
 
+    func recordExposureEvent(featureId _: String) {}
+
     func getExperimentBranches(_: String) -> [Branch]? {
         return nil
+    }
+}
+
+extension NimbusDisabled: GleanPlumbProtocol {
+    public func createMessageHelper() throws -> GleanPlumbMessageHelper {
+        GleanPlumbMessageHelper(
+            targetingHelper: AlwaysFalseTargetingHelper(),
+            stringHelper: NonStringHelper()
+        )
+    }
+
+    public func createMessageHelper(additionalContext _: [String: Any]) throws -> GleanPlumbMessageHelper {
+        try createMessageHelper()
+    }
+
+    public func createMessageHelper<T: Encodable>(additionalContext _: T) throws -> GleanPlumbMessageHelper {
+        try createMessageHelper()
     }
 }

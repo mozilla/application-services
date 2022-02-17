@@ -57,7 +57,7 @@ enum CheckChildren {
 }
 
 // similar assert_json_tree from our rust code.
-func checkTree(_ n: BookmarkNode, _ want: [String: Any], checkChildren: CheckChildren = .full) {
+func checkTree(_ n: BookmarkNodeData, _ want: [String: Any], checkChildren: CheckChildren = .full) {
     XCTAssert(n.parentGUID != nil || n.guid == BookmarkRoots.RootGUID)
 
     XCTAssert(dynCmp(n.guid, want["guid"]))
@@ -65,21 +65,21 @@ func checkTree(_ n: BookmarkNode, _ want: [String: Any], checkChildren: CheckChi
 
     switch n.type {
     case .separator:
-        XCTAssert(n is BookmarkSeparator)
+        XCTAssert(n is BookmarkSeparatorData)
     case .bookmark:
-        XCTAssert(n is BookmarkItem)
+        XCTAssert(n is BookmarkItemData)
     case .folder:
-        XCTAssert(n is BookmarkFolder)
+        XCTAssert(n is BookmarkFolderData)
     }
 
-    if let bn = n as? BookmarkItem {
+    if let bn = n as? BookmarkItemData {
         XCTAssert(dynCmp(bn.url, want["url"]))
         XCTAssert(dynCmp(bn.title, want["title"]))
     } else {
         XCTAssertNil(want["url"])
     }
 
-    if let fn = n as? BookmarkFolder {
+    if let fn = n as? BookmarkFolderData {
         if checkChildren == .onlyGUIDs {
             XCTAssertNil(fn.children)
             // Make sure it's not getting provided accidentally
@@ -115,7 +115,7 @@ func counter() -> Int {
 }
 
 @discardableResult
-func insertTree(_ db: PlacesWriteConnection, parent: String, tree: [String: Any]) -> String {
+func insertTree(_ db: PlacesWriteConnection, parent: Guid, tree: [String: Any]) -> String {
     let root = try! db.createFolder(parentGUID: parent, title: (tree["title"] as? String) ?? "folder \(counter())")
     for child in tree["children"] as! [[String: Any]] {
         switch typeFromAny(child["type"])! {
@@ -223,9 +223,9 @@ class PlacesTests: XCTestCase {
         ])
 
         // Check recursive: false
-        let noGrandkids = try! db.getBookmarksTree(rootGUID: BookmarkRoots.MenuFolderGUID, recursive: false)! as! BookmarkFolder
+        let noGrandkids = try! db.getBookmarksTree(rootGUID: BookmarkRoots.MenuFolderGUID, recursive: false)! as! BookmarkFolderData
 
-        let expectedChildGuids = ((got as! BookmarkFolder).children![0] as! BookmarkFolder).childGUIDs
+        let expectedChildGuids = ((got as! BookmarkFolderData).children![0] as! BookmarkFolderData).childGUIDs
 
         checkTree(noGrandkids, [
             "guid": BookmarkRoots.MenuFolderGUID,
@@ -251,5 +251,148 @@ class PlacesTests: XCTestCase {
             "type": "folder",
             "childGUIDs": [newFolderGUID, sepGUID],
         ], checkChildren: .onlyGUIDs)
+    }
+
+    // MARK: history metadata tests
+
+    func testHistoryMetadataBasics() {
+        let beginning = Int64(Date().timeIntervalSince1970 * 1000)
+        let db = api.getWriter()
+
+        XCTAssertEqual(0, try! db.getHistoryMetadataSince(since: beginning).count)
+
+        XCTAssertNil(try! db.getLatestHistoryMetadataForUrl(url: "http://www.mozilla.org"))
+
+        let metaKey1 = HistoryMetadataKey(
+            url: "http://www.mozilla.org",
+            searchTerm: nil,
+            referrerUrl: nil
+        )
+        _ = try! db.noteHistoryMetadataObservationDocumentType(key: metaKey1, documentType: DocumentType.media)
+
+        XCTAssertEqual(1, try! db.getHistoryMetadataSince(since: beginning).count)
+
+        var dbMeta = try! db.getLatestHistoryMetadataForUrl(url: "http://www.mozilla.org")
+        XCTAssertNotNil(dbMeta)
+        XCTAssertEqual("http://www.mozilla.org/", dbMeta!.url)
+        XCTAssertEqual(nil, dbMeta!.title)
+        XCTAssertEqual(nil, dbMeta!.referrerUrl)
+        XCTAssertEqual(nil, dbMeta!.searchTerm)
+        XCTAssertEqual(DocumentType.media, dbMeta!.documentType)
+        XCTAssertEqual(0, dbMeta!.totalViewTime)
+
+        XCTAssertEqual(1, try! db.getHistoryMetadataSince(since: beginning).count)
+
+        _ = try! db.noteHistoryMetadataObservationViewTime(key: metaKey1, viewTime: 1337)
+        dbMeta = try! db.getLatestHistoryMetadataForUrl(url: "http://www.mozilla.org")
+        XCTAssertNotNil(dbMeta)
+        XCTAssertEqual("http://www.mozilla.org/", dbMeta!.url)
+        XCTAssertEqual(nil, dbMeta!.title)
+        XCTAssertEqual(nil, dbMeta!.referrerUrl)
+        XCTAssertEqual(nil, dbMeta!.searchTerm)
+        XCTAssertEqual(DocumentType.media, dbMeta!.documentType)
+        XCTAssertEqual(1337, dbMeta!.totalViewTime)
+
+        XCTAssertEqual(1, try! db.getHistoryMetadataSince(since: beginning).count)
+
+        _ = try! db.noteHistoryMetadataObservationViewTime(key: metaKey1, viewTime: 3)
+        dbMeta = try! db.getLatestHistoryMetadataForUrl(url: "http://www.mozilla.org")
+        XCTAssertEqual(1340, dbMeta!.totalViewTime)
+
+        XCTAssertEqual(1, try! db.getHistoryMetadataSince(since: beginning).count)
+        let afterLastMeta1Update = Int64(Date().timeIntervalSince1970 * 1000)
+
+        let metaKey2 = HistoryMetadataKey(
+            url: "http://www.mozilla.org/another/",
+            searchTerm: "another firefox",
+            referrerUrl: "https://www.google.com/search?client=firefox-b-d&q=another+firefox"
+        )
+        _ = try! db.noteHistoryMetadataObservationTitle(key: metaKey2, title: "some title")
+
+        XCTAssertEqual(1, try! db.getHistoryMetadataSince(since: afterLastMeta1Update).count)
+        XCTAssertEqual(2, try! db.getHistoryMetadataSince(since: beginning).count)
+
+        var dbMeta2 = try! db.getLatestHistoryMetadataForUrl(url: "http://www.mozilla.org/another/")
+        XCTAssertNotNil(dbMeta2)
+        XCTAssertEqual("http://www.mozilla.org/another/", dbMeta2!.url)
+        XCTAssertEqual("some title", dbMeta2!.title)
+        XCTAssertEqual("https://www.google.com/search?client=firefox-b-d&q=another+firefox", dbMeta2!.referrerUrl)
+        XCTAssertEqual("another firefox", dbMeta2!.searchTerm)
+        XCTAssertEqual(DocumentType.regular, dbMeta2!.documentType)
+        XCTAssertEqual(0, dbMeta2!.totalViewTime)
+
+        _ = try! db.noteHistoryMetadataObservationDocumentType(key: metaKey2, documentType: DocumentType.regular)
+        _ = try! db.noteHistoryMetadataObservationTitle(key: metaKey2, title: "Some Title")
+        _ = try! db.noteHistoryMetadataObservationViewTime(key: metaKey2, viewTime: 52345)
+        dbMeta2 = try! db.getLatestHistoryMetadataForUrl(url: "http://www.mozilla.org/another/")
+        XCTAssertNotNil(dbMeta2)
+        XCTAssertEqual("http://www.mozilla.org/another/", dbMeta2!.url)
+        XCTAssertEqual("some title", dbMeta2!.title) // NB: subsequent title updates are currently ignored
+        XCTAssertEqual("https://www.google.com/search?client=firefox-b-d&q=another+firefox", dbMeta2!.referrerUrl)
+        XCTAssertEqual("another firefox", dbMeta2!.searchTerm)
+        XCTAssertEqual(DocumentType.regular, dbMeta2!.documentType)
+        XCTAssertEqual(52345, dbMeta2!.totalViewTime)
+
+        let afterLastMeta2Update = Int64(Date().timeIntervalSince1970 * 1000)
+
+        XCTAssertEqual(2, try! db.getHistoryMetadataBetween(start: beginning, end: afterLastMeta2Update).count)
+        XCTAssertEqual(1, try! db.getHistoryMetadataBetween(start: afterLastMeta1Update, end: afterLastMeta2Update).count)
+
+        // by search term
+        var list = try! db.queryHistoryMetadata(query: "firefox", limit: 100)
+        XCTAssertEqual(1, list.count)
+        // by url
+        list = try! db.queryHistoryMetadata(query: "mozilla", limit: 100)
+        XCTAssertEqual(2, list.count)
+        // by title
+        list = try! db.queryHistoryMetadata(query: "title", limit: 100)
+        XCTAssertEqual(1, list.count)
+        // by title
+        list = try! db.queryHistoryMetadata(query: "Title", limit: 100)
+        XCTAssertEqual(1, list.count)
+
+        try! db.deleteHistoryMetadataOlderThan(olderThan: beginning)
+        XCTAssertEqual(2, try! db.getHistoryMetadataSince(since: beginning).count)
+        try! db.deleteHistoryMetadataOlderThan(olderThan: afterLastMeta1Update)
+        list = try! db.getHistoryMetadataSince(since: beginning)
+        XCTAssertEqual(1, list.count)
+        XCTAssertEqual("http://www.mozilla.org/another/", list[0].url)
+        try! db.deleteHistoryMetadataOlderThan(olderThan: afterLastMeta2Update)
+        XCTAssertEqual(0, try! db.getHistoryMetadataSince(since: beginning).count)
+    }
+
+    // Due to the current hybrid approach of Uniffi for places, we're adding error test cases
+    // To properly test uniffi & non-uniffi properly error propagate
+    func testPlacesErrors() {
+        let db = api.getWriter()
+
+        // Testing a non-uniffi error
+        do {
+            _ = try db.updateBookmarkNode(guid: "123", parentGUID: "456")
+            XCTFail("Call did not throw")
+        } catch let caughtError as PlacesError {
+            if case PlacesError.UnknownBookmarkItem = caughtError {
+            } else {
+                XCTFail("Not the correct error ")
+            }
+        } catch {
+            XCTFail("Not a PlacesError")
+        }
+
+        // Testing a Uniffi-ed error
+        do {
+            _ = try db.noteHistoryMetadataObservation(observation: HistoryMetadataObservation(url: "http://www.[].com"))
+            XCTFail("Call did not throw")
+        } catch let caughtError as PlacesError {
+            if case PlacesError.UrlParseFailed = caughtError {
+            } else {
+                XCTAssertEqual(caughtError.localizedDescription, "Error")
+                XCTFail("Not the correct PlacesError")
+            }
+        } catch {
+            let desc = error.localizedDescription
+            XCTAssertEqual(desc, "Error")
+            XCTFail("Not a PlacesError")
+        }
     }
 }

@@ -8,8 +8,7 @@ use super::record::{
     SeparatorRecord,
 };
 use super::{SyncedBookmarkKind, SyncedBookmarkValidity};
-use crate::api::places_api::ConnectionType;
-use crate::db::{GlobalChangeCounterTracker, PlacesDb};
+use crate::db::{GlobalChangeCounterTracker, PlacesDb, SharedPlacesDb};
 use crate::error::*;
 use crate::frecency::{calculate_frecency, DEFAULT_FRECENCY_SETTINGS};
 use crate::storage::{
@@ -24,12 +23,13 @@ use dogear::{
     self, AbortSignal, CompletionOps, Content, Item, MergedRoot, TelemetryEvent, Tree, UploadItem,
     UploadTombstone,
 };
+use interrupt_support::SqlInterruptScope;
 use rusqlite::{Row, NO_PARAMS};
-use sql_support::{self, ConnExt, SqlInterruptScope};
+use sql_support::ConnExt;
 use std::cell::RefCell;
 use std::collections::HashMap;
-use std::convert::TryFrom;
 use std::fmt;
+use std::sync::Arc;
 use sync15::{
     telemetry, CollSyncIds, CollectionRequest, EngineSyncAssociation, IncomingChangeset,
     OutgoingChangeset, Payload, ServerTimestamp, SyncEngine,
@@ -41,6 +41,7 @@ pub const LAST_SYNC_META_KEY: &str = "bookmarks_last_sync_time";
 // for the global sync ID, because engines are reset individually.
 pub const GLOBAL_SYNCID_META_KEY: &str = "bookmarks_global_sync_id";
 pub const COLLECTION_SYNCID_META_KEY: &str = "bookmarks_sync_id";
+pub const COLLECTION_NAME: &str = "bookmarks";
 
 /// The maximum number of URLs for which to recalculate frecencies at once.
 /// This is a trade-off between write efficiency and transaction time: higher
@@ -49,865 +50,858 @@ pub const COLLECTION_SYNCID_META_KEY: &str = "bookmarks_sync_id";
 const MAX_FRECENCIES_TO_RECALCULATE_PER_CHUNK: usize = 400;
 
 /// Adapts an interruptee to a Dogear abort signal.
-struct MergeInterruptee<'a, I>(&'a I);
+struct MergeInterruptee<'a>(&'a SqlInterruptScope);
 
-impl<'a, I> AbortSignal for MergeInterruptee<'a, I>
-where
-    I: interrupt_support::Interruptee,
-{
+impl<'a> AbortSignal for MergeInterruptee<'a> {
     #[inline]
     fn aborted(&self) -> bool {
         self.0.was_interrupted()
     }
 }
 
-pub struct BookmarksEngine<'a> {
-    pub db: &'a PlacesDb,
-    interruptee: &'a SqlInterruptScope,
+fn stage_incoming(
+    db: &PlacesDb,
+    scope: &SqlInterruptScope,
+    inbound: IncomingChangeset,
+    incoming_telemetry: &mut telemetry::EngineIncoming,
+) -> Result<ServerTimestamp> {
+    let timestamp = inbound.timestamp;
+    let mut tx = db.begin_transaction()?;
+
+    let applicator = IncomingApplicator::new(db);
+
+    for incoming in inbound.changes {
+        applicator.apply_payload(incoming.0, incoming.1)?;
+        incoming_telemetry.applied(1);
+        if tx.should_commit() {
+            // Trigger frecency updates for all new origins.
+            log::debug!("Updating origins for new synced URLs since last commit");
+            delete_pending_temp_tables(db)?;
+        }
+        tx.maybe_commit()?;
+        scope.err_if_interrupted()?;
+    }
+
+    log::debug!("Updating origins for new synced URLs in last chunk");
+    delete_pending_temp_tables(db)?;
+
+    tx.commit()?;
+    Ok(timestamp)
 }
 
-impl<'a> BookmarksEngine<'a> {
-    pub fn new(db: &'a PlacesDb, interruptee: &'a SqlInterruptScope) -> Self {
-        assert_eq!(db.conn_type(), ConnectionType::Sync);
-        Self { db, interruptee }
-    }
+fn db_has_changes(db: &PlacesDb) -> Result<bool> {
+    // In the first subquery, we check incoming items with needsMerge = true
+    // except the tombstones who don't correspond to any local bookmark because
+    // we don't store them yet, hence never "merged" (see bug 1343103).
+    let sql = format!(
+        "SELECT
+            EXISTS (
+                SELECT 1
+                FROM moz_bookmarks_synced v
+                LEFT JOIN moz_bookmarks b ON v.guid = b.guid
+                WHERE v.needsMerge AND
+                (NOT v.isDeleted OR b.guid NOT NULL)
+            ) OR EXISTS (
+                WITH RECURSIVE
+                {}
+                SELECT 1
+                FROM localItems
+                WHERE syncChangeCounter > 0
+            ) OR EXISTS (
+                SELECT 1
+                FROM moz_bookmarks_deleted
+            )
+         AS hasChanges",
+        LocalItemsFragment("localItems")
+    );
+    Ok(db
+        .try_query_row(
+            &sql,
+            &[],
+            |row| -> rusqlite::Result<_> { row.get::<_, bool>(0) },
+            false,
+        )?
+        .unwrap_or(false))
+}
 
-    fn stage_incoming(
-        &self,
-        inbound: IncomingChangeset,
-        incoming_telemetry: &mut telemetry::EngineIncoming,
-    ) -> Result<ServerTimestamp> {
-        let timestamp = inbound.timestamp;
-        let mut tx = self.db.begin_transaction()?;
+/// Builds a temporary table with the merge states of all nodes in the merged
+/// tree, then updates the local tree to match the merged tree.
+///
+/// Conceptually, we examine the merge state of each item, and either leave the
+/// item unchanged, upload the local side, apply the remote side, or apply and
+/// then reupload the remote side with a new structure.
+fn update_local_items_in_places<'t>(
+    db: &PlacesDb,
+    scope: &SqlInterruptScope,
+    now: Timestamp,
+    ops: &CompletionOps<'t>,
+) -> Result<()> {
+    // Build a table of new and updated items.
+    log::debug!("Staging apply remote item ops");
+    sql_support::each_sized_chunk(
+        &ops.apply_remote_items,
+        sql_support::default_max_variable_number() / 3,
+        |chunk, _| -> Result<()> {
+            // CTEs in `WITH` clauses aren't indexed, so this query needs a
+            // full table scan on `ops`. But that's okay; a separate temp
+            // table for ops would also need a full scan. Note that we need
+            // both the local _and_ remote GUIDs here, because we haven't
+            // changed the local GUIDs yet.
+            let sql = format!(
+                "WITH ops(mergedGuid, localGuid, remoteGuid, remoteType,
+                          level) AS (
+                     VALUES {ops}
+                 )
+                 INSERT INTO itemsToApply(mergedGuid, localId, remoteId,
+                                          remoteGuid, newLevel, newKind,
+                                          localDateAdded, remoteDateAdded,
+                                          lastModified, oldTitle, newTitle,
+                                          oldPlaceId, newPlaceId,
+                                          newKeyword)
+                 SELECT n.mergedGuid, b.id, v.id,
+                        v.guid, n.level, n.remoteType,
+                        b.dateAdded, v.dateAdded,
+                        MAX(v.dateAdded, {now}), b.title, v.title,
+                        b.fk, v.placeId,
+                        v.keyword
+                 FROM ops n
+                 JOIN moz_bookmarks_synced v ON v.guid = n.remoteGuid
+                 LEFT JOIN moz_bookmarks b ON b.guid = n.localGuid",
+                ops = sql_support::repeat_display(chunk.len(), ",", |index, f| {
+                    let op = &chunk[index];
+                    write!(
+                        f,
+                        "(?, ?, ?, {}, {})",
+                        SyncedBookmarkKind::from(op.remote_node().kind) as u8,
+                        op.level
+                    )
+                }),
+                now = now,
+            );
 
-        let applicator = IncomingApplicator::new(&self.db);
+            // We can't avoid allocating here, since we're binding four
+            // parameters per descendant. Rust's `SliceConcatExt::concat`
+            // is semantically equivalent, but requires a second allocation,
+            // which we _can_ avoid by writing this out.
+            let mut params = Vec::with_capacity(chunk.len() * 3);
+            for op in chunk.iter() {
+                scope.err_if_interrupted()?;
 
-        for incoming in inbound.changes {
-            applicator.apply_payload(incoming.0, incoming.1)?;
-            incoming_telemetry.applied(1);
-            if tx.should_commit() {
-                // Trigger frecency updates for all new origins.
-                log::debug!("Updating origins for new synced URLs since last commit");
-                delete_pending_temp_tables(&self.db)?;
+                let merged_guid = op.merged_node.guid.as_str();
+                params.push(Some(merged_guid));
+
+                let local_guid = op
+                    .merged_node
+                    .merge_state
+                    .local_node()
+                    .map(|node| node.guid.as_str());
+                params.push(local_guid);
+
+                let remote_guid = op.remote_node().guid.as_str();
+                params.push(Some(remote_guid));
             }
-            tx.maybe_commit()?;
-            self.interruptee.err_if_interrupted()?;
-        }
 
-        log::debug!("Updating origins for new synced URLs in last chunk");
-        delete_pending_temp_tables(&self.db)?;
+            db.execute(&sql, &params)?;
+            Ok(())
+        },
+    )?;
 
-        tx.commit()?;
-        Ok(timestamp)
-    }
+    log::debug!("Staging change GUID ops");
+    sql_support::each_sized_chunk(
+        &ops.change_guids,
+        sql_support::default_max_variable_number() / 2,
+        |chunk, _| -> Result<()> {
+            let sql = format!(
+                "INSERT INTO changeGuidOps(localGuid, mergedGuid,
+                                           syncStatus, level, lastModified)
+                 VALUES {}",
+                sql_support::repeat_display(chunk.len(), ",", |index, f| {
+                    let op = &chunk[index];
+                    // If only the local GUID changed, the item was deduped, so we
+                    // can mark it as syncing. Otherwise, we changed an invalid
+                    // GUID locally or remotely, so we leave its original sync
+                    // status in place until we've uploaded it.
+                    let sync_status = if op.merged_node.remote_guid_changed() {
+                        None
+                    } else {
+                        Some(SyncStatus::Normal as u8)
+                    };
+                    write!(
+                        f,
+                        "(?, ?, {}, {}, {})",
+                        NullableFragment(sync_status),
+                        op.level,
+                        now
+                    )
+                }),
+            );
 
-    fn has_changes(&self) -> Result<bool> {
-        // In the first subquery, we check incoming items with needsMerge = true
-        // except the tombstones who don't correspond to any local bookmark because
-        // we don't store them yet, hence never "merged" (see bug 1343103).
-        let sql = format!(
-            "SELECT
-                EXISTS (
-                    SELECT 1
-                    FROM moz_bookmarks_synced v
-                    LEFT JOIN moz_bookmarks b ON v.guid = b.guid
-                    WHERE v.needsMerge AND
-                    (NOT v.isDeleted OR b.guid NOT NULL)
-                ) OR EXISTS (
-                    WITH RECURSIVE
-                    {}
-                    SELECT 1
-                    FROM localItems
-                    WHERE syncChangeCounter > 0
-                ) OR EXISTS (
-                    SELECT 1
-                    FROM moz_bookmarks_deleted
-                )
-             AS hasChanges",
-            LocalItemsFragment("localItems")
-        );
-        Ok(self
-            .db
-            .try_query_row(
-                &sql,
-                &[],
-                |row| -> rusqlite::Result<_> { Ok(row.get::<_, bool>(0)?) },
-                false,
-            )?
-            .unwrap_or(false))
-    }
+            let mut params = Vec::with_capacity(chunk.len() * 2);
+            for op in chunk.iter() {
+                scope.err_if_interrupted()?;
 
-    /// Builds a temporary table with the merge states of all nodes in the merged
-    /// tree, then updates the local tree to match the merged tree.
-    ///
-    /// Conceptually, we examine the merge state of each item, and either leave the
-    /// item unchanged, upload the local side, apply the remote side, or apply and
-    /// then reupload the remote side with a new structure.
-    fn update_local_items_in_places<'t>(
-        &self,
-        now: Timestamp,
-        ops: &CompletionOps<'t>,
-    ) -> Result<()> {
-        // Build a table of new and updated items.
-        log::debug!("Staging apply remote item ops");
-        sql_support::each_sized_chunk(
-            &ops.apply_remote_items,
-            sql_support::default_max_variable_number() / 3,
-            |chunk, _| -> Result<()> {
-                // CTEs in `WITH` clauses aren't indexed, so this query needs a
-                // full table scan on `ops`. But that's okay; a separate temp
-                // table for ops would also need a full scan. Note that we need
-                // both the local _and_ remote GUIDs here, because we haven't
-                // changed the local GUIDs yet.
-                let sql = format!(
-                    "WITH ops(mergedGuid, localGuid, remoteGuid, remoteType,
-                              level) AS (
-                         VALUES {ops}
-                     )
-                     INSERT INTO itemsToApply(mergedGuid, localId, remoteId,
-                                              remoteGuid, newLevel, newKind,
-                                              localDateAdded, remoteDateAdded,
-                                              lastModified, oldTitle, newTitle,
-                                              oldPlaceId, newPlaceId,
-                                              newKeyword)
-                     SELECT n.mergedGuid, b.id, v.id,
-                            v.guid, n.level, n.remoteType,
-                            b.dateAdded, v.dateAdded,
-                            MAX(v.dateAdded, {now}), b.title, v.title,
-                            b.fk, v.placeId,
-                            v.keyword
-                     FROM ops n
-                     JOIN moz_bookmarks_synced v ON v.guid = n.remoteGuid
-                     LEFT JOIN moz_bookmarks b ON b.guid = n.localGuid",
-                    ops = sql_support::repeat_display(chunk.len(), ",", |index, f| {
-                        let op = &chunk[index];
-                        write!(
-                            f,
-                            "(?, ?, ?, {}, {})",
-                            SyncedBookmarkKind::from(op.remote_node().kind) as u8,
-                            op.level
-                        )
-                    }),
-                    now = now,
-                );
+                let local_guid = op.local_node().guid.as_str();
+                params.push(local_guid);
 
-                // We can't avoid allocating here, since we're binding four
-                // parameters per descendant. Rust's `SliceConcatExt::concat`
-                // is semantically equivalent, but requires a second allocation,
-                // which we _can_ avoid by writing this out.
-                let mut params = Vec::with_capacity(chunk.len() * 3);
-                for op in chunk.iter() {
-                    self.interruptee.err_if_interrupted()?;
-
-                    let merged_guid = op.merged_node.guid.as_str();
-                    params.push(Some(merged_guid));
-
-                    let local_guid = op
-                        .merged_node
-                        .merge_state
-                        .local_node()
-                        .map(|node| node.guid.as_str());
-                    params.push(local_guid);
-
-                    let remote_guid = op.remote_node().guid.as_str();
-                    params.push(Some(remote_guid));
-                }
-
-                self.db.execute(&sql, &params)?;
-                Ok(())
-            },
-        )?;
-
-        log::debug!("Staging change GUID ops");
-        sql_support::each_sized_chunk(
-            &ops.change_guids,
-            sql_support::default_max_variable_number() / 2,
-            |chunk, _| -> Result<()> {
-                let sql = format!(
-                    "INSERT INTO changeGuidOps(localGuid, mergedGuid,
-                                               syncStatus, level, lastModified)
-                     VALUES {}",
-                    sql_support::repeat_display(chunk.len(), ",", |index, f| {
-                        let op = &chunk[index];
-                        // If only the local GUID changed, the item was deduped, so we
-                        // can mark it as syncing. Otherwise, we changed an invalid
-                        // GUID locally or remotely, so we leave its original sync
-                        // status in place until we've uploaded it.
-                        let sync_status = if op.merged_node.remote_guid_changed() {
-                            None
-                        } else {
-                            Some(SyncStatus::Normal as u8)
-                        };
-                        write!(
-                            f,
-                            "(?, ?, {}, {}, {})",
-                            NullableFragment(sync_status),
-                            op.level,
-                            now
-                        )
-                    }),
-                );
-
-                let mut params = Vec::with_capacity(chunk.len() * 2);
-                for op in chunk.iter() {
-                    self.interruptee.err_if_interrupted()?;
-
-                    let local_guid = op.local_node().guid.as_str();
-                    params.push(local_guid);
-
-                    let merged_guid = op.merged_node.guid.as_str();
-                    params.push(merged_guid);
-                }
-
-                self.db.execute(&sql, &params)?;
-                Ok(())
-            },
-        )?;
-
-        log::debug!("Staging apply new local structure ops");
-        sql_support::each_sized_chunk(
-            &ops.apply_new_local_structure,
-            sql_support::default_max_variable_number() / 2,
-            |chunk, _| -> Result<()> {
-                let sql = format!(
-                    "INSERT INTO applyNewLocalStructureOps(
-                         mergedGuid, mergedParentGuid, position, level,
-                         lastModified
-                     )
-                     VALUES {}",
-                    sql_support::repeat_display(chunk.len(), ",", |index, f| {
-                        let op = &chunk[index];
-                        write!(f, "(?, ?, {}, {}, {})", op.position, op.level, now)
-                    }),
-                );
-
-                let mut params = Vec::with_capacity(chunk.len() * 2);
-                for op in chunk.iter() {
-                    self.interruptee.err_if_interrupted()?;
-
-                    let merged_guid = op.merged_node.guid.as_str();
-                    params.push(merged_guid);
-
-                    let merged_parent_guid = op.merged_parent_node.guid.as_str();
-                    params.push(merged_parent_guid);
-                }
-
-                self.db.execute(&sql, &params)?;
-                Ok(())
-            },
-        )?;
-
-        log::debug!("Removing tombstones for revived items");
-        sql_support::each_chunk_mapped(
-            &ops.delete_local_tombstones,
-            |op| op.guid().as_str(),
-            |chunk, _| -> Result<()> {
-                self.interruptee.err_if_interrupted()?;
-                self.db.execute(
-                    &format!(
-                        "DELETE FROM moz_bookmarks_deleted
-                         WHERE guid IN ({})",
-                        sql_support::repeat_sql_vars(chunk.len())
-                    ),
-                    chunk,
-                )?;
-                Ok(())
-            },
-        )?;
-
-        log::debug!("Inserting new tombstones for non-syncable and invalid items");
-        sql_support::each_chunk_mapped(
-            &ops.insert_local_tombstones,
-            |op| op.remote_node().guid.as_str().to_owned(),
-            |chunk, _| -> Result<()> {
-                self.interruptee.err_if_interrupted()?;
-                self.db.execute(
-                    &format!(
-                        "INSERT INTO moz_bookmarks_deleted(guid, dateRemoved)
-                         VALUES {}",
-                        sql_support::repeat_display(chunk.len(), ",", |_, f| write!(
-                            f,
-                            "(?, {})",
-                            now
-                        )),
-                    ),
-                    chunk,
-                )?;
-                Ok(())
-            },
-        )?;
-
-        log::debug!("Flag frecencies for removed bookmark URLs as stale");
-        sql_support::each_chunk_mapped(
-            &ops.delete_local_items,
-            |op| op.local_node().guid.as_str().to_owned(),
-            |chunk, _| -> Result<()> {
-                self.interruptee.err_if_interrupted()?;
-                self.db.execute(
-                    &format!(
-                        "REPLACE INTO moz_places_stale_frecencies(
-                             place_id, stale_at
-                         )
-                         SELECT b.fk, {now}
-                         FROM moz_bookmarks b
-                         WHERE b.guid IN ({vars})
-                         AND b.fk NOT NULL",
-                        now = now,
-                        vars = sql_support::repeat_sql_vars(chunk.len())
-                    ),
-                    chunk,
-                )?;
-                Ok(())
-            },
-        )?;
-
-        log::debug!("Removing deleted items from Places");
-        sql_support::each_chunk_mapped(
-            &ops.delete_local_items,
-            |op| op.local_node().guid.as_str().to_owned(),
-            |chunk, _| -> Result<()> {
-                self.interruptee.err_if_interrupted()?;
-                self.db.execute(
-                    &format!(
-                        "DELETE FROM moz_bookmarks
-                         WHERE guid IN ({})",
-                        sql_support::repeat_sql_vars(chunk.len())
-                    ),
-                    chunk,
-                )?;
-                Ok(())
-            },
-        )?;
-
-        log::debug!("Changing GUIDs");
-        self.interruptee.err_if_interrupted()?;
-        self.db.execute_batch("DELETE FROM changeGuidOps")?;
-
-        log::debug!("Applying remote items");
-        self.apply_remote_items(now)?;
-
-        // Fires the `applyNewLocalStructure` trigger.
-        log::debug!("Applying new local structure");
-        self.interruptee.err_if_interrupted()?;
-        self.db
-            .execute_batch("DELETE FROM applyNewLocalStructureOps")?;
-
-        log::debug!("Resetting change counters for items that shouldn't be uploaded");
-        sql_support::each_chunk_mapped(
-            &ops.set_local_merged,
-            |op| op.merged_node.guid.as_str(),
-            |chunk, _| -> Result<()> {
-                self.interruptee.err_if_interrupted()?;
-                self.db.execute(
-                    &format!(
-                        "UPDATE moz_bookmarks SET
-                             syncChangeCounter = 0
-                         WHERE guid IN ({})",
-                        sql_support::repeat_sql_vars(chunk.len()),
-                    ),
-                    chunk,
-                )?;
-                Ok(())
-            },
-        )?;
-
-        log::debug!("Bumping change counters for items that should be uploaded");
-        sql_support::each_chunk_mapped(
-            &ops.set_local_unmerged,
-            |op| op.merged_node.guid.as_str(),
-            |chunk, _| -> Result<()> {
-                self.interruptee.err_if_interrupted()?;
-                self.db.execute(
-                    &format!(
-                        "UPDATE moz_bookmarks SET
-                             syncChangeCounter = 1
-                         WHERE guid IN ({})",
-                        sql_support::repeat_sql_vars(chunk.len()),
-                    ),
-                    chunk,
-                )?;
-                Ok(())
-            },
-        )?;
-
-        log::debug!("Flagging applied remote items as merged");
-        sql_support::each_chunk_mapped(
-            &ops.set_remote_merged,
-            |op| op.guid().as_str(),
-            |chunk, _| -> Result<()> {
-                self.interruptee.err_if_interrupted()?;
-                self.db.execute(
-                    &format!(
-                        "UPDATE moz_bookmarks_synced SET
-                             needsMerge = 0
-                         WHERE guid IN ({})",
-                        sql_support::repeat_sql_vars(chunk.len()),
-                    ),
-                    chunk,
-                )?;
-                Ok(())
-            },
-        )?;
-
-        Ok(())
-    }
-
-    fn apply_remote_items(&self, now: Timestamp) -> Result<()> {
-        // Remove all keywords from old and new URLs, and remove new keywords
-        // from all existing URLs. The `NOT NULL` conditions are important; they
-        // ensure that SQLite uses our partial indexes on `itemsToApply`,
-        // instead of a table scan.
-        log::debug!("Removing old keywords");
-        self.interruptee.err_if_interrupted()?;
-        self.db.execute_batch(
-            "DELETE FROM moz_keywords
-             WHERE place_id IN (SELECT oldPlaceId FROM itemsToApply
-                                WHERE oldPlaceId NOT NULL) OR
-                   place_id IN (SELECT newPlaceId FROM itemsToApply
-                                WHERE newPlaceId NOT NULL) OR
-                   keyword IN (SELECT newKeyword FROM itemsToApply
-                               WHERE newKeyword NOT NULL)",
-        )?;
-
-        log::debug!("Removing old tags");
-        self.interruptee.err_if_interrupted()?;
-        self.db.execute_batch(
-            "DELETE FROM moz_tags_relation
-             WHERE place_id IN (SELECT oldPlaceId FROM itemsToApply
-                                WHERE oldPlaceId NOT NULL) OR
-                   place_id IN (SELECT newPlaceId FROM itemsToApply
-                                WHERE newPlaceId NOT NULL)",
-        )?;
-
-        // Insert and update items, temporarily using the Places root for new
-        // items' parent IDs, and -1 for positions. We'll fix these up later,
-        // when we apply the new local structure. This `INSERT` is a full table
-        // scan on `itemsToApply`. The no-op `WHERE` clause is necessary to
-        // avoid a parsing ambiguity.
-        log::debug!("Upserting new items");
-        self.interruptee.err_if_interrupted()?;
-        self.db.execute_batch(&format!(
-            "INSERT INTO moz_bookmarks(id, guid, parent,
-                                       position, type, fk, title,
-                                       dateAdded,
-                                       lastModified,
-                                       syncStatus, syncChangeCounter)
-             SELECT localId, mergedGuid, (SELECT id FROM moz_bookmarks
-                                          WHERE guid = '{root_guid}'),
-                    -1, {type_fragment}, newPlaceId, newTitle,
-                    /* Pick the older of the local and remote date added. We'll
-                       weakly reupload any items with an older local date. */
-                    MIN(IFNULL(localDateAdded, remoteDateAdded), remoteDateAdded),
-                    /* The last modified date should always be newer than the date
-                       added, so we pick the newer of the two here. */
-                    MAX(lastModified, remoteDateAdded),
-                    {sync_status}, 0
-             FROM itemsToApply
-             WHERE 1
-             ON CONFLICT(id) DO UPDATE SET
-               title = excluded.title,
-               dateAdded = excluded.dateAdded,
-               lastModified = excluded.lastModified,
-               fk = excluded.fk,
-               syncStatus = {sync_status}",
-            root_guid = BookmarkRootGuid::Root.as_guid().as_str(),
-            type_fragment = ItemTypeFragment("newKind"),
-            sync_status = SyncStatus::Normal as u8,
-        ))?;
-
-        log::debug!("Flagging frecencies for recalculation");
-        self.interruptee.err_if_interrupted()?;
-        self.db.execute_batch(&format!(
-            "REPLACE INTO moz_places_stale_frecencies(place_id, stale_at)
-             SELECT oldPlaceId, {now} FROM itemsToApply
-             WHERE newKind = {bookmark_kind} AND (
-                       oldPlaceId IS NULL <> newPlaceId IS NULL OR
-                       oldPlaceId <> newPlaceId
-                   )
-             UNION ALL
-             SELECT newPlaceId, {now} FROM itemsToApply
-             WHERE newKind = {bookmark_kind} AND (
-                       newPlaceId IS NULL <> oldPlaceId IS NULL OR
-                       newPlaceId <> oldPlaceId
-                   )",
-            now = now,
-            bookmark_kind = SyncedBookmarkKind::Bookmark as u8,
-        ))?;
-
-        log::debug!("Inserting new keywords for new URLs");
-        self.interruptee.err_if_interrupted()?;
-        self.db.execute_batch(
-            "INSERT OR IGNORE INTO moz_keywords(keyword, place_id)
-             SELECT newKeyword, newPlaceId
-             FROM itemsToApply
-             WHERE newKeyword NOT NULL",
-        )?;
-
-        log::debug!("Inserting new tags for new URLs");
-        self.interruptee.err_if_interrupted()?;
-        self.db.execute_batch(
-            "INSERT OR IGNORE INTO moz_tags_relation(tag_id, place_id)
-             SELECT r.tagId, n.newPlaceId
-             FROM itemsToApply n
-             JOIN moz_bookmarks_synced_tag_relation r ON r.itemId = n.remoteId",
-        )?;
-
-        Ok(())
-    }
-
-    /// Stores a snapshot of all locally changed items in a temporary table for
-    /// upload. This is called from within the merge transaction, to ensure that
-    /// changes made during the sync don't cause us to upload inconsistent
-    /// records.
-    ///
-    /// Conceptually, `itemsToUpload` is a transient "view" of locally changed
-    /// items. The local change counter is the persistent record of items that
-    /// we need to upload, so, if upload is interrupted or fails, we'll stage
-    /// the items again on the next sync.
-    fn stage_items_to_upload(
-        &self,
-        upload_items: &[UploadItem<'_>],
-        upload_tombstones: &[UploadTombstone<'_>],
-    ) -> Result<()> {
-        log::debug!("Cleaning up staged items left from last sync");
-        self.interruptee.err_if_interrupted()?;
-        self.db.execute_batch("DELETE FROM itemsToUpload")?;
-
-        // Stage remotely changed items with older local creation dates. These are
-        // tracked "weakly": if the upload is interrupted or fails, we won't
-        // reupload the record on the next sync.
-        log::debug!("Staging items with older local dates added");
-        self.interruptee.err_if_interrupted()?;
-        self.db.execute_batch(&format!(
-            "INSERT OR IGNORE INTO itemsToUpload(id, guid, syncChangeCounter,
-                                                 parentGuid, parentTitle, dateAdded,
-                                                 kind, title, placeId, url,
-                                                 keyword, position)
-             {}
-             JOIN itemsToApply n ON n.mergedGuid = b.guid
-             WHERE n.localDateAdded < n.remoteDateAdded",
-            UploadItemsFragment("b")
-        ))?;
-
-        log::debug!("Staging remaining locally changed items for upload");
-        sql_support::each_chunk_mapped(
-            upload_items,
-            |op| op.merged_node.guid.as_str(),
-            |chunk, _| -> Result<()> {
-                let sql = format!(
-                    "INSERT OR IGNORE INTO itemsToUpload(id, guid, syncChangeCounter,
-                                                      parentGuid, parentTitle,
-                                                      dateAdded, kind, title,
-                                                      placeId, url, keyword,
-                                                      position)
-                     {upload_items_fragment}
-                     WHERE b.guid IN ({vars})",
-                    vars = sql_support::repeat_sql_vars(chunk.len()),
-                    upload_items_fragment = UploadItemsFragment("b")
-                );
-
-                self.db.execute(&sql, chunk)?;
-                Ok(())
-            },
-        )?;
-
-        // Record the child GUIDs of locally changed folders, which we use to
-        // populate the `children` array in the record.
-        log::debug!("Staging structure to upload");
-        self.interruptee.err_if_interrupted()?;
-        self.db.execute_batch(
-            "INSERT INTO structureToUpload(guid, parentId, position)
-             SELECT b.guid, b.parent, b.position
-             FROM moz_bookmarks b
-             JOIN itemsToUpload o ON o.id = b.parent",
-        )?;
-
-        // Stage tags for outgoing bookmarks.
-        log::debug!("Staging tags to upload");
-        self.interruptee.err_if_interrupted()?;
-        self.db.execute_batch(
-            "INSERT INTO tagsToUpload(id, tag)
-             SELECT o.id, t.tag
-             FROM itemsToUpload o
-             JOIN moz_tags_relation r ON r.place_id = o.placeId
-             JOIN moz_tags t ON t.id = r.tag_id",
-        )?;
-
-        // Finally, stage tombstones for deleted items.
-        log::debug!("Staging tombstones to upload");
-        sql_support::each_chunk_mapped(
-            upload_tombstones,
-            |op| op.guid().as_str(),
-            |chunk, _| -> Result<()> {
-                self.interruptee.err_if_interrupted()?;
-                self.db.execute(
-                    &format!(
-                        "INSERT OR IGNORE INTO itemsToUpload(
-                         guid, syncChangeCounter, isDeleted
-                     )
-                     VALUES {}",
-                        sql_support::repeat_display(chunk.len(), ",", |_, f| write!(
-                            f,
-                            "(?, 1, 1)"
-                        )),
-                    ),
-                    chunk,
-                )?;
-                Ok(())
-            },
-        )?;
-
-        Ok(())
-    }
-
-    /// Inflates Sync records for all staged outgoing items.
-    fn fetch_outgoing_records(&self, timestamp: ServerTimestamp) -> Result<OutgoingChangeset> {
-        let mut outgoing = OutgoingChangeset::new(self.collection_name(), timestamp);
-        let mut child_record_ids_by_local_parent_id: HashMap<i64, Vec<BookmarkRecordId>> =
-            HashMap::new();
-        let mut tags_by_local_id: HashMap<i64, Vec<String>> = HashMap::new();
-
-        let mut stmt = self.db.prepare(
-            "SELECT parentId, guid FROM structureToUpload
-             ORDER BY parentId, position",
-        )?;
-        let mut results = stmt.query(NO_PARAMS)?;
-        while let Some(row) = results.next()? {
-            self.interruptee.err_if_interrupted()?;
-            let local_parent_id = row.get::<_, i64>("parentId")?;
-            let child_guid = row.get::<_, SyncGuid>("guid")?;
-            let child_record_ids = child_record_ids_by_local_parent_id
-                .entry(local_parent_id)
-                .or_default();
-            child_record_ids.push(child_guid.into());
-        }
-
-        let mut stmt = self.db.prepare("SELECT id, tag FROM tagsToUpload")?;
-        let mut results = stmt.query(NO_PARAMS)?;
-        while let Some(row) = results.next()? {
-            self.interruptee.err_if_interrupted()?;
-            let local_id = row.get::<_, i64>("id")?;
-            let tag = row.get::<_, String>("tag")?;
-            let tags = tags_by_local_id.entry(local_id).or_default();
-            tags.push(tag);
-        }
-
-        let mut stmt = self.db.prepare(
-            "SELECT id, syncChangeCounter, guid, isDeleted, kind, keyword,
-                    url, IFNULL(title, '') AS title, position, parentGuid,
-                    IFNULL(parentTitle, '') AS parentTitle, dateAdded
-             FROM itemsToUpload",
-        )?;
-        let mut results = stmt.query(NO_PARAMS)?;
-        while let Some(row) = results.next()? {
-            self.interruptee.err_if_interrupted()?;
-            let guid = row.get::<_, SyncGuid>("guid")?;
-            let is_deleted = row.get::<_, bool>("isDeleted")?;
-            if is_deleted {
-                outgoing.changes.push(Payload::new_tombstone(
-                    BookmarkRecordId::from(guid).into_payload_id(),
-                ));
-                continue;
+                let merged_guid = op.merged_node.guid.as_str();
+                params.push(merged_guid);
             }
-            let parent_guid = row.get::<_, SyncGuid>("parentGuid")?;
-            let parent_title = row.get::<_, String>("parentTitle")?;
-            let date_added = row.get::<_, i64>("dateAdded")?;
-            let record: BookmarkItemRecord = match SyncedBookmarkKind::from_u8(row.get("kind")?)? {
-                SyncedBookmarkKind::Bookmark => {
-                    let local_id = row.get::<_, i64>("id")?;
-                    let title = row.get::<_, String>("title")?;
-                    let url = row.get::<_, String>("url")?;
-                    BookmarkRecord {
-                        record_id: guid.into(),
-                        parent_record_id: Some(parent_guid.into()),
-                        parent_title: Some(parent_title),
-                        date_added: Some(date_added),
-                        has_dupe: true,
-                        title: Some(title),
-                        url: Some(url),
-                        keyword: row.get::<_, Option<String>>("keyword")?,
-                        tags: tags_by_local_id.remove(&local_id).unwrap_or_default(),
-                    }
-                    .into()
-                }
-                SyncedBookmarkKind::Query => {
-                    let title = row.get::<_, String>("title")?;
-                    let url = row.get::<_, String>("url")?;
-                    QueryRecord {
-                        record_id: guid.into(),
-                        parent_record_id: Some(parent_guid.into()),
-                        parent_title: Some(parent_title),
-                        date_added: Some(date_added),
-                        has_dupe: true,
-                        title: Some(title),
-                        url: Some(url),
-                        tag_folder_name: None,
-                    }
-                    .into()
-                }
-                SyncedBookmarkKind::Folder => {
-                    let title = row.get::<_, String>("title")?;
-                    let local_id = row.get::<_, i64>("id")?;
-                    let children = child_record_ids_by_local_parent_id
-                        .remove(&local_id)
-                        .unwrap_or_default();
-                    FolderRecord {
-                        record_id: guid.into(),
-                        parent_record_id: Some(parent_guid.into()),
-                        parent_title: Some(parent_title),
-                        date_added: Some(date_added),
-                        has_dupe: true,
-                        title: Some(title),
-                        children,
-                    }
-                    .into()
-                }
-                SyncedBookmarkKind::Livemark => continue,
-                SyncedBookmarkKind::Separator => {
-                    let position = row.get::<_, i64>("position")?;
-                    SeparatorRecord {
-                        record_id: guid.into(),
-                        parent_record_id: Some(parent_guid.into()),
-                        parent_title: Some(parent_title),
-                        date_added: Some(date_added),
-                        has_dupe: true,
-                        position: Some(position),
-                    }
-                    .into()
-                }
-            };
-            outgoing.changes.push(Payload::from_record(record)?);
-        }
 
-        Ok(outgoing)
-    }
+            db.execute(&sql, &params)?;
+            Ok(())
+        },
+    )?;
 
-    /// Decrements the change counter, updates the sync status, and cleans up
-    /// tombstones for successfully synced items. Sync calls this method at the
-    /// end of each bookmark sync.
-    fn push_synced_items(
-        &self,
-        uploaded_at: ServerTimestamp,
-        records_synced: Vec<SyncGuid>,
-    ) -> Result<()> {
-        // Flag all successfully synced records as uploaded. This `UPDATE` fires
-        // the `pushUploadedChanges` trigger, which updates local change
-        // counters and writes the items back to the synced bookmarks table.
-        let mut tx = self.db.begin_transaction()?;
+    log::debug!("Staging apply new local structure ops");
+    sql_support::each_sized_chunk(
+        &ops.apply_new_local_structure,
+        sql_support::default_max_variable_number() / 2,
+        |chunk, _| -> Result<()> {
+            let sql = format!(
+                "INSERT INTO applyNewLocalStructureOps(
+                     mergedGuid, mergedParentGuid, position, level,
+                     lastModified
+                 )
+                 VALUES {}",
+                sql_support::repeat_display(chunk.len(), ",", |index, f| {
+                    let op = &chunk[index];
+                    write!(f, "(?, ?, {}, {}, {})", op.position, op.level, now)
+                }),
+            );
 
-        let guids = records_synced
-            .into_iter()
-            .map(|id| BookmarkRecordId::from_payload_id(id).into())
-            .collect::<Vec<SyncGuid>>();
-        sql_support::each_chunk(&guids, |chunk, _| -> Result<()> {
-            self.db.execute(
+            let mut params = Vec::with_capacity(chunk.len() * 2);
+            for op in chunk.iter() {
+                scope.err_if_interrupted()?;
+
+                let merged_guid = op.merged_node.guid.as_str();
+                params.push(merged_guid);
+
+                let merged_parent_guid = op.merged_parent_node.guid.as_str();
+                params.push(merged_parent_guid);
+            }
+
+            db.execute(&sql, &params)?;
+            Ok(())
+        },
+    )?;
+
+    log::debug!("Removing tombstones for revived items");
+    sql_support::each_chunk_mapped(
+        &ops.delete_local_tombstones,
+        |op| op.guid().as_str(),
+        |chunk, _| -> Result<()> {
+            scope.err_if_interrupted()?;
+            db.execute(
                 &format!(
-                    "UPDATE itemsToUpload SET
-                         uploadedAt = {uploaded_at}
-                         WHERE guid IN ({values})",
-                    uploaded_at = uploaded_at.as_millis(),
-                    values = sql_support::repeat_sql_values(chunk.len())
+                    "DELETE FROM moz_bookmarks_deleted
+                     WHERE guid IN ({})",
+                    sql_support::repeat_sql_vars(chunk.len())
                 ),
                 chunk,
             )?;
-            tx.maybe_commit()?;
-            self.interruptee.err_if_interrupted()?;
             Ok(())
-        })?;
+        },
+    )?;
 
-        // Fast-forward the last sync time, so that we don't download the
-        // records we just uploaded on the next sync.
-        put_meta(
-            self.db,
-            LAST_SYNC_META_KEY,
-            &(uploaded_at.as_millis() as i64),
-        )?;
+    log::debug!("Inserting new tombstones for non-syncable and invalid items");
+    sql_support::each_chunk_mapped(
+        &ops.insert_local_tombstones,
+        |op| op.remote_node().guid.as_str().to_owned(),
+        |chunk, _| -> Result<()> {
+            scope.err_if_interrupted()?;
+            db.execute(
+                &format!(
+                    "INSERT INTO moz_bookmarks_deleted(guid, dateRemoved)
+                     VALUES {}",
+                    sql_support::repeat_display(chunk.len(), ",", |_, f| write!(f, "(?, {})", now)),
+                ),
+                chunk,
+            )?;
+            Ok(())
+        },
+    )?;
 
-        // Clean up.
-        self.db.execute_batch("DELETE FROM itemsToUpload")?;
-        tx.commit()?;
+    log::debug!("Flag frecencies for removed bookmark URLs as stale");
+    sql_support::each_chunk_mapped(
+        &ops.delete_local_items,
+        |op| op.local_node().guid.as_str().to_owned(),
+        |chunk, _| -> Result<()> {
+            scope.err_if_interrupted()?;
+            db.execute(
+                &format!(
+                    "REPLACE INTO moz_places_stale_frecencies(
+                         place_id, stale_at
+                     )
+                     SELECT b.fk, {now}
+                     FROM moz_bookmarks b
+                     WHERE b.guid IN ({vars})
+                     AND b.fk NOT NULL",
+                    now = now,
+                    vars = sql_support::repeat_sql_vars(chunk.len())
+                ),
+                chunk,
+            )?;
+            Ok(())
+        },
+    )?;
 
-        Ok(())
+    log::debug!("Removing deleted items from Places");
+    sql_support::each_chunk_mapped(
+        &ops.delete_local_items,
+        |op| op.local_node().guid.as_str().to_owned(),
+        |chunk, _| -> Result<()> {
+            scope.err_if_interrupted()?;
+            db.execute(
+                &format!(
+                    "DELETE FROM moz_bookmarks
+                     WHERE guid IN ({})",
+                    sql_support::repeat_sql_vars(chunk.len())
+                ),
+                chunk,
+            )?;
+            Ok(())
+        },
+    )?;
+
+    log::debug!("Changing GUIDs");
+    scope.err_if_interrupted()?;
+    db.execute_batch("DELETE FROM changeGuidOps")?;
+
+    log::debug!("Applying remote items");
+    apply_remote_items(db, scope, now)?;
+
+    // Fires the `applyNewLocalStructure` trigger.
+    log::debug!("Applying new local structure");
+    scope.err_if_interrupted()?;
+    db.execute_batch("DELETE FROM applyNewLocalStructureOps")?;
+
+    log::debug!("Resetting change counters for items that shouldn't be uploaded");
+    sql_support::each_chunk_mapped(
+        &ops.set_local_merged,
+        |op| op.merged_node.guid.as_str(),
+        |chunk, _| -> Result<()> {
+            scope.err_if_interrupted()?;
+            db.execute(
+                &format!(
+                    "UPDATE moz_bookmarks SET
+                         syncChangeCounter = 0
+                     WHERE guid IN ({})",
+                    sql_support::repeat_sql_vars(chunk.len()),
+                ),
+                chunk,
+            )?;
+            Ok(())
+        },
+    )?;
+
+    log::debug!("Bumping change counters for items that should be uploaded");
+    sql_support::each_chunk_mapped(
+        &ops.set_local_unmerged,
+        |op| op.merged_node.guid.as_str(),
+        |chunk, _| -> Result<()> {
+            scope.err_if_interrupted()?;
+            db.execute(
+                &format!(
+                    "UPDATE moz_bookmarks SET
+                         syncChangeCounter = 1
+                     WHERE guid IN ({})",
+                    sql_support::repeat_sql_vars(chunk.len()),
+                ),
+                chunk,
+            )?;
+            Ok(())
+        },
+    )?;
+
+    log::debug!("Flagging applied remote items as merged");
+    sql_support::each_chunk_mapped(
+        &ops.set_remote_merged,
+        |op| op.guid().as_str(),
+        |chunk, _| -> Result<()> {
+            scope.err_if_interrupted()?;
+            db.execute(
+                &format!(
+                    "UPDATE moz_bookmarks_synced SET
+                         needsMerge = 0
+                     WHERE guid IN ({})",
+                    sql_support::repeat_sql_vars(chunk.len()),
+                ),
+                chunk,
+            )?;
+            Ok(())
+        },
+    )?;
+
+    Ok(())
+}
+
+fn apply_remote_items(db: &PlacesDb, scope: &SqlInterruptScope, now: Timestamp) -> Result<()> {
+    // Remove all keywords from old and new URLs, and remove new keywords
+    // from all existing URLs. The `NOT NULL` conditions are important; they
+    // ensure that SQLite uses our partial indexes on `itemsToApply`,
+    // instead of a table scan.
+    log::debug!("Removing old keywords");
+    scope.err_if_interrupted()?;
+    db.execute_batch(
+        "DELETE FROM moz_keywords
+         WHERE place_id IN (SELECT oldPlaceId FROM itemsToApply
+                            WHERE oldPlaceId NOT NULL) OR
+               place_id IN (SELECT newPlaceId FROM itemsToApply
+                            WHERE newPlaceId NOT NULL) OR
+               keyword IN (SELECT newKeyword FROM itemsToApply
+                           WHERE newKeyword NOT NULL)",
+    )?;
+
+    log::debug!("Removing old tags");
+    scope.err_if_interrupted()?;
+    db.execute_batch(
+        "DELETE FROM moz_tags_relation
+         WHERE place_id IN (SELECT oldPlaceId FROM itemsToApply
+                            WHERE oldPlaceId NOT NULL) OR
+               place_id IN (SELECT newPlaceId FROM itemsToApply
+                            WHERE newPlaceId NOT NULL)",
+    )?;
+
+    // Insert and update items, temporarily using the Places root for new
+    // items' parent IDs, and -1 for positions. We'll fix these up later,
+    // when we apply the new local structure. This `INSERT` is a full table
+    // scan on `itemsToApply`. The no-op `WHERE` clause is necessary to
+    // avoid a parsing ambiguity.
+    log::debug!("Upserting new items");
+    scope.err_if_interrupted()?;
+    db.execute_batch(&format!(
+        "INSERT INTO moz_bookmarks(id, guid, parent,
+                                   position, type, fk, title,
+                                   dateAdded,
+                                   lastModified,
+                                   syncStatus, syncChangeCounter)
+         SELECT localId, mergedGuid, (SELECT id FROM moz_bookmarks
+                                      WHERE guid = '{root_guid}'),
+                -1, {type_fragment}, newPlaceId, newTitle,
+                /* Pick the older of the local and remote date added. We'll
+                   weakly reupload any items with an older local date. */
+                MIN(IFNULL(localDateAdded, remoteDateAdded), remoteDateAdded),
+                /* The last modified date should always be newer than the date
+                   added, so we pick the newer of the two here. */
+                MAX(lastModified, remoteDateAdded),
+                {sync_status}, 0
+         FROM itemsToApply
+         WHERE 1
+         ON CONFLICT(id) DO UPDATE SET
+           title = excluded.title,
+           dateAdded = excluded.dateAdded,
+           lastModified = excluded.lastModified,
+           fk = excluded.fk,
+           syncStatus = {sync_status}",
+        root_guid = BookmarkRootGuid::Root.as_guid().as_str(),
+        type_fragment = ItemTypeFragment("newKind"),
+        sync_status = SyncStatus::Normal as u8,
+    ))?;
+
+    log::debug!("Flagging frecencies for recalculation");
+    scope.err_if_interrupted()?;
+    db.execute_batch(&format!(
+        "REPLACE INTO moz_places_stale_frecencies(place_id, stale_at)
+         SELECT oldPlaceId, {now} FROM itemsToApply
+         WHERE newKind = {bookmark_kind} AND (
+                   oldPlaceId IS NULL <> newPlaceId IS NULL OR
+                   oldPlaceId <> newPlaceId
+               )
+         UNION ALL
+         SELECT newPlaceId, {now} FROM itemsToApply
+         WHERE newKind = {bookmark_kind} AND (
+                   newPlaceId IS NULL <> oldPlaceId IS NULL OR
+                   newPlaceId <> oldPlaceId
+               )",
+        now = now,
+        bookmark_kind = SyncedBookmarkKind::Bookmark as u8,
+    ))?;
+
+    log::debug!("Inserting new keywords for new URLs");
+    scope.err_if_interrupted()?;
+    db.execute_batch(
+        "INSERT OR IGNORE INTO moz_keywords(keyword, place_id)
+         SELECT newKeyword, newPlaceId
+         FROM itemsToApply
+         WHERE newKeyword NOT NULL",
+    )?;
+
+    log::debug!("Inserting new tags for new URLs");
+    scope.err_if_interrupted()?;
+    db.execute_batch(
+        "INSERT OR IGNORE INTO moz_tags_relation(tag_id, place_id)
+         SELECT r.tagId, n.newPlaceId
+         FROM itemsToApply n
+         JOIN moz_bookmarks_synced_tag_relation r ON r.itemId = n.remoteId",
+    )?;
+
+    Ok(())
+}
+
+/// Stores a snapshot of all locally changed items in a temporary table for
+/// upload. This is called from within the merge transaction, to ensure that
+/// changes made during the sync don't cause us to upload inconsistent
+/// records.
+///
+/// Conceptually, `itemsToUpload` is a transient "view" of locally changed
+/// items. The local change counter is the persistent record of items that
+/// we need to upload, so, if upload is interrupted or fails, we'll stage
+/// the items again on the next sync.
+fn stage_items_to_upload(
+    db: &PlacesDb,
+    scope: &SqlInterruptScope,
+    upload_items: &[UploadItem<'_>],
+    upload_tombstones: &[UploadTombstone<'_>],
+) -> Result<()> {
+    log::debug!("Cleaning up staged items left from last sync");
+    scope.err_if_interrupted()?;
+    db.execute_batch("DELETE FROM itemsToUpload")?;
+
+    // Stage remotely changed items with older local creation dates. These are
+    // tracked "weakly": if the upload is interrupted or fails, we won't
+    // reupload the record on the next sync.
+    log::debug!("Staging items with older local dates added");
+    scope.err_if_interrupted()?;
+    db.execute_batch(&format!(
+        "INSERT OR IGNORE INTO itemsToUpload(id, guid, syncChangeCounter,
+                                             parentGuid, parentTitle, dateAdded,
+                                             kind, title, placeId, url,
+                                             keyword, position)
+         {}
+         JOIN itemsToApply n ON n.mergedGuid = b.guid
+         WHERE n.localDateAdded < n.remoteDateAdded",
+        UploadItemsFragment("b")
+    ))?;
+
+    log::debug!("Staging remaining locally changed items for upload");
+    sql_support::each_chunk_mapped(
+        upload_items,
+        |op| op.merged_node.guid.as_str(),
+        |chunk, _| -> Result<()> {
+            let sql = format!(
+                "INSERT OR IGNORE INTO itemsToUpload(id, guid, syncChangeCounter,
+                                                  parentGuid, parentTitle,
+                                                  dateAdded, kind, title,
+                                                  placeId, url, keyword,
+                                                  position)
+                 {upload_items_fragment}
+                 WHERE b.guid IN ({vars})",
+                vars = sql_support::repeat_sql_vars(chunk.len()),
+                upload_items_fragment = UploadItemsFragment("b")
+            );
+
+            db.execute(&sql, chunk)?;
+            Ok(())
+        },
+    )?;
+
+    // Record the child GUIDs of locally changed folders, which we use to
+    // populate the `children` array in the record.
+    log::debug!("Staging structure to upload");
+    scope.err_if_interrupted()?;
+    db.execute_batch(
+        "INSERT INTO structureToUpload(guid, parentId, position)
+         SELECT b.guid, b.parent, b.position
+         FROM moz_bookmarks b
+         JOIN itemsToUpload o ON o.id = b.parent",
+    )?;
+
+    // Stage tags for outgoing bookmarks.
+    log::debug!("Staging tags to upload");
+    scope.err_if_interrupted()?;
+    db.execute_batch(
+        "INSERT INTO tagsToUpload(id, tag)
+         SELECT o.id, t.tag
+         FROM itemsToUpload o
+         JOIN moz_tags_relation r ON r.place_id = o.placeId
+         JOIN moz_tags t ON t.id = r.tag_id",
+    )?;
+
+    // Finally, stage tombstones for deleted items.
+    log::debug!("Staging tombstones to upload");
+    sql_support::each_chunk_mapped(
+        upload_tombstones,
+        |op| op.guid().as_str(),
+        |chunk, _| -> Result<()> {
+            scope.err_if_interrupted()?;
+            db.execute(
+                &format!(
+                    "INSERT OR IGNORE INTO itemsToUpload(
+                     guid, syncChangeCounter, isDeleted
+                 )
+                 VALUES {}",
+                    sql_support::repeat_display(chunk.len(), ",", |_, f| write!(f, "(?, 1, 1)")),
+                ),
+                chunk,
+            )?;
+            Ok(())
+        },
+    )?;
+
+    Ok(())
+}
+
+/// Inflates Sync records for all staged outgoing items.
+fn fetch_outgoing_records(
+    db: &PlacesDb,
+    scope: &SqlInterruptScope,
+    timestamp: ServerTimestamp,
+) -> Result<OutgoingChangeset> {
+    let mut outgoing = OutgoingChangeset::new(COLLECTION_NAME, timestamp);
+    let mut child_record_ids_by_local_parent_id: HashMap<i64, Vec<BookmarkRecordId>> =
+        HashMap::new();
+    let mut tags_by_local_id: HashMap<i64, Vec<String>> = HashMap::new();
+
+    let mut stmt = db.prepare(
+        "SELECT parentId, guid FROM structureToUpload
+         ORDER BY parentId, position",
+    )?;
+    let mut results = stmt.query(NO_PARAMS)?;
+    while let Some(row) = results.next()? {
+        scope.err_if_interrupted()?;
+        let local_parent_id = row.get::<_, i64>("parentId")?;
+        let child_guid = row.get::<_, SyncGuid>("guid")?;
+        let child_record_ids = child_record_ids_by_local_parent_id
+            .entry(local_parent_id)
+            .or_default();
+        child_record_ids.push(child_guid.into());
     }
 
-    pub(crate) fn update_frecencies(&self) -> Result<()> {
-        let mut tx = self.db.begin_transaction()?;
+    let mut stmt = db.prepare("SELECT id, tag FROM tagsToUpload")?;
+    let mut results = stmt.query(NO_PARAMS)?;
+    while let Some(row) = results.next()? {
+        scope.err_if_interrupted()?;
+        let local_id = row.get::<_, i64>("id")?;
+        let tag = row.get::<_, String>("tag")?;
+        let tags = tags_by_local_id.entry(local_id).or_default();
+        tags.push(tag);
+    }
 
-        let mut frecencies = Vec::with_capacity(MAX_FRECENCIES_TO_RECALCULATE_PER_CHUNK);
-        loop {
-            let sql = format!(
-                "SELECT place_id FROM moz_places_stale_frecencies
-                 ORDER BY stale_at DESC
-                 LIMIT {}",
-                MAX_FRECENCIES_TO_RECALCULATE_PER_CHUNK
-            );
-            let mut stmt = self.db.prepare_maybe_cached(&sql, true)?;
-            let mut results = stmt.query(NO_PARAMS)?;
-            while let Some(row) = results.next()? {
-                let place_id = row.get("place_id")?;
-                // Frecency recalculation runs several statements, so check to
-                // make sure we aren't interrupted before each calculation.
-                self.interruptee.err_if_interrupted()?;
-                let frecency = calculate_frecency(
-                    &self.db,
-                    &DEFAULT_FRECENCY_SETTINGS,
-                    place_id,
-                    Some(false),
-                )?;
-                frecencies.push((place_id, frecency));
+    let mut stmt = db.prepare(
+        "SELECT id, syncChangeCounter, guid, isDeleted, kind, keyword,
+                url, IFNULL(title, '') AS title, position, parentGuid,
+                IFNULL(parentTitle, '') AS parentTitle, dateAdded
+         FROM itemsToUpload",
+    )?;
+    let mut results = stmt.query(NO_PARAMS)?;
+    while let Some(row) = results.next()? {
+        scope.err_if_interrupted()?;
+        let guid = row.get::<_, SyncGuid>("guid")?;
+        let is_deleted = row.get::<_, bool>("isDeleted")?;
+        if is_deleted {
+            outgoing.changes.push(Payload::new_tombstone(
+                BookmarkRecordId::from(guid).into_payload_id(),
+            ));
+            continue;
+        }
+        let parent_guid = row.get::<_, SyncGuid>("parentGuid")?;
+        let parent_title = row.get::<_, String>("parentTitle")?;
+        let date_added = row.get::<_, i64>("dateAdded")?;
+        let record: BookmarkItemRecord = match SyncedBookmarkKind::from_u8(row.get("kind")?)? {
+            SyncedBookmarkKind::Bookmark => {
+                let local_id = row.get::<_, i64>("id")?;
+                let title = row.get::<_, String>("title")?;
+                let url = row.get::<_, String>("url")?;
+                BookmarkRecord {
+                    record_id: guid.into(),
+                    parent_record_id: Some(parent_guid.into()),
+                    parent_title: Some(parent_title),
+                    date_added: Some(date_added),
+                    has_dupe: true,
+                    title: Some(title),
+                    url: Some(url),
+                    keyword: row.get::<_, Option<String>>("keyword")?,
+                    tags: tags_by_local_id.remove(&local_id).unwrap_or_default(),
+                }
+                .into()
             }
-            if frecencies.is_empty() {
-                break;
+            SyncedBookmarkKind::Query => {
+                let title = row.get::<_, String>("title")?;
+                let url = row.get::<_, String>("url")?;
+                QueryRecord {
+                    record_id: guid.into(),
+                    parent_record_id: Some(parent_guid.into()),
+                    parent_title: Some(parent_title),
+                    date_added: Some(date_added),
+                    has_dupe: true,
+                    title: Some(title),
+                    url: Some(url),
+                    tag_folder_name: None,
+                }
+                .into()
             }
-
-            // Update all frecencies in one fell swoop...
-            self.db.execute_batch(&format!(
-                "WITH frecencies(id, frecency) AS (
-                   VALUES {}
-                 )
-                 UPDATE moz_places SET
-                   frecency = (SELECT frecency FROM frecencies f
-                               WHERE f.id = id)
-                 WHERE id IN (SELECT f.id FROM frecencies f)",
-                sql_support::repeat_display(frecencies.len(), ",", |index, f| {
-                    let (id, frecency) = frecencies[index];
-                    write!(f, "({}, {})", id, frecency)
-                })
-            ))?;
-            tx.maybe_commit()?;
-            self.interruptee.err_if_interrupted()?;
-
-            // ...And remove them from the stale table.
-            self.db.execute_batch(&format!(
-                "DELETE FROM moz_places_stale_frecencies
-                 WHERE place_id IN ({})",
-                sql_support::repeat_display(frecencies.len(), ",", |index, f| {
-                    let (id, _) = frecencies[index];
-                    write!(f, "{}", id)
-                })
-            ))?;
-            tx.maybe_commit()?;
-            self.interruptee.err_if_interrupted()?;
-
-            // If the query returned fewer URLs than the maximum, we're done.
-            // Otherwise, we might have more, so clear the ones we just
-            // recalculated and fetch the next chunk.
-            if frecencies.len() < MAX_FRECENCIES_TO_RECALCULATE_PER_CHUNK {
-                break;
+            SyncedBookmarkKind::Folder => {
+                let title = row.get::<_, String>("title")?;
+                let local_id = row.get::<_, i64>("id")?;
+                let children = child_record_ids_by_local_parent_id
+                    .remove(&local_id)
+                    .unwrap_or_default();
+                FolderRecord {
+                    record_id: guid.into(),
+                    parent_record_id: Some(parent_guid.into()),
+                    parent_title: Some(parent_title),
+                    date_added: Some(date_added),
+                    has_dupe: true,
+                    title: Some(title),
+                    children,
+                }
+                .into()
             }
-            frecencies.clear();
+            SyncedBookmarkKind::Livemark => continue,
+            SyncedBookmarkKind::Separator => {
+                let position = row.get::<_, i64>("position")?;
+                SeparatorRecord {
+                    record_id: guid.into(),
+                    parent_record_id: Some(parent_guid.into()),
+                    parent_title: Some(parent_title),
+                    date_added: Some(date_added),
+                    has_dupe: true,
+                    position: Some(position),
+                }
+                .into()
+            }
+        };
+        outgoing.changes.push(Payload::from_record(record)?);
+    }
+
+    Ok(outgoing)
+}
+
+/// Decrements the change counter, updates the sync status, and cleans up
+/// tombstones for successfully synced items. Sync calls this method at the
+/// end of each bookmark sync.
+fn push_synced_items(
+    db: &PlacesDb,
+    scope: &SqlInterruptScope,
+    uploaded_at: ServerTimestamp,
+    records_synced: Vec<SyncGuid>,
+) -> Result<()> {
+    // Flag all successfully synced records as uploaded. This `UPDATE` fires
+    // the `pushUploadedChanges` trigger, which updates local change
+    // counters and writes the items back to the synced bookmarks table.
+    let mut tx = db.begin_transaction()?;
+
+    let guids = records_synced
+        .into_iter()
+        .map(|id| BookmarkRecordId::from_payload_id(id).into())
+        .collect::<Vec<SyncGuid>>();
+    sql_support::each_chunk(&guids, |chunk, _| -> Result<()> {
+        db.execute(
+            &format!(
+                "UPDATE itemsToUpload SET
+                     uploadedAt = {uploaded_at}
+                     WHERE guid IN ({values})",
+                uploaded_at = uploaded_at.as_millis(),
+                values = sql_support::repeat_sql_values(chunk.len())
+            ),
+            chunk,
+        )?;
+        tx.maybe_commit()?;
+        scope.err_if_interrupted()?;
+        Ok(())
+    })?;
+
+    // Fast-forward the last sync time, so that we don't download the
+    // records we just uploaded on the next sync.
+    put_meta(db, LAST_SYNC_META_KEY, &(uploaded_at.as_millis() as i64))?;
+
+    // Clean up.
+    db.execute_batch("DELETE FROM itemsToUpload")?;
+    tx.commit()?;
+
+    Ok(())
+}
+
+pub(crate) fn update_frecencies(db: &PlacesDb, scope: &SqlInterruptScope) -> Result<()> {
+    let mut tx = db.begin_transaction()?;
+
+    let mut frecencies = Vec::with_capacity(MAX_FRECENCIES_TO_RECALCULATE_PER_CHUNK);
+    loop {
+        let sql = format!(
+            "SELECT place_id FROM moz_places_stale_frecencies
+             ORDER BY stale_at DESC
+             LIMIT {}",
+            MAX_FRECENCIES_TO_RECALCULATE_PER_CHUNK
+        );
+        let mut stmt = db.prepare_maybe_cached(&sql, true)?;
+        let mut results = stmt.query(NO_PARAMS)?;
+        while let Some(row) = results.next()? {
+            let place_id = row.get("place_id")?;
+            // Frecency recalculation runs several statements, so check to
+            // make sure we aren't interrupted before each calculation.
+            scope.err_if_interrupted()?;
+            let frecency =
+                calculate_frecency(db, &DEFAULT_FRECENCY_SETTINGS, place_id, Some(false))?;
+            frecencies.push((place_id, frecency));
+        }
+        if frecencies.is_empty() {
+            break;
         }
 
-        tx.commit()?;
+        // Update all frecencies in one fell swoop...
+        db.execute_batch(&format!(
+            "WITH frecencies(id, frecency) AS (
+               VALUES {}
+             )
+             UPDATE moz_places SET
+               frecency = (SELECT frecency FROM frecencies f
+                           WHERE f.id = id)
+             WHERE id IN (SELECT f.id FROM frecencies f)",
+            sql_support::repeat_display(frecencies.len(), ",", |index, f| {
+                let (id, frecency) = frecencies[index];
+                write!(f, "({}, {})", id, frecency)
+            })
+        ))?;
+        tx.maybe_commit()?;
+        scope.err_if_interrupted()?;
 
-        Ok(())
+        // ...And remove them from the stale table.
+        db.execute_batch(&format!(
+            "DELETE FROM moz_places_stale_frecencies
+             WHERE place_id IN ({})",
+            sql_support::repeat_display(frecencies.len(), ",", |index, f| {
+                let (id, _) = frecencies[index];
+                write!(f, "{}", id)
+            })
+        ))?;
+        tx.maybe_commit()?;
+        scope.err_if_interrupted()?;
+
+        // If the query returned fewer URLs than the maximum, we're done.
+        // Otherwise, we might have more, so clear the ones we just
+        // recalculated and fetch the next chunk.
+        if frecencies.len() < MAX_FRECENCIES_TO_RECALCULATE_PER_CHUNK {
+            break;
+        }
+        frecencies.clear();
+    }
+
+    tx.commit()?;
+
+    Ok(())
+}
+
+// Short-lived struct that's constructed each sync
+pub struct BookmarksSyncEngine {
+    db: Arc<SharedPlacesDb>,
+    // Pub so that it can be used by the PlacesApi methods.  Once all syncing goes through the
+    // `SyncManager` we should be able to make this private.
+    pub(crate) scope: SqlInterruptScope,
+}
+
+impl BookmarksSyncEngine {
+    pub fn new(db: Arc<SharedPlacesDb>) -> Result<Self> {
+        Ok(Self {
+            scope: db.begin_interrupt_scope()?,
+            db,
+        })
     }
 }
 
-impl<'a> SyncEngine for BookmarksEngine<'a> {
+impl SyncEngine for BookmarksSyncEngine {
     #[inline]
     fn collection_name(&self) -> std::borrow::Cow<'static, str> {
-        "bookmarks".into()
+        COLLECTION_NAME.into()
     }
 
     fn apply_incoming(
@@ -915,24 +909,25 @@ impl<'a> SyncEngine for BookmarksEngine<'a> {
         inbound: Vec<IncomingChangeset>,
         telem: &mut telemetry::Engine,
     ) -> anyhow::Result<OutgoingChangeset> {
+        let conn = self.db.lock();
         assert_eq!(inbound.len(), 1, "bookmarks only requests one item");
         let inbound = inbound.into_iter().next().unwrap();
         // Stage all incoming items.
         let mut incoming_telemetry = telemetry::EngineIncoming::new();
-        let timestamp = self.stage_incoming(inbound, &mut incoming_telemetry)?;
+        let timestamp = stage_incoming(&conn, &self.scope, inbound, &mut incoming_telemetry)?;
         telem.incoming(incoming_telemetry);
 
         // write the timestamp now, so if we are interrupted merging or
         // creating outgoing changesets we don't need to re-download the same
         // records.
-        put_meta(self.db, LAST_SYNC_META_KEY, &(timestamp.as_millis() as i64))?;
+        put_meta(&conn, LAST_SYNC_META_KEY, &(timestamp.as_millis() as i64))?;
 
         // Merge.
-        let mut merger = Merger::with_telemetry(&self, timestamp, telem);
+        let mut merger = Merger::with_telemetry(&conn, &self.scope, timestamp, telem);
         merger.merge()?;
 
         // Finally, stage outgoing items.
-        let outgoing = self.fetch_outgoing_records(timestamp)?;
+        let outgoing = fetch_outgoing_records(&conn, &self.scope, timestamp)?;
         Ok(outgoing)
     }
 
@@ -941,9 +936,10 @@ impl<'a> SyncEngine for BookmarksEngine<'a> {
         new_timestamp: ServerTimestamp,
         records_synced: Vec<SyncGuid>,
     ) -> anyhow::Result<()> {
-        self.push_synced_items(new_timestamp, records_synced)?;
-        self.update_frecencies()?;
-        self.db.pragma_update(None, "wal_checkpoint", &"PASSIVE")?;
+        let conn = self.db.lock();
+        push_synced_items(&conn, &self.scope, new_timestamp, records_synced)?;
+        update_frecencies(&conn, &self.scope)?;
+        conn.pragma_update(None, "wal_checkpoint", &"PASSIVE")?;
         Ok(())
     }
 
@@ -951,8 +947,9 @@ impl<'a> SyncEngine for BookmarksEngine<'a> {
         &self,
         server_timestamp: ServerTimestamp,
     ) -> anyhow::Result<Vec<CollectionRequest>> {
+        let conn = self.db.lock();
         let since =
-            ServerTimestamp(get_meta::<i64>(self.db, LAST_SYNC_META_KEY)?.unwrap_or_default());
+            ServerTimestamp(get_meta::<i64>(&conn, LAST_SYNC_META_KEY)?.unwrap_or_default());
         Ok(if since == server_timestamp {
             vec![]
         } else {
@@ -963,8 +960,9 @@ impl<'a> SyncEngine for BookmarksEngine<'a> {
     }
 
     fn get_sync_assoc(&self) -> anyhow::Result<EngineSyncAssociation> {
-        let global = get_meta(self.db, GLOBAL_SYNCID_META_KEY)?;
-        let coll = get_meta(self.db, COLLECTION_SYNCID_META_KEY)?;
+        let conn = self.db.lock();
+        let global = get_meta(&conn, GLOBAL_SYNCID_META_KEY)?;
+        let coll = get_meta(&conn, COLLECTION_SYNCID_META_KEY)?;
         Ok(if let (Some(global), Some(coll)) = (global, coll) {
             EngineSyncAssociation::Connected(CollSyncIds { global, coll })
         } else {
@@ -973,7 +971,8 @@ impl<'a> SyncEngine for BookmarksEngine<'a> {
     }
 
     fn reset(&self, assoc: &EngineSyncAssociation) -> anyhow::Result<()> {
-        reset(&self.db, assoc)?;
+        let conn = self.db.lock();
+        reset(&conn, assoc)?;
         Ok(())
     }
 
@@ -984,7 +983,8 @@ impl<'a> SyncEngine for BookmarksEngine<'a> {
     /// Conceptually, the next sync will merge an empty local tree, and a full
     /// remote tree.
     fn wipe(&self) -> anyhow::Result<()> {
-        let tx = self.db.begin_transaction()?;
+        let conn = self.db.lock();
+        let tx = conn.begin_transaction()?;
         let sql = format!(
             "INSERT INTO moz_bookmarks_deleted(guid, dateRemoved)
              SELECT guid, now()
@@ -1007,8 +1007,8 @@ impl<'a> SyncEngine for BookmarksEngine<'a> {
             ]),
             sync_status = SyncStatus::Normal as u8
         );
-        self.db.execute_batch(&sql)?;
-        create_synced_bookmark_roots(self.db)?;
+        conn.execute_batch(&sql)?;
+        create_synced_bookmark_roots(&conn)?;
         tx.commit()?;
         Ok(())
     }
@@ -1048,7 +1048,8 @@ impl dogear::Driver for Driver {
 
 // The "merger", which is just a thin wrapper for dogear.
 pub(crate) struct Merger<'a> {
-    engine: &'a BookmarksEngine<'a>,
+    db: &'a PlacesDb,
+    scope: &'a SqlInterruptScope,
     remote_time: ServerTimestamp,
     local_time: Timestamp,
     // Used for where the merger is not the one which should be managing the
@@ -1063,45 +1064,54 @@ pub(crate) struct Merger<'a> {
 }
 
 impl<'a> Merger<'a> {
-    pub(crate) fn new(engine: &'a BookmarksEngine<'_>, remote_time: ServerTimestamp) -> Self {
+    pub(crate) fn new(
+        db: &'a PlacesDb,
+        scope: &'a SqlInterruptScope,
+        remote_time: ServerTimestamp,
+    ) -> Self {
         Self {
-            engine,
+            db,
+            scope,
             remote_time,
             local_time: Timestamp::now(),
             external_transaction: false,
             telem: None,
-            global_change_tracker: engine.db.global_bookmark_change_tracker(),
+            global_change_tracker: db.global_bookmark_change_tracker(),
         }
     }
 
     pub(crate) fn with_telemetry(
-        engine: &'a BookmarksEngine<'_>,
+        db: &'a PlacesDb,
+        scope: &'a SqlInterruptScope,
         remote_time: ServerTimestamp,
         telem: &'a mut telemetry::Engine,
     ) -> Self {
         Self {
-            engine,
+            db,
+            scope,
             remote_time,
             local_time: Timestamp::now(),
             external_transaction: false,
             telem: Some(telem),
-            global_change_tracker: engine.db.global_bookmark_change_tracker(),
+            global_change_tracker: db.global_bookmark_change_tracker(),
         }
     }
 
     #[cfg(test)]
     fn with_localtime(
-        engine: &'a BookmarksEngine<'_>,
+        db: &'a PlacesDb,
+        scope: &'a SqlInterruptScope,
         remote_time: ServerTimestamp,
         local_time: Timestamp,
     ) -> Self {
         Self {
-            engine,
+            db,
+            scope,
             remote_time,
             local_time,
             external_transaction: false,
             telem: None,
-            global_change_tracker: engine.db.global_bookmark_change_tracker(),
+            global_change_tracker: db.global_bookmark_change_tracker(),
         }
     }
 
@@ -1115,13 +1125,13 @@ impl<'a> Merger<'a> {
 
     pub(crate) fn merge(&mut self) -> Result<()> {
         use dogear::Store;
-        if !self.engine.has_changes()? {
+        if !db_has_changes(self.db)? {
             return Ok(());
         }
         // Merge and stage outgoing items via dogear.
         let driver = Driver::default();
         self.prepare()?;
-        let result = self.merge_with_driver(&driver, &MergeInterruptee(self.engine.interruptee));
+        let result = self.merge_with_driver(&driver, &MergeInterruptee(self.scope));
         log::debug!("merge completed: {:?}", result);
 
         // Record telemetry in all cases, even if the merge fails.
@@ -1142,7 +1152,7 @@ impl<'a> Merger<'a> {
         // the affected URL (bug 1328737). Just in case, we flag any synced
         // bookmarks that have different keywords for the same URL, or the same
         // keyword for different URLs, for reupload.
-        self.engine.interruptee.err_if_interrupted()?;
+        self.scope.err_if_interrupted()?;
         log::debug!("Flagging bookmarks with mismatched keywords for reupload");
         let sql = format!(
             "UPDATE moz_bookmarks_synced SET
@@ -1171,7 +1181,7 @@ impl<'a> Merger<'a> {
             reupload = SyncedBookmarkValidity::Reupload as u8,
             valid = SyncedBookmarkValidity::Valid as u8,
         );
-        self.engine.db.execute_batch(&sql)?;
+        self.db.execute_batch(&sql)?;
 
         // Like keywords, Sync associates tags with bookmarks, but Places
         // associates them with URLs. This means multiple bookmarks with the
@@ -1193,7 +1203,7 @@ impl<'a> Merger<'a> {
         // than two string lists! If a bookmark has mismatched tags, the sum of
         // its tag IDs in `tagsByItemId` won't match the sum in `tagsByPlaceId`,
         // and we'll flag the item for reupload.
-        self.engine.interruptee.err_if_interrupted()?;
+        self.scope.err_if_interrupted()?;
         log::debug!("Flagging bookmarks with mismatched tags for reupload");
         let sql = format!(
             "WITH
@@ -1231,7 +1241,7 @@ impl<'a> Merger<'a> {
             reupload = SyncedBookmarkValidity::Reupload as u8,
             valid = SyncedBookmarkValidity::Valid as u8,
         );
-        self.engine.db.execute_batch(&sql)?;
+        self.db.execute_batch(&sql)?;
 
         Ok(())
     }
@@ -1323,7 +1333,7 @@ impl<'a> dogear::Store for Merger<'a> {
     /// Builds a fully rooted, consistent tree from all local items and
     /// tombstones.
     fn fetch_local_tree(&self) -> Result<Tree> {
-        let mut stmt = self.engine.db.prepare(&format!(
+        let mut stmt = self.db.prepare(&format!(
             "SELECT guid, type, syncChangeCounter, syncStatus,
                     lastModified AS localModified,
                     NULL AS url
@@ -1334,7 +1344,7 @@ impl<'a> dogear::Store for Merger<'a> {
         let mut results = stmt.query(NO_PARAMS)?;
         let mut builder = match results.next()? {
             Some(row) => {
-                let (item, _) = self.local_row_to_item(&row)?;
+                let (item, _) = self.local_row_to_item(row)?;
                 Tree::with_root(item)
             }
             None => return Err(ErrorKind::Corruption(Corruption::InvalidLocalRoots).into()),
@@ -1347,7 +1357,7 @@ impl<'a> dogear::Store for Merger<'a> {
         // `moz_bookmarks` once, using the index on `(b.parent, b.position)`
         // to avoid a temp B-tree for the `ORDER BY`.
         let mut child_guids_by_parent_guid: HashMap<SyncGuid, Vec<dogear::Guid>> = HashMap::new();
-        let mut stmt = self.engine.db.prepare(&format!(
+        let mut stmt = self.db.prepare(&format!(
             "SELECT b.guid, p.guid AS parentGuid, b.type, b.syncChangeCounter,
                     b.syncStatus, b.lastModified AS localModified,
                     IFNULL(b.title, '') AS title,
@@ -1362,9 +1372,9 @@ impl<'a> dogear::Store for Merger<'a> {
         let mut results = stmt.query(NO_PARAMS)?;
 
         while let Some(row) = results.next()? {
-            self.engine.interruptee.err_if_interrupted()?;
+            self.scope.err_if_interrupted()?;
 
-            let (item, content) = self.local_row_to_item(&row)?;
+            let (item, content) = self.local_row_to_item(row)?;
 
             let parent_guid = row.get::<_, SyncGuid>("parentGuid")?;
             child_guids_by_parent_guid
@@ -1382,7 +1392,7 @@ impl<'a> dogear::Store for Merger<'a> {
         // we can add their structure info.
         for (parent_guid, child_guids) in &child_guids_by_parent_guid {
             for child_guid in child_guids {
-                self.engine.interruptee.err_if_interrupted()?;
+                self.scope.err_if_interrupted()?;
                 builder
                     .parent_for(child_guid)
                     .by_structure(&parent_guid.as_str().into())?;
@@ -1390,13 +1400,10 @@ impl<'a> dogear::Store for Merger<'a> {
         }
 
         // Note tombstones for locally deleted items.
-        let mut stmt = self
-            .engine
-            .db
-            .prepare("SELECT guid FROM moz_bookmarks_deleted")?;
+        let mut stmt = self.db.prepare("SELECT guid FROM moz_bookmarks_deleted")?;
         let mut results = stmt.query(NO_PARAMS)?;
         while let Some(row) = results.next()? {
-            self.engine.interruptee.err_if_interrupted()?;
+            self.scope.err_if_interrupted()?;
             let guid = row.get::<_, SyncGuid>("guid")?;
             builder.deletion(guid.as_str().into());
         }
@@ -1418,7 +1425,6 @@ impl<'a> dogear::Store for Merger<'a> {
             root_guid = BookmarkRootGuid::Root.as_guid().as_str()
         );
         let mut builder = self
-            .engine
             .db
             .try_query_row(
                 &sql,
@@ -1442,10 +1448,10 @@ impl<'a> dogear::Store for Merger<'a> {
             url_fragment = UrlOrPlaceIdFragment::PlaceId("v.placeId"),
             root_guid = BookmarkRootGuid::Root.as_guid().as_str()
         );
-        let mut stmt = self.engine.db.prepare(&sql)?;
+        let mut stmt = self.db.prepare(&sql)?;
         let mut results = stmt.query(NO_PARAMS)?;
         while let Some(row) = results.next()? {
-            self.engine.interruptee.err_if_interrupted()?;
+            self.scope.err_if_interrupted()?;
 
             let is_deleted = row.get::<_, bool>("isDeleted")?;
             if is_deleted {
@@ -1458,7 +1464,7 @@ impl<'a> dogear::Store for Merger<'a> {
                 let guid = row.get::<_, SyncGuid>("guid")?;
                 builder.deletion(guid.as_str().into());
             } else {
-                let (item, content) = self.remote_row_to_item(&row)?;
+                let (item, content) = self.remote_row_to_item(row)?;
                 let mut p = builder.item(item)?;
                 if let Some(content) = content {
                     p.content(content);
@@ -1475,10 +1481,10 @@ impl<'a> dogear::Store for Merger<'a> {
              ORDER BY parentGuid, position",
             root_guid = BookmarkRootGuid::Root.as_guid().as_str()
         );
-        let mut stmt = self.engine.db.prepare(&sql)?;
+        let mut stmt = self.db.prepare(&sql)?;
         let mut results = stmt.query(NO_PARAMS)?;
         while let Some(row) = results.next()? {
-            self.engine.interruptee.err_if_interrupted()?;
+            self.scope.err_if_interrupted()?;
             let guid = row.get::<_, SyncGuid>("guid")?;
             let parent_guid = row.get::<_, SyncGuid>("parentGuid")?;
             builder
@@ -1491,7 +1497,7 @@ impl<'a> dogear::Store for Merger<'a> {
     }
 
     fn apply(&mut self, root: MergedRoot<'_>) -> Result<()> {
-        let ops = root.completion_ops_with_signal(&MergeInterruptee(self.engine.interruptee))?;
+        let ops = root.completion_ops_with_signal(&MergeInterruptee(self.scope))?;
 
         if ops.is_empty() {
             // If we don't have any items to apply, upload, or delete,
@@ -1500,7 +1506,7 @@ impl<'a> dogear::Store for Merger<'a> {
         }
 
         let tx = if !self.external_transaction {
-            Some(self.engine.db.begin_transaction()?)
+            Some(self.db.begin_transaction()?)
         } else {
             None
         };
@@ -1516,14 +1522,17 @@ impl<'a> dogear::Store for Merger<'a> {
         }
 
         log::debug!("Updating local items in Places");
-        self.engine
-            .update_local_items_in_places(self.local_time, &ops)?;
+        update_local_items_in_places(self.db, self.scope, self.local_time, &ops)?;
 
         log::debug!("Staging items to upload");
-        self.engine
-            .stage_items_to_upload(&ops.upload_items, &ops.upload_tombstones)?;
+        stage_items_to_upload(
+            self.db,
+            self.scope,
+            &ops.upload_items,
+            &ops.upload_tombstones,
+        )?;
 
-        self.engine.db.execute_batch("DELETE FROM itemsToApply;")?;
+        self.db.execute_batch("DELETE FROM itemsToApply;")?;
         if let Some(tx) = tx {
             tx.commit()?;
         }
@@ -1722,7 +1731,7 @@ impl<'a> fmt::Display for RootsFragment<'a> {
 mod tests {
     use super::*;
     use crate::api::places_api::{test::new_mem_api, ConnectionType, PlacesApi};
-    use crate::bookmark_sync::{engine::BookmarksEngine, tests::SyncedBookmarkItem};
+    use crate::bookmark_sync::tests::SyncedBookmarkItem;
     use crate::db::PlacesDb;
     use crate::storage::{
         bookmarks::{
@@ -1777,17 +1786,20 @@ mod tests {
         }
     }
 
+    fn create_sync_engine(api: &PlacesApi) -> BookmarksSyncEngine {
+        BookmarksSyncEngine::new(api.get_sync_connection().unwrap()).unwrap()
+    }
+
     // Applys the incoming records, and also "finishes" the sync by pretending
     // we uploaded the outgoing items and marks them as uploaded.
     // Returns the GUIDs of the outgoing items.
     fn apply_incoming(
-        conn: &PlacesDb,
+        api: &PlacesApi,
         remote_time: ServerTimestamp,
         records_json: Value,
     ) -> Vec<Guid> {
         // suck records into the engine.
-        let interrupt_scope = conn.begin_interrupt_scope();
-        let engine = BookmarksEngine::new(&conn, &interrupt_scope);
+        let engine = create_sync_engine(api);
 
         let mut incoming = IncomingChangeset::new(engine.collection_name(), remote_time);
 
@@ -1824,19 +1836,20 @@ mod tests {
             .apply_incoming(vec![incoming], &mut telemetry::Engine::new("bookmarks"))
             .expect("Should apply incoming and stage outgoing records");
 
-        let mut stmt = conn
+        let sync_db = api.get_sync_connection().unwrap();
+        let syncer = sync_db.lock();
+        let mut stmt = syncer
             .prepare("SELECT guid FROM itemsToUpload")
             .expect("Should prepare statement to fetch uploaded GUIDs");
         let uploaded_guids: Vec<Guid> = stmt
             .query_and_then(NO_PARAMS, |row| -> rusqlite::Result<_> {
-                Ok(row.get::<_, Guid>(0)?)
+                row.get::<_, Guid>(0)
             })
             .expect("Should fetch uploaded GUIDs")
             .map(std::result::Result::unwrap)
             .collect();
 
-        engine
-            .push_synced_items(remote_time, uploaded_guids.clone())
+        push_synced_items(&syncer, &engine.scope, remote_time, uploaded_guids.clone())
             .expect("Should push synced changes back to the engine");
         uploaded_guids
     }
@@ -1847,16 +1860,16 @@ mod tests {
         local_folder: &SyncGuid,
         local_tree: Value,
     ) {
-        let conn = api
-            .open_sync_connection()
-            .expect("should get a sync connection");
-        apply_incoming(&conn, ServerTimestamp(0), records_json);
-        assert_local_json_tree(&conn, local_folder, local_tree);
+        apply_incoming(api, ServerTimestamp(0), records_json);
+        assert_local_json_tree(
+            &api.get_sync_connection().unwrap().lock(),
+            local_folder,
+            local_tree,
+        );
     }
 
     #[test]
     fn test_fetch_remote_tree() -> Result<()> {
-        let _ = env_logger::try_init();
         let records = vec![
             json!({
                 "id": "qqVTRWhLBOu3",
@@ -1881,24 +1894,28 @@ mod tests {
         ];
 
         let api = new_mem_api();
-        let conn = api.open_sync_connection()?;
+        let db = api.get_sync_connection().unwrap();
+        let conn = db.lock();
 
-        // suck records into the engine.
-        let interrupt_scope = conn.begin_interrupt_scope();
-        let engine = BookmarksEngine::new(&conn, &interrupt_scope);
+        // suck records into the database.
+        let interrupt_scope = conn.begin_interrupt_scope()?;
 
-        let mut incoming = IncomingChangeset::new(engine.collection_name(), ServerTimestamp(0));
+        let mut incoming = IncomingChangeset::new(COLLECTION_NAME, ServerTimestamp(0));
 
         for record in records {
             let payload = Payload::from_json(record).unwrap();
             incoming.changes.push((payload, ServerTimestamp(0)));
         }
 
-        engine
-            .stage_incoming(incoming, &mut telemetry::EngineIncoming::new())
-            .expect("Should apply incoming and stage outgoing records");
+        stage_incoming(
+            &conn,
+            &interrupt_scope,
+            incoming,
+            &mut telemetry::EngineIncoming::new(),
+        )
+        .expect("Should apply incoming and stage outgoing records");
 
-        let merger = Merger::new(&engine, ServerTimestamp(0));
+        let merger = Merger::new(&conn, &interrupt_scope, ServerTimestamp(0));
 
         let tree = merger.fetch_remote_tree()?;
 
@@ -1908,36 +1925,36 @@ mod tests {
         let node = tree
             .node_for_guid(&"qqVTRWhLBOu3".into())
             .expect("should exist");
-        assert_eq!(node.needs_merge, true);
+        assert!(node.needs_merge);
         assert_eq!(node.validity, Validity::Valid);
         assert_eq!(node.level(), 2);
-        assert_eq!(node.is_syncable(), true);
+        assert!(node.is_syncable());
 
         let node = tree
             .node_for_guid(&BookmarkRootGuid::Unfiled.as_guid().as_str().into())
             .expect("should exist");
-        assert_eq!(node.needs_merge, true);
+        assert!(node.needs_merge);
         assert_eq!(node.validity, Validity::Valid);
         assert_eq!(node.level(), 1);
-        assert_eq!(node.is_syncable(), true);
+        assert!(node.is_syncable());
 
         let node = tree
             .node_for_guid(&BookmarkRootGuid::Menu.as_guid().as_str().into())
             .expect("should exist");
-        assert_eq!(node.needs_merge, false);
+        assert!(!node.needs_merge);
         assert_eq!(node.validity, Validity::Valid);
         assert_eq!(node.level(), 1);
-        assert_eq!(node.is_syncable(), true);
+        assert!(node.is_syncable());
 
         let node = tree
             .node_for_guid(&BookmarkRootGuid::Root.as_guid().as_str().into())
             .expect("should exist");
         assert_eq!(node.validity, Validity::Valid);
         assert_eq!(node.level(), 0);
-        assert_eq!(node.is_syncable(), false);
+        assert!(!node.is_syncable());
 
         // We should have changes.
-        assert_eq!(engine.has_changes().unwrap(), true);
+        assert!(db_has_changes(&conn).unwrap());
         Ok(())
     }
 
@@ -1947,7 +1964,8 @@ mod tests {
         let previously_ts: Timestamp = (now - Duration::new(10, 0)).into();
         let api = new_mem_api();
         let writer = api.open_connection(ConnectionType::ReadWrite)?;
-        let syncer = api.open_sync_connection()?;
+        let sync_db = api.get_sync_connection().unwrap();
+        let syncer = sync_db.lock();
 
         writer
             .execute("UPDATE moz_bookmarks SET syncChangeCounter = 0", NO_PARAMS)
@@ -1969,9 +1987,9 @@ mod tests {
             }),
         );
 
-        let interrupt_scope = syncer.begin_interrupt_scope();
-        let engine = BookmarksEngine::new(&syncer, &interrupt_scope);
-        let merger = Merger::with_localtime(&engine, ServerTimestamp(0), now.into());
+        let interrupt_scope = syncer.begin_interrupt_scope()?;
+        let merger =
+            Merger::with_localtime(&syncer, &interrupt_scope, ServerTimestamp(0), now.into());
 
         let tree = merger.fetch_local_tree()?;
 
@@ -1981,38 +1999,38 @@ mod tests {
         let node = tree
             .node_for_guid(&"bookmark1___".into())
             .expect("should exist");
-        assert_eq!(node.needs_merge, true);
+        assert!(node.needs_merge);
         assert_eq!(node.level(), 2);
-        assert_eq!(node.is_syncable(), true);
+        assert!(node.is_syncable());
         assert_eq!(node.age, 10000);
 
         let node = tree
             .node_for_guid(&BookmarkRootGuid::Unfiled.as_guid().as_str().into())
             .expect("should exist");
-        assert_eq!(node.needs_merge, true);
+        assert!(node.needs_merge);
         assert_eq!(node.level(), 1);
-        assert_eq!(node.is_syncable(), true);
+        assert!(node.is_syncable());
 
         let node = tree
             .node_for_guid(&BookmarkRootGuid::Menu.as_guid().as_str().into())
             .expect("should exist");
-        assert_eq!(node.needs_merge, false);
+        assert!(!node.needs_merge);
         assert_eq!(node.level(), 1);
-        assert_eq!(node.is_syncable(), true);
+        assert!(node.is_syncable());
 
         let node = tree
             .node_for_guid(&BookmarkRootGuid::Root.as_guid().as_str().into())
             .expect("should exist");
-        assert_eq!(node.needs_merge, false);
+        assert!(!node.needs_merge);
         assert_eq!(node.level(), 0);
-        assert_eq!(node.is_syncable(), false);
+        assert!(!node.is_syncable());
         // hard to know the exact age of the root, but we know the max.
         let max_dur = SystemTime::now().duration_since(now).unwrap();
         let max_age = max_dur.as_secs() as i64 * 1000 + i64::from(max_dur.subsec_millis());
         assert!(node.age <= max_age);
 
         // We should have changes.
-        assert_eq!(engine.has_changes().unwrap(), true);
+        assert!(db_has_changes(&syncer).unwrap());
         Ok(())
     }
 
@@ -2102,15 +2120,11 @@ mod tests {
             "Should mark frecency for new URL as stale"
         );
 
-        let syncer = api
-            .open_sync_connection()
-            .expect("Should return Sync connection");
-        let interrupt_scope = syncer.begin_interrupt_scope();
-        let engine = BookmarksEngine::new(&syncer, &interrupt_scope);
+        let sync_db = api.get_sync_connection().unwrap();
+        let syncer = sync_db.lock();
+        let interrupt_scope = syncer.begin_interrupt_scope().unwrap();
 
-        engine
-            .update_frecencies()
-            .expect("Should update frecencies");
+        update_frecencies(&syncer, &interrupt_scope).expect("Should update frecencies");
 
         assert!(
             frecency_stale_at(&reader, &Url::parse("http://example.com").unwrap())
@@ -2140,8 +2154,8 @@ mod tests {
         // Insert two local bookmarks with the same URL A (so they'll have
         // identical tags) and a third with a different URL B, but one same
         // tag as A.
-        let local_bookmarks = &[
-            &InsertableBookmark {
+        let local_bookmarks = vec![
+            InsertableBookmark {
                 parent_guid: BookmarkRootGuid::Unfiled.as_guid(),
                 position: BookmarkPosition::Append,
                 date_added: None,
@@ -2151,7 +2165,7 @@ mod tests {
                 title: Some("A1".into()),
             }
             .into(),
-            &InsertableBookmark {
+            InsertableBookmark {
                 parent_guid: BookmarkRootGuid::Menu.as_guid(),
                 position: BookmarkPosition::Append,
                 date_added: None,
@@ -2161,7 +2175,7 @@ mod tests {
                 title: Some("A2".into()),
             }
             .into(),
-            &InsertableBookmark {
+            InsertableBookmark {
                 parent_guid: BookmarkRootGuid::Unfiled.as_guid(),
                 position: BookmarkPosition::Append,
                 date_added: None,
@@ -2180,7 +2194,7 @@ mod tests {
                 vec!["two", "three", "three", "four"],
             ),
         ];
-        for bm in local_bookmarks {
+        for bm in local_bookmarks.into_iter() {
             insert_bookmark(&writer, bm)?;
         }
         for (url, tags) in local_tags {
@@ -2317,9 +2331,7 @@ mod tests {
 
         // Boilerplate to apply incoming records, since we want to check
         // outgoing record contents.
-        let syncer = api.open_sync_connection()?;
-        let interrupt_scope = syncer.begin_interrupt_scope();
-        let engine = BookmarksEngine::new(&syncer, &interrupt_scope);
+        let engine = create_sync_engine(&api);
         let mut incoming = IncomingChangeset::new(engine.collection_name(), ServerTimestamp(0));
         if let Value::Array(records) = remote_records {
             for record in records {
@@ -2540,7 +2552,7 @@ mod tests {
         // Insert local item with tagged URL.
         insert_bookmark(
             &writer,
-            &InsertableBookmark {
+            InsertableBookmark {
                 parent_guid: BookmarkRootGuid::Unfiled.as_guid(),
                 position: BookmarkPosition::Append,
                 date_added: None,
@@ -2663,10 +2675,8 @@ mod tests {
             "children": ["bookmarkAAAA"],
         }]);
 
-        let db = api
-            .open_sync_connection()
-            .expect("Should open Sync connection");
-
+        let db_mutex = api.get_sync_connection().unwrap();
+        let db = db_mutex.lock();
         let tx = db.begin_transaction()?;
         let applicator = IncomingApplicator::new(&db);
 
@@ -2693,10 +2703,9 @@ mod tests {
             },
         )?;
 
-        let interrupt_scope = db.begin_interrupt_scope();
-        let engine = BookmarksEngine::new(&db, &interrupt_scope);
+        let interrupt_scope = db.begin_interrupt_scope()?;
 
-        let mut merger = Merger::new(&engine, ServerTimestamp(0));
+        let mut merger = Merger::new(&db, &interrupt_scope, ServerTimestamp(0));
         merger.merge()?;
 
         assert_local_json_tree(
@@ -2705,7 +2714,7 @@ mod tests {
             json!({"children" : [{"guid": "bookmarkAAAA", "url": "http://example.com/a?b=c&d=%s"}]}),
         );
 
-        let outgoing = engine.fetch_outgoing_records(ServerTimestamp(0))?;
+        let outgoing = fetch_outgoing_records(&db, &interrupt_scope, ServerTimestamp(0))?;
         let record_for_a = outgoing
             .changes
             .iter()
@@ -2758,7 +2767,8 @@ mod tests {
     fn test_apply() -> Result<()> {
         let api = new_mem_api();
         let writer = api.open_connection(ConnectionType::ReadWrite)?;
-        let syncer = api.open_sync_connection()?;
+        let db = api.get_sync_connection().unwrap();
+        let syncer = db.lock();
 
         syncer
             .execute("UPDATE moz_bookmarks SET syncChangeCounter = 0", NO_PARAMS)
@@ -2811,8 +2821,9 @@ mod tests {
             }),
         ];
 
-        let interrupt_scope = syncer.begin_interrupt_scope();
-        let engine = BookmarksEngine::new(&syncer, &interrupt_scope);
+        // Drop the sync connection to avoid a deadlock when the sync engine locks the mutex
+        drop(syncer);
+        let engine = create_sync_engine(&api);
 
         let mut incoming = IncomingChangeset::new(engine.collection_name(), ServerTimestamp(0));
         for record in records {
@@ -2894,11 +2905,11 @@ mod tests {
         let info_for_a = get_raw_bookmark(&writer, &guid_for_a)
             .expect("Should fetch info for A")
             .unwrap();
-        assert_eq!(info_for_a.sync_change_counter, 2);
+        assert_eq!(info_for_a._sync_change_counter, 2);
         let info_for_unfiled = get_raw_bookmark(&writer, &BookmarkRootGuid::Unfiled.as_guid())
             .expect("Should fetch info for unfiled")
             .unwrap();
-        assert_eq!(info_for_unfiled.sync_change_counter, 2);
+        assert_eq!(info_for_unfiled._sync_change_counter, 2);
 
         engine
             .sync_finished(
@@ -2914,11 +2925,11 @@ mod tests {
         let info_for_a = get_raw_bookmark(&writer, &guid_for_a)
             .expect("Should fetch info for A")
             .unwrap();
-        assert_eq!(info_for_a.sync_change_counter, 0);
+        assert_eq!(info_for_a._sync_change_counter, 0);
         let info_for_unfiled = get_raw_bookmark(&writer, &BookmarkRootGuid::Unfiled.as_guid())
             .expect("Should fetch info for unfiled")
             .unwrap();
-        assert_eq!(info_for_unfiled.sync_change_counter, 0);
+        assert_eq!(info_for_unfiled._sync_change_counter, 0);
 
         let mut tags_for_c = tags::get_tags_for_url(
             &writer,
@@ -2934,7 +2945,8 @@ mod tests {
     #[test]
     fn test_apply_invalid_url() -> Result<()> {
         let api = new_mem_api();
-        let syncer = api.open_sync_connection()?;
+        let db = api.get_sync_connection().unwrap();
+        let syncer = db.lock();
 
         syncer
             .execute("UPDATE moz_bookmarks SET syncChangeCounter = 0", NO_PARAMS)
@@ -2961,8 +2973,9 @@ mod tests {
             }),
         ];
 
-        let interrupt_scope = syncer.begin_interrupt_scope();
-        let engine = BookmarksEngine::new(&syncer, &interrupt_scope);
+        // Drop the sync connection to avoid a deadlock when the sync engine locks the mutex
+        drop(syncer);
+        let engine = create_sync_engine(&api);
 
         let mut incoming = IncomingChangeset::new(engine.collection_name(), ServerTimestamp(0));
         for record in records {
@@ -3005,8 +3018,6 @@ mod tests {
 
     #[test]
     fn test_apply_tombstones() -> Result<()> {
-        let _ = env_logger::try_init();
-
         let local_modified = Timestamp::now();
         let api = new_mem_api();
         let writer = api.open_connection(ConnectionType::ReadWrite)?;
@@ -3038,9 +3049,7 @@ mod tests {
             }),
         );
         // a first sync, which will populate our mirror.
-        let syncer = api.open_sync_connection()?;
-        let interrupt_scope = syncer.begin_interrupt_scope();
-        let engine = BookmarksEngine::new(&syncer, &interrupt_scope);
+        let engine = create_sync_engine(&api);
         let outgoing = engine
             .apply_incoming(
                 vec![IncomingChangeset::new(
@@ -3106,7 +3115,7 @@ mod tests {
 
         // We deleted everything from unfiled.
         assert_local_json_tree(
-            &syncer,
+            &api.get_sync_connection().unwrap().lock(),
             &BookmarkRootGuid::Unfiled.as_guid(),
             json!({"children" : []}),
         );
@@ -3119,7 +3128,6 @@ mod tests {
 
         let api = new_mem_api();
         let writer = api.open_connection(ConnectionType::ReadWrite)?;
-        let syncer = api.open_sync_connection()?;
 
         let records = vec![
             json!({
@@ -3143,8 +3151,7 @@ mod tests {
             }),
         ];
 
-        let interrupt_scope = syncer.begin_interrupt_scope();
-        let engine = BookmarksEngine::new(&syncer, &interrupt_scope);
+        let engine = create_sync_engine(&api);
 
         let mut incoming = IncomingChangeset::new(engine.collection_name(), ServerTimestamp(0));
         for record in records {
@@ -3209,7 +3216,7 @@ mod tests {
              WHERE url_hash = hash(:url) AND
                    url = :url",
                 &[(":url", &"http://example.com/a/%s")],
-                |row| -> rusqlite::Result<_> { Ok(row.get::<_, i64>(0)?) },
+                |row| -> rusqlite::Result<_> { row.get::<_, i64>(0) },
                 false,
             )?
             .expect("Should fetch foreign count for URL A");
@@ -3322,9 +3329,7 @@ mod tests {
             "children": ["bookmarkAAA2", "bookmarkBBB2", "bookmarkCCC2"],
         }]);
 
-        let syncer = api.open_sync_connection()?;
-        let interrupt_scope = syncer.begin_interrupt_scope();
-        let engine = BookmarksEngine::new(&syncer, &interrupt_scope);
+        let engine = create_sync_engine(&api);
         let mut incoming = IncomingChangeset::new(engine.collection_name(), ServerTimestamp(0));
         if let Value::Array(records) = remote_records {
             for record in records {
@@ -3460,7 +3465,7 @@ mod tests {
             .validity(SyncedBookmarkValidity::Valid)
             .kind(SyncedBookmarkKind::Bookmark)
             .url(Some("http://example.com/b"))
-            .keyword(Some(&keyword_for_b));
+            .keyword(Some(keyword_for_b));
         let mut synced_item_for_c = SyncedBookmarkItem::new();
         synced_item_for_c
             .validity(SyncedBookmarkValidity::Valid)
@@ -3496,7 +3501,6 @@ mod tests {
     fn test_wipe() -> Result<()> {
         let api = new_mem_api();
         let writer = api.open_connection(ConnectionType::ReadWrite)?;
-        let syncer = api.open_sync_connection()?;
 
         let records = vec![
             json!({
@@ -3573,8 +3577,7 @@ mod tests {
             }),
         ];
 
-        let interrupt_scope = syncer.begin_interrupt_scope();
-        let engine = BookmarksEngine::new(&syncer, &interrupt_scope);
+        let engine = create_sync_engine(&api);
 
         let mut incoming = IncomingChangeset::new(engine.collection_name(), ServerTimestamp(0));
         for record in records {
@@ -3732,9 +3735,7 @@ mod tests {
 
         {
             // scope to kill our sync connection.
-            let syncer = api.open_sync_connection()?;
-            let interrupt_scope = syncer.begin_interrupt_scope();
-            let engine = BookmarksEngine::new(&syncer, &interrupt_scope);
+            let engine = create_sync_engine(&api);
 
             assert_eq!(
                 engine.get_sync_assoc()?,
@@ -3747,13 +3748,20 @@ mod tests {
             let synced_ids: Vec<Guid> = outgoing.changes.iter().map(|c| c.id.clone()).collect();
             assert_eq!(synced_ids.len(), 5, "should be 4 roots + 1 outgoing item");
             engine.sync_finished(ServerTimestamp(2_000), synced_ids)?;
+
+            let db = api.get_sync_connection().unwrap();
+            let syncer = db.lock();
             assert_eq!(get_meta::<i64>(&syncer, LAST_SYNC_META_KEY)?, Some(2_000));
 
             let sync_ids = CollSyncIds {
                 global: Guid::random(),
                 coll: Guid::random(),
             };
+            // Temporarily drop the sync connection to avoid a deadlock when the sync engine locks
+            // the mutex
+            drop(syncer);
             engine.reset(&EngineSyncAssociation::Connected(sync_ids.clone()))?;
+            let syncer = db.lock();
             assert_eq!(
                 get_meta::<Guid>(&syncer, GLOBAL_SYNCID_META_KEY)?,
                 Some(sync_ids.global)
@@ -3766,9 +3774,7 @@ mod tests {
         }
         // do it all again - after the reset we should get the same results.
         {
-            let syncer = api.open_sync_connection()?;
-            let interrupt_scope = syncer.begin_interrupt_scope();
-            let engine = BookmarksEngine::new(&syncer, &interrupt_scope);
+            let engine = create_sync_engine(&api);
 
             let incoming = IncomingChangeset::new(engine.collection_name(), ServerTimestamp(1_000));
             let outgoing =
@@ -3776,9 +3782,16 @@ mod tests {
             let synced_ids: Vec<Guid> = outgoing.changes.iter().map(|c| c.id.clone()).collect();
             assert_eq!(synced_ids.len(), 5, "should be 4 roots + 1 outgoing item");
             engine.sync_finished(ServerTimestamp(2_000), synced_ids)?;
+
+            let db = api.get_sync_connection().unwrap();
+            let syncer = db.lock();
             assert_eq!(get_meta::<i64>(&syncer, LAST_SYNC_META_KEY)?, Some(2_000));
 
+            // Temporarily drop the sync connection to avoid a deadlock when the sync engine locks
+            // the mutex
+            drop(syncer);
             engine.reset(&EngineSyncAssociation::Disconnected)?;
+            let syncer = db.lock();
             assert_eq!(
                 get_meta::<Option<String>>(&syncer, GLOBAL_SYNCID_META_KEY)?,
                 None
@@ -3795,18 +3808,15 @@ mod tests {
 
     #[test]
     fn test_dedupe_local_newer() -> anyhow::Result<()> {
-        let _ = env_logger::try_init();
-
         let api = new_mem_api();
         let writer = api.open_connection(ConnectionType::ReadWrite)?;
-        let syncer = api.open_sync_connection()?;
 
         let local_modified = Timestamp::now();
         let remote_modified = local_modified.as_millis() as f64 / 1000f64 - 5f64;
 
         // Start with merged items.
         apply_incoming(
-            &syncer,
+            &api,
             ServerTimestamp::from_float_seconds(remote_modified),
             json!([{
                 "id": "menu",
@@ -3856,7 +3866,7 @@ mod tests {
 
         // Add older remote dupes.
         apply_incoming(
-            &syncer,
+            &api,
             ServerTimestamp(local_modified.as_millis() as i64),
             json!([{
                 "id": "menu",
@@ -3914,18 +3924,15 @@ mod tests {
 
     #[test]
     fn test_deduping_remote_newer() -> anyhow::Result<()> {
-        let _ = env_logger::try_init();
-
         let api = new_mem_api();
         let writer = api.open_connection(ConnectionType::ReadWrite)?;
-        let syncer = api.open_sync_connection()?;
 
         let local_modified = Timestamp::from(Timestamp::now().as_millis() - 5000);
         let remote_modified = local_modified.as_millis() as f64 / 1000f64;
 
         // Start with merged items.
         apply_incoming(
-            &syncer,
+            &api,
             ServerTimestamp::from_float_seconds(remote_modified),
             json!([{
                 "id": "menu",
@@ -4022,7 +4029,7 @@ mod tests {
 
         // Add newer remote items.
         apply_incoming(
-            &syncer,
+            &api,
             ServerTimestamp::from_float_seconds(remote_modified),
             json!([{
                 "id": "menu",
@@ -4151,11 +4158,8 @@ mod tests {
 
     #[test]
     fn test_reconcile_sync_metadata() -> anyhow::Result<()> {
-        let _ = env_logger::try_init();
-
         let api = new_mem_api();
         let writer = api.open_connection(ConnectionType::ReadWrite)?;
-        let syncer = api.open_sync_connection()?;
 
         let local_modified = Timestamp::from(Timestamp::now().as_millis() - 5000);
         let remote_modified = local_modified.as_millis() as f64 / 1000f64;
@@ -4205,7 +4209,7 @@ mod tests {
         );
 
         let outgoing = apply_incoming(
-            &syncer,
+            &api,
             ServerTimestamp::from_float_seconds(remote_modified),
             json!([{
                 "id": "menu",
@@ -4314,8 +4318,8 @@ mod tests {
             let bm = get_raw_bookmark(&writer, &guid.into())
                 .expect("must work")
                 .expect("must exist");
-            assert_eq!(bm.sync_status, SyncStatus::Normal, "{}", guid);
-            assert_eq!(bm.sync_change_counter, 0, "{}", guid);
+            assert_eq!(bm._sync_status, SyncStatus::Normal, "{}", guid);
+            assert_eq!(bm._sync_change_counter, 0, "{}", guid);
         }
         // And bookmarkEEEE wasn't on the server, so should be outgoing, and
         // it's parent too.

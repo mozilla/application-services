@@ -5,18 +5,15 @@ members = [
     "components/crashtest",
     "components/fxa-client",
     "components/logins",
-    "components/logins/ffi",
     "components/nimbus",
     "components/places",
-    "components/places/ffi",
     "components/push",
-    "components/push/ffi",
     "components/rc_log",
     "components/support/error",
-    "components/support/ffi",
     "components/support/guid",
     "components/support/interrupt",
     "components/support/jwcrypto",
+    "components/support/nimbus-fml",
     "components/support/rand_rccrypto",
     "components/support/rate-limiter",
     "components/support/restmail-client",
@@ -30,15 +27,14 @@ members = [
     "components/support/types",
     "components/support/viaduct-reqwest",
     "components/sync_manager",
-    "components/sync_manager/ffi",
     "components/sync15",
     "components/tabs",
-    "components/tabs/ffi",
     "components/viaduct",
     "components/webext-storage",
     "components/webext-storage/ffi",
     "megazords/full",
     "megazords/ios/rust",
+    "megazords/ios-rust",
 # Disabled for intermittent failures; see SDK-233 and #3909 for details.
 #    "testing/sync-test",
     "tools/protobuf-gen",
@@ -69,10 +65,6 @@ exclude = [
 # We use this to exclude a couple that have a disproportional compile time
 # impact to how likely they are to get broken by average changes:
 #
-# - `nss_sys`'s companion test crate `systest` adds `syntex_syntax2` which is
-#   (surprisingly) by far the slowest crate to build in our dep graph, and very
-#   very rarely needs changing
-#
 # - The megazords just re-export ffi crates, which we aren't excluding, and get
 #   built freqently enough as part of gradle/xcode's build process.
 #
@@ -83,15 +75,11 @@ default-members = [
     "components/crashtest",
     "components/fxa-client",
     "components/logins",
-    "components/logins/ffi",
     "components/nimbus",
     "components/places",
-    "components/places/ffi",
     "components/push",
-    "components/push/ffi",
     "components/rc_log",
     "components/support/error",
-    "components/support/ffi",
     "components/support/guid",
     "components/support/interrupt",
     "components/support/restmail-client",
@@ -104,10 +92,8 @@ default-members = [
     "components/support/types",
     "components/support/viaduct-reqwest",
     "components/sync_manager",
-    "components/sync_manager/ffi",
     "components/sync15",
     "components/tabs",
-    "components/tabs/ffi",
     "components/viaduct",
     "components/webext-storage",
 # Disabled for intermittent failures; see SDK-233 and #3909 for details.
@@ -127,3 +113,13 @@ lto = "thin"
 # We always want to use the local version of our own crates in that case.
 [patch."https://github.com/mozilla/application-services"]
 viaduct = { path = "components/viaduct" }
+
+# If you need to test some local changes to UniFFI, uncomment these lines
+# for a convenient way to use a local checkout rather than the published version.
+# You just have to make sure that the version number in your local checkout
+# matches the one used in the `Cargo.toml` files in this workspace.
+#[patch.crates-io]
+#uniffi = { path = "../uniffi-rs/uniffi" }
+#uniffi_bindgen = { path = "../uniffi-rs/uniffi_bindgen" }
+#uniffi_build = { path = "../uniffi-rs/uniffi_build" }
+#uniffi_macros = { path = "../uniffi-rs/uniffi_macros" }

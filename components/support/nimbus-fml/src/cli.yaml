@@ -1,0 +1,72 @@
+name: nimbus-fml
+version: "1.0"
+author: nimbus-dev@mozilla.com
+about: Tool for working with Nimbus Feature Manifests
+args:
+    - config:
+        short: c
+        long: config
+        value_name: FILE
+        help: Sets a custom config file
+        takes_value: true
+    - verbose:
+        short: v
+        multiple: true
+        help: Sets the level of verbosity
+    - INPUT:
+        help: Sets the input file to use
+        required: true
+        index: 1
+    - ir:
+        help: The input file is intermediate representation. Useful for debugging FML.
+        long: ir
+        global: true
+    - output:
+        help: The file where generated code is created
+        short: o
+        long: output
+        value_name: FILE
+        global: true
+    - channel:
+        help: The channel to generate the defaults for
+        long: channel
+        short: h
+        global: true
+        takes_value: true
+subcommands:
+    - android:
+        about: Generate code for Android
+        subcommands:
+            - features:
+                about: Generate feature structs against the Feature Variables API.
+        args:
+            - package:
+                help: The package name where the features class will live
+                long: package
+                value_name: PACKAGE
+                global: true
+            - class_name:
+                help: The name of the class as it will be known by the app developer
+                long: classname
+                value_name: CLASSNAME
+                global: true
+            - r_package:
+                help: The package name that contains the R class
+                long: r-package
+                value_name: R_PACKAGE
+                global: true
+    - experimenter:
+        about: Generate code for Experimenter
+    - intermediate-repr:
+        about: Generate the intermediate representation json
+    - ios:
+        about: Generate code for iOS
+        subcommands:
+            - features:
+                about: Generate feature structs against the Feature Variables API.
+        args:
+            - class_name:
+                help: The name of the class as it will be known by the app developer
+                long: classname
+                value_name: CLASSNAME
+                global: true

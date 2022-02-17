@@ -15,6 +15,16 @@ import kotlin.concurrent.read
 import kotlin.concurrent.write
 
 /**
+ * All errors emitted by the client will subclass this.
+ */
+sealed class ViaductClientError(msg: String) : Exception(msg)
+
+/**
+ * Error indicating that the request method is not supported.
+ */
+class UnsupportedRequestMethodError(method: MsgTypes.Request.Method) : ViaductClientError("Unsupported HTTP method: $method")
+
+/**
  * Singleton allowing management of the HTTP backend
  * used by Rust components.
  */
@@ -125,6 +135,7 @@ internal fun convertMethod(m: MsgTypes.Request.Method): Request.Method {
         MsgTypes.Request.Method.PUT -> Request.Method.PUT
         MsgTypes.Request.Method.TRACE -> Request.Method.TRACE
         MsgTypes.Request.Method.CONNECT -> Request.Method.CONNECT
+        else -> throw UnsupportedRequestMethodError(m)
     }
 }
 

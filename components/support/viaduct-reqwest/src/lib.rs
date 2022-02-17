@@ -46,12 +46,13 @@ fn into_reqwest(request: viaduct::Request) -> Result<reqwest::blocking::Request,
         viaduct::Method::Connect => reqwest::Method::CONNECT,
         viaduct::Method::Options => reqwest::Method::OPTIONS,
         viaduct::Method::Trace => reqwest::Method::TRACE,
+        viaduct::Method::Patch => reqwest::Method::PATCH,
     };
     let mut result = reqwest::blocking::Request::new(method, request.url);
     for h in request.headers {
         use reqwest::header::{HeaderName, HeaderValue};
         // Unwraps should be fine, we verify these in `Header`
-        let value = HeaderValue::from_str(&h.value()).unwrap();
+        let value = HeaderValue::from_str(h.value()).unwrap();
         result
             .headers_mut()
             .insert(HeaderName::from_bytes(h.name().as_bytes()).unwrap(), value);

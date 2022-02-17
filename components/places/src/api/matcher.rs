@@ -4,8 +4,8 @@
 
 use crate::db::PlacesDb;
 use crate::error::Result;
+use crate::ffi::{MatchReason as FfiMatchReason, SearchResult as FfiSearchResult};
 pub use crate::match_impl::{MatchBehavior, SearchBehavior};
-use crate::msg_types::{SearchResultMessage, SearchResultReason};
 use rusqlite::{types::ToSql, Row};
 use serde_derive::*;
 use sql_support::{maybe_log_plan, ConnExt};
@@ -85,8 +85,8 @@ pub fn search_frecent(conn: &PlacesDb, params: SearchParams) -> Result<Vec<Searc
     Ok(matches)
 }
 
-pub fn match_url(conn: &PlacesDb, query: impl AsRef<str>) -> Result<Option<String>> {
-    let scope = conn.begin_interrupt_scope();
+pub fn match_url(conn: &PlacesDb, query: impl AsRef<str>) -> Result<Option<Url>> {
+    let scope = conn.begin_interrupt_scope()?;
     let matcher = OriginOrUrl::new(query.as_ref());
     // Note: The matcher ignores the limit argument (it's a trait method)
     let results = matcher.search(conn, 1)?;
@@ -94,7 +94,7 @@ pub fn match_url(conn: &PlacesDb, query: impl AsRef<str>) -> Result<Option<Strin
     // Doing it like this lets us move the result, avoiding a copy (which almost
     // certainly doesn't matter but whatever)
     if let Some(res) = results.into_iter().next() {
-        Ok(Some(res.url.into_string()))
+        Ok(Some(res.url))
     } else {
         Ok(None)
     }
@@ -107,7 +107,7 @@ fn match_with_limit(
 ) -> Result<Vec<SearchResult>> {
     let mut results = Vec::new();
     let mut rem_results = max_results;
-    let scope = conn.begin_interrupt_scope();
+    let scope = conn.begin_interrupt_scope()?;
     for m in matchers {
         if rem_results == 0 {
             break;
@@ -339,30 +339,26 @@ impl SearchResult {
     }
 }
 
-impl From<SearchResult> for SearchResultMessage {
+impl From<SearchResult> for FfiSearchResult {
     fn from(res: SearchResult) -> Self {
         Self {
-            url: res.url.into_string(),
+            url: res.url,
             title: res.title,
             frecency: res.frecency,
-            reasons: res
-                .reasons
-                .into_iter()
-                .map(|r| Into::<SearchResultReason>::into(r) as i32)
-                .collect::<Vec<i32>>(),
+            reasons: res.reasons.into_iter().map(Into::into).collect::<Vec<_>>(),
         }
     }
 }
 
-impl From<MatchReason> for SearchResultReason {
+impl From<MatchReason> for FfiMatchReason {
     fn from(mr: MatchReason) -> Self {
         match mr {
-            MatchReason::Keyword => SearchResultReason::Keyword,
-            MatchReason::Origin => SearchResultReason::Origin,
-            MatchReason::Url => SearchResultReason::Url,
-            MatchReason::PreviousUse => SearchResultReason::PreviousUse,
-            MatchReason::Bookmark => SearchResultReason::Bookmark,
-            MatchReason::Tags(_) => SearchResultReason::Tag,
+            MatchReason::Keyword => FfiMatchReason::Keyword,
+            MatchReason::Origin => FfiMatchReason::Origin,
+            MatchReason::Url => FfiMatchReason::UrlMatch,
+            MatchReason::PreviousUse => FfiMatchReason::PreviousUse,
+            MatchReason::Bookmark => FfiMatchReason::Bookmark,
+            MatchReason::Tags(_) => FfiMatchReason::Tags,
         }
     }
 }
@@ -506,7 +502,7 @@ impl<'query> Adaptive<'query> {
 
 impl<'query> Matcher for Adaptive<'query> {
     fn search(&self, conn: &PlacesDb, max_results: u32) -> Result<Vec<SearchResult>> {
-        Ok(query_flat_rows_and_then_named(
+        query_flat_rows_and_then_named(
             conn,
             "
             SELECT h.url as url,
@@ -546,7 +542,7 @@ impl<'query> Matcher for Adaptive<'query> {
                 (":maxResults", &max_results),
             ],
             SearchResult::from_adaptive_row,
-        )?)
+        )
     }
 }
 
@@ -572,7 +568,7 @@ impl<'query> Suggestions<'query> {
 
 impl<'query> Matcher for Suggestions<'query> {
     fn search(&self, conn: &PlacesDb, max_results: u32) -> Result<Vec<SearchResult>> {
-        Ok(query_flat_rows_and_then_named(
+        query_flat_rows_and_then_named(
             conn,
             "
             SELECT h.url, h.title,
@@ -605,7 +601,7 @@ impl<'query> Matcher for Suggestions<'query> {
                 (":maxResults", &max_results),
             ],
             SearchResult::from_suggestion_row,
-        )?)
+        )
     }
 }
 

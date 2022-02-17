@@ -21,8 +21,8 @@ The fxa-client component offers support for:
    in order to access account-enabled services such as Firefox Sync.
 1. Listing and managing other applications connected to the
    user's account.
-     1. Sending tabs to other applications that are capable
-        of receiving them.
+1. Sending tabs to other applications that are capable
+   of receiving them.
 1. Managing a device record for your signed-in application,
    making it visible to other applications connected to the user's
    account.
@@ -101,7 +101,7 @@ code is organized as follows:
   generate Kotlin wrappers and publish them as an AAR. It also contains a small amount
   of hand-written Kotlin code for things that are not yet supposed by UniFFI.
 * The [`./ios/`](./ios) directory contains ios-specific build scripts that generate
-  Swift wrappers for consumption via an XCode build. It also contains some hand-written
+  Swift wrappers for consumption via an Xcode build. It also contains some hand-written
   Swift code to expose a higher-level convenience API.
 
 ### Detailed Docs

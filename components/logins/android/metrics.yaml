@@ -15,59 +15,59 @@
 #  * Fenix for Andriod
 
 ---
-$schema: moz://mozilla.org/schemas/glean/metrics/1-0-0
+$schema: moz://mozilla.org/schemas/glean/metrics/2-0-0
 
 logins_store:
+  # These track when we need to regenerate the encryption key which causes all
+  # local data to be lost
+  key_regenerated_lost:
+    type: event
+    description: >
+      The encryption key was regenerated because it was lost
+    bugs:
+      - https://github.com/mozilla/application-services/issues/4554
+    data_reviews:
+      - https://github.com/mozilla/application-services/issues/4582
+    data_sensitivity:
+      - technical
+    notification_emails:
+      - synced-client-integrations@mozilla.com
+    expires: 2022-04-18
+
+  key_regenerated_corrupt:
+    type: event
+    description: >
+      The encryption key was regenerated because it didn't match the encrypted
+      data
+    bugs:
+      - https://github.com/mozilla/application-services/issues/4554
+    data_reviews:
+      - https://github.com/mozilla/application-services/issues/4582
+    data_sensitivity:
+      - technical
+    notification_emails:
+      - synced-client-integrations@mozilla.com
+    expires: 2022-04-18
+
+  key_regenerated_other:
+    type: event
+    description: >
+      The encryption key was regenerated for an unknown reason
+    bugs:
+      - https://github.com/mozilla/application-services/issues/4554
+    data_reviews:
+      - https://github.com/mozilla/application-services/issues/4582
+    data_sensitivity:
+      - technical
+    notification_emails:
+      - synced-client-integrations@mozilla.com
+    expires: 2022-04-18
 
   # These help us understand how much the logins store is being used, and
   # whether it's succeeding in the duties asked of it.  We'll use them to
   # graph e.g. the error rate of applications trying to use the logins store,
   # and identify application or platform features that lead to unusually
   # high error rates.
-
-  unlock_count:
-    type: counter
-    description: >
-      The number of times the login store was unlocked.
-      It is intended to be used together with `unlock_error_count` to measure
-      the overall error rate of unlocking the logins store.
-    bugs:
-      - https://github.com/mozilla/application-services/issues/2225
-    data_reviews:
-      - https://bugzilla.mozilla.org/show_bug.cgi?id=1597895
-      - https://bugzilla.mozilla.org/show_bug.cgi?id=1649044
-      - https://bugzilla.mozilla.org/show_bug.cgi?id=1694316
-    data_sensitivity:
-      - interaction
-    notification_emails:
-      - mhammond@mozilla.com
-      - synced-client-integrations@mozilla.com
-    expires: "never"
-
-  unlock_error_count:
-    type: labeled_counter
-    description: >
-      The number of errors encountered when unlocking the logins store, labeled
-      by type.
-      It is intended to be used together with `unlock_count` to measure the
-      overall error rate of unlocking the logins store.
-    labels:
-      - invalid_key
-      - mismatched_lock
-      - storage_error
-    bugs:
-      - https://github.com/mozilla/application-services/issues/2225
-    data_reviews:
-      - https://bugzilla.mozilla.org/show_bug.cgi?id=1597895
-      - https://bugzilla.mozilla.org/show_bug.cgi?id=1649044
-      - https://bugzilla.mozilla.org/show_bug.cgi?id=1694316
-    data_sensitivity:
-      - interaction
-    notification_emails:
-      - mhammond@mozilla.com
-      - synced-client-integrations@mozilla.com
-    expires: "never"
-
   read_query_count:
     type: counter
     description: >
@@ -142,7 +142,6 @@ logins_store:
       the overall error rate of write operations on the logins store.
     labels:
       - no_such_record
-      - id_collision
       - interrupted
       - invalid_record
       - storage_error
@@ -158,3 +157,86 @@ logins_store:
       - mhammond@mozilla.com
       - synced-client-integrations@mozilla.com
     expires: "never"
+
+  # Migrations from sqlcipher to sqlite.
+  migration_num_processed:
+    type: counter
+    description: >
+      The total number of login records processed by the migration
+    bugs:
+      - https://github.com/mozilla/application-services/issues/4064
+      - https://github.com/mozilla/application-services/issues/4102
+    data_reviews:
+      - https://github.com/mozilla/application-services/issues/4467
+    data_sensitivity:
+      - technical
+      - interaction
+    notification_emails:
+      - synced-client-integrations@mozilla.com
+    expires: 2022-06-30
+
+  migration_num_succeeded:
+    type: counter
+    description: >
+      The total number of login records successfully migrated
+    bugs:
+      - https://github.com/mozilla/application-services/issues/4064
+      - https://github.com/mozilla/application-services/issues/4102
+    data_reviews:
+      - https://github.com/mozilla/application-services/issues/4467
+    data_sensitivity:
+      - technical
+      - interaction
+    notification_emails:
+      - synced-client-integrations@mozilla.com
+    expires: 2022-06-30
+
+  migration_num_failed:
+    type: counter
+    description: >
+      The total number of login records which failed to migrate
+    bugs:
+      - https://github.com/mozilla/application-services/issues/4064
+      - https://github.com/mozilla/application-services/issues/4102
+    data_reviews:
+      - https://github.com/mozilla/application-services/issues/4467
+    data_sensitivity:
+      - technical
+      - interaction
+    notification_emails:
+      - synced-client-integrations@mozilla.com
+    expires: 2022-06-30
+
+  migration_total_duration:
+    type: timespan
+    time_unit: millisecond
+    description: >
+      How long the migration tool
+    bugs:
+      - https://github.com/mozilla/application-services/issues/4064
+      - https://github.com/mozilla/application-services/issues/4102
+    data_reviews:
+      - https://github.com/mozilla/application-services/issues/4467
+    data_sensitivity:
+      - technical
+      - interaction
+    notification_emails:
+      - synced-client-integrations@mozilla.com
+    expires: 2022-06-30
+
+  # Note glean limits this to 20 items each with a max length of 50 utf8 chars.
+  migration_errors:
+    type: string_list
+    description: >
+      Errors discovered in the migration.
+    bugs:
+      - https://github.com/mozilla/application-services/issues/4064
+      - https://github.com/mozilla/application-services/issues/4102
+    data_reviews:
+      - https://github.com/mozilla/application-services/issues/4467
+    data_sensitivity:
+      - technical
+      - interaction
+    notification_emails:
+      - synced-client-integrations@mozilla.com
+    expires: 2022-06-30

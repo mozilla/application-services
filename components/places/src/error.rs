@@ -64,19 +64,24 @@ pub enum ErrorKind {
     #[error("Illegal database path: {0:?}")]
     IllegalDatabasePath(std::path::PathBuf),
 
-    #[error("Protobuf decode error: {0}")]
-    ProtobufDecodeError(#[from] prost::DecodeError),
-
     #[error("UTF8 Error: {0}")]
     Utf8Error(#[from] std::str::Utf8Error),
 
-    #[error("Database cannot be upgraded")]
-    DatabaseUpgradeError,
-
-    #[error("Database version {0} is not supported")]
+    // This error is saying an old Fennec or iOS version isn't supported - it's never used for
+    // our specific version.
+    #[error("Can not import from database version {0}")]
     UnsupportedDatabaseVersion(i64),
+
+    #[error("Error opening database: {0}")]
+    OpenDatabaseError(#[from] sql_support::open_database::Error),
+
+    #[error("Invalid metadata observation: {0}")]
+    InvalidMetadataObservation(InvalidMetadataObservation),
 }
 
+// This defines the `Error` and `Result` types exported by this module.
+// These errors do not make it across the FFI, so can be considered "private" to the
+// Rust side of the world.
 error_support::define_error! {
     ErrorKind {
         (SyncAdapterError, sync15::Error),
@@ -87,9 +92,10 @@ error_support::define_error! {
         (Corruption, Corruption),
         (IoError, std::io::Error),
         (MergeError, dogear::Error),
-        (ProtobufDecodeError, prost::DecodeError),
         (InterruptedError, Interrupted),
         (Utf8Error, std::str::Utf8Error),
+        (OpenDatabaseError, sql_support::open_database::Error),
+        (InvalidMetadataObservation, InvalidMetadataObservation),
     }
 }
 
@@ -149,4 +155,161 @@ pub enum Corruption {
 
     #[error("Bookmark '{0}' has no parent but is not the bookmarks root")]
     NonRootWithoutParent(String),
+}
+
+#[derive(Debug, thiserror::Error)]
+pub enum InvalidMetadataObservation {
+    #[error("Observed view time is invalid (too long)")]
+    ViewTimeTooLong,
+}
+
+// This is the error object thrown over the FFI.
+#[derive(Debug, thiserror::Error)]
+pub enum PlacesError {
+    #[error("Unexpected error: {0}")]
+    UnexpectedPlacesException(String),
+
+    #[error("UrlParseFailed: {0}")]
+    UrlParseFailed(String),
+
+    #[error("JsonParseFailed: {0}")]
+    JsonParseFailed(String),
+
+    #[error("PlacesConnectionBusy error: {0}")]
+    PlacesConnectionBusy(String),
+
+    #[error("Operation Interrupted: {0}")]
+    OperationInterrupted(String),
+
+    /// Error indicating bookmarks corruption. If this occurs, we
+    /// would appreciate reports.
+    ///
+    /// Eventually it should be fixed up, when detected as part of
+    /// `runMaintenance`.
+    #[error("BookmarksCorruption error: {0}")]
+    BookmarksCorruption(String),
+
+    /// Thrown when providing a guid referring to a non-folder as the
+    /// parentGUID parameter to a create or update
+    #[error("Invalid Parent: {0}")]
+    InvalidParent(String),
+
+    /// Thrown when providing a guid to a create or update function
+    /// which does not refer to a known bookmark.
+    #[error("Unknown bookmark: {0}")]
+    UnknownBookmarkItem(String),
+
+    /// Thrown when attempting to insert a URL greater than 65536 bytes
+    /// (after punycoding and percent encoding).
+    ///
+    /// Attempting to truncate the URL is difficult and subtle, and
+    /// is guaranteed to result in a URL different from the one the
+    /// user attempted to bookmark, and so an error is thrown instead.
+    #[error("URL too long: {0}")]
+    UrlTooLong(String),
+
+    /// Thrown when attempting to update a bookmark item in an illegal
+    /// way. For example, attempting to change the URL of a bookmark
+    /// folder, or update the title of a separator, etc.
+    #[error("Invalid Bookmark: {0}")]
+    InvalidBookmarkUpdate(String),
+
+    /// Thrown when:
+    /// - Attempting to insert a child under BookmarkRoot.Root,
+    /// - Attempting to update any of the bookmark roots.
+    /// - Attempting to delete any of the bookmark roots.
+    #[error("CannotUpdateRoot error: {0}")]
+    CannotUpdateRoot(String),
+}
+
+// A port of the error conversion stuff that was in ffi.rs - it turns our
+// "internal" errors into "public" ones.
+fn make_places_error(error: &Error) -> PlacesError {
+    let label = error.to_string();
+    let kind = error.kind();
+    match kind {
+        ErrorKind::InvalidPlaceInfo(info) => {
+            log::error!("Invalid place info: {}", info);
+            let label = info.to_string();
+            match &info {
+                InvalidPlaceInfo::InvalidParent(..) | InvalidPlaceInfo::UrlTooLong => {
+                    PlacesError::InvalidParent(label)
+                }
+                InvalidPlaceInfo::NoSuchGuid(..) => PlacesError::UnknownBookmarkItem(label),
+                InvalidPlaceInfo::IllegalChange(..) => PlacesError::InvalidBookmarkUpdate(label),
+                InvalidPlaceInfo::CannotUpdateRoot(..) => PlacesError::CannotUpdateRoot(label),
+                _ => PlacesError::UnexpectedPlacesException(label),
+            }
+        }
+        ErrorKind::UrlParseError(e) => {
+            log::error!("URL parse error: {}", e);
+            PlacesError::UrlParseFailed(e.to_string())
+        }
+        // Can't pattern match on `err` without adding a dep on the sqlite3-sys crate,
+        // so we just use a `if` guard.
+        ErrorKind::SqlError(rusqlite::Error::SqliteFailure(err, msg))
+            if err.code == rusqlite::ErrorCode::DatabaseBusy =>
+        {
+            log::error!("Database busy: {:?} {:?}", err, msg);
+            PlacesError::PlacesConnectionBusy(label)
+        }
+        ErrorKind::SqlError(rusqlite::Error::SqliteFailure(err, _))
+            if err.code == rusqlite::ErrorCode::OperationInterrupted =>
+        {
+            log::info!("Operation interrupted");
+            PlacesError::OperationInterrupted(label)
+        }
+        ErrorKind::InterruptedError(err) => {
+            // Can't unify with the above ... :(
+            log::info!("Operation interrupted");
+            PlacesError::OperationInterrupted(err.to_string())
+        }
+        ErrorKind::Corruption(e) => {
+            log::info!("The store is corrupt: {}", e);
+            PlacesError::BookmarksCorruption(e.to_string())
+        }
+        ErrorKind::SyncAdapterError(e) => {
+            use sync15::ErrorKind;
+            match e.kind() {
+                ErrorKind::StoreError(store_error) => {
+                    // If it's a type-erased version of one of our errors, try
+                    // and resolve it.
+                    if let Some(places_err) = store_error.downcast_ref::<Error>() {
+                        log::info!("Recursing to resolve places error");
+                        make_places_error(places_err)
+                    } else {
+                        log::error!("Unexpected sync error: {:?}", label);
+                        PlacesError::UnexpectedPlacesException(label)
+                    }
+                }
+                _ => {
+                    log::error!("Unexpected sync error: {:?}", label);
+                    PlacesError::UnexpectedPlacesException(label)
+                }
+            }
+        }
+
+        err => {
+            log::error!("Unexpected error: {:?}", err);
+            PlacesError::UnexpectedPlacesException(label)
+        }
+    }
+}
+
+impl From<Error> for PlacesError {
+    fn from(e: Error) -> PlacesError {
+        make_places_error(&e)
+    }
+}
+
+impl From<serde_json::Error> for PlacesError {
+    fn from(e: serde_json::Error) -> PlacesError {
+        PlacesError::JsonParseFailed(format!("{}", e))
+    }
+}
+
+impl From<Interrupted> for PlacesError {
+    fn from(e: Interrupted) -> PlacesError {
+        PlacesError::OperationInterrupted(e.to_string())
+    }
 }

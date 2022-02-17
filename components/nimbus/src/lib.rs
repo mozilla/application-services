@@ -6,13 +6,18 @@ mod dbcache;
 mod enrollment;
 pub mod error;
 mod evaluator;
+use chrono::{DateTime, NaiveDateTime, Utc};
+use defaults::Defaults;
 pub use error::{NimbusError, Result};
 mod client;
 mod config;
+mod defaults;
 mod matcher;
-mod persistence;
+pub mod persistence;
 mod sampling;
+mod strings;
 mod updating;
+pub mod versioning;
 #[cfg(debug_assertions)]
 pub use evaluator::evaluate_enrollment;
 
@@ -21,10 +26,13 @@ pub use config::RemoteSettingsConfig;
 use dbcache::DatabaseCache;
 pub use enrollment::EnrollmentStatus;
 use enrollment::{
-    get_enrollments, get_global_user_participation, opt_in_with_branch, opt_out,
-    set_global_user_participation, EnrollmentChangeEvent, EnrollmentsEvolver,
+    get_global_user_participation, opt_in_with_branch, opt_out, set_global_user_participation,
+    EnrollmentChangeEvent, EnrollmentsEvolver,
 };
 use evaluator::is_experiment_available;
+
+// Exposed for Example only
+pub use evaluator::TargetingAttributes;
 
 // We only use this in a test, and with --no-default-features, we don't use it
 // at all
@@ -35,21 +43,39 @@ pub use matcher::AppContext;
 use once_cell::sync::OnceCell;
 use persistence::{Database, StoreId, Writer};
 use serde_derive::*;
-use std::path::PathBuf;
-use std::sync::Mutex;
+use serde_json::{Map, Value};
+use std::collections::HashSet;
+use std::path::{Path, PathBuf};
+use std::sync::{Arc, Mutex};
 use updating::{read_and_remove_pending_experiments, write_pending_experiments};
 use uuid::Uuid;
 
+#[cfg(test)]
+mod tests;
+
 const DEFAULT_TOTAL_BUCKETS: u32 = 10000;
 const DB_KEY_NIMBUS_ID: &str = "nimbus-id";
+pub const DB_KEY_INSTALLATION_DATE: &str = "installation-date";
+pub const DB_KEY_UPDATE_DATE: &str = "update-date";
+pub const DB_KEY_APP_VERSION: &str = "app-version";
 
+impl From<AppContext> for TargetingAttributes {
+    fn from(app_context: AppContext) -> Self {
+        Self {
+            app_context,
+            ..Default::default()
+        }
+    }
+}
 // The main `NimbusClient` struct must not expose any methods that make an `&mut self`,
-// in order to be compatible with the uniffi `[Threadsafe]` annotation. This is a helper
+// in order to be compatible with the uniffi's requirements on objects. This is a helper
 // struct to contain the bits that do actually need to be mutable, so they can be
 // protected by a Mutex.
 #[derive(Default)]
 struct InternalMutableState {
     available_randomization_units: AvailableRandomizationUnits,
+    // Application level targeting attributes
+    targeting_attributes: TargetingAttributes,
 }
 
 /// Nimbus is the main struct representing the experiments state
@@ -76,8 +102,10 @@ impl NimbusClient {
         available_randomization_units: AvailableRandomizationUnits,
     ) -> Result<Self> {
         let settings_client = Mutex::new(create_client(config)?);
+
         let mutable_state = Mutex::new(InternalMutableState {
             available_randomization_units,
+            targeting_attributes: app_context.clone().into(),
         });
 
         log::debug!("NimbusClient constructor, app_context = {:?}", app_context);
@@ -91,11 +119,23 @@ impl NimbusClient {
         })
     }
 
+    pub fn with_targeting_attributes(&mut self, targeting_attributes: TargetingAttributes) {
+        let mut state = self.mutable_state.lock().unwrap();
+        state.targeting_attributes = targeting_attributes;
+    }
+
+    pub fn get_targeting_attributes(&self) -> TargetingAttributes {
+        let state = self.mutable_state.lock().unwrap();
+        state.targeting_attributes.clone()
+    }
+
     pub fn initialize(&self) -> Result<()> {
         let db = self.db()?;
         // We're not actually going to write, we just want to exclude concurrent writers.
-        let writer = db.write()?;
-        self.database_cache.commit_and_update(&db, writer)?;
+        let mut writer = db.write()?;
+
+        self.update_install_dates(db, &mut writer)?;
+        self.database_cache.commit_and_update(db, writer)?;
         Ok(())
     }
 
@@ -104,19 +144,23 @@ impl NimbusClient {
         self.database_cache.get_experiment_branch(&slug)
     }
 
-    pub fn get_experiment_branches(&self, slug: String) -> Result<Vec<Branch>> {
-        Ok(self
-            .get_all_experiments()?
-            .iter()
+    pub fn get_feature_config_variables(&self, feature_id: String) -> Result<Option<String>> {
+        self.database_cache
+            .get_feature_config_variables(&feature_id)
+    }
+
+    pub fn get_experiment_branches(&self, slug: String) -> Result<Vec<ExperimentBranch>> {
+        self.get_all_experiments()?
+            .into_iter()
             .find(|e| e.slug == slug)
-            .map(|e| e.branches.clone())
-            .ok_or(NimbusError::NoSuchExperiment(slug))?)
+            .map(|e| e.branches.into_iter().map(|b| b.into()).collect())
+            .ok_or(NimbusError::NoSuchExperiment(slug))
     }
 
     pub fn get_global_user_participation(&self) -> Result<bool> {
         let db = self.db()?;
         let reader = db.read()?;
-        get_global_user_participation(&db, &reader)
+        get_global_user_participation(db, &reader)
     }
 
     pub fn set_global_user_participation(
@@ -125,28 +169,26 @@ impl NimbusClient {
     ) -> Result<Vec<EnrollmentChangeEvent>> {
         let db = self.db()?;
         let mut writer = db.write()?;
-        set_global_user_participation(&db, &mut writer, user_participating)?;
+        set_global_user_participation(db, &mut writer, user_participating)?;
 
         let existing_experiments: Vec<Experiment> =
             db.get_store(StoreId::Experiments).collect_all(&writer)?;
         // We pass the existing experiments as "updated experiments"
         // to the evolver.
-        let nimbus_id = self.read_or_create_nimbus_id(&db, &mut writer)?;
+        let nimbus_id = self.read_or_create_nimbus_id(db, &mut writer)?;
         let state = self.mutable_state.lock().unwrap();
         let evolver = EnrollmentsEvolver::new(
             &nimbus_id,
             &state.available_randomization_units,
-            &self.app_context,
+            &state.targeting_attributes,
         );
-        let events = evolver.evolve_enrollments_in_db(&db, &mut writer, &existing_experiments)?;
-        self.database_cache.commit_and_update(&db, writer)?;
+        let events = evolver.evolve_enrollments_in_db(db, &mut writer, &existing_experiments)?;
+        self.database_cache.commit_and_update(db, writer)?;
         Ok(events)
     }
 
     pub fn get_active_experiments(&self) -> Result<Vec<EnrolledExperiment>> {
-        let db = self.db()?;
-        let reader = db.read()?;
-        get_enrollments(&db, &reader)
+        self.database_cache.get_active_experiments()
     }
 
     pub fn get_all_experiments(&self) -> Result<Vec<Experiment>> {
@@ -160,7 +202,7 @@ impl NimbusClient {
         Ok(self
             .get_all_experiments()?
             .into_iter()
-            .filter(|exp| is_experiment_available(&self.app_context, &exp, false))
+            .filter(|exp| is_experiment_available(&self.app_context, exp, false))
             .map(|exp| exp.into())
             .collect())
     }
@@ -172,16 +214,16 @@ impl NimbusClient {
     ) -> Result<Vec<EnrollmentChangeEvent>> {
         let db = self.db()?;
         let mut writer = db.write()?;
-        let result = opt_in_with_branch(&db, &mut writer, &experiment_slug, &branch)?;
-        self.database_cache.commit_and_update(&db, writer)?;
+        let result = opt_in_with_branch(db, &mut writer, &experiment_slug, &branch)?;
+        self.database_cache.commit_and_update(db, writer)?;
         Ok(result)
     }
 
     pub fn opt_out(&self, experiment_slug: String) -> Result<Vec<EnrollmentChangeEvent>> {
         let db = self.db()?;
         let mut writer = db.write()?;
-        let result = opt_out(&db, &mut writer, &experiment_slug)?;
-        self.database_cache.commit_and_update(&db, writer)?;
+        let result = opt_out(db, &mut writer, &experiment_slug)?;
+        self.database_cache.commit_and_update(db, writer)?;
         Ok(result)
     }
 
@@ -196,40 +238,163 @@ impl NimbusClient {
         let new_experiments = settings_client.fetch_experiments()?;
         let db = self.db()?;
         let mut writer = db.write()?;
-        write_pending_experiments(&db, &mut writer, new_experiments)?;
+        write_pending_experiments(db, &mut writer, new_experiments)?;
         writer.commit()?;
+        Ok(())
+    }
+
+    fn update_install_dates(&self, db: &Database, writer: &mut Writer) -> Result<()> {
+        let installation_date = self.get_installation_date(db, writer)?;
+        log::info!("[Nimbus] Installation Date: {}", installation_date);
+        let update_date = self.get_update_date(db, writer)?;
+        log::info!("[Nimbus] Update Date: {}", update_date);
+        let now = Utc::now();
+        let duration_since_install = now - installation_date;
+        log::info!(
+            "[Nimbus] Days since install: {}",
+            duration_since_install.num_days()
+        );
+        let duration_since_update = now - update_date;
+        log::info!(
+            "[Nimbus] Days since update: {}",
+            duration_since_update.num_days()
+        );
+        let mut state = self.mutable_state.lock().unwrap();
+        if state.targeting_attributes.days_since_install.is_none() {
+            state.targeting_attributes.days_since_install =
+                Some(duration_since_install.num_days() as i32);
+        }
+        if state.targeting_attributes.days_since_update.is_none() {
+            state.targeting_attributes.days_since_update =
+                Some(duration_since_update.num_days() as i32);
+        }
+
         Ok(())
     }
 
     pub fn apply_pending_experiments(&self) -> Result<Vec<EnrollmentChangeEvent>> {
         log::info!("updating experiment list");
+        // If the application did not pass in an installation date,
+        // we check if we already persisted one on a previous run:
         let db = self.db()?;
         let mut writer = db.write()?;
-        let pending_updates = read_and_remove_pending_experiments(&db, &mut writer)?;
-        Ok(match pending_updates {
+
+        let state = self.mutable_state.lock().unwrap();
+        let pending_updates = read_and_remove_pending_experiments(db, &mut writer)?;
+        let res = match pending_updates {
             Some(new_experiments) => {
-                let nimbus_id = self.read_or_create_nimbus_id(&db, &mut writer)?;
-                let state = self.mutable_state.lock().unwrap();
+                let nimbus_id = self.read_or_create_nimbus_id(db, &mut writer)?;
                 let evolver = EnrollmentsEvolver::new(
                     &nimbus_id,
                     &state.available_randomization_units,
-                    &self.app_context,
+                    &state.targeting_attributes,
                 );
-                let events =
-                    evolver.evolve_enrollments_in_db(&db, &mut writer, &new_experiments)?;
-                self.database_cache.commit_and_update(&db, writer)?;
-                events
+                evolver.evolve_enrollments_in_db(db, &mut writer, &new_experiments)?
             }
-            // We don't need to writer.commit() here because we haven't done anything.
             None => vec![],
-        })
+        };
+        self.database_cache.commit_and_update(db, writer)?;
+        Ok(res)
+    }
+
+    fn get_installation_date(&self, db: &Database, writer: &mut Writer) -> Result<DateTime<Utc>> {
+        // we first check our context
+        if let Some(context_installation_date) = self.app_context.installation_date {
+            let res = DateTime::<Utc>::from_utc(
+                NaiveDateTime::from_timestamp(context_installation_date / 1_000, 0),
+                Utc,
+            );
+            log::info!("[Nimbus] Retrieved date from Context: {}", res);
+            return Ok(res);
+        }
+        let store = db.get_store(StoreId::Meta);
+        let persisted_installation_date: Option<DateTime<Utc>> =
+            store.get(writer, DB_KEY_INSTALLATION_DATE)?;
+        Ok(
+            if let Some(installation_date) = persisted_installation_date {
+                installation_date
+            } else if let Some(home_directory) = &self.app_context.home_directory {
+                let installation_date = match self.get_creation_date_from_path(home_directory) {
+                    Ok(installation_date) => installation_date,
+                    Err(e) => {
+                        log::warn!("[Nimbus] Unable to get installation date from path, defaulting to today: {:?}", e);
+                        Utc::now()
+                    }
+                };
+                let store = db.get_store(StoreId::Meta);
+                store.put(writer, DB_KEY_INSTALLATION_DATE, &installation_date)?;
+                installation_date
+            } else {
+                Utc::now()
+            },
+        )
+    }
+
+    fn get_update_date(&self, db: &Database, writer: &mut Writer) -> Result<DateTime<Utc>> {
+        let store = db.get_store(StoreId::Meta);
+
+        let persisted_app_version: Option<String> = store.get(writer, DB_KEY_APP_VERSION)?;
+        let update_date: Option<DateTime<Utc>> = store.get(writer, DB_KEY_UPDATE_DATE)?;
+        Ok(
+            match (
+                persisted_app_version,
+                &self.app_context.app_version,
+                update_date,
+            ) {
+                // The app been run before, but has not just been updated.
+                (Some(persisted), Some(current), Some(date)) if persisted == *current => date,
+                // The app has been run before, and just been updated.
+                (Some(persisted), Some(current), _) if persisted != *current => {
+                    let now = Utc::now();
+                    store.put(writer, DB_KEY_APP_VERSION, current)?;
+                    store.put(writer, DB_KEY_UPDATE_DATE, &now)?;
+                    now
+                }
+                // The app has just been installed
+                (None, Some(current), _) => {
+                    let now = Utc::now();
+                    store.put(writer, DB_KEY_APP_VERSION, current)?;
+                    store.put(writer, DB_KEY_UPDATE_DATE, &now)?;
+                    now
+                }
+                // The current version is not available, or the persisted date is not available.
+                (_, _, Some(date)) => date,
+                // Either way, this doesn't appear to be a good production environment.
+                _ => Utc::now(),
+            },
+        )
+    }
+
+    #[cfg(not(test))]
+    fn get_creation_date_from_path<P: AsRef<Path>>(&self, path: P) -> Result<DateTime<Utc>> {
+        log::info!("[Nimbus] Getting creation date from path");
+        let metadata = std::fs::metadata(path)?;
+        let system_time_created = metadata.created()?;
+        let date_time_created = DateTime::<Utc>::from(system_time_created);
+        log::info!(
+            "[Nimbus] Creation date retrieved form path successfully: {}",
+            date_time_created
+        );
+        Ok(date_time_created)
+    }
+
+    #[cfg(test)]
+    fn get_creation_date_from_path<P: AsRef<Path>>(&self, path: P) -> Result<DateTime<Utc>> {
+        use std::io::Read;
+        let test_path = path.as_ref().with_file_name("test.json");
+        let mut file = std::fs::File::open(test_path)?;
+        let mut buf = String::new();
+        file.read_to_string(&mut buf)?;
+
+        let res = serde_json::from_str::<DateTime<Utc>>(&buf)?;
+        Ok(res)
     }
 
     pub fn set_experiments_locally(&self, experiments_json: String) -> Result<()> {
         let new_experiments = parse_experiments(&experiments_json)?;
         let db = self.db()?;
         let mut writer = db.write()?;
-        write_pending_experiments(&db, &mut writer, new_experiments)?;
+        write_pending_experiments(db, &mut writer, new_experiments)?;
         writer.commit()?;
         Ok(())
     }
@@ -258,7 +423,7 @@ impl NimbusClient {
             // The `nimbus_id` itself is a unique identifier.
             // N.B. we do this last, as a signal that all data has been reset.
             store.delete(&mut writer, DB_KEY_NIMBUS_ID)?;
-            self.database_cache.commit_and_update(&db, writer)?;
+            self.database_cache.commit_and_update(db, writer)?;
         }
         // (No need to commit `writer` if the above check was false, since we didn't change anything)
         let mut state = self.mutable_state.lock().unwrap();
@@ -269,7 +434,7 @@ impl NimbusClient {
     pub fn nimbus_id(&self) -> Result<Uuid> {
         let db = self.db()?;
         let mut writer = db.write()?;
-        let uuid = self.read_or_create_nimbus_id(&db, &mut writer)?;
+        let uuid = self.read_or_create_nimbus_id(db, &mut writer)?;
         // We don't know whether we needed to generate and save the uuid, so
         // we commit just in case - this is hopefully close to a noop in that
         // case!
@@ -302,8 +467,36 @@ impl NimbusClient {
     }
 
     fn db(&self) -> Result<&Database> {
-        self.db
-            .get_or_try_init(|| Ok(Database::new(&self.db_path)?))
+        self.db.get_or_try_init(|| Database::new(&self.db_path))
+    }
+
+    fn merge_additional_context(&self, context: Option<JsonObject>) -> Result<Value> {
+        let context = context.map(Value::Object);
+        let targeting = serde_json::to_value(self.get_targeting_attributes())?;
+        let context = match context {
+            Some(v) => v.defaults(&targeting)?,
+            None => targeting,
+        };
+
+        Ok(context)
+    }
+
+    pub fn create_targeting_helper(
+        &self,
+        additional_context: Option<JsonObject>,
+    ) -> Result<Arc<NimbusTargetingHelper>> {
+        let context = self.merge_additional_context(additional_context)?;
+        let helper = NimbusTargetingHelper::new(context);
+        Ok(Arc::new(helper))
+    }
+
+    pub fn create_string_helper(
+        &self,
+        additional_context: Option<JsonObject>,
+    ) -> Result<Arc<NimbusStringHelper>> {
+        let context = self.merge_additional_context(additional_context)?;
+        let helper = NimbusStringHelper::new(context.as_object().unwrap().to_owned());
+        Ok(Arc::new(helper))
     }
 }
 
@@ -324,7 +517,7 @@ pub const SCHEMA_VERSION: u32 = 1;
 // sdk depends on a particular version of the schema through the cargo.toml.
 
 // ⚠️ Attention : Changes to this type should be accompanied by a new test  ⚠️
-// ⚠️ in `mod test_schema_bw_compat` below, and may require a DB migration. ⚠️
+// ⚠️ in `test_lib_bw_compat.rs`, and may require a DB migration. ⚠️
 #[derive(Deserialize, Serialize, Debug, Default, Clone, PartialEq)]
 #[serde(rename_all = "camelCase")]
 pub struct Experiment {
@@ -337,7 +530,6 @@ pub struct Experiment {
     pub user_facing_description: String,
     pub is_enrollment_paused: bool,
     pub bucket_config: BucketConfig,
-    pub probe_sets: Vec<String>,
     pub branches: Vec<Branch>,
     // The `feature_ids` field was added later. For compatibility with exising experiments
     // and to avoid a db migration, we default it to an empty list when it is missing.
@@ -349,6 +541,8 @@ pub struct Experiment {
     pub proposed_duration: Option<u32>,
     pub proposed_enrollment: u32,
     pub reference_branch: Option<String>,
+    #[serde(default)]
+    pub is_rollout: bool,
     // N.B. records in RemoteSettings will have `id` and `filter_expression` fields,
     // but we ignore them because they're for internal use by RemoteSettings.
 }
@@ -360,12 +554,27 @@ impl Experiment {
             .any(|branch| branch.slug == branch_slug)
     }
 
-    fn get_first_feature_id(&self) -> String {
-        if self.feature_ids.is_empty() {
-            "".to_string()
-        } else {
-            self.feature_ids[0].clone()
-        }
+    fn get_branch(&self, branch_slug: &str) -> Option<&Branch> {
+        self.branches.iter().find(|b| b.slug == branch_slug)
+    }
+
+    fn get_feature_ids(&self) -> Vec<String> {
+        let branches = &self.branches;
+        let feature_ids = branches
+            .iter()
+            .flat_map(|b| {
+                b.get_feature_configs()
+                    .iter()
+                    .map(|f| f.to_owned().feature_id)
+                    .collect::<Vec<_>>()
+            })
+            .collect::<HashSet<_>>();
+
+        feature_ids.into_iter().collect()
+    }
+
+    pub(crate) fn is_rollout(&self) -> bool {
+        self.is_rollout
     }
 }
 
@@ -373,19 +582,55 @@ impl Experiment {
 #[serde(rename_all = "camelCase")]
 pub struct FeatureConfig {
     pub feature_id: String,
-    pub enabled: bool,
     // There is a nullable `value` field that can contain key-value config options
-    // that modify the behaviour of an application feature, but we don't support
-    // it yet and the details are still being finalized, so we ignore it for now.
+    // that modify the behaviour of an application feature. Uniffi doesn't quite support
+    // serde_json yet.
+    #[serde(default)]
+    pub value: Map<String, Value>,
+}
+
+impl Defaults for FeatureConfig {
+    fn defaults(&self, fallback: &Self) -> Result<Self> {
+        if self.feature_id != fallback.feature_id {
+            // This is unlikely to happen, but if it does it's a bug in Nimbus
+            Err(NimbusError::InternalError(
+                "Cannot merge feature configs from different features",
+            ))
+        } else {
+            Ok(FeatureConfig {
+                feature_id: self.feature_id.clone(),
+                value: self.value.defaults(&fallback.value)?,
+            })
+        }
+    }
 }
 
 // ⚠️ Attention : Changes to this type should be accompanied by a new test  ⚠️
-// ⚠️ in `mod test_schema_bw_compat` below, and may require a DB migration. ⚠️
+// ⚠️ in `test_lib_bw_compat.rs`, and may require a DB migration. ⚠️
 #[derive(Deserialize, Serialize, Debug, Default, Clone, PartialEq)]
 pub struct Branch {
     pub slug: String,
     pub ratio: i32,
+    // we skip serializing the `feature` and `features`
+    // fields if they are `None`, to stay aligned
+    // with the schema, where only one of them
+    // will exist
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub feature: Option<FeatureConfig>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub features: Option<Vec<FeatureConfig>>,
+}
+
+impl Branch {
+    pub(crate) fn get_feature_configs(&self) -> Vec<FeatureConfig> {
+        // Some versions of desktop need both, but features should be prioritized
+        // (https://mozilla-hub.atlassian.net/browse/SDK-440).
+        match (&self.features, &self.feature) {
+            (Some(features), _) => features.clone(),
+            (None, Some(feature)) => vec![feature.clone()],
+            _ => Default::default(),
+        }
+    }
 }
 
 fn default_buckets() -> u32 {
@@ -393,7 +638,7 @@ fn default_buckets() -> u32 {
 }
 
 // ⚠️ Attention : Changes to this type should be accompanied by a new test  ⚠️
-// ⚠️ in `mod test_schema_bw_compat` below, and may require a DB migration. ⚠️
+// ⚠️ in `test_lib_bw_compat.rs`, and may require a DB migration. ⚠️
 #[derive(Deserialize, Serialize, Debug, Default, Clone, PartialEq)]
 #[serde(rename_all = "camelCase")]
 pub struct BucketConfig {
@@ -405,13 +650,30 @@ pub struct BucketConfig {
     pub total: u32,
 }
 
+#[cfg(test)]
+impl BucketConfig {
+    pub(crate) fn always() -> Self {
+        Self {
+            start: 0,
+            count: default_buckets(),
+            total: default_buckets(),
+            ..Default::default()
+        }
+    }
+}
+
 // This type is passed across the FFI to client consumers, e.g. UI for testing tooling.
 pub struct AvailableExperiment {
     pub slug: String,
     pub user_facing_name: String,
     pub user_facing_description: String,
-    pub branches: Vec<Branch>,
+    pub branches: Vec<ExperimentBranch>,
     pub reference_branch: Option<String>,
+}
+
+pub struct ExperimentBranch {
+    pub slug: String,
+    pub ratio: i32,
 }
 
 impl From<Experiment> for AvailableExperiment {
@@ -420,14 +682,23 @@ impl From<Experiment> for AvailableExperiment {
             slug: exp.slug,
             user_facing_name: exp.user_facing_name,
             user_facing_description: exp.user_facing_description,
-            branches: exp.branches,
+            branches: exp.branches.into_iter().map(|b| b.into()).collect(),
             reference_branch: exp.reference_branch,
         }
     }
 }
 
+impl From<Branch> for ExperimentBranch {
+    fn from(branch: Branch) -> Self {
+        Self {
+            slug: branch.slug,
+            ratio: branch.ratio,
+        }
+    }
+}
+
 // ⚠️ Attention : Changes to this type should be accompanied by a new test  ⚠️
-// ⚠️ in `mod test_schema_bw_compat` below, and may require a DB migration. ⚠️
+// ⚠️ in `test_lib_bw_compat`, and may require a DB migration. ⚠️
 #[derive(Deserialize, Serialize, Debug, Clone, PartialEq)]
 #[serde(rename_all = "snake_case")]
 pub enum RandomizationUnit {
@@ -470,355 +741,71 @@ impl AvailableRandomizationUnits {
     }
 }
 
+pub struct NimbusStringHelper {
+    context: JsonObject,
+}
+
+impl NimbusStringHelper {
+    fn new(context: JsonObject) -> Self {
+        Self { context }
+    }
+
+    pub fn get_uuid(&self, template: String) -> Option<String> {
+        if template.contains("{uuid}") {
+            let uuid = Uuid::new_v4();
+            Some(uuid.to_string())
+        } else {
+            None
+        }
+    }
+
+    pub fn string_format(&self, template: String, uuid: Option<String>) -> String {
+        match uuid {
+            Some(uuid) => {
+                let mut map = self.context.clone();
+                map.insert("uuid".to_string(), Value::String(uuid));
+                strings::fmt_with_map(&template, &map)
+            }
+            _ => strings::fmt_with_map(&template, &self.context),
+        }
+    }
+}
+
+pub struct NimbusTargetingHelper {
+    context: Value,
+}
+
+impl NimbusTargetingHelper {
+    fn new(context: Value) -> Self {
+        Self { context }
+    }
+
+    pub fn eval_jexl(&self, expr: String) -> Result<bool> {
+        evaluator::jexl_eval(&expr, &self.context)
+    }
+}
+
+type JsonObject = Map<String, Value>;
+
+#[cfg(feature = "uniffi-bindings")]
+impl UniffiCustomTypeConverter for JsonObject {
+    type Builtin = String;
+
+    fn into_custom(val: Self::Builtin) -> uniffi::Result<Self> {
+        let json: Value = serde_json::from_str(&val)?;
+
+        match json.as_object() {
+            Some(obj) => Ok(obj.clone()),
+            _ => Err(uniffi::deps::anyhow::anyhow!(
+                "Unexpected JSON-non-object in the bagging area"
+            )),
+        }
+    }
+
+    fn from_custom(obj: Self) -> Self::Builtin {
+        serde_json::Value::Object(obj).to_string()
+    }
+}
+
 #[cfg(feature = "uniffi-bindings")]
 include!(concat!(env!("OUT_DIR"), "/nimbus.uniffi.rs"));
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-    use enrollment::{EnrolledReason, EnrollmentStatus, ExperimentEnrollment};
-    use tempdir::TempDir;
-
-    #[test]
-    fn test_telemetry_reset() -> Result<()> {
-        let mock_client_id = "client-1".to_string();
-        let mock_exp_slug = "exp-1".to_string();
-        let mock_exp_branch = "branch-1".to_string();
-        let mock_feature_id = "feature-1".to_string();
-
-        let tmp_dir = TempDir::new("test_telemetry_reset")?;
-        let client = NimbusClient::new(
-            AppContext::default(),
-            tmp_dir.path(),
-            None,
-            AvailableRandomizationUnits {
-                client_id: Some(mock_client_id.clone()),
-                ..AvailableRandomizationUnits::default()
-            },
-        )?;
-
-        let get_client_id = || {
-            client
-                .mutable_state
-                .lock()
-                .unwrap()
-                .available_randomization_units
-                .client_id
-                .clone()
-        };
-
-        // Mock being enrolled in a single experiment.
-        let db = client.db()?;
-        let mut writer = db.write()?;
-        db.get_store(StoreId::Experiments).put(
-            &mut writer,
-            &mock_exp_slug,
-            &Experiment {
-                slug: mock_exp_slug.clone(),
-                ..Experiment::default()
-            },
-        )?;
-        db.get_store(StoreId::Enrollments).put(
-            &mut writer,
-            &mock_exp_slug,
-            &ExperimentEnrollment {
-                slug: mock_exp_slug.clone(),
-                status: EnrollmentStatus::new_enrolled(
-                    EnrolledReason::Qualified,
-                    &mock_exp_branch,
-                    &mock_feature_id,
-                ),
-            },
-        )?;
-        writer.commit()?;
-
-        client.initialize()?;
-
-        // Check expected state before resetting telemetry.
-        let orig_nimbus_id = client.nimbus_id()?;
-        assert_eq!(get_client_id(), Some(mock_client_id));
-
-        let events = client.reset_telemetry_identifiers(AvailableRandomizationUnits::default())?;
-
-        // We should have reset our nimbus_id.
-        assert_ne!(orig_nimbus_id, client.nimbus_id()?);
-
-        // We should have updated the randomization units.
-        assert_eq!(get_client_id(), None);
-
-        // We should have been disqualified from the enrolled experiment.
-        assert_eq!(client.get_experiment_branch(mock_exp_slug)?, None);
-
-        // We should have returned a single event.
-        assert_eq!(events.len(), 1);
-
-        Ok(())
-    }
-}
-
-#[cfg(test)]
-/// A suite of tests for b/w compat of data storage schema.
-///
-/// We use the `Serialize/`Deserialize` impls on various structs in order to persist them
-/// into rkv, and it's important that we be able to read previously-persisted data even
-/// if the struct definitions change over time.
-///
-/// This is a suite of tests specifically to check for backward compatibility with data
-/// that may have been written to disk by previous versions of the library.
-///
-/// ⚠️ Warning : Do not change the JSON data used by these tests. ⚠️
-/// ⚠️ The whole point of the tests is to check things work with that data. ⚠️
-///
-mod test_schema_bw_compat {
-    use super::*;
-    use serde_json::json;
-
-    #[test]
-    // This was the `Experiment` object schema as it originally shipped to Fenix Nightly.
-    // It was missing some fields that have since been added.
-    fn test_experiment_schema_initial_release() {
-        // ⚠️ Warning : Do not change the JSON data used by this test. ⚠️
-        let exp: Experiment = serde_json::from_value(json!({
-            "schemaVersion": "1.0.0",
-            "slug": "secure-gold",
-            "endDate": null,
-            "branches":[
-                {
-                    "slug": "control",
-                    "ratio": 1,
-                },
-                {
-                    "slug": "treatment",
-                    "ratio":1,
-                }
-            ],
-            "probeSets":[],
-            "startDate":null,
-            "application":"fenix",
-            "bucketConfig":{
-                "count":10_000,
-                "start":0,
-                "total":10_000,
-                "namespace":"secure-gold",
-                "randomizationUnit":"nimbus_id"
-            },
-            "userFacingName":"Diagnostic test experiment",
-            "referenceBranch":"control",
-            "isEnrollmentPaused":false,
-            "proposedEnrollment":7,
-            "userFacingDescription":"This is a test experiment for diagnostic purposes.",
-            "id":"secure-gold",
-            "last_modified":1_602_197_324_372i64
-        }))
-        .unwrap();
-        assert_eq!(exp.get_first_feature_id(), "");
-    }
-
-    // In #96 we added a `featureIds` field to the Experiment schema.
-    // This tests the data as it was after that change.
-    #[test]
-    fn test_experiment_schema_with_feature_ids() {
-        // ⚠️ Warning : Do not change the JSON data used by this test. ⚠️
-        let exp: Experiment = serde_json::from_value(json!({
-            "schemaVersion": "1.0.0",
-            "slug": "secure-gold",
-            "endDate": null,
-            "featureIds": ["some_control"],
-            "branches":[
-                {
-                    "slug": "control",
-                    "ratio": 1,
-                    "feature": {
-                        "featureId": "some_control",
-                        "enabled": false
-                    }
-                },
-                {
-                    "slug": "treatment",
-                    "ratio":1,
-                    "feature": {
-                        "featureId": "some_control",
-                        "enabled": true
-                    }
-                }
-            ],
-            "probeSets":[],
-            "startDate":null,
-            "application":"fenix",
-            "bucketConfig":{
-                "count":10_000,
-                "start":0,
-                "total":10_000,
-                "namespace":"secure-gold",
-                "randomizationUnit":"nimbus_id"
-            },
-            "userFacingName":"Diagnostic test experiment",
-            "referenceBranch":"control",
-            "isEnrollmentPaused":false,
-            "proposedEnrollment":7,
-            "userFacingDescription":"This is a test experiment for diagnostic purposes.",
-            "id":"secure-gold",
-            "last_modified":1_602_197_324_372i64
-        }))
-        .unwrap();
-        assert_eq!(exp.get_first_feature_id(), "some_control");
-    }
-
-    // In #97 we deprecated `application` and added `app_name`, `app_id`,
-    // and `channel`.  This tests the ability to deserialize both variants.
-    #[test]
-    fn test_experiment_schema_with_adr0004_changes() {
-        // ⚠️ Warning : Do not change the JSON data used by this test. ⚠️
-
-        // First, test deserializing an `application` format experiment
-        // to ensure the presence of `application` doesn't fail.
-        let exp: Experiment = serde_json::from_value(json!({
-            "schemaVersion": "1.0.0",
-            "slug": "secure-gold",
-            "endDate": null,
-            "featureIds": ["some_control"],
-            "branches":[
-                {
-                    "slug": "control",
-                    "ratio": 1,
-                    "feature": {
-                        "featureId": "some_control",
-                        "enabled": false
-                    }
-                },
-                {
-                    "slug": "treatment",
-                    "ratio":1,
-                    "feature": {
-                        "featureId": "some_control",
-                        "enabled": true
-                    }
-                }
-            ],
-            "probeSets":[],
-            "startDate":null,
-            "application":"fenix",
-            "bucketConfig":{
-                "count":10_000,
-                "start":0,
-                "total":10_000,
-                "namespace":"secure-gold",
-                "randomizationUnit":"nimbus_id"
-            },
-            "userFacingName":"Diagnostic test experiment",
-            "referenceBranch":"control",
-            "isEnrollmentPaused":false,
-            "proposedEnrollment":7,
-            "userFacingDescription":"This is a test experiment for diagnostic purposes.",
-            "id":"secure-gold",
-            "last_modified":1_602_197_324_372i64
-        }))
-        .unwrap();
-        // Without the fields in the experiment, the resulting fields in the struct
-        // should be `None`
-        assert_eq!(exp.app_name, None);
-        assert_eq!(exp.app_id, None);
-        assert_eq!(exp.channel, None);
-
-        // Next, test deserializing an experiment with `app_name`, `app_id`,
-        // and `channel`.
-        let exp: Experiment = serde_json::from_value(json!({
-            "schemaVersion": "1.0.0",
-            "slug": "secure-gold",
-            "endDate": null,
-            "featureIds": ["some_control"],
-            "branches":[
-                {
-                    "slug": "control",
-                    "ratio": 1,
-                    "feature": {
-                        "featureId": "some_control",
-                        "enabled": false
-                    }
-                },
-                {
-                    "slug": "treatment",
-                    "ratio":1,
-                    "feature": {
-                        "featureId": "some_control",
-                        "enabled": true
-                    }
-                }
-            ],
-            "probeSets":[],
-            "startDate":null,
-            "appName":"fenix",
-            "appId":"org.mozilla.fenix",
-            "channel":"nightly",
-            "bucketConfig":{
-                "count":10_000,
-                "start":0,
-                "total":10_000,
-                "namespace":"secure-gold",
-                "randomizationUnit":"nimbus_id"
-            },
-            "userFacingName":"Diagnostic test experiment",
-            "referenceBranch":"control",
-            "isEnrollmentPaused":false,
-            "proposedEnrollment":7,
-            "userFacingDescription":"This is a test experiment for diagnostic purposes.",
-            "id":"secure-gold",
-            "last_modified":1_602_197_324_372i64
-        }))
-        .unwrap();
-        assert_eq!(exp.app_name, Some("fenix".to_string()));
-        assert_eq!(exp.app_id, Some("org.mozilla.fenix".to_string()));
-        assert_eq!(exp.channel, Some("nightly".to_string()));
-
-        // Finally, test deserializing an experiment with `app_name`, `app_id`,
-        // `channel` AND `application` to ensure nothing fails.
-        let exp: Experiment = serde_json::from_value(json!({
-            "schemaVersion": "1.0.0",
-            "slug": "secure-gold",
-            "endDate": null,
-            "featureIds": ["some_control"],
-            "branches":[
-                {
-                    "slug": "control",
-                    "ratio": 1,
-                    "feature": {
-                        "featureId": "some_control",
-                        "enabled": false
-                    }
-                },
-                {
-                    "slug": "treatment",
-                    "ratio":1,
-                    "feature": {
-                        "featureId": "some_control",
-                        "enabled": true
-                    }
-                }
-            ],
-            "probeSets":[],
-            "startDate":null,
-            "application":"org.mozilla.fenix",
-            "appName":"fenix",
-            "appId":"org.mozilla.fenix",
-            "channel":"nightly",
-            "bucketConfig":{
-                "count":10_000,
-                "start":0,
-                "total":10_000,
-                "namespace":"secure-gold",
-                "randomizationUnit":"nimbus_id"
-            },
-            "userFacingName":"Diagnostic test experiment",
-            "referenceBranch":"control",
-            "isEnrollmentPaused":false,
-            "proposedEnrollment":7,
-            "userFacingDescription":"This is a test experiment for diagnostic purposes.",
-            "id":"secure-gold",
-            "last_modified":1_602_197_324_372i64
-        }))
-        .unwrap();
-        assert_eq!(exp.app_name, Some("fenix".to_string()));
-        assert_eq!(exp.app_id, Some("org.mozilla.fenix".to_string()));
-        assert_eq!(exp.channel, Some("nightly".to_string()));
-    }
-}

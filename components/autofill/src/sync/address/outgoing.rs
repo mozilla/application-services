@@ -43,15 +43,15 @@ impl ProcessOutgoingRecordImpl for OutgoingAddressesImpl {
             common_cols = ADDRESS_COMMON_COLS,
         );
         let payload_from_data_row: &dyn Fn(&Row<'_>) -> Result<Payload> =
-            &|row| Ok(InternalAddress::from_row(row)?.into_payload()?);
+            &|row| InternalAddress::from_row(row)?.into_payload();
 
         let tombstones_sql = "SELECT guid FROM addresses_tombstones";
 
         // save outgoing records to the mirror table
         let staging_records = common_get_outgoing_staging_records(
-            &tx,
+            tx,
             &data_sql,
-            &tombstones_sql,
+            tombstones_sql,
             payload_from_data_row,
         )?
         .into_iter()
@@ -63,11 +63,11 @@ impl ProcessOutgoingRecordImpl for OutgoingAddressesImpl {
             )
         })
         .collect::<Vec<(SyncGuid, String, i64)>>();
-        common_save_outgoing_records(&tx, STAGING_TABLE_NAME, staging_records)?;
+        common_save_outgoing_records(tx, STAGING_TABLE_NAME, staging_records)?;
 
         // return outgoing changes
         let outgoing_records: Vec<(Payload, i64)> =
-            common_get_outgoing_records(&tx, &data_sql, &tombstones_sql, payload_from_data_row)?;
+            common_get_outgoing_records(tx, &data_sql, tombstones_sql, payload_from_data_row)?;
 
         outgoing.changes = outgoing_records
             .into_iter()
@@ -82,7 +82,7 @@ impl ProcessOutgoingRecordImpl for OutgoingAddressesImpl {
         records_synced: Vec<SyncGuid>,
     ) -> anyhow::Result<()> {
         common_finish_synced_items(
-            &tx,
+            tx,
             DATA_TABLE_NAME,
             MIRROR_TABLE_NAME,
             STAGING_TABLE_NAME,

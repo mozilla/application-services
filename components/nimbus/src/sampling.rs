@@ -7,7 +7,6 @@
 
 use crate::error::{NimbusError, Result};
 use sha2::{Digest, Sha256};
-use std::convert::TryInto;
 
 const HASH_BITS: u32 = 48;
 const HASH_LENGTH: u32 = HASH_BITS / 4;

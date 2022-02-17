@@ -34,12 +34,13 @@ elif [[ -n "${CROSS_COMPILE_TARGET}" ]]; then
   echo "Cannot build NSS for unrecognized target OS ${CROSS_COMPILE_TARGET}"
   exit 1
 elif [[ "$(uname -s)" == "Darwin" ]]; then
-  DIST_DIR=$(abspath "desktop/darwin/nss")
   TARGET_OS="macos"
   # We need to set this variable for switching libs based on different macos archs (M1 vs Intel)
   if [[ "$(uname -m)" == "arm64" ]]; then
+    DIST_DIR=$(abspath "desktop/darwin-aarch64/nss")
     TARGET_ARCH="aarch64"
   else
+    DIST_DIR=$(abspath "desktop/darwin-x86-64/nss")
     TARGET_ARCH="x86_64"
   fi
 elif [[ "$(uname -s)" == "Linux" ]]; then
@@ -60,17 +61,17 @@ fi
 # https://github.com/mozilla/application-services/issues/962
 if [[ "${CROSS_COMPILE_TARGET}" =~ "darwin" ]]; then
   # Generated from nss-try@111b54aaa644978464bec98848ecba6f69d3f42e.
-  curl -sfSL --retry 5 --retry-delay 10 -O "https://fxa-dev-bucket.s3-us-west-2.amazonaws.com/a-s/nss_nspr_static_3.53_darwin.bz2"
-  SHA256="bf6fdf0242f3a34778b9ae33907997161c63c2b9f2461374baa99a38058bc0ae"
-  echo "${SHA256}  nss_nspr_static_3.53_darwin.bz2" | shasum -a 256 -c - || exit 2
-  tar xvjf nss_nspr_static_3.53_darwin.bz2 && rm -rf nss_nspr_static_3.53_darwin.bz2
+  curl -sfSL --retry 5 --retry-delay 10 -O "https://fxa-dev-bucket.s3-us-west-2.amazonaws.com/a-s/nss_nspr_static_3.66_darwin.tar.bz2"
+  SHA256="2ad7c85b7b009120c7e883ccd367bbd3653857a4ed3adb4c5471b197d1844141"
+  echo "${SHA256}  nss_nspr_static_3.66_darwin.tar.bz2" | shasum -a 256 -c - || exit 2
+  tar xvjf nss_nspr_static_3.66_darwin.tar.bz2 && rm -rf nss_nspr_static_3.66_darwin.tar.bz2
   NSS_DIST_DIR=$(abspath "dist")
 elif [[ "${CROSS_COMPILE_TARGET}" =~ "win32-x86-64" ]]; then
   # Generated from nss-try@111b54aaa644978464bec98848ecba6f69d3f42e.
-  curl -sfSL --retry 5 --retry-delay 10 -O "https://fxa-dev-bucket.s3-us-west-2.amazonaws.com/a-s/nss_nspr_static_3.53_mingw.7z"
-  SHA256="b4f728e95d18c4f3d1f4abfb2cdcbe598b96f596a89544980e9c24533e36f6e6"
-  echo "${SHA256}  nss_nspr_static_3.53_mingw.7z" | shasum -a 256 -c - || exit 2
-  7z x nss_nspr_static_3.53_mingw.7z -aoa && rm -rf nss_nspr_static_3.53_mingw.7z
+  curl -sfSL --retry 5 --retry-delay 10 -O "https://fxa-dev-bucket.s3-us-west-2.amazonaws.com/a-s/nss_nspr_static_3.66_mingw.7z"
+  SHA256="d245ea7790602ef062ad6e6bac38f2d0452d753bf428c33ced46f022398a53ff"
+  echo "${SHA256}  nss_nspr_static_3.66_mingw.7z" | shasum -a 256 -c - || exit 2
+  7z x nss_nspr_static_3.66_mingw.7z -aoa && rm -rf nss_nspr_static_3.66_mingw.7z
   NSS_DIST_DIR=$(abspath "dist")
 elif [[ "$(uname -s)" == "Darwin" ]] || [[ "$(uname -s)" == "Linux" ]]; then
   "${NSS_SRC_DIR}"/nss/build.sh \
@@ -97,6 +98,7 @@ cp -p -L "${NSS_DIST_OBJ_DIR}/lib/libcerthi.a" "${DIST_DIR}/lib"
 cp -p -L "${NSS_DIST_OBJ_DIR}/lib/libcryptohi.a" "${DIST_DIR}/lib"
 cp -p -L "${NSS_DIST_OBJ_DIR}/lib/libfreebl_static.a" "${DIST_DIR}/lib"
 cp -p -L "${NSS_DIST_OBJ_DIR}/lib/libnss_static.a" "${DIST_DIR}/lib"
+cp -p -L "${NSS_DIST_OBJ_DIR}/lib/libmozpkix.a" "${DIST_DIR}/lib"
 cp -p -L "${NSS_DIST_OBJ_DIR}/lib/libnssb.a" "${DIST_DIR}/lib"
 cp -p -L "${NSS_DIST_OBJ_DIR}/lib/libnssdev.a" "${DIST_DIR}/lib"
 cp -p -L "${NSS_DIST_OBJ_DIR}/lib/libnsspki.a" "${DIST_DIR}/lib"

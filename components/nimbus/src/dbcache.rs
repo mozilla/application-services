@@ -2,9 +2,11 @@
 // License, v. 2.0. If a copy of the MPL was not distributed with this
 // file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
-use crate::enrollment::get_enrollments;
+use crate::enrollment::{get_enrollments, map_features_by_feature_id, EnrolledFeatureConfig};
 use crate::error::{NimbusError, Result};
-use crate::persistence::{Database, Writer};
+use crate::persistence::{Database, StoreId, Writer};
+use crate::EnrolledExperiment;
+use crate::{enrollment::ExperimentEnrollment, Experiment};
 use std::collections::HashMap;
 use std::sync::RwLock;
 
@@ -16,8 +18,8 @@ use std::sync::RwLock;
 // This struct is the cached data. This is never mutated, but instead
 // recreated every time the cache is updated.
 struct CachedData {
-    pub branches_by_experiment: HashMap<String, String>,
-    pub branches_by_feature: HashMap<String, String>,
+    pub experiments_by_slug: HashMap<String, EnrolledExperiment>,
+    pub features_by_feature_id: HashMap<String, EnrolledFeatureConfig>,
 }
 
 // This is the public cache API. Each NimbusClient can create one of these and
@@ -43,25 +45,31 @@ impl DatabaseCache {
     pub fn commit_and_update(&self, db: &Database, writer: Writer) -> Result<()> {
         // By passing in the active `writer` we read the state of enrollments
         // as written by the calling code, before it's committed to the db.
-        let experiments = get_enrollments(&db, &writer)?;
+        let enrollments = get_enrollments(db, &writer)?;
 
-        // Build the new hashmaps.  Note that this is somewhat temporary, is
-        // likely to change when the full FeatureConfig stuff is implemented.
-        // Further, note that, for the moment, we only (currently) support
-        // one feature_id per experiment, meaning that we ignore everything
-        // except the first feature_id in the array.  Some of the multi-feature
-        // code may want to live in the EnrollmentEvolver.
-        let mut branches_by_experiment = HashMap::with_capacity(experiments.len());
-        let mut branches_by_feature = HashMap::with_capacity(experiments.len());
-
-        for e in experiments {
-            branches_by_experiment.insert(e.slug, e.branch_slug.clone());
-            branches_by_feature.insert(e.feature_ids[0].clone(), e.branch_slug);
+        // Build a lookup table for experiments by experiment slug.
+        // This will be used for get_experiment_branch() and get_active_experiments()
+        let mut experiments_by_slug = HashMap::with_capacity(enrollments.len());
+        for e in enrollments {
+            experiments_by_slug.insert(e.slug.clone(), e);
         }
 
+        let enrollments: Vec<ExperimentEnrollment> =
+            db.get_store(StoreId::Enrollments).collect_all(&writer)?;
+        let experiments: Vec<Experiment> =
+            db.get_store(StoreId::Experiments).collect_all(&writer)?;
+
+        let features_by_feature_id = map_features_by_feature_id(&enrollments, &experiments);
+
+        // This is where testing tools would override i.e. replace experimental feature configurations.
+        // i.e. testing tools would cause custom feature configs to be stored in a Store.
+        // Here, we get those overrides out of the store, and merge it with this map.
+
+        // This is where rollouts (promoted experiments on a given feature) will be merged in to the feature variables.
+
         let data = CachedData {
-            branches_by_experiment,
-            branches_by_feature,
+            experiments_by_slug,
+            features_by_feature_id,
         };
 
         // Try to commit the change to disk and update the cache as close
@@ -98,9 +106,41 @@ impl DatabaseCache {
     }
 
     pub fn get_experiment_branch(&self, id: &str) -> Result<Option<String>> {
-        self.get_data(|data| match data.branches_by_feature.get(id) {
-            None => data.branches_by_experiment.get(id).cloned(),
-            Some(branch_slug) => Some(branch_slug.to_owned()),
+        self.get_data(|data| -> Option<String> {
+            // Getting experiment branch by feature id will be going away soon: it doesn't really
+            // make sense.
+            if let Some(feature) = data.features_by_feature_id.get(id) {
+                // Features may be involved in rollouts and experiments.
+                // If it's only involved in a rollout, then the branch is None.
+                feature.branch.clone()
+            } else {
+                data.experiments_by_slug
+                    .get(id)
+                    .map(|experiment| experiment.branch_slug.clone())
+            }
+        })
+    }
+
+    // This gives access to the feature JSON. We pass it as a string because uniffi doesn't
+    // support JSON yet.
+    pub fn get_feature_config_variables(&self, feature_id: &str) -> Result<Option<String>> {
+        self.get_data(|data| {
+            if let Some(enrolled_feature) = data.features_by_feature_id.get(feature_id) {
+                let string = serde_json::to_string(&enrolled_feature.feature.value).unwrap();
+                Some(string)
+            } else {
+                None
+            }
+        })
+    }
+
+    pub fn get_active_experiments(&self) -> Result<Vec<EnrolledExperiment>> {
+        self.get_data(|data| {
+            data.experiments_by_slug
+                .values()
+                .into_iter()
+                .map(|e| e.to_owned())
+                .collect::<Vec<EnrolledExperiment>>()
         })
     }
 }

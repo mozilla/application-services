@@ -8,7 +8,6 @@ use crate::{
     util::{map_nss_secstatus, ScopedPtr},
 };
 use std::{
-    convert::TryFrom,
     ops::Deref,
     os::raw::{c_int, c_uchar, c_uint, c_void},
     ptr,
@@ -30,6 +29,13 @@ scoped_ptr!(
     nss_sys::PK11GenericObject,
     nss_sys::PK11_DestroyGenericObject
 );
+
+scoped_ptr!(
+    Certificate,
+    nss_sys::CERTCertificate,
+    nss_sys::CERT_DestroyCertificate
+);
+
 scoped_ptr!(Context, nss_sys::PK11Context, pk11_destroy_context_true);
 scoped_ptr!(Slot, nss_sys::PK11SlotInfo, nss_sys::PK11_FreeSlot);
 
@@ -51,6 +57,9 @@ unsafe fn pk11_destroy_context_true(context: *mut nss_sys::PK11Context) {
 
 // Trait for types that have PCKS#11 attributes that are readable. See
 // https://searchfox.org/mozilla-central/rev/8ed8474757695cdae047150a0eaf94a5f1c96dbe/security/nss/lib/pk11wrap/pk11pub.h#842-864
+/// # Safety
+/// Unsafe since it needs to call [`nss_sys::PK11_ReadRawAttribute`] which is
+/// a C NSS function, and thus inherently unsafe to call
 pub(crate) unsafe trait Pkcs11Object: ScopedPtr {
     const PK11_OBJECT_TYPE: nss_sys::PK11ObjectType;
     fn read_raw_attribute(

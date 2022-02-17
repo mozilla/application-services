@@ -2,25 +2,32 @@
 
 # Unreleased Changes
 
-## Sync Manager
+[Full Changelog](https://github.com/mozilla/application-services/compare/v91.1.0...main)
 
-- Removed support for the wipeAll command (#4006)
+<!-- WARNING: New entries should be added below this comment to ensure the `./automation/prepare-release.py` script works as expected.
 
-## Autofill
+Use the template below to make assigning a version number during the release cutting process easier.
 
+## [Component Name]
+
+### ⚠️ Breaking Changes ⚠️
+  - Description of the change with a link to the pull request ([#0000](https://github.com/mozilla/application-services/pull/0000))
 ### What's Changed
+  - Description of the change with a link to the pull request ([#0000](https://github.com/mozilla/application-services/pull/0000))
+### What's New
+  - Description of the change with a link to the pull request ([#0000](https://github.com/mozilla/application-services/pull/0000))
 
-- Added support to scrub encrypted data to handle lost/corrupted client keys.
-  Scrubbed data will be replaced with remote data on the next sync.
+-->
 
-## Nimbus
+## Places
+### ⚠️ Breaking Changes ⚠️
+- Removed some functions related to sync interruption.  These were never really completed and don't seem to be in use by iOS/Android code:
+  - `PlacesApi.new_sync_conn_interrupt_handle()`
+  - Swift only: `PlacesAPI.interrupt()`
+- The exception variant `InternalPanic` was removed. It's only use was replaced by the already existing `UnexpectedPlacesException`. ([#4847](https://github.com/mozilla/application-services/pull/4847))
+### What's New
+- The Places component will report more error variants to telemetry. ([#4847](https://github.com/mozilla/application-services/pull/4847))
+## Autofill / Logins / Places / Sync Manager, Webext-Storage
+### What's Changed
+- Updated interruption handling and added support for shutdown-mode which interrupts all operations.
 
- - Added bucket and collections to `NimbusServerSettings`, with default values.
- - Added `getAvailableExperiments()` method exposed by `NimbusClient`.
-
-### ⚠️ Breaking changes ⚠️
-
-- Moved the `Nimbus` class and its test class from Android Components into this repository. Existing integrations should pass a delegate in to provide Nimbus with a thread to do I/O and networking on, and an Obsevrer.
-  Fixed in the complementary [android-components#10144](https://github.com/mozilla-mobile/android-components/pull/10144)
-
-[Full Changelog](https://github.com/mozilla/application-services/compare/v75.2.0...main)

@@ -5,11 +5,12 @@
 #![warn(rust_2018_idioms)]
 
 use cli_support::fxa_creds::{get_cli_fxa, get_default_fxa_config};
-use places::bookmark_sync::engine::BookmarksEngine;
-use places::history_sync::engine::HistoryEngine;
 use places::storage::bookmarks::{
-    fetch_tree, insert_tree, BookmarkNode, BookmarkRootGuid, BookmarkTreeNode, FetchDepth,
-    FolderNode, SeparatorNode,
+    json_tree::{
+        fetch_tree, insert_tree, BookmarkNode, BookmarkTreeNode, FetchDepth, FolderNode,
+        SeparatorNode,
+    },
+    BookmarkRootGuid,
 };
 use places::types::BookmarkType;
 use places::{ConnectionType, PlacesApi, PlacesDb};
@@ -19,11 +20,12 @@ use std::io::{BufReader, BufWriter};
 use structopt::StructOpt;
 use sync15::{
     sync_multiple, EngineSyncAssociation, MemoryCachedState, SetupStorageClient,
-    Sync15StorageClient, SyncEngine,
+    Sync15StorageClient, SyncEngine, SyncEngineId,
 };
 use sync_guid::Guid as SyncGuid;
 use types::Timestamp;
 use url::Url;
+use viaduct_reqwest::use_reqwest_backend;
 
 use anyhow::Result;
 
@@ -83,7 +85,7 @@ fn do_import(db: &PlacesDb, root: BookmarkTreeNode) -> Result<()> {
     // Later we will want to get smarter around guids - currently we will
     // fail to do this twice due to guid dupes - but that's OK for now.
     let folder = match root {
-        BookmarkTreeNode::Folder(folder_node) => folder_node,
+        BookmarkTreeNode::Folder { f } => f,
         _ => {
             println!("Imported node isn't a folder structure");
             return Ok(());
@@ -101,14 +103,14 @@ fn do_import(db: &PlacesDb, root: BookmarkTreeNode) -> Result<()> {
 
     for sub_root_node in folder.children {
         let sub_root_folder = match sub_root_node {
-            BookmarkTreeNode::Folder(folder_node) => folder_node,
+            BookmarkTreeNode::Folder { f } => f,
             _ => {
                 println!("Child of the root isn't a folder - skipping...");
                 continue;
             }
         };
         println!("importing {:?}", sub_root_folder.guid);
-        insert_tree(db, &sub_root_folder)?
+        insert_tree(db, sub_root_folder)?
     }
     Ok(())
 }
@@ -160,7 +162,6 @@ fn run_native_export(db: &PlacesDb, filename: String) -> Result<()> {
 
 #[allow(clippy::too_many_arguments)]
 fn sync(
-    api: &PlacesApi,
     mut engine_names: Vec<String>,
     cred_file: String,
     wipe_all: bool,
@@ -169,17 +170,7 @@ fn sync(
     nsyncs: u32,
     wait: u64,
 ) -> Result<()> {
-    let conn = api.open_sync_connection()?;
-
-    // interrupts are per-connection, so we need to set that up here.
-    let interrupt_handle = conn.new_interrupt_handle();
-
-    ctrlc::set_handler(move || {
-        println!("received Ctrl+C!");
-        interrupt_handle.interrupt();
-    })
-    .expect("Error setting Ctrl-C handler");
-    let interruptee = conn.begin_interrupt_scope();
+    use_reqwest_backend();
 
     let cli_fxa = get_cli_fxa(get_default_fxa_config(), &cred_file)?;
 
@@ -195,20 +186,17 @@ fn sync(
     let mut global_state: Option<String> = None;
     let engines: Vec<Box<dyn SyncEngine>> = if engine_names.is_empty() {
         vec![
-            Box::new(BookmarksEngine::new(&conn, &interruptee)),
-            Box::new(HistoryEngine::new(&conn, &interruptee)),
+            places::get_registered_sync_engine(&SyncEngineId::Bookmarks).unwrap(),
+            places::get_registered_sync_engine(&SyncEngineId::History).unwrap(),
         ]
     } else {
         engine_names.sort();
         engine_names.dedup();
         engine_names
             .into_iter()
-            .map(|name| -> Box<dyn SyncEngine> {
-                match name.as_str() {
-                    "bookmarks" => Box::new(BookmarksEngine::new(&conn, &interruptee)),
-                    "history" => Box::new(HistoryEngine::new(&conn, &interruptee)),
-                    _ => unimplemented!("Can't sync unsupported engine {}", name),
-                }
+            .map(|name| {
+                places::get_registered_sync_engine(&SyncEngineId::try_from(name.as_ref()).unwrap())
+                    .unwrap()
             })
             .collect()
     };
@@ -227,9 +215,6 @@ fn sync(
     // That's OK for the short term, and ultimately, syncing functionality
     // will be in places_api, which will give us this for free.
 
-    // Migrate state, which we must do before we sync *any* engine.
-    HistoryEngine::migrate_v1_global_state(&conn)?;
-
     let mut error_to_report = None;
     let engines_to_sync: Vec<&dyn SyncEngine> = engines.iter().map(AsRef::as_ref).collect();
 
@@ -240,7 +225,7 @@ fn sync(
             &mut mem_cached_state,
             &cli_fxa.client_init.clone(),
             &cli_fxa.root_sync_key,
-            &interruptee,
+            &interrupt_support::ShutdownInterruptee,
             None,
         );
 
@@ -380,6 +365,14 @@ fn main() -> Result<()> {
     let db_path = opts.database_path;
     let api = PlacesApi::new(&db_path)?;
     let db = api.open_connection(ConnectionType::ReadWrite)?;
+    // Needed to make the get_registered_sync_engine() calls work.
+    api.clone().register_with_sync_manager();
+
+    ctrlc::set_handler(move || {
+        println!("\nCTRL-C detected, enabling shutdown mode\n");
+        interrupt_support::shutdown();
+    })
+    .unwrap();
 
     match opts.cmd {
         Command::Sync {
@@ -391,7 +384,6 @@ fn main() -> Result<()> {
             nsyncs,
             wait,
         } => sync(
-            &api,
             engines,
             credential_file,
             wipe_all,

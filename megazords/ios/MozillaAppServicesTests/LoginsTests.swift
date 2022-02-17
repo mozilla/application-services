@@ -6,137 +6,36 @@ import XCTest
 @testable import MozillaAppServices
 
 class LoginsTests: XCTestCase {
-    func getTestStorage() -> LoginsStorage {
-        let directory = NSTemporaryDirectory()
-        let filename = "testdb-\(UUID().uuidString).db"
-        let fileURL = URL(fileURLWithPath: directory).appendingPathComponent(filename)
-        // Note: SQLite supports using file: urls, so this works. (Maybe we should allow
-        // passing in a URL argument too?)
-        return LoginsStorage(databasePath: fileURL.absoluteString)
-    }
+    var storage: LoginsStorage!
 
     override func setUp() {
-        // This method is called before the invocation of each test method in the class.
+        Glean.shared.resetGlean(clearStores: true)
     }
 
     override func tearDown() {
         // This method is called after the invocation of each test method in the class.
     }
 
-    func testBadEncryptionKey() {
-        let storage = getTestStorage()
-        var dbOpened = true
-        do {
-            try storage.unlock(withEncryptionKey: "foofoofoo")
-        } catch {
-            XCTFail("Failed to setup db")
-        }
+    func testMigrationMetrics() throws {
+        let json = """
+            {"fixup_phase":{
+                "num_processed":0,"num_succeeded":0,"num_failed":0,"total_duration":0,"errors":[]
+            },
+            "insert_phase":{"num_processed":0,"num_succeeded":0,"num_failed":0,"total_duration":0,"errors":[]
+            },
+            "num_processed":3,"num_succeeded":1,"num_failed":2,"total_duration":53,"errors":[
+                "Invalid login: Login has illegal field: Origin is Malformed",
+                "Invalid login: Origin is empty"
+            ]}
+        """
 
-        try! storage.lock()
+        recordMigrationMetrics(jsonString: json)
+        XCTAssertEqual(3, try GleanMetrics.LoginsStoreMigration.numProcessed.testGetValue())
+        XCTAssertEqual(2, try GleanMetrics.LoginsStoreMigration.numFailed.testGetValue())
+        XCTAssertEqual(1, try GleanMetrics.LoginsStoreMigration.numSucceeded.testGetValue())
+        XCTAssertEqual(53, try GleanMetrics.LoginsStoreMigration.totalDuration.testGetValue())
 
-        do {
-            try storage.unlock(withEncryptionKey: "zebra")
-        } catch {
-            dbOpened = false
-        }
-
-        XCTAssertFalse(dbOpened, "Bad key unlocked the db!")
-    }
-
-    func testLoginRecordNil() {
-        let storage = getTestStorage()
-        try! storage.unlock(withEncryptionKey: "test123")
-        let id0 = try! storage.add(login: LoginRecord(
-            id: "",
-            password: "hunter2",
-            hostname: "https://www.example.com",
-            username: "cooluser33",
-            formSubmitURL: "https://www.example.com/login",
-            httpRealm: nil,
-            timesUsed: nil,
-            timeLastUsed: nil,
-            timeCreated: nil,
-            timePasswordChanged: nil,
-            usernameField: "users_name",
-            passwordField: "users_password"
-        ))
-
-        let record0 = try! storage.get(id: id0)!
-        XCTAssertNil(record0.httpRealm)
-        // We fixed up the formSubmitURL to just be the origin part of the url.
-        XCTAssertEqual(record0.formSubmitURL, "https://www.example.com")
-
-        let id1 = try! storage.add(login: LoginRecord(
-            id: "",
-            password: "hunter3",
-            hostname: "https://www.example2.com",
-            username: "cooluser44",
-            formSubmitURL: nil,
-            httpRealm: "Something Something",
-            timesUsed: nil,
-            timeLastUsed: nil,
-            timeCreated: nil,
-            timePasswordChanged: nil,
-            usernameField: "",
-            passwordField: ""
-        ))
-
-        let record1 = try! storage.get(id: id1)!
-
-        XCTAssertNil(record1.formSubmitURL)
-        XCTAssertEqual(record1.httpRealm, "Something Something")
-    }
-
-    func testLoginEnsureValid() {
-        let storage = getTestStorage()
-        try! storage.unlock(withEncryptionKey: "test123")
-
-        let id0 = try! storage.add(login: LoginRecord(
-            id: "",
-            password: "hunter5",
-            hostname: "https://www.example5.com",
-            username: "cooluser55",
-            formSubmitURL: "https://www.example5.com",
-            httpRealm: nil,
-            timesUsed: nil,
-            timeLastUsed: nil,
-            timeCreated: nil,
-            timePasswordChanged: nil,
-            usernameField: "users_name",
-            passwordField: "users_password"
-        ))
-
-        let dupeLogin = LoginRecord(
-            id: "",
-            password: "hunter3",
-            hostname: "https://www.example5.com",
-            username: "cooluser55",
-            formSubmitURL: "https://www.example5.com",
-            httpRealm: nil,
-            timesUsed: nil,
-            timeLastUsed: nil,
-            timeCreated: nil,
-            timePasswordChanged: nil,
-            usernameField: "users_name",
-            passwordField: "users_password"
-        )
-
-        let nullValueLogin = LoginRecord(
-            id: "",
-            password: "hunter3",
-            hostname: "https://www.example6.com",
-            username: "\0cooluser56",
-            formSubmitURL: "https://www.example6.com",
-            httpRealm: nil,
-            timesUsed: nil,
-            timeLastUsed: nil,
-            timeCreated: nil,
-            timePasswordChanged: nil,
-            usernameField: "users_name",
-            passwordField: "users_password"
-        )
-
-        XCTAssertThrowsError(try storage.ensureValid(login: dupeLogin))
-        XCTAssertThrowsError(try storage.ensureValid(login: nullValueLogin))
+        // Note the truncation of the first error string.
+        XCTAssertEqual(["Invalid login: Login has illegal field: Origin is ", "Invalid login: Origin is empty"], try GleanMetrics.LoginsStoreMigration.errors.testGetValue())
     }
 }
