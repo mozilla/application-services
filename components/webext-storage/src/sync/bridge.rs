@@ -85,7 +85,7 @@ impl<'a> sync15_traits::BridgedEngine for BridgedEngine<'a> {
     }
 
     fn store_incoming(&self, incoming_envelopes: &[IncomingEnvelope]) -> Result<()> {
-        let signal = self.db.begin_interrupt_scope();
+        let signal = self.db.begin_interrupt_scope()?;
 
         let mut incoming_payloads = Vec::with_capacity(incoming_envelopes.len());
         for envelope in incoming_envelopes {
@@ -100,7 +100,7 @@ impl<'a> sync15_traits::BridgedEngine for BridgedEngine<'a> {
     }
 
     fn apply(&self) -> Result<ApplyResults> {
-        let signal = self.db.begin_interrupt_scope();
+        let signal = self.db.begin_interrupt_scope()?;
 
         let tx = self.db.unchecked_transaction()?;
         let incoming = get_incoming(&tx)?;
@@ -120,7 +120,7 @@ impl<'a> sync15_traits::BridgedEngine for BridgedEngine<'a> {
     }
 
     fn set_uploaded(&self, _server_modified_millis: i64, ids: &[SyncGuid]) -> Result<()> {
-        let signal = self.db.begin_interrupt_scope();
+        let signal = self.db.begin_interrupt_scope()?;
         let tx = self.db.unchecked_transaction()?;
         record_uploaded(&tx, ids, &signal)?;
         tx.commit()?;

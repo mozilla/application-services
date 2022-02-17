@@ -13,9 +13,9 @@ use crate::schema;
 use crate::util;
 use crate::LoginDb;
 use crate::LoginStore;
+use interrupt_support::SqlInterruptScope;
 use rusqlite::{named_params, NO_PARAMS};
-use sql_support::SqlInterruptScope;
-use sql_support::{self, ConnExt};
+use sql_support::ConnExt;
 use std::collections::HashSet;
 use std::sync::Arc;
 use sync15::{
@@ -27,7 +27,7 @@ use sync_guid::Guid;
 // The sync engine.
 pub struct LoginsSyncEngine {
     pub store: Arc<LoginStore>,
-    pub scope: sql_support::SqlInterruptScope,
+    pub scope: SqlInterruptScope,
     // It's unfortunate this is an Option<>, but tricky to change because sometimes we construct
     // an engine for, say, a `reset()` where this isn't needed or known.
     encdec: Option<EncryptorDecryptor>,
@@ -41,13 +41,13 @@ impl LoginsSyncEngine {
         })
     }
 
-    pub fn new(store: Arc<LoginStore>) -> Self {
-        let scope = store.db.lock().begin_interrupt_scope();
-        Self {
+    pub fn new(store: Arc<LoginStore>) -> Result<Self> {
+        let scope = store.db.lock().begin_interrupt_scope()?;
+        Ok(Self {
             store,
             scope,
             encdec: None,
-        }
+        })
     }
 
     fn reconcile(
@@ -500,7 +500,7 @@ mod tests {
         store: LoginStore,
         records: &[(sync15::Payload, ServerTimestamp)],
     ) -> (Vec<SyncLoginData>, telemetry::EngineIncoming) {
-        let mut engine = LoginsSyncEngine::new(Arc::new(store));
+        let mut engine = LoginsSyncEngine::new(Arc::new(store)).unwrap();
         engine
             .set_local_encryption_key(&TEST_ENCRYPTION_KEY)
             .unwrap();
@@ -514,7 +514,7 @@ mod tests {
     }
 
     fn run_fetch_outgoing(store: LoginStore) -> OutgoingChangeset {
-        let mut engine = LoginsSyncEngine::new(Arc::new(store));
+        let mut engine = LoginsSyncEngine::new(Arc::new(store)).unwrap();
         engine
             .set_local_encryption_key(&TEST_ENCRYPTION_KEY)
             .unwrap();
@@ -791,7 +791,7 @@ mod tests {
             .record
             .id;
 
-        let mut engine = LoginsSyncEngine::new(Arc::new(store));
+        let mut engine = LoginsSyncEngine::new(Arc::new(store)).unwrap();
         engine
             .set_local_encryption_key(&TEST_ENCRYPTION_KEY)
             .unwrap();

@@ -482,7 +482,7 @@ fn main() -> Result<()> {
             }
             'R' | 'r' => {
                 log::info!("Resetting client.");
-                let engine = LoginsSyncEngine::new(Arc::clone(&store));
+                let engine = LoginsSyncEngine::new(Arc::clone(&store))?;
                 if let Err(e) = engine.reset(&EngineSyncAssociation::Disconnected) {
                     log::warn!("Failed to reset! {}", e);
                 }

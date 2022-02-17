@@ -6,8 +6,8 @@ use crate::db::{PlacesDb, SharedPlacesDb};
 use crate::error::*;
 use crate::storage::history::{delete_everything, history_sync::reset};
 use crate::storage::{get_meta, put_meta};
-use sql_support::SqlInterruptScope;
-use std::sync::{atomic::AtomicUsize, Arc};
+use interrupt_support::SqlInterruptScope;
+use std::sync::Arc;
 use sync15::telemetry;
 use sync15::{
     CollSyncIds, CollectionRequest, EngineSyncAssociation, IncomingChangeset, OutgoingChangeset,
@@ -71,11 +71,11 @@ pub struct HistorySyncEngine {
 }
 
 impl HistorySyncEngine {
-    pub fn new(db: Arc<SharedPlacesDb>) -> Self {
-        Self {
+    pub fn new(db: Arc<SharedPlacesDb>) -> Result<Self> {
+        Ok(Self {
+            scope: db.begin_interrupt_scope()?,
             db,
-            scope: SqlInterruptScope::new(Arc::new(AtomicUsize::new(0))),
-        }
+        })
     }
 }
 

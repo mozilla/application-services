@@ -4,3 +4,11 @@ version = "0.1.0"
 authors = ["application-services@mozilla.com"]
 license = "MPL-2.0"
 edition = "2021"
+
+[dependencies]
+lazy_static = "1.4"
+parking_lot = "0.5"
+
+[dependencies.rusqlite]
+version = "0.24.2"
+features = ["functions", "limits", "bundled", "unlock_notify"]

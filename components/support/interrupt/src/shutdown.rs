@@ -2,11 +2,10 @@
 License, v. 2.0. If a copy of the MPL was not distributed with this
 * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-use interrupt_support::Interruptee;
 /// Shutdown handling for database operations
 ///
-/// This crate allows us to enter shutdown mode, causing all `SqlInterruptScope` instances that opt-in to
-/// shutdown support to be permanently interrupted.  This means:
+/// This module allows us to enter shutdown mode, causing all `SqlInterruptScope` instances that opt-in to
+/// to be permanently interrupted.  This means:
 ///
 ///   - All current scopes will be interrupted
 ///   - Any attempt to create a new scope will be interrupted
@@ -19,10 +18,11 @@ use interrupt_support::Interruptee;
 ///      - Implements `AsRef<SqlInterruptHandle>`.
 ///      - Gets wrapped in an `Arc<>`.  This is needed so the shutdown code can get a weak reference to
 ///        the instance.
-///      - Calls `shutdown::register_interrupt_handle()` on creation
+///      - Calls `register_interrupt()` on creation
 ///
 ///  See `PlacesDb::begin_interrupt_scope()` and `PlacesApi::new_connection()` for an example of
 ///  how this works.
+use crate::Interruptee;
 use parking_lot::Mutex;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Weak;
@@ -71,7 +71,7 @@ pub fn register_interrupt(interrupt: Weak<dyn AsRef<SqlInterruptHandle> + Send +
     interrupts.push(interrupt);
 }
 
-// implements Interruptee by checking if we've entered shutdown mode
+// Implements Interruptee by checking if we've entered shutdown mode
 pub struct ShutdownInterruptee;
 impl Interruptee for ShutdownInterruptee {
     #[inline]

@@ -23,8 +23,8 @@ use crate::ConnectionType;
 use crate::VisitObservation;
 use crate::VisitTransition;
 use crate::{PlacesApi, PlacesDb};
+use interrupt_support::{register_interrupt, SqlInterruptHandle};
 use parking_lot::Mutex;
-use sql_support::{register_interrupt, SqlInterruptHandle};
 use std::sync::Arc;
 use sync_guid::Guid;
 use types::Timestamp;
@@ -189,7 +189,7 @@ impl PlacesApi {
 
 pub struct PlacesConnection {
     db: Mutex<PlacesDb>,
-    interrupt_handle: SqlInterruptHandle,
+    interrupt_handle: Arc<SqlInterruptHandle>,
 }
 
 impl PlacesConnection {
@@ -209,13 +209,9 @@ impl PlacesConnection {
         Ok(f(&conn)?)
     }
 
-    // This should be refactored/removed as part of https://github.com/mozilla/application-services/issues/1684
-    // We have to use Arc in the return type to be able to properly
     // pass the SqlInterruptHandle as an object through Uniffi
-    fn new_interrupt_handle(&self) -> Result<Arc<SqlInterruptHandle>> {
-        Ok(Arc::new(
-            self.with_conn(|conn| Ok(conn.new_interrupt_handle()))?,
-        ))
+    fn new_interrupt_handle(&self) -> Arc<SqlInterruptHandle> {
+        Arc::clone(&self.interrupt_handle)
     }
 
     fn get_latest_history_metadata_for_url(&self, url: Url) -> Result<Option<HistoryMetadata>> {

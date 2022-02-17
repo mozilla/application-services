@@ -23,12 +23,13 @@ use dogear::{
     self, AbortSignal, CompletionOps, Content, Item, MergedRoot, TelemetryEvent, Tree, UploadItem,
     UploadTombstone,
 };
+use interrupt_support::SqlInterruptScope;
 use rusqlite::{Row, NO_PARAMS};
-use sql_support::{self, ConnExt, SqlInterruptScope};
+use sql_support::ConnExt;
 use std::cell::RefCell;
 use std::collections::HashMap;
 use std::fmt;
-use std::sync::{atomic::AtomicUsize, Arc};
+use std::sync::Arc;
 use sync15::{
     telemetry, CollSyncIds, CollectionRequest, EngineSyncAssociation, IncomingChangeset,
     OutgoingChangeset, Payload, ServerTimestamp, SyncEngine,
@@ -49,12 +50,9 @@ pub const COLLECTION_NAME: &str = "bookmarks";
 const MAX_FRECENCIES_TO_RECALCULATE_PER_CHUNK: usize = 400;
 
 /// Adapts an interruptee to a Dogear abort signal.
-struct MergeInterruptee<'a, I>(&'a I);
+struct MergeInterruptee<'a>(&'a SqlInterruptScope);
 
-impl<'a, I> AbortSignal for MergeInterruptee<'a, I>
-where
-    I: interrupt_support::Interruptee,
-{
+impl<'a> AbortSignal for MergeInterruptee<'a> {
     #[inline]
     fn aborted(&self) -> bool {
         self.0.was_interrupted()
@@ -892,11 +890,11 @@ pub struct BookmarksSyncEngine {
 }
 
 impl BookmarksSyncEngine {
-    pub fn new(db: Arc<SharedPlacesDb>) -> Self {
-        Self {
+    pub fn new(db: Arc<SharedPlacesDb>) -> Result<Self> {
+        Ok(Self {
+            scope: db.begin_interrupt_scope()?,
             db,
-            scope: SqlInterruptScope::new(Arc::new(AtomicUsize::new(0))),
-        }
+        })
     }
 }
 
@@ -1789,7 +1787,7 @@ mod tests {
     }
 
     fn create_sync_engine(api: &PlacesApi) -> BookmarksSyncEngine {
-        BookmarksSyncEngine::new(api.get_sync_connection().unwrap())
+        BookmarksSyncEngine::new(api.get_sync_connection().unwrap()).unwrap()
     }
 
     // Applys the incoming records, and also "finishes" the sync by pretending
