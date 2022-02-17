@@ -220,9 +220,6 @@ pub enum PlacesError {
     /// - Attempting to delete any of the bookmark roots.
     #[error("CannotUpdateRoot error: {0}")]
     CannotUpdateRoot(String),
-
-    #[error("Unexpected error: {0}")]
-    InternalPanic(String),
 }
 
 // A port of the error conversion stuff that was in ffi.rs - it turns our
@@ -294,7 +291,7 @@ fn make_places_error(error: &Error) -> PlacesError {
 
         err => {
             log::error!("Unexpected error: {:?}", err);
-            PlacesError::InternalPanic(label)
+            PlacesError::UnexpectedPlacesException(label)
         }
     }
 }

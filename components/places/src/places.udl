@@ -323,7 +323,6 @@ enum PlacesError {
     "UrlTooLong",
     "InvalidBookmarkUpdate", // XXX - can we kill this?
     "CannotUpdateRoot",
-    "InternalPanic",
 };
 
 dictionary BookmarkData {
