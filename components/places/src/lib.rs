@@ -24,10 +24,6 @@ pub mod storage;
 mod tests;
 mod util;
 
-pub mod msg_types {
-    include!("mozilla.appservices.places.protobuf.rs");
-}
-
 pub use crate::api::apply_observation;
 #[cfg(test)]
 pub use crate::api::places_api::test;
@@ -35,8 +31,7 @@ pub use crate::api::places_api::{get_registered_sync_engine, ConnectionType, Pla
 
 pub use crate::db::PlacesDb;
 pub use crate::error::*;
-pub use crate::observation::VisitObservation;
+pub use crate::observation::*;
 pub use crate::storage::PageInfo;
 pub use crate::storage::RowId;
 pub use crate::types::*;
-pub use ffi::{APIS, CONNECTIONS};

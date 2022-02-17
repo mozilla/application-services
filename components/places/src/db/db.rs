@@ -5,19 +5,20 @@
 use super::schema;
 use crate::api::places_api::ConnectionType;
 use crate::error::*;
+use interrupt_support::{SqlInterruptHandle, SqlInterruptScope};
 use lazy_static::lazy_static;
 use parking_lot::Mutex;
 use rusqlite::{self, Connection, Transaction};
 use sql_support::{
     open_database::{self, open_database_with_flags, ConnectionInitializer},
-    ConnExt, SqlInterruptHandle, SqlInterruptScope,
+    ConnExt,
 };
 use std::collections::HashMap;
 use std::ops::Deref;
 use std::path::Path;
 
 use std::sync::{
-    atomic::{AtomicI64, AtomicUsize, Ordering},
+    atomic::{AtomicI64, Ordering},
     Arc, RwLock,
 };
 
@@ -97,7 +98,7 @@ impl ConnectionInitializer for PlacesInitializer {
 pub struct PlacesDb {
     pub db: Connection,
     conn_type: ConnectionType,
-    interrupt_counter: Arc<AtomicUsize>,
+    interrupt_handle: Arc<SqlInterruptHandle>,
     api_id: usize,
     pub(super) coop_tx_lock: Arc<Mutex<()>>,
 }
@@ -110,11 +111,11 @@ impl PlacesDb {
         coop_tx_lock: Arc<Mutex<()>>,
     ) -> Self {
         Self {
+            interrupt_handle: Arc::new(SqlInterruptHandle::new(&db)),
             db,
             conn_type,
             // The API sets this explicitly.
             api_id,
-            interrupt_counter: Arc::new(AtomicUsize::new(0)),
             coop_tx_lock,
         }
     }
@@ -150,16 +151,13 @@ impl PlacesDb {
         ))
     }
 
-    pub fn new_interrupt_handle(&self) -> SqlInterruptHandle {
-        SqlInterruptHandle::new(
-            self.db.get_interrupt_handle(),
-            self.interrupt_counter.clone(),
-        )
+    pub fn new_interrupt_handle(&self) -> Arc<SqlInterruptHandle> {
+        Arc::clone(&self.interrupt_handle)
     }
 
     #[inline]
-    pub fn begin_interrupt_scope(&self) -> SqlInterruptScope {
-        SqlInterruptScope::new(self.interrupt_counter.clone())
+    pub fn begin_interrupt_scope(&self) -> Result<SqlInterruptScope> {
+        Ok(self.interrupt_handle.begin_interrupt_scope()?)
     }
 
     #[inline]
@@ -204,6 +202,42 @@ impl Deref for PlacesDb {
     #[inline]
     fn deref(&self) -> &Connection {
         &self.db
+    }
+}
+
+/// PlacesDB that's behind a Mutex so it can be shared between threads
+pub struct SharedPlacesDb {
+    db: Mutex<PlacesDb>,
+    interrupt_handle: Arc<SqlInterruptHandle>,
+}
+
+impl SharedPlacesDb {
+    pub fn new(db: PlacesDb) -> Self {
+        Self {
+            interrupt_handle: db.new_interrupt_handle(),
+            db: Mutex::new(db),
+        }
+    }
+
+    pub fn begin_interrupt_scope(&self) -> Result<SqlInterruptScope> {
+        Ok(self.interrupt_handle.begin_interrupt_scope()?)
+    }
+}
+
+// Deref to a Mutex<PlacesDb>, which is how we will use SharedPlacesDb most of the time
+impl Deref for SharedPlacesDb {
+    type Target = Mutex<PlacesDb>;
+
+    #[inline]
+    fn deref(&self) -> &Mutex<PlacesDb> {
+        &self.db
+    }
+}
+
+// Also implement AsRef<SqlInterruptHandle> so that we can interrupt this at shutdown
+impl AsRef<SqlInterruptHandle> for SharedPlacesDb {
+    fn as_ref(&self) -> &SqlInterruptHandle {
+        &self.interrupt_handle
     }
 }
 

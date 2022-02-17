@@ -25,9 +25,8 @@ public enum BookmarkRoots {
     ])
 }
 
-/**
- * Enumeration of the type of a bookmark item.
- */
+// Keeping `BookmarkNodeType` in the swift wrapper because the iOS code relies on the raw value of the variants of
+// this enum.
 public enum BookmarkNodeType: Int32 {
     // Note: these values need to match the Rust BookmarkType
     // enum in types.rs
@@ -43,7 +42,7 @@ public enum BookmarkNodeType: Int32 {
  * A base class containing the set of fields common to all nodes
  * in the bookmark tree.
  */
-public class BookmarkNode {
+public class BookmarkNodeData {
     /**
      * The type of this bookmark.
      */
@@ -94,7 +93,6 @@ public class BookmarkNode {
     }
 
     // swiftformat:enable redundantFileprivate
-
     /**
      * Returns true if this record is a bookmark root.
      *
@@ -105,13 +103,64 @@ public class BookmarkNode {
     }
 }
 
+public extension BookmarkItem {
+    var asBookmarkNodeData: BookmarkNodeData {
+        switch self {
+        case let .separator(s):
+            return BookmarkSeparatorData(guid: s.guid,
+                                         dateAdded: s.dateAdded,
+                                         lastModified: s.lastModified,
+                                         parentGUID: s.parentGuid,
+                                         position: s.position)
+        case let .bookmark(b):
+            return BookmarkItemData(guid: b.guid,
+                                    dateAdded: b.dateAdded,
+                                    lastModified: b.lastModified,
+                                    parentGUID: b.parentGuid,
+                                    position: b.position,
+                                    url: b.url,
+                                    title: b.title ?? "")
+        case let .folder(f):
+            return BookmarkFolderData(guid: f.guid,
+                                      dateAdded: f.dateAdded,
+                                      lastModified: f.lastModified,
+                                      parentGUID: f.parentGuid,
+                                      position: f.position,
+                                      title: f.title ?? "",
+                                      childGUIDs: f.childGuids ?? [String](),
+                                      children: f.childNodes?.map { child in child.asBookmarkNodeData })
+        }
+    }
+}
+
+// XXX - This function exists to convert the return types of the `bookmarksGetAllWithUrl`,
+// `bookmarksSearch`, and `bookmarksGetRecent` functions which will always return the `BookmarkData`
+// variant of the `BookmarkItem` enum. This function should be removed once the return types of the
+// backing rust functions have been converted from `BookmarkItem`.
+func toBookmarkItemDataList(items: [BookmarkItem]) -> [BookmarkItemData] {
+    func asBookmarkItemData(item: BookmarkItem) -> BookmarkItemData? {
+        if case let .bookmark(b) = item {
+            return BookmarkItemData(guid: b.guid,
+                                    dateAdded: b.dateAdded,
+                                    lastModified: b.lastModified,
+                                    parentGUID: b.parentGuid,
+                                    position: b.position,
+                                    url: b.url,
+                                    title: b.title ?? "")
+        }
+        return nil
+    }
+
+    return items.map { asBookmarkItemData(item: $0)! }
+}
+
 /**
  * A bookmark which is a separator.
  *
  * It's type is always `BookmarkNodeType.separator`, and it has no fields
- * besides those defined by `BookmarkNode`.
+ * besides those defined by `BookmarkNodeData`.
  */
-public class BookmarkSeparator: BookmarkNode {
+public class BookmarkSeparatorData: BookmarkNodeData {
     public init(guid: String, dateAdded: Int64, lastModified: Int64, parentGUID: String?, position: UInt32) {
         super.init(
             type: .separator,
@@ -128,9 +177,9 @@ public class BookmarkSeparator: BookmarkNode {
  * A bookmark tree node that actually represents a bookmark.
  *
  * It's type is always `BookmarkNodeType.bookmark`,  and in addition to the
- * fields provided by `BookmarkNode`, it has a `title` and a `url`.
+ * fields provided by `BookmarkNodeData`, it has a `title` and a `url`.
  */
-public class BookmarkItem: BookmarkNode {
+public class BookmarkItemData: BookmarkNodeData {
     /**
      * The URL of this bookmark.
      */
@@ -169,10 +218,10 @@ public class BookmarkItem: BookmarkNode {
  * A bookmark which is a folder.
  *
  * It's type is always `BookmarkNodeType.folder`, and in addition to the
- * fields provided by `BookmarkNode`, it has a `title`, a list of `childGUIDs`,
+ * fields provided by `BookmarkNodeData`, it has a `title`, a list of `childGUIDs`,
  * and possibly a list of `children`.
  */
-public class BookmarkFolder: BookmarkNode {
+public class BookmarkFolderData: BookmarkNodeData {
     /**
      * The title of this bookmark folder.
      *
@@ -194,7 +243,7 @@ public class BookmarkFolder: BookmarkNode {
      * this is a child (or grandchild, etc) of the directly returned node, then `children`
      * will *not* be present (as that is the point of `recursive = false`).
      */
-    public let children: [BookmarkNode]?
+    public let children: [BookmarkNodeData]?
 
     public init(guid: String,
                 dateAdded: Int64,
@@ -203,7 +252,7 @@ public class BookmarkFolder: BookmarkNode {
                 position: UInt32,
                 title: String,
                 childGUIDs: [String],
-                children: [BookmarkNode]?)
+                children: [BookmarkNodeData]?)
     {
         self.title = title
         self.childGUIDs = childGUIDs
@@ -215,76 +264,6 @@ public class BookmarkFolder: BookmarkNode {
             lastModified: lastModified,
             parentGUID: parentGUID,
             position: position
-        )
-    }
-}
-
-// We pass in whether or not we expect children, because we don't have a way
-// of distinguishing 'empty folder' from 'this API does not return children'.
-internal func unpackProtobuf(msg: MsgTypes_BookmarkNode) -> BookmarkNode {
-    // Should never fail unless BookmarkNodeType in this file and
-    // BookmarkType in rust get out of sync
-    let type = BookmarkNodeType(rawValue: msg.nodeType)!
-    let guid = msg.guid
-    let parentGUID = msg.parentGuid
-    let position = msg.position
-    let dateAdded = msg.dateAdded
-    let lastModified = msg.lastModified
-
-    let title = msg.hasTitle ? msg.title : ""
-    switch type {
-    case .bookmark:
-        return BookmarkItem(
-            guid: guid,
-            dateAdded: dateAdded,
-            lastModified: lastModified,
-            parentGUID: parentGUID,
-            position: position,
-            url: msg.url,
-            title: title
-        )
-    case .separator:
-        return BookmarkSeparator(
-            guid: guid,
-            dateAdded: dateAdded,
-            lastModified: lastModified,
-            parentGUID: parentGUID,
-            position: position
-        )
-    case .folder:
-        let childNodes = msg.childNodes.map { child in
-            unpackProtobuf(msg: child)
-        }
-        var childGUIDs = msg.childGuids
-        // We don't bother sending both the guids and the child nodes over
-        // the FFI as it's redundant.
-        if childGUIDs.isEmpty, !childNodes.isEmpty {
-            childGUIDs = childNodes.map { node in node.guid }
-        }
-        let childrenExpected = msg.hasHaveChildNodes ? msg.haveChildNodes : false
-        return BookmarkFolder(
-            guid: guid,
-            dateAdded: dateAdded,
-            lastModified: lastModified,
-            parentGUID: parentGUID,
-            position: position,
-            title: title,
-            childGUIDs: childGUIDs,
-            children: childrenExpected ? childNodes : nil
-        )
-    }
-}
-
-internal func unpackProtobufItemList(msg: MsgTypes_BookmarkNodeList) -> [BookmarkItem] {
-    return msg.nodes.map { node in
-        BookmarkItem(
-            guid: node.guid,
-            dateAdded: node.dateAdded,
-            lastModified: node.lastModified,
-            parentGUID: node.parentGuid,
-            position: node.position,
-            url: node.url,
-            title: node.hasTitle ? node.title : ""
         )
     }
 }

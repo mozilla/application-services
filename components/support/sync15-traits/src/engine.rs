@@ -7,7 +7,7 @@ use crate::{
     ServerTimestamp,
 };
 use anyhow::Result;
-use std::{convert::TryFrom, fmt};
+use std::fmt;
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct CollSyncIds {

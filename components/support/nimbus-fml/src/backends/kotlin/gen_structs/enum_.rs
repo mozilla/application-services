@@ -71,6 +71,7 @@ impl CodeType for EnumCodeType {
     fn literal(
         &self,
         oracle: &dyn CodeOracle,
+        _ctx: &dyn Display,
         _renderer: &dyn LiteralRenderer,
         literal: &Literal,
     ) -> String {
@@ -131,6 +132,7 @@ mod unit_tests {
             _oracle: &dyn CodeOracle,
             _typ: &TypeIdentifier,
             _value: &Literal,
+            _ctx: &dyn Display,
         ) -> String {
             unreachable!()
         }
@@ -156,17 +158,18 @@ mod unit_tests {
         let ct = code_type("AEnum");
         let oracle = &*oracle();
         let finder = &TestRenderer;
+        let ctx = String::from("ctx");
         assert_eq!(
             "AEnum.FOO".to_string(),
-            ct.literal(oracle, finder, &json!("foo"))
+            ct.literal(oracle, &ctx, finder, &json!("foo"))
         );
         assert_eq!(
             "AEnum.BAR_BAZ".to_string(),
-            ct.literal(oracle, finder, &json!("barBaz"))
+            ct.literal(oracle, &ctx, finder, &json!("barBaz"))
         );
         assert_eq!(
             "AEnum.A_B_C".to_string(),
-            ct.literal(oracle, finder, &json!("a-b-c"))
+            ct.literal(oracle, &ctx, finder, &json!("a-b-c"))
         );
     }
 
@@ -176,7 +179,7 @@ mod unit_tests {
         let oracle = &*oracle();
 
         assert_eq!(
-            r#"v?.getString("the-property")"#.to_string(),
+            r#"v.getString("the-property")"#.to_string(),
             ct.value_getter(oracle, &"v", &"the-property")
         );
     }
@@ -187,7 +190,7 @@ mod unit_tests {
         let oracle = &*oracle();
 
         assert_eq!(
-            r#"v?.getString("the-property")?.let(AEnum::enumValue) ?: def"#.to_string(),
+            r#"v.getString("the-property")?.let(AEnum::enumValue) ?: def"#.to_string(),
             ct.property_getter(oracle, &"v", &"the-property", &"def")
         );
     }

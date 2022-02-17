@@ -2,10 +2,11 @@
 * License, v. 2.0. If a copy of the MPL was not distributed with this
 * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
+import android.content.Context as MockContext
 import org.mozilla.experiments.nimbus.MockNimbus
 
 // Exercise a map of booleans
-val feature = MyNimbus.features.appMenu.value()
+val feature = MyNimbus.features.appMenu.value(MockContext())
 assert(feature.itemEnabled[MenuItemId.START_GAME] == true)
 assert(feature.itemEnabled[MenuItemId.RESUME_GAME] == false)
 assert(feature.itemEnabled[MenuItemId.SETTINGS] == true)
@@ -17,7 +18,7 @@ assert(feature.items[MenuItemId.RESUME_GAME]?.label == "Resume Game")
 assert(feature.items[MenuItemId.SETTINGS]?.label == "Settings")
 // This isn't in the map, though we might want to consider ensuring that
 // every variant of the map is represented.
-assert(feature.items[MenuItemId.COMMUNITY] == null)
+assert(feature.items[MenuItemId.COMMUNITY]?.label == "Community")
 
 // Exercise a map of map of objects.
 assert(feature.profileItems[PlayerProfile.CHILD]!![MenuItemId.START_GAME]?.label == "start child-friendly game")
@@ -68,7 +69,7 @@ assert(feature1.items[MenuItemId.COMMUNITY]?.label == "Share Nimbus")
 assert(feature1.items[MenuItemId.START_GAME]?.deeplink == "deeplink://start")
 assert(feature1.items[MenuItemId.RESUME_GAME]?.deeplink == "deeplink://start?continue=true")
 assert(feature1.items[MenuItemId.SETTINGS]?.deeplink == "deeplink://settings")
-assert(feature1.items[MenuItemId.COMMUNITY]?.deeplink == "UNSET")
+assert(feature1.items[MenuItemId.COMMUNITY]?.deeplink == "deeplink://community")
 
 // Check that we're merging the maps properly.
 assert(feature1.profileItems[PlayerProfile.CHILD]!![MenuItemId.START_GAME]?.label == "start child-friendly game")

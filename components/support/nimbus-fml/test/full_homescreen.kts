@@ -2,10 +2,11 @@
 * License, v. 2.0. If a copy of the MPL was not distributed with this
 * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
+import android.content.Context as MockContext
 import org.mozilla.experiments.nimbus.MockNimbus
 
 // Test the default map with an enum to Boolean maping.
-val feature = MyNimbus.features.homescreen.value()
+val feature = MyNimbus.features.homescreen.value(MockContext())
 assert(feature.sectionsEnabled[HomeScreenSection.TOP_SITES] == true)
 assert(feature.sectionsEnabled[HomeScreenSection.JUMP_BACK_IN] == false)
 assert(feature.sectionsEnabled[HomeScreenSection.RECENTLY_SAVED] == false)

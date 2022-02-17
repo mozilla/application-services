@@ -3,9 +3,8 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
 import Foundation
-import SwiftKeychainWrapper
 
-extension KeychainWrapper {
+extension MZKeychainWrapper {
     /// Return the base bundle identifier.
     ///
     /// This function is smart enough to find out if it is being called from an extension or the main application. In
@@ -22,13 +21,13 @@ extension KeychainWrapper {
         return baseBundleIdentifier
     }
 
-    static var shared: KeychainWrapper?
+    static var shared: MZKeychainWrapper?
 
-    static func sharedAppContainerKeychain(keychainAccessGroup: String?) -> KeychainWrapper {
+    static func sharedAppContainerKeychain(keychainAccessGroup: String?) -> MZKeychainWrapper {
         if let s = shared {
             return s
         }
-        let wrapper = KeychainWrapper(serviceName: baseBundleIdentifier, accessGroup: keychainAccessGroup)
+        let wrapper = MZKeychainWrapper(serviceName: baseBundleIdentifier, accessGroup: keychainAccessGroup)
         shared = wrapper
         return wrapper
     }

@@ -28,15 +28,14 @@
         - We do not have automated test coverage for much of the network functionality at this point, so this is crucial.
         - You can do this using the smoketest instructions below.
             **Note:** iOS smoke tests can only be run on macs.
-            - Run the `./automation/smoke-test-firefox-ios.py` script to test integration with Firefox for iOS.
             - Run the `./automation/smoke-test-android-components.py` script to test integration with Android Components.
             - Run the `./automation/smoke-test-fenix.py` script to test integration with Fenix.
     5. Get it PRed and landed.
 
 **Note:** If you need to manually produce the iOS build for some reason (for example, if CircleCI cannot), someone with a mac needs to do the following steps:
     1. If necessary, set up for performing iOS builds using `./libs/verify-ios-environment.sh`.
-    2. Run `./build-carthage.sh` in the root of the repository.
-    3. Upload the resulting `MozillaAppServices.framework.zip` as an attachment on the github release.
+    2. Run `./megazords/ios-rust/build-xcframework.sh`
+    3. Upload the resulting `MozillaRustComponents.xcframework.zip` as an attachment on the github release.
 
 ---
 ## Make a new point-release from an existing release that is behind latest main.

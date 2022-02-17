@@ -6,13 +6,15 @@
 
 use cli_support::fxa_creds::{get_cli_fxa, get_default_fxa_config};
 use places::storage::bookmarks::{
-    fetch_tree, insert_tree, BookmarkNode, BookmarkRootGuid, BookmarkTreeNode, FetchDepth,
-    FolderNode, SeparatorNode,
+    json_tree::{
+        fetch_tree, insert_tree, BookmarkNode, BookmarkTreeNode, FetchDepth, FolderNode,
+        SeparatorNode,
+    },
+    BookmarkRootGuid,
 };
 use places::types::BookmarkType;
 use places::{ConnectionType, PlacesApi, PlacesDb};
 use serde_derive::*;
-use std::convert::TryFrom;
 use std::fs::File;
 use std::io::{BufReader, BufWriter};
 use structopt::StructOpt;
@@ -83,7 +85,7 @@ fn do_import(db: &PlacesDb, root: BookmarkTreeNode) -> Result<()> {
     // Later we will want to get smarter around guids - currently we will
     // fail to do this twice due to guid dupes - but that's OK for now.
     let folder = match root {
-        BookmarkTreeNode::Folder(folder_node) => folder_node,
+        BookmarkTreeNode::Folder { f } => f,
         _ => {
             println!("Imported node isn't a folder structure");
             return Ok(());
@@ -101,14 +103,14 @@ fn do_import(db: &PlacesDb, root: BookmarkTreeNode) -> Result<()> {
 
     for sub_root_node in folder.children {
         let sub_root_folder = match sub_root_node {
-            BookmarkTreeNode::Folder(folder_node) => folder_node,
+            BookmarkTreeNode::Folder { f } => f,
             _ => {
                 println!("Child of the root isn't a folder - skipping...");
                 continue;
             }
         };
         println!("importing {:?}", sub_root_folder.guid);
-        insert_tree(db, &sub_root_folder)?
+        insert_tree(db, sub_root_folder)?
     }
     Ok(())
 }
@@ -160,7 +162,6 @@ fn run_native_export(db: &PlacesDb, filename: String) -> Result<()> {
 
 #[allow(clippy::too_many_arguments)]
 fn sync(
-    api: &PlacesApi,
     mut engine_names: Vec<String>,
     cred_file: String,
     wipe_all: bool,
@@ -224,7 +225,7 @@ fn sync(
             &mut mem_cached_state,
             &cli_fxa.client_init.clone(),
             &cli_fxa.root_sync_key,
-            &api.dummy_sync_interrupt_scope(),
+            &interrupt_support::ShutdownInterruptee,
             None,
         );
 
@@ -367,6 +368,12 @@ fn main() -> Result<()> {
     // Needed to make the get_registered_sync_engine() calls work.
     api.clone().register_with_sync_manager();
 
+    ctrlc::set_handler(move || {
+        println!("\nCTRL-C detected, enabling shutdown mode\n");
+        interrupt_support::shutdown();
+    })
+    .unwrap();
+
     match opts.cmd {
         Command::Sync {
             engines,
@@ -377,7 +384,6 @@ fn main() -> Result<()> {
             nsyncs,
             wait,
         } => sync(
-            &api,
             engines,
             credential_file,
             wipe_all,

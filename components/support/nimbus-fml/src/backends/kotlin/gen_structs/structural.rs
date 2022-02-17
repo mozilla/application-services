@@ -73,12 +73,15 @@ impl CodeType for OptionalCodeType {
     fn literal(
         &self,
         oracle: &dyn CodeOracle,
+        ctx: &dyn Display,
         renderer: &dyn LiteralRenderer,
         literal: &Literal,
     ) -> String {
         match literal {
             serde_json::Value::Null => "null".to_string(),
-            _ => oracle.find(&self.inner).literal(oracle, renderer, literal),
+            _ => oracle
+                .find(&self.inner)
+                .literal(oracle, ctx, renderer, literal),
         }
     }
 }
@@ -128,7 +131,7 @@ impl CodeType for MapCodeType {
     ) -> String {
         let v_type = oracle.find(&self.v_type);
         format!(
-            "{vars}?.get{vt}Map({prop})",
+            "{vars}.get{vt}Map({prop})",
             vars = vars,
             vt = v_type.variables_type(oracle),
             prop = common::quoted(prop),
@@ -225,6 +228,7 @@ impl CodeType for MapCodeType {
     fn literal(
         &self,
         oracle: &dyn CodeOracle,
+        ctx: &dyn Display,
         renderer: &dyn LiteralRenderer,
         literal: &Literal,
     ) -> String {
@@ -239,13 +243,38 @@ impl CodeType for MapCodeType {
             .map(|(k, v)| {
                 format!(
                     "{k} to {v}",
-                    k = k_type.literal(oracle, renderer, &Literal::String(k.clone())),
-                    v = v_type.literal(oracle, renderer, v)
+                    k = k_type.literal(oracle, ctx, renderer, &Literal::String(k.clone())),
+                    v = v_type.literal(oracle, ctx, renderer, v)
                 )
             })
             .collect();
 
         format!("mapOf({})", src.join(", "))
+    }
+
+    fn imports(&self, oracle: &dyn CodeOracle) -> Option<Vec<String>> {
+        let k_type = oracle.find(&self.k_type);
+        let v_type = oracle.find(&self.v_type);
+        let mapper = match (
+            k_type.create_transform(oracle),
+            v_type.create_transform(oracle),
+        ) {
+            (Some(_), Some(_)) => {
+                Some("org.mozilla.experiments.nimbus.internal.mapEntries".to_string())
+            }
+            (None, Some(_)) => {
+                Some("org.mozilla.experiments.nimbus.internal.mapValues".to_string())
+            }
+            (Some(_), None) => Some("org.mozilla.experiments.nimbus.internal.mapKeys".to_string()),
+            _ => None,
+        };
+
+        let merger = "org.mozilla.experiments.nimbus.internal.mergeWith".to_string();
+
+        Some(match mapper {
+            Some(mapper) => vec![mapper, merger],
+            _ => vec![merger],
+        })
     }
 }
 
@@ -291,7 +320,7 @@ impl CodeType for ListCodeType {
     ) -> String {
         let vtype = oracle.find(&self.inner).variables_type(oracle);
         format!(
-            "{vars}?.get{vt}List(\"{prop}\")",
+            "{vars}.get{vt}List(\"{prop}\")",
             vars = vars,
             vt = vtype,
             prop = prop
@@ -325,6 +354,7 @@ impl CodeType for ListCodeType {
     fn literal(
         &self,
         oracle: &dyn CodeOracle,
+        ctx: &dyn Display,
         renderer: &dyn LiteralRenderer,
         literal: &Literal,
     ) -> String {
@@ -336,7 +366,7 @@ impl CodeType for ListCodeType {
         let v_type = oracle.find(&self.inner);
         let src: Vec<String> = variant
             .iter()
-            .map(|v| v_type.literal(oracle, renderer, v))
+            .map(|v| v_type.literal(oracle, ctx, renderer, v))
             .collect();
 
         format!("listOf({})", src.join(", "))
@@ -380,6 +410,7 @@ mod unit_tests {
             _oracle: &dyn CodeOracle,
             _typ: &TypeIdentifier,
             _value: &Literal,
+            _ctx: &dyn Display,
         ) -> String {
             unreachable!()
         }
@@ -431,15 +462,16 @@ mod unit_tests {
         let finder = &TestRenderer;
 
         let ct = list_type("String");
+        let ctx = "_context".to_string();
         assert_eq!(
             r#"listOf("x", "y", "z")"#.to_string(),
-            ct.literal(oracle, finder, &json!(["x", "y", "z"]))
+            ct.literal(oracle, &ctx, finder, &json!(["x", "y", "z"]))
         );
 
         let ct = list_type("AnEnum");
         assert_eq!(
             r#"listOf(AnEnum.X, AnEnum.Y, AnEnum.Z)"#.to_string(),
-            ct.literal(oracle, finder, &json!(["x", "y", "z"]))
+            ct.literal(oracle, &ctx, finder, &json!(["x", "y", "z"]))
         );
     }
 
@@ -449,19 +481,19 @@ mod unit_tests {
 
         let ct = list_type("AnEnum");
         assert_eq!(
-            r#"v?.getStringList("the-property")"#.to_string(),
+            r#"v.getStringList("the-property")"#.to_string(),
             ct.value_getter(oracle, &"v", &"the-property")
         );
 
         let ct = list_type("AnObject");
         assert_eq!(
-            r#"v?.getVariablesList("the-property")"#.to_string(),
+            r#"v.getVariablesList("the-property")"#.to_string(),
             ct.value_getter(oracle, &"v", &"the-property")
         );
 
         let ct = list_type("String");
         assert_eq!(
-            r#"v?.getStringList("the-property")"#.to_string(),
+            r#"v.getStringList("the-property")"#.to_string(),
             ct.value_getter(oracle, &"v", &"the-property")
         );
     }
@@ -470,20 +502,20 @@ mod unit_tests {
     fn test_list_getter_with_fallback() {
         let ct = list_type("String");
         assert_eq!(
-            r#"vars?.getStringList("the-property") ?: default"#.to_string(),
+            r#"vars.getStringList("the-property") ?: default"#.to_string(),
             getter_with_fallback(&*ct, &"vars", &"the-property", &"default")
         );
 
         let ct = list_type("AnEnum");
         assert_eq!(
-            r#"vars?.getStringList("the-property")?.mapNotNull(AnEnum::enumValue) ?: default"#
+            r#"vars.getStringList("the-property")?.mapNotNull(AnEnum::enumValue) ?: default"#
                 .to_string(),
             getter_with_fallback(&*ct, &"vars", &"the-property", &"default")
         );
 
         let ct = list_type("AnObject");
         assert_eq!(
-            r#"vars?.getVariablesList("the-property")?.mapNotNull(AnObject::create) ?: default"#
+            r#"vars.getVariablesList("the-property")?.mapNotNull(AnObject::create) ?: default"#
                 .to_string(),
             getter_with_fallback(&*ct, &"vars", &"the-property", &"default")
         );
@@ -503,17 +535,17 @@ mod unit_tests {
     fn test_map_literal() {
         let oracle = &*oracle();
         let finder = &TestRenderer;
-
+        let ctx = "context".to_string();
         let ct = map_type("String", "AnEnum");
         assert_eq!(
             r#"mapOf("a" to AnEnum.A, "b" to AnEnum.B)"#.to_string(),
-            ct.literal(oracle, finder, &json!({"a": "a", "b": "b"}))
+            ct.literal(oracle, &ctx, finder, &json!({"a": "a", "b": "b"}))
         );
 
         let ct = map_type("AnEnum", "String");
         assert_eq!(
             r#"mapOf(AnEnum.A to "a", AnEnum.B to "b")"#.to_string(),
-            ct.literal(oracle, finder, &json!({"a": "a", "b": "b"}))
+            ct.literal(oracle, &ctx, finder, &json!({"a": "a", "b": "b"}))
         );
     }
 
@@ -523,19 +555,19 @@ mod unit_tests {
 
         let ct = map_type("String", "AnEnum");
         assert_eq!(
-            r#"v?.getStringMap("the-property")"#.to_string(),
+            r#"v.getStringMap("the-property")"#.to_string(),
             ct.value_getter(oracle, &"v", &"the-property")
         );
 
         let ct = map_type("AnEnum", "String");
         assert_eq!(
-            r#"v?.getStringMap("the-property")"#.to_string(),
+            r#"v.getStringMap("the-property")"#.to_string(),
             ct.value_getter(oracle, &"v", &"the-property")
         );
 
         let ct = map_type("AnEnum", "Another");
         assert_eq!(
-            r#"v?.getStringMap("the-property")"#.to_string(),
+            r#"v.getStringMap("the-property")"#.to_string(),
             ct.value_getter(oracle, &"v", &"the-property")
         );
     }
@@ -546,27 +578,27 @@ mod unit_tests {
 
         let ct = map_type("String", "AnEnum");
         assert_eq!(
-            r#"v?.getStringMap("the-property")?.mapValues(AnEnum::enumValue)?.mergeWith(def) ?: def"#.to_string(),
+            r#"v.getStringMap("the-property")?.mapValues(AnEnum::enumValue)?.mergeWith(def) ?: def"#.to_string(),
             ct.property_getter(oracle, &"v", &"the-property", &"def")
         );
 
         let ct = map_type("AnEnum", "String");
         assert_eq!(
-            r#"v?.getStringMap("the-property")?.mapKeys(AnEnum::enumValue)?.mergeWith(def) ?: def"#
+            r#"v.getStringMap("the-property")?.mapKeys(AnEnum::enumValue)?.mergeWith(def) ?: def"#
                 .to_string(),
             ct.property_getter(oracle, &"v", &"the-property", &"def")
         );
 
         let ct = map_type("AnEnum", "Another");
         assert_eq!(
-            r#"v?.getStringMap("the-property")?.mapEntries(AnEnum::enumValue, Another::enumValue)?.mergeWith(def) ?: def"#
+            r#"v.getStringMap("the-property")?.mapEntries(AnEnum::enumValue, Another::enumValue)?.mergeWith(def) ?: def"#
                 .to_string(),
             ct.property_getter(oracle, &"v", &"the-property", &"def")
         );
 
         let ct = map_type("AnEnum", "AnObject");
         assert_eq!(
-            r#"v?.getVariablesMap("the-property")?.mapEntries(AnEnum::enumValue, AnObject::create)?.mergeWith(def, AnObject::mergeWith) ?: def"#.to_string(),
+            r#"v.getVariablesMap("the-property")?.mapEntries(AnEnum::enumValue, AnObject::create)?.mergeWith(def, AnObject::mergeWith) ?: def"#.to_string(),
             ct.property_getter(oracle, &"v", &"the-property", &"def"));
     }
 }

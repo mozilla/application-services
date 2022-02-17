@@ -28,7 +28,10 @@
 ///  See the autofill DB code for an example.
 ///
 use crate::ConnExt;
-use rusqlite::{Connection, Error as RusqliteError, ErrorCode, OpenFlags, Transaction, NO_PARAMS};
+use rusqlite::{
+    Connection, Error as RusqliteError, ErrorCode, OpenFlags, Transaction, TransactionBehavior,
+    NO_PARAMS,
+};
 use std::path::Path;
 use thiserror::Error;
 
@@ -113,7 +116,7 @@ fn do_open_database_with_flags<CI: ConnectionInitializer, P: AsRef<Path>>(
     connection_initializer.prepare(&conn)?;
 
     if open_flags.contains(OpenFlags::SQLITE_OPEN_READ_WRITE) {
-        let tx = conn.transaction()?;
+        let tx = conn.transaction_with_behavior(TransactionBehavior::Immediate)?;
         if run_init {
             log::debug!("{}: initializing new database", CI::NAME);
             connection_initializer.init(&tx)?;

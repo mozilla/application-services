@@ -208,9 +208,8 @@ changes to the server.
 
 You will need an FFI or some other way of exposing stuff to your consumers.
 
-We are exploring a tool called [UniFFI](https://github.com/mozilla/uniffi-rs/) to automatically
-generate FFI bindings from the Rust code. It's probably worth a look for your use case, but
-is still quite new and may not support everything you need.
+We use a tool called [UniFFI](https://github.com/mozilla/uniffi-rs/) to automatically
+generate FFI bindings from the Rust code.
 
 If UniFFI doesn't work for you, then you'll need to hand-write the FFI layer.
 Here are some earlier blog posts on the topic which might be helpful:

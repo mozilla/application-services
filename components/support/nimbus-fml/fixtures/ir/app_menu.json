@@ -97,6 +97,25 @@
           ]
         },
         {
+          "name": "all-menu-items",
+          "doc": "All the menu items",
+          "type": {
+            "List": {
+              "Object": "MenuItem"
+            }
+          },
+          "default": [
+            {
+              "label": "Start Game",
+              "deeplink": "deeplink://start"
+            },
+            {
+              "label":"Resume Game",
+              "deeplink": "deeplink://start?continue=true"
+            }
+          ]
+        },
+        {
           "name": "items",
           "doc": "The menu items",
           "type": {
@@ -121,6 +140,10 @@
             "settings": {
               "label": "Settings",
               "deeplink": "deeplink://settings"
+            },
+            "community": {
+              "label": "Community",
+              "deeplink": "deeplink://community"
             }
           }
         },
@@ -131,8 +154,14 @@
             "List": {"EnumMap": [{"Enum": "PlayerProfile"}, {"Enum": "MenuItemId"}]}
           },
           "default": [
-            {"child": "start-game"},
-            {"adult": "settings" }
+            {
+              "child": "start-game",
+              "adult": "settings"
+            },
+            {
+              "adult": "settings",
+              "child": "resume-game"
+            }
           ]
         },
         {
@@ -168,6 +197,10 @@
               "settings": {
                 "label": "child-friendly tweaks",
                 "deeplink": "deeplink://settings"
+              },
+              "community": {
+                "label": "child-friendly community engagement!",
+                "deeplink": "deeplink://community"
               }
             },
             "adult": {
@@ -182,6 +215,10 @@
               "settings": {
                 "label": "SETTINGS",
                 "deeplink": "deeplink://settings"
+              },
+              "community": {
+                "label": "COMMUNITY",
+                "deeplink": "deeplink://community"
               }
             }
           }

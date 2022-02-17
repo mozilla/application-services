@@ -3,7 +3,7 @@ name = "example-places-autocomplete"
 version = "0.1.0"
 authors = ["sync-team@mozilla.com"]
 license = "MPL-2.0"
-edition = "2018"
+edition = "2021"
 publish = false
 
 [[example]]
@@ -15,6 +15,7 @@ places = { path = "../../components/places" }
 log = "0.4"
 url = "2.2"
 anyhow = "1.0"
+interrupt-support = { path = "../../components/support/interrupt" }
 sql-support = { path = "../../components/support/sql" }
 types = { path = "../../components/support/types" }
 clap = "2.33"

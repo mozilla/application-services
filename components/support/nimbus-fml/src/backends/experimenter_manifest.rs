@@ -2,8 +2,7 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-use std::collections::HashMap;
-use std::convert::{TryFrom, TryInto};
+use std::collections::BTreeMap;
 use std::fmt::Display;
 
 use serde::Serialize;
@@ -33,7 +32,7 @@ struct ExperimenterFeatureManifest {
 #[derive(Debug, Default, Clone, Serialize)]
 pub struct Variables(serde_json::Value);
 
-impl TryFrom<FeatureManifest> for HashMap<String, ExperimenterFeatureManifest> {
+impl TryFrom<FeatureManifest> for BTreeMap<String, ExperimenterFeatureManifest> {
     type Error = crate::error::FMLError;
     fn try_from(fm: FeatureManifest) -> Result<Self> {
         fm.feature_defs
@@ -140,7 +139,7 @@ pub(crate) fn generate_manifest(
     _config: Config,
     cmd: GenerateExperimenterManifestCmd,
 ) -> Result<()> {
-    let experiment_manifest: HashMap<String, ExperimenterFeatureManifest> = ir.try_into()?;
+    let experiment_manifest: BTreeMap<String, ExperimenterFeatureManifest> = ir.try_into()?;
     let output_str = serde_json::to_string_pretty(&experiment_manifest)?;
     std::fs::write(cmd.output, output_str)?;
     Ok(())

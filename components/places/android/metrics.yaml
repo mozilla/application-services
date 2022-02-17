@@ -15,7 +15,7 @@
 #  * Fenix for Andriod
 
 ---
-$schema: moz://mozilla.org/schemas/glean/metrics/1-0-0
+$schema: moz://mozilla.org/schemas/glean/metrics/2-0-0
 
 places_manager:
 
@@ -101,6 +101,11 @@ places_manager:
       - unknown_bookmark_item
       - url_too_long
       - cannot_update_root
+      - json_parse_failed
+      - places_connection_busy
+      - operation_interrupted
+      - unexpected_places_exception
+      - bookmarks_corruption
     bugs:
       - https://github.com/mozilla/application-services/issues/2300
       - https://github.com/mozilla/application-services/issues/2299
@@ -108,6 +113,7 @@ places_manager:
       - https://bugzilla.mozilla.org/show_bug.cgi?id=1607621
       - https://bugzilla.mozilla.org/show_bug.cgi?id=1649044
       - https://bugzilla.mozilla.org/show_bug.cgi?id=1694316
+      - https://github.com/mozilla/application-services/issues/4848
     data_sensitivity:
       - interaction
     notification_emails:

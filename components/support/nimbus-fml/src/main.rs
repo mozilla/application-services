@@ -19,10 +19,7 @@ use anyhow::{bail, Result};
 use clap::{App, ArgMatches};
 use serde::Deserialize;
 
-use std::{
-    convert::{TryFrom, TryInto},
-    path::{Path, PathBuf},
-};
+use std::path::{Path, PathBuf};
 
 const RELEASE_CHANNEL: &str = "release";
 
@@ -45,13 +42,39 @@ fn main() -> Result<()> {
                         .value_of("class_name")
                         .map(str::to_string)
                         .or(config.nimbus_object_name),
-                    package_name: cmd
+                    nimbus_package: cmd
                         .value_of("package")
                         .map(str::to_string)
-                        .or(config.package_name),
+                        .or(config.nimbus_package),
+                    resource_package: cmd
+                        .value_of("r_package")
+                        .map(str::to_string)
+                        .or(config.resource_package),
                 },
                 GenerateStructCmd {
                     language: TargetLanguage::Kotlin,
+                    manifest: file_path("INPUT", &matches, &cwd)?,
+                    output: file_path("output", &matches, &cwd)?,
+                    load_from_ir: matches.is_present("ir"),
+                    channel: matches
+                        .value_of("channel")
+                        .map(str::to_string)
+                        .unwrap_or_else(|| RELEASE_CHANNEL.into()),
+                },
+            )?,
+            _ => unimplemented!(),
+        },
+        ("ios", Some(cmd)) => match cmd.subcommand() {
+            ("features", Some(cmd)) => workflows::generate_struct(
+                Config {
+                    nimbus_object_name: cmd
+                        .value_of("class_name")
+                        .map(str::to_string)
+                        .or(config.nimbus_object_name),
+                    ..Default::default()
+                },
+                GenerateStructCmd {
+                    language: TargetLanguage::Swift,
                     manifest: file_path("INPUT", &matches, &cwd)?,
                     output: file_path("output", &matches, &cwd)?,
                     load_from_ir: matches.is_present("ir"),
@@ -107,8 +130,27 @@ fn file_path(name: &str, args: &ArgMatches, cwd: &Path) -> Result<PathBuf> {
 #[derive(Debug, Deserialize, Default)]
 #[serde(rename_all = "camelCase")]
 pub struct Config {
-    pub package_name: Option<String>,
+    pub nimbus_package: Option<String>,
     pub nimbus_object_name: Option<String>,
+    pub resource_package: Option<String>,
+}
+
+impl Config {
+    fn nimbus_package_name(&self) -> Option<String> {
+        self.nimbus_package.clone()
+    }
+
+    fn nimbus_object_name(&self) -> String {
+        self.nimbus_object_name
+            .clone()
+            .unwrap_or_else(|| "MyNimbus".into())
+    }
+
+    fn resource_package_name(&self) -> String {
+        self.resource_package
+            .clone()
+            .unwrap_or_else(|| panic!("The package with R.class needs to specified"))
+    }
 }
 
 pub struct GenerateStructCmd {

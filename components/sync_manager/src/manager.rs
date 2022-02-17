@@ -8,7 +8,6 @@ use crate::{reset, reset_all, wipe};
 use parking_lot::Mutex;
 use std::collections::{HashMap, HashSet};
 use std::convert::TryFrom;
-use std::sync::{atomic::AtomicUsize, Arc};
 use std::time::SystemTime;
 use sync15::{
     self,
@@ -109,9 +108,7 @@ impl SyncManager {
     ) -> Result<SyncResult> {
         let key_bundle = sync15::KeyBundle::from_ksync_base64(&params.auth_info.sync_key)?;
         let tokenserver_url = url::Url::parse(&params.auth_info.tokenserver_url)?;
-        // TODO(issue 1684) this isn't ideal, we should have real support for interruption.
-        let p = Arc::new(AtomicUsize::new(0));
-        let interruptee = sql_support::SqlInterruptScope::new(p);
+        let interruptee = interrupt_support::ShutdownInterruptee;
         let mut mem_cached_state = state.take().unwrap_or_default();
         let mut disk_cached_state = params.persisted_state.take();
 

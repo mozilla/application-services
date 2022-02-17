@@ -10,10 +10,10 @@ pub mod store;
 
 use crate::error::*;
 
+use interrupt_support::{SqlInterruptHandle, SqlInterruptScope};
 use rusqlite::{Connection, OpenFlags};
 use sql_support::open_database;
-use sql_support::SqlInterruptScope;
-use std::sync::{atomic::AtomicUsize, Arc};
+use std::sync::Arc;
 use std::{
     ops::{Deref, DerefMut},
     path::{Path, PathBuf},
@@ -22,7 +22,7 @@ use url::Url;
 
 pub struct AutofillDb {
     pub writer: Connection,
-    interrupt_counter: Arc<AtomicUsize>,
+    interrupt_handle: Arc<SqlInterruptHandle>,
 }
 
 impl AutofillDb {
@@ -51,14 +51,14 @@ impl AutofillDb {
         )?;
 
         Ok(Self {
+            interrupt_handle: Arc::new(SqlInterruptHandle::new(&conn)),
             writer: conn,
-            interrupt_counter: Arc::new(AtomicUsize::new(0)),
         })
     }
 
     #[inline]
-    pub fn begin_interrupt_scope(&self) -> SqlInterruptScope {
-        SqlInterruptScope::new(self.interrupt_counter.clone())
+    pub fn begin_interrupt_scope(&self) -> Result<SqlInterruptScope> {
+        Ok(self.interrupt_handle.begin_interrupt_scope()?)
     }
 }
 

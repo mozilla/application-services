@@ -3,7 +3,7 @@ name = "example-places-utils"
 version = "0.1.0"
 authors = ["sync-team@mozilla.com"]
 license = "MPL-2.0"
-edition = "2018"
+edition = "2021"
 publish = false
 
 [[example]]
@@ -14,6 +14,8 @@ path = "src/places-utils.rs"
 places = { path = "../../components/places" }
 sync-guid = { path = "../../components/support/guid" }
 types = { path = "../../components/support/types" }
+interrupt-support = { path = "../../components/support/interrupt" }
+sql-support = { path = "../../components/support/sql" }
 sync15 = { path = "../../components/sync15" }
 viaduct-reqwest = { path = "../../components/support/viaduct-reqwest" }
 serde = "1"

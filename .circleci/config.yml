@@ -13,7 +13,7 @@ commands:
   setup-rust-min-version:
     steps:
       # https://searchfox.org/mozilla-central/source/python/mozboot/mozboot/util.py#20
-      - run: rustup override set 1.53.0
+      - run: rustup override set 1.57.0
 
   full-checkout:
     steps:
@@ -138,25 +138,8 @@ commands:
             popd
       - build-libs:
           platform: ios
-  carthage-bootstrap:
-    steps:
-      - run:
-          name: Determine XCode version
-          command: echo "$(xcodebuild -version)" >| xcode_version
-      - restore_cache:
-          name: Restore Carthage/ cache
-          key: carthage-dir-cache-{{ arch }}-{{ checksum "xcode_version" }}-{{ checksum "Cartfile.resolved" }}
-      - run:
-          name: Bootstrap Carthage dependencies
-          command: XCODE_XCCONFIG_FILE=`pwd`/xcconfig/xcode-12-fix-carthage-lipo.xcconfig carthage bootstrap --platform iOS --cache-builds
-      - save_cache:
-          name: Save Carthage/ cache
-          key: carthage-dir-cache-{{ arch }}-{{ checksum "xcode_version" }}-{{ checksum "Cartfile.resolved" }}
-          paths:
-            - Carthage
   test-setup:
     steps:
-      - full-checkout
       - build-desktop-libs
       - setup-rust-target-version
       - setup-sccache
@@ -175,28 +158,31 @@ commands:
     steps:
       - run: automation/tests.py rust-tests
       - run: automation/tests.py nss-bindings
-  bench-all:
-    steps:
-      - test-setup
-      - run:
-          name: Build and Run Benchmarks
-          command: cargo bench --all
   restore-sccache-cache:
     steps:
       - restore_cache:
           name: Restore sccache cache
-          key: sccache-cache-stable-{{ arch }}-{{ .Environment.CIRCLE_JOB }}
+          keys: 
+          # We have multiple keys to increase the chance of a cache hit
+          # in case the Cargo.lock is updated, we still want to retrieve
+          # some cache
+            - sccache-cache-stable-{{ arch }}-{{ .Environment.CIRCLE_JOB }}-{{ checksum "Cargo.lock" }}
+            - sccache-cache-stable-{{ arch }}-{{ .Environment.CIRCLE_JOB }}
+            - sccache-cache-stable-{{ arch }}
+
   save-sccache-cache:
+    parameters:
+      path:
+        type: string
+        default: "~/.cache/sccache"
     steps:
       - save_cache:
           name: Save sccache cache
-          # We use {{ epoch }} to always upload a fresh cache:
-          # Of course, restore_cache will not find this exact key,
-          # but it will fall back to the closest key (aka the most recent).
-          # See https://discuss.circleci.com/t/add-mechanism-to-update-existing-cache-key/9014/13
-          key: sccache-cache-stable-{{ arch }}-{{ .Environment.CIRCLE_JOB }}-{{ epoch }}
+          # We only upload a new cache if our Cargo.lock changed
+          # otherwise, we update the exact same key
+          key: sccache-cache-stable-{{ arch }}-{{ .Environment.CIRCLE_JOB }}-{{ checksum "Cargo.lock" }}
           paths:
-            - "~/.cache/sccache"
+            - <<parameters.path>>
       - sccache-stats-and-logs
   sccache-stats-and-logs:
     steps:
@@ -204,6 +190,19 @@ commands:
       - store_artifacts:
           path: /tmp/sccache.log
           destination: logs/sccache.log
+  setup-ios-environment:
+    steps:
+      - run:
+          name: Toggle brew auto-updates
+          command: |
+            if [ -z "${CIRCLE_TAG}" ]; then
+              # On non-release builds do not update brew (takes ages).
+              echo 'export HOMEBREW_NO_AUTO_UPDATE=1' >> $BASH_ENV
+            fi
+      - build-ios-libs
+      - run:
+          name: Verify the build environment
+          command: ./libs/verify-ios-ci-environment.sh
 
 executors:
   # Where possible we want to run jobs using docker, because it's cheaper.
@@ -213,8 +212,8 @@ executors:
       - image: cimg/rust:1.53.0
   macos:
     macos:
-      xcode: 13.1.0
-    resource_class: m2.medium
+      xcode: 13.2.1
+    resource_class: macos.x86.medium.gen2
 
 jobs:
   Check Swift formatting:
@@ -236,6 +235,7 @@ jobs:
   Lint Rust with clippy:
     executor: docker
     steps:
+      - full-checkout
       - restore-sccache-cache
       - test-setup
       - run: ./automation/tests.py rust-clippy
@@ -244,6 +244,7 @@ jobs:
     executor: docker
     resource_class: large
     steps:
+      - full-checkout
       - test-setup
       - install-grcov
       # Test coverage support in Rust has been evolving rapidly, use nightly
@@ -275,6 +276,7 @@ jobs:
     # We have to use a machine with more RAM for tests so we don't run out of memory.
     resource_class: large
     steps:
+      - full-checkout
       - restore-sccache-cache
       - test-setup
       - run-tests
@@ -284,6 +286,7 @@ jobs:
     # We have to use a machine with more RAM for tests so we don't run out of memory.
     resource_class: large
     steps:
+      - full-checkout
       - restore-sccache-cache
       - test-setup
       - setup-rust-min-version
@@ -296,120 +299,32 @@ jobs:
     executor: docker
     resource_class: large
     steps:
+      - full-checkout
       - restore-sccache-cache
       - test-setup
       - run: rustup override set beta
       - run-tests
       - save-sccache-cache
-  Rust benchmarks:
-    executor: docker
-    resource_class: large
-    steps:
-      - restore-sccache-cache
-      - bench-all
-      - save-sccache-cache
-  iOS build and test:
+
+  iOS build xcframework:
     executor: macos
     steps:
-      # We do not use the ssccache cache helper commands as
-      # the macOS cache is in a different folder.
-      - restore_cache:
-          name: Restore sccache cache
-          key: sccache-cache-macos-{{ arch }}
       - full-checkout
+      - restore-sccache-cache
       - install-rust
       - setup-rust-target-version
-      - run:
-          name: Toggle brew auto-updates
-          command: |
-            if [ -z "${CIRCLE_TAG}" ]; then
-              # On non-release builds do not update brew (takes ages).
-              echo 'export HOMEBREW_NO_AUTO_UPDATE=1' >> $BASH_ENV
-            fi
       - setup-sccache
-      - build-ios-libs
-      - run:
-          name: Set up the build environment
-          command: |
-            # See #4163 - brew will fail because this six.py already exists.
-            # This is clearly unsatisfactory, but works, so :shrug
-            rm /usr/local/lib/python3.9/site-packages/six.py
-
-            brew install swift-protobuf --force
-      - carthage-bootstrap
-      - run:
-          name: Verify the build environment
-          command: ./libs/verify-ios-ci-environment.sh
-      - run:
-          name: Run XCode tests
-          command: ./automation/tests.py ios-tests
-      - store_artifacts:
-          path: raw_xcodetest.log
-          destination: logs/raw_xcodetest.log
-      - run:
-          name: (Optional) Run firefox-ios tests
-          command: |
-            # Only run these on PRs.
-            if [ -n "${CIRCLE_PULL_REQUEST}" ]; then
-              ./automation/maybe_run_fxios_tests.py << pipeline.git.base_revision >>
-            fi
-      - run:
-          name: Build Carthage archive
-          no_output_timeout: 20m
-          command: |
-            if [ -z "${CIRCLE_TAG}" ]; then
-              # XCode tests build in Debug configuration, save us a full
-              # Rust rebuild in Release mode by forcing Debug mode on
-              # non-release builds.
-              bash build-carthage.sh --out MozillaAppServices.framework.zip --configuration Debug
-            else
-              bash build-carthage.sh --out MozillaAppServices.framework.zip
-            fi
-      - store_artifacts:
-          path: raw_xcodebuild.log
-          destination: logs/raw_xcodebuild.log
-      - run:
-          name: Install Rust Nightly
-          command: |
-            # For now we need the nightly toolchain to build for the M1 simulator.
-            rustup install nightly
-            # For now we need to build the Rust stdlib from source for the M1 simulator.
-            rustup component add rust-src --toolchain nightly-x86_64-apple-darwin
-            rustup toolchain add nightly --profile minimal
-            rustup target add aarch64-apple-ios-sim --toolchain nightly
+      - setup-ios-environment
       - run:
           name: Build XCFramework archive
           command: |
             bash megazords/ios-rust/build-xcframework.sh --build-profile release
-      - save_cache:
-          name: Save sccache cache
-          key: sccache-cache-macos-{{ arch }}-{{ epoch }}
-          paths:
-            - "~/Library/Caches/Mozilla.sccache"
-      - sccache-stats-and-logs
-      - run:
-          name: "Create Carthage bin-only project specification"
-          command: |
-            ZIP_URL=https://circleci.com/api/v1.1/project/github/mozilla/application-services/$CIRCLE_BUILD_NUM/artifacts/0/dist/MozillaAppServices.framework.zip
-            echo "{\"0.0.1\":\"$ZIP_URL\"}" > mozilla.app-services.json
-      - store_artifacts:
-          name: Store Carthage framework in workspace
-          path: MozillaAppServices.framework.zip
-          destination: dist/MozillaAppServices.framework.zip
-      - store_artifacts:
-          name: Store Carthage bin-only project specification in workspace
-          path: mozilla.app-services.json
-          destination: dist/mozilla.app-services.json
+      - save-sccache-cache:
+          path: "~/Library/Caches/Mozilla.sccache"
       - store_artifacts:
           name: Store XCFramework bundle in workspace
           path: megazords/ios-rust/MozillaRustComponents.xcframework.zip
           destination: dist/MozillaRustComponents.xcframework.zip
-      - run:
-          name: "Carthage binary snapshot URL"
-          command: |
-            JSON_URL=https://circleci.com/api/v1.1/project/github/mozilla/application-services/$CIRCLE_BUILD_NUM/artifacts/0/dist/mozilla.app-services.json
-            echo "Add the following line to your Cartfile:"
-            echo "binary \"$JSON_URL\" ~> 0.0.1-snapshot # mozilla/application-services@$CIRCLE_SHA1"
       - run:
           name: "XCFramework bundle checksum"
           command: |
@@ -418,19 +333,25 @@ jobs:
       - persist_to_workspace:
           root: .
           paths:
-            - MozillaAppServices.framework.zip
             - megazords/ios-rust/MozillaRustComponents.xcframework.zip
-  Carthage release:
+
+  iOS test:
     executor: macos
     steps:
       - full-checkout
-      - attach_workspace:
-          at: .
-      - install-ghr
+      - restore-sccache-cache
+      - install-rust
+      - setup-rust-target-version
+      - setup-ios-environment
+      - setup-sccache
       - run:
-          name: Release Carthage archive on GitHub
-          command: |
-            ghr -replace "${CIRCLE_TAG}" MozillaAppServices.framework.zip
+          name: Run XCode tests
+          command: ./automation/tests.py ios-tests
+      - store_artifacts:
+          path: raw_xcodetest.log
+          destination: logs/raw_xcodetest.log
+      - save-sccache-cache:
+          path: "~/Library/Caches/Mozilla.sccache"
   XCFramework release:
     executor: macos
     steps:
@@ -465,6 +386,11 @@ jobs:
           name: Store nimbus-fml checksum in workspace
           path: nimbus-fml.sha256
           destination: nimbus-fml.sha256
+      - persist_to_workspace:
+          root: .
+          paths:
+            - nimbus-fml.sha256
+            - nimbus-fml.zip
   release-nimbus-fml:
     executor: macos
     steps:
@@ -508,30 +434,22 @@ workflows:
   run-tests:
     jobs:
       - Rust tests
-      - Rust benchmarks
   run-tests-min-supported-version:
     jobs:
       - Rust tests - min supported rust version
   coverage:
     jobs:
       - Generate code coverage
-  ios-artifacts:
+  ios-test-and-artifacts:
     jobs:
-      - iOS build and test:
-          filters: # required since `Release` has tag filters AND requires `Build`
+      - iOS test
+      - iOS build xcframework:
+          filters: # required since `XCFramework release` has tag filters AND requires this job
             tags:
               only: /.*/
-      - Carthage release:
-          requires:
-            - iOS build and test
-          filters:
-            branches:
-              ignore: /.*/
-            tags:
-              only: /^v.*/
       - XCFramework release:
           requires:
-            - iOS build and test
+            - iOS build xcframework
           filters:
             branches:
               ignore: /.*/
@@ -540,7 +458,7 @@ workflows:
   nimbus-artifacts:
     jobs:
       - build-nimbus-fml:
-          filters: # required since `Release` has tag filters AND requires `Build`
+          filters: # required since `release-nimbus-fml` has tag filters AND requires this job
             tags:
               only: /.*/
       - release-nimbus-fml:

@@ -1,13 +1,10 @@
 [package]
 name = "tabs"
-edition = "2018"
+edition = "2021"
 version = "0.1.0"
 authors = ["application-services@mozilla.com"]
 license = "MPL-2.0"
 exclude = ["/android", "/ios"]
-
-[features]
-default = []
 
 [dependencies]
 sync15 = { path = "../sync15" }
@@ -22,8 +19,8 @@ interrupt-support = { path = "../support/interrupt" }
 sync-guid = { path = "../support/guid", features = ["random"] }
 thiserror = "1.0"
 anyhow = "1.0"
-uniffi = "^0.15"
-uniffi_macros = "^0.15"
+uniffi = "^0.17"
+uniffi_macros = "^0.17"
 
 [build-dependencies]
-uniffi_build = { version = "^0.15", features = [ "builtin-bindgen" ]}
+uniffi_build = { version = "^0.17", features = [ "builtin-bindgen" ]}

@@ -72,12 +72,7 @@ No additional Kotlin dependencies should be added to the project unless absolute
 
 ## iOS/Swift Code
 
-We currently depend only on the [following dependencies](https://github.com/mozilla/application-services/blob/main/Cartfile):
-
-* [swift-protobuf](https://github.com/apple/swift-protobuf)
-* [SwiftKeychainWrapper](https://github.com/jrendel/SwiftKeychainWrapper/)
-
-No additional Swift dependencies should be added to the project unless absolutely necessary.
+We currently do not depend on any Swift dependencies. And no Swift dependencies should be added to the project unless absolutely necessary.
 
 ## Other Code
 

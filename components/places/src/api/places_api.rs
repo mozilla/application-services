@@ -3,17 +3,17 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
 use crate::bookmark_sync::BookmarksSyncEngine;
-use crate::db::db::PlacesDb;
+use crate::db::db::{PlacesDb, SharedPlacesDb};
 use crate::error::*;
 use crate::history_sync::HistorySyncEngine;
 use crate::storage::{
     self, bookmarks::bookmark_sync, delete_meta, get_meta, history::history_sync, put_meta,
 };
 use crate::util::normalize_path;
+use interrupt_support::register_interrupt;
 use lazy_static::lazy_static;
 use parking_lot::Mutex;
 use rusqlite::OpenFlags;
-use sql_support::{SqlInterruptHandle, SqlInterruptScope};
 use std::cell::Cell;
 use std::collections::HashMap;
 use std::mem;
@@ -45,20 +45,28 @@ lazy_static::lazy_static! {
 pub fn get_registered_sync_engine(engine_id: &SyncEngineId) -> Option<Box<dyn SyncEngine>> {
     match PLACES_API_FOR_SYNC_MANAGER.lock().upgrade() {
         None => {
-            log::error!("get_registered_sync_engine: no PlacesApi registered");
+            log::error!("places: get_registered_sync_engine: no PlacesApi registered");
             None
         }
-        Some(places_api) => match places_api.get_sync_connection() {
-            Ok(db) => match engine_id {
-                SyncEngineId::Bookmarks => Some(Box::new(BookmarksSyncEngine::new(db))),
-                SyncEngineId::History => Some(Box::new(HistorySyncEngine::new(db))),
-                _ => unreachable!("can't provide unknown engine: {}", engine_id),
-            },
+        Some(places_api) => match create_sync_engine(&places_api, engine_id) {
+            Ok(engine) => Some(engine),
             Err(e) => {
-                log::error!("get_registered_sync_engine: {}", e);
+                log::error!("places: get_registered_sync_engine: {}", e);
                 None
             }
         },
+    }
+}
+
+fn create_sync_engine(
+    places_api: &PlacesApi,
+    engine_id: &SyncEngineId,
+) -> Result<Box<dyn SyncEngine>> {
+    let conn = places_api.get_sync_connection()?;
+    match engine_id {
+        SyncEngineId::Bookmarks => Ok(Box::new(BookmarksSyncEngine::new(conn)?)),
+        SyncEngineId::History => Ok(Box::new(HistorySyncEngine::new(conn)?)),
+        _ => unreachable!("can't provide unknown engine: {}", engine_id),
     }
 }
 
@@ -106,6 +114,13 @@ pub struct SyncState {
     pub disk_cached_state: Cell<Option<String>>,
 }
 
+/// For uniffi we need to expose our `Arc` returning constructor as a global function :(
+/// https://github.com/mozilla/uniffi-rs/pull/1063 would fix this, but got some pushback
+/// meaning we are forced into this unfortunate workaround.
+pub fn places_api_new(db_name: impl AsRef<Path>) -> Result<Arc<PlacesApi>> {
+    PlacesApi::new(db_name)
+}
+
 /// The entry-point to the places API. This object gives access to database
 /// connections and other helpers. It enforces that only 1 write connection
 /// can exist to the database at once.
@@ -122,7 +137,7 @@ pub struct PlacesApi {
     //   called again, we reuse it.
     // - The outer mutex synchronizes the `get_sync_connection()` operation.  If multiple threads
     //   ran that at the same time there would be issues.
-    sync_connection: Mutex<Weak<Mutex<PlacesDb>>>,
+    sync_connection: Mutex<Weak<SharedPlacesDb>>,
     id: usize,
 }
 
@@ -210,7 +225,7 @@ impl PlacesApi {
     //   - Each connection is wrapped in a `Mutex<>` to synchronize access.
     //   - The mutex is then wrapped in an Arc<>.  If the last Arc<> returned is still alive, then
     //     get_sync_connection() will reuse it.
-    pub fn get_sync_connection(&self) -> Result<Arc<Mutex<PlacesDb>>> {
+    pub fn get_sync_connection(&self) -> Result<Arc<SharedPlacesDb>> {
         // First step: lock the outer mutex
         let mut conn = self.sync_connection.lock();
         match conn.upgrade() {
@@ -218,12 +233,13 @@ impl PlacesApi {
             Some(db) => Ok(db),
             // If not, create a new connection
             None => {
-                let db = Arc::new(Mutex::new(PlacesDb::open(
+                let db = Arc::new(SharedPlacesDb::new(PlacesDb::open(
                     self.db_name.clone(),
                     ConnectionType::Sync,
                     self.id,
                     self.coop_tx_lock.clone(),
                 )?));
+                register_interrupt(Arc::<SharedPlacesDb>::downgrade(&db));
                 // Store a weakref for next time
                 *conn = Arc::downgrade(&db);
                 Ok(db)
@@ -277,18 +293,16 @@ impl PlacesApi {
         self.do_sync_one(
             "history",
             move |conn, mem_cached_state, disk_cached_state| {
-                let engine = HistorySyncEngine::new(conn);
-                sync_multiple(
+                let engine = HistorySyncEngine::new(conn)?;
+                Ok(sync_multiple(
                     &[&engine],
                     disk_cached_state,
                     mem_cached_state,
                     client_init,
                     key_bundle,
-                    // The interrupt system is not currently working (#1684), but we need to pass
-                    // in something, so let's use the engine scope.
-                    &engine.scope,
+                    &interrupt_support::ShutdownInterruptee,
                     None,
-                )
+                ))
             },
         )
     }
@@ -301,18 +315,16 @@ impl PlacesApi {
         self.do_sync_one(
             "bookmarks",
             move |conn, mem_cached_state, disk_cached_state| {
-                let engine = BookmarksSyncEngine::new(conn);
-                sync_multiple(
+                let engine = BookmarksSyncEngine::new(conn)?;
+                Ok(sync_multiple(
                     &[&engine],
                     disk_cached_state,
                     mem_cached_state,
                     client_init,
                     key_bundle,
-                    // The interrupt system is not currently working (#1684), but we need to pass
-                    // in something, so let's use the engine scope.
-                    &engine.scope,
+                    &interrupt_support::ShutdownInterruptee,
                     None,
-                )
+                ))
             },
         )
     }
@@ -323,7 +335,11 @@ impl PlacesApi {
         syncer: F,
     ) -> Result<telemetry::SyncTelemetryPing>
     where
-        F: FnOnce(Arc<Mutex<PlacesDb>>, &mut MemoryCachedState, &mut Option<String>) -> SyncResult,
+        F: FnOnce(
+            Arc<SharedPlacesDb>,
+            &mut MemoryCachedState,
+            &mut Option<String>,
+        ) -> Result<SyncResult>,
     {
         let mut guard = self.sync_state.lock();
         let conn = self.get_sync_connection()?;
@@ -338,7 +354,7 @@ impl PlacesApi {
 
         let mut mem_cached_state = sync_state.mem_cached_state.take();
         let mut disk_cached_state = sync_state.disk_cached_state.take();
-        let mut result = syncer(conn.clone(), &mut mem_cached_state, &mut disk_cached_state);
+        let mut result = syncer(conn.clone(), &mut mem_cached_state, &mut disk_cached_state)?;
         // even on failure we set the persisted state - sync itself takes care
         // to ensure this has been None'd out if necessary.
         self.set_disk_persisted_state(&conn.lock(), &disk_cached_state)?;
@@ -379,8 +395,8 @@ impl PlacesApi {
 
         let sync_state = guard.as_ref().unwrap();
 
-        let bm_engine = BookmarksSyncEngine::new(conn.clone());
-        let history_engine = HistorySyncEngine::new(conn.clone());
+        let bm_engine = BookmarksSyncEngine::new(conn.clone())?;
+        let history_engine = HistorySyncEngine::new(conn.clone())?;
         let mut mem_cached_state = sync_state.mem_cached_state.take();
         let mut disk_cached_state = sync_state.disk_cached_state.take();
 
@@ -391,9 +407,7 @@ impl PlacesApi {
             &mut mem_cached_state,
             client_init,
             key_bundle,
-            // The interrupt system is not currently working (#1684), but we need to pass
-            // in something, so let's use the engine scope.
-            &bm_engine.scope,
+            &interrupt_support::ShutdownInterruptee,
             None,
         );
         // even on failure we set the persisted state - sync itself takes care
@@ -441,32 +455,6 @@ impl PlacesApi {
 
         history_sync::reset(&conn.lock(), &sync15::EngineSyncAssociation::Disconnected)?;
         Ok(())
-    }
-
-    /// Create a new SqlInterruptScope for the syncing code
-    ///
-    /// The syncing code expects a SqlInterruptScope, but it's never been actually hooked up to
-    /// anything.  This method returns something to make the compiler happy, but we should replace
-    /// this with working code as part of #1684.
-    pub fn dummy_sync_interrupt_scope(&self) -> SqlInterruptScope {
-        SqlInterruptScope::new(Arc::new(AtomicUsize::new(0)))
-    }
-
-    // Deprecated/Broken interrupt handler method, let's try to replace it with the above methods
-    // ASAP
-    //
-    // There are two issues with this one:
-    //   - As soon as this method returns, the sync connection will be dropped, which means the
-    //     SqlInterruptHandle will not work.
-    //   - We want the sync connection to be lazy, but we call this on initialization and force a
-    //     connection to be created.
-    pub fn new_sync_conn_interrupt_handle(&self) -> Result<SqlInterruptHandle> {
-        // Probably not necessary to lock here, since this should only get
-        // called in startup.
-        let _guard = self.sync_state.lock();
-        let conn = self.get_sync_connection()?;
-        let db = conn.lock();
-        Ok(db.new_interrupt_handle())
     }
 }
 

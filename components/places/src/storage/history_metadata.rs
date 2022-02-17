@@ -6,7 +6,6 @@ use crate::db::{PlacesDb, PlacesTransaction};
 use crate::error::*;
 use rusqlite::types::{FromSql, FromSqlResult, ToSql, ToSqlOutput, ValueRef};
 use sql_support::ConnExt;
-use std::convert::TryFrom;
 use std::vec::Vec;
 use sync_guid::Guid as SyncGuid;
 use types::Timestamp;
@@ -489,8 +488,8 @@ pub fn delete_older_than(db: &PlacesDb, older_than: i64) -> Result<()> {
 
 pub fn delete_metadata(
     db: &PlacesDb,
-    url: &str,
-    referrer_url: Option<&str>,
+    url: &Url,
+    referrer_url: Option<&Url>,
     search_term: Option<&str>,
 ) -> Result<()> {
     let tx = db.begin_transaction()?;
@@ -500,7 +499,7 @@ pub fn delete_metadata(
     // e.g. referrer_url.is_some(), but a correspodning moz_places entry doesn't exist.
     // In practice this shouldn't happen, or it may imply API misuse, but in either case we shouldn't
     // delete things we were not asked to delete.
-    let place_entry = PlaceEntry::fetch(url, &tx, None)?;
+    let place_entry = PlaceEntry::fetch(url.as_str(), &tx, None)?;
     let place_entry = match place_entry {
         PlaceEntry::Existing(_) => place_entry,
         PlaceEntry::CreateFor(_, _) => {
@@ -509,8 +508,8 @@ pub fn delete_metadata(
         }
     };
     let referrer_entry = match referrer_url {
-        Some(referrer_url) if !referrer_url.is_empty() => {
-            Some(PlaceEntry::fetch(referrer_url, &tx, None)?)
+        Some(referrer_url) if !referrer_url.as_str().is_empty() => {
+            Some(PlaceEntry::fetch(referrer_url.as_str(), &tx, None)?)
         }
         _ => None,
     };
@@ -1323,7 +1322,7 @@ mod tests {
         let observation1 = VisitObservation::new(Url::parse("https://www.cbc.ca/news/politics/federal-budget-2021-freeland-zimonjic-1.5991021").unwrap())
                 .with_at(now)
                 .with_title(Some(String::from("Budget vows to build &#x27;for the long term&#x27; as it promises child care cash, projects massive deficits | CBC News")))
-                .with_preview_image_url(Some(String::from("https://i.cbc.ca/1.5993583.1618861792!/cpImage/httpImage/image.jpg_gen/derivatives/16x9_620/fedbudget-20210419.jpg")))
+                .with_preview_image_url(Some(Url::parse("https://i.cbc.ca/1.5993583.1618861792!/cpImage/httpImage/image.jpg_gen/derivatives/16x9_620/fedbudget-20210419.jpg").unwrap()))
                 .with_is_remote(false)
                 .with_visit_type(VisitTransition::Link);
         apply_observation(&conn, observation1).unwrap();
@@ -1495,13 +1494,19 @@ mod tests {
         );
 
         assert_eq!(6, get_since(&conn, 0).expect("get worked").len());
-        delete_metadata(&conn, "http://mozilla.com/1", None, None).expect("delete metadata");
+        delete_metadata(
+            &conn,
+            &Url::parse("http://mozilla.com/1").unwrap(),
+            None,
+            None,
+        )
+        .expect("delete metadata");
         assert_eq!(5, get_since(&conn, 0).expect("get worked").len());
 
         delete_metadata(
             &conn,
-            "http://mozilla.com/1",
-            Some("http://mozilla.com/"),
+            &Url::parse("http://mozilla.com/1").unwrap(),
+            Some(&Url::parse("http://mozilla.com/").unwrap()),
             None,
         )
         .expect("delete metadata");
@@ -1509,22 +1514,27 @@ mod tests {
 
         delete_metadata(
             &conn,
-            "http://mozilla.com/1",
-            Some("http://mozilla.com/"),
+            &Url::parse("http://mozilla.com/1").unwrap(),
+            Some(&Url::parse("http://mozilla.com/").unwrap()),
             Some("1 with search"),
         )
         .expect("delete metadata");
         assert_eq!(3, get_since(&conn, 0).expect("get worked").len());
 
-        delete_metadata(&conn, "http://mozilla.com/1", None, Some("1 with search"))
-            .expect("delete metadata");
+        delete_metadata(
+            &conn,
+            &Url::parse("http://mozilla.com/1").unwrap(),
+            None,
+            Some("1 with search"),
+        )
+        .expect("delete metadata");
         assert_eq!(2, get_since(&conn, 0).expect("get worked").len());
 
         // key doesn't match, do nothing
         delete_metadata(
             &conn,
-            "http://mozilla.com/2",
-            Some("http://wrong-referrer.com"),
+            &Url::parse("http://mozilla.com/2").unwrap(),
+            Some(&Url::parse("http://wrong-referrer.com").unwrap()),
             Some("2 with search"),
         )
         .expect("delete metadata");
@@ -1660,30 +1670,34 @@ mod tests {
         // add bookmark for the page we have a metadata entry
         bookmarks::insert_bookmark(
             &conn,
-            &InsertableItem::Bookmark(InsertableBookmark {
-                parent_guid: BookmarkRootGuid::Unfiled.into(),
-                position: BookmarkPosition::Append,
-                date_added: None,
-                last_modified: None,
-                guid: Some(SyncGuid::from("cccccccccccc")),
-                url,
-                title: None,
-            }),
+            InsertableItem::Bookmark {
+                b: InsertableBookmark {
+                    parent_guid: BookmarkRootGuid::Unfiled.into(),
+                    position: BookmarkPosition::Append,
+                    date_added: None,
+                    last_modified: None,
+                    guid: Some(SyncGuid::from("cccccccccccc")),
+                    url,
+                    title: None,
+                },
+            },
         )
         .expect("bookmark insert worked");
 
         // add another bookmark to the "parent" of our metadata entry
         bookmarks::insert_bookmark(
             &conn,
-            &InsertableItem::Bookmark(InsertableBookmark {
-                parent_guid: BookmarkRootGuid::Unfiled.into(),
-                position: BookmarkPosition::Append,
-                date_added: None,
-                last_modified: None,
-                guid: Some(SyncGuid::from("ccccccccccca")),
-                url: parent_url,
-                title: None,
-            }),
+            InsertableItem::Bookmark {
+                b: InsertableBookmark {
+                    parent_guid: BookmarkRootGuid::Unfiled.into(),
+                    position: BookmarkPosition::Append,
+                    date_added: None,
+                    last_modified: None,
+                    guid: Some(SyncGuid::from("ccccccccccca")),
+                    url: parent_url,
+                    title: None,
+                },
+            },
         )
         .expect("bookmark insert worked");
 

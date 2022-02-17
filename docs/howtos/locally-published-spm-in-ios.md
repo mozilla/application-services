@@ -38,14 +38,14 @@ After you generated the `MozillaRustComponents.xcframework.zip` in the previous 
     ```
     and commenting out the following lines:
     ```swift
-        url: "SOME_URL_THAT_POINTS_TO_RELEASE",
-        checksum: "SOME_CHECKSUM_FOR_RELEASE"
+        url: url,
+        checksum: checksum,
     ```
 
 ## Run the make-tag script with a local checkout of application services
 For this step, run the following script from inside the `rust-components-swift` repository (assuming that `application-services` is a neighboring directory to `rust-components-swift`). Change the `X.Y.Z` to be a valid semver version, for example: `0.0.101`
 ```sh
-./make_tag -l ../application-services X.Y.Z
+./make_tag.sh -l ../application-services X.Y.Z
 ```
 Once that is done, your local checkout will now have a git tag `X.Y.Z` that can be pointed to by Xcode
 
@@ -58,11 +58,12 @@ This is the final step to include your local changes into `Focus`. Do the follow
 ![Screenshot of where to find the package dependencies](./img/xcode-package-deps.png)
 1. Remove the dependency on `rust-components-swift` as listed on Xcode, you can click the dependency then click the `-`
 1. Add a new swift package by clicking the `+`:
-        1. On the top right, enter the full path to your `rust-components-swift` checkout, preceded by `file://`. If you don't know what that is, run `pwd` in while in `rust-components-swift`. For example: `file:///Users/tarikeshaq/code/rust-components-swift`
-        1. Change the version to be an exact version and equal the `X.Y.Z` version you set in the previous step. For example, if I ran `./make_tag -l ../application-services 0.0.101`, then my version would be `0.0.101`. This is what the dialog should look like:
-        ![Dialog for including the `rust-components-swift` package](./img/xcode-package-include.png)
-        1. Click `Add Package`
-        1. Now include the packages you would like to include, at the time of the writing of this doc, the packages to include in `Focus` are `Nimbus`, `Viaduct` and `RustLog`.
+
+    1. On the top right, enter the full path to your `rust-components-swift` checkout, preceded by `file://`. If you don't know what that is, run `pwd` in while in `rust-components-swift`. For example: `file:///Users/tarikeshaq/code/rust-components-swift`
+    1. Change the version to be an exact version and equal the `X.Y.Z` version you set in the previous step. For example, if I ran `./make_tag -l ../application-services 0.0.101`, then my version would be `0.0.101`. This is what the dialog should look like:
+    ![Dialog for including the `rust-components-swift` package](./img/xcode-package-include.png)
+    1. Click `Add Package`
+    1. Now include the packages you would like to include, at the time of the writing of this doc, the packages to include in `Focus` are `Nimbus`, `Viaduct` and `RustLog`.
 1. Finally, attempt to build focus, and if all goes well it should launch  with your code. If you face any problems, feel free to [contact us](../index.md#contact-us)
 
 

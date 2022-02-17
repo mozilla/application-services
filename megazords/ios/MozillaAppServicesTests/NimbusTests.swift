@@ -10,12 +10,24 @@ class NimbusTests: XCTestCase {
     override func setUp() {
         Glean.shared.resetGlean(clearStores: true)
         Glean.shared.enableTestingMode()
+        let buildDate = DateComponents(
+            calendar: Calendar.current,
+            timeZone: TimeZone(abbreviation: "UTC"),
+            year: 2019,
+            month: 10,
+            day: 23,
+            hour: 12,
+            minute: 52,
+            second: 8
+        )
+        let buildInfo = BuildInfo(buildDate: buildDate)
         Glean.shared.initialize(
             uploadEnabled: true,
             configuration: Configuration(
                 channel: "test",
                 serverEndpoint: "https://example.com"
-            )
+            ),
+            buildInfo: buildInfo
         )
     }
 
@@ -357,7 +369,7 @@ class NimbusTests: XCTestCase {
     }
 }
 
-extension Device {
+private extension Device {
     static func isSimulator() -> Bool {
         return ProcessInfo.processInfo.environment["SIMULATOR_ROOT"] != nil
     }

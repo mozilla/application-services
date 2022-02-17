@@ -187,7 +187,7 @@ pub struct SyncedExtensionChange {
 
 // Fetches the applied changes we stashed in the storage_sync_applied table.
 pub fn get_synced_changes(db: &StorageDb) -> Result<Vec<SyncedExtensionChange>> {
-    let signal = db.begin_interrupt_scope();
+    let signal = db.begin_interrupt_scope()?;
     let sql = "SELECT ext_id, changes FROM temp.storage_sync_applied";
     db.conn()
         .query_rows_and_then_named(sql, &[], |row| -> Result<_> {
@@ -272,21 +272,21 @@ mod tests {
                 key: $key.to_string(),
                 old_value: Some(json!($old)),
                 new_value: None,
-            };
+            }
         };
         ($key:literal, None, $new:tt) => {
             StorageValueChange {
                 key: $key.to_string(),
                 old_value: None,
                 new_value: Some(json!($new)),
-            };
+            }
         };
         ($key:literal, $old:tt, $new:tt) => {
             StorageValueChange {
                 key: $key.to_string(),
                 old_value: Some(json!($old)),
                 new_value: Some(json!($new)),
-            };
+            }
         };
     }
     macro_rules! changes {

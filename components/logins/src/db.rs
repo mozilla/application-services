@@ -28,6 +28,7 @@ use crate::login::*;
 use crate::schema;
 use crate::sync::SyncStatus;
 use crate::util;
+use interrupt_support::{SqlInterruptHandle, SqlInterruptScope};
 use lazy_static::lazy_static;
 use rusqlite::{
     named_params,
@@ -35,10 +36,10 @@ use rusqlite::{
     Connection, NO_PARAMS,
 };
 use serde_derive::*;
-use sql_support::{self, ConnExt, SqlInterruptHandle, SqlInterruptScope};
+use sql_support::ConnExt;
 use std::ops::Deref;
 use std::path::Path;
-use std::sync::{atomic::AtomicUsize, Arc};
+use std::sync::Arc;
 use std::time::{Duration, Instant, SystemTime};
 use sync_guid::Guid;
 use url::{Host, Url};
@@ -65,7 +66,7 @@ pub struct MigrationMetrics {
 
 pub struct LoginDb {
     pub db: Connection,
-    interrupt_counter: Arc<AtomicUsize>,
+    interrupt_handle: Arc<SqlInterruptHandle>,
 }
 
 impl LoginDb {
@@ -82,8 +83,8 @@ impl LoginDb {
         db.set_pragma("temp_store", 2)?;
 
         let mut logins = Self {
+            interrupt_handle: Arc::new(SqlInterruptHandle::new(&db)),
             db,
-            interrupt_counter: Arc::new(AtomicUsize::new(0)),
         };
         let tx = logins.db.transaction()?;
         schema::init(&tx)?;
@@ -99,16 +100,13 @@ impl LoginDb {
         Self::with_connection(Connection::open_in_memory()?)
     }
 
-    pub fn new_interrupt_handle(&self) -> SqlInterruptHandle {
-        SqlInterruptHandle::new(
-            self.db.get_interrupt_handle(),
-            self.interrupt_counter.clone(),
-        )
+    pub fn new_interrupt_handle(&self) -> Arc<SqlInterruptHandle> {
+        Arc::clone(&self.interrupt_handle)
     }
 
     #[inline]
-    pub fn begin_interrupt_scope(&self) -> SqlInterruptScope {
-        SqlInterruptScope::new(self.interrupt_counter.clone())
+    pub fn begin_interrupt_scope(&self) -> Result<SqlInterruptScope> {
+        Ok(self.interrupt_handle.begin_interrupt_scope()?)
     }
 }
 
@@ -1416,7 +1414,7 @@ mod tests {
             )
             .unwrap();
 
-        db.wipe(&db.begin_interrupt_scope())
+        db.wipe(&db.begin_interrupt_scope().unwrap())
             .expect("wipe should work");
 
         let expected_tombstone_count = 2;

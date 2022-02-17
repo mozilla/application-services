@@ -8,7 +8,6 @@ use fxa_client::internal::{auth, config::Config as FxaConfig, FirefoxAccount};
 use logins::LoginStore;
 use serde_json::json;
 use std::collections::HashMap;
-use std::convert::TryFrom;
 use std::sync::Arc;
 use sync15::{KeyBundle, Sync15StorageClientInit};
 use tabs::TabsStore;

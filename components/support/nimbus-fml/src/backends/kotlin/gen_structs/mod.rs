@@ -7,10 +7,11 @@ use std::collections::HashSet;
 
 use crate::{
     backends::{CodeDeclaration, CodeOracle, CodeType, TypeIdentifier},
-    intermediate_representation::{FeatureDef, FeatureManifest},
+    intermediate_representation::{FeatureDef, FeatureManifest, TypeFinder},
     Config,
 };
 
+mod bundled;
 mod common;
 mod enum_;
 mod feature;
@@ -18,18 +19,6 @@ mod filters;
 mod object;
 mod primitives;
 mod structural;
-
-impl Config {
-    fn package_name(&self) -> Option<String> {
-        self.package_name.clone()
-    }
-
-    fn nimbus_object_name(&self) -> String {
-        self.nimbus_object_name
-            .clone()
-            .unwrap_or_else(|| "MyNimbus".into())
-    }
-}
 
 #[derive(Template)]
 #[template(syntax = "kt", escape = "none", path = "FeatureManifestTemplate.kt")]
@@ -96,6 +85,18 @@ impl<'a> FeatureManifestDeclaration<'a> {
             .into_iter()
             .filter_map(|member| member.imports(oracle))
             .flatten()
+            .chain(
+                self.fm
+                    .all_types()
+                    .into_iter()
+                    .filter_map(|type_| self.oracle.find(&type_).imports(oracle))
+                    .flatten(),
+            )
+            .chain(vec![
+                "org.mozilla.experiments.nimbus.Variables".to_string(),
+                "org.mozilla.experiments.nimbus.FeaturesInterface".to_string(),
+                format!("{}.R", self.config.resource_package_name()),
+            ])
             .collect::<HashSet<String>>()
             .into_iter()
             .collect();
@@ -115,6 +116,9 @@ impl ConcreteCodeOracle {
             TypeIdentifier::String => Box::new(primitives::StringCodeType),
             TypeIdentifier::Int => Box::new(primitives::IntCodeType),
 
+            TypeIdentifier::BundleText(_) => Box::new(bundled::TextCodeType),
+            TypeIdentifier::BundleImage(_) => Box::new(bundled::ImageCodeType),
+
             TypeIdentifier::Enum(id) => Box::new(enum_::EnumCodeType::new(id)),
             TypeIdentifier::Object(id) => Box::new(object::ObjectCodeType::new(id)),
 
@@ -127,7 +131,6 @@ impl ConcreteCodeOracle {
             TypeIdentifier::EnumMap(ref k_type, ref v_type) => {
                 Box::new(structural::MapCodeType::new(k_type, v_type))
             }
-            _ => unimplemented!(),
         }
     }
 }

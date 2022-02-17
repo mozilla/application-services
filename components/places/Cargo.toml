@@ -1,6 +1,6 @@
 [package]
 name = "places"
-edition = "2018"
+edition = "2021"
 version = "0.1.0"
 authors = ["application-services@mozilla.com"]
 license = "MPL-2.0"
@@ -23,20 +23,17 @@ percent-encoding = "2.1"
 caseless = "0.2"
 sql-support = { path = "../support/sql" }
 types = { path = "../support/types" }
-ffi-support = "0.4"
 bitflags = "1.2"
 idna = "0.2"
 memchr = "2.3"
-prost = "0.8"
-prost-derive = "0.8"
 dogear = "0.4"
 interrupt-support = { path = "../support/interrupt" }
 error-support = { path = "../support/error" }
 sync-guid = { path = "../support/guid", features = ["rusqlite_support", "random"]}
 thiserror = "1.0"
 anyhow = "1.0"
-uniffi = "^0.15"
-uniffi_macros = "^0.15"
+uniffi = "^0.17"
+uniffi_macros = "^0.17"
 
 [dependencies.rusqlite]
 version = "0.24.2"
@@ -48,4 +45,4 @@ tempfile = "3.1"
 env_logger = {version = "0.7", default-features = false}
 
 [build-dependencies]
-uniffi_build = { version = "^0.15", features=["builtin-bindgen"] }
+uniffi_build = { version = "^0.17", features=["builtin-bindgen"] }

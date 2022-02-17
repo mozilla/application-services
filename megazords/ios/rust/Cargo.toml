@@ -1,6 +1,6 @@
 [package]
 name = "megazord_ios"
-edition = "2018"
+edition = "2021"
 version = "0.1.0"
 authors = ["application-services <application-services@mozilla.com>"]
 license = "MPL-2.0"
@@ -11,7 +11,7 @@ crate-type = ["staticlib"]
 [dependencies]
 fxa-client = { path = "../../../components/fxa-client" }
 logins = { path = "../../../components/logins" }
-places-ffi = { path = "../../../components/places/ffi" }
+places = { path = "../../../components/places" }
 rc_log_ffi = { path = "../../../components/rc_log" }
 viaduct = { path = "../../../components/viaduct" }
 viaduct-reqwest = { path = "../../../components/support/viaduct-reqwest" }

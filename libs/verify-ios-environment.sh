@@ -19,9 +19,7 @@ fi
 
 echo ""
 echo "Looks good! You can do the following:"
-echo "- Build the project:"
-echo "    ./build-carthage.sh --no-archive"
-echo "- Open the Xcode project:"
+echo "- Open the XCode project:"
 echo "    open megazords/ios/MozillaAppServices.xcodeproj"
 echo "- Run the iOS tests:"
 echo "    ./automation/run_ios_tests.sh"

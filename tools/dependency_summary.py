@@ -34,6 +34,7 @@ logging.basicConfig(level = logging.WARNING)
 ALL_ANDROID_TARGETS = [
     "armv7-linux-androideabi",
     "aarch64-linux-android",
+    "aarch64-apple-darwin",
     "i686-linux-android",
     "x86_64-linux-android",
     "x86_64-unknown-linux-gnu",
@@ -106,12 +107,6 @@ EXTRA_PACKAGE_METADATA = {
         "repository": "https://github.com/protocolbuffers/protobuf",
         "license": "BSD-3-Clause",
         "license_file": "https://raw.githubusercontent.com/protocolbuffers/protobuf/master/LICENSE",
-    },
-    "ext-swift-protobuf": {
-        "name": "swift-protobuf",
-        "repository": "https://github.com/apple/swift-protobuf",
-        "license": "Apache-2.0",
-        "license_file": "https://raw.githubusercontent.com/apple/swift-protobuf/master/LICENSE.txt"
     },
     "ext-swift-keychain-wrapper": {
         "name": "SwiftKeychainWrapper",
@@ -901,7 +896,6 @@ class WorkspaceMetadata(object):
                 extras.add("ext-jna")
                 extras.add("ext-protobuf")
             if self.target_is_ios(target):
-                extras.add("ext-swift-protobuf")
                 extras.add("ext-swift-keychain-wrapper")
         for dep in deps:
             name = self.pkgInfoById[dep]["name"]

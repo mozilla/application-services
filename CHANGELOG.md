@@ -1,3 +1,169 @@
+# v91.1.0 (_2022-02-11_)
+
+[Full Changelog](https://github.com/mozilla/application-services/compare/v91.0.1...v91.1.0)
+
+## ⛅️🔬🔭 Nimbus SDK
+
+### What's fixed
+
+- Fixes a bug where disabling studies did not disable rollouts. ([#4807](https://github.com/mozilla/application-services/pull/4807))
+
+### ✨ What's New ✨
+
+- A message helper is now available to apps wanting to build a Messaging System on both Android and iOS. Both of these access the variables
+  provided by Nimbus, and can have app-specific variables added. This provides two functions:
+  - JEXL evaluation ([#4813](https://github.com/mozilla/application-services/pull/4813)) which evaluates boolean expressions.
+  - String interpolation ([#4831](https://github.com/mozilla/application-services/pull/4831)) which builds strings with templates at runtime.
+
+## Xcode
+
+- Bumped Xcode version from 13.1.0 -> 13.2.1
+
+## Nimbus FML
+### What's fixed
+- Fixes a bug where each time the fml is run, the ordering of features in the experimenter json is changed. ([#4819](https://github.com/mozilla/application-services/pull/4819))
+
+# v91.0.1 (_2022-02-02_)
+
+[Full Changelog](https://github.com/mozilla/application-services/compare/v91.0.0...v91.0.1)
+
+## Places
+
+### What's Changed
+  - The database initialization code now uses BEGIN IMMIDIATE to start a
+    transaction.  This will hopefully prevent `database is locked` errors when
+    opening a sync connection.
+
+### What's New
+
+  - The `HistoryVisitInfo` struct now has an `is_remote` boolean which indicates whether the
+    represented visit happened locally or remotely. ([#4810](https://github.com/mozilla/application-services/pull/4810))
+
+# v91.0.0 (_2022-01-31_)
+
+[Full Changelog](https://github.com/mozilla/application-services/compare/v90.0.1...v91.0.0)
+
+## Nimbus FML
+
+### What's New
+  - The Nimbus FML can now generate swift code for the feature manifest. ([#4780](https://github.com/mozilla/application-services/pull/4780))
+    - It can be invoked using:
+    ```sh
+    $ nimbus-fml <FEATURE_MANIFEST_YAML> -o <OUTPUT_NAME> ios features
+    ```
+    - You can check the support flags and options by running:
+    ```sh
+    $ nimbus-fml ios --help
+    ```
+    - The generated code exposes:
+      -  a high level nimbus object, whose name is configurable using the `--classname` option. By default the object is `MyNimbus`.
+      - All the enums and objects defined in the manifest as idiomatic Swift code.
+    - Usage:
+      - To access a feature's value:
+        ```swift
+        // MyNimbus is the class that holds all the features supported by Nimbus
+        // MyNimbus has an singleton instance, you can access it using the `shared` field:
+
+        let nimbus = MyNimbus.shared
+
+        // Then you can access the features using:
+        // MyNimbus.features.<featureNameCamelCase>.value(), for example:
+
+        let feature = nimbus.features.homepage.value()
+        ```
+      - To access a field in the feature:
+        ```swift
+        // feature.<propertyNameCamelCase>, for example:
+
+        assert(feature.sectionsEnabled[HomeScreenSection.topSites] == true)
+        ```
+
+### ⚠️ Breaking Changes ⚠️
+
+  - **Android only**: Accessing drawables has changed to give access to the resource identifier. ([#4801](https://github.com/mozilla/application-services/pull/4801))
+    - Migration path to the old behaviour is:
+
+    ```kotlin
+    let drawable: Drawable = MyNimbus.features.exampleFeature.demoDrawable
+    ```
+
+    becomes:
+    ```kotlin
+    let drawable: Drawable = MyNimbus.features.exampleFeature.demoDrawable.resource
+    ```
+## General iOS
+### What's changed
+- Moved `SwiftKeychainWrapper` from an external Swift Package to be bundled with FxA. This is due to issues Firefox iOS had with their dependency tree. ([#4797](https://github.com/mozilla/application-services/pull/4797))
+- Exposed all crates as targets for the XCFramework. ([#4797](https://github.com/mozilla/application-services/pull/4797))
+
+# v90.0.1 (_2022-01-24_)
+
+[Full Changelog](https://github.com/mozilla/application-services/compare/v90.0.0...v90.0.1)
+
+## Places
+  - Fixed an issue with previously consumed errors for invalid URLs were propagating to consumers and causing a crash
+    - Changed `bookmarks_get_all_with_url` and `accept_result` to accept a string instead of url
+
+
+# v90.0.0 (_2022-01-20_)
+
+[Full Changelog](https://github.com/mozilla/application-services/compare/v89.0.0...v90.0.0)
+
+## Places
+
+### ⚠️ Breaking Changes ⚠️
+  - Places has been completely UniFFI-ed
+
+# v89.0.0 (_2022-01-20_)
+
+[Full Changelog](https://github.com/mozilla/application-services/compare/v88.0.0...v89.0.0)
+
+## Supported Xcode Versions
+- Reverting the supported Xcode version from 13.2.1 to 13.1.0 to circumvent the issues with Swift Package Manager in Xcode 13.2.1. ([#4787](https://github.com/mozilla/application-services/pull/4787))
+## Nimbus☁️🔬🔭
+
+### What's New
+   - Add `Text` and `Image` support for the FML to access bundled resources ([#4784](https://github.com/mozilla/application-services/pull/4784)).
+
+### Breaking Change
+  - The `NimbusInterface` now exposes a `context: Context` property.
+
+# v88.0.0 (_2022-01-19_)
+
+[Full Changelog](https://github.com/mozilla/application-services/compare/v87.3.0...v88.0.0)
+
+## Nimbus☁️🔬🔭
+
+### What's Changed
+  - The SDK is now tolerant to legacy experiment recipes that have both `feature` and `features` in their branches ([SDK-1989](https://github.com/mozilla/application-services/pull/4777))
+
+## General
+
+### ⚠️ Breaking Changes ⚠️
+
+  - The bundled version of Glean has been updated to v43.0.2.
+    See [the Glean Changelog](https://github.com/mozilla/glean/blob/v43.0.2/CHANGELOG.md) for full details.
+    BREAKING CHANGE: Pass build info into initialize, which contains the build date.
+    A suitable instance is generated by `glean_parser` in `GleanMetrics.GleanBuild.info`.
+
+# v87.3.0 (_2022-01-11_)
+
+[Full Changelog](https://github.com/mozilla/application-services/compare/v87.2.0...v87.3.0)
+
+## Supported Xcode Versions
+- As of Jan 2022, support for Xcode version 13.2.1 is upcoming. After the associated PR is merged AS side and a release is cut, Fx-iOS will update on their side to fully support this Xcode version. See Fx-iOS's Wiki for details. 
+
+## viaduct
+### What's New
+- Add support for PATCH methods. ([#4751](https://github.com/mozilla/application-services/pull/4751))
+
+## Nimbus
+### What's new
+  - The Nimbus SDK now support application version targeting, where experiment creators can set `app_version|versionCompare({VERSION}) >= 0` and the experiments will only target users running `VERSION` or higher. ([#4752](https://github.com/mozilla/application-services/pull/4752))
+      - The `versionCompare` transform will return a positive number if `app_version` is greater than
+      `VERSION`, a negative number if `app_version` is less than `VERSION` and zero if they are equal
+      - `VERSION` must be passed in as a string, for example: `app_version|versionCompare('95.!') >= 0` will target users who are on any version starting with `95` or above (`95.0`, `95.1`, `95.2.3-beta`, `96` etc..)
+
 # v87.2.0 (_2021-12-15_)
 
 [Full Changelog](https://github.com/mozilla/application-services/compare/v87.1.0...v87.2.0)

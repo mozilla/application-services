@@ -65,8 +65,7 @@ private extension Nimbus {
     }
 }
 
-// Glean integration
-extension Nimbus: NimbusTelemetryConfiguration {
+extension Nimbus: FeaturesInterface {
     public func recordExposureEvent(featureId: String) {
         // First we need a list of the active experiments that are enrolled.
         let activeExperiments = getActiveExperiments()
@@ -135,6 +134,30 @@ extension Nimbus: NimbusTelemetryConfiguration {
             }
         }
     }
+
+    internal func getFeatureConfigVariablesJson(featureId: String) -> [String: Any]? {
+        return catchAll {
+            if let string = try nimbusClient.getFeatureConfigVariables(featureId: featureId),
+               let data = string.data(using: .utf8)
+            {
+                return try JSONSerialization.jsonObject(with: data, options: []) as? [String: Any]
+            } else {
+                return nil
+            }
+        }
+    }
+
+    public func getVariables(featureId: String, sendExposureEvent: Bool) -> Variables {
+        guard let json = getFeatureConfigVariablesJson(featureId: featureId) else {
+            return NilVariables.instance
+        }
+
+        if sendExposureEvent {
+            recordExposureEvent(featureId: featureId)
+        }
+
+        return JSONVariables(with: json, in: resourceBundles)
+    }
 }
 
 private extension Nimbus {
@@ -187,38 +210,6 @@ internal extension Nimbus {
     func resetTelemetryIdentifiersOnThisThread(_ identifiers: AvailableRandomizationUnits) throws {
         let changes = try nimbusClient.resetTelemetryIdentifiers(newRandomizationUnits: identifiers)
         postEnrollmentCalculation(changes)
-    }
-}
-
-extension Nimbus: NimbusFeatureConfiguration {
-    public func getExperimentBranch(experimentId: String) -> String? {
-        return catchAll {
-            try nimbusClient.getExperimentBranch(id: experimentId)
-        }
-    }
-
-    internal func getFeatureConfigVariablesJson(featureId: String) -> [String: Any]? {
-        return catchAll {
-            if let string = try nimbusClient.getFeatureConfigVariables(featureId: featureId),
-               let data = string.data(using: .utf8)
-            {
-                return try JSONSerialization.jsonObject(with: data, options: []) as? [String: Any]
-            } else {
-                return nil
-            }
-        }
-    }
-
-    public func getVariables(featureId: String, sendExposureEvent: Bool) -> Variables {
-        guard let json = getFeatureConfigVariablesJson(featureId: featureId) else {
-            return NilVariables.instance
-        }
-
-        if sendExposureEvent {
-            recordExposureEvent(featureId: featureId)
-        }
-
-        return JSONVariables(with: json, in: resourceBundles)
     }
 }
 
@@ -307,6 +298,41 @@ extension Nimbus: NimbusStartup {
     }
 }
 
+extension Nimbus: NimbusBranchInterface {
+    public func getExperimentBranch(experimentId: String) -> String? {
+        return catchAll {
+            try nimbusClient.getExperimentBranch(id: experimentId)
+        }
+    }
+}
+
+extension Nimbus: GleanPlumbProtocol {
+    public func createMessageHelper() throws -> GleanPlumbMessageHelper {
+        return try createMessageHelper(string: nil)
+    }
+
+    public func createMessageHelper(additionalContext: [String: Any]) throws -> GleanPlumbMessageHelper {
+        let data = try JSONSerialization.data(withJSONObject: additionalContext, options: [])
+        let string = String(data: data, encoding: .utf8)
+        return try createMessageHelper(string: string)
+    }
+
+    public func createMessageHelper<T: Encodable>(additionalContext: T) throws -> GleanPlumbMessageHelper {
+        let encoder = JSONEncoder()
+        encoder.keyEncodingStrategy = .convertToSnakeCase
+
+        let data = try encoder.encode(additionalContext)
+        let string = String(data: data, encoding: .utf8)!
+        return try createMessageHelper(string: string)
+    }
+
+    private func createMessageHelper(string: String?) throws -> GleanPlumbMessageHelper {
+        let targetingHelper = try nimbusClient.createTargetingHelper(additionalContext: string)
+        let stringHelper = try nimbusClient.createStringHelper(additionalContext: string)
+        return GleanPlumbMessageHelper(targetingHelper: targetingHelper, stringHelper: stringHelper)
+    }
+}
+
 public class NimbusDisabled: NimbusApi {
     public static let shared = NimbusDisabled()
 
@@ -350,5 +376,22 @@ public extension NimbusDisabled {
 
     func getExperimentBranches(_: String) -> [Branch]? {
         return nil
+    }
+}
+
+extension NimbusDisabled: GleanPlumbProtocol {
+    public func createMessageHelper() throws -> GleanPlumbMessageHelper {
+        GleanPlumbMessageHelper(
+            targetingHelper: AlwaysFalseTargetingHelper(),
+            stringHelper: NonStringHelper()
+        )
+    }
+
+    public func createMessageHelper(additionalContext _: [String: Any]) throws -> GleanPlumbMessageHelper {
+        try createMessageHelper()
+    }
+
+    public func createMessageHelper<T: Encodable>(additionalContext _: T) throws -> GleanPlumbMessageHelper {
+        try createMessageHelper()
     }
 }

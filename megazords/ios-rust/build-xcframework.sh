@@ -61,10 +61,6 @@ cargo_build () {
   case $TARGET in
     x86_64*)
       LIBS_DIR="$REPO_ROOT/libs/ios/x86_64";;
-    # TODO: when we want to include crates that depend on SQLCipher or NSS,
-    # we'll need to distinguish between hardware and simulator builds here
-    # and link the later against separately-compiled libraries.
-    # Ref https://github.com/mozilla/application-services/issues/4352.
     aarch64*)
       LIBS_DIR="$REPO_ROOT/libs/ios/arm64";;
     *)
@@ -89,7 +85,6 @@ cargo_build () {
 set -euvx
 
 # Intel iOS simulator
-# TODO: why is the env var necessary?
 CFLAGS_x86_64_apple_ios="-target x86_64-apple-ios" \
   cargo_build x86_64-apple-ios
 
@@ -97,9 +92,6 @@ CFLAGS_x86_64_apple_ios="-target x86_64-apple-ios" \
 cargo_build aarch64-apple-ios
 
 # M1 iOS simulator.
-# It's currently in Nightly only and requires to build `libstd`.
-# We hope this will be available by default in Rust 1.56.0.
-BUILD_ARGS=(+nightly "${BUILD_ARGS[@]}" -Z build-std)
 cargo_build aarch64-apple-ios-sim
 
 # TODO: would it be useful to also include desktop builds here?
@@ -133,8 +125,7 @@ mkdir -p "$COMMON/Headers"
 cp "$THIS_DIR/MozillaRustComponents.h" "$COMMON/Headers"
 cp "$REPO_ROOT/components/rc_log/ios/RustLogFFI.h" "$COMMON/Headers"
 cp "$REPO_ROOT/components/viaduct/ios/RustViaductFFI.h" "$COMMON/Headers"
-# This will go away after places becomes uniffi-ed
-cp "$REPO_ROOT/components/places/ios/Places/RustPlacesAPI.h" "$COMMON/Headers"
+cp "$REPO_ROOT/components/external/glean/glean-core/ffi/glean.h" "$COMMON/Headers"
 # TODO: https://github.com/mozilla/uniffi-rs/issues/1060
 # it would be neat if there was a single UniFFI command that would spit out
 # all of the generated headers for all UniFFIed dependencies of a given crate.
@@ -179,4 +170,3 @@ rm -rf "$XCFRAMEWORK_ROOT/common"
 # Zip it all up into a bundle for distribution.
 
 (cd "$THIS_DIR" && zip -9 -r "$FRAMEWORK_NAME.xcframework.zip" "$FRAMEWORK_NAME.xcframework")
-rm -rf "$XCFRAMEWORK_ROOT"

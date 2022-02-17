@@ -2,9 +2,10 @@
 * License, v. 2.0. If a copy of the MPL was not distributed with this
 * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
+import android.content.Context as MockContext
 import org.mozilla.experiments.nimbus.MockNimbus
 
-val feature = MyNimbus.features.nimbusValidation.value()
+val feature = MyNimbus.features.nimbusValidation.value(MockContext())
 
 // Test the property level defaults.
 assert(feature.enabled == true)

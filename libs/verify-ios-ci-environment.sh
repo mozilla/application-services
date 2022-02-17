@@ -22,28 +22,10 @@ rustup target add "${RUST_TARGETS[@]}"
 
 # If you add a dependency below, mention it in building.md in the iOS section!
 
-if ! [[ -x "$(command -v carthage)" ]]; then
-  echo 'Error: Carthage needs to be installed. See https://github.com/Carthage/Carthage#installing-carthage for install instructions.' >&2
-  exit 1
-fi
-
-if ! [[ -x "$(command -v protoc-gen-swift)" ]]; then
-  echo 'Error: swift-protobuf needs to be installed. See https://github.com/apple/swift-protobuf#alternatively-install-via-homebrew for install instructions.' >&2
-  exit 1
-fi
-
 if ! [[ -x "$(command -v xcpretty)" ]]; then
   echo 'Error: xcpretty needs to be installed. See https://github.com/xcpretty/xcpretty#installation for install instructions.' >&2
   exit 1
 fi
-
-# For Xcode 12 make sure EXCLUDED_ARCHS is set to arm architectures otherwise
-# the build will fail on lipo due to duplicate architectures.
-XCODE_XCCONFIG_FILE=$(pwd)/xcconfig/xcode-12-fix-carthage-lipo.xcconfig
-export XCODE_XCCONFIG_FILE
-
-echo "Running carthage boostrap..."
-carthage bootstrap --platform iOS --cache-builds
 
 if [[ ! -d "${PWD}/libs/ios/universal/nss" ]] || [[ ! -d "${PWD}/libs/ios/universal/sqlcipher" ]]; then
   pushd libs || exit 1

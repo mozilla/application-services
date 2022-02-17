@@ -4,7 +4,7 @@
 
 package mozilla.appservices.places
 
-import java.lang.RuntimeException
+import mozilla.appservices.places.uniffi.BookmarkItem
 
 /**
  * Enumeration of the ids of the roots of the bookmarks tree.
@@ -21,140 +21,6 @@ enum class BookmarkRoot(val id: String) {
     Toolbar("toolbar_____"),
     Unfiled("unfiled_____"),
     Mobile("mobile______"),
-}
-
-/**
- * Enumeration of the type of a bookmark item.
- *
- * Must match BookmarkType in the Rust code.
- */
-enum class BookmarkType(val value: Int) {
-    Bookmark(1),
-    Folder(2),
-    Separator(3),
-}
-
-/**
- * An interface defining the set of fields common to all nodes
- * in the bookmark tree.
- */
-sealed class BookmarkTreeNode {
-    /**
-     * The type of this bookmark.
-     */
-    abstract val type: BookmarkType
-
-    /**
-     * The guid of this record. Bookmark guids are always 12 characters in the url-safe
-     * base64 character set.
-     */
-    abstract val guid: String
-
-    /**
-     * Creation time, in milliseconds since the unix epoch.
-     *
-     * May not be a local timestamp.
-     */
-    abstract val dateAdded: Long
-
-    /**
-     * Last modification time, in milliseconds since the unix epoch.
-     */
-    abstract val lastModified: Long
-
-    /**
-     * The guid of this record's parent. It should only be null for
-     * [BookmarkRoot.Root].
-     */
-    abstract val parentGUID: String?
-
-    /**
-     * The (0-based) position of this record within its parent.
-     */
-    abstract val position: Int
-}
-
-/**
- * A bookmark tree node that represents a bookmarked URL.
- *
- * Its type is always [BookmarkType.Bookmark], and it has a `title `and `url`
- * in addition to the fields defined by [BookmarkTreeNode].
- */
-
-data class BookmarkItem(
-    override val guid: String,
-    override val dateAdded: Long,
-    override val lastModified: Long,
-    override val parentGUID: String?,
-    override val position: Int,
-
-    /**
-     * The URL of this bookmark.
-     */
-    val url: String,
-
-    /**
-     * The title of the bookmark.
-     *
-     * Note that the bookmark storage layer treats NULL and the
-     * empty string as equivalent in titles.
-     */
-    val title: String
-) : BookmarkTreeNode() {
-    override val type get() = BookmarkType.Bookmark
-}
-
-/**
- * A bookmark which is a folder.
- *
- * Its type is always [BookmarkType.Folder], and it has a `title`,
- * a list of `childGUIDs`, and possibly a list of `children` in
- * addition to those defined by [BookmarkTreeNode].
- */
-data class BookmarkFolder(
-    override val guid: String,
-    override val dateAdded: Long,
-    override val lastModified: Long,
-    override val parentGUID: String?,
-    override val position: Int,
-
-    /**
-     * The title of this bookmark folder, if any was provided.
-     *
-     * Note that the bookmark storage layer treats NULL and the
-     * empty string as equivalent in titles.
-     */
-    val title: String,
-
-    /**
-     * The GUIDs of this folder's list of children.
-     */
-    val childGUIDs: List<String>,
-
-    /**
-     * If this node was returned the [ReadableBookmarksConnection.getBookmarksTree]
-     * method, then this should have the list of children.
-     */
-    val children: List<BookmarkTreeNode>?
-
-) : BookmarkTreeNode() {
-    override val type get() = BookmarkType.Folder
-}
-
-/**
- * A bookmark which is a separator.
- *
- * Its type is always [BookmarkType.Separator], and it has no fields
- * besides those defined by [BookmarkTreeNode].
- */
-data class BookmarkSeparator(
-    override val guid: String,
-    override val dateAdded: Long,
-    override val lastModified: Long,
-    override val parentGUID: String?,
-    override val position: Int
-) : BookmarkTreeNode() {
-    override val type get() = BookmarkType.Separator
 }
 
 /**
@@ -182,7 +48,7 @@ interface ReadableBookmarksConnection : InterruptibleConnection {
      * @throws OperationInterrupted if this database implements [InterruptibleConnection] and
      * has its `interrupt()` method called on another thread.
      */
-    fun getBookmarksTree(rootGUID: String, recursive: Boolean): BookmarkTreeNode?
+    fun getBookmarksTree(rootGUID: Guid, recursive: Boolean): BookmarkItem?
 
     /**
      * Returns the information about the bookmark with the provided id. This differs from
@@ -196,7 +62,7 @@ interface ReadableBookmarksConnection : InterruptibleConnection {
      * @throws OperationInterrupted if this database implements [InterruptibleConnection] and
      * has its `interrupt()` method called on another thread.
      */
-    fun getBookmark(guid: String): BookmarkTreeNode?
+    fun getBookmark(guid: Guid): BookmarkItem?
 
     /**
      * Returns the list of bookmarks with the provided URL.
@@ -223,7 +89,7 @@ interface ReadableBookmarksConnection : InterruptibleConnection {
      * @throws OperationInterrupted if this database implements [InterruptibleConnection] and
      * has its `interrupt()` method called on another thread.
      */
-    fun getBookmarkUrlForKeyword(keyword: String): String?
+    fun getBookmarkUrlForKeyword(keyword: String): Url?
 
     /**
      * Returns the list of bookmarks that match the provided search string.
@@ -271,7 +137,7 @@ interface WritableBookmarksConnection : ReadableBookmarksConnection {
      *
      * @throws CannotUpdateRoot If `guid` refers to a bookmark root.
      */
-    fun deleteBookmarkNode(guid: String): Boolean
+    fun deleteBookmarkNode(guid: Guid): Boolean
 
     /**
      * Delete all bookmarks without affecting history
@@ -295,10 +161,10 @@ interface WritableBookmarksConnection : ReadableBookmarksConnection {
      * @throws InvalidParent If `parentGUID` does not refer to a folder node.
      */
     fun createFolder(
-        parentGUID: String,
+        parentGUID: Guid,
         title: String,
-        position: Int? = null
-    ): String
+        position: UInt? = null
+    ): Guid
 
     /**
      * Create a bookmark separator, returning its guid.
@@ -315,9 +181,9 @@ interface WritableBookmarksConnection : ReadableBookmarksConnection {
      * @throws InvalidParent If `parentGUID` does not refer to a folder node.
      */
     fun createSeparator(
-        parentGUID: String,
-        position: Int? = null
-    ): String
+        parentGUID: Guid,
+        position: UInt? = null
+    ): Guid
 
     /**
      * Create a bookmark item, returning its guid.
@@ -338,17 +204,20 @@ interface WritableBookmarksConnection : ReadableBookmarksConnection {
      * @throws UrlTooLong if `url` exceeds the maximum length of 65536 bytes (when encoded)
      */
     fun createBookmarkItem(
-        parentGUID: String,
-        url: String,
+        parentGUID: Guid,
+        url: Url,
         title: String,
-        position: Int? = null
-    ): String
+        position: UInt? = null
+    ): Guid
 
     /**
      * Update a bookmark to the provided info.
      *
      * @param guid GUID of the bookmark to update
-     * @param info The changes to make to the listed bookmark.
+     * @param parentGuid The new parent guid for the listed bookmark.
+     * @param position The new position for the listed bookmark.
+     * @param title The new title for the listed bookmark.
+     * @param url The new url the listed bookmark.
      *
      * @throws InvalidBookmarkUpdate If the change requested is impossible given the
      * type of the item in the DB. For example, on attempts to update the title of a separator.
@@ -359,184 +228,5 @@ interface WritableBookmarksConnection : ReadableBookmarksConnection {
      * @throws InvalidParent If `info.parentGUID` is specified, but does not refer to a
      * folder node.
      */
-    fun updateBookmark(guid: String, info: BookmarkUpdateInfo)
-}
-
-/**
- * Information describing the changes to make in order to update a bookmark.
- */
-data class BookmarkUpdateInfo(
-    /**
-     * If the record should be moved to another folder, the guid
-     * of the folder it should be moved to. Interacts with
-     * `position`, see its documentation for details.
-     */
-    val parentGUID: String? = null,
-
-    /**
-     * If the record should be moved, the 0-based index where it
-     * should be moved to. Interacts with `parentGUID` as follows:
-     *
-     * - If `parentGUID` is not provided and `position` is, we treat this
-     *   a move within the same folder.
-     *
-     * - If `parentGUID` and `position` are both provided, we treat this as
-     *   a move to / within that folder, and we insert at the requested
-     *   position.
-     *
-     * - If `position` is not provided (and `parentGUID` is) then its
-     *   treated as a move to the end of that folder.
-     *
-     * If position is provided and is outside the range of positions currently
-     * occupied by children in this folder, it is first constrained to
-     * be within that range.
-     */
-    val position: Int? = null,
-
-    /**
-     * For nodes of type [BookmarkType.Bookmark] and [BookmarkType.Folder],
-     * a string specifying the new title of the bookmark node.
-     */
-    val title: String? = null,
-
-    /**
-     * For nodes of type [BookmarkType.Bookmark], a string specifying
-     * the new url of the bookmark node.
-     */
-    val url: String? = null
-) {
-
-    internal fun toProtobuf(guid: String): MsgTypes.BookmarkNode {
-        val builder = MsgTypes.BookmarkNode.newBuilder()
-        builder.setGuid(guid)
-        this.position?.let { builder.setPosition(it) }
-        this.parentGUID?.let { builder.setParentGuid(it) }
-        this.title?.let { builder.setTitle(it) }
-        this.url?.let { builder.setUrl(it) }
-        return builder.build()
-    }
-}
-
-/**
- * Error indicating bookmarks corruption. If this occurs, we
- * would appreciate reports.
- *
- * Eventually it should be fixed up, when detected as part of
- * `runMaintenance`.
- */
-open class BookmarksCorruption(msg: String) : PlacesException(msg)
-
-/**
- * Thrown when attempting to insert a URL greater than 65536 bytes
- * (after punycoding and percent encoding).
- *
- * Attempting to truncate the URL is difficult and subtle, and
- * is guaranteed to result in a URL different from the one the
- * user attempted to bookmark, and so an error is thrown instead.
- */
-open class UrlTooLong(msg: String) : PlacesException(msg)
-
-/**
- * Thrown when attempting to update a bookmark item in an illegal
- * way. For example, attempting to change the URL of a bookmark
- * folder, or update the title of a separator, etc.
- */
-open class InvalidBookmarkUpdate(msg: String) : PlacesException(msg)
-
-/**
- * Thrown when providing a guid to a create or update function
- * which does not refer to a known bookmark.
- */
-open class UnknownBookmarkItem(msg: String) : PlacesException(msg)
-
-/**
- * Thrown when:
- *
- * - Attempting to insert a child under BookmarkRoot.Root,
- * - Attempting to update any of the bookmark roots.
- * - Attempting to delete any of the bookmark roots.
- */
-open class CannotUpdateRoot(msg: String) : PlacesException(msg)
-
-/**
- * Thrown when providing a guid referring to a non-folder as the
- * parentGUID parameter to a create or update
- */
-open class InvalidParent(msg: String) : PlacesException(msg)
-
-/**
- * Turn the protobuf rust passes us into a BookmarkTreeNode.
- *
- * Note that we have no way to determine empty lists and lists that weren't provided, so we pass
- * in what we.
- * expect as a boolean flag (shouldHaveChildNodes).
- */
-@Suppress("ComplexMethod", "ReturnCount", "TooGenericExceptionThrown")
-internal fun unpackProtobuf(msg: MsgTypes.BookmarkNode): BookmarkTreeNode {
-    val guid = msg.guid
-    val parentGUID = msg.parentGuid
-    val position = msg.position
-    val dateAdded = msg.dateAdded
-    val lastModified = msg.lastModified
-    val type = msg.nodeType
-    val title = if (msg.hasTitle()) { msg.title } else { "" }
-    val shouldHaveChildNodes = if (msg.hasHaveChildNodes()) { msg.haveChildNodes } else { false }
-    when (type) {
-
-        BookmarkType.Bookmark.value -> {
-            return BookmarkItem(
-                    guid = guid,
-                    parentGUID = parentGUID,
-                    position = position,
-                    dateAdded = dateAdded,
-                    lastModified = lastModified,
-                    title = title,
-                    url = msg.url
-            )
-        }
-
-        BookmarkType.Separator.value -> {
-            return BookmarkSeparator(
-                    guid = guid,
-                    parentGUID = parentGUID,
-                    position = position,
-                    dateAdded = dateAdded,
-                    lastModified = lastModified
-            )
-        }
-
-        BookmarkType.Folder.value -> {
-            val childNodes: List<BookmarkTreeNode> = msg.childNodesList.map {
-                child -> unpackProtobuf(child)
-            }
-            var childGuids = msg.childGuidsList
-
-            // If we got child nodes instead of guids, use the nodes to get the guids.
-            if (childGuids.isEmpty() && childNodes.isNotEmpty()) {
-                childGuids = childNodes.map { child -> child.guid }
-            }
-
-            return BookmarkFolder(
-                    guid = guid,
-                    parentGUID = parentGUID,
-                    position = position,
-                    dateAdded = dateAdded,
-                    lastModified = lastModified,
-                    title = title,
-                    childGUIDs = childGuids,
-                    children = if (shouldHaveChildNodes) { childNodes } else { null }
-            )
-        }
-
-        else -> {
-            // Should never happen
-            throw RuntimeException("Rust passed in an illegal bookmark type $type")
-        }
-    }
-}
-
-// Unpack results from getBookmarksWithURL and searchBookmarks. Both of these can only return
-// BookmarkItems, so we just do the cast inside the mapper.
-internal fun unpackProtobufItemList(msg: MsgTypes.BookmarkNodeList): List<BookmarkItem> {
-    return msg.nodesList.map { unpackProtobuf(it) as BookmarkItem }
+    fun updateBookmark(guid: Guid, parentGuid: Guid?, position: UInt?, title: String?, url: Url?)
 }

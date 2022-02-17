@@ -3,10 +3,12 @@
 * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
 import org.mozilla.experiments.nimbus.MockNimbus
+import android.content.Context as MockContext
 
 // Get the feature from the MyNimbus.features.
 // The api isn't ready yet.
-val feature = MyNimbus.features.withObjectsFeature.value()
+val ctx = MockContext()
+val feature = MyNimbus.features.withObjectsFeature.value(ctx)
 
 // Show the property level defaults.
 assert(feature.anObject.aString == "yes")

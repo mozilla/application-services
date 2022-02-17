@@ -8,7 +8,7 @@ use super::record::{
     SeparatorRecord,
 };
 use super::{SyncedBookmarkKind, SyncedBookmarkValidity};
-use crate::db::{GlobalChangeCounterTracker, PlacesDb};
+use crate::db::{GlobalChangeCounterTracker, PlacesDb, SharedPlacesDb};
 use crate::error::*;
 use crate::frecency::{calculate_frecency, DEFAULT_FRECENCY_SETTINGS};
 use crate::storage::{
@@ -23,14 +23,13 @@ use dogear::{
     self, AbortSignal, CompletionOps, Content, Item, MergedRoot, TelemetryEvent, Tree, UploadItem,
     UploadTombstone,
 };
-use parking_lot::Mutex;
+use interrupt_support::SqlInterruptScope;
 use rusqlite::{Row, NO_PARAMS};
-use sql_support::{self, ConnExt, SqlInterruptScope};
+use sql_support::ConnExt;
 use std::cell::RefCell;
 use std::collections::HashMap;
-use std::convert::TryFrom;
 use std::fmt;
-use std::sync::{atomic::AtomicUsize, Arc};
+use std::sync::Arc;
 use sync15::{
     telemetry, CollSyncIds, CollectionRequest, EngineSyncAssociation, IncomingChangeset,
     OutgoingChangeset, Payload, ServerTimestamp, SyncEngine,
@@ -51,12 +50,9 @@ pub const COLLECTION_NAME: &str = "bookmarks";
 const MAX_FRECENCIES_TO_RECALCULATE_PER_CHUNK: usize = 400;
 
 /// Adapts an interruptee to a Dogear abort signal.
-struct MergeInterruptee<'a, I>(&'a I);
+struct MergeInterruptee<'a>(&'a SqlInterruptScope);
 
-impl<'a, I> AbortSignal for MergeInterruptee<'a, I>
-where
-    I: interrupt_support::Interruptee,
-{
+impl<'a> AbortSignal for MergeInterruptee<'a> {
     #[inline]
     fn aborted(&self) -> bool {
         self.0.was_interrupted()
@@ -887,18 +883,18 @@ pub(crate) fn update_frecencies(db: &PlacesDb, scope: &SqlInterruptScope) -> Res
 
 // Short-lived struct that's constructed each sync
 pub struct BookmarksSyncEngine {
-    db: Arc<Mutex<PlacesDb>>,
+    db: Arc<SharedPlacesDb>,
     // Pub so that it can be used by the PlacesApi methods.  Once all syncing goes through the
     // `SyncManager` we should be able to make this private.
     pub(crate) scope: SqlInterruptScope,
 }
 
 impl BookmarksSyncEngine {
-    pub fn new(db: Arc<Mutex<PlacesDb>>) -> Self {
-        Self {
+    pub fn new(db: Arc<SharedPlacesDb>) -> Result<Self> {
+        Ok(Self {
+            scope: db.begin_interrupt_scope()?,
             db,
-            scope: SqlInterruptScope::new(Arc::new(AtomicUsize::new(0))),
-        }
+        })
     }
 }
 
@@ -1791,7 +1787,7 @@ mod tests {
     }
 
     fn create_sync_engine(api: &PlacesApi) -> BookmarksSyncEngine {
-        BookmarksSyncEngine::new(api.get_sync_connection().unwrap())
+        BookmarksSyncEngine::new(api.get_sync_connection().unwrap()).unwrap()
     }
 
     // Applys the incoming records, and also "finishes" the sync by pretending
@@ -1902,7 +1898,7 @@ mod tests {
         let conn = db.lock();
 
         // suck records into the database.
-        let interrupt_scope = api.dummy_sync_interrupt_scope();
+        let interrupt_scope = conn.begin_interrupt_scope()?;
 
         let mut incoming = IncomingChangeset::new(COLLECTION_NAME, ServerTimestamp(0));
 
@@ -1929,36 +1925,36 @@ mod tests {
         let node = tree
             .node_for_guid(&"qqVTRWhLBOu3".into())
             .expect("should exist");
-        assert_eq!(node.needs_merge, true);
+        assert!(node.needs_merge);
         assert_eq!(node.validity, Validity::Valid);
         assert_eq!(node.level(), 2);
-        assert_eq!(node.is_syncable(), true);
+        assert!(node.is_syncable());
 
         let node = tree
             .node_for_guid(&BookmarkRootGuid::Unfiled.as_guid().as_str().into())
             .expect("should exist");
-        assert_eq!(node.needs_merge, true);
+        assert!(node.needs_merge);
         assert_eq!(node.validity, Validity::Valid);
         assert_eq!(node.level(), 1);
-        assert_eq!(node.is_syncable(), true);
+        assert!(node.is_syncable());
 
         let node = tree
             .node_for_guid(&BookmarkRootGuid::Menu.as_guid().as_str().into())
             .expect("should exist");
-        assert_eq!(node.needs_merge, false);
+        assert!(!node.needs_merge);
         assert_eq!(node.validity, Validity::Valid);
         assert_eq!(node.level(), 1);
-        assert_eq!(node.is_syncable(), true);
+        assert!(node.is_syncable());
 
         let node = tree
             .node_for_guid(&BookmarkRootGuid::Root.as_guid().as_str().into())
             .expect("should exist");
         assert_eq!(node.validity, Validity::Valid);
         assert_eq!(node.level(), 0);
-        assert_eq!(node.is_syncable(), false);
+        assert!(!node.is_syncable());
 
         // We should have changes.
-        assert_eq!(db_has_changes(&conn).unwrap(), true);
+        assert!(db_has_changes(&conn).unwrap());
         Ok(())
     }
 
@@ -1991,7 +1987,7 @@ mod tests {
             }),
         );
 
-        let interrupt_scope = syncer.begin_interrupt_scope();
+        let interrupt_scope = syncer.begin_interrupt_scope()?;
         let merger =
             Merger::with_localtime(&syncer, &interrupt_scope, ServerTimestamp(0), now.into());
 
@@ -2003,38 +1999,38 @@ mod tests {
         let node = tree
             .node_for_guid(&"bookmark1___".into())
             .expect("should exist");
-        assert_eq!(node.needs_merge, true);
+        assert!(node.needs_merge);
         assert_eq!(node.level(), 2);
-        assert_eq!(node.is_syncable(), true);
+        assert!(node.is_syncable());
         assert_eq!(node.age, 10000);
 
         let node = tree
             .node_for_guid(&BookmarkRootGuid::Unfiled.as_guid().as_str().into())
             .expect("should exist");
-        assert_eq!(node.needs_merge, true);
+        assert!(node.needs_merge);
         assert_eq!(node.level(), 1);
-        assert_eq!(node.is_syncable(), true);
+        assert!(node.is_syncable());
 
         let node = tree
             .node_for_guid(&BookmarkRootGuid::Menu.as_guid().as_str().into())
             .expect("should exist");
-        assert_eq!(node.needs_merge, false);
+        assert!(!node.needs_merge);
         assert_eq!(node.level(), 1);
-        assert_eq!(node.is_syncable(), true);
+        assert!(node.is_syncable());
 
         let node = tree
             .node_for_guid(&BookmarkRootGuid::Root.as_guid().as_str().into())
             .expect("should exist");
-        assert_eq!(node.needs_merge, false);
+        assert!(!node.needs_merge);
         assert_eq!(node.level(), 0);
-        assert_eq!(node.is_syncable(), false);
+        assert!(!node.is_syncable());
         // hard to know the exact age of the root, but we know the max.
         let max_dur = SystemTime::now().duration_since(now).unwrap();
         let max_age = max_dur.as_secs() as i64 * 1000 + i64::from(max_dur.subsec_millis());
         assert!(node.age <= max_age);
 
         // We should have changes.
-        assert_eq!(db_has_changes(&syncer).unwrap(), true);
+        assert!(db_has_changes(&syncer).unwrap());
         Ok(())
     }
 
@@ -2126,7 +2122,7 @@ mod tests {
 
         let sync_db = api.get_sync_connection().unwrap();
         let syncer = sync_db.lock();
-        let interrupt_scope = api.dummy_sync_interrupt_scope();
+        let interrupt_scope = syncer.begin_interrupt_scope().unwrap();
 
         update_frecencies(&syncer, &interrupt_scope).expect("Should update frecencies");
 
@@ -2158,8 +2154,8 @@ mod tests {
         // Insert two local bookmarks with the same URL A (so they'll have
         // identical tags) and a third with a different URL B, but one same
         // tag as A.
-        let local_bookmarks = &[
-            &InsertableBookmark {
+        let local_bookmarks = vec![
+            InsertableBookmark {
                 parent_guid: BookmarkRootGuid::Unfiled.as_guid(),
                 position: BookmarkPosition::Append,
                 date_added: None,
@@ -2169,7 +2165,7 @@ mod tests {
                 title: Some("A1".into()),
             }
             .into(),
-            &InsertableBookmark {
+            InsertableBookmark {
                 parent_guid: BookmarkRootGuid::Menu.as_guid(),
                 position: BookmarkPosition::Append,
                 date_added: None,
@@ -2179,7 +2175,7 @@ mod tests {
                 title: Some("A2".into()),
             }
             .into(),
-            &InsertableBookmark {
+            InsertableBookmark {
                 parent_guid: BookmarkRootGuid::Unfiled.as_guid(),
                 position: BookmarkPosition::Append,
                 date_added: None,
@@ -2198,7 +2194,7 @@ mod tests {
                 vec!["two", "three", "three", "four"],
             ),
         ];
-        for bm in local_bookmarks {
+        for bm in local_bookmarks.into_iter() {
             insert_bookmark(&writer, bm)?;
         }
         for (url, tags) in local_tags {
@@ -2556,7 +2552,7 @@ mod tests {
         // Insert local item with tagged URL.
         insert_bookmark(
             &writer,
-            &InsertableBookmark {
+            InsertableBookmark {
                 parent_guid: BookmarkRootGuid::Unfiled.as_guid(),
                 position: BookmarkPosition::Append,
                 date_added: None,
@@ -2707,7 +2703,7 @@ mod tests {
             },
         )?;
 
-        let interrupt_scope = db.begin_interrupt_scope();
+        let interrupt_scope = db.begin_interrupt_scope()?;
 
         let mut merger = Merger::new(&db, &interrupt_scope, ServerTimestamp(0));
         merger.merge()?;
@@ -2909,11 +2905,11 @@ mod tests {
         let info_for_a = get_raw_bookmark(&writer, &guid_for_a)
             .expect("Should fetch info for A")
             .unwrap();
-        assert_eq!(info_for_a.sync_change_counter, 2);
+        assert_eq!(info_for_a._sync_change_counter, 2);
         let info_for_unfiled = get_raw_bookmark(&writer, &BookmarkRootGuid::Unfiled.as_guid())
             .expect("Should fetch info for unfiled")
             .unwrap();
-        assert_eq!(info_for_unfiled.sync_change_counter, 2);
+        assert_eq!(info_for_unfiled._sync_change_counter, 2);
 
         engine
             .sync_finished(
@@ -2929,11 +2925,11 @@ mod tests {
         let info_for_a = get_raw_bookmark(&writer, &guid_for_a)
             .expect("Should fetch info for A")
             .unwrap();
-        assert_eq!(info_for_a.sync_change_counter, 0);
+        assert_eq!(info_for_a._sync_change_counter, 0);
         let info_for_unfiled = get_raw_bookmark(&writer, &BookmarkRootGuid::Unfiled.as_guid())
             .expect("Should fetch info for unfiled")
             .unwrap();
-        assert_eq!(info_for_unfiled.sync_change_counter, 0);
+        assert_eq!(info_for_unfiled._sync_change_counter, 0);
 
         let mut tags_for_c = tags::get_tags_for_url(
             &writer,
@@ -4322,8 +4318,8 @@ mod tests {
             let bm = get_raw_bookmark(&writer, &guid.into())
                 .expect("must work")
                 .expect("must exist");
-            assert_eq!(bm.sync_status, SyncStatus::Normal, "{}", guid);
-            assert_eq!(bm.sync_change_counter, 0, "{}", guid);
+            assert_eq!(bm._sync_status, SyncStatus::Normal, "{}", guid);
+            assert_eq!(bm._sync_change_counter, 0, "{}", guid);
         }
         // And bookmarkEEEE wasn't on the server, so should be outgoing, and
         // it's parent too.

@@ -8,18 +8,24 @@
  */
 package android.content
 
+import android.graphics.drawable.Drawable
+
 @Suppress("UNUSED_PARAMETER", "PACKAGE_OR_CLASSIFIER_REDECLARATION", "FunctionOnlyReturningConstant")
 class Context {
     val resources = Resources
 
     val packageName = "dummy.package.name"
 
-    fun getDrawable(res: Int): android.graphics.drawable.Drawable? = null
+    val theme = "a theme"
 
-    fun getString(res: Int): String? = null
+    fun getDrawable(res: Int): Drawable = Drawable(res)
+
+    fun getString(res: Int): String = "res:$res"
 }
 
 @Suppress("UNUSED_PARAMETER", "PACKAGE_OR_CLASSIFIER_REDECLARATION", "FunctionOnlyReturningConstant")
 object Resources {
     fun getIdentifier(resName: String, defType: String, packageName: String): Int? = null
+
+    fun getDrawable(resId: Int, theme: String) = Drawable(resId)
 }

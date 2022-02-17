@@ -320,7 +320,7 @@ fn collect_channel_defaults(
 ///
 /// # Returns
 /// Returns a transformed [`FeatureDef`] with its defaults merged
-fn merge_feature_defaults(
+pub fn merge_feature_defaults(
     feature_def: FeatureDef,
     channel: &str,
     supported_channels: &[String],
@@ -406,8 +406,12 @@ fn get_typeref_from_string(
         "String" => Ok(TypeRef::String),
         "Int" => Ok(TypeRef::Int),
         "Boolean" => Ok(TypeRef::Boolean),
-        "BundleText" => Ok(TypeRef::BundleText(type_name.unwrap())),
-        "BundleImage" => Ok(TypeRef::BundleImage(type_name.unwrap())),
+        "BundleText" | "Text" => Ok(TypeRef::BundleText(
+            type_name.unwrap_or_else(|| "".to_string()),
+        )),
+        "BundleImage" | "Drawable" | "Image" => Ok(TypeRef::BundleImage(
+            type_name.unwrap_or_else(|| "".to_string()),
+        )),
         "Enum" => Ok(TypeRef::Enum(type_name.unwrap())),
         "Object" => Ok(TypeRef::Object(type_name.unwrap())),
         "List" => Ok(TypeRef::List(Box::new(get_typeref_from_string(
@@ -463,7 +467,7 @@ pub struct Parser {
     enums: Vec<EnumDef>,
     objects: Vec<ObjectDef>,
     features: Vec<FeatureDef>,
-    channels: Vec<String>,
+    _channels: Vec<String>,
 }
 
 impl Parser {
@@ -480,7 +484,7 @@ impl Parser {
             enums,
             objects,
             features,
-            channels: manifest.channels,
+            _channels: manifest.channels,
         })
     }
 
@@ -607,8 +611,14 @@ mod unit_tests {
         assert!(
             player_mapping.default
                 == json!({
-                    "child": {},
-                    "adult": {}
+                    "child": {
+                        "label": "Play game!",
+                        "color": "green"
+                    },
+                    "adult": {
+                        "label": "Play game!",
+                        "color": "blue",
+                    }
                 })
         );
 

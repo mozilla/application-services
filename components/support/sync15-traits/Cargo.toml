@@ -3,7 +3,7 @@ name = "sync15-traits"
 version = "0.1.0"
 authors = ["Thom Chiovoloni <tchiovoloni@mozilla.com>"]
 license = "MPL-2.0"
-edition = "2018"
+edition = "2021"
 
 [features]
 random-guid = ["sync-guid/random"]
