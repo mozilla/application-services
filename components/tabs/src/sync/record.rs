@@ -17,7 +17,9 @@ pub struct TabsRecordTab {
 #[derive(Debug, Clone, Hash, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct TabsRecord {
-    pub id: String, // `String` instead of `SyncGuid` because some IDs are FxA device ID.
+    // `String` instead of `SyncGuid` because some IDs are FxA device ID (XXX - that doesn't
+    // matter though - this could easily be a Guid!)
+    pub id: String,
     pub client_name: String,
     pub tabs: Vec<TabsRecordTab>,
     #[serde(default)]
@@ -29,5 +31,51 @@ impl TabsRecord {
     pub fn from_payload(payload: sync15::Payload) -> Result<Self> {
         let record: TabsRecord = payload.into_record()?;
         Ok(record)
+    }
+}
+
+#[cfg(test)]
+pub mod test {
+    use super::*;
+    use serde_json::json;
+
+    #[test]
+    fn test_simple() {
+        let payload = sync15::Payload::from_json(json!({
+            "id": "JkeBPC50ZI0m",
+            "clientName": "client name",
+            "tabs": [{
+                "title": "the title",
+                "urlHistory": [
+                    "https://mozilla.org/"
+                ],
+                "icon": "https://mozilla.org/icon",
+                "lastUsed": 1643764207
+            }]
+        }))
+        .expect("json is valid");
+        let record = TabsRecord::from_payload(payload).expect("payload is valid");
+        assert_eq!(record.id, "JkeBPC50ZI0m");
+        assert_eq!(record.client_name, "client name");
+        assert_eq!(record.tabs.len(), 1);
+        let tab = &record.tabs[0];
+        assert_eq!(tab.title, "the title");
+        assert_eq!(tab.icon, Some("https://mozilla.org/icon".to_string()));
+        assert_eq!(tab.last_used, 1643764207);
+    }
+
+    #[test]
+    fn test_extra_fields() {
+        let payload = sync15::Payload::from_json(json!({
+            "id": "JkeBPC50ZI0m",
+            "clientName": "client name",
+            "tabs": [],
+            // Let's say we agree on new tabs to record, we want old versions to
+            // ignore them!
+            "recentlyClosed": [],
+        }))
+        .expect("json is valid");
+        let record = TabsRecord::from_payload(payload).expect("payload is valid");
+        assert_eq!(record.id, "JkeBPC50ZI0m");
     }
 }
