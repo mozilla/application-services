@@ -46,3 +46,5 @@ pub use sync15_traits::client::DeviceType;
 
 pub use crate::util::ServerTimestamp;
 pub use sync15_traits::SyncEngineId;
+
+uniffi_macros::include_scaffolding!("sync15");

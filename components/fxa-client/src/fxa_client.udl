@@ -948,23 +948,8 @@ dictionary FxAMigrationResult {
 };
 
 
-
-// Enumeration for the different types of device.
-//
-// Firefox Accounts seprates devices into broad categories for display purposes,
-// such as distinguishing a desktop PC from a mobile phone. Upon signin, the
-// application should inspect the device it is running on and select an appropriate
-// [`DeviceType`] to include in its device registration record.
-//
-enum DeviceType {
-  "Desktop",
-  "Mobile",
-  "Tablet",
-  "VR",
-  "TV",
-  "Unknown",
-};
-
+[External="sync15"]
+typedef extern DeviceType;
 
 // A "capability" offered by a device.
 //

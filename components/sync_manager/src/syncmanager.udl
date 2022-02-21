@@ -69,14 +69,8 @@ dictionary DeviceSettings {
     DeviceType kind;
 };
 
-enum DeviceType {
-    "Desktop",
-    "Mobile",
-    "Tablet",
-    "VR",
-    "TV",
-    "Unknown",
-};
+[External="sync15"]
+typedef extern DeviceType;
 
 dictionary SyncResult {
     // Result from the sync server

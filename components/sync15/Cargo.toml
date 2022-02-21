@@ -24,6 +24,11 @@ sync-guid = { path = "../support/guid", features = ["random"] }
 sync15-traits = {path = "../support/sync15-traits"}
 thiserror = "1.0"
 anyhow = "1.0"
+uniffi = "^0.17"
+uniffi_macros = "^0.17"
 
 [dev-dependencies]
 env_logger = { version = "0.7", default-features = false }
+
+[build-dependencies]
+uniffi_build = { version = "^0.17", features=["builtin-bindgen"] }
