@@ -78,7 +78,7 @@ fn main() -> Result<()> {
     // Make sure the device and the send-tab command are registered.
     acct.initialize_device(
         DEFAULT_DEVICE_NAME,
-        device::Type::Desktop,
+        sync15::DeviceType::Desktop,
         &[device::Capability::SendTab],
     )
     .unwrap();

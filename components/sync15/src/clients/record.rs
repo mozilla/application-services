@@ -16,7 +16,7 @@ pub struct ClientRecord {
     pub name: String,
 
     #[serde(default, rename = "type")]
-    pub typ: Option<String>,
+    pub typ: Option<crate::DeviceType>,
 
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub commands: Vec<CommandRecord>,
@@ -133,7 +133,7 @@ mod tests {
         let record = ClientRecord {
             id: "id".into(),
             name: "my device".into(),
-            typ: Some("type".into()),
+            typ: Some(crate::DeviceType::VR),
             commands: Vec::new(),
             fxa_device_id: Some("12345".into()),
             version: None,
