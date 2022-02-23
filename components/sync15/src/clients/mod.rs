@@ -8,9 +8,10 @@ mod engine;
 mod record;
 mod ser;
 
+use crate::DeviceType;
 use anyhow::Result;
 pub use engine::Engine;
-pub use sync15_traits::client::{ClientData, DeviceType, RemoteClient};
+pub use sync15_traits::client::{ClientData, RemoteClient};
 
 // These are what desktop uses.
 const CLIENTS_TTL: u32 = 1_814_400; // 21 days
@@ -62,7 +63,7 @@ impl From<&record::ClientRecord> for RemoteClient {
         RemoteClient {
             fxa_device_id: record.fxa_device_id.clone(),
             device_name: record.name.clone(),
-            device_type: record.typ.as_ref().and_then(DeviceType::try_from_str),
+            device_type: record.typ,
         }
     }
 }

@@ -14,7 +14,12 @@ interface TabsStore {
     void register_with_sync_manager();
 };
 
-enum DeviceType { "Desktop", "Mobile", "Tablet", "VR", "TV" };
+// Note that this enum is duplicated in fxa-client.udl (although the underlying type *is*
+// shared). This duplication exists because there's no direct dependency between that crate and
+// this one. We can probably remove the duplication when sync15 gets a .udl file, then we could
+// reference it via an `[Extern=...]typedef`
+enum DeviceType { "Desktop", "Mobile", "Tablet", "VR", "TV", "Unknown" };
+
 dictionary RemoteTab {
     string title;
     sequence<string> url_history;
