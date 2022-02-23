@@ -6,6 +6,7 @@
 
 use cli_support::fxa_creds::{get_cli_fxa, get_default_fxa_config};
 use cli_support::prompt::prompt_char;
+use std::path::Path;
 use std::sync::Arc;
 use structopt::StructOpt;
 use tabs::{RemoteTab, TabsStore};
@@ -24,6 +25,16 @@ pub struct Opts {
     )]
     /// Path to credentials.json.
     pub creds_file: String,
+
+    #[structopt(
+        name = "database_path",
+        value_name = "DATABASE_PATH",
+        long,
+        short = "d",
+        default_value = "./tab-sync.db"
+    )]
+    /// Path to the database, which will only be created after a sync with incoming records.
+    pub db_path: String,
 }
 
 fn main() -> Result<()> {
@@ -34,7 +45,7 @@ fn main() -> Result<()> {
     let mut cli_fxa = get_cli_fxa(get_default_fxa_config(), &opts.creds_file)?;
     let device_id = cli_fxa.account.get_current_device_id()?;
 
-    let store = Arc::new(TabsStore::new());
+    let store = Arc::new(TabsStore::new(Path::new(&opts.db_path)));
 
     loop {
         match prompt_char("[U]pdate local state, [L]ist remote tabs, [S]ync or [Q]uit")

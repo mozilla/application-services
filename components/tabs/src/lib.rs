@@ -7,6 +7,7 @@
 
 #[macro_use]
 pub mod error;
+mod schema;
 mod storage;
 mod sync;
 
