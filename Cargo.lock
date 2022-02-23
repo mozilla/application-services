@@ -941,11 +941,11 @@ name = "example-tabs-sync"
 version = "0.1.0"
 dependencies = [
  "anyhow",
- "clap",
  "cli-support",
  "clipboard",
  "log",
  "serde_json",
+ "structopt",
  "tabs",
  "viaduct-reqwest",
 ]
