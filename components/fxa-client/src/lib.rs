@@ -1255,7 +1255,7 @@ pub struct TabHistoryEntry {
 pub struct AttachedClient {
     pub client_id: Option<String>,
     pub device_id: Option<String>,
-    pub device_type: Option<DeviceType>,
+    pub device_type: DeviceType,
     pub is_current_session: bool,
     pub name: Option<String>,
     pub created_time: Option<i64>,
