@@ -10,9 +10,9 @@ use std::cell::{Cell, RefCell};
 use std::collections::HashMap;
 use std::sync::Arc;
 use sync15::{
-    clients::{self, DeviceType, RemoteClient},
-    telemetry, CollectionRequest, EngineSyncAssociation, IncomingChangeset, OutgoingChangeset,
-    Payload, ServerTimestamp, SyncEngine,
+    clients::{self, RemoteClient},
+    telemetry, CollectionRequest, DeviceType, EngineSyncAssociation, IncomingChangeset,
+    OutgoingChangeset, Payload, ServerTimestamp, SyncEngine,
 };
 use sync_guid::Guid;
 
@@ -46,10 +46,7 @@ impl ClientRemoteTabs {
         Self {
             client_id,
             client_name: remote_client.device_name.clone(),
-            device_type: remote_client
-                .device_type
-                .unwrap_or(DeviceType::Mobile)
-                .into(),
+            device_type: remote_client.device_type.unwrap_or(DeviceType::Mobile),
             remote_tabs: record.tabs.iter().map(RemoteTab::from_record_tab).collect(),
         }
     }
@@ -58,7 +55,7 @@ impl ClientRemoteTabs {
         Self {
             client_id,
             client_name: record.client_name,
-            device_type: DeviceType::Mobile.into(),
+            device_type: DeviceType::Mobile,
             remote_tabs: record.tabs.iter().map(RemoteTab::from_record_tab).collect(),
         }
     }
@@ -170,7 +167,7 @@ impl SyncEngine for TabsEngine {
             let local_record = ClientRemoteTabs {
                 client_id: local_id,
                 client_name,
-                device_type: device_type.into(),
+                device_type,
                 remote_tabs: local_tabs.to_vec(),
             };
             let payload = Payload::from_record(local_record.to_record())?;

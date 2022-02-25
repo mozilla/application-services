@@ -401,7 +401,7 @@ mod tests {
                     common: http_client::DeviceResponseCommon {
                         id: "1234a".to_owned(),
                         display_name: "My Device".to_owned(),
-                        device_type: http_client::DeviceType::Mobile,
+                        device_type: sync15::DeviceType::Mobile,
                         push_subscription: None,
                         available_commands: HashMap::default(),
                         push_endpoint_expired: false,
@@ -419,7 +419,7 @@ mod tests {
                     common: http_client::DeviceResponseCommon {
                         id: "a4321".to_owned(),
                         display_name: "My Other Device".to_owned(),
-                        device_type: http_client::DeviceType::Desktop,
+                        device_type: sync15::DeviceType::Desktop,
                         push_subscription: None,
                         available_commands: HashMap::default(),
                         push_endpoint_expired: false,
@@ -469,7 +469,7 @@ mod tests {
                 common: http_client::DeviceResponseCommon {
                     id: "a4321".to_owned(),
                     display_name: "My Other Device".to_owned(),
-                    device_type: http_client::DeviceType::Desktop,
+                    device_type: sync15::DeviceType::Desktop,
                     push_subscription: None,
                     available_commands: HashMap::default(),
                     push_endpoint_expired: false,

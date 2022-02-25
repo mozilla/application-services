@@ -50,11 +50,9 @@ impl TryFrom<AttachedClient> for crate::AttachedClient {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::internal::{
-        config::Config,
-        http_client::{DeviceType, FxAClientMock},
-    };
+    use crate::internal::{config::Config, http_client::FxAClientMock};
     use std::sync::Arc;
+    use sync15::DeviceType;
 
     #[test]
     fn test_get_attached_clients() {

@@ -27,3 +27,4 @@ anyhow = "1.0"
 dialoguer = "0.6"
 webbrowser = "0.5"
 url = "2.2"
+sync15 = { path = "../../components/sync15" }
