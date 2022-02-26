@@ -11,6 +11,60 @@ use crate::{
 };
 
 #[test]
+fn test_geo_targeting_one_locale() -> Result<()> {
+    let expression_statement = "locale in ['ro']";
+    let ctx = AppContext {
+        locale: Some("ro".to_string()),
+        ..Default::default()
+    };
+    let targeting_attributes = TargetingAttributes {
+        app_context: ctx,
+        ..Default::default()
+    };
+    assert_eq!(targeting(expression_statement, &targeting_attributes), None);
+    Ok(())
+}
+
+#[test]
+fn test_geo_targeting_multiple_locales() -> Result<()> {
+    let expression_statement = "locale in ['en', 'ro']";
+    let ctx = AppContext {
+        locale: Some("ro".to_string()),
+        ..Default::default()
+    };
+    let targeting_attributes = TargetingAttributes {
+        app_context: ctx,
+        ..Default::default()
+    };
+    assert_eq!(targeting(expression_statement, &targeting_attributes), None);
+    Ok(())
+}
+
+#[test]
+fn test_geo_targeting_fails_properly() -> Result<()> {
+    let expression_statement = "locale in ['en', 'ro']";
+    let ctx = AppContext {
+        locale: Some("ar".to_string()),
+        ..Default::default()
+    };
+    let targeting_attributes = TargetingAttributes {
+        app_context: ctx,
+        ..Default::default()
+    };
+    let enrollment_status = targeting(expression_statement, &targeting_attributes).unwrap();
+    if let EnrollmentStatus::NotEnrolled { reason } = enrollment_status {
+        if let NotEnrolledReason::NotTargeted = reason {
+            // OK
+        } else {
+            panic!("Expected to fail on NotTargeted reason, got: {:?}", reason)
+        }
+    } else {
+        panic! {"Expected to fail targeting with NotEnrolled, got: {:?}", enrollment_status}
+    }
+    Ok(())
+}
+
+#[test]
 fn test_minimum_version_targeting_passes() -> Result<()> {
     // Here's our valid jexl statement
     let expression_statement = "app_version|versionCompare('96.!') >= 0";
