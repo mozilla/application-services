@@ -200,11 +200,13 @@ class NimbusTests: XCTestCase {
         nimbus.recordExperimentTelemetry(enrolledExperiments)
         XCTAssertTrue(Glean.shared.testIsExperimentActive(experimentId: "test-experiment"),
                       "Experiment should be active")
+        // TODO: Below fails due to branch and extra being private members Glean
+        // We will need to change this if we want to remove glean as a submodule and instead
+        // consume it as a swift package https://github.com/mozilla/application-services/issues/4864
+
         // let experimentData = Glean.shared.testGetExperimentData(experimentId: "test-experiment")!
-        // TODO: This fails due to branch and extra being private members Glean
-        // We will need to change this if we want to remove glean as a submodule
-        //        XCTAssertEqual("test-branch", experimentData.branch, "Experiment branch must match")
-        //        XCTAssertEqual("enrollment-id", experimentData.extra["enrollmentId"], "Enrollment id must match")
+        // XCTAssertEqual("test-branch", experimentData.branch, "Experiment branch must match")
+        // XCTAssertEqual("enrollment-id", experimentData.extra["enrollmentId"], "Enrollment id must match")
     }
 
     func testRecordExperimentEvents() throws {
