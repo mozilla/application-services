@@ -205,8 +205,8 @@
 				1B3BC97C27B1D9B700229CF6 /* Utils */,
 			);
 			name = Nimbus;
-			path = MozillaTestServices/Nimbus;
-			sourceTree = SOURCE_ROOT;
+			path = ../../../../components/nimbus/ios;
+			sourceTree = "<group>";
 		};
 		1B3BC97C27B1D9B700229CF6 /* Utils */ = {
 			isa = PBXGroup;
@@ -227,8 +227,8 @@
 				1B3BC99127B1DAA300229CF6 /* crashtest.udl */,
 			);
 			name = Crashtest;
-			path = MozillaTestServices/Crashtest;
-			sourceTree = SOURCE_ROOT;
+			path = ../../../../components/crashtest/ios;
+			sourceTree = "<group>";
 		};
 		1BB64C7B27B1FF9F00A4247F /* TestClient */ = {
 			isa = PBXGroup;
@@ -295,13 +295,12 @@
 		1BBAC55227AE073A00DAFEF2 /* RustLog */ = {
 			isa = PBXGroup;
 			children = (
-				1BF50F2227B1E33F00A9C8A5 /* Generated */,
 				1BBAC55327AE076200DAFEF2 /* RustLog.swift */,
 				1BBAC55427AE076200DAFEF2 /* RustLogFFI.h */,
 			);
 			name = RustLog;
-			path = MozillaTestServices/RustLog;
-			sourceTree = SOURCE_ROOT;
+			path = ../../../../components/rc_log/ios;
+			sourceTree = "<group>";
 		};
 		1BBAC55B27AE082400DAFEF2 /* FxAClient */ = {
 			isa = PBXGroup;
@@ -311,8 +310,8 @@
 				1BBAC56027AE085F00DAFEF2 /* FxAClient */,
 			);
 			name = FxAClient;
-			path = MozillaTestServices/FxAClient;
-			sourceTree = SOURCE_ROOT;
+			path = "../../../../components/fxa-client/ios";
+			sourceTree = "<group>";
 		};
 		1BBAC56027AE085F00DAFEF2 /* FxAClient */ = {
 			isa = PBXGroup;
@@ -352,7 +351,7 @@
 				1BBAC58527AE09C600DAFEF2 /* Logins */,
 			);
 			name = Logins;
-			path = MozillaTestServices/Logins;
+			path = ../../../components/logins/ios;
 			sourceTree = SOURCE_ROOT;
 		};
 		1BBAC58527AE09C600DAFEF2 /* Logins */ = {
@@ -374,8 +373,8 @@
 				1BBAC5A727AE0F2E00DAFEF2 /* Places.swift */,
 			);
 			name = Places;
-			path = MozillaTestServices/Places;
-			sourceTree = SOURCE_ROOT;
+			path = ../../../../components/places/ios;
+			sourceTree = "<group>";
 		};
 		1BBAC5AF27AE112D00DAFEF2 /* Sync15 */ = {
 			isa = PBXGroup;
@@ -384,8 +383,8 @@
 				1BBAC5B027AE11AA00DAFEF2 /* SyncUnlockInfo.swift */,
 			);
 			name = Sync15;
-			path = MozillaTestServices/Sync15;
-			sourceTree = SOURCE_ROOT;
+			path = ../../../../components/sync15/ios;
+			sourceTree = "<group>";
 		};
 		1BF50EEC27B1DBD900A9C8A5 /* Generated */ = {
 			isa = PBXGroup;
@@ -422,9 +421,8 @@
 			children = (
 				1BF50F2B27B1EB7D00A9C8A5 /* sdk_generator.sh */,
 			);
-			name = Glean;
-			path = MozillaTestServices/Glean;
-			sourceTree = SOURCE_ROOT;
+			path = Glean;
+			sourceTree = "<group>";
 		};
 		1BF50F0527B1E06700A9C8A5 /* Generated */ = {
 			isa = PBXGroup;
@@ -444,14 +442,6 @@
 			);
 			name = Generated;
 			path = "../../../components/fxa-client/ios/Generated";
-			sourceTree = SOURCE_ROOT;
-		};
-		1BF50F2227B1E33F00A9C8A5 /* Generated */ = {
-			isa = PBXGroup;
-			children = (
-			);
-			name = Generated;
-			path = MozillaTestServices/RustLog/Generated;
 			sourceTree = SOURCE_ROOT;
 		};
 		1BFC469427C99F250034E0A5 /* Generated */ = {
