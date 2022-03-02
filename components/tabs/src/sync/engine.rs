@@ -46,7 +46,7 @@ impl ClientRemoteTabs {
         Self {
             client_id,
             client_name: remote_client.device_name.clone(),
-            device_type: remote_client.device_type.unwrap_or(DeviceType::Mobile),
+            device_type: remote_client.device_type.unwrap_or(DeviceType::Unknown),
             remote_tabs: record.tabs.iter().map(RemoteTab::from_record_tab).collect(),
         }
     }
@@ -55,7 +55,7 @@ impl ClientRemoteTabs {
         Self {
             client_id,
             client_name: record.client_name,
-            device_type: DeviceType::Mobile,
+            device_type: DeviceType::Unknown,
             remote_tabs: record.tabs.iter().map(RemoteTab::from_record_tab).collect(),
         }
     }
@@ -110,7 +110,7 @@ impl SyncEngine for TabsEngine {
         inbound: Vec<IncomingChangeset>,
         telem: &mut telemetry::Engine,
     ) -> Result<OutgoingChangeset> {
-        assert_eq!(inbound.len(), 1, "only requested one item");
+        assert_eq!(inbound.len(), 1, "only requested one set of records");
         let inbound = inbound.into_iter().next().unwrap();
         let mut incoming_telemetry = telemetry::EngineIncoming::new();
         let local_id = self.local_id.borrow().clone();
@@ -130,7 +130,7 @@ impl SyncEngine for TabsEngine {
                 }
             };
             let id = record.id.clone();
-            let tab = if let Some(remote_client) = self.remote_clients.borrow().get(&id) {
+            let crt = if let Some(remote_client) = self.remote_clients.borrow().get(&id) {
                 ClientRemoteTabs::from_record_with_remote_client(
                     remote_client
                         .fxa_device_id
@@ -141,15 +141,24 @@ impl SyncEngine for TabsEngine {
                     record,
                 )
             } else {
+                // A record with a device that's not in our remote clients seems unlikely, but
+                // could happen - in most cases though, it will be due to a disconnected client -
+                // so we really should consider just dropping it? (Sadly though, it does seem
+                // possible it's actually a very recently connected client, so we keep it)
+                log::info!(
+                    "Storing tabs from a client that doesn't appear in the devices list: {}",
+                    id,
+                );
                 ClientRemoteTabs::from_record(id, record)
             };
-            remote_tabs.push(tab);
+            remote_tabs.push(crt);
         }
+
         let mut outgoing = OutgoingChangeset::new("tabs", inbound.timestamp);
         // We want to keep the mutex for as short as possible
         let local_tabs = {
-            let storage = self.store.storage.lock().unwrap();
-            storage.replace_remote_tabs(remote_tabs);
+            let mut storage = self.store.storage.lock().unwrap();
+            storage.replace_remote_tabs(remote_tabs)?;
             storage.prepare_local_tabs_for_upload()
         };
         if let Some(local_tabs) = local_tabs {
@@ -160,10 +169,10 @@ impl SyncEngine for TabsEngine {
                 .map(|client| {
                     (
                         client.device_name.clone(),
-                        client.device_type.unwrap_or(DeviceType::Mobile),
+                        client.device_type.unwrap_or(DeviceType::Unknown),
                     )
                 })
-                .unwrap_or_else(|| (String::new(), DeviceType::Mobile));
+                .unwrap_or_else(|| (String::new(), DeviceType::Unknown));
             let local_record = ClientRemoteTabs {
                 client_id: local_id,
                 client_name,
@@ -211,13 +220,88 @@ impl SyncEngine for TabsEngine {
         self.remote_clients.borrow_mut().clear();
         self.sync_store_assoc.replace(assoc.clone());
         self.last_sync.set(None);
-        self.store.storage.lock().unwrap().wipe_remote_tabs();
+        self.store.storage.lock().unwrap().wipe_remote_tabs()?;
         Ok(())
     }
 
     fn wipe(&self) -> Result<()> {
         self.reset(&EngineSyncAssociation::Disconnected)?;
+        // not clear why we need to wipe the local tabs - the app is just going
+        // to re-add them?
         self.store.storage.lock().unwrap().wipe_local_tabs();
         Ok(())
+    }
+}
+
+#[cfg(test)]
+pub mod test {
+    use super::*;
+    use serde_json::json;
+
+    #[test]
+    fn test_incoming_tabs() {
+        env_logger::try_init().ok();
+
+        let engine = TabsEngine::new(Arc::new(TabsStore::new_with_mem_path("test")));
+
+        let records = vec![
+            json!({
+                "id": "device-no-tabs",
+                "clientName": "device with no tabs",
+                "tabs": [],
+            }),
+            json!({
+                "id": "device-with-a-tab",
+                "clientName": "device with a tab",
+                "tabs": [{
+                    "title": "the title",
+                    "urlHistory": [
+                        "https://mozilla.org/"
+                    ],
+                    "icon": "https://mozilla.org/icon",
+                    "lastUsed": 1643764207
+                }]
+            }),
+            // This has the main payload as OK but the tabs part invalid.
+            json!({
+                "id": "device-with-invalid-tab",
+                "clientName": "device with a tab",
+                "tabs": [{
+                    "foo": "bar",
+                }]
+            }),
+            // We want this to be a valid payload but an invalid tab - so it needs an ID.
+            json!({
+                "id": "invalid-tab",
+                "foo": "bar"
+            }),
+        ];
+
+        let mut incoming = IncomingChangeset::new(engine.collection_name(), ServerTimestamp(0));
+        for record in records {
+            let payload = Payload::from_json(record).unwrap();
+            incoming.changes.push((payload, ServerTimestamp(0)));
+        }
+        let outgoing = engine
+            .apply_incoming(vec![incoming], &mut telemetry::Engine::new("tabs"))
+            .expect("Should apply incoming and stage outgoing records");
+
+        assert!(outgoing.changes.is_empty());
+
+        // now check the store has what we think it has.
+        let mut storage = engine.store.storage.lock().unwrap();
+        let mut crts = storage.get_remote_tabs().expect("should work");
+        crts.sort_by(|a, b| a.client_name.partial_cmp(&b.client_name).unwrap());
+        assert_eq!(crts.len(), 2, "we currently include devices with no tabs");
+        let crt = &crts[0];
+        assert_eq!(crt.client_name, "device with a tab");
+        assert_eq!(crt.device_type, DeviceType::Unknown);
+        assert_eq!(crt.remote_tabs.len(), 1);
+        assert_eq!(crt.remote_tabs[0].title, "the title");
+
+        let crt = &crts[1];
+        assert_eq!(crt.client_name, "device with no tabs");
+        assert_eq!(crt.device_type, DeviceType::Unknown);
+        assert_eq!(crt.remote_tabs.len(), 0);
     }
 }
