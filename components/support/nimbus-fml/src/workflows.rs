@@ -228,6 +228,22 @@ mod test {
     }
 
     #[test]
+    fn test_with_dx_improvements() -> Result<()> {
+        generate_and_assert_with_config(
+            "test/dx_testing.kts",
+            "fixtures/fe/dx_improvements.yaml",
+            "testing",
+            false,
+            Config {
+                resource_package: Some("com.example.app".to_string()),
+                nimbus_object_name: Some("DxNimbus".to_string()),
+                nimbus_package: Some("com.example.dx".to_string()),
+            },
+        )?;
+        Ok(())
+    }
+
+    #[test]
     fn test_with_app_menu() -> Result<()> {
         generate_and_assert(
             "test/app_menu.kts",
