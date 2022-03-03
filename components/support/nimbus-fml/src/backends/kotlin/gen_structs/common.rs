@@ -20,8 +20,13 @@ pub fn enum_variant_name(nm: &dyn Display) -> String {
 }
 
 /// Surrounds a property name with quotes. It is assumed that property names do not need escaping.
-pub fn quoted(prop: &dyn Display) -> String {
-    format!("\"{}\"", prop)
+pub fn quoted(string: &dyn Display) -> String {
+    let string = string.to_string();
+    if string.contains('"') || string.contains('\n') {
+        format!(r#""""{}""""#, string)
+    } else {
+        format!(r#""{}""#, string)
+    }
 }
 
 pub(crate) mod code_type {

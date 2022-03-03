@@ -4,7 +4,7 @@
 
 use std::fmt::Display;
 
-use super::common::code_type;
+use super::common::{code_type, quoted};
 use crate::backends::{CodeOracle, CodeType, LiteralRenderer, VariablesType};
 use crate::intermediate_representation::Literal;
 use heck::SnakeCase;
@@ -58,11 +58,15 @@ impl CodeType for TextCodeType {
     ) -> String {
         match literal {
             serde_json::Value::String(v) => {
-                format!(
-                    r#"{context}.getString(R.string.{id})"#,
-                    context = ctx,
-                    id = v.to_snake_case()
-                )
+                if !is_resource_id(v) {
+                    quoted(v)
+                } else {
+                    format!(
+                        r#"{context}.getString(R.string.{id})"#,
+                        context = ctx,
+                        id = v.to_snake_case()
+                    )
+                }
             }
             _ => unreachable!("Expecting a string"),
         }
@@ -71,6 +75,10 @@ impl CodeType for TextCodeType {
     fn imports(&self, _oracle: &dyn CodeOracle) -> Option<Vec<String>> {
         Some(vec!["android.content.Context".to_string()])
     }
+}
+
+fn is_resource_id(string: &str) -> bool {
+    !string.contains("://") && !string.contains(' ')
 }
 
 pub(crate) struct ImageCodeType;
