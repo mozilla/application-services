@@ -24,37 +24,37 @@ features:
           alice: 11
           bob: 12
           charlie: 13
-types:
-  objects:
-    TestObject:
-      description: A test object
-      fields:
-        name:
-          description: The name of this object
-          type: String
-          default: Property default
-        style:
-          description: The style name of this object. The default is not overwritten
-          type: String
-          default: Not overwritten
-        optional-int:
-          description: An optional value
-          type: Option<Int>
-          default: null
-        enum-map:
-          description: This should have every variant represented
-          type: Map<TestEnum, Int>
-          default:
-            alice: 1
-            bob: 2
-            charlie: 3
-  enums:
-    TestEnum:
-      description: A test enum
-      variants:
-        alice:
-          description: Test subject Alice
-        bob:
-          description: Test subject Bob
-        charlie:
-          description: Test subject Charlie
+    defaults: []
+objects:
+  TestObject:
+    description: A test object
+    fields:
+      name:
+        description: The name of this object
+        type: String
+        default: Property default
+      style:
+        description: The style name of this object. The default is not overwritten
+        type: String
+        default: Not overwritten
+      optional-int:
+        description: An optional value
+        type: Option<Int>
+        default: null
+      enum-map:
+        description: This should have every variant represented
+        type: Map<TestEnum, Int>
+        default:
+          alice: 1
+          bob: 2
+          charlie: 3
+enums:
+  TestEnum:
+    description: A test enum
+    variants:
+      alice:
+        description: Test subject Alice
+      bob:
+        description: Test subject Bob
+      charlie:
+        description: Test subject Charlie

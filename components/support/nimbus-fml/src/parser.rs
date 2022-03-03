@@ -66,9 +66,19 @@ pub(crate) struct FeatureBody {
 #[derive(Debug, Deserialize, Serialize, Clone, Default)]
 #[serde(deny_unknown_fields)]
 pub(crate) struct ManifestFrontEnd {
-    types: Types,
+    // We'd like to get rid of the `types` property,
+    // but we need to keep supporting it.
+    #[serde(default)]
+    #[serde(rename = "types")]
+    legacy_types: Option<Types>,
     features: HashMap<String, FeatureBody>,
     channels: Vec<String>,
+
+    // If a types attribute isn't explicitly expressed,
+    // then we should assume that we use the flattened version.
+    #[serde(default)]
+    #[serde(flatten)]
+    types: Types,
 }
 
 impl ManifestFrontEnd {
@@ -78,12 +88,13 @@ impl ManifestFrontEnd {
     /// Returns a [`std::collections::HashMap<String,TypeRef>`] where
     /// the key is the name of the type, and the TypeRef represents the type itself
     fn get_types(&self) -> HashMap<String, TypeRef> {
-        self.types
+        let types = self.legacy_types.as_ref().unwrap_or(&self.types);
+        types
             .enums
             .iter()
             .map(|(s, _)| (s.clone(), TypeRef::Enum(s.clone())))
             .chain(
-                self.types
+                types
                     .objects
                     .iter()
                     .map(|(s, _)| (s.clone(), TypeRef::Object(s.clone()))),
@@ -150,7 +161,8 @@ impl ManifestFrontEnd {
     /// # Returns
     /// Returns a [`std::vec::Vec<ObjectDef>`]
     fn get_objects(&self) -> Vec<ObjectDef> {
-        self.types
+        let types = self.legacy_types.as_ref().unwrap_or(&self.types);
+        types
             .objects
             .iter()
             .map(|t| ObjectDef {
@@ -171,7 +183,8 @@ impl ManifestFrontEnd {
     /// # Returns
     /// Returns a [`std::vec::Vec<EnumDef>`]
     fn get_enums(&self) -> Vec<EnumDef> {
-        self.types
+        let types = self.legacy_types.as_ref().unwrap_or(&self.types);
+        types
             .enums
             .clone()
             .into_iter()
