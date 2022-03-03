@@ -1153,29 +1153,25 @@ mod unit_tests {
                         name: "int".into(),
                         typ: TypeRef::Int,
                         doc: "".into(),
-                        // defaults defined in ObjectDefs are not used
-                        default: json!(null),
+                        default: json!(1),
                     },
                     PropDef {
                         name: "string".into(),
                         typ: TypeRef::String,
                         doc: "".into(),
-                        // defaults defined in ObjectDefs are not used
-                        default: json!(null),
+                        default: json!("a string"),
                     },
                     PropDef {
                         name: "enum".into(),
                         typ: TypeRef::Enum("ButtonColor".into()),
                         doc: "".into(),
-                        // defaults defined in ObjectDefs are not used
-                        default: json!(null),
+                        default: json!("blue"),
                     },
                     PropDef {
                         name: "list".into(),
                         typ: TypeRef::List(Box::new(TypeRef::Boolean)),
                         doc: "".into(),
-                        // defaults defined in ObjectDefs are not used
-                        default: json!(null),
+                        default: json!([true, false]),
                     },
                     PropDef {
                         name: "optional".into(),
@@ -1187,7 +1183,11 @@ mod unit_tests {
                         name: "nestedObj".into(),
                         typ: TypeRef::Object("NestedObject".into()),
                         doc: "".into(),
-                        default: json!(null),
+                        default: json!({
+                            "enumMap": {
+                                "blue": 1,
+                            },
+                        }),
                     },
                 ],
                 ..Default::default()
@@ -1201,7 +1201,10 @@ mod unit_tests {
                         Box::new(TypeRef::Int),
                     ),
                     doc: "".into(),
-                    default: json!(null),
+                    default: json!({
+                        "blue": 4,
+                        "green": 2,
+                    }),
                 }],
                 ..Default::default()
             },
@@ -1255,6 +1258,8 @@ mod unit_tests {
         fm.feature_defs[0].props[0] = prop.clone();
         fm.validate_prop_defaults(&prop)
             .expect_err("Should error out because the object has an extra property");
+
+        // This test is missing a `list` property. But that's ok, because we'll get it from the object definition.
         prop.default = json!({
             "int": 1,
             "string": "bobo",
@@ -1268,8 +1273,8 @@ mod unit_tests {
             "optional": 2,
         });
         fm.feature_defs[0].props[0] = prop.clone();
-        fm.validate_prop_defaults(&prop)
-            .expect_err("Should error out because the object has is missing one of the properties");
+        fm.validate_prop_defaults(&prop)?
+
         prop.default = json!({
             "int": 1,
             "string": "bobo",
