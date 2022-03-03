@@ -36,3 +36,8 @@ Use the template below to make assigning a version number during the release cut
 
 - The tabs component's constructor now requires the path to the database file where remote tabs will be persisted to.
 - Requesting remote tabs before the first sync will now return the tabs in this database, so may be "stale".
+## Glean
+### ⚠️ Breaking Changes ⚠️
+### Swift
+- GleanMetrics should now be imported under `import Glean` instead of importing via `MozillaRustComponents`
+

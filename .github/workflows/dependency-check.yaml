@@ -71,7 +71,6 @@ jobs:
         run: |
             cargo metadata --locked > /dev/null
             python ./tools/dependency_summary.py --check ./DEPENDENCIES.md
-            python ./tools/dependency_summary.py --all-ios-targets --package megazord_ios --check megazords/ios/DEPENDENCIES.md
-            python ./tools/dependency_summary.py --all-ios-targets --package ios_rust --check megazords/ios-rust/DEPENDENCIES.md
+            python ./tools/dependency_summary.py --all-ios-targets --package megazord_ios --check megazords/ios-rust/DEPENDENCIES.md
             python ./tools/dependency_summary.py --all-android-targets --package megazord --check megazords/full/DEPENDENCIES.md
             python ./tools/dependency_summary.py --all-android-targets --package megazord --format pom --check megazords/full/android/dependency-licenses.xml

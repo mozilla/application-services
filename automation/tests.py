@@ -54,7 +54,7 @@ IGNORE_PATHS = set([
     # let's not run tests just for dependency changes
     'megazords/full/DEPENDENCIES.md',
     'megazords/full/android/dependency-licenses.xml',
-    'megazords/ios/DEPENDENCIES.md',
+    'megazords/ios-rust/DEPENDENCIES.md',
 ])
 
 def blue_text(text):

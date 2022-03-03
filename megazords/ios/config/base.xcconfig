@@ -1,7 +1,0 @@
-#include "../../xcconfig/common.xcconfig"
-
-INFOPLIST_FILE = config/Info.plist
-HEADER_SEARCH_PATHS = "../../components/fxa-client/ios/FxAClient"  "../../components/logins/ios/Logins" "./RustLog" "./Viaduct"
-FRAMEWORK_SEARCH_PATHS = "../ios-rust/MozillaRustComponents.xcframework"
-CLANG_ENABLE_MODULES = YES
-ALWAYS_SEARCH_USER_PATHS = NO

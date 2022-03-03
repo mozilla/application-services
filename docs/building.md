@@ -108,9 +108,13 @@ Configure maven to use the native windows maven repository - then, when doing `.
 1. Run `./libs/verify-ios-environment.sh` to check your setup and environment
 variables.  
 1. Make any corrections recommended by the script and re-run.
+2. Next, run `./megazords/ios-rust/build-xcframework.sh` to build all the binaries needed to consume a-s in iOS
 
 Once the script passes, you should be able to run the Xcode project.
-> Note: The built Xcode project is located at `megazords/ios/MozillaAppServices.xcodeproj`.
+> Note: The built Xcode project is located at `megazords/ios-rust/MozillaTestServices.xcodeproj`.
+
+> Note: This is mainly for testing the rust components, the artifact generated in the above steps should be all you need for building application with application-services
+
 
 
 ### ⚠️ Locally building Firefox iOS against a local Application Services ⚠️
