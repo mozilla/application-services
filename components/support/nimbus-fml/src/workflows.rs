@@ -230,7 +230,7 @@ mod test {
     #[test]
     fn test_with_dx_improvements() -> Result<()> {
         generate_and_assert_with_config(
-            "test/dx_testing.kts",
+            "test/dx_improvements_testing.kts",
             "fixtures/fe/dx_improvements.yaml",
             "testing",
             false,
