@@ -44,7 +44,9 @@ pub(crate) struct ObjectBody {
 
 #[derive(Debug, Deserialize, Serialize, Clone, Default)]
 pub(crate) struct Types {
+    #[serde(default)]
     enums: HashMap<String, EnumBody>,
+    #[serde(default)]
     objects: HashMap<String, ObjectBody>,
 }
 

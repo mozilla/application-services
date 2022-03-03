@@ -75,8 +75,10 @@ pub(crate) type StringId = String;
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Default)]
 pub struct FeatureManifest {
     #[serde(rename = "enums")]
+    #[serde(default)]
     pub enum_defs: Vec<EnumDef>,
     #[serde(rename = "objects")]
+    #[serde(default)]
     pub obj_defs: Vec<ObjectDef>,
     // `hints` are useful for things that will be constructed from strings
     // such as images and display text.
