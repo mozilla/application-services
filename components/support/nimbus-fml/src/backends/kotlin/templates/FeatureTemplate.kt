@@ -8,12 +8,12 @@
 
 {{ inner.doc()|comment("") }}
 public class {{class_name}}
-    internal constructor(
+    private constructor(
         private val _variables: Variables,
-        internal val _defaults: Defaults) {
+        private val _defaults: Defaults) {
 {# The data class holds the default values that come from the manifest. They should completely
 specify all values needed for the  feature #}
-    data class Defaults({% for p in inner.props() %}
+    private data class Defaults({% for p in inner.props() %}
         {%- let t = p.typ() %}
         val {{p.name()|var_name}}: {{ t|type_label }}{% if !loop.last %},{% endif %}
     {%- endfor %}
