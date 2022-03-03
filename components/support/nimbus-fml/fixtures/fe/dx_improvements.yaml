@@ -15,6 +15,15 @@ features:
         default:
           name: Feature default
           optional-int: 5
+          enum-map:
+            alice: 21
+      an-enum-map:
+        description: A variable of type string
+        type: Map<TestEnum, Int>
+        default:
+          alice: 11
+          bob: 12
+          charlie: 13
 types:
   objects:
     TestObject:
@@ -32,3 +41,20 @@ types:
           description: An optional value
           type: Option<Int>
           default: null
+        enum-map:
+          description: This should have every variant represented
+          type: Map<TestEnum, Int>
+          default:
+            alice: 1
+            bob: 2
+            charlie: 3
+  enums:
+    TestEnum:
+      description: A test enum
+      variants:
+        alice:
+          description: Test subject Alice
+        bob:
+          description: Test subject Bob
+        charlie:
+          description: Test subject Charlie
