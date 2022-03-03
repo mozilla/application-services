@@ -235,6 +235,11 @@ impl FeatureManifest {
     }
 
     fn validate_defaults(&self) -> Result<()> {
+        for object in &self.obj_defs {
+            for prop in &object.props {
+                self.validate_prop_defaults(prop)?;
+            }
+        }
         for feature in &self.feature_defs {
             for prop in &feature.props {
                 self.validate_prop_defaults(prop)?;
@@ -334,9 +339,13 @@ impl FeatureManifest {
                 })?;
                 let mut seen = HashSet::new();
                 for prop in &obj_def.props {
-                    // we default to Null, to validate for optionals that may not exist
-                    let map_val = map.get(&prop.name()).unwrap_or(&Value::Null);
-                    self.validate_default_by_typ(&prop.typ, map_val)?;
+                    // We only check the defaults overriding the property defaults
+                    // from the object's own property defaults.
+                    // We check the object property defaults previously.
+                    if let Some(map_val) = map.get(&prop.name()) {
+                        self.validate_default_by_typ(&prop.typ, map_val)?;
+                    }
+
                     seen.insert(prop.name());
                 }
                 for map_key in map.keys() {

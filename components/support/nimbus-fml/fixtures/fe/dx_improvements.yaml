@@ -14,6 +14,7 @@ features:
         type: TestObject
         default:
           name: Feature default
+          optional-int: 5
 types:
   objects:
     TestObject:
@@ -27,3 +28,7 @@ types:
           description: The style name of this object. The default is not overwritten
           type: String
           default: Not overwritten
+        optional-int:
+          description: An optional value
+          type: Option<Int>
+          default: null
