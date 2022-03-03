@@ -15,17 +15,20 @@ use crate::{
 };
 
 #[derive(Debug, Deserialize, Serialize, Clone)]
+#[serde(deny_unknown_fields)]
 pub(crate) struct EnumVariantBody {
     description: String,
 }
 
 #[derive(Debug, Deserialize, Serialize, Clone)]
+#[serde(deny_unknown_fields)]
 pub(crate) struct EnumBody {
     description: String,
     variants: HashMap<String, EnumVariantBody>,
 }
 
 #[derive(Debug, Deserialize, Serialize, Clone)]
+#[serde(deny_unknown_fields)]
 pub(crate) struct FieldBody {
     description: String,
     #[serde(default)]
@@ -36,6 +39,7 @@ pub(crate) struct FieldBody {
 }
 
 #[derive(Debug, Deserialize, Serialize, Clone)]
+#[serde(deny_unknown_fields)]
 pub(crate) struct ObjectBody {
     description: String,
     failable: Option<bool>,
@@ -43,6 +47,7 @@ pub(crate) struct ObjectBody {
 }
 
 #[derive(Debug, Deserialize, Serialize, Clone, Default)]
+#[serde(deny_unknown_fields)]
 pub(crate) struct Types {
     #[serde(default)]
     enums: HashMap<String, EnumBody>,
@@ -51,6 +56,7 @@ pub(crate) struct Types {
 }
 
 #[derive(Debug, Deserialize, Serialize, Clone)]
+#[serde(deny_unknown_fields)]
 pub(crate) struct FeatureBody {
     description: String,
     variables: HashMap<String, FieldBody>,
@@ -58,6 +64,7 @@ pub(crate) struct FeatureBody {
     default: Option<serde_json::Value>,
 }
 #[derive(Debug, Deserialize, Serialize, Clone, Default)]
+#[serde(deny_unknown_fields)]
 pub(crate) struct ManifestFrontEnd {
     types: Types,
     features: HashMap<String, FeatureBody>,
