@@ -16,14 +16,14 @@ features:
           name: Feature default
           optional-int: 5
           enum-map:
-            alice: 21
+            alice: 11
       an-enum-map:
         description: A variable of type string
         type: Map<TestEnum, Int>
         default:
           alice: 11
-          bob: 12
-          charlie: 13
+          bob: 22
+          charlie: 33
     defaults: []
 objects:
   TestObject:
