@@ -3,4 +3,10 @@
 # `taskcluster/docs/cron.rst`.
 ---
 
-jobs: []
+jobs:
+    - name: nightly
+      job:
+          type: decision-task
+          target-tasks-method: nightly
+      when:
+          - {hour: 5, minute: 0}
