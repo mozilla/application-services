@@ -1,0 +1,23 @@
+base_repository: https://github.com/mozilla/application-services
+build_date: 1648051941
+do_not_optimize: []
+existing_tasks: {}
+filters:
+- target_tasks_method
+- branch-build
+head_ref: branch-builds
+head_repository: https://github.com/mozilla/application-services
+head_rev: 4cd3c573102732fd5040185344c9f2d56a78cd7e
+head_tag: ''
+level: '1'
+moz_build_date: '20220323161221'
+optimize_target_tasks: true
+owner: bendk@users.noreply.github.com
+project: application-services
+pushdate: 0
+pushlog_id: '0'
+repository_type: git
+target_tasks_method: pr-normal
+tasks_for: github-pull-request
+branch-build:
+  android-components-branch: some-commit-id
