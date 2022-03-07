@@ -1443,7 +1443,7 @@ mod tests {
                     "DELETE FROM loginsL WHERE guid IN ({vars})",
                     vars = sql_support::repeat_sql_vars(chunk.len())
                 ),
-                chunk,
+                rusqlite::params_from_iter(chunk),
             )?;
             Ok(())
         })?;

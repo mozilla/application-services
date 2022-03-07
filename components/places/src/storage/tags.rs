@@ -343,14 +343,14 @@ mod tests {
         // should be no tags rows left.
         let count: Result<Option<u32>> = conn.try_query_row(
             "SELECT COUNT(*) from moz_tags",
-            &[],
+            [],
             |row| Ok(row.get::<_, u32>(0)?),
             true,
         );
         assert_eq!(count.unwrap().unwrap(), 0);
         let count: Result<Option<u32>> = conn.try_query_row(
             "SELECT COUNT(*) from moz_tags_relation",
-            &[],
+            [],
             |row| Ok(row.get::<_, u32>(0)?),
             true,
         );

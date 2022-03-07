@@ -52,8 +52,14 @@ pub fn append_invalid_bookmark(
     let place_sql = "
         INSERT INTO moz_places (guid, url, url_hash)
         VALUES (:guid, :url, hash(:url))";
-    db.execute_cached(place_sql, &[(":guid", &guid), (":url", &url.to_string())])
-        .expect("should insert");
+    db.execute_cached(
+        place_sql,
+        &[
+            (":guid", &guid as &dyn rusqlite::ToSql),
+            (":url", &url.to_string()),
+        ],
+    )
+    .expect("should insert");
     let place_id = db.conn().last_insert_rowid();
 
     let bm_sql = format!(
@@ -70,8 +76,14 @@ pub fn append_invalid_bookmark(
         parent_id = parent.row_id.0,
         position = position,
     );
-    db.execute_cached(&bm_sql, &[(":title", &title.to_string()), (":guid", &guid)])
-        .expect("should insert bookmark");
+    db.execute_cached(
+        &bm_sql,
+        &[
+            (":title", &title.to_string() as &dyn rusqlite::ToSql),
+            (":guid", &guid),
+        ],
+    )
+    .expect("should insert bookmark");
     InvalidBookmarkIds { place_id, guid }
 }
 

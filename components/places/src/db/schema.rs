@@ -302,7 +302,7 @@ mod tests {
         conn.execute_cached(
             "INSERT INTO moz_places (guid, url, url_hash) VALUES (:guid, :url, hash(:url))",
             &[
-                (":guid", &guid),
+                (":guid", &guid as &dyn rusqlite::ToSql),
                 (
                     ":url",
                     &String::from(Url::parse("http://example.com").expect("valid url")),
@@ -338,7 +338,7 @@ mod tests {
             "INSERT INTO moz_places (guid, url, url_hash, sync_status)
              VALUES (:guid, :url, hash(:url), :sync_status)",
             &[
-                (":guid", &guid),
+                (":guid", &guid as &dyn rusqlite::ToSql),
                 (
                     ":url",
                     &String::from(Url::parse("http://example.com").expect("valid url")),
@@ -405,7 +405,7 @@ mod tests {
 
     fn select_simple_int(conn: &PlacesDb, stmt: &str) -> u32 {
         let count: Result<Option<u32>> =
-            conn.try_query_row(stmt, &[], |row| Ok(row.get::<_, u32>(0)?), false);
+            conn.try_query_row(stmt, [], |row| Ok(row.get::<_, u32>(0)?), false);
         count.unwrap().unwrap()
     }
 
@@ -431,14 +431,20 @@ mod tests {
 
         conn.execute_cached(
             "INSERT INTO moz_places (guid, url, url_hash) VALUES (:guid, :url, hash(:url))",
-            &[(":guid", &guid1), (":url", &String::from(url1))],
+            &[
+                (":guid", &guid1 as &dyn rusqlite::ToSql),
+                (":url", &String::from(url1)),
+            ],
         )
         .expect("should work");
         let place_id1 = conn.last_insert_rowid();
 
         conn.execute_cached(
             "INSERT INTO moz_places (guid, url, url_hash) VALUES (:guid, :url, hash(:url))",
-            &[(":guid", &guid2), (":url", &String::from(url2))],
+            &[
+                (":guid", &guid2 as &dyn rusqlite::ToSql),
+                (":url", &String::from(url2)),
+            ],
         )
         .expect("should work");
         let place_id2 = conn.last_insert_rowid();
@@ -503,7 +509,7 @@ mod tests {
         // delete it.
         conn.execute_cached(
             "DELETE FROM moz_bookmarks_synced WHERE guid = 'fake_guid___';",
-            &[],
+            [],
         )
         .expect("should work");
         assert_eq!(get_foreign_count(&conn, &"fake_guid___".into()), 0);

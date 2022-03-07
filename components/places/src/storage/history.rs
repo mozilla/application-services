@@ -1534,7 +1534,7 @@ mod tests {
     fn get_tombstone_count(conn: &PlacesDb) -> u32 {
         let result: Result<Option<u32>> = conn.try_query_row(
             "SELECT COUNT(*) from moz_places_tombstones;",
-            &[],
+            [],
             |row| Ok(row.get::<_, u32>(0)?),
             true,
         );
@@ -1912,7 +1912,10 @@ mod tests {
                 sync_change_counter = 0,
                 frecency = 50
             WHERE id = :id",
-            &[(":status", &(SyncStatus::New as u8)), (":id", &pi2.row_id)],
+            &[
+                (":status", &(SyncStatus::New as u8) as &dyn rusqlite::ToSql),
+                (":id", &pi2.row_id),
+            ],
         )?;
 
         // A second page with "new", a change counter (which will be ignored
@@ -1924,7 +1927,10 @@ mod tests {
                 sync_change_counter = 1,
                 frecency = 10
             WHERE id = :id",
-            &[(":status", &(SyncStatus::New as u8)), (":id", &pi3.row_id)],
+            &[
+                (":status", &(SyncStatus::New as u8) as &dyn ToSql),
+                (":id", &pi3.row_id),
+            ],
         )?;
 
         let mut outgoing = fetch_outgoing(&conn, 2, 3)?;
@@ -1980,10 +1986,10 @@ mod tests {
 
         fn page_has_tombstone(conn: &PlacesDb, guid: &SyncGuid) -> Result<bool> {
             let exists = conn
-                .try_query_one::<bool>(
+                .try_query_one::<bool, _>(
                     "SELECT EXISTS(SELECT 1 FROM moz_places_tombstones
                                    WHERE guid = :guid)",
-                    &[(":guid", guid)],
+                    rusqlite::named_params! { ":guid" : guid },
                     false,
                 )?
                 .unwrap_or_default();
@@ -1992,10 +1998,10 @@ mod tests {
 
         fn page_has_visit_tombstones(conn: &PlacesDb, page_id: RowId) -> Result<bool> {
             let exists = conn
-                .try_query_one::<bool>(
+                .try_query_one::<bool, _>(
                     "SELECT EXISTS(SELECT 1 FROM moz_historyvisit_tombstones
                                    WHERE place_id = :page_id)",
-                    &[(":page_id", &page_id)],
+                    rusqlite::named_params! { ":page_id": page_id },
                     false,
                 )?
                 .unwrap_or_default();
@@ -2342,7 +2348,7 @@ mod tests {
         let mut tombstones = c
             .query_rows_and_then(
                 "SELECT place_id, visit_date FROM moz_historyvisit_tombstones",
-                &[],
+                [],
                 |row| -> Result<_> { Ok((row.get::<_, RowId>(0)?, row.get::<_, Timestamp>(1)?)) },
             )
             .unwrap();
@@ -2546,7 +2552,7 @@ mod tests {
         let places = conn
             .query_rows_and_then(
                 "SELECT * FROM moz_places ORDER BY url ASC",
-                &[],
+                [],
                 PageInfo::from_row,
             )
             .unwrap();
@@ -2796,7 +2802,7 @@ mod tests {
         let mut db_preview_url = conn
             .query_row_and_then_cachable(
                 "SELECT preview_image_url FROM moz_places WHERE id = 1",
-                &[],
+                [],
                 |row| row.get(0),
                 false,
             )
@@ -2817,7 +2823,7 @@ mod tests {
         db_preview_url = conn
             .query_row_and_then_cachable(
                 "SELECT h.preview_image_url FROM moz_places AS h JOIN moz_historyvisits AS v ON h.id = v.place_id WHERE v.id = :id",
-                &[(":id", &visit_id.unwrap())],
+                &[(":id", &visit_id.unwrap() as &dyn ToSql)],
                 |row| row.get(0),
                 false,
             )

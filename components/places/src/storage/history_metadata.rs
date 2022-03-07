@@ -725,9 +725,9 @@ mod tests {
             assert_eq!(
                 $count,
                 $conn
-                    .try_query_one::<i64>(
+                    .try_query_one::<i64, _>(
                         format!("SELECT count(*) FROM {table}", table = $table).as_str(),
-                        &[],
+                        [],
                         true
                     )
                     .expect("select works")
@@ -1806,9 +1806,9 @@ mod tests {
 
         // double-check that we have the 'firefox' search query entry.
         assert!(conn
-            .try_query_one::<i64>(
+            .try_query_one::<i64, _>(
                 "SELECT id FROM moz_places_metadata_search_queries WHERE term = :term",
-                &[(":term", &String::from("firefox"))],
+                rusqlite::named_params! { ":term": "firefox" },
                 true
             )
             .expect("select works")
@@ -1839,9 +1839,9 @@ mod tests {
 
         // still have a 'mozilla' search query entry, since one meta entry points to it.
         assert!(
-            conn.try_query_one::<i64>(
+            conn.try_query_one::<i64, _>(
                 "SELECT id FROM moz_places_metadata_search_queries WHERE term = :term",
-                &[(":term", &String::from("mozilla"))],
+                rusqlite::named_params! { ":term": "mozilla" },
                 true
             )
             .expect("select works")
@@ -1851,9 +1851,9 @@ mod tests {
 
         // don't have the 'firefox' search query entry anymore, nothing points to it.
         assert!(
-            conn.try_query_one::<i64>(
+            conn.try_query_one::<i64, _>(
                 "SELECT id FROM moz_places_metadata_search_queries WHERE term = :term",
-                &[(":term", &String::from("firefox"))],
+                rusqlite::named_params! { ":term": "firefox" },
                 true
             )
             .expect("select works")

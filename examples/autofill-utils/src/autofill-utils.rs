@@ -460,7 +460,7 @@ fn get_encryption_key(store: &Store, db_path: &str, opts: &Opts) -> Result<Strin
     pub fn put_meta(conn: &Connection, key: &str, value: &dyn ToSql) -> Result<()> {
         conn.execute_cached(
             "REPLACE INTO moz_meta (key, value) VALUES (:key, :value)",
-            &[(":key", &key), (":value", value)],
+            &[(":key", &key as &dyn rusqlite::ToSql), (":value", value)],
         )?;
         Ok(())
     }

@@ -341,7 +341,7 @@ mod tests {
 
             let payloads = tx.conn().query_rows_and_then(
                 "SELECT * FROM temp.addresses_sync_staging;",
-                &[],
+                [],
                 |row| -> Result<Payload> {
                     let payload: String = row.get_unwrap("payload");
                     Ok(Payload::from_json(serde_json::from_str(&payload)?)?)

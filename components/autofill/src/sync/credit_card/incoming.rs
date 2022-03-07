@@ -335,7 +335,7 @@ mod tests {
 
             let payloads = tx.conn().query_rows_and_then(
                 "SELECT * FROM temp.credit_cards_sync_staging;",
-                &[],
+                [],
                 |row| -> Result<Payload> {
                     let enc_payload: String = row.get_unwrap("payload");
                     let payload = ri.encdec.decrypt(&enc_payload)?;
