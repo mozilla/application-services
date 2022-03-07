@@ -209,6 +209,10 @@ pub trait ConnExt {
         rows.next()?.map(mapper).transpose()
     }
 
+    /// Caveat: This won't actually get used most of the time, and calls will
+    /// usually invoke rusqlite's method with the same name. See comment on
+    /// `UncheckedTransaction` for details (generally you probably don't need to
+    /// care)
     fn unchecked_transaction(&self) -> SqlResult<UncheckedTransaction<'_>> {
         UncheckedTransaction::new(self.conn(), TransactionBehavior::Deferred)
     }
@@ -251,8 +255,33 @@ impl<'conn> ConnExt for Savepoint<'conn> {
 /// against nested transactions but does allow you to use an immutable
 /// `Connection`.
 ///
-/// TODO: Determine if there's any reason to use this over
-/// `rusqlite::Connection::unchecked_transaction`.
+/// FIXME: This currently won't actually be used most of the time, because
+/// `rusqlite` added [`Connection::unchecked_transaction`] (and
+/// `Transaction::new_unchecked`, which can be used to reimplement
+/// `unchecked_transaction_imm`), which will be preferred in a call to
+/// `c.unchecked_transaction()`, because inherent methods have precedence over
+/// methods on extension traits. The exception here is that this will still be
+/// used by code which takes `&impl ConnExt` (I believe it would also be used if
+/// you attempted to call `unchecked_transaction()` on a non-Connection that
+/// implements ConnExt, such as a `Safepoint`, `UncheckedTransaction`, or
+/// `Transaction` itself, but such code is clearly broken, so is not worth
+/// considering).
+///
+/// The difference is that `rusqlite`'s version returns a normal
+/// `rusqlite::Transaction`, rather than the `UncheckedTransaction` from this
+/// crate. Aside from type's name and location (and the fact that `rusqlite`'s
+/// detects slightly more misuse at compile time, and has more features), the
+/// main difference is: `rusqlite`'s does not track when a transaction began,
+/// which unfortunatly seems to be used by the coop-transaction management in
+/// places in some fashion.
+///
+/// There are at least two options for how to fix this:
+/// 1. Decide we don't need this version, and delete it, and moving the
+///    transaction timing into the coop-transaction code directly (or something
+///    like this).
+/// 2. Decide this difference *is* important, and rename
+///    `ConnExt::unchecked_transaction` to something like
+///    `ConnExt::transaction_unchecked`.
 pub struct UncheckedTransaction<'conn> {
     pub conn: &'conn Connection,
     pub started_at: Instant,
