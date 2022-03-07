@@ -2,7 +2,6 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-use rusqlite::NO_PARAMS;
 use serde_json::Value;
 
 use crate::error::*;
@@ -53,7 +52,7 @@ pub fn append_invalid_bookmark(
     let place_sql = "
         INSERT INTO moz_places (guid, url, url_hash)
         VALUES (:guid, :url, hash(:url))";
-    db.execute_named_cached(place_sql, &[(":guid", &guid), (":url", &url.to_string())])
+    db.execute_cached(place_sql, &[(":guid", &guid), (":url", &url.to_string())])
         .expect("should insert");
     let place_id = db.conn().last_insert_rowid();
 
@@ -71,7 +70,7 @@ pub fn append_invalid_bookmark(
         parent_id = parent.row_id.0,
         position = position,
     );
-    db.execute_named_cached(&bm_sql, &[(":title", &title.to_string()), (":guid", &guid)])
+    db.execute_cached(&bm_sql, &[(":title", &title.to_string()), (":guid", &guid)])
         .expect("should insert bookmark");
     InvalidBookmarkIds { place_id, guid }
 }
@@ -116,7 +115,7 @@ pub fn check_positions(conn: &PlacesDb) {
 
     let mut stmt = conn.prepare(sql).expect("sql is ok");
     let parents: Vec<_> = stmt
-        .query_and_then(NO_PARAMS, |row| -> rusqlite::Result<_> {
+        .query_and_then([], |row| -> rusqlite::Result<_> {
             Ok((
                 row.get::<_, i64>(0)?,
                 row.get::<_, String>(1)?,

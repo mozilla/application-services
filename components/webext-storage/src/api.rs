@@ -31,7 +31,7 @@ enum StorageChangeOp {
 
 fn get_from_db(conn: &Connection, ext_id: &str) -> Result<Option<JsonMap>> {
     Ok(
-        match conn.try_query_one::<String>(
+        match conn.try_query_one::<String, _>(
             "SELECT data FROM storage_sync_data
              WHERE ext_id = :ext_id",
             &[(":ext_id", &ext_id)],
@@ -70,7 +70,7 @@ fn save_to_db(tx: &Transaction<'_>, ext_id: &str, val: &StorageChangeOp) -> Resu
             .unwrap_or_default();
         if in_mirror {
             log::trace!("saving data for '{}': leaving a tombstone", ext_id);
-            tx.execute_named_cached(
+            tx.execute_cached(
                 "
                 INSERT INTO storage_sync_data(ext_id, data, sync_change_counter)
                 VALUES (:ext_id, NULL, 1)
@@ -82,7 +82,7 @@ fn save_to_db(tx: &Transaction<'_>, ext_id: &str, val: &StorageChangeOp) -> Resu
             )?;
         } else {
             log::trace!("saving data for '{}': removing the row", ext_id);
-            tx.execute_named_cached(
+            tx.execute_cached(
                 "
                 DELETE FROM storage_sync_data WHERE ext_id = :ext_id",
                 rusqlite::named_params! {
@@ -105,7 +105,7 @@ fn save_to_db(tx: &Transaction<'_>, ext_id: &str, val: &StorageChangeOp) -> Resu
         };
 
         log::trace!("saving data for '{}': writing", ext_id);
-        tx.execute_named_cached(
+        tx.execute_cached(
             "INSERT INTO storage_sync_data(ext_id, data, sync_change_counter)
                 VALUES (:ext_id, :data, 1)
                 ON CONFLICT (ext_id) DO UPDATE
@@ -380,7 +380,7 @@ pub fn usage(db: &Connection) -> Result<Vec<UsageInfo>> {
         -- for tests and determinism
         ORDER BY ext_id
     ";
-    db.query_rows_into(sql, &[], |row| {
+    db.query_rows_into(sql, [], |row| {
         let ext_id: String = row.get("ext_id")?;
         let data: String = row.get("data")?;
         let num_bytes = data.len();

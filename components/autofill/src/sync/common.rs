@@ -13,7 +13,7 @@
 use super::PersistablePayload;
 use crate::error::*;
 use interrupt_support::Interruptee;
-use rusqlite::{types::ToSql, Connection, Row, NO_PARAMS};
+use rusqlite::{types::ToSql, Connection, Row};
 use sync15::{Payload, ServerTimestamp};
 use sync_guid::Guid;
 
@@ -51,7 +51,7 @@ pub(super) fn common_stage_incoming_records(
                 params.push(guid as &dyn ToSql);
                 params.push(json);
             }
-            conn.execute(&sql, params)?;
+            conn.execute(&sql, rusqlite::params_from_iter(params))?;
             Ok(())
         },
     )?;
@@ -60,7 +60,7 @@ pub(super) fn common_stage_incoming_records(
 }
 
 pub(super) fn common_remove_record(conn: &Connection, table_name: &str, guid: &Guid) -> Result<()> {
-    conn.execute_named(
+    conn.execute(
         &format!(
             "DELETE FROM {}
             WHERE guid = :guid",
@@ -80,7 +80,7 @@ pub(super) fn common_change_guid(
     new_guid: &Guid,
 ) -> Result<()> {
     assert_ne!(old_guid, new_guid);
-    let nrows = conn.execute_named(
+    let nrows = conn.execute(
         &format!(
             "UPDATE {}
             SET guid = :new_guid,
@@ -110,7 +110,7 @@ pub(super) fn common_mirror_staged_records(
              SELECT guid, payload FROM temp.{}",
             mirror_table_name, staging_table_name,
         ),
-        NO_PARAMS,
+        [],
     )?;
     Ok(())
 }
@@ -182,7 +182,7 @@ fn get_outgoing_records(
 ) -> anyhow::Result<Vec<(Payload, i64)>> {
     Ok(conn
         .prepare(sql)?
-        .query_map(NO_PARAMS, |row| {
+        .query_map([], |row| {
             let payload = payload_from_data_row(row).unwrap();
             let sync_change_counter = if payload.deleted {
                 0
@@ -231,7 +231,7 @@ pub(super) fn common_save_outgoing_records(
                 params.push(json);
                 params.push(sync_change_counter);
             }
-            conn.execute(&sql, params)?;
+            conn.execute(&sql, rusqlite::params_from_iter(params))?;
             Ok(())
         },
     )?;
@@ -259,7 +259,7 @@ pub(super) fn common_finish_synced_items(
         mirror_table_name = mirror_table_name,
         outgoing_staging_table_name = outgoing_staging_table_name,
     );
-    conn.execute(&sql, NO_PARAMS)?;
+    conn.execute(&sql, [])?;
     Ok(())
 }
 
@@ -293,7 +293,7 @@ fn reset_sync_change_counter(
                 outgoing_table_name = outgoing_table_name,
                 values = sql_support::repeat_sql_values(chunk.len())
             ),
-            chunk,
+            rusqlite::params_from_iter(chunk),
         )?;
         Ok(())
     })?;
@@ -306,7 +306,6 @@ fn reset_sync_change_counter(
 pub(super) mod tests {
     use super::super::*;
     use interrupt_support::NeverInterrupts;
-    use rusqlite::NO_PARAMS;
     use serde_json::{json, Value};
     use sync15::ServerTimestamp;
 
@@ -444,7 +443,7 @@ pub(super) mod tests {
             mirror_table_name, guid1, guid2
         );
         let num_rows = tx
-            .query_row(&sql, NO_PARAMS, |row| Ok(row.get::<_, u32>(0).unwrap()))
+            .query_row(&sql, [], |row| Ok(row.get::<_, u32>(0).unwrap()))
             .unwrap();
         assert_eq!(num_rows, 2);
     }
@@ -455,7 +454,7 @@ pub(super) mod tests {
             table_name, guid
         );
         let num_rows = tx
-            .query_row(&sql, NO_PARAMS, |row| Ok(row.get::<_, u32>(0).unwrap()))
+            .query_row(&sql, [], |row| Ok(row.get::<_, u32>(0).unwrap()))
             .unwrap();
         assert_eq!(num_rows, 1);
     }
@@ -544,7 +543,7 @@ pub(super) mod tests {
             data_table_name, guid
         );
         let num_rows = tx
-            .query_row(&sql, NO_PARAMS, |row| Ok(row.get::<_, u32>(0).unwrap()))
+            .query_row(&sql, [], |row| Ok(row.get::<_, u32>(0).unwrap()))
             .unwrap();
         assert_eq!(num_rows, 0);
 
@@ -611,7 +610,7 @@ pub(super) mod tests {
             guid
         );
         let num_rows = tx
-            .query_row(&sql, NO_PARAMS, |row| Ok(row.get::<_, u32>(0).unwrap()))
+            .query_row(&sql, [], |row| Ok(row.get::<_, u32>(0).unwrap()))
             .unwrap();
         assert_eq!(num_rows, 0);
 

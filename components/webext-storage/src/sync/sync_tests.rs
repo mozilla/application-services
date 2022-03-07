@@ -62,7 +62,7 @@ fn check_finished_with(conn: &Connection, ext_id: &str, val: serde_json::Value) 
     // and there should be zero items with a change counter.
     let count = conn.query_row_and_then(
         "SELECT COUNT(*) FROM storage_sync_data WHERE sync_change_counter != 0;",
-        rusqlite::NO_PARAMS,
+        [],
         |row| row.get::<_, u32>(0),
     )?;
     assert_eq!(count, 0);
@@ -72,7 +72,7 @@ fn check_finished_with(conn: &Connection, ext_id: &str, val: serde_json::Value) 
 fn get_mirror_guid(conn: &Connection, extid: &str) -> Result<String> {
     let guid = conn.query_row_and_then(
         "SELECT m.guid FROM storage_sync_mirror m WHERE m.ext_id = ?;",
-        vec![extid],
+        [extid],
         |row| row.get::<_, String>(0),
     )?;
     Ok(guid)
@@ -99,7 +99,7 @@ fn _get(conn: &Connection, id_name: &str, expected_extid: &str, table: &str) -> 
     }
     let mut items = conn
         .conn()
-        .query_rows_and_then_named(&sql, &[], from_row)
+        .query_rows_and_then(&sql, [], from_row)
         .expect("should work");
     if items.is_empty() {
         DbData::NoRow

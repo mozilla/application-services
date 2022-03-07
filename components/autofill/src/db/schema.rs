@@ -194,7 +194,6 @@ mod tests {
     use crate::db::addresses::get_address;
     use crate::db::credit_cards::get_credit_card;
     use crate::db::test::new_mem_db;
-    use rusqlite::NO_PARAMS;
     use sql_support::open_database::test_utils::MigratedDatabaseFile;
     use sync_guid::Guid;
     use types::Timestamp;
@@ -284,9 +283,9 @@ mod tests {
         let db = db_file.open();
 
         // Test the upgraded check constraint
-        db.execute("UPDATE credit_cards_data SET cc_number_enc=''", NO_PARAMS)
+        db.execute("UPDATE credit_cards_data SET cc_number_enc=''", [])
             .expect("blank cc_number_enc should be valid");
-        db.execute("UPDATE credit_cards_data SET cc_number_enc='x'", NO_PARAMS)
+        db.execute("UPDATE credit_cards_data SET cc_number_enc='x'", [])
             .expect_err("cc_number_enc should be invalid");
     }
 }

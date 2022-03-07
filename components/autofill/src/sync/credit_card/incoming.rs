@@ -77,7 +77,7 @@ impl ProcessIncomingRecordImpl for IncomingCreditCardsImpl {
         LEFT JOIN credit_cards_data l ON s.guid = l.guid
         LEFT JOIN credit_cards_tombstones t ON s.guid = t.guid";
 
-        tx.query_rows_and_then_named(sql, &[], |row| -> Result<IncomingState<Self::Record>> {
+        tx.query_rows_and_then(sql, [], |row| -> Result<IncomingState<Self::Record>> {
             // the 'guid' and 's_payload' rows must be non-null.
             let guid: SyncGuid = row.get("guid")?;
             // the incoming sync15::Payload
@@ -182,10 +182,9 @@ impl ProcessIncomingRecordImpl for IncomingCreditCardsImpl {
 
         // Because we can't check the number in the sql, we fetch all matching
         // rows and decrypt the numbers here.
-        let records =
-            tx.query_rows_and_then_named(&sql, params, |row| -> Result<Self::Record> {
-                Ok(Self::Record::from_row(row)?)
-            })?;
+        let records = tx.query_rows_and_then(&sql, params, |row| -> Result<Self::Record> {
+            Ok(Self::Record::from_row(row)?)
+        })?;
 
         let incoming_cc_number = self.encdec.decrypt(&incoming.cc_number_enc)?;
         for record in records {
@@ -239,7 +238,6 @@ mod tests {
     use crate::sync::common::tests::*;
 
     use interrupt_support::NeverInterrupts;
-    use rusqlite::NO_PARAMS;
     use serde_json::{json, Map, Value};
     use sql_support::ConnExt;
 
@@ -335,7 +333,7 @@ mod tests {
                 &NeverInterrupts,
             )?;
 
-            let payloads = tx.conn().query_rows_and_then_named(
+            let payloads = tx.conn().query_rows_and_then(
                 "SELECT * FROM temp.credit_cards_sync_staging;",
                 &[],
                 |row| -> Result<Payload> {
@@ -351,7 +349,7 @@ mod tests {
             assert_eq!(record_count, tc.expected_record_count);
             assert_eq!(tombstone_count, tc.expected_tombstone_count);
 
-            tx.execute("DELETE FROM temp.credit_cards_sync_staging;", NO_PARAMS)?;
+            tx.execute("DELETE FROM temp.credit_cards_sync_staging;", [])?;
         }
         Ok(())
     }

@@ -83,7 +83,7 @@ pub fn attached_database<'a>(
     path: &Url,
     db_alias: &'static str,
 ) -> Result<ExecuteOnDrop<'a>> {
-    conn.execute_named(
+    conn.execute(
         "ATTACH DATABASE :path AS :db_alias",
         named_params! {
             ":path": path.as_str(),

@@ -33,7 +33,7 @@ use lazy_static::lazy_static;
 use rusqlite::{
     named_params,
     types::{FromSql, ToSql},
-    Connection, NO_PARAMS,
+    Connection,
 };
 use serde_derive::*;
 use sql_support::ConnExt;
@@ -129,7 +129,7 @@ impl Deref for LoginDb {
 
 impl LoginDb {
     pub(crate) fn put_meta(&self, key: &str, value: &dyn ToSql) -> Result<()> {
-        self.execute_named_cached(
+        self.execute_cached(
             "REPLACE INTO loginsSyncMeta (key, value) VALUES (:key, :value)",
             named_params! { ":key": key, ":value": value },
         )?;
@@ -146,7 +146,7 @@ impl LoginDb {
     }
 
     pub(crate) fn delete_meta(&self, key: &str) -> Result<()> {
-        self.execute_named_cached(
+        self.execute_cached(
             "DELETE FROM loginsSyncMeta WHERE key = :key",
             named_params! { ":key": key },
         )?;
@@ -155,7 +155,7 @@ impl LoginDb {
 
     pub fn get_all(&self) -> Result<Vec<EncryptedLogin>> {
         let mut stmt = self.db.prepare_cached(&GET_ALL_SQL)?;
-        let rows = stmt.query_and_then(NO_PARAMS, EncryptedLogin::from_row)?;
+        let rows = stmt.query_and_then([], EncryptedLogin::from_row)?;
         rows.collect::<Result<_>>()
     }
 
@@ -177,7 +177,7 @@ impl LoginDb {
         // in a regex lib just for this.
         let mut stmt = self.db.prepare_cached(&GET_ALL_SQL)?;
         let rows = stmt
-            .query_and_then(NO_PARAMS, EncryptedLogin::from_row)?
+            .query_and_then([], EncryptedLogin::from_row)?
             .filter(|r| {
                 let login = r
                     .as_ref()
@@ -262,7 +262,7 @@ impl LoginDb {
         let now_ms = util::system_time_ms_i64(SystemTime::now());
         // As on iOS, just using a record doesn't flip it's status to changed.
         // TODO: this might be wrong for lockbox!
-        self.execute_named_cached(
+        self.execute_cached(
             "UPDATE loginsL
              SET timeLastUsed = :now_millis,
                  timesUsed = timesUsed + 1,
@@ -316,7 +316,7 @@ impl LoginDb {
             new = SyncStatus::New as u8
         );
 
-        self.execute_named(
+        self.execute(
             &sql,
             named_params! {
                 ":origin": login.fields.origin,
@@ -356,7 +356,7 @@ impl LoginDb {
             changed = SyncStatus::Changed as u8
         );
 
-        self.db.execute_named(
+        self.db.execute(
             &sql,
             named_params! {
                 ":origin": login.fields.origin,
@@ -383,9 +383,9 @@ impl LoginDb {
     ) -> Result<MigrationMetrics> {
         // Check if the logins table is empty first.
         let mut num_existing_logins =
-            self.query_row::<i64, _, _>("SELECT COUNT(*) FROM loginsL", NO_PARAMS, |r| r.get(0))?;
+            self.query_row::<i64, _, _>("SELECT COUNT(*) FROM loginsL", [], |r| r.get(0))?;
         num_existing_logins +=
-            self.query_row::<i64, _, _>("SELECT COUNT(*) FROM loginsM", NO_PARAMS, |r| r.get(0))?;
+            self.query_row::<i64, _, _>("SELECT COUNT(*) FROM loginsM", [], |r| r.get(0))?;
         if num_existing_logins > 0 {
             return Err(ErrorKind::NonEmptyTable.into());
         }
@@ -673,7 +673,7 @@ impl LoginDb {
                 };
                 self.db
                     .prepare_cached(&GET_BY_FORM_ACTION_ORIGIN)?
-                    .query_and_then_named(params, EncryptedLogin::from_row)?
+                    .query_and_then(params, EncryptedLogin::from_row)?
                     .collect()
             }
             (None, Some(http_realm)) => {
@@ -683,7 +683,7 @@ impl LoginDb {
                 };
                 self.db
                     .prepare_cached(&GET_BY_HTTP_REALM)?
-                    .query_and_then_named(params, EncryptedLogin::from_row)?
+                    .query_and_then(params, EncryptedLogin::from_row)?
                     .collect()
             }
             (Some(_), Some(_)) => Err(InvalidLogin::BothTargets.into()),
@@ -692,7 +692,7 @@ impl LoginDb {
     }
 
     pub fn exists(&self, id: &str) -> Result<bool> {
-        Ok(self.db.query_row_named(
+        Ok(self.db.query_row(
             "SELECT EXISTS(
                  SELECT 1 FROM loginsL
                  WHERE guid = :guid AND is_deleted = 0
@@ -713,7 +713,7 @@ impl LoginDb {
         let now_ms = util::system_time_ms_i64(SystemTime::now());
 
         // For IDs that have, mark is_deleted and clear sensitive fields
-        self.execute_named(
+        self.execute(
             &format!(
                 "UPDATE loginsL
                  SET local_modified = :now_ms,
@@ -730,14 +730,14 @@ impl LoginDb {
         )?;
 
         // Mark the mirror as overridden
-        self.execute_named(
+        self.execute(
             "UPDATE loginsM SET is_overridden = 1 WHERE guid = :guid",
             named_params! { ":guid": id },
         )?;
 
         // If we don't have a local record for this ID, but do have it in the mirror
         // insert a tombstone.
-        self.execute_named(&format!("
+        self.execute(&format!("
             INSERT OR IGNORE INTO loginsL
                     (guid, local_modified, is_deleted, sync_status, origin, timeCreated, timePasswordChanged, secFields)
             SELECT   guid, :now_ms,        1,          {changed},   '',     timeCreated, :now_ms,             ''
@@ -750,7 +750,7 @@ impl LoginDb {
     }
 
     fn mark_mirror_overridden(&self, guid: &str) -> Result<()> {
-        self.execute_named_cached(
+        self.execute_cached(
             "UPDATE loginsM SET is_overridden = 1 WHERE guid = :guid",
             named_params! { ":guid": guid },
         )?;
@@ -758,7 +758,7 @@ impl LoginDb {
     }
 
     fn ensure_local_overlay_exists(&self, guid: &str) -> Result<()> {
-        let already_have_local: bool = self.db.query_row_named(
+        let already_have_local: bool = self.db.query_row(
             "SELECT EXISTS(SELECT 1 FROM loginsL WHERE guid = :guid)",
             named_params! { ":guid": guid },
             |row| row.get(0),
@@ -778,8 +778,7 @@ impl LoginDb {
     }
 
     fn clone_mirror_to_overlay(&self, guid: &str) -> Result<usize> {
-        Ok(self
-            .execute_named_cached(&*CLONE_SINGLE_MIRROR_SQL, &[(":guid", &guid as &dyn ToSql)])?)
+        Ok(self.execute_cached(&*CLONE_SINGLE_MIRROR_SQL, &[(":guid", &guid as &dyn ToSql)])?)
     }
 
     // Wipe is called both by Sync and also exposed publically, so it's
@@ -789,7 +788,7 @@ impl LoginDb {
         log::info!("Executing wipe on password engine!");
         let now_ms = util::system_time_ms_i64(SystemTime::now());
         scope.err_if_interrupted()?;
-        self.execute_named(
+        self.execute(
             &format!(
                 "
                 UPDATE loginsL
@@ -805,10 +804,10 @@ impl LoginDb {
         )?;
         scope.err_if_interrupted()?;
 
-        self.execute("UPDATE loginsM SET is_overridden = 1", NO_PARAMS)?;
+        self.execute("UPDATE loginsM SET is_overridden = 1", [])?;
         scope.err_if_interrupted()?;
 
-        self.execute_named(
+        self.execute(
             &format!("
                 INSERT OR IGNORE INTO loginsL
                       (guid, local_modified, is_deleted, sync_status, origin, timeCreated, timePasswordChanged, secFields)
@@ -943,7 +942,7 @@ pub mod test_utils {
             )";
         let mut stmt = db.prepare_cached(sql)?;
 
-        stmt.execute_named(named_params! {
+        stmt.execute(named_params! {
             ":is_overridden": is_overridden,
             ":server_modified": server_modified.as_millis(),
             ":http_realm": login.fields.http_realm,
@@ -972,7 +971,7 @@ pub mod test_utils {
     fn get_guids(db: &LoginDb, sql: &str) -> Vec<String> {
         let mut stmt = db.prepare_cached(sql).unwrap();
         let mut res: Vec<String> = stmt
-            .query_map(NO_PARAMS, |r| r.get(0))
+            .query_map([], |r| r.get(0))
             .unwrap()
             .map(|r| r.unwrap())
             .collect();
@@ -1364,7 +1363,7 @@ mod tests {
         assert!(db.delete(login.guid_str()).unwrap());
 
         let local_login = db
-            .query_row_named(
+            .query_row(
                 "SELECT * FROM loginsL WHERE guid = :guid",
                 named_params! { ":guid": login.guid_str() },
                 |row| Ok(LocalLogin::from_row(row).unwrap()),
@@ -1419,7 +1418,7 @@ mod tests {
 
         let expected_tombstone_count = 2;
         let actual_tombstone_count: i32 = db
-            .query_row_named(
+            .query_row(
                 "SELECT COUNT(guid)
                     FROM loginsL
                     WHERE guid IN (:guid1,:guid2)

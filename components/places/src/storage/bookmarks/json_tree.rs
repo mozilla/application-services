@@ -536,7 +536,7 @@ pub fn fetch_tree(
     let mut stmt = db.conn().prepare(sql)?;
 
     let mut results =
-        stmt.query_and_then_named(&[(":item_guid", item_guid)], FetchedTreeRow::from_row)?;
+        stmt.query_and_then(&[(":item_guid", item_guid)], FetchedTreeRow::from_row)?;
 
     let parent_guid: Option<SyncGuid>;
     let position: u32;

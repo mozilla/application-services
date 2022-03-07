@@ -165,9 +165,9 @@ impl TabsStorage {
             }
             Ok(None) => None,
             Ok(Some(c)) => {
-                match c.query_rows_and_then_named_cached(
+                match c.query_rows_and_then_cached(
                     "SELECT payload FROM tabs",
-                    &[],
+                    [],
                     |row| -> Result<_> { Ok(serde_json::from_str(&row.get::<_, String>(0)?)?) },
                 ) {
                     Ok(crts) => Some(crts),
@@ -190,7 +190,7 @@ impl TabsStorage {
         tx.execute_batch("DELETE FROM tabs")?;
 
         for crt in new_remote_tabs {
-            tx.execute_named_cached(
+            tx.execute_cached(
                 "INSERT INTO tabs (payload) VALUES (:payload);",
                 rusqlite::named_params! {
                     ":payload": serde_json::to_string(&crt).expect("tabs don't fail to serialize"),

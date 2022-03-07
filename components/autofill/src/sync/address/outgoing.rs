@@ -107,7 +107,7 @@ mod tests {
         // This should probably be in the sync module, but it's used here.
         let guid = address.guid.clone();
         let payload = address.into_payload().expect("is json").into_json_string();
-        conn.execute_named(
+        conn.execute(
             "INSERT OR IGNORE INTO addresses_mirror (guid, payload)
              VALUES (:guid, :payload)",
             rusqlite::named_params! {
@@ -185,7 +185,7 @@ mod tests {
 
         // create tombstone record
         assert!(tx
-            .execute_named(
+            .execute(
                 "INSERT INTO addresses_tombstones (
                     guid,
                     time_deleted

@@ -117,9 +117,9 @@ pub(crate) mod sql_fns {
 
 // These should be somewhere else...
 pub fn put_meta(db: &Connection, key: &str, value: &dyn ToSql) -> Result<()> {
-    db.conn().execute_named_cached(
+    db.conn().execute_cached(
         "REPLACE INTO meta (key, value) VALUES (:key, :value)",
-        &[(":key", &key), (":value", value)],
+        rusqlite::named_params! { ":key": key, ":value": value },
     )?;
     Ok(())
 }
@@ -135,7 +135,7 @@ pub fn get_meta<T: FromSql>(db: &Connection, key: &str) -> Result<Option<T>> {
 
 pub fn delete_meta(db: &Connection, key: &str) -> Result<()> {
     db.conn()
-        .execute_named_cached("DELETE FROM meta WHERE key = :key", &[(":key", &key)])?;
+        .execute_cached("DELETE FROM meta WHERE key = :key", &[(":key", &key)])?;
     Ok(())
 }
 

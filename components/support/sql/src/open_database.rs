@@ -30,7 +30,6 @@
 use crate::ConnExt;
 use rusqlite::{
     Connection, Error as RusqliteError, ErrorCode, OpenFlags, Transaction, TransactionBehavior,
-    NO_PARAMS,
 };
 use std::path::Path;
 use thiserror::Error;
@@ -209,7 +208,7 @@ fn should_init(conn: &Connection) -> Result<bool> {
 }
 
 fn get_schema_version(conn: &Connection) -> Result<u32> {
-    let version = conn.query_row_and_then("PRAGMA user_version", NO_PARAMS, |row| row.get(0))?;
+    let version = conn.query_row_and_then("PRAGMA user_version", [], |row| row.get(0))?;
     Ok(version)
 }
 
@@ -406,7 +405,7 @@ mod test {
 
     fn check_final_data(conn: &Connection) {
         let value: String = conn
-            .query_row("SELECT col FROM my_table", NO_PARAMS, |r| r.get(0))
+            .query_row("SELECT col FROM my_table", [], |r| r.get(0))
             .unwrap();
         assert_eq!(value, "correct-value");
         assert_eq!(get_schema_version(conn).unwrap(), 4);
@@ -463,7 +462,7 @@ mod test {
             .open()
             .execute(
                 "INSERT INTO my_old_table_name(old_col) VALUES ('I should not be deleted')",
-                NO_PARAMS,
+                [],
             )
             .unwrap();
 
@@ -488,7 +487,7 @@ mod test {
             .open()
             .execute(
                 "INSERT INTO my_old_table_name(old_col) VALUES ('I should not be deleted')",
-                NO_PARAMS,
+                [],
             )
             .unwrap();
 

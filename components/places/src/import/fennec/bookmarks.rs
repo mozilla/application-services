@@ -12,7 +12,6 @@ use crate::error::*;
 use crate::import::common::{attached_database, ExecuteOnDrop};
 use crate::storage::bookmarks::{bookmark_sync::create_synced_bookmark_roots, fetch::BookmarkData};
 use crate::types::SyncStatus;
-use rusqlite::NO_PARAMS;
 use serde_derive::*;
 use sql_support::ConnExt;
 use std::time::Instant;
@@ -34,7 +33,7 @@ pub struct BookmarksMigrationResult {
 
 fn select_count(conn: &PlacesDb, stmt: &str) -> u32 {
     let count: Result<Option<u32>> =
-        conn.try_query_row(stmt, &[], |row| Ok(row.get::<_, u32>(0)?), false);
+        conn.try_query_row(stmt, [], |row| Ok(row.get::<_, u32>(0)?), false);
     count.unwrap().unwrap()
 }
 
@@ -178,7 +177,7 @@ fn do_pinned_sites_import(
     log::debug!("Fetching pinned websites");
     // Grab the pinned websites (they are stored as bookmarks).
     let mut stmt = conn.prepare(&FETCH_PINNED)?;
-    let pinned_rows = stmt.query_map(NO_PARAMS, bookmark_data_from_fennec_pinned)?;
+    let pinned_rows = stmt.query_map([], bookmark_data_from_fennec_pinned)?;
     scope.err_if_interrupted()?;
     let mut pinned = Vec::new();
     for row in pinned_rows {

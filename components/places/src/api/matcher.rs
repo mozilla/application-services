@@ -6,24 +6,24 @@ use crate::db::PlacesDb;
 use crate::error::Result;
 use crate::ffi::{MatchReason as FfiMatchReason, SearchResult as FfiSearchResult};
 pub use crate::match_impl::{MatchBehavior, SearchBehavior};
-use rusqlite::{types::ToSql, Row};
+use rusqlite::Row;
 use serde_derive::*;
-use sql_support::{maybe_log_plan, ConnExt};
+use sql_support::ConnExt;
 use url::Url;
 
 // A helper to log, cache and execute a query, returning a vector of flattened rows.
-fn query_flat_rows_and_then_named<T, F>(
+fn query_flat_rows_and_then<T, F, P>(
     conn: &PlacesDb,
     sql: &str,
-    params: &[(&str, &dyn ToSql)],
+    params: P,
     mapper: F,
 ) -> Result<Vec<T>>
 where
     F: FnMut(&Row<'_>) -> Result<T>,
+    P: rusqlite::Params,
 {
-    maybe_log_plan(conn, sql, params);
     let mut stmt = conn.prepare_maybe_cached(sql, true)?;
-    let iter = stmt.query_and_then_named(params, mapper)?;
+    let iter = stmt.query_and_then(params, mapper)?;
     Ok(iter
         .inspect(|r| {
             if let Err(ref e) = *r {
@@ -124,7 +124,7 @@ fn match_with_limit(
 /// and chosen URL for subsequent matches.
 pub fn accept_result(conn: &PlacesDb, search_string: &str, url: &Url) -> Result<()> {
     // See `nsNavHistory::AutoCompleteFeedback`.
-    conn.execute_named(
+    conn.execute(
         "INSERT OR REPLACE INTO moz_inputhistory(place_id, input, use_count)
          SELECT h.id, IFNULL(i.input, :input_text), IFNULL(i.use_count, 0) * .9 + 1
          FROM moz_places h
@@ -440,11 +440,11 @@ const ORIGIN_SQL: &str = "
 impl<'query> Matcher for OriginOrUrl<'query> {
     fn search(&self, conn: &PlacesDb, _: u32) -> Result<Vec<SearchResult>> {
         Ok(if looks_like_origin(self.query) {
-            query_flat_rows_and_then_named(
+            query_flat_rows_and_then(
                 conn,
                 ORIGIN_SQL,
                 &[
-                    (":prefix", &rusqlite::types::Null),
+                    (":prefix", &rusqlite::types::Null as &dyn rusqlite::ToSql),
                     (":searchString", &self.query),
                     (":frecencyThreshold", &-1i64),
                 ],
@@ -463,11 +463,11 @@ impl<'query> Matcher for OriginOrUrl<'query> {
             } else {
                 return Ok(vec![]);
             };
-            query_flat_rows_and_then_named(
+            query_flat_rows_and_then(
                 conn,
                 URL_SQL,
                 &[
-                    (":searchString", &self.query),
+                    (":searchString", &self.query as &dyn rusqlite::ToSql),
                     (":host", &host_str),
                     (":remainder", &remainder),
                     (":frecencyThreshold", &-1i64),
@@ -502,7 +502,7 @@ impl<'query> Adaptive<'query> {
 
 impl<'query> Matcher for Adaptive<'query> {
     fn search(&self, conn: &PlacesDb, max_results: u32) -> Result<Vec<SearchResult>> {
-        query_flat_rows_and_then_named(
+        query_flat_rows_and_then(
             conn,
             "
             SELECT h.url as url,
@@ -536,7 +536,7 @@ impl<'query> Matcher for Adaptive<'query> {
             ORDER BY rank DESC, h.frecency DESC
             LIMIT :maxResults",
             &[
-                (":searchString", &self.query),
+                (":searchString", &self.query as &dyn rusqlite::ToSql),
                 (":matchBehavior", &self.match_behavior),
                 (":searchBehavior", &self.search_behavior),
                 (":maxResults", &max_results),
@@ -568,7 +568,7 @@ impl<'query> Suggestions<'query> {
 
 impl<'query> Matcher for Suggestions<'query> {
     fn search(&self, conn: &PlacesDb, max_results: u32) -> Result<Vec<SearchResult>> {
-        query_flat_rows_and_then_named(
+        query_flat_rows_and_then(
             conn,
             "
             SELECT h.url, h.title,
@@ -595,7 +595,7 @@ impl<'query> Matcher for Suggestions<'query> {
             ORDER BY h.frecency DESC, h.id DESC
             LIMIT :maxResults",
             &[
-                (":searchString", &self.query),
+                (":searchString", &self.query as &dyn rusqlite::ToSql),
                 (":matchBehavior", &self.match_behavior),
                 (":searchBehavior", &self.search_behavior),
                 (":maxResults", &max_results),
@@ -819,13 +819,12 @@ mod tests {
         should_panic(expected = "Failed to perform a search:")
     )]
     fn search_invalid_url() {
-        use rusqlite::NO_PARAMS;
         let conn = new_mem_connection();
 
         conn.execute(
             "INSERT INTO moz_places (guid, url, url_hash, frecency)
              VALUES ('fake_guid___', 'not-a-url', hash('not-a-url'), 10)",
-            NO_PARAMS,
+            [],
         )
         .expect("should insert");
 

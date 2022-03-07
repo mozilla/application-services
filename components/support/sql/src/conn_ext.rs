@@ -5,7 +5,7 @@
 use rusqlite::{
     self,
     types::{FromSql, ToSql},
-    Connection, Result as SqlResult, Row, Savepoint, Transaction, TransactionBehavior, NO_PARAMS,
+    Connection, Params, Result as SqlResult, Row, Savepoint, Transaction, TransactionBehavior,
 };
 use std::iter::FromIterator;
 use std::ops::Deref;
@@ -46,7 +46,7 @@ pub trait ConnExt {
     fn execute_all(&self, stmts: &[&str]) -> SqlResult<()> {
         let conn = self.conn();
         for sql in stmts {
-            let r = conn.execute(sql, NO_PARAMS);
+            let r = conn.execute(sql, []);
             match r {
                 Ok(_) => {}
                 // Ignore ExecuteReturnedResults error because they're pointless
@@ -58,38 +58,25 @@ pub trait ConnExt {
         Ok(())
     }
 
-    /// Equivalent to `Connection::execute_named` but caches the statement so that subsequent
+    /// Equivalent to `Connection::execute` but caches the statement so that subsequent
     /// calls to `execute_cached` will have improved performance.
-    fn execute_cached<P>(&self, sql: &str, params: P) -> SqlResult<usize>
-    where
-        P: IntoIterator,
-        P::Item: ToSql,
-    {
+    fn execute_cached<P: Params>(&self, sql: &str, params: P) -> SqlResult<usize> {
         let mut stmt = self.conn().prepare_cached(sql)?;
         stmt.execute(params)
     }
 
-    /// Equivalent to `Connection::execute_named` but caches the statement so that subsequent
-    /// calls to `execute_named_cached` will have imprroved performance.
-    fn execute_named_cached(&self, sql: &str, params: &[(&str, &dyn ToSql)]) -> SqlResult<usize> {
-        let mut stmt = self.conn().prepare_cached(sql)?;
-        stmt.execute_named(params)
-    }
-
     /// Execute a query that returns a single result column, and return that result.
     fn query_one<T: FromSql>(&self, sql: &str) -> SqlResult<T> {
-        let res: T = self
-            .conn()
-            .query_row_and_then(sql, NO_PARAMS, |row| row.get(0))?;
+        let res: T = self.conn().query_row_and_then(sql, [], |row| row.get(0))?;
         Ok(res)
     }
 
     /// Execute a query that returns 0 or 1 result columns, returning None
     /// if there were no rows, or if the only result was NULL.
-    fn try_query_one<T: FromSql>(
+    fn try_query_one<T: FromSql, P: Params>(
         &self,
         sql: &str,
-        params: &[(&str, &dyn ToSql)],
+        params: P,
         cache: bool,
     ) -> SqlResult<Option<T>>
     where
@@ -100,27 +87,27 @@ pub trait ConnExt {
         // if the first row was null.
         let res: Option<Option<T>> = self
             .conn()
-            .query_row_and_then_named(sql, params, |row| row.get(0), cache)
+            .query_row_and_then_cachable(sql, params, |row| row.get(0), cache)
             .optional()?;
         // go from Option<Option<T>> to Option<T>
         Ok(res.unwrap_or_default())
     }
 
-    /// Equivalent to `rusqlite::Connection::query_row_and_then` but allows use
-    /// of named parameters, and allows passing a flag to indicate that it's cached.
-    fn query_row_and_then_named<T, E, F>(
+    /// Equivalent to `rusqlite::Connection::query_row_and_then` but allows
+    /// passing a flag to indicate that it's cached.
+    fn query_row_and_then_cachable<T, E, P, F>(
         &self,
         sql: &str,
-        params: &[(&str, &dyn ToSql)],
+        params: P,
         mapper: F,
         cache: bool,
     ) -> Result<T, E>
     where
         Self: Sized,
+        P: Params,
         E: From<rusqlite::Error>,
         F: FnOnce(&Row<'_>) -> Result<T, E>,
     {
-        crate::maybe_log_plan(self.conn(), sql, params);
         Ok(self
             .try_query_row(sql, params, mapper, cache)?
             .ok_or(rusqlite::Error::QueryReturnedNoRows)?)
@@ -128,38 +115,35 @@ pub trait ConnExt {
 
     /// Helper for when you'd like to get a Vec<T> of all the rows returned by a
     /// query that takes named arguments. See also
-    /// `query_rows_and_then_named_cached`.
-    fn query_rows_and_then_named<T, E, F>(
-        &self,
-        sql: &str,
-        params: &[(&str, &dyn ToSql)],
-        mapper: F,
-    ) -> Result<Vec<T>, E>
+    /// `query_rows_and_then_cached`.
+    fn query_rows_and_then<T, E, P, F>(&self, sql: &str, params: P, mapper: F) -> Result<Vec<T>, E>
     where
         Self: Sized,
+        P: Params,
         E: From<rusqlite::Error>,
         F: FnMut(&Row<'_>) -> Result<T, E>,
     {
-        query_rows_and_then_named(self.conn(), sql, params, mapper, false)
+        query_rows_and_then_cachable(self.conn(), sql, params, mapper, false)
     }
 
     /// Helper for when you'd like to get a Vec<T> of all the rows returned by a
     /// query that takes named arguments.
-    fn query_rows_and_then_named_cached<T, E, F>(
+    fn query_rows_and_then_cached<T, E, P, F>(
         &self,
         sql: &str,
-        params: &[(&str, &dyn ToSql)],
+        params: P,
         mapper: F,
     ) -> Result<Vec<T>, E>
     where
         Self: Sized,
+        P: Params,
         E: From<rusqlite::Error>,
         F: FnMut(&Row<'_>) -> Result<T, E>,
     {
-        query_rows_and_then_named(self.conn(), sql, params, mapper, true)
+        query_rows_and_then_cachable(self.conn(), sql, params, mapper, true)
     }
 
-    /// Like `query_rows_and_then_named`, but works if you want a non-Vec as a result.
+    /// Like `query_rows_and_then_cachable`, but works if you want a non-Vec as a result.
     /// # Example:
     /// ```rust,no_run
     /// # use std::collections::HashSet;
@@ -175,54 +159,53 @@ pub trait ConnExt {
     /// ```
     /// Note if the type isn't inferred, you'll have to do something gross like
     /// `conn.query_rows_into::<HashSet<_>, _, _, _>(...)`.
-    fn query_rows_into<Coll, T, E, F>(
-        &self,
-        sql: &str,
-        params: &[(&str, &dyn ToSql)],
-        mapper: F,
-    ) -> Result<Coll, E>
+    fn query_rows_into<Coll, T, E, P, F>(&self, sql: &str, params: P, mapper: F) -> Result<Coll, E>
     where
         Self: Sized,
         E: From<rusqlite::Error>,
         F: FnMut(&Row<'_>) -> Result<T, E>,
         Coll: FromIterator<T>,
+        P: Params,
     {
-        query_rows_and_then_named(self.conn(), sql, params, mapper, false)
+        query_rows_and_then_cachable(self.conn(), sql, params, mapper, false)
     }
 
     /// Same as `query_rows_into`, but caches the stmt if possible.
-    fn query_rows_into_cached<Coll, T, E, F>(
+    fn query_rows_into_cached<Coll, T, E, P, F>(
         &self,
         sql: &str,
-        params: &[(&str, &dyn ToSql)],
+        params: P,
         mapper: F,
     ) -> Result<Coll, E>
     where
         Self: Sized,
+        P: Params,
         E: From<rusqlite::Error>,
         F: FnMut(&Row<'_>) -> Result<T, E>,
         Coll: FromIterator<T>,
     {
-        query_rows_and_then_named(self.conn(), sql, params, mapper, true)
+        query_rows_and_then_cachable(self.conn(), sql, params, mapper, true)
     }
 
     // This should probably have a longer name...
-    /// Like `query_row_and_then_named` but returns None instead of erroring if no such row exists.
-    fn try_query_row<T, E, F>(
+    /// Like `query_row_and_then_cachable` but returns None instead of erroring
+    /// if no such row exists.
+    fn try_query_row<T, E, P, F>(
         &self,
         sql: &str,
-        params: &[(&str, &dyn ToSql)],
+        params: P,
         mapper: F,
         cache: bool,
     ) -> Result<Option<T>, E>
     where
         Self: Sized,
+        P: Params,
         E: From<rusqlite::Error>,
         F: FnOnce(&Row<'_>) -> Result<T, E>,
     {
         let conn = self.conn();
         let mut stmt = MaybeCached::prepare(conn, sql, cache)?;
-        let mut rows = stmt.query_named(params)?;
+        let mut rows = stmt.query(params)?;
         rows.next()?.map(mapper).transpose()
     }
 
@@ -259,14 +242,17 @@ impl<'conn> ConnExt for Savepoint<'conn> {
     }
 }
 
-/// rusqlite, in an attempt to save us from ourselves, needs a mutable ref to
-/// a connection to start a transaction. That is a bit of a PITA in some cases,
-/// so we offer this as an alternative - but the responsibility of ensuring
-/// there are no concurrent transactions is on our head.
+/// rusqlite, in an attempt to save us from ourselves, needs a mutable ref to a
+/// connection to start a transaction. That is a bit of a PITA in some cases, so
+/// we offer this as an alternative - but the responsibility of ensuring there
+/// are no concurrent transactions is on our head.
 ///
 /// This is very similar to the rusqlite `Transaction` - it doesn't prevent
 /// against nested transactions but does allow you to use an immutable
 /// `Connection`.
+///
+/// TODO: Determine if there's any reason to use this over
+/// `rusqlite::Connection::unchecked_transaction`.
 pub struct UncheckedTransaction<'conn> {
     pub conn: &'conn Connection,
     pub started_at: Instant,
@@ -354,10 +340,10 @@ impl<'conn> ConnExt for UncheckedTransaction<'conn> {
     }
 }
 
-fn query_rows_and_then_named<Coll, T, E, F>(
+fn query_rows_and_then_cachable<Coll, T, E, P, F>(
     conn: &Connection,
     sql: &str,
-    params: &[(&str, &dyn ToSql)],
+    params: P,
     mapper: F,
     cache: bool,
 ) -> Result<Coll, E>
@@ -365,8 +351,9 @@ where
     E: From<rusqlite::Error>,
     F: FnMut(&Row<'_>) -> Result<T, E>,
     Coll: FromIterator<T>,
+    P: Params,
 {
     let mut stmt = conn.prepare_maybe_cached(sql, cache)?;
-    let iter = stmt.query_and_then_named(params, mapper)?;
+    let iter = stmt.query_and_then(params, mapper)?;
     iter.collect::<Result<Coll, E>>()
 }

@@ -4,7 +4,7 @@
 
 use places::import::fennec::history::HistoryMigrationResult;
 use places::{api::places_api::PlacesApi, types::VisitTransition, ErrorKind, Result};
-use rusqlite::{Connection, NO_PARAMS};
+use rusqlite::Connection;
 use std::path::Path;
 use std::sync::atomic::{AtomicUsize, Ordering};
 use sync_guid::Guid;
@@ -40,7 +40,7 @@ impl FennecHistory {
              VALUES (:title, :url, :visits, :visits_local, :visits_remote, :date,
                      :date_local, :date_remote, :created, :modified, :guid, :deleted)"
         )?;
-        stmt.execute_named(rusqlite::named_params! {
+        stmt.execute(rusqlite::named_params! {
             ":title": self.title,
             ":url": self.url,
             ":visits": self.visits,
@@ -72,7 +72,7 @@ impl<'a> FennecVisit<'a> {
             "INSERT OR IGNORE INTO visits(history_guid, visit_type, date, is_local)
              VALUES (:history_guid, :visit_type, :date, :is_local)",
         )?;
-        stmt.execute_named(rusqlite::named_params! {
+        stmt.execute(rusqlite::named_params! {
             ":history_guid": self.history.guid,
             ":visit_type": self.visit_type,
             ":date": self.date,
@@ -130,7 +130,7 @@ fn test_import_unsupported_db_version() -> Result<()> {
     let tmpdir = tempdir().unwrap();
     let fennec_path = tmpdir.path().join("browser.db");
     let fennec_db = empty_fennec_db(&fennec_path)?;
-    fennec_db.execute("PRAGMA user_version=33", NO_PARAMS)?;
+    fennec_db.execute("PRAGMA user_version=33", [])?;
     let places_api = PlacesApi::new(tmpdir.path().join("places.sqlite"))?;
     match places::import::import_fennec_history(&places_api, fennec_path)
         .unwrap_err()
@@ -272,19 +272,19 @@ fn test_import() -> Result<()> {
     conn.execute(
         "INSERT INTO moz_places (guid, url, url_hash)
         VALUES ('colidingguid', 'https://coliding.guid', hash('https://coliding.guid'))",
-        NO_PARAMS,
+        [],
     )
     .expect("should insert");
     conn.execute(
         "INSERT INTO moz_places (guid, url, url_hash)
         VALUES ('existingguid', 'https://existing.guid', hash('https://existing.guid'))",
-        NO_PARAMS,
+        [],
     )
     .expect("should insert");
     conn.execute(
         "INSERT INTO moz_places (guid, url, url_hash)
         VALUES ('boboguid1', 'https://existing.url', hash('https://existing.url'))",
-        NO_PARAMS,
+        [],
     )
     .expect("should insert");
 
@@ -343,7 +343,7 @@ fn test_invalid_utf8() -> Result<()> {
                 VALUES ({bad}, 'http://example.com/' || {bad}, {bad})",
             bad = bad
         ))?
-        .execute(NO_PARAMS)?;
+        .execute([])?;
 
     fennec_db
         .prepare(&format!(
@@ -351,7 +351,7 @@ fn test_invalid_utf8() -> Result<()> {
                 VALUES ({bad}, 0)",
             bad = bad
         ))?
-        .execute(NO_PARAMS)?;
+        .execute([])?;
 
     let places_api = PlacesApi::new(tmpdir.path().join("places.sqlite"))?;
 

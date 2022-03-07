@@ -172,9 +172,9 @@ impl Store {
 }
 
 pub(crate) fn put_meta(conn: &Connection, key: &str, value: &dyn ToSql) -> Result<()> {
-    conn.execute_named_cached(
+    conn.execute_cached(
         "REPLACE INTO moz_meta (key, value) VALUES (:key, :value)",
-        &[(":key", &key), (":value", value)],
+        &[(":key", &key as &dyn ToSql), (":value", value)],
     )?;
     Ok(())
 }
@@ -189,7 +189,7 @@ pub(crate) fn get_meta<T: FromSql>(conn: &Connection, key: &str) -> Result<Optio
 }
 
 pub(crate) fn delete_meta(conn: &Connection, key: &str) -> Result<()> {
-    conn.execute_named_cached("DELETE FROM moz_meta WHERE key = :key", &[(":key", &key)])?;
+    conn.execute_cached("DELETE FROM moz_meta WHERE key = :key", &[(":key", &key)])?;
     Ok(())
 }
 
@@ -197,7 +197,6 @@ pub(crate) fn delete_meta(conn: &Connection, key: &str) -> Result<()> {
 mod tests {
     use super::*;
     use crate::db::test::new_mem_db;
-    use rusqlite::NO_PARAMS;
 
     #[test]
     fn test_autofill_meta() -> Result<()> {
@@ -229,7 +228,7 @@ mod tests {
         let retrieved_value4: Option<String> = get_meta(&db, test_key)?;
         assert!(retrieved_value4.is_none());
 
-        db.writer.execute("DELETE FROM moz_meta", NO_PARAMS)?;
+        db.writer.execute("DELETE FROM moz_meta", [])?;
 
         Ok(())
     }

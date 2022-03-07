@@ -14,7 +14,7 @@ use logins::{
     ValidateAndFixup,
 };
 use prettytable::{cell, row, Cell, Row, Table};
-use rusqlite::{OptionalExtension, NO_PARAMS};
+use rusqlite::OptionalExtension;
 use std::sync::Arc;
 use sync15::{EngineSyncAssociation, SyncEngine};
 
@@ -184,7 +184,7 @@ fn show_sql(conn: &rusqlite::Connection, sql: &str) -> Result<()> {
             .collect(),
     ));
 
-    let rows = stmt.query_map(NO_PARAMS, |row| {
+    let rows = stmt.query_map([], |row| {
         (0..len)
             .map(|idx| {
                 Ok(match row.get::<_, Value>(idx)? {
@@ -344,7 +344,7 @@ fn get_encryption_key(store: &LoginStore) -> Option<String> {
         .lock()
         .query_row(
             "SELECT value FROM loginsSyncMeta WHERE key = 'sync-pass-key'",
-            NO_PARAMS,
+            [],
             |r| r.get(0),
         )
         .optional()
