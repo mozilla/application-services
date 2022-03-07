@@ -9,13 +9,11 @@ mod conn_ext;
 mod each_chunk;
 mod maybe_cached;
 pub mod open_database;
-mod query_plan;
 mod repeat;
 
 pub use crate::conn_ext::*;
 pub use crate::each_chunk::*;
 pub use crate::maybe_cached::*;
-pub use crate::query_plan::*;
 pub use crate::repeat::*;
 
 /// In PRAGMA foo='bar', `'bar'` must be a constant string (it cannot be a

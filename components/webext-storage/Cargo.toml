@@ -6,7 +6,6 @@ authors = ["sync-team@mozilla.com"]
 license = "MPL-2.0"
 
 [features]
-log_query_plans = ["sql-support/log_query_plans"]
 default = []
 
 [dependencies]

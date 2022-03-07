@@ -72,14 +72,12 @@ pub trait ConnExt {
     /// Equivalent to `Connection::execute_named` but caches the statement so that subsequent
     /// calls to `execute_named_cached` will have imprroved performance.
     fn execute_named_cached(&self, sql: &str, params: &[(&str, &dyn ToSql)]) -> SqlResult<usize> {
-        crate::maybe_log_plan(self.conn(), sql, params);
         let mut stmt = self.conn().prepare_cached(sql)?;
         stmt.execute_named(params)
     }
 
     /// Execute a query that returns a single result column, and return that result.
     fn query_one<T: FromSql>(&self, sql: &str) -> SqlResult<T> {
-        crate::maybe_log_plan(self.conn(), sql, &[]);
         let res: T = self
             .conn()
             .query_row_and_then(sql, NO_PARAMS, |row| row.get(0))?;
@@ -97,7 +95,6 @@ pub trait ConnExt {
     where
         Self: Sized,
     {
-        crate::maybe_log_plan(self.conn(), sql, params);
         use rusqlite::OptionalExtension;
         // The outer option is if we got rows, the inner option is
         // if the first row was null.
@@ -143,7 +140,6 @@ pub trait ConnExt {
         E: From<rusqlite::Error>,
         F: FnMut(&Row<'_>) -> Result<T, E>,
     {
-        crate::maybe_log_plan(self.conn(), sql, params);
         query_rows_and_then_named(self.conn(), sql, params, mapper, false)
     }
 
@@ -160,7 +156,6 @@ pub trait ConnExt {
         E: From<rusqlite::Error>,
         F: FnMut(&Row<'_>) -> Result<T, E>,
     {
-        crate::maybe_log_plan(self.conn(), sql, params);
         query_rows_and_then_named(self.conn(), sql, params, mapper, true)
     }
 
@@ -192,7 +187,6 @@ pub trait ConnExt {
         F: FnMut(&Row<'_>) -> Result<T, E>,
         Coll: FromIterator<T>,
     {
-        crate::maybe_log_plan(self.conn(), sql, params);
         query_rows_and_then_named(self.conn(), sql, params, mapper, false)
     }
 
@@ -209,7 +203,6 @@ pub trait ConnExt {
         F: FnMut(&Row<'_>) -> Result<T, E>,
         Coll: FromIterator<T>,
     {
-        crate::maybe_log_plan(self.conn(), sql, params);
         query_rows_and_then_named(self.conn(), sql, params, mapper, true)
     }
 
@@ -227,7 +220,6 @@ pub trait ConnExt {
         E: From<rusqlite::Error>,
         F: FnOnce(&Row<'_>) -> Result<T, E>,
     {
-        crate::maybe_log_plan(self.conn(), sql, params);
         let conn = self.conn();
         let mut stmt = MaybeCached::prepare(conn, sql, cache)?;
         let mut rows = stmt.query_named(params)?;
