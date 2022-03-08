@@ -364,7 +364,11 @@ mod tests {
                 [],
             )
             .expect_err("should fail");
-        assert_eq!(e.to_string(), "CHECK constraint failed: moz_bookmarks");
+        assert!(
+            e.to_string().starts_with("CHECK constraint failed"),
+            "Expected `CHECK` failure, got: {:?}",
+            e,
+        );
 
         // type!=BOOKMARK and non-null fk
         let e = conn
@@ -376,7 +380,11 @@ mod tests {
                 [],
             )
             .expect_err("should fail");
-        assert_eq!(e.to_string(), "CHECK constraint failed: moz_bookmarks");
+        assert!(
+            e.to_string().starts_with("CHECK constraint failed"),
+            "Expected `CHECK` failure, got: {:?}",
+            e,
+        );
 
         // null parent for item other than the root
         let e = conn
@@ -388,7 +396,11 @@ mod tests {
                 [],
             )
             .expect_err("should fail");
-        assert_eq!(e.to_string(), "CHECK constraint failed: moz_bookmarks");
+        assert!(
+            e.to_string().starts_with("CHECK constraint failed"),
+            "Expected `CHECK` failure, got: {:?}",
+            e,
+        );
 
         // Invalid length guid
         let e = conn
@@ -400,7 +412,11 @@ mod tests {
                 [],
             )
             .expect_err("should fail");
-        assert_eq!(e.to_string(), "CHECK constraint failed: moz_bookmarks");
+        assert!(
+            e.to_string().starts_with("CHECK constraint failed"),
+            "Expected `CHECK` failure, got: {:?}",
+            e,
+        );
     }
 
     fn select_simple_int(conn: &PlacesDb, stmt: &str) -> u32 {
