@@ -353,7 +353,8 @@ mod tests {
     #[test]
     fn test_bookmark_check_constraints() {
         let conn = PlacesDb::open_in_memory(ConnectionType::ReadWrite).expect("no memory db");
-
+        static FK_CONSTRAINT_FAILED: &str =
+            "CHECK constraint failed: (type == 1 AND fk IS NOT NULL) OR (type > 1 AND fk IS NULL)";
         // type==BOOKMARK but null fk
         let e = conn
             .execute_cached(
@@ -364,7 +365,7 @@ mod tests {
                 [],
             )
             .expect_err("should fail");
-        assert_eq!(e.to_string(), "CHECK constraint failed: moz_bookmarks");
+        assert_eq!(e.to_string(), FK_CONSTRAINT_FAILED);
 
         // type!=BOOKMARK and non-null fk
         let e = conn
@@ -376,9 +377,11 @@ mod tests {
                 [],
             )
             .expect_err("should fail");
-        assert_eq!(e.to_string(), "CHECK constraint failed: moz_bookmarks");
+        assert_eq!(e.to_string(), FK_CONSTRAINT_FAILED);
 
         // null parent for item other than the root
+        static NULL_PARENT_CONSTRAINT_FAILED: &str =
+            "CHECK constraint failed: guid == \"root________\" OR parent IS NOT NULL";
         let e = conn
             .execute_cached(
                 "INSERT INTO moz_bookmarks
@@ -388,9 +391,10 @@ mod tests {
                 [],
             )
             .expect_err("should fail");
-        assert_eq!(e.to_string(), "CHECK constraint failed: moz_bookmarks");
+        assert_eq!(e.to_string(), NULL_PARENT_CONSTRAINT_FAILED);
 
         // Invalid length guid
+        static INVALID_GUID_CONSTRAINT_FAILED: &str = "CHECK constraint failed: length(guid) == 12";
         let e = conn
             .execute_cached(
                 "INSERT INTO moz_bookmarks
@@ -400,7 +404,7 @@ mod tests {
                 [],
             )
             .expect_err("should fail");
-        assert_eq!(e.to_string(), "CHECK constraint failed: moz_bookmarks");
+        assert_eq!(e.to_string(), INVALID_GUID_CONSTRAINT_FAILED);
     }
 
     fn select_simple_int(conn: &PlacesDb, stmt: &str) -> u32 {
