@@ -37,6 +37,10 @@ objects:
         description: The style name of this object. The default is not overwritten
         type: String
         default: Not overwritten
+      label:
+        description: A text label
+        type: Text
+        default: dx_label
       optional-int:
         description: An optional value
         type: Option<Int>
