@@ -119,7 +119,8 @@ impl FeatureManifest {
         // We then validate that each type_ref is valid
         for feature_def in &self.feature_defs {
             for prop in &feature_def.props {
-                self.validate_type_ref(&prop.typ, &enum_names, &obj_names)?;
+                let path = format!("{}.{}", &feature_def.name, &prop.name);
+                self.validate_type_ref(&path, &prop.typ, &enum_names, &obj_names)?;
             }
         }
         self.validate_defaults()?;
@@ -128,6 +129,7 @@ impl FeatureManifest {
 
     fn validate_type_ref(
         &self,
+        path: &str,
         type_ref: &TypeRef,
         enum_names: &HashSet<String>,
         obj_names: &HashSet<String>,
@@ -135,44 +137,53 @@ impl FeatureManifest {
         match type_ref {
             TypeRef::Enum(name) => {
                 if !enum_names.contains(name) {
-                    return Err(FMLError::ValidationError(format!(
-                        "Found enum reference with name: {}, but no definition",
-                        name
-                    )));
+                    return Err(FMLError::ValidationError(
+                        path.to_string(),
+                        format!(
+                            "Found enum reference with name: {}, but no definition",
+                            name
+                        ),
+                    ));
                 }
                 Ok(())
             }
             TypeRef::Object(name) => {
                 if !obj_names.contains(name) {
-                    return Err(FMLError::ValidationError(format!(
-                        "Found object reference with name: {}, but no definition",
-                        name
-                    )));
+                    return Err(FMLError::ValidationError(
+                        path.to_string(),
+                        format!(
+                            "Found object reference with name: {}, but no definition",
+                            name
+                        ),
+                    ));
                 }
                 Ok(())
             }
             TypeRef::EnumMap(key_type, value_type) => {
                 if let TypeRef::Enum(_) = key_type.as_ref() {
-                    self.validate_type_ref(key_type, enum_names, obj_names)?;
-                    self.validate_type_ref(value_type, enum_names, obj_names)
+                    self.validate_type_ref(path, key_type, enum_names, obj_names)?;
+                    self.validate_type_ref(path, value_type, enum_names, obj_names)
                 } else {
-                    Err(FMLError::ValidationError(format!(
-                        "EnumMap key has be an enum, found: {:?}",
-                        key_type
-                    )))
+                    Err(FMLError::ValidationError(
+                        path.to_string(),
+                        format!("EnumMap key has be an enum, found: {:?}", key_type),
+                    ))
                 }
             }
-            TypeRef::List(list_type) => self.validate_type_ref(list_type, enum_names, obj_names),
+            TypeRef::List(list_type) => {
+                self.validate_type_ref(path, list_type, enum_names, obj_names)
+            }
             TypeRef::StringMap(value_type) => {
-                self.validate_type_ref(value_type, enum_names, obj_names)
+                self.validate_type_ref(path, value_type, enum_names, obj_names)
             }
             TypeRef::Option(option_type) => {
                 if let TypeRef::Option(_) = option_type.as_ref() {
                     Err(FMLError::ValidationError(
+                        path.to_string(),
                         "Found nested optional types".into(),
                     ))
                 } else {
-                    self.validate_type_ref(option_type, enum_names, obj_names)
+                    self.validate_type_ref(path, option_type, enum_names, obj_names)
                 }
             }
             _ => Ok(()),
@@ -182,10 +193,13 @@ impl FeatureManifest {
     fn validate_enum_defs(&self, enum_names: &mut HashSet<String>) -> Result<()> {
         for enum_def in &self.enum_defs {
             if !enum_names.insert(enum_def.name.clone()) {
-                return Err(FMLError::ValidationError(format!(
-                    "EnumDef names must be unique. Found two EnumDefs with the same name: {}",
-                    enum_def.name
-                )));
+                return Err(FMLError::ValidationError(
+                    format!("enums.{}", enum_def.name),
+                    format!(
+                        "EnumDef names must be unique. Found two EnumDefs with the same name: {}",
+                        enum_def.name
+                    ),
+                ));
             }
         }
         Ok(())
@@ -194,10 +208,13 @@ impl FeatureManifest {
     fn validate_obj_defs(&self, obj_names: &mut HashSet<String>) -> Result<()> {
         for obj_def in &self.obj_defs {
             if !obj_names.insert(obj_def.name.clone()) {
-                return Err(FMLError::ValidationError(format!(
+                return Err(FMLError::ValidationError(
+                    format!("objects.{}", obj_def.name),
+                    format!(
                     "ObjectDef names must be unique. Found two ObjectDefs with the same name: {}",
                     obj_def.name
-                )));
+                ),
+                ));
             }
         }
         Ok(())
@@ -206,10 +223,13 @@ impl FeatureManifest {
     fn validate_feature_defs(&self, feature_names: &mut HashSet<String>) -> Result<()> {
         for feature_def in &self.feature_defs {
             if !feature_names.insert(feature_def.name.clone()) {
-                return Err(FMLError::ValidationError(format!(
+                return Err(FMLError::ValidationError(
+                    feature_def.name(),
+                    format!(
                     "FeatureDef names must be unique. Found two FeatureDefs with the same name: {}",
                     feature_def.name
-                )));
+                ),
+                ));
             }
             // while checking the feature, we also check that each prop is unique within a feature
             let mut prop_names = HashSet::new();
@@ -223,9 +243,12 @@ impl FeatureManifest {
         feature_def: &FeatureDef,
         prop_names: &mut HashSet<String>,
     ) -> Result<()> {
+        let path = format!("path.{}", &feature_def.name);
         for prop in &feature_def.props {
             if !prop_names.insert(prop.name.clone()) {
-                return Err(FMLError::ValidationError(format!(
+                return Err(FMLError::ValidationError(
+                    format!("{}.{}", path, prop.name),
+                    format!(
                     "PropDef names must be unique. Found two PropDefs with the same name: {} in the same feature_def: {}",
                     prop.name, feature_def.name
                 )));
@@ -237,22 +260,29 @@ impl FeatureManifest {
     fn validate_defaults(&self) -> Result<()> {
         for object in &self.obj_defs {
             for prop in &object.props {
-                self.validate_prop_defaults(prop)?;
+                let path = format!("objects.{}.{}", object.name, prop.name);
+                self.validate_prop_defaults(&path, prop)?;
             }
         }
         for feature in &self.feature_defs {
             for prop in &feature.props {
-                self.validate_prop_defaults(prop)?;
+                let path = format!("features.{}.{}", feature.name, prop.name);
+                self.validate_prop_defaults(&path, prop)?;
             }
         }
         Ok(())
     }
 
-    fn validate_prop_defaults(&self, prop: &PropDef) -> Result<()> {
-        self.validate_default_by_typ(&prop.typ, &prop.default)
+    fn validate_prop_defaults(&self, path: &str, prop: &PropDef) -> Result<()> {
+        self.validate_default_by_typ(path, &prop.typ, &prop.default)
     }
 
-    fn validate_default_by_typ(&self, type_ref: &TypeRef, default: &Value) -> Result<()> {
+    fn validate_default_by_typ(
+        &self,
+        path: &str,
+        type_ref: &TypeRef,
+        default: &Value,
+    ) -> Result<()> {
         match (type_ref, default) {
             (TypeRef::Boolean, Value::Bool(_))
             | (TypeRef::BundleImage(_), Value::String(_))
@@ -262,36 +292,46 @@ impl FeatureManifest {
             | (TypeRef::Option(_), Value::Null) => Ok(()),
             (TypeRef::Option(inner), v) => {
                 if let TypeRef::Option(_) = inner.as_ref() {
-                    return Err(FMLError::ValidationError("Nested options".into()));
+                    return Err(FMLError::ValidationError(
+                        path.to_string(),
+                        "Nested options".into(),
+                    ));
                 }
-                self.validate_default_by_typ(inner, v)
+                self.validate_default_by_typ(path, inner, v)
             }
             (TypeRef::Enum(enum_name), Value::String(s)) => {
                 let enum_def = self.find_enum(enum_name).ok_or_else(|| {
-                    FMLError::ValidationError("Enum in property doesn't exist".into())
+                    FMLError::ValidationError(
+                        path.to_string(),
+                        format!("Type `{}` is not a type. Perhaps you need to declare an enum of that name.", enum_name)
+                    )
                 })?;
                 for variant in enum_def.variants() {
                     if *s == variant.name() {
                         return Ok(());
                     }
                 }
-                return Err(FMLError::ValidationError(format!(
-                    "Default {} is not a valid variant of enum {}",
-                    s,
-                    enum_def.name()
-                )));
+                return Err(FMLError::ValidationError(
+                    path.to_string(),
+                    format!(
+                        "Default value `{value}` is not declared a variant of {enum_type}",
+                        value = s,
+                        enum_type = enum_name
+                    ),
+                ));
             }
             (TypeRef::EnumMap(enum_type, map_type), Value::Object(map)) => {
-                let name = if let TypeRef::Enum(name) = enum_type.as_ref() {
+                let enum_name = if let TypeRef::Enum(name) = enum_type.as_ref() {
                     name.clone()
                 } else {
-                    return Err(FMLError::ValidationError(
-                        "Enum map's key is not an enum".into(),
-                    ));
+                    unreachable!()
                 };
                 // We first validate that the keys of the map cover all all the enum variants, and no more or less
-                let enum_def = self.find_enum(&name).ok_or_else(|| {
-                    FMLError::ValidationError("Enum in property doesn't exist".into())
+                let enum_def = self.find_enum(&enum_name).ok_or_else(|| {
+                    FMLError::ValidationError(
+                        path.to_string(),
+                        format!("Type `{}` is not a type. Perhaps you need to declare an enum of that name.", enum_name)
+                    )
                 })?;
                 let mut seen = HashSet::new();
                 let mut unseen = HashSet::new();
@@ -303,70 +343,84 @@ impl FeatureManifest {
                             unseen.insert(variant.name());
                         }
                         (_, Some(inner)) => {
-                            self.validate_default_by_typ(map_type, inner)?;
+                            let path = format!("{}[{}.{}]", path, enum_def.name, variant.name);
+                            self.validate_default_by_typ(&path, map_type, inner)?;
                             seen.insert(variant.name());
                         }
                     }
                 }
 
                 if !unseen.is_empty() {
-                    return Err(FMLError::ValidationError(format!(
-                        "Default for enum map {} doesn't contain variant(s) {:?}",
-                        name, unseen
-                    )));
+                    return Err(FMLError::ValidationError(
+                        path.to_string(),
+                        format!(
+                            "Default for enum map {} doesn't contain variant(s) {:?}",
+                            enum_name, unseen
+                        ),
+                    ));
                 }
                 for map_key in map.keys() {
                     if !seen.contains(map_key) {
-                        return Err(FMLError::ValidationError(format!("Enum map default contains key {} that doesn't exist in the enum definition", map_key)));
+                        return Err(FMLError::ValidationError(path.to_string(), format!("Enum map default contains key {} that doesn't exist in the enum definition", map_key)));
                     }
                 }
                 Ok(())
             }
             (TypeRef::StringMap(map_type), Value::Object(map)) => {
-                for value in map.values() {
-                    self.validate_default_by_typ(map_type, value)?;
+                for (key, value) in map {
+                    let path = format!("{}['{}']", path, key);
+                    self.validate_default_by_typ(&path, map_type, value)?;
                 }
                 Ok(())
             }
             (TypeRef::List(list_type), Value::Array(arr)) => {
-                for value in arr {
-                    self.validate_default_by_typ(list_type, value)?;
+                for (index, value) in arr.iter().enumerate() {
+                    let path = format!("{}['{}']", path, index);
+                    self.validate_default_by_typ(&path, list_type, value)?;
                 }
                 Ok(())
             }
             (TypeRef::Object(obj_name), Value::Object(map)) => {
                 let obj_def = self.find_object(obj_name).ok_or_else(|| {
-                    FMLError::ValidationError(format!(
-                        "Object {} is not defined in the manifest",
-                        obj_name
-                    ))
+                    FMLError::ValidationError(
+                        path.to_string(),
+                        format!("Object {} is not defined in the manifest", obj_name),
+                    )
                 })?;
                 let mut seen = HashSet::new();
+                let path = format!("{}#{}", path, obj_name);
                 for prop in &obj_def.props {
                     // We only check the defaults overriding the property defaults
                     // from the object's own property defaults.
                     // We check the object property defaults previously.
-                    if let Some(map_val) = map.get(&prop.name()) {
-                        self.validate_default_by_typ(&prop.typ, map_val)?;
+                    if let Some(map_val) = map.get(&prop.name) {
+                        let path = format!("{}.{}", path, prop.name);
+                        self.validate_default_by_typ(&path, &prop.typ, map_val)?;
                     }
 
                     seen.insert(prop.name());
                 }
                 for map_key in map.keys() {
                     if !seen.contains(map_key) {
-                        return Err(FMLError::ValidationError(format!(
+                        return Err(FMLError::ValidationError(
+                            path,
+                            format!(
                             "Default includes key {} that doesn't exist in {}'s object definition",
                             map_key, obj_name
-                        )));
+                        ),
+                        ));
                     }
                 }
 
                 Ok(())
             }
-            _ => Err(FMLError::ValidationError(format!(
-                "Mismatch between type {:?} and default {}",
-                type_ref, default
-            ))),
+            _ => Err(FMLError::ValidationError(
+                path.to_string(),
+                format!(
+                    "Mismatch between type {:?} and default {}",
+                    type_ref, default
+                ),
+            )),
         }
     }
 
@@ -870,10 +924,11 @@ mod unit_tests {
             default: json!("default!"),
         };
         let mut fm = get_one_prop_feature_manifest(vec![], vec![], &prop);
-        fm.validate_prop_defaults(&prop)?;
+        let path = format!("test_validate_prop_defaults_string.{}", prop.name);
+        fm.validate_prop_defaults(&path, &prop)?;
         prop.default = json!(100);
         fm.feature_defs[0].props[0] = prop.clone();
-        fm.validate_prop_defaults(&prop)
+        fm.validate_prop_defaults(&path, &prop)
             .expect_err("Should error out, default is number when it should be string");
         Ok(())
     }
@@ -887,10 +942,11 @@ mod unit_tests {
             default: json!(100),
         };
         let mut fm = get_one_prop_feature_manifest(vec![], vec![], &prop);
-        fm.validate_prop_defaults(&prop)?;
+        let path = format!("test_validate_prop_defaults_int.{}", prop.name);
+        fm.validate_prop_defaults(&path, &prop)?;
         prop.default = json!("100");
         fm.feature_defs[0].props[0] = prop.clone();
-        fm.validate_prop_defaults(&prop)
+        fm.validate_prop_defaults(&path, &prop)
             .expect_err("Should error out, default is string when it should be number");
         Ok(())
     }
@@ -904,10 +960,11 @@ mod unit_tests {
             default: json!(true),
         };
         let mut fm = get_one_prop_feature_manifest(vec![], vec![], &prop);
-        fm.validate_prop_defaults(&prop)?;
+        let path = format!("test_validate_prop_defaults_bool.{}", prop.name);
+        fm.validate_prop_defaults(&path, &prop)?;
         prop.default = json!("100");
         fm.feature_defs[0].props[0] = prop.clone();
-        fm.validate_prop_defaults(&prop)
+        fm.validate_prop_defaults(&path, &prop)
             .expect_err("Should error out, default is string when it should be a boolean");
         Ok(())
     }
@@ -921,10 +978,11 @@ mod unit_tests {
             default: json!("IconBlue"),
         };
         let mut fm = get_one_prop_feature_manifest(vec![], vec![], &prop);
-        fm.validate_prop_defaults(&prop)?;
+        let path = format!("test_validate_prop_defaults_bundle_image.{}", prop.name);
+        fm.validate_prop_defaults(&path, &prop)?;
         prop.default = json!(100);
         fm.feature_defs[0].props[0] = prop.clone();
-        fm.validate_prop_defaults(&prop).expect_err(
+        fm.validate_prop_defaults(&path, &prop).expect_err(
             "Should error out, default is number when it should be a string (bundleImage string)",
         );
         Ok(())
@@ -939,10 +997,11 @@ mod unit_tests {
             default: json!("BundledText"),
         };
         let mut fm = get_one_prop_feature_manifest(vec![], vec![], &prop);
-        fm.validate_prop_defaults(&prop)?;
+        let path = format!("test_validate_prop_defaults_bundle_text.{}", prop.name);
+        fm.validate_prop_defaults(&path, &prop)?;
         prop.default = json!(100);
         fm.feature_defs[0].props[0] = prop.clone();
-        fm.validate_prop_defaults(&prop).expect_err(
+        fm.validate_prop_defaults(&path, &prop).expect_err(
             "Should error out, default is number when it should be a string (bundleText string)",
         );
         Ok(())
@@ -957,10 +1016,11 @@ mod unit_tests {
             default: json!(null),
         };
         let mut fm = get_one_prop_feature_manifest(vec![], vec![], &prop);
-        fm.validate_prop_defaults(&prop)?;
+        let path = format!("test_validate_prop_defaults_option_null.{}", prop.name);
+        fm.validate_prop_defaults(&path, &prop)?;
         prop.default = json!(100);
         fm.feature_defs[0].props[0] = prop.clone();
-        fm.validate_prop_defaults(&prop).expect_err(
+        fm.validate_prop_defaults(&path, &prop).expect_err(
             "Should error out, default is number when it should be a boolean (Optional boolean)",
         );
         Ok(())
@@ -975,7 +1035,8 @@ mod unit_tests {
             default: json!(true),
         };
         let fm = get_one_prop_feature_manifest(vec![], vec![], &prop);
-        fm.validate_prop_defaults(&prop)
+        let path = format!("test_validate_prop_defaults_nested_options.{}", prop.name);
+        fm.validate_prop_defaults(&path, &prop)
             .expect_err("Should error out since we have a nested option");
         Ok(())
     }
@@ -989,10 +1050,11 @@ mod unit_tests {
             default: json!(true),
         };
         let mut fm = get_one_prop_feature_manifest(vec![], vec![], &prop);
-        fm.validate_prop_defaults(&prop)?;
+        let path = format!("test_validate_prop_defaults_option_non_null.{}", prop.name);
+        fm.validate_prop_defaults(&path, &prop)?;
         prop.default = json!(100);
         fm.feature_defs[0].props[0] = prop.clone();
-        fm.validate_prop_defaults(&prop).expect_err(
+        fm.validate_prop_defaults(&path, &prop).expect_err(
             "Should error out, default is number when it should be a boolean (Optional boolean)",
         );
         Ok(())
@@ -1021,18 +1083,19 @@ mod unit_tests {
             ..Default::default()
         }];
         let mut fm = get_one_prop_feature_manifest(vec![], enum_defs, &prop);
-        fm.validate_prop_defaults(&prop)?;
+        let path = format!("test_validate_prop_defaults_enum.{}", prop.name);
+        fm.validate_prop_defaults(&path, &prop)?;
         prop.default = json!("green");
         fm.feature_defs[0].props[0] = prop.clone();
-        fm.validate_prop_defaults(&prop)?;
+        fm.validate_prop_defaults(&path, &prop)?;
         prop.default = json!("not a valid color");
         fm.feature_defs[0].props[0] = prop.clone();
-        fm.validate_prop_defaults(&prop)
+        fm.validate_prop_defaults(&path, &prop)
             .expect_err("Should error out since default is not a valid enum variant");
         prop.default = json!("blue");
         prop.typ = TypeRef::Enum("DoesntExist".into());
         fm.feature_defs[0].props[0] = prop.clone();
-        fm.validate_prop_defaults(&prop)
+        fm.validate_prop_defaults(&path, &prop)
             .expect_err("Should error out since the enum definition doesn't exist for the TypeRef");
         Ok(())
     }
@@ -1066,12 +1129,13 @@ mod unit_tests {
             ..Default::default()
         }];
         let mut fm = get_one_prop_feature_manifest(vec![], enum_defs, &prop);
-        fm.validate_prop_defaults(&prop)?;
+        let path = format!("test_validate_prop_defaults_enum_map.{}", prop.name);
+        fm.validate_prop_defaults(&path, &prop)?;
         prop.default = json!({
             "blue": 1,
         });
         fm.feature_defs[0].props[0] = prop.clone();
-        fm.validate_prop_defaults(&prop)
+        fm.validate_prop_defaults(&path, &prop)
             .expect_err("Should error out because the enum map is missing the green key");
         prop.default = json!({
             "blue": 1,
@@ -1079,7 +1143,7 @@ mod unit_tests {
             "red": 3,
         });
         fm.feature_defs[0].props[0] = prop.clone();
-        fm.validate_prop_defaults(&prop).expect_err("Should error out because the default includes an extra key that is not a variant of the enum (red)");
+        fm.validate_prop_defaults(&path, &prop).expect_err("Should error out because the default includes an extra key that is not a variant of the enum (red)");
         Ok(())
     }
 
@@ -1094,13 +1158,14 @@ mod unit_tests {
                 "green": 22,
             }),
         };
+        let path = format!("test_validate_prop_defaults_string_map.{}", &prop.name);
         let mut fm = get_one_prop_feature_manifest(vec![], vec![], &prop);
-        fm.validate_prop_defaults(&prop)?;
+        fm.validate_prop_defaults(&path, &prop)?;
         prop.default = json!({
             "blue": 1,
         });
         fm.feature_defs[0].props[0] = prop.clone();
-        fm.validate_prop_defaults(&prop)?;
+        fm.validate_prop_defaults(&path, &prop)?;
         prop.default = json!({
             "blue": 1,
             "green": 22,
@@ -1108,7 +1173,7 @@ mod unit_tests {
             "white": "AHA not a number"
         });
         fm.feature_defs[0].props[0] = prop.clone();
-        fm.validate_prop_defaults(&prop).expect_err("Should error out because the string map includes a value that is not an int as defined by the TypeRef");
+        fm.validate_prop_defaults(&path, &prop).expect_err("Should error out because the string map includes a value that is not an int as defined by the TypeRef");
         Ok(())
     }
 
@@ -1120,11 +1185,12 @@ mod unit_tests {
             typ: TypeRef::List(Box::new(TypeRef::Int)),
             default: json!([1, 3, 100]),
         };
+        let path = format!("test_validate_prop_defaults_list.{}", &prop.name);
         let mut fm = get_one_prop_feature_manifest(vec![], vec![], &prop);
-        fm.validate_prop_defaults(&prop)?;
+        fm.validate_prop_defaults(&path, &prop)?;
         prop.default = json!([1, 2, "oops"]);
         fm.feature_defs[0].props[0] = prop.clone();
-        fm.validate_prop_defaults(&prop)
+        fm.validate_prop_defaults(&path, &prop)
             .expect_err("Should error out because one of the values in the array is not an int");
         Ok(())
     }
@@ -1227,8 +1293,9 @@ mod unit_tests {
             ],
             ..Default::default()
         }];
+        let path = format!("test_validate_prop_defaults_object.{}", &prop.name);
         let mut fm = get_one_prop_feature_manifest(obj_defs, enum_defs, &prop);
-        fm.validate_prop_defaults(&prop)?;
+        fm.validate_prop_defaults(&path, &prop)?;
         prop.default = json!({
             "int": 1,
             "string": "bobo",
@@ -1242,7 +1309,7 @@ mod unit_tests {
             }
         });
         fm.feature_defs[0].props[0] = prop.clone();
-        fm.validate_prop_defaults(&prop).expect_err(
+        fm.validate_prop_defaults(&path, &prop).expect_err(
             "Should error out because the nested object has an enumMap with the wrong type",
         );
         prop.default = json!({
@@ -1260,7 +1327,7 @@ mod unit_tests {
             "extra-property": 2
         });
         fm.feature_defs[0].props[0] = prop.clone();
-        fm.validate_prop_defaults(&prop)
+        fm.validate_prop_defaults(&path, &prop)
             .expect_err("Should error out because the object has an extra property");
 
         // This test is missing a `list` property. But that's ok, because we'll get it from the object definition.
@@ -1277,7 +1344,8 @@ mod unit_tests {
             "optional": 2,
         });
         fm.feature_defs[0].props[0] = prop.clone();
-        fm.validate_prop_defaults(&prop)?;
+
+        fm.validate_prop_defaults(&path, &prop)?;
 
         prop.default = json!({
             "int": 1,
@@ -1293,7 +1361,7 @@ mod unit_tests {
         });
         fm.feature_defs[0].props[0] = prop.clone();
         // OK, because we are missing `optional` which is optional anyways
-        fm.validate_prop_defaults(&prop)?;
+        fm.validate_prop_defaults(&path, &prop)?;
         Ok(())
     }
 
@@ -1326,7 +1394,8 @@ mod unit_tests {
         }];
         let fm = get_one_prop_feature_manifest(vec![], enum_defs, &prop);
         // OK because the value is optional, and thus it's okay if it's missing (green is missing from the default)
-        fm.validate_prop_defaults(&prop)?;
+        let path = format!("test.{}", &prop.name);
+        fm.validate_prop_defaults(&path, &prop)?;
         Ok(())
     }
 }

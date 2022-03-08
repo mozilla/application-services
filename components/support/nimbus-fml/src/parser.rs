@@ -310,10 +310,10 @@ impl<'object> DefaultsMerger<'object> {
         }
 
         if !self.objects.contains_key(nm) {
-            return Err(FMLError::ValidationError(format!(
-                "Object named {} is not defined",
-                nm
-            )));
+            return Err(FMLError::ValidationError(
+                format!("objects.{}", nm),
+                format!("Object named {} is not defined", nm),
+            ));
         }
 
         let obj = self.objects.get(nm).unwrap();
