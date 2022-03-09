@@ -119,7 +119,7 @@ impl FeatureManifest {
         // We then validate that each type_ref is valid
         for feature_def in &self.feature_defs {
             for prop in &feature_def.props {
-                let path = format!("{}.{}", &feature_def.name, &prop.name);
+                let path = format!("features/{}.{}", &feature_def.name, &prop.name);
                 self.validate_type_ref(&path, &prop.typ, &enum_names, &obj_names)?;
             }
         }
@@ -194,7 +194,7 @@ impl FeatureManifest {
         for enum_def in &self.enum_defs {
             if !enum_names.insert(enum_def.name.clone()) {
                 return Err(FMLError::ValidationError(
-                    format!("enums.{}", enum_def.name),
+                    format!("enums/{}", enum_def.name),
                     format!(
                         "EnumDef names must be unique. Found two EnumDefs with the same name: {}",
                         enum_def.name
@@ -209,7 +209,7 @@ impl FeatureManifest {
         for obj_def in &self.obj_defs {
             if !obj_names.insert(obj_def.name.clone()) {
                 return Err(FMLError::ValidationError(
-                    format!("objects.{}", obj_def.name),
+                    format!("objects/{}", obj_def.name),
                     format!(
                     "ObjectDef names must be unique. Found two ObjectDefs with the same name: {}",
                     obj_def.name
@@ -243,7 +243,7 @@ impl FeatureManifest {
         feature_def: &FeatureDef,
         prop_names: &mut HashSet<String>,
     ) -> Result<()> {
-        let path = format!("path.{}", &feature_def.name);
+        let path = format!("features/{}", &feature_def.name);
         for prop in &feature_def.props {
             if !prop_names.insert(prop.name.clone()) {
                 return Err(FMLError::ValidationError(
@@ -260,13 +260,13 @@ impl FeatureManifest {
     fn validate_defaults(&self) -> Result<()> {
         for object in &self.obj_defs {
             for prop in &object.props {
-                let path = format!("objects.{}.{}", object.name, prop.name);
+                let path = format!("objects/{}.{}", object.name, prop.name);
                 self.validate_prop_defaults(&path, prop)?;
             }
         }
         for feature in &self.feature_defs {
             for prop in &feature.props {
-                let path = format!("features.{}.{}", feature.name, prop.name);
+                let path = format!("features/{}.{}", feature.name, prop.name);
                 self.validate_prop_defaults(&path, prop)?;
             }
         }
@@ -343,7 +343,7 @@ impl FeatureManifest {
                             unseen.insert(variant.name());
                         }
                         (_, Some(inner)) => {
-                            let path = format!("{}[{}.{}]", path, enum_def.name, variant.name);
+                            let path = format!("{}[{}#{}]", path, enum_def.name, variant.name);
                             self.validate_default_by_typ(&path, map_type, inner)?;
                             seen.insert(variant.name());
                         }

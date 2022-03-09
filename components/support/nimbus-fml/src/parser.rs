@@ -508,10 +508,10 @@ fn get_typeref_from_string(
         "Int" => Ok(TypeRef::Int),
         "Boolean" => Ok(TypeRef::Boolean),
         "BundleText" | "Text" => Ok(TypeRef::BundleText(
-            type_name.unwrap_or_else(|| "".to_string()),
+            type_name.unwrap_or_else(|| "unnamed".to_string()),
         )),
         "BundleImage" | "Drawable" | "Image" => Ok(TypeRef::BundleImage(
-            type_name.unwrap_or_else(|| "".to_string()),
+            type_name.unwrap_or_else(|| "unnamed".to_string()),
         )),
         "Enum" => Ok(TypeRef::Enum(type_name.unwrap())),
         "Object" => Ok(TypeRef::Object(type_name.unwrap())),
