@@ -10,7 +10,7 @@ use crate::bookmark_sync::{
 use crate::error::*;
 use crate::import::common::{attached_database, ExecuteOnDrop};
 use crate::types::SyncStatus;
-use rusqlite::{named_params, NO_PARAMS};
+use rusqlite::named_params;
 use sql_support::ConnExt;
 use std::collections::HashMap;
 use url::Url;
@@ -184,7 +184,7 @@ fn populate_mirror_tags(db: &crate::PlacesDb) -> Result<()> {
                AND stage.tags != '[]'",
         )?;
 
-        let mut rows = stmt.query(NO_PARAMS)?;
+        let mut rows = stmt.query([])?;
         while let Some(row) = rows.next()? {
             let id: i64 = row.get(0)?;
             let tags: String = row.get(1)?;
@@ -214,21 +214,20 @@ fn populate_mirror_tags(db: &crate::PlacesDb) -> Result<()> {
     let tag_count = tag_map.len();
     let mut tagged_count = 0;
     for (tag, tagged_items) in tag_map {
-        db.execute_named_cached(
+        db.execute_cached(
             "INSERT OR IGNORE INTO main.moz_tags(tag, lastModified) VALUES(:tag, now())",
             named_params! { ":tag": tag },
         )?;
 
-        let tag_id: i64 = db.query_row_and_then_named(
+        let tag_id: i64 = db.query_row_and_then(
             "SELECT id FROM main.moz_tags WHERE tag = :tag",
             named_params! { ":tag": tag },
             |r| r.get(0),
-            true,
         )?;
         tagged_count += tagged_items.len();
         for item_id in tagged_items {
             log::trace!("tagging {} with {}", item_id, tag);
-            db.execute_named_cached(
+            db.execute_cached(
                 "INSERT INTO main.moz_bookmarks_synced_tag_relation(itemId, tagId) VALUES(:item_id, :tag_id)",
                 named_params! { ":tag_id": tag_id, ":item_id": item_id },
             )?;

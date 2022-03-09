@@ -95,7 +95,7 @@ impl UpdatePlan {
                     "DELETE FROM loginsL WHERE guid IN ({vars})",
                     vars = sql_support::repeat_sql_vars(chunk.len())
                 ),
-                chunk,
+                rusqlite::params_from_iter(chunk),
             )?;
             scope.err_if_interrupted()?;
             Ok(())
@@ -107,7 +107,7 @@ impl UpdatePlan {
                     "DELETE FROM loginsM WHERE guid IN ({vars})",
                     vars = sql_support::repeat_sql_vars(chunk.len())
                 ),
-                chunk,
+                rusqlite::params_from_iter(chunk),
             )?;
             Ok(())
         })
@@ -134,7 +134,7 @@ impl UpdatePlan {
         let mut stmt = conn.prepare_cached(sql)?;
         for (login, timestamp) in &self.mirror_updates {
             log::trace!("Updating mirror {:?}", login.guid_str());
-            stmt.execute_named(named_params! {
+            stmt.execute(named_params! {
                 ":server_modified": *timestamp,
                 ":http_realm": login.fields.http_realm,
                 ":form_action_origin": login.fields.form_action_origin,
@@ -194,7 +194,7 @@ impl UpdatePlan {
 
         for (login, timestamp, is_overridden) in &self.mirror_inserts {
             log::trace!("Inserting mirror {:?}", login.guid_str());
-            stmt.execute_named(named_params! {
+            stmt.execute(named_params! {
                 ":is_overridden": *is_overridden,
                 ":server_modified": *timestamp,
                 ":http_realm": login.fields.http_realm,
@@ -236,7 +236,7 @@ impl UpdatePlan {
         let local_ms: i64 = util::system_time_ms_i64(SystemTime::now());
         for l in &self.local_updates {
             log::trace!("Updating local {:?}", l.guid_str());
-            stmt.execute_named(named_params! {
+            stmt.execute(named_params! {
                 ":local_modified": local_ms,
                 ":http_realm": l.login.fields.http_realm,
                 ":form_action_origin": l.login.fields.form_action_origin,

@@ -269,7 +269,6 @@ mod tests {
     use super::*;
     use crate::db::PlacesDb;
     use crate::error::Result;
-    use rusqlite::NO_PARAMS;
     use sync_guid::Guid as SyncGuid;
     use url::Url;
 
@@ -300,10 +299,10 @@ mod tests {
         let conn = PlacesDb::open_in_memory(ConnectionType::ReadWrite).expect("no memory db");
         let guid = SyncGuid::random();
 
-        conn.execute_named_cached(
+        conn.execute_cached(
             "INSERT INTO moz_places (guid, url, url_hash) VALUES (:guid, :url, hash(:url))",
             &[
-                (":guid", &guid),
+                (":guid", &guid as &dyn rusqlite::ToSql),
                 (
                     ":url",
                     &String::from(Url::parse("http://example.com").expect("valid url")),
@@ -313,7 +312,7 @@ mod tests {
         .expect("should work");
 
         let place_id = conn.last_insert_rowid();
-        conn.execute_named_cached(
+        conn.execute_cached(
             "DELETE FROM moz_places WHERE id = :id",
             &[(":id", &place_id)],
         )
@@ -328,18 +327,18 @@ mod tests {
         let conn = PlacesDb::open_in_memory(ConnectionType::ReadWrite).expect("no memory db");
         let guid = SyncGuid::random();
 
-        conn.execute_named_cached(
+        conn.execute_cached(
             "INSERT INTO moz_places_tombstones VALUES (:guid)",
             &[(":guid", &guid)],
         )
         .expect("should work");
 
         // insert into moz_places - the tombstone should be removed.
-        conn.execute_named_cached(
+        conn.execute_cached(
             "INSERT INTO moz_places (guid, url, url_hash, sync_status)
              VALUES (:guid, :url, hash(:url), :sync_status)",
             &[
-                (":guid", &guid),
+                (":guid", &guid as &dyn rusqlite::ToSql),
                 (
                     ":url",
                     &String::from(Url::parse("http://example.com").expect("valid url")),
@@ -362,10 +361,14 @@ mod tests {
                     (fk, type, parent, position, dateAdded, lastModified, guid)
                  VALUES
                     (NULL, 1, 0, 0, 1, 1, 'fake_guid___')",
-                NO_PARAMS,
+                [],
             )
             .expect_err("should fail");
-        assert_eq!(e.to_string(), "CHECK constraint failed: moz_bookmarks");
+        assert!(
+            e.to_string().starts_with("CHECK constraint failed"),
+            "Expected `CHECK` failure, got: {:?}",
+            e,
+        );
 
         // type!=BOOKMARK and non-null fk
         let e = conn
@@ -374,10 +377,14 @@ mod tests {
                     (fk, type, parent, position, dateAdded, lastModified, guid)
                  VALUES
                     (1, 2, 0, 0, 1, 1, 'fake_guid___')",
-                NO_PARAMS,
+                [],
             )
             .expect_err("should fail");
-        assert_eq!(e.to_string(), "CHECK constraint failed: moz_bookmarks");
+        assert!(
+            e.to_string().starts_with("CHECK constraint failed"),
+            "Expected `CHECK` failure, got: {:?}",
+            e,
+        );
 
         // null parent for item other than the root
         let e = conn
@@ -386,10 +393,14 @@ mod tests {
                     (fk, type, parent, position, dateAdded, lastModified, guid)
                  VALUES
                     (NULL, 2, NULL, 0, 1, 1, 'fake_guid___')",
-                NO_PARAMS,
+                [],
             )
             .expect_err("should fail");
-        assert_eq!(e.to_string(), "CHECK constraint failed: moz_bookmarks");
+        assert!(
+            e.to_string().starts_with("CHECK constraint failed"),
+            "Expected `CHECK` failure, got: {:?}",
+            e,
+        );
 
         // Invalid length guid
         let e = conn
@@ -398,15 +409,19 @@ mod tests {
                     (fk, type, parent, position, dateAdded, lastModified, guid)
                  VALUES
                     (NULL, 2, 0, 0, 1, 1, 'fake_guid')",
-                NO_PARAMS,
+                [],
             )
             .expect_err("should fail");
-        assert_eq!(e.to_string(), "CHECK constraint failed: moz_bookmarks");
+        assert!(
+            e.to_string().starts_with("CHECK constraint failed"),
+            "Expected `CHECK` failure, got: {:?}",
+            e,
+        );
     }
 
     fn select_simple_int(conn: &PlacesDb, stmt: &str) -> u32 {
         let count: Result<Option<u32>> =
-            conn.try_query_row(stmt, &[], |row| Ok(row.get::<_, u32>(0)?), false);
+            conn.try_query_row(stmt, [], |row| Ok(row.get::<_, u32>(0)?), false);
         count.unwrap().unwrap()
     }
 
@@ -430,16 +445,22 @@ mod tests {
         let guid2 = SyncGuid::random();
         let url2 = Url::parse("http://example2.com").expect("valid url");
 
-        conn.execute_named_cached(
+        conn.execute_cached(
             "INSERT INTO moz_places (guid, url, url_hash) VALUES (:guid, :url, hash(:url))",
-            &[(":guid", &guid1), (":url", &String::from(url1))],
+            &[
+                (":guid", &guid1 as &dyn rusqlite::ToSql),
+                (":url", &String::from(url1)),
+            ],
         )
         .expect("should work");
         let place_id1 = conn.last_insert_rowid();
 
-        conn.execute_named_cached(
+        conn.execute_cached(
             "INSERT INTO moz_places (guid, url, url_hash) VALUES (:guid, :url, hash(:url))",
-            &[(":guid", &guid2), (":url", &String::from(url2))],
+            &[
+                (":guid", &guid2 as &dyn rusqlite::ToSql),
+                (":url", &String::from(url2)),
+            ],
         )
         .expect("should work");
         let place_id2 = conn.last_insert_rowid();
@@ -448,7 +469,7 @@ mod tests {
         assert_eq!(get_foreign_count(&conn, &guid2), 0);
 
         // create a bookmark pointing at it.
-        conn.execute_named_cached(
+        conn.execute_cached(
             "INSERT INTO moz_bookmarks
                 (fk, type, parent, position, dateAdded, lastModified, guid)
             VALUES
@@ -460,7 +481,7 @@ mod tests {
         assert_eq!(get_foreign_count(&conn, &guid2), 0);
 
         // change the bookmark to point at a different place.
-        conn.execute_named_cached(
+        conn.execute_cached(
             "UPDATE moz_bookmarks SET fk = :new_place WHERE guid = 'fake_guid___';",
             &[(":new_place", &place_id2)],
         )
@@ -468,11 +489,8 @@ mod tests {
         assert_eq!(get_foreign_count(&conn, &guid1), 0);
         assert_eq!(get_foreign_count(&conn, &guid2), 1);
 
-        conn.execute(
-            "DELETE FROM moz_bookmarks WHERE guid = 'fake_guid___';",
-            NO_PARAMS,
-        )
-        .expect("should work");
+        conn.execute("DELETE FROM moz_bookmarks WHERE guid = 'fake_guid___';", [])
+            .expect("should work");
         assert_eq!(get_foreign_count(&conn, &guid1), 0);
         assert_eq!(get_foreign_count(&conn, &guid2), 0);
     }
@@ -484,7 +502,7 @@ mod tests {
 
         let url = Url::parse("http://example.com").expect("valid url");
 
-        conn.execute_named_cached(
+        conn.execute_cached(
             "INSERT INTO moz_places (guid, url, url_hash) VALUES ('fake_guid___', :url, hash(:url))",
             &[(":url", &String::from(url))],
         )
@@ -494,7 +512,7 @@ mod tests {
         assert_eq!(get_foreign_count(&conn, &"fake_guid___".into()), 0);
 
         // create a bookmark pointing at it.
-        conn.execute_named_cached(
+        conn.execute_cached(
             "INSERT INTO moz_bookmarks_synced
                 (placeId, guid)
             VALUES
@@ -505,9 +523,9 @@ mod tests {
         assert_eq!(get_foreign_count(&conn, &"fake_guid___".into()), 1);
 
         // delete it.
-        conn.execute_named_cached(
+        conn.execute_cached(
             "DELETE FROM moz_bookmarks_synced WHERE guid = 'fake_guid___';",
-            &[],
+            [],
         )
         .expect("should work");
         assert_eq!(get_foreign_count(&conn, &"fake_guid___".into()), 0);
@@ -529,25 +547,16 @@ mod tests {
         .expect("should be able to do the inserts");
 
         // Should be impossible to delete the place.
-        conn.execute(
-            "DELETE FROM moz_places WHERE guid = 'place_guid__';",
-            NO_PARAMS,
-        )
-        .expect_err("should fail");
+        conn.execute("DELETE FROM moz_places WHERE guid = 'place_guid__';", [])
+            .expect_err("should fail");
 
         // delete the bookmark.
-        conn.execute(
-            "DELETE FROM moz_bookmarks WHERE guid = 'fake_guid___';",
-            NO_PARAMS,
-        )
-        .expect("should be able to delete the bookmark");
+        conn.execute("DELETE FROM moz_bookmarks WHERE guid = 'fake_guid___';", [])
+            .expect("should be able to delete the bookmark");
 
         // now we should be able to delete the place.
-        conn.execute(
-            "DELETE FROM moz_places WHERE guid = 'place_guid__';",
-            NO_PARAMS,
-        )
-        .expect("should now be able to delete the place");
+        conn.execute("DELETE FROM moz_places WHERE guid = 'place_guid__';", [])
+            .expect("should now be able to delete the place");
     }
 
     #[test]
@@ -578,11 +587,8 @@ mod tests {
         .expect("inserts should work");
 
         // Delete the folder - the bookmark should cascade delete.
-        conn.execute(
-            "DELETE FROM moz_bookmarks WHERE guid = 'folder_guid_';",
-            NO_PARAMS,
-        )
-        .expect("should work");
+        conn.execute("DELETE FROM moz_bookmarks WHERE guid = 'folder_guid_';", [])
+            .expect("should work");
 
         // folder should be gone.
         assert_eq!(
@@ -622,20 +628,17 @@ mod tests {
                         ({}, 3, 1, 0, 1, 1, 'bookmarkguid')",
                 SyncStatus::Normal as u8
             ),
-            NO_PARAMS,
+            [],
         )
         .expect("should insert regular bookmark folder");
-        conn.execute(
-            "DELETE FROM moz_bookmarks WHERE guid = 'bookmarkguid'",
-            NO_PARAMS,
-        )
-        .expect("should delete");
+        conn.execute("DELETE FROM moz_bookmarks WHERE guid = 'bookmarkguid'", [])
+            .expect("should delete");
         // should have a tombstone.
         assert_eq!(
             select_simple_int(&conn, "SELECT COUNT(*) from moz_bookmarks_deleted"),
             1
         );
-        conn.execute("DELETE from moz_bookmarks_deleted", NO_PARAMS)
+        conn.execute("DELETE from moz_bookmarks_deleted", [])
             .expect("should delete");
         conn.execute(
             &format!(
@@ -645,14 +648,11 @@ mod tests {
                         ({}, 3, 1, 0, 1, 1, 'bookmarkguid')",
                 SyncStatus::New as u8
             ),
-            NO_PARAMS,
+            [],
         )
         .expect("should insert regular bookmark folder");
-        conn.execute(
-            "DELETE FROM moz_bookmarks WHERE guid = 'bookmarkguid'",
-            NO_PARAMS,
-        )
-        .expect("should delete");
+        conn.execute("DELETE FROM moz_bookmarks WHERE guid = 'bookmarkguid'", [])
+            .expect("should delete");
         // should not have a tombstone as syncStatus is new.
         assert_eq!(
             select_simple_int(&conn, "SELECT COUNT(*) from moz_bookmarks_deleted"),
@@ -665,7 +665,7 @@ mod tests {
         let conn = PlacesDb::open_in_memory(ConnectionType::ReadWrite).expect("no memory db");
         conn.execute(
             "INSERT into moz_bookmarks_deleted VALUES ('bookmarkguid', 1)",
-            NO_PARAMS,
+            [],
         )
         .expect("should insert tombstone");
         assert_eq!(
@@ -678,7 +678,7 @@ mod tests {
                         (type, parent, position, dateAdded, lastModified, guid)
                      VALUES
                         (3, 1, 0, 1, 1, 'bookmarkguid')",
-            NO_PARAMS,
+            [],
         )
         .expect("should insert regular bookmark folder");
         // tombstone should have vanished.
@@ -695,7 +695,7 @@ mod tests {
         // check updates do the right thing.
         conn.execute(
             "INSERT into moz_bookmarks_deleted VALUES ('bookmarkguid', 1)",
-            NO_PARAMS,
+            [],
         )
         .expect("should insert tombstone");
 
@@ -705,7 +705,7 @@ mod tests {
                         (type, parent, position, dateAdded, lastModified, guid)
                      VALUES
                         (3, 1, 0, 1, 1, 'fake_guid___')",
-            NO_PARAMS,
+            [],
         )
         .expect("should insert regular bookmark folder");
         // tombstone should remain.
@@ -717,7 +717,7 @@ mod tests {
         conn.execute(
             "UPDATE moz_bookmarks SET guid = 'bookmarkguid'
              WHERE guid = 'fake_guid___'",
-            NO_PARAMS,
+            [],
         )
         .expect_err("changing the guid should fail");
     }
@@ -776,7 +776,7 @@ mod tests {
                 (type, parent, position, dateAdded, lastModified, guid, syncStatus)
              VALUES
                 (3, 1, 0, 1, 1, 'fake_guid_1_', 1)",
-            NO_PARAMS,
+            [],
         )
         .expect("should insert first regular bookmark folder");
         db.execute(
@@ -784,7 +784,7 @@ mod tests {
                 (type, parent, position, dateAdded, lastModified, guid, syncStatus)
              VALUES
                 (3, 1, 0, 1, 1, 'fake_guid_2_', 1)",
-            NO_PARAMS,
+            [],
         )
         .expect("should insert regular bookmark folder");
 
@@ -795,7 +795,7 @@ mod tests {
                 (guid, parentGuid)
             VALUES
                 ('fake_guid_2_', 'root')",
-            NO_PARAMS,
+            [],
         )
         .expect("should insert into moz_bookmarks_synced");
 

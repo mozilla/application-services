@@ -3,7 +3,7 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 use std::{ops::Deref, path::Path};
 
-use rusqlite::{Connection, NO_PARAMS};
+use rusqlite::Connection;
 use sql_support::{open_database, ConnExt};
 
 use crate::error::{PushError, Result};
@@ -153,10 +153,13 @@ impl Storage for PushDb {
                  (:channel_id, :endpoint, :scope, :key, :ctime, :app_server_key)",
             common_cols = schema::COMMON_COLS,
         );
-        let affected_rows = self.execute_named(
+        let affected_rows = self.execute(
             &query,
             &[
-                (":channel_id", &Self::normalize_uuid(&record.channel_id)),
+                (
+                    ":channel_id",
+                    &Self::normalize_uuid(&record.channel_id) as &dyn rusqlite::ToSql,
+                ),
                 (":endpoint", &record.endpoint),
                 (":scope", &record.scope),
                 (":key", &record.key),
@@ -169,7 +172,7 @@ impl Storage for PushDb {
 
     fn delete_record(&self, chid: &str) -> Result<bool> {
         log::debug!("deleting push subscription: {}", chid);
-        let affected_rows = self.execute_named(
+        let affected_rows = self.execute(
             "DELETE FROM push_record
              WHERE channel_id = :chid",
             &[(":chid", &Self::normalize_uuid(chid))],
@@ -179,7 +182,7 @@ impl Storage for PushDb {
 
     fn delete_all_records(&self) -> Result<()> {
         log::debug!("deleting all push subscriptions and some metadata");
-        self.execute("DELETE FROM push_record", NO_PARAMS)?;
+        self.execute("DELETE FROM push_record", [])?;
         // Clean up the meta data records as well, since we probably want to reset the
         // UAID and get a new secret.
         // Note we *do not* delete the registration_id - it's possible we are deleting all
@@ -193,20 +196,20 @@ impl Storage for PushDb {
     }
 
     fn get_channel_list(&self) -> Result<Vec<String>> {
-        self.query_rows_and_then_named(
+        self.query_rows_and_then(
             "SELECT channel_id FROM push_record",
-            &[],
+            [],
             |row| -> Result<String> { Ok(row.get(0)?) },
         )
     }
 
     fn update_endpoint(&self, channel_id: &str, endpoint: &str) -> Result<bool> {
         log::debug!("updating endpoint for '{}' to '{}'", channel_id, endpoint);
-        let affected_rows = self.execute_named(
+        let affected_rows = self.execute(
             "UPDATE push_record set endpoint = :endpoint
              WHERE channel_id = :channel_id",
             &[
-                (":endpoint", &endpoint),
+                (":endpoint", &endpoint as &dyn rusqlite::ToSql),
                 (":channel_id", &Self::normalize_uuid(channel_id)),
             ],
         )?;
@@ -251,7 +254,7 @@ impl Storage for PushDb {
 
     fn set_meta(&self, key: &str, value: &str) -> Result<()> {
         let query = "INSERT or REPLACE into meta_data (key, value) values (:k, :v)";
-        self.execute_named_cached(query, &[(":k", &key), (":v", &value)])?;
+        self.execute_cached(query, &[(":k", &key), (":v", &value)])?;
         Ok(())
     }
 }

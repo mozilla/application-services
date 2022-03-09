@@ -176,7 +176,7 @@ mod tests {
 
         // create tombstone record
         assert!(tx
-            .execute_named(
+            .execute(
                 "INSERT INTO credit_cards_tombstones (
                     guid,
                     time_deleted

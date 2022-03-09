@@ -6,7 +6,7 @@ use places::import::fennec::bookmarks::BookmarksMigrationResult;
 use places::storage::bookmarks::fetch::Item;
 use places::{api::places_api::PlacesApi, ErrorKind, Result};
 use rusqlite::types::{ToSql, ToSqlOutput};
-use rusqlite::{Connection, NO_PARAMS};
+use rusqlite::Connection;
 use std::path::Path;
 use std::sync::atomic::{AtomicUsize, Ordering};
 use sync_guid::Guid;
@@ -61,7 +61,7 @@ impl FennecBookmark {
              VALUES (:_id, :title, :url, :type, :parent, :position, :keyword, :description, :tags,
                      :favicon_id, :created, :modified, :guid, :deleted, :localVersion, :syncVersion)"
         )?;
-        stmt.execute_named(rusqlite::named_params! {
+        stmt.execute(rusqlite::named_params! {
             ":_id": self._id,
             ":title": self.title,
             ":url": self.url,
@@ -128,7 +128,7 @@ fn test_import_unsupported_db_version() -> Result<()> {
     let tmpdir = tempdir().unwrap();
     let fennec_path = tmpdir.path().join("browser.db");
     let fennec_db = empty_fennec_db(&fennec_path)?;
-    fennec_db.execute("PRAGMA user_version=22", NO_PARAMS)?;
+    fennec_db.execute("PRAGMA user_version=22", [])?;
     let places_api = PlacesApi::new(tmpdir.path().join("places.sqlite"))?;
     match places::import::import_fennec_bookmarks(&places_api, fennec_path)
         .unwrap_err()
@@ -322,7 +322,7 @@ fn test_import() -> Result<()> {
             )",
             FennecBookmarkType::Folder as u8
         ))?
-        .execute(NO_PARAMS)?;
+        .execute([])?;
     // An item with the parent as -99 and an invalid guid - both of these
     // invalid values will be fixed up and the item will be imported.
     fennec_db
@@ -341,7 +341,7 @@ fn test_import() -> Result<()> {
             )",
             FennecBookmarkType::Bookmark as u8
         ))?
-        .execute(NO_PARAMS)?;
+        .execute([])?;
 
     let places_api = PlacesApi::new(tmpdir.path().join("places.sqlite"))?;
 
@@ -628,7 +628,7 @@ fn test_null_parent() -> Result<()> {
             )",
             FennecBookmarkType::Folder as u8
         ))?
-        .execute(NO_PARAMS)?;
+        .execute([])?;
 
     let places_api = PlacesApi::new(tmpdir.path().join("places.sqlite"))?;
     places::import::import_fennec_bookmarks(&places_api, fennec_path)?;
@@ -693,7 +693,7 @@ fn test_invalid_utf8() -> Result<()> {
             bm_type = FennecBookmarkType::Bookmark as u8,
             bad = bad,
         ))?
-        .execute(NO_PARAMS)?;
+        .execute([])?;
 
     let places_api = PlacesApi::new(tmpdir.path().join("places.sqlite"))?;
     places::import::import_fennec_bookmarks(&places_api, fennec_path)?;

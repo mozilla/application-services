@@ -14,7 +14,7 @@ use crate::{
     EncryptedLogin, Login, LoginDb, LoginEntry, LoginFields, LoginStore, RecordFields,
     SecureLoginFields,
 };
-use rusqlite::{named_params, types::Value, Connection, Row, NO_PARAMS};
+use rusqlite::{named_params, types::Value, Connection, Row};
 use sql_support::ConnExt;
 use std::collections::HashMap;
 use std::ops::Add;
@@ -196,7 +196,7 @@ fn generate_plan_from_db(
 
     // Process local logins and add to MigrationPlan
     let mut local_stmt = cipher_conn.prepare("SELECT * FROM loginsL")?;
-    let mut local_rows = local_stmt.query(NO_PARAMS)?;
+    let mut local_rows = local_stmt.query([])?;
     while let Some(row) = local_rows.next()? {
         match get_login_from_row(row) {
             Ok(login) => {
@@ -227,7 +227,7 @@ fn generate_plan_from_db(
     }
     // Process mirror logins and add to MigrationPlan
     let mut mirror_stmt = cipher_conn.prepare("SELECT * FROM loginsM")?;
-    let mut mirror_rows = mirror_stmt.query(NO_PARAMS)?;
+    let mut mirror_rows = mirror_stmt.query([])?;
     while let Some(row) = mirror_rows.next()? {
         match get_login_from_row(row) {
             Ok(login) => {
@@ -577,7 +577,7 @@ fn insert_local_login(
             return Ok(());
         };
     }
-    match conn.execute_named_cached(
+    match conn.execute_cached(
         sql,
         named_params! {
             ":origin": login.fields.origin,
@@ -639,7 +639,7 @@ fn insert_mirror_login(conn: &Connection, mirror_login: &MirrorLogin) -> Result<
 
     // As mirror syncs with the server, we should not attempt to apply fixups
     let login = &mirror_login.login;
-    match conn.execute_named_cached(
+    match conn.execute_cached(
         sql,
         named_params! {
             ":origin": login.fields.origin,
@@ -711,7 +711,7 @@ fn migrate_sync_metadata(cipher_conn: &Connection, store: &LoginStore) -> Result
     let import_start = Instant::now();
 
     let mut select_stmt = cipher_conn.prepare("SELECT key, value FROM loginsSyncMeta")?;
-    let mut rows = select_stmt.query(NO_PARAMS)?;
+    let mut rows = select_stmt.query([])?;
 
     let sql = "INSERT INTO loginsSyncMeta (key, value) VALUES (:key, :value)";
 
@@ -724,7 +724,7 @@ fn migrate_sync_metadata(cipher_conn: &Connection, store: &LoginStore) -> Result
         let key: String = row.get("key")?;
         let value: Value = row.get("value")?;
 
-        match conn.execute_named_cached(sql, named_params! { ":key": &key, ":value": &value }) {
+        match conn.execute_cached(sql, named_params! { ":key": &key, ":value": &value }) {
             Ok(_) => log::info!("Imported {} successfully", key),
             Err(e) => {
                 log::warn!("Could not import {}.", key);
@@ -875,54 +875,80 @@ mod tests {
         let mut stmt = db
             .prepare("SELECT * FROM loginsL where guid = 'a'")
             .unwrap();
-        let mut rows = stmt.query(NO_PARAMS).unwrap();
+        let mut rows = stmt.query([]).unwrap();
         let row = rows.next().unwrap().unwrap();
-        let enc: SecureLoginFields =
-            decrypt_struct(row.get_raw("secFields").as_str().unwrap().to_string());
+        let enc: SecureLoginFields = decrypt_struct(
+            row.get_ref_unwrap("secFields")
+                .as_str()
+                .unwrap()
+                .to_string(),
+        );
         assert_eq!(enc.username, "test");
         assert_eq!(enc.password, "password");
         assert_eq!(
-            row.get_raw("origin").as_str().unwrap(),
+            row.get_ref_unwrap("origin").as_str().unwrap(),
             "https://www.example.com"
         );
-        assert_eq!(row.get_raw("httpRealm"), ValueRef::Null);
+        assert_eq!(row.get_ref_unwrap("httpRealm"), ValueRef::Null);
         assert_eq!(
-            row.get_raw("formActionOrigin").as_str().unwrap(),
+            row.get_ref_unwrap("formActionOrigin").as_str().unwrap(),
             "https://www.example.com"
         );
-        assert_eq!(row.get_raw("usernameField").as_str().unwrap(), "username");
-        assert_eq!(row.get_raw("passwordField").as_str().unwrap(), "password");
-        assert_eq!(row.get_raw("timeCreated").as_i64().unwrap(), 1000);
-        assert_eq!(row.get_raw("timeLastUsed").as_i64().unwrap(), 1000);
-        assert_eq!(row.get_raw("timePasswordChanged").as_i64().unwrap(), 1);
-        assert_eq!(row.get_raw("timesUsed").as_i64().unwrap(), 10);
-        assert_eq!(row.get_raw("is_deleted").as_i64().unwrap(), 0);
-        assert_eq!(row.get_raw("sync_status").as_i64().unwrap(), 0);
+        assert_eq!(
+            row.get_ref_unwrap("usernameField").as_str().unwrap(),
+            "username"
+        );
+        assert_eq!(
+            row.get_ref_unwrap("passwordField").as_str().unwrap(),
+            "password"
+        );
+        assert_eq!(row.get_ref_unwrap("timeCreated").as_i64().unwrap(), 1000);
+        assert_eq!(row.get_ref_unwrap("timeLastUsed").as_i64().unwrap(), 1000);
+        assert_eq!(
+            row.get_ref_unwrap("timePasswordChanged").as_i64().unwrap(),
+            1
+        );
+        assert_eq!(row.get_ref_unwrap("timesUsed").as_i64().unwrap(), 10);
+        assert_eq!(row.get_ref_unwrap("is_deleted").as_i64().unwrap(), 0);
+        assert_eq!(row.get_ref_unwrap("sync_status").as_i64().unwrap(), 0);
 
         let mut stmt = db
             .prepare("SELECT * FROM loginsM WHERE guid = 'b'")
             .unwrap();
-        let mut rows = stmt.query(NO_PARAMS).unwrap();
+        let mut rows = stmt.query([]).unwrap();
         let row = rows.next().unwrap().unwrap();
-        let enc: SecureLoginFields =
-            decrypt_struct(row.get_raw("secFields").as_str().unwrap().to_string());
+        let enc: SecureLoginFields = decrypt_struct(
+            row.get_ref_unwrap("secFields")
+                .as_str()
+                .unwrap()
+                .to_string(),
+        );
         assert_eq!(enc.username, "test");
         assert_eq!(enc.password, "password");
         assert_eq!(
-            row.get_raw("origin").as_str().unwrap(),
+            row.get_ref_unwrap("origin").as_str().unwrap(),
             "https://www.example1.com"
         );
-        assert_eq!(row.get_raw("httpRealm").as_str().unwrap(), "Test Realm");
-        assert_eq!(row.get_raw("formActionOrigin"), ValueRef::Null);
-        assert_eq!(row.get_raw("usernameField").as_str().unwrap(), "");
-        assert_eq!(row.get_raw("passwordField").as_str().unwrap(), "");
-        assert_eq!(row.get_raw("timeCreated").as_i64().unwrap(), 1000);
-        assert_eq!(row.get_raw("timeLastUsed").as_i64().unwrap(), 1000);
-        assert_eq!(row.get_raw("timePasswordChanged").as_i64().unwrap(), 1);
-        assert_eq!(row.get_raw("timesUsed").as_i64().unwrap(), 10);
+        assert_eq!(
+            row.get_ref_unwrap("httpRealm").as_str().unwrap(),
+            "Test Realm"
+        );
+        assert_eq!(row.get_ref_unwrap("formActionOrigin"), ValueRef::Null);
+        assert_eq!(row.get_ref_unwrap("usernameField").as_str().unwrap(), "");
+        assert_eq!(row.get_ref_unwrap("passwordField").as_str().unwrap(), "");
+        assert_eq!(row.get_ref_unwrap("timeCreated").as_i64().unwrap(), 1000);
+        assert_eq!(row.get_ref_unwrap("timeLastUsed").as_i64().unwrap(), 1000);
+        assert_eq!(
+            row.get_ref_unwrap("timePasswordChanged").as_i64().unwrap(),
+            1
+        );
+        assert_eq!(row.get_ref_unwrap("timesUsed").as_i64().unwrap(), 10);
 
-        assert_eq!(row.get_raw("is_overridden").as_i64().unwrap(), 1);
-        assert_eq!(row.get_raw("server_modified").as_i64().unwrap(), 1000);
+        assert_eq!(row.get_ref_unwrap("is_overridden").as_i64().unwrap(), 1);
+        assert_eq!(
+            row.get_ref_unwrap("server_modified").as_i64().unwrap(),
+            1000
+        );
 
         // Ensure loginsSyncMeta migrated correctly
         assert_eq!(
@@ -973,10 +999,7 @@ mod tests {
         create_old_db(testpaths.old_db.as_path(), None);
         let old_db = open_old_db(testpaths.old_db.as_path(), None);
         old_db
-            .execute(
-                "UPDATE loginsM SET username = NULL WHERE guid='e'",
-                NO_PARAMS,
-            )
+            .execute("UPDATE loginsM SET username = NULL WHERE guid='e'", [])
             .unwrap();
         drop(old_db);
 
@@ -1044,19 +1067,19 @@ mod tests {
         let mut stmt = db
             .prepare("SELECT * FROM loginsL WHERE guid = 'b'")
             .unwrap();
-        let mut rows = stmt.query(NO_PARAMS).unwrap();
+        let mut rows = stmt.query([]).unwrap();
         let row = rows.next().unwrap().unwrap();
         assert_eq!(
-            row.get_raw("sync_status").as_i64().unwrap(),
+            row.get_ref_unwrap("sync_status").as_i64().unwrap(),
             1 // = SyncStatus::Changed
         );
 
         let mut stmt = db
             .prepare("SELECT * FROM loginsM WHERE guid = 'b'")
             .unwrap();
-        let mut rows = stmt.query(NO_PARAMS).unwrap();
+        let mut rows = stmt.query([]).unwrap();
         let row = rows.next().unwrap().unwrap();
-        assert_eq!(row.get_raw("is_overridden").as_i64().unwrap(), 1);
+        assert_eq!(row.get_ref_unwrap("is_overridden").as_i64().unwrap(), 1);
     }
 
     #[test]
@@ -1086,14 +1109,18 @@ mod tests {
         let mut stmt = db
             .prepare("SELECT * FROM loginsL WHERE guid = 'b'")
             .unwrap();
-        let mut rows = stmt.query(NO_PARAMS).unwrap();
+        let mut rows = stmt.query([]).unwrap();
         let row = rows.next().unwrap().unwrap();
-        let enc: SecureLoginFields =
-            decrypt_struct(row.get_raw("secFields").as_str().unwrap().to_string());
+        let enc: SecureLoginFields = decrypt_struct(
+            row.get_ref_unwrap("secFields")
+                .as_str()
+                .unwrap()
+                .to_string(),
+        );
         assert_eq!(enc.username, "test");
         assert_eq!(enc.password, "password");
         assert_eq!(
-            row.get_raw("origin").as_str().unwrap(),
+            row.get_ref_unwrap("origin").as_str().unwrap(),
             "https://www.example.com"
         );
 
@@ -1140,13 +1167,18 @@ mod tests {
         let mut stmt = db
             .prepare("SELECT * FROM loginsM WHERE guid = 'b'")
             .unwrap();
-        let mut rows = stmt.query(NO_PARAMS).unwrap();
+        let mut rows = stmt.query([]).unwrap();
         let row = rows.next().unwrap().unwrap();
-        let enc: SecureLoginFields =
-            decrypt_struct(row.get_raw("secFields").as_str().unwrap().to_string());
+        let enc: SecureLoginFields = decrypt_struct(
+            row.get_ref("secFields")
+                .unwrap()
+                .as_str()
+                .unwrap()
+                .to_string(),
+        );
         assert_eq!(enc.username, "test");
         assert_eq!(enc.password, "password");
-        assert_eq!(row.get_raw("is_overridden").as_i64().unwrap(), 0);
+        assert_eq!(row.get_ref_unwrap("is_overridden").as_i64().unwrap(), 0);
         assert_eq!(
             db.query_one::<i32>("SELECT COUNT(*) FROM loginsL").unwrap(),
             0
@@ -1414,7 +1446,7 @@ mod tests {
         let login = db
             .query_row_and_then(
                 "SELECT * from loginsL WHERE Guid='A'",
-                NO_PARAMS,
+                [],
                 LocalLogin::from_row,
             )
             .unwrap();

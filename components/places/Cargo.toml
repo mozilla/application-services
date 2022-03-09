@@ -7,7 +7,6 @@ license = "MPL-2.0"
 exclude = ["/android", "/ios"]
 
 [features]
-log_query_plans = ["sql-support/log_query_plans"]
 default = []
 
 [dependencies]
@@ -36,7 +35,7 @@ uniffi = "^0.17"
 uniffi_macros = "^0.17"
 
 [dependencies.rusqlite]
-version = "0.24.2"
+version = "0.27.0"
 features = ["functions", "window", "bundled", "unlock_notify"]
 
 [dev-dependencies]
