@@ -41,3 +41,9 @@ Use the template below to make assigning a version number during the release cut
 ### Swift
 - GleanMetrics should now be imported under `import Glean` instead of importing via `MozillaRustComponents`
 
+## Nimbus FML
+### What's Changed
+- Papercut fixes for nicer developer experience [#4867](https://github.com/mozilla/application-services/pull/4867)
+  - More helpful validation error reporting
+  - Better handling of defaults in objects and enum maps
+  - More YAML syntactic checking.
