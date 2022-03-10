@@ -33,7 +33,7 @@ job-defaults:
     pre-gradlew:
       - [source, taskcluster/scripts/toolchain/setup-fetched-rust-toolchain.sh]
       - [source, taskcluster/scripts/toolchain/cross-compile-setup.sh]
-      - [rsync, '-a', /builds/worker/fetches/libs/, /builds/worker/checkouts/src/libs/]
+      - [rsync, '-a', /builds/worker/fetches/libs/, /builds/worker/checkouts/vcs/libs/]
       # Once https://github.com/mozilla/application-services/issues/3917 is resolved,
       # add `win32-x86-64-gnu` back in to the list of targets here.
       - [bash, '-c', 'echo "rust.targets=arm,arm64,x86_64,x86,darwin,linux-x86-64\n" > local.properties']
