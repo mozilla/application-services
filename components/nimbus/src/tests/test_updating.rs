@@ -2,18 +2,20 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
+// Allow this to run in "safe mode"
+#![allow(unused_imports)]
+
 use crate::error::Result;
 use crate::updating::*;
 use crate::Database;
+use crate::Experiment;
+use tempdir::TempDir;
 
 // This test crashes lmdb for reasons that make no sense, so only run it
 // in the "safe mode" backend.
 #[cfg(feature = "rkv-safe-mode")]
 #[test]
 fn test_reading_writing_and_removing_experiments() -> Result<()> {
-    use crate::Experiment;
-    use tempdir::TempDir;
-
     let tmp_dir = TempDir::new("test_stash_pop_updates")?;
     let db = Database::new(&tmp_dir)?;
     let mut writer = db.write()?;
