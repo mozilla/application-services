@@ -4,7 +4,6 @@
 
 use places::api::places_api::ConnectionType;
 use places::{PlacesDb, Result};
-use rusqlite::NO_PARAMS;
 use std::fs::remove_file;
 use std::sync::mpsc::sync_channel;
 use std::sync::Arc;
@@ -17,7 +16,7 @@ fn update(t: &PlacesDb, n: u32) -> Result<()> {
                 VALUES ('fake_{n:07}', 'http://example.com/{n}', hash('http://example.com/{n}'))",
             n = n
         ),
-        NO_PARAMS,
+        [],
     )?;
     Ok(())
 }

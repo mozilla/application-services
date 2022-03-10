@@ -31,11 +31,7 @@ job-defaults:
     env: {}
   run:
     pre-gradlew:
-      # XXX: scripts subshell at runtime so we need to source this here
-      # to be able to access `rustup` and `rustc` from within the cc script
-      # and the gradle command. Another options could be to set those env vars
-      # here like: [export, 'PATH=$HOME/.cargo/bin:$PATH'
-      # `source rustup_setup.sh` gets inserted here by the `rustup_setup` transform.
+      - [source, taskcluster/scripts/toolchain/setup-fetched-rust-toolchain.sh]
       - [source, taskcluster/scripts/toolchain/cross-compile-setup.sh]
       - [rsync, '-a', /builds/worker/fetches/libs/, /builds/worker/checkouts/src/libs/]
       # Once https://github.com/mozilla/application-services/issues/3917 is resolved,
@@ -67,3 +63,4 @@ job-defaults:
       - desktop-linux-libs
       - desktop-macos-libs
       - desktop-win32-x86-64-libs
+      - rust

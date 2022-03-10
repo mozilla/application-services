@@ -7,11 +7,16 @@ import org.robolectric.RobolectricTestRunner
 import org.robolectric.annotation.Config
 import org.junit.Assert
 import org.junit.Before
+import org.junit.Rule
 import org.junit.Test
+import org.junit.rules.TemporaryFolder
 
 @RunWith(RobolectricTestRunner::class)
 @Config(manifest = Config.NONE)
 class RemoteTabsTest {
+    @Rule
+    @JvmField
+    val dbFolder = TemporaryFolder()
 
     @Before
     fun init() {
@@ -19,7 +24,7 @@ class RemoteTabsTest {
     }
 
     protected fun getTestStore(): TabsStore {
-        return TabsStore()
+        return TabsStore(path = dbFolder.newFile().absolutePath)
     }
 
     @Test

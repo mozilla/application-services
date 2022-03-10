@@ -1,5 +1,5 @@
 [package]
-name = "ios_rust"
+name = "megazord_ios"
 edition = "2021"
 version = "0.1.0"
 authors = ["application-services <application-services@mozilla.com>"]

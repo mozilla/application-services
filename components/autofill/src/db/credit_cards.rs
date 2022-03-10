@@ -12,7 +12,7 @@ use crate::db::{
 };
 use crate::error::*;
 
-use rusqlite::{Connection, Transaction, NO_PARAMS};
+use rusqlite::{Connection, Transaction};
 use sync_guid::Guid;
 use types::Timestamp;
 
@@ -51,7 +51,7 @@ pub(crate) fn add_internal_credit_card(
     tx: &Transaction<'_>,
     card: &InternalCreditCard,
 ) -> Result<()> {
-    tx.execute_named(
+    tx.execute(
         &format!(
             "INSERT INTO credit_cards_data (
                 {common_cols},
@@ -110,7 +110,7 @@ pub(crate) fn get_all_credit_cards(conn: &Connection) -> Result<Vec<InternalCred
 
     let mut stmt = conn.prepare(&sql)?;
     credit_cards = stmt
-        .query_map(NO_PARAMS, InternalCreditCard::from_row)?
+        .query_map([], InternalCreditCard::from_row)?
         .collect::<std::result::Result<Vec<InternalCreditCard>, _>>()?;
     Ok(credit_cards)
 }
@@ -121,7 +121,7 @@ pub fn update_credit_card(
     credit_card: &UpdatableCreditCardFields,
 ) -> Result<()> {
     let tx = conn.unchecked_transaction()?;
-    tx.execute_named(
+    tx.execute(
         "UPDATE credit_cards_data
         SET cc_name                     = :cc_name,
             cc_number_enc               = :cc_number_enc,
@@ -157,7 +157,7 @@ pub(crate) fn update_internal_credit_card(
     flag_as_changed: bool,
 ) -> Result<()> {
     let change_counter_increment = flag_as_changed as u32; // will be 1 or 0
-    tx.execute_named(
+    tx.execute(
         "UPDATE credit_cards_data
         SET cc_name                     = :cc_name,
             cc_number_enc               = :cc_number_enc,
@@ -192,8 +192,8 @@ pub(crate) fn update_internal_credit_card(
 pub fn delete_credit_card(conn: &Connection, guid: &Guid) -> Result<bool> {
     let tx = conn.unchecked_transaction()?;
 
-    // execute_named returns how many rows were affected.
-    let exists = tx.execute_named(
+    // execute returns how many rows were affected.
+    let exists = tx.execute(
         "DELETE FROM credit_cards_data
         WHERE guid = :guid",
         rusqlite::named_params! {
@@ -207,7 +207,7 @@ pub fn delete_credit_card(conn: &Connection, guid: &Guid) -> Result<bool> {
 
 pub fn scrub_encrypted_credit_card_data(conn: &Connection) -> Result<()> {
     let tx = conn.unchecked_transaction()?;
-    tx.execute("UPDATE credit_cards_data SET cc_number_enc = ''", NO_PARAMS)?;
+    tx.execute("UPDATE credit_cards_data SET cc_number_enc = ''", [])?;
     tx.commit()?;
     Ok(())
 }
@@ -216,7 +216,7 @@ pub fn touch(conn: &Connection, guid: &Guid) -> Result<()> {
     let tx = conn.unchecked_transaction()?;
     let now_ms = Timestamp::now();
 
-    tx.execute_named(
+    tx.execute(
         "UPDATE credit_cards_data
         SET time_last_used              = :time_last_used,
             times_used                  = times_used + 1,
@@ -246,7 +246,7 @@ pub(crate) mod tests {
             "SELECT guid FROM {table_name}",
             table_name = table_name
         ))?;
-        let rows = stmt.query_map(NO_PARAMS, |row| row.get(0))?;
+        let rows = stmt.query_map([], |row| row.get(0))?;
 
         let mut guids = Vec::new();
         for guid_result in rows {
@@ -260,7 +260,7 @@ pub(crate) mod tests {
         conn: &Connection,
         guid: String,
     ) -> rusqlite::Result<usize, rusqlite::Error> {
-        conn.execute_named(
+        conn.execute(
             "INSERT INTO credit_cards_tombstones (
                 guid,
                 time_deleted
@@ -282,7 +282,7 @@ pub(crate) mod tests {
         // It's OK for all current test consumers, but it's a bit of a smell...
         let guid = payload.id.clone();
         let payload_string = payload.into_json_string();
-        conn.execute_named(
+        conn.execute(
             "INSERT INTO credit_cards_mirror (guid, payload)
              VALUES (:guid, :payload)",
             rusqlite::named_params! {
@@ -578,7 +578,7 @@ pub(crate) mod tests {
         assert!(tombstone_exists);
 
         // remove the tombstone record
-        db.execute_named(
+        db.execute(
             "DELETE FROM credit_cards_tombstones
             WHERE guid = :guid",
             rusqlite::named_params! {

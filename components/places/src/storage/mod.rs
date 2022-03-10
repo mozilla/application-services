@@ -164,7 +164,7 @@ fn new_page_info(db: &PlacesDb, url: &Url, new_guid: Option<SyncGuid>) -> Result
     }
     let sql = "INSERT INTO moz_places (guid, url, url_hash)
                VALUES (:guid, :url, hash(:url))";
-    db.execute_named_cached(sql, &[(":guid", &guid), (":url", &url_str)])?;
+    db.execute_cached(sql, &[(":guid", &guid as &dyn ToSql), (":url", &url_str)])?;
     Ok(PageInfo {
         url: url.clone(),
         guid,
@@ -228,9 +228,9 @@ pub fn run_maintenance(conn: &PlacesDb) -> Result<()> {
 }
 
 pub(crate) fn put_meta(db: &PlacesDb, key: &str, value: &dyn ToSql) -> Result<()> {
-    db.execute_named_cached(
+    db.execute_cached(
         "REPLACE INTO moz_meta (key, value) VALUES (:key, :value)",
-        &[(":key", &key), (":value", value)],
+        &[(":key", &key as &dyn ToSql), (":value", value)],
     )?;
     Ok(())
 }
@@ -245,7 +245,7 @@ pub(crate) fn get_meta<T: FromSql>(db: &PlacesDb, key: &str) -> Result<Option<T>
 }
 
 pub(crate) fn delete_meta(db: &PlacesDb, key: &str) -> Result<()> {
-    db.execute_named_cached("DELETE FROM moz_meta WHERE key = :key", &[(":key", &key)])?;
+    db.execute_cached("DELETE FROM moz_meta WHERE key = :key", &[(":key", &key)])?;
     Ok(())
 }
 

@@ -320,7 +320,7 @@ mod tests {
     fn get_tombstone_count(conn: &PlacesDb) -> u32 {
         let result: Result<Option<u32>> = conn.try_query_row(
             "SELECT COUNT(*) from moz_places_tombstones;",
-            &[],
+            [],
             |row| Ok(row.get::<_, u32>(0)?),
             true,
         );

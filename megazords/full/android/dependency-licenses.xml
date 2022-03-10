@@ -461,6 +461,10 @@ the details of which are reproduced below.
     <url>https://github.com/uuid-rs/uuid/blob/main/LICENSE-APACHE</url>
   </license>
   <license>
+    <name>Apache License 2.0: vcpkg</name>
+    <url>https://github.com/mcgoo/vcpkg-rs/blob/master/LICENSE-APACHE</url>
+  </license>
+  <license>
     <name>Apache License 2.0: version_check</name>
     <url>https://github.com/SergioBenitez/version_check/blob/master/LICENSE-APACHE</url>
   </license>
@@ -525,6 +529,10 @@ the details of which are reproduced below.
     <url>https://github.com/rusqlite/rusqlite/blob/master/LICENSE</url>
   </license>
   <license>
+    <name>MIT License: rusqlite</name>
+    <url>https://github.com/rusqlite/rusqlite/blob/master/LICENSE</url>
+  </license>
+  <license>
     <name>MIT License: matches</name>
     <url>https://github.com/SimonSapin/rust-std-candidates/blob/master/LICENSE</url>
   </license>
@@ -547,10 +555,6 @@ the details of which are reproduced below.
   <license>
     <name>MIT License: radium</name>
     <url>https://github.com/bitvecto-rs/radium/blob/master/LICENSE.txt</url>
-  </license>
-  <license>
-    <name>MIT License: rusqlite</name>
-    <url>https://github.com/rusqlite/rusqlite/blob/master/LICENSE</url>
   </license>
   <license>
     <name>MIT License: tap</name>

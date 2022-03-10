@@ -30,11 +30,8 @@ jobs:
       env: {}
     run:
       pre-gradlew:
-        # XXX: scripts subshell at runtime so we need to source this here
-        # to be able to access `rustup` and `rustc` from within the cc script
-        # and the gradle command. Another options could be to set those env vars
-        # here like: [export, 'PATH=$HOME/.cargo/bin:$PATH'
-        - [source, taskcluster/scripts/toolchain/rustup-setup.sh]
+        - [git, submodule, update, --init]
+        - [source, taskcluster/scripts/toolchain/setup-fetched-rust-toolchain.sh]
         - [source, taskcluster/scripts/toolchain/cross-compile-setup.sh]
         - [rsync, '-a', /builds/worker/fetches/libs/, /builds/worker/checkouts/src/libs/]
         - [bash, '-c', 'echo "rust.targets=linux-x86-64\n" > local.properties']
@@ -49,3 +46,4 @@ jobs:
       toolchain:
         - android-libs
         - desktop-linux-libs
+        - rust

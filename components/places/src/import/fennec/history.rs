@@ -35,7 +35,7 @@ pub fn import(
 
 pub fn select_count(conn: &PlacesDb, stmt: &str) -> u32 {
     let count: Result<Option<u32>> =
-        conn.try_query_row(stmt, &[], |row| Ok(row.get::<_, u32>(0)?), false);
+        conn.try_query_row(stmt, [], |row| Ok(row.get::<_, u32>(0)?), false);
     count.unwrap().unwrap()
 }
 

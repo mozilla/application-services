@@ -35,6 +35,7 @@ ENV TERM dumb
 ENV GRADLE_OPTS -Xmx4096m -Dorg.gradle.daemon=false
 
 # Used to detect in scripts whether we are running on taskcluster
+ENV CI 1
 ENV CI_TASKCLUSTER true
 
 ENV \
@@ -138,6 +139,16 @@ RUN \
         | tar -xz --strip-components=1 -C /usr/local/bin/ \
             sccache-0.2.11-x86_64-unknown-linux-musl/sccache
 
+ENV CCACHE=sccache \
+    RUSTC_WRAPPER=sccache \
+    SCCACHE_IDLE_TIMEOUT=1200 \
+    SCCACHE_CACHE_SIZE=40G \
+    SCCACHE_ERROR_LOG=/builds/worker/sccache.log \
+    RUST_LOG="sccache=info" \
+    RUST_BACKTRACE=1 \
+    RUSTFLAGS="-Dwarnings" \
+    CARGO_INCREMENTAL=0
+
 # tooltool
 RUN \
     curl -sfSL --retry 5 --retry-delay 10 \
@@ -149,10 +160,14 @@ RUN \
 
 ENV SHELL=/bin/bash \
     HOME=/builds/worker \
-    PATH=/builds/worker/.local/bin:$PATH
+    PATH=/builds/worker/.local/bin:/builds/worker/.cargo/bin:$PATH
 
 VOLUME /builds/worker/checkouts
 VOLUME /builds/worker/.cache
 
-# run-task expects to run as root
+# Switch to the worker user to install rustup
+# After startup, run-task will downgrade it's permissions to be this user
+USER worker
+
+# run-task needs to run as root (after initialization, it changes to `worker`)
 USER root

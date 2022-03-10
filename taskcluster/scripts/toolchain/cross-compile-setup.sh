@@ -26,10 +26,3 @@ tooltool.py \
   fetch
 
 popd || exit
-
-# It's important that we execute rustup in the checkout directory, so that it can see
-# any `rust-toolchain` override file that might be present.
-rustup --version
-rustup target add x86_64-apple-darwin
-rustup target add x86_64-pc-windows-gnu
-

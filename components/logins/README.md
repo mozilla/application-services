@@ -146,7 +146,7 @@ Deduplication logic is based on age, the username and hostname:
 Our goal is to seek an _acceptable_ level of test coverage. When making changes in an area, make an effort to improve (or minimally not reduce) coverage. Test coverage assessment includes:
 * [rust tests](https://github.com/mozilla/application-services/blob/main/testing/sync-test/src/logins.rs)
 * [android tests](https://github.com/mozilla/application-services/tree/main/components/logins/android/src/test/java/mozilla/appservices/logins)
-* [ios tests](https://github.com/mozilla/application-services/blob/main/megazords/ios/MozillaAppServicesTests/LoginsTests.swift)
+* [ios tests](https://github.com/mozilla/application-services/blob/main/megazords/ios-rust/MozillaTestServicesTests/LoginsTests.swift)
 * TODO [measure and report test coverage of logins component](https://github.com/mozilla/application-services/issues/1745)
 
 ### Telemetry
