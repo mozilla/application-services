@@ -2,6 +2,9 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
+ // Allow this to run in "safe mode"
+#![allow(unused_imports)]
+
 use crate::error::Result;
 
 #[cfg(feature = "rkv-safe-mode")]
