@@ -1947,6 +1947,7 @@ dependencies = [
  "tempdir",
  "textwrap 0.14.2",
  "thiserror",
+ "unicode-segmentation",
 ]
 
 [[package]]

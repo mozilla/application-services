@@ -311,7 +311,7 @@ impl<'object> DefaultsMerger<'object> {
 
         if !self.objects.contains_key(nm) {
             return Err(FMLError::ValidationError(
-                format!("objects.{}", nm),
+                format!("objects/{}", nm),
                 format!("Object named {} is not defined", nm),
             ));
         }

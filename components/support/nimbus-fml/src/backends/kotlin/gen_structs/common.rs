@@ -19,7 +19,9 @@ pub fn enum_variant_name(nm: &dyn Display) -> String {
     nm.to_string().to_shouty_snake_case()
 }
 
-/// Surrounds a property name with quotes. It is assumed that property names do not need escaping.
+/// Surrounds a string with quotes.
+/// In Kotlin, you can """triple quote""" multi-line strings
+/// so you don't have to escape " and \n characters.
 pub fn quoted(string: &dyn Display) -> String {
     let string = string.to_string();
     if string.contains('"') || string.contains('\n') {
@@ -81,5 +83,22 @@ pub(crate) mod code_type {
     pub(crate) fn value_mapper(ct: &dyn CodeType, oracle: &dyn CodeOracle) -> Option<String> {
         let transform = ct.create_transform(oracle)?;
         Some(format!("let({})", transform))
+    }
+}
+
+#[cfg(test)]
+mod unit_tests {
+    use super::*;
+
+    #[test]
+    fn test_quoted() {
+        assert_eq!(
+            quoted(&"no-quotes".to_string()),
+            "\"no-quotes\"".to_string()
+        );
+        assert_eq!(
+            quoted(&"a \"quoted\" string".to_string()),
+            "\"\"\"a \"quoted\" string\"\"\"".to_string()
+        );
     }
 }
