@@ -25,8 +25,8 @@ pub enum FMLError {
     #[allow(dead_code)]
     #[error("Internal error: {0}")]
     InternalError(&'static str),
-    #[error("Validation Error: {0}")]
-    ValidationError(String),
+    #[error("Validation Error at {0}: {1}")]
+    ValidationError(String, String),
     #[error("Type Parsing Error: {0}")]
     TypeParsingError(String),
     #[error("Invalid Channel error: {0}")]
