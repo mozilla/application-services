@@ -5,8 +5,7 @@
 use std::collections::BTreeMap;
 use std::fmt::Display;
 
-use serde::Serialize;
-use serde_json::json;
+use serde::{Serialize, Deserialize};
 
 use crate::intermediate_representation::{PropDef, TypeRef};
 use crate::{
@@ -15,22 +14,22 @@ use crate::{
 
 use crate::error::{FMLError, Result};
 
-#[derive(Debug, Default, Clone, Serialize)]
+#[derive(Debug, Default, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
-struct ExperimenterFeatureManifest {
+pub(crate) struct ExperimenterFeatureManifest {
     description: String,
     has_exposure: bool,
     #[serde(skip_serializing_if = "Option::is_none")]
     exposure_description: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
     is_early_startup: Option<bool>,
-    // Not happy for us to use [`serde_json::Value`] but
+    // Not happy for us to use [`serde_yaml::Value`] but
     // the variables definition includes arbitrary keys
     variables: Variables,
 }
 
-#[derive(Debug, Default, Clone, Serialize)]
-pub struct Variables(serde_json::Value);
+#[derive(Debug, Default, Clone, Serialize, Deserialize)]
+pub struct Variables(serde_yaml::Value);
 
 impl TryFrom<FeatureManifest> for BTreeMap<String, ExperimenterFeatureManifest> {
     type Error = crate::error::FMLError;
@@ -60,22 +59,22 @@ impl FeatureManifest {
         // Ideally this would be implemented as a `TryFrom<Vec<PropDef>>`
         // however, we need a reference to the `FeatureManifest` to get the valid
         // variants of an enum
-        let mut map = serde_json::Map::new();
+        let mut map = serde_yaml::Mapping::new();
         props.iter().try_for_each(|prop| -> Result<()> {
             let typ = ExperimentManifestPropType::from(prop.typ()).to_string();
-            let mut val = json!({
-                "type": typ,
-                "description": prop.doc(),
-            });
+            let mut val = serde_yaml::Mapping::new();
+            val.insert(serde_yaml::to_value("type".to_string())?, serde_yaml::to_value(typ)?);
+            val.insert(serde_yaml::to_value("description".to_string())?, serde_yaml::to_value(prop.doc())?);
+
             if let TypeRef::Enum(e) = prop.typ() {
                 let enum_def = self
                     .enum_defs
                     .iter()
                     .find(|enum_def| e == enum_def.name)
                     .ok_or(FMLError::InternalError("Found enum with no definition"))?;
-                val.as_object_mut().unwrap().insert(
-                    "enum".into(),
-                    serde_json::to_value(
+                val.insert(
+                    serde_yaml::to_value("enum".to_string())?,
+                    serde_yaml::to_value(
                         enum_def
                             .variants
                             .iter()
@@ -84,10 +83,10 @@ impl FeatureManifest {
                     )?,
                 );
             }
-            map.insert(prop.name(), val);
+            map.insert(serde_yaml::Value::String(prop.name()), serde_yaml::Value::Mapping(val));
             Ok(())
         })?;
-        Ok(Variables(serde_json::Value::Object(map)))
+        Ok(Variables(serde_yaml::Value::Mapping(map)))
     }
 }
 
@@ -140,7 +139,7 @@ pub(crate) fn generate_manifest(
     cmd: GenerateExperimenterManifestCmd,
 ) -> Result<()> {
     let experiment_manifest: BTreeMap<String, ExperimenterFeatureManifest> = ir.try_into()?;
-    let output_str = serde_json::to_string_pretty(&experiment_manifest)?;
+    let output_str = serde_yaml::to_string(&experiment_manifest)?;
     std::fs::write(cmd.output, output_str)?;
     Ok(())
 }

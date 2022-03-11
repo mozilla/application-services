@@ -31,6 +31,7 @@ pub(crate) fn generate_experimenter_manifest(
     cmd: GenerateExperimenterManifestCmd,
 ) -> Result<()> {
     let ir = load_feature_manifest(&cmd.manifest, cmd.load_from_ir, &cmd.channel)?;
+    println!("\tOutput file: {:?}", cmd.output.as_os_str());
     backends::experimenter_manifest::generate_manifest(ir, config, cmd)?;
     Ok(())
 }
@@ -319,12 +320,19 @@ mod test {
 
     fn validate_against_experimenter_schema<P: AsRef<Path>>(
         schema_path: P,
-        generated_json: &serde_json::Value,
+        generated_yaml: &serde_yaml::Value,
     ) -> Result<()> {
+        println!("validate_against_experimenter_schema");
+        use crate::backends::experimenter_manifest::ExperimenterFeatureManifest;
+        println!("\tdeserializing from YAML");
+        let generated_manifest: ExperimenterFeatureManifest = serde_yaml::from_value(generated_yaml.to_owned())?;
+        println!("\tserializing to JSON");
+        let generated_json = serde_json::to_value(generated_manifest)?;
+
         let schema = fs::read_to_string(&schema_path)?;
         let schema: serde_json::Value = serde_json::from_str(&schema)?;
         let compiled = JSONSchema::compile(&schema).expect("The schema is invalid");
-        let res = compiled.validate(generated_json);
+        let res = compiled.validate(&generated_json);
         if let Err(e) = res {
             let mut errs: String = "Validation errors: \n".into();
             for err in e {
@@ -337,22 +345,36 @@ mod test {
 
     #[test]
     fn test_schema_validation() -> Result<()> {
+
         for path in MANIFEST_PATHS {
-            let out_tmpdir = TempDir::new("schema_validation").unwrap();
             let manifest_fml = join(pkg_dir(), path);
-            let curr_out = out_tmpdir.as_ref().join(path.split('/').last().unwrap());
+
+            let manifest_fml = PathBuf::from(manifest_fml);
+            let file = manifest_fml
+                .file_stem()
+                .ok_or_else(|| anyhow!("Manifest file path isn't a file"))?
+                .to_str()
+                .ok_or_else(|| anyhow!("Manifest file path isn't a file with a sensible name"))?;
+
+            fs::create_dir_all(generated_src_dir())?;
+
+            let manifest_out = format!(
+                "{}.yaml",
+                join(generated_src_dir(), file),
+            );
             let cmd = GenerateExperimenterManifestCmd {
                 manifest: manifest_fml.into(),
-                output: curr_out.clone(),
+                output: manifest_out.into(),
                 load_from_ir: true,
                 channel: "release".into(),
             };
+
             generate_experimenter_manifest(Default::default(), cmd)?;
-            let generated = fs::read_to_string(curr_out)?;
-            let generated_json = serde_json::from_str(&generated)?;
+            let generated = fs::read_to_string(Path::from(manifest_out.to_string())?)?;
+            let generated_yaml = serde_yaml::from_str(&generated)?;
             validate_against_experimenter_schema(
                 join(pkg_dir(), "ExperimentFeatureManifest.schema.json"),
-                &generated_json,
+                &generated_yaml,
             )?;
         }
         Ok(())
