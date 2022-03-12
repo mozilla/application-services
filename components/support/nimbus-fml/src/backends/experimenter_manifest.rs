@@ -8,25 +8,24 @@ use std::fmt::Display;
 use serde::{Deserialize, Serialize};
 
 use crate::intermediate_representation::{PropDef, TypeRef};
+use crate::TargetLanguage;
 use crate::{
     intermediate_representation::FeatureManifest, Config, GenerateExperimenterManifestCmd,
 };
 
 use crate::error::{FMLError, Result};
 
-pub(crate) type ExperimenterFeatureManifest2 = BTreeMap<String, ExperimenterFeatureManifest>;
+pub(crate) type ExperimenterManifest = BTreeMap<String, ExperimenterFeature>;
 
 #[derive(Debug, Default, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
-pub(crate) struct ExperimenterFeatureManifest {
+pub(crate) struct ExperimenterFeature {
     description: String,
     has_exposure: bool,
     #[serde(skip_serializing_if = "Option::is_none")]
     exposure_description: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
     is_early_startup: Option<bool>,
-    // Not happy for us to use [`serde_yaml::Value`] but
-    // the variables definition includes arbitrary keys
     variables: BTreeMap<String, ExperimenterFeatureProperty>,
 }
 
@@ -41,10 +40,7 @@ pub(crate) struct ExperimenterFeatureProperty {
     variants: Option<Vec<String>>,
 }
 
-#[derive(Debug, Default, Clone, Serialize, Deserialize)]
-pub struct Variables(serde_yaml::Value);
-
-impl TryFrom<FeatureManifest> for BTreeMap<String, ExperimenterFeatureManifest> {
+impl TryFrom<FeatureManifest> for ExperimenterManifest {
     type Error = crate::error::FMLError;
     fn try_from(fm: FeatureManifest) -> Result<Self> {
         fm.feature_defs
@@ -52,7 +48,7 @@ impl TryFrom<FeatureManifest> for BTreeMap<String, ExperimenterFeatureManifest> 
             .map(|feature| {
                 Ok((
                     feature.name(),
-                    ExperimenterFeatureManifest {
+                    ExperimenterFeature {
                         description: feature.doc(),
                         has_exposure: true,
                         is_early_startup: None,
@@ -159,8 +155,19 @@ pub(crate) fn generate_manifest(
     _config: Config,
     cmd: GenerateExperimenterManifestCmd,
 ) -> Result<()> {
-    let experiment_manifest: ExperimenterFeatureManifest2 = ir.try_into()?;
-    let output_str = serde_yaml::to_string(&experiment_manifest)?;
+    let experiment_manifest: ExperimenterManifest = ir.try_into()?;
+    let language: TargetLanguage = match cmd.output.extension() {
+        Some(ext) => ext.try_into().unwrap_or(TargetLanguage::ExperimenterJSON),
+        None => TargetLanguage::ExperimenterJSON,
+    };
+    let output_str = match language {
+        TargetLanguage::ExperimenterJSON => serde_json::to_string(&experiment_manifest)?,
+        TargetLanguage::ExperimenterYAML => serde_yaml::to_string(&experiment_manifest)?,
+
+        // If in doubt, output the previously generated default.
+        _ => serde_json::to_string(&experiment_manifest)?,
+    };
+
     std::fs::write(cmd.output, output_str)?;
     Ok(())
 }

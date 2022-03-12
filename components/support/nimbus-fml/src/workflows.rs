@@ -22,6 +22,10 @@ pub(crate) fn generate_struct(config: Config, cmd: GenerateStructCmd) -> Result<
         }
         TargetLanguage::Kotlin => backends::kotlin::generate_struct(ir, config, cmd)?,
         TargetLanguage::Swift => backends::swift::generate_struct(ir, config, cmd)?,
+        _ => unimplemented!(
+            "Unsupported output language for structs: {}",
+            language.extension()
+        ),
     };
     Ok(())
 }
@@ -31,7 +35,6 @@ pub(crate) fn generate_experimenter_manifest(
     cmd: GenerateExperimenterManifestCmd,
 ) -> Result<()> {
     let ir = load_feature_manifest(&cmd.manifest, cmd.load_from_ir, &cmd.channel)?;
-    println!("\tOutput file: {:?}", cmd.output.as_os_str());
     backends::experimenter_manifest::generate_manifest(ir, config, cmd)?;
     Ok(())
 }
@@ -321,8 +324,8 @@ mod test {
         schema_path: P,
         generated_yaml: &serde_yaml::Value,
     ) -> Result<()> {
-        use crate::backends::experimenter_manifest::ExperimenterFeatureManifest2;
-        let generated_manifest: ExperimenterFeatureManifest2 =
+        use crate::backends::experimenter_manifest::ExperimenterManifest;
+        let generated_manifest: ExperimenterManifest =
             serde_yaml::from_value(generated_yaml.to_owned())?;
         let generated_json = serde_json::to_value(generated_manifest)?;
 
