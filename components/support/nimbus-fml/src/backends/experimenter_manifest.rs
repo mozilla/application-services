@@ -5,7 +5,7 @@
 use std::collections::BTreeMap;
 use std::fmt::Display;
 
-use serde::{Serialize, Deserialize};
+use serde::{Deserialize, Serialize};
 
 use crate::intermediate_representation::{PropDef, TypeRef};
 use crate::{
@@ -13,6 +13,8 @@ use crate::{
 };
 
 use crate::error::{FMLError, Result};
+
+pub(crate) type ExperimenterFeatureManifest2 = BTreeMap<String, ExperimenterFeatureManifest>;
 
 #[derive(Debug, Default, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -25,7 +27,18 @@ pub(crate) struct ExperimenterFeatureManifest {
     is_early_startup: Option<bool>,
     // Not happy for us to use [`serde_yaml::Value`] but
     // the variables definition includes arbitrary keys
-    variables: Variables,
+    variables: BTreeMap<String, ExperimenterFeatureProperty>,
+}
+
+#[derive(Debug, Default, Clone, Serialize, Deserialize)]
+pub(crate) struct ExperimenterFeatureProperty {
+    #[serde(rename = "type")]
+    property_type: String,
+    description: String,
+
+    #[serde(rename = "enum")]
+    #[serde(skip_serializing_if = "Option::is_none")]
+    variants: Option<Vec<String>>,
 }
 
 #[derive(Debug, Default, Clone, Serialize, Deserialize)]
@@ -55,38 +68,46 @@ impl TryFrom<FeatureManifest> for BTreeMap<String, ExperimenterFeatureManifest> 
 }
 
 impl FeatureManifest {
-    fn props_to_variables(&self, props: &[PropDef]) -> Result<Variables> {
+    fn props_to_variables(
+        &self,
+        props: &[PropDef],
+    ) -> Result<BTreeMap<String, ExperimenterFeatureProperty>> {
         // Ideally this would be implemented as a `TryFrom<Vec<PropDef>>`
         // however, we need a reference to the `FeatureManifest` to get the valid
         // variants of an enum
-        let mut map = serde_yaml::Mapping::new();
+        let mut map = BTreeMap::new();
         props.iter().try_for_each(|prop| -> Result<()> {
             let typ = ExperimentManifestPropType::from(prop.typ()).to_string();
-            let mut val = serde_yaml::Mapping::new();
-            val.insert(serde_yaml::to_value("type".to_string())?, serde_yaml::to_value(typ)?);
-            val.insert(serde_yaml::to_value("description".to_string())?, serde_yaml::to_value(prop.doc())?);
 
-            if let TypeRef::Enum(e) = prop.typ() {
+            let yaml_prop = if let TypeRef::Enum(e) = prop.typ() {
                 let enum_def = self
                     .enum_defs
                     .iter()
                     .find(|enum_def| e == enum_def.name)
                     .ok_or(FMLError::InternalError("Found enum with no definition"))?;
-                val.insert(
-                    serde_yaml::to_value("enum".to_string())?,
-                    serde_yaml::to_value(
-                        enum_def
-                            .variants
-                            .iter()
-                            .map(|variant| variant.name())
-                            .collect::<Vec<String>>(),
-                    )?,
-                );
-            }
-            map.insert(serde_yaml::Value::String(prop.name()), serde_yaml::Value::Mapping(val));
+
+                let variants = enum_def
+                    .variants
+                    .iter()
+                    .map(|variant| variant.name())
+                    .collect::<Vec<String>>();
+
+                ExperimenterFeatureProperty {
+                    variants: Some(variants),
+                    description: prop.doc(),
+                    property_type: typ,
+                }
+            } else {
+                ExperimenterFeatureProperty {
+                    variants: None,
+                    description: prop.doc(),
+                    property_type: typ,
+                }
+            };
+            map.insert(prop.name(), yaml_prop);
             Ok(())
         })?;
-        Ok(Variables(serde_yaml::Value::Mapping(map)))
+        Ok(map)
     }
 }
 
@@ -138,7 +159,7 @@ pub(crate) fn generate_manifest(
     _config: Config,
     cmd: GenerateExperimenterManifestCmd,
 ) -> Result<()> {
-    let experiment_manifest: BTreeMap<String, ExperimenterFeatureManifest> = ir.try_into()?;
+    let experiment_manifest: ExperimenterFeatureManifest2 = ir.try_into()?;
     let output_str = serde_yaml::to_string(&experiment_manifest)?;
     std::fs::write(cmd.output, output_str)?;
     Ok(())

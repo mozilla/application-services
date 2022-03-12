@@ -69,7 +69,6 @@ mod test {
 
     use anyhow::anyhow;
     use jsonschema::JSONSchema;
-    use tempdir::TempDir;
 
     use super::*;
     use crate::backends::{kotlin, swift};
@@ -322,11 +321,9 @@ mod test {
         schema_path: P,
         generated_yaml: &serde_yaml::Value,
     ) -> Result<()> {
-        println!("validate_against_experimenter_schema");
-        use crate::backends::experimenter_manifest::ExperimenterFeatureManifest;
-        println!("\tdeserializing from YAML");
-        let generated_manifest: ExperimenterFeatureManifest = serde_yaml::from_value(generated_yaml.to_owned())?;
-        println!("\tserializing to JSON");
+        use crate::backends::experimenter_manifest::ExperimenterFeatureManifest2;
+        let generated_manifest: ExperimenterFeatureManifest2 =
+            serde_yaml::from_value(generated_yaml.to_owned())?;
         let generated_json = serde_json::to_value(generated_manifest)?;
 
         let schema = fs::read_to_string(&schema_path)?;
@@ -345,7 +342,6 @@ mod test {
 
     #[test]
     fn test_schema_validation() -> Result<()> {
-
         for path in MANIFEST_PATHS {
             let manifest_fml = join(pkg_dir(), path);
 
@@ -358,19 +354,18 @@ mod test {
 
             fs::create_dir_all(generated_src_dir())?;
 
-            let manifest_out = format!(
-                "{}.yaml",
-                join(generated_src_dir(), file),
-            );
+            let manifest_out = format!("{}.yaml", join(generated_src_dir(), file),);
+            let manifest_out: PathBuf = manifest_out.into();
             let cmd = GenerateExperimenterManifestCmd {
-                manifest: manifest_fml.into(),
-                output: manifest_out.into(),
+                manifest: manifest_fml,
+                output: manifest_out.clone(),
                 load_from_ir: true,
                 channel: "release".into(),
             };
 
             generate_experimenter_manifest(Default::default(), cmd)?;
-            let generated = fs::read_to_string(Path::from(manifest_out.to_string())?)?;
+
+            let generated = fs::read_to_string(manifest_out)?;
             let generated_yaml = serde_yaml::from_str(&generated)?;
             validate_against_experimenter_schema(
                 join(pkg_dir(), "ExperimentFeatureManifest.schema.json"),
