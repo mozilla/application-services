@@ -161,7 +161,11 @@ pub(crate) fn generate_manifest(
         None => TargetLanguage::ExperimenterJSON,
     };
     let output_str = match language {
-        TargetLanguage::ExperimenterJSON => serde_json::to_string(&experiment_manifest)?,
+        TargetLanguage::ExperimenterJSON => serde_json::to_string_pretty(&experiment_manifest)?,
+        // This is currently just a re-render of the JSON in YAML.
+        // However, the YAML format will diverge in time, so experimenter can support
+        // a richer manifest format (probably involving generating schema that can validate
+        // JSON patches in the FeatureConfig.)
         TargetLanguage::ExperimenterYAML => serde_yaml::to_string(&experiment_manifest)?,
 
         // If in doubt, output the previously generated default.
