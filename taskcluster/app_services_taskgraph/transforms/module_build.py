@@ -59,7 +59,7 @@ def build_task(config, tasks):
                 artifact_filename = f"{publication_name}-{version}{extension}"
                 artifacts.append({
                     "name": f"public/build/{artifact_filename}",
-                    "path": f"/builds/worker/checkouts/src/build/maven/org/mozilla/appservices/{publication_name}/{version}/{artifact_filename}",
+                    "path": f"/builds/worker/checkouts/vcs/build/maven/org/mozilla/appservices/{publication_name}/{version}/{artifact_filename}",
                     "type": "file",
                 })
 

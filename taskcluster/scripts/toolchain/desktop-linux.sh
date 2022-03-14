@@ -1,6 +1,6 @@
 #!/bin/bash
 set -ex
-cd src
+cd vcs
 git submodule update --init
 ./taskcluster/scripts/toolchain/setup-fetched-rust-toolchain.sh
 ./libs/verify-android-ci-environment.sh

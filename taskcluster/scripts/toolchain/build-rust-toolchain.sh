@@ -20,7 +20,7 @@ chmod +x rustup-init
 ./rustup-init -y --no-modify-path --default-toolchain none
 
 # cd to the app-services directory, so that rustup will see our `rust-toolchain.toml` file
-cd /builds/worker/checkouts/src
+cd /builds/worker/checkouts/vcs
 # `rustup --version` causes the compilers and components from `rust-toolchain.toml` to be installed
 rustup --version
 # cross-compilation targets
