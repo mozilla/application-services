@@ -11,6 +11,45 @@ use crate::{
 };
 
 #[test]
+fn test_locale_substring() -> Result<()> {
+    let expression_statement = "'en' in locale || 'de' in locale";
+    let ctx = AppContext {
+        locale: Some("de-US".to_string()),
+        ..Default::default()
+    };
+    let targeting_attributes = TargetingAttributes {
+        app_context: ctx,
+        ..Default::default()
+    };
+    assert_eq!(targeting(expression_statement, &targeting_attributes), None);
+    Ok(())
+}
+
+#[test]
+fn test_locale_substring_fails() -> Result<()> {
+    let expression_statement = "'en' in locale || 'de' in locale";
+    let ctx = AppContext {
+        locale: Some("cz-US".to_string()),
+        ..Default::default()
+    };
+    let targeting_attributes = TargetingAttributes {
+        app_context: ctx,
+        ..Default::default()
+    };
+    let enrollment_status = targeting(expression_statement, &targeting_attributes).unwrap();
+    if let EnrollmentStatus::NotEnrolled { reason } = enrollment_status {
+        if let NotEnrolledReason::NotTargeted = reason {
+            // OK
+        } else {
+            panic!("Expected to fail on NotTargeted reason, got: {:?}", reason)
+        }
+    } else {
+        panic! {"Expected to fail targeting with NotEnrolled, got: {:?}", enrollment_status}
+    }
+    Ok(())
+}
+
+#[test]
 fn test_geo_targeting_one_locale() -> Result<()> {
     let expression_statement = "locale in ['ro']";
     let ctx = AppContext {
