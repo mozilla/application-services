@@ -47,3 +47,5 @@ Use the template below to make assigning a version number during the release cut
   - More helpful validation error reporting
   - Better handling of defaults in objects and enum maps
   - More YAML syntactic checking.
+- Allow experimenter to output to a YAML file, as well as JSON. [#4874](https://github.com/mozilla/application-services/pull/4874)
+  - If the file extension is `yaml`, then output as YAML, otherwise, output as JSON.
