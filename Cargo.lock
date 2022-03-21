@@ -1938,6 +1938,7 @@ dependencies = [
  "clap 2.34.0",
  "heck 0.3.3",
  "jsonschema",
+ "reqwest",
  "serde",
  "serde_json",
  "serde_yaml",
@@ -1945,6 +1946,7 @@ dependencies = [
  "textwrap 0.14.2",
  "thiserror",
  "unicode-segmentation",
+ "url",
 ]
 
 [[package]]

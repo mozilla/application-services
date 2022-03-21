@@ -55,8 +55,8 @@ fn load_feature_manifest(
     channel: &str,
 ) -> Result<FeatureManifest> {
     let ir = if !load_from_ir {
-        let parser: Parser = Parser::new(path, channel)?;
-        parser.get_intermediate_representation()?
+        let parser: Parser = Parser::new(path)?;
+        parser.get_intermediate_representation(channel)?
     } else {
         let string = slurp_file(path)?;
         serde_json::from_str::<FeatureManifest>(&string)?
@@ -332,7 +332,7 @@ mod test {
     fn test_with_full_firefox_ios() -> Result<()> {
         generate_and_assert(
             "test/firefox_ios_release.swift",
-            "fixtures/fe/ios.yaml",
+            "fixtures/fe/including/ios.yaml",
             "release",
             false,
         )?;

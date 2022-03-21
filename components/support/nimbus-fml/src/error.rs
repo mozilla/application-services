@@ -11,6 +11,10 @@ pub enum FMLError {
     JSONError(#[from] serde_json::Error),
     #[error("YAML Error: {0}")]
     YAMLError(#[from] serde_yaml::Error),
+    #[error("URL Error: {0}")]
+    UrlError(#[from] url::ParseError),
+    #[error("Fetch Error: {0}")]
+    FetchError(#[from] reqwest::Error),
 
     #[allow(dead_code)]
     #[error("Can't find file: {0}")]

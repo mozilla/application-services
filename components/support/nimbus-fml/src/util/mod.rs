@@ -4,6 +4,8 @@
 
 use std::{env, path::PathBuf};
 
+pub(crate) mod loaders;
+
 #[allow(dead_code)]
 pub(crate) fn pkg_dir() -> String {
     env::var("CARGO_MANIFEST_DIR")

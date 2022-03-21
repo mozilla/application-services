@@ -1,0 +1,46 @@
+---
+features:
+  homescreen:
+    description: The homescreen that the user goes to when they press home or new tab.
+    variables:
+      sections-enabled:
+        description: "This property provides a lookup table of whether or not the given section should be enabled.
+        If the section is enabled, it should be toggleable in the settings screen, and on by default."
+        type: Map<HomeScreenSection, Boolean>
+        default:
+          {
+            "top-sites": true,
+            "jump-back-in": false,
+            "recently-saved": false,
+            "recent-explorations": false,
+            "pocket": false,
+            "library-shortcuts": false
+          }
+    defaults:
+      - channel: nightly
+        value: {
+          "sections-enabled": {
+            "top-sites": true,
+            "jump-back-in": true,
+            "recently-saved": true,
+            "recent-explorations": true,
+            "pocket": true,
+            "library-shortcuts": true
+          }
+        }
+enums:
+  HomeScreenSection:
+    description: The identifiers for the sections of the homescreen.
+    variants:
+      top-sites:
+        description: The frecency and pinned sites.
+      recently-saved:
+        description: The sites the user has bookmarked recently.
+      jump-back-in:
+        description: The tabs the user was looking immediately before being interrupted.
+      recent-explorations:
+        description: The tab groups
+      pocket:
+        description: The pocket section. This should only be available in the US.
+      library-shortcuts:
+        description: Library shortcuts section

@@ -2,7 +2,11 @@
 * License, v. 2.0. If a copy of the MPL was not distributed with this
 * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-use std::{collections::HashMap, path::Path};
+use std::{
+    collections::{HashMap, HashSet},
+    fmt::Display,
+    path::Path,
+};
 
 use serde::{Deserialize, Serialize};
 use serde_json::json;
@@ -12,6 +16,7 @@ use crate::{
     intermediate_representation::{
         EnumDef, FeatureDef, FeatureManifest, ObjectDef, PropDef, TypeRef, VariantDef,
     },
+    util::loaders::{FileLoader, FilePath},
 };
 
 #[derive(Debug, Deserialize, Serialize, Clone)]
@@ -61,7 +66,7 @@ pub(crate) struct FeatureBody {
     description: String,
     variables: HashMap<String, FieldBody>,
     #[serde(alias = "defaults")]
-    default: Option<serde_json::Value>,
+    default: Option<Vec<DefaultBlock>>,
 }
 #[derive(Debug, Deserialize, Serialize, Clone, Default)]
 #[serde(deny_unknown_fields)]
@@ -71,7 +76,13 @@ pub(crate) struct ManifestFrontEnd {
     #[serde(default)]
     #[serde(rename = "types")]
     legacy_types: Option<Types>,
+    #[serde(default)]
     features: HashMap<String, FeatureBody>,
+
+    #[serde(default)]
+    #[serde(alias = "include")]
+    includes: Vec<String>,
+    #[serde(default)]
     channels: Vec<String>,
 
     // If a types attribute isn't explicitly expressed,
@@ -139,20 +150,25 @@ impl ManifestFrontEnd {
     ///
     /// # Returns
     /// Returns a [`std::vec::Vec<FeatureDef>`]
-    fn get_feature_defs(&self) -> Vec<FeatureDef> {
+    fn get_feature_defs(&self, merger: &DefaultsMerger) -> Result<Vec<FeatureDef>> {
         self.features
             .iter()
-            .map(|f| FeatureDef {
-                name: f.0.clone(),
-                doc: f.1.description.clone(),
-                props: f
-                    .1
-                    .variables
-                    .iter()
-                    .map(|v| self.get_prop_def_from_field(v))
-                    .collect(),
-                default: f.1.default.clone(),
+            .map(|(name, body)| {
+                let mut def = FeatureDef {
+                    name: name.clone(),
+                    doc: body.description.clone(),
+                    props: body
+                        .variables
+                        .iter()
+                        .map(|v| self.get_prop_def_from_field(v))
+                        .collect(),
+                    default: Default::default(),
+                };
+
+                merger.merge_feature_defaults(&mut def, &body.default)?;
+                Ok(def)
             })
+            .into_iter()
             .collect()
     }
 
@@ -245,7 +261,7 @@ fn parse_typeref_string(input: String) -> Result<(String, Option<String>), FMLEr
 /// - There is a `channel` in the `defaults` argument that doesn't
 ///     exist in the `channels` argument
 fn collect_channel_defaults(
-    defaults: serde_json::Value,
+    defaults: &[DefaultBlock],
     channels: &[String],
 ) -> Result<HashMap<String, serde_json::Value>, FMLError> {
     // We initialize the map to have an entry for every valid channel
@@ -253,17 +269,16 @@ fn collect_channel_defaults(
         .iter()
         .map(|channel_name| (channel_name.clone(), json!({})))
         .collect::<HashMap<_, _>>();
-    let defaults = serde_json::from_value::<Vec<DefaultBlock>>(defaults)?;
     for default in defaults {
-        if let Some(channel) = default.channel {
-            if let Some(old_default) = channel_map.get(&channel).cloned() {
+        if let Some(channel) = &default.channel {
+            if let Some(old_default) = channel_map.get(channel).cloned() {
                 if default.targeting.is_none() {
                     // TODO: we currently ignore any defaults with targeting involved
                     let merged = merge_two_defaults(&old_default, &default.value);
-                    channel_map.insert(channel, merged);
+                    channel_map.insert(channel.clone(), merged);
                 }
             } else {
-                return Err(FMLError::InvalidChannelError(channel));
+                return Err(FMLError::InvalidChannelError(channel.clone()));
             }
         // This is a default with no channel, so it applies to all channels
         } else {
@@ -281,12 +296,22 @@ fn collect_channel_defaults(
 struct DefaultsMerger<'object> {
     defaults: HashMap<String, serde_json::Value>,
     objects: HashMap<String, &'object ObjectDef>,
+
+    supported_channels: Vec<String>,
+    channel: String,
 }
 
 impl<'object> DefaultsMerger<'object> {
-    fn new(objects: HashMap<String, &'object ObjectDef>) -> Self {
+    fn new(
+        objects: HashMap<String, &'object ObjectDef>,
+        supported_channels: Vec<String>,
+        channel: String,
+    ) -> Self {
         Self {
             objects,
+            supported_channels,
+            channel,
+
             defaults: Default::default(),
         }
     }
@@ -425,18 +450,18 @@ impl<'object> DefaultsMerger<'object> {
     /// Returns a transformed [`FeatureDef`] with its defaults merged
     pub fn merge_feature_defaults(
         &self,
-        feature_def: FeatureDef,
-        channel: &str,
-        supported_channels: &[String],
-    ) -> Result<FeatureDef, FMLError> {
+        feature_def: &mut FeatureDef,
+        defaults: &Option<Vec<DefaultBlock>>,
+    ) -> Result<(), FMLError> {
+        let supported_channels = self.supported_channels.as_slice();
+        let channel = &self.channel;
         if !supported_channels.iter().any(|c| c == channel) {
             return Err(FMLError::InvalidChannelError(channel.into()));
         }
+        let variable_defaults = self.collect_feature_defaults(feature_def)?;
+        let mut res = feature_def;
 
-        let variable_defaults = self.collect_feature_defaults(&feature_def)?;
-        let mut res = feature_def.clone();
-
-        if let Some(defaults) = feature_def.default {
+        if let Some(defaults) = defaults {
             let merged_defaults = collect_channel_defaults(defaults, supported_channels)?;
             if let Some(default_to_merged) = merged_defaults.get(channel) {
                 let merged = merge_two_defaults(&variable_defaults, default_to_merged);
@@ -458,7 +483,7 @@ impl<'object> DefaultsMerger<'object> {
                 res.props = new_props;
             }
         }
-        Ok(res)
+        Ok(())
     }
 }
 
@@ -565,54 +590,151 @@ fn get_typeref_from_string(
 
 #[derive(Debug)]
 pub struct Parser {
-    enums: Vec<EnumDef>,
-    objects: Vec<ObjectDef>,
-    features: Vec<FeatureDef>,
-    channel: String,
-    channels: Vec<String>,
+    manifest: ManifestFrontEnd,
 }
 
 impl Parser {
-    pub fn new(path: &Path, channel: &str) -> Result<Parser, FMLError> {
-        let manifest = serde_yaml::from_str::<ManifestFrontEnd>(&std::fs::read_to_string(path)?)?;
-        let enums = manifest.get_enums();
-        let objects = manifest.get_objects();
-        let features = manifest.get_feature_defs();
-        let channel = channel.to_string();
-        Ok(Parser {
-            enums,
-            objects,
-            features,
-            channels: manifest.channels,
-            channel,
-        })
+    pub fn new(path: &Path) -> Result<Parser> {
+        let source: FilePath = path.into();
+        let files = FileLoader::default()?;
+
+        let manifest = Parser::load_manifest(&files, &source)?;
+
+        Ok(Parser { manifest })
     }
 
-    pub fn get_intermediate_representation(&self) -> Result<FeatureManifest, FMLError> {
-        let object_map: HashMap<String, &ObjectDef> =
-            self.objects.iter().map(|o| (o.name(), o)).collect();
-        let merger = DefaultsMerger::new(object_map);
-
-        let features = self
-            .features
+    fn load_manifest(files: &FileLoader, path: &FilePath) -> Result<ManifestFrontEnd> {
+        let s = files.read_to_string(path)?;
+        let parent = serde_yaml::from_str::<ManifestFrontEnd>(&s)?;
+        parent
+            .includes
+            .clone()
             .iter()
-            .map(|feature_def| {
-                merger.merge_feature_defaults(feature_def.clone(), &self.channel, &self.channels)
+            .fold(Ok(parent), |parent: Result<ManifestFrontEnd>, f| {
+                let src_path = files.join(path, f)?;
+                let manifest = Parser::load_manifest(files, &src_path)?;
+
+                let merged = Parser::merge_manifest(parent?, &src_path, manifest)?;
+                Ok(merged)
             })
-            .collect::<Result<Vec<_>, FMLError>>()?;
+    }
+
+    fn merge_manifest(
+        parent: ManifestFrontEnd,
+        child_path: &dyn Display,
+        child: ManifestFrontEnd,
+    ) -> Result<ManifestFrontEnd> {
+        // TODO child must not have a class name
+        // This will become important when `imports` start becoming a thing.
+        // `include`d files all end in the same generated file.
+
+        // child must not have any channels.
+        if !child.channels.is_empty() {
+            return Err(FMLError::ValidationError(
+                "channels".to_string(),
+                format!(
+                    "Included file {} cannot have its own `channels`",
+                    child_path
+                ),
+            ));
+        }
+
+        fn clean_merge<T: Clone>(
+            a: &HashMap<String, T>,
+            b: &HashMap<String, T>,
+        ) -> (HashMap<String, T>, HashSet<String>) {
+            let mut set = HashSet::new();
+
+            let (a, b) = if a.len() < b.len() { (a, b) } else { (b, a) };
+
+            let mut map = b.clone();
+
+            for (k, v) in a {
+                if b.contains_key(k) {
+                    set.insert(k.clone());
+                } else {
+                    map.insert(k.clone(), v.clone());
+                }
+            }
+            (map, set)
+        }
+
+        // child must not specify any features, objects or enums that the parent has.
+        let (features, common) = clean_merge(&parent.features, &child.features);
+        if !common.is_empty() {
+            return Err(FMLError::ValidationError(
+                format!("features/{:?}", common),
+                format!(
+                    "Features cannot be defined twice, overloaded definition detected at {}",
+                    child_path
+                ),
+            ));
+        }
+
+        let p_types = &parent.legacy_types.unwrap_or(parent.types);
+        let c_types = &child.legacy_types.unwrap_or(child.types);
+
+        let (objects, common) = clean_merge(&c_types.objects, &p_types.objects);
+        if !common.is_empty() {
+            return Err(FMLError::ValidationError(
+                format!("objects/{:?}", common),
+                format!(
+                    "Object types cannot be defined twice, overloaded definition detected at {}",
+                    child_path
+                ),
+            ));
+        }
+
+        let (enums, common) = clean_merge(&c_types.enums, &p_types.enums);
+        if !common.is_empty() {
+            return Err(FMLError::ValidationError(
+                format!("enums/{:?}", common),
+                format!(
+                    "Enum types cannot be defined twice, overloaded definition detected at {}",
+                    child_path
+                ),
+            ));
+        }
+
+        let merged = ManifestFrontEnd {
+            features,
+            types: Types { enums, objects },
+            legacy_types: None,
+            ..parent
+        };
+
+        Ok(merged)
+    }
+
+    pub fn get_intermediate_representation(
+        &self,
+        channel: &str,
+    ) -> Result<FeatureManifest, FMLError> {
+        let manifest = &self.manifest;
+        let enums = manifest.get_enums();
+        let objects = manifest.get_objects();
+
+        let object_map: HashMap<String, &ObjectDef> =
+            objects.iter().map(|o| (o.name(), o)).collect();
+        let merger = DefaultsMerger::new(object_map, manifest.channels.clone(), channel.to_owned());
+
+        let features = manifest.get_feature_defs(&merger)?;
+
         Ok(FeatureManifest {
-            enum_defs: self.enums.clone(),
-            obj_defs: self.objects.clone(),
+            enum_defs: enums,
+            obj_defs: objects,
             hints: HashMap::new(),
             feature_defs: features,
         })
     }
 }
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Deserialize, Serialize, Clone)]
 struct DefaultBlock {
+    #[serde(skip_serializing_if = "Option::is_none")]
     channel: Option<String>,
     value: serde_json::Value,
+    #[serde(skip_serializing_if = "Option::is_none")]
     targeting: Option<String>,
 }
 
@@ -631,12 +753,11 @@ mod unit_tests {
     fn test_parse_from_front_end_representation() -> Result<()> {
         let path = join(pkg_dir(), "fixtures/fe/nimbus_features.yaml");
         let path_buf = Path::new(&path);
-        let parser = Parser::new(path_buf, "release")?;
-        let ir = parser.get_intermediate_representation()?;
+        let parser = Parser::new(path_buf)?;
+        let ir = parser.get_intermediate_representation("release")?;
 
         // Validate parsed enums
         assert!(ir.enum_defs.len() == 1);
-        assert!(ir.enum_defs.contains(parser.enums.first().unwrap()));
         let enum_def = ir.enum_defs.first().unwrap();
         assert!(enum_def.name == *"PlayerProfile");
         assert!(enum_def.doc == *"This is an enum type");
@@ -651,7 +772,6 @@ mod unit_tests {
 
         // Validate parsed objects
         assert!(ir.obj_defs.len() == 1);
-        assert!(ir.obj_defs.contains(parser.objects.first().unwrap()));
         let obj_def = ir.obj_defs.first().unwrap();
         assert!(obj_def.name == *"Button");
         assert!(obj_def.doc == *"This is a button object");
@@ -740,8 +860,8 @@ mod unit_tests {
     fn test_merging_defaults() -> Result<()> {
         let path = join(pkg_dir(), "fixtures/fe/default_merging.yaml");
         let path_buf = Path::new(&path);
-        let parser = Parser::new(path_buf, "release")?;
-        let ir = parser.get_intermediate_representation()?;
+        let parser = Parser::new(path_buf)?;
+        let ir = parser.get_intermediate_representation("release")?;
         let feature_def = ir.feature_defs.first().unwrap();
         let positive_button = feature_def
             .props
@@ -781,8 +901,8 @@ mod unit_tests {
             "green"
         );
         // We now re-run this, but merge back the nightly channel instead
-        let parser = Parser::new(path_buf, "nightly")?;
-        let ir = parser.get_intermediate_representation()?;
+        let parser = Parser::new(path_buf)?;
+        let ir = parser.get_intermediate_representation("nightly")?;
         let feature_def = ir.feature_defs.first().unwrap();
         let positive_button = feature_def
             .props
@@ -1243,17 +1363,8 @@ mod unit_tests {
     }
 
     #[test]
-    fn test_channel_defaults_non_array_json() -> Result<()> {
-        let input = json!({
-            "bobo": "fofo"
-        });
-        collect_channel_defaults(input, &[]).expect_err("Should have returned an error");
-        Ok(())
-    }
-
-    #[test]
     fn test_channel_defaults_channels_no_merging() -> Result<()> {
-        let input = json!([
+        let input: Vec<DefaultBlock> = serde_json::from_value(json!([
             {
                 "channel": "release",
                 "value": {
@@ -1272,9 +1383,9 @@ mod unit_tests {
                     "button-color": "light-green"
                 }
             }
-        ]);
+        ]))?;
         let res = collect_channel_defaults(
-            input,
+            &input,
             &[
                 "release".to_string(),
                 "nightly".to_string(),
@@ -1311,7 +1422,7 @@ mod unit_tests {
 
     #[test]
     fn test_channel_defaults_channels_merging_same_channel() -> Result<()> {
-        let input = json!([
+        let input: Vec<DefaultBlock> = serde_json::from_value(json!([
             {
                 "channel": "release",
                 "value": {
@@ -1344,9 +1455,9 @@ mod unit_tests {
                     "title": "hello there"
                 }
             }
-        ]);
+        ]))?;
         let res = collect_channel_defaults(
-            input,
+            &input,
             &[
                 "release".to_string(),
                 "nightly".to_string(),
@@ -1386,7 +1497,7 @@ mod unit_tests {
 
     #[test]
     fn test_channel_defaults_no_channel_applies_to_all() -> Result<()> {
-        let input = json!([
+        let input: Vec<DefaultBlock> = serde_json::from_value(json!([
             {
                 "channel": "release",
                 "value": {
@@ -1410,9 +1521,9 @@ mod unit_tests {
                     "title": "heya"
                 }
             }
-        ]);
+        ]))?;
         let res = collect_channel_defaults(
-            input,
+            &input,
             &[
                 "release".to_string(),
                 "nightly".to_string(),
@@ -1452,7 +1563,7 @@ mod unit_tests {
 
     #[test]
     fn test_channel_defaults_no_channel_overwrites_all() -> Result<()> {
-        let input = json!([
+        let input: Vec<DefaultBlock> = serde_json::from_value(json!([
             {
                 "channel": "release",
                 "value": {
@@ -1476,9 +1587,9 @@ mod unit_tests {
                     "button-color": "red"
                 }
             }
-        ]);
+        ]))?;
         let res = collect_channel_defaults(
-            input,
+            &input,
             &[
                 "release".to_string(),
                 "nightly".to_string(),
@@ -1515,7 +1626,7 @@ mod unit_tests {
 
     #[test]
     fn test_channel_defaults_no_channel_gets_overwritten_if_followed_by_channel() -> Result<()> {
-        let input = json!([
+        let input: Vec<DefaultBlock> = serde_json::from_value(json!([
             {
                 "channel": "release",
                 "value": {
@@ -1545,9 +1656,9 @@ mod unit_tests {
                     "button-color": "dark-red"
                 }
             }
-        ]);
+        ]))?;
         let res = collect_channel_defaults(
-            input,
+            &input,
             &[
                 "release".to_string(),
                 "nightly".to_string(),
@@ -1584,7 +1695,7 @@ mod unit_tests {
 
     #[test]
     fn test_channel_defaults_fail_if_invalid_channel_supplied() -> Result<()> {
-        let input = json!([
+        let input: Vec<DefaultBlock> = serde_json::from_value(json!([
             {
                 "channel": "release",
                 "value": {
@@ -1609,9 +1720,9 @@ mod unit_tests {
                     "button-color": "no color"
                 }
             }
-        ]);
+        ]))?;
         let res = collect_channel_defaults(
-            input,
+            &input,
             &[
                 "release".to_string(),
                 "nightly".to_string(),
@@ -1632,7 +1743,7 @@ mod unit_tests {
 
     #[test]
     fn test_channel_defaults_empty_default_created_if_none_supplied_in_feature() -> Result<()> {
-        let input = json!([
+        let input: Vec<DefaultBlock> = serde_json::from_value(json!([
             {
                 "channel": "release",
                 "value": {
@@ -1647,9 +1758,9 @@ mod unit_tests {
             },
             // No entry fo beta supplied, we will still get an entry in the result
             // but it will be empty
-        ]);
+        ]))?;
         let res = collect_channel_defaults(
-            input,
+            &input,
             &[
                 "release".to_string(),
                 "nightly".to_string(),
@@ -1681,10 +1792,14 @@ mod unit_tests {
 
     #[test]
     fn test_merge_feature_default_unsupported_channel() -> Result<()> {
-        let feature_def: FeatureDef = Default::default();
-        let merger = DefaultsMerger::new(Default::default());
+        let mut feature_def: FeatureDef = Default::default();
+        let merger = DefaultsMerger::new(
+            Default::default(),
+            vec!["release".into(), "beta".into()],
+            "nightly".into(),
+        );
         let err = merger
-            .merge_feature_defaults(feature_def, "nightly", &["release".into(), "beta".into()])
+            .merge_feature_defaults(&mut feature_def, &None)
             .expect_err("Should return an error");
         if let FMLError::InvalidChannelError(channel_name) = err {
             assert_eq!(channel_name, "nightly");
@@ -1699,43 +1814,43 @@ mod unit_tests {
 
     #[test]
     fn test_merge_feature_default_overwrite_field_default_based_on_channel() -> Result<()> {
-        let feature_def = FeatureDef {
+        let mut feature_def = FeatureDef {
             props: vec![PropDef {
                 name: "button-color".into(),
                 default: json!("blue"),
                 doc: "".into(),
                 typ: TypeRef::String,
             }],
-            default: Some(json!([
-                {
-                    "channel": "nightly",
-                    "value": {
-                        "button-color": "dark-green"
-                    }
-                },
-                {
-                    "channel": "release",
-                    "value": {
-                        "button-color": "green"
-                    }
-                },
-                {
-                    "channel": "beta",
-                    "value": {
-                        "button-color": "light-green"
-                    }
-                },
-            ])),
             ..Default::default()
         };
-        let merger = DefaultsMerger::new(Default::default());
-        let res = merger.merge_feature_defaults(
-            feature_def,
-            "nightly",
-            &["release".into(), "beta".into(), "nightly".into()],
-        )?;
+        let default_blocks = serde_json::from_value(json!([
+            {
+                "channel": "nightly",
+                "value": {
+                    "button-color": "dark-green"
+                }
+            },
+            {
+                "channel": "release",
+                "value": {
+                    "button-color": "green"
+                }
+            },
+            {
+                "channel": "beta",
+                "value": {
+                    "button-color": "light-green"
+                }
+            },
+        ]))?;
+        let merger = DefaultsMerger::new(
+            Default::default(),
+            vec!["release".into(), "beta".into(), "nightly".into()],
+            "nightly".into(),
+        );
+        merger.merge_feature_defaults(&mut feature_def, &default_blocks)?;
         assert_eq!(
-            res.props,
+            feature_def.props,
             vec![PropDef {
                 name: "button-color".into(),
                 default: json!("dark-green"),
@@ -1749,37 +1864,35 @@ mod unit_tests {
     #[test]
     fn test_merge_feature_default_field_default_not_overwritten_if_no_feature_default_for_channel(
     ) -> Result<()> {
-        let feature_def = FeatureDef {
+        let mut feature_def = FeatureDef {
             props: vec![PropDef {
                 name: "button-color".into(),
                 default: json!("blue"),
                 doc: "".into(),
                 typ: TypeRef::String,
             }],
-            default: Some(json!([
-                {
-                    "channel": "release",
-                    "value": {
-                        "button-color": "green"
-                    }
-                },
-                {
-                    "channel": "beta",
-                    "value": {
-                        "button-color": "light-green"
-                    }
-                },
-            ])),
             ..Default::default()
         };
-        let merger = DefaultsMerger::new(Default::default());
-        let res = merger.merge_feature_defaults(
-            feature_def,
-            "nightly",
-            &["release".into(), "beta".into(), "nightly".into()],
-        )?;
+        let default_blocks = serde_json::from_value(json!([{
+            "channel": "release",
+            "value": {
+                "button-color": "green"
+            }
+        },
+        {
+            "channel": "beta",
+            "value": {
+                "button-color": "light-green"
+            }
+        }]))?;
+        let merger = DefaultsMerger::new(
+            Default::default(),
+            vec!["release".into(), "beta".into(), "nightly".into()],
+            "nightly".into(),
+        );
+        merger.merge_feature_defaults(&mut feature_def, &default_blocks)?;
         assert_eq!(
-            res.props,
+            feature_def.props,
             vec![PropDef {
                 name: "button-color".into(),
                 default: json!("blue"),
@@ -1792,7 +1905,7 @@ mod unit_tests {
 
     #[test]
     fn test_merge_feature_default_overwrite_nested_field_default() -> Result<()> {
-        let feature_def = FeatureDef {
+        let mut feature_def = FeatureDef {
             props: vec![PropDef {
                 name: "Dialog".into(),
                 default: json!({
@@ -1806,52 +1919,53 @@ mod unit_tests {
                 doc: "".into(),
                 typ: TypeRef::String,
             }],
-            default: Some(json!([
-                {
-                    "channel": "nightly",
-                    "value": {
-                        "Dialog": {
-                            "button-color": "dark-green",
-                            "inner": {
-                                "bobo": "nightly"
-                            }
-                        }
-                    }
-                },
-                {
-                    "channel": "release",
-                    "value": {
-                        "Dialog": {
-                            "button-color": "green",
-                            "inner": {
-                                "bobo": "release",
-                                "new-field": "new-value"
-                            }
-                        }
-                    }
-                },
-                {
-                    "channel": "beta",
-                    "value": {
-                        "Dialog": {
-                            "button-color": "light-green",
-                            "inner": {
-                                "bobo": "beta"
-                            }
-                        }
-                    }
-                },
-            ])),
+
             ..Default::default()
         };
-        let merger = DefaultsMerger::new(Default::default());
-        let res = merger.merge_feature_defaults(
-            feature_def,
-            "release",
-            &["release".into(), "beta".into(), "nightly".into()],
-        )?;
+        let default_blocks = serde_json::from_value(json!([
+            {
+                "channel": "nightly",
+                "value": {
+                    "Dialog": {
+                        "button-color": "dark-green",
+                        "inner": {
+                            "bobo": "nightly"
+                        }
+                    }
+                }
+            },
+            {
+                "channel": "release",
+                "value": {
+                    "Dialog": {
+                        "button-color": "green",
+                        "inner": {
+                            "bobo": "release",
+                            "new-field": "new-value"
+                        }
+                    }
+                }
+            },
+            {
+                "channel": "beta",
+                "value": {
+                    "Dialog": {
+                        "button-color": "light-green",
+                        "inner": {
+                            "bobo": "beta"
+                        }
+                    }
+                }
+            },
+        ]))?;
+        let merger = DefaultsMerger::new(
+            Default::default(),
+            vec!["release".into(), "beta".into(), "nightly".into()],
+            "release".into(),
+        );
+        merger.merge_feature_defaults(&mut feature_def, &default_blocks)?;
         assert_eq!(
-            res.props,
+            feature_def.props,
             vec![PropDef {
                 name: "Dialog".into(),
                 default: json!({
@@ -1873,44 +1987,44 @@ mod unit_tests {
     #[test]
     fn test_merge_feature_default_overwrite_field_default_based_on_channel_using_only_no_channel_default(
     ) -> Result<()> {
-        let feature_def = FeatureDef {
+        let mut feature_def = FeatureDef {
             props: vec![PropDef {
                 name: "button-color".into(),
                 default: json!("blue"),
                 doc: "".into(),
                 typ: TypeRef::String,
             }],
-            default: Some(json!([
-                // No channel applies to all channel
-                // so the nightly channel will get this
-                {
-                    "value": {
-                        "button-color": "dark-green"
-                    }
-                },
-                {
-                    "channel": "release",
-                    "value": {
-                        "button-color": "green"
-                    }
-                },
-                {
-                    "channel": "beta",
-                    "value": {
-                        "button-color": "light-green"
-                    }
-                },
-            ])),
             ..Default::default()
         };
-        let merger = DefaultsMerger::new(Default::default());
-        let res = merger.merge_feature_defaults(
-            feature_def,
-            "nightly",
-            &["release".into(), "beta".into(), "nightly".into()],
-        )?;
+        let default_blocks = serde_json::from_value(json!([
+            // No channel applies to all channel
+            // so the nightly channel will get this
+            {
+                "value": {
+                    "button-color": "dark-green"
+                }
+            },
+            {
+                "channel": "release",
+                "value": {
+                    "button-color": "green"
+                }
+            },
+            {
+                "channel": "beta",
+                "value": {
+                    "button-color": "light-green"
+                }
+            },
+        ]))?;
+        let merger = DefaultsMerger::new(
+            Default::default(),
+            vec!["release".into(), "beta".into(), "nightly".into()],
+            "nightly".into(),
+        );
+        merger.merge_feature_defaults(&mut feature_def, &default_blocks)?;
         assert_eq!(
-            res.props,
+            feature_def.props,
             vec![PropDef {
                 name: "button-color".into(),
                 default: json!("dark-green"),

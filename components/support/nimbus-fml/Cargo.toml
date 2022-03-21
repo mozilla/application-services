@@ -17,6 +17,8 @@ askama = "0.10.5"
 textwrap = "0.14.2"
 heck = "0.3.3"
 unicode-segmentation = "1.8.0"
+url = "2.2.2"
+reqwest = { version = "0.11.4", features = ["blocking"], default-features = false }
 
 [dev-dependencies]
 tempfile = "3"
