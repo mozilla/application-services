@@ -1,3 +1,12 @@
+# v91.1.1 (_2022-03-23_)
+
+[Full Changelog](https://github.com/mozilla/application-services/compare/v91.1.0...v91.1.1)
+
+## Autofill
+
+### What's New
+  - Added `temp-store`, `journal-mode`, and `foreign-keys` pragmas to autofill component. ([#4882](https://github.com/mozilla/application-services/pull/4882))
+
 # v91.1.0 (_2022-02-11_)
 
 [Full Changelog](https://github.com/mozilla/application-services/compare/v91.0.1...v91.1.0)
