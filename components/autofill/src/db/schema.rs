@@ -82,6 +82,17 @@ impl ConnectionInitializer for AutofillConnectionInitializer {
 
     fn prepare(&self, conn: &Connection) -> Result<()> {
         define_functions(conn)?;
+
+        let initial_pragmas = "
+            -- use in-memory storage
+            PRAGMA temp_store = 2;
+            -- use write-ahead logging
+            PRAGMA journal_mode = WAL;
+            -- autofill does not use foreign keys at present but this is probably a good pragma to set
+            PRAGMA foreign_keys = ON;
+        ";
+        conn.execute_batch(initial_pragmas)?;
+
         conn.set_prepared_statement_cache_capacity(128);
         Ok(())
     }
