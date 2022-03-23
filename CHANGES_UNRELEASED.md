@@ -2,7 +2,7 @@
 
 # Unreleased Changes
 
-[Full Changelog](https://github.com/mozilla/application-services/compare/v91.1.0...main)
+[Full Changelog](https://github.com/mozilla/application-services/compare/v91.1.1...main)
 
 <!-- WARNING: New entries should be added below this comment to ensure the `./automation/prepare-release.py` script works as expected.
 
@@ -18,8 +18,3 @@ Use the template below to make assigning a version number during the release cut
   - Description of the change with a link to the pull request ([#0000](https://github.com/mozilla/application-services/pull/0000))
 
 -->
-
-## Autofill
-
-### What's New
-  - Added `temp-store`, `journal-mode`, and `foreign-keys` pragmas to autofill component. ([#4882](https://github.com/mozilla/application-services/pull/4882))
