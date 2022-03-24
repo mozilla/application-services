@@ -1,3 +1,19 @@
+# v92.0.1 (_2022-03-24_)
+
+[Full Changelog](https://github.com/mozilla/application-services/compare/v92.0.0...v92.0.1)
+
+## Nimbus FML ⛅️🔬🔭🔧
+
+### What's Fixed
+
+- Swift: a bug in our understanding of Swift optional chaining rules meant that maps with a mapping and merging produced invalid code. ([#4885](https://github.com/mozilla/application-services/pull/4885))
+
+## General
+
+### What's Changed
+
+- Added documentation of our sqlite pragma usage. ([#4876](https://github.com/mozilla/application-services/pull/4876))
+
 # v92.0.0 (_2022-03-17_)
 
 [Full Changelog](https://github.com/mozilla/application-services/compare/v91.1.0...v92.0.0)
