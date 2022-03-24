@@ -19,6 +19,12 @@ Use the template below to make assigning a version number during the release cut
 
 -->
 
+## Nimbus FML ⛅️🔬🔭🔧
+
+### What's Fixed
+
+- Swift: a bug in our understanding of Swift optional chaining rules meant that maps with a mapping and merging produced invalid code. ([#4885](https://github.com/mozilla/application-services/pull/4885))
+
 ## General
 
 ### What's Changed

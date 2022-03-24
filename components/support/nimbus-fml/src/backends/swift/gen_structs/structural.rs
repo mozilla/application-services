@@ -232,7 +232,11 @@ impl CodeType for MapCodeType {
             })
             .collect();
 
-        format!("[{}]", src.join(", "))
+        if src.is_empty() {
+            "[:]".to_string()
+        } else {
+            format!("[{}]", src.join(", "))
+        }
     }
 }
 

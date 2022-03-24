@@ -42,6 +42,21 @@ features:
         description: The drawable displayed in the app menu for Settings
         type: String
         default: "menu-Settings"
+      string-map:
+        description: A string map that was causing problem
+        type: Map<String, String>
+        default: {}
+      string-int-map:
+        description: A string map that was causing problem
+        type: Map<String, Int>
+        default: {}
+      eum-map:
+        description: A string map that was causing problem
+        type: Map<IconType, Int>
+        default:
+          screenshot: 1
+          letter: 2
+          favicon: 3
   homescreen:
     description: The homescreen that the user goes to when they press home or new tab.
     variables:
@@ -93,7 +108,7 @@ types:
           default: ""
           description: "Is the description of spotlight"
           required: true
-        use-html-content: 
+        use-html-content:
           type: Boolean
           default: true
           description: "Describes whether spotlight should use html content"
