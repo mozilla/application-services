@@ -1,0 +1,27 @@
+version: 1.0
+about:
+  description: A small test of importing and including
+  ios:
+    class: AppNimbus
+    module: App
+  android:
+    class: .nimbus.AppNimbus
+    package: com.example.app
+channels:
+  - debug
+  - release
+import:
+  - path: ./lib.yaml
+    channel: test-embedding
+    features:
+      homescreen:
+        - channel: debug
+          value:
+            sections-enabled:
+              pocket: true
+        - value:
+            sections-enabled:
+              pocket: false
+
+include:
+  - ../../including/ios_search.yaml

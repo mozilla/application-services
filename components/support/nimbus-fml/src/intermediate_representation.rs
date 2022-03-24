@@ -1,11 +1,13 @@
+use crate::TargetLanguage;
 /* This Source Code Form is subject to the terms of the Mozilla Public
 * License, v. 2.0. If a copy of the MPL was not distributed with this
 * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 use crate::error::{FMLError, Result};
 use crate::parser::AboutBlock;
+use crate::parser::FileId;
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
-use std::collections::{HashMap, HashSet};
+use std::collections::{BTreeSet, HashMap, HashSet};
 use std::slice::Iter;
 
 /// The `TypeRef` enum defines a reference to a type.
@@ -75,6 +77,9 @@ pub(crate) type StringId = String;
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Default)]
 pub struct FeatureManifest {
+    #[serde(skip)]
+    pub(crate) id: FileId,
+
     #[serde(rename = "enums")]
     #[serde(default)]
     pub enum_defs: Vec<EnumDef>,
@@ -88,6 +93,12 @@ pub struct FeatureManifest {
     pub feature_defs: Vec<FeatureDef>,
     #[serde(default)]
     pub(crate) about: AboutBlock,
+
+    #[serde(default)]
+    pub(crate) imported_features: HashMap<FileId, BTreeSet<String>>,
+
+    #[serde(default)]
+    pub(crate) all_imports: HashMap<FileId, FeatureManifest>,
 }
 
 impl TypeFinder for FeatureManifest {
@@ -105,6 +116,23 @@ impl TypeFinder for FeatureManifest {
 }
 
 impl FeatureManifest {
+    pub(crate) fn validate_manifest_for_lang(&self, lang: &TargetLanguage) -> Result<()> {
+        if !&self.about.supports(lang) {
+            return Err(FMLError::ValidationError(
+                "about".to_string(),
+                format!(
+                    "Manifest file {file} is unable to generate {lang} files",
+                    file = &self.id,
+                    lang = &lang.extension(),
+                ),
+            ));
+        }
+        for child in self.all_imports.values() {
+            child.validate_manifest_for_lang(lang)?;
+        }
+        Ok(())
+    }
+
     pub fn validate_manifest(&self) -> Result<()> {
         // We first validate that each enum_def has a unique name.
         // TODO: We repeat this check three times, it should be its
@@ -439,12 +467,31 @@ impl FeatureManifest {
         self.feature_defs.iter()
     }
 
+    pub(crate) fn iter_imported_files(&self) -> Vec<ImportedClass> {
+        let map = &self.all_imports;
+
+        self.imported_features
+            .iter()
+            .filter_map(|(id, features)| {
+                let fm = map.get(id).to_owned()?;
+                let about = &fm.about;
+                let features = features.iter().filter_map(|f| fm.find_feature(f)).collect();
+
+                Some(ImportedClass::new(id.clone(), about, features))
+            })
+            .collect::<Vec<_>>()
+    }
+
     pub fn find_object(&self, nm: &str) -> Option<ObjectDef> {
         self.iter_object_defs().find(|o| o.name() == nm).cloned()
     }
 
     pub fn find_enum(&self, nm: &str) -> Option<EnumDef> {
         self.iter_enum_defs().find(|e| e.name() == nm).cloned()
+    }
+
+    pub fn find_feature(&self, nm: &str) -> Option<&FeatureDef> {
+        self.iter_feature_defs().find(|e| e.name() == nm)
     }
 }
 
@@ -611,6 +658,27 @@ impl TypeFinder for PropDef {
 }
 
 pub type Literal = Value;
+
+#[derive(Debug, Clone, PartialEq)]
+pub(crate) struct ImportedClass<'a> {
+    pub(crate) file_id: FileId,
+    pub(crate) about: &'a AboutBlock,
+    pub(crate) features: Vec<&'a FeatureDef>,
+}
+
+impl<'a> ImportedClass<'a> {
+    pub(crate) fn new(
+        file_id: FileId,
+        about: &'a AboutBlock,
+        features: Vec<&'a FeatureDef>,
+    ) -> Self {
+        Self {
+            file_id,
+            about,
+            features,
+        }
+    }
+}
 
 #[cfg(test)]
 mod unit_tests {

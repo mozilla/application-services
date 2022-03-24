@@ -1,0 +1,15 @@
+version: 1.0
+channels:
+  - test-embedding
+  - debug
+  - nightly
+about:
+  description: A small test of importing and including
+  ios:
+    class: LibNimbus
+    module: Lib
+  android:
+    class: .nimbus.LibNimbus
+    package: com.example.lib
+include:
+  - ../../including/ios_homescreen.yaml

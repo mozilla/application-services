@@ -3,7 +3,7 @@
 * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
 use std::{
-    collections::{HashMap, HashSet},
+    collections::{BTreeSet, HashMap, HashSet},
     fmt::Display,
     path::Path,
 };
@@ -17,6 +17,7 @@ use crate::{
         EnumDef, FeatureDef, FeatureManifest, ObjectDef, PropDef, TypeRef, VariantDef,
     },
     util::loaders::{FileLoader, FilePath},
+    TargetLanguage,
 };
 
 #[derive(Debug, Deserialize, Serialize, Clone)]
@@ -76,6 +77,16 @@ impl AboutBlock {
     pub(crate) fn is_includable(&self) -> bool {
         self.kotlin_about.is_none() && self.swift_about.is_none()
     }
+
+    pub(crate) fn supports(&self, lang: &TargetLanguage) -> bool {
+        match lang {
+            TargetLanguage::Kotlin => self.kotlin_about.is_some(),
+            TargetLanguage::Swift => self.swift_about.is_some(),
+            TargetLanguage::IR => true,
+            TargetLanguage::ExperimenterYAML => true,
+            TargetLanguage::ExperimenterJSON => true,
+        }
+    }
 }
 
 #[derive(Debug, Deserialize, Serialize, Clone, Default, PartialEq)]
@@ -88,6 +99,14 @@ pub(crate) struct SwiftAboutBlock {
 pub(crate) struct KotlinAboutBlock {
     pub(crate) package: String,
     pub(crate) class: String,
+}
+
+#[derive(Debug, Deserialize, Serialize, Clone, Default)]
+pub(crate) struct ImportBlock {
+    pub(crate) path: String,
+    pub(crate) channel: String,
+    #[serde(default)]
+    pub(crate) features: HashMap<String, Vec<DefaultBlock>>,
 }
 
 #[derive(Debug, Deserialize, Serialize, Clone)]
@@ -117,6 +136,11 @@ pub(crate) struct ManifestFrontEnd {
     #[serde(default)]
     #[serde(alias = "include")]
     includes: Vec<String>,
+
+    #[serde(default)]
+    #[serde(alias = "import")]
+    imports: Vec<ImportBlock>,
+
     #[serde(default)]
     channels: Vec<String>,
 
@@ -253,6 +277,38 @@ impl ManifestFrontEnd {
                     .collect(),
             })
             .collect()
+    }
+
+    fn get_intermediate_representation(
+        &self,
+        id: &FileId,
+        channel: &str,
+    ) -> Result<FeatureManifest> {
+        let manifest = self;
+        let enums = manifest.get_enums();
+        let objects = manifest.get_objects();
+
+        let object_map: HashMap<String, &ObjectDef> =
+            objects.iter().map(|o| (o.name(), o)).collect();
+        let merger = DefaultsMerger::new(object_map, manifest.channels.clone(), channel.to_owned());
+
+        let features = manifest.get_feature_defs(&merger)?;
+
+        let about = match &manifest.about {
+            Some(a) => a.clone(),
+            None => Default::default(),
+        };
+
+        Ok(FeatureManifest {
+            id: id.clone(),
+            about,
+            enum_defs: enums,
+            obj_defs: objects,
+            hints: HashMap::new(),
+            feature_defs: features,
+
+            ..Default::default()
+        })
     }
 }
 
@@ -623,8 +679,8 @@ fn get_typeref_from_string(
     };
 }
 
-#[derive(Debug, Clone, Hash, PartialEq, Eq)]
-struct FileId {
+#[derive(Debug, Clone, Hash, PartialEq, Eq, Default, Serialize, Deserialize)]
+pub(crate) struct FileId {
     id: String,
 }
 
@@ -640,9 +696,15 @@ impl TryFrom<&FilePath> for FileId {
     }
 }
 
-#[derive(Debug)]
+impl Display for FileId {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.write_str(&self.id)
+    }
+}
+
 pub struct Parser {
-    manifest: ManifestFrontEnd,
+    files: FileLoader,
+    source: FilePath,
 }
 
 impl Parser {
@@ -650,9 +712,7 @@ impl Parser {
         let source: FilePath = path.into();
         let files = FileLoader::default()?;
 
-        let manifest = Parser::load_manifest(&files, &source, &mut HashSet::new())?;
-
-        Ok(Parser { manifest })
+        Ok(Parser { source, files })
     }
 
     // This method loads a manifest, including resolving the includes and merging the included files
@@ -723,32 +783,75 @@ impl Parser {
         Ok(merged)
     }
 
+    /// Load a manifest and all its imports, recursively if necessary.
+    ///
+    /// We populate a map of `FileId` to `FeatureManifest`s, so to avoid unnecessary clones,
+    /// we return a `FileId` even when the file has already been imported.
+    fn load_imports(
+        &self,
+        current: &FilePath,
+        channel: &str,
+        imports: &mut HashMap<FileId, FeatureManifest>,
+    ) -> Result<FileId> {
+        let id = current.try_into()?;
+        if imports.contains_key(&id) {
+            return Ok(id);
+        }
+        imports.insert(id.clone(), Default::default());
+
+        let manifest = Parser::load_manifest(&self.files, current, &mut HashSet::new())?;
+
+        let mut ir = manifest.get_intermediate_representation(&id, channel)?;
+
+        let mut imported_features = HashMap::new();
+
+        for block in &manifest.imports {
+            // 1. Load the imported manifests in to the hash map.
+            let path = self.files.join(current, &block.path)?;
+            let id = self.load_imports(&path, &block.channel, imports)?;
+
+            // We detect that there are no name collisions after the loading has finished, with `check_can_import_manifest`.
+            // We can't do it now, because we need to check all imports against the top-level manifest file.
+
+            // We detect that the imported files have language specific files in `validate_manifest_for_lang()`.
+            // We can't do it now because we don't yet know what this run is going to generate.
+
+            // 2. Associate the imports as chidren of this IR.
+            let mut features = BTreeSet::new();
+            for f in block.features.keys() {
+                features.insert(f.clone());
+
+                // 3. For each of the features in each of the imported files, we need to do the merge
+                // from the features specialized in this one
+                // This is covered in EXP-2338
+            }
+
+            imported_features.insert(id, features);
+        }
+
+        ir.imported_features = imported_features;
+        imports.insert(id.clone(), ir);
+
+        Ok(id)
+    }
+
     pub fn get_intermediate_representation(
         &self,
         channel: &str,
     ) -> Result<FeatureManifest, FMLError> {
-        let manifest = &self.manifest;
-        let enums = manifest.get_enums();
-        let objects = manifest.get_objects();
+        let mut manifests = HashMap::new();
+        let id = self.load_imports(&self.source, channel, &mut manifests)?;
+        let mut fm = manifests
+            .remove(&id)
+            .expect("Top level manifest should always be present");
 
-        let object_map: HashMap<String, &ObjectDef> =
-            objects.iter().map(|o| (o.name(), o)).collect();
-        let merger = DefaultsMerger::new(object_map, manifest.channels.clone(), channel.to_owned());
+        for child in manifests.values() {
+            check_can_import_manifest(&fm, child)?;
+        }
 
-        let features = manifest.get_feature_defs(&merger)?;
+        fm.all_imports = manifests;
 
-        let about = match &manifest.about {
-            Some(a) => a.clone(),
-            None => Default::default(),
-        };
-
-        Ok(FeatureManifest {
-            about,
-            enum_defs: enums,
-            obj_defs: objects,
-            hints: HashMap::new(),
-            feature_defs: features,
-        })
+        Ok(fm)
     }
 }
 
@@ -816,6 +919,49 @@ fn merge_map<T: Clone>(
                 display_key, child_path,
             ),
         ))
+    }
+}
+
+/// Check if this parent can import this child.
+fn check_can_import_manifest(parent: &FeatureManifest, child: &FeatureManifest) -> Result<()> {
+    check_can_import_list(parent, child, "enum", |fm: &FeatureManifest| {
+        fm.iter_enum_defs()
+            .map(|e| &e.name)
+            .collect::<HashSet<&String>>()
+    })?;
+    check_can_import_list(parent, child, "objects", |fm: &FeatureManifest| {
+        fm.iter_object_defs()
+            .map(|e| &e.name)
+            .collect::<HashSet<&String>>()
+    })?;
+    check_can_import_list(parent, child, "features", |fm: &FeatureManifest| {
+        fm.iter_feature_defs()
+            .map(|e| &e.name)
+            .collect::<HashSet<&String>>()
+    })?;
+
+    Ok(())
+}
+
+fn check_can_import_list(
+    parent: &FeatureManifest,
+    child: &FeatureManifest,
+    key: &str,
+    f: fn(&FeatureManifest) -> HashSet<&String>,
+) -> Result<()> {
+    let p = f(parent);
+    let c = f(child);
+    let intersection = p.intersection(&c).collect::<HashSet<_>>();
+    if !intersection.is_empty() {
+        Err(FMLError::ValidationError(
+            key.to_string(),
+            format!(
+                "`{}` types {:?} conflict when {} imports {}",
+                key, &intersection, &parent.id, &child.id
+            ),
+        ))
+    } else {
+        Ok(())
     }
 }
 
