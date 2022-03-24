@@ -3,6 +3,8 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
  * */
 
+use crate::intermediate_representation::ModuleId;
+
 #[derive(Debug, thiserror::Error)]
 pub enum FMLError {
     #[error("IO error: {0}")]
@@ -33,8 +35,11 @@ pub enum FMLError {
     ValidationError(String, String),
     #[error("Type Parsing Error: {0}")]
     TypeParsingError(String),
-    #[error("Invalid Channel error: {0}")]
-    InvalidChannelError(String),
+    #[error("Invalid Channel error: The channel `{0}` is specified, but only {1:?} are supported for the file")]
+    InvalidChannelError(String, Vec<String>),
+
+    #[error("Problem with {0}: {1}")]
+    FMLModuleError(ModuleId, String),
 }
 
 pub type Result<T, E = FMLError> = std::result::Result<T, E>;

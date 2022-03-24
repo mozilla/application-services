@@ -1,0 +1,15 @@
+about:
+  description: The deeply nested FML file which will import a feature from a child and grandchild.
+  kotlin:
+    class: .nimbus.SubLibNimbus
+    package: com.example.sublib
+  ios:
+    class: SubLibNimbus
+    module: SubLib
+channels:
+  - debug
+  - release
+includes:
+  - ../common/overrides-types.yaml
+  - ../common/property-overrides-feature.yaml
+  - ../common/deeply-nested-feature.yaml

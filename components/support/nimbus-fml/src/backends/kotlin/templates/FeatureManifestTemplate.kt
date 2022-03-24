@@ -62,6 +62,7 @@ object {{ nimbus_object }} {
         {%- for f in self.fm.iter_imported_files() %}
         {{ f.about.nimbus_object_name_kt() }}.initialize(getSdk)
         {%- endfor %}
+        this.reinitialize()
     }
 
     private var getSdk: () -> FeaturesInterface? = {
@@ -100,14 +101,34 @@ object {{ nimbus_object }} {
      * default values.
      */
     val features = Features()
+
+    {% let blocks = self.initialization_code() -%}
+    /**
+     * All generated initialization code. Clients shouldn't need to override or call
+     * this.
+     * We put it in a separate method because we have to be quite careful about what order
+     * the initialization happens in— e.g. when importing other FML files.
+     */
+    private fun reinitialize() {
+        {%- if !blocks.is_empty() %}
+        {%- for code in blocks %}
+        {{ code }}
+        {%- endfor %}
+        {%- else %}
+        // Nothing left to do.
+        {%- endif %}
+    }
+
+    {%- if !blocks.is_empty() %}
+
+    init {
+        this.reinitialize()
+    }
+    {%- endif %}
 }
 
-{%- for code in self.initialization_code() %}
-{{ code }}
-{%- endfor %}
-
 // Public interface members begin here.
-{% for code in self.declaration_code() %}
+{%- for code in self.declaration_code() %}
 {{- code }}
 {%- endfor %}
 

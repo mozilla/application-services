@@ -1,0 +1,15 @@
+version: 1.0.0
+channels:
+  - debug
+  - release
+about:
+  description: A test fixture for testing importing. This is the lib that will be imported.
+  android:
+    class: .nimbus.LibNimbus
+    package: com.example.lib
+  ios:
+    class: LibNimbus
+    module: Lib
+includes:
+  - ../common/overrides-types.yaml
+  - ../common/property-overrides-feature.yaml

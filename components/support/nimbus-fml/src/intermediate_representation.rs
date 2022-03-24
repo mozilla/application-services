@@ -3,11 +3,12 @@
 * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 use crate::error::{FMLError, Result};
 use crate::parser::AboutBlock;
-use crate::parser::FileId;
+use crate::util::loaders::FilePath;
 use crate::TargetLanguage;
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use std::collections::{BTreeSet, HashMap, HashSet};
+use std::fmt::Display;
 use std::slice::Iter;
 
 /// The `TypeRef` enum defines a reference to a type.
@@ -36,6 +37,9 @@ pub enum TypeRef {
     // JSON objects can represent a data class.
     Object(String),
 
+    // ImportedClass(String),
+    // ImportedFeature(String),
+
     // JSON objects can also represent a `Map<String, V>` or a `Map` with
     // keys that can be derived from a string.
     StringMap(Box<TypeRef>),
@@ -44,6 +48,54 @@ pub enum TypeRef {
 
     List(Box<TypeRef>),
     Option(Box<TypeRef>),
+}
+
+/**
+ * An identifier derived from a `FilePath` of a top-level or importable FML file.
+ *
+ * An FML module is the conceptual FML file (and included FML files) that a single
+ * Kotlin or Swift file. It can be imported by other FML modules.
+ *
+ * It is somewhat distinct from the `FilePath` enum for three reasons:
+ *
+ * - a file path can specify a non-canonical representation of the path
+ * - a file path is difficult to serialize/deserialize
+ * - a module
+ *
+ */
+#[derive(PartialEq, Eq, PartialOrd, Ord, Debug, Hash, Clone, Serialize, Deserialize)]
+pub enum ModuleId {
+    Local(String),
+    Remote(String),
+}
+
+impl Default for ModuleId {
+    fn default() -> Self {
+        Self::Local("none".to_string())
+    }
+}
+
+impl TryFrom<&FilePath> for ModuleId {
+    type Error = FMLError;
+    fn try_from(path: &FilePath) -> Result<Self> {
+        Ok(match path {
+            FilePath::Local(p) => {
+                let p = p.canonicalize().map_err(|e| {
+                    FMLError::InvalidPath(format!("{}: {}", e, p.as_path().display()))
+                })?;
+                ModuleId::Local(p.display().to_string())
+            }
+            FilePath::Remote(u) => ModuleId::Remote(u.to_string()),
+        })
+    }
+}
+
+impl Display for ModuleId {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.write_str(match self {
+            ModuleId::Local(s) | ModuleId::Remote(s) => s,
+        })
+    }
 }
 
 pub trait TypeFinder {
@@ -78,7 +130,7 @@ pub(crate) type StringId = String;
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Default)]
 pub struct FeatureManifest {
     #[serde(skip)]
-    pub(crate) id: FileId,
+    pub(crate) id: ModuleId,
 
     #[serde(rename = "enums")]
     #[serde(default)]
@@ -95,10 +147,10 @@ pub struct FeatureManifest {
     pub(crate) about: AboutBlock,
 
     #[serde(default)]
-    pub(crate) imported_features: HashMap<FileId, BTreeSet<String>>,
+    pub(crate) imported_features: HashMap<ModuleId, BTreeSet<String>>,
 
     #[serde(default)]
-    pub(crate) all_imports: HashMap<FileId, FeatureManifest>,
+    pub(crate) all_imports: HashMap<ModuleId, FeatureManifest>,
 }
 
 impl TypeFinder for FeatureManifest {
@@ -491,7 +543,11 @@ impl FeatureManifest {
     }
 
     pub fn find_feature(&self, nm: &str) -> Option<&FeatureDef> {
-        self.iter_feature_defs().find(|f| f.name() == nm)
+        self.iter_feature_defs().find(|e| e.name() == nm)
+    }
+
+    pub fn find_import(&self, id: &ModuleId) -> Option<&FeatureManifest> {
+        self.all_imports.get(id)
     }
 }
 
@@ -661,19 +717,15 @@ pub type Literal = Value;
 
 #[derive(Debug, Clone, PartialEq)]
 pub(crate) struct ImportedModule<'a> {
-    pub(crate) file_id: FileId,
+    pub(crate) id: ModuleId,
     pub(crate) about: &'a AboutBlock,
     pub(crate) features: Vec<&'a FeatureDef>,
 }
 
 impl<'a> ImportedModule<'a> {
-    pub(crate) fn new(
-        file_id: FileId,
-        about: &'a AboutBlock,
-        features: Vec<&'a FeatureDef>,
-    ) -> Self {
+    pub(crate) fn new(id: ModuleId, about: &'a AboutBlock, features: Vec<&'a FeatureDef>) -> Self {
         Self {
-            file_id,
+            id,
             about,
             features,
         }

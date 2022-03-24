@@ -1,0 +1,20 @@
+features:
+  deeply-nested-feature:
+    description: A feature deep in the codebase
+    variables:
+      no-override:
+        description: This is set in the property definition, and shouldn't be overridden in this fixture.
+        type: OverrideSource
+        default: none
+      lib-fml:
+        description: This should be overridden by the 01-parent library.
+        type: OverrideSource
+        default: none
+      order-dependent:
+        description: This should be overridden by either the 01-parent library or the 00-grandparent app, depending on how it's declared.
+        type: OverrideSource
+        default: none
+      app-fml:
+        description: This should be overridden by the 00-grandparent app FML
+        type: OverrideSource
+        default: none

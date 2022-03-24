@@ -1,0 +1,33 @@
+features:
+  property-overrides-test:
+    description: |
+      This feature is designed to demonstrate that properties may be set from different place in the importing graph.
+      Every property value will be set to `lib-fml` here, but will be modified further along.
+    variables:
+      no-override:
+        description: This is set in the property definition, and shouldn't be overridden in this fixture.
+        type: OverrideSource
+        default: none
+      lib-fml:
+        description: This should be overridden by the lib, in the imported_lib FML file, as a channel specific default
+        type: OverrideSource
+        default: none
+      app-fml:
+        description: This should be overridden by the app FML
+        type: OverrideSource
+        default: none
+      variables-json:
+        description: This should be overridden by JSON from the SDK
+        type: OverrideSource
+        default: none
+      channel-specific:
+          description: This should be overridden by the channel specific default
+          type: OverrideSource
+          default: none
+    defaults:
+      - channel: release
+        value:
+          lib-fml: lib-fml
+      - channel: debug
+        value:
+          channel-specific: channel-specific

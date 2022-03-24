@@ -85,7 +85,8 @@ impl<'a> FeatureManifestDeclaration<'a> {
                 Box::new(object::ObjectCodeDeclaration::new(fm, inner)) as Box<dyn CodeDeclaration>
             }))
             .chain(fm.iter_imported_files().iter().map(|inner| {
-                Box::new(imports::ImportedModuleInitialization::new(inner))
+                let fm = fm.find_import(&inner.id).unwrap();
+                Box::new(imports::ImportedModuleInitialization::new(fm, inner))
                     as Box<dyn CodeDeclaration>
             }))
             .collect()
