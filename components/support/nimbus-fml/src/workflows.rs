@@ -6,22 +6,50 @@ use crate::{backends, GenerateExperimenterManifestCmd, GenerateIRCmd, TargetLang
 
 use crate::error::Result;
 use crate::intermediate_representation::FeatureManifest;
-use crate::parser::Parser;
-use crate::Config;
+use crate::parser::{AboutBlock, Parser};
 use std::path::Path;
 
 use crate::GenerateStructCmd;
 
-pub(crate) fn generate_struct(config: Config, cmd: GenerateStructCmd) -> Result<()> {
+#[allow(dead_code)]
+pub(crate) fn generate_struct(cmd: &GenerateStructCmd) -> Result<()> {
     let ir = load_feature_manifest(&cmd.manifest, cmd.load_from_ir, &cmd.channel)?;
+    generate_struct_from_ir(&ir, cmd)
+}
+
+pub(crate) fn generate_struct_cli_overrides(
+    from_cli: AboutBlock,
+    cmd: &GenerateStructCmd,
+) -> Result<()> {
+    let mut ir = load_feature_manifest(&cmd.manifest, cmd.load_from_ir, &cmd.channel)?;
+
+    // We do a dance here to make sure that we can override class names and package names during tests,
+    // and while we still have to support setting those options from the commmand line.
+    // We will deprecate setting classnames, package names etc, then we can simplify.
+    let from_file = ir.about;
+    let from_cli = from_cli;
+    let kotlin_about = from_cli.kotlin_about.or(from_file.kotlin_about);
+    let swift_about = from_cli.swift_about.or(from_file.swift_about);
+    let about = AboutBlock {
+        kotlin_about,
+        swift_about,
+        ..Default::default()
+    };
+    ir.about = about;
+
+    generate_struct_from_ir(&ir, cmd)
+}
+
+fn generate_struct_from_ir(ir: &FeatureManifest, cmd: &GenerateStructCmd) -> Result<()> {
     let language = cmd.language;
+
     match language {
         TargetLanguage::IR => {
             let contents = serde_json::to_string_pretty(&ir)?;
-            std::fs::write(cmd.output, contents)?;
+            std::fs::write(&cmd.output, contents)?;
         }
-        TargetLanguage::Kotlin => backends::kotlin::generate_struct(ir, config, cmd)?,
-        TargetLanguage::Swift => backends::swift::generate_struct(ir, config, cmd)?,
+        TargetLanguage::Kotlin => backends::kotlin::generate_struct(ir, cmd)?,
+        TargetLanguage::Swift => backends::swift::generate_struct(ir, cmd)?,
         _ => unimplemented!(
             "Unsupported output language for structs: {}",
             language.extension()
@@ -30,16 +58,13 @@ pub(crate) fn generate_struct(config: Config, cmd: GenerateStructCmd) -> Result<
     Ok(())
 }
 
-pub(crate) fn generate_experimenter_manifest(
-    config: Config,
-    cmd: GenerateExperimenterManifestCmd,
-) -> Result<()> {
+pub(crate) fn generate_experimenter_manifest(cmd: GenerateExperimenterManifestCmd) -> Result<()> {
     let ir = load_feature_manifest(&cmd.manifest, cmd.load_from_ir, &cmd.channel)?;
-    backends::experimenter_manifest::generate_manifest(ir, config, cmd)?;
+    backends::experimenter_manifest::generate_manifest(ir, cmd)?;
     Ok(())
 }
 
-pub(crate) fn generate_ir(_config: Config, cmd: GenerateIRCmd) -> Result<()> {
+pub(crate) fn generate_ir(cmd: GenerateIRCmd) -> Result<()> {
     let ir = load_feature_manifest(&cmd.manifest, cmd.load_from_ir, &cmd.channel)?;
     std::fs::write(cmd.output, serde_json::to_string_pretty(&ir)?)?;
     Ok(())
@@ -75,6 +100,7 @@ mod test {
 
     use super::*;
     use crate::backends::{kotlin, swift};
+    use crate::parser::KotlinAboutBlock;
     use crate::util::{generated_src_dir, join, pkg_dir};
 
     const MANIFEST_PATHS: &[&str] = &[
@@ -90,16 +116,14 @@ mod test {
         channel: &str,
         is_ir: bool,
     ) -> Result<()> {
-        generate_and_assert_with_config(
+        let cmd = create_command_from_test(test_script, manifest, channel, is_ir)?;
+        generate_struct(&cmd)?;
+        run_script_with_generated_code(
+            cmd.language,
+            cmd.output.as_path().display().to_string(),
             test_script,
-            manifest,
-            channel,
-            is_ir,
-            Config {
-                resource_package: Some("com.example.app".to_string()),
-                ..Default::default()
-            },
-        )
+        )?;
+        Ok(())
     }
 
     // Given a manifest.fml and script.kts in the tests directory generate
@@ -109,42 +133,51 @@ mod test {
         manifest: &str,
         channel: &str,
         is_ir: bool,
-        config: Config,
+        config_about: AboutBlock,
     ) -> Result<()> {
+        let cmd = create_command_from_test(test_script, manifest, channel, is_ir)?;
+        generate_struct_cli_overrides(config_about, &cmd)?;
+        run_script_with_generated_code(
+            cmd.language,
+            cmd.output.as_path().display().to_string(),
+            test_script,
+        )?;
+        Ok(())
+    }
+
+    fn create_command_from_test(
+        test_script: &str,
+        manifest: &str,
+        channel: &str,
+        is_ir: bool,
+    ) -> Result<GenerateStructCmd, crate::error::FMLError> {
         let test_script = join(pkg_dir(), test_script);
         let pbuf = PathBuf::from(&test_script);
         let ext = pbuf
             .extension()
             .ok_or_else(|| anyhow!("Require a test_script with an extension: {}", test_script))?;
         let language: TargetLanguage = ext.try_into()?;
-
         let manifest_fml = join(pkg_dir(), manifest);
-
         let manifest = PathBuf::from(&manifest_fml);
         let file = manifest
             .file_stem()
             .ok_or_else(|| anyhow!("Manifest file path isn't a file"))?
             .to_str()
             .ok_or_else(|| anyhow!("Manifest file path isn't a file with a sensible name"))?;
-
         fs::create_dir_all(generated_src_dir())?;
-
         let manifest_out = format!(
             "{}_{}.{}",
             join(generated_src_dir(), file),
             channel,
             language.extension()
         );
-        let cmd = GenerateStructCmd {
+        Ok(GenerateStructCmd {
             manifest: manifest_fml.into(),
-            output: manifest_out.clone().into(),
+            output: manifest_out.into(),
             load_from_ir: is_ir,
             language,
             channel: channel.into(),
-        };
-        generate_struct(config, cmd)?;
-        run_script_with_generated_code(language, manifest_out, &test_script)?;
-        Ok(())
+        })
     }
 
     fn run_script_with_generated_code(
@@ -166,7 +199,7 @@ mod test {
     }
 
     #[test]
-    fn test_simple_validation_code() -> Result<()> {
+    fn test_simple_validation_code_from_ir() -> Result<()> {
         generate_and_assert(
             "test/simple_nimbus_validation.kts",
             "fixtures/ir/simple_nimbus_validation.json",
@@ -177,7 +210,7 @@ mod test {
     }
 
     #[test]
-    fn test_with_objects_code() -> Result<()> {
+    fn test_with_objects_code_from_ir() -> Result<()> {
         generate_and_assert(
             "test/with_objects.kts",
             "fixtures/ir/with_objects.json",
@@ -188,7 +221,7 @@ mod test {
     }
 
     #[test]
-    fn test_with_full_homescreen() -> Result<()> {
+    fn test_with_full_homescreen_from_ir() -> Result<()> {
         generate_and_assert(
             "test/full_homescreen.kts",
             "fixtures/ir/full_homescreen.json",
@@ -205,10 +238,13 @@ mod test {
             "fixtures/fe/fenix.yaml",
             "release",
             false,
-            Config {
-                resource_package: Some("com.example.app".to_string()),
-                nimbus_object_name: Some("FxNimbus".to_string()),
-                nimbus_package: Some("com.example.release".to_string()),
+            AboutBlock {
+                kotlin_about: Some(KotlinAboutBlock {
+                    package: "com.example.app".to_string(),
+                    class: "com.example.release.FxNimbus".to_string(),
+                }),
+                swift_about: None,
+                ..Default::default()
             },
         )?;
         Ok(())
@@ -221,10 +257,13 @@ mod test {
             "fixtures/fe/fenix.yaml",
             "nightly",
             false,
-            Config {
-                resource_package: Some("com.example.app".to_string()),
-                nimbus_object_name: Some("FxNimbus".to_string()),
-                nimbus_package: Some("com.example.nightly".to_string()),
+            AboutBlock {
+                kotlin_about: Some(KotlinAboutBlock {
+                    package: "com.example.app".to_string(),
+                    class: "com.example.nightly.FxNimbus".to_string(),
+                }),
+                swift_about: None,
+                ..Default::default()
             },
         )?;
         Ok(())
@@ -232,22 +271,17 @@ mod test {
 
     #[test]
     fn test_with_dx_improvements() -> Result<()> {
-        generate_and_assert_with_config(
+        generate_and_assert(
             "test/dx_improvements_testing.kts",
             "fixtures/fe/dx_improvements.yaml",
             "testing",
             false,
-            Config {
-                resource_package: Some("com.example.app".to_string()),
-                nimbus_object_name: Some("DxNimbus".to_string()),
-                nimbus_package: Some("com.example.dx".to_string()),
-            },
         )?;
         Ok(())
     }
 
     #[test]
-    fn test_with_app_menu() -> Result<()> {
+    fn test_with_app_menu_from_ir() -> Result<()> {
         generate_and_assert(
             "test/app_menu.kts",
             "fixtures/ir/app_menu.json",
@@ -258,7 +292,7 @@ mod test {
     }
 
     #[test]
-    fn test_with_app_menu_swift() -> Result<()> {
+    fn test_with_app_menu_swift_from_ir() -> Result<()> {
         generate_and_assert(
             "test/app_menu.swift",
             "fixtures/ir/app_menu.json",
@@ -269,7 +303,7 @@ mod test {
     }
 
     #[test]
-    fn test_with_objects_swift() -> Result<()> {
+    fn test_with_objects_swift_from_ir() -> Result<()> {
         generate_and_assert(
             "test/with_objects.swift",
             "fixtures/ir/with_objects.json",
@@ -281,16 +315,11 @@ mod test {
 
     #[test]
     fn test_with_bundled_resources_kotlin() -> Result<()> {
-        generate_and_assert_with_config(
+        generate_and_assert(
             "test/bundled_resources.kts",
             "fixtures/fe/bundled_resouces.yaml",
             "testing",
             false,
-            Config {
-                resource_package: Some("com.example.app".to_string()),
-                nimbus_object_name: None,
-                nimbus_package: None,
-            },
         )?;
         Ok(())
     }
@@ -407,7 +436,7 @@ mod test {
                 channel: "release".into(),
             };
 
-            generate_experimenter_manifest(Default::default(), cmd)?;
+            generate_experimenter_manifest(cmd)?;
 
             let generated = fs::read_to_string(manifest_out)?;
             let generated_yaml = serde_yaml::from_str(&generated)?;

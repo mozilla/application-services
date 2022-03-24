@@ -1,4 +1,15 @@
 {
+  "about": {
+    "description": "An app menu with objects",
+    "android": {
+      "class": "MyNimbus",
+      "package": "com.example.app"
+    },
+    "ios": {
+      "class": "MyNimbus",
+      "module": "App"
+    }
+  },
   "enums": [
     {
       "name": "MenuItemId",

@@ -8,7 +8,7 @@ use std::collections::HashSet;
 use crate::{
     backends::{CodeDeclaration, CodeOracle, CodeType, TypeIdentifier},
     intermediate_representation::{FeatureDef, FeatureManifest, TypeFinder},
-    Config,
+    parser::AboutBlock,
 };
 
 mod bundled;
@@ -20,18 +20,48 @@ mod object;
 mod primitives;
 mod structural;
 
+impl AboutBlock {
+    fn nimbus_fully_qualified_name(&self) -> String {
+        let specific = self.kotlin_about.as_ref().unwrap();
+
+        let class = &specific.class;
+        if class.starts_with('.') {
+            format!("{}{}", specific.package, class)
+        } else {
+            class.clone()
+        }
+    }
+
+    fn nimbus_object_name(&self) -> String {
+        let specific = self.kotlin_about.as_ref().unwrap();
+        let last = specific.class.split('.').last().unwrap_or(&specific.class);
+        last.to_string()
+    }
+
+    fn nimbus_package_name(&self) -> Option<String> {
+        let fqe = self.nimbus_fully_qualified_name();
+        if !fqe.contains('.') {
+            return None;
+        }
+        let mut it = fqe.split('.');
+        it.next_back()?;
+        Some(it.collect::<Vec<&str>>().join("."))
+    }
+
+    fn resource_package_name(&self) -> String {
+        let specific = self.kotlin_about.as_ref().unwrap();
+        specific.package.clone()
+    }
+}
 #[derive(Template)]
 #[template(syntax = "kt", escape = "none", path = "FeatureManifestTemplate.kt")]
 pub struct FeatureManifestDeclaration<'a> {
-    #[allow(dead_code)]
-    config: Config,
     fm: &'a FeatureManifest,
     oracle: ConcreteCodeOracle,
 }
 impl<'a> FeatureManifestDeclaration<'a> {
-    pub fn new(config: Config, fm: &'a FeatureManifest) -> Self {
+    pub fn new(fm: &'a FeatureManifest) -> Self {
         Self {
-            config,
             fm,
             oracle: Default::default(),
         }
@@ -43,11 +73,8 @@ impl<'a> FeatureManifestDeclaration<'a> {
         fm.iter_feature_defs()
             .into_iter()
             .map(|inner| {
-                Box::new(feature::FeatureCodeDeclaration::new(
-                    fm,
-                    &self.config,
-                    inner,
-                )) as Box<dyn CodeDeclaration>
+                Box::new(feature::FeatureCodeDeclaration::new(fm, inner))
+                    as Box<dyn CodeDeclaration>
             })
             .chain(fm.iter_enum_defs().map(|inner| {
                 Box::new(enum_::EnumCodeDeclaration::new(fm, inner)) as Box<dyn CodeDeclaration>
@@ -95,7 +122,7 @@ impl<'a> FeatureManifestDeclaration<'a> {
             .chain(vec![
                 "org.mozilla.experiments.nimbus.Variables".to_string(),
                 "org.mozilla.experiments.nimbus.FeaturesInterface".to_string(),
-                format!("{}.R", self.config.resource_package_name()),
+                format!("{}.R", self.fm.about.resource_package_name()),
             ])
             .collect::<HashSet<String>>()
             .into_iter()

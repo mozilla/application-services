@@ -9,9 +9,7 @@ use serde::{Deserialize, Serialize};
 
 use crate::intermediate_representation::{PropDef, TypeRef};
 use crate::TargetLanguage;
-use crate::{
-    intermediate_representation::FeatureManifest, Config, GenerateExperimenterManifestCmd,
-};
+use crate::{intermediate_representation::FeatureManifest, GenerateExperimenterManifestCmd};
 
 use crate::error::{FMLError, Result};
 
@@ -150,7 +148,6 @@ impl From<Box<TypeRef>> for ExperimentManifestPropType {
 
 pub(crate) fn generate_manifest(
     ir: FeatureManifest,
-    _config: Config,
     cmd: GenerateExperimenterManifestCmd,
 ) -> Result<()> {
     let experiment_manifest: ExperimenterManifest = ir.try_into()?;

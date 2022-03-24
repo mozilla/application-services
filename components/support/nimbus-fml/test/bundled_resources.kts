@@ -3,6 +3,7 @@
 * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
 import android.content.Context as MockContext
+import com.example.bundling.MyNimbus
 import com.example.app.R
 import org.mozilla.experiments.nimbus.MockNimbus
 

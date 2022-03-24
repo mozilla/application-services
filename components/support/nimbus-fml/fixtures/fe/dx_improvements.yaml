@@ -1,4 +1,12 @@
 ---
+about:
+  description: Testing developer experiences around error messages and more recursive defaulting.
+  android:
+    package: com.example.app
+    class: com.example.dx.DxNimbus
+  ios:
+    class: MyNimbus
+    module: Megazord
 channels:
   - testing
 features:

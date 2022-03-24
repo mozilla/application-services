@@ -7,7 +7,7 @@
 #endif
 {%- endfor %}
 
-{% let nimbus_object = self.config.nimbus_object_name() -%}
+{% let nimbus_object = self.nimbus_object_name() -%}
 ///
 /// An object for safely accessing feature configuration from Nimbus.
 ///

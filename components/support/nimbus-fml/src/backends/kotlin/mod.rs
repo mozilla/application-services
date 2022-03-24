@@ -2,22 +2,28 @@
 * License, v. 2.0. If a copy of the MPL was not distributed with this
 * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-use crate::error::Result;
+use crate::error::{FMLError, Result};
 use askama::Template;
 
 use crate::intermediate_representation::FeatureManifest;
-use crate::{Config, GenerateStructCmd};
+use crate::GenerateStructCmd;
 
 mod gen_structs;
 
-pub(crate) fn generate_struct(
-    manifest: FeatureManifest,
-    config: Config,
-    cmd: GenerateStructCmd,
-) -> Result<()> {
-    let kt = gen_structs::FeatureManifestDeclaration::new(config, &manifest);
+pub(crate) fn generate_struct(manifest: &FeatureManifest, cmd: &GenerateStructCmd) -> Result<()> {
+    if manifest.about.kotlin_about.is_none() {
+        return Err(FMLError::ValidationError(
+            "about".to_string(),
+            format!(
+                "The `about` block is missing a valid `android` entry: {}",
+                cmd.manifest.as_path().display()
+            ),
+        ));
+    }
 
-    let path = cmd.output;
+    let kt = gen_structs::FeatureManifestDeclaration::new(manifest);
+
+    let path = &cmd.output;
     let contents = kt.render()?;
 
     std::fs::write(path, contents)?;

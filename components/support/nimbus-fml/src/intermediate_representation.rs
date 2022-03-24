@@ -2,6 +2,7 @@
 * License, v. 2.0. If a copy of the MPL was not distributed with this
 * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 use crate::error::{FMLError, Result};
+use crate::parser::AboutBlock;
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use std::collections::{HashMap, HashSet};
@@ -85,6 +86,8 @@ pub struct FeatureManifest {
     pub hints: HashMap<StringId, FromStringDef>,
     #[serde(rename = "features")]
     pub feature_defs: Vec<FeatureDef>,
+    #[serde(default)]
+    pub(crate) about: AboutBlock,
 }
 
 impl TypeFinder for FeatureManifest {

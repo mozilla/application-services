@@ -1,4 +1,9 @@
 ---
+about:
+  description: A test for includes
+  ios:
+    module: Megazord
+    class: MyNimbus
 channels:
   - release
   - beta
