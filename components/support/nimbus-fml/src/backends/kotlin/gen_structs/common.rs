@@ -45,17 +45,20 @@ pub(crate) mod code_type {
         default: &dyn Display,
     ) -> String {
         let getter = ct.value_getter(oracle, vars, prop);
+        let mapper = ct.value_mapper(oracle);
+        let merger = ct.value_merger(oracle, default);
 
-        let getter = if let Some(mapper) = ct.value_mapper(oracle) {
-            format!("{getter}?.{mapper}", getter = getter, mapper = mapper)
-        } else {
-            getter
-        };
-
-        let getter = if let Some(merger) = ct.value_merger(oracle, default) {
-            format!("{getter}?.{merger}", getter = getter, merger = merger)
-        } else {
-            getter
+        // We need to be quite careful about option chaining.
+        // Kotlin takes the `?` as an indicator to that the preceeding expression
+        // is optional to continue processing, but be aware that the
+        // expression returns an optional.
+        // Only the value_getter returns an optional, yet the optionality propogates.
+        // https://kotlinlang.org/docs/null-safety.html#safe-calls
+        let getter = match (mapper, merger) {
+            (Some(mapper), Some(merger)) => format!("{}?.{}?.{}", getter, mapper, merger),
+            (Some(mapper), None) => format!("{}?.{}", getter, mapper),
+            (None, Some(merger)) => format!("{}?.{}", getter, merger),
+            (None, None) => getter,
         };
 
         format!(
