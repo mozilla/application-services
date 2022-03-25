@@ -2,7 +2,7 @@
 
 # Unreleased Changes
 
-[Full Changelog](https://github.com/mozilla/application-services/compare/v92.0.0...main)
+[Full Changelog](https://github.com/mozilla/application-services/compare/v92.0.1...main)
 
 <!-- WARNING: New entries should be added below this comment to ensure the `./automation/prepare-release.py` script works as expected.
 
@@ -18,15 +18,3 @@ Use the template below to make assigning a version number during the release cut
   - Description of the change with a link to the pull request ([#0000](https://github.com/mozilla/application-services/pull/0000))
 
 -->
-
-## Nimbus FML ⛅️🔬🔭🔧
-
-### What's Fixed
-
-- Swift: a bug in our understanding of Swift optional chaining rules meant that maps with a mapping and merging produced invalid code. ([#4885](https://github.com/mozilla/application-services/pull/4885))
-
-## General
-
-### What's Changed
-
-- Added documentation of our sqlite pragma usage. ([#4876](https://github.com/mozilla/application-services/pull/4876))
