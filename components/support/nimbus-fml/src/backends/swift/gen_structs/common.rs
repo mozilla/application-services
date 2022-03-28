@@ -53,10 +53,12 @@ pub(crate) mod code_type {
             (None, None) => getter,
         };
 
+        let fallback = ct.defaults_mapper(default, vars);
+
         format!(
             "{getter} ?? {fallback}",
             getter = getter,
-            fallback = default
+            fallback = fallback,
         )
     }
 

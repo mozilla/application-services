@@ -16,7 +16,7 @@ public class {{class_name}} {
     struct Defaults {
         {% for p in inner.props() %}
         {%- let t = p.typ() %}
-        let {{p.name()|var_name}}: {{ t|type_label }}
+        let {{p.name()|var_name}}: {{ t|defaults_type_label }}
     {%- endfor %}
     }
 
@@ -25,7 +25,7 @@ public class {{class_name}} {
     public convenience init(
         _variables: Variables = NilVariables.instance, {% for p in inner.props() %}
         {%- let t = p.typ() %}
-        {{p.name()|var_name}}: {{ t|type_label }} = {{ t|literal(self, p.default(), "") }}{% if !loop.last %},{% endif %}
+        {{p.name()|var_name}}: {{ t|defaults_type_label }} = {{ t|literal(self, p.default(), "") }}{% if !loop.last %},{% endif %}
     {%- endfor %}
     ) {
         self.init(variables: _variables, defaults: Defaults({% for p in inner.props() %}
