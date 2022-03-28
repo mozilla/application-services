@@ -7,9 +7,9 @@
 public class {{class_name}} {
     private var _variables: Variables
     var _defaults: Defaults
-    init(_ _variables: Variables,_ _defaults: Defaults) {
-        self._variables = _variables
-        self._defaults = _defaults
+    init(variables: Variables, defaults: Defaults) {
+        self._variables = variables
+        self._defaults = defaults
     }
     {# The struct holds the default values that come from the manifest. They should completely
     specify all values needed for the  feature #}
@@ -28,7 +28,7 @@ public class {{class_name}} {
         {{p.name()|var_name}}: {{ t|type_label }} = {{ t|literal(self, p.default(), "") }}{% if !loop.last %},{% endif %}
     {%- endfor %}
     ) {
-        self.init(_variables, Defaults({% for p in inner.props() %}
+        self.init(variables: _variables, defaults: Defaults({% for p in inner.props() %}
         {%- let nm = p.name()|var_name %}{{ nm }}: {{ nm }}{% if !loop.last %}, {% endif %}
         {%- endfor %}))
     }
@@ -45,13 +45,13 @@ public class {{class_name}} {
     {%- endfor %}
 
     func _mergeWith(_ defaults: {{class_name}}) -> {{class_name}} {
-        return {{class_name}}(self._variables, defaults._defaults)
+        return {{class_name}}(variables: self._variables, defaults: defaults._defaults)
     }
     static func create(_ variables: Variables?) -> {{class_name}} {
         return {{class_name}}(_variables: variables ?? NilVariables.instance)
     }
 
     static func mergeWith(_ overrides: {{class_name}}, _ defaults: {{class_name}}) -> {{class_name}} {
-            return overrides._mergeWith(defaults)
+        return overrides._mergeWith(defaults)
     }
 }

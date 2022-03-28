@@ -26,6 +26,9 @@ import Foundation
 ///
 /// This may become the basis of a generated-from-manifest solution.
 public protocol Variables {
+
+    var resourceBundles: [Bundle] { get }
+
     /// Finds a string typed value for this key. If none exists, `nil` is returned.
     ///
     /// N.B. the `key` and type `String` should be listed in the experiment manifest.
@@ -242,7 +245,7 @@ private func asEnum<T: RawRepresentable>(_ string: String) -> T? where T.RawValu
 }
 
 protocol VariablesWithBundle: Variables {
-    var resourceBundles: [Bundle] { get }
+
 }
 
 extension VariablesWithBundle {
@@ -289,12 +292,7 @@ extension VariablesWithBundle {
     ///
     /// If no image is found in any of the `resourceBundles`, then the `nil` is returned.
     func asImage(name: String) -> UIImage? {
-        for bundle in resourceBundles {
-            if let image = UIImage(named: name, in: bundle, compatibleWith: nil) {
-                return image
-            }
-        }
-        return nil
+        return resourceBundles.asImage(name: name)
     }
 
     /// Search through the resource bundles looking for localized strings with the given name.
@@ -302,52 +300,13 @@ extension VariablesWithBundle {
     /// as the `tableName` and the second the `key` in localized string lookup.
     /// If no string is found in any of the `resourceBundles`, then the `name` is passed back unmodified.
     func asLocalizedString(name: String) -> String? {
-        let parts = name.split(separator: "/", maxSplits: 1, omittingEmptySubsequences: true).map { String($0) }
-        let key: String
-        let tableName: String?
-        switch parts.count {
-        case 2:
-            tableName = parts[0]
-            key = parts[1]
-        default:
-            tableName = nil
-            key = name
-        }
-
-        for bundle in resourceBundles {
-            let value = bundle.localizedString(forKey: key, value: nil, table: tableName)
-            if value != key {
-                return value
-            }
-        }
-        return name
+        return resourceBundles.asLocalizedString(name: name)
     }
 }
 
 /// A thin wrapper around the JSON produced by the `get_feature_variables_json(feature_id)` call, useful
 /// for configuring a feature, but without needing the developer to know about experiment specifics.
 internal class JSONVariables: VariablesWithBundle {
-    func asStringMap() -> [String: String]? {
-        return nil
-    }
-
-    func asIntMap() -> [String: Int]? {
-        return nil
-    }
-
-    func asBoolMap() -> [String: Bool]? {
-        return nil
-    }
-
-    func asVariablesMap() -> [String: Variables]? {
-        return json.compactMapValues { value in
-            if let jsonMap = value as? [String: Any] {
-                return JSONVariables(with: jsonMap)
-            }
-            return nil
-        }
-    }
-
     private let json: [String: Any]
     internal let resourceBundles: [Bundle]
 
@@ -370,6 +329,10 @@ internal class JSONVariables: VariablesWithBundle {
         return valueMap(key)
     }
 
+    func asStringMap() -> [String: String]? {
+        return nil
+    }
+
     func getInt(_ key: String) -> Int? {
         return value(key)
     }
@@ -382,6 +345,10 @@ internal class JSONVariables: VariablesWithBundle {
         return valueMap(key)
     }
 
+    func asIntMap() -> [String: Int]? {
+        return nil
+    }
+
     func getBool(_ key: String) -> Bool? {
         return value(key)
     }
@@ -392,6 +359,10 @@ internal class JSONVariables: VariablesWithBundle {
 
     func getBoolMap(_ key: String) -> [String: Bool]? {
         return valueMap(key)
+    }
+
+    func asBoolMap() -> [String: Bool]? {
+        return nil
     }
 
     // Methods used to get sub-objects. We immediately re-wrap an JSON object if it exists.
@@ -412,6 +383,15 @@ internal class JSONVariables: VariablesWithBundle {
     func getVariablesMap(_ key: String) -> [String: Variables]? {
         return valueMap(key)?.mapValues { (dictionary: [String: Any]) in
             JSONVariables(with: dictionary, in: resourceBundles)
+        }
+    }
+
+    func asVariablesMap() -> [String: Variables]? {
+        return json.compactMapValues { value in
+            if let jsonMap = value as? [String: Any] {
+                return JSONVariables(with: jsonMap)
+            }
+            return nil
         }
     }
 
@@ -438,23 +418,13 @@ internal class JSONVariables: VariablesWithBundle {
 
 // Another implementation of `Variables` may just return nil for everything.
 public class NilVariables: Variables {
-    public func asStringMap() -> [String: String]? {
-        return nil
-    }
-
-    public func asIntMap() -> [String: Int]? {
-        return nil
-    }
-
-    public func asBoolMap() -> [String: Bool]? {
-        return nil
-    }
-
-    public func asVariablesMap() -> [String: Variables]? {
-        return nil
-    }
-
     public static let instance: Variables = NilVariables()
+
+    public private(set) var resourceBundles: [Bundle] = []
+
+    public func set(bundles: [Bundle]) {
+        resourceBundles = bundles
+    }
 
     public func getString(_: String) -> String? {
         return nil
@@ -465,6 +435,10 @@ public class NilVariables: Variables {
     }
 
     public func getStringMap(_: String) -> [String: String]? {
+        return nil
+    }
+
+    public func asStringMap() -> [String: String]? {
         return nil
     }
 
@@ -480,6 +454,10 @@ public class NilVariables: Variables {
         return nil
     }
 
+    public func asIntMap() -> [String: Int]? {
+        return nil
+    }
+
     public func getBool(_: String) -> Bool? {
         return nil
     }
@@ -489,6 +467,10 @@ public class NilVariables: Variables {
     }
 
     public func getBoolMap(_: String) -> [String: Bool]? {
+        return nil
+    }
+
+    public func asBoolMap() -> [String: Bool]? {
         return nil
     }
 
@@ -525,6 +507,10 @@ public class NilVariables: Variables {
     }
 
     public func getVariablesMap(_: String) -> [String: Variables]? {
+        return nil
+    }
+
+    public func asVariablesMap() -> [String: Variables]? {
         return nil
     }
 }

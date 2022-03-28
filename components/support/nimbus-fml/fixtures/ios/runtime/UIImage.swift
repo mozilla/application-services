@@ -12,3 +12,11 @@ public class UIImage {
         self.compatibleWith = compatibleWith
     }
 }
+
+public class Bundle {
+    public static let main = Bundle()
+
+    public func localizedString(forKey key: String, value: String?, table: String?) -> String {
+        return key
+    }
+}

@@ -33,6 +33,7 @@ public class Nimbus: NimbusApi {
         self.errorReporter = errorReporter
         self.nimbusClient = nimbusClient
         self.resourceBundles = resourceBundles
+        NilVariables.instance.set(bundles: resourceBundles)
     }
 }
 

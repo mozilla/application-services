@@ -36,3 +36,43 @@ public extension Dictionary {
         return merging(defaults, uniquingKeysWith: valueMerger)
     }
 }
+
+public extension Array where Element == Bundle {
+    /// Search through the resource bundles looking for an image of the given name.
+    ///
+    /// If no image is found in any of the `resourceBundles`, then the `nil` is returned.
+    func asImage(name: String) -> UIImage? {
+        for bundle in self {
+            if let image = UIImage(named: name, in: bundle, compatibleWith: nil) {
+                return image
+            }
+        }
+        return nil
+    }
+
+    /// Search through the resource bundles looking for localized strings with the given name.
+    /// If the `name` contains exactly one slash, it is split up and the first part of the string is used
+    /// as the `tableName` and the second the `key` in localized string lookup.
+    /// If no string is found in any of the `resourceBundles`, then the `name` is passed back unmodified.
+    func asLocalizedString(name: String) -> String? {
+        let parts = name.split(separator: "/", maxSplits: 1, omittingEmptySubsequences: true).map { String($0) }
+        let key: String
+        let tableName: String?
+        switch parts.count {
+        case 2:
+            tableName = parts[0]
+            key = parts[1]
+        default:
+            tableName = nil
+            key = name
+        }
+
+        for bundle in self {
+            let value = bundle.localizedString(forKey: key, value: nil, table: tableName)
+            if value != key {
+                return value
+            }
+        }
+        return name
+    }
+}
