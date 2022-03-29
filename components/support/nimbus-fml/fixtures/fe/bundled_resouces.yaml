@@ -2,17 +2,17 @@
 channels:
   - testing
 features:
-  my-strings:
+  my_strings:
     description: Testing all the ways bundled text can work
     variables:
       scalar:
         description: A simple start
         type: Text
-        default: my-scalar-text
+        default: my_scalar_text
       optional:
         description: An optional string
         type: Option<Text>
-        default: my-optional-text
+        default: my_optional_text
       optional-nil:
         description: An optional string
         type: Option<Text>
@@ -21,25 +21,25 @@ features:
         description: A list of strings
         type: List<Text>
         default:
-          - foo-text
-          - bar-text
+          - foo_text
+          - bar_text
       dictionary:
         description: A map of strings
         type: Map<String, Text>
         default:
-          foo: foo-text
-          bar: bar-text
-  my-images:
+          foo: foo_text
+          bar: bar_text
+  my_images:
     description: Testing all the ways bundled images can work
     variables:
       scalar:
         description: A simple start
         type: Image
-        default: my-single-image
+        default: my_single_image
       optional:
         description: An optional string
         type: Option<Image>
-        default: my-optional-image
+        default: my_optional_image
       optional-nil:
         description: An optional string
         type: Option<Image>
@@ -48,12 +48,12 @@ features:
         description: A list of strings
         type: List<Image>
         default:
-          - foo-image
-          - bar-image
+          - foo_image
+          - bar_image
       dictionary:
         description: A map of strings
         type: Map<String, Image>
         default:
-          foo: foo-image
-          bar: bar-image
+          foo: foo_image
+          bar: bar_image
 

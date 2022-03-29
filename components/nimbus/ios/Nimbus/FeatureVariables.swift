@@ -26,7 +26,6 @@ import Foundation
 ///
 /// This may become the basis of a generated-from-manifest solution.
 public protocol Variables {
-
     var resourceBundles: [Bundle] { get }
 
     /// Finds a string typed value for this key. If none exists, `nil` is returned.
@@ -244,9 +243,7 @@ private func asEnum<T: RawRepresentable>(_ string: String) -> T? where T.RawValu
     return T(rawValue: string)
 }
 
-protocol VariablesWithBundle: Variables {
-
-}
+protocol VariablesWithBundle: Variables {}
 
 extension VariablesWithBundle {
     func getImage(_ key: String) -> UIImage? {
@@ -418,7 +415,7 @@ internal class JSONVariables: VariablesWithBundle {
 
 // Another implementation of `Variables` may just return nil for everything.
 public class NilVariables: Variables {
-    public static let instance: Variables = NilVariables()
+    public static let instance = NilVariables()
 
     public private(set) var resourceBundles: [Bundle] = [Bundle.main]
 

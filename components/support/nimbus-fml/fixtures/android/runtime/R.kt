@@ -15,10 +15,18 @@ object R {
     object string {
         const val app_menu_settings_punctuation = 1
         const val app_menu_settings_title = 2
-        const val dx_label = 4
+        const val dx_label = 3
+        const val foo_text = 4
+        const val bar_text = 5
+        const val my_scalar_text = 5
+        const val my_optional_text = 6
     }
 
     object drawable {
-        const val mozac_ic_settings = 3
+        const val mozac_ic_settings = 1
+        const val foo_image = 2
+        const val bar_image = 3
+        const val my_optional_image = 4
+        const val my_single_image = 5
     }
 }

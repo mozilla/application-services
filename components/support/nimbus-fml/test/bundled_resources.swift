@@ -9,15 +9,15 @@ let nimbus = MyNimbus.shared;
 
 let feature = nimbus.features.myStrings.value()
 
-assert(feature.scalar == "my-scalar-text")
-assert(feature.optional == "my-optional-text")
+assert(feature.scalar == "my_scalar_text")
+assert(feature.optional == "my_optional_text")
 assert(feature.optionalNil == nil)
-assert(feature.dictionary == ["foo": "foo-text", "bar": "bar-text"])
-assert(feature.list == ["foo-text", "bar-text"])
+assert(feature.dictionary == ["foo": "foo_text", "bar": "bar_text"])
+assert(feature.list == ["foo_text", "bar_text"])
 
 let feature1 = nimbus.features.myImages.value()
-assert(feature1.scalar.name == "my-single-image")
-assert(feature1.optional?.name == "my-optional-image")
+assert(feature1.scalar.name == "my_single_image")
+assert(feature1.optional?.name == "my_optional_image")
 assert(feature1.optionalNil == nil)
-assert(feature1.dictionary.mapValues { $0.name } == ["foo": "foo-image", "bar": "bar-image"])
-assert(feature1.list.map { $0.name } == ["foo-image", "bar-image"])
+assert(feature1.dictionary.mapValues { $0.name } == ["foo": "foo_image", "bar": "bar_image"])
+assert(feature1.list.map { $0.name } == ["foo_image", "bar_image"])

@@ -18,3 +18,11 @@ Use the template below to make assigning a version number during the release cut
   - Description of the change with a link to the pull request ([#0000](https://github.com/mozilla/application-services/pull/0000))
 
 -->
+
+## Nimbus ⛅️🔭🔬 + Nimbus FML ⛅️🔬🔭🔧
+
+### What's New
+
+- Add support for bundled resources in the FML in Swift. This corresponds to the `Image` and `Text` types. [#4892](https://github.com/mozilla/application-services/pull/4892)
+  - This must include an update to the megazord, as well re-downloading the `nimbus-fml` binary.
+  - Kotlin support for the same has also changed to match the Swift implementation, which has increased performance.

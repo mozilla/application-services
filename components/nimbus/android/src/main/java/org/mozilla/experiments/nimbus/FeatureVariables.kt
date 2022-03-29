@@ -465,18 +465,18 @@ private inline fun <reified T> JSONObject.asMap(): Map<String, T>? {
 }
 
 // Another implementation of `Variables` may just return null for everything.
-class NullVariables(): Variables {
+class NullVariables : Variables {
     override val context: Context
-        get() = this._context ?:
-        throw NimbusFeatureException("""
-            Nimbus hasn't been initialized yet. 
-            
-            Calling NullVariables.instance.setContext(context) earlier in the app startup will
-            cause this error to go away, but won't fix the problem.
-            
-            The best remedy for this error is to initialize Nimbus earlier in the start up sequence.
-            """.trimIndent()
-        )
+        get() = this._context
+            ?: throw NimbusFeatureException("""
+                Nimbus hasn't been initialized yet.
+
+                Calling NullVariables.instance.setContext(context) earlier in the app startup will
+                cause this error to go away, but won't fix the problem.
+
+                The best remedy for this error is to initialize Nimbus earlier in the start up sequence.
+                """.trimIndent()
+            )
 
     private var _context: Context? = null
 
@@ -529,9 +529,11 @@ class StringHolder(
     private val resourceId: Int?,
     private val literal: String?
 ) {
-    fun toString(context: Context) =
-        resourceId?.let { context.getString(it) } ?:
-        literal ?:
-        throw NimbusFeatureException("Internal Nimbus exception: A Text string from the FML is missing.")
-}
 
+    @Suppress("ExceptionRaisedInUnexpectedLocation")
+    fun toString(context: Context): String =
+        resourceId
+            ?.let { context.getString(it) }
+            ?: literal
+            ?: throw NimbusFeatureException("Internal Nimbus exception: A Text string from the FML is missing.")
+}

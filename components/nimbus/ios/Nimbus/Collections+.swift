@@ -4,6 +4,10 @@
 
 import Foundation
 
+#if canImport(UIKit)
+    import UIKit
+#endif
+
 public extension Dictionary {
     func mapKeysNotNull<K1>(_ transform: (Key) -> K1?) -> [K1: Value] {
         let transformed: [(K1, Value)] = compactMap { k, v in

@@ -243,13 +243,19 @@ impl CodeType for MapCodeType {
         VariablesType::Variables
     }
 
+    fn defaults_type(&self, oracle: &dyn CodeOracle) -> String {
+        let k_type = oracle.find(&self.k_type).defaults_type(oracle);
+        let v_type = oracle.find(&self.v_type).defaults_type(oracle);
+        format!("Map<{}, {}>", k_type, v_type)
+    }
+
     fn defaults_mapper(
         &self,
         oracle: &dyn CodeOracle,
         value: &dyn Display,
         vars: &dyn Display,
     ) -> Option<String> {
-        let id = "it";
+        let id = "it.value";
         let mapper = oracle
             .find(&self.v_type)
             .defaults_mapper(oracle, &id, vars)?;
@@ -386,6 +392,11 @@ impl CodeType for ListCodeType {
         // Our current implementation of Variables doesn't have a getListList() or getListMap().
         // We do allow getVariablesList and getVariablesMap, but not an vars.asList().
         unimplemented!("Lists and maps of lists aren't supported. The workaround is to use a list of map of list holder objects")
+    }
+
+    fn defaults_type(&self, oracle: &dyn CodeOracle) -> String {
+        let inner = oracle.find(&self.inner).defaults_type(oracle);
+        format!("List<{}>", inner)
     }
 
     fn defaults_mapper(
