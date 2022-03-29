@@ -46,7 +46,10 @@ pub(crate) mod code_type {
     ) -> String {
         let getter = ct.value_getter(oracle, vars, prop);
         let mapper = ct.value_mapper(oracle);
-        let merger = ct.value_merger(oracle, default);
+        let default = ct
+            .defaults_mapper(oracle, &default, vars)
+            .unwrap_or_else(|| default.to_string());
+        let merger = ct.value_merger(oracle, &default);
 
         // We need to be quite careful about option chaining.
         // Kotlin takes the `?` as an indicator to that the preceeding expression

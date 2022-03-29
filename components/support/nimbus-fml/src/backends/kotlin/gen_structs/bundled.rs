@@ -5,7 +5,7 @@
 use std::fmt::Display;
 
 use super::common::{code_type, quoted};
-use crate::backends::{CodeOracle, CodeType, LiteralRenderer, VariablesType};
+use crate::backends::{CodeOracle, CodeType, LiteralRenderer, TypeIdentifier, VariablesType};
 use crate::intermediate_representation::Literal;
 use heck::SnakeCase;
 use unicode_segmentation::UnicodeSegmentation;
@@ -48,25 +48,38 @@ impl CodeType for TextCodeType {
         VariablesType::Text
     }
 
+    fn defaults_type(&self, _oracle: &dyn CodeOracle) -> String {
+        "StringHolder".to_string()
+    }
+
+    fn defaults_mapper(
+        &self,
+        _oracle: &dyn CodeOracle,
+        value: &dyn Display,
+        vars: &dyn Display,
+    ) -> Option<String> {
+        Some(format!(
+            "{value}.toString({vars}.context)",
+            vars = vars,
+            value = value
+        ))
+    }
+
     /// A representation of the given literal for this type.
     /// N.B. `Literal` is aliased from `serde_json::Value`.
     fn literal(
         &self,
         _oracle: &dyn CodeOracle,
-        ctx: &dyn Display,
+        _ctx: &dyn Display,
         _renderer: &dyn LiteralRenderer,
         literal: &Literal,
     ) -> String {
         match literal {
             serde_json::Value::String(v) => {
                 if !is_resource_id(v) {
-                    quoted(v)
+                    format!("Res.string({literal})", literal = quoted(v))
                 } else {
-                    format!(
-                        r#"{context}.getString(R.string.{id})"#,
-                        context = ctx,
-                        id = v.to_snake_case()
-                    )
+                    format!("Res.string(R.string.{id})", id = v.to_snake_case())
                 }
             }
             _ => unreachable!("Expecting a string"),
@@ -74,7 +87,11 @@ impl CodeType for TextCodeType {
     }
 
     fn imports(&self, _oracle: &dyn CodeOracle) -> Option<Vec<String>> {
-        Some(vec!["android.content.Context".to_string()])
+        Some(vec![
+            "android.content.Context".to_string(),
+            "org.mozilla.experiments.nimbus.Res".to_string(),
+            "org.mozilla.experiments.nimbus.StringHolder".to_string(),
+        ])
     }
 }
 
@@ -126,22 +143,35 @@ impl CodeType for ImageCodeType {
         VariablesType::Image
     }
 
+    fn defaults_type(&self, oracle: &dyn CodeOracle) -> String {
+        oracle.find(&TypeIdentifier::Int).type_label(oracle)
+    }
+
+    fn defaults_mapper(
+        &self,
+        _oracle: &dyn CodeOracle,
+        value: &dyn Display,
+        vars: &dyn Display,
+    ) -> Option<String> {
+        Some(format!(
+            "Res.drawable({vars}.context, {value})",
+            vars = vars,
+            value = value
+        ))
+    }
+
     /// A representation of the given literal for this type.
     /// N.B. `Literal` is aliased from `serde_json::Value`.
     fn literal(
         &self,
         _oracle: &dyn CodeOracle,
-        ctx: &dyn Display,
+        _ctx: &dyn Display,
         _renderer: &dyn LiteralRenderer,
         literal: &Literal,
     ) -> String {
         match literal {
-            serde_json::Value::String(v) => {
-                format!(
-                    r#"Res.drawable({context}, R.drawable.{id})"#,
-                    context = ctx,
-                    id = v.to_snake_case()
-                )
+            serde_json::Value::String(v) if is_resource_id(v) => {
+                format!(r#"R.drawable.{id}"#, id = v.to_snake_case())
             }
             _ => unreachable!("Expecting a string matching an image/drawable resource"),
         }

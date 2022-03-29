@@ -13,7 +13,7 @@ public class {{class_name}}
 specify all values needed for the  feature #}
     private data class Defaults({% for p in inner.props() %}
         {%- let t = p.typ() %}
-        val {{p.name()|var_name}}: {{ t|type_label }}{% if !loop.last %},{% endif %}
+        val {{p.name()|var_name}}: {{ t|defaults_type_label }}{% if !loop.last %},{% endif %}
     {%- endfor %}
     )
 
@@ -22,7 +22,7 @@ specify all values needed for the  feature #}
     constructor(
         _variables: Variables, {% for p in inner.props() %}
         {%- let t = p.typ() %}
-        {{p.name()|var_name}}: {{ t|type_label }} = {{ t|literal(self, p.default(), "_variables.context") }}{% if !loop.last %},{% endif %}
+        {{p.name()|var_name}}: {{ t|defaults_type_label }} = {{ t|literal(self, p.default(), "_variables.context") }}{% if !loop.last %},{% endif %}
     {%- endfor %}
     ) : this(
         _variables = _variables,
@@ -39,7 +39,7 @@ specify all values needed for the  feature #}
     constructor(
         _context: Context, {% for p in inner.props() %}
         {%- let t = p.typ() %}
-        {{p.name()|var_name}}: {{ t|type_label }} = {{ t|literal(self, p.default(), "_context") }}{% if !loop.last %},{% endif %}
+        {{p.name()|var_name}}: {{ t|defaults_type_label }} = {{ t|literal(self, p.default(), "_context") }}{% if !loop.last %},{% endif %}
     {%- endfor %}
     ) : this(
         _variables = NullVariables(_context),
