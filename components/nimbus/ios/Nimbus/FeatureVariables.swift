@@ -292,7 +292,7 @@ extension VariablesWithBundle {
     ///
     /// If no image is found in any of the `resourceBundles`, then the `nil` is returned.
     func asImage(name: String) -> UIImage? {
-        return resourceBundles.asImage(name: name)
+        return resourceBundles.getImage(named: name)
     }
 
     /// Search through the resource bundles looking for localized strings with the given name.
@@ -300,7 +300,7 @@ extension VariablesWithBundle {
     /// as the `tableName` and the second the `key` in localized string lookup.
     /// If no string is found in any of the `resourceBundles`, then the `name` is passed back unmodified.
     func asLocalizedString(name: String) -> String? {
-        return resourceBundles.asLocalizedString(name: name)
+        return resourceBundles.getString(named: name) ?? name
     }
 }
 
@@ -420,7 +420,7 @@ internal class JSONVariables: VariablesWithBundle {
 public class NilVariables: Variables {
     public static let instance: Variables = NilVariables()
 
-    public private(set) var resourceBundles: [Bundle] = []
+    public private(set) var resourceBundles: [Bundle] = [Bundle.main]
 
     public func set(bundles: [Bundle]) {
         resourceBundles = bundles

@@ -2,7 +2,9 @@
 // Trust me, you don't want to mess with it!
 
 {%- for imported_module in self.imports() %}
-import {{ imported_module }}
+#if canImport({{ imported_module }})
+    import {{ imported_module }}
+#endif
 {%- endfor %}
 
 {% let nimbus_object = self.config.nimbus_object_name() -%}

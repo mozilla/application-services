@@ -20,8 +20,8 @@ pub fn enum_variant_name(nm: &dyn Display) -> String {
 }
 
 /// Surrounds a property name with quotes. It is assumed that property names do not need escaping.
-pub fn quoted(prop: &dyn Display) -> String {
-    format!("\"{}\"", prop)
+pub fn quoted(v: &dyn Display) -> String {
+    format!(r#""{}""#, v)
 }
 
 pub(crate) mod code_type {
@@ -39,7 +39,10 @@ pub(crate) mod code_type {
     ) -> String {
         let getter = ct.value_getter(oracle, vars, prop);
         let mapper = ct.value_mapper(oracle);
-        let merger = ct.value_merger(oracle, default);
+        let default = ct
+            .defaults_mapper(oracle, &default, vars)
+            .unwrap_or_else(|| default.to_string());
+        let merger = ct.value_merger(oracle, &default);
 
         // We need to be quite careful about option chaining.
         // Swift takes the `?` as an indicator to _stop evaulating the chain expression_ if the immediately preceeding
@@ -53,12 +56,10 @@ pub(crate) mod code_type {
             (None, None) => getter,
         };
 
-        let fallback = ct.defaults_mapper(default, vars);
-
         format!(
             "{getter} ?? {fallback}",
             getter = getter,
-            fallback = fallback,
+            fallback = default,
         )
     }
 

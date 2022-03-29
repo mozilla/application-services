@@ -38,7 +38,7 @@ public class {{class_name}} {
     {{ p.doc()|comment("    ") }}
     public lazy var {{ prop_swift }}: {{ p.typ()|type_label }} = {
         {%- let defaults = format!("_defaults.{}", prop_swift) %}
-        {{ p.typ()|property(p.name(), "_variables", defaults)}}
+        {{ p.typ()|property(p.name(), "self._variables", defaults)}}
     }()
     {%- endfor %}
 }

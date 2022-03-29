@@ -1,0 +1,59 @@
+---
+channels:
+  - testing
+features:
+  my-strings:
+    description: Testing all the ways bundled text can work
+    variables:
+      scalar:
+        description: A simple start
+        type: Text
+        default: my-scalar-text
+      optional:
+        description: An optional string
+        type: Option<Text>
+        default: my-optional-text
+      optional-nil:
+        description: An optional string
+        type: Option<Text>
+        default: null
+      list:
+        description: A list of strings
+        type: List<Text>
+        default:
+          - foo-text
+          - bar-text
+      dictionary:
+        description: A map of strings
+        type: Map<String, Text>
+        default:
+          foo: foo-text
+          bar: bar-text
+  my-images:
+    description: Testing all the ways bundled images can work
+    variables:
+      scalar:
+        description: A simple start
+        type: Image
+        default: my-single-image
+      optional:
+        description: An optional string
+        type: Option<Image>
+        default: my-optional-image
+      optional-nil:
+        description: An optional string
+        type: Option<Image>
+        default: null
+      list:
+        description: A list of strings
+        type: List<Image>
+        default:
+          - foo-image
+          - bar-image
+      dictionary:
+        description: A map of strings
+        type: Map<String, Image>
+        default:
+          foo: foo-image
+          bar: bar-image
+

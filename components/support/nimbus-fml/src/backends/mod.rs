@@ -136,8 +136,13 @@ pub trait CodeType {
         self.type_label(oracle)
     }
 
-    fn defaults_mapper(&self, value: &dyn Display, _vars: &dyn Display) -> String {
-        value.to_string()
+    fn defaults_mapper(
+        &self,
+        _oracle: &dyn CodeOracle,
+        _value: &dyn Display,
+        _vars: &dyn Display,
+    ) -> Option<String> {
+        None
     }
 
     /// A representation of the given literal for this type.
