@@ -96,7 +96,7 @@ interface NimbusInterface : FeaturesInterface, GleanPlumbInterface {
      * @return a [Variables] object used to configure the feature.
      */
     @AnyThread
-    override fun getVariables(featureId: String, recordExposureEvent: Boolean): Variables = NullVariables(context)
+    override fun getVariables(featureId: String, recordExposureEvent: Boolean): Variables = NullVariables.instance
 
     /**
      * Open the database and populate the SDK so as make it usable by feature developers.
@@ -321,6 +321,8 @@ open class Nimbus(
         }
 
     init {
+        NullVariables.instance.setContext(context)
+
         // Set the name of the native library so that we use
         // the appservices megazord for compiled code.
         System.setProperty(
@@ -381,7 +383,7 @@ open class Nimbus(
             }
             JSONVariables(context, json)
         }
-        ?: NullVariables(context)
+        ?: NullVariables.instance
 
     @WorkerThread
     override fun getExperimentBranches(experimentId: String): List<Branch>? = withCatchAll {

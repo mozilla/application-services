@@ -465,7 +465,29 @@ private inline fun <reified T> JSONObject.asMap(): Map<String, T>? {
 }
 
 // Another implementation of `Variables` may just return null for everything.
-class NullVariables(override val context: Context) : Variables
+class NullVariables(): Variables {
+    override val context: Context
+        get() = this._context ?:
+        throw NimbusFeatureException("""
+            Nimbus hasn't been initialized yet. 
+            
+            Calling NullVariables.instance.setContext(context) earlier in the app startup will
+            cause this error to go away, but won't fix the problem.
+            
+            The best remedy for this error is to initialize Nimbus earlier in the start up sequence.
+            """.trimIndent()
+        )
+
+    private var _context: Context? = null
+
+    fun setContext(context: Context) {
+        this._context = context.applicationContext
+    }
+
+    companion object {
+        val instance: NullVariables by lazy { NullVariables() }
+    }
+}
 
 /**
  * Accessor object to allow callers access to the resource identifier as well as the
@@ -488,7 +510,6 @@ interface Res<T> {
     companion object {
         fun drawable(context: Context, resId: Int): Res<Drawable> =
             DrawableRes(context, resId)
-
         fun string(resId: Int) =
             StringHolder(resId, null)
         fun string(literal: String) =
