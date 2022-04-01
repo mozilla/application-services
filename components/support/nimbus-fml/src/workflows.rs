@@ -279,31 +279,50 @@ mod test {
         Ok(())
     }
 
-    // The following test fails because the swift generated
-    // code does not support bundled text and images yet
-    // so it's ignored until that is implemented
     #[test]
-    #[ignore]
-    fn test_with_full_fenix_nightly_swift() -> Result<()> {
+    fn test_with_bundled_resources_kotlin() -> Result<()> {
+        generate_and_assert_with_config(
+            "test/bundled_resources.kts",
+            "fixtures/fe/bundled_resouces.yaml",
+            "testing",
+            false,
+            Config {
+                resource_package: Some("com.example.app".to_string()),
+                nimbus_object_name: None,
+                nimbus_package: None,
+            },
+        )?;
+        Ok(())
+    }
+
+    #[test]
+    fn test_with_bundled_resources_swift() -> Result<()> {
         generate_and_assert(
-            "test/fenix_nightly.swift",
-            "fixtures/fe/fenix.yaml",
-            "nightly",
+            "test/bundled_resources.swift",
+            "fixtures/fe/bundled_resouces.yaml",
+            "testing",
             false,
         )?;
         Ok(())
     }
 
-    // The following test fails because the swift generated
-    // code does not support bundled text and images yet
-    // so it's ignored until that is implemented
     #[test]
-    #[ignore]
     fn test_with_full_fenix_release_swift() -> Result<()> {
         generate_and_assert(
             "test/fenix_release.swift",
             "fixtures/fe/fenix.yaml",
             "release",
+            false,
+        )?;
+        Ok(())
+    }
+
+    #[test]
+    fn test_with_full_fenix_nightly_swift() -> Result<()> {
+        generate_and_assert(
+            "test/fenix_nightly.swift",
+            "fixtures/fe/fenix.yaml",
+            "nightly",
             false,
         )?;
         Ok(())

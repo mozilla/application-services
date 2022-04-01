@@ -51,7 +51,7 @@ assert(api.isExposed(featureId: "homescreen"))
 let validationFeature = nimbus.features.nimbusValidation.value()
 assert(validationFeature.settingsTitle == "hello")
 assert(validationFeature.settingsTitlePunctuation == "")
-assert(validationFeature.settingsIcon == "menu-Settings")
+assert(validationFeature.settingsIcon.name == "menu-Settings")
 // Record the exposure and test it.
 nimbus.features.nimbusValidation.recordExposure()
 assert(api.isExposed(featureId: "nimbus-validation"))

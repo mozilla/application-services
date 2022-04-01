@@ -14,6 +14,8 @@ import android.graphics.drawable.Drawable
 class Context {
     val resources = Resources
 
+    val applicationContext = this
+
     val packageName = "dummy.package.name"
 
     val theme = "a theme"

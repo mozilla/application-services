@@ -7,8 +7,6 @@ use std::fmt::Display;
 use super::common::{code_type, quoted};
 use crate::backends::{CodeOracle, CodeType, LiteralRenderer, TypeIdentifier, VariablesType};
 use crate::intermediate_representation::Literal;
-use heck::SnakeCase;
-use unicode_segmentation::UnicodeSegmentation;
 
 pub(crate) struct TextCodeType;
 
@@ -48,23 +46,6 @@ impl CodeType for TextCodeType {
         VariablesType::Text
     }
 
-    fn defaults_type(&self, _oracle: &dyn CodeOracle) -> String {
-        "StringHolder".to_string()
-    }
-
-    fn defaults_mapper(
-        &self,
-        _oracle: &dyn CodeOracle,
-        value: &dyn Display,
-        vars: &dyn Display,
-    ) -> Option<String> {
-        Some(format!(
-            "{value}.toString({vars}.context)",
-            vars = vars,
-            value = value
-        ))
-    }
-
     /// A representation of the given literal for this type.
     /// N.B. `Literal` is aliased from `serde_json::Value`.
     fn literal(
@@ -75,34 +56,27 @@ impl CodeType for TextCodeType {
         literal: &Literal,
     ) -> String {
         match literal {
-            serde_json::Value::String(v) => {
-                if !is_resource_id(v) {
-                    format!("Res.string({literal})", literal = quoted(v))
-                } else {
-                    format!("Res.string(R.string.{id})", id = v.to_snake_case())
-                }
-            }
+            serde_json::Value::String(v) => quoted(v),
             _ => unreachable!("Expecting a string"),
         }
     }
 
-    fn imports(&self, _oracle: &dyn CodeOracle) -> Option<Vec<String>> {
-        Some(vec![
-            "android.content.Context".to_string(),
-            "org.mozilla.experiments.nimbus.Res".to_string(),
-            "org.mozilla.experiments.nimbus.StringHolder".to_string(),
-        ])
+    fn defaults_type(&self, oracle: &dyn CodeOracle) -> String {
+        oracle.find(&TypeIdentifier::String).type_label(oracle)
     }
-}
 
-fn is_resource_id(string: &str) -> bool {
-    // In Android apps, resource identifiers are [a-z_][a-z0-9_]*
-    // We don't use the regex crate, so we need some code.
-    let start = "abcdefghijklmnopqrstuvwxyz_";
-    let rest = "abcdefghijklmnopqrstuvwxyz_0123456789";
-    string
-        .grapheme_indices(true)
-        .all(|(i, c)| -> bool { (i > 0 && rest.contains(c)) || start.contains(c) })
+    fn defaults_mapper(
+        &self,
+        _oracle: &dyn CodeOracle,
+        value: &dyn Display,
+        vars: &dyn Display,
+    ) -> Option<String> {
+        Some(format!(
+            "{vars}.resourceBundles.getString(named: {value}) ?? {value}",
+            vars = vars,
+            value = value
+        ))
+    }
 }
 
 pub(crate) struct ImageCodeType;
@@ -111,7 +85,7 @@ impl CodeType for ImageCodeType {
     /// The language specific label used to reference this type. This will be used in
     /// method signatures and property declarations.
     fn type_label(&self, _oracle: &dyn CodeOracle) -> String {
-        "Res<Drawable>".into()
+        "UIImage".into()
     }
 
     fn property_getter(
@@ -143,23 +117,6 @@ impl CodeType for ImageCodeType {
         VariablesType::Image
     }
 
-    fn defaults_type(&self, oracle: &dyn CodeOracle) -> String {
-        oracle.find(&TypeIdentifier::Int).type_label(oracle)
-    }
-
-    fn defaults_mapper(
-        &self,
-        _oracle: &dyn CodeOracle,
-        value: &dyn Display,
-        vars: &dyn Display,
-    ) -> Option<String> {
-        Some(format!(
-            "Res.drawable({vars}.context, {value})",
-            vars = vars,
-            value = value
-        ))
-    }
-
     /// A representation of the given literal for this type.
     /// N.B. `Literal` is aliased from `serde_json::Value`.
     fn literal(
@@ -170,38 +127,36 @@ impl CodeType for ImageCodeType {
         literal: &Literal,
     ) -> String {
         match literal {
-            serde_json::Value::String(v) if is_resource_id(v) => {
-                format!(r#"R.drawable.{id}"#, id = v.to_snake_case())
-            }
+            serde_json::Value::String(v) => quoted(v),
             _ => unreachable!("Expecting a string matching an image/drawable resource"),
         }
     }
 
-    fn imports(&self, _oracle: &dyn CodeOracle) -> Option<Vec<String>> {
-        Some(vec![
-            "android.graphics.drawable.Drawable".to_string(),
-            "org.mozilla.experiments.nimbus.Res".to_string(),
-        ])
+    fn defaults_type(&self, oracle: &dyn CodeOracle) -> String {
+        oracle.find(&TypeIdentifier::String).type_label(oracle)
     }
-}
 
-#[cfg(test)]
-mod unit_tests {
+    fn defaults_mapper(
+        &self,
+        _oracle: &dyn CodeOracle,
+        value: &dyn Display,
+        vars: &dyn Display,
+    ) -> Option<String> {
+        Some(format!(
+            // UIKit does not provide any compile time safety for bundled images. The string name isn't found to be missing
+            // until runtime.
+            // For these fallback images, if they are missing, we consider it a programmer error,
+            // so `getImageNotNull(image:)` fatalErrors if the image doesn't exist.
+            //
+            // The assumption here is that the developer will discover this
+            // early in the cycle, and provide the image or change the name.
+            "{vars}.resourceBundles.getImageNotNull(named: {value})",
+            vars = vars,
+            value = value
+        ))
+    }
 
-    use super::*;
-    use crate::error::Result;
-
-    #[test]
-    fn test_is_resource_id() -> Result<()> {
-        assert!(is_resource_id("ok"));
-        assert!(is_resource_id("_ok"));
-        assert!(is_resource_id("ok_then"));
-        assert!(!is_resource_id("https://foo.com"));
-        assert!(!is_resource_id("Ok then"));
-        assert!(!is_resource_id("ok then"));
-        assert!(!is_resource_id("ok!"));
-        assert!(!is_resource_id("1ok"));
-
-        Ok(())
+    fn imports(&self, _oracle: &dyn CodeOracle) -> Option<Vec<String>> {
+        Some(vec!["UIKit".to_string()])
     }
 }

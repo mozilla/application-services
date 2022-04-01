@@ -19,16 +19,16 @@ class FeatureHolder<T>(
      * result used for the configuration of the feature.
      *
      * An optional `Context` object is taken which is used to look up resources. Most of the time this isn't required, and the context can be
-     * derived from the `Nimbus` singleton object.
+     * derived from the `Nimbus` singleton object. This is now deprecated, and will be removed in future releases.
      *
      * @returns T
      * @throws NimbusFeatureException thrown before the Nimbus object has been constructed or `FxNimbus.api` has not been set.
      * This can be resolved by setting `FxNimbus.api`, and after that by passing in a `Context` object.
      */
+    @Suppress("UNUSED_PARAMETER")
     fun value(context: Context? = null): T {
         val api = apiFn()
-        val ctx = context ?: api?.context ?: throw NimbusFeatureException("A Context is needed but not available. Consider passing in a context to the value() method when close to startup")
-        val variables = api?.getVariables(featureId, false) ?: NullVariables(ctx)
+        val variables = api?.getVariables(featureId, false) ?: NullVariables.instance
         val feature = create(variables)
         api?.also { apiRef ->
             val weakRef = WeakReference(apiRef)

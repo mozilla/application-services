@@ -5,7 +5,7 @@
 import FeatureManifest
 import Foundation
 
-let nimbus = MyNimbus.instance;
+let nimbus = MyNimbus.shared;
 
 let feature = nimbus.features.homescreen.value()
 assert(feature.sectionsEnabled[HomeScreenSection.topSites] == true)
@@ -44,8 +44,8 @@ assert(api.isExposed(featureId: "homescreen"))
 
 let validationFeature = nimbus.features.nimbusValidation.value()
 assert(validationFeature.settingsTitle == "hello")
-assert(validationFeature.settingsPunctuation == "")
-assert(validationFeature.settingsIcon == "mozac_ic_settings")
+assert(validationFeature.settingsPunctuation == "app_menu_settings_punctuation")
+assert(validationFeature.settingsIcon.name == "mozac_ic_settings")
 // Record the exposure and test it.
 nimbus.features.nimbusValidation.recordExposure()
 assert(api.isExposed(featureId: "nimbus-validation"))
