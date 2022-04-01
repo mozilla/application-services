@@ -33,25 +33,25 @@ features:
     description: Testing all the ways bundled images can work
     variables:
       scalar:
-        description: A simple start
+        description: A simple image
         type: Image
         default: my_single_image
       optional:
-        description: An optional string
+        description: An optional image
         type: Option<Image>
         default: my_optional_image
       optional-nil:
-        description: An optional string
+        description: An optional image
         type: Option<Image>
         default: null
       list:
-        description: A list of strings
+        description: A list of images
         type: List<Image>
         default:
           - foo_image
           - bar_image
       dictionary:
-        description: A map of strings
+        description: A map of images
         type: Map<String, Image>
         default:
           foo: foo_image

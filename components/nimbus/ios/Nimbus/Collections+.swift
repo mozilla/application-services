@@ -54,6 +54,22 @@ public extension Array where Element == Bundle {
         return nil
     }
 
+    /// Search through the resource bundles looking for an image of the given name.
+    ///
+    /// If no image is found in any of the `resourceBundles`, then a fatal error is
+    /// thrown. This method is only intended for use with hard coded default images
+    /// when other images have been omitted or are missing.
+    ///
+    /// The two ways of fixing this would be to provide the image as its named in the `.fml.yaml`
+    /// file or to change the name of the image in the FML file.
+    func getImageNotNull(named name: String) -> UIImage {
+        guard let image = getImage(named: name) else {
+            fatalError(
+                "An image named \"\(name)\" has been named in a `.fml.yaml` file, but is missing from the asset bundle")
+        }
+        return image
+    }
+
     /// Search through the resource bundles looking for localized strings with the given name.
     /// If the `name` contains exactly one slash, it is split up and the first part of the string is used
     /// as the `tableName` and the second the `key` in localized string lookup.

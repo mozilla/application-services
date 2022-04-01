@@ -143,7 +143,14 @@ impl CodeType for ImageCodeType {
         vars: &dyn Display,
     ) -> Option<String> {
         Some(format!(
-            "{vars}.resourceBundles.getImage(named: {value})!",
+            // UIKit does not provide any compile time safety for bundled images. The string name isn't found to be missing
+            // until runtime.
+            // For these fallback images, if they are missing, we consider it a programmer error,
+            // so `getImageNotNull(image:)` fatalErrors if the image doesn't exist.
+            //
+            // The assumption here is that the developer will discover this
+            // early in the cycle, and provide the image or change the name.
+            "{vars}.resourceBundles.getImageNotNull(named: {value})",
             vars = vars,
             value = value
         ))
