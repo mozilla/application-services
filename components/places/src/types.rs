@@ -5,7 +5,6 @@
 use rusqlite::types::{FromSql, FromSqlError, FromSqlResult, ToSql, ToSqlOutput, ValueRef};
 use rusqlite::Result as RusqliteResult;
 use serde::ser::{Serialize, Serializer};
-use std::convert::TryFrom;
 use std::fmt;
 
 mod visit_transition_set;

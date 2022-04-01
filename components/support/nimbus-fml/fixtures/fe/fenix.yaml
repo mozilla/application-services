@@ -47,6 +47,21 @@ features:
         description: The drawable displayed in the app menu for Settings
         type: Drawable
         default: mozac_ic_settings
+      string-map:
+        description: A string map that was causing problem
+        type: Map<String, String>
+        default: {}
+      string-int-map:
+        description: A string map that was causing problem
+        type: Map<String, Int>
+        default: {}
+      eum-map:
+        description: A string map that was causing problem
+        type: Map<IconType, Int>
+        default:
+          screenshot: 1
+          letter: 2
+          favicon: 3
   search-term-groups:
     description: A feature allowing the grouping of URLs around the search term that it came from.
     variables:
@@ -70,3 +85,12 @@ types:
             description: The tab groups
           pocket:
             description: The pocket section. This should only be available in the US.
+    IconType:
+      description: The different types of icons
+      variants:
+        screenshot:
+          description: A screenshot icon
+        favicon:
+          description: A favicon icon
+        letter:
+          description: A letter icon

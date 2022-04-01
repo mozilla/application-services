@@ -3,7 +3,7 @@ name = "examples-fxa-client"
 version = "0.1.0"
 authors = ["sync-team@mozilla.com"]
 license = "MPL-2.0"
-edition = "2018"
+edition = "2021"
 publish = false
 
 # These three all have the same deps, and not a ton of them, so just bundle them
@@ -27,3 +27,4 @@ anyhow = "1.0"
 dialoguer = "0.6"
 webbrowser = "0.5"
 url = "2.2"
+sync15 = { path = "../../components/sync15" }

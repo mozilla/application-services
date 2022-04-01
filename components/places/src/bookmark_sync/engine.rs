@@ -23,13 +23,13 @@ use dogear::{
     self, AbortSignal, CompletionOps, Content, Item, MergedRoot, TelemetryEvent, Tree, UploadItem,
     UploadTombstone,
 };
-use rusqlite::{Row, NO_PARAMS};
-use sql_support::{self, ConnExt, SqlInterruptScope};
+use interrupt_support::SqlInterruptScope;
+use rusqlite::Row;
+use sql_support::ConnExt;
 use std::cell::RefCell;
 use std::collections::HashMap;
-use std::convert::TryFrom;
 use std::fmt;
-use std::sync::{atomic::AtomicUsize, Arc};
+use std::sync::Arc;
 use sync15::{
     telemetry, CollSyncIds, CollectionRequest, EngineSyncAssociation, IncomingChangeset,
     OutgoingChangeset, Payload, ServerTimestamp, SyncEngine,
@@ -50,12 +50,9 @@ pub const COLLECTION_NAME: &str = "bookmarks";
 const MAX_FRECENCIES_TO_RECALCULATE_PER_CHUNK: usize = 400;
 
 /// Adapts an interruptee to a Dogear abort signal.
-struct MergeInterruptee<'a, I>(&'a I);
+struct MergeInterruptee<'a>(&'a SqlInterruptScope);
 
-impl<'a, I> AbortSignal for MergeInterruptee<'a, I>
-where
-    I: interrupt_support::Interruptee,
-{
+impl<'a> AbortSignal for MergeInterruptee<'a> {
     #[inline]
     fn aborted(&self) -> bool {
         self.0.was_interrupted()
@@ -120,7 +117,7 @@ fn db_has_changes(db: &PlacesDb) -> Result<bool> {
     Ok(db
         .try_query_row(
             &sql,
-            &[],
+            [],
             |row| -> rusqlite::Result<_> { row.get::<_, bool>(0) },
             false,
         )?
@@ -204,7 +201,7 @@ fn update_local_items_in_places<'t>(
                 params.push(Some(remote_guid));
             }
 
-            db.execute(&sql, &params)?;
+            db.execute(&sql, rusqlite::params_from_iter(params))?;
             Ok(())
         },
     )?;
@@ -250,7 +247,7 @@ fn update_local_items_in_places<'t>(
                 params.push(merged_guid);
             }
 
-            db.execute(&sql, &params)?;
+            db.execute(&sql, rusqlite::params_from_iter(params))?;
             Ok(())
         },
     )?;
@@ -283,7 +280,7 @@ fn update_local_items_in_places<'t>(
                 params.push(merged_parent_guid);
             }
 
-            db.execute(&sql, &params)?;
+            db.execute(&sql, rusqlite::params_from_iter(params))?;
             Ok(())
         },
     )?;
@@ -300,7 +297,7 @@ fn update_local_items_in_places<'t>(
                      WHERE guid IN ({})",
                     sql_support::repeat_sql_vars(chunk.len())
                 ),
-                chunk,
+                rusqlite::params_from_iter(chunk),
             )?;
             Ok(())
         },
@@ -318,7 +315,7 @@ fn update_local_items_in_places<'t>(
                      VALUES {}",
                     sql_support::repeat_display(chunk.len(), ",", |_, f| write!(f, "(?, {})", now)),
                 ),
-                chunk,
+                rusqlite::params_from_iter(chunk),
             )?;
             Ok(())
         },
@@ -342,7 +339,7 @@ fn update_local_items_in_places<'t>(
                     now = now,
                     vars = sql_support::repeat_sql_vars(chunk.len())
                 ),
-                chunk,
+                rusqlite::params_from_iter(chunk),
             )?;
             Ok(())
         },
@@ -360,7 +357,7 @@ fn update_local_items_in_places<'t>(
                      WHERE guid IN ({})",
                     sql_support::repeat_sql_vars(chunk.len())
                 ),
-                chunk,
+                rusqlite::params_from_iter(chunk),
             )?;
             Ok(())
         },
@@ -391,7 +388,7 @@ fn update_local_items_in_places<'t>(
                      WHERE guid IN ({})",
                     sql_support::repeat_sql_vars(chunk.len()),
                 ),
-                chunk,
+                rusqlite::params_from_iter(chunk),
             )?;
             Ok(())
         },
@@ -410,7 +407,7 @@ fn update_local_items_in_places<'t>(
                      WHERE guid IN ({})",
                     sql_support::repeat_sql_vars(chunk.len()),
                 ),
-                chunk,
+                rusqlite::params_from_iter(chunk),
             )?;
             Ok(())
         },
@@ -429,7 +426,7 @@ fn update_local_items_in_places<'t>(
                      WHERE guid IN ({})",
                     sql_support::repeat_sql_vars(chunk.len()),
                 ),
-                chunk,
+                rusqlite::params_from_iter(chunk),
             )?;
             Ok(())
         },
@@ -593,7 +590,7 @@ fn stage_items_to_upload(
                 upload_items_fragment = UploadItemsFragment("b")
             );
 
-            db.execute(&sql, chunk)?;
+            db.execute(&sql, rusqlite::params_from_iter(chunk))?;
             Ok(())
         },
     )?;
@@ -635,7 +632,7 @@ fn stage_items_to_upload(
                  VALUES {}",
                     sql_support::repeat_display(chunk.len(), ",", |_, f| write!(f, "(?, 1, 1)")),
                 ),
-                chunk,
+                rusqlite::params_from_iter(chunk),
             )?;
             Ok(())
         },
@@ -659,7 +656,7 @@ fn fetch_outgoing_records(
         "SELECT parentId, guid FROM structureToUpload
          ORDER BY parentId, position",
     )?;
-    let mut results = stmt.query(NO_PARAMS)?;
+    let mut results = stmt.query([])?;
     while let Some(row) = results.next()? {
         scope.err_if_interrupted()?;
         let local_parent_id = row.get::<_, i64>("parentId")?;
@@ -671,7 +668,7 @@ fn fetch_outgoing_records(
     }
 
     let mut stmt = db.prepare("SELECT id, tag FROM tagsToUpload")?;
-    let mut results = stmt.query(NO_PARAMS)?;
+    let mut results = stmt.query([])?;
     while let Some(row) = results.next()? {
         scope.err_if_interrupted()?;
         let local_id = row.get::<_, i64>("id")?;
@@ -686,7 +683,7 @@ fn fetch_outgoing_records(
                 IFNULL(parentTitle, '') AS parentTitle, dateAdded
          FROM itemsToUpload",
     )?;
-    let mut results = stmt.query(NO_PARAMS)?;
+    let mut results = stmt.query([])?;
     while let Some(row) = results.next()? {
         scope.err_if_interrupted()?;
         let guid = row.get::<_, SyncGuid>("guid")?;
@@ -797,7 +794,7 @@ fn push_synced_items(
                 uploaded_at = uploaded_at.as_millis(),
                 values = sql_support::repeat_sql_values(chunk.len())
             ),
-            chunk,
+            rusqlite::params_from_iter(chunk),
         )?;
         tx.maybe_commit()?;
         scope.err_if_interrupted()?;
@@ -827,7 +824,7 @@ pub(crate) fn update_frecencies(db: &PlacesDb, scope: &SqlInterruptScope) -> Res
             MAX_FRECENCIES_TO_RECALCULATE_PER_CHUNK
         );
         let mut stmt = db.prepare_maybe_cached(&sql, true)?;
-        let mut results = stmt.query(NO_PARAMS)?;
+        let mut results = stmt.query([])?;
         while let Some(row) = results.next()? {
             let place_id = row.get("place_id")?;
             // Frecency recalculation runs several statements, so check to
@@ -893,11 +890,11 @@ pub struct BookmarksSyncEngine {
 }
 
 impl BookmarksSyncEngine {
-    pub fn new(db: Arc<SharedPlacesDb>) -> Self {
-        Self {
+    pub fn new(db: Arc<SharedPlacesDb>) -> Result<Self> {
+        Ok(Self {
+            scope: db.begin_interrupt_scope()?,
             db,
-            scope: SqlInterruptScope::new(Arc::new(AtomicUsize::new(0))),
-        }
+        })
     }
 }
 
@@ -1344,7 +1341,7 @@ impl<'a> dogear::Store for Merger<'a> {
              WHERE guid = '{root_guid}'",
             root_guid = BookmarkRootGuid::Root.as_guid().as_str(),
         ))?;
-        let mut results = stmt.query(NO_PARAMS)?;
+        let mut results = stmt.query([])?;
         let mut builder = match results.next()? {
             Some(row) => {
                 let (item, _) = self.local_row_to_item(row)?;
@@ -1372,7 +1369,7 @@ impl<'a> dogear::Store for Merger<'a> {
             url_fragment = UrlOrPlaceIdFragment::PlaceId("b.fk"),
             root_guid = BookmarkRootGuid::Root.as_guid().as_str(),
         ))?;
-        let mut results = stmt.query(NO_PARAMS)?;
+        let mut results = stmt.query([])?;
 
         while let Some(row) = results.next()? {
             self.scope.err_if_interrupted()?;
@@ -1404,7 +1401,7 @@ impl<'a> dogear::Store for Merger<'a> {
 
         // Note tombstones for locally deleted items.
         let mut stmt = self.db.prepare("SELECT guid FROM moz_bookmarks_deleted")?;
-        let mut results = stmt.query(NO_PARAMS)?;
+        let mut results = stmt.query([])?;
         while let Some(row) = results.next()? {
             self.scope.err_if_interrupted()?;
             let guid = row.get::<_, SyncGuid>("guid")?;
@@ -1431,7 +1428,7 @@ impl<'a> dogear::Store for Merger<'a> {
             .db
             .try_query_row(
                 &sql,
-                &[],
+                [],
                 |row| -> Result<_> {
                     let (root, _) = self.remote_row_to_item(row)?;
                     Ok(Tree::with_root(root))
@@ -1452,7 +1449,7 @@ impl<'a> dogear::Store for Merger<'a> {
             root_guid = BookmarkRootGuid::Root.as_guid().as_str()
         );
         let mut stmt = self.db.prepare(&sql)?;
-        let mut results = stmt.query(NO_PARAMS)?;
+        let mut results = stmt.query([])?;
         while let Some(row) = results.next()? {
             self.scope.err_if_interrupted()?;
 
@@ -1485,7 +1482,7 @@ impl<'a> dogear::Store for Merger<'a> {
             root_guid = BookmarkRootGuid::Root.as_guid().as_str()
         );
         let mut stmt = self.db.prepare(&sql)?;
-        let mut results = stmt.query(NO_PARAMS)?;
+        let mut results = stmt.query([])?;
         while let Some(row) = results.next()? {
             self.scope.err_if_interrupted()?;
             let guid = row.get::<_, SyncGuid>("guid")?;
@@ -1790,7 +1787,7 @@ mod tests {
     }
 
     fn create_sync_engine(api: &PlacesApi) -> BookmarksSyncEngine {
-        BookmarksSyncEngine::new(api.get_sync_connection().unwrap())
+        BookmarksSyncEngine::new(api.get_sync_connection().unwrap()).unwrap()
     }
 
     // Applys the incoming records, and also "finishes" the sync by pretending
@@ -1845,9 +1842,7 @@ mod tests {
             .prepare("SELECT guid FROM itemsToUpload")
             .expect("Should prepare statement to fetch uploaded GUIDs");
         let uploaded_guids: Vec<Guid> = stmt
-            .query_and_then(NO_PARAMS, |row| -> rusqlite::Result<_> {
-                row.get::<_, Guid>(0)
-            })
+            .query_and_then([], |row| -> rusqlite::Result<_> { row.get::<_, Guid>(0) })
             .expect("Should fetch uploaded GUIDs")
             .map(std::result::Result::unwrap)
             .collect();
@@ -1971,7 +1966,7 @@ mod tests {
         let syncer = sync_db.lock();
 
         writer
-            .execute("UPDATE moz_bookmarks SET syncChangeCounter = 0", NO_PARAMS)
+            .execute("UPDATE moz_bookmarks SET syncChangeCounter = 0", [])
             .expect("should work");
 
         insert_local_json_tree(
@@ -2696,7 +2691,7 @@ mod tests {
 
         // Flag the bookmark with the keyword for reupload, so that we can
         // ensure the keyword is round-tripped correctly.
-        db.execute_named(
+        db.execute(
             "UPDATE moz_bookmarks_synced SET
                  validity = :validity
              WHERE guid = :guid",
@@ -2774,7 +2769,7 @@ mod tests {
         let syncer = db.lock();
 
         syncer
-            .execute("UPDATE moz_bookmarks SET syncChangeCounter = 0", NO_PARAMS)
+            .execute("UPDATE moz_bookmarks SET syncChangeCounter = 0", [])
             .expect("should work");
 
         insert_local_json_tree(
@@ -2952,7 +2947,7 @@ mod tests {
         let syncer = db.lock();
 
         syncer
-            .execute("UPDATE moz_bookmarks SET syncChangeCounter = 0", NO_PARAMS)
+            .execute("UPDATE moz_bookmarks SET syncChangeCounter = 0", [])
             .expect("should work");
 
         let records = vec![
@@ -3225,7 +3220,7 @@ mod tests {
             .expect("Should fetch foreign count for URL A");
         assert_eq!(foreign_count, 3);
         let err = writer
-            .execute_named(
+            .execute(
                 "DELETE FROM moz_places
              WHERE url_hash = hash(:url) AND
                    url = :url",

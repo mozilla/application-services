@@ -75,6 +75,7 @@ enum DeviceType {
     "Tablet",
     "VR",
     "TV",
+    "Unknown",
 };
 
 dictionary SyncResult {

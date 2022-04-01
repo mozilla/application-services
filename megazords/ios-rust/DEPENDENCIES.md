@@ -21,7 +21,7 @@ the details of which are reproduced below.
 * [MIT License: h2](#mit-license-h2)
 * [MIT License: http-body](#mit-license-http-body)
 * [MIT License: hyper](#mit-license-hyper)
-* [MIT License: libsqlite3-sys](#mit-license-libsqlite3-sys)
+* [MIT License: libsqlite3-sys, rusqlite](#mit-license-libsqlite3-sys-rusqlite)
 * [MIT License: matches](#mit-license-matches)
 * [MIT License: miniz_oxide](#mit-license-miniz_oxide)
 * [MIT License: mio](#mit-license-mio)
@@ -30,12 +30,12 @@ the details of which are reproduced below.
 * [MIT License: oslog](#mit-license-oslog)
 * [MIT License: owning_ref](#mit-license-owning_ref)
 * [MIT License: radium](#mit-license-radium)
-* [MIT License: rusqlite](#mit-license-rusqlite)
 * [MIT License: slab](#mit-license-slab)
 * [MIT License: tap](#mit-license-tap)
 * [MIT License: textwrap](#mit-license-textwrap)
-* [MIT License: tokio, tokio-util](#mit-license-tokio-tokio-util)
+* [MIT License: tokio](#mit-license-tokio)
 * [MIT License: tokio-native-tls, tracing, tracing-core](#mit-license-tokio-native-tls-tracing-tracing-core)
+* [MIT License: tokio-util](#mit-license-tokio-util)
 * [MIT License: tower-service](#mit-license-tower-service)
 * [MIT License: try-lock](#mit-license-try-lock)
 * [MIT License: want](#mit-license-want)
@@ -454,7 +454,7 @@ The following text applies to code linked from these dependencies:
 [base64](https://github.com/marshallpierce/rust-base64),
 [bitflags](https://github.com/bitflags/bitflags),
 [block-buffer](https://github.com/RustCrypto/utils),
-[camino](https://github.com/withoutboats/camino),
+[camino](https://github.com/camino-rs/camino),
 [cargo-platform](https://github.com/rust-lang/cargo),
 [cc](https://github.com/alexcrichton/cc-rs),
 [cfg-if](https://github.com/alexcrichton/cfg-if),
@@ -469,6 +469,7 @@ The following text applies to code linked from these dependencies:
 [env_logger](https://github.com/env-logger-rs/env_logger/),
 [fallible-iterator](https://github.com/sfackler/rust-fallible-iterator),
 [fallible-streaming-iterator](https://github.com/sfackler/fallible-streaming-iterator),
+[fastrand](https://github.com/smol-rs/fastrand),
 [ffi-support](https://github.com/mozilla/ffi-support),
 [flate2](https://github.com/rust-lang/flate2-rs),
 [fnv](https://github.com/servo/rust-fnv),
@@ -550,7 +551,6 @@ The following text applies to code linked from these dependencies:
 [socket2](https://github.com/rust-lang/socket2),
 [stable_deref_trait](https://github.com/storyyeller/stable_deref_trait),
 [static_assertions](https://github.com/nvzqz/static-assertions-rs),
-[swift-protobuf](https://github.com/apple/swift-protobuf),
 [syn](https://github.com/dtolnay/syn),
 [tempfile](https://github.com/Stebalien/tempfile),
 [thiserror-impl](https://github.com/dtolnay/thiserror),
@@ -568,6 +568,7 @@ The following text applies to code linked from these dependencies:
 [unicode-xid](https://github.com/unicode-rs/unicode-xid),
 [url](https://github.com/servo/rust-url),
 [uuid](https://github.com/uuid-rs/uuid),
+[vcpkg](https://github.com/mcgoo/vcpkg-rs),
 [version_check](https://github.com/SergioBenitez/version_check)
 
 ```
@@ -1241,10 +1242,11 @@ THE SOFTWARE.
 
 ```
 -------------
-## MIT License: libsqlite3-sys
+## MIT License: libsqlite3-sys, rusqlite
 
 The following text applies to code linked from these dependencies:
-[libsqlite3-sys](https://github.com/rusqlite/rusqlite)
+[libsqlite3-sys](https://github.com/rusqlite/rusqlite),
+[rusqlite](https://github.com/rusqlite/rusqlite)
 
 ```
 Copyright (c) 2014-2021 The rusqlite developers
@@ -1514,34 +1516,6 @@ SOFTWARE.
 
 ```
 -------------
-## MIT License: rusqlite
-
-The following text applies to code linked from these dependencies:
-[rusqlite](https://github.com/rusqlite/rusqlite)
-
-```
-Copyright (c) 2014-2020 The rusqlite developers
-
-Permission is hereby granted, free of charge, to any person obtaining a copy
-of this software and associated documentation files (the "Software"), to deal
-in the Software without restriction, including without limitation the rights
-to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
-copies of the Software, and to permit persons to whom the Software is
-furnished to do so, subject to the following conditions:
-
-The above copyright notice and this permission notice shall be included in
-all copies or substantial portions of the Software.
-
-THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
-AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
-LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
-OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
-THE SOFTWARE.
-
-```
--------------
 ## MIT License: slab
 
 The following text applies to code linked from these dependencies:
@@ -1636,14 +1610,13 @@ SOFTWARE.
 
 ```
 -------------
-## MIT License: tokio, tokio-util
+## MIT License: tokio
 
 The following text applies to code linked from these dependencies:
-[tokio-util](https://github.com/tokio-rs/tokio),
 [tokio](https://github.com/tokio-rs/tokio)
 
 ```
-Copyright (c) 2021 Tokio Contributors
+Copyright (c) 2022 Tokio Contributors
 
 Permission is hereby granted, free of charge, to any
 person obtaining a copy of this software and associated
@@ -1680,6 +1653,40 @@ The following text applies to code linked from these dependencies:
 
 ```
 Copyright (c) 2019 Tokio Contributors
+
+Permission is hereby granted, free of charge, to any
+person obtaining a copy of this software and associated
+documentation files (the "Software"), to deal in the
+Software without restriction, including without
+limitation the rights to use, copy, modify, merge,
+publish, distribute, sublicense, and/or sell copies of
+the Software, and to permit persons to whom the Software
+is furnished to do so, subject to the following
+conditions:
+
+The above copyright notice and this permission notice
+shall be included in all copies or substantial portions
+of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF
+ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED
+TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A
+PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT
+SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY
+CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION
+OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR
+IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
+DEALINGS IN THE SOFTWARE.
+
+```
+-------------
+## MIT License: tokio-util
+
+The following text applies to code linked from these dependencies:
+[tokio-util](https://github.com/tokio-rs/tokio)
+
+```
+Copyright (c) 2021 Tokio Contributors
 
 Permission is hereby granted, free of charge, to any
 person obtaining a copy of this software and associated

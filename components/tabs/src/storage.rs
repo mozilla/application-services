@@ -7,39 +7,16 @@ const URI_LENGTH_MAX: usize = 65536;
 // https://searchfox.org/mozilla-central/rev/ea63a0888d406fae720cf24f4727d87569a8cab5/services/sync/modules/engines/tabs.js#8
 const TAB_ENTRIES_LIMIT: usize = 5;
 
+use crate::error::*;
+use crate::DeviceType;
+use rusqlite::{Connection, OpenFlags};
 use serde_derive::{Deserialize, Serialize};
+use sql_support::open_database::{self, open_database_with_flags};
+use sql_support::ConnExt;
 use std::cell::RefCell;
+use std::path::{Path, PathBuf};
 
-// As of right now, this local type is unavoidable due
-// to uniffi requiring all exposed types defined in the current crate
-// https://github.com/mozilla/uniffi-rs/issues/478
-#[derive(Clone, Debug, Serialize, Deserialize)]
-pub enum DeviceType {
-    #[serde(rename = "desktop")]
-    Desktop,
-    #[serde(rename = "mobile")]
-    Mobile,
-    #[serde(rename = "tablet")]
-    Tablet,
-    #[serde(rename = "vr")]
-    VR,
-    #[serde(rename = "tv")]
-    TV,
-}
-
-impl From<sync15::clients::DeviceType> for DeviceType {
-    fn from(device_type: sync15::clients::DeviceType) -> Self {
-        match device_type {
-            sync15::clients::DeviceType::Desktop => DeviceType::Desktop,
-            sync15::clients::DeviceType::Mobile => DeviceType::Mobile,
-            sync15::clients::DeviceType::Tablet => DeviceType::Tablet,
-            sync15::clients::DeviceType::VR => DeviceType::VR,
-            sync15::clients::DeviceType::TV => DeviceType::TV,
-        }
-    }
-}
-
-#[derive(Clone, Debug, PartialEq)]
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub struct RemoteTab {
     pub title: String,
     pub url_history: Vec<String>,
@@ -47,31 +24,105 @@ pub struct RemoteTab {
     pub last_used: i64, // In ms.
 }
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct ClientRemoteTabs {
     pub client_id: String, // Corresponds to the `clients` collection ID of the client.
     pub client_name: String,
+    #[serde(
+        default = "devicetype_default_deser",
+        skip_serializing_if = "devicetype_is_unknown"
+    )]
     pub device_type: DeviceType,
     pub remote_tabs: Vec<RemoteTab>,
 }
 
-pub struct TabsStorage {
-    local_tabs: RefCell<Option<Vec<RemoteTab>>>,
-    remote_tabs: RefCell<Option<Vec<ClientRemoteTabs>>>,
+fn devicetype_default_deser() -> DeviceType {
+    // replace with `DeviceType::default_deser` once #4861 lands.
+    DeviceType::Unknown
 }
 
-impl Default for TabsStorage {
-    fn default() -> Self {
-        Self::new()
-    }
+// Unlike most other uses-cases, here we do allow serializing ::Unknown, but skip it.
+fn devicetype_is_unknown(val: &DeviceType) -> bool {
+    matches!(val, DeviceType::Unknown)
+}
+
+// Tabs has unique requirements for storage:
+// * The "local_tabs" exist only so we can sync them out. There's no facility to
+//   query "local tabs", so there's no need to store these persistently - ie, they
+//   are write-only.
+// * The "remote_tabs" exist purely for incoming items via sync - there's no facility
+//   to set them locally - they are read-only.
+// Note that this means a database is only actually needed after Sync fetches remote tabs,
+// and because sync users are in the minority, the use of a database here is purely
+// optional and created on demand. The implication here is that asking for the "remote tabs"
+// when no database exists is considered a normal situation and just implies no remote tabs exist.
+// (Note however we don't attempt to remove the database when no remote tabs exist, so having
+// no remote tabs in an existing DB is also a normal situation)
+pub struct TabsStorage {
+    local_tabs: RefCell<Option<Vec<RemoteTab>>>,
+    db_path: PathBuf,
+    db_connection: Option<Connection>,
 }
 
 impl TabsStorage {
-    pub fn new() -> Self {
+    pub fn new(db_path: impl AsRef<Path>) -> Self {
         Self {
             local_tabs: RefCell::default(),
-            remote_tabs: RefCell::default(),
+            db_path: db_path.as_ref().to_path_buf(),
+            db_connection: None,
         }
+    }
+
+    /// Arrange for a new memory-based TabsStorage. As per other DB semantics, creating
+    /// this isn't enough to actually create the db!
+    #[cfg(test)]
+    pub fn new_with_mem_path(db_path: &str) -> Self {
+        let name = PathBuf::from(format!("file:{}?mode=memory&cache=shared", db_path));
+        Self::new(name)
+    }
+
+    /// If a DB file exists, open and return it.
+    pub fn open_if_exists(&mut self) -> Result<Option<&Connection>> {
+        if let Some(ref existing) = self.db_connection {
+            return Ok(Some(existing));
+        }
+        let flags = OpenFlags::SQLITE_OPEN_NO_MUTEX
+            | OpenFlags::SQLITE_OPEN_URI
+            | OpenFlags::SQLITE_OPEN_READ_WRITE;
+        match open_database_with_flags(
+            self.db_path.clone(),
+            flags,
+            &crate::schema::TabsMigrationLogin,
+        ) {
+            Ok(conn) => {
+                self.db_connection = Some(conn);
+                Ok(self.db_connection.as_ref())
+            }
+            Err(open_database::Error::SqlError(rusqlite::Error::SqliteFailure(code, _)))
+                if code.code == rusqlite::ErrorCode::CannotOpen =>
+            {
+                Ok(None)
+            }
+            Err(e) => Err(e.into()),
+        }
+    }
+
+    /// Open and return the DB, creating it if necessary.
+    pub fn open_or_create(&mut self) -> Result<&Connection> {
+        if let Some(ref existing) = self.db_connection {
+            return Ok(existing);
+        }
+        let flags = OpenFlags::SQLITE_OPEN_NO_MUTEX
+            | OpenFlags::SQLITE_OPEN_URI
+            | OpenFlags::SQLITE_OPEN_READ_WRITE
+            | OpenFlags::SQLITE_OPEN_CREATE;
+        let conn = open_database_with_flags(
+            self.db_path.clone(),
+            flags,
+            &crate::schema::TabsMigrationLogin,
+        )?;
+        self.db_connection = Some(conn);
+        Ok(self.db_connection.as_ref().unwrap())
     }
 
     pub fn update_local_state(&mut self, local_state: Vec<RemoteTab>) {
@@ -106,20 +157,58 @@ impl TabsStorage {
         None
     }
 
-    pub fn get_remote_tabs(&self) -> Option<Vec<ClientRemoteTabs>> {
-        self.remote_tabs.borrow().clone()
+    pub fn get_remote_tabs(&mut self) -> Option<Vec<ClientRemoteTabs>> {
+        match self.open_if_exists() {
+            Err(e) => {
+                log::error!("Failed to read remote tabs: {}", e);
+                None
+            }
+            Ok(None) => None,
+            Ok(Some(c)) => {
+                match c.query_rows_and_then_cached(
+                    "SELECT payload FROM tabs",
+                    [],
+                    |row| -> Result<_> { Ok(serde_json::from_str(&row.get::<_, String>(0)?)?) },
+                ) {
+                    Ok(crts) => Some(crts),
+                    Err(e) => {
+                        log::error!("Failed to read database: {}", e);
+                        None
+                    }
+                }
+            }
+        }
     }
 
-    pub(crate) fn replace_remote_tabs(&self, new_remote_tabs: Vec<ClientRemoteTabs>) {
-        let mut remote_tabs = self.remote_tabs.borrow_mut();
-        remote_tabs.replace(new_remote_tabs);
+    pub(crate) fn replace_remote_tabs(
+        &mut self,
+        new_remote_tabs: Vec<ClientRemoteTabs>,
+    ) -> Result<()> {
+        let connection = self.open_or_create()?;
+        let tx = connection.unchecked_transaction()?;
+        // delete the world - we rebuild it from scratch every sync.
+        tx.execute_batch("DELETE FROM tabs")?;
+
+        for crt in new_remote_tabs {
+            tx.execute_cached(
+                "INSERT INTO tabs (payload) VALUES (:payload);",
+                rusqlite::named_params! {
+                    ":payload": serde_json::to_string(&crt).expect("tabs don't fail to serialize"),
+                },
+            )?;
+        }
+        tx.commit()?;
+        Ok(())
     }
 
-    pub fn wipe_remote_tabs(&self) {
-        self.remote_tabs.replace(None);
+    pub(crate) fn wipe_remote_tabs(&mut self) -> Result<()> {
+        if let Some(db) = self.open_if_exists()? {
+            db.execute_batch("DELETE FROM tabs")?;
+        }
+        Ok(())
     }
 
-    pub fn wipe_local_tabs(&self) {
+    pub(crate) fn wipe_local_tabs(&self) {
         self.local_tabs.replace(None);
     }
 }
@@ -144,13 +233,27 @@ mod tests {
         assert!(is_url_syncable("https://bobo.com"));
         assert!(is_url_syncable("ftp://bobo.com"));
         assert!(!is_url_syncable("about:blank"));
+        // XXX - this smells wrong - we should insist on a valid complete URL?
         assert!(is_url_syncable("aboutbobo.com"));
         assert!(!is_url_syncable("file:///Users/eoger/bobo"));
     }
 
     #[test]
+    fn test_open_if_exists_no_file() {
+        let dir = tempfile::tempdir().unwrap();
+        let db_name = dir.path().join("test_open_for_read_no_file.db");
+        let mut storage = TabsStorage::new(db_name.clone());
+        assert!(storage.open_if_exists().unwrap().is_none());
+        storage.open_or_create().unwrap(); // will have created it.
+                                           // make a new storage, but leave the file alone.
+        let mut storage = TabsStorage::new(db_name);
+        // db file exists, so opening for read should open it.
+        assert!(storage.open_if_exists().unwrap().is_some());
+    }
+
+    #[test]
     fn test_prepare_local_tabs_for_upload() {
-        let mut storage = TabsStorage::new();
+        let mut storage = TabsStorage::new_with_mem_path("test_prepare_local_tabs_for_upload");
         assert_eq!(storage.prepare_local_tabs_for_upload(), None);
         storage.update_local_state(vec![
             RemoteTab {

@@ -59,7 +59,16 @@ To add a new crate to the distribution:
 1. Add logic to `build-xcframework.sh` to copy or generate its header file into the build.
 1. Add a `#import` for its header file to `MozillaRustComponents.h`
 
-## Testing locally
+
+## Testing local Rust changes
+For testing changes against our project's test suite, you'll need to:
+* Run `./build-xcframework.sh` to build the XCFramework bundle.
+
+>Note: You only need to do this if the underlying rust code changes, if you're just changing *.swift code. You don't need to rebuild!
+* Test the changes either via Xcode or command line:
+  - Xcode: `open megazords/ios-rust/MozillaTestServices.xcodeproj`
+  - Command line: `./automation/run_ios_tests.sh`
+## Testing local changes for consumers
 
 For testing out local changes in a consuming app, you can:
 

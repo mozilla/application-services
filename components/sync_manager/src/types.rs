@@ -1,6 +1,6 @@
 use std::collections::HashMap;
 use std::time::SystemTime;
-use sync15::clients::DeviceType;
+use sync15::DeviceType;
 
 #[derive(Debug)]
 pub struct SyncParams {

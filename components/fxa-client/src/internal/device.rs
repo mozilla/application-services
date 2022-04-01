@@ -2,15 +2,12 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-use std::{
-    collections::{HashMap, HashSet},
-    convert::TryFrom,
-};
+use std::collections::{HashMap, HashSet};
 
 use serde_derive::*;
 
 pub use super::http_client::{
-    DeviceLocation as Location, DeviceType as Type, GetDeviceResponse as Device, PushSubscription,
+    DeviceLocation as Location, GetDeviceResponse as Device, PushSubscription,
 };
 use super::{
     commands::{self, IncomingDeviceCommand},
@@ -18,6 +15,7 @@ use super::{
     http_client::{DeviceUpdateRequest, DeviceUpdateRequestBuilder, PendingCommand},
     telemetry, util, CachedResponse, FirefoxAccount,
 };
+use sync15::DeviceType;
 
 // An devices response is considered fresh for `DEVICES_FRESHNESS_THRESHOLD` ms.
 const DEVICES_FRESHNESS_THRESHOLD: u64 = 60_000; // 1 minute
@@ -98,7 +96,7 @@ impl FirefoxAccount {
     pub fn initialize_device(
         &mut self,
         name: &str,
-        device_type: Type,
+        device_type: DeviceType,
         capabilities: &[Capability],
     ) -> Result<()> {
         let commands = self.register_capabilities(capabilities)?;
@@ -325,7 +323,7 @@ impl FirefoxAccount {
     pub(crate) fn replace_device(
         &mut self,
         display_name: &str,
-        device_type: &Type,
+        device_type: &DeviceType,
         push_subscription: &Option<PushSubscription>,
         commands: &HashMap<String, String>,
     ) -> Result<()> {
@@ -404,39 +402,13 @@ impl TryFrom<Device> for crate::Device {
         Ok(crate::Device {
             id: d.common.id,
             display_name: d.common.display_name,
-            device_type: d.common.device_type.into(),
+            device_type: d.common.device_type,
             capabilities,
             push_subscription: d.common.push_subscription.map(Into::into),
             push_endpoint_expired: d.common.push_endpoint_expired,
             is_current_device: d.is_current_device,
             last_access_time: d.last_access_time.map(TryFrom::try_from).transpose()?,
         })
-    }
-}
-
-impl From<Type> for crate::DeviceType {
-    fn from(type_: Type) -> Self {
-        match type_ {
-            Type::Desktop => crate::DeviceType::Desktop,
-            Type::Mobile => crate::DeviceType::Mobile,
-            Type::Tablet => crate::DeviceType::Tablet,
-            Type::VR => crate::DeviceType::VR,
-            Type::TV => crate::DeviceType::TV,
-            Type::Unknown => crate::DeviceType::Unknown,
-        }
-    }
-}
-
-impl From<crate::DeviceType> for Type {
-    fn from(type_: crate::DeviceType) -> Self {
-        match type_ {
-            crate::DeviceType::Desktop => Type::Desktop,
-            crate::DeviceType::Mobile => Type::Mobile,
-            crate::DeviceType::Tablet => Type::Tablet,
-            crate::DeviceType::VR => Type::VR,
-            crate::DeviceType::TV => Type::TV,
-            crate::DeviceType::Unknown => Type::Unknown,
-        }
     }
 }
 

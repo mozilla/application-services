@@ -11,7 +11,6 @@ use crate::bookmark_sync::engine::{
 use crate::db::PlacesDb;
 use crate::error::*;
 use crate::types::{BookmarkType, SyncStatus};
-use rusqlite::types::ToSql;
 use rusqlite::{self, Connection, Row};
 #[cfg(test)]
 use serde_json::{self, json};
@@ -48,16 +47,16 @@ fn create_root(
         ",
         BookmarkRootGuid::Root.as_guid().as_str()
     );
-    let params: Vec<(&str, &dyn ToSql)> = vec![
-        (":item_type", &BookmarkType::Folder),
-        (":item_position", &position),
-        (":item_title", &title),
-        (":date_added", &when),
-        (":last_modified", &when),
-        (":guid", guid),
-        (":sync_status", &SyncStatus::New),
-    ];
-    db.execute_named_cached(&sql, &params)?;
+    let params = rusqlite::named_params! {
+        ":item_type": &BookmarkType::Folder,
+        ":item_position": &position,
+        ":item_title": &title,
+        ":date_added": &when,
+        ":last_modified": &when,
+        ":guid": guid,
+        ":sync_status": &SyncStatus::New,
+    };
+    db.execute_cached(&sql, params)?;
     Ok(())
 }
 
@@ -91,11 +90,14 @@ fn resolve_pos_for_insert(
         BookmarkPosition::Specific { pos } => {
             let actual = min(pos, parent.child_count);
             // must reorder existing children.
-            db.execute_named_cached(
+            db.execute_cached(
                 "UPDATE moz_bookmarks SET position = position + 1
                  WHERE parent = :parent_id
                  AND position >= :position",
-                &[(":parent_id", &parent.row_id), (":position", &actual)],
+                &[
+                    (":parent_id", &parent.row_id as &dyn rusqlite::ToSql),
+                    (":position", &actual),
+                ],
             )?;
             actual
         }
@@ -106,11 +108,14 @@ fn resolve_pos_for_insert(
 /// Updates the position of existing items so that the deletion of a child
 /// from the position specified leaves all siblings with the correct position.
 fn update_pos_for_deletion(db: &PlacesDb, pos: u32, parent_id: RowId) -> Result<()> {
-    db.execute_named_cached(
+    db.execute_cached(
         "UPDATE moz_bookmarks SET position = position - 1
          WHERE parent = :parent
          AND position >= :position",
-        &[(":parent", &parent_id), (":position", &pos)],
+        &[
+            (":parent", &parent_id as &dyn rusqlite::ToSql),
+            (":position", &pos),
+        ],
     )?;
     Ok(())
 }
@@ -131,7 +136,7 @@ fn update_pos_for_move(
         BookmarkPosition::Specific { pos } => min(pos, parent.child_count - 1),
         BookmarkPosition::Append => parent.child_count - 1,
     };
-    db.execute_named_cached(
+    db.execute_cached(
         "UPDATE moz_bookmarks
          SET position = CASE WHEN :new_index < :cur_index
             THEN position + 1
@@ -140,7 +145,7 @@ fn update_pos_for_move(
          WHERE parent = :parent_id
          AND position BETWEEN :low_index AND :high_index",
         &[
-            (":new_index", &new_index),
+            (":new_index", &new_index as &dyn rusqlite::ToSql),
             (":cur_index", &bm.position),
             (":parent_id", &parent.row_id),
             (":low_index", &min(bm.position, new_index)),
@@ -327,10 +332,10 @@ fn insert_bookmark_in_tx(db: &PlacesDb, bm: InsertableItem) -> Result<SyncGuid> 
     match bm {
         InsertableItem::Bookmark { ref b } => {
             let title = maybe_truncate_title(&b.title.as_deref());
-            db.execute_named_cached(
+            db.execute_cached(
                 sql,
                 &[
-                    (":fk", &fk),
+                    (":fk", &fk as &dyn rusqlite::ToSql),
                     (":type", &bookmark_type),
                     (":parent", &parent.row_id),
                     (":position", &position),
@@ -344,10 +349,10 @@ fn insert_bookmark_in_tx(db: &PlacesDb, bm: InsertableItem) -> Result<SyncGuid> 
             )?;
         }
         InsertableItem::Separator { .. } => {
-            db.execute_named_cached(
+            db.execute_cached(
                 sql,
                 &[
-                    (":type", &bookmark_type),
+                    (":type", &bookmark_type as &dyn rusqlite::ToSql),
                     (":parent", &parent.row_id),
                     (":position", &position),
                     (":dateAdded", &date_added),
@@ -360,10 +365,10 @@ fn insert_bookmark_in_tx(db: &PlacesDb, bm: InsertableItem) -> Result<SyncGuid> 
         }
         InsertableItem::Folder { f } => {
             let title = maybe_truncate_title(&f.title.as_deref());
-            db.execute_named_cached(
+            db.execute_cached(
                 sql,
                 &[
-                    (":type", &bookmark_type),
+                    (":type", &bookmark_type as &dyn rusqlite::ToSql),
                     (":parent", &parent.row_id),
                     (":title", &title),
                     (":position", &position),
@@ -402,7 +407,7 @@ fn insert_bookmark_in_tx(db: &PlacesDb, bm: InsertableItem) -> Result<SyncGuid> 
     let sql_counter = "
         UPDATE moz_bookmarks SET syncChangeCounter = syncChangeCounter + 1
         WHERE id = :parent_id";
-    db.execute_named_cached(sql_counter, &[(":parent_id", &parent.row_id)])?;
+    db.execute_cached(sql_counter, &[(":parent_id", &parent.row_id)])?;
 
     Ok(guid)
 }
@@ -440,7 +445,7 @@ fn delete_bookmark_in_tx(db: &PlacesDb, guid: &SyncGuid) -> Result<bool> {
     // must reorder existing children.
     update_pos_for_deletion(db, record.position, record_parent_id)?;
     // and delete - children are recursively deleted.
-    db.execute_named_cached(
+    db.execute_cached(
         "DELETE from moz_bookmarks WHERE id = :id",
         &[(":id", &record.row_id)],
     )?;
@@ -707,10 +712,10 @@ fn update_bookmark_in_tx(
             syncChangeCounter = syncChangeCounter + :change_incr
         WHERE id = :id";
 
-    db.execute_named_cached(
+    db.execute_cached(
         sql,
         &[
-            (":fk", &place_id),
+            (":fk", &place_id as &dyn rusqlite::ToSql),
             (":parent", &parent_id),
             (":position", &position),
             (":title", &maybe_truncate_title(&title.as_deref())),
@@ -729,11 +734,11 @@ fn update_bookmark_in_tx(
     // isn't.
     set_ancestors_last_modified(db, existing_parent_id, now)?;
     if update_old_parent_status {
-        db.execute_named_cached(sql_counter, &[(":parent_id", &existing_parent_id)])?;
+        db.execute_cached(sql_counter, &[(":parent_id", &existing_parent_id)])?;
     }
     if update_new_parent_status {
         set_ancestors_last_modified(db, parent_id, now)?;
-        db.execute_named_cached(sql_counter, &[(":parent_id", &parent_id)])?;
+        db.execute_cached(sql_counter, &[(":parent_id", &parent_id)])?;
     }
     Ok(())
 }
@@ -751,10 +756,10 @@ fn set_ancestors_last_modified(db: &PlacesDb, parent_id: RowId, time: Timestamp)
         UPDATE moz_bookmarks SET lastModified = :time
         WHERE id IN ancestors
     ";
-    db.execute_named_cached(
+    db.execute_cached(
         sql,
         &[
-            (":parent_id", &parent_id),
+            (":parent_id", &parent_id as &dyn rusqlite::ToSql),
             (":type", &(BookmarkType::Folder as u8)),
             (":time", &time),
         ],
@@ -1007,7 +1012,6 @@ mod tests {
     use crate::tests::{append_invalid_bookmark, assert_json_tree, insert_json_tree};
     use json_tree::*;
     use pretty_assertions::assert_eq;
-    use rusqlite::NO_PARAMS;
     use serde_json::Value;
     use std::collections::HashSet;
 
@@ -1024,7 +1028,7 @@ mod tests {
 
         let url = Url::parse("http://example.com").expect("valid url");
 
-        conn.execute_named_cached(
+        conn.execute_cached(
             "INSERT INTO moz_places (guid, url, url_hash) VALUES ('fake_guid___', :url, hash(:url))",
             &[(":url", &String::from(url))],
         )
@@ -1032,7 +1036,7 @@ mod tests {
         let place_id = conn.last_insert_rowid();
 
         // create a bookmark with keyword 'donut' pointing at it.
-        conn.execute_named_cached(
+        conn.execute_cached(
             "INSERT INTO moz_keywords
                 (keyword, place_id)
             VALUES
@@ -1048,7 +1052,7 @@ mod tests {
         assert_eq!(bookmarks_get_url_for_keyword(&conn, "juice")?, None);
 
         // now change the keyword to 'ice cream'
-        conn.execute_named_cached(
+        conn.execute_cached(
             "REPLACE INTO moz_keywords
                 (keyword, place_id)
             VALUES
@@ -1076,7 +1080,7 @@ mod tests {
                 .place_id;
 
         // create a bookmark with keyword 'donut' pointing at it.
-        conn.execute_named_cached(
+        conn.execute_cached(
             "INSERT INTO moz_keywords
                 (keyword, place_id)
             VALUES
@@ -1095,7 +1099,7 @@ mod tests {
         let conn = new_mem_connection();
         let url = Url::parse("https://www.example.com")?;
 
-        conn.execute("UPDATE moz_bookmarks SET syncChangeCounter = 0", NO_PARAMS)
+        conn.execute("UPDATE moz_bookmarks SET syncChangeCounter = 0", [])
             .expect("should work");
 
         let global_change_tracker = conn.global_bookmark_change_tracker();
@@ -1214,7 +1218,7 @@ mod tests {
                 "UPDATE moz_bookmarks SET syncChangeCounter = 1, syncStatus = {}",
                 SyncStatus::Normal as u8
             ),
-            NO_PARAMS,
+            [],
         )
         .expect("should work");
 
@@ -1537,7 +1541,7 @@ mod tests {
             }),
         );
 
-        conn.execute("UPDATE moz_bookmarks SET syncChangeCounter = 0", NO_PARAMS)
+        conn.execute("UPDATE moz_bookmarks SET syncChangeCounter = 0", [])
             .expect("should work");
 
         // Update of None means no change.
@@ -1594,9 +1598,7 @@ mod tests {
             let sql = "SELECT guid FROM moz_bookmarks WHERE syncChangeCounter != 0";
             let mut stmt = conn.prepare(sql).expect("sql is ok");
             let got_guids: HashSet<String> = stmt
-                .query_and_then(NO_PARAMS, |row| -> rusqlite::Result<_> {
-                    row.get::<_, String>(0)
-                })
+                .query_and_then([], |row| -> rusqlite::Result<_> { row.get::<_, String>(0) })
                 .expect("should work")
                 .map(std::result::Result::unwrap)
                 .collect();
@@ -1606,7 +1608,7 @@ mod tests {
                 guids.into_iter().map(ToString::to_string).collect()
             );
             // reset them all back
-            conn.execute("UPDATE moz_bookmarks SET syncChangeCounter = 0", NO_PARAMS)
+            conn.execute("UPDATE moz_bookmarks SET syncChangeCounter = 0", [])
                 .expect("should work");
         };
 
@@ -1616,9 +1618,7 @@ mod tests {
 
             let mut stmt = conn.prepare(sql).expect("sql is ok");
             let got_guids: HashSet<String> = stmt
-                .query_and_then(NO_PARAMS, |row| -> rusqlite::Result<_> {
-                    row.get::<_, String>(0)
-                })
+                .query_and_then([], |row| -> rusqlite::Result<_> { row.get::<_, String>(0) })
                 .expect("should work")
                 .map(std::result::Result::unwrap)
                 .collect();
@@ -1628,7 +1628,7 @@ mod tests {
                 guids.into_iter().map(ToString::to_string).collect()
             );
             // reset them all back
-            conn.execute("UPDATE moz_bookmarks SET lastModified = 123", NO_PARAMS)
+            conn.execute("UPDATE moz_bookmarks SET lastModified = 123", [])
                 .expect("should work");
         };
 
@@ -1664,7 +1664,7 @@ mod tests {
         // reset all statuses and timestamps.
         conn.execute(
             "UPDATE moz_bookmarks SET syncChangeCounter = 0, lastModified = 123",
-            NO_PARAMS,
+            [],
         )?;
 
         // update a title - should get a change counter.
@@ -1892,7 +1892,7 @@ mod tests {
                      syncStatus = {}",
                 (SyncStatus::Normal as u8)
             ),
-            NO_PARAMS,
+            [],
         )?;
 
         let bmk = get_raw_bookmark(&conn, &"bookmarkAAAA".into())?

@@ -13,9 +13,9 @@ use crate::schema;
 use crate::util;
 use crate::LoginDb;
 use crate::LoginStore;
-use rusqlite::{named_params, NO_PARAMS};
-use sql_support::SqlInterruptScope;
-use sql_support::{self, ConnExt};
+use interrupt_support::SqlInterruptScope;
+use rusqlite::named_params;
+use sql_support::ConnExt;
 use std::collections::HashSet;
 use std::sync::Arc;
 use sync15::{
@@ -27,7 +27,7 @@ use sync_guid::Guid;
 // The sync engine.
 pub struct LoginsSyncEngine {
     pub store: Arc<LoginStore>,
-    pub scope: sql_support::SqlInterruptScope,
+    pub scope: SqlInterruptScope,
     // It's unfortunate this is an Option<>, but tricky to change because sometimes we construct
     // an engine for, say, a `reset()` where this isn't needed or known.
     encdec: Option<EncryptorDecryptor>,
@@ -41,13 +41,13 @@ impl LoginsSyncEngine {
         })
     }
 
-    pub fn new(store: Arc<LoginStore>) -> Self {
-        let scope = store.db.lock().begin_interrupt_scope();
-        Self {
+    pub fn new(store: Arc<LoginStore>) -> Result<Self> {
+        let scope = store.db.lock().begin_interrupt_scope()?;
+        Ok(Self {
             store,
             scope,
             encdec: None,
-        }
+        })
     }
 
     fn reconcile(
@@ -198,7 +198,7 @@ impl LoginsSyncEngine {
                 let db = &self.store.db.lock();
                 let mut stmt = db.prepare(&query)?;
 
-                let rows = stmt.query_and_then(chunk, |row| {
+                let rows = stmt.query_and_then(rusqlite::params_from_iter(chunk), |row| {
                     let guid_idx_i = row.get::<_, i64>("guid_idx")?;
                     // Hitting this means our math is wrong...
                     assert!(guid_idx_i >= 0);
@@ -236,7 +236,7 @@ impl LoginsSyncEngine {
             "SELECT * FROM loginsL WHERE sync_status IS NOT {synced}",
             synced = SyncStatus::Synced as u8
         ))?;
-        let rows = stmt.query_and_then(NO_PARAMS, |row| {
+        let rows = stmt.query_and_then([], |row| {
             scope.err_if_interrupted()?;
             Ok(if row.get::<_, bool>("is_deleted")? {
                 Payload::new_tombstone(row.get::<_, String>("guid")?)
@@ -308,7 +308,7 @@ impl LoginsSyncEngine {
                     "DELETE FROM loginsM WHERE guid IN ({vars})",
                     vars = sql_support::repeat_sql_vars(chunk.len())
                 ),
-                chunk,
+                rusqlite::params_from_iter(chunk),
             )?;
             scope.err_if_interrupted()?;
 
@@ -324,7 +324,7 @@ impl LoginsSyncEngine {
                     modified_ms_i64 = ts.as_millis() as i64,
                     vars = sql_support::repeat_sql_vars(chunk.len())
                 ),
-                chunk,
+                rusqlite::params_from_iter(chunk),
             )?;
             scope.err_if_interrupted()?;
 
@@ -333,7 +333,7 @@ impl LoginsSyncEngine {
                     "DELETE FROM loginsL WHERE guid IN ({vars})",
                     vars = sql_support::repeat_sql_vars(chunk.len())
                 ),
-                chunk,
+                rusqlite::params_from_iter(chunk),
             )?;
             scope.err_if_interrupted()?;
             Ok(())
@@ -404,7 +404,7 @@ impl LoginsSyncEngine {
         let db = self.store.db.lock();
         let mut stmt = db.prepare_cached(&query)?;
         for login in stmt
-            .query_and_then_named(args, EncryptedLogin::from_row)?
+            .query_and_then(args, EncryptedLogin::from_row)?
             .collect::<Result<Vec<EncryptedLogin>>>()?
         {
             let this_enc_fields = login.decrypt_fields(encdec)?;
@@ -500,7 +500,7 @@ mod tests {
         store: LoginStore,
         records: &[(sync15::Payload, ServerTimestamp)],
     ) -> (Vec<SyncLoginData>, telemetry::EngineIncoming) {
-        let mut engine = LoginsSyncEngine::new(Arc::new(store));
+        let mut engine = LoginsSyncEngine::new(Arc::new(store)).unwrap();
         engine
             .set_local_encryption_key(&TEST_ENCRYPTION_KEY)
             .unwrap();
@@ -514,7 +514,7 @@ mod tests {
     }
 
     fn run_fetch_outgoing(store: LoginStore) -> OutgoingChangeset {
-        let mut engine = LoginsSyncEngine::new(Arc::new(store));
+        let mut engine = LoginsSyncEngine::new(Arc::new(store)).unwrap();
         engine
             .set_local_encryption_key(&TEST_ENCRYPTION_KEY)
             .unwrap();
@@ -791,7 +791,7 @@ mod tests {
             .record
             .id;
 
-        let mut engine = LoginsSyncEngine::new(Arc::new(store));
+        let mut engine = LoginsSyncEngine::new(Arc::new(store)).unwrap();
         engine
             .set_local_encryption_key(&TEST_ENCRYPTION_KEY)
             .unwrap();

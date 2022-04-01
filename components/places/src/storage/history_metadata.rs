@@ -6,7 +6,6 @@ use crate::db::{PlacesDb, PlacesTransaction};
 use crate::error::*;
 use rusqlite::types::{FromSql, FromSqlResult, ToSql, ToSqlOutput, ValueRef};
 use sql_support::ConnExt;
-use std::convert::TryFrom;
 use std::vec::Vec;
 use sync_guid::Guid as SyncGuid;
 use types::Timestamp;
@@ -179,10 +178,10 @@ impl DatabaseId for PlaceEntry {
 
                 let guid = SyncGuid::random();
 
-                tx.execute_named_cached(
+                tx.execute_cached(
                     sql,
                     &[
-                        (":guid", &guid),
+                        (":guid", &guid as &dyn rusqlite::ToSql),
                         (":title", &title),
                         (":url", &url.as_str()),
                     ],
@@ -203,7 +202,7 @@ impl DatabaseId for SearchQueryEntry {
         Ok(match self {
             SearchQueryEntry::Existing(id) => *id,
             SearchQueryEntry::CreateFor(term) => {
-                tx.execute_named_cached(
+                tx.execute_cached(
                     "INSERT INTO moz_places_metadata_search_queries(term) VALUES (:term)",
                     &[(":term", &term)],
                 )?;
@@ -292,7 +291,7 @@ impl HistoryMetadataCompoundKey {
                     Some(PlaceEntry::Existing(id)) => Some(id),
                 };
 
-                tx.try_query_one::<i64>(
+                tx.try_query_one::<i64, _>(
                     "SELECT id FROM moz_places_metadata
                         WHERE
                             place_id IS :place_id AND
@@ -431,7 +430,7 @@ pub fn get_latest_for_url(db: &PlacesDb, url: &Url) -> Result<Option<HistoryMeta
 }
 
 pub fn get_between(db: &PlacesDb, start: i64, end: i64) -> Result<Vec<HistoryMetadata>> {
-    db.query_rows_and_then_named_cached(
+    db.query_rows_and_then_cached(
         GET_BETWEEN_SQL.as_str(),
         rusqlite::named_params! {
             ":start": start,
@@ -442,7 +441,7 @@ pub fn get_between(db: &PlacesDb, start: i64, end: i64) -> Result<Vec<HistoryMet
 }
 
 pub fn get_since(db: &PlacesDb, start: i64) -> Result<Vec<HistoryMetadata>> {
-    db.query_rows_and_then_named_cached(
+    db.query_rows_and_then_cached(
         GET_SINCE_SQL.as_str(),
         rusqlite::named_params! {
             ":start": start
@@ -456,7 +455,7 @@ pub fn get_highlights(
     weights: HistoryHighlightWeights,
     limit: i32,
 ) -> Result<Vec<HistoryHighlight>> {
-    db.query_rows_and_then_named_cached(
+    db.query_rows_and_then_cached(
         HIGHLIGHTS_QUERY,
         rusqlite::named_params! {
             ":view_time_weight": weights.view_time,
@@ -468,7 +467,7 @@ pub fn get_highlights(
 }
 
 pub fn query(db: &PlacesDb, query: &str, limit: i32) -> Result<Vec<HistoryMetadata>> {
-    db.query_rows_and_then_named_cached(
+    db.query_rows_and_then_cached(
         QUERY_SQL.as_str(),
         rusqlite::named_params! {
             ":query": format!("%{}%", query),
@@ -479,7 +478,7 @@ pub fn query(db: &PlacesDb, query: &str, limit: i32) -> Result<Vec<HistoryMetada
 }
 
 pub fn delete_older_than(db: &PlacesDb, older_than: i64) -> Result<()> {
-    db.execute_named_cached(
+    db.execute_cached(
         "DELETE FROM moz_places_metadata
          WHERE updated_at < :older_than",
         &[(":older_than", &older_than)],
@@ -542,7 +541,7 @@ pub fn delete_metadata(
         search_query_entry.to_where_arg("search_query_id")
     );
 
-    tx.execute_named_cached(&sql, &[])?;
+    tx.execute_cached(&sql, [])?;
     tx.commit()?;
 
     Ok(())
@@ -628,7 +627,7 @@ fn apply_metadata_observation_impl(
                     document_type: Some(dt),
                     view_time,
                 } => {
-                    tx.execute_named_cached(
+                    tx.execute_cached(
                         "UPDATE
                             moz_places_metadata
                         SET
@@ -648,7 +647,7 @@ fn apply_metadata_observation_impl(
                     document_type: None,
                     view_time,
                 } => {
-                    tx.execute_named_cached(
+                    tx.execute_cached(
                         "UPDATE
                             moz_places_metadata
                         SET
@@ -695,10 +694,10 @@ fn insert_metadata_in_tx(
     VALUES
         (:place_id, :created_at, :updated_at, :total_view_time, :search_query_id, :document_type, :referrer_place_id)";
 
-    tx.execute_named_cached(
+    tx.execute_cached(
         sql,
         &[
-            (":place_id", &place_id),
+            (":place_id", &place_id as &dyn rusqlite::ToSql),
             (":created_at", &now),
             (":updated_at", &now),
             (":search_query_id", &search_query_id),
@@ -726,9 +725,9 @@ mod tests {
             assert_eq!(
                 $count,
                 $conn
-                    .try_query_one::<i64>(
+                    .try_query_one::<i64, _>(
                         format!("SELECT count(*) FROM {table}", table = $table).as_str(),
-                        &[],
+                        [],
                         true
                     )
                     .expect("select works")
@@ -1807,9 +1806,9 @@ mod tests {
 
         // double-check that we have the 'firefox' search query entry.
         assert!(conn
-            .try_query_one::<i64>(
+            .try_query_one::<i64, _>(
                 "SELECT id FROM moz_places_metadata_search_queries WHERE term = :term",
-                &[(":term", &String::from("firefox"))],
+                rusqlite::named_params! { ":term": "firefox" },
                 true
             )
             .expect("select works")
@@ -1840,9 +1839,9 @@ mod tests {
 
         // still have a 'mozilla' search query entry, since one meta entry points to it.
         assert!(
-            conn.try_query_one::<i64>(
+            conn.try_query_one::<i64, _>(
                 "SELECT id FROM moz_places_metadata_search_queries WHERE term = :term",
-                &[(":term", &String::from("mozilla"))],
+                rusqlite::named_params! { ":term": "mozilla" },
                 true
             )
             .expect("select works")
@@ -1852,9 +1851,9 @@ mod tests {
 
         // don't have the 'firefox' search query entry anymore, nothing points to it.
         assert!(
-            conn.try_query_one::<i64>(
+            conn.try_query_one::<i64, _>(
                 "SELECT id FROM moz_places_metadata_search_queries WHERE term = :term",
-                &[(":term", &String::from("firefox"))],
+                rusqlite::named_params! { ":term": "firefox" },
                 true
             )
             .expect("select works")

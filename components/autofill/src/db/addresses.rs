@@ -12,7 +12,7 @@ use crate::db::{
 };
 use crate::error::*;
 
-use rusqlite::{Connection, Transaction, NO_PARAMS};
+use rusqlite::{Connection, Transaction};
 use sync_guid::Guid;
 use types::Timestamp;
 
@@ -51,7 +51,7 @@ pub(crate) fn add_address(
 }
 
 pub(crate) fn add_internal_address(tx: &Transaction<'_>, address: &InternalAddress) -> Result<()> {
-    tx.execute_named(
+    tx.execute(
         &format!(
             "INSERT INTO addresses_data (
                 {common_cols},
@@ -114,7 +114,7 @@ pub(crate) fn get_all_addresses(conn: &Connection) -> Result<Vec<InternalAddress
 
     let mut stmt = conn.prepare(&sql)?;
     let addresses = stmt
-        .query_map(NO_PARAMS, InternalAddress::from_row)?
+        .query_map([], InternalAddress::from_row)?
         .collect::<std::result::Result<Vec<InternalAddress>, _>>()?;
     Ok(addresses)
 }
@@ -127,7 +127,7 @@ pub(crate) fn update_address(
     address: &UpdatableAddressFields,
 ) -> Result<()> {
     let tx = conn.unchecked_transaction()?;
-    tx.execute_named(
+    tx.execute(
         "UPDATE addresses_data
         SET given_name         = :given_name,
             additional_name     = :additional_name,
@@ -173,7 +173,7 @@ pub(crate) fn update_internal_address(
     flag_as_changed: bool,
 ) -> Result<()> {
     let change_counter_increment = flag_as_changed as u32; // will be 1 or 0
-    let rows_changed = tx.execute_named(
+    let rows_changed = tx.execute(
         "UPDATE addresses_data SET
             given_name          = :given_name,
             additional_name     = :additional_name,
@@ -223,8 +223,8 @@ pub(crate) fn update_internal_address(
 pub(crate) fn delete_address(conn: &Connection, guid: &Guid) -> Result<bool> {
     let tx = conn.unchecked_transaction()?;
 
-    // execute_named returns how many rows were affected.
-    let exists = tx.execute_named(
+    // execute returns how many rows were affected.
+    let exists = tx.execute(
         "DELETE FROM addresses_data
             WHERE guid = :guid",
         rusqlite::named_params! {
@@ -239,7 +239,7 @@ pub fn touch(conn: &Connection, guid: &Guid) -> Result<()> {
     let tx = conn.unchecked_transaction()?;
     let now_ms = Timestamp::now();
 
-    tx.execute_named(
+    tx.execute(
         "UPDATE addresses_data
         SET time_last_used              = :time_last_used,
             times_used                  = times_used + 1,
@@ -271,7 +271,7 @@ mod tests {
             "SELECT guid FROM {table_name}",
             table_name = table_name
         ))?;
-        let rows = stmt.query_map(NO_PARAMS, |row| row.get(0))?;
+        let rows = stmt.query_map([], |row| row.get(0))?;
 
         let mut guids = Vec::new();
         for guid_result in rows {
@@ -285,7 +285,7 @@ mod tests {
         conn: &Connection,
         guid: String,
     ) -> rusqlite::Result<usize, rusqlite::Error> {
-        conn.execute_named(
+        conn.execute(
             "INSERT INTO addresses_tombstones (
                 guid,
                 time_deleted
@@ -548,7 +548,7 @@ mod tests {
     fn test_address_delete() {
         fn num_tombstones(conn: &Connection) -> u32 {
             let stmt = "SELECT COUNT(*) from addresses_tombstones";
-            conn.query_row(stmt, NO_PARAMS, |row| Ok(row.get::<_, u32>(0).unwrap()))
+            conn.query_row(stmt, [], |row| Ok(row.get::<_, u32>(0).unwrap()))
                 .unwrap()
         }
 
@@ -590,7 +590,7 @@ mod tests {
                 "INSERT INTO addresses_mirror (guid, payload) VALUES ('{}', 'whatever')",
                 saved_address.guid,
             ),
-            NO_PARAMS,
+            [],
         )
         .expect("manual insert into mirror");
         delete_address(&db, &saved_address.guid).expect("2nd delete");

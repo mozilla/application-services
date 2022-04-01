@@ -19,10 +19,7 @@ use anyhow::{bail, Result};
 use clap::{App, ArgMatches};
 use serde::Deserialize;
 
-use std::{
-    convert::{TryFrom, TryInto},
-    path::{Path, PathBuf},
-};
+use std::path::{Path, PathBuf};
 
 const RELEASE_CHANNEL: &str = "release";
 
@@ -183,6 +180,8 @@ pub enum TargetLanguage {
     Kotlin,
     Swift,
     IR,
+    ExperimenterYAML,
+    ExperimenterJSON,
 }
 
 impl TargetLanguage {
@@ -192,6 +191,8 @@ impl TargetLanguage {
             TargetLanguage::Kotlin => "kt",
             TargetLanguage::Swift => "swift",
             TargetLanguage::IR => "fml.json",
+            TargetLanguage::ExperimenterJSON => "json",
+            TargetLanguage::ExperimenterYAML => "yaml",
         }
     }
 }
@@ -202,6 +203,8 @@ impl TryFrom<&str> for TargetLanguage {
         Ok(match value.to_ascii_lowercase().as_str() {
             "kotlin" | "kt" | "kts" => TargetLanguage::Kotlin,
             "swift" => TargetLanguage::Swift,
+            "yaml" => TargetLanguage::ExperimenterYAML,
+            "json" => TargetLanguage::ExperimenterJSON,
             _ => bail!("Unknown or unsupported target language: \"{}\"", value),
         })
     }

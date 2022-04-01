@@ -124,7 +124,7 @@ impl ConcreteCodeOracle {
             TypeIdentifier::EnumMap(ref k_type, ref v_type) => {
                 Box::new(structural::MapCodeType::new(k_type, v_type))
             }
-            _ => unimplemented!(),
+            _ => unimplemented!("Text and Image are to be implemented in EXP-2147"),
         }
     }
 }

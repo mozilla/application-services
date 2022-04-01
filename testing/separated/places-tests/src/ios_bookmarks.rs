@@ -245,7 +245,7 @@ impl IosTree {
             } else {
                 &self.get_nodes(dest.opposite())[&node.parentid]
             };
-            stmt.execute_named(rusqlite::named_params! {
+            stmt.execute(rusqlite::named_params! {
                 ":guid": node.guid.as_str(),
                 ":type": node.ty as u8,
                 ":parentid": node.parentid.as_str(),
@@ -283,7 +283,7 @@ impl IosTree {
                 let idx = nodes[kid_id]
                     .hacky_force_structure_pos
                     .unwrap_or(pos as i64);
-                stmt.execute_named(rusqlite::named_params! {
+                stmt.execute(rusqlite::named_params! {
                     ":parent": node.guid.as_str(),
                     ":child": kid_id.as_str(),
                     ":idx": idx,

@@ -10,15 +10,18 @@ import androidx.test.core.app.ApplicationProvider
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.asCoroutineDispatcher
 import org.json.JSONObject
+import org.junit.Assert
+import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
+import org.junit.Assert.assertNotNull
+import org.junit.Assert.assertNull
 import org.junit.Assert.assertThrows
 import org.junit.Assert.assertTrue
 import org.junit.Test
 import org.junit.runner.RunWith
-import org.mozilla.experiments.nimbus.internal.AvailableRandomizationUnits
-import org.mozilla.experiments.nimbus.internal.NimbusClient
 import org.mozilla.experiments.nimbus.internal.NimbusException
 import org.robolectric.RobolectricTestRunner
+import java.util.UUID
 import java.util.concurrent.Executors
 
 @RunWith(RobolectricTestRunner::class)
@@ -74,7 +77,6 @@ class GleanPlumbTests {
         )
         nimbus.initializeOnThisThread()
 
-        val messageHelper = nimbus.createMessageHelper()
         // Evaluate two different expressions that give true and false answers
         // to prove we're actually parsing JEXL, rather than always returning true.
         val context = JSONObject(
@@ -83,20 +85,21 @@ class GleanPlumbTests {
                 }""".trimIndent()
         )
 
-        assertThrows("invalid jexl", NimbusException::class.java) {
+        assertThrows("no context, so no variable", NimbusException::class.java) {
+            val messageHelper = nimbus.createMessageHelper()
             messageHelper.evalJexl("test_value_from_json == 42")
         }
 
+        val messageHelper = nimbus.createMessageHelper(context)
         assertTrue(
             messageHelper.evalJexl(
-                "test_value_from_json == 42",
-                context
+                "test_value_from_json == 42"
             )
         )
     }
 
-    fun `invalid json throws an exception`() {
-        // This is only a problem if we allow access to strings being sent directly into Rust.
+    @Test
+    fun `test string helper shows a uuid`() {
         val developmentAppInfo = NimbusAppInfo(appName = "ThatApp", channel = "production")
 
         val nimbus = Nimbus(
@@ -108,31 +111,28 @@ class GleanPlumbTests {
         )
         nimbus.initializeOnThisThread()
 
-        val nimbusClient = NimbusClient(
-            nimbus.buildExperimentContext(context, developmentAppInfo, deviceInfo),
-            context.dataDir.absolutePath + "/test-path",
-            null,
-            AvailableRandomizationUnits(null, 0)
+        // We're going to substitute variables from the app context and the json context
+        val context = JSONObject(
+            """{
+                    "test_string": "foobar"
+                }""".trimIndent()
         )
 
-        val helper = nimbusClient.createTargetingHelper()
-        assertTrue(helper.evalJexl("true", null))
-        assertTrue(helper.evalJexl("true", "{}"))
+        val helper = nimbus.createMessageHelper(context)
+        val t1 = "{test_string} for {app_name}"
 
-        assertThrows("invalid json", NimbusException::class.java) {
-            helper.evalJexl("true", "{")
-        }
+        assertNull(helper.getUuid(t1))
+        assertEquals(helper.stringFormat(t1), "foobar for ThatApp")
 
-        assertThrows("not an object", NimbusException::class.java) {
-            helper.evalJexl("true", "[]")
-        }
-
-        assertThrows("not an object", NimbusException::class.java) {
-            helper.evalJexl("true", "1")
-        }
-
-        assertThrows("not an object", NimbusException::class.java) {
-            helper.evalJexl("true", "true")
+        // We're also going to show we can use UUIDs
+        val t2 = "{uuid}"
+        val uuid = helper.getUuid(t2)
+        assertNotNull(uuid)
+        try {
+            UUID.fromString(uuid!!)
+            UUID.fromString(helper.stringFormat(t2, uuid))
+        } catch (e: IllegalArgumentException) {
+            Assert.fail("Not a valid UUID given by {uuid}")
         }
     }
 }

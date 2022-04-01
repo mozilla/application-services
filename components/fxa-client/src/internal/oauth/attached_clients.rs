@@ -2,8 +2,6 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-use std::convert::{TryFrom, TryInto};
-
 pub use super::super::http_client::GetAttachedClientResponse as AttachedClient;
 use super::super::{error::*, util, CachedResponse, FirefoxAccount};
 
@@ -52,11 +50,9 @@ impl TryFrom<AttachedClient> for crate::AttachedClient {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::internal::{
-        config::Config,
-        http_client::{DeviceType, FxAClientMock},
-    };
+    use crate::internal::{config::Config, http_client::FxAClientMock};
     use std::sync::Arc;
+    use sync15::DeviceType;
 
     #[test]
     fn test_get_attached_clients() {

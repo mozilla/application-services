@@ -149,7 +149,7 @@ impl<'db, 's> FrecencyComputation<'db, 's> {
             WHERE id = :page_id
         ",
         )?;
-        let mut rows = stmt.query_named(&[(":page_id", &page_id)])?;
+        let mut rows = stmt.query(&[(":page_id", &page_id)])?;
         let row = rows.next()?.ok_or(rusqlite::Error::QueryReturnedNoRows)?;
         let typed: i32 = row.get("typed")?;
         let visit_count: i32 = row.get("visit_count")?;
@@ -201,7 +201,7 @@ impl<'db, 's> FrecencyComputation<'db, 's> {
 
         let now = Timestamp::now();
 
-        let row_iter = stmt.query_and_then_named(
+        let row_iter = stmt.query_and_then(
             &[(":page_id", &self.page_id)],
             |row| -> rusqlite::Result<_> {
                 let visit_type = row.get::<_, Option<u8>>("visit_type")?.unwrap_or(0);

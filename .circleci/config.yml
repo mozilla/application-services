@@ -13,7 +13,7 @@ commands:
   setup-rust-min-version:
     steps:
       # https://searchfox.org/mozilla-central/source/python/mozboot/mozboot/util.py#20
-      - run: rustup override set 1.53.0
+      - run: rustup override set 1.57.0
 
   full-checkout:
     steps:
@@ -201,14 +201,6 @@ commands:
             fi
       - build-ios-libs
       - run:
-          name: Set up the build environment
-          command: |
-            # See #4163 - brew will fail because this six.py already exists.
-            # This is clearly unsatisfactory, but works, so :shrug
-            rm /usr/local/lib/python3.9/site-packages/six.py
-
-            brew install swift-protobuf --force
-      - run:
           name: Verify the build environment
           command: ./libs/verify-ios-ci-environment.sh
 
@@ -358,13 +350,6 @@ jobs:
       - store_artifacts:
           path: raw_xcodetest.log
           destination: logs/raw_xcodetest.log
-      - run:
-          name: (Optional) Run firefox-ios tests
-          command: |
-            # Only run these on PRs.
-            if [ -n "${CIRCLE_PULL_REQUEST}" ]; then
-              ./automation/maybe_run_fxios_tests.py << pipeline.git.base_revision >>
-            fi
       - save-sccache-cache:
           path: "~/Library/Caches/Mozilla.sccache"
   XCFramework release:

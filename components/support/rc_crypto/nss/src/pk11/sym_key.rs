@@ -8,7 +8,6 @@ use crate::{
     util::{ensure_nss_initialized, map_nss_secstatus, sec_item_as_slice, ScopedPtr},
 };
 use std::{
-    convert::TryFrom,
     mem,
     os::raw::{c_uchar, c_uint, c_ulong},
     ptr,

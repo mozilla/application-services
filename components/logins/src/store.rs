@@ -24,12 +24,25 @@ pub fn get_registered_sync_engine(engine_id: &SyncEngineId) -> Option<Box<dyn Sy
     let weak = STORE_FOR_MANAGER.lock();
     match weak.upgrade() {
         None => None,
-        Some(store) => match engine_id {
-            SyncEngineId::Passwords => Some(Box::new(LoginsSyncEngine::new(Arc::clone(&store)))),
-            // panicing here seems reasonable - it's a static error if this
-            // it hit, not something that runtime conditions can influence.
-            _ => unreachable!("can't provide unknown engine: {}", engine_id),
+        Some(store) => match create_sync_engine(store, engine_id) {
+            Ok(engine) => Some(engine),
+            Err(e) => {
+                log::error!("logins: get_registered_sync_engine: {}", e);
+                None
+            }
         },
+    }
+}
+
+fn create_sync_engine(
+    store: Arc<LoginStore>,
+    engine_id: &SyncEngineId,
+) -> Result<Box<dyn SyncEngine>> {
+    match engine_id {
+        SyncEngineId::Passwords => Ok(Box::new(LoginsSyncEngine::new(Arc::clone(&store))?)),
+        // panicing here seems reasonable - it's a static error if this
+        // it hit, not something that runtime conditions can influence.
+        _ => unreachable!("can't provide unknown engine: {}", engine_id),
     }
 }
 
@@ -80,7 +93,7 @@ impl LoginStore {
         // TODO: this is exposed to android-components consumers - we should
         // check if anyone actually calls it.
         let db = self.db.lock();
-        let scope = db.begin_interrupt_scope();
+        let scope = db.begin_interrupt_scope()?;
         db.wipe(&scope)?;
         Ok(())
     }
@@ -94,7 +107,7 @@ impl LoginStore {
         // Reset should not exist here - all resets should be done via the
         // sync manager. It seems that actual consumers don't use this, but
         // some tests do, so it remains for now.
-        let engine = LoginsSyncEngine::new(Arc::clone(&self));
+        let engine = LoginsSyncEngine::new(Arc::clone(&self))?;
         engine.do_reset(&EngineSyncAssociation::Disconnected)?;
         Ok(())
     }
@@ -133,7 +146,7 @@ impl LoginStore {
         tokenserver_url: String,
         local_encryption_key: String,
     ) -> Result<String> {
-        let mut engine = LoginsSyncEngine::new(Arc::clone(&self));
+        let mut engine = LoginsSyncEngine::new(Arc::clone(&self))?;
         engine
             .set_local_encryption_key(&local_encryption_key)
             .unwrap();
@@ -192,8 +205,8 @@ impl LoginStore {
     // We could probably make the example work with the sync manager - but then
     // our example would link with places and logins etc, and it's not a big
     // deal really.
-    pub fn create_logins_sync_engine(self: Arc<Self>) -> Box<dyn SyncEngine> {
-        Box::new(LoginsSyncEngine::new(self))
+    pub fn create_logins_sync_engine(self: Arc<Self>) -> Result<Box<dyn SyncEngine>> {
+        Ok(Box::new(LoginsSyncEngine::new(self)?))
     }
 }
 

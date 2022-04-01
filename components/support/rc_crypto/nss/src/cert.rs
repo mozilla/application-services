@@ -6,7 +6,6 @@ use crate::error::*;
 use crate::pk11::types::{Certificate, PublicKey};
 use crate::util::{ensure_nss_initialized, sec_item_as_slice, ScopedPtr};
 use nss_sys::{CERT_ExtractPublicKey, CERT_GetDefaultCertDB, CERT_NewTempCertificate};
-use std::convert::TryFrom;
 
 pub fn extract_ec_public_key(der: &[u8]) -> Result<Vec<u8>> {
     ensure_nss_initialized();

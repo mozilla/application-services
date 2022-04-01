@@ -92,7 +92,8 @@ CFLAGS_x86_64_apple_ios="-target x86_64-apple-ios" \
 cargo_build aarch64-apple-ios
 
 # M1 iOS simulator.
-cargo_build aarch64-apple-ios-sim
+CFLAGS_aarch64_apple_ios_sim="--target aarch64-apple-ios-sim" \
+  cargo_build aarch64-apple-ios-sim
 
 # TODO: would it be useful to also include desktop builds here?
 # It might make it possible to run the Swift tests via `swift test`

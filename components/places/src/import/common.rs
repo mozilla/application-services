@@ -24,7 +24,6 @@ pub mod sql_fns {
     use crate::import::common::NOW;
     use crate::storage::URL_LENGTH_MAX;
     use rusqlite::{functions::Context, types::ValueRef, Result};
-    use std::convert::TryFrom;
     use types::Timestamp;
     use url::Url;
 
@@ -84,7 +83,7 @@ pub fn attached_database<'a>(
     path: &Url,
     db_alias: &'static str,
 ) -> Result<ExecuteOnDrop<'a>> {
-    conn.execute_named(
+    conn.execute(
         "ATTACH DATABASE :path AS :db_alias",
         named_params! {
             ":path": path.as_str(),

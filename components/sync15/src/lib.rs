@@ -42,5 +42,7 @@ pub use crate::sync::{synchronize, SyncEngine};
 pub use crate::sync_multiple::{
     sync_multiple, sync_multiple_with_command_processor, MemoryCachedState, SyncRequestInfo,
 };
+pub use sync15_traits::client::DeviceType;
+
 pub use crate::util::ServerTimestamp;
 pub use sync15_traits::SyncEngineId;

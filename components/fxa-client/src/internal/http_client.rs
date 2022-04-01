@@ -21,6 +21,7 @@ use std::{
     sync::Mutex,
     time::{Duration, Instant},
 };
+use sync15::DeviceType;
 use url::Url;
 use viaduct::{header_names, status_codes, Method, Request, Response};
 
@@ -775,70 +776,6 @@ pub struct DeviceUpdateRequest<'a> {
     #[serde(skip_serializing_if = "Option::is_none")]
     #[serde(rename = "availableCommands")]
     available_commands: Option<Option<&'a HashMap<String, String>>>,
-}
-
-#[derive(Clone, Debug, Serialize, Deserialize)]
-pub enum DeviceType {
-    #[serde(rename = "desktop")]
-    Desktop,
-    #[serde(rename = "mobile")]
-    Mobile,
-    #[serde(rename = "tablet")]
-    Tablet,
-    #[serde(rename = "vr")]
-    VR,
-    #[serde(rename = "tv")]
-    TV,
-    #[serde(other)]
-    #[serde(skip_serializing)] // Don't you dare trying.
-    Unknown,
-}
-
-#[cfg(test)]
-mod device_type_tests {
-    use super::*;
-
-    #[test]
-    fn test_serde_ser() {
-        assert_eq!(
-            serde_json::to_string(&DeviceType::Desktop).unwrap(),
-            "\"desktop\""
-        );
-        assert_eq!(
-            serde_json::to_string(&DeviceType::Mobile).unwrap(),
-            "\"mobile\""
-        );
-        assert_eq!(
-            serde_json::to_string(&DeviceType::Tablet).unwrap(),
-            "\"tablet\""
-        );
-        assert_eq!(serde_json::to_string(&DeviceType::VR).unwrap(), "\"vr\"");
-        assert_eq!(serde_json::to_string(&DeviceType::TV).unwrap(), "\"tv\"");
-    }
-
-    #[test]
-    fn test_serde_de() {
-        assert!(matches!(
-            serde_json::from_str::<DeviceType>("\"desktop\"").unwrap(),
-            DeviceType::Desktop
-        ));
-        assert!(matches!(
-            serde_json::from_str::<DeviceType>("\"mobile\"").unwrap(),
-            DeviceType::Mobile
-        ));
-        assert!(matches!(
-            serde_json::from_str::<DeviceType>("\"tablet\"").unwrap(),
-            DeviceType::Tablet
-        ));
-        assert!(matches!(
-            serde_json::from_str::<DeviceType>("\"vr\"").unwrap(),
-            DeviceType::VR
-        ));
-        assert!(matches!(
-            serde_json::from_str::<DeviceType>("\"tv\"").unwrap(),
-            DeviceType::TV
-        ));
-    }
 }
 
 #[allow(clippy::option_option)]

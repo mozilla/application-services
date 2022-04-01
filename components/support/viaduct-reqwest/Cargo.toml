@@ -2,7 +2,7 @@
 name = "viaduct-reqwest"
 version = "0.2.0"
 authors = ["application-services <application-services@mozilla.com>"]
-edition = "2018"
+edition = "2021"
 license = "MPL-2.0"
 
 [lib]

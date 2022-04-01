@@ -2,7 +2,7 @@
 name = "systest"
 version = "0.1.0"
 authors = ["Edouard Oger <eoger@fastmail.com>"]
-edition = "2018"
+edition = "2021"
 
 [dependencies]
 nss_sys = { path = "../nss_sys" }

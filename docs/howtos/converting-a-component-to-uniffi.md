@@ -266,10 +266,10 @@ updating them to accomodate any changes in the component's public API.
 It's easiest to start by removing all of the hand-written Swift code under `./ios` and then
 restoring parts of it later if necessary.
 
-Edit `/megazords/ios/MozillaAppServices.h` to remove any references to `Rust<ComponentName>API.h`,
+Edit `/megazords/ios-rust/MozillaTestServices.h` to remove any references to `Rust<ComponentName>API.h`,
 replacing them with the UniFFI-generated header file name `<component_name>FFI.h`.
 
-Open `/megazords/ios/MozillaAppServices.xcodeproj` in Xcode and follow the instructions for
+Open `/megazords/ios-rust/MozillaTestServices.xcodeproj` in Xcode and follow the instructions for
 [adding Swift bindings for a new component](adding-a-new-component.md#the-swift-bindings) to
 configure Xcode to build your UniFFI-generated bindings.
 
@@ -301,6 +301,4 @@ adding the ability to set a persistence callback.
 You will need to add any such file to the "Compile Sources" list in Xcode, in the same way
 that you added the `.udl` file.
 
-Finally, you will need to try out the new bindings with a consuming app. For Swift code you should
-[make a local build of Firefox for iOS](locally-published-components-in-ios.md),
-updating it to accomodate any changes in the component's public API.
+Finally, you will need to try out the new bindings with a consuming app. For Swift code you should make a local build of Firefox iOS. Unfortunately this is not documented well yet, we have a bug on file ([#4825)(https://github.com/mozilla/application-services/issues/4825)) for it.

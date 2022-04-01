@@ -8,8 +8,8 @@ use crate::encryption::EncryptorDecryptor;
 use crate::error::*;
 use crate::login::EncryptedLogin;
 use crate::util;
+use interrupt_support::SqlInterruptScope;
 use rusqlite::{named_params, Connection};
-use sql_support::SqlInterruptScope;
 use std::time::SystemTime;
 use sync15::ServerTimestamp;
 use sync_guid::Guid;
@@ -95,7 +95,7 @@ impl UpdatePlan {
                     "DELETE FROM loginsL WHERE guid IN ({vars})",
                     vars = sql_support::repeat_sql_vars(chunk.len())
                 ),
-                chunk,
+                rusqlite::params_from_iter(chunk),
             )?;
             scope.err_if_interrupted()?;
             Ok(())
@@ -107,7 +107,7 @@ impl UpdatePlan {
                     "DELETE FROM loginsM WHERE guid IN ({vars})",
                     vars = sql_support::repeat_sql_vars(chunk.len())
                 ),
-                chunk,
+                rusqlite::params_from_iter(chunk),
             )?;
             Ok(())
         })
@@ -134,7 +134,7 @@ impl UpdatePlan {
         let mut stmt = conn.prepare_cached(sql)?;
         for (login, timestamp) in &self.mirror_updates {
             log::trace!("Updating mirror {:?}", login.guid_str());
-            stmt.execute_named(named_params! {
+            stmt.execute(named_params! {
                 ":server_modified": *timestamp,
                 ":http_realm": login.fields.http_realm,
                 ":form_action_origin": login.fields.form_action_origin,
@@ -194,7 +194,7 @@ impl UpdatePlan {
 
         for (login, timestamp, is_overridden) in &self.mirror_inserts {
             log::trace!("Inserting mirror {:?}", login.guid_str());
-            stmt.execute_named(named_params! {
+            stmt.execute(named_params! {
                 ":is_overridden": *is_overridden,
                 ":server_modified": *timestamp,
                 ":http_realm": login.fields.http_realm,
@@ -236,7 +236,7 @@ impl UpdatePlan {
         let local_ms: i64 = util::system_time_ms_i64(SystemTime::now());
         for l in &self.local_updates {
             log::trace!("Updating local {:?}", l.guid_str());
-            stmt.execute_named(named_params! {
+            stmt.execute(named_params! {
                 ":local_modified": local_ms,
                 ":http_realm": l.login.fields.http_realm,
                 ":form_action_origin": l.login.fields.form_action_origin,
@@ -290,7 +290,7 @@ mod tests {
             delete_local: vec![Guid::new("login2"), Guid::new("login3")],
             ..UpdatePlan::default()
         }
-        .execute(&db, &db.begin_interrupt_scope())
+        .execute(&db, &db.begin_interrupt_scope().unwrap())
         .unwrap();
 
         assert_eq!(get_local_guids(&db), vec!["login1", "login4"]);
@@ -317,7 +317,7 @@ mod tests {
             ],
             ..UpdatePlan::default()
         }
-        .execute(&db, &db.begin_interrupt_scope())
+        .execute(&db, &db.begin_interrupt_scope().unwrap())
         .unwrap();
         check_mirror_login(&db, "unchanged", "password", initial_modified, false);
         check_mirror_login(&db, "changed", "new-password", 20000, false);
@@ -334,7 +334,7 @@ mod tests {
             ],
             ..UpdatePlan::default()
         }
-        .execute(&db, &db.begin_interrupt_scope())
+        .execute(&db, &db.begin_interrupt_scope().unwrap())
         .unwrap();
         check_mirror_login(&db, "login1", "new-password", 20000, false);
         check_mirror_login(&db, "login2", "new-password2", 21000, true);
@@ -354,7 +354,7 @@ mod tests {
             }],
             ..UpdatePlan::default()
         }
-        .execute(&db, &db.begin_interrupt_scope())
+        .execute(&db, &db.begin_interrupt_scope().unwrap())
         .unwrap();
         check_local_login(&db, "login", "new-password", before_update);
     }

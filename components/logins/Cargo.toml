@@ -1,13 +1,12 @@
 [package]
 name = "logins"
-edition = "2018"
+edition = "2021"
 version = "0.1.0"
 authors = ["Thom Chiovoloni <tchiovoloni@mozilla.com>"]
 license = "MPL-2.0"
 exclude = ["/android", "/ios"]
 
 [features]
-log_query_plans = ["sql-support/log_query_plans"]
 default = []
 
 [dependencies]
@@ -26,15 +25,15 @@ error-support = { path = "../support/error" }
 sync-guid = { path = "../support/guid", features = ["rusqlite_support", "random"] }
 thiserror = "1.0"
 anyhow = "1.0"
-uniffi = "^0.16"
-uniffi_macros = "^0.16"
+uniffi = "^0.17"
+uniffi_macros = "^0.17"
 
 [dependencies.rusqlite]
-version = "0.24.2"
+version = "0.27.0"
 features = ["sqlcipher", "limits", "unlock_notify"]
 
 [build-dependencies]
-uniffi_build = { version = "^0.16", features=["builtin-bindgen"] }
+uniffi_build = { version = "^0.17", features=["builtin-bindgen"] }
 
 [dev-dependencies]
 more-asserts = "0.2"

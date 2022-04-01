@@ -6,6 +6,9 @@ job-defaults:
     run:
         resources:
             - 'libs'
+    fetches:
+      toolchain:
+        - rust
 
 desktop-linux:
     description: 'Desktop libs (Linux): build'

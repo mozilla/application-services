@@ -7,6 +7,7 @@ use crate::storage::{ClientRemoteTabs, RemoteTab, TabsStorage};
 use crate::sync::engine::TabsEngine;
 use interrupt_support::NeverInterrupts;
 use std::cell::RefCell;
+use std::path::Path;
 use std::sync::{Arc, Mutex, Weak};
 use sync15::{
     sync_multiple, telemetry, KeyBundle, MemoryCachedState, Sync15StorageClientInit, SyncEngine,
@@ -38,16 +39,17 @@ pub struct TabsStore {
     pub storage: Mutex<TabsStorage>,
 }
 
-impl Default for TabsStore {
-    fn default() -> Self {
-        Self::new()
-    }
-}
-
 impl TabsStore {
-    pub fn new() -> Self {
+    pub fn new(db_path: impl AsRef<Path>) -> Self {
         Self {
-            storage: Mutex::new(TabsStorage::new()),
+            storage: Mutex::new(TabsStorage::new(db_path)),
+        }
+    }
+
+    #[cfg(test)]
+    pub fn new_with_mem_path(db_path: &str) -> Self {
+        Self {
+            storage: Mutex::new(TabsStorage::new_with_mem_path(db_path)),
         }
     }
 
@@ -122,7 +124,7 @@ mod test {
     use super::*;
     #[test]
     fn test_sync_manager_registration() {
-        let store = Arc::new(TabsStore::new());
+        let store = Arc::new(TabsStore::new_with_mem_path("test"));
         assert_eq!(Arc::strong_count(&store), 1);
         assert_eq!(Arc::weak_count(&store), 0);
         Arc::clone(&store).register_with_sync_manager();

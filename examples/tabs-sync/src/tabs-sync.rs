@@ -6,36 +6,46 @@
 
 use cli_support::fxa_creds::{get_cli_fxa, get_default_fxa_config};
 use cli_support::prompt::prompt_char;
-use clipboard::{ClipboardContext, ClipboardProvider};
+use std::path::Path;
 use std::sync::Arc;
+use structopt::StructOpt;
 use tabs::{RemoteTab, TabsStore};
 
 use anyhow::Result;
 
+#[derive(Clone, Debug, StructOpt)]
+#[structopt(name = "tabs_sync", about = "CLI for Sync tabs store")]
+pub struct Opts {
+    #[structopt(
+        name = "credential_file",
+        value_name = "CREDENTIAL_JSON",
+        long = "credentials",
+        short = "c",
+        default_value = "./credentials.json"
+    )]
+    /// Path to credentials.json.
+    pub creds_file: String,
+
+    #[structopt(
+        name = "database_path",
+        value_name = "DATABASE_PATH",
+        long,
+        short = "d",
+        default_value = "./tab-sync.db"
+    )]
+    /// Path to the database, which will only be created after a sync with incoming records.
+    pub db_path: String,
+}
+
 fn main() -> Result<()> {
     viaduct_reqwest::use_reqwest_backend();
     cli_support::init_logging();
-    let matches = clap::App::new("tabs_sync")
-        .about("CLI for Sync tabs store")
-        .arg(
-            clap::Arg::with_name("credential_file")
-                .short("c")
-                .long("credentials")
-                .value_name("CREDENTIAL_JSON")
-                .takes_value(true)
-                .help(
-                    "Path to store our cached fxa credentials (defaults to \"./credentials.json\"",
-                ),
-        )
-        .get_matches();
-    let cred_file = matches
-        .value_of("credential_file")
-        .unwrap_or("./credentials.json");
+    let opts = Opts::from_args();
 
-    let mut cli_fxa = get_cli_fxa(get_default_fxa_config(), cred_file)?;
+    let mut cli_fxa = get_cli_fxa(get_default_fxa_config(), &opts.creds_file)?;
     let device_id = cli_fxa.account.get_current_device_id()?;
 
-    let store = Arc::new(TabsStore::new());
+    let store = Arc::new(TabsStore::new(Path::new(&opts.db_path)));
 
     loop {
         match prompt_char("[U]pdate local state, [L]ist remote tabs, [S]ync or [Q]uit")
@@ -107,7 +117,9 @@ fn main() -> Result<()> {
     Ok(())
 }
 
+#[cfg(feature = "with-clipboard")]
 fn read_local_state() -> Vec<RemoteTab> {
+    use clipboard::{ClipboardContext, ClipboardProvider};
     println!("Please run the following command in the Firefox Browser Toolbox and copy it.");
     println!(
         "   JSON.stringify(await Weave.Service.engineManager.get(\"tabs\")._store.getAllTabs())"
@@ -147,4 +159,11 @@ fn read_local_state() -> Vec<RemoteTab> {
         });
     }
     local_state
+}
+
+#[cfg(not(feature = "with-clipboard"))]
+fn read_local_state() -> Vec<RemoteTab> {
+    println!("This module is build without the `clipboard` feature, so we can't");
+    println!("read the local state.");
+    vec![]
 }

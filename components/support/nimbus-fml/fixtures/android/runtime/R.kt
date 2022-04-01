@@ -15,6 +15,7 @@ object R {
     object string {
         const val app_menu_settings_punctuation = 1
         const val app_menu_settings_title = 2
+        const val dx_label = 4
     }
 
     object drawable {

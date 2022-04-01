@@ -15,7 +15,6 @@ use places::storage::bookmarks::{
 use places::types::BookmarkType;
 use places::{ConnectionType, PlacesApi, PlacesDb};
 use serde_derive::*;
-use std::convert::TryFrom;
 use std::fs::File;
 use std::io::{BufReader, BufWriter};
 use structopt::StructOpt;
@@ -226,7 +225,7 @@ fn sync(
             &mut mem_cached_state,
             &cli_fxa.client_init.clone(),
             &cli_fxa.root_sync_key,
-            &sql_support::ShutdownInterruptee,
+            &interrupt_support::ShutdownInterruptee,
             None,
         );
 
@@ -371,7 +370,7 @@ fn main() -> Result<()> {
 
     ctrlc::set_handler(move || {
         println!("\nCTRL-C detected, enabling shutdown mode\n");
-        sql_support::shutdown();
+        interrupt_support::shutdown();
     })
     .unwrap();
 

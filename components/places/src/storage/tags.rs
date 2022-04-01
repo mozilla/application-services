@@ -77,16 +77,19 @@ pub fn tag_url(db: &PlacesDb, url: &Url, tag: &str) -> Result<()> {
         None => return Err(InvalidPlaceInfo::NoSuchUrl.into()),
     };
 
-    db.execute_named_cached(
+    db.execute_cached(
         "INSERT OR IGNORE INTO moz_tags(tag, lastModified)
          VALUES(:tag, now())",
         &[(":tag", &tag)],
     )?;
 
-    db.execute_named_cached(
+    db.execute_cached(
         "INSERT OR IGNORE INTO moz_tags_relation(tag_id, place_id)
          VALUES((SELECT id FROM moz_tags WHERE tag = :tag), :place_id)",
-        &[(":tag", &tag), (":place_id", &place_id)],
+        &[
+            (":tag", &tag as &dyn rusqlite::ToSql),
+            (":place_id", &place_id),
+        ],
     )?;
     tx.commit()?;
     Ok(())
@@ -108,7 +111,7 @@ pub fn tag_url(db: &PlacesDb, url: &Url, tag: &str) -> Result<()> {
 /// does not have the tag.
 pub fn untag_url(db: &PlacesDb, url: &Url, tag: &str) -> Result<()> {
     let tag = validate_tag(tag).ensure_valid()?;
-    db.execute_named_cached(
+    db.execute_cached(
         "DELETE FROM moz_tags_relation
          WHERE tag_id = (SELECT id FROM moz_tags
                          WHERE tag = :tag)
@@ -132,7 +135,7 @@ pub fn untag_url(db: &PlacesDb, url: &Url, tag: &str) -> Result<()> {
 ///
 /// There is no success return value.
 pub fn remove_all_tags_from_url(db: &PlacesDb, url: &Url) -> Result<()> {
-    db.execute_named_cached(
+    db.execute_cached(
         "DELETE FROM moz_tags_relation
          WHERE
          place_id = (SELECT id FROM moz_places
@@ -155,7 +158,7 @@ pub fn remove_all_tags_from_url(db: &PlacesDb, url: &Url) -> Result<()> {
 ///
 /// There is no success return value.
 pub fn remove_tag(db: &PlacesDb, tag: &str) -> Result<()> {
-    db.execute_named_cached(
+    db.execute_cached(
         "DELETE FROM moz_tags
          WHERE tag = :tag",
         &[(":tag", &tag)],
@@ -186,7 +189,7 @@ pub fn get_urls_with_tag(db: &PlacesDb, tag: &str) -> Result<Vec<Url>> {
          ORDER BY p.frecency",
     )?;
 
-    let rows = stmt.query_and_then_named(&[(":tag", &tag)], |row| row.get::<_, String>("url"))?;
+    let rows = stmt.query_and_then(&[(":tag", &tag)], |row| row.get::<_, String>("url"))?;
     let mut urls = Vec::new();
     for row in rows {
         urls.push(Url::parse(&row?)?);
@@ -215,7 +218,7 @@ pub fn get_tags_for_url(db: &PlacesDb, url: &Url) -> Result<Vec<String>> {
          WHERE url_hash = hash(:url) AND url = :url
          ORDER BY t.lastModified DESC",
     )?;
-    let rows = stmt.query_and_then_named(&[(":url", &url.as_str())], |row| {
+    let rows = stmt.query_and_then(&[(":url", &url.as_str())], |row| {
         row.get::<_, String>("tag")
     })?;
     let mut tags = Vec::new();
@@ -340,14 +343,14 @@ mod tests {
         // should be no tags rows left.
         let count: Result<Option<u32>> = conn.try_query_row(
             "SELECT COUNT(*) from moz_tags",
-            &[],
+            [],
             |row| Ok(row.get::<_, u32>(0)?),
             true,
         );
         assert_eq!(count.unwrap().unwrap(), 0);
         let count: Result<Option<u32>> = conn.try_query_row(
             "SELECT COUNT(*) from moz_tags_relation",
-            &[],
+            [],
             |row| Ok(row.get::<_, u32>(0)?),
             true,
         );

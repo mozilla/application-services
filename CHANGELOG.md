@@ -1,3 +1,83 @@
+# v92.0.1 (_2022-03-24_)
+
+[Full Changelog](https://github.com/mozilla/application-services/compare/v92.0.0...v92.0.1)
+
+## Nimbus FML ⛅️🔬🔭🔧
+
+### What's Fixed
+
+- Swift: a bug in our understanding of Swift optional chaining rules meant that maps with a mapping and merging produced invalid code. ([#4885](https://github.com/mozilla/application-services/pull/4885))
+
+## General
+
+### What's Changed
+
+- Added documentation of our sqlite pragma usage. ([#4876](https://github.com/mozilla/application-services/pull/4876))
+
+# v92.0.0 (_2022-03-17_)
+
+[Full Changelog](https://github.com/mozilla/application-services/compare/v91.1.0...v92.0.0)
+
+## Places
+### ⚠️ Breaking Changes ⚠️
+- Removed some functions related to sync interruption.  These were never really completed and don't seem to be in use by iOS/Android code:
+  - `PlacesApi.new_sync_conn_interrupt_handle()`
+  - Swift only: `PlacesAPI.interrupt()`
+- The exception variant `InternalPanic` was removed. It's only use was replaced by the already existing `UnexpectedPlacesException`. ([#4847](https://github.com/mozilla/application-services/pull/4847))
+### What's New
+- The Places component will report more error variants to telemetry. ([#4847](https://github.com/mozilla/application-services/pull/4847))
+## Autofill / Logins / Places / Sync Manager, Webext-Storage
+### What's Changed
+- Updated interruption handling and added support for shutdown-mode which interrupts all operations.
+
+## Tabs
+### ⚠️ Breaking Changes ⚠️
+
+- The tabs component's constructor now requires the path to the database file where remote tabs will be persisted to.
+- Requesting remote tabs before the first sync will now return the tabs in this database, so may be "stale".
+## Glean
+### ⚠️ Breaking Changes ⚠️
+### Swift
+- GleanMetrics should now be imported under `import Glean` instead of importing via `MozillaRustComponents`
+
+## Nimbus FML
+### What's Changed
+- Papercut fixes for nicer developer experience [#4867](https://github.com/mozilla/application-services/pull/4867)
+  - More helpful validation error reporting
+  - Better handling of defaults in objects and enum maps
+  - More YAML syntactic checking.
+- Allow experimenter to output to a YAML file, as well as JSON. [#4874](https://github.com/mozilla/application-services/pull/4874)
+  - If the file extension is `yaml`, then output as YAML, otherwise, output as JSON.
+
+## Autofill
+### What's New
+  - Added `temp-store`, `journal-mode`, and `foreign-keys` pragmas to autofill component. ([#4882](https://github.com/mozilla/application-services/pull/4882))
+
+# v91.1.0 (_2022-02-11_)
+
+[Full Changelog](https://github.com/mozilla/application-services/compare/v91.0.1...v91.1.0)
+
+## ⛅️🔬🔭 Nimbus SDK
+
+### What's fixed
+
+- Fixes a bug where disabling studies did not disable rollouts. ([#4807](https://github.com/mozilla/application-services/pull/4807))
+
+### ✨ What's New ✨
+
+- A message helper is now available to apps wanting to build a Messaging System on both Android and iOS. Both of these access the variables
+  provided by Nimbus, and can have app-specific variables added. This provides two functions:
+  - JEXL evaluation ([#4813](https://github.com/mozilla/application-services/pull/4813)) which evaluates boolean expressions.
+  - String interpolation ([#4831](https://github.com/mozilla/application-services/pull/4831)) which builds strings with templates at runtime.
+
+## Xcode
+
+- Bumped Xcode version from 13.1.0 -> 13.2.1
+
+## Nimbus FML
+### What's fixed
+- Fixes a bug where each time the fml is run, the ordering of features in the experimenter json is changed. ([#4819](https://github.com/mozilla/application-services/pull/4819))
+
 # v91.0.1 (_2022-02-02_)
 
 [Full Changelog](https://github.com/mozilla/application-services/compare/v91.0.0...v91.0.1)

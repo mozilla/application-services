@@ -2,13 +2,13 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-[Wrapped]
+[Custom]
 typedef string Url;
-[Wrapped]
+[Custom]
 typedef i64 Timestamp;
-[Wrapped]
+[Custom]
 typedef i32 VisitTransitionSet;
-[Wrapped]
+[Custom]
 typedef string Guid;
 
 namespace places {
@@ -29,9 +29,6 @@ interface SqlInterruptHandle {
 interface PlacesApi {
     [Throws=PlacesError]
     PlacesConnection new_connection(ConnectionType conn_type);
-
-    [Throws=PlacesError]
-    SqlInterruptHandle new_sync_conn_interrupt_handle();
 
     [Self=ByArc]
     void register_with_sync_manager();
@@ -62,8 +59,6 @@ interface PlacesApi {
 };
 
 interface PlacesConnection {
-
-    [Throws=PlacesError]
     SqlInterruptHandle new_interrupt_handle();
 
     [Throws=PlacesError]
@@ -328,7 +323,6 @@ enum PlacesError {
     "UrlTooLong",
     "InvalidBookmarkUpdate", // XXX - can we kill this?
     "CannotUpdateRoot",
-    "InternalPanic",
 };
 
 dictionary BookmarkData {

@@ -3,8 +3,8 @@
 // file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
 mod fs_client;
-mod http_client;
-mod null_client;
+pub(crate) mod http_client;
+pub(crate) mod null_client;
 use crate::error::{NimbusError, Result};
 use crate::Experiment;
 use crate::RemoteSettingsConfig;

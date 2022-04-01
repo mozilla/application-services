@@ -83,7 +83,7 @@ impl ProcessIncomingRecordImpl for IncomingAddressesImpl {
         LEFT JOIN addresses_data l ON s.guid = l.guid
         LEFT JOIN addresses_tombstones t ON s.guid = t.guid";
 
-        tx.query_rows_and_then_named(sql, &[], |row| -> Result<IncomingState<Self::Record>> {
+        tx.query_rows_and_then(sql, [], |row| -> Result<IncomingState<Self::Record>> {
             // the 'guid' and 's_payload' rows must be non-null.
             let guid: SyncGuid = row.get("guid")?;
             // the incoming sync15::Payload
@@ -189,7 +189,7 @@ impl ProcessIncomingRecordImpl for IncomingAddressesImpl {
             ":email": incoming.email,
         };
 
-        let result = tx.query_row_named(&sql, params, |row| {
+        let result = tx.query_row(&sql, params, |row| {
             Ok(Self::Record::from_row(row).expect("wtf? '?' doesn't work :("))
         });
 
@@ -245,7 +245,6 @@ mod tests {
     use crate::sync::common::tests::*;
 
     use interrupt_support::NeverInterrupts;
-    use rusqlite::NO_PARAMS;
     use serde_json::{json, Map, Value};
     use sql_support::ConnExt;
 
@@ -340,9 +339,9 @@ mod tests {
                 &NeverInterrupts,
             )?;
 
-            let payloads = tx.conn().query_rows_and_then_named(
+            let payloads = tx.conn().query_rows_and_then(
                 "SELECT * FROM temp.addresses_sync_staging;",
-                &[],
+                [],
                 |row| -> Result<Payload> {
                     let payload: String = row.get_unwrap("payload");
                     Ok(Payload::from_json(serde_json::from_str(&payload)?)?)
@@ -355,7 +354,7 @@ mod tests {
             assert_eq!(record_count, tc.expected_record_count);
             assert_eq!(tombstone_count, tc.expected_tombstone_count);
 
-            tx.execute("DELETE FROM temp.addresses_sync_staging;", NO_PARAMS)?;
+            tx.execute("DELETE FROM temp.addresses_sync_staging;", [])?;
         }
         Ok(())
     }

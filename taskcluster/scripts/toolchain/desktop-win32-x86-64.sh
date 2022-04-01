@@ -1,6 +1,8 @@
 #!/bin/bash
-cd src
-. ./taskcluster/scripts/toolchain/rustup-setup.sh
+set -ex
+cd vcs
+git submodule update --init
+./taskcluster/scripts/toolchain/setup-fetched-rust-toolchain.sh
 pushd libs
 ./build-all.sh win32-x86-64
 popd

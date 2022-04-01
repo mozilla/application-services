@@ -5,9 +5,9 @@
 
 {{ inner.doc()|comment("") }}
 public class {{class_name}} {
-    private var _variables: Variables
-    var _defaults: Defaults
-    init(_ _variables: Variables = NilVariables.instance,_ _defaults: Defaults) {
+    private let _variables: Variables
+    private let _defaults: Defaults
+    private init(_ _variables: Variables = NilVariables.instance,_ _defaults: Defaults) {
         self._variables = _variables
         self._defaults = _defaults
     }

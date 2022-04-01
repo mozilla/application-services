@@ -499,9 +499,9 @@ fn save_to_mirror(
         sql_support::default_max_variable_number() / chunk_size,
         |chunk, _| -> Result<()> {
             signal.err_if_interrupted()?;
-            let sql =
-                "INSERT OR REPLACE INTO addresses_mirror (guid, payload)
-                 VALUES {}",
+            let sql = format!(
+                "INSERT OR REPLACE INTO addresses_mirror (guid, payload) VALUES {}",
+                sql_support::repeat_multi_values(chunk.len(), chunk_size),
             );
             let mut params = Vec::with_capacity(chunk.len() * chunk_size);
             for record in chunk {
@@ -509,7 +509,7 @@ fn save_to_mirror(
                 params.push(&record.guid as &dyn ToSql);
                 params.push(&payload);
             }
-            conn.execute(&sql, &params)?;
+            conn.execute(&sql, rusqlite::params_from_iter(params))?;
             Ok(())
         },
     )
@@ -532,7 +532,7 @@ fn update_metadata(conn: &Connection, guid: &SyncGuid, val: &Value) -> Result<()
             );
 
             log::debug!("Updating metadata {} -> {:?}", col_name, val);
-            tx.execute_named(
+            tx.execute(
                 &sql,
                 rusqlite::named_params! {
                     ":guid": guid,

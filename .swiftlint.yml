@@ -6,9 +6,14 @@ included: # paths to include during linting. `--path` is ignored if present.
   - components/fxa-client/ios
   - components/nimbus/ios
 excluded:
+  # We no longer use carthage. However, some developers might still
+  # have the Carthage directory in their local environment. It will
+  # create linting noise if we don't exclude it.
   - Carthage
   - "**/*/ios/Generated"
   - "megazords/ios/MozillaAppServicesTests"
+  - "megazords/ios-rust/MozillaTestServices/MozillaTestServicesTests"
+  - "megazords/ios-rust/MozillaTestServices/MozillaTestServices/Generated"
 
 disabled_rules:
   - file_length

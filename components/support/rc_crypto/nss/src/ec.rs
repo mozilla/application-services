@@ -14,7 +14,6 @@ use crate::{
 };
 use serde_derive::{Deserialize, Serialize};
 use std::{
-    convert::TryFrom,
     mem,
     ops::Deref,
     os::raw::{c_uchar, c_uint, c_void},

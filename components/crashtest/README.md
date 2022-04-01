@@ -70,7 +70,7 @@ code is organized as follows:
 * The [`./android/`](./android) directory contains android-specific build scripts that
   generate Kotlin wrappers and publish them as an AAR, and some Android tests.
 * The [`./ios/`](./ios) directory is a placeholder for generated Swift code. There are
-  a couple of Swift tests in `/megazords/ios/MozillaAppServicesTests/CrashTestTests.swift`.
+  a couple of Swift tests in `/megazords/ios-rust/MozillaTestServicesTests/CrashTestTests.swift`.
 
 ### Detailed Docs
 

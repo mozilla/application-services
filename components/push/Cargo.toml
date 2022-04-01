@@ -1,6 +1,6 @@
 [package]
 name = "push"
-edition = "2018"
+edition = "2021"
 version = "0.1.0"
 authors = ["jrconlin <me+crypt@jrconlin.com>", "Phil Jenvey <pjenvey@underboss.org>"]
 license = "MPL-2.0"
@@ -14,17 +14,17 @@ bincode = "1.2"
 lazy_static = "1.4"
 base64 = "0.12"
 log = "0.4"
-rusqlite = { version = "0.24.2", features = ["bundled", "unlock_notify"] }
+rusqlite = { version = "0.27.0", features = ["bundled", "unlock_notify"] }
 url = "2.2"
 viaduct = { path = "../viaduct" }
 sql-support = { path = "../support/sql" }
 rc_crypto = { path = "../support/rc_crypto", features = ["ece"] }
 thiserror = "1.0"
-uniffi = "^0.16"
-uniffi_macros = "^0.16"
+uniffi = "^0.17"
+uniffi_macros = "^0.17"
 
 [build-dependencies]
-uniffi_build = { version = "^0.16", features=["builtin-bindgen"] }
+uniffi_build = { version = "^0.17", features=["builtin-bindgen"] }
 
 
 [dev-dependencies]

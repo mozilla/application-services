@@ -115,7 +115,7 @@ impl<'a> IncomingApplicator<'a> {
             }
         };
 
-        self.db.execute_named_cached(
+        self.db.execute_cached(
             r#"REPLACE INTO moz_bookmarks_synced(guid, parentGuid, serverModified, needsMerge, kind,
                                                  dateAdded, title, keyword, validity, placeId)
                VALUES(:guid, :parentGuid, :serverModified, 1, :kind,
@@ -128,7 +128,10 @@ impl<'a> IncomingApplicator<'a> {
                       END
                       )"#,
             &[
-                (":guid", &record_id.as_guid().as_str()),
+                (
+                    ":guid",
+                    &record_id.as_guid().as_str() as &dyn rusqlite::ToSql,
+                ),
                 (
                     ":parentGuid",
                     &parent_record_id.as_ref().map(BookmarkRecordId::as_guid),
@@ -143,12 +146,12 @@ impl<'a> IncomingApplicator<'a> {
             ],
         )?;
         for t in tags {
-            self.db.execute_named_cached(
+            self.db.execute_cached(
                 "INSERT OR IGNORE INTO moz_tags(tag, lastModified)
                  VALUES(:tag, now())",
                 &[(":tag", &t)],
             )?;
-            self.db.execute_named_cached(
+            self.db.execute_cached(
                 "INSERT INTO moz_bookmarks_synced_tag_relation(itemId, tagId)
                  VALUES((SELECT id FROM moz_bookmarks_synced
                          WHERE guid = :guid),
@@ -186,13 +189,16 @@ impl<'a> IncomingApplicator<'a> {
             vec![]
         };
 
-        self.db.execute_named_cached(
+        self.db.execute_cached(
             r#"REPLACE INTO moz_bookmarks_synced(guid, parentGuid, serverModified, needsMerge, kind,
                                                  dateAdded, title)
                VALUES(:guid, :parentGuid, :serverModified, 1, :kind,
                       :dateAdded, NULLIF(:title, ""))"#,
             &[
-                (":guid", &record_id.as_guid().as_str()),
+                (
+                    ":guid",
+                    &record_id.as_guid().as_str() as &dyn rusqlite::ToSql,
+                ),
                 (
                     ":parentGuid",
                     &parent_record_id.as_ref().map(BookmarkRecordId::as_guid),
@@ -228,9 +234,11 @@ impl<'a> IncomingApplicator<'a> {
                 );
                 self.db.execute(
                     &sql,
-                    iter::once(&record_id)
-                        .chain(chunk.iter())
-                        .map(|id| id.as_guid().as_str()),
+                    rusqlite::params_from_iter(
+                        iter::once(&record_id)
+                            .chain(chunk.iter())
+                            .map(|id| id.as_guid().as_str()),
+                    ),
                 )?;
                 Ok(())
             },
@@ -239,12 +247,12 @@ impl<'a> IncomingApplicator<'a> {
     }
 
     fn store_incoming_tombstone(&self, modified: ServerTimestamp, guid: &SyncGuid) -> Result<()> {
-        self.db.execute_named_cached(
+        self.db.execute_cached(
             "REPLACE INTO moz_bookmarks_synced(guid, parentGuid, serverModified, needsMerge,
                                                dateAdded, isDeleted)
              VALUES(:guid, NULL, :serverModified, 1, 0, 1)",
             &[
-                (":guid", guid),
+                (":guid", guid as &dyn rusqlite::ToSql),
                 (":serverModified", &(modified.as_millis() as i64)),
             ],
         )?;
@@ -344,7 +352,7 @@ impl<'a> IncomingApplicator<'a> {
             }
         };
 
-        self.db.execute_named_cached(
+        self.db.execute_cached(
             r#"REPLACE INTO moz_bookmarks_synced(guid, parentGuid, serverModified, needsMerge, kind,
                                                  dateAdded, title, validity, placeId)
                VALUES(:guid, :parentGuid, :serverModified, 1, :kind,
@@ -355,7 +363,10 @@ impl<'a> IncomingApplicator<'a> {
                       )
                      )"#,
             &[
-                (":guid", &record_id.as_guid().as_str()),
+                (
+                    ":guid",
+                    &record_id.as_guid().as_str() as &dyn rusqlite::ToSql,
+                ),
                 (
                     ":parentGuid",
                     &parent_record_id.as_ref().map(BookmarkRecordId::as_guid),
@@ -412,13 +423,16 @@ impl<'a> IncomingApplicator<'a> {
             set_replace(&mut validity);
         }
 
-        self.db.execute_named_cached(
+        self.db.execute_cached(
             "REPLACE INTO moz_bookmarks_synced(guid, parentGuid, serverModified, needsMerge, kind,
                                                dateAdded, title, feedURL, siteURL, validity)
              VALUES(:guid, :parentGuid, :serverModified, 1, :kind,
                     :dateAdded, :title, :feedUrl, :siteUrl, :validity)",
             &[
-                (":guid", &record_id.as_guid().as_str()),
+                (
+                    ":guid",
+                    &record_id.as_guid().as_str() as &dyn rusqlite::ToSql,
+                ),
                 (
                     ":parentGuid",
                     &parent_record_id.as_ref().map(BookmarkRecordId::as_guid),
@@ -442,13 +456,16 @@ impl<'a> IncomingApplicator<'a> {
         let parent_record_id = unpack_optional_id("parentid", s);
         let date_added = unpack_optional_i64("dateAdded", s, &mut validity);
 
-        self.db.execute_named_cached(
+        self.db.execute_cached(
             "REPLACE INTO moz_bookmarks_synced(guid, parentGuid, serverModified, needsMerge, kind,
                                                dateAdded)
              VALUES(:guid, :parentGuid, :serverModified, 1, :kind,
                     :dateAdded)",
             &[
-                (":guid", &record_id.as_guid().as_str()),
+                (
+                    ":guid",
+                    &record_id.as_guid().as_str() as &dyn rusqlite::ToSql,
+                ),
                 (
                     ":parentGuid",
                     &parent_record_id.as_ref().map(BookmarkRecordId::as_guid),
@@ -474,7 +491,7 @@ impl<'a> IncomingApplicator<'a> {
             if url.as_str().len() > URL_LENGTH_MAX {
                 return Err(ErrorKind::InvalidPlaceInfo(InvalidPlaceInfo::UrlTooLong).into());
             }
-            self.db.execute_named_cached(
+            self.db.execute_cached(
                 "INSERT OR IGNORE INTO moz_places(guid, url, url_hash, frecency)
                  VALUES(IFNULL((SELECT guid FROM moz_places
                                 WHERE url_hash = hash(:url) AND

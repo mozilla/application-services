@@ -5,7 +5,6 @@
 /// Utilities for command-line utilities which want to use fxa credentials.
 use std::{
     collections::HashMap,
-    convert::TryInto,
     fs,
     io::{Read, Write},
 };
@@ -65,11 +64,7 @@ fn create_fxa_creds(path: &str, cfg: Config) -> Result<FirefoxAccount> {
 
     acct.complete_oauth_flow(&query_params["code"], &query_params["state"])?;
     // Device registration.
-    acct.initialize_device(
-        "CLI Device",
-        fxa_client::internal::device::Type::Desktop,
-        &[],
-    )?;
+    acct.initialize_device("CLI Device", sync15::DeviceType::Desktop, &[])?;
     let mut file = fs::File::create(path)?;
     write!(file, "{}", acct.to_json()?)?;
     file.flush()?;

@@ -7,7 +7,6 @@
 use anyhow::Result;
 use clap::value_t;
 use places::{PlacesDb, VisitObservation, VisitTransition};
-use rusqlite::NO_PARAMS;
 use sql_support::ConnExt;
 use std::io::prelude::*;
 use std::time::Instant;
@@ -94,13 +93,13 @@ fn import_places(
 
     let (place_count, visit_count) = {
         let mut stmt = old.prepare("SELECT count(*) FROM moz_places").unwrap();
-        let mut rows = stmt.query(NO_PARAMS).unwrap();
+        let mut rows = stmt.query([]).unwrap();
         let ps: i64 = rows.next()?.unwrap().get_unwrap(0);
 
         let mut stmt = old
             .prepare("SELECT count(*) FROM moz_historyvisits")
             .unwrap();
-        let mut rows = stmt.query(NO_PARAMS).unwrap();
+        let mut rows = stmt.query([]).unwrap();
         let vs: i64 = rows.next()?.unwrap().get_unwrap(0);
         (ps, vs)
     };
@@ -137,7 +136,7 @@ fn import_places(
     ",
     )?;
 
-    let mut rows = stmt.query(NO_PARAMS)?;
+    let mut rows = stmt.query([])?;
     let mut current_place = LegacyPlace {
         id: -1,
         ..LegacyPlace::default()
@@ -215,10 +214,10 @@ fn import_places(
 #[cfg(not(windows))]
 mod autocomplete {
     use super::*;
+    use interrupt_support::SqlInterruptHandle;
     use places::api::matcher::{search_frecent, SearchParams, SearchResult};
     use places::ErrorKind;
     use rusqlite::{Error as RusqlError, ErrorCode};
-    use sql_support::SqlInterruptHandle;
     use std::sync::{
         atomic::{AtomicUsize, Ordering},
         mpsc, Arc,
@@ -269,7 +268,7 @@ mod autocomplete {
         // Thread handle for the BG thread. We can't drop this without problems so we
         // prefix with _ to shut rust up about it being unused.
         _handle: thread::JoinHandle<Result<()>>,
-        interrupt_handle: SqlInterruptHandle,
+        interrupt_handle: Arc<SqlInterruptHandle>,
     }
 
     impl BackgroundAutocomplete {
