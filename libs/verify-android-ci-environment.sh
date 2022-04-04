@@ -60,6 +60,10 @@ if [[ "${JAVA_VERSION}" != "11.0" ]]; then
 fi
 
 # NDK ez-install
+if [[ ! -d "$ANDROID_HOME/cmdline-tools" ]]; then
+  echo "Android SDK is missing command line tools. Install them via Android Studio -> SDK Manager -> SDK Tools."
+  exit 1
+fi
 "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" "ndk;$(./gradlew -q printNdkVersion | tail -1)"
 
 # CI just downloads these libs anyway.

@@ -127,6 +127,24 @@ pub trait CodeType {
         None
     }
 
+    // The foreign language type for how default values are stored in the `Defaults` object.
+    // This is usually the same as the type_label itself, but occassionally— e.g. for bundled resources—
+    // this will be different.
+    // If it is different, then a `defaults_mapper` is needed to map between the `defaults_type` and the
+    // `type_label` type.
+    fn defaults_type(&self, oracle: &dyn CodeOracle) -> String {
+        self.type_label(oracle)
+    }
+
+    fn defaults_mapper(
+        &self,
+        _oracle: &dyn CodeOracle,
+        _value: &dyn Display,
+        _vars: &dyn Display,
+    ) -> Option<String> {
+        None
+    }
+
     /// A representation of the given literal for this type.
     /// N.B. `Literal` is aliased from `serde_json::Value`.
     fn literal(

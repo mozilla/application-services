@@ -42,9 +42,7 @@ impl CodeType for OptionalCodeType {
         default: &dyn Display,
     ) -> String {
         // all getters are optional.
-        oracle
-            .find(&self.inner)
-            .property_getter(oracle, vars, prop, default)
+        code_type::property_getter(self, oracle, vars, prop, default)
     }
 
     fn value_getter(
@@ -66,6 +64,28 @@ impl CodeType for OptionalCodeType {
     /// The string return may be used to combine with an indentifier, e.g. a `Variables` method name.
     fn variables_type(&self, oracle: &dyn CodeOracle) -> VariablesType {
         oracle.find(&self.inner).variables_type(oracle)
+    }
+
+    fn defaults_type(&self, oracle: &dyn CodeOracle) -> String {
+        let inner = oracle.find(&self.inner).defaults_type(oracle);
+        format!("{}?", inner)
+    }
+
+    fn defaults_mapper(
+        &self,
+        oracle: &dyn CodeOracle,
+        value: &dyn Display,
+        vars: &dyn Display,
+    ) -> Option<String> {
+        let id = "it";
+        let mapper = oracle
+            .find(&self.inner)
+            .defaults_mapper(oracle, &id, vars)?;
+        Some(format!(
+            "{value}?.let {{ {mapper} }}",
+            value = value,
+            mapper = mapper
+        ))
     }
 
     /// A representation of the given literal for this type.
@@ -148,20 +168,20 @@ impl CodeType for MapCodeType {
             ) {
                 (Some(k), Some(v)) => {
                     if v.starts_with('{') {
-                        format!("mapEntries({k}) {v}", k = k, v = v)
+                        format!("mapEntriesNotNull({k}) {v}", k = k, v = v)
                     } else {
-                        format!("mapEntries({k}, {v})", k = k, v = v)
+                        format!("mapEntriesNotNull({k}, {v})", k = k, v = v)
                     }
                 }
                 (None, Some(v)) => {
                     if v.starts_with('{') {
-                        format!("mapValues {v}", v = v)
+                        format!("mapValuesNotNull {v}", v = v)
                     } else {
-                        format!("mapValues({v})", v = v)
+                        format!("mapValuesNotNull({v})", v = v)
                     }
                 }
                 // We could do something with keys, but it's only every strings and enums.
-                (Some(k), None) => format!("mapKeys({k})", k = k),
+                (Some(k), None) => format!("mapKeysNotNull({k})", k = k),
                 _ => return None,
             },
         )
@@ -223,6 +243,29 @@ impl CodeType for MapCodeType {
         VariablesType::Variables
     }
 
+    fn defaults_type(&self, oracle: &dyn CodeOracle) -> String {
+        let k_type = oracle.find(&self.k_type).defaults_type(oracle);
+        let v_type = oracle.find(&self.v_type).defaults_type(oracle);
+        format!("Map<{}, {}>", k_type, v_type)
+    }
+
+    fn defaults_mapper(
+        &self,
+        oracle: &dyn CodeOracle,
+        value: &dyn Display,
+        vars: &dyn Display,
+    ) -> Option<String> {
+        let id = "it.value";
+        let mapper = oracle
+            .find(&self.v_type)
+            .defaults_mapper(oracle, &id, vars)?;
+        Some(format!(
+            "{value}.mapValues {{ {mapper} }}",
+            value = value,
+            mapper = mapper
+        ))
+    }
+
     /// A representation of the given literal for this type.
     /// N.B. `Literal` is aliased from `serde_json::Value`.
     fn literal(
@@ -260,12 +303,14 @@ impl CodeType for MapCodeType {
             v_type.create_transform(oracle),
         ) {
             (Some(_), Some(_)) => {
-                Some("org.mozilla.experiments.nimbus.internal.mapEntries".to_string())
+                Some("org.mozilla.experiments.nimbus.internal.mapEntriesNotNull".to_string())
             }
             (None, Some(_)) => {
-                Some("org.mozilla.experiments.nimbus.internal.mapValues".to_string())
+                Some("org.mozilla.experiments.nimbus.internal.mapValuesNotNull".to_string())
             }
-            (Some(_), None) => Some("org.mozilla.experiments.nimbus.internal.mapKeys".to_string()),
+            (Some(_), None) => {
+                Some("org.mozilla.experiments.nimbus.internal.mapKeysNotNull".to_string())
+            }
             _ => None,
         };
 
@@ -347,6 +392,28 @@ impl CodeType for ListCodeType {
         // Our current implementation of Variables doesn't have a getListList() or getListMap().
         // We do allow getVariablesList and getVariablesMap, but not an vars.asList().
         unimplemented!("Lists and maps of lists aren't supported. The workaround is to use a list of map of list holder objects")
+    }
+
+    fn defaults_type(&self, oracle: &dyn CodeOracle) -> String {
+        let inner = oracle.find(&self.inner).defaults_type(oracle);
+        format!("List<{}>", inner)
+    }
+
+    fn defaults_mapper(
+        &self,
+        oracle: &dyn CodeOracle,
+        value: &dyn Display,
+        vars: &dyn Display,
+    ) -> Option<String> {
+        let id = "it";
+        let mapper = oracle
+            .find(&self.inner)
+            .defaults_mapper(oracle, &id, vars)?;
+        Some(format!(
+            "{value}.map {{ {mapper} }}",
+            value = value,
+            mapper = mapper
+        ))
     }
 
     /// A representation of the given literal for this type.
@@ -578,27 +645,27 @@ mod unit_tests {
 
         let ct = map_type("String", "AnEnum");
         assert_eq!(
-            r#"v.getStringMap("the-property")?.mapValues(AnEnum::enumValue)?.mergeWith(def) ?: def"#.to_string(),
+            r#"v.getStringMap("the-property")?.mapValuesNotNull(AnEnum::enumValue)?.mergeWith(def) ?: def"#.to_string(),
             ct.property_getter(oracle, &"v", &"the-property", &"def")
         );
 
         let ct = map_type("AnEnum", "String");
         assert_eq!(
-            r#"v.getStringMap("the-property")?.mapKeys(AnEnum::enumValue)?.mergeWith(def) ?: def"#
+            r#"v.getStringMap("the-property")?.mapKeysNotNull(AnEnum::enumValue)?.mergeWith(def) ?: def"#
                 .to_string(),
             ct.property_getter(oracle, &"v", &"the-property", &"def")
         );
 
         let ct = map_type("AnEnum", "Another");
         assert_eq!(
-            r#"v.getStringMap("the-property")?.mapEntries(AnEnum::enumValue, Another::enumValue)?.mergeWith(def) ?: def"#
+            r#"v.getStringMap("the-property")?.mapEntriesNotNull(AnEnum::enumValue, Another::enumValue)?.mergeWith(def) ?: def"#
                 .to_string(),
             ct.property_getter(oracle, &"v", &"the-property", &"def")
         );
 
         let ct = map_type("AnEnum", "AnObject");
         assert_eq!(
-            r#"v.getVariablesMap("the-property")?.mapEntries(AnEnum::enumValue, AnObject::create)?.mergeWith(def, AnObject::mergeWith) ?: def"#.to_string(),
+            r#"v.getVariablesMap("the-property")?.mapEntriesNotNull(AnEnum::enumValue, AnObject::create)?.mergeWith(def, AnObject::mergeWith) ?: def"#.to_string(),
             ct.property_getter(oracle, &"v", &"the-property", &"def"));
     }
 }

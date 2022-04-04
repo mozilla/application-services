@@ -1,8 +1,8 @@
 #!/bin/bash
 export PATH=$PATH:/tmp/clang/bin
 export ORG_GRADLE_PROJECT_RUST_ANDROID_GRADLE_TARGET_X86_64_APPLE_DARWIN_NSS_STATIC=1
-export ORG_GRADLE_PROJECT_RUST_ANDROID_GRADLE_TARGET_X86_64_APPLE_DARWIN_NSS_DIR=/builds/worker/checkouts/src/libs/desktop/darwin/nss
-export ORG_GRADLE_PROJECT_RUST_ANDROID_GRADLE_TARGET_X86_64_APPLE_DARWIN_SQLCIPHER_LIB_DIR=/builds/worker/checkouts/src/libs/desktop/darwin/sqlcipher/lib
+export ORG_GRADLE_PROJECT_RUST_ANDROID_GRADLE_TARGET_X86_64_APPLE_DARWIN_NSS_DIR=/builds/worker/checkouts/vcs/libs/desktop/darwin/nss
+export ORG_GRADLE_PROJECT_RUST_ANDROID_GRADLE_TARGET_X86_64_APPLE_DARWIN_SQLCIPHER_LIB_DIR=/builds/worker/checkouts/vcs/libs/desktop/darwin/sqlcipher/lib
 export ORG_GRADLE_PROJECT_RUST_ANDROID_GRADLE_TARGET_X86_64_APPLE_DARWIN_CC=/tmp/clang/bin/clang
 export ORG_GRADLE_PROJECT_RUST_ANDROID_GRADLE_TARGET_X86_64_APPLE_DARWIN_TOOLCHAIN_PREFIX=/tmp/cctools/bin
 export ORG_GRADLE_PROJECT_RUST_ANDROID_GRADLE_TARGET_X86_64_APPLE_DARWIN_AR=/tmp/cctools/bin/x86_64-darwin11-ar
@@ -22,7 +22,7 @@ pushd /tmp || exit
 
 tooltool.py \
   --url=http://taskcluster/tooltool.mozilla-releng.net/ \
-  --manifest="/builds/worker/checkouts/src/libs/macos-cc-tools.manifest" \
+  --manifest="/builds/worker/checkouts/vcs/libs/macos-cc-tools.manifest" \
   fetch
 
 popd || exit

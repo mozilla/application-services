@@ -4,21 +4,21 @@
 
 package org.mozilla.experiments.nimbus.internal
 
-fun <K, V, K1> Map<K, V>.mapKeys(transform: (K) -> K1?): Map<K1, V> =
+fun <K, V, K1> Map<K, V>.mapKeysNotNull(transform: (K) -> K1?): Map<K1, V> =
     this.entries
         .mapNotNull { e ->
             transform(e.key)?.let { it to e.value }
         }
         .toMap()
 
-fun <K, V, V1> Map<K, V>.mapValues(transform: (V) -> V1?): Map<K, V1> =
+fun <K, V, V1> Map<K, V>.mapValuesNotNull(transform: (V) -> V1?): Map<K, V1> =
     this.entries
         .mapNotNull { e ->
             transform(e.value)?.let { e.key to it }
         }
         .toMap()
 
-fun <K, V, K1, V1> Map<K, V>.mapEntries(keyTransform: (K) -> K1?, valueTransform: (V) -> V1?): Map<K1, V1> =
+fun <K, V, K1, V1> Map<K, V>.mapEntriesNotNull(keyTransform: (K) -> K1?, valueTransform: (V) -> V1?): Map<K1, V1> =
     this.entries
         .mapNotNull { e ->
             val k1 = keyTransform(e.key) ?: return@mapNotNull null

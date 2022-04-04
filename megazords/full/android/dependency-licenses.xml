@@ -94,7 +94,7 @@ the details of which are reproduced below.
   </license>
   <license>
     <name>Apache License 2.0: camino</name>
-    <url>https://github.com/withoutboats/camino/blob/main/LICENSE-APACHE</url>
+    <url>https://github.com/camino-rs/camino/blob/main/LICENSE-APACHE</url>
   </license>
   <license>
     <name>Apache License 2.0: cargo-platform</name>
@@ -139,6 +139,10 @@ the details of which are reproduced below.
   <license>
     <name>Apache License 2.0: fallible-streaming-iterator</name>
     <url>https://github.com/sfackler/fallible-streaming-iterator/blob/master/LICENSE-APACHE</url>
+  </license>
+  <license>
+    <name>Apache License 2.0: fastrand</name>
+    <url>https://github.com/smol-rs/fastrand/blob/master/LICENSE-APACHE</url>
   </license>
   <license>
     <name>Apache License 2.0: ffi-support</name>
@@ -309,19 +313,7 @@ the details of which are reproduced below.
     <url>https://github.com/rust-random/rand/blob/master/LICENSE-APACHE</url>
   </license>
   <license>
-    <name>Apache License 2.0: rand</name>
-    <url>https://github.com/rust-random/rand/blob/master/LICENSE-APACHE</url>
-  </license>
-  <license>
     <name>Apache License 2.0: rand_chacha</name>
-    <url>https://github.com/rust-random/rand/blob/master/LICENSE-APACHE</url>
-  </license>
-  <license>
-    <name>Apache License 2.0: rand_chacha</name>
-    <url>https://github.com/rust-random/rand/blob/master/LICENSE-APACHE</url>
-  </license>
-  <license>
-    <name>Apache License 2.0: rand_core</name>
     <url>https://github.com/rust-random/rand/blob/master/LICENSE-APACHE</url>
   </license>
   <license>

@@ -20,8 +20,8 @@ pub fn enum_variant_name(nm: &dyn Display) -> String {
 }
 
 /// Surrounds a property name with quotes. It is assumed that property names do not need escaping.
-pub fn quoted(prop: &dyn Display) -> String {
-    format!("\"{}\"", prop)
+pub fn quoted(v: &dyn Display) -> String {
+    format!(r#""{}""#, v)
 }
 
 pub(crate) mod code_type {
@@ -38,23 +38,28 @@ pub(crate) mod code_type {
         default: &dyn Display,
     ) -> String {
         let getter = ct.value_getter(oracle, vars, prop);
+        let mapper = ct.value_mapper(oracle);
+        let default = ct
+            .defaults_mapper(oracle, &default, vars)
+            .unwrap_or_else(|| default.to_string());
+        let merger = ct.value_merger(oracle, &default);
 
-        let getter = if let Some(mapper) = ct.value_mapper(oracle) {
-            format!("{getter}?.{mapper}", getter = getter, mapper = mapper)
-        } else {
-            getter
-        };
-
-        let getter = if let Some(merger) = ct.value_merger(oracle, default) {
-            format!("{getter}.{merger}", getter = getter, merger = merger)
-        } else {
-            getter
+        // We need to be quite careful about option chaining.
+        // Swift takes the `?` as an indicator to _stop evaulating the chain expression_ if the immediately preceeding
+        // expression returns an optional.
+        // Only the value_getter returns an optional, so that's all we need to `?`.
+        // https://docs.swift.org/swift-book/LanguageGuide/OptionalChaining.html
+        let getter = match (mapper, merger) {
+            (Some(mapper), Some(merger)) => format!("{}?.{}.{}", getter, mapper, merger),
+            (Some(mapper), None) => format!("{}?.{}", getter, mapper),
+            (None, Some(merger)) => format!("{}?.{}", getter, merger),
+            (None, None) => getter,
         };
 
         format!(
             "{getter} ?? {fallback}",
             getter = getter,
-            fallback = default
+            fallback = default,
         )
     }
 

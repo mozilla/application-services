@@ -8,7 +8,8 @@ import android.content.Context
 import android.graphics.drawable.Drawable
 import org.json.JSONArray
 import org.json.JSONObject
-import org.mozilla.experiments.nimbus.internal.mapValues
+import org.mozilla.experiments.nimbus.internal.NimbusFeatureException
+import org.mozilla.experiments.nimbus.internal.mapValuesNotNull
 import java.lang.IllegalArgumentException
 
 /**
@@ -244,7 +245,7 @@ interface Variables {
      * If any value cannot be transformed, it is skipped.
      */
     fun <T> getVariablesMap(key: String, transform: (Variables) -> T?): Map<String, T>? =
-        getVariablesMap(key)?.mapValues(transform)
+        getVariablesMap(key)?.mapValuesNotNull(transform)
 
     /**
      * Finds a string typed value for this key. If none exists, `null` is returned.
@@ -266,7 +267,7 @@ interface Variables {
      * as their values. If none exists, then `null` is returned.
      */
     fun <T> getStringMap(key: String, transform: (String) -> T?): Map<String, T>? =
-        getStringMap(key)?.mapValues(transform)
+        getStringMap(key)?.mapValuesNotNull(transform)
 
     /**
      * Synonym for [getDrawable(key: String)], for easier code generation.
@@ -364,10 +365,10 @@ interface VariablesWithContext : Variables {
     override fun getStringResource(key: String): Int? = getString(key)?.let(this::asStringResource)
     override fun getText(key: String) = getString(key)?.let(this::asText)
     override fun getTextList(key: String) = getStringList(key)?.mapNotNull(this::asText)
-    override fun getTextMap(key: String): Map<String, String>? = getStringMap(key)?.mapValues(this::asText)
+    override fun getTextMap(key: String): Map<String, String>? = getStringMap(key)?.mapValuesNotNull(this::asText)
     override fun getDrawable(key: String) = getDrawableResource(key)?.let(this::asDrawable)
     override fun getDrawableList(key: String) = getStringList(key)?.mapNotNull(this::asDrawableResource)?.mapNotNull(this::asDrawable)
-    override fun getDrawableMap(key: String) = getStringMap(key)?.mapValues(this::asDrawableResource)?.mapValues(this::asDrawable)
+    override fun getDrawableMap(key: String) = getStringMap(key)?.mapValuesNotNull(this::asDrawableResource)?.mapValuesNotNull(this::asDrawable)
 
     // These `as*` methods become useful when transforming values found in JSON to actual values
     // the app will use. They're broken out here so they can be re-used by codegen generating
@@ -425,9 +426,9 @@ class JSONVariables(
         }
 
     override fun getVariablesMap(key: String): Map<String, Variables>? =
-        json.mapOf<JSONObject>(key)?.mapValues(this::asVariables)
+        json.mapOf<JSONObject>(key)?.mapValuesNotNull(this::asVariables)
 
-    override fun asVariablesMap() = json.asMap<JSONObject>()?.mapValues(this::asVariables)
+    override fun asVariablesMap() = json.asMap<JSONObject>()?.mapValuesNotNull(this::asVariables)
 
     private fun asVariables(json: JSONObject) = JSONVariables(context, json)
 }
@@ -464,7 +465,29 @@ private inline fun <reified T> JSONObject.asMap(): Map<String, T>? {
 }
 
 // Another implementation of `Variables` may just return null for everything.
-class NullVariables(override val context: Context) : Variables
+class NullVariables : Variables {
+    override val context: Context
+        get() = this._context
+            ?: throw NimbusFeatureException("""
+                Nimbus hasn't been initialized yet.
+
+                Calling NullVariables.instance.setContext(context) earlier in the app startup will
+                cause this error to go away, but won't fix the problem.
+
+                The best remedy for this error is to initialize Nimbus earlier in the start up sequence.
+                """.trimIndent()
+            )
+
+    private var _context: Context? = null
+
+    fun setContext(context: Context) {
+        this._context = context.applicationContext
+    }
+
+    companion object {
+        val instance: NullVariables by lazy { NullVariables() }
+    }
+}
 
 /**
  * Accessor object to allow callers access to the resource identifier as well as the
@@ -487,6 +510,10 @@ interface Res<T> {
     companion object {
         fun drawable(context: Context, resId: Int): Res<Drawable> =
             DrawableRes(context, resId)
+        fun string(resId: Int) =
+            StringHolder(resId, null)
+        fun string(literal: String) =
+            StringHolder(null, literal)
     }
 }
 
@@ -496,4 +523,17 @@ internal class DrawableRes(
 ) : Res<Drawable> {
     override val resource: Drawable
         get() = context.resources.getDrawable(resourceId, context.theme)
+}
+
+class StringHolder(
+    private val resourceId: Int?,
+    private val literal: String?
+) {
+
+    @Suppress("ExceptionRaisedInUnexpectedLocation")
+    fun toString(context: Context): String =
+        resourceId
+            ?.let { context.getString(it) }
+            ?: literal
+            ?: throw NimbusFeatureException("Internal Nimbus exception: A Text string from the FML is missing.")
 }

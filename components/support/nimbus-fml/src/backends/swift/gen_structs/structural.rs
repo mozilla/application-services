@@ -42,9 +42,7 @@ impl CodeType for OptionalCodeType {
         default: &dyn Display,
     ) -> String {
         // all getters are optional.
-        oracle
-            .find(&self.inner)
-            .property_getter(oracle, vars, prop, default)
+        code_type::property_getter(self, oracle, vars, prop, default)
     }
 
     fn value_getter(
@@ -66,6 +64,27 @@ impl CodeType for OptionalCodeType {
     /// The string return may be used to combine with an indentifier, e.g. a `Variables` method name.
     fn variables_type(&self, oracle: &dyn CodeOracle) -> VariablesType {
         oracle.find(&self.inner).variables_type(oracle)
+    }
+
+    fn defaults_type(&self, oracle: &dyn CodeOracle) -> String {
+        format!("{}?", oracle.find(&self.inner).defaults_type(oracle))
+    }
+
+    fn defaults_mapper(
+        &self,
+        oracle: &dyn CodeOracle,
+        value: &dyn Display,
+        vars: &dyn Display,
+    ) -> Option<String> {
+        let id = "$0";
+        let mapper = oracle
+            .find(&self.inner)
+            .defaults_mapper(oracle, &id, vars)?;
+        Some(format!(
+            "{value}.map {{ {mapper} }}",
+            value = value,
+            mapper = mapper
+        ))
     }
 
     /// A representation of the given literal for this type.
@@ -206,6 +225,29 @@ impl CodeType for MapCodeType {
         VariablesType::Variables
     }
 
+    fn defaults_type(&self, oracle: &dyn CodeOracle) -> String {
+        let k = oracle.find(&self.k_type).defaults_type(oracle);
+        let v = oracle.find(&self.v_type).defaults_type(oracle);
+        format!("[{k}: {v}]", k = k, v = v)
+    }
+
+    fn defaults_mapper(
+        &self,
+        oracle: &dyn CodeOracle,
+        value: &dyn Display,
+        vars: &dyn Display,
+    ) -> Option<String> {
+        let id = "$0";
+        let mapper = oracle
+            .find(&self.v_type)
+            .defaults_mapper(oracle, &id, vars)?;
+        Some(format!(
+            "{value}.mapValues {{ {mapper} }}",
+            value = value,
+            mapper = mapper
+        ))
+    }
+
     /// A representation of the given literal for this type.
     /// N.B. `Literal` is aliased from `serde_json::Value`.
     fn literal(
@@ -232,7 +274,11 @@ impl CodeType for MapCodeType {
             })
             .collect();
 
-        format!("[{}]", src.join(", "))
+        if src.is_empty() {
+            "[:]".to_string()
+        } else {
+            format!("[{}]", src.join(", "))
+        }
     }
 }
 
@@ -305,6 +351,27 @@ impl CodeType for ListCodeType {
         // Our current implementation of Variables doesn't have a getListList() or getListMap().
         // We do allow getVariablesList and getVariablesMap, but not an vars.asList().
         unimplemented!("Lists and maps of lists aren't supported. The workaround is to use a list of map of list holder objects")
+    }
+
+    fn defaults_type(&self, oracle: &dyn CodeOracle) -> String {
+        format!("[{}]", oracle.find(&self.inner).defaults_type(oracle))
+    }
+
+    fn defaults_mapper(
+        &self,
+        oracle: &dyn CodeOracle,
+        value: &dyn Display,
+        vars: &dyn Display,
+    ) -> Option<String> {
+        let id = "$0";
+        let mapper = oracle
+            .find(&self.inner)
+            .defaults_mapper(oracle, &id, vars)?;
+        Some(format!(
+            "{value}.map {{ {mapper} }}",
+            value = value,
+            mapper = mapper
+        ))
     }
 
     /// A representation of the given literal for this type.

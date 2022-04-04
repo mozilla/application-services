@@ -32,7 +32,7 @@ features:
     variables:
       settings-title:
         description: The title of displayed in the Settings screen and app menu.
-        type: String
+        type: Option<Text>
         default: "app_menu_settings_title"
       settings-title-punctuation:
         description: The emoji displayed in the Settings screen title.
@@ -40,8 +40,23 @@ features:
         default: ""
       settings-icon:
         description: The drawable displayed in the app menu for Settings
-        type: String
+        type: Image
         default: "menu-Settings"
+      string-map:
+        description: A string map that was causing problem
+        type: Map<String, String>
+        default: {}
+      string-int-map:
+        description: A string map that was causing problem
+        type: Map<String, Int>
+        default: {}
+      eum-map:
+        description: A string map that was causing problem
+        type: Map<IconType, Int>
+        default:
+          screenshot: 1
+          letter: 2
+          favicon: 3
   homescreen:
     description: The homescreen that the user goes to when they press home or new tab.
     variables:
@@ -93,7 +108,7 @@ types:
           default: ""
           description: "Is the description of spotlight"
           required: true
-        use-html-content: 
+        use-html-content:
           type: Boolean
           default: true
           description: "Describes whether spotlight should use html content"

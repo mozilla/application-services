@@ -5,34 +5,42 @@
 use std::collections::BTreeMap;
 use std::fmt::Display;
 
-use serde::Serialize;
-use serde_json::json;
+use serde::{Deserialize, Serialize};
 
 use crate::intermediate_representation::{PropDef, TypeRef};
+use crate::TargetLanguage;
 use crate::{
     intermediate_representation::FeatureManifest, Config, GenerateExperimenterManifestCmd,
 };
 
 use crate::error::{FMLError, Result};
 
-#[derive(Debug, Default, Clone, Serialize)]
+pub(crate) type ExperimenterManifest = BTreeMap<String, ExperimenterFeature>;
+
+#[derive(Debug, Default, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
-struct ExperimenterFeatureManifest {
+pub(crate) struct ExperimenterFeature {
     description: String,
     has_exposure: bool,
     #[serde(skip_serializing_if = "Option::is_none")]
     exposure_description: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
     is_early_startup: Option<bool>,
-    // Not happy for us to use [`serde_json::Value`] but
-    // the variables definition includes arbitrary keys
-    variables: Variables,
+    variables: BTreeMap<String, ExperimenterFeatureProperty>,
 }
 
-#[derive(Debug, Default, Clone, Serialize)]
-pub struct Variables(serde_json::Value);
+#[derive(Debug, Default, Clone, Serialize, Deserialize)]
+pub(crate) struct ExperimenterFeatureProperty {
+    #[serde(rename = "type")]
+    property_type: String,
+    description: String,
 
-impl TryFrom<FeatureManifest> for BTreeMap<String, ExperimenterFeatureManifest> {
+    #[serde(rename = "enum")]
+    #[serde(skip_serializing_if = "Option::is_none")]
+    variants: Option<Vec<String>>,
+}
+
+impl TryFrom<FeatureManifest> for ExperimenterManifest {
     type Error = crate::error::FMLError;
     fn try_from(fm: FeatureManifest) -> Result<Self> {
         fm.feature_defs
@@ -40,7 +48,7 @@ impl TryFrom<FeatureManifest> for BTreeMap<String, ExperimenterFeatureManifest> 
             .map(|feature| {
                 Ok((
                     feature.name(),
-                    ExperimenterFeatureManifest {
+                    ExperimenterFeature {
                         description: feature.doc(),
                         has_exposure: true,
                         is_early_startup: None,
@@ -56,38 +64,46 @@ impl TryFrom<FeatureManifest> for BTreeMap<String, ExperimenterFeatureManifest> 
 }
 
 impl FeatureManifest {
-    fn props_to_variables(&self, props: &[PropDef]) -> Result<Variables> {
+    fn props_to_variables(
+        &self,
+        props: &[PropDef],
+    ) -> Result<BTreeMap<String, ExperimenterFeatureProperty>> {
         // Ideally this would be implemented as a `TryFrom<Vec<PropDef>>`
         // however, we need a reference to the `FeatureManifest` to get the valid
         // variants of an enum
-        let mut map = serde_json::Map::new();
+        let mut map = BTreeMap::new();
         props.iter().try_for_each(|prop| -> Result<()> {
             let typ = ExperimentManifestPropType::from(prop.typ()).to_string();
-            let mut val = json!({
-                "type": typ,
-                "description": prop.doc(),
-            });
-            if let TypeRef::Enum(e) = prop.typ() {
+
+            let yaml_prop = if let TypeRef::Enum(e) = prop.typ() {
                 let enum_def = self
                     .enum_defs
                     .iter()
                     .find(|enum_def| e == enum_def.name)
                     .ok_or(FMLError::InternalError("Found enum with no definition"))?;
-                val.as_object_mut().unwrap().insert(
-                    "enum".into(),
-                    serde_json::to_value(
-                        enum_def
-                            .variants
-                            .iter()
-                            .map(|variant| variant.name())
-                            .collect::<Vec<String>>(),
-                    )?,
-                );
-            }
-            map.insert(prop.name(), val);
+
+                let variants = enum_def
+                    .variants
+                    .iter()
+                    .map(|variant| variant.name())
+                    .collect::<Vec<String>>();
+
+                ExperimenterFeatureProperty {
+                    variants: Some(variants),
+                    description: prop.doc(),
+                    property_type: typ,
+                }
+            } else {
+                ExperimenterFeatureProperty {
+                    variants: None,
+                    description: prop.doc(),
+                    property_type: typ,
+                }
+            };
+            map.insert(prop.name(), yaml_prop);
             Ok(())
         })?;
-        Ok(Variables(serde_json::Value::Object(map)))
+        Ok(map)
     }
 }
 
@@ -139,8 +155,23 @@ pub(crate) fn generate_manifest(
     _config: Config,
     cmd: GenerateExperimenterManifestCmd,
 ) -> Result<()> {
-    let experiment_manifest: BTreeMap<String, ExperimenterFeatureManifest> = ir.try_into()?;
-    let output_str = serde_json::to_string_pretty(&experiment_manifest)?;
+    let experiment_manifest: ExperimenterManifest = ir.try_into()?;
+    let language: TargetLanguage = match cmd.output.extension() {
+        Some(ext) => ext.try_into().unwrap_or(TargetLanguage::ExperimenterJSON),
+        None => TargetLanguage::ExperimenterJSON,
+    };
+    let output_str = match language {
+        TargetLanguage::ExperimenterJSON => serde_json::to_string_pretty(&experiment_manifest)?,
+        // This is currently just a re-render of the JSON in YAML.
+        // However, the YAML format will diverge in time, so experimenter can support
+        // a richer manifest format (probably involving generating schema that can validate
+        // JSON patches in the FeatureConfig.)
+        TargetLanguage::ExperimenterYAML => serde_yaml::to_string(&experiment_manifest)?,
+
+        // If in doubt, output the previously generated default.
+        _ => serde_json::to_string(&experiment_manifest)?,
+    };
+
     std::fs::write(cmd.output, output_str)?;
     Ok(())
 }

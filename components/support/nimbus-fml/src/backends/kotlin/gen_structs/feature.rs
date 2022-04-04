@@ -17,24 +17,19 @@ use crate::{
 #[derive(Template)]
 #[template(syntax = "kt", escape = "none", path = "FeatureTemplate.kt")]
 pub(crate) struct FeatureCodeDeclaration {
-    nimbus_object_name: String,
     inner: FeatureDef,
     fm: FeatureManifest,
 }
 
 impl FeatureCodeDeclaration {
-    pub fn new(fm: &FeatureManifest, config: &Config, inner: &FeatureDef) -> Self {
+    pub fn new(fm: &FeatureManifest, _config: &Config, inner: &FeatureDef) -> Self {
         Self {
-            nimbus_object_name: config.nimbus_object_name(),
             inner: inner.clone(),
             fm: fm.clone(),
         }
     }
     pub fn inner(&self) -> &FeatureDef {
         &self.inner
-    }
-    pub fn nimbus_object_name(&self) -> &String {
-        &self.nimbus_object_name
     }
 }
 
@@ -46,6 +41,7 @@ impl CodeDeclaration for FeatureCodeDeclaration {
     fn imports(&self, _oracle: &dyn CodeOracle) -> Option<Vec<String>> {
         Some(vec![
             "org.mozilla.experiments.nimbus.internal.FeatureHolder".to_string(),
+            "org.mozilla.experiments.nimbus.NullVariables".to_string(),
         ])
     }
 }

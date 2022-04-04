@@ -12,6 +12,11 @@ pub fn type_label(type_: &TypeIdentifier) -> Result<String, askama::Error> {
     Ok(oracle.find(type_).type_label(&oracle))
 }
 
+pub fn defaults_type_label(type_: &TypeIdentifier) -> Result<String, askama::Error> {
+    let oracle = ConcreteCodeOracle;
+    Ok(oracle.find(type_).defaults_type(&oracle))
+}
+
 pub fn literal(
     type_: &TypeIdentifier,
     renderer: &dyn LiteralRenderer,

@@ -9,6 +9,7 @@ use crate::{
     intermediate_representation::{FeatureDef, FeatureManifest, TypeFinder},
     Config,
 };
+mod bundled;
 mod common;
 mod enum_;
 mod feature;
@@ -112,6 +113,9 @@ impl ConcreteCodeOracle {
             TypeIdentifier::String => Box::new(primitives::StringCodeType),
             TypeIdentifier::Int => Box::new(primitives::IntCodeType),
 
+            TypeIdentifier::BundleText(_) => Box::new(bundled::TextCodeType),
+            TypeIdentifier::BundleImage(_) => Box::new(bundled::ImageCodeType),
+
             TypeIdentifier::Enum(id) => Box::new(enum_::EnumCodeType::new(id)),
             TypeIdentifier::Object(id) => Box::new(object::ObjectCodeType::new(id)),
 
@@ -124,7 +128,6 @@ impl ConcreteCodeOracle {
             TypeIdentifier::EnumMap(ref k_type, ref v_type) => {
                 Box::new(structural::MapCodeType::new(k_type, v_type))
             }
-            _ => unimplemented!(),
         }
     }
 }

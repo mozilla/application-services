@@ -33,7 +33,7 @@ jobs:
         - [git, submodule, update, --init]
         - [source, taskcluster/scripts/toolchain/setup-fetched-rust-toolchain.sh]
         - [source, taskcluster/scripts/toolchain/cross-compile-setup.sh]
-        - [rsync, '-a', /builds/worker/fetches/libs/, /builds/worker/checkouts/src/libs/]
+        - [rsync, '-a', /builds/worker/fetches/libs/, /builds/worker/checkouts/vcs/libs/]
         - [bash, '-c', 'echo "rust.targets=linux-x86-64\n" > local.properties']
       gradlew:
         - 'clean'

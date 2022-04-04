@@ -4,7 +4,7 @@
 
 use std::fmt::Display;
 
-use super::common::code_type;
+use super::common::{code_type, quoted};
 use crate::backends::{CodeOracle, CodeType, LiteralRenderer, VariablesType};
 use crate::intermediate_representation::Literal;
 
@@ -176,7 +176,7 @@ impl CodeType for StringCodeType {
                 // Usually, we'd be wanting to escape this, for security reasons. However, this is
                 // will cause a kotlinc compile time error when the app is built if the string is malformed
                 // in the manifest.
-                format!(r#""{}""#, v)
+                quoted(v)
             }
             _ => unreachable!("Expecting a string"),
         }

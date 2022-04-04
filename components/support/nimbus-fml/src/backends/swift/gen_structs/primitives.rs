@@ -4,7 +4,7 @@
 
 use std::fmt::Display;
 
-use super::common::code_type;
+use super::common::{self, code_type};
 use crate::backends::{CodeOracle, CodeType, LiteralRenderer, VariablesType};
 use crate::intermediate_representation::Literal;
 
@@ -172,9 +172,7 @@ impl CodeType for StringCodeType {
         literal: &Literal,
     ) -> String {
         match literal {
-            serde_json::Value::String(v) => {
-                format!(r#""{}""#, v)
-            }
+            serde_json::Value::String(v) => common::quoted(v),
             _ => unreachable!("Expecting a string"),
         }
     }
