@@ -28,6 +28,7 @@ logins_store:
       - https://github.com/mozilla/application-services/issues/4554
     data_reviews:
       - https://github.com/mozilla/application-services/issues/4582
+      - https://github.com/mozilla/application-services/issues/4899
     data_sensitivity:
       - technical
     notification_emails:
@@ -43,6 +44,7 @@ logins_store:
       - https://github.com/mozilla/application-services/issues/4554
     data_reviews:
       - https://github.com/mozilla/application-services/issues/4582
+      - https://github.com/mozilla/application-services/issues/4899
     data_sensitivity:
       - technical
     notification_emails:
@@ -57,6 +59,7 @@ logins_store:
       - https://github.com/mozilla/application-services/issues/4554
     data_reviews:
       - https://github.com/mozilla/application-services/issues/4582
+      - https://github.com/mozilla/application-services/issues/4899
     data_sensitivity:
       - technical
     notification_emails:
