@@ -1370,7 +1370,7 @@ mod tests {
         // query by title
         let meta = query(&conn, "child care", 10).expect("query should work");
         assert_eq!(1, meta.len(), "expected exactly one result");
-        assert_history_metadata_record!(&meta[0],
+        assert_history_metadata_record!(meta[0],
             url "https://www.cbc.ca/news/politics/federal-budget-2021-freeland-zimonjic-1.5991021",
             total_time 20000,
             search_term Some("cbc federal budget 2021"),
@@ -1383,7 +1383,7 @@ mod tests {
         // query by search term
         let meta = query(&conn, "string format", 10).expect("query should work");
         assert_eq!(1, meta.len(), "expected exactly one result");
-        assert_history_metadata_record!(&meta[0],
+        assert_history_metadata_record!(meta[0],
             url "https://stackoverflow.com/questions/37777675/how-to-create-a-formatted-string-out-of-a-literal-in-rust",
             total_time 20000,
             search_term Some("rust string format"),
@@ -1395,7 +1395,7 @@ mod tests {
 
         // query by url
         let meta = query(&conn, "instr", 10).expect("query should work");
-        assert_history_metadata_record!(&meta[0],
+        assert_history_metadata_record!(meta[0],
             url "https://www.sqlite.org/lang_corefunc.html#instr",
             total_time 20000,
             search_term Some("sqlite like"),
@@ -1407,7 +1407,7 @@ mod tests {
 
         // by url, referrer domain is different
         let meta = query(&conn, "youtube", 10).expect("query should work");
-        assert_history_metadata_record!(&meta[0],
+        assert_history_metadata_record!(meta[0],
             url "https://www.youtube.com/watch?v=tpiyEe_CqB4",
             total_time 100000,
             search_term Some("cute cat"),

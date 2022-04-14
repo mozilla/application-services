@@ -20,8 +20,10 @@ but everything in the future is documented as "estimated".
 Ultimately though, that page defines 2 Rust versions - "Uses" and "Requires",
 and our policy revolves around these.
 
-There is a [Meta bug on Bugzilla](https://bugzilla.mozilla.org/show_bug.cgi?id=1504858) that keeps
-track of the latest versions mozilla-central uses as they are upgraded.
+To discover the current, actual "Uses" version, there is a [Meta bug on Bugzilla](https://bugzilla.mozilla.org/show_bug.cgi?id=1504858) that keeps
+track of the latest versions as they are upgraded.
+
+To discover the current, actual "Requires" version, [see searchfox](https://searchfox.org/mozilla-central/search?q=MINIMUM_RUST_VERSION&path=python/mozboot/mozboot/util.py)
 
 # application-services Rust version policy
 
