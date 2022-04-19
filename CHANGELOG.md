@@ -1,3 +1,9 @@
+# v91.1.2 (_2022-04-19_)
+
+[Full Changelog](https://github.com/mozilla/application-services/compare/v91.1.1...v91.1.2)
+
+
+
 # v91.1.1 (_2022-03-23_)
 
 [Full Changelog](https://github.com/mozilla/application-services/compare/v91.1.0...v91.1.1)
