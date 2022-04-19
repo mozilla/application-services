@@ -2,7 +2,9 @@
 
 [Full Changelog](https://github.com/mozilla/application-services/compare/v91.1.1...v91.1.2)
 
+## Places
 
+- Downgraded places `get_registered_sync_engine` `log:error` to `log:warn` to fix an issue where places was unnecessarily creating sentry noise
 
 # v91.1.1 (_2022-03-23_)
 
