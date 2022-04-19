@@ -197,13 +197,13 @@ impl SyncManager {
         &self,
         selection: &SyncEngineSelection,
     ) -> Result<Vec<Box<dyn SyncEngine>>> {
-        let mut engine_map: HashMap<_, _> = self.iter_registered_engines().collect();
+        let mut engines_to_sync = SyncEngineId::iter().collect::<HashSet<_>>();
         log::trace!(
-            "Checking engines requested ({:?}) vs local engines ({:?})",
+            "Checking engines requested ({:?}) vs available engines ({:?})",
             selection,
-            engine_map
+            engines_to_sync
                 .iter()
-                .map(|(engine_id, _)| engine_id.name())
+                .map(|engine_id| engine_id.name())
                 .collect::<Vec<_>>(),
         );
         if let SyncEngineSelection::Some {
@@ -214,18 +214,20 @@ impl SyncManager {
             let mut selected_engine_ids: HashSet<SyncEngineId> = HashSet::new();
             for name in engine_names {
                 let engine_id = Self::get_engine_id(name)?;
-                if !engine_map.contains_key(&engine_id) {
-                    return Err(SyncManagerError::UnsupportedFeature(name.to_string()));
+                match engines_to_sync.iter().find(|&id| id == &engine_id) {
+                    Some(_) => {
+                        selected_engine_ids.insert(engine_id);
+                    }
+                    None => return Err(SyncManagerError::UnsupportedFeature(name.to_string())),
                 }
-                selected_engine_ids.insert(engine_id);
             }
-            // Filter engines based on the selection
-            engine_map = engine_map
-                .into_iter()
-                .filter(|(engine_id, _)| selected_engine_ids.contains(engine_id))
-                .collect()
+            // Return only engines selected to sync
+            engines_to_sync = selected_engine_ids;
         }
-        Ok(engine_map.into_iter().map(|(_, engine)| engine).collect())
+        Ok(engines_to_sync
+            .iter()
+            .filter_map(|id| Self::get_engine(&id))
+            .collect::<Vec<_>>())
     }
 }
 
@@ -312,6 +314,52 @@ mod test {
     fn test_engine_id_sanity() {
         for engine_id in SyncEngineId::iter() {
             assert_eq!(engine_id, SyncEngineId::try_from(engine_id.name()).unwrap());
+        }
+    }
+
+    #[test]
+    fn test_syncing_specific_engines() {
+        let manager = SyncManager::new();
+        let mut engines_to_sync = Vec::new();
+        engines_to_sync.push(String::from("tabs"));
+        engines_to_sync.push(String::from("history"));
+
+        // Sync only certain engines
+        let engines = manager
+            .calc_engines_to_sync(&SyncEngineSelection::Some {
+                engines: engines_to_sync.clone(),
+            })
+            .unwrap();
+
+        let calculated_engine_names = engines
+            .iter()
+            .map(|sync_engine| sync_engine.collection_name().to_string())
+            .collect::<Vec<_>>();
+
+        assert!(calculated_engine_names.contains(&"tabs".to_string()));
+        assert!(calculated_engine_names.contains(&"history".to_string()));
+        assert!(!calculated_engine_names.contains(&"passwords".to_string()))
+    }
+
+    #[test]
+    fn test_syncing_all_engines() {
+        let manager = SyncManager::new();
+
+        // Sync all engines
+        let engines = manager
+            .calc_engines_to_sync(&SyncEngineSelection::All)
+            .unwrap();
+        let calculated_engine_names = engines
+            .iter()
+            .map(|sync_engine| sync_engine.collection_name().to_string())
+            .collect::<Vec<_>>();
+        let available_engines = SyncEngineId::iter()
+            .map(|engine_id| engine_id.name())
+            .collect::<Vec<_>>();
+
+        for &engine_name in available_engines.iter() {
+            // we need to check if the engines we calculated has every available engine
+            assert!(calculated_engine_names.contains(&engine_name.to_string()))
         }
     }
 }
