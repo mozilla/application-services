@@ -1,3 +1,12 @@
+# v93.0.1 (_2022-04-20_)
+
+[Full Changelog](https://github.com/mozilla/application-services/compare/v93.0.0...v93.0.1)
+
+## Nimbus FML ⛅️🔬🔭🔧
+
+### What's Fixed
+  - Handling of optional types which require a mapping to a usable type. ([#4915](https://github.com/mozilla/application-services/pull/4915))
+
 # v93.0.0 (_2022-04-13_)
 
 [Full Changelog](https://github.com/mozilla/application-services/compare/v92.0.1...v93.0.0)
