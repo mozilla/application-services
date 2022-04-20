@@ -22,3 +22,15 @@ assert(obj.enumMap == mapOf(TestEnum.ALICE to 1, TestEnum.BOB to 2, TestEnum.CHA
 
 // The instance of test object which is specified in the feature has an overridden enum map.
 assert(feature.anObject.enumMap == mapOf(TestEnum.ALICE to 11, TestEnum.BOB to 2, TestEnum.CHARLIE to 3)) { feature.anObject.enumMap }
+
+// Optional enums are handled properly and can default to null
+assert(feature.anOptionalEnum == null)
+
+// Optional objects are handled properly and can default to null
+assert(feature.anOptionalObject == null)
+
+// Optional enums can default to their variants properly
+assert(feature.nonNullOptionalEnum == TestEnum.ALICE)
+
+// Optional Object can default to a non-null object properly
+assert(feature.nonNullOptionalObject!!.optionalInt == 9)

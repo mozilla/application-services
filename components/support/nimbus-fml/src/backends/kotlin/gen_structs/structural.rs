@@ -54,6 +54,14 @@ impl CodeType for OptionalCodeType {
         code_type::value_getter(self, oracle, vars, prop)
     }
 
+    fn value_mapper(&self, oracle: &dyn CodeOracle) -> Option<String> {
+        code_type::value_mapper(self, oracle)
+    }
+
+    fn value_merger(&self, oracle: &dyn CodeOracle, default: &dyn Display) -> Option<String> {
+        oracle.find(&self.inner).value_merger(oracle, default)
+    }
+
     /// The name of the type as it's represented in the `Variables` object.
     /// The string return may be used to combine with an indentifier, e.g. a `Variables` method name.
     fn create_transform(&self, oracle: &dyn CodeOracle) -> Option<String> {
@@ -475,11 +483,15 @@ mod unit_tests {
         fn literal(
             &self,
             _oracle: &dyn CodeOracle,
-            _typ: &TypeIdentifier,
+            typ: &TypeIdentifier,
             _value: &Literal,
             _ctx: &dyn Display,
         ) -> String {
-            unreachable!()
+            if let TypeIdentifier::Object(nm) = typ {
+                format!("{}()", nm)
+            } else {
+                unreachable!()
+            }
         }
     }
 
@@ -501,6 +513,10 @@ mod unit_tests {
 
     fn map_type(k: &str, v: &str) -> Box<dyn CodeType> {
         Box::new(MapCodeType::new(&type_(k), &type_(v)))
+    }
+
+    fn optional_type(inner: &str) -> Box<dyn CodeType> {
+        Box::new(OptionalCodeType::new(&type_(inner)))
     }
 
     fn getter_with_fallback(
@@ -667,5 +683,81 @@ mod unit_tests {
         assert_eq!(
             r#"v.getVariablesMap("the-property")?.mapEntriesNotNull(AnEnum::enumValue, AnObject::create)?.mergeWith(def, AnObject::mergeWith) ?: def"#.to_string(),
             ct.property_getter(oracle, &"v", &"the-property", &"def"));
+    }
+
+    #[test]
+    fn test_optional_type_label() {
+        let oracle = &*oracle();
+        let ct = optional_type("String");
+        assert_eq!("String?".to_string(), ct.type_label(oracle));
+
+        let ct = optional_type("AnEnum");
+        assert_eq!("AnEnum?".to_string(), ct.type_label(oracle));
+    }
+
+    #[test]
+    fn test_optional_literal() {
+        let oracle = &*oracle();
+        let finder = &TestRenderer;
+        let ctx = String::from("ctx");
+
+        let ct = optional_type("String");
+        assert_eq!(
+            r#"null"#.to_string(),
+            ct.literal(oracle, &ctx, finder, &json!(null))
+        );
+
+        let ct = optional_type("AnObject");
+        assert_eq!(
+            "AnObject()".to_string(),
+            ct.literal(oracle, &ctx, finder, &json!({}))
+        );
+    }
+
+    #[test]
+    fn test_optional_value() {
+        let oracle = &*oracle();
+
+        let ct = optional_type("String");
+        assert_eq!(
+            r#"v.getString("the-property")"#.to_string(),
+            ct.value_getter(oracle, &"v", &"the-property")
+        );
+
+        let ct = optional_type("AnEnum");
+        assert_eq!(
+            r#"v.getString("the-property")"#.to_string(),
+            ct.value_getter(oracle, &"v", &"the-property")
+        );
+
+        let ct = optional_type("AnObject");
+        assert_eq!(
+            r#"v.getVariables("the-property")"#.to_string(),
+            ct.value_getter(oracle, &"v", &"the-property")
+        );
+    }
+
+    #[test]
+    fn test_optional_getter_with_fallback() {
+        let oracle = &*oracle();
+
+        let ct = optional_type("String");
+        assert_eq!(
+            r#"v.getString("the-property") ?: def"#.to_string(),
+            ct.property_getter(oracle, &"v", &"the-property", &"def")
+        );
+
+        let ct = optional_type("AnEnum");
+        assert_eq!(
+            r#"v.getString("the-property")?.let(AnEnum::enumValue) ?: def"#.to_string(),
+            ct.property_getter(oracle, &"v", &"the-property", &"def")
+        );
+
+        let ct = optional_type("AnObject");
+        assert_eq!(
+            r#"v.getVariables("the-property")?.let(AnObject::create)?._mergeWith(def) ?: def"#
+                .to_string(),
+            ct.property_getter(oracle, &"v", &"the-property", &"def")
+        );
     }
 }

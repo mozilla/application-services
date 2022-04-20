@@ -47,11 +47,17 @@ impl CodeType for ObjectCodeType {
             getter
         };
 
-        if let Some(merger) = self.value_merger(oracle, default) {
-            format!("{getter}.{merger}", getter = getter, merger = merger)
+        let getter = if let Some(merger) = self.value_merger(oracle, default) {
+            format!("{getter}?.{merger}", getter = getter, merger = merger)
         } else {
             getter
-        }
+        };
+
+        format!(
+            "{getter} ?? {fallback}",
+            getter = getter,
+            fallback = default
+        )
     }
 
     fn value_getter(
@@ -269,7 +275,8 @@ mod unit_tests {
     fn test_getter_with_fallback() {
         let ct = code_type("AnObject");
         assert_eq!(
-            r#"AnObject.create(vars.getVariables("the-property"))._mergeWith(default)"#.to_string(),
+            r#"AnObject.create(vars.getVariables("the-property"))?._mergeWith(default) ?? default"#
+                .to_string(),
             getter_with_fallback(&*ct, &"vars", &"the-property", &"default")
         );
     }

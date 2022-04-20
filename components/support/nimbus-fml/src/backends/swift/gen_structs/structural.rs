@@ -6,6 +6,7 @@ use std::fmt::Display;
 
 use super::common::{self, code_type};
 use crate::backends::{LiteralRenderer, VariablesType};
+use crate::intermediate_representation::TypeRef;
 use crate::{
     backends::{CodeOracle, CodeType, TypeIdentifier},
     intermediate_representation::Literal,
@@ -42,7 +43,15 @@ impl CodeType for OptionalCodeType {
         default: &dyn Display,
     ) -> String {
         // all getters are optional.
-        code_type::property_getter(self, oracle, vars, prop, default)
+        match &self.inner {
+            // The object and enum property getters are different than the other types
+            // they are setup like: {mapper}({getter}).{merger}, when others
+            // are setup like: {getter}?.{mapper}.{merger}
+            TypeRef::Enum(_) | TypeRef::Object(_) => oracle
+                .find(&self.inner)
+                .property_getter(oracle, vars, prop, default),
+            _ => code_type::property_getter(self, oracle, vars, prop, default),
+        }
     }
 
     fn value_getter(
@@ -52,6 +61,10 @@ impl CodeType for OptionalCodeType {
         prop: &dyn Display,
     ) -> String {
         code_type::value_getter(self, oracle, vars, prop)
+    }
+
+    fn value_mapper(&self, oracle: &dyn CodeOracle) -> Option<String> {
+        code_type::value_mapper(self, oracle)
     }
 
     /// The name of the type as it's represented in the `Variables` object.
@@ -433,11 +446,15 @@ mod unit_tests {
         fn literal(
             &self,
             _oracle: &dyn CodeOracle,
-            _typ: &TypeIdentifier,
+            typ: &TypeIdentifier,
             _value: &Literal,
             _ctx: &dyn Display,
         ) -> String {
-            unreachable!()
+            if let TypeIdentifier::Object(nm) = typ {
+                format!("{}()", nm)
+            } else {
+                unreachable!()
+            }
         }
     }
 
@@ -459,6 +476,10 @@ mod unit_tests {
 
     fn map_type(k: &str, v: &str) -> Box<dyn CodeType> {
         Box::new(MapCodeType::new(&type_(k), &type_(v)))
+    }
+
+    fn optional_type(inner: &str) -> Box<dyn CodeType> {
+        Box::new(OptionalCodeType::new(&type_(inner)))
     }
 
     fn getter_with_fallback(
@@ -625,5 +646,81 @@ mod unit_tests {
         assert_eq!(
              r#"v.getVariablesMap("the-property")?.mapNotNull(AnEnum.enumValue, AnObject.create).mergeWith(def, AnObject.mergeWith) ?? def"#.to_string(),
              ct.property_getter(oracle, &"v", &"the-property", &"def"));
+    }
+
+    #[test]
+    fn test_optional_type_label() {
+        let oracle = &*oracle();
+        let ct = optional_type("String");
+        assert_eq!("String?".to_string(), ct.type_label(oracle));
+
+        let ct = optional_type("AnEnum");
+        assert_eq!("AnEnum?".to_string(), ct.type_label(oracle));
+    }
+
+    #[test]
+    fn test_optional_literal() {
+        let oracle = &*oracle();
+        let finder = &TestRenderer;
+        let ctx = String::from("ctx");
+
+        let ct = optional_type("String");
+        assert_eq!(
+            r#"nil"#.to_string(),
+            ct.literal(oracle, &ctx, finder, &json!(null))
+        );
+
+        let ct = optional_type("AnObject");
+        assert_eq!(
+            "AnObject()".to_string(),
+            ct.literal(oracle, &ctx, finder, &json!({}))
+        );
+    }
+
+    #[test]
+    fn test_optional_value() {
+        let oracle = &*oracle();
+
+        let ct = optional_type("String");
+        assert_eq!(
+            r#"v.getString("the-property")"#.to_string(),
+            ct.value_getter(oracle, &"v", &"the-property")
+        );
+
+        let ct = optional_type("AnEnum");
+        assert_eq!(
+            r#"v.getString("the-property")"#.to_string(),
+            ct.value_getter(oracle, &"v", &"the-property")
+        );
+
+        let ct = optional_type("AnObject");
+        assert_eq!(
+            r#"v.getVariables("the-property")"#.to_string(),
+            ct.value_getter(oracle, &"v", &"the-property")
+        );
+    }
+
+    #[test]
+    fn test_optional_getter_with_fallback() {
+        let oracle = &*oracle();
+
+        let ct = optional_type("String");
+        assert_eq!(
+            r#"v.getString("the-property") ?? def"#.to_string(),
+            ct.property_getter(oracle, &"v", &"the-property", &"def")
+        );
+
+        let ct = optional_type("AnEnum");
+        assert_eq!(
+            r#"AnEnum.enumValue(v.getString("the-property")) ?? def"#.to_string(),
+            ct.property_getter(oracle, &"v", &"the-property", &"def")
+        );
+
+        let ct = optional_type("AnObject");
+        assert_eq!(
+            r#"AnObject.create(v.getVariables("the-property"))?._mergeWith(def) ?? def"#
+                .to_string(),
+            ct.property_getter(oracle, &"v", &"the-property", &"def")
+        );
     }
 }

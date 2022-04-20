@@ -247,6 +247,17 @@ mod test {
     }
 
     #[test]
+    fn test_with_dx_improvements_swift() -> Result<()> {
+        generate_and_assert(
+            "test/dx_improvements_testing.swift",
+            "fixtures/fe/dx_improvements.yaml",
+            "testing",
+            false,
+        )?;
+        Ok(())
+    }
+
+    #[test]
     fn test_with_app_menu() -> Result<()> {
         generate_and_assert(
             "test/app_menu.kts",

@@ -24,6 +24,24 @@ features:
           alice: 11
           bob: 22
           charlie: 33
+      an-optional-object:
+        description: An optional object
+        type: Option<TestObject>
+        default: null
+      an-optional-enum:
+        description: An optional enum
+        type: Option<TestEnum>
+        default: null
+      non-null-optional-object:
+        description: An optional object
+        type: Option<TestObject>
+        default:
+          name: Optional Object
+          optional-int: 9
+      non-null-optional-enum:
+        description: An optional object
+        type: Option<TestEnum>
+        default: alice
     defaults: []
 objects:
   TestObject:
