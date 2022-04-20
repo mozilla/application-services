@@ -51,7 +51,7 @@ pub fn get_registered_sync_engine(engine_id: &SyncEngineId) -> Option<Box<dyn Sy
         Some(places_api) => match create_sync_engine(&places_api, engine_id) {
             Ok(engine) => Some(engine),
             Err(e) => {
-                log::warn!("places: get_registered_sync_engine: {}", e);
+                log::error!("places: get_registered_sync_engine: {}", e);
                 None
             }
         },
