@@ -1,3 +1,16 @@
+# v93.0.1 (_2022-04-20_)
+
+[Full Changelog](https://github.com/mozilla/application-services/compare/v93.0.0...v93.0.1)
+
+## Nimbus FML ⛅️🔬🔭🔧
+
+### What's Fixed
+  - Handling of optional types which require a mapping to a usable type. ([#4915](https://github.com/mozilla/application-services/pull/4915))
+
+## Places
+
+- Downgraded places `get_registered_sync_engine` `log:error` to `log:warn` to fix an issue where places was unnecessarily creating sentry noise. This change was also cherry-picked to [v91.1.2](#v9112-2022-04-19)
+
 # v93.0.0 (_2022-04-13_)
 
 [Full Changelog](https://github.com/mozilla/application-services/compare/v92.0.1...v93.0.0)
@@ -64,9 +77,10 @@
 
 [Full Changelog](https://github.com/mozilla/application-services/compare/v91.1.1...v91.1.2)
 
+**IMPORTANT**: The following change was cherry-picked to 91.1.2 which was a release **not** from the main branch. The change then landed in [v93.0.1](#v9301-2022-04-20). This means that versions v92.0.0 - v93.0.0 do not have the change.
 ## Places
 
-- Downgraded places `get_registered_sync_engine` `log:error` to `log:warn` to fix an issue where places was unnecessarily creating sentry noise
+- Downgraded places `get_registered_sync_engine` `log:error` to `log:warn` to fix an issue where places was unnecessarily creating sentry noise.
 
 # v91.1.1 (_2022-03-23_)
 
