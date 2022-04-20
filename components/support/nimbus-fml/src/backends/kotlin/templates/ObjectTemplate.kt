@@ -6,8 +6,8 @@
 public class {{ class_name }}
     {% call kt::render_class_body(inner) %}
 
-    internal fun _mergeWith(defaults: {{class_name}}): {{class_name}} =
-        {{class_name}}(_variables = this._variables, _defaults = defaults._defaults)
+    internal fun _mergeWith(defaults: {{class_name}}?): {{class_name}} =
+        defaults?.let { {{class_name}}(_variables = this._variables, _defaults = it._defaults) } ?: this
 
     companion object {
         internal fun create(variables: Variables): {{class_name}}? =

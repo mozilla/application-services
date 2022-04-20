@@ -52,16 +52,44 @@ features:
         type: Map<String, String>
         default: {}
       string-int-map:
-        description: A string map that was causing problem
+        description: A int map that was causing problem
         type: Map<String, Int>
         default: {}
+      icon-type:
+        type: Option<IconType>
+        default: letter
+        description: "Describes the icon of spotlight"
       eum-map:
-        description: A string map that was causing problem
+        description: A enum map that was causing problem
         type: Map<IconType, Int>
         default:
           screenshot: 1
           letter: 2
           favicon: 3
+      nested:
+        description: Test of single nested object
+        type: ValidationObject
+        default:
+          is-useful: true
+      nested-optional:
+        description: Test of optional nested object
+        type: Option<ValidationObject>
+        default: null
+      nested-list:
+        description: Test of list of nested object
+        type: List<ValidationObject>
+        default: []
+      nested-map:
+        description: Test of map of nested object
+        type: Map<String, ValidationObject>
+        default: {}
+      nested-enum-map:
+        description: Test of map of nested object
+        type: Map<IconType, ValidationObject>
+        default:
+          screenshot: {}
+          letter: {}
+          favicon: {}
   search-term-groups:
     description: A feature allowing the grouping of URLs around the search term that it came from.
     variables:
@@ -70,7 +98,14 @@ features:
         type: Boolean
         default: false
 types:
-  objects: {}
+  objects:
+    ValidationObject:
+      description: Used in NimbusValidation
+      fields:
+        is-useful:
+          description: Is this useful?
+          type: Boolean
+          default: false
   enums:
     HomeScreenSection:
         description: The identifiers for the sections of the homescreen.
