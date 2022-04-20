@@ -80,6 +80,9 @@ nimbus_events:
       enrollment_id:
         type: string
         description: A unique identifier generated at enrollment time
+      reason:
+        type: string
+        description: The reason for the disqualification
     bugs:
       - https://jira.mozilla.com/browse/SDK-126
     data_reviews:

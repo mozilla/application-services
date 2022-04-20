@@ -8,6 +8,8 @@ use crate::persistence::{Database, StoreId, Writer};
 use crate::{evaluator::evaluate_enrollment, persistence::Readable};
 use crate::{AvailableRandomizationUnits, EnrolledExperiment, Experiment, FeatureConfig};
 
+use crate::glean_metrics::nimbus_events;
+
 use ::uuid::Uuid;
 use serde_derive::*;
 use std::{
@@ -373,40 +375,66 @@ impl ExperimentEnrollment {
                 enrollment_id,
                 branch,
                 ..
-            } => EnrollmentChangeEvent::new(
-                &self.slug,
-                enrollment_id,
-                branch,
-                None,
-                EnrollmentChangeEventType::Enrollment,
-            ),
+            } => {
+                nimbus_events::enrollment.record(nimbus_events::EnrollmentExtra {
+                    branch: Some(branch.clone()),
+                    enrollment_id: Some(enrollment_id.clone().to_string()),
+                    experiment: Some(self.slug.clone()),
+                });
+                EnrollmentChangeEvent::new(
+                    &self.slug,
+                    enrollment_id,
+                    branch,
+                    None,
+                    EnrollmentChangeEventType::Enrollment,
+                )
+            }
             EnrollmentStatus::WasEnrolled {
                 enrollment_id,
                 branch,
                 ..
-            } => EnrollmentChangeEvent::new(
-                &self.slug,
-                enrollment_id,
-                branch,
-                None,
-                EnrollmentChangeEventType::Unenrollment,
-            ),
+            } => {
+                nimbus_events::unenrollment.record(nimbus_events::UnenrollmentExtra {
+                    branch: Some(branch.clone()),
+                    enrollment_id: Some(enrollment_id.clone().to_string()),
+                    experiment: Some(self.slug.clone()),
+                });
+                EnrollmentChangeEvent::new(
+                    &self.slug,
+                    enrollment_id,
+                    branch,
+                    None,
+                    EnrollmentChangeEventType::Unenrollment,
+                )
+            }
             EnrollmentStatus::Disqualified {
                 enrollment_id,
                 branch,
                 reason,
                 ..
-            } => EnrollmentChangeEvent::new(
-                &self.slug,
-                enrollment_id,
-                branch,
-                match reason {
-                    DisqualifiedReason::NotTargeted => Some("targeting"),
-                    DisqualifiedReason::OptOut => Some("optout"),
-                    DisqualifiedReason::Error => Some("error"),
-                },
-                EnrollmentChangeEventType::Disqualification,
-            ),
+            } => {
+                nimbus_events::disqualification.record(nimbus_events::DisqualificationExtra {
+                    branch: Some(branch.clone()),
+                    enrollment_id: Some(enrollment_id.clone().to_string()),
+                    experiment: Some(self.slug.clone()),
+                    reason: match reason {
+                        DisqualifiedReason::NotTargeted => Some("targeting".to_string()),
+                        DisqualifiedReason::OptOut => Some("optout".to_string()),
+                        DisqualifiedReason::Error => Some("error".to_string()),
+                    },
+                });
+                EnrollmentChangeEvent::new(
+                    &self.slug,
+                    enrollment_id,
+                    branch,
+                    match reason {
+                        DisqualifiedReason::NotTargeted => Some("targeting"),
+                        DisqualifiedReason::OptOut => Some("optout"),
+                        DisqualifiedReason::Error => Some("error"),
+                    },
+                    EnrollmentChangeEventType::Disqualification,
+                )
+            }
             EnrollmentStatus::NotEnrolled { .. } | EnrollmentStatus::Error { .. } => unreachable!(),
         }
     }
