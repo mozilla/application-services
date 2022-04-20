@@ -1222,6 +1222,46 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "78cc372d058dcf6d5ecd98510e7fbc9e5aec4d21de70f65fea8fecebcd881bd4"
 
 [[package]]
+name = "glean"
+version = "42.3.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "832c12e734fe8d9c9ce22b86f58a1ec3ed796ffa354525f2f10341fb447008d8"
+dependencies = [
+ "chrono",
+ "crossbeam-channel",
+ "glean-core 42.3.2",
+ "inherent",
+ "log",
+ "once_cell",
+ "serde",
+ "serde_json",
+ "thiserror",
+ "time 0.1.44",
+ "uuid",
+ "whatsys",
+]
+
+[[package]]
+name = "glean-core"
+version = "42.3.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "04e5c4869d67e232a3805a5403ffa6ddbcd5e7278afb80bea3c33ae902417745"
+dependencies = [
+ "bincode",
+ "chrono",
+ "ffi-support",
+ "flate2",
+ "log",
+ "once_cell",
+ "rkv",
+ "serde",
+ "serde_json",
+ "time 0.1.44",
+ "uuid",
+ "zeitstempel",
+]
+
+[[package]]
 name = "glean-core"
 version = "43.0.2"
 dependencies = [
@@ -1246,7 +1286,7 @@ dependencies = [
  "android_logger",
  "env_logger 0.8.4",
  "ffi-support",
- "glean-core",
+ "glean-core 43.0.2",
  "libc",
  "log",
  "once_cell",
@@ -1460,6 +1500,17 @@ checksum = "0f647032dfaa1f8b6dc29bd3edb7bbef4861b8b8007ebb118d6db284fd59f6ee"
 dependencies = [
  "autocfg",
  "hashbrown",
+]
+
+[[package]]
+name = "inherent"
+version = "0.1.6"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "f3974bf42c2050bbf0696471e4d91ecc9844845c2323b388aa7bf9d63f3b0693"
+dependencies = [
+ "proc-macro2",
+ "quote",
+ "syn",
 ]
 
 [[package]]
@@ -1929,6 +1980,7 @@ dependencies = [
  "chrono",
  "clap",
  "env_logger 0.7.1",
+ "glean",
  "hex",
  "jexl-eval",
  "log",
@@ -3922,6 +3974,17 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "610950904727748ca09682e857f0d6d6437f0ca862f32f9229edba8cec8b2635"
 dependencies = [
  "nom 5.1.2",
+]
+
+[[package]]
+name = "whatsys"
+version = "0.1.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "c24fff5aa1e0973964ba23a995e8b10fa2cdeae507e0cbbbd36f8403242a765d"
+dependencies = [
+ "cc",
+ "cfg-if 1.0.0",
+ "libc",
 ]
 
 [[package]]

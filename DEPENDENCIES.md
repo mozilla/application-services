@@ -41,6 +41,7 @@ the details of which are reproduced below.
 * [MIT License: try-lock](#mit-license-try-lock)
 * [MIT License: want](#mit-license-want)
 * [MIT License: weedle](#mit-license-weedle)
+* [MIT License: whatsys](#mit-license-whatsys)
 * [MIT License: winapi-util](#mit-license-winapi-util)
 * [MIT License: winreg](#mit-license-winreg)
 * [CC0-1.0 License: base16](#cc0-10-license-base16)
@@ -58,6 +59,8 @@ The following text applies to code linked from these dependencies:
 [NSPR](https://hg.mozilla.org/projects/nspr),
 [NSS](https://hg.mozilla.org/projects/nss),
 [ece](https://github.com/mozilla/rust-ece),
+[glean-core](https://github.com/mozilla/glean),
+[glean](https://github.com/mozilla/glean),
 [hawk](https://github.com/taskcluster/rust-hawk),
 [jexl-eval](https://github.com/mozilla/jexl-rs),
 [jexl-parser](https://github.com/mozilla/jexl-rs),
@@ -470,6 +473,8 @@ The following text applies to code linked from these dependencies:
 [core-foundation](https://github.com/servo/core-foundation-rs),
 [cpufeatures](https://github.com/RustCrypto/utils),
 [crc32fast](https://github.com/srijs/rust-crc32fast),
+[crossbeam-channel](https://github.com/crossbeam-rs/crossbeam),
+[crossbeam-utils](https://github.com/crossbeam-rs/crossbeam),
 [digest](https://github.com/RustCrypto/traits),
 [dogear](https://github.com/mozilla/dogear),
 [either](https://github.com/bluss/either),
@@ -503,6 +508,7 @@ The following text applies to code linked from these dependencies:
 [id-arena](https://github.com/fitzgen/id-arena),
 [idna](https://github.com/servo/rust-url/),
 [indexmap](https://github.com/bluss/indexmap),
+[inherent](https://github.com/dtolnay/inherent),
 [ipnet](https://github.com/krisprice/ipnet),
 [itertools](https://github.com/rust-itertools/itertools),
 [itoa](https://github.com/dtolnay/itoa),
@@ -1867,6 +1873,36 @@ TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONIN
 THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF
 CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
 DEALINGS IN THE SOFTWARE.
+```
+-------------
+## MIT License: whatsys
+
+The following text applies to code linked from these dependencies:
+[whatsys](https://github.com/badboy/whatsys)
+
+```
+The MIT License (MIT)
+
+Copyright (c) 2021 Jan-Erik Rediger
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in
+all copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
+THE SOFTWARE.
+
 ```
 -------------
 ## MIT License: winapi-util

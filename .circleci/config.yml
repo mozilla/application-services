@@ -119,6 +119,7 @@ commands:
     steps:
       - run: sudo apt-get update
       - run: sudo apt-get install python tcl
+      - run: sudo apt-get install python3-venv
       - run:
           name: Install NSS build system dependencies
           command: sudo apt-get install ninja-build gyp zlib1g-dev

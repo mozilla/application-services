@@ -91,6 +91,8 @@ RUN apt-get update -qq \
         p7zip-full \
         # Required to rsync the `libs` folder after fetch (see taskcluster/ci/android-build/kind.yml)
         rsync \
+        # Required for creating a venv for glean_parser
+        python3-venv \
     && apt-get clean
 
 RUN pip3 install --upgrade pip

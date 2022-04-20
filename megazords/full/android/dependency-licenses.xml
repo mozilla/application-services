@@ -17,6 +17,14 @@ the details of which are reproduced below.
     <url>https://github.com/mozilla/rust-ece/blob/main/LICENSE</url>
   </license>
   <license>
+    <name>Mozilla Public License 2.0: glean</name>
+    <url>https://github.com/mozilla/glean/blob/main/LICENSE</url>
+  </license>
+  <license>
+    <name>Mozilla Public License 2.0: glean-core</name>
+    <url>https://github.com/mozilla/glean/blob/main/LICENSE</url>
+  </license>
+  <license>
     <name>Mozilla Public License 2.0: hawk</name>
     <url>https://github.com/taskcluster/rust-hawk/blob/main/LICENSE</url>
   </license>
@@ -43,6 +51,14 @@ the details of which are reproduced below.
   <license>
     <name>Mozilla Public License 2.0: uniffi_macros</name>
     <url>https://github.com/mozilla/uniffi-rs/blob/main/LICENSE</url>
+  </license>
+  <license>
+    <name>Mozilla Public License 2.0: zeitstempel</name>
+    <url>https://github.com/badboy/zeitstempel/blob/main/LICENSE</url>
+  </license>
+  <license>
+    <name>Apache License 2.0: adler</name>
+    <url>https://github.com/jonas-schievink/adler/blob/master/LICENSE-APACHE</url>
   </license>
   <license>
     <name>Apache License 2.0: ahash</name>
@@ -121,6 +137,18 @@ the details of which are reproduced below.
     <url>https://github.com/RustCrypto/utils/blob/master/cpufeatures/LICENSE-APACHE</url>
   </license>
   <license>
+    <name>Apache License 2.0: crc32fast</name>
+    <url>https://github.com/srijs/rust-crc32fast/blob/master/LICENSE-APACHE</url>
+  </license>
+  <license>
+    <name>Apache License 2.0: crossbeam-channel</name>
+    <url>https://github.com/crossbeam-rs/crossbeam/blob/master/LICENSE-APACHE</url>
+  </license>
+  <license>
+    <name>Apache License 2.0: crossbeam-utils</name>
+    <url>https://github.com/crossbeam-rs/crossbeam/blob/master/LICENSE-APACHE</url>
+  </license>
+  <license>
     <name>Apache License 2.0: digest</name>
     <url>https://github.com/RustCrypto/traits/blob/master/digest/LICENSE-APACHE</url>
   </license>
@@ -147,6 +175,10 @@ the details of which are reproduced below.
   <license>
     <name>Apache License 2.0: ffi-support</name>
     <url>https://raw.githubusercontent.com/mozilla/ffi-support/main/LICENSE-APACHE</url>
+  </license>
+  <license>
+    <name>Apache License 2.0: flate2</name>
+    <url>https://github.com/rust-lang/flate2-rs/blob/main/LICENSE-APACHE</url>
   </license>
   <license>
     <name>Apache License 2.0: form_urlencoded</name>
@@ -183,6 +215,10 @@ the details of which are reproduced below.
   <license>
     <name>Apache License 2.0: idna</name>
     <url>https://github.com/servo/rust-url/blob//master/LICENSE-APACHE</url>
+  </license>
+  <license>
+    <name>Apache License 2.0: inherent</name>
+    <url>https://github.com/dtolnay/inherent/blob/master/LICENSE-APACHE</url>
   </license>
   <license>
     <name>Apache License 2.0: itertools</name>
@@ -529,6 +565,10 @@ the details of which are reproduced below.
     <url>https://github.com/SimonSapin/rust-std-candidates/blob/master/LICENSE</url>
   </license>
   <license>
+    <name>MIT License: miniz_oxide</name>
+    <url>https://github.com/Frommi/miniz_oxide/blob/master/miniz_oxide/LICENSE-MIT.md</url>
+  </license>
+  <license>
     <name>MIT License: nom</name>
     <url>https://github.com/Geal/nom/blob/main/LICENSE</url>
   </license>
@@ -555,6 +595,10 @@ the details of which are reproduced below.
   <license>
     <name>MIT License: weedle</name>
     <url>https://github.com/rustwasm/weedle/blob/master/LICENSE.md</url>
+  </license>
+  <license>
+    <name>MIT License: whatsys</name>
+    <url>https://github.com/badboy/whatsys/blob/main/LICENSE</url>
   </license>
   <license>
     <name>CC0-1.0 License: base16</name>
