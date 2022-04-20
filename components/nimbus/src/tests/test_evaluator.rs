@@ -17,10 +17,7 @@ fn test_locale_substring() -> Result<()> {
         locale: Some("de-US".to_string()),
         ..Default::default()
     };
-    let targeting_attributes = TargetingAttributes {
-        app_context: ctx,
-        ..Default::default()
-    };
+    let targeting_attributes = ctx.into();
     assert_eq!(targeting(expression_statement, &targeting_attributes), None);
     Ok(())
 }
@@ -32,10 +29,7 @@ fn test_locale_substring_fails() -> Result<()> {
         locale: Some("cz-US".to_string()),
         ..Default::default()
     };
-    let targeting_attributes = TargetingAttributes {
-        app_context: ctx,
-        ..Default::default()
-    };
+    let targeting_attributes = ctx.into();
     let enrollment_status = targeting(expression_statement, &targeting_attributes).unwrap();
     if let EnrollmentStatus::NotEnrolled { reason } = enrollment_status {
         if let NotEnrolledReason::NotTargeted = reason {
@@ -50,46 +44,61 @@ fn test_locale_substring_fails() -> Result<()> {
 }
 
 #[test]
+fn test_language_region_from_locale() {
+    fn test(locale: &str, language: Option<&str>, region: Option<&str>) {
+        let app_context = AppContext {
+            locale: Some(locale.to_string()),
+            ..Default::default()
+        };
+
+        let ta: TargetingAttributes = app_context.into();
+
+        assert_eq!(ta.language, language.map(String::from));
+        assert_eq!(ta.region, region.map(String::from));
+    }
+
+    test("en-US", Some("en"), Some("US"));
+    test("es", Some("es"), None);
+
+    test("nim-BUS", Some("nim"), Some("BUS"));
+
+    // Not sure these are useful.
+    test("nim-", Some("nim"), None);
+    test("-BUS", None, Some("BUS"));
+}
+
+#[test]
 fn test_geo_targeting_one_locale() -> Result<()> {
-    let expression_statement = "locale in ['ro']";
+    let expression_statement = "language in ['ro']";
     let ctx = AppContext {
         locale: Some("ro".to_string()),
         ..Default::default()
     };
-    let targeting_attributes = TargetingAttributes {
-        app_context: ctx,
-        ..Default::default()
-    };
+    let targeting_attributes = ctx.into();
     assert_eq!(targeting(expression_statement, &targeting_attributes), None);
     Ok(())
 }
 
 #[test]
 fn test_geo_targeting_multiple_locales() -> Result<()> {
-    let expression_statement = "locale in ['en', 'ro']";
+    let expression_statement = "language in ['en', 'ro']";
     let ctx = AppContext {
         locale: Some("ro".to_string()),
         ..Default::default()
     };
-    let targeting_attributes = TargetingAttributes {
-        app_context: ctx,
-        ..Default::default()
-    };
+    let targeting_attributes = ctx.into();
     assert_eq!(targeting(expression_statement, &targeting_attributes), None);
     Ok(())
 }
 
 #[test]
 fn test_geo_targeting_fails_properly() -> Result<()> {
-    let expression_statement = "locale in ['en', 'ro']";
+    let expression_statement = "language in ['en', 'ro']";
     let ctx = AppContext {
         locale: Some("ar".to_string()),
         ..Default::default()
     };
-    let targeting_attributes = TargetingAttributes {
-        app_context: ctx,
-        ..Default::default()
-    };
+    let targeting_attributes = ctx.into();
     let enrollment_status = targeting(expression_statement, &targeting_attributes).unwrap();
     if let EnrollmentStatus::NotEnrolled { reason } = enrollment_status {
         if let NotEnrolledReason::NotTargeted = reason {
@@ -111,10 +120,7 @@ fn test_minimum_version_targeting_passes() -> Result<()> {
         app_version: Some("97pre.1.0-beta.1".into()),
         ..Default::default()
     };
-    let targeting_attributes = TargetingAttributes {
-        app_context: ctx,
-        ..Default::default()
-    };
+    let targeting_attributes = ctx.into();
     assert_eq!(targeting(expression_statement, &targeting_attributes), None);
     Ok(())
 }
@@ -127,10 +133,7 @@ fn test_minimum_version_targeting_fails() -> Result<()> {
         app_version: Some("96.1".into()),
         ..Default::default()
     };
-    let targeting_attributes = TargetingAttributes {
-        app_context: ctx,
-        ..Default::default()
-    };
+    let targeting_attributes = ctx.into();
     assert_eq!(
         targeting(expression_statement, &targeting_attributes),
         Some(EnrollmentStatus::NotEnrolled {
@@ -149,20 +152,14 @@ fn test_targeting_specific_verision() -> Result<()> {
         app_version: Some("96.1".into()),
         ..Default::default()
     };
-    let targeting_attributes = TargetingAttributes {
-        app_context: ctx,
-        ..Default::default()
-    };
+    let targeting_attributes = ctx.into();
     // OK 96.1 is a 96 version
     assert_eq!(targeting(expression_statement, &targeting_attributes), None);
     let ctx = AppContext {
         app_version: Some("97.1".into()),
         ..Default::default()
     };
-    let targeting_attributes = TargetingAttributes {
-        app_context: ctx,
-        ..Default::default()
-    };
+    let targeting_attributes = ctx.into();
     // Not targeted, version is 97
     assert_eq!(
         targeting(expression_statement, &targeting_attributes),
@@ -175,10 +172,7 @@ fn test_targeting_specific_verision() -> Result<()> {
         app_version: Some("95.1".into()),
         ..Default::default()
     };
-    let targeting_attributes = TargetingAttributes {
-        app_context: ctx,
-        ..Default::default()
-    };
+    let targeting_attributes = ctx.into();
 
     // Not targeted, version is 95
     assert_eq!(
@@ -198,10 +192,7 @@ fn test_targeting_invalid_transform() -> Result<()> {
         app_version: Some("96.1".into()),
         ..Default::default()
     };
-    let targeting_attributes = TargetingAttributes {
-        app_context: ctx,
-        ..Default::default()
-    };
+    let targeting_attributes = ctx.into();
     let err = targeting(expression_statement, &targeting_attributes);
     if let Some(e) = err {
         if let EnrollmentStatus::Error { reason: _ } = e {
@@ -389,7 +380,7 @@ fn test_targeting_custom_targeting_attributes() {
     .into();
     assert!(matches!(
         targeting(expression_statement, &targeting_attributes),
-        Some(EnrollmentStatus::Error { .. })
+        Some(EnrollmentStatus::NotEnrolled { reason: NotEnrolledReason::NotTargeted })
     ));
 }
 

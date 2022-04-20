@@ -27,7 +27,7 @@ viaduct = { path = "../viaduct" }
 thiserror = "1"
 url = "2.2"
 rkv = "0.17"
-jexl-eval = "0.1.7"
+jexl-eval = "0.2.0"
 uuid = { version = "0.8", features = ["serde", "v4"]}
 sha2 = "0.9"
 hex = "0.4"

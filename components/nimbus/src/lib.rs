@@ -59,14 +59,6 @@ pub const DB_KEY_INSTALLATION_DATE: &str = "installation-date";
 pub const DB_KEY_UPDATE_DATE: &str = "update-date";
 pub const DB_KEY_APP_VERSION: &str = "app-version";
 
-impl From<AppContext> for TargetingAttributes {
-    fn from(app_context: AppContext) -> Self {
-        Self {
-            app_context,
-            ..Default::default()
-        }
-    }
-}
 // The main `NimbusClient` struct must not expose any methods that make an `&mut self`,
 // in order to be compatible with the uniffi's requirements on objects. This is a helper
 // struct to contain the bits that do actually need to be mutable, so they can be
