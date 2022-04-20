@@ -67,6 +67,10 @@ impl CodeType for OptionalCodeType {
         code_type::value_mapper(self, oracle)
     }
 
+    fn value_merger(&self, oracle: &dyn CodeOracle, default: &dyn Display) -> Option<String> {
+        oracle.find(&self.inner).value_merger(oracle, default)
+    }
+
     /// The name of the type as it's represented in the `Variables` object.
     /// The string return may be used to combine with an indentifier, e.g. a `Variables` method name.
     fn create_transform(&self, oracle: &dyn CodeOracle) -> Option<String> {
