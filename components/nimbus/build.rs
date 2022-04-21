@@ -25,4 +25,6 @@ pub fn main() {
         ])
         .status()
         .expect("Error generating Glean Rust bindings");
+
+    println!("cargo:rerun-if-changed=./metrics.yaml");
 }
