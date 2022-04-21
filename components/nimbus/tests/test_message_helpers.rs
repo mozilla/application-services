@@ -62,41 +62,31 @@ mod message_tests {
     }
 
     #[test]
-    fn test_derived_targeting_attributes_available()  -> Result<()> {
+    fn test_derived_targeting_attributes_available() -> Result<()> {
         let nimbus = common::new_test_client("jexl_test")?;
         nimbus.initialize()?;
 
         let helper = nimbus.create_targeting_helper(None)?;
 
-        assert!(helper.eval_jexl(
-            "locale == 'en-GB'".to_string()
-        )?);
+        assert!(helper.eval_jexl("locale == 'en-GB'".to_string())?);
 
-        assert!(helper.eval_jexl(
-            "language == 'en'".to_string()
-        )?);
+        assert!(helper.eval_jexl("language == 'en'".to_string())?);
 
-        assert!(helper.eval_jexl(
-            "region == 'GB'".to_string()
-        )?);
+        assert!(helper.eval_jexl("region == 'GB'".to_string())?);
 
         Ok(())
     }
 
     #[test]
-    fn test_derived_targeting_attributes_none()  -> Result<()> {
+    fn test_derived_targeting_attributes_none() -> Result<()> {
         let mut nimbus = common::new_test_client("jexl_test")?;
         nimbus.initialize()?;
 
-        nimbus.with_targeting_attributes(
-            Default::default()
-        );
+        nimbus.with_targeting_attributes(Default::default());
 
         let helper = nimbus.create_targeting_helper(None)?;
 
-        assert!(!helper.eval_jexl(
-            "(locale||'NONE') == 'en'".to_string()
-        )?);
+        assert!(!helper.eval_jexl("(locale||'NONE') == 'en'".to_string())?);
 
         // assert!(helper.eval_jexl(
         //     "language == null".to_string()

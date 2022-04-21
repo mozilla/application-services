@@ -380,7 +380,9 @@ fn test_targeting_custom_targeting_attributes() {
     .into();
     assert!(matches!(
         targeting(expression_statement, &targeting_attributes),
-        Some(EnrollmentStatus::NotEnrolled { reason: NotEnrolledReason::NotTargeted })
+        Some(EnrollmentStatus::NotEnrolled {
+            reason: NotEnrolledReason::NotTargeted
+        })
     ));
 }
 
