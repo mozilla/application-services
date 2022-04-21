@@ -4,6 +4,7 @@
 
 use crate::db::{PlacesDb, PlacesTransaction};
 use crate::error::*;
+use crate::RowId;
 use rusqlite::types::{FromSql, FromSqlResult, ToSql, ToSqlOutput, ValueRef};
 use sql_support::ConnExt;
 use std::vec::Vec;
@@ -486,6 +487,16 @@ pub fn delete_older_than(db: &PlacesDb, older_than: i64) -> Result<()> {
     Ok(())
 }
 
+/// Delete all metadata for the specified place id.
+pub fn delete_all_metadata_for_page(db: &PlacesDb, place_id: RowId) -> Result<()> {
+    db.execute_cached(
+        "DELETE FROM moz_places_metadata
+         WHERE place_id = :place_id",
+        &[(":place_id", &place_id)],
+    )?;
+    Ok(())
+}
+
 pub fn delete_metadata(
     db: &PlacesDb,
     url: &Url,
@@ -717,6 +728,18 @@ fn insert_metadata_in_tx(
 mod tests {
     use super::*;
     use crate::api::places_api::ConnectionType;
+    use crate::observation::VisitObservation;
+    use crate::storage::bookmarks::{
+        get_raw_bookmark, insert_bookmark, BookmarkPosition, BookmarkRootGuid, InsertableBookmark,
+        InsertableItem,
+    };
+    use crate::storage::fetch_page_info;
+    use crate::storage::history::{
+        apply_observation, delete_visits_between, delete_visits_for, get_visit_count, url_to_guid,
+        wipe_local,
+    };
+    use crate::types::VisitTransition;
+    use crate::VisitTransitionSet;
     use pretty_assertions::assert_eq;
     use std::{thread, time};
 
@@ -1311,10 +1334,6 @@ mod tests {
 
     #[test]
     fn test_query() {
-        use crate::observation::VisitObservation;
-        use crate::storage::history::apply_observation;
-        use crate::types::VisitTransition;
-
         let conn = PlacesDb::open_in_memory(ConnectionType::ReadWrite).expect("memory db");
         let now = Timestamp::now();
 
@@ -1632,16 +1651,125 @@ mod tests {
     }
 
     #[test]
-    fn test_places_delete_triggers_with_bookmarks() {
-        use crate::storage::bookmarks::{
-            self, BookmarkPosition, BookmarkRootGuid, InsertableBookmark, InsertableItem,
+    fn test_delete_history_also_deletes_metadata_bookmarked() {
+        let conn = PlacesDb::open_in_memory(ConnectionType::ReadWrite).expect("memory db");
+        // Item 1 - bookmarked with regular visits and history metadata
+        let url = Url::parse("https://www.mozilla.org/bookmarked").unwrap();
+        let bm_guid: SyncGuid = "bookmarkAAAA".into();
+        let bm = InsertableBookmark {
+            parent_guid: BookmarkRootGuid::Unfiled.into(),
+            position: BookmarkPosition::Append,
+            date_added: None,
+            last_modified: None,
+            guid: Some(bm_guid.clone()),
+            url: url.clone(),
+            title: Some("bookmarked page".to_string()),
         };
+        insert_bookmark(&conn, InsertableItem::Bookmark { b: bm }).expect("bookmark should insert");
+        let obs = VisitObservation::new(url.clone()).with_visit_type(VisitTransition::Link);
+        apply_observation(&conn, obs).expect("Should apply visit");
+        note_observation!(
+            &conn,
+            url url.to_string(),
+            view_time Some(20000),
+            search_term None,
+            document_type Some(DocumentType::Regular),
+            referrer_url Some("https://www.google.com/search?client=firefox-b-d&q=mozilla+firefox"),
+            title None
+        );
 
+        // Check the DB is what we expect before deleting.
+        assert_eq!(
+            get_visit_count(&conn, VisitTransitionSet::empty()).unwrap(),
+            1
+        );
+        let place_guid = url_to_guid(&conn, &url)
+            .expect("is valid")
+            .expect("should exist");
+
+        delete_visits_for(&conn, &place_guid).expect("should work");
+        // bookmark must still exist.
+        assert!(get_raw_bookmark(&conn, &bm_guid).unwrap().is_some());
+        // place exists but has no visits.
+        let pi = fetch_page_info(&conn, &url)
+            .expect("should work")
+            .expect("should exist");
+        assert!(pi.last_visit_id.is_none());
+        // and no metadata observations.
+        assert!(get_latest_for_url(&conn, &url)
+            .expect("should work")
+            .is_none());
+    }
+
+    #[test]
+    fn test_delete_history_also_deletes_metadata_not_bookmarked() {
+        let conn = PlacesDb::open_in_memory(ConnectionType::ReadWrite).expect("memory db");
+        // Item is not bookmarked, but has regular visit and a metadata observation.
+        let url = Url::parse("https://www.mozilla.org/not-bookmarked").unwrap();
+        let obs = VisitObservation::new(url.clone()).with_visit_type(VisitTransition::Link);
+        apply_observation(&conn, obs).expect("Should apply visit");
+        note_observation!(
+            &conn,
+            url url.to_string(),
+            view_time Some(20000),
+            search_term None,
+            document_type Some(DocumentType::Regular),
+            referrer_url Some("https://www.google.com/search?client=firefox-b-d&q=mozilla+firefox"),
+            title None
+        );
+
+        // Check the DB is what we expect before deleting.
+        assert_eq!(
+            get_visit_count(&conn, VisitTransitionSet::empty()).unwrap(),
+            1
+        );
+        let place_guid = url_to_guid(&conn, &url)
+            .expect("is valid")
+            .expect("should exist");
+
+        delete_visits_for(&conn, &place_guid).expect("should work");
+        // place no longer exists.
+        assert!(fetch_page_info(&conn, &url).expect("should work").is_none());
+        assert!(get_latest_for_url(&conn, &url)
+            .expect("should work")
+            .is_none());
+    }
+
+    #[test]
+    fn test_delete_history_also_deletes_metadata_no_visits() {
+        let conn = PlacesDb::open_in_memory(ConnectionType::ReadWrite).expect("memory db");
+        // Item is not bookmarked, no regular visits but a metadata observation.
+        let url = Url::parse("https://www.mozilla.org/no-visits").unwrap();
+        note_observation!(
+            &conn,
+            url url.to_string(),
+            view_time Some(20000),
+            search_term None,
+            document_type Some(DocumentType::Regular),
+            referrer_url Some("https://www.google.com/search?client=firefox-b-d&q=mozilla+firefox"),
+            title None
+        );
+
+        // Check the DB is what we expect before deleting.
+        assert_eq!(
+            get_visit_count(&conn, VisitTransitionSet::empty()).unwrap(),
+            0
+        );
+        let place_guid = url_to_guid(&conn, &url)
+            .expect("is valid")
+            .expect("should exist");
+
+        delete_visits_for(&conn, &place_guid).expect("should work");
+        // place no longer exists.
+        assert!(fetch_page_info(&conn, &url).expect("should work").is_none());
+        assert!(get_latest_for_url(&conn, &url)
+            .expect("should work")
+            .is_none());
+    }
+
+    #[test]
+    fn test_places_delete_triggers_with_bookmarks() {
         // The cleanup functionality lives as a TRIGGER in `create_shared_triggers`.
-        use crate::observation::VisitObservation;
-        use crate::storage::history::{apply_observation, wipe_local};
-        use crate::types::VisitTransition;
-
         let conn = PlacesDb::open_in_memory(ConnectionType::ReadWrite).expect("memory db");
 
         let now = Timestamp::now();
@@ -1668,7 +1796,7 @@ mod tests {
         assert_table_size!(&conn, "moz_bookmarks", 5);
 
         // add bookmark for the page we have a metadata entry
-        bookmarks::insert_bookmark(
+        insert_bookmark(
             &conn,
             InsertableItem::Bookmark {
                 b: InsertableBookmark {
@@ -1685,7 +1813,7 @@ mod tests {
         .expect("bookmark insert worked");
 
         // add another bookmark to the "parent" of our metadata entry
-        bookmarks::insert_bookmark(
+        insert_bookmark(
             &conn,
             InsertableItem::Bookmark {
                 b: InsertableBookmark {
@@ -1726,10 +1854,6 @@ mod tests {
     #[test]
     fn test_places_delete_triggers() {
         // The cleanup functionality lives as a TRIGGER in `create_shared_triggers`.
-        use crate::observation::VisitObservation;
-        use crate::storage::history::{apply_observation, delete_visits_between, wipe_local};
-        use crate::types::VisitTransition;
-
         let conn = PlacesDb::open_in_memory(ConnectionType::ReadWrite).expect("memory db");
 
         let now = Timestamp::now();
