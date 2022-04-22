@@ -14,9 +14,21 @@
 /// This is generated.
 public class {{ nimbus_object }} {
     ///
-    /// This should be populated at app launch.
+    /// This should be populated at app launch; this method of initializing features
+    /// will be removed in favor of the `initialize` function.
     ///
-    public var api: FeaturesInterface? = nil
+    public var api: FeaturesInterface?
+
+    ///
+    /// This method should be called as early in the startup sequence of the app as possible.
+    /// This is to connect the Nimbus SDK (and thus server) with the `{{ nimbus_object }}`
+    /// class.
+    ///
+    public func initialize(with getSdk: @escaping () -> FeaturesInterface?) {
+        self.getSdk = getSdk
+    }
+
+    fileprivate lazy var getSdk: GetSdk = { [self] in self.api }
 
     ///
     /// Represents all the features supported by Nimbus
@@ -35,7 +47,7 @@ public class Features {
     {%- let class_name = raw_name|class_name %}
     {{ f.doc()|comment("        ") }}
     public lazy var {{raw_name|var_name}}: FeatureHolder<{{class_name}}> = {
-        FeatureHolder({ {{ nimbus_object }}.shared.api }, {{ raw_name|quoted }}) { (variables) in
+        FeatureHolder({{ nimbus_object }}.shared.getSdk, featureId: {{ raw_name|quoted }}) { (variables) in
             {{ class_name }}(variables)
         }
     }()

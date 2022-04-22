@@ -339,7 +339,6 @@ mod test {
         Ok(())
     }
 
-
     #[test]
     fn regresion_test_concurrent_access_of_feature_holder() -> Result<()> {
         generate_and_assert(

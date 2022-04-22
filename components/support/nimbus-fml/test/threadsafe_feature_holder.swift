@@ -7,12 +7,12 @@ import Foundation
 
 let queue: OperationQueue = {
     let queue = OperationQueue()
-    queue.maxConcurrentOperationCount = 2
+    queue.maxConcurrentOperationCount = 5
     return queue
 }()
 
 let api: FeaturesInterface = MockNimbus(("test-feature-holder", "{}"))
-let holder = FeatureHolder<String>({ api }, "test-feature-holder") { _ in "NO CRASH" }
+let holder = FeatureHolder<String>({ api }, featureId: "test-feature-holder") { _ in "NO CRASH" }
 
 for _ in 1 ..< 10000 {
     queue.addOperation {
