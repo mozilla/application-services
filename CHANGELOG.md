@@ -1,3 +1,11 @@
+# v93.0.2 (_2022-04-25_)
+
+[Full Changelog](https://github.com/mozilla/application-services/compare/v93.0.1...v93.0.2)
+
+## Nimbus FML
+### What's fixed
+- (iOS only) Made the extensions on `String` and `Variables` public. The extended functions are used in the generated code and that didn't compile in consumers when internal.
+
 # v93.0.1 (_2022-04-20_)
 
 [Full Changelog](https://github.com/mozilla/application-services/compare/v93.0.0...v93.0.1)

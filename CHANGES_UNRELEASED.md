@@ -2,7 +2,7 @@
 
 # Unreleased Changes
 
-[Full Changelog](https://github.com/mozilla/application-services/compare/v93.0.1...main)
+[Full Changelog](https://github.com/mozilla/application-services/compare/v93.0.2...main)
 
 <!-- WARNING: New entries should be added below this comment to ensure the `./automation/prepare-release.py` script works as expected.
 
@@ -18,7 +18,3 @@ Use the template below to make assigning a version number during the release cut
   - Description of the change with a link to the pull request ([#0000](https://github.com/mozilla/application-services/pull/0000))
 
 -->
-
-## Nimbus FML
-### What's fixed
-- (iOS only) Made the extensions on `String` and `Variables` public. The extended functions are used in the generated code and that didn't compile in consumers when internal.
