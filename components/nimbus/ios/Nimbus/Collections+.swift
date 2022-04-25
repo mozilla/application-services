@@ -99,13 +99,13 @@ public extension Array where Element == Bundle {
 
 /// Convenience extensions to make working elements coming from the `Variables`
 /// object slightly easier/regular.
-extension String {
+public extension String {
     func map<V>(_ transform: (Self) throws -> V?) rethrows -> V? {
         return try transform(self)
     }
 }
 
-extension Variables {
+public extension Variables {
     func map<V>(_ transform: (Self) throws -> V) rethrows -> V {
         return try transform(self)
     }
