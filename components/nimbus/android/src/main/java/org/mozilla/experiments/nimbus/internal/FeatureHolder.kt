@@ -4,7 +4,6 @@ import android.content.Context
 import org.mozilla.experiments.nimbus.FeaturesInterface
 import org.mozilla.experiments.nimbus.Variables
 import org.mozilla.experiments.nimbus.NullVariables
-import java.lang.ref.WeakReference
 
 class FeatureHolder<T>(
     private val getSdk: () -> FeaturesInterface?,
