@@ -59,6 +59,7 @@ class GleanPlumbTests {
         assertTrue(messageHelper.evalJexl("app_name == 'ThatApp'"))
         assertFalse(messageHelper.evalJexl("app_name == 'ppAtahT'"))
 
+        // The JEXL evaluator should error for unknown identifiers
         assertThrows("invalid jexl", NimbusException::class.java) {
             messageHelper.evalJexl("appName == 'ThatApp'")
         }
