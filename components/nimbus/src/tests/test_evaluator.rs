@@ -378,11 +378,10 @@ fn test_targeting_custom_targeting_attributes() {
         ..Default::default()
     }
     .into();
+    // We haven't defined `is_first_run` here, so this should error out, i.e. return an error.
     assert!(matches!(
         targeting(expression_statement, &targeting_attributes),
-        Some(EnrollmentStatus::NotEnrolled {
-            reason: NotEnrolledReason::NotTargeted
-        })
+        Some(EnrollmentStatus::Error { .. })
     ));
 }
 
