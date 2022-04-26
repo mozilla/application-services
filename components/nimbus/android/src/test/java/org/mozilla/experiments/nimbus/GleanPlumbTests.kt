@@ -15,9 +15,11 @@ import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertNull
+import org.junit.Assert.assertThrows
 import org.junit.Assert.assertTrue
 import org.junit.Test
 import org.junit.runner.RunWith
+import org.mozilla.experiments.nimbus.internal.NimbusException
 import org.robolectric.RobolectricTestRunner
 import java.util.UUID
 import java.util.concurrent.Executors
@@ -57,12 +59,10 @@ class GleanPlumbTests {
         assertTrue(messageHelper.evalJexl("app_name == 'ThatApp'"))
         assertFalse(messageHelper.evalJexl("app_name == 'ppAtahT'"))
 
-        // The JEXL evaluator handles undefined attributes as `null`.
-        // This https://github.com/mozilla/jexl-rs/issues/24 should be
-        // fixed before enabling the following test.
-        // assertThrows("invalid jexl", NimbusException::class.java) {
-        //     messageHelper.evalJexl("appName == 'ThatApp'")
-        // }
+        // The JEXL evaluator should error for unknown identifiers
+        assertThrows("invalid jexl", NimbusException::class.java) {
+            messageHelper.evalJexl("appName == 'ThatApp'")
+        }
     }
 
     @Test
@@ -86,12 +86,10 @@ class GleanPlumbTests {
                 }""".trimIndent()
         )
 
-        // The JEXL evaluator handles undefined attributes as `null`. This https://github.com/mozilla/jexl-rs/issues/24 should be
-        // fixed before enabling the following test.
-        // assertThrows("no context, so no variable", NimbusException::class.java) {
-        //     val messageHelper = nimbus.createMessageHelper()
-        //     messageHelper.evalJexl("test_value_from_json == 42")
-        // }
+        assertThrows("no context, so no variable", NimbusException::class.java) {
+            val messageHelper = nimbus.createMessageHelper()
+            messageHelper.evalJexl("test_value_from_json == 42")
+        }
 
         val messageHelper = nimbus.createMessageHelper(context)
         assertTrue(
