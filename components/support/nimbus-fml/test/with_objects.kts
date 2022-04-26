@@ -34,12 +34,6 @@ val api = MockNimbus("with-objects-feature" to """{
 }""")
 MyNimbus.api = api
 
-// Side test: we just configured a feature with the defaults shipped with the app: the MyNimbus.api wasn't
-// set when we needed the feature, so the defaults were used. Likely we shouldn't count
-// that as an exposure.
-MyNimbus.features.withObjectsFeature.recordExposure()
-assert(!api.isExposed("with-objects-feature"))
-
 // Now test the selectively overidden properties of the feature.
 val feature1 = MyNimbus.features.withObjectsFeature.value()
 

@@ -340,9 +340,20 @@ mod test {
     }
 
     #[test]
-    fn regresion_test_concurrent_access_of_feature_holder() -> Result<()> {
+    fn regresion_test_concurrent_access_of_feature_holder_swift() -> Result<()> {
         generate_and_assert(
             "test/threadsafe_feature_holder.swift",
+            "fixtures/fe/fenix.yaml",
+            "release",
+            false,
+        )?;
+        Ok(())
+    }
+
+    #[test]
+    fn regresion_test_concurrent_access_of_feature_holder_kts() -> Result<()> {
+        generate_and_assert(
+            "test/threadsafe_feature_holder.kts",
             "fixtures/fe/fenix.yaml",
             "release",
             false,
