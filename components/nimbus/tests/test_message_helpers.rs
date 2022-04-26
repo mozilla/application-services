@@ -35,7 +35,7 @@ mod message_tests {
         assert!(!helper.eval_jexl("app_name == 'xinef'".to_string())?);
 
         // The expression contains a variable not declared (snek_case Good, camelCase Bad)
-        assert!(!helper.eval_jexl("appName == 'fenix'".to_string())?);
+        assert!(helper.eval_jexl("appName == 'fenix'".to_string()).is_err());
 
         let helper = nimbus.create_targeting_helper(
             json!(
