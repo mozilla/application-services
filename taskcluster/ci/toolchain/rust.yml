@@ -5,6 +5,8 @@
 rust:
     description: 'Build the Rust toolchain'
     run:
+        resources:
+            - rust-toolchain.toml
         script: build-rust-toolchain.sh
         toolchain-alias: rust
         toolchain-artifact: public/build/rust.tar.gz
