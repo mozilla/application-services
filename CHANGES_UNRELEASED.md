@@ -2,7 +2,7 @@
 
 # Unreleased Changes
 
-[Full Changelog](https://github.com/mozilla/application-services/compare/v93.0.2...main)
+[Full Changelog](https://github.com/mozilla/application-services/compare/v93.0.3...main)
 
 <!-- WARNING: New entries should be added below this comment to ensure the `./automation/prepare-release.py` script works as expected.
 
@@ -18,13 +18,3 @@ Use the template below to make assigning a version number during the release cut
   - Description of the change with a link to the pull request ([#0000](https://github.com/mozilla/application-services/pull/0000))
 
 -->
-
-## Nimbus ⛅️🔭🔬
-
-### What's New
-  - Added targeting attributes for `language` and `region`, based upon the `locale`. [#4919](https://github.com/mozilla/application-services/pull/4919)
-    - This also comes with an update in the JEXL evaluator to handle cases where `region` is not available.
-
-### What's Changed
-  - Fixed: A crash was detected by the iOS team, which was traced to `FeatureHolder.swift`. ([#4924](https://github.com/mozilla/application-services/pull/4924))
-    - Regression tests added, and FeatureHolder made stateless in both Swift and Kotlin.
