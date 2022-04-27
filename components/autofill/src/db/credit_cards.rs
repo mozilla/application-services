@@ -99,7 +99,6 @@ pub(crate) fn get_credit_card(conn: &Connection, guid: &Guid) -> Result<Internal
 }
 
 pub(crate) fn get_all_credit_cards(conn: &Connection) -> Result<Vec<InternalCreditCard>> {
-    let credit_cards;
     let sql = format!(
         "SELECT
             {common_cols},
@@ -109,7 +108,7 @@ pub(crate) fn get_all_credit_cards(conn: &Connection) -> Result<Vec<InternalCred
     );
 
     let mut stmt = conn.prepare(&sql)?;
-    credit_cards = stmt
+    let credit_cards = stmt
         .query_map([], InternalCreditCard::from_row)?
         .collect::<std::result::Result<Vec<InternalCreditCard>, _>>()?;
     Ok(credit_cards)

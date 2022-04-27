@@ -159,7 +159,7 @@ pub fn split_after_host_and_port(href: &str) -> (&str, &str) {
     let (_, remainder) = split_after_prefix(href);
 
     let hp_definite_end =
-        memchr::memchr3(b'/', b'?', b'#', remainder.as_bytes()).unwrap_or_else(|| remainder.len());
+        memchr::memchr3(b'/', b'?', b'#', remainder.as_bytes()).unwrap_or(remainder.len());
 
     let (before_hp, after_hp) = remainder.split_at(hp_definite_end);
 

@@ -6,7 +6,7 @@
 
 use crate::{error::Result, Defaults, NimbusError::InternalError};
 use serde_json::{json, Value};
-use std::{array::IntoIter, collections::HashMap};
+use std::collections::HashMap;
 
 #[cfg(test)]
 impl Defaults for &str {
@@ -55,26 +55,31 @@ fn test_defaults_optional() -> Result<()> {
 
 #[test]
 fn test_defaults_hashmap() -> Result<()> {
-    let a = HashMap::<String, &str>::from_iter(IntoIter::new([
-        ("a".to_string(), "A from a"),
-        ("b".to_string(), "B from a"),
-    ]));
+    let a = HashMap::<String, &str>::from_iter(
+        [("a".to_string(), "A from a"), ("b".to_string(), "B from a")].into_iter(),
+    );
 
-    let b = HashMap::<String, &str>::from_iter(IntoIter::new([
-        ("a".to_string(), "AA not replaced"),
-        ("b".to_string(), "errBB merge failed, so omitting"),
-        ("c".to_string(), "CC added"),
-        ("d".to_string(), "errDD not merged, but added"),
-    ]));
+    let b = HashMap::<String, &str>::from_iter(
+        [
+            ("a".to_string(), "AA not replaced"),
+            ("b".to_string(), "errBB merge failed, so omitting"),
+            ("c".to_string(), "CC added"),
+            ("d".to_string(), "errDD not merged, but added"),
+        ]
+        .into_iter(),
+    );
 
-    let exp = HashMap::<String, &str>::from_iter(IntoIter::new([
-        ("a".to_string(), "A from a"),
-        // we tried to merge the defaults, but it failed, so we
-        // we keep the original (i.e. the experiment rather than the rollout)
-        ("b".to_string(), "B from a"),
-        ("c".to_string(), "CC added"),
-        ("d".to_string(), "errDD not merged, but added"),
-    ]));
+    let exp = HashMap::<String, &str>::from_iter(
+        [
+            ("a".to_string(), "A from a"),
+            // we tried to merge the defaults, but it failed, so we
+            // we keep the original (i.e. the experiment rather than the rollout)
+            ("b".to_string(), "B from a"),
+            ("c".to_string(), "CC added"),
+            ("d".to_string(), "errDD not merged, but added"),
+        ]
+        .into_iter(),
+    );
 
     assert_eq!(a.defaults(&b)?, exp);
 

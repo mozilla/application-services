@@ -21,7 +21,7 @@ pub use crate::repeat::*;
 /// https://www.sqlite.org/faq.html, the only character that must be escaped is
 /// the single quote, which is escaped by placing two single quotes in a row.
 pub fn escape_string_for_pragma(s: &str) -> String {
-    s.replace("'", "''")
+    s.replace('\'', "''")
 }
 
 #[cfg(test)]
