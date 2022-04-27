@@ -2,34 +2,28 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
+typealias GetSdk = () -> FeaturesInterface?
+
 public class FeatureHolder<T> {
-    private let apiFn: () -> FeaturesInterface?
+    private let getSdk: GetSdk
     private let featureId: String
     private let create: (Variables) -> T
-    private var exposureRecorder: (() -> Void)?
 
-    public init(_ apiFn: @escaping () -> FeaturesInterface?,
-                _ featureId: String,
-                _ create: @escaping (Variables) -> T)
+    public init(_ getSdk: @escaping () -> FeaturesInterface?,
+                featureId: String,
+                with create: @escaping (Variables) -> T)
     {
-        self.apiFn = apiFn
+        self.getSdk = getSdk
         self.featureId = featureId
         self.create = create
     }
 
     public func value() -> T {
-        let api = apiFn()
-        let feature = create(api?.getVariables(featureId: featureId, sendExposureEvent: false) ?? NilVariables.instance)
-        if let api = api {
-            weak var weakApi = api
-            exposureRecorder = { () in
-                weakApi?.recordExposureEvent(featureId: self.featureId)
-            }
-        }
-        return feature
+        let variables = getSdk()?.getVariables(featureId: featureId, sendExposureEvent: false) ?? NilVariables.instance
+        return create(variables)
     }
 
     public func recordExposure() {
-        exposureRecorder?()
+        getSdk()?.recordExposureEvent(featureId: featureId)
     }
 }

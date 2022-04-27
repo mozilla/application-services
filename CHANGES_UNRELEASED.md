@@ -24,3 +24,7 @@ Use the template below to make assigning a version number during the release cut
 ### What's New
   - Added targeting attributes for `language` and `region`, based upon the `locale`. [#4919](https://github.com/mozilla/application-services/pull/4919)
     - This also comes with an update in the JEXL evaluator to handle cases where `region` is not available.
+
+### What's Changed
+  - Fixed: A crash was detected by the iOS team, which was traced to `FeatureHolder.swift`. ([#4924](https://github.com/mozilla/application-services/pull/4924))
+    - Regression tests added, and FeatureHolder made stateless in both Swift and Kotlin.
