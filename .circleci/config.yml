@@ -3,7 +3,7 @@ version: 2.1
 # ⚠️ If you add, rename or delete a job here, please also update .mergify.yml! ⚠️
 
 commands:
-  # Our policy for updating rust versions is at https://github.com/mozilla/application-services/tree/main/docs/rust-versions.md
+  # Our policy for updating rust versions is at https://github.com/mozilla/application-services/tree/main/docs/design/rust-versions.md
   # See also rust-toolchain in the root of this repo, which is used to specify our official target version.
   setup-rust-target-version:
     steps:
@@ -13,7 +13,7 @@ commands:
   setup-rust-min-version:
     steps:
       # https://searchfox.org/mozilla-central/source/python/mozboot/mozboot/util.py#20
-      - run: rustup override set 1.57.0
+      - run: rustup override set 1.59.0
 
   full-checkout:
     steps:

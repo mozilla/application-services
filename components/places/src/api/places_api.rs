@@ -45,13 +45,13 @@ lazy_static::lazy_static! {
 pub fn get_registered_sync_engine(engine_id: &SyncEngineId) -> Option<Box<dyn SyncEngine>> {
     match PLACES_API_FOR_SYNC_MANAGER.lock().upgrade() {
         None => {
-            log::error!("places: get_registered_sync_engine: no PlacesApi registered");
+            log::warn!("places: get_registered_sync_engine: no PlacesApi registered");
             None
         }
         Some(places_api) => match create_sync_engine(&places_api, engine_id) {
             Ok(engine) => Some(engine),
             Err(e) => {
-                log::warn!("places: get_registered_sync_engine: {}", e);
+                log::error!("places: get_registered_sync_engine: {}", e);
                 None
             }
         },

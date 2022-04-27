@@ -36,24 +36,7 @@ impl CodeType for EnumCodeType {
         prop: &dyn Display,
         default: &dyn Display,
     ) -> String {
-        let getter = self.value_getter(oracle, vars, prop);
-        let getter = if let Some(mapper) = self.value_mapper(oracle) {
-            format!("{mapper}({getter})", getter = getter, mapper = mapper)
-        } else {
-            getter
-        };
-
-        let getter = if let Some(merger) = self.value_merger(oracle, default) {
-            format!("{getter}.{merger}", getter = getter, merger = merger)
-        } else {
-            getter
-        };
-
-        format!(
-            "{getter} ?? {fallback}",
-            getter = getter,
-            fallback = default
-        )
+        code_type::property_getter(self, oracle, vars, prop, default)
     }
 
     fn value_getter(
@@ -66,8 +49,7 @@ impl CodeType for EnumCodeType {
     }
 
     fn value_mapper(&self, oracle: &dyn CodeOracle) -> Option<String> {
-        let transform = self.create_transform(oracle)?;
-        Some(transform)
+        code_type::value_mapper(self, oracle)
     }
 
     /// The name of the type as it's represented in the `Variables` object.
@@ -207,7 +189,7 @@ mod unit_tests {
         let oracle = &*oracle();
 
         assert_eq!(
-            r#"AEnum.enumValue(v.getString("the-property")) ?? def"#.to_string(),
+            r#"v.getString("the-property")?.map(AEnum.enumValue) ?? def"#.to_string(),
             ct.property_getter(oracle, &"v", &"the-property", &"def")
         );
     }

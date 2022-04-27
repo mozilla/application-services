@@ -2127,7 +2127,7 @@ mod tests {
                 }
                 (true, false) => {
                     assert!(
-                        !fetch_visits(&db, &url, 0)?.is_some(),
+                        fetch_visits(&db, &url, 0)?.is_none(),
                         "Should delete synced page"
                     );
                     assert!(
@@ -2156,7 +2156,7 @@ mod tests {
                     );
                 }
                 (false, false) => {
-                    assert!(!fetch_visits(&db, &url, 0)?.is_some(), "Should delete page");
+                    assert!(fetch_visits(&db, &url, 0)?.is_none(), "Should delete page");
                     assert!(
                         !page_has_tombstone(&db, &info.guid)?,
                         "Shouldn't insert tombstone for page"

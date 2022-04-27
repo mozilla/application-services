@@ -40,7 +40,7 @@ object {{ nimbus_object }} {
         {%- let class_name = raw_name|class_name %}
         {{ f.doc()|comment("        ") }}
         val {{raw_name|var_name}}: FeatureHolder<{{class_name}}> by lazy {
-            FeatureHolder({ {{ nimbus_object }}.api }, {{ raw_name|quoted }}) { variables ->
+            FeatureHolder({{ nimbus_object }}.getSdk, {{ raw_name|quoted }}) { variables ->
                 {{ class_name }}(variables)
             }
         }
@@ -48,7 +48,27 @@ object {{ nimbus_object }} {
     }
 
     /**
+     * This method should be called as early in the startup sequence of the app as possible.
+     * This is to connect the Nimbus SDK (and thus server) with the `{{ nimbus_object }}`
+     * class.
+     *
+     * The lambda MUST be threadsafe in its own right.
+     */
+    public fun initialize(getSdk: () -> FeaturesInterface?) {
+        this.getSdk = getSdk
+    }
+
+    private var getSdk: () -> FeaturesInterface? = {
+        this.api
+    }
+
+    /**
      * This should be populated at app launch.
+     *
+     * This property has to be set after the Nimbus SDK, which causes race-conditions. Please use
+     * `initialize()` much earlier in the application startup sequence.file
+     *
+     * This will be removed in future releases.
      */
     var api: FeaturesInterface? = null
 

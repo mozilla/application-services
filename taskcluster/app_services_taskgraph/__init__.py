@@ -4,23 +4,28 @@
 
 
 from importlib import import_module
+from voluptuous import Optional
 import os
 
-
+from taskgraph.parameters import extend_parameters_schema
+from . import branch_builds
 from .build_config import get_version
 
-
 def register(graph_config):
-    """
-    Import all modules that are siblings of this one, triggering decorators in
-    the process.
-    """
+    # Import modules to register decorated functions
     _import_modules([
+        "branch_builds",
         "job",
         "target_tasks",
         "worker_types"
     ])
 
+    extend_parameters_schema({
+        Optional('branch-build'): {
+            Optional('android-components-branch'): str,
+            Optional('fenix-branch'): str,
+        },
+    })
 
 def _import_modules(modules):
     for module in modules:
@@ -51,3 +56,5 @@ def get_decision_parameters(graph_config, parameters):
             parameters["target_tasks_method"] = "pr-skip"
         else:
             parameters["target_tasks_method"] = "pr-normal"
+
+    branch_builds.update_decision_parameters(parameters)

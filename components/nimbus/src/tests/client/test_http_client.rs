@@ -2,16 +2,14 @@
 * License, v. 2.0. If a copy of the MPL was not distributed with this
 * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
+use crate::client::{http_client::*, SettingsClient};
 use crate::{
-    Branch, BucketConfig, FeatureConfig, RandomizationUnit, Experiment,
-    error::{NimbusError}, RemoteSettingsConfig, SCHEMA_VERSION,
-};
-use crate::client::{
-    SettingsClient, http_client::*, 
+    error::NimbusError, Branch, BucketConfig, Experiment, FeatureConfig, RandomizationUnit,
+    RemoteSettingsConfig, SCHEMA_VERSION,
 };
 use mockito::mock;
-use std::time::{Duration, Instant};
 use std::cell::Cell;
+use std::time::{Duration, Instant};
 
 #[test]
 fn test_fetch_experiments_from_schema() {

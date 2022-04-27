@@ -33,6 +33,7 @@ class GleanPlumbTests: XCTestCase {
         XCTAssertTrue(try helper.evalJexl(expression: "app_name == 'GleanPlumbTest'"))
         XCTAssertFalse(try helper.evalJexl(expression: "app_name == 'tseTbmulPnaelG'"))
 
+        // The JEXL evaluator should error for unknown identifiers
         XCTAssertThrowsError(try helper.evalJexl(expression: "appName == 'snake_case_only'"))
     }
 
@@ -51,6 +52,8 @@ class GleanPlumbTests: XCTestCase {
 
         // Snake case only
         XCTAssertTrue(try helper.evalJexl(expression: "test_value_from_json == 42"))
+        // Codable's encode in snake case, so even if the codable is mixed case,
+        // the JEXL must use snake case.
         XCTAssertThrowsError(try helper.evalJexl(expression: "testValueFromJson == 42"))
     }
 

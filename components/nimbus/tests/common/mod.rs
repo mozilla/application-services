@@ -37,6 +37,7 @@ fn new_test_client_internal(
         app_name: "fenix".to_string(),
         app_id: "org.mozilla.fenix".to_string(),
         channel: "nightly".to_string(),
+        locale: Some("en-GB".to_string()),
         ..Default::default()
     };
     NimbusClient::new(ctx, tmp_dir.path(), Some(config), aru)

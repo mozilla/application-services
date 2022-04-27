@@ -66,6 +66,21 @@ impl CodeType for OptionalCodeType {
         oracle.find(&self.inner).variables_type(oracle)
     }
 
+    /// The method call here will use the `create_transform` to transform the value coming out of
+    /// the `Variables` object into the desired type.
+    fn value_mapper(&self, oracle: &dyn CodeOracle) -> Option<String> {
+        oracle.find(&self.inner).value_mapper(oracle)
+    }
+
+    /// The method call to merge the value with the defaults.
+    ///
+    /// This may use the `merge_transform`.
+    ///
+    /// If this returns `None`, no merging happens, and implicit `null` replacement happens.
+    fn value_merger(&self, oracle: &dyn CodeOracle, default: &dyn Display) -> Option<String> {
+        oracle.find(&self.inner).value_merger(oracle, default)
+    }
+
     fn defaults_type(&self, oracle: &dyn CodeOracle) -> String {
         let inner = oracle.find(&self.inner).defaults_type(oracle);
         format!("{}?", inner)

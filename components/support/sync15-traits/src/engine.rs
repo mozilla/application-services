@@ -43,15 +43,15 @@ pub enum SyncEngineId {
 impl SyncEngineId {
     // Iterate over all possible engines
     pub fn iter() -> impl Iterator<Item = SyncEngineId> {
-        // Once we switch to the 2021 edition, this can just be [ ... ].into_iter()
-        std::array::IntoIter::new([
+        [
             Self::Passwords,
             Self::History,
             Self::Bookmarks,
             Self::Tabs,
             Self::Addresses,
             Self::CreditCards,
-        ])
+        ]
+        .into_iter()
     }
 
     // Get the string identifier for this engine.  This must match the strings in SyncEngineSelection.

@@ -40,18 +40,7 @@ impl CodeType for ObjectCodeType {
         prop: &dyn Display,
         default: &dyn Display,
     ) -> String {
-        let getter = self.value_getter(oracle, vars, prop);
-        let getter = if let Some(mapper) = self.value_mapper(oracle) {
-            format!("{mapper}({getter})", getter = getter, mapper = mapper)
-        } else {
-            getter
-        };
-
-        if let Some(merger) = self.value_merger(oracle, default) {
-            format!("{getter}.{merger}", getter = getter, merger = merger)
-        } else {
-            getter
-        }
+        code_type::property_getter(self, oracle, vars, prop, default)
     }
 
     fn value_getter(
@@ -65,7 +54,7 @@ impl CodeType for ObjectCodeType {
 
     fn value_mapper(&self, oracle: &dyn CodeOracle) -> Option<String> {
         let transform = self.create_transform(oracle)?;
-        Some(transform)
+        Some(format!("map({})", transform))
     }
 
     /// The language specific expression that gets a value of the `prop` from the `vars` object.
@@ -269,7 +258,7 @@ mod unit_tests {
     fn test_getter_with_fallback() {
         let ct = code_type("AnObject");
         assert_eq!(
-            r#"AnObject.create(vars.getVariables("the-property"))._mergeWith(default)"#.to_string(),
+            r#"vars.getVariables("the-property")?.map(AnObject.create)._mergeWith(default) ?? default"#.to_string(),
             getter_with_fallback(&*ct, &"vars", &"the-property", &"default")
         );
     }

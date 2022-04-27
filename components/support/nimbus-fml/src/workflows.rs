@@ -339,6 +339,28 @@ mod test {
         Ok(())
     }
 
+    #[test]
+    fn regression_test_concurrent_access_of_feature_holder_swift() -> Result<()> {
+        generate_and_assert(
+            "test/threadsafe_feature_holder.swift",
+            "fixtures/fe/fenix.yaml",
+            "release",
+            false,
+        )?;
+        Ok(())
+    }
+
+    #[test]
+    fn regression_test_concurrent_access_of_feature_holder_kts() -> Result<()> {
+        generate_and_assert(
+            "test/threadsafe_feature_holder.kts",
+            "fixtures/fe/fenix.yaml",
+            "release",
+            false,
+        )?;
+        Ok(())
+    }
+
     fn validate_against_experimenter_schema<P: AsRef<Path>>(
         schema_path: P,
         generated_yaml: &serde_yaml::Value,

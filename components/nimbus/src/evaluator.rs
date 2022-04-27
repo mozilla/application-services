@@ -30,9 +30,49 @@ impl Bucket {
 pub struct TargetingAttributes {
     #[serde(flatten)]
     pub app_context: AppContext,
+    pub language: Option<String>,
+    pub region: Option<String>,
     pub is_already_enrolled: bool,
     pub days_since_install: Option<i32>,
     pub days_since_update: Option<i32>,
+}
+
+impl From<AppContext> for TargetingAttributes {
+    fn from(app_context: AppContext) -> Self {
+        let (language, region) = app_context
+            .locale
+            .clone()
+            .map(split_locale)
+            .unwrap_or_else(|| (None, None));
+
+        Self {
+            app_context,
+            language,
+            region,
+            ..Default::default()
+        }
+    }
+}
+
+fn prefer_none_to_empty(s: Option<&str>) -> Option<String> {
+    let s = s?;
+    if s.is_empty() {
+        None
+    } else {
+        Some(s.to_string())
+    }
+}
+
+fn split_locale(locale: String) -> (Option<String>, Option<String>) {
+    if locale.contains('-') {
+        let mut parts = locale.split('-');
+        (
+            prefer_none_to_empty(parts.next()),
+            prefer_none_to_empty(parts.next()),
+        )
+    } else {
+        (Some(locale), None)
+    }
 }
 
 /// Determine the enrolment status for an experiment.
@@ -279,4 +319,27 @@ fn version_compare(args: &[Value]) -> Result<Value> {
     } else {
         0
     }))
+}
+
+#[cfg(test)]
+mod unit_tests {
+    use super::*;
+
+    #[test]
+    fn test_splitting_locale() -> Result<()> {
+        assert_eq!(
+            split_locale("en-US".to_string()),
+            (Some("en".to_string()), Some("US".to_string()))
+        );
+        assert_eq!(
+            split_locale("es".to_string()),
+            (Some("es".to_string()), None)
+        );
+
+        assert_eq!(
+            split_locale("-unknown".to_string()),
+            (None, Some("unknown".to_string()))
+        );
+        Ok(())
+    }
 }

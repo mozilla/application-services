@@ -4,7 +4,10 @@
 {% let class_name = inner.name()|class_name -%}
 
 public extension {{class_name}} {
-    func _mergeWith(_ defaults: {{class_name}}) -> {{class_name}} {
+    func _mergeWith(_ defaults: {{class_name}}?) -> {{class_name}} {
+        guard let defaults = defaults else {
+            return self
+        }
         return {{class_name}}(variables: self._variables, defaults: defaults._defaults)
     }
 
