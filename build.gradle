@@ -200,13 +200,6 @@ if (useDownloadedLibs) {
     }
 }
 
-Properties localProperties = null;
-if (file('local.properties').canRead()) {
-    localProperties = new Properties();
-    localProperties.load(file('local.properties').newDataInputStream())
-    logger.lifecycle('Local configuration: loaded local.properties')
-}
-
 // Additionally, we require `--locked` in CI, but not for local builds.
 // Unlike the above, this can't be overridden by `local.properties` (mainly
 // because doing so seems pointless, not for any security reason)

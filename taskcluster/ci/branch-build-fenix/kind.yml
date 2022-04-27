@@ -1,0 +1,22 @@
+# This Source Code Form is subject to the terms of the Mozilla Public
+# License, v. 2.0. If a copy of the MPL was not distributed with this
+# file, You can obtain one at http://mozilla.org/MPL/2.0/.
+---
+loader: taskgraph.loader.transform:loader
+
+kind-dependencies:
+  - toolchain
+  - branch-build-as
+  - branch-build-ac
+
+transforms:
+  - app_services_taskgraph.transforms.branch_build:transforms
+  - taskgraph.transforms.job:transforms
+  - taskgraph.transforms.task:transforms
+
+jobs:
+  build:
+    repository: "fenix"
+
+  test:
+    repository: "fenix"

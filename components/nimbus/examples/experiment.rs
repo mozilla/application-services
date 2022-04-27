@@ -352,10 +352,7 @@ fn main() -> Result<()> {
                 // options.
                 let uuid = uuid::Uuid::new_v4();
                 let aru = AvailableRandomizationUnits::with_client_id(&client_id);
-                let targeting_attributes = TargetingAttributes {
-                    app_context: context.clone(),
-                    ..Default::default()
-                };
+                let targeting_attributes = context.clone().into();
                 let enrollment =
                     nimbus::evaluate_enrollment(&uuid, &aru, &targeting_attributes, &exp)?;
                 let key = match enrollment.status.clone() {

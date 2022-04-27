@@ -348,6 +348,7 @@ fn test_days_since_install() -> Result<()> {
         days_since_install: Some(10),
         days_since_update: None,
         is_already_enrolled: false,
+        ..Default::default()
     };
     client.with_targeting_attributes(targeting_attributes);
     client.initialize()?;
@@ -425,6 +426,7 @@ fn test_days_since_install_failed_targeting() -> Result<()> {
         days_since_install: Some(10),
         days_since_update: None,
         is_already_enrolled: false,
+        ..Default::default()
     };
     client.with_targeting_attributes(targeting_attributes);
     client.initialize()?;
@@ -501,6 +503,7 @@ fn test_days_since_update() -> Result<()> {
         days_since_install: None,
         days_since_update: Some(10),
         is_already_enrolled: false,
+        ..Default::default()
     };
     client.with_targeting_attributes(targeting_attributes);
     client.initialize()?;
@@ -578,6 +581,7 @@ fn test_days_since_update_failed_targeting() -> Result<()> {
         days_since_install: None,
         days_since_update: Some(10),
         is_already_enrolled: false,
+        ..Default::default()
     };
     client.with_targeting_attributes(targeting_attributes);
     client.initialize()?;

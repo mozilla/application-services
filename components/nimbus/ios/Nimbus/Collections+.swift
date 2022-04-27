@@ -96,3 +96,17 @@ public extension Array where Element == Bundle {
         return nil
     }
 }
+
+/// Convenience extensions to make working elements coming from the `Variables`
+/// object slightly easier/regular.
+public extension String {
+    func map<V>(_ transform: (Self) throws -> V?) rethrows -> V? {
+        return try transform(self)
+    }
+}
+
+public extension Variables {
+    func map<V>(_ transform: (Self) throws -> V) rethrows -> V {
+        return try transform(self)
+    }
+}
