@@ -24,6 +24,7 @@ public class {{ nimbus_object }} {
     /// This is to connect the Nimbus SDK (and thus server) with the `{{ nimbus_object }}`
     /// class.
     ///
+    /// The lambda MUST be threadsafe in its own right.
     public func initialize(with getSdk: @escaping () -> FeaturesInterface?) {
         self.getSdk = getSdk
     }
@@ -33,7 +34,7 @@ public class {{ nimbus_object }} {
     ///
     /// Represents all the features supported by Nimbus
     ///
-    public let features = Features()
+    public let features = {{ nimbus_object }}Features()
 
     ///
     /// A singleton instance of {{ nimbus_object }}
@@ -41,7 +42,7 @@ public class {{ nimbus_object }} {
     public static let shared = {{ nimbus_object }}()
 }
 
-public class Features {
+public class {{ nimbus_object }}Features {
     {%- for f in self.iter_feature_defs() %}
     {%- let raw_name = f.name() %}
     {%- let class_name = raw_name|class_name %}
