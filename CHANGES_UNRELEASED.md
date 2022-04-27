@@ -6,6 +6,11 @@
 
 <!-- WARNING: New entries should be added below this comment to ensure the `./automation/prepare-release.py` script works as expected.
 
+## Places
+### What's New
+- The `delete_visits_for()` function now deletes all history metadata even when the item is
+  bookmarked.
+
 Use the template below to make assigning a version number during the release cutting process easier.
 
 ## [Component Name]
