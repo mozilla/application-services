@@ -1,3 +1,16 @@
+# v93.0.4 (_2022-04-28_)
+
+[Full Changelog](https://github.com/mozilla/application-services/compare/v93.0.3...v93.0.4)
+
+## Places
+### What's New
+- The `delete_visits_for()` function now deletes all history metadata even when the item is
+  bookmarked.
+
+## Nimbus
+### What's fixed
+- Fixed a bug where the visibility of `GetSdk` was internal and it was used in generated FML code. ([#4927](https://github.com/mozilla/application-services/pull/4927))
+
 # v93.0.3 (_2022-04-27_)
 
 [Full Changelog](https://github.com/mozilla/application-services/compare/v93.0.2...v93.0.3)
