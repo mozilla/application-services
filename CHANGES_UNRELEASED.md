@@ -23,3 +23,6 @@ Use the template below to make assigning a version number during the release cut
   - Description of the change with a link to the pull request ([#0000](https://github.com/mozilla/application-services/pull/0000))
 
 -->
+## Nimbus
+### What's fixed
+- Fixed a bug where the visibility of `GetSdk` was internal and it was used in generated FML code. ([#4927](https://github.com/mozilla/application-services/pull/4927))
