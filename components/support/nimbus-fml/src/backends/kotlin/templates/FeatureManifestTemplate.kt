@@ -25,7 +25,7 @@ import {{ imported_class }}
  *
  * ```
  * val nimbus: Nimbus = connectToNimbusSDK()
- * {{ nimbus_object }}.api = nimbus
+ * {{ nimbus_object }}.initialize(getSdk = { nimbus })
  * ```
  *
  * Once initialized, this can be used to access typesafe configuration object via the `features` member.
@@ -59,18 +59,14 @@ object {{ nimbus_object }} {
     }
 
     private var getSdk: () -> FeaturesInterface? = {
-        this.api
+        null
     }
 
-    /**
-     * This should be populated at app launch.
-     *
-     * This property has to be set after the Nimbus SDK, which causes race-conditions. Please use
-     * `initialize()` much earlier in the application startup sequence.file
-     *
-     * This will be removed in future releases.
-     */
-    var api: FeaturesInterface? = null
+    public fun invalidateCachedValues() {
+        {% for f in self.iter_feature_defs() -%}
+        features.{{- f.name()|var_name -}}.withCachedValue(null)
+        {% endfor %}
+    }
 
     /**
      * Accessor object for generated configuration classes extracted from Nimbus, with built-in

@@ -8,7 +8,9 @@ import android.content.Context as MockContext
 // Get the feature from the MyNimbus.features.
 // The api isn't ready yet.
 val ctx = MockContext()
-val feature = MyNimbus.features.withObjectsFeature.value(ctx)
+var injected: MockNimbus? = null
+MyNimbus.initialize { injected }
+val feature = MyNimbus.features.withObjectsFeature.value()
 
 // Show the property level defaults.
 assert(feature.anObject.aString == "yes")
@@ -32,7 +34,8 @@ val api = MockNimbus("with-objects-feature" to """{
         }
     }
 }""")
-MyNimbus.api = api
+injected = api
+MyNimbus.invalidateCachedValues()
 
 // Now test the selectively overidden properties of the feature.
 val feature1 = MyNimbus.features.withObjectsFeature.value()

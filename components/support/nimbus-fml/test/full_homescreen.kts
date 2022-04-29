@@ -4,9 +4,10 @@
 
 import android.content.Context as MockContext
 import org.mozilla.experiments.nimbus.MockNimbus
+import org.mozilla.experiments.nimbus.internal.FeatureHolder
 
 // Test the default map with an enum to Boolean maping.
-val feature = MyNimbus.features.homescreen.value(MockContext())
+val feature = MyNimbus.features.homescreen.value()
 assert(feature.sectionsEnabled[HomeScreenSection.TOP_SITES] == true)
 assert(feature.sectionsEnabled[HomeScreenSection.JUMP_BACK_IN] == false)
 assert(feature.sectionsEnabled[HomeScreenSection.RECENTLY_SAVED] == false)
@@ -19,8 +20,8 @@ val api = MockNimbus("homescreen" to """{
         "pocket": true
     }
 }""")
-MyNimbus.api = api
-val feature1 = MyNimbus.features.homescreen.value()
+val holder = FeatureHolder(getSdk = { api }, featureId = "homescreen") { Homescreen(it) }
+val feature1 = holder.value()
 assert(feature1.sectionsEnabled[HomeScreenSection.TOP_SITES] == true)
 assert(feature1.sectionsEnabled[HomeScreenSection.JUMP_BACK_IN] == false)
 assert(feature1.sectionsEnabled[HomeScreenSection.RECENTLY_SAVED] == false)
@@ -28,5 +29,5 @@ assert(feature1.sectionsEnabled[HomeScreenSection.RECENT_EXPLORATIONS] == false)
 assert(feature1.sectionsEnabled[HomeScreenSection.POCKET] == true)
 
 // Record the exposure and test it.
-MyNimbus.features.homescreen.recordExposure()
+holder.recordExposure()
 assert(api.isExposed("homescreen"))

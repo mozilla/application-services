@@ -36,6 +36,14 @@ public class {{ nimbus_object }} {
     ///
     public let features = {{ nimbus_object }}Features()
 
+    /// Clear all cached values for all features.
+    /// This should be called after `applyPendingExperiments` is finished.
+    public func invalidateCachedValues() {
+        {% for f in self.iter_feature_defs() -%}
+        features.{{- f.name()|var_name -}}.with(cachedValue: nil)
+        {% endfor %}
+    }
+
     ///
     /// A singleton instance of {{ nimbus_object }}
     ///

@@ -8,9 +8,13 @@ import com.example.nightly.FxNimbus as MyNimbus
 import com.example.nightly.HomeScreenSection
 import org.mozilla.experiments.nimbus.MockNimbus
 
+var injected: MockNimbus? = null
+MyNimbus.initialize { injected }
+
 // Test the default map with an enum to Boolean maping based
 // on the nighlty defaults
-val feature = MyNimbus.features.homescreen.value(MockContext())
+
+val feature = MyNimbus.features.homescreen.value()
 assert(feature.sectionsEnabled[HomeScreenSection.TOP_SITES] == true)
 assert(feature.sectionsEnabled[HomeScreenSection.JUMP_BACK_IN] == true)
 assert(feature.sectionsEnabled[HomeScreenSection.RECENTLY_SAVED] == true)
@@ -27,7 +31,9 @@ val api = MockNimbus("homescreen" to """{
 }""", "search-term-groups" to """{
     "enabled": true
 }""")
-MyNimbus.api = api
+injected = api
+MyNimbus.invalidateCachedValues()
+
 val feature1 = MyNimbus.features.homescreen.value()
 assert(feature1.sectionsEnabled[HomeScreenSection.TOP_SITES] == true)
 assert(feature1.sectionsEnabled[HomeScreenSection.JUMP_BACK_IN] == true)
