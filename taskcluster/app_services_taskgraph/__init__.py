@@ -22,7 +22,9 @@ def register(graph_config):
 
     extend_parameters_schema({
         Optional('branch-build'): {
+            Optional('android-components-owner'): str,
             Optional('android-components-branch'): str,
+            Optional('fenix-owner'): str,
             Optional('fenix-branch'): str,
         },
         'nightly-build': bool,
