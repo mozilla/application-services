@@ -25,7 +25,7 @@ url = { version = "2.1", features = ["serde"] }
 
 [dependencies.rusqlite]
 version = "0.27.0"
-features = ["functions", "bundled", "serde_json", "unlock_notify", "column_decltype"]
+features = ["functions", "bundled", "serde_json", "column_decltype"]
 
 [dev-dependencies]
 env_logger = { version = "0.7", default-features = false }

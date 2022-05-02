@@ -14,7 +14,7 @@ bincode = "1.2"
 lazy_static = "1.4"
 base64 = "0.12"
 log = "0.4"
-rusqlite = { version = "0.27.0", features = ["bundled", "unlock_notify"] }
+rusqlite = { version = "0.27.0", features = ["bundled"] }
 url = "2.2"
 viaduct = { path = "../viaduct" }
 sql-support = { path = "../support/sql" }
