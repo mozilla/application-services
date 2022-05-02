@@ -8,12 +8,10 @@ use crate::{error::Result, Database, Experiment};
 use rkv::StoreOptions;
 use serde_json::json;
 use std::fs;
-use tempdir::TempDir;
 
 #[test]
 fn test_db_upgrade_no_version() -> Result<()> {
-    let path = "test_upgrade_1";
-    let tmp_dir = TempDir::new(path)?;
+    let tmp_dir = tempfile::tempdir()?;
 
     let rkv = Database::open_rkv(&tmp_dir)?;
     let _meta_store = rkv.open_single("meta", StoreOptions::create())?;
@@ -36,8 +34,7 @@ fn test_db_upgrade_no_version() -> Result<()> {
 
 #[test]
 fn test_db_upgrade_unknown_version() -> Result<()> {
-    let path = "test_upgrade_unknown";
-    let tmp_dir = TempDir::new(path)?;
+    let tmp_dir = tempfile::tempdir()?;
 
     let rkv = Database::open_rkv(&tmp_dir)?;
     let meta_store = SingleStore::new(rkv.open_single("meta", StoreOptions::create())?);
@@ -60,8 +57,7 @@ fn test_db_upgrade_unknown_version() -> Result<()> {
 
 #[test]
 fn test_corrupt_db() -> Result<()> {
-    let path = "test_corrupt_db";
-    let tmp_dir = TempDir::new(path)?;
+    let tmp_dir = tempfile::tempdir()?;
 
     let db_dir = tmp_dir.path().join("db");
     fs::create_dir(db_dir.clone())?;
@@ -522,7 +518,7 @@ fn get_db_v1_experiments_with_missing_feature_fields() -> Vec<serde_json::Value>
 /// Create a database with an old database version number, and
 /// populate it with the given experiments and enrollments.
 fn create_old_database(
-    tmp_dir: &TempDir,
+    tmp_dir: &tempfile::TempDir,
     old_version: u16,
     experiments_json: &[serde_json::Value],
     enrollments_json: &[serde_json::Value],
@@ -570,7 +566,7 @@ fn create_old_database(
 #[test]
 fn test_migrate_db_v1_to_db_v2_experiment_discarding() -> Result<()> {
     let _ = env_logger::try_init();
-    let tmp_dir = TempDir::new("migrate_db_v1_to_db_v2_enrollment_discarding")?;
+    let tmp_dir = tempfile::tempdir()?;
 
     // write a bunch of invalid experiments
     let db_v1_experiments_with_missing_feature_fields =
@@ -598,7 +594,7 @@ fn test_migrate_db_v1_to_db_v2_experiment_discarding() -> Result<()> {
 #[test]
 fn test_migrate_db_v1_to_db_v2_round_tripping() -> Result<()> {
     let _ = env_logger::try_init();
-    let tmp_dir = TempDir::new("migrate_round_tripping")?;
+    let tmp_dir = tempfile::tempdir()?;
 
     // write valid experiments & enrollments
     let db_v1_experiments_with_non_empty_features = &db_v1_experiments_with_non_empty_features();
@@ -742,9 +738,7 @@ fn test_migrate_db_v1_with_valid_and_invalid_records_to_db_v2() -> Result<()> {
         }
     );
 
-    use tempdir::TempDir;
-
-    let tmp_dir = TempDir::new("test_drop_experiments_wo_feature_id")?;
+    let tmp_dir = tempfile::tempdir()?;
     let _ = env_logger::try_init();
 
     create_old_database(
