@@ -131,7 +131,7 @@ impl ConnectHttp {
             headers
                 .insert(
                     header_names::AUTHORIZATION,
-                    format!("webpush {}", self.auth.clone().unwrap()),
+                    &*format!("webpush {}", self.auth.clone().unwrap()),
                 )
                 .map_err(|e| {
                     error::PushError::CommunicationError(format!("Header error: {:?}", e))
@@ -520,14 +520,11 @@ mod test {
                 "secret": SECRET,
             })
             .to_string();
-            let ap_mock = mock(
-                "POST",
-                format!("/v1/test/{}/registration", SENDER_ID).as_ref(),
-            )
-            .with_status(200)
-            .with_header("content-type", "application/json")
-            .with_body(body)
-            .create();
+            let ap_mock = mock("POST", &*format!("/v1/test/{}/registration", SENDER_ID))
+                .with_status(200)
+                .with_header("content-type", "application/json")
+                .with_body(body)
+                .create();
             let mut conn =
                 connect(config.clone(), None, None, Some(SENDER_ID.to_string())).unwrap();
             let channel_id = hex::encode(crate::internal::crypto::get_random_bytes(16).unwrap());
@@ -547,14 +544,11 @@ mod test {
                 "secret": null,
             })
             .to_string();
-            let ap_ns_mock = mock(
-                "POST",
-                format!("/v1/test/{}/registration", SENDER_ID).as_ref(),
-            )
-            .with_status(200)
-            .with_header("content-type", "application/json")
-            .with_body(body)
-            .create();
+            let ap_ns_mock = mock("POST", &*format!("/v1/test/{}/registration", SENDER_ID))
+                .with_status(200)
+                .with_header("content-type", "application/json")
+                .with_body(body)
+                .create();
             let mut conn =
                 connect(config.clone(), None, None, Some(SENDER_ID.to_string())).unwrap();
             let channel_id = hex::encode(crate::internal::crypto::get_random_bytes(16).unwrap());
@@ -577,11 +571,10 @@ mod test {
             .to_string();
             let ap_ns_mock = mock(
                 "POST",
-                format!(
+                &*format!(
                     "/v1/test/{}/registration/{}/subscription",
                     SENDER_ID, DUMMY_UAID
-                )
-                .as_ref(),
+                ),
             )
             .with_status(200)
             .with_header("content-type", "application/json")
@@ -605,11 +598,10 @@ mod test {
         {
             let ap_mock = mock(
                 "DELETE",
-                format!(
+                &*format!(
                     "/v1/test/{}/registration/{}/subscription/{}",
                     SENDER_ID, DUMMY_UAID, DUMMY_CHID
-                )
-                .as_ref(),
+                ),
             )
             .match_header("authorization", format!("webpush {}", SECRET).as_str())
             .with_status(200)
@@ -630,7 +622,7 @@ mod test {
         {
             let ap_mock = mock(
                 "DELETE",
-                format!("/v1/test/{}/registration/{}", SENDER_ID, DUMMY_UAID).as_ref(),
+                &*format!("/v1/test/{}/registration/{}", SENDER_ID, DUMMY_UAID),
             )
             .match_header("authorization", format!("webpush {}", SECRET).as_str())
             .with_status(200)
@@ -652,7 +644,7 @@ mod test {
         {
             let ap_mock = mock(
                 "PUT",
-                format!("/v1/test/{}/registration/{}", SENDER_ID, DUMMY_UAID).as_ref(),
+                &*format!("/v1/test/{}/registration/{}", SENDER_ID, DUMMY_UAID),
             )
             .match_header("authorization", format!("webpush {}", SECRET).as_str())
             .with_status(200)
@@ -680,7 +672,7 @@ mod test {
             .to_string();
             let ap_mock = mock(
                 "GET",
-                format!("/v1/test/{}/registration/{}", SENDER_ID, DUMMY_UAID).as_ref(),
+                &*format!("/v1/test/{}/registration/{}", SENDER_ID, DUMMY_UAID),
             )
             .match_header("authorization", format!("webpush {}", SECRET).as_str())
             .with_status(200)
@@ -718,14 +710,11 @@ mod test {
                 "secret": SECRET,
             })
             .to_string();
-            let ap_mock = mock(
-                "POST",
-                format!("/v1/test/{}/registration", SENDER_ID).as_ref(),
-            )
-            .with_status(200)
-            .with_header("content-type", "application/json")
-            .with_body(body)
-            .create();
+            let ap_mock = mock("POST", &*format!("/v1/test/{}/registration", SENDER_ID))
+                .with_status(200)
+                .with_header("content-type", "application/json")
+                .with_body(body)
+                .create();
             let mut conn = connect(config, None, None, Some(SENDER_ID.to_string())).unwrap();
             let channel_id = hex::encode(crate::internal::crypto::get_random_bytes(16).unwrap());
             let response = conn.subscribe(&channel_id, None).unwrap();
@@ -741,7 +730,7 @@ mod test {
             .to_string();
             let channel_list_mock = mock(
                 "GET",
-                format!("/v1/test/{}/registration/{}", SENDER_ID, DUMMY_UAID).as_ref(),
+                &*format!("/v1/test/{}/registration/{}", SENDER_ID, DUMMY_UAID),
             )
             .with_status(200)
             .with_header("content-type", "application/json")
@@ -749,7 +738,7 @@ mod test {
             .create();
             let delete_uaid_mock = mock(
                 "DELETE",
-                format!("/v1/test/{}/registration/{}", SENDER_ID, DUMMY_UAID).as_ref(),
+                &*format!("/v1/test/{}/registration/{}", SENDER_ID, DUMMY_UAID),
             )
             .match_header("authorization", format!("webpush {}", SECRET).as_str())
             .with_status(200)
@@ -778,14 +767,11 @@ mod test {
                 "secret": SECRET2,
             })
             .to_string();
-            let ap_mock = mock(
-                "POST",
-                format!("/v1/test/{}/registration", SENDER_ID).as_ref(),
-            )
-            .with_status(200)
-            .with_header("content-type", "application/json")
-            .with_body(body)
-            .create();
+            let ap_mock = mock("POST", &*format!("/v1/test/{}/registration", SENDER_ID))
+                .with_status(200)
+                .with_header("content-type", "application/json")
+                .with_body(body)
+                .create();
             conn.subscribe(&channel_id, None).unwrap();
             ap_mock.assert();
             // we verify that the UAID is the new one we got from
@@ -812,14 +798,11 @@ mod test {
                 "secret": SECRET,
             })
             .to_string();
-            let ap_mock = mock(
-                "POST",
-                format!("/v1/test/{}/registration", SENDER_ID).as_ref(),
-            )
-            .with_status(200)
-            .with_header("content-type", "application/json")
-            .with_body(body)
-            .create();
+            let ap_mock = mock("POST", &*format!("/v1/test/{}/registration", SENDER_ID))
+                .with_status(200)
+                .with_header("content-type", "application/json")
+                .with_body(body)
+                .create();
             let mut conn = connect(config, None, None, Some(SENDER_ID.to_string())).unwrap();
             let channel_id = hex::encode(crate::internal::crypto::get_random_bytes(16).unwrap());
             let response = conn.subscribe(&channel_id, None).unwrap();
@@ -838,7 +821,7 @@ mod test {
             .to_string();
             let channel_list_mock = mock(
                 "GET",
-                format!("/v1/test/{}/registration/{}", SENDER_ID, DUMMY_UAID).as_ref(),
+                &*format!("/v1/test/{}/registration/{}", SENDER_ID, DUMMY_UAID),
             )
             .with_status(status_codes::GONE as usize)
             .with_header("content-type", "application/json")
@@ -873,14 +856,11 @@ mod test {
                 "secret": SECRET,
             })
             .to_string();
-            let ap_mock = mock(
-                "POST",
-                format!("/v1/test/{}/registration", SENDER_ID).as_ref(),
-            )
-            .with_status(200)
-            .with_header("content-type", "application/json")
-            .with_body(body)
-            .create();
+            let ap_mock = mock("POST", &*format!("/v1/test/{}/registration", SENDER_ID))
+                .with_status(200)
+                .with_header("content-type", "application/json")
+                .with_body(body)
+                .create();
             let mut conn = connect(config, None, None, Some(SENDER_ID.to_string())).unwrap();
             let channel_id = hex::encode(crate::internal::crypto::get_random_bytes(16).unwrap());
             let response = conn.subscribe(&channel_id, None).unwrap();
@@ -890,7 +870,7 @@ mod test {
             // We mock that the server is returning a client error
             let channel_list_body = json!({
                 "code": status_codes::UNAUTHORIZED,
-                "errno": 109,
+                "errno": 109u32,
                 "error": "",
                 "message": "Unauthroized"
 
@@ -898,7 +878,7 @@ mod test {
             .to_string();
             let channel_list_mock = mock(
                 "GET",
-                format!("/v1/test/{}/registration/{}", SENDER_ID, DUMMY_UAID).as_ref(),
+                &*format!("/v1/test/{}/registration/{}", SENDER_ID, DUMMY_UAID),
             )
             .with_status(status_codes::UNAUTHORIZED as usize)
             .with_header("content-type", "application/json")
@@ -932,14 +912,11 @@ mod test {
                 "secret": SECRET,
             })
             .to_string();
-            let ap_mock = mock(
-                "POST",
-                format!("/v1/test/{}/registration", SENDER_ID).as_ref(),
-            )
-            .with_status(200)
-            .with_header("content-type", "application/json")
-            .with_body(body)
-            .create();
+            let ap_mock = mock("POST", &*format!("/v1/test/{}/registration", SENDER_ID))
+                .with_status(200)
+                .with_header("content-type", "application/json")
+                .with_body(body)
+                .create();
             let mut conn = connect(config, None, None, Some(SENDER_ID.to_string())).unwrap();
             let channel_id = hex::encode(crate::internal::crypto::get_random_bytes(16).unwrap());
             let response = conn.subscribe(&channel_id, None).unwrap();
@@ -949,7 +926,7 @@ mod test {
             // We mock that the server is returning a client error
             let channel_list_body = json!({
                 "code": status_codes::INTERNAL_SERVER_ERROR,
-                "errno": 999,
+                "errno": 999u32,
                 "error": "",
                 "message": "Unknown Error"
 
@@ -957,7 +934,7 @@ mod test {
             .to_string();
             let channel_list_mock = mock(
                 "GET",
-                format!("/v1/test/{}/registration/{}", SENDER_ID, DUMMY_UAID).as_ref(),
+                &*format!("/v1/test/{}/registration/{}", SENDER_ID, DUMMY_UAID),
             )
             .with_status(status_codes::INTERNAL_SERVER_ERROR as usize)
             .with_header("content-type", "application/json")
@@ -988,20 +965,17 @@ mod test {
             // we already registered!
             let body = json!({
                 "code": status_codes::CONFLICT,
-                "errno": 999,
+                "errno": 999u32,
                 "error": "",
                 "message": "Already registered"
 
             })
             .to_string();
-            let ap_mock = mock(
-                "POST",
-                format!("/v1/test/{}/registration", SENDER_ID).as_ref(),
-            )
-            .with_status(status_codes::CONFLICT as usize)
-            .with_header("content-type", "application/json")
-            .with_body(body)
-            .create();
+            let ap_mock = mock("POST", &*format!("/v1/test/{}/registration", SENDER_ID))
+                .with_status(status_codes::CONFLICT as usize)
+                .with_header("content-type", "application/json")
+                .with_body(body)
+                .create();
             let mut conn = connect(config, None, None, Some(SENDER_ID.to_string())).unwrap();
             let channel_id = hex::encode(crate::internal::crypto::get_random_bytes(16).unwrap());
             let err = conn.subscribe(&channel_id, None).unwrap_err();

@@ -12,5 +12,5 @@ crate-type = ["lib"]
 rc_crypto = { path = "../rc_crypto" }
 # We do not need the rand default features as we provide
 # our own Rng implementation backed by rc_crypto.
-rand = { version = "0.7", default-features = false, features = ["std"] }
-rand_core = "0.5"
+rand = { version = "0.8", default-features = false, features = ["std"] }
+rand_core = "0.6"
