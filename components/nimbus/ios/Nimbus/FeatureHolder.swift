@@ -14,7 +14,7 @@ public typealias GetSdk = () -> FeaturesInterface?
 ///
 public class FeatureHolder<T> {
     private let lock = NSLock()
-    private var cachedValue: T? = nil
+    private var cachedValue: T?
 
     private let getSdk: GetSdk
     private let featureId: String
