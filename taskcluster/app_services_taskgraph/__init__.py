@@ -25,12 +25,12 @@ def register(graph_config):
             Optional('android-components-branch'): str,
             Optional('fenix-branch'): str,
         },
+        'nightly-build': bool,
     })
 
 def _import_modules(modules):
     for module in modules:
         import_module(f".{module}", package=__name__)
-
 
 def get_decision_parameters(graph_config, parameters):
     if parameters["tasks_for"] == "github-release":
@@ -56,5 +56,9 @@ def get_decision_parameters(graph_config, parameters):
             parameters["target_tasks_method"] = "pr-skip"
         else:
             parameters["target_tasks_method"] = "pr-normal"
+
+    # We don't have a great way of determining if something is a nightly or
+    # not.  But for now, we can assume all cron-based builds are nightlies.
+    parameters["nightly-build"] = (parameters["tasks_for"] == "cron")
 
     branch_builds.update_decision_parameters(parameters)
