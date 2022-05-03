@@ -73,8 +73,6 @@ pub const COMMON_COLS: &str = "
 
 #[cfg(test)]
 mod test {
-    use tempfile::TempDir;
-
     use crate::internal::storage::db::{PushDb, Storage};
     use rusqlite::{Connection, OpenFlags};
     use sql_support::ConnExt;
@@ -84,7 +82,7 @@ mod test {
     #[test]
     fn test_migrate_v2_v3() {
         env_logger::try_init().ok();
-        let tempdir = TempDir::new().unwrap();
+        let tempdir = tempfile::tempdir().unwrap();
         let path = tempdir.path().join("push_v2.sql");
 
         let conn = Connection::open_with_flags(path.clone(), OpenFlags::default()).unwrap();

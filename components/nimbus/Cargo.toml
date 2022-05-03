@@ -44,4 +44,4 @@ viaduct-reqwest = { path = "../support/viaduct-reqwest" }
 mockito = "0.31"
 env_logger = "0.7"
 clap = "2.33.3"
-tempdir = "0.3"
+tempfile = "3"

@@ -11,7 +11,6 @@ use crate::{
 use chrono::{DateTime, Duration, Utc};
 use serde_json::json;
 use std::io::Write;
-use tempdir::TempDir;
 
 #[test]
 fn test_telemetry_reset() -> Result<()> {
@@ -19,7 +18,7 @@ fn test_telemetry_reset() -> Result<()> {
     let mock_exp_slug = "exp-1".to_string();
     let mock_exp_branch = "branch-1".to_string();
 
-    let tmp_dir = TempDir::new("test_telemetry_reset")?;
+    let tmp_dir = tempfile::tempdir()?;
     let client = NimbusClient::new(
         AppContext::default(),
         tmp_dir.path(),
@@ -87,7 +86,7 @@ fn test_telemetry_reset() -> Result<()> {
 #[test]
 fn test_installation_date() -> Result<()> {
     let mock_client_id = "client-1".to_string();
-    let tmp_dir = TempDir::new("test_installation_date")?;
+    let tmp_dir = tempfile::tempdir()?;
     // Step 1: We first test that the SDK will default to using the
     // value in the app context if it exists
     let three_days_ago = Utc::now() - Duration::days(3);
@@ -208,7 +207,7 @@ fn test_installation_date() -> Result<()> {
 #[test]
 fn test_days_since_update_changes_with_context() -> Result<()> {
     let mock_client_id = "client-1".to_string();
-    let tmp_dir = TempDir::new("test_days_since_update")?;
+    let tmp_dir = tempfile::tempdir()?;
     let client = NimbusClient::new(
         AppContext::default(),
         tmp_dir.path(),
@@ -327,7 +326,7 @@ fn test_days_since_update_changes_with_context() -> Result<()> {
 fn test_days_since_install() -> Result<()> {
     let mock_client_id = "client-1".to_string();
 
-    let temp_dir = TempDir::new("test_days_since_install_failed")?;
+    let temp_dir = tempfile::tempdir()?;
     let app_context = AppContext {
         app_name: "fenix".to_string(),
         app_id: "org.mozilla.fenix".to_string(),
@@ -405,7 +404,7 @@ fn test_days_since_install() -> Result<()> {
 fn test_days_since_install_failed_targeting() -> Result<()> {
     let mock_client_id = "client-1".to_string();
 
-    let temp_dir = TempDir::new("test_days_since_install_failed")?;
+    let temp_dir = tempfile::tempdir()?;
     let app_context = AppContext {
         app_name: "fenix".to_string(),
         app_id: "org.mozilla.fenix".to_string(),
@@ -482,7 +481,7 @@ fn test_days_since_install_failed_targeting() -> Result<()> {
 fn test_days_since_update() -> Result<()> {
     let mock_client_id = "client-1".to_string();
 
-    let temp_dir = TempDir::new("test_days_since_update")?;
+    let temp_dir = tempfile::tempdir()?;
     let app_context = AppContext {
         app_name: "fenix".to_string(),
         app_id: "org.mozilla.fenix".to_string(),
@@ -560,7 +559,7 @@ fn test_days_since_update() -> Result<()> {
 fn test_days_since_update_failed_targeting() -> Result<()> {
     let mock_client_id = "client-1".to_string();
 
-    let temp_dir = TempDir::new("test_days_since_update_failed")?;
+    let temp_dir = tempfile::tempdir()?;
     let app_context = AppContext {
         app_name: "fenix".to_string(),
         app_id: "org.mozilla.fenix".to_string(),
