@@ -10,7 +10,7 @@ path = "src/tests.rs"
 name = "places-integration-tests"
 
 [dev-dependencies]
-parking_lot = "0.5"
+parking_lot = "0.12"
 sql-support = { path = "../../../components/support/sql" }
 sync-guid = { path = "../../../components/support/guid" }
 types = { path = "../../../components/support/types" }

@@ -7,7 +7,7 @@ edition = "2021"
 
 [dependencies]
 lazy_static = "1.4"
-parking_lot = "0.5"
+parking_lot = "0.12"
 
 [dependencies.rusqlite]
 version = "0.27.0"

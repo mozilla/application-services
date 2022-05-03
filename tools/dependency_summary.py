@@ -345,6 +345,33 @@ PACKAGE_METADATA_FIXUPS = {
             "fixup": "https://raw.githubusercontent.com/taskcluster/rust-hawk/main/LICENSE",
         }
     },
+    "windows-sys": {
+        "repository": {
+            "check": "https://github.com/microsoft/windows-rs",
+        },
+        "license_file": {
+            "check": None,
+            "fixup": "https://raw.githubusercontent.com/microsoft/windows-rs/master/.github/license-mit",
+        }
+    },
+    "windows_x86_64_msvc": {
+        "repository": {
+            "check": "https://github.com/microsoft/windows-rs",
+        },
+        "license_file": {
+            "check": None,
+            "fixup": "https://raw.githubusercontent.com/microsoft/windows-rs/master/.github/license-mit",
+        }
+    },
+    "windows_x86_64_gnu": {
+        "repository": {
+            "check": "https://github.com/microsoft/windows-rs",
+        },
+        "license_file": {
+            "check": None,
+            "fixup": "https://raw.githubusercontent.com/microsoft/windows-rs/master/.github/license-mit",
+        }
+    },
     "kernel32-sys": {
         "repository": {
             # This is where the crate says it lives, but unlike the other things in that repo,
