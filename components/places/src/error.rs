@@ -220,6 +220,15 @@ pub enum PlacesError {
     /// - Attempting to delete any of the bookmark roots.
     #[error("CannotUpdateRoot error: {0}")]
     CannotUpdateRoot(String),
+
+    // XX - We should kill this and replace
+    // it with other specific errors
+    // It is only alive because `UnexpectedPlacesException`
+    // is a fatal exception on android
+    /// Thrown when we catch an unexpected error
+    /// that shouldn't be fatal
+    #[error("Unexpected error: {0}")]
+    InternalError(String),
 }
 
 // A port of the error conversion stuff that was in ffi.rs - it turns our
@@ -291,7 +300,7 @@ fn make_places_error(error: &Error) -> PlacesError {
 
         err => {
             log::error!("Unexpected error: {:?}", err);
-            PlacesError::UnexpectedPlacesException(label)
+            PlacesError::InternalError(label)
         }
     }
 }
