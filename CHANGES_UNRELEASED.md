@@ -20,4 +20,4 @@ Use the template below to make assigning a version number during the release cut
 -->
 ## Places
 ### What's Fixed:
-- Fixed a bug in Android where nonfatal errors were crashing.([#4941](https://github.com/mozilla/application-services/pull/4941))
+- Fixed a bug in Android where non-fatal errors were crashing. ([#4941](https://github.com/mozilla/application-services/pull/4941))
