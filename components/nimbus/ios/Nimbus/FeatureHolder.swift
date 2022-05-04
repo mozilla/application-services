@@ -55,6 +55,8 @@ public class FeatureHolder<T> {
     }
 
     /// This overwrites the cached value with the passed one.
+    ///
+    /// This is most likely useful during testing only.
     public func with(cachedValue value: T?) {
         lock.lock()
         defer { self.lock.unlock() }
@@ -62,6 +64,8 @@ public class FeatureHolder<T> {
     }
 
     /// This changes the mapping between a `Variables` and the feature configuration object.
+    ///
+    /// This is most likely useful during testing and other generated code.
     public func with(initializer: @escaping (Variables) -> T) {
         lock.lock()
         defer { self.lock.unlock() }

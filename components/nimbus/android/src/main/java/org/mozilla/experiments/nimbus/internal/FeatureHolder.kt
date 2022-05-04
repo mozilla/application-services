@@ -1,5 +1,10 @@
+/* This Source Code Form is subject to the terms of the Mozilla Public
+ * License, v. 2.0. If a copy of the MPL was not distributed with this
+ * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
+
 package org.mozilla.experiments.nimbus.internal
 
+import android.content.Context
 import org.mozilla.experiments.nimbus.FeaturesInterface
 import org.mozilla.experiments.nimbus.Variables
 import org.mozilla.experiments.nimbus.NullVariables
@@ -27,11 +32,15 @@ class FeatureHolder<T>(
      * in the feature manifest. This is done each call of the method, so the method should be called once, and the
      * result used for the configuration of the feature.
      *
+     * The unused parameter `Context` was relevant for `Text` and `Image` typed properties, but is no longer necessary.
+     * It will be removed in later releases.
+     *
      * @returns T
      * @throws NimbusFeatureException thrown before the Nimbus object has been constructed or `FxNimbus.initialize` has not been set.
      * This can be resolved by setting `FxNimbus.initialize`, and after that by passing in a `Context` object.
      */
-    fun value(): T =
+    @Suppress("UNUSED_PARAMETER")
+    fun value(context: Context? = null): T =
         lock.runBlock {
             if (cachedValue != null) {
                 cachedValue!!
@@ -51,12 +60,22 @@ class FeatureHolder<T>(
         getSdk()?.recordExposureEvent(featureId)
     }
 
+    /**
+     * This overwrites the cached value with the passed one.
+     *
+     * This is most likely useful during testing only.
+     */
     fun withCachedValue(value: T?) {
         lock.runBlock {
             cachedValue = value
         }
     }
 
+    /**
+     * This changes the mapping between a `Variables` and the feature configuration object.
+     *
+     * This is most likely useful during testing and other generated code.
+     */
     fun withInitializer(create: (Variables) -> T) {
         lock.runBlock {
             this.create = create

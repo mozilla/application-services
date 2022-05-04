@@ -59,8 +59,18 @@ object {{ nimbus_object }} {
     }
 
     private var getSdk: () -> FeaturesInterface? = {
-        null
+        this.api
     }
+
+    /**
+     * This is the connection between the Nimbus SDK (and thus the Nimbus server) and the generated code.
+     *
+     * This is no longer the recommended way of doing this, and will be removed in future releases.
+     *
+     * The recommended method is to use the `initialize(getSdk)` method, much earlier in the application
+     * startup process.
+     */
+    public var api: FeaturesInterface? = null
 
     public fun invalidateCachedValues() {
         {% for f in self.iter_feature_defs() -%}
