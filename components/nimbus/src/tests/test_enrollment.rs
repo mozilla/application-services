@@ -15,7 +15,6 @@ use crate::{
     TargetingAttributes,
 };
 use serde_json::{json, Value};
-use tempdir::TempDir;
 use uuid::Uuid;
 
 use std::collections::{HashMap, HashSet};
@@ -2423,7 +2422,7 @@ fn test_enrollment_disqualified_explicit_opt_out() {
 #[test]
 fn test_enrollments() -> Result<()> {
     let _ = env_logger::try_init();
-    let tmp_dir = TempDir::new("test_enrollments")?;
+    let tmp_dir = tempfile::tempdir()?;
     let db = Database::new(&tmp_dir)?;
     let mut writer = db.write()?;
     let exp1 = get_test_experiments()[0].clone();
@@ -2505,7 +2504,7 @@ fn test_enrollments() -> Result<()> {
 #[test]
 fn test_updates() -> Result<()> {
     let _ = env_logger::try_init();
-    let tmp_dir = TempDir::new("test_updates")?;
+    let tmp_dir = tempfile::tempdir()?;
     let db = Database::new(&tmp_dir)?;
     let mut writer = db.write()?;
     let nimbus_id = Uuid::new_v4();
@@ -2551,7 +2550,7 @@ fn test_updates() -> Result<()> {
 #[test]
 fn test_global_opt_out() -> Result<()> {
     let _ = env_logger::try_init();
-    let tmp_dir = TempDir::new("test_global_opt_out")?;
+    let tmp_dir = tempfile::tempdir()?;
     let db = Database::new(&tmp_dir)?;
     let mut writer = db.write()?;
     let nimbus_id = Uuid::new_v4();
@@ -2668,7 +2667,7 @@ fn test_global_opt_out() -> Result<()> {
 #[test]
 fn test_telemetry_reset() -> Result<()> {
     let _ = env_logger::try_init();
-    let tmp_dir = TempDir::new("test_telemetry_reset")?;
+    let tmp_dir = tempfile::tempdir()?;
     let db = Database::new(&tmp_dir)?;
     let mut writer = db.write()?;
 

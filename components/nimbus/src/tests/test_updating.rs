@@ -9,14 +9,13 @@ use crate::error::Result;
 use crate::updating::*;
 use crate::Database;
 use crate::Experiment;
-use tempdir::TempDir;
 
 // This test crashes lmdb for reasons that make no sense, so only run it
 // in the "safe mode" backend.
 #[cfg(feature = "rkv-safe-mode")]
 #[test]
 fn test_reading_writing_and_removing_experiments() -> Result<()> {
-    let tmp_dir = TempDir::new("test_stash_pop_updates")?;
+    let tmp_dir = tempfile::tempdir()?;
     let db = Database::new(&tmp_dir)?;
     let mut writer = db.write()?;
 

@@ -11,11 +11,10 @@ mod test {
     #[cfg(feature = "rkv-safe-mode")]
     use nimbus::error::Result;
     use serde_json::json;
-    use tempdir::TempDir;
 
     #[test]
     fn test_restart_opt_in() -> Result<()> {
-        let temp_dir = TempDir::new("test_restart_opt_in")?;
+        let temp_dir = tempfile::tempdir()?;
         let client = new_test_client_with_db(&temp_dir)?;
         client.initialize()?;
         let experiment_json = serde_json::to_string(&json!({

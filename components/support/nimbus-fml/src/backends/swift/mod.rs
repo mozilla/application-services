@@ -35,10 +35,6 @@ pub mod test {
         process::Command,
     };
 
-    use tempdir::TempDir;
-
-    use crate::error::FMLError;
-
     // The root of the Android kotlin package structure
     fn sdk_ios_dir() -> String {
         join(sdk_dir(), "ios/Nimbus")
@@ -158,14 +154,7 @@ pub mod test {
             eprintln!("SDK-446 Install swift or add it the PATH to run tests");
             return Ok(());
         }
-        let path = PathBuf::from(&manifest_file);
-        let prefix = path
-            .file_stem()
-            .ok_or_else(|| FMLError::InvalidPath(manifest_file.to_string_lossy().into_owned()))?;
-        let prefix = prefix
-            .to_str()
-            .ok_or_else(|| FMLError::InvalidPath(manifest_file.to_string_lossy().into_owned()))?;
-        let temp = TempDir::new(prefix)?;
+        let temp = tempfile::tempdir()?;
         let build_dir = temp.path();
         compile_manifest_swift(manifest_file, build_dir)?;
         run_script(build_dir, script)

@@ -14,7 +14,7 @@ sync15 = { path = "../sync15" }
 serde = "1"
 serde_derive = "1"
 serde_json = "1"
-parking_lot = "0.5"
+parking_lot = "0.12"
 log = "0.4"
 lazy_static = "1.4"
 url = "2.2"
@@ -37,6 +37,5 @@ uniffi_build = { version = "^0.17", features=["builtin-bindgen"] }
 
 [dev-dependencies]
 more-asserts = "0.2"
-tempdir = "0.3"
 tempfile = "3.2.0"
 env_logger = { version = "0.7", default-features = false }

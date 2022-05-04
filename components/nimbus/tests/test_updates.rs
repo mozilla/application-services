@@ -419,8 +419,6 @@ mod test {
     fn test_startup_orphan_behavior() -> Result<()> {
         let _ = env_logger::try_init();
 
-        use tempdir::TempDir;
-
         // these enrollments should cause orphan experiments to be created
         let enrollments_for_missing_feature_id = vec![
             json!(
@@ -455,7 +453,7 @@ mod test {
             ),
         ];
 
-        let tmp_dir = TempDir::new("test_startup_orphan_behavior")?;
+        let tmp_dir = tempfile::tempdir()?;
         let db_v1_experiments_with_missing_feature_fields =
             &get_db_v1_experiments_with_missing_feature_fields();
 
@@ -500,9 +498,7 @@ mod test {
     fn test_experiments_without_enrollments_are_dropped() -> Result<()> {
         let _ = env_logger::try_init();
 
-        use tempdir::TempDir;
-
-        let tmp_dir = TempDir::new("test_experiments_without_enrollments_are_dropped")?;
+        let tmp_dir = tempfile::tempdir()?;
         let two_valid_experiments = &two_valid_experiments();
 
         // create a database in a way that could cause the migrator to
