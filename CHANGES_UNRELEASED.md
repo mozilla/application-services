@@ -18,3 +18,6 @@ Use the template below to make assigning a version number during the release cut
   - Description of the change with a link to the pull request ([#0000](https://github.com/mozilla/application-services/pull/0000))
 
 -->
+## Places
+### What's Fixed:
+- Fixed a bug in Android where nonfatal errors were crashing.([#4941](https://github.com/mozilla/application-services/pull/4941))
