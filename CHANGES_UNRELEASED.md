@@ -24,3 +24,6 @@ Use the template below to make assigning a version number during the release cut
   - New API in the `FeatureHolder`, both iOS and Android to control the output of the `value()` call:
     - to cache the values given to callers; this can be cleared with `FxNimbus.invalidatedCachedValues()`
     - to add a custom initializer with `with(initializer:_)`/`withInitializer(_)`.
+## Places
+### What's Fixed:
+- Fixed a bug in Android where non-fatal errors were crashing. ([#4941](https://github.com/mozilla/application-services/pull/4941))
