@@ -221,10 +221,8 @@ pub enum PlacesError {
     #[error("CannotUpdateRoot error: {0}")]
     CannotUpdateRoot(String),
 
-    // XX - We should kill this and replace
-    // it with other specific errors
-    // It is only alive because `UnexpectedPlacesException`
-    // is a fatal exception on android
+    // XX - Having `InternalError` is a smell and ideally it wouldn't exist
+    // it exists to catch non-fatal unexpected errors
     /// Thrown when we catch an unexpected error
     /// that shouldn't be fatal
     #[error("Unexpected error: {0}")]
