@@ -27,3 +27,6 @@ Use the template below to make assigning a version number during the release cut
 ## Places
 ### What's Fixed:
 - Fixed a bug in Android where non-fatal errors were crashing. ([#4941](https://github.com/mozilla/application-services/pull/4941))
+### What's new:
+- Exposed the `deleteVisitsFor` function in iOS, the function can be used to delete history metadata. ([#4946](https://github.com/mozilla/application-services/pull/4946))
+  - Note: The API is meant to delete all history, however, iOS does **not** use the `places` Rust component for regular history yet.
