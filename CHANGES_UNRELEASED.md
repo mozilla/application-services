@@ -18,3 +18,9 @@ Use the template below to make assigning a version number during the release cut
   - Description of the change with a link to the pull request ([#0000](https://github.com/mozilla/application-services/pull/0000))
 
 -->
+## Nimbus ⛅️🔬🔭
+
+### What's New
+  - New API in the `FeatureHolder`, both iOS and Android to control the output of the `value()` call:
+    - to cache the values given to callers; this can be cleared with `FxNimbus.invalidatedCachedValues()`
+    - to add a custom initializer with `with(initializer:_)`/`withInitializer(_)`.

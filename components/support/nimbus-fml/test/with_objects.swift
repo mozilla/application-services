@@ -34,6 +34,7 @@ let api = MockNimbus(("with-objects-feature",  """
 }
 """))
 nimbus.api = api
+nimbus.invalidateCachedValues()
 
 // Now test the selectively overidden properties of the feature.
 let feature1 = nimbus.features.withObjectsFeature.value()

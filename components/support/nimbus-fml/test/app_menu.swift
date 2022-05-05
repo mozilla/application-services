@@ -31,7 +31,7 @@ assert(feature.profileItems[PlayerProfile.adult]![MenuItemId.resumeGame]?.label 
 assert(feature.profileItems[PlayerProfile.adult]![MenuItemId.settings]?.label == "SETTINGS")
 
 // Now let's merge it with JSON we might have got from Rust.
-nimbus.api = MockNimbus(("app-menu",
+let api = MockNimbus(("app-menu",
 """
 {
     "items": {
@@ -63,7 +63,9 @@ nimbus.api = MockNimbus(("app-menu",
     }
 }
 """))
+nimbus.api = api
 
+nimbus.invalidateCachedValues()
 let feature1 = nimbus.features.appMenu.value()
 assert(feature1.items[MenuItemId.startGame]?.label == "Start Nimbus")
 assert(feature1.items[MenuItemId.resumeGame]?.label == "Resume Nimbus")

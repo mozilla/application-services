@@ -6,7 +6,8 @@ import android.content.Context as MockContext
 import com.example.app.R
 import org.mozilla.experiments.nimbus.MockNimbus
 
-MyNimbus.api = MockNimbus()
+var injected: MockNimbus? = MockNimbus()
+MyNimbus.initialize { injected }
 
 val feature = MyNimbus.features.myStrings.value()
 
