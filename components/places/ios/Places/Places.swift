@@ -765,4 +765,15 @@ public class PlacesWriteConnection: PlacesReadConnection {
             )
         }
     }
+
+    /** Deletes all history and history metadata for the given url
+     * - Parameters:
+     *      - url: The url to delete all history for
+     **/
+    open func deleteVisitsFor(url: Url) throws {
+        try queue.sync {
+            try self.checkApi()
+            try self.conn.deleteVisitsFor(url: url)
+        }
+    }
 }
