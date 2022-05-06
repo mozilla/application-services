@@ -27,3 +27,4 @@ Use the template below to make assigning a version number during the release cut
 ## Places
 ### What's Fixed:
 - Fixed a bug in Android where non-fatal errors were crashing. ([#4941](https://github.com/mozilla/application-services/pull/4941))
+- Fixed a bug where querying history metadata would return a sql error instead of the result ([4940](https://github.com/mozilla/application-services/pull/4940))
