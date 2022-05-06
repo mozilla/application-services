@@ -361,6 +361,45 @@ class PlacesTests: XCTestCase {
         XCTAssertEqual(0, try! db.getHistoryMetadataSince(since: beginning).count)
     }
 
+    func testDeleteVisitsFor() {
+        let beginning = Int64(Date().timeIntervalSince1970 * 1000)
+        let db = api.getWriter()
+        XCTAssertEqual(0, try! db.getHistoryMetadataSince(since: beginning).count)
+        let metaKey1 = HistoryMetadataKey(
+            url: "http://www.mozilla.org/",
+            searchTerm: "searchterm 1",
+            referrerUrl: nil
+        )
+        let metaKey2 = HistoryMetadataKey(
+            url: "http://www.mozilla.org/",
+            searchTerm: "searchterm 2",
+            referrerUrl: nil
+        )
+        let metaKey3 = HistoryMetadataKey(
+            url: "http://www.example.com/",
+            searchTerm: nil,
+            referrerUrl: nil
+        )
+        _ = try! db.noteHistoryMetadataObservationDocumentType(key: metaKey1, documentType: DocumentType.media)
+        _ = try! db.noteHistoryMetadataObservationDocumentType(key: metaKey2, documentType: DocumentType.media)
+        _ = try! db.noteHistoryMetadataObservationDocumentType(key: metaKey3, documentType: DocumentType.media)
+        // There should be three entries now
+        XCTAssertEqual(3, try! db.getHistoryMetadataSince(since: beginning).count)
+        // two have the same url, so we remove them:
+        try! db.deleteVisitsFor(url: metaKey1.url)
+        // now there should be only one
+        XCTAssertEqual(1, try! db.getHistoryMetadataSince(since: beginning).count)
+        XCTAssertEqual(metaKey3.url, try! db.getHistoryMetadataSince(since: beginning)[0].url)
+
+        // verify if there is only one, we delete it properly
+        try! db.deleteVisitsFor(url: metaKey3.url)
+        XCTAssertEqual(0, try! db.getHistoryMetadataSince(since: beginning).count)
+
+        // we verify that deleting for a url that doesn't exist doesn't error or crash
+        try! db.deleteVisitsFor(url: metaKey3.url)
+        XCTAssertEqual(0, try! db.getHistoryMetadataSince(since: beginning).count)
+    }
+
     // Due to the current hybrid approach of Uniffi for places, we're adding error test cases
     // To properly test uniffi & non-uniffi properly error propagate
     func testPlacesErrors() {
