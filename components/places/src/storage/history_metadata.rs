@@ -365,7 +365,7 @@ LEFT JOIN moz_places o ON o.id = m.referrer_place_id";
 // For example, given two entries we'll know that one is larger than another, but not by how much.
 const HIGHLIGHTS_QUERY: &str = "
 SELECT
-    ranked.score AS score, p.id AS place_id, p.url AS url, p.title AS title, p.preview_image_url AS preview_image_url
+    IFNULL(ranked.score, 0.0) AS score, p.id AS place_id, p.url AS url, p.title AS title, p.preview_image_url AS preview_image_url
 FROM moz_places p
 INNER JOIN
     (
@@ -1243,6 +1243,30 @@ mod tests {
             .len()
         );
 
+        // Database with "normal" history but no metadata observations is fine.
+        apply_observation(
+            &conn,
+            VisitObservation::new(
+                Url::parse("https://www.reddit.com/r/climbing").expect("Should parse URL"),
+            )
+            .with_visit_type(VisitTransition::Link)
+            .with_at(Timestamp::now()),
+        )
+        .expect("Should apply observation");
+        assert_eq!(
+            0,
+            get_highlights(
+                &conn,
+                HistoryHighlightWeights {
+                    view_time: 1.0,
+                    frequency: 1.0
+                },
+                10
+            )
+            .unwrap()
+            .len()
+        );
+
         // three observation to url1, each recording a second of view time.
         note_observation!(&conn,
             url "http://mozilla.com/1",
@@ -1330,6 +1354,32 @@ mod tests {
         let highlights4 = get_highlights(&conn, view_time_heavy_weights, 10).unwrap();
         assert_eq!(2, highlights4.len());
         assert_eq!("http://mozilla.com/2", highlights4[0].url);
+    }
+
+    #[test]
+    fn test_get_highlights_no_viewtime() {
+        let conn = PlacesDb::open_in_memory(ConnectionType::ReadWrite).expect("memory db");
+
+        // Make sure we work if the only observations for a URL have a view time of zero.
+        note_observation!(&conn,
+            url "http://mozilla.com/1",
+            view_time Some(0),
+            search_term None,
+            document_type Some(DocumentType::Regular),
+            referrer_url Some("https://news.website/tech"),
+            title None
+        );
+        let highlights = get_highlights(
+            &conn,
+            HistoryHighlightWeights {
+                view_time: 1.0,
+                frequency: 1.0,
+            },
+            2,
+        )
+        .unwrap();
+        assert_eq!(highlights.len(), 1);
+        assert_eq!(highlights[0].score, 0.0);
     }
 
     #[test]
