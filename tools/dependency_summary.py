@@ -572,6 +572,51 @@ PACKAGE_METADATA_FIXUPS = {
             "fixup": "https://raw.githubusercontent.com/myrrlyn/wyz/main/LICENSE.txt",
         },
     },
+    "proc-macro-error": {
+        "license": {
+            "check": "MIT OR Apache-2.0"
+        },
+        "repository": {
+            "check": "https://gitlab.com/CreepySkeleton/proc-macro-error"
+        },
+        "license_file": {
+            "check": None,
+            "fixup": "https://gitlab.com/CreepySkeleton/proc-macro-error/-/raw/master/LICENSE-APACHE"
+        }
+    },
+    "proc-macro-error-attr": {
+        # This is path dependency in `proc-macro-error` and uses
+        # it's same license
+        "license": {
+            "check": "MIT OR Apache-2.0"
+        },
+        "repository": {
+            "check": "https://gitlab.com/CreepySkeleton/proc-macro-error"
+        },
+        "license_file": {
+            "check": None,
+            "fixup": "https://gitlab.com/CreepySkeleton/proc-macro-error/-/raw/master/LICENSE-APACHE"
+        }
+    },
+    # Based on https://github.com/Alexhuszagh/minimal-lexical/blob/main/LICENSE.md
+    # the libraries is licensed as dual licensed, however a portion of the
+    # source code is licensed under BSD-3-Clause. The portion is only
+    # used if the code uses the `compact` feature. However, tracking down
+    # where it's used in the tree, it's used by
+    # https://github.com/Geal/nom/blob/294ffb3d9e0ade2c3b7ddfff52484b6d643dcce1/Cargo.toml#L38
+    # which does **not** use the `compact` feature so we use to the Apatche license.
+    "minimal-lexical": {
+        "license": {
+            "check": "MIT/Apache-2.0",
+        },
+        "repository": {
+            "check": "https://github.com/Alexhuszagh/minimal-lexical"
+        },
+        "license_file": {
+            "check": None,
+            "fixup": "https://github.com/Alexhuszagh/minimal-lexical/blob/main/LICENSE-APACHE"
+        }
+    },
     # These packages do not make it easy to infer a URL at which their license can be read,
     # so we track it down by hand and hard-code it here.
     "c2-chacha": {
