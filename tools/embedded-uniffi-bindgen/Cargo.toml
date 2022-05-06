@@ -7,4 +7,4 @@ license = "MPL-2.0"
 
 [dependencies]
 anyhow = "1"
-uniffi_bindgen = "^0.17"
+uniffi_bindgen = "^0.18"
