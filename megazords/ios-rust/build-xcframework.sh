@@ -22,7 +22,7 @@ esac; done
 
 THIS_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" &> /dev/null && pwd )"
 WORKING_DIR=
-if [[ ! -z $IS_FOCUS ]]; then
+if [[ -n $IS_FOCUS ]]; then
   WORKING_DIR="$THIS_DIR/focus"
 else
   WORKING_DIR=$THIS_DIR
