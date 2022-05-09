@@ -1289,7 +1289,7 @@ if __name__ == "__main__":
     # Default to listing dependencies for the "megazord" and "megazord_ios" packages,
     # which together include everything we might possibly incorporate into in a built distribution.
     if not args.packages:
-        args.packages = ["megazord", "megazord_ios"]
+        args.packages = ["megazord", "megazord_ios", "megazord_focus"]
 
     if args.targets:
         # Flatten the lists introduced by --all-XXX-targets options.
