@@ -8,7 +8,7 @@ from taskgraph.transforms.base import TransformSequence
 from taskgraph.util.schema import validate_schema, Schema
 from voluptuous import Optional, Required, In
 
-NIGHLY_INDEX = "index.project.application-services.v2.nightlies"
+NIGHTLY_INDEX = "index.project.application-services.v2.nightlies"
 
 # Schema for the job dictionary from kinds.yml
 branch_build_schema = Schema({
@@ -179,5 +179,5 @@ def setup_test(task, repo_name):
     task['run']['gradlew'] = ['testDebugUnitTest']
 
 def setup_routes(task, params):
-    if params.get('nighly-build'):
-        task.setdefault('routes', []).append(NIGHLY_INDEX)
+    if params.get('nightly-build'):
+        task.setdefault('routes', []).append(NIGHTLY_INDEX)
