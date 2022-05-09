@@ -4,7 +4,7 @@
 
 BUILD_PROFILE="release"
 FRAMEWORK_NAME="MozillaRustComponents"
-
+IS_FOCUS=
 # FRAMEWORK_FILENAME exist purely because we would like to ship
 # multiple frameworks that have the same swift code
 # namely for focus. However, componenets that use
