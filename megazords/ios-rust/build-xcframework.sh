@@ -149,7 +149,7 @@ $CARGO uniffi-bindgen generate "$REPO_ROOT/components/nimbus/src/nimbus.udl" -l 
 
 # We now only move/generate the rest of the headers if we are generating a full
 # iOS megazord
-if [ -z $IS_FOCUS]; then
+if [ -z $IS_FOCUS ]; then
   cp "$REPO_ROOT/components/external/glean/glean-core/ffi/glean.h" "$COMMON/Headers"
   # TODO: https://github.com/mozilla/uniffi-rs/issues/1060
   # it would be neat if there was a single UniFFI command that would spit out
