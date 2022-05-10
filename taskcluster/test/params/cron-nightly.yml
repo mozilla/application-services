@@ -22,4 +22,4 @@ pushlog_id: '0'
 repository_type: git
 target_tasks_method: default
 tasks_for: cron
-nighly-build: true
+nightly-build: true
