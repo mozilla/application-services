@@ -1,3 +1,11 @@
+# v93.2.0 (_2022-05-11_)
+
+[Full Changelog](https://github.com/mozilla/application-services/compare/v93.1.0...v93.2.0)
+
+## General
+### What's new
+- Application services now releases an xcframework with only the components needed by focus-ios (namely Nimbus, Viaduct and Rustlog). ([#4953](https://github.com/mozilla/application-services/pull/4953))
+
 # v93.1.0 (_2022-05-06_)
 
 [Full Changelog](https://github.com/mozilla/application-services/compare/v93.0.4...v93.1.0)
