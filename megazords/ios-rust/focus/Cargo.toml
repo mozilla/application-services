@@ -1,0 +1,15 @@
+[package]
+name = "megazord_focus"
+edition = "2021"
+version = "0.1.0"
+authors = ["application-services <application-services@mozilla.com>"]
+license = "MPL-2.0"
+
+[lib]
+crate-type = ["staticlib"]
+
+[dependencies]
+rc_log_ffi = { path = "../../../components/rc_log" }
+viaduct = { path = "../../../components/viaduct" }
+viaduct-reqwest = { path = "../../../components/support/viaduct-reqwest" }
+nimbus-sdk = { path = "../../../components/nimbus" }

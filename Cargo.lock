@@ -1740,6 +1740,16 @@ dependencies = [
 ]
 
 [[package]]
+name = "megazord_focus"
+version = "0.1.0"
+dependencies = [
+ "nimbus-sdk",
+ "rc_log_ffi",
+ "viaduct",
+ "viaduct-reqwest",
+]
+
+[[package]]
 name = "megazord_ios"
 version = "0.1.0"
 dependencies = [

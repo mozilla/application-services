@@ -28,6 +28,8 @@ components/**/ios/Generated
 
 # XCFramework artifact
 megazords/ios-rust/MozillaRustComponents.xcframework*
+megazords/ios-rust/focus/FocusRustComponents.xcframework*
+
 
 # Glean generated artifacts
 megazords/ios-rust/MozillaTestServices/MozillaTestServices/Generated/Metrics.swift

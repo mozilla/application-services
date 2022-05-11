@@ -334,6 +334,58 @@ jobs:
           root: .
           paths:
             - megazords/ios-rust/MozillaRustComponents.xcframework.zip
+  Focus build XCFramework:
+    executor: macos
+    steps:
+      - full-checkout
+      - restore-sccache-cache
+      - install-rust
+      - setup-rust-target-version
+      - setup-sccache
+      - setup-ios-environment
+      - run:
+          name: Build XCFramework archive
+          command: |
+            bash megazords/ios-rust/build-xcframework.sh --build-profile release --focus
+      - save-sccache-cache:
+          path: "~/Library/Caches/Mozilla.sccache"
+      - store_artifacts:
+          name: Store XCFramework bundle in workspace
+          path: megazords/ios-rust/focus/FocusRustComponents.xcframework.zip
+          destination: dist/FocusRustComponents.xcframework.zip
+      - run:
+          name: "XCFramework bundle checksum"
+          command: |
+            shasum -a 256 ./megazords/ios-rust/focus/FocusRustComponents.xcframework.zip
+            echo "Use the above checksum to depend on FocusRustComponents.xcframework.zip as a Swift Package binary target"
+      - persist_to_workspace:
+          root: .
+          paths:
+            - megazords/ios-rust/focus/FocusRustComponents.xcframework.zip
+
+  XCFramework release:
+    executor: macos
+    steps:
+      - full-checkout
+      - attach_workspace:
+          at: .
+      - install-ghr
+      - run:
+          name: Release XCFramework archive on GitHub
+          command: |
+            ghr -replace "${CIRCLE_TAG}" megazords/ios-rust/MozillaRustComponents.xcframework.zip
+
+  Focus XCFramework release:
+    executor: macos
+    steps:
+      - full-checkout
+      - attach_workspace:
+          at: .
+      - install-ghr
+      - run:
+          name: Release XCFramework archive on GitHub
+          command: |
+            ghr -replace "${CIRCLE_TAG}" megazords/ios-rust/focus/FocusRustComponents.xcframework.zip
 
   iOS test:
     executor: macos
@@ -352,17 +404,7 @@ jobs:
           destination: logs/raw_xcodetest.log
       - save-sccache-cache:
           path: "~/Library/Caches/Mozilla.sccache"
-  XCFramework release:
-    executor: macos
-    steps:
-      - full-checkout
-      - attach_workspace:
-          at: .
-      - install-ghr
-      - run:
-          name: Release XCFramework archive on GitHub
-          command: |
-            ghr -replace "${CIRCLE_TAG}" megazords/ios-rust/MozillaRustComponents.xcframework.zip
+
   build-nimbus-fml:
     executor: macos
     steps:
@@ -447,9 +489,26 @@ workflows:
           filters: # required since `XCFramework release` has tag filters AND requires this job
             tags:
               only: /.*/
+####  The following iOS jobs will only run on release
       - XCFramework release:
           requires:
             - iOS build xcframework
+          filters:
+            branches:
+              ignore: /.*/
+            tags:
+              only: /^v.*/
+      - Focus build XCFramework:
+          filters:
+            branches:
+              ignore: /.*/
+            tags:
+              only: /^v.*/ # We only build Focus on release since Focus
+              # only uses a subset of the components the full iOS build
+              # covers.
+      - Focus XCFramework release:
+          requires:
+            - Focus build XCFramework
           filters:
             branches:
               ignore: /.*/
