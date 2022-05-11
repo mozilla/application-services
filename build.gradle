@@ -122,7 +122,14 @@ ext.libsGitSha = "git --git-dir=${rootProject.rootDir}/.git diff --name-only mai
 
 // Use in-tree libs from the source directory in CI or if the git SHA is unset; otherwise use
 // downloaded libs.
-def useDownloadedLibs = !System.getenv('CI') && ext.libsGitSha != null
+
+// XX: Since we switched the libs directory to be `darwin-x86-64` and `darwin-aarch64` in https://github.com/mozilla/application-services/pull/4792
+//     we have mimatch with the libs built on CI, since they have the libraries under `darwin`. 
+//     Temporarily, we are disabling downloaded libs
+//     we should enable them once our CI builds libs the same way as our local environments
+//     see: https://github.com/mozilla/application-services/issues/4828
+// def useDownloadedLibs = !System.getenv('CI') && ext.libsGitSha != null
+def useDownloadedLibs = false
 
 if (useDownloadedLibs) {
     task downloadAndroidLibs(type: Download) {
