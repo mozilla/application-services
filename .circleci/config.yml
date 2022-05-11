@@ -499,18 +499,13 @@ workflows:
             tags:
               only: /^v.*/
       - Focus build XCFramework:
-          # filters:
-          #   branches:
-          #     ignore: /.*/
-          #   tags:
-          #     only: /^v.*/ # We only build Focus on release since Focus
+          filters:
+            branches:
+              ignore: /.*/
+            tags:
+              only: /^v.*/ # We only build Focus on release since Focus
               # only uses a subset of the components the full iOS build
               # covers.
-          # TODO: Remove this before landing, temporary to test that CI
-          # can build the artifact properly
-          filters: # required since `XCFramework release` has tag filters AND requires this job
-            tags:
-              only: /.*/
       - Focus XCFramework release:
           requires:
             - Focus build XCFramework

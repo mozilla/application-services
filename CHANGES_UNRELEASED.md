@@ -18,3 +18,6 @@ Use the template below to make assigning a version number during the release cut
   - Description of the change with a link to the pull request ([#0000](https://github.com/mozilla/application-services/pull/0000))
 
 -->
+## General
+### What's new
+- Application services now releases an xcframework with only the components needed by focus-ios (namely Nimbus, Viaduct and Rustlog). ([#4953](https://github.com/mozilla/application-services/pull/4953))
