@@ -2,9 +2,7 @@
 # License, v. 2.0. If a copy of the MPL was not distributed with this
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 
-# We use this specific version because our decision task also runs on this one.
-# We also use that same version in decisionlib.py
-FROM ubuntu:bionic-20180821
+FROM ubuntu:18.04
 
 MAINTAINER Edouard Oger "eoger@mozilla.com"
 
@@ -54,7 +52,10 @@ RUN apt-get update -qq \
         # Android builds
         openjdk-11-jdk \
         # Required by gyp but also CI scripts.
+        python \
+        python-pip \
         python3 \
+        python3-pip \
         # libs/ source patching.
         patch \
         # NSS build system.
@@ -79,9 +80,7 @@ RUN apt-get update -qq \
         # For `cc` crates; see https://github.com/jwilm/alacritty/issues/1440.
         # <TODO: Is this still true?>.
         g++ \
-        python3-pip \
         # taskcluster > mohawk > setuptools.
-        python3-setuptools \
         # Required to extract the Android SDK/NDK.
         unzip \
         # Required by tooltool to extract tar.xz archives.

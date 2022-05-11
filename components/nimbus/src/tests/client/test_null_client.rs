@@ -2,7 +2,7 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
- // Allow this to run in "safe mode"
+// Allow this to run in "safe mode"
 #![allow(unused_imports)]
 
 use crate::error::Result;
@@ -11,11 +11,10 @@ use crate::error::Result;
 #[test]
 fn test_null_client() -> Result<()> {
     use crate::NimbusClient;
-    use tempdir::TempDir;
 
     let _ = env_logger::try_init();
 
-    let tmp_dir = TempDir::new("test_null_client-test_null")?;
+    let tmp_dir = tempfile::tempdir()?;
 
     let aru = Default::default();
     let client = NimbusClient::new(Default::default(), tmp_dir.path(), None, aru)?;

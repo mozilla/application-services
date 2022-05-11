@@ -25,7 +25,7 @@ import {{ imported_class }}
  *
  * ```
  * val nimbus: Nimbus = connectToNimbusSDK()
- * {{ nimbus_object }}.api = nimbus
+ * {{ nimbus_object }}.initialize(getSdk = { nimbus })
  * ```
  *
  * Once initialized, this can be used to access typesafe configuration object via the `features` member.
@@ -40,7 +40,7 @@ object {{ nimbus_object }} {
         {%- let class_name = raw_name|class_name %}
         {{ f.doc()|comment("        ") }}
         val {{raw_name|var_name}}: FeatureHolder<{{class_name}}> by lazy {
-            FeatureHolder({ {{ nimbus_object }}.api }, {{ raw_name|quoted }}) { variables ->
+            FeatureHolder({{ nimbus_object }}.getSdk, {{ raw_name|quoted }}) { variables ->
                 {{ class_name }}(variables)
             }
         }
@@ -48,9 +48,35 @@ object {{ nimbus_object }} {
     }
 
     /**
-     * This should be populated at app launch.
+     * This method should be called as early in the startup sequence of the app as possible.
+     * This is to connect the Nimbus SDK (and thus server) with the `{{ nimbus_object }}`
+     * class.
+     *
+     * The lambda MUST be threadsafe in its own right.
      */
-    var api: FeaturesInterface? = null
+    public fun initialize(getSdk: () -> FeaturesInterface?) {
+        this.getSdk = getSdk
+    }
+
+    private var getSdk: () -> FeaturesInterface? = {
+        this.api
+    }
+
+    /**
+     * This is the connection between the Nimbus SDK (and thus the Nimbus server) and the generated code.
+     *
+     * This is no longer the recommended way of doing this, and will be removed in future releases.
+     *
+     * The recommended method is to use the `initialize(getSdk)` method, much earlier in the application
+     * startup process.
+     */
+    public var api: FeaturesInterface? = null
+
+    public fun invalidateCachedValues() {
+        {% for f in self.iter_feature_defs() -%}
+        features.{{- f.name()|var_name -}}.withCachedValue(null)
+        {% endfor %}
+    }
 
     /**
      * Accessor object for generated configuration classes extracted from Nimbus, with built-in

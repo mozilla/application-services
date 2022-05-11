@@ -157,10 +157,6 @@ the details of which are reproduced below.
     <url>https://github.com/rust-random/getrandom/blob/master/LICENSE-APACHE</url>
   </license>
   <license>
-    <name>Apache License 2.0: getrandom</name>
-    <url>https://github.com/rust-random/getrandom/blob/master/LICENSE-APACHE</url>
-  </license>
-  <license>
     <name>Apache License 2.0: glob</name>
     <url>https://github.com/rust-lang/glob/blob/master/LICENSE-APACHE</url>
   </license>
@@ -225,12 +221,12 @@ the details of which are reproduced below.
     <url>https://github.com/mozilla/lmdb-rs/blob/master/LICENSE</url>
   </license>
   <license>
-    <name>Apache License 2.0: log</name>
-    <url>https://github.com/rust-lang/log/blob/master/LICENSE-APACHE</url>
+    <name>Apache License 2.0: lock_api</name>
+    <url>https://github.com/Amanieu/parking_lot/blob/master/LICENSE-APACHE</url>
   </license>
   <license>
-    <name>Apache License 2.0: maybe-uninit</name>
-    <url>https://github.com/est31/maybe-uninit/blob/master/LICENSE-APACHE</url>
+    <name>Apache License 2.0: log</name>
+    <url>https://github.com/rust-lang/log/blob/master/LICENSE-APACHE</url>
   </license>
   <license>
     <name>Apache License 2.0: num-integer</name>
@@ -306,10 +302,6 @@ the details of which are reproduced below.
   </license>
   <license>
     <name>Apache License 2.0: rand</name>
-    <url>https://github.com/rust-lang-nursery/rand/blob/master/LICENSE-APACHE</url>
-  </license>
-  <license>
-    <name>Apache License 2.0: rand</name>
     <url>https://github.com/rust-random/rand/blob/master/LICENSE-APACHE</url>
   </license>
   <license>
@@ -339,6 +331,10 @@ the details of which are reproduced below.
   <license>
     <name>Apache License 2.0: ryu</name>
     <url>https://github.com/dtolnay/ryu/blob/master/LICENSE-APACHE</url>
+  </license>
+  <license>
+    <name>Apache License 2.0: scopeguard</name>
+    <url>https://github.com/bluss/scopeguard/blob/master/LICENSE-APACHE</url>
   </license>
   <license>
     <name>Apache License 2.0: semver</name>
@@ -371,14 +367,6 @@ the details of which are reproduced below.
   <license>
     <name>Apache License 2.0: smallvec</name>
     <url>https://github.com/servo/rust-smallvec/blob/master/LICENSE-APACHE</url>
-  </license>
-  <license>
-    <name>Apache License 2.0: smallvec</name>
-    <url>https://github.com/servo/rust-smallvec/blob/master/LICENSE-APACHE</url>
-  </license>
-  <license>
-    <name>Apache License 2.0: stable_deref_trait</name>
-    <url>https://github.com/storyyeller/stable_deref_trait/blob/master/LICENSE-APACHE</url>
   </license>
   <license>
     <name>Apache License 2.0: static_assertions</name>
@@ -469,6 +457,18 @@ the details of which are reproduced below.
     <url>https://github.com/retep998/winapi-rs/blob/0.3/LICENSE-APACHE</url>
   </license>
   <license>
+    <name>Apache License 2.0: windows-sys</name>
+    <url>https://github.com/microsoft/windows-rs/blob/master/.github/license-mit</url>
+  </license>
+  <license>
+    <name>Apache License 2.0: windows_x86_64_gnu</name>
+    <url>https://github.com/microsoft/windows-rs/blob/master/.github/license-mit</url>
+  </license>
+  <license>
+    <name>Apache License 2.0: windows_x86_64_msvc</name>
+    <url>https://github.com/microsoft/windows-rs/blob/master/.github/license-mit</url>
+  </license>
+  <license>
     <name>MIT License: aho-corasick</name>
     <url>https://github.com/BurntSushi/aho-corasick/blob/master/LICENSE-MIT</url>
   </license>
@@ -539,10 +539,6 @@ the details of which are reproduced below.
   <license>
     <name>MIT License: ordered-float</name>
     <url>https://github.com/reem/rust-ordered-float/blob/master/LICENSE-MIT</url>
-  </license>
-  <license>
-    <name>MIT License: owning_ref</name>
-    <url>https://github.com/Kimundi/owning-ref-rs/blob/master/LICENSE</url>
   </license>
   <license>
     <name>MIT License: radium</name>

@@ -14,7 +14,6 @@ use nimbus::error::Result;
 fn test_simple() -> Result<()> {
     use nimbus::{NimbusClient, RemoteSettingsConfig};
     use std::path::PathBuf;
-    use tempdir::TempDir;
     use url::Url;
 
     let _ = env_logger::try_init();
@@ -29,8 +28,7 @@ fn test_simple() -> Result<()> {
         collection_name: "doesn't matter".to_string(),
     };
 
-    let tmp_dir = TempDir::new("test_fs_client-test_simple")?;
-
+    let tmp_dir = tempfile::tempdir()?;
     let aru = Default::default();
     let client = NimbusClient::new(Default::default(), tmp_dir.path(), Some(config), aru)?;
     client.fetch_experiments()?;

@@ -19,5 +19,5 @@ heck = "0.3.3"
 unicode-segmentation = "1.8.0"
 
 [dev-dependencies]
-tempdir = "0.3.7"
+tempfile = "3"
 jsonschema = { version = "0.13", default-features = false }

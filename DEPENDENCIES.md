@@ -29,7 +29,6 @@ the details of which are reproduced below.
 * [MIT License: openssl-sys](#mit-license-openssl-sys)
 * [MIT License: ordered-float](#mit-license-ordered-float)
 * [MIT License: oslog](#mit-license-oslog)
-* [MIT License: owning_ref](#mit-license-owning_ref)
 * [MIT License: radium](#mit-license-radium)
 * [MIT License: schannel](#mit-license-schannel)
 * [MIT License: slab](#mit-license-slab)
@@ -514,8 +513,8 @@ The following text applies to code linked from these dependencies:
 [libc](https://github.com/rust-lang/libc),
 [lmdb-rkv-sys](https://github.com/mozilla/lmdb-rs.git),
 [lmdb-rkv](https://github.com/mozilla/lmdb-rs.git),
+[lock_api](https://github.com/Amanieu/parking_lot),
 [log](https://github.com/rust-lang/log),
-[maybe-uninit](https://github.com/est31/maybe-uninit),
 [mime](https://github.com/hyperium/mime),
 [miow](https://github.com/yoshuawuyts/miow),
 [native-tls](https://github.com/sfackler/rust-native-tls),
@@ -543,7 +542,6 @@ The following text applies to code linked from these dependencies:
 [prost-derive](https://github.com/tokio-rs/prost),
 [prost](https://github.com/tokio-rs/prost),
 [quote](https://github.com/dtolnay/quote),
-[rand](https://github.com/rust-lang-nursery/rand),
 [rand](https://github.com/rust-random/rand),
 [rand_chacha](https://github.com/rust-random/rand),
 [rand_core](https://github.com/rust-random/rand),
@@ -553,6 +551,7 @@ The following text applies to code linked from these dependencies:
 [reqwest](https://github.com/seanmonstar/reqwest),
 [rkv](https://github.com/mozilla/rkv),
 [ryu](https://github.com/dtolnay/ryu),
+[scopeguard](https://github.com/bluss/scopeguard),
 [security-framework-sys](https://github.com/kornelski/rust-security-framework),
 [security-framework](https://github.com/kornelski/rust-security-framework),
 [semver-parser](https://github.com/steveklabnik/semver-parser),
@@ -565,7 +564,6 @@ The following text applies to code linked from these dependencies:
 [smallbitvec](https://github.com/servo/smallbitvec),
 [smallvec](https://github.com/servo/rust-smallvec),
 [socket2](https://github.com/rust-lang/socket2),
-[stable_deref_trait](https://github.com/storyyeller/stable_deref_trait),
 [static_assertions](https://github.com/nvzqz/static-assertions-rs),
 [syn](https://github.com/dtolnay/syn),
 [tempfile](https://github.com/Stebalien/tempfile),
@@ -587,7 +585,10 @@ The following text applies to code linked from these dependencies:
 [vcpkg](https://github.com/mcgoo/vcpkg-rs),
 [version_check](https://github.com/SergioBenitez/version_check),
 [winapi-x86_64-pc-windows-gnu](https://github.com/retep998/winapi-rs),
-[winapi](https://github.com/retep998/winapi-rs)
+[winapi](https://github.com/retep998/winapi-rs),
+[windows-sys](https://github.com/microsoft/windows-rs),
+[windows_x86_64_gnu](https://github.com/microsoft/windows-rs),
+[windows_x86_64_msvc](https://github.com/microsoft/windows-rs)
 
 ```
                               Apache License
@@ -1487,36 +1488,6 @@ The following text applies to code linked from these dependencies:
 MIT License
 
 Copyright (c) 2020 Steven Joruk
-
-Permission is hereby granted, free of charge, to any person obtaining a copy
-of this software and associated documentation files (the "Software"), to deal
-in the Software without restriction, including without limitation the rights
-to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
-copies of the Software, and to permit persons to whom the Software is
-furnished to do so, subject to the following conditions:
-
-The above copyright notice and this permission notice shall be included in all
-copies or substantial portions of the Software.
-
-THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
-AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
-LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
-OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
-SOFTWARE.
-
-```
--------------
-## MIT License: owning_ref
-
-The following text applies to code linked from these dependencies:
-[owning_ref](https://github.com/Kimundi/owning-ref-rs)
-
-```
-The MIT License (MIT)
-
-Copyright (c) 2015 Marvin Löbel
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
 of this software and associated documentation files (the "Software"), to deal

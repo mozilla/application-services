@@ -9,7 +9,9 @@ import com.example.release.HomeScreenSection
 import org.mozilla.experiments.nimbus.MockNimbus
 
 // Test the default map with an enum to Boolean maping.
-val feature = MyNimbus.features.homescreen.value(MockContext())
+var injected: MockNimbus? = null
+MyNimbus.initialize { injected }
+val feature = MyNimbus.features.homescreen.value()
 assert(feature.sectionsEnabled[HomeScreenSection.TOP_SITES] == true)
 assert(feature.sectionsEnabled[HomeScreenSection.JUMP_BACK_IN] == false)
 assert(feature.sectionsEnabled[HomeScreenSection.RECENTLY_SAVED] == false)
@@ -26,7 +28,9 @@ val api = MockNimbus("homescreen" to """{
 }""", "search-term-groups" to """{
     "enabled": true
 }""")
-MyNimbus.api = api
+
+injected = api
+MyNimbus.invalidateCachedValues()
 val feature1 = MyNimbus.features.homescreen.value()
 assert(feature1.sectionsEnabled[HomeScreenSection.TOP_SITES] == true)
 assert(feature1.sectionsEnabled[HomeScreenSection.JUMP_BACK_IN] == false)

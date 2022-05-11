@@ -28,11 +28,12 @@ logins_store:
       - https://github.com/mozilla/application-services/issues/4554
     data_reviews:
       - https://github.com/mozilla/application-services/issues/4582
+      - https://github.com/mozilla/application-services/issues/4899
     data_sensitivity:
       - technical
     notification_emails:
       - synced-client-integrations@mozilla.com
-    expires: 2022-04-18
+    expires: 2022-07-18
 
   key_regenerated_corrupt:
     type: event
@@ -43,11 +44,12 @@ logins_store:
       - https://github.com/mozilla/application-services/issues/4554
     data_reviews:
       - https://github.com/mozilla/application-services/issues/4582
+      - https://github.com/mozilla/application-services/issues/4899
     data_sensitivity:
       - technical
     notification_emails:
       - synced-client-integrations@mozilla.com
-    expires: 2022-04-18
+    expires: 2022-07-18
 
   key_regenerated_other:
     type: event
@@ -57,11 +59,12 @@ logins_store:
       - https://github.com/mozilla/application-services/issues/4554
     data_reviews:
       - https://github.com/mozilla/application-services/issues/4582
+      - https://github.com/mozilla/application-services/issues/4899
     data_sensitivity:
       - technical
     notification_emails:
       - synced-client-integrations@mozilla.com
-    expires: 2022-04-18
+    expires: 2022-07-18
 
   # These help us understand how much the logins store is being used, and
   # whether it's succeeding in the duties asked of it.  We'll use them to

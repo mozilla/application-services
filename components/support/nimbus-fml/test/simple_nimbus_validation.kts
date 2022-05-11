@@ -5,7 +5,10 @@
 import android.content.Context as MockContext
 import org.mozilla.experiments.nimbus.MockNimbus
 
-val feature = MyNimbus.features.nimbusValidation.value(MockContext())
+var injected: MockNimbus? = null
+MyNimbus.initialize { injected }
+
+val feature = MyNimbus.features.nimbusValidation.value()
 
 // Test the property level defaults.
 assert(feature.enabled == true)
@@ -22,7 +25,8 @@ val api = MockNimbus("nimbus-validation" to """{
     "menu-position": "top",
     "enum-map": { "top": true, "bottom": false }
 }""")
-MyNimbus.api = api
+injected = api
+MyNimbus.invalidateCachedValues()
 
 // Completely override the defaults using the above JSON.
 val feature1 = MyNimbus.features.nimbusValidation.value()

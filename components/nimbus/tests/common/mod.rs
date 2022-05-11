@@ -6,20 +6,18 @@
 use nimbus::{error::Result, AppContext, NimbusClient, RemoteSettingsConfig};
 
 #[allow(dead_code)] // work around https://github.com/rust-lang/rust/issues/46379
-pub fn new_test_client(identifier: &str) -> Result<NimbusClient> {
-    use tempdir::TempDir;
-    let tmp_dir = TempDir::new(identifier)?;
-
+pub fn new_test_client(_identifier: &str) -> Result<NimbusClient> {
+    let tmp_dir = tempfile::tempdir()?;
     new_test_client_internal(&tmp_dir)
 }
 
 #[allow(dead_code)] // work around https://github.com/rust-lang/rust/issues/46379
-pub fn new_test_client_with_db(tmp_dir: &tempdir::TempDir) -> Result<NimbusClient> {
+pub fn new_test_client_with_db(tmp_dir: &tempfile::TempDir) -> Result<NimbusClient> {
     new_test_client_internal(tmp_dir)
 }
 
 fn new_test_client_internal(
-    tmp_dir: &tempdir::TempDir,
+    tmp_dir: &tempfile::TempDir,
 ) -> Result<NimbusClient, nimbus::NimbusError> {
     use std::path::PathBuf;
     use url::Url;
@@ -37,6 +35,7 @@ fn new_test_client_internal(
         app_name: "fenix".to_string(),
         app_id: "org.mozilla.fenix".to_string(),
         channel: "nightly".to_string(),
+        locale: Some("en-GB".to_string()),
         ..Default::default()
     };
     NimbusClient::new(ctx, tmp_dir.path(), Some(config), aru)

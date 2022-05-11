@@ -35,6 +35,7 @@ let api = MockNimbus(("homescreen", """
 }
 """))
 nimbus.api = api
+nimbus.invalidateCachedValues()
 let feature1 = nimbus.features.homescreen.value()
 assert(feature1.sectionsEnabled[HomeScreenSection.topSites] == true)
 assert(feature1.sectionsEnabled[HomeScreenSection.jumpBackIn] == false)

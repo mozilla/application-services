@@ -34,12 +34,7 @@ let api = MockNimbus(("with-objects-feature",  """
 }
 """))
 nimbus.api = api
-
-// Side test: we just configured a feature with the defaults shipped with the app: the nimbus.api wasn't
-// set when we needed the feature, so the defaults were used. Likely we shouldn't count
-// that as an exposure.
-nimbus.features.withObjectsFeature.recordExposure()
-assert(!api.isExposed(featureId: "with-objects-feature"))
+nimbus.invalidateCachedValues()
 
 // Now test the selectively overidden properties of the feature.
 let feature1 = nimbus.features.withObjectsFeature.value()

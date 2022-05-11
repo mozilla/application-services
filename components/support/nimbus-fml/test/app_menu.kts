@@ -5,8 +5,11 @@
 import android.content.Context as MockContext
 import org.mozilla.experiments.nimbus.MockNimbus
 
+var injected: MockNimbus? = null
+MyNimbus.initialize { injected }
+
 // Exercise a map of booleans
-val feature = MyNimbus.features.appMenu.value(MockContext())
+val feature = MyNimbus.features.appMenu.value()
 assert(feature.itemEnabled[MenuItemId.START_GAME] == true)
 assert(feature.itemEnabled[MenuItemId.RESUME_GAME] == false)
 assert(feature.itemEnabled[MenuItemId.SETTINGS] == true)
@@ -30,7 +33,7 @@ assert(feature.profileItems[PlayerProfile.ADULT]!![MenuItemId.RESUME_GAME]?.labe
 assert(feature.profileItems[PlayerProfile.ADULT]!![MenuItemId.SETTINGS]?.label == "SETTINGS")
 
 // Now let's merge it with JSON we might have got from Rust.
-MyNimbus.api = MockNimbus("app-menu" to """{
+injected = MockNimbus("app-menu" to """{
     "items": {
         "start-game": {
             "label": "Start Nimbus",
@@ -59,6 +62,7 @@ MyNimbus.api = MockNimbus("app-menu" to """{
         }
     }
 }""")
+MyNimbus.invalidateCachedValues()
 
 val feature1 = MyNimbus.features.appMenu.value()
 assert(feature1.items[MenuItemId.START_GAME]?.label == "Start Nimbus")

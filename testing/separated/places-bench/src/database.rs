@@ -9,7 +9,6 @@ use places::api::{
 use places::PlacesDb;
 use sql_support::ConnExt;
 use std::rc::Rc;
-use tempdir::TempDir;
 use types::Timestamp;
 
 #[derive(Clone, Debug)]
@@ -53,14 +52,14 @@ fn init_db(db: &mut PlacesDb) -> places::Result<()> {
 
 pub struct TestDb {
     // Needs to be here so that the dir isn't deleted.
-    _dir: TempDir,
+    _dir: tempfile::TempDir,
     pub db: PlacesDb,
 }
 
 impl TestDb {
     pub fn new() -> Rc<Self> {
         use std::sync::Arc;
-        let dir = TempDir::new("placesbench").unwrap();
+        let dir = tempfile::tempdir().unwrap();
         let file = dir.path().join("places.sqlite");
         let mut db = PlacesDb::open(
             &file,

@@ -12,7 +12,9 @@ use crate::history_sync::engine::{
     COLLECTION_SYNCID_META_KEY, GLOBAL_SYNCID_META_KEY, LAST_SYNC_META_KEY,
 };
 use crate::observation::VisitObservation;
-use crate::storage::{delete_meta, delete_pending_temp_tables, get_meta, put_meta};
+use crate::storage::{
+    delete_meta, delete_pending_temp_tables, get_meta, history_metadata, put_meta,
+};
 use crate::types::{SyncStatus, VisitTransition, VisitTransitionSet};
 use rusqlite::types::ToSql;
 use rusqlite::Result as RusqliteResult;
@@ -254,6 +256,9 @@ fn delete_visits_for_in_tx(db: &PlacesDb, guid: &SyncGuid) -> Result<()> {
         PageToClean::from_row,
         true,
     )?;
+    // Note that history metadata has an `ON DELETE CASCADE` for the place ID - so if we
+    // call `delete_page` here, we assume history metadata dies too. Otherwise we
+    // explicitly delete the metadata after we delete the visits themself.
     match to_clean {
         Some(PageToClean {
             id,
@@ -269,6 +274,7 @@ fn delete_visits_for_in_tx(db: &PlacesDb, guid: &SyncGuid) -> Result<()> {
             // definitely intended).
             insert_tombstones_for_all_page_visits(db, id)?;
             delete_all_visits_for_page(db, id)?;
+            history_metadata::delete_all_metadata_for_page(db, id)?;
         }
         Some(PageToClean {
             id,
@@ -291,6 +297,8 @@ fn delete_visits_for_in_tx(db: &PlacesDb, guid: &SyncGuid) -> Result<()> {
             // we still can't delete it; we must delete its visits. But we
             // don't need to write any tombstones for those deleted visits.
             delete_all_visits_for_page(db, id)?;
+            // and we need to delete all history metadata.
+            history_metadata::delete_all_metadata_for_page(db, id)?;
         }
         Some(PageToClean {
             id,
@@ -319,7 +327,8 @@ fn insert_tombstones_for_all_page_visits(db: &PlacesDb, page_id: RowId) -> Resul
     Ok(())
 }
 
-/// Removes all visits from a page.
+/// Removes all visits from a page. DOES NOT remove history_metadata - use
+/// `history_metadata::delete_all_metadata_for_page` for that.
 fn delete_all_visits_for_page(db: &PlacesDb, page_id: RowId) -> Result<()> {
     db.execute_cached(
         "DELETE FROM moz_historyvisits
@@ -2118,7 +2127,7 @@ mod tests {
                 }
                 (true, false) => {
                     assert!(
-                        !fetch_visits(&db, &url, 0)?.is_some(),
+                        fetch_visits(&db, &url, 0)?.is_none(),
                         "Should delete synced page"
                     );
                     assert!(
@@ -2147,7 +2156,7 @@ mod tests {
                     );
                 }
                 (false, false) => {
-                    assert!(!fetch_visits(&db, &url, 0)?.is_some(), "Should delete page");
+                    assert!(fetch_visits(&db, &url, 0)?.is_none(), "Should delete page");
                     assert!(
                         !page_has_tombstone(&db, &info.guid)?,
                         "Shouldn't insert tombstone for page"

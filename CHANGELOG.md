@@ -1,3 +1,81 @@
+# v93.1.0 (_2022-05-06_)
+
+[Full Changelog](https://github.com/mozilla/application-services/compare/v93.0.4...v93.1.0)
+
+## Nimbus ⛅️🔬🔭
+
+### What's New
+  - New API in the `FeatureHolder`, both iOS and Android to control the output of the `value()` call:
+    - to cache the values given to callers; this can be cleared with `FxNimbus.invalidatedCachedValues()`
+    - to add a custom initializer with `with(initializer:_)`/`withInitializer(_)`.
+## Places
+### What's Fixed:
+- Fixed a bug in Android where non-fatal errors were crashing. ([#4941](https://github.com/mozilla/application-services/pull/4941))
+- Fixed a bug where querying history metadata would return a sql error instead of the result ([4940](https://github.com/mozilla/application-services/pull/4940))
+### What's new:
+- Exposed the `deleteVisitsFor` function in iOS, the function can be used to delete history metadata. ([#4946](https://github.com/mozilla/application-services/pull/4946))
+  - Note: The API is meant to delete all history, however, iOS does **not** use the `places` Rust component for regular history yet.
+
+# v93.0.4 (_2022-04-28_)
+
+[Full Changelog](https://github.com/mozilla/application-services/compare/v93.0.3...v93.0.4)
+
+## Places
+### What's New
+- The `delete_visits_for()` function now deletes all history metadata even when the item is
+  bookmarked.
+
+## Nimbus
+### What's fixed
+- Fixed a bug where the visibility of `GetSdk` was internal and it was used in generated FML code. ([#4927](https://github.com/mozilla/application-services/pull/4927))
+
+# v93.0.3 (_2022-04-27_)
+
+[Full Changelog](https://github.com/mozilla/application-services/compare/v93.0.2...v93.0.3)
+
+## Nimbus ⛅️🔭🔬
+
+### What's New
+  - Added targeting attributes for `language` and `region`, based upon the `locale`. [#4919](https://github.com/mozilla/application-services/pull/4919)
+    - This also comes with an update in the JEXL evaluator to handle cases where `region` is not available.
+
+### What's Changed
+  - Fixed: A crash was detected by the iOS team, which was traced to `FeatureHolder.swift`. ([#4924](https://github.com/mozilla/application-services/pull/4924))
+    - Regression tests added, and FeatureHolder made stateless in both Swift and Kotlin.
+
+# v93.0.2 (_2022-04-25_)
+
+[Full Changelog](https://github.com/mozilla/application-services/compare/v93.0.1...v93.0.2)
+
+## Nimbus FML
+### What's fixed
+- (iOS only) Made the extensions on `String` and `Variables` public. The extended functions are used in the generated code and that didn't compile in consumers when internal.
+
+# v93.0.1 (_2022-04-20_)
+
+[Full Changelog](https://github.com/mozilla/application-services/compare/v93.0.0...v93.0.1)
+
+## Nimbus FML ⛅️🔬🔭🔧
+
+### What's Fixed
+  - Handling of optional types which require a mapping to a usable type. ([#4915](https://github.com/mozilla/application-services/pull/4915))
+
+## Places
+
+- Downgraded places `get_registered_sync_engine` `log:error` to `log:warn` to fix an issue where places was unnecessarily creating sentry noise. This change was also cherry-picked to [v91.1.2](#v9112-2022-04-19)
+
+# v93.0.0 (_2022-04-13_)
+
+[Full Changelog](https://github.com/mozilla/application-services/compare/v92.0.1...v93.0.0)
+
+## Nimbus ⛅️🔭🔬 + Nimbus FML ⛅️🔬🔭🔧
+
+### What's New
+
+- Add support for bundled resources in the FML in Swift. This corresponds to the `Image` and `Text` types. [#4892](https://github.com/mozilla/application-services/pull/4892)
+  - This must include an update to the megazord, as well re-downloading the `nimbus-fml` binary.
+  - Kotlin support for the same has also changed to match the Swift implementation, which has increased performance.
+
 # v92.0.1 (_2022-03-24_)
 
 [Full Changelog](https://github.com/mozilla/application-services/compare/v92.0.0...v92.0.1)
@@ -48,6 +126,18 @@
   - More YAML syntactic checking.
 - Allow experimenter to output to a YAML file, as well as JSON. [#4874](https://github.com/mozilla/application-services/pull/4874)
   - If the file extension is `yaml`, then output as YAML, otherwise, output as JSON.
+# v91.1.2 (_2022-04-19_)
+
+[Full Changelog](https://github.com/mozilla/application-services/compare/v91.1.1...v91.1.2)
+
+**IMPORTANT**: The following change was cherry-picked to 91.1.2 which was a release **not** from the main branch. The change then landed in [v93.0.1](#v9301-2022-04-20). This means that versions v92.0.0 - v93.0.0 do not have the change.
+## Places
+
+- Downgraded places `get_registered_sync_engine` `log:error` to `log:warn` to fix an issue where places was unnecessarily creating sentry noise.
+
+# v91.1.1 (_2022-03-23_)
+
+[Full Changelog](https://github.com/mozilla/application-services/compare/v91.1.0...v91.1.1)
 
 ## Autofill
 ### What's New

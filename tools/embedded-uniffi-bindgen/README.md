@@ -1,4 +1,4 @@
-# Embedded uniffi-bingen for this workspace
+# Embedded uniffi-bindgen for this workspace
 
 This crate exists entirely to support running `cargo uniffi-bindgen` in the workspace
 root and having it correctly execute the `uniffi-bindgen` command provided by the
