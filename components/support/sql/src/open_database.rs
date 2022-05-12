@@ -171,6 +171,15 @@ fn try_handle_db_failure<CI: ConnectionInitializer, P: AsRef<Path>>(
     _connection_initializer: &CI,
     err: Error,
 ) -> Result<()> {
+    if !open_flags.contains(OpenFlags::SQLITE_OPEN_CREATE)
+        && matches!(err, Error::SqlError(rusqlite::Error::SqliteFailure(code, _)) if code.code == rusqlite::ErrorCode::CannotOpen)
+    {
+        log::info!(
+            "{}: database doesn't exist, but we weren't requested to create it",
+            CI::NAME
+        );
+        return Err(err);
+    }
     log::warn!("{}: database operation failed: {}", CI::NAME, err);
     if !open_flags.contains(OpenFlags::SQLITE_OPEN_READ_WRITE) {
         log::warn!(

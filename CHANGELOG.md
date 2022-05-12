@@ -4,7 +4,7 @@
 
 ## General
 ### What's new
-- Application services now releases an xcframework with only the components needed by focus-ios (namely Nimbus, Viaduct and Rustlog). ([#4953](https://github.com/mozilla/application-services/pull/4953))
+- Application services now releases a **separate** xcframework with only the components needed by focus-ios (namely Nimbus, Viaduct and Rustlog). This change is only relevant for focus, it does not affect the already existing xcframework for firefox ios. ([#4953](https://github.com/mozilla/application-services/pull/4953))
 
 # v93.1.0 (_2022-05-06_)
 
