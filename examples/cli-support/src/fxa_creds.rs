@@ -78,7 +78,7 @@ pub fn get_default_fxa_config() -> Config {
     Config::release(CLIENT_ID, REDIRECT_URI)
 }
 
-fn get_account_and_token(
+pub fn get_account_and_token(
     config: Config,
     cred_file: &str,
 ) -> Result<(FirefoxAccount, AccessTokenInfo)> {
