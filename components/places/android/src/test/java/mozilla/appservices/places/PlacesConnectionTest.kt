@@ -13,7 +13,7 @@ import mozilla.appservices.places.uniffi.FrecencyThresholdOption
 import mozilla.appservices.syncmanager.SyncManager
 import mozilla.appservices.places.uniffi.PlacesException
 import mozilla.appservices.places.uniffi.BookmarkItem
-import mozilla.components.service.glean.testing.GleanTestRule
+import mozilla.telemetry.glean.testing.GleanTestRule
 import org.junit.After
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNull
@@ -379,15 +379,15 @@ class PlacesConnectionTest {
 
     @Test
     fun testHistoryMetricsGathering() {
-        assert(!PlacesManagerMetrics.writeQueryCount.testHasValue())
-        assert(!PlacesManagerMetrics.writeQueryErrorCount["url_parse_failed"].testHasValue())
+        assertNull(PlacesManagerMetrics.writeQueryCount.testGetValue())
+        assertNull(PlacesManagerMetrics.writeQueryErrorCount["url_parse_failed"].testGetValue())
 
         db.noteObservation(VisitObservation(url = "https://www.example.com/2a", visitType = VisitTransition.REDIRECT_TEMPORARY, at = 130000))
         db.noteObservation(VisitObservation(url = "https://www.example.com/2b", visitType = VisitTransition.LINK, at = 150000))
         db.noteObservation(VisitObservation(url = "https://www.example.com/3", visitType = VisitTransition.LINK, at = 200000))
 
         assertEquals(3, PlacesManagerMetrics.writeQueryCount.testGetValue())
-        assert(!PlacesManagerMetrics.writeQueryErrorCount["__other__"].testHasValue())
+        assertNull(PlacesManagerMetrics.writeQueryErrorCount["__other__"].testGetValue())
 
         try {
             db.noteObservation(VisitObservation(url = "4", visitType = VisitTransition.REDIRECT_TEMPORARY, at = 160000))
@@ -397,16 +397,15 @@ class PlacesConnectionTest {
         }
 
         assertEquals(4, PlacesManagerMetrics.writeQueryCount.testGetValue())
-        assert(PlacesManagerMetrics.writeQueryErrorCount["url_parse_failed"].testHasValue())
         assertEquals(1, PlacesManagerMetrics.writeQueryErrorCount["url_parse_failed"].testGetValue())
 
-        assert(!PlacesManagerMetrics.readQueryCount.testHasValue())
-        assert(!PlacesManagerMetrics.readQueryErrorCount["__other__"].testHasValue())
+        assertNull(PlacesManagerMetrics.readQueryCount.testGetValue())
+        assertNull(PlacesManagerMetrics.readQueryErrorCount["__other__"].testGetValue())
 
         db.getVisitInfos(125000, 225000)
 
         assertEquals(1, PlacesManagerMetrics.readQueryCount.testGetValue())
-        assert(!PlacesManagerMetrics.readQueryErrorCount["__other__"].testHasValue())
+        assertNull(PlacesManagerMetrics.readQueryErrorCount["__other__"].testGetValue())
 
         db.deleteVisit("https://www.example.com/2a", 130000)
 
@@ -414,13 +413,13 @@ class PlacesConnectionTest {
         assertEquals(2, infos.size)
 
         assertEquals(5, PlacesManagerMetrics.writeQueryCount.testGetValue())
-        assert(!PlacesManagerMetrics.writeQueryErrorCount["_other_"].testHasValue())
+        assertNull(PlacesManagerMetrics.writeQueryErrorCount["_other_"].testGetValue())
     }
 
     @Test
     fun testBookmarksMetricsGathering() {
-        assert(!PlacesManagerMetrics.writeQueryCount.testHasValue())
-        assert(!PlacesManagerMetrics.writeQueryErrorCount["unknown_bookmark_item"].testHasValue())
+        assertNull(PlacesManagerMetrics.writeQueryCount.testGetValue())
+        assertNull(PlacesManagerMetrics.writeQueryErrorCount["unknown_bookmark_item"].testGetValue())
 
         val itemGUID = db.createBookmarkItem(
             parentGUID = BookmarkRoot.Unfiled.id,
@@ -429,7 +428,7 @@ class PlacesConnectionTest {
         )
 
         assertEquals(1, PlacesManagerMetrics.writeQueryCount.testGetValue())
-        assert(!PlacesManagerMetrics.writeQueryErrorCount["unknown_bookmark_item"].testHasValue())
+        assertNull(PlacesManagerMetrics.writeQueryErrorCount["unknown_bookmark_item"].testGetValue())
 
         try {
             db.createBookmarkItem(
@@ -443,16 +442,15 @@ class PlacesConnectionTest {
         }
 
         assertEquals(2, PlacesManagerMetrics.writeQueryCount.testGetValue())
-        assert(PlacesManagerMetrics.writeQueryErrorCount["url_parse_failed"].testHasValue())
         assertEquals(1, PlacesManagerMetrics.writeQueryErrorCount["url_parse_failed"].testGetValue())
 
-        assert(!PlacesManagerMetrics.readQueryCount.testHasValue())
-        assert(!PlacesManagerMetrics.readQueryErrorCount["__other__"].testHasValue())
+        assertNull(PlacesManagerMetrics.readQueryCount.testGetValue())
+        assertNull(PlacesManagerMetrics.readQueryErrorCount["__other__"].testGetValue())
 
         db.getBookmark(itemGUID)
 
         assertEquals(1, PlacesManagerMetrics.readQueryCount.testGetValue())
-        assert(!PlacesManagerMetrics.readQueryErrorCount["__other__"].testHasValue())
+        assertNull(PlacesManagerMetrics.readQueryErrorCount["__other__"].testGetValue())
 
         val folderGUID = db.createFolder(
             parentGUID = BookmarkRoot.Unfiled.id,

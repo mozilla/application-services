@@ -7,17 +7,18 @@ apply from: "$rootDir/build-scripts/component-common.gradle"
 apply from: "$rootDir/build-scripts/protobuf-common.gradle"
 apply from: "$rootDir/publish.gradle"
 
+ext.gleanNamespace = "mozilla.telemetry.glean"
 apply plugin: "org.mozilla.telemetry.glean-gradle-plugin"
 
 dependencies {
     // Part of the public API.
     api project(':sync15')
 
-    implementation "org.mozilla.components:service-glean:$android_components_version"
+    implementation "org.mozilla.telemetry:glean:$glean_version"
 
     testImplementation "androidx.test:core-ktx:$androidx_test_core_version"
     testImplementation "androidx.work:work-testing:$androidx_work_testing_version"
-    testImplementation "org.mozilla.telemetry:glean-native-forUnitTests:$project.ext.glean_version"
+    testImplementation "org.mozilla.telemetry:glean-native-forUnitTests:$glean_version"
     testImplementation project(':syncmanager')
 }
 

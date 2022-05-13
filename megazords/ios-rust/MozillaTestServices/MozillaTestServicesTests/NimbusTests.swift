@@ -198,7 +198,7 @@ class NimbusTests: XCTestCase {
         )]
 
         nimbus.recordExperimentTelemetry(enrolledExperiments)
-        XCTAssertTrue(Glean.shared.testIsExperimentActive(experimentId: "test-experiment"),
+        XCTAssertTrue(Glean.shared.testIsExperimentActive("test-experiment"),
                       "Experiment should be active")
         // TODO: Below fails due to branch and extra being private members Glean
         // We will need to change this if we want to remove glean as a submodule and instead
@@ -245,8 +245,8 @@ class NimbusTests: XCTestCase {
         // Use the Glean test API to check the recorded events
 
         // Enrollment
-        XCTAssertTrue(GleanMetrics.NimbusEvents.enrollment.testHasValue(), "Enrollment event must exist")
-        let enrollmentEvents = try GleanMetrics.NimbusEvents.enrollment.testGetValue()
+        XCTAssertNotNil(GleanMetrics.NimbusEvents.enrollment.testGetValue(), "Enrollment event must exist")
+        let enrollmentEvents = GleanMetrics.NimbusEvents.enrollment.testGetValue()!
         XCTAssertEqual(1, enrollmentEvents.count, "Enrollment event count must match")
         let enrollmentEventExtras = enrollmentEvents.first!.extra
         XCTAssertEqual("test-experiment", enrollmentEventExtras!["experiment"], "Enrollment event experiment must match")
@@ -254,8 +254,8 @@ class NimbusTests: XCTestCase {
         XCTAssertEqual("test-enrollment-id", enrollmentEventExtras!["enrollment_id"], "Enrollment event enrollment id must match")
 
         // Unenrollment
-        XCTAssertTrue(GleanMetrics.NimbusEvents.unenrollment.testHasValue(), "Unenrollment event must exist")
-        let unenrollmentEvents = try GleanMetrics.NimbusEvents.unenrollment.testGetValue()
+        XCTAssertNotNil(GleanMetrics.NimbusEvents.unenrollment.testGetValue(), "Unenrollment event must exist")
+        let unenrollmentEvents = GleanMetrics.NimbusEvents.unenrollment.testGetValue()!
         XCTAssertEqual(1, unenrollmentEvents.count, "Unenrollment event count must match")
         let unenrollmentEventExtras = unenrollmentEvents.first!.extra
         XCTAssertEqual("test-experiment", unenrollmentEventExtras!["experiment"], "Unenrollment event experiment must match")
@@ -263,8 +263,8 @@ class NimbusTests: XCTestCase {
         XCTAssertEqual("test-enrollment-id", unenrollmentEventExtras!["enrollment_id"], "Unenrollment event enrollment id must match")
 
         // Disqualification
-        XCTAssertTrue(GleanMetrics.NimbusEvents.disqualification.testHasValue(), "Disqualification event must exist")
-        let disqualificationEvents = try GleanMetrics.NimbusEvents.disqualification.testGetValue()
+        XCTAssertNotNil(GleanMetrics.NimbusEvents.disqualification.testGetValue(), "Disqualification event must exist")
+        let disqualificationEvents = GleanMetrics.NimbusEvents.disqualification.testGetValue()!
         XCTAssertEqual(1, disqualificationEvents.count, "Disqualification event count must match")
         let disqualificationEventExtras = disqualificationEvents.first!.extra
         XCTAssertEqual("test-experiment", disqualificationEventExtras!["experiment"], "Disqualification event experiment must match")
@@ -283,14 +283,14 @@ class NimbusTests: XCTestCase {
         try nimbus.applyPendingExperimentsOnThisThread()
 
         // Assert that there are no events to start with
-        XCTAssertFalse(GleanMetrics.NimbusEvents.exposure.testHasValue(), "Event must have a value")
+        XCTAssertNil(GleanMetrics.NimbusEvents.exposure.testGetValue(), "Event must not have a value")
 
         // Record a valid exposure event in Glean that matches the featureId from the test experiment
         nimbus.recordExposureEvent(featureId: "aboutwelcome")
 
         // Use the Glean test API to check that the valid event is present
-        XCTAssertTrue(GleanMetrics.NimbusEvents.exposure.testHasValue(), "Event must have a value")
-        let enrollmentEvents = try GleanMetrics.NimbusEvents.exposure.testGetValue()
+        XCTAssertNotNil(GleanMetrics.NimbusEvents.exposure.testGetValue(), "Event must have a value")
+        let enrollmentEvents = GleanMetrics.NimbusEvents.exposure.testGetValue()!
         XCTAssertEqual(1, enrollmentEvents.count, "Event count must match")
         let enrollmentEventExtras = enrollmentEvents.first!.extra
         XCTAssertEqual("secure-gold", enrollmentEventExtras!["experiment"], "Experiment slug must match")
@@ -306,7 +306,7 @@ class NimbusTests: XCTestCase {
 
         // Verify the invalid event was ignored by checking again that the valid event is still the only
         // event, and that it hasn't changed any of its extra properties.
-        let enrollmentEventsTryTwo = try GleanMetrics.NimbusEvents.exposure.testGetValue()
+        let enrollmentEventsTryTwo = GleanMetrics.NimbusEvents.exposure.testGetValue()!
         XCTAssertEqual(1, enrollmentEventsTryTwo.count, "Event count must match")
         let enrollmentEventExtrasTryTwo = enrollmentEventsTryTwo.first!.extra
         XCTAssertEqual("secure-gold", enrollmentEventExtrasTryTwo!["experiment"], "Experiment slug must match")
@@ -328,14 +328,14 @@ class NimbusTests: XCTestCase {
         try nimbus.applyPendingExperimentsOnThisThread()
 
         // Assert that there are no events to start with
-        XCTAssertFalse(GleanMetrics.NimbusEvents.exposure.testHasValue(), "Event must have a value")
+        XCTAssertNil(GleanMetrics.NimbusEvents.exposure.testGetValue(), "Event must not have a value")
 
         // Opt out of the experiment, which should generate a "disqualification" event
         try nimbus.optOutOnThisThread("secure-gold")
 
         // Use the Glean test API to check that the valid event is present
-        XCTAssertTrue(GleanMetrics.NimbusEvents.disqualification.testHasValue(), "Event must have a value")
-        let disqualificationEvents = try GleanMetrics.NimbusEvents.disqualification.testGetValue()
+        XCTAssertNotNil(GleanMetrics.NimbusEvents.disqualification.testGetValue(), "Event must have a value")
+        let disqualificationEvents = GleanMetrics.NimbusEvents.disqualification.testGetValue()!
         XCTAssertEqual(1, disqualificationEvents.count, "Event count must match")
         let disqualificationEventExtras = disqualificationEvents.first!.extra
         XCTAssertEqual("secure-gold", disqualificationEventExtras!["experiment"], "Experiment slug must match")
@@ -357,15 +357,15 @@ class NimbusTests: XCTestCase {
         try nimbus.applyPendingExperimentsOnThisThread()
 
         // Assert that there are no events to start with
-        XCTAssertFalse(GleanMetrics.NimbusEvents.exposure.testHasValue(), "Event must have a value")
+        XCTAssertNil(GleanMetrics.NimbusEvents.exposure.testGetValue(), "Event must not have a value")
 
         // Opt out of all experiments, which should generate a "disqualification" event for the enrolled
         // experiment
         try nimbus.setGlobalUserParticipationOnThisThread(false)
 
         // Use the Glean test API to check that the valid event is present
-        XCTAssertTrue(GleanMetrics.NimbusEvents.disqualification.testHasValue(), "Event must have a value")
-        let disqualificationEvents = try GleanMetrics.NimbusEvents.disqualification.testGetValue()
+        XCTAssertNotNil(GleanMetrics.NimbusEvents.disqualification.testGetValue(), "Event must have a value")
+        let disqualificationEvents = GleanMetrics.NimbusEvents.disqualification.testGetValue()!
         XCTAssertEqual(1, disqualificationEvents.count, "Event count must match")
         let disqualificationEventExtras = disqualificationEvents.first!.extra
         XCTAssertEqual("secure-gold", disqualificationEventExtras!["experiment"], "Experiment slug must match")

@@ -9,13 +9,12 @@ import android.util.Log
 import androidx.test.core.app.ApplicationProvider
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.asCoroutineDispatcher
-import mozilla.components.concept.fetch.Client
-import mozilla.components.concept.fetch.Response
-import mozilla.components.service.glean.BuildInfo
-import mozilla.components.service.glean.Glean
-import mozilla.components.service.glean.config.Configuration
-import mozilla.components.service.glean.net.ConceptFetchHttpUploader
-import mozilla.components.service.glean.testing.GleanTestRule
+import mozilla.telemetry.glean.BuildInfo
+import mozilla.telemetry.glean.Glean
+import mozilla.telemetry.glean.config.Configuration
+import mozilla.telemetry.glean.testing.GleanTestRule
+import mozilla.telemetry.glean.net.PingUploader
+import mozilla.telemetry.glean.net.HttpStatus
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNotNull
@@ -32,6 +31,7 @@ import org.mozilla.experiments.nimbus.internal.EnrollmentChangeEvent
 import org.mozilla.experiments.nimbus.internal.EnrollmentChangeEventType
 import org.robolectric.RobolectricTestRunner
 import java.util.concurrent.Executors
+import java.util.Calendar
 
 @RunWith(RobolectricTestRunner::class)
 class NimbusTests {
@@ -70,19 +70,19 @@ class NimbusTests {
 
     @Before
     fun setupGlean() {
-        val buildInfo = BuildInfo(versionCode = "0.0.1", versionName = "0.0.1")
+        val buildInfo = BuildInfo(versionCode = "0.0.1", versionName = "0.0.1", buildDate = Calendar.getInstance())
 
         // Glean needs to be initialized for the experiments API to accept enrollment events, so we
         // init it with a mock client so we don't upload anything.
-        val mockClient: Client = mock()
-        `when`(mockClient.fetch(any())).thenReturn(
-            Response("URL", 200, mock(), mock())
+        val mockClient: PingUploader = mock()
+        `when`(mockClient.upload(any(), any(), any())).thenReturn(
+            HttpStatus(200)
         )
         Glean.initialize(
             context,
             true,
             Configuration(
-                httpClient = ConceptFetchHttpUploader(lazy { mockClient })
+                httpClient = mockClient
             ),
             buildInfo
         )
@@ -142,7 +142,7 @@ class NimbusTests {
 
         // Enrollment
         assertTrue("Event must have a value", NimbusEvents.enrollment.testHasValue())
-        val enrollmentEvents = NimbusEvents.enrollment.testGetValue()
+        val enrollmentEvents = NimbusEvents.enrollment.testGetValue()!!
         assertEquals("Event count must match", enrollmentEvents.count(), 1)
         val enrollmentEventExtras = enrollmentEvents.first().extra!!
         assertEquals(
@@ -159,7 +159,7 @@ class NimbusTests {
 
         // Unenrollment
         assertTrue("Event must have a value", NimbusEvents.unenrollment.testHasValue())
-        val unenrollmentEvents = NimbusEvents.unenrollment.testGetValue()
+        val unenrollmentEvents = NimbusEvents.unenrollment.testGetValue()!!
         assertEquals("Event count must match", unenrollmentEvents.count(), 1)
         val unenrollmentEventExtras = unenrollmentEvents.first().extra!!
         assertEquals(
@@ -180,7 +180,7 @@ class NimbusTests {
 
         // Disqualification
         assertTrue("Event must have a value", NimbusEvents.disqualification.testHasValue())
-        val disqualificationEvents = NimbusEvents.disqualification.testGetValue()
+        val disqualificationEvents = NimbusEvents.disqualification.testGetValue()!!
         assertEquals("Event count must match", disqualificationEvents.count(), 1)
         val disqualificationEventExtras = disqualificationEvents.first().extra!!
         assertEquals(
@@ -217,7 +217,7 @@ class NimbusTests {
 
         // Use the Glean test API to check that the valid event is present
         assertTrue("Event must have a value", NimbusEvents.exposure.testHasValue())
-        val enrollmentEvents = NimbusEvents.exposure.testGetValue()
+        val enrollmentEvents = NimbusEvents.exposure.testGetValue()!!
         assertEquals("Event count must match", enrollmentEvents.count(), 1)
         val enrollmentEventExtras = enrollmentEvents.first().extra!!
         assertEquals(
@@ -238,7 +238,7 @@ class NimbusTests {
         // Verify the invalid event was ignored by checking again that the valid event is still the only
         // event, and that it hasn't changed any of its extra properties.
         assertTrue("Event must have a value", NimbusEvents.exposure.testHasValue())
-        val enrollmentEventsTryTwo = NimbusEvents.exposure.testGetValue()
+        val enrollmentEventsTryTwo = NimbusEvents.exposure.testGetValue()!!
         assertEquals("Event count must match", enrollmentEventsTryTwo.count(), 1)
         val enrollmentEventExtrasTryTwo = enrollmentEventsTryTwo.first().extra!!
         assertEquals(
@@ -274,7 +274,7 @@ class NimbusTests {
 
         // Use the Glean test API to check that the valid event is present
         assertTrue("Event must have a value", NimbusEvents.disqualification.testHasValue())
-        val disqualificationEvents = NimbusEvents.disqualification.testGetValue()
+        val disqualificationEvents = NimbusEvents.disqualification.testGetValue()!!
         assertEquals("Event count must match", disqualificationEvents.count(), 1)
         val enrollmentEventExtras = disqualificationEvents.first().extra!!
         assertEquals(
@@ -306,7 +306,7 @@ class NimbusTests {
 
         // Use the Glean test API to check that the valid event is present
         assertTrue("Event must have a value", NimbusEvents.disqualification.testHasValue())
-        val disqualificationEvents = NimbusEvents.disqualification.testGetValue()
+        val disqualificationEvents = NimbusEvents.disqualification.testGetValue()!!
         assertEquals("Event count must match", disqualificationEvents.count(), 1)
         val enrollmentEventExtras = disqualificationEvents.first().extra!!
         assertEquals(

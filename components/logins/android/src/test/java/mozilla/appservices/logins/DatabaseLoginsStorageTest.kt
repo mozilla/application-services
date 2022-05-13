@@ -6,7 +6,7 @@ package mozilla.appservices.logins
 import androidx.test.core.app.ApplicationProvider
 import mozilla.appservices.Megazord
 import mozilla.appservices.syncmanager.SyncManager
-import mozilla.components.service.glean.testing.GleanTestRule
+import mozilla.telemetry.glean.testing.GleanTestRule
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNotNull
@@ -89,8 +89,8 @@ class DatabaseLoginsStorageTest {
     fun testMetricsGathering() {
         val store = createTestStore()
 
-        assert(!LoginsStoreMetrics.writeQueryCount.testHasValue())
-        assert(!LoginsStoreMetrics.writeQueryErrorCount["invalid_record"].testHasValue())
+        assertNull(LoginsStoreMetrics.writeQueryCount.testGetValue())
+        assertNull(LoginsStoreMetrics.writeQueryErrorCount["invalid_record"].testGetValue())
 
         val login = store.add(
             LoginEntry(
@@ -110,7 +110,7 @@ class DatabaseLoginsStorageTest {
         )
 
         assertEquals(LoginsStoreMetrics.writeQueryCount.testGetValue(), 1)
-        assert(!LoginsStoreMetrics.writeQueryErrorCount["invalid_record"].testHasValue())
+        assertNull(LoginsStoreMetrics.writeQueryErrorCount["invalid_record"].testGetValue())
 
         // N.B. this is invalid due to `formActionOrigin` being an invalid url.
         val invalid = LoginEntry(
@@ -137,14 +137,14 @@ class DatabaseLoginsStorageTest {
         assertEquals(LoginsStoreMetrics.writeQueryCount.testGetValue(), 2)
         assertEquals(LoginsStoreMetrics.writeQueryErrorCount["invalid_record"].testGetValue(), 1)
 
-        assert(!LoginsStoreMetrics.readQueryCount.testHasValue())
-        assert(!LoginsStoreMetrics.readQueryErrorCount["storage_error"].testHasValue())
+        assertNull(LoginsStoreMetrics.readQueryCount.testGetValue())
+        assertNull(LoginsStoreMetrics.readQueryErrorCount["storage_error"].testGetValue())
 
         val record = store.get(login.record.id)!!
         assertEquals(record.fields.origin, "https://www.example.com")
 
         assertEquals(LoginsStoreMetrics.readQueryCount.testGetValue(), 1)
-        assert(!LoginsStoreMetrics.readQueryErrorCount["storage_error"].testHasValue())
+        assertNull(LoginsStoreMetrics.readQueryErrorCount["storage_error"].testGetValue())
 
         finishAndClose(store)
     }
@@ -231,7 +231,7 @@ class DatabaseLoginsStorageTest {
         assertEquals(3, LoginsStoreMetrics.migrationNumProcessed.testGetValue())
         assertEquals(2, LoginsStoreMetrics.migrationNumFailed.testGetValue())
         assertEquals(1, LoginsStoreMetrics.migrationNumSucceeded.testGetValue())
-        assertEquals(53, LoginsStoreMetrics.migrationTotalDuration.testGetValue())
+        assertEquals(53L, LoginsStoreMetrics.migrationTotalDuration.testGetValue())
         // Note the truncation of the first error string.
         assertEquals(listOf("Invalid login: Login has illegal field: Origin is ", "Invalid login: Origin is empty"), LoginsStoreMetrics.migrationErrors.testGetValue())
     }
