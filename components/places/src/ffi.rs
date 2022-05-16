@@ -27,7 +27,7 @@ use interrupt_support::{register_interrupt, SqlInterruptHandle};
 use parking_lot::Mutex;
 use std::sync::Arc;
 use sync_guid::Guid;
-use types::Timestamp;
+use types::Timestamp as PlacesTimestamp;
 use url::Url;
 
 // From https://searchfox.org/mozilla-central/rev/1674b86019a96f076e0f98f1d0f5f3ab9d4e9020/browser/components/newtab/lib/TopSitesFeed.jsm#87
@@ -67,11 +67,11 @@ impl UniffiCustomTypeConverter for Url {
     }
 }
 
-impl UniffiCustomTypeConverter for Timestamp {
+impl UniffiCustomTypeConverter for PlacesTimestamp {
     type Builtin = i64;
 
     fn into_custom(val: Self::Builtin) -> uniffi::Result<Self> {
-        Ok(Timestamp(val as u64))
+        Ok(PlacesTimestamp(val as u64))
     }
 
     fn from_custom(obj: Self) -> Self::Builtin {
@@ -220,15 +220,15 @@ impl PlacesConnection {
 
     fn get_history_metadata_between(
         &self,
-        start: Timestamp,
-        end: Timestamp,
+        start: PlacesTimestamp,
+        end: PlacesTimestamp,
     ) -> Result<Vec<HistoryMetadata>> {
         self.with_conn(|conn| {
             history_metadata::get_between(conn, start.as_millis_i64(), end.as_millis_i64())
         })
     }
 
-    fn get_history_metadata_since(&self, start: Timestamp) -> Result<Vec<HistoryMetadata>> {
+    fn get_history_metadata_since(&self, start: PlacesTimestamp) -> Result<Vec<HistoryMetadata>> {
         self.with_conn(|conn| history_metadata::get_since(conn, start.as_millis_i64()))
     }
 
@@ -249,7 +249,7 @@ impl PlacesConnection {
         self.with_conn(|conn| history_metadata::apply_metadata_observation(conn, data))
     }
 
-    fn metadata_delete_older_than(&self, older_than: Timestamp) -> Result<()> {
+    fn metadata_delete_older_than(&self, older_than: PlacesTimestamp) -> Result<()> {
         self.with_conn(|conn| history_metadata::delete_older_than(conn, older_than.as_millis_i64()))
     }
 
@@ -277,8 +277,8 @@ impl PlacesConnection {
 
     fn get_visited_urls_in_range(
         &self,
-        start: Timestamp,
-        end: Timestamp,
+        start: PlacesTimestamp,
+        end: PlacesTimestamp,
         include_remote: bool,
     ) -> Result<Vec<Url>> {
         self.with_conn(|conn| {
@@ -293,8 +293,8 @@ impl PlacesConnection {
 
     fn get_visit_infos(
         &self,
-        start_date: Timestamp,
-        end_date: Timestamp,
+        start_date: PlacesTimestamp,
+        end_date: PlacesTimestamp,
         exclude_types: VisitTransitionSet,
     ) -> Result<Vec<HistoryVisitInfo>> {
         self.with_conn(|conn| history::get_visit_infos(conn, start_date, end_date, exclude_types))
@@ -355,11 +355,11 @@ impl PlacesConnection {
         })
     }
 
-    fn delete_visits_between(&self, start: Timestamp, end: Timestamp) -> Result<()> {
+    fn delete_visits_between(&self, start: PlacesTimestamp, end: PlacesTimestamp) -> Result<()> {
         self.with_conn(|conn| history::delete_visits_between(conn, start, end))
     }
 
-    fn delete_visit(&self, url: String, timestamp: Timestamp) -> Result<()> {
+    fn delete_visit(&self, url: String, timestamp: PlacesTimestamp) -> Result<()> {
         self.with_conn(|conn| {
             match Url::parse(&url) {
                 Ok(url) => {
@@ -528,7 +528,7 @@ impl AsRef<SqlInterruptHandle> for PlacesConnection {
 pub struct HistoryVisitInfo {
     pub url: Url,
     pub title: Option<String>,
-    pub timestamp: Timestamp,
+    pub timestamp: PlacesTimestamp,
     pub visit_type: VisitTransition,
     pub is_hidden: bool,
     pub preview_image_url: Option<Url>,
