@@ -18,3 +18,7 @@ Use the template below to make assigning a version number during the release cut
   - Description of the change with a link to the pull request ([#0000](https://github.com/mozilla/application-services/pull/0000))
 
 -->
+## Places
+### ⚠️ Breaking Changes ⚠️
+- Only for firefox iOS:
+  - A `uniffi` upgrade generated a `Timestamp` type in `places`. Firefox iOS has its own `Timestamp` type. There needs to be a change in Firefox iOS to deal with the type conflict. ([#4949](https://github.com/mozilla/application-services/pull/4949))
