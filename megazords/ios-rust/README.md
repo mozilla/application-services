@@ -17,6 +17,14 @@ contains:
 
 The resulting `.zip` is suitable for consumption as a Swift Package binary dependency.
 
+To support [`focus-ios`](https://github.com/mozilla-mobile/focus-ios) which only needs a subset of the Rust code, we also support generating a smaller xcframework using:
+
+```
+$> ./build-xcframework.sh --focus
+```
+
+Then it should produce a file named `FocusRustComponents.xcframework.zip` in the `focus` directory that serves as the binary that `focus-ios` eventually consumes.
+
 ## What's here?
 
 In this directory we have:
@@ -38,6 +46,7 @@ In this directory we have:
           file that says what things live in which directory.
         * Each subdirectory contains a `.framework` directory for that architecture. There
           are notes on the layout of an individual `.framework` in the links below.
+* The `focus` directory, which is a megazord that gets built for `focus-ios`. The components in the `focus` megazord are a subset of the components in the overall `ios-rust` megazord and thus are only built on release.
 
 It's a little unusual that we're building the XCFramework by hand, rather than defining it
 as the build output of an Xcode project. It turns out to be simpler for our purposes, but
@@ -46,18 +55,7 @@ in future Xcode releases.
 
 ## Adding crates
 
-To add a new crate to the distribution:
-
-1. Update its `uniffi.toml`, if any, to include the following settings:
-    ```
-    [bindings.swift]
-    ffi_module_name = "MozillaRustComponents"
-    ffi_module_filename = "<crate_name>FFI"
-    ```
-1. Add it as a dependency in `Cargo.toml`.
-1. Add a `pub use` declaration for it in `./src/lib.rs`.
-1. Add logic to `build-xcframework.sh` to copy or generate its header file into the build.
-1. Add a `#import` for its header file to `MozillaRustComponents.h`
+For details on adding new crates, [checkout the documentation for adding new spm components](../../docs/howtos/adding-a-new-component.md#distribute-your-component-with-rust-components-swift)
 
 
 ## Testing local Rust changes
@@ -70,21 +68,9 @@ For testing changes against our project's test suite, you'll need to:
   - Command line: `./automation/run_ios_tests.sh`
 ## Testing local changes for consumers
 
-For testing out local changes in a consuming app, you can:
-
-* Take a local checkout of https://github.com/mozilla/rust-components-swift.
-* Run `./build-xcframework.sh` to build the XCFramework bundle.
-* Unzip the resulting bundle inside the root of the `rust-components-swift` checkout, and `git add` it.
-* Edit `rust-components-swift/Package.swift` and follow the comments on the `MozillaRustComponents`
-  binary target to point it at the local path.
-* Commit the result to your local checkout, and make a git tag in `MAJOR.MINOR.PATCH` format.
-* Add your local `rust-components-swift` repo as a Swift Package dependency in a consuming app,
-  by specifying `file:///path/to/rust-components-swift` as the git repo.
-    * (You'll have to remove any existing depdency on https://github.com/mozilla/rust-components-swift first)
-
-Note that the XCFramework *must* be committed to the local repo and your changes *must* be included
-in a local git tag. Swift Package Manager is very opinionated and will only pull dependencies from a
-git tag that it can parse as a semver version number.
+See the following documents for testing local changes in consumers:
+1. [Testing against firefox-ios](../../docs/howtos/locally-published-spm-in-firefox.md)
+1. [Testing against focus-ios](../../docs/howtos/locally-published-spm-in-focus.md)
 
 ## Testing from a pre-release commit
 
@@ -94,20 +80,22 @@ it via URL and hash.
 
 For testing from a PR or unreleased git commit, you can:
 
-* Find the CircleCI job named `ios-artifacts` for the commit you want to test, click through to view it on CircleCI,
+* Find the CircleCI job named `ios-test-and-artifacts` for the commit you want to test, click through to view it on CircleCI,
 and confirm that it completed successfully.
 * In the "artifacts" list, locate `MozillaRustComponents.xcframework.zip` and note its URL.
 * In the "steps" list, find the step named `XCFramework bundle checksum`, and note the checksum in its output.
 * Take a local checkout of https://github.com/mozilla/rust-components-swift,
 and edit its `Swift.package` to use the above URL and checksum for the `MozillaRustComponents` binary target.
 * Commit the result to your local checkout, and make a git tag in `MAJOR.MINOR.PATCH` format.
-* Add your local `rust-components-swift` repo as a Swift Package dependency in a consuming app,
-  by specifying `file:///path/to/rust-components-swift` as the git repo.
+* Add your local `rust-components-swift` repo as a Swift Package dependency in a consuming app. If testing in firefox-ios, you can run:
+```bash
+$ cd firefox-ios
+$  ./rust_components_local.sh ../rust-components-swift   
+```
+alternatively, you can specify `file:///path/to/rust-components-swift` as the git repo.
     * (You'll have to remove any existing depdency on https://github.com/mozilla/rust-components-swift first)
 
-Note that your changes *must* be included in a local git tag. Swift Package Manager is very
-opinionated and will only pull dependencies from a git tag that it can parse as a semver
-version number.
+Note that your changes *must* be committed. You can import them either as a local git tag or by choosing the branch of `rust-components-swift`. 
 
 ## Further Reading
 
