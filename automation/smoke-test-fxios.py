@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 
 # Purpose: Run Firefox-iOS tests against this application-services working tree.
-# Usage: ./automation/smoke-test-firefox-ios.py
+# Usage: ./automation/smoke-test-fxios.py
 
 import argparse
 import subprocess
