@@ -599,12 +599,12 @@ PACKAGE_METADATA_FIXUPS = {
         }
     },
     # Based on https://github.com/Alexhuszagh/minimal-lexical/blob/main/LICENSE.md
-    # the libraries is licensed as dual licensed, however a portion of the
+    # the library is licensed as dual licensed and a portion of the
     # source code is licensed under BSD-3-Clause. The portion is only
-    # used if the code uses the `compact` feature. However, tracking down
+    # used if the code uses the `compact` feature. Tracking down
     # where it's used in the tree, it's used by
     # https://github.com/Geal/nom/blob/294ffb3d9e0ade2c3b7ddfff52484b6d643dcce1/Cargo.toml#L38
-    # which does **not** use the `compact` feature so we use to the Apatche license.
+    # which does **not** use the `compact` feature so we use the Apache license.
     "minimal-lexical": {
         "license": {
             "check": "MIT/Apache-2.0",
