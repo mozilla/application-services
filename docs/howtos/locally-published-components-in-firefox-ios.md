@@ -8,7 +8,7 @@
 
 1. Build an xcframework in a local checkout of `application-services`
 1. Include the xcframework in a local checkout of `rust-components-swift`
-1. Run the `make-tag` script in `rust-components-swift` using a local checkout of `application-services`
+1. Run the `generate` script in `rust-components-swift` using a local checkout of `application-services`
 1. Include the local checkout of `rust-components-swift` in `firefox-ios`
 
 

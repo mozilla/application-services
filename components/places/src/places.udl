@@ -5,7 +5,7 @@
 [Custom]
 typedef string Url;
 [Custom]
-typedef i64 Timestamp;
+typedef i64 PlacesTimestamp;
 [Custom]
 typedef i32 VisitTransitionSet;
 [Custom]
@@ -65,10 +65,10 @@ interface PlacesConnection {
     HistoryMetadata? get_latest_history_metadata_for_url(Url url);
 
     [Throws=PlacesError]
-    sequence<HistoryMetadata> get_history_metadata_between(Timestamp start, Timestamp end);
+    sequence<HistoryMetadata> get_history_metadata_between(PlacesTimestamp start, PlacesTimestamp end);
 
     [Throws=PlacesError]
-    sequence<HistoryMetadata> get_history_metadata_since(Timestamp since);
+    sequence<HistoryMetadata> get_history_metadata_since(PlacesTimestamp since);
 
     [Throws=PlacesError]
     sequence<SearchResult> query_autocomplete(string search, i32 limit);
@@ -92,16 +92,16 @@ interface PlacesConnection {
     void metadata_delete(Url url, Url? referrer_url, string? search_term);
 
     [Throws=PlacesError]
-    void metadata_delete_older_than(Timestamp older_than);
+    void metadata_delete_older_than(PlacesTimestamp older_than);
 
     [Throws=PlacesError]
     void apply_observation(VisitObservation visit);
 
     [Throws=PlacesError]
-    sequence<Url> get_visited_urls_in_range(Timestamp start, Timestamp end, boolean include_remote);
+    sequence<Url> get_visited_urls_in_range(PlacesTimestamp start, PlacesTimestamp end, boolean include_remote);
 
     [Throws=PlacesError]
-    sequence<HistoryVisitInfo> get_visit_infos(Timestamp start_date, Timestamp end_date, VisitTransitionSet exclude_types);
+    sequence<HistoryVisitInfo> get_visit_infos(PlacesTimestamp start_date, PlacesTimestamp end_date, VisitTransitionSet exclude_types);
 
     [Throws=PlacesError]
     i64 get_visit_count(VisitTransitionSet exclude_types);
@@ -119,10 +119,10 @@ interface PlacesConnection {
     void delete_visits_for(string url);
 
     [Throws=PlacesError]
-    void delete_visits_between(Timestamp start, Timestamp end);
+    void delete_visits_between(PlacesTimestamp start, PlacesTimestamp end);
 
     [Throws=PlacesError]
-    void delete_visit(string url, Timestamp timestamp);
+    void delete_visit(string url, PlacesTimestamp timestamp);
 
     [Throws=PlacesError]
     sequence<TopFrecentSiteInfo> get_top_frecent_site_infos(i32 num_items, FrecencyThresholdOption threshold_option);
@@ -269,7 +269,7 @@ dictionary HistoryHighlight {
 dictionary HistoryVisitInfo {
     Url url;
     string? title;
-    Timestamp timestamp;
+    PlacesTimestamp timestamp;
     VisitTransition visit_type;
     boolean is_hidden;
     Url? preview_image_url;
@@ -293,7 +293,7 @@ dictionary VisitObservation {
     boolean? is_error = null;
     boolean? is_redirect_source = null;
     boolean? is_permanent_redirect_source = null;
-    Timestamp? at = null;
+    PlacesTimestamp? at = null;
     Url? referrer = null;
     boolean? is_remote = null;
     Url? preview_image_url = null;
@@ -330,24 +330,24 @@ dictionary BookmarkData {
     Guid guid;
     Guid parent_guid;
     u32 position;
-    Timestamp date_added;
-    Timestamp last_modified;
+    PlacesTimestamp date_added;
+    PlacesTimestamp last_modified;
     Url url;
     string? title;
 };
 
 dictionary BookmarkSeparator {
     Guid guid;
-    Timestamp date_added;
-    Timestamp last_modified;
+    PlacesTimestamp date_added;
+    PlacesTimestamp last_modified;
     Guid parent_guid;
     u32 position;
 };
 
 dictionary BookmarkFolder {
     Guid guid;
-    Timestamp date_added;
-    Timestamp last_modified;
+    PlacesTimestamp date_added;
+    PlacesTimestamp last_modified;
     Guid? parent_guid;
     u32 position;
     string? title;
@@ -383,8 +383,8 @@ dictionary InsertableBookmark {
     Guid? guid = null;
     Guid parent_guid;
     BookmarkPosition position;
-    Timestamp? date_added = null;
-    Timestamp? last_modified = null;
+    PlacesTimestamp? date_added = null;
+    PlacesTimestamp? last_modified = null;
     Url url;
     string? title = null;
 };
@@ -393,16 +393,16 @@ dictionary InsertableBookmarkSeparator {
     Guid? guid = null;
     Guid parent_guid;
     BookmarkPosition position;
-    Timestamp? date_added = null;
-    Timestamp? last_modified = null;
+    PlacesTimestamp? date_added = null;
+    PlacesTimestamp? last_modified = null;
 };
 
 dictionary InsertableBookmarkFolder {
     Guid? guid = null;
     Guid parent_guid;
     BookmarkPosition position;
-    Timestamp? date_added = null;
-    Timestamp? last_modified = null;
+    PlacesTimestamp? date_added = null;
+    PlacesTimestamp? last_modified = null;
     string? title = null;
     sequence<InsertableBookmarkItem> children;
 };

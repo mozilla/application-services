@@ -14,7 +14,6 @@ It tries to only run tests that might be relevant to `application-services` func
 The `automation/smoke-test-fenix.py` script will clone (or use a local version) of Fenix and
 run tests against the current `application-services` worktree.
 
-## ⚠️ Firefox iOS ⚠️
-We don't currently have an automated way to smoke test against Firefox iOS. For now, you will have to [setup a local build of Firefox iOS and have it build against a local build of application services](./locally-published-components-in-firefox-ios.md). This process is not straightforward, and unfortunately not documented well.
-
-- Bug on file for creating an automation script to smoke test against Firefox iOS: [#4826](https://github.com/mozilla/application-services/issues/4826)
+## Firefox iOS
+The `automation/smoke-test-fxios.py` script will clone (or use a local version) of Firefox iOS and
+run tests against the current `application-services` worktree.

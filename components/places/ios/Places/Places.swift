@@ -7,8 +7,6 @@ import os.log
 
 internal typealias UniffiPlacesApi = PlacesApi
 internal typealias UniffiPlacesConnection = PlacesConnection
-public typealias Url = String
-public typealias Guid = String
 
 /**
  * This is specifically for throwing when there is
