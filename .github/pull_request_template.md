@@ -9,3 +9,5 @@
   - Any breaking changes to Swift or Kotlin binding APIs are noted explicitly
 - [ ] **Dependencies**: This PR follows our [dependency management guidelines](https://github.com/mozilla/application-services/blob/main/docs/dependency-management.md)
   - Any new dependencies are accompanied by a summary of the due dilligence applied in selecting them.
+
+[Branch builds](https://github.com/mozilla/application-services/blob/main/docs/howtos/branch-builds.md): add `[ac: android-components-branch-name]` and/or `[fenix: fenix-branch-name]` to the PR title.
