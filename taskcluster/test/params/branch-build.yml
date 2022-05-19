@@ -20,4 +20,5 @@ repository_type: git
 target_tasks_method: pr-normal
 tasks_for: github-pull-request
 branch-build:
+  android-components-owner: somebody
   android-components-branch: some-commit-id

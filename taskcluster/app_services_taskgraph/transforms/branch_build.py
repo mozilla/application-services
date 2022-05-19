@@ -3,10 +3,14 @@
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 
 from copy import deepcopy
+import os
+import json
 
 from taskgraph.transforms.base import TransformSequence
 from taskgraph.util.schema import validate_schema, Schema
 from voluptuous import Optional, Required, In
+
+TASKCLUSTER_DIR = os.path.dirname(os.path.dirname(os.path.dirname(__file__)))
 
 # Schema for the job dictionary from kinds.yml
 branch_build_schema = Schema({
@@ -45,6 +49,7 @@ TASK_COMMON = {
             'desktop-linux-libs',
             'desktop-macos-libs',
             'desktop-win32-x86-64-libs',
+            'robolectric',
             'rust',
         ],
     },
@@ -52,8 +57,6 @@ TASK_COMMON = {
         'using': 'gradlew',
         'pre-gradlew': [
             ["git", "submodule", "update", "--init"],
-            ["source", "taskcluster/scripts/toolchain/setup-fetched-rust-toolchain.sh"],
-            ["rsync", "-a", "/builds/worker/fetches/libs/", "/builds/worker/checkouts/vcs/libs/"],
         ]
     },
 }
@@ -71,80 +74,112 @@ def validate(config, tasks):
 @transforms.add
 def setup(config, tasks):
     branch_build_params = config.params.get('branch-build', {})
-    android_components_branch = branch_build_params.get('android-components-branch', 'main')
-    fenix_branch = branch_build_params.get('fenix-branch', 'main')
 
     for task in tasks:
         repo_name = task.pop('repository')
         operation = task['name']
         task.update(deepcopy(TASK_COMMON))
+        task['description'] = '{} {}'.format(operation, repo_name)
         if repo_name == 'application-services':
             setup_application_services(task)
         elif repo_name == 'android-components':
-            setup_android_components(task, android_components_branch)
+            setup_android_components(task, branch_build_params)
         elif repo_name == 'fenix':
-            setup_fenix(task, android_components_branch, fenix_branch)
+            setup_fenix(task, branch_build_params)
         else:
             raise ValueError("Invalid branch build repository: {}".format(repo_name))
 
         if operation == 'build':
-            setup_build(task, repo_name)
+            for task in get_build_tasks(task, repo_name):
+                yield task
         elif operation == 'test':
-            setup_test(task, repo_name)
+            for task in get_test_tasks(task, repo_name):
+                yield task
         else:
             raise ValueError("Invalid branch build operation: {}".format(operation))
-        task['description'] = '{} {}'.format(operation, repo_name)
-        yield task
 
 def setup_application_services(task):
     task['run']['pre-gradlew'].extend([
+        ["source", "taskcluster/scripts/toolchain/setup-fetched-rust-toolchain.sh"],
+        ["rsync", "-a", "/builds/worker/fetches/libs/", "/builds/worker/checkouts/vcs/libs/"],
         ["taskcluster/scripts/setup-branch-build.py"],
     ])
+    task['fetches'] = {
+        'toolchain': [
+            'android-libs',
+            'desktop-linux-libs',
+            'desktop-macos-libs',
+            'desktop-win32-x86-64-libs',
+            'rust',
+        ],
+    }
 
-def setup_android_components(task, android_components_branch):
+def setup_android_components(task, branch_build_params):
     task['dependencies'] = {
         'branch-build-as': 'branch-build-as-build',
     }
 
-    task['fetches']['branch-build-as'] = [ 'application-services-m2.tar.gz' ]
+    task['fetches'] = {
+        'toolchain': [
+            'robolectric',
+        ],
+        'branch-build-as': [ 'application-services-m2.tar.gz' ],
+    }
     task['run']['pre-gradlew'].extend([
         ['rsync', '-a', '/builds/worker/fetches/.m2/', '/builds/worker/.m2/'],
-        [
-            "taskcluster/scripts/setup-branch-build.py",
-            '--android-components', android_components_branch,
-        ],
+        setup_branch_build_command_line(branch_build_params, setup_fenix=False),
         ['cd', 'android-components'],
+        ['git', 'rev-parse', '--short', 'HEAD'],
         # Building this up-front seems to make the build more stable.  I think
         # having multiple components all try to execute the
         # Bootstrap_CONDA_'Miniconda3' task in parallel causes issues.
         ['./gradlew', ":browser-engine-gecko:Bootstrap_CONDA_'Miniconda3'"],
     ])
 
-def setup_fenix(task, android_components_branch, fenix_branch):
+def setup_fenix(task, branch_build_params):
     task['dependencies'] = {
         'branch-build-as': 'branch-build-as-build',
         'branch-build-ac': 'branch-build-ac-build',
     }
 
-    task['fetches']['branch-build-as'] = ['application-services-m2.tar.gz' ]
-    task['fetches']['branch-build-ac'] = ['android-components-m2.tar.gz' ]
+    task['fetches'] = {
+        'toolchain': [
+            'robolectric',
+        ],
+        'branch-build-as': [ 'application-services-m2.tar.gz' ],
+        'branch-build-ac': ['android-components-m2.tar.gz' ],
+    }
     task['run']['pre-gradlew'].extend([
         ['rsync', '-a', '/builds/worker/fetches/.m2/', '/builds/worker/.m2/'],
-        [
-            "taskcluster/scripts/setup-branch-build.py",
-            '--android-components', android_components_branch,
-            '--fenix', fenix_branch,
-        ],
+        setup_branch_build_command_line(branch_build_params, setup_fenix=True),
         ['cd', 'fenix'],
+        ['git', 'rev-parse', '--short', 'HEAD'],
     ])
 
-def setup_build(task, repo_name):
-    if repo_name == 'fenix':
-        setup_fenix_build(task)
-    else:
-        setup_maven_package_build(task, repo_name)
+def setup_branch_build_command_line(branch_build_params, setup_fenix):
+    cmd_line = [
+            'taskcluster/scripts/setup-branch-build.py',
+            '--android-components-owner',
+            branch_build_params.get('android-components-owner', 'mozilla-mobile'),
+            '--android-components-branch',
+            branch_build_params.get('android-components-branch', 'main'),
+    ]
+    if setup_fenix:
+        cmd_line.extend([
+                '--fenix-owner',
+                branch_build_params.get('fenix-owner', 'mozilla-mobile'),
+                '--fenix-branch',
+                branch_build_params.get('fenix-branch', 'main'),
+        ])
+    return cmd_line
 
-def setup_maven_package_build(task, repo_name):
+def get_build_tasks(task, repo_name):
+    if repo_name == 'fenix':
+        return get_fenix_build_tasks(task)
+    else:
+        return get_maven_package_build_tasks(task, repo_name)
+
+def get_maven_package_build_tasks(task, repo_name):
     task['run']['gradlew'] = ['publishToMavenLocal']
     task['run']['post-gradlew'] = [
         [
@@ -161,8 +196,9 @@ def setup_maven_package_build(task, repo_name):
             'type': 'file',
         }
     ]
+    yield task
 
-def setup_fenix_build(task):
+def get_fenix_build_tasks(task):
     task['run']['gradlew'] = ['assembleDebug']
     task['worker']['artifacts'] = [
         {
@@ -171,6 +207,53 @@ def setup_fenix_build(task):
             'type': 'file',
         }
     ]
+    yield task
 
-def setup_test(task, repo_name):
-    task['run']['gradlew'] = ['testDebugUnitTest']
+def get_test_tasks(task, repo_name):
+    if repo_name == 'android-components':
+        # Split up the android components tasks by project.  Running them all at once in the same task tends to cause failures
+        # Also, use `testRelease` instead of `testDebugUnitTest`.  I'm not sure what the difference is, but this is what the android-components CI runs.
+        for project in get_android_components_projects():
+            project_task = deepcopy(task)
+            project_task['description'] += ' {}'.format(project)
+            project_task['run']['gradlew'] = android_components_test_gradle_tasks(project)
+            project_task['name'] = 'test-{}'.format(project)
+            yield project_task
+    else:
+        task['run']['gradlew'] = ['testDebugUnitTest']
+        yield task
+
+def android_components_test_gradle_tasks(project):
+    # Gradle tasks to run to test an android-components project, this should
+    # match the android-components code in `taskcluster/ci/build/kind.yml`
+    if project == 'tooling-lint':
+        tasks = [
+            ':{project}:assemble',
+            ':{project}:assembleAndroidTest',
+            ':{project}:test',
+            ':{project}:lint',
+            'githubBuildDetails',
+        ]
+    elif project == 'tooling-detekt':
+        tasks = [
+            ':{project}:assemble',
+            ':{project}:assembleAndroidTest',
+            ':{project}:test',
+            ':{project}:lintRelease',
+            'githubBuildDetails',
+        ]
+    else:
+        tasks = [
+            ':{project}:assemble',
+            ':{project}:assembleAndroidTest',
+            ':{project}:testRelease',
+            ':{project}:lintRelease',
+            'githubBuildDetails',
+        ]
+    return [t.format(project=project) for t in tasks]
+
+def get_android_components_projects():
+    path = os.path.join(TASKCLUSTER_DIR, 'android-components-projects.json')
+    with open(path) as f:
+        return json.load(f)
+

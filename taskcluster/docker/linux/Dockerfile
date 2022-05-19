@@ -19,7 +19,7 @@ WORKDIR /builds/worker/
 # Configuration
 
 ENV ANDROID_BUILD_TOOLS "30.0.3"
-ENV ANDROID_PLATFORM_VERSION "30"
+ENV ANDROID_PLATFORM_VERSION "31"
 ENV ANDROID_NDK_VERSION "21.3.6528147"
 
 # Set up the language variables to avoid problems (we run locale-gen later).
@@ -93,6 +93,8 @@ RUN apt-get update -qq \
         rsync \
         # Required for creating a venv for glean_parser
         python3-venv \
+        # Used by gradle and the robolectric toolchain task
+        maven \
     && apt-get clean
 
 RUN pip3 install --upgrade pip
