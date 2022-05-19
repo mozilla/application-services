@@ -6,7 +6,15 @@ edition = "2021"
 license = "MPL-2.0"
 
 [dependencies]
+log = "0.4"
+parking_lot = ">=0.11,<=0.12"
+lazy_static = "1.4"
+uniffi = "^0.18"
+uniffi_macros = "^0.18"
 
 [dependencies.backtrace]
 optional = true
 version = "0.3"
+
+[build-dependencies]
+uniffi_build = { version = "^0.18", features=["builtin-bindgen"] }

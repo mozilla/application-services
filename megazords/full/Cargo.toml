@@ -20,5 +20,6 @@ viaduct = { path = "../../components/viaduct" }
 nimbus-sdk = { path = "../../components/nimbus" }
 autofill = { path = "../../components/autofill" }
 crashtest = { path = "../../components/crashtest" }
+error-support = { path = "../../components/support/error" }
 
 lazy_static = "1.4"

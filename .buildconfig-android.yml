@@ -15,6 +15,13 @@ projects:
     - name: crashtest
       type: aar
     description: Helper APIs to trigger an application crash.
+  errorsupport:
+    path: components/support/error/android
+    artifactId: errorsupport
+    publications:
+    - name: errorsupport
+      type: aar
+    description: Application services error handling
   fxaclient:
     path: components/fxa-client/android
     artifactId: fxaclient
