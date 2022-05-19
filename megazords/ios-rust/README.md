@@ -69,8 +69,8 @@ For testing changes against our project's test suite, you'll need to:
 ## Testing local changes for consumers
 
 See the following documents for testing local changes in consumers:
-1. [Testing against firefox-ios](../../docs/howtos/locally-published-spm-in-firefox.md)
-1. [Testing against focus-ios](../../docs/howtos/locally-published-spm-in-focus.md)
+1. [Testing against firefox-ios](../../docs/howtos/locally-published-components-in-firefox-ios.md)
+1. [Testing against focus-ios](../../docs/howtos/locally-published-components-in-focus-ios.md)
 
 ## Testing from a pre-release commit
 

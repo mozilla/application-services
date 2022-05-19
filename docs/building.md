@@ -119,4 +119,4 @@ Once the script passes, you should be able to run the Xcode project.
 
 ### Locally building Firefox iOS against a local Application Services
 
-Detailed steps to build Firefox iOS against a local application services can be found [this document](./howtos/locally-published-spm-in-firefox.md)
+Detailed steps to build Firefox iOS against a local application services can be found [this document](./howtos/locally-published-components-in-firefox-ios.md)

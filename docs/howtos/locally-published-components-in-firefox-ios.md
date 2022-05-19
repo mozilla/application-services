@@ -18,7 +18,7 @@
 1. A local checkout of [`application-services` that is ready to build for iOS](../building.md#building-for-firefox-ios)
 
 ## Using the automated flow
-For convenience, there is a script that will do all the necessary steps to configure your local `firefox-ios` build with a local `application-services` repository.
+For convenience, there is a script that will do all the necessary steps to configure your local `firefox-ios` build with a local `application-services` repository. You do **not** need to do the [manual steps](#using-the-manual-flow) if you follow those steps.
 
 1. Run the following to execute the script, the example below assumes all of `firefox-ios`, `rust-components-swift` and `application-services` are in the same directory. Adjust the paths according to where they are on your filesystem.
 
@@ -33,6 +33,7 @@ For convenience, there is a script that will do all the necessary steps to confi
     - You can reset package caches by going to `File -> Packages -> Reset Package Caches`
 1. If this is not the first time you run the script, make sure to also update package versions. This forces Xcode to pull the latest changes in the `rust-components-swift` branch.
     - You can update package versions by going to `File -> Packages -> Update To Latest Package Versions`
+1. Once the above steps are done, attempt building firefox ios. If you face problems, feel free to [contact us](../index.md#contact-us)
 
 ### Disabling local development
 The easiest way to disable local development is to simply revert any changes to `firefox-ios/Client.xcodeproj/project.pbxproj`.
@@ -50,7 +51,9 @@ However, if there are other changes to the file that you would like to preserve,
 > If you happen to change branches in `rust-components-swift`, you will need to disable then re-enable local development. The script is not currently smart enough to switch branches. Alternatively, keep the branch in `rust-components-swift` the same. `rust-components-swift` serves only as a release surface so there is little use to switching branches and pushing changes to it, unless you are changing something related to the release process.
 
 ## Using the manual flow
-It's important to note the automated flow runs through those steps in a script, so if possible use the script as it's a tedious manual process. However, if the script is failing or you would like to run the manual process for any other reason follow the following steps.
+**It's important to note the automated flow runs through all the necessary steps in a script, so if possible use the script as it's a tedious manual process**
+
+However, if the script is failing or you would like to run the manual process for any other reason follow the following steps.
 
 ### Building the xcframework
 To build the [xcframework](https://developer.apple.com/documentation/swift_packages/distributing_binary_frameworks_as_swift_packages) do the following:
@@ -63,13 +66,13 @@ This will produce a file name `MozillaRustComponents.xcframework.zip` that conta
 - The compiled Rust code for all the crates listed in `Cargo.toml` as a static library
 - The C header files and [Swift module maps](https://clang.llvm.org/docs/Modules.html) for the components
 
-## Include the xcframework in a local checkout of `rust-components-swift`
-After you generated the `MozillaRustComponents.xcframework.zip` in the previous step, do the following to include it in a local checkout of `rust-components-swift`:
+### Include the xcframework in a local checkout of `rust-components-swift`
+After you generated the `MozillaRustComponents.xcframework.zip` in the previous step, do the following to include it in a local checkout of `rust-components-swift`. The file will be in the `megazords/ios-rust` directory.
 1. Unzip the `MozillaRustComponents.xcframework.zip` into the `rust-components-swift` repository: (Assuming you are in the root of the `rust-components-swift` directory and `application-services` is a neighbor directory)
     ```sh
-     unzip  ../application-services/megazords/ios-rust/MozillaRustComponents.xcframework.zip -d .
+     unzip -o ../application-services/megazords/ios-rust/MozillaRustComponents.xcframework.zip -d .
     ```
-1. Change the `Package.swift`'s reference to the xcframework to point to unzipped folder. You can do this by uncommenting the following line:
+1. Change the `Package.swift`'s reference to the xcframework to point to the unzipped `MozillaRustComponents.xcframework` that was created in the previous step. You can do this by uncommenting the following line:
     ```swift
         path: "./MozillaRustComponents.xcframework"
     ```
@@ -79,14 +82,15 @@ After you generated the `MozillaRustComponents.xcframework.zip` in the previous 
         checksum: checksum,
     ```
 
-## Run the make-tag script with a local checkout of application services
-For this step, run the following script from inside the `rust-components-swift` repository (assuming that `application-services` is a neighboring directory to `rust-components-swift`). Change the `X.Y.Z` to be a valid semver version, for example: `0.0.101`
-```sh
-./make_tag.sh -l ../application-services X.Y.Z
-```
-Once that is done, your local checkout will now have a git tag `X.Y.Z` that can be pointed to by Xcode
+### Run the generation script with a local checkout of application services
+For this step, run the following script from inside the `rust-components-swift` repository (assuming that `application-services` is a neighboring directory to `rust-components-swift`).
 
-## Include the local checkout of `rust-components-swift` in `firefox-ios`
+```sh
+./generate.sh ../application-services
+```
+Once that is done, **stage and commit** the changes the script ran. Xcode can only pick up committed changes.
+
+### Include the local checkout of `rust-components-swift` in `firefox-ios`
 This is the final step to include your local changes into `firefox-ios`. Do the following steps:
 1. Open `Client.xcodeproj` in Xcode
 1. Navigate to the Swift Packages in Xcode:
@@ -95,8 +99,8 @@ This is the final step to include your local changes into `firefox-ios`. Do the 
 1. Add a new swift package by clicking the `+`:
 
     1. On the top right, enter the full path to your `rust-components-swift` checkout, preceded by `file://`. If you don't know what that is, run `pwd` in while in `rust-components-swift`. For example: `file:///Users/tarikeshaq/code/rust-components-swift`
-    1. Change the version to be an exact version and equal the `X.Y.Z` version you set in the previous step. For example, if I ran `./make_tag -l ../application-services 0.0.101`, then my version would be `0.0.101`. This is what the dialog should look like:
-    ![Dialog for including the `rust-components-swift` package](./img/xcode-package-include.png)
+    1. Change the branch to be the checked-out branch of rust-component-swift you have locally. This is what the dialog should look like:
+    ![Dialog for including the `rust-components-swift` package](./img/xcode-include-packages-firefox-ios.png)
     > Note: If Xcode prevents you from adding the dependency to reference a local package, you will need to manually modify the `Client.xcodeproj/project.pbxproj` and replace every occurrence of `https://github.com/mozilla/rust-components-swift` with the full path to your local checkout.
     1. Click `Add Package`
     1. Now include the packages you would like to include, choose `MozillaAppServices`

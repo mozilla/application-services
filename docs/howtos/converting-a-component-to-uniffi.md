@@ -301,4 +301,4 @@ adding the ability to set a persistence callback.
 You will need to add any such file to the "Compile Sources" list in Xcode, in the same way
 that you added the `.udl` file.
 
-Finally, you will need to try out the new bindings with a consuming app. For Swift code you should make a local build of Firefox iOS, you can do that by following the steps in [this document](./locally-published-spm-in-firefox.md)
+Finally, you will need to try out the new bindings with a consuming app. For Swift code you should make a local build of Firefox iOS, you can do that by following the steps in [this document](./locally-published-components-in-firefox-ios.md)
