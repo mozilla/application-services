@@ -53,10 +53,6 @@ the details of which are reproduced below.
     <url>https://github.com/dtolnay/anyhow/blob/master/LICENSE-APACHE</url>
   </license>
   <license>
-    <name>Apache License 2.0: arrayvec</name>
-    <url>https://github.com/bluss/arrayvec/blob/master/LICENSE-APACHE</url>
-  </license>
-  <license>
     <name>Apache License 2.0: askama</name>
     <url>https://github.com/djc/askama/blob/main/LICENSE-APACHE</url>
   </license>
@@ -115,6 +111,18 @@ the details of which are reproduced below.
   <license>
     <name>Apache License 2.0: chrono</name>
     <url>https://github.com/chronotope/chrono/blob/main/LICENSE.txt</url>
+  </license>
+  <license>
+    <name>Apache License 2.0: clap</name>
+    <url>https://github.com/clap-rs/clap/blob/master/LICENSE-APACHE</url>
+  </license>
+  <license>
+    <name>Apache License 2.0: clap_derive</name>
+    <url>https://github.com/clap-rs/clap/blob/master/LICENSE-APACHE</url>
+  </license>
+  <license>
+    <name>Apache License 2.0: clap_lex</name>
+    <url>https://github.com/clap-rs/clap/blob/master/LICENSE-APACHE</url>
   </license>
   <license>
     <name>Apache License 2.0: cpufeatures</name>
@@ -185,6 +193,10 @@ the details of which are reproduced below.
     <url>https://github.com/servo/rust-url/blob//master/LICENSE-APACHE</url>
   </license>
   <license>
+    <name>Apache License 2.0: indexmap</name>
+    <url>https://github.com/bluss/indexmap/blob/master/LICENSE-APACHE</url>
+  </license>
+  <license>
     <name>Apache License 2.0: itertools</name>
     <url>https://github.com/rust-itertools/itertools/blob/master/LICENSE-APACHE</url>
   </license>
@@ -203,10 +215,6 @@ the details of which are reproduced below.
   <license>
     <name>Apache License 2.0: lazy_static</name>
     <url>https://github.com/rust-lang-nursery/lazy-static.rs/blob/master/LICENSE-APACHE</url>
-  </license>
-  <license>
-    <name>Apache License 2.0: lexical-core</name>
-    <url>https://github.com/Alexhuszagh/rust-lexical/blob/main/LICENSE-APACHE</url>
   </license>
   <license>
     <name>Apache License 2.0: libc</name>
@@ -229,6 +237,14 @@ the details of which are reproduced below.
     <url>https://github.com/rust-lang/log/blob/master/LICENSE-APACHE</url>
   </license>
   <license>
+    <name>Apache License 2.0: mime</name>
+    <url>https://github.com/hyperium/mime/blob/v0.3.16/LICENSE-APACHE</url>
+  </license>
+  <license>
+    <name>Apache License 2.0: minimal-lexical</name>
+    <url>https://github.com/Alexhuszagh/minimal-lexical/blob/main/LICENSE-APACHE</url>
+  </license>
+  <license>
     <name>Apache License 2.0: num-integer</name>
     <url>https://github.com/rust-num/num-integer/blob/master/LICENSE-APACHE</url>
   </license>
@@ -243,6 +259,10 @@ the details of which are reproduced below.
   <license>
     <name>Apache License 2.0: opaque-debug</name>
     <url>https://github.com/RustCrypto/utils/blob/master/opaque-debug/LICENSE-APACHE</url>
+  </license>
+  <license>
+    <name>Apache License 2.0: os_str_bytes</name>
+    <url>https://github.com/dylni/os_str_bytes/blob/master/LICENSE-APACHE</url>
   </license>
   <license>
     <name>Apache License 2.0: parking_lot</name>
@@ -279,6 +299,14 @@ the details of which are reproduced below.
   <license>
     <name>Apache License 2.0: ppv-lite86</name>
     <url>https://github.com/cryptocorrosion/cryptocorrosion/blob/master/utils-simd/ppv-lite86/LICENSE-APACHE</url>
+  </license>
+  <license>
+    <name>Apache License 2.0: proc-macro-error</name>
+    <url>https://gitlab.com/CreepySkeleton/proc-macro-error/-/raw/master/LICENSE-APACHE</url>
+  </license>
+  <license>
+    <name>Apache License 2.0: proc-macro-error-attr</name>
+    <url>https://gitlab.com/CreepySkeleton/proc-macro-error/-/raw/master/LICENSE-APACHE</url>
   </license>
   <license>
     <name>Apache License 2.0: proc-macro-hack</name>
@@ -413,6 +441,10 @@ the details of which are reproduced below.
     <url>https://github.com/BurntSushi/ucd-generate/blob/master/LICENSE-APACHE</url>
   </license>
   <license>
+    <name>Apache License 2.0: unicase</name>
+    <url>https://github.com/seanmonstar/unicase/blob/master/LICENSE-APACHE</url>
+  </license>
+  <license>
     <name>Apache License 2.0: unicode-bidi</name>
     <url>https://github.com/servo/unicode-bidi/blob/master/LICENSE-APACHE</url>
   </license>
@@ -423,10 +455,6 @@ the details of which are reproduced below.
   <license>
     <name>Apache License 2.0: unicode-segmentation</name>
     <url>https://github.com/unicode-rs/unicode-segmentation/blob/master/LICENSE-APACHE</url>
-  </license>
-  <license>
-    <name>Apache License 2.0: unicode-width</name>
-    <url>https://github.com/unicode-rs/unicode-width/blob/master/LICENSE-APACHE</url>
   </license>
   <license>
     <name>Apache License 2.0: unicode-xid</name>
@@ -481,16 +509,16 @@ the details of which are reproduced below.
     <url>https://github.com/BurntSushi/memchr/blob/master/LICENSE-MIT</url>
   </license>
   <license>
+    <name>MIT License: termcolor</name>
+    <url>https://github.com/BurntSushi/termcolor/blob/master/LICENSE-MIT</url>
+  </license>
+  <license>
+    <name>MIT License: atty</name>
+    <url>https://github.com/softprops/atty/blob/master/LICENSE</url>
+  </license>
+  <license>
     <name>MIT License: bincode</name>
     <url>https://github.com/servo/bincode/blob/master/LICENSE.md</url>
-  </license>
-  <license>
-    <name>MIT License: bitvec</name>
-    <url>https://github.com/bitvecto-rs/bitvec/blob/develop/LICENSE.txt</url>
-  </license>
-  <license>
-    <name>MIT License: wyz</name>
-    <url>https://github.com/myrrlyn/wyz/blob/main/LICENSE.txt</url>
   </license>
   <license>
     <name>MIT License: bytes</name>
@@ -503,14 +531,6 @@ the details of which are reproduced below.
   <license>
     <name>MIT License: caseless</name>
     <url>https://github.com/SimonSapin/rust-caseless/blob/master/LICENSE</url>
-  </license>
-  <license>
-    <name>MIT License: clap</name>
-    <url>https://github.com/clap-rs/clap/blob/master/LICENSE-MIT</url>
-  </license>
-  <license>
-    <name>MIT License: funty</name>
-    <url>https://github.com/myrrlyn/funty/blob/master/LICENSE.txt</url>
   </license>
   <license>
     <name>MIT License: generic-array</name>
@@ -529,6 +549,10 @@ the details of which are reproduced below.
     <url>https://github.com/SimonSapin/rust-std-candidates/blob/master/LICENSE</url>
   </license>
   <license>
+    <name>MIT License: mime_guess</name>
+    <url>https://github.com/abonander/mime_guess/blob/master/LICENSE</url>
+  </license>
+  <license>
     <name>MIT License: nom</name>
     <url>https://github.com/Geal/nom/blob/main/LICENSE</url>
   </license>
@@ -541,20 +565,16 @@ the details of which are reproduced below.
     <url>https://github.com/reem/rust-ordered-float/blob/master/LICENSE-MIT</url>
   </license>
   <license>
-    <name>MIT License: radium</name>
-    <url>https://github.com/bitvecto-rs/radium/blob/master/LICENSE.txt</url>
-  </license>
-  <license>
-    <name>MIT License: tap</name>
-    <url>https://github.com/myrrlyn/tap/blob/main/LICENSE.txt</url>
+    <name>MIT License: strsim</name>
+    <url>https://github.com/dguo/strsim-rs/blob/master/LICENSE</url>
   </license>
   <license>
     <name>MIT License: textwrap</name>
     <url>https://github.com/mgeisler/textwrap/blob/master/LICENSE</url>
   </license>
   <license>
-    <name>MIT License: weedle</name>
-    <url>https://github.com/rustwasm/weedle/blob/master/LICENSE.md</url>
+    <name>MIT License: weedle2</name>
+    <url>https://github.com/badboy/weedle/blob/main/LICENSE.md</url>
   </license>
   <license>
     <name>CC0-1.0 License: base16</name>
