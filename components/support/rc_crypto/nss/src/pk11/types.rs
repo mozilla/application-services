@@ -146,7 +146,7 @@ impl PrivateKey {
         let mut id_attr: &mut nss_sys::CK_ATTRIBUTE = template
             .iter_mut()
             .find(|&&mut attr| {
-                attr.type_ == nss_sys::CKA_ID.into()
+                attr.type_ == (nss_sys::CKA_ID as nss_sys::CK_ATTRIBUTE_TYPE)
                     && attr.pValue.is_null()
                     && attr.ulValueLen == 0
             })

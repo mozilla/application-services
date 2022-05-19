@@ -906,6 +906,12 @@ name = "error-support"
 version = "0.1.0"
 dependencies = [
  "backtrace",
+ "lazy_static",
+ "log",
+ "parking_lot",
+ "uniffi",
+ "uniffi_build",
+ "uniffi_macros",
 ]
 
 [[package]]
@@ -1811,6 +1817,7 @@ version = "0.1.0"
 dependencies = [
  "autofill",
  "crashtest",
+ "error-support",
  "fxa-client",
  "lazy_static",
  "logins",
