@@ -29,3 +29,9 @@ Use the template below to make assigning a version number during the release cut
     - `Guid` alias for `string`
     - `JsonObject` alias for `string`
   - Non of the exposed types conflict with a type in iOS so this is not a breaking change.
+
+### Nimbus ⛅️🔬🔭
+
+### What's new
+
+- Make generation of Experimenter compatible YAML repeatable: fields, variables, features and enum variants are listed alphabetically. ([#4964](https://github.com/mozilla/application-services/pull/4964)).
