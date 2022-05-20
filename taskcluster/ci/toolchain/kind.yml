@@ -31,4 +31,5 @@ jobs-from:
     - android.yml
     - desktop.yml
     - resourcemonitor.yml
+    - robolectric.yml
     - rust.yml
