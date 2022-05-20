@@ -4,34 +4,39 @@ import argparse
 import os
 import subprocess
 
-ANDROID_COMPONENTS_REPO_URL = 'https://github.com/bendk/android-components'
-FENIX_REPO_URL = 'https://github.com/bendk/fenix'
-
 def main():
     args = parse_args()
-    local_properties = ["rust.targets=x86,linux-x86-64"]
+    local_properties = []
     local_properties.extend(branch_build_properties('application-services', '.'))
-    if args.android_components:
-        git_checkout(ANDROID_COMPONENTS_REPO_URL, args.android_components)
+    if args.android_components_branch:
+        git_checkout(android_components_repo(args), args.android_components_branch)
         local_properties.extend(branch_build_properties('android-components', 'android-components'))
-    if args.fenix:
-        git_checkout(FENIX_REPO_URL, args.fenix)
+    if args.fenix_branch:
+        git_checkout(fenix_repo(args), args.fenix_branch)
 
     local_properties = '\n'.join(local_properties)
     print("Local properties:")
     print(local_properties)
 
     write_local_properties("local.properties", local_properties)
-    if args.android_components:
+    if args.android_components_branch:
         write_local_properties("android-components/local.properties", local_properties)
-    if args.fenix:
+    if args.fenix_branch:
         write_local_properties("fenix/local.properties", local_properties)
 
 def parse_args():
     parser = argparse.ArgumentParser(description='Setup a branch build in taskcluster')
-    parser.add_argument('--android-components', help='Android components branch')
-    parser.add_argument('--fenix', help='Fenix branch')
+    parser.add_argument('--android-components-owner', help='Android components repository owner', default='mozilla-mobile')
+    parser.add_argument('--android-components-branch', help='Android components branch')
+    parser.add_argument('--fenix-owner', help='Fenix repository owner', default='mozilla-mobile')
+    parser.add_argument('--fenix-branch', help='Fenix branch')
     return parser.parse_args()
+
+def android_components_repo(args):
+    return f'https://github.com/{args.android_components_owner}/android-components'
+
+def fenix_repo(args):
+    return f'https://github.com/{args.fenix_owner}/fenix'
 
 def git_checkout(url, branch):
     subprocess.check_call(['git', 'clone', '--branch', branch, '--recurse-submodules', '--depth', '1', '--', url])

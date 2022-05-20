@@ -14,7 +14,7 @@ path = "src/bench.rs"
 [dependencies]
 criterion = "0.3"
 tempfile = "3"
-parking_lot = "0.12"
+parking_lot = ">=0.11,<=0.12"
 places = { path = "../../../components/places" }
 sql-support = { path = "../../../components/support/sql" }
 types = { path = "../../../components/support/types" }

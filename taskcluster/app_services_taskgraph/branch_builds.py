@@ -7,8 +7,9 @@ import re
 
 from taskgraph.filter_tasks import filter_task
 
-ANDROID_COMPONENTS_BRANCH_RE = re.compile(r'\[ac:\s*([\w-]+)\]')
-FENIX_BRANCH_RE = re.compile(r'\[fenix:\s*([\w-]+)\]')
+REPO_RE = r'((?P<owner>[\.\w-]+)/)?(?P<branch>[\.\w-]+)'
+ANDROID_COMPONENTS_BRANCH_RE = re.compile(r'\[a-?c:\s*' + REPO_RE + r'\]')
+FENIX_BRANCH_RE = re.compile(r'\[fenix:\s*' + REPO_RE + r'\]')
 
 def update_decision_parameters(parameters):
     parameters['branch-build'] = calc_branch_build_param(parameters)
@@ -25,13 +26,21 @@ def calc_branch_build_param(parameters):
 
     ac_branch_match = ANDROID_COMPONENTS_BRANCH_RE.search(title)
     if ac_branch_match:
-        branch_build['android-components-branch'] = ac_branch_match.group(1)
+        branch_build['android-components-owner'] = calc_owner(ac_branch_match)
+        branch_build['android-components-branch'] = ac_branch_match.group('branch')
 
     fenix_branch_match = FENIX_BRANCH_RE.search(title)
     if fenix_branch_match:
-        branch_build['fenix-branch'] = fenix_branch_match.group(1)
+        branch_build['fenix-owner'] = calc_owner(fenix_branch_match)
+        branch_build['fenix-branch'] = fenix_branch_match.group('branch')
 
     return branch_build
+
+def calc_owner(match):
+    if match.group('owner'):
+        return match.group('owner')
+    else:
+        return 'mozilla-mobile'
 
 @filter_task("branch-build")
 def filter_branch_build_tasks(full_task_graph, parameters, graph_config):

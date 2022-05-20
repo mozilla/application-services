@@ -5,6 +5,7 @@
     - [How to use the local development autopublish flow for Firefox iOS](howtos/locally-published-components-in-firefox-ios.md)
     - [How to use the local development flow for Focus for iOS](howtos/locally-published-components-in-focus-ios.md)
     - [How to locally build JNA](howtos/locally-building-jna.md)
+    - [Branch builds](howtos/branch-builds.md)
   - [How to test Rust Components](howtos/testing-a-rust-component.md)
     - [How to integration (smoke) test application-services](howtos/smoke-testing-app-services.md)
     - [Writing efficient tests](design/test-faster.md)
