@@ -9,10 +9,7 @@ use interrupt_support::NeverInterrupts;
 use std::cell::RefCell;
 use std::path::Path;
 use std::sync::{Arc, Mutex, Weak};
-use sync15::{
-    sync_multiple, telemetry, KeyBundle, MemoryCachedState, Sync15StorageClientInit, SyncEngine,
-    SyncEngineId,
-};
+use sync15::{sync_multiple, EngineSyncAssociation, MemoryCachedState, SyncEngine, SyncEngineId};
 
 // Our "sync manager" will use whatever is stashed here.
 lazy_static::lazy_static! {
@@ -69,21 +66,37 @@ impl TabsStore {
         self.storage.lock().unwrap().get_remote_tabs()
     }
 
+    pub fn reset(self: Arc<Self>) -> Result<()> {
+        let engine = TabsEngine::new(Arc::clone(&self));
+        engine.reset(&EngineSyncAssociation::Disconnected)?;
+        Ok(())
+    }
+
     /// A convenience wrapper around sync_multiple.
     pub fn sync(
         self: Arc<Self>,
-        storage_init: &Sync15StorageClientInit,
-        root_sync_key: &KeyBundle,
-        local_id: &str,
-    ) -> Result<telemetry::SyncTelemetryPing> {
+        key_id: String,
+        access_token: String,
+        sync_key: String,
+        tokenserver_url: String,
+        local_id: String,
+    ) -> Result<String> {
         let mut mem_cached_state = MemoryCachedState::default();
         let mut engine = TabsEngine::new(Arc::clone(&self));
+
         // Since we are syncing without the sync manager, there's no
         // command processor, therefore no clients engine, and in
         // consequence `TabsStore::prepare_for_sync` is never called
         // which means our `local_id` will never be set.
         // Do it here.
-        engine.local_id = RefCell::new(local_id.to_owned());
+        engine.local_id = RefCell::new(local_id);
+
+        let storage_init = &sync15::Sync15StorageClientInit {
+            key_id,
+            access_token,
+            tokenserver_url: url::Url::parse(tokenserver_url.as_str())?,
+        };
+        let root_sync_key = &sync15::KeyBundle::from_ksync_base64(sync_key.as_str())?;
 
         let mut result = sync_multiple(
             &[&engine],
@@ -103,7 +116,7 @@ impl TabsStore {
             return Err(e.into());
         }
         match result.engine_results.remove("tabs") {
-            None | Some(Ok(())) => Ok(result.telemetry),
+            None | Some(Ok(())) => Ok(serde_json::to_string(&result.telemetry)?),
             Some(Err(e)) => Err(e.into()),
         }
     }
