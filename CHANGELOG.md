@@ -1,3 +1,24 @@
+# v93.2.1 (_2022-05-24_)
+
+[Full Changelog](https://github.com/mozilla/application-services/compare/v93.2.0...v93.2.1)
+
+## General
+### What's new
+- Uniffi was upgraded to 0.18.0. For our consumers, this means there now exported types that used to be internal to `uniffi`. ([#4949](https://github.com/mozilla/application-services/pull/4949)).
+  - The types are:
+    - `Url` alias for `string`
+    - `PlacesTimestamp` alias for`i64`
+    - `VisitTransitionSet` alias for `i32`
+    - `Guid` alias for `string`
+    - `JsonObject` alias for `string`
+  - Non of the exposed types conflict with a type in iOS so this is not a breaking change.
+
+### Nimbus ⛅️🔬🔭
+
+### What's new
+
+- Make generation of Experimenter compatible YAML repeatable: fields, variables, features and enum variants are listed alphabetically. ([#4964](https://github.com/mozilla/application-services/pull/4964)).
+
 # v93.2.0 (_2022-05-11_)
 
 [Full Changelog](https://github.com/mozilla/application-services/compare/v93.1.0...v93.2.0)
