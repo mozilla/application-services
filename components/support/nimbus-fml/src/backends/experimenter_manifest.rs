@@ -2,7 +2,7 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-use std::collections::BTreeMap;
+use std::collections::{BTreeMap, BTreeSet};
 use std::fmt::Display;
 
 use serde::{Deserialize, Serialize};
@@ -37,7 +37,7 @@ pub(crate) struct ExperimenterFeatureProperty {
 
     #[serde(rename = "enum")]
     #[serde(skip_serializing_if = "Option::is_none")]
-    variants: Option<Vec<String>>,
+    variants: Option<BTreeSet<String>>,
 }
 
 impl TryFrom<FeatureManifest> for ExperimenterManifest {
@@ -77,16 +77,14 @@ impl FeatureManifest {
 
             let yaml_prop = if let TypeRef::Enum(e) = prop.typ() {
                 let enum_def = self
-                    .enum_defs
-                    .iter()
-                    .find(|enum_def| e == enum_def.name)
+                    .find_enum(&e)
                     .ok_or(FMLError::InternalError("Found enum with no definition"))?;
 
                 let variants = enum_def
                     .variants
                     .iter()
                     .map(|variant| variant.name())
-                    .collect::<Vec<String>>();
+                    .collect::<BTreeSet<String>>();
 
                 ExperimenterFeatureProperty {
                     variants: Some(variants),
