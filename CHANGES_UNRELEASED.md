@@ -2,6 +2,8 @@
 
 # Unreleased Changes
 
+No changes compared to v93.2.0, we're just cutting a release to fix a build pipeline issue.
+
 [Full Changelog](https://github.com/mozilla/application-services/compare/v93.2.0...main)
 
 <!-- WARNING: New entries should be added below this comment to ensure the `./automation/prepare-release.py` script works as expected.
