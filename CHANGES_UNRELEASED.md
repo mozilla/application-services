@@ -30,8 +30,17 @@ Use the template below to make assigning a version number during the release cut
     - `JsonObject` alias for `string`
   - Non of the exposed types conflict with a type in iOS so this is not a breaking change.
 
-### Nimbus ⛅️🔬🔭
+## Nimbus ⛅️🔬🔭
 
 ### What's new
 
 - Make generation of Experimenter compatible YAML repeatable: fields, variables, features and enum variants are listed alphabetically. ([#4964](https://github.com/mozilla/application-services/pull/4964)).
+
+## Tabs
+### What's Changed
+
+- The component has been updated for integration into Firefox iOS ([#4905](https://github.com/mozilla/application-services/pull/4905)).
+  - The `DeviceType` naming conflict which prevented `rust-components-swift` from generating Tabs code has been resolved.
+  - Errors and the `reset` function have been exposed.
+  - Parameters for the `sync` function have been updated to match the `SyncUnlockInfo` parameters.
+  - The `tabs-sync` example has been updated with the above changes.
