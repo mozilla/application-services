@@ -198,14 +198,7 @@ they're passing.
 
 ## Distribute your component with `rust-components-swift`
 
-To distribute your component with `rust-components-swift` follow the following steps:
-1. Add logic for dynamically generating any swift code to the [`generate.sh` script in the `rust-components-swift` repo](https://github.com/mozilla/rust-components-swift/blob/main/generate.sh). You can use that script to:
+To distribute your component with `rust-components-swift`, you need to add logic for dynamically generating any swift code to the [`generate.sh` script in the `rust-components-swift` repo](https://github.com/mozilla/rust-components-swift/blob/main/generate.sh). You can use that script to:
     - Generate `uniffi` bindings
     - Generate `Glean` metrics
     - Copy over any handwritten code
-
-1. Edit the [`Package.swift` in the `rust-components-swift` repo](https://github.com/mozilla/rust-components-swift/blob/main/Package.swift) to add the new component
-    - Add a new library product for the component under `products`
-    - Add a corresponding target for the component under `targets`
-        - Make sure it depends on `MozillaRustComponentsWrapper` to pull in pre-compiled Rust Code, and any third-party Swift Packages it requires.
-

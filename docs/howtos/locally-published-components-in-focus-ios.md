@@ -15,39 +15,41 @@ Below are more detailed instructions for each step
 To build the [xcframework](https://developer.apple.com/documentation/swift_packages/distributing_binary_frameworks_as_swift_packages) do the following:
 1. In a local checkout of `application-services`, navigate to [`megazords/ios-rust/`](https://github.com/mozilla/application-services/tree/main/megazords/ios-rust)
 1. Run the `build-xcframework.sh` script: 
-        ```sh
-        ./build-xcframework.sh
-        ```
-        This will produce a file name `MozillaRustComponents.xcframework.zip` that contains the following, built for all our target iOS platforms.
-        - The compiled Rust code for all the crates listed in `Cargo.toml` as a static library
-        - The C header files and [Swift module maps](https://clang.llvm.org/docs/Modules.html) for the components
+```bash
+$ ./build-xcframework.sh --focus
+```
+
+This will produce a file name `FocusRustComponents.xcframework.zip` in the `focus` directory that contains the following, built for all our target iOS platforms.
+- The compiled Rust code for all the crates listed in `Cargo.toml` as a static library
+- The C header files and [Swift module maps](https://clang.llvm.org/docs/Modules.html) for the components
 
 ## Include the xcframework in a local checkout of `rust-components-swift`
-After you generated the `MozillaRustComponents.xcframework.zip` in the previous step, do the following to include it in a local checkout of `rust-components-swift`:
+After you generated the `FocusRustComponents.xcframework.zip` in the previous step, do the following to include it in a local checkout of `rust-components-swift`:
 1. clone a local checkout of `rust-components-swift`, **not** inside the `application-services` repository:
     ```sh
     git clone https://github.com/mozilla/rust-components.swift.git
     ```
-1. Unzip the `MozillaRustComponents.xcframework.zip` into the `rust-components-swift` repository: (Assuming you are in the root of the `rust-components-swift` directory and `application-services` is a neighbor directory)
+1. Unzip the `FocusRustComponents.xcframework.zip` into the `rust-components-swift` repository: (Assuming you are in the root of the `rust-components-swift` directory and `application-services` is a neighbor directory)
     ```sh
-     unzip  ../application-services/megazords/ios-rust/MozillaRustComponents.xcframework.zip -d .
+     unzip -o ../application-services/megazords/ios-rust/focus/FocusRustComponents.xcframework.zip -d .
     ```
-1. Change the `Package.swift`'s reference to the xcframework to point to unzipped folder. You can do this by uncommenting the following line:
+1. Change the `Package.swift`'s reference to the xcframework to point to the unzipped `FocusRustComponents.xcframework` that was created in the previous step. You can do this by uncommenting the following line:
     ```swift
-        path: "./MozillaRustComponents.xcframework"
+        path: "./FocusRustComponents.xcframework"
     ```
     and commenting out the following lines:
     ```swift
-        url: url,
-        checksum: checksum,
+        url: focusUrl,
+        checksum: focusChecksum,
     ```
 
-## Run the make-tag script with a local checkout of application services
-For this step, run the following script from inside the `rust-components-swift` repository (assuming that `application-services` is a neighboring directory to `rust-components-swift`). Change the `X.Y.Z` to be a valid semver version, for example: `0.0.101`
+## Run the generation script with a local checkout of application services
+For this step, run the following script from inside the `rust-components-swift` repository (assuming that `application-services` is a neighboring directory to `rust-components-swift`).
+
 ```sh
-./make_tag.sh -l ../application-services X.Y.Z
+./generate.sh ../application-services
 ```
-Once that is done, your local checkout will now have a git tag `X.Y.Z` that can be pointed to by Xcode
+Once that is done, **stage and commit** the changes the script ran. Xcode can only pick up committed changes.
 
 ## Include the local checkout of `rust-components-swift` in `Focus`
 This is the final step to include your local changes into `Focus`. Do the following steps:
@@ -60,10 +62,11 @@ This is the final step to include your local changes into `Focus`. Do the follow
 1. Add a new swift package by clicking the `+`:
 
     1. On the top right, enter the full path to your `rust-components-swift` checkout, preceded by `file://`. If you don't know what that is, run `pwd` in while in `rust-components-swift`. For example: `file:///Users/tarikeshaq/code/rust-components-swift`
-    1. Change the version to be an exact version and equal the `X.Y.Z` version you set in the previous step. For example, if I ran `./make_tag -l ../application-services 0.0.101`, then my version would be `0.0.101`. This is what the dialog should look like:
-    ![Dialog for including the `rust-components-swift` package](./img/xcode-package-include.png)
+    1. Change the branch to be the checked-out branch of rust-component-swift you have locally. This is what the dialog should look like:
+    ![Dialog for including the `rust-components-swift` package](./img/xcode-include-packages-focus-ios.png)
     1. Click `Add Package`
-    1. Now include the packages you would like to include, at the time of the writing of this doc, the packages to include in `Focus` are `Nimbus`, `Viaduct` and `RustLog`.
+    1. Now include the `FocusAppServices` library.
+    > Note: If Xcode prevents you from adding the dependency to reference a local package, you will need to manually modify the `Blockzilla.xcodeproj/project.pbxproj` and replace every occurrence of `https://github.com/mozilla/rust-components-swift` with the full path to your local checkout.
 1. Finally, attempt to build focus, and if all goes well it should launch  with your code. If you face any problems, feel free to [contact us](../index.md#contact-us)
 
 
