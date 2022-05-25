@@ -170,5 +170,11 @@ fn read_local_state() -> Vec<RemoteTabRecord> {
 fn read_local_state() -> Vec<RemoteTabRecord> {
     println!("This module is build without the `clipboard` feature, so we can't");
     println!("read the local state.");
-    vec![]
+    println!("Instead, we'll write one dummy tab:");
+    vec![RemoteTabRecord {
+        title: "Mozilla".to_string(),
+        url_history: vec!["https://www.mozilla.org".to_string()],
+        icon: None,
+        last_used: 0,
+    }]
 }
