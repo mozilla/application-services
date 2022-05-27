@@ -33,6 +33,10 @@ open class TabsStorage {
     }
 
     open func sync(unlockInfo: SyncUnlockInfo) throws -> String {
+        guard let tabsLocalId = unlockInfo.tabsLocalId else {
+            throw TabsError.MissingLocalIdError(message: "tabs local ID was not provided")
+        }
+
         return try queue.sync {
             return try self.store
                 .sync(
@@ -40,7 +44,7 @@ open class TabsStorage {
                     accessToken: unlockInfo.fxaAccessToken,
                     syncKey: unlockInfo.syncKey,
                     tokenserverUrl: unlockInfo.tokenserverURL,
-                    localId: unlockInfo.tabsLocalId
+                    localId: tabsLocalId
                 )
         }
     }

@@ -13,6 +13,9 @@ pub enum TabsError {
     #[error("Error parsing JSON data: {0}")]
     JsonError(#[from] serde_json::Error),
 
+    #[error("Missing SyncUnlockInfo Local ID")]
+    MissingLocalIdError,
+
     #[error("Error parsing URL: {0}")]
     UrlParseError(#[from] url::ParseError),
 
