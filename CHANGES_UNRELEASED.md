@@ -2,7 +2,7 @@
 
 # Unreleased Changes
 
-[Full Changelog](https://github.com/mozilla/application-services/compare/v93.2.1...main)
+[Full Changelog](https://github.com/mozilla/application-services/compare/v93.2.2...main)
 
 <!-- WARNING: New entries should be added below this comment to ensure the `./automation/prepare-release.py` script works as expected.
 
@@ -18,8 +18,3 @@ Use the template below to make assigning a version number during the release cut
   - Description of the change with a link to the pull request ([#0000](https://github.com/mozilla/application-services/pull/0000))
 
 -->
-
-## Tabs
-### What's Changed
-
-- Fixed the iOS breaking change in the `SyncUnlockInfo` constructor by making `tabsLocalId` an optional parameter ([#4975](https://github.com/mozilla/application-services/pull/4975)).

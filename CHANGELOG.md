@@ -1,3 +1,12 @@
+# v93.2.2 (_2022-05-27_)
+
+[Full Changelog](https://github.com/mozilla/application-services/compare/v93.2.1...v93.2.2)
+
+## Tabs
+### What's Changed
+
+- Fixed the iOS breaking change in the `SyncUnlockInfo` constructor by making `tabsLocalId` an optional parameter ([#4975](https://github.com/mozilla/application-services/pull/4975)).
+
 # v93.2.1 (_2022-05-24_)
 
 [Full Changelog](https://github.com/mozilla/application-services/compare/v93.2.0...v93.2.1)
