@@ -603,6 +603,9 @@ impl Parser {
         Ok(Parser { manifest })
     }
 
+    // This method loads a manifest, including resolving the includes and merging the included files
+    // into this top level one.
+    // It recursively calls itself and then calls `merge_manifest`.
     fn load_manifest(files: &FileLoader, path: &FilePath) -> Result<ManifestFrontEnd> {
         let s = files.read_to_string(path)?;
         let parent = serde_yaml::from_str::<ManifestFrontEnd>(&s)?;
@@ -619,15 +622,13 @@ impl Parser {
             })
     }
 
+    // Attempts to merge two manifests: a child into a parent.
+    // The `child_path` is needed to report errors.
     fn merge_manifest(
         parent: ManifestFrontEnd,
         child_path: &dyn Display,
         child: ManifestFrontEnd,
     ) -> Result<ManifestFrontEnd> {
-        // TODO child must not have a class name
-        // This will become important when `imports` start becoming a thing.
-        // `include`d files all end in the same generated file.
-
         // child must not have any channels.
         if !child.channels.is_empty() {
             return Err(FMLError::ValidationError(
