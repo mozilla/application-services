@@ -12,9 +12,9 @@ open class SyncUnlockInfo {
     public var syncKey: String
     public var tokenserverURL: String
     public var loginEncryptionKey: String
-    public var tabsLocalId: String
+    public var tabsLocalId: String?
 
-    public init(kid: String, fxaAccessToken: String, syncKey: String, tokenserverURL: String, loginEncryptionKey: String, tabsLocalId: String) {
+    public init(kid: String, fxaAccessToken: String, syncKey: String, tokenserverURL: String, loginEncryptionKey: String, tabsLocalId: String? = nil) {
         self.kid = kid
         self.fxaAccessToken = fxaAccessToken
         self.syncKey = syncKey
