@@ -22,7 +22,7 @@ sync15 = { path = "../sync15" }
 thiserror = "1.0"
 uniffi = "^0.18"
 uniffi_macros = "^0.18"
-url = "2.2"
+url = "2.1" # mozilla-central can't yet take 2.2 (see bug 1734538)
 
 [dev-dependencies]
 tempfile = "3.1"
