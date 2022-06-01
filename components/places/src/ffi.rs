@@ -23,6 +23,7 @@ use crate::ConnectionType;
 use crate::VisitObservation;
 use crate::VisitTransition;
 use crate::{PlacesApi, PlacesDb};
+use error_support::report_error;
 use interrupt_support::{register_interrupt, SqlInterruptHandle};
 use parking_lot::Mutex;
 use std::sync::Arc;
@@ -398,7 +399,18 @@ impl PlacesConnection {
     // sync metadata to only sync after most recent visit to prevent
     // further syncing of older data
     fn delete_everything_history(&self) -> Result<()> {
-        self.with_conn(history::delete_everything)
+        // Do some extra work to track down #4856
+        let conn = self.db.lock();
+        let result = history::delete_everything(&conn);
+        if let Err(e) = &result {
+            if matches!(
+                e.kind(),
+                crate::error::ErrorKind::SqlError(rusqlite::Error::QueryReturnedNoRows)
+            ) {
+                report_error!("SqlErrorQueryReturnedNoRows", "{}", e);
+            }
+        }
+        Ok(result?)
     }
 
     // XXX - This just calls wipe_local under the hood...

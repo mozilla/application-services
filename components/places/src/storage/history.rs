@@ -16,6 +16,7 @@ use crate::storage::{
     delete_meta, delete_pending_temp_tables, get_meta, history_metadata, put_meta,
 };
 use crate::types::{SyncStatus, VisitTransition, VisitTransitionSet};
+use error_support::breadcrumb;
 use rusqlite::types::ToSql;
 use rusqlite::Result as RusqliteResult;
 use rusqlite::Row;
@@ -351,6 +352,8 @@ fn insert_tombstone_for_page(db: &PlacesDb, guid: &SyncGuid) -> Result<()> {
 /// Deletes a page. Note that this throws a constraint violation if the page is
 /// bookmarked, or has a keyword or tags.
 fn delete_page(db: &PlacesDb, page_id: RowId) -> Result<()> {
+    // breadcrumb to track down #4856
+    breadcrumb!("delete places page: {}", page_id);
     db.execute_cached(
         "DELETE FROM moz_places
          WHERE id = :page_id",
@@ -407,6 +410,8 @@ pub fn wipe_local(db: &PlacesDb) -> Result<()> {
 
 fn wipe_local_in_tx(db: &PlacesDb) -> Result<()> {
     use crate::frecency::DEFAULT_FRECENCY_SETTINGS;
+    // breadcrumb to track down #4856
+    breadcrumb!("places: wipe_local_in_tx");
     db.execute_all(&[
         "DELETE FROM moz_places WHERE foreign_count == 0",
         "DELETE FROM moz_places_metadata",
@@ -442,7 +447,10 @@ fn wipe_local_in_tx(db: &PlacesDb) -> Result<()> {
     Ok(())
 }
 
+#[allow(unreachable_code)]
 pub fn delete_everything(db: &PlacesDb) -> Result<()> {
+    // breadcrumb to track down #4856
+    breadcrumb!("places history delete_everything: starting transaction");
     let tx = db.begin_transaction()?;
 
     // Remote visits could have a higher date than `now` if our clock is weird.
@@ -466,6 +474,8 @@ pub fn delete_everything(db: &PlacesDb) -> Result<()> {
     reset_in_tx(db, &EngineSyncAssociation::Disconnected)?;
 
     tx.commit()?;
+    // breadcrumb to track down #4856
+    breadcrumb!("places history delete_everything: ending transaction");
 
     // Note: SQLite cannot VACUUM within a transaction.
     db.execute_batch("VACUUM")?;
@@ -634,6 +644,8 @@ impl PageToClean {
 /// are no more foreign keys such as bookmarks) or updating
 /// their frecency.
 fn cleanup_pages(db: &PlacesDb, pages: &[PageToClean]) -> Result<()> {
+    // breadcrumb to track down #4856
+    breadcrumb!("places cleanup_pages()");
     // desktop does this frecency work using a function in a single sql
     // statement - we should see if we can do that too.
     let frec_ids = pages
@@ -952,6 +964,8 @@ pub mod history_sync {
     }
 
     pub fn apply_synced_deletion(db: &PlacesDb, guid: &SyncGuid) -> Result<()> {
+        // breadcrumb to track down #4856
+        breadcrumb!("places apply_synced_deletion: {}", guid);
         db.execute_cached(
             "DELETE FROM moz_places WHERE guid = :guid",
             &[(":guid", guid)],
