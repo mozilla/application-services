@@ -5,6 +5,7 @@
 use crate::error::*;
 use crate::types::{ServiceStatus, SyncEngineSelection, SyncParams, SyncReason, SyncResult};
 use crate::{reset, reset_all, wipe};
+use error_support::breadcrumb;
 use parking_lot::Mutex;
 use std::collections::{HashMap, HashSet};
 use std::convert::TryFrom;
@@ -63,6 +64,7 @@ impl SyncManager {
 
     /// Disconnect engines from sync, deleting/resetting the sync-related data
     pub fn disconnect(&self) {
+        breadcrumb!("SyncManager disconnect()");
         for engine_id in SyncEngineId::iter() {
             if let Some(engine) = Self::get_engine(&engine_id) {
                 if let Err(e) = engine.reset(&EngineSyncAssociation::Disconnected) {
@@ -76,14 +78,15 @@ impl SyncManager {
 
     /// Perform a sync.  See [SyncParams] and [SyncResult] for details on how this works
     pub fn sync(&self, params: SyncParams) -> Result<SyncResult> {
+        breadcrumb!("SyncManager::sync started");
         let mut state = self.mem_cached_state.lock();
         let engines = self.calc_engines_to_sync(&params.engines)?;
         let next_sync_after = state.as_ref().and_then(|mcs| mcs.get_next_sync_after());
-        if !backoff_in_effect(next_sync_after, &params) {
+        let result = if !backoff_in_effect(next_sync_after, &params) {
             log::info!("No backoff in effect (or we decided to ignore it), starting sync");
             self.do_sync(params, &mut state, engines)
         } else {
-            log::warn!(
+            breadcrumb!(
                 "Backoff still in effect (until {:?}), bailing out early",
                 next_sync_after
             );
@@ -97,7 +100,9 @@ impl SyncManager {
                 // It would be nice to record telemetry here.
                 telemetry_json: None,
             })
-        }
+        };
+        breadcrumb!("SyncManager sync ended");
+        result
     }
 
     fn do_sync(
@@ -198,7 +203,7 @@ impl SyncManager {
         selection: &SyncEngineSelection,
     ) -> Result<Vec<Box<dyn SyncEngine>>> {
         let mut engine_map: HashMap<_, _> = self.iter_registered_engines().collect();
-        log::trace!(
+        breadcrumb!(
             "Checking engines requested ({:?}) vs local engines ({:?})",
             selection,
             engine_map

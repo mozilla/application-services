@@ -3382,6 +3382,7 @@ version = "0.1.0"
 dependencies = [
  "anyhow",
  "autofill",
+ "error-support",
  "interrupt-support",
  "lazy_static",
  "log",
