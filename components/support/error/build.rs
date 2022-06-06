@@ -4,5 +4,6 @@
  */
 
 fn main() {
+    #[cfg(feature = "reporting")]
     uniffi_build::generate_scaffolding("./src/errorsupport.udl").unwrap();
 }

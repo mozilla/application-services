@@ -3,7 +3,6 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
 mod macros;
-mod reporting;
 
 #[cfg(feature = "backtrace")]
 /// Re-export of the `backtrace` crate for use in macros and
@@ -25,6 +24,9 @@ pub mod backtrace {
     }
 }
 
+#[cfg(feature = "reporting")]
+mod reporting;
+#[cfg(feature = "reporting")]
 pub use reporting::{
     report_breadcrumb, report_error, set_application_error_reporter, ApplicationErrorReporter,
 };
@@ -147,4 +149,5 @@ macro_rules! define_error {
     };
 }
 
+#[cfg(feature = "reporting")]
 uniffi_macros::include_scaffolding!("errorsupport");
