@@ -1,3 +1,13 @@
+# v93.3.0 (_2022-06-06_)
+
+[Full Changelog](https://github.com/mozilla/application-services/compare/v93.2.2...v93.3.0)
+
+## Error-support
+### What's New
+  - Added a new error reporting system that is intended to eventually replace using `log::error` to report errors
+  - Added code using the new system to track down application-services#4856
+  - Added UniFFI API for this crate.  Consumers should use this to register for error reports and breadcrumbs.
+
 # v93.2.2 (_2022-05-27_)
 
 [Full Changelog](https://github.com/mozilla/application-services/compare/v93.2.1...v93.2.2)
