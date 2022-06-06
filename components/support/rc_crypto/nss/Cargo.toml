@@ -9,7 +9,7 @@ license = "MPL-2.0"
 crate-type = ["lib"]
 
 [dependencies]
-base64 = "0.12"
+base64 = "0.13"
 thiserror = "1.0"
 error-support = { path = "../../error" }
 nss_sys = { path = "nss_sys" }

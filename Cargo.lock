@@ -1206,7 +1206,7 @@ name = "fxa-client"
 version = "0.1.0"
 dependencies = [
  "anyhow",
- "base64 0.12.3",
+ "base64 0.13.0",
  "error-support",
  "hex",
  "jwcrypto",
@@ -1667,7 +1667,7 @@ dependencies = [
 name = "jwcrypto"
 version = "0.1.0"
 dependencies = [
- "base64 0.12.3",
+ "base64 0.13.0",
  "rc_crypto",
  "serde",
  "serde_derive",
@@ -2111,7 +2111,7 @@ dependencies = [
 name = "nss"
 version = "0.1.0"
 dependencies = [
- "base64 0.12.3",
+ "base64 0.13.0",
  "error-support",
  "nss_sys",
  "serde",
@@ -2704,7 +2704,7 @@ dependencies = [
 name = "push"
 version = "0.1.0"
 dependencies = [
- "base64 0.12.3",
+ "base64 0.13.0",
  "bincode",
  "env_logger 0.8.4",
  "hex",
@@ -3332,7 +3332,7 @@ dependencies = [
 name = "sync-guid"
 version = "0.1.0"
 dependencies = [
- "base64 0.12.3",
+ "base64 0.13.0",
  "rand",
  "rusqlite",
  "serde",
@@ -3345,7 +3345,7 @@ version = "0.1.0"
 dependencies = [
  "anyhow",
  "base16",
- "base64 0.12.3",
+ "base64 0.13.0",
  "env_logger 0.7.1",
  "error-support",
  "ffi-support",
