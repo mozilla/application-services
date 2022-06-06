@@ -82,6 +82,9 @@ For iOS consumers the corresponding steps are:
     * CircleCI config contains a github token (owned by the @appsvc-moz GitHub account) with appropriate permissions to add release artifacts.
 6. Consumers add Application services as a dependency from the [Rust Components Swift](https://github.com/mozilla/rust-components-swift/) repo using Apple's Swift Package Manager.
 
+For consuming in mozilla-central, see [how to vendor components into mozilla-central
+](./howtos/vendoring-into-mozilla-central.md)
+
 
 This is a diagram of the pipeline as it exists (and is planned) for the Nimbus SDK, one of the
 libraries in Application Services:

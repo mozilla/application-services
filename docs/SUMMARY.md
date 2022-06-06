@@ -15,6 +15,7 @@
     - [Naming Conventions](naming-conventions.md)
     - [How to convert a Rust Component to Uniffi](howtos/converting-a-component-to-uniffi.md)
     - [How to use Rust Components in Android](android-faqs.md)
+  - [How to vendor application-services into mozilla-central](howtos/vendoring-into-mozilla-central.md)
   - [Logging](logging.md)
 - [Architectural Decision Records](adr/README.md)
   - [ADR-0000](adr/0000-use-markdown-architectural-decision-records.md)
