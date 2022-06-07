@@ -8,8 +8,9 @@ includes:
   - ios_search.yaml
 features:
   nimbus-validation:
-    description: "A feature that does not correspond to an application feature suitable for showing
-    that Nimbus is working."
+    description: >
+      A feature that does not correspond to an application feature suitable for showing
+      that Nimbus is working.
     variables:
       settings-title:
         description: The title of displayed in the Settings screen and app menu.

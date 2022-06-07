@@ -588,6 +588,23 @@ fn get_typeref_from_string(
     };
 }
 
+#[derive(Debug, Clone, Hash, PartialEq, Eq)]
+struct FileId {
+    id: String,
+}
+
+impl TryFrom<&FilePath> for FileId {
+    type Error = FMLError;
+
+    fn try_from(value: &FilePath) -> Result<Self, Self::Error> {
+        let id = match value {
+            FilePath::Local(p) => p.canonicalize()?.display().to_string(),
+            FilePath::Remote(u) => u.to_string(),
+        };
+        Ok(FileId { id })
+    }
+}
+
 #[derive(Debug)]
 pub struct Parser {
     manifest: ManifestFrontEnd,
@@ -598,7 +615,7 @@ impl Parser {
         let source: FilePath = path.into();
         let files = FileLoader::default()?;
 
-        let manifest = Parser::load_manifest(&files, &source)?;
+        let manifest = Parser::load_manifest(&files, &source, &mut HashSet::new())?;
 
         Ok(Parser { manifest })
     }
@@ -606,19 +623,28 @@ impl Parser {
     // This method loads a manifest, including resolving the includes and merging the included files
     // into this top level one.
     // It recursively calls itself and then calls `merge_manifest`.
-    fn load_manifest(files: &FileLoader, path: &FilePath) -> Result<ManifestFrontEnd> {
+    fn load_manifest(
+        files: &FileLoader,
+        path: &FilePath,
+        loading: &mut HashSet<FileId>,
+    ) -> Result<ManifestFrontEnd> {
         let s = files.read_to_string(path)?;
         let parent = serde_yaml::from_str::<ManifestFrontEnd>(&s)?;
+        loading.insert(path.try_into()?);
         parent
             .includes
             .clone()
             .iter()
             .fold(Ok(parent), |parent: Result<ManifestFrontEnd>, f| {
                 let src_path = files.join(path, f)?;
-                let manifest = Parser::load_manifest(files, &src_path)?;
-
-                let merged = Parser::merge_manifest(parent?, &src_path, manifest)?;
-                Ok(merged)
+                let parent = parent?;
+                let id = FileId::try_from(&src_path)?;
+                Ok(if !loading.contains(&id) {
+                    let manifest = Parser::load_manifest(files, &src_path, loading)?;
+                    Parser::merge_manifest(parent, &src_path, manifest)?
+                } else {
+                    parent
+                })
             })
     }
 
@@ -632,12 +658,24 @@ impl Parser {
         check_can_merge_manifest(&parent, &child, child_path)?;
 
         // Child must not specify any features, objects or enums that the parent has.
-        let features = merge_map(&parent.features, &child.features, "Features", "features", child_path)?;
+        let features = merge_map(
+            &parent.features,
+            &child.features,
+            "Features",
+            "features",
+            child_path,
+        )?;
 
         let p_types = &parent.legacy_types.unwrap_or(parent.types);
         let c_types = &child.legacy_types.unwrap_or(child.types);
 
-        let objects = merge_map(&c_types.objects, &p_types.objects, "Objects", "objects", child_path)?;
+        let objects = merge_map(
+            &c_types.objects,
+            &p_types.objects,
+            "Objects",
+            "objects",
+            child_path,
+        )?;
         let enums = merge_map(&c_types.enums, &p_types.enums, "Enums", "enums", child_path)?;
 
         let merged = ManifestFrontEnd {
@@ -673,14 +711,24 @@ impl Parser {
     }
 }
 
-fn check_can_merge_manifest(parent: &ManifestFrontEnd, child: &ManifestFrontEnd, child_path: &dyn Display) -> Result<()> {
+fn check_can_merge_manifest(
+    parent: &ManifestFrontEnd,
+    child: &ManifestFrontEnd,
+    child_path: &dyn Display,
+) -> Result<()> {
     if !child.channels.is_empty() {
         let child = &child.channels;
-        let child = child.into_iter().collect::<HashSet<&String>>();
+        let child = child.iter().collect::<HashSet<&String>>();
         let parent = &parent.channels;
-        let parent = parent.into_iter().collect::<HashSet<&String>>();
+        let parent = parent.iter().collect::<HashSet<&String>>();
         if !child.is_subset(&parent) {
-            return Err(FMLError::ValidationError("channels".to_string(), format!("Included manifest should not define its own channels: {}", child_path)));
+            return Err(FMLError::ValidationError(
+                "channels".to_string(),
+                format!(
+                    "Included manifest should not define its own channels: {}",
+                    child_path
+                ),
+            ));
         }
     }
 
@@ -701,7 +749,7 @@ fn merge_map<T: Clone>(
     let mut map = b.clone();
 
     for (k, v) in a {
-        if b.contains_key(k) {
+        if map.contains_key(k) {
             set.insert(k.clone());
         } else {
             map.insert(k.clone(), v.clone());
@@ -715,8 +763,7 @@ fn merge_map<T: Clone>(
             format!("{}/{:?}", key, set),
             format!(
                 "{} cannot be defined twice, overloaded definition detected at {}",
-                display_key,
-                child_path,
+                display_key, child_path,
             ),
         ))
     }
@@ -734,7 +781,7 @@ struct DefaultBlock {
 #[cfg(test)]
 mod unit_tests {
 
-    use std::vec;
+    use std::{path::PathBuf, vec};
 
     use super::*;
     use crate::{
@@ -2025,6 +2072,57 @@ mod unit_tests {
                 typ: TypeRef::String,
             }]
         );
+        Ok(())
+    }
+
+    #[test]
+    fn test_include_check_can_merge_manifest() -> Result<()> {
+        let parent = ManifestFrontEnd {
+            channels: vec!["alice".to_string(), "bob".to_string()],
+            ..Default::default()
+        };
+        let child = ManifestFrontEnd {
+            channels: vec!["alice".to_string(), "bob".to_string()],
+            ..Default::default()
+        };
+
+        assert!(check_can_merge_manifest(&parent, &child, &"expected_ok".to_string()).is_ok());
+
+        let child = ManifestFrontEnd {
+            channels: vec!["eve".to_string()],
+            ..Default::default()
+        };
+
+        assert!(check_can_merge_manifest(&parent, &child, &"expected_err".to_string()).is_err());
+
+        Ok(())
+    }
+
+    #[test]
+    fn test_include_circular_includes() -> Result<()> {
+        use crate::util::pkg_dir;
+        // snake.yaml includes tail.yaml, which includes snake.yaml
+        let path = PathBuf::from(pkg_dir()).join("fixtures/fe/including/circular/snake.yaml");
+
+        let parser = Parser::new(&path);
+        assert!(parser.is_ok());
+
+        Ok(())
+    }
+
+    #[test]
+    fn test_include_deeply_nested_includes() -> Result<()> {
+        use crate::util::pkg_dir;
+        // Deeply nested includes, which start at 00-head.yaml, and then recursively includes all the
+        // way down to 06-toe.yaml
+        let path = PathBuf::from(pkg_dir()).join("fixtures/fe/including/deep/00-head.yaml");
+
+        let parser = Parser::new(&path);
+        assert!(parser.is_ok());
+
+        let ir = parser?.get_intermediate_representation("release")?;
+        assert_eq!(ir.feature_defs.len(), 1);
+
         Ok(())
     }
 }

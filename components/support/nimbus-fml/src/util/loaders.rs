@@ -1,7 +1,10 @@
 /* This Source Code Form is subject to the terms of the Mozilla Public
 * License, v. 2.0. If a copy of the MPL was not distributed with this
 * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
-use crate::{error::{FMLError, Result}, SUPPORT_URL_LOADING};
+use crate::{
+    error::{FMLError, Result},
+    SUPPORT_URL_LOADING,
+};
 
 use reqwest::blocking::{Client, ClientBuilder};
 use std::{
@@ -31,7 +34,11 @@ impl FilePath {
             return Ok(FilePath::Remote(Url::parse(file)?));
         }
         Ok(match self {
-            FilePath::Local(p) => Self::Local(p.parent().expect("a file within a parent directory").join(file)),
+            FilePath::Local(p) => Self::Local(
+                p.parent()
+                    .expect("a file within a parent directory")
+                    .join(file),
+            ),
             FilePath::Remote(u) => Self::Remote(u.join(file)?),
         })
     }
@@ -39,10 +46,14 @@ impl FilePath {
 
 impl Display for FilePath {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "{}", match self {
-            FilePath::Local(p) => p.display().to_string(),
-            FilePath::Remote(u) => u.to_string(),
-        })
+        write!(
+            f,
+            "{}",
+            match self {
+                FilePath::Local(p) => p.display().to_string(),
+                FilePath::Remote(u) => u.to_string(),
+            }
+        )
     }
 }
 

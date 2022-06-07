@@ -1,0 +1,8 @@
+---
+channels:
+  - release
+  - beta
+  - nightly
+includes:
+  - snake.yaml
+  - tail.yaml
