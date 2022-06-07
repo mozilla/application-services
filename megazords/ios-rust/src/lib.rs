@@ -8,7 +8,6 @@
 pub use autofill;
 pub use crashtest;
 pub use fxa_client;
-pub use glean_ffi;
 pub use logins;
 pub use nimbus;
 pub use places;
