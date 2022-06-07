@@ -1,7 +1,7 @@
 /* This Source Code Form is subject to the terms of the Mozilla Public
 * License, v. 2.0. If a copy of the MPL was not distributed with this
 * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
-use crate::error::{FMLError, Result};
+use crate::{error::{FMLError, Result}, SUPPORT_URL_LOADING};
 
 use reqwest::blocking::{Client, ClientBuilder};
 use std::{
@@ -31,7 +31,7 @@ impl FilePath {
             return Ok(FilePath::Remote(Url::parse(file)?));
         }
         Ok(match self {
-            FilePath::Local(p) => Self::Local(p.parent().unwrap().join(file)),
+            FilePath::Local(p) => Self::Local(p.parent().expect("a file within a parent directory").join(file)),
             FilePath::Remote(u) => Self::Remote(u.join(file)?),
         })
     }
@@ -39,10 +39,10 @@ impl FilePath {
 
 impl Display for FilePath {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        match self {
-            FilePath::Local(p) => p.display().fmt(f),
-            FilePath::Remote(u) => std::fmt::Display::fmt(&u, f),
-        }
+        write!(f, "{}", match self {
+            FilePath::Local(p) => p.display().to_string(),
+            FilePath::Remote(u) => u.to_string(),
+        })
     }
 }
 
@@ -122,6 +122,9 @@ impl FileLoader {
     }
 
     fn fetch_and_cache(&self, url: &Url) -> Result<String> {
+        if !SUPPORT_URL_LOADING {
+            unimplemented!("Loading manifests from URLs is not yet supported ({})", url);
+        }
         let path_buf = self.create_cache_path_buf(url);
         Ok(if path_buf.exists() {
             std::fs::read_to_string(path_buf)?
@@ -135,6 +138,9 @@ impl FileLoader {
     }
 
     fn create_cache_path_buf(&self, url: &Url) -> PathBuf {
+        // Method to look after the cache directory.
+        // We can organize this how we want: in this case we use a flat structure
+        // with a hash of the URL as a prefix of the directory.
         let mut hasher = DefaultHasher::new();
         url.hash(&mut hasher);
         let checksum = hasher.finish();
@@ -142,6 +148,8 @@ impl FileLoader {
             Some(segments) => segments.last().unwrap_or("unknown.txt"),
             None => "unknown.txt",
         };
+        // Take the last 16 bytes of the hash to make sure our prefixes are still random, but
+        // not crazily long.
         let filename = format!("{:x}_{}", (checksum & 0x000000000000FFFF) as u16, filename,);
         self.cache_dir.join(filename)
     }
@@ -215,22 +223,22 @@ mod unit_tests {
         // But there's no easy way to get this (because symlinks).
         // This is most likely the correct thing for us to do.
         // We put this test here for documentation purposes, and to
-        // highlight that with URLs, ../ and ./ do what youj might
+        // highlight that with URLs, ../ and ./ do what you might
         // expect.
         assert!(obs.to_string().ends_with("foo/./bam.txt"));
 
         let obs = obs.join("https://example.com/foo/bar.txt")?;
         assert!(matches!(obs, FilePath::Remote(_)));
-        assert!(obs.to_string().ends_with("example.com/foo/bar.txt"));
+        assert_eq!(obs.to_string(), "https://example.com/foo/bar.txt");
 
         let obs = obs.join("baz.txt")?;
-        assert!(obs.to_string().ends_with("example.com/foo/baz.txt"));
+        assert_eq!(obs.to_string(), "https://example.com/foo/baz.txt");
 
         let obs = obs.join("./bam.txt")?;
-        assert!(obs.to_string().ends_with("example.com/foo/bam.txt"));
+        assert_eq!(obs.to_string(), "https://example.com/foo/bam.txt");
 
         let obs = obs.join("../brum/bram.txt")?;
-        assert!(obs.to_string().ends_with("example.com/brum/bram.txt"));
+        assert_eq!(obs.to_string(), "https://example.com/brum/bram.txt");
 
         Ok(())
     }
@@ -261,7 +269,6 @@ mod unit_tests {
         assert_eq!(
             obs.to_string(),
             "https://raw.githubusercontent.com/mozilla/application-services/main/a/file.txt"
-                .to_string()
         );
 
         let obs = loader.join(&fp, "@repos/url/a/file.txt")?;

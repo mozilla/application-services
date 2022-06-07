@@ -626,76 +626,19 @@ impl Parser {
     // The `child_path` is needed to report errors.
     fn merge_manifest(
         parent: ManifestFrontEnd,
-        child_path: &dyn Display,
+        child_path: &FilePath,
         child: ManifestFrontEnd,
     ) -> Result<ManifestFrontEnd> {
-        // child must not have any channels.
-        if !child.channels.is_empty() {
-            return Err(FMLError::ValidationError(
-                "channels".to_string(),
-                format!(
-                    "Included file {} cannot have its own `channels`",
-                    child_path
-                ),
-            ));
-        }
+        check_can_merge_manifest(&parent, &child, child_path)?;
 
-        fn clean_merge<T: Clone>(
-            a: &HashMap<String, T>,
-            b: &HashMap<String, T>,
-        ) -> (HashMap<String, T>, HashSet<String>) {
-            let mut set = HashSet::new();
-
-            let (a, b) = if a.len() < b.len() { (a, b) } else { (b, a) };
-
-            let mut map = b.clone();
-
-            for (k, v) in a {
-                if b.contains_key(k) {
-                    set.insert(k.clone());
-                } else {
-                    map.insert(k.clone(), v.clone());
-                }
-            }
-            (map, set)
-        }
-
-        // child must not specify any features, objects or enums that the parent has.
-        let (features, common) = clean_merge(&parent.features, &child.features);
-        if !common.is_empty() {
-            return Err(FMLError::ValidationError(
-                format!("features/{:?}", common),
-                format!(
-                    "Features cannot be defined twice, overloaded definition detected at {}",
-                    child_path
-                ),
-            ));
-        }
+        // Child must not specify any features, objects or enums that the parent has.
+        let features = merge_map(&parent.features, &child.features, "Features", "features", child_path)?;
 
         let p_types = &parent.legacy_types.unwrap_or(parent.types);
         let c_types = &child.legacy_types.unwrap_or(child.types);
 
-        let (objects, common) = clean_merge(&c_types.objects, &p_types.objects);
-        if !common.is_empty() {
-            return Err(FMLError::ValidationError(
-                format!("objects/{:?}", common),
-                format!(
-                    "Object types cannot be defined twice, overloaded definition detected at {}",
-                    child_path
-                ),
-            ));
-        }
-
-        let (enums, common) = clean_merge(&c_types.enums, &p_types.enums);
-        if !common.is_empty() {
-            return Err(FMLError::ValidationError(
-                format!("enums/{:?}", common),
-                format!(
-                    "Enum types cannot be defined twice, overloaded definition detected at {}",
-                    child_path
-                ),
-            ));
-        }
+        let objects = merge_map(&c_types.objects, &p_types.objects, "Objects", "objects", child_path)?;
+        let enums = merge_map(&c_types.enums, &p_types.enums, "Enums", "enums", child_path)?;
 
         let merged = ManifestFrontEnd {
             features,
@@ -727,6 +670,55 @@ impl Parser {
             hints: HashMap::new(),
             feature_defs: features,
         })
+    }
+}
+
+fn check_can_merge_manifest(parent: &ManifestFrontEnd, child: &ManifestFrontEnd, child_path: &dyn Display) -> Result<()> {
+    if !child.channels.is_empty() {
+        let child = &child.channels;
+        let child = child.into_iter().collect::<HashSet<&String>>();
+        let parent = &parent.channels;
+        let parent = parent.into_iter().collect::<HashSet<&String>>();
+        if !child.is_subset(&parent) {
+            return Err(FMLError::ValidationError("channels".to_string(), format!("Included manifest should not define its own channels: {}", child_path)));
+        }
+    }
+
+    Ok(())
+}
+
+fn merge_map<T: Clone>(
+    a: &HashMap<String, T>,
+    b: &HashMap<String, T>,
+    display_key: &str,
+    key: &str,
+    child_path: &FilePath,
+) -> Result<HashMap<String, T>> {
+    let mut set = HashSet::new();
+
+    let (a, b) = if a.len() < b.len() { (a, b) } else { (b, a) };
+
+    let mut map = b.clone();
+
+    for (k, v) in a {
+        if b.contains_key(k) {
+            set.insert(k.clone());
+        } else {
+            map.insert(k.clone(), v.clone());
+        }
+    }
+
+    if set.is_empty() {
+        Ok(map)
+    } else {
+        Err(FMLError::ValidationError(
+            format!("{}/{:?}", key, set),
+            format!(
+                "{} cannot be defined twice, overloaded definition detected at {}",
+                display_key,
+                child_path,
+            ),
+        ))
     }
 }
 
