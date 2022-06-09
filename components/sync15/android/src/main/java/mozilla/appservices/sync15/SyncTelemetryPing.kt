@@ -78,18 +78,24 @@ data class SyncTelemetryPing(
         result.put("version", version)
         result.put("uid", uid)
         if (!events.isEmpty()) {
-            result.put("events", JSONArray().apply {
-                events.forEach {
-                    put(it.toJSON())
+            result.put(
+                "events",
+                JSONArray().apply {
+                    events.forEach {
+                        put(it.toJSON())
+                    }
                 }
-            })
+            )
         }
         if (!syncs.isEmpty()) {
-            result.put("syncs", JSONArray().apply {
-                syncs.forEach {
-                    put(it.toJSON())
+            result.put(
+                "syncs",
+                JSONArray().apply {
+                    syncs.forEach {
+                        put(it.toJSON())
+                    }
                 }
-            })
+            )
         }
         return result
     }
@@ -137,11 +143,14 @@ data class SyncInfo(
             result.put("took", took)
         }
         if (!engines.isEmpty()) {
-            result.put("engines", JSONArray().apply {
-                engines.forEach {
-                    put(it.toJSON())
+            result.put(
+                "engines",
+                JSONArray().apply {
+                    engines.forEach {
+                        put(it.toJSON())
+                    }
                 }
-            })
+            )
         }
         failureReason?.let {
             result.put("failureReason", it.toJSON())
@@ -212,11 +221,14 @@ data class EngineInfo(
             result.put("incoming", it.toJSON())
         }
         if (!outgoing.isEmpty()) {
-            result.put("outgoing", JSONArray().apply {
-                outgoing.forEach {
-                    put(it.toJSON())
+            result.put(
+                "outgoing",
+                JSONArray().apply {
+                    outgoing.forEach {
+                        put(it.toJSON())
+                    }
                 }
-            })
+            )
         }
         failureReason?.let {
             result.put("failureReason", it.toJSON())
@@ -325,11 +337,14 @@ data class ValidationInfo(
         val result = JSONObject()
         result.put("version", version)
         if (!problems.isEmpty()) {
-            result.put("problems", JSONArray().apply {
-                problems.forEach {
-                    put(it.toJSON())
+            result.put(
+                "problems",
+                JSONArray().apply {
+                    problems.forEach {
+                        put(it.toJSON())
+                    }
                 }
-            })
+            )
         }
         failureReason?.let {
             result.put("failueReason", it.toJSON())

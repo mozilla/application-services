@@ -1,15 +1,15 @@
 package mozilla.appservices.push
 
 import mozilla.appservices.Megazord
+import org.junit.Assert.assertEquals
+import org.junit.Assert.fail
+import org.junit.Before
+import org.junit.Rule
+import org.junit.Test
 import org.junit.rules.TemporaryFolder
 import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
 import org.robolectric.annotation.Config
-import org.junit.Before
-import org.junit.Rule
-import org.junit.Test
-import org.junit.Assert.assertEquals
-import org.junit.Assert.fail
 import java.nio.charset.Charset
 
 @RunWith(RobolectricTestRunner::class)
@@ -28,37 +28,37 @@ class PushTest {
     }
 
     protected val private_key_raw = "MHcCAQEEIKiZMcVhlVccuwSr62jWN4YPBrPmPKotJUWl1id0d2ifoAoGCCq" +
-            "GSM49AwEHoUQDQgAEFwl1-zUa0zLKYVO23LqUgZZEVesS0k_jQN_SA69ENHgPwIpWCoTq-VhHu0JiSwhF0o" +
-            "PUzEM-FBWYoufO6J97nQ"
+        "GSM49AwEHoUQDQgAEFwl1-zUa0zLKYVO23LqUgZZEVesS0k_jQN_SA69ENHgPwIpWCoTq-VhHu0JiSwhF0o" +
+        "PUzEM-FBWYoufO6J97nQ"
     protected val auth_raw = "LsuUOBKVQRY6-l7_Ajo-Ag"
     protected val public_key_raw = "BBcJdfs1GtMyymFTtty6lIGWRFXrEtJP40Df0gOvRDR4D8CKVgqE6vlYR7tC" +
-            "YksIRdKD1MxDPhQVmKLnzuife50"
+        "YksIRdKD1MxDPhQVmKLnzuife50"
 
     // This is the older, but still used message encryption format.
     // this does not use mock calls.
     protected val aesgcmBlock = hashMapOf(
-            "body" to "BNKu5uTFhjyS-06eECU9-6O61int3Rr7ARbm-xPhFuyDO5sfxVs-HywGaVonvzkarvfvXE9IR" +
-                    "T_YNA81Og2uSqDasdMuwqm1zd0O3f7049IkQep3RJ2pEZTy5DqvI7kwMLDLzea9nroq3EMH5hYh" +
-                    "vQtQgtKXeWieEL_3yVDQVg",
-            "dh" to "dh=BMOebOMWSRisAhWpRK9ZPszJC8BL9MiWvLZBoBU6pG6Kh6vUFSW4BHFMh0b83xCg3_7IgfQZ" +
-                    "XwmVuyu27vwiv5c",
-            "salt" to "salt=tSf2qu43C9BD0zkvRW5eUg",
-            "enc" to "aesgcm"
+        "body" to "BNKu5uTFhjyS-06eECU9-6O61int3Rr7ARbm-xPhFuyDO5sfxVs-HywGaVonvzkarvfvXE9IR" +
+            "T_YNA81Og2uSqDasdMuwqm1zd0O3f7049IkQep3RJ2pEZTy5DqvI7kwMLDLzea9nroq3EMH5hYh" +
+            "vQtQgtKXeWieEL_3yVDQVg",
+        "dh" to "dh=BMOebOMWSRisAhWpRK9ZPszJC8BL9MiWvLZBoBU6pG6Kh6vUFSW4BHFMh0b83xCg3_7IgfQZ" +
+            "XwmVuyu27vwiv5c",
+        "salt" to "salt=tSf2qu43C9BD0zkvRW5eUg",
+        "enc" to "aesgcm"
     )
 
     // This is the offical WebPush encryption format.
     // this does not use mock calls.
     protected val aes128gcmBlock = hashMapOf(
-            "body" to "Ek7iQgliMqS9kjFoiVOqRgAAEABBBFirfBtF6XTeHVPABFDveb1iu7uO1XVA_MYJeAo-4ih8W" +
-                    "YUsXSTIYmkKMv5_UB3tZuQI7BQ2EVpYYQfvOCrWZVMRL8fJCuB5wVXcoRoTaFJwTlJ5hnw6IMSi" +
-                    "aMqGVlc8drX7Hzy-ugzzAKRhGPV2x-gdsp58DZh9Ww5vHpHyT1xwVkXzx3KTyeBZu4gl_zR0Q00" +
-                    "li17g0xGsE6Dg3xlkKEmaalgyUyObl6_a8RA6Ko1Rc6RhAy2jdyY1LQbBUnA",
-            "dh" to "",
-            "salt" to "",
-            "enc" to "aes128gcm"
+        "body" to "Ek7iQgliMqS9kjFoiVOqRgAAEABBBFirfBtF6XTeHVPABFDveb1iu7uO1XVA_MYJeAo-4ih8W" +
+            "YUsXSTIYmkKMv5_UB3tZuQI7BQ2EVpYYQfvOCrWZVMRL8fJCuB5wVXcoRoTaFJwTlJ5hnw6IMSi" +
+            "aMqGVlc8drX7Hzy-ugzzAKRhGPV2x-gdsp58DZh9Ww5vHpHyT1xwVkXzx3KTyeBZu4gl_zR0Q00" +
+            "li17g0xGsE6Dg3xlkKEmaalgyUyObl6_a8RA6Ko1Rc6RhAy2jdyY1LQbBUnA",
+        "dh" to "",
+        "salt" to "",
+        "enc" to "aes128gcm"
     )
     protected val plaintext = "Amidst the mists and coldest frosts I thrust my fists against the" +
-            "\nposts and still demand to see the ghosts.\n\n"
+        "\nposts and still demand to see the ghosts.\n\n"
 
     protected val testChannelid = "deadbeef00000000decafbad00000000"
 
@@ -72,13 +72,13 @@ class PushTest {
     protected val mockSenderId = "test"
 
     protected val vapidPubKey = "BBCcCWavxjfIyW6NRhqclO9IZj9oW1gFKUBSgwcigfNcpXSfRk5JQTOcahMLjzO" +
-            "1bkHMoiw4b6L7YTyF8foLEEU"
+        "1bkHMoiw4b6L7YTyF8foLEEU"
 
     protected fun getPushManager(): PushManager {
         val pm = PushManager(
-                senderId = mockSenderId,
-                bridgeType = BridgeType.TEST,
-                databasePath = dbFile
+            senderId = mockSenderId,
+            bridgeType = BridgeType.TEST,
+            databasePath = dbFile
         )
         pm.update("TestRegistrationId")
         return pm
@@ -142,11 +142,11 @@ class PushTest {
 
         // These values should come from the delivered message content.
         val result = manager.decrypt(
-                channelId = testChannelid,
-                body = aesgcmBlock["body"].toString(),
-                encoding = aesgcmBlock["enc"].toString(),
-                salt = aesgcmBlock["salt"].toString(),
-                dh = aesgcmBlock["dh"].toString()
+            channelId = testChannelid,
+            body = aesgcmBlock["body"].toString(),
+            encoding = aesgcmBlock["enc"].toString(),
+            salt = aesgcmBlock["salt"].toString(),
+            dh = aesgcmBlock["dh"].toString()
         ).toByteArray()
         val sresult = result.toString(Charset.forName("UTF-8"))
         assertEquals("Result", plaintext, sresult)
@@ -176,11 +176,11 @@ class PushTest {
         // call this to set the (hardcoded) test key and auth
         manager.subscribe(testChannelid, "foo")
         val result = manager.decrypt(
-                channelId = testChannelid,
-                body = aes128gcmBlock["body"].toString(),
-                encoding = aes128gcmBlock["enc"].toString(),
-                salt = aes128gcmBlock["salt"].toString(),
-                dh = aes128gcmBlock["dh"].toString()
+            channelId = testChannelid,
+            body = aes128gcmBlock["body"].toString(),
+            encoding = aes128gcmBlock["enc"].toString(),
+            salt = aes128gcmBlock["salt"].toString(),
+            dh = aes128gcmBlock["dh"].toString()
         ).toByteArray()
         val sresult = result.toString(Charset.forName("UTF-8"))
         assertEquals("Result", plaintext, sresult)
@@ -195,8 +195,10 @@ class PushTest {
         assertEquals("ChannelID Check", testChannelid, subscriptionResponse.channelId)
         assertEquals("Auth Check", auth_raw, subscriptionResponse.subscriptionInfo.keys.auth)
         assertEquals("p256 Check", public_key_raw, subscriptionResponse.subscriptionInfo.keys.p256dh)
-        assertEquals("endpoint Check", "http://push.example.com/test/opaque",
-            subscriptionResponse.subscriptionInfo.endpoint)
+        assertEquals(
+            "endpoint Check", "http://push.example.com/test/opaque",
+            subscriptionResponse.subscriptionInfo.endpoint
+        )
     }
 
     @Test

@@ -22,9 +22,11 @@ class FeatureVariablesTest {
 
     @Test
     fun `test values coerce into simple types`() {
-        val json = JSONObject("""
+        val json = JSONObject(
+            """
             {"stringVariable": "string", "intVariable": 3, "booleanVariable": true}
-        """.trimIndent())
+            """.trimIndent()
+        )
 
         val variables: Variables = JSONVariables(context, json)
 
@@ -35,9 +37,11 @@ class FeatureVariablesTest {
 
     @Test
     fun `test values are null if the wrong type`() {
-        val json = JSONObject("""
+        val json = JSONObject(
+            """
             {"stringVariable": "string", "intVariable": 3, "booleanVariable": true}
-        """.trimIndent())
+            """.trimIndent()
+        )
 
         val variables: Variables = JSONVariables(context, json)
 
@@ -54,7 +58,8 @@ class FeatureVariablesTest {
 
     @Test
     fun `test nested values are make another variables object`() {
-        val json = JSONObject("""
+        val json = JSONObject(
+            """
             {
                 "inner": {
                     "stringVariable": "string",
@@ -63,7 +68,8 @@ class FeatureVariablesTest {
                 },
                 "really-a-string": "a string"
             }
-        """.trimIndent())
+            """.trimIndent()
+        )
 
         val outer: Variables = JSONVariables(context, json)
 
@@ -80,13 +86,15 @@ class FeatureVariablesTest {
 
     @Test
     fun `test arrays of strings`() {
-        val json = JSONObject("""
+        val json = JSONObject(
+            """
             {
                 "empty": [],
                 "all-strings": ["x", "y", "z"],
                 "some-strings": [1, true, "one", "two", false, 0, [], {}]
             }
-        """.trimIndent())
+            """.trimIndent()
+        )
 
         val outer: Variables = JSONVariables(context, json)
 
@@ -97,13 +105,15 @@ class FeatureVariablesTest {
 
     @Test
     fun `test map of strings to raw type (int)`() {
-        val json = JSONObject("""
+        val json = JSONObject(
+            """
             {
                 "empty": {},
                 "all-strings": {"one": 1, "two": 2},
                 "some-strings": {"one": 1, "two": 2, "three": "not at int", "four": true}
             }
-        """.trimIndent())
+            """.trimIndent()
+        )
 
         val outer = JSONVariables(context, json)
 
@@ -114,13 +124,15 @@ class FeatureVariablesTest {
 
     @Test
     fun `test map of strings to raw type (strings)`() {
-        val json = JSONObject("""
+        val json = JSONObject(
+            """
             {
                 "empty": {},
                 "all-strings": {"one": "ONE", "two": "TWO"},
                 "some-strings": {"one": 1, "two": 2, "three": "THREE", "four": true}
             }
-        """.trimIndent())
+            """.trimIndent()
+        )
 
         val outer = JSONVariables(context, json)
 
@@ -131,13 +143,15 @@ class FeatureVariablesTest {
 
     @Test
     fun `test map of strings to raw type (bool)`() {
-        val json = JSONObject("""
+        val json = JSONObject(
+            """
             {
                 "empty": {},
                 "all-bools": {"one": true, "two": false},
                 "some-bools": {"one": 1, "two": 2, "three": "THREE", "four": true}
             }
-        """.trimIndent())
+            """.trimIndent()
+        )
 
         val outer = JSONVariables(context, json)
 
@@ -148,13 +162,15 @@ class FeatureVariablesTest {
 
     @Test
     fun `test transforming enum keys and values`() {
-        val json = JSONObject("""
+        val json = JSONObject(
+            """
             {
                 "num-bools": {"one": true, "two": false},
                 "string-num": {"one": "one", "two": "two", "three": "three"},
                 "some-nums": ["one", "one", "two", "three"]
             }
-        """.trimIndent())
+            """.trimIndent()
+        )
 
         val variables: Variables = JSONVariables(context, json)
 
@@ -181,7 +197,8 @@ class FeatureVariablesTest {
 
     @Test
     fun `test ordering of menu items`() {
-        val json = JSONObject("""
+        val json = JSONObject(
+            """
             {
                 "items": {
                     "settings": {
@@ -202,7 +219,8 @@ class FeatureVariablesTest {
                 },
                 "item-order": ["settings", "history", "addBookmark", "bookmarks", "open_bad_site"]
             }
-        """.trimIndent())
+            """.trimIndent()
+        )
 
         val variables: Variables = JSONVariables(context, json)
 

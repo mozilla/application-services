@@ -6,19 +6,19 @@ package mozilla.appservices.places
 import androidx.test.core.app.ApplicationProvider
 import kotlinx.coroutines.runBlocking
 import mozilla.appservices.Megazord
+import mozilla.appservices.places.uniffi.BookmarkItem
 import mozilla.appservices.places.uniffi.DocumentType
+import mozilla.appservices.places.uniffi.FrecencyThresholdOption
+import mozilla.appservices.places.uniffi.PlacesException
 import mozilla.appservices.places.uniffi.VisitObservation
 import mozilla.appservices.places.uniffi.VisitTransition
-import mozilla.appservices.places.uniffi.FrecencyThresholdOption
 import mozilla.appservices.syncmanager.SyncManager
-import mozilla.appservices.places.uniffi.PlacesException
-import mozilla.appservices.places.uniffi.BookmarkItem
 import mozilla.telemetry.glean.testing.GleanTestRule
 import org.junit.After
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
-import org.junit.Assert.assertFalse
 import org.junit.Assert.fail
 import org.junit.Before
 import org.junit.Rule
@@ -187,28 +187,36 @@ class PlacesConnectionTest {
 
     @Test
     fun testObservingPreviewImage() {
-        db.noteObservation(VisitObservation(
-            url = "https://www.example.com/0",
-            visitType = VisitTransition.LINK)
+        db.noteObservation(
+            VisitObservation(
+                url = "https://www.example.com/0",
+                visitType = VisitTransition.LINK
+            )
         )
 
-        db.noteObservation(VisitObservation(
-            url = "https://www.example.com/1",
-            visitType = VisitTransition.LINK)
+        db.noteObservation(
+            VisitObservation(
+                url = "https://www.example.com/1",
+                visitType = VisitTransition.LINK
+            )
         )
 
         // Can change preview image.
-        db.noteObservation(VisitObservation(
-            url = "https://www.example.com/1",
-            visitType = VisitTransition.LINK,
-            previewImageUrl = "https://www.example.com/1/previewImage.png")
+        db.noteObservation(
+            VisitObservation(
+                url = "https://www.example.com/1",
+                visitType = VisitTransition.LINK,
+                previewImageUrl = "https://www.example.com/1/previewImage.png"
+            )
         )
 
         // Can make an initial observation with the preview image.
-        db.noteObservation(VisitObservation(
-            url = "https://www.example.com/2",
-            visitType = VisitTransition.LINK,
-            previewImageUrl = "https://www.example.com/2/previewImage.png")
+        db.noteObservation(
+            VisitObservation(
+                url = "https://www.example.com/2",
+                visitType = VisitTransition.LINK,
+                previewImageUrl = "https://www.example.com/2/previewImage.png"
+            )
         )
 
         val all = db.getVisitInfos(0)

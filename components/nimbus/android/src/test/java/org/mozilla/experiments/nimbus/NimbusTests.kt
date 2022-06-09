@@ -12,9 +12,9 @@ import kotlinx.coroutines.asCoroutineDispatcher
 import mozilla.telemetry.glean.BuildInfo
 import mozilla.telemetry.glean.Glean
 import mozilla.telemetry.glean.config.Configuration
-import mozilla.telemetry.glean.testing.GleanTestRule
-import mozilla.telemetry.glean.net.PingUploader
 import mozilla.telemetry.glean.net.HttpStatus
+import mozilla.telemetry.glean.net.PingUploader
+import mozilla.telemetry.glean.testing.GleanTestRule
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertNull
@@ -29,8 +29,8 @@ import org.mozilla.experiments.nimbus.GleanMetrics.NimbusEvents
 import org.mozilla.experiments.nimbus.internal.EnrollmentChangeEvent
 import org.mozilla.experiments.nimbus.internal.EnrollmentChangeEventType
 import org.robolectric.RobolectricTestRunner
-import java.util.concurrent.Executors
 import java.util.Calendar
+import java.util.concurrent.Executors
 
 @RunWith(RobolectricTestRunner::class)
 class NimbusTests {

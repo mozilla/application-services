@@ -60,23 +60,23 @@ object RustHttpConfig {
             headers.append(h.key, h.value)
         }
         return Request(
-                url = request.url,
-                method = convertMethod(request.method),
-                headers = headers,
-                connectTimeout = Pair(request.connectTimeoutSecs.toLong(), TimeUnit.SECONDS),
-                readTimeout = Pair(request.readTimeoutSecs.toLong(), TimeUnit.SECONDS),
-                body = if (request.hasBody()) {
-                    Request.Body(request.body.newInput())
-                } else {
-                    null
-                },
-                redirect = if (request.followRedirects) {
-                    Request.Redirect.FOLLOW
-                } else {
-                    Request.Redirect.MANUAL
-                },
-                cookiePolicy = Request.CookiePolicy.OMIT,
-                useCaches = request.useCaches
+            url = request.url,
+            method = convertMethod(request.method),
+            headers = headers,
+            connectTimeout = Pair(request.connectTimeoutSecs.toLong(), TimeUnit.SECONDS),
+            readTimeout = Pair(request.readTimeoutSecs.toLong(), TimeUnit.SECONDS),
+            body = if (request.hasBody()) {
+                Request.Body(request.body.newInput())
+            } else {
+                null
+            },
+            redirect = if (request.followRedirects) {
+                Request.Redirect.FOLLOW
+            } else {
+                Request.Redirect.MANUAL
+            },
+            cookiePolicy = Request.CookiePolicy.OMIT,
+            useCaches = request.useCaches
         )
     }
 
@@ -90,11 +90,13 @@ object RustHttpConfig {
                     // we wouldn't have yet initialized
                     val resp = client!!.value.fetch(convertRequest(request))
                     val rb = MsgTypes.Response.newBuilder()
-                            .setUrl(resp.url)
-                            .setStatus(resp.status)
-                            .setBody(resp.body.useStream {
+                        .setUrl(resp.url)
+                        .setStatus(resp.status)
+                        .setBody(
+                            resp.body.useStream {
                                 ByteString.readFrom(it)
-                            })
+                            }
+                        )
 
                     for (h in resp.headers) {
                         rb.putHeaders(h.name, h.value)

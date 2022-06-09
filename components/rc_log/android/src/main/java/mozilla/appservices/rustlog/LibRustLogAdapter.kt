@@ -4,8 +4,8 @@
 
 package mozilla.appservices.rustlog
 
-import com.sun.jna.Library
 import com.sun.jna.Callback
+import com.sun.jna.Library
 import com.sun.jna.Pointer
 import com.sun.jna.PointerType
 import mozilla.appservices.support.native.loadIndirect

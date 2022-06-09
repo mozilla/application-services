@@ -83,7 +83,8 @@ class GleanPlumbTests {
         val context = JSONObject(
             """{
                     "test_value_from_json": 42
-                }""".trimIndent()
+                }
+            """.trimIndent()
         )
 
         assertThrows("no context, so no variable", NimbusException::class.java) {
@@ -116,7 +117,8 @@ class GleanPlumbTests {
         val context = JSONObject(
             """{
                     "test_string": "foobar"
-                }""".trimIndent()
+                }
+            """.trimIndent()
         )
 
         val helper = nimbus.createMessageHelper(context)

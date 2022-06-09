@@ -28,17 +28,20 @@ class PersistedFirefoxAccount(inner: FirefoxAccount, persistCallback: PersistCal
      * This does not make network requests, and can be used on the main thread.
      *
      */
-    constructor(config: Config, persistCallback: PersistCallback? = null) : this(FirefoxAccount(
-        // This is kind of dumb - we take a Config object on the Kotlin side, destructure it into its fields
-        // to pass over the FFI, then the Rust side turns it back into its own variant of a Config object!
-        // That made sense when we had to write the FFI layer by hand, but we should see whether we can nicely
-        // expose the Rust Config interface to Kotlin and Swift and then just accept a Config here in the
-        // underlying `FirefoxAccount` constructor.
-        config.contentUrl,
-        config.clientId,
-        config.redirectUri,
-        config.tokenServerUrlOverride
-    ), persistCallback) {
+    constructor(config: Config, persistCallback: PersistCallback? = null) : this(
+        FirefoxAccount(
+            // This is kind of dumb - we take a Config object on the Kotlin side, destructure it into its fields
+            // to pass over the FFI, then the Rust side turns it back into its own variant of a Config object!
+            // That made sense when we had to write the FFI layer by hand, but we should see whether we can nicely
+            // expose the Rust Config interface to Kotlin and Swift and then just accept a Config here in the
+            // underlying `FirefoxAccount` constructor.
+            config.contentUrl,
+            config.clientId,
+            config.redirectUri,
+            config.tokenServerUrlOverride
+        ),
+        persistCallback
+    ) {
         // Persist the newly created instance state.
         this.tryPersistState()
     }

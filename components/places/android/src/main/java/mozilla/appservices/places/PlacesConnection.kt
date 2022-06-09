@@ -4,35 +4,35 @@
 
 package mozilla.appservices.places
 
+import mozilla.appservices.places.uniffi.BookmarkItem
 import mozilla.appservices.places.uniffi.BookmarkPosition
+import mozilla.appservices.places.uniffi.BookmarkUpdateInfo
 import mozilla.appservices.places.uniffi.ConnectionType
 import mozilla.appservices.places.uniffi.DocumentType
 import mozilla.appservices.places.uniffi.FrecencyThresholdOption
-import mozilla.appservices.places.uniffi.PlacesException
 import mozilla.appservices.places.uniffi.HistoryHighlight
 import mozilla.appservices.places.uniffi.HistoryHighlightWeights
 import mozilla.appservices.places.uniffi.HistoryMetadata
 import mozilla.appservices.places.uniffi.HistoryMetadataObservation
-import mozilla.appservices.places.uniffi.TopFrecentSiteInfo
-import mozilla.appservices.places.uniffi.PlacesApi as UniffiPlacesApi
-import mozilla.appservices.places.uniffi.PlacesConnection as UniffiPlacesConnection
-import mozilla.appservices.places.uniffi.placesApiNew
-import mozilla.appservices.places.uniffi.VisitObservation
 import mozilla.appservices.places.uniffi.HistoryVisitInfo
 import mozilla.appservices.places.uniffi.HistoryVisitInfosWithBound
-import mozilla.appservices.places.uniffi.SearchResult
-import mozilla.appservices.places.uniffi.SqlInterruptHandle
-import mozilla.appservices.places.uniffi.BookmarkItem
 import mozilla.appservices.places.uniffi.InsertableBookmark
 import mozilla.appservices.places.uniffi.InsertableBookmarkFolder
 import mozilla.appservices.places.uniffi.InsertableBookmarkItem
 import mozilla.appservices.places.uniffi.InsertableBookmarkSeparator
-import mozilla.appservices.places.uniffi.BookmarkUpdateInfo
+import mozilla.appservices.places.uniffi.PlacesException
+import mozilla.appservices.places.uniffi.SearchResult
+import mozilla.appservices.places.uniffi.SqlInterruptHandle
+import mozilla.appservices.places.uniffi.TopFrecentSiteInfo
+import mozilla.appservices.places.uniffi.VisitObservation
+import mozilla.appservices.places.uniffi.placesApiNew
 import mozilla.appservices.sync15.SyncTelemetryPing
 import mozilla.telemetry.glean.private.CounterMetricType
 import mozilla.telemetry.glean.private.LabeledMetricType
 import org.json.JSONObject
 import java.lang.ref.WeakReference
+import mozilla.appservices.places.uniffi.PlacesApi as UniffiPlacesApi
+import mozilla.appservices.places.uniffi.PlacesConnection as UniffiPlacesConnection
 import org.mozilla.appservices.places.GleanMetrics.PlacesManager as PlacesManagerMetrics
 
 typealias Url = String
@@ -87,21 +87,21 @@ class PlacesApi(path: String) : PlacesManager, AutoCloseable {
 
     override fun syncHistory(syncInfo: SyncAuthInfo): SyncTelemetryPing {
         val pingJSONString = this.api.historySync(
-                syncInfo.kid,
-                syncInfo.fxaAccessToken,
-                syncInfo.syncKey,
-                syncInfo.tokenserverURL
-            )
+            syncInfo.kid,
+            syncInfo.fxaAccessToken,
+            syncInfo.syncKey,
+            syncInfo.tokenserverURL
+        )
         return SyncTelemetryPing.fromJSONString(pingJSONString)
     }
 
     override fun syncBookmarks(syncInfo: SyncAuthInfo): SyncTelemetryPing {
         val pingJSONString = this.api.bookmarksSync(
-                syncInfo.kid,
-                syncInfo.fxaAccessToken,
-                syncInfo.syncKey,
-                syncInfo.tokenserverURL
-            )
+            syncInfo.kid,
+            syncInfo.fxaAccessToken,
+            syncInfo.syncKey,
+            syncInfo.tokenserverURL
+        )
         return SyncTelemetryPing.fromJSONString(pingJSONString)
     }
 

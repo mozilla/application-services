@@ -29,9 +29,9 @@ import org.mozilla.experiments.nimbus.internal.EnrolledExperiment
 import org.mozilla.experiments.nimbus.internal.EnrollmentChangeEvent
 import org.mozilla.experiments.nimbus.internal.EnrollmentChangeEventType
 import org.mozilla.experiments.nimbus.internal.ExperimentBranch
-import org.mozilla.experiments.nimbus.internal.NimbusException
 import org.mozilla.experiments.nimbus.internal.NimbusClient
 import org.mozilla.experiments.nimbus.internal.NimbusClientInterface
+import org.mozilla.experiments.nimbus.internal.NimbusException
 import org.mozilla.experiments.nimbus.internal.RemoteSettingsConfig
 import java.io.File
 
@@ -373,9 +373,11 @@ open class Nimbus(
         try {
             nimbusClient.getFeatureConfigVariables(featureId)?.let { JSONObject(it) }
         } catch (e: NimbusException.DatabaseNotReady) {
-            NimbusHealth.cacheNotReadyForFeature.record(NimbusHealth.CacheNotReadyForFeatureExtra(
-                featureId = featureId
-            ))
+            NimbusHealth.cacheNotReadyForFeature.record(
+                NimbusHealth.CacheNotReadyForFeatureExtra(
+                    featureId = featureId
+                )
+            )
             null
         } catch (e: Throwable) {
             reportError(e)
@@ -402,7 +404,7 @@ open class Nimbus(
             }
             JSONVariables(context, json)
         }
-        ?: NullVariables.instance
+            ?: NullVariables.instance
 
     @WorkerThread
     override fun getExperimentBranches(experimentId: String): List<Branch>? = withCatchAll {
@@ -576,25 +578,31 @@ open class Nimbus(
         enrollmentChangeEvents.forEach { event ->
             when (event.change) {
                 EnrollmentChangeEventType.ENROLLMENT -> {
-                    NimbusEvents.enrollment.record(NimbusEvents.EnrollmentExtra(
-                        experiment = event.experimentSlug,
-                        branch = event.branchSlug,
-                        enrollmentId = event.enrollmentId
-                    ))
+                    NimbusEvents.enrollment.record(
+                        NimbusEvents.EnrollmentExtra(
+                            experiment = event.experimentSlug,
+                            branch = event.branchSlug,
+                            enrollmentId = event.enrollmentId
+                        )
+                    )
                 }
                 EnrollmentChangeEventType.DISQUALIFICATION -> {
-                    NimbusEvents.disqualification.record(NimbusEvents.DisqualificationExtra(
-                        experiment = event.experimentSlug,
-                        branch = event.branchSlug,
-                        enrollmentId = event.enrollmentId
-                    ))
+                    NimbusEvents.disqualification.record(
+                        NimbusEvents.DisqualificationExtra(
+                            experiment = event.experimentSlug,
+                            branch = event.branchSlug,
+                            enrollmentId = event.enrollmentId
+                        )
+                    )
                 }
                 EnrollmentChangeEventType.UNENROLLMENT -> {
-                    NimbusEvents.unenrollment.record(NimbusEvents.UnenrollmentExtra(
-                        experiment = event.experimentSlug,
-                        branch = event.branchSlug,
-                        enrollmentId = event.enrollmentId
-                    ))
+                    NimbusEvents.unenrollment.record(
+                        NimbusEvents.UnenrollmentExtra(
+                            experiment = event.experimentSlug,
+                            branch = event.branchSlug,
+                            enrollmentId = event.enrollmentId
+                        )
+                    )
                 }
             }
         }
@@ -614,11 +622,13 @@ open class Nimbus(
     internal fun recordExposureOnThisThread(featureId: String) = withCatchAll {
         val activeExperiments = getActiveExperiments()
         activeExperiments.find { it.featureIds.contains(featureId) }?.also { experiment ->
-            NimbusEvents.exposure.record(NimbusEvents.ExposureExtra(
-                experiment = experiment.slug,
-                branch = experiment.branchSlug,
-                enrollmentId = experiment.enrollmentId
-            ))
+            NimbusEvents.exposure.record(
+                NimbusEvents.ExposureExtra(
+                    experiment = experiment.slug,
+                    branch = experiment.branchSlug,
+                    enrollmentId = experiment.enrollmentId
+                )
+            )
         }
     }
 
@@ -648,6 +658,7 @@ open class Nimbus(
             osVersion = Build.VERSION.RELEASE,
             installationDate = packageInfo?.firstInstallTime,
             homeDirectory = context.applicationInfo?.dataDir,
-            customTargetingAttributes = appInfo.customTargetingAttributes)
+            customTargetingAttributes = appInfo.customTargetingAttributes
+        )
     }
 }

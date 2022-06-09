@@ -4,18 +4,9 @@
 
 package mozilla.appservices.logins
 
-import org.mozilla.appservices.logins.GleanMetrics.LoginsStore as LoginsStoreMetrics
-
-/**
- * Import some private Glean types, so that we can use them in type declarations.
- *
- * I do not like importing these private classes, but I do like the nice generic
- * code they allow me to write! By agreement with the Glean team, we must not
- * instantiate anything from these classes, and it's on us to fix any bustage
- * on version updates.
- */
 import mozilla.telemetry.glean.private.CounterMetricType
 import mozilla.telemetry.glean.private.LabeledMetricType
+import org.mozilla.appservices.logins.GleanMetrics.LoginsStore as LoginsStoreMetrics
 
 /**
  * An artifact of the uniffi conversion - a thin-ish wrapper around a

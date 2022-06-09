@@ -468,7 +468,8 @@ private inline fun <reified T> JSONObject.asMap(): Map<String, T>? {
 class NullVariables : Variables {
     override val context: Context
         get() = this._context
-            ?: throw NimbusFeatureException("""
+            ?: throw NimbusFeatureException(
+                """
                 Nimbus hasn't been initialized yet.
 
                 Calling NullVariables.instance.setContext(context) earlier in the app startup will

@@ -5,10 +5,10 @@
 package org.mozilla.experiments.nimbus.internal
 
 import android.content.Context
-import org.mozilla.experiments.nimbus.GleanMetrics.NimbusHealth
 import org.mozilla.experiments.nimbus.FeaturesInterface
-import org.mozilla.experiments.nimbus.Variables
+import org.mozilla.experiments.nimbus.GleanMetrics.NimbusHealth
 import org.mozilla.experiments.nimbus.NullVariables
+import org.mozilla.experiments.nimbus.Variables
 import java.util.concurrent.locks.ReentrantLock
 
 /**
@@ -47,9 +47,11 @@ class FeatureHolder<T>(
                 cachedValue!!
             } else {
                 val variables = getSdk()?.getVariables(featureId, false) ?: run {
-                    NimbusHealth.sdkUnavailableForFeature.record(NimbusHealth.SdkUnavailableForFeatureExtra(
-                        featureId = featureId
-                    ))
+                    NimbusHealth.sdkUnavailableForFeature.record(
+                        NimbusHealth.SdkUnavailableForFeatureExtra(
+                            featureId = featureId
+                        )
+                    )
                     NullVariables.instance
                 }
                 create(variables).also { value ->

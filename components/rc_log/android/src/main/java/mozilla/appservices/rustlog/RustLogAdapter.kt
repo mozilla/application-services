@@ -53,11 +53,11 @@ class RustLogAdapter private constructor(
             }
             // Tell JNA to reuse the callback thread.
             val initializer = CallbackThreadInitializer(
-                    // Don't block JVM shutdown waiting for this thread to exit.
-                    /* daemon */ true,
-                    // Don't detach the JVM from this thread after invoking the callback.
-                    /* detach */ false,
-                    /* name */ "RustLogThread"
+                // Don't block JVM shutdown waiting for this thread to exit.
+                /* daemon */ true,
+                // Don't detach the JVM from this thread after invoking the callback.
+                /* detach */ false,
+                /* name */ "RustLogThread"
             )
             val callbackImpl = RawLogCallbackImpl(onLog)
             Native.setCallbackThreadInitializer(callbackImpl, initializer)
@@ -105,8 +105,8 @@ class RustLogAdapter private constructor(
             if (isEnabled) {
                 rustCall { e ->
                     LibRustLogAdapter.INSTANCE.rc_log_adapter_set_max_level(
-                            level.value,
-                            e
+                        level.value,
+                        e
                     )
                 }
             }
