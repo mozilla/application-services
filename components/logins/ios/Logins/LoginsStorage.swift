@@ -165,7 +165,7 @@ func recordMigrationMetrics(jsonString: String) {
         GleanMetrics.LoginsStoreMigration.numFailed.add(failed)
     }
 
-    if let duration = metrics["total_duration"] as? UInt64 {
+    if let duration = metrics["total_duration"] as? Int64 {
         GleanMetrics.LoginsStoreMigration.totalDuration.setRawNanos(duration * 1_000_000)
     }
 

@@ -6,6 +6,7 @@ apply from: "$rootDir/build-scripts/component-common.gradle"
 apply from: "$rootDir/publish.gradle"
 
 ext.gleanYamlFiles = ["${project.projectDir}/../metrics.yaml"]
+ext.gleanNamespace = "mozilla.telemetry.glean"
 apply plugin: "org.mozilla.telemetry.glean-gradle-plugin"
 
 dependencies {
@@ -13,7 +14,7 @@ dependencies {
 
     implementation "org.jetbrains.kotlinx:kotlinx-coroutines-android:$kotlin_coroutines_version"
 
-    implementation "org.mozilla.components:service-glean:$android_components_version"
+    implementation "org.mozilla.telemetry:glean:$glean_version"
     implementation "androidx.core:core-ktx:$androidx_core_version"
 
     testImplementation "androidx.test:core-ktx:$androidx_test_core_version"

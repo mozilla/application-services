@@ -16,8 +16,8 @@ import org.mozilla.appservices.logins.GleanMetrics.LoginsStore as LoginsStoreMet
  * instantiate anything from these classes, and it's on us to fix any bustage
  * on version updates.
  */
-import mozilla.components.service.glean.private.CounterMetricType
-import mozilla.components.service.glean.private.LabeledMetricType
+import mozilla.telemetry.glean.private.CounterMetricType
+import mozilla.telemetry.glean.private.LabeledMetricType
 
 /**
  * An artifact of the uniffi conversion - a thin-ish wrapper around a

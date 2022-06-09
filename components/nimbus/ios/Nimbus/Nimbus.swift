@@ -94,7 +94,7 @@ extension Nimbus: FeaturesInterface {
     internal func recordExperimentTelemetry(_ experiments: [EnrolledExperiment]) {
         for experiment in experiments {
             Glean.shared.setExperimentActive(
-                experimentId: experiment.slug,
+                experiment.slug,
                 branch: experiment.branchSlug,
                 extra: ["enrollmentId": experiment.enrollmentId]
             )

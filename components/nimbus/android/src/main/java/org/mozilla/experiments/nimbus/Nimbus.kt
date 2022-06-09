@@ -18,7 +18,7 @@ import androidx.annotation.WorkerThread
 import androidx.core.content.pm.PackageInfoCompat
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.launch
-import mozilla.components.service.glean.Glean
+import mozilla.telemetry.glean.Glean
 import org.json.JSONObject
 import org.mozilla.experiments.nimbus.GleanMetrics.NimbusEvents
 import org.mozilla.experiments.nimbus.internal.AppContext

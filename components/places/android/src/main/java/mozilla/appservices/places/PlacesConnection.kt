@@ -29,8 +29,8 @@ import mozilla.appservices.places.uniffi.InsertableBookmarkItem
 import mozilla.appservices.places.uniffi.InsertableBookmarkSeparator
 import mozilla.appservices.places.uniffi.BookmarkUpdateInfo
 import mozilla.appservices.sync15.SyncTelemetryPing
-import mozilla.components.service.glean.private.CounterMetricType
-import mozilla.components.service.glean.private.LabeledMetricType
+import mozilla.telemetry.glean.private.CounterMetricType
+import mozilla.telemetry.glean.private.LabeledMetricType
 import org.json.JSONObject
 import java.lang.ref.WeakReference
 import org.mozilla.appservices.places.GleanMetrics.PlacesManager as PlacesManagerMetrics

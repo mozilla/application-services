@@ -33,12 +33,12 @@ class LoginsTests: XCTestCase {
         """
 
         recordMigrationMetrics(jsonString: json)
-        XCTAssertEqual(3, try GleanMetrics.LoginsStoreMigration.numProcessed.testGetValue())
-        XCTAssertEqual(2, try GleanMetrics.LoginsStoreMigration.numFailed.testGetValue())
-        XCTAssertEqual(1, try GleanMetrics.LoginsStoreMigration.numSucceeded.testGetValue())
-        XCTAssertEqual(53, try GleanMetrics.LoginsStoreMigration.totalDuration.testGetValue())
+        XCTAssertEqual(3, GleanMetrics.LoginsStoreMigration.numProcessed.testGetValue())
+        XCTAssertEqual(2, GleanMetrics.LoginsStoreMigration.numFailed.testGetValue())
+        XCTAssertEqual(1, GleanMetrics.LoginsStoreMigration.numSucceeded.testGetValue())
+        XCTAssertEqual(53, GleanMetrics.LoginsStoreMigration.totalDuration.testGetValue())
 
         // Note the truncation of the first error string.
-        XCTAssertEqual(["Invalid login: Login has illegal field: Origin is ", "Invalid login: Origin is empty"], try GleanMetrics.LoginsStoreMigration.errors.testGetValue())
+        XCTAssertEqual(["Invalid login: Login has illegal field: Origin is ", "Invalid login: Origin is empty"], GleanMetrics.LoginsStoreMigration.errors.testGetValue())
     }
 }

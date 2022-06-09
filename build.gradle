@@ -8,6 +8,7 @@ buildscript {
         jna_version = '5.8.0'
         android_gradle_plugin_version = '4.2.2'
         android_components_version = '94.0.0'
+        glean_version = '50.0.1'
         androidx_annotation_version = '1.2.0'
         androidx_core_version = '1.3.2'
         androidx_test_core_version = '1.4.0'
@@ -75,7 +76,7 @@ buildscript {
         // Since the Glean version depends on the Android components version,
         // it is very important to use a modern version of Glean and, ideally,
         // let this come from the embedding product itself.
-        classpath "org.mozilla.components:tooling-glean-gradle:$android_components_version"
+        classpath "org.mozilla.telemetry:glean-gradle-plugin:$glean_version"
 
         // NOTE: Do not place your application dependencies here; they belong
         // in the individual module build.gradle files
@@ -124,7 +125,7 @@ ext.libsGitSha = "git --git-dir=${rootProject.rootDir}/.git diff --name-only mai
 // downloaded libs.
 
 // XX: Since we switched the libs directory to be `darwin-x86-64` and `darwin-aarch64` in https://github.com/mozilla/application-services/pull/4792
-//     we have mimatch with the libs built on CI, since they have the libraries under `darwin`. 
+//     we have mimatch with the libs built on CI, since they have the libraries under `darwin`.
 //     Temporarily, we are disabling downloaded libs
 //     we should enable them once our CI builds libs the same way as our local environments
 //     see: https://github.com/mozilla/application-services/issues/4828

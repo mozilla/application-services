@@ -20,5 +20,4 @@ autofill = { path = "../../components/autofill" }
 push = { path = "../../components/push" }
 tabs = { path = "../../components/tabs" }
 places = {path = "../../components/places" }
-glean-ffi = { path = "../../components/external/glean/glean-core/ffi" }
 sync15 = {path = "../../components/sync15"}
