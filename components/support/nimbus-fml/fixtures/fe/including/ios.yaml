@@ -1,0 +1,26 @@
+---
+channels:
+  - release
+  - beta
+  - nightly
+includes:
+  - ios_homescreen.yaml
+  - ios_search.yaml
+features:
+  nimbus-validation:
+    description: >
+      A feature that does not correspond to an application feature suitable for showing
+      that Nimbus is working.
+    variables:
+      settings-title:
+        description: The title of displayed in the Settings screen and app menu.
+        type: Option<Text>
+        default: "app_menu_settings_title"
+      settings-title-punctuation:
+        description: The emoji displayed in the Settings screen title.
+        type: String
+        default: ""
+      settings-icon:
+        description: The drawable displayed in the app menu for Settings
+        type: Image
+        default: "menu-Settings"

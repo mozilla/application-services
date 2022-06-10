@@ -22,6 +22,7 @@ use serde::Deserialize;
 use std::path::{Path, PathBuf};
 
 const RELEASE_CHANNEL: &str = "release";
+const SUPPORT_URL_LOADING: bool = false;
 
 fn main() -> Result<()> {
     let yaml = load_yaml!("cli.yaml");

@@ -1,0 +1,9 @@
+---
+features:
+  dem-bones:
+    description: A very deeply included feature
+    variables:
+      is-included:
+        type: Boolean
+        default: true
+        description: Was included even though very nested.
