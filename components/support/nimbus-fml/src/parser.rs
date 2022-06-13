@@ -60,6 +60,36 @@ pub(crate) struct Types {
     objects: HashMap<String, ObjectBody>,
 }
 
+#[derive(Debug, Deserialize, Serialize, Clone, Default, PartialEq)]
+#[serde(deny_unknown_fields)]
+pub(crate) struct AboutBlock {
+    pub(crate) description: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    #[serde(alias = "kotlin", alias = "android")]
+    pub(crate) kotlin_about: Option<KotlinAboutBlock>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    #[serde(alias = "swift", alias = "ios")]
+    pub(crate) swift_about: Option<SwiftAboutBlock>,
+}
+
+impl AboutBlock {
+    pub(crate) fn is_includable(&self) -> bool {
+        self.kotlin_about.is_none() && self.swift_about.is_none()
+    }
+}
+
+#[derive(Debug, Deserialize, Serialize, Clone, Default, PartialEq)]
+pub(crate) struct SwiftAboutBlock {
+    pub(crate) module: String,
+    pub(crate) class: String,
+}
+
+#[derive(Debug, Deserialize, Serialize, Clone, Default, PartialEq)]
+pub(crate) struct KotlinAboutBlock {
+    pub(crate) package: String,
+    pub(crate) class: String,
+}
+
 #[derive(Debug, Deserialize, Serialize, Clone)]
 #[serde(deny_unknown_fields)]
 pub(crate) struct FeatureBody {
@@ -71,6 +101,11 @@ pub(crate) struct FeatureBody {
 #[derive(Debug, Deserialize, Serialize, Clone, Default)]
 #[serde(deny_unknown_fields)]
 pub(crate) struct ManifestFrontEnd {
+    #[serde(default)]
+    version: String,
+    #[serde(default)]
+    about: Option<AboutBlock>,
+
     // We'd like to get rid of the `types` property,
     // but we need to keep supporting it.
     #[serde(default)]
@@ -702,7 +737,13 @@ impl Parser {
 
         let features = manifest.get_feature_defs(&merger)?;
 
+        let about = match &manifest.about {
+            Some(a) => a.clone(),
+            None => Default::default(),
+        };
+
         Ok(FeatureManifest {
+            about,
             enum_defs: enums,
             obj_defs: objects,
             hints: HashMap::new(),
@@ -728,6 +769,15 @@ fn check_can_merge_manifest(
                     "Included manifest should not define its own channels: {}",
                     child_path
                 ),
+            ));
+        }
+    }
+
+    if let Some(about) = &child.about {
+        if !about.is_includable() {
+            return Err(FMLError::ValidationError(
+                "about".to_string(),
+                format!("Only files that don't already correspond to generated files may be included: file has a `class` and `package`/`module` name: {}", child_path),
             ));
         }
     }
@@ -770,7 +820,7 @@ fn merge_map<T: Clone>(
 }
 
 #[derive(Debug, Deserialize, Serialize, Clone)]
-struct DefaultBlock {
+pub(crate) struct DefaultBlock {
     #[serde(skip_serializing_if = "Option::is_none")]
     channel: Option<String>,
     value: serde_json::Value,
@@ -892,6 +942,25 @@ mod unit_tests {
                     }
                 })
         );
+
+        Ok(())
+    }
+
+    #[test]
+    fn test_parsing_about_block() -> Result<()> {
+        let about = AboutBlock {
+            kotlin_about: Some(KotlinAboutBlock {
+                package: "com.example".to_string(),
+                class: "KotlinAbout".to_string(),
+            }),
+            ..Default::default()
+        };
+
+        let yaml = serde_yaml::to_value(&about)?;
+
+        let rehydrated = serde_yaml::from_value(yaml)?;
+
+        assert_eq!(about, rehydrated);
 
         Ok(())
     }

@@ -1,4 +1,12 @@
 ---
+about:
+  description: Testing bundling strings and images
+  android:
+    package: com.example.app
+    class: com.example.bundling.MyNimbus
+  ios:
+    class: MyNimbus
+    module: Megazord
 channels:
   - testing
 features:
@@ -56,4 +64,3 @@ features:
         default:
           foo: foo_image
           bar: bar_image
-

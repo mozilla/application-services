@@ -42,11 +42,3 @@ pub(crate) fn build_dir() -> String {
 pub(crate) fn generated_src_dir() -> String {
     join(build_dir(), "generated")
 }
-
-use crate::error::Result;
-use crate::Config;
-
-pub(crate) fn slurp_config(path: &std::path::Path) -> Result<Config> {
-    let string = std::fs::read_to_string(path)?;
-    Ok(serde_yaml::from_str::<crate::Config>(&string)?)
-}

@@ -11,7 +11,6 @@ use super::object::object_literal;
 use crate::{
     backends::{CodeDeclaration, CodeOracle, LiteralRenderer, TypeIdentifier},
     intermediate_representation::{FeatureDef, FeatureManifest, Literal},
-    Config,
 };
 
 #[derive(Template)]
@@ -22,7 +21,7 @@ pub(crate) struct FeatureCodeDeclaration {
 }
 
 impl FeatureCodeDeclaration {
-    pub fn new(fm: &FeatureManifest, _config: &Config, inner: &FeatureDef) -> Self {
+    pub fn new(fm: &FeatureManifest, inner: &FeatureDef) -> Self {
         Self {
             inner: inner.clone(),
             fm: fm.clone(),

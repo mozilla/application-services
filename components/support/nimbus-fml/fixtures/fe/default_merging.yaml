@@ -1,4 +1,12 @@
 ---
+about:
+  description: Test file exercising the channel specific defaults blocks
+  android:
+    package: com.example.app
+    class: com.example.defaults.MyNimbus
+  ios:
+    class: MyNimbus
+    module: Megazord
 features:
   dialog-appearance:
     description: This is the appearance of the dialog
@@ -64,26 +72,26 @@ channels:
   - release
   - nightly
   - debug
-types:
-  objects:
-    Button:
-      description: This is a button object
-      failable: true
-      fields:
-        label:
-          description: This is the label for the button
-          type: String
-          default: REQUIRED FIELD
-          required: true
-        color:
-          description: This is the color of the button
-          type: Option<String>
-          default: null
-  enums:
-    PlayerProfile:
-      description: This is an enum type
-      variants:
-        adult:
-          description: This represents an adult player profile
-        child:
-          description: This represents a child player profile
+
+objects:
+  Button:
+    description: This is a button object
+    failable: true
+    fields:
+      label:
+        description: This is the label for the button
+        type: String
+        default: REQUIRED FIELD
+        required: true
+      color:
+        description: This is the color of the button
+        type: Option<String>
+        default: null
+enums:
+  PlayerProfile:
+    description: This is an enum type
+    variants:
+      adult:
+        description: This represents an adult player profile
+      child:
+        description: This represents a child player profile

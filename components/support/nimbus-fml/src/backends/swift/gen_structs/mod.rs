@@ -7,7 +7,6 @@ use std::collections::HashSet;
 use crate::{
     backends::{CodeDeclaration, CodeOracle, CodeType, TypeIdentifier},
     intermediate_representation::{FeatureDef, FeatureManifest, TypeFinder},
-    Config,
 };
 mod bundled;
 mod common;
@@ -24,16 +23,13 @@ mod structural;
     path = "FeatureManifestTemplate.swift"
 )]
 pub struct FeatureManifestDeclaration<'a> {
-    #[allow(dead_code)]
-    config: Config,
     fm: &'a FeatureManifest,
     oracle: ConcreteCodeOracle,
 }
 
 impl<'a> FeatureManifestDeclaration<'a> {
-    pub fn new(config: Config, fm: &'a FeatureManifest) -> Self {
+    pub fn new(fm: &'a FeatureManifest) -> Self {
         Self {
-            config,
             fm,
             oracle: Default::default(),
         }
@@ -45,11 +41,8 @@ impl<'a> FeatureManifestDeclaration<'a> {
         fm.iter_feature_defs()
             .into_iter()
             .map(|inner| {
-                Box::new(feature::FeatureCodeDeclaration::new(
-                    fm,
-                    &self.config,
-                    inner,
-                )) as Box<dyn CodeDeclaration>
+                Box::new(feature::FeatureCodeDeclaration::new(fm, inner))
+                    as Box<dyn CodeDeclaration>
             })
             .chain(fm.iter_enum_defs().map(|inner| {
                 Box::new(enum_::EnumCodeDeclaration::new(fm, inner)) as Box<dyn CodeDeclaration>
@@ -100,6 +93,16 @@ impl<'a> FeatureManifestDeclaration<'a> {
 
         imports.sort();
         imports
+    }
+
+    fn nimbus_object_name(&self) -> String {
+        self.fm
+            .about
+            .swift_about
+            .as_ref()
+            .unwrap()
+            .class
+            .to_string()
     }
 }
 

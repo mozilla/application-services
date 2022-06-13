@@ -1,4 +1,12 @@
 ---
+about:
+  description: This file codes for all features in the Fenix browser
+  kotlin:
+    class: .nimbus.FxNimbus
+    package: com.example.app
+  swift:
+    class: MyNimbus
+    module: Client
 channels:
   - release
   - beta

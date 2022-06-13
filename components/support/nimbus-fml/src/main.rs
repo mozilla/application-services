@@ -17,7 +17,7 @@ mod workflows;
 
 use anyhow::{bail, Result};
 use clap::{App, ArgMatches};
-use serde::Deserialize;
+use parser::{AboutBlock, KotlinAboutBlock, SwiftAboutBlock};
 
 use std::path::{Path, PathBuf};
 
@@ -29,67 +29,79 @@ fn main() -> Result<()> {
     let matches = App::from_yaml(yaml).get_matches();
     let cwd = std::env::current_dir()?;
 
-    let config = if matches.is_present("config") {
-        util::slurp_config(&file_path("config", &matches, &cwd)?)?
-    } else {
-        Default::default()
-    };
-
     match matches.subcommand() {
         ("android", Some(cmd)) => match cmd.subcommand() {
-            ("features", Some(cmd)) => workflows::generate_struct(
-                Config {
-                    nimbus_object_name: cmd
-                        .value_of("class_name")
-                        .map(str::to_string)
-                        .or(config.nimbus_object_name),
-                    nimbus_package: cmd
-                        .value_of("package")
-                        .map(str::to_string)
-                        .or(config.nimbus_package),
-                    resource_package: cmd
-                        .value_of("r_package")
-                        .map(str::to_string)
-                        .or(config.resource_package),
-                },
-                GenerateStructCmd {
-                    language: TargetLanguage::Kotlin,
-                    manifest: file_path("INPUT", &matches, &cwd)?,
-                    output: file_path("output", &matches, &cwd)?,
-                    load_from_ir: matches.is_present("ir"),
-                    channel: matches
-                        .value_of("channel")
-                        .map(str::to_string)
-                        .unwrap_or_else(|| RELEASE_CHANNEL.into()),
-                },
-            )?,
+            ("features", Some(cmd)) => {
+                let (class, package, rpackage) = (
+                    cmd.value_of("class_name"),
+                    cmd.value_of("package"),
+                    cmd.value_of("r_package"),
+                );
+                let config = match (class, package, rpackage) {
+                    (Some(class_name), Some(class_package), Some(package_id)) => {
+                        Some(KotlinAboutBlock {
+                            class: format!("{}.{}", class_package, class_name),
+                            package: package_id.to_string(),
+                        })
+                    }
+                    (None, None, None) => None,
+                    _ => None,
+                };
+                workflows::generate_struct_cli_overrides(
+                    AboutBlock {
+                        kotlin_about: config,
+                        ..Default::default()
+                    },
+                    &GenerateStructCmd {
+                        language: TargetLanguage::Kotlin,
+                        manifest: file_path("INPUT", &matches, &cwd)?,
+                        output: file_path("output", &matches, &cwd)?,
+                        load_from_ir: matches.is_present("ir"),
+                        channel: matches
+                            .value_of("channel")
+                            .map(str::to_string)
+                            .unwrap_or_else(|| RELEASE_CHANNEL.into()),
+                    },
+                )?
+            }
             _ => unimplemented!(),
         },
         ("ios", Some(cmd)) => match cmd.subcommand() {
-            ("features", Some(cmd)) => workflows::generate_struct(
-                Config {
-                    nimbus_object_name: cmd
-                        .value_of("class_name")
-                        .map(str::to_string)
-                        .or(config.nimbus_object_name),
-                    ..Default::default()
-                },
-                GenerateStructCmd {
-                    language: TargetLanguage::Swift,
-                    manifest: file_path("INPUT", &matches, &cwd)?,
-                    output: file_path("output", &matches, &cwd)?,
-                    load_from_ir: matches.is_present("ir"),
-                    channel: matches
-                        .value_of("channel")
-                        .map(str::to_string)
-                        .unwrap_or_else(|| RELEASE_CHANNEL.into()),
-                },
-            )?,
+            ("features", Some(cmd)) => {
+                let (class, module) = (cmd.value_of("class_name"), cmd.value_of("module_name"));
+                let config = match (class, module) {
+                    (Some(class_name), Some(module_name)) => Some(SwiftAboutBlock {
+                        class: class_name.to_string(),
+                        module: module_name.to_string(),
+                    }),
+                    (Some(class_name), _) => Some(SwiftAboutBlock {
+                        class: class_name.to_string(),
+                        module: "Application".to_string(),
+                    }),
+                    (None, None) => None,
+                    _ => None,
+                };
+                workflows::generate_struct_cli_overrides(
+                    AboutBlock {
+                        swift_about: config,
+                        ..Default::default()
+                    },
+                    &GenerateStructCmd {
+                        language: TargetLanguage::Swift,
+                        manifest: file_path("INPUT", &matches, &cwd)?,
+                        output: file_path("output", &matches, &cwd)?,
+                        load_from_ir: matches.is_present("ir"),
+                        channel: matches
+                            .value_of("channel")
+                            .map(str::to_string)
+                            .unwrap_or_else(|| RELEASE_CHANNEL.into()),
+                    },
+                )?
+            }
             _ => unimplemented!(),
         },
-        ("experimenter", _) => workflows::generate_experimenter_manifest(
-            config,
-            GenerateExperimenterManifestCmd {
+        ("experimenter", _) => {
+            workflows::generate_experimenter_manifest(GenerateExperimenterManifestCmd {
                 manifest: file_path("INPUT", &matches, &cwd)?,
                 output: file_path("output", &matches, &cwd)?,
                 load_from_ir: matches.is_present("ir"),
@@ -97,20 +109,17 @@ fn main() -> Result<()> {
                     .value_of("channel")
                     .map(str::to_string)
                     .unwrap_or_else(|| RELEASE_CHANNEL.into()),
-            },
-        )?,
-        ("intermediate-repr", _) => workflows::generate_ir(
-            config,
-            GenerateIRCmd {
-                manifest: file_path("INPUT", &matches, &cwd)?,
-                output: file_path("output", &matches, &cwd)?,
-                load_from_ir: matches.is_present("ir"),
-                channel: matches
-                    .value_of("channel")
-                    .map(str::to_string)
-                    .unwrap_or_else(|| RELEASE_CHANNEL.into()),
-            },
-        )?,
+            })?
+        }
+        ("intermediate-repr", _) => workflows::generate_ir(GenerateIRCmd {
+            manifest: file_path("INPUT", &matches, &cwd)?,
+            output: file_path("output", &matches, &cwd)?,
+            load_from_ir: matches.is_present("ir"),
+            channel: matches
+                .value_of("channel")
+                .map(str::to_string)
+                .unwrap_or_else(|| RELEASE_CHANNEL.into()),
+        })?,
         (word, _) => unimplemented!("Command {} not implemented", word),
     };
 
@@ -125,32 +134,6 @@ fn file_path(name: &str, args: &ArgMatches, cwd: &Path) -> Result<PathBuf> {
             Ok(abs)
         }
         _ => bail!("A file path is needed for {}", name),
-    }
-}
-
-#[derive(Debug, Deserialize, Default)]
-#[serde(rename_all = "camelCase")]
-pub struct Config {
-    pub nimbus_package: Option<String>,
-    pub nimbus_object_name: Option<String>,
-    pub resource_package: Option<String>,
-}
-
-impl Config {
-    fn nimbus_package_name(&self) -> Option<String> {
-        self.nimbus_package.clone()
-    }
-
-    fn nimbus_object_name(&self) -> String {
-        self.nimbus_object_name
-            .clone()
-            .unwrap_or_else(|| "MyNimbus".into())
-    }
-
-    fn resource_package_name(&self) -> String {
-        self.resource_package
-            .clone()
-            .unwrap_or_else(|| panic!("The package with R.class needs to specified"))
     }
 }
 

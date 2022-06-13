@@ -1,4 +1,15 @@
 {
+  "about": {
+    "description": "A test fixture for simple type validation",
+    "kotlin_about": {
+      "class": "MyNimbus",
+      "package": "com.example.app"
+    },
+    "swift_about": {
+      "class": "MyNimbus",
+      "module": "Megazord"
+    }
+  },
   "enums": [
     {
       "name": "Position",
