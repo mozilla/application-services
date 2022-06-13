@@ -15,7 +15,7 @@ pub(crate) fn generate_struct(manifest: &FeatureManifest, cmd: &GenerateStructCm
         return Err(FMLError::ValidationError(
             "about".to_string(),
             format!(
-                "The `about` block is missing a valid `ios` entry: {}",
+                "The `about` block is missing a valid `ios` or `swift` entry: {}",
                 cmd.manifest.as_path().display()
             ),
         ));

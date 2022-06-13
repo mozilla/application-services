@@ -235,7 +235,7 @@ mod test {
     fn test_with_full_fenix_release() -> Result<()> {
         generate_and_assert_with_config(
             "test/fenix_release.kts",
-            "fixtures/fe/fenix.yaml",
+            "fixtures/fe/browser.yaml",
             "release",
             false,
             AboutBlock {
@@ -254,7 +254,7 @@ mod test {
     fn test_with_full_fenix_nightly() -> Result<()> {
         generate_and_assert_with_config(
             "test/fenix_nightly.kts",
-            "fixtures/fe/fenix.yaml",
+            "fixtures/fe/browser.yaml",
             "nightly",
             false,
             AboutBlock {
@@ -339,7 +339,7 @@ mod test {
     fn test_with_full_fenix_release_swift() -> Result<()> {
         generate_and_assert(
             "test/fenix_release.swift",
-            "fixtures/fe/fenix.yaml",
+            "fixtures/fe/browser.yaml",
             "release",
             false,
         )?;
@@ -350,7 +350,7 @@ mod test {
     fn test_with_full_fenix_nightly_swift() -> Result<()> {
         generate_and_assert(
             "test/fenix_nightly.swift",
-            "fixtures/fe/fenix.yaml",
+            "fixtures/fe/browser.yaml",
             "nightly",
             false,
         )?;
@@ -372,7 +372,7 @@ mod test {
     fn regression_test_concurrent_access_of_feature_holder_swift() -> Result<()> {
         generate_and_assert(
             "test/threadsafe_feature_holder.swift",
-            "fixtures/fe/fenix.yaml",
+            "fixtures/fe/browser.yaml",
             "release",
             false,
         )?;
@@ -383,7 +383,7 @@ mod test {
     fn regression_test_concurrent_access_of_feature_holder_kts() -> Result<()> {
         generate_and_assert(
             "test/threadsafe_feature_holder.kts",
-            "fixtures/fe/fenix.yaml",
+            "fixtures/fe/browser.yaml",
             "release",
             false,
         )?;
