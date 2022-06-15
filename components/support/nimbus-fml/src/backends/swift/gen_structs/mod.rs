@@ -6,7 +6,8 @@ use std::collections::HashSet;
 
 use crate::{
     backends::{CodeDeclaration, CodeOracle, CodeType, TypeIdentifier},
-    intermediate_representation::{FeatureDef, FeatureManifest, TypeFinder}, parser::AboutBlock,
+    intermediate_representation::{FeatureDef, FeatureManifest, TypeFinder},
+    parser::AboutBlock,
 };
 mod bundled;
 mod common;

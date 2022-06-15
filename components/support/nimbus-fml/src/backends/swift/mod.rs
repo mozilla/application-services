@@ -82,7 +82,7 @@ pub mod test {
 
     pub fn compile_manifest_swift(manifest_files: &[String], out_dir: &Path) -> Result<()> {
         let out_path = PathBuf::from(out_dir);
-        let manifest_files = manifest_files.iter().map(|f| PathBuf::from(f));
+        let manifest_files = manifest_files.iter().map(PathBuf::from);
         let mut dylib_file = out_path.clone();
         dylib_file.push(format!("lib{}.dylib", "FeatureManifest"));
 
