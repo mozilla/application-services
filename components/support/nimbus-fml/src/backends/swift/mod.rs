@@ -80,9 +80,9 @@ pub mod test {
         Ok(output.status.success())
     }
 
-    pub fn compile_manifest_swift(manifest_file: &Path, out_dir: &Path) -> Result<()> {
+    pub fn compile_manifest_swift(manifest_files: &[String], out_dir: &Path) -> Result<()> {
         let out_path = PathBuf::from(out_dir);
-        let manifest_file = PathBuf::from(manifest_file);
+        let manifest_files = manifest_files.iter().map(|f| PathBuf::from(f));
         let mut dylib_file = out_path.clone();
         dylib_file.push(format!("lib{}.dylib", "FeatureManifest"));
 
@@ -109,7 +109,7 @@ pub mod test {
             .arg(&features_swift())
             .arg(&feature_holder())
             .arg(&mock_nimbus_swift())
-            .arg(manifest_file)
+            .args(manifest_files)
             .spawn()
             .context("Failed to spawn `swiftc` when compiling bindings")?
             .wait()
@@ -155,14 +155,14 @@ pub mod test {
         Ok(())
     }
 
-    pub fn run_script_with_generated_code(manifest_file: &Path, script: &Path) -> Result<()> {
+    pub fn run_script_with_generated_code(manifest_files: &[String], script: &Path) -> Result<()> {
         if !detect_swiftc()? {
             eprintln!("SDK-446 Install swift or add it the PATH to run tests");
             return Ok(());
         }
         let temp = tempfile::tempdir()?;
         let build_dir = temp.path();
-        compile_manifest_swift(manifest_file, build_dir)?;
+        compile_manifest_swift(manifest_files, build_dir)?;
         run_script(build_dir, script)
     }
 }

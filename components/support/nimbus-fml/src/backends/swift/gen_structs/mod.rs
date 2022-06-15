@@ -6,16 +6,30 @@ use std::collections::HashSet;
 
 use crate::{
     backends::{CodeDeclaration, CodeOracle, CodeType, TypeIdentifier},
-    intermediate_representation::{FeatureDef, FeatureManifest, TypeFinder},
+    intermediate_representation::{FeatureDef, FeatureManifest, TypeFinder}, parser::AboutBlock,
 };
 mod bundled;
 mod common;
 mod enum_;
 mod feature;
 mod filters;
+mod imports;
 mod object;
 mod primitives;
 mod structural;
+
+impl AboutBlock {
+    fn nimbus_object_name_swift(&self) -> String {
+        let specific = self.swift_about.as_ref().unwrap();
+        specific.class.clone()
+    }
+
+    fn nimbus_module_name(&self) -> String {
+        let specific = self.swift_about.as_ref().unwrap();
+        specific.module.clone()
+    }
+}
+
 #[derive(Template)]
 #[template(
     syntax = "swift",
@@ -49,6 +63,10 @@ impl<'a> FeatureManifestDeclaration<'a> {
             }))
             .chain(fm.iter_object_defs().into_iter().map(|inner| {
                 Box::new(object::ObjectCodeDeclaration::new(fm, inner)) as Box<dyn CodeDeclaration>
+            }))
+            .chain(fm.iter_imported_files().iter().map(|inner| {
+                Box::new(imports::ImportedClassInitialization::new(inner))
+                    as Box<dyn CodeDeclaration>
             }))
             .collect()
     }
@@ -93,16 +111,6 @@ impl<'a> FeatureManifestDeclaration<'a> {
 
         imports.sort();
         imports
-    }
-
-    fn nimbus_object_name(&self) -> String {
-        self.fm
-            .about
-            .swift_about
-            .as_ref()
-            .unwrap()
-            .class
-            .to_string()
     }
 }
 

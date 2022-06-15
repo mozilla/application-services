@@ -7,7 +7,7 @@
 #endif
 {%- endfor %}
 
-{% let nimbus_object = self.nimbus_object_name() -%}
+{% let nimbus_object = self.fm.about.nimbus_object_name_swift() -%}
 ///
 /// An object for safely accessing feature configuration from Nimbus.
 ///
@@ -27,6 +27,10 @@ public class {{ nimbus_object }} {
     /// The lambda MUST be threadsafe in its own right.
     public func initialize(with getSdk: @escaping () -> FeaturesInterface?) {
         self.getSdk = getSdk
+        {%- for f in self.fm.iter_imported_files() %}
+        {{ f.about.nimbus_object_name_swift() }}.shared.initialize(with: getSdk)
+        {%- endfor %}
+        self.invalidateCachedValues()
     }
 
     fileprivate lazy var getSdk: GetSdk = { [self] in self.api }
@@ -36,12 +40,23 @@ public class {{ nimbus_object }} {
     ///
     public let features = {{ nimbus_object }}Features()
 
-    /// Clear all cached values for all features.
-    /// This should be called after `applyPendingExperiments` is finished.
+
+    ///
+    /// Refresh the cache of configuration objects.
+    ///
+    /// For performance reasons, the feature configurations are constructed once then cached.
+    /// This method is to clear that cache for all features configured with Nimbus.
+    ///
+    /// It must be called whenever the Nimbus SDK finishes the `applyPendingExperiments()` method.
+    ///
     public func invalidateCachedValues() {
-        {% for f in self.iter_feature_defs() -%}
+        {%- for f in self.iter_feature_defs() %}
         features.{{- f.name()|var_name -}}.with(cachedValue: nil)
-        {% endfor %}
+        {%- endfor %}
+        {%- for f in self.fm.iter_imported_files() %}
+        {{ f.about.nimbus_object_name_swift() }}.shared.invalidateCachedValues()
+        {%- endfor %}
+
     }
 
     ///
