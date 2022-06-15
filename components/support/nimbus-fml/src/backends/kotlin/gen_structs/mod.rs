@@ -16,6 +16,7 @@ mod common;
 mod enum_;
 mod feature;
 mod filters;
+mod imports;
 mod object;
 mod primitives;
 mod structural;
@@ -32,7 +33,7 @@ impl AboutBlock {
         }
     }
 
-    fn nimbus_object_name(&self) -> String {
+    fn nimbus_object_name_kt(&self) -> String {
         let specific = self.kotlin_about.as_ref().unwrap();
         let last = specific.class.split('.').last().unwrap_or(&specific.class);
         last.to_string()
@@ -81,6 +82,10 @@ impl<'a> FeatureManifestDeclaration<'a> {
             }))
             .chain(fm.iter_object_defs().into_iter().map(|inner| {
                 Box::new(object::ObjectCodeDeclaration::new(fm, inner)) as Box<dyn CodeDeclaration>
+            }))
+            .chain(fm.iter_imported_files().iter().map(|inner| {
+                Box::new(imports::ImportedClassInitialization::new(inner))
+                    as Box<dyn CodeDeclaration>
             }))
             .collect()
     }

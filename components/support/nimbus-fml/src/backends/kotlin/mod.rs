@@ -91,7 +91,7 @@ pub mod test {
     }
 
     // Compile a genertaed manifest file against the mocked out Android runtime.
-    pub fn compile_manifest_kt(manifest_path: String) -> Result<tempfile::TempDir> {
+    pub fn compile_manifest_kt(manifest_paths: &[String]) -> Result<tempfile::TempDir> {
         let temp = tempfile::tempdir()?;
         let build_dir = temp.path();
 
@@ -108,7 +108,7 @@ pub mod test {
             .arg(&features_kt())
             .arg(&runtime_dir())
             .arg(&nimbus_internals_kt())
-            .arg(&manifest_path)
+            .args(manifest_paths)
             .spawn()?
             .wait()?;
         if status.success() {
@@ -119,12 +119,12 @@ pub mod test {
     }
 
     // Given a generated manifest, run a kts script against it.
-    pub fn run_script_with_generated_code(manifest_kt: String, script: &str) -> Result<()> {
+    pub fn run_script_with_generated_code(manifests_kt: &[String], script: &str) -> Result<()> {
         if !detect_kotlinc()? {
             println!("SDK-446 Install kotlinc or add it the PATH to run tests");
             return Ok(());
         }
-        let temp_dir = compile_manifest_kt(manifest_kt)?;
+        let temp_dir = compile_manifest_kt(manifests_kt)?;
         let build_dir = temp_dir.path();
 
         let status = Command::new("kotlinc")
@@ -150,7 +150,7 @@ pub mod test {
     #[test]
     fn smoke_test_runtime_dir() -> Result<()> {
         run_script_with_generated_code(
-            join(tests_dir(), "SmokeTestFeature.kt"),
+            &[join(tests_dir(), "SmokeTestFeature.kt")],
             "fixtures/android/tests/smoke_test.kts",
         )?;
         Ok(())
