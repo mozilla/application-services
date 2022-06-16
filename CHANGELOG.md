@@ -1,3 +1,12 @@
+# v93.5.0 (_2022-06-16_)
+
+[Full Changelog](https://github.com/mozilla/application-services/compare/v93.4.0...v93.5.0)
+
+## Nimbus FML ⛅️🔬🔭🔧
+
+### What's Changed
+  - Added [`includes` list property](https://experimenter.info/fml-imports-and-includes/#the-include-list) to enable splitting up large `nimbus.fml.yaml` files ([#4976](https://github.com/mozilla/application-services/pull/4976)).
+
 # v93.4.0 (_2022-06-09_)
 
 [Full Changelog](https://github.com/mozilla/application-services/compare/v93.3.0...v93.4.0)
