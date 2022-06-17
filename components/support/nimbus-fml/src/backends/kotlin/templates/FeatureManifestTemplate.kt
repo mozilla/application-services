@@ -12,7 +12,7 @@ package {{ package_name }}
 import {{ imported_class }}
 {%- endfor %}
 
-{%- let nimbus_object = self.fm.about.nimbus_object_name() %}
+{%- let nimbus_object = self.fm.about.nimbus_object_name_kt() %}
 
 /**
  * An object for safely accessing feature configuration from Nimbus.
@@ -56,6 +56,12 @@ object {{ nimbus_object }} {
      */
     public fun initialize(getSdk: () -> FeaturesInterface?) {
         this.getSdk = getSdk
+        {%- for f in self.iter_feature_defs() %}
+        this.features.{{- f.name()|var_name -}}.withSdk(getSdk)
+        {%- endfor %}
+        {%- for f in self.fm.iter_imported_files() %}
+        {{ f.about.nimbus_object_name_kt() }}.initialize(getSdk)
+        {%- endfor %}
     }
 
     private var getSdk: () -> FeaturesInterface? = {
@@ -72,10 +78,21 @@ object {{ nimbus_object }} {
      */
     public var api: FeaturesInterface? = null
 
+    /**
+     * Refresh the cache of configuration objects.
+     *
+     * For performance reasons, the feature configurations are constructed once then cached.
+     * This method is to clear that cache for all features configured with Nimbus.
+     *
+     * It must be called whenever the Nimbus SDK finishes the `applyPendingExperiments()` method.
+     */
     public fun invalidateCachedValues() {
-        {% for f in self.iter_feature_defs() -%}
+        {%- for f in self.iter_feature_defs() %}
         features.{{- f.name()|var_name -}}.withCachedValue(null)
-        {% endfor %}
+        {%- endfor %}
+        {%- for f in self.fm.iter_imported_files() %}
+        {{ f.about.nimbus_object_name_kt() }}.invalidateCachedValues()
+        {%- endfor %}
     }
 
     /**

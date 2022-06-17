@@ -16,25 +16,26 @@ mod common;
 mod enum_;
 mod feature;
 mod filters;
+mod imports;
 mod object;
 mod primitives;
 mod structural;
 
 impl AboutBlock {
     fn nimbus_fully_qualified_name(&self) -> String {
-        let specific = self.kotlin_about.as_ref().unwrap();
+        let kt_about = self.kotlin_about.as_ref().unwrap();
 
-        let class = &specific.class;
+        let class = &kt_about.class;
         if class.starts_with('.') {
-            format!("{}{}", specific.package, class)
+            format!("{}{}", kt_about.package, class)
         } else {
             class.clone()
         }
     }
 
-    fn nimbus_object_name(&self) -> String {
-        let specific = self.kotlin_about.as_ref().unwrap();
-        let last = specific.class.split('.').last().unwrap_or(&specific.class);
+    fn nimbus_object_name_kt(&self) -> String {
+        let fqe = self.nimbus_fully_qualified_name();
+        let last = fqe.split('.').last().unwrap_or(&fqe);
         last.to_string()
     }
 
@@ -49,10 +50,11 @@ impl AboutBlock {
     }
 
     fn resource_package_name(&self) -> String {
-        let specific = self.kotlin_about.as_ref().unwrap();
-        specific.package.clone()
+        let kt_about = self.kotlin_about.as_ref().unwrap();
+        kt_about.package.clone()
     }
 }
+
 #[derive(Template)]
 #[template(syntax = "kt", escape = "none", path = "FeatureManifestTemplate.kt")]
 pub struct FeatureManifestDeclaration<'a> {
@@ -81,6 +83,10 @@ impl<'a> FeatureManifestDeclaration<'a> {
             }))
             .chain(fm.iter_object_defs().into_iter().map(|inner| {
                 Box::new(object::ObjectCodeDeclaration::new(fm, inner)) as Box<dyn CodeDeclaration>
+            }))
+            .chain(fm.iter_imported_files().iter().map(|inner| {
+                Box::new(imports::ImportedModuleInitialization::new(inner))
+                    as Box<dyn CodeDeclaration>
             }))
             .collect()
     }

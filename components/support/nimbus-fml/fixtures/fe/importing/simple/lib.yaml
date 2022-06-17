@@ -1,0 +1,16 @@
+version: 1.0
+channels:
+  - test-embedding
+  - debug
+  - nightly
+about:
+  description: >
+    A small example of a component's fml file, being imported into app.yaml.
+  ios:
+    class: LibNimbus
+    module: Lib
+  android:
+    class: .nimbus.LibNimbus
+    package: com.example.lib
+include:
+  - ../../including/ios_homescreen.yaml

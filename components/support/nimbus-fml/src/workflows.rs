@@ -42,7 +42,7 @@ pub(crate) fn generate_struct_cli_overrides(
 
 fn generate_struct_from_ir(ir: &FeatureManifest, cmd: &GenerateStructCmd) -> Result<()> {
     let language = cmd.language;
-
+    ir.validate_manifest_for_lang(&language)?;
     match language {
         TargetLanguage::IR => {
             let contents = serde_json::to_string_pretty(&ir)?;
@@ -120,7 +120,7 @@ mod test {
         generate_struct(&cmd)?;
         run_script_with_generated_code(
             cmd.language,
-            cmd.output.as_path().display().to_string(),
+            &[cmd.output.as_path().display().to_string()],
             test_script,
         )?;
         Ok(())
@@ -139,7 +139,7 @@ mod test {
         generate_struct_cli_overrides(config_about, &cmd)?;
         run_script_with_generated_code(
             cmd.language,
-            cmd.output.as_path().display().to_string(),
+            &[cmd.output.as_path().display().to_string()],
             test_script,
         )?;
         Ok(())
@@ -180,19 +180,46 @@ mod test {
         })
     }
 
+    fn generate_multiple_and_assert(
+        test_script: &str,
+        manifests: &[&str],
+        channel: &str,
+    ) -> Result<()> {
+        let cmds = manifests
+            .iter()
+            .map(|manifest| {
+                let cmd = create_command_from_test(test_script, manifest, channel, false)?;
+                generate_struct(&cmd)?;
+                Ok(cmd)
+            })
+            .collect::<Result<Vec<_>>>()?;
+
+        let first = cmds
+            .first()
+            .expect("At least one manifests are always used");
+        let language = first.language;
+
+        let manifests_out = cmds
+            .iter()
+            .map(|cmd| cmd.output.display().to_string())
+            .collect::<Vec<_>>();
+
+        run_script_with_generated_code(language, &manifests_out, test_script)?;
+        Ok(())
+    }
+
     fn run_script_with_generated_code(
         language: TargetLanguage,
-        manifest_out: String,
+        manifests_out: &[String],
         test_script: &str,
     ) -> Result<()> {
         match language {
             TargetLanguage::Kotlin => {
-                kotlin::test::run_script_with_generated_code(manifest_out, test_script)?
+                kotlin::test::run_script_with_generated_code(manifests_out, test_script)?
             }
-            TargetLanguage::Swift => swift::test::run_script_with_generated_code(
-                manifest_out.as_ref(),
-                test_script.as_ref(),
-            )?,
+            TargetLanguage::Swift => {
+                swift::test::run_script_with_generated_code(manifests_out, test_script.as_ref())?
+            }
             _ => unimplemented!(),
         }
         Ok(())
@@ -364,6 +391,32 @@ mod test {
             "fixtures/fe/including/ios.yaml",
             "release",
             false,
+        )?;
+        Ok(())
+    }
+
+    #[test]
+    fn test_importing_ios() -> Result<()> {
+        generate_multiple_and_assert(
+            "test/app_importing_debug.swift",
+            &[
+                "fixtures/fe/importing/simple/app.yaml",
+                "fixtures/fe/importing/simple/lib.yaml",
+            ],
+            "debug",
+        )?;
+        Ok(())
+    }
+
+    #[test]
+    fn test_importing_android() -> Result<()> {
+        generate_multiple_and_assert(
+            "test/app_importing_debug.kts",
+            &[
+                "fixtures/fe/importing/simple/lib.yaml",
+                "fixtures/fe/importing/simple/app.yaml",
+            ],
+            "debug",
         )?;
         Ok(())
     }

@@ -83,7 +83,7 @@ pub(crate) fn get_simple_nimbus_validation_feature() -> FeatureManifest {
             ],
             None,
         )],
-        about: Default::default(),
+        ..Default::default()
     }
 }
 
@@ -159,7 +159,7 @@ pub(crate) fn get_with_objects_feature() -> FeatureManifest {
                 }
             })),
         )],
-        about: Default::default(),
+        ..Default::default()
     }
 }
 
@@ -198,7 +198,7 @@ pub(crate) fn get_simple_homescreen_feature() -> FeatureManifest {
             }],
             None,
         )],
-        about: Default::default(),
+        ..Default::default()
     }
 }
 
@@ -245,6 +245,6 @@ pub(crate) fn get_full_homescreen_feature() -> FeatureManifest {
             ],
             None,
         )],
-        about: Default::default(),
+        ..Default::default()
     }
 }

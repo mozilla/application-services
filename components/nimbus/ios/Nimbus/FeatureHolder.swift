@@ -16,7 +16,7 @@ public class FeatureHolder<T> {
     private let lock = NSLock()
     private var cachedValue: T?
 
-    private let getSdk: GetSdk
+    private var getSdk: GetSdk
     private let featureId: String
 
     private var create: (Variables) -> T
@@ -61,6 +61,16 @@ public class FeatureHolder<T> {
         lock.lock()
         defer { self.lock.unlock() }
         cachedValue = value
+    }
+
+    /// This resets the SDK and clears the cached value.
+    ///
+    /// This is especially useful at start up and for imported features.
+    public func with(sdk: @escaping () -> FeaturesInterface?) {
+        lock.lock()
+        defer { self.lock.unlock() }
+        getSdk = sdk
+        cachedValue = nil
     }
 
     /// This changes the mapping between a `Variables` and the feature configuration object.

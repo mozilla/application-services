@@ -19,7 +19,7 @@ import java.util.concurrent.locks.ReentrantLock
  * There are methods useful for testing, and more advanced uses: these all start with `with`.
  */
 class FeatureHolder<T>(
-    private val getSdk: () -> FeaturesInterface?,
+    private var getSdk: () -> FeaturesInterface?,
     private val featureId: String,
     private var create: (Variables) -> T
 ) {
@@ -79,6 +79,18 @@ class FeatureHolder<T>(
     fun withInitializer(create: (Variables) -> T) {
         lock.runBlock {
             this.create = create
+            this.cachedValue = null
+        }
+    }
+
+    /**
+     * This resets the SDK and clears the cached value.
+     *
+     * This is especially useful at start up and for imported features.
+     */
+    fun withSdk(getSdk: () -> FeaturesInterface?) {
+        lock.runBlock {
+            this.getSdk = getSdk
             this.cachedValue = null
         }
     }
