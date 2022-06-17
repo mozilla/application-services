@@ -2,20 +2,23 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
+use error_support::report_error;
 use std::ffi::OsString;
 
-// TODO: this is (IMO) useful and was dropped from `failure`, consider moving it
-// into `error_support`.
-macro_rules! throw {
-    ($e:expr) => {
-        return Err(Into::into($e))
-    };
-}
+pub type Result<T> = std::result::Result<T, LoginsError>;
+pub type APIResult<T> = std::result::Result<T, LoginsStorageError>;
 
+/// Internal logins error type, this is what we use for inside this crate
 #[derive(Debug, thiserror::Error)]
-pub enum ErrorKind {
+pub enum LoginsError {
+    // WARNING: The #[error] attributes define the string representation of the error (see
+    // thiserror for details).  These strings should not contain any personally identifying
+    // information.  We operate on a best-effort basis, since we can't be completely sure that
+    // our dependencies don't leak PII in their error strings.  For example, `rusqlite::Error`
+    // could include data from a user's database in their errors, but we've never seen that in
+    // practice so we are comfortable forwading that error message in ours.
     #[error("Invalid login: {0}")]
-    InvalidLogin(InvalidLogin),
+    InvalidLogin(#[from] InvalidLogin),
 
     #[error("The `sync_status` column in DB has an illegal value: {0}")]
     BadSyncStatus(u8),
@@ -26,9 +29,6 @@ pub enum ErrorKind {
     // Fennec import only works on empty logins tables.
     #[error("The logins tables are not empty")]
     NonEmptyTable,
-
-    #[error("The provided salt is invalid")]
-    InvalidSalt,
 
     #[error("local encryption key not set")]
     EncryptionKeyMissing,
@@ -67,19 +67,7 @@ pub enum ErrorKind {
     MigrationError(String),
 }
 
-error_support::define_error! {
-    ErrorKind {
-        (SyncAdapterError, sync15::Error),
-        (JsonError, serde_json::Error),
-        (UrlParseError, url::ParseError),
-        (SqlError, rusqlite::Error),
-        (CryptoError, jwcrypto::JwCryptoError),
-        (InvalidLogin, InvalidLogin),
-        (Interrupted, interrupt_support::Interrupted),
-        (IOError, std::io::Error),
-    }
-}
-
+/// Error::InvalidLogin subtypes
 #[derive(Debug, thiserror::Error)]
 pub enum InvalidLogin {
     // EmptyOrigin error occurs when the login's origin field is empty.
@@ -97,192 +85,181 @@ pub enum InvalidLogin {
     IllegalFieldValue { field_info: String },
 }
 
-impl Error {
-    // Get a short textual label identifying the type of error that occurred,
-    // but without including any potentially-sensitive information.
-    fn label(&self) -> &'static str {
-        match self.kind() {
-            ErrorKind::BadSyncStatus(_) => "BadSyncStatus",
-            ErrorKind::NoSuchRecord(_) => "NoSuchRecord",
-            ErrorKind::NonEmptyTable => "NonEmptyTable",
-            ErrorKind::InvalidSalt => "InvalidSalt",
-            ErrorKind::EncryptionKeyMissing => "EncryptionKeyMissing",
-            ErrorKind::SyncAdapterError(_) => "SyncAdapterError",
-            ErrorKind::JsonError(_) => "JsonError",
-            ErrorKind::InvalidKey => "InvalidKey",
-            ErrorKind::UrlParseError(_) => "UrlParseError",
-            ErrorKind::InvalidPath(_) => "InvalidPath",
-            ErrorKind::InvalidDatabaseFile(_) => "InvalidDatabaseFile",
-            ErrorKind::SqlError(_) => "SqlError",
-            ErrorKind::CryptoError(_) => "CryptoError",
-            ErrorKind::Interrupted(_) => "Interrupted",
-            ErrorKind::IOError(_) => "IOError",
-            ErrorKind::InvalidLogin(desc) => match desc {
-                InvalidLogin::EmptyOrigin => "InvalidLogin::EmptyOrigin",
-                InvalidLogin::EmptyPassword => "InvalidLogin::EmptyPassword",
-                InvalidLogin::DuplicateLogin => "InvalidLogin::DuplicateLogin",
-                InvalidLogin::BothTargets => "InvalidLogin::BothTargets",
-                InvalidLogin::NoTarget => "InvalidLogin::NoTarget",
-                InvalidLogin::IllegalFieldValue { .. } => "InvalidLogin::IllegalFieldValue",
-            },
-            ErrorKind::MigrationError(_) => "MigrationError",
-        }
-    }
-}
-
-// Originally exposed manually via LoginsStorageException.kt.
+/// Public logins error type, we convert from `LoginsError` to `LoginsStorageError` in the
+/// top-level functions that we expose via UniFFI.
+///
+/// `LoginsStorageError` only contains variants that are useful to the consuming app, for example:
+///    - `InvalidLogin` is useful, because the app can inform the user that the login they entered
+///      was invalid.
+///    - `Interrupted` is useful because the app can choose to ignore these errors.
+///    - `BadSyncStatus` is not useful to the app so it gets grouped into the
+///      UnexpectedLoginsError.
 #[derive(Debug, thiserror::Error)]
 pub enum LoginsStorageError {
-    #[error("Unexpected error: {0}")]
-    UnexpectedLoginsStorageError(String),
+    // This is thrown on attempts to insert or update a record so that it
+    // is no longer valid. See [InvalidLoginReason] for a list of reasons
+    // a record may be considered invalid
+    #[error("Invalid login: {0}")]
+    InvalidRecord(InvalidLogin),
+
+    /// This is thrown if `update()` is performed with a record whose ID
+    /// does not exist.
+    #[error("No record with guid exists (when one was required): {0}")]
+    NoSuchRecord(String),
+
+    /// Error encrypting/decrypting logins data
+    #[error("Encryption error: {0}")]
+    CryptoError(String),
 
     /// This indicates that the sync authentication is invalid, likely due to having
     /// expired.
     #[error("SyncAuthInvalid error: {0}")]
     SyncAuthInvalid(String),
 
-    /// This is thrown if `lock()`/`unlock()` pairs don't match up.
-    // NOTE: This can be removed once we drop sqlcipher
-    #[error("MismatchedLock error: {0}")]
-    MismatchedLock(&'static str),
-
-    /// This is thrown if `update()` is performed with a record whose ID
-    /// does not exist.
-    #[error("NoSuchRecord error: {0}")]
-    NoSuchRecord(String),
-
-    // This is thrown on attempts to insert or update a record so that it
-    // is no longer valid. See [InvalidLoginReason] for a list of reasons
-    // a record may be considered invalid
-    #[error("{0}")]
-    InvalidRecord(String, InvalidLoginReason),
-
-    /// This error is emitted when migrating from a sqlcipher database in two cases:
-    /// 1. An incorrect key is used to to open the login database
-    /// 2. The file at the path specified is not a sqlite database.
-    /// NOTE: Dropping sqlcipher means we will drop (1), so should rename it
-    #[error("InvalidKey error: {0}")]
-    InvalidKey(String),
-
-    /// Error encrypting/decrypting logins data
-    #[error("Crypto Error: {0}")]
-    CryptoError(String),
-
     /// This error is emitted if a request to a sync server failed.
-    /// We can probably kill this? The sync manager is what cares about this.
+    ///
+    /// Once iOS is using the sync manager, we can probably kill this.  Since the sync manager will
+    /// then be handling the error.
     #[error("RequestFailed error: {0}")]
     RequestFailed(String),
 
-    /// This error is emitted if a sync or other operation is interrupted.
-    #[error("Interrupted error: {0}")]
+    /// Operation was interrupted by the user
+    #[error("Operation interrupted: {0}")]
     Interrupted(String),
+
+    /// Catch-all for all other errors
+    #[error("Unexpected error: {0}")]
+    UnexpectedLoginsError(String),
 }
 
-/**
- * A reason a login may be invalid
- */
-#[derive(Debug)]
-pub enum InvalidLoginReason {
-    /// Origins may not be empty
-    EmptyOrigin,
-    /// Passwords may not be empty
-    EmptyPassword,
-    /// The login already exists
-    DuplicateLogin,
-    /// Both `httpRealm` and `formActionOrigin` are non-null
-    BothTargets,
-    /// Both `httpRealm` and `formActionOrigin` are null
-    NoTarget,
-    /// Login has illegal field
-    IllegalFieldValue,
+impl From<LoginsError> for LoginsStorageError {
+    fn from(error: LoginsError) -> LoginsStorageError {
+        // We convert errors before sending them across the API boundary to the consuming
+        // application, so this is a good time to report them.
+        error.report();
+
+        match error {
+            LoginsError::InvalidLogin(inner) => Self::InvalidRecord(inner),
+            LoginsError::NoSuchRecord(guid) => Self::NoSuchRecord(guid),
+            LoginsError::CryptoError(inner) => Self::CryptoError(inner.to_string()),
+            LoginsError::InvalidKey => Self::CryptoError("InvalidKey".to_string()),
+            LoginsError::SyncAdapterError(ref e) => match e.kind() {
+                sync15::ErrorKind::TokenserverHttpError(401)
+                | sync15::ErrorKind::BadKeyLength(..) => Self::SyncAuthInvalid(error.to_string()),
+                sync15::ErrorKind::RequestError(_) => Self::RequestFailed(error.to_string()),
+                _ => Self::UnexpectedLoginsError(error.to_string()),
+            },
+            _ => Self::UnexpectedLoginsError(error.to_string()),
+        }
+    }
 }
 
-// A port of the error conversion stuff that was in ffi.rs - it turns our
-// "internal" errors into "public" ones.
-impl From<Error> for LoginsStorageError {
-    fn from(e: Error) -> LoginsStorageError {
-        use sync15::ErrorKind as Sync15ErrorKind;
+/// These are needed for the LoginsStore::sync() method.  Once iOS has moved to `SyncManager` they
+/// can be deleted alongside that method
+impl From<sync15::Error> for LoginsStorageError {
+    fn from(error: sync15::Error) -> LoginsStorageError {
+        LoginsError::from(error).into()
+    }
+}
+impl From<url::ParseError> for LoginsStorageError {
+    fn from(error: url::ParseError) -> LoginsStorageError {
+        LoginsError::from(error).into()
+    }
+}
 
-        let label = e.label().to_string();
-        let kind = e.kind();
-        match kind {
-            ErrorKind::SyncAdapterError(e) => {
-                log::error!("Sync error {:?}", e);
-                match e.kind() {
-                    Sync15ErrorKind::TokenserverHttpError(401)
-                    | Sync15ErrorKind::BadKeyLength(..) => {
-                        LoginsStorageError::SyncAuthInvalid(label)
-                    }
-                    Sync15ErrorKind::RequestError(_) => LoginsStorageError::RequestFailed(label),
-                    _ => LoginsStorageError::UnexpectedLoginsStorageError(label),
+/// Needed for support the JSON serialization of import_multiple().  Maybe this can be refactored
+/// to avoid this
+impl From<serde_json::Error> for LoginsStorageError {
+    fn from(error: serde_json::Error) -> LoginsStorageError {
+        LoginsError::from(error).into()
+    }
+}
+
+/// Classify errors into different categories
+#[derive(Clone, Debug)]
+pub enum ErrorClassification {
+    /// Errors that we expect to happen regularly, like network errors or DB corruption errors.
+    /// Our strategy for these errors is to eventually report them to telemetry and ensure that the
+    /// counts remain relatively stable. The string value will be used to group errors when
+    /// counting.
+    Expected(String),
+    /// Errors that we don't expect to see.  Our strategy for these errors is to report them to a
+    /// Sentry-like reporting system and investigate them when they come up.  The string value will
+    /// be used to group errors in the reporting system.
+    Unexpected(String),
+}
+
+impl LoginsError {
+    // Get a short textual label identifying the type of error that occurred, but without specific
+    // data like GUIDs, SQLite error messages, etc.  This is used to group the errors in Sentry and
+    // telemetry.
+    pub fn classify(&self) -> ErrorClassification {
+        // Convenience functions to create ErrorClassification instances
+        fn unexpected(grouping: impl Into<String>) -> ErrorClassification {
+            ErrorClassification::Unexpected(grouping.into())
+        }
+        fn expected(grouping: impl Into<String>) -> ErrorClassification {
+            ErrorClassification::Expected(grouping.into())
+        }
+
+        match self {
+            // TODO: The legacy code called `log::error` for these, but should we be doing that?
+            // Let's decide once these are properly grouped in sentry.
+            Self::SyncAdapterError(_) => unexpected("SyncError"),
+            Self::NoSuchRecord(_) => unexpected("NoSuchRecord"),
+            Self::CryptoError(_) => unexpected("CryptoError"),
+            // Expected errors
+            Self::InvalidKey => expected("InvalidKey"),
+            Self::InvalidLogin(desc) => match desc {
+                InvalidLogin::EmptyOrigin => expected("InvalidLogin::EmptyOrigin"),
+                InvalidLogin::EmptyPassword => expected("InvalidLogin::EmptyPassword"),
+                InvalidLogin::DuplicateLogin => expected("InvalidLogin::DuplicateLogin"),
+                InvalidLogin::BothTargets => expected("InvalidLogin::BothTargets"),
+                InvalidLogin::NoTarget => expected("InvalidLogin::NoTarget"),
+                InvalidLogin::IllegalFieldValue { .. } => {
+                    expected("InvalidLogin::IllegalFieldValue")
                 }
-            }
-            ErrorKind::NoSuchRecord(id) => {
-                log::error!("No record exists with id {}", id);
-                LoginsStorageError::NoSuchRecord(label)
-            }
-            ErrorKind::InvalidLogin(desc) => {
-                log::warn!("Invalid login: {}", desc);
-                match desc {
-                    InvalidLogin::EmptyOrigin => {
-                        LoginsStorageError::InvalidRecord(label, InvalidLoginReason::EmptyOrigin)
-                    }
-                    InvalidLogin::EmptyPassword => {
-                        LoginsStorageError::InvalidRecord(label, InvalidLoginReason::EmptyPassword)
-                    }
-                    InvalidLogin::DuplicateLogin => {
-                        LoginsStorageError::InvalidRecord(label, InvalidLoginReason::DuplicateLogin)
-                    }
-                    InvalidLogin::BothTargets => {
-                        LoginsStorageError::InvalidRecord(label, InvalidLoginReason::BothTargets)
-                    }
-                    InvalidLogin::NoTarget => {
-                        LoginsStorageError::InvalidRecord(label, InvalidLoginReason::NoTarget)
-                    }
-                    InvalidLogin::IllegalFieldValue { .. } => LoginsStorageError::InvalidRecord(
-                        label,
-                        InvalidLoginReason::IllegalFieldValue,
-                    ),
-                }
-            }
-            // We can't destructure `err` without bringing in the libsqlite3_sys crate
-            // (and I'd really rather not) so we can't put this in the match.
-            ErrorKind::SqlError(rusqlite::Error::SqliteFailure(err, _))
+            },
+            Self::SqlError(rusqlite::Error::SqliteFailure(err, _))
                 if err.code == rusqlite::ErrorCode::NotADatabase =>
             {
-                log::error!("Not a database / invalid key error");
-                LoginsStorageError::InvalidKey(label)
+                // TODO: investigate if this still happens now that we're not using sqlcipher
+                unexpected("NotADatabase")
             }
-
-            ErrorKind::InvalidKey => LoginsStorageError::InvalidKey(label),
-
-            ErrorKind::SqlError(rusqlite::Error::SqliteFailure(err, _))
+            Self::SqlError(rusqlite::Error::SqliteFailure(err, _))
                 if err.code == rusqlite::ErrorCode::OperationInterrupted =>
             {
-                log::warn!("Operation interrupted (SQL)");
-                LoginsStorageError::Interrupted(label)
+                expected("Interrupted")
             }
+            Self::Interrupted(_) => expected("Interrupted"),
+            // TODO: the legacy code grouped all other errors together and called `log::error` for
+            // them.  We should go through these errors in Sentry and properly classify them.
+            _ => unexpected("UnexpectedError"),
+        }
+    }
 
-            ErrorKind::Interrupted(_) => {
-                log::warn!("Operation interrupted (Outside SQL)");
-                LoginsStorageError::Interrupted(label)
+    pub fn group_name(&self) -> String {
+        match self.classify() {
+            ErrorClassification::Unexpected(group_name)
+            | ErrorClassification::Expected(group_name) => group_name,
+        }
+    }
+
+    /// Report this error to our tracking system if appropriate
+    pub fn report(&self) {
+        let error_string = self.to_string();
+        match self.classify() {
+            ErrorClassification::Unexpected(group_name) => {
+                // TODO: this should be `log::error`, but that's hooked up the legacy sentry
+                // reporting code so that would result in reporting the error twice.  Once the
+                // legacy code is reported by `report_error!`, this should get changed to
+                // `log::error`
+                log::warn!("{}", error_string);
+                report_error!(group_name, "{}", error_string);
             }
-
-            ErrorKind::InvalidSalt => {
-                log::error!("Invalid salt provided");
-                // In the old world, this had an error code (7) but no Kotlin
-                // error type, meaning it got the "base" error.
-                LoginsStorageError::UnexpectedLoginsStorageError(label)
-            }
-
-            ErrorKind::CryptoError(_) => {
-                log::error!("Crypto error");
-                LoginsStorageError::CryptoError(label)
-            }
-
-            err => {
-                log::error!("UnexpectedLoginsStorageError error: {:?}", err);
-                LoginsStorageError::UnexpectedLoginsStorageError(label)
+            ErrorClassification::Expected(_) => {
+                log::warn!("{}", error_string);
+                // TODO: report these to telemetry
             }
         }
     }

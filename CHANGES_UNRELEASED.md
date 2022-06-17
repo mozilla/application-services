@@ -21,3 +21,8 @@ Use the template below to make assigning a version number during the release cut
 
 ### What's Changed
   - Added `MOZ_APPSERVICES_MODULE` environment variable to specify the megazord module for iOS ([#5042](https://github.com/mozilla/application-services/pull/5042)). If it is missing, no module is imported.
+
+## Logins
+
+### ⚠️ Breaking Changes ⚠️
+  - Updated the `LoginsStorageError` hierarchy.

@@ -27,7 +27,7 @@ impl SyncStatus {
             0 => Ok(SyncStatus::Synced),
             1 => Ok(SyncStatus::Changed),
             2 => Ok(SyncStatus::New),
-            v => throw!(ErrorKind::BadSyncStatus(v)),
+            v => Err(LoginsError::BadSyncStatus(v)),
         }
     }
 }

@@ -338,9 +338,10 @@ impl LoginFields {
             }
             Err(_) => {
                 // We can't fixup completely invalid records, so always throw.
-                throw!(InvalidLogin::IllegalFieldValue {
-                    field_info: "Origin is Malformed".into()
-                });
+                Err(InvalidLogin::IllegalFieldValue {
+                    field_info: "Origin is Malformed".into(),
+                }
+                .into())
             }
         }
     }
@@ -545,7 +546,7 @@ impl ValidateAndFixup for LoginFields {
                 // entirely so we can give it an explicit type declaration.
                 {
                     if !fixup {
-                        throw!($err)
+                        return Err($err.into());
                     }
                     log::warn!("Fixing login record {:?}", $err);
                     let fixed: Result<&mut Self> =
@@ -556,7 +557,7 @@ impl ValidateAndFixup for LoginFields {
         }
 
         if self.origin.is_empty() {
-            throw!(InvalidLogin::EmptyOrigin);
+            return Err(InvalidLogin::EmptyOrigin.into());
         }
 
         if self.form_action_origin.is_some() && self.http_realm.is_some() {
@@ -564,7 +565,7 @@ impl ValidateAndFixup for LoginFields {
         }
 
         if self.form_action_origin.is_none() && self.http_realm.is_none() {
-            throw!(InvalidLogin::NoTarget);
+            return Err(InvalidLogin::NoTarget.into());
         }
 
         let form_action_origin = self.form_action_origin.clone().unwrap_or_default();
@@ -586,24 +587,27 @@ impl ValidateAndFixup for LoginFields {
         for (field_name, field_value) in &field_data {
             // Nuls are invalid.
             if field_value.contains('\0') {
-                throw!(InvalidLogin::IllegalFieldValue {
-                    field_info: format!("`{}` contains Nul", field_name)
-                });
+                return Err(InvalidLogin::IllegalFieldValue {
+                    field_info: format!("`{}` contains Nul", field_name),
+                }
+                .into());
             }
 
             // Newlines are invalid in Desktop for all the fields here.
             if field_value.contains('\n') || field_value.contains('\r') {
-                throw!(InvalidLogin::IllegalFieldValue {
-                    field_info: format!("`{}` contains newline", field_name)
-                });
+                return Err(InvalidLogin::IllegalFieldValue {
+                    field_info: format!("`{}` contains newline", field_name),
+                }
+                .into());
             }
         }
 
         // Desktop doesn't like fields with the below patterns
         if self.username_field == "." {
-            throw!(InvalidLogin::IllegalFieldValue {
-                field_info: "`username_field` is a period".into()
-            });
+            return Err(InvalidLogin::IllegalFieldValue {
+                field_info: "`username_field` is a period".into(),
+            }
+            .into());
         }
 
         // Check we can parse the origin, then use the normalized version of it.
@@ -663,17 +667,19 @@ impl ValidateAndFixup for SecureLoginFields {
     fn validate_and_fixup(&self, _fixup: bool) -> Result<Option<Self>> {
         // \r\n chars are valid in desktop for some reason, so we allow them here too.
         if self.username.contains('\0') {
-            throw!(InvalidLogin::IllegalFieldValue {
-                field_info: "`username` contains Nul".into()
-            });
+            return Err(InvalidLogin::IllegalFieldValue {
+                field_info: "`username` contains Nul".into(),
+            }
+            .into());
         }
         if self.password.is_empty() {
-            throw!(InvalidLogin::EmptyPassword);
+            return Err(InvalidLogin::EmptyPassword.into());
         }
         if self.password.contains('\0') {
-            throw!(InvalidLogin::IllegalFieldValue {
-                field_info: "`password` contains Nul".into()
-            });
+            return Err(InvalidLogin::IllegalFieldValue {
+                field_info: "`password` contains Nul".into(),
+            }
+            .into());
         }
         Ok(None)
     }
