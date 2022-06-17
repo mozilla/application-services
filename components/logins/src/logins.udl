@@ -91,15 +91,13 @@ dictionary EncryptedLogin {
 
 [Error]
 enum LoginsStorageError {
-    "UnexpectedLoginsStorageError",
-    "SyncAuthInvalid",
-    "MismatchedLock",
-    "NoSuchRecord",
     "InvalidRecord",
+    "NoSuchRecord",
     "CryptoError",
-    "InvalidKey",
+    "SyncAuthInvalid",
     "RequestFailed",
     "Interrupted",
+    "UnexpectedLoginsError",
 };
 
 interface LoginStore {

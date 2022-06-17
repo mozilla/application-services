@@ -95,15 +95,15 @@ pub fn migrate_logins(
 
     // If the sqlcipher db doesn't exist we can't do anything.
     if !sqlcipher_path.exists() {
-        throw!(ErrorKind::InvalidDatabaseFile(
-            sqlcipher_path.to_string_lossy().to_string()
+        return Err(LoginsError::InvalidDatabaseFile(
+            sqlcipher_path.to_string_lossy().to_string(),
         ));
     }
 
     // If the target does exist we fail as we don't want to migrate twice.
     if path.exists() {
-        throw!(ErrorKind::MigrationError(
-            "target database already exists".to_string()
+        return Err(LoginsError::MigrationError(
+            "target database already exists".to_string(),
         ));
     }
     migrate_sqlcipher_db_to_plaintext(
@@ -127,7 +127,7 @@ fn migrate_sqlcipher_db_to_plaintext(
     init_sqlcipher_db(&mut db, old_encryption_key, salt)?;
 
     // Init the new plaintext db as we would a regular client
-    let new_db_store = LoginStore::new(new_db_path)?;
+    let new_db_store = LoginStore::new_from_db(LoginDb::open(new_db_path)?);
     let metrics = migrate_from_sqlcipher_db(&mut db, new_db_store, new_encryption_key)?;
 
     Ok(metrics)
@@ -474,14 +474,14 @@ fn insert_logins(
                             Ok(_) => {}
                             Err(e) => {
                                 num_failed_insert += 1;
-                                insert_errors.push(e.label().into());
+                                insert_errors.push(e.group_name());
                             }
                         }
                     }
                 }
                 Err(e) => {
                     num_failed_insert += 1;
-                    insert_errors.push(e.label().into());
+                    insert_errors.push(e.group_name());
                     // Weren't successful with local login, if we have a mirror we should
                     // attempt to migrate it and flip the `is_overridden` to false
                     if let Some(mirror_login) = &login.mirror_login {
@@ -493,7 +493,7 @@ fn insert_logins(
                             },
                         ) {
                             num_failed_insert += 1;
-                            insert_errors.push(err.label().into());
+                            insert_errors.push(err.group_name());
                         }
                     }
                 }
@@ -502,7 +502,7 @@ fn insert_logins(
         } else if let Some(mirror_login) = &login.mirror_login {
             if let Err(err) = insert_mirror_login(conn, mirror_login) {
                 num_failed_insert += 1;
-                insert_errors.push(err.label().into());
+                insert_errors.push(err.group_name());
             }
         }
     }
@@ -728,7 +728,7 @@ fn migrate_sync_metadata(cipher_conn: &Connection, store: &LoginStore) -> Result
             Ok(_) => log::info!("Imported {} successfully", key),
             Err(e) => {
                 log::warn!("Could not import {}.", key);
-                insert_errors.push(Error::from(e).label().into());
+                insert_errors.push(LoginsError::from(e).group_name());
                 num_failed_insert += 1;
             }
         }
@@ -1344,9 +1344,8 @@ mod tests {
                 None,
             )
             .err()
-            .unwrap()
-            .kind(),
-            ErrorKind::InvalidDatabaseFile(_),
+            .unwrap(),
+            LoginsError::InvalidDatabaseFile(_),
         ))
     }
 
@@ -1367,9 +1366,8 @@ mod tests {
                 None,
             )
             .err()
-            .unwrap()
-            .kind(),
-            ErrorKind::MigrationError(_)
+            .unwrap(),
+            LoginsError::MigrationError(_)
         ));
     }
 

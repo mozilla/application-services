@@ -40,7 +40,7 @@ impl EncryptorDecryptor {
     pub fn new(key: &str) -> Result<Self> {
         match serde_json::from_str(key) {
             Ok(jwk) => Ok(EncryptorDecryptor { jwk }),
-            Err(_) => Err(ErrorKind::InvalidKey.into()),
+            Err(_) => Err(LoginsError::InvalidKey),
         }
     }
 
@@ -130,16 +130,15 @@ mod test {
         assert_eq!(ed.decrypt(&ciphertext).unwrap(), cleartext);
         let ed2 = EncryptorDecryptor::new(&create_key().unwrap()).unwrap();
         assert!(matches!(
-            ed2.decrypt(&ciphertext).err().unwrap().kind(),
-            ErrorKind::CryptoError(_)
+            ed2.decrypt(&ciphertext).err().unwrap(),
+            LoginsError::CryptoError(_)
         ));
     }
 
     #[test]
     fn test_key_error() {
-        let storage_err: LoginsStorageError =
-            EncryptorDecryptor::new("bad-key").err().unwrap().into();
-        assert!(matches!(storage_err, LoginsStorageError::InvalidKey(_)));
+        let storage_err = EncryptorDecryptor::new("bad-key").err().unwrap();
+        assert!(matches!(storage_err, LoginsError::InvalidKey));
     }
 
     #[test]
@@ -153,9 +152,8 @@ mod test {
         assert!(matches!(
             check_canary(&canary, CANARY_TEXT, &different_key)
                 .err()
-                .unwrap()
-                .kind(),
-            ErrorKind::CryptoError(_)
+                .unwrap(),
+            LoginsError::CryptoError(_)
         ));
     }
 }

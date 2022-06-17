@@ -35,10 +35,10 @@ pub struct LoginsSyncEngine {
 
 impl LoginsSyncEngine {
     fn encdec(&self) -> Result<&EncryptorDecryptor> {
-        Ok(match &self.encdec {
-            Some(encdec) => encdec,
-            None => throw!(ErrorKind::EncryptionKeyMissing),
-        })
+        match &self.encdec {
+            Some(encdec) => Ok(encdec),
+            None => Err(LoginsError::EncryptionKeyMissing),
+        }
     }
 
     pub fn new(store: Arc<LoginStore>) -> Result<Self> {
