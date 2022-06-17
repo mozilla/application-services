@@ -4,7 +4,8 @@ channels:
   - debug
   - nightly
 about:
-  description: A small test of importing and including
+  description: >
+    A small example of a component's fml file, being imported into app.yaml.
   ios:
     class: LibNimbus
     module: Lib

@@ -4,22 +4,22 @@
 
 use crate::{
     backends::{CodeDeclaration, CodeOracle},
-    intermediate_representation::ImportedClass,
+    intermediate_representation::ImportedModule,
 };
 
-pub(crate) struct ImportedClassInitialization<'a> {
-    pub(crate) inner: ImportedClass<'a>,
+pub(crate) struct ImportedModuleInitialization<'a> {
+    pub(crate) inner: ImportedModule<'a>,
 }
 
-impl<'a> ImportedClassInitialization<'a> {
-    pub(crate) fn new(inner: &ImportedClass<'a>) -> Self {
+impl<'a> ImportedModuleInitialization<'a> {
+    pub(crate) fn new(inner: &ImportedModule<'a>) -> Self {
         Self {
             inner: inner.clone(),
         }
     }
 }
 
-impl CodeDeclaration for ImportedClassInitialization<'_> {
+impl CodeDeclaration for ImportedModuleInitialization<'_> {
     fn imports(&self, _oracle: &dyn CodeOracle) -> Option<Vec<String>> {
         let p = self.inner.about.nimbus_package_name()?;
         Some(vec![format!("{}.*", p)])

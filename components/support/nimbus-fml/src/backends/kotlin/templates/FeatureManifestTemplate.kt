@@ -56,11 +56,12 @@ object {{ nimbus_object }} {
      */
     public fun initialize(getSdk: () -> FeaturesInterface?) {
         this.getSdk = getSdk
-
+        {%- for f in self.iter_feature_defs() %}
+        this.features.{{- f.name()|var_name -}}.withSdk(getSdk)
+        {%- endfor %}
         {%- for f in self.fm.iter_imported_files() %}
         {{ f.about.nimbus_object_name_kt() }}.initialize(getSdk)
         {%- endfor %}
-        this.invalidateCachedValues()
     }
 
     private var getSdk: () -> FeaturesInterface? = {

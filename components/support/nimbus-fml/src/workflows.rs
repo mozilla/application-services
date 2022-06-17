@@ -185,15 +185,15 @@ mod test {
         manifests: &[&str],
         channel: &str,
     ) -> Result<()> {
-        let cmds = manifests.iter().map(|manifest| {
-            let cmd = create_command_from_test(test_script, manifest, channel, false)?;
-            generate_struct(&cmd)?;
+        let cmds = manifests
+            .iter()
+            .map(|manifest| {
+                let cmd = create_command_from_test(test_script, manifest, channel, false)?;
+                generate_struct(&cmd)?;
+                Ok(cmd)
+            })
+            .collect::<Result<Vec<_>>>()?;
 
-            Ok(cmd)
-        });
-
-        let cmds: Result<Vec<GenerateStructCmd>> = cmds.into_iter().collect();
-        let cmds = cmds?;
         let first = cmds
             .first()
             .expect("At least one manifests are always used");
@@ -217,11 +217,9 @@ mod test {
             TargetLanguage::Kotlin => {
                 kotlin::test::run_script_with_generated_code(manifests_out, test_script)?
             }
-            TargetLanguage::Swift => swift::test::run_script_with_generated_code(
-                // TODO we don't support Swift yet!
-                manifests_out,
-                test_script.as_ref(),
-            )?,
+            TargetLanguage::Swift => {
+                swift::test::run_script_with_generated_code(manifests_out, test_script.as_ref())?
+            }
             _ => unimplemented!(),
         }
         Ok(())

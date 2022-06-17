@@ -18,3 +18,8 @@ Use the template below to make assigning a version number during the release cut
   - Description of the change with a link to the pull request ([#0000](https://github.com/mozilla/application-services/pull/0000))
 
 -->
+
+## Nimbus FML ⛅️🔬🔭🔧
+
+### What's New
+  - Added initial work to support component FML files into an app FML. ([#4999](https://github.com/mozilla/application-services/pull/4999)). Please upgrade your nimbus-fml tooling at the same time as upgrading the megazord.

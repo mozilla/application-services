@@ -12,10 +12,14 @@ channels:
   - release
 import:
   - path: ./lib.yaml
+    # `test-embedding` is defined in `lib.yaml`. We'll use it as the base case.
     channel: test-embedding
     features:
+      # `homescreen` comes from ios-homescreen.yaml, which is included in ./lib.yaml
       homescreen:
         - channel: debug
+          # this block will merge with the `test-embedding`
+          # channel for the app's debug channel
           value:
             sections-enabled:
               pocket: true

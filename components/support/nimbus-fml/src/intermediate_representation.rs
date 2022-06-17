@@ -1,10 +1,10 @@
-use crate::TargetLanguage;
 /* This Source Code Form is subject to the terms of the Mozilla Public
 * License, v. 2.0. If a copy of the MPL was not distributed with this
 * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 use crate::error::{FMLError, Result};
 use crate::parser::AboutBlock;
 use crate::parser::FileId;
+use crate::TargetLanguage;
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use std::collections::{BTreeSet, HashMap, HashSet};
@@ -467,7 +467,7 @@ impl FeatureManifest {
         self.feature_defs.iter()
     }
 
-    pub(crate) fn iter_imported_files(&self) -> Vec<ImportedClass> {
+    pub(crate) fn iter_imported_files(&self) -> Vec<ImportedModule> {
         let map = &self.all_imports;
 
         self.imported_features
@@ -477,21 +477,21 @@ impl FeatureManifest {
                 let about = &fm.about;
                 let features = features.iter().filter_map(|f| fm.find_feature(f)).collect();
 
-                Some(ImportedClass::new(id.clone(), about, features))
+                Some(ImportedModule::new(id.clone(), about, features))
             })
             .collect::<Vec<_>>()
     }
 
-    pub fn find_object(&self, nm: &str) -> Option<ObjectDef> {
-        self.iter_object_defs().find(|o| o.name() == nm).cloned()
+    pub fn find_object(&self, nm: &str) -> Option<&ObjectDef> {
+        self.iter_object_defs().find(|o| o.name() == nm)
     }
 
-    pub fn find_enum(&self, nm: &str) -> Option<EnumDef> {
-        self.iter_enum_defs().find(|e| e.name() == nm).cloned()
+    pub fn find_enum(&self, nm: &str) -> Option<&EnumDef> {
+        self.iter_enum_defs().find(|e| e.name() == nm)
     }
 
     pub fn find_feature(&self, nm: &str) -> Option<&FeatureDef> {
-        self.iter_feature_defs().find(|e| e.name() == nm)
+        self.iter_feature_defs().find(|f| f.name() == nm)
     }
 }
 
@@ -660,13 +660,13 @@ impl TypeFinder for PropDef {
 pub type Literal = Value;
 
 #[derive(Debug, Clone, PartialEq)]
-pub(crate) struct ImportedClass<'a> {
+pub(crate) struct ImportedModule<'a> {
     pub(crate) file_id: FileId,
     pub(crate) about: &'a AboutBlock,
     pub(crate) features: Vec<&'a FeatureDef>,
 }
 
-impl<'a> ImportedClass<'a> {
+impl<'a> ImportedModule<'a> {
     pub(crate) fn new(
         file_id: FileId,
         about: &'a AboutBlock,

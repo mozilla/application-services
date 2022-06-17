@@ -21,13 +21,13 @@ mod structural;
 
 impl AboutBlock {
     fn nimbus_object_name_swift(&self) -> String {
-        let specific = self.swift_about.as_ref().unwrap();
-        specific.class.clone()
+        let swift_about = self.swift_about.as_ref().unwrap();
+        swift_about.class.clone()
     }
 
     fn nimbus_module_name(&self) -> String {
-        let specific = self.swift_about.as_ref().unwrap();
-        specific.module.clone()
+        let swift_about = self.swift_about.as_ref().unwrap();
+        swift_about.module.clone()
     }
 }
 
@@ -66,7 +66,7 @@ impl<'a> FeatureManifestDeclaration<'a> {
                 Box::new(object::ObjectCodeDeclaration::new(fm, inner)) as Box<dyn CodeDeclaration>
             }))
             .chain(fm.iter_imported_files().iter().map(|inner| {
-                Box::new(imports::ImportedClassInitialization::new(inner))
+                Box::new(imports::ImportedModuleInitialization::new(inner))
                     as Box<dyn CodeDeclaration>
             }))
             .collect()

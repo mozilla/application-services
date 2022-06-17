@@ -931,12 +931,12 @@ fn check_can_import_manifest(parent: &FeatureManifest, child: &FeatureManifest) 
     })?;
     check_can_import_list(parent, child, "objects", |fm: &FeatureManifest| {
         fm.iter_object_defs()
-            .map(|e| &e.name)
+            .map(|o| &o.name)
             .collect::<HashSet<&String>>()
     })?;
     check_can_import_list(parent, child, "features", |fm: &FeatureManifest| {
         fm.iter_feature_defs()
-            .map(|e| &e.name)
+            .map(|f| &f.name)
             .collect::<HashSet<&String>>()
     })?;
 

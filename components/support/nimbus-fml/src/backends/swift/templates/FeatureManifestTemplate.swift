@@ -27,10 +27,12 @@ public class {{ nimbus_object }} {
     /// The lambda MUST be threadsafe in its own right.
     public func initialize(with getSdk: @escaping () -> FeaturesInterface?) {
         self.getSdk = getSdk
+        {%- for f in self.iter_feature_defs() %}
+        self.features.{{- f.name()|var_name -}}.with(sdk: getSdk)
+        {%- endfor %}
         {%- for f in self.fm.iter_imported_files() %}
         {{ f.about.nimbus_object_name_swift() }}.shared.initialize(with: getSdk)
         {%- endfor %}
-        self.invalidateCachedValues()
     }
 
     fileprivate lazy var getSdk: GetSdk = { [self] in self.api }
@@ -39,7 +41,6 @@ public class {{ nimbus_object }} {
     /// Represents all the features supported by Nimbus
     ///
     public let features = {{ nimbus_object }}Features()
-
 
     ///
     /// Refresh the cache of configuration objects.
@@ -56,7 +57,6 @@ public class {{ nimbus_object }} {
         {%- for f in self.fm.iter_imported_files() %}
         {{ f.about.nimbus_object_name_swift() }}.shared.invalidateCachedValues()
         {%- endfor %}
-
     }
 
     ///
