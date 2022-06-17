@@ -193,14 +193,8 @@ class LoginsStoreCounterMetrics(
                 throw e
             }
             when (e) {
-                is LoginsStorageException.MismatchedLock -> {
-                    errCount["mismatched_lock"].add()
-                }
                 is LoginsStorageException.NoSuchRecord -> {
                     errCount["no_such_record"].add()
-                }
-                is LoginsStorageException.InvalidKey -> {
-                    errCount["invalid_key"].add()
                 }
                 is LoginsStorageException.Interrupted -> {
                     errCount["interrupted"].add()

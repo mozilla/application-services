@@ -63,15 +63,15 @@ pub fn migrate_logins(
 
     // If the sqlcipher db doesn't exist we can't do anything.
     if !sqlcipher_path.exists() {
-        throw!(ErrorKind::InvalidDatabaseFile(
-            sqlcipher_path.to_string_lossy().to_string()
+        return Err(LoginsError::InvalidDatabaseFile(
+            sqlcipher_path.to_string_lossy().to_string(),
         ));
     }
 
     // If the target does exist we fail as we don't want to migrate twice.
     if path.exists() {
-        throw!(ErrorKind::MigrationError(
-            "target database already exists".to_string()
+        return Err(LoginsError::MigrationError(
+            "target database already exists".to_string(),
         ));
     }
     migrate_sqlcipher_db_to_plaintext(
@@ -94,7 +94,7 @@ fn migrate_sqlcipher_db_to_plaintext(
     init_sqlcipher_db(&mut db, old_encryption_key, salt)?;
 
     // Init the new plaintext db as we would a regular client
-    let new_db_store = LoginStore::new(new_db_path)?;
+    let new_db_store = LoginStore::new_from_db(LoginDb::open(new_db_path)?);
     migrate_from_sqlcipher_db(&mut db, new_db_store, new_encryption_key)
 }
 
@@ -1243,9 +1243,8 @@ mod tests {
                 None,
             )
             .err()
-            .unwrap()
-            .kind(),
-            ErrorKind::InvalidDatabaseFile(_),
+            .unwrap(),
+            LoginsError::InvalidDatabaseFile(_),
         ))
     }
 
@@ -1266,9 +1265,8 @@ mod tests {
                 None,
             )
             .err()
-            .unwrap()
-            .kind(),
-            ErrorKind::MigrationError(_)
+            .unwrap(),
+            LoginsError::MigrationError(_)
         ));
     }
 

@@ -369,7 +369,6 @@ fn set_encryption_key(store: &LoginStore, key: &str) -> rusqlite::Result<()> {
 fn main() -> Result<()> {
     cli_support::init_trace_logging();
     viaduct_reqwest::use_reqwest_backend();
-    std::env::set_var("RUST_BACKTRACE", "1");
 
     let matches = clap::App::new("sync_pass_sql")
         .about("CLI login syncing tool (backed by sqlcipher)")
@@ -504,7 +503,6 @@ fn main() -> Result<()> {
                                 ) {
                     Err(e) => {
                         log::warn!("Sync failed! {}", e);
-                        log::warn!("BT: {:?}", e.backtrace());
                     },
                     Ok(sync_ping) => {
                         log::info!("Sync was successful!");
@@ -523,7 +521,6 @@ fn main() -> Result<()> {
                     match store.get_by_base_domain(&basedomain) {
                         Err(e) => {
                             log::warn!("Base domain lookup failed! {}", e);
-                            log::warn!("BT: {:?}", e.backtrace());
                         },
                         Ok(result) => {
                             log::info!("Base domain result: {:?}", result);
