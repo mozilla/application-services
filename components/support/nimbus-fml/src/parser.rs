@@ -788,14 +788,16 @@ impl Parser {
         // We put a terminus in here, to make sure we don't try and load more than once.
         imports.insert(id.clone(), Default::default());
 
+        // This loads the manifest in its frontend format (i.e. direct from YAML via serde), including
+        // all the `includes` for this manifest.
         let frontend = Parser::load_manifest(&self.files, current, &mut HashSet::new())?;
 
         let mut manifest = frontend.get_intermediate_representation(&id, channel)?;
 
         // We're now going to go through all the imports in the manifest YAML.
         // Each of the import blocks will have a path, and a Map<FeatureId, List<DefaultBlock>>
-        // This loops does the work of merging the default blocks back into the imported manifests.
-        // We'll then attached all the manifests to the root (i.e. the one we're generating code for today), in `imports`.
+        // This loop does the work of merging the default blocks back into the imported manifests.
+        // We'll then attach all the manifests to the root (i.e. the one we're generating code for today), in `imports`.
         // We associate only the feature ids with the manifest we're loading in this method.
         let mut imported_feature_id_map = HashMap::new();
 
@@ -807,7 +809,9 @@ impl Parser {
             let child_manifest = imports.get_mut(&child_id).expect("just loaded this file");
 
             // We detect that there are no name collisions after the loading has finished, with `check_can_import_manifest`.
-            // We can't do it now, because we need to check all imports against the top-level manifest file.
+            // We can't do it greedily, because of transitive imports may cause collisions, but we'll check here for better error
+            // messages.
+            check_can_import_manifest(&manifest, child_manifest)?;
 
             // We detect that the imported files have language specific files in `validate_manifest_for_lang()`.
             // We can't do it now because we don't yet know what this run is going to generate.
@@ -816,8 +820,8 @@ impl Parser {
             // This will be the only thing we add directly to the manifest we load in this method.
             let mut feature_ids = BTreeSet::new();
 
-            // 3. For each of the features in each of the imported files, we need to do the merge
-            // from the features specialized in this one.
+            // 3. For each of the features in each of the imported files, the user can specify new defaults that should
+            //    merge into/overwrite the defaults specified in the imported file. Let's do that now:
             // a. Prepare a DefaultsMerger, with an object map.
             let object_map: HashMap<String, &ObjectDef> = child_manifest
                 .obj_defs
@@ -827,7 +831,7 @@ impl Parser {
             let merger = DefaultsMerger::new(object_map, frontend.channels.clone(), channel.into());
 
             // b. Prepare a feature map that we'll alter in place.
-            //    If we want to support re-exporting/encapsulating features then we will need to change
+            //    EXP- 2540 If we want to support re-exporting/encapsulating features then we will need to change
             //    this to be a more recursive look up. e.g. change `FeatureManifest.feature_defs` to be a `BTreeMap`.
             let mut feature_map: HashMap<String, &mut FeatureDef> = child_manifest
                 .feature_defs
@@ -913,6 +917,10 @@ fn check_can_merge_manifest(
                 format!("Only files that don't already correspond to generated files may be included: file has a `class` and `package`/`module` name: {}", child_path),
             ));
         }
+    }
+
+    if !parent.imports.is_empty() && !child.imports.is_empty() {
+        unimplemented!("EXP-2547 Merging of imports is currently not supported");
     }
 
     Ok(())

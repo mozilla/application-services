@@ -1,5 +1,7 @@
 version: 1.0
 channels:
+  # These channels can be set to whatever the lib developer wants.
+  # The app developer chooses which of these channels to use.
   - debug
   - nightly
   - release

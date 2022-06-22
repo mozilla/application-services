@@ -37,9 +37,6 @@ pub enum TypeRef {
     // JSON objects can represent a data class.
     Object(String),
 
-    // ImportedClass(String),
-    // ImportedFeature(String),
-
     // JSON objects can also represent a `Map<String, V>` or a `Map` with
     // keys that can be derived from a string.
     StringMap(Box<TypeRef>),

@@ -8,9 +8,10 @@ about:
     class: .nimbus.AppNimbus
     package: com.example.app
 channels:
+  # These channels do not match the channels in lib.
   - app-debug
   - app-release
 import:
   - path: ./lib.fml.yaml
-    # The channel here is the one we find in the lib.fml.yaml
+    # We specify which channel from the ones available in lib.fml.yaml
     channel: debug
