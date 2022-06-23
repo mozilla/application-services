@@ -526,12 +526,9 @@ impl FeatureManifest {
             .iter()
             .filter_map(|(id, features)| {
                 let fm = map.get(id).to_owned()?;
-                let about = &fm.about;
-                let features = features.iter().filter_map(|f| fm.find_feature(f)).collect();
-
-                Some(ImportedModule::new(id.clone(), about, features))
+                Some(ImportedModule::new(id.clone(), fm, features))
             })
-            .collect::<Vec<_>>()
+            .collect()
     }
 
     pub fn find_object(&self, nm: &str) -> Option<&ObjectDef> {
@@ -718,17 +715,29 @@ pub type Literal = Value;
 #[derive(Debug, Clone, PartialEq)]
 pub(crate) struct ImportedModule<'a> {
     pub(crate) id: ModuleId,
-    pub(crate) about: &'a AboutBlock,
-    pub(crate) features: Vec<&'a FeatureDef>,
+    pub(crate) fm: &'a FeatureManifest,
+    features: &'a BTreeSet<String>,
 }
 
 impl<'a> ImportedModule<'a> {
-    pub(crate) fn new(id: ModuleId, about: &'a AboutBlock, features: Vec<&'a FeatureDef>) -> Self {
-        Self {
-            id,
-            about,
-            features,
-        }
+    pub(crate) fn new(
+        id: ModuleId,
+        fm: &'a FeatureManifest,
+        features: &'a BTreeSet<String>,
+    ) -> Self {
+        Self { id, fm, features }
+    }
+
+    pub(crate) fn about(&self) -> &AboutBlock {
+        &self.fm.about
+    }
+
+    pub(crate) fn features(&self) -> Vec<&'a FeatureDef> {
+        let fm = self.fm;
+        self.features
+            .iter()
+            .filter_map(|f| fm.find_feature(f))
+            .collect()
     }
 }
 

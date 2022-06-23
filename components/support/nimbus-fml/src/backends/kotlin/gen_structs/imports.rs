@@ -7,7 +7,7 @@ use std::fmt::Display;
 use super::{filters, object::object_literal};
 use crate::{
     backends::{CodeDeclaration, CodeOracle, LiteralRenderer, TypeIdentifier},
-    intermediate_representation::{FeatureManifest, ImportedModule, Literal},
+    intermediate_representation::{ImportedModule, Literal},
 };
 use askama::Template;
 
@@ -18,22 +18,18 @@ use askama::Template;
     path = "ImportedModuleInitializationTemplate.kt"
 )]
 pub(crate) struct ImportedModuleInitialization<'a> {
-    pub(crate) fm: FeatureManifest,
     pub(crate) inner: ImportedModule<'a>,
 }
 
 impl<'a> ImportedModuleInitialization<'a> {
-    pub(crate) fn new(fm: &FeatureManifest, inner: &ImportedModule<'a>) -> Self {
-        Self {
-            fm: fm.clone(),
-            inner: inner.clone(),
-        }
+    pub(crate) fn new(inner: ImportedModule<'a>) -> Self {
+        Self { inner }
     }
 }
 
 impl CodeDeclaration for ImportedModuleInitialization<'_> {
     fn imports(&self, _oracle: &dyn CodeOracle) -> Option<Vec<String>> {
-        let p = self.inner.about.nimbus_package_name()?;
+        let p = self.inner.about().nimbus_package_name()?;
         Some(vec![format!("{}.*", p)])
     }
 
@@ -54,6 +50,6 @@ impl LiteralRenderer for ImportedModuleInitialization<'_> {
         value: &Literal,
         ctx: &dyn Display,
     ) -> String {
-        object_literal(&self.fm, ctx, &self, oracle, typ, value)
+        object_literal(self.inner.fm, ctx, &self, oracle, typ, value)
     }
 }

@@ -60,7 +60,7 @@ object {{ nimbus_object }} {
         this.features.{{- f.name()|var_name -}}.withSdk(getSdk)
         {%- endfor %}
         {%- for f in self.fm.iter_imported_files() %}
-        {{ f.about.nimbus_object_name_kt() }}.initialize(getSdk)
+        {{ f.about().nimbus_object_name_kt() }}.initialize(getSdk)
         {%- endfor %}
         this.reinitialize()
     }
@@ -92,7 +92,7 @@ object {{ nimbus_object }} {
         features.{{- f.name()|var_name -}}.withCachedValue(null)
         {%- endfor %}
         {%- for f in self.fm.iter_imported_files() %}
-        {{ f.about.nimbus_object_name_kt() }}.invalidateCachedValues()
+        {{ f.about().nimbus_object_name_kt() }}.invalidateCachedValues()
         {%- endfor %}
     }
 
