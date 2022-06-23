@@ -1,0 +1,76 @@
+version: 1.0.0
+channels:
+  - debug
+  - release
+about:
+  description: A test fixture for testing importing. This is the lib that will be imported.
+  android:
+    class: .nimbus.LibNimbus
+    package: com.example.lib
+  ios:
+    class: LibNimbus
+    module: Lib
+includes:
+  - ../common/overrides-types.yaml
+  - ../common/property-overrides-feature.yaml
+features:
+  overrides-coverall:
+    description: Testing many combinations of overridden values
+    variables:
+      no-override:
+        description: For testing purposes should never be overridden
+        type: OverrideSource
+        default: none
+      scalar:
+        description: For testing purposes should never be overridden
+        type: OverrideSource
+        default: none
+      map:
+        description: For testing
+        type: Map<OverrideSource, Boolean>
+        default:
+          none: false
+          lib-fml: false
+          app-fml: false
+          variables-json: false
+          channel-specific: false
+      string-map:
+        description: For testing
+        type: Map<String, OverrideSource>
+        default:
+          none: none
+          lib-fml: none
+          app-fml: none
+          variables-json: none
+          channel-specific: none
+      nested-object:
+        description: For testing
+        type: NestedObject
+        default: {}
+    defaults:
+      - value:
+          scalar: lib-fml
+          map:
+            lib-fml: true
+          string-map:
+            lib-fml: lib-fml
+      - channel: release
+        value:
+          scalar: channel-specific
+          map:
+            channel-specific: true
+          string-map:
+            channel-specific: channel-specific
+
+objects:
+  NestedObject:
+    description: Testing property overrides from importer
+    fields:
+      no-override:
+        description: For testing purposes should never be overridden
+        type: OverrideSource
+        default: none
+      scalar:
+        description: For testing purposes should never be overridden
+        type: OverrideSource
+        default: none

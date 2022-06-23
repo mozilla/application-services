@@ -31,7 +31,7 @@ public class {{ nimbus_object }} {
         self.features.{{- f.name()|var_name -}}.with(sdk: getSdk)
         {%- endfor %}
         {%- for f in self.fm.iter_imported_files() %}
-        {{ f.about.nimbus_object_name_swift() }}.shared.initialize(with: getSdk)
+        {{ f.about().nimbus_object_name_swift() }}.shared.initialize(with: getSdk)
         {%- endfor %}
     }
 
@@ -55,7 +55,7 @@ public class {{ nimbus_object }} {
         features.{{- f.name()|var_name -}}.with(cachedValue: nil)
         {%- endfor %}
         {%- for f in self.fm.iter_imported_files() %}
-        {{ f.about.nimbus_object_name_swift() }}.shared.invalidateCachedValues()
+        {{ f.about().nimbus_object_name_swift() }}.shared.invalidateCachedValues()
         {%- endfor %}
     }
 

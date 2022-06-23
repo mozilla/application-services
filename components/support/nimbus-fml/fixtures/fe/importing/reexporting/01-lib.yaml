@@ -1,0 +1,19 @@
+about:
+  description: The nested FML file which will import a feature from a child and grandchild.
+  kotlin:
+    class: .nimbus.LibNimbus
+    package: com.example.lib
+  ios:
+    class: LibNimbus
+    module: Lib
+channels:
+  - debug
+  - release
+imports:
+  - path: 02-sublib.yaml
+    channel: release
+    features:
+      deeply-nested-feature:
+        - value:
+            order-dependent: lib-fml
+            lib-fml: lib-fml

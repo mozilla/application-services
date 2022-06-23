@@ -1,0 +1,18 @@
+version: 1.0
+channels:
+  # These channels can be set to whatever the lib developer wants.
+  # The app developer chooses which of these channels to use.
+  - debug
+  - nightly
+  - release
+about:
+  description: A small test of importing and including
+  ios:
+    class: ComponentsNimbus
+    module: Components
+  android:
+    class: .nimbus.LibNimbus
+    package: com.example.lib
+include:
+  - ../common/overrides-types.yaml
+  - ../common/property-overrides-feature.yaml

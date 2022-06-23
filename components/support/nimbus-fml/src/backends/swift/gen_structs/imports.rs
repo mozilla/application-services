@@ -21,7 +21,7 @@ impl<'a> ImportedModuleInitialization<'a> {
 
 impl CodeDeclaration for ImportedModuleInitialization<'_> {
     fn imports(&self, _oracle: &dyn CodeOracle) -> Option<Vec<String>> {
-        let p = self.inner.about.nimbus_module_name();
+        let p = self.inner.about().nimbus_module_name();
         Some(vec![p])
     }
 
