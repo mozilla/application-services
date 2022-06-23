@@ -310,7 +310,7 @@ impl ManifestFrontEnd {
     }
 }
 
-fn parse_typeref_string(input: String) -> Result<(String, Option<String>), FMLError> {
+fn parse_typeref_string(input: String) -> Result<(String, Option<String>)> {
     // Split the string into the TypeRef and the name
     let mut object_type_iter = input.split(&['<', '>'][..]);
 
@@ -352,7 +352,7 @@ fn parse_typeref_string(input: String) -> Result<(String, Option<String>), FMLEr
 fn collect_channel_defaults(
     defaults: &[DefaultBlock],
     channels: &[String],
-) -> Result<HashMap<String, serde_json::Value>, FMLError> {
+) -> Result<HashMap<String, serde_json::Value>> {
     // We initialize the map to have an entry for every valid channel
     let mut channel_map = channels
         .iter()

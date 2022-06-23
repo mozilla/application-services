@@ -17,8 +17,6 @@ pub enum FMLError {
     UrlError(#[from] url::ParseError),
     #[error("Fetch Error: {0}")]
     FetchError(#[from] reqwest::Error),
-
-    #[allow(dead_code)]
     #[error("Can't find file: {0}")]
     InvalidPath(String),
 

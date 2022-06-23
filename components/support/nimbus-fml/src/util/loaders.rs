@@ -19,7 +19,7 @@ use url::Url;
 pub(crate) const GITHUB_USER_CONTENT_DOTCOM: &str = "https://raw.githubusercontent.com";
 
 /// A small enum for working with URLs and relative files
-#[derive(PartialEq, Eq, Debug, Hash, Clone)]
+#[derive(Debug)]
 pub enum FilePath {
     Local(PathBuf),
     Remote(Url),

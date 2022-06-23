@@ -57,8 +57,9 @@ pub enum TypeRef {
  *
  * - a file path can specify a non-canonical representation of the path
  * - a file path is difficult to serialize/deserialize
- * - a module
- *
+ * - a module identifies the cluster of FML files that map to a single generated
+ * Kotlin or Swift file; this difference can be seen as: files can be included,
+ * modules can be imported.
  */
 #[derive(PartialEq, Eq, PartialOrd, Ord, Debug, Hash, Clone, Serialize, Deserialize)]
 pub enum ModuleId {
@@ -77,6 +78,8 @@ impl TryFrom<&FilePath> for ModuleId {
     fn try_from(path: &FilePath) -> Result<Self> {
         Ok(match path {
             FilePath::Local(p) => {
+                // We do this map_err here because the IO Error message that comes out of `canonicalize`
+                // doesn't include the problematic file path.
                 let p = p.canonicalize().map_err(|e| {
                     FMLError::InvalidPath(format!("{}: {}", e, p.as_path().display()))
                 })?;
