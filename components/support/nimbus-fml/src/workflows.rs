@@ -58,7 +58,7 @@ fn generate_struct_from_ir(ir: &FeatureManifest, cmd: &GenerateStructCmd) -> Res
     Ok(())
 }
 
-pub(crate) fn generate_experimenter_manifest(cmd: GenerateExperimenterManifestCmd) -> Result<()> {
+pub(crate) fn generate_experimenter_manifest(cmd: &GenerateExperimenterManifestCmd) -> Result<()> {
     let ir = load_feature_manifest(&cmd.manifest, cmd.load_from_ir, &cmd.channel)?;
     backends::experimenter_manifest::generate_manifest(ir, cmd)?;
     Ok(())
@@ -99,6 +99,7 @@ mod test {
     use jsonschema::JSONSchema;
 
     use super::*;
+    use crate::backends::experimenter_manifest::ExperimenterManifest;
     use crate::backends::{kotlin, swift};
     use crate::parser::KotlinAboutBlock;
     use crate::util::{generated_src_dir, join, pkg_dir};
@@ -108,6 +109,8 @@ mod test {
         "fixtures/ir/simple_nimbus_validation.json",
         "fixtures/ir/with_objects.json",
         "fixtures/ir/full_homescreen.json",
+        "fixtures/fe/importing/simple/app.yaml",
+        "fixtures/fe/importing/diamond/00-app.yaml",
     ];
 
     fn generate_and_assert(
@@ -521,6 +524,19 @@ mod test {
     }
 
     #[test]
+    fn test_importing_simple_experimenter_manifest() -> Result<()> {
+        // Both the app and lib files declare features, so we should have an experimenter manifest file with two features.
+        let cmd = create_experimenter_manifest_cmd("fixtures/fe/importing/simple/app.yaml")?;
+        let fm = load_feature_manifest(&cmd.manifest, cmd.load_from_ir, &cmd.channel)?;
+        let m: ExperimenterManifest = fm.try_into()?;
+
+        assert!(m.contains_key("homescreen"));
+        assert!(m.contains_key("search"));
+
+        Ok(())
+    }
+
+    #[test]
     fn regression_test_concurrent_access_of_feature_holder_swift() -> Result<()> {
         generate_and_assert(
             "test/threadsafe_feature_holder.swift",
@@ -546,7 +562,6 @@ mod test {
         schema_path: P,
         generated_yaml: &serde_yaml::Value,
     ) -> Result<()> {
-        use crate::backends::experimenter_manifest::ExperimenterManifest;
         let generated_manifest: ExperimenterManifest =
             serde_yaml::from_value(generated_yaml.to_owned())?;
         let generated_json = serde_json::to_value(generated_manifest)?;
@@ -568,29 +583,10 @@ mod test {
     #[test]
     fn test_schema_validation() -> Result<()> {
         for path in MANIFEST_PATHS {
-            let manifest_fml = join(pkg_dir(), path);
+            let cmd = create_experimenter_manifest_cmd(path)?;
+            generate_experimenter_manifest(&cmd)?;
 
-            let manifest_fml = PathBuf::from(manifest_fml);
-            let file = manifest_fml
-                .file_stem()
-                .ok_or_else(|| anyhow!("Manifest file path isn't a file"))?
-                .to_str()
-                .ok_or_else(|| anyhow!("Manifest file path isn't a file with a sensible name"))?;
-
-            fs::create_dir_all(generated_src_dir())?;
-
-            let manifest_out = format!("{}.yaml", join(generated_src_dir(), file),);
-            let manifest_out: PathBuf = manifest_out.into();
-            let cmd = GenerateExperimenterManifestCmd {
-                manifest: manifest_fml,
-                output: manifest_out.clone(),
-                load_from_ir: true,
-                channel: "release".into(),
-            };
-
-            generate_experimenter_manifest(cmd)?;
-
-            let generated = fs::read_to_string(manifest_out)?;
+            let generated = fs::read_to_string(&cmd.output)?;
             let generated_yaml = serde_yaml::from_str(&generated)?;
             validate_against_experimenter_schema(
                 join(pkg_dir(), "ExperimentFeatureManifest.schema.json"),
@@ -598,5 +594,29 @@ mod test {
             )?;
         }
         Ok(())
+    }
+
+    fn create_experimenter_manifest_cmd(path: &str) -> Result<GenerateExperimenterManifestCmd> {
+        let manifest_fml = PathBuf::from(join(pkg_dir(), path));
+        let file = manifest_fml
+            .file_stem()
+            .ok_or_else(|| anyhow!("Manifest file path isn't a file"))?
+            .to_str()
+            .ok_or_else(|| anyhow!("Manifest file path isn't a file with a sensible name"))?;
+
+        fs::create_dir_all(generated_src_dir())?;
+
+        let output = format!("{}.yaml", join(generated_src_dir(), file)).into();
+        let load_from_ir = if let Some(ext) = manifest_fml.extension() {
+            TargetLanguage::ExperimenterJSON == ext.try_into()?
+        } else {
+            false
+        };
+        Ok(GenerateExperimenterManifestCmd {
+            manifest: manifest_fml,
+            output,
+            load_from_ir,
+            channel: "release".into(),
+        })
     }
 }
