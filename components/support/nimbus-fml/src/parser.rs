@@ -3,7 +3,7 @@
 * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
 use std::{
-    collections::{BTreeSet, HashMap, HashSet},
+    collections::{BTreeMap, BTreeSet, HashMap, HashSet},
     fmt::Display,
 };
 
@@ -48,7 +48,9 @@ pub(crate) struct FieldBody {
 pub(crate) struct ObjectBody {
     description: String,
     failable: Option<bool>,
-    fields: HashMap<String, FieldBody>,
+    // We need these in a deterministic order, so they are stable across multiple
+    // runs of the same manifests.
+    fields: BTreeMap<String, FieldBody>,
 }
 
 #[derive(Debug, Deserialize, Serialize, Clone, Default)]
@@ -112,7 +114,11 @@ pub(crate) struct ImportBlock {
 #[serde(deny_unknown_fields)]
 pub(crate) struct FeatureBody {
     description: String,
-    variables: HashMap<String, FieldBody>,
+    // We need these in a deterministic order, so they are stable across multiple
+    // runs of the same manifests:
+    // 1. Swift insists on args in the same order they were declared.
+    // 2. imported features are declared and constructed in different runs of the tool.
+    variables: BTreeMap<String, FieldBody>,
     #[serde(alias = "defaults")]
     default: Option<Vec<DefaultBlock>>,
 }
