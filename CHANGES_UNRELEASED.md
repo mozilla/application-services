@@ -23,3 +23,8 @@ Use the template below to make assigning a version number during the release cut
 
 ### What's New
   - Added initial work to support component FML files into an app FML. ([#4999](https://github.com/mozilla/application-services/pull/4999)). Please upgrade your nimbus-fml tooling at the same time as upgrading the megazord.
+
+## Logins
+
+### What's Changed
+  - sqlcipher migrations no longer record metrics (#5017)
