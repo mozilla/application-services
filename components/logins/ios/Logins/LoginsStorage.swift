@@ -8,14 +8,8 @@ import UIKit
 
 typealias LoginsStoreError = LoginsStorageError
 
-/*
- ** We probably should have this class go away eventually as it's really only a thin wrapper
- * similar to its kotlin equiavlent, however the only thing preventing this from being removed is
- * the queue.sync which we should be moved over to the consumer side of things
- */
 open class LoginsStorage {
     private var store: LoginStore
-    private let queue = DispatchQueue(label: "com.mozilla.logins-storage")
 
     public init(databasePath: String) throws {
         store = try LoginStore(path: databasePath)
@@ -24,38 +18,28 @@ open class LoginsStorage {
     /// Delete all locally stored login sync metadata. It's unclear if
     /// there's ever a reason for users to call this
     open func reset() throws {
-        try queue.sync {
-            try self.store.reset()
-        }
+        try store.reset()
     }
 
     /// Delete all locally stored login data.
     open func wipe() throws {
-        try queue.sync {
-            try self.store.wipe()
-        }
+        try store.wipe()
     }
 
     open func wipeLocal() throws {
-        try queue.sync {
-            try self.store.wipeLocal()
-        }
+        try store.wipeLocal()
     }
 
     /// Delete the record with the given ID. Returns false if no such record existed.
     open func delete(id: String) throws -> Bool {
-        return try queue.sync {
-            return try self.store.delete(id: id)
-        }
+        return try store.delete(id: id)
     }
 
     /// Bump the usage count for the record with the given id.
     ///
     /// Throws `LoginStoreError.NoSuchRecord` if there was no such record.
     open func touch(id: String) throws {
-        try queue.sync {
-            try self.store.touch(id: id)
-        }
+        try store.touch(id: id)
     }
 
     /// Insert `login` into the database. If `login.id` is not empty,
@@ -63,58 +47,44 @@ open class LoginsStorage {
     ///
     /// Returns the `id` of the newly inserted record.
     open func add(login: LoginEntry, encryptionKey: String) throws -> EncryptedLogin {
-        return try queue.sync {
-            return try self.store.add(login: login, encryptionKey: encryptionKey)
-        }
+        return try store.add(login: login, encryptionKey: encryptionKey)
     }
 
     /// Update `login` in the database. If `login.id` does not refer to a known
     /// login, then this throws `LoginStoreError.NoSuchRecord`.
     open func update(id: String, login: LoginEntry, encryptionKey: String) throws -> EncryptedLogin {
-        return try queue.sync {
-            return try self.store.update(id: id, login: login, encryptionKey: encryptionKey)
-        }
+        return try store.update(id: id, login: login, encryptionKey: encryptionKey)
     }
 
     /// Get the record with the given id. Returns nil if there is no such record.
     open func get(id: String) throws -> EncryptedLogin? {
-        return try queue.sync {
-            return try self.store.get(id: id)
-        }
+        return try store.get(id: id)
     }
 
     /// Get the entire list of records.
     open func list() throws -> [EncryptedLogin] {
-        return try queue.sync {
-            return try self.store.list()
-        }
+        return try store.list()
     }
 
     /// Get the list of records for some base domain.
     open func getByBaseDomain(baseDomain: String) throws -> [EncryptedLogin] {
-        return try queue.sync {
-            return try self.store.getByBaseDomain(baseDomain: baseDomain)
-        }
+        return try store.getByBaseDomain(baseDomain: baseDomain)
     }
 
     /// Register with the sync manager
     open func registerWithSyncManager() throws {
-        return queue.sync {
-            return self.store.registerWithSyncManager()
-        }
+        return store.registerWithSyncManager()
     }
 
     open func sync(unlockInfo: SyncUnlockInfo) throws -> String {
-        return try queue.sync {
-            return try self.store
-                .sync(
-                    keyId: unlockInfo.kid,
-                    accessToken: unlockInfo.fxaAccessToken,
-                    syncKey: unlockInfo.syncKey,
-                    tokenserverUrl: unlockInfo.tokenserverURL,
-                    localEncryptionKey: unlockInfo.loginEncryptionKey
-                )
-        }
+        return try store
+            .sync(
+                keyId: unlockInfo.kid,
+                accessToken: unlockInfo.fxaAccessToken,
+                syncKey: unlockInfo.syncKey,
+                tokenserverUrl: unlockInfo.tokenserverURL,
+                localEncryptionKey: unlockInfo.loginEncryptionKey
+            )
     }
 }
 
