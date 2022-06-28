@@ -20,13 +20,7 @@ android {
 
 protobuf {
     protoc {
-        // This is a hack for Apple M1 since protobuf does not compile for M1s yet
-        // However, M1s can just use the x86_64 just fine
-        if (osdetector.os == "osx") {
-            artifact = 'com.google.protobuf:protoc:3.11.4:osx-x86_64'
-        } else {
-            artifact = 'com.google.protobuf:protoc:3.11.4'
-        }
+        artifact = 'com.google.protobuf:protoc:3.21.2'
     }
     generateProtoTasks {
         all().each { task ->
