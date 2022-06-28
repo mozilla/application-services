@@ -7,11 +7,11 @@ use std::fmt::Display;
 
 use serde::{Deserialize, Serialize};
 
-use crate::intermediate_representation::{FeatureDef, PropDef, TypeRef};
-use crate::TargetLanguage;
-use crate::{intermediate_representation::FeatureManifest, GenerateExperimenterManifestCmd};
-
-use crate::error::{FMLError, Result};
+use crate::{
+    commands::{GenerateExperimenterManifestCmd, TargetLanguage},
+    error::{FMLError, Result},
+    intermediate_representation::{FeatureDef, FeatureManifest, PropDef, TypeRef},
+};
 
 pub(crate) type ExperimenterManifest = BTreeMap<String, ExperimenterFeature>;
 
@@ -156,11 +156,7 @@ pub(crate) fn generate_manifest(
     cmd: &GenerateExperimenterManifestCmd,
 ) -> Result<()> {
     let experiment_manifest: ExperimenterManifest = ir.try_into()?;
-    let language: TargetLanguage = match cmd.output.extension() {
-        Some(ext) => ext.try_into().unwrap_or(TargetLanguage::ExperimenterJSON),
-        None => TargetLanguage::ExperimenterJSON,
-    };
-    let output_str = match language {
+    let output_str = match cmd.language {
         TargetLanguage::ExperimenterJSON => serde_json::to_string_pretty(&experiment_manifest)?,
         // This is currently just a re-render of the JSON in YAML.
         // However, the YAML format will diverge in time, so experimenter can support

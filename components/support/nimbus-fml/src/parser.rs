@@ -11,12 +11,12 @@ use serde::{Deserialize, Serialize};
 use serde_json::json;
 
 use crate::{
+    commands::TargetLanguage,
     error::{FMLError, Result},
     intermediate_representation::{
         EnumDef, FeatureDef, FeatureManifest, ModuleId, ObjectDef, PropDef, TypeRef, VariantDef,
     },
     util::loaders::{FileLoader, FilePath},
-    TargetLanguage,
 };
 
 #[derive(Debug, Deserialize, Serialize, Clone)]
