@@ -83,17 +83,23 @@ impl EncryptorDecryptor {
 //     - If it returns true, then it's safe to assume the key can decrypt the DB data
 //     - If it returns false, then the key is no longer valid.  It should be regenerated and the DB
 //       data should be wiped since we can no longer read it properly
-pub fn create_canary(text: &str, key: &str) -> Result<String> {
-    EncryptorDecryptor::new(key)?.encrypt(text)
+pub fn create_canary(text: &str, key: &str) -> ApiResult<String> {
+    handle_error! {
+        EncryptorDecryptor::new(key)?.encrypt(text)
+    }
 }
 
-pub fn check_canary(canary: &str, text: &str, key: &str) -> Result<bool> {
-    Ok(EncryptorDecryptor::new(key)?.decrypt(canary)? == text)
+pub fn check_canary(canary: &str, text: &str, key: &str) -> ApiResult<bool> {
+    handle_error! {
+        Ok(EncryptorDecryptor::new(key)?.decrypt(canary)? == text)
+    }
 }
 
-pub fn create_key() -> Result<String> {
-    let key = jwcrypto::Jwk::new_direct_key(None)?;
-    Ok(serde_json::to_string(&key)?)
+pub fn create_key() -> ApiResult<String> {
+    handle_error! {
+        let key = jwcrypto::Jwk::new_direct_key(None)?;
+        Ok(serde_json::to_string(&key)?)
+    }
 }
 
 #[cfg(test)]
@@ -153,7 +159,7 @@ mod test {
             check_canary(&canary, CANARY_TEXT, &different_key)
                 .err()
                 .unwrap(),
-            LoginsError::CryptoError(_)
+            LoginsStorageError::IncorrectKey
         ));
     }
 }

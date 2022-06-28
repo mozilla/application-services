@@ -24,5 +24,6 @@ Use the template below to make assigning a version number during the release cut
 
 ## Logins
 
-### ⚠️ Breaking Changes ⚠️
-  - Updated the `LoginsStorageError` hierarchy.
+  - Updated the `LoginsStorageError` implementation and introduce error reporting for unexpected errors.
+    Note that some errors were removed, which is technically a breaking change, but none of our
+    consumers use those errors so it's not a breaking change in practice.

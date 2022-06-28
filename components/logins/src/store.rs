@@ -51,92 +51,124 @@ pub struct LoginStore {
 }
 
 impl LoginStore {
-    pub fn new(path: impl AsRef<Path>) -> APIResult<Self> {
-        Ok(Self::new_from_db(LoginDb::open(path)?))
-    }
-
-    pub fn new_in_memory() -> APIResult<Self> {
-        Ok(Self::new_from_db(LoginDb::open_in_memory()?))
+    pub fn new(path: impl AsRef<Path>) -> ApiResult<Self> {
+        handle_error! {
+            let db = Mutex::new(LoginDb::open(path)?);
+            Ok(Self { db })
+        }
     }
 
     pub fn new_from_db(db: LoginDb) -> Self {
         Self { db: Mutex::new(db) }
     }
 
-    pub fn list(&self) -> APIResult<Vec<EncryptedLogin>> {
-        Ok(self.db.lock().get_all()?)
+    pub fn new_in_memory() -> ApiResult<Self> {
+        handle_error! {
+            let db = Mutex::new(LoginDb::open_in_memory()?);
+            Ok(Self { db })
+        }
     }
 
-    pub fn get(&self, id: &str) -> APIResult<Option<EncryptedLogin>> {
-        Ok(self.db.lock().get_by_id(id)?)
+    pub fn list(&self) -> ApiResult<Vec<EncryptedLogin>> {
+        handle_error! {
+            self.db.lock().get_all()
+        }
     }
 
-    pub fn get_by_base_domain(&self, base_domain: &str) -> APIResult<Vec<EncryptedLogin>> {
-        Ok(self.db.lock().get_by_base_domain(base_domain)?)
+    pub fn get(&self, id: &str) -> ApiResult<Option<EncryptedLogin>> {
+        handle_error! {
+            self.db.lock().get_by_id(id)
+        }
+    }
+
+    pub fn get_by_base_domain(&self, base_domain: &str) -> ApiResult<Vec<EncryptedLogin>> {
+        handle_error! {
+            self.db.lock().get_by_base_domain(base_domain)
+        }
     }
 
     pub fn find_login_to_update(
         &self,
         entry: LoginEntry,
         enc_key: &str,
-    ) -> APIResult<Option<Login>> {
-        let encdec = EncryptorDecryptor::new(enc_key)?;
-        Ok(self.db.lock().find_login_to_update(entry, &encdec)?)
+    ) -> ApiResult<Option<Login>> {
+        handle_error! {
+            let encdec = EncryptorDecryptor::new(enc_key)?;
+            self.db.lock().find_login_to_update(entry, &encdec)
+        }
     }
 
-    pub fn touch(&self, id: &str) -> APIResult<()> {
-        Ok(self.db.lock().touch(id)?)
+    pub fn touch(&self, id: &str) -> ApiResult<()> {
+        handle_error! {
+            self.db.lock().touch(id)
+        }
     }
 
-    pub fn delete(&self, id: &str) -> APIResult<bool> {
-        Ok(self.db.lock().delete(id)?)
+    pub fn delete(&self, id: &str) -> ApiResult<bool> {
+        handle_error! {
+            self.db.lock().delete(id)
+        }
     }
 
-    pub fn wipe(&self) -> APIResult<()> {
+    pub fn wipe(&self) -> ApiResult<()> {
         // This should not be exposed - it wipes the server too and there's
         // no good reason to expose that to consumers. wipe_local makes some
         // sense though.
         // TODO: this is exposed to android-components consumers - we should
         // check if anyone actually calls it.
-        let db = self.db.lock();
-        let scope = db.begin_interrupt_scope()?;
-        db.wipe(&scope)?;
-        Ok(())
+        handle_error! {
+            let db = self.db.lock();
+            let scope = db.begin_interrupt_scope()?;
+            db.wipe(&scope)?;
+            Ok(())
+        }
     }
 
-    pub fn wipe_local(&self) -> APIResult<()> {
-        self.db.lock().wipe_local()?;
-        Ok(())
+    pub fn wipe_local(&self) -> ApiResult<()> {
+        handle_error! {
+            self.db.lock().wipe_local()?;
+            Ok(())
+        }
     }
 
-    pub fn reset(self: Arc<Self>) -> APIResult<()> {
+    pub fn reset(self: Arc<Self>) -> ApiResult<()> {
         // Reset should not exist here - all resets should be done via the
         // sync manager. It seems that actual consumers don't use this, but
         // some tests do, so it remains for now.
-        let engine = LoginsSyncEngine::new(Arc::clone(&self))?;
-        engine.do_reset(&EngineSyncAssociation::Disconnected)?;
-        Ok(())
+        handle_error! {
+            let engine = LoginsSyncEngine::new(Arc::clone(&self))?;
+            engine.do_reset(&EngineSyncAssociation::Disconnected)?;
+            Ok(())
+        }
     }
 
-    pub fn update(&self, id: &str, entry: LoginEntry, enc_key: &str) -> APIResult<EncryptedLogin> {
-        let encdec = EncryptorDecryptor::new(enc_key)?;
-        Ok(self.db.lock().update(id, entry, &encdec)?)
+    pub fn update(&self, id: &str, entry: LoginEntry, enc_key: &str) -> ApiResult<EncryptedLogin> {
+        handle_error! {
+            let encdec = EncryptorDecryptor::new(enc_key)?;
+            self.db.lock().update(id, entry, &encdec)
+        }
     }
 
-    pub fn add(&self, entry: LoginEntry, enc_key: &str) -> APIResult<EncryptedLogin> {
-        let encdec = EncryptorDecryptor::new(enc_key)?;
-        Ok(self.db.lock().add(entry, &encdec)?)
+    pub fn add(&self, entry: LoginEntry, enc_key: &str) -> ApiResult<EncryptedLogin> {
+        handle_error! {
+            let encdec = EncryptorDecryptor::new(enc_key)?;
+            self.db.lock().add(entry, &encdec)
+        }
     }
 
-    pub fn add_or_update(&self, entry: LoginEntry, enc_key: &str) -> APIResult<EncryptedLogin> {
-        let encdec = EncryptorDecryptor::new(enc_key)?;
-        Ok(self.db.lock().add_or_update(entry, &encdec)?)
+    pub fn add_or_update(&self, entry: LoginEntry, enc_key: &str) -> ApiResult<EncryptedLogin> {
+        handle_error! {
+            let encdec = EncryptorDecryptor::new(enc_key)?;
+            self.db.lock().add_or_update(entry, &encdec)
+        }
     }
 
-    pub fn import_multiple(&self, logins: Vec<Login>, enc_key: &str) -> APIResult<String> {
-        let encdec = EncryptorDecryptor::new(enc_key)?;
-        let metrics = self.db.lock().import_multiple(logins, &encdec)?;
-        Ok(serde_json::to_string(&metrics)?)
+    pub fn import_multiple(&self, logins: Vec<Login>, enc_key: &str) -> ApiResult<String> {
+        handle_error! {
+            let encdec = EncryptorDecryptor::new(enc_key)?;
+            let metrics = self.db.lock().import_multiple(logins, &encdec)?;
+            Ok(serde_json::to_string(&metrics)?)
+        }
     }
 
     /// A convenience wrapper around sync_multiple.
@@ -151,47 +183,49 @@ impl LoginStore {
         sync_key: String,
         tokenserver_url: String,
         local_encryption_key: String,
-    ) -> APIResult<String> {
-        let mut engine = LoginsSyncEngine::new(Arc::clone(&self))?;
-        engine
-            .set_local_encryption_key(&local_encryption_key)
-            .unwrap();
+    ) -> ApiResult<String> {
+        handle_error! {
+            let mut engine = LoginsSyncEngine::new(Arc::clone(&self))?;
+            engine
+                .set_local_encryption_key(&local_encryption_key)
+                .unwrap();
 
-        // This is a bit hacky but iOS still uses sync() and we can only pass strings over ffi
-        // Below was ported from the "C" ffi code that does essentially the same thing
-        let storage_init = &sync15::Sync15StorageClientInit {
-            key_id,
-            access_token,
-            tokenserver_url: url::Url::parse(tokenserver_url.as_str())?,
-        };
-        let root_sync_key = &sync15::KeyBundle::from_ksync_base64(sync_key.as_str())?;
+            // This is a bit hacky but iOS still uses sync() and we can only pass strings over ffi
+            // Below was ported from the "C" ffi code that does essentially the same thing
+            let storage_init = &sync15::Sync15StorageClientInit {
+                key_id,
+                access_token,
+                tokenserver_url: url::Url::parse(tokenserver_url.as_str())?,
+            };
+            let root_sync_key = &sync15::KeyBundle::from_ksync_base64(sync_key.as_str())?;
 
-        let mut disk_cached_state = engine.get_global_state()?;
-        let mut mem_cached_state = MemoryCachedState::default();
+            let mut disk_cached_state = engine.get_global_state()?;
+            let mut mem_cached_state = MemoryCachedState::default();
 
-        let mut result = sync_multiple(
-            &[&engine],
-            &mut disk_cached_state,
-            &mut mem_cached_state,
-            storage_init,
-            root_sync_key,
-            &engine.scope,
-            None,
-        );
-        // We always update the state - sync_multiple does the right thing
-        // if it needs to be dropped (ie, they will be None or contain Nones etc)
-        engine.set_global_state(&disk_cached_state)?;
+            let mut result = sync_multiple(
+                &[&engine],
+                &mut disk_cached_state,
+                &mut mem_cached_state,
+                storage_init,
+                root_sync_key,
+                &engine.scope,
+                None,
+            );
+            // We always update the state - sync_multiple does the right thing
+            // if it needs to be dropped (ie, they will be None or contain Nones etc)
+            engine.set_global_state(&disk_cached_state)?;
 
-        // for b/w compat reasons, we do some dances with the result.
-        // XXX - note that this means telemetry isn't going to be reported back
-        // to the app - we need to check with lockwise about whether they really
-        // need these failures to be reported or whether we can loosen this.
-        if let Err(e) = result.result {
-            return Err(e.into());
-        }
-        match result.engine_results.remove("passwords") {
-            None | Some(Ok(())) => Ok(serde_json::to_string(&result.telemetry).unwrap()),
-            Some(Err(e)) => Err(e.into()),
+            // for b/w compat reasons, we do some dances with the result.
+            // XXX - note that this means telemetry isn't going to be reported back
+            // to the app - we need to check with lockwise about whether they really
+            // need these failures to be reported or whether we can loosen this.
+            if let Err(e) = result.result {
+                return Err(e.into());
+            }
+            match result.engine_results.remove("passwords") {
+                None | Some(Ok(())) => Ok(serde_json::to_string(&result.telemetry).unwrap()),
+                Some(Err(e)) => Err(e.into()),
+            }
         }
     }
 
@@ -211,8 +245,10 @@ impl LoginStore {
     // We could probably make the example work with the sync manager - but then
     // our example would link with places and logins etc, and it's not a big
     // deal really.
-    pub fn create_logins_sync_engine(self: Arc<Self>) -> APIResult<Box<dyn SyncEngine>> {
-        Ok(Box::new(LoginsSyncEngine::new(self)?) as Box<dyn SyncEngine>)
+    pub fn create_logins_sync_engine(self: Arc<Self>) -> ApiResult<Box<dyn SyncEngine>> {
+        handle_error! {
+            Ok(Box::new(LoginsSyncEngine::new(self)?) as Box<dyn SyncEngine>)
+        }
     }
 }
 
