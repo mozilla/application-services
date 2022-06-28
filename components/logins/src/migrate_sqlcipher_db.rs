@@ -57,30 +57,32 @@ pub fn migrate_logins(
     sqlcipher_key: &str,
     // The salt arg is for iOS where the salt is stored externally.
     salt: Option<String>,
-) -> Result<()> {
-    let path = path.as_ref();
-    let sqlcipher_path = sqlcipher_path.as_ref();
+) -> ApiResult<()> {
+    handle_error! {
+        let path = path.as_ref();
+        let sqlcipher_path = sqlcipher_path.as_ref();
 
-    // If the sqlcipher db doesn't exist we can't do anything.
-    if !sqlcipher_path.exists() {
-        return Err(LoginsError::InvalidDatabaseFile(
-            sqlcipher_path.to_string_lossy().to_string(),
-        ));
-    }
+        // If the sqlcipher db doesn't exist we can't do anything.
+        if !sqlcipher_path.exists() {
+            return Err(LoginsError::InvalidDatabaseFile(
+                sqlcipher_path.to_string_lossy().to_string(),
+            ));
+        }
 
-    // If the target does exist we fail as we don't want to migrate twice.
-    if path.exists() {
-        return Err(LoginsError::MigrationError(
-            "target database already exists".to_string(),
-        ));
+        // If the target does exist we fail as we don't want to migrate twice.
+        if path.exists() {
+            return Err(LoginsError::MigrationError(
+                "target database already exists".to_string(),
+            ));
+        }
+        migrate_sqlcipher_db_to_plaintext(
+            &sqlcipher_path,
+            &path,
+            sqlcipher_key,
+            new_encryption_key,
+            salt.as_ref(),
+        )
     }
-    migrate_sqlcipher_db_to_plaintext(
-        &sqlcipher_path,
-        &path,
-        sqlcipher_key,
-        new_encryption_key,
-        salt.as_ref(),
-    )
 }
 
 fn migrate_sqlcipher_db_to_plaintext(
@@ -1244,7 +1246,7 @@ mod tests {
             )
             .err()
             .unwrap(),
-            LoginsError::InvalidDatabaseFile(_),
+            LoginsStorageError::UnexpectedLoginsStorageError(s) if s == "Invalid database file: /some/path/to/db.db",
         ))
     }
 
@@ -1266,7 +1268,7 @@ mod tests {
             )
             .err()
             .unwrap(),
-            LoginsError::MigrationError(_)
+            LoginsStorageError::UnexpectedLoginsStorageError(s) if s == "Migration Error: target database already exists",
         ));
     }
 
