@@ -9,6 +9,7 @@ import os
 
 from taskgraph.parameters import extend_parameters_schema
 from . import branch_builds
+from . import nightly_builds
 from .build_config import get_version
 
 def register(graph_config):
@@ -62,5 +63,8 @@ def get_decision_parameters(graph_config, parameters):
     # We don't have a great way of determining if something is a nightly or
     # not.  But for now, we can assume all cron-based builds are nightlies.
     parameters["nightly-build"] = (parameters["tasks_for"] == "cron")
-
-    branch_builds.update_decision_parameters(parameters)
+    parameters['branch-build'] = branch_builds.calc_branch_build_param(parameters)
+    parameters['filters'].extend([
+        'branch-build',
+        'nightly-build',
+    ])
