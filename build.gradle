@@ -24,8 +24,8 @@ buildscript {
         robolectric_core_version = '4.5.1'
         rust_android_gradle_version = '0.9.1'
         espresso_core_version = '3.3.0'
-        protobuf_version = '3.11.4'
-        gradle_protobuf_version = '0.8.14'
+        protobuf_version = '3.21.2'
+        gradle_protobuf_version = '0.8.18'
     }
 
     ext.build = [
