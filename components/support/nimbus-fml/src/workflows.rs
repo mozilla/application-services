@@ -440,6 +440,18 @@ mod test {
     }
 
     #[test]
+    fn test_importing_override_defaults_ios() -> Result<()> {
+        generate_multiple_and_assert(
+            "test/importing/overrides/app_debug.swift",
+            &[
+                ("fixtures/fe/importing/overrides/app.fml.yaml", "debug"),
+                ("fixtures/fe/importing/overrides/lib.fml.yaml", "debug"),
+            ],
+        )?;
+        Ok(())
+    }
+
+    #[test]
     fn test_importing_override_defaults_coverall_android() -> Result<()> {
         generate_multiple_and_assert(
             "test/importing/overrides-coverall/app_debug.kts",
@@ -458,12 +470,28 @@ mod test {
     }
 
     #[test]
-    fn test_importing_diamond_overrides() -> Result<()> {
+    fn test_importing_diamond_overrides_android() -> Result<()> {
         // In this test, sublib implements a feature.
         // Both lib and app offer some configuration, and both app and lib
         // need to import sublib.
         generate_multiple_and_assert(
             "test/importing/diamond/00-app.kts",
+            &[
+                ("fixtures/fe/importing/diamond/00-app.yaml", "debug"),
+                ("fixtures/fe/importing/diamond/01-lib.yaml", "debug"),
+                ("fixtures/fe/importing/diamond/02-sublib.yaml", "debug"),
+            ],
+        )?;
+        Ok(())
+    }
+
+    #[test]
+    fn test_importing_diamond_overrides_ios() -> Result<()> {
+        // In this test, sublib implements a feature.
+        // Both lib and app offer some configuration, and both app and lib
+        // need to import sublib.
+        generate_multiple_and_assert(
+            "test/importing/diamond/00-app.swift",
             &[
                 ("fixtures/fe/importing/diamond/00-app.yaml", "debug"),
                 ("fixtures/fe/importing/diamond/01-lib.yaml", "debug"),

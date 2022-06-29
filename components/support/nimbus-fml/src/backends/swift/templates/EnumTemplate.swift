@@ -2,7 +2,7 @@
 {% let inner = self.inner() %}
 {% let class_name = inner.name()|class_name %}
 {{ inner.doc()|comment("") }}
-public enum {{ class_name }}: String {
+public enum {{ class_name }}: String, CaseIterable {
     {% for variant in inner.variants() %}
     {{ variant.doc()|comment("    ") }}
     case {{ variant.name()|enum_variant_name }} = {{variant.name()|quoted}}
