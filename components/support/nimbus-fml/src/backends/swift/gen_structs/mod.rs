@@ -94,6 +94,8 @@ impl<'a> FeatureManifestDeclaration<'a> {
 
     pub fn imports(&self) -> Vec<String> {
         let oracle = &self.oracle;
+        // Filter out our own module.
+        let my_module = &self.fm.about.nimbus_module_name();
         let mut imports: Vec<String> = self
             .members()
             .into_iter()
@@ -106,6 +108,7 @@ impl<'a> FeatureManifestDeclaration<'a> {
                     .filter_map(|type_| self.oracle.find(&type_).imports(oracle))
                     .flatten(),
             )
+            .filter(|i| i != my_module)
             .collect::<HashSet<String>>()
             .into_iter()
             .collect();
