@@ -84,7 +84,7 @@ impl<'a> FeatureManifestDeclaration<'a> {
             .chain(fm.iter_object_defs().into_iter().map(|inner| {
                 Box::new(object::ObjectCodeDeclaration::new(fm, inner)) as Box<dyn CodeDeclaration>
             }))
-            .chain(fm.iter_imported_files().iter().map(|inner| {
+            .chain(fm.iter_imported_files().into_iter().map(|inner| {
                 Box::new(imports::ImportedModuleInitialization::new(inner))
                     as Box<dyn CodeDeclaration>
             }))
@@ -113,6 +113,11 @@ impl<'a> FeatureManifestDeclaration<'a> {
 
     pub fn imports(&self) -> Vec<String> {
         let oracle = &self.oracle;
+        // We'll filter out objects from the package we're in.
+        let my_package = format!(
+            "{}.*",
+            self.fm.about.nimbus_package_name().unwrap_or_default()
+        );
         let mut imports: Vec<String> = self
             .members()
             .into_iter()
@@ -130,6 +135,7 @@ impl<'a> FeatureManifestDeclaration<'a> {
                 "org.mozilla.experiments.nimbus.FeaturesInterface".to_string(),
                 format!("{}.R", self.fm.about.resource_package_name()),
             ])
+            .filter(|i| i != &my_package)
             .collect::<HashSet<String>>()
             .into_iter()
             .collect();

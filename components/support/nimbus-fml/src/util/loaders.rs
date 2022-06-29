@@ -19,7 +19,7 @@ use url::Url;
 pub(crate) const GITHUB_USER_CONTENT_DOTCOM: &str = "https://raw.githubusercontent.com";
 
 /// A small enum for working with URLs and relative files
-#[derive(PartialEq, Debug)]
+#[derive(Debug)]
 pub enum FilePath {
     Local(PathBuf),
     Remote(Url),
@@ -80,6 +80,7 @@ static USER_AGENT: &str = concat!(env!("CARGO_PKG_NAME"), "/", env!("CARGO_PKG_V
 /// By default a prefix of `@XXXX/YYYY`: resolves to the `main` branch `XXXX/YYYY` Github repo.
 ///
 /// The config is a map of repository names to paths, URLs or branches.
+#[derive(Debug)]
 pub struct FileLoader {
     cache_dir: PathBuf,
     fetch_client: Client,

@@ -1,0 +1,24 @@
+about:
+  description: The nested FML file which will import a feature from a child and grandchild.
+  kotlin:
+    class: .nimbus.LibNimbus
+    package: com.example.lib
+  ios:
+    class: LibNimbus
+    module: Lib
+channels:
+  - debug
+  - release
+imports:
+  - path: 02-sublib.yaml
+    channel: release
+    features:
+      deeply-nested-feature:
+        - value:
+            order-dependent: lib-fml
+            lib-fml: lib-fml
+      # This isn't part of the test, but we want to make sure templates
+      # work with multiple features (especially regarding whitespace).
+      property-overrides-test:
+        - value:
+            lib-fml: lib-fml

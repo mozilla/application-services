@@ -1,0 +1,21 @@
+# This FML is testing/showing a three FML files.
+# In this scheme, an app is using a library to import a feature from a sublibrary.
+about:
+  description: The root FML file which will import a feature from a child and grandchild.
+  kotlin:
+    class: .nimbus.AppNimbus
+    package: com.example.app
+  ios:
+    class: AppNimbus
+    module: App
+channels:
+  - debug
+  - release
+imports:
+  - path: 01-lib.yaml
+    channel: release
+    features:
+      deeply-nested-feature:
+        - value:
+            app-fml: app-fml
+            order-dependent: app-fml

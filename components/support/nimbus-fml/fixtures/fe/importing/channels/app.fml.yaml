@@ -1,0 +1,17 @@
+version: 1.0
+about:
+  description: A small test of importing and including
+  ios:
+    class: AppNimbus
+    module: App
+  android:
+    class: .nimbus.AppNimbus
+    package: com.example.app
+channels:
+  # These channels do not match the channels in lib.
+  - app-debug
+  - app-release
+import:
+  - path: ./lib.fml.yaml
+    # We specify which channel from the ones available in lib.fml.yaml
+    channel: debug
