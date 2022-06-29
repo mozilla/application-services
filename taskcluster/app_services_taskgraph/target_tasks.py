@@ -10,7 +10,6 @@ from taskgraph.target_tasks import _target_task, filter_for_tasks_for
 def target_tasks_pr_skip(full_task_graph, parameters, graph_config):
     return []
 
-
 @_target_task('pr-full')
 def target_tasks_default(full_task_graph, parameters, graph_config):
     """Target the tasks which have indicated they should be run on this project
@@ -30,16 +29,3 @@ def target_tasks_default(full_task_graph, parameters, graph_config):
                 and task.attributes.get("run-on-pr-type", "all") in ("normal-ci", "all")
 
     return [l for l, task in full_task_graph.tasks.items() if filter(task)]
-
-@_target_task('nightly')
-def target_tasks_nightly(full_task_graph, parameters, graph_config):
-    """Target nightly tasks.
-
-    Currently this means running the  branch-build tasks.
-    """
-
-    return [
-        l
-        for l, task in full_task_graph.tasks.items()
-        if 'branch-build' in task.attributes
-    ]

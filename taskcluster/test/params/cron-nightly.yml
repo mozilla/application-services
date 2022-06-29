@@ -8,6 +8,7 @@ existing_tasks: {}
 filters:
 - target_tasks_method
 - branch-build
+- nightly-build
 head_ref: main
 head_repository: https://github.com/mozilla/application-services
 head_rev: 5ad5931c2d91c9f00e9984131925c76136822ab5

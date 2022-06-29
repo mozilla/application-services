@@ -13,7 +13,6 @@ FENIX_BRANCH_RE = re.compile(r'\[fenix:\s*' + REPO_RE + r'\]')
 
 def update_decision_parameters(parameters):
     parameters['branch-build'] = calc_branch_build_param(parameters)
-    parameters['filters'].append('branch-build')
 
 def calc_branch_build_param(parameters):
     if parameters.get('nightly-build'):
@@ -46,8 +45,6 @@ def calc_owner(match):
 def filter_branch_build_tasks(full_task_graph, parameters, graph_config):
     if parameters.get('branch-build'):
         # If the branch_build param is set, don't filter anything
-        # Also don't filter for the nightly build.  At least for now, we can
-        # assume all cron-triggered builds are nightlies.
         return full_task_graph.tasks.keys()
     else:
         # If the branch_build param is unset, remove the branch-build tasks
