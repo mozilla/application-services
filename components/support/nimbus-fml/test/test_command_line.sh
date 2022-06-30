@@ -2,14 +2,14 @@
 
 # Find out where the FML root directory is.
 this_file="${BASH_SOURCE[0]}"
-parent="$(dirname $this_file)/.."
+this_dir=$(dirname "$this_file")
 
 function fail {
     echo "Failure with: $*"
     exit 1
 }
 
-fml_root=$(cd "$parent" || fail "Can't find where the nimbus-fml directory is" ; pwd)
+fml_root=$(cd "$this_dir/.." || fail "Can't find where the nimbus-fml directory is" ; pwd)
 build_dir="$fml_root/build/cli_test"
 fixtures="$fml_root/fixtures"
 
