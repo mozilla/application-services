@@ -4,15 +4,12 @@
 
 use crate::{
     backends,
-    commands::{GenerateExperimenterManifestCmd, GenerateIRCmd, TargetLanguage},
+    commands::{GenerateExperimenterManifestCmd, GenerateIRCmd, GenerateStructCmd, TargetLanguage},
+    error::Result,
+    intermediate_representation::FeatureManifest,
+    parser::{AboutBlock, Parser},
 };
-
-use crate::error::Result;
-use crate::intermediate_representation::FeatureManifest;
-use crate::parser::{AboutBlock, Parser};
 use std::path::Path;
-
-use crate::commands::GenerateStructCmd;
 
 #[allow(dead_code)]
 pub(crate) fn generate_struct(cmd: &GenerateStructCmd) -> Result<()> {

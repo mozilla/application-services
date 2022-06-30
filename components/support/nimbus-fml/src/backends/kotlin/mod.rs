@@ -2,12 +2,11 @@
 * License, v. 2.0. If a copy of the MPL was not distributed with this
 * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
+use crate::commands::GenerateStructCmd;
 use crate::error::{FMLError, Result};
+use crate::intermediate_representation::FeatureManifest;
 use crate::parser::AboutBlock;
 use askama::Template;
-
-use crate::commands::GenerateStructCmd;
-use crate::intermediate_representation::FeatureManifest;
 
 mod gen_structs;
 
