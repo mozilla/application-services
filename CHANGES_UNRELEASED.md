@@ -22,7 +22,11 @@ Use the template below to make assigning a version number during the release cut
 ## Nimbus FML ⛅️🔬🔭🔧
 
 ### What's New
-  - Added initial work to support component FML files into an app FML. ([#4999](https://github.com/mozilla/application-services/pull/4999)). Please upgrade your nimbus-fml tooling at the same time as upgrading the megazord.
+  - Added support for breaking up FML files using `includes` and separating into different modules with `imports`.
+    ([#5022](https://github.com/mozilla/application-services/pull/5022), [#5016](https://github.com/mozilla/application-services/pull/5016), [#5014](https://github.com/mozilla/application-services/pull/5014), [#5007](https://github.com/mozilla/application-services/pull/5007), [#4999](https://github.com/mozilla/application-services/pull/4999), [#4997](https://github.com/mozilla/application-services/pull/4997), [#4976](https://github.com/mozilla/application-services/pull/4976))
+    - This is _not_ a breaking change, but should be accompanied by a upgrade to the megazord ([#4099](https://github.com/mozilla/application-services/pull/4099)).
+    - This also deprecates some commands in the command line interface ([#5022](https://github.com/mozilla/application-services/pull/5022)). These will be removed in a future release.
+    - Related proposal document: [FML: Imports and Includes](https://experimenter.info/fml-imports-and-includes).
 
 ## Logins
 
