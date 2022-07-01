@@ -333,6 +333,9 @@ fn plan_incoming<T: std::fmt::Debug + SyncRecord>(
                             record: incoming_record,
                         },
                         Some(local_dupe) => {
+                            // local record is missing but we found a dupe - so
+                            // the dupe must have a different guid (or we wouldn't
+                            // consider the local record missing!)
                             assert_ne!(incoming_record.id(), local_dupe.id());
                             // The existing item is identical except for the metadata, so
                             // we still merge that metadata.
@@ -402,6 +405,10 @@ fn apply_incoming_action<T: std::fmt::Debug + SyncRecord>(
 }
 
 // Helpers for tests
+#[cfg(test)]
+mod tests; // pull in our integration tests
+
+// and a module for unit test utilities.
 #[cfg(test)]
 pub mod test {
     use crate::db::{schema::create_empty_sync_temp_tables, test::new_mem_db, AutofillDb};

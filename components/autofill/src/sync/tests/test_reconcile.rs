@@ -18,17 +18,19 @@
 use crate::db::addresses;
 use crate::db::schema::create_empty_sync_temp_tables;
 use crate::error::Result;
-use crate::sync::address::incoming::{stage_incoming, AddressesImpl};
-use crate::sync::address::AddressRecord;
-use crate::sync::{do_incoming, SyncGuid};
-use crate::UpdatableAddressFields;
+use crate::sync::address::create_engine as create_address_engine;
+use crate::sync::Metadata;
 use crate::{InternalAddress, Store};
+use types::Timestamp;
 
-use interrupt_support::Interruptee;
-use interrupt_support::NeverInterrupts;
-use rusqlite::{types::ToSql, Connection};
+use rusqlite::Connection;
 use serde_json::{json, Map, Value};
-use sync15::Payload;
+use std::sync::Arc;
+use sync15::telemetry;
+use sync15::IncomingChangeset;
+use sync15::ServerTimestamp;
+use sync15_traits::SyncEngine;
+use sync_guid::Guid as SyncGuid;
 
 lazy_static::lazy_static! {
     // NOTE: it would seem nice to stick this JSON in a file which we
@@ -459,8 +461,13 @@ lazy_static::lazy_static! {
                 "family-name": "Jones",
                 // desktop didn't have this metadata for local, but we need it
                 // as otherwise we take ::now()
-                "timeLastModified": 1,
-                "timeLastUsed": 1,
+                // Further, we don't quite use the parent in the same way, so we
+                // need our local record to have the same values as the parent except
+                // for what's explicitly changed - which is only `given-name`.
+                "timeCreated": 1234,
+                "timeLastModified": 5678,
+                "timeLastUsed": 5678,
+                "timesUsed": 6,
             },
         ],
         "remote": {
@@ -484,79 +491,82 @@ lazy_static::lazy_static! {
 // NOTE: test_reconcile.js also has CREDIT_CARD_RECONCILE_TESTCASES which
 // we should also do.
 
-/// This may (or may not :) end up in the main code at some stage. We need an
-/// alternative for tombstones?
-fn save_to_mirror(
-    conn: &Connection,
-    records: Vec<AddressRecord>,
-    signal: &dyn Interruptee,
-) -> Result<()> {
-    log::info!("adding {} records to the mirror", records.len());
-
-    let chunk_size = 2;
-    sql_support::each_sized_chunk(
-        &records,
-        sql_support::default_max_variable_number() / chunk_size,
-        |chunk, _| -> Result<()> {
-            signal.err_if_interrupted()?;
-            let sql = format!(
-                "INSERT OR REPLACE INTO addresses_mirror (guid, payload) VALUES {}",
-                sql_support::repeat_multi_values(chunk.len(), chunk_size),
-            );
-            let mut params = Vec::with_capacity(chunk.len() * chunk_size);
-            for record in chunk {
-                let payload = record.to_value()?;
-                params.push(&record.guid as &dyn ToSql);
-                params.push(&payload);
-            }
-            conn.execute(&sql, rusqlite::params_from_iter(params))?;
-            Ok(())
-        },
-    )
-}
-
-// The metadata fields like `time_created` etc aren't able to be set to
-// specific values by our public model, so we update the DB directly.
-fn update_metadata(conn: &Connection, guid: &SyncGuid, val: &Value) -> Result<()> {
-    let tx = conn.unchecked_transaction()?;
-    for (json_name, col_name) in &[
-        ("timeCreated", "time_created"),
-        ("timeLastUsed", "time_last_used"),
-        ("timeLastModified", "time_last_modified"),
-        ("timesUsed", "times_used"),
-    ] {
-        if let Some(val) = val.get(json_name) {
-            let sql = format!(
-                "UPDATE addresses_data SET {} = :value WHERE guid = :guid",
-                col_name
-            );
-
-            log::debug!("Updating metadata {} -> {:?}", col_name, val);
-            tx.execute(
-                &sql,
-                rusqlite::named_params! {
-                    ":guid": guid,
-                    ":value": val.as_i64().unwrap(),
-                },
-            )?;
-        }
-    }
-    tx.commit()?;
-    Ok(())
+// Takes the JSON from one of the tests above and turns it into a sync15 payload,
+// suitable for sticking in the mirror or passing to the sync impl.
+fn test_to_payload(guid: &SyncGuid, test_payload: &serde_json::Value) -> sync15::Payload {
+    let json = json!({
+        "id": guid.clone(),
+        "entry": test_payload.clone(),
+    });
+    sync15::Payload::from_json(json).unwrap()
 }
 
 fn check_address_as_expected(address: &InternalAddress, expected: &Map<String, Value>) {
-    // 'expected' only has some fields, so to make life easy we do the final
-    // comparison via json.
-    let actual_json = serde_json::to_value(address).expect("should get json");
+    // InternalAddress doesn't derive Serialize making this a bit painful.
+    // 'expected' only has some fields, so we check them individually and explicitly.
     for (name, val) in expected.iter() {
-        assert_eq!(
-            actual_json.get(name).unwrap(),
-            val,
-            "checking field '{}'",
-            name
-        );
+        let name = name.as_ref();
+        match name {
+            "given-name" => assert_eq!(val.as_str().unwrap(), address.given_name),
+            "family-name" => assert_eq!(val.as_str().unwrap(), address.family_name),
+            "country" => assert_eq!(val.as_str().unwrap(), address.country),
+            "tel" => assert_eq!(val.as_str().unwrap(), address.tel),
+            "organization" => assert_eq!(val.as_str().unwrap(), address.organization),
+            "timeCreated" => assert_eq!(
+                Timestamp(val.as_u64().unwrap()),
+                address.metadata.time_created
+            ),
+            "timeLastModified" => assert_eq!(
+                Timestamp(val.as_u64().unwrap()),
+                address.metadata.time_last_modified
+            ),
+            "timeLastUsed" => assert_eq!(
+                Timestamp(val.as_u64().unwrap()),
+                address.metadata.time_last_used
+            ),
+            "timesUsed" => assert_eq!(val.as_i64().unwrap(), address.metadata.times_used),
+            _ => unreachable!("unexpected field {name}"),
+        }
     }
+}
+
+// Make a local record, flagged as "changed", from the JSON in our test cases.
+fn make_local_from_json(guid: &SyncGuid, json: &serde_json::Value) -> InternalAddress {
+    InternalAddress {
+        guid: guid.clone(),
+        // Note that our test cases only include a subset of possible fields.
+        given_name: json["given-name"].as_str().unwrap_or_default().to_string(),
+        family_name: json["family-name"].as_str().unwrap_or_default().to_string(),
+        country: json["country"].as_str().unwrap_or_default().to_string(),
+        tel: json["tel"].as_str().unwrap_or_default().to_string(),
+        organization: json["organization"]
+            .as_str()
+            .unwrap_or_default()
+            .to_string(),
+        metadata: Metadata {
+            time_created: Timestamp(json["timeCreated"].as_u64().unwrap_or_default()),
+            time_last_used: Timestamp(json["timeLastUsed"].as_u64().unwrap_or_default()),
+            time_last_modified: Timestamp(json["timeLastModified"].as_u64().unwrap_or_default()),
+            times_used: json["timesUsed"].as_i64().unwrap_or_default(),
+            // all these tests assume local has changed.
+            sync_change_counter: 1,
+        },
+        ..Default::default()
+    }
+}
+
+// Insert a mirror record from the JSON in our test cases.
+fn insert_mirror_record(conn: &Connection, guid: &SyncGuid, test_payload: &serde_json::Value) {
+    let payload = test_to_payload(guid, test_payload);
+    conn.execute(
+        "INSERT OR IGNORE INTO addresses_mirror (guid, payload)
+         VALUES (:guid, :payload)",
+        rusqlite::named_params! {
+            ":guid": guid,
+            ":payload": payload.into_json_string(),
+        },
+    )
+    .expect("should insert");
 }
 
 #[test]
@@ -566,10 +576,11 @@ fn test_reconcile_addresses() -> Result<()> {
     let j = &ADDRESS_RECONCILE_TESTCASES;
     for test_case in j.as_array().unwrap() {
         let desc = test_case["description"].as_str().unwrap();
-        let store = Store::new_memory(&format!("test_reconcile-{}", desc))?;
-        let db = store.db();
+        let store = Arc::new(Store::new_memory());
+        let db = store.db.lock().unwrap();
+        let tx = db.unchecked_transaction().unwrap();
 
-        create_empty_sync_temp_tables(db)?;
+        create_empty_sync_temp_tables(&tx)?;
         log::info!("starting test case: {}", desc);
         // stick the local records in the local DB as real items.
         // Note that some test-cases have multiple "local" records, but that's
@@ -578,35 +589,51 @@ fn test_reconcile_addresses() -> Result<()> {
         let local_array = test_case["local"].as_array().unwrap();
         let guid = if local_array.is_empty() {
             // no local record in this test case, so allocate a random guid.
+            log::trace!("local record: doesn't exist");
             SyncGuid::random()
         } else {
-            let local = local_array.get(local_array.len() - 1).unwrap().clone();
-            let address: UpdatableAddressFields = serde_json::from_value(local.clone()).unwrap();
-            let added = store.add_address(address)?;
-            update_metadata(&db, &SyncGuid::new(&added.guid), &local)?;
-            SyncGuid::new(&added.guid)
+            let local = local_array.get(local_array.len() - 1).unwrap();
+            log::trace!("local record: {local}");
+            let guid = SyncGuid::random();
+            addresses::add_internal_address(&tx, &make_local_from_json(&guid, local))?;
+            guid
         };
 
-        // stick "incoming" (aka "remote") items in the "staging" table via a sync15 payload.
+        // stick the "parent" item in the mirror
+        let mut parent_json = test_case["parent"].clone();
+        // we need to add an 'id' entry, the same as the local item we added.
+        let map = parent_json.as_object_mut().unwrap();
+        map.insert("id".to_string(), serde_json::to_value(guid.clone())?);
+        log::trace!("parent record: {:?}", parent_json);
+        insert_mirror_record(&tx, &guid, &parent_json);
+
+        tx.commit().expect("should commit");
+
+        // convert "incoming" items into payloads and have the sync engine apply them.
         let mut remote = test_case["remote"].clone();
+        log::trace!("remote record: {:?}", remote);
         // we need to add an 'id' entry, the same as the local item we added.
         let map = remote.as_object_mut().unwrap();
         map.insert("id".to_string(), serde_json::to_value(guid.clone())?);
-        let payload = Payload::from_json(remote)?;
-        log::debug!("staging {:?}", payload);
-        stage_incoming(db, vec![payload], &NeverInterrupts)?;
 
-        // and finally, "parent" items are added to the mirror.
-        let mut parent: AddressRecord = serde_json::from_value(test_case["parent"].clone())?;
-        parent.guid = guid.clone();
-        log::trace!("parent record: {:?}", parent);
-        save_to_mirror(db, vec![parent], &NeverInterrupts)?;
+        let payload = test_to_payload(&guid, &remote);
+        let remote_time = ServerTimestamp(0);
+        let mut incoming = IncomingChangeset::new("test".to_string(), remote_time);
+        incoming.changes.push((payload, ServerTimestamp(0)));
 
-        // OK, see what pops out!
-        do_incoming(db, &AddressesImpl {}, &NeverInterrupts)?;
+        let mut telem = telemetry::Engine::new("addresses");
+
+        std::mem::drop(db); // unlock the mutex for the engine.
+        let engine = create_address_engine(Arc::clone(&store));
+
+        engine
+            .apply_incoming(vec![incoming], &mut telem)
+            .expect("should apply");
+
+        // get a DB reference back to we can check the results.
+        let db = store.db.lock().unwrap();
 
         let all = addresses::get_all_addresses(&db)?;
-        log::info!("local records ended up as: {:#?}", all);
 
         // If the JSON has "forked", then we expect 2 different addresses.
         let reconciled = match test_case.get("forked") {
