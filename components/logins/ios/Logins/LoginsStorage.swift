@@ -128,7 +128,7 @@ public func migrateLoginsWithMetrics(
     var didMigrationSucceed = false
 
     do {
-        let metrics = try migrateLogins(
+        try migrateLogins(
             path: path,
             newEncryptionKey: newEncryptionKey,
             sqlcipherPath: sqlcipherPath,
@@ -136,42 +136,8 @@ public func migrateLoginsWithMetrics(
             salt: salt
         )
         didMigrationSucceed = true
-
-        recordMigrationMetrics(jsonString: metrics)
     } catch let err as NSError {
         GleanMetrics.LoginsStoreMigration.errors.add(err.localizedDescription)
     }
     return didMigrationSucceed
-}
-
-func recordMigrationMetrics(jsonString: String) {
-    guard
-        let data = jsonString.data(using: .utf8),
-        let json = try? JSONSerialization.jsonObject(with: data, options: []),
-        let metrics = json as? [String: Any]
-    else {
-        return
-    }
-
-    if let processed = metrics["num_processed"] as? Int32 {
-        GleanMetrics.LoginsStoreMigration.numProcessed.add(processed)
-    }
-
-    if let succeeded = metrics["num_succeeded"] as? Int32 {
-        GleanMetrics.LoginsStoreMigration.numSucceeded.add(succeeded)
-    }
-
-    if let failed = metrics["num_failed"] as? Int32 {
-        GleanMetrics.LoginsStoreMigration.numFailed.add(failed)
-    }
-
-    if let duration = metrics["total_duration"] as? Int64 {
-        GleanMetrics.LoginsStoreMigration.totalDuration.setRawNanos(duration * 1_000_000)
-    }
-
-    if let errors = metrics["errors"] as? [String] {
-        for error in errors {
-            GleanMetrics.LoginsStoreMigration.errors.add(error)
-        }
-    }
 }
