@@ -100,7 +100,7 @@ pub enum InvalidLogin {
 impl Error {
     // Get a short textual label identifying the type of error that occurred,
     // but without including any potentially-sensitive information.
-    pub fn label(&self) -> &'static str {
+    fn label(&self) -> &'static str {
         match self.kind() {
             ErrorKind::BadSyncStatus(_) => "BadSyncStatus",
             ErrorKind::NoSuchRecord(_) => "NoSuchRecord",

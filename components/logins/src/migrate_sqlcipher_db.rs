@@ -4,7 +4,6 @@
 
 // Code to migrate from an sqlcipher DB to a plaintext DB
 
-use crate::db::{MigrationMetrics, MigrationPhaseMetrics};
 use crate::encryption::EncryptorDecryptor;
 use crate::error::*;
 use crate::sync::{LocalLogin, MirrorLogin, SyncStatus};
@@ -17,9 +16,8 @@ use crate::{
 use rusqlite::{named_params, types::Value, Connection, Row};
 use sql_support::ConnExt;
 use std::collections::HashMap;
-use std::ops::Add;
 use std::path::Path;
-use std::time::{Instant, SystemTime};
+use std::time::SystemTime;
 use sync15::ServerTimestamp;
 
 #[derive(Debug)]
@@ -51,36 +49,6 @@ enum MigrationOp {
     Skip(String),  // Fatal issue, don't migrate
 }
 
-// Simplify the code for combining migration metrics
-// the impl is only in this file as this should dissapear once we're done with sql migrations
-impl Add for MigrationMetrics {
-    type Output = MigrationMetrics;
-    fn add(self, rhs: MigrationMetrics) -> MigrationMetrics {
-        MigrationMetrics {
-            insert_phase: Default::default(),
-            fixup_phase: Default::default(),
-            num_processed: self.num_processed + rhs.num_processed,
-            num_succeeded: self.num_succeeded + rhs.num_succeeded,
-            num_failed: self.num_failed + rhs.num_failed,
-            total_duration: self.total_duration + rhs.total_duration,
-            errors: [&self.errors[..], &rhs.errors[..]].concat(),
-        }
-    }
-}
-
-impl Add for MigrationPhaseMetrics {
-    type Output = MigrationPhaseMetrics;
-    fn add(self, rhs: MigrationPhaseMetrics) -> MigrationPhaseMetrics {
-        MigrationPhaseMetrics {
-            num_processed: self.num_processed + rhs.num_processed,
-            num_succeeded: self.num_succeeded + rhs.num_succeeded,
-            num_failed: self.num_failed + rhs.num_failed,
-            total_duration: self.total_duration + rhs.total_duration,
-            errors: [&self.errors[..], &rhs.errors[..]].concat(),
-        }
-    }
-}
-
 // migration for consumers to migrate from their SQLCipher DB
 pub fn migrate_logins(
     path: impl AsRef<Path>,
@@ -89,7 +57,7 @@ pub fn migrate_logins(
     sqlcipher_key: &str,
     // The salt arg is for iOS where the salt is stored externally.
     salt: Option<String>,
-) -> Result<String> {
+) -> Result<()> {
     let path = path.as_ref();
     let sqlcipher_path = sqlcipher_path.as_ref();
 
@@ -113,7 +81,6 @@ pub fn migrate_logins(
         new_encryption_key,
         salt.as_ref(),
     )
-    .and_then(|metrics| Ok(serde_json::to_string(&metrics)?))
 }
 
 fn migrate_sqlcipher_db_to_plaintext(
@@ -122,15 +89,13 @@ fn migrate_sqlcipher_db_to_plaintext(
     old_encryption_key: &str,
     new_encryption_key: &str,
     salt: Option<&String>,
-) -> Result<MigrationMetrics> {
+) -> Result<()> {
     let mut db = Connection::open(old_db_path)?;
     init_sqlcipher_db(&mut db, old_encryption_key, salt)?;
 
     // Init the new plaintext db as we would a regular client
     let new_db_store = LoginStore::new(new_db_path)?;
-    let metrics = migrate_from_sqlcipher_db(&mut db, new_db_store, new_encryption_key)?;
-
-    Ok(metrics)
+    migrate_from_sqlcipher_db(&mut db, new_db_store, new_encryption_key)
 }
 
 fn init_sqlcipher_db(
@@ -177,15 +142,13 @@ fn migrate_from_sqlcipher_db(
     cipher_conn: &mut Connection,
     new_db_store: LoginStore,
     encryption_key: &str,
-) -> Result<MigrationMetrics> {
+) -> Result<()> {
     // encrypt the username/password data
     let encdec = EncryptorDecryptor::new(encryption_key)?;
 
     let migration_plan: MigrationPlan = generate_plan_from_db(cipher_conn, &encdec)?;
-    let migration_metrics = insert_logins(&migration_plan, &new_db_store, &encdec)?;
-    let metadata_metrics = migrate_sync_metadata(cipher_conn, &new_db_store)?;
-
-    Ok(migration_metrics + metadata_metrics)
+    insert_logins(&migration_plan, &new_db_store, &encdec)?;
+    migrate_sync_metadata(cipher_conn, &new_db_store)
 }
 
 fn generate_plan_from_db(
@@ -446,22 +409,15 @@ fn insert_logins(
     migration_plan: &MigrationPlan,
     store: &LoginStore,
     encdec: &EncryptorDecryptor,
-) -> Result<MigrationMetrics> {
-    let import_start = Instant::now();
-    let import_start_total_logins: u64 = migration_plan.logins.len() as u64;
-    let mut num_failed_insert: u64 = 0;
-    let mut insert_errors: Vec<String> = Vec::new();
-
+) -> Result<()> {
     let new_db = store.db.lock();
     let conn = new_db.conn();
     let tx = conn.unchecked_transaction()?;
 
     for login in migration_plan.logins.values() {
         // Could not easily use an equality here due to the inner value
-        // But neccesary to ensure we log proper metrics
         if let MigrationOp::Skip(err) = &login.migration_op {
-            num_failed_insert += 1;
-            insert_errors.push(err.to_owned());
+            log::info!("skipping migration of login: {err}");
             continue;
         };
         // // Migrate local login first
@@ -470,18 +426,13 @@ fn insert_logins(
                 Ok(_) => {
                     if let Some(mirror_login) = &login.mirror_login {
                         // If successful, then migrate mirror also
-                        match insert_mirror_login(conn, mirror_login) {
-                            Ok(_) => {}
-                            Err(e) => {
-                                num_failed_insert += 1;
-                                insert_errors.push(e.label().into());
-                            }
+                        if let Err(e) = insert_mirror_login(conn, mirror_login) {
+                            log::info!("failed to insert a migrated login mirror: {e}");
                         }
                     }
                 }
                 Err(e) => {
-                    num_failed_insert += 1;
-                    insert_errors.push(e.label().into());
+                    log::info!("failed to insert a migrated login record: {e}");
                     // Weren't successful with local login, if we have a mirror we should
                     // attempt to migrate it and flip the `is_overridden` to false
                     if let Some(mirror_login) = &login.mirror_login {
@@ -492,8 +443,7 @@ fn insert_logins(
                                 ..mirror_login.clone()
                             },
                         ) {
-                            num_failed_insert += 1;
-                            insert_errors.push(err.label().into());
+                            log::info!("failed to modify a migrated login mirror: {err}");
                         }
                     }
                 }
@@ -501,28 +451,12 @@ fn insert_logins(
         // If we just have mirror, import as normal
         } else if let Some(mirror_login) = &login.mirror_login {
             if let Err(err) = insert_mirror_login(conn, mirror_login) {
-                num_failed_insert += 1;
-                insert_errors.push(err.label().into());
+                log::info!("failed to insert a lonely login mirror: {err}");
             }
         }
     }
     tx.commit()?;
-    let insert_phase_duration = import_start.elapsed();
-    let mut all_errors = Vec::new();
-    all_errors.extend(insert_errors);
-    let metrics = MigrationMetrics {
-        num_processed: import_start_total_logins,
-        num_succeeded: import_start_total_logins - num_failed_insert,
-        num_failed: num_failed_insert,
-        total_duration: insert_phase_duration.as_millis() as u64,
-        errors: all_errors,
-        ..Default::default()
-    };
-    log::info!(
-        "Finished importing logins with the following metrics: {:#?}",
-        metrics
-    );
-    Ok(metrics)
+    Ok(())
 }
 
 fn insert_local_login(
@@ -705,43 +639,27 @@ fn get_login_from_row(row: &Row<'_>) -> Result<Login> {
     Ok(login)
 }
 
-fn migrate_sync_metadata(cipher_conn: &Connection, store: &LoginStore) -> Result<MigrationMetrics> {
+fn migrate_sync_metadata(cipher_conn: &Connection, store: &LoginStore) -> Result<()> {
     let new_db = store.db.lock();
     let conn = new_db.conn();
-    let import_start = Instant::now();
 
     let mut select_stmt = cipher_conn.prepare("SELECT key, value FROM loginsSyncMeta")?;
     let mut rows = select_stmt.query([])?;
 
     let sql = "INSERT INTO loginsSyncMeta (key, value) VALUES (:key, :value)";
 
-    let mut num_processed: u64 = 0;
-    let mut num_failed_insert: u64 = 0;
-    let mut insert_errors: Vec<String> = Vec::new();
-
     while let Some(row) = rows.next()? {
-        num_processed += 1;
         let key: String = row.get("key")?;
         let value: Value = row.get("value")?;
 
         match conn.execute_cached(sql, named_params! { ":key": &key, ":value": &value }) {
-            Ok(_) => log::info!("Imported {} successfully", key),
+            Ok(_) => log::info!("Imported {key} successfully"),
             Err(e) => {
-                log::warn!("Could not import {}.", key);
-                insert_errors.push(Error::from(e).label().into());
-                num_failed_insert += 1;
+                log::warn!("Could not import {key} - {e}");
             }
         }
     }
-    Ok(MigrationMetrics {
-        fixup_phase: MigrationPhaseMetrics::default(),
-        insert_phase: MigrationPhaseMetrics::default(),
-        errors: insert_errors,
-        num_processed,
-        num_failed: num_failed_insert,
-        num_succeeded: num_processed - num_failed_insert,
-        total_duration: import_start.elapsed().as_millis() as u64,
-    })
+    Ok(())
 }
 
 #[cfg(test)]
@@ -970,7 +888,7 @@ mod tests {
     fn test_migrate_data() {
         let testpaths = TestPaths::new();
         create_old_db(testpaths.old_db.as_path(), None);
-        let metrics = migrate_sqlcipher_db_to_plaintext(
+        migrate_sqlcipher_db_to_plaintext(
             testpaths.old_db.as_path(),
             testpaths.new_db.as_path(),
             "old-key",
@@ -982,15 +900,6 @@ mod tests {
         // Check that the data from the old db is present in the the new DB
         let db = LoginDb::open(testpaths.new_db).unwrap();
         check_migrated_data(&db);
-
-        // Check migration numbers
-        assert_eq!(metrics.num_processed, 8);
-        assert_eq!(metrics.num_succeeded, 6);
-        assert_eq!(metrics.num_failed, 2);
-        assert!(metrics
-            .errors
-            .iter()
-            .any(|x| x == "Invalid login: Origin is empty"));
     }
 
     #[test]
@@ -1003,7 +912,7 @@ mod tests {
             .unwrap();
         drop(old_db);
 
-        let metrics = migrate_sqlcipher_db_to_plaintext(
+        migrate_sqlcipher_db_to_plaintext(
             testpaths.old_db.as_path(),
             testpaths.new_db.as_path(),
             "old-key",
@@ -1022,12 +931,6 @@ mod tests {
             db.query_one::<i32>("SELECT COUNT(*) FROM loginsM").unwrap(),
             1
         );
-
-        // Check metrics
-        assert_eq!(metrics.num_processed, 8);
-        assert_eq!(metrics.num_succeeded, 6);
-        assert_eq!(metrics.num_failed, 2);
-        assert_eq!(metrics.errors.len(), 2);
     }
 
     #[test]
@@ -1054,7 +957,7 @@ mod tests {
         );
         let testpaths = TestPaths::new();
         create_old_db_with_test_data(testpaths.old_db.as_path(), None, &inserts);
-        let _metrics = migrate_sqlcipher_db_to_plaintext(
+        migrate_sqlcipher_db_to_plaintext(
             testpaths.old_db.as_path(),
             testpaths.new_db.as_path(),
             "old-key",
@@ -1096,7 +999,7 @@ mod tests {
         "#;
         let testpaths = TestPaths::new();
         create_old_db_with_test_data(testpaths.old_db.as_path(), None, inserts);
-        let _metrics = migrate_sqlcipher_db_to_plaintext(
+        migrate_sqlcipher_db_to_plaintext(
             testpaths.old_db.as_path(),
             testpaths.new_db.as_path(),
             "old-key",
@@ -1152,7 +1055,7 @@ mod tests {
         "#;
         let testpaths = TestPaths::new();
         create_old_db_with_test_data(testpaths.old_db.as_path(), None, inserts);
-        let _metrics = migrate_sqlcipher_db_to_plaintext(
+        migrate_sqlcipher_db_to_plaintext(
             testpaths.old_db.as_path(),
             testpaths.new_db.as_path(),
             "old-key",
@@ -1313,7 +1216,7 @@ mod tests {
         let store = LoginStore::new(testpaths.new_db.as_path()).unwrap();
         let migration_plan = gen_migrate_plan();
         let encdec = EncryptorDecryptor::new(&TEST_ENCRYPTION_KEY).unwrap();
-        let metrics = insert_logins(&migration_plan, &store, &encdec).unwrap();
+        insert_logins(&migration_plan, &store, &encdec).unwrap();
 
         let db = LoginDb::open(testpaths.new_db.as_path()).unwrap();
         assert_eq!(
@@ -1324,10 +1227,6 @@ mod tests {
             db.query_one::<i32>("SELECT COUNT(*) FROM loginsM").unwrap(),
             1
         );
-
-        assert_eq!(metrics.num_processed, 2);
-        assert_eq!(metrics.num_succeeded, 2);
-        assert!(metrics.total_duration > 0);
     }
 
     #[test]

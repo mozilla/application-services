@@ -35,34 +35,13 @@ use rusqlite::{
     types::{FromSql, ToSql},
     Connection,
 };
-use serde_derive::*;
 use sql_support::ConnExt;
 use std::ops::Deref;
 use std::path::Path;
 use std::sync::Arc;
-use std::time::{Duration, Instant, SystemTime};
+use std::time::SystemTime;
 use sync_guid::Guid;
 use url::{Host, Url};
-
-#[derive(Serialize, Deserialize, PartialEq, Debug, Clone, Default)]
-pub struct MigrationPhaseMetrics {
-    pub(crate) num_processed: u64,
-    pub(crate) num_succeeded: u64,
-    pub(crate) num_failed: u64,
-    pub(crate) total_duration: u64,
-    pub(crate) errors: Vec<String>,
-}
-
-#[derive(Serialize, Deserialize, PartialEq, Debug, Clone, Default)]
-pub struct MigrationMetrics {
-    pub(crate) fixup_phase: MigrationPhaseMetrics,
-    pub(crate) insert_phase: MigrationPhaseMetrics,
-    pub(crate) num_processed: u64,
-    pub(crate) num_succeeded: u64,
-    pub(crate) num_failed: u64,
-    pub(crate) total_duration: u64,
-    pub(crate) errors: Vec<String>,
-}
 
 pub struct LoginDb {
     pub db: Connection,
@@ -376,11 +355,7 @@ impl LoginDb {
         Ok(())
     }
 
-    pub fn import_multiple(
-        &self,
-        logins: Vec<Login>,
-        encdec: &EncryptorDecryptor,
-    ) -> Result<MigrationMetrics> {
+    pub fn import_multiple(&self, logins: Vec<Login>, encdec: &EncryptorDecryptor) -> Result<()> {
         // Check if the logins table is empty first.
         let mut num_existing_logins =
             self.query_row::<i64, _, _>("SELECT COUNT(*) FROM loginsL", [], |r| r.get(0))?;
@@ -390,13 +365,6 @@ impl LoginDb {
             return Err(ErrorKind::NonEmptyTable.into());
         }
         let tx = self.unchecked_transaction()?;
-        let import_start = Instant::now();
-        let import_start_total_logins: u64 = logins.len() as u64;
-        let mut num_failed_fixup: u64 = 0;
-        let mut num_failed_insert: u64 = 0;
-        let mut fixup_phase_duration = Duration::new(0, 0);
-        let mut fixup_errors: Vec<String> = Vec::new();
-        let mut insert_errors: Vec<String> = Vec::new();
 
         for login in logins.into_iter() {
             let old_guid = login.guid();
@@ -416,13 +384,10 @@ impl LoginDb {
                 },
                 Err(e) => {
                     log::warn!("Skipping login {} as it is invalid ({}).", old_guid, e);
-                    fixup_errors.push(e.label().into());
-                    num_failed_fixup += 1;
                     continue;
                 }
             };
             // Now we can safely insert it, knowing that it's valid data.
-            fixup_phase_duration = import_start.elapsed();
             match self.insert_new_login(&login) {
                 Ok(_) => log::info!(
                     "Imported {} (new GUID {}) successfully.",
@@ -431,52 +396,12 @@ impl LoginDb {
                 ),
                 Err(e) => {
                     log::warn!("Could not import {} ({}).", old_guid, e);
-                    insert_errors.push(e.label().into());
-                    num_failed_insert += 1;
                 }
             };
         }
         tx.commit()?;
 
-        let num_post_fixup = import_start_total_logins - num_failed_fixup;
-        let num_failed = num_failed_fixup + num_failed_insert;
-        let insert_phase_duration = import_start
-            .elapsed()
-            .checked_sub(fixup_phase_duration)
-            .unwrap_or_else(|| Duration::new(0, 0));
-        let mut all_errors = Vec::new();
-        all_errors.extend(fixup_errors.clone());
-        all_errors.extend(insert_errors.clone());
-
-        let metrics = MigrationMetrics {
-            fixup_phase: MigrationPhaseMetrics {
-                num_processed: import_start_total_logins,
-                num_succeeded: num_post_fixup,
-                num_failed: num_failed_fixup,
-                total_duration: fixup_phase_duration.as_millis() as u64,
-                errors: fixup_errors,
-            },
-            insert_phase: MigrationPhaseMetrics {
-                num_processed: num_post_fixup,
-                num_succeeded: num_post_fixup - num_failed_insert,
-                num_failed: num_failed_insert,
-                total_duration: insert_phase_duration.as_millis() as u64,
-                errors: insert_errors,
-            },
-            num_processed: import_start_total_logins,
-            num_succeeded: import_start_total_logins - num_failed,
-            num_failed,
-            total_duration: fixup_phase_duration
-                .checked_add(insert_phase_duration)
-                .unwrap_or_else(|| Duration::new(0, 0))
-                .as_millis() as u64,
-            errors: all_errors,
-        };
-        log::info!(
-            "Finished importing logins with the following metrics: {:#?}",
-            metrics
-        );
-        Ok(metrics)
+        Ok(())
     }
 
     pub fn add(&self, entry: LoginEntry, encdec: &EncryptorDecryptor) -> Result<EncryptedLogin> {
@@ -1452,12 +1377,6 @@ mod tests {
 
     #[test]
     fn test_import_multiple() {
-        struct TestCase {
-            logins: Vec<Login>,
-            has_populated_metrics: bool,
-            expected_metrics: MigrationMetrics,
-        }
-
         let db = LoginDb::open_in_memory().unwrap();
 
         // Adding login to trigger non-empty table error
@@ -1560,116 +1479,19 @@ mod tests {
 
         let duplicate_logins = vec![valid_login1.clone(), duplicate_login, valid_login2.clone()];
 
-        let duplicate_logins_metrics = MigrationMetrics {
-            fixup_phase: MigrationPhaseMetrics {
-                num_processed: 3,
-                num_succeeded: 2,
-                num_failed: 1,
-                errors: vec!["InvalidLogin::DuplicateLogin".into()],
-                ..MigrationPhaseMetrics::default()
-            },
-            insert_phase: MigrationPhaseMetrics {
-                num_processed: 2,
-                num_succeeded: 2,
-                ..MigrationPhaseMetrics::default()
-            },
-            num_processed: 3,
-            num_succeeded: 2,
-            num_failed: 1,
-            errors: vec!["InvalidLogin::DuplicateLogin".into()],
-            ..MigrationMetrics::default()
-        };
-
         let valid_logins = vec![valid_login1, valid_login2, valid_login3];
 
-        let valid_logins_metrics = MigrationMetrics {
-            fixup_phase: MigrationPhaseMetrics {
-                num_processed: 3,
-                num_succeeded: 3,
-                ..MigrationPhaseMetrics::default()
-            },
-            insert_phase: MigrationPhaseMetrics {
-                num_processed: 3,
-                num_succeeded: 3,
-                ..MigrationPhaseMetrics::default()
-            },
-            num_processed: 3,
-            num_succeeded: 3,
-            ..MigrationMetrics::default()
-        };
+        let test_cases = vec![Vec::new(), duplicate_logins, valid_logins];
 
-        let test_cases = vec![
-            TestCase {
-                logins: Vec::new(),
-                has_populated_metrics: false,
-                expected_metrics: MigrationMetrics {
-                    ..MigrationMetrics::default()
-                },
-            },
-            TestCase {
-                logins: duplicate_logins,
-                has_populated_metrics: true,
-                expected_metrics: duplicate_logins_metrics,
-            },
-            TestCase {
-                logins: valid_logins,
-                has_populated_metrics: true,
-                expected_metrics: valid_logins_metrics,
-            },
-        ];
-
-        for tc in test_cases.into_iter() {
+        for logins in test_cases.into_iter() {
             let mut guids = Vec::new();
-            for login in &tc.logins {
+            for login in &logins {
                 guids.push(login.guid().into_string());
             }
-            let import_result = db.import_multiple(tc.logins, &TEST_ENCRYPTOR);
-            assert!(import_result.is_ok());
-
-            let mut actual_metrics = import_result.unwrap();
-
-            if tc.has_populated_metrics {
-                assert_eq!(
-                    actual_metrics.num_processed,
-                    tc.expected_metrics.num_processed
-                );
-                assert_eq!(
-                    actual_metrics.num_succeeded,
-                    tc.expected_metrics.num_succeeded
-                );
-                assert_eq!(actual_metrics.num_failed, tc.expected_metrics.num_failed);
-                assert_eq!(actual_metrics.errors, tc.expected_metrics.errors);
-
-                let phases = [
-                    (
-                        actual_metrics.fixup_phase,
-                        tc.expected_metrics.fixup_phase.clone(),
-                    ),
-                    (
-                        actual_metrics.insert_phase,
-                        tc.expected_metrics.insert_phase.clone(),
-                    ),
-                ];
-
-                for (actual, expected) in &phases {
-                    assert_eq!(actual.num_processed, expected.num_processed);
-                    assert_eq!(actual.num_succeeded, expected.num_succeeded);
-                    assert_eq!(actual.num_failed, expected.num_failed);
-                    assert_eq!(actual.errors, expected.errors);
-                }
-
-                // clearing the database for next test case
-                delete_logins(&db, guids.as_slice()).unwrap();
-            } else {
-                // We could elaborate mock out the clock for tests...
-                // or we could just set the duration fields to the right values!
-                actual_metrics.total_duration = tc.expected_metrics.total_duration;
-                actual_metrics.fixup_phase.total_duration =
-                    tc.expected_metrics.fixup_phase.total_duration;
-                actual_metrics.insert_phase.total_duration =
-                    tc.expected_metrics.insert_phase.total_duration;
-                assert_eq!(actual_metrics, tc.expected_metrics);
-            }
+            db.import_multiple(logins, &TEST_ENCRYPTOR)
+                .expect("import should work");
+            // clearing the database for next test case
+            delete_logins(&db, guids.as_slice()).unwrap();
         }
     }
 

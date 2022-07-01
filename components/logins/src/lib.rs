@@ -19,7 +19,7 @@ mod util;
 
 uniffi_macros::include_scaffolding!("logins");
 
-pub use crate::db::{LoginDb, MigrationMetrics, MigrationPhaseMetrics};
+pub use crate::db::LoginDb;
 use crate::encryption::{check_canary, create_canary, create_key};
 pub use crate::error::*;
 pub use crate::login::*;
