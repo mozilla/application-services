@@ -101,7 +101,7 @@ fn main() -> Result<()> {
             _ => unimplemented!(),
         },
         ("experimenter", _) => {
-            workflows::generate_experimenter_manifest(GenerateExperimenterManifestCmd {
+            let cmd = GenerateExperimenterManifestCmd {
                 manifest: file_path("INPUT", &matches, &cwd)?,
                 output: file_path("output", &matches, &cwd)?,
                 load_from_ir: matches.is_present("ir"),
@@ -109,7 +109,8 @@ fn main() -> Result<()> {
                     .value_of("channel")
                     .map(str::to_string)
                     .unwrap_or_else(|| RELEASE_CHANNEL.into()),
-            })?
+            };
+            workflows::generate_experimenter_manifest(&cmd)?
         }
         ("intermediate-repr", _) => workflows::generate_ir(GenerateIRCmd {
             manifest: file_path("INPUT", &matches, &cwd)?,
