@@ -18,7 +18,9 @@ mod workflows;
 
 use anyhow::{bail, Result};
 use clap::{App, ArgMatches};
-use commands::{GenerateExperimenterManifestCmd, GenerateIRCmd, GenerateStructCmd, TargetLanguage};
+use commands::{
+    CliCmd, GenerateExperimenterManifestCmd, GenerateIRCmd, GenerateStructCmd, TargetLanguage,
+};
 use parser::{AboutBlock, KotlinAboutBlock, SwiftAboutBlock};
 
 use std::{
@@ -192,13 +194,6 @@ fn file_path(name: &str, args: &ArgMatches, cwd: &Path) -> Result<PathBuf> {
         }
         _ => bail!("A file path is needed for {}", name),
     }
-}
-
-pub(crate) enum CliCmd {
-    Generate(GenerateStructCmd),
-    DeprecatedGenerate(GenerateStructCmd, AboutBlock),
-    GenerateExperimenter(GenerateExperimenterManifestCmd),
-    GenerateIR(GenerateIRCmd),
 }
 
 #[cfg(test)]

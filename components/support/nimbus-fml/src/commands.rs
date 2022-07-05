@@ -2,9 +2,17 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
+use crate::parser::AboutBlock;
 use anyhow::{bail, Error, Result};
 use std::path::Path;
 use std::path::PathBuf;
+
+pub(crate) enum CliCmd {
+    Generate(GenerateStructCmd),
+    DeprecatedGenerate(GenerateStructCmd, AboutBlock),
+    GenerateExperimenter(GenerateExperimenterManifestCmd),
+    GenerateIR(GenerateIRCmd),
+}
 
 pub(crate) struct GenerateStructCmd {
     pub(crate) manifest: PathBuf,
@@ -30,7 +38,7 @@ pub(crate) struct GenerateIRCmd {
 }
 
 #[derive(Eq, PartialEq, Hash, Debug)]
-pub enum TargetLanguage {
+pub(crate) enum TargetLanguage {
     Kotlin,
     Swift,
     IR,
@@ -39,7 +47,6 @@ pub enum TargetLanguage {
 }
 
 impl TargetLanguage {
-    #[allow(dead_code)]
     pub(crate) fn extension(&self) -> &str {
         match self {
             TargetLanguage::Kotlin => "kt",
@@ -68,9 +75,10 @@ impl TryFrom<&str> for TargetLanguage {
 impl TryFrom<&std::ffi::OsStr> for TargetLanguage {
     type Error = Error;
     fn try_from(value: &std::ffi::OsStr) -> Result<Self> {
-        match value.to_str() {
-            None => bail!("Unreadable target language"),
-            Some(s) => s.try_into(),
+        if let Some(s) = value.to_str() {
+            TryFrom::try_from(s)
+        } else {
+            bail!("Unreadable target language")
         }
     }
 }
