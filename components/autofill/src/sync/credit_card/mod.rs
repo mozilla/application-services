@@ -71,7 +71,7 @@ impl SyncEngineStorageImpl<InternalCreditCard> for CreditCardsEngineStorageImpl 
     }
 }
 
-// These structs are what's stored on the sync server.
+// These structs are what's stored on the sync server for non-tombstone records.
 #[derive(Default, Debug, Deserialize, Serialize)]
 struct CreditCardPayload {
     id: Guid,

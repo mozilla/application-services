@@ -19,6 +19,11 @@ Use the template below to make assigning a version number during the release cut
 
 -->
 
+## Autofill
+
+### What's Fixed
+  - Fixed syncing of autofill when tombstones exist in the local mirror (#5030)
+
 ## Nimbus FML ⛅️🔬🔭🔧
 
 ### What's New

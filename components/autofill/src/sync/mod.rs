@@ -207,7 +207,9 @@ pub enum MergeResult<T> {
 pub struct IncomingState<T> {
     incoming: IncomingRecord<T>,
     local: LocalRecordInfo<T>,
-    // We don't have an enum for the mirror - an Option<> is fine because we
+    // We don't have an enum for the mirror - an Option<> is fine because
+    // although we do store tombstones there, we ignore them when reconciling
+    // (ie, we ignore tombstones in the mirror)
     // don't store tombstones there.
     mirror: Option<T>,
 }
