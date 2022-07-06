@@ -1,0 +1,4 @@
+{
+    "my/remote": "https://example.com/repo/branch",
+    "test/nested2": "v100.0"
+}

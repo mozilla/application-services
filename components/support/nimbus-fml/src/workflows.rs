@@ -5,15 +5,53 @@
 use crate::{
     backends,
     commands::{GenerateExperimenterManifestCmd, GenerateIRCmd, GenerateStructCmd, TargetLanguage},
-    error::Result,
+    error::{FMLError, Result},
     intermediate_representation::FeatureManifest,
     parser::{AboutBlock, Parser},
+    util::loaders::{FileLoader, FilePath},
 };
 use std::path::Path;
 
 #[allow(dead_code)]
 pub(crate) fn generate_struct(cmd: &GenerateStructCmd) -> Result<()> {
-    let ir = load_feature_manifest(&cmd.manifest, cmd.load_from_ir, &cmd.channel)?;
+    let files: FileLoader = TryFrom::try_from(&cmd.loader)?;
+
+    let input = files.file_path(&cmd.manifest)?;
+
+    match (&input, &cmd.output.is_dir()) {
+        (FilePath::Remote(_), _) => generate_struct_single(&files, input, cmd),
+        (FilePath::Local(p), _) if !p.is_dir() => generate_struct_single(&files, input, cmd),
+        (FilePath::Local(d), true) if d.is_dir() => {
+            generate_struct_from_dir(&files, cmd, &cmd.output)
+        }
+        _ => Err(FMLError::CliError(
+            "Cannot generate a single output file from an input directory".to_string(),
+        )),
+    }
+}
+
+fn generate_struct_from_dir(files: &FileLoader, cmd: &GenerateStructCmd, dir: &Path) -> Result<()> {
+    let entries = dir.read_dir()?;
+    for entry in entries {
+        let p = entry?.path();
+        if p.is_dir() {
+            generate_struct_from_dir(files, cmd, &p)?;
+        } else if let Some(nm) = p.file_name().map(|s| s.to_str().unwrap_or_default()) {
+            if nm.ends_with(".fml.yaml") {
+                let path = p.as_path().into();
+                generate_struct_single(files, path, cmd)?;
+            }
+        }
+    }
+    Ok(())
+}
+
+fn generate_struct_single(
+    files: &FileLoader,
+    manifest_path: FilePath,
+    cmd: &GenerateStructCmd,
+) -> Result<()> {
+    let ir = load_feature_manifest(files.clone(), manifest_path, cmd.load_from_ir, &cmd.channel)?;
     generate_struct_from_ir(&ir, cmd)
 }
 
@@ -21,7 +59,9 @@ pub(crate) fn generate_struct_cli_overrides(
     from_cli: AboutBlock,
     cmd: &GenerateStructCmd,
 ) -> Result<()> {
-    let mut ir = load_feature_manifest(&cmd.manifest, cmd.load_from_ir, &cmd.channel)?;
+    let files: FileLoader = TryFrom::try_from(&cmd.loader)?;
+    let path = files.file_path(&cmd.manifest)?;
+    let mut ir = load_feature_manifest(files, path, cmd.load_from_ir, &cmd.channel)?;
 
     // We do a dance here to make sure that we can override class names and package names during tests,
     // and while we still have to support setting those options from the commmand line.
@@ -59,31 +99,32 @@ fn generate_struct_from_ir(ir: &FeatureManifest, cmd: &GenerateStructCmd) -> Res
 }
 
 pub(crate) fn generate_experimenter_manifest(cmd: &GenerateExperimenterManifestCmd) -> Result<()> {
-    let ir = load_feature_manifest(&cmd.manifest, cmd.load_from_ir, &cmd.channel)?;
+    let files: FileLoader = TryFrom::try_from(&cmd.loader)?;
+    let path = files.file_path(&cmd.manifest)?;
+    let ir = load_feature_manifest(files, path, cmd.load_from_ir, &cmd.channel)?;
     backends::experimenter_manifest::generate_manifest(ir, cmd)?;
     Ok(())
 }
 
 pub(crate) fn generate_ir(cmd: &GenerateIRCmd) -> Result<()> {
-    let ir = load_feature_manifest(&cmd.manifest, cmd.load_from_ir, &cmd.channel)?;
+    let files: FileLoader = TryFrom::try_from(&cmd.loader)?;
+    let path = files.file_path(&cmd.manifest)?;
+    let ir = load_feature_manifest(files, path, cmd.load_from_ir, &cmd.channel)?;
     std::fs::write(&cmd.output, serde_json::to_string_pretty(&ir)?)?;
     Ok(())
 }
 
-fn slurp_file(path: &Path) -> Result<String> {
-    Ok(std::fs::read_to_string(path)?)
-}
-
 fn load_feature_manifest(
-    path: &Path,
+    files: FileLoader,
+    path: FilePath,
     load_from_ir: bool,
     channel: &str,
 ) -> Result<FeatureManifest> {
     let ir = if !load_from_ir {
-        let parser: Parser = Parser::new(path)?;
+        let parser: Parser = Parser::new(files, path)?;
         parser.get_intermediate_representation(channel)?
     } else {
-        let string = slurp_file(path)?;
+        let string = files.read_to_string(&path)?;
         serde_json::from_str::<FeatureManifest>(&string)?
     };
     ir.validate_manifest()?;
@@ -161,8 +202,8 @@ mod test {
             .ok_or_else(|| anyhow!("Require a test_script with an extension: {}", test_script))?;
         let language: TargetLanguage = ext.try_into()?;
         let manifest_fml = join(pkg_dir(), manifest);
-        let manifest = PathBuf::from(&manifest_fml);
-        let file = manifest
+        let file = PathBuf::from(&manifest_fml);
+        let file = file
             .file_stem()
             .ok_or_else(|| anyhow!("Manifest file path isn't a file"))?
             .to_str()
@@ -174,12 +215,14 @@ mod test {
             channel,
             language.extension()
         );
+        let loader = Default::default();
         Ok(GenerateStructCmd {
-            manifest: manifest_fml.into(),
+            manifest: manifest_fml,
             output: manifest_out.into(),
             load_from_ir: is_ir,
             language,
             channel: channel.into(),
+            loader,
         })
     }
 
@@ -563,7 +606,9 @@ mod test {
     fn test_importing_simple_experimenter_manifest() -> Result<()> {
         // Both the app and lib files declare features, so we should have an experimenter manifest file with two features.
         let cmd = create_experimenter_manifest_cmd("fixtures/fe/importing/simple/app.yaml")?;
-        let fm = load_feature_manifest(&cmd.manifest, cmd.load_from_ir, &cmd.channel)?;
+        let files = FileLoader::default()?;
+        let path = files.file_path(&cmd.manifest)?;
+        let fm = load_feature_manifest(files, path, cmd.load_from_ir, &cmd.channel)?;
         let m: ExperimenterManifest = fm.try_into()?;
 
         assert!(m.contains_key("homescreen"));
@@ -633,8 +678,9 @@ mod test {
     }
 
     fn create_experimenter_manifest_cmd(path: &str) -> Result<GenerateExperimenterManifestCmd> {
-        let manifest = PathBuf::from(join(pkg_dir(), path));
-        let file = manifest
+        let manifest = join(pkg_dir(), path);
+        let file = Path::new(&manifest);
+        let filestem = file
             .file_stem()
             .ok_or_else(|| anyhow!("Manifest file path isn't a file"))?
             .to_str()
@@ -642,18 +688,20 @@ mod test {
 
         fs::create_dir_all(generated_src_dir())?;
 
-        let output = format!("{}.yaml", join(generated_src_dir(), file)).into();
-        let load_from_ir = if let Some(ext) = manifest.extension() {
+        let output = format!("{}.yaml", join(generated_src_dir(), filestem)).into();
+        let load_from_ir = if let Some(ext) = file.extension() {
             TargetLanguage::ExperimenterJSON == ext.try_into()?
         } else {
             false
         };
+        let loader = Default::default();
         Ok(GenerateExperimenterManifestCmd {
             manifest,
             output,
             language: TargetLanguage::ExperimenterYAML,
             load_from_ir,
             channel: "release".into(),
+            loader,
         })
     }
 }

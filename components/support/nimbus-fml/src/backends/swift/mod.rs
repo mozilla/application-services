@@ -29,7 +29,7 @@ pub(crate) fn generate_struct(manifest: &FeatureManifest, cmd: &GenerateStructCm
             "about".to_string(),
             format!(
                 "The `about` block is missing a valid `ios` or `swift` entry: {}",
-                cmd.manifest.as_path().display()
+                &cmd.manifest
             ),
         ));
     }

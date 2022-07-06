@@ -19,7 +19,8 @@ mod workflows;
 use anyhow::{bail, Result};
 use clap::{App, ArgMatches};
 use commands::{
-    CliCmd, GenerateExperimenterManifestCmd, GenerateIRCmd, GenerateStructCmd, TargetLanguage,
+    CliCmd, GenerateExperimenterManifestCmd, GenerateIRCmd, GenerateStructCmd, LoaderConfig,
+    TargetLanguage,
 };
 use parser::{AboutBlock, KotlinAboutBlock, SwiftAboutBlock};
 
@@ -116,7 +117,7 @@ where
         ),
         // This command is deprecated and will be removed in a future release. and will be removed in a future release.
         ("intermediate-repr", _) => {
-            CliCmd::GenerateIR(create_generate_ir_command_from_cli(matches, cwd)?)
+            CliCmd::GenerateIR(create_generate_ir_command_from_cli(&matches, cwd)?)
         }
         ("generate", Some(matches)) => {
             CliCmd::Generate(create_generate_command_from_cli(matches, cwd)?)
@@ -128,15 +129,18 @@ where
     })
 }
 
-fn create_generate_ir_command_from_cli(matches: ArgMatches, cwd: &Path) -> Result<GenerateIRCmd> {
+fn create_generate_ir_command_from_cli(matches: &ArgMatches, cwd: &Path) -> Result<GenerateIRCmd> {
+    let manifest = input_file(matches)?;
+    let load_from_ir = matches.is_present("ir");
     Ok(GenerateIRCmd {
-        manifest: file_path("INPUT", &matches, cwd)?,
-        output: file_path("output", &matches, cwd)?,
-        load_from_ir: matches.is_present("ir"),
+        manifest,
+        output: file_path("output", matches, cwd)?,
+        load_from_ir: matches.is_present("ir") || load_from_ir,
         channel: matches
             .value_of("channel")
             .map(str::to_string)
             .unwrap_or_else(|| RELEASE_CHANNEL.into()),
+        loader: create_loader(matches, cwd)?,
     })
 }
 
@@ -144,30 +148,34 @@ fn create_generate_command_experimenter_from_cli(
     matches: &ArgMatches,
     cwd: &Path,
 ) -> Result<GenerateExperimenterManifestCmd> {
-    let manifest = file_path("INPUT", matches, cwd)?;
+    let manifest = input_file(matches)?;
+    let load_from_ir =
+        TargetLanguage::ExperimenterJSON == TargetLanguage::from_extension(&manifest)?;
     let output =
         file_path("output", matches, cwd).or_else(|_| file_path("OUTPUT", matches, cwd))?;
-    let load_from_ir = TargetLanguage::ExperimenterJSON == manifest.as_path().try_into()?;
     let language = output.as_path().try_into()?;
     let channel = matches
         .value_of("channel")
         .map(str::to_string)
         .unwrap_or_else(|| RELEASE_CHANNEL.into());
+    let loader = create_loader(matches, cwd)?;
     let cmd = GenerateExperimenterManifestCmd {
         manifest,
         output,
         language,
         load_from_ir,
         channel,
+        loader,
     };
     Ok(cmd)
 }
 
 fn create_generate_command_from_cli(matches: &ArgMatches, cwd: &Path) -> Result<GenerateStructCmd> {
-    let manifest = file_path("INPUT", matches, cwd)?;
+    let manifest = input_file(matches)?;
+    let load_from_ir =
+        TargetLanguage::ExperimenterJSON == TargetLanguage::from_extension(&manifest)?;
     let output =
         file_path("output", matches, cwd).or_else(|_| file_path("OUTPUT", matches, cwd))?;
-    let load_from_ir = TargetLanguage::ExperimenterJSON == manifest.as_path().try_into()?;
     let language = match matches.value_of("language") {
         Some(s) => TargetLanguage::try_from(s)?, // the language from the cli will always be recognized
         None => output.as_path().try_into().map_err(|_| anyhow::anyhow!("Can't infer a target language from the file or directory, so specify a --language flag explicitly"))?,
@@ -176,13 +184,38 @@ fn create_generate_command_from_cli(matches: &ArgMatches, cwd: &Path) -> Result<
         .value_of("channel")
         .map(str::to_string)
         .expect("A channel should be specified with --channel");
+    let loader = create_loader(matches, cwd)?;
     Ok(GenerateStructCmd {
         language,
         manifest,
         output,
         load_from_ir,
         channel,
+        loader,
     })
+}
+
+fn create_loader(matches: &ArgMatches, cwd: &Path) -> Result<LoaderConfig> {
+    let cwd = cwd.to_path_buf();
+    let cache_dir = matches
+        .value_of("cache-dir")
+        .map(|f| cwd.join(f))
+        .unwrap_or_else(std::env::temp_dir);
+
+    let files = matches.values_of("repo-file").unwrap_or_default();
+    let repo_files = files.into_iter().map(|s| s.to_string()).collect();
+
+    Ok(LoaderConfig {
+        cache_dir,
+        repo_files,
+        cwd,
+    })
+}
+
+fn input_file(args: &ArgMatches) -> Result<String> {
+    args.value_of("INPUT")
+        .map(String::from)
+        .ok_or_else(|| anyhow::anyhow!("INPUT file or directory is needed, but not specified"))
 }
 
 fn file_path(name: &str, args: &ArgMatches, cwd: &Path) -> Result<PathBuf> {

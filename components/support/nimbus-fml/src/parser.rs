@@ -692,10 +692,7 @@ pub struct Parser {
 }
 
 impl Parser {
-    pub fn new(path: impl Into<FilePath>) -> Result<Parser> {
-        let source: FilePath = path.into();
-        let files = FileLoader::default()?;
-
+    pub fn new(files: FileLoader, source: FilePath) -> Result<Parser> {
         Ok(Parser { source, files })
     }
 
@@ -1125,8 +1122,9 @@ mod unit_tests {
     #[test]
     fn test_parse_from_front_end_representation() -> Result<()> {
         let path = join(pkg_dir(), "fixtures/fe/nimbus_features.yaml");
-        let path_buf = Path::new(&path);
-        let parser = Parser::new(path_buf)?;
+        let path = Path::new(&path);
+        let files = FileLoader::default()?;
+        let parser = Parser::new(files, path.into())?;
         let ir = parser.get_intermediate_representation("release")?;
 
         // Validate parsed enums
@@ -1251,8 +1249,9 @@ mod unit_tests {
     #[test]
     fn test_merging_defaults() -> Result<()> {
         let path = join(pkg_dir(), "fixtures/fe/default_merging.yaml");
-        let path_buf = Path::new(&path);
-        let parser = Parser::new(path_buf)?;
+        let path = Path::new(&path);
+        let files = FileLoader::default()?;
+        let parser = Parser::new(files, path.into())?;
         let ir = parser.get_intermediate_representation("release")?;
         let feature_def = ir.feature_defs.first().unwrap();
         let positive_button = feature_def
@@ -1293,7 +1292,8 @@ mod unit_tests {
             "green"
         );
         // We now re-run this, but merge back the nightly channel instead
-        let parser = Parser::new(path_buf)?;
+        let files = FileLoader::default()?;
+        let parser = Parser::new(files, path.into())?;
         let ir = parser.get_intermediate_representation("nightly")?;
         let feature_def = ir.feature_defs.first().unwrap();
         let positive_button = feature_def
@@ -2429,7 +2429,8 @@ mod unit_tests {
 
     #[test]
     fn test_include_check_can_merge_manifest() -> Result<()> {
-        let parser = Parser::new(std::env::temp_dir().as_path())?;
+        let files = FileLoader::default()?;
+        let parser = Parser::new(files, std::env::temp_dir().as_path().into())?;
         let parent_path: FilePath = std::env::temp_dir().as_path().into();
         let child_path = parent_path.join("http://not-needed.com")?;
         let parent = ManifestFrontEnd {
@@ -2459,7 +2460,8 @@ mod unit_tests {
 
     #[test]
     fn test_include_check_can_merge_manifest_with_imports() -> Result<()> {
-        let parser = Parser::new(std::env::temp_dir().as_path())?;
+        let files = FileLoader::default()?;
+        let parser = Parser::new(files, std::env::temp_dir().as_path().into())?;
         let parent_path: FilePath = std::env::temp_dir().as_path().into();
         let child_path = parent_path.join("http://child")?;
         let parent = ManifestFrontEnd {
@@ -2504,8 +2506,10 @@ mod unit_tests {
         // snake.yaml includes tail.yaml, which includes snake.yaml
         let path = PathBuf::from(pkg_dir()).join("fixtures/fe/including/circular/snake.yaml");
 
-        let parser = Parser::new(path.as_path());
-        assert!(parser.is_ok());
+        let files = FileLoader::default()?;
+        let parser = Parser::new(files, path.as_path().into())?;
+        let ir = parser.get_intermediate_representation("release");
+        assert!(ir.is_ok());
 
         Ok(())
     }
@@ -2515,12 +2519,12 @@ mod unit_tests {
         use crate::util::pkg_dir;
         // Deeply nested includes, which start at 00-head.yaml, and then recursively includes all the
         // way down to 06-toe.yaml
-        let path = PathBuf::from(pkg_dir()).join("fixtures/fe/including/deep/00-head.yaml");
+        let path_buf = PathBuf::from(pkg_dir()).join("fixtures/fe/including/deep/00-head.yaml");
 
-        let parser = Parser::new(path.as_path());
-        assert!(parser.is_ok());
+        let files = FileLoader::default()?;
+        let parser = Parser::new(files, path_buf.as_path().into())?;
 
-        let ir = parser?.get_intermediate_representation("release")?;
+        let ir = parser.get_intermediate_representation("release")?;
         assert_eq!(ir.feature_defs.len(), 1);
 
         Ok(())
