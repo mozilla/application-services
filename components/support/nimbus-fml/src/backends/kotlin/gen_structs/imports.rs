@@ -7,7 +7,7 @@ use std::fmt::Display;
 use super::{filters, object::object_literal};
 use crate::{
     backends::{CodeDeclaration, CodeOracle, LiteralRenderer, TypeIdentifier},
-    intermediate_representation::{ImportedModule, Literal},
+    intermediate_representation::{ImportedModule, Literal, TypeFinder},
 };
 use askama::Template;
 
@@ -28,9 +28,18 @@ impl<'a> ImportedModuleInitialization<'a> {
 }
 
 impl CodeDeclaration for ImportedModuleInitialization<'_> {
-    fn imports(&self, _oracle: &dyn CodeOracle) -> Option<Vec<String>> {
+    fn imports(&self, oracle: &dyn CodeOracle) -> Option<Vec<String>> {
         let p = self.inner.about().nimbus_package_name()?;
-        Some(vec![format!("{}.*", p)])
+        Some(
+            self.inner
+                .fm
+                .all_types()
+                .iter()
+                .filter_map(|t| oracle.find(t).imports(oracle))
+                .flatten()
+                .chain(vec![format!("{}.*", p)])
+                .collect::<Vec<_>>(),
+        )
     }
 
     fn initialization_code(&self, _oracle: &dyn CodeOracle) -> Option<String> {

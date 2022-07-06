@@ -524,6 +524,42 @@ mod test {
     }
 
     #[test]
+    fn test_importing_including_imports_android() -> Result<()> {
+        generate_multiple_and_assert(
+            "test/importing/including-imports/app_release.kts",
+            &[
+                (
+                    "fixtures/fe/importing/including-imports/ui.fml.yaml",
+                    "none",
+                ),
+                (
+                    "fixtures/fe/importing/including-imports/app.fml.yaml",
+                    "release",
+                ),
+            ],
+        )?;
+        Ok(())
+    }
+
+    #[test]
+    fn test_importing_including_imports_ios() -> Result<()> {
+        generate_multiple_and_assert(
+            "test/importing/including-imports/app_release.swift",
+            &[
+                (
+                    "fixtures/fe/importing/including-imports/ui.fml.yaml",
+                    "none",
+                ),
+                (
+                    "fixtures/fe/importing/including-imports/app.fml.yaml",
+                    "release",
+                ),
+            ],
+        )?;
+        Ok(())
+    }
+
+    #[test]
     fn test_importing_simple_experimenter_manifest() -> Result<()> {
         // Both the app and lib files declare features, so we should have an experimenter manifest file with two features.
         let cmd = create_experimenter_manifest_cmd("fixtures/fe/importing/simple/app.yaml")?;

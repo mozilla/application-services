@@ -1,0 +1,26 @@
+---
+channels:
+  - debug
+  - release
+about:
+  description: This has a number of features to do with the user interface
+  ios:
+    class: AppConfig
+    module: Application
+  android:
+    class: .nimbus.AppConfig
+    package: com.example.app
+includes:
+  - system.yaml
+  - pocket.yaml
+
+imports:
+  - path: ./ui.fml.yaml
+    channel: none
+    features:
+      app-menu:
+        - value:
+            order:
+              - open-bookmarks
+              - open-logins
+              - open-pocket

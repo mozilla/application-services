@@ -2,10 +2,7 @@
 * License, v. 2.0. If a copy of the MPL was not distributed with this
 * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-use std::{
-    collections::{BTreeMap, BTreeSet, HashMap, HashSet},
-    fmt::Display,
-};
+use std::collections::{BTreeMap, BTreeSet, HashMap, HashSet};
 
 use serde::{Deserialize, Serialize};
 use serde_json::json;
@@ -706,17 +703,20 @@ impl Parser {
     // into this top level one.
     // It recursively calls itself and then calls `merge_manifest`.
     fn load_manifest(
-        files: &FileLoader,
+        &self,
         path: &FilePath,
         loading: &mut HashSet<ModuleId>,
     ) -> Result<ManifestFrontEnd> {
         let id: ModuleId = path.try_into()?;
+        let files = &self.files;
         let s = files
             .read_to_string(path)
             .map_err(|e| FMLError::FMLModuleError(id.clone(), e.to_string()))?;
 
-        let parent = serde_yaml::from_str::<ManifestFrontEnd>(&s)
+        let mut parent = serde_yaml::from_str::<ManifestFrontEnd>(&s)
             .map_err(|e| FMLError::FMLModuleError(id.clone(), e.to_string()))?;
+
+        self.canonicalize_import_paths(path, &mut parent.imports)?;
 
         loading.insert(id.clone());
         parent
@@ -728,8 +728,8 @@ impl Parser {
                 let parent = parent?;
                 let child_id = ModuleId::try_from(&src_path)?;
                 Ok(if !loading.contains(&child_id) {
-                    let manifest = Parser::load_manifest(files, &src_path, loading)?;
-                    Parser::merge_manifest(parent, &src_path, manifest)
+                    let manifest = self.load_manifest(&src_path, loading)?;
+                    self.merge_manifest(&src_path, parent, &src_path, manifest)
                         .map_err(|e| FMLError::FMLModuleError(id.clone(), e.to_string()))?
                 } else {
                     parent
@@ -740,11 +740,18 @@ impl Parser {
     // Attempts to merge two manifests: a child into a parent.
     // The `child_path` is needed to report errors.
     fn merge_manifest(
+        &self,
+        parent_path: &FilePath,
         parent: ManifestFrontEnd,
         child_path: &FilePath,
         child: ManifestFrontEnd,
     ) -> Result<ManifestFrontEnd> {
-        check_can_merge_manifest(&parent, &child, child_path)?;
+        self.check_can_merge_manifest(parent_path, &parent, child_path, &child)?;
+
+        let mut map = Default::default();
+        // let parent_imports = self.absolutize_import_paths(parent_path, &parent.imports)?;
+        self.check_can_merge_imports(parent_path, &parent.imports, &mut map)?;
+        self.check_can_merge_imports(child_path, &child.imports, &mut map)?;
 
         // Child must not specify any features, objects or enums that the parent has.
         let features = merge_map(
@@ -767,10 +774,13 @@ impl Parser {
         )?;
         let enums = merge_map(&c_types.enums, &p_types.enums, "Enums", "enums", child_path)?;
 
+        let imports = self.merge_import_block_list(&parent.imports, &child.imports)?;
+
         let merged = ManifestFrontEnd {
             features,
             types: Types { enums, objects },
             legacy_types: None,
+            imports,
             ..parent
         };
 
@@ -796,7 +806,7 @@ impl Parser {
 
         // This loads the manifest in its frontend format (i.e. direct from YAML via serde), including
         // all the `includes` for this manifest.
-        let frontend = Parser::load_manifest(&self.files, current, &mut HashSet::new())?;
+        let frontend = self.load_manifest(current, &mut HashSet::new())?;
 
         let mut manifest = frontend.get_intermediate_representation(&id, channel)?;
 
@@ -895,41 +905,104 @@ impl Parser {
     }
 }
 
-fn check_can_merge_manifest(
-    parent: &ManifestFrontEnd,
-    child: &ManifestFrontEnd,
-    child_path: &dyn Display,
-) -> Result<()> {
-    if !child.channels.is_empty() {
-        let child = &child.channels;
-        let child = child.iter().collect::<HashSet<&String>>();
-        let parent = &parent.channels;
-        let parent = parent.iter().collect::<HashSet<&String>>();
-        if !child.is_subset(&parent) {
-            return Err(FMLError::ValidationError(
-                "channels".to_string(),
-                format!(
-                    "Included manifest should not define its own channels: {}",
-                    child_path
-                ),
-            ));
+impl Parser {
+    fn check_can_merge_manifest(
+        &self,
+        _parent_path: &FilePath,
+        parent: &ManifestFrontEnd,
+        child_path: &FilePath,
+        child: &ManifestFrontEnd,
+    ) -> Result<()> {
+        if !child.channels.is_empty() {
+            let child = &child.channels;
+            let child = child.iter().collect::<HashSet<&String>>();
+            let parent = &parent.channels;
+            let parent = parent.iter().collect::<HashSet<&String>>();
+            if !child.is_subset(&parent) {
+                return Err(FMLError::ValidationError(
+                    "channels".to_string(),
+                    format!(
+                        "Included manifest should not define its own channels: {}",
+                        child_path
+                    ),
+                ));
+            }
         }
-    }
 
-    if let Some(about) = &child.about {
-        if !about.is_includable() {
-            return Err(FMLError::ValidationError(
+        if let Some(about) = &child.about {
+            if !about.is_includable() {
+                return Err(FMLError::ValidationError(
                 "about".to_string(),
                 format!("Only files that don't already correspond to generated files may be included: file has a `class` and `package`/`module` name: {}", child_path),
             ));
+            }
         }
+        Ok(())
     }
 
-    if !parent.imports.is_empty() && !child.imports.is_empty() {
-        unimplemented!("EXP-2547 Merging of imports is currently not supported");
+    fn canonicalize_import_paths(
+        &self,
+        path: &FilePath,
+        blocks: &mut Vec<ImportBlock>,
+    ) -> Result<()> {
+        for ib in blocks {
+            let p = &self.files.join(path, &ib.path)?;
+            let id: ModuleId = p.try_into()?;
+            ib.path = id.to_string();
+        }
+        Ok(())
     }
 
-    Ok(())
+    fn check_can_merge_imports(
+        &self,
+        path: &FilePath,
+        blocks: &Vec<ImportBlock>,
+        map: &mut HashMap<String, String>,
+    ) -> Result<()> {
+        for b in blocks {
+            let id = &b.path;
+            let channel = &b.channel;
+            let existing = map.insert(id.clone(), channel.clone());
+            if let Some(v) = existing {
+                if &v != channel {
+                    return Err(FMLError::FMLModuleError(
+                        path.try_into()?,
+                        format!(
+                            "File {} is imported by two different channels: {} and {}",
+                            id, v, &channel
+                        ),
+                    ));
+                }
+            }
+        }
+        Ok(())
+    }
+
+    fn merge_import_block_list(
+        &self,
+        parent: &[ImportBlock],
+        child: &[ImportBlock],
+    ) -> Result<Vec<ImportBlock>> {
+        let mut map = parent
+            .iter()
+            .map(|im| (im.path.clone(), im.clone()))
+            .collect::<HashMap<_, _>>();
+
+        for cib in child {
+            let path = &cib.path;
+            if let Some(pib) = map.get(path) {
+                // We'll define an ordering here: the parent will come after the child
+                // so the top-level one will override the lower level ones.
+                // In practice, this shouldn't make a difference.
+                let merged = merge_import_block(cib, pib)?;
+                map.insert(path.clone(), merged);
+            } else {
+                map.insert(path.clone(), cib.clone());
+            }
+        }
+
+        Ok(map.values().map(|b| b.to_owned()).collect::<Vec<_>>())
+    }
 }
 
 fn merge_map<T: Clone>(
@@ -964,6 +1037,20 @@ fn merge_map<T: Clone>(
             ),
         ))
     }
+}
+
+fn merge_import_block(a: &ImportBlock, b: &ImportBlock) -> Result<ImportBlock> {
+    let mut block = a.clone();
+
+    for (id, defaults) in &b.features {
+        let mut defaults = defaults.clone();
+        if let Some(existing) = block.features.get_mut(id) {
+            existing.append(&mut defaults);
+        } else {
+            block.features.insert(id.clone(), defaults.clone());
+        }
+    }
+    Ok(block)
 }
 
 /// Check if this parent can import this child.
@@ -2339,6 +2426,9 @@ mod unit_tests {
 
     #[test]
     fn test_include_check_can_merge_manifest() -> Result<()> {
+        let parser = Parser::new(std::env::temp_dir().as_path())?;
+        let parent_path: FilePath = std::env::temp_dir().as_path().into();
+        let child_path = parent_path.join("http://not-needed.com")?;
         let parent = ManifestFrontEnd {
             channels: vec!["alice".to_string(), "bob".to_string()],
             ..Default::default()
@@ -2348,14 +2438,18 @@ mod unit_tests {
             ..Default::default()
         };
 
-        assert!(check_can_merge_manifest(&parent, &child, &"expected_ok".to_string()).is_ok());
+        assert!(parser
+            .check_can_merge_manifest(&parent_path, &parent, &child_path, &child)
+            .is_ok());
 
         let child = ManifestFrontEnd {
             channels: vec!["eve".to_string()],
             ..Default::default()
         };
 
-        assert!(check_can_merge_manifest(&parent, &child, &"expected_err".to_string()).is_err());
+        assert!(parser
+            .check_can_merge_manifest(&parent_path, &parent, &child_path, &child)
+            .is_err());
 
         Ok(())
     }
