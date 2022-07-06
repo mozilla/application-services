@@ -1,10 +1,10 @@
 /* This Source Code Form is subject to the terms of the Mozilla Public
 * License, v. 2.0. If a copy of the MPL was not distributed with this
 * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
+use crate::commands::TargetLanguage;
 use crate::error::{FMLError, Result};
 use crate::parser::AboutBlock;
 use crate::util::loaders::FilePath;
-use crate::TargetLanguage;
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use std::collections::{BTreeSet, HashMap, HashSet};

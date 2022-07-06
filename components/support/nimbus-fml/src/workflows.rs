@@ -2,14 +2,14 @@
 * License, v. 2.0. If a copy of the MPL was not distributed with this
 * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-use crate::{backends, GenerateExperimenterManifestCmd, GenerateIRCmd, TargetLanguage};
-
-use crate::error::Result;
-use crate::intermediate_representation::FeatureManifest;
-use crate::parser::{AboutBlock, Parser};
+use crate::{
+    backends,
+    commands::{GenerateExperimenterManifestCmd, GenerateIRCmd, GenerateStructCmd, TargetLanguage},
+    error::Result,
+    intermediate_representation::FeatureManifest,
+    parser::{AboutBlock, Parser},
+};
 use std::path::Path;
-
-use crate::GenerateStructCmd;
 
 #[allow(dead_code)]
 pub(crate) fn generate_struct(cmd: &GenerateStructCmd) -> Result<()> {
@@ -41,8 +41,8 @@ pub(crate) fn generate_struct_cli_overrides(
 }
 
 fn generate_struct_from_ir(ir: &FeatureManifest, cmd: &GenerateStructCmd) -> Result<()> {
-    let language = cmd.language;
-    ir.validate_manifest_for_lang(&language)?;
+    let language = &cmd.language;
+    ir.validate_manifest_for_lang(language)?;
     match language {
         TargetLanguage::IR => {
             let contents = serde_json::to_string_pretty(&ir)?;
@@ -64,9 +64,9 @@ pub(crate) fn generate_experimenter_manifest(cmd: &GenerateExperimenterManifestC
     Ok(())
 }
 
-pub(crate) fn generate_ir(cmd: GenerateIRCmd) -> Result<()> {
+pub(crate) fn generate_ir(cmd: &GenerateIRCmd) -> Result<()> {
     let ir = load_feature_manifest(&cmd.manifest, cmd.load_from_ir, &cmd.channel)?;
-    std::fs::write(cmd.output, serde_json::to_string_pretty(&ir)?)?;
+    std::fs::write(&cmd.output, serde_json::to_string_pretty(&ir)?)?;
     Ok(())
 }
 
@@ -122,7 +122,7 @@ mod test {
         let cmd = create_command_from_test(test_script, manifest, channel, is_ir)?;
         generate_struct(&cmd)?;
         run_script_with_generated_code(
-            cmd.language,
+            &cmd.language,
             &[cmd.output.as_path().display().to_string()],
             test_script,
         )?;
@@ -141,7 +141,7 @@ mod test {
         let cmd = create_command_from_test(test_script, manifest, channel, is_ir)?;
         generate_struct_cli_overrides(config_about, &cmd)?;
         run_script_with_generated_code(
-            cmd.language,
+            &cmd.language,
             &[cmd.output.as_path().display().to_string()],
             test_script,
         )?;
@@ -196,7 +196,7 @@ mod test {
         let first = cmds
             .first()
             .expect("At least one manifests are always used");
-        let language = first.language;
+        let language = &first.language;
 
         let manifests_out = cmds
             .iter()
@@ -208,7 +208,7 @@ mod test {
     }
 
     fn run_script_with_generated_code(
-        language: TargetLanguage,
+        language: &TargetLanguage,
         manifests_out: &[String],
         test_script: &str,
     ) -> Result<()> {
@@ -597,8 +597,8 @@ mod test {
     }
 
     fn create_experimenter_manifest_cmd(path: &str) -> Result<GenerateExperimenterManifestCmd> {
-        let manifest_fml = PathBuf::from(join(pkg_dir(), path));
-        let file = manifest_fml
+        let manifest = PathBuf::from(join(pkg_dir(), path));
+        let file = manifest
             .file_stem()
             .ok_or_else(|| anyhow!("Manifest file path isn't a file"))?
             .to_str()
@@ -607,14 +607,15 @@ mod test {
         fs::create_dir_all(generated_src_dir())?;
 
         let output = format!("{}.yaml", join(generated_src_dir(), file)).into();
-        let load_from_ir = if let Some(ext) = manifest_fml.extension() {
+        let load_from_ir = if let Some(ext) = manifest.extension() {
             TargetLanguage::ExperimenterJSON == ext.try_into()?
         } else {
             false
         };
         Ok(GenerateExperimenterManifestCmd {
-            manifest: manifest_fml,
+            manifest,
             output,
+            language: TargetLanguage::ExperimenterYAML,
             load_from_ir,
             channel: "release".into(),
         })

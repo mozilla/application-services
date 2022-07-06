@@ -7,7 +7,6 @@ use std::collections::HashSet;
 use crate::{
     backends::{CodeDeclaration, CodeOracle, CodeType, TypeIdentifier},
     intermediate_representation::{FeatureDef, FeatureManifest, TypeFinder},
-    parser::AboutBlock,
 };
 mod bundled;
 mod common;
@@ -18,18 +17,6 @@ mod imports;
 mod object;
 mod primitives;
 mod structural;
-
-impl AboutBlock {
-    fn nimbus_object_name_swift(&self) -> String {
-        let swift_about = self.swift_about.as_ref().unwrap();
-        swift_about.class.clone()
-    }
-
-    fn nimbus_module_name(&self) -> String {
-        let swift_about = self.swift_about.as_ref().unwrap();
-        swift_about.module.clone()
-    }
-}
 
 #[derive(Template)]
 #[template(

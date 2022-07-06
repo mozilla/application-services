@@ -8,7 +8,6 @@ use std::collections::HashSet;
 use crate::{
     backends::{CodeDeclaration, CodeOracle, CodeType, TypeIdentifier},
     intermediate_representation::{FeatureDef, FeatureManifest, TypeFinder},
-    parser::AboutBlock,
 };
 
 mod bundled;
@@ -20,41 +19,6 @@ mod imports;
 mod object;
 mod primitives;
 mod structural;
-
-impl AboutBlock {
-    fn nimbus_fully_qualified_name(&self) -> String {
-        let kt_about = self.kotlin_about.as_ref().unwrap();
-
-        let class = &kt_about.class;
-        if class.starts_with('.') {
-            format!("{}{}", kt_about.package, class)
-        } else {
-            class.clone()
-        }
-    }
-
-    fn nimbus_object_name_kt(&self) -> String {
-        let fqe = self.nimbus_fully_qualified_name();
-        let last = fqe.split('.').last().unwrap_or(&fqe);
-        last.to_string()
-    }
-
-    fn nimbus_package_name(&self) -> Option<String> {
-        let fqe = self.nimbus_fully_qualified_name();
-        if !fqe.contains('.') {
-            return None;
-        }
-        let mut it = fqe.split('.');
-        it.next_back()?;
-        Some(it.collect::<Vec<&str>>().join("."))
-    }
-
-    fn resource_package_name(&self) -> String {
-        let kt_about = self.kotlin_about.as_ref().unwrap();
-        kt_about.package.clone()
-    }
-}
-
 #[derive(Template)]
 #[template(syntax = "kt", escape = "none", path = "FeatureManifestTemplate.kt")]
 pub struct FeatureManifestDeclaration<'a> {
