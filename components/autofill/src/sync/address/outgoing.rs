@@ -47,7 +47,10 @@ impl ProcessOutgoingRecordImpl for OutgoingAddressesImpl {
 
         let tombstones_sql = "SELECT guid FROM addresses_tombstones";
 
-        // save outgoing records to the mirror table
+        // save outgoing records to the mirror table.
+        // unlike credit-cards, which stores records encrypted as they are
+        // on the server to protect the sensitive fields, we just store the
+        // plaintext payload.
         let staging_records = common_get_outgoing_staging_records(
             tx,
             &data_sql,
