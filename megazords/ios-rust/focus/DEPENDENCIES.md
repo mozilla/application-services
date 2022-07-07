@@ -24,9 +24,8 @@ the details of which are reproduced below.
 * [MIT License: slab](#mit-license-slab)
 * [MIT License: strsim](#mit-license-strsim)
 * [MIT License: textwrap](#mit-license-textwrap)
-* [MIT License: tokio](#mit-license-tokio)
+* [MIT License: tokio, tokio-util](#mit-license-tokio-tokio-util)
 * [MIT License: tokio-native-tls, tracing, tracing-core](#mit-license-tokio-native-tls-tracing-tracing-core)
-* [MIT License: tokio-util](#mit-license-tokio-util)
 * [MIT License: tower-service](#mit-license-tower-service)
 * [MIT License: try-lock](#mit-license-try-lock)
 * [MIT License: want](#mit-license-want)
@@ -449,6 +448,7 @@ The following text applies to code linked from these dependencies:
 [ffi-support](https://github.com/mozilla/ffi-support),
 [fnv](https://github.com/servo/rust-fnv),
 [form_urlencoded](https://github.com/servo/rust-url),
+[fs-err](https://github.com/andrewhickman/fs-err),
 [futures-channel](https://github.com/rust-lang/futures-rs),
 [futures-core](https://github.com/rust-lang/futures-rs),
 [futures-io](https://github.com/rust-lang/futures-rs),
@@ -484,7 +484,6 @@ The following text applies to code linked from these dependencies:
 [once_cell](https://github.com/matklad/once_cell),
 [opaque-debug](https://github.com/RustCrypto/utils),
 [os_str_bytes](https://github.com/dylni/os_str_bytes),
-[paste-impl](https://github.com/dtolnay/paste),
 [paste](https://github.com/dtolnay/paste),
 [percent-encoding](https://github.com/servo/rust-url/),
 [pest](https://github.com/pest-parser/pest),
@@ -493,7 +492,6 @@ The following text applies to code linked from these dependencies:
 [pkg-config](https://github.com/rust-lang/pkg-config-rs),
 [proc-macro-error-attr](https://gitlab.com/CreepySkeleton/proc-macro-error),
 [proc-macro-error](https://gitlab.com/CreepySkeleton/proc-macro-error),
-[proc-macro-hack](https://github.com/dtolnay/proc-macro-hack),
 [proc-macro2](https://github.com/dtolnay/proc-macro2),
 [prost-derive](https://github.com/tokio-rs/prost),
 [prost](https://github.com/tokio-rs/prost),
@@ -527,9 +525,9 @@ The following text applies to code linked from these dependencies:
 [ucd-trie](https://github.com/BurntSushi/ucd-generate),
 [unicase](https://github.com/seanmonstar/unicase),
 [unicode-bidi](https://github.com/servo/unicode-bidi),
+[unicode-ident](https://github.com/dtolnay/unicode-ident),
 [unicode-normalization](https://github.com/unicode-rs/unicode-normalization),
 [unicode-segmentation](https://github.com/unicode-rs/unicode-segmentation),
-[unicode-xid](https://github.com/unicode-rs/unicode-xid),
 [url](https://github.com/servo/rust-url),
 [uuid](https://github.com/uuid-rs/uuid),
 [version_check](https://github.com/SergioBenitez/version_check)
@@ -1305,9 +1303,10 @@ SOFTWARE.
 
 ```
 -------------
-## MIT License: tokio
+## MIT License: tokio, tokio-util
 
 The following text applies to code linked from these dependencies:
+[tokio-util](https://github.com/tokio-rs/tokio),
 [tokio](https://github.com/tokio-rs/tokio)
 
 ```
@@ -1348,40 +1347,6 @@ The following text applies to code linked from these dependencies:
 
 ```
 Copyright (c) 2019 Tokio Contributors
-
-Permission is hereby granted, free of charge, to any
-person obtaining a copy of this software and associated
-documentation files (the "Software"), to deal in the
-Software without restriction, including without
-limitation the rights to use, copy, modify, merge,
-publish, distribute, sublicense, and/or sell copies of
-the Software, and to permit persons to whom the Software
-is furnished to do so, subject to the following
-conditions:
-
-The above copyright notice and this permission notice
-shall be included in all copies or substantial portions
-of the Software.
-
-THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF
-ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED
-TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A
-PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT
-SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY
-CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION
-OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR
-IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
-DEALINGS IN THE SOFTWARE.
-
-```
--------------
-## MIT License: tokio-util
-
-The following text applies to code linked from these dependencies:
-[tokio-util](https://github.com/tokio-rs/tokio)
-
-```
-Copyright (c) 2021 Tokio Contributors
 
 Permission is hereby granted, free of charge, to any
 person obtaining a copy of this software and associated
@@ -1505,10 +1470,11 @@ THE SOFTWARE.
 ## MIT License: weedle2
 
 The following text applies to code linked from these dependencies:
-[weedle2](https://github.com/badboy/weedle)
+[weedle2](https://github.com/mozilla/uniffi-rs)
 
 ```
 Copyright 2018-Present Sharad Chand
+Copyright 2022 Jan-Erik Rediger
 
 Permission is hereby granted, free of charge, to any person obtaining a copy of this software and associated
 documentation files (the "Software"), to deal in the Software without restriction, including without limitation
@@ -1523,6 +1489,7 @@ TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONIN
 THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF
 CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
 DEALINGS IN THE SOFTWARE.
+
 ```
 -------------
 ## BSD-2-Clause License: arrayref

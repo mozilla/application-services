@@ -161,12 +161,20 @@ the details of which are reproduced below.
     <url>https://github.com/servo/rust-url/blob/master/LICENSE-APACHE</url>
   </license>
   <license>
+    <name>Apache License 2.0: fs-err</name>
+    <url>https://github.com/andrewhickman/fs-err/blob/master/LICENSE-APACHE</url>
+  </license>
+  <license>
     <name>Apache License 2.0: getrandom</name>
     <url>https://github.com/rust-random/getrandom/blob/master/LICENSE-APACHE</url>
   </license>
   <license>
     <name>Apache License 2.0: glob</name>
     <url>https://github.com/rust-lang/glob/blob/master/LICENSE-APACHE</url>
+  </license>
+  <license>
+    <name>Apache License 2.0: hashbrown</name>
+    <url>https://github.com/rust-lang/hashbrown/blob/master/LICENSE-APACHE</url>
   </license>
   <license>
     <name>Apache License 2.0: hashbrown</name>
@@ -277,14 +285,6 @@ the details of which are reproduced below.
     <url>https://github.com/dtolnay/paste/blob/master/LICENSE-APACHE</url>
   </license>
   <license>
-    <name>Apache License 2.0: paste</name>
-    <url>https://github.com/dtolnay/paste/blob/master/LICENSE-APACHE</url>
-  </license>
-  <license>
-    <name>Apache License 2.0: paste-impl</name>
-    <url>https://github.com/dtolnay/paste/blob/master/LICENSE-APACHE</url>
-  </license>
-  <license>
     <name>Apache License 2.0: percent-encoding</name>
     <url>https://github.com/servo/rust-url/blob//master/LICENSE-APACHE</url>
   </license>
@@ -307,10 +307,6 @@ the details of which are reproduced below.
   <license>
     <name>Apache License 2.0: proc-macro-error-attr</name>
     <url>https://gitlab.com/CreepySkeleton/proc-macro-error/-/raw/master/LICENSE-APACHE</url>
-  </license>
-  <license>
-    <name>Apache License 2.0: proc-macro-hack</name>
-    <url>https://github.com/dtolnay/proc-macro-hack/blob/master/LICENSE-APACHE</url>
   </license>
   <license>
     <name>Apache License 2.0: proc-macro2</name>
@@ -449,16 +445,16 @@ the details of which are reproduced below.
     <url>https://github.com/servo/unicode-bidi/blob/master/LICENSE-APACHE</url>
   </license>
   <license>
+    <name>Apache License 2.0: unicode-ident</name>
+    <url>https://github.com/dtolnay/unicode-ident/blob/master/LICENSE-APACHE</url>
+  </license>
+  <license>
     <name>Apache License 2.0: unicode-normalization</name>
     <url>https://github.com/unicode-rs/unicode-normalization/blob/master/LICENSE-APACHE</url>
   </license>
   <license>
     <name>Apache License 2.0: unicode-segmentation</name>
     <url>https://github.com/unicode-rs/unicode-segmentation/blob/master/LICENSE-APACHE</url>
-  </license>
-  <license>
-    <name>Apache License 2.0: unicode-xid</name>
-    <url>https://github.com/unicode-rs/unicode-xid/blob/master/LICENSE-APACHE</url>
   </license>
   <license>
     <name>Apache License 2.0: url</name>
@@ -574,7 +570,7 @@ the details of which are reproduced below.
   </license>
   <license>
     <name>MIT License: weedle2</name>
-    <url>https://github.com/badboy/weedle/blob/main/LICENSE.md</url>
+    <url>https://github.com/mozilla/uniffi-rs/blob/main/weedle2/LICENSE.md</url>
   </license>
   <license>
     <name>CC0-1.0 License: base16</name>

@@ -449,6 +449,7 @@ The following text applies to code linked from these dependencies:
 [fastrand](https://github.com/smol-rs/fastrand),
 [ffi-support](https://github.com/mozilla/ffi-support),
 [form_urlencoded](https://github.com/servo/rust-url),
+[fs-err](https://github.com/andrewhickman/fs-err),
 [getrandom](https://github.com/rust-random/getrandom),
 [glob](https://github.com/rust-lang/glob),
 [hashbrown](https://github.com/rust-lang/hashbrown),
@@ -477,7 +478,6 @@ The following text applies to code linked from these dependencies:
 [os_str_bytes](https://github.com/dylni/os_str_bytes),
 [parking_lot](https://github.com/Amanieu/parking_lot),
 [parking_lot_core](https://github.com/Amanieu/parking_lot),
-[paste-impl](https://github.com/dtolnay/paste),
 [paste](https://github.com/dtolnay/paste),
 [percent-encoding](https://github.com/servo/rust-url/),
 [pest](https://github.com/pest-parser/pest),
@@ -485,7 +485,6 @@ The following text applies to code linked from these dependencies:
 [ppv-lite86](https://github.com/cryptocorrosion/cryptocorrosion),
 [proc-macro-error-attr](https://gitlab.com/CreepySkeleton/proc-macro-error),
 [proc-macro-error](https://gitlab.com/CreepySkeleton/proc-macro-error),
-[proc-macro-hack](https://github.com/dtolnay/proc-macro-hack),
 [proc-macro2](https://github.com/dtolnay/proc-macro2),
 [prost-derive](https://github.com/tokio-rs/prost),
 [prost](https://github.com/tokio-rs/prost),
@@ -520,9 +519,9 @@ The following text applies to code linked from these dependencies:
 [ucd-trie](https://github.com/BurntSushi/ucd-generate),
 [unicase](https://github.com/seanmonstar/unicase),
 [unicode-bidi](https://github.com/servo/unicode-bidi),
+[unicode-ident](https://github.com/dtolnay/unicode-ident),
 [unicode-normalization](https://github.com/unicode-rs/unicode-normalization),
 [unicode-segmentation](https://github.com/unicode-rs/unicode-segmentation),
-[unicode-xid](https://github.com/unicode-rs/unicode-xid),
 [url](https://github.com/servo/rust-url),
 [uuid](https://github.com/uuid-rs/uuid),
 [vcpkg](https://github.com/mcgoo/vcpkg-rs),
@@ -1178,10 +1177,11 @@ SOFTWARE.
 ## MIT License: weedle2
 
 The following text applies to code linked from these dependencies:
-[weedle2](https://github.com/badboy/weedle)
+[weedle2](https://github.com/mozilla/uniffi-rs)
 
 ```
 Copyright 2018-Present Sharad Chand
+Copyright 2022 Jan-Erik Rediger
 
 Permission is hereby granted, free of charge, to any person obtaining a copy of this software and associated
 documentation files (the "Software"), to deal in the Software without restriction, including without limitation
@@ -1196,6 +1196,7 @@ TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONIN
 THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF
 CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
 DEALINGS IN THE SOFTWARE.
+
 ```
 -------------
 ## CC0-1.0 License: base16
