@@ -806,12 +806,23 @@ PACKAGE_METADATA_FIXUPS = {
 
     "encoding_rs": {
         "license": {
-            "check": None,
-            "fixup": "(Apache-2.0 OR MIT) AND BSD-3-Clause"
+            "check": "(Apache-2.0 OR MIT) AND BSD-3-Clause",
         },
         "license_url": {
             "check": None,
+            "fixup": "https://github.com/hsivonen/encoding_rs/blob/master/COPYRIGHT"
+        },
+        "license_file": {
+            "check": None,
             "fixup": "https://raw.githubusercontent.com/hsivonen/encoding_rs/master/COPYRIGHT"
+        }
+    },
+
+    # The following crates do not have repositories in the package metadata
+    "openssl-macros": {
+        "repository": {
+            "check": None,
+            "fixup": "https://github.com/sfackler/rust-openssl"
         }
     }
 }
@@ -1032,7 +1043,6 @@ class WorkspaceMetadata(object):
             id, pkgInfo["license"])
         licenseFile = self._find_license_file(id, chosenLicense, pkgInfo)
         assert pkgInfo["name"] is not None
-        assert pkgInfo["repository"] is not None
         return {
             "name": pkgInfo["name"],
             "id": pkgInfo.get("id", pkgInfo["name"]), # Our fake external packages don't have an id.
