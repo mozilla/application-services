@@ -1043,6 +1043,7 @@ class WorkspaceMetadata(object):
             id, pkgInfo["license"])
         licenseFile = self._find_license_file(id, chosenLicense, pkgInfo)
         assert pkgInfo["name"] is not None
+        assert pkgInfo["repository"] is not None
         return {
             "name": pkgInfo["name"],
             "id": pkgInfo.get("id", pkgInfo["name"]), # Our fake external packages don't have an id.
