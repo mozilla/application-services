@@ -2,14 +2,14 @@
 * License, v. 2.0. If a copy of the MPL was not distributed with this
 * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-use crate::{backends, GenerateExperimenterManifestCmd, GenerateIRCmd, TargetLanguage};
-
-use crate::error::Result;
-use crate::intermediate_representation::FeatureManifest;
-use crate::parser::{AboutBlock, Parser};
+use crate::{
+    backends,
+    commands::{GenerateExperimenterManifestCmd, GenerateIRCmd, GenerateStructCmd, TargetLanguage},
+    error::Result,
+    intermediate_representation::FeatureManifest,
+    parser::{AboutBlock, Parser},
+};
 use std::path::Path;
-
-use crate::GenerateStructCmd;
 
 #[allow(dead_code)]
 pub(crate) fn generate_struct(cmd: &GenerateStructCmd) -> Result<()> {
@@ -41,8 +41,8 @@ pub(crate) fn generate_struct_cli_overrides(
 }
 
 fn generate_struct_from_ir(ir: &FeatureManifest, cmd: &GenerateStructCmd) -> Result<()> {
-    let language = cmd.language;
-    ir.validate_manifest_for_lang(&language)?;
+    let language = &cmd.language;
+    ir.validate_manifest_for_lang(language)?;
     match language {
         TargetLanguage::IR => {
             let contents = serde_json::to_string_pretty(&ir)?;
@@ -58,15 +58,15 @@ fn generate_struct_from_ir(ir: &FeatureManifest, cmd: &GenerateStructCmd) -> Res
     Ok(())
 }
 
-pub(crate) fn generate_experimenter_manifest(cmd: GenerateExperimenterManifestCmd) -> Result<()> {
+pub(crate) fn generate_experimenter_manifest(cmd: &GenerateExperimenterManifestCmd) -> Result<()> {
     let ir = load_feature_manifest(&cmd.manifest, cmd.load_from_ir, &cmd.channel)?;
     backends::experimenter_manifest::generate_manifest(ir, cmd)?;
     Ok(())
 }
 
-pub(crate) fn generate_ir(cmd: GenerateIRCmd) -> Result<()> {
+pub(crate) fn generate_ir(cmd: &GenerateIRCmd) -> Result<()> {
     let ir = load_feature_manifest(&cmd.manifest, cmd.load_from_ir, &cmd.channel)?;
-    std::fs::write(cmd.output, serde_json::to_string_pretty(&ir)?)?;
+    std::fs::write(&cmd.output, serde_json::to_string_pretty(&ir)?)?;
     Ok(())
 }
 
@@ -99,6 +99,7 @@ mod test {
     use jsonschema::JSONSchema;
 
     use super::*;
+    use crate::backends::experimenter_manifest::ExperimenterManifest;
     use crate::backends::{kotlin, swift};
     use crate::parser::KotlinAboutBlock;
     use crate::util::{generated_src_dir, join, pkg_dir};
@@ -108,6 +109,8 @@ mod test {
         "fixtures/ir/simple_nimbus_validation.json",
         "fixtures/ir/with_objects.json",
         "fixtures/ir/full_homescreen.json",
+        "fixtures/fe/importing/simple/app.yaml",
+        "fixtures/fe/importing/diamond/00-app.yaml",
     ];
 
     fn generate_and_assert(
@@ -119,7 +122,7 @@ mod test {
         let cmd = create_command_from_test(test_script, manifest, channel, is_ir)?;
         generate_struct(&cmd)?;
         run_script_with_generated_code(
-            cmd.language,
+            &cmd.language,
             &[cmd.output.as_path().display().to_string()],
             test_script,
         )?;
@@ -138,7 +141,7 @@ mod test {
         let cmd = create_command_from_test(test_script, manifest, channel, is_ir)?;
         generate_struct_cli_overrides(config_about, &cmd)?;
         run_script_with_generated_code(
-            cmd.language,
+            &cmd.language,
             &[cmd.output.as_path().display().to_string()],
             test_script,
         )?;
@@ -180,14 +183,10 @@ mod test {
         })
     }
 
-    fn generate_multiple_and_assert(
-        test_script: &str,
-        manifests: &[&str],
-        channel: &str,
-    ) -> Result<()> {
+    fn generate_multiple_and_assert(test_script: &str, manifests: &[(&str, &str)]) -> Result<()> {
         let cmds = manifests
             .iter()
-            .map(|manifest| {
+            .map(|(manifest, channel)| {
                 let cmd = create_command_from_test(test_script, manifest, channel, false)?;
                 generate_struct(&cmd)?;
                 Ok(cmd)
@@ -197,7 +196,7 @@ mod test {
         let first = cmds
             .first()
             .expect("At least one manifests are always used");
-        let language = first.language;
+        let language = &first.language;
 
         let manifests_out = cmds
             .iter()
@@ -209,7 +208,7 @@ mod test {
     }
 
     fn run_script_with_generated_code(
-        language: TargetLanguage,
+        language: &TargetLanguage,
         manifests_out: &[String],
         test_script: &str,
     ) -> Result<()> {
@@ -396,28 +395,144 @@ mod test {
     }
 
     #[test]
-    fn test_importing_ios() -> Result<()> {
+    fn test_importing_simple_ios() -> Result<()> {
         generate_multiple_and_assert(
-            "test/app_importing_debug.swift",
+            "test/importing/simple/app_debug.swift",
             &[
-                "fixtures/fe/importing/simple/app.yaml",
-                "fixtures/fe/importing/simple/lib.yaml",
+                ("fixtures/fe/importing/simple/app.yaml", "debug"),
+                ("fixtures/fe/importing/simple/lib.yaml", "debug"),
             ],
-            "debug",
         )?;
         Ok(())
     }
 
     #[test]
-    fn test_importing_android() -> Result<()> {
+    fn test_importing_simple_android() -> Result<()> {
         generate_multiple_and_assert(
-            "test/app_importing_debug.kts",
+            "test/importing/simple/app_debug.kts",
             &[
-                "fixtures/fe/importing/simple/lib.yaml",
-                "fixtures/fe/importing/simple/app.yaml",
+                ("fixtures/fe/importing/simple/lib.yaml", "debug"),
+                ("fixtures/fe/importing/simple/app.yaml", "debug"),
             ],
-            "debug",
         )?;
+        Ok(())
+    }
+
+    #[test]
+    fn test_importing_channel_mismatching_android() -> Result<()> {
+        generate_multiple_and_assert(
+            "test/importing/channels/app_debug.kts",
+            &[
+                ("fixtures/fe/importing/channels/app.fml.yaml", "app-debug"),
+                ("fixtures/fe/importing/channels/lib.fml.yaml", "debug"),
+            ],
+        )?;
+        Ok(())
+    }
+
+    #[test]
+    fn test_importing_override_defaults_android() -> Result<()> {
+        generate_multiple_and_assert(
+            "test/importing/overrides/app_debug.kts",
+            &[
+                ("fixtures/fe/importing/overrides/app.fml.yaml", "debug"),
+                ("fixtures/fe/importing/overrides/lib.fml.yaml", "debug"),
+            ],
+        )?;
+        Ok(())
+    }
+
+    #[test]
+    fn test_importing_override_defaults_ios() -> Result<()> {
+        generate_multiple_and_assert(
+            "test/importing/overrides/app_debug.swift",
+            &[
+                ("fixtures/fe/importing/overrides/app.fml.yaml", "debug"),
+                ("fixtures/fe/importing/overrides/lib.fml.yaml", "debug"),
+            ],
+        )?;
+        Ok(())
+    }
+
+    #[test]
+    fn test_importing_override_defaults_coverall_android() -> Result<()> {
+        generate_multiple_and_assert(
+            "test/importing/overrides-coverall/app_debug.kts",
+            &[
+                (
+                    "fixtures/fe/importing/overrides-coverall/app.fml.yaml",
+                    "debug",
+                ),
+                (
+                    "fixtures/fe/importing/overrides-coverall/lib.fml.yaml",
+                    "debug",
+                ),
+            ],
+        )?;
+        Ok(())
+    }
+
+    #[test]
+    fn test_importing_diamond_overrides_android() -> Result<()> {
+        // In this test, sublib implements a feature.
+        // Both lib and app offer some configuration, and both app and lib
+        // need to import sublib.
+        generate_multiple_and_assert(
+            "test/importing/diamond/00-app.kts",
+            &[
+                ("fixtures/fe/importing/diamond/00-app.yaml", "debug"),
+                ("fixtures/fe/importing/diamond/01-lib.yaml", "debug"),
+                ("fixtures/fe/importing/diamond/02-sublib.yaml", "debug"),
+            ],
+        )?;
+        Ok(())
+    }
+
+    #[test]
+    fn test_importing_diamond_overrides_ios() -> Result<()> {
+        // In this test, sublib implements a feature.
+        // Both lib and app offer some configuration, and both app and lib
+        // need to import sublib.
+        generate_multiple_and_assert(
+            "test/importing/diamond/00-app.swift",
+            &[
+                ("fixtures/fe/importing/diamond/00-app.yaml", "debug"),
+                ("fixtures/fe/importing/diamond/01-lib.yaml", "debug"),
+                ("fixtures/fe/importing/diamond/02-sublib.yaml", "debug"),
+            ],
+        )?;
+        Ok(())
+    }
+
+    #[test]
+    #[ignore]
+    fn test_importing_reexporting_features() -> Result<()> {
+        // In this test, sublib implements a feature.
+        // Both lib and app offer some configuration, but app doesn't need to know
+        // that the feature is provided by sublib– where the feature lives
+        // is an implementation detail, and should be encapsulated by lib.
+        // This is currently not possible, but filed as EXP-2540.
+        generate_multiple_and_assert(
+            "test/importing/reexporting/00-app.kts",
+            &[
+                ("fixtures/fe/importing/reexporting/00-app.yaml", "debug"),
+                ("fixtures/fe/importing/reexporting/01-lib.yaml", "debug"),
+                ("fixtures/fe/importing/reexporting/02-sublib.yaml", "debug"),
+            ],
+        )?;
+        Ok(())
+    }
+
+    #[test]
+    fn test_importing_simple_experimenter_manifest() -> Result<()> {
+        // Both the app and lib files declare features, so we should have an experimenter manifest file with two features.
+        let cmd = create_experimenter_manifest_cmd("fixtures/fe/importing/simple/app.yaml")?;
+        let fm = load_feature_manifest(&cmd.manifest, cmd.load_from_ir, &cmd.channel)?;
+        let m: ExperimenterManifest = fm.try_into()?;
+
+        assert!(m.contains_key("homescreen"));
+        assert!(m.contains_key("search"));
+
         Ok(())
     }
 
@@ -447,7 +562,6 @@ mod test {
         schema_path: P,
         generated_yaml: &serde_yaml::Value,
     ) -> Result<()> {
-        use crate::backends::experimenter_manifest::ExperimenterManifest;
         let generated_manifest: ExperimenterManifest =
             serde_yaml::from_value(generated_yaml.to_owned())?;
         let generated_json = serde_json::to_value(generated_manifest)?;
@@ -469,29 +583,10 @@ mod test {
     #[test]
     fn test_schema_validation() -> Result<()> {
         for path in MANIFEST_PATHS {
-            let manifest_fml = join(pkg_dir(), path);
+            let cmd = create_experimenter_manifest_cmd(path)?;
+            generate_experimenter_manifest(&cmd)?;
 
-            let manifest_fml = PathBuf::from(manifest_fml);
-            let file = manifest_fml
-                .file_stem()
-                .ok_or_else(|| anyhow!("Manifest file path isn't a file"))?
-                .to_str()
-                .ok_or_else(|| anyhow!("Manifest file path isn't a file with a sensible name"))?;
-
-            fs::create_dir_all(generated_src_dir())?;
-
-            let manifest_out = format!("{}.yaml", join(generated_src_dir(), file),);
-            let manifest_out: PathBuf = manifest_out.into();
-            let cmd = GenerateExperimenterManifestCmd {
-                manifest: manifest_fml,
-                output: manifest_out.clone(),
-                load_from_ir: true,
-                channel: "release".into(),
-            };
-
-            generate_experimenter_manifest(cmd)?;
-
-            let generated = fs::read_to_string(manifest_out)?;
+            let generated = fs::read_to_string(&cmd.output)?;
             let generated_yaml = serde_yaml::from_str(&generated)?;
             validate_against_experimenter_schema(
                 join(pkg_dir(), "ExperimentFeatureManifest.schema.json"),
@@ -499,5 +594,30 @@ mod test {
             )?;
         }
         Ok(())
+    }
+
+    fn create_experimenter_manifest_cmd(path: &str) -> Result<GenerateExperimenterManifestCmd> {
+        let manifest = PathBuf::from(join(pkg_dir(), path));
+        let file = manifest
+            .file_stem()
+            .ok_or_else(|| anyhow!("Manifest file path isn't a file"))?
+            .to_str()
+            .ok_or_else(|| anyhow!("Manifest file path isn't a file with a sensible name"))?;
+
+        fs::create_dir_all(generated_src_dir())?;
+
+        let output = format!("{}.yaml", join(generated_src_dir(), file)).into();
+        let load_from_ir = if let Some(ext) = manifest.extension() {
+            TargetLanguage::ExperimenterJSON == ext.try_into()?
+        } else {
+            false
+        };
+        Ok(GenerateExperimenterManifestCmd {
+            manifest,
+            output,
+            language: TargetLanguage::ExperimenterYAML,
+            load_from_ir,
+            channel: "release".into(),
+        })
     }
 }

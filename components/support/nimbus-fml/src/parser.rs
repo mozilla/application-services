@@ -3,21 +3,20 @@
 * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
 use std::{
-    collections::{BTreeSet, HashMap, HashSet},
+    collections::{BTreeMap, BTreeSet, HashMap, HashSet},
     fmt::Display,
-    path::Path,
 };
 
 use serde::{Deserialize, Serialize};
 use serde_json::json;
 
 use crate::{
+    commands::TargetLanguage,
     error::{FMLError, Result},
     intermediate_representation::{
-        EnumDef, FeatureDef, FeatureManifest, ObjectDef, PropDef, TypeRef, VariantDef,
+        EnumDef, FeatureDef, FeatureManifest, ModuleId, ObjectDef, PropDef, TypeRef, VariantDef,
     },
     util::loaders::{FileLoader, FilePath},
-    TargetLanguage,
 };
 
 #[derive(Debug, Deserialize, Serialize, Clone)]
@@ -49,7 +48,9 @@ pub(crate) struct FieldBody {
 pub(crate) struct ObjectBody {
     description: String,
     failable: Option<bool>,
-    fields: HashMap<String, FieldBody>,
+    // We need these in a deterministic order, so they are stable across multiple
+    // runs of the same manifests.
+    fields: BTreeMap<String, FieldBody>,
 }
 
 #[derive(Debug, Deserialize, Serialize, Clone, Default)]
@@ -113,7 +114,11 @@ pub(crate) struct ImportBlock {
 #[serde(deny_unknown_fields)]
 pub(crate) struct FeatureBody {
     description: String,
-    variables: HashMap<String, FieldBody>,
+    // We need these in a deterministic order, so they are stable across multiple
+    // runs of the same manifests:
+    // 1. Swift insists on args in the same order they were declared.
+    // 2. imported features are declared and constructed in different runs of the tool.
+    variables: BTreeMap<String, FieldBody>,
     #[serde(alias = "defaults")]
     default: Option<Vec<DefaultBlock>>,
 }
@@ -281,20 +286,19 @@ impl ManifestFrontEnd {
 
     fn get_intermediate_representation(
         &self,
-        id: &FileId,
+        id: &ModuleId,
         channel: &str,
     ) -> Result<FeatureManifest> {
-        let manifest = self;
-        let enums = manifest.get_enums();
-        let objects = manifest.get_objects();
+        let enums = self.get_enums();
+        let objects = self.get_objects();
 
         let object_map: HashMap<String, &ObjectDef> =
             objects.iter().map(|o| (o.name(), o)).collect();
-        let merger = DefaultsMerger::new(object_map, manifest.channels.clone(), channel.to_owned());
+        let merger = DefaultsMerger::new(object_map, self.channels.clone(), channel.to_owned());
 
-        let features = manifest.get_feature_defs(&merger)?;
+        let features = self.get_feature_defs(&merger)?;
 
-        let about = match &manifest.about {
+        let about = match &self.about {
             Some(a) => a.clone(),
             None => Default::default(),
         };
@@ -312,7 +316,7 @@ impl ManifestFrontEnd {
     }
 }
 
-fn parse_typeref_string(input: String) -> Result<(String, Option<String>), FMLError> {
+fn parse_typeref_string(input: String) -> Result<(String, Option<String>)> {
     // Split the string into the TypeRef and the name
     let mut object_type_iter = input.split(&['<', '>'][..]);
 
@@ -354,7 +358,7 @@ fn parse_typeref_string(input: String) -> Result<(String, Option<String>), FMLEr
 fn collect_channel_defaults(
     defaults: &[DefaultBlock],
     channels: &[String],
-) -> Result<HashMap<String, serde_json::Value>, FMLError> {
+) -> Result<HashMap<String, serde_json::Value>> {
     // We initialize the map to have an entry for every valid channel
     let mut channel_map = channels
         .iter()
@@ -369,7 +373,10 @@ fn collect_channel_defaults(
                     channel_map.insert(channel.clone(), merged);
                 }
             } else {
-                return Err(FMLError::InvalidChannelError(channel.clone()));
+                return Err(FMLError::InvalidChannelError(
+                    channel.into(),
+                    channels.into(),
+                ));
             }
         // This is a default with no channel, so it applies to all channels
         } else {
@@ -547,7 +554,10 @@ impl<'object> DefaultsMerger<'object> {
         let supported_channels = self.supported_channels.as_slice();
         let channel = &self.channel;
         if !supported_channels.iter().any(|c| c == channel) {
-            return Err(FMLError::InvalidChannelError(channel.into()));
+            return Err(FMLError::InvalidChannelError(
+                channel.into(),
+                supported_channels.into(),
+            ));
         }
         let variable_defaults = self.collect_feature_defaults(feature_def)?;
         let mut res = feature_def;
@@ -678,37 +688,14 @@ fn get_typeref_from_string(
         }
     };
 }
-
-#[derive(Debug, Clone, Hash, PartialEq, Eq, Default, Serialize, Deserialize)]
-pub(crate) struct FileId {
-    id: String,
-}
-
-impl TryFrom<&FilePath> for FileId {
-    type Error = FMLError;
-
-    fn try_from(value: &FilePath) -> Result<Self, Self::Error> {
-        let id = match value {
-            FilePath::Local(p) => p.canonicalize()?.display().to_string(),
-            FilePath::Remote(u) => u.to_string(),
-        };
-        Ok(FileId { id })
-    }
-}
-
-impl Display for FileId {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        f.write_str(&self.id)
-    }
-}
-
+#[derive(Debug)]
 pub struct Parser {
     files: FileLoader,
     source: FilePath,
 }
 
 impl Parser {
-    pub fn new(path: &Path) -> Result<Parser> {
+    pub fn new(path: impl Into<FilePath>) -> Result<Parser> {
         let source: FilePath = path.into();
         let files = FileLoader::default()?;
 
@@ -721,11 +708,17 @@ impl Parser {
     fn load_manifest(
         files: &FileLoader,
         path: &FilePath,
-        loading: &mut HashSet<FileId>,
+        loading: &mut HashSet<ModuleId>,
     ) -> Result<ManifestFrontEnd> {
-        let s = files.read_to_string(path)?;
-        let parent = serde_yaml::from_str::<ManifestFrontEnd>(&s)?;
-        loading.insert(path.try_into()?);
+        let id: ModuleId = path.try_into()?;
+        let s = files
+            .read_to_string(path)
+            .map_err(|e| FMLError::FMLModuleError(id.clone(), e.to_string()))?;
+
+        let parent = serde_yaml::from_str::<ManifestFrontEnd>(&s)
+            .map_err(|e| FMLError::FMLModuleError(id.clone(), e.to_string()))?;
+
+        loading.insert(id.clone());
         parent
             .includes
             .clone()
@@ -733,10 +726,11 @@ impl Parser {
             .fold(Ok(parent), |parent: Result<ManifestFrontEnd>, f| {
                 let src_path = files.join(path, f)?;
                 let parent = parent?;
-                let id = FileId::try_from(&src_path)?;
-                Ok(if !loading.contains(&id) {
+                let child_id = ModuleId::try_from(&src_path)?;
+                Ok(if !loading.contains(&child_id) {
                     let manifest = Parser::load_manifest(files, &src_path, loading)?;
-                    Parser::merge_manifest(parent, &src_path, manifest)?
+                    Parser::merge_manifest(parent, &src_path, manifest)
+                        .map_err(|e| FMLError::FMLModuleError(id.clone(), e.to_string()))?
                 } else {
                     parent
                 })
@@ -791,46 +785,92 @@ impl Parser {
         &self,
         current: &FilePath,
         channel: &str,
-        imports: &mut HashMap<FileId, FeatureManifest>,
-    ) -> Result<FileId> {
+        imports: &mut HashMap<ModuleId, FeatureManifest>,
+    ) -> Result<ModuleId> {
         let id = current.try_into()?;
         if imports.contains_key(&id) {
             return Ok(id);
         }
+        // We put a terminus in here, to make sure we don't try and load more than once.
         imports.insert(id.clone(), Default::default());
 
-        let manifest = Parser::load_manifest(&self.files, current, &mut HashSet::new())?;
+        // This loads the manifest in its frontend format (i.e. direct from YAML via serde), including
+        // all the `includes` for this manifest.
+        let frontend = Parser::load_manifest(&self.files, current, &mut HashSet::new())?;
 
-        let mut ir = manifest.get_intermediate_representation(&id, channel)?;
+        let mut manifest = frontend.get_intermediate_representation(&id, channel)?;
 
-        let mut imported_features = HashMap::new();
+        // We're now going to go through all the imports in the manifest YAML.
+        // Each of the import blocks will have a path, and a Map<FeatureId, List<DefaultBlock>>
+        // This loop does the work of merging the default blocks back into the imported manifests.
+        // We'll then attach all the manifests to the root (i.e. the one we're generating code for today), in `imports`.
+        // We associate only the feature ids with the manifest we're loading in this method.
+        let mut imported_feature_id_map = HashMap::new();
 
-        for block in &manifest.imports {
+        for block in &frontend.imports {
             // 1. Load the imported manifests in to the hash map.
             let path = self.files.join(current, &block.path)?;
-            let id = self.load_imports(&path, &block.channel, imports)?;
+            // The channel comes from the importer, rather than the command or the imported file.
+            let child_id = self.load_imports(&path, &block.channel, imports)?;
+            let child_manifest = imports.get_mut(&child_id).expect("just loaded this file");
 
             // We detect that there are no name collisions after the loading has finished, with `check_can_import_manifest`.
-            // We can't do it now, because we need to check all imports against the top-level manifest file.
+            // We can't do it greedily, because of transitive imports may cause collisions, but we'll check here for better error
+            // messages.
+            check_can_import_manifest(&manifest, child_manifest)?;
 
             // We detect that the imported files have language specific files in `validate_manifest_for_lang()`.
             // We can't do it now because we don't yet know what this run is going to generate.
 
-            // 2. Associate the imports as chidren of this IR.
-            let mut features = BTreeSet::new();
-            for f in block.features.keys() {
-                features.insert(f.clone());
+            // 2. We'll build a set of feature names that this manifest imports from the child manifest.
+            // This will be the only thing we add directly to the manifest we load in this method.
+            let mut feature_ids = BTreeSet::new();
 
-                // 3. For each of the features in each of the imported files, we need to do the merge
-                // from the features specialized in this one
-                // This is covered in EXP-2338
+            // 3. For each of the features in each of the imported files, the user can specify new defaults that should
+            //    merge into/overwrite the defaults specified in the imported file. Let's do that now:
+            // a. Prepare a DefaultsMerger, with an object map.
+            let object_map: HashMap<String, &ObjectDef> = child_manifest
+                .obj_defs
+                .iter()
+                .map(|o| (o.name(), o))
+                .collect();
+            let merger = DefaultsMerger::new(object_map, frontend.channels.clone(), channel.into());
+
+            // b. Prepare a feature map that we'll alter in place.
+            //    EXP- 2540 If we want to support re-exporting/encapsulating features then we will need to change
+            //    this to be a more recursive look up. e.g. change `FeatureManifest.feature_defs` to be a `BTreeMap`.
+            let mut feature_map: HashMap<String, &mut FeatureDef> = child_manifest
+                .feature_defs
+                .iter_mut()
+                .map(|o| (o.name(), o))
+                .collect();
+
+            // c. Iterate over the features we want to override
+            for (f, default_blocks) in &block.features {
+                let feature_def = feature_map.get_mut(f).ok_or_else(|| {
+                    FMLError::FMLModuleError(
+                        id.clone(),
+                        format!(
+                            "Cannot override defaults for `{}` feature from {}",
+                            f, &child_id
+                        ),
+                    )
+                })?;
+
+                // d. And merge the overrides in place into the FeatureDefs
+                merger
+                    .merge_feature_defaults(feature_def, &Some(default_blocks).cloned())
+                    .map_err(|e| FMLError::FMLModuleError(child_id.clone(), e.to_string()))?;
+
+                feature_ids.insert(f.clone());
             }
 
-            imported_features.insert(id, features);
+            // 4. Associate the imports as children of this manifest.
+            imported_feature_id_map.insert(child_id.clone(), feature_ids);
         }
 
-        ir.imported_features = imported_features;
-        imports.insert(id.clone(), ir);
+        manifest.imported_features = imported_feature_id_map;
+        imports.insert(id.clone(), manifest);
 
         Ok(id)
     }
@@ -883,6 +923,10 @@ fn check_can_merge_manifest(
                 format!("Only files that don't already correspond to generated files may be included: file has a `class` and `package`/`module` name: {}", child_path),
             ));
         }
+    }
+
+    if !parent.imports.is_empty() && !child.imports.is_empty() {
+        unimplemented!("EXP-2547 Merging of imports is currently not supported");
     }
 
     Ok(())
@@ -977,7 +1021,10 @@ pub(crate) struct DefaultBlock {
 #[cfg(test)]
 mod unit_tests {
 
-    use std::{path::PathBuf, vec};
+    use std::{
+        path::{Path, PathBuf},
+        vec,
+    };
 
     use super::*;
     use crate::{
@@ -1985,8 +2032,8 @@ mod unit_tests {
             ],
         )
         .expect_err("Should return error");
-        if let FMLError::InvalidChannelError(name) = res {
-            assert_eq!(name, "bobo");
+        if let FMLError::InvalidChannelError(channel, _supported) = res {
+            assert!(channel.contains("bobo"));
         } else {
             panic!(
                 "Should have returned a InvalidChannelError, returned {:?}",
@@ -2056,8 +2103,8 @@ mod unit_tests {
         let err = merger
             .merge_feature_defaults(&mut feature_def, &None)
             .expect_err("Should return an error");
-        if let FMLError::InvalidChannelError(channel_name) = err {
-            assert_eq!(channel_name, "nightly");
+        if let FMLError::InvalidChannelError(channel, _supported) = err {
+            assert!(channel.contains("nightly"));
         } else {
             panic!(
                 "Should have returned an InvalidChannelError, returned: {:?}",
@@ -2319,7 +2366,7 @@ mod unit_tests {
         // snake.yaml includes tail.yaml, which includes snake.yaml
         let path = PathBuf::from(pkg_dir()).join("fixtures/fe/including/circular/snake.yaml");
 
-        let parser = Parser::new(&path);
+        let parser = Parser::new(path.as_path());
         assert!(parser.is_ok());
 
         Ok(())
@@ -2332,7 +2379,7 @@ mod unit_tests {
         // way down to 06-toe.yaml
         let path = PathBuf::from(pkg_dir()).join("fixtures/fe/including/deep/00-head.yaml");
 
-        let parser = Parser::new(&path);
+        let parser = Parser::new(path.as_path());
         assert!(parser.is_ok());
 
         let ir = parser?.get_intermediate_representation("release")?;

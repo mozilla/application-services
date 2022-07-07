@@ -61,7 +61,7 @@ impl SyncEngineStorageImpl<InternalAddress> for AddressesEngineStorageImpl {
     }
 }
 
-// These structs are what's stored on the sync server.
+// These structs are what's stored on the sync server for non-tombstone records.
 #[derive(Default, Deserialize, Serialize)]
 struct AddressPayload {
     id: Guid,

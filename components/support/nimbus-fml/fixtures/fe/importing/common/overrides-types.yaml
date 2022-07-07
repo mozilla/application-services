@@ -1,0 +1,15 @@
+version: 1.0.0
+enums:
+  OverrideSource:
+    description: Where does this value come from?
+    variants:
+      none:
+        description: The property was set in the FML, at the property.
+      lib-fml:
+        description: This property was set by FML file imported by the app (i.e. a component), as part of the channel specific defaults
+      app-fml:
+        description: This property was set by the app FML file.
+      variables-json:
+        description: This property was set remotely, by the JSON coming from the SDK
+      channel-specific:
+        description: This property was set in an FML file in a specific channel

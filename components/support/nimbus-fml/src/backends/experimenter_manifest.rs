@@ -7,11 +7,11 @@ use std::fmt::Display;
 
 use serde::{Deserialize, Serialize};
 
-use crate::intermediate_representation::{PropDef, TypeRef};
-use crate::TargetLanguage;
-use crate::{intermediate_representation::FeatureManifest, GenerateExperimenterManifestCmd};
-
-use crate::error::{FMLError, Result};
+use crate::{
+    commands::{GenerateExperimenterManifestCmd, TargetLanguage},
+    error::{FMLError, Result},
+    intermediate_representation::{FeatureDef, FeatureManifest, PropDef, TypeRef},
+};
 
 pub(crate) type ExperimenterManifest = BTreeMap<String, ExperimenterFeature>;
 
@@ -41,27 +41,32 @@ pub(crate) struct ExperimenterFeatureProperty {
 impl TryFrom<FeatureManifest> for ExperimenterManifest {
     type Error = crate::error::FMLError;
     fn try_from(fm: FeatureManifest) -> Result<Self> {
-        fm.feature_defs
-            .iter()
-            .map(|feature| {
-                Ok((
-                    feature.name(),
-                    ExperimenterFeature {
-                        description: feature.doc(),
-                        has_exposure: true,
-                        is_early_startup: None,
-                        // TODO: Add exposure description to the IR so
-                        // we can use it here if it's needed
-                        exposure_description: Some("".into()),
-                        variables: fm.props_to_variables(&feature.props)?,
-                    },
-                ))
+        fm.all_imports
+            .values()
+            .into_iter()
+            .chain(vec![&fm])
+            .flat_map(|fm| {
+                fm.feature_defs
+                    .iter()
+                    .map(|f| Ok((f.name(), fm.create_experimenter_feature(f)?)))
             })
             .collect()
     }
 }
 
 impl FeatureManifest {
+    fn create_experimenter_feature(&self, feature: &FeatureDef) -> Result<ExperimenterFeature> {
+        Ok(ExperimenterFeature {
+            description: feature.doc(),
+            has_exposure: true,
+            is_early_startup: None,
+            // TODO: Add exposure description to the IR so
+            // we can use it here if it's needed
+            exposure_description: Some("".into()),
+            variables: self.props_to_variables(&feature.props)?,
+        })
+    }
+
     fn props_to_variables(
         &self,
         props: &[PropDef],
@@ -148,14 +153,10 @@ impl From<Box<TypeRef>> for ExperimentManifestPropType {
 
 pub(crate) fn generate_manifest(
     ir: FeatureManifest,
-    cmd: GenerateExperimenterManifestCmd,
+    cmd: &GenerateExperimenterManifestCmd,
 ) -> Result<()> {
     let experiment_manifest: ExperimenterManifest = ir.try_into()?;
-    let language: TargetLanguage = match cmd.output.extension() {
-        Some(ext) => ext.try_into().unwrap_or(TargetLanguage::ExperimenterJSON),
-        None => TargetLanguage::ExperimenterJSON,
-    };
-    let output_str = match language {
+    let output_str = match cmd.language {
         TargetLanguage::ExperimenterJSON => serde_json::to_string_pretty(&experiment_manifest)?,
         // This is currently just a re-render of the JSON in YAML.
         // However, the YAML format will diverge in time, so experimenter can support
@@ -167,6 +168,6 @@ pub(crate) fn generate_manifest(
         _ => serde_json::to_string(&experiment_manifest)?,
     };
 
-    std::fs::write(cmd.output, output_str)?;
+    std::fs::write(&cmd.output, output_str)?;
     Ok(())
 }

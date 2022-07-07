@@ -509,7 +509,7 @@ mod unit_tests {
 
         let ct = list_type("AnEnum");
         assert_eq!(
-            r#"[AnEnum.x, AnEnum.y, AnEnum.z]"#.to_string(),
+            r#"[.x, .y, .z]"#.to_string(),
             ct.literal(oracle, &ctx, finder, &json!(["x", "y", "z"]))
         );
     }
@@ -578,13 +578,13 @@ mod unit_tests {
 
         let ct = map_type("String", "AnEnum");
         assert_eq!(
-            r#"["a": AnEnum.a, "b": AnEnum.b]"#.to_string(),
+            r#"["a": .a, "b": .b]"#.to_string(),
             ct.literal(oracle, &ctx, finder, &json!({"a": "a", "b": "b"}))
         );
 
         let ct = map_type("AnEnum", "String");
         assert_eq!(
-            r#"[AnEnum.a: "a", AnEnum.b: "b"]"#.to_string(),
+            r#"[.a: "a", .b: "b"]"#.to_string(),
             ct.literal(oracle, &ctx, finder, &json!({"a": "a", "b": "b"}))
         );
     }

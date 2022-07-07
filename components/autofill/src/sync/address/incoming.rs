@@ -129,7 +129,12 @@ impl ProcessIncomingRecordImpl for IncomingAddressesImpl {
                     match row.get::<_, Option<String>>("m_payload")? {
                         Some(m_payload) => {
                             let payload = Payload::from_json(serde_json::from_str(&m_payload)?)?;
-                            Some(InternalAddress::from_payload(payload)?)
+                            // a tombstone in the mirror can be treated as though it's missing.
+                            if payload.is_tombstone() {
+                                None
+                            } else {
+                                Some(InternalAddress::from_payload(payload)?)
+                            }
                         }
                         None => None,
                     }
@@ -278,7 +283,7 @@ mod tests {
                         "timesUsed": 0,
                         "version": 1,
                     }
-                }
+                },
             }};
             val.as_object().expect("literal is an object").clone()
         };
@@ -303,6 +308,7 @@ mod tests {
         let mut db = new_syncable_mem_db();
         struct TestCase {
             incoming_records: Vec<Value>,
+            mirror_records: Vec<Value>,
             expected_record_count: usize,
             expected_tombstone_count: usize,
         }
@@ -310,11 +316,13 @@ mod tests {
         let test_cases = vec![
             TestCase {
                 incoming_records: vec![test_json_record('A')],
+                mirror_records: vec![],
                 expected_record_count: 1,
                 expected_tombstone_count: 0,
             },
             TestCase {
                 incoming_records: vec![test_json_tombstone('A')],
+                mirror_records: vec![],
                 expected_record_count: 0,
                 expected_tombstone_count: 1,
             },
@@ -324,7 +332,15 @@ mod tests {
                     test_json_record('C'),
                     test_json_tombstone('B'),
                 ],
+                mirror_records: vec![],
                 expected_record_count: 2,
+                expected_tombstone_count: 1,
+            },
+            // incoming tombstone with existing tombstone in the mirror
+            TestCase {
+                incoming_records: vec![test_json_tombstone('B')],
+                mirror_records: vec![test_json_tombstone('B')],
+                expected_record_count: 0,
                 expected_tombstone_count: 1,
             },
         ];
@@ -332,6 +348,21 @@ mod tests {
         for tc in test_cases {
             log::info!("starting new testcase");
             let tx = db.transaction()?;
+
+            // Add required items to the mirrors.
+            let mirror_sql = "INSERT OR REPLACE INTO addresses_mirror (guid, payload)
+                              VALUES (:guid, :payload)";
+            for payload in tc.mirror_records {
+                tx.execute(
+                    mirror_sql,
+                    rusqlite::named_params! {
+                        ":guid": payload["id"].as_str().unwrap(),
+                        ":payload": payload.to_string(),
+                    },
+                )
+                .expect("should insert mirror record");
+            }
+
             let ri = IncomingAddressesImpl {};
             ri.stage_incoming(
                 &tx,
@@ -353,6 +384,8 @@ mod tests {
 
             assert_eq!(record_count, tc.expected_record_count);
             assert_eq!(tombstone_count, tc.expected_tombstone_count);
+
+            ri.fetch_incoming_states(&tx)?;
 
             tx.execute("DELETE FROM temp.addresses_sync_staging;", [])?;
         }

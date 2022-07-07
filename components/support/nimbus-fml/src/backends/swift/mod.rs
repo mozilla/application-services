@@ -3,12 +3,25 @@
 * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
 use crate::error::{FMLError, Result};
+use crate::parser::AboutBlock;
 use askama::Template;
 
+use crate::commands::GenerateStructCmd;
 use crate::intermediate_representation::FeatureManifest;
-use crate::GenerateStructCmd;
 
 mod gen_structs;
+
+impl AboutBlock {
+    fn nimbus_object_name_swift(&self) -> String {
+        let swift_about = self.swift_about.as_ref().unwrap();
+        swift_about.class.clone()
+    }
+
+    fn nimbus_module_name(&self) -> String {
+        let swift_about = self.swift_about.as_ref().unwrap();
+        swift_about.module.clone()
+    }
+}
 
 pub(crate) fn generate_struct(manifest: &FeatureManifest, cmd: &GenerateStructCmd) -> Result<()> {
     if manifest.about.swift_about.is_none() {
@@ -21,9 +34,18 @@ pub(crate) fn generate_struct(manifest: &FeatureManifest, cmd: &GenerateStructCm
         ));
     }
 
+    let path = &cmd.output;
+    let path = if path.is_dir() {
+        path.join(format!(
+            "{}.swift",
+            manifest.about.nimbus_object_name_swift()
+        ))
+    } else {
+        path.clone()
+    };
+
     let fm = gen_structs::FeatureManifestDeclaration::new(manifest);
 
-    let path = &cmd.output;
     let contents = fm.render()?;
 
     std::fs::write(path, contents)?;

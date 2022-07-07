@@ -1,0 +1,28 @@
+version: 1.0.0
+about:
+  description: A test fixture for testing importing.
+  android:
+    class: .nimbus.AppNimbus
+    package: com.example.app
+  ios:
+    class: AppNimbus
+    module: App
+channels:
+  - debug
+  - release
+imports:
+  - path: ./lib.fml.yaml
+    channel: release
+    features:
+      property-overrides-test:
+        - value:
+            app-fml: app-fml
+      overrides-coverall:
+        - value:
+            scalar: app-fml
+            map:
+              app-fml: true
+            string-map:
+              app-fml: app-fml
+            nested-object:
+              scalar: app-fml

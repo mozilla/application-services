@@ -3,5 +3,5 @@
 * file, You can obtain one at http://mozilla.org/MPL/2.0/.
 */
 
-mod test_mod;
 mod test_reconcile;
+mod test_sync_impl;

@@ -7,7 +7,6 @@ use std::collections::HashSet;
 use crate::{
     backends::{CodeDeclaration, CodeOracle, CodeType, TypeIdentifier},
     intermediate_representation::{FeatureDef, FeatureManifest, TypeFinder},
-    parser::AboutBlock,
 };
 mod bundled;
 mod common;
@@ -18,18 +17,6 @@ mod imports;
 mod object;
 mod primitives;
 mod structural;
-
-impl AboutBlock {
-    fn nimbus_object_name_swift(&self) -> String {
-        let swift_about = self.swift_about.as_ref().unwrap();
-        swift_about.class.clone()
-    }
-
-    fn nimbus_module_name(&self) -> String {
-        let swift_about = self.swift_about.as_ref().unwrap();
-        swift_about.module.clone()
-    }
-}
 
 #[derive(Template)]
 #[template(
@@ -94,6 +81,8 @@ impl<'a> FeatureManifestDeclaration<'a> {
 
     pub fn imports(&self) -> Vec<String> {
         let oracle = &self.oracle;
+        // Filter out our own module.
+        let my_module = &self.fm.about.nimbus_module_name();
         let mut imports: Vec<String> = self
             .members()
             .into_iter()
@@ -106,6 +95,7 @@ impl<'a> FeatureManifestDeclaration<'a> {
                     .filter_map(|type_| self.oracle.find(&type_).imports(oracle))
                     .flatten(),
             )
+            .filter(|i| i != my_module)
             .collect::<HashSet<String>>()
             .into_iter()
             .collect();

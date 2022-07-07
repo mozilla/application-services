@@ -31,8 +31,9 @@ public class {{ nimbus_object }} {
         self.features.{{- f.name()|var_name -}}.with(sdk: getSdk)
         {%- endfor %}
         {%- for f in self.fm.iter_imported_files() %}
-        {{ f.about.nimbus_object_name_swift() }}.shared.initialize(with: getSdk)
+        {{ f.about().nimbus_object_name_swift() }}.shared.initialize(with: getSdk)
         {%- endfor %}
+        self.reinitialize()
     }
 
     fileprivate lazy var getSdk: GetSdk = { [self] in self.api }
@@ -41,6 +42,24 @@ public class {{ nimbus_object }} {
     /// Represents all the features supported by Nimbus
     ///
     public let features = {{ nimbus_object }}Features()
+
+    {% let blocks = self.initialization_code() -%}
+    ///
+    /// All generated initialization code. Clients shouldn't need to override or call
+    /// this.
+    /// We put it in a separate method because we have to be quite careful about what order
+    /// the initialization happens in— e.g. when importing other FML files.
+    ///
+    private func reinitialize() {
+        {%- if !blocks.is_empty() %}
+        {%- for code in blocks %}
+        {{ code }}
+        {%- endfor %}
+        {%- else %}
+        // Nothing left to do.
+        {%- endif %}
+    }
+
 
     ///
     /// Refresh the cache of configuration objects.
@@ -55,7 +74,7 @@ public class {{ nimbus_object }} {
         features.{{- f.name()|var_name -}}.with(cachedValue: nil)
         {%- endfor %}
         {%- for f in self.fm.iter_imported_files() %}
-        {{ f.about.nimbus_object_name_swift() }}.shared.invalidateCachedValues()
+        {{ f.about().nimbus_object_name_swift() }}.shared.invalidateCachedValues()
         {%- endfor %}
     }
 
@@ -77,11 +96,6 @@ public class {{ nimbus_object }}Features {
     }()
     {%- endfor %}
 }
-
-
-{%- for code in self.initialization_code() %}
-{{ code }}
-{%- endfor %}
 
 // Public interface members begin here.
 {% for code in self.declaration_code() %}

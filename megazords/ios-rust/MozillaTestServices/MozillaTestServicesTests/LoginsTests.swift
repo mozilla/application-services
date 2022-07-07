@@ -18,27 +18,4 @@ class LoginsTests: XCTestCase {
     override func tearDown() {
         // This method is called after the invocation of each test method in the class.
     }
-
-    func testMigrationMetrics() throws {
-        let json = """
-            {"fixup_phase":{
-                "num_processed":0,"num_succeeded":0,"num_failed":0,"total_duration":0,"errors":[]
-            },
-            "insert_phase":{"num_processed":0,"num_succeeded":0,"num_failed":0,"total_duration":0,"errors":[]
-            },
-            "num_processed":3,"num_succeeded":1,"num_failed":2,"total_duration":53,"errors":[
-                "Invalid login: Login has illegal field: Origin is Malformed",
-                "Invalid login: Origin is empty"
-            ]}
-        """
-
-        recordMigrationMetrics(jsonString: json)
-        XCTAssertEqual(3, GleanMetrics.LoginsStoreMigration.numProcessed.testGetValue())
-        XCTAssertEqual(2, GleanMetrics.LoginsStoreMigration.numFailed.testGetValue())
-        XCTAssertEqual(1, GleanMetrics.LoginsStoreMigration.numSucceeded.testGetValue())
-        XCTAssertEqual(53, GleanMetrics.LoginsStoreMigration.totalDuration.testGetValue())
-
-        // Note the truncation of the first error string.
-        XCTAssertEqual(["Invalid login: Login has illegal field: Origin is ", "Invalid login: Origin is empty"], GleanMetrics.LoginsStoreMigration.errors.testGetValue())
-    }
 }

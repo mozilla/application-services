@@ -8,7 +8,6 @@ use std::collections::HashSet;
 use crate::{
     backends::{CodeDeclaration, CodeOracle, CodeType, TypeIdentifier},
     intermediate_representation::{FeatureDef, FeatureManifest, TypeFinder},
-    parser::AboutBlock,
 };
 
 mod bundled;
@@ -20,41 +19,6 @@ mod imports;
 mod object;
 mod primitives;
 mod structural;
-
-impl AboutBlock {
-    fn nimbus_fully_qualified_name(&self) -> String {
-        let kt_about = self.kotlin_about.as_ref().unwrap();
-
-        let class = &kt_about.class;
-        if class.starts_with('.') {
-            format!("{}{}", kt_about.package, class)
-        } else {
-            class.clone()
-        }
-    }
-
-    fn nimbus_object_name_kt(&self) -> String {
-        let fqe = self.nimbus_fully_qualified_name();
-        let last = fqe.split('.').last().unwrap_or(&fqe);
-        last.to_string()
-    }
-
-    fn nimbus_package_name(&self) -> Option<String> {
-        let fqe = self.nimbus_fully_qualified_name();
-        if !fqe.contains('.') {
-            return None;
-        }
-        let mut it = fqe.split('.');
-        it.next_back()?;
-        Some(it.collect::<Vec<&str>>().join("."))
-    }
-
-    fn resource_package_name(&self) -> String {
-        let kt_about = self.kotlin_about.as_ref().unwrap();
-        kt_about.package.clone()
-    }
-}
-
 #[derive(Template)]
 #[template(syntax = "kt", escape = "none", path = "FeatureManifestTemplate.kt")]
 pub struct FeatureManifestDeclaration<'a> {
@@ -84,7 +48,7 @@ impl<'a> FeatureManifestDeclaration<'a> {
             .chain(fm.iter_object_defs().into_iter().map(|inner| {
                 Box::new(object::ObjectCodeDeclaration::new(fm, inner)) as Box<dyn CodeDeclaration>
             }))
-            .chain(fm.iter_imported_files().iter().map(|inner| {
+            .chain(fm.iter_imported_files().into_iter().map(|inner| {
                 Box::new(imports::ImportedModuleInitialization::new(inner))
                     as Box<dyn CodeDeclaration>
             }))
@@ -113,6 +77,11 @@ impl<'a> FeatureManifestDeclaration<'a> {
 
     pub fn imports(&self) -> Vec<String> {
         let oracle = &self.oracle;
+        // We'll filter out objects from the package we're in.
+        let my_package = format!(
+            "{}.*",
+            self.fm.about.nimbus_package_name().unwrap_or_default()
+        );
         let mut imports: Vec<String> = self
             .members()
             .into_iter()
@@ -130,6 +99,7 @@ impl<'a> FeatureManifestDeclaration<'a> {
                 "org.mozilla.experiments.nimbus.FeaturesInterface".to_string(),
                 format!("{}.R", self.fm.about.resource_package_name()),
             ])
+            .filter(|i| i != &my_package)
             .collect::<HashSet<String>>()
             .into_iter()
             .collect();
