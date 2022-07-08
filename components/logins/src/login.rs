@@ -285,7 +285,7 @@ use sync_guid::Guid;
 use url::Url;
 
 // LoginEntry fields that are stored in cleartext
-#[derive(Debug, Clone, Hash, PartialEq, Default)]
+#[derive(Debug, Clone, Hash, PartialEq, Eq, Default)]
 pub struct LoginFields {
     pub origin: String,
     pub form_action_origin: Option<String>,
@@ -349,7 +349,7 @@ impl LoginFields {
 }
 
 /// LoginEntry fields that are stored encrypted
-#[derive(Debug, Clone, Hash, PartialEq, Serialize, Deserialize, Default)]
+#[derive(Debug, Clone, Hash, PartialEq, Eq, Serialize, Deserialize, Default)]
 pub struct SecureLoginFields {
     // - Username cannot be null, use the empty string instead
     // - Password can't be empty or null (enforced in the ValidateAndFixup code)
@@ -372,7 +372,7 @@ impl SecureLoginFields {
 }
 
 /// Login data specific to database records
-#[derive(Debug, Clone, Hash, PartialEq, Default)]
+#[derive(Debug, Clone, Hash, PartialEq, Eq, Default)]
 pub struct RecordFields {
     pub id: String,
     pub time_created: i64,
@@ -382,14 +382,14 @@ pub struct RecordFields {
 }
 
 /// A login entered by the user
-#[derive(Debug, Clone, Hash, PartialEq, Default)]
+#[derive(Debug, Clone, Hash, PartialEq, Eq, Default)]
 pub struct LoginEntry {
     pub fields: LoginFields,
     pub sec_fields: SecureLoginFields,
 }
 
 /// A login stored in the database
-#[derive(Debug, Clone, Hash, PartialEq, Default)]
+#[derive(Debug, Clone, Hash, PartialEq, Eq, Default)]
 pub struct Login {
     pub record: RecordFields,
     pub fields: LoginFields,
@@ -419,7 +419,7 @@ impl Login {
 }
 
 /// A login stored in the database
-#[derive(Debug, Clone, Hash, PartialEq, Default)]
+#[derive(Debug, Clone, Hash, PartialEq, Eq, Default)]
 pub struct EncryptedLogin {
     pub record: RecordFields,
     pub fields: LoginFields,

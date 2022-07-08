@@ -163,11 +163,11 @@ impl LoginStore {
         }
     }
 
-    pub fn import_multiple(&self, logins: Vec<Login>, enc_key: &str) -> ApiResult<String> {
+    pub fn import_multiple(&self, logins: Vec<Login>, enc_key: &str) -> ApiResult<()> {
         handle_error! {
             let encdec = EncryptorDecryptor::new(enc_key)?;
-            let metrics = self.db.lock().import_multiple(logins, &encdec)?;
-            Ok(serde_json::to_string(&metrics)?)
+            self.db.lock().import_multiple(logins, &encdec)?;
+            Ok(())
         }
     }
 

@@ -679,11 +679,10 @@ mod test {
         let compiled = JSONSchema::compile(&schema).expect("The schema is invalid");
         let res = compiled.validate(&generated_json);
         if let Err(e) = res {
-            let mut errs: String = "Validation errors: \n".into();
-            for err in e {
-                errs.push_str(&format!("{}\n", err));
-            }
-            panic!("{}", errs);
+            panic!(
+                "Validation errors: \n{}",
+                e.map(|e| e.to_string()).collect::<Vec<String>>().join("\n")
+            );
         }
         Ok(())
     }

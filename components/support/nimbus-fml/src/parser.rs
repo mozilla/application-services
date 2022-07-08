@@ -59,7 +59,7 @@ pub(crate) struct Types {
     objects: HashMap<String, ObjectBody>,
 }
 
-#[derive(Debug, Deserialize, Serialize, Clone, Default, PartialEq)]
+#[derive(Debug, Deserialize, Serialize, Clone, Default, PartialEq, Eq)]
 #[serde(deny_unknown_fields)]
 pub(crate) struct AboutBlock {
     pub(crate) description: String,
@@ -87,13 +87,13 @@ impl AboutBlock {
     }
 }
 
-#[derive(Debug, Deserialize, Serialize, Clone, Default, PartialEq)]
+#[derive(Debug, Deserialize, Serialize, Clone, Default, PartialEq, Eq)]
 pub(crate) struct SwiftAboutBlock {
     pub(crate) module: String,
     pub(crate) class: String,
 }
 
-#[derive(Debug, Deserialize, Serialize, Clone, Default, PartialEq)]
+#[derive(Debug, Deserialize, Serialize, Clone, Default, PartialEq, Eq)]
 pub(crate) struct KotlinAboutBlock {
     pub(crate) package: String,
     pub(crate) class: String,

@@ -30,7 +30,7 @@ pub struct UpdatableAddressFields {
 }
 
 // "Address" is what we return to consumers and has most of the metadata.
-#[derive(Debug, Clone, Hash, PartialEq, Default)]
+#[derive(Debug, Clone, Hash, PartialEq, Eq, Default)]
 pub struct Address {
     pub guid: String,
     pub given_name: String,

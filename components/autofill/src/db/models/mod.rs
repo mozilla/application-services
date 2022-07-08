@@ -8,7 +8,7 @@ pub mod credit_card;
 use types::Timestamp;
 
 /// Metadata that's common between the records.
-#[derive(Debug, PartialEq, Copy, Clone, Default)]
+#[derive(Debug, PartialEq, Eq, Copy, Clone, Default)]
 pub struct Metadata {
     pub time_created: Timestamp,
     pub time_last_used: Timestamp,

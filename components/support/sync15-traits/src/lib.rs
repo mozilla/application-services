@@ -13,6 +13,7 @@
 //! to use this component, but you will find documentation for most of the types
 //! and traits implemented here.
 
+#![allow(clippy::derive_partial_eq_without_eq)]
 #![warn(rust_2018_idioms)]
 pub mod bridged_engine;
 #[cfg(feature = "crypto")]

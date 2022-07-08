@@ -3,6 +3,7 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
 #![allow(unknown_lints)]
+#![allow(clippy::derive_partial_eq_without_eq)] // new lint in 1.63 with *lots* of hits.
 #![warn(rust_2018_idioms)]
 
 pub mod api;

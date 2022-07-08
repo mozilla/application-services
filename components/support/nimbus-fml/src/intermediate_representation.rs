@@ -127,7 +127,7 @@ impl TypeFinder for TypeRef {
 
 pub(crate) type StringId = String;
 
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Default)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, Default)]
 pub struct FeatureManifest {
     #[serde(skip)]
     pub(crate) id: ModuleId,
@@ -401,14 +401,14 @@ impl FeatureManifest {
                         return Ok(());
                     }
                 }
-                return Err(FMLError::ValidationError(
+                Err(FMLError::ValidationError(
                     path.to_string(),
                     format!(
                         "Default value `{value}` is not declared a variant of {enum_type}",
                         value = s,
                         enum_type = enum_name
                     ),
-                ));
+                ))
             }
             (TypeRef::EnumMap(enum_type, map_type), Value::Object(map)) => {
                 let enum_name = if let TypeRef::Enum(name) = enum_type.as_ref() {
@@ -533,7 +533,7 @@ impl FeatureManifest {
             .iter()
             .filter_map(|(id, features)| {
                 let fm = map.get(id).to_owned()?;
-                Some(ImportedModule::new(id.clone(), fm, features))
+                Some(ImportedModule::new(fm, features))
             })
             .collect()
     }
@@ -555,7 +555,7 @@ impl FeatureManifest {
     }
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Default)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, Default)]
 pub struct FeatureDef {
     pub(crate) name: String,
     pub(crate) doc: String,
@@ -593,7 +593,7 @@ impl TypeFinder for FeatureDef {
     }
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Default)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, Default)]
 pub struct EnumDef {
     pub name: String,
     pub doc: String,
@@ -618,14 +618,14 @@ impl TypeFinder for EnumDef {
     }
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 pub struct FromStringDef {
     pub name: String,
     pub doc: String,
     pub variants: Vec<VariantDef>,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Default)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, Default)]
 pub struct VariantDef {
     pub(crate) name: String,
     pub(crate) doc: String,
@@ -646,7 +646,7 @@ impl VariantDef {
     }
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Default)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, Default)]
 pub struct ObjectDef {
     pub(crate) name: String,
     pub(crate) doc: String,
@@ -687,7 +687,7 @@ impl TypeFinder for ObjectDef {
     }
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 pub struct PropDef {
     pub name: String,
     pub doc: String,
@@ -719,20 +719,15 @@ impl TypeFinder for PropDef {
 
 pub type Literal = Value;
 
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone)]
 pub(crate) struct ImportedModule<'a> {
-    pub(crate) id: ModuleId,
     pub(crate) fm: &'a FeatureManifest,
     features: &'a BTreeSet<String>,
 }
 
 impl<'a> ImportedModule<'a> {
-    pub(crate) fn new(
-        id: ModuleId,
-        fm: &'a FeatureManifest,
-        features: &'a BTreeSet<String>,
-    ) -> Self {
-        Self { id, fm, features }
+    pub(crate) fn new(fm: &'a FeatureManifest, features: &'a BTreeSet<String>) -> Self {
+        Self { fm, features }
     }
 
     pub(crate) fn about(&self) -> &AboutBlock {

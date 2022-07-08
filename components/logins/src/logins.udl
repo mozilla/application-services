@@ -161,7 +161,7 @@ interface LoginStore {
     EncryptedLogin? get([ByRef] string id);
 
     [Throws=LoginsStorageError]
-    string import_multiple(sequence<Login> login, [ByRef]string encryption_key);
+    void import_multiple(sequence<Login> login, [ByRef]string encryption_key);
 
     [Self=ByArc]
     void register_with_sync_manager();
