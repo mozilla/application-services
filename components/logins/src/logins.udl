@@ -34,7 +34,7 @@ namespace logins {
     boolean check_canary([ByRef]string canary, [ByRef]string text, [ByRef]string encryption_key);
 
     [Throws=LoginsStorageError]
-    string migrate_logins(
+    void migrate_logins(
         [ByRef]string path,
         [ByRef]string new_encryption_key,
         [ByRef]string sqlcipher_path,
