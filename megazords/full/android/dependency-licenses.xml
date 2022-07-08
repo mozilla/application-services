@@ -486,15 +486,15 @@ the details of which are reproduced below.
   </license>
   <license>
     <name>Apache License 2.0: windows-sys</name>
-    <url>https://github.com/microsoft/windows-rs/blob/master/.github/license-mit</url>
+    <url>https://github.com/microsoft/windows-rs/blob/master/license-mit</url>
   </license>
   <license>
     <name>Apache License 2.0: windows_x86_64_gnu</name>
-    <url>https://github.com/microsoft/windows-rs/blob/master/.github/license-mit</url>
+    <url>https://github.com/microsoft/windows-rs/blob/master/license-mit</url>
   </license>
   <license>
     <name>Apache License 2.0: windows_x86_64_msvc</name>
-    <url>https://github.com/microsoft/windows-rs/blob/master/.github/license-mit</url>
+    <url>https://github.com/microsoft/windows-rs/blob/master/license-mit</url>
   </license>
   <license>
     <name>MIT License: aho-corasick</name>
