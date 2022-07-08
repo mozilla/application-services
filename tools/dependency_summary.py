@@ -351,8 +351,8 @@ PACKAGE_METADATA_FIXUPS = {
         },
         "license_file": {
             "check": None,
-            "fixup": "https://raw.githubusercontent.com/microsoft/windows-rs/master/.github/license-mit",
-        }
+            "fixup": "https://raw.githubusercontent.com/microsoft/windows-rs/master/license-mit",
+        },
     },
     "windows_x86_64_msvc": {
         "repository": {
@@ -360,8 +360,8 @@ PACKAGE_METADATA_FIXUPS = {
         },
         "license_file": {
             "check": None,
-            "fixup": "https://raw.githubusercontent.com/microsoft/windows-rs/master/.github/license-mit",
-        }
+            "fixup": "https://raw.githubusercontent.com/microsoft/windows-rs/master/license-mit",
+        },
     },
     "windows_x86_64_gnu": {
         "repository": {
@@ -369,8 +369,8 @@ PACKAGE_METADATA_FIXUPS = {
         },
         "license_file": {
             "check": None,
-            "fixup": "https://raw.githubusercontent.com/microsoft/windows-rs/master/.github/license-mit",
-        }
+            "fixup": "https://raw.githubusercontent.com/microsoft/windows-rs/master/license-mit",
+        },
     },
     "kernel32-sys": {
         "repository": {
