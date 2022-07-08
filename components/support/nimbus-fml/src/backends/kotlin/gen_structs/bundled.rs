@@ -100,9 +100,10 @@ fn is_resource_id(string: &str) -> bool {
     // We don't use the regex crate, so we need some code.
     let start = "abcdefghijklmnopqrstuvwxyz_";
     let rest = "abcdefghijklmnopqrstuvwxyz_0123456789";
-    string
-        .grapheme_indices(true)
-        .all(|(i, c)| -> bool { (i > 0 && rest.contains(c)) || start.contains(c) })
+    !string.is_empty()
+        && string
+            .grapheme_indices(true)
+            .all(|(i, c)| -> bool { (i > 0 && rest.contains(c)) || start.contains(c) })
 }
 
 pub(crate) struct ImageCodeType;

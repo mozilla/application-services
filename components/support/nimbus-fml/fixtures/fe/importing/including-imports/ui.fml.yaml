@@ -1,0 +1,31 @@
+---
+channels:
+  - none
+about:
+  description: This has a number of features to do with the user interface
+  ios:
+    class: UIConfig
+    module: Application
+  android:
+    class: .nimbus.UIConfig
+    package: com.example.app
+features:
+  app-menu:
+    description: The app menu
+    variables:
+      order:
+        description: The order of menu items
+        type: List<String>
+        default: []
+      menu-items:
+        description: An extendable map of menu items.
+        type: Map<String, MenuItem>
+        default: {}
+objects:
+  MenuItem:
+    description: A menu item
+    fields:
+      title:
+        description: The title shown to the user.
+        type: Text
+        default: ""

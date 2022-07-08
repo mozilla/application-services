@@ -1,0 +1,17 @@
+---
+# This file contribues pocket related menu items to the app-menu feature
+# that is imported from ./ui.fml.yaml
+imports:
+  - path: ./ui.fml.yaml
+    channel: none
+    features:
+      app-menu:
+        - value:
+            menu-items:
+              open-bookmarks:
+                title: Open Bookmarks
+              open-logins:
+                title: Open Logins
+            order:
+              - open-bookmarks
+              - open-logins

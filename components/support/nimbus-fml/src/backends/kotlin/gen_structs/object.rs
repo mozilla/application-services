@@ -90,6 +90,13 @@ impl CodeType for ObjectCodeType {
             ctx,
         )
     }
+
+    fn imports(&self, _oracle: &dyn CodeOracle) -> Option<Vec<String>> {
+        Some(vec![
+            "org.mozilla.experiments.nimbus.NullVariables".to_string(),
+            "android.content.Context".to_string(),
+        ])
+    }
 }
 
 #[derive(Template)]
@@ -114,13 +121,6 @@ impl ObjectCodeDeclaration {
 impl CodeDeclaration for ObjectCodeDeclaration {
     fn definition_code(&self, _oracle: &dyn CodeOracle) -> Option<String> {
         Some(self.render().unwrap())
-    }
-
-    fn imports(&self, _oracle: &dyn CodeOracle) -> Option<Vec<String>> {
-        Some(vec![
-            "org.mozilla.experiments.nimbus.NullVariables".to_string(),
-            "android.content.Context".to_string(),
-        ])
     }
 }
 
