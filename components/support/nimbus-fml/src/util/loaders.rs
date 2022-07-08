@@ -34,12 +34,23 @@ impl FilePath {
             return Ok(FilePath::Remote(Url::parse(file)?));
         }
         Ok(match self {
-            FilePath::Local(p) => Self::Local(
+            Self::Local(p) => Self::Local(
                 p.parent()
                     .expect("a file within a parent directory")
                     .join(file),
             ),
-            FilePath::Remote(u) => Self::Remote(u.join(file)?),
+            Self::Remote(u) => Self::Remote(u.join(file)?),
+        })
+    }
+
+    pub fn canonicalize(&self) -> Result<Self> {
+        Ok(match self {
+            Self::Local(p) => Self::Local(p.canonicalize().map_err(|e| {
+                // We do this map_err here because the IO Error message that comes out of `canonicalize`
+                // doesn't include the problematic file path.
+                FMLError::InvalidPath(format!("{}: {}", e, p.as_path().display()))
+            })?),
+            Self::Remote(u) => Self::Remote(u.clone()),
         })
     }
 }
@@ -50,8 +61,8 @@ impl Display for FilePath {
             f,
             "{}",
             match self {
-                FilePath::Local(p) => p.display().to_string(),
-                FilePath::Remote(u) => u.to_string(),
+                Self::Local(p) => p.display().to_string(),
+                Self::Remote(u) => u.to_string(),
             }
         )
     }

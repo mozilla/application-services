@@ -716,7 +716,11 @@ impl Parser {
         let mut parent = serde_yaml::from_str::<ManifestFrontEnd>(&s)
             .map_err(|e| FMLError::FMLModuleError(id.clone(), e.to_string()))?;
 
-        self.canonicalize_import_paths(path, &mut parent.imports)?;
+        // We canonicalize the paths to the import files really soon after the loading so when we merge
+        // other included files, we cam match up the files that _they_ import, the concatenate the default
+        // blocks for their features.
+        self.canonicalize_import_paths(path, &mut parent.imports)
+            .map_err(|e| FMLError::FMLModuleError(id.clone(), e.to_string()))?;
 
         loading.insert(id.clone());
         parent
@@ -747,11 +751,6 @@ impl Parser {
         child: ManifestFrontEnd,
     ) -> Result<ManifestFrontEnd> {
         self.check_can_merge_manifest(parent_path, &parent, child_path, &child)?;
-
-        let mut map = Default::default();
-        // let parent_imports = self.absolutize_import_paths(parent_path, &parent.imports)?;
-        self.check_can_merge_imports(parent_path, &parent.imports, &mut map)?;
-        self.check_can_merge_imports(child_path, &child.imports, &mut map)?;
 
         // Child must not specify any features, objects or enums that the parent has.
         let features = merge_map(
@@ -908,7 +907,7 @@ impl Parser {
 impl Parser {
     fn check_can_merge_manifest(
         &self,
-        _parent_path: &FilePath,
+        parent_path: &FilePath,
         parent: &ManifestFrontEnd,
         child_path: &FilePath,
         child: &ManifestFrontEnd,
@@ -937,6 +936,11 @@ impl Parser {
             ));
             }
         }
+
+        let mut map = Default::default();
+        self.check_can_merge_imports(parent_path, &parent.imports, &mut map)?;
+        self.check_can_merge_imports(child_path, &child.imports, &mut map)?;
+
         Ok(())
     }
 
@@ -947,8 +951,7 @@ impl Parser {
     ) -> Result<()> {
         for ib in blocks {
             let p = &self.files.join(path, &ib.path)?;
-            let id: ModuleId = p.try_into()?;
-            ib.path = id.to_string();
+            ib.path = p.canonicalize()?.to_string();
         }
         Ok(())
     }
@@ -968,7 +971,7 @@ impl Parser {
                     return Err(FMLError::FMLModuleError(
                         path.try_into()?,
                         format!(
-                            "File {} is imported by two different channels: {} and {}",
+                            "File {} is imported with two different channels: {} and {}",
                             id, v, &channel
                         ),
                     ));
@@ -2450,6 +2453,47 @@ mod unit_tests {
         assert!(parser
             .check_can_merge_manifest(&parent_path, &parent, &child_path, &child)
             .is_err());
+
+        Ok(())
+    }
+
+    #[test]
+    fn test_include_check_can_merge_manifest_with_imports() -> Result<()> {
+        let parser = Parser::new(std::env::temp_dir().as_path())?;
+        let parent_path: FilePath = std::env::temp_dir().as_path().into();
+        let child_path = parent_path.join("http://child")?;
+        let parent = ManifestFrontEnd {
+            channels: vec!["alice".to_string(), "bob".to_string()],
+            imports: vec![ImportBlock {
+                path: "absolute_path".to_string(),
+                channel: "one_channel".to_string(),
+                features: Default::default(),
+            }],
+            ..Default::default()
+        };
+        let child = ManifestFrontEnd {
+            channels: vec!["alice".to_string(), "bob".to_string()],
+            imports: vec![ImportBlock {
+                path: "absolute_path".to_string(),
+                channel: "another_channel".to_string(),
+                features: Default::default(),
+            }],
+            ..Default::default()
+        };
+
+        let mut map = Default::default();
+        let res = parser.check_can_merge_imports(&parent_path, &parent.imports, &mut map);
+        assert!(res.is_ok());
+        assert_eq!(map.get("absolute_path").unwrap(), "one_channel");
+
+        let err_msg = "Problem with http://child/: File absolute_path is imported with two different channels: one_channel and another_channel";
+        let res = parser.check_can_merge_imports(&child_path, &child.imports, &mut map);
+        assert!(res.is_err());
+        assert_eq!(res.unwrap_err().to_string(), err_msg.to_string());
+
+        let res = parser.check_can_merge_manifest(&parent_path, &parent, &child_path, &child);
+        assert!(res.is_err());
+        assert_eq!(res.unwrap_err().to_string(), err_msg.to_string());
 
         Ok(())
     }
