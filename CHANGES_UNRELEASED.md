@@ -4,6 +4,14 @@
 
 [Full Changelog](https://github.com/mozilla/application-services/compare/v93.5.0...main)
 
+## Autofill
+### What's Changed
+  - Updated to Glean v50.1.2
+
+## UniFFI
+### What's Changed
+  - Updated to UniFFI 0.19.3
+
 <!-- WARNING: New entries should be added below this comment to ensure the `./automation/prepare-release.py` script works as expected.
 
 Use the template below to make assigning a version number during the release cutting process easier.
