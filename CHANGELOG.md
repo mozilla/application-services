@@ -1,3 +1,34 @@
+# v93.6.0 (_2022-07-11_)
+
+[Full Changelog](https://github.com/mozilla/application-services/compare/v93.5.0...v93.6.0)
+
+## Autofill
+
+### What's Fixed
+  - Fixed syncing of autofill when tombstones exist in the local mirror (#5030)
+
+## Nimbus FML ⛅️🔬🔭🔧
+
+### What's New
+  - Added support for breaking up FML files using `includes` and separating into different modules with `imports`.
+    ([#5031](https://github.com/mozilla/application-services/pull/5031), [#5022](https://github.com/mozilla/application-services/pull/5022), [#5016](https://github.com/mozilla/application-services/pull/5016), [#5014](https://github.com/mozilla/application-services/pull/5014), [#5007](https://github.com/mozilla/application-services/pull/5007), [#4999](https://github.com/mozilla/application-services/pull/4999), [#4997](https://github.com/mozilla/application-services/pull/4997), [#4976](https://github.com/mozilla/application-services/pull/4976))
+    - This is _not_ a breaking change, but should be accompanied by a upgrade to the megazord ([#4099](https://github.com/mozilla/application-services/pull/4099)).
+    - This also deprecates some commands in the command line interface ([#5022](https://github.com/mozilla/application-services/pull/5022)). These will be removed in a future release.
+    - Related proposal document: [FML: Imports and Includes](https://experimenter.info/fml-imports-and-includes).
+
+## Logins
+
+### What's Changed
+  - sqlcipher migrations no longer record metrics (#5017)
+
+## Glean
+### What's Changed
+  - Updated to Glean v50.1.2
+
+## UniFFI
+### What's Changed
+  - Updated to UniFFI 0.19.3
+
 # v93.5.0 (_2022-06-16_)
 
 [Full Changelog](https://github.com/mozilla/application-services/compare/v93.4.0...v93.5.0)
