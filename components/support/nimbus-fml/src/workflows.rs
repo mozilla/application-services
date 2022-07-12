@@ -9,6 +9,7 @@ use crate::{
     intermediate_representation::FeatureManifest,
     parser::{AboutBlock, Parser},
     util::loaders::{FileLoader, FilePath},
+    MATCHING_FML_EXTENSION,
 };
 use std::path::Path;
 
@@ -37,7 +38,7 @@ fn generate_struct_from_dir(files: &FileLoader, cmd: &GenerateStructCmd, dir: &P
         if p.is_dir() {
             generate_struct_from_dir(files, cmd, &p)?;
         } else if let Some(nm) = p.file_name().map(|s| s.to_str().unwrap_or_default()) {
-            if nm.ends_with(".fml.yaml") {
+            if nm.ends_with(MATCHING_FML_EXTENSION) {
                 let path = p.as_path().into();
                 generate_struct_single(files, path, cmd)?;
             }

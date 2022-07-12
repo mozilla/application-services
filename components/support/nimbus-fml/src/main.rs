@@ -30,7 +30,9 @@ use std::{
 };
 
 const RELEASE_CHANNEL: &str = "release";
-const SUPPORT_URL_LOADING: bool = false;
+const SUPPORT_URL_LOADING: bool = true;
+/// Use this when recursively looking for files.
+const MATCHING_FML_EXTENSION: &str = ".fml.yaml";
 
 fn main() -> Result<()> {
     let cmd = get_command_from_cli(&mut std::env::args_os(), &std::env::current_dir()?)?;
@@ -131,7 +133,8 @@ where
 
 fn create_generate_ir_command_from_cli(matches: &ArgMatches, cwd: &Path) -> Result<GenerateIRCmd> {
     let manifest = input_file(matches)?;
-    let load_from_ir = matches.is_present("ir");
+    let load_from_ir =
+        TargetLanguage::ExperimenterJSON == TargetLanguage::from_extension(&manifest)?;
     Ok(GenerateIRCmd {
         manifest,
         output: file_path("output", matches, cwd)?,

@@ -117,6 +117,8 @@ static USER_AGENT: &str = concat!(env!("CARGO_PKG_NAME"), "/", env!("CARGO_PKG_V
 /// By default a prefix of `@XXXX/YYYY`: resolves to the `main` branch `XXXX/YYYY` Github repo.
 ///
 /// The config is a map of repository names to paths, URLs or branches.
+///
+/// Config files can be loaded
 #[derive(Clone, Debug)]
 pub struct FileLoader {
     cache_dir: PathBuf,
@@ -286,6 +288,8 @@ impl FileLoader {
     /// We also want to be able to support a configurable short cut format.
     /// Following a pattern common in other package managers, `@XXXX/YYYY`
     /// is used as short hand for the main branch in github repos.
+    ///
+    /// If `f` is a relative path, the result is relative to `base`.
     pub fn join(&self, base: &FilePath, f: &str) -> Result<FilePath> {
         Ok(if let Some(u) = self.resolve_url_shortcut(f)? {
             u
@@ -294,6 +298,14 @@ impl FileLoader {
         })
     }
 
+    /// Make a new path.
+    ///
+    /// We want to be able to support local and remote files.
+    /// We also want to be able to support a configurable short cut format.
+    /// Following a pattern common in other package managers, `@XXXX/YYYY`
+    /// is used as short hand for the main branch in github repos.
+    ///
+    /// If `f` is a relative path, the result is relative to `self.cwd`.
     pub fn file_path(&self, f: &str) -> Result<FilePath> {
         Ok(if let Some(u) = self.resolve_url_shortcut(f)? {
             u
@@ -334,7 +346,7 @@ impl FileLoader {
 
 #[cfg(test)]
 mod unit_tests {
-    use crate::util::pkg_dir;
+    use crate::util::{build_dir, pkg_dir};
 
     use super::*;
 
@@ -386,8 +398,10 @@ mod unit_tests {
         // A source file asks for a destination file relative to it.
         let obs = files.join(&src_file, "a/file.txt")?;
         assert!(matches!(obs, FilePath::Local(_)));
-        assert!(obs.to_string().ends_with("/base/a/file.txt"));
-        assert_eq!(obs.to_string(), format!("{}base/a/file.txt", &cwd));
+        assert_eq!(
+            obs.to_string(),
+            format!("{}/base/a/file.txt", remove_trailing_slash(&cwd))
+        );
         Ok(())
     }
 
@@ -476,19 +490,25 @@ mod unit_tests {
 
         let obs = files.join(&src_file, "@repos/local/a/file.txt")?;
         assert!(matches!(obs, FilePath::Local(_)));
-        assert_eq!(obs.to_string(), format!("{}{}/a/file.txt", &cwd, rel_dir));
+        assert_eq!(
+            obs.to_string(),
+            format!("{}/{}/a/file.txt", remove_trailing_slash(&cwd), rel_dir)
+        );
 
         let obs = files.file_path("@repos/local/b/file.txt")?;
         assert!(matches!(obs, FilePath::Local(_)));
-        assert_eq!(obs.to_string(), format!("{}{}/b/file.txt", &cwd, rel_dir));
+        assert_eq!(
+            obs.to_string(),
+            format!("{}/{}/b/file.txt", remove_trailing_slash(&cwd), rel_dir)
+        );
 
         Ok(())
     }
 
     fn create_loader() -> Result<FileLoader, FMLError> {
-        let cache_dir = std::env::temp_dir();
+        let cache_dir = PathBuf::from(format!("{}/cache", build_dir()));
         let config = Default::default();
-        let cwd = cache_dir.clone();
+        let cwd = PathBuf::from(format!("{}/fixtures/", pkg_dir()));
         let loader = FileLoader::new(cwd, cache_dir, config)?;
         Ok(loader)
     }
@@ -544,5 +564,14 @@ mod unit_tests {
         assert_eq!("test-file/2".to_string(), tf2);
 
         Ok(())
+    }
+
+    fn remove_trailing_slash(cwd: &FilePath) -> String {
+        let s = cwd.to_string();
+        let mut chars = s.chars();
+        if s.ends_with('/') {
+            chars.next_back();
+        }
+        chars.as_str().to_string()
     }
 }
