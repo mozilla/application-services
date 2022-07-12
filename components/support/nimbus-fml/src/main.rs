@@ -175,8 +175,10 @@ fn create_generate_command_experimenter_from_cli(
 
 fn create_generate_command_from_cli(matches: &ArgMatches, cwd: &Path) -> Result<GenerateStructCmd> {
     let manifest = input_file(matches)?;
-    let load_from_ir =
-        TargetLanguage::ExperimenterJSON == TargetLanguage::from_extension(&manifest)?;
+    let load_from_ir = matches!(
+        TargetLanguage::from_extension(&manifest),
+        Ok(TargetLanguage::ExperimenterJSON)
+    );
     let output =
         file_path("output", matches, cwd).or_else(|_| file_path("OUTPUT", matches, cwd))?;
     let language = match matches.value_of("language") {
@@ -240,6 +242,8 @@ mod cli_tests {
 
     const FML_BIN: &str = "nimbus-fml";
     const TEST_FILE: &str = "fixtures/fe/importing/simple/app.yaml";
+    const TEST_DIR: &str = "fixtures/fe/importing/including-imports";
+    const GENERATED_DIR: &str = "build/cli-test";
     const CACHE_DIR: &str = "./build/cache";
     const REPO_FILE_1: &str = "./repos.versions.json";
     const REPO_FILE_2: &str = "./repos.local.json";
@@ -647,6 +651,35 @@ mod cli_tests {
             assert!(!cmd.load_from_ir);
             assert!(cmd.output.ends_with(".experimenter.json"));
             assert!(cmd.manifest.ends_with(TEST_FILE));
+        }
+        Ok(())
+    }
+
+    #[test]
+    fn test_cli_generate_features_for_directory_input() -> Result<()> {
+        let cwd = package_dir()?;
+        let cmd = get_command_from_cli(
+            [
+                FML_BIN,
+                "generate",
+                "--language",
+                "swift",
+                "--channel",
+                "release",
+                TEST_DIR,
+                GENERATED_DIR,
+            ],
+            &cwd,
+        )?;
+
+        assert!(matches!(cmd, CliCmd::Generate(_)));
+
+        if let CliCmd::Generate(cmd) = cmd {
+            assert_eq!(cmd.channel, "release");
+            assert_eq!(cmd.language, TargetLanguage::Swift);
+            assert!(!cmd.load_from_ir);
+            assert!(cmd.output.ends_with("build/cli-test"));
+            assert_eq!(&cmd.manifest, TEST_DIR);
         }
         Ok(())
     }

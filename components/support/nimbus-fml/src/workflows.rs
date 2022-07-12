@@ -21,10 +21,8 @@ pub(crate) fn generate_struct(cmd: &GenerateStructCmd) -> Result<()> {
 
     match (&input, &cmd.output.is_dir()) {
         (FilePath::Remote(_), _) => generate_struct_single(&files, input, cmd),
-        (FilePath::Local(p), _) if !p.is_dir() => generate_struct_single(&files, input, cmd),
-        (FilePath::Local(d), true) if d.is_dir() => {
-            generate_struct_from_dir(&files, cmd, &cmd.output)
-        }
+        (FilePath::Local(file), _) if !file.is_dir() => generate_struct_single(&files, input, cmd),
+        (FilePath::Local(dir), true) if dir.is_dir() => generate_struct_from_dir(&files, cmd, dir),
         _ => Err(FMLError::CliError(
             "Cannot generate a single output file from an input directory".to_string(),
         )),
