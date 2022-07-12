@@ -12,6 +12,7 @@ kind-dependencies:
 transforms:
   - app_services_taskgraph.transforms.deps_complete:transforms
   - taskgraph.transforms.job:transforms
+  - app_services_taskgraph.transforms.deps_complete:reverse_chunk
   - taskgraph.transforms.task:transforms
 
 jobs:
