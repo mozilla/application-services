@@ -23,46 +23,55 @@ pub struct ErrorHandling<E> {
 }
 
 impl<E> ErrorHandling<E> {
-    // Some helpers to cut the verbosity down.
-    /// Just convert the error without any special logging or error reporting.
-    pub fn passthrough(err: E) -> Self {
+    /// Create an ErrorHandling instance with an error conversion.
+    ///
+    /// ErrorHandling instance are created using a builder-style API.  This is always the first
+    /// function in the chain, optionally followed by `log()`, `report()`, etc.
+    pub fn convert(err: E) -> Self {
         Self {
             err,
             reporting: ErrorReporting::default(),
         }
     }
 
-    /// Just convert and log the error without any special error reporting.
-    pub fn log(err: E, level: log::Level) -> Self {
+    /// Add logging to an ErrorHandling instance
+    pub fn log(self, level: log::Level) -> Self {
         Self {
-            err,
+            err: self.err,
             reporting: ErrorReporting {
                 log_level: Some(level),
-                ..Default::default()
+                ..self.reporting
             },
         }
     }
 
-    /// Convert, report and log the error.
-    pub fn report(err: E, level: log::Level, report_class: String) -> Self {
+    /// Add reporting to an ErrorHandling instance
+    pub fn report(self, report_class: impl Into<String>) -> Self {
         Self {
-            err,
+            err: self.err,
             reporting: ErrorReporting {
-                log_level: Some(level),
-                report_class: Some(report_class),
+                report_class: Some(report_class.into()),
+                ..self.reporting
             },
         }
     }
 
-    /// Convert, report and log the error in a way suitable for "unexpected" errors.
-    // (With more generics we might be able to abstract away the creation of `err`,
-    // but that will have a significant complexity cost for only marginal value)
-    pub fn unexpected(err: E, report_class: Option<&str>) -> Self {
-        Self::report(
-            err,
-            log::Level::Error,
-            report_class.unwrap_or("unexpected").to_string(),
-        )
+    // Convenience functions for the most common error reports
+
+    /// Add reporting to an ErrorHandling instance and also log an Error
+    pub fn log_warning(self) -> Self {
+        self.log(log::Level::Warn)
+    }
+
+    /// Add reporting to an ErrorHandling instance and also log an Error
+    pub fn report_error(self, report_class: impl Into<String>) -> Self {
+        Self {
+            err: self.err,
+            reporting: ErrorReporting {
+                log_level: Some(log::Level::Error),
+                report_class: Some(report_class.into()),
+            },
+        }
     }
 }
 
