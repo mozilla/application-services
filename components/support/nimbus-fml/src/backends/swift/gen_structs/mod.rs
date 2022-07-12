@@ -83,6 +83,11 @@ impl<'a> FeatureManifestDeclaration<'a> {
         let oracle = &self.oracle;
         // Filter out our own module.
         let my_module = &self.fm.about.nimbus_module_name();
+        // Get the app-services module from an environment variable.
+        // If it doesn't exist, then we don't add it.
+        let as_module = std::env::var("MOZ_APPSERVICES_MODULE")
+            .map(|s| vec![s])
+            .unwrap_or_else(|_| vec![]);
         let mut imports: Vec<String> = self
             .members()
             .into_iter()
@@ -95,6 +100,7 @@ impl<'a> FeatureManifestDeclaration<'a> {
                     .filter_map(|type_| self.oracle.find(&type_).imports(oracle))
                     .flatten(),
             )
+            .chain(as_module)
             .filter(|i| i != my_module)
             .collect::<HashSet<String>>()
             .into_iter()
