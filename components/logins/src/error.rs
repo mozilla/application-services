@@ -139,52 +139,50 @@ impl GetErrorHandling for LoginsError {
         // forwarding that error message into ours without attempting to sanitize.
         match self {
             Self::InvalidLogin(why) => {
-                ErrorHandling::passthrough(LoginsStorageError::InvalidRecord(why.to_string()))
+                ErrorHandling::convert(LoginsStorageError::InvalidRecord(why.to_string()))
             }
             // Our internal "no such record" error is converted to our public "no such record" error, with no logging and no error reporting.
             Self::NoSuchRecord(guid) => {
-                ErrorHandling::passthrough(LoginsStorageError::NoSuchRecord(guid.to_string()))
+                ErrorHandling::convert(LoginsStorageError::NoSuchRecord(guid.to_string()))
             }
             // NonEmptyTable error is just a sanity check to ensure we aren't asked to migrate into an
             // existing DB - consumers should never actually do this, and will never expect to handle this as a specific
             // error - so it gets reported to the error reporter and converted to an "internal" error.
-            Self::NonEmptyTable => ErrorHandling::unexpected(
-                LoginsStorageError::UnexpectedLoginsStorageError(
+            Self::NonEmptyTable => {
+                ErrorHandling::convert(LoginsStorageError::UnexpectedLoginsStorageError(
                     "must be an empty DB to migrate".to_string(),
-                ),
-                Some("migration"),
-            ),
+                ))
+                .report_error("logins:migration")
+            }
             Self::CryptoError(_) => {
-                ErrorHandling::log(LoginsStorageError::IncorrectKey, log::Level::Warn)
+                ErrorHandling::convert(LoginsStorageError::IncorrectKey).log_warning()
             }
             Self::Interrupted(_) => {
-                ErrorHandling::passthrough(LoginsStorageError::Interrupted(self.to_string()))
+                ErrorHandling::convert(LoginsStorageError::Interrupted(self.to_string()))
             }
             Self::SyncAdapterError(e) => match e.kind() {
                 Sync15ErrorKind::TokenserverHttpError(401) | Sync15ErrorKind::BadKeyLength(..) => {
-                    ErrorHandling::log(
-                        LoginsStorageError::SyncAuthInvalid(e.to_string()),
-                        log::Level::Warn,
-                    )
+                    ErrorHandling::convert(LoginsStorageError::SyncAuthInvalid(e.to_string()))
+                        .log_warning()
                 }
-                Sync15ErrorKind::RequestError(_) => ErrorHandling::log(
-                    LoginsStorageError::RequestFailed(e.to_string()),
-                    log::Level::Warn,
-                ),
-                _ => ErrorHandling::unexpected(
-                    LoginsStorageError::UnexpectedLoginsStorageError(self.to_string()),
-                    Some("sync"),
-                ),
+                Sync15ErrorKind::RequestError(_) => {
+                    ErrorHandling::convert(LoginsStorageError::RequestFailed(e.to_string()))
+                        .log_warning()
+                }
+                _ => ErrorHandling::convert(LoginsStorageError::UnexpectedLoginsStorageError(
+                    self.to_string(),
+                ))
+                .report_error("logins:sync"),
             },
             // This list is partial - not clear if a best-practice should be to ask that every
             // internal error is listed here (and remove this default branch) to ensure every error
             // is considered, or whether this default is fine for obscure errors?
             // But it's fine for now because errors were always converted with a default
             // branch to "unexpected"
-            _ => ErrorHandling::unexpected(
-                LoginsStorageError::UnexpectedLoginsStorageError(self.to_string()),
-                None,
-            ),
+            _ => ErrorHandling::convert(LoginsStorageError::UnexpectedLoginsStorageError(
+                self.to_string(),
+            ))
+            .report_error("logins:unexpected"),
         }
     }
 }
