@@ -14,16 +14,19 @@ Use the template below to make assigning a version number during the release cut
   - Description of the change with a link to the pull request ([#0000](https://github.com/mozilla/application-services/pull/0000))
 ### What's Changed
   - Description of the change with a link to the pull request ([#0000](https://github.com/mozilla/application-services/pull/0000))
-### What's New
+### ✨ What's New ✨
   - Description of the change with a link to the pull request ([#0000](https://github.com/mozilla/application-services/pull/0000))
 
 -->
 
+## Nimbus FML ⛅️🔬🔭🔧
 ### What's Changed
   - Added `MOZ_APPSERVICES_MODULE` environment variable to specify the megazord module for iOS ([#5042](https://github.com/mozilla/application-services/pull/5042)). If it is missing, no module is imported.
+### ✨ What's New ✨
+  - Enabled remote loading and using configuring of branches. ([#5041](https://github.com/mozilla/application-services/pull/5041))
 
 ## Logins
-
+### What's Changed
   - Updated the `LoginsStorageError` implementation and introduce error reporting for unexpected errors.
     Note that some errors were removed, which is technically a breaking change, but none of our
     consumers use those errors so it's not a breaking change in practice.
