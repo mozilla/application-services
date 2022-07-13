@@ -125,7 +125,6 @@ then
 fi
 
 fml_dir="$fixtures/fe/importing/cli-test"
-echo
 
 if ! cargo run -- generate \
 	--channel release \
@@ -135,6 +134,17 @@ if ! cargo run -- generate \
     2> /dev/null ;
 then
 	fail "New style 'generate' with directory and language = swift"
+fi
+
+fml_dir="$fixtures/fe/importing/including-imports"
+if ! cargo run -- generate \
+	--channel release \
+	--language kotlin \
+	"$fml_dir" \
+	"$build_dir" \
+    2> /dev/null ;
+then
+	fail "New style 'generate' with glob and language = kotlin, and single channel files allowed"
 fi
 
 popd >/dev/null || exit 0

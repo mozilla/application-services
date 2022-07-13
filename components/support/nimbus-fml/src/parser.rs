@@ -804,6 +804,15 @@ impl Parser {
         // all the `includes` for this manifest.
         let frontend = self.load_manifest(current, &mut HashSet::new())?;
 
+        // Aside: tiny quality of life improvement. In the case where only one channel is supported,
+        // we use it. This helps with globbing directories where the app wants to keep the feature definition
+        // away from the feature configuration.
+        let channel = if frontend.channels.len() == 1 {
+            frontend.channels.first().unwrap()
+        } else {
+            channel
+        };
+
         let mut manifest = frontend.get_intermediate_representation(&id, channel)?;
 
         // We're now going to go through all the imports in the manifest YAML.
