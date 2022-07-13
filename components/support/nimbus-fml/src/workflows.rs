@@ -2,6 +2,8 @@
 * License, v. 2.0. If a copy of the MPL was not distributed with this
 * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
+use glob::MatchOptions;
+
 use crate::{
     backends,
     commands::{GenerateExperimenterManifestCmd, GenerateIRCmd, GenerateStructCmd, TargetLanguage},
@@ -17,30 +19,42 @@ use std::path::Path;
 pub(crate) fn generate_struct(cmd: &GenerateStructCmd) -> Result<()> {
     let files: FileLoader = TryFrom::try_from(&cmd.loader)?;
 
-    let input = files.file_path(&cmd.manifest)?;
+    let filename = &cmd.manifest;
+    let input = files.file_path(filename)?;
 
     match (&input, &cmd.output.is_dir()) {
         (FilePath::Remote(_), _) => generate_struct_single(&files, input, cmd),
-        (FilePath::Local(file), _) if !file.is_dir() => generate_struct_single(&files, input, cmd),
+        (FilePath::Local(file), _) if file.is_file() => generate_struct_single(&files, input, cmd),
         (FilePath::Local(dir), true) if dir.is_dir() => generate_struct_from_dir(&files, cmd, dir),
+        (_, true) => generate_struct_from_glob(&files, cmd, filename),
         _ => Err(FMLError::CliError(
             "Cannot generate a single output file from an input directory".to_string(),
         )),
     }
 }
 
-fn generate_struct_from_dir(files: &FileLoader, cmd: &GenerateStructCmd, dir: &Path) -> Result<()> {
-    let entries = dir.read_dir()?;
-    for entry in entries {
-        let p = entry?.path();
-        if p.is_dir() {
-            generate_struct_from_dir(files, cmd, &p)?;
-        } else if let Some(nm) = p.file_name().map(|s| s.to_str().unwrap_or_default()) {
+fn generate_struct_from_dir(files: &FileLoader, cmd: &GenerateStructCmd, cwd: &Path) -> Result<()> {
+    let entries = cwd.read_dir()?;
+    for entry in entries.filter_map(Result::ok) {
+        let pb = entry.path();
+        if pb.is_dir() {
+            generate_struct_from_dir(files, cmd, &pb)?;
+        } else if let Some(nm) = pb.file_name().map(|s| s.to_str().unwrap_or_default()) {
             if nm.ends_with(MATCHING_FML_EXTENSION) {
-                let path = p.as_path().into();
+                let path = pb.as_path().into();
                 generate_struct_single(files, path, cmd)?;
             }
         }
+    }
+    Ok(())
+}
+
+fn generate_struct_from_glob(files: &FileLoader, cmd: &GenerateStructCmd, pattern: &str) -> Result<()> {
+    use glob::glob_with;
+    let entries = glob_with(pattern, MatchOptions::new()).unwrap();
+    for entry in entries.filter_map(Result::ok) {
+        let path = entry.as_path().into();
+        generate_struct_single(files, path, cmd)?;
     }
     Ok(())
 }
