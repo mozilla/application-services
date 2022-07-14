@@ -53,7 +53,7 @@ impl Default for LoaderConfig {
         Self {
             repo_files: Default::default(),
             cache_dir: std::env::temp_dir(),
-            cwd: std::env::current_dir().expect("CWD is not set"),
+            cwd: std::env::current_dir().expect("Current Working Directory is not set"),
         }
     }
 }

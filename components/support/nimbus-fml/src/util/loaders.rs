@@ -182,11 +182,22 @@ impl FileLoader {
         let cache_path = cwd.join("build/app/fml-cache");
         Self::new(
             cache_path,
-            std::env::current_dir().expect("CWD not set"),
+            std::env::current_dir().expect("Current Working Directory not set"),
             Default::default(),
         )
     }
 
+    /// Load a file containing mapping of repo names to `FilePath`s.
+    /// Repo files can be JSON or YAML in format.
+    /// Files are simple key value pair mappings of `repo_id` to repository locations,
+    /// where:
+    ///
+    /// - a repo id is of the format used on Github: `$ORGANIZATION/$PROJECT`, and
+    /// - location can be
+    ///     - a path to a directory on disk, or
+    ///     - a ref/branch/tag/commit hash in the repo stored on Github.
+    ///
+    /// Relative paths to on disk directories will be taken as relative to this file.
     pub fn add_repo_file(&mut self, file: &FilePath) -> Result<()> {
         let string = self.read_to_string(file)?;
 
@@ -203,20 +214,46 @@ impl FileLoader {
         Ok(())
     }
 
-    fn add_repo(&mut self, cwd: &FilePath, k: String, v: String) -> Result<(), FMLError> {
-        let k = k.replacen('@', "", 1);
-        let v = if v.ends_with('/') {
-            v
+    /// Add a repo and version/tag/ref/location.
+    /// `repo_id` is the github `$ORGANIZATION/$PROJECT` string, e.g. `mozilla/application-services`.
+    /// The `loc` string can be a:
+    /// 1. A branch, commit hash or release tag on a remote repository, hosted on Github
+    /// 2. A URL
+    /// 3. A relative path (to the current working directory) to a directory on the local disk.
+    /// 4. An absolute path to a directory on the local disk.
+    fn add_repo(&mut self, cwd: &FilePath, repo_id: String, loc: String) -> Result<()> {
+        // We're building up a mapping of repo_ids to `FilePath`s; recall: `FilePath` is an enum that is an
+        // absolute path or URL.
+
+        // Standardize the form of repo id. We accept `@user/repo` or `user/repo`, but store it as
+        // `user/repo`.
+        let repo_id = repo_id.replacen('@', "", 1);
+
+        // The `loc`, whatever the current working directory, is going to end up as a part of a path.
+        // A trailing slash ensures it gets treated like a directoy, rather than a file.
+        // See Url::join.
+        let loc = if loc.ends_with('/') {
+            loc
         } else {
-            format!("{}/", v)
+            format!("{}/", loc)
         };
-        let v =
-            if v.starts_with('.') || v.starts_with('/') || v.contains(":\\") || v.contains("://") {
-                cwd.join(&v)?
-            } else {
-                self.remote_file_path(&k, &v)?
-            };
-        self.config.insert(k, v);
+
+        // We construct the FilePath. We want to be able to tell the difference between a what `FilePath`s
+        // can already reason about (relative file paths, absolute file paths and URLs) and what git knows about (refs, tags, versions).
+        let v = if loc.starts_with('.')
+            || loc.starts_with('/')
+            || loc.contains(":\\")
+            || loc.contains("://")
+        {
+            // URLs, relative file paths, absolute paths.
+            cwd.join(&loc)?
+        } else {
+            // refs, commmit hashes, tags, branches.
+            self.remote_file_path(&repo_id, &loc)?
+        };
+
+        // Finally, add the absolute path that we use every time the user refers to @user/repo.
+        self.config.insert(repo_id, v);
         Ok(())
     }
 
@@ -314,6 +351,10 @@ impl FileLoader {
         })
     }
 
+    /// Checks that the given string has a @organization/repo/ prefix.
+    /// If it does, then use that as a `repo_id` to look up the `FilePath` prefix
+    /// if it exists in the `config`, and use the `main` branch of the github repo if it
+    /// doesn't exist.
     fn resolve_url_shortcut(&self, f: &str) -> Result<Option<FilePath>> {
         if f.starts_with('@') {
             let f = f.replacen('@', "", 1);

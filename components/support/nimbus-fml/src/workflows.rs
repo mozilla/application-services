@@ -49,7 +49,11 @@ fn generate_struct_from_dir(files: &FileLoader, cmd: &GenerateStructCmd, cwd: &P
     Ok(())
 }
 
-fn generate_struct_from_glob(files: &FileLoader, cmd: &GenerateStructCmd, pattern: &str) -> Result<()> {
+fn generate_struct_from_glob(
+    files: &FileLoader,
+    cmd: &GenerateStructCmd,
+    pattern: &str,
+) -> Result<()> {
     use glob::glob_with;
     let entries = glob_with(pattern, MatchOptions::new()).unwrap();
     for entry in entries.filter_map(Result::ok) {
