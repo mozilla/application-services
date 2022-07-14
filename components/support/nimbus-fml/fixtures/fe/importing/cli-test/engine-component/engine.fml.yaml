@@ -1,0 +1,14 @@
+---
+channels:
+  - debug
+  - release
+about:
+  description: This has a number of features to do with the engine
+  ios:
+    class: EngineConfig
+    module: Engine
+  android:
+    class: .nimbus.EngineConfig
+    package: com.example.app
+features: {}
+objects: {}

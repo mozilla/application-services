@@ -124,4 +124,27 @@ then
 	fail "New style 'generate-experimenter' with implied language = json"
 fi
 
+fml_dir="$fixtures/fe/importing/cli-test"
+
+if ! cargo run -- generate \
+	--channel release \
+	--language swift \
+	"$fml_dir" \
+	"$build_dir" \
+    2> /dev/null ;
+then
+	fail "New style 'generate' with directory and language = swift"
+fi
+
+fml_dir="$fixtures/fe/importing/including-imports"
+if ! cargo run -- generate \
+	--channel release \
+	--language kotlin \
+	"$fml_dir" \
+	"$build_dir" \
+    2> /dev/null ;
+then
+	fail "New style 'generate' with glob and language = kotlin, and single channel files allowed"
+fi
+
 popd >/dev/null || exit 0

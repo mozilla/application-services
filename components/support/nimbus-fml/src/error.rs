@@ -38,6 +38,9 @@ pub enum FMLError {
 
     #[error("Problem with {0}: {1}")]
     FMLModuleError(ModuleId, String),
+
+    #[error("{0}")]
+    CliError(String),
 }
 
 pub type Result<T, E = FMLError> = std::result::Result<T, E>;

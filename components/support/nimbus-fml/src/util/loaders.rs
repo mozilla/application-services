@@ -2,6 +2,7 @@
 * License, v. 2.0. If a copy of the MPL was not distributed with this
 * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 use crate::{
+    commands::LoaderConfig,
     error::{FMLError, Result},
     SUPPORT_URL_LOADING,
 };
@@ -19,13 +20,21 @@ use url::Url;
 pub(crate) const GITHUB_USER_CONTENT_DOTCOM: &str = "https://raw.githubusercontent.com";
 
 /// A small enum for working with URLs and relative files
-#[derive(Debug)]
+#[derive(Clone, Debug)]
 pub enum FilePath {
     Local(PathBuf),
     Remote(Url),
 }
 
 impl FilePath {
+    pub fn new(cwd: &Path, file: &str) -> Result<Self> {
+        Ok(if file.contains("://") {
+            FilePath::Remote(Url::parse(file)?)
+        } else {
+            FilePath::Local(cwd.join(file))
+        })
+    }
+
     /// Appends a suffix to a path.
     /// If the `self` is a local file and the suffix is an absolute URL,
     /// then the return is the URL.
@@ -35,9 +44,16 @@ impl FilePath {
         }
         Ok(match self {
             Self::Local(p) => Self::Local(
-                p.parent()
-                    .expect("a file within a parent directory")
-                    .join(file),
+                // We implement a join similar to Url::join.
+                // If the root is a directory, we append;
+                // if not we take the parent, then append.
+                if is_dir(p) {
+                    p.join(file)
+                } else {
+                    p.parent()
+                        .expect("a file within a parent directory")
+                        .join(file)
+                },
             ),
             Self::Remote(u) => Self::Remote(u.join(file)?),
         })
@@ -74,6 +90,16 @@ impl From<&Path> for FilePath {
     }
 }
 
+#[cfg(not(test))]
+fn is_dir(path_buf: &Path) -> bool {
+    path_buf.is_dir()
+}
+
+#[cfg(test)]
+fn is_dir(path_buf: &Path) -> bool {
+    path_buf.display().to_string().ends_with('/')
+}
+
 static USER_AGENT: &str = concat!(env!("CARGO_PKG_NAME"), "/", env!("CARGO_PKG_VERSION"),);
 
 /// Utility class to abstract away the differences between loading from file and network.
@@ -91,25 +117,49 @@ static USER_AGENT: &str = concat!(env!("CARGO_PKG_NAME"), "/", env!("CARGO_PKG_V
 /// By default a prefix of `@XXXX/YYYY`: resolves to the `main` branch `XXXX/YYYY` Github repo.
 ///
 /// The config is a map of repository names to paths, URLs or branches.
-#[derive(Debug)]
+///
+/// Config files can be loaded
+#[derive(Clone, Debug)]
 pub struct FileLoader {
     cache_dir: PathBuf,
     fetch_client: Client,
 
-    config: BTreeMap<String, String>,
+    config: BTreeMap<String, FilePath>,
+
+    // This is used for resolving relative paths when no other path
+    // information is available.
+    cwd: PathBuf,
+}
+
+impl TryFrom<&LoaderConfig> for FileLoader {
+    type Error = FMLError;
+
+    fn try_from(value: &LoaderConfig) -> Result<Self, Self::Error> {
+        let cache_dir = value.cache_dir.clone();
+        let cwd = value.cwd.clone();
+
+        let mut files = Self::new(cwd, cache_dir, Default::default())?;
+
+        for f in &value.repo_files {
+            let path = files.file_path(f)?;
+            files.add_repo_file(&path)?;
+        }
+
+        Ok(files)
+    }
 }
 
 impl FileLoader {
-    pub fn new(cache_dir: PathBuf, config: BTreeMap<String, String>) -> Result<Self> {
-        if cache_dir.exists() {
-            if !cache_dir.is_dir() {
-                return Err(FMLError::InvalidPath(format!(
-                    "Cache directory exists and is not a directory: {:?}",
-                    cache_dir
-                )));
-            }
-        } else {
-            std::fs::create_dir_all(cache_dir.as_path())?;
+    pub fn new(
+        cwd: PathBuf,
+        cache_dir: PathBuf,
+        config: BTreeMap<String, FilePath>,
+    ) -> Result<Self> {
+        if cache_dir.exists() && !cache_dir.is_dir() {
+            return Err(FMLError::InvalidPath(format!(
+                "Cache directory exists and is not a directory: {:?}",
+                cache_dir
+            )));
         }
 
         let http_client = ClientBuilder::new()
@@ -120,15 +170,101 @@ impl FileLoader {
         Ok(Self {
             cache_dir,
             fetch_client: http_client,
+            cwd,
 
             config,
         })
     }
 
+    #[cfg(test)]
     pub fn default() -> Result<Self> {
         let cwd = std::env::current_dir()?;
         let cache_path = cwd.join("build/app/fml-cache");
-        Self::new(cache_path, Default::default())
+        Self::new(
+            cache_path,
+            std::env::current_dir().expect("Current Working Directory not set"),
+            Default::default(),
+        )
+    }
+
+    /// Load a file containing mapping of repo names to `FilePath`s.
+    /// Repo files can be JSON or YAML in format.
+    /// Files are simple key value pair mappings of `repo_id` to repository locations,
+    /// where:
+    ///
+    /// - a repo id is of the format used on Github: `$ORGANIZATION/$PROJECT`, and
+    /// - location can be
+    ///     - a path to a directory on disk, or
+    ///     - a ref/branch/tag/commit hash in the repo stored on Github.
+    ///
+    /// Relative paths to on disk directories will be taken as relative to this file.
+    pub fn add_repo_file(&mut self, file: &FilePath) -> Result<()> {
+        let string = self.read_to_string(file)?;
+
+        let config: BTreeMap<String, String> = if file.to_string().ends_with(".json") {
+            serde_json::from_str(&string)?
+        } else {
+            serde_yaml::from_str(&string)?
+        };
+
+        for (k, v) in config {
+            self.add_repo(file, k, v)?;
+        }
+
+        Ok(())
+    }
+
+    /// Add a repo and version/tag/ref/location.
+    /// `repo_id` is the github `$ORGANIZATION/$PROJECT` string, e.g. `mozilla/application-services`.
+    /// The `loc` string can be a:
+    /// 1. A branch, commit hash or release tag on a remote repository, hosted on Github
+    /// 2. A URL
+    /// 3. A relative path (to the current working directory) to a directory on the local disk.
+    /// 4. An absolute path to a directory on the local disk.
+    fn add_repo(&mut self, cwd: &FilePath, repo_id: String, loc: String) -> Result<()> {
+        // We're building up a mapping of repo_ids to `FilePath`s; recall: `FilePath` is an enum that is an
+        // absolute path or URL.
+
+        // Standardize the form of repo id. We accept `@user/repo` or `user/repo`, but store it as
+        // `user/repo`.
+        let repo_id = repo_id.replacen('@', "", 1);
+
+        // The `loc`, whatever the current working directory, is going to end up as a part of a path.
+        // A trailing slash ensures it gets treated like a directoy, rather than a file.
+        // See Url::join.
+        let loc = if loc.ends_with('/') {
+            loc
+        } else {
+            format!("{}/", loc)
+        };
+
+        // We construct the FilePath. We want to be able to tell the difference between a what `FilePath`s
+        // can already reason about (relative file paths, absolute file paths and URLs) and what git knows about (refs, tags, versions).
+        let v = if loc.starts_with('.')
+            || loc.starts_with('/')
+            || loc.contains(":\\")
+            || loc.contains("://")
+        {
+            // URLs, relative file paths, absolute paths.
+            cwd.join(&loc)?
+        } else {
+            // refs, commmit hashes, tags, branches.
+            self.remote_file_path(&repo_id, &loc)?
+        };
+
+        // Finally, add the absolute path that we use every time the user refers to @user/repo.
+        self.config.insert(repo_id, v);
+        Ok(())
+    }
+
+    fn remote_file_path(&self, repo: &str, branch_or_tag: &str) -> Result<FilePath, FMLError> {
+        let base_url = format!("{}/{}/{}", GITHUB_USER_CONTENT_DOTCOM, repo, branch_or_tag);
+        Ok(FilePath::Remote(Url::parse(&base_url)?))
+    }
+
+    fn default_remote_path(&self, key: String) -> FilePath {
+        self.remote_file_path(&key, "main/")
+            .expect("main branch never fails")
     }
 
     /// This loads a text file from disk or the network.
@@ -155,6 +291,11 @@ impl FileLoader {
             let res = self.fetch_client.get(url.clone()).send()?;
             let text = res.text()?;
 
+            let parent = path_buf.parent().expect("Cache directory is specified");
+            if !parent.exists() {
+                std::fs::create_dir_all(parent)?;
+            }
+
             std::fs::write(path_buf, &text)?;
             text
         })
@@ -174,6 +315,7 @@ impl FileLoader {
         // Take the last 16 bytes of the hash to make sure our prefixes are still random, but
         // not crazily long.
         let filename = format!("{:x}_{}", (checksum & 0x000000000000FFFF) as u16, filename,);
+
         self.cache_dir.join(filename)
     }
 
@@ -183,15 +325,49 @@ impl FileLoader {
     /// We also want to be able to support a configurable short cut format.
     /// Following a pattern common in other package managers, `@XXXX/YYYY`
     /// is used as short hand for the main branch in github repos.
+    ///
+    /// If `f` is a relative path, the result is relative to `base`.
     pub fn join(&self, base: &FilePath, f: &str) -> Result<FilePath> {
+        Ok(if let Some(u) = self.resolve_url_shortcut(f)? {
+            u
+        } else {
+            base.join(f)?
+        })
+    }
+
+    /// Make a new path.
+    ///
+    /// We want to be able to support local and remote files.
+    /// We also want to be able to support a configurable short cut format.
+    /// Following a pattern common in other package managers, `@XXXX/YYYY`
+    /// is used as short hand for the main branch in github repos.
+    ///
+    /// If `f` is a relative path, the result is relative to `self.cwd`.
+    pub fn file_path(&self, f: &str) -> Result<FilePath> {
+        Ok(if let Some(u) = self.resolve_url_shortcut(f)? {
+            u
+        } else {
+            FilePath::new(&self.cwd, f)?
+        })
+    }
+
+    /// Checks that the given string has a @organization/repo/ prefix.
+    /// If it does, then use that as a `repo_id` to look up the `FilePath` prefix
+    /// if it exists in the `config`, and use the `main` branch of the github repo if it
+    /// doesn't exist.
+    fn resolve_url_shortcut(&self, f: &str) -> Result<Option<FilePath>> {
         if f.starts_with('@') {
             let f = f.replacen('@', "", 1);
             let parts = f.splitn(3, '/').collect::<Vec<&str>>();
             match parts.as_slice() {
                 [user, repo, path] => {
-                    let repo = self.lookup_repo_path(user, repo);
-                    let f = format!("{}/{}", repo, path);
-                    base.join(&f)
+                    let key = format!("{}/{}", user, repo);
+                    Ok(if let Some(repo) = self.lookup_repo_path(user, repo) {
+                        Some(repo.join(path)?)
+                    } else {
+                        let repo = self.default_remote_path(key);
+                        Some(repo.join(path)?)
+                    })
                 }
                 _ => Err(FMLError::InvalidPath(format!(
                     "'{}' needs to include a username, a repo and a filepath",
@@ -199,32 +375,20 @@ impl FileLoader {
                 ))),
             }
         } else {
-            base.join(f)
+            Ok(None)
         }
     }
 
-    fn lookup_repo_path(&self, user: &str, repo: &str) -> String {
-        let default = "main".to_string();
-
-        let value = self
-            .config
-            .get(&format!("{}/{}", user, repo))
-            .or_else(|| self.config.get(&format!("@{}/{}", user, repo)))
-            .unwrap_or(&default);
-
-        if value.contains("://") || value.starts_with('.') {
-            // It's a URL, or a relative path!
-            value.clone()
-        } else {
-            // It's a branch.
-            let branch = value;
-            [GITHUB_USER_CONTENT_DOTCOM, user, repo, branch].join("/")
-        }
+    fn lookup_repo_path(&self, user: &str, repo: &str) -> Option<&FilePath> {
+        let key = format!("{}/{}", user, repo);
+        self.config.get(&key)
     }
 }
 
 #[cfg(test)]
 mod unit_tests {
+    use crate::util::{build_dir, pkg_dir};
+
     use super::*;
 
     #[test]
@@ -267,53 +431,188 @@ mod unit_tests {
     }
 
     #[test]
-    fn test_at_shorthand_with_config() -> Result<()> {
-        let tmp = std::env::temp_dir();
+    fn test_at_shorthand_with_no_at() -> Result<()> {
+        let files = create_loader()?;
+        let cwd = FilePath::Local(files.cwd.clone());
+        let src_file = cwd.join("base/old.txt")?;
 
-        let fp = tmp.join("base/old.txt");
-        let fp = FilePath::from(fp.as_path());
-
-        let mut config = BTreeMap::new();
-        config.insert(
-            "@repos/url".to_string(),
-            "https://example.com/remote/directory/path".to_string(),
-        );
-        config.insert("@repos/branch".to_string(), "develop".to_string());
-        config.insert("@repos/local".to_string(), "../directory/path".to_string());
-
-        let loader = FileLoader::new(tmp, config)?;
-
-        let obs = loader.join(&fp, "a/file.txt")?;
+        // A source file asks for a destination file relative to it.
+        let obs = files.join(&src_file, "a/file.txt")?;
         assert!(matches!(obs, FilePath::Local(_)));
-        assert!(obs.to_string().ends_with("base/a/file.txt"));
+        assert_eq!(
+            obs.to_string(),
+            format!("{}/base/a/file.txt", remove_trailing_slash(&cwd))
+        );
+        Ok(())
+    }
 
-        let obs = loader.join(&fp, "@mozilla/application-services/a/file.txt")?;
+    #[test]
+    fn test_at_shorthand_default_branch() -> Result<()> {
+        let files = create_loader()?;
+        let cwd = FilePath::Local(files.cwd.clone());
+        let src_file = cwd.join("base/old.txt")?;
+
+        // A source file asks for a file in another repo. We haven't any specific configuration
+        // for this repo, so we default to the `main` branch.
+        let obs = files.join(&src_file, "@repo/unspecified/a/file.txt")?;
         assert!(matches!(obs, FilePath::Remote(_)));
         assert_eq!(
             obs.to_string(),
-            "https://raw.githubusercontent.com/mozilla/application-services/main/a/file.txt"
+            "https://raw.githubusercontent.com/repo/unspecified/main/a/file.txt"
         );
+        Ok(())
+    }
 
-        let obs = loader.join(&fp, "@repos/url/a/file.txt")?;
+    #[test]
+    fn test_at_shorthand_absolute_url() -> Result<()> {
+        let mut files = create_loader()?;
+        let cwd = FilePath::Local(files.cwd.clone());
+        let src_file = cwd.join("base/old.txt")?;
+
+        // A source file asks for a file in another repo. The loader uses an absolute
+        // URL as the base URL.
+        files.add_repo(
+            &cwd,
+            "@repos/url".to_string(),
+            "https://example.com/remote/directory/path".to_string(),
+        )?;
+
+        let obs = files.join(&src_file, "@repos/url/a/file.txt")?;
         assert!(matches!(obs, FilePath::Remote(_)));
         assert_eq!(
             obs.to_string(),
             "https://example.com/remote/directory/path/a/file.txt"
         );
 
-        let obs = loader.join(&fp, "@repos/branch/a/file.txt")?;
+        let obs = files.file_path("@repos/url/b/file.txt")?;
+        assert!(matches!(obs, FilePath::Remote(_)));
+        assert_eq!(
+            obs.to_string(),
+            "https://example.com/remote/directory/path/b/file.txt"
+        );
+        Ok(())
+    }
+
+    #[test]
+    fn test_at_shorthand_specified_branch() -> Result<()> {
+        let mut files = create_loader()?;
+        let cwd = FilePath::Local(files.cwd.clone());
+        let src_file = cwd.join("base/old.txt")?;
+
+        // A source file asks for a file in another repo. The loader uses the branch/tag/ref
+        // specified.
+        files.add_repo(&cwd, "@repos/branch".to_string(), "develop".to_string())?;
+        let obs = files.join(&src_file, "@repos/branch/a/file.txt")?;
         assert!(matches!(obs, FilePath::Remote(_)));
         assert_eq!(
             obs.to_string(),
             "https://raw.githubusercontent.com/repos/branch/develop/a/file.txt"
         );
 
-        let obs = loader.join(&fp, "@repos/local/a/file.txt")?;
+        let obs = files.file_path("@repos/branch/b/file.txt")?;
+        assert!(matches!(obs, FilePath::Remote(_)));
+        assert_eq!(
+            obs.to_string(),
+            "https://raw.githubusercontent.com/repos/branch/develop/b/file.txt"
+        );
+        Ok(())
+    }
+
+    #[test]
+    fn test_at_shorthand_local_development() -> Result<()> {
+        let mut files = create_loader()?;
+        let cwd = FilePath::Local(files.cwd.clone());
+        let src_file = cwd.join("base/old.txt")?;
+
+        // A source file asks for a file in another repo. The loader is configured to
+        // give a file in a directory on the local filesystem.
+        let rel_dir = "../directory/path";
+        files.add_repo(&cwd, "@repos/local".to_string(), rel_dir.to_string())?;
+
+        let obs = files.join(&src_file, "@repos/local/a/file.txt")?;
         assert!(matches!(obs, FilePath::Local(_)));
-        assert!(obs
-            .to_string()
-            .ends_with("base/../directory/path/a/file.txt"));
+        assert_eq!(
+            obs.to_string(),
+            format!("{}/{}/a/file.txt", remove_trailing_slash(&cwd), rel_dir)
+        );
+
+        let obs = files.file_path("@repos/local/b/file.txt")?;
+        assert!(matches!(obs, FilePath::Local(_)));
+        assert_eq!(
+            obs.to_string(),
+            format!("{}/{}/b/file.txt", remove_trailing_slash(&cwd), rel_dir)
+        );
 
         Ok(())
+    }
+
+    fn create_loader() -> Result<FileLoader, FMLError> {
+        let cache_dir = PathBuf::from(format!("{}/cache", build_dir()));
+        let config = Default::default();
+        let cwd = PathBuf::from(format!("{}/fixtures/", pkg_dir()));
+        let loader = FileLoader::new(cwd, cache_dir, config)?;
+        Ok(loader)
+    }
+
+    #[test]
+    fn test_at_shorthand_from_config_file() -> Result<()> {
+        let cwd = PathBuf::from(pkg_dir());
+        let cache_dir = std::env::temp_dir();
+
+        let config = &LoaderConfig {
+            cwd,
+            cache_dir,
+            repo_files: vec![
+                "fixtures/loaders/config_files/remote.json".to_string(),
+                "fixtures/loaders/config_files/local.yaml".to_string(),
+            ],
+        };
+
+        let files: FileLoader = config.try_into()?;
+        let cwd = FilePath::Local(files.cwd.clone());
+
+        // This is a remote repo, specified in remote.json.
+        let tfr = files.file_path("@my/remote/file.txt")?;
+        assert_eq!(
+            tfr.to_string(),
+            "https://example.com/repo/branch/file.txt".to_string()
+        );
+
+        // This is a local file, specified in local.yaml
+        let tf1 = files.file_path("@test/nested1/test-file.txt")?;
+        assert_eq!(
+            tf1.to_string(),
+            format!(
+                "{}/fixtures/loaders/config_files/./nested-1/test-file.txt",
+                &cwd
+            )
+        );
+
+        // This is a remote repo, specified in remote.json, but overridden in local.yaml
+        let tf2 = files.file_path("@test/nested2/test-file.txt")?;
+        assert_eq!(
+            tf2.to_string(),
+            format!(
+                "{}/fixtures/loaders/config_files/./nested-2/test-file.txt",
+                &cwd
+            )
+        );
+
+        let tf1 = files.read_to_string(&tf1)?;
+        let tf2 = files.read_to_string(&tf2)?;
+
+        assert_eq!("test-file/1".to_string(), tf1);
+        assert_eq!("test-file/2".to_string(), tf2);
+
+        Ok(())
+    }
+
+    fn remove_trailing_slash(cwd: &FilePath) -> String {
+        let s = cwd.to_string();
+        let mut chars = s.chars();
+        if s.ends_with('/') {
+            chars.next_back();
+        }
+        chars.as_str().to_string()
     }
 }

@@ -1,0 +1,18 @@
+---
+channels:
+  - debug
+  - release
+about:
+  description: This has a number of features to do with the app
+  ios:
+    class: AppConfig
+    module: Application
+  android:
+    class: .nimbus.AppConfig
+    package: com.example.app
+
+imports:
+  - path: ./ui-component/ui.fml.yaml
+    channel: release
+  - path: ./engine-component/engine.fml.yaml
+    channel: release

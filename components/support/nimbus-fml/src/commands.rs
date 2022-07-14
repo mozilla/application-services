@@ -14,30 +14,51 @@ pub(crate) enum CliCmd {
     GenerateIR(GenerateIRCmd),
 }
 
+#[derive(Clone)]
 pub(crate) struct GenerateStructCmd {
-    pub(crate) manifest: PathBuf,
+    pub(crate) manifest: String,
     pub(crate) output: PathBuf,
     pub(crate) language: TargetLanguage,
     pub(crate) load_from_ir: bool,
     pub(crate) channel: String,
+    pub(crate) loader: LoaderConfig,
 }
 
 pub(crate) struct GenerateExperimenterManifestCmd {
-    pub(crate) manifest: PathBuf,
+    pub(crate) manifest: String,
     pub(crate) output: PathBuf,
     pub(crate) language: TargetLanguage,
     pub(crate) load_from_ir: bool,
     pub(crate) channel: String,
+    pub(crate) loader: LoaderConfig,
 }
 
 pub(crate) struct GenerateIRCmd {
-    pub(crate) manifest: PathBuf,
+    pub(crate) manifest: String,
     pub(crate) output: PathBuf,
     pub(crate) load_from_ir: bool,
     pub(crate) channel: String,
+    pub(crate) loader: LoaderConfig,
 }
 
-#[derive(Eq, PartialEq, Hash, Debug)]
+#[derive(Clone)]
+pub(crate) struct LoaderConfig {
+    pub(crate) cwd: PathBuf,
+    pub(crate) repo_files: Vec<String>,
+    pub(crate) cache_dir: PathBuf,
+}
+
+impl Default for LoaderConfig {
+    fn default() -> Self {
+        Self {
+            repo_files: Default::default(),
+            cache_dir: std::env::temp_dir(),
+            cwd: std::env::current_dir().expect("Current Working Directory is not set"),
+        }
+    }
+}
+
+#[derive(Eq, PartialEq, Hash, Debug, Clone)]
 pub(crate) enum TargetLanguage {
     Kotlin,
     Swift,
@@ -54,6 +75,14 @@ impl TargetLanguage {
             TargetLanguage::IR => "fml.json",
             TargetLanguage::ExperimenterJSON => "json",
             TargetLanguage::ExperimenterYAML => "yaml",
+        }
+    }
+
+    pub(crate) fn from_extension(path: &str) -> Result<TargetLanguage> {
+        if let Some((_, extension)) = path.rsplit_once('.') {
+            extension.try_into()
+        } else {
+            bail!("Unknown or unsupported target language: \"{}\"", path)
         }
     }
 }

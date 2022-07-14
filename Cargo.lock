@@ -1942,6 +1942,7 @@ dependencies = [
  "anyhow",
  "askama 0.10.5",
  "clap 2.34.0",
+ "glob",
  "heck 0.3.3",
  "jsonschema",
  "reqwest",
