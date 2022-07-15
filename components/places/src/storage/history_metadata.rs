@@ -487,6 +487,15 @@ pub fn delete_older_than(db: &PlacesDb, older_than: i64) -> Result<()> {
     Ok(())
 }
 
+pub fn delete_between(db: &PlacesDb, start: i64, end: i64) -> Result<()> {
+    db.execute_cached(
+        "DELETE FROM moz_places_metadata
+        WHERE updated_at > :start and updated_at < :end",
+        &[(":start", &start), (":end", &end)],
+    )?;
+    Ok(())
+}
+
 /// Delete all metadata for the specified place id.
 pub fn delete_all_metadata_for_page(db: &PlacesDb, place_id: RowId) -> Result<()> {
     db.execute_cached(
@@ -1653,7 +1662,7 @@ mod tests {
         delete_older_than(&conn, beginning).expect("delete worked");
         assert_eq!(3, get_since(&conn, beginning).expect("get worked").len());
 
-        // boundary condition, should only delete the last one.
+        // boundary condition, should only delete the first one.
         delete_older_than(&conn, after_meta1).expect("delete worked");
         assert_eq!(2, get_since(&conn, beginning).expect("get worked").len());
         assert_eq!(
@@ -1665,6 +1674,56 @@ mod tests {
         // delete everything now.
         delete_older_than(&conn, after_meta3).expect("delete worked");
         assert_eq!(0, get_since(&conn, beginning).expect("get worked").len());
+    }
+
+    #[test]
+    fn test_delete_between() {
+        let conn = PlacesDb::open_in_memory(ConnectionType::ReadWrite).expect("memory db");
+
+        let beginning = Timestamp::now().as_millis() as i64;
+        thread::sleep(time::Duration::from_millis(10));
+
+        note_observation!(&conn,
+            url "http://mozilla.com/1",
+            view_time Some(20000),
+            search_term None,
+            document_type Some(DocumentType::Regular),
+            referrer_url None,
+            title None
+        );
+
+        thread::sleep(time::Duration::from_millis(10));
+
+        note_observation!(&conn,
+            url "http://mozilla.com/2",
+            view_time Some(20000),
+            search_term None,
+            document_type Some(DocumentType::Regular),
+            referrer_url None,
+            title None
+        );
+        let after_meta2 = Timestamp::now().as_millis() as i64;
+
+        thread::sleep(time::Duration::from_millis(10));
+
+        note_observation!(&conn,
+            url "http://mozilla.com/3",
+            view_time Some(20000),
+            search_term None,
+            document_type Some(DocumentType::Regular),
+            referrer_url None,
+            title None
+        );
+        let after_meta3 = Timestamp::now().as_millis() as i64;
+
+        // deleting meta 3
+        delete_between(&conn, after_meta2, after_meta3).expect("delete worked");
+        assert_eq!(2, get_since(&conn, beginning).expect("get worked").len());
+        assert_eq!(
+            None,
+            get_latest_for_url(&conn, &Url::parse("http://mozilla.com/3").expect("url"))
+                .expect("get")
+        );
     }
 
     #[test]
@@ -1815,6 +1874,50 @@ mod tests {
         assert!(get_latest_for_url(&conn, &url)
             .expect("should work")
             .is_none());
+    }
+
+    #[test]
+    fn test_delete_between_also_deletes_metadata() -> Result<()> {
+        let conn = PlacesDb::open_in_memory(ConnectionType::ReadWrite).expect("memory db");
+
+        let now = Timestamp::now();
+        let url = Url::parse("https://www.mozilla.org/").unwrap();
+        let other_url =
+            Url::parse("https://www.google.com/search?client=firefox-b-d&q=mozilla+firefox")
+                .unwrap();
+        let start_timestamp = Timestamp(now.as_millis() - 1000_u64);
+        let end_timestamp = Timestamp(now.as_millis() + 1000_u64);
+        let observation1 = VisitObservation::new(url.clone())
+            .with_at(start_timestamp)
+            .with_title(Some(String::from("Test page 0")))
+            .with_is_remote(false)
+            .with_visit_type(VisitTransition::Link);
+
+        let observation2 = VisitObservation::new(other_url)
+            .with_at(end_timestamp)
+            .with_title(Some(String::from("Test page 1")))
+            .with_is_remote(false)
+            .with_visit_type(VisitTransition::Link);
+
+        apply_observation(&conn, observation1).expect("Should apply visit");
+        apply_observation(&conn, observation2).expect("Should apply visit");
+
+        note_observation!(
+            &conn,
+            url "https://www.mozilla.org/",
+            view_time Some(20000),
+            search_term Some("mozilla firefox"),
+            document_type Some(DocumentType::Regular),
+            referrer_url Some("https://www.google.com/search?client=firefox-b-d&q=mozilla+firefox"),
+            title None
+        );
+        assert_eq!(
+            "https://www.mozilla.org/",
+            get_latest_for_url(&conn, &url)?.unwrap().url
+        );
+        delete_visits_between(&conn, start_timestamp, end_timestamp)?;
+        assert_eq!(None, get_latest_for_url(&conn, &url)?);
+        Ok(())
     }
 
     #[test]
@@ -2006,12 +2109,12 @@ mod tests {
         .expect("get worked");
 
         assert!(meta1.is_none(), "expected metadata to have been deleted");
-        assert!(
-            meta2.is_some(),
-            "expected metadata to not have been deleted"
-        );
+        // Verify that if a history metadata entry was entered **after** the visit
+        // then we delete the range of the metadata, and not the visit. The metadata
+        // is still deleted
+        assert!(meta2.is_none(), "expected metadata to been deleted");
 
-        // still have a 'mozilla' search query entry, since one meta entry points to it.
+        // The 'mozilla' search query entry is deleted since the delete cascades.
         assert!(
             conn.try_query_one::<i64, _>(
                 "SELECT id FROM moz_places_metadata_search_queries WHERE term = :term",
@@ -2019,11 +2122,11 @@ mod tests {
                 true
             )
             .expect("select works")
-            .is_some(),
-            "search_query records with related metadata should not have been deleted"
+            .is_none(),
+            "search_query records with related metadata should have been deleted"
         );
 
-        // don't have the 'firefox' search query entry anymore, nothing points to it.
+        // don't have the 'firefox' search query entry either, nothing points to it.
         assert!(
             conn.try_query_one::<i64, _>(
                 "SELECT id FROM moz_places_metadata_search_queries WHERE term = :term",
