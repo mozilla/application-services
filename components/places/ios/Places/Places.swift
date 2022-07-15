@@ -129,6 +129,33 @@ public class PlacesAPI {
     }
 
     /**
+     * Sync the History collection.
+     *
+     * - Returns: A JSON string representing a telemetry ping for this sync. The
+     *            string contains the ping payload, and should be sent to the
+     *            telemetry submission endpoint.
+     *
+     * - Throws:
+     *     - `PlacesError.databaseInterrupted`: If a call is made to `interrupt()` on this
+     *                                          object from another thread.
+     *     - `PlacesError.unexpected`: When an error that has not specifically been exposed
+     *                                 to Swift is encountered (for example IO errors from
+     *                                 the database code, etc).
+     *     - `PlacesError.panic`: If the rust code panics while completing this
+     *                            operation. (If this occurs, please let us know).
+     */
+    open func syncHistory(unlockInfo: SyncUnlockInfo) throws -> String {
+        return try queue.sync {
+            return try self.api.historySync(
+                keyId: unlockInfo.kid,
+                accessToken: unlockInfo.fxaAccessToken,
+                syncKey: unlockInfo.syncKey,
+                tokenserverUrl: unlockInfo.tokenserverURL
+            )
+        }
+    }
+
+    /**
      * Resets all sync metadata for history, including change flags,
      * sync statuses, and last sync time. The next sync after reset
      * will behave the same way as a first sync when connecting a new
@@ -186,7 +213,7 @@ public class PlacesReadConnection {
     fileprivate init(conn: UniffiPlacesConnection, api: PlacesAPI? = nil) throws {
         self.conn = conn
         self.api = api
-        interruptHandle = try self.conn.newInterruptHandle()
+        interruptHandle = self.conn.newInterruptHandle()
     }
 
     // Note: caller synchronizes!
@@ -428,6 +455,82 @@ public class PlacesReadConnection {
         return try queue.sync {
             try self.checkApi()
             return try self.conn.queryHistoryMetadata(query: query, limit: limit)
+        }
+    }
+
+    // MARK: History Read APIs
+
+    open func matchUrl(query: String) throws -> Url? {
+        return try queue.sync {
+            try self.checkApi()
+            return try self.conn.matchUrl(query: query)
+        }
+    }
+
+    open func queryAutocomplete(search: String, limit: Int32) throws -> [SearchResult] {
+        return try queue.sync {
+            try self.checkApi()
+            return try self.conn.queryAutocomplete(search: search, limit: limit)
+        }
+    }
+
+    open func getVisitUrlsInRange(start: PlacesTimestamp, end: PlacesTimestamp, includeRemote: Bool)
+        throws -> [Url]
+    {
+        return try queue.sync {
+            try self.checkApi()
+            return try self.conn.getVisitedUrlsInRange(start: start, end: end, includeRemote: includeRemote)
+        }
+    }
+
+    open func getVisitInfos(start: PlacesTimestamp, end: PlacesTimestamp, excludeTypes: VisitTransitionSet)
+        throws -> [HistoryVisitInfo]
+    {
+        return try queue.sync {
+            try self.checkApi()
+            return try self.conn.getVisitInfos(startDate: start, endDate: end, excludeTypes: excludeTypes)
+        }
+    }
+
+    open func getVisitCount(excludedTypes: VisitTransitionSet) throws -> Int64 {
+        return try queue.sync {
+            try self.checkApi()
+            return try self.conn.getVisitCount(excludeTypes: excludedTypes)
+        }
+    }
+
+    open func getVisitPageWithBound(
+        bound: Int64,
+        offset: Int64,
+        count: Int64,
+        excludedTypes: VisitTransitionSet
+    )
+        throws -> HistoryVisitInfosWithBound
+    {
+        return try queue.sync {
+            try self.checkApi()
+            return try self.conn.getVisitPageWithBound(
+                bound: bound, offset: offset, count: count, excludeTypes: excludedTypes
+            )
+        }
+    }
+
+    open func getVisited(urls: [String]) throws -> [Bool] {
+        return try queue.sync {
+            try self.checkApi()
+            return try self.conn.getVisited(urls: urls)
+        }
+    }
+
+    open func getTopFrecentSiteInfos(numItems: Int32, thresholdOption: FrecencyThresholdOption)
+        throws -> [TopFrecentSiteInfo]
+    {
+        return try queue.sync {
+            try self.checkApi()
+            return try self.conn.getTopFrecentSiteInfos(
+                numItems: numItems,
+                thresholdOption: thresholdOption
+            )
         }
     }
 
@@ -705,6 +808,8 @@ public class PlacesWriteConnection: PlacesReadConnection {
         return try conn.bookmarksInsert(bookmark: item)
     }
 
+    // MARK: History metadata write APIs
+
     open func noteHistoryMetadataObservation(
         observation: HistoryMetadataObservation
     ) throws {
@@ -764,14 +869,61 @@ public class PlacesWriteConnection: PlacesReadConnection {
         }
     }
 
-    /** Deletes all history and history metadata for the given url
-     * - Parameters:
-     *      - url: The url to delete all history for
-     **/
+    // MARK: History Write APIs
+
     open func deleteVisitsFor(url: Url) throws {
         try queue.sync {
             try self.checkApi()
             try self.conn.deleteVisitsFor(url: url)
+        }
+    }
+
+    open func deleteVisitsBetween(start: PlacesTimestamp, end: PlacesTimestamp) throws {
+        try queue.sync {
+            try self.checkApi()
+            try self.conn.deleteVisitsBetween(start: start, end: end)
+        }
+    }
+
+    open func deleteVisit(url: Url, timestamp: PlacesTimestamp) throws {
+        try queue.sync {
+            try self.checkApi()
+            try self.conn.deleteVisit(url: url, timestamp: timestamp)
+        }
+    }
+
+    open func wipeLocalHistory() throws {
+        try queue.sync {
+            try self.checkApi()
+            try self.conn.wipeLocalHistory()
+        }
+    }
+
+    open func deleteEverythingHistory() throws {
+        try queue.sync {
+            try self.checkApi()
+            try self.conn.deleteEverythingHistory()
+        }
+    }
+
+    open func pruneDestructively() throws {
+        try queue.sync {
+            try self.checkApi()
+            try self.conn.pruneDestructively()
+        }
+    }
+
+    open func acceptResult(searchString: String, url: String) throws {
+        return try queue.sync {
+            try self.checkApi()
+            return try self.conn.acceptResult(searchString: searchString, url: url)
+        }
+    }
+
+    open func applyObservation(visitObservation: VisitObservation) throws {
+        return try queue.sync {
+            try self.checkApi()
+            return try self.conn.applyObservation(visit: visitObservation)
         }
     }
 }
