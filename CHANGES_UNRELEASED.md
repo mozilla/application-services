@@ -24,6 +24,7 @@ Use the template below to make assigning a version number during the release cut
   - Added `MOZ_APPSERVICES_MODULE` environment variable to specify the megazord module for iOS ([#5042](https://github.com/mozilla/application-services/pull/5042)). If it is missing, no module is imported.
 ### ✨ What's New ✨
   - Enabled remote loading and using configuring of branches. ([#5041](https://github.com/mozilla/application-services/pull/5041))
+  - Add a `fetch` command to `nimbus-fml` to demo and test remote loading and paths. ([#5047](https://github.com/mozilla/application-services/pull/5047))
 
 ## Logins
 ### What's Changed
