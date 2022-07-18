@@ -147,4 +147,11 @@ then
 	fail "New style 'generate' with glob and language = kotlin, and single channel files allowed"
 fi
 
+if ! cargo run -- fetch \
+	"@mozilla-mobile/android-components/version.txt" \
+    > /dev/null 2>&1;
+then
+	fail "Fetch from another repo"
+fi
+
 popd >/dev/null || exit 0
