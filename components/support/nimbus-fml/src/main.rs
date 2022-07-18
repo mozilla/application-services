@@ -47,6 +47,7 @@ fn process_command(cmd: &CliCmd) -> Result<()> {
         CliCmd::Generate(params) => workflows::generate_struct(params)?,
         CliCmd::GenerateExperimenter(params) => workflows::generate_experimenter_manifest(params)?,
         CliCmd::GenerateIR(params) => workflows::generate_ir(params)?,
+        CliCmd::FetchFile(files, nm) => workflows::fetch_file(files, nm)?,
     };
     Ok(())
 }
@@ -127,6 +128,9 @@ where
         ("generate-experimenter", Some(matches)) => CliCmd::GenerateExperimenter(
             create_generate_command_experimenter_from_cli(matches, cwd)?,
         ),
+        ("fetch", Some(matches)) => {
+            CliCmd::FetchFile(create_loader(matches, cwd)?, input_file(matches)?)
+        }
         (word, _) => unimplemented!("Command {} not implemented", word),
     })
 }

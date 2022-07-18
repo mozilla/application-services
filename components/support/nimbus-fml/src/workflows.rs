@@ -148,6 +148,16 @@ fn load_feature_manifest(
     Ok(ir)
 }
 
+pub(crate) fn fetch_file(files: &crate::commands::LoaderConfig, nm: &str) -> Result<()> {
+    let files: FileLoader = files.try_into()?;
+    let file = files.file_path(nm)?;
+
+    let string = files.read_to_string(&file)?;
+
+    println!("{}", string);
+    Ok(())
+}
+
 #[cfg(test)]
 mod test {
     use std::fs;

@@ -12,6 +12,7 @@ pub(crate) enum CliCmd {
     DeprecatedGenerate(GenerateStructCmd, AboutBlock),
     GenerateExperimenter(GenerateExperimenterManifestCmd),
     GenerateIR(GenerateIRCmd),
+    FetchFile(LoaderConfig, String),
 }
 
 #[derive(Clone)]

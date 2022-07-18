@@ -71,14 +71,12 @@ subcommands:
             #     global: false
             #     takes_value: true
 
-            # These next two flags aren't wired up yet.
-            # This will be done in EXP-2573.
             - cache-dir:
-                help: The directory where downloaded files are cached (inactive until EXP-2573)
+                help: The directory where downloaded files are cached
                 long: cache-dir
                 takes_value: true
             - repo-file:
-                help: The file containing the version/refs/locations for other repos (inactive until EXP-2573)
+                help: The file containing the version/refs/locations for other repos
                 long: repo-file
                 takes_value: true
                 multiple: true
@@ -101,6 +99,22 @@ subcommands:
 
             # These next two flags aren't wired up yet.
             # This will be done in EXP-2573.
+            - cache-dir:
+                help: The directory where downloaded files are cached
+                long: cache-dir
+                takes_value: true
+            - repo-file:
+                help: The file containing the version/refs/locations for other repos
+                long: repo-file
+                takes_value: true
+                multiple: true
+    - fetch:
+        about: Get the input file, with the same rules that govern how FilePaths work.
+        args:
+            - INPUT:
+                help: Sets the input file to use
+                required: true
+                index: 1
             - cache-dir:
                 help: The directory where downloaded files are cached
                 long: cache-dir
