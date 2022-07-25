@@ -37,8 +37,24 @@ a number of hours to complete.
     1. Install Xcode tools: `xcode-select --install`
     1. Install homebrew: [via homebrew](https://brew.sh/) (it's what we use for ci)
     1. Install the system dependencies required for building NSS
-        1. Install ninja: `brew install ninja`
-        1. Install gyp (via https://github.com/mogemimi/pomdog/wiki/How-to-Install-GYP)
+        1. Install ninja and python: `brew install ninja python`
+        1. Make sure `which python3` maps to the freshly installed homebrew python.
+            1. If it isn't, add the following to your bash/zsh profile and `source` the profile before continuing:
+                ```shell
+                alias python3=/opt/homebrew/bin/python3
+                ```
+        1. Install gyp
+            ```shell
+            wget https://bootstrap.pypa.io/ez_setup.py -O - | python3 -
+            git clone https://chromium.googlesource.com/external/gyp.git ~/tools/gyp
+            cd ~/tools/gyp
+            python3 setup.py install
+            ```
+            1. If you have additional questions, consult this guide: https://github.com/mogemimi/pomdog/wiki/How-to-Install-GYP
+        1. Make sure your homebrew python's bin folder is on your path by updating your bash/zsh profile with the following:
+            ```shell
+            export PATH="$PATH:/opt/homebrew/opt/python@3.9/Frameworks/Python.framework/Versions/3.9/bin"
+            ```
     #### Windows
     *Install windows build tools*
 
