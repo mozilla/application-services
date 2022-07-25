@@ -259,7 +259,7 @@ fn delete_visits_for_in_tx(db: &PlacesDb, guid: &SyncGuid) -> Result<()> {
     )?;
     // Note that history metadata has an `ON DELETE CASCADE` for the place ID - so if we
     // call `delete_page` here, we assume history metadata dies too. Otherwise we
-    // explicitly delete the metadata after we delete the visits themself.
+    // explicitly delete the metadata after we delete the visits themselves.
     match to_clean {
         Some(PageToClean {
             id,
@@ -615,6 +615,9 @@ pub fn delete_visits_between_in_tx(db: &PlacesDb, start: Timestamp, end: Timesta
             cleanup_pages(db, &pages)
         },
     )?;
+
+    // Clean up history metadata between start and end
+    history_metadata::delete_between(db, start.as_millis_i64(), end.as_millis_i64())?;
     delete_pending_temp_tables(db)?;
     Ok(())
 }
