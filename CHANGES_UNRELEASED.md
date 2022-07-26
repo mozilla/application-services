@@ -21,3 +21,4 @@ Use the template below to make assigning a version number during the release cut
 ## Nimbus FML ⛅️🔬🔭
 ### What's Changed
   - Validate the configuration passed from a top-level FML file to imported files. ([#5055](https://github.com/mozilla/application-services/pull/5055))
+  - `CLIENTS_TTL` has been updated to be 180 days instead of 21 ([#5054](https://github.com/mozilla/application-services/pull/5054))
