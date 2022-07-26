@@ -14,7 +14,7 @@ pub use engine::Engine;
 pub use sync15_traits::client::{ClientData, RemoteClient};
 
 // These are what desktop uses.
-const CLIENTS_TTL: u32 = 1_814_400; // 21 days
+const CLIENTS_TTL: u32 = 15_552_000; // 180 days
 pub(crate) const CLIENTS_TTL_REFRESH: u64 = 604_800; // 7 days
 
 /// A command processor applies incoming commands like wipes and resets for all
