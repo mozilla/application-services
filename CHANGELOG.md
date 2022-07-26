@@ -1,3 +1,11 @@
+# v93.7.1 (_2022-07-26_)
+
+[Full Changelog](https://github.com/mozilla/application-services/compare/v93.7.0...v93.7.1)
+
+## Places
+### What's changed
+  - The `delete_visits_between` API now also deletes history metadata ([#5046](https://github.com/mozilla/application-services/pull/5046))
+
 # v93.7.0 (_2022-07-18_)
 
 [Full Changelog](https://github.com/mozilla/application-services/compare/v93.6.0...v93.7.0)
