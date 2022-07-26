@@ -207,6 +207,13 @@ impl FeatureManifest {
             }
         }
         self.validate_defaults()?;
+
+        // Validating the imported manifests.
+        // This is not only validating the well formed-ness of the imported manifests
+        // but also the defaults that are sent into the child manifests.
+        for child in self.all_imports.values() {
+            child.validate_manifest()?;
+        }
         Ok(())
     }
 
