@@ -32,7 +32,9 @@ pub const TAG_LENGTH_MAX: usize = 100;
 // pub const DESCRIPTION_LENGTH_MAX: usize = 256;
 
 // Typesafe way to manage RowIds. Does it make sense? A better way?
-#[derive(Debug, Copy, Clone, PartialEq, PartialOrd, Eq, Ord, Deserialize, Serialize, Default)]
+#[derive(
+    Debug, Copy, Clone, PartialEq, PartialOrd, Eq, Ord, Deserialize, Serialize, Default, Hash,
+)]
 pub struct RowId(pub i64);
 
 impl From<RowId> for i64 {
