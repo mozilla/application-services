@@ -2,6 +2,8 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
+mod actions;
+
 use super::{fetch_page_info, new_page_info, PageInfo, RowId};
 use crate::db::PlacesDb;
 use crate::error::Result;
@@ -16,6 +18,7 @@ use crate::storage::{
     delete_meta, delete_pending_temp_tables, get_meta, history_metadata, put_meta,
 };
 use crate::types::{SyncStatus, VisitTransition, VisitTransitionSet};
+use actions::*;
 use error_support::breadcrumb;
 use rusqlite::types::ToSql;
 use rusqlite::Result as RusqliteResult;
@@ -483,65 +486,23 @@ pub fn delete_everything(db: &PlacesDb) -> Result<()> {
 }
 
 fn delete_place_visit_at_time_in_tx(db: &PlacesDb, url: &str, visit_date: Timestamp) -> Result<()> {
-    let place = db.conn().try_query_row(
-        "SELECT h.id
-         FROM moz_places h
-         JOIN moz_historyvisits v
-           ON v.place_id = h.id
-         WHERE v.visit_date = :visit_date
-           AND h.url_hash = hash(:url)
-           AND h.url = :url
-         LIMIT 1",
-        &[
-            (":url", &url as &dyn rusqlite::ToSql),
-            (":visit_date", &visit_date),
-        ],
-        |row| row.get::<_, RowId>(0),
-        true,
-    )?;
-
-    let place_id = if let Some(id) = place {
-        id
-    } else {
-        // No such visit, nothing to do.
-        return Ok(());
-    };
-
-    db.conn().execute_cached(
-        "INSERT OR IGNORE INTO moz_historyvisit_tombstones(place_id, visit_date)
-         VALUES(:place_id, :visit_date)",
-        &[
-            (":place_id", &place_id as &dyn rusqlite::ToSql),
-            (":visit_date", &visit_date),
-        ],
-    )?;
-
-    db.conn().execute_cached(
-        "DELETE FROM moz_historyvisits
-         WHERE visit_date = :visit_date
-           AND place_id = :place_id",
-        &[
-            (":place_id", &place_id as &dyn rusqlite::ToSql),
-            (":visit_date", &visit_date),
-        ],
-    )?;
-
-    let to_clean = db.conn().query_row_and_then_cachable(
-        "SELECT
-            id,
-            (foreign_count != 0) AS has_foreign,
-            ((last_visit_date_local + last_visit_date_remote) != 0) as has_visits,
-            sync_status
-        FROM moz_places
-        WHERE id = :id",
-        &[(":id", &place_id)],
-        PageToClean::from_row,
-        true,
-    )?;
-
-    cleanup_pages(db, &[to_clean])?;
-    delete_pending_temp_tables(db)?;
-    Ok(())
+    DbAction::apply_all(
+        db,
+        db_actions_from_visits_to_delete(db.query_rows_and_then(
+            "SELECT v.id, v.place_id
+                 FROM moz_places h
+                 JOIN moz_historyvisits v
+                   ON v.place_id = h.id
+                 WHERE v.visit_date = :visit_date
+                   AND h.url_hash = hash(:url)
+                   AND h.url = :url",
+            &[
+                (":url", &url as &dyn rusqlite::ToSql),
+                (":visit_date", &visit_date),
+            ],
+            VisitToDelete::from_row,
+        )?),
+    )
 }
 
 pub fn delete_visits_between_in_tx(db: &PlacesDb, start: Timestamp, end: Timestamp) -> Result<()> {
