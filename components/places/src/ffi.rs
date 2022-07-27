@@ -419,8 +419,8 @@ impl PlacesConnection {
         self.with_conn(history::prune_destructively)
     }
 
-    fn run_maintenance(&self) -> Result<()> {
-        self.with_conn(storage::run_maintenance)
+    fn run_maintenance(&self, db_size_limit: u32) -> Result<()> {
+        self.with_conn(|conn| storage::run_maintenance(conn, db_size_limit))
     }
 
     fn query_autocomplete(&self, search: String, limit: i32) -> Result<Vec<SearchResult>> {

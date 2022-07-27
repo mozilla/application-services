@@ -24,6 +24,8 @@ use rusqlite::types::ToSql;
 use rusqlite::Result as RusqliteResult;
 use rusqlite::Row;
 use sql_support::{self, ConnExt};
+use std::collections::HashSet;
+use std::time::Duration;
 use sync15::EngineSyncAssociation;
 use sync_guid::Guid as SyncGuid;
 use types::Timestamp;
@@ -400,6 +402,92 @@ pub fn delete_place_visit_at_time_by_href(
 pub fn prune_destructively(db: &PlacesDb) -> Result<()> {
     // For now, just fall back to wipe_local until we decide how this should work.
     wipe_local(db)
+}
+
+pub fn prune_older_visits(db: &PlacesDb) -> Result<()> {
+    let _tx = db.begin_transaction()?;
+    // Prune 6 items at a time, which matches desktops "small limit" value
+    let limit: usize = 6;
+
+    DbAction::apply_all(
+        db,
+        db_actions_from_visits_to_delete(find_visits_to_prune(db, limit, Timestamp::now())?),
+    )
+}
+
+fn find_visits_to_prune(db: &PlacesDb, limit: usize, now: Timestamp) -> Result<Vec<VisitToDelete>> {
+    // Start with the exotic visits
+    let mut to_delete: HashSet<_> = find_exotic_visits_to_prune(db, limit, now)?
+        .into_iter()
+        .collect();
+    // If we still have more visits to prune, then add them from find_normal_visits_to_prune,
+    // leveraging the HashSet to ensure we don't add a duplicate item.
+    if to_delete.len() < limit {
+        for delete_visit in find_normal_visits_to_prune(db, limit, now)? {
+            to_delete.insert(delete_visit);
+            if to_delete.len() >= limit {
+                break;
+            }
+        }
+    }
+    Ok(Vec::from_iter(to_delete))
+}
+
+fn find_normal_visits_to_prune(
+    db: &PlacesDb,
+    limit: usize,
+    now: Timestamp,
+) -> Result<Vec<VisitToDelete>> {
+    // 7 days ago
+    let visit_date_cutoff = now.checked_sub(Duration::from_secs(60 * 60 * 24 * 7));
+    db.query_rows_and_then(
+        "
+        SELECT v.id, v.place_id
+        FROM moz_places p
+        JOIN moz_historyvisits v ON v.place_id = p.id
+        WHERE v.visit_date < :visit_date_cuttoff
+        ORDER BY v.visit_date
+        LIMIT :limit
+        ",
+        rusqlite::named_params! {
+            ":visit_date_cuttoff": visit_date_cutoff,
+            ":limit": limit,
+        },
+        VisitToDelete::from_row,
+    )
+}
+
+/// Find "exotic" visits to prune.  These are visits visits that should be pruned first because
+/// they are less useful to the user because:
+///   - They're very old
+///   - They're not useful in the awesome bar because they're either a long URL or a download
+///
+/// This is based on the desktop pruning logic:
+/// https://searchfox.org/mozilla-central/search?q=QUERY_FIND_EXOTIC_VISITS_TO_EXPIRE
+fn find_exotic_visits_to_prune(
+    db: &PlacesDb,
+    limit: usize,
+    now: Timestamp,
+) -> Result<Vec<VisitToDelete>> {
+    // 60 days ago
+    let visit_date_cutoff = now.checked_sub(Duration::from_secs(60 * 60 * 24 * 60));
+    db.query_rows_and_then(
+        "
+        SELECT v.id, v.place_id
+        FROM moz_places p
+        JOIN moz_historyvisits v ON v.place_id = p.id
+        WHERE v.visit_date < :visit_date_cuttoff
+        AND (LENGTH(p.url) > 255 OR v.visit_type = :download_visit_type)
+        ORDER BY v.visit_date
+        LIMIT :limit
+        ",
+        rusqlite::named_params! {
+            ":visit_date_cuttoff": visit_date_cutoff,
+            ":download_visit_type": VisitTransition::Download,
+            ":limit": limit,
+        },
+        VisitToDelete::from_row,
+    )
 }
 
 pub fn wipe_local(db: &PlacesDb) -> Result<()> {
@@ -3076,5 +3164,204 @@ mod tests {
         );
         assert_eq!(infos_with_bound.bound, now_i64 - 199_000);
         assert_eq!(infos_with_bound.offset, 1);
+    }
+
+    /// Test find_normal_visits_to_prune
+    #[test]
+    fn test_normal_visit_pruning() {
+        use std::time::{Duration, SystemTime};
+        let conn = PlacesDb::open_in_memory(ConnectionType::ReadWrite).expect("no memory db");
+        let one_day = Duration::from_secs(60 * 60 * 24);
+        let now: Timestamp = SystemTime::now().into();
+        let url = Url::parse("https://mozilla.com/").unwrap();
+
+        // Create 1 visit per day for the last 30 days
+        let mut visits: Vec<_> = (0..30)
+            .map(|i| {
+                apply_observation(
+                    &conn,
+                    VisitObservation::new(url.clone())
+                        .with_at(now.checked_sub(one_day * i))
+                        .with_visit_type(VisitTransition::Link),
+                )
+                .unwrap()
+                .unwrap()
+            })
+            .collect();
+        // Reverse visits so that they're oldest first
+        visits.reverse();
+
+        check_visits_to_prune(
+            &conn,
+            find_normal_visits_to_prune(&conn, 4, now).unwrap(),
+            &visits[..4],
+        );
+
+        // Only visits older than 7 days should be pruned
+        check_visits_to_prune(
+            &conn,
+            find_normal_visits_to_prune(&conn, 30, now).unwrap(),
+            &visits[..22],
+        );
+    }
+
+    /// Test find_exotic_visits_to_prune
+    #[test]
+    fn test_exotic_visit_pruning() {
+        use std::time::{Duration, SystemTime};
+        let conn = PlacesDb::open_in_memory(ConnectionType::ReadWrite).expect("no memory db");
+        let one_month = Duration::from_secs(60 * 60 * 24 * 31);
+        let now: Timestamp = SystemTime::now().into();
+        let short_url = Url::parse("https://mozilla.com/").unwrap();
+        let long_url = Url::parse(&format!(
+            "https://mozilla.com/{}",
+            (0..255).map(|_| "x").collect::<String>()
+        ))
+        .unwrap();
+
+        let visit_with_long_url = apply_observation(
+            &conn,
+            VisitObservation::new(long_url.clone())
+                .with_at(now.checked_sub(one_month * 2))
+                .with_visit_type(VisitTransition::Link),
+        )
+        .unwrap()
+        .unwrap();
+
+        let visit_for_download = apply_observation(
+            &conn,
+            VisitObservation::new(short_url)
+                .with_at(now.checked_sub(one_month * 3))
+                .with_visit_type(VisitTransition::Download),
+        )
+        .unwrap()
+        .unwrap();
+
+        // This visit should not be pruned, since it's too recent
+        apply_observation(
+            &conn,
+            VisitObservation::new(long_url)
+                .with_at(now.checked_sub(one_month))
+                .with_visit_type(VisitTransition::Download),
+        )
+        .unwrap()
+        .unwrap();
+
+        check_visits_to_prune(
+            &conn,
+            find_exotic_visits_to_prune(&conn, 2, now).unwrap(),
+            &[visit_for_download, visit_with_long_url],
+        );
+
+        // With limit = 1, it should pick the oldest visit
+        check_visits_to_prune(
+            &conn,
+            find_exotic_visits_to_prune(&conn, 1, now).unwrap(),
+            &[visit_for_download],
+        );
+
+        // If the limit exceeds the number of candidates, it should return as many as it can find
+        check_visits_to_prune(
+            &conn,
+            find_exotic_visits_to_prune(&conn, 3, now).unwrap(),
+            &[visit_for_download, visit_with_long_url],
+        );
+    }
+    /// Test that find_visits_to_prune correctly combines find_exotic_visits_to_prune and
+    /// find_normal_visits_to_prune
+    #[test]
+    fn test_visit_pruning() {
+        use std::time::{Duration, SystemTime};
+        let conn = PlacesDb::open_in_memory(ConnectionType::ReadWrite).expect("no memory db");
+        let one_month = Duration::from_secs(60 * 60 * 24 * 31);
+        let now: Timestamp = SystemTime::now().into();
+        let short_url = Url::parse("https://mozilla.com/").unwrap();
+        let long_url = Url::parse(&format!(
+            "https://mozilla.com/{}",
+            (0..255).map(|_| "x").collect::<String>()
+        ))
+        .unwrap();
+
+        // An exotic visit that should be pruned first, even if it's not the oldest
+        let excotic_visit = apply_observation(
+            &conn,
+            VisitObservation::new(long_url)
+                .with_at(now.checked_sub(one_month * 3))
+                .with_visit_type(VisitTransition::Link),
+        )
+        .unwrap()
+        .unwrap();
+
+        // Normal visits that should be pruned after excotic visits
+        let old_visit = apply_observation(
+            &conn,
+            VisitObservation::new(short_url.clone())
+                .with_at(now.checked_sub(one_month * 4))
+                .with_visit_type(VisitTransition::Link),
+        )
+        .unwrap()
+        .unwrap();
+        let really_old_visit = apply_observation(
+            &conn,
+            VisitObservation::new(short_url.clone())
+                .with_at(now.checked_sub(one_month * 12))
+                .with_visit_type(VisitTransition::Link),
+        )
+        .unwrap()
+        .unwrap();
+
+        // Newer visit that's too new to be pruned
+        apply_observation(
+            &conn,
+            VisitObservation::new(short_url)
+                .with_at(now.checked_sub(Duration::from_secs(100)))
+                .with_visit_type(VisitTransition::Link),
+        )
+        .unwrap()
+        .unwrap();
+
+        check_visits_to_prune(
+            &conn,
+            find_visits_to_prune(&conn, 2, now).unwrap(),
+            &[excotic_visit, really_old_visit],
+        );
+
+        check_visits_to_prune(
+            &conn,
+            find_visits_to_prune(&conn, 10, now).unwrap(),
+            &[excotic_visit, really_old_visit, old_visit],
+        );
+    }
+
+    fn check_visits_to_prune(
+        db: &PlacesDb,
+        visits_to_delete: Vec<VisitToDelete>,
+        correct_visits: &[RowId],
+    ) {
+        assert_eq!(
+            correct_visits.iter().collect::<HashSet<_>>(),
+            visits_to_delete
+                .iter()
+                .map(|v| &v.visit_id)
+                .collect::<HashSet<_>>()
+        );
+
+        let correct_place_ids: HashSet<RowId> = correct_visits
+            .iter()
+            .map(|vid| {
+                db.query_one(&format!(
+                    "SELECT v.place_id FROM moz_historyvisits v WHERE v.id = {}",
+                    vid
+                ))
+                .unwrap()
+            })
+            .collect();
+        assert_eq!(
+            correct_place_ids,
+            visits_to_delete
+                .iter()
+                .map(|v| v.page_id)
+                .collect::<HashSet<_>>()
+        );
     }
 }
