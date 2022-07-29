@@ -447,7 +447,11 @@ impl LoginDb {
             // Try to detect if sync is enabled by checking if there are any mirror logins
             let has_mirror_row: bool =
                 self.db.query_one("SELECT EXISTS (SELECT 1 FROM loginsM)")?;
-            log::error!("Duplicate in update() (has_mirror_row: {})", has_mirror_row);
+            let has_http_realm = entry.fields.http_realm.is_some();
+            let has_form_action_origin = entry.fields.form_action_origin.is_some();
+            report_error!(
+                "logins-duplicate-in-update",
+                "(mirror: {has_mirror_row}, realm: {has_http_realm}, form_origin: {has_form_action_origin})");
         }
 
         // Note: This fail with NoSuchRecord if the record doesn't exist.
@@ -696,7 +700,10 @@ impl LoginDb {
         log::debug!("No overlay; cloning one for {:?}.", guid);
         let changed = self.clone_mirror_to_overlay(guid)?;
         if changed == 0 {
-            log::error!("Failed to create local overlay for GUID {:?}.", guid);
+            report_error!(
+                "logins-local-overlay-error",
+                "Failed to create local overlay for GUID {guid:?}."
+            );
             return Err(LoginsError::NoSuchRecord(guid.to_owned()));
         }
         Ok(())

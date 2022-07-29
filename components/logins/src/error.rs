@@ -7,7 +7,7 @@ pub type Result<T> = std::result::Result<T, LoginsError>;
 // Functions which are part of the public API should use this Result.
 pub type ApiResult<T> = std::result::Result<T, LoginsStorageError>;
 
-pub use error_support::handle_error;
+pub use error_support::{breadcrumb, handle_error, report_error};
 use error_support::{ErrorHandling, GetErrorHandling};
 use sync15::ErrorKind as Sync15ErrorKind;
 
