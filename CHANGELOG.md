@@ -1,3 +1,20 @@
+# v93.8.0 (_2022-07-29_)
+
+[Full Changelog](https://github.com/mozilla/application-services/compare/v93.7.1...v93.8.0)
+
+## Nimbus FML ⛅️🔬🔭
+### What's Changed
+  - Validate the configuration passed from a top-level FML file to imported files. ([#5055](https://github.com/mozilla/application-services/pull/5055))
+
+## Places
+### What's new
+  - We now expose all of the Places history APIs to Swift consumers. ([#4989](https://github.com/mozilla/application-services/pull/4989))
+  - Added an optional db_size_limit parameter to `run_maintenance`.  This can be used to set a target size for the places DB.  If the DB is over that size, we'll prune a few older visits. The number of visits is very small (6) to ensure that the operation only blocks the database for a short time. The intention is that `run_maintenance()` is called frequently compared to how often visits are added to the places DB.
+
+## Sync15
+### What's changed
+  - `CLIENTS_TTL` has been updated to be 180 days instead of 21 ([#5054](https://github.com/mozilla/application-services/pull/5054))
+
 # v93.7.1 (_2022-07-26_)
 
 [Full Changelog](https://github.com/mozilla/application-services/compare/v93.7.0...v93.7.1)
