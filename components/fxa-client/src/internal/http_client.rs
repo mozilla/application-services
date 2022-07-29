@@ -8,7 +8,7 @@
 //! serializing request bodies and deserializing response payloads into
 //! live objects that can be inspected by other parts of the code.
 
-use super::{config::Config, error::*};
+use super::{config::Config, error::*, util};
 use rc_crypto::{
     digest,
     hawk::{Credentials, Key, PayloadHasher, RequestBuilder, SHA256},
@@ -28,6 +28,8 @@ use viaduct::{header_names, status_codes, Method, Request, Response};
 const HAWK_HKDF_SALT: [u8; 32] = [0b0; 32];
 const HAWK_KEY_LENGTH: usize = 32;
 const RETRY_AFTER_DEFAULT_SECONDS: u64 = 10;
+// Devices older than this many days will not appear in the devices list
+const DEVICES_FILTER_DAYS: u64 = 21;
 
 /// Trait defining the low-level API for talking to the FxA server.
 ///
@@ -361,8 +363,12 @@ impl FxAClient for Client {
 
     fn get_devices(&self, config: &Config, refresh_token: &str) -> Result<Vec<GetDeviceResponse>> {
         let url = config.auth_url_path("v1/account/devices")?;
-        let request =
-            Request::get(url).header(header_names::AUTHORIZATION, bearer_token(refresh_token))?;
+        let request = Request::get(url)
+            .header(header_names::AUTHORIZATION, bearer_token(refresh_token))?
+            .query(&[(
+                "filterIdleDevicesTimestamp",
+                &util::past_timestamp(DEVICES_FILTER_DAYS).to_string(),
+            )]);
         Ok(self.make_request(request)?.json()?)
     }
 
