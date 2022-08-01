@@ -213,30 +213,6 @@ class DatabaseLoginsStorageTest {
     }
 
     @Test
-    fun testMigrationMetrics() {
-        // We captured this string from one of the rust tests, then lightly
-        // edited it. Note that none of the "phases" will ever have data.
-        val json = """
-            {"fixup_phase":{
-                "num_processed":0,"num_succeeded":0,"num_failed":0,"total_duration":0,"errors":[]
-            },
-            "insert_phase":{"num_processed":0,"num_succeeded":0,"num_failed":0,"total_duration":0,"errors":[]
-            },
-            "num_processed":3,"num_succeeded":1,"num_failed":2,"total_duration":53,"errors":[
-                "Invalid login: Login has illegal field: Origin is Malformed",
-                "Invalid login: Origin is empty"
-            ]
-        }"""
-        recordMigrationMetrics(json)
-        assertEquals(3, LoginsStoreMetrics.migrationNumProcessed.testGetValue())
-        assertEquals(2, LoginsStoreMetrics.migrationNumFailed.testGetValue())
-        assertEquals(1, LoginsStoreMetrics.migrationNumSucceeded.testGetValue())
-        assertEquals(53L, LoginsStoreMetrics.migrationTotalDuration.testGetValue())
-        // Note the truncation of the first error string.
-        assertEquals(listOf("Invalid login: Login has illegal field: Origin is ", "Invalid login: Origin is empty"), LoginsStoreMetrics.migrationErrors.testGetValue())
-    }
-
-    @Test
     fun testRegisterWithSyncmanager() {
         val store = createTestStore()
         val syncManager = SyncManager()
