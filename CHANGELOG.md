@@ -1,3 +1,13 @@
+# v93.7.2 (_2022-08-01_)
+
+[Full Changelog](https://github.com/mozilla/application-services/compare/v93.7.1...v93.7.2)
+
+## General
+
+### What's Changed
+
+* Glean updated to v50.1.4
+
 # v93.7.1 (_2022-07-26_)
 
 [Full Changelog](https://github.com/mozilla/application-services/compare/v93.7.0...v93.7.1)
