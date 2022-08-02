@@ -1,3 +1,11 @@
+# v94.0.0 (_2022-08-02_)
+
+[Full Changelog](https://github.com/mozilla/application-services/compare/v93.8.0...v94.0.0)
+
+## Logins
+### ⚠️ Breaking Changes ⚠️
+  - Removed expired logins sqlcipher migration metrics and renamed the `migrateLoginsWithMetrics` function since it no longer reports metrics. An associated iOS PR ([#11470](https://github.com/mozilla-mobile/firefox-ios/pull/11470)) has been created to address the function renaming. ([#5064](https://github.com/mozilla/application-services/pull/5064))
+
 # v93.8.0 (_2022-07-29_)
 
 [Full Changelog](https://github.com/mozilla/application-services/compare/v93.7.1...v93.8.0)
