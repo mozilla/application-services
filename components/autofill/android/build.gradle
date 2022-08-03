@@ -6,8 +6,8 @@ dependencies {
     // Part of the public API.
     api project(':sync15')
 
-    testImplementation 'androidx.test:core-ktx:1.2.0'
-    testImplementation 'androidx.work:work-testing:2.2.0'
+    testImplementation "androidx.test:core-ktx:$androidx_test_version"
+    testImplementation "androidx.work:work-testing:$androidx_work_testing_version"
     testImplementation project(":syncmanager")
 }
 

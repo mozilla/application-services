@@ -567,7 +567,6 @@
 			);
 			inputPaths = (
 				"$(SRCROOT)/../../../components/nimbus/metrics.yaml",
-				"$(SRCROOT)/../../../components/logins/ios/metrics.yaml",
 			);
 			name = "Generate Glean Metrics";
 			outputFileListPaths = (
@@ -915,7 +914,7 @@
 			repositoryURL = "https://github.com/mozilla/glean-swift";
 			requirement = {
 				kind = upToNextMajorVersion;
-				minimumVersion = 50.1.2;
+				minimumVersion = 51.0.1;
 			};
 		};
 /* End XCRemoteSwiftPackageReference section */

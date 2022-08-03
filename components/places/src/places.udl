@@ -73,6 +73,8 @@ interface PlacesConnection {
     [Throws=PlacesError]
     sequence<SearchResult> query_autocomplete(string search, i32 limit);
 
+    // `url` is a `string` and not a `URL` because `accept_result`
+    // handles malformed urls
     [Throws=PlacesError]
     void accept_result(string search_string, string url);
 
@@ -108,7 +110,7 @@ interface PlacesConnection {
 
     [Throws=PlacesError]
     sequence<HistoryVisitInfo> get_visit_page(i64 offset, i64 count, VisitTransitionSet exclude_types);
-
+    // TODO: bound should be a `PlacesTimestamp`?
     [Throws=PlacesError]
     HistoryVisitInfosWithBound get_visit_page_with_bound(i64 bound, i64 offset, i64 count, VisitTransitionSet exclude_types);
 
@@ -141,8 +143,17 @@ interface PlacesConnection {
     [Throws=PlacesError]
     void prune_destructively();
 
+
+    // Run various maintenance on the places DB
+    //
+    // This function is intended to be run during idle time and will take steps
+    // to clean up / shrink / the database.
+    //
+    // db_size_limit is the approximate storage limit in bytes.  If the
+    // database is using more space than this, some older visits will be
+    // deleted to free up space.  Pass in a 0 to skip this.
     [Throws=PlacesError]
-    void run_maintenance();
+    void run_maintenance(u32 db_size_limit);
 
     [Throws=PlacesError]
     BookmarkItem? bookmarks_get_tree([ByRef] Guid item_guid);

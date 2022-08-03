@@ -27,7 +27,7 @@ pub fn get_registered_sync_engine(engine_id: &SyncEngineId) -> Option<Box<dyn Sy
         Some(store) => match create_sync_engine(store, engine_id) {
             Ok(engine) => Some(engine),
             Err(e) => {
-                log::error!("logins: get_registered_sync_engine: {}", e);
+                report_error!("logins-sync-engine-create-error", "{e}");
                 None
             }
         },

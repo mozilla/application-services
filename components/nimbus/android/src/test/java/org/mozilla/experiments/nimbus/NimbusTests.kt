@@ -16,7 +16,6 @@ import mozilla.telemetry.glean.testing.GleanTestRule
 import mozilla.telemetry.glean.net.PingUploader
 import mozilla.telemetry.glean.net.HttpStatus
 import org.junit.Assert.assertEquals
-import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
@@ -141,7 +140,7 @@ class NimbusTests {
         // Use the Glean test API to check the recorded metrics
 
         // Enrollment
-        assertTrue("Event must have a value", NimbusEvents.enrollment.testHasValue())
+        assertNotNull("Event must have a value", NimbusEvents.enrollment.testGetValue())
         val enrollmentEvents = NimbusEvents.enrollment.testGetValue()!!
         assertEquals("Event count must match", enrollmentEvents.count(), 1)
         val enrollmentEventExtras = enrollmentEvents.first().extra!!
@@ -158,7 +157,7 @@ class NimbusTests {
         )
 
         // Unenrollment
-        assertTrue("Event must have a value", NimbusEvents.unenrollment.testHasValue())
+        assertNotNull("Event must have a value", NimbusEvents.unenrollment.testGetValue())
         val unenrollmentEvents = NimbusEvents.unenrollment.testGetValue()!!
         assertEquals("Event count must match", unenrollmentEvents.count(), 1)
         val unenrollmentEventExtras = unenrollmentEvents.first().extra!!
@@ -179,7 +178,7 @@ class NimbusTests {
         )
 
         // Disqualification
-        assertTrue("Event must have a value", NimbusEvents.disqualification.testHasValue())
+        assertNotNull("Event must have a value", NimbusEvents.disqualification.testGetValue())
         val disqualificationEvents = NimbusEvents.disqualification.testGetValue()!!
         assertEquals("Event count must match", disqualificationEvents.count(), 1)
         val disqualificationEventExtras = disqualificationEvents.first().extra!!
@@ -207,16 +206,16 @@ class NimbusTests {
         nimbus.setUpTestExperiments(packageName, appInfo)
 
         // Assert that there are no events to start with
-        assertFalse(
+        assertNull(
             "There must not be any pre-existing events",
-            NimbusEvents.exposure.testHasValue()
+            NimbusEvents.exposure.testGetValue()
         )
 
         // Record a valid exposure event in Glean that matches the featureId from the test experiment
         nimbus.recordExposureOnThisThread("about_welcome")
 
         // Use the Glean test API to check that the valid event is present
-        assertTrue("Event must have a value", NimbusEvents.exposure.testHasValue())
+        assertNotNull("Event must have a value", NimbusEvents.exposure.testGetValue())
         val enrollmentEvents = NimbusEvents.exposure.testGetValue()!!
         assertEquals("Event count must match", enrollmentEvents.count(), 1)
         val enrollmentEventExtras = enrollmentEvents.first().extra!!
@@ -237,7 +236,7 @@ class NimbusTests {
 
         // Verify the invalid event was ignored by checking again that the valid event is still the only
         // event, and that it hasn't changed any of its extra properties.
-        assertTrue("Event must have a value", NimbusEvents.exposure.testHasValue())
+        assertNotNull("Event must have a value", NimbusEvents.exposure.testGetValue())
         val enrollmentEventsTryTwo = NimbusEvents.exposure.testGetValue()!!
         assertEquals("Event count must match", enrollmentEventsTryTwo.count(), 1)
         val enrollmentEventExtrasTryTwo = enrollmentEventsTryTwo.first().extra!!
@@ -264,16 +263,16 @@ class NimbusTests {
         nimbus.setUpTestExperiments(packageName, appInfo)
 
         // Assert that there are no events to start with
-        assertFalse(
+        assertNull(
             "There must not be any pre-existing events",
-            NimbusEvents.disqualification.testHasValue()
+            NimbusEvents.disqualification.testGetValue()
         )
 
         // Opt out of the specific experiment
         nimbus.optOutOnThisThread("test-experiment")
 
         // Use the Glean test API to check that the valid event is present
-        assertTrue("Event must have a value", NimbusEvents.disqualification.testHasValue())
+        assertNotNull("Event must have a value", NimbusEvents.disqualification.testGetValue())
         val disqualificationEvents = NimbusEvents.disqualification.testGetValue()!!
         assertEquals("Event count must match", disqualificationEvents.count(), 1)
         val enrollmentEventExtras = disqualificationEvents.first().extra!!
@@ -296,16 +295,16 @@ class NimbusTests {
         nimbus.setUpTestExperiments(packageName, appInfo)
 
         // Assert that there are no events to start with
-        assertFalse(
+        assertNull(
             "There must not be any pre-existing events",
-            NimbusEvents.disqualification.testHasValue()
+            NimbusEvents.disqualification.testGetValue()
         )
 
         // Opt out of all experiments
         nimbus.setGlobalUserParticipationOnThisThread(false)
 
         // Use the Glean test API to check that the valid event is present
-        assertTrue("Event must have a value", NimbusEvents.disqualification.testHasValue())
+        assertNotNull("Event must have a value", NimbusEvents.disqualification.testGetValue())
         val disqualificationEvents = NimbusEvents.disqualification.testGetValue()!!
         assertEquals("Event count must match", disqualificationEvents.count(), 1)
         val enrollmentEventExtras = disqualificationEvents.first().extra!!

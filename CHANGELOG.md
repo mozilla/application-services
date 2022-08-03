@@ -1,3 +1,53 @@
+# v94.0.0 (_2022-08-02_)
+
+[Full Changelog](https://github.com/mozilla/application-services/compare/v93.8.0...v94.0.0)
+
+## Logins
+### ⚠️ Breaking Changes ⚠️
+  - Removed expired logins sqlcipher migration metrics and renamed the `migrateLoginsWithMetrics` function since it no longer reports metrics. An associated iOS PR ([#11470](https://github.com/mozilla-mobile/firefox-ios/pull/11470)) has been created to address the function renaming. ([#5064](https://github.com/mozilla/application-services/pull/5064))
+
+# v93.8.0 (_2022-07-29_)
+
+[Full Changelog](https://github.com/mozilla/application-services/compare/v93.7.1...v93.8.0)
+
+## Nimbus FML ⛅️🔬🔭
+### What's Changed
+  - Validate the configuration passed from a top-level FML file to imported files. ([#5055](https://github.com/mozilla/application-services/pull/5055))
+
+## Places
+### What's new
+  - We now expose all of the Places history APIs to Swift consumers. ([#4989](https://github.com/mozilla/application-services/pull/4989))
+  - Added an optional db_size_limit parameter to `run_maintenance`.  This can be used to set a target size for the places DB.  If the DB is over that size, we'll prune a few older visits. The number of visits is very small (6) to ensure that the operation only blocks the database for a short time. The intention is that `run_maintenance()` is called frequently compared to how often visits are added to the places DB.
+
+## Sync15
+### What's changed
+  - `CLIENTS_TTL` has been updated to be 180 days instead of 21 ([#5054](https://github.com/mozilla/application-services/pull/5054))
+
+# v93.7.1 (_2022-07-26_)
+
+[Full Changelog](https://github.com/mozilla/application-services/compare/v93.7.0...v93.7.1)
+
+## Places
+### What's changed
+  - The `delete_visits_between` API now also deletes history metadata ([#5046](https://github.com/mozilla/application-services/pull/5046))
+
+# v93.7.0 (_2022-07-18_)
+
+[Full Changelog](https://github.com/mozilla/application-services/compare/v93.6.0...v93.7.0)
+
+## Nimbus FML ⛅️🔬🔭🔧
+### What's Changed
+  - Added `MOZ_APPSERVICES_MODULE` environment variable to specify the megazord module for iOS ([#5042](https://github.com/mozilla/application-services/pull/5042)). If it is missing, no module is imported.
+### ✨ What's New ✨
+  - Enabled remote loading and using configuring of branches. ([#5041](https://github.com/mozilla/application-services/pull/5041))
+  - Add a `fetch` command to `nimbus-fml` to demo and test remote loading and paths. ([#5047](https://github.com/mozilla/application-services/pull/5047))
+
+## Logins
+### What's Changed
+  - Updated the `LoginsStorageError` implementation and introduce error reporting for unexpected errors.
+    Note that some errors were removed, which is technically a breaking change, but none of our
+    consumers use those errors so it's not a breaking change in practice.
+
 # v93.6.0 (_2022-07-11_)
 
 [Full Changelog](https://github.com/mozilla/application-services/compare/v93.5.0...v93.6.0)

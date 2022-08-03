@@ -46,7 +46,7 @@ fn init_db(db: &mut PlacesDb) -> places::Result<()> {
     }
     places::storage::delete_pending_temp_tables(db)?;
     tx.commit()?;
-    places::storage::run_maintenance(db)?;
+    places::storage::run_maintenance(db, 0)?;
     Ok(())
 }
 

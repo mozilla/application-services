@@ -7,7 +7,7 @@ pub type Result<T> = std::result::Result<T, LoginsError>;
 // Functions which are part of the public API should use this Result.
 pub type ApiResult<T> = std::result::Result<T, LoginsStorageError>;
 
-pub use error_support::handle_error;
+pub use error_support::{breadcrumb, handle_error, report_error};
 use error_support::{ErrorHandling, GetErrorHandling};
 use sync15::ErrorKind as Sync15ErrorKind;
 
@@ -152,7 +152,7 @@ impl GetErrorHandling for LoginsError {
                 ErrorHandling::convert(LoginsStorageError::UnexpectedLoginsStorageError(
                     "must be an empty DB to migrate".to_string(),
                 ))
-                .report_error("logins:migration")
+                .report_error("logins-migration")
             }
             Self::CryptoError(_) => {
                 ErrorHandling::convert(LoginsStorageError::IncorrectKey).log_warning()
@@ -172,7 +172,7 @@ impl GetErrorHandling for LoginsError {
                 _ => ErrorHandling::convert(LoginsStorageError::UnexpectedLoginsStorageError(
                     self.to_string(),
                 ))
-                .report_error("logins:sync"),
+                .report_error("logins-sync"),
             },
             // This list is partial - not clear if a best-practice should be to ask that every
             // internal error is listed here (and remove this default branch) to ensure every error
@@ -182,7 +182,7 @@ impl GetErrorHandling for LoginsError {
             _ => ErrorHandling::convert(LoginsStorageError::UnexpectedLoginsStorageError(
                 self.to_string(),
             ))
-            .report_error("logins:unexpected"),
+            .report_error("logins-unexpected"),
         }
     }
 }

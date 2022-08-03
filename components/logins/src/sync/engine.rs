@@ -141,7 +141,11 @@ impl LoginsSyncEngine {
                 match SyncLoginData::from_payload(incoming.0.clone(), incoming.1, self.encdec()?) {
                     Ok(v) => sync_data.push(v),
                     Err(e) => {
-                        log::error!("Failed to deserialize record {:?}: {}", incoming.0.id, e);
+                        report_error!(
+                            "logins-deserialize-error",
+                            "Failed to deserialize record {:?}: {e}",
+                            incoming.0.id
+                        );
                         // Ideally we'd track new_failed, but it's unclear how
                         // much value it has.
                         telem.failed(1);

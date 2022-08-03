@@ -118,7 +118,7 @@ open class LoginsStorage {
     }
 }
 
-public func migrateLoginsWithMetrics(
+public func migrateLoginsFromSqlcipher(
     path: String,
     newEncryptionKey: String,
     sqlcipherPath: String,
@@ -127,17 +127,15 @@ public func migrateLoginsWithMetrics(
 ) -> Bool {
     var didMigrationSucceed = false
 
-    do {
-        try migrateLogins(
-            path: path,
-            newEncryptionKey: newEncryptionKey,
-            sqlcipherPath: sqlcipherPath,
-            sqlcipherKey: sqlcipherKey,
-            salt: salt
-        )
+    if let result = try? migrateLogins(
+        path: path,
+        newEncryptionKey: newEncryptionKey,
+        sqlcipherPath: sqlcipherPath,
+        sqlcipherKey: sqlcipherKey,
+        salt: salt
+    ) {
         didMigrationSucceed = true
-    } catch let err as NSError {
-        GleanMetrics.LoginsStoreMigration.errors.add(err.localizedDescription)
     }
+
     return didMigrationSucceed
 }
