@@ -22,7 +22,7 @@ buildscript {
         robolectric_core_version = '4.8.1'
         rust_android_gradle_version = '0.9.3'
         espresso_core_version = '3.3.0'
-        protobuf_version = '3.21.2'
+        protobuf_version = '3.21.4'
         gradle_protobuf_version = '0.8.19'
     }
 
