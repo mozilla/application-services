@@ -1,6 +1,9 @@
 /* This Source Code Form is subject to the terms of the Mozilla Public
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
+/* This Source Code Form is subject to the terms of the Mozilla Public
+ * License, v. 2.0. If a copy of the MPL was not distributed with this
+ * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
 use crate::api::places_api::PlacesApi;
 use crate::bookmark_sync::{
@@ -75,15 +78,12 @@ use url::Url;
 /// - Use iosBookmarksStaging to fixup the data that was actually inserted.
 /// - Update frecency for new items.
 /// - Cleanup (Delete mirror and mirror structure, detach iOS database, etc).
-pub fn import_ios_bookmarks(
-    places_api: &PlacesApi,
-    path: impl AsRef<std::path::Path>,
-) -> Result<()> {
+pub fn import(places_api: &PlacesApi, path: impl AsRef<std::path::Path>) -> Result<()> {
     let url = crate::util::ensure_url_path(path)?;
-    do_import_ios_bookmarks(places_api, url)
+    do_import(places_api, url)
 }
 
-fn do_import_ios_bookmarks(places_api: &PlacesApi, ios_db_file_url: Url) -> Result<()> {
+fn do_import(places_api: &PlacesApi, ios_db_file_url: Url) -> Result<()> {
     let conn_mutex = places_api.get_sync_connection()?;
     let conn = conn_mutex.lock();
 
@@ -176,12 +176,12 @@ fn populate_mirror_tags(db: &crate::PlacesDb) -> Result<()> {
     {
         let mut stmt = db.prepare(
             "SELECT mirror.id, stage.tags
-             FROM main.moz_bookmarks_synced mirror
-             JOIN temp.iosBookmarksStaging stage USING(guid)
-             -- iOS tags are JSON arrays of strings (or null).
-             -- Both [] and null are allowed for 'no tags'
-             WHERE stage.tags IS NOT NULL
-               AND stage.tags != '[]'",
+              FROM main.moz_bookmarks_synced mirror
+              JOIN temp.iosBookmarksStaging stage USING(guid)
+              -- iOS tags are JSON arrays of strings (or null).
+              -- Both [] and null are allowed for 'no tags'
+              WHERE stage.tags IS NOT NULL
+                AND stage.tags != '[]'",
         )?;
 
         let mut rows = stmt.query([])?;
@@ -228,9 +228,9 @@ fn populate_mirror_tags(db: &crate::PlacesDb) -> Result<()> {
         for item_id in tagged_items {
             log::trace!("tagging {} with {}", item_id, tag);
             db.execute_cached(
-                "INSERT INTO main.moz_bookmarks_synced_tag_relation(itemId, tagId) VALUES(:item_id, :tag_id)",
-                named_params! { ":tag_id": tag_id, ":item_id": item_id },
-            )?;
+                 "INSERT INTO main.moz_bookmarks_synced_tag_relation(itemId, tagId) VALUES(:item_id, :tag_id)",
+                 named_params! { ":tag_id": tag_id, ":item_id": item_id },
+             )?;
         }
     }
     log::debug!("Tagged {} items with {} tags", tagged_count, tag_count);
@@ -258,11 +258,11 @@ lazy_static::lazy_static! {
     static ref WIPE_MIRROR: String = format!(
         // Is omitting the roots right?
         "DELETE FROM main.moz_bookmarks_synced
-           WHERE guid NOT IN {roots};
-         DELETE FROM main.moz_bookmarks_synced_structure
-           WHERE guid NOT IN {roots};
-         UPDATE main.moz_bookmarks_synced
-           SET needsMerge = 0;",
+            WHERE guid NOT IN {roots};
+          DELETE FROM main.moz_bookmarks_synced_structure
+            WHERE guid NOT IN {roots};
+          UPDATE main.moz_bookmarks_synced
+            SET needsMerge = 0;",
         roots = ROOTS,
     );
     // We omit:
@@ -279,55 +279,55 @@ lazy_static::lazy_static! {
     // Insert any missing entries into moz_places that we'll need for this.
     static ref FILL_MOZ_PLACES: String = format!(
         "INSERT OR IGNORE INTO main.moz_places(guid, url, url_hash, frecency)
-         SELECT IFNULL((SELECT p.guid FROM main.moz_places p
-                        WHERE p.url_hash = hash(b.bmkUri) AND p.url = b.bmkUri),
-                       generate_guid()),
-                b.bmkUri,
-                hash(b.bmkUri),
-                -1
-         FROM temp.iosBookmarksStaging b
-         WHERE b.bmkUri IS NOT NULL
-           AND b.type = {bookmark_type}",
+          SELECT IFNULL((SELECT p.guid FROM main.moz_places p
+                         WHERE p.url_hash = hash(b.bmkUri) AND p.url = b.bmkUri),
+                        generate_guid()),
+                 b.bmkUri,
+                 hash(b.bmkUri),
+                 -1
+          FROM temp.iosBookmarksStaging b
+          WHERE b.bmkUri IS NOT NULL
+            AND b.type = {bookmark_type}",
         bookmark_type = IosBookmarkType::Bookmark as u8,
     );
 
     static ref POPULATE_MIRROR: String = format!(
         "REPLACE INTO main.moz_bookmarks_synced(
-            guid,
-            parentGuid,
-            serverModified,
-            needsMerge,
-            validity,
-            isDeleted,
-            kind,
-            dateAdded,
-            title,
-            placeId,
-            keyword
-        )
-        SELECT
-            b.guid,
-            b.parentid,
-            b.modified,
-            1, -- needsMerge
-            1, -- VALIDITY_VALID
-            0, -- isDeleted
-            CASE b.type
-                WHEN {ios_bookmark_type} THEN {bookmark_kind}
-                WHEN {ios_folder_type} THEN {folder_kind}
-                WHEN {ios_separator_type} THEN {separator_kind}
-                -- We filter out anything else when inserting into the stage table
-            END,
-            b.date_added,
-            b.title,
-            -- placeId
-            CASE WHEN b.bmkUri IS NULL
-            THEN NULL
-            ELSE (SELECT id FROM main.moz_places p
-                  WHERE p.url_hash = hash(b.bmkUri) AND p.url = b.bmkUri)
-            END,
-            b.keyword
-        FROM iosBookmarksStaging b",
+             guid,
+             parentGuid,
+             serverModified,
+             needsMerge,
+             validity,
+             isDeleted,
+             kind,
+             dateAdded,
+             title,
+             placeId,
+             keyword
+         )
+         SELECT
+             b.guid,
+             b.parentid,
+             b.modified,
+             1, -- needsMerge
+             1, -- VALIDITY_VALID
+             0, -- isDeleted
+             CASE b.type
+                 WHEN {ios_bookmark_type} THEN {bookmark_kind}
+                 WHEN {ios_folder_type} THEN {folder_kind}
+                 WHEN {ios_separator_type} THEN {separator_kind}
+                 -- We filter out anything else when inserting into the stage table
+             END,
+             b.date_added,
+             b.title,
+             -- placeId
+             CASE WHEN b.bmkUri IS NULL
+             THEN NULL
+             ELSE (SELECT id FROM main.moz_places p
+                   WHERE p.url_hash = hash(b.bmkUri) AND p.url = b.bmkUri)
+             END,
+             b.keyword
+         FROM iosBookmarksStaging b",
         bookmark_kind = SyncedBookmarkKind::Bookmark as u8,
         folder_kind = SyncedBookmarkKind::Folder as u8,
         separator_kind = SyncedBookmarkKind::Separator as u8,
@@ -340,115 +340,115 @@ lazy_static::lazy_static! {
 }
 
 const POPULATE_MIRROR_STRUCTURE: &str = "
-REPLACE INTO main.moz_bookmarks_synced_structure(guid, parentGuid, position)
-    SELECT structure.child, structure.parent, structure.idx FROM ios.bookmarksBufferStructure structure
-    WHERE EXISTS(
-        SELECT 1 FROM iosBookmarksStaging stage
-        WHERE stage.isLocal = 0
-            AND stage.guid = structure.child
-    );
-REPLACE INTO main.moz_bookmarks_synced_structure(guid, parentGuid, position)
-    SELECT structure.child, structure.parent, structure.idx FROM ios.bookmarksLocalStructure structure
-    WHERE EXISTS(
-        SELECT 1 FROM iosBookmarksStaging stage
-        WHERE stage.isLocal != 0
-            AND stage.guid = structure.child
-    );
-";
+ REPLACE INTO main.moz_bookmarks_synced_structure(guid, parentGuid, position)
+     SELECT structure.child, structure.parent, structure.idx FROM ios.bookmarksBufferStructure structure
+     WHERE EXISTS(
+         SELECT 1 FROM iosBookmarksStaging stage
+         WHERE stage.isLocal = 0
+             AND stage.guid = structure.child
+     );
+ REPLACE INTO main.moz_bookmarks_synced_structure(guid, parentGuid, position)
+     SELECT structure.child, structure.parent, structure.idx FROM ios.bookmarksLocalStructure structure
+     WHERE EXISTS(
+         SELECT 1 FROM iosBookmarksStaging stage
+         WHERE stage.isLocal != 0
+             AND stage.guid = structure.child
+     );
+ ";
 
 lazy_static::lazy_static! {
     static ref POPULATE_STAGING: String = format!(
         "INSERT OR IGNORE INTO temp.iosBookmarksStaging(
-            guid,
-            type,
-            parentid,
-            pos,
-            title,
-            bmkUri,
-            keyword,
-            tags,
-            date_added,
-            modified,
-            isLocal
-        )
-        SELECT
-            b.guid,
-            b.type,
-            b.parentid,
-            b.pos,
-            b.title,
-            CASE
-                WHEN b.bmkUri IS NOT NULL
-                    THEN validate_url(b.bmkUri)
-                ELSE NULL
-            END as uri,
-            b.keyword,
-            b.tags,
-            sanitize_timestamp(b.date_added),
-            sanitize_timestamp(b.server_modified),
-            0
-        FROM ios.bookmarksBuffer b
-        WHERE NOT b.is_deleted
-            -- Skip anything also in `local` (we can't use `replace`,
-            -- since we use `IGNORE` to avoid inserting bad records)
-            AND (
-                (b.guid IN {roots})
-                OR
-                (b.guid NOT IN (SELECT l.guid FROM ios.bookmarksLocal l))
-            )
-            AND (b.type != {ios_bookmark_type} OR uri IS NOT NULL)
-        ;
-        INSERT OR IGNORE INTO temp.iosBookmarksStaging(
-            guid,
-            type,
-            parentid,
-            pos,
-            title,
-            bmkUri,
-            keyword,
-            tags,
-            date_added,
-            modified,
-            isLocal
-        )
-        SELECT
-            l.guid,
-            l.type,
-            l.parentid,
-            l.pos,
-            l.title,
-            validate_url(l.bmkUri) as uri,
-            l.keyword,
-            l.tags,
-            sanitize_timestamp(l.date_added),
-            sanitize_timestamp(l.local_modified),
-            1
-        FROM ios.bookmarksLocal l
-        WHERE NOT l.is_deleted
-        AND uri IS NOT NULL
-        ;",
+             guid,
+             type,
+             parentid,
+             pos,
+             title,
+             bmkUri,
+             keyword,
+             tags,
+             date_added,
+             modified,
+             isLocal
+         )
+         SELECT
+             b.guid,
+             b.type,
+             b.parentid,
+             b.pos,
+             b.title,
+             CASE
+                 WHEN b.bmkUri IS NOT NULL
+                     THEN validate_url(b.bmkUri)
+                 ELSE NULL
+             END as uri,
+             b.keyword,
+             b.tags,
+             sanitize_timestamp(b.date_added),
+             sanitize_timestamp(b.server_modified),
+             0
+         FROM ios.bookmarksBuffer b
+         WHERE NOT b.is_deleted
+             -- Skip anything also in `local` (we can't use `replace`,
+             -- since we use `IGNORE` to avoid inserting bad records)
+             AND (
+                 (b.guid IN {roots})
+                 OR
+                 (b.guid NOT IN (SELECT l.guid FROM ios.bookmarksLocal l))
+             )
+             AND (b.type != {ios_bookmark_type} OR uri IS NOT NULL)
+         ;
+         INSERT OR IGNORE INTO temp.iosBookmarksStaging(
+             guid,
+             type,
+             parentid,
+             pos,
+             title,
+             bmkUri,
+             keyword,
+             tags,
+             date_added,
+             modified,
+             isLocal
+         )
+         SELECT
+             l.guid,
+             l.type,
+             l.parentid,
+             l.pos,
+             l.title,
+             validate_url(l.bmkUri) as uri,
+             l.keyword,
+             l.tags,
+             sanitize_timestamp(l.date_added),
+             sanitize_timestamp(l.local_modified),
+             1
+         FROM ios.bookmarksLocal l
+         WHERE NOT l.is_deleted
+         AND uri IS NOT NULL
+         ;",
         roots = ROOTS,
         ios_bookmark_type = IosBookmarkType::Bookmark as u8,
     );
 
 
     static ref CREATE_STAGING_TABLE: String = format!("
-        CREATE TEMP TABLE temp.iosBookmarksStaging(
-            id INTEGER PRIMARY KEY,
-            guid TEXT NOT NULL UNIQUE,
-            type TINYINT NOT NULL
-                CHECK(type == {ios_bookmark_type} OR type == {ios_folder_type} OR type == {ios_separator_type}),
-            parentid TEXT,
-            pos INT,
-            title TEXT,
-            bmkUri TEXT
-                CHECK(type != {ios_bookmark_type} OR validate_url(bmkUri) == bmkUri),
-            keyword TEXT,
-            tags TEXT,
-            date_added INTEGER NOT NULL,
-            modified INTEGER NOT NULL,
-            isLocal TINYINT NOT NULL
-        )",
+         CREATE TEMP TABLE temp.iosBookmarksStaging(
+             id INTEGER PRIMARY KEY,
+             guid TEXT NOT NULL UNIQUE,
+             type TINYINT NOT NULL
+                 CHECK(type == {ios_bookmark_type} OR type == {ios_folder_type} OR type == {ios_separator_type}),
+             parentid TEXT,
+             pos INT,
+             title TEXT,
+             bmkUri TEXT
+                 CHECK(type != {ios_bookmark_type} OR validate_url(bmkUri) == bmkUri),
+             keyword TEXT,
+             tags TEXT,
+             date_added INTEGER NOT NULL,
+             modified INTEGER NOT NULL,
+             isLocal TINYINT NOT NULL
+         )",
 
             ios_bookmark_type = IosBookmarkType::Bookmark as u8,
             ios_folder_type = IosBookmarkType::Folder as u8,
@@ -459,11 +459,11 @@ lazy_static::lazy_static! {
     static ref FIXUP_MOZ_BOOKMARKS: String = format!(
         // Is there anything else?
         "UPDATE main.moz_bookmarks SET
-           syncStatus = {unknown},
-           syncChangeCounter = 1,
-           lastModified = IFNULL((SELECT stage.modified FROM temp.iosBookmarksStaging stage
-                                  WHERE stage.guid = main.moz_bookmarks.guid),
-                                 lastModified)",
+            syncStatus = {unknown},
+            syncChangeCounter = 1,
+            lastModified = IFNULL((SELECT stage.modified FROM temp.iosBookmarksStaging stage
+                                   WHERE stage.guid = main.moz_bookmarks.guid),
+                                  lastModified)",
         unknown = SyncStatus::Unknown as u8
     );
 }

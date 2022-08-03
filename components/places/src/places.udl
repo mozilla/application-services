@@ -55,6 +55,9 @@ interface PlacesApi {
     void places_bookmarks_import_from_ios(string db_path);
 
     [Throws=PlacesError]
+    string places_history_import_from_ios(string db_path);
+
+    [Throws=PlacesError]
     void bookmarks_reset();
 };
 

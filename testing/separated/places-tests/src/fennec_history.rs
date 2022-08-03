@@ -2,7 +2,7 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-use places::import::fennec::history::HistoryMigrationResult;
+use places::import::common::HistoryMigrationResult;
 use places::{api::places_api::PlacesApi, types::VisitTransition, ErrorKind, Result};
 use rusqlite::Connection;
 use std::path::Path;

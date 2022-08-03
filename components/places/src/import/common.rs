@@ -4,7 +4,9 @@
 
 use crate::db::PlacesDb;
 use crate::error::*;
-use rusqlite::named_params;
+use rusqlite::{named_params, Connection};
+use serde::Serialize;
+use sql_support::ConnExt;
 use types::Timestamp;
 use url::Url;
 
@@ -127,4 +129,53 @@ impl Drop for ExecuteOnDrop<'_> {
             log::debug!("  Failed query: {}", &self.sql);
         }
     }
+}
+
+pub fn select_count(conn: &PlacesDb, stmt: &str) -> u32 {
+    let count: Result<Option<u32>> =
+        conn.try_query_row(stmt, [], |row| Ok(row.get::<_, u32>(0)?), false);
+    count.unwrap().unwrap()
+}
+
+#[derive(Serialize, PartialEq, Eq, Debug, Clone, Default)]
+pub struct HistoryMigrationResult {
+    pub num_total: u32,
+    pub num_succeeded: u32,
+    pub num_failed: u32,
+    pub total_duration: u128,
+}
+
+pub fn define_history_migration_functions(c: &Connection) -> Result<()> {
+    use rusqlite::functions::FunctionFlags;
+    c.create_scalar_function(
+        "validate_url",
+        1,
+        FunctionFlags::SQLITE_UTF8 | FunctionFlags::SQLITE_DETERMINISTIC,
+        crate::import::common::sql_fns::validate_url,
+    )?;
+    c.create_scalar_function(
+        "sanitize_timestamp",
+        1,
+        FunctionFlags::SQLITE_UTF8 | FunctionFlags::SQLITE_DETERMINISTIC,
+        crate::import::common::sql_fns::sanitize_timestamp,
+    )?;
+    c.create_scalar_function(
+        "hash",
+        -1,
+        FunctionFlags::SQLITE_UTF8 | FunctionFlags::SQLITE_DETERMINISTIC,
+        crate::db::db::sql_fns::hash,
+    )?;
+    c.create_scalar_function(
+        "generate_guid",
+        0,
+        FunctionFlags::SQLITE_UTF8,
+        crate::db::db::sql_fns::generate_guid,
+    )?;
+    c.create_scalar_function(
+        "sanitize_utf8",
+        1,
+        FunctionFlags::SQLITE_UTF8 | FunctionFlags::SQLITE_DETERMINISTIC,
+        crate::import::common::sql_fns::sanitize_utf8,
+    )?;
+    Ok(())
 }
