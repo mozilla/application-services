@@ -55,7 +55,7 @@ interface PlacesApi {
     void places_bookmarks_import_from_ios(string db_path);
 
     [Throws=PlacesError]
-    string places_history_import_from_ios(string db_path);
+    HistoryMigrationResult places_history_import_from_ios(string db_path);
 
     [Throws=PlacesError]
     void bookmarks_reset();
@@ -327,6 +327,13 @@ dictionary Dummy {
 dictionary TopFrecentSiteInfo {
     Url url;
     string? title;
+};
+
+dictionary HistoryMigrationResult {
+    u32 num_total;
+    u32 num_succeeded;
+    u32 num_failed;
+    u64 total_duration;
 };
 
 

@@ -83,7 +83,7 @@ fn do_import(places_api: &PlacesApi, android_db_file_url: Url) -> Result<History
         num_total,
         num_succeeded,
         num_failed,
-        total_duration: import_start.elapsed().as_millis(),
+        total_duration: import_start.elapsed().as_millis() as u64,
     };
 
     Ok(metrics)

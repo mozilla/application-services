@@ -142,7 +142,7 @@ pub struct HistoryMigrationResult {
     pub num_total: u32,
     pub num_succeeded: u32,
     pub num_failed: u32,
-    pub total_duration: u128,
+    pub total_duration: u64,
 }
 
 pub fn define_history_migration_functions(c: &Connection) -> Result<()> {

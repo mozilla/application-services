@@ -7,6 +7,7 @@
 use crate::api::matcher::{self, search_frecent, SearchParams};
 use crate::api::places_api::places_api_new;
 use crate::error::PlacesError;
+use crate::import::common::HistoryMigrationResult;
 use crate::import::fennec::import_pinned_sites;
 use crate::import::import_fennec_bookmarks;
 use crate::import::import_fennec_history;
@@ -233,9 +234,9 @@ impl PlacesApi {
         Ok(())
     }
 
-    fn places_history_import_from_ios(&self, db_path: String) -> Result<String> {
+    fn places_history_import_from_ios(&self, db_path: String) -> Result<HistoryMigrationResult> {
         let metrics = import_ios_history(self, &db_path)?;
-        Ok(serde_json::to_string(&metrics)?)
+        Ok(metrics)
     }
 
     fn bookmarks_reset(&self) -> Result<()> {

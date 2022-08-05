@@ -75,6 +75,12 @@ public class PlacesAPI {
             try self.api.placesBookmarksImportFromIos(dbPath: path)
         }
     }
+    
+    open func migrateHistoryFromBrowserDb(path: String) throws -> HistoryMigrationResult {
+        try queue.sync {
+            try self.api.placesHistoryImportFromIos(dbPath: path)
+        }
+    }
 
     /**
      * Open a new reader connection.

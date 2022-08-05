@@ -12,6 +12,23 @@ use crate::import::common::{
 };
 use url::Url;
 
+/// This import is used for iOS users migrating from `browser.db`-based
+/// history storage to the new rust-places store.
+///
+/// The goal of this import is to persist all local browser.db items into places database
+///
+///
+/// ### Basic process
+///
+/// - Attach the iOS database.
+/// - Slurp records into a temp table "iOSHistoryStaging" from iOS database.
+///   - This is mostly done for convenience, to punycode the URLs and some performance benefits over
+///     using a view or reading things into Rust
+/// - Add any entries to moz_places that are needed (in practice, most are
+///   needed, users in practice don't have nearly as many bookmarks as history entries)
+/// - Use iosHistoryStaging and the browser.db to migrate visits to the places visits table.
+/// - Update frecency for new items.
+/// - Cleanup (detach iOS database, etc).
 pub fn import(
     places_api: &PlacesApi,
     path: impl AsRef<std::path::Path>,
@@ -27,11 +44,11 @@ fn do_import(places_api: &PlacesApi, ios_db_file_url: Url) -> Result<HistoryMigr
     define_history_migration_functions(&conn)?;
 
     let import_start = Instant::now();
-    log::trace!("Attaching database {}", ios_db_file_url);
+    log::debug!("Attaching database {}", ios_db_file_url);
     let auto_detach = attached_database(&conn, &ios_db_file_url, "ios")?;
     let tx = conn.begin_transaction()?;
     let num_total = select_count(&conn, &COUNT_IOS_HISTORY_VISITS);
-    log::info!("The number of visits is: {:?}", num_total);
+    log::debug!("The number of visits is: {:?}", num_total);
 
     log::debug!("Creating and populating staging table");
     conn.execute_batch(&CREATE_STAGING_TABLE)?;
@@ -64,7 +81,7 @@ fn do_import(places_api: &PlacesApi, ios_db_file_url: Url) -> Result<HistoryMigr
         num_total,
         num_succeeded,
         num_failed,
-        total_duration: import_start.elapsed().as_millis(),
+        total_duration: import_start.elapsed().as_millis() as u64,
     };
 
     Ok(metrics)
@@ -81,18 +98,15 @@ lazy_static::lazy_static! {
    static ref CREATE_STAGING_TABLE: &'static str = "
         CREATE TEMP TABLE temp.iOSHistoryStaging(
             id INTEGER PRIMARY KEY,
-            guid TEXT NOT NULL UNIQUE,
             url TEXT,
             url_hash INTEGER NOT NULL,
             title TEXT
         ) WITHOUT ROWID;";
 
    static ref FILL_STAGING: &'static str = "
-    INSERT OR IGNORE INTO temp.iOSHistoryStaging(id, guid, url, url_hash, title)
+    INSERT OR IGNORE INTO temp.iOSHistoryStaging(id, url, url_hash, title)
         SELECT
             h.id,
-            sanitize_utf8(guid), -- The places record in our DB may be different, but we
-                                    -- need this to join to Fennec's visits table.
             validate_url(h.url),
             hash(validate_url(h.url)),
             sanitize_utf8(h.title)
@@ -120,10 +134,10 @@ lazy_static::lazy_static! {
    static ref INSERT_HISTORY_VISITS: &'static str =
    "INSERT OR IGNORE INTO main.moz_historyvisits(from_visit, place_id, visit_date, visit_type, is_local)
         SELECT
-            NULL, -- Fenec does not store enough information to rebuild redirect chains.
+            NULL, -- iOS does not store enough information to rebuild redirect chains.
             (SELECT p.id FROM main.moz_places p WHERE p.url_hash = t.url_hash AND p.url = t.url),
             sanitize_timestamp(v.date),
-            v.type, -- Fennec stores visit types maps 1:1 to ours.
+            v.type, -- iOS stores visit types that map 1:1 to ours.
             v.is_local
         FROM ios.visits v
         LEFT JOIN temp.iOSHistoryStaging t on v.siteID = t.id"
