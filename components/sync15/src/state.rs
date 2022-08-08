@@ -4,16 +4,15 @@
 
 use std::collections::{HashMap, HashSet};
 
-use crate::bso_record::EncryptedBso;
 use crate::client::{SetupStorageClient, Sync15ClientResponse};
 use crate::collection_keys::CollectionKeys;
 use crate::error::{self, ErrorKind, ErrorResponse};
-use crate::key_bundle::KeyBundle;
 use crate::record_types::{MetaGlobalEngine, MetaGlobalRecord};
 use crate::request::{InfoCollections, InfoConfiguration};
 use crate::util::ServerTimestamp;
 use interrupt_support::Interruptee;
 use serde_derive::*;
+use sync15_traits::{EncryptedBso, KeyBundle};
 use sync_guid::Guid;
 
 use self::SetupState::*;
@@ -664,9 +663,9 @@ fn is_same_timestamp(local: ServerTimestamp, collections: &InfoCollections, key:
 mod tests {
     use super::*;
 
-    use crate::bso_record::{BsoRecord, EncryptedBso, EncryptedPayload, Payload};
     use crate::record_types::CryptoKeysRecord;
     use interrupt_support::NeverInterrupts;
+    use sync15_traits::{BsoRecord, EncryptedBso, EncryptedPayload, Payload};
 
     struct InMemoryClient {
         info_configuration: error::Result<Sync15ClientResponse<InfoConfiguration>>,
@@ -790,7 +789,7 @@ mod tests {
             let mut bso =
                 crate::CleartextBso::from_payload(Payload::from_record(record)?, "crypto");
             bso.modified = modified;
-            bso.encrypt(root_key)
+            Ok(bso.encrypt(root_key)?)
         }
     }
 

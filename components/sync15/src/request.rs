@@ -2,7 +2,6 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-use crate::bso_record::EncryptedBso;
 use crate::client::Sync15ClientResponse;
 use crate::error::{self, ErrorKind, Result};
 use crate::util::ServerTimestamp;
@@ -10,6 +9,7 @@ use serde_derive::*;
 use std::collections::HashMap;
 use std::default::Default;
 use std::ops::Deref;
+use sync15_traits::EncryptedBso;
 pub use sync15_traits::{CollectionRequest, RequestOrder};
 use sync_guid::Guid;
 use viaduct::status_codes;
@@ -491,11 +491,11 @@ impl<Poster> PostQueue<Poster, NormalResponseHandler> {
 #[cfg(test)]
 mod test {
     use super::*;
-    use crate::bso_record::{BsoRecord, EncryptedPayload};
     use lazy_static::lazy_static;
     use std::cell::RefCell;
     use std::collections::VecDeque;
     use std::rc::Rc;
+    use sync15_traits::{BsoRecord, EncryptedPayload};
     use url::Url;
     #[test]
     fn test_url_building() {

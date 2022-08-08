@@ -7,12 +7,10 @@ use crate::client::Sync15StorageClient;
 use crate::clients;
 use crate::coll_state::LocalCollStateMachine;
 use crate::error::Error;
-use crate::key_bundle::KeyBundle;
 use crate::state::GlobalState;
 use crate::telemetry;
 use interrupt_support::Interruptee;
-
-pub use sync15_traits::{IncomingChangeset, SyncEngine};
+pub use sync15_traits::{IncomingChangeset, KeyBundle, SyncEngine};
 
 pub fn synchronize(
     client: &Sync15StorageClient,

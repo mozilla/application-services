@@ -21,7 +21,7 @@ viaduct = { path = "../viaduct" }
 interrupt-support = { path = "../support/interrupt" }
 error-support = { path = "../support/error" }
 sync-guid = { path = "../support/guid", features = ["random"] }
-sync15-traits = {path = "../support/sync15-traits"}
+sync15-traits = {path = "../support/sync15-traits", features = ["crypto"] }
 thiserror = "1.0"
 anyhow = "1.0"
 

@@ -3,10 +3,8 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
 use interrupt_support::Interrupted;
-use rc_crypto::hawk;
-use std::string;
 use std::time::SystemTime;
-use sync15_traits::request::UnacceptableBaseUrl;
+use sync15_traits::{request::UnacceptableBaseUrl, SyncTraitsError};
 /// This enum is to discriminate `StorageHttpError`, and not used as an error.
 #[derive(Debug, Clone)]
 pub enum ErrorResponse {
@@ -23,12 +21,33 @@ pub enum ErrorResponse {
 
 #[derive(Debug, thiserror::Error)]
 pub enum ErrorKind {
+    // These are errors duplicated from SyncTraitsError, so that consumers can
+    // deal with errors from just 1 of the crates and not care which one of
+    // then actually caused the error.
     #[error("Key {0} had wrong length, got {1}, expected {2}")]
     BadKeyLength(&'static str, usize, usize),
 
     #[error("SHA256 HMAC Mismatch error")]
     HmacMismatch,
 
+    #[error("Crypto/NSS error: {0}")]
+    CryptoError(#[from] rc_crypto::Error),
+
+    #[error("Base64 decode error: {0}")]
+    Base64Decode(#[from] base64::DecodeError),
+
+    #[error("JSON error: {0}")]
+    JsonError(#[from] serde_json::Error),
+
+    #[error("Bad cleartext UTF8: {0}")]
+    BadCleartextUtf8(#[from] std::string::FromUtf8Error),
+
+    #[error("HAWK error: {0}")]
+    HawkError(#[from] rc_crypto::hawk::Error),
+
+    //
+    // Errors specific to this module.
+    //
     #[error("HTTP status {0} when requesting a token from the tokenserver")]
     TokenserverHttpError(u16),
 
@@ -74,26 +93,11 @@ pub enum ErrorKind {
     #[error("Store error: {0}")]
     StoreError(#[from] anyhow::Error),
 
-    #[error("Crypto/NSS error: {0}")]
-    CryptoError(#[from] rc_crypto::Error),
-
-    #[error("Base64 decode error: {0}")]
-    Base64Decode(#[from] base64::DecodeError),
-
-    #[error("JSON error: {0}")]
-    JsonError(#[from] serde_json::Error),
-
-    #[error("Bad cleartext UTF8: {0}")]
-    BadCleartextUtf8(#[from] string::FromUtf8Error),
-
     #[error("Network error: {0}")]
     RequestError(#[from] viaduct::Error),
 
     #[error("Unexpected HTTP status: {0}")]
     UnexpectedStatus(#[from] viaduct::UnexpectedStatus),
-
-    #[error("HAWK error: {0}")]
-    HawkError(#[from] hawk::Error),
 
     #[error("URL parse error: {0}")]
     MalformedUrl(#[from] url::ParseError),
@@ -104,20 +108,40 @@ pub enum ErrorKind {
 
 error_support::define_error! {
     ErrorKind {
-        (CryptoError, rc_crypto::Error),
-        (Base64Decode, base64::DecodeError),
         (JsonError, serde_json::Error),
-        (BadCleartextUtf8, std::string::FromUtf8Error),
         (RequestError, viaduct::Error),
         (UnexpectedStatus, viaduct::UnexpectedStatus),
         (MalformedUrl, url::ParseError),
         // A bit dubious, since we only want this to happen inside `synchronize`
         (StoreError, anyhow::Error),
         (Interrupted, Interrupted),
-        (HawkError, hawk::Error),
+        (HawkError, rc_crypto::hawk::Error),
     }
 }
 
+impl From<SyncTraitsError> for ErrorKind {
+    fn from(e: SyncTraitsError) -> ErrorKind {
+        match e {
+            SyncTraitsError::BadKeyLength(key, got, expected) => {
+                ErrorKind::BadKeyLength(key, got, expected)
+            }
+            SyncTraitsError::HmacMismatch => ErrorKind::HmacMismatch,
+            SyncTraitsError::CryptoError(e) => ErrorKind::CryptoError(e),
+            SyncTraitsError::Base64Decode(e) => ErrorKind::Base64Decode(e),
+            SyncTraitsError::JsonError(e) => ErrorKind::JsonError(e),
+            SyncTraitsError::BadCleartextUtf8(e) => ErrorKind::BadCleartextUtf8(e),
+            SyncTraitsError::HawkError(e) => ErrorKind::HawkError(e),
+        }
+    }
+}
+
+impl From<SyncTraitsError> for Error {
+    fn from(e: SyncTraitsError) -> Self {
+        Error::from(ErrorKind::from(e))
+    }
+}
+
+// XXX - we should just move this `UnacceptableBaseUrl` into the `SyncTraitsError` enum.
 impl From<UnacceptableBaseUrl> for ErrorKind {
     fn from(e: UnacceptableBaseUrl) -> ErrorKind {
         ErrorKind::UnacceptableUrl(e.to_string())

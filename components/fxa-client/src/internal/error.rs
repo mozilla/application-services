@@ -148,6 +148,19 @@ error_support::define_error_conversions! {
     }
 }
 
+// Adapts errors from the sync15_traits crate into sync15 errors.
+impl From<sync15::SyncTraitsError> for ErrorKind {
+    fn from(e: sync15::SyncTraitsError) -> Self {
+        ErrorKind::SyncError(e.into())
+    }
+}
+
+impl From<sync15::SyncTraitsError> for Error {
+    fn from(e: sync15::SyncTraitsError) -> Self {
+        Error::from(ErrorKind::from(e))
+    }
+}
+
 // The public FFI puts the errors into three buckets, this helps us
 // convert between them. Maybe in future we can use uniffi to expose
 // more error info to the caller?
