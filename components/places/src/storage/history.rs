@@ -41,10 +41,12 @@ static DELETION_HIGH_WATER_MARK_META_KEY: &str = "history_deleted_hwm";
 
 /// Returns the RowId of a new visit in moz_historyvisits, or None if no new visit was added.
 pub fn apply_observation(db: &PlacesDb, visit_ob: VisitObservation) -> Result<Option<RowId>> {
+    breadcrumb!("apply_observation: begin_transaction");
     let tx = db.begin_transaction()?;
     let result = apply_observation_direct(db, visit_ob)?;
     delete_pending_temp_tables(db)?;
     tx.commit()?;
+    breadcrumb!("apply_observation: commit");
     Ok(result)
 }
 
@@ -370,17 +372,21 @@ fn delete_page(db: &PlacesDb, page_id: RowId) -> Result<()> {
 /// Deletes all visits for a page given its GUID, creating tombstones if
 /// necessary.
 pub fn delete_visits_for(db: &PlacesDb, guid: &SyncGuid) -> Result<()> {
+    breadcrumb!("delete_visits_for: begin_transaction");
     let tx = db.begin_transaction()?;
     let result = delete_visits_for_in_tx(db, guid);
     tx.commit()?;
+    breadcrumb!("delete_visits_for: commit");
     result
 }
 
 /// Delete all visits in a date range.
 pub fn delete_visits_between(db: &PlacesDb, start: Timestamp, end: Timestamp) -> Result<()> {
+    breadcrumb!("delete_visits_between: begin_transaction");
     let tx = db.begin_transaction()?;
     delete_visits_between_in_tx(db, start, end)?;
     tx.commit()?;
+    breadcrumb!("delete_visits_between: commit");
     Ok(())
 }
 
@@ -393,9 +399,11 @@ pub fn delete_place_visit_at_time_by_href(
     place: &str,
     visit: Timestamp,
 ) -> Result<()> {
+    breadcrumb!("delete_place_visit_at_time_by_href: begin_transaction");
     let tx = db.begin_transaction()?;
     delete_place_visit_at_time_in_tx(db, place, visit)?;
     tx.commit()?;
+    breadcrumb!("delete_place_visit_at_time_by_href: commit");
     Ok(())
 }
 
@@ -405,14 +413,18 @@ pub fn prune_destructively(db: &PlacesDb) -> Result<()> {
 }
 
 pub fn prune_older_visits(db: &PlacesDb) -> Result<()> {
-    let _tx = db.begin_transaction()?;
+    breadcrumb!("prune_older_visits: begin_transaction");
+    let tx = db.begin_transaction()?;
     // Prune 6 items at a time, which matches desktops "small limit" value
     let limit: usize = 6;
 
-    DbAction::apply_all(
+    let result = DbAction::apply_all(
         db,
         db_actions_from_visits_to_delete(find_visits_to_prune(db, limit, Timestamp::now())?),
-    )
+    );
+    tx.commit()?;
+    breadcrumb!("prune_older_visits: commit");
+    result
 }
 
 fn find_visits_to_prune(db: &PlacesDb, limit: usize, now: Timestamp) -> Result<Vec<VisitToDelete>> {
@@ -491,9 +503,11 @@ fn find_exotic_visits_to_prune(
 }
 
 pub fn wipe_local(db: &PlacesDb) -> Result<()> {
+    breadcrumb!("apply_observation: begin_transaction");
     let tx = db.begin_transaction()?;
     wipe_local_in_tx(db)?;
     tx.commit()?;
+    breadcrumb!("apply_observation: commit");
     // Note: SQLite cannot VACUUM within a transaction.
     db.execute_batch("VACUUM")?;
     Ok(())
@@ -541,7 +555,7 @@ fn wipe_local_in_tx(db: &PlacesDb) -> Result<()> {
 #[allow(unreachable_code)]
 pub fn delete_everything(db: &PlacesDb) -> Result<()> {
     // breadcrumb to track down #4856
-    breadcrumb!("places history delete_everything: starting transaction");
+    breadcrumb!("places history delete_everything: begin transaction");
     let tx = db.begin_transaction()?;
 
     // Remote visits could have a higher date than `now` if our clock is weird.
@@ -566,7 +580,7 @@ pub fn delete_everything(db: &PlacesDb) -> Result<()> {
 
     tx.commit()?;
     // breadcrumb to track down #4856
-    breadcrumb!("places history delete_everything: ending transaction");
+    breadcrumb!("places history delete_everything: commit");
 
     // Note: SQLite cannot VACUUM within a transaction.
     db.execute_batch("VACUUM")?;
@@ -648,7 +662,7 @@ pub fn delete_visits_between_in_tx(db: &PlacesDb, start: Timestamp, end: Timesta
         |(_, place_id, _)| place_id.0,
         |chunk, _| -> Result<()> {
             let query = format!(
-                "SELECT id, -- url, url_hash, guid
+                "SELECT id,
                     (foreign_count != 0) AS has_foreign,
                     ((last_visit_date_local + last_visit_date_remote) != 0) as has_visits,
                     sync_status
