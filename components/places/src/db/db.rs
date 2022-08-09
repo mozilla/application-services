@@ -50,8 +50,10 @@ impl ConnectionInitializer for PlacesInitializer {
     fn prepare(&self, conn: &Connection) -> open_database::Result<()> {
         let initial_pragmas = "
             -- The value we use was taken from Desktop Firefox, and seems necessary to
-            -- help ensure good performance on autocomplete-style queries. The default value is 1024,
-            -- which the SQLcipher docs themselves say is too small and should be changed.
+            -- help ensure good performance on autocomplete-style queries.
+            -- Modern default value is 4096, but as reported in
+            -- https://bugzilla.mozilla.org/show_bug.cgi?id=1782283, desktop places saw
+            -- a nice improvement with this value.
             PRAGMA page_size = 32768;
 
             -- Disable calling mlock/munlock for every malloc/free.
