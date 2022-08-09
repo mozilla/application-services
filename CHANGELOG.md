@@ -1,3 +1,11 @@
+# v94.0.1 (_2022-08-09_)
+
+[Full Changelog](https://github.com/mozilla/application-services/compare/v94.0.0...v94.0.1)
+
+## Nimbus FML
+### What's fixed
+  - Linux releases for the FML were missing, there are available again now. ([#5080](https://github.com/mozilla/application-services/pull/5080))
+
 # v94.0.0 (_2022-08-02_)
 
 [Full Changelog](https://github.com/mozilla/application-services/compare/v93.8.0...v94.0.0)
