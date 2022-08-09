@@ -16,7 +16,7 @@ dependencies {
 
     implementation "org.mozilla.telemetry:glean:$glean_version"
 
-    testImplementation "androidx.test:core-ktx:$androidx_test_core_version"
+    testImplementation "androidx.test:core-ktx:$androidx_test_version"
     testImplementation "androidx.work:work-testing:$androidx_work_testing_version"
     testImplementation "org.mozilla.telemetry:glean-native-forUnitTests:$glean_version"
     testImplementation project(':syncmanager')

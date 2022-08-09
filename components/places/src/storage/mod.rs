@@ -32,7 +32,9 @@ pub const TAG_LENGTH_MAX: usize = 100;
 // pub const DESCRIPTION_LENGTH_MAX: usize = 256;
 
 // Typesafe way to manage RowIds. Does it make sense? A better way?
-#[derive(Debug, Copy, Clone, PartialEq, PartialOrd, Eq, Ord, Deserialize, Serialize, Default)]
+#[derive(
+    Debug, Copy, Clone, PartialEq, PartialOrd, Eq, Ord, Deserialize, Serialize, Default, Hash,
+)]
 pub struct RowId(pub i64);
 
 impl From<RowId> for i64 {
@@ -218,7 +220,17 @@ impl TopFrecentSiteInfo {
     }
 }
 
-pub fn run_maintenance(conn: &PlacesDb) -> Result<()> {
+/// Run various maintenance on the places DB
+///
+/// This function is intended to be run during idle time and will take steps to clean up / shrink
+/// the database.
+///
+/// db_size_limit is the approximate storage limit in bytes.  If the database is using more space
+/// than this, some older visits will be deleted to free up space.  Pass in a 0 to skip this.
+pub fn run_maintenance(conn: &PlacesDb, db_size_limit: u32) -> Result<()> {
+    if db_size_limit > 0 && conn.get_db_size()? > db_size_limit {
+        history::prune_older_visits(conn)?;
+    }
     conn.execute_all(&[
         "VACUUM",
         "PRAGMA optimize",

@@ -43,7 +43,10 @@ fn main() -> Result<()> {
     let opts = Opts::from_args();
 
     let (_, token_info) = get_account_and_token(get_default_fxa_config(), &opts.creds_file)?;
-    let sync_key = token_info.key.unwrap().kid;
+    let sync_key = base64::encode_config(
+        &token_info.key.unwrap().key_bytes()?,
+        base64::URL_SAFE_NO_PAD,
+    );
 
     let mut cli_fxa = get_cli_fxa(get_default_fxa_config(), &opts.creds_file)?;
     let device_id = cli_fxa.account.get_current_device_id()?;

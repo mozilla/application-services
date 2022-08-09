@@ -205,7 +205,7 @@ fn import_places(
     println!("Committing....");
     tx.commit()?;
     println!("running maintenance...");
-    places::storage::run_maintenance(new)?;
+    places::storage::run_maintenance(new, 0)?;
 
     log::info!("Finished import!");
     Ok(())

@@ -3,35 +3,33 @@
 buildscript {
 
     ext {
-        kotlin_version = '1.5.20'
-        kotlin_coroutines_version = '1.5.0'
+        kotlin_version = '1.6.10'
+        kotlin_coroutines_version = '1.6.1'
         jna_version = '5.8.0'
-        android_gradle_plugin_version = '4.2.2'
-        android_components_version = '94.0.0'
-        glean_version = '50.1.3'
+        android_gradle_plugin_version = '7.0.0'
+        android_components_version = '104.0.2'
+        glean_version = '51.0.1'
         androidx_annotation_version = '1.2.0'
         androidx_core_version = '1.3.2'
-        androidx_test_core_version = '1.4.0'
+        androidx_test_version = '1.4.0'
         androidx_test_junit_version = '1.1.3'
-        androidx_work_testing_version = '2.5.0'
-        androidx_test_runner_version = '1.3.0'
-        detekt_version = '1.18.1'
-        gradle_download_task_version = '3.4.3'
+        androidx_work_testing_version = '2.7.1'
+        detekt_version = '1.19.0'
+        gradle_download_task_version = '5.1.0'
         junit_version = '4.13'
         maven_publish_version = '3.6.2'
-        mockito_core_version = '2.28.2'
-        roboelectric_core_version = '4.5.1'
-        robolectric_core_version = '4.5.1'
-        rust_android_gradle_version = '0.9.1'
+        mockito_core_version = '3.11.2'
+        robolectric_core_version = '4.8.1'
+        rust_android_gradle_version = '0.9.3'
         espresso_core_version = '3.3.0'
-        protobuf_version = '3.21.2'
-        gradle_protobuf_version = '0.8.18'
+        protobuf_version = '3.21.4'
+        gradle_protobuf_version = '0.8.19'
     }
 
     ext.build = [
         ndkVersion: "21.3.6528147", // Keep it in sync in TC Dockerfile.
-        compileSdkVersion: 29,
-        targetSdkVersion: 28,
+        compileSdkVersion: 32,
+        targetSdkVersion: 32,
         minSdkVersion: 21, // So that we can publish for aarch64.
         // This is required to support new AndroidX support libraries.
         // See mozilla-mobile/android-components#842

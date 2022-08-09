@@ -559,11 +559,18 @@ public class PlacesWriteConnection: PlacesReadConnection {
      * - `VACUUM`ing.
      * - Requesting that the indices in our tables be optimized.
      * - Periodic repair or deletion of corrupted records.
+     * - Deleting older visits when the database exceeds dbSizeLimit
      * - etc.
      *
-     * It should be called at least once a day, but this is merely a
-     * recommendation and nothing too dire should happen if it is not
-     * called.
+     * Maintanance in performed in small chunks at a time to avoid blocking the
+     * DB connection for too long.  This means that this should be called
+     * regularly when the app is idle.
+     *
+     * - Parameter dbSizeLimit: Maximum DB size to aim for, in bytes.  If the
+     *   database exceeds this size, we will prune a small number of visits. For
+     *   reference, desktop normally uses 75 MiB (78643200).  If it determines
+     *   that either the disk or memory is constrained then it halves the amount.
+     *   The default of 0 disables pruning.
      *
      * - Throws:
      *     - `PlacesError.connUseAfterAPIClosed`: if the PlacesAPI that returned this connection
@@ -576,10 +583,10 @@ public class PlacesWriteConnection: PlacesReadConnection {
      *                            operation. (If this occurs, please let us know).
      *
      */
-    open func runMaintenance() throws {
+    open func runMaintenance(dbSizeLimit: UInt32 = 0) throws {
         return try queue.sync {
             try self.checkApi()
-            try self.conn.runMaintenance()
+            try self.conn.runMaintenance(dbSizeLimit: dbSizeLimit)
         }
     }
 

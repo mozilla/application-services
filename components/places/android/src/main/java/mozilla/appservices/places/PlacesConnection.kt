@@ -338,8 +338,8 @@ class PlacesWriterConnection internal constructor(conn: UniffiPlacesConnection, 
         this.conn.wipeLocalHistory()
     }
 
-    override fun runMaintenance() {
-        this.conn.runMaintenance()
+    override fun runMaintenance(dbSizeLimit: UInt) {
+        this.conn.runMaintenance(dbSizeLimit)
     }
 
     override fun pruneDestructively() {
@@ -818,13 +818,20 @@ interface WritableHistoryConnection : ReadableHistoryConnection {
      * - Requesting that the indices in our tables be optimized.
      * - Expiring irrelevant history visits.
      * - Periodic repair or deletion of corrupted records.
+     * - Deleting older visits when the database exceeds dbSizeLimit
      * - etc.
      *
-     * It should be called at least once a day, but this is merely a
-     * recommendation and nothing too dire should happen if it is not
-     * called.
+     * Maintanance in performed in small chunks at a time to avoid blocking the
+     * DB connection for too long.  This means that this should be called
+     * regularly when the app is idle.
+     *
+     * @param dbSizeLimit: Maximum DB size to aim for, in bytes.  If the
+     * database exceeds this size, we will prune a small number of visits.
+     * For reference, desktop normally uses 75 MiB (78643200).  If it
+     * determines that either the disk or memory is constrained then it halves
+     * the amount. The default of 0 disables pruning.
      */
-    fun runMaintenance()
+    fun runMaintenance(dbSizeLimit: UInt = 0U)
 
     /**
      * Aggressively prune history visits. These deletions are not intended

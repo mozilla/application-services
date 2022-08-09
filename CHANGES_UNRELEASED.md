@@ -2,7 +2,7 @@
 
 # Unreleased Changes
 
-[Full Changelog](https://github.com/mozilla/application-services/compare/v93.7.1...main)
+[Full Changelog](https://github.com/mozilla/application-services/compare/v94.0.0...main)
 
 <!-- WARNING: New entries should be added below this comment to ensure the `./automation/prepare-release.py` script works as expected.
 
@@ -18,15 +18,6 @@ Use the template below to make assigning a version number during the release cut
   - Description of the change with a link to the pull request ([#0000](https://github.com/mozilla/application-services/pull/0000))
 
 -->
-## Nimbus FML ⛅️🔬🔭
-### What's Changed
-  - Validate the configuration passed from a top-level FML file to imported files. ([#5055](https://github.com/mozilla/application-services/pull/5055))
-
-## Places
-### What's new
-  - We now expose all of the Places history APIs to Swift consumers. ([#4989](https://github.com/mozilla/application-services/pull/4989))
-
-## Sync15
-### What's changed
-  - `CLIENTS_TTL` has been updated to be 180 days instead of 21 ([#5054](https://github.com/mozilla/application-services/pull/5054))
-
+## Nimbus FML
+### What's fixed
+  - Linux releases for the FML were missing, there are available again now. ([#5080](https://github.com/mozilla/application-services/pull/5080))
