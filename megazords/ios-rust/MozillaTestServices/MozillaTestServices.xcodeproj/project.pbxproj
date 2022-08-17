@@ -58,6 +58,7 @@
 		1BF50F1927B1E19500A9C8A5 /* FxAccountManagerTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1BBAC54127AE065300DAFEF2 /* FxAccountManagerTests.swift */; };
 		1BF50F1A27B1E19800A9C8A5 /* FxAccountMocks.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1BBAC53C27AE065300DAFEF2 /* FxAccountMocks.swift */; };
 		1BFC469827C99F250034E0A5 /* Metrics.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1BFC469627C99F250034E0A5 /* Metrics.swift */; };
+		45CC574A28AD9C86006D55AA /* errorsupport.udl in Sources */ = {isa = PBXBuildFile; fileRef = 45CC574828AD9C31006D55AA /* errorsupport.udl */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXBuildRule section */
@@ -166,6 +167,9 @@
 		1BF50F2327B1E53E00A9C8A5 /* metrics.yaml */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.yaml; name = metrics.yaml; path = ../../../components/nimbus/metrics.yaml; sourceTree = SOURCE_ROOT; };
 		1BF50F2B27B1EB7D00A9C8A5 /* sdk_generator.sh */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.script.sh; name = sdk_generator.sh; path = "../../../../../components/external/glean/glean-core/ios/sdk_generator.sh"; sourceTree = SOURCE_ROOT; };
 		1BFC469627C99F250034E0A5 /* Metrics.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; name = Metrics.swift; path = MozillaTestServices/Generated/Metrics.swift; sourceTree = SOURCE_ROOT; };
+		45CC574528AD9C0B006D55AA /* errorFFI.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = errorFFI.h; path = ../../../../components/support/error/ios/Generated/errorFFI.h; sourceTree = "<group>"; };
+		45CC574628AD9C0B006D55AA /* errorsupport.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; name = errorsupport.swift; path = ../../../../components/support/error/ios/Generated/errorsupport.swift; sourceTree = "<group>"; };
+		45CC574828AD9C31006D55AA /* errorsupport.udl */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; name = errorsupport.udl; path = ../../../../components/support/error/src/errorsupport.udl; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -262,6 +266,7 @@
 		1BBAC4FA27AE049500DAFEF2 /* MozillaTestServices */ = {
 			isa = PBXGroup;
 			children = (
+				45CC574328AD9BC8006D55AA /* ErrorSupport */,
 				1BFC469427C99F250034E0A5 /* Generated */,
 				1BB64C7B27B1FF9F00A4247F /* TestClient */,
 				1BF50F0327B1DFC900A9C8A5 /* Glean */,
@@ -453,6 +458,24 @@
 			path = MozillaTestServices/Generated;
 			sourceTree = SOURCE_ROOT;
 		};
+		45CC574328AD9BC8006D55AA /* ErrorSupport */ = {
+			isa = PBXGroup;
+			children = (
+				45CC574828AD9C31006D55AA /* errorsupport.udl */,
+				45CC574428AD9BDA006D55AA /* Generated */,
+			);
+			name = ErrorSupport;
+			sourceTree = "<group>";
+		};
+		45CC574428AD9BDA006D55AA /* Generated */ = {
+			isa = PBXGroup;
+			children = (
+				45CC574528AD9C0B006D55AA /* errorFFI.h */,
+				45CC574628AD9C0B006D55AA /* errorsupport.swift */,
+			);
+			name = Generated;
+			sourceTree = "<group>";
+		};
 /* End PBXGroup section */
 
 /* Begin PBXNativeTarget section */
@@ -585,6 +608,7 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				45CC574A28AD9C86006D55AA /* errorsupport.udl in Sources */,
 				1BE9B60D27C9CD770029D11A /* crashtest.udl in Sources */,
 				1BE9B60E27C9CD770029D11A /* nimbus.udl in Sources */,
 				1BE9B60F27C9CD770029D11A /* places.udl in Sources */,
