@@ -115,3 +115,23 @@ nimbus_events:
     notification_emails:
       - tlong@mozilla.com, telemetry-team@mozilla.com
     expires: never
+nimbus_health:
+  feature_request_error:
+    type: event
+    description: >
+      Recorded when an application or library requests a feature configuration
+      prior to Nimbus initialization.
+    extra_keys:
+      feature_id:
+        type: string
+        description: The feature id of the configuration that was requested
+    bugs:
+      - https://mozilla-hub.atlassian.net/browse/EXP-2689
+      - https://mozilla-hub.atlassian.net/browse/EXP-2690
+    data_reviews:
+      - https://github.com/mozilla/application-services/pull/5091#issuecomment-1218359426
+    data_sensitivity:
+      - technical
+    notification_emails:
+      - tlong@mozilla.com, telemetry-team@mozilla.com
+    expires: never
