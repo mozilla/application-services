@@ -1,3 +1,11 @@
+# v94.1.0 (_2022-08-18_)
+
+[Full Changelog](https://github.com/mozilla/application-services/compare/v94.0.1...v94.1.0)
+## Nimbus
+### What's new
+- Added telemetry to track how often apps query for variables before Nimbus is initialized. ([#5091](https://github.com/mozilla/application-services/pull/5091))
+
+
 # v94.0.1 (_2022-08-09_)
 
 [Full Changelog](https://github.com/mozilla/application-services/compare/v94.0.0...v94.0.1)
