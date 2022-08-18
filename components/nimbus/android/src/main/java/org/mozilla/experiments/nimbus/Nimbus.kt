@@ -18,6 +18,9 @@ import androidx.annotation.WorkerThread
 import androidx.core.content.pm.PackageInfoCompat
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.runBlocking
+import kotlinx.coroutines.TimeoutCancellationException
+import kotlinx.coroutines.withTimeout
 import mozilla.telemetry.glean.Glean
 import org.json.JSONObject
 import org.mozilla.experiments.nimbus.GleanMetrics.NimbusEvents
@@ -149,6 +152,14 @@ interface NimbusInterface : FeaturesInterface, GleanPlumbInterface {
      * A utility method to load a file from resources and pass it to `setExperimentsLocally(String)`.
      */
     fun setExperimentsLocally(@RawRes file: Int) = Unit
+
+    /**
+     * Try to synchronously load and apply first run experiments from the given [file],
+     * unless if takes longer than the [timeout], if so the intent is cancelled.
+     * @param file Res resource from where experiments will be loaded.
+     * @param timeout Timeout in milliseconds.
+     */
+    fun tryLoadAndApplyFirstRunExperiments(@RawRes file: Int, timeout: Long) = Unit
 
     /**
      * Opt into a specific branch for the given experiment.
@@ -466,12 +477,20 @@ open class Nimbus(
 
     override fun setExperimentsLocally(@RawRes file: Int) {
         dbScope.launch {
-            withCatchAll {
-                context.resources.openRawResource(file).use {
-                    it.bufferedReader().readText()
+            setExperimentsFrom(file)
+        }
+    }
+
+    override fun tryLoadAndApplyFirstRunExperiments(@RawRes file: Int, timeout: Long) {
+        runBlocking {
+            try {
+                withTimeout(timeout) {
+                    setExperimentsFrom(file)
+                    applyPendingExperimentsOnThisThread()
                 }
-            }?.let { payload ->
-                setExperimentsLocallyOnThisThread(payload)
+            } catch (e: TimeoutCancellationException) {
+                logger("Unable to set first run experiments: ${e.message}")
+                e.printStackTrace()
             }
         }
     }
@@ -635,5 +654,15 @@ open class Nimbus(
             installationDate = packageInfo?.firstInstallTime,
             homeDirectory = context.applicationInfo?.dataDir,
             customTargetingAttributes = appInfo.customTargetingAttributes)
+    }
+
+    internal fun setExperimentsFrom(@RawRes file: Int) {
+        withCatchAll {
+            context.resources.openRawResource(file).use {
+                it.bufferedReader().readText()
+            }
+        }?.let { payload ->
+            setExperimentsLocallyOnThisThread(payload)
+        }
     }
 }
