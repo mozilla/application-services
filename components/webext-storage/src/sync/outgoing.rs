@@ -8,28 +8,28 @@
 use interrupt_support::Interruptee;
 use rusqlite::{Connection, Row, Transaction};
 use sql_support::ConnExt;
-use sync15_traits::Payload;
+use sync15_traits::bridged_engine::OutgoingBridgeRecord;
 use sync_guid::Guid as SyncGuid;
 
 use crate::error::*;
 
-use super::{Record, RecordData};
+use super::WebextRecord;
 
-fn outgoing_from_row(row: &Row<'_>) -> Result<Payload> {
+fn outgoing_from_row(row: &Row<'_>) -> Result<OutgoingBridgeRecord> {
     let guid: SyncGuid = row.get("guid")?;
     let ext_id: String = row.get("ext_id")?;
     let raw_data: Option<String> = row.get("data")?;
-    let payload = match raw_data {
-        Some(raw_data) => Payload::from_record(Record {
-            guid,
-            data: RecordData::Data {
+    Ok(match raw_data {
+        Some(raw_data) => {
+            let record = WebextRecord {
+                guid,
                 ext_id,
                 data: raw_data,
-            },
-        })?,
-        None => Payload::new_tombstone(guid),
-    };
-    Ok(payload)
+            };
+            OutgoingBridgeRecord::from_record_with_id(record)?
+        }
+        None => OutgoingBridgeRecord::new_tombstone(guid.into()),
+    })
 }
 
 /// Stages info about what should be uploaded in a temp table. This should be
@@ -69,8 +69,11 @@ pub fn stage_outgoing(tx: &Transaction<'_>) -> Result<()> {
     Ok(())
 }
 
-/// Returns a vec of the payloads which should be uploaded.
-pub fn get_outgoing(conn: &Connection, signal: &dyn Interruptee) -> Result<Vec<Payload>> {
+/// Returns a vec of the outgoing records which should be uploaded.
+pub fn get_outgoing(
+    conn: &Connection,
+    signal: &dyn Interruptee,
+) -> Result<Vec<OutgoingBridgeRecord>> {
     let sql = "SELECT guid, ext_id, data FROM storage_sync_outgoing_staging";
     let elts = conn
         .conn()
@@ -139,13 +142,19 @@ mod tests {
         stage_outgoing(&tx)?;
         let changes = get_outgoing(&tx, &NeverInterrupts)?;
         assert_eq!(changes.len(), 1);
-        assert_eq!(changes[0].data["extId"], "ext_with_changes".to_string());
+        // jump through hoops to inspect the private cleartext.
+        let json = serde_json::to_value(&changes[0]).unwrap();
+        let record: serde_json::Value =
+            serde_json::from_str(json.get("cleartext").unwrap().as_str().unwrap()).unwrap();
+        let ext_id = record.get("extId").unwrap().as_str().unwrap();
+
+        assert_eq!(ext_id, "ext_with_changes");
 
         record_uploaded(
             &tx,
             changes
                 .into_iter()
-                .map(|p| p.id)
+                .map(|p| p.envelope.id)
                 .collect::<Vec<SyncGuid>>()
                 .as_slice(),
             &NeverInterrupts,
@@ -160,20 +169,28 @@ mod tests {
 
     #[test]
     fn test_payload_serialization() {
-        let payload = Payload::from_record(Record {
+        let record = WebextRecord {
             guid: SyncGuid::new("guid"),
-            data: RecordData::Data {
-                ext_id: "ext-id".to_string(),
-                data: "{}".to_string(),
-            },
-        })
+            ext_id: "ext-id".to_string(),
+            data: "{}".to_string(),
+        };
+
+        let outgoing = OutgoingBridgeRecord::from_record_with_id(record).unwrap();
+
+        // The envelope should have our ID.
+        assert_eq!(outgoing.envelope.id, SyncGuid::new("guid"));
+
+        // cleartext is private, so we need to serialize the entire record.
+        let outgoing_json = serde_json::to_value(outgoing).unwrap();
+        let outgoing_payload = serde_json::from_str::<serde_json::Value>(
+            outgoing_json.get("cleartext").unwrap().as_str().unwrap(),
+        )
         .unwrap();
-        // The payload should have the ID.
-        assert_eq!(payload.id.to_string(), "guid");
-        // The data in the payload should have only `data` and `extId` - not the guid.
-        assert!(!payload.data.contains_key("id"));
-        assert!(payload.data.contains_key("data"));
-        assert!(payload.data.contains_key("extId"));
-        assert_eq!(payload.data.len(), 2);
+        let outgoing_map = outgoing_payload.as_object().unwrap();
+
+        assert!(!outgoing_map.contains_key("id"));
+        assert!(outgoing_map.contains_key("data"));
+        assert!(outgoing_map.contains_key("extId"));
+        assert_eq!(outgoing_map.len(), 2);
     }
 }

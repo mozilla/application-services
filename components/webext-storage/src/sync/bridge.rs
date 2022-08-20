@@ -3,7 +3,7 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
 use rusqlite::Transaction;
-use sync15_traits::{self, ApplyResults, IncomingEnvelope, OutgoingEnvelope};
+use sync15_traits::bridged_engine::{ApplyResults, IncomingBridgeRecord, OutgoingBridgeRecord};
 use sync_guid::Guid as SyncGuid;
 
 use crate::db::{delete_meta, get_meta, put_meta, StorageDb};
@@ -84,17 +84,10 @@ impl<'a> sync15_traits::BridgedEngine for BridgedEngine<'a> {
         Ok(())
     }
 
-    fn store_incoming(&self, incoming_envelopes: &[IncomingEnvelope]) -> Result<()> {
+    fn store_incoming(&self, incoming_envelopes: &[IncomingBridgeRecord]) -> Result<()> {
         let signal = self.db.begin_interrupt_scope()?;
-
-        let mut incoming_payloads = Vec::with_capacity(incoming_envelopes.len());
-        for envelope in incoming_envelopes {
-            signal.err_if_interrupted()?;
-            incoming_payloads.push(envelope.payload()?);
-        }
-
         let tx = self.db.unchecked_transaction()?;
-        stage_incoming(&tx, incoming_payloads, &signal)?;
+        stage_incoming(&tx, incoming_envelopes, &signal)?;
         tx.commit()?;
         Ok(())
     }
@@ -114,7 +107,7 @@ impl<'a> sync15_traits::BridgedEngine for BridgedEngine<'a> {
 
         let outgoing = get_outgoing(self.db, &signal)?
             .into_iter()
-            .map(OutgoingEnvelope::from)
+            .map(OutgoingBridgeRecord::from)
             .collect::<Vec<_>>();
         Ok(outgoing.into())
     }

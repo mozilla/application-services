@@ -2,8 +2,6 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-// `Result` is unused with default features, but used with `feature=crypto`
-#[cfg(feature = "crypto")]
 pub type Result<T> = std::result::Result<T, SyncTraitsError>;
 
 // Concrete errors returned by this module. Note that the sync15 crate has

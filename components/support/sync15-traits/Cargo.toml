@@ -28,3 +28,6 @@ log = "0.4"
 ffi-support = "0.4"
 thiserror = "1.0"
 url = "2.1" # mozilla-central can't yet take 2.2 (see bug 1734538)
+
+[dev-dependencies]
+env_logger = { version = "0.7", default-features = false }
