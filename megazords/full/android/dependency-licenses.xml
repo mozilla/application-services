@@ -162,7 +162,7 @@ the details of which are reproduced below.
   </license>
   <license>
     <name>Apache License 2.0: fs-err</name>
-    <url>https://github.com/andrewhickman/fs-err/blob/master/LICENSE-APACHE</url>
+    <url>https://github.com/andrewhickman/fs-err/blob/main/LICENSE-APACHE</url>
   </license>
   <license>
     <name>Apache License 2.0: getrandom</name>
