@@ -362,18 +362,20 @@ fn collect_channel_defaults(
         .map(|channel_name| (channel_name.clone(), json!({})))
         .collect::<HashMap<_, _>>();
     for default in defaults {
-        if let Some(channel) = &default.channel {
-            if let Some(old_default) = channel_map.get(channel).cloned() {
-                if default.targeting.is_none() {
-                    // TODO: we currently ignore any defaults with targeting involved
-                    let merged = merge_two_defaults(&old_default, &default.value);
-                    channel_map.insert(channel.clone(), merged);
+        if let Some(channels_for_default) = &default.merge_channels() {
+            for channel in channels_for_default {
+                if let Some(old_default) = channel_map.get(channel).cloned() {
+                    if default.targeting.is_none() {
+                        // TODO: we currently ignore any defaults with targeting involved
+                        let merged = merge_two_defaults(&old_default, &default.value);
+                        channel_map.insert(channel.clone(), merged);
+                    }
+                } else {
+                    return Err(FMLError::InvalidChannelError(
+                        channel.into(),
+                        channels.into(),
+                    ));
                 }
-            } else {
-                return Err(FMLError::InvalidChannelError(
-                    channel.into(),
-                    channels.into(),
-                ));
             }
         // This is a default with no channel, so it applies to all channels
         } else {
@@ -1109,9 +1111,97 @@ fn check_can_import_list(
 pub(crate) struct DefaultBlock {
     #[serde(skip_serializing_if = "Option::is_none")]
     channel: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    channels: Option<Vec<String>>,
     value: serde_json::Value,
     #[serde(skip_serializing_if = "Option::is_none")]
     targeting: Option<String>,
+}
+
+impl DefaultBlock {
+    pub fn merge_channels(&self) -> Option<Vec<String>> {
+        let mut res = HashSet::new();
+
+        if let Some(channels) = self.channels.clone() {
+            res.extend(channels)
+        }
+
+        if let Some(channel) = &self.channel {
+            res.extend(
+                channel
+                    .split(',')
+                    .filter(|channel_name| !channel_name.is_empty())
+                    .map(|channel_name| channel_name.trim().to_string())
+                    .collect::<HashSet<String>>(),
+            )
+        }
+
+        let res: Vec<String> = res.into_iter().collect();
+        if res.is_empty() {
+            None
+        } else {
+            Some(res)
+        }
+    }
+}
+
+#[cfg(test)]
+mod default_block {
+    use super::*;
+
+    #[test]
+    fn test_merge_channels_none_when_empty() {
+        let input: DefaultBlock = serde_json::from_value(json!(
+            {
+                "channel": "",
+                "channels": [],
+                "value": {
+                    "button-color": "green"
+                }
+            }
+        ))
+        .unwrap();
+        assert!(input.merge_channels() == None)
+    }
+
+    #[test]
+    fn test_merge_channels_merged_when_present() {
+        let input: DefaultBlock = serde_json::from_value(json!(
+            {
+                "channel": "a, b",
+                "channels": ["c"],
+                "value": {
+                    "button-color": "green"
+                }
+            }
+        ))
+        .unwrap();
+        let res = input.merge_channels();
+        assert!(res != None);
+        let res = res.unwrap();
+        assert!(res.contains(&"a".to_string()));
+        assert!(res.contains(&"b".to_string()));
+        assert!(res.contains(&"c".to_string()));
+    }
+
+    #[test]
+    fn test_merge_channels_merged_without_duplicates() {
+        let input: DefaultBlock = serde_json::from_value(json!(
+            {
+                "channel": "a, a",
+                "channels": ["a"],
+                "value": {
+                    "button-color": "green"
+                }
+            }
+        ))
+        .unwrap();
+        let res = input.merge_channels();
+        assert!(res != None);
+        let res = res.unwrap();
+        assert!(res.contains(&"a".to_string()));
+        assert!(res.len() == 1)
+    }
 }
 
 #[cfg(test)]
@@ -2084,6 +2174,93 @@ mod unit_tests {
                     "beta".to_string(),
                     json!({
                         "button-color": "red"
+                    })
+                )
+            ]
+            .into_iter()
+            .collect::<HashMap<_, _>>(),
+            res
+        );
+        Ok(())
+    }
+
+    #[test]
+    fn test_channel_defaults_channels_multiple() -> Result<()> {
+        let input: Vec<DefaultBlock> = serde_json::from_value(json!([
+            {
+                "channels": ["release", "beta"],
+                "value": {
+                    "button-color": "green"
+                }
+            },
+        ]))?;
+        let res = collect_channel_defaults(&input, &["release".to_string(), "beta".to_string()])?;
+        assert_eq!(
+            vec![
+                (
+                    "release".to_string(),
+                    json!({
+                        "button-color": "green"
+                    })
+                ),
+                (
+                    "beta".to_string(),
+                    json!({
+                        "button-color": "green"
+                    })
+                )
+            ]
+            .into_iter()
+            .collect::<HashMap<_, _>>(),
+            res
+        );
+        Ok(())
+    }
+
+    #[test]
+    fn test_channel_defaults_channel_multiple_merge_channels_multiple() -> Result<()> {
+        let input: Vec<DefaultBlock> = serde_json::from_value(json!([
+            {
+                "channel": "nightly, debug",
+                "channels": ["release", "beta"],
+                "value": {
+                    "button-color": "green"
+                }
+            },
+        ]))?;
+        let res = collect_channel_defaults(
+            &input,
+            &[
+                "release".to_string(),
+                "beta".to_string(),
+                "nightly".to_string(),
+                "debug".to_string(),
+            ],
+        )?;
+        assert_eq!(
+            vec![
+                (
+                    "release".to_string(),
+                    json!({
+                        "button-color": "green"
+                    })
+                ),
+                (
+                    "beta".to_string(),
+                    json!({
+                        "button-color": "green"
+                    })
+                ),
+                (
+                    "nightly".to_string(),
+                    json!({
+                        "button-color": "green"
+                    })
+                ),
+                (
+                    "debug".to_string(),
+                    json!({
+                        "button-color": "green"
                     })
                 )
             ]
