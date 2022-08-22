@@ -2,7 +2,6 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-use crate::bso_record::{BsoRecord, EncryptedBso};
 use crate::error::{self, ErrorKind, ErrorResponse};
 use crate::record_types::MetaGlobalRecord;
 use crate::request::{
@@ -14,6 +13,7 @@ use crate::util::ServerTimestamp;
 use serde_json::Value;
 use std::str::FromStr;
 use std::sync::atomic::{AtomicU32, Ordering};
+use sync15_traits::{BsoRecord, EncryptedBso};
 use url::Url;
 use viaduct::{
     header_names::{self, AUTHORIZATION},

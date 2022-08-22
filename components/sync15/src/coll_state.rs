@@ -4,13 +4,12 @@
 
 use crate::collection_keys::CollectionKeys;
 use crate::error;
-use crate::key_bundle::KeyBundle;
 use crate::request::InfoConfiguration;
 use crate::state::GlobalState;
 use crate::sync::SyncEngine;
 use crate::util::ServerTimestamp;
 
-pub use sync15_traits::{CollSyncIds, EngineSyncAssociation};
+pub use sync15_traits::{CollSyncIds, EngineSyncAssociation, KeyBundle};
 
 /// Holds state for a collection. In general, only the CollState is
 /// needed to sync a collection (but a valid GlobalState is needed to obtain

@@ -9,7 +9,6 @@ use crate::client::{BackoffListener, Sync15StorageClient, Sync15StorageClientIni
 use crate::clients::{self, CommandProcessor, CLIENTS_TTL_REFRESH};
 use crate::coll_state::EngineSyncAssociation;
 use crate::error::Error;
-use crate::key_bundle::KeyBundle;
 use crate::state::{EngineChangesNeeded, GlobalState, PersistedGlobalState, SetupStateMachine};
 use crate::status::{ServiceStatus, SyncResult};
 use crate::sync::{self, SyncEngine};
@@ -19,6 +18,7 @@ use std::collections::HashMap;
 use std::mem;
 use std::result;
 use std::time::{Duration, SystemTime};
+use sync15_traits::KeyBundle;
 
 /// Info about the client to use. We reuse the client unless
 /// we discover the client_init has changed, in which case we re-create one.

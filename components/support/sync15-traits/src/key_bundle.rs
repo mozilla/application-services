@@ -2,7 +2,7 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-use crate::error::{ErrorKind, Result};
+use crate::error::{Result, SyncTraitsError as Error};
 use rc_crypto::{
     aead::{self, OpeningKey, SealingKey},
     rand,
@@ -26,11 +26,11 @@ impl KeyBundle {
     pub fn new(enc: Vec<u8>, mac: Vec<u8>) -> Result<KeyBundle> {
         if enc.len() != 32 {
             log::error!("Bad key length (enc_key): {} != 32", enc.len());
-            return Err(ErrorKind::BadKeyLength("enc_key", enc.len(), 32).into());
+            return Err(Error::BadKeyLength("enc_key", enc.len(), 32));
         }
         if mac.len() != 32 {
             log::error!("Bad key length (mac_key): {} != 32", mac.len());
-            return Err(ErrorKind::BadKeyLength("mac_key", mac.len(), 32).into());
+            return Err(Error::BadKeyLength("mac_key", mac.len(), 32));
         }
         Ok(KeyBundle {
             enc_key: enc,
@@ -47,7 +47,7 @@ impl KeyBundle {
     pub fn from_ksync_bytes(ksync: &[u8]) -> Result<KeyBundle> {
         if ksync.len() != 64 {
             log::error!("Bad key length (kSync): {} != 64", ksync.len());
-            return Err(ErrorKind::BadKeyLength("kSync", ksync.len(), 64).into());
+            return Err(Error::BadKeyLength("kSync", ksync.len(), 64));
         }
         Ok(KeyBundle {
             enc_key: ksync[0..32].into(),
@@ -90,7 +90,7 @@ impl KeyBundle {
         let mut decoded_hmac = vec![0u8; 32];
         if base16::decode_slice(hmac_base16, &mut decoded_hmac).is_err() {
             log::warn!("Garbage HMAC verification string: contained non base16 characters");
-            return Err(ErrorKind::HmacMismatch.into());
+            return Err(Error::HmacMismatch);
         }
         let iv = base64::decode(iv_base64)?;
         let ciphertext_bytes = base64::decode(enc_base64)?;

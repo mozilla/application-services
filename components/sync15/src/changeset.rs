@@ -2,15 +2,13 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-use crate::bso_record::{CleartextBso, EncryptedBso};
 use crate::client::{Sync15ClientResponse, Sync15StorageClient};
 use crate::error::{self, ErrorKind, ErrorResponse, Result};
-use crate::key_bundle::KeyBundle;
 use crate::request::{CollectionRequest, NormalResponseHandler, UploadInfo};
 use crate::util::ServerTimestamp;
 use crate::CollState;
 use std::borrow::Cow;
-
+use sync15_traits::{CleartextBso, EncryptedBso, KeyBundle};
 pub use sync15_traits::{IncomingChangeset, OutgoingChangeset, RecordChangeset};
 
 pub fn encrypt_outgoing(o: OutgoingChangeset, key: &KeyBundle) -> Result<Vec<EncryptedBso>> {
@@ -21,7 +19,11 @@ pub fn encrypt_outgoing(o: OutgoingChangeset, key: &KeyBundle) -> Result<Vec<Enc
     } = o;
     changes
         .into_iter()
-        .map(|change| CleartextBso::from_payload(change, collection.clone()).encrypt(key))
+        .map(|change| {
+            CleartextBso::from_payload(change, collection.clone())
+                .encrypt(key)
+                .map_err(|e| e.into())
+        })
         .collect()
 }
 

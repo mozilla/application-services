@@ -2,12 +2,11 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-use crate::bso_record::{EncryptedBso, Payload};
 use crate::error::Result;
-use crate::key_bundle::KeyBundle;
 use crate::record_types::CryptoKeysRecord;
 use crate::util::ServerTimestamp;
 use std::collections::HashMap;
+use sync15_traits::{EncryptedBso, KeyBundle, Payload};
 
 #[derive(Clone, Debug, PartialEq)]
 pub struct CollectionKeys {
@@ -55,7 +54,7 @@ impl CollectionKeys {
                 .collect(),
         };
         let bso = crate::CleartextBso::from_payload(Payload::from_record(record)?, "crypto");
-        bso.encrypt(root_key)
+        Ok(bso.encrypt(root_key)?)
     }
 
     pub fn key_for_collection<'a>(&'a self, collection: &str) -> &'a KeyBundle {

@@ -3258,11 +3258,19 @@ name = "sync15-traits"
 version = "0.1.0"
 dependencies = [
  "anyhow",
+ "base16",
+ "base64 0.13.0",
+ "error-support",
  "ffi-support",
+ "interrupt-support",
+ "lazy_static",
  "log",
+ "rc_crypto",
  "serde",
+ "serde_derive",
  "serde_json",
  "sync-guid",
+ "thiserror",
  "url",
 ]
 

@@ -5,17 +5,15 @@
 use std::collections::{HashMap, HashSet};
 
 use crate::{
-    bso_record::Payload,
     changeset::{CollectionUpdate, IncomingChangeset, OutgoingChangeset},
     client::Sync15StorageClient,
     coll_state::CollState,
     collection_keys::CollectionKeys,
-    key_bundle::KeyBundle,
     request::{CollectionRequest, InfoConfiguration},
     state::GlobalState,
 };
 use interrupt_support::Interruptee;
-use sync15_traits::client::ClientData;
+use sync15_traits::{client::ClientData, KeyBundle, Payload};
 
 use super::{
     record::{ClientRecord, CommandRecord},
