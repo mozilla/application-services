@@ -32,6 +32,7 @@ pub use bridged_engine::{ApplyResults, BridgedEngine, IncomingEnvelope, Outgoing
 #[cfg(feature = "crypto")]
 pub use bso_record::{BsoRecord, CleartextBso, EncryptedBso, EncryptedPayload};
 pub use changeset::{IncomingChangeset, OutgoingChangeset, RecordChangeset};
+pub use client::DeviceType;
 pub use engine::{CollSyncIds, EngineSyncAssociation, SyncEngine, SyncEngineId};
 pub use error::SyncTraitsError;
 #[cfg(feature = "crypto")]

@@ -3368,6 +3368,7 @@ dependencies = [
  "sql-support",
  "sync-guid",
  "sync15",
+ "sync15-traits",
  "tempfile",
  "thiserror",
  "uniffi",

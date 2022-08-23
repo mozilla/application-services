@@ -9,14 +9,17 @@
 pub mod error;
 mod schema;
 mod storage;
+mod store;
 mod sync;
 
 uniffi_macros::include_scaffolding!("tabs");
 
 pub use crate::storage::{ClientRemoteTabs, RemoteTabRecord, TabsDeviceType};
-pub use crate::sync::engine::TabsEngine;
-pub use crate::sync::store::TabsStore;
+pub use crate::store::TabsStore;
 use error::TabsError;
-use sync15::DeviceType;
+use sync15_traits::DeviceType;
 
-pub use crate::sync::store::get_registered_sync_engine;
+#[cfg(feature = "full-sync")]
+pub use crate::sync::engine::get_registered_sync_engine;
+#[cfg(feature = "full-sync")]
+pub use crate::sync::engine::TabsEngine;
