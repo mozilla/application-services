@@ -26,7 +26,7 @@ use crate::{PlacesApi, PlacesDb};
 use error_support::report_error;
 use interrupt_support::{register_interrupt, SqlInterruptHandle};
 use parking_lot::Mutex;
-use std::sync::Arc;
+use std::sync::{Arc, Weak};
 use sync_guid::Guid;
 use types::Timestamp as PlacesTimestamp;
 use url::Url;
@@ -104,10 +104,59 @@ impl UniffiCustomTypeConverter for Guid {
     }
 }
 
+// Check for multiple write connections open at the same time
+//
+// One potential cause of #5040 is that Fenix is somehow openening multiiple write connections to
+// the places DB.  This code tests if that's happening and reports an error if so.
+lazy_static::lazy_static! {
+    static ref READ_WRITE_CONNECTIONS: Mutex<Vec<Weak<PlacesConnection>>> = Mutex::new(Vec::new());
+    static ref SYNC_CONNECTIONS: Mutex<Vec<Weak<PlacesConnection>>> = Mutex::new(Vec::new());
+}
+
+fn check_connection_count(conn_type: ConnectionType, conn: &Arc<PlacesConnection>) {
+    match conn_type {
+        ConnectionType::ReadWrite => {
+            check_connection_count_inner(
+                &mut READ_WRITE_CONNECTIONS.lock(),
+                conn,
+                "MultiplePlacesReadWriteConnections",
+            );
+        }
+        ConnectionType::Sync => {
+            check_connection_count_inner(
+                &mut SYNC_CONNECTIONS.lock(),
+                conn,
+                "MultiplePlacesSyncConnections",
+            );
+        }
+        ConnectionType::ReadOnly => {}
+    };
+}
+
+fn check_connection_count_inner(
+    connections: &mut Vec<Weak<PlacesConnection>>,
+    new_connection: &Arc<PlacesConnection>,
+    error_str: &'static str,
+) {
+    let mut i = 0;
+    while i < connections.len() {
+        if Weak::strong_count(&connections[i]) == 0 {
+            connections.swap_remove(i);
+        } else {
+            i += 1;
+        }
+    }
+    connections.push(Arc::downgrade(new_connection));
+    if connections.len() > 1 {
+        error_support::report_error!(error_str, "{} connections", connections.len());
+    }
+}
+
 impl PlacesApi {
     fn new_connection(&self, conn_type: ConnectionType) -> Result<Arc<PlacesConnection>> {
         let db = self.open_connection(conn_type)?;
         let connection = Arc::new(PlacesConnection::new(db));
+        check_connection_count(conn_type, &connection);
         register_interrupt(Arc::<PlacesConnection>::downgrade(&connection));
         Ok(connection)
     }
