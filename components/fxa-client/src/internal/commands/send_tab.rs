@@ -159,12 +159,12 @@ impl SendTabKeysPayload {
             return Err(ErrorKind::MismatchedKeys.into());
         }
         let key = KeyBundle::from_ksync_bytes(&ksync)?;
-        let encrypted_bso = EncryptedPayload {
+        let encrypted_payload = EncryptedPayload {
             iv: self.iv,
             hmac: self.hmac,
             ciphertext: self.ciphertext,
         };
-        Ok(encrypted_bso.decrypt_and_parse_payload(&key)?)
+        Ok(encrypted_payload.decrypt_into(&key)?)
     }
 }
 
