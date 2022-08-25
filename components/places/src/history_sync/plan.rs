@@ -2,8 +2,8 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-use super::record::{HistoryRecord, HistoryRecordVisit, HistorySyncRecord};
-use super::{HISTORY_TTL, MAX_OUTGOING_PLACES, MAX_VISITS};
+use super::record::{HistoryRecord, HistoryRecordVisit};
+use super::{MAX_OUTGOING_PLACES, MAX_VISITS};
 use crate::api::history::can_add_url;
 use crate::db::PlacesDb;
 use crate::error::*;
@@ -11,15 +11,16 @@ use crate::storage::{
     delete_pending_temp_tables,
     history::history_sync::{
         apply_synced_deletion, apply_synced_reconciliation, apply_synced_visits, fetch_outgoing,
-        fetch_visits, finish_outgoing, FetchedVisit, FetchedVisitPage, OutgoingInfo,
+        fetch_visits, finish_outgoing, FetchedVisit, FetchedVisitPage,
     },
 };
 use crate::types::VisitTransition;
 use interrupt_support::Interruptee;
 use std::collections::HashSet;
 use std::time::{SystemTime, UNIX_EPOCH};
+use sync15::bso::IncomingKind;
 use sync15::engine::{IncomingChangeset, OutgoingChangeset};
-use sync15::{telemetry, Payload};
+use sync15::telemetry;
 use sync_guid::Guid as SyncGuid;
 use types::Timestamp;
 use url::Url;
@@ -183,27 +184,26 @@ pub fn apply_plan(
     let mut plans: Vec<(SyncGuid, IncomingPlan)> = Vec::with_capacity(inbound.changes.len());
     for incoming in inbound.changes {
         interruptee.err_if_interrupted()?;
-        let item = match HistorySyncRecord::from_payload(incoming.0) {
-            Ok(item) => item,
-            Err(e) => {
-                // We can't push IncomingPlan::Invalid into plans as we don't
-                // know the guid - just skip it.
-                log::warn!("Error deserializing incoming record: {}", e);
+        let content = incoming.into_content::<HistoryRecord>();
+        let plan = match content.kind {
+            IncomingKind::Tombstone => IncomingPlan::Delete,
+            IncomingKind::Content(record) => plan_incoming_record(db, record, MAX_VISITS),
+            IncomingKind::Malformed => {
+                // We could push IncomingPlan::Invalid here, but the code before the IncomingKind
+                // refactor didn't know what `id` to use, so skipped it - so we do too.
+                log::warn!(
+                    "Error deserializing incoming record: {}",
+                    content.envelope.id
+                );
                 telem.failed(1);
                 continue;
             }
         };
-        let plan = match item.record {
-            Some(record) => plan_incoming_record(db, record, MAX_VISITS),
-            None => IncomingPlan::Delete,
-        };
-        let guid = item.guid.clone();
-        plans.push((guid, plan));
+        plans.push((content.envelope.id.clone(), plan));
     }
 
     let mut tx = db.begin_transaction()?;
 
-    let mut outgoing = OutgoingChangeset::new("history", inbound.timestamp);
     for (guid, plan) in plans {
         interruptee.err_if_interrupted()?;
         match &plan {
@@ -271,18 +271,11 @@ pub fn apply_plan(
     // at this time, the fact we hold a single transaction for the entire call
     // really is used only for performance, so it's certainly a candidate.
     let tx = db.begin_transaction()?;
-    let mut out_infos = fetch_outgoing(db, MAX_OUTGOING_PLACES, MAX_VISITS)?;
-
-    for (guid, out_record) in out_infos.drain() {
-        let payload = match out_record {
-            OutgoingInfo::Record(record) => Payload::from_record(record)?,
-            OutgoingInfo::Tombstone => {
-                Payload::new_tombstone_with_ttl(guid.as_str().to_string(), HISTORY_TTL)
-            }
-        };
-        log::trace!("outgoing {:?}", payload);
-        outgoing.changes.push(payload);
-    }
+    let outgoing = OutgoingChangeset::new_with_changes(
+        "history",
+        inbound.timestamp,
+        fetch_outgoing(db, MAX_OUTGOING_PLACES, MAX_VISITS)?,
+    );
     tx.commit()?;
 
     log::info!("incoming: {}", serde_json::to_string(&telem).unwrap());
@@ -312,6 +305,7 @@ mod tests {
     use serde_json::json;
     use sql_support::ConnExt;
     use std::time::Duration;
+    use sync15::bso::IncomingBso;
     use sync15::engine::IncomingChangeset;
     use sync15::ServerTimestamp;
     use types::Timestamp;
@@ -362,8 +356,6 @@ mod tests {
             id: "foo".into(),
             title: "title".into(),
             hist_uri: "http://example.com".into(),
-            sortindex: 0,
-            ttl: 100,
             visits: vec![],
         };
 
@@ -382,8 +374,6 @@ mod tests {
             id: "aaaaaaaaaaaa".into(),
             title: "title".into(),
             hist_uri: "invalid".into(),
-            sortindex: 0,
-            ttl: 100,
             visits: vec![],
         };
 
@@ -406,8 +396,6 @@ mod tests {
             id: "aaaaaaaaaaaa".into(),
             title: "title".into(),
             hist_uri: "https://example.com".into(),
-            sortindex: 0,
-            ttl: 100,
             visits,
         };
 
@@ -443,8 +431,6 @@ mod tests {
             id: guid,
             title: "title".into(),
             hist_uri: "https://example.com".into(),
-            sortindex: 0,
-            ttl: 100,
             visits,
         };
         // We should have reconciled it.
@@ -473,8 +459,6 @@ mod tests {
             id: SyncGuid::random(),
             title: "title".into(),
             hist_uri: "https://example.com".into(),
-            sortindex: 0,
-            ttl: 100,
             visits: vec![],
         };
         // Even though there are no visits we should record that it will be
@@ -503,25 +487,21 @@ mod tests {
 
         // 2 incoming records with the same URL.
         let mut incoming = IncomingChangeset::new("history", ServerTimestamp(0i64));
-        let payload = Payload::from_json(json!({
+        let bso = IncomingBso::from_test_content(json!({
             "id": guid1,
             "title": "title",
             "histUri": url.as_str(),
-            "sortindex": 0,
-            "ttl": 100,
             "visits": [ {"date": ServerVisitTimestamp::from(ts1), "type": 1}]
-        }))?;
-        incoming.changes.push((payload, ServerTimestamp(0i64)));
+        }));
+        incoming.changes.push(bso);
 
-        let payload2 = Payload::from_json(json!({
+        let bso2 = IncomingBso::from_test_content(json!({
             "id": guid2,
             "title": "title",
             "histUri": url.as_str(),
-            "sortindex": 0,
-            "ttl": 100,
             "visits": [ {"date": ServerVisitTimestamp::from(ts2), "type": 1}]
-        }))?;
-        incoming.changes.push((payload2, ServerTimestamp(0i64)));
+        }));
+        incoming.changes.push(bso2);
 
         let outgoing = apply_plan(
             &db,
@@ -534,7 +514,7 @@ mod tests {
             1,
             "should have guid1 as outgoing with both visits."
         );
-        assert_eq!(outgoing.changes[0].id, guid1);
+        assert_eq!(outgoing.changes[0].envelope.id, guid1);
 
         // should have 1 URL with both visits locally.
         let (page, visits) = fetch_visits(&db, &url, 3)?.expect("page exists");
@@ -569,25 +549,21 @@ mod tests {
 
         // 2 incoming records with the same URL.
         let mut incoming = IncomingChangeset::new("history", ServerTimestamp(0i64));
-        let payload = Payload::from_json(json!({
+        let bso = IncomingBso::from_test_content(json!({
             "id": guid1,
             "title": "title",
             "histUri": url.as_str(),
-            "sortindex": 0,
-            "ttl": 100,
             "visits": [ {"date": ServerVisitTimestamp::from(ts1), "type": 1}]
-        }))?;
-        incoming.changes.push((payload, ServerTimestamp(0i64)));
+        }));
+        incoming.changes.push(bso);
 
-        let payload2 = Payload::from_json(json!({
+        let bso2 = IncomingBso::from_test_content(json!({
             "id": guid2,
             "title": "title",
             "histUri": url.as_str(),
-            "sortindex": 0,
-            "ttl": 100,
             "visits": [ {"date": ServerVisitTimestamp::from(ts2), "type": 1}]
-        }))?;
-        incoming.changes.push((payload2, ServerTimestamp(0i64)));
+        }));
+        incoming.changes.push(bso2);
 
         let outgoing = apply_plan(
             &db,
@@ -596,7 +572,7 @@ mod tests {
             &NeverInterrupts,
         )?;
         assert_eq!(outgoing.changes.len(), 1, "should have guid1 as outgoing");
-        assert_eq!(outgoing.changes[0].id, guid1);
+        assert_eq!(outgoing.changes[0].envelope.id, guid1);
 
         // should have 1 URL with all visits locally, but with the first incoming guid.
         let (page, visits) = fetch_visits(&db, &url, 3)?.expect("page exists");
@@ -631,25 +607,23 @@ mod tests {
 
         // 2 incoming records with the same URL.
         let mut incoming = IncomingChangeset::new("history", ServerTimestamp(0i64));
-        let payload = Payload::from_json(json!({
+        let bso = IncomingBso::from_test_content(json!({
             "id": guid1,
             "title": "title",
             "histUri": url.as_str(),
-            "sortindex": 0,
-            "ttl": 100,
             "visits": [ {"date": ServerVisitTimestamp::from(ts1), "type": 1}]
-        }))?;
-        incoming.changes.push((payload, ServerTimestamp(0i64)));
+        }));
+        incoming.changes.push(bso);
 
-        let payload2 = Payload::from_json(json!({
+        let bso2 = IncomingBso::from_test_content(json!({
             "id": guid2,
             "title": "title",
             "histUri": url.as_str(),
             "sortindex": 0,
             "ttl": 100,
             "visits": [ {"date": ServerVisitTimestamp::from(ts2), "type": 1}]
-        }))?;
-        incoming.changes.push((payload2, ServerTimestamp(0i64)));
+        }));
+        incoming.changes.push(bso2);
 
         let outgoing = apply_plan(
             &db,
@@ -678,13 +652,10 @@ mod tests {
             "id": "aaaaaaaaaaaa",
             "title": "title",
             "histUri": "http://example.com",
-            "sortindex": 0,
-            "ttl": 100,
             "visits": [ {"date": 15_423_493_234_840_000_000u64, "type": 1}]
         });
         let mut result = IncomingChangeset::new("history", ServerTimestamp(0i64));
-        let payload = Payload::from_json(json).unwrap();
-        result.changes.push((payload, ServerTimestamp(0i64)));
+        result.changes.push(IncomingBso::from_test_content(json));
 
         let db = PlacesDb::open_in_memory(ConnectionType::Sync)?;
         let outgoing = apply_plan(
@@ -713,13 +684,10 @@ mod tests {
             "id": "aaaaaaaaaaaa",
             "title": "title",
             "histUri": "http://example.com",
-            "sortindex": 0,
-            "ttl": 100,
             "visits": [ {"date": -123, "type": 1}]
         });
         let mut result = IncomingChangeset::new("history", ServerTimestamp(0i64));
-        let payload = Payload::from_json(json).unwrap();
-        result.changes.push((payload, ServerTimestamp(0i64)));
+        result.changes.push(IncomingBso::from_test_content(json));
 
         let db = PlacesDb::open_in_memory(ConnectionType::Sync)?;
         let outgoing = apply_plan(
@@ -743,8 +711,6 @@ mod tests {
             id: "aaaaaaaaaaaa".into(),
             title: "title".into(),
             hist_uri: "http://example.com".into(),
-            sortindex: 0,
-            ttl: 100,
             visits,
         };
         let plan = plan_incoming_record(&db, record, 10);
@@ -762,13 +728,10 @@ mod tests {
             "id": "aaaaaaaaaaaa",
             "title": "title",
             "histUri": "http://example.com",
-            "sortindex": 0,
-            "ttl": 100,
             "visits": [ {"date": ServerVisitTimestamp::from(now), "type": 1}]
         });
         let mut result = IncomingChangeset::new("history", ServerTimestamp(0i64));
-        let payload = Payload::from_json(json).unwrap();
-        result.changes.push((payload, ServerTimestamp(0i64)));
+        result.changes.push(IncomingBso::from_test_content(json));
 
         let db = PlacesDb::open_in_memory(ConnectionType::Sync)?;
         let outgoing = apply_plan(
@@ -850,14 +813,11 @@ mod tests {
             "id": guid,
             "title": "title",
             "histUri": url.as_str(),
-            "sortindex": 0,
-            "ttl": 100,
             "visits": [ {"date": ServerVisitTimestamp::from(ts), "type": 1}]
         });
 
         let mut incoming = IncomingChangeset::new("history", ServerTimestamp(0i64));
-        let payload = Payload::from_json(json).unwrap();
-        incoming.changes.push((payload, ServerTimestamp(0i64)));
+        incoming.changes.push(IncomingBso::from_test_content(json));
 
         apply_plan(
             &db,
@@ -896,14 +856,11 @@ mod tests {
             "id": guid,
             "title": "title",
             "histUri": url.as_str(),
-            "sortindex": 0,
-            "ttl": 100,
             "visits": [ {"date": ServerVisitTimestamp::from(ts2), "type": 1}]
         });
 
         let mut incoming = IncomingChangeset::new("history", ServerTimestamp(0i64));
-        let payload = Payload::from_json(json).unwrap();
-        incoming.changes.push((payload, ServerTimestamp(0i64)));
+        incoming.changes.push(IncomingBso::from_test_content(json));
 
         let outgoing = apply_plan(
             &db,
@@ -918,9 +875,8 @@ mod tests {
 
         // and the record should still be in outgoing due to our local change.
         assert_eq!(outgoing.changes.len(), 1);
-        let out_maybe_record = HistorySyncRecord::from_payload(outgoing.changes[0].clone())?;
-        assert_eq!(out_maybe_record.guid, guid);
-        let record = out_maybe_record.record.expect("not a tombstone");
+        let record = outgoing.changes[0].to_test_incoming_t::<HistoryRecord>();
+        assert_eq!(record.id, guid);
         assert_eq!(record.visits.len(), 2, "should have both visits outgoing");
         assert_eq!(
             record.visits[0].date,
@@ -955,8 +911,7 @@ mod tests {
         });
 
         let mut incoming = IncomingChangeset::new("history", ServerTimestamp(0i64));
-        let payload = Payload::from_json(json).unwrap();
-        incoming.changes.push((payload, ServerTimestamp(0i64)));
+        incoming.changes.push(IncomingBso::from_test_content(json));
 
         let outgoing = apply_plan(
             &db,
@@ -997,8 +952,7 @@ mod tests {
         });
 
         let mut incoming = IncomingChangeset::new("history", ServerTimestamp(0i64));
-        let payload = Payload::from_json(json).unwrap();
-        incoming.changes.push((payload, ServerTimestamp(0i64)));
+        incoming.changes.push(IncomingBso::from_test_content(json));
 
         let outgoing = apply_plan(
             &db,
