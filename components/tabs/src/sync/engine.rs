@@ -8,11 +8,12 @@ use crate::sync::record::{TabsRecord, TabsRecordTab};
 use crate::Result;
 use std::collections::HashMap;
 use std::sync::{Arc, Mutex, Weak};
+use sync15::bso::{IncomingBso, OutgoingBso, OutgoingEnvelope};
 use sync15::engine::{
     CollectionRequest, EngineSyncAssociation, IncomingChangeset, OutgoingChangeset, SyncEngine,
     SyncEngineId,
 };
-use sync15::{telemetry, ClientData, DeviceType, Payload, RemoteClient, ServerTimestamp};
+use sync15::{telemetry, ClientData, DeviceType, RemoteClient, ServerTimestamp};
 use sync_guid::Guid;
 
 const TTL_1_YEAR: u32 = 31_622_400;
@@ -69,7 +70,6 @@ impl ClientRemoteTabs {
                 .iter()
                 .map(RemoteTab::to_record_tab)
                 .collect(),
-            ttl: TTL_1_YEAR,
         }
     }
 }
@@ -120,15 +120,29 @@ impl TabsSyncImpl {
         Ok(())
     }
 
-    pub fn apply_incoming(&mut self, inbound: Vec<TabsRecord>) -> Result<Option<TabsRecord>> {
+    pub fn apply_incoming(
+        &mut self,
+        inbound: Vec<IncomingBso>,
+        telem: &mut telemetry::Engine,
+    ) -> Result<Vec<OutgoingBso>> {
         let local_id = self.local_id.clone();
         let mut remote_tabs = Vec::with_capacity(inbound.len());
+        let mut incoming_telemetry = telemetry::EngineIncoming::new();
 
-        for record in inbound {
-            if record.id == local_id {
+        for incoming in inbound {
+            if incoming.envelope.id == local_id {
                 // That's our own record, ignore it.
                 continue;
             }
+            let record = match incoming.into_content::<TabsRecord>().content() {
+                Some(record) => record,
+                None => {
+                    // Invalid record or a "tombstone" which tabs don't have.
+                    log::warn!("Ignoring incoming invalid tab");
+                    incoming_telemetry.failed(1);
+                    continue;
+                }
+            };
             let id = record.id.clone();
             let crt = if let Some(remote_client) = self.remote_clients.get(&id) {
                 ClientRemoteTabs::from_record_with_remote_client(
@@ -172,16 +186,25 @@ impl TabsSyncImpl {
                 })
                 .unwrap_or_else(|| (String::new(), DeviceType::Unknown));
             let local_record = ClientRemoteTabs {
-                client_id: local_id,
+                client_id: local_id.clone(),
                 client_name,
                 device_type,
                 remote_tabs: local_tabs.to_vec(),
             };
             log::trace!("outgoing {:?}", local_record);
-            Some(local_record.to_record())
+            let envelope = OutgoingEnvelope {
+                id: local_id.into(),
+                ttl: Some(TTL_1_YEAR),
+                ..Default::default()
+            };
+            vec![OutgoingBso::from_content(
+                envelope,
+                local_record.to_record(),
+            )?]
         } else {
-            None
+            vec![]
         };
+        telem.incoming(incoming_telemetry);
         Ok(outgoing)
     }
 
@@ -252,34 +275,17 @@ impl SyncEngine for TabsEngine {
     ) -> anyhow::Result<OutgoingChangeset> {
         assert_eq!(inbound.len(), 1, "only requested one set of records");
         let inbound = inbound.into_iter().next().unwrap();
-        let mut incoming_telemetry = telemetry::EngineIncoming::new();
-        let mut incoming_records = Vec::with_capacity(inbound.changes.len());
-
-        for incoming in inbound.changes {
-            let record = match TabsRecord::from_payload(incoming.0) {
-                Ok(record) => record,
-                Err(e) => {
-                    log::warn!("Error deserializing incoming record: {}", e);
-                    incoming_telemetry.failed(1);
-                    continue;
-                }
-            };
-            incoming_records.push(record);
-        }
-
-        let outgoing_record = self
+        let outgoing_records = self
             .sync_impl
             .lock()
             .unwrap()
-            .apply_incoming(incoming_records)?;
+            .apply_incoming(inbound.changes, telem)?;
 
-        let mut outgoing = OutgoingChangeset::new("tabs", inbound.timestamp);
-        if let Some(outgoing_record) = outgoing_record {
-            let payload = Payload::from_record(outgoing_record)?;
-            outgoing.changes.push(payload);
-        }
-        telem.incoming(incoming_telemetry);
-        Ok(outgoing)
+        Ok(OutgoingChangeset::new_with_changes(
+            "tabs",
+            inbound.timestamp,
+            outgoing_records,
+        ))
     }
 
     fn sync_finished(
@@ -335,7 +341,7 @@ impl crate::TabsStore {
 pub mod test {
     use super::*;
     use serde_json::json;
-    use sync15::DeviceType;
+    use sync15::bso::IncomingBso;
 
     #[test]
     fn test_incoming_tabs() {
@@ -376,11 +382,14 @@ pub mod test {
             }),
         ];
 
-        let mut incoming = IncomingChangeset::new(engine.collection_name(), ServerTimestamp(0));
-        for record in records {
-            let payload = Payload::from_json(record).unwrap();
-            incoming.changes.push((payload, ServerTimestamp(0)));
-        }
+        let incoming = IncomingChangeset::new_with_changes(
+            engine.collection_name(),
+            ServerTimestamp(0),
+            records
+                .into_iter()
+                .map(IncomingBso::from_test_content)
+                .collect(),
+        );
         let outgoing = engine
             .apply_incoming(vec![incoming], &mut telemetry::Engine::new("tabs"))
             .expect("Should apply incoming and stage outgoing records");
