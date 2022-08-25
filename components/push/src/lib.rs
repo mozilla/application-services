@@ -237,6 +237,7 @@ impl PushManager {
         registration_id: String,
         database_path: String,
     ) -> Result<Self> {
+        log::debug!("PushManager server_host: {server_host}, http_protocol: {http_protocol}");
         let bridge_type = match bridge_type {
             BridgeType::Adm => "adm",
             BridgeType::Apns => "apns",
