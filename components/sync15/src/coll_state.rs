@@ -73,8 +73,9 @@ impl<'state> LocalCollStateMachine<'state> {
                             if ids.global == meta_global.sync_id
                                 && ids.coll == engine_meta.sync_id =>
                         {
-                            let coll_keys = CollectionKeys::from_encrypted_bso(
+                            let coll_keys = CollectionKeys::from_encrypted_payload(
                                 self.global_state.keys.clone(),
+                                self.global_state.keys_timestamp,
                                 self.root_key,
                             )?;
                             Ok(LocalCollState::Ready {
@@ -181,7 +182,7 @@ mod tests {
     fn get_global_state(root_key: &KeyBundle) -> GlobalState {
         let keys = CollectionKeys::new_random()
             .unwrap()
-            .to_encrypted_bso(root_key)
+            .to_encrypted_payload(root_key)
             .unwrap();
         GlobalState {
             config: InfoConfiguration::default(),
@@ -203,6 +204,7 @@ mod tests {
             },
             global_timestamp: ServerTimestamp::default(),
             keys,
+            keys_timestamp: ServerTimestamp::default(),
         }
     }
 

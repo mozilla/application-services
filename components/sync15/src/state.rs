@@ -12,7 +12,7 @@ use crate::request::{InfoCollections, InfoConfiguration};
 use crate::util::ServerTimestamp;
 use interrupt_support::Interruptee;
 use serde_derive::*;
-use sync15_traits::{EncryptedBso, KeyBundle};
+use sync15_traits::{EncryptedBso, EncryptedPayload, KeyBundle};
 use sync_guid::Guid;
 
 use self::SetupState::*;
@@ -158,16 +158,17 @@ impl PersistedGlobalState {
 
 /// Holds global Sync state, including server upload limits, the
 /// last-fetched collection modified times, `meta/global` record, and
-/// encrypted copies of the crypto/keys resourse (which we hold as encrypted
-/// both to avoid keeping them in memory longer than necessary, and guard against
-/// the wrong (ie, a different user's) root key being passed in.
+/// an encrypted copy of the crypto/keys resource (avoids keeping them
+/// in memory longer than necessary; avoids key mismatches by ensuring the same KeyBundle
+/// is used for both the keys and encrypted payloads.)
 #[derive(Debug, Clone)]
 pub struct GlobalState {
     pub config: InfoConfiguration,
     pub collections: InfoCollections,
     pub global: MetaGlobalRecord,
     pub global_timestamp: ServerTimestamp,
-    pub keys: EncryptedBso,
+    pub keys: EncryptedPayload,
+    pub keys_timestamp: ServerTimestamp,
 }
 
 /// Creates a fresh `meta/global` record, using the default engine selections,
@@ -490,7 +491,8 @@ impl<'a> SetupStateMachine<'a> {
                             collections,
                             global,
                             global_timestamp,
-                            keys: record,
+                            keys: record.payload,
+                            keys_timestamp: last_modified,
                         };
                         Ok(Ready { state })
                     }
@@ -513,7 +515,7 @@ impl<'a> SetupStateMachine<'a> {
                 } => Ok(
                     if self.engine_updates.is_none()
                         && is_same_timestamp(old_state.global_timestamp, &collections, "meta")
-                        && is_same_timestamp(old_state.keys.modified, &collections, "crypto")
+                        && is_same_timestamp(old_state.keys_timestamp, &collections, "crypto")
                     {
                         Ready {
                             state: GlobalState {
@@ -557,9 +559,10 @@ impl<'a> SetupStateMachine<'a> {
                     .put_meta_global(ServerTimestamp::default(), &new_global)?;
 
                 // ...And a fresh `crypto/keys`.
-                let new_keys = CollectionKeys::new_random()?.to_encrypted_bso(self.root_key)?;
+                let new_keys = CollectionKeys::new_random()?.to_encrypted_payload(self.root_key)?;
+                let bso = EncryptedBso::new_record("keys".into(), "crypto".into(), new_keys);
                 self.client
-                    .put_crypto_keys(ServerTimestamp::default(), &new_keys)?;
+                    .put_crypto_keys(ServerTimestamp::default(), &bso)?;
 
                 // TODO(lina): Can we pass along server timestamps from the PUTs
                 // above, and avoid re-fetching the `m/g` and `c/k` we just
@@ -663,15 +666,14 @@ fn is_same_timestamp(local: ServerTimestamp, collections: &InfoCollections, key:
 mod tests {
     use super::*;
 
-    use crate::record_types::CryptoKeysRecord;
     use interrupt_support::NeverInterrupts;
-    use sync15_traits::{BsoRecord, EncryptedBso, EncryptedPayload, Payload};
+    use sync15_traits::EncryptedBso;
 
     struct InMemoryClient {
         info_configuration: error::Result<Sync15ClientResponse<InfoConfiguration>>,
         info_collections: error::Result<Sync15ClientResponse<InfoCollections>>,
         meta_global: error::Result<Sync15ClientResponse<MetaGlobalRecord>>,
-        crypto_keys: error::Result<Sync15ClientResponse<BsoRecord<EncryptedPayload>>>,
+        crypto_keys: error::Result<Sync15ClientResponse<EncryptedBso>>,
     }
 
     impl SetupStorageClient for InMemoryClient {
@@ -768,33 +770,25 @@ mod tests {
         mocked_success_ts(t, 0)
     }
 
-    // for tests, we want a BSO with a specific timestamp, which we never
-    // need in non-test-code as the timestamp comes from the server.
-    impl CollectionKeys {
-        pub fn to_encrypted_bso_with_timestamp(
-            &self,
-            root_key: &KeyBundle,
-            modified: ServerTimestamp,
-        ) -> error::Result<EncryptedBso> {
-            let record = CryptoKeysRecord {
-                id: "keys".into(),
-                collection: "crypto".into(),
-                default: self.default.to_b64_array(),
-                collections: self
-                    .collections
-                    .iter()
-                    .map(|kv| (kv.0.clone(), kv.1.to_b64_array()))
-                    .collect(),
-            };
-            let mut bso =
-                crate::CleartextBso::from_payload(Payload::from_record(record)?, "crypto");
-            bso.modified = modified;
-            Ok(bso.encrypt(root_key)?)
-        }
+    fn mocked_success_keys(
+        keys: CollectionKeys,
+        root_key: &KeyBundle,
+    ) -> error::Result<Sync15ClientResponse<EncryptedBso>> {
+        let timestamp = keys.timestamp;
+        let payload = keys.to_encrypted_payload(root_key).unwrap();
+        let mut bso = EncryptedBso::new_record("keys".into(), "crypto".into(), payload);
+        bso.modified = timestamp;
+        Ok(Sync15ClientResponse::Success {
+            status: 200,
+            record: bso,
+            last_modified: timestamp,
+            route: "test/path".into(),
+        })
     }
 
     #[test]
     fn test_state_machine_ready_from_empty() {
+        let _ = env_logger::try_init();
         let root_key = KeyBundle::new_random().unwrap();
         let keys = CollectionKeys {
             timestamp: ServerTimestamp(123_400),
@@ -826,11 +820,7 @@ mod tests {
                     .collect(),
             )),
             meta_global: mocked_success_ts(mg, 999_000),
-            crypto_keys: mocked_success_ts(
-                keys.to_encrypted_bso_with_timestamp(&root_key, ServerTimestamp(888_000))
-                    .expect("should always work in this test"),
-                888_000,
-            ),
+            crypto_keys: mocked_success_keys(keys, &root_key),
         };
         let mut pgs = PersistedGlobalState::V2 { declined: None };
 
@@ -926,11 +916,7 @@ mod tests {
             info_configuration: mocked_success(InfoConfiguration::default()),
             info_collections: mocked_success(collections.clone()),
             meta_global: mocked_success_ts(mg.clone(), ts_metaglobal),
-            crypto_keys: mocked_success_ts(
-                keys.to_encrypted_bso_with_timestamp(&root_key, ServerTimestamp(ts_keys))
-                    .expect("should always work in this test"),
-                ts_keys,
-            ),
+            crypto_keys: mocked_success_keys(keys.clone(), &root_key),
         };
 
         // First a test where the "previous" global state is OK to reuse.
@@ -943,8 +929,9 @@ mod tests {
                 global: mg.clone(),
                 global_timestamp: ServerTimestamp(ts_metaglobal),
                 keys: keys
-                    .to_encrypted_bso_with_timestamp(&root_key, ServerTimestamp(ts_keys))
+                    .to_encrypted_payload(&root_key)
                     .expect("should always work in this test"),
+                keys_timestamp: ServerTimestamp(ts_keys),
             };
             do_test(
                 &client,
@@ -966,8 +953,9 @@ mod tests {
                 global: mg.clone(),
                 global_timestamp: ServerTimestamp(999_999),
                 keys: keys
-                    .to_encrypted_bso_with_timestamp(&root_key, ServerTimestamp(ts_keys))
+                    .to_encrypted_payload(&root_key)
                     .expect("should always work in this test"),
+                keys_timestamp: ServerTimestamp(ts_keys),
             };
             do_test(
                 &client,
@@ -989,8 +977,9 @@ mod tests {
                 global: mg.clone(),
                 global_timestamp: ServerTimestamp(ts_metaglobal),
                 keys: keys
-                    .to_encrypted_bso_with_timestamp(&root_key, ServerTimestamp(999_999))
+                    .to_encrypted_payload(&root_key)
                     .expect("should always work in this test"),
+                keys_timestamp: ServerTimestamp(999_999),
             };
             do_test(
                 &client,
@@ -1012,8 +1001,9 @@ mod tests {
                 global: mg,
                 global_timestamp: ServerTimestamp(ts_metaglobal),
                 keys: keys
-                    .to_encrypted_bso_with_timestamp(&root_key, ServerTimestamp(ts_keys))
+                    .to_encrypted_payload(&root_key)
                     .expect("should always work in this test"),
+                keys_timestamp: ServerTimestamp(ts_keys),
             };
             let mut engine_updates = HashMap::<String, bool>::new();
             engine_updates.insert("logins".to_string(), false);
