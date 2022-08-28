@@ -78,7 +78,6 @@ impl TabsStorage {
 
     /// Arrange for a new memory-based TabsStorage. As per other DB semantics, creating
     /// this isn't enough to actually create the db!
-    #[cfg(test)]
     pub fn new_with_mem_path(db_path: &str) -> Self {
         let name = PathBuf::from(format!("file:{}?mode=memory&cache=shared", db_path));
         Self::new(name)

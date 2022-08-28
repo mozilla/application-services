@@ -4,8 +4,12 @@ http://creativecommons.org/publicdomain/zero/1.0/ */
 use crate::auth::TestClient;
 use crate::testing::TestGroup;
 use anyhow::Result;
-use tabs::{ClientRemoteTabs, DeviceType, RemoteTab, TabsStore};
+use std::collections::HashMap;
+use sync15::DeviceType;
+use tabs::{ClientRemoteTabs, RemoteTabRecord, TabsStore};
 // helpers...
+
+type RemoteTab = RemoteTabRecord; // This test was written before we renamed this type.
 
 pub fn verify_tabs(tabs_store: &TabsStore, expected: &ClientRemoteTabs) {
     let remote_tabs = tabs_store
@@ -15,7 +19,7 @@ pub fn verify_tabs(tabs_store: &TabsStore, expected: &ClientRemoteTabs) {
         .iter()
         .find(|rt| rt.client_id == expected.client_id)
         .expect("should have found the remote tabs");
-    assert_remote_tabs_equiv(&equivalent, expected);
+    assert_remote_tabs_equiv(equivalent, expected);
 }
 
 pub fn assert_remote_tabs_equiv(l: &ClientRemoteTabs, r: &ClientRemoteTabs) {
@@ -34,8 +38,7 @@ pub fn assert_remote_tabs_equiv(l: &ClientRemoteTabs, r: &ClientRemoteTabs) {
 }
 
 pub fn sync_tabs(client: &mut TestClient) -> Result<()> {
-    let (init, key, device_id) = client.data_for_sync()?;
-    client.tabs_store.sync(&init, &key, &device_id)?;
+    client.sync(&["tabs".to_string()], HashMap::new())?;
     Ok(())
 }
 
@@ -50,7 +53,7 @@ fn test_tabs(c0: &mut TestClient, c1: &mut TestClient) {
         title: "Welcome to Bobo".to_owned(),
         url_history: vec!["https://bobo.moz".to_owned()],
     };
-    c0.tabs_store.update_local_state(vec![t0.clone()]);
+    c0.tabs_store.set_local_tabs(vec![t0.clone()]);
 
     sync_tabs(c0).expect("c0 sync to work");
     sync_tabs(c1).expect("c1 sync to work");
@@ -78,8 +81,7 @@ fn test_tabs(c0: &mut TestClient, c1: &mut TestClient) {
         url_history: vec!["https://bar.org".to_owned()],
     };
 
-    c1.tabs_store
-        .update_local_state(vec![t1.clone(), t2.clone()]);
+    c1.tabs_store.set_local_tabs(vec![t1.clone(), t2.clone()]);
 
     sync_tabs(c1).expect("c1 sync to work");
     sync_tabs(c0).expect("c0 sync to work");
