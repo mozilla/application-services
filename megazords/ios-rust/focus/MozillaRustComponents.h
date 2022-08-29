@@ -8,3 +8,4 @@
 #import "RustLogFFI.h"
 #import "RustViaductFFI.h"
 #import "nimbusFFI.h"
+#import "errorFFI.h"

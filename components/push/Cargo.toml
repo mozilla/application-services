@@ -20,11 +20,11 @@ viaduct = { path = "../viaduct" }
 sql-support = { path = "../support/sql" }
 rc_crypto = { path = "../support/rc_crypto", features = ["ece"] }
 thiserror = "1.0"
-uniffi = "^0.18"
-uniffi_macros = "^0.18"
+uniffi = "^0.19"
+uniffi_macros = "^0.19"
 
 [build-dependencies]
-uniffi_build = { version = "^0.18", features=["builtin-bindgen"] }
+uniffi_build = { version = "^0.19", features=["builtin-bindgen"] }
 
 
 [dev-dependencies]

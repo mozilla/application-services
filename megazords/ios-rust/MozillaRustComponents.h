@@ -15,3 +15,4 @@
 #import "placesFFI.h"
 #import "pushFFI.h"
 #import "tabsFFI.h"
+#import "errorFFI.h"

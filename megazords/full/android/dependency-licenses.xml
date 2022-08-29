@@ -45,6 +45,10 @@ the details of which are reproduced below.
     <url>https://github.com/mozilla/uniffi-rs/blob/main/LICENSE</url>
   </license>
   <license>
+    <name>Mozilla Public License 2.0: uniffi_meta</name>
+    <url>https://github.com/mozilla/uniffi-rs/blob/main/LICENSE</url>
+  </license>
+  <license>
     <name>Apache License 2.0: ahash</name>
     <url>https://github.com/tkaitchuck/ahash/blob/master/LICENSE-APACHE</url>
   </license>
@@ -139,6 +143,18 @@ the details of which are reproduced below.
   <license>
     <name>Apache License 2.0: either</name>
     <url>https://github.com/bluss/either/blob/master/LICENSE-APACHE</url>
+  </license>
+  <license>
+    <name>Apache License 2.0: enum_variant_macros</name>
+    <url>https://github.com/MisterEggnog/enum-variant-macros/blob/master/LICENSE-APACHE</url>
+  </license>
+  <license>
+    <name>Apache License 2.0: enum_variant_macros_macros</name>
+    <url>https://github.com/MisterEggnog/enum-variant-macros/blob/trunk/LICENSE-APACHE</url>
+  </license>
+  <license>
+    <name>Apache License 2.0: extension-trait</name>
+    <url>https://gitlab.com/KonradBorowski/extension-trait/-/blob/master/LICENSE-APACHE</url>
   </license>
   <license>
     <name>Apache License 2.0: fallible-iterator</name>
@@ -289,12 +305,12 @@ the details of which are reproduced below.
     <url>https://github.com/servo/rust-url/blob//master/LICENSE-APACHE</url>
   </license>
   <license>
-    <name>Apache License 2.0: pest</name>
-    <url>https://github.com/pest-parser/pest/blob/master/LICENSE-APACHE</url>
-  </license>
-  <license>
     <name>Apache License 2.0: pkg-config</name>
     <url>https://github.com/rust-lang/pkg-config-rs/blob/master/LICENSE-APACHE</url>
+  </license>
+  <license>
+    <name>Apache License 2.0: plain</name>
+    <url>https://github.com/randomites/plain/blob/master/LICENSE-APACHE</url>
   </license>
   <license>
     <name>Apache License 2.0: ppv-lite86</name>
@@ -362,11 +378,7 @@ the details of which are reproduced below.
   </license>
   <license>
     <name>Apache License 2.0: semver</name>
-    <url>https://github.com/steveklabnik/semver/blob/master/LICENSE-APACHE</url>
-  </license>
-  <license>
-    <name>Apache License 2.0: semver-parser</name>
-    <url>https://github.com/steveklabnik/semver-parser/blob/master/LICENSE-APACHE</url>
+    <url>https://github.com/dtolnay/semver/blob/master/LICENSE-APACHE</url>
   </license>
   <license>
     <name>Apache License 2.0: serde</name>
@@ -431,10 +443,6 @@ the details of which are reproduced below.
   <license>
     <name>Apache License 2.0: typenum</name>
     <url>https://github.com/paholg/typenum/blob/main/LICENSE-APACHE</url>
-  </license>
-  <license>
-    <name>Apache License 2.0: ucd-trie</name>
-    <url>https://github.com/BurntSushi/ucd-generate/blob/master/LICENSE-APACHE</url>
   </license>
   <license>
     <name>Apache License 2.0: unicase</name>
@@ -533,6 +541,10 @@ the details of which are reproduced below.
     <url>https://github.com/fizyk20/generic-array/blob/master/LICENSE</url>
   </license>
   <license>
+    <name>MIT License: goblin</name>
+    <url>https://github.com/m4b/goblin/blob/master/LICENSE</url>
+  </license>
+  <license>
     <name>MIT License: libsqlite3-sys</name>
     <url>https://github.com/rusqlite/rusqlite/blob/master/LICENSE</url>
   </license>
@@ -553,12 +565,16 @@ the details of which are reproduced below.
     <url>https://github.com/Geal/nom/blob/main/LICENSE</url>
   </license>
   <license>
-    <name>MIT License: nom</name>
-    <url>https://github.com/Geal/nom/blob/main/LICENSE</url>
-  </license>
-  <license>
     <name>MIT License: ordered-float</name>
     <url>https://github.com/reem/rust-ordered-float/blob/master/LICENSE-MIT</url>
+  </license>
+  <license>
+    <name>MIT License: scroll</name>
+    <url>https://github.com/m4b/scroll/blob/master/LICENSE</url>
+  </license>
+  <license>
+    <name>MIT License: scroll_derive</name>
+    <url>https://github.com/m4b/scroll/blob/master/LICENSE</url>
   </license>
   <license>
     <name>MIT License: strsim</name>
