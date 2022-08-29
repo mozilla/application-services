@@ -205,10 +205,6 @@ commands:
       - run:
           name: Verify the build environment
           command: ./libs/verify-ios-ci-environment.sh
-      - run:
-          name: Aliases python as python3 for MacOS 12 runners
-          command: |
-            echo 'alias python=python3' >> $BASH_ENV
 
 executors:
   # Where possible we want to run jobs using docker, because it's cheaper.
