@@ -18,6 +18,9 @@ Use the template below to make assigning a version number during the release cut
   - Description of the change with a link to the pull request ([#0000](https://github.com/mozilla/application-services/pull/0000))
 
 -->
+# General
+  - `error-support` is now exposed to iOS. `error-support` supports better error reporting and logging for errors. ([#5094](https://github.com/mozilla/application-services/pull/5094))
+
 ## Nimbus FML
 
 ### What's Changed
