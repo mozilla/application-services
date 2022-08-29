@@ -424,6 +424,98 @@ fn test_targeting_is_already_enrolled() {
 }
 
 #[test]
+fn test_targeting_active_experiments_equivalency() {
+    // Here's our valid jexl statement
+    let expression_statement = "active_experiments['test'] == 'treatment'";
+    // A matching context that includes the appropriate specific context
+    let mut targeting_attributes: TargetingAttributes = AppContext {
+        app_name: "nimbus_test".to_string(),
+        app_id: "1010".to_string(),
+        channel: "test".to_string(),
+        app_version: Some("4.4".to_string()),
+        app_build: Some("1234".to_string()),
+        architecture: Some("x86_64".to_string()),
+        device_manufacturer: Some("Samsung".to_string()),
+        device_model: Some("Galaxy S10".to_string()),
+        locale: Some("en-US".to_string()),
+        os: Some("Android".to_string()),
+        os_version: Some("10".to_string()),
+        android_sdk_version: Some("29".to_string()),
+        debug_tag: None,
+        custom_targeting_attributes: None,
+        ..Default::default()
+    }
+    .into();
+    let mut map: HashMap<String, String> = HashMap::new();
+    map.insert("test".into(), "treatment".into());
+    targeting_attributes.active_experiments = Some(map);
+
+    // The targeting should pass!
+    assert_eq!(targeting(expression_statement, &targeting_attributes), None);
+
+    // We set active_experiment treatment to something not expected and try again
+    let mut map: HashMap<String, String> = HashMap::new();
+    map.insert("test".into(), "treatment1".into());
+    targeting_attributes.active_experiments = Some(map);
+    assert_eq!(
+        targeting(expression_statement, &targeting_attributes),
+        Some(EnrollmentStatus::NotEnrolled {
+            reason: NotEnrolledReason::NotTargeted
+        })
+    );
+
+    // We set active_experiments to None and try again
+    targeting_attributes.active_experiments = None;
+    assert_eq!(
+        targeting(expression_statement, &targeting_attributes),
+        Some(EnrollmentStatus::NotEnrolled {
+            reason: NotEnrolledReason::NotTargeted
+        })
+    );
+}
+
+#[test]
+fn test_targeting_active_experiments_exists() {
+    // Here's our valid jexl statement
+    let expression_statement = "'test' in active_experiments";
+    // A matching context that includes the appropriate specific context
+    let mut targeting_attributes: TargetingAttributes = AppContext {
+        app_name: "nimbus_test".to_string(),
+        app_id: "1010".to_string(),
+        channel: "test".to_string(),
+        app_version: Some("4.4".to_string()),
+        app_build: Some("1234".to_string()),
+        architecture: Some("x86_64".to_string()),
+        device_manufacturer: Some("Samsung".to_string()),
+        device_model: Some("Galaxy S10".to_string()),
+        locale: Some("en-US".to_string()),
+        os: Some("Android".to_string()),
+        os_version: Some("10".to_string()),
+        android_sdk_version: Some("29".to_string()),
+        debug_tag: None,
+        custom_targeting_attributes: None,
+        ..Default::default()
+    }
+    .into();
+    let mut map: HashMap<String, String> = HashMap::new();
+    map.insert("test".into(), "treatment".into());
+    targeting_attributes.active_experiments = Some(map);
+
+    // The targeting should pass!
+    assert_eq!(targeting(expression_statement, &targeting_attributes), None);
+
+    // We set active_experiment treatment to something not expected and try again
+    let map: HashMap<String, String> = HashMap::new();
+    targeting_attributes.active_experiments = Some(map);
+    assert_eq!(
+        targeting(expression_statement, &targeting_attributes),
+        Some(EnrollmentStatus::NotEnrolled {
+            reason: NotEnrolledReason::NotTargeted
+        })
+    );
+}
+
+#[test]
 fn test_invalid_expression() {
     // This expression doesn't return a bool
     let expression_statement = "2.0";

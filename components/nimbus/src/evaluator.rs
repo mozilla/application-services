@@ -15,6 +15,7 @@ use crate::{Branch, Experiment};
 use jexl_eval::Evaluator;
 use serde_derive::*;
 use serde_json::{json, Value};
+use std::collections::HashMap;
 use uuid::Uuid;
 #[derive(Serialize, Deserialize, Debug, Clone, Default)]
 pub struct Bucket {}
@@ -35,6 +36,7 @@ pub struct TargetingAttributes {
     pub is_already_enrolled: bool,
     pub days_since_install: Option<i32>,
     pub days_since_update: Option<i32>,
+    pub active_experiments: Option<HashMap<String, String>>,
 }
 
 impl From<AppContext> for TargetingAttributes {
