@@ -19,7 +19,7 @@ Use the template below to make assigning a version number during the release cut
 
 -->
 # General
-  - `error-support` is now exposed to iOS. `error-support` supports better error reporting and logging for errors. ([#5094](https://github.com/mozilla/application-services/pull/5094))
+  - `error-support` is now exposed to both Firefox iOS and Focus iOS. `error-support` supports better error reporting and logging for errors. ([#5094](https://github.com/mozilla/application-services/pull/5094))
 
 ## Nimbus FML
 
