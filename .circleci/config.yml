@@ -137,6 +137,7 @@ commands:
             python3 setup.py install
             popd
             popd
+            echo 'export PATH=/usr/local/opt/python@3.9/Frameworks/Python.framework/Versions/3.9/bin:$PATH' >> $BASH_ENV
       - build-libs:
           platform: ios
   test-setup:
@@ -204,6 +205,10 @@ commands:
       - run:
           name: Verify the build environment
           command: ./libs/verify-ios-ci-environment.sh
+      - run:
+          name: Aliases python as python3 for MacOS 12 runners
+          command: |
+            echo 'alias python=python3' >> $BASH_ENV
 
 executors:
   # Where possible we want to run jobs using docker, because it's cheaper.
@@ -213,7 +218,7 @@ executors:
       - image: cimg/rust:1.53.0
   macos:
     macos:
-      xcode: 13.2.1
+      xcode: 13.4.1
     resource_class: macos.x86.medium.gen2
 
 jobs:
