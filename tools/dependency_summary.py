@@ -852,6 +852,20 @@ PACKAGE_METADATA_FIXUPS = {
             "fixup": "https://gitlab.com/KonradBorowski/extension-trait/-/raw/master/LICENSE-APACHE"
         }
     },
+
+    "xshell-macros": {
+        "license": {
+            "check": "MIT OR Apache-2.0",
+        },
+        "license_url": {
+            "check": None,
+            "fixup": "https://github.com/matklad/xshell/blob/master/LICENSE-APACHE"
+        },
+        "license_file": {
+            "check": None,
+            "fixup": "https://raw.githubusercontent.com/matklad/xshell/master/LICENSE-APACHE"
+        }
+    },
     # The following crates do not have repositories in the package metadata
     "openssl-macros": {
         "repository": {
