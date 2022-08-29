@@ -24,8 +24,8 @@ serde_derive = "1"
 serde_json = "1"
 parking_lot = ">=0.11,<=0.12"
 interrupt-support = { path = "../support/interrupt" }
-uniffi = "^0.18"
-uniffi_macros = "^0.18"
+uniffi = "^0.19"
+uniffi_macros = "^0.19"
 
 [build-dependencies]
-uniffi_build = { version = "^0.18", features=["builtin-bindgen"] }
+uniffi_build = { version = "^0.19", features=["builtin-bindgen"] }
