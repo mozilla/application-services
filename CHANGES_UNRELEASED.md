@@ -25,3 +25,6 @@ Use the template below to make assigning a version number during the release cut
 
 ### What's Changed
   - Add `channels` value for defaults and add support for multiple channels in `channel` via comma separation. ([#5101](https://github.com/mozilla/application-services/pull/5101))
+
+### What's New
+  - JEXL targeting allows for using the `in` keyword with objects and a map of active experiments has been added to TargetingAttributes. The map will always be empty at this time. ([#5104](https://github.com/mozilla/application-services/pull/5104))

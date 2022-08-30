@@ -1591,9 +1591,9 @@ checksum = "112c678d4050afce233f4f2852bb2eb519230b3cf12f33585275537d7e41578d"
 
 [[package]]
 name = "jexl-eval"
-version = "0.2.1"
+version = "0.2.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "70c015085093f5f4836054483386ffcd18500f4816e9178daec7cfea6fb80fab"
+checksum = "41bb0cb58f20e39d58869c2cf1a69b88aaa7854557904ed404e829d3b64e1046"
 dependencies = [
  "anyhow",
  "jexl-parser",
@@ -1604,9 +1604,9 @@ dependencies = [
 
 [[package]]
 name = "jexl-parser"
-version = "0.2.1"
+version = "0.2.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "ad099b3290c625d9147b51810c0a63b9087e1439039840c9e3f974a2747deb20"
+checksum = "0ab43a7eb505d3871a8debbaebc35b3402e26968dd4bcac258e6f40881238673"
 dependencies = [
  "lalrpop-util",
  "regex",
