@@ -11,7 +11,7 @@ autofill = { path = "../autofill" }
 sync15 = { path = "../sync15" }
 places = { path = "../places" }
 logins = { path = "../logins" }
-tabs = { path = "../tabs" }
+tabs = { path = "../tabs", features = ["full-sync"] }
 thiserror = "1.0"
 anyhow = "1.0"
 lazy_static = "1.4"
