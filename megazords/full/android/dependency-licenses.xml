@@ -145,18 +145,6 @@ the details of which are reproduced below.
     <url>https://github.com/bluss/either/blob/master/LICENSE-APACHE</url>
   </license>
   <license>
-    <name>Apache License 2.0: enum_variant_macros</name>
-    <url>https://github.com/MisterEggnog/enum-variant-macros/blob/master/LICENSE-APACHE</url>
-  </license>
-  <license>
-    <name>Apache License 2.0: enum_variant_macros_macros</name>
-    <url>https://github.com/MisterEggnog/enum-variant-macros/blob/trunk/LICENSE-APACHE</url>
-  </license>
-  <license>
-    <name>Apache License 2.0: extension-trait</name>
-    <url>https://gitlab.com/KonradBorowski/extension-trait/-/blob/master/LICENSE-APACHE</url>
-  </license>
-  <license>
     <name>Apache License 2.0: fallible-iterator</name>
     <url>https://github.com/sfackler/rust-fallible-iterator/blob/master/LICENSE-APACHE</url>
   </license>
@@ -183,10 +171,6 @@ the details of which are reproduced below.
   <license>
     <name>Apache License 2.0: getrandom</name>
     <url>https://github.com/rust-random/getrandom/blob/master/LICENSE-APACHE</url>
-  </license>
-  <license>
-    <name>Apache License 2.0: glob</name>
-    <url>https://github.com/rust-lang/glob/blob/master/LICENSE-APACHE</url>
   </license>
   <license>
     <name>Apache License 2.0: hashbrown</name>
