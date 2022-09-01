@@ -1,3 +1,6 @@
+[Custom]
+typedef string Guid;
+
 namespace tabs {
 
 };
@@ -29,6 +32,10 @@ interface TabsStore {
 
     [Throws=TabsError, Self=ByArc]
     string sync(string key_id, string access_token, string sync_key, string tokenserver_url, string local_id);
+
+    [Self=ByArc]
+    TabsBridgedEngine bridged_engine();
+
 };
 
 // Note that this enum is duplicated in fxa-client.udl (although the underlying type *is*
@@ -49,4 +56,53 @@ dictionary ClientRemoteTabs {
     string client_name;
     TabsDeviceType device_type;
     sequence<RemoteTabRecord> remote_tabs;
+};
+
+// Note the canonical docs for this are in https://searchfox.org/mozilla-central/source/services/interfaces/mozIBridgedSyncEngine.idl
+// It's only actually used in desktop, but it's fine to expose this everywhere.
+interface TabsBridgedEngine {
+    //readonly attribute long storageVersion;
+    // readonly attribute boolean allowSkippedRecord;
+
+    // XXX - better logging story than this?
+    // attribute mozIServicesLogSink logger;
+
+    [Throws=TabsError]
+    i64 last_sync();
+
+    [Throws=TabsError]
+    void set_last_sync(i64 last_sync);
+
+    [Throws=TabsError]
+    string? sync_id();
+
+    [Throws=TabsError]
+    string reset_sync_id();
+
+    [Throws=TabsError]
+    string ensure_current_sync_id([ByRef]string new_sync_id);
+
+    [Throws=TabsError]
+    void prepare_for_sync([ByRef]string client_data);
+
+    [Throws=TabsError]
+    void sync_started();
+
+    [Throws=TabsError]
+    void store_incoming(sequence<string> incoming_envelopes_as_json);
+
+    [Throws=TabsError]
+    sequence<string> apply();
+
+    [Throws=TabsError]
+    void set_uploaded(i64 new_timestamp, sequence<Guid> uploaded_ids);
+
+    [Throws=TabsError]
+    void sync_finished();
+
+    [Throws=TabsError]
+    void reset();
+
+    [Throws=TabsError]
+    void wipe();
 };

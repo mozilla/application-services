@@ -2,14 +2,14 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-#[cfg(feature = "full-sync")]
+pub(crate) mod bridge;
 pub(crate) mod engine;
-#[cfg(feature = "full-sync")]
 mod record;
 
-// Our UDL gives the store certain sync-specific functions, but can only be used
-// when the `full-sync` feature is enabled - so we must provide stubs when it
-// is not.
+#[cfg(feature = "full-sync")]
+pub mod full_sync;
+
+// When full-sync isn't enabled we need stub versions for these UDL exposed functions.
 #[cfg(not(feature = "full-sync"))]
 impl crate::TabsStore {
     pub fn reset(self: std::sync::Arc<Self>) -> crate::error::Result<()> {
@@ -31,9 +31,5 @@ impl crate::TabsStore {
         Err(crate::error::TabsError::SyncAdapterError(
             "sync".to_string(),
         ))
-    }
-
-    pub fn register_with_sync_manager(self: std::sync::Arc<Self>) {
-        log::error!("register_with_sync_manager: feature not enabled");
     }
 }

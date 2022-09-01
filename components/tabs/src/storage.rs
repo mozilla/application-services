@@ -183,8 +183,6 @@ impl TabsStorage {
     }
 }
 
-// Implementations available only when syncing is enabled.
-#[cfg(feature = "full-sync")]
 impl TabsStorage {
     pub(crate) fn replace_remote_tabs(
         &mut self,
