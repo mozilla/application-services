@@ -147,7 +147,7 @@ nimbus_health:
     bugs:
       - https://mozilla-hub.atlassian.net/browse/EXP-2743
     data_reviews:
-      - https://github.com/mozilla/application-services/pull/XXXX#issuecomment-YYYY
+      - https://github.com/mozilla/application-services/pull/5118#issuecomment-1235827006
     data_sensitivity:
       - technical
     notification_emails:
