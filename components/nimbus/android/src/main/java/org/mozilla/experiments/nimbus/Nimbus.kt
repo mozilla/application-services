@@ -421,9 +421,8 @@ open class Nimbus(
         }
 
     override fun initialize() {
-        dbScope.launch {
-            initializeOnThisThread()
-        }
+        // NOOP
+        // This is redundant because the `applyPendingUpdates` should always called.
     }
 
     @WorkerThread
