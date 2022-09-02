@@ -135,3 +135,21 @@ nimbus_health:
     notification_emails:
       - tlong@mozilla.com, telemetry-team@mozilla.com
     expires: never
+  race_in_memory_cache:
+    type: event
+    description: >
+      Recorded when an application or library requests a feature configuration
+      before the in memory cache has been populated from the database
+    extra_keys:
+      feature_id:
+        type: string
+        description: The feature id of the configuration that was requested
+    bugs:
+      - https://mozilla-hub.atlassian.net/browse/EXP-2743
+    data_reviews:
+      - https://github.com/mozilla/application-services/pull/XXXX#issuecomment-YYYY
+    data_sensitivity:
+      - technical
+    notification_emails:
+      - tlong@mozilla.com, telemetry-team@mozilla.com
+    expires: never

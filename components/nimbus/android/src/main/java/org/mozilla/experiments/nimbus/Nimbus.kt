@@ -21,6 +21,7 @@ import kotlinx.coroutines.launch
 import mozilla.telemetry.glean.Glean
 import org.json.JSONObject
 import org.mozilla.experiments.nimbus.GleanMetrics.NimbusEvents
+import org.mozilla.experiments.nimbus.GleanMetrics.NimbusHealth
 import org.mozilla.experiments.nimbus.internal.AppContext
 import org.mozilla.experiments.nimbus.internal.AvailableExperiment
 import org.mozilla.experiments.nimbus.internal.AvailableRandomizationUnits
@@ -367,9 +368,25 @@ open class Nimbus(
 
     @AnyThread
     @VisibleForTesting(otherwise = VisibleForTesting.PRIVATE)
-    internal fun getFeatureConfigVariablesJson(featureId: String) =
-        withCatchAll {
+    internal fun getFeatureConfigVariablesJson(featureId: String): JSONObject? =
+        try {
             nimbusClient.getFeatureConfigVariables(featureId)?.let { JSONObject(it) }
+        } catch (e: NimbusException.DatabaseNotReady) {
+            NimbusHealth.raceInMemoryCache.record(NimbusHealth.RaceInMemoryCacheExtra(
+                featureId = featureId
+            ))
+            null
+        } catch (e: Throwable) {
+            reportError(e)
+            null
+        }
+
+    private fun reportError(e: Throwable) =
+        try {
+            errorReporter("Error in Nimbus Rust", e)
+        } catch (e1: Throwable) {
+            logger("Exception calling rust: $e")
+            logger("Exception reporting the exception: $e1")
         }
 
     override fun getExperimentBranch(experimentId: String): String? = withCatchAll {
@@ -395,15 +412,11 @@ open class Nimbus(
     private fun <R> withCatchAll(thunk: () -> R) =
         try {
             thunk()
+        } catch (e: NimbusException.DatabaseNotReady) {
+            // NOOP
+            null
         } catch (e: Throwable) {
-            if (e !is NimbusException.DatabaseNotReady) {
-                try {
-                    errorReporter("Error in Nimbus Rust", e)
-                } catch (e1: Throwable) {
-                    logger("Exception calling rust: $e")
-                    logger("Exception reporting the exception: $e1")
-                }
-            }
+            reportError(e)
             null
         }
 
