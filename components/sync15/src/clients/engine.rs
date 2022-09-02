@@ -280,8 +280,11 @@ impl<'a> Engine<'a> {
     ) -> Result<()> {
         log::info!("Syncing collection clients");
 
-        let coll_keys =
-            CollectionKeys::from_encrypted_bso(global_state.keys.clone(), root_sync_key)?;
+        let coll_keys = CollectionKeys::from_encrypted_payload(
+            global_state.keys.clone(),
+            global_state.keys_timestamp,
+            root_sync_key,
+        )?;
         let mut coll_state = CollState {
             config: global_state.config.clone(),
             last_modified: global_state

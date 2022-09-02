@@ -6,7 +6,7 @@ use crate::error::Result;
 use crate::record_types::CryptoKeysRecord;
 use crate::util::ServerTimestamp;
 use std::collections::HashMap;
-use sync15_traits::{EncryptedBso, KeyBundle, Payload};
+use sync15_traits::{EncryptedPayload, KeyBundle};
 
 #[derive(Clone, Debug, PartialEq)]
 pub struct CollectionKeys {
@@ -25,16 +25,16 @@ impl CollectionKeys {
         })
     }
 
-    pub fn from_encrypted_bso(
-        record: EncryptedBso,
+    pub fn from_encrypted_payload(
+        record: EncryptedPayload,
+        timestamp: ServerTimestamp,
         root_key: &KeyBundle,
     ) -> Result<CollectionKeys> {
-        let keys = record.decrypt_as::<CryptoKeysRecord>(root_key)?;
+        let keys: CryptoKeysRecord = record.decrypt_and_parse_payload(root_key)?;
         Ok(CollectionKeys {
-            timestamp: keys.modified,
-            default: KeyBundle::from_base64(&keys.payload.default[0], &keys.payload.default[1])?,
+            timestamp,
+            default: KeyBundle::from_base64(&keys.default[0], &keys.default[1])?,
             collections: keys
-                .payload
                 .collections
                 .into_iter()
                 .map(|kv| Ok((kv.0, KeyBundle::from_base64(&kv.1[0], &kv.1[1])?)))
@@ -42,7 +42,7 @@ impl CollectionKeys {
         })
     }
 
-    pub fn to_encrypted_bso(&self, root_key: &KeyBundle) -> Result<EncryptedBso> {
+    pub fn to_encrypted_payload(&self, root_key: &KeyBundle) -> Result<EncryptedPayload> {
         let record = CryptoKeysRecord {
             id: "keys".into(),
             collection: "crypto".into(),
@@ -53,8 +53,7 @@ impl CollectionKeys {
                 .map(|kv| (kv.0.clone(), kv.1.to_b64_array()))
                 .collect(),
         };
-        let bso = crate::CleartextBso::from_payload(Payload::from_record(record)?, "crypto");
-        Ok(bso.encrypt(root_key)?)
+        Ok(EncryptedPayload::from_cleartext_payload(root_key, &record)?)
     }
 
     pub fn key_for_collection<'a>(&'a self, collection: &str) -> &'a KeyBundle {
