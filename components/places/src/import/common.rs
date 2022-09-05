@@ -25,16 +25,19 @@ lazy_static::lazy_static! {
 pub mod sql_fns {
     use crate::import::common::NOW;
     use crate::storage::URL_LENGTH_MAX;
-    use rusqlite::{functions::Context, types::ValueRef, Result};
+    use rusqlite::{
+        functions::Context,
+        types::{FromSql, ValueRef},
+        Result,
+    };
     use types::Timestamp;
     use url::Url;
 
-    #[inline(never)]
-    pub fn sanitize_timestamp(ctx: &Context<'_>) -> Result<Timestamp> {
+    fn sanitize_timestamp<T: FromSql + TryInto<Timestamp>>(ctx: &Context<'_>) -> Result<Timestamp> {
         let now = *NOW;
         let is_sane = |ts: Timestamp| -> bool { Timestamp::EARLIEST <= ts && ts <= now };
-        if let Ok(ts) = ctx.get::<i64>(0) {
-            let ts = Timestamp(u64::try_from(ts).unwrap_or(0));
+        if let Ok(ts) = ctx.get::<T>(0) {
+            let ts = ts.try_into().unwrap_or(now);
             if is_sane(ts) {
                 return Ok(ts);
             }
@@ -45,6 +48,19 @@ pub mod sql_fns {
             }
         }
         Ok(now)
+    }
+
+    // Unfortunately dates for history visits in old iOS databases
+    // have a type of `REAL` in their schema. This means they are represented
+    // as a float value and have to be read as f64s
+    #[inline(never)]
+    pub fn sanitize_float_timestamp(ctx: &Context<'_>) -> Result<Timestamp> {
+        sanitize_timestamp::<f64>(ctx)
+    }
+
+    #[inline(never)]
+    pub fn sanitize_integer_timestamp(ctx: &Context<'_>) -> Result<Timestamp> {
+        sanitize_timestamp::<i64>(ctx)
     }
 
     // Possibly better named as "normalize URL" - even in non-error cases, the
@@ -131,10 +147,10 @@ impl Drop for ExecuteOnDrop<'_> {
     }
 }
 
-pub fn select_count(conn: &PlacesDb, stmt: &str) -> u32 {
+pub fn select_count(conn: &PlacesDb, stmt: &str) -> Result<u32> {
     let count: Result<Option<u32>> =
         conn.try_query_row(stmt, [], |row| Ok(row.get::<_, u32>(0)?), false);
-    count.unwrap().unwrap()
+    count.map(|op| op.unwrap_or(0))
 }
 
 #[derive(Serialize, PartialEq, Eq, Debug, Clone, Default)]
@@ -157,7 +173,7 @@ pub fn define_history_migration_functions(c: &Connection) -> Result<()> {
         "sanitize_timestamp",
         1,
         FunctionFlags::SQLITE_UTF8 | FunctionFlags::SQLITE_DETERMINISTIC,
-        crate::import::common::sql_fns::sanitize_timestamp,
+        crate::import::common::sql_fns::sanitize_integer_timestamp,
     )?;
     c.create_scalar_function(
         "hash",
@@ -176,6 +192,12 @@ pub fn define_history_migration_functions(c: &Connection) -> Result<()> {
         1,
         FunctionFlags::SQLITE_UTF8 | FunctionFlags::SQLITE_DETERMINISTIC,
         crate::import::common::sql_fns::sanitize_utf8,
+    )?;
+    c.create_scalar_function(
+        "sanitize_float_timestamp",
+        1,
+        FunctionFlags::SQLITE_UTF8 | FunctionFlags::SQLITE_DETERMINISTIC,
+        crate::import::common::sql_fns::sanitize_float_timestamp,
     )?;
     Ok(())
 }

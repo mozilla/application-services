@@ -75,12 +75,6 @@ public class PlacesAPI {
             try self.api.placesBookmarksImportFromIos(dbPath: path)
         }
     }
-    
-    open func migrateHistoryFromBrowserDb(path: String) throws -> HistoryMigrationResult {
-        try queue.sync {
-            try self.api.placesHistoryImportFromIos(dbPath: path)
-        }
-    }
 
     /**
      * Open a new reader connection.
@@ -937,6 +931,13 @@ public class PlacesWriteConnection: PlacesReadConnection {
         return try queue.sync {
             try self.checkApi()
             return try self.conn.applyObservation(visit: visitObservation)
+        }
+    }
+
+    open func migrateHistoryFromBrowserDb(path: String) throws -> HistoryMigrationResult {
+        return try queue.sync {
+            try self.checkApi()
+            return try self.conn.placesHistoryImportFromIos(dbPath: path)
         }
     }
 }

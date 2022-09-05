@@ -234,11 +234,6 @@ impl PlacesApi {
         Ok(())
     }
 
-    fn places_history_import_from_ios(&self, db_path: String) -> Result<HistoryMigrationResult> {
-        let metrics = import_ios_history(self, &db_path)?;
-        Ok(metrics)
-    }
-
     fn bookmarks_reset(&self) -> Result<()> {
         self.reset_bookmarks()?;
         Ok(())
@@ -584,6 +579,10 @@ impl PlacesConnection {
 
     fn bookmarks_update(&self, item: BookmarkUpdateInfo) -> Result<()> {
         self.with_conn(|conn| bookmarks::update_bookmark_from_info(conn, item))
+    }
+
+    fn places_history_import_from_ios(&self, db_path: String) -> Result<HistoryMigrationResult> {
+        self.with_conn(|conn| import_ios_history(conn, &db_path))
     }
 }
 

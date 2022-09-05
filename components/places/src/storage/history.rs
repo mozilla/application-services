@@ -899,7 +899,6 @@ pub mod history_sync {
 
         let visits = visits
             .iter()
-            .cloned()
             .filter(|v| Timestamp::from(v.date) > visit_ignored_mark)
             .collect::<Vec<_>>();
 

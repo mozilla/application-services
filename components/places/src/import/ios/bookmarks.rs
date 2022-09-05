@@ -1,9 +1,6 @@
 /* This Source Code Form is subject to the terms of the Mozilla Public
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
-/* This Source Code Form is subject to the terms of the Mozilla Public
- * License, v. 2.0. If a copy of the MPL was not distributed with this
- * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
 use crate::api::places_api::PlacesApi;
 use crate::bookmark_sync::{
@@ -469,7 +466,7 @@ lazy_static::lazy_static! {
 }
 
 mod sql_fns {
-    use crate::import::common::sql_fns::{sanitize_timestamp, validate_url};
+    use crate::import::common::sql_fns::{sanitize_integer_timestamp, validate_url};
     use rusqlite::{functions::FunctionFlags, Connection, Result};
 
     pub(super) fn define_functions(c: &Connection) -> Result<()> {
@@ -483,7 +480,7 @@ mod sql_fns {
             "sanitize_timestamp",
             1,
             FunctionFlags::SQLITE_UTF8 | FunctionFlags::SQLITE_DETERMINISTIC,
-            sanitize_timestamp,
+            sanitize_integer_timestamp,
         )?;
         Ok(())
     }

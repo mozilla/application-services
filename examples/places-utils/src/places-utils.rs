@@ -139,9 +139,8 @@ fn run_ios_import_bookmarks(api: &PlacesApi, filename: String) -> Result<()> {
     Ok(())
 }
 
-fn run_ios_import_history(api: &PlacesApi, filename: String) -> Result<()> {
-    println!("ios import history from {}", filename);
-    let res = places::import::import_ios_history(api, filename)?;
+fn run_ios_import_history(conn: &PlacesDb, filename: String) -> Result<()> {
+    let res = places::import::import_ios_history(conn, filename)?;
     println!("Import finished!, results: {:?}", res);
     Ok(())
 }
@@ -411,6 +410,6 @@ fn main() -> Result<()> {
         Command::ImportBookmarks { input_file } => run_native_import(&db, input_file),
         Command::ImportIosBookmarks { input_file } => run_ios_import_bookmarks(&api, input_file),
         Command::ImportDesktopBookmarks { input_file } => run_desktop_import(&db, input_file),
-        Command::ImportIosHistory { input_file } => run_ios_import_history(&api, input_file),
+        Command::ImportIosHistory { input_file } => run_ios_import_history(&db, input_file),
     }
 }

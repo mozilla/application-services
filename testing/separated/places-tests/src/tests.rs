@@ -6,3 +6,4 @@ mod check_coop_tx;
 mod fennec_bookmarks;
 mod fennec_history;
 mod ios_bookmarks;
+mod ios_history;

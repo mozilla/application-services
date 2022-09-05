@@ -49,7 +49,7 @@ fn do_import(places_api: &PlacesApi, android_db_file_url: Url) -> Result<History
     let tx = conn.begin_transaction()?;
 
     log::debug!("Counting Fennec history visits");
-    let num_total = select_count(&conn, &COUNT_FENNEC_HISTORY_VISITS);
+    let num_total = select_count(&conn, &COUNT_FENNEC_HISTORY_VISITS)?;
 
     log::debug!("Creating and populating staging table");
     conn.execute_batch(&CREATE_STAGING_TABLE)?;
@@ -74,7 +74,7 @@ fn do_import(places_api: &PlacesApi, android_db_file_url: Url) -> Result<History
     log::info!("Successfully imported history visits!");
 
     log::debug!("Counting Fenix history visits");
-    let num_succeeded = select_count(&conn, &COUNT_FENIX_HISTORY_VISITS);
+    let num_succeeded = select_count(&conn, &COUNT_FENIX_HISTORY_VISITS)?;
     let num_failed = num_total - num_succeeded;
 
     auto_detach.execute_now()?;

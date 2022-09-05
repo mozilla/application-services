@@ -4,12 +4,12 @@
 
 use std::time::Instant;
 
-use crate::api::places_api::PlacesApi;
 use crate::bookmark_sync::engine::update_frecencies;
 use crate::error::Result;
 use crate::import::common::{
     attached_database, define_history_migration_functions, select_count, HistoryMigrationResult,
 };
+use crate::PlacesDb;
 use url::Url;
 
 /// This import is used for iOS users migrating from `browser.db`-based
@@ -30,26 +30,29 @@ use url::Url;
 /// - Update frecency for new items.
 /// - Cleanup (detach iOS database, etc).
 pub fn import(
-    places_api: &PlacesApi,
+    conn: &PlacesDb,
     path: impl AsRef<std::path::Path>,
 ) -> Result<HistoryMigrationResult> {
     let url = crate::util::ensure_url_path(path)?;
-    do_import(places_api, url)
+    do_import(conn, url)
 }
 
-fn do_import(places_api: &PlacesApi, ios_db_file_url: Url) -> Result<HistoryMigrationResult> {
-    let conn_mutex = places_api.get_sync_connection()?;
-    let conn = conn_mutex.lock();
+fn do_import(conn: &PlacesDb, ios_db_file_url: Url) -> Result<HistoryMigrationResult> {
     let scope = conn.begin_interrupt_scope()?;
-    define_history_migration_functions(&conn)?;
+    define_history_migration_functions(conn)?;
+    // TODO: for some reason opening the db as read-only in **iOS** causes
+    // the migration to fail with an "attempting to write to a read-only database"
+    // when the migration is **not** writing to the BrowserDB database.
+    // this only happens in the simulator with artifacts built for iOS and not
+    // in unit tests.
 
+    // ios_db_file_url.query_pairs_mut().append_pair("mode", "ro");
     let import_start = Instant::now();
     log::debug!("Attaching database {}", ios_db_file_url);
-    let auto_detach = attached_database(&conn, &ios_db_file_url, "ios")?;
+    let auto_detach = attached_database(conn, &ios_db_file_url, "ios")?;
     let tx = conn.begin_transaction()?;
-    let num_total = select_count(&conn, &COUNT_IOS_HISTORY_VISITS);
+    let num_total = select_count(conn, &COUNT_IOS_HISTORY_VISITS)?;
     log::debug!("The number of visits is: {:?}", num_total);
-
     log::debug!("Creating and populating staging table");
     conn.execute_batch(&CREATE_STAGING_TABLE)?;
     conn.execute_batch(&FILL_STAGING)?;
@@ -67,13 +70,13 @@ fn do_import(places_api: &PlacesApi, ios_db_file_url: Url) -> Result<HistoryMigr
     // Note: update_frecencies manages its own transaction, which is fine,
     // since nothing that bad will happen if it is aborted.
     log::debug!("Updating frecencies");
-    update_frecencies(&conn, &scope)?;
+    update_frecencies(conn, &scope)?;
 
     log::info!("Successfully imported history visits!");
 
     log::debug!("Counting Places history visits");
-    let num_succeeded = select_count(&conn, &COUNT_PLACES_HISTORY_VISITS);
-    let num_failed = num_total - num_succeeded;
+    let num_succeeded = select_count(conn, &COUNT_PLACES_HISTORY_VISITS)?;
+    let num_failed = num_total.saturating_sub(num_succeeded);
 
     auto_detach.execute_now()?;
 
@@ -100,16 +103,18 @@ lazy_static::lazy_static! {
             id INTEGER PRIMARY KEY,
             url TEXT,
             url_hash INTEGER NOT NULL,
-            title TEXT
+            title TEXT,
+            is_deleted TINYINT NOT NULL
         ) WITHOUT ROWID;";
 
    static ref FILL_STAGING: &'static str = "
-    INSERT OR IGNORE INTO temp.iOSHistoryStaging(id, url, url_hash, title)
+    INSERT OR IGNORE INTO temp.iOSHistoryStaging(id, url, url_hash, title, is_deleted)
         SELECT
             h.id,
             validate_url(h.url),
             hash(validate_url(h.url)),
-            sanitize_utf8(h.title)
+            sanitize_utf8(h.title),
+            h.is_deleted
         FROM ios.history h
         WHERE url IS NOT NULL"
    ;
@@ -127,7 +132,8 @@ lazy_static::lazy_static! {
             t.title,
             -1,
             1
-        FROM temp.iOSHistoryStaging t"
+        FROM temp.iOSHistoryStaging t
+        WHERE t.is_deleted = 0"
    ;
 
    // Insert history visits
@@ -136,11 +142,12 @@ lazy_static::lazy_static! {
         SELECT
             NULL, -- iOS does not store enough information to rebuild redirect chains.
             (SELECT p.id FROM main.moz_places p WHERE p.url_hash = t.url_hash AND p.url = t.url),
-            sanitize_timestamp(v.date),
+            sanitize_float_timestamp(v.date),
             v.type, -- iOS stores visit types that map 1:1 to ours.
             v.is_local
         FROM ios.visits v
-        LEFT JOIN temp.iOSHistoryStaging t on v.siteID = t.id"
+        LEFT JOIN temp.iOSHistoryStaging t on v.siteID = t.id
+        WHERE t.is_deleted = 0"
    ;
 
 
