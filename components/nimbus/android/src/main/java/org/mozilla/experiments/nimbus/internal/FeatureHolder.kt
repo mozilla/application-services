@@ -47,7 +47,7 @@ class FeatureHolder<T>(
                 cachedValue!!
             } else {
                 val variables = getSdk()?.getVariables(featureId, false) ?: run {
-                    NimbusHealth.featureRequestError.record(NimbusHealth.FeatureRequestErrorExtra(
+                    NimbusHealth.sdkUnavailableForFeature.record(NimbusHealth.SdkUnavailableForFeatureExtra(
                         featureId = featureId
                     ))
                     NullVariables.instance

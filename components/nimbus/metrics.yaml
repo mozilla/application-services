@@ -116,7 +116,7 @@ nimbus_events:
       - tlong@mozilla.com, telemetry-team@mozilla.com
     expires: never
 nimbus_health:
-  feature_request_error:
+  sdk_unavailable_for_feature:
     type: event
     description: >
       Recorded when an application or library requests a feature configuration
@@ -135,7 +135,7 @@ nimbus_health:
     notification_emails:
       - tlong@mozilla.com, telemetry-team@mozilla.com
     expires: never
-  race_in_memory_cache:
+  cache_not_ready_for_feature:
     type: event
     description: >
       Recorded when an application or library requests a feature configuration
@@ -151,5 +151,5 @@ nimbus_health:
     data_sensitivity:
       - technical
     notification_emails:
-      - tlong@mozilla.com, telemetry-team@mozilla.com
+      - tlong@mozilla.com
     expires: never

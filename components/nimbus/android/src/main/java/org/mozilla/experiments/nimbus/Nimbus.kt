@@ -369,10 +369,11 @@ open class Nimbus(
     @AnyThread
     @VisibleForTesting(otherwise = VisibleForTesting.PRIVATE)
     internal fun getFeatureConfigVariablesJson(featureId: String): JSONObject? =
+        @Suppress("TooGenericExceptionCaught")
         try {
             nimbusClient.getFeatureConfigVariables(featureId)?.let { JSONObject(it) }
         } catch (e: NimbusException.DatabaseNotReady) {
-            NimbusHealth.raceInMemoryCache.record(NimbusHealth.RaceInMemoryCacheExtra(
+            NimbusHealth.cacheNotReadyForFeature.record(NimbusHealth.CacheNotReadyForFeatureExtra(
                 featureId = featureId
             ))
             null
@@ -382,6 +383,7 @@ open class Nimbus(
         }
 
     private fun reportError(e: Throwable) =
+        @Suppress("TooGenericExceptionCaught")
         try {
             errorReporter("Error in Nimbus Rust", e)
         } catch (e1: Throwable) {
