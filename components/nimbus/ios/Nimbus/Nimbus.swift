@@ -127,7 +127,7 @@ extension Nimbus: FeaturesInterface {
     }
 
     internal func getFeatureConfigVariablesJson(featureId: String) -> [String: Any]? {
-        return catchAll {
+        do {
             if let string = try nimbusClient.getFeatureConfigVariables(featureId: featureId),
                let data = string.data(using: .utf8)
             {
@@ -135,6 +135,16 @@ extension Nimbus: FeaturesInterface {
             } else {
                 return nil
             }
+        } catch NimbusError.DatabaseNotReady {
+            GleanMetrics.NimbusHealth.cacheNotReadyForFeature.record(
+                GleanMetrics.NimbusHealth.CacheNotReadyForFeatureExtra(
+                    featureId: featureId
+                )
+            )
+            return nil
+        } catch {
+            errorReporter(error)
+            return nil
         }
     }
 
