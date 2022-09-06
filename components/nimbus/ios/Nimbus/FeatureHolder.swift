@@ -45,11 +45,13 @@ public class FeatureHolder<T> {
         }
         var variables: Variables = NilVariables.instance
         if let sdk = getSdk() {
-            variables = sdk.getVariables(featureId: featureId, sendExposureEvent: false) ?? NilVariables.instance
+            variables = sdk.getVariables(featureId: featureId, sendExposureEvent: false)
         } else {
-            GleanMetrics.NimbusHealth.featureRequestError.record(GleanMetrics.NimbusHealth.FeatureRequestErrorExtra(
-                featureId: featureId
-            ))
+            GleanMetrics.NimbusHealth.sdkUnavailableForFeature.record(
+                GleanMetrics.NimbusHealth.SdkUnavailableForFeatureExtra(
+                    featureId: featureId
+                )
+            )
         }
         let v = create(variables)
         cachedValue = v
