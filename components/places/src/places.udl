@@ -153,7 +153,7 @@ interface PlacesConnection {
     // database is using more space than this, some older visits will be
     // deleted to free up space.  Pass in a 0 to skip this.
     [Throws=PlacesError]
-    void run_maintenance(u32 db_size_limit);
+    RunMaintenanceMetrics run_maintenance(u32 db_size_limit);
 
     [Throws=PlacesError]
     BookmarkItem? bookmarks_get_tree([ByRef] Guid item_guid);
@@ -198,6 +198,12 @@ enum FrecencyThresholdOption {
   "None",
 // Skip visited pages that were only visited once. The frecency score is 101
   "SkipOneTimePages",
+};
+
+dictionary RunMaintenanceMetrics {
+    boolean pruned_visits;
+    u32 db_size_before;
+    u32 db_size_after;
 };
 
 dictionary SearchResult {

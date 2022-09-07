@@ -595,6 +595,15 @@ class PlacesConnectionTest {
     }
 
     @Test
+    fun testRunMaintenanceMetrics() {
+        assertNull(PlacesManagerMetrics.runMaintenanceTime.testGetValue())
+        assertNull(PlacesManagerMetrics.dbSizeAfterMaintenance.testGetValue())
+        db.runMaintenance()
+        assertEquals(1, PlacesManagerMetrics.runMaintenanceTime.testGetValue()!!.values.values.sum())
+        assertEquals(1, PlacesManagerMetrics.dbSizeAfterMaintenance.testGetValue()!!.values.values.sum())
+    }
+
+    @Test
     fun testRegisterWithSyncmanager() {
         val syncManager = SyncManager()
 

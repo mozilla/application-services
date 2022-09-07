@@ -18,3 +18,8 @@ Use the template below to make assigning a version number during the release cut
   - Description of the change with a link to the pull request ([#0000](https://github.com/mozilla/application-services/pull/0000))
 
 -->
+
+## Places
+
+### What's Changed
+ - Added metrics for the `run_maintenance()` method.  This can be used by consumers to decide when to schedule the next `run_maintenance()` call and to check if calls are taking too much time.

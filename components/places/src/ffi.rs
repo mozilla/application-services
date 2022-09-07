@@ -17,7 +17,7 @@ use crate::storage::history_metadata::{
     DocumentType, HistoryHighlight, HistoryHighlightWeights, HistoryMetadata,
     HistoryMetadataObservation,
 };
-use crate::storage::{history, history_metadata};
+use crate::storage::{history, history_metadata, RunMaintenanceMetrics};
 use crate::types::VisitTransitionSet;
 use crate::ConnectionType;
 use crate::VisitObservation;
@@ -468,7 +468,7 @@ impl PlacesConnection {
         self.with_conn(history::prune_destructively)
     }
 
-    fn run_maintenance(&self, db_size_limit: u32) -> Result<()> {
+    fn run_maintenance(&self, db_size_limit: u32) -> Result<RunMaintenanceMetrics> {
         self.with_conn(|conn| storage::run_maintenance(conn, db_size_limit))
     }
 

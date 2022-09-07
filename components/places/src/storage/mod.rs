@@ -220,6 +220,12 @@ impl TopFrecentSiteInfo {
     }
 }
 
+pub struct RunMaintenanceMetrics {
+    pub pruned_visits: bool,
+    pub db_size_before: u32,
+    pub db_size_after: u32,
+}
+
 /// Run various maintenance on the places DB
 ///
 /// This function is intended to be run during idle time and will take steps to clean up / shrink
@@ -227,8 +233,10 @@ impl TopFrecentSiteInfo {
 ///
 /// db_size_limit is the approximate storage limit in bytes.  If the database is using more space
 /// than this, some older visits will be deleted to free up space.  Pass in a 0 to skip this.
-pub fn run_maintenance(conn: &PlacesDb, db_size_limit: u32) -> Result<()> {
-    if db_size_limit > 0 && conn.get_db_size()? > db_size_limit {
+pub fn run_maintenance(conn: &PlacesDb, db_size_limit: u32) -> Result<RunMaintenanceMetrics> {
+    let db_size_before = conn.get_db_size()?;
+    let should_prune = db_size_limit > 0 && db_size_before > db_size_limit;
+    if should_prune {
         history::prune_older_visits(conn)?;
     }
     conn.execute_all(&[
@@ -236,7 +244,12 @@ pub fn run_maintenance(conn: &PlacesDb, db_size_limit: u32) -> Result<()> {
         "PRAGMA optimize",
         "PRAGMA wal_checkpoint(PASSIVE)",
     ])?;
-    Ok(())
+    let db_size_after = conn.get_db_size()?;
+    Ok(RunMaintenanceMetrics {
+        pruned_visits: should_prune,
+        db_size_before,
+        db_size_after,
+    })
 }
 
 pub(crate) fn put_meta(db: &PlacesDb, key: &str, value: &dyn ToSql) -> Result<()> {
