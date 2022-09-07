@@ -84,36 +84,6 @@ impl From<u64> for Timestamp {
     }
 }
 
-impl TryFrom<i64> for Timestamp {
-    type Error = std::num::TryFromIntError;
-    #[inline]
-    fn try_from(value: i64) -> Result<Self, Self::Error> {
-        Ok(Timestamp(u64::try_from(value).unwrap_or(0)))
-    }
-}
-
-impl TryFrom<f64> for Timestamp {
-    type Error = std::num::TryFromIntError;
-    #[inline]
-    fn try_from(value: f64) -> Result<Self, Self::Error> {
-        // This is not perfect, floating numbers are complicated
-        // but we reject any zeros, negative timestamps, NaNs, infinite or subnormal values
-        // There is a dependency `conv` that can do the approximation
-        // and fail if it's not possible to approximate, however,
-        // adding a dependency is not worth the current use case, where this is only
-        // used in migrations and unless the data is **very** badly
-        // malformed, the floats should be roundable and convertable
-        // to i64s.
-        Ok(Timestamp({
-            if value.is_normal() && value > 0.0 {
-                value.round() as u64
-            } else {
-                0
-            }
-        }))
-    }
-}
-
 impl fmt::Display for Timestamp {
     #[inline]
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {

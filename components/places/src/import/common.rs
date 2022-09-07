@@ -25,42 +25,48 @@ lazy_static::lazy_static! {
 pub mod sql_fns {
     use crate::import::common::NOW;
     use crate::storage::URL_LENGTH_MAX;
-    use rusqlite::{
-        functions::Context,
-        types::{FromSql, ValueRef},
-        Result,
-    };
+    use rusqlite::{functions::Context, types::ValueRef, Result};
     use types::Timestamp;
     use url::Url;
 
-    fn sanitize_timestamp<T: FromSql + TryInto<Timestamp>>(ctx: &Context<'_>) -> Result<Timestamp> {
+    fn sanitize_timestamp(ts: i64) -> Result<Timestamp> {
         let now = *NOW;
         let is_sane = |ts: Timestamp| -> bool { Timestamp::EARLIEST <= ts && ts <= now };
-        if let Ok(ts) = ctx.get::<T>(0) {
-            let ts = ts.try_into().unwrap_or(now);
-            if is_sane(ts) {
-                return Ok(ts);
-            }
-            // Maybe the timestamp was actually in μs?
-            let ts = Timestamp(ts.as_millis() / 1000);
-            if is_sane(ts) {
-                return Ok(ts);
-            }
+        let ts = Timestamp(u64::try_from(ts).unwrap_or(0));
+        if is_sane(ts) {
+            return Ok(ts);
+        }
+        // Maybe the timestamp was actually in μs?
+        let ts = Timestamp(ts.as_millis() / 1000);
+        if is_sane(ts) {
+            return Ok(ts);
         }
         Ok(now)
     }
 
     // Unfortunately dates for history visits in old iOS databases
     // have a type of `REAL` in their schema. This means they are represented
-    // as a float value and have to be read as f64s
+    // as a float value and have to be read as f64s.
+    // This is unconventional, and you probably don't need to use
+    // this function otherwise.
     #[inline(never)]
     pub fn sanitize_float_timestamp(ctx: &Context<'_>) -> Result<Timestamp> {
-        sanitize_timestamp::<f64>(ctx)
+        let ts = ctx
+            .get::<f64>(0)
+            .map(|num| {
+                if num.is_normal() && num > 0.0 {
+                    num.round() as i64
+                } else {
+                    0
+                }
+            })
+            .unwrap_or(0);
+        sanitize_timestamp(ts)
     }
 
     #[inline(never)]
     pub fn sanitize_integer_timestamp(ctx: &Context<'_>) -> Result<Timestamp> {
-        sanitize_timestamp::<i64>(ctx)
+        sanitize_timestamp(ctx.get::<i64>(0).unwrap_or(0))
     }
 
     // Possibly better named as "normalize URL" - even in non-error cases, the
