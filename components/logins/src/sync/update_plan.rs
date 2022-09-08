@@ -255,13 +255,25 @@ impl UpdatePlan {
     }
 
     pub fn execute(&self, conn: &Connection, scope: &SqlInterruptScope) -> Result<()> {
-        log::debug!("UpdatePlan: deleting records...");
+        log::debug!(
+            "UpdatePlan: deleting {} records...",
+            self.delete_local.len()
+        );
         self.perform_deletes(conn, scope)?;
-        log::debug!("UpdatePlan: Updating existing mirror records...");
+        log::debug!(
+            "UpdatePlan: Updating {} existing mirror records...",
+            self.mirror_updates.len()
+        );
         self.perform_mirror_updates(conn, scope)?;
-        log::debug!("UpdatePlan: Inserting new mirror records...");
+        log::debug!(
+            "UpdatePlan: Inserting {} new mirror records...",
+            self.mirror_inserts.len()
+        );
         self.perform_mirror_inserts(conn, scope)?;
-        log::debug!("UpdatePlan: Updating reconciled local records...");
+        log::debug!(
+            "UpdatePlan: Updating {} reconciled local records...",
+            self.local_updates.len()
+        );
         self.perform_local_updates(conn, scope)?;
         Ok(())
     }

@@ -14,26 +14,9 @@ use autofill::{
     error::Result as AutofillResult,
 };
 use std::collections::HashMap;
-use sync_manager::{manager::SyncManager, msg_types::SyncParams};
 
 pub fn sync_addresses(client: &mut TestClient) -> Result<()> {
-    let (init, key, device_id) = client.get_sync_data()?;
-    client.autofill_store.register_with_sync_manager();
-    let mut s = SyncManager::new();
-    let params = SyncParams {
-        engines_to_sync: vec!["addresses".to_string()],
-        sync_all_engines: false,
-        reason: 1, // "USER"
-        acct_key_id: init.key_id,
-        acct_access_token: init.access_token,
-        acct_tokenserver_url: init.tokenserver_url.to_string(),
-        acct_sync_key: key,
-        fxa_device_id: device_id,
-        device_name: "sync test device".to_string(),
-        device_type: 1, // "MOBILE"
-        ..Default::default()
-    };
-    s.sync(params)?;
+    client.sync(&["addresses".to_string()], HashMap::new())?;
     Ok(())
 }
 
@@ -79,28 +62,11 @@ pub fn assert_address_equiv(a: &Address, b: &Address) {
 }
 
 pub fn sync_credit_cards(client: &mut TestClient, local_enc_key: String) -> Result<()> {
-    client.autofill_store.register_with_sync_manager();
-    let mut s = SyncManager::new();
     let engine_name = "creditcards";
-    let (init, key, device_id) = client.get_sync_data()?;
     let mut local_encryption_keys = HashMap::new();
     local_encryption_keys.insert(engine_name.to_string(), local_enc_key);
 
-    let params = SyncParams {
-        engines_to_sync: vec![engine_name.to_string()],
-        sync_all_engines: false,
-        reason: 1, // "USER"
-        acct_key_id: init.key_id,
-        acct_access_token: init.access_token,
-        acct_tokenserver_url: init.tokenserver_url.to_string(),
-        acct_sync_key: key,
-        fxa_device_id: device_id,
-        device_name: "sync test device".to_string(),
-        device_type: 1, // "MOBILE"
-        local_encryption_keys,
-        ..Default::default()
-    };
-    s.sync(params)?;
+    client.sync(&[engine_name.to_string()], local_encryption_keys)?;
     Ok(())
 }
 
