@@ -2,7 +2,7 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-use crate::error::{Error, ErrorKind, ErrorResponse};
+use crate::error::{Error, ErrorResponse};
 use crate::telemetry::SyncTelemetryPing;
 use std::collections::HashMap;
 use std::time::{Duration, SystemTime};
@@ -32,9 +32,9 @@ impl ServiceStatus {
     // This is a bit naive and probably will not survive in this form in the
     // SyncManager - eg, we'll want to handle backoff etc.
     pub fn from_err(err: &Error) -> ServiceStatus {
-        match err.kind() {
+        match err {
             // HTTP based errors.
-            ErrorKind::TokenserverHttpError(status) => {
+            Error::TokenserverHttpError(status) => {
                 // bit of a shame the tokenserver is different to storage...
                 if *status == 401 {
                     ServiceStatus::AuthenticationError
@@ -43,18 +43,18 @@ impl ServiceStatus {
                 }
             }
             // BackoffError is also from the tokenserver.
-            ErrorKind::BackoffError(_) => ServiceStatus::ServiceError,
-            ErrorKind::StorageHttpError(ref e) => match e {
+            Error::BackoffError(_) => ServiceStatus::ServiceError,
+            Error::StorageHttpError(ref e) => match e {
                 ErrorResponse::Unauthorized { .. } => ServiceStatus::AuthenticationError,
                 _ => ServiceStatus::ServiceError,
             },
 
             // Network errors.
-            ErrorKind::RequestError(_)
-            | ErrorKind::UnexpectedStatus(_)
-            | ErrorKind::HawkError(_) => ServiceStatus::NetworkError,
+            Error::RequestError(_) | Error::UnexpectedStatus(_) | Error::HawkError(_) => {
+                ServiceStatus::NetworkError
+            }
 
-            ErrorKind::Interrupted(_) => ServiceStatus::Interrupted,
+            Error::Interrupted(_) => ServiceStatus::Interrupted,
             _ => ServiceStatus::OtherError,
         }
     }

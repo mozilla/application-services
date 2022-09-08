@@ -2,28 +2,28 @@
 name = "sync15"
 edition = "2021"
 version = "0.1.0"
-authors = ["Thom Chiovoloni <tchiovoloni@mozilla.com>"]
+authors = ["application-services@mozilla.com"]
 license = "MPL-2.0"
 exclude = ["/android", "/ios"]
 
 [dependencies]
+anyhow = "1.0"
+base16 = "0.2"
 base64 = "0.13"
+error-support = { path = "../support/error" }
 ffi-support = "0.4"
+interrupt-support = { path = "../support/interrupt" }
+lazy_static = "1.4"
+log = "0.4"
+rc_crypto = { path = "../support/rc_crypto", features = ["hawk"] }
 serde = "1"
 serde_derive = "1"
 serde_json = "1"
-url = "2.2"
-log = "0.4"
-lazy_static = "1.4"
-base16 = "0.2"
-rc_crypto = { path = "../support/rc_crypto", features = ["hawk"] }
-viaduct = { path = "../viaduct" }
-interrupt-support = { path = "../support/interrupt" }
-error-support = { path = "../support/error" }
 sync-guid = { path = "../support/guid", features = ["random"] }
 sync15-traits = {path = "../support/sync15-traits", features = ["crypto"] }
 thiserror = "1.0"
-anyhow = "1.0"
+url = "2.1" # mozilla-central can't yet take 2.2 (see bug 1734538)
+viaduct = { path = "../viaduct" }
 
 [dev-dependencies]
 env_logger = { version = "0.7", default-features = false }

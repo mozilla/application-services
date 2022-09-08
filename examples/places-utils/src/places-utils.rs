@@ -242,7 +242,7 @@ fn sync(
         match result.result {
             Err(e) => {
                 log::warn!("Sync failed! {}", e);
-                log::warn!("BT: {:?}", e.backtrace());
+                log::warn!("BT: {:?}", error_support::backtrace::Backtrace);
                 error_to_report = Some(e);
             }
             Ok(()) => log::info!("Sync was successful!"),

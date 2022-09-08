@@ -11,7 +11,6 @@ pub mod clients;
 mod coll_state;
 mod collection_keys;
 mod error;
-mod migrate_state;
 mod record_types;
 mod request;
 mod state;
@@ -29,8 +28,7 @@ pub use crate::client::{
 };
 pub use crate::coll_state::{CollState, CollSyncIds, EngineSyncAssociation};
 pub use crate::collection_keys::CollectionKeys;
-pub use crate::error::{Error, ErrorKind, Result};
-pub use crate::migrate_state::extract_v1_state;
+pub use crate::error::{Error, Result};
 pub use crate::request::CollectionRequest;
 pub use crate::state::{GlobalState, SetupStateMachine};
 pub use crate::status::{ServiceStatus, SyncResult};

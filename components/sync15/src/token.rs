@@ -2,7 +2,7 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-use crate::error::{self, ErrorKind, Result};
+use crate::error::{self, Error as ErrorKind, Result};
 use crate::util::ServerTimestamp;
 use rc_crypto::hawk;
 use serde_derive::*;
@@ -119,10 +119,10 @@ impl TokenFetcher for TokenServerFetcher {
                     .ok()
                     .map_or(RETRY_AFTER_DEFAULT_MS, |f| (f * 1000f64) as u64);
                 let when = self.now() + Duration::from_millis(ms);
-                return Err(ErrorKind::BackoffError(when).into());
+                return Err(ErrorKind::BackoffError(when));
             }
             let status = resp.status;
-            return Err(ErrorKind::TokenserverHttpError(status).into());
+            return Err(ErrorKind::TokenserverHttpError(status));
         }
 
         let token: TokenserverToken = resp.json()?;
@@ -304,8 +304,8 @@ impl<TF: TokenFetcher> TokenProviderImpl<TF> {
             }
             Err(e) => {
                 // Early to avoid nll issues...
-                if let ErrorKind::BackoffError(be) = e.kind() {
-                    return TokenState::Backoff(*be, previous_endpoint.map(ToString::to_string));
+                if let ErrorKind::BackoffError(be) = e {
+                    return TokenState::Backoff(be, previous_endpoint.map(ToString::to_string));
                 }
                 TokenState::Failed(Some(e), previous_endpoint.map(ToString::to_string))
             }
@@ -373,11 +373,9 @@ impl<TF: TokenFetcher> TokenProviderImpl<TF> {
             }
             TokenState::NodeReassigned => {
                 // this is unrecoverable.
-                Err(ErrorKind::StorageResetError.into())
+                Err(ErrorKind::StorageResetError)
             }
-            TokenState::Backoff(ref remaining, _) => {
-                Err(ErrorKind::BackoffError(*remaining).into())
-            }
+            TokenState::Backoff(ref remaining, _) => Err(ErrorKind::BackoffError(*remaining)),
         }
     }
 
@@ -496,7 +494,7 @@ mod tests {
         let fetch = || {
             counter.set(counter.get() + 1);
             let when = SystemTime::now() + Duration::from_millis(10000);
-            Err(error::Error::from(ErrorKind::BackoffError(when)))
+            Err(ErrorKind::BackoffError(when))
         };
         let now: Cell<SystemTime> = Cell::new(SystemTime::now());
         let tsc = make_tsc(fetch, || now.get());

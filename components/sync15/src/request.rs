@@ -3,7 +3,7 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
 use crate::client::Sync15ClientResponse;
-use crate::error::{self, ErrorKind, Result};
+use crate::error::{self, Error as ErrorKind, Result};
 use crate::util::ServerTimestamp;
 use serde_derive::*;
 use std::collections::HashMap;
@@ -208,7 +208,7 @@ impl PostResponseHandler for NormalResponseHandler {
         match r {
             Sync15ClientResponse::Success { record, .. } => {
                 if !record.failed.is_empty() && !self.allow_failed {
-                    return Err(ErrorKind::RecordUploadFailed.into());
+                    return Err(ErrorKind::RecordUploadFailed);
                 }
                 for id in record.success.iter() {
                     self.pending_success.push(id.clone());
@@ -222,7 +222,7 @@ impl PostResponseHandler for NormalResponseHandler {
                 }
                 Ok(())
             }
-            _ => Err(r.create_storage_error().into()),
+            _ => Err(r.create_storage_error()),
         }
     }
 }
@@ -408,8 +408,7 @@ where
             if self.in_batch() {
                 return Err(ErrorKind::ServerBatchProblem(
                     "Server responded non-202 success code while a batch was in progress",
-                )
-                .into());
+                ));
             }
             self.last_modified = last_modified;
             self.batch = BatchState::Unsupported;
@@ -435,8 +434,7 @@ where
                 if cur_id != &batch_id {
                     return Err(ErrorKind::ServerBatchProblem(
                         "Invalid server response: 202 without a batch ID",
-                    )
-                    .into());
+                    ));
                 }
             }
             _ => {}

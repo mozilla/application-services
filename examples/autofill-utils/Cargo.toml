@@ -15,6 +15,7 @@ anyhow = "1.0"
 autofill = { path = "../../components/autofill" }
 cli-support = { path = "../cli-support" }
 fxa-client = { path = "../../components/fxa-client" }
+error-support = { path = "../../components/support/error" }
 interrupt-support = { path = "../../components/support/interrupt" } # XXX - should be removed once we do interrupts correctly!
 log = "0.4"
 rusqlite = {version = "0.27.0", features = ["functions", "bundled", "serde_json", "unlock_notify"]}

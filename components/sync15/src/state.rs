@@ -6,7 +6,7 @@ use std::collections::{HashMap, HashSet};
 
 use crate::client::{SetupStorageClient, Sync15ClientResponse};
 use crate::collection_keys::CollectionKeys;
-use crate::error::{self, ErrorKind, ErrorResponse};
+use crate::error::{self, Error as ErrorKind, ErrorResponse};
 use crate::record_types::{MetaGlobalEngine, MetaGlobalRecord};
 use crate::request::{InfoCollections, InfoConfiguration};
 use crate::util::ServerTimestamp;
@@ -355,7 +355,7 @@ impl<'a> SetupStateMachine<'a> {
                     Sync15ClientResponse::Error(ErrorResponse::NotFound { .. }) => {
                         InfoConfiguration::default()
                     }
-                    other => return Err(other.create_storage_error().into()),
+                    other => return Err(other.create_storage_error()),
                 };
                 Ok(InitialWithConfig { config })
             }
@@ -379,7 +379,7 @@ impl<'a> SetupStateMachine<'a> {
                     Sync15ClientResponse::Error(ErrorResponse::NotFound { .. }) => {
                         Ok(FreshStartRequired { config })
                     }
-                    other => Err(other.create_storage_error().into()),
+                    other => Err(other.create_storage_error()),
                 }
             }
 
@@ -396,7 +396,7 @@ impl<'a> SetupStateMachine<'a> {
                         // If the server has a newer storage version, we can't
                         // sync until our client is updated.
                         if global.storage_version > STORAGE_VERSION {
-                            return Err(ErrorKind::ClientUpgradeRequired.into());
+                            return Err(ErrorKind::ClientUpgradeRequired);
                         }
 
                         // If the server has an older storage version, wipe and
@@ -465,7 +465,7 @@ impl<'a> SetupStateMachine<'a> {
                     Sync15ClientResponse::Error(ErrorResponse::NotFound { .. }) => {
                         Ok(FreshStartRequired { config })
                     }
-                    other => Err(other.create_storage_error().into()),
+                    other => Err(other.create_storage_error()),
                 }
             }
 
@@ -501,7 +501,7 @@ impl<'a> SetupStateMachine<'a> {
                     Sync15ClientResponse::Error(ErrorResponse::NotFound { .. }) => {
                         Ok(FreshStartRequired { config })
                     }
-                    other => Err(other.create_storage_error().into()),
+                    other => Err(other.create_storage_error()),
                 }
             }
 
@@ -594,12 +594,12 @@ impl<'a> SetupStateMachine<'a> {
                 FreshStartRequired { .. } | WithPreviousState { .. } | Initial => {
                     if self.sequence.contains(label) {
                         // Is this really the correct error?
-                        return Err(ErrorKind::SetupRace.into());
+                        return Err(ErrorKind::SetupRace);
                     }
                 }
                 _ => {
                     if !self.allowed_states.contains(label) {
-                        return Err(ErrorKind::SetupRequired.into());
+                        return Err(ErrorKind::SetupRequired);
                     }
                 }
             };
@@ -747,8 +747,7 @@ mod tests {
             Err(ErrorKind::StorageHttpError(ErrorResponse::ServerError {
                 status: 500,
                 route: "crypto/keys".to_string(),
-            })
-            .into())
+            }))
         }
 
         fn wipe_all_remote(&self) -> error::Result<()> {
