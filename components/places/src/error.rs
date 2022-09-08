@@ -276,9 +276,8 @@ fn make_places_error(error: &Error) -> PlacesError {
             PlacesError::BookmarksCorruption(e.to_string())
         }
         ErrorKind::SyncAdapterError(e) => {
-            use sync15::ErrorKind;
-            match e.kind() {
-                ErrorKind::StoreError(store_error) => {
+            match e {
+                sync15::Error::StoreError(store_error) => {
                     // If it's a type-erased version of one of our errors, try
                     // and resolve it.
                     if let Some(places_err) = store_error.downcast_ref::<Error>() {

@@ -14,6 +14,7 @@ path = "src/places-utils.rs"
 places = { path = "../../components/places" }
 sync-guid = { path = "../../components/support/guid" }
 types = { path = "../../components/support/types" }
+error-support = { path = "../../components/support/error" }
 interrupt-support = { path = "../../components/support/interrupt" }
 sql-support = { path = "../../components/support/sql" }
 sync15 = { path = "../../components/sync15" }

@@ -2,7 +2,7 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-use crate::error::{self, ErrorKind, ErrorResponse};
+use crate::error::{self, Error, ErrorResponse};
 use crate::record_types::MetaGlobalRecord;
 use crate::request::{
     BatchPoster, CollectionRequest, InfoCollections, InfoConfiguration, PostQueue, PostResponse,
@@ -76,7 +76,7 @@ impl<T> Sync15ClientResponse<T> {
                 .headers
                 .get(header_names::X_LAST_MODIFIED)
                 .and_then(|s| ServerTimestamp::from_str(s).ok())
-                .ok_or(ErrorKind::MissingServerTimestamp)?;
+                .ok_or(Error::MissingServerTimestamp)?;
             log::info!(
                 "Successful request to \"{}\", incoming x-last-modified={:?}",
                 route,
@@ -104,7 +104,7 @@ impl<T> Sync15ClientResponse<T> {
         })
     }
 
-    pub fn create_storage_error(self) -> ErrorKind {
+    pub fn create_storage_error(self) -> Error {
         let inner = match self {
             Sync15ClientResponse::Success { status, route, .. } => {
                 // This should never happen as callers are expected to have
@@ -115,7 +115,7 @@ impl<T> Sync15ClientResponse<T> {
             }
             Sync15ClientResponse::Error(e) => e,
         };
-        ErrorKind::StorageHttpError(inner)
+        Error::StorageHttpError(inner)
     }
 }
 
@@ -258,7 +258,7 @@ impl SetupStorageClient for Sync15StorageClient {
         match self.exec_request::<Value>(req, false) {
             Ok(Sync15ClientResponse::Error(ErrorResponse::NotFound { .. }))
             | Ok(Sync15ClientResponse::Success { .. }) => Ok(()),
-            Ok(resp) => Err(resp.create_storage_error().into()),
+            Ok(resp) => Err(resp.create_storage_error()),
             Err(e) => Err(e),
         }
     }
@@ -332,7 +332,7 @@ impl Sync15StorageClient {
             Sync15ClientResponse::Success { .. } => Ok(result),
             _ => {
                 if require_success {
-                    Err(result.create_storage_error().into())
+                    Err(result.create_storage_error())
                 } else {
                     Ok(result)
                 }
@@ -405,7 +405,7 @@ impl Sync15StorageClient {
         match self.exec_request::<Value>(req, false) {
             Ok(Sync15ClientResponse::Error(ErrorResponse::NotFound { .. }))
             | Ok(Sync15ClientResponse::Success { .. }) => Ok(()),
-            Ok(resp) => Err(resp.create_storage_error().into()),
+            Ok(resp) => Err(resp.create_storage_error()),
             Err(e) => Err(e),
         }
     }

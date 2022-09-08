@@ -161,10 +161,9 @@ pub fn sync_multiple_with_command_processor(
         }
         Err(e) => {
             log::warn!(
-                "sync failed: {}, final status={:?}\nBacktrace: {:?}",
+                "sync failed: {}, final status={:?}",
                 e,
                 sync_result.service_status,
-                e.backtrace()
             );
             sync_result.result = Err(e);
         }

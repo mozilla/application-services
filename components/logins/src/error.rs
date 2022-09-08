@@ -9,7 +9,7 @@ pub type ApiResult<T> = std::result::Result<T, LoginsStorageError>;
 
 pub use error_support::{breadcrumb, handle_error, report_error};
 use error_support::{ErrorHandling, GetErrorHandling};
-use sync15::ErrorKind as Sync15ErrorKind;
+use sync15::Error as Sync15Error;
 
 // Errors we return via the public interface.
 //
@@ -167,12 +167,12 @@ impl GetErrorHandling for LoginsError {
             Self::Interrupted(_) => {
                 ErrorHandling::convert(LoginsStorageError::Interrupted(self.to_string()))
             }
-            Self::SyncAdapterError(e) => match e.kind() {
-                Sync15ErrorKind::TokenserverHttpError(401) | Sync15ErrorKind::BadKeyLength(..) => {
+            Self::SyncAdapterError(e) => match e {
+                Sync15Error::TokenserverHttpError(401) | Sync15Error::BadKeyLength(..) => {
                     ErrorHandling::convert(LoginsStorageError::SyncAuthInvalid(e.to_string()))
                         .log_warning()
                 }
-                Sync15ErrorKind::RequestError(_) => {
+                Sync15Error::RequestError(_) => {
                     ErrorHandling::convert(LoginsStorageError::RequestFailed(e.to_string()))
                         .log_warning()
                 }

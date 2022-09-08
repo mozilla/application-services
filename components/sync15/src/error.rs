@@ -19,8 +19,10 @@ pub enum ErrorResponse {
     RequestFailed { route: String, status: u16 },
 }
 
+pub type Result<T> = std::result::Result<T, Error>;
+
 #[derive(Debug, thiserror::Error)]
-pub enum ErrorKind {
+pub enum Error {
     // These are errors duplicated from SyncTraitsError, so that consumers can
     // deal with errors from just 1 of the crates and not care which one of
     // then actually caused the error.
@@ -106,57 +108,32 @@ pub enum ErrorKind {
     Interrupted(#[from] Interrupted),
 }
 
-error_support::define_error! {
-    ErrorKind {
-        (JsonError, serde_json::Error),
-        (RequestError, viaduct::Error),
-        (UnexpectedStatus, viaduct::UnexpectedStatus),
-        (MalformedUrl, url::ParseError),
-        // A bit dubious, since we only want this to happen inside `synchronize`
-        (StoreError, anyhow::Error),
-        (Interrupted, Interrupted),
-        (HawkError, rc_crypto::hawk::Error),
-    }
-}
-
-impl From<SyncTraitsError> for ErrorKind {
-    fn from(e: SyncTraitsError) -> ErrorKind {
+impl From<SyncTraitsError> for Error {
+    fn from(e: SyncTraitsError) -> Error {
         match e {
             SyncTraitsError::BadKeyLength(key, got, expected) => {
-                ErrorKind::BadKeyLength(key, got, expected)
+                Error::BadKeyLength(key, got, expected)
             }
-            SyncTraitsError::HmacMismatch => ErrorKind::HmacMismatch,
-            SyncTraitsError::CryptoError(e) => ErrorKind::CryptoError(e),
-            SyncTraitsError::Base64Decode(e) => ErrorKind::Base64Decode(e),
-            SyncTraitsError::JsonError(e) => ErrorKind::JsonError(e),
-            SyncTraitsError::BadCleartextUtf8(e) => ErrorKind::BadCleartextUtf8(e),
-            SyncTraitsError::HawkError(e) => ErrorKind::HawkError(e),
+            SyncTraitsError::HmacMismatch => Error::HmacMismatch,
+            SyncTraitsError::CryptoError(e) => Error::CryptoError(e),
+            SyncTraitsError::Base64Decode(e) => Error::Base64Decode(e),
+            SyncTraitsError::JsonError(e) => Error::JsonError(e),
+            SyncTraitsError::BadCleartextUtf8(e) => Error::BadCleartextUtf8(e),
+            SyncTraitsError::HawkError(e) => Error::HawkError(e),
         }
     }
 }
 
-impl From<SyncTraitsError> for Error {
-    fn from(e: SyncTraitsError) -> Self {
-        Error::from(ErrorKind::from(e))
-    }
-}
-
 // XXX - we should just move this `UnacceptableBaseUrl` into the `SyncTraitsError` enum.
-impl From<UnacceptableBaseUrl> for ErrorKind {
-    fn from(e: UnacceptableBaseUrl) -> ErrorKind {
-        ErrorKind::UnacceptableUrl(e.to_string())
-    }
-}
-
 impl From<UnacceptableBaseUrl> for Error {
-    fn from(e: UnacceptableBaseUrl) -> Self {
-        Error::from(ErrorKind::from(e))
+    fn from(e: UnacceptableBaseUrl) -> Error {
+        Error::UnacceptableUrl(e.to_string())
     }
 }
 
 impl Error {
     pub(crate) fn get_backoff(&self) -> Option<SystemTime> {
-        if let ErrorKind::BackoffError(time) = self.kind() {
+        if let Error::BackoffError(time) = self {
             Some(*time)
         } else {
             None

@@ -3,7 +3,7 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
 use crate::client::{Sync15ClientResponse, Sync15StorageClient};
-use crate::error::{self, ErrorKind, ErrorResponse, Result};
+use crate::error::{self, Error, ErrorResponse, Result};
 use crate::request::{CollectionRequest, NormalResponseHandler, UploadInfo};
 use crate::util::ServerTimestamp;
 use crate::CollState;
@@ -39,7 +39,7 @@ pub fn fetch_incoming(
             last_modified,
             ..
         } => (record, last_modified),
-        other => return Err(other.create_storage_error().into()),
+        other => return Err(other.create_storage_error()),
     };
     // xxx - duplication below of `timestamp` smells wrong
     state.last_modified = timestamp;
@@ -96,12 +96,9 @@ impl<'a> CollectionUpdate<'a> {
         let xius = changeset.timestamp;
         if xius < state.last_modified {
             // We know we are going to fail the XIUS check...
-            return Err(
-                ErrorKind::StorageHttpError(ErrorResponse::PreconditionFailed {
-                    route: collection.into_owned(),
-                })
-                .into(),
-            );
+            return Err(Error::StorageHttpError(ErrorResponse::PreconditionFailed {
+                route: collection.into_owned(),
+            }));
         }
         let to_update = crate::changeset::encrypt_outgoing(changeset, &state.key)?;
         Ok(CollectionUpdate::new(
@@ -128,7 +125,7 @@ impl<'a> CollectionUpdate<'a> {
         for record in self.to_update.into_iter() {
             let enqueued = q.enqueue(&record)?;
             if !enqueued && self.fully_atomic {
-                return Err(ErrorKind::RecordTooLargeError.into());
+                return Err(Error::RecordTooLargeError);
             }
         }
 
