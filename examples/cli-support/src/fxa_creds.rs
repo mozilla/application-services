@@ -16,7 +16,8 @@ use url::Url;
 // because we haven't worked on exposing those test-only features via UniFFI.
 use fxa_client::internal::{config::Config, error, FirefoxAccount};
 use fxa_client::AccessTokenInfo;
-use sync15::{KeyBundle, Sync15StorageClientInit};
+use sync15::client::Sync15StorageClientInit;
+use sync15::KeyBundle;
 
 use crate::prompt::prompt_string;
 

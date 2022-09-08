@@ -2,36 +2,15 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-use crate::changeset::CollectionUpdate;
-use crate::client::Sync15StorageClient;
+use super::coll_state::LocalCollStateMachine;
+use super::coll_update::CollectionUpdate;
+use super::state::GlobalState;
+use super::storage_client::Sync15StorageClient;
 use crate::clients;
-use crate::coll_state::LocalCollStateMachine;
 use crate::error::Error;
-use crate::state::GlobalState;
 use crate::telemetry;
 use interrupt_support::Interruptee;
 pub use sync15_traits::{IncomingChangeset, KeyBundle, SyncEngine};
-
-pub fn synchronize(
-    client: &Sync15StorageClient,
-    global_state: &GlobalState,
-    root_sync_key: &KeyBundle,
-    engine: &dyn SyncEngine,
-    fully_atomic: bool,
-    telem_engine: &mut telemetry::Engine,
-    interruptee: &dyn Interruptee,
-) -> Result<(), crate::Error> {
-    synchronize_with_clients_engine(
-        client,
-        global_state,
-        root_sync_key,
-        None,
-        engine,
-        fully_atomic,
-        telem_engine,
-        interruptee,
-    )
-}
 
 #[allow(clippy::too_many_arguments)]
 pub fn synchronize_with_clients_engine(
@@ -79,7 +58,7 @@ pub fn synchronize_with_clients_engine(
             .map(|(idx, collection_request)| {
                 interruptee.err_if_interrupted()?;
                 let incoming_changes =
-                    crate::changeset::fetch_incoming(client, &mut coll_state, &collection_request)?;
+                    super::fetch_incoming(client, &mut coll_state, &collection_request)?;
 
                 log::info!(
                     "Downloaded {} remote changes (request {} of {})",

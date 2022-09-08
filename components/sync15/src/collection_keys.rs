@@ -4,7 +4,7 @@
 
 use crate::error::Result;
 use crate::record_types::CryptoKeysRecord;
-use crate::util::ServerTimestamp;
+use crate::ServerTimestamp;
 use std::collections::HashMap;
 use sync15_traits::{EncryptedPayload, KeyBundle};
 

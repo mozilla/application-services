@@ -22,7 +22,8 @@ use std::sync::{
     atomic::{AtomicUsize, Ordering},
     Arc, Weak,
 };
-use sync15::{sync_multiple, telemetry, MemoryCachedState, SyncEngine, SyncEngineId, SyncResult};
+use sync15::client::{sync_multiple, MemoryCachedState, Sync15StorageClientInit, SyncResult};
+use sync15::{telemetry, KeyBundle, SyncEngine, SyncEngineId};
 
 // Not clear if this should be here, but this is the "global sync state"
 // which is persisted to disk and reused for all engines.
@@ -287,8 +288,8 @@ impl PlacesApi {
     // we have implemented the sync manager and migrated consumers to that.
     pub fn sync_history(
         &self,
-        client_init: &sync15::Sync15StorageClientInit,
-        key_bundle: &sync15::KeyBundle,
+        client_init: &Sync15StorageClientInit,
+        key_bundle: &KeyBundle,
     ) -> Result<telemetry::SyncTelemetryPing> {
         self.do_sync_one(
             "history",
@@ -309,8 +310,8 @@ impl PlacesApi {
 
     pub fn sync_bookmarks(
         &self,
-        client_init: &sync15::Sync15StorageClientInit,
-        key_bundle: &sync15::KeyBundle,
+        client_init: &Sync15StorageClientInit,
+        key_bundle: &KeyBundle,
     ) -> Result<telemetry::SyncTelemetryPing> {
         self.do_sync_one(
             "bookmarks",
@@ -381,8 +382,8 @@ impl PlacesApi {
     // we have a SyncResult, we must return it.
     pub fn sync(
         &self,
-        client_init: &sync15::Sync15StorageClientInit,
-        key_bundle: &sync15::KeyBundle,
+        client_init: &Sync15StorageClientInit,
+        key_bundle: &KeyBundle,
     ) -> Result<SyncResult> {
         let mut guard = self.sync_state.lock();
         let conn = self.get_sync_connection()?;
@@ -401,7 +402,7 @@ impl PlacesApi {
         let mut disk_cached_state = sync_state.disk_cached_state.take();
 
         // NOTE: After here we must never return Err()!
-        let result = sync15::sync_multiple(
+        let result = sync_multiple(
             &[&history_engine, &bm_engine],
             &mut disk_cached_state,
             &mut mem_cached_state,

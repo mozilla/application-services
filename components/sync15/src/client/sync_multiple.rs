@@ -5,20 +5,19 @@
 // This helps you perform a sync of multiple engines and helps you manage
 // global and local state between syncs.
 
-use crate::client::{BackoffListener, Sync15StorageClient, Sync15StorageClientInit};
+use super::state::{EngineChangesNeeded, GlobalState, PersistedGlobalState, SetupStateMachine};
+use super::status::{ServiceStatus, SyncResult};
+use super::storage_client::{BackoffListener, Sync15StorageClient, Sync15StorageClientInit};
+use super::sync::{self, SyncEngine};
 use crate::clients::{self, CommandProcessor, CLIENTS_TTL_REFRESH};
-use crate::coll_state::EngineSyncAssociation;
 use crate::error::Error;
-use crate::state::{EngineChangesNeeded, GlobalState, PersistedGlobalState, SetupStateMachine};
-use crate::status::{ServiceStatus, SyncResult};
-use crate::sync::{self, SyncEngine};
 use crate::telemetry;
 use interrupt_support::Interruptee;
 use std::collections::HashMap;
 use std::mem;
 use std::result;
 use std::time::{Duration, SystemTime};
-use sync15_traits::KeyBundle;
+use sync15_traits::{EngineSyncAssociation, KeyBundle};
 
 /// Info about the client to use. We reuse the client unless
 /// we discover the client_init has changed, in which case we re-create one.
@@ -136,7 +135,7 @@ pub fn sync_multiple_with_command_processor(
         engine_results: HashMap::with_capacity(engines.len()),
         telemetry: telemetry::SyncTelemetryPing::new(),
     };
-    let backoff = crate::client::new_backoff_listener();
+    let backoff = super::storage_client::new_backoff_listener();
     let req_info = req_info.unwrap_or_default();
     let driver = SyncMultipleDriver {
         command_processor,

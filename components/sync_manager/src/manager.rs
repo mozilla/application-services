@@ -10,10 +10,14 @@ use parking_lot::Mutex;
 use std::collections::{HashMap, HashSet};
 use std::convert::TryFrom;
 use std::time::SystemTime;
+use sync15::client::{
+    sync_multiple_with_command_processor, MemoryCachedState, Sync15StorageClientInit,
+    SyncRequestInfo,
+};
 use sync15::{
     self,
     clients::{Command, CommandProcessor, CommandStatus, Settings},
-    EngineSyncAssociation, MemoryCachedState, SyncEngine, SyncEngineId,
+    EngineSyncAssociation, SyncEngine, SyncEngineId,
 };
 
 #[derive(Default)]
@@ -126,7 +130,7 @@ impl SyncManager {
 
         let engine_refs: Vec<&dyn sync15::SyncEngine> = engines.iter().map(|s| &**s).collect();
 
-        let client_init = sync15::Sync15StorageClientInit {
+        let client_init = Sync15StorageClientInit {
             key_id: params.auth_info.kid.clone(),
             access_token: params.auth_info.fxa_access_token.clone(),
             tokenserver_url,
@@ -143,7 +147,7 @@ impl SyncManager {
             device_type: params.device_settings.kind,
         };
         let c = SyncClient::new(settings);
-        let result = sync15::sync_multiple_with_command_processor(
+        let result = sync_multiple_with_command_processor(
             Some(&c),
             &engine_refs,
             &mut disk_cached_state,
@@ -151,7 +155,7 @@ impl SyncManager {
             &client_init,
             &key_bundle,
             &interruptee,
-            Some(sync15::SyncRequestInfo {
+            Some(SyncRequestInfo {
                 engines_to_state_change: engines_to_change,
                 is_user_action: matches!(params.reason, SyncReason::User),
             }),
@@ -261,9 +265,9 @@ fn backoff_in_effect(next_sync_after: Option<SystemTime>, p: &SyncParams) -> boo
     false
 }
 
-impl From<sync15::ServiceStatus> for ServiceStatus {
-    fn from(s15s: sync15::ServiceStatus) -> Self {
-        use sync15::ServiceStatus::*;
+impl From<sync15::client::ServiceStatus> for ServiceStatus {
+    fn from(s15s: sync15::client::ServiceStatus) -> Self {
+        use sync15::client::ServiceStatus::*;
         match s15s {
             Ok => ServiceStatus::Ok,
             NetworkError => ServiceStatus::NetworkError,

@@ -4,12 +4,12 @@
 
 use std::collections::{HashMap, HashSet};
 
-use crate::client::{SetupStorageClient, Sync15ClientResponse};
+use super::request::{InfoCollections, InfoConfiguration};
+use super::storage_client::{SetupStorageClient, Sync15ClientResponse};
 use crate::collection_keys::CollectionKeys;
 use crate::error::{self, Error as ErrorKind, ErrorResponse};
 use crate::record_types::{MetaGlobalEngine, MetaGlobalRecord};
-use crate::request::{InfoCollections, InfoConfiguration};
-use crate::util::ServerTimestamp;
+use crate::ServerTimestamp;
 use interrupt_support::Interruptee;
 use serde_derive::*;
 use sync15_traits::{EncryptedBso, EncryptedPayload, KeyBundle};
@@ -96,7 +96,7 @@ struct EngineStateOutput {
 }
 
 fn compute_engine_states(input: EngineStateInput) -> EngineStateOutput {
-    use crate::util::*;
+    use super::util::*;
     log::debug!("compute_engine_states: input {:?}", input);
     let (must_enable, must_disable) = partition_by_value(&input.user_changes);
     let have_remote = input.remote.is_some();
@@ -270,56 +270,6 @@ impl<'a> SetupStateMachine<'a> {
                 "InitialWithMetaGlobal",
                 "Ready",
                 "FreshStartRequired",
-                "WithPreviousState",
-            ],
-        )
-    }
-
-    /// Creates a state machine for a fast sync, which only uses locally
-    /// cached global state, and bails if `meta/global` or `crypto/keys`
-    /// are missing or out-of-date. This is useful in cases where it's
-    /// important to get to ready as quickly as possible, like syncing before
-    /// sleep, or when conserving time or battery life.
-    pub fn for_fast_sync(
-        client: &'a dyn SetupStorageClient,
-        root_key: &'a KeyBundle,
-        pgs: &'a mut PersistedGlobalState,
-        engine_updates: Option<&'a HashMap<String, bool>>,
-        interruptee: &'a dyn Interruptee,
-    ) -> SetupStateMachine<'a> {
-        SetupStateMachine::with_allowed_states(
-            client,
-            root_key,
-            pgs,
-            interruptee,
-            engine_updates,
-            vec!["Ready", "WithPreviousState"],
-        )
-    }
-
-    /// Creates a state machine for a read-only sync, where the client can't
-    /// upload `meta/global` or `crypto/keys`. Useful for clients that only
-    /// sync specific collections, like Lockbox.
-    pub fn for_readonly_sync(
-        client: &'a dyn SetupStorageClient,
-        root_key: &'a KeyBundle,
-        pgs: &'a mut PersistedGlobalState,
-        interruptee: &'a dyn Interruptee,
-    ) -> SetupStateMachine<'a> {
-        SetupStateMachine::with_allowed_states(
-            client,
-            root_key,
-            pgs,
-            interruptee,
-            // No engine updates for a readonly sync
-            None,
-            // We don't allow a FreshStart in a read-only sync.
-            vec![
-                "Initial",
-                "InitialWithConfig",
-                "InitialWithInfo",
-                "InitialWithMetaGlobal",
-                "Ready",
                 "WithPreviousState",
             ],
         )

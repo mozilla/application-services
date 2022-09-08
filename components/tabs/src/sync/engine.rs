@@ -10,12 +10,12 @@ use interrupt_support::NeverInterrupts;
 use std::cell::{Cell, RefCell};
 use std::collections::HashMap;
 use std::sync::{Arc, Mutex, Weak};
+use sync15::client::{sync_multiple, MemoryCachedState, Sync15StorageClientInit};
 use sync15::{
     clients::{self, RemoteClient},
     telemetry, CollectionRequest, DeviceType, EngineSyncAssociation, IncomingChangeset,
-    OutgoingChangeset, Payload, ServerTimestamp, SyncEngine,
+    OutgoingChangeset, Payload, ServerTimestamp, SyncEngine, SyncEngineId,
 };
-use sync15::{sync_multiple, MemoryCachedState, SyncEngineId};
 
 use sync_guid::Guid;
 
@@ -283,7 +283,7 @@ impl crate::TabsStore {
         // Do it here.
         engine.local_id = RefCell::new(local_id);
 
-        let storage_init = &sync15::Sync15StorageClientInit {
+        let storage_init = &Sync15StorageClientInit {
             key_id,
             access_token,
             tokenserver_url: url::Url::parse(tokenserver_url.as_str())?,

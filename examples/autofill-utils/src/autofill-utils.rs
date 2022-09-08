@@ -16,10 +16,8 @@ use cli_support::prompt::{prompt_string, prompt_usize};
 use interrupt_support::NeverInterrupts; // XXX need a real interruptee!
 use std::sync::Arc;
 use structopt::StructOpt;
-use sync15::{
-    sync_multiple, EngineSyncAssociation, MemoryCachedState, SetupStorageClient,
-    Sync15StorageClient, SyncEngine,
-};
+use sync15::client::{sync_multiple, MemoryCachedState, SetupStorageClient, Sync15StorageClient};
+use sync15::{EngineSyncAssociation, SyncEngine};
 
 fn update_string(field_name: &str, field: String) -> String {
     let opt_s = prompt_string(format!(

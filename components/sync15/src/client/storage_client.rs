@@ -2,14 +2,14 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-use crate::error::{self, Error, ErrorResponse};
-use crate::record_types::MetaGlobalRecord;
-use crate::request::{
+use super::request::{
     BatchPoster, CollectionRequest, InfoCollections, InfoConfiguration, PostQueue, PostResponse,
     PostResponseHandler,
 };
-use crate::token;
-use crate::util::ServerTimestamp;
+use super::token;
+use crate::error::{self, Error, ErrorResponse};
+use crate::record_types::MetaGlobalRecord;
+use crate::ServerTimestamp;
 use serde_json::Value;
 use std::str::FromStr;
 use std::sync::atomic::{AtomicU32, Ordering};
@@ -158,11 +158,11 @@ pub(crate) fn new_backoff_listener() -> BackoffListener {
 
 impl BackoffState {
     pub fn note_backoff(&self, noted: u32) {
-        crate::util::atomic_update_max(&self.backoff_secs, noted)
+        super::util::atomic_update_max(&self.backoff_secs, noted)
     }
 
     pub fn note_retry_after(&self, noted: u32) {
-        crate::util::atomic_update_max(&self.retry_after_secs, noted)
+        super::util::atomic_update_max(&self.retry_after_secs, noted)
     }
 
     pub fn get_backoff_secs(&self) -> u32 {
