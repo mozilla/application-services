@@ -17,7 +17,6 @@ impl TabsStore {
         }
     }
 
-    #[cfg(test)]
     pub fn new_with_mem_path(db_path: &str) -> Self {
         Self {
             storage: Mutex::new(TabsStorage::new_with_mem_path(db_path)),

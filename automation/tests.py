@@ -193,6 +193,37 @@ def calc_rust_items(branch_changes=None, default_features_only=False):
         if p.has_default_features():
             yield p, RustFeatures.NONE
 
+def calc_non_workspace_rust_items(branch_changes=None, default_features_only=False):
+    """
+    Calculate which items are not in our default workspace, but we might want to
+    do certain things with.
+
+    Returns the same as calc_rust_items
+    """
+    for path in ["testing/sync-test/Cargo.toml"]:
+        json_data = json.loads(get_output([
+            'cargo', 'metadata', '--no-deps', '--format-version', '1', '--manifest-path', path
+        ]))
+
+        packages = [RustPackage(p) for p in json_data['packages']]
+
+        if branch_changes:
+            packages = [p for p in packages if p.has_changes(branch_changes)]
+
+        for p in packages:
+            yield p, RustFeatures.DEFAULT
+
+        if default_features_only:
+            return
+
+        for p in packages:
+            if p.has_features():
+                yield p, RustFeatures.ALL
+        for p in packages:
+            if p.has_default_features():
+                yield p, RustFeatures.NONE
+
+
 # Define a couple functions to avoid this clippy issue:
 # https://github.com/rust-lang/rust-clippy/issues/4612h
 #
@@ -350,6 +381,12 @@ def calc_steps(args):
         print_rust_environment()
         yield Step('cargo clean', cargo_clean)
         for package, features in calc_rust_items():
+            yield Step(
+                'clippy for {} ({})'.format(package.name, features.label()),
+                run_clippy, package, features)
+        # non-workspace items aren't tested, but we do run clippy on them to
+        # make sure they don't go stale.
+        for package, features in calc_non_workspace_rust_items():
             yield Step(
                 'clippy for {} ({})'.format(package.name, features.label()),
                 run_clippy, package, features)

@@ -91,3 +91,9 @@ pub enum ServiceStatus {
     BackedOff,
     OtherError,
 }
+
+impl ServiceStatus {
+    pub fn is_ok(&self) -> bool {
+        matches!(self, ServiceStatus::Ok)
+    }
+}

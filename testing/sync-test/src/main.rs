@@ -121,6 +121,11 @@ pub struct Opts {
     /// Run the helper browser as non-headless, and enable extra logging
     pub helper_debug: bool,
 
+    #[structopt(name = "show-groups", long)]
+    /// Show the test groups and exit.
+    pub show_groups: bool,
+
+    /// The test groups to run - execute with `--show-groups` to see the group names.
     pub groups: Vec<String>,
 }
 
@@ -128,15 +133,24 @@ pub fn main() {
     let opts = Opts::from_args();
     println!("### Running sync integration tests ###");
     init_testing();
-    run_test_groups(
-        &opts,
-        vec![
-            crate::logins::get_test_group(),
-            crate::tabs::get_test_group(),
-            crate::sync15::get_test_group(),
-            crate::autofill::get_test_group(),
-        ],
-    );
+    let groups = vec![
+        crate::logins::get_test_group(),
+        crate::tabs::get_test_group(),
+        crate::sync15::get_test_group(),
+        crate::autofill::get_test_group(),
+    ];
+    if opts.show_groups {
+        println!(
+            "The following test groups exist: {}",
+            groups
+                .into_iter()
+                .map(|g| g.name.to_string())
+                .collect::<Vec<String>>()
+                .join(",")
+        );
+        return;
+    }
+    run_test_groups(&opts, groups);
 
     println!("\n### Sync integration tests passed!");
 }

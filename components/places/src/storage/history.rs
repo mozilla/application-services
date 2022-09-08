@@ -2563,7 +2563,7 @@ mod tests {
         let ts = Timestamp::now().0 - 5_000_000;
         // Add a number of visits across a handful of origins.
         for o in 0..10 {
-            for i in 0..100 {
+            for i in 0..11 {
                 for t in 0..3 {
                     get_custom_observed_page(
                         &mut conn,
