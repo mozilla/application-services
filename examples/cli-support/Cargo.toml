@@ -9,7 +9,7 @@ license = "MPL-2.0"
 anyhow = "1.0"
 fxa-client = { path = "../../components/fxa-client" }
 log = "0.4"
-sync15 = { path = "../../components/sync15" }
+sync15 = { path = "../../components/sync15", features=["sync-client"] }
 url = "2.2"
 webbrowser = "0.5"
 # disable regex feature, as it's very costly for compile time and very rarely

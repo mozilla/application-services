@@ -3,9 +3,11 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
 use interrupt_support::Interrupted;
-use std::time::SystemTime;
-use sync15_traits::{request::UnacceptableBaseUrl, SyncTraitsError};
+#[cfg(feature = "sync-client")]
+use sync15_traits::request::UnacceptableBaseUrl;
+use sync15_traits::SyncTraitsError;
 /// This enum is to discriminate `StorageHttpError`, and not used as an error.
+#[cfg(feature = "sync-client")]
 #[derive(Debug, Clone)]
 pub enum ErrorResponse {
     NotFound { route: String },
@@ -26,15 +28,19 @@ pub enum Error {
     // These are errors duplicated from SyncTraitsError, so that consumers can
     // deal with errors from just 1 of the crates and not care which one of
     // then actually caused the error.
+    #[cfg(feature = "crypto")]
     #[error("Key {0} had wrong length, got {1}, expected {2}")]
     BadKeyLength(&'static str, usize, usize),
 
+    #[cfg(feature = "crypto")]
     #[error("SHA256 HMAC Mismatch error")]
     HmacMismatch,
 
+    #[cfg(feature = "crypto")]
     #[error("Crypto/NSS error: {0}")]
     CryptoError(#[from] rc_crypto::Error),
 
+    #[cfg(feature = "crypto")]
     #[error("Base64 decode error: {0}")]
     Base64Decode(#[from] base64::DecodeError),
 
@@ -44,63 +50,80 @@ pub enum Error {
     #[error("Bad cleartext UTF8: {0}")]
     BadCleartextUtf8(#[from] std::string::FromUtf8Error),
 
+    #[cfg(feature = "crypto")]
     #[error("HAWK error: {0}")]
     HawkError(#[from] rc_crypto::hawk::Error),
 
     //
     // Errors specific to this module.
     //
+    #[cfg(feature = "sync-client")]
     #[error("HTTP status {0} when requesting a token from the tokenserver")]
     TokenserverHttpError(u16),
 
+    #[cfg(feature = "sync-client")]
     #[error("HTTP storage error: {0:?}")]
     StorageHttpError(ErrorResponse),
 
+    #[cfg(feature = "sync-client")]
     #[error("Server requested backoff. Retry after {0:?}")]
-    BackoffError(SystemTime),
+    BackoffError(std::time::SystemTime),
 
+    #[cfg(feature = "sync-client")]
     #[error("Outgoing record is too large to upload")]
     RecordTooLargeError,
 
     // Do we want to record the concrete problems?
+    #[cfg(feature = "sync-client")]
     #[error("Not all records were successfully uploaded")]
     RecordUploadFailed,
 
     /// Used for things like a node reassignment or an unexpected syncId
     /// implying the app needs to "reset" its understanding of remote storage.
+    #[cfg(feature = "sync-client")]
     #[error("The server has reset the storage for this account")]
     StorageResetError,
 
+    #[cfg(feature = "sync-client")]
     #[error("Unacceptable URL: {0}")]
     UnacceptableUrl(String),
 
+    #[cfg(feature = "sync-client")]
     #[error("Missing server timestamp header in request")]
     MissingServerTimestamp,
 
+    #[cfg(feature = "sync-client")]
     #[error("Unexpected server behavior during batch upload: {0}")]
     ServerBatchProblem(&'static str),
 
+    #[cfg(feature = "sync-client")]
     #[error("It appears some other client is also trying to setup storage; try again later")]
     SetupRace,
 
+    #[cfg(feature = "sync-client")]
     #[error("Client upgrade required; server storage version too new")]
     ClientUpgradeRequired,
 
     // This means that our global state machine needs to enter a state (such as
     // "FreshStartNeeded", but the allowed_states don't include that state.)
     // It typically means we are trying to do a "fast" or "read-only" sync.
+    #[cfg(feature = "sync-client")]
     #[error("Our storage needs setting up and we can't currently do it")]
     SetupRequired,
 
+    #[cfg(feature = "sync-client")]
     #[error("Store error: {0}")]
     StoreError(#[from] anyhow::Error),
 
+    #[cfg(feature = "sync-client")]
     #[error("Network error: {0}")]
     RequestError(#[from] viaduct::Error),
 
+    #[cfg(feature = "sync-client")]
     #[error("Unexpected HTTP status: {0}")]
     UnexpectedStatus(#[from] viaduct::UnexpectedStatus),
 
+    #[cfg(feature = "sync-client")]
     #[error("URL parse error: {0}")]
     MalformedUrl(#[from] url::ParseError),
 
@@ -111,28 +134,35 @@ pub enum Error {
 impl From<SyncTraitsError> for Error {
     fn from(e: SyncTraitsError) -> Error {
         match e {
+            #[cfg(feature = "crypto")]
             SyncTraitsError::BadKeyLength(key, got, expected) => {
                 Error::BadKeyLength(key, got, expected)
             }
+            #[cfg(feature = "crypto")]
             SyncTraitsError::HmacMismatch => Error::HmacMismatch,
+            #[cfg(feature = "crypto")]
             SyncTraitsError::CryptoError(e) => Error::CryptoError(e),
+            #[cfg(feature = "crypto")]
             SyncTraitsError::Base64Decode(e) => Error::Base64Decode(e),
             SyncTraitsError::JsonError(e) => Error::JsonError(e),
             SyncTraitsError::BadCleartextUtf8(e) => Error::BadCleartextUtf8(e),
+            #[cfg(feature = "crypto")]
             SyncTraitsError::HawkError(e) => Error::HawkError(e),
         }
     }
 }
 
 // XXX - we should just move this `UnacceptableBaseUrl` into the `SyncTraitsError` enum.
+#[cfg(feature = "sync-client")]
 impl From<UnacceptableBaseUrl> for Error {
     fn from(e: UnacceptableBaseUrl) -> Error {
         Error::UnacceptableUrl(e.to_string())
     }
 }
 
+#[cfg(feature = "sync-client")]
 impl Error {
-    pub(crate) fn get_backoff(&self) -> Option<SystemTime> {
+    pub(crate) fn get_backoff(&self) -> Option<std::time::SystemTime> {
         if let Error::BackoffError(time) = self {
             Some(*time)
         } else {
