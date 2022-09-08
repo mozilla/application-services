@@ -139,10 +139,17 @@ impl SyncEngine for TestEngine {
     }
 }
 
-fn sync_first_client(c0: &mut TestClient, engine: &dyn SyncEngine) {
-    let (init, key, _device_id) = c0
-        .data_for_sync()
+fn sync_client(c: &mut TestClient, desc: &str, engine: &dyn SyncEngine) {
+    let (auth_info, _device_settings) = c
+        .get_sync_data()
         .expect("Should have data for syncing first client");
+
+    let storage_init = &sync15::Sync15StorageClientInit {
+        key_id: auth_info.kid,
+        access_token: auth_info.fxa_access_token,
+        tokenserver_url: url::Url::parse(auth_info.tokenserver_url.as_str()).unwrap(),
+    };
+    let root_sync_key = &sync15::KeyBundle::from_ksync_base64(auth_info.sync_key.as_str()).unwrap();
 
     let mut persisted_global_state = None;
     let mut mem_cached_state = MemoryCachedState::default();
@@ -151,34 +158,20 @@ fn sync_first_client(c0: &mut TestClient, engine: &dyn SyncEngine) {
         &[engine],
         &mut persisted_global_state,
         &mut mem_cached_state,
-        &init,
-        &key,
+        storage_init,
+        root_sync_key,
         &NeverInterrupts,
         None,
     );
+    println!("Finished syncing {desc} client: {:?}", result);
+}
 
-    println!("Finished syncing first client: {:?}", result);
+fn sync_first_client(c0: &mut TestClient, engine: &dyn SyncEngine) {
+    sync_client(c0, "first", engine);
 }
 
 fn sync_second_client(c1: &mut TestClient, engine: &dyn SyncEngine) {
-    let (init, key, _device_id) = c1
-        .data_for_sync()
-        .expect("Should have data for syncing second client");
-
-    let mut persisted_global_state = None;
-    let mut mem_cached_state = MemoryCachedState::default();
-
-    let result = sync15::sync_multiple(
-        &[engine],
-        &mut persisted_global_state,
-        &mut mem_cached_state,
-        &init,
-        &key,
-        &NeverInterrupts,
-        None,
-    );
-
-    println!("Finished syncing second client: {:?}", result);
+    sync_client(c1, "second", engine);
 }
 
 // Integration test for the sync15 component
@@ -203,9 +196,8 @@ fn test_sync_multiple(c0: &mut TestClient, c1: &mut TestClient) {
         coll_id: Option::from(Guid::random()),
     };
     sync_first_client(c0, &first_client_engine);
-    assert_eq!(
+    assert!(
         first_client_engine.was_reset_called.get(),
-        true,
         "Should have called first reset."
     );
 
@@ -219,9 +211,8 @@ fn test_sync_multiple(c0: &mut TestClient, c1: &mut TestClient) {
         coll_id: Option::from(Guid::random()),
     };
     sync_second_client(c1, &second_client_engine);
-    assert_eq!(
-        second_client_engine.was_reset_called.get(),
-        false,
+    assert!(
+        !second_client_engine.was_reset_called.get(),
         "Second client shouldn't have called reset."
     );
 
