@@ -27,6 +27,7 @@ pub use sync15_traits::SyncTraitsError;
 pub use sync15_traits::{BsoRecord, CleartextBso, EncryptedBso, EncryptedPayload, KeyBundle};
 
 pub use sync15_traits::{
+    bridged_engine::{self, ApplyResults, BridgedEngine, IncomingEnvelope, OutgoingEnvelope},
     CollSyncIds, CollectionRequest, EngineSyncAssociation, IncomingChangeset, OutgoingChangeset,
     Payload, RecordChangeset, ServerTimestamp, SyncEngine, SyncEngineId,
 };

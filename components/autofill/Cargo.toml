@@ -20,7 +20,6 @@ serde_json = "1"
 sql-support = { path = "../support/sql" }
 sync-guid = { path = "../support/guid", features = ["rusqlite_support", "random", "serde_support"] }
 sync15 = { path = "../sync15", features = ["sync-engine"] }
-sync15-traits = {path = "../support/sync15-traits"}
 thiserror = "1.0"
 types = { path = "../support/types" }
 uniffi = "^0.20"

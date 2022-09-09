@@ -10,7 +10,7 @@ exclude = ["/android", "/ios"]
 default = []
 
 [dependencies]
-sync15 = { path = "../sync15" }
+sync15 = { path = "../sync15", features=["standalone-sync"] }
 serde = "1"
 serde_derive = "1"
 serde_json = "1"

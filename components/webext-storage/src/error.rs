@@ -3,7 +3,7 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
 use interrupt_support::Interrupted;
-use sync15_traits::bridged_engine;
+use sync15::bridged_engine;
 
 #[derive(Debug)]
 pub enum QuotaReason {

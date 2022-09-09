@@ -16,7 +16,7 @@ use std::cell::{Cell, RefCell};
 use std::mem;
 use sync15::telemetry;
 use sync15::client::{MemoryCachedState, sync_multiple, Sync15StorageClientInit};
-use sync15_traits::{
+use sync15::{
     CollectionRequest, EngineSyncAssociation, IncomingChangeset, OutgoingChangeset, Payload,
     ServerTimestamp, SyncEngine,
 };
