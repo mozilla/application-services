@@ -30,11 +30,4 @@ pub enum SyncManagerError {
     AnyhowError(#[from] anyhow::Error),
 }
 
-// Adapts errors from the sync15_traits crate into sync15 errors.
-impl From<sync15::SyncTraitsError> for SyncManagerError {
-    fn from(e: sync15::SyncTraitsError) -> Self {
-        SyncManagerError::Sync15Error(e.into())
-    }
-}
-
 pub type Result<T> = std::result::Result<T, SyncManagerError>;

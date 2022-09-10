@@ -5,8 +5,8 @@
 use crate::error::Result;
 use crate::record_types::CryptoKeysRecord;
 use crate::ServerTimestamp;
+use crate::{EncryptedPayload, KeyBundle};
 use std::collections::HashMap;
-use sync15_traits::{EncryptedPayload, KeyBundle};
 
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct CollectionKeys {
@@ -53,7 +53,7 @@ impl CollectionKeys {
                 .map(|kv| (kv.0.clone(), kv.1.to_b64_array()))
                 .collect(),
         };
-        Ok(EncryptedPayload::from_cleartext_payload(root_key, &record)?)
+        EncryptedPayload::from_cleartext_payload(root_key, &record)
     }
 
     pub fn key_for_collection<'a>(&'a self, collection: &str) -> &'a KeyBundle {

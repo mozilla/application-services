@@ -10,9 +10,9 @@ use crate::collection_keys::CollectionKeys;
 use crate::error::{self, Error as ErrorKind, ErrorResponse};
 use crate::record_types::{MetaGlobalEngine, MetaGlobalRecord};
 use crate::ServerTimestamp;
+use crate::{EncryptedBso, EncryptedPayload, KeyBundle};
 use interrupt_support::Interruptee;
 use serde_derive::*;
-use sync15_traits::{EncryptedBso, EncryptedPayload, KeyBundle};
 use sync_guid::Guid;
 
 use self::SetupState::*;
@@ -616,8 +616,8 @@ fn is_same_timestamp(local: ServerTimestamp, collections: &InfoCollections, key:
 mod tests {
     use super::*;
 
+    use crate::EncryptedBso;
     use interrupt_support::NeverInterrupts;
-    use sync15_traits::EncryptedBso;
 
     struct InMemoryClient {
         info_configuration: error::Result<Sync15ClientResponse<InfoConfiguration>>,

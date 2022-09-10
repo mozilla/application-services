@@ -4,12 +4,12 @@
 
 use super::storage_client::Sync15ClientResponse;
 use crate::error::{self, Error as ErrorKind, Result};
+use crate::EncryptedBso;
 use crate::ServerTimestamp;
 use serde_derive::*;
 use std::collections::HashMap;
 use std::default::Default;
 use std::ops::Deref;
-use sync15_traits::EncryptedBso;
 use sync_guid::Guid;
 use viaduct::status_codes;
 
@@ -488,11 +488,11 @@ impl<Poster> PostQueue<Poster, NormalResponseHandler> {
 #[cfg(test)]
 mod test {
     use super::*;
+    use crate::{BsoRecord, EncryptedPayload};
     use lazy_static::lazy_static;
     use std::cell::RefCell;
     use std::collections::VecDeque;
     use std::rc::Rc;
-    use sync15_traits::{BsoRecord, EncryptedPayload};
 
     #[derive(Debug, Clone)]
     struct PostedData {

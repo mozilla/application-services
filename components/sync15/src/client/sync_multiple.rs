@@ -12,12 +12,12 @@ use crate::clients::{self, CommandProcessor, CLIENTS_TTL_REFRESH};
 use crate::engine::{EngineSyncAssociation, SyncEngine};
 use crate::error::Error;
 use crate::telemetry;
+use crate::KeyBundle;
 use interrupt_support::Interruptee;
 use std::collections::HashMap;
 use std::mem;
 use std::result;
 use std::time::{Duration, SystemTime};
-use sync15_traits::KeyBundle;
 
 /// Info about the client to use. We reuse the client unless
 /// we discover the client_init has changed, in which case we re-create one.

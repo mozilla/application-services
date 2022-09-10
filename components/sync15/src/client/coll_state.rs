@@ -5,11 +5,10 @@
 use super::request::InfoConfiguration;
 use super::state::GlobalState;
 use crate::collection_keys::CollectionKeys;
-use crate::error;
-use crate::ServerTimestamp;
-
 use crate::engine::{CollSyncIds, EngineSyncAssociation, SyncEngine};
-use sync15_traits::KeyBundle;
+use crate::error;
+use crate::KeyBundle;
+use crate::ServerTimestamp;
 
 /// Holds state for a collection. In general, only the CollState is
 /// needed to sync a collection (but a valid GlobalState is needed to obtain

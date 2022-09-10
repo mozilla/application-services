@@ -10,10 +10,10 @@ use crate::engine::CollectionRequest;
 use crate::error::{self, Error, ErrorResponse};
 use crate::record_types::MetaGlobalRecord;
 use crate::ServerTimestamp;
+use crate::{BsoRecord, EncryptedBso};
 use serde_json::Value;
 use std::str::FromStr;
 use std::sync::atomic::{AtomicU32, Ordering};
-use sync15_traits::{BsoRecord, EncryptedBso};
 use url::Url;
 use viaduct::{
     header_names::{self, AUTHORIZATION},

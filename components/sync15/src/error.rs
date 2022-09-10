@@ -3,7 +3,6 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
 use interrupt_support::Interrupted;
-use sync15_traits::SyncTraitsError;
 
 /// This enum is to discriminate `StorageHttpError`, and not used as an error.
 #[cfg(feature = "sync-client")]
@@ -24,9 +23,6 @@ pub type Result<T> = std::result::Result<T, Error>;
 
 #[derive(Debug, thiserror::Error)]
 pub enum Error {
-    // These are errors duplicated from SyncTraitsError, so that consumers can
-    // deal with errors from just 1 of the crates and not care which one of
-    // then actually caused the error.
     #[cfg(feature = "crypto")]
     #[error("Key {0} had wrong length, got {1}, expected {2}")]
     BadKeyLength(&'static str, usize, usize),
@@ -128,27 +124,6 @@ pub enum Error {
 
     #[error("The operation was interrupted.")]
     Interrupted(#[from] Interrupted),
-}
-
-impl From<SyncTraitsError> for Error {
-    fn from(e: SyncTraitsError) -> Error {
-        match e {
-            #[cfg(feature = "crypto")]
-            SyncTraitsError::BadKeyLength(key, got, expected) => {
-                Error::BadKeyLength(key, got, expected)
-            }
-            #[cfg(feature = "crypto")]
-            SyncTraitsError::HmacMismatch => Error::HmacMismatch,
-            #[cfg(feature = "crypto")]
-            SyncTraitsError::CryptoError(e) => Error::CryptoError(e),
-            #[cfg(feature = "crypto")]
-            SyncTraitsError::Base64Decode(e) => Error::Base64Decode(e),
-            SyncTraitsError::JsonError(e) => Error::JsonError(e),
-            SyncTraitsError::BadCleartextUtf8(e) => Error::BadCleartextUtf8(e),
-            #[cfg(feature = "crypto")]
-            SyncTraitsError::HawkError(e) => Error::HawkError(e),
-        }
-    }
 }
 
 #[cfg(feature = "sync-client")]

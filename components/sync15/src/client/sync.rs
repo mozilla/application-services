@@ -10,8 +10,8 @@ use crate::clients;
 use crate::engine::{IncomingChangeset, SyncEngine};
 use crate::error::Error;
 use crate::telemetry;
+use crate::KeyBundle;
 use interrupt_support::Interruptee;
-use sync15_traits::KeyBundle;
 
 #[allow(clippy::too_many_arguments)]
 pub fn synchronize_with_clients_engine(

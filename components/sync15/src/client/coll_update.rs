@@ -8,9 +8,8 @@ use super::{
 };
 use crate::engine::{CollectionRequest, IncomingChangeset, OutgoingChangeset, RecordChangeset};
 use crate::error::{self, Error, ErrorResponse, Result};
-use crate::ServerTimestamp;
+use crate::{CleartextBso, EncryptedBso, KeyBundle, ServerTimestamp};
 use std::borrow::Cow;
-use sync15_traits::{CleartextBso, EncryptedBso, KeyBundle};
 
 pub fn encrypt_outgoing(o: OutgoingChangeset, key: &KeyBundle) -> Result<Vec<EncryptedBso>> {
     let RecordChangeset {
@@ -20,11 +19,7 @@ pub fn encrypt_outgoing(o: OutgoingChangeset, key: &KeyBundle) -> Result<Vec<Enc
     } = o;
     changes
         .into_iter()
-        .map(|change| {
-            CleartextBso::from_payload(change, collection.clone())
-                .encrypt(key)
-                .map_err(|e| e.into())
-        })
+        .map(|change| CleartextBso::from_payload(change, collection.clone()).encrypt(key))
         .collect()
 }
 

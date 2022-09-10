@@ -34,12 +34,4 @@ pub enum TabsError {
     OpenDatabaseError(#[from] sql_support::open_database::Error),
 }
 
-// Adapts errors from the sync15_traits crate into sync15 errors.
-#[cfg(feature = "full-sync")]
-impl From<sync15::SyncTraitsError> for TabsError {
-    fn from(e: sync15::SyncTraitsError) -> Self {
-        TabsError::SyncAdapterError(e.into())
-    }
-}
-
 pub type Result<T> = std::result::Result<T, TabsError>;

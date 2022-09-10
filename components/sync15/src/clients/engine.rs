@@ -7,19 +7,18 @@ use std::collections::{HashMap, HashSet};
 use crate::client::{
     CollState, CollectionUpdate, GlobalState, InfoConfiguration, Sync15StorageClient,
 };
+use crate::client_types::{ClientData, RemoteClient};
 use crate::collection_keys::CollectionKeys;
 use crate::engine::{CollectionRequest, IncomingChangeset, OutgoingChangeset};
-
-use crate::client_types::{ClientData, RemoteClient};
+use crate::error::Result;
+use crate::{KeyBundle, Payload};
 use interrupt_support::Interruptee;
-use sync15_traits::{KeyBundle, Payload};
 
 use super::{
     record::{ClientRecord, CommandRecord},
     ser::shrink_to_fit,
     Command, CommandProcessor, CommandStatus, CLIENTS_TTL,
 };
-use crate::error::Result;
 
 const COLLECTION_NAME: &str = "clients";
 
