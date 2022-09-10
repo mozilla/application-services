@@ -26,7 +26,8 @@ use types::Timestamp;
 use rusqlite::Connection;
 use serde_json::{json, Map, Value};
 use std::sync::Arc;
-use sync15::{telemetry, IncomingChangeset, ServerTimestamp, SyncEngine};
+use sync15::engine::{IncomingChangeset, SyncEngine};
+use sync15::{telemetry, ServerTimestamp};
 use sync_guid::Guid as SyncGuid;
 
 lazy_static::lazy_static! {

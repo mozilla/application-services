@@ -5,19 +5,19 @@
 use std::collections::{HashMap, HashSet};
 
 use crate::client::{
-    CollState, CollectionRequest, CollectionUpdate, GlobalState, InfoConfiguration,
-    Sync15StorageClient,
+    CollState, CollectionUpdate, GlobalState, InfoConfiguration, Sync15StorageClient,
 };
 use crate::collection_keys::CollectionKeys;
-use crate::{IncomingChangeset, OutgoingChangeset};
+use crate::engine::{CollectionRequest, IncomingChangeset, OutgoingChangeset};
 
+use crate::client_types::{ClientData, RemoteClient};
 use interrupt_support::Interruptee;
-use sync15_traits::{client::ClientData, KeyBundle, Payload};
+use sync15_traits::{KeyBundle, Payload};
 
 use super::{
     record::{ClientRecord, CommandRecord},
     ser::shrink_to_fit,
-    Command, CommandProcessor, CommandStatus, RemoteClient, CLIENTS_TTL,
+    Command, CommandProcessor, CommandStatus, CLIENTS_TTL,
 };
 use crate::error::Result;
 

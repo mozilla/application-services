@@ -4,11 +4,11 @@
 
 use super::{
     request::{NormalResponseHandler, UploadInfo},
-    CollState, CollectionRequest, Sync15ClientResponse, Sync15StorageClient,
+    CollState, Sync15ClientResponse, Sync15StorageClient,
 };
+use crate::engine::{CollectionRequest, IncomingChangeset, OutgoingChangeset, RecordChangeset};
 use crate::error::{self, Error, ErrorResponse, Result};
 use crate::ServerTimestamp;
-use crate::{IncomingChangeset, OutgoingChangeset, RecordChangeset};
 use std::borrow::Cow;
 use sync15_traits::{CleartextBso, EncryptedBso, KeyBundle};
 

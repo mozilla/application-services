@@ -18,7 +18,7 @@ mod util;
 
 pub(crate) use coll_state::CollState;
 pub(crate) use coll_update::{fetch_incoming, CollectionUpdate};
-pub(crate) use request::{CollectionRequest, InfoConfiguration};
+pub(crate) use request::InfoConfiguration;
 pub(crate) use state::GlobalState;
 pub use status::{ServiceStatus, SyncResult};
 pub use storage_client::{

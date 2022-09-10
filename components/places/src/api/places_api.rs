@@ -23,7 +23,8 @@ use std::sync::{
     Arc, Weak,
 };
 use sync15::client::{sync_multiple, MemoryCachedState, Sync15StorageClientInit, SyncResult};
-use sync15::{telemetry, KeyBundle, SyncEngine, SyncEngineId};
+use sync15::engine::{EngineSyncAssociation, SyncEngine, SyncEngineId};
+use sync15::{telemetry, KeyBundle};
 
 // Not clear if this should be here, but this is the "global sync state"
 // which is persisted to disk and reused for all engines.
@@ -436,7 +437,7 @@ impl PlacesApi {
         let _guard = self.sync_state.lock();
         let conn = self.get_sync_connection()?;
 
-        bookmark_sync::reset(&conn.lock(), &sync15::EngineSyncAssociation::Disconnected)?;
+        bookmark_sync::reset(&conn.lock(), &EngineSyncAssociation::Disconnected)?;
         Ok(())
     }
 
@@ -454,7 +455,7 @@ impl PlacesApi {
         let _guard = self.sync_state.lock();
         let conn = self.get_sync_connection()?;
 
-        history_sync::reset(&conn.lock(), &sync15::EngineSyncAssociation::Disconnected)?;
+        history_sync::reset(&conn.lock(), &EngineSyncAssociation::Disconnected)?;
         Ok(())
     }
 }

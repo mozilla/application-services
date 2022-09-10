@@ -11,11 +11,11 @@ use std::cell::{Cell, RefCell};
 use std::collections::HashMap;
 use std::sync::{Arc, Mutex, Weak};
 use sync15::client::{sync_multiple, MemoryCachedState, Sync15StorageClientInit};
-use sync15::{
-    clients::{self, RemoteClient},
-    telemetry, CollectionRequest, DeviceType, EngineSyncAssociation, IncomingChangeset,
-    OutgoingChangeset, Payload, ServerTimestamp, SyncEngine, SyncEngineId,
+use sync15::engine::{
+    CollectionRequest, EngineSyncAssociation, IncomingChangeset, OutgoingChangeset, SyncEngine,
+    SyncEngineId,
 };
+use sync15::{telemetry, ClientData, DeviceType, Payload, RemoteClient, ServerTimestamp};
 
 use sync_guid::Guid;
 
@@ -122,7 +122,7 @@ impl SyncEngine for TabsEngine {
         "tabs".into()
     }
 
-    fn prepare_for_sync(&self, get_client_data: &dyn Fn() -> clients::ClientData) -> Result<()> {
+    fn prepare_for_sync(&self, get_client_data: &dyn Fn() -> ClientData) -> Result<()> {
         let data = get_client_data();
         self.remote_clients.replace(data.recent_clients);
         self.local_id.replace(data.local_client_id);

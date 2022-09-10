@@ -7,6 +7,8 @@
 
 #[cfg(feature = "sync-client")]
 pub mod client;
+// Types to describe client records
+mod client_types;
 // Note that `clients` should probably be in `sync_client`, but let's not make
 // things too nested at this stage...
 #[cfg(feature = "sync-client")]
@@ -15,19 +17,21 @@ pub mod clients;
 mod collection_keys;
 mod error;
 pub(crate) mod record_types;
+
+#[cfg(feature = "sync-engine")]
+pub mod engine;
+
 pub mod telemetry;
 
+pub use crate::client_types::{ClientData, DeviceType, RemoteClient};
 #[cfg(feature = "sync-client")]
 pub use crate::collection_keys::CollectionKeys;
 pub use crate::error::{Error, Result};
-pub use sync15_traits::client::DeviceType;
 pub use sync15_traits::SyncTraitsError;
+
+pub use sync_guid::Guid;
 
 #[cfg(feature = "crypto")]
 pub use sync15_traits::{BsoRecord, CleartextBso, EncryptedBso, EncryptedPayload, KeyBundle};
 
-pub use sync15_traits::{
-    bridged_engine::{self, ApplyResults, BridgedEngine, IncomingEnvelope, OutgoingEnvelope},
-    CollSyncIds, CollectionRequest, EngineSyncAssociation, IncomingChangeset, OutgoingChangeset,
-    Payload, RecordChangeset, ServerTimestamp, SyncEngine, SyncEngineId,
-};
+pub use sync15_traits::{Payload, ServerTimestamp};

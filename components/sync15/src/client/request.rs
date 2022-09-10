@@ -10,7 +10,6 @@ use std::collections::HashMap;
 use std::default::Default;
 use std::ops::Deref;
 use sync15_traits::EncryptedBso;
-pub use sync15_traits::{CollectionRequest, RequestOrder};
 use sync_guid::Guid;
 use viaduct::status_codes;
 
@@ -494,54 +493,6 @@ mod test {
     use std::collections::VecDeque;
     use std::rc::Rc;
     use sync15_traits::{BsoRecord, EncryptedPayload};
-    use url::Url;
-    #[test]
-    fn test_url_building() {
-        let base = Url::parse("https://example.com/sync").unwrap();
-        let empty = CollectionRequest::new("foo")
-            .build_url(base.clone())
-            .unwrap();
-        assert_eq!(empty.as_str(), "https://example.com/sync/storage/foo");
-        let batch_start = CollectionRequest::new("bar")
-            .batch(Some("true".into()))
-            .commit(false)
-            .build_url(base.clone())
-            .unwrap();
-        assert_eq!(
-            batch_start.as_str(),
-            "https://example.com/sync/storage/bar?batch=true"
-        );
-        let batch_commit = CollectionRequest::new("asdf")
-            .batch(Some("1234abc".into()))
-            .commit(true)
-            .build_url(base.clone())
-            .unwrap();
-        assert_eq!(
-            batch_commit.as_str(),
-            "https://example.com/sync/storage/asdf?batch=1234abc&commit=true"
-        );
-
-        let idreq = CollectionRequest::new("wutang")
-            .full()
-            .ids(&["rza", "gza"])
-            .build_url(base.clone())
-            .unwrap();
-        assert_eq!(
-            idreq.as_str(),
-            "https://example.com/sync/storage/wutang?full=1&ids=rza%2Cgza"
-        );
-
-        let complex = CollectionRequest::new("specific")
-            .full()
-            .limit(10)
-            .sort_by(RequestOrder::Oldest)
-            .older_than(ServerTimestamp(9_876_540))
-            .newer_than(ServerTimestamp(1_234_560))
-            .build_url(base)
-            .unwrap();
-        assert_eq!(complex.as_str(),
-            "https://example.com/sync/storage/specific?full=1&limit=10&older=9876.54&newer=1234.56&sort=oldest");
-    }
 
     #[derive(Debug, Clone)]
     struct PostedData {

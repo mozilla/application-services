@@ -7,10 +7,11 @@ use super::coll_update::CollectionUpdate;
 use super::state::GlobalState;
 use super::storage_client::Sync15StorageClient;
 use crate::clients;
+use crate::engine::{IncomingChangeset, SyncEngine};
 use crate::error::Error;
 use crate::telemetry;
 use interrupt_support::Interruptee;
-pub use sync15_traits::{IncomingChangeset, KeyBundle, SyncEngine};
+use sync15_traits::KeyBundle;
 
 #[allow(clippy::too_many_arguments)]
 pub fn synchronize_with_clients_engine(

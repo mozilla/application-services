@@ -2,10 +2,9 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-use crate::{
-    client::ClientData, telemetry, CollectionRequest, Guid, IncomingChangeset, OutgoingChangeset,
-    ServerTimestamp,
-};
+use super::{CollectionRequest, IncomingChangeset, OutgoingChangeset};
+use crate::client_types::ClientData;
+use crate::{telemetry, Guid, ServerTimestamp};
 use anyhow::Result;
 use std::fmt;
 

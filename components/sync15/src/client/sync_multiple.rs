@@ -8,8 +8,8 @@
 use super::state::{EngineChangesNeeded, GlobalState, PersistedGlobalState, SetupStateMachine};
 use super::status::{ServiceStatus, SyncResult};
 use super::storage_client::{BackoffListener, Sync15StorageClient, Sync15StorageClientInit};
-use super::sync::{self, SyncEngine};
 use crate::clients::{self, CommandProcessor, CLIENTS_TTL_REFRESH};
+use crate::engine::{EngineSyncAssociation, SyncEngine};
 use crate::error::Error;
 use crate::telemetry;
 use interrupt_support::Interruptee;
@@ -17,7 +17,7 @@ use std::collections::HashMap;
 use std::mem;
 use std::result;
 use std::time::{Duration, SystemTime};
-use sync15_traits::{EngineSyncAssociation, KeyBundle};
+use sync15_traits::KeyBundle;
 
 /// Info about the client to use. We reuse the client unless
 /// we discover the client_init has changed, in which case we re-create one.
@@ -310,7 +310,7 @@ impl<'info, 'res, 'pgs, 'mcs> SyncMultipleDriver<'info, 'res, 'pgs, 'mcs> {
             log::info!("Syncing {} engine!", name);
 
             let mut telem_engine = telemetry::Engine::new(&*name);
-            let result = sync::synchronize_with_clients_engine(
+            let result = super::sync::synchronize_with_clients_engine(
                 &client_info.client,
                 global_state,
                 self.root_sync_key,

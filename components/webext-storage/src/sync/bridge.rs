@@ -3,7 +3,7 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
 use rusqlite::Transaction;
-use sync15::{self, ApplyResults, IncomingEnvelope, OutgoingEnvelope};
+use sync15::engine::{ApplyResults, IncomingEnvelope, OutgoingEnvelope};
 use sync_guid::Guid as SyncGuid;
 
 use crate::db::{delete_meta, get_meta, put_meta, StorageDb};
@@ -39,7 +39,7 @@ impl<'a> BridgedEngine<'a> {
     }
 }
 
-impl<'a> sync15::BridgedEngine for BridgedEngine<'a> {
+impl<'a> sync15::engine::BridgedEngine for BridgedEngine<'a> {
     type Error = Error;
 
     fn last_sync(&self) -> Result<i64> {
@@ -156,7 +156,7 @@ impl<'a> sync15::BridgedEngine for BridgedEngine<'a> {
 mod tests {
     use super::*;
     use crate::db::test::new_mem_db;
-    use sync15::bridged_engine::BridgedEngine;
+    use sync15::engine::BridgedEngine;
 
     fn query_count(conn: &StorageDb, table: &str) -> u32 {
         conn.query_row_and_then(&format!("SELECT COUNT(*) FROM {};", table), [], |row| {

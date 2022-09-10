@@ -12,7 +12,8 @@ pub(crate) use crate::db::models::Metadata;
 use crate::error::Result;
 use interrupt_support::Interruptee;
 use rusqlite::Transaction;
-use sync15::{OutgoingChangeset, Payload, ServerTimestamp};
+use sync15::engine::OutgoingChangeset;
+use sync15::{Payload, ServerTimestamp};
 use sync_guid::Guid;
 use types::Timestamp;
 

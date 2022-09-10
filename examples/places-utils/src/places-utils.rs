@@ -19,7 +19,7 @@ use std::fs::File;
 use std::io::{BufReader, BufWriter};
 use structopt::StructOpt;
 use sync15::client::{sync_multiple, MemoryCachedState, SetupStorageClient, Sync15StorageClient};
-use sync15::{EngineSyncAssociation, SyncEngine, SyncEngineId};
+use sync15::engine::{EngineSyncAssociation, SyncEngine, SyncEngineId};
 use sync_guid::Guid as SyncGuid;
 use types::Timestamp;
 use url::Url;

@@ -11,7 +11,6 @@ mod ser;
 use crate::DeviceType;
 use anyhow::Result;
 pub use engine::Engine;
-pub use sync15_traits::client::{ClientData, RemoteClient};
 
 // These are what desktop uses.
 const CLIENTS_TTL: u32 = 15_552_000; // 180 days
@@ -56,16 +55,6 @@ pub enum CommandStatus {
     Applied,
     Ignored,
     Unsupported,
-}
-
-impl From<&record::ClientRecord> for RemoteClient {
-    fn from(record: &record::ClientRecord) -> RemoteClient {
-        RemoteClient {
-            fxa_device_id: record.fxa_device_id.clone(),
-            device_name: record.name.clone(),
-            device_type: record.typ,
-        }
-    }
 }
 
 /// Information about this device to include in its client record. This should

@@ -13,7 +13,7 @@ use rusqlite::{
 use sql_support::{self, ConnExt};
 use std::path::Path;
 use std::sync::{Arc, Mutex, Weak};
-use sync15::{SyncEngine, SyncEngineId};
+use sync15::engine::{SyncEngine, SyncEngineId};
 use sync_guid::Guid;
 
 // Our "sync manager" will use whatever is stashed here.

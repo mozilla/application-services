@@ -4,12 +4,12 @@
 
 use super::request::InfoConfiguration;
 use super::state::GlobalState;
-use super::sync::SyncEngine;
 use crate::collection_keys::CollectionKeys;
 use crate::error;
 use crate::ServerTimestamp;
 
-pub use sync15_traits::{CollSyncIds, EngineSyncAssociation, KeyBundle};
+use crate::engine::{CollSyncIds, EngineSyncAssociation, SyncEngine};
+use sync15_traits::KeyBundle;
 
 /// Holds state for a collection. In general, only the CollState is
 /// needed to sync a collection (but a valid GlobalState is needed to obtain
@@ -168,12 +168,13 @@ impl<'state> LocalCollStateMachine<'state> {
 
 #[cfg(test)]
 mod tests {
+    use super::super::request::{InfoCollections, InfoConfiguration};
     use super::*;
-    use crate::client::request::{CollectionRequest, InfoCollections, InfoConfiguration};
     use crate::collection_keys::CollectionKeys;
+    use crate::engine::CollectionRequest;
+    use crate::engine::{IncomingChangeset, OutgoingChangeset};
     use crate::record_types::{MetaGlobalEngine, MetaGlobalRecord};
     use crate::telemetry;
-    use crate::{IncomingChangeset, OutgoingChangeset};
     use anyhow::Result;
     use std::cell::{Cell, RefCell};
     use std::collections::HashMap;

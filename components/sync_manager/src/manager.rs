@@ -14,10 +14,10 @@ use sync15::client::{
     sync_multiple_with_command_processor, MemoryCachedState, Sync15StorageClientInit,
     SyncRequestInfo,
 };
+use sync15::engine::{EngineSyncAssociation, SyncEngine, SyncEngineId};
 use sync15::{
     self,
     clients::{Command, CommandProcessor, CommandStatus, Settings},
-    EngineSyncAssociation, SyncEngine, SyncEngineId,
 };
 
 #[derive(Default)]
@@ -128,7 +128,7 @@ impl SyncManager {
             }
         }
 
-        let engine_refs: Vec<&dyn sync15::SyncEngine> = engines.iter().map(|s| &**s).collect();
+        let engine_refs: Vec<&dyn SyncEngine> = engines.iter().map(|s| &**s).collect();
 
         let client_init = Sync15StorageClientInit {
             key_id: params.auth_info.kid.clone(),

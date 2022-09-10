@@ -3,9 +3,8 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
 use interrupt_support::Interrupted;
-#[cfg(feature = "sync-client")]
-use sync15_traits::request::UnacceptableBaseUrl;
 use sync15_traits::SyncTraitsError;
+
 /// This enum is to discriminate `StorageHttpError`, and not used as an error.
 #[cfg(feature = "sync-client")]
 #[derive(Debug, Clone)]
@@ -149,14 +148,6 @@ impl From<SyncTraitsError> for Error {
             #[cfg(feature = "crypto")]
             SyncTraitsError::HawkError(e) => Error::HawkError(e),
         }
-    }
-}
-
-// XXX - we should just move this `UnacceptableBaseUrl` into the `SyncTraitsError` enum.
-#[cfg(feature = "sync-client")]
-impl From<UnacceptableBaseUrl> for Error {
-    fn from(e: UnacceptableBaseUrl) -> Error {
-        Error::UnacceptableUrl(e.to_string())
     }
 }
 

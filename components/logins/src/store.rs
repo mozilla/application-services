@@ -10,7 +10,7 @@ use parking_lot::Mutex;
 use std::path::Path;
 use std::sync::{Arc, Weak};
 use sync15::client::{sync_multiple, MemoryCachedState, Sync15StorageClientInit};
-use sync15::{EngineSyncAssociation, SyncEngine, SyncEngineId};
+use sync15::engine::{EngineSyncAssociation, SyncEngine, SyncEngineId};
 
 // Our "sync manager" will use whatever is stashed here.
 lazy_static::lazy_static! {
