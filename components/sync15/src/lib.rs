@@ -17,35 +17,29 @@ mod client_types;
 pub mod clients_engine;
 #[cfg(feature = "sync-client")]
 mod collection_keys;
+#[cfg(feature = "sync-engine")]
+pub mod engine;
 mod error;
 #[cfg(feature = "crypto")]
 mod key_bundle;
-
 mod payload;
-pub(crate) mod record_types;
+mod record_types;
 mod server_timestamp;
-
-#[cfg(feature = "sync-engine")]
-pub mod engine;
-
 pub mod telemetry;
 
 pub use crate::client_types::{ClientData, DeviceType, RemoteClient};
 #[cfg(feature = "sync-client")]
 pub use crate::collection_keys::CollectionKeys;
 pub use crate::error::{Error, Result};
-
-pub use sync_guid::Guid;
-
 #[cfg(feature = "crypto")]
 pub use bso_record::{BsoRecord, CleartextBso, EncryptedBso, EncryptedPayload};
 #[cfg(feature = "crypto")]
 pub use key_bundle::KeyBundle;
-
 pub use payload::Payload;
 pub use server_timestamp::ServerTimestamp;
+pub use sync_guid::Guid;
 
 // For skip_serializing_if
-pub(crate) fn skip_if_default<T: PartialEq + Default>(v: &T) -> bool {
+fn skip_if_default<T: PartialEq + Default>(v: &T) -> bool {
     *v == T::default()
 }

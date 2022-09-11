@@ -6,18 +6,14 @@ use super::{
     request::{NormalResponseHandler, UploadInfo},
     CollState, Sync15ClientResponse, Sync15StorageClient,
 };
-use crate::engine::{CollectionRequest, IncomingChangeset, OutgoingChangeset, RecordChangeset};
+use crate::engine::{CollectionRequest, IncomingChangeset, OutgoingChangeset};
 use crate::error::{self, Error, ErrorResponse, Result};
 use crate::{CleartextBso, EncryptedBso, KeyBundle, ServerTimestamp};
 use std::borrow::Cow;
 
 pub fn encrypt_outgoing(o: OutgoingChangeset, key: &KeyBundle) -> Result<Vec<EncryptedBso>> {
-    let RecordChangeset {
-        changes,
-        collection,
-        ..
-    } = o;
-    changes
+    let collection = o.collection;
+    o.changes
         .into_iter()
         .map(|change| CleartextBso::from_payload(change, collection.clone()).encrypt(key))
         .collect()

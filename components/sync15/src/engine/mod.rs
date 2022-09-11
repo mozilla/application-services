@@ -10,6 +10,6 @@ mod sync_engine;
 pub use bridged_engine::{
     ApplyResults, BridgedEngine, IncomingEnvelope, OutgoingEnvelope, PayloadError,
 };
-pub use changeset::{IncomingChangeset, OutgoingChangeset, RecordChangeset};
+pub use changeset::{IncomingChangeset, OutgoingChangeset};
 pub use request::{CollectionRequest, RequestOrder};
 pub use sync_engine::{CollSyncIds, EngineSyncAssociation, SyncEngine, SyncEngineId};
