@@ -6,7 +6,7 @@ use super::coll_state::LocalCollStateMachine;
 use super::coll_update::CollectionUpdate;
 use super::state::GlobalState;
 use super::storage_client::Sync15StorageClient;
-use crate::clients;
+use crate::clients_engine;
 use crate::engine::{IncomingChangeset, SyncEngine};
 use crate::error::Error;
 use crate::telemetry;
@@ -18,7 +18,7 @@ pub fn synchronize_with_clients_engine(
     client: &Sync15StorageClient,
     global_state: &GlobalState,
     root_sync_key: &KeyBundle,
-    clients: Option<&clients::Engine<'_>>,
+    clients: Option<&clients_engine::Engine<'_>>,
     engine: &dyn SyncEngine,
     fully_atomic: bool,
     telem_engine: &mut telemetry::Engine,

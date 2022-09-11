@@ -11,10 +11,10 @@ mod bso_record;
 pub mod client;
 // Types to describe client records
 mod client_types;
-// Note that `clients` should probably be in `sync_client`, but let's not make
+// Note that `clients_engine` should probably be in `sync_client`, but let's not make
 // things too nested at this stage...
 #[cfg(feature = "sync-client")]
-pub mod clients;
+pub mod clients_engine;
 #[cfg(feature = "sync-client")]
 mod collection_keys;
 mod error;

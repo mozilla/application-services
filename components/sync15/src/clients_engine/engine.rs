@@ -353,7 +353,7 @@ impl<'a> Engine<'a> {
 
 #[cfg(test)]
 mod tests {
-    use crate::clients::{CommandStatus, DeviceType, Settings};
+    use super::super::{CommandStatus, DeviceType, Settings};
     use crate::ServerTimestamp;
     use anyhow::Result;
     use interrupt_support::NeverInterrupts;

@@ -14,11 +14,8 @@ use sync15::client::{
     sync_multiple_with_command_processor, MemoryCachedState, Sync15StorageClientInit,
     SyncRequestInfo,
 };
+use sync15::clients_engine::{Command, CommandProcessor, CommandStatus, Settings};
 use sync15::engine::{EngineSyncAssociation, SyncEngine, SyncEngineId};
-use sync15::{
-    self,
-    clients::{Command, CommandProcessor, CommandStatus, Settings},
-};
 
 #[derive(Default)]
 pub struct SyncManager {
