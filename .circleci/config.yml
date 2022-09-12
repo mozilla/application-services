@@ -138,6 +138,7 @@ commands:
             popd
             popd
             echo 'export PATH=/usr/local/opt/python@3.9/Frameworks/Python.framework/Versions/3.9/bin:$PATH' >> $BASH_ENV
+            ln -s /usr/local/opt/python@3.9/Frameworks/Python.framework/Versions/3.9/bin/python3 /usr/local/bin/python
       - build-libs:
           platform: ios
   test-setup:
