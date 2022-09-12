@@ -13,7 +13,7 @@ use std::borrow::Cow;
 
 const MAX_CHARS_TO_SEARCH_THROUGH: usize = 255;
 
-#[derive(Clone, Copy, PartialEq, Debug)]
+#[derive(Clone, Copy, PartialEq, Eq, Debug)]
 #[repr(u32)]
 pub enum MatchBehavior {
     // Match anywhere in each searchable tearm

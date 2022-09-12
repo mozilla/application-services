@@ -118,6 +118,6 @@ impl<'conn> std::ops::Deref for PlacesTransaction<'conn> {
 impl<'conn> ConnExt for PlacesTransaction<'conn> {
     #[inline]
     fn conn(&self) -> &Connection {
-        &*self
+        self
     }
 }

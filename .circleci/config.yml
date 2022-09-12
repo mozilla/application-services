@@ -12,8 +12,8 @@ commands:
   # Our minimum supported rust version is specified here.
   setup-rust-min-version:
     steps:
-      # https://searchfox.org/mozilla-central/source/python/mozboot/mozboot/util.py#20
-      - run: rustup override set 1.59.0
+      # https://searchfox.org/mozilla-central/source/python/mozboot/mozboot/util.py#26
+      - run: rustup override set 1.61.0
 
   full-checkout:
     steps:

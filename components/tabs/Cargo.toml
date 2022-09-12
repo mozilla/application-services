@@ -24,8 +24,8 @@ sync-guid = { path = "../support/guid", features = ["random"] }
 sync15 = { path = "../sync15", optional = true }
 sync15-traits = { path = "../support/sync15-traits" }
 thiserror = "1.0"
-uniffi = "^0.19"
-uniffi_macros = "^0.19"
+uniffi = "^0.20"
+uniffi_macros = "^0.20"
 url = "2.1" # mozilla-central can't yet take 2.2 (see bug 1734538)
 
 [dev-dependencies]
@@ -33,4 +33,4 @@ tempfile = "3.1"
 env_logger = { version = "0.8.0", default-features = false, features = ["termcolor", "atty", "humantime"] }
 
 [build-dependencies]
-uniffi_build = { version = "^0.19", features = [ "builtin-bindgen" ]}
+uniffi_build = { version = "^0.20", features = [ "builtin-bindgen" ]}

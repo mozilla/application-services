@@ -9,7 +9,7 @@ use crate::{
 use anyhow::Result;
 use std::fmt;
 
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct CollSyncIds {
     pub global: Guid,
     pub coll: Guid,
@@ -21,7 +21,7 @@ pub struct CollSyncIds {
 /// agree on the exact GUIDs, the engine will assume something radical happened
 /// so it can't believe anything it thinks it knows about the state of the
 /// server (ie, it will "reset" then do a full reconcile)
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub enum EngineSyncAssociation {
     /// This store is disconnected (although it may be connected in the future).
     Disconnected,

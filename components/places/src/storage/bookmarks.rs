@@ -555,7 +555,7 @@ impl UpdatableItem {
 /// `UpdatableItem`, used to avoid needing to pass in the `type` to update, and
 /// to give us a place to check things that we can't enforce in Swift/Kotlin's
 /// type system, but that we do in Rust's.
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct BookmarkUpdateInfo {
     pub guid: SyncGuid,
     pub title: Option<String>,

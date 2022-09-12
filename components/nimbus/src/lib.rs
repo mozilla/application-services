@@ -409,7 +409,7 @@ impl NimbusClient {
         let store = db.get_store(StoreId::Meta);
         if store.get::<String, _>(&writer, DB_KEY_NIMBUS_ID)?.is_some() {
             // Each enrollment state includes a unique `enrollment_id` which we need to clear.
-            events = enrollment::reset_telemetry_identifiers(&*db, &mut writer)?;
+            events = enrollment::reset_telemetry_identifiers(db, &mut writer)?;
             // The `nimbus_id` itself is a unique identifier.
             // N.B. we do this last, as a signal that all data has been reset.
             store.delete(&mut writer, DB_KEY_NIMBUS_ID)?;
@@ -508,7 +508,7 @@ pub const SCHEMA_VERSION: u32 = 1;
 
 // ⚠️ Attention : Changes to this type should be accompanied by a new test  ⚠️
 // ⚠️ in `test_lib_bw_compat.rs`, and may require a DB migration. ⚠️
-#[derive(Deserialize, Serialize, Debug, Default, Clone, PartialEq)]
+#[derive(Deserialize, Serialize, Debug, Default, Clone, PartialEq, Eq)]
 #[serde(rename_all = "camelCase")]
 pub struct Experiment {
     pub schema_version: String,
@@ -568,7 +568,7 @@ impl Experiment {
     }
 }
 
-#[derive(Deserialize, Serialize, Debug, Default, Clone, PartialEq)]
+#[derive(Deserialize, Serialize, Debug, Default, Clone, PartialEq, Eq)]
 #[serde(rename_all = "camelCase")]
 pub struct FeatureConfig {
     pub feature_id: String,
@@ -597,7 +597,7 @@ impl Defaults for FeatureConfig {
 
 // ⚠️ Attention : Changes to this type should be accompanied by a new test  ⚠️
 // ⚠️ in `test_lib_bw_compat.rs`, and may require a DB migration. ⚠️
-#[derive(Deserialize, Serialize, Debug, Default, Clone, PartialEq)]
+#[derive(Deserialize, Serialize, Debug, Default, Clone, PartialEq, Eq)]
 pub struct Branch {
     pub slug: String,
     pub ratio: i32,
@@ -629,7 +629,7 @@ fn default_buckets() -> u32 {
 
 // ⚠️ Attention : Changes to this type should be accompanied by a new test  ⚠️
 // ⚠️ in `test_lib_bw_compat.rs`, and may require a DB migration. ⚠️
-#[derive(Deserialize, Serialize, Debug, Default, Clone, PartialEq)]
+#[derive(Deserialize, Serialize, Debug, Default, Clone, PartialEq, Eq)]
 #[serde(rename_all = "camelCase")]
 pub struct BucketConfig {
     pub randomization_unit: RandomizationUnit,
@@ -689,7 +689,7 @@ impl From<Branch> for ExperimentBranch {
 
 // ⚠️ Attention : Changes to this type should be accompanied by a new test  ⚠️
 // ⚠️ in `test_lib_bw_compat`, and may require a DB migration. ⚠️
-#[derive(Deserialize, Serialize, Debug, Clone, PartialEq)]
+#[derive(Deserialize, Serialize, Debug, Clone, PartialEq, Eq)]
 #[serde(rename_all = "snake_case")]
 pub enum RandomizationUnit {
     NimbusId,

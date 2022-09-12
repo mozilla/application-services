@@ -15,7 +15,7 @@ enum RedirectBonus {
     Normal,
 }
 
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct FrecencySettings {
     // TODO: These probably should not all be i32s...
     pub num_visits: i32,                     // from "places.frecency.numVisits"

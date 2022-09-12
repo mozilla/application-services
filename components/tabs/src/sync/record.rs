@@ -5,7 +5,7 @@
 use crate::error::*;
 use serde_derive::{Deserialize, Serialize};
 
-#[derive(Debug, Clone, Hash, PartialEq, Serialize, Deserialize, Default)]
+#[derive(Debug, Clone, Hash, PartialEq, Eq, Serialize, Deserialize, Default)]
 #[serde(rename_all = "camelCase")]
 pub struct TabsRecordTab {
     pub title: String,
@@ -14,7 +14,7 @@ pub struct TabsRecordTab {
     pub last_used: i64, // Seconds since epoch!
 }
 
-#[derive(Debug, Clone, Hash, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Clone, Hash, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct TabsRecord {
     // `String` instead of `SyncGuid` because some IDs are FxA device ID (XXX - that doesn't

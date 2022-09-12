@@ -23,7 +23,7 @@ use url::Url;
 // to the same version.
 const FENNEC_DB_VERSION: i64 = 34;
 
-#[derive(Serialize, Deserialize, PartialEq, Debug, Clone, Default)]
+#[derive(Serialize, Deserialize, PartialEq, Eq, Debug, Clone, Default)]
 pub struct BookmarksMigrationResult {
     pub num_total: u32,
     pub num_succeeded: u32,

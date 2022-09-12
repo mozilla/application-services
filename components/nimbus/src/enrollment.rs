@@ -66,7 +66,7 @@ pub enum DisqualifiedReason {
 
 // ⚠️ Attention : Changes to this type should be accompanied by a new test  ⚠️
 // ⚠️ in `mod test_schema_bw_compat` below, and may require a DB migration. ⚠️
-#[derive(Deserialize, Serialize, Debug, Clone, PartialEq)]
+#[derive(Deserialize, Serialize, Debug, Clone, PartialEq, Eq)]
 pub struct ExperimentEnrollment {
     pub slug: String,
     pub status: EnrollmentStatus,
@@ -1060,7 +1060,7 @@ fn get_enrolled_feature_configs(
 /// Small transitory struct to contain all the information needed to configure a feature with the Feature API.
 /// By design, we don't want to store it on the disk. Instead we calculate it from experiments
 /// and enrollments.
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct EnrolledFeatureConfig {
     pub feature: FeatureConfig,
     pub slug: String,
@@ -1124,7 +1124,7 @@ impl EnrollmentChangeEvent {
     }
 }
 
-#[derive(Debug, PartialEq)]
+#[derive(Debug, PartialEq, Eq)]
 pub enum EnrollmentChangeEventType {
     Enrollment,
     Disqualification,

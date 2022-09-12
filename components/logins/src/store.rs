@@ -166,8 +166,10 @@ impl LoginStore {
     pub fn import_multiple(&self, logins: Vec<Login>, enc_key: &str) -> ApiResult<String> {
         handle_error! {
             let encdec = EncryptorDecryptor::new(enc_key)?;
-            let metrics = self.db.lock().import_multiple(logins, &encdec)?;
-            Ok(serde_json::to_string(&metrics)?)
+            self.db.lock().import_multiple(logins, &encdec)?;
+            // We want to return a JSON string to keep API compatability, but the function doesn't
+            // acutally return anything.  Serialize the unit struct for now.
+            Ok(serde_json::to_string(&())?)
         }
     }
 

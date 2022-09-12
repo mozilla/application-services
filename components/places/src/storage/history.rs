@@ -807,7 +807,7 @@ pub mod history_sync {
     use crate::history_sync::HISTORY_TTL;
     use std::collections::{HashMap, HashSet};
 
-    #[derive(Debug, Clone, PartialEq)]
+    #[derive(Debug, Clone, PartialEq, Eq)]
     pub struct FetchedVisit {
         pub is_local: bool,
         pub visit_date: Timestamp,

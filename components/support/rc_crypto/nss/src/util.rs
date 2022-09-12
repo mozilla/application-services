@@ -90,15 +90,15 @@ macro_rules! scoped_ptr {
             ptr: *mut $target,
         }
 
-        impl crate::util::ScopedPtr for $scoped {
+        impl $crate::util::ScopedPtr for $scoped {
             type RawType = $target;
 
             #[allow(dead_code)]
-            unsafe fn from_ptr(ptr: *mut $target) -> crate::error::Result<$scoped> {
+            unsafe fn from_ptr(ptr: *mut $target) -> $crate::error::Result<$scoped> {
                 if !ptr.is_null() {
                     Ok($scoped { ptr })
                 } else {
-                    Err(crate::error::ErrorKind::InternalError.into())
+                    Err($crate::error::ErrorKind::InternalError.into())
                 }
             }
 

@@ -27,7 +27,7 @@ pub fn hash_url(spec: &str) -> u64 {
     }
 }
 
-#[derive(Clone, Copy, Debug, PartialEq)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum PrefixMode {
     /// Equivalent to `"prefix_lo"` in mozilla::places::HashURL
     Lo,

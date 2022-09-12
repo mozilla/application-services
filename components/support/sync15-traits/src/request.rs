@@ -4,7 +4,7 @@
 use crate::{Guid, ServerTimestamp};
 use std::borrow::Cow;
 use url::{form_urlencoded as form, Url, UrlQuery};
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct CollectionRequest {
     pub collection: Cow<'static, str>,
     pub full: bool,

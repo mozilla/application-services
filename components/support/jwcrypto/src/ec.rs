@@ -18,7 +18,7 @@ use rc_crypto::{
 use serde_derive::{Deserialize, Serialize};
 
 /// Key params specific to ECDH encryption.
-#[derive(Serialize, Deserialize, Clone, Debug, PartialEq)]
+#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Eq)]
 pub struct ECKeysParameters {
     pub crv: String,
     pub x: String,

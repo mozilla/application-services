@@ -199,7 +199,7 @@ impl<'conn> Deref for ChunkedCoopTransaction<'conn> {
 impl<'conn> ConnExt for ChunkedCoopTransaction<'conn> {
     #[inline]
     fn conn(&self) -> &Connection {
-        &*self
+        self
     }
 }
 

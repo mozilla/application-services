@@ -14,7 +14,7 @@ use url::Url;
 
 use lazy_static::lazy_static;
 
-#[derive(Copy, Clone, Debug, PartialEq)]
+#[derive(Copy, Clone, Debug, PartialEq, Eq)]
 pub enum DocumentType {
     Regular = 0,
     Media = 1,
@@ -69,7 +69,7 @@ impl HistoryHighlight {
     }
 }
 
-#[derive(Clone, Debug, PartialEq)]
+#[derive(Clone, Debug, PartialEq, Eq)]
 pub struct HistoryMetadataObservation {
     pub url: String,
     pub view_time: Option<i32>,
@@ -78,7 +78,7 @@ pub struct HistoryMetadataObservation {
     pub referrer_url: Option<String>,
     pub title: Option<String>,
 }
-#[derive(Clone, Debug, PartialEq)]
+#[derive(Clone, Debug, PartialEq, Eq)]
 pub struct HistoryMetadata {
     pub url: String,
     pub title: Option<String>,

@@ -592,7 +592,7 @@ fn test_reconcile_addresses() -> Result<()> {
             log::trace!("local record: doesn't exist");
             SyncGuid::random()
         } else {
-            let local = local_array.get(local_array.len() - 1).unwrap();
+            let local = local_array.last().unwrap();
             log::trace!("local record: {local}");
             let guid = SyncGuid::random();
             addresses::add_internal_address(&tx, &make_local_from_json(&guid, local))?;

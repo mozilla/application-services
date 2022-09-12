@@ -9,7 +9,7 @@ use std::time::{Duration, SystemTime};
 
 /// The general status of sync - should probably be moved to the "sync manager"
 /// once we have one!
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub enum ServiceStatus {
     /// Everything is fine.
     Ok,

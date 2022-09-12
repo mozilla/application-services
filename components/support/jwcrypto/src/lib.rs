@@ -56,7 +56,7 @@ pub enum DecryptionParameters {
     },
 }
 
-#[derive(Serialize, Deserialize, Debug, PartialEq)]
+#[derive(Serialize, Deserialize, Debug, PartialEq, Eq)]
 enum Algorithm {
     #[serde(rename = "ECDH-ES")]
     #[allow(non_camel_case_types)]
@@ -66,7 +66,7 @@ enum Algorithm {
 }
 
 /// The encryption algorithms supported by this crate.
-#[derive(Serialize, Deserialize, Debug, PartialEq)]
+#[derive(Serialize, Deserialize, Debug, PartialEq, Eq)]
 pub enum EncryptionAlgorithm {
     A256GCM,
 }
@@ -94,7 +94,7 @@ struct JweHeader {
 }
 
 /// Defines the key to use for all operations in this crate.
-#[derive(Serialize, Deserialize, Clone, Debug, PartialEq)]
+#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Eq)]
 pub struct Jwk {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub kid: Option<String>,
@@ -105,7 +105,7 @@ pub struct Jwk {
 /// The enum passed in to hold the encryption and decryption keys. The variant
 /// of the enum must match the variant of the Encryption/Decryption parameters
 /// or the encryption/decryption operations will fail.
-#[derive(Serialize, Deserialize, Clone, Debug, PartialEq)]
+#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Eq)]
 #[serde(tag = "kty")]
 pub enum JwkKeyParameters {
     /// When doing ECDH (asymmetric) encryption, you specify elliptic curve points.

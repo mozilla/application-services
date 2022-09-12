@@ -44,7 +44,7 @@ Our official Rust version policy is:
 All CI for this project will try and pin itself to this same version. At
 time of writing, this means that [our circle CI integration
 ](https://github.com/mozilla/application-services/blob/main/.circleci/config.yml) and
-[rust-toolchain configuration](https://github.com/mozilla/application-services/blob/main/rust-toolchain)
+[rust-toolchain configuration](https://github.com/mozilla/application-services/blob/main/rust-toolchain.toml)
 will specify the versions (and where possible, the CI configuration file will
 avoid duplicating the information in `rust-toolchain`)
 

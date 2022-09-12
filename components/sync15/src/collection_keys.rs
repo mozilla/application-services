@@ -8,7 +8,7 @@ use crate::util::ServerTimestamp;
 use std::collections::HashMap;
 use sync15_traits::{EncryptedPayload, KeyBundle};
 
-#[derive(Clone, Debug, PartialEq)]
+#[derive(Clone, Debug, PartialEq, Eq)]
 pub struct CollectionKeys {
     pub timestamp: ServerTimestamp,
     pub default: KeyBundle,

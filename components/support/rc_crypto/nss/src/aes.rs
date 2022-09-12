@@ -14,7 +14,7 @@ use std::{
 
 const AES_GCM_TAG_LENGTH: usize = 16;
 
-#[derive(Debug, Copy, Clone, PartialEq)]
+#[derive(Debug, Copy, Clone)]
 pub enum Operation {
     Encrypt,
     Decrypt,

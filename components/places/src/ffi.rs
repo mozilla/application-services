@@ -585,7 +585,7 @@ impl AsRef<SqlInterruptHandle> for PlacesConnection {
     }
 }
 
-#[derive(Clone, PartialEq)]
+#[derive(Clone, PartialEq, Eq)]
 pub struct HistoryVisitInfo {
     pub url: Url,
     pub title: Option<String>,
@@ -595,7 +595,7 @@ pub struct HistoryVisitInfo {
     pub preview_image_url: Option<Url>,
     pub is_remote: bool,
 }
-#[derive(Clone, PartialEq)]
+#[derive(Clone, PartialEq, Eq)]
 pub struct HistoryVisitInfosWithBound {
     pub infos: Vec<HistoryVisitInfo>,
     pub bound: i64,

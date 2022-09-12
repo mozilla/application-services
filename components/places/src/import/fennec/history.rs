@@ -17,7 +17,7 @@ use url::Url;
 // However, 36 was quite easy to obtain test databases for, and it shipped with quite an old ESR version (52).
 const FENNEC_DB_VERSION: i64 = 34;
 
-#[derive(Serialize, Deserialize, PartialEq, Debug, Clone, Default)]
+#[derive(Serialize, Deserialize, PartialEq, Eq, Debug, Clone, Default)]
 pub struct HistoryMigrationResult {
     pub num_total: u32,
     pub num_succeeded: u32,

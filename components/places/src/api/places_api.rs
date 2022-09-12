@@ -71,7 +71,7 @@ fn create_sync_engine(
 }
 
 #[repr(u8)]
-#[derive(Debug, Copy, Clone, PartialEq)]
+#[derive(Debug, Copy, Clone, PartialEq, Eq)]
 pub enum ConnectionType {
     ReadOnly = 1,
     ReadWrite = 2,
