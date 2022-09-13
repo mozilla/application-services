@@ -7,6 +7,10 @@ license = "MPL-2.0"
 exclude = ["/android", "/ios"]
 
 [features]
+# TODO: we've enabled the "standalone-sync" feature - see the description
+# of this feature in sync15's Cargo.toml for what we should do instead.
+# (But note tabs is a little more complicated in the short term because it
+# also supports the bridged-engine. We should rationalize this.)
 full-sync = ["sync15/standalone-sync"]
 
 [dependencies]

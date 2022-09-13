@@ -5,6 +5,14 @@
 //! A module for everything needed to be a "sync client" - ie, a device which
 //! can perform a full sync of any number of collections, including managing
 //! the server state.
+//!
+//! In general, the client is responsible for all communication with the sync server,
+//! including ensuring the state is correct, and encrypting/decrypting all records
+//! to and from the server. However, the actual syncing of the collections is
+//! delegated to an external [crate::engine](Sync Engine).
+//!
+//! One exception is that the "sync client" owns one sync engine - the
+//! [crate::clients_engine], which is managed internally.
 mod coll_state;
 mod coll_update;
 mod request;

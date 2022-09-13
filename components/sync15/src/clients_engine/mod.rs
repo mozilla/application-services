@@ -2,6 +2,17 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
+//! The client engine is a [crate::engine](Sync Engine) used to manage the
+//! "clients" collection. The clients engine manages the client record for
+//! "this device, and also manages "commands".
+//! In short, commands target one or more engines and instruct them to
+//! perform various operations - such as wiping all local data.
+//! These commands are used very rarely - currently the only command used
+//! in practice is for bookmarks to wipe all their data, which is sent when
+//! a desktop device restores all bookmarks from a backup. In this scenario,
+//! desktop will delete all local bookmarks then replace them with the backed
+//! up set, which without a "wipe" command would almost certainly cause other
+//! connected devices to "resurrect" the deleted bookmarks.
 use std::collections::HashSet;
 
 mod engine;

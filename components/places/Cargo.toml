@@ -8,10 +8,10 @@ exclude = ["/android", "/ios"]
 
 [features]
 default = []
-# TODO: we should have a standalone-sync feature which is enabled only for iOS.
-# for now, we just grab the sync15 world
 
 [dependencies]
+# TODO: we've enabled the "standalone-sync" feature - see the description
+# of this feature in sync15's Cargo.toml for what we should do instead.
 sync15 = { path = "../sync15", features=["standalone-sync"] }
 serde = "1"
 serde_derive = "1"
