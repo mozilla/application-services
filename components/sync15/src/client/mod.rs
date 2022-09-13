@@ -15,6 +15,7 @@
 //! [crate::clients_engine], which is managed internally.
 mod coll_state;
 mod coll_update;
+mod collection_keys;
 mod request;
 mod state;
 mod status;
@@ -26,6 +27,7 @@ mod util;
 
 pub(crate) use coll_state::CollState;
 pub(crate) use coll_update::{fetch_incoming, CollectionUpdate};
+pub(crate) use collection_keys::CollectionKeys;
 pub(crate) use request::InfoConfiguration;
 pub(crate) use state::GlobalState;
 pub use status::{ServiceStatus, SyncResult};

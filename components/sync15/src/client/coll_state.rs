@@ -3,8 +3,7 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
 use super::request::InfoConfiguration;
-use super::state::GlobalState;
-use crate::collection_keys::CollectionKeys;
+use super::{CollectionKeys, GlobalState};
 use crate::engine::{CollSyncIds, EngineSyncAssociation, SyncEngine};
 use crate::error;
 use crate::KeyBundle;
@@ -168,8 +167,8 @@ impl<'state> LocalCollStateMachine<'state> {
 #[cfg(test)]
 mod tests {
     use super::super::request::{InfoCollections, InfoConfiguration};
+    use super::super::CollectionKeys;
     use super::*;
-    use crate::collection_keys::CollectionKeys;
     use crate::engine::CollectionRequest;
     use crate::engine::{IncomingChangeset, OutgoingChangeset};
     use crate::record_types::{MetaGlobalEngine, MetaGlobalRecord};

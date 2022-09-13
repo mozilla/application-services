@@ -5,10 +5,10 @@
 use std::collections::{HashMap, HashSet};
 
 use crate::client::{
-    CollState, CollectionUpdate, GlobalState, InfoConfiguration, Sync15StorageClient,
+    CollState, CollectionKeys, CollectionUpdate, GlobalState, InfoConfiguration,
+    Sync15StorageClient,
 };
 use crate::client_types::{ClientData, RemoteClient};
-use crate::collection_keys::CollectionKeys;
 use crate::engine::{CollectionRequest, IncomingChangeset, OutgoingChangeset};
 use crate::error::Result;
 use crate::{KeyBundle, Payload};

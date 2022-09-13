@@ -6,7 +6,7 @@ use std::collections::{HashMap, HashSet};
 
 use super::request::{InfoCollections, InfoConfiguration};
 use super::storage_client::{SetupStorageClient, Sync15ClientResponse};
-use crate::collection_keys::CollectionKeys;
+use super::CollectionKeys;
 use crate::error::{self, Error as ErrorKind, ErrorResponse};
 use crate::record_types::{MetaGlobalEngine, MetaGlobalRecord};
 use crate::ServerTimestamp;

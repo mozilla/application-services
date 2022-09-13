@@ -15,8 +15,6 @@ mod client_types;
 // things too nested at this stage...
 #[cfg(feature = "sync-client")]
 pub mod clients_engine;
-#[cfg(feature = "sync-client")]
-mod collection_keys;
 #[cfg(feature = "sync-engine")]
 pub mod engine;
 mod error;
@@ -28,8 +26,6 @@ mod server_timestamp;
 pub mod telemetry;
 
 pub use crate::client_types::{ClientData, DeviceType, RemoteClient};
-#[cfg(feature = "sync-client")]
-pub use crate::collection_keys::CollectionKeys;
 pub use crate::error::{Error, Result};
 #[cfg(feature = "crypto")]
 pub use bso_record::{BsoRecord, CleartextBso, EncryptedBso, EncryptedPayload};
