@@ -16,8 +16,12 @@ import androidx.annotation.RawRes
 import androidx.annotation.VisibleForTesting
 import androidx.annotation.WorkerThread
 import androidx.core.content.pm.PackageInfoCompat
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.NonCancellable
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import mozilla.telemetry.glean.Glean
 import org.json.JSONObject
 import org.mozilla.experiments.nimbus.GleanMetrics.NimbusEvents
@@ -29,11 +33,12 @@ import org.mozilla.experiments.nimbus.internal.EnrolledExperiment
 import org.mozilla.experiments.nimbus.internal.EnrollmentChangeEvent
 import org.mozilla.experiments.nimbus.internal.EnrollmentChangeEventType
 import org.mozilla.experiments.nimbus.internal.ExperimentBranch
-import org.mozilla.experiments.nimbus.internal.NimbusException
 import org.mozilla.experiments.nimbus.internal.NimbusClient
 import org.mozilla.experiments.nimbus.internal.NimbusClientInterface
+import org.mozilla.experiments.nimbus.internal.NimbusException
 import org.mozilla.experiments.nimbus.internal.RemoteSettingsConfig
 import java.io.File
+import java.io.IOException
 
 private const val EXPERIMENT_COLLECTION_NAME = "nimbus-mobile-experiments"
 private const val NIMBUS_DATA_DIR: String = "nimbus_data"
@@ -109,8 +114,24 @@ interface NimbusInterface : FeaturesInterface, GleanPlumbInterface {
      *
      * This method uses the single threaded worker scope, so callers can safely sequence calls to
      * `initialize` and `setExperimentsLocally`, `applyPendingExperiments`.
+     *
+     * Deprecation warning: This method is likely to either disappear or be renamed. If you are
+     * already using {applyPendingExperiments}, then the call can be safely deleted.
      */
     fun initialize() = Unit
+
+    /**
+     * This performs the tasks needed to get from a newly constructed Nimbus object
+     * to an object being prepared for use in the app:
+     * - it connects to the existing database, or creates a new one.
+     * - it applies the experiment recipes that were fetched on last run
+     * - it fetches the experiment recipes from the server.
+     *
+     * If the app indicates that this is the first run, the {file} is loaded from resources
+     * and immediately applied. In this manner, a build time copy of the experiment recipes may be
+     * used immediately for first run/early startup experiments, for example for onboarding features.
+     */
+    fun initialize(isFirstRun: Boolean, @RawRes file: Int): Job = Job()
 
     /**
      * Fetches experiments from the RemoteSettings server.
@@ -133,7 +154,7 @@ interface NimbusInterface : FeaturesInterface, GleanPlumbInterface {
      *
      * Notifies `onUpdatesApplied` once enrolments are recalculated.
      */
-    fun applyPendingExperiments() = Unit
+    fun applyPendingExperiments(): Job = Job()
 
     /**
      * Set the experiments as the passed string, just as `fetchExperiments` gets the string from
@@ -145,6 +166,18 @@ interface NimbusInterface : FeaturesInterface, GleanPlumbInterface {
      * This is performed on a background thread.
      */
     fun setExperimentsLocally(payload: String) = Unit
+
+    /**
+     * This is functionally equivalent to a sequence of {setExperimentsLocally} the
+     * {applyPendingExperiments}.
+     *
+     * @param a `raw` resource identifier resolving to a JSON file downloaded from RemoteSettings
+     *       at build time.
+     * @return a Job. This may be cancelled, but only the loading from the resource will be cancelled.
+     *      If this is cancelled, then {initialize} is called, which copies the database in to an
+     *      in memory cache.
+     */
+    fun applyLocalExperiments(@RawRes file: Int): Job = Job()
 
     /**
      * A utility method to load a file from resources and pass it to `setExperimentsLocally(String)`.
@@ -431,6 +464,7 @@ open class Nimbus(
     @VisibleForTesting(otherwise = VisibleForTesting.PRIVATE)
     internal fun initializeOnThisThread() = withCatchAll {
         nimbusClient.initialize()
+        //postEnrolmentCalculation()
     }
 
     override fun fetchExperiments() {
@@ -452,11 +486,12 @@ open class Nimbus(
         }
     }
 
-    override fun applyPendingExperiments() {
+    override fun applyPendingExperiments(): Job =
         dbScope.launch {
-            applyPendingExperimentsOnThisThread()
+            withContext(NonCancellable) {
+                applyPendingExperimentsOnThisThread()
+            }
         }
-    }
 
     @WorkerThread
     @VisibleForTesting(otherwise = VisibleForTesting.PRIVATE)
@@ -470,6 +505,38 @@ open class Nimbus(
         }
     }
 
+    override fun initialize(isFirstRun: Boolean, @RawRes file: Int): Job =
+        if (isFirstRun) {
+            applyLocalExperiments(file)
+        } else {
+            applyPendingExperiments()
+        }.also { job ->
+            job.invokeOnCompletion {
+                fetchExperiments()
+            }
+        }
+
+    override fun applyLocalExperiments(@RawRes file: Int): Job =
+        dbScope.launch {
+            val payload = try {
+                loadRawResource(file)
+            } catch (e: CancellationException) {
+                // TODO consider reporting a glean event here.
+                null
+            } catch (e: IOException) {
+                reportError(e)
+                null
+            }
+            withContext(NonCancellable) {
+                if (payload != null) {
+                    setExperimentsLocallyOnThisThread(payload)
+                    applyPendingExperimentsOnThisThread()
+                } else {
+                    initializeOnThisThread()
+                }
+            }
+        }
+
     @WorkerThread
     private fun postEnrolmentCalculation() {
         nimbusClient.getActiveExperiments().let {
@@ -481,14 +548,17 @@ open class Nimbus(
     override fun setExperimentsLocally(@RawRes file: Int) {
         dbScope.launch {
             withCatchAll {
-                context.resources.openRawResource(file).use {
-                    it.bufferedReader().readText()
-                }
+                loadRawResource(file)
             }?.let { payload ->
                 setExperimentsLocallyOnThisThread(payload)
             }
         }
     }
+
+    private fun loadRawResource(file: Int): String =
+        context.resources.openRawResource(file).use {
+            it.bufferedReader().readText()
+        }
 
     override fun setExperimentsLocally(payload: String) {
         dbScope.launch {
