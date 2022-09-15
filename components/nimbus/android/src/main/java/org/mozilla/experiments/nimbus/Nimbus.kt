@@ -499,7 +499,7 @@ open class Nimbus(
         try {
             nimbusClient.applyPendingExperiments().also(::recordExperimentTelemetryEvents)
             // Get the experiments to record in telemetry
-            postEnrolmentCalculation()
+            postEnrolmentCalculation() // caused timeout and prevented job completion
         } catch (e: NimbusException.InvalidExperimentFormat) {
             errorReporter("Invalid experiment format", e)
         }
@@ -507,11 +507,13 @@ open class Nimbus(
 
     override fun initialize(isFirstRun: Boolean, @RawRes file: Int): Job =
         if (isFirstRun) {
+            println("JONATHANNN isFirstRun=$isFirstRun")
             applyLocalExperiments(file)
         } else {
             applyPendingExperiments()
         }.also { job ->
             job.invokeOnCompletion {
+                println("JONATHANNN invokeOnCompletion in initialize")
                 fetchExperiments()
             }
         }
@@ -522,15 +524,25 @@ open class Nimbus(
                 loadRawResource(file)
             } catch (e: CancellationException) {
                 // TODO consider reporting a glean event here.
+                println("JONATHANNN exception: CancellationException")
+                e.printStackTrace()
                 null
             } catch (e: IOException) {
-                reportError(e)
+                // This doesn't do anything.
+                //reportError(e)
+                println("JONATHANNN exception: IOException")
+                e.printStackTrace()
                 null
             }
             withContext(NonCancellable) {
+                println("JONATHANNN within NonCancellable context")
+                println("JONATHANNN payload=$payload")
                 if (payload != null) {
+                    println("JONATHANNN setExperimentsLocallyOnThisThread")
                     setExperimentsLocallyOnThisThread(payload)
+                    println("JONATHANNN applyPendingExperimentsOnThisThread")
                     applyPendingExperimentsOnThisThread()
+                    println("JONATHANNN done with applyPendingExperimentsOnThisThread")
                 } else {
                     initializeOnThisThread()
                 }
@@ -540,8 +552,14 @@ open class Nimbus(
     @WorkerThread
     private fun postEnrolmentCalculation() {
         nimbusClient.getActiveExperiments().let {
+            println("JONATHANNN recordExperimentTelemetry")
             recordExperimentTelemetry(it)
-            observer?.onUpdatesApplied(it)
+            println("JONATHANNN onUpdatesApplied")
+            // needs to be at the caller; reason unknown during debugging
+            MainScope().launch {
+                observer?.onUpdatesApplied(it)
+            }
+            println("JONATHANNN onUpdatesApplied completed")
         }
     }
 
