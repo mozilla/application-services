@@ -318,6 +318,7 @@ data class NimbusDeviceInfo(
 class NimbusDelegate(
     val dbScope: CoroutineScope,
     val fetchScope: CoroutineScope,
+    val updateScope: CoroutineScope? = null,
     val errorReporter: ErrorReporter,
     val logger: LoggerFunction
 )
@@ -339,6 +340,8 @@ open class Nimbus(
 
     // An I/O scope is used for getting experiments from the network.
     private val fetchScope: CoroutineScope = delegate.fetchScope
+
+    private val updateScope: CoroutineScope? = delegate.updateScope
 
     private val errorReporter = delegate.errorReporter
 
@@ -478,11 +481,22 @@ open class Nimbus(
     internal fun fetchExperimentsOnThisThread() = withCatchAll {
         try {
             nimbusClient.fetchExperiments()
-            observer?.onExperimentsFetched()
+            updateObserver {
+                it.onExperimentsFetched()
+            }
         } catch (e: NimbusException.RequestException) {
             errorReporter("Error fetching experiments from endpoint", e)
         } catch (e: NimbusException.ResponseException) {
             errorReporter("Error fetching experiments from endpoint", e)
+        }
+    }
+
+    private fun updateObserver(updater: (NimbusInterface.Observer) -> Unit) {
+        val observer = observer ?: return
+        val scope = updateScope ?: return updater(observer)
+
+        scope.launch {
+            updater(observer)
         }
     }
 
@@ -556,8 +570,8 @@ open class Nimbus(
             recordExperimentTelemetry(it)
             println("JONATHANNN onUpdatesApplied")
             // needs to be at the caller; reason unknown during debugging
-            MainScope().launch {
-                observer?.onUpdatesApplied(it)
+            updateObserver { observer ->
+                observer.onUpdatesApplied(it)
             }
             println("JONATHANNN onUpdatesApplied completed")
         }
