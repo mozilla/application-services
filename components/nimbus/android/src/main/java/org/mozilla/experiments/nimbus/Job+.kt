@@ -9,10 +9,17 @@ import kotlinx.coroutines.withTimeout
  * Utility function to wait for the end of job. If the given timeout is reached then
  * the job is cancelled.
  */
-suspend fun Job.joinOrTimeout(timeout: Long) =
+suspend fun Job.joinOrTimeout(timeout: Long): Boolean =
     try {
-        withTimeout(timeout) {
-            join()
+        if (isCancelled) {
+            false
+        } else if (isCompleted) {
+            true
+        } else {
+            withTimeout(timeout) {
+                join()
+                true
+            }
         }
     } catch (e: TimeoutCancellationException) {
         println("JONATHANNN exception: TimeoutCancellationException (joinOrTimeout)")

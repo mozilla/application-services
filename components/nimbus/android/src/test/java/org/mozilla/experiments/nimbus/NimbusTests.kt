@@ -7,8 +7,13 @@ package org.mozilla.experiments.nimbus
 import android.content.Context
 import android.util.Log
 import androidx.test.core.app.ApplicationProvider
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.asCoroutineDispatcher
+import kotlinx.coroutines.cancelAndJoin
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.runBlocking
 import mozilla.telemetry.glean.BuildInfo
 import mozilla.telemetry.glean.Glean
 import mozilla.telemetry.glean.config.Configuration
@@ -19,6 +24,7 @@ import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
+import org.junit.Assert.assertFalse
 import org.junit.Before
 import org.junit.Rule
 import org.junit.Test
@@ -26,6 +32,7 @@ import org.junit.runner.RunWith
 import org.mockito.Mockito
 import org.mockito.Mockito.`when`
 import org.mozilla.experiments.nimbus.GleanMetrics.NimbusEvents
+import org.mozilla.experiments.nimbus.GleanMetrics.NimbusHealth
 import org.mozilla.experiments.nimbus.internal.EnrollmentChangeEvent
 import org.mozilla.experiments.nimbus.internal.EnrollmentChangeEventType
 import org.robolectric.RobolectricTestRunner
@@ -322,50 +329,55 @@ class NimbusTests {
 
     private fun Nimbus.setUpTestExperiments(appId: String, appInfo: NimbusAppInfo) {
         this.setExperimentsLocallyOnThisThread(
-            """
-                {"data": [{
-                  "schemaVersion": "1.0.0",
-                  "slug": "test-experiment",
-                  "endDate": null,
-                  "featureIds": ["about_welcome"],
-                  "branches": [
-                    {
-                      "slug": "test-branch",
-                      "ratio": 1,
-                      "feature": {
-                          "featureId": "about_welcome",
-                          "enabled": false,
-                          "value": {
-                            "text": "OK then",
-                            "number": 42
-                          }
-                      }
-                    }
-                  ],
-                  "probeSets": [],
-                  "startDate": null,
-                  "appName": "${appInfo.appName}",
-                  "appId": "$appId",
-                  "channel": "${appInfo.channel}",
-                  "bucketConfig": {
-                    "count": 10000,
-                    "start": 0,
-                    "total": 10000,
-                    "namespace": "test-experiment",
-                    "randomizationUnit": "nimbus_id"
-                  },
-                  "userFacingName": "Diagnostic test experiment",
-                  "referenceBranch": "test-branch",
-                  "isEnrollmentPaused": false,
-                  "proposedEnrollment": 7,
-                  "userFacingDescription": "This is a test experiment for diagnostic purposes.",
-                  "id": "test-experiment",
-                  "last_modified": 1602197324372
-                }]}
-            """.trimIndent()
+            testExperimentsJsonString(appInfo, appId)
         )
         this.applyPendingExperimentsOnThisThread()
     }
+
+    private fun testExperimentsJsonString(
+        appInfo: NimbusAppInfo,
+        appId: String
+    ) = """
+                    {"data": [{
+                      "schemaVersion": "1.0.0",
+                      "slug": "test-experiment",
+                      "endDate": null,
+                      "featureIds": ["about_welcome"],
+                      "branches": [
+                        {
+                          "slug": "test-branch",
+                          "ratio": 1,
+                          "feature": {
+                              "featureId": "about_welcome",
+                              "enabled": false,
+                              "value": {
+                                "text": "OK then",
+                                "number": 42
+                              }
+                          }
+                        }
+                      ],
+                      "probeSets": [],
+                      "startDate": null,
+                      "appName": "${appInfo.appName}",
+                      "appId": "$appId",
+                      "channel": "${appInfo.channel}",
+                      "bucketConfig": {
+                        "count": 10000,
+                        "start": 0,
+                        "total": 10000,
+                        "namespace": "test-experiment",
+                        "randomizationUnit": "nimbus_id"
+                      },
+                      "userFacingName": "Diagnostic test experiment",
+                      "referenceBranch": "test-branch",
+                      "isEnrollmentPaused": false,
+                      "proposedEnrollment": 7,
+                      "userFacingDescription": "This is a test experiment for diagnostic purposes.",
+                      "id": "test-experiment",
+                      "last_modified": 1602197324372
+                    }]}
+                """.trimIndent()
 
     @Test
     fun `buildExperimentContext returns a valid context`() {
@@ -429,6 +441,177 @@ class NimbusTests {
 
         val available = nimbus.getAvailableExperiments()
         assertTrue(available.isEmpty())
+    }
+
+    @Test
+    fun `job can timeout`() {
+        var completed = false
+        val job = nimbusDelegate.dbScope.launch {
+            delay(1000)
+            completed = true
+        }
+        val finished = runBlocking {
+            job.joinOrTimeout(250L)
+        }
+
+        assertFalse(completed)
+        assertEquals(completed, finished)
+    }
+
+    @Test
+    fun `job can complete`() {
+        var completed = false
+        val job = nimbusDelegate.dbScope.launch {
+            delay(250)
+            completed = true
+        }
+        val finished = runBlocking {
+            job.joinOrTimeout(1000L)
+        }
+
+        assertTrue(completed)
+        assertEquals(completed, finished)
+    }
+
+    @Test
+    fun `completed job is shown as complete`() {
+        var completed = false
+        val job = nimbusDelegate.dbScope.launch {
+            completed = true
+        }
+        runBlocking {
+            delay(250)
+        }
+        val finished = runBlocking {
+            job.joinOrTimeout(1000L)
+        }
+
+        assertTrue(completed)
+        assertEquals(completed, finished)
+    }
+
+    @Test
+    fun `applyLocalExperiments calls setLocalExperiments and applyPendingExperiments`() {
+        var completed = false
+        suspend fun getString(): String {
+            completed = true
+            return testExperimentsJsonString(appInfo, packageName)
+        }
+
+        val job = nimbus.applyLocalExperiments(::getString)
+        runBlocking {
+            job.join()
+        }
+
+        assertTrue(completed)
+        assertEquals(1, nimbus.getAvailableExperiments().size)
+    }
+
+    @Test
+    fun `in memory cache not ready logs an event`() {
+        // we haven't initialized nimbus at all, it should not log any error, but it should log an
+        // event
+        assertNull(nimbus.getFeatureConfigVariablesJson("dummy-experiment"))
+        assertNotNull(NimbusHealth.cacheNotReadyForFeature.testGetValue())
+    }
+
+    @Test
+    fun `applyLocalExperiments is cancellable`() {
+        var completed = false
+        suspend fun getString(): String =
+            throw CancellationException()
+
+        val job = nimbus.applyLocalExperiments(::getString)
+        runBlocking {
+            job.cancelAndJoin()
+        }
+
+        assertFalse(completed)
+        assertEquals(0, nimbus.getAvailableExperiments().size)
+        // this should not throw a DatabaseNotReadyException.
+        assertNull(nimbus.getFeatureConfigVariablesJson("dummy-experiment"))
+        assertNull(NimbusHealth.cacheNotReadyForFeature.testGetValue())
+    }
+
+    @Test
+    fun `applyLocalExperiments is cancellable with timeout`() {
+        var completed = false
+        suspend fun getString(): String {
+            delay(1000)
+            completed = true
+            return testExperimentsJsonString(appInfo, packageName)
+        }
+
+        val job = nimbus.applyLocalExperiments(::getString)
+        runBlocking {
+            job.joinOrTimeout(250L)
+        }
+
+        assertFalse(completed)
+        assertEquals(0, nimbus.getAvailableExperiments().size)
+        // this should not throw a DatabaseNotReadyException.
+        assertNull(nimbus.getFeatureConfigVariablesJson("dummy-experiment"))
+        assertNull(NimbusHealth.cacheNotReadyForFeature.testGetValue())
+    }
+
+    @Test
+    fun `test observers are not cancelled`() {
+        var observed = false
+        val observer = object : NimbusInterface.Observer {
+            override fun onUpdatesApplied(updated: List<org.mozilla.experiments.nimbus.internal.EnrolledExperiment>) {
+                runBlocking {
+                    delay(250)
+                    observed = true
+                }
+            }
+        }
+        val nimbus = Nimbus(
+            context = context,
+            appInfo = appInfo,
+            server = null,
+            deviceInfo = deviceInfo,
+            observer = observer,
+            delegate = nimbusDelegate
+        )
+
+        suspend fun getString() = testExperimentsJsonString(appInfo, packageName)
+
+        val job = nimbus.applyLocalExperiments(::getString)
+        runBlocking {
+            job.joinOrTimeout(100)
+        }
+
+        assertTrue(observed)
+    }
+
+    @Test
+    fun `test observers are not cancelled even if loading is cancelled`() {
+        var observed = false
+        val observer = object : NimbusInterface.Observer {
+            override fun onUpdatesApplied(updated: List<org.mozilla.experiments.nimbus.internal.EnrolledExperiment>) {
+                runBlocking {
+                    delay(250)
+                    observed = true
+                }
+            }
+        }
+        val nimbus = Nimbus(
+            context = context,
+            appInfo = appInfo,
+            server = null,
+            deviceInfo = deviceInfo,
+            observer = observer,
+            delegate = nimbusDelegate
+        )
+
+        suspend fun getString(): String = throw CancellationException()
+
+        val job = nimbus.applyLocalExperiments(::getString)
+        runBlocking {
+            job.joinOrTimeout(100)
+        }
+
+        assertTrue(observed)
     }
 }
 

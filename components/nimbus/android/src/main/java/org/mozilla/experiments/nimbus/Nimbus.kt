@@ -467,7 +467,7 @@ open class Nimbus(
     @VisibleForTesting(otherwise = VisibleForTesting.PRIVATE)
     internal fun initializeOnThisThread() = withCatchAll {
         nimbusClient.initialize()
-        //postEnrolmentCalculation()
+        postEnrolmentCalculation()
     }
 
     override fun fetchExperiments() {
@@ -533,9 +533,13 @@ open class Nimbus(
         }
 
     override fun applyLocalExperiments(@RawRes file: Int): Job =
+        applyLocalExperiments { loadRawResource(file) }
+
+    @VisibleForTesting(otherwise = VisibleForTesting.PRIVATE)
+    fun applyLocalExperiments(getString: suspend () -> String): Job =
         dbScope.launch {
             val payload = try {
-                loadRawResource(file)
+                getString()
             } catch (e: CancellationException) {
                 // TODO consider reporting a glean event here.
                 println("JONATHANNN exception: CancellationException")
