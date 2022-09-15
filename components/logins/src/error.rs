@@ -121,13 +121,6 @@ pub enum InvalidLogin {
     IllegalFieldValue { field_info: String },
 }
 
-// Adapts errors from the sync15_traits crate into sync15 errors.
-impl From<sync15::SyncTraitsError> for LoginsError {
-    fn from(e: sync15::SyncTraitsError) -> Self {
-        LoginsError::SyncAdapterError(e.into())
-    }
-}
-
 // Define how our internal errors are handled and converted to external errors.
 impl GetErrorHandling for LoginsError {
     type ExternalError = LoginsStorageError;

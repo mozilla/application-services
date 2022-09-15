@@ -10,10 +10,11 @@ use rusqlite::{
     Connection, Transaction,
 };
 use std::sync::Arc;
-use sync15::{
-    telemetry, CollSyncIds, CollectionRequest, EngineSyncAssociation, IncomingChangeset,
-    OutgoingChangeset, ServerTimestamp, SyncEngine,
+use sync15::engine::{
+    CollSyncIds, CollectionRequest, EngineSyncAssociation, IncomingChangeset, OutgoingChangeset,
+    SyncEngine,
 };
+use sync15::{telemetry, ServerTimestamp};
 use sync_guid::Guid;
 
 // We have 2 engines in this crate and they are identical except for stuff

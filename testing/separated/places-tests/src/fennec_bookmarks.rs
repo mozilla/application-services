@@ -756,7 +756,8 @@ fn do_test_sync_after_migrate(test_type: TimestampTestType) -> Result<()> {
     use serde_json::json;
     use std::collections::HashSet;
     use std::time::{Duration, SystemTime, UNIX_EPOCH};
-    use sync15::{telemetry, IncomingChangeset, Payload, ServerTimestamp, SyncEngine};
+    use sync15::engine::{IncomingChangeset, SyncEngine};
+    use sync15::{telemetry, Payload, ServerTimestamp};
     use url::Url;
 
     let _ = env_logger::try_init();

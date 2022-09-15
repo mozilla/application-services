@@ -4,23 +4,21 @@
 
 use std::collections::{HashMap, HashSet};
 
-use crate::{
-    changeset::{CollectionUpdate, IncomingChangeset, OutgoingChangeset},
-    client::Sync15StorageClient,
-    coll_state::CollState,
-    collection_keys::CollectionKeys,
-    request::{CollectionRequest, InfoConfiguration},
-    state::GlobalState,
+use crate::client::{
+    CollState, CollectionKeys, CollectionUpdate, GlobalState, InfoConfiguration,
+    Sync15StorageClient,
 };
+use crate::client_types::{ClientData, RemoteClient};
+use crate::engine::{CollectionRequest, IncomingChangeset, OutgoingChangeset};
+use crate::error::Result;
+use crate::{KeyBundle, Payload};
 use interrupt_support::Interruptee;
-use sync15_traits::{client::ClientData, KeyBundle, Payload};
 
 use super::{
     record::{ClientRecord, CommandRecord},
     ser::shrink_to_fit,
-    Command, CommandProcessor, CommandStatus, RemoteClient, CLIENTS_TTL,
+    Command, CommandProcessor, CommandStatus, CLIENTS_TTL,
 };
-use crate::error::Result;
 
 const COLLECTION_NAME: &str = "clients";
 
@@ -334,7 +332,7 @@ impl<'a> Engine<'a> {
         let coll_request = CollectionRequest::new(COLLECTION_NAME).full();
 
         self.interruptee.err_if_interrupted()?;
-        let inbound = crate::changeset::fetch_incoming(storage_client, coll_state, &coll_request)?;
+        let inbound = crate::client::fetch_incoming(storage_client, coll_state, &coll_request)?;
 
         Ok(inbound)
     }
@@ -355,8 +353,8 @@ impl<'a> Engine<'a> {
 
 #[cfg(test)]
 mod tests {
-    use crate::clients::{CommandStatus, DeviceType, Settings};
-    use crate::util::ServerTimestamp;
+    use super::super::{CommandStatus, DeviceType, Settings};
+    use crate::ServerTimestamp;
     use anyhow::Result;
     use interrupt_support::NeverInterrupts;
     use serde_json::{json, Value};

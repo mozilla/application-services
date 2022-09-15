@@ -2,14 +2,12 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-use crate::collection_keys::CollectionKeys;
+use super::request::InfoConfiguration;
+use super::{CollectionKeys, GlobalState};
+use crate::engine::{CollSyncIds, EngineSyncAssociation, SyncEngine};
 use crate::error;
-use crate::request::InfoConfiguration;
-use crate::state::GlobalState;
-use crate::sync::SyncEngine;
-use crate::util::ServerTimestamp;
-
-pub use sync15_traits::{CollSyncIds, EngineSyncAssociation, KeyBundle};
+use crate::KeyBundle;
+use crate::ServerTimestamp;
 
 /// Holds state for a collection. In general, only the CollState is
 /// needed to sync a collection (but a valid GlobalState is needed to obtain
@@ -168,11 +166,12 @@ impl<'state> LocalCollStateMachine<'state> {
 
 #[cfg(test)]
 mod tests {
+    use super::super::request::{InfoCollections, InfoConfiguration};
+    use super::super::CollectionKeys;
     use super::*;
-    use crate::changeset::{IncomingChangeset, OutgoingChangeset};
-    use crate::collection_keys::CollectionKeys;
+    use crate::engine::CollectionRequest;
+    use crate::engine::{IncomingChangeset, OutgoingChangeset};
     use crate::record_types::{MetaGlobalEngine, MetaGlobalRecord};
-    use crate::request::{CollectionRequest, InfoCollections, InfoConfiguration};
     use crate::telemetry;
     use anyhow::Result;
     use std::cell::{Cell, RefCell};

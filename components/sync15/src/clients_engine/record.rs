@@ -65,6 +65,16 @@ pub struct ClientRecord {
     pub ttl: u32,
 }
 
+impl From<&ClientRecord> for crate::RemoteClient {
+    fn from(record: &ClientRecord) -> crate::RemoteClient {
+        crate::RemoteClient {
+            fxa_device_id: record.fxa_device_id.clone(),
+            device_name: record.name.clone(),
+            device_type: record.typ,
+        }
+    }
+}
+
 /// The serialized form of a client command.
 #[derive(Clone, Debug, Eq, Deserialize, Hash, PartialEq, Serialize)]
 #[serde(rename_all = "camelCase")]
@@ -124,7 +134,7 @@ impl From<Command> for CommandRecord {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use sync15_traits::Payload;
+    use crate::Payload;
 
     #[test]
     fn test_ttl() {

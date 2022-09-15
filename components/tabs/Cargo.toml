@@ -7,7 +7,11 @@ license = "MPL-2.0"
 exclude = ["/android", "/ios"]
 
 [features]
-full-sync = ["sync15"]
+# TODO: we've enabled the "standalone-sync" feature - see the description
+# of this feature in sync15's Cargo.toml for what we should do instead.
+# (But note tabs is a little more complicated in the short term because it
+# also supports the bridged-engine. We should rationalize this.)
+full-sync = ["sync15/standalone-sync"]
 
 [dependencies]
 anyhow = "1.0"
@@ -21,8 +25,7 @@ serde_derive = "1"
 serde_json = "1"
 sql-support = { path = "../support/sql" }
 sync-guid = { path = "../support/guid", features = ["random"] }
-sync15 = { path = "../sync15", optional = true }
-sync15-traits = { path = "../support/sync15-traits" }
+sync15 = { path = "../sync15", features = ["sync-engine"] }
 thiserror = "1.0"
 uniffi = "^0.20"
 uniffi_macros = "^0.20"

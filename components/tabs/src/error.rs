@@ -9,6 +9,8 @@ pub enum TabsError {
     SyncAdapterError(#[from] sync15::Error),
 
     // Note we are abusing this as a kind of "mis-matched feature" error.
+    // This works because when `full-sync` isn't enabled we don't actually
+    // handle any sync15 errors as the bridged-engine never returns them.
     #[cfg(not(feature = "full-sync"))]
     #[error("Sync feature is disabled: {0}")]
     SyncAdapterError(String),
@@ -30,14 +32,6 @@ pub enum TabsError {
 
     #[error("Error opening database: {0}")]
     OpenDatabaseError(#[from] sql_support::open_database::Error),
-}
-
-// Adapts errors from the sync15_traits crate into sync15 errors.
-#[cfg(feature = "full-sync")]
-impl From<sync15::SyncTraitsError> for TabsError {
-    fn from(e: sync15::SyncTraitsError) -> Self {
-        TabsError::SyncAdapterError(e.into())
-    }
 }
 
 pub type Result<T> = std::result::Result<T, TabsError>;
