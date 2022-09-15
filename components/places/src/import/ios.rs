@@ -2,8 +2,7 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-mod check_coop_tx;
-mod fennec_bookmarks;
-mod fennec_history;
-mod ios_bookmarks;
-mod ios_history;
+pub mod bookmarks;
+pub mod history;
+pub use bookmarks::import as import_bookmarks;
+pub use history::import as import_history;

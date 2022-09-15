@@ -5,7 +5,7 @@
 use dogear::Guid;
 use places::{
     api::places_api::{ConnectionType, PlacesApi},
-    import::ios_bookmarks::IosBookmarkType,
+    import::ios::bookmarks::IosBookmarkType,
     storage::bookmarks::{self, fetch::Item},
     Result,
 };

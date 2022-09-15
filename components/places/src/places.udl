@@ -187,6 +187,9 @@ interface PlacesConnection {
 
     [Throws=PlacesError]
     Guid bookmarks_insert(InsertableBookmarkItem bookmark);
+
+    [Throws=PlacesError]
+    HistoryMigrationResult places_history_import_from_ios(string db_path, i64 last_sync_timestamp);
 };
 
 /**
@@ -324,6 +327,13 @@ dictionary Dummy {
 dictionary TopFrecentSiteInfo {
     Url url;
     string? title;
+};
+
+dictionary HistoryMigrationResult {
+    u32 num_total;
+    u32 num_succeeded;
+    u32 num_failed;
+    u64 total_duration;
 };
 
 

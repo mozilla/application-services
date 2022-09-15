@@ -130,10 +130,16 @@ fn run_desktop_import(db: &PlacesDb, filename: String) -> Result<()> {
     do_import(db, root)
 }
 
-fn run_ios_import(api: &PlacesApi, filename: String) -> Result<()> {
-    println!("ios import from {}", filename);
+fn run_ios_import_bookmarks(api: &PlacesApi, filename: String) -> Result<()> {
+    println!("ios import bookmarks from {}", filename);
     places::import::import_ios_bookmarks(api, filename)?;
     println!("Import finished!");
+    Ok(())
+}
+
+fn run_ios_import_history(conn: &PlacesDb, filename: String) -> Result<()> {
+    let res = places::import::import_ios_history(conn, filename, 0)?;
+    println!("Import finished!, results: {:?}", res);
     Ok(())
 }
 
@@ -345,6 +351,14 @@ enum Command {
         input_file: String,
     },
 
+    #[structopt(name = "import-ios-history")]
+    /// Import history from an iOS browser.db
+    ImportIosHistory {
+        #[structopt(name = "input-file", long, short = "i")]
+        /// The name of the file to read
+        input_file: String,
+    },
+
     #[structopt(name = "import-desktop-bookmarks")]
     /// Import bookmarks from JSON file exported by desktop Firefox
     ImportDesktopBookmarks {
@@ -392,7 +406,8 @@ fn main() -> Result<()> {
         ),
         Command::ExportBookmarks { output_file } => run_native_export(&db, output_file),
         Command::ImportBookmarks { input_file } => run_native_import(&db, input_file),
-        Command::ImportIosBookmarks { input_file } => run_ios_import(&api, input_file),
+        Command::ImportIosBookmarks { input_file } => run_ios_import_bookmarks(&api, input_file),
         Command::ImportDesktopBookmarks { input_file } => run_desktop_import(&db, input_file),
+        Command::ImportIosHistory { input_file } => run_ios_import_history(&db, input_file),
     }
 }

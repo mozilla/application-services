@@ -437,7 +437,7 @@ fn bookmark_data_from_fennec_pinned(
 }
 
 mod sql_fns {
-    use crate::import::common::sql_fns::{sanitize_timestamp, sanitize_utf8, validate_url};
+    use crate::import::common::sql_fns::{sanitize_integer_timestamp, sanitize_utf8, validate_url};
     use rusqlite::{
         functions::{Context, FunctionFlags},
         Connection, Result,
@@ -460,7 +460,7 @@ mod sql_fns {
             "sanitize_timestamp",
             1,
             FunctionFlags::SQLITE_UTF8 | FunctionFlags::SQLITE_DETERMINISTIC,
-            sanitize_timestamp,
+            sanitize_integer_timestamp,
         )?;
         c.create_scalar_function(
             "sanitize_utf8",

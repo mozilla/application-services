@@ -4,11 +4,10 @@
 
 use crate::api::places_api::PlacesApi;
 use crate::bookmark_sync::engine::update_frecencies;
-use crate::db::db::PlacesDb;
 use crate::error::*;
-use crate::import::common::attached_database;
-use rusqlite::Connection;
-use serde_derive::*;
+use crate::import::common::{
+    attached_database, define_history_migration_functions, select_count, HistoryMigrationResult,
+};
 use sql_support::ConnExt;
 use std::time::Instant;
 use url::Url;
@@ -16,14 +15,6 @@ use url::Url;
 // Fennec's history schema didn't meaningfully change since 34, so this could go as low as that version.
 // However, 36 was quite easy to obtain test databases for, and it shipped with quite an old ESR version (52).
 const FENNEC_DB_VERSION: i64 = 34;
-
-#[derive(Serialize, Deserialize, PartialEq, Eq, Debug, Clone, Default)]
-pub struct HistoryMigrationResult {
-    pub num_total: u32,
-    pub num_succeeded: u32,
-    pub num_failed: u32,
-    pub total_duration: u128,
-}
 
 pub fn import(
     places_api: &PlacesApi,
@@ -33,19 +24,13 @@ pub fn import(
     do_import(places_api, url)
 }
 
-pub fn select_count(conn: &PlacesDb, stmt: &str) -> u32 {
-    let count: Result<Option<u32>> =
-        conn.try_query_row(stmt, [], |row| Ok(row.get::<_, u32>(0)?), false);
-    count.unwrap().unwrap()
-}
-
 fn do_import(places_api: &PlacesApi, android_db_file_url: Url) -> Result<HistoryMigrationResult> {
     let conn_mutex = places_api.get_sync_connection()?;
     let conn = conn_mutex.lock();
 
     let scope = conn.begin_interrupt_scope()?;
 
-    define_sql_functions(&conn)?;
+    define_history_migration_functions(&conn)?;
 
     // Not sure why, but apparently beginning a transaction sometimes
     // fails if we open the DB as read-only. Hopefully we don't
@@ -64,7 +49,7 @@ fn do_import(places_api: &PlacesApi, android_db_file_url: Url) -> Result<History
     let tx = conn.begin_transaction()?;
 
     log::debug!("Counting Fennec history visits");
-    let num_total = select_count(&conn, &COUNT_FENNEC_HISTORY_VISITS);
+    let num_total = select_count(&conn, &COUNT_FENNEC_HISTORY_VISITS)?;
 
     log::debug!("Creating and populating staging table");
     conn.execute_batch(&CREATE_STAGING_TABLE)?;
@@ -89,7 +74,7 @@ fn do_import(places_api: &PlacesApi, android_db_file_url: Url) -> Result<History
     log::info!("Successfully imported history visits!");
 
     log::debug!("Counting Fenix history visits");
-    let num_succeeded = select_count(&conn, &COUNT_FENIX_HISTORY_VISITS);
+    let num_succeeded = select_count(&conn, &COUNT_FENIX_HISTORY_VISITS)?;
     let num_failed = num_total - num_succeeded;
 
     auto_detach.execute_now()?;
@@ -98,7 +83,7 @@ fn do_import(places_api: &PlacesApi, android_db_file_url: Url) -> Result<History
         num_total,
         num_succeeded,
         num_failed,
-        total_duration: import_start.elapsed().as_millis(),
+        total_duration: import_start.elapsed().as_millis() as u64,
     };
 
     Ok(metrics)
@@ -170,39 +155,4 @@ lazy_static::lazy_static! {
     static ref COUNT_FENIX_HISTORY_VISITS: &'static str =
         "SELECT COUNT(*) FROM main.moz_historyvisits"
     ;
-}
-
-pub(super) fn define_sql_functions(c: &Connection) -> Result<()> {
-    use rusqlite::functions::FunctionFlags;
-    c.create_scalar_function(
-        "validate_url",
-        1,
-        FunctionFlags::SQLITE_UTF8 | FunctionFlags::SQLITE_DETERMINISTIC,
-        crate::import::common::sql_fns::validate_url,
-    )?;
-    c.create_scalar_function(
-        "sanitize_timestamp",
-        1,
-        FunctionFlags::SQLITE_UTF8 | FunctionFlags::SQLITE_DETERMINISTIC,
-        crate::import::common::sql_fns::sanitize_timestamp,
-    )?;
-    c.create_scalar_function(
-        "hash",
-        -1,
-        FunctionFlags::SQLITE_UTF8 | FunctionFlags::SQLITE_DETERMINISTIC,
-        crate::db::db::sql_fns::hash,
-    )?;
-    c.create_scalar_function(
-        "generate_guid",
-        0,
-        FunctionFlags::SQLITE_UTF8,
-        crate::db::db::sql_fns::generate_guid,
-    )?;
-    c.create_scalar_function(
-        "sanitize_utf8",
-        1,
-        FunctionFlags::SQLITE_UTF8 | FunctionFlags::SQLITE_DETERMINISTIC,
-        crate::import::common::sql_fns::sanitize_utf8,
-    )?;
-    Ok(())
 }

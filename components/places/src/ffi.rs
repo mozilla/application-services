@@ -7,9 +7,12 @@
 use crate::api::matcher::{self, search_frecent, SearchParams};
 use crate::api::places_api::places_api_new;
 use crate::error::PlacesError;
-use crate::import::fennec::import_bookmarks;
-use crate::import::fennec::import_history;
+use crate::import::common::HistoryMigrationResult;
 use crate::import::fennec::import_pinned_sites;
+use crate::import::import_fennec_bookmarks;
+use crate::import::import_fennec_history;
+use crate::import::import_ios_bookmarks;
+use crate::import::import_ios_history;
 use crate::storage;
 use crate::storage::bookmarks;
 use crate::storage::bookmarks::BookmarkPosition;
@@ -218,17 +221,17 @@ impl PlacesApi {
     }
 
     fn places_history_import_from_fennec(&self, db_path: String) -> Result<String> {
-        let metrics = import_history(self, db_path.as_str())?;
+        let metrics = import_fennec_history(self, db_path.as_str())?;
         Ok(serde_json::to_string(&metrics)?)
     }
 
     fn places_bookmarks_import_from_fennec(&self, db_path: String) -> Result<String> {
-        let metrics = import_bookmarks(self, db_path.as_str())?;
+        let metrics = import_fennec_bookmarks(self, db_path.as_str())?;
         Ok(serde_json::to_string(&metrics)?)
     }
 
     fn places_bookmarks_import_from_ios(&self, db_path: String) -> Result<()> {
-        import_bookmarks(self, db_path.as_str())?;
+        import_ios_bookmarks(self, db_path.as_str())?;
         Ok(())
     }
 
@@ -577,6 +580,14 @@ impl PlacesConnection {
 
     fn bookmarks_update(&self, item: BookmarkUpdateInfo) -> Result<()> {
         self.with_conn(|conn| bookmarks::update_bookmark_from_info(conn, item))
+    }
+
+    fn places_history_import_from_ios(
+        &self,
+        db_path: String,
+        last_sync_timestamp: i64,
+    ) -> Result<HistoryMigrationResult> {
+        self.with_conn(|conn| import_ios_history(conn, &db_path, last_sync_timestamp))
     }
 }
 

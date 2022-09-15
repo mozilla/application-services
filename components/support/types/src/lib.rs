@@ -33,6 +33,11 @@ impl Timestamp {
         SystemTime::from(self).checked_sub(d).map(Timestamp::from)
     }
 
+    #[inline]
+    pub fn checked_add(self, d: Duration) -> Option<Timestamp> {
+        SystemTime::from(self).checked_add(d).map(Timestamp::from)
+    }
+
     pub fn as_millis(self) -> u64 {
         self.0
     }
