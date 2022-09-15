@@ -6,9 +6,11 @@ use std::time::Instant;
 
 use crate::bookmark_sync::engine::update_frecencies;
 use crate::error::Result;
+use crate::history_sync::engine::LAST_SYNC_META_KEY;
 use crate::import::common::{
     attached_database, define_history_migration_functions, select_count, HistoryMigrationResult,
 };
+use crate::storage::put_meta;
 use crate::PlacesDb;
 use url::Url;
 
@@ -32,12 +34,17 @@ use url::Url;
 pub fn import(
     conn: &PlacesDb,
     path: impl AsRef<std::path::Path>,
+    last_sync_timestamp: i64,
 ) -> Result<HistoryMigrationResult> {
     let url = crate::util::ensure_url_path(path)?;
-    do_import(conn, url)
+    do_import(conn, url, last_sync_timestamp)
 }
 
-fn do_import(conn: &PlacesDb, ios_db_file_url: Url) -> Result<HistoryMigrationResult> {
+fn do_import(
+    conn: &PlacesDb,
+    ios_db_file_url: Url,
+    last_sync_timestamp: i64,
+) -> Result<HistoryMigrationResult> {
     let scope = conn.begin_interrupt_scope()?;
     define_history_migration_functions(conn)?;
     // TODO: for some reason opening the db as read-only in **iOS** causes
@@ -66,6 +73,10 @@ fn do_import(conn: &PlacesDb, ios_db_file_url: Url) -> Result<HistoryMigrationRe
     conn.execute_batch(&INSERT_HISTORY_VISITS)?;
     scope.err_if_interrupted()?;
 
+    // Once the migration is done, we also migrate the sync timestamp if we have one
+    // this prevents us from having to do a **full** sync
+    put_meta(conn, LAST_SYNC_META_KEY, &last_sync_timestamp)?;
+
     tx.commit()?;
     // Note: update_frecencies manages its own transaction, which is fine,
     // since nothing that bad will happen if it is aborted.
@@ -93,7 +104,9 @@ fn do_import(conn: &PlacesDb, ios_db_file_url: Url) -> Result<HistoryMigrationRe
 lazy_static::lazy_static! {
    // Count IOS history visits
    static ref COUNT_IOS_HISTORY_VISITS: &'static str =
-       "SELECT COUNT(*) FROM ios.visits"
+       "SELECT COUNT(*) FROM ios.visits v
+        LEFT JOIN ios.history h on v.siteID = h.id
+        WHERE h.is_deleted = 0"
    ;
 
    // We use a staging table purely so that we can normalize URLs (and

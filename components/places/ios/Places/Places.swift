@@ -934,10 +934,10 @@ public class PlacesWriteConnection: PlacesReadConnection {
         }
     }
 
-    open func migrateHistoryFromBrowserDb(path: String) throws -> HistoryMigrationResult {
+    open func migrateHistoryFromBrowserDb(path: String, lastSyncTimestamp: Int64) throws -> HistoryMigrationResult {
         return try queue.sync {
             try self.checkApi()
-            return try self.conn.placesHistoryImportFromIos(dbPath: path)
+            return try self.conn.placesHistoryImportFromIos(dbPath: path, lastSyncTimestamp: lastSyncTimestamp)
         }
     }
 }

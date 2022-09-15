@@ -140,7 +140,7 @@ fn run_ios_import_bookmarks(api: &PlacesApi, filename: String) -> Result<()> {
 }
 
 fn run_ios_import_history(conn: &PlacesDb, filename: String) -> Result<()> {
-    let res = places::import::import_ios_history(conn, filename)?;
+    let res = places::import::import_ios_history(conn, filename, 0)?;
     println!("Import finished!, results: {:?}", res);
     Ok(())
 }

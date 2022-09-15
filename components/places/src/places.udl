@@ -189,7 +189,7 @@ interface PlacesConnection {
     Guid bookmarks_insert(InsertableBookmarkItem bookmark);
 
     [Throws=PlacesError]
-    HistoryMigrationResult places_history_import_from_ios(string db_path);
+    HistoryMigrationResult places_history_import_from_ios(string db_path, i64 last_sync_timestamp);
 };
 
 /**

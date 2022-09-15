@@ -581,8 +581,12 @@ impl PlacesConnection {
         self.with_conn(|conn| bookmarks::update_bookmark_from_info(conn, item))
     }
 
-    fn places_history_import_from_ios(&self, db_path: String) -> Result<HistoryMigrationResult> {
-        self.with_conn(|conn| import_ios_history(conn, &db_path))
+    fn places_history_import_from_ios(
+        &self,
+        db_path: String,
+        last_sync_timestamp: i64,
+    ) -> Result<HistoryMigrationResult> {
+        self.with_conn(|conn| import_ios_history(conn, &db_path, last_sync_timestamp))
     }
 }
 

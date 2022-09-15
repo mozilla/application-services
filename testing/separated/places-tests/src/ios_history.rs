@@ -120,7 +120,7 @@ fn test_import_empty() -> Result<()> {
     visits.populate(&ios_db)?;
     let places_api = PlacesApi::new(tmpdir.path().join("places.sqlite"))?;
     let conn = places_api.open_connection(ConnectionType::ReadWrite)?;
-    places::import::import_ios_history(&conn, ios_path)?;
+    places::import::import_ios_history(&conn, ios_path, 0)?;
 
     Ok(())
 }
@@ -179,7 +179,7 @@ fn test_import_basic() -> Result<()> {
 
     let places_api = PlacesApi::new(tmpdir.path().join("places.sqlite"))?;
     let conn = places_api.open_connection(ConnectionType::ReadWrite)?;
-    places::import::import_ios_history(&conn, ios_path)?;
+    places::import::import_ios_history(&conn, ios_path, 0)?;
 
     let places_db = places_api.open_connection(ConnectionType::ReadOnly)?;
     let visit_count = history::get_visit_count(&places_db, VisitTransitionSet::empty())?;
