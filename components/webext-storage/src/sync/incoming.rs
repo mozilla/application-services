@@ -11,7 +11,7 @@ use rusqlite::{
     Connection, Row, Transaction,
 };
 use sql_support::ConnExt;
-use sync15_traits::Payload;
+use sync15::Payload;
 use sync_guid::Guid as SyncGuid;
 
 use crate::api::{StorageChanges, StorageValueChange};
@@ -482,7 +482,7 @@ mod tests {
     use crate::api;
     use interrupt_support::NeverInterrupts;
     use serde_json::{json, Value};
-    use sync15_traits::Payload;
+    use sync15::Payload;
 
     // select simple int
     fn ssi(conn: &Connection, stmt: &str) -> u32 {

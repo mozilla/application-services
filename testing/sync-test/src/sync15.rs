@@ -14,11 +14,11 @@ use log::*;
 use serde_derive::*;
 use std::cell::{Cell, RefCell};
 use std::mem;
-use sync15::{telemetry, MemoryCachedState};
-use sync15_traits::{
-    CollectionRequest, EngineSyncAssociation, IncomingChangeset, OutgoingChangeset, Payload,
-    ServerTimestamp, SyncEngine,
+use sync15::client::{sync_multiple, MemoryCachedState, Sync15StorageClientInit};
+use sync15::engine::{
+    CollectionRequest, EngineSyncAssociation, IncomingChangeset, OutgoingChangeset, SyncEngine,
 };
+use sync15::{telemetry, Payload, ServerTimestamp};
 use sync_guid::Guid;
 
 use crate::auth::TestClient;
@@ -144,7 +144,7 @@ fn sync_client(c: &mut TestClient, desc: &str, engine: &dyn SyncEngine) {
         .get_sync_data()
         .expect("Should have data for syncing first client");
 
-    let storage_init = &sync15::Sync15StorageClientInit {
+    let storage_init = &Sync15StorageClientInit {
         key_id: auth_info.kid,
         access_token: auth_info.fxa_access_token,
         tokenserver_url: url::Url::parse(auth_info.tokenserver_url.as_str()).unwrap(),
@@ -154,7 +154,7 @@ fn sync_client(c: &mut TestClient, desc: &str, engine: &dyn SyncEngine) {
     let mut persisted_global_state = None;
     let mut mem_cached_state = MemoryCachedState::default();
 
-    let result = sync15::sync_multiple(
+    let result = sync_multiple(
         &[engine],
         &mut persisted_global_state,
         &mut mem_cached_state,

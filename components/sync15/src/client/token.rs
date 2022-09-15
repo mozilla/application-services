@@ -3,7 +3,7 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
 use crate::error::{self, Error as ErrorKind, Result};
-use crate::util::ServerTimestamp;
+use crate::ServerTimestamp;
 use rc_crypto::hawk;
 use serde_derive::*;
 use std::borrow::{Borrow, Cow};
@@ -48,7 +48,7 @@ struct TokenFetchResult {
 // The trait for fetching tokens - we'll provide a "real" implementation but
 // tests will re-implement it.
 trait TokenFetcher {
-    fn fetch_token(&self) -> super::Result<TokenFetchResult>;
+    fn fetch_token(&self) -> crate::Result<TokenFetchResult>;
     // We allow the trait to tell us what the time is so tests can get funky.
     fn now(&self) -> SystemTime;
 }

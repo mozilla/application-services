@@ -10,12 +10,12 @@ use interrupt_support::NeverInterrupts;
 use std::cell::{Cell, RefCell};
 use std::collections::HashMap;
 use std::sync::{Arc, Mutex, Weak};
-use sync15::{
-    clients::{self, RemoteClient},
-    telemetry, CollectionRequest, DeviceType, EngineSyncAssociation, IncomingChangeset,
-    OutgoingChangeset, Payload, ServerTimestamp, SyncEngine,
+use sync15::client::{sync_multiple, MemoryCachedState, Sync15StorageClientInit};
+use sync15::engine::{
+    CollectionRequest, EngineSyncAssociation, IncomingChangeset, OutgoingChangeset, SyncEngine,
+    SyncEngineId,
 };
-use sync15::{sync_multiple, MemoryCachedState, SyncEngineId};
+use sync15::{telemetry, ClientData, DeviceType, Payload, RemoteClient, ServerTimestamp};
 
 use sync_guid::Guid;
 
@@ -122,7 +122,7 @@ impl SyncEngine for TabsEngine {
         "tabs".into()
     }
 
-    fn prepare_for_sync(&self, get_client_data: &dyn Fn() -> clients::ClientData) -> Result<()> {
+    fn prepare_for_sync(&self, get_client_data: &dyn Fn() -> ClientData) -> Result<()> {
         let data = get_client_data();
         self.remote_clients.replace(data.recent_clients);
         self.local_id.replace(data.local_client_id);
@@ -283,7 +283,7 @@ impl crate::TabsStore {
         // Do it here.
         engine.local_id = RefCell::new(local_id);
 
-        let storage_init = &sync15::Sync15StorageClientInit {
+        let storage_init = &Sync15StorageClientInit {
             key_id,
             access_token,
             tokenserver_url: url::Url::parse(tokenserver_url.as_str())?,

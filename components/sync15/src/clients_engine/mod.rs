@@ -2,6 +2,17 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
+//! The client engine is a [crate::engine](Sync Engine) used to manage the
+//! "clients" collection. The clients engine manages the client record for
+//! "this device, and also manages "commands".
+//! In short, commands target one or more engines and instruct them to
+//! perform various operations - such as wiping all local data.
+//! These commands are used very rarely - currently the only command used
+//! in practice is for bookmarks to wipe all their data, which is sent when
+//! a desktop device restores all bookmarks from a backup. In this scenario,
+//! desktop will delete all local bookmarks then replace them with the backed
+//! up set, which without a "wipe" command would almost certainly cause other
+//! connected devices to "resurrect" the deleted bookmarks.
 use std::collections::HashSet;
 
 mod engine;
@@ -11,7 +22,6 @@ mod ser;
 use crate::DeviceType;
 use anyhow::Result;
 pub use engine::Engine;
-pub use sync15_traits::client::{ClientData, RemoteClient};
 
 // These are what desktop uses.
 const CLIENTS_TTL: u32 = 15_552_000; // 180 days
@@ -56,16 +66,6 @@ pub enum CommandStatus {
     Applied,
     Ignored,
     Unsupported,
-}
-
-impl From<&record::ClientRecord> for RemoteClient {
-    fn from(record: &record::ClientRecord) -> RemoteClient {
-        RemoteClient {
-            fxa_device_id: record.fxa_device_id.clone(),
-            device_name: record.name.clone(),
-            device_type: record.typ,
-        }
-    }
 }
 
 /// Information about this device to include in its client record. This should

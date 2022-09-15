@@ -436,9 +436,9 @@ mod tests {
             .decrypt(&keybundle2)
             .expect_err("Should fail because wrong keybundle");
 
-        // Note: ErrorKind isn't PartialEq, so.
+        // Note: Error isn't PartialEq, so.
         match e {
-            error::SyncTraitsError::CryptoError(_) => {
+            error::Error::CryptoError(_) => {
                 // yay.
             }
             other => {

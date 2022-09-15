@@ -16,7 +16,7 @@ use rusqlite::{self, Connection, Row};
 use serde_json::{self, json};
 use sql_support::{self, ConnExt};
 use std::cmp::{max, min};
-use sync15::EngineSyncAssociation;
+use sync15::engine::EngineSyncAssociation;
 use sync_guid::Guid as SyncGuid;
 use types::Timestamp;
 use url::Url;

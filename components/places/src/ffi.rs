@@ -30,6 +30,7 @@ use error_support::report_error;
 use interrupt_support::{register_interrupt, SqlInterruptHandle};
 use parking_lot::Mutex;
 use std::sync::{Arc, Weak};
+use sync15::client::Sync15StorageClientInit;
 use sync_guid::Guid;
 use types::Timestamp as PlacesTimestamp;
 use url::Url;
@@ -179,7 +180,7 @@ impl PlacesApi {
             Err(err) => Err(PlacesError::UnexpectedPlacesException(err.to_string())),
         }?;
         let ping = self.sync_history(
-            &sync15::Sync15StorageClientInit {
+            &Sync15StorageClientInit {
                 key_id,
                 access_token,
                 tokenserver_url,
@@ -201,7 +202,7 @@ impl PlacesApi {
             Err(err) => Err(PlacesError::UnexpectedPlacesException(err.to_string())),
         }?;
         let ping = self.sync_bookmarks(
-            &sync15::Sync15StorageClientInit {
+            &Sync15StorageClientInit {
                 key_id,
                 access_token,
                 tokenserver_url,

@@ -16,7 +16,7 @@ use logins::{
 use prettytable::{cell, row, Cell, Row, Table};
 use rusqlite::OptionalExtension;
 use std::sync::Arc;
-use sync15::{EngineSyncAssociation, SyncEngine};
+use sync15::engine::{EngineSyncAssociation, SyncEngine};
 
 // I'm completely punting on good error handling here.
 use anyhow::{bail, Result};

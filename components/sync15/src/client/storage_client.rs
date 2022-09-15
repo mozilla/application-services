@@ -2,18 +2,18 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
+use super::request::{
+    BatchPoster, InfoCollections, InfoConfiguration, PostQueue, PostResponse, PostResponseHandler,
+};
+use super::token;
+use crate::engine::CollectionRequest;
 use crate::error::{self, Error, ErrorResponse};
 use crate::record_types::MetaGlobalRecord;
-use crate::request::{
-    BatchPoster, CollectionRequest, InfoCollections, InfoConfiguration, PostQueue, PostResponse,
-    PostResponseHandler,
-};
-use crate::token;
-use crate::util::ServerTimestamp;
+use crate::ServerTimestamp;
+use crate::{BsoRecord, EncryptedBso};
 use serde_json::Value;
 use std::str::FromStr;
 use std::sync::atomic::{AtomicU32, Ordering};
-use sync15_traits::{BsoRecord, EncryptedBso};
 use url::Url;
 use viaduct::{
     header_names::{self, AUTHORIZATION},
@@ -158,11 +158,11 @@ pub(crate) fn new_backoff_listener() -> BackoffListener {
 
 impl BackoffState {
     pub fn note_backoff(&self, noted: u32) {
-        crate::util::atomic_update_max(&self.backoff_secs, noted)
+        super::util::atomic_update_max(&self.backoff_secs, noted)
     }
 
     pub fn note_retry_after(&self, noted: u32) {
-        crate::util::atomic_update_max(&self.retry_after_secs, noted)
+        super::util::atomic_update_max(&self.retry_after_secs, noted)
     }
 
     pub fn get_backoff_secs(&self) -> u32 {
@@ -348,7 +348,7 @@ impl Sync15StorageClient {
     where
         for<'a> T: serde::de::Deserialize<'a>,
     {
-        let url = r.build_url(Url::parse(&self.tsc.api_endpoint()?)?)?;
+        let url = build_collection_request_url(Url::parse(&self.tsc.api_endpoint()?)?, r)?;
         self.exec_request(self.build_request(method, url)?, false)
     }
 
@@ -425,10 +425,10 @@ impl<'a> BatchPoster for PostWrapper<'a> {
         commit: bool,
         _: &PostQueue<T, O>,
     ) -> error::Result<PostResponse> {
-        let url = CollectionRequest::new(self.coll.clone())
+        let r = CollectionRequest::new(self.coll.clone())
             .batch(batch)
-            .commit(commit)
-            .build_url(Url::parse(&self.client.tsc.api_endpoint()?)?)?;
+            .commit(commit);
+        let url = build_collection_request_url(Url::parse(&self.client.tsc.api_endpoint()?)?, &r)?;
 
         let req = self
             .client
@@ -438,6 +438,58 @@ impl<'a> BatchPoster for PostWrapper<'a> {
             .body(bytes);
         self.client.exec_request(req, false)
     }
+}
+
+fn build_collection_request_url(mut base_url: Url, r: &CollectionRequest) -> error::Result<Url> {
+    base_url
+        .path_segments_mut()
+        .map_err(|_| Error::UnacceptableUrl("Storage server URL is not a base".to_string()))?
+        .extend(&["storage", &r.collection]);
+
+    let mut pairs = base_url.query_pairs_mut();
+    if r.full {
+        pairs.append_pair("full", "1");
+    }
+    if r.limit > 0 {
+        pairs.append_pair("limit", &r.limit.to_string());
+    }
+    if let Some(ids) = &r.ids {
+        // Most ids are 12 characters, and we comma separate them, so 13.
+        let mut buf = String::with_capacity(ids.len() * 13);
+        for (i, id) in ids.iter().enumerate() {
+            if i > 0 {
+                buf.push(',');
+            }
+            buf.push_str(id.as_str());
+        }
+        pairs.append_pair("ids", &buf);
+    }
+    if let Some(batch) = &r.batch {
+        pairs.append_pair("batch", batch);
+    }
+    if r.commit {
+        pairs.append_pair("commit", "true");
+    }
+    if let Some(ts) = r.older {
+        pairs.append_pair("older", &ts.to_string());
+    }
+    if let Some(ts) = r.newer {
+        pairs.append_pair("newer", &ts.to_string());
+    }
+    if let Some(o) = r.order {
+        pairs.append_pair("sort", o.as_str());
+    }
+    pairs.finish();
+    drop(pairs);
+
+    // This is strange but just accessing query_pairs_mut makes you have
+    // a trailing question mark on your url. I don't think anything bad
+    // would happen here, but I don't know, and also, it looks dumb so
+    // I'd rather not have it.
+    if base_url.query() == Some("") {
+        base_url.set_query(None);
+    }
+    Ok(base_url)
 }
 
 #[cfg(test)]
@@ -463,5 +515,60 @@ mod test {
         assert_eq!(parse_seconds("one-thousand"), None);
         assert_eq!(parse_seconds("4294967295"), Some(4294967295));
         assert_eq!(parse_seconds("4294967296"), None);
+    }
+
+    #[test]
+    fn test_query_building() {
+        use crate::engine::RequestOrder;
+        let base = Url::parse("https://example.com/sync").unwrap();
+
+        let empty =
+            build_collection_request_url(base.clone(), &CollectionRequest::new("foo")).unwrap();
+        assert_eq!(empty.as_str(), "https://example.com/sync/storage/foo");
+        let batch_start = build_collection_request_url(
+            base.clone(),
+            &CollectionRequest::new("bar")
+                .batch(Some("true".into()))
+                .commit(false),
+        )
+        .unwrap();
+        assert_eq!(
+            batch_start.as_str(),
+            "https://example.com/sync/storage/bar?batch=true"
+        );
+        let batch_commit = build_collection_request_url(
+            base.clone(),
+            &CollectionRequest::new("asdf")
+                .batch(Some("1234abc".into()))
+                .commit(true),
+        )
+        .unwrap();
+        assert_eq!(
+            batch_commit.as_str(),
+            "https://example.com/sync/storage/asdf?batch=1234abc&commit=true"
+        );
+
+        let idreq = build_collection_request_url(
+            base.clone(),
+            &CollectionRequest::new("wutang").full().ids(&["rza", "gza"]),
+        )
+        .unwrap();
+        assert_eq!(
+            idreq.as_str(),
+            "https://example.com/sync/storage/wutang?full=1&ids=rza%2Cgza"
+        );
+
+        let complex = build_collection_request_url(
+            base,
+            &CollectionRequest::new("specific")
+                .full()
+                .limit(10)
+                .sort_by(RequestOrder::Oldest)
+                .older_than(ServerTimestamp(9_876_540))
+                .newer_than(ServerTimestamp(1_234_560)),
+        )
+        .unwrap();
+        assert_eq!(complex.as_str(),
+            "https://example.com/sync/storage/specific?full=1&limit=10&older=9876.54&newer=1234.56&sort=oldest");
     }
 }

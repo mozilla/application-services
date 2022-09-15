@@ -352,14 +352,14 @@ impl TestClient {
             .get_sync_data()
             .expect("Should have data for syncing first client");
 
-        let storage_init = sync15::Sync15StorageClientInit {
+        use sync15::client::{SetupStorageClient, Sync15StorageClient, Sync15StorageClientInit};
+        let storage_init = Sync15StorageClientInit {
             key_id: auth_info.kid,
             access_token: auth_info.fxa_access_token,
             tokenserver_url: url::Url::parse(auth_info.tokenserver_url.as_str()).unwrap(),
         };
 
-        use sync15::SetupStorageClient;
-        sync15::Sync15StorageClient::new(storage_init)?.wipe_all_remote()?;
+        Sync15StorageClient::new(storage_init)?.wipe_all_remote()?;
         Ok(())
     }
 

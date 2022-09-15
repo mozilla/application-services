@@ -26,7 +26,7 @@ use rusqlite::Row;
 use sql_support::{self, ConnExt};
 use std::collections::HashSet;
 use std::time::Duration;
-use sync15::EngineSyncAssociation;
+use sync15::engine::EngineSyncAssociation;
 use sync_guid::Guid as SyncGuid;
 use types::Timestamp;
 use url::Url;
@@ -1510,7 +1510,7 @@ mod tests {
     use crate::types::VisitTransitionSet;
     use pretty_assertions::assert_eq;
     use std::time::{Duration, SystemTime};
-    use sync15::CollSyncIds;
+    use sync15::engine::CollSyncIds;
     use types::Timestamp;
 
     #[test]
