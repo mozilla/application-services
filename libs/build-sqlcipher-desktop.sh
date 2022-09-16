@@ -117,7 +117,7 @@ elif [[ "${TARGET_OS}" == "linux" ]]; then
 elif [[ "${TARGET_ARCH}" == "aarch64" ]]; then
   LIBS="${LIBS} -lgcm-aes-aarch64_c_lib -larmv8_c_lib"
 else
-  LIBS="${LIBS} -lhw-acc-crypto-avx -lhw-acc-crypto-avx2 -lgcm-aes-x86_c_lib"
+  LIBS="${LIBS} -lhw-acc-crypto-avx -lhw-acc-crypto-avx2 -lgcm-aes-x86_c_lib -lsha-x86_c_lib"
 fi
 
 BUILD_DIR=$(mktemp -d)
