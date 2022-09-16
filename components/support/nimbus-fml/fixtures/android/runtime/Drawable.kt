@@ -6,6 +6,7 @@
  * This is a mock implementation of Android's `Drawable` object to allow us to run tests of the generated
  * code against the real `FeatureVariables` code.
  */
+@file:Suppress("InvalidPackageDeclaration")
 package android.graphics.drawable
 
 @Suppress("PACKAGE_OR_CLASSIFIER_REDECLARATION")
