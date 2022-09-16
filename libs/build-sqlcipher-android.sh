@@ -23,18 +23,16 @@ if [[ -d "${DIST_DIR}" ]]; then
   exit 0
 fi
 
-export AR="${TOOLCHAIN_PATH}/bin/${TOOLCHAIN}-ar"
+export AR="${TOOLCHAIN_PATH}/bin/llvm-ar"
 export CC="${TOOLCHAIN_PATH}/bin/${TOOLCHAIN}${ANDROID_NDK_API_VERSION}-clang"
 export CXX="${TOOLCHAIN_PATH}/bin/${TOOLCHAIN}${ANDROID_NDK_API_VERSION}-clang++"
-# https://developer.android.com/ndk/guides/other_build_systems:
-# For 32-bit ARM, the compiler is prefixed with armv7a-linux-androideabi,
-# but the binutils tools are prefixed with arm-linux-androideabi.
+# For 32-bit ARM, the compiler is prefixed with armv7a-linux-androideabi
 if [[ "${TOOLCHAIN}" == "arm-linux-androideabi" ]]; then
   export CC="${TOOLCHAIN_PATH}/bin/armv7a-linux-androideabi${ANDROID_NDK_API_VERSION}-clang"
   export CXX="${TOOLCHAIN_PATH}/bin/armv7a-linux-androideabi${ANDROID_NDK_API_VERSION}-clang++"
 fi
-export LD="${TOOLCHAIN_PATH}/bin/${TOOLCHAIN}-ld"
-export RANLIB="${TOOLCHAIN_PATH}/bin/${TOOLCHAIN}-ranlib"
+export LD="${TOOLCHAIN_PATH}/bin/ld"
+export RANLIB="${TOOLCHAIN_PATH}/bin/llvm-ranlib"
 
 if [[ "${TOOLCHAIN}" == "x86_64-linux-android" ]]
 then

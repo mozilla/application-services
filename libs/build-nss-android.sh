@@ -42,20 +42,18 @@ else
 fi
 NSPR_64="${NSPR_64:-""}"
 
-export AR="${TOOLCHAIN_PATH}/bin/${TOOLCHAIN}-ar"
+export AR="${TOOLCHAIN_PATH}/bin/llvm-ar"
 export CC="${TOOLCHAIN_PATH}/bin/${TOOLCHAIN}${ANDROID_NDK_API_VERSION}-clang"
 export CXX="${TOOLCHAIN_PATH}/bin/${TOOLCHAIN}${ANDROID_NDK_API_VERSION}-clang++"
-# https://developer.android.com/ndk/guides/other_build_systems:
-# For 32-bit ARM, the compiler is prefixed with armv7a-linux-androideabi,
-# but the binutils tools are prefixed with arm-linux-androideabi.
+# For 32-bit ARM, the compiler is prefixed with armv7a-linux-androideabi
 if [[ "${TOOLCHAIN}" == "arm-linux-androideabi" ]]; then
   export CC="${TOOLCHAIN_PATH}/bin/armv7a-linux-androideabi${ANDROID_NDK_API_VERSION}-clang"
   export CXX="${TOOLCHAIN_PATH}/bin/armv7a-linux-androideabi${ANDROID_NDK_API_VERSION}-clang++"
 fi
-export LD="${TOOLCHAIN_PATH}/bin/${TOOLCHAIN}-ld"
-export NM="${TOOLCHAIN_PATH}/bin/${TOOLCHAIN}-nm"
-export RANLIB="${TOOLCHAIN_PATH}/bin/${TOOLCHAIN}-ranlib"
-export READELF="${TOOLCHAIN_PATH}/bin/${TOOLCHAIN}-readelf"
+export LD="${TOOLCHAIN_PATH}/bin/ld"
+export NM="${TOOLCHAIN_PATH}/bin/llvm-nm"
+export RANLIB="${TOOLCHAIN_PATH}/bin/llvm-ranlib"
+export READELF="${TOOLCHAIN_PATH}/bin/llvm-readelf"
 
 # Build NSPR
 NSPR_BUILD_DIR=$(mktemp -d)
