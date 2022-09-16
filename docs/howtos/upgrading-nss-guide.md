@@ -1,7 +1,7 @@
 # Guide to upgrading NSS
 
-Our components rely on cryptographic primitives provided by [NSS](https://developer.mozilla.org/docs/Mozilla/Projects/NSS).
-Every month or so, a new version of NSS is [published](https://developer.mozilla.org/en-US/docs/Mozilla/Projects/NSS/NSS_Releases) and we should try to keep our version as up-to-date as possible.
+Our components rely on cryptographic primitives provided by [NSS](https://firefox-source-docs.mozilla.org/security/nss/index.html).
+Every month or so, a new version of NSS is [published](https://firefox-source-docs.mozilla.org/security/nss/releases/index.html) and we should try to keep our version as up-to-date as possible.
 
 Because it makes unit testing easier on Android, and helps startup performance on iOS, we compile NSS ourselves and link to it statically. Note that NSS is mainly used by Mozilla as a dynamic library and the NSS project is missing related CI jobs (iOS builds, windows cross-compile builds etc.) so you should expect breakage when updating the library (hence this guide).
 
