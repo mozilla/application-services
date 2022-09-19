@@ -22,12 +22,10 @@ suspend fun Job.joinOrTimeout(timeout: Long): Boolean =
             }
         }
     } catch (e: TimeoutCancellationException) {
-        println("JONATHANNN exception: TimeoutCancellationException (joinOrTimeout)")
         e.printStackTrace()
         try {
             cancelAndJoin()
         } catch (e: Exception) {
-            println("JONATHANNN exception: Exception (from inner try-catch)")
             e.printStackTrace()
         }
         false

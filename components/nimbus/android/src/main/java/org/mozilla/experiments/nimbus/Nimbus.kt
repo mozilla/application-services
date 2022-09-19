@@ -521,13 +521,11 @@ open class Nimbus(
 
     override fun initialize(isFirstRun: Boolean, @RawRes file: Int): Job =
         if (isFirstRun) {
-            println("JONATHANNN isFirstRun=$isFirstRun")
             applyLocalExperiments(file)
         } else {
             applyPendingExperiments()
         }.also { job ->
             job.invokeOnCompletion {
-                println("JONATHANNN invokeOnCompletion in initialize")
                 fetchExperiments()
             }
         }
@@ -542,25 +540,17 @@ open class Nimbus(
                 getString()
             } catch (e: CancellationException) {
                 // TODO consider reporting a glean event here.
-                println("JONATHANNN exception: CancellationException")
-                e.printStackTrace()
+                logger(e.stackTraceToString())
                 null
             } catch (e: IOException) {
                 // This doesn't do anything.
-                //reportError(e)
-                println("JONATHANNN exception: IOException")
-                e.printStackTrace()
+                logger(e.stackTraceToString())
                 null
             }
             withContext(NonCancellable) {
-                println("JONATHANNN within NonCancellable context")
-                println("JONATHANNN payload=$payload")
                 if (payload != null) {
-                    println("JONATHANNN setExperimentsLocallyOnThisThread")
                     setExperimentsLocallyOnThisThread(payload)
-                    println("JONATHANNN applyPendingExperimentsOnThisThread")
                     applyPendingExperimentsOnThisThread()
-                    println("JONATHANNN done with applyPendingExperimentsOnThisThread")
                 } else {
                     initializeOnThisThread()
                 }
@@ -570,14 +560,11 @@ open class Nimbus(
     @WorkerThread
     private fun postEnrolmentCalculation() {
         nimbusClient.getActiveExperiments().let {
-            println("JONATHANNN recordExperimentTelemetry")
             recordExperimentTelemetry(it)
-            println("JONATHANNN onUpdatesApplied")
             // needs to be at the caller; reason unknown during debugging
             updateObserver { observer ->
                 observer.onUpdatesApplied(it)
             }
-            println("JONATHANNN onUpdatesApplied completed")
         }
     }
 
