@@ -19,6 +19,12 @@ Use the template below to make assigning a version number during the release cut
 
 -->
 
+## General
+
+### What's Changed
+
+- Rust toolchain has been bumped to 1.63 and minimum version bumped to 1.61 to comply with our [Rust Policy](https://github.com/mozilla/application-services/blob/main/docs/rust-versions.md#application-services-rust-version-policy)
+
 ## Places
 
 ### What's Changed
