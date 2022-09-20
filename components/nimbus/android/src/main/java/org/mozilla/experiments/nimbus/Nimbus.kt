@@ -172,6 +172,12 @@ interface NimbusInterface : FeaturesInterface, GleanPlumbInterface {
      * This is functionally equivalent to a sequence of {setExperimentsLocally} the
      * {applyPendingExperiments}.
      *
+     * Following completion of the returned job, the SDK's Feature API is ready to be used. If
+     * cancelled, the SDK will still prepare the SDK for safe use.
+     *
+     * Most apps will not need to call this method directly, as it is called on first run
+     * as part of {initialize}.
+     *
      * @param a `raw` resource identifier resolving to a JSON file downloaded from RemoteSettings
      *       at build time.
      * @return a Job. This may be cancelled, but only the loading from the resource will be cancelled.
@@ -505,9 +511,11 @@ open class Nimbus(
 
     private fun updateObserver(updater: (NimbusInterface.Observer) -> Unit) {
         val observer = observer ?: return
-        val scope = updateScope ?: return updater(observer)
-
-        scope.launch {
+        if (updateScope != null) {
+            updateScope.launch {
+                updater(observer)
+            }
+        } else {
             updater(observer)
         }
     }
@@ -525,7 +533,7 @@ open class Nimbus(
         try {
             nimbusClient.applyPendingExperiments().also(::recordExperimentTelemetryEvents)
             // Get the experiments to record in telemetry
-            postEnrolmentCalculation() // caused timeout and prevented job completion
+            postEnrolmentCalculation()
         } catch (e: NimbusException.InvalidExperimentFormat) {
             errorReporter("Invalid experiment format", e)
         }
@@ -555,7 +563,6 @@ open class Nimbus(
                 logger(e.stackTraceToString())
                 null
             } catch (e: IOException) {
-                // This doesn't do anything.
                 logger(e.stackTraceToString())
                 null
             }

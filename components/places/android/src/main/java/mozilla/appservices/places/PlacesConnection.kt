@@ -57,7 +57,6 @@ class PlacesApi(path: String) : PlacesManager, AutoCloseable {
         // function instead :(
         api = placesApiNew(path)
 
-        println("JONATHANNNNNN WAS HERE")
         val uniffiConnection = api.newConnection(ConnectionType.READ_WRITE)
         writeConn = PlacesWriterConnection(uniffiConnection, this)
     }
