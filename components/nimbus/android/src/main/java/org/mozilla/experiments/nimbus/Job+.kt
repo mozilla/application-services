@@ -22,11 +22,9 @@ suspend fun Job.joinOrTimeout(timeout: Long): Boolean =
             }
         }
     } catch (e: TimeoutCancellationException) {
-        e.printStackTrace()
-        try {
+        // We are not cancelled, nor completed.
+        if (isActive) {
             cancelAndJoin()
-        } catch (e: Exception) {
-            e.printStackTrace()
         }
         false
     }

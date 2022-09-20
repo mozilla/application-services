@@ -19,6 +19,7 @@ import androidx.core.content.pm.PackageInfoCompat
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Job
+import kotlinx.coroutines.MainScope
 import kotlinx.coroutines.NonCancellable
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -316,9 +317,20 @@ data class NimbusDeviceInfo(
  * Provide calling apps control how Nimbus fits into it.
  */
 class NimbusDelegate(
+    /**
+     * This is the coroutine scope that disk I/O occurs in, most notably the rkv database.
+     */
     val dbScope: CoroutineScope,
+    /**
+     * This is the coroutine scope that the SDK talks to the network.
+     */
     val fetchScope: CoroutineScope,
-    val updateScope: CoroutineScope? = null,
+    /**
+     * This is the coroutine scope that observers are notified on. By default, this is on the
+     * {MainScope}. If this is `null`, then observers are notified on whichever thread the SDK
+     * was called upon.
+     */
+    val updateScope: CoroutineScope? = MainScope(),
     val errorReporter: ErrorReporter,
     val logger: LoggerFunction
 )
@@ -561,7 +573,6 @@ open class Nimbus(
     private fun postEnrolmentCalculation() {
         nimbusClient.getActiveExperiments().let {
             recordExperimentTelemetry(it)
-            // needs to be at the caller; reason unknown during debugging
             updateObserver { observer ->
                 observer.onUpdatesApplied(it)
             }

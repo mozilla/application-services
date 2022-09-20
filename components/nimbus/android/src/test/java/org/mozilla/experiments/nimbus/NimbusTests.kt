@@ -12,7 +12,6 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.asCoroutineDispatcher
 import kotlinx.coroutines.cancelAndJoin
 import kotlinx.coroutines.delay
-import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
 import mozilla.telemetry.glean.BuildInfo
 import mozilla.telemetry.glean.Glean
@@ -58,6 +57,7 @@ class NimbusTests {
     private val nimbusDelegate = NimbusDelegate(
         dbScope = CoroutineScope(Executors.newSingleThreadExecutor().asCoroutineDispatcher()),
         fetchScope = CoroutineScope(Executors.newSingleThreadExecutor().asCoroutineDispatcher()),
+        updateScope = null,
         logger = { Log.i("NimbusTest", it) },
         errorReporter = { message, e -> Log.e("NimbusTest", message, e) }
     )
@@ -441,53 +441,6 @@ class NimbusTests {
 
         val available = nimbus.getAvailableExperiments()
         assertTrue(available.isEmpty())
-    }
-
-    @Test
-    fun `job can timeout`() {
-        var completed = false
-        val job = nimbusDelegate.dbScope.launch {
-            delay(1000)
-            completed = true
-        }
-        val finished = runBlocking {
-            job.joinOrTimeout(250L)
-        }
-
-        assertFalse(completed)
-        assertEquals(completed, finished)
-    }
-
-    @Test
-    fun `job can complete`() {
-        var completed = false
-        val job = nimbusDelegate.dbScope.launch {
-            delay(250)
-            completed = true
-        }
-        val finished = runBlocking {
-            job.joinOrTimeout(1000L)
-        }
-
-        assertTrue(completed)
-        assertEquals(completed, finished)
-    }
-
-    @Test
-    fun `completed job is shown as complete`() {
-        var completed = false
-        val job = nimbusDelegate.dbScope.launch {
-            completed = true
-        }
-        runBlocking {
-            delay(250)
-        }
-        val finished = runBlocking {
-            job.joinOrTimeout(1000L)
-        }
-
-        assertTrue(completed)
-        assertEquals(completed, finished)
     }
 
     @Test
