@@ -8,7 +8,7 @@ export ANDROID_NDK_ROOT="$ANDROID_NDK_HOME"
 popd || exit
 
 if [[ -z "${ANDROID_NDK_API_VERSION:-}" ]]; then
-    export ANDROID_NDK_API_VERSION=21
+    export ANDROID_NDK_API_VERSION=25
     echo "The ANDROID_NDK_API_VERSION environment variable is not set. Defaulting to ${ANDROID_NDK_API_VERSION}"
 fi
 

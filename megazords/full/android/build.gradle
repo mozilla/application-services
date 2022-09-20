@@ -66,7 +66,7 @@ cargo {
     module = '..'
 
     // The Android NDK API level to target.
-    apiLevel = 21
+    apiLevel = 25
 
     // Where Cargo writes its outputs.
     targetDirectory = '../../../target'
