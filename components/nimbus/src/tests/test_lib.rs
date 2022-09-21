@@ -205,6 +205,53 @@ fn test_installation_date() -> Result<()> {
 }
 
 #[test]
+fn test_days_since_calculation_happens_at_startup() -> Result<()> {
+    // Set up a client with an install date.
+    // We'll need two of these, to test the two scenarios.
+    let tmp_dir = tempfile::tempdir()?;
+
+    let three_days_ago = Utc::now() - Duration::days(3);
+    let time_stamp = three_days_ago.timestamp_millis();
+    let app_context = AppContext {
+        installation_date: Some(time_stamp),
+        home_directory: Some(tmp_dir.path().to_str().unwrap().to_string()),
+        ..Default::default()
+    };
+    let client = NimbusClient::new(
+        app_context.clone(),
+        tmp_dir.path(),
+        None,
+        Default::default(),
+    )?;
+
+    // 0. We haven't initialized anything yet, so dates won't be available.
+    // In practice this should never happen.
+    let targeting_attributes = client.get_targeting_attributes();
+    assert!(targeting_attributes.days_since_install.is_none());
+    assert!(targeting_attributes.days_since_update.is_none());
+
+    // 1. This is the initialize case, where the app is opened with no Nimbus URL
+    // or local experiments. Prior to v94.3, this was the default flow.
+    // After v94.3, either initialize() _or_ apply_pending_experiments() could
+    // be called.
+    client.initialize()?;
+    let targeting_attributes = client.get_targeting_attributes();
+    assert!(matches!(targeting_attributes.days_since_install, Some(3)));
+    assert!(targeting_attributes.days_since_update.is_some());
+
+    // 2. This is the new case: exactly one of initialize() or apply_pending_experiments()
+    // is called during start up.
+    // This case ensures that dates are available after apply_pending_experiments().
+    let client = NimbusClient::new(app_context, tmp_dir.path(), None, Default::default())?;
+    client.apply_pending_experiments()?;
+    let targeting_attributes = client.get_targeting_attributes();
+    assert!(matches!(targeting_attributes.days_since_install, Some(3)));
+    assert!(targeting_attributes.days_since_update.is_some());
+
+    Ok(())
+}
+
+#[test]
 fn test_days_since_update_changes_with_context() -> Result<()> {
     let mock_client_id = "client-1".to_string();
     let tmp_dir = tempfile::tempdir()?;
