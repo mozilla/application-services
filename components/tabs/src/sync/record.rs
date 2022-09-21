@@ -2,8 +2,8 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-use crate::error::*;
 use serde_derive::{Deserialize, Serialize};
+use sync15::Payload;
 
 #[derive(Debug, Clone, Hash, PartialEq, Eq, Serialize, Deserialize, Default)]
 #[serde(rename_all = "camelCase")]
@@ -28,7 +28,7 @@ pub struct TabsRecord {
 
 impl TabsRecord {
     #[inline]
-    pub fn from_payload(payload: sync15::Payload) -> Result<Self> {
+    pub fn from_payload(payload: Payload) -> crate::error::Result<Self> {
         let record: TabsRecord = payload.into_record()?;
         Ok(record)
     }
@@ -41,7 +41,7 @@ pub mod test {
 
     #[test]
     fn test_simple() {
-        let payload = sync15::Payload::from_json(json!({
+        let payload = Payload::from_json(json!({
             "id": "JkeBPC50ZI0m",
             "clientName": "client name",
             "tabs": [{
@@ -66,7 +66,7 @@ pub mod test {
 
     #[test]
     fn test_extra_fields() {
-        let payload = sync15::Payload::from_json(json!({
+        let payload = Payload::from_json(json!({
             "id": "JkeBPC50ZI0m",
             "clientName": "client name",
             "tabs": [],
