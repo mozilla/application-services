@@ -124,7 +124,22 @@ impl NimbusClient {
         // We're not actually going to write, we just want to exclude concurrent writers.
         let mut writer = db.write()?;
 
-        self.update_install_dates(db, &mut writer)?;
+        self.begin_initialize(db, &mut writer)?;
+        self.end_initialize(db, writer)?;
+
+        Ok(())
+    }
+
+    // These are tasks which should be in the initialize and apply_pending_experiments
+    // but should happen before the enrollment calculations are done.
+    fn begin_initialize(&self, db: &Database, writer: &mut Writer) -> Result<()> {
+        self.update_install_dates(db, writer)?;
+        Ok(())
+    }
+
+    // These are tasks which should be in the initialize and apply_pending_experiments
+    // but should happen after the enrollment calculations are done.
+    fn end_initialize(&self, db: &Database, writer: Writer) -> Result<()> {
         self.database_cache.commit_and_update(db, writer)?;
         Ok(())
     }
@@ -264,15 +279,17 @@ impl NimbusClient {
 
     pub fn apply_pending_experiments(&self) -> Result<Vec<EnrollmentChangeEvent>> {
         log::info!("updating experiment list");
-        // If the application did not pass in an installation date,
-        // we check if we already persisted one on a previous run:
         let db = self.db()?;
         let mut writer = db.write()?;
+        self.begin_initialize(db, &mut writer)?;
 
         let state = self.mutable_state.lock().unwrap();
+        // We'll get the pending experiments which were stored for us, either by fetch_experiments
+        // or by set_experiments_locally.
         let pending_updates = read_and_remove_pending_experiments(db, &mut writer)?;
         let res = match pending_updates {
             Some(new_experiments) => {
+                // Perform the enrollment calculations if there are pending experiments.
                 let nimbus_id = self.read_or_create_nimbus_id(db, &mut writer)?;
                 let evolver = EnrollmentsEvolver::new(
                     &nimbus_id,
@@ -283,7 +300,9 @@ impl NimbusClient {
             }
             None => vec![],
         };
-        self.database_cache.commit_and_update(db, writer)?;
+
+        // Finish up any cleanup, e.g. copying from database in to memory.
+        self.end_initialize(db, writer)?;
         Ok(res)
     }
 
