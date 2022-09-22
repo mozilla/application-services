@@ -72,7 +72,7 @@ fn do_import(places_api: &PlacesApi, fennec_db_file_url: Url) -> Result<Bookmark
 
     let db_version = conn.db.query_one::<i64>("PRAGMA fennec.user_version")?;
     if db_version < FENNEC_DB_VERSION {
-        return Err(ErrorKind::UnsupportedDatabaseVersion(db_version).into());
+        return Err(PlacesInternalError::UnsupportedDatabaseVersion(db_version));
     }
 
     let tx = conn.begin_transaction()?;
@@ -171,7 +171,7 @@ fn do_pinned_sites_import(
 
     let db_version = conn.db.query_one::<i64>("PRAGMA fennec.user_version")?;
     if db_version < FENNEC_DB_VERSION {
-        return Err(ErrorKind::UnsupportedDatabaseVersion(db_version).into());
+        return Err(PlacesInternalError::UnsupportedDatabaseVersion(db_version));
     }
 
     log::debug!("Fetching pinned websites");

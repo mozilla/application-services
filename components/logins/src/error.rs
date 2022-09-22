@@ -15,13 +15,6 @@ use sync15::Error as Sync15Error;
 //
 // Named `LoginsStorageError` for backwards compatibility reasons, although
 // this name shouldn't need to be used anywhere other than this file and the .udl
-//
-// Note that there is no `Into` between public and internal errors, but
-// instead the `ErrorHandling` mechanisms are used to explicitly convert
-// when necessary.
-//
-// XXX - not clear that these actually need to use `thiserror`? Certainly
-// not necessary to use `#[from]` though.
 #[derive(Debug, thiserror::Error)]
 pub enum LoginsStorageError {
     #[error("Invalid login: {0}")]

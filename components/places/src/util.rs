@@ -2,7 +2,7 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-use crate::error::{ErrorKind, Result};
+use crate::error::{PlacesInternalError, Result};
 use std::path::{Path, PathBuf};
 use url::Url;
 
@@ -48,11 +48,14 @@ pub fn ensure_url_path(p: impl AsRef<Path>) -> Result<Url> {
         if u.scheme() == "file" {
             Ok(u)
         } else {
-            Err(ErrorKind::IllegalDatabasePath(p.as_ref().to_owned()).into())
+            Err(PlacesInternalError::IllegalDatabasePath(
+                p.as_ref().to_owned(),
+            ))
         }
     } else {
         let p = p.as_ref();
-        let u = Url::from_file_path(p).map_err(|_| ErrorKind::IllegalDatabasePath(p.to_owned()))?;
+        let u = Url::from_file_path(p)
+            .map_err(|_| PlacesInternalError::IllegalDatabasePath(p.to_owned()))?;
         Ok(u)
     }
 }
@@ -77,11 +80,11 @@ pub fn normalize_path(p: impl AsRef<Path>) -> Result<PathBuf> {
     // parent directory, etc.
     let file_name = path
         .file_name()
-        .ok_or_else(|| ErrorKind::IllegalDatabasePath(path.clone()))?;
+        .ok_or_else(|| PlacesInternalError::IllegalDatabasePath(path.clone()))?;
 
     let parent = path
         .parent()
-        .ok_or_else(|| ErrorKind::IllegalDatabasePath(path.clone()))?;
+        .ok_or_else(|| PlacesInternalError::IllegalDatabasePath(path.clone()))?;
 
     let mut canonical = parent.canonicalize()?;
     canonical.push(file_name);

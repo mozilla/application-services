@@ -4,17 +4,90 @@
 
 use crate::storage::bookmarks::BookmarkRootGuid;
 use crate::types::BookmarkType;
+use error_support::{ErrorHandling, GetErrorHandling};
 use interrupt_support::Interrupted;
 use serde_json::Value as JsonValue;
-// Note: If you add new error types that should be returned to consumers on the other side of the
-// FFI, update `get_code` in `ffi.rs`
+
+// Result type used internally
+pub type Result<T> = std::result::Result<T, PlacesInternalError>;
+// Functions which are part of the public API should use this Result.
+pub type ApiResult<T> = std::result::Result<T, PlacesError>;
+
+// Errors we return via the public interface.
 #[derive(Debug, thiserror::Error)]
-pub enum ErrorKind {
+pub enum PlacesError {
+    #[error("Unexpected error: {0}")]
+    UnexpectedPlacesException(String),
+
+    #[error("UrlParseFailed: {0}")]
+    UrlParseFailed(String),
+
+    #[error("JsonParseFailed: {0}")]
+    JsonParseFailed(String),
+
+    #[error("PlacesConnectionBusy error: {0}")]
+    PlacesConnectionBusy(String),
+
+    #[error("Operation Interrupted: {0}")]
+    OperationInterrupted(String),
+
+    /// Error indicating bookmarks corruption. If this occurs, we
+    /// would appreciate reports.
+    ///
+    /// Eventually it should be fixed up, when detected as part of
+    /// `runMaintenance`.
+    #[error("BookmarksCorruption error: {0}")]
+    BookmarksCorruption(String),
+
+    /// Thrown when providing a guid referring to a non-folder as the
+    /// parentGUID parameter to a create or update
+    #[error("Invalid Parent: {0}")]
+    InvalidParent(String),
+
+    /// Thrown when providing a guid to a create or update function
+    /// which does not refer to a known bookmark.
+    #[error("Unknown bookmark: {0}")]
+    UnknownBookmarkItem(String),
+
+    /// Thrown when attempting to insert a URL greater than 65536 bytes
+    /// (after punycoding and percent encoding).
+    ///
+    /// Attempting to truncate the URL is difficult and subtle, and
+    /// is guaranteed to result in a URL different from the one the
+    /// user attempted to bookmark, and so an error is thrown instead.
+    #[error("URL too long: {0}")]
+    UrlTooLong(String),
+
+    /// Thrown when attempting to update a bookmark item in an illegal
+    /// way. For example, attempting to change the URL of a bookmark
+    /// folder, or update the title of a separator, etc.
+    // XXX - can we kill this?
+    #[error("Invalid Bookmark: {0}")]
+    InvalidBookmarkUpdate(String),
+
+    /// Thrown when:
+    /// - Attempting to insert a child under BookmarkRoot.Root,
+    /// - Attempting to update any of the bookmark roots.
+    /// - Attempting to delete any of the bookmark roots.
+    #[error("CannotUpdateRoot error: {0}")]
+    CannotUpdateRoot(String),
+
+    // XX - Having `InternalError` is a smell and ideally it wouldn't exist
+    // it exists to catch non-fatal unexpected errors
+    /// Thrown when we catch an unexpected error
+    /// that shouldn't be fatal
+    #[error("Unexpected error: {0}")]
+    InternalError(String),
+}
+
+// Internal Places error
+#[derive(Debug, thiserror::Error)]
+pub enum PlacesInternalError {
     #[error("Invalid place info: {0}")]
-    InvalidPlaceInfo(InvalidPlaceInfo),
+    InvalidPlaceInfo(#[from] InvalidPlaceInfo),
 
     #[error("The store is corrupt: {0}")]
-    Corruption(Corruption),
+    Corruption(#[from] Corruption),
 
     #[error("Error synchronizing: {0}")]
     SyncAdapterError(#[from] sync15::Error),
@@ -76,27 +149,7 @@ pub enum ErrorKind {
     OpenDatabaseError(#[from] sql_support::open_database::Error),
 
     #[error("Invalid metadata observation: {0}")]
-    InvalidMetadataObservation(InvalidMetadataObservation),
-}
-
-// This defines the `Error` and `Result` types exported by this module.
-// These errors do not make it across the FFI, so can be considered "private" to the
-// Rust side of the world.
-error_support::define_error! {
-    ErrorKind {
-        (SyncAdapterError, sync15::Error),
-        (JsonError, serde_json::Error),
-        (UrlParseError, url::ParseError),
-        (SqlError, rusqlite::Error),
-        (InvalidPlaceInfo, InvalidPlaceInfo),
-        (Corruption, Corruption),
-        (IoError, std::io::Error),
-        (MergeError, dogear::Error),
-        (InterruptedError, Interrupted),
-        (Utf8Error, std::str::Utf8Error),
-        (OpenDatabaseError, sql_support::open_database::Error),
-        (InvalidMetadataObservation, InvalidMetadataObservation),
-    }
+    InvalidMetadataObservation(#[from] InvalidMetadataObservation),
 }
 
 #[derive(Debug, thiserror::Error)]
@@ -163,159 +216,88 @@ pub enum InvalidMetadataObservation {
     ViewTimeTooLong,
 }
 
-// This is the error object thrown over the FFI.
-#[derive(Debug, thiserror::Error)]
-pub enum PlacesError {
-    #[error("Unexpected error: {0}")]
-    UnexpectedPlacesException(String),
+// Define how our internal errors are handled and converted to external errors.
+impl GetErrorHandling for PlacesInternalError {
+    type ExternalError = PlacesError;
 
-    #[error("UrlParseFailed: {0}")]
-    UrlParseFailed(String),
-
-    #[error("JsonParseFailed: {0}")]
-    JsonParseFailed(String),
-
-    #[error("PlacesConnectionBusy error: {0}")]
-    PlacesConnectionBusy(String),
-
-    #[error("Operation Interrupted: {0}")]
-    OperationInterrupted(String),
-
-    /// Error indicating bookmarks corruption. If this occurs, we
-    /// would appreciate reports.
-    ///
-    /// Eventually it should be fixed up, when detected as part of
-    /// `runMaintenance`.
-    #[error("BookmarksCorruption error: {0}")]
-    BookmarksCorruption(String),
-
-    /// Thrown when providing a guid referring to a non-folder as the
-    /// parentGUID parameter to a create or update
-    #[error("Invalid Parent: {0}")]
-    InvalidParent(String),
-
-    /// Thrown when providing a guid to a create or update function
-    /// which does not refer to a known bookmark.
-    #[error("Unknown bookmark: {0}")]
-    UnknownBookmarkItem(String),
-
-    /// Thrown when attempting to insert a URL greater than 65536 bytes
-    /// (after punycoding and percent encoding).
-    ///
-    /// Attempting to truncate the URL is difficult and subtle, and
-    /// is guaranteed to result in a URL different from the one the
-    /// user attempted to bookmark, and so an error is thrown instead.
-    #[error("URL too long: {0}")]
-    UrlTooLong(String),
-
-    /// Thrown when attempting to update a bookmark item in an illegal
-    /// way. For example, attempting to change the URL of a bookmark
-    /// folder, or update the title of a separator, etc.
-    #[error("Invalid Bookmark: {0}")]
-    InvalidBookmarkUpdate(String),
-
-    /// Thrown when:
-    /// - Attempting to insert a child under BookmarkRoot.Root,
-    /// - Attempting to update any of the bookmark roots.
-    /// - Attempting to delete any of the bookmark roots.
-    #[error("CannotUpdateRoot error: {0}")]
-    CannotUpdateRoot(String),
-
-    // XX - Having `InternalError` is a smell and ideally it wouldn't exist
-    // it exists to catch non-fatal unexpected errors
-    /// Thrown when we catch an unexpected error
-    /// that shouldn't be fatal
-    #[error("Unexpected error: {0}")]
-    InternalError(String),
-}
-
-// A port of the error conversion stuff that was in ffi.rs - it turns our
-// "internal" errors into "public" ones.
-fn make_places_error(error: &Error) -> PlacesError {
-    let label = error.to_string();
-    let kind = error.kind();
-    match kind {
-        ErrorKind::InvalidPlaceInfo(info) => {
-            log::error!("Invalid place info: {}", info);
-            let label = info.to_string();
-            match &info {
-                InvalidPlaceInfo::InvalidParent(..) | InvalidPlaceInfo::UrlTooLong => {
-                    PlacesError::InvalidParent(label)
-                }
-                InvalidPlaceInfo::NoSuchGuid(..) => PlacesError::UnknownBookmarkItem(label),
-                InvalidPlaceInfo::IllegalChange(..) => PlacesError::InvalidBookmarkUpdate(label),
-                InvalidPlaceInfo::CannotUpdateRoot(..) => PlacesError::CannotUpdateRoot(label),
-                _ => PlacesError::UnexpectedPlacesException(label),
-            }
-        }
-        ErrorKind::UrlParseError(e) => {
-            log::error!("URL parse error: {}", e);
-            PlacesError::UrlParseFailed(e.to_string())
-        }
-        // Can't pattern match on `err` without adding a dep on the sqlite3-sys crate,
-        // so we just use a `if` guard.
-        ErrorKind::SqlError(rusqlite::Error::SqliteFailure(err, msg))
-            if err.code == rusqlite::ErrorCode::DatabaseBusy =>
-        {
-            log::error!("Database busy: {:?} {:?}", err, msg);
-            PlacesError::PlacesConnectionBusy(label)
-        }
-        ErrorKind::SqlError(rusqlite::Error::SqliteFailure(err, _))
-            if err.code == rusqlite::ErrorCode::OperationInterrupted =>
-        {
-            log::info!("Operation interrupted");
-            PlacesError::OperationInterrupted(label)
-        }
-        ErrorKind::InterruptedError(err) => {
-            // Can't unify with the above ... :(
-            log::info!("Operation interrupted");
-            PlacesError::OperationInterrupted(err.to_string())
-        }
-        ErrorKind::Corruption(e) => {
-            log::info!("The store is corrupt: {}", e);
-            PlacesError::BookmarksCorruption(e.to_string())
-        }
-        ErrorKind::SyncAdapterError(e) => {
-            match e {
-                sync15::Error::StoreError(store_error) => {
-                    // If it's a type-erased version of one of our errors, try
-                    // and resolve it.
-                    if let Some(places_err) = store_error.downcast_ref::<Error>() {
-                        log::info!("Recursing to resolve places error");
-                        make_places_error(places_err)
-                    } else {
-                        log::error!("Unexpected sync error: {:?}", label);
-                        PlacesError::UnexpectedPlacesException(label)
+    // Return how to handle our internal errors
+    fn get_error_handling(&self) -> ErrorHandling<Self::ExternalError> {
+        // WARNING: The details inside the `PlacesError` we return should not
+        // contain any personally identifying information.
+        // However, because many of the string details come from the underlying
+        // internal error, we operate on a best-effort basis, since we can't be
+        // completely sure that our dependencies don't leak PII in their error
+        // strings.  For example, `rusqlite::Error` could include data from a
+        // user's database in their errors, which would then cause it to appear
+        // in our `PlacesError::Unexpected` structs, log messages, etc.
+        // But because we've never seen that in practice we are comfortable
+        // forwarding that error message into ours without attempting to sanitize.
+        match self {
+            PlacesInternalError::InvalidPlaceInfo(info) => {
+                let label = info.to_string();
+                ErrorHandling::convert(match &info {
+                    InvalidPlaceInfo::InvalidParent(..) | InvalidPlaceInfo::UrlTooLong => {
+                        PlacesError::InvalidParent(label)
                     }
-                }
-                _ => {
-                    log::error!("Unexpected sync error: {:?}", label);
-                    PlacesError::UnexpectedPlacesException(label)
+                    InvalidPlaceInfo::NoSuchGuid(..) => PlacesError::UnknownBookmarkItem(label),
+                    InvalidPlaceInfo::IllegalChange(..) => {
+                        PlacesError::InvalidBookmarkUpdate(label)
+                    }
+                    InvalidPlaceInfo::CannotUpdateRoot(..) => PlacesError::CannotUpdateRoot(label),
+                    _ => PlacesError::UnexpectedPlacesException(label),
+                })
+                .report_error("places-invalid-place-info")
+            }
+            PlacesInternalError::UrlParseError(e) => {
+                ErrorHandling::convert(PlacesError::UrlParseFailed(e.to_string()))
+                    .report_error("places-url-parse-error")
+            }
+            // Can't pattern match on `err` without adding a dep on the sqlite3-sys crate,
+            // so we just use a `if` guard.
+            PlacesInternalError::SqlError(rusqlite::Error::SqliteFailure(err, _))
+                if err.code == rusqlite::ErrorCode::DatabaseBusy =>
+            {
+                ErrorHandling::convert(PlacesError::PlacesConnectionBusy(self.to_string()))
+                    .report_error("places-connection-busy")
+            }
+            PlacesInternalError::SqlError(rusqlite::Error::SqliteFailure(err, _))
+                if err.code == rusqlite::ErrorCode::OperationInterrupted =>
+            {
+                ErrorHandling::convert(PlacesError::OperationInterrupted(self.to_string()))
+                    .log_info()
+            }
+            PlacesInternalError::InterruptedError(err) => {
+                // Can't unify with the above ... :(
+                ErrorHandling::convert(PlacesError::OperationInterrupted(err.to_string()))
+                    .log_info()
+            }
+            PlacesInternalError::Corruption(e) => {
+                ErrorHandling::convert(PlacesError::BookmarksCorruption(e.to_string())).log_info()
+            }
+            PlacesInternalError::SyncAdapterError(e) => {
+                match e {
+                    sync15::Error::StoreError(store_error) => {
+                        // If it's a type-erased version of one of our errors, try
+                        // and resolve it.
+                        if let Some(places_err) = store_error.downcast_ref::<PlacesInternalError>()
+                        {
+                            log::info!("Recursing to resolve places error");
+                            places_err.get_error_handling()
+                        } else {
+                            ErrorHandling::convert(PlacesError::UnexpectedPlacesException(
+                                self.to_string(),
+                            ))
+                            .report_error("places-unexpected-sync-error")
+                        }
+                    }
+                    _ => ErrorHandling::convert(PlacesError::UnexpectedPlacesException(
+                        self.to_string(),
+                    ))
+                    .report_error("places-unexpected-sync-error"),
                 }
             }
+            _ => ErrorHandling::convert(PlacesError::InternalError(self.to_string()))
+                .report_error("places-unexpected-error"),
         }
-
-        err => {
-            log::error!("Unexpected error: {:?}", err);
-            PlacesError::InternalError(label)
-        }
-    }
-}
-
-impl From<Error> for PlacesError {
-    fn from(e: Error) -> PlacesError {
-        make_places_error(&e)
-    }
-}
-
-impl From<serde_json::Error> for PlacesError {
-    fn from(e: serde_json::Error) -> PlacesError {
-        PlacesError::JsonParseFailed(format!("{}", e))
-    }
-}
-
-impl From<Interrupted> for PlacesError {
-    fn from(e: Interrupted) -> PlacesError {
-        PlacesError::OperationInterrupted(e.to_string())
     }
 }
