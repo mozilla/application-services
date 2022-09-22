@@ -62,14 +62,14 @@ fi
 if [[ "${CROSS_COMPILE_TARGET}" =~ "darwin" ]]; then
   # Generated from nss-try@111b54aaa644978464bec98848ecba6f69d3f42e.
   curl -sfSL --retry 5 --retry-delay 10 -O "https://firefox-ci-tc.services.mozilla.com/api/queue/v1/task/Pva5ILPpSXCwz18uSOz8Tw/runs/0/artifacts/public/dist.tar.bz2"
-  SHA256="e9f1edeebbf8919ad419ddd7244a117ddfe2f98e3683fc17e5a9df332a0b6b86"
+  SHA256="a0373f1f97ca84ca59e1a335a5e1bd2f16ea67930fd9400b5310a48b067a5566"
   echo "${SHA256}  dist.tar.bz2" | shasum -a 256 -c - || exit 2
   tar xvjf dist.tar.bz2 && rm -rf dist.tar.bz2
   NSS_DIST_DIR=$(abspath "dist")
 elif [[ "${CROSS_COMPILE_TARGET}" =~ "win32-x86-64" ]]; then
   # Generated from nss-try@111b54aaa644978464bec98848ecba6f69d3f42e.
   curl -sfSL --retry 5 --retry-delay 10 -O "https://firefox-ci-tc.services.mozilla.com/api/queue/v1/task/IdqPNNsvTq6Gbgt6oE7P7Q/runs/0/artifacts/public/build/dist.7z"
-  SHA256="a0373f1f97ca84ca59e1a335a5e1bd2f16ea67930fd9400b5310a48b067a5566"
+  SHA256="e9f1edeebbf8919ad419ddd7244a117ddfe2f98e3683fc17e5a9df332a0b6b86"
   echo "${SHA256}  dist.7z" | shasum -a 256 -c - || exit 2
   7z x dist.7z -aoa && rm -rf dist.7z
   NSS_DIST_DIR=$(abspath "dist")
