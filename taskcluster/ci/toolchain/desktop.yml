@@ -17,6 +17,7 @@ desktop-linux:
         toolchain-alias: desktop-linux-libs
         toolchain-artifact: public/build/linux.tar.gz
 
+# Creates the artifacts here for Android testing
 desktop-macos:
     description: 'Desktop libs (macOS): build'
     scopes:
