@@ -35,7 +35,6 @@
 		1B5CB50E27B202B600C31B56 /* MozillaRustComponents.xcframework in Frameworks */ = {isa = PBXBuildFile; fileRef = 1B5CB50D27B202B600C31B56 /* MozillaRustComponents.xcframework */; };
 		1BB64C7A27B1FA0400A4247F /* GleanPlumbTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1BBAC54227AE065300DAFEF2 /* GleanPlumbTests.swift */; };
 		1BBAC4FC27AE049500DAFEF2 /* MozillaTestServicesApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1BBAC4FB27AE049500DAFEF2 /* MozillaTestServicesApp.swift */; };
-		1BBAC55127AE06FD00DAFEF2 /* Glean in Frameworks */ = {isa = PBXBuildFile; productRef = 1BBAC55027AE06FD00DAFEF2 /* Glean */; };
 		1BBAC59C27AE0BB600DAFEF2 /* ContentView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1BBAC4FD27AE049500DAFEF2 /* ContentView.swift */; };
 		1BE9B60D27C9CD770029D11A /* crashtest.udl in Sources */ = {isa = PBXBuildFile; fileRef = 1B3BC99127B1DAA300229CF6 /* crashtest.udl */; };
 		1BE9B60E27C9CD770029D11A /* nimbus.udl in Sources */ = {isa = PBXBuildFile; fileRef = 1B3BC98E27B1D9D600229CF6 /* nimbus.udl */; };
@@ -57,7 +56,6 @@
 		1BF50F1827B1E18000A9C8A5 /* KeychainWrapperSubscript.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1BBAC56527AE085F00DAFEF2 /* KeychainWrapperSubscript.swift */; };
 		1BF50F1927B1E19500A9C8A5 /* FxAccountManagerTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1BBAC54127AE065300DAFEF2 /* FxAccountManagerTests.swift */; };
 		1BF50F1A27B1E19800A9C8A5 /* FxAccountMocks.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1BBAC53C27AE065300DAFEF2 /* FxAccountMocks.swift */; };
-		1BFC469827C99F250034E0A5 /* Metrics.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1BFC469627C99F250034E0A5 /* Metrics.swift */; };
 		45CC574A28AD9C86006D55AA /* errorsupport.udl in Sources */ = {isa = PBXBuildFile; fileRef = 45CC574828AD9C31006D55AA /* errorsupport.udl */; };
 /* End PBXBuildFile section */
 
@@ -165,7 +163,6 @@
 		1BF50F1C27B1E1DF00A9C8A5 /* fxa_clientFFI.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = fxa_clientFFI.h; path = "../../../components/fxa-client/ios/Generated/fxa_clientFFI.h"; sourceTree = SOURCE_ROOT; };
 		1BF50F1D27B1E1DF00A9C8A5 /* fxa_client.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; name = fxa_client.swift; path = "../../../components/fxa-client/ios/Generated/fxa_client.swift"; sourceTree = SOURCE_ROOT; };
 		1BF50F2327B1E53E00A9C8A5 /* metrics.yaml */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.yaml; name = metrics.yaml; path = ../../../components/nimbus/metrics.yaml; sourceTree = SOURCE_ROOT; };
-		1BF50F2B27B1EB7D00A9C8A5 /* sdk_generator.sh */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.script.sh; name = sdk_generator.sh; path = "../../../../../components/external/glean/glean-core/ios/sdk_generator.sh"; sourceTree = SOURCE_ROOT; };
 		1BFC469627C99F250034E0A5 /* Metrics.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; name = Metrics.swift; path = MozillaTestServices/Generated/Metrics.swift; sourceTree = SOURCE_ROOT; };
 		45CC574528AD9C0B006D55AA /* errorFFI.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = errorFFI.h; path = ../../../../components/support/error/ios/Generated/errorFFI.h; sourceTree = "<group>"; };
 		45CC574628AD9C0B006D55AA /* errorsupport.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; name = errorsupport.swift; path = ../../../../components/support/error/ios/Generated/errorsupport.swift; sourceTree = "<group>"; };
@@ -178,7 +175,6 @@
 			buildActionMask = 2147483647;
 			files = (
 				1B5CB50E27B202B600C31B56 /* MozillaRustComponents.xcframework in Frameworks */,
-				1BBAC55127AE06FD00DAFEF2 /* Glean in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -269,7 +265,6 @@
 				45CC574328AD9BC8006D55AA /* ErrorSupport */,
 				1BFC469427C99F250034E0A5 /* Generated */,
 				1BB64C7B27B1FF9F00A4247F /* TestClient */,
-				1BF50F0327B1DFC900A9C8A5 /* Glean */,
 				1B3BC99027B1DA8700229CF6 /* Crashtest */,
 				1B3BC97427B1D99A00229CF6 /* Nimbus */,
 				1BBAC5A427AE0EF900DAFEF2 /* Places */,
@@ -421,14 +416,6 @@
 			path = ../../../components/logins/ios/Generated;
 			sourceTree = SOURCE_ROOT;
 		};
-		1BF50F0327B1DFC900A9C8A5 /* Glean */ = {
-			isa = PBXGroup;
-			children = (
-				1BF50F2B27B1EB7D00A9C8A5 /* sdk_generator.sh */,
-			);
-			path = Glean;
-			sourceTree = "<group>";
-		};
 		1BF50F0527B1E06700A9C8A5 /* Generated */ = {
 			isa = PBXGroup;
 			children = (
@@ -496,7 +483,6 @@
 			);
 			name = MozillaTestServices;
 			packageProductDependencies = (
-				1BBAC55027AE06FD00DAFEF2 /* Glean */,
 			);
 			productName = MozillaTestServices;
 			productReference = 1BBAC4F827AE049500DAFEF2 /* MozillaTestServices.app */;
@@ -551,7 +537,6 @@
 			);
 			mainGroup = 1BBAC4EF27AE049500DAFEF2;
 			packageReferences = (
-				1BBAC54F27AE06FD00DAFEF2 /* XCRemoteSwiftPackageReference "glean-swift" */,
 			);
 			productRefGroup = 1BBAC4F927AE049500DAFEF2 /* Products */;
 			projectDirPath = "";
@@ -589,17 +574,15 @@
 			inputFileListPaths = (
 			);
 			inputPaths = (
-				"$(SRCROOT)/../../../components/nimbus/metrics.yaml",
 			);
 			name = "Generate Glean Metrics";
 			outputFileListPaths = (
 			);
 			outputPaths = (
-				"$(SRCROOT)/MozillaTestServices/Generated/Metrics.swift",
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 			shellPath = /bin/sh;
-			shellScript = "rm -rf .venv; bash $PWD/../../../components/external/glean/glean-core/ios/sdk_generator.sh -g Glean\n";
+			shellScript = "rm -rf .venv; bash $PWD/../../../components/external/glean/glean-core/ios/sdk_generator.sh -g MozillaRustComponents\n\n";
 		};
 /* End PBXShellScriptBuildPhase section */
 
@@ -614,7 +597,6 @@
 				1BE9B60F27C9CD770029D11A /* places.udl in Sources */,
 				1BE9B61027C9CD770029D11A /* logins.udl in Sources */,
 				1BE9B61127C9CD770029D11A /* fxa_client.udl in Sources */,
-				1BFC469827C99F250034E0A5 /* Metrics.swift in Sources */,
 				1B3BC98627B1D9B800229CF6 /* FeatureVariables.swift in Sources */,
 				1BBAC59C27AE0BB600DAFEF2 /* ContentView.swift in Sources */,
 				1B3BC98B27B1D9B800229CF6 /* Sysctl.swift in Sources */,
@@ -931,25 +913,6 @@
 			defaultConfigurationName = Debug;
 		};
 /* End XCConfigurationList section */
-
-/* Begin XCRemoteSwiftPackageReference section */
-		1BBAC54F27AE06FD00DAFEF2 /* XCRemoteSwiftPackageReference "glean-swift" */ = {
-			isa = XCRemoteSwiftPackageReference;
-			repositoryURL = "https://github.com/mozilla/glean-swift";
-			requirement = {
-				kind = upToNextMajorVersion;
-				minimumVersion = 51.2.0;
-			};
-		};
-/* End XCRemoteSwiftPackageReference section */
-
-/* Begin XCSwiftPackageProductDependency section */
-		1BBAC55027AE06FD00DAFEF2 /* Glean */ = {
-			isa = XCSwiftPackageProductDependency;
-			package = 1BBAC54F27AE06FD00DAFEF2 /* XCRemoteSwiftPackageReference "glean-swift" */;
-			productName = Glean;
-		};
-/* End XCSwiftPackageProductDependency section */
 	};
 	rootObject = 1BBAC4F027AE049500DAFEF2 /* Project object */;
 }

@@ -8,6 +8,9 @@ use crate::persistence::{Database, StoreId, Writer};
 use crate::{evaluator::evaluate_enrollment, persistence::Readable};
 use crate::{AvailableRandomizationUnits, EnrolledExperiment, Experiment, FeatureConfig};
 
+#[cfg(feature = "builtin-glean")]
+use crate::glean_metrics::nimbus_events;
+
 use ::uuid::Uuid;
 use serde_derive::*;
 use std::{
@@ -373,40 +376,88 @@ impl ExperimentEnrollment {
                 enrollment_id,
                 branch,
                 ..
-            } => EnrollmentChangeEvent::new(
-                &self.slug,
-                enrollment_id,
-                branch,
-                None,
-                EnrollmentChangeEventType::Enrollment,
-            ),
+            } => {
+                #[cfg(feature = "builtin-glean")]
+                nimbus_events::enrollment.record(nimbus_events::EnrollmentExtra {
+                    branch: Some(branch.to_string()),
+                    enrollment_id: Some(enrollment_id.to_string()),
+                    experiment: Some(self.slug.to_string()),
+                });
+
+                let mut extra = HashMap::new();
+                extra.insert("enrollment_id".to_string(), enrollment_id.to_string());
+
+                #[cfg(feature = "builtin-glean")]
+                glean::set_experiment_active(
+                    enrollment_id.to_string(),
+                    branch.to_string(),
+                    Some(extra),
+                );
+
+                EnrollmentChangeEvent::new(
+                    &self.slug,
+                    enrollment_id,
+                    branch,
+                    None,
+                    EnrollmentChangeEventType::Enrollment,
+                )
+            }
             EnrollmentStatus::WasEnrolled {
                 enrollment_id,
                 branch,
                 ..
-            } => EnrollmentChangeEvent::new(
-                &self.slug,
-                enrollment_id,
-                branch,
-                None,
-                EnrollmentChangeEventType::Unenrollment,
-            ),
+            } => {
+                #[cfg(feature = "builtin-glean")]
+                nimbus_events::unenrollment.record(nimbus_events::UnenrollmentExtra {
+                    branch: Some(branch.to_string()),
+                    enrollment_id: Some(enrollment_id.to_string()),
+                    experiment: Some(self.slug.to_string()),
+                });
+
+                #[cfg(feature = "builtin-glean")]
+                glean::set_experiment_inactive(enrollment_id.to_string());
+
+                EnrollmentChangeEvent::new(
+                    &self.slug,
+                    enrollment_id,
+                    branch,
+                    None,
+                    EnrollmentChangeEventType::Unenrollment,
+                )
+            }
             EnrollmentStatus::Disqualified {
                 enrollment_id,
                 branch,
                 reason,
                 ..
-            } => EnrollmentChangeEvent::new(
-                &self.slug,
-                enrollment_id,
-                branch,
-                match reason {
-                    DisqualifiedReason::NotTargeted => Some("targeting"),
-                    DisqualifiedReason::OptOut => Some("optout"),
-                    DisqualifiedReason::Error => Some("error"),
-                },
-                EnrollmentChangeEventType::Disqualification,
-            ),
+            } => {
+                #[cfg(feature = "builtin-glean")]
+                nimbus_events::disqualification.record(nimbus_events::DisqualificationExtra {
+                    branch: Some(branch.to_string()),
+                    enrollment_id: Some(enrollment_id.to_string()),
+                    experiment: Some(self.slug.to_string()),
+                    reason: match reason {
+                        DisqualifiedReason::NotTargeted => Some("targeting".to_string()),
+                        DisqualifiedReason::OptOut => Some("optout".to_string()),
+                        DisqualifiedReason::Error => Some("error".to_string()),
+                    },
+                });
+
+                #[cfg(feature = "builtin-glean")]
+                glean::set_experiment_inactive(enrollment_id.to_string());
+
+                EnrollmentChangeEvent::new(
+                    &self.slug,
+                    enrollment_id,
+                    branch,
+                    match reason {
+                        DisqualifiedReason::NotTargeted => Some("targeting"),
+                        DisqualifiedReason::OptOut => Some("optout"),
+                        DisqualifiedReason::Error => Some("error"),
+                    },
+                    EnrollmentChangeEventType::Disqualification,
+                )
+            }
             EnrollmentStatus::NotEnrolled { .. } | EnrollmentStatus::Error { .. } => unreachable!(),
         }
     }

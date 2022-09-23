@@ -80,6 +80,9 @@ nimbus_events:
       enrollment_id:
         type: string
         description: A unique identifier generated at enrollment time
+      reason:
+        type: string
+        description: The reason for the disqualification
     bugs:
       - https://jira.mozilla.com/browse/SDK-126
     data_reviews:
@@ -156,4 +159,20 @@ nimbus_health:
       - technical
     notification_emails:
       - tlong@mozilla.com
+    expires: never
+  network_request:
+    type: timing_distribution
+    time_unit: millisecond
+    description: >
+      The time in milliseconds that the Nimbus SDK takes to fetch experiments
+      from remote-settings
+    bugs:
+      - https://mozilla-hub.atlassian.net/browse/EXP-2063
+    data_reviews:
+      - https://github.com/mozilla-mobile/android-components/pull/9168#issuecomment-743461975
+    data_sensitivity:
+      - technical
+    notification_emails:
+      - tlong@mozilla.com
+      - nimbus-team@mozilla.com
     expires: never

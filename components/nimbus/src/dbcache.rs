@@ -10,6 +10,9 @@ use crate::{enrollment::ExperimentEnrollment, Experiment};
 use std::collections::HashMap;
 use std::sync::RwLock;
 
+#[cfg(feature = "builtin-glean")]
+use crate::glean_metrics::nimbus_health;
+
 // This module manages an in-memory cache of the database, so that some
 // functions exposed by nimbus can return results without blocking on any
 // IO. Consumers are expected to call our public `update()` function whenever
@@ -124,14 +127,25 @@ impl DatabaseCache {
     // This gives access to the feature JSON. We pass it as a string because uniffi doesn't
     // support JSON yet.
     pub fn get_feature_config_variables(&self, feature_id: &str) -> Result<Option<String>> {
-        self.get_data(|data| {
+        match self.get_data(|data| {
             if let Some(enrolled_feature) = data.features_by_feature_id.get(feature_id) {
                 let string = serde_json::to_string(&enrolled_feature.feature.value).unwrap();
                 Some(string)
             } else {
                 None
             }
-        })
+        }) {
+            Ok(res) => Ok(res),
+            Err(e) => {
+                #[cfg(feature = "builtin-glean")]
+                nimbus_health::cache_not_ready_for_feature.record(
+                    nimbus_health::CacheNotReadyForFeatureExtra {
+                        feature_id: Some(feature_id.to_string()),
+                    },
+                );
+                Err(e)
+            }
+        }
     }
 
     pub fn get_active_experiments(&self) -> Result<Vec<EnrolledExperiment>> {

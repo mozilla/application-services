@@ -197,6 +197,13 @@ interface NimbusClient {
     // It's first use is in GleanPlumb message helper, to add extra parameters to URLs.
     [Throws=NimbusError]
     NimbusStringHelper create_string_helper(optional JsonObject? additional_context = null);
+
+    // If an active experiment exists with the provided feature_id, then an exposure event will be
+    // recorded. If there is no active experiment, then nothing happens. This makes this function
+    // safe to call at the point of exposure for the feature regardless of whether an experiment is
+    // active or not.
+    [Throws=NimbusError]
+    void record_exposure_event(string feature_id);
 };
 
 [Custom]

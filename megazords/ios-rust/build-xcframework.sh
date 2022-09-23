@@ -59,7 +59,7 @@ CARGO="$HOME/.cargo/bin/cargo"
 LIBS_DIR="$REPO_ROOT/libs"
 
 DEFAULT_RUSTFLAGS=""
-BUILD_ARGS=(build --manifest-path "$MANIFEST_PATH" --lib)
+BUILD_ARGS=(build --manifest-path "$MANIFEST_PATH" --lib --features "builtin-glean")
 case $BUILD_PROFILE in
   debug) ;;
   release)
@@ -147,7 +147,7 @@ cp "$REPO_ROOT/components/rc_log/ios/RustLogFFI.h" "$COMMON/Headers"
 cp "$REPO_ROOT/components/viaduct/ios/RustViaductFFI.h" "$COMMON/Headers"
 $CARGO uniffi-bindgen generate "$REPO_ROOT/components/nimbus/src/nimbus.udl" -l swift -o "$COMMON/Headers"
 $CARGO uniffi-bindgen generate "$REPO_ROOT/components/support/error/src/errorsupport.udl" -l swift -o "$COMMON/Headers"
-
+$CARGO uniffi-bindgen generate "$REPO_ROOT/components/external/glean/glean-core/src/glean.udl" -l swift -o "$COMMON/Headers"
 
 # We now only move/generate the rest of the headers if we are generating a full
 # iOS megazord

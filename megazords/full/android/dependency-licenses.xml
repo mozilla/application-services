@@ -485,14 +485,6 @@ the details of which are reproduced below.
     <url>https://github.com/microsoft/windows-rs/blob/master/license-mit</url>
   </license>
   <license>
-    <name>Apache License 2.0: xshell</name>
-    <url>https://github.com/matklad/xshell/blob/master/LICENSE-APACHE</url>
-  </license>
-  <license>
-    <name>Apache License 2.0: xshell-macros</name>
-    <url>https://github.com/matklad/xshell/blob/master/LICENSE-APACHE</url>
-  </license>
-  <license>
     <name>MIT License: aho-corasick</name>
     <url>https://github.com/BurntSushi/aho-corasick/blob/master/LICENSE-MIT</url>
   </license>
@@ -579,10 +571,6 @@ the details of which are reproduced below.
   <license>
     <name>MIT License: weedle2</name>
     <url>https://github.com/mozilla/uniffi-rs/blob/main/weedle2/LICENSE.md</url>
-  </license>
-  <license>
-    <name>MIT License: xshell-venv</name>
-    <url>https://github.com/badboy/xshell-venv/blob/main/LICENSE</url>
   </license>
   <license>
     <name>CC0-1.0 License: base16</name>

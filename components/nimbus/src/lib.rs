@@ -34,6 +34,12 @@ use evaluator::is_experiment_available;
 // Exposed for Example only
 pub use evaluator::TargetingAttributes;
 
+// Expose generated Glean Rust metrics
+#[cfg(feature = "builtin-glean")]
+pub mod glean_metrics;
+#[cfg(feature = "builtin-glean")]
+use crate::glean_metrics::{nimbus_events, nimbus_health};
+
 // We only use this in a test, and with --no-default-features, we don't use it
 // at all
 #[allow(unused_imports)]
@@ -68,6 +74,10 @@ struct InternalMutableState {
     available_randomization_units: AvailableRandomizationUnits,
     // Application level targeting attributes
     targeting_attributes: TargetingAttributes,
+    // Whether or not the SDK has completed initialization. Currently this is needed only
+    // for the iOS build, but feature flagging this away causes some problems when trying
+    // to run clippy, or build for other platforms.
+    is_initialized: bool,
 }
 
 /// Nimbus is the main struct representing the experiments state
@@ -98,6 +108,7 @@ impl NimbusClient {
         let mutable_state = Mutex::new(InternalMutableState {
             available_randomization_units,
             targeting_attributes: app_context.clone().into(),
+            is_initialized: false,
         });
         Ok(Self {
             settings_client,
@@ -127,6 +138,11 @@ impl NimbusClient {
         self.begin_initialize(db, &mut writer)?;
         self.end_initialize(db, writer)?;
 
+        if cfg!(feature = "builtin-glean") {
+            let mut state = self.mutable_state.lock().unwrap();
+            state.is_initialized = true;
+        }
+
         Ok(())
     }
 
@@ -150,6 +166,17 @@ impl NimbusClient {
     }
 
     pub fn get_feature_config_variables(&self, feature_id: String) -> Result<Option<String>> {
+        #[cfg(feature = "builtin-glean")]
+        {
+            let state = self.mutable_state.lock().unwrap();
+            if !state.is_initialized {
+                nimbus_health::sdk_unavailable_for_feature.record(
+                    nimbus_health::SdkUnavailableForFeatureExtra {
+                        feature_id: Some(feature_id.clone()),
+                    },
+                );
+            }
+        }
         self.database_cache
             .get_feature_config_variables(&feature_id)
     }
@@ -240,7 +267,15 @@ impl NimbusClient {
     pub fn fetch_experiments(&self) -> Result<()> {
         log::info!("fetching experiments");
         let settings_client = self.settings_client.lock().unwrap();
+
+        #[cfg(feature = "builtin-glean")]
+        let timer_id = nimbus_health::network_request.start();
+
         let new_experiments = settings_client.fetch_experiments()?;
+
+        #[cfg(feature = "builtin-glean")]
+        nimbus_health::network_request.stop_and_accumulate(timer_id);
+
         let db = self.db()?;
         let mut writer = db.write()?;
         write_pending_experiments(db, &mut writer, new_experiments)?;
@@ -506,6 +541,27 @@ impl NimbusClient {
         let context = self.merge_additional_context(additional_context)?;
         let helper = NimbusStringHelper::new(context.as_object().unwrap().to_owned());
         Ok(Arc::new(helper))
+    }
+
+    #[allow(unused_variables)]
+    pub fn record_exposure_event(&self, feature_id: String) -> Result<()> {
+        // Next, we search for any experiment that has a matching featureId. This depends on the
+        // fact that we can only be enrolled in a single experiment per feature, so there should
+        // only ever be zero or one experiments for a given featureId.
+        #[cfg(feature = "builtin-glean")]
+        if let Some(exp) = self
+            .get_active_experiments()?
+            .iter()
+            .find(|exp| exp.feature_ids.contains(&feature_id))
+        {
+            nimbus_events::exposure.record(nimbus_events::ExposureExtra {
+                branch: Some(exp.branch_slug.clone()),
+                enrollment_id: Some(exp.enrollment_id.clone()),
+                experiment: Some(exp.slug.clone()),
+            });
+        }
+
+        Ok(())
     }
 }
 

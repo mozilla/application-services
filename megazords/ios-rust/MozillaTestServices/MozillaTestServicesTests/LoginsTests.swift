@@ -4,7 +4,6 @@
 
 @testable import MozillaTestServices
 
-import Glean
 import XCTest
 
 class LoginsTests: XCTestCase {
@@ -12,7 +11,6 @@ class LoginsTests: XCTestCase {
 
     override func setUp() {
         super.setUp()
-        Glean.shared.resetGlean(clearStores: true)
     }
 
     override func tearDown() {

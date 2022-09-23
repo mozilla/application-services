@@ -8,6 +8,9 @@ license = "MPL-2.0"
 [lib]
 crate-type = ["staticlib"]
 
+[features]
+builtin-glean = ["nimbus-sdk/builtin-glean"]
+
 [dependencies]
 rc_log_ffi = { path = "../../components/rc_log" }
 viaduct = { path = "../../components/viaduct" }
@@ -20,5 +23,6 @@ autofill = { path = "../../components/autofill" }
 push = { path = "../../components/push" }
 tabs = { path = "../../components/tabs", features = ["full-sync"] }
 places = {path = "../../components/places" }
+glean-core = { path = "../../components/external/glean/glean-core" }
 sync15 = {path = "../../components/sync15"}
 error-support = { path = "../../components/support/error" }

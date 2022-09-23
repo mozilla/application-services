@@ -10,6 +10,7 @@
 #import "autofillFFI.h"
 #import "crashtestFFI.h"
 #import "fxa_clientFFI.h"
+#import "gleanFFI.h"
 #import "loginsFFI.h"
 #import "nimbusFFI.h"
 #import "placesFFI.h"

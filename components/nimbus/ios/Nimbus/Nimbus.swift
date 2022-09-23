@@ -3,7 +3,7 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
 import Foundation
-import Glean
+import MozillaRustComponents
 
 public class Nimbus: NimbusApi {
     private let nimbusClient: NimbusClientProtocol
@@ -58,72 +58,13 @@ private extension Nimbus {
 
 extension Nimbus: FeaturesInterface {
     public func recordExposureEvent(featureId: String) {
-        // First we need a list of the active experiments that are enrolled.
-        let activeExperiments = getActiveExperiments()
-
-        // Next, we search for any experiment that has a matching featureId. This depends on the
-        // fact that we can only be enrolled in a single experiment per feature, so there should
-        // only ever be zero or one experiments for a given featureId.
-        if let experiment = activeExperiments.first(where: { $0.featureIds.contains(featureId) }) {
-            // Finally, if we do have an experiment for the given featureId, we will record the
-            // exposure event in Glean. This is to protect against accidentally recording an event
-            // for an experiment without an active enrollment.
-            GleanMetrics.NimbusEvents.exposure.record(GleanMetrics.NimbusEvents.ExposureExtra(
-                branch: experiment.branchSlug,
-                enrollmentId: experiment.enrollmentId,
-                experiment: experiment.slug
-            ))
-        }
+        catchAll { try nimbusClient.recordExposureEvent(featureId: featureId) }
     }
 
-    internal func postEnrollmentCalculation(_ events: [EnrollmentChangeEvent]) {
-        // We need to update the experiment enrollment annotations in Glean
-        // regardless of whether we recieved any events. Calling the
-        // `setExperimentActive` function multiple times with the same
-        // experiment id is safe so nothing bad should happen in case we do.
-        let experiments = getActiveExperiments()
-        recordExperimentTelemetry(experiments)
-
-        // Record enrollment change events, if any
-        recordExperimentEvents(events)
-
+    internal func postEnrollmentCalculation() {
         // Inform any listeners that we're done here.
+        let experiments = getActiveExperiments()
         notifyOnExperimentsApplied(experiments)
-    }
-
-    internal func recordExperimentTelemetry(_ experiments: [EnrolledExperiment]) {
-        for experiment in experiments {
-            Glean.shared.setExperimentActive(
-                experiment.slug,
-                branch: experiment.branchSlug,
-                extra: ["enrollmentId": experiment.enrollmentId]
-            )
-        }
-    }
-
-    internal func recordExperimentEvents(_ events: [EnrollmentChangeEvent]) {
-        for event in events {
-            switch event.change {
-            case .enrollment:
-                GleanMetrics.NimbusEvents.enrollment.record(GleanMetrics.NimbusEvents.EnrollmentExtra(
-                    branch: event.branchSlug,
-                    enrollmentId: event.enrollmentId,
-                    experiment: event.experimentSlug
-                ))
-            case .disqualification:
-                GleanMetrics.NimbusEvents.disqualification.record(GleanMetrics.NimbusEvents.DisqualificationExtra(
-                    branch: event.branchSlug,
-                    enrollmentId: event.enrollmentId,
-                    experiment: event.experimentSlug
-                ))
-            case .unenrollment:
-                GleanMetrics.NimbusEvents.unenrollment.record(GleanMetrics.NimbusEvents.UnenrollmentExtra(
-                    branch: event.branchSlug,
-                    enrollmentId: event.enrollmentId,
-                    experiment: event.experimentSlug
-                ))
-            }
-        }
     }
 
     internal func getFeatureConfigVariablesJson(featureId: String) -> [String: Any]? {
@@ -135,13 +76,6 @@ extension Nimbus: FeaturesInterface {
             } else {
                 return nil
             }
-        } catch NimbusError.DatabaseNotReady {
-            GleanMetrics.NimbusHealth.cacheNotReadyForFeature.record(
-                GleanMetrics.NimbusHealth.CacheNotReadyForFeatureExtra(
-                    featureId: featureId
-                )
-            )
-            return nil
         } catch {
             errorReporter(error)
             return nil
@@ -176,8 +110,8 @@ private extension Nimbus {
  */
 internal extension Nimbus {
     func setGlobalUserParticipationOnThisThread(_ value: Bool) throws {
-        let changes = try nimbusClient.setGlobalUserParticipation(optIn: value)
-        postEnrollmentCalculation(changes)
+        _ = try nimbusClient.setGlobalUserParticipation(optIn: value)
+        postEnrollmentCalculation()
     }
 
     func initializeOnThisThread() throws {
@@ -190,8 +124,8 @@ internal extension Nimbus {
     }
 
     func applyPendingExperimentsOnThisThread() throws {
-        let changes = try nimbusClient.applyPendingExperiments()
-        postEnrollmentCalculation(changes)
+        _ = try nimbusClient.applyPendingExperiments()
+        postEnrollmentCalculation()
     }
 
     func setExperimentsLocallyOnThisThread(_ experimentsJson: String) throws {
@@ -199,18 +133,18 @@ internal extension Nimbus {
     }
 
     func optOutOnThisThread(_ experimentId: String) throws {
-        let changes = try nimbusClient.optOut(experimentSlug: experimentId)
-        postEnrollmentCalculation(changes)
+        _ = try nimbusClient.optOut(experimentSlug: experimentId)
+        postEnrollmentCalculation()
     }
 
     func optInOnThisThread(_ experimentId: String, branch: String) throws {
-        let changes = try nimbusClient.optInWithBranch(experimentSlug: experimentId, branch: branch)
-        postEnrollmentCalculation(changes)
+        _ = try nimbusClient.optInWithBranch(experimentSlug: experimentId, branch: branch)
+        postEnrollmentCalculation()
     }
 
     func resetTelemetryIdentifiersOnThisThread(_ identifiers: AvailableRandomizationUnits) throws {
-        let changes = try nimbusClient.resetTelemetryIdentifiers(newRandomizationUnits: identifiers)
-        postEnrollmentCalculation(changes)
+        _ = try nimbusClient.resetTelemetryIdentifiers(newRandomizationUnits: identifiers)
+        postEnrollmentCalculation()
     }
 }
 
