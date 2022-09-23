@@ -1,3 +1,13 @@
+# v94.3.1 (_2022-09-23_)
+
+[Full Changelog](https://github.com/mozilla/application-services/compare/v94.3.0...v94.3.1)
+
+## Nimbus ⛅️🔬🔭
+
+### What's Fixed
+
+   - A regression affecting Android in calculating `days_since_install` and `days_since_update` ([#5157](https://github.com/mozilla/application-services/pull/5157))
+
 # v94.3.0 (_2022-09-20_)
 
 [Full Changelog](https://github.com/mozilla/application-services/compare/v94.2.0...v94.3.0)
