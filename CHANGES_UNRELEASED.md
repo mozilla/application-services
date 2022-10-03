@@ -26,6 +26,19 @@ Use the template below to make assigning a version number during the release cut
 ### What's Changed
   - Updated UniFFI to 0.21.0.  This improves the string display of the fielded errors on Kotlin.  Currently only logins is using these errors, but we plan to start using them for all components.
 
+## Logins
+
+### ⚠️ Breaking Changes ⚠️
+
+   - Renamed `LoginsStorageError` to `LoginsApiError`, which better reflects how it's used and makes it consistent with
+     the places error name.
+   - Removed the `LoginsApiError::RequestFailed` variant.  This was only thrown when calling the sync-related methods
+     manually, rather than going through the SyncManager which is the preferred way to sync. Those errors will now be
+     grouped under `LoginsApiError::UnexpectedLoginsApiError`.
+
+### What's Changed
+  - Added fields to errors in `logins.udl`.  Most variants will now have a `message` field.
+
 ## Nimbus ⛅️🔬🔭
 
 ### What's Changed

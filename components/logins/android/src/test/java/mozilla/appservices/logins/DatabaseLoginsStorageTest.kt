@@ -130,7 +130,7 @@ class DatabaseLoginsStorageTest {
         try {
             store.add(invalid, encryptionKey)
             fail("Should have thrown")
-        } catch (e: LoginsStorageException.InvalidRecord) {
+        } catch (e: LoginsApiException.InvalidRecord) {
             // All good.
         }
 
@@ -163,7 +163,7 @@ class DatabaseLoginsStorageTest {
         assertEquals(login.record.timesUsed + 1, updatedLogin!!.record.timesUsed)
         assert(updatedLogin.record.timeLastUsed > login.record.timeLastUsed)
 
-        assertThrows(LoginsStorageException.NoSuchRecord::class.java) { store.touch("abcdabcdabcd") }
+        assertThrows(LoginsApiException.NoSuchRecord::class.java) { store.touch("abcdabcdabcd") }
 
         finishAndClose(store)
     }
