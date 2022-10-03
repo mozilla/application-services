@@ -216,7 +216,7 @@ mod autocomplete {
     use super::*;
     use interrupt_support::SqlInterruptHandle;
     use places::api::matcher::{search_frecent, SearchParams, SearchResult};
-    use places::PlacesInternalError;
+    use places::Error;
     use rusqlite::{Error as RusqlError, ErrorCode};
     use std::sync::{
         atomic::{AtomicUsize, Ordering},
@@ -309,13 +309,12 @@ mod autocomplete {
                             }
                             Err(e) => {
                                 match e {
-                                    PlacesInternalError::InterruptedError(_) => {
+                                    Error::InterruptedError(_) => {
                                         // Ignore.
                                     }
-                                    PlacesInternalError::SqlError(RusqlError::SqliteFailure(
-                                        err,
-                                        _,
-                                    )) if err.code == ErrorCode::OperationInterrupted => {
+                                    Error::SqlError(RusqlError::SqliteFailure(err, _))
+                                        if err.code == ErrorCode::OperationInterrupted =>
+                                    {
                                         // Ignore.
                                     }
                                     _ => {

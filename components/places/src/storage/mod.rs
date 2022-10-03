@@ -11,7 +11,7 @@ pub mod history_metadata;
 pub mod tags;
 
 use crate::db::PlacesDb;
-use crate::error::{InvalidPlaceInfo, PlacesInternalError, Result};
+use crate::error::{Error, InvalidPlaceInfo, Result};
 use crate::ffi::HistoryVisitInfo;
 use crate::ffi::TopFrecentSiteInfo;
 use crate::frecency::{calculate_frecency, DEFAULT_FRECENCY_SETTINGS};
@@ -164,9 +164,7 @@ fn new_page_info(db: &PlacesDb, url: &Url, new_guid: Option<SyncGuid>) -> Result
     let url_str = url.as_str();
     if url_str.len() > URL_LENGTH_MAX {
         // Generally callers check this first (bookmarks don't, history does).
-        return Err(PlacesInternalError::InvalidPlaceInfo(
-            InvalidPlaceInfo::UrlTooLong,
-        ));
+        return Err(Error::InvalidPlaceInfo(InvalidPlaceInfo::UrlTooLong));
     }
     let sql = "INSERT INTO moz_places (guid, url, url_hash)
                VALUES (:guid, :url, hash(:url))";

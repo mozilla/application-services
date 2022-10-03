@@ -30,3 +30,14 @@ Use the template below to make assigning a version number during the release cut
 
 ### What's Changed
   - Disabled Glean events recorded when the SDK is not ready for a feature ([#5185](https://github.com/mozilla/application-services/pull/5185))
+
+## Places
+
+### ⚠️ Breaking Changes ⚠️
+
+   - Renamed `PlacesError` to `PlacesApiError`, which better reflects that it's used in the public API rather than for
+     internal errors.
+   - Removed the `JsonError`, `InternalError`, and `BookmarksCorruption` variants from places error. Errors that
+     resulted in `InternalError` will now result in `UnexpectedPlacesError`. `BookmarksCorruption` will also result in
+     an `UnexpectedPlacesError` and an error report will be automatically generated. `JsonError` didn't seem to be
+     actually used.

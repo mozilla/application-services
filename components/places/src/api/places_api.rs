@@ -213,7 +213,7 @@ impl PlacesApi {
                 // We only allow one of these.
                 let mut guard = self.write_connection.lock();
                 match mem::replace(&mut *guard, None) {
-                    None => Err(PlacesInternalError::ConnectionAlreadyOpen),
+                    None => Err(Error::ConnectionAlreadyOpen),
                     Some(db) => Ok(db),
                 }
             }
@@ -256,7 +256,7 @@ impl PlacesApi {
     /// connection, you can re-fetch it using open_connection.
     pub fn close_connection(&self, connection: PlacesDb) -> Result<()> {
         if connection.api_id() != self.id {
-            return Err(PlacesInternalError::WrongApiForClose);
+            return Err(Error::WrongApiForClose);
         }
         if connection.conn_type() == ConnectionType::ReadWrite {
             // We only allow one of these.
@@ -575,7 +575,7 @@ mod tests {
 
         assert!(matches!(
             api.close_connection(fake_writer).unwrap_err(),
-            PlacesInternalError::WrongApiForClose
+            Error::WrongApiForClose
         ));
     }
 

@@ -45,9 +45,9 @@ pub enum IncomingPlan {
     /// An entry we just want to ignore - either due to the URL etc, or because no changes.
     Skip,
     /// Something's wrong with this entry.
-    Invalid(PlacesInternalError),
+    Invalid(Error),
     /// The entry appears sane, but there was some error.
-    Failed(PlacesInternalError),
+    Failed(Error),
     /// We should locally delete this.
     Delete,
     /// We should apply this.

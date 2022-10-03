@@ -35,7 +35,7 @@ impl SyncedBookmarkKind {
             3 => Ok(SyncedBookmarkKind::Folder),
             4 => Ok(SyncedBookmarkKind::Livemark),
             5 => Ok(SyncedBookmarkKind::Separator),
-            _ => Err(PlacesInternalError::UnsupportedSyncedBookmarkKind(v)),
+            _ => Err(Error::UnsupportedSyncedBookmarkKind(v)),
         }
     }
 }
@@ -97,7 +97,7 @@ impl SyncedBookmarkValidity {
             1 => Ok(SyncedBookmarkValidity::Valid),
             2 => Ok(SyncedBookmarkValidity::Reupload),
             3 => Ok(SyncedBookmarkValidity::Replace),
-            _ => Err(PlacesInternalError::UnsupportedSyncedBookmarkValidity(v)),
+            _ => Err(Error::UnsupportedSyncedBookmarkValidity(v)),
         }
     }
 }
