@@ -52,7 +52,7 @@ impl<'a> IncomingApplicator<'a> {
                 Some("livemark") => self.store_incoming_livemark(timestamp, &value)?,
                 Some("separator") => self.store_incoming_sep(timestamp, &value)?,
                 _ => {
-                    return Err(PlacesInternalError::UnsupportedIncomingBookmarkType(
+                    return Err(Error::UnsupportedIncomingBookmarkType(
                         value["type"].clone(),
                     ))
                 }
@@ -179,9 +179,7 @@ impl<'a> IncomingApplicator<'a> {
                         v.as_str().unwrap().into(),
                     ));
                 } else {
-                    return Err(PlacesInternalError::InvalidPlaceInfo(
-                        InvalidPlaceInfo::InvalidChildGuid,
-                    ));
+                    return Err(Error::InvalidPlaceInfo(InvalidPlaceInfo::InvalidChildGuid));
                 }
             }
             children
@@ -489,9 +487,7 @@ impl<'a> IncomingApplicator<'a> {
     fn maybe_store_url(&self, url: Option<Url>) -> Result<Url> {
         if let Some(url) = url {
             if url.as_str().len() > URL_LENGTH_MAX {
-                return Err(PlacesInternalError::InvalidPlaceInfo(
-                    InvalidPlaceInfo::UrlTooLong,
-                ));
+                return Err(Error::InvalidPlaceInfo(InvalidPlaceInfo::UrlTooLong));
             }
             self.db.execute_cached(
                 "INSERT OR IGNORE INTO moz_places(guid, url, url_hash, frecency)
@@ -504,9 +500,7 @@ impl<'a> IncomingApplicator<'a> {
             )?;
             Ok(url)
         } else {
-            Err(PlacesInternalError::InvalidPlaceInfo(
-                InvalidPlaceInfo::NoUrl,
-            ))
+            Err(Error::InvalidPlaceInfo(InvalidPlaceInfo::NoUrl))
         }
     }
 }
@@ -515,9 +509,7 @@ fn unpack_id(key: &str, data: &JsonValue) -> Result<BookmarkRecordId> {
     if let Some(id) = data[key].as_str() {
         Ok(BookmarkRecordId::from_payload_id(id.into()))
     } else {
-        Err(PlacesInternalError::InvalidPlaceInfo(
-            InvalidPlaceInfo::InvalidGuid,
-        ))
+        Err(Error::InvalidPlaceInfo(InvalidPlaceInfo::InvalidGuid))
     }
 }
 
@@ -929,7 +921,7 @@ mod tests {
             .apply_payload(payload, ServerTimestamp(0))
             .expect_err("Should not apply record with unknown type")
         {
-            PlacesInternalError::UnsupportedIncomingBookmarkType(t) => {
+            Error::UnsupportedIncomingBookmarkType(t) => {
                 assert_eq!(t.as_str().unwrap(), "fancy")
             }
             error => panic!("Wrong error variant for unknown type: {:?}", error),

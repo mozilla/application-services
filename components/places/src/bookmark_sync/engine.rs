@@ -1329,7 +1329,7 @@ impl<'a> Merger<'a> {
 
 impl<'a> dogear::Store for Merger<'a> {
     type Ok = ();
-    type Error = PlacesInternalError;
+    type Error = Error;
 
     /// Builds a fully rooted, consistent tree from all local items and
     /// tombstones.
@@ -1348,11 +1348,7 @@ impl<'a> dogear::Store for Merger<'a> {
                 let (item, _) = self.local_row_to_item(row)?;
                 Tree::with_root(item)
             }
-            None => {
-                return Err(PlacesInternalError::Corruption(
-                    Corruption::InvalidLocalRoots,
-                ))
-            }
+            None => return Err(Error::Corruption(Corruption::InvalidLocalRoots)),
         };
 
         // Add items and contents to the builder, keeping track of their
@@ -1440,9 +1436,7 @@ impl<'a> dogear::Store for Merger<'a> {
                 },
                 false,
             )?
-            .ok_or(PlacesInternalError::Corruption(
-                Corruption::InvalidSyncedRoots,
-            ))?;
+            .ok_or(Error::Corruption(Corruption::InvalidSyncedRoots))?;
         builder.reparent_orphans_to(&dogear::UNFILED_GUID);
 
         let sql = format!(

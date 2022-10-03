@@ -6,7 +6,7 @@
 
 use crate::api::matcher::{self, search_frecent, SearchParams};
 use crate::api::places_api::places_api_new;
-use crate::error::{ApiResult, PlacesError};
+use crate::error::{ApiResult, PlacesApiError};
 use crate::import::common::HistoryMigrationResult;
 use crate::import::fennec::import_pinned_sites;
 use crate::import::import_fennec_bookmarks;
@@ -61,7 +61,10 @@ impl UniffiCustomTypeConverter for Url {
     fn into_custom(val: Self::Builtin) -> uniffi::Result<url::Url> {
         match Url::parse(val.as_str()) {
             Ok(url) => Ok(url),
-            Err(e) => Err(PlacesError::UrlParseFailed(e.to_string()).into()),
+            Err(e) => Err(PlacesApiError::UrlParseFailed {
+                reason: e.to_string(),
+            }
+            .into()),
         }
     }
 
@@ -512,7 +515,7 @@ impl PlacesConnection {
             let result = history::delete_everything(&conn);
             if let Err(e) = &result {
                 if matches!(e,
-                    crate::error::PlacesInternalError::SqlError(rusqlite::Error::QueryReturnedNoRows)
+                    crate::error::Error::SqlError(rusqlite::Error::QueryReturnedNoRows)
                 ) {
                     report_error!("SqlErrorQueryReturnedNoRows", "{}", e);
                 }

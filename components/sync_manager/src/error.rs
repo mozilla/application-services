@@ -23,7 +23,7 @@ pub enum SyncManagerError {
     #[error("Logins error: {0}")]
     LoginsError(#[from] logins::LoginsError),
     #[error("Places error: {0}")]
-    PlacesError(#[from] places::PlacesInternalError),
+    PlacesError(#[from] places::Error),
     // We should probably upgrade this crate to anyhow, which would mean this
     // gets replaced with AutofillError or similar.
     #[error("External error: {0}")]
