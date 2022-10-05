@@ -20,7 +20,6 @@ buildscript {
         detekt_version = '1.21.0'
         gradle_download_task_version = '5.2.0'
         junit_version = '4.13.2'
-        maven_publish_version = '3.6.3'
         mockito_core_version = '3.12.4'
         robolectric_core_version = '4.8.2'
         rust_android_gradle_version = '0.9.3'
@@ -59,9 +58,6 @@ buildscript {
     dependencies {
         classpath "com.android.tools.build:gradle:$android_gradle_plugin_version"
         classpath "org.jetbrains.kotlin:kotlin-gradle-plugin:$kotlin_version"
-
-        // Publish.
-        classpath "digital.wup:android-maven-publish:$maven_publish_version"
 
         classpath "org.mozilla.rust-android-gradle:plugin:$rust_android_gradle_version"
 
@@ -250,7 +246,7 @@ ext.libsRootDir = useDownloadedLibs ? rootProject.buildDir : rootProject.rootDir
 
 subprojects {
     group = "org.mozilla.appservices"
-    apply plugin: 'digital.wup.android-maven-publish'
+    apply plugin: 'maven-publish'
 
     // Enable Kotlin warnings as errors for all modules.
     tasks.withType(org.jetbrains.kotlin.gradle.tasks.KotlinCompile).all {
@@ -263,11 +259,11 @@ subprojects {
         repositories {
             maven {
                 name = "rootProjectBuildDir"
-                url "file://${project.rootProject.buildDir}/maven"
+                url = "file://${project.rootProject.buildDir}/maven"
             }
             maven {
                 name = "projectBuildDir"
-                url "file://${project.buildDir}/maven"
+                url = "file://${project.buildDir}/maven"
             }
         }
     }
