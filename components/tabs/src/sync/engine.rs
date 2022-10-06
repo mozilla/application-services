@@ -5,7 +5,7 @@
 use crate::storage::{ClientRemoteTabs, RemoteTab};
 use crate::store::TabsStore;
 use crate::sync::record::{TabsRecord, TabsRecordTab};
-use anyhow::Result;
+use crate::Result;
 use std::collections::HashMap;
 use std::sync::{Arc, Mutex, Weak};
 use sync15::engine::{
@@ -237,18 +237,19 @@ impl SyncEngine for TabsEngine {
         "tabs".into()
     }
 
-    fn prepare_for_sync(&self, get_client_data: &dyn Fn() -> ClientData) -> Result<()> {
-        self.sync_impl
+    fn prepare_for_sync(&self, get_client_data: &dyn Fn() -> ClientData) -> anyhow::Result<()> {
+        Ok(self
+            .sync_impl
             .lock()
             .unwrap()
-            .prepare_for_sync(get_client_data())
+            .prepare_for_sync(get_client_data())?)
     }
 
     fn apply_incoming(
         &self,
         inbound: Vec<IncomingChangeset>,
         telem: &mut telemetry::Engine,
-    ) -> Result<OutgoingChangeset> {
+    ) -> anyhow::Result<OutgoingChangeset> {
         assert_eq!(inbound.len(), 1, "only requested one set of records");
         let inbound = inbound.into_iter().next().unwrap();
         let mut incoming_telemetry = telemetry::EngineIncoming::new();
@@ -285,17 +286,18 @@ impl SyncEngine for TabsEngine {
         &self,
         new_timestamp: ServerTimestamp,
         records_synced: Vec<Guid>,
-    ) -> Result<()> {
-        self.sync_impl
+    ) -> anyhow::Result<()> {
+        Ok(self
+            .sync_impl
             .lock()
             .unwrap()
-            .sync_finished(new_timestamp, &records_synced)
+            .sync_finished(new_timestamp, &records_synced)?)
     }
 
     fn get_collection_requests(
         &self,
         server_timestamp: ServerTimestamp,
-    ) -> Result<Vec<CollectionRequest>> {
+    ) -> anyhow::Result<Vec<CollectionRequest>> {
         let since = self.sync_impl.lock().unwrap().last_sync.unwrap_or_default();
         Ok(if since == server_timestamp {
             vec![]
@@ -304,16 +306,16 @@ impl SyncEngine for TabsEngine {
         })
     }
 
-    fn get_sync_assoc(&self) -> Result<EngineSyncAssociation> {
+    fn get_sync_assoc(&self) -> anyhow::Result<EngineSyncAssociation> {
         Ok(self.sync_impl.lock().unwrap().get_sync_assoc().clone())
     }
 
-    fn reset(&self, assoc: &EngineSyncAssociation) -> Result<()> {
-        self.sync_impl.lock().unwrap().reset(assoc.clone())
+    fn reset(&self, assoc: &EngineSyncAssociation) -> anyhow::Result<()> {
+        Ok(self.sync_impl.lock().unwrap().reset(assoc.clone())?)
     }
 
-    fn wipe(&self) -> Result<()> {
-        self.sync_impl.lock().unwrap().wipe()
+    fn wipe(&self) -> anyhow::Result<()> {
+        Ok(self.sync_impl.lock().unwrap().wipe()?)
     }
 }
 

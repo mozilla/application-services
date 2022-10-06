@@ -54,3 +54,10 @@ Use the template below to make assigning a version number during the release cut
      resulted in `InternalError` will now result in `UnexpectedPlacesError`. `BookmarksCorruption` will also result in
      an `UnexpectedPlacesError` and an error report will be automatically generated. `JsonError` didn't seem to be
      actually used.
+
+## Tabs
+
+### ⚠️ Breaking Changes ⚠️
+
+   - The tabs API now uses  `TabsError` with `TabsApiError`.  `TabsApiError` exposes a smaller number of variants, which
+     will hopefully make it easier to use for the consumer.
