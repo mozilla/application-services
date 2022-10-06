@@ -26,6 +26,13 @@ Use the template below to make assigning a version number during the release cut
 ### What's Changed
   - Updated UniFFI to 0.21.0.  This improves the string display of the fielded errors on Kotlin.  Currently only logins is using these errors, but we plan to start using them for all components.
 
+## Autofill
+
+### ⚠️ Breaking Changes ⚠️
+
+   - The autofill API now uses `AutofillApiError` instead of `AutofillError`.   `AutofillApiError` exposes a smaller number of variants, which
+     will hopefully make it easier to use for the consumer.
+
 ## Logins
 
 ### ⚠️ Breaking Changes ⚠️
