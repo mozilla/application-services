@@ -32,28 +32,36 @@ a number of hours to complete.
     1. Install the system dependencies required for SQLcipher
         1. Install tcl: `apt install tclsh` (required for SQLcipher)
     #### MacOS
-    1. Install Xcode: check the [ci config](../.circleci/config.yml) for the correct
-    version.
+    1. Install Xcode: check the [ci config](https://github.com/mozilla/application-services/blob/main/.circleci/config.yml) for the correct version.
     1. Install Xcode tools: `xcode-select --install`
-    1. Install homebrew: [via homebrew](https://brew.sh/) (it's what we use for ci)
-    1. Install the system dependencies required for building NSS
+    1. Install homebrew via its [installation instructions](https://brew.sh/) (it's what we use for ci).
+    1. Install the system dependencies required for building NSS:
         1. Install ninja and python: `brew install ninja python`
         1. Make sure `which python3` maps to the freshly installed homebrew python.
             1. If it isn't, add the following to your bash/zsh profile and `source` the profile before continuing:
                 ```shell
-                alias python3=/opt/homebrew/bin/python3
+                alias python3=$(brew --prefix)/bin/python3
                 ```
-        1. Install gyp
+            1. Ensure `python` maps to the same Python version. You may have to
+               create a symlink:
+               ```shell
+               PYPATH=$(which python3); ln -s $PYPATH `dirname $PYPATH`/python
+               ```
+        1. Install gyp:
             ```shell
             wget https://bootstrap.pypa.io/ez_setup.py -O - | python3 -
             git clone https://chromium.googlesource.com/external/gyp.git ~/tools/gyp
             cd ~/tools/gyp
             python3 setup.py install
             ```
-            1. If you have additional questions, consult this guide: https://github.com/mogemimi/pomdog/wiki/How-to-Install-GYP
+            1. Add `~/tools/gyp` to your path:
+               ```shell
+               export PATH="~/tools/gyp:$PATH"
+               ```
+            1. If you have additional questions, consult [this guide](https://github.com/mogemimi/pomdog/wiki/How-to-Install-GYP).
         1. Make sure your homebrew python's bin folder is on your path by updating your bash/zsh profile with the following:
             ```shell
-            export PATH="$PATH:/opt/homebrew/opt/python@3.9/Frameworks/Python.framework/Versions/3.9/bin"
+            export PATH="$PATH:$(brew --prefix)/opt/python@3.9/Frameworks/Python.framework/Versions/3.9/bin"
             ```
     #### Windows
     *Install windows build tools*
@@ -71,7 +79,7 @@ a number of hours to complete.
 4. Check dependencies and environment variables by running: `./libs/verify-desktop-environment.sh`
   > Note that this script might instruct you to set some environment variables, set those by adding them to your
   `.zshrc` or `.bashrc` so they are set by default on your terminal
-6. Run cargo test: `cargo test`
+5. Run cargo test: `cargo test`
 
 Once you have successfully run `./libs/verify-desktop-environment.sh` and `cargo test` you can move to the [**Building for Fenix**](building.md#building-for-fenix) and [**Building for iOS**](building.md#building-for-firefox-ios) sections below to setup your local environment for testing with our client applications.
 
