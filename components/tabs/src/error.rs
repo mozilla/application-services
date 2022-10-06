@@ -52,20 +52,12 @@ pub enum Error {
     OpenDatabaseError(#[from] sql_support::open_database::Error),
 }
 
-// Define how our internal errors are handled and converted to external errors.
+// Define how our internal errors are handled and converted to external errors
+// See `support/error/README.md` for how this works, especially the warning about PII.
 impl GetErrorHandling for Error {
     type ExternalError = TabsApiError;
 
-    // Return how to handle our internal errors
     fn get_error_handling(&self) -> ErrorHandling<Self::ExternalError> {
-        // WARNING: The details inside the `TabsApiError` we return should not contain any
-        // personally identifying information. However, because many of the string details come
-        // from the underlying internal error, we operate on a best-effort basis, since we can't be
-        // completely sure that our dependencies don't leak PII in their error strings.  For
-        // example, `rusqlite::Error` could include data from a user's database in their errors,
-        // which would then cause it to appear in our `TabsApiError::SqlError` structs, log
-        // messages, etc. But because we've never seen that in practice we are comfortable
-        // forwarding that error message into ours without attempting to sanitize.
         match self {
             Self::SyncAdapterError(e) => ErrorHandling::convert(TabsApiError::SyncError {
                 reason: e.to_string(),
