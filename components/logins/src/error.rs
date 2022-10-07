@@ -38,6 +38,9 @@ pub enum LoginsApiError {
 /// is never returned to the consumer.
 #[derive(Debug, thiserror::Error)]
 pub enum Error {
+    #[error("Malformed incoming record")]
+    MalformedIncomingRecord,
+
     #[error("Invalid login: {0}")]
     InvalidLogin(#[from] InvalidLogin),
 
@@ -120,6 +123,11 @@ impl GetErrorHandling for Error {
             Self::InvalidLogin(why) => ErrorHandling::convert(LoginsApiError::InvalidRecord {
                 reason: why.to_string(),
             }),
+            Self::MalformedIncomingRecord => {
+                ErrorHandling::convert(LoginsApiError::InvalidRecord {
+                    reason: "invalid incoming record".to_string(),
+                })
+            }
             // Our internal "no such record" error is converted to our public "no such record" error, with no logging and no error reporting.
             Self::NoSuchRecord(guid) => ErrorHandling::convert(LoginsApiError::NoSuchRecord {
                 reason: guid.to_string(),
