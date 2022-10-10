@@ -1,9 +1,9 @@
 ## High level firefox sync interactions
 On a high level, Firefox Sync has three main components:
-- The Firefox Account Server: Which uses oauth to authenticate and provide users with scoped access. The FxA Server also stores input that will 
+- The Firefox Account Server: Which uses oauth to authenticate and provide users with scoped access. The FxA Server also stores input that will
     be used by the **clients** to generate the sync keys.
 - Firefox: This is the firefox app itself, which implements the client logic to communicate with the firefox account servers, generate sync keys,
-    use them to encrypt data and send/receive encrypted data to/from the sync 
+    use them to encrypt data and send/receive encrypted data to/from the sync
     storage servers
 - Sync Storage Server: The server that stores **encrypted** sync data. The clients would retrieve the encrypted data and decrypt
     it **client side**
@@ -39,13 +39,13 @@ The following table has the status of each of our sync Rust Components
 | Application\Component | Bookmarks | History | Tabs | Passwords | Autofill | Web Extension Storage | FxA Client |
 |-----------------------|-----------|---------|------|-----------|----------|-----------------------|------------|
 | Fenix                 | ✔️         | ✔️       | ✔️    | ✔️         | ✔️        |                       | ✔️          |
-| Firefox iOS           | ✔️         |         |      | ✔️         |          |                       | ✔️          |
+| Firefox iOS           | ✔️         |         | ✔️    | ✔️         |          |                       | ✔️          |
 | Firefox Desktop       |           |         |      |           |          | ✔️                     |            |
 | Focus                 |           |         |      |           |          |                       |            |
 
 ### Future: Only one implementation for each sync engine
 In an aspirational future, all the applications would use the same implementation for Sync.
-However, it's unlikely that we would migrate everything to use the Rust components since some implementations 
+However, it's unlikely that we would migrate everything to use the Rust components since some implementations
 may not be prioritized, this is especially true for desktop which already has stable implementations.
 That said, we can get close to this future and minimize duplicate logic and the likelihood of errors.
 ![Diagram showing how firefox sync should be, with all platforms using one implementation](diagrams/future-cross-components.png)
