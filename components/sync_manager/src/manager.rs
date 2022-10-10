@@ -7,7 +7,7 @@ use crate::types::{ServiceStatus, SyncEngineSelection, SyncParams, SyncReason, S
 use crate::{reset, reset_all, wipe};
 use error_support::breadcrumb;
 use parking_lot::Mutex;
-use std::collections::{HashMap, HashSet};
+use std::collections::{BTreeMap, HashMap, HashSet};
 use std::convert::TryFrom;
 use std::time::SystemTime;
 use sync15::client::{
@@ -203,7 +203,8 @@ impl SyncManager {
         &self,
         selection: &SyncEngineSelection,
     ) -> Result<Vec<Box<dyn SyncEngine>>> {
-        let mut engine_map: HashMap<_, _> = self.iter_registered_engines().collect();
+        // BTreeMap to ensure we sync the engines in priority order.
+        let mut engine_map: BTreeMap<_, _> = self.iter_registered_engines().collect();
         breadcrumb!(
             "Checking engines requested ({:?}) vs local engines ({:?})",
             selection,
