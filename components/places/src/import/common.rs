@@ -147,7 +147,11 @@ impl<'a> ExecuteOnDrop<'a> {
 impl Drop for ExecuteOnDrop<'_> {
     fn drop(&mut self) {
         if let Err(e) = self.conn.execute_batch(&self.sql) {
-            log::error!("Failed to clean up after import! {}", e);
+            error_support::report_error!(
+                "places-cleanup-failure",
+                "Failed to clean up after import! {}",
+                e
+            );
             log::debug!("  Failed query: {}", &self.sql);
         }
     }

@@ -69,7 +69,12 @@ impl SyncManager {
         for engine_id in SyncEngineId::iter() {
             if let Some(engine) = Self::get_engine(&engine_id) {
                 if let Err(e) = engine.reset(&EngineSyncAssociation::Disconnected) {
-                    log::error!("Failed to reset {}: {}", engine_id, e);
+                    error_support::report_error!(
+                        "sync-manager-reset",
+                        "Failed to reset {}: {}",
+                        engine_id,
+                        e
+                    );
                 }
             } else {
                 log::warn!("Unable to reset {}, be sure to call register_with_sync_manager before disconnect if this is surprising", engine_id);

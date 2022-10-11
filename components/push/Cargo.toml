@@ -17,6 +17,7 @@ log = "0.4"
 rusqlite = { version = "0.27.0", features = ["bundled", "unlock_notify"] }
 url = "2.2"
 viaduct = { path = "../viaduct" }
+error-support = { path = "../support/error" }
 sql-support = { path = "../support/sql" }
 rc_crypto = { path = "../support/rc_crypto", features = ["ece"] }
 thiserror = "1.0"
