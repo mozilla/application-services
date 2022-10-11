@@ -53,7 +53,7 @@ pub fn set_application_error_reporter(reporter: Box<dyn ApplicationErrorReporter
     *APPLICATION_ERROR_REPORTER.write() = reporter;
 }
 
-pub fn report_error(type_name: String, message: String) {
+pub fn report_error_to_app(type_name: String, message: String) {
     APPLICATION_ERROR_REPORTER
         .read()
         .report_error(type_name, message);

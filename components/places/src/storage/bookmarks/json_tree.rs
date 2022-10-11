@@ -578,7 +578,11 @@ pub fn fetch_tree(
                         // corruption can cause it, so it's possible) - but
                         // we treat it as an `error` rather than just a `warn`
                         None => {
-                            log::error!("bookmark {:#} has missing url", row.guid);
+                            error_support::report_error!(
+                                "places-bookmark-corruption",
+                                "bookmark {:#} has missing url",
+                                row.guid
+                            );
                             return Ok(None);
                         }
                     }

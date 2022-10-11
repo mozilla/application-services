@@ -75,7 +75,8 @@ impl Payload {
         match serde_json::from_value(v) {
             Ok(v) => Some(v),
             Err(e) => {
-                log::error!(
+                error_support::report_error!(
+                    "sync15-auto-field",
                     "Automatic field {} exists on payload, but cannot be deserialized: {}",
                     name,
                     e

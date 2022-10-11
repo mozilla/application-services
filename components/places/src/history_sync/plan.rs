@@ -220,7 +220,12 @@ pub fn apply_plan(
                 telem.failed(1);
             }
             IncomingPlan::Failed(err) => {
-                log::error!("incoming: record {:?} failed to apply: {}", guid, err);
+                error_support::report_error!(
+                    "places-failed-to-apply",
+                    "incoming: record {:?} failed to apply: {}",
+                    guid,
+                    err
+                );
                 telem.failed(1);
             }
             IncomingPlan::Delete => {

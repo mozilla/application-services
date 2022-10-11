@@ -10,14 +10,24 @@ use rusqlite::Row;
 fn noisy_debug_assert_eq<T: std::cmp::PartialEq + std::fmt::Debug>(a: &T, b: &T, msg: &str) {
     debug_assert_eq!(a, b);
     if a != b {
-        log::error!("check failed: {}: {:?} != {:?}", msg, a, b)
+        error_support::report_error!(
+            "places-bookmarks-corruption",
+            "check failed: {}: {:?} != {:?}",
+            msg,
+            a,
+            b
+        );
     }
 }
 
 fn noisy_debug_assert(v: bool, msg: &str) {
     debug_assert!(v);
     if !v {
-        log::error!("check failed: {}: expected true, got false", msg)
+        error_support::report_error!(
+            "places-bookmark-corruption",
+            "check failed: {}: expected true, got false",
+            msg
+        );
     }
 }
 

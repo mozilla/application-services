@@ -13,7 +13,7 @@ pub mod full_sync;
 #[cfg(not(feature = "full-sync"))]
 impl crate::TabsStore {
     pub fn reset(self: std::sync::Arc<Self>) -> crate::error::ApiResult<()> {
-        log::error!("reset: feature not enabled");
+        log::warn!("reset: feature not enabled");
         Err(crate::error::TabsApiError::SyncError {
             reason: "reset".to_string(),
         })
@@ -27,7 +27,7 @@ impl crate::TabsStore {
         _tokenserver_url: String,
         _local_id: String,
     ) -> crate::error::ApiResult<String> {
-        log::error!("sync: feature not enabled");
+        log::warn!("sync: feature not enabled");
         Err(crate::error::TabsApiError::SyncError {
             reason: "sync".to_string(),
         })
