@@ -21,7 +21,7 @@ WORKDIR /builds/worker/
 ENV ANDROID_BUILD_TOOLS "33.0.0"
 ENV ANDROID_TOOLS_VERSION "8512546"
 ENV ANDROID_PLATFORM_VERSION "32"
-ENV ANDROID_NDK_VERSION "25.1.8937393"
+ENV ANDROID_NDK_VERSION "21.3.6528147"
 
 # Set up the language variables to avoid problems (we run locale-gen later).
 ENV LANG en_US.UTF-8
@@ -132,7 +132,7 @@ RUN curl -sfSL --retry 5 --retry-delay 10 https://dl.google.com/android/reposito
         "build-tools;${ANDROID_BUILD_TOOLS}" \
         "extras;android;m2repository" \
         "extras;google;m2repository" \
-        "ndk;25.1.8937393"
+        "ndk;21.3.6528147"
 
 RUN chown -R worker:worker /builds/worker/android-sdk
 
