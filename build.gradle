@@ -29,7 +29,7 @@ buildscript {
     }
 
     ext.build = [
-        ndkVersion: "25.1.8937393", // Keep it in sync in TC Dockerfile.
+        ndkVersion: "21.3.6528147", // Keep it in sync in TC Dockerfile.
         compileSdkVersion: 32,
         targetSdkVersion: 32,
         minSdkVersion: 21, // So that we can publish for aarch64.
