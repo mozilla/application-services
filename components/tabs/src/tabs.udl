@@ -1,5 +1,5 @@
 [Custom]
-typedef string Guid;
+typedef string TabsGuid;
 
 namespace tabs {
 
@@ -95,7 +95,7 @@ interface TabsBridgedEngine {
     sequence<string> apply();
 
     [Throws=TabsError]
-    void set_uploaded(i64 new_timestamp, sequence<Guid> uploaded_ids);
+    void set_uploaded(i64 new_timestamp, sequence<TabsGuid> uploaded_ids);
 
     [Throws=TabsError]
     void sync_finished();

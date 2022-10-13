@@ -15,12 +15,12 @@ mod sync;
 uniffi_macros::include_scaffolding!("tabs");
 
 // Our UDL uses a `Guid` type.
-use sync_guid::Guid;
-impl UniffiCustomTypeConverter for Guid {
+use sync_guid::Guid as TabsGuid;
+impl UniffiCustomTypeConverter for TabsGuid {
     type Builtin = String;
 
-    fn into_custom(val: Self::Builtin) -> uniffi::Result<Guid> {
-        Ok(Guid::new(val.as_str()))
+    fn into_custom(val: Self::Builtin) -> uniffi::Result<TabsGuid> {
+        Ok(TabsGuid::new(val.as_str()))
     }
 
     fn from_custom(obj: Self) -> Self::Builtin {
