@@ -4,12 +4,12 @@
 
 use std::time::Instant;
 
-use crate::bookmark_sync::engine::update_frecencies;
 use crate::error::Result;
 use crate::history_sync::engine::LAST_SYNC_META_KEY;
 use crate::import::common::{
     attached_database, define_history_migration_functions, select_count, HistoryMigrationResult,
 };
+use crate::storage::history::update_frecencies;
 use crate::storage::put_meta;
 use crate::PlacesDb;
 use url::Url;
@@ -55,22 +55,30 @@ fn do_import(
 
     // ios_db_file_url.query_pairs_mut().append_pair("mode", "ro");
     let import_start = Instant::now();
-    log::debug!("Attaching database {}", ios_db_file_url);
+    log::info!("Attaching database {}", ios_db_file_url);
     let auto_detach = attached_database(conn, &ios_db_file_url, "ios")?;
     let tx = conn.begin_transaction()?;
     let num_total = select_count(conn, &COUNT_IOS_HISTORY_VISITS)?;
-    log::debug!("The number of visits is: {:?}", num_total);
-    log::debug!("Creating and populating staging table");
+    log::info!("The number of visits is: {:?}", num_total);
+    log::info!("Creating and populating staging table");
     conn.execute_batch(&CREATE_STAGING_TABLE)?;
     conn.execute_batch(&FILL_STAGING)?;
     scope.err_if_interrupted()?;
 
-    log::debug!("Populating missing entries in moz_places");
+    log::info!("Updating old titles that may be missing, but now are available");
+    conn.execute_batch(&UPDATE_PLACES_TITLES)?;
+    scope.err_if_interrupted()?;
+
+    log::info!("Populating missing entries in moz_places");
     conn.execute_batch(&FILL_MOZ_PLACES)?;
     scope.err_if_interrupted()?;
 
-    log::debug!("Inserting the history visits");
+    log::info!("Inserting the history visits");
     conn.execute_batch(&INSERT_HISTORY_VISITS)?;
+    scope.err_if_interrupted()?;
+
+    log::info!("Updating frecencies");
+    update_frecencies(conn)?;
     scope.err_if_interrupted()?;
 
     // Once the migration is done, we also migrate the sync timestamp if we have one
@@ -78,14 +86,10 @@ fn do_import(
     put_meta(conn, LAST_SYNC_META_KEY, &last_sync_timestamp)?;
 
     tx.commit()?;
-    // Note: update_frecencies manages its own transaction, which is fine,
-    // since nothing that bad will happen if it is aborted.
-    log::debug!("Updating frecencies");
-    update_frecencies(conn, &scope)?;
 
     log::info!("Successfully imported history visits!");
 
-    log::debug!("Counting Places history visits");
+    log::info!("Counting Places history visits");
     let num_succeeded = select_count(conn, &COUNT_PLACES_HISTORY_VISITS)?;
     let num_failed = num_total.saturating_sub(num_succeeded);
 
@@ -131,6 +135,15 @@ lazy_static::lazy_static! {
         FROM ios.history h
         WHERE url IS NOT NULL"
    ;
+
+    // Unfortunately UPDATE FROM is not available until sqlite 3.33
+   // however, iOS does not ship with 3.33 yet as of the time of writing.
+   static ref UPDATE_PLACES_TITLES: &'static str =
+   "UPDATE main.moz_places
+        SET title = ( SELECT t.title
+                            FROM temp.iOSHistoryStaging t
+                            WHERE t.url = main.moz_places.url AND t.url_hash = main.moz_places.url_hash )"
+    ;
 
    // Insert any missing entries into moz_places that we'll need for this.
    static ref FILL_MOZ_PLACES: &'static str =
