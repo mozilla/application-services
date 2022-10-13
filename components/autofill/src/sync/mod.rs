@@ -12,8 +12,9 @@ pub(crate) use crate::db::models::Metadata;
 use crate::error::Result;
 use interrupt_support::Interruptee;
 use rusqlite::Transaction;
+use sync15::bso::{IncomingBso, IncomingContent, IncomingEnvelope, IncomingKind, OutgoingBso};
 use sync15::engine::OutgoingChangeset;
-use sync15::{Payload, ServerTimestamp};
+use sync15::ServerTimestamp;
 use sync_guid::Guid;
 use types::Timestamp;
 
@@ -49,7 +50,7 @@ pub trait ProcessIncomingRecordImpl {
     fn stage_incoming(
         &self,
         tx: &Transaction<'_>,
-        incoming: Vec<(Payload, ServerTimestamp)>,
+        incoming: Vec<IncomingBso>,
         signal: &dyn Interruptee,
     ) -> Result<()>;
 
@@ -174,25 +175,6 @@ impl Metadata {
     }
 }
 
-// Some enums that help represent what the state of local records are.
-// The idea is that the actual implementations just need to tell you what
-// exists and what doesn't, but don't need to implement the actual policy for
-// what that means.
-
-// An "incoming" record can be in only 2 states.
-#[derive(Debug)]
-enum IncomingRecord<T> {
-    Record { record: T },
-    Tombstone { guid: Guid },
-}
-
-// Ditto for outgoing - either a record or a tombstone
-#[derive(Debug)]
-enum OutgoingRecord<T> {
-    Record { record: T },
-    Tombstone { guid: Guid },
-}
-
 // A local record can be in any of these 5 states.
 #[derive(Debug)]
 enum LocalRecordInfo<T> {
@@ -216,7 +198,7 @@ pub enum MergeResult<T> {
 // implementations to put together for us.
 #[derive(Debug)]
 pub struct IncomingState<T> {
-    incoming: IncomingRecord<T>,
+    incoming: IncomingContent<T>,
     local: LocalRecordInfo<T>,
     // We don't have an enum for the mirror - an Option<> is fine because
     // although we do store tombstones there, we ignore them when reconciling
@@ -265,14 +247,16 @@ fn plan_incoming<T: std::fmt::Debug + SyncRecord>(
         mirror,
     } = staged_info;
 
-    let state = match incoming {
-        IncomingRecord::Tombstone { guid } => {
+    let state = match incoming.kind {
+        IncomingKind::Tombstone => {
             match local {
                 LocalRecordInfo::Unmodified { .. } | LocalRecordInfo::Scrubbed { .. } => {
                     // Note: On desktop, when there's a local record for an incoming tombstone, a local tombstone
                     // would created. But we don't actually need to create a local tombstone here. If we did it would
                     // immediately be deleted after being uploaded to the server.
-                    IncomingAction::DeleteLocalRecord { guid }
+                    IncomingAction::DeleteLocalRecord {
+                        guid: incoming.envelope.id,
+                    }
                 }
                 LocalRecordInfo::Modified { record } => {
                     // Incoming tombstone with local changes should cause us to "resurrect" the local.
@@ -283,15 +267,13 @@ fn plan_incoming<T: std::fmt::Debug + SyncRecord>(
                 LocalRecordInfo::Tombstone {
                     guid: tombstone_guid,
                 } => {
-                    assert_eq!(guid, tombstone_guid);
+                    assert_eq!(incoming.envelope.id, tombstone_guid);
                     IncomingAction::DoNothing
                 }
                 LocalRecordInfo::Missing => IncomingAction::DoNothing,
             }
         }
-        IncomingRecord::Record {
-            record: mut incoming_record,
-        } => {
+        IncomingKind::Content(mut incoming_record) => {
             match local {
                 LocalRecordInfo::Unmodified {
                     record: local_record,
@@ -365,6 +347,10 @@ fn plan_incoming<T: std::fmt::Debug + SyncRecord>(
                     }
                 }
             }
+        }
+        IncomingKind::Malformed => {
+            log::warn!("skipping incoming record: {}", incoming.envelope.id);
+            IncomingAction::DoNothing
         }
     };
     log::trace!("plan_incoming resulted in {:?}", state);

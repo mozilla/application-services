@@ -3,14 +3,11 @@
 * file, You can obtain one at http://mozilla.org/MPL/2.0/.
 */
 
-use super::AddressPayload;
 use crate::db::models::address::InternalAddress;
 use crate::db::schema::ADDRESS_COMMON_COLS;
 use crate::error::*;
 use crate::sync::common::*;
-use crate::sync::{
-    OutgoingChangeset, OutgoingRecord, Payload, ProcessOutgoingRecordImpl, ServerTimestamp,
-};
+use crate::sync::{OutgoingBso, OutgoingChangeset, ProcessOutgoingRecordImpl, ServerTimestamp};
 use rusqlite::{Row, Transaction};
 use sync_guid::Guid as SyncGuid;
 
@@ -31,8 +28,6 @@ impl ProcessOutgoingRecordImpl for OutgoingAddressesImpl {
         collection_name: String,
         timestamp: ServerTimestamp,
     ) -> anyhow::Result<OutgoingChangeset> {
-        let mut outgoing = OutgoingChangeset::new(collection_name, timestamp);
-
         let data_sql = format!(
             "SELECT
                 {common_cols},
@@ -45,12 +40,12 @@ impl ProcessOutgoingRecordImpl for OutgoingAddressesImpl {
                 )",
             common_cols = ADDRESS_COMMON_COLS,
         );
-        let record_from_data_row: &dyn Fn(&Row<'_>) -> Result<OutgoingRecord<AddressPayload>> =
-            &|row| {
-                Ok(OutgoingRecord::Record {
-                    record: InternalAddress::from_row(row)?.into_payload()?,
-                })
-            };
+        let record_from_data_row: &dyn Fn(&Row<'_>) -> Result<(OutgoingBso, i64)> = &|row| {
+            Ok((
+                OutgoingBso::from_content_with_id(InternalAddress::from_row(row)?.into_payload()?)?,
+                row.get::<_, i64>("sync_change_counter")?,
+            ))
+        };
 
         let tombstones_sql = "SELECT guid FROM addresses_tombstones";
 
@@ -65,37 +60,21 @@ impl ProcessOutgoingRecordImpl for OutgoingAddressesImpl {
             record_from_data_row,
         )?
         .into_iter()
-        .map(|(record, change_counter)| {
-            Ok(match record {
-                OutgoingRecord::Record { record } => (
-                    record.id.clone(),
-                    Payload::from_record(record)?.into_json_string(),
-                    change_counter,
-                ),
-                OutgoingRecord::Tombstone { guid } => (
-                    guid.clone(),
-                    Payload::new_tombstone(guid).into_json_string(),
-                    change_counter,
-                ),
-            })
-        })
-        .collect::<Result<_>>()?;
+        .map(|(bso, change_counter)| (bso.envelope.id, bso.payload, change_counter))
+        .collect::<Vec<_>>();
         common_save_outgoing_records(tx, STAGING_TABLE_NAME, staging_records)?;
 
         // return outgoing changes
         let outgoing_records =
-            common_get_outgoing_records(tx, &data_sql, tombstones_sql, record_from_data_row)?;
-
-        outgoing.changes = outgoing_records
-            .into_iter()
-            .map(|(record, _)| {
-                Ok(match record {
-                    OutgoingRecord::Record { record } => Payload::from_record(record)?,
-                    OutgoingRecord::Tombstone { guid } => Payload::new_tombstone(guid),
-                })
-            })
-            .collect::<Result<_>>()?;
-        Ok(outgoing)
+            common_get_outgoing_records(tx, &data_sql, tombstones_sql, record_from_data_row)?
+                .into_iter()
+                .map(|(bso, _change_counter)| bso)
+                .collect();
+        Ok(OutgoingChangeset::new_with_changes(
+            collection_name,
+            timestamp,
+            outgoing_records,
+        ))
     }
 
     fn finish_synced_items(
