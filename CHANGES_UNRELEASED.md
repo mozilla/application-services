@@ -24,3 +24,8 @@ Use the template below to make assigning a version number during the release cut
 ### What's Changed
 
 - Android: Reverted NDK back to r21d from r25b. ([#5156](https://github.com/mozilla/application-services/issues/5165))
+
+## Sync Manager
+
+### What's Changed
+  - Syncing will sync each engine in a deterministic order which matches desktop ([#5171](https://github.com/mozilla/application-services/issues/5171))
