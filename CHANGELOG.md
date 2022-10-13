@@ -1,3 +1,18 @@
+# v94.3.2 (_2022-10-13_)
+
+[Full Changelog](https://github.com/mozilla/application-services/compare/v94.3.1...v94.3.2)
+
+## General
+
+### What's Changed
+
+- Android: Reverted NDK back to r21d from r25b. ([#5156](https://github.com/mozilla/application-services/issues/5165))
+
+## Sync Manager
+
+### What's Changed
+  - Syncing will sync each engine in a deterministic order which matches desktop ([#5171](https://github.com/mozilla/application-services/issues/5171))
+
 # v94.3.1 (_2022-09-23_)
 
 [Full Changelog](https://github.com/mozilla/application-services/compare/v94.3.0...v94.3.1)
