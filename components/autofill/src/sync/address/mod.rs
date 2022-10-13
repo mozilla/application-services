@@ -61,9 +61,10 @@ impl SyncEngineStorageImpl<InternalAddress> for AddressesEngineStorageImpl {
     }
 }
 
-// These structs are what's stored on the sync server for non-tombstone records.
+// These structs are a representation of what's stored on the sync server for non-tombstone records.
+// (The actual server doesn't have `id` in the payload but instead in the envelope)
 #[derive(Default, Deserialize, Serialize)]
-struct AddressPayload {
+pub struct AddressPayload {
     id: Guid,
     // For some historical reason and unlike most other sync records, addresses
     // are serialized with this explicit 'entry' object.
@@ -98,8 +99,7 @@ struct PayloadEntry {
 }
 
 impl InternalAddress {
-    fn from_payload(sync_payload: sync15::Payload) -> Result<Self> {
-        let p: AddressPayload = sync_payload.into_record()?;
+    fn from_payload(p: AddressPayload) -> Result<Self> {
         if p.entry.version != 1 {
             // Always been version 1
             return Err(Error::InvalidSyncPayload(format!(
@@ -132,8 +132,8 @@ impl InternalAddress {
         })
     }
 
-    pub fn into_payload(self) -> Result<sync15::Payload> {
-        let p = AddressPayload {
+    fn into_payload(self) -> Result<AddressPayload> {
+        Ok(AddressPayload {
             id: self.guid,
             entry: PayloadEntry {
                 given_name: self.given_name,
@@ -154,8 +154,7 @@ impl InternalAddress {
                 times_used: self.metadata.times_used,
                 version: 1,
             },
-        };
-        Ok(sync15::Payload::from_record(p)?)
+        })
     }
 }
 
