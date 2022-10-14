@@ -80,6 +80,7 @@ default-members = [
     "components/push",
     "components/rc_log",
     "components/support/error",
+    "components/support/error/macros",
     "components/support/guid",
     "components/support/interrupt",
     "components/support/restmail-client",

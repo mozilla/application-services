@@ -50,6 +50,7 @@ enum MigrationOp {
 }
 
 // migration for consumers to migrate from their SQLCipher DB
+#[handle_error(LoginsStorageError)]
 pub fn migrate_logins(
     path: impl AsRef<Path>,
     new_encryption_key: &str,
@@ -57,32 +58,30 @@ pub fn migrate_logins(
     sqlcipher_key: &str,
     // The salt arg is for iOS where the salt is stored externally.
     salt: Option<String>,
-) -> ApiResult<()> {
-    handle_error! {
-        let path = path.as_ref();
-        let sqlcipher_path = sqlcipher_path.as_ref();
+) -> Result<()> {
+    let path = path.as_ref();
+    let sqlcipher_path = sqlcipher_path.as_ref();
 
-        // If the sqlcipher db doesn't exist we can't do anything.
-        if !sqlcipher_path.exists() {
-            return Err(Error::InvalidDatabaseFile(
-                sqlcipher_path.to_string_lossy().to_string(),
-            ));
-        }
-
-        // If the target does exist we fail as we don't want to migrate twice.
-        if path.exists() {
-            return Err(Error::MigrationError(
-                "target database already exists".to_string(),
-            ));
-        }
-        migrate_sqlcipher_db_to_plaintext(
-            sqlcipher_path,
-            path,
-            sqlcipher_key,
-            new_encryption_key,
-            salt.as_ref(),
-        )
+    // If the sqlcipher db doesn't exist we can't do anything.
+    if !sqlcipher_path.exists() {
+        return Err(Error::InvalidDatabaseFile(
+            sqlcipher_path.to_string_lossy().to_string(),
+        ));
     }
+
+    // If the target does exist we fail as we don't want to migrate twice.
+    if path.exists() {
+        return Err(Error::MigrationError(
+            "target database already exists".to_string(),
+        ));
+    }
+    migrate_sqlcipher_db_to_plaintext(
+        sqlcipher_path,
+        path,
+        sqlcipher_key,
+        new_encryption_key,
+        salt.as_ref(),
+    )
 }
 
 fn migrate_sqlcipher_db_to_plaintext(
