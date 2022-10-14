@@ -23,6 +23,9 @@ Use the template below to make assigning a version number during the release cut
 ### What's fixed
 - Fixed a bug released in 94.3.1. The bug broke firefox-ios builds due to a name conflict. ([#5181](https://github.com/mozilla/application-services/pull/5181))
 
+### What's Changed
+  - Updated UniFFI to 0.21.0.  This improves the string display of the fielded errors on Kotlin.  Currently only logins is using these errors, but we plan to start using them for all components.
+
 ## Nimbus ⛅️🔬🔭
 
 ### What's Changed
