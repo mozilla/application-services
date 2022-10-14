@@ -3,9 +3,10 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 use proc_macro::TokenStream;
 use quote::quote;
-use syn::{parse_quote, spanned::Spanned, GenericArgument, PathArguments};
+use syn::{parse_quote, spanned::Spanned};
 
 mod argument;
+mod signature;
 
 #[proc_macro_attribute]
 pub fn handle_error(args: TokenStream, input: TokenStream) -> TokenStream {
@@ -22,69 +23,27 @@ fn impl_handle_error(
     arguments: &syn::AttributeArgs,
 ) -> syn::Result<proc_macro2::TokenStream> {
     let argument_name = argument::parse(arguments)?;
+    if let syn::Item::Fn(item_fn) = input {
+        let (ok_type, original_ret_typ) = signature::parse(&item_fn.sig)?;
+        let original_body = &item_fn.block;
 
-    let (mut sig, body, vis) = if let syn::Item::Fn(item_fn) = input {
-        (
-            item_fn.sig.clone(),
-            item_fn.block.clone(),
-            item_fn.vis.clone(),
-        )
-    } else {
-        return Err(syn::Error::new(
-            input.span(),
-            "The macro should only be used on functions",
-        ));
-    };
-
-    let output = sig.output.clone();
-    let ret_output;
-    let ok_type = if let syn::ReturnType::Type(_, typ) = output {
-        ret_output = typ.clone();
-        if let syn::Type::Path(type_path) = *typ {
-            let seg = type_path.path.segments.last().ok_or_else(|| {
-                syn::Error::new(type_path.span(), "Expected a Result<T> or Result<T, E>")
-            })?;
-            match &seg.arguments {
-                PathArguments::AngleBracketed(generic_args) => {
-                    let generic_arg = generic_args.args.first().ok_or_else(|| {
-                        syn::Error::new(generic_args.span(), "Expected a Result<T> or Result<T, E>")
-                    })?;
-                    if let GenericArgument::Type(t) = generic_arg {
-                        t.clone()
-                    } else {
-                        return Err(syn::Error::new(
-                            generic_arg.span(),
-                            "Expected a Result<T> or Result<T, E>",
-                        ));
-                    }
-                }
-                _ => {
-                    return Err(syn::Error::new(
-                        seg.span(),
-                        "Expected a Result<T> or Result<T, E>",
-                    ))
-                }
+        let mut new_fn = item_fn.clone();
+        new_fn.block = parse_quote! {
+            {
+                (|| -> #original_ret_typ {
+                    #original_body
+                })().map_err(::error_support::convert_log_report_error)
             }
-        } else {
-            return Err(syn::Error::new(
-                typ.span(),
-                "Expected a Result<T> or Result<T, E>",
-            ));
-        }
+        };
+        new_fn.sig.output = parse_quote!(-> ::std::result::Result<#ok_type, #argument_name>);
+
+        Ok(quote! {
+            #new_fn
+        })
     } else {
-        return Err(syn::Error::new(
-            output.span(),
-            "Expected a Result<T> or Result<T, E>",
-        ));
-    };
-
-    sig.output = parse_quote!(-> ::std::result::Result<#ok_type, #argument_name>);
-
-    Ok(quote! {
-        #vis #sig {
-        (|| -> #ret_output {
-                #body
-        })().map_err(::error_support::convert_log_report_error)
-        }
-    })
+        Err(syn::Error::new(
+            input.span(),
+            "#[handle_error] can only be used on functions",
+        ))
+    }
 }
