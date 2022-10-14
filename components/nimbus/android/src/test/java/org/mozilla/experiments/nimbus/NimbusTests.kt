@@ -25,6 +25,7 @@ import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Assert.assertFalse
 import org.junit.Before
+import org.junit.Ignore
 import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -461,6 +462,7 @@ class NimbusTests {
     }
 
     @Test
+    @Ignore
     fun `in memory cache not ready logs an event`() {
         // we haven't initialized nimbus at all, it should not log any error, but it should log an
         // event
