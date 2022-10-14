@@ -125,9 +125,11 @@ nimbus_health:
       feature_id:
         type: string
         description: The feature id of the configuration that was requested
+    disabled: true
     bugs:
       - https://mozilla-hub.atlassian.net/browse/EXP-2689
       - https://mozilla-hub.atlassian.net/browse/EXP-2690
+      - https://mozilla-hub.atlassian.net/browse/EXP-2852
     data_reviews:
       - https://github.com/mozilla/application-services/pull/5091#issuecomment-1218359426
     data_sensitivity:
@@ -144,8 +146,10 @@ nimbus_health:
       feature_id:
         type: string
         description: The feature id of the configuration that was requested
+    disabled: true
     bugs:
       - https://mozilla-hub.atlassian.net/browse/EXP-2743
+      - https://mozilla-hub.atlassian.net/browse/EXP-2852
     data_reviews:
       - https://github.com/mozilla/application-services/pull/5118#issuecomment-1235827006
     data_sensitivity:
