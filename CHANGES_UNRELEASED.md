@@ -18,3 +18,8 @@ Use the template below to make assigning a version number during the release cut
   - Description of the change with a link to the pull request ([#0000](https://github.com/mozilla/application-services/pull/0000))
 
 -->
+
+## Nimbus ⛅️🔬🔭
+
+### What's Changed
+  - Disabled Glean events recorded when the SDK is not ready for a feature ([#5185](https://github.com/mozilla/application-services/pull/5185))
