@@ -61,15 +61,14 @@ macro_rules! breadcrumb {
     };
 }
 
-/// Function wrapper macro to convert from a component's internal errors to external errors
-/// and optionally log and report the error.
 #[macro_export]
-macro_rules! handle_error {
-    { $($tt:tt)* } => {
-        let body = || {
-            $($tt)*
-        };
-        let result: Result<_> = body();
-        result.map_err($crate::convert_log_report_error)
-    }
+macro_rules! expose_error {
+    ($internal:ty as $external:ty) => {
+        impl<T: Into<$internal>> From<T> for $external {
+            fn from(e: T) -> Self {
+                let internal_err: $internal = e.into();
+                $crate::convert_log_report_error(internal_err)
+            }
+        }
+    };
 }

@@ -77,7 +77,7 @@ impl<E> ErrorHandling<E> {
 
 /// Handle the specified "internal" error, taking any logging or error
 /// reporting actions and converting the error to the public error.
-/// Called by our `handle_error` macro so needs to be public.
+/// Called by our `expose_error` macro so needs to be public.
 pub fn convert_log_report_error<IE, EE>(e: IE) -> EE
 where
     IE: Into<ErrorHandling<EE>> + std::error::Error,
