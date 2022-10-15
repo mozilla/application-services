@@ -19,6 +19,10 @@ Use the template below to make assigning a version number during the release cut
 
 -->
 
+## General
+### What's fixed
+- Fixed a bug released in 94.3.1. The bug broke firefox-ios builds due to a name conflict. ([#5181](https://github.com/mozilla/application-services/pull/5181))
+
 ## Nimbus ⛅️🔬🔭
 
 ### What's Changed
