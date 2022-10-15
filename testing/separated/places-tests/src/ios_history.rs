@@ -3,8 +3,9 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 use places::{
     api::places_api::{ConnectionType, PlacesApi},
-    storage::history,
-    Result, VisitTransitionSet,
+    apply_observation,
+    storage::history::{self, get_visit_infos},
+    Result, VisitObservation, VisitTransition, VisitTransitionSet,
 };
 use rusqlite::Connection;
 use std::path::Path;
@@ -197,5 +198,87 @@ fn test_import_basic() -> Result<()> {
     assert_eq!(visit_infos[1].title, Some("Example(dot)com".to_owned()));
     assert_eq!(visit_infos[0].timestamp, first_visit_ts);
     assert_eq!(visit_infos[1].timestamp, second_visit_ts);
+    Ok(())
+}
+
+#[test]
+fn test_update_missing_title() -> Result<()> {
+    let tmpdir = tempdir().unwrap();
+
+    let places_api = PlacesApi::new(tmpdir.path().join("places.sqlite"))?;
+    let mut conn = places_api.open_connection(ConnectionType::ReadWrite)?;
+    apply_observation(
+        &mut conn,
+        VisitObservation::new(Url::parse("https://example.com/").unwrap())
+            .with_visit_type(Some(VisitTransition::Link)),
+    )?;
+    apply_observation(
+        &mut conn,
+        VisitObservation::new(Url::parse("https://mozilla.org/").unwrap())
+            .with_title(Some("Mozilla!".to_string()))
+            .with_visit_type(Some(VisitTransition::Link)),
+    )?;
+    let visit_infos = get_visit_infos(
+        &conn,
+        Timestamp::EARLIEST,
+        Timestamp::now(),
+        VisitTransitionSet::empty(),
+    )?;
+    assert_eq!(visit_infos.len(), 2);
+    // We verify that before the migration example.com had no title
+    // and mozilla.org had "Mozilla!" as title
+    for visit in visit_infos {
+        if visit.url.to_string() == "https://example.com/" {
+            assert!(visit.title.is_none())
+        } else if visit.url.to_string() == "https://mozilla.org/" {
+            assert_eq!(visit.title, Some("Mozilla!".to_string()))
+        } else {
+            panic!("Unexpected visit: {}", visit.url.to_string())
+        }
+    }
+
+    let ios_path = tmpdir.path().join("browser.db");
+    let ios_db = empty_ios_db(&ios_path)?;
+    let example_com_entry = IOSHistory {
+        id: 1,
+        guid: "EXAMPLE GUID".to_string(),
+        url: Some("https://example.com/".to_string()),
+        title: "Example(dot)com".to_string(),
+        is_deleted: false,
+        should_upload: false,
+    };
+
+    let mozilla_org_entry = IOSHistory {
+        id: 1,
+        guid: "EXAMPLE GUID2".to_string(),
+        url: Some("https://mozilla.org/".to_string()),
+        title: "New Mozilla Title".to_string(),
+        is_deleted: false,
+        should_upload: false,
+    };
+
+    let history_table = HistoryTable(vec![example_com_entry, mozilla_org_entry]);
+    history_table.populate(&ios_db)?;
+
+    // We now run the migration, both places should get an updated title
+    places::import::import_ios_history(&conn, ios_path, 0)?;
+    let visit_infos = get_visit_infos(
+        &conn,
+        Timestamp::EARLIEST,
+        Timestamp::now(),
+        VisitTransitionSet::empty(),
+    )?;
+    assert_eq!(visit_infos.len(), 2);
+
+    for visit in visit_infos {
+        if visit.url.to_string() == "https://example.com/" {
+            assert_eq!(visit.title, Some("Example(dot)com".to_string()))
+        } else if visit.url.to_string() == "https://mozilla.org/" {
+            assert_eq!(visit.title, Some("New Mozilla Title".to_string()))
+        } else {
+            panic!("Unexpected visit: {}", visit.url.to_string())
+        }
+    }
+
     Ok(())
 }

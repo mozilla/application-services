@@ -142,7 +142,7 @@ lazy_static::lazy_static! {
    "UPDATE main.moz_places
         SET title = ( SELECT t.title
                             FROM temp.iOSHistoryStaging t
-                            WHERE t.url = main.moz_places.url AND t.url_hash = main.moz_places.url_hash )"
+                            WHERE t.url_hash = main.moz_places.url_hash AND t.url = main.moz_places.url )"
     ;
 
    // Insert any missing entries into moz_places that we'll need for this.
