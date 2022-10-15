@@ -7,8 +7,8 @@ pub type Result<T> = std::result::Result<T, LoginsError>;
 // Functions which are part of the public API should use this Result.
 pub type ApiResult<T> = std::result::Result<T, LoginsStorageError>;
 
+use error_support::ErrorHandling;
 pub use error_support::{breadcrumb, handle_error, report_error};
-use error_support::{ErrorHandling, GetErrorHandling};
 use sync15::Error as Sync15Error;
 
 // Errors we return via the public interface.
@@ -122,11 +122,9 @@ pub enum InvalidLogin {
 }
 
 // Define how our internal errors are handled and converted to external errors.
-impl GetErrorHandling for LoginsError {
-    type ExternalError = LoginsStorageError;
-
-    // Return how to handle our internal errors
-    fn get_error_handling(&self) -> ErrorHandling<Self::ExternalError> {
+impl From<LoginsError> for ErrorHandling<LoginsStorageError> {
+    fn from(e: LoginsError) -> Self {
+        // Return how to handle our internal errors
         // WARNING: The details inside the `LoginsStorageError` we return should not
         // contain any personally identifying information.
         // However, because many of the string details come from the underlying
@@ -137,30 +135,30 @@ impl GetErrorHandling for LoginsError {
         // in our `LoginsStorageError::Unexpected` structs, log messages, etc.
         // But because we've never seen that in practice we are comfortable
         // forwarding that error message into ours without attempting to sanitize.
-        match self {
-            Self::InvalidLogin(why) => {
+        match &e {
+            LoginsError::InvalidLogin(why) => {
                 ErrorHandling::convert(LoginsStorageError::InvalidRecord(why.to_string()))
             }
             // Our internal "no such record" error is converted to our public "no such record" error, with no logging and no error reporting.
-            Self::NoSuchRecord(guid) => {
+            LoginsError::NoSuchRecord(guid) => {
                 ErrorHandling::convert(LoginsStorageError::NoSuchRecord(guid.to_string()))
             }
             // NonEmptyTable error is just a sanity check to ensure we aren't asked to migrate into an
             // existing DB - consumers should never actually do this, and will never expect to handle this as a specific
             // error - so it gets reported to the error reporter and converted to an "internal" error.
-            Self::NonEmptyTable => {
+            LoginsError::NonEmptyTable => {
                 ErrorHandling::convert(LoginsStorageError::UnexpectedLoginsStorageError(
                     "must be an empty DB to migrate".to_string(),
                 ))
                 .report_error("logins-migration")
             }
-            Self::CryptoError(_) => {
+            LoginsError::CryptoError(_) => {
                 ErrorHandling::convert(LoginsStorageError::IncorrectKey).log_warning()
             }
-            Self::Interrupted(_) => {
-                ErrorHandling::convert(LoginsStorageError::Interrupted(self.to_string()))
+            LoginsError::Interrupted(_) => {
+                ErrorHandling::convert(LoginsStorageError::Interrupted(e.to_string()))
             }
-            Self::SyncAdapterError(e) => match e {
+            LoginsError::SyncAdapterError(e) => match e {
                 Sync15Error::TokenserverHttpError(401) | Sync15Error::BadKeyLength(..) => {
                     ErrorHandling::convert(LoginsStorageError::SyncAuthInvalid(e.to_string()))
                         .log_warning()
@@ -170,7 +168,7 @@ impl GetErrorHandling for LoginsError {
                         .log_warning()
                 }
                 _ => ErrorHandling::convert(LoginsStorageError::UnexpectedLoginsStorageError(
-                    self.to_string(),
+                    e.to_string(),
                 ))
                 .report_error("logins-sync"),
             },
@@ -180,7 +178,7 @@ impl GetErrorHandling for LoginsError {
             // But it's fine for now because errors were always converted with a default
             // branch to "unexpected"
             _ => ErrorHandling::convert(LoginsStorageError::UnexpectedLoginsStorageError(
-                self.to_string(),
+                e.to_string(),
             ))
             .report_error("logins-unexpected"),
         }

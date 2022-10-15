@@ -75,26 +75,19 @@ impl<E> ErrorHandling<E> {
     }
 }
 
-/// A trait to define how errors are converted and reported.
-pub trait GetErrorHandling {
-    type ExternalError;
-
-    /// Return how to handle our internal errors
-    fn get_error_handling(&self) -> ErrorHandling<Self::ExternalError>;
-}
-
 /// Handle the specified "internal" error, taking any logging or error
 /// reporting actions and converting the error to the public error.
 /// Called by our `handle_error` macro so needs to be public.
 pub fn convert_log_report_error<IE, EE>(e: IE) -> EE
 where
-    IE: GetErrorHandling<ExternalError = EE> + std::error::Error,
+    IE: Into<ErrorHandling<EE>> + std::error::Error,
     EE: std::error::Error,
 {
-    let handling = e.get_error_handling();
+    let log_message = e.to_string();
+    let handling = e.into();
     let reporting = handling.reporting;
     if let Some(level) = reporting.log_level {
-        log::log!(level, "{}", e.to_string());
+        log::log!(level, "{}", log_message);
     }
     if let Some(report_class) = reporting.report_class {
         // notify the error reporter if the feature is enabled.
@@ -102,7 +95,7 @@ where
         // original crate calling this as a prefix, or will we still be
         // able to identify that?
         #[cfg(feature = "reporting")]
-        crate::report_error(report_class, e.to_string());
+        crate::report_error(report_class, log_message);
         #[cfg(not(feature = "reporting"))]
         let _ = report_class; // avoid clippy warning when feature's not enabled.
     }

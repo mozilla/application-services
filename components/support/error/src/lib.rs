@@ -32,7 +32,7 @@ pub use reporting::{
 };
 
 mod handling;
-pub use handling::{convert_log_report_error, ErrorHandling, ErrorReporting, GetErrorHandling};
+pub use handling::{convert_log_report_error, ErrorHandling, ErrorReporting};
 
 /// XXX - Most of this is now considered deprecated - only FxA uses it, and
 /// should be replaced with the facilities in the `handling` module.
