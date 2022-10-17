@@ -233,7 +233,7 @@ fn test_update_missing_title() -> Result<()> {
         } else if visit.url.to_string() == "https://mozilla.org/" {
             assert_eq!(visit.title, Some("Mozilla!".to_string()))
         } else {
-            panic!("Unexpected visit: {}", visit.url.to_string())
+            panic!("Unexpected visit: {}", visit.url)
         }
     }
 
@@ -276,7 +276,7 @@ fn test_update_missing_title() -> Result<()> {
         } else if visit.url.to_string() == "https://mozilla.org/" {
             assert_eq!(visit.title, Some("New Mozilla Title".to_string()))
         } else {
-            panic!("Unexpected visit: {}", visit.url.to_string())
+            panic!("Unexpected visit: {}", visit.url)
         }
     }
 
