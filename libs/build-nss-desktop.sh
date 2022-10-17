@@ -30,6 +30,10 @@ if [[ "${CROSS_COMPILE_TARGET}" =~ "win32-x86-64" ]]; then
 elif [[ "${CROSS_COMPILE_TARGET}" =~ "darwin" ]]; then
   DIST_DIR=$(abspath "desktop/darwin/nss")
   TARGET_OS="macos"
+elif [[ "${CROSS_COMPILE_TARGET}" =~ "darwin-aarch64" ]]; then
+  DIST_DIR=$(abspath "desktop/darwin-aarch64/nss")
+  TARGET_ARCH="aarch64"
+  TARGET_OS="macos"
 elif [[ -n "${CROSS_COMPILE_TARGET}" ]]; then
   echo "Cannot build NSS for unrecognized target OS ${CROSS_COMPILE_TARGET}"
   exit 1

@@ -28,6 +28,17 @@ desktop-macos:
         toolchain-alias: desktop-macos-libs
         toolchain-artifact: public/build/macos.tar.gz
 
+desktop-macos-aarch64:
+    description: 'Desktop libs (macOS-aarch64): build'
+    scopes:
+        - project:releng:services/tooltool/api/download/internal
+    worker:
+        docker-image: {in-tree: linux}
+    run:
+        script: desktop-macos-aarch64.sh
+        toolchain-alias: desktop-macos-aarch64-libs
+        toolchain-artifact: public/build/macos-aarch64.tar.gz
+
 desktop-win32-x86-64:
     description: 'Desktop libs (win32-x86-64): build'
     run:
