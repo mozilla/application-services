@@ -9,9 +9,9 @@ use crate::history_sync::engine::LAST_SYNC_META_KEY;
 use crate::import::common::{
     attached_database, define_history_migration_functions, select_count, HistoryMigrationResult,
 };
-use crate::storage::history::update_frecencies;
-use crate::storage::put_meta;
+use crate::storage::{put_meta, update_all_frecencies_at_once};
 use crate::PlacesDb;
+use types::Timestamp;
 use url::Url;
 
 /// This import is used for iOS users migrating from `browser.db`-based
@@ -77,8 +77,9 @@ fn do_import(
     conn.execute_batch(&INSERT_HISTORY_VISITS)?;
     scope.err_if_interrupted()?;
 
-    log::info!("Updating frecencies");
-    update_frecencies(conn)?;
+    log::info!("Insert all new entries into stale frecencies");
+    let now = Timestamp::now().as_millis();
+    conn.execute(&ADD_TO_STALE_FRECENCIES, &[(":now", &now)])?;
     scope.err_if_interrupted()?;
 
     // Once the migration is done, we also migrate the sync timestamp if we have one
@@ -90,9 +91,18 @@ fn do_import(
     log::info!("Successfully imported history visits!");
 
     log::info!("Counting Places history visits");
+    // We record the metrics for the migration
+    // we **don't** include how long the frecency update
+    // took, as read connections can read the data while
+    // that one is running.
     let num_succeeded = select_count(conn, &COUNT_PLACES_HISTORY_VISITS)?;
     let num_failed = num_total.saturating_sub(num_succeeded);
 
+    // We now update the frecencies as its own transaction
+    // this is desired because we want reader connections to
+    // read the migrated data and not have to wait for the
+    // frecencies to be up to date
+    update_all_frecencies_at_once(conn, &scope)?;
     auto_detach.execute_now()?;
 
     let metrics = HistoryMigrationResult {
@@ -181,4 +191,14 @@ lazy_static::lazy_static! {
    static ref COUNT_PLACES_HISTORY_VISITS: &'static str =
        "SELECT COUNT(*) FROM main.moz_historyvisits"
    ;
+
+   // Adds newly modified places entries into the stale frecencies table
+   static ref ADD_TO_STALE_FRECENCIES: &'static str =
+   "INSERT OR IGNORE INTO main.moz_places_stale_frecencies(place_id, stale_at)
+    SELECT
+        p.id,
+        :now
+    FROM main.moz_places p
+    WHERE p.frecency = -1"
+    ;
 }

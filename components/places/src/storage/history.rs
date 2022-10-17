@@ -155,18 +155,6 @@ pub fn apply_observation_direct(
     Ok(visit_row_id)
 }
 
-pub fn update_frecencies(db: &PlacesDb) -> Result<()> {
-    let need_frecency_update = db.query_rows_and_then(
-        "SELECT id FROM moz_places h WHERE h.frecency = -1",
-        [],
-        |r| r.get::<_, RowId>(0),
-    )?;
-    for row in need_frecency_update {
-        update_frecency(db, row, None)?
-    }
-    Ok(())
-}
-
 pub fn update_frecency(db: &PlacesDb, id: RowId, redirect_boost: Option<bool>) -> Result<()> {
     let score = frecency::calculate_frecency(
         db.conn(),
