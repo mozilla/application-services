@@ -167,6 +167,7 @@ tasks:
                                   then:
                                       - index.project.${project}.v2.branch.${short_head_branch}.latest.taskgraph.decision
                                       - index.project.${project}.v2.branch.${short_head_branch}.revision.${head_sha}.taskgraph.decision
+                                      - index.${trustDomain}.v2.${project}.revision.${head_sha}.taskgraph.decision
                                 - $if: 'tasks_for == "cron"'
                                   then:
                                       # cron context provides ${head_branch} as a short one
@@ -216,6 +217,13 @@ tasks:
                                     then:
                                         APPSERVICES_PULL_REQUEST_TITLE: '${event.pull_request.title}'
                                         APPSERVICES_PULL_REQUEST_NUMBER: '${event.pull_request.number}'
+                                  - $if: 'tasks_for == "action"'
+                                    then:
+                                      ACTION_TASK_GROUP_ID: '${action.taskGroupId}'
+                                      ACTION_TASK_ID: {$json: {$eval: 'taskId'}}
+                                      ACTION_INPUT: {$json: {$eval: 'input'}}
+                                      ACTION_CALLBACK: '${action.cb_name}'
+
                           features:
                               taskclusterProxy: true
                               chainOfTrust: true
@@ -233,22 +241,26 @@ tasks:
                               - '--'
                               - bash
                               - -cx
-                              - >
-                                ln -s /builds/worker/artifacts artifacts &&
-                                ~/.local/bin/taskgraph decision
-                                --pushlog-id='0'
-                                --pushdate='0'
-                                --project='${project}'
-                                --message=""
-                                --owner='${ownerEmail}'
-                                --level='${level}'
-                                --base-repository="$APPSERVICES_BASE_REPOSITORY"
-                                --head-repository="$APPSERVICES_HEAD_REPOSITORY"
-                                --head-ref="$APPSERVICES_HEAD_REF"
-                                --head-rev="$APPSERVICES_HEAD_REV"
-                                --head-tag="$APPSERVICES_HEAD_TAG"
-                                --repository-type="$APPSERVICES_REPOSITORY_TYPE"
-                                --tasks-for='${tasks_for}'
+                              - $if: 'tasks_for == "action"'
+                                then: >
+                                  ln -s /builds/worker/artifacts artifacts &&
+                                  ~/.local/bin/taskgraph action-callback
+                                else: >
+                                  ln -s /builds/worker/artifacts artifacts &&
+                                  ~/.local/bin/taskgraph decision
+                                  --pushlog-id='0'
+                                  --pushdate='0'
+                                  --project='${project}'
+                                  --message=""
+                                  --owner='${ownerEmail}'
+                                  --level='${level}'
+                                  --base-repository="$APPSERVICES_BASE_REPOSITORY"
+                                  --head-repository="$APPSERVICES_HEAD_REPOSITORY"
+                                  --head-ref="$APPSERVICES_HEAD_REF"
+                                  --head-rev="$APPSERVICES_HEAD_REV"
+                                  --head-tag="$APPSERVICES_HEAD_TAG"
+                                  --repository-type="$APPSERVICES_REPOSITORY_TYPE"
+                                  --tasks-for='${tasks_for}'
                           artifacts:
                               'public':
                                   type: 'directory'
@@ -263,16 +275,32 @@ tasks:
                                   # debugging, but they are not useful long-term.
                                   expires: {$fromNow: '7 day'}
                       extra:
-                        $merge:
-                            - treeherder:
-                                  $merge:
-                                      - machine:
-                                            platform: gecko-decision
-                                      - $if: 'tasks_for in ["github-push", "github-pull-request"]'
-                                        then:
-                                            symbol: D
-                                        else:
-                                            $if: 'tasks_for == "github-release"'
-                                            then:
-                                                symbol: 'ship_app_services'
-                            - tasks_for: '${tasks_for}'
+                          $merge:
+                              - treeherder:
+                                    $merge:
+                                        - machine:
+                                              platform: gecko-decision
+                                        - $if: 'tasks_for in ["github-push", "github-pull-request"]'
+                                          then:
+                                              symbol: D
+                                          else:
+                                              $if: 'tasks_for == "github-release"'
+                                              then:
+                                                  symbol: 'ship_app_services'
+                                              else:
+                                                  $if: 'tasks_for == "action"'
+                                                  then:
+                                                      groupName: 'action-callback'
+                                                      groupSymbol: AC
+                                                      symbol: "${action.symbol}"
+                              - $if: 'tasks_for == "action"'
+                                then:
+                                    parent: '${action.taskGroupId}'
+                                    action:
+                                        name: '${action.name}'
+                                        context:
+                                            taskGroupId: '${action.taskGroupId}'
+                                            taskId: {$eval: 'taskId'}
+                                            input: {$eval: 'input'}
+                                            clientId: {$eval: 'clientId'}
+                              - tasks_for: '${tasks_for}'
