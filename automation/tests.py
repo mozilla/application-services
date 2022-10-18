@@ -88,6 +88,7 @@ def parse_args():
     parser.add_argument('mode', help='Testing mode', metavar='MODE')
     parser.add_argument('--base-branch', dest='base_branch', default='main',
                         help='git base branch')
+    parser.add_argument('--features', dest='features', default='default', help='which features to test, either default, all or no')
     return parser.parse_args()
 
 def on_darwin():
@@ -160,14 +161,21 @@ class RustFeatures(Enum):
             return ['--all-features']
         elif self == RustFeatures.NONE:
            return ['--no-default-features']
+    def from_args(arg):
+        if arg == "default":
+                return RustFeatures.DEFAULT
+        if arg == 'all':
+                return RustFeatures.ALL
+        if arg == 'no':
+                return RustFeatures.NONE
 
-def calc_rust_items(branch_changes=None, default_features_only=False):
+def calc_rust_items(branch_changes=None, features=RustFeatures.DEFAULT):
     """
     Calculate which items we want to test and run clippy on
 
     Args:
         branch_changes: only yield items for rust packages that have changes
-        default_features_only: only test with the default features
+        features: determines whether to test with default, all, or no features
 
     Returns: list of (RustPackage, RustFeatures) items
     """
@@ -181,19 +189,10 @@ def calc_rust_items(branch_changes=None, default_features_only=False):
         packages = [p for p in packages if p.has_changes(branch_changes)]
 
     for p in packages:
-        yield p, RustFeatures.DEFAULT
+        yield p, features
 
-    if default_features_only:
-        return
 
-    for p in packages:
-        if p.has_features():
-            yield p, RustFeatures.ALL
-    for p in packages:
-        if p.has_default_features():
-            yield p, RustFeatures.NONE
-
-def calc_non_workspace_rust_items(branch_changes=None, default_features_only=False):
+def calc_non_workspace_rust_items(branch_changes=None, features=RustFeatures.DEFAULT):
     """
     Calculate which items are not in our default workspace, but we might want to
     do certain things with.
@@ -211,17 +210,7 @@ def calc_non_workspace_rust_items(branch_changes=None, default_features_only=Fal
             packages = [p for p in packages if p.has_changes(branch_changes)]
 
         for p in packages:
-            yield p, RustFeatures.DEFAULT
-
-        if default_features_only:
-            return
-
-        for p in packages:
-            if p.has_features():
-                yield p, RustFeatures.ALL
-        for p in packages:
-            if p.has_default_features():
-                yield p, RustFeatures.NONE
+            yield p, features
 
 
 # Define a couple functions to avoid this clippy issue:
@@ -363,6 +352,7 @@ def calc_steps(args):
 
     Yields a list of (name, func) items.
     """
+    feature = RustFeatures.from_args(args.features)
     if args.mode == 'changes':
         # changes mode is complicated enough that it's split off into its own
         # function
@@ -371,7 +361,7 @@ def calc_steps(args):
     elif args.mode == 'rust-tests':
         print_rust_environment()
         yield Step('cargo clean', cargo_clean)
-        for package, features in calc_rust_items():
+        for package, features in calc_rust_items(None, feature):
             # There are no tests in examples/ packages, so don't waste time on them.
             if "examples" not in package.manifest_path.parts:
                 yield Step(
@@ -380,7 +370,7 @@ def calc_steps(args):
     elif args.mode == 'rust-clippy':
         print_rust_environment()
         yield Step('cargo clean', cargo_clean)
-        for package, features in calc_rust_items():
+        for package, features in calc_rust_items(None, feature):
             yield Step(
                 'clippy for {} ({})'.format(package.name, features.label()),
                 run_clippy, package, features)

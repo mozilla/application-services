@@ -158,8 +158,12 @@ commands:
           name: Verify the build environment
           command: ./libs/verify-desktop-environment.sh
   run-tests:
+    parameters:
+      features:
+        type: string
+        default: "default"
     steps:
-      - run: automation/tests.py rust-tests
+      - run: automation/tests.py rust-tests --features <<parameters.features>>
       - run: automation/tests.py nss-bindings
   restore-sccache-cache:
     steps:
@@ -274,7 +278,7 @@ jobs:
       - run:
           name: Lint Bash scripts with shellcheck
           command: sh automation/lint_bash_scripts.sh
-  Rust tests:
+  All features - Rust tests:
     executor: docker
     # We have to use a machine with more RAM for tests so we don't run out of memory.
     resource_class: large
@@ -282,7 +286,30 @@ jobs:
       - full-checkout
       - restore-sccache-cache
       - test-setup
-      - run-tests
+      - run-tests:
+          features: all
+      - save-sccache-cache
+  Default features - Rust tests:
+    executor: docker
+    # We have to use a machine with more RAM for tests so we don't run out of memory.
+    resource_class: large
+    steps:
+      - full-checkout
+      - restore-sccache-cache
+      - test-setup
+      - run-tests:
+          features: default
+      - save-sccache-cache
+  No features - Rust tests:
+    executor: docker
+    # We have to use a machine with more RAM for tests so we don't run out of memory.
+    resource_class: large
+    steps:
+      - full-checkout
+      - restore-sccache-cache
+      - test-setup
+      - run-tests:
+          features: "no"
       - save-sccache-cache
   Rust tests - min supported rust version:
     executor: docker
@@ -311,7 +338,8 @@ jobs:
       - restore-sccache-cache
       - test-setup
       - run: rustup override set beta
-      - run-tests
+      - run-tests:
+          features: default
       - save-sccache-cache
 
   Focus build XCFramework:
@@ -468,7 +496,12 @@ workflows:
                 - main
   run-tests:
     jobs:
-      - Rust tests
+      # We run the jobs in parallel to improve caching and reduce
+      # recompilation
+      - All features - Rust tests
+      - Default features - Rust tests
+      - No features - Rust tests
+
   run-tests-min-supported-version:
     jobs:
       - Rust tests - min supported rust version
@@ -481,7 +514,7 @@ workflows:
           filters: # required since `XCFramework release` has tag filters AND requires this job
             tags:
               only: /.*/
-####  The following iOS jobs will only run on release
+      ####  The following iOS jobs will only run on release
       - XCFramework release:
           requires:
             - iOS test
