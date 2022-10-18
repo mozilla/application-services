@@ -162,9 +162,11 @@ commands:
       features:
         type: string
         default: "default"
+      command:
+        type: string
+        default: "rust-tests"
     steps:
-      - run: automation/tests.py rust-tests --features <<parameters.features>>
-      - run: automation/tests.py nss-bindings
+      - run: automation/tests.py <<parameters.command>> --features <<parameters.features>>
   restore-sccache-cache:
     steps:
       - restore_cache:
@@ -239,13 +241,35 @@ jobs:
       - full-checkout
       - setup-rust-target-version
       - run: ./automation/tests.py rust-fmt
-  Lint Rust with clippy:
+  All features - Rust clippy:
     executor: docker
     steps:
       - full-checkout
       - restore-sccache-cache
       - test-setup
-      - run: ./automation/tests.py rust-clippy
+      - run-tests:
+          command: rust-clippy
+          features: all
+      - save-sccache-cache
+  Default features - Rust clippy:
+    executor: docker
+    steps:
+      - full-checkout
+      - restore-sccache-cache
+      - test-setup
+      - run-tests:
+          command: rust-clippy
+          features: default
+      - save-sccache-cache
+  No features - Rust clippy:
+    executor: docker
+    steps:
+      - full-checkout
+      - restore-sccache-cache
+      - test-setup
+      - run-tests:
+          command: rust-clippy
+          features: "no"
       - save-sccache-cache
   Generate code coverage:
     executor: docker
@@ -288,6 +312,7 @@ jobs:
       - test-setup
       - run-tests:
           features: all
+      - run: automation/tests.py nss-bindings
       - save-sccache-cache
   Default features - Rust tests:
     executor: docker
@@ -477,7 +502,9 @@ workflows:
       - Check Rust formatting
   clippy:
     jobs:
-      - Lint Rust with clippy
+      - All features - Rust clippy
+      - Default features - Rust clippy
+      - No features - Rust clippy
   check-protobuf-uptodate:
     jobs:
       - Check Protobuf files are up-to-date

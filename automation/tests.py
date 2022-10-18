@@ -169,15 +169,14 @@ class RustFeatures(Enum):
         if arg == 'no':
                 return RustFeatures.NONE
 
-def calc_rust_items(branch_changes=None, features=RustFeatures.DEFAULT):
+def calc_rust_items(branch_changes=None):
     """
     Calculate which items we want to test and run clippy on
 
     Args:
         branch_changes: only yield items for rust packages that have changes
-        features: determines whether to test with default, all, or no features
 
-    Returns: list of (RustPackage, RustFeatures) items
+    Returns: list of RustPackage items
     """
     json_data = json.loads(get_output([
         'cargo', 'metadata', '--no-deps', '--format-version', '1',
@@ -189,10 +188,10 @@ def calc_rust_items(branch_changes=None, features=RustFeatures.DEFAULT):
         packages = [p for p in packages if p.has_changes(branch_changes)]
 
     for p in packages:
-        yield p, features
+        yield p
 
 
-def calc_non_workspace_rust_items(branch_changes=None, features=RustFeatures.DEFAULT):
+def calc_non_workspace_rust_items(branch_changes=None):
     """
     Calculate which items are not in our default workspace, but we might want to
     do certain things with.
@@ -210,7 +209,7 @@ def calc_non_workspace_rust_items(branch_changes=None, features=RustFeatures.DEF
             packages = [p for p in packages if p.has_changes(branch_changes)]
 
         for p in packages:
-            yield p, features
+            yield p
 
 
 # Define a couple functions to avoid this clippy issue:
@@ -352,7 +351,7 @@ def calc_steps(args):
 
     Yields a list of (name, func) items.
     """
-    feature = RustFeatures.from_args(args.features)
+    features = RustFeatures.from_args(args.features)
     if args.mode == 'changes':
         # changes mode is complicated enough that it's split off into its own
         # function
@@ -361,7 +360,7 @@ def calc_steps(args):
     elif args.mode == 'rust-tests':
         print_rust_environment()
         yield Step('cargo clean', cargo_clean)
-        for package, features in calc_rust_items(None, feature):
+        for package in calc_rust_items(None):
             # There are no tests in examples/ packages, so don't waste time on them.
             if "examples" not in package.manifest_path.parts:
                 yield Step(
@@ -370,13 +369,13 @@ def calc_steps(args):
     elif args.mode == 'rust-clippy':
         print_rust_environment()
         yield Step('cargo clean', cargo_clean)
-        for package, features in calc_rust_items(None, feature):
+        for package in calc_rust_items(None):
             yield Step(
                 'clippy for {} ({})'.format(package.name, features.label()),
                 run_clippy, package, features)
         # non-workspace items aren't tested, but we do run clippy on them to
         # make sure they don't go stale.
-        for package, features in calc_non_workspace_rust_items():
+        for package in calc_non_workspace_rust_items(None):
             yield Step(
                 'clippy for {} ({})'.format(package.name, features.label()),
                 run_clippy, package, features)
