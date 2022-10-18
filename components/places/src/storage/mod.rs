@@ -257,7 +257,7 @@ pub fn run_maintenance(conn: &PlacesDb, db_size_limit: u32) -> Result<RunMainten
 pub fn update_all_frecencies_at_once(db: &PlacesDb, scope: &SqlInterruptScope) -> Result<()> {
     let tx = db.begin_transaction()?;
 
-    let need_frecency_update = db.query_rows_and_then(
+    let need_frecency_update = tx.query_rows_and_then(
         "SELECT place_id FROM moz_places_stale_frecencies",
         [],
         |r| r.get::<_, i64>(0),
@@ -278,7 +278,7 @@ pub fn update_all_frecencies_at_once(db: &PlacesDb, scope: &SqlInterruptScope) -
         return Ok(());
     }
     // Update all frecencies in one fell swoop
-    db.execute_batch(&format!(
+    tx.execute_batch(&format!(
         "WITH frecencies(id, frecency) AS (
             VALUES {}
             )
@@ -295,7 +295,7 @@ pub fn update_all_frecencies_at_once(db: &PlacesDb, scope: &SqlInterruptScope) -
     scope.err_if_interrupted()?;
 
     // ...And remove them from the stale table.
-    db.execute_batch(&format!(
+    tx.execute_batch(&format!(
         "DELETE FROM moz_places_stale_frecencies
          WHERE place_id IN ({})",
         sql_support::repeat_display(frecencies.len(), ",", |index, f| {
@@ -303,7 +303,6 @@ pub fn update_all_frecencies_at_once(db: &PlacesDb, scope: &SqlInterruptScope) -
             write!(f, "{}", id)
         })
     ))?;
-
     tx.commit()?;
 
     Ok(())

@@ -61,25 +61,25 @@ fn do_import(
     let num_total = select_count(conn, &COUNT_IOS_HISTORY_VISITS)?;
     log::info!("The number of visits is: {:?}", num_total);
     log::info!("Creating and populating staging table");
-    conn.execute_batch(&CREATE_STAGING_TABLE)?;
-    conn.execute_batch(&FILL_STAGING)?;
+    tx.execute_batch(&CREATE_STAGING_TABLE)?;
+    tx.execute_batch(&FILL_STAGING)?;
     scope.err_if_interrupted()?;
 
     log::info!("Updating old titles that may be missing, but now are available");
-    conn.execute_batch(&UPDATE_PLACES_TITLES)?;
+    tx.execute_batch(&UPDATE_PLACES_TITLES)?;
     scope.err_if_interrupted()?;
 
     log::info!("Populating missing entries in moz_places");
-    conn.execute_batch(&FILL_MOZ_PLACES)?;
+    tx.execute_batch(&FILL_MOZ_PLACES)?;
     scope.err_if_interrupted()?;
 
     log::info!("Inserting the history visits");
-    conn.execute_batch(&INSERT_HISTORY_VISITS)?;
+    tx.execute_batch(&INSERT_HISTORY_VISITS)?;
     scope.err_if_interrupted()?;
 
     log::info!("Insert all new entries into stale frecencies");
     let now = Timestamp::now().as_millis();
-    conn.execute(&ADD_TO_STALE_FRECENCIES, &[(":now", &now)])?;
+    tx.execute(&ADD_TO_STALE_FRECENCIES, &[(":now", &now)])?;
     scope.err_if_interrupted()?;
 
     // Once the migration is done, we also migrate the sync timestamp if we have one
@@ -91,10 +91,7 @@ fn do_import(
     log::info!("Successfully imported history visits!");
 
     log::info!("Counting Places history visits");
-    // We record the metrics for the migration
-    // we **don't** include how long the frecency update
-    // took, as read connections can read the data while
-    // that one is running.
+
     let num_succeeded = select_count(conn, &COUNT_PLACES_HISTORY_VISITS)?;
     let num_failed = num_total.saturating_sub(num_succeeded);
 
@@ -102,7 +99,9 @@ fn do_import(
     // this is desired because we want reader connections to
     // read the migrated data and not have to wait for the
     // frecencies to be up to date
+    log::info!("Updating all frecencies");
     update_all_frecencies_at_once(conn, &scope)?;
+    log::info!("Frecencies updated!");
     auto_detach.execute_now()?;
 
     let metrics = HistoryMigrationResult {
