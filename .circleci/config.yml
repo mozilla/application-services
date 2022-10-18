@@ -314,34 +314,6 @@ jobs:
       - run-tests
       - save-sccache-cache
 
-  iOS build xcframework:
-    executor: macos
-    steps:
-      - full-checkout
-      - restore-sccache-cache
-      - install-rust
-      - setup-rust-target-version
-      - setup-sccache
-      - setup-ios-environment
-      - run:
-          name: Build XCFramework archive
-          command: |
-            bash megazords/ios-rust/build-xcframework.sh --build-profile release
-      - save-sccache-cache:
-          path: "~/Library/Caches/Mozilla.sccache"
-      - store_artifacts:
-          name: Store XCFramework bundle in workspace
-          path: megazords/ios-rust/MozillaRustComponents.xcframework.zip
-          destination: dist/MozillaRustComponents.xcframework.zip
-      - run:
-          name: "XCFramework bundle checksum"
-          command: |
-            shasum -a 256 ./megazords/ios-rust/MozillaRustComponents.xcframework.zip
-            echo "Use the above checksum to depend on MozillaRustComponents.xcframework.zip as a Swift Package binary target"
-      - persist_to_workspace:
-          root: .
-          paths:
-            - megazords/ios-rust/MozillaRustComponents.xcframework.zip
   Focus build XCFramework:
     executor: macos
     steps:
@@ -412,6 +384,19 @@ jobs:
           destination: logs/raw_xcodetest.log
       - save-sccache-cache:
           path: "~/Library/Caches/Mozilla.sccache"
+      - store_artifacts:
+          name: Store XCFramework bundle in workspace
+          path: megazords/ios-rust/MozillaRustComponents.xcframework.zip
+          destination: dist/MozillaRustComponents.xcframework.zip
+      - run:
+          name: "XCFramework bundle checksum"
+          command: |
+            shasum -a 256 ./megazords/ios-rust/MozillaRustComponents.xcframework.zip
+            echo "Use the above checksum to depend on MozillaRustComponents.xcframework.zip as a Swift Package binary target"
+      - persist_to_workspace:
+          root: .
+          paths:
+            - megazords/ios-rust/MozillaRustComponents.xcframework.zip
 
   build-nimbus-fml:
     executor: macos
@@ -492,15 +477,14 @@ workflows:
       - Generate code coverage
   ios-test-and-artifacts:
     jobs:
-      - iOS test
-      - iOS build xcframework:
+      - iOS test:
           filters: # required since `XCFramework release` has tag filters AND requires this job
             tags:
               only: /.*/
 ####  The following iOS jobs will only run on release
       - XCFramework release:
           requires:
-            - iOS build xcframework
+            - iOS test
           filters:
             branches:
               ignore: /.*/
