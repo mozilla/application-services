@@ -4,14 +4,14 @@
 
 use std::time::Instant;
 
-use crate::bookmark_sync::engine::update_frecencies;
 use crate::error::Result;
 use crate::history_sync::engine::LAST_SYNC_META_KEY;
 use crate::import::common::{
     attached_database, define_history_migration_functions, select_count, HistoryMigrationResult,
 };
-use crate::storage::put_meta;
+use crate::storage::{put_meta, update_all_frecencies_at_once};
 use crate::PlacesDb;
+use types::Timestamp;
 use url::Url;
 
 /// This import is used for iOS users migrating from `browser.db`-based
@@ -55,22 +55,31 @@ fn do_import(
 
     // ios_db_file_url.query_pairs_mut().append_pair("mode", "ro");
     let import_start = Instant::now();
-    log::debug!("Attaching database {}", ios_db_file_url);
+    log::info!("Attaching database {}", ios_db_file_url);
     let auto_detach = attached_database(conn, &ios_db_file_url, "ios")?;
     let tx = conn.begin_transaction()?;
     let num_total = select_count(conn, &COUNT_IOS_HISTORY_VISITS)?;
-    log::debug!("The number of visits is: {:?}", num_total);
-    log::debug!("Creating and populating staging table");
-    conn.execute_batch(&CREATE_STAGING_TABLE)?;
-    conn.execute_batch(&FILL_STAGING)?;
+    log::info!("The number of visits is: {:?}", num_total);
+    log::info!("Creating and populating staging table");
+    tx.execute_batch(&CREATE_STAGING_TABLE)?;
+    tx.execute_batch(&FILL_STAGING)?;
     scope.err_if_interrupted()?;
 
-    log::debug!("Populating missing entries in moz_places");
-    conn.execute_batch(&FILL_MOZ_PLACES)?;
+    log::info!("Updating old titles that may be missing, but now are available");
+    tx.execute_batch(&UPDATE_PLACES_TITLES)?;
     scope.err_if_interrupted()?;
 
-    log::debug!("Inserting the history visits");
-    conn.execute_batch(&INSERT_HISTORY_VISITS)?;
+    log::info!("Populating missing entries in moz_places");
+    tx.execute_batch(&FILL_MOZ_PLACES)?;
+    scope.err_if_interrupted()?;
+
+    log::info!("Inserting the history visits");
+    tx.execute_batch(&INSERT_HISTORY_VISITS)?;
+    scope.err_if_interrupted()?;
+
+    log::info!("Insert all new entries into stale frecencies");
+    let now = Timestamp::now().as_millis();
+    tx.execute(&ADD_TO_STALE_FRECENCIES, &[(":now", &now)])?;
     scope.err_if_interrupted()?;
 
     // Once the migration is done, we also migrate the sync timestamp if we have one
@@ -78,17 +87,21 @@ fn do_import(
     put_meta(conn, LAST_SYNC_META_KEY, &last_sync_timestamp)?;
 
     tx.commit()?;
-    // Note: update_frecencies manages its own transaction, which is fine,
-    // since nothing that bad will happen if it is aborted.
-    log::debug!("Updating frecencies");
-    update_frecencies(conn, &scope)?;
 
     log::info!("Successfully imported history visits!");
 
-    log::debug!("Counting Places history visits");
+    log::info!("Counting Places history visits");
+
     let num_succeeded = select_count(conn, &COUNT_PLACES_HISTORY_VISITS)?;
     let num_failed = num_total.saturating_sub(num_succeeded);
 
+    // We now update the frecencies as its own transaction
+    // this is desired because we want reader connections to
+    // read the migrated data and not have to wait for the
+    // frecencies to be up to date
+    log::info!("Updating all frecencies");
+    update_all_frecencies_at_once(conn, &scope)?;
+    log::info!("Frecencies updated!");
     auto_detach.execute_now()?;
 
     let metrics = HistoryMigrationResult {
@@ -132,6 +145,15 @@ lazy_static::lazy_static! {
         WHERE url IS NOT NULL"
    ;
 
+    // Unfortunately UPDATE FROM is not available until sqlite 3.33
+   // however, iOS does not ship with 3.33 yet as of the time of writing.
+   static ref UPDATE_PLACES_TITLES: &'static str =
+   "UPDATE main.moz_places
+        SET title = ( SELECT t.title
+                            FROM temp.iOSHistoryStaging t
+                            WHERE t.url_hash = main.moz_places.url_hash AND t.url = main.moz_places.url )"
+    ;
+
    // Insert any missing entries into moz_places that we'll need for this.
    static ref FILL_MOZ_PLACES: &'static str =
    "INSERT OR IGNORE INTO main.moz_places(guid, url, url_hash, title, frecency, sync_change_counter)
@@ -168,4 +190,14 @@ lazy_static::lazy_static! {
    static ref COUNT_PLACES_HISTORY_VISITS: &'static str =
        "SELECT COUNT(*) FROM main.moz_historyvisits"
    ;
+
+   // Adds newly modified places entries into the stale frecencies table
+   static ref ADD_TO_STALE_FRECENCIES: &'static str =
+   "INSERT OR IGNORE INTO main.moz_places_stale_frecencies(place_id, stale_at)
+    SELECT
+        p.id,
+        :now
+    FROM main.moz_places p
+    WHERE p.frecency = -1"
+    ;
 }
