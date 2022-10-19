@@ -224,19 +224,15 @@ class NimbusTests {
 
         // Use the Glean test API to check that the valid event is present
         assertNotNull("Event must have a value", NimbusEvents.exposure.testGetValue())
-        val enrollmentEvents = NimbusEvents.exposure.testGetValue()!!
-        assertEquals("Event count must match", enrollmentEvents.count(), 1)
-        val enrollmentEventExtras = enrollmentEvents.first().extra!!
+        val exposureEvents = NimbusEvents.exposure.testGetValue()!!
+        assertEquals("Event count must match", exposureEvents.count(), 1)
+        val exposureEventExtras = exposureEvents.first().extra!!
         assertEquals(
             "Experiment slug must match",
             "test-experiment",
-            enrollmentEventExtras["experiment"]
+            exposureEventExtras["experiment"]
         )
-        assertEquals("Experiment branch must match", "test-branch", enrollmentEventExtras["branch"])
-        assertNotNull(
-            "Experiment enrollment-id must not be null",
-            enrollmentEventExtras["enrollment_id"]
-        )
+        assertEquals("Experiment branch must match", "test-branch", exposureEventExtras["branch"])
 
         // Attempt to record an event for a non-existent or feature we are not enrolled in an
         // experiment in to ensure nothing is recorded.
@@ -245,22 +241,18 @@ class NimbusTests {
         // Verify the invalid event was ignored by checking again that the valid event is still the only
         // event, and that it hasn't changed any of its extra properties.
         assertNotNull("Event must have a value", NimbusEvents.exposure.testGetValue())
-        val enrollmentEventsTryTwo = NimbusEvents.exposure.testGetValue()!!
-        assertEquals("Event count must match", enrollmentEventsTryTwo.count(), 1)
-        val enrollmentEventExtrasTryTwo = enrollmentEventsTryTwo.first().extra!!
+        val exposureEventsTryTwo = NimbusEvents.exposure.testGetValue()!!
+        assertEquals("Event count must match", exposureEventsTryTwo.count(), 1)
+        val exposureEventExtrasTryTwo = exposureEventsTryTwo.first().extra!!
         assertEquals(
             "Experiment slug must match",
             "test-experiment",
-            enrollmentEventExtrasTryTwo["experiment"]
+            exposureEventExtrasTryTwo["experiment"]
         )
         assertEquals(
             "Experiment branch must match",
             "test-branch",
-            enrollmentEventExtrasTryTwo["branch"]
-        )
-        assertNotNull(
-            "Experiment enrollment-id must not be null",
-            enrollmentEventExtrasTryTwo["enrollment_id"]
+            exposureEventExtrasTryTwo["branch"]
         )
     }
 

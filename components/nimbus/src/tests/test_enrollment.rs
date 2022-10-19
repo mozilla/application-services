@@ -1237,9 +1237,9 @@ fn test_evolver_experiment_not_enrolled_feature_conflict() -> Result<()> {
     log::debug!("events: {:?}", events);
 
     assert_eq!(
-        2,
+        3,
         events.len(),
-        "There should be exactly 2 enrollment_change_events"
+        "There should be exactly 3 enrollment_change_events (Enroll/Enroll/EnrollFailed)"
     );
 
     let enrolled_events = events
@@ -1275,9 +1275,9 @@ fn test_multi_feature_per_branch_conflict() -> Result<()> {
     );
 
     assert_eq!(
-        2,
+        3,
         events.len(),
-        "There should be exactly 2 enrollment_change_events"
+        "There should be exactly 3 enrollment_change_events (Enroll/Enroll/EnrollFailed)"
     );
 
     let enrolled_events = events
@@ -1403,7 +1403,11 @@ fn test_evolver_multi_feature_experiments() -> Result<()> {
         &prev_enrollments,
     )?;
 
-    assert_eq!(events.len(), 0);
+    assert_eq!(
+        events.len(),
+        1,
+        "A single EnrollFailed recorded due to the feature-conflict"
+    );
 
     let feature_map = map_features_by_feature_id(&enrollments, &next_experiments);
     assert_eq!(feature_map.len(), 2);
@@ -1523,7 +1527,11 @@ fn test_evolver_multi_feature_experiments() -> Result<()> {
         &prev_enrollments,
     )?;
 
-    assert_eq!(events.len(), 0);
+    assert_eq!(
+        events.len(),
+        2,
+        "Exactly two EnrollFailed events should be recorded"
+    );
     let feature_map = map_features_by_feature_id(&enrollments, &next_experiments);
     assert_eq!(feature_map.len(), 2);
     assert_eq!(
@@ -1559,7 +1567,11 @@ fn test_evolver_multi_feature_experiments() -> Result<()> {
         &prev_enrollments,
     )?;
 
-    assert_eq!(events.len(), 0);
+    assert_eq!(
+        events.len(),
+        1,
+        "Exactly one EnrollFailed event should be recorded"
+    );
     let feature_map = map_features_by_feature_id(&enrollments, &next_experiments);
     assert_eq!(feature_map.len(), 2);
     assert_eq!(
@@ -2085,7 +2097,7 @@ fn test_evolver_rollouts_do_not_conflict_with_rollouts() -> Result<()> {
     let evolver = enrollment_evolver(&nimbus_id, &targeting_attributes, &aru);
     let (enrollments, events) = evolver.evolve_enrollments(true, &[], recipes, &[])?;
     assert_eq!(enrollments.len(), 3);
-    assert_eq!(events.len(), 2);
+    assert_eq!(events.len(), 3);
 
     let enrollments: Vec<ExperimentEnrollment> = enrollments
         .into_iter()

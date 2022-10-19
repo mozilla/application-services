@@ -70,7 +70,6 @@ extension Nimbus: FeaturesInterface {
             // for an experiment without an active enrollment.
             GleanMetrics.NimbusEvents.exposure.record(GleanMetrics.NimbusEvents.ExposureExtra(
                 branch: experiment.branchSlug,
-                enrollmentId: experiment.enrollmentId,
                 experiment: experiment.slug
             ))
         }
@@ -121,6 +120,18 @@ extension Nimbus: FeaturesInterface {
                     branch: event.branchSlug,
                     enrollmentId: event.enrollmentId,
                     experiment: event.experimentSlug
+                ))
+
+            case .enrollFailed:
+                GleanMetrics.NimbusEvents.enrollFailed.record(GleanMetrics.NimbusEvents.EnrollFailedExtra(
+                    branch: event.branchSlug,
+                    experiment: event.experimentSlug,
+                    reason: event.reason
+                ))
+            case .unenrollFailed:
+                GleanMetrics.NimbusEvents.unenrollFailed.record(GleanMetrics.NimbusEvents.UnenrollFailedExtra(
+                    experiment: event.experimentSlug,
+                    reason: event.reason
                 ))
             }
         }
