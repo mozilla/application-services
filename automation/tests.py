@@ -38,6 +38,7 @@ import json
 import os
 import platform
 import shlex
+from struct import pack
 import subprocess
 import sys
 import traceback
@@ -169,7 +170,7 @@ class RustFeatures(Enum):
         if arg == 'no':
                 return RustFeatures.NONE
 
-def calc_rust_items(branch_changes=None):
+def calc_rust_items(branch_changes=None, features=RustFeatures.DEFAULT):
     """
     Calculate which items we want to test and run clippy on
 
@@ -186,12 +187,10 @@ def calc_rust_items(branch_changes=None):
 
     if branch_changes:
         packages = [p for p in packages if p.has_changes(branch_changes)]
-
-    for p in packages:
-        yield p
+    return filter_packages_by_features(packages, features)
 
 
-def calc_non_workspace_rust_items(branch_changes=None):
+def calc_non_workspace_rust_items(branch_changes=None, features=RustFeatures.DEFAULT):
     """
     Calculate which items are not in our default workspace, but we might want to
     do certain things with.
@@ -208,8 +207,25 @@ def calc_non_workspace_rust_items(branch_changes=None):
         if branch_changes:
             packages = [p for p in packages if p.has_changes(branch_changes)]
 
-        for p in packages:
-            yield p
+        return filter_packages_by_features(packages, features)
+def filter_packages_by_features(packages, features):
+    """
+    Filters the packages by the features requested.
+    If a package has no features, we shouldn't run all_features on it
+    If a package has no default features, we shouldn't run no_features on it
+
+    Args:
+        packages: list of RustPackage items to filter
+        features: The RustFeatures requested
+
+    Returns: A filtered list of RustPackage items
+    """
+    if features == RustFeatures.DEFAULT:
+        return packages
+    elif features == RustFeatures.ALL:
+        return filter(lambda p: p.has_features(), packages)
+    elif features == RustFeatures.NONE:
+        return filter(lambda p: p.has_default_features(), packages)
 
 
 # Define a couple functions to avoid this clippy issue:
@@ -360,7 +376,7 @@ def calc_steps(args):
     elif args.mode == 'rust-tests':
         print_rust_environment()
         yield Step('cargo clean', cargo_clean)
-        for package in calc_rust_items(None):
+        for package in calc_rust_items(None, features):
             # There are no tests in examples/ packages, so don't waste time on them.
             if "examples" not in package.manifest_path.parts:
                 yield Step(
@@ -369,13 +385,13 @@ def calc_steps(args):
     elif args.mode == 'rust-clippy':
         print_rust_environment()
         yield Step('cargo clean', cargo_clean)
-        for package in calc_rust_items(None):
+        for package in calc_rust_items(None, features):
             yield Step(
                 'clippy for {} ({})'.format(package.name, features.label()),
                 run_clippy, package, features)
         # non-workspace items aren't tested, but we do run clippy on them to
         # make sure they don't go stale.
-        for package in calc_non_workspace_rust_items(None):
+        for package in calc_non_workspace_rust_items(None, features):
             yield Step(
                 'clippy for {} ({})'.format(package.name, features.label()),
                 run_clippy, package, features)
@@ -405,8 +421,7 @@ def calc_steps_change_mode(args):
     """
     print_rust_environment()
     branch_changes = BranchChanges(args.base_branch)
-    rust_items = list(calc_rust_items(branch_changes,
-                                      default_features_only=True))
+    rust_items = list(calc_rust_items(branch_changes,RustFeatures.DEFAULT))
     rust_packages = list(set(package for package, _ in rust_items))
 
     if not rust_items:
