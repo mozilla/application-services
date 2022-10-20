@@ -243,6 +243,7 @@ jobs:
       - run: ./automation/tests.py rust-fmt
   All features - Rust clippy:
     executor: docker
+    resource_class: large
     steps:
       - full-checkout
       - restore-sccache-cache
@@ -253,6 +254,7 @@ jobs:
       - save-sccache-cache
   Default features - Rust clippy:
     executor: docker
+    resource_class: large
     steps:
       - full-checkout
       - restore-sccache-cache
@@ -263,6 +265,7 @@ jobs:
       - save-sccache-cache
   No features - Rust clippy:
     executor: docker
+    resource_class: large
     steps:
       - full-checkout
       - restore-sccache-cache
