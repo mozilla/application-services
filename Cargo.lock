@@ -1330,7 +1330,7 @@ checksum = "78cc372d058dcf6d5ecd98510e7fbc9e5aec4d21de70f65fea8fecebcd881bd4"
 
 [[package]]
 name = "glean"
-version = "51.4.0"
+version = "51.6.0"
 dependencies = [
  "chrono",
  "crossbeam-channel",
@@ -1355,7 +1355,7 @@ dependencies = [
 
 [[package]]
 name = "glean-core"
-version = "51.4.0"
+version = "51.6.0"
 dependencies = [
  "android_logger",
  "bincode",
