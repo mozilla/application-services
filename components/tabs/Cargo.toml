@@ -33,8 +33,8 @@ sql-support = { path = "../support/sql" }
 sync-guid = { path = "../support/guid", features = ["random"] }
 sync15 = { path = "../sync15", features = ["sync-engine"] }
 thiserror = "1.0"
-uniffi = ">=0.20.0, <=0.21" # m-c is on 20.0, a-s is on 0.21.0
-uniffi_macros = ">=0.20.0, <=0.21" # m-c is on 20.0, a-s is on 0.21.0
+uniffi = "^0.21"
+uniffi_macros = "^0.21"
 url = "2.1" # mozilla-central can't yet take 2.2 (see bug 1734538)
 
 [dev-dependencies]
@@ -42,5 +42,4 @@ tempfile = "3.1"
 env_logger = { version = "0.8.0", default-features = false, features = ["termcolor", "atty", "humantime"] }
 
 [build-dependencies]
-# uniffi: m-c is on 20.0, a-s is on 0.21.0
-uniffi_build = { version = ">=0.20.0, <=0.21", features = [ "builtin-bindgen" ]}
+uniffi_build = { version = "^0.21", features = [ "builtin-bindgen" ]}
