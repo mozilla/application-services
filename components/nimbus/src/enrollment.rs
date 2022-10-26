@@ -598,7 +598,7 @@ impl<'a> EnrollmentsEvolver<'a> {
         for experiment in next_experiments {
             // Sanity check.
             if !next_enrollments.contains_key(&experiment.slug) {
-                log::error!("evolve_enrollments_in_db: experiment '{}' has no enrollment, dropping to keep database consistent", &experiment.slug);
+                error_support::report_error!("nimbus-evolve-enrollments", "evolve_enrollments_in_db: experiment '{}' has no enrollment, dropping to keep database consistent", &experiment.slug);
                 continue;
             }
             experiments_store.put(writer, &experiment.slug, experiment)?;

@@ -50,6 +50,7 @@ Use the template below to make assigning a version number during the release cut
 
 ### What's Changed
   - Disabled Glean events recorded when the SDK is not ready for a feature ([#5185](https://github.com/mozilla/application-services/pull/5185))
+  - Calls to `log::error` have been replaced with `error_support::report_error` ([#5204](https://github.com/mozilla/application-services/pull/5204))
 
 ## Places
 
