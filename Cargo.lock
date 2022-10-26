@@ -1985,6 +1985,7 @@ dependencies = [
  "chrono",
  "clap 2.34.0",
  "env_logger 0.7.1",
+ "error-support",
  "glean-build",
  "hex",
  "jexl-eval",
