@@ -707,6 +707,19 @@ open class Nimbus(
                         enrollmentId = event.enrollmentId
                     ))
                 }
+                EnrollmentChangeEventType.ENROLL_FAILED -> {
+                    NimbusEvents.enrollFailed.record(NimbusEvents.EnrollFailedExtra(
+                        experiment = event.experimentSlug,
+                        branch = event.branchSlug,
+                        reason = event.reason
+                    ))
+                }
+                EnrollmentChangeEventType.UNENROLL_FAILED -> {
+                    NimbusEvents.unenrollFailed.record(NimbusEvents.UnenrollFailedExtra(
+                        experiment = event.experimentSlug,
+                        reason = event.reason
+                    ))
+                }
             }
         }
     }
@@ -728,7 +741,7 @@ open class Nimbus(
             NimbusEvents.exposure.record(NimbusEvents.ExposureExtra(
                 experiment = experiment.slug,
                 branch = experiment.branchSlug,
-                enrollmentId = experiment.enrollmentId
+                featureId = featureId
             ))
         }
     }

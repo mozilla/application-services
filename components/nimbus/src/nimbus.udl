@@ -65,8 +65,10 @@ dictionary EnrollmentChangeEvent {
 
 enum EnrollmentChangeEventType {
     "Enrollment",
+    "EnrollFailed",
     "Disqualification",
     "Unenrollment",
+    "UnenrollFailed",
 };
 
 [Error]
