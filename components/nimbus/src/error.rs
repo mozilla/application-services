@@ -53,6 +53,14 @@ pub enum NimbusError {
     DatabaseNotReady,
     #[error("Error parsing a sting into a version {0}")]
     VersionParsingError(String),
+    #[error("Behavior error: {0}")]
+    BehaviorError(#[from] BehaviorError),
+}
+
+#[derive(Debug, thiserror::Error)]
+pub enum BehaviorError {
+    #[error("Invalid state: {0}")]
+    InvalidState(String),
 }
 
 impl<'a> From<jexl_eval::error::EvaluationError<'a>> for NimbusError {

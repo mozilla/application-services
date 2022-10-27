@@ -2,6 +2,7 @@
 // License, v. 2.0. If a copy of the MPL was not distributed with this
 // file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
+mod behavior;
 mod dbcache;
 mod enrollment;
 pub mod error;
@@ -44,10 +45,9 @@ use once_cell::sync::OnceCell;
 use persistence::{Database, StoreId, Writer};
 use serde_derive::*;
 use serde_json::{Map, Value};
-use std::collections::{HashSet, VecDeque};
+use std::collections::HashSet;
 use std::path::{Path, PathBuf};
 use std::sync::{Arc, Mutex};
-use std::time::Instant;
 use updating::{read_and_remove_pending_experiments, write_pending_experiments};
 use uuid::Uuid;
 
@@ -796,72 +796,6 @@ impl NimbusTargetingHelper {
 }
 
 type JsonObject = Map<String, Value>;
-
-pub struct IntervalData {
-    buckets: VecDeque<i32>,
-    starting_instant: Instant,
-}
-
-impl IntervalData {
-    pub fn new() -> IntervalData {
-        let mut data = IntervalData {
-            buckets: VecDeque::new(),
-            starting_instant: Instant::now(),
-        };
-        data.buckets.push_front(0);
-        return data;
-    }
-
-    fn increment(&mut self) {
-        match self.buckets.front_mut() {
-            Some(x) => *x += 1,
-            None => {
-                self.buckets.push_front(1);
-            }
-        };
-    }
-
-    fn rotate(&mut self, num_rotations: i32) {
-        for _ in 1..=num_rotations {
-            self.buckets.push_front(0)
-        }
-    }
-}
-
-#[cfg(test)]
-mod interval_data_unit_tests {
-    use super::*;
-
-    #[test]
-    fn increment_works_if_no_buckets_present() -> Result<()> {
-        let mut interval = IntervalData {
-            buckets: VecDeque::new(),
-            starting_instant: Instant::now(),
-        };
-        interval.increment();
-
-        assert!(matches!(interval.buckets[0], 1));
-        Ok(())
-    }
-
-    #[test]
-    fn increment_increments_front_bucket_if_it_exists() -> Result<()> {
-        let mut interval = IntervalData::new();
-        interval.increment();
-
-        assert!(matches!(interval.buckets[0], 1));
-        Ok(())
-    }
-
-    #[test]
-    fn rotate_adds_buckets_for_each_rotation() -> Result<()> {
-        let mut interval = IntervalData::new();
-        interval.rotate(3);
-
-        assert!(matches!(interval.buckets.len(), 4));
-        Ok(())
-    }
-}
 
 #[cfg(feature = "uniffi-bindings")]
 impl UniffiCustomTypeConverter for JsonObject {
