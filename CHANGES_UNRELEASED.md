@@ -30,3 +30,4 @@ Use the template below to make assigning a version number during the release cut
 
 ### What's Changed
   - Disabled Glean events recorded when the SDK is not ready for a feature ([#5185](https://github.com/mozilla/application-services/pull/5185))
+  - Add struct for IntervalData (behavioral targeting) ([#5205](https://github.com/mozilla/application-services/pull/5205))
