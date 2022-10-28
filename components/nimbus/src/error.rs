@@ -7,6 +7,8 @@
 //! This is where the error definitions can go
 //! TODO: Implement proper error handling, this would include defining the error enum,
 //! impl std::error::Error using `thiserror` and ensuring all errors are handled appropriately
+
+use std::num::TryFromIntError;
 #[derive(Debug, thiserror::Error)]
 pub enum NimbusError {
     #[error("Invalid persisted data")]
@@ -53,6 +55,16 @@ pub enum NimbusError {
     DatabaseNotReady,
     #[error("Error parsing a sting into a version {0}")]
     VersionParsingError(String),
+    #[error("Behavior error: {0}")]
+    BehaviorError(#[from] BehaviorError),
+    #[error("TryFromIntError: {0}")]
+    TryFromIntError(#[from] TryFromIntError),
+}
+
+#[derive(Debug, thiserror::Error)]
+pub enum BehaviorError {
+    #[error("Invalid state: {0}")]
+    InvalidState(String),
 }
 
 impl<'a> From<jexl_eval::error::EvaluationError<'a>> for NimbusError {
