@@ -3,7 +3,7 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
 use places::import::common::HistoryMigrationResult;
-use places::{api::places_api::PlacesApi, types::VisitTransition, PlacesInternalError, Result};
+use places::{api::places_api::PlacesApi, types::VisitTransition, Error, Result};
 use rusqlite::Connection;
 use std::path::Path;
 use std::sync::atomic::{AtomicUsize, Ordering};
@@ -133,7 +133,7 @@ fn test_import_unsupported_db_version() -> Result<()> {
     fennec_db.execute("PRAGMA user_version=33", [])?;
     let places_api = PlacesApi::new(tmpdir.path().join("places.sqlite"))?;
     match places::import::import_fennec_history(&places_api, fennec_path).unwrap_err() {
-        PlacesInternalError::UnsupportedDatabaseVersion(_) => {}
+        Error::UnsupportedDatabaseVersion(_) => {}
         _ => unreachable!("Should fail with UnsupportedDatabaseVersion!"),
     }
     Ok(())

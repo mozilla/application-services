@@ -289,7 +289,8 @@ impl Database {
                         // allows them to start participating in experiments
                         // again, rather than potentially repeating the upgrade
                         // over and over at each embedding client restart.
-                        log::error!(
+                        error_support::report_error!(
+                            "nimbus-database-migration",
                             "Error migrating database v1 to v2: {:?}.  Wiping experiments and enrollments",
                             e
                         );
@@ -306,7 +307,10 @@ impl Database {
                 self.clear_experiments_and_enrollments(&mut writer)?;
             }
             _ => {
-                log::error!("Unknown database version. Wiping all stores.");
+                error_support::report_error!(
+                    "nimbus-unknown-database-version",
+                    "Unknown database version. Wiping all stores."
+                );
                 self.clear_experiments_and_enrollments(&mut writer)?;
                 self.meta_store.clear(&mut writer)?;
             }

@@ -233,7 +233,11 @@ impl FirefoxAccount {
             .filter_map(|msg| match self.parse_command(msg, &devices, reason) {
                 Ok(device_command) => Some(device_command),
                 Err(e) => {
-                    log::error!("Error while processing command: {}", e);
+                    error_support::report_error!(
+                        "fxaclient-command",
+                        "Error while processing command: {}",
+                        e
+                    );
                     None
                 }
             })

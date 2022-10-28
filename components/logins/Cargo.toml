@@ -23,7 +23,7 @@ url = "2.2"
 sql-support = { path = "../support/sql" }
 jwcrypto = { path = "../support/jwcrypto" }
 interrupt-support = { path = "../support/interrupt" }
-error-support = { path = "../support/error", features = ["reporting"] }
+error-support = { path = "../support/error" }
 sync-guid = { path = "../support/guid", features = ["rusqlite_support", "random"] }
 thiserror = "1.0"
 anyhow = "1.0"

@@ -38,7 +38,7 @@ impl LoginsSyncEngine {
     fn encdec(&self) -> Result<&EncryptorDecryptor> {
         match &self.encdec {
             Some(encdec) => Ok(encdec),
-            None => Err(LoginsError::EncryptionKeyMissing),
+            None => Err(Error::EncryptionKeyMissing),
         }
     }
 

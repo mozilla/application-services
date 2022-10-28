@@ -30,7 +30,12 @@ impl FirefoxAccount {
         if let Some(s) = self.state.commands_data.get(send_tab::COMMAND_NAME) {
             match PrivateSendTabKeys::deserialize(s) {
                 Ok(keys) => return Ok(keys),
-                Err(_) => log::error!("Could not deserialize Send Tab keys. Re-creating them."),
+                Err(_) => {
+                    error_support::report_error!(
+                        "fxaclient-send-tab-key-deserialize",
+                        "Could not deserialize Send Tab keys. Re-creating them."
+                    );
+                }
             }
         }
         let keys = PrivateSendTabKeys::from_random()?;
@@ -101,10 +106,17 @@ impl FirefoxAccount {
                 // It also seems like it might be possible to recover - ie, one
                 // of the reasons is that there are key mismatches. Doesn't that
                 // mean the "other" key might work?
-                log::error!("Could not decrypt Send Tab payload. Diagnosing then resetting the Send Tab keys.");
+                log::warn!("Could not decrypt Send Tab payload. Diagnosing then resetting the Send Tab keys.");
                 match self.diagnose_remote_keys(send_tab_key) {
-                    Ok(_) => log::error!("Could not find the cause of the Send Tab keys issue."),
-                    Err(e) => log::error!("{}", e),
+                    Ok(_) => {
+                        error_support::report_error!(
+                            "fxaclient-send-tab-decrypt",
+                            "Could not find the cause of the Send Tab keys issue."
+                        );
+                    }
+                    Err(e) => {
+                        error_support::report_error!("fxaclient-send-tab-decrypt", "{}", e);
+                    }
                 };
                 // Reset the Send Tab keys.
                 self.state.commands_data.remove(send_tab::COMMAND_NAME);

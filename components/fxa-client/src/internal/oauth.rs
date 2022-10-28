@@ -336,7 +336,8 @@ impl FirefoxAccount {
             let scoped_keys: serde_json::Map<String, serde_json::Value> =
                 serde_json::from_str(&decrypted_keys)?;
             if sync_scope_granted && !scoped_keys.contains_key(scopes::OLD_SYNC) {
-                log::error!(
+                error_support::report_error!(
+                    "fxaclient-scoped-key",
                     "Sync scope granted, but no sync scoped key (scope granted: {}, key scopes: {})",
                     resp.scope,
                     scoped_keys.keys().map(|s| s.as_ref()).collect::<Vec<&str>>().join(", ")
@@ -347,7 +348,10 @@ impl FirefoxAccount {
                 self.state.scoped_keys.insert(scope, scoped_key);
             }
         } else if sync_scope_granted {
-            log::error!("Sync scope granted, but keys_jwe is None");
+            error_support::report_error!(
+                "fxaclient-scoped-key",
+                "Sync scope granted, but keys_jwe is None"
+            );
         }
 
         // If the client requested a 'tokens/session' OAuth scope then as part of the code

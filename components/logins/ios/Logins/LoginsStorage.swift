@@ -6,7 +6,7 @@ import Foundation
 import Glean
 import UIKit
 
-typealias LoginsStoreError = LoginsStorageError
+typealias LoginsStoreError = LoginsApiError
 
 /*
  ** We probably should have this class go away eventually as it's really only a thin wrapper
