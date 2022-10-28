@@ -47,8 +47,6 @@ TASK_COMMON = {
         'toolchain': [
             'android-libs',
             'desktop-linux-libs',
-            'desktop-macos-libs',
-            'desktop-win32-x86-64-libs',
             'robolectric',
             'rust',
         ],
@@ -108,8 +106,6 @@ def setup_application_services(task):
         'toolchain': [
             'android-libs',
             'desktop-linux-libs',
-            'desktop-macos-libs',
-            'desktop-win32-x86-64-libs',
             'rust',
         ],
     }

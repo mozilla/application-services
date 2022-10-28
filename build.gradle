@@ -147,58 +147,11 @@ if (useDownloadedLibs) {
         into rootProject.buildDir
     }
 
-    task downloadDesktopLibs(type: Download) {
-        src {
-            switch (DefaultPlatform.RESOURCE_PREFIX) {
-                case 'darwin-x86-64':
-                case 'darwin-aarch64':
-                    return "https://firefox-ci-tc.services.mozilla.com/api/index/v1/task/project.application-services.application-services.build.libs.desktop.macos.${rootProject.ext.libsGitSha}/artifacts/public/build/macos.tar.gz"
-                case 'linux-x86-64':
-                    return "https://firefox-ci-tc.services.mozilla.com/api/index/v1/task/project.application-services.application-services.build.libs.desktop.linux.${rootProject.ext.libsGitSha}/artifacts/public/build/linux.tar.gz"
-                case 'win32-x86-64':
-                    return "https://firefox-ci-tc.services.mozilla.com/api/index/v1/task/project.application-services.application-services.build.libs.desktop.win32-x86-64.${rootProject.ext.libsGitSha}/artifacts/public/build/win.tar.gz"
-                default:
-                    throw new GradleException("Unknown host platform '${DefaultPlatform.RESOURCE_PREFIX}'.  " +
-                                              "Set `ext.libsGitSha = null` in ${rootProject.rootDir}/build.gradle and build your own libs.  " +
-                                              "If you don't want to build your own libs for Android, you can untar\n\n${downloadAndroidLibs.src}\n\nat top-level to populate `libs/android/`.  " +
-                                              "You'll need build your own libs for your host platform in order to be able to build and run unit tests.")
-            }
-        }
-
-        dest {
-            switch (DefaultPlatform.RESOURCE_PREFIX) {
-                case 'darwin-x86-64':
-                case 'darwin-aarch64':
-                    return new File(buildDir, "libs.desktop.macos.${rootProject.ext.libsGitSha}.tar.gz")
-                case 'linux-x86-64':
-                    return new File(buildDir, "libs.desktop.linux.${rootProject.ext.libsGitSha}.tar.gz")
-                case 'win32-x86-64':
-                    return new File(buildDir, "libs.desktop.win32-x86-64.${rootProject.ext.libsGitSha}.tar.gz")
-                default:
-                    throw new GradleException("Unknown host platform '${DefaultPlatform.RESOURCE_PREFIX}'.  " +
-                                              "Set `ext.libsGitSha = null` in ${rootProject.rootDir}/build.gradle and build your own libs.")
-            }
-        }
-
-        doFirst {
-            if (it.dest.exists()) {
-                throw new StopExecutionException("File to download already exists: ${it.dest.path}")
-            }
-        }
-        overwrite true
-    }
-
-    task untarDesktopLibs(dependsOn: downloadDesktopLibs, type: Copy) {
-        from tarTree(downloadDesktopLibs.dest)
-        into rootProject.buildDir
-    }
-
     subprojects { project ->
         afterEvaluate {
             android.libraryVariants.all { v ->
                 v.preBuildProvider.configure {
                     dependsOn(rootProject.untarAndroidLibs)
-                    dependsOn(rootProject.untarDesktopLibs)
                 }
             }
         }
