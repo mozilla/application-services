@@ -104,9 +104,9 @@ impl IntervalData {
     }
 
     pub fn rotate(&mut self, num_rotations: i32) -> Result<()> {
+        let num_rotations = usize::min(self.bucket_count, num_rotations as usize);
         if num_rotations as usize + self.buckets.len() > self.bucket_count {
-            self.buckets
-                .drain((self.bucket_count - num_rotations as usize)..);
+            self.buckets.drain((self.bucket_count - num_rotations)..);
         }
         for _ in 1..=num_rotations {
             self.buckets.push_front(0);
@@ -271,6 +271,18 @@ mod interval_data_tests {
         assert!(matches!(interval.buckets.len(), 3));
         assert!(matches!(interval.buckets[0], 2));
         assert!(matches!(interval.buckets[1], 1));
+        assert!(matches!(interval.buckets[2], 0));
+        Ok(())
+    }
+
+    #[test]
+    fn rotate_handles_large_rotation() -> Result<()> {
+        let mut interval = IntervalData::new(3);
+        interval.rotate(10).ok();
+
+        assert!(matches!(interval.buckets.len(), 3));
+        assert!(matches!(interval.buckets[0], 0));
+        assert!(matches!(interval.buckets[1], 0));
         assert!(matches!(interval.buckets[2], 0));
         Ok(())
     }
