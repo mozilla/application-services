@@ -4,6 +4,7 @@
 
 namespace errorsupport {
     void set_application_error_reporter(ApplicationErrorReporter error_reporter);
+    void unset_application_error_reporter();
 };
 
 callback interface ApplicationErrorReporter {
