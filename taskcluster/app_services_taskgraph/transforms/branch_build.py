@@ -128,7 +128,7 @@ def setup_android_components(task, branch_build_params):
     task['run']['pre-gradlew'].extend([
         ['rsync', '-a', '/builds/worker/fetches/.m2/', '/builds/worker/.m2/'],
         setup_branch_build_command_line(branch_build_params, setup_fenix=False),
-        ['cd', 'android-components'],
+        ['cd', 'firefox-android/android-components'],
         ['git', 'rev-parse', '--short', 'HEAD'],
         # Building this up-front seems to make the build more stable.  I think
         # having multiple components all try to execute the

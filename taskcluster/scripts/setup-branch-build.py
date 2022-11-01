@@ -33,7 +33,7 @@ def parse_args():
     return parser.parse_args()
 
 def android_components_repo(args):
-    return f'https://github.com/{args.android_components_owner}/android-components'
+    return f'https://github.com/{args.android_components_owner}/firefox-android'
 
 def fenix_repo(args):
     return f'https://github.com/{args.fenix_owner}/fenix'
