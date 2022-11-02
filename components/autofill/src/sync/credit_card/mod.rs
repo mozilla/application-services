@@ -8,8 +8,7 @@ pub mod outgoing;
 
 use super::engine::{ConfigSyncEngine, EngineConfig, SyncEngineStorageImpl};
 use super::{
-    MergeResult, Metadata, Payload, PersistablePayload, ProcessIncomingRecordImpl,
-    ProcessOutgoingRecordImpl, SyncRecord,
+    MergeResult, Metadata, ProcessIncomingRecordImpl, ProcessOutgoingRecordImpl, SyncRecord,
 };
 use crate::db::models::credit_card::InternalCreditCard;
 use crate::encryption::EncryptorDecryptor;
@@ -71,10 +70,12 @@ impl SyncEngineStorageImpl<InternalCreditCard> for CreditCardsEngineStorageImpl 
     }
 }
 
-// These structs are what's stored on the sync server for non-tombstone records.
+// These structs are a representation of what's stored on the sync server for non-tombstone records.
+// (The actual server doesn't have `id` in the payload but instead in the envelope)
 #[derive(Default, Debug, Deserialize, Serialize)]
-struct CreditCardPayload {
+pub(crate) struct CreditCardPayload {
     id: Guid,
+
     // For some historical reason and unlike most other sync records, creditcards
     // are serialized with this explicit 'entry' object.
     entry: PayloadEntry,
@@ -107,8 +108,7 @@ struct PayloadEntry {
 }
 
 impl InternalCreditCard {
-    fn from_payload(sync_payload: sync15::Payload, encdec: &EncryptorDecryptor) -> Result<Self> {
-        let p: CreditCardPayload = sync_payload.into_record()?;
+    fn from_payload(p: CreditCardPayload, encdec: &EncryptorDecryptor) -> Result<Self> {
         if p.entry.version != 3 {
             // when new versions are introduced we will start accepting and
             // converting old ones - but 3 is the lowest we support.
@@ -139,9 +139,9 @@ impl InternalCreditCard {
         })
     }
 
-    pub(crate) fn into_payload(self, encdec: &EncryptorDecryptor) -> Result<sync15::Payload> {
+    pub(crate) fn into_payload(self, encdec: &EncryptorDecryptor) -> Result<CreditCardPayload> {
         let cc_number = encdec.decrypt(&self.cc_number_enc)?;
-        let p = CreditCardPayload {
+        Ok(CreditCardPayload {
             id: self.guid,
             entry: PayloadEntry {
                 cc_name: self.cc_name,
@@ -155,8 +155,7 @@ impl InternalCreditCard {
                 times_used: self.metadata.times_used,
                 version: 3,
             },
-        };
-        Ok(sync15::Payload::from_record(p)?)
+        })
     }
 }
 
@@ -217,21 +216,6 @@ impl SyncRecord for InternalCreditCard {
     }
 }
 
-impl PersistablePayload {
-    fn from_cc_payload(payload: sync15::Payload, encdec: &EncryptorDecryptor) -> Result<Self> {
-        Ok(Self {
-            guid: Guid::new(payload.id()),
-            payload: encdec.encrypt(&payload.into_json_string())?,
-        })
-    }
-
-    fn make_cc_payload(payload: &str, encdec: &EncryptorDecryptor) -> Result<sync15::Payload> {
-        Ok(Payload::from_json(serde_json::from_str(
-            &encdec.decrypt(payload)?,
-        )?)?)
-    }
-}
-
 /// Returns a with the given local record's data but with a new guid and
 /// fresh sync metadata.
 fn get_forked_record(local_record: InternalCreditCard) -> InternalCreditCard {
@@ -280,8 +264,7 @@ fn test_to_from_payload() {
         ..Default::default()
     };
     let encdec = EncryptorDecryptor::new(&key).unwrap();
-    let sync_payload = cc.clone().into_payload(&encdec).unwrap();
-    let payload: CreditCardPayload = sync_payload.clone().into_record().unwrap();
+    let payload: CreditCardPayload = cc.clone().into_payload(&encdec).unwrap();
 
     assert_eq!(payload.id, cc.guid);
     assert_eq!(payload.entry.cc_name, "Shaggy".to_string());
@@ -291,7 +274,7 @@ fn test_to_from_payload() {
     assert_eq!(payload.entry.cc_type, "foo".to_string());
 
     // and back.
-    let cc2 = InternalCreditCard::from_payload(sync_payload, &encdec).unwrap();
+    let cc2 = InternalCreditCard::from_payload(payload, &encdec).unwrap();
     // sadly we can't just check equality because the encrypted value will be
     // different even if the card number is identical.
     assert_eq!(cc2.guid, cc.guid);
