@@ -139,3 +139,18 @@ public func migrateLoginsFromSqlcipher(
 
     return didMigrationSucceed
 }
+
+public enum KeyRegenerationEventReason {
+    case lost, corrupt, other
+}
+
+public func recordKeyRegenerationEvent(reason: KeyRegenerationEventReason) {
+    switch reason {
+    case .lost:
+        LoginsStoreMetrics.keyRegeneratedLost.record()
+    case .corrupt:
+        LoginsStoreMetrics.keyRegeneratedCorrupt.record()
+    case .other:
+        LoginsStoreMetrics.keyRegeneratedOther.record()
+    }
+}

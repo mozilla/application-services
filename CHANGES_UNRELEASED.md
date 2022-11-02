@@ -22,3 +22,8 @@ Use the template below to make assigning a version number during the release cut
 
 # General
   - Added function to unset the app-services error reporter
+
+## Logins
+
+### What's New
+  - Added telemetry around the key regeneration logic for iOS in line with the android telemetry implemented in [PR #4613](https://github.com/mozilla/application-services/pull/4613) ([#0000](https://github.com/mozilla/application-services/pull/0000))
