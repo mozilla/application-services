@@ -27,7 +27,7 @@ pub mod backtrace {
 mod reporting;
 pub use reporting::{
     report_breadcrumb, report_error_to_app, set_application_error_reporter,
-    ApplicationErrorReporter,
+    unset_application_error_reporter, ApplicationErrorReporter,
 };
 
 mod handling;
