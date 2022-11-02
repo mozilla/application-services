@@ -3,13 +3,14 @@
 * file, You can obtain one at http://mozilla.org/MPL/2.0/.
 */
 
+use super::CreditCardPayload;
 use crate::db::models::credit_card::InternalCreditCard;
 use crate::db::schema::CREDIT_CARD_COMMON_COLS;
 use crate::encryption::EncryptorDecryptor;
 use crate::error::*;
 use crate::sync::common::*;
 use crate::sync::{
-    OutgoingChangeset, Payload, PersistablePayload, ProcessOutgoingRecordImpl, ServerTimestamp,
+    OutgoingChangeset, OutgoingRecord, Payload, ProcessOutgoingRecordImpl, ServerTimestamp,
 };
 use rusqlite::{Row, Transaction};
 use sync_guid::Guid as SyncGuid;
@@ -47,34 +48,50 @@ impl ProcessOutgoingRecordImpl for OutgoingCreditCardsImpl {
                 )",
             common_cols = CREDIT_CARD_COMMON_COLS,
         );
-        let payload_from_data_row: &dyn Fn(&Row<'_>) -> Result<Payload> =
-            &|row| InternalCreditCard::from_row(row)?.into_payload(&self.encdec);
+        let record_from_data_row: &dyn Fn(&Row<'_>) -> Result<OutgoingRecord<CreditCardPayload>> =
+            &|row| {
+                Ok(OutgoingRecord::Record {
+                    record: InternalCreditCard::from_row(row)?.into_payload(&self.encdec)?,
+                })
+            };
 
         let tombstones_sql = "SELECT guid FROM credit_cards_tombstones";
 
         // save outgoing records to the mirror table
-        let cleartext_staging_records = common_get_outgoing_staging_records(
+        let staging_records = common_get_outgoing_staging_records(
             tx,
             &data_sql,
             tombstones_sql,
-            payload_from_data_row,
-        )?;
-        // Turn the payloads into encrypted reprs to save in the mirror.
-        let mut staging_records = Vec::with_capacity(cleartext_staging_records.len());
-        for (payload, sync_change_counter) in cleartext_staging_records.into_iter() {
-            let pp = PersistablePayload::from_cc_payload(payload, &self.encdec)?;
-            staging_records.push((pp.guid, pp.payload, sync_change_counter));
-        }
+            record_from_data_row,
+        )?
+        .into_iter()
+        .map(|(record, change_counter)| {
+            let (guid, payload) = match record {
+                OutgoingRecord::Record { record } => {
+                    (record.id.clone(), Payload::from_record(record)?)
+                }
+                OutgoingRecord::Tombstone { guid } => (guid.clone(), Payload::new_tombstone(guid)),
+            };
+            // Turn the record into an encrypted repr to save in the mirror.
+            let encrypted = self.encdec.encrypt(&payload.into_json_string())?;
+            Ok((guid, encrypted, change_counter))
+        })
+        .collect::<Result<_>>()?;
         common_save_outgoing_records(tx, STAGING_TABLE_NAME, staging_records)?;
 
         // return outgoing changes
-        let outgoing_records: Vec<(Payload, i64)> =
-            common_get_outgoing_records(tx, &data_sql, tombstones_sql, payload_from_data_row)?;
+        let outgoing_records =
+            common_get_outgoing_records(tx, &data_sql, tombstones_sql, record_from_data_row)?;
 
         outgoing.changes = outgoing_records
             .into_iter()
-            .map(|(payload, _)| payload)
-            .collect::<Vec<Payload>>();
+            .map(|(record, _)| {
+                Ok(match record {
+                    OutgoingRecord::Record { record } => Payload::from_record(record)?,
+                    OutgoingRecord::Tombstone { guid } => Payload::new_tombstone(guid),
+                })
+            })
+            .collect::<Result<_>>()?;
         Ok(outgoing)
     }
 
@@ -139,8 +156,8 @@ mod tests {
 
     fn test_record(guid_prefix: char, encdec: &EncryptorDecryptor) -> InternalCreditCard {
         let json = test_json_record(guid_prefix);
-        let sync_payload = sync15::Payload::from_json(json).unwrap();
-        InternalCreditCard::from_payload(sync_payload, encdec).expect("should be valid")
+        let payload = serde_json::from_value(json).unwrap();
+        InternalCreditCard::from_payload(payload, encdec).expect("should be valid")
     }
 
     #[test]
@@ -214,24 +231,14 @@ mod tests {
         let initial_change_counter_val = 2;
         test_record.metadata.sync_change_counter = initial_change_counter_val;
         assert!(add_internal_credit_card(&tx, &test_record).is_ok());
-        test_insert_mirror_record(
-            &tx,
-            test_record
-                .clone()
-                .into_payload(&co.encdec)
-                .expect("should get payload"),
-        );
-        exists_with_counter_value_in_table(
-            &tx,
-            DATA_TABLE_NAME,
-            &test_record.guid,
-            initial_change_counter_val,
-        );
+        let guid = test_record.guid.clone();
+        test_insert_mirror_record(&tx, test_record.into_sync_payload(&co.encdec));
+        exists_with_counter_value_in_table(&tx, DATA_TABLE_NAME, &guid, initial_change_counter_val);
 
         do_test_outgoing_synced_with_local_change(
             &tx,
             &co,
-            &test_record.guid,
+            &guid,
             DATA_TABLE_NAME,
             MIRROR_TABLE_NAME,
             STAGING_TABLE_NAME,
@@ -249,19 +256,14 @@ mod tests {
 
         // create synced record with no changes (sync_change_counter = 0)
         let test_record = test_record('C', &co.encdec);
+        let guid = test_record.guid.clone();
         assert!(add_internal_credit_card(&tx, &test_record).is_ok());
-        test_insert_mirror_record(
-            &tx,
-            test_record
-                .clone()
-                .into_payload(&co.encdec)
-                .expect("should get payload"),
-        );
+        test_insert_mirror_record(&tx, test_record.into_sync_payload(&co.encdec));
 
         do_test_outgoing_synced_with_no_change(
             &tx,
             &co,
-            &test_record.guid,
+            &guid,
             DATA_TABLE_NAME,
             STAGING_TABLE_NAME,
             COLLECTION_NAME,

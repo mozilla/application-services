@@ -10,19 +10,21 @@
 // using a sql database and knows that the schemas for addresses and cards are
 // very similar.
 
-use super::PersistablePayload;
+use super::OutgoingRecord;
 use crate::error::*;
 use interrupt_support::Interruptee;
 use rusqlite::{types::ToSql, Connection, Row};
-use sync15::{Payload, ServerTimestamp};
+use sync15::ServerTimestamp;
 use sync_guid::Guid;
 
 /// Stages incoming records (excluding incoming tombstones) in preparation for
 /// applying incoming changes for the syncing autofill records.
+/// The incoming record is a String, because for credit-cards it is the encrypted
+/// version of a JSON record.
 pub(super) fn common_stage_incoming_records(
     conn: &Connection,
     table_name: &str,
-    incoming: Vec<(PersistablePayload, ServerTimestamp)>,
+    incoming: Vec<(Guid, String, ServerTimestamp)>,
     signal: &dyn Interruptee,
 ) -> Result<()> {
     log::info!(
@@ -33,7 +35,7 @@ pub(super) fn common_stage_incoming_records(
     let chunk_size = 2;
     let vals: Vec<(Guid, String)> = incoming
         .into_iter()
-        .map(|(p, _)| (p.guid, p.payload))
+        .map(|(guid, data, _)| (guid, data))
         .collect();
     sql_support::each_sized_chunk(
         &vals,
@@ -162,48 +164,47 @@ macro_rules! sync_merge_field_check {
     };
 }
 
-pub(super) fn common_get_outgoing_staging_records(
+pub(super) fn common_get_outgoing_staging_records<T>(
     conn: &Connection,
     data_sql: &str,
     tombstones_sql: &str,
-    payload_from_data_row: &dyn Fn(&Row<'_>) -> Result<Payload>,
-) -> anyhow::Result<Vec<(Payload, i64)>> {
+    payload_from_data_row: &dyn Fn(&Row<'_>) -> Result<OutgoingRecord<T>>,
+) -> anyhow::Result<Vec<(OutgoingRecord<T>, i64)>> {
     let outgoing_records =
         common_get_outgoing_records(conn, data_sql, tombstones_sql, payload_from_data_row)?;
-    Ok(outgoing_records
-        .into_iter()
-        .collect::<Vec<(Payload, i64)>>())
+    Ok(outgoing_records.into_iter().collect::<Vec<_>>())
 }
 
-fn get_outgoing_records(
+fn get_outgoing_records<T>(
     conn: &Connection,
     sql: &str,
-    payload_from_data_row: &dyn Fn(&Row<'_>) -> Result<Payload>,
-) -> anyhow::Result<Vec<(Payload, i64)>> {
+    record_from_data_row: &dyn Fn(&Row<'_>) -> Result<OutgoingRecord<T>>,
+) -> anyhow::Result<Vec<(OutgoingRecord<T>, i64)>> {
     Ok(conn
         .prepare(sql)?
         .query_map([], |row| {
-            let payload = payload_from_data_row(row).unwrap();
-            let sync_change_counter = if payload.deleted {
-                0
-            } else {
-                row.get::<_, i64>("sync_change_counter")?
+            let record = record_from_data_row(row).unwrap(); // XXX - this unwrap()!
+            let sync_change_counter = match record {
+                OutgoingRecord::Tombstone { .. } => 0,
+                OutgoingRecord::Record { .. } => row.get::<_, i64>("sync_change_counter")?,
             };
-            Ok((payload, sync_change_counter))
+            Ok((record, sync_change_counter))
         })?
-        .collect::<std::result::Result<Vec<(Payload, i64)>, _>>()?)
+        .collect::<std::result::Result<_, _>>()?)
 }
 
-pub(super) fn common_get_outgoing_records(
+pub(super) fn common_get_outgoing_records<T>(
     conn: &Connection,
     data_sql: &str,
     tombstone_sql: &str,
-    payload_from_data_row: &dyn Fn(&Row<'_>) -> Result<Payload>,
-) -> anyhow::Result<Vec<(Payload, i64)>> {
-    let mut payload = get_outgoing_records(conn, data_sql, payload_from_data_row)?;
+    record_from_data_row: &dyn Fn(&Row<'_>) -> Result<OutgoingRecord<T>>,
+) -> anyhow::Result<Vec<(OutgoingRecord<T>, i64)>> {
+    let mut payload = get_outgoing_records(conn, data_sql, record_from_data_row)?;
 
     payload.append(&mut get_outgoing_records(conn, tombstone_sql, &|row| {
-        Ok(Payload::new_tombstone(Guid::from_string(row.get("guid")?)))
+        Ok(OutgoingRecord::Tombstone {
+            guid: Guid::from_string(row.get("guid")?),
+        })
     })?);
 
     Ok(payload)

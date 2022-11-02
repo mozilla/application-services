@@ -3,11 +3,14 @@
 * file, You can obtain one at http://mozilla.org/MPL/2.0/.
 */
 
+use super::AddressPayload;
 use crate::db::models::address::InternalAddress;
 use crate::db::schema::ADDRESS_COMMON_COLS;
 use crate::error::*;
 use crate::sync::common::*;
-use crate::sync::{OutgoingChangeset, Payload, ProcessOutgoingRecordImpl, ServerTimestamp};
+use crate::sync::{
+    OutgoingChangeset, OutgoingRecord, Payload, ProcessOutgoingRecordImpl, ServerTimestamp,
+};
 use rusqlite::{Row, Transaction};
 use sync_guid::Guid as SyncGuid;
 
@@ -42,8 +45,12 @@ impl ProcessOutgoingRecordImpl for OutgoingAddressesImpl {
                 )",
             common_cols = ADDRESS_COMMON_COLS,
         );
-        let payload_from_data_row: &dyn Fn(&Row<'_>) -> Result<Payload> =
-            &|row| InternalAddress::from_row(row)?.into_payload();
+        let record_from_data_row: &dyn Fn(&Row<'_>) -> Result<OutgoingRecord<AddressPayload>> =
+            &|row| {
+                Ok(OutgoingRecord::Record {
+                    record: InternalAddress::from_row(row)?.into_payload()?,
+                })
+            };
 
         let tombstones_sql = "SELECT guid FROM addresses_tombstones";
 
@@ -55,27 +62,39 @@ impl ProcessOutgoingRecordImpl for OutgoingAddressesImpl {
             tx,
             &data_sql,
             tombstones_sql,
-            payload_from_data_row,
+            record_from_data_row,
         )?
         .into_iter()
-        .map(|(payload, sync_change_counter)| {
-            (
-                SyncGuid::new(payload.id()),
-                payload.into_json_string(),
-                sync_change_counter,
-            )
+        .map(|(record, change_counter)| {
+            Ok(match record {
+                OutgoingRecord::Record { record } => (
+                    record.id.clone(),
+                    Payload::from_record(record)?.into_json_string(),
+                    change_counter,
+                ),
+                OutgoingRecord::Tombstone { guid } => (
+                    guid.clone(),
+                    Payload::new_tombstone(guid).into_json_string(),
+                    change_counter,
+                ),
+            })
         })
-        .collect::<Vec<(SyncGuid, String, i64)>>();
+        .collect::<Result<_>>()?;
         common_save_outgoing_records(tx, STAGING_TABLE_NAME, staging_records)?;
 
         // return outgoing changes
-        let outgoing_records: Vec<(Payload, i64)> =
-            common_get_outgoing_records(tx, &data_sql, tombstones_sql, payload_from_data_row)?;
+        let outgoing_records =
+            common_get_outgoing_records(tx, &data_sql, tombstones_sql, record_from_data_row)?;
 
         outgoing.changes = outgoing_records
             .into_iter()
-            .map(|(payload, _)| payload)
-            .collect::<Vec<Payload>>();
+            .map(|(record, _)| {
+                Ok(match record {
+                    OutgoingRecord::Record { record } => Payload::from_record(record)?,
+                    OutgoingRecord::Tombstone { guid } => Payload::new_tombstone(guid),
+                })
+            })
+            .collect::<Result<_>>()?;
         Ok(outgoing)
     }
 
@@ -109,7 +128,7 @@ mod tests {
     fn test_insert_mirror_record(conn: &Connection, address: InternalAddress) {
         // This should probably be in the sync module, but it's used here.
         let guid = address.guid.clone();
-        let payload = address.into_payload().expect("is json").into_json_string();
+        let payload = serde_json::to_string(&address.into_payload().unwrap()).expect("is json");
         conn.execute(
             "INSERT OR IGNORE INTO addresses_mirror (guid, payload)
              VALUES (:guid, :payload)",
@@ -155,8 +174,8 @@ mod tests {
 
     fn test_record(guid_prefix: char) -> InternalAddress {
         let json = test_json_record(guid_prefix);
-        let sync_payload = sync15::Payload::from_json(json).unwrap();
-        InternalAddress::from_payload(sync_payload).expect("should be valid")
+        let payload = serde_json::from_value(json).unwrap();
+        InternalAddress::from_payload(payload).expect("should be valid")
     }
 
     #[test]

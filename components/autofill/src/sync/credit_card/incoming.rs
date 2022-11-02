@@ -10,13 +10,33 @@ use crate::encryption::EncryptorDecryptor;
 use crate::error::*;
 use crate::sync::common::*;
 use crate::sync::{
-    IncomingRecord, IncomingState, LocalRecordInfo, Payload, PersistablePayload,
-    ProcessIncomingRecordImpl, ServerTimestamp, SyncRecord,
+    IncomingRecord, IncomingState, LocalRecordInfo, Payload, ProcessIncomingRecordImpl,
+    ServerTimestamp, SyncRecord,
 };
 use interrupt_support::Interruptee;
 use rusqlite::{named_params, Transaction};
 use sql_support::ConnExt;
 use sync_guid::Guid as SyncGuid;
+
+// Takes a raw payload, as stored in our database, and returns an InternalCreditCard
+// or a tombstone. Credit-cards store the payload as an encrypted string, so we
+// decrypt before conversion.
+fn raw_payload_to_incoming(
+    raw: String,
+    encdec: &EncryptorDecryptor,
+) -> Result<IncomingRecord<InternalCreditCard>> {
+    let decrypted_payload = encdec.decrypt(&raw)?;
+    let payload = serde_json::from_str::<Payload>(&decrypted_payload)?;
+    Ok(if payload.is_tombstone() {
+        IncomingRecord::Tombstone {
+            guid: payload.id().into(),
+        }
+    } else {
+        IncomingRecord::Record {
+            record: InternalCreditCard::from_payload(payload.into_record()?, encdec)?,
+        }
+    })
+}
 
 pub(super) struct IncomingCreditCardsImpl {
     pub(super) encdec: EncryptorDecryptor,
@@ -33,13 +53,14 @@ impl ProcessIncomingRecordImpl for IncomingCreditCardsImpl {
         signal: &dyn Interruptee,
     ) -> Result<()> {
         // Convert the sync15::Payloads to encrypted strings.
-        let mut to_stage = Vec::with_capacity(incoming.len());
-        for (payload, timestamp) in incoming {
-            to_stage.push((
-                PersistablePayload::from_cc_payload(payload, &self.encdec)?,
-                timestamp,
-            ));
-        }
+        let to_stage = incoming
+            .into_iter()
+            .map(|(payload, timestamp)| {
+                let guid = SyncGuid::new(payload.id());
+                let encrypted = self.encdec.encrypt(&payload.into_json_string())?;
+                Ok((guid, encrypted, timestamp))
+            })
+            .collect::<Result<_>>()?;
         common_stage_incoming_records(tx, "credit_cards_sync_staging", to_stage, signal)
     }
 
@@ -80,27 +101,9 @@ impl ProcessIncomingRecordImpl for IncomingCreditCardsImpl {
         tx.query_rows_and_then(sql, [], |row| -> Result<IncomingState<Self::Record>> {
             // the 'guid' and 's_payload' rows must be non-null.
             let guid: SyncGuid = row.get("guid")?;
-            // the incoming sync15::Payload
-            let incoming_payload = PersistablePayload::make_cc_payload(
-                &row.get::<_, String>("s_payload")?,
-                &self.encdec,
-            )?;
-
+            let incoming = raw_payload_to_incoming(row.get("s_payload")?, &self.encdec)?;
             Ok(IncomingState {
-                incoming: {
-                    if incoming_payload.is_tombstone() {
-                        IncomingRecord::Tombstone {
-                            guid: incoming_payload.id().into(),
-                        }
-                    } else {
-                        IncomingRecord::Record {
-                            record: InternalCreditCard::from_payload(
-                                incoming_payload,
-                                &self.encdec,
-                            )?,
-                        }
-                    }
-                },
+                incoming,
                 local: match row.get_unwrap::<_, Option<String>>("l_guid") {
                     Some(l_guid) => {
                         assert_eq!(l_guid, guid);
@@ -131,13 +134,10 @@ impl ProcessIncomingRecordImpl for IncomingCreditCardsImpl {
                 mirror: {
                     match row.get::<_, Option<String>>("m_payload")? {
                         Some(m_payload) => {
-                            let payload =
-                                PersistablePayload::make_cc_payload(&m_payload, &self.encdec)?;
                             // a tombstone in the mirror can be treated as though it's missing.
-                            if payload.is_tombstone() {
-                                None
-                            } else {
-                                Some(InternalCreditCard::from_payload(payload, &self.encdec)?)
+                            match raw_payload_to_incoming(m_payload, &self.encdec)? {
+                                IncomingRecord::Record { record } => Some(record),
+                                IncomingRecord::Tombstone { .. } => None,
                             }
                         }
                         None => None,
@@ -291,8 +291,8 @@ mod tests {
 
     fn test_record(guid_prefix: char, encdec: &EncryptorDecryptor) -> InternalCreditCard {
         let json = test_json_record(guid_prefix);
-        let sync_payload = sync15::Payload::from_json(json).unwrap();
-        InternalCreditCard::from_payload(sync_payload, encdec).expect("should be valid")
+        let payload = serde_json::from_value(json).unwrap();
+        InternalCreditCard::from_payload(payload, encdec).expect("should be valid")
     }
 
     #[test]
@@ -416,10 +416,7 @@ mod tests {
             encdec: EncryptorDecryptor::new_test_key(),
         };
         let record = test_record('C', &ci.encdec);
-        let payload = record
-            .clone()
-            .into_payload(&ci.encdec)
-            .expect("must get a payload");
+        let payload = record.clone().into_sync_payload(&ci.encdec);
         do_test_incoming_same(&ci, &tx, record, payload);
     }
 
@@ -441,10 +438,7 @@ mod tests {
             encdec: EncryptorDecryptor::new_test_key(),
         };
         let mut scrubbed_record = test_record('A', &ci.encdec);
-        let payload = scrubbed_record
-            .clone()
-            .into_payload(&ci.encdec)
-            .expect("must get a payload");
+        let payload = scrubbed_record.clone().into_sync_payload(&ci.encdec);
         scrubbed_record.cc_number_enc = "".to_string();
         do_test_scrubbed_local_data(&ci, &tx, scrubbed_record, payload);
     }
@@ -457,10 +451,7 @@ mod tests {
             encdec: EncryptorDecryptor::new_test_key(),
         };
         let record = test_record('C', &ci.encdec);
-        let payload = record
-            .clone()
-            .into_payload(&ci.encdec)
-            .expect("must get a payload");
+        let payload = record.clone().into_sync_payload(&ci.encdec);
         do_test_staged_to_mirror(&ci, &tx, record, payload, "credit_cards_mirror");
     }
 

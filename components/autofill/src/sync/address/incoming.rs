@@ -9,13 +9,28 @@ use crate::db::schema::ADDRESS_COMMON_COLS;
 use crate::error::*;
 use crate::sync::common::*;
 use crate::sync::{
-    IncomingRecord, IncomingState, LocalRecordInfo, Payload, PersistablePayload,
-    ProcessIncomingRecordImpl, ServerTimestamp, SyncRecord,
+    IncomingRecord, IncomingState, LocalRecordInfo, Payload, ProcessIncomingRecordImpl,
+    ServerTimestamp, SyncRecord,
 };
 use interrupt_support::Interruptee;
 use rusqlite::{named_params, Transaction};
 use sql_support::ConnExt;
 use sync_guid::Guid as SyncGuid;
+
+// Takes a raw payload, as stored in our database, and returns an InternalAddress
+// or a tombstone. Addresses store the raw payload as cleartext json.
+fn raw_payload_to_incoming(raw: String) -> Result<IncomingRecord<InternalAddress>> {
+    let payload = serde_json::from_str::<Payload>(&raw)?;
+    Ok(if payload.is_tombstone() {
+        IncomingRecord::Tombstone {
+            guid: payload.id().into(),
+        }
+    } else {
+        IncomingRecord::Record {
+            record: InternalAddress::from_payload(payload.into_record()?)?,
+        }
+    })
+}
 
 pub(super) struct IncomingAddressesImpl {}
 
@@ -32,14 +47,11 @@ impl ProcessIncomingRecordImpl for IncomingAddressesImpl {
         let to_stage = incoming
             .into_iter()
             .map(|(payload, timestamp)| {
-                let p = PersistablePayload {
-                    guid: SyncGuid::new(payload.id()),
-                    payload: payload.into_json_string(),
-                };
-                (p, timestamp)
+                let guid = SyncGuid::new(payload.id());
+                let cleartext = payload.into_json_string();
+                (guid, cleartext, timestamp)
             })
             .collect();
-
         common_stage_incoming_records(tx, "addresses_sync_staging", to_stage, signal)
     }
 
@@ -86,22 +98,10 @@ impl ProcessIncomingRecordImpl for IncomingAddressesImpl {
         tx.query_rows_and_then(sql, [], |row| -> Result<IncomingState<Self::Record>> {
             // the 'guid' and 's_payload' rows must be non-null.
             let guid: SyncGuid = row.get("guid")?;
-            // the incoming sync15::Payload
-            let incoming_payload =
-                Payload::from_json(serde_json::from_str(&row.get::<_, String>("s_payload")?)?)?;
-
+            // turn it into a sync15::Payload
+            let incoming = raw_payload_to_incoming(row.get("s_payload")?)?;
             Ok(IncomingState {
-                incoming: {
-                    if incoming_payload.is_tombstone() {
-                        IncomingRecord::Tombstone {
-                            guid: incoming_payload.id().into(),
-                        }
-                    } else {
-                        IncomingRecord::Record {
-                            record: InternalAddress::from_payload(incoming_payload)?,
-                        }
-                    }
-                },
+                incoming,
                 local: match row.get_unwrap::<_, Option<String>>("l_guid") {
                     Some(l_guid) => {
                         assert_eq!(l_guid, guid);
@@ -128,12 +128,10 @@ impl ProcessIncomingRecordImpl for IncomingAddressesImpl {
                 mirror: {
                     match row.get::<_, Option<String>>("m_payload")? {
                         Some(m_payload) => {
-                            let payload = Payload::from_json(serde_json::from_str(&m_payload)?)?;
                             // a tombstone in the mirror can be treated as though it's missing.
-                            if payload.is_tombstone() {
-                                None
-                            } else {
-                                Some(InternalAddress::from_payload(payload)?)
+                            match raw_payload_to_incoming(m_payload)? {
+                                IncomingRecord::Record { record } => Some(record),
+                                IncomingRecord::Tombstone { .. } => None,
                             }
                         }
                         None => None,
@@ -253,6 +251,13 @@ mod tests {
     use serde_json::{json, Map, Value};
     use sql_support::ConnExt;
 
+    impl InternalAddress {
+        fn into_sync_payload(self) -> sync15::Payload {
+            sync15::Payload::from_record(self.into_payload().expect("is json"))
+                .expect("can get sync payload")
+        }
+    }
+
     lazy_static::lazy_static! {
         static ref TEST_JSON_RECORDS: Map<String, Value> = {
             // NOTE: the JSON here is the same as stored on the sync server -
@@ -298,8 +303,8 @@ mod tests {
 
     fn test_record(guid_prefix: char) -> InternalAddress {
         let json = test_json_record(guid_prefix);
-        let sync_payload = sync15::Payload::from_json(json).unwrap();
-        InternalAddress::from_payload(sync_payload).expect("should be valid")
+        let address_payload = serde_json::from_value(json).unwrap();
+        InternalAddress::from_payload(address_payload).expect("should be valid")
     }
 
     #[test]
@@ -417,7 +422,7 @@ mod tests {
         let tx = db.transaction().expect("should get tx");
         let ai = IncomingAddressesImpl {};
         let record = test_record('C');
-        let payload = record.clone().into_payload().expect("must get a payload");
+        let payload = record.clone().into_sync_payload();
         do_test_incoming_same(&ai, &tx, record, payload);
     }
 
@@ -435,7 +440,7 @@ mod tests {
         let tx = db.transaction().expect("should get tx");
         let ai = IncomingAddressesImpl {};
         let record = test_record('C');
-        let payload = record.clone().into_payload().expect("must get a payload");
+        let payload = record.clone().into_sync_payload();
         do_test_staged_to_mirror(&ai, &tx, record, payload, "addresses_mirror");
     }
 }
