@@ -7,8 +7,8 @@ import re
 
 from taskgraph.filter_tasks import filter_task
 
-REPO_RE = r'((?P<owner>[\.\w-]+)/)?(?P<branch>[\.\w-]+)'
-ANDROID_COMPONENTS_BRANCH_RE = re.compile(r'\[a-?c:\s*' + REPO_RE + r'\]')
+REPO_RE = r'((?P<owner>[\.\w-]+)[/:])?(?P<branch>[\.\w-]+)'
+FIREFOX_ANDROID_BRANCH_RE = re.compile(r'\[ff-android:\s*' + REPO_RE + r'\]')
 FENIX_BRANCH_RE = re.compile(r'\[fenix:\s*' + REPO_RE + r'\]')
 
 def update_decision_parameters(parameters):
@@ -17,16 +17,16 @@ def update_decision_parameters(parameters):
 def calc_branch_build_param(parameters):
     if parameters.get('nightly-build'):
         return {
-            'android-components-branch': 'main',
+            'firefox-android-branch': 'main',
             'fenix-branch': 'main',
         }
     title = os.environ.get("APPSERVICES_PULL_REQUEST_TITLE", "")
     branch_build = {}
 
-    ac_branch_match = ANDROID_COMPONENTS_BRANCH_RE.search(title)
+    ac_branch_match = FIREFOX_ANDROID_BRANCH_RE.search(title)
     if ac_branch_match:
-        branch_build['android-components-owner'] = calc_owner(ac_branch_match)
-        branch_build['android-components-branch'] = ac_branch_match.group('branch')
+        branch_build['firefox-android-owner'] = calc_owner(ac_branch_match)
+        branch_build['firefox-android-branch'] = ac_branch_match.group('branch')
 
     fenix_branch_match = FENIX_BRANCH_RE.search(title)
     if fenix_branch_match:
