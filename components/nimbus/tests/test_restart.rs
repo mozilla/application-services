@@ -7,10 +7,124 @@ mod common;
 #[cfg(test)]
 mod test {
 
+    use std::collections::HashSet;
+
     use super::common::new_test_client_with_db;
     #[cfg(feature = "rkv-safe-mode")]
     use nimbus::error::Result;
     use serde_json::json;
+
+    fn experiment_target_false() -> serde_json::Value {
+        json!({
+            "schemaVersion": "1.0.0",
+            "slug": "experiment_target_false",
+            "endDate": null,
+            "featureIds": ["some-feature"],
+            "branches": [
+                {
+                "slug": "control",
+                "ratio": 1
+                },
+                {
+                "slug": "treatment",
+                "ratio": 1
+                }
+            ],
+            "channel": "nightly",
+            "probeSets": [],
+            "startDate": null,
+            "appName": "fenix",
+            "appId": "org.mozilla.fenix",
+            "bucketConfig": {
+                "count": 10000,
+                "start": 0,
+                "total": 10000,
+                "namespace": "experiment_target_false",
+                "randomizationUnit": "nimbus_id"
+            },
+            "targeting": "false",
+            "userFacingName": "Diagnostic test experiment",
+            "referenceBranch": "control",
+            "isEnrollmentPaused": false,
+            "proposedEnrollment": 7,
+            "userFacingDescription": "This is a test experiment for diagnostic purposes.",
+            "id": "secure-copper",
+            "last_modified": 1_602_197_324_372i64,
+        })
+    }
+
+    fn experiment_zero_buckets() -> serde_json::Value {
+        json!({
+            "schemaVersion": "1.0.0",
+            "slug": "experiment_zero_buckets",
+            "endDate": null,
+            "featureIds": ["some-feature"],
+            "branches": [
+                {
+                "slug": "control",
+                "ratio": 1
+                },
+                {
+                "slug": "treatment",
+                "ratio": 1
+                }
+            ],
+            "channel": "nightly",
+            "probeSets": [],
+            "startDate": null,
+            "appName": "fenix",
+            "appId": "org.mozilla.fenix",
+            "bucketConfig": {
+                "count": 0,
+                "start": 0,
+                "total": 10000,
+                "namespace": "experiment_zero_buckets",
+                "randomizationUnit": "nimbus_id"
+            },
+            "userFacingName": "Diagnostic test experiment",
+            "referenceBranch": "control",
+            "isEnrollmentPaused": false,
+            "proposedEnrollment": 7,
+            "userFacingDescription": "This is a test experiment for diagnostic purposes.",
+            "id": "secure-copper",
+            "last_modified": 1_602_197_324_372i64,
+        })
+    }
+
+    fn experiment_always_enroll() -> serde_json::Value {
+        json!({
+            "schemaVersion": "1.0.0",
+            "slug": "experiment_always_enroll",
+            "endDate": null,
+            "featureIds": ["some-feature"],
+            "branches": [
+                {
+                "slug": "treatment",
+                "ratio": 1
+                }
+            ],
+            "channel": "nightly",
+            "probeSets": [],
+            "startDate": null,
+            "appName": "fenix",
+            "appId": "org.mozilla.fenix",
+            "bucketConfig": {
+                "count": 10000,
+                "start": 0,
+                "total": 10000,
+                "namespace": "experiment_always_enroll",
+                "randomizationUnit": "nimbus_id"
+            },
+            "userFacingName": "Diagnostic test experiment",
+            "referenceBranch": "control",
+            "isEnrollmentPaused": false,
+            "proposedEnrollment": 7,
+            "userFacingDescription": "This is a test experiment for diagnostic purposes.",
+            "id": "secure-copper",
+            "last_modified": 1_602_197_324_372i64,
+            "targeting": "true",
+        })
+    }
 
     #[test]
     fn test_restart_opt_in() -> Result<()> {
@@ -18,88 +132,20 @@ mod test {
         let client = new_test_client_with_db(&temp_dir)?;
         client.initialize()?;
         let experiment_json = serde_json::to_string(&json!({
-            "data": [{
-                "schemaVersion": "1.0.0",
-                "slug": "secure-gold",
-                "endDate": null,
-                "featureIds": ["some-feature"],
-                "branches": [
-                    {
-                    "slug": "control",
-                    "ratio": 1
-                    },
-                    {
-                    "slug": "treatment",
-                    "ratio": 1
-                    }
-                ],
-                "channel": "nightly",
-                "probeSets": [],
-                "startDate": null,
-                "appName": "fenix",
-                "appId": "org.mozilla.fenix",
-                "bucketConfig": {
-                    "count": 10000,
-                    "start": 0,
-                    "total": 10000,
-                    "namespace": "secure-gold",
-                    "randomizationUnit": "nimbus_id"
-                },
-                "targeting": "false",
-                "userFacingName": "Diagnostic test experiment",
-                "referenceBranch": "control",
-                "isEnrollmentPaused": false,
-                "proposedEnrollment": 7,
-                "userFacingDescription": "This is a test experiment for diagnostic purposes.",
-                "id": "secure-copper",
-                "last_modified": 1_602_197_324_372i64,
-            },
-            {
-                "schemaVersion": "1.0.0",
-                "slug": "secure-silver",
-                "endDate": null,
-                "featureIds": ["some-feature"],
-                "branches": [
-                    {
-                    "slug": "control",
-                    "ratio": 1
-                    },
-                    {
-                    "slug": "treatment",
-                    "ratio": 1
-                    }
-                ],
-                "channel": "nightly",
-                "probeSets": [],
-                "startDate": null,
-                "appName": "fenix",
-                "appId": "org.mozilla.fenix",
-                "bucketConfig": {
-                    "count": 0,
-                    "start": 0,
-                    "total": 10000,
-                    "namespace": "secure-silver",
-                    "randomizationUnit": "nimbus_id"
-                },
-                "userFacingName": "Diagnostic test experiment",
-                "referenceBranch": "control",
-                "isEnrollmentPaused": false,
-                "proposedEnrollment": 7,
-                "userFacingDescription": "This is a test experiment for diagnostic purposes.",
-                "id": "secure-copper",
-                "last_modified": 1_602_197_324_372i64,
-            }
+            "data": [
+                experiment_target_false(),
+                experiment_zero_buckets(),
             ]
         }))?;
         client.set_experiments_locally(experiment_json.clone())?;
         client.apply_pending_experiments()?;
-        // the secure-gold experiment has a 'targeting' of "false", we test to ensure that
+        // the experiment_target_false experiment has a 'targeting' of "false", we test to ensure that
         // restarting the app preserves the fact that we opt-ed in, even though we were not
         // targeted
-        client.opt_in_with_branch("secure-gold".into(), "treatment".into())?;
-        // the secure-silver experiment has a bucket configuration of 0%, meaning we will always not
+        client.opt_in_with_branch("experiment_target_false".into(), "treatment".into())?;
+        // the experiment_zero_buckets experiment has a bucket configuration of 0%, meaning we will always not
         // be enrolled, we test to ensure that is overridden when we opt-in
-        client.opt_in_with_branch("secure-silver".into(), "treatment".into())?;
+        client.opt_in_with_branch("experiment_zero_buckets".into(), "treatment".into())?;
 
         let before_restart_experiments = client.get_active_experiments()?;
         assert_eq!(before_restart_experiments.len(), 2);
@@ -119,6 +165,57 @@ mod test {
         );
         assert_eq!(after_restart_experiments[0].branch_slug, "treatment");
         assert_eq!(after_restart_experiments[1].branch_slug, "treatment");
+
+        Ok(())
+    }
+
+    #[test]
+    fn test_targeting_attributes_active_experiments() -> Result<()> {
+        let temp_dir = tempfile::tempdir()?;
+        let client = new_test_client_with_db(&temp_dir)?;
+        let expected = HashSet::new();
+        let ta = client.get_targeting_attributes();
+        assert_eq!(ta.active_experiments, expected);
+
+        let experiment_json = serde_json::to_string(&json!({
+            "data": [
+                experiment_target_false(),
+                experiment_zero_buckets(),
+                experiment_always_enroll(),
+            ]
+        }))?;
+        client.set_experiments_locally(experiment_json)?;
+        client.apply_pending_experiments()?;
+
+        let expected = ["experiment_always_enroll"]
+            .iter()
+            .map(|s| s.to_string())
+            .collect::<HashSet<_>>();
+        let ta = client.get_targeting_attributes();
+        assert_eq!(ta.active_experiments, expected);
+
+        client.opt_in_with_branch("experiment_target_false".into(), "treatment".into())?;
+
+        let expected = ["experiment_always_enroll", "experiment_target_false"]
+            .iter()
+            .map(|s| s.to_string())
+            .collect::<HashSet<_>>();
+        let ta = client.get_targeting_attributes();
+        assert_eq!(ta.active_experiments, expected);
+
+        drop(client);
+
+        let client = new_test_client_with_db(&temp_dir)?;
+        client.initialize()?;
+        let ta = client.get_targeting_attributes();
+        assert_eq!(ta.active_experiments, expected);
+
+        drop(client);
+
+        let client = new_test_client_with_db(&temp_dir)?;
+        client.apply_pending_experiments()?;
+        let ta = client.get_targeting_attributes();
+        assert_eq!(ta.active_experiments, expected);
 
         Ok(())
     }
