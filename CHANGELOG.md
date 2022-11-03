@@ -1,3 +1,10 @@
+# v95.0.1 (_2022-11-03_)
+
+[Full Changelog](https://github.com/mozilla/application-services/compare/v95.0.0...v95.0.1)
+
+# General
+  - Added function to unset the app-services error reporter
+
 # v95.0.0 (_2022-10-28_)
 
 [Full Changelog](https://github.com/mozilla/application-services/compare/v94.3.2...v95.0.0)
@@ -33,7 +40,7 @@
 
 ### What's Changed
   - Disabled Glean events recorded when the SDK is not ready for a feature ([#5185](https://github.com/mozilla/application-services/pull/5185))
-  - Add struct for IntervalData (behavioral targeting) ([#5205](https://github.com/mozilla/application-services/pull/5205))
+  - Add structs for behavioral targeting ([#5205](https://github.com/mozilla/application-services/pull/5205))
   - Calls to `log::error` have been replaced with `error_support::report_error` ([#5204](https://github.com/mozilla/application-services/pull/5204))
 
 ## Places
