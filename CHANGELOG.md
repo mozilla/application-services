@@ -1,3 +1,10 @@
+# v95.0.1 (_2022-11-03_)
+
+[Full Changelog](https://github.com/mozilla/application-services/compare/v95.0.0...v95.0.1)
+
+# General
+  - Added function to unset the app-services error reporter
+
 # v95.0.0 (_2022-10-28_)
 
 [Full Changelog](https://github.com/mozilla/application-services/compare/v94.3.2...v95.0.0)
