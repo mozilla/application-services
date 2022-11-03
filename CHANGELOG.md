@@ -40,7 +40,7 @@
 
 ### What's Changed
   - Disabled Glean events recorded when the SDK is not ready for a feature ([#5185](https://github.com/mozilla/application-services/pull/5185))
-  - Add struct for IntervalData (behavioral targeting) ([#5205](https://github.com/mozilla/application-services/pull/5205))
+  - Add structs for behavioral targeting ([#5205](https://github.com/mozilla/application-services/pull/5205))
   - Calls to `log::error` have been replaced with `error_support::report_error` ([#5204](https://github.com/mozilla/application-services/pull/5204))
 
 ## Places
