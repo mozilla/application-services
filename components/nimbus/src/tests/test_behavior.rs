@@ -346,7 +346,7 @@ mod event_store_tests {
             SingleIntervalCounter::new(IntervalConfig::new(28, Interval::Days)),
         ]);
 
-        let mut store = EventStore::from_vec(vec![
+        let mut store = EventStore::from(vec![
             ("event-1".to_string(), counter1),
             ("event-2".to_string(), counter2),
         ]);
@@ -358,7 +358,7 @@ mod event_store_tests {
         store.persist_data(&db)?;
 
         // Rebuild the EventStore from persisted data in order to test persistence
-        let store = EventStore::from_persisted_data(&db)?;
+        let store = EventStore::try_from(&db)?;
         dbg!("From persisted data: {:?}", &store);
 
         assert!(matches!(
@@ -477,7 +477,7 @@ mod event_store_tests {
             SingleIntervalCounter::new(IntervalConfig::new(28, Interval::Days)),
         ]);
 
-        let mut store = EventStore::from_vec(vec![
+        let mut store = EventStore::from(vec![
             ("event-1".to_string(), counter1),
             ("event-2".to_string(), counter2),
         ]);
@@ -532,7 +532,7 @@ mod event_store_tests {
             SingleIntervalCounter::new(IntervalConfig::new(28, Interval::Days)),
         ]);
 
-        let mut store = EventStore::from_vec(vec![
+        let mut store = EventStore::from(vec![
             ("event-1".to_string(), counter1),
             ("event-2".to_string(), counter2),
         ]);
@@ -577,7 +577,7 @@ mod event_store_tests {
             SingleIntervalCounter::new(IntervalConfig::new(28, Interval::Days)),
         ]);
 
-        let mut store = EventStore::from_vec(vec![
+        let mut store = EventStore::from(vec![
             ("event-1".to_string(), counter1),
             ("event-2".to_string(), counter2),
         ]);
@@ -622,7 +622,7 @@ mod event_store_tests {
             SingleIntervalCounter::new(IntervalConfig::new(28, Interval::Days)),
         ]);
 
-        let mut store = EventStore::from_vec(vec![
+        let mut store = EventStore::from(vec![
             ("event-1".to_string(), counter1),
             ("event-2".to_string(), counter2),
         ]);
