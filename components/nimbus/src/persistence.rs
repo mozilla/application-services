@@ -25,6 +25,7 @@ use std::path::Path;
 // ⚠️ Warning : Altering the type of `DB_VERSION` would itself require a DB migration. ⚠️
 pub(crate) const DB_KEY_DB_VERSION: &str = "db_version";
 pub(crate) const DB_VERSION: u16 = 2;
+const RKV_MAX_DBS: u32 = 6;
 
 // Inspired by Glean - use a feature to choose between the backends.
 // Select the LMDB-powered storage backend when the feature is not activated.
@@ -34,6 +35,8 @@ mod backend {
         Lmdb, LmdbDatabase, LmdbEnvironment, LmdbRoCursor, LmdbRoTransaction, LmdbRwTransaction,
     };
     use std::path::Path;
+
+    use super::RKV_MAX_DBS;
 
     pub type Rkv = rkv::Rkv<LmdbEnvironment>;
     pub type RkvSingleStore = rkv::SingleStore<LmdbDatabase>;
@@ -49,7 +52,7 @@ mod backend {
     }
 
     pub fn rkv_new(path: &Path) -> Result<Rkv, rkv::StoreError> {
-        Rkv::new::<Lmdb>(path)
+        Rkv::with_capacity::<Lmdb>(path, RKV_MAX_DBS)
     }
 }
 
@@ -61,6 +64,8 @@ mod backend {
         SafeModeRwTransaction,
     };
     use std::path::Path;
+
+    use super::RKV_MAX_DBS;
 
     pub type Rkv = rkv::Rkv<SafeModeEnvironment>;
     pub type RkvSingleStore = rkv::SingleStore<SafeModeDatabase>;
@@ -78,7 +83,7 @@ mod backend {
     }
 
     pub fn rkv_new(path: &Path) -> Result<Rkv, rkv::StoreError> {
-        Rkv::new::<SafeMode>(path)
+        Rkv::with_capacity::<SafeMode>(path, RKV_MAX_DBS)
     }
 }
 
@@ -126,6 +131,13 @@ pub enum StoreId {
     /// corresponding value is a serialized `Vec<Experiment>` of new experiment data
     /// that has been received from the server but not yet processed by the application.
     Updates,
+    /// Store containing collected counts of behavior events for targeting purposes.
+    ///
+    /// Keys in the `EventCounts` store are strings representing the identifier for
+    /// the event and their corresponding values represent a serialized instance of a
+    /// [`MultiIntervalCounter`] struct that contains a set of configurations and data
+    /// for the different time periods that the data will be aggregated on.
+    EventCounts,
 }
 
 /// A wrapper for an Rkv store. Implemented to allow any value which supports
@@ -244,6 +256,7 @@ pub struct Database {
     experiment_store: SingleStore,
     enrollment_store: SingleStore,
     updates_store: SingleStore,
+    event_count_store: SingleStore,
 }
 
 impl Database {
@@ -257,12 +270,14 @@ impl Database {
         let experiment_store = rkv.open_single("experiments", StoreOptions::create())?;
         let enrollment_store = rkv.open_single("enrollments", StoreOptions::create())?;
         let updates_store = rkv.open_single("updates", StoreOptions::create())?;
+        let event_count_store = rkv.open_single("event_counts", StoreOptions::create())?;
         let db = Self {
             rkv,
             meta_store: SingleStore::new(meta_store),
             experiment_store: SingleStore::new(experiment_store),
             enrollment_store: SingleStore::new(enrollment_store),
             updates_store: SingleStore::new(updates_store),
+            event_count_store: SingleStore::new(event_count_store),
         };
         db.maybe_upgrade()?;
         Ok(db)
@@ -330,6 +345,11 @@ impl Database {
     fn clear_experiments_and_enrollments(&self, writer: &mut Writer) -> Result<(), NimbusError> {
         self.experiment_store.clear(writer)?;
         self.enrollment_store.clear(writer)?;
+        Ok(())
+    }
+
+    pub(crate) fn clear_event_count_data(&self, writer: &mut Writer) -> Result<(), NimbusError> {
+        self.event_count_store.clear(writer)?;
         Ok(())
     }
 
@@ -420,6 +440,7 @@ impl Database {
             StoreId::Experiments => &self.experiment_store,
             StoreId::Enrollments => &self.enrollment_store,
             StoreId::Updates => &self.updates_store,
+            StoreId::EventCounts => &self.event_count_store,
         }
     }
 
