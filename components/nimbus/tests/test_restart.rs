@@ -173,6 +173,8 @@ mod test {
     fn test_targeting_attributes_active_experiments() -> Result<()> {
         let temp_dir = tempfile::tempdir()?;
         let client = new_test_client_with_db(&temp_dir)?;
+
+        // On construction, the active_experiments in targeting attributes is empty.
         let expected = HashSet::new();
         let ta = client.get_targeting_attributes();
         assert_eq!(ta.active_experiments, expected);
@@ -194,6 +196,7 @@ mod test {
         let ta = client.get_targeting_attributes();
         assert_eq!(ta.active_experiments, expected);
 
+        // Opting in or out should keep the targeting attributes up to date.
         client.opt_in_with_branch("experiment_target_false".into(), "treatment".into())?;
 
         let expected = ["experiment_always_enroll", "experiment_target_false"]
@@ -203,19 +206,36 @@ mod test {
         let ta = client.get_targeting_attributes();
         assert_eq!(ta.active_experiments, expected);
 
+        let eval = client.create_targeting_helper(None)?;
+        assert!(eval.eval_jexl("'experiment_always_enroll' in active_experiments".to_string())?);
+        assert!(eval.eval_jexl("'experiment_target_false' in active_experiments".to_string())?);
+        assert!(!eval.eval_jexl("'experiment_zero_buckets' in active_experiments".to_string())?);
+
         drop(client);
 
+        // On restart, we might only do an initialize
         let client = new_test_client_with_db(&temp_dir)?;
         client.initialize()?;
         let ta = client.get_targeting_attributes();
         assert_eq!(ta.active_experiments, expected);
 
+        let eval = client.create_targeting_helper(None)?;
+        assert!(eval.eval_jexl("'experiment_always_enroll' in active_experiments".to_string())?);
+        assert!(eval.eval_jexl("'experiment_target_false' in active_experiments".to_string())?);
+        assert!(!eval.eval_jexl("'experiment_zero_buckets' in active_experiments".to_string())?);
+
         drop(client);
 
+        // On another restart, we might do an apply_pending_experiments, with nothing pending.
         let client = new_test_client_with_db(&temp_dir)?;
         client.apply_pending_experiments()?;
         let ta = client.get_targeting_attributes();
         assert_eq!(ta.active_experiments, expected);
+
+        let eval = client.create_targeting_helper(None)?;
+        assert!(eval.eval_jexl("'experiment_always_enroll' in active_experiments".to_string())?);
+        assert!(eval.eval_jexl("'experiment_target_false' in active_experiments".to_string())?);
+        assert!(!eval.eval_jexl("'experiment_zero_buckets' in active_experiments".to_string())?);
 
         Ok(())
     }
