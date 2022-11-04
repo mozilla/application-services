@@ -7,6 +7,7 @@ mod dbcache;
 mod enrollment;
 pub mod error;
 mod evaluator;
+use behavior::EventStore;
 use chrono::{DateTime, NaiveDateTime, Utc};
 use defaults::Defaults;
 pub use error::{NimbusError, Result};
@@ -83,6 +84,7 @@ pub struct NimbusClient {
     // without doing (or waiting for) IO.
     database_cache: DatabaseCache,
     db_path: PathBuf,
+    event_store: Mutex<EventStore>,
 }
 
 impl NimbusClient {
@@ -100,6 +102,7 @@ impl NimbusClient {
             available_randomization_units,
             targeting_attributes: app_context.clone().into(),
         });
+
         Ok(Self {
             settings_client,
             mutable_state,
@@ -107,6 +110,7 @@ impl NimbusClient {
             database_cache: Default::default(),
             db_path: db_path.into(),
             db: OnceCell::default(),
+            event_store: Mutex::default(),
         })
     }
 
@@ -135,6 +139,7 @@ impl NimbusClient {
     // but should happen before the enrollment calculations are done.
     fn begin_initialize(&self, db: &Database, writer: &mut Writer) -> Result<()> {
         self.update_install_dates(db, writer)?;
+        self.event_store.lock().unwrap().read_from_db(db)?;
         Ok(())
     }
 
@@ -430,14 +435,20 @@ impl NimbusClient {
         if store.get::<String, _>(&writer, DB_KEY_NIMBUS_ID)?.is_some() {
             // Each enrollment state includes a unique `enrollment_id` which we need to clear.
             events = enrollment::reset_telemetry_identifiers(db, &mut writer)?;
+
+            // Remove any stored event counts
+            db.clear_event_count_data(&mut writer)?;
+
             // The `nimbus_id` itself is a unique identifier.
             // N.B. we do this last, as a signal that all data has been reset.
             store.delete(&mut writer, DB_KEY_NIMBUS_ID)?;
             self.database_cache.commit_and_update(db, writer)?;
         }
+
         // (No need to commit `writer` if the above check was false, since we didn't change anything)
         let mut state = self.mutable_state.lock().unwrap();
         state.available_randomization_units = new_randomization_units;
+
         Ok(events)
     }
 
@@ -507,6 +518,17 @@ impl NimbusClient {
         let context = self.merge_additional_context(additional_context)?;
         let helper = NimbusStringHelper::new(context.as_object().unwrap().to_owned());
         Ok(Arc::new(helper))
+    }
+
+    /// Records an event for the purposes of behavioral targeting
+    ///
+    /// This function is used to record and persist data used for the behavioral
+    /// targeting such as "core-active" user targeting.
+    pub fn record_event(&mut self, event_id: String) -> Result<()> {
+        let mut event_store = self.event_store.lock().unwrap();
+        event_store.record_event(event_id, None)?;
+        event_store.persist_data(self.db()?)?;
+        Ok(())
     }
 }
 

@@ -1,12 +1,18 @@
+/* This Source Code Form is subject to the terms of the Mozilla Public
+ * License, v. 2.0. If a copy of the MPL was not distributed with this
+ * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
+
 #![allow(dead_code)]
 
 use crate::error::{BehaviorError, NimbusError, Result};
+use crate::persistence::{Database, StoreId};
 use chrono::{DateTime, Timelike, Utc};
+use serde::{Deserialize, Serialize};
 use std::collections::{HashMap, VecDeque};
 use std::fmt;
 use std::hash::{Hash, Hasher};
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, Serialize, Deserialize)]
 pub enum Interval {
     Hours,
     Days,
@@ -34,8 +40,8 @@ impl Hash for Interval {
     }
 }
 
-#[derive(Clone)]
-struct IntervalConfig {
+#[derive(Clone, Serialize, Deserialize, Debug)]
+pub struct IntervalConfig {
     bucket_count: usize,
     interval: Interval,
 }
@@ -55,7 +61,7 @@ impl IntervalConfig {
     }
 }
 
-#[derive(Clone)]
+#[derive(Clone, Serialize, Deserialize, Debug)]
 pub struct IntervalData {
     buckets: VecDeque<u64>,
     bucket_count: usize,
@@ -115,8 +121,8 @@ impl IntervalData {
     }
 }
 
-#[derive(Clone)]
-struct SingleIntervalCounter {
+#[derive(Clone, Serialize, Deserialize, Debug)]
+pub struct SingleIntervalCounter {
     pub data: IntervalData,
     pub config: IntervalConfig,
 }
@@ -167,8 +173,9 @@ impl SingleIntervalCounter {
     }
 }
 
-struct MultiIntervalCounter {
-    intervals: HashMap<Interval, SingleIntervalCounter>,
+#[derive(Serialize, Deserialize, Clone, Debug)]
+pub struct MultiIntervalCounter {
+    pub intervals: HashMap<Interval, SingleIntervalCounter>,
 }
 
 impl MultiIntervalCounter {
@@ -198,28 +205,73 @@ impl MultiIntervalCounter {
     }
 }
 
-type EventId = String;
+#[derive(Default, Serialize, Deserialize, Debug)]
+pub struct EventStore {
+    events: HashMap<String, MultiIntervalCounter>,
+}
 
-struct EventStore {
-    events: HashMap<EventId, MultiIntervalCounter>,
+impl From<Vec<(String, MultiIntervalCounter)>> for EventStore {
+    fn from(event_store: Vec<(String, MultiIntervalCounter)>) -> Self {
+        Self {
+            events: HashMap::from_iter(event_store.into_iter()),
+        }
+    }
+}
+
+impl From<HashMap<String, MultiIntervalCounter>> for EventStore {
+    fn from(event_store: HashMap<String, MultiIntervalCounter>) -> Self {
+        Self {
+            events: event_store,
+        }
+    }
+}
+
+impl TryFrom<&Database> for EventStore {
+    type Error = NimbusError;
+
+    fn try_from(db: &Database) -> Result<Self, NimbusError> {
+        let reader = db.read()?;
+        let events = db
+            .get_store(StoreId::EventCounts)
+            .collect_all::<(String, MultiIntervalCounter), _>(&reader)?;
+        Ok(EventStore::from(events))
+    }
 }
 
 impl EventStore {
-    pub fn new(events: Vec<(EventId, MultiIntervalCounter)>) -> Self {
+    pub fn new() -> Self {
         Self {
-            events: HashMap::from_iter(events.into_iter()),
+            events: HashMap::<String, MultiIntervalCounter>::new(),
         }
     }
 
-    pub fn from(events: HashMap<EventId, MultiIntervalCounter>) -> Self {
-        Self { events }
+    pub fn read_from_db(&mut self, db: &Database) -> Result<()> {
+        let reader = db.read()?;
+
+        self.events = HashMap::from_iter(
+            db.get_store(StoreId::EventCounts)
+                .collect_all::<(String, MultiIntervalCounter), _>(&reader)?
+                .into_iter(),
+        );
+
+        Ok(())
     }
 
-    pub fn record_event(&mut self, event_id: EventId, now: Option<DateTime<Utc>>) -> Result<()> {
+    pub fn record_event(&mut self, event_id: String, now: Option<DateTime<Utc>>) -> Result<()> {
         let now = now.unwrap_or_else(Utc::now);
         let counter = self.events.get_mut(&event_id).unwrap();
         counter.maybe_advance(now)?;
         counter.increment()
+    }
+
+    pub fn persist_data(&self, db: &Database) -> Result<()> {
+        let mut writer = db.write()?;
+        self.events.iter().try_for_each(|(key, value)| {
+            db.get_store(StoreId::EventCounts)
+                .put(&mut writer, key, &(key.clone(), value.clone()))
+        })?;
+        writer.commit()?;
+        Ok(())
     }
 }
 
@@ -437,12 +489,20 @@ mod event_store_tests {
             SingleIntervalCounter::new(IntervalConfig::new(28, Interval::Days)),
         ]);
 
-        let mut store = EventStore::new(vec![
+        let mut store = EventStore::from(vec![
             ("event-1".to_string(), counter1),
             ("event-2".to_string(), counter2),
         ]);
 
+        let tmp_dir = tempfile::tempdir()?;
+        let db = Database::new(&tmp_dir)?;
+
         store.record_event("event-1".to_string(), Some(Utc::now() + Duration::days(2)))?;
+        store.persist_data(&db)?;
+
+        // Rebuild the EventStore from persisted data in order to test persistence
+        let store = EventStore::try_from(&db)?;
+        dbg!("From persisted data: {:?}", &store);
 
         assert!(matches!(
             store
