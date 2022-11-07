@@ -561,6 +561,7 @@ impl NimbusClient {
         Ok(context)
     }
 
+    #[doc = "This method should only be used in tests"]
     pub fn create_targeting_helper(
         &self,
         additional_context: Option<JsonObject>,
@@ -862,6 +863,7 @@ impl NimbusStringHelper {
     }
 }
 
+#[doc = "This struct should only be used in tests"]
 pub struct NimbusTargetingHelper {
     context: Value,
 }
@@ -871,6 +873,7 @@ impl NimbusTargetingHelper {
         Self { context }
     }
 
+    #[doc = "This method should only be used in tests"]
     pub fn eval_jexl(&self, expr: String) -> Result<bool> {
         evaluator::jexl_eval(
             &expr,
