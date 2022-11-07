@@ -7,6 +7,7 @@ use crate::error::{BehaviorError, NimbusError, Result};
 use crate::persistence::{Database, StoreId};
 use chrono::{DateTime, Timelike, Utc};
 use serde::{Deserialize, Serialize};
+use std::collections::vec_deque::Iter;
 use std::collections::{HashMap, VecDeque};
 use std::fmt;
 use std::hash::{Hash, Hasher};
@@ -219,6 +220,29 @@ pub enum EventQueryType {
     AveragePerNonZeroInterval,
 }
 
+impl EventQueryType {
+    fn perform_query(&self, buckets: Iter<u64>, num_buckets: usize) -> Result<u64> {
+        Ok(match self {
+            Self::Sum => buckets.sum::<u64>(),
+            Self::CountNonZero => buckets.filter(|v| v > &&0u64).count() as u64,
+            Self::AveragePerInterval => buckets.sum::<u64>() / num_buckets as u64,
+            Self::AveragePerNonZeroInterval => {
+                let values = buckets.fold((0, 0), |accum, item| {
+                    (
+                        accum.0 + item,
+                        if item > &0 { accum.1 + 1 } else { accum.1 },
+                    )
+                });
+                if values.1 == 0 {
+                    0
+                } else {
+                    values.0 / values.1
+                }
+            }
+        })
+    }
+}
+
 #[derive(Default, Serialize, Deserialize, Debug)]
 pub struct EventStore {
     pub(crate) events: HashMap<String, MultiIntervalCounter>,
@@ -305,24 +329,7 @@ impl EventStore {
                 let buckets = single_counter.data.buckets.range(
                     starting_bucket..usize::min(num_buckets, single_counter.data.buckets.len()),
                 );
-                return Ok(match query_type {
-                    EventQueryType::Sum => buckets.sum::<u64>(),
-                    EventQueryType::CountNonZero => buckets.filter(|v| v > &&0u64).count() as u64,
-                    EventQueryType::AveragePerInterval => buckets.sum::<u64>() / num_buckets as u64,
-                    EventQueryType::AveragePerNonZeroInterval => {
-                        let values = buckets.fold((0, 0), |accum, item| {
-                            (
-                                accum.0 + item,
-                                if item > &0 { accum.1 + 1 } else { accum.1 },
-                            )
-                        });
-                        if values.1 == 0 {
-                            0
-                        } else {
-                            values.0 / values.1
-                        }
-                    }
-                });
+                return query_type.perform_query(buckets, num_buckets);
             }
         }
         Ok(0)
