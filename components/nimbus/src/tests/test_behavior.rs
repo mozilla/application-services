@@ -27,7 +27,7 @@ mod interval_tests {
             .with_timezone(&Utc);
         let num = Interval::Minutes.num_rotations(d1, d2)?;
 
-        assert!(matches!(num, 4));
+        assert_eq!(num, 4);
 
         let d1 = DateTime::parse_from_rfc3339("2022-10-01T10:55:00Z")
             .unwrap()
@@ -37,7 +37,7 @@ mod interval_tests {
             .with_timezone(&Utc);
         let num = Interval::Minutes.num_rotations(d1, d2)?;
 
-        assert!(matches!(num, 20));
+        assert_eq!(num, 20);
 
         let d1 = DateTime::parse_from_rfc3339("2022-09-30T10:50:00Z")
             .unwrap()
@@ -47,7 +47,7 @@ mod interval_tests {
             .with_timezone(&Utc);
         let num = Interval::Minutes.num_rotations(d1, d2)?;
 
-        assert!(matches!(num, 1360));
+        assert_eq!(num, 1360);
         Ok(())
     }
 
@@ -61,7 +61,7 @@ mod interval_tests {
             .with_timezone(&Utc);
         let num = Interval::Hours.num_rotations(d1, d2)?;
 
-        assert!(matches!(num, 4));
+        assert_eq!(num, 4);
 
         let d1 = DateTime::parse_from_rfc3339("2022-10-01T10:00:00Z")
             .unwrap()
@@ -71,7 +71,7 @@ mod interval_tests {
             .with_timezone(&Utc);
         let num = Interval::Hours.num_rotations(d1, d2)?;
 
-        assert!(matches!(num, 20));
+        assert_eq!(num, 20);
         Ok(())
     }
 
@@ -85,7 +85,7 @@ mod interval_tests {
             .with_timezone(&Utc);
         let num = Interval::Days.num_rotations(d1, d2)?;
 
-        assert!(matches!(num, 7));
+        assert_eq!(num, 7);
         Ok(())
     }
 
@@ -99,7 +99,7 @@ mod interval_tests {
             .with_timezone(&Utc);
         let num = Interval::Weeks.num_rotations(d1, d2)?;
 
-        assert!(matches!(num, 1));
+        assert_eq!(num, 1);
         Ok(())
     }
 
@@ -113,7 +113,7 @@ mod interval_tests {
             .with_timezone(&Utc);
         let num = Interval::Months.num_rotations(d1, d2)?;
 
-        assert!(matches!(num, 4));
+        assert_eq!(num, 4);
         Ok(())
     }
 
@@ -127,7 +127,7 @@ mod interval_tests {
             .with_timezone(&Utc);
         let num = Interval::Years.num_rotations(d1, d2)?;
 
-        assert!(matches!(num, 9));
+        assert_eq!(num, 9);
         Ok(())
     }
 }
@@ -145,7 +145,7 @@ mod interval_data_tests {
         };
         let result = interval.increment();
 
-        assert!(matches!(result.is_err(), true));
+        assert!(result.is_err());
         Ok(())
     }
 
@@ -154,7 +154,7 @@ mod interval_data_tests {
         let mut interval = IntervalData::new(7);
         interval.increment().ok();
 
-        assert!(matches!(interval.buckets[0], 1));
+        assert_eq!(interval.buckets[0], 1);
         Ok(())
     }
 
@@ -163,7 +163,7 @@ mod interval_data_tests {
         let mut interval = IntervalData::new(7);
         interval.rotate(3).ok();
 
-        assert!(matches!(interval.buckets.len(), 4));
+        assert_eq!(interval.buckets.len(), 4);
         Ok(())
     }
 
@@ -177,10 +177,10 @@ mod interval_data_tests {
         interval.increment().ok();
         interval.increment().ok();
 
-        assert!(matches!(interval.buckets.len(), 3));
-        assert!(matches!(interval.buckets[0], 2));
-        assert!(matches!(interval.buckets[1], 1));
-        assert!(matches!(interval.buckets[2], 0));
+        assert_eq!(interval.buckets.len(), 3);
+        assert_eq!(interval.buckets[0], 2);
+        assert_eq!(interval.buckets[1], 1);
+        assert_eq!(interval.buckets[2], 0);
         Ok(())
     }
 
@@ -189,10 +189,10 @@ mod interval_data_tests {
         let mut interval = IntervalData::new(3);
         interval.rotate(10).ok();
 
-        assert!(matches!(interval.buckets.len(), 3));
-        assert!(matches!(interval.buckets[0], 0));
-        assert!(matches!(interval.buckets[1], 0));
-        assert!(matches!(interval.buckets[2], 0));
+        assert_eq!(interval.buckets.len(), 3);
+        assert_eq!(interval.buckets[0], 0);
+        assert_eq!(interval.buckets[1], 0);
+        assert_eq!(interval.buckets[2], 0);
         Ok(())
     }
 }
@@ -208,7 +208,7 @@ mod single_interval_counter_tests {
         let mut counter = SingleIntervalCounter::new(IntervalConfig::new(7, Interval::Days));
         counter.increment().ok();
 
-        assert!(matches!(counter.data.buckets[0], 1));
+        assert_eq!(counter.data.buckets[0], 1);
         Ok(())
     }
 
@@ -218,7 +218,7 @@ mod single_interval_counter_tests {
         let date = Utc::now();
         counter.maybe_advance(date).ok();
 
-        assert!(matches!(counter.data.buckets.len(), 1));
+        assert_eq!(counter.data.buckets.len(), 1);
         Ok(())
     }
 
@@ -228,7 +228,7 @@ mod single_interval_counter_tests {
         let date = Utc::now() + Duration::days(1);
         counter.maybe_advance(date).ok();
 
-        assert!(matches!(counter.data.buckets.len(), 2));
+        assert_eq!(counter.data.buckets.len(), 2);
         Ok(())
     }
 }
@@ -247,7 +247,7 @@ mod multi_interval_counter_tests {
         ]);
         counter.increment().ok();
 
-        assert!(matches!(
+        assert_eq!(
             counter
                 .intervals
                 .get(&Interval::Months)
@@ -255,11 +255,11 @@ mod multi_interval_counter_tests {
                 .data
                 .buckets[0],
             1
-        ));
-        assert!(matches!(
+        );
+        assert_eq!(
             counter.intervals.get(&Interval::Days).unwrap().data.buckets[0],
             1
-        ));
+        );
         Ok(())
     }
 
@@ -272,7 +272,7 @@ mod multi_interval_counter_tests {
         let date = Utc::now();
         counter.maybe_advance(date).ok();
 
-        assert!(matches!(
+        assert_eq!(
             counter
                 .intervals
                 .get(&Interval::Months)
@@ -281,8 +281,8 @@ mod multi_interval_counter_tests {
                 .buckets
                 .len(),
             1
-        ));
-        assert!(matches!(
+        );
+        assert_eq!(
             counter
                 .intervals
                 .get(&Interval::Days)
@@ -291,7 +291,7 @@ mod multi_interval_counter_tests {
                 .buckets
                 .len(),
             1
-        ));
+        );
         Ok(())
     }
 
@@ -304,7 +304,7 @@ mod multi_interval_counter_tests {
         let date = Utc::now() + Duration::days(1);
         counter.maybe_advance(date).ok();
 
-        assert!(matches!(
+        assert_eq!(
             counter
                 .intervals
                 .get(&Interval::Months)
@@ -313,8 +313,8 @@ mod multi_interval_counter_tests {
                 .buckets
                 .len(),
             1
-        ));
-        assert!(matches!(
+        );
+        assert_eq!(
             counter
                 .intervals
                 .get(&Interval::Days)
@@ -323,7 +323,7 @@ mod multi_interval_counter_tests {
                 .buckets
                 .len(),
             2
-        ));
+        );
         Ok(())
     }
 }
@@ -361,7 +361,7 @@ mod event_store_tests {
         let store = EventStore::try_from(&db)?;
         dbg!("From persisted data: {:?}", &store);
 
-        assert!(matches!(
+        assert_eq!(
             store
                 .events
                 .get(&"event-1".to_string())
@@ -373,8 +373,8 @@ mod event_store_tests {
                 .buckets
                 .len(),
             1
-        ));
-        assert!(matches!(
+        );
+        assert_eq!(
             store
                 .events
                 .get(&"event-1".to_string())
@@ -385,8 +385,8 @@ mod event_store_tests {
                 .data
                 .buckets[0],
             1
-        ));
-        assert!(matches!(
+        );
+        assert_eq!(
             store
                 .events
                 .get(&"event-1".to_string())
@@ -398,8 +398,8 @@ mod event_store_tests {
                 .buckets
                 .len(),
             3
-        ));
-        assert!(matches!(
+        );
+        assert_eq!(
             store
                 .events
                 .get(&"event-1".to_string())
@@ -410,8 +410,8 @@ mod event_store_tests {
                 .data
                 .buckets[0],
             1
-        ));
-        assert!(matches!(
+        );
+        assert_eq!(
             store
                 .events
                 .get(&"event-1".to_string())
@@ -422,8 +422,8 @@ mod event_store_tests {
                 .data
                 .buckets[1],
             0
-        ));
-        assert!(matches!(
+        );
+        assert_eq!(
             store
                 .events
                 .get(&"event-1".to_string())
@@ -434,9 +434,9 @@ mod event_store_tests {
                 .data
                 .buckets[2],
             0
-        ));
+        );
 
-        assert!(matches!(
+        assert_eq!(
             store
                 .events
                 .get(&"event-2".to_string())
@@ -448,8 +448,8 @@ mod event_store_tests {
                 .buckets
                 .len(),
             1
-        ));
-        assert!(matches!(
+        );
+        assert_eq!(
             store
                 .events
                 .get(&"event-2".to_string())
@@ -460,7 +460,7 @@ mod event_store_tests {
                 .data
                 .buckets[0],
             0
-        ));
+        );
 
         Ok(())
     }
@@ -486,7 +486,7 @@ mod event_store_tests {
         store.record_event("event-1".to_string(), Some(Utc::now() + Duration::days(3)))?;
         store.record_event("event-1".to_string(), Some(Utc::now() + Duration::days(3)))?;
 
-        assert!(matches!(
+        assert_eq!(
             store.query(
                 "event-1".to_string(),
                 Interval::Days,
@@ -495,8 +495,8 @@ mod event_store_tests {
                 EventQueryType::Sum
             )?,
             3
-        ));
-        assert!(matches!(
+        );
+        assert_eq!(
             store.query(
                 "event-1".to_string(),
                 Interval::Days,
@@ -505,8 +505,8 @@ mod event_store_tests {
                 EventQueryType::Sum
             )?,
             0
-        ));
-        assert!(matches!(
+        );
+        assert_eq!(
             store.query(
                 "event-1".to_string(),
                 Interval::Days,
@@ -515,7 +515,7 @@ mod event_store_tests {
                 EventQueryType::Sum
             )?,
             0
-        ));
+        );
 
         Ok(())
     }
@@ -541,7 +541,7 @@ mod event_store_tests {
         store.record_event("event-1".to_string(), Some(Utc::now() + Duration::days(3)))?;
         store.record_event("event-1".to_string(), Some(Utc::now() + Duration::days(3)))?;
 
-        assert!(matches!(
+        assert_eq!(
             store.query(
                 "event-1".to_string(),
                 Interval::Days,
@@ -550,8 +550,8 @@ mod event_store_tests {
                 EventQueryType::CountNonZero
             )?,
             2
-        ));
-        assert!(matches!(
+        );
+        assert_eq!(
             store.query(
                 "event-1".to_string(),
                 Interval::Days,
@@ -560,7 +560,7 @@ mod event_store_tests {
                 EventQueryType::CountNonZero
             )?,
             0
-        ));
+        );
 
         Ok(())
     }
@@ -586,7 +586,7 @@ mod event_store_tests {
         store.record_event("event-1".to_string(), Some(Utc::now() + Duration::days(3)))?;
         store.record_event("event-1".to_string(), Some(Utc::now() + Duration::days(3)))?;
 
-        assert!(matches!(
+        assert_eq!(
             store.query(
                 "event-1".to_string(),
                 Interval::Days,
@@ -595,8 +595,8 @@ mod event_store_tests {
                 EventQueryType::AveragePerInterval
             )?,
             0
-        ));
-        assert!(matches!(
+        );
+        assert_eq!(
             store.query(
                 "event-1".to_string(),
                 Interval::Days,
@@ -605,7 +605,7 @@ mod event_store_tests {
                 EventQueryType::AveragePerInterval
             )?,
             1
-        ));
+        );
 
         Ok(())
     }
@@ -631,7 +631,7 @@ mod event_store_tests {
         store.record_event("event-1".to_string(), Some(Utc::now() + Duration::days(3)))?;
         store.record_event("event-1".to_string(), Some(Utc::now() + Duration::days(3)))?;
 
-        assert!(matches!(
+        assert_eq!(
             store.query(
                 "event-1".to_string(),
                 Interval::Days,
@@ -640,8 +640,8 @@ mod event_store_tests {
                 EventQueryType::AveragePerNonZeroInterval
             )?,
             1
-        ));
-        assert!(matches!(
+        );
+        assert_eq!(
             store.query(
                 "event-1".to_string(),
                 Interval::Days,
@@ -650,7 +650,7 @@ mod event_store_tests {
                 EventQueryType::AveragePerNonZeroInterval
             )?,
             0
-        ));
+        );
 
         Ok(())
     }
