@@ -14,12 +14,13 @@ Use the template below to make assigning a version number during the release cut
   - Description of the change with a link to the pull request ([#0000](https://github.com/mozilla/application-services/pull/0000))
 ### What's Changed
   - Description of the change with a link to the pull request ([#0000](https://github.com/mozilla/application-services/pull/0000))
-### What's New
+### ✨ What's New ✨
   - Description of the change with a link to the pull request ([#0000](https://github.com/mozilla/application-services/pull/0000))
 
 -->
 
-## Nimbus ⛅️🔬🔭
+## ⛅️🔬🔭 Nimbus
 
-### What's Changed
+### ✨ What's New ✨
+  - `active_experiments` is available to JEXL as a set containing slugs of all enrolled experiments ([#5227](https://github.com/mozilla/application-services/pull/5227))
   - Added query method for behavioral targeting event store ([#5226](https://github.com/mozilla/application-services/pull/5226))

@@ -1,6 +1,6 @@
 base_repository: https://github.com/mozilla/application-services
 branch-build:
-  android-components-branch: main
+  firefox-android-branch: main
   fenix-branch: main
 build_date: 1651554220
 do_not_optimize: []

@@ -48,7 +48,7 @@ use serde_derive::*;
 use serde_json::{Map, Value};
 use std::collections::HashSet;
 use std::path::{Path, PathBuf};
-use std::sync::{Arc, Mutex};
+use std::sync::{Arc, Mutex, MutexGuard};
 use updating::{read_and_remove_pending_experiments, write_pending_experiments};
 use uuid::Uuid;
 
@@ -129,23 +129,35 @@ impl NimbusClient {
         // We're not actually going to write, we just want to exclude concurrent writers.
         let mut writer = db.write()?;
 
-        self.begin_initialize(db, &mut writer)?;
-        self.end_initialize(db, writer)?;
+        let mut state = self.mutable_state.lock().unwrap();
+        self.begin_initialize(db, &mut writer, &mut state)?;
+        self.end_initialize(db, writer, &mut state)?;
 
         Ok(())
     }
 
     // These are tasks which should be in the initialize and apply_pending_experiments
     // but should happen before the enrollment calculations are done.
-    fn begin_initialize(&self, db: &Database, writer: &mut Writer) -> Result<()> {
-        self.update_install_dates(db, writer)?;
+    fn begin_initialize(
+        &self,
+        db: &Database,
+        writer: &mut Writer,
+        state: &mut MutexGuard<InternalMutableState>,
+    ) -> Result<()> {
+        self.update_ta_install_dates(db, writer, state)?;
         self.event_store.lock().unwrap().read_from_db(db)?;
         Ok(())
     }
 
     // These are tasks which should be in the initialize and apply_pending_experiments
     // but should happen after the enrollment calculations are done.
-    fn end_initialize(&self, db: &Database, writer: Writer) -> Result<()> {
+    fn end_initialize(
+        &self,
+        db: &Database,
+        writer: Writer,
+        state: &mut MutexGuard<InternalMutableState>,
+    ) -> Result<()> {
+        self.update_ta_active_experiments(db, &writer, state)?;
         self.database_cache.commit_and_update(db, writer)?;
         Ok(())
     }
@@ -180,6 +192,7 @@ impl NimbusClient {
     ) -> Result<Vec<EnrollmentChangeEvent>> {
         let db = self.db()?;
         let mut writer = db.write()?;
+        let mut state = self.mutable_state.lock().unwrap();
         set_global_user_participation(db, &mut writer, user_participating)?;
 
         let existing_experiments: Vec<Experiment> =
@@ -187,14 +200,13 @@ impl NimbusClient {
         // We pass the existing experiments as "updated experiments"
         // to the evolver.
         let nimbus_id = self.read_or_create_nimbus_id(db, &mut writer)?;
-        let state = self.mutable_state.lock().unwrap();
         let evolver = EnrollmentsEvolver::new(
             &nimbus_id,
             &state.available_randomization_units,
             &state.targeting_attributes,
         );
         let events = evolver.evolve_enrollments_in_db(db, &mut writer, &existing_experiments)?;
-        self.database_cache.commit_and_update(db, writer)?;
+        self.end_initialize(db, writer, &mut state)?;
         Ok(events)
     }
 
@@ -226,7 +238,8 @@ impl NimbusClient {
         let db = self.db()?;
         let mut writer = db.write()?;
         let result = opt_in_with_branch(db, &mut writer, &experiment_slug, &branch)?;
-        self.database_cache.commit_and_update(db, writer)?;
+        let mut state = self.mutable_state.lock().unwrap();
+        self.end_initialize(db, writer, &mut state)?;
         Ok(result)
     }
 
@@ -234,7 +247,8 @@ impl NimbusClient {
         let db = self.db()?;
         let mut writer = db.write()?;
         let result = opt_out(db, &mut writer, &experiment_slug)?;
-        self.database_cache.commit_and_update(db, writer)?;
+        let mut state = self.mutable_state.lock().unwrap();
+        self.end_initialize(db, writer, &mut state)?;
         Ok(result)
     }
 
@@ -254,7 +268,15 @@ impl NimbusClient {
         Ok(())
     }
 
-    fn update_install_dates(&self, db: &Database, writer: &mut Writer) -> Result<()> {
+    /**
+     * Calculate the days since install and days since update on the targeting_attributes.
+     */
+    fn update_ta_install_dates(
+        &self,
+        db: &Database,
+        writer: &mut Writer,
+        state: &mut MutexGuard<InternalMutableState>,
+    ) -> Result<()> {
         let installation_date = self.get_installation_date(db, writer)?;
         log::info!("[Nimbus] Installation Date: {}", installation_date);
         let update_date = self.get_update_date(db, writer)?;
@@ -270,7 +292,6 @@ impl NimbusClient {
             "[Nimbus] Days since update: {}",
             duration_since_update.num_days()
         );
-        let mut state = self.mutable_state.lock().unwrap();
         if state.targeting_attributes.days_since_install.is_none() {
             state.targeting_attributes.days_since_install =
                 Some(duration_since_install.num_days() as i32);
@@ -283,18 +304,44 @@ impl NimbusClient {
         Ok(())
     }
 
+    /**
+     * Calculates the active_experiments based on current enrollments for the targeting attributes.
+     */
+    fn update_ta_active_experiments(
+        &self,
+        db: &Database,
+        writer: &Writer,
+        state: &mut MutexGuard<InternalMutableState>,
+    ) -> Result<()> {
+        let enrollments_store = db.get_store(StoreId::Enrollments);
+        let prev_enrollments: Vec<enrollment::ExperimentEnrollment> =
+            enrollments_store.collect_all(writer)?;
+
+        let mut set = HashSet::<String>::new();
+        for ee in prev_enrollments {
+            if let EnrollmentStatus::Enrolled { .. } = ee.status {
+                set.insert(ee.slug.clone());
+            }
+        }
+
+        state.targeting_attributes.active_experiments = set;
+
+        Ok(())
+    }
+
     pub fn apply_pending_experiments(&self) -> Result<Vec<EnrollmentChangeEvent>> {
         log::info!("updating experiment list");
         let db = self.db()?;
         let mut writer = db.write()?;
-        self.begin_initialize(db, &mut writer)?;
 
-        let state = self.mutable_state.lock().unwrap();
         // We'll get the pending experiments which were stored for us, either by fetch_experiments
         // or by set_experiments_locally.
         let pending_updates = read_and_remove_pending_experiments(db, &mut writer)?;
+        let mut state = self.mutable_state.lock().unwrap();
+        self.begin_initialize(db, &mut writer, &mut state)?;
         let res = match pending_updates {
             Some(new_experiments) => {
+                self.update_ta_active_experiments(db, &writer, &mut state)?;
                 // Perform the enrollment calculations if there are pending experiments.
                 let nimbus_id = self.read_or_create_nimbus_id(db, &mut writer)?;
                 let evolver = EnrollmentsEvolver::new(
@@ -308,7 +355,7 @@ impl NimbusClient {
         };
 
         // Finish up any cleanup, e.g. copying from database in to memory.
-        self.end_initialize(db, writer)?;
+        self.end_initialize(db, writer, &mut state)?;
         Ok(res)
     }
 
@@ -429,6 +476,7 @@ impl NimbusClient {
         let mut events = vec![];
         let db = self.db()?;
         let mut writer = db.write()?;
+        let mut state = self.mutable_state.lock().unwrap();
         // If we have no `nimbus_id` when we can safely assume that there's
         // no other experiment state that needs to be reset.
         let store = db.get_store(StoreId::Meta);
@@ -442,11 +490,10 @@ impl NimbusClient {
             // The `nimbus_id` itself is a unique identifier.
             // N.B. we do this last, as a signal that all data has been reset.
             store.delete(&mut writer, DB_KEY_NIMBUS_ID)?;
-            self.database_cache.commit_and_update(db, writer)?;
+            self.end_initialize(db, writer, &mut state)?;
         }
 
         // (No need to commit `writer` if the above check was false, since we didn't change anything)
-        let mut state = self.mutable_state.lock().unwrap();
         state.available_randomization_units = new_randomization_units;
 
         Ok(events)
