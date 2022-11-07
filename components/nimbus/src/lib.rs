@@ -145,12 +145,7 @@ impl NimbusClient {
         state: &mut MutexGuard<InternalMutableState>,
     ) -> Result<()> {
         self.update_ta_install_dates(db, writer, state)?;
-        let mut event_store = self.event_store.lock().unwrap();
-        event_store.read_from_db(db)?;
-
-        // Now that the EventStore has been created, place it in its current state on the targeting_attributes.
-        let mut state = self.mutable_state.lock().unwrap();
-        state.targeting_attributes.event_store = Some(event_store.clone());
+        self.event_store.lock().unwrap().read_from_db(db)?;
         Ok(())
     }
 
@@ -205,12 +200,18 @@ impl NimbusClient {
         // We pass the existing experiments as "updated experiments"
         // to the evolver.
         let nimbus_id = self.read_or_create_nimbus_id(db, &mut writer)?;
+
+        // Get a snapshot of the event store and put it on the targeting attributes
+        let event_store = self.event_store.lock().unwrap();
+        state.targeting_attributes.event_store = Some(event_store.clone());
+
         let evolver = EnrollmentsEvolver::new(
             &nimbus_id,
             &state.available_randomization_units,
             &state.targeting_attributes,
         );
         let events = evolver.evolve_enrollments_in_db(db, &mut writer, &existing_experiments)?;
+        state.targeting_attributes.event_store = None;
         self.end_initialize(db, writer, &mut state)?;
         Ok(events)
     }
@@ -344,6 +345,11 @@ impl NimbusClient {
         let pending_updates = read_and_remove_pending_experiments(db, &mut writer)?;
         let mut state = self.mutable_state.lock().unwrap();
         self.begin_initialize(db, &mut writer, &mut state)?;
+
+        // Get a snapshot of the event store and put it on the targeting attributes
+        let event_store = self.event_store.lock().unwrap();
+        state.targeting_attributes.event_store = Some(event_store.clone());
+
         let res = match pending_updates {
             Some(new_experiments) => {
                 self.update_ta_active_experiments(db, &writer, &mut state)?;
@@ -358,6 +364,7 @@ impl NimbusClient {
             }
             None => vec![],
         };
+        state.targeting_attributes.event_store = None;
 
         // Finish up any cleanup, e.g. copying from database in to memory.
         self.end_initialize(db, writer, &mut state)?;
@@ -580,10 +587,6 @@ impl NimbusClient {
         let mut event_store = self.event_store.lock().unwrap();
         event_store.record_event(event_id, None)?;
         event_store.persist_data(self.db()?)?;
-
-        // Once we have updated the EventStore, update its value on the targeting_attributes.
-        let mut state = self.mutable_state.lock().unwrap();
-        state.targeting_attributes.event_store = Some(event_store.clone());
         Ok(())
     }
 }

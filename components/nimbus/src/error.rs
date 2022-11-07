@@ -61,8 +61,8 @@ pub enum NimbusError {
     TryFromIntError(#[from] TryFromIntError),
     #[error("ParseIntError: {0}")]
     ParseIntError(#[from] ParseIntError),
-    #[error("JexlError: {0}")]
-    JexlError(#[from] JexlError),
+    #[error("Transform parameter error: {0}")]
+    TransformParameterError(String),
 }
 
 #[derive(Debug, thiserror::Error)]
@@ -73,12 +73,6 @@ pub enum BehaviorError {
     IntervalParseError(String),
     #[error("The event store is not available on the targeting attributes")]
     MissingEventStore,
-}
-
-#[derive(Debug, thiserror::Error)]
-pub enum JexlError {
-    #[error("Transform parameter error: {0}")]
-    TransformParameterError(String),
 }
 
 impl<'a> From<jexl_eval::error::EvaluationError<'a>> for NimbusError {

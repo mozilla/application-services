@@ -7,7 +7,7 @@ use crate::behavior::{EventQueryType, EventStore, Interval};
 use crate::enrollment::{
     EnrolledReason, EnrollmentStatus, ExperimentEnrollment, NotEnrolledReason,
 };
-use crate::error::{BehaviorError, JexlError};
+use crate::error::BehaviorError;
 use crate::{
     error::{NimbusError, Result},
     AvailableRandomizationUnits,
@@ -354,9 +354,9 @@ fn query_event_store(
     args: &[Value],
 ) -> Result<Value> {
     if args.len() != 4 {
-        return Err(NimbusError::JexlError(JexlError::TransformParameterError(
+        return Err(NimbusError::TransformParameterError(
             "events transforms require 3 parameters".to_string(),
-        )));
+        ));
     }
     let event = serde_json::from_value::<String>(args.get(0).unwrap().clone())?;
     let interval = serde_json::from_value::<String>(args.get(1).unwrap().clone())?;
@@ -364,17 +364,17 @@ fn query_event_store(
     let num_buckets = match args.get(2).unwrap().as_f64() {
         Some(v) => v,
         None => {
-            return Err(NimbusError::JexlError(JexlError::TransformParameterError(
+            return Err(NimbusError::TransformParameterError(
                 "events transforms require a positive number as the second parameter".to_string(),
-            )))
+            ))
         }
     } as usize;
     let starting_bucket = match args.get(3).unwrap().as_f64() {
         Some(v) => v,
         None => {
-            return Err(NimbusError::JexlError(JexlError::TransformParameterError(
+            return Err(NimbusError::TransformParameterError(
                 "events transforms require a positive number as the third parameter".to_string(),
-            )))
+            ))
         }
     } as usize;
     if let Some(event_store) = &context.event_store {

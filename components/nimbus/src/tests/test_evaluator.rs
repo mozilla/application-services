@@ -1025,7 +1025,7 @@ fn test_events_average_per_interval_transform() {
     );
     assert_eq!(
         targeting(
-            "'app.foregrounded'|eventsAveragePerInterval('Days', 7, 0) > 1",
+            "'app.foregrounded'|eventsAveragePerInterval('Days', 7, 0) > 1.14",
             &targeting_attributes
         ),
         None
@@ -1038,7 +1038,7 @@ fn test_events_average_per_non_zero_interval_transform() {
         IntervalData {
             bucket_count: 7,
             starting_instant: Utc::now(),
-            buckets: VecDeque::from(vec![1, 2, 0, 0, 0, 2, 3]),
+            buckets: VecDeque::from(vec![1, 2, 0, 0, 0, 2, 4]),
         },
         IntervalConfig::new(7, Interval::Days),
     )]);
@@ -1060,7 +1060,7 @@ fn test_events_average_per_non_zero_interval_transform() {
     );
     assert_eq!(
         targeting(
-            "'app.foregrounded'|eventsAveragePerNonZeroInterval('Days', 7, 0) == 2",
+            "'app.foregrounded'|eventsAveragePerNonZeroInterval('Days', 7, 0) == 2.25",
             &targeting_attributes
         ),
         None

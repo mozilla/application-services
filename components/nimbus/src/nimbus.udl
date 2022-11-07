@@ -79,7 +79,7 @@ enum NimbusError {
     "RequestError", "ResponseError", "UuidError", "InvalidExperimentFormat",
     "InvalidPath", "InternalError", "NoSuchExperiment", "NoSuchBranch", "BackoffError",
     "DatabaseNotReady", "VersionParsingError", "BehaviorError", "TryFromIntError",
-    "ParseIntError", "JexlError"
+    "ParseIntError", "TransformParameterError"
 };
 
 interface NimbusClient {
