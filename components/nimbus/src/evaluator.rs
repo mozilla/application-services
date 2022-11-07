@@ -3,9 +3,11 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
  */
 
+use crate::behavior::{EventQueryType, EventStore, Interval};
 use crate::enrollment::{
     EnrolledReason, EnrollmentStatus, ExperimentEnrollment, NotEnrolledReason,
 };
+use crate::error::{BehaviorError, JexlError};
 use crate::{
     error::{NimbusError, Result},
     AvailableRandomizationUnits,
@@ -16,6 +18,7 @@ use jexl_eval::Evaluator;
 use serde_derive::*;
 use serde_json::{json, Value};
 use std::collections::HashMap;
+use std::str::FromStr;
 use uuid::Uuid;
 #[derive(Serialize, Deserialize, Debug, Clone, Default)]
 pub struct Bucket {}
@@ -37,6 +40,7 @@ pub struct TargetingAttributes {
     pub days_since_install: Option<i32>,
     pub days_since_update: Option<i32>,
     pub active_experiments: Option<HashMap<String, String>>,
+    pub event_store: Option<EventStore>,
 }
 
 impl From<AppContext> for TargetingAttributes {
@@ -266,7 +270,7 @@ pub(crate) fn targeting(
     expression_statement: &str,
     targeting_attributes: &TargetingAttributes,
 ) -> Option<EnrollmentStatus> {
-    match jexl_eval(expression_statement, &targeting_attributes) {
+    match jexl_eval(expression_statement, targeting_attributes) {
         Ok(res) => match res {
             true => None,
             false => Some(EnrollmentStatus::NotEnrolled {
@@ -283,12 +287,33 @@ pub(crate) fn targeting(
 // The targeting attributes and additional context should have been merged and calculated before
 // getting here.
 // Any additional transforms should be added here.
-pub fn jexl_eval<Context: serde::Serialize>(
-    expression_statement: &str,
-    context: &Context,
-) -> Result<bool> {
-    let evaluator =
-        Evaluator::new().with_transform("versionCompare", |args| Ok(version_compare(args)?));
+pub fn jexl_eval(expression_statement: &str, context: &TargetingAttributes) -> Result<bool> {
+    let evaluator = Evaluator::new()
+        .with_transform("versionCompare", |args| Ok(version_compare(args)?))
+        .with_transform("eventsSum", |args| {
+            Ok(query_event_store(context, EventQueryType::Sum, args)?)
+        })
+        .with_transform("eventsCountNonZero", |args| {
+            Ok(query_event_store(
+                context,
+                EventQueryType::CountNonZero,
+                args,
+            )?)
+        })
+        .with_transform("eventsAveragePerInterval", |args| {
+            Ok(query_event_store(
+                context,
+                EventQueryType::AveragePerInterval,
+                args,
+            )?)
+        })
+        .with_transform("eventsAveragePerNonZeroInterval", |args| {
+            Ok(query_event_store(
+                context,
+                EventQueryType::AveragePerNonZeroInterval,
+                args,
+            )?)
+        });
 
     let res = evaluator.eval_in_context(expression_statement, context)?;
     match res.as_bool() {
@@ -321,6 +346,48 @@ fn version_compare(args: &[Value]) -> Result<Value> {
     } else {
         0
     }))
+}
+
+fn query_event_store(
+    context: &TargetingAttributes,
+    query_type: EventQueryType,
+    args: &[Value],
+) -> Result<Value> {
+    if args.len() != 4 {
+        return Err(NimbusError::JexlError(JexlError::TransformParameterError(
+            "events transforms require 3 parameters".to_string(),
+        )));
+    }
+    let event = serde_json::from_value::<String>(args.get(0).unwrap().clone())?;
+    let interval = serde_json::from_value::<String>(args.get(1).unwrap().clone())?;
+    let interval = Interval::from_str(&interval)?;
+    let num_buckets = match args.get(2).unwrap().as_f64() {
+        Some(v) => v,
+        None => {
+            return Err(NimbusError::JexlError(JexlError::TransformParameterError(
+                "events transforms require a positive number as the second parameter".to_string(),
+            )))
+        }
+    } as usize;
+    let starting_bucket = match args.get(3).unwrap().as_f64() {
+        Some(v) => v,
+        None => {
+            return Err(NimbusError::JexlError(JexlError::TransformParameterError(
+                "events transforms require a positive number as the third parameter".to_string(),
+            )))
+        }
+    } as usize;
+    if let Some(event_store) = &context.event_store {
+        Ok(json!(event_store.query(
+            event,
+            interval,
+            num_buckets,
+            starting_bucket,
+            query_type,
+        )?))
+    } else {
+        Err(NimbusError::BehaviorError(BehaviorError::MissingEventStore))
+    }
 }
 
 #[cfg(test)]

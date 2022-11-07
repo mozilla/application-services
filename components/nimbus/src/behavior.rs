@@ -10,6 +10,7 @@ use serde::{Deserialize, Serialize};
 use std::collections::{HashMap, VecDeque};
 use std::fmt;
 use std::hash::{Hash, Hasher};
+use std::str::FromStr;
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub enum Interval {
@@ -53,6 +54,24 @@ impl Eq for Interval {}
 impl Hash for Interval {
     fn hash<H: Hasher>(&self, state: &mut H) {
         self.to_string().as_bytes().hash(state);
+    }
+}
+
+impl FromStr for Interval {
+    type Err = NimbusError;
+
+    fn from_str(input: &str) -> Result<Self> {
+        match input {
+            "Minutes" => Ok(Self::Minutes),
+            "Hours" => Ok(Self::Hours),
+            "Days" => Ok(Self::Days),
+            "Weeks" => Ok(Self::Weeks),
+            "Months" => Ok(Self::Months),
+            "Years" => Ok(Self::Years),
+            _ => Err(NimbusError::BehaviorError(
+                BehaviorError::IntervalParseError(input.to_string()),
+            )),
+        }
     }
 }
 
@@ -219,7 +238,7 @@ pub enum EventQueryType {
     AveragePerNonZeroInterval,
 }
 
-#[derive(Default, Serialize, Deserialize, Debug)]
+#[derive(Default, Serialize, Deserialize, Debug, Clone)]
 pub struct EventStore {
     pub(crate) events: HashMap<String, MultiIntervalCounter>,
 }

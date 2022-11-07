@@ -139,7 +139,12 @@ impl NimbusClient {
     // but should happen before the enrollment calculations are done.
     fn begin_initialize(&self, db: &Database, writer: &mut Writer) -> Result<()> {
         self.update_install_dates(db, writer)?;
-        self.event_store.lock().unwrap().read_from_db(db)?;
+        let mut event_store = self.event_store.lock().unwrap();
+        event_store.read_from_db(db)?;
+
+        // Now that the EventStore has been created, place it in its current state on the targeting_attributes.
+        let mut state = self.mutable_state.lock().unwrap();
+        state.targeting_attributes.event_store = Some(event_store.clone());
         Ok(())
     }
 
@@ -528,6 +533,10 @@ impl NimbusClient {
         let mut event_store = self.event_store.lock().unwrap();
         event_store.record_event(event_id, None)?;
         event_store.persist_data(self.db()?)?;
+
+        // Once we have updated the EventStore, update its value on the targeting_attributes.
+        let mut state = self.mutable_state.lock().unwrap();
+        state.targeting_attributes.event_store = Some(event_store.clone());
         Ok(())
     }
 }
@@ -813,7 +822,10 @@ impl NimbusTargetingHelper {
     }
 
     pub fn eval_jexl(&self, expr: String) -> Result<bool> {
-        evaluator::jexl_eval(&expr, &self.context)
+        evaluator::jexl_eval(
+            &expr,
+            &serde_json::from_value(self.context.clone()).unwrap(),
+        )
     }
 }
 

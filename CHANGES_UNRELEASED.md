@@ -23,3 +23,4 @@ Use the template below to make assigning a version number during the release cut
 
 ### What's Changed
   - Added query method for behavioral targeting event store ([#5226](https://github.com/mozilla/application-services/pull/5226))
+  - Added Jexl transforms for behavioral targeting ([#]())

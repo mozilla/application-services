@@ -2,6 +2,13 @@
 * License, v. 2.0. If a copy of the MPL was not distributed with this
 * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
+// cargo test --package nimbus-sdk --lib --all-features -- tests::test_evaluator --nocapture
+
+use chrono::Utc;
+
+use crate::behavior::{
+    EventStore, Interval, IntervalConfig, IntervalData, MultiIntervalCounter, SingleIntervalCounter,
+};
 use crate::enrollment::{EnrolledReason, EnrollmentStatus, NotEnrolledReason};
 use crate::evaluator::{choose_branch, targeting};
 use crate::{
@@ -327,7 +334,7 @@ fn test_targeting() {
         })
     ));
 }
-use std::collections::HashMap;
+use std::collections::{HashMap, VecDeque};
 
 #[test]
 fn test_targeting_custom_targeting_attributes() {
@@ -917,4 +924,232 @@ fn test_enrollment_bucketing() {
             ..
         }
     ));
+}
+
+#[test]
+fn test_events_sum_transform() {
+    let counter = MultiIntervalCounter::new(vec![SingleIntervalCounter::from(
+        IntervalData {
+            bucket_count: 3,
+            starting_instant: Utc::now(),
+            buckets: VecDeque::from(vec![1, 1, 0]),
+        },
+        IntervalConfig::new(3, Interval::Days),
+    )]);
+
+    let event_store = EventStore::from(vec![("app.foregrounded".to_string(), counter)]);
+    let mut targeting_attributes: TargetingAttributes = AppContext {
+        ..Default::default()
+    }
+    .into();
+    targeting_attributes.event_store = Some(event_store);
+    assert_eq!(
+        targeting(
+            "'app.foregrounded'|eventsSum('Days', 3, 0) > 2",
+            &targeting_attributes
+        ),
+        Some(EnrollmentStatus::NotEnrolled {
+            reason: NotEnrolledReason::NotTargeted
+        })
+    );
+    assert_eq!(
+        targeting(
+            "'app.foregrounded'|eventsSum('Days', 3, 0) > 1",
+            &targeting_attributes
+        ),
+        None
+    );
+}
+
+#[test]
+fn test_events_count_non_zero_transform() {
+    let counter = MultiIntervalCounter::new(vec![SingleIntervalCounter::from(
+        IntervalData {
+            bucket_count: 3,
+            starting_instant: Utc::now(),
+            buckets: VecDeque::from(vec![1, 2, 0]),
+        },
+        IntervalConfig::new(3, Interval::Days),
+    )]);
+
+    let event_store = EventStore::from(vec![("app.foregrounded".to_string(), counter)]);
+    let mut targeting_attributes: TargetingAttributes = AppContext {
+        ..Default::default()
+    }
+    .into();
+    targeting_attributes.event_store = Some(event_store);
+    assert_eq!(
+        targeting(
+            "'app.foregrounded'|eventsCountNonZero('Days', 3, 0) > 2",
+            &targeting_attributes
+        ),
+        Some(EnrollmentStatus::NotEnrolled {
+            reason: NotEnrolledReason::NotTargeted
+        })
+    );
+    assert_eq!(
+        targeting(
+            "'app.foregrounded'|eventsCountNonZero('Days', 3, 0) > 1",
+            &targeting_attributes
+        ),
+        None
+    );
+}
+
+#[test]
+fn test_events_average_per_interval_transform() {
+    let counter = MultiIntervalCounter::new(vec![SingleIntervalCounter::from(
+        IntervalData {
+            bucket_count: 7,
+            starting_instant: Utc::now(),
+            buckets: VecDeque::from(vec![1, 2, 0, 0, 0, 2, 3]),
+        },
+        IntervalConfig::new(7, Interval::Days),
+    )]);
+
+    let event_store = EventStore::from(vec![("app.foregrounded".to_string(), counter)]);
+    let mut targeting_attributes: TargetingAttributes = AppContext {
+        ..Default::default()
+    }
+    .into();
+    targeting_attributes.event_store = Some(event_store);
+    assert_eq!(
+        targeting(
+            "'app.foregrounded'|eventsAveragePerInterval('Days', 7, 0) == 2",
+            &targeting_attributes
+        ),
+        Some(EnrollmentStatus::NotEnrolled {
+            reason: NotEnrolledReason::NotTargeted
+        })
+    );
+    assert_eq!(
+        targeting(
+            "'app.foregrounded'|eventsAveragePerInterval('Days', 7, 0) == 1",
+            &targeting_attributes
+        ),
+        None
+    );
+}
+
+#[test]
+fn test_events_average_per_non_zero_interval_transform() {
+    let counter = MultiIntervalCounter::new(vec![SingleIntervalCounter::from(
+        IntervalData {
+            bucket_count: 7,
+            starting_instant: Utc::now(),
+            buckets: VecDeque::from(vec![1, 2, 0, 0, 0, 2, 3]),
+        },
+        IntervalConfig::new(7, Interval::Days),
+    )]);
+
+    let event_store = EventStore::from(vec![("app.foregrounded".to_string(), counter)]);
+    let mut targeting_attributes: TargetingAttributes = AppContext {
+        ..Default::default()
+    }
+    .into();
+    targeting_attributes.event_store = Some(event_store);
+    assert_eq!(
+        targeting(
+            "'app.foregrounded'|eventsAveragePerNonZeroInterval('Days', 7, 0) == 1",
+            &targeting_attributes
+        ),
+        Some(EnrollmentStatus::NotEnrolled {
+            reason: NotEnrolledReason::NotTargeted
+        })
+    );
+    assert_eq!(
+        targeting(
+            "'app.foregrounded'|eventsAveragePerNonZeroInterval('Days', 7, 0) == 2",
+            &targeting_attributes
+        ),
+        None
+    );
+}
+
+#[test]
+fn test_events_transforms_parameters() {
+    let targeting_attributes: TargetingAttributes = AppContext {
+        ..Default::default()
+    }
+    .into();
+
+    assert_eq!(
+        targeting(
+            "'app.foregrounded'|eventsSum('Days', 3) > 1",
+            &targeting_attributes
+        ),
+        Some(EnrollmentStatus::Error {
+            reason: "EvaluationError: Custom error: JexlError: Transform parameter error: events transforms require 3 parameters"
+                .to_string()
+        })
+    );
+    assert_eq!(
+        targeting(
+            "1|eventsSum('Days', 3, 0) > 1",
+            &targeting_attributes
+        ),
+        Some(EnrollmentStatus::Error {
+            reason: "EvaluationError: Custom error: JSON Error: invalid type: floating point `1`, expected a string"
+                .to_string()
+        })
+    );
+    assert_eq!(
+        targeting(
+            "'app.foregrounded'|eventsSum(1, 3, 0) > 1",
+            &targeting_attributes
+        ),
+        Some(EnrollmentStatus::Error {
+            reason: "EvaluationError: Custom error: JSON Error: invalid type: floating point `1`, expected a string"
+                .to_string()
+        })
+    );
+    assert_eq!(
+        targeting(
+            "'app.foregrounded'|eventsSum('Day', 3, 0) > 1",
+            &targeting_attributes
+        ),
+        Some(EnrollmentStatus::Error {
+            reason: "EvaluationError: Custom error: Behavior error: IntervalParseError: Day is not a valid Interval"
+                .to_string()
+        })
+    );
+    assert_eq!(
+        targeting(
+            "'app.foregrounded'|eventsSum('Days', 'test', 0) > 1",
+            &targeting_attributes
+        ),
+        Some(EnrollmentStatus::Error {
+            reason: "EvaluationError: Custom error: JexlError: Transform parameter error: events transforms require a positive number as the second parameter"
+                .to_string()
+        })
+    );
+    assert_eq!(
+        targeting(
+            "'app.foregrounded'|eventsSum('Days', 3, 'test') > 1",
+            &targeting_attributes
+        ),
+        Some(EnrollmentStatus::Error {
+            reason: "EvaluationError: Custom error: JexlError: Transform parameter error: events transforms require a positive number as the third parameter"
+                .to_string()
+        })
+    );
+}
+
+#[test]
+fn test_events_transforms_missing_event_store() {
+    let targeting_attributes: TargetingAttributes = AppContext {
+        ..Default::default()
+    }
+    .into();
+
+    assert_eq!(
+        targeting(
+            "'app.foregrounded'|eventsSum('Days', 3, 0) > 2",
+            &targeting_attributes
+        ),
+        Some(EnrollmentStatus::Error {
+            reason: "EvaluationError: Custom error: Behavior error: The event store is not available on the targeting attributes"
+                .to_string()
+        })
+    );
 }
