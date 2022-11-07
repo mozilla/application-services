@@ -1016,7 +1016,7 @@ fn test_events_average_per_interval_transform() {
     targeting_attributes.event_store = Some(event_store);
     assert_eq!(
         targeting(
-            "'app.foregrounded'|eventsAveragePerInterval('Days', 7, 0) == 2",
+            "'app.foregrounded'|eventsAveragePerInterval('Days', 7, 0) > 2",
             &targeting_attributes
         ),
         Some(EnrollmentStatus::NotEnrolled {
@@ -1025,7 +1025,7 @@ fn test_events_average_per_interval_transform() {
     );
     assert_eq!(
         targeting(
-            "'app.foregrounded'|eventsAveragePerInterval('Days', 7, 0) == 1",
+            "'app.foregrounded'|eventsAveragePerInterval('Days', 7, 0) > 1",
             &targeting_attributes
         ),
         None

@@ -240,11 +240,11 @@ pub enum EventQueryType {
 }
 
 impl EventQueryType {
-    fn perform_query(&self, buckets: Iter<u64>, num_buckets: usize) -> Result<u64> {
+    fn perform_query(&self, buckets: Iter<u64>, num_buckets: usize) -> Result<f64> {
         Ok(match self {
-            Self::Sum => buckets.sum::<u64>(),
-            Self::CountNonZero => buckets.filter(|v| v > &&0u64).count() as u64,
-            Self::AveragePerInterval => buckets.sum::<u64>() / num_buckets as u64,
+            Self::Sum => buckets.sum::<u64>() as f64,
+            Self::CountNonZero => buckets.filter(|v| v > &&0u64).count() as f64,
+            Self::AveragePerInterval => buckets.sum::<u64>() as f64 / num_buckets as f64,
             Self::AveragePerNonZeroInterval => {
                 let values = buckets.fold((0, 0), |accum, item| {
                     (
@@ -253,9 +253,9 @@ impl EventQueryType {
                     )
                 });
                 if values.1 == 0 {
-                    0
+                    0.0
                 } else {
-                    values.0 / values.1
+                    values.0 as f64 / values.1 as f64
                 }
             }
         })
@@ -338,12 +338,12 @@ impl EventStore {
         num_buckets: usize,
         starting_bucket: usize,
         query_type: EventQueryType,
-    ) -> Result<u64> {
+    ) -> Result<f64> {
         if let Some(counter) = self.events.get(&event_id) {
             if let Some(single_counter) = counter.intervals.get(&interval) {
                 let safe_range = 0..single_counter.data.buckets.len();
                 if !safe_range.contains(&starting_bucket) {
-                    return Ok(0);
+                    return Ok(0.0);
                 }
                 let buckets = single_counter.data.buckets.range(
                     starting_bucket..usize::min(num_buckets, single_counter.data.buckets.len()),
@@ -351,6 +351,6 @@ impl EventStore {
                 return query_type.perform_query(buckets, num_buckets);
             }
         }
-        Ok(0)
+        Ok(0.0)
     }
 }

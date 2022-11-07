@@ -494,7 +494,7 @@ mod event_store_tests {
                 0,
                 EventQueryType::Sum
             )?,
-            3
+            3.0
         );
         assert_eq!(
             store.query(
@@ -504,7 +504,7 @@ mod event_store_tests {
                 0,
                 EventQueryType::Sum
             )?,
-            0
+            0.0
         );
         assert_eq!(
             store.query(
@@ -514,7 +514,7 @@ mod event_store_tests {
                 7,
                 EventQueryType::Sum
             )?,
-            0
+            0.0
         );
 
         Ok(())
@@ -549,7 +549,7 @@ mod event_store_tests {
                 0,
                 EventQueryType::CountNonZero
             )?,
-            2
+            2.0
         );
         assert_eq!(
             store.query(
@@ -559,7 +559,7 @@ mod event_store_tests {
                 2,
                 EventQueryType::CountNonZero
             )?,
-            0
+            0.0
         );
 
         Ok(())
@@ -594,7 +594,7 @@ mod event_store_tests {
                 0,
                 EventQueryType::AveragePerInterval
             )?,
-            0
+            0.42857142857142855
         );
         assert_eq!(
             store.query(
@@ -604,7 +604,7 @@ mod event_store_tests {
                 0,
                 EventQueryType::AveragePerInterval
             )?,
-            1
+            1.5
         );
 
         Ok(())
@@ -639,7 +639,7 @@ mod event_store_tests {
                 0,
                 EventQueryType::AveragePerNonZeroInterval
             )?,
-            1
+            1.5
         );
         assert_eq!(
             store.query(
@@ -649,7 +649,7 @@ mod event_store_tests {
                 2,
                 EventQueryType::AveragePerNonZeroInterval
             )?,
-            0
+            0.0
         );
 
         Ok(())
