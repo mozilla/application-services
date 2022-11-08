@@ -7,7 +7,7 @@ mod dbcache;
 mod enrollment;
 pub mod error;
 mod evaluator;
-use behavior::EventStore;
+use behavior::{EventStore, WithEventStore};
 use chrono::{DateTime, NaiveDateTime, Utc};
 use defaults::Defaults;
 pub use error::{NimbusError, Result};
@@ -561,13 +561,13 @@ impl NimbusClient {
         Ok(context)
     }
 
-    #[doc = "This method should only be used in tests"]
     pub fn create_targeting_helper(
         &self,
         additional_context: Option<JsonObject>,
     ) -> Result<Arc<NimbusTargetingHelper>> {
         let context = self.merge_additional_context(additional_context)?;
-        let helper = NimbusTargetingHelper::new(context);
+        let event_store = self.event_store.lock().unwrap().clone();
+        let helper = NimbusTargetingHelper::new(context, event_store);
         Ok(Arc::new(helper))
     }
 
@@ -584,7 +584,7 @@ impl NimbusClient {
     ///
     /// This function is used to record and persist data used for the behavioral
     /// targeting such as "core-active" user targeting.
-    pub fn record_event(&mut self, event_id: String) -> Result<()> {
+    pub fn record_event(&self, event_id: String) -> Result<()> {
         let mut event_store = self.event_store.lock().unwrap();
         event_store.record_event(event_id, None)?;
         event_store.persist_data(self.db()?)?;
@@ -863,22 +863,37 @@ impl NimbusStringHelper {
     }
 }
 
-#[doc = "This struct should only be used in tests"]
+#[derive(Serialize, Deserialize, Debug, Clone, Default)]
+struct NimbusTargetingHelperContext {
+    #[serde(flatten)]
+    pub(crate) context: Map<String, Value>,
+    pub(crate) event_store: Option<EventStore>,
+}
+
+impl WithEventStore for NimbusTargetingHelperContext {
+    fn event_store(&self) -> Result<&Option<EventStore>> {
+        Ok(&self.event_store)
+    }
+}
+
 pub struct NimbusTargetingHelper {
     context: Value,
+    event_store: EventStore,
 }
 
 impl NimbusTargetingHelper {
-    fn new(context: Value) -> Self {
-        Self { context }
+    fn new(context: Value, event_store: EventStore) -> Self {
+        Self {
+            context,
+            event_store,
+        }
     }
 
-    #[doc = "This method should only be used in tests"]
     pub fn eval_jexl(&self, expr: String) -> Result<bool> {
-        evaluator::jexl_eval(
-            &expr,
-            &serde_json::from_value(self.context.clone()).unwrap(),
-        )
+        let mut context: NimbusTargetingHelperContext =
+            serde_json::from_value(self.context.clone())?;
+        context.event_store = Some(self.event_store.clone());
+        evaluator::jexl_eval(&expr, &context)
     }
 }
 

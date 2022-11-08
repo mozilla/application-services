@@ -3,7 +3,7 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
  */
 
-use crate::behavior::{EventQueryType, EventStore, Interval};
+use crate::behavior::{EventQueryType, EventStore, Interval, WithEventStore};
 use crate::enrollment::{
     EnrolledReason, EnrollmentStatus, ExperimentEnrollment, NotEnrolledReason,
 };
@@ -57,6 +57,12 @@ impl From<AppContext> for TargetingAttributes {
             region,
             ..Default::default()
         }
+    }
+}
+
+impl WithEventStore for TargetingAttributes {
+    fn event_store(&self) -> Result<&Option<EventStore>> {
+        Ok(&self.event_store)
     }
 }
 
@@ -287,7 +293,10 @@ pub(crate) fn targeting(
 // The targeting attributes and additional context should have been merged and calculated before
 // getting here.
 // Any additional transforms should be added here.
-pub fn jexl_eval(expression_statement: &str, context: &TargetingAttributes) -> Result<bool> {
+pub fn jexl_eval<Context>(expression_statement: &str, context: &Context) -> Result<bool>
+where
+    Context: serde::Serialize + WithEventStore,
+{
     let evaluator = Evaluator::new()
         .with_transform("versionCompare", |args| Ok(version_compare(args)?))
         .with_transform("eventsSum", |args| {
@@ -348,11 +357,14 @@ fn version_compare(args: &[Value]) -> Result<Value> {
     }))
 }
 
-fn query_event_store(
-    context: &TargetingAttributes,
+fn query_event_store<Context>(
+    context: &Context,
     query_type: EventQueryType,
     args: &[Value],
-) -> Result<Value> {
+) -> Result<Value>
+where
+    Context: serde::Serialize + WithEventStore,
+{
     if args.len() != 4 {
         return Err(NimbusError::TransformParameterError(
             "events transforms require 3 parameters".to_string(),
@@ -377,7 +389,8 @@ fn query_event_store(
             ))
         }
     } as usize;
-    if let Some(event_store) = &context.event_store {
+
+    if let Some(event_store) = &context.event_store()? {
         Ok(json!(event_store.query(
             event,
             interval,

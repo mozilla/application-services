@@ -1080,7 +1080,7 @@ fn test_events_transforms_parameters() {
             &targeting_attributes
         ),
         Some(EnrollmentStatus::Error {
-            reason: "EvaluationError: Custom error: JexlError: Transform parameter error: events transforms require 3 parameters"
+            reason: "EvaluationError: Custom error: Transform parameter error: events transforms require 3 parameters"
                 .to_string()
         })
     );
@@ -1120,7 +1120,7 @@ fn test_events_transforms_parameters() {
             &targeting_attributes
         ),
         Some(EnrollmentStatus::Error {
-            reason: "EvaluationError: Custom error: JexlError: Transform parameter error: events transforms require a positive number as the second parameter"
+            reason: "EvaluationError: Custom error: Transform parameter error: events transforms require a positive number as the second parameter"
                 .to_string()
         })
     );
@@ -1130,7 +1130,7 @@ fn test_events_transforms_parameters() {
             &targeting_attributes
         ),
         Some(EnrollmentStatus::Error {
-            reason: "EvaluationError: Custom error: JexlError: Transform parameter error: events transforms require a positive number as the third parameter"
+            reason: "EvaluationError: Custom error: Transform parameter error: events transforms require a positive number as the third parameter"
                 .to_string()
         })
     );

@@ -316,7 +316,39 @@ impl EventStore {
 
     pub fn record_event(&mut self, event_id: String, now: Option<DateTime<Utc>>) -> Result<()> {
         let now = now.unwrap_or_else(Utc::now);
-        let counter = self.events.get_mut(&event_id).unwrap();
+        let counter = match self.events.get_mut(&event_id) {
+            Some(v) => v,
+            None => {
+                let new_counter = MultiIntervalCounter::new(vec![
+                    SingleIntervalCounter::new(IntervalConfig {
+                        bucket_count: 60,
+                        interval: Interval::Minutes,
+                    }),
+                    SingleIntervalCounter::new(IntervalConfig {
+                        bucket_count: 24,
+                        interval: Interval::Hours,
+                    }),
+                    SingleIntervalCounter::new(IntervalConfig {
+                        bucket_count: 28,
+                        interval: Interval::Days,
+                    }),
+                    SingleIntervalCounter::new(IntervalConfig {
+                        bucket_count: 52,
+                        interval: Interval::Weeks,
+                    }),
+                    SingleIntervalCounter::new(IntervalConfig {
+                        bucket_count: 12,
+                        interval: Interval::Months,
+                    }),
+                    SingleIntervalCounter::new(IntervalConfig {
+                        bucket_count: 4,
+                        interval: Interval::Years,
+                    }),
+                ]);
+                self.events.insert(event_id.clone(), new_counter);
+                self.events.get_mut(&event_id).unwrap()
+            }
+        };
         counter.maybe_advance(now)?;
         counter.increment()
     }
@@ -353,4 +385,8 @@ impl EventStore {
         }
         Ok(0.0)
     }
+}
+
+pub trait WithEventStore {
+    fn event_store(&self) -> Result<&Option<EventStore>>;
 }
