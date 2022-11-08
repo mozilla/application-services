@@ -15,7 +15,7 @@ transforms:
 
 jobs:
   build:
-    repository: "android-components"
+    repository: "firefox-android"
 
   test:
-    repository: "android-components"
+    repository: "firefox-android"

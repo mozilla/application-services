@@ -19,12 +19,12 @@ workers:
       provisioner: 'app-services-{level}'
       implementation: docker-worker
       os: linux
-      worker-type: 'b-linux'
+      worker-type: 'b-linux-gcp'
     images:
       provisioner: 'app-services-{level}'
       implementation: docker-worker
       os: linux
-      worker-type: 'images'
+      worker-type: 'images-gcp'
     signing:
       provisioner: scriptworker-k8s
       implementation: scriptworker-signing

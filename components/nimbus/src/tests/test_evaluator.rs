@@ -327,7 +327,7 @@ fn test_targeting() {
         })
     ));
 }
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 
 #[test]
 fn test_targeting_custom_targeting_attributes() {
@@ -426,7 +426,7 @@ fn test_targeting_is_already_enrolled() {
 #[test]
 fn test_targeting_active_experiments_equivalency() {
     // Here's our valid jexl statement
-    let expression_statement = "active_experiments['test'] == 'treatment'";
+    let expression_statement = "'test' in active_experiments";
     // A matching context that includes the appropriate specific context
     let mut targeting_attributes: TargetingAttributes = AppContext {
         app_name: "nimbus_test".to_string(),
@@ -446,17 +446,17 @@ fn test_targeting_active_experiments_equivalency() {
         ..Default::default()
     }
     .into();
-    let mut map: HashMap<String, String> = HashMap::new();
-    map.insert("test".into(), "treatment".into());
-    targeting_attributes.active_experiments = Some(map);
+    let mut set = HashSet::<String>::new();
+    set.insert("test".into());
+    targeting_attributes.active_experiments = set;
 
     // The targeting should pass!
     assert_eq!(targeting(expression_statement, &targeting_attributes), None);
 
     // We set active_experiment treatment to something not expected and try again
-    let mut map: HashMap<String, String> = HashMap::new();
-    map.insert("test".into(), "treatment1".into());
-    targeting_attributes.active_experiments = Some(map);
+    let mut set = HashSet::<String>::new();
+    set.insert("test1".into());
+    targeting_attributes.active_experiments = set;
     assert_eq!(
         targeting(expression_statement, &targeting_attributes),
         Some(EnrollmentStatus::NotEnrolled {
@@ -465,7 +465,8 @@ fn test_targeting_active_experiments_equivalency() {
     );
 
     // We set active_experiments to None and try again
-    targeting_attributes.active_experiments = None;
+    let set = HashSet::<String>::new();
+    targeting_attributes.active_experiments = set;
     assert_eq!(
         targeting(expression_statement, &targeting_attributes),
         Some(EnrollmentStatus::NotEnrolled {
@@ -497,16 +498,16 @@ fn test_targeting_active_experiments_exists() {
         ..Default::default()
     }
     .into();
-    let mut map: HashMap<String, String> = HashMap::new();
-    map.insert("test".into(), "treatment".into());
-    targeting_attributes.active_experiments = Some(map);
+    let mut set = HashSet::<String>::new();
+    set.insert("test".into());
+    targeting_attributes.active_experiments = set;
 
     // The targeting should pass!
     assert_eq!(targeting(expression_statement, &targeting_attributes), None);
 
     // We set active_experiment treatment to something not expected and try again
-    let map: HashMap<String, String> = HashMap::new();
-    targeting_attributes.active_experiments = Some(map);
+    let set = HashSet::<String>::new();
+    targeting_attributes.active_experiments = set;
     assert_eq!(
         targeting(expression_statement, &targeting_attributes),
         Some(EnrollmentStatus::NotEnrolled {

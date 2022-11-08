@@ -1,18 +1,41 @@
+/* This Source Code Form is subject to the terms of the Mozilla Public
+ * License, v. 2.0. If a copy of the MPL was not distributed with this
+ * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 #![allow(dead_code)]
 
 use crate::error::{BehaviorError, NimbusError, Result};
+use crate::persistence::{Database, StoreId};
 use chrono::{DateTime, Timelike, Utc};
+use serde::{Deserialize, Serialize};
+use std::collections::vec_deque::Iter;
 use std::collections::{HashMap, VecDeque};
 use std::fmt;
 use std::hash::{Hash, Hasher};
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, Serialize, Deserialize)]
 pub enum Interval {
+    Minutes,
     Hours,
     Days,
     Weeks,
     Months,
     Years,
+}
+
+impl Interval {
+    pub fn num_rotations(&self, then: DateTime<Utc>, now: DateTime<Utc>) -> Result<i32> {
+        let minute_diff = i32::try_from(now.minute())? - i32::try_from(then.minute())?;
+        let hour_diff = i32::try_from(now.hour())? - i32::try_from(then.hour())?;
+        let date_diff = i32::try_from((now.date() - then.date()).num_days())?;
+        Ok(match self {
+            Interval::Minutes => (date_diff * 1440) + (hour_diff * 60) + minute_diff,
+            Interval::Hours => (date_diff * 24) + hour_diff,
+            Interval::Days => date_diff,
+            Interval::Weeks => date_diff / 7,
+            Interval::Months => date_diff / 28,
+            Interval::Years => date_diff / 365,
+        })
+    }
 }
 
 impl fmt::Display for Interval {
@@ -34,8 +57,8 @@ impl Hash for Interval {
     }
 }
 
-#[derive(Clone)]
-struct IntervalConfig {
+#[derive(Clone, Serialize, Deserialize, Debug)]
+pub struct IntervalConfig {
     bucket_count: usize,
     interval: Interval,
 }
@@ -55,11 +78,11 @@ impl IntervalConfig {
     }
 }
 
-#[derive(Clone)]
+#[derive(Clone, Serialize, Deserialize, Debug)]
 pub struct IntervalData {
-    buckets: VecDeque<u64>,
-    bucket_count: usize,
-    starting_instant: DateTime<Utc>,
+    pub(crate) buckets: VecDeque<u64>,
+    pub(crate) bucket_count: usize,
+    pub(crate) starting_instant: DateTime<Utc>,
 }
 
 impl Default for IntervalData {
@@ -69,7 +92,7 @@ impl Default for IntervalData {
 }
 
 impl IntervalData {
-    fn new(bucket_count: usize) -> Self {
+    pub fn new(bucket_count: usize) -> Self {
         let mut data = Self {
             buckets: VecDeque::with_capacity(bucket_count),
             bucket_count,
@@ -115,8 +138,8 @@ impl IntervalData {
     }
 }
 
-#[derive(Clone)]
-struct SingleIntervalCounter {
+#[derive(Clone, Serialize, Deserialize, Debug)]
+pub struct SingleIntervalCounter {
     pub data: IntervalData,
     pub config: IntervalConfig,
 }
@@ -145,20 +168,11 @@ impl SingleIntervalCounter {
         self.data.increment()
     }
 
-    fn num_rotations(&self, now: DateTime<Utc>) -> Result<i32> {
-        let hour_diff = i32::try_from(self.data.starting_instant.hour() - now.hour())?;
-        let date_diff = i32::try_from((now.date() - self.data.starting_instant.date()).num_days())?;
-        Ok(match self.config.interval {
-            Interval::Hours => (date_diff * 24) + hour_diff,
-            Interval::Days => date_diff,
-            Interval::Weeks => date_diff / 7,
-            Interval::Months => date_diff / 28,
-            Interval::Years => date_diff / 365,
-        })
-    }
-
     pub fn maybe_advance(&mut self, now: DateTime<Utc>) -> Result<()> {
-        let rotations = self.num_rotations(now)?;
+        let rotations = self
+            .config
+            .interval
+            .num_rotations(self.data.starting_instant, now)?;
         self.data.starting_instant = now;
         if rotations > 0 {
             return self.data.rotate(rotations);
@@ -167,8 +181,9 @@ impl SingleIntervalCounter {
     }
 }
 
-struct MultiIntervalCounter {
-    intervals: HashMap<Interval, SingleIntervalCounter>,
+#[derive(Serialize, Deserialize, Clone, Debug)]
+pub struct MultiIntervalCounter {
+    pub intervals: HashMap<Interval, SingleIntervalCounter>,
 }
 
 impl MultiIntervalCounter {
@@ -198,353 +213,125 @@ impl MultiIntervalCounter {
     }
 }
 
-type EventId = String;
+pub enum EventQueryType {
+    Sum,
+    CountNonZero,
+    AveragePerInterval,
+    AveragePerNonZeroInterval,
+}
 
-struct EventStore {
-    events: HashMap<EventId, MultiIntervalCounter>,
+impl EventQueryType {
+    fn perform_query(&self, buckets: Iter<u64>, num_buckets: usize) -> Result<u64> {
+        Ok(match self {
+            Self::Sum => buckets.sum::<u64>(),
+            Self::CountNonZero => buckets.filter(|v| v > &&0u64).count() as u64,
+            Self::AveragePerInterval => buckets.sum::<u64>() / num_buckets as u64,
+            Self::AveragePerNonZeroInterval => {
+                let values = buckets.fold((0, 0), |accum, item| {
+                    (
+                        accum.0 + item,
+                        if item > &0 { accum.1 + 1 } else { accum.1 },
+                    )
+                });
+                if values.1 == 0 {
+                    0
+                } else {
+                    values.0 / values.1
+                }
+            }
+        })
+    }
+}
+
+#[derive(Default, Serialize, Deserialize, Debug)]
+pub struct EventStore {
+    pub(crate) events: HashMap<String, MultiIntervalCounter>,
+}
+
+impl From<Vec<(String, MultiIntervalCounter)>> for EventStore {
+    fn from(event_store: Vec<(String, MultiIntervalCounter)>) -> Self {
+        Self {
+            events: HashMap::from_iter(event_store.into_iter()),
+        }
+    }
+}
+
+impl From<HashMap<String, MultiIntervalCounter>> for EventStore {
+    fn from(event_store: HashMap<String, MultiIntervalCounter>) -> Self {
+        Self {
+            events: event_store,
+        }
+    }
+}
+
+impl TryFrom<&Database> for EventStore {
+    type Error = NimbusError;
+
+    fn try_from(db: &Database) -> Result<Self, NimbusError> {
+        let reader = db.read()?;
+        let events = db
+            .get_store(StoreId::EventCounts)
+            .collect_all::<(String, MultiIntervalCounter), _>(&reader)?;
+        Ok(EventStore::from(events))
+    }
 }
 
 impl EventStore {
-    pub fn new(events: Vec<(EventId, MultiIntervalCounter)>) -> Self {
+    pub fn new() -> Self {
         Self {
-            events: HashMap::from_iter(events.into_iter()),
+            events: HashMap::<String, MultiIntervalCounter>::new(),
         }
     }
 
-    pub fn from(events: HashMap<EventId, MultiIntervalCounter>) -> Self {
-        Self { events }
+    pub fn read_from_db(&mut self, db: &Database) -> Result<()> {
+        let reader = db.read()?;
+
+        self.events = HashMap::from_iter(
+            db.get_store(StoreId::EventCounts)
+                .collect_all::<(String, MultiIntervalCounter), _>(&reader)?
+                .into_iter(),
+        );
+
+        Ok(())
     }
 
-    pub fn record_event(&mut self, event_id: EventId, now: Option<DateTime<Utc>>) -> Result<()> {
+    pub fn record_event(&mut self, event_id: String, now: Option<DateTime<Utc>>) -> Result<()> {
         let now = now.unwrap_or_else(Utc::now);
         let counter = self.events.get_mut(&event_id).unwrap();
         counter.maybe_advance(now)?;
         counter.increment()
     }
-}
 
-#[cfg(test)]
-mod interval_data_tests {
-    use super::*;
-
-    #[test]
-    fn increment_works_if_no_buckets_present() -> Result<()> {
-        let mut interval = IntervalData {
-            buckets: VecDeque::new(),
-            bucket_count: 7,
-            starting_instant: Utc::now(),
-        };
-        let result = interval.increment();
-
-        assert!(matches!(result.is_err(), true));
+    pub fn persist_data(&self, db: &Database) -> Result<()> {
+        let mut writer = db.write()?;
+        self.events.iter().try_for_each(|(key, value)| {
+            db.get_store(StoreId::EventCounts)
+                .put(&mut writer, key, &(key.clone(), value.clone()))
+        })?;
+        writer.commit()?;
         Ok(())
     }
 
-    #[test]
-    fn increment_increments_front_bucket_if_it_exists() -> Result<()> {
-        let mut interval = IntervalData::new(7);
-        interval.increment().ok();
-
-        assert!(matches!(interval.buckets[0], 1));
-        Ok(())
-    }
-
-    #[test]
-    fn rotate_adds_buckets_for_each_rotation() -> Result<()> {
-        let mut interval = IntervalData::new(7);
-        interval.rotate(3).ok();
-
-        assert!(matches!(interval.buckets.len(), 4));
-        Ok(())
-    }
-
-    #[test]
-    fn rotate_removes_buckets_when_max_is_reached() -> Result<()> {
-        let mut interval = IntervalData::new(3);
-        interval.increment().ok();
-        interval.rotate(2).ok();
-        interval.increment().ok();
-        interval.rotate(1).ok();
-        interval.increment().ok();
-        interval.increment().ok();
-
-        assert!(matches!(interval.buckets.len(), 3));
-        assert!(matches!(interval.buckets[0], 2));
-        assert!(matches!(interval.buckets[1], 1));
-        assert!(matches!(interval.buckets[2], 0));
-        Ok(())
-    }
-
-    #[test]
-    fn rotate_handles_large_rotation() -> Result<()> {
-        let mut interval = IntervalData::new(3);
-        interval.rotate(10).ok();
-
-        assert!(matches!(interval.buckets.len(), 3));
-        assert!(matches!(interval.buckets[0], 0));
-        assert!(matches!(interval.buckets[1], 0));
-        assert!(matches!(interval.buckets[2], 0));
-        Ok(())
-    }
-}
-
-#[cfg(test)]
-mod single_interval_counter_tests {
-    use chrono::Duration;
-
-    use super::*;
-
-    #[test]
-    fn test_increment() -> Result<()> {
-        let mut counter = SingleIntervalCounter::new(IntervalConfig::new(7, Interval::Days));
-        counter.increment().ok();
-
-        assert!(matches!(counter.data.buckets[0], 1));
-        Ok(())
-    }
-
-    #[test]
-    fn test_advance_do_not_advance() -> Result<()> {
-        let mut counter = SingleIntervalCounter::new(IntervalConfig::new(7, Interval::Days));
-        let date = Utc::now();
-        counter.maybe_advance(date).ok();
-
-        assert!(matches!(counter.data.buckets.len(), 1));
-        Ok(())
-    }
-
-    #[test]
-    fn test_advance_do_advance() -> Result<()> {
-        let mut counter = SingleIntervalCounter::new(IntervalConfig::new(7, Interval::Days));
-        let date = Utc::now() + Duration::days(1);
-        counter.maybe_advance(date).ok();
-
-        assert!(matches!(counter.data.buckets.len(), 2));
-        Ok(())
-    }
-}
-
-#[cfg(test)]
-mod multi_interval_counter_tests {
-    use chrono::Duration;
-
-    use super::*;
-
-    #[test]
-    fn test_increment_many() -> Result<()> {
-        let mut counter = MultiIntervalCounter::new(vec![
-            SingleIntervalCounter::new(IntervalConfig::new(12, Interval::Months)),
-            SingleIntervalCounter::new(IntervalConfig::new(28, Interval::Days)),
-        ]);
-        counter.increment().ok();
-
-        assert!(matches!(
-            counter
-                .intervals
-                .get(&Interval::Months)
-                .unwrap()
-                .data
-                .buckets[0],
-            1
-        ));
-        assert!(matches!(
-            counter.intervals.get(&Interval::Days).unwrap().data.buckets[0],
-            1
-        ));
-        Ok(())
-    }
-
-    #[test]
-    fn test_advance_do_not_advance() -> Result<()> {
-        let mut counter = MultiIntervalCounter::new(vec![
-            SingleIntervalCounter::new(IntervalConfig::new(12, Interval::Months)),
-            SingleIntervalCounter::new(IntervalConfig::new(28, Interval::Days)),
-        ]);
-        let date = Utc::now();
-        counter.maybe_advance(date).ok();
-
-        assert!(matches!(
-            counter
-                .intervals
-                .get(&Interval::Months)
-                .unwrap()
-                .data
-                .buckets
-                .len(),
-            1
-        ));
-        assert!(matches!(
-            counter
-                .intervals
-                .get(&Interval::Days)
-                .unwrap()
-                .data
-                .buckets
-                .len(),
-            1
-        ));
-        Ok(())
-    }
-
-    #[test]
-    fn test_advance_advance_some() -> Result<()> {
-        let mut counter = MultiIntervalCounter::new(vec![
-            SingleIntervalCounter::new(IntervalConfig::new(12, Interval::Months)),
-            SingleIntervalCounter::new(IntervalConfig::new(28, Interval::Days)),
-        ]);
-        let date = Utc::now() + Duration::days(1);
-        counter.maybe_advance(date).ok();
-
-        assert!(matches!(
-            counter
-                .intervals
-                .get(&Interval::Months)
-                .unwrap()
-                .data
-                .buckets
-                .len(),
-            1
-        ));
-        assert!(matches!(
-            counter
-                .intervals
-                .get(&Interval::Days)
-                .unwrap()
-                .data
-                .buckets
-                .len(),
-            2
-        ));
-        Ok(())
-    }
-}
-
-#[cfg(test)]
-mod event_store_tests {
-    use chrono::Duration;
-
-    use super::*;
-
-    #[test]
-    fn record_event_should_function() -> Result<()> {
-        let counter1 = MultiIntervalCounter::new(vec![
-            SingleIntervalCounter::new(IntervalConfig::new(12, Interval::Months)),
-            SingleIntervalCounter::new(IntervalConfig::new(28, Interval::Days)),
-        ]);
-
-        let counter2 = MultiIntervalCounter::new(vec![
-            SingleIntervalCounter::new(IntervalConfig::new(12, Interval::Months)),
-            SingleIntervalCounter::new(IntervalConfig::new(28, Interval::Days)),
-        ]);
-
-        let mut store = EventStore::new(vec![
-            ("event-1".to_string(), counter1),
-            ("event-2".to_string(), counter2),
-        ]);
-
-        store.record_event("event-1".to_string(), Some(Utc::now() + Duration::days(2)))?;
-
-        assert!(matches!(
-            store
-                .events
-                .get(&"event-1".to_string())
-                .unwrap()
-                .intervals
-                .get(&Interval::Months)
-                .unwrap()
-                .data
-                .buckets
-                .len(),
-            1
-        ));
-        assert!(matches!(
-            store
-                .events
-                .get(&"event-1".to_string())
-                .unwrap()
-                .intervals
-                .get(&Interval::Months)
-                .unwrap()
-                .data
-                .buckets[0],
-            1
-        ));
-        assert!(matches!(
-            store
-                .events
-                .get(&"event-1".to_string())
-                .unwrap()
-                .intervals
-                .get(&Interval::Days)
-                .unwrap()
-                .data
-                .buckets
-                .len(),
-            3
-        ));
-        assert!(matches!(
-            store
-                .events
-                .get(&"event-1".to_string())
-                .unwrap()
-                .intervals
-                .get(&Interval::Days)
-                .unwrap()
-                .data
-                .buckets[0],
-            1
-        ));
-        assert!(matches!(
-            store
-                .events
-                .get(&"event-1".to_string())
-                .unwrap()
-                .intervals
-                .get(&Interval::Days)
-                .unwrap()
-                .data
-                .buckets[1],
-            0
-        ));
-        assert!(matches!(
-            store
-                .events
-                .get(&"event-1".to_string())
-                .unwrap()
-                .intervals
-                .get(&Interval::Days)
-                .unwrap()
-                .data
-                .buckets[2],
-            0
-        ));
-
-        assert!(matches!(
-            store
-                .events
-                .get(&"event-2".to_string())
-                .unwrap()
-                .intervals
-                .get(&Interval::Days)
-                .unwrap()
-                .data
-                .buckets
-                .len(),
-            1
-        ));
-        assert!(matches!(
-            store
-                .events
-                .get(&"event-2".to_string())
-                .unwrap()
-                .intervals
-                .get(&Interval::Days)
-                .unwrap()
-                .data
-                .buckets[0],
-            0
-        ));
-
-        Ok(())
+    pub fn query(
+        &self,
+        event_id: String,
+        interval: Interval,
+        num_buckets: usize,
+        starting_bucket: usize,
+        query_type: EventQueryType,
+    ) -> Result<u64> {
+        if let Some(counter) = self.events.get(&event_id) {
+            if let Some(single_counter) = counter.intervals.get(&interval) {
+                let safe_range = 0..single_counter.data.buckets.len();
+                if !safe_range.contains(&starting_bucket) {
+                    return Ok(0);
+                }
+                let buckets = single_counter.data.buckets.range(
+                    starting_bucket..usize::min(num_buckets, single_counter.data.buckets.len()),
+                );
+                return query_type.perform_query(buckets, num_buckets);
+            }
+        }
+        Ok(0)
     }
 }
