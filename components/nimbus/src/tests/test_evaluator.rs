@@ -2,6 +2,8 @@
 * License, v. 2.0. If a copy of the MPL was not distributed with this
 * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
+use serde_json::{json, Map, Value};
+
 use crate::enrollment::{EnrolledReason, EnrollmentStatus, NotEnrolledReason};
 use crate::evaluator::{choose_branch, targeting};
 use crate::{
@@ -327,17 +329,17 @@ fn test_targeting() {
         })
     ));
 }
-use std::collections::{HashMap, HashSet};
+use std::collections::HashSet;
 
 #[test]
 fn test_targeting_custom_targeting_attributes() {
     // Here's our valid jexl statement
     let expression_statement =
-        "app_id == '1010' && (app_version == '4.4' || locale == \"en-US\") && is_first_run == 'true' && ios_version == '8.8'";
+        "app_id == '1010' && (app_version == '4.4' || locale == \"en-US\") && is_first_run == true && ios_version == '8.8'";
 
-    let mut custom_targeting_attributes = HashMap::new();
-    custom_targeting_attributes.insert("is_first_run".into(), "true".into());
-    custom_targeting_attributes.insert("ios_version".into(), "8.8".into());
+    let mut custom_targeting_attributes = Map::<String, Value>::new();
+    custom_targeting_attributes.insert("is_first_run".into(), json!(true));
+    custom_targeting_attributes.insert("ios_version".into(), json!("8.8"));
     // A matching context that includes the appropriate specific context
     let targeting_attributes = AppContext {
         app_name: "nimbus_test".to_string(),

@@ -140,9 +140,9 @@ extension Nimbus: FeaturesInterface {
     internal func getFeatureConfigVariablesJson(featureId: String) -> [String: Any]? {
         do {
             if let string = try nimbusClient.getFeatureConfigVariables(featureId: featureId),
-               let data = string.data(using: .utf8)
+               let obj = try? toJson(string: string)
             {
-                return try JSONSerialization.jsonObject(with: data, options: []) as? [String: Any]
+                return obj
             } else {
                 return nil
             }
@@ -324,8 +324,7 @@ extension Nimbus: GleanPlumbProtocol {
     }
 
     public func createMessageHelper(additionalContext: [String: Any]) throws -> GleanPlumbMessageHelper {
-        let data = try JSONSerialization.data(withJSONObject: additionalContext, options: [])
-        let string = String(data: data, encoding: .utf8)
+        let string = try stringify(jsonObject: additionalContext)
         return try createMessageHelper(string: string)
     }
 
