@@ -328,7 +328,7 @@ impl NimbusClient {
         db: &Database,
         writer: &mut Writer,
         state: &mut InternalMutableState,
-        experiments: &Vec<Experiment>,
+        experiments: &[Experiment],
     ) -> Result<Vec<EnrollmentChangeEvent>> {
         let nimbus_id = self.read_or_create_nimbus_id(db, writer)?;
         let event_store = self.event_store.lock().unwrap();
