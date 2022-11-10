@@ -232,6 +232,37 @@ impl MultiIntervalCounter {
     }
 }
 
+impl Default for MultiIntervalCounter {
+    fn default() -> Self {
+        Self::new(vec![
+            SingleIntervalCounter::new(IntervalConfig {
+                bucket_count: 60,
+                interval: Interval::Minutes,
+            }),
+            SingleIntervalCounter::new(IntervalConfig {
+                bucket_count: 24,
+                interval: Interval::Hours,
+            }),
+            SingleIntervalCounter::new(IntervalConfig {
+                bucket_count: 56,
+                interval: Interval::Days,
+            }),
+            SingleIntervalCounter::new(IntervalConfig {
+                bucket_count: 52,
+                interval: Interval::Weeks,
+            }),
+            SingleIntervalCounter::new(IntervalConfig {
+                bucket_count: 12,
+                interval: Interval::Months,
+            }),
+            SingleIntervalCounter::new(IntervalConfig {
+                bucket_count: 4,
+                interval: Interval::Years,
+            }),
+        ])
+    }
+}
+
 pub enum EventQueryType {
     Sum,
     CountNonZero,
@@ -319,32 +350,9 @@ impl EventStore {
         let counter = match self.events.get_mut(&event_id) {
             Some(v) => v,
             None => {
-                let new_counter = MultiIntervalCounter::new(vec![
-                    SingleIntervalCounter::new(IntervalConfig {
-                        bucket_count: 60,
-                        interval: Interval::Minutes,
-                    }),
-                    SingleIntervalCounter::new(IntervalConfig {
-                        bucket_count: 24,
-                        interval: Interval::Hours,
-                    }),
-                    SingleIntervalCounter::new(IntervalConfig {
-                        bucket_count: 28,
-                        interval: Interval::Days,
-                    }),
-                    SingleIntervalCounter::new(IntervalConfig {
-                        bucket_count: 52,
-                        interval: Interval::Weeks,
-                    }),
-                    SingleIntervalCounter::new(IntervalConfig {
-                        bucket_count: 12,
-                        interval: Interval::Months,
-                    }),
-                    SingleIntervalCounter::new(IntervalConfig {
-                        bucket_count: 4,
-                        interval: Interval::Years,
-                    }),
-                ]);
+                let new_counter = MultiIntervalCounter {
+                    ..Default::default()
+                };
                 self.events.insert(event_id.clone(), new_counter);
                 self.events.get_mut(&event_id).unwrap()
             }
@@ -385,8 +393,4 @@ impl EventStore {
         }
         Ok(0.0)
     }
-}
-
-pub trait WithEventStore {
-    fn event_store(&self) -> Result<&Option<EventStore>>;
 }

@@ -7,7 +7,7 @@ mod dbcache;
 mod enrollment;
 pub mod error;
 mod evaluator;
-use behavior::{EventStore, WithEventStore};
+use behavior::EventStore;
 use chrono::{DateTime, NaiveDateTime, Utc};
 use defaults::Defaults;
 pub use error::{NimbusError, Result};
@@ -199,19 +199,7 @@ impl NimbusClient {
             db.get_store(StoreId::Experiments).collect_all(&writer)?;
         // We pass the existing experiments as "updated experiments"
         // to the evolver.
-        let nimbus_id = self.read_or_create_nimbus_id(db, &mut writer)?;
-
-        // Get a snapshot of the event store and put it on the targeting attributes
-        let event_store = self.event_store.lock().unwrap();
-        state.targeting_attributes.event_store = Some(event_store.clone());
-
-        let evolver = EnrollmentsEvolver::new(
-            &nimbus_id,
-            &state.available_randomization_units,
-            &state.targeting_attributes,
-        );
-        let events = evolver.evolve_enrollments_in_db(db, &mut writer, &existing_experiments)?;
-        state.targeting_attributes.event_store = None;
+        let events = self.evolve_experiments(db, &mut writer, &mut state, &existing_experiments)?;
         self.end_initialize(db, writer, &mut state)?;
         Ok(events)
     }
@@ -335,6 +323,23 @@ impl NimbusClient {
         Ok(())
     }
 
+    fn evolve_experiments(
+        &self,
+        db: &Database,
+        writer: &mut Writer,
+        state: &mut InternalMutableState,
+        experiments: &Vec<Experiment>,
+    ) -> Result<Vec<EnrollmentChangeEvent>> {
+        let nimbus_id = self.read_or_create_nimbus_id(db, writer)?;
+        let event_store = self.event_store.lock().unwrap();
+        let evolver = EnrollmentsEvolver::new(
+            &nimbus_id,
+            &state.available_randomization_units,
+            &state.targeting_attributes,
+        );
+        evolver.evolve_enrollments_in_db(db, writer, experiments, &event_store)
+    }
+
     pub fn apply_pending_experiments(&self) -> Result<Vec<EnrollmentChangeEvent>> {
         log::info!("updating experiment list");
         let db = self.db()?;
@@ -346,25 +351,14 @@ impl NimbusClient {
         let mut state = self.mutable_state.lock().unwrap();
         self.begin_initialize(db, &mut writer, &mut state)?;
 
-        // Get a snapshot of the event store and put it on the targeting attributes
-        let event_store = self.event_store.lock().unwrap();
-        state.targeting_attributes.event_store = Some(event_store.clone());
-
         let res = match pending_updates {
             Some(new_experiments) => {
                 self.update_ta_active_experiments(db, &writer, &mut state)?;
                 // Perform the enrollment calculations if there are pending experiments.
-                let nimbus_id = self.read_or_create_nimbus_id(db, &mut writer)?;
-                let evolver = EnrollmentsEvolver::new(
-                    &nimbus_id,
-                    &state.available_randomization_units,
-                    &state.targeting_attributes,
-                );
-                evolver.evolve_enrollments_in_db(db, &mut writer, &new_experiments)?
+                self.evolve_experiments(db, &mut writer, &mut state, &new_experiments)?
             }
             None => vec![],
         };
-        state.targeting_attributes.event_store = None;
 
         // Finish up any cleanup, e.g. copying from database in to memory.
         self.end_initialize(db, writer, &mut state)?;
@@ -589,6 +583,10 @@ impl NimbusClient {
         event_store.record_event(event_id, None)?;
         event_store.persist_data(self.db()?)?;
         Ok(())
+    }
+
+    pub fn get_event_store(&self) -> EventStore {
+        return self.event_store.lock().unwrap().clone();
     }
 }
 
@@ -863,19 +861,6 @@ impl NimbusStringHelper {
     }
 }
 
-#[derive(Serialize, Deserialize, Debug, Clone, Default)]
-struct NimbusTargetingHelperContext {
-    #[serde(flatten)]
-    pub(crate) context: Map<String, Value>,
-    pub(crate) event_store: Option<EventStore>,
-}
-
-impl WithEventStore for NimbusTargetingHelperContext {
-    fn event_store(&self) -> Result<&Option<EventStore>> {
-        Ok(&self.event_store)
-    }
-}
-
 pub struct NimbusTargetingHelper {
     context: Value,
     event_store: EventStore,
@@ -890,10 +875,7 @@ impl NimbusTargetingHelper {
     }
 
     pub fn eval_jexl(&self, expr: String) -> Result<bool> {
-        let mut context: NimbusTargetingHelperContext =
-            serde_json::from_value(self.context.clone())?;
-        context.event_store = Some(self.event_store.clone());
-        evaluator::jexl_eval(&expr, &context)
+        evaluator::jexl_eval(&expr, &self.context, &self.event_store)
     }
 }
 

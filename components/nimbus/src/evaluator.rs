@@ -3,11 +3,10 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
  */
 
-use crate::behavior::{EventQueryType, EventStore, Interval, WithEventStore};
+use crate::behavior::{EventQueryType, EventStore, Interval};
 use crate::enrollment::{
     EnrolledReason, EnrollmentStatus, ExperimentEnrollment, NotEnrolledReason,
 };
-use crate::error::BehaviorError;
 use crate::{
     error::{NimbusError, Result},
     AvailableRandomizationUnits,
@@ -30,7 +29,7 @@ impl Bucket {
     }
 }
 
-#[derive(Serialize, Deserialize, Debug, Clone, Default)]
+#[derive(Serialize, Debug, Clone, Default)]
 pub struct TargetingAttributes {
     #[serde(flatten)]
     pub app_context: AppContext,
@@ -40,7 +39,6 @@ pub struct TargetingAttributes {
     pub days_since_install: Option<i32>,
     pub days_since_update: Option<i32>,
     pub active_experiments: HashSet<String>,
-    pub event_store: Option<EventStore>,
 }
 
 impl From<AppContext> for TargetingAttributes {
@@ -57,12 +55,6 @@ impl From<AppContext> for TargetingAttributes {
             region,
             ..Default::default()
         }
-    }
-}
-
-impl WithEventStore for TargetingAttributes {
-    fn event_store(&self) -> Result<&Option<EventStore>> {
-        Ok(&self.event_store)
     }
 }
 
@@ -110,6 +102,7 @@ pub fn evaluate_enrollment(
     available_randomization_units: &AvailableRandomizationUnits,
     targeting_attributes: &TargetingAttributes,
     exp: &Experiment,
+    event_store: &EventStore,
 ) -> Result<ExperimentEnrollment> {
     if !is_experiment_available(&targeting_attributes.app_context, exp, true) {
         return Ok(ExperimentEnrollment {
@@ -123,7 +116,7 @@ pub fn evaluate_enrollment(
     // Get targeting out of the way - "if let chains" are experimental,
     // otherwise we could improve this.
     if let Some(expr) = &exp.targeting {
-        if let Some(status) = targeting(expr, targeting_attributes) {
+        if let Some(status) = targeting(expr, targeting_attributes, event_store) {
             return Ok(ExperimentEnrollment {
                 slug: exp.slug.clone(),
                 status,
@@ -275,8 +268,9 @@ pub(crate) fn choose_branch<'a>(
 pub(crate) fn targeting(
     expression_statement: &str,
     targeting_attributes: &TargetingAttributes,
+    event_store: &EventStore,
 ) -> Option<EnrollmentStatus> {
-    match jexl_eval(expression_statement, targeting_attributes) {
+    match jexl_eval(expression_statement, targeting_attributes, event_store) {
         Ok(res) => match res {
             true => None,
             false => Some(EnrollmentStatus::NotEnrolled {
@@ -293,32 +287,33 @@ pub(crate) fn targeting(
 // The targeting attributes and additional context should have been merged and calculated before
 // getting here.
 // Any additional transforms should be added here.
-pub fn jexl_eval<Context>(expression_statement: &str, context: &Context) -> Result<bool>
-where
-    Context: serde::Serialize + WithEventStore,
-{
+pub fn jexl_eval<Context: serde::Serialize>(
+    expression_statement: &str,
+    context: &Context,
+    event_store: &EventStore,
+) -> Result<bool> {
     let evaluator = Evaluator::new()
         .with_transform("versionCompare", |args| Ok(version_compare(args)?))
         .with_transform("eventsSum", |args| {
-            Ok(query_event_store(context, EventQueryType::Sum, args)?)
+            Ok(query_event_store(event_store, EventQueryType::Sum, args)?)
         })
         .with_transform("eventsCountNonZero", |args| {
             Ok(query_event_store(
-                context,
+                event_store,
                 EventQueryType::CountNonZero,
                 args,
             )?)
         })
         .with_transform("eventsAveragePerInterval", |args| {
             Ok(query_event_store(
-                context,
+                event_store,
                 EventQueryType::AveragePerInterval,
                 args,
             )?)
         })
         .with_transform("eventsAveragePerNonZeroInterval", |args| {
             Ok(query_event_store(
-                context,
+                event_store,
                 EventQueryType::AveragePerNonZeroInterval,
                 args,
             )?)
@@ -357,14 +352,11 @@ fn version_compare(args: &[Value]) -> Result<Value> {
     }))
 }
 
-fn query_event_store<Context>(
-    context: &Context,
+fn query_event_store(
+    event_store: &EventStore,
     query_type: EventQueryType,
     args: &[Value],
-) -> Result<Value>
-where
-    Context: serde::Serialize + WithEventStore,
-{
+) -> Result<Value> {
     if args.len() != 4 {
         return Err(NimbusError::TransformParameterError(
             "events transforms require 3 parameters".to_string(),
@@ -390,17 +382,13 @@ where
         }
     } as usize;
 
-    if let Some(event_store) = &context.event_store()? {
-        Ok(json!(event_store.query(
-            event,
-            interval,
-            num_buckets,
-            starting_bucket,
-            query_type,
-        )?))
-    } else {
-        Err(NimbusError::BehaviorError(BehaviorError::MissingEventStore))
-    }
+    Ok(json!(event_store.query(
+        event,
+        interval,
+        num_buckets,
+        starting_bucket,
+        query_type,
+    )?))
 }
 
 #[cfg(test)]
