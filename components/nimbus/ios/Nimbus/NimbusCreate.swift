@@ -95,7 +95,7 @@ public extension Nimbus {
             debugTag: "Nimbus.rs",
             installationDate: installationDateSinceEpoch,
             homeDirectory: nil,
-            customTargetingAttributes: try? stringify(jsonObject: appSettings.customTargetingAttributes)
+            customTargetingAttributes: try? appSettings.customTargetingAttributes.stringify()
         )
     }
 }
