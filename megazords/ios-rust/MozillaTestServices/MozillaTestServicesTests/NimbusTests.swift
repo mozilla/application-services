@@ -373,6 +373,15 @@ class NimbusTests: XCTestCase {
         )
         XCTAssertNotNil(disqualificationEventExtras!["enrollment_id"], "Experiment enrollment id must not be nil")
     }
+
+    func testNimbusCreateWithJson() throws {
+        let appSettings = NimbusAppSettings(appName: "test", channel: "nightly", customTargetingAttributes: ["is_first_run": false, "is_test": true])
+        let nimbus = try Nimbus.create(nil, appSettings: appSettings, dbPath: createDatabasePath())
+        let helper = try nimbus.createMessageHelper()
+
+        XCTAssertTrue(try helper.evalJexl(expression: "is_test"))
+        XCTAssertFalse(try helper.evalJexl(expression: "is_first_run"))
+    }
 }
 
 private extension Device {
