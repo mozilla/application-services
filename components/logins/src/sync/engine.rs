@@ -238,16 +238,11 @@ impl LoginsSyncEngine {
         Ok(sync_data)
     }
 
-    fn fetch_outgoing(
-        &self,
-        st: ServerTimestamp,
-        scope: &SqlInterruptScope,
-    ) -> Result<OutgoingChangeset> {
+    fn fetch_outgoing(&self, scope: &SqlInterruptScope) -> Result<OutgoingChangeset> {
         // Taken from iOS. Arbitrarily large, so that clients that want to
         // process deletions first can; for us it doesn't matter.
         const TOMBSTONE_SORTINDEX: i32 = 5_000_000;
         const DEFAULT_SORTINDEX: i32 = 1;
-        let mut outgoing = OutgoingChangeset::new("passwords", st);
         let db = self.store.db.lock();
         let mut stmt = db.prepare_cached(&format!(
             "SELECT * FROM loginsL WHERE sync_status IS NOT {synced}",
@@ -268,9 +263,10 @@ impl LoginsSyncEngine {
                 bso
             })
         })?;
-        outgoing.changes = rows.collect::<Result<_>>()?;
-
-        Ok(outgoing)
+        Ok(OutgoingChangeset::new(
+            "passwords".into(),
+            rows.collect::<Result<_>>()?,
+        ))
     }
 
     fn do_apply_incoming(
@@ -287,7 +283,7 @@ impl LoginsSyncEngine {
             result
         }?;
         self.execute_plan(plan, scope)?;
-        self.fetch_outgoing(inbound.timestamp, scope)
+        self.fetch_outgoing(scope)
     }
 
     fn set_last_sync(&self, db: &LoginDb, last_sync: ServerTimestamp) -> Result<()> {
@@ -479,7 +475,9 @@ impl SyncEngine for LoginsSyncEngine {
         Ok(if since == server_timestamp {
             vec![]
         } else {
-            vec![CollectionRequest::new("passwords").full().newer_than(since)]
+            vec![CollectionRequest::new("passwords".into())
+                .full()
+                .newer_than(since)]
         })
     }
 
@@ -539,9 +537,7 @@ mod tests {
         engine
             .set_local_encryption_key(&TEST_ENCRYPTION_KEY)
             .unwrap();
-        engine
-            .fetch_outgoing(sync15::ServerTimestamp(10000), &engine.scope)
-            .unwrap()
+        engine.fetch_outgoing(&engine.scope).unwrap()
     }
 
     #[test]

@@ -8,8 +8,9 @@ use crate::db::schema::CREDIT_CARD_COMMON_COLS;
 use crate::encryption::EncryptorDecryptor;
 use crate::error::*;
 use crate::sync::common::*;
-use crate::sync::{OutgoingBso, OutgoingChangeset, ProcessOutgoingRecordImpl, ServerTimestamp};
+use crate::sync::{OutgoingBso, OutgoingChangeset, ProcessOutgoingRecordImpl};
 use rusqlite::{Row, Transaction};
+use sync15::CollectionName;
 use sync_guid::Guid as SyncGuid;
 
 const DATA_TABLE_NAME: &str = "credit_cards_data";
@@ -28,8 +29,7 @@ impl ProcessOutgoingRecordImpl for OutgoingCreditCardsImpl {
     fn fetch_outgoing_records(
         &self,
         tx: &Transaction<'_>,
-        collection_name: String,
-        timestamp: ServerTimestamp,
+        collection_name: CollectionName,
     ) -> anyhow::Result<OutgoingChangeset> {
         let data_sql = format!(
             "SELECT
@@ -77,11 +77,7 @@ impl ProcessOutgoingRecordImpl for OutgoingCreditCardsImpl {
                 .map(|(bso, _change_counter)| bso)
                 .collect();
 
-        Ok(OutgoingChangeset::new_with_changes(
-            collection_name,
-            timestamp,
-            outgoing_records,
-        ))
+        Ok(OutgoingChangeset::new(collection_name, outgoing_records))
     }
 
     fn finish_synced_items(
@@ -167,7 +163,7 @@ mod tests {
             DATA_TABLE_NAME,
             MIRROR_TABLE_NAME,
             STAGING_TABLE_NAME,
-            COLLECTION_NAME,
+            COLLECTION_NAME.into(),
         );
     }
 
@@ -203,7 +199,7 @@ mod tests {
             DATA_TABLE_NAME,
             MIRROR_TABLE_NAME,
             STAGING_TABLE_NAME,
-            COLLECTION_NAME,
+            COLLECTION_NAME.into(),
         );
     }
 
@@ -231,7 +227,7 @@ mod tests {
             DATA_TABLE_NAME,
             MIRROR_TABLE_NAME,
             STAGING_TABLE_NAME,
-            COLLECTION_NAME,
+            COLLECTION_NAME.into(),
         );
     }
 
@@ -255,7 +251,7 @@ mod tests {
             &guid,
             DATA_TABLE_NAME,
             STAGING_TABLE_NAME,
-            COLLECTION_NAME,
+            COLLECTION_NAME.into(),
         );
     }
 }

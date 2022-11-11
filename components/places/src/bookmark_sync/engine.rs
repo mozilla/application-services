@@ -35,7 +35,7 @@ use sync15::engine::{
     CollSyncIds, CollectionRequest, EngineSyncAssociation, IncomingChangeset, OutgoingChangeset,
     SyncEngine,
 };
-use sync15::{telemetry, ServerTimestamp};
+use sync15::{telemetry, CollectionName, ServerTimestamp};
 use sync_guid::Guid as SyncGuid;
 use types::Timestamp;
 pub const LAST_SYNC_META_KEY: &str = "bookmarks_last_sync_time";
@@ -644,12 +644,8 @@ fn stage_items_to_upload(
 }
 
 /// Inflates Sync records for all staged outgoing items.
-fn fetch_outgoing_records(
-    db: &PlacesDb,
-    scope: &SqlInterruptScope,
-    timestamp: ServerTimestamp,
-) -> Result<OutgoingChangeset> {
-    let mut outgoing = OutgoingChangeset::new(COLLECTION_NAME, timestamp);
+fn fetch_outgoing_records(db: &PlacesDb, scope: &SqlInterruptScope) -> Result<OutgoingChangeset> {
+    let mut changes = Vec::new();
     let mut child_record_ids_by_local_parent_id: HashMap<i64, Vec<BookmarkRecordId>> =
         HashMap::new();
     let mut tags_by_local_id: HashMap<i64, Vec<String>> = HashMap::new();
@@ -691,7 +687,7 @@ fn fetch_outgoing_records(
         let guid = row.get::<_, SyncGuid>("guid")?;
         let is_deleted = row.get::<_, bool>("isDeleted")?;
         if is_deleted {
-            outgoing.changes.push(OutgoingBso::new_tombstone(
+            changes.push(OutgoingBso::new_tombstone(
                 BookmarkRecordId::from(guid).as_guid().clone().into(),
             ));
             continue;
@@ -763,12 +759,10 @@ fn fetch_outgoing_records(
                 .into()
             }
         };
-        outgoing
-            .changes
-            .push(OutgoingBso::from_content_with_id(record)?);
+        changes.push(OutgoingBso::from_content_with_id(record)?);
     }
 
-    Ok(outgoing)
+    Ok(OutgoingChangeset::new(COLLECTION_NAME.into(), changes))
 }
 
 /// Decrements the change counter, updates the sync status, and cleans up
@@ -904,7 +898,7 @@ impl BookmarksSyncEngine {
 
 impl SyncEngine for BookmarksSyncEngine {
     #[inline]
-    fn collection_name(&self) -> std::borrow::Cow<'static, str> {
+    fn collection_name(&self) -> CollectionName {
         COLLECTION_NAME.into()
     }
 
@@ -931,7 +925,7 @@ impl SyncEngine for BookmarksSyncEngine {
         merger.merge()?;
 
         // Finally, stage outgoing items.
-        let outgoing = fetch_outgoing_records(&conn, &self.scope, timestamp)?;
+        let outgoing = fetch_outgoing_records(&conn, &self.scope)?;
         Ok(outgoing)
     }
 
@@ -1898,7 +1892,7 @@ mod tests {
         let interrupt_scope = conn.begin_interrupt_scope()?;
 
         let incoming = IncomingChangeset::new_with_changes(
-            COLLECTION_NAME,
+            COLLECTION_NAME.into(),
             ServerTimestamp(0),
             records
                 .into_iter()
@@ -2715,7 +2709,7 @@ mod tests {
             json!({"children" : [{"guid": "bookmarkAAAA", "url": "http://example.com/a?b=c&d=%s"}]}),
         );
 
-        let outgoing = fetch_outgoing_records(&db, &interrupt_scope, ServerTimestamp(0))?;
+        let outgoing = fetch_outgoing_records(&db, &interrupt_scope)?;
         let record_for_a = outgoing
             .changes
             .iter()

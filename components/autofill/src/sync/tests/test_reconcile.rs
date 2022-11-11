@@ -616,7 +616,7 @@ fn test_reconcile_addresses() -> Result<()> {
 
         let bso = test_to_bso(&guid, &remote);
         let remote_time = ServerTimestamp(0);
-        let mut incoming = IncomingChangeset::new("test".to_string(), remote_time);
+        let mut incoming = IncomingChangeset::new("test".into(), remote_time);
         incoming.changes.push(bso);
 
         let mut telem = telemetry::Engine::new("addresses");
