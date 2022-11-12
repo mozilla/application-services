@@ -961,6 +961,7 @@ name = "example-sync-pass"
 version = "0.1.0"
 dependencies = [
  "anyhow",
+ "base64 0.13.0",
  "chrono",
  "clap 2.34.0",
  "cli-support",
