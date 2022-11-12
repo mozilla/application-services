@@ -164,7 +164,7 @@ public let remoteSettingsCollection = "nimbus-mobile-experiments"
 /// The specifc context is there to capture any context that the SDK doesn't need to be explictly aware of.
 ///
 public struct NimbusAppSettings {
-    public init(appName: String, channel: String, customTargetingAttributes: [String: String] = [String: String]()) {
+    public init(appName: String, channel: String, customTargetingAttributes: [String: Any] = [String: Any]()) {
         self.appName = appName
         self.channel = channel
         self.customTargetingAttributes = customTargetingAttributes
@@ -172,7 +172,7 @@ public struct NimbusAppSettings {
 
     public let appName: String
     public let channel: String
-    public let customTargetingAttributes: [String: String]
+    public let customTargetingAttributes: [String: Any]
 }
 
 /// This error reporter is passed to `Nimbus` and any errors that are caught are reported via this type.
