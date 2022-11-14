@@ -5,6 +5,7 @@
 use crate::db::{PlacesDb, PlacesTransaction};
 use crate::error::*;
 use crate::RowId;
+use error_support::{breadcrumb, redact_url};
 use rusqlite::types::{FromSql, FromSqlResult, ToSql, ToSqlOutput, ValueRef};
 use sql_support::ConnExt;
 use std::vec::Vec;
@@ -133,7 +134,13 @@ trait WhereArg {
 
 impl PlaceEntry {
     fn fetch(url: &str, tx: &PlacesTransaction<'_>, title: Option<String>) -> Result<Self> {
-        let url = Url::parse(url)?;
+        let url = Url::parse(url).map_err(|e| {
+            breadcrumb!(
+                "PlaceEntry::fetch -- Error parsing url: {}",
+                redact_url(url)
+            );
+            e
+        })?;
         let place_id = tx.try_query_one(
             "SELECT id FROM moz_places WHERE url_hash = hash(:url) AND url = :url",
             &[(":url", &url.as_str())],

@@ -1622,6 +1622,8 @@ name = "jwcrypto"
 version = "0.1.0"
 dependencies = [
  "base64 0.13.0",
+ "error-support",
+ "log",
  "rc_crypto",
  "serde",
  "serde_derive",
