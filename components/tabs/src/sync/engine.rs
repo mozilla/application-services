@@ -42,6 +42,7 @@ pub fn get_registered_sync_engine(engine_id: &SyncEngineId) -> Option<Box<dyn Sy
 impl ClientRemoteTabs {
     fn from_record_with_remote_client(
         client_id: String,
+        last_modified: ServerTimestamp,
         remote_client: &RemoteClient,
         record: TabsRecord,
     ) -> Self {
@@ -49,15 +50,17 @@ impl ClientRemoteTabs {
             client_id,
             client_name: remote_client.device_name.clone(),
             device_type: remote_client.device_type.unwrap_or(DeviceType::Unknown),
+            last_modified: last_modified.as_millis(),
             remote_tabs: record.tabs.iter().map(RemoteTab::from_record_tab).collect(),
         }
     }
 
-    fn from_record(client_id: String, record: TabsRecord) -> Self {
+    fn from_record(client_id: String, last_modified: ServerTimestamp, record: TabsRecord) -> Self {
         Self {
             client_id,
             client_name: record.client_name,
             device_type: DeviceType::Unknown,
+            last_modified: last_modified.as_millis(),
             remote_tabs: record.tabs.iter().map(RemoteTab::from_record_tab).collect(),
         }
     }
@@ -134,6 +137,7 @@ impl TabsSyncImpl {
                 // That's our own record, ignore it.
                 continue;
             }
+            let modified = incoming.envelope.modified;
             let record = match incoming.into_content::<TabsRecord>().content() {
                 Some(record) => record,
                 None => {
@@ -151,6 +155,7 @@ impl TabsSyncImpl {
                         .as_ref()
                         .unwrap_or(&id)
                         .to_owned(),
+                    modified,
                     remote_client,
                     record,
                 )
@@ -159,11 +164,19 @@ impl TabsSyncImpl {
                 // could happen - in most cases though, it will be due to a disconnected client -
                 // so we really should consider just dropping it? (Sadly though, it does seem
                 // possible it's actually a very recently connected client, so we keep it)
+
+                // XXX - this is actually a foot-gun, particularly for desktop. If we don't know
+                // the device, we assume the device ID is the fxa-device-id, which may not be the
+                // case.
+                // So we should drop these records! But we can't do this now because stand alone
+                // syncing (ie, store.sync()) doesn't allow us to pass the device list in, so
+                // we'd get no rows!
+                // See also: https://github.com/mozilla/application-services/issues/5199
                 log::info!(
                     "Storing tabs from a client that doesn't appear in the devices list: {}",
                     id,
                 );
-                ClientRemoteTabs::from_record(id, record)
+                ClientRemoteTabs::from_record(id, modified, record)
             };
             remote_tabs.push(crt);
         }
@@ -189,6 +202,7 @@ impl TabsSyncImpl {
                 client_id: local_id.clone(),
                 client_name,
                 device_type,
+                last_modified: 0, // ignored for outgoing records.
                 remote_tabs: local_tabs.to_vec(),
             };
             log::trace!("outgoing {:?}", local_record);
