@@ -4,11 +4,10 @@
 
 package org.mozilla.experiments.nimbus
 
+import android.content.Context
 import androidx.annotation.AnyThread
 import androidx.annotation.RawRes
-import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Job
-import kotlinx.coroutines.MainScope
 import org.mozilla.experiments.nimbus.internal.AvailableExperiment
 import org.mozilla.experiments.nimbus.internal.EnrolledExperiment
 import org.mozilla.experiments.nimbus.internal.ExperimentBranch
@@ -235,3 +234,5 @@ interface NimbusInterface : FeaturesInterface, GleanPlumbInterface {
         fun onUpdatesApplied(updated: List<EnrolledExperiment>) = Unit
     }
 }
+
+class NullNimbus(override val context: Context): NimbusInterface

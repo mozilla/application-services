@@ -4,8 +4,11 @@
 
 package org.mozilla.experiments.nimbus
 
+import android.util.Log
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.MainScope
+import kotlinx.coroutines.asCoroutineDispatcher
+import java.util.concurrent.Executors
 
 typealias ErrorReporter = (message: String, e: Throwable) -> Unit
 private typealias LoggerFunction = (message: String) -> Unit
@@ -30,4 +33,19 @@ class NimbusDelegate(
     val updateScope: CoroutineScope? = MainScope(),
     val errorReporter: ErrorReporter,
     val logger: LoggerFunction
-)
+) {
+    companion object {
+        private fun createCoroutineScope() = CoroutineScope(
+            Executors.newSingleThreadExecutor().asCoroutineDispatcher()
+        )
+
+        private const val logTag = "app-services-Nimbus.kt"
+
+        fun default() = NimbusDelegate(
+            dbScope = createCoroutineScope(),
+            fetchScope = createCoroutineScope(),
+            errorReporter = { msg: String, e: Throwable -> Log.e(logTag, msg, e) },
+            logger = { Log.i(logTag, it) },
+        )
+    }
+}
