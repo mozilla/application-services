@@ -47,3 +47,7 @@ Use the template below to make assigning a version number during the release cut
 ### What's Changed
   - Log a breadcrumb with a redacted version of the crypto key when it has an invalid form (before throwing
     DeserializationError)
+
+## FxA Client
+### What's changed
+  - The `processRawIncomingAccountEvent` function will now process all commands, not just one. This moves the responsibilty of ensuring each push gets a UI element to the caller.

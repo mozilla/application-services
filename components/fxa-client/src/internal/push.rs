@@ -13,12 +13,19 @@ impl FirefoxAccount {
     /// Handle any incoming push message payload coming from the Firefox Accounts
     /// servers that has been decrypted and authenticated by the Push crate.
     ///
-    /// Due to iOS platform restrictions, a push notification must always show UI.
-    /// Since FxA sends one push notification per command received,
-    /// we must only retrieve 1 command per push message,
-    /// otherwise we risk receiving push messages for which the UI has already been shown.
-    /// However, note that this means iOS currently risks losing messages for
-    /// which a push notification doesn't arrive.
+    /// ** ⚠️ Due to iOS platform restrictions, a push notification must always show UI. **
+    /// iOS callers of this API need to ensure that if this returns an empty list
+    /// they display some type error notification.
+    ///
+    /// This API could return an empty list if:
+    ///  1. The user sends themselves multiple tabs, tab A and tab B
+    ///  2. The device receives the notification for tab A, and queries FxA
+    ///  3. The device gets **both** tab A and tab B from FxA
+    ///  4. The device handles both tabs
+    ///  5. The device receives the notification for tab B (late)
+    ///  6. The device queries FxA again, and the tab is already gone!
+    ///
+    /// We leave handling of the above case to the caller
     ///
     /// **💾 This method alters the persisted account state.**
     pub fn handle_push_message(&mut self, payload: &str) -> Result<Vec<AccountEvent>> {
@@ -35,21 +42,14 @@ impl FirefoxAccount {
         })?;
         match payload {
             PushPayload::CommandReceived(CommandReceivedPushPayload { index, .. }) => {
-                if cfg!(target_os = "ios") {
-                    let cmd = self.ios_fetch_device_command(index)?;
-                    Ok(vec![AccountEvent::CommandReceived {
-                        command: cmd.try_into()?,
-                    }])
-                } else {
-                    let cmds = self.poll_device_commands(CommandFetchReason::Push(index))?;
-                    cmds.into_iter()
-                        .map(|command| {
-                            Ok(AccountEvent::CommandReceived {
-                                command: command.try_into()?,
-                            })
+                let cmds = self.poll_device_commands(CommandFetchReason::Push(index))?;
+                cmds.into_iter()
+                    .map(|command| {
+                        Ok(AccountEvent::CommandReceived {
+                            command: command.try_into()?,
                         })
-                        .collect()
-                }
+                    })
+                    .collect()
             }
             PushPayload::ProfileUpdated => {
                 self.state.last_seen_profile = None;
