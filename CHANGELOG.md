@@ -1,3 +1,38 @@
+# v96.0.0 (_2022-11-16_)
+
+[Full Changelog](https://github.com/mozilla/application-services/compare/v95.0.1...v96.0.0)
+
+## ⛅️🔬🔭 Nimbus
+
+### ✨ What's New ✨
+  - `active_experiments` is available to JEXL as a set containing slugs of all enrolled experiments ([#5227](https://github.com/mozilla/application-services/pull/5227))
+  - Added Behavioral Targeting/Display Triggers accessible from JEXL for experiments and messages ([#5226](https://github.com/mozilla/application-services/pull/5226), [#5228](https://github.com/mozilla/application-services/pull/5228))
+  - Android only: added a new `NimbusBuilder` method to unify Fenix and Focus startup sequences. ([5239](https://github.com/mozilla/application-services/pull/5239))
+
+### ⚠️ Breaking Changes ⚠️
+  - Changed the type of `customTargetingAttributes` in `NimbusAppSettings` to a `JSONObject`. The change will be breaking only for Android. ([#5229](https://github.com/mozilla/application-services/pull/5229))
+  - Android only: Removed the `initialize()` methods in favor of `NimbusBuilder` class. ([5239](https://github.com/mozilla/application-services/pull/5239))
+
+## Logins
+
+### What's Changed
+  - Include a redacted version of the URL in the Sentry error report when we see a login with an invalid origin field.
+  - Made it so `InvalidDatabaseFile` errors aren't reported to Sentry.  These occurs when a non-existent path is passed
+    to `migrateLoginsWithMetrics()`, which happens about 1-2 times a day.  This is very low volume, the code is going
+    away soon, and we have a plausible theory that these happen when Fenix is killed after the migration but before
+    `SQL_CIPHER_MIGRATION` is stored.
+
+## Places
+
+### What's Changed
+  - Report a Sentry breadcrumb when we fail to parse URLs, with a redacted version of the URL.
+
+## JwCrypto
+
+### What's Changed
+  - Log a breadcrumb with a redacted version of the crypto key when it has an invalid form (before throwing
+    DeserializationError)
+
 # v95.0.1 (_2022-11-03_)
 
 [Full Changelog](https://github.com/mozilla/application-services/compare/v95.0.0...v95.0.1)
