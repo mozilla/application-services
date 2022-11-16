@@ -199,6 +199,10 @@ impl FromStr for CompactJwe {
     fn from_str(str: &str) -> Result<Self> {
         let jwe_segments: Vec<String> = str.split('.').map(|s| s.to_owned()).collect();
         if jwe_segments.len() != 5 {
+            error_support::breadcrumb!(
+                "Error in CompactJwe::from_str ({})",
+                error_support::redact_compact_jwe(str)
+            );
             return Err(JwCryptoError::DeserializationError);
         }
         Ok(Self { jwe_segments })

@@ -153,11 +153,22 @@ impl GetErrorHandling for Error {
                 })
                 .report_error("logins-sync"),
             },
-            // This list is partial - not clear if a best-practice should be to ask that every
-            // internal error is listed here (and remove this default branch) to ensure every error
-            // is considered, or whether this default is fine for obscure errors?
-            // But it's fine for now because errors were always converted with a default
-            // branch to "unexpected"
+            // Errors that are unexpected in the sense that they are too rare to deserve a
+            // LoginsApiError variant, but we still don't need to report them to Sentry.
+            //
+            // For now, just log a warning.  Eventually, it would be nice to count these with
+            // telemetry.
+            Self::InvalidDatabaseFile(_) => {
+                ErrorHandling::convert(LoginsApiError::UnexpectedLoginsApiError {
+                    reason: self.to_string(),
+                })
+                .log_warning()
+            }
+            // Unexpected errors that we report to Sentry.  We should watch the reports for these
+            // and do one or more of these things if we see them:
+            //   - Fix the underlying issue
+            //   - Add breadcrumbs or other context to help uncover the issue
+            //   - Decide that these are expected errors and move them to the above case
             _ => ErrorHandling::convert(LoginsApiError::UnexpectedLoginsApiError {
                 reason: self.to_string(),
             })

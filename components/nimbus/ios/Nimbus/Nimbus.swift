@@ -139,13 +139,10 @@ extension Nimbus: FeaturesInterface {
 
     internal func getFeatureConfigVariablesJson(featureId: String) -> [String: Any]? {
         do {
-            if let string = try nimbusClient.getFeatureConfigVariables(featureId: featureId),
-               let data = string.data(using: .utf8)
-            {
-                return try JSONSerialization.jsonObject(with: data, options: []) as? [String: Any]
-            } else {
+            guard let string = try nimbusClient.getFeatureConfigVariables(featureId: featureId) else {
                 return nil
             }
+            return try Dictionary.parse(jsonString: string)
         } catch NimbusError.DatabaseNotReady {
             GleanMetrics.NimbusHealth.cacheNotReadyForFeature.record(
                 GleanMetrics.NimbusHealth.CacheNotReadyForFeatureExtra(
@@ -324,8 +321,7 @@ extension Nimbus: GleanPlumbProtocol {
     }
 
     public func createMessageHelper(additionalContext: [String: Any]) throws -> GleanPlumbMessageHelper {
-        let data = try JSONSerialization.data(withJSONObject: additionalContext, options: [])
-        let string = String(data: data, encoding: .utf8)
+        let string = try additionalContext.stringify()
         return try createMessageHelper(string: string)
     }
 

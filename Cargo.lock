@@ -961,6 +961,7 @@ name = "example-sync-pass"
 version = "0.1.0"
 dependencies = [
  "anyhow",
+ "base64 0.13.0",
  "chrono",
  "clap 2.34.0",
  "cli-support",
@@ -1621,6 +1622,8 @@ name = "jwcrypto"
 version = "0.1.0"
 dependencies = [
  "base64 0.13.0",
+ "error-support",
+ "log",
  "rc_crypto",
  "serde",
  "serde_derive",

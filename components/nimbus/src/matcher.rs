@@ -9,7 +9,7 @@
 //! provided by the consuming client.
 //!
 use serde_derive::*;
-use std::collections::HashMap;
+use serde_json::{Map, Value};
 /// The `AppContext` object represents the parameters and characteristics of the
 /// consuming application that we are interested in for targeting purposes. The
 /// `app_name` and `channel` fields are not optional as they are expected
@@ -52,5 +52,5 @@ pub struct AppContext {
     pub installation_date: Option<i64>,
     pub home_directory: Option<String>,
     #[serde(flatten)]
-    pub custom_targeting_attributes: Option<HashMap<String, String>>,
+    pub custom_targeting_attributes: Option<Map<String, Value>>,
 }

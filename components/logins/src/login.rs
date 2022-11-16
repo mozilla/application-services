@@ -337,7 +337,10 @@ impl LoginFields {
                 Ok(None)
             }
             Err(e) => {
-                breadcrumb!("Error parsing login origin: {e:?}");
+                breadcrumb!(
+                    "Error parsing login origin: {e:?} ({})",
+                    error_support::redact_url(origin)
+                );
                 // We can't fixup completely invalid records, so always throw.
                 Err(InvalidLogin::IllegalFieldValue {
                     field_info: "Origin is Malformed".into(),

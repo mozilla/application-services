@@ -309,7 +309,7 @@ data class NimbusAppInfo(
      *
      * Example: mapOf("userType": "casual", "isFirstTime": "true")
      */
-    val customTargetingAttributes: Map<String, String> = mapOf()
+    val customTargetingAttributes: JSONObject = JSONObject()
 )
 
 /**

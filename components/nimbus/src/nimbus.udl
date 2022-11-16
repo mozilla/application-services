@@ -17,7 +17,7 @@ dictionary AppContext {
     // the unix time, which is milliseconds since epoch
     i64? installation_date;
     string? home_directory;
-    record<DOMString, string>? custom_targeting_attributes;
+    JsonObject? custom_targeting_attributes;
 };
 
 dictionary EnrolledExperiment {

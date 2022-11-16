@@ -24,6 +24,9 @@ pub mod backtrace {
     }
 }
 
+mod redact;
+pub use redact::*;
+
 mod reporting;
 pub use reporting::{
     report_breadcrumb, report_error_to_app, set_application_error_reporter,
