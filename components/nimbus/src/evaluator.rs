@@ -294,24 +294,24 @@ pub fn jexl_eval<Context: serde::Serialize>(
 ) -> Result<bool> {
     let evaluator = Evaluator::new()
         .with_transform("versionCompare", |args| Ok(version_compare(args)?))
-        .with_transform("eventsSum", |args| {
+        .with_transform("eventSum", |args| {
             Ok(query_event_store(event_store, EventQueryType::Sum, args)?)
         })
-        .with_transform("eventsCountNonZero", |args| {
+        .with_transform("eventCountNonZero", |args| {
             Ok(query_event_store(
                 event_store,
                 EventQueryType::CountNonZero,
                 args,
             )?)
         })
-        .with_transform("eventsAveragePerInterval", |args| {
+        .with_transform("eventAveragePerInterval", |args| {
             Ok(query_event_store(
                 event_store,
                 EventQueryType::AveragePerInterval,
                 args,
             )?)
         })
-        .with_transform("eventsAveragePerNonZeroInterval", |args| {
+        .with_transform("eventAveragePerNonZeroInterval", |args| {
             Ok(query_event_store(
                 event_store,
                 EventQueryType::AveragePerNonZeroInterval,
@@ -359,7 +359,7 @@ fn query_event_store(
 ) -> Result<Value> {
     if args.len() != 4 {
         return Err(NimbusError::TransformParameterError(
-            "events transforms require 3 parameters".to_string(),
+            "event transforms require 3 parameters".to_string(),
         ));
     }
     let event = serde_json::from_value::<String>(args.get(0).unwrap().clone())?;
@@ -369,7 +369,7 @@ fn query_event_store(
         Some(v) => v,
         None => {
             return Err(NimbusError::TransformParameterError(
-                "events transforms require a positive number as the second parameter".to_string(),
+                "event transforms require a positive number as the second parameter".to_string(),
             ))
         }
     } as usize;
@@ -377,7 +377,7 @@ fn query_event_store(
         Some(v) => v,
         None => {
             return Err(NimbusError::TransformParameterError(
-                "events transforms require a positive number as the third parameter".to_string(),
+                "event transforms require a positive number as the third parameter".to_string(),
             ))
         }
     } as usize;

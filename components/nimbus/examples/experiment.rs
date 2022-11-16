@@ -297,14 +297,14 @@ fn main() -> Result<()> {
             'outer: loop {
                 let uuid = uuid::Uuid::new_v4();
                 let mut num_of_experiments_enrolled = 0;
-                let event_store = nimbus_client.get_event_store();
+                let event_store = nimbus_client.event_store();
                 for exp in &all_experiments {
                     let enr = nimbus::evaluate_enrollment(
                         &uuid,
                         &aru,
                         &targeting_attributes,
                         exp,
-                        &event_store,
+                        &event_store.lock().unwrap(),
                     )?;
                     if enr.status.is_enrolled() {
                         num_of_experiments_enrolled += 1;
@@ -353,7 +353,7 @@ fn main() -> Result<()> {
             };
             let exp = find_exp();
             let mut results = HashMap::new();
-            let event_store = nimbus_client.get_event_store();
+            let event_store = nimbus_client.event_store();
             for _i in 0..num {
                 // Rather than inspecting what randomization unit is specified
                 // by the experiment just generate a new uuid for all possible
@@ -366,7 +366,7 @@ fn main() -> Result<()> {
                     &aru,
                     &targeting_attributes,
                     &exp,
-                    &event_store,
+                    &event_store.lock().unwrap(),
                 )?;
                 let key = match enrollment.status.clone() {
                     EnrollmentStatus::Enrolled { .. } => "Enrolled",

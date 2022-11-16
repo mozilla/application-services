@@ -1014,7 +1014,7 @@ fn test_enrollment_bucketing() {
 }
 
 #[test]
-fn test_events_sum_transform() {
+fn test_event_sum_transform() {
     let counter = MultiIntervalCounter::new(vec![SingleIntervalCounter::from(
         IntervalData {
             bucket_count: 3,
@@ -1031,7 +1031,7 @@ fn test_events_sum_transform() {
     .into();
     assert_eq!(
         targeting(
-            "'app.foregrounded'|eventsSum('Days', 3, 0) > 2",
+            "'app.foregrounded'|eventSum('Days', 3, 0) > 2",
             &targeting_attributes,
             &event_store
         ),
@@ -1041,7 +1041,7 @@ fn test_events_sum_transform() {
     );
     assert_eq!(
         targeting(
-            "'app.foregrounded'|eventsSum('Days', 3, 0) > 1",
+            "'app.foregrounded'|eventSum('Days', 3, 0) > 1",
             &targeting_attributes,
             &event_store
         ),
@@ -1050,7 +1050,7 @@ fn test_events_sum_transform() {
 }
 
 #[test]
-fn test_events_count_non_zero_transform() {
+fn test_event_count_non_zero_transform() {
     let counter = MultiIntervalCounter::new(vec![SingleIntervalCounter::from(
         IntervalData {
             bucket_count: 3,
@@ -1067,7 +1067,7 @@ fn test_events_count_non_zero_transform() {
     .into();
     assert_eq!(
         targeting(
-            "'app.foregrounded'|eventsCountNonZero('Days', 3, 0) > 2",
+            "'app.foregrounded'|eventCountNonZero('Days', 3, 0) > 2",
             &targeting_attributes,
             &event_store
         ),
@@ -1077,7 +1077,7 @@ fn test_events_count_non_zero_transform() {
     );
     assert_eq!(
         targeting(
-            "'app.foregrounded'|eventsCountNonZero('Days', 3, 0) > 1",
+            "'app.foregrounded'|eventCountNonZero('Days', 3, 0) > 1",
             &targeting_attributes,
             &event_store
         ),
@@ -1086,7 +1086,7 @@ fn test_events_count_non_zero_transform() {
 }
 
 #[test]
-fn test_events_average_per_interval_transform() {
+fn test_event_average_per_interval_transform() {
     let counter = MultiIntervalCounter::new(vec![SingleIntervalCounter::from(
         IntervalData {
             bucket_count: 7,
@@ -1103,7 +1103,7 @@ fn test_events_average_per_interval_transform() {
     .into();
     assert_eq!(
         targeting(
-            "'app.foregrounded'|eventsAveragePerInterval('Days', 7, 0) > 2",
+            "'app.foregrounded'|eventAveragePerInterval('Days', 7, 0) > 2",
             &targeting_attributes,
             &event_store
         ),
@@ -1113,7 +1113,7 @@ fn test_events_average_per_interval_transform() {
     );
     assert_eq!(
         targeting(
-            "'app.foregrounded'|eventsAveragePerInterval('Days', 7, 0) > 1.14",
+            "'app.foregrounded'|eventAveragePerInterval('Days', 7, 0) > 1.14",
             &targeting_attributes,
             &event_store
         ),
@@ -1122,7 +1122,7 @@ fn test_events_average_per_interval_transform() {
 }
 
 #[test]
-fn test_events_average_per_non_zero_interval_transform() {
+fn test_event_average_per_non_zero_interval_transform() {
     let counter = MultiIntervalCounter::new(vec![SingleIntervalCounter::from(
         IntervalData {
             bucket_count: 7,
@@ -1139,7 +1139,7 @@ fn test_events_average_per_non_zero_interval_transform() {
     .into();
     assert_eq!(
         targeting(
-            "'app.foregrounded'|eventsAveragePerNonZeroInterval('Days', 7, 0) == 1",
+            "'app.foregrounded'|eventAveragePerNonZeroInterval('Days', 7, 0) == 1",
             &targeting_attributes,
             &event_store
         ),
@@ -1149,7 +1149,7 @@ fn test_events_average_per_non_zero_interval_transform() {
     );
     assert_eq!(
         targeting(
-            "'app.foregrounded'|eventsAveragePerNonZeroInterval('Days', 7, 0) == 2.25",
+            "'app.foregrounded'|eventAveragePerNonZeroInterval('Days', 7, 0) == 2.25",
             &targeting_attributes,
             &event_store
         ),
@@ -1158,7 +1158,7 @@ fn test_events_average_per_non_zero_interval_transform() {
 }
 
 #[test]
-fn test_events_transforms_parameters() {
+fn test_event_transforms_parameters() {
     let targeting_attributes: TargetingAttributes = AppContext {
         ..Default::default()
     }
@@ -1167,29 +1167,18 @@ fn test_events_transforms_parameters() {
 
     assert_eq!(
         targeting(
-            "'app.foregrounded'|eventsSum('Days', 3) > 1",
+            "'app.foregrounded'|eventSum('Days', 3) > 1",
             &targeting_attributes,
             &event_store
         ),
         Some(EnrollmentStatus::Error {
-            reason: "EvaluationError: Custom error: Transform parameter error: events transforms require 3 parameters"
+            reason: "EvaluationError: Custom error: Transform parameter error: event transforms require 3 parameters"
                 .to_string()
         })
     );
     assert_eq!(
         targeting(
-            "1|eventsSum('Days', 3, 0) > 1",
-            &targeting_attributes,
-            &event_store
-        ),
-        Some(EnrollmentStatus::Error {
-            reason: "EvaluationError: Custom error: JSON Error: invalid type: floating point `1`, expected a string"
-                .to_string()
-        })
-    );
-    assert_eq!(
-        targeting(
-            "'app.foregrounded'|eventsSum(1, 3, 0) > 1",
+            "1|eventSum('Days', 3, 0) > 1",
             &targeting_attributes,
             &event_store
         ),
@@ -1200,7 +1189,18 @@ fn test_events_transforms_parameters() {
     );
     assert_eq!(
         targeting(
-            "'app.foregrounded'|eventsSum('Day', 3, 0) > 1",
+            "'app.foregrounded'|eventSum(1, 3, 0) > 1",
+            &targeting_attributes,
+            &event_store
+        ),
+        Some(EnrollmentStatus::Error {
+            reason: "EvaluationError: Custom error: JSON Error: invalid type: floating point `1`, expected a string"
+                .to_string()
+        })
+    );
+    assert_eq!(
+        targeting(
+            "'app.foregrounded'|eventSum('Day', 3, 0) > 1",
             &targeting_attributes,
             &event_store
         ),
@@ -1211,23 +1211,23 @@ fn test_events_transforms_parameters() {
     );
     assert_eq!(
         targeting(
-            "'app.foregrounded'|eventsSum('Days', 'test', 0) > 1",
+            "'app.foregrounded'|eventSum('Days', 'test', 0) > 1",
             &targeting_attributes,
             &event_store
         ),
         Some(EnrollmentStatus::Error {
-            reason: "EvaluationError: Custom error: Transform parameter error: events transforms require a positive number as the second parameter"
+            reason: "EvaluationError: Custom error: Transform parameter error: event transforms require a positive number as the second parameter"
                 .to_string()
         })
     );
     assert_eq!(
         targeting(
-            "'app.foregrounded'|eventsSum('Days', 3, 'test') > 1",
+            "'app.foregrounded'|eventSum('Days', 3, 'test') > 1",
             &targeting_attributes,
             &event_store
         ),
         Some(EnrollmentStatus::Error {
-            reason: "EvaluationError: Custom error: Transform parameter error: events transforms require a positive number as the third parameter"
+            reason: "EvaluationError: Custom error: Transform parameter error: event transforms require a positive number as the third parameter"
                 .to_string()
         })
     );

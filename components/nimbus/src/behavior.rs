@@ -62,17 +62,19 @@ impl FromStr for Interval {
     type Err = NimbusError;
 
     fn from_str(input: &str) -> Result<Self> {
-        match input {
-            "Minutes" => Ok(Self::Minutes),
-            "Hours" => Ok(Self::Hours),
-            "Days" => Ok(Self::Days),
-            "Weeks" => Ok(Self::Weeks),
-            "Months" => Ok(Self::Months),
-            "Years" => Ok(Self::Years),
-            _ => Err(NimbusError::BehaviorError(
-                BehaviorError::IntervalParseError(input.to_string()),
-            )),
-        }
+        Ok(match input {
+            "Minutes" => Self::Minutes,
+            "Hours" => Self::Hours,
+            "Days" => Self::Days,
+            "Weeks" => Self::Weeks,
+            "Months" => Self::Months,
+            "Years" => Self::Years,
+            _ => {
+                return Err(NimbusError::BehaviorError(
+                    BehaviorError::IntervalParseError(input.to_string()),
+                ))
+            }
+        })
     }
 }
 
@@ -350,9 +352,7 @@ impl EventStore {
         let counter = match self.events.get_mut(&event_id) {
             Some(v) => v,
             None => {
-                let new_counter = MultiIntervalCounter {
-                    ..Default::default()
-                };
+                let new_counter = Default::default();
                 self.events.insert(event_id.clone(), new_counter);
                 self.events.get_mut(&event_id).unwrap()
             }

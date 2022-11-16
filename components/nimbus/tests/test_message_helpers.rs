@@ -40,7 +40,7 @@ mod message_tests {
         assert!(helper.eval_jexl("appName == 'fenix'".to_string()).is_err());
 
         // This validates that helpers created from the create_targeting_helper have the event_store present in jexl operations
-        assert!(helper.eval_jexl("'test'|eventsSum('Days', 1, 0) == 1".to_string())?);
+        assert!(helper.eval_jexl("'test'|eventSum('Days', 1, 0) == 1".to_string())?);
 
         let helper = nimbus.create_targeting_helper(
             json!(

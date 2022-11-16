@@ -84,7 +84,7 @@ pub struct NimbusClient {
     // without doing (or waiting for) IO.
     database_cache: DatabaseCache,
     db_path: PathBuf,
-    event_store: Mutex<EventStore>,
+    event_store: Arc<Mutex<EventStore>>,
 }
 
 impl NimbusClient {
@@ -110,7 +110,7 @@ impl NimbusClient {
             database_cache: Default::default(),
             db_path: db_path.into(),
             db: OnceCell::default(),
-            event_store: Mutex::default(),
+            event_store: Arc::default(),
         })
     }
 
@@ -560,8 +560,7 @@ impl NimbusClient {
         additional_context: Option<JsonObject>,
     ) -> Result<Arc<NimbusTargetingHelper>> {
         let context = self.merge_additional_context(additional_context)?;
-        let event_store = self.event_store.lock().unwrap().clone();
-        let helper = NimbusTargetingHelper::new(context, event_store);
+        let helper = NimbusTargetingHelper::new(context, self.event_store.clone());
         Ok(Arc::new(helper))
     }
 
@@ -585,8 +584,8 @@ impl NimbusClient {
         Ok(())
     }
 
-    pub fn get_event_store(&self) -> EventStore {
-        return self.event_store.lock().unwrap().clone();
+    pub fn event_store(&self) -> Arc<Mutex<EventStore>> {
+        self.event_store.clone()
     }
 }
 
@@ -863,11 +862,11 @@ impl NimbusStringHelper {
 
 pub struct NimbusTargetingHelper {
     context: Value,
-    event_store: EventStore,
+    event_store: Arc<Mutex<EventStore>>,
 }
 
 impl NimbusTargetingHelper {
-    fn new(context: Value, event_store: EventStore) -> Self {
+    fn new(context: Value, event_store: Arc<Mutex<EventStore>>) -> Self {
         Self {
             context,
             event_store,
@@ -875,7 +874,8 @@ impl NimbusTargetingHelper {
     }
 
     pub fn eval_jexl(&self, expr: String) -> Result<bool> {
-        evaluator::jexl_eval(&expr, &self.context, &self.event_store)
+        let event_store = self.event_store.lock().unwrap();
+        evaluator::jexl_eval(&expr, &self.context, &event_store)
     }
 }
 

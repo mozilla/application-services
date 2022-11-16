@@ -517,7 +517,7 @@ fn test_evolver_new_experiment_enrolled() -> Result<()> {
     let mut events = vec![];
     let event_store = EventStore::new();
     let enrollment = evolver
-        .evolve_enrollment(true, None, Some(exp), None, &mut events, &event_store)?
+        .evolve_enrollment(true, None, Some(exp), None, &event_store, &mut events)?
         .unwrap();
     assert!(matches!(
         enrollment.status,
@@ -539,7 +539,7 @@ fn test_evolver_new_experiment_not_enrolled() -> Result<()> {
     let mut events = vec![];
     let event_store = EventStore::new();
     let enrollment = evolver
-        .evolve_enrollment(true, None, Some(&exp), None, &mut events, &event_store)?
+        .evolve_enrollment(true, None, Some(&exp), None, &event_store, &mut events)?
         .unwrap();
     assert!(matches!(
         enrollment.status,
@@ -560,7 +560,7 @@ fn test_evolver_new_experiment_globally_opted_out() -> Result<()> {
     let mut events = vec![];
     let event_store = EventStore::new();
     let enrollment = evolver
-        .evolve_enrollment(false, None, Some(&exp), None, &mut events, &event_store)?
+        .evolve_enrollment(false, None, Some(&exp), None, &event_store, &mut events)?
         .unwrap();
     assert!(matches!(
         enrollment.status,
@@ -582,7 +582,7 @@ fn test_evolver_new_experiment_enrollment_paused() -> Result<()> {
     let mut events = vec![];
     let event_store = EventStore::new();
     let enrollment = evolver
-        .evolve_enrollment(true, None, Some(&exp), None, &mut events, &event_store)?
+        .evolve_enrollment(true, None, Some(&exp), None, &event_store, &mut events)?
         .unwrap();
     assert!(matches!(
         enrollment.status,
@@ -614,8 +614,8 @@ fn test_evolver_experiment_update_not_enrolled_opted_out() -> Result<()> {
             Some(&exp),
             Some(&exp),
             Some(&existing_enrollment),
-            &mut events,
             &event_store,
+            &mut events,
         )?
         .unwrap();
     assert_eq!(enrollment.status, existing_enrollment.status);
@@ -644,8 +644,8 @@ fn test_evolver_experiment_update_not_enrolled_enrollment_paused() -> Result<()>
             Some(&exp),
             Some(&exp),
             Some(&existing_enrollment),
-            &mut events,
             &event_store,
+            &mut events,
         )?
         .unwrap();
     assert_eq!(enrollment.status, existing_enrollment.status);
@@ -674,8 +674,8 @@ fn test_evolver_experiment_update_not_enrolled_resuming_not_selected() -> Result
             Some(&exp),
             Some(&exp),
             Some(&existing_enrollment),
-            &mut events,
             &event_store,
+            &mut events,
         )?
         .unwrap();
     assert!(matches!(
@@ -708,8 +708,8 @@ fn test_evolver_experiment_update_not_enrolled_resuming_selected() -> Result<()>
             Some(&exp),
             Some(&exp),
             Some(&existing_enrollment),
-            &mut events,
             &event_store,
+            &mut events,
         )?
         .unwrap();
     assert!(matches!(
@@ -748,8 +748,8 @@ fn test_evolver_experiment_update_enrolled_then_opted_out() -> Result<()> {
             Some(&exp),
             Some(&exp),
             Some(&existing_enrollment),
-            &mut events,
             &event_store,
+            &mut events,
         )?
         .unwrap();
     assert!(matches!(
@@ -795,8 +795,8 @@ fn test_evolver_experiment_update_enrolled_then_experiment_paused() -> Result<()
             Some(&exp),
             Some(&exp),
             Some(&existing_enrollment),
-            &mut events,
             &event_store,
+            &mut events,
         )?
         .unwrap();
     dbg!(&enrollment.status);
@@ -840,8 +840,8 @@ fn test_evolver_experiment_update_enrolled_then_targeting_changed() -> Result<()
             Some(&exp),
             Some(&exp),
             Some(&existing_enrollment),
-            &mut events,
             &event_store,
+            &mut events,
         )?
         .unwrap();
     if let EnrollmentStatus::Disqualified {
@@ -892,8 +892,8 @@ fn test_evolver_experiment_update_enrolled_then_bucketing_changed() -> Result<()
             Some(&exp),
             Some(&exp),
             Some(&existing_enrollment),
-            &mut events,
             &event_store,
+            &mut events,
         )?
         .unwrap();
     assert_eq!(enrollment, existing_enrollment);
@@ -938,8 +938,8 @@ fn test_evolver_experiment_update_enrolled_then_branches_changed() -> Result<()>
             Some(&exp),
             Some(&exp),
             Some(&existing_enrollment),
-            &mut events,
             &event_store,
+            &mut events,
         )?
         .unwrap();
     assert_eq!(enrollment, existing_enrollment);
@@ -976,8 +976,8 @@ fn test_evolver_experiment_update_enrolled_then_branch_disappears() -> Result<()
             Some(&exp),
             Some(&exp),
             Some(&existing_enrollment),
-            &mut events,
             &event_store,
+            &mut events,
         )?
         .unwrap();
     assert!(matches!(
@@ -1021,8 +1021,8 @@ fn test_evolver_experiment_update_disqualified_then_opted_out() -> Result<()> {
             Some(&exp),
             Some(&exp),
             Some(&existing_enrollment),
-            &mut events,
             &event_store,
+            &mut events,
         )?
         .unwrap();
     assert!(matches!(
@@ -1059,8 +1059,8 @@ fn test_evolver_experiment_update_disqualified_then_bucketing_ok() -> Result<()>
             Some(&exp),
             Some(&exp),
             Some(&existing_enrollment),
-            &mut events,
             &event_store,
+            &mut events,
         )?
         .unwrap();
     assert_eq!(enrollment, existing_enrollment);
@@ -1710,8 +1710,8 @@ fn test_evolver_experiment_update_was_enrolled() -> Result<()> {
             Some(&exp),
             Some(&exp),
             Some(&existing_enrollment),
-            &mut events,
             &event_store,
+            &mut events,
         )?
         .unwrap();
     assert_eq!(enrollment, existing_enrollment);
@@ -1860,8 +1860,8 @@ fn test_evolver_experiment_update_error() -> Result<()> {
             Some(&exp),
             Some(&exp),
             Some(&existing_enrollment),
-            &mut events,
             &event_store,
+            &mut events,
         )?
         .unwrap();
     assert!(matches!(
@@ -1895,8 +1895,8 @@ fn test_evolver_experiment_ended_was_enrolled() -> Result<()> {
             Some(&exp),
             None,
             Some(&existing_enrollment),
-            &mut events,
             &event_store,
+            &mut events,
         )?
         .unwrap();
     if let EnrollmentStatus::WasEnrolled {
@@ -1941,8 +1941,8 @@ fn test_evolver_experiment_ended_was_disqualified() -> Result<()> {
             Some(&exp),
             None,
             Some(&existing_enrollment),
-            &mut events,
             &event_store,
+            &mut events,
         )?
         .unwrap();
     if let EnrollmentStatus::WasEnrolled {
@@ -1983,8 +1983,8 @@ fn test_evolver_experiment_ended_was_not_enrolled() -> Result<()> {
         Some(&exp),
         None,
         Some(&existing_enrollment),
-        &mut events,
         &event_store,
+        &mut events,
     )?;
     assert!(enrollment.is_none());
     assert!(events.is_empty());
@@ -2011,8 +2011,8 @@ fn test_evolver_garbage_collection_before_threshold() -> Result<()> {
         None,
         None,
         Some(&existing_enrollment),
-        &mut events,
         &event_store,
+        &mut events,
     )?;
     assert_eq!(enrollment.unwrap(), existing_enrollment);
     assert!(events.is_empty());
@@ -2039,8 +2039,8 @@ fn test_evolver_garbage_collection_after_threshold() -> Result<()> {
         None,
         None,
         Some(&existing_enrollment),
-        &mut events,
         &event_store,
+        &mut events,
     )?;
     assert!(enrollment.is_none());
     assert!(events.is_empty());
@@ -2067,8 +2067,8 @@ fn test_evolver_new_experiment_enrollment_already_exists() {
         None,
         Some(&exp),
         Some(&existing_enrollment),
-        &mut vec![],
         &event_store,
+        &mut vec![],
     );
     assert!(res.is_err());
 }
@@ -2085,8 +2085,8 @@ fn test_evolver_existing_experiment_has_no_enrollment() {
         Some(&exp),
         Some(&exp),
         None,
-        &mut vec![],
         &event_store,
+        &mut vec![],
     );
     assert!(res.is_err());
 }
@@ -2099,7 +2099,7 @@ fn test_evolver_no_experiments_no_enrollment() {
     let evolver = enrollment_evolver(&nimbus_id, &targeting_attributes, &aru);
     let event_store = EventStore::new();
     evolver
-        .evolve_enrollment(true, None, None, None, &mut vec![], &event_store)
+        .evolve_enrollment(true, None, None, None, &event_store, &mut vec![])
         .unwrap();
 }
 

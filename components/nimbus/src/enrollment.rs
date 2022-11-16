@@ -82,8 +82,8 @@ impl ExperimentEnrollment {
         available_randomization_units: &AvailableRandomizationUnits,
         targeting_attributes: &TargetingAttributes,
         experiment: &Experiment,
-        out_enrollment_events: &mut Vec<EnrollmentChangeEvent>,
         event_store: &EventStore,
+        out_enrollment_events: &mut Vec<EnrollmentChangeEvent>,
     ) -> Result<Self> {
         Ok(if !is_user_participating {
             Self {
@@ -156,8 +156,8 @@ impl ExperimentEnrollment {
         available_randomization_units: &AvailableRandomizationUnits,
         targeting_attributes: &TargetingAttributes,
         updated_experiment: &Experiment,
-        out_enrollment_events: &mut Vec<EnrollmentChangeEvent>,
         event_store: &EventStore,
+        out_enrollment_events: &mut Vec<EnrollmentChangeEvent>,
     ) -> Result<Self> {
         Ok(match self.status {
             EnrollmentStatus::NotEnrolled { .. } | EnrollmentStatus::Error { .. } => {
@@ -726,8 +726,8 @@ impl<'a> EnrollmentsEvolver<'a> {
                 prev_experiments.get(slug).copied(),
                 next_experiments.get(slug).copied(),
                 Some(prev_enrollment),
-                &mut enrollment_events,
                 event_store,
+                &mut enrollment_events,
             ) {
                 Ok(enrollment) => enrollment,
                 Err(e) => {
@@ -818,8 +818,8 @@ impl<'a> EnrollmentsEvolver<'a> {
                     prev_experiments.get(slug).copied(),
                     Some(next_experiment),
                     prev_enrollment,
-                    &mut enrollment_events,
                     event_store,
+                    &mut enrollment_events,
                 ) {
                     Ok(enrollment) => enrollment,
                     Err(e) => {
@@ -890,8 +890,8 @@ impl<'a> EnrollmentsEvolver<'a> {
         prev_experiment: Option<&Experiment>,
         next_experiment: Option<&Experiment>,
         prev_enrollment: Option<&ExperimentEnrollment>,
-        out_enrollment_events: &mut Vec<EnrollmentChangeEvent>, // out param containing the events we'd like to emit to glean.
         event_store: &EventStore,
+        out_enrollment_events: &mut Vec<EnrollmentChangeEvent>, // out param containing the events we'd like to emit to glean.
     ) -> Result<Option<ExperimentEnrollment>> {
         let is_already_enrolled = if let Some(enrollment) = prev_enrollment {
             enrollment.status.is_enrolled()
@@ -910,8 +910,8 @@ impl<'a> EnrollmentsEvolver<'a> {
                 self.available_randomization_units,
                 &targeting_attributes,
                 experiment,
-                out_enrollment_events,
                 event_store,
+                out_enrollment_events,
             )?),
             // Experiment deleted remotely.
             (Some(_), None, Some(enrollment)) => {
@@ -925,8 +925,8 @@ impl<'a> EnrollmentsEvolver<'a> {
                     self.available_randomization_units,
                     &targeting_attributes,
                     experiment,
-                    out_enrollment_events,
                     event_store,
+                    out_enrollment_events,
                 )?)
             }
             (None, None, Some(enrollment)) => enrollment.maybe_garbage_collect(),

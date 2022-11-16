@@ -751,7 +751,7 @@ fn event_store_exists_for_apply_pending_experiments() -> Result<()> {
                 "namespace": "secure-gold",
                 "randomizationUnit": "nimbus_id"
             },
-            "targeting": "'app.foregrounded'|eventsCountNonZero('Days', 3, 0) > 1",
+            "targeting": "'app.foregrounded'|eventCountNonZero('Days', 3, 0) > 1",
             "userFacingName": "test experiment",
             "referenceBranch": "control",
             "isEnrollmentPaused": false,
@@ -786,7 +786,7 @@ fn event_store_exists_for_apply_pending_experiments() -> Result<()> {
                 "namespace": "secure-gold",
                 "randomizationUnit": "nimbus_id"
             },
-            "targeting": "'app.foregrounded'|eventsCountNonZero('Days', 3, 0) > 2",
+            "targeting": "'app.foregrounded'|eventCountNonZero('Days', 3, 0) > 2",
             "userFacingName": "test experiment",
             "referenceBranch": "control",
             "isEnrollmentPaused": false,
@@ -873,7 +873,7 @@ fn event_store_on_targeting_attributes_is_updated_after_an_event_is_recorded() -
                 "namespace": "secure-gold",
                 "randomizationUnit": "nimbus_id"
             },
-            "targeting": "'app.foregrounded'|eventsCountNonZero('Days', 5, 0) == 2",
+            "targeting": "'app.foregrounded'|eventCountNonZero('Days', 5, 0) == 2",
             "userFacingName": "test experiment",
             "referenceBranch": "control",
             "isEnrollmentPaused": false,
@@ -885,6 +885,9 @@ fn event_store_on_targeting_attributes_is_updated_after_an_event_is_recorded() -
     ]}))?;
     client.set_experiments_locally(experiment_json)?;
     client.apply_pending_experiments()?;
+
+    let active_experiments = client.get_active_experiments()?;
+    assert_eq!(active_experiments.len(), 1);
 
     client.record_event("app.foregrounded".to_string())?;
 
