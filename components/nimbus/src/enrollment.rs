@@ -1,3 +1,4 @@
+use crate::behavior::EventStore;
 use crate::defaults::Defaults;
 // This Source Code Form is subject to the terms of the Mozilla Public
 // License, v. 2.0. If a copy of the MPL was not distributed with this
@@ -81,6 +82,7 @@ impl ExperimentEnrollment {
         available_randomization_units: &AvailableRandomizationUnits,
         targeting_attributes: &TargetingAttributes,
         experiment: &Experiment,
+        event_store: &EventStore,
         out_enrollment_events: &mut Vec<EnrollmentChangeEvent>,
     ) -> Result<Self> {
         Ok(if !is_user_participating {
@@ -103,6 +105,7 @@ impl ExperimentEnrollment {
                 available_randomization_units,
                 targeting_attributes,
                 experiment,
+                event_store,
             )?;
             log::debug!(
                 "Experiment '{}' is new - enrollment status is {:?}",
@@ -145,6 +148,7 @@ impl ExperimentEnrollment {
     }
 
     /// Update our enrollment to an experiment we have seen before.
+    #[allow(clippy::too_many_arguments)]
     fn on_experiment_updated(
         &self,
         is_user_participating: bool,
@@ -152,6 +156,7 @@ impl ExperimentEnrollment {
         available_randomization_units: &AvailableRandomizationUnits,
         targeting_attributes: &TargetingAttributes,
         updated_experiment: &Experiment,
+        event_store: &EventStore,
         out_enrollment_events: &mut Vec<EnrollmentChangeEvent>,
     ) -> Result<Self> {
         Ok(match self.status {
@@ -164,6 +169,7 @@ impl ExperimentEnrollment {
                         available_randomization_units,
                         targeting_attributes,
                         updated_experiment,
+                        event_store,
                     )?;
                     log::debug!(
                         "Experiment '{}' with enrollment {:?} is now {:?}",
@@ -207,6 +213,7 @@ impl ExperimentEnrollment {
                         available_randomization_units,
                         targeting_attributes,
                         updated_experiment,
+                        event_store,
                     )?;
                     match evaluated_enrollment.status {
                         EnrollmentStatus::Error { .. } => {
@@ -582,6 +589,7 @@ impl<'a> EnrollmentsEvolver<'a> {
         db: &Database,
         writer: &mut Writer,
         next_experiments: &[Experiment],
+        event_store: &EventStore,
     ) -> Result<Vec<EnrollmentChangeEvent>> {
         // Get the state from the db.
         let is_user_participating = get_global_user_participation(db, writer)?;
@@ -595,6 +603,7 @@ impl<'a> EnrollmentsEvolver<'a> {
             &prev_experiments,
             next_experiments,
             &prev_enrollments,
+            event_store,
         )?;
         let next_enrollments = map_enrollments(&next_enrollments);
         // Write the changes to the Database.
@@ -620,6 +629,7 @@ impl<'a> EnrollmentsEvolver<'a> {
         prev_experiments: &[Experiment],
         next_experiments: &[Experiment],
         prev_enrollments: &[ExperimentEnrollment],
+        event_store: &EventStore,
     ) -> Result<(Vec<ExperimentEnrollment>, Vec<EnrollmentChangeEvent>)> {
         let mut enrollments: Vec<ExperimentEnrollment> = Default::default();
         let mut events: Vec<EnrollmentChangeEvent> = Default::default();
@@ -638,6 +648,7 @@ impl<'a> EnrollmentsEvolver<'a> {
             &prev_rollouts,
             &next_rollouts,
             &ro_enrollments,
+            event_store,
         )?;
 
         enrollments.extend(next_ro_enrollments.into_iter());
@@ -663,6 +674,7 @@ impl<'a> EnrollmentsEvolver<'a> {
             &prev_experiments,
             &next_experiments,
             &prev_enrollments,
+            event_store,
         )?;
 
         enrollments.extend(next_exp_enrollments.into_iter());
@@ -679,6 +691,7 @@ impl<'a> EnrollmentsEvolver<'a> {
         prev_experiments: &[Experiment],
         next_experiments: &[Experiment],
         prev_enrollments: &[ExperimentEnrollment],
+        event_store: &EventStore,
     ) -> Result<(Vec<ExperimentEnrollment>, Vec<EnrollmentChangeEvent>)> {
         let mut enrollment_events = vec![];
         let prev_experiments = map_experiments(prev_experiments);
@@ -713,6 +726,7 @@ impl<'a> EnrollmentsEvolver<'a> {
                 prev_experiments.get(slug).copied(),
                 next_experiments.get(slug).copied(),
                 Some(prev_enrollment),
+                event_store,
                 &mut enrollment_events,
             ) {
                 Ok(enrollment) => enrollment,
@@ -804,6 +818,7 @@ impl<'a> EnrollmentsEvolver<'a> {
                     prev_experiments.get(slug).copied(),
                     Some(next_experiment),
                     prev_enrollment,
+                    event_store,
                     &mut enrollment_events,
                 ) {
                     Ok(enrollment) => enrollment,
@@ -875,6 +890,7 @@ impl<'a> EnrollmentsEvolver<'a> {
         prev_experiment: Option<&Experiment>,
         next_experiment: Option<&Experiment>,
         prev_enrollment: Option<&ExperimentEnrollment>,
+        event_store: &EventStore,
         out_enrollment_events: &mut Vec<EnrollmentChangeEvent>, // out param containing the events we'd like to emit to glean.
     ) -> Result<Option<ExperimentEnrollment>> {
         let is_already_enrolled = if let Some(enrollment) = prev_enrollment {
@@ -894,6 +910,7 @@ impl<'a> EnrollmentsEvolver<'a> {
                 self.available_randomization_units,
                 &targeting_attributes,
                 experiment,
+                event_store,
                 out_enrollment_events,
             )?),
             // Experiment deleted remotely.
@@ -908,6 +925,7 @@ impl<'a> EnrollmentsEvolver<'a> {
                     self.available_randomization_units,
                     &targeting_attributes,
                     experiment,
+                    event_store,
                     out_enrollment_events,
                 )?)
             }

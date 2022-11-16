@@ -8,7 +8,7 @@
 //! TODO: Implement proper error handling, this would include defining the error enum,
 //! impl std::error::Error using `thiserror` and ensuring all errors are handled appropriately
 
-use std::num::TryFromIntError;
+use std::num::{ParseIntError, TryFromIntError};
 #[derive(Debug, thiserror::Error)]
 pub enum NimbusError {
     #[error("Invalid persisted data")]
@@ -59,12 +59,20 @@ pub enum NimbusError {
     BehaviorError(#[from] BehaviorError),
     #[error("TryFromIntError: {0}")]
     TryFromIntError(#[from] TryFromIntError),
+    #[error("ParseIntError: {0}")]
+    ParseIntError(#[from] ParseIntError),
+    #[error("Transform parameter error: {0}")]
+    TransformParameterError(String),
 }
 
 #[derive(Debug, thiserror::Error)]
 pub enum BehaviorError {
     #[error("Invalid state: {0}")]
     InvalidState(String),
+    #[error("IntervalParseError: {0} is not a valid Interval")]
+    IntervalParseError(String),
+    #[error("The event store is not available on the targeting attributes")]
+    MissingEventStore,
 }
 
 impl<'a> From<jexl_eval::error::EvaluationError<'a>> for NimbusError {
