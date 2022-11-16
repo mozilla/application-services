@@ -75,35 +75,6 @@ interface NimbusInterface : FeaturesInterface, GleanPlumbInterface {
         NullVariables.instance
 
     /**
-     * Open the database and populate the SDK so as make it usable by feature developers.
-     *
-     * This performs the minimum amount of I/O needed to ensure `getExperimentBranch()` is usable.
-     *
-     * It will not take in to consideration previously fetched experiments: `applyPendingExperiments()`
-     * is more suitable for that use case.
-     *
-     * This method uses the single threaded worker scope, so callers can safely sequence calls to
-     * `initialize` and `setExperimentsLocally`, `applyPendingExperiments`.
-     *
-     * Deprecation warning: This method is likely to either disappear or be renamed. If you are
-     * already using {applyPendingExperiments}, then the call can be safely deleted.
-     */
-    fun initialize() = Unit
-
-    /**
-     * This performs the tasks needed to get from a newly constructed Nimbus object
-     * to an object being prepared for use in the app:
-     * - it connects to the existing database, or creates a new one.
-     * - it applies the experiment recipes that were fetched on last run
-     * - it fetches the experiment recipes from the server.
-     *
-     * If the app indicates that this is the first run, the {file} is loaded from resources
-     * and immediately applied. In this manner, a build time copy of the experiment recipes may be
-     * used immediately for first run/early startup experiments, for example for onboarding features.
-     */
-    fun initialize(isFirstRun: Boolean, @RawRes file: Int): Job = Job()
-
-    /**
      * Fetches experiments from the RemoteSettings server.
      *
      * This is performed on a background thread.
@@ -235,4 +206,4 @@ interface NimbusInterface : FeaturesInterface, GleanPlumbInterface {
     }
 }
 
-class NullNimbus(override val context: Context): NimbusInterface
+class NullNimbus(override val context: Context) : NimbusInterface

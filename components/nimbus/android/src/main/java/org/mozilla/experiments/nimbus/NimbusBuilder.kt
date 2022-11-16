@@ -79,6 +79,7 @@ abstract class AbstractNimbusBuilder<T : NimbusInterface>(val context: Context) 
             null
         }
 
+        @Suppress("TooGenericExceptionCaught")
         return try {
             newNimbus(appInfo, serverSettings).apply {
                 // Apply any experiment recipes we downloaded last time, or
@@ -120,7 +121,7 @@ abstract class AbstractNimbusBuilder<T : NimbusInterface>(val context: Context) 
      */
     protected abstract fun newNimbus(
         appInfo: NimbusAppInfo,
-        serverSettings: NimbusServerSettings?,
+        serverSettings: NimbusServerSettings?
     ): T
 
     /**

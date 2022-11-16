@@ -187,11 +187,6 @@ open class Nimbus(
             null
         }
 
-    override fun initialize() {
-        // NOOP
-        // This is redundant because the `applyPendingUpdates` should always called.
-    }
-
     @WorkerThread
     @VisibleForTesting(otherwise = VisibleForTesting.PRIVATE)
     internal fun initializeOnThisThread() = withCatchAll {
@@ -249,17 +244,6 @@ open class Nimbus(
             errorReporter("Invalid experiment format", e)
         }
     }
-
-    override fun initialize(isFirstRun: Boolean, @RawRes file: Int): Job =
-        if (isFirstRun) {
-            applyLocalExperiments(file)
-        } else {
-            applyPendingExperiments()
-        }.also { job ->
-            job.invokeOnCompletion {
-                fetchExperiments()
-            }
-        }
 
     override fun applyLocalExperiments(@RawRes file: Int): Job =
         applyLocalExperiments { loadRawResource(file) }

@@ -45,7 +45,7 @@ class NimbusDelegate(
             dbScope = createCoroutineScope(),
             fetchScope = createCoroutineScope(),
             errorReporter = { msg: String, e: Throwable -> Log.e(logTag, msg, e) },
-            logger = { Log.i(logTag, it) },
+            logger = { Log.i(logTag, it) }
         )
     }
 }
