@@ -19,7 +19,10 @@ Use the template below to make assigning a version number during the release cut
 
 -->
 
-## [Component Name]
-
-### What's New
+## Nimbus
+### What's changed
 - Add methods to Kotlin and Swift to call the record event method on the nimbus client ([#5244](https://github.com/mozilla/application-services/pull/5244))
+
+## FxA Client
+### What's changed
+- The devices retrieved from the devices list are now only the devices that have been accessed in 21 days. This should help remove duplicates and idle devices for users. ([#4984](https://github.com/mozilla/application-services/pull/4984))
