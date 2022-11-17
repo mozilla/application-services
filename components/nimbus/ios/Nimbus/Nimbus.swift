@@ -56,6 +56,12 @@ private extension Nimbus {
     }
 }
 
+extension Nimbus: NimbusEvents {
+    public func recordEvent(eventId: String) {
+        nimbusClient.recordEvent(eventId)
+    }
+}
+
 extension Nimbus: FeaturesInterface {
     public func recordExposureEvent(featureId: String) {
         // First we need a list of the active experiments that are enrolled.
@@ -73,10 +79,6 @@ extension Nimbus: FeaturesInterface {
                 experiment: experiment.slug
             ))
         }
-    }
-
-    public func recordEvent(eventId: String) {
-        nimbusClient.recordEvent(eventId)
     }
 
     internal func postEnrollmentCalculation(_ events: [EnrollmentChangeEvent]) {

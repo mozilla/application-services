@@ -190,7 +190,7 @@ interface NimbusInterface : FeaturesInterface, GleanPlumbInterface {
      *
      * @param eventId string representing the id of the event which should be recorded.
      */
-    override fun recordEvent(eventId: String) = Unit
+    fun recordEvent(eventId: String) = Unit
 
     /**
      * Control the opt out for all experiments at once. This is likely a user action.

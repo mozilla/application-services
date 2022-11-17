@@ -59,15 +59,4 @@ interface FeaturesInterface {
      *     event.
      */
     fun recordExposureEvent(featureId: String)
-
-    /**
-     * Records an event to the Nimbus event store.
-     *
-     * The method obtains the event counters for the `eventId` that is passed in, advances them if
-     * needed, then increments the counts by 1. If an event counter does not exist for the `eventId`,
-     * one will be created.
-     *
-     * @param eventId string representing the id of the event which should be recorded.
-     */
-    fun recordEvent(eventId: String)
 }

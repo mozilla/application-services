@@ -357,8 +357,11 @@ open class Nimbus(
         recordExposure(featureId)
     }
 
+    @WorkerThread
     override fun recordEvent(eventId: String) {
-        nimbusClient.recordEvent(eventId)
+        dbScope.launch {
+            nimbusClient.recordEvent(eventId)
+        }
     }
 
     override fun createMessageHelper(additionalContext: JSONObject?): GleanPlumbMessageHelper =
