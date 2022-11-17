@@ -27,7 +27,7 @@ use nss::{ec, ecdh};
 pub type EphemeralKeyPair = KeyPair<Ephemeral>;
 
 /// A key agreement algorithm.
-#[derive(PartialEq)]
+#[derive(PartialEq, Eq)]
 pub struct Algorithm {
     pub(crate) curve_id: ec::Curve,
 }

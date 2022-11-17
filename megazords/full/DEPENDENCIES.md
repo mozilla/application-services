@@ -13,14 +13,18 @@ the details of which are reproduced below.
 * [MIT License: cargo_metadata](#mit-license-cargo_metadata)
 * [MIT License: caseless](#mit-license-caseless)
 * [MIT License: generic-array](#mit-license-generic-array)
+* [MIT License: goblin](#mit-license-goblin)
 * [MIT License: libsqlite3-sys, rusqlite](#mit-license-libsqlite3-sys-rusqlite)
 * [MIT License: matches](#mit-license-matches)
 * [MIT License: mime_guess](#mit-license-mime_guess)
 * [MIT License: nom](#mit-license-nom)
 * [MIT License: ordered-float](#mit-license-ordered-float)
+* [MIT License: scroll](#mit-license-scroll)
+* [MIT License: scroll_derive](#mit-license-scroll_derive)
 * [MIT License: strsim](#mit-license-strsim)
 * [MIT License: textwrap](#mit-license-textwrap)
 * [MIT License: weedle2](#mit-license-weedle2)
+* [MIT License: xshell-venv](#mit-license-xshell-venv)
 * [CC0-1.0 License: base16](#cc0-10-license-base16)
 * [ISC License: ring](#isc-license-ring)
 * [BSD-2-Clause License: arrayref](#bsd-2-clause-license-arrayref)
@@ -40,7 +44,8 @@ The following text applies to code linked from these dependencies:
 [uniffi](https://github.com/mozilla/uniffi-rs),
 [uniffi_bindgen](https://github.com/mozilla/uniffi-rs),
 [uniffi_build](https://github.com/mozilla/uniffi-rs),
-[uniffi_macros](https://github.com/mozilla/uniffi-rs)
+[uniffi_macros](https://github.com/mozilla/uniffi-rs),
+[uniffi_meta](https://github.com/mozilla/uniffi-rs)
 
 ```
 Mozilla Public License Version 2.0
@@ -451,7 +456,6 @@ The following text applies to code linked from these dependencies:
 [form_urlencoded](https://github.com/servo/rust-url),
 [fs-err](https://github.com/andrewhickman/fs-err),
 [getrandom](https://github.com/rust-random/getrandom),
-[glob](https://github.com/rust-lang/glob),
 [hashbrown](https://github.com/rust-lang/hashbrown),
 [hashlink](https://github.com/kyren/hashlink),
 [heck](https://github.com/withoutboats/heck),
@@ -480,8 +484,8 @@ The following text applies to code linked from these dependencies:
 [parking_lot_core](https://github.com/Amanieu/parking_lot),
 [paste](https://github.com/dtolnay/paste),
 [percent-encoding](https://github.com/servo/rust-url/),
-[pest](https://github.com/pest-parser/pest),
 [pkg-config](https://github.com/rust-lang/pkg-config-rs),
+[plain](https://github.com/randomites/plain),
 [ppv-lite86](https://github.com/cryptocorrosion/cryptocorrosion),
 [proc-macro-error-attr](https://gitlab.com/CreepySkeleton/proc-macro-error),
 [proc-macro-error](https://gitlab.com/CreepySkeleton/proc-macro-error),
@@ -498,8 +502,7 @@ The following text applies to code linked from these dependencies:
 [rkv](https://github.com/mozilla/rkv),
 [ryu](https://github.com/dtolnay/ryu),
 [scopeguard](https://github.com/bluss/scopeguard),
-[semver-parser](https://github.com/steveklabnik/semver-parser),
-[semver](https://github.com/steveklabnik/semver),
+[semver](https://github.com/dtolnay/semver),
 [serde](https://github.com/serde-rs/serde),
 [serde_derive](https://github.com/serde-rs/serde),
 [serde_json](https://github.com/serde-rs/json),
@@ -516,7 +519,6 @@ The following text applies to code linked from these dependencies:
 [tinyvec_macros](https://github.com/Soveu/tinyvec_macros),
 [toml](https://github.com/alexcrichton/toml-rs),
 [typenum](https://github.com/paholg/typenum),
-[ucd-trie](https://github.com/BurntSushi/ucd-generate),
 [unicase](https://github.com/seanmonstar/unicase),
 [unicode-bidi](https://github.com/servo/unicode-bidi),
 [unicode-ident](https://github.com/dtolnay/unicode-ident),
@@ -530,7 +532,9 @@ The following text applies to code linked from these dependencies:
 [winapi](https://github.com/retep998/winapi-rs),
 [windows-sys](https://github.com/microsoft/windows-rs),
 [windows_x86_64_gnu](https://github.com/microsoft/windows-rs),
-[windows_x86_64_msvc](https://github.com/microsoft/windows-rs)
+[windows_x86_64_msvc](https://github.com/microsoft/windows-rs),
+[xshell-macros](https://github.com/matklad/xshell),
+[xshell](https://github.com/matklad/xshell)
 
 ```
                               Apache License
@@ -955,6 +959,36 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 ```
 -------------
+## MIT License: goblin
+
+The following text applies to code linked from these dependencies:
+[goblin](https://github.com/m4b/goblin)
+
+```
+The MIT License (MIT)
+
+Copyright (c) m4b 2016-2018
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+SOFTWARE.
+
+```
+-------------
 ## MIT License: libsqlite3-sys, rusqlite
 
 The following text applies to code linked from these dependencies:
@@ -1112,6 +1146,66 @@ DEALINGS IN THE SOFTWARE.
 
 ```
 -------------
+## MIT License: scroll
+
+The following text applies to code linked from these dependencies:
+[scroll](https://github.com/m4b/scroll)
+
+```
+The MIT License (MIT)
+
+Copyright (c) m4b 2016
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+SOFTWARE.
+
+```
+-------------
+## MIT License: scroll_derive
+
+The following text applies to code linked from these dependencies:
+[scroll_derive](https://github.com/m4b/scroll)
+
+```
+MIT License
+
+Copyright (c) 2017 
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+SOFTWARE.
+
+```
+-------------
 ## MIT License: strsim
 
 The following text applies to code linked from these dependencies:
@@ -1196,6 +1290,36 @@ TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONIN
 THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF
 CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
 DEALINGS IN THE SOFTWARE.
+
+```
+-------------
+## MIT License: xshell-venv
+
+The following text applies to code linked from these dependencies:
+[xshell-venv](https://github.com/badboy/xshell-venv)
+
+```
+The MIT License (MIT)
+
+Copyright (c) 2022 Jan-Erik Rediger
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+SOFTWARE.
 
 ```
 -------------

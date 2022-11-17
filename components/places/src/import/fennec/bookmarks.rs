@@ -23,7 +23,7 @@ use url::Url;
 // to the same version.
 const FENNEC_DB_VERSION: i64 = 34;
 
-#[derive(Serialize, Deserialize, PartialEq, Debug, Clone, Default)]
+#[derive(Serialize, Deserialize, PartialEq, Eq, Debug, Clone, Default)]
 pub struct BookmarksMigrationResult {
     pub num_total: u32,
     pub num_succeeded: u32,
@@ -72,7 +72,7 @@ fn do_import(places_api: &PlacesApi, fennec_db_file_url: Url) -> Result<Bookmark
 
     let db_version = conn.db.query_one::<i64>("PRAGMA fennec.user_version")?;
     if db_version < FENNEC_DB_VERSION {
-        return Err(ErrorKind::UnsupportedDatabaseVersion(db_version).into());
+        return Err(Error::UnsupportedDatabaseVersion(db_version));
     }
 
     let tx = conn.begin_transaction()?;
@@ -171,7 +171,7 @@ fn do_pinned_sites_import(
 
     let db_version = conn.db.query_one::<i64>("PRAGMA fennec.user_version")?;
     if db_version < FENNEC_DB_VERSION {
-        return Err(ErrorKind::UnsupportedDatabaseVersion(db_version).into());
+        return Err(Error::UnsupportedDatabaseVersion(db_version));
     }
 
     log::debug!("Fetching pinned websites");
@@ -437,7 +437,7 @@ fn bookmark_data_from_fennec_pinned(
 }
 
 mod sql_fns {
-    use crate::import::common::sql_fns::{sanitize_timestamp, sanitize_utf8, validate_url};
+    use crate::import::common::sql_fns::{sanitize_integer_timestamp, sanitize_utf8, validate_url};
     use rusqlite::{
         functions::{Context, FunctionFlags},
         Connection, Result,
@@ -460,7 +460,7 @@ mod sql_fns {
             "sanitize_timestamp",
             1,
             FunctionFlags::SQLITE_UTF8 | FunctionFlags::SQLITE_DETERMINISTIC,
-            sanitize_timestamp,
+            sanitize_integer_timestamp,
         )?;
         c.create_scalar_function(
             "sanitize_utf8",

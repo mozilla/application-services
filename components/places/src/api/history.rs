@@ -134,7 +134,7 @@ fn add_recently_visited(_url: &Url) {}
 // Is this URL the *source* is a redirect? Note that this is different than
 // the redirect flags in the TransitionType, as that is the flag for the
 // *target* of the redirect.
-#[derive(Debug, Copy, Clone, PartialEq, PartialOrd)]
+#[derive(Debug, Copy, Clone, PartialEq, Eq, PartialOrd)]
 pub enum RedirectSourceType {
     Temporary,
     Permanent,

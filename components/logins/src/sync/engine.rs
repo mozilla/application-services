@@ -18,10 +18,11 @@ use rusqlite::named_params;
 use sql_support::ConnExt;
 use std::collections::HashSet;
 use std::sync::Arc;
-use sync15::{
-    telemetry, CollSyncIds, CollectionRequest, EngineSyncAssociation, IncomingChangeset,
-    OutgoingChangeset, Payload, ServerTimestamp, SyncEngine,
+use sync15::engine::{
+    CollSyncIds, CollectionRequest, EngineSyncAssociation, IncomingChangeset, OutgoingChangeset,
+    SyncEngine,
 };
+use sync15::{telemetry, Payload, ServerTimestamp};
 use sync_guid::Guid;
 
 // The sync engine.
@@ -37,7 +38,7 @@ impl LoginsSyncEngine {
     fn encdec(&self) -> Result<&EncryptorDecryptor> {
         match &self.encdec {
             Some(encdec) => Ok(encdec),
-            None => Err(LoginsError::EncryptionKeyMissing),
+            None => Err(Error::EncryptionKeyMissing),
         }
     }
 

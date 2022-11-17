@@ -17,14 +17,15 @@ log = "0.4"
 rusqlite = { version = "0.27.0", features = ["bundled", "unlock_notify"] }
 url = "2.2"
 viaduct = { path = "../viaduct" }
+error-support = { path = "../support/error" }
 sql-support = { path = "../support/sql" }
 rc_crypto = { path = "../support/rc_crypto", features = ["ece"] }
 thiserror = "1.0"
-uniffi = "^0.18"
-uniffi_macros = "^0.18"
+uniffi = "^0.21"
+uniffi_macros = "^0.21"
 
 [build-dependencies]
-uniffi_build = { version = "^0.18", features=["builtin-bindgen"] }
+uniffi_build = { version = "^0.21", features=["builtin-bindgen"] }
 
 
 [dev-dependencies]

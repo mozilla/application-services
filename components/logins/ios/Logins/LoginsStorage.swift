@@ -6,7 +6,7 @@ import Foundation
 import Glean
 import UIKit
 
-typealias LoginsStoreError = LoginsStorageError
+typealias LoginsStoreError = LoginsApiError
 
 /*
  ** We probably should have this class go away eventually as it's really only a thin wrapper
@@ -118,7 +118,7 @@ open class LoginsStorage {
     }
 }
 
-public func migrateLoginsWithMetrics(
+public func migrateLoginsFromSqlcipher(
     path: String,
     newEncryptionKey: String,
     sqlcipherPath: String,
@@ -127,17 +127,15 @@ public func migrateLoginsWithMetrics(
 ) -> Bool {
     var didMigrationSucceed = false
 
-    do {
-        try migrateLogins(
-            path: path,
-            newEncryptionKey: newEncryptionKey,
-            sqlcipherPath: sqlcipherPath,
-            sqlcipherKey: sqlcipherKey,
-            salt: salt
-        )
+    if let result = try? migrateLogins(
+        path: path,
+        newEncryptionKey: newEncryptionKey,
+        sqlcipherPath: sqlcipherPath,
+        sqlcipherKey: sqlcipherKey,
+        salt: salt
+    ) {
         didMigrationSucceed = true
-    } catch let err as NSError {
-        GleanMetrics.LoginsStoreMigration.errors.add(err.localizedDescription)
     }
+
     return didMigrationSucceed
 }

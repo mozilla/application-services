@@ -4,7 +4,6 @@
 
 use serde_json::Value;
 
-use crate::error::*;
 use crate::{
     db::PlacesDb,
     storage::bookmarks::get_raw_bookmark,
@@ -136,7 +135,7 @@ pub fn check_positions(conn: &PlacesDb) {
             ))
         })
         .expect("should work")
-        .map(Result::unwrap)
+        .map(rusqlite::Result::unwrap)
         .collect();
 
     assert_eq!(parents, Vec::new());

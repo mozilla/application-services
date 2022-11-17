@@ -3,37 +3,38 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
 use crate::storage::{ClientRemoteTabs, RemoteTab};
+use crate::store::TabsStore;
 use crate::sync::record::{TabsRecord, TabsRecordTab};
-use crate::sync::store::TabsStore;
-use anyhow::Result;
-use std::cell::{Cell, RefCell};
+use crate::Result;
 use std::collections::HashMap;
-use std::sync::Arc;
-use sync15::{
-    clients::{self, RemoteClient},
-    telemetry, CollectionRequest, DeviceType, EngineSyncAssociation, IncomingChangeset,
-    OutgoingChangeset, Payload, ServerTimestamp, SyncEngine,
+use std::sync::{Arc, Mutex, Weak};
+use sync15::engine::{
+    CollectionRequest, EngineSyncAssociation, IncomingChangeset, OutgoingChangeset, SyncEngine,
+    SyncEngineId,
 };
+use sync15::{telemetry, ClientData, DeviceType, Payload, RemoteClient, ServerTimestamp};
 use sync_guid::Guid;
 
 const TTL_1_YEAR: u32 = 31_622_400;
 
-impl RemoteTab {
-    fn from_record_tab(tab: &TabsRecordTab) -> Self {
-        Self {
-            title: tab.title.clone(),
-            url_history: tab.url_history.clone(),
-            icon: tab.icon.clone(),
-            last_used: tab.last_used.checked_mul(1000).unwrap_or_default(),
-        }
-    }
-    fn to_record_tab(&self) -> TabsRecordTab {
-        TabsRecordTab {
-            title: self.title.clone(),
-            url_history: self.url_history.clone(),
-            icon: self.icon.clone(),
-            last_used: self.last_used.checked_div(1000).unwrap_or_default(),
-        }
+// Our "sync manager" will use whatever is stashed here.
+lazy_static::lazy_static! {
+    // Mutex: just taken long enough to update the inner stuff
+    static ref STORE_FOR_MANAGER: Mutex<Weak<TabsStore>> = Mutex::new(Weak::new());
+}
+
+/// Called by the sync manager to get a sync engine via the store previously
+/// registered with the sync manager.
+pub fn get_registered_sync_engine(engine_id: &SyncEngineId) -> Option<Box<dyn SyncEngine>> {
+    let weak = STORE_FOR_MANAGER.lock().unwrap();
+    match weak.upgrade() {
+        None => None,
+        Some(store) => match engine_id {
+            SyncEngineId::Tabs => Some(Box::new(TabsEngine::new(Arc::clone(&store)))),
+            // panicing here seems reasonable - it's a static error if this
+            // it hit, not something that runtime conditions can influence.
+            _ => unreachable!("can't provide unknown engine: {}", engine_id),
+        },
     }
 }
 
@@ -73,64 +74,63 @@ impl ClientRemoteTabs {
     }
 }
 
-pub struct TabsEngine {
-    pub store: Arc<TabsStore>,
-    remote_clients: RefCell<HashMap<String, RemoteClient>>,
-    last_sync: Cell<Option<ServerTimestamp>>, // We use a cell because `sync_finished` doesn't take a mutable reference to &self.
-    sync_store_assoc: RefCell<EngineSyncAssociation>,
-    pub(crate) local_id: RefCell<String>,
-}
-
-impl TabsEngine {
-    pub fn new(store: Arc<TabsStore>) -> Self {
+impl RemoteTab {
+    fn from_record_tab(tab: &TabsRecordTab) -> Self {
         Self {
-            store,
-            remote_clients: RefCell::default(),
-            last_sync: Cell::default(),
-            sync_store_assoc: RefCell::new(EngineSyncAssociation::Disconnected),
-            local_id: RefCell::default(), // Will get replaced in `prepare_for_sync`.
+            title: tab.title.clone(),
+            url_history: tab.url_history.clone(),
+            icon: tab.icon.clone(),
+            last_used: tab.last_used.checked_mul(1000).unwrap_or_default(),
+        }
+    }
+    pub(super) fn to_record_tab(&self) -> TabsRecordTab {
+        TabsRecordTab {
+            title: self.title.clone(),
+            url_history: self.url_history.clone(),
+            icon: self.icon.clone(),
+            last_used: self.last_used.checked_div(1000).unwrap_or_default(),
         }
     }
 }
 
-impl SyncEngine for TabsEngine {
-    fn collection_name(&self) -> std::borrow::Cow<'static, str> {
-        "tabs".into()
+// This is the implementation of syncing, which is used by the 2 different "sync engines"
+// (We hope to get these 2 engines even closer in the future, but for now, we suck this up)
+pub struct TabsSyncImpl {
+    pub(super) store: Arc<TabsStore>,
+    remote_clients: HashMap<String, RemoteClient>,
+    pub(super) last_sync: Option<ServerTimestamp>,
+    sync_store_assoc: EngineSyncAssociation,
+    pub(super) local_id: String,
+}
+
+impl TabsSyncImpl {
+    pub fn new(store: Arc<TabsStore>) -> Self {
+        Self {
+            store,
+            remote_clients: HashMap::new(),
+            last_sync: None,
+            sync_store_assoc: EngineSyncAssociation::Disconnected,
+            local_id: Default::default(),
+        }
     }
 
-    fn prepare_for_sync(&self, get_client_data: &dyn Fn() -> clients::ClientData) -> Result<()> {
-        let data = get_client_data();
-        self.remote_clients.replace(data.recent_clients);
-        self.local_id.replace(data.local_client_id);
+    pub fn prepare_for_sync(&mut self, client_data: ClientData) -> Result<()> {
+        self.remote_clients = client_data.recent_clients;
+        self.local_id = client_data.local_client_id;
         Ok(())
     }
 
-    fn apply_incoming(
-        &self,
-        inbound: Vec<IncomingChangeset>,
-        telem: &mut telemetry::Engine,
-    ) -> Result<OutgoingChangeset> {
-        assert_eq!(inbound.len(), 1, "only requested one set of records");
-        let inbound = inbound.into_iter().next().unwrap();
-        let mut incoming_telemetry = telemetry::EngineIncoming::new();
-        let local_id = self.local_id.borrow().clone();
-        let mut remote_tabs = Vec::with_capacity(inbound.changes.len());
+    pub fn apply_incoming(&mut self, inbound: Vec<TabsRecord>) -> Result<Option<TabsRecord>> {
+        let local_id = self.local_id.clone();
+        let mut remote_tabs = Vec::with_capacity(inbound.len());
 
-        for incoming in inbound.changes {
-            if incoming.0.id() == local_id {
+        for record in inbound {
+            if record.id == local_id {
                 // That's our own record, ignore it.
                 continue;
             }
-            let record = match TabsRecord::from_payload(incoming.0) {
-                Ok(record) => record,
-                Err(e) => {
-                    log::warn!("Error deserializing incoming record: {}", e);
-                    incoming_telemetry.failed(1);
-                    continue;
-                }
-            };
             let id = record.id.clone();
-            let crt = if let Some(remote_client) = self.remote_clients.borrow().get(&id) {
+            let crt = if let Some(remote_client) = self.remote_clients.get(&id) {
                 ClientRemoteTabs::from_record_with_remote_client(
                     remote_client
                         .fxa_device_id
@@ -154,17 +154,15 @@ impl SyncEngine for TabsEngine {
             remote_tabs.push(crt);
         }
 
-        let mut outgoing = OutgoingChangeset::new("tabs", inbound.timestamp);
         // We want to keep the mutex for as short as possible
         let local_tabs = {
             let mut storage = self.store.storage.lock().unwrap();
             storage.replace_remote_tabs(remote_tabs)?;
             storage.prepare_local_tabs_for_upload()
         };
-        if let Some(local_tabs) = local_tabs {
+        let outgoing = if let Some(local_tabs) = local_tabs {
             let (client_name, device_type) = self
                 .remote_clients
-                .borrow()
                 .get(&local_id)
                 .map(|client| {
                     (
@@ -179,8 +177,105 @@ impl SyncEngine for TabsEngine {
                 device_type,
                 remote_tabs: local_tabs.to_vec(),
             };
-            let payload = Payload::from_record(local_record.to_record())?;
-            log::trace!("outgoing {:?}", payload);
+            log::trace!("outgoing {:?}", local_record);
+            Some(local_record.to_record())
+        } else {
+            None
+        };
+        Ok(outgoing)
+    }
+
+    pub fn sync_finished(
+        &mut self,
+        new_timestamp: ServerTimestamp,
+        records_synced: &[Guid],
+    ) -> Result<()> {
+        log::info!(
+            "sync completed after uploading {} records",
+            records_synced.len()
+        );
+        self.last_sync = Some(new_timestamp);
+        Ok(())
+    }
+
+    pub fn reset(&mut self, assoc: EngineSyncAssociation) -> Result<()> {
+        self.remote_clients.clear();
+        self.sync_store_assoc = assoc;
+        self.last_sync = None;
+        self.store.storage.lock().unwrap().wipe_remote_tabs()?;
+        Ok(())
+    }
+
+    pub fn wipe(&mut self) -> Result<()> {
+        self.reset(EngineSyncAssociation::Disconnected)?;
+        // not clear why we need to wipe the local tabs - the app is just going
+        // to re-add them?
+        self.store.storage.lock().unwrap().wipe_local_tabs();
+        Ok(())
+    }
+
+    pub fn get_sync_assoc(&self) -> &EngineSyncAssociation {
+        &self.sync_store_assoc
+    }
+}
+
+// This is the "SyncEngine" used when syncing via the Sync Manager.
+pub struct TabsEngine {
+    pub sync_impl: Mutex<TabsSyncImpl>,
+}
+
+impl TabsEngine {
+    pub fn new(store: Arc<TabsStore>) -> Self {
+        Self {
+            sync_impl: Mutex::new(TabsSyncImpl::new(store)),
+        }
+    }
+}
+
+impl SyncEngine for TabsEngine {
+    fn collection_name(&self) -> std::borrow::Cow<'static, str> {
+        "tabs".into()
+    }
+
+    fn prepare_for_sync(&self, get_client_data: &dyn Fn() -> ClientData) -> anyhow::Result<()> {
+        Ok(self
+            .sync_impl
+            .lock()
+            .unwrap()
+            .prepare_for_sync(get_client_data())?)
+    }
+
+    fn apply_incoming(
+        &self,
+        inbound: Vec<IncomingChangeset>,
+        telem: &mut telemetry::Engine,
+    ) -> anyhow::Result<OutgoingChangeset> {
+        assert_eq!(inbound.len(), 1, "only requested one set of records");
+        let inbound = inbound.into_iter().next().unwrap();
+        let mut incoming_telemetry = telemetry::EngineIncoming::new();
+        let mut incoming_records = Vec::with_capacity(inbound.changes.len());
+
+        for incoming in inbound.changes {
+            let record = match TabsRecord::from_payload(incoming.0) {
+                Ok(record) => record,
+                Err(e) => {
+                    log::warn!("Error deserializing incoming record: {}", e);
+                    incoming_telemetry.failed(1);
+                    continue;
+                }
+            };
+            incoming_records.push(record);
+        }
+
+        let outgoing_record = self
+            .sync_impl
+            .lock()
+            .unwrap()
+            .apply_incoming(incoming_records)?;
+
+        let mut outgoing = OutgoingChangeset::new("tabs", inbound.timestamp);
+        if let Some(outgoing_record) = outgoing_record {
+            let payload = Payload::from_record(outgoing_record)?;
             outgoing.changes.push(payload);
         }
         telem.incoming(incoming_telemetry);
@@ -191,20 +286,19 @@ impl SyncEngine for TabsEngine {
         &self,
         new_timestamp: ServerTimestamp,
         records_synced: Vec<Guid>,
-    ) -> Result<()> {
-        log::info!(
-            "sync completed after uploading {} records",
-            records_synced.len()
-        );
-        self.last_sync.set(Some(new_timestamp));
-        Ok(())
+    ) -> anyhow::Result<()> {
+        Ok(self
+            .sync_impl
+            .lock()
+            .unwrap()
+            .sync_finished(new_timestamp, &records_synced)?)
     }
 
     fn get_collection_requests(
         &self,
         server_timestamp: ServerTimestamp,
-    ) -> Result<Vec<CollectionRequest>> {
-        let since = self.last_sync.get().unwrap_or_default();
+    ) -> anyhow::Result<Vec<CollectionRequest>> {
+        let since = self.sync_impl.lock().unwrap().last_sync.unwrap_or_default();
         Ok(if since == server_timestamp {
             vec![]
         } else {
@@ -212,24 +306,28 @@ impl SyncEngine for TabsEngine {
         })
     }
 
-    fn get_sync_assoc(&self) -> Result<EngineSyncAssociation> {
-        Ok(self.sync_store_assoc.borrow().clone())
+    fn get_sync_assoc(&self) -> anyhow::Result<EngineSyncAssociation> {
+        Ok(self.sync_impl.lock().unwrap().get_sync_assoc().clone())
     }
 
-    fn reset(&self, assoc: &EngineSyncAssociation) -> Result<()> {
-        self.remote_clients.borrow_mut().clear();
-        self.sync_store_assoc.replace(assoc.clone());
-        self.last_sync.set(None);
-        self.store.storage.lock().unwrap().wipe_remote_tabs()?;
-        Ok(())
+    fn reset(&self, assoc: &EngineSyncAssociation) -> anyhow::Result<()> {
+        Ok(self.sync_impl.lock().unwrap().reset(assoc.clone())?)
     }
 
-    fn wipe(&self) -> Result<()> {
-        self.reset(&EngineSyncAssociation::Disconnected)?;
-        // not clear why we need to wipe the local tabs - the app is just going
-        // to re-add them?
-        self.store.storage.lock().unwrap().wipe_local_tabs();
-        Ok(())
+    fn wipe(&self) -> anyhow::Result<()> {
+        Ok(self.sync_impl.lock().unwrap().wipe()?)
+    }
+}
+
+impl crate::TabsStore {
+    // This allows the embedding app to say "make this instance available to
+    // the sync manager". The implementation is more like "offer to sync mgr"
+    // (thereby avoiding us needing to link with the sync manager) but
+    // `register_with_sync_manager()` is logically what's happening so that's
+    // the name it gets.
+    pub fn register_with_sync_manager(self: Arc<Self>) {
+        let mut state = STORE_FOR_MANAGER.lock().unwrap();
+        *state = Arc::downgrade(&self);
     }
 }
 
@@ -237,12 +335,13 @@ impl SyncEngine for TabsEngine {
 pub mod test {
     use super::*;
     use serde_json::json;
+    use sync15::DeviceType;
 
     #[test]
     fn test_incoming_tabs() {
         env_logger::try_init().ok();
 
-        let engine = TabsEngine::new(Arc::new(TabsStore::new_with_mem_path("test")));
+        let engine = TabsEngine::new(Arc::new(TabsStore::new_with_mem_path("test-incoming")));
 
         let records = vec![
             json!({
@@ -289,7 +388,8 @@ pub mod test {
         assert!(outgoing.changes.is_empty());
 
         // now check the store has what we think it has.
-        let mut storage = engine.store.storage.lock().unwrap();
+        let sync_impl = engine.sync_impl.lock().unwrap();
+        let mut storage = sync_impl.store.storage.lock().unwrap();
         let mut crts = storage.get_remote_tabs().expect("should work");
         crts.sort_by(|a, b| a.client_name.partial_cmp(&b.client_name).unwrap());
         assert_eq!(crts.len(), 2, "we currently include devices with no tabs");
@@ -303,5 +403,28 @@ pub mod test {
         assert_eq!(crt.client_name, "device with no tabs");
         assert_eq!(crt.device_type, DeviceType::Unknown);
         assert_eq!(crt.remote_tabs.len(), 0);
+    }
+
+    #[test]
+    fn test_sync_manager_registration() {
+        let store = Arc::new(TabsStore::new_with_mem_path("test-registration"));
+        assert_eq!(Arc::strong_count(&store), 1);
+        assert_eq!(Arc::weak_count(&store), 0);
+        Arc::clone(&store).register_with_sync_manager();
+        assert_eq!(Arc::strong_count(&store), 1);
+        assert_eq!(Arc::weak_count(&store), 1);
+        let registered = STORE_FOR_MANAGER
+            .lock()
+            .unwrap()
+            .upgrade()
+            .expect("should upgrade");
+        assert!(Arc::ptr_eq(&store, &registered));
+        drop(registered);
+        // should be no new references
+        assert_eq!(Arc::strong_count(&store), 1);
+        assert_eq!(Arc::weak_count(&store), 1);
+        // dropping the registered object should drop the registration.
+        drop(store);
+        assert!(STORE_FOR_MANAGER.lock().unwrap().upgrade().is_none());
     }
 }

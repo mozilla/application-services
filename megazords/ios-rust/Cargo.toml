@@ -18,6 +18,7 @@ fxa-client = { path = "../../components/fxa-client" }
 logins = { path = "../../components/logins" }
 autofill = { path = "../../components/autofill" }
 push = { path = "../../components/push" }
-tabs = { path = "../../components/tabs" }
+tabs = { path = "../../components/tabs", features = ["full-sync"] }
 places = {path = "../../components/places" }
 sync15 = {path = "../../components/sync15"}
+error-support = { path = "../../components/support/error" }

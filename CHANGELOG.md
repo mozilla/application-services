@@ -1,3 +1,212 @@
+# v96.0.0 (_2022-11-16_)
+
+[Full Changelog](https://github.com/mozilla/application-services/compare/v95.0.1...v96.0.0)
+
+## ⛅️🔬🔭 Nimbus
+
+### ✨ What's New ✨
+  - `active_experiments` is available to JEXL as a set containing slugs of all enrolled experiments ([#5227](https://github.com/mozilla/application-services/pull/5227))
+  - Added Behavioral Targeting/Display Triggers accessible from JEXL for experiments and messages ([#5226](https://github.com/mozilla/application-services/pull/5226), [#5228](https://github.com/mozilla/application-services/pull/5228))
+  - Android only: added a new `NimbusBuilder` method to unify Fenix and Focus startup sequences. ([5239](https://github.com/mozilla/application-services/pull/5239))
+
+### ⚠️ Breaking Changes ⚠️
+  - Changed the type of `customTargetingAttributes` in `NimbusAppSettings` to a `JSONObject`. The change will be breaking only for Android. ([#5229](https://github.com/mozilla/application-services/pull/5229))
+  - Android only: Removed the `initialize()` methods in favor of `NimbusBuilder` class. ([5239](https://github.com/mozilla/application-services/pull/5239))
+
+## Logins
+
+### What's Changed
+  - Include a redacted version of the URL in the Sentry error report when we see a login with an invalid origin field.
+  - Made it so `InvalidDatabaseFile` errors aren't reported to Sentry.  These occurs when a non-existent path is passed
+    to `migrateLoginsWithMetrics()`, which happens about 1-2 times a day.  This is very low volume, the code is going
+    away soon, and we have a plausible theory that these happen when Fenix is killed after the migration but before
+    `SQL_CIPHER_MIGRATION` is stored.
+
+## Places
+
+### What's Changed
+  - Report a Sentry breadcrumb when we fail to parse URLs, with a redacted version of the URL.
+
+## JwCrypto
+
+### What's Changed
+  - Log a breadcrumb with a redacted version of the crypto key when it has an invalid form (before throwing
+    DeserializationError)
+
+# v95.0.1 (_2022-11-03_)
+
+[Full Changelog](https://github.com/mozilla/application-services/compare/v95.0.0...v95.0.1)
+
+# General
+  - Added function to unset the app-services error reporter
+
+# v95.0.0 (_2022-10-28_)
+
+[Full Changelog](https://github.com/mozilla/application-services/compare/v94.3.2...v95.0.0)
+
+## General
+### What's fixed
+- Fixed a bug released in 94.3.1. The bug broke firefox-ios builds due to a name conflict. ([#5181](https://github.com/mozilla/application-services/pull/5181))
+
+### What's Changed
+  - Updated UniFFI to 0.21.0.  This improves the string display of the fielded errors on Kotlin.  Currently only logins is using these errors, but we plan to start using them for all components.
+
+## Autofill
+
+### ⚠️ Breaking Changes ⚠️
+
+   - The autofill API now uses `AutofillApiError` instead of `AutofillError`.   `AutofillApiError` exposes a smaller number of variants, which
+     will hopefully make it easier to use for the consumer.
+
+## Logins
+
+### ⚠️ Breaking Changes ⚠️
+
+   - Renamed `LoginsStorageError` to `LoginsApiError`, which better reflects how it's used and makes it consistent with
+     the places error name.
+   - Removed the `LoginsApiError::RequestFailed` variant.  This was only thrown when calling the sync-related methods
+     manually, rather than going through the SyncManager which is the preferred way to sync. Those errors will now be
+     grouped under `LoginsApiError::UnexpectedLoginsApiError`.
+
+### What's Changed
+  - Added fields to errors in `logins.udl`.  Most variants will now have a `message` field.
+
+## Nimbus ⛅️🔬🔭
+
+### What's Changed
+  - Disabled Glean events recorded when the SDK is not ready for a feature ([#5185](https://github.com/mozilla/application-services/pull/5185))
+  - Add structs for behavioral targeting ([#5205](https://github.com/mozilla/application-services/pull/5205))
+  - Calls to `log::error` have been replaced with `error_support::report_error` ([#5204](https://github.com/mozilla/application-services/pull/5204))
+
+## Places
+
+### ⚠️ Breaking Changes ⚠️
+
+   - Renamed `PlacesError` to `PlacesApiError`, which better reflects that it's used in the public API rather than for
+     internal errors.
+   - Removed the `JsonError`, `InternalError`, and `BookmarksCorruption` variants from places error. Errors that
+     resulted in `InternalError` will now result in `UnexpectedPlacesError`. `BookmarksCorruption` will also result in
+     an `UnexpectedPlacesError` and an error report will be automatically generated. `JsonError` didn't seem to be
+     actually used.
+
+## Tabs
+
+### ⚠️ Breaking Changes ⚠️
+
+   - The tabs API now uses  `TabsError` with `TabsApiError`.  `TabsApiError` exposes a smaller number of variants, which
+     will hopefully make it easier to use for the consumer.
+
+# v94.3.2 (_2022-10-13_)
+
+[Full Changelog](https://github.com/mozilla/application-services/compare/v94.3.1...v94.3.2)
+
+## General
+
+### What's Changed
+
+- Android: Reverted NDK back to r21d from r25b. ([#5156](https://github.com/mozilla/application-services/issues/5165))
+
+## Sync Manager
+
+### What's Changed
+  - Syncing will sync each engine in a deterministic order which matches desktop ([#5171](https://github.com/mozilla/application-services/issues/5171))
+
+# v94.3.1 (_2022-09-23_)
+
+[Full Changelog](https://github.com/mozilla/application-services/compare/v94.3.0...v94.3.1)
+
+## Nimbus ⛅️🔬🔭
+
+### What's Fixed
+
+   - A regression affecting Android in calculating `days_since_install` and `days_since_update` ([#5157](https://github.com/mozilla/application-services/pull/5157))
+
+# v94.3.0 (_2022-09-20_)
+
+[Full Changelog](https://github.com/mozilla/application-services/compare/v94.2.0...v94.3.0)
+
+## General
+
+### What's Changed
+
+- Rust toolchain has been bumped to 1.63 and minimum version bumped to 1.61 to comply with our [Rust Policy](https://github.com/mozilla/application-services/blob/main/docs/rust-versions.md#application-services-rust-version-policy)
+- Android: Upgraded NDK from r21d to r25b. ([#5142](https://github.com/mozilla/application-services/pull/5142))
+
+## Places
+
+### What's Changed
+ - Added metrics for the `run_maintenance()` method.  This can be used by consumers to decide when to schedule the next `run_maintenance()` call and to check if calls are taking too much time.
+
+### What's new
+  - Exposed a function in Swift `migrateHistoryFromBrowserDb` to migrate history from `browser.db` to `places.db`, the function will migrate all the local visits in one go. ([#5077](https://github.com/mozilla/application-services/pull/5077)).
+    - The migration might take some time if a user had a lot of history, so make sure it is **not** run on a thread that shouldn't wait.
+    - The migration runs on a writer connection. This means that other writes to the `places.db` will be delayed until the migration is done.
+
+## Nimbus
+
+### What's Changed
+ - Added `applyLocalExperiments()` method as short hand for `setLocalExperiments` and `applyPendingExperiments`. ([#5131](https://github.com/mozilla/application-services/pull/5131))
+   - `applyLocalExperiments` and `applyPendingExperiments` now returns a cancellable job which can be used in a timeout.
+   - `initialize` function takes a raw resource file id, and returns a cancellable `Job`.
+
+# v94.2.1 (_2022-09-21_)
+
+[Full Changelog](https://github.com/mozilla/application-services/compare/v94.2.0...v94.2.1)
+
+## Nimbus ⛅️🔬🔭
+
+### What's Changed
+ - Added `applyLocalExperiments()` method as short hand for `setLocalExperiments` and `applyPendingExperiments`. ([#5131](https://github.com/mozilla/application-services/pull/5131))
+   - `applyLocalExperiments` and `applyPendingExperiments` now returns a cancellable job which can be used in a timeout.
+   - `initialize` function takes a raw resource file id, and returns a cancellable `Job`.
+
+### What's Fixed
+
+   - A regression affecting Android in calculating `days_since_install` and `days_since_update` ([#5157](https://github.com/mozilla/application-services/pull/5157))
+
+# v94.2.0 (_2022-09-13_)
+
+[Full Changelog](https://github.com/mozilla/application-services/compare/v94.1.0...v94.2.0)
+
+# General
+  - `error-support` is now exposed to both Firefox iOS and Focus iOS. `error-support` supports better error reporting and logging for errors. ([#5094](https://github.com/mozilla/application-services/pull/5094))
+
+## Nimbus FML ⛅️🔬🔭🔧
+### What's Changed
+  - Add `channels` value for defaults and add support for multiple channels in `channel` via comma separation. ([#5101](https://github.com/mozilla/application-services/pull/5101))
+
+### ✨ What's New ✨
+  - JEXL targeting allows for using the `in` keyword with objects and a map of active experiments has been added to TargetingAttributes. The map will always be empty at this time. ([#5104](https://github.com/mozilla/application-services/pull/5104))
+
+## Nimbus ⛅️🔬🔭
+
+### What's Changed
+ - Added metrics for SDK unavailability and disk cache unreadiness to tease apart the difference in startup slowness. ([#5118](https://github.com/mozilla/application-services/pull/5118))
+
+# v94.1.0 (_2022-08-18_)
+
+[Full Changelog](https://github.com/mozilla/application-services/compare/v94.0.1...v94.1.0)
+## Nimbus
+### What's new
+- Added telemetry to track how often apps query for variables before Nimbus is initialized. ([#5091](https://github.com/mozilla/application-services/pull/5091))
+
+
+# v94.0.1 (_2022-08-09_)
+
+[Full Changelog](https://github.com/mozilla/application-services/compare/v94.0.0...v94.0.1)
+
+## Nimbus FML
+### What's fixed
+  - Linux releases for the FML were missing, there are available again now. ([#5080](https://github.com/mozilla/application-services/pull/5080))
+
+# v94.0.0 (_2022-08-02_)
+
+[Full Changelog](https://github.com/mozilla/application-services/compare/v93.8.0...v94.0.0)
+
+## Logins
+### ⚠️ Breaking Changes ⚠️
+  - Removed expired logins sqlcipher migration metrics and renamed the `migrateLoginsWithMetrics` function since it no longer reports metrics. An associated iOS PR ([#11470](https://github.com/mozilla-mobile/firefox-ios/pull/11470)) has been created to address the function renaming. ([#5064](https://github.com/mozilla/application-services/pull/5064))
+
 # v93.8.0 (_2022-07-29_)
 
 [Full Changelog](https://github.com/mozilla/application-services/compare/v93.7.1...v93.8.0)

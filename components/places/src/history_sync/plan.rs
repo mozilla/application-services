@@ -18,8 +18,8 @@ use crate::types::VisitTransition;
 use interrupt_support::Interruptee;
 use std::collections::HashSet;
 use std::time::{SystemTime, UNIX_EPOCH};
-use sync15::telemetry;
-use sync15::{IncomingChangeset, OutgoingChangeset, Payload};
+use sync15::engine::{IncomingChangeset, OutgoingChangeset};
+use sync15::{telemetry, Payload};
 use sync_guid::Guid as SyncGuid;
 use types::Timestamp;
 use url::Url;
@@ -220,7 +220,12 @@ pub fn apply_plan(
                 telem.failed(1);
             }
             IncomingPlan::Failed(err) => {
-                log::error!("incoming: record {:?} failed to apply: {}", guid, err);
+                error_support::report_error!(
+                    "places-failed-to-apply",
+                    "incoming: record {:?} failed to apply: {}",
+                    guid,
+                    err
+                );
                 telem.failed(1);
             }
             IncomingPlan::Delete => {
@@ -307,7 +312,8 @@ mod tests {
     use serde_json::json;
     use sql_support::ConnExt;
     use std::time::Duration;
-    use sync15::{IncomingChangeset, ServerTimestamp};
+    use sync15::engine::IncomingChangeset;
+    use sync15::ServerTimestamp;
     use types::Timestamp;
     use url::Url;
 

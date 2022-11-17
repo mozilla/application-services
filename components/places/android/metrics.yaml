@@ -120,3 +120,32 @@ places_manager:
       - mhammond@mozilla.com
       - synced-client-integrations@mozilla.com
     expires: "never"
+
+  run_maintenance_time:
+    type: timing_distribution
+    description: Time taken to execute `run_maintenance()`
+    time_unit: millisecond
+    bugs:
+      - https://github.com/mozilla/application-services/issues/5115
+    data_reviews:
+      - https://github.com/mozilla/application-services/issues/5122
+    notification_emails:
+      - synced-client-integrations@mozilla.com
+    expires: 2023-04-01
+    data_sensitivity:
+      - technical
+
+  db_size_after_maintenance:
+    type: memory_distribution
+    description: >
+      Size of the db after executing `run_maintenance()`
+    memory_unit: kilobyte
+    bugs:
+      - https://github.com/mozilla/application-services/issues/5115
+    data_reviews:
+      - https://github.com/mozilla/application-services/issues/5122
+    notification_emails:
+      - synced-client-integrations@mozilla.com
+    expires: 2023-04-01
+    data_sensitivity:
+      - technical

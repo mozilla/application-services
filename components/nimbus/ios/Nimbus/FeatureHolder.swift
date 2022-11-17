@@ -2,6 +2,7 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 import Foundation
+import Glean
 
 public typealias GetSdk = () -> FeaturesInterface?
 
@@ -42,7 +43,16 @@ public class FeatureHolder<T> {
         if let v = cachedValue {
             return v
         }
-        let variables = getSdk()?.getVariables(featureId: featureId, sendExposureEvent: false) ?? NilVariables.instance
+        var variables: Variables = NilVariables.instance
+        if let sdk = getSdk() {
+            variables = sdk.getVariables(featureId: featureId, sendExposureEvent: false)
+        } else {
+            GleanMetrics.NimbusHealth.sdkUnavailableForFeature.record(
+                GleanMetrics.NimbusHealth.SdkUnavailableForFeatureExtra(
+                    featureId: featureId
+                )
+            )
+        }
         let v = create(variables)
         cachedValue = v
         return v

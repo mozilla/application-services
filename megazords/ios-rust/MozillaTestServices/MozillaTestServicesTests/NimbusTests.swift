@@ -290,15 +290,14 @@ class NimbusTests: XCTestCase {
 
         // Use the Glean test API to check that the valid event is present
         XCTAssertNotNil(GleanMetrics.NimbusEvents.exposure.testGetValue(), "Event must have a value")
-        let enrollmentEvents = GleanMetrics.NimbusEvents.exposure.testGetValue()!
-        XCTAssertEqual(1, enrollmentEvents.count, "Event count must match")
-        let enrollmentEventExtras = enrollmentEvents.first!.extra
-        XCTAssertEqual("secure-gold", enrollmentEventExtras!["experiment"], "Experiment slug must match")
+        let exposureEvents = GleanMetrics.NimbusEvents.exposure.testGetValue()!
+        XCTAssertEqual(1, exposureEvents.count, "Event count must match")
+        let exposureEventExtras = exposureEvents.first!.extra
+        XCTAssertEqual("secure-gold", exposureEventExtras!["experiment"], "Experiment slug must match")
         XCTAssertTrue(
-            enrollmentEventExtras!["branch"] == "control" || enrollmentEventExtras!["branch"] == "treatment",
+            exposureEventExtras!["branch"] == "control" || exposureEventExtras!["branch"] == "treatment",
             "Experiment branch must match"
         )
-        XCTAssertNotNil(enrollmentEventExtras!["enrollment_id"], "Experiment enrollment id must not be nil")
 
         // Attempt to record an event for a non-existent or feature we are not enrolled in an
         // experiment in to ensure nothing is recorded.
@@ -306,15 +305,14 @@ class NimbusTests: XCTestCase {
 
         // Verify the invalid event was ignored by checking again that the valid event is still the only
         // event, and that it hasn't changed any of its extra properties.
-        let enrollmentEventsTryTwo = GleanMetrics.NimbusEvents.exposure.testGetValue()!
-        XCTAssertEqual(1, enrollmentEventsTryTwo.count, "Event count must match")
-        let enrollmentEventExtrasTryTwo = enrollmentEventsTryTwo.first!.extra
-        XCTAssertEqual("secure-gold", enrollmentEventExtrasTryTwo!["experiment"], "Experiment slug must match")
+        let exposureEventsTryTwo = GleanMetrics.NimbusEvents.exposure.testGetValue()!
+        XCTAssertEqual(1, exposureEventsTryTwo.count, "Event count must match")
+        let exposureEventExtrasTryTwo = exposureEventsTryTwo.first!.extra
+        XCTAssertEqual("secure-gold", exposureEventExtrasTryTwo!["experiment"], "Experiment slug must match")
         XCTAssertTrue(
-            enrollmentEventExtrasTryTwo!["branch"] == "control" || enrollmentEventExtrasTryTwo!["branch"] == "treatment",
+            exposureEventExtrasTryTwo!["branch"] == "control" || exposureEventExtrasTryTwo!["branch"] == "treatment",
             "Experiment branch must match"
         )
-        XCTAssertNotNil(enrollmentEventExtrasTryTwo!["enrollment_id"], "Experiment enrollment id must not be nil")
     }
 
     func testRecordDisqualificationOnOptOut() throws {
@@ -374,6 +372,15 @@ class NimbusTests: XCTestCase {
             "Experiment branch must match"
         )
         XCTAssertNotNil(disqualificationEventExtras!["enrollment_id"], "Experiment enrollment id must not be nil")
+    }
+
+    func testNimbusCreateWithJson() throws {
+        let appSettings = NimbusAppSettings(appName: "test", channel: "nightly", customTargetingAttributes: ["is_first_run": false, "is_test": true])
+        let nimbus = try Nimbus.create(nil, appSettings: appSettings, dbPath: createDatabasePath())
+        let helper = try nimbus.createMessageHelper()
+
+        XCTAssertTrue(try helper.evalJexl(expression: "is_test"))
+        XCTAssertFalse(try helper.evalJexl(expression: "is_first_run"))
     }
 }
 

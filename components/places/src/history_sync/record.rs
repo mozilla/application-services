@@ -7,7 +7,7 @@ use crate::error::*;
 use serde_derive::*;
 use sync_guid::Guid as SyncGuid;
 
-#[derive(Debug, Clone, Hash, PartialEq, Serialize, Deserialize, Default)]
+#[derive(Debug, Clone, Hash, PartialEq, Eq, Serialize, Deserialize, Default)]
 #[serde(rename_all = "camelCase")]
 pub struct HistoryRecordVisit {
     pub date: ServerVisitTimestamp,
@@ -15,7 +15,7 @@ pub struct HistoryRecordVisit {
     pub transition: u8,
 }
 
-#[derive(Debug, Clone, Hash, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Clone, Hash, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct HistoryRecord {
     // TODO: consider `#[serde(rename = "id")] pub guid: String` to avoid confusion

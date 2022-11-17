@@ -4,7 +4,9 @@
 
 use crate::db::PlacesDb;
 use crate::error::*;
-use rusqlite::named_params;
+use rusqlite::{named_params, Connection};
+use serde::Serialize;
+use sql_support::ConnExt;
 use types::Timestamp;
 use url::Url;
 
@@ -27,22 +29,44 @@ pub mod sql_fns {
     use types::Timestamp;
     use url::Url;
 
-    #[inline(never)]
-    pub fn sanitize_timestamp(ctx: &Context<'_>) -> Result<Timestamp> {
+    fn sanitize_timestamp(ts: i64) -> Result<Timestamp> {
         let now = *NOW;
         let is_sane = |ts: Timestamp| -> bool { Timestamp::EARLIEST <= ts && ts <= now };
-        if let Ok(ts) = ctx.get::<i64>(0) {
-            let ts = Timestamp(u64::try_from(ts).unwrap_or(0));
-            if is_sane(ts) {
-                return Ok(ts);
-            }
-            // Maybe the timestamp was actually in μs?
-            let ts = Timestamp(ts.as_millis() / 1000);
-            if is_sane(ts) {
-                return Ok(ts);
-            }
+        let ts = Timestamp(u64::try_from(ts).unwrap_or(0));
+        if is_sane(ts) {
+            return Ok(ts);
+        }
+        // Maybe the timestamp was actually in μs?
+        let ts = Timestamp(ts.as_millis() / 1000);
+        if is_sane(ts) {
+            return Ok(ts);
         }
         Ok(now)
+    }
+
+    // Unfortunately dates for history visits in old iOS databases
+    // have a type of `REAL` in their schema. This means they are represented
+    // as a float value and have to be read as f64s.
+    // This is unconventional, and you probably don't need to use
+    // this function otherwise.
+    #[inline(never)]
+    pub fn sanitize_float_timestamp(ctx: &Context<'_>) -> Result<Timestamp> {
+        let ts = ctx
+            .get::<f64>(0)
+            .map(|num| {
+                if num.is_normal() && num > 0.0 {
+                    num.round() as i64
+                } else {
+                    0
+                }
+            })
+            .unwrap_or(0);
+        sanitize_timestamp(ts)
+    }
+
+    #[inline(never)]
+    pub fn sanitize_integer_timestamp(ctx: &Context<'_>) -> Result<Timestamp> {
+        sanitize_timestamp(ctx.get::<i64>(0).unwrap_or(0))
     }
 
     // Possibly better named as "normalize URL" - even in non-error cases, the
@@ -123,8 +147,67 @@ impl<'a> ExecuteOnDrop<'a> {
 impl Drop for ExecuteOnDrop<'_> {
     fn drop(&mut self) {
         if let Err(e) = self.conn.execute_batch(&self.sql) {
-            log::error!("Failed to clean up after import! {}", e);
+            error_support::report_error!(
+                "places-cleanup-failure",
+                "Failed to clean up after import! {}",
+                e
+            );
             log::debug!("  Failed query: {}", &self.sql);
         }
     }
+}
+
+pub fn select_count(conn: &PlacesDb, stmt: &str) -> Result<u32> {
+    let count: Result<Option<u32>> =
+        conn.try_query_row(stmt, [], |row| Ok(row.get::<_, u32>(0)?), false);
+    count.map(|op| op.unwrap_or(0))
+}
+
+#[derive(Serialize, PartialEq, Eq, Debug, Clone, Default)]
+pub struct HistoryMigrationResult {
+    pub num_total: u32,
+    pub num_succeeded: u32,
+    pub num_failed: u32,
+    pub total_duration: u64,
+}
+
+pub fn define_history_migration_functions(c: &Connection) -> Result<()> {
+    use rusqlite::functions::FunctionFlags;
+    c.create_scalar_function(
+        "validate_url",
+        1,
+        FunctionFlags::SQLITE_UTF8 | FunctionFlags::SQLITE_DETERMINISTIC,
+        crate::import::common::sql_fns::validate_url,
+    )?;
+    c.create_scalar_function(
+        "sanitize_timestamp",
+        1,
+        FunctionFlags::SQLITE_UTF8 | FunctionFlags::SQLITE_DETERMINISTIC,
+        crate::import::common::sql_fns::sanitize_integer_timestamp,
+    )?;
+    c.create_scalar_function(
+        "hash",
+        -1,
+        FunctionFlags::SQLITE_UTF8 | FunctionFlags::SQLITE_DETERMINISTIC,
+        crate::db::db::sql_fns::hash,
+    )?;
+    c.create_scalar_function(
+        "generate_guid",
+        0,
+        FunctionFlags::SQLITE_UTF8,
+        crate::db::db::sql_fns::generate_guid,
+    )?;
+    c.create_scalar_function(
+        "sanitize_utf8",
+        1,
+        FunctionFlags::SQLITE_UTF8 | FunctionFlags::SQLITE_DETERMINISTIC,
+        crate::import::common::sql_fns::sanitize_utf8,
+    )?;
+    c.create_scalar_function(
+        "sanitize_float_timestamp",
+        1,
+        FunctionFlags::SQLITE_UTF8 | FunctionFlags::SQLITE_DETERMINISTIC,
+        crate::import::common::sql_fns::sanitize_float_timestamp,
+    )?;
+    Ok(())
 }

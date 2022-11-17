@@ -9,7 +9,8 @@ use crate::LoginsSyncEngine;
 use parking_lot::Mutex;
 use std::path::Path;
 use std::sync::{Arc, Weak};
-use sync15::{sync_multiple, EngineSyncAssociation, MemoryCachedState, SyncEngine, SyncEngineId};
+use sync15::client::{sync_multiple, MemoryCachedState, Sync15StorageClientInit};
+use sync15::engine::{EngineSyncAssociation, SyncEngine, SyncEngineId};
 
 // Our "sync manager" will use whatever is stashed here.
 lazy_static::lazy_static! {
@@ -166,8 +167,10 @@ impl LoginStore {
     pub fn import_multiple(&self, logins: Vec<Login>, enc_key: &str) -> ApiResult<String> {
         handle_error! {
             let encdec = EncryptorDecryptor::new(enc_key)?;
-            let metrics = self.db.lock().import_multiple(logins, &encdec)?;
-            Ok(serde_json::to_string(&metrics)?)
+            self.db.lock().import_multiple(logins, &encdec)?;
+            // We want to return a JSON string to keep API compatability, but the function doesn't
+            // acutally return anything.  Serialize the unit struct for now.
+            Ok(serde_json::to_string(&())?)
         }
     }
 
@@ -192,7 +195,7 @@ impl LoginStore {
 
             // This is a bit hacky but iOS still uses sync() and we can only pass strings over ffi
             // Below was ported from the "C" ffi code that does essentially the same thing
-            let storage_init = &sync15::Sync15StorageClientInit {
+            let storage_init = &Sync15StorageClientInit {
                 key_id,
                 access_token,
                 tokenserver_url: url::Url::parse(tokenserver_url.as_str())?,

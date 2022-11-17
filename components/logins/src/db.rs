@@ -119,7 +119,7 @@ impl LoginDb {
         self.try_query_row(
             "SELECT value FROM loginsSyncMeta WHERE key = :key",
             named_params! { ":key": key },
-            |row| Ok::<_, LoginsError>(row.get(0)?),
+            |row| Ok::<_, Error>(row.get(0)?),
             true,
         )
     }
@@ -362,7 +362,7 @@ impl LoginDb {
         num_existing_logins +=
             self.query_row::<i64, _, _>("SELECT COUNT(*) FROM loginsM", [], |r| r.get(0))?;
         if num_existing_logins > 0 {
-            return Err(LoginsError::NonEmptyTable);
+            return Err(Error::NonEmptyTable);
         }
         let tx = self.unchecked_transaction()?;
 
@@ -461,7 +461,7 @@ impl LoginDb {
         // We must read the existing record so we can correctly manage timePasswordChanged.
         let existing = match self.get_by_id(sguid)? {
             Some(e) => e,
-            None => return Err(LoginsError::NoSuchRecord(sguid.to_owned())),
+            None => return Err(Error::NoSuchRecord(sguid.to_owned())),
         };
         let time_password_changed =
             if existing.decrypt_fields(encdec)?.password == entry.sec_fields.password {
@@ -704,7 +704,7 @@ impl LoginDb {
                 "logins-local-overlay-error",
                 "Failed to create local overlay for GUID {guid:?}."
             );
-            return Err(LoginsError::NoSuchRecord(guid.to_owned()));
+            return Err(Error::NoSuchRecord(guid.to_owned()));
         }
         Ok(())
     }

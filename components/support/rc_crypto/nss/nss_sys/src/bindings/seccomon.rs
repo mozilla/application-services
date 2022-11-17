@@ -34,7 +34,7 @@ pub struct SECItemStr {
 }
 
 #[repr(i32)]
-#[derive(PartialEq)]
+#[derive(PartialEq, Eq)]
 pub enum _SECStatus {
     SECWouldBlock = -2,
     SECFailure = -1,

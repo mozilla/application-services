@@ -2,10 +2,10 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-use crate::error::*;
 use serde_derive::{Deserialize, Serialize};
+use sync15::Payload;
 
-#[derive(Debug, Clone, Hash, PartialEq, Serialize, Deserialize, Default)]
+#[derive(Debug, Clone, Hash, PartialEq, Eq, Serialize, Deserialize, Default)]
 #[serde(rename_all = "camelCase")]
 pub struct TabsRecordTab {
     pub title: String,
@@ -14,7 +14,7 @@ pub struct TabsRecordTab {
     pub last_used: i64, // Seconds since epoch!
 }
 
-#[derive(Debug, Clone, Hash, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Clone, Hash, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct TabsRecord {
     // `String` instead of `SyncGuid` because some IDs are FxA device ID (XXX - that doesn't
@@ -28,7 +28,7 @@ pub struct TabsRecord {
 
 impl TabsRecord {
     #[inline]
-    pub fn from_payload(payload: sync15::Payload) -> Result<Self> {
+    pub fn from_payload(payload: Payload) -> crate::error::Result<Self> {
         let record: TabsRecord = payload.into_record()?;
         Ok(record)
     }
@@ -41,7 +41,7 @@ pub mod test {
 
     #[test]
     fn test_simple() {
-        let payload = sync15::Payload::from_json(json!({
+        let payload = Payload::from_json(json!({
             "id": "JkeBPC50ZI0m",
             "clientName": "client name",
             "tabs": [{
@@ -66,7 +66,7 @@ pub mod test {
 
     #[test]
     fn test_extra_fields() {
-        let payload = sync15::Payload::from_json(json!({
+        let payload = Payload::from_json(json!({
             "id": "JkeBPC50ZI0m",
             "clientName": "client name",
             "tabs": [],

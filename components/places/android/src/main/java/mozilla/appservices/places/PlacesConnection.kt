@@ -8,7 +8,7 @@ import mozilla.appservices.places.uniffi.BookmarkPosition
 import mozilla.appservices.places.uniffi.ConnectionType
 import mozilla.appservices.places.uniffi.DocumentType
 import mozilla.appservices.places.uniffi.FrecencyThresholdOption
-import mozilla.appservices.places.uniffi.PlacesException
+import mozilla.appservices.places.uniffi.PlacesApiException
 import mozilla.appservices.places.uniffi.HistoryHighlight
 import mozilla.appservices.places.uniffi.HistoryHighlightWeights
 import mozilla.appservices.places.uniffi.HistoryMetadata
@@ -339,7 +339,10 @@ class PlacesWriterConnection internal constructor(conn: UniffiPlacesConnection, 
     }
 
     override fun runMaintenance(dbSizeLimit: UInt) {
-        this.conn.runMaintenance(dbSizeLimit)
+        val timer = PlacesManagerMetrics.runMaintenanceTime.start()
+        val metrics = this.conn.runMaintenance(dbSizeLimit)
+        PlacesManagerMetrics.runMaintenanceTime.stopAndAccumulate(timer)
+        PlacesManagerMetrics.dbSizeAfterMaintenance.accumulateSamples(listOf(metrics.dbSizeAfter.toLong() / 1024))
     }
 
     override fun pruneDestructively() {
@@ -974,37 +977,22 @@ class PlacesManagerCounterMetrics(
             return callback()
         } catch (e: Exception) {
             when (e) {
-                is PlacesException.UrlParseFailed -> {
+                is PlacesApiException.UrlParseFailed -> {
                     errCount["url_parse_failed"].add()
                 }
-                is PlacesException.OperationInterrupted -> {
+                is PlacesApiException.OperationInterrupted -> {
                     errCount["operation_interrupted"].add()
                 }
-                is PlacesException.InvalidParent -> {
-                    errCount["invalid_parent"].add()
-                }
-                is PlacesException.UnknownBookmarkItem -> {
+                is PlacesApiException.UnknownBookmarkItem -> {
                     errCount["unknown_bookmark_item"].add()
                 }
-                is PlacesException.UrlTooLong -> {
-                    errCount["url_too_long"].add()
+                is PlacesApiException.InvalidBookmarkOperation -> {
+                    errCount["invalid_bookmark_operation"].add()
                 }
-                is PlacesException.InvalidBookmarkUpdate -> {
-                    errCount["invalid_bookmark_update"].add()
-                }
-                is PlacesException.CannotUpdateRoot -> {
-                    errCount["cannot_update_root"].add()
-                }
-                is PlacesException.JsonParseFailed -> {
-                    errCount["json_parse_failed"].add()
-                }
-                is PlacesException.PlacesConnectionBusy -> {
+                is PlacesApiException.PlacesConnectionBusy -> {
                     errCount["places_connection_busy"].add()
                 }
-                is PlacesException.BookmarksCorruption -> {
-                    errCount["bookmarks_corruption"].add()
-                }
-                is PlacesException.UnexpectedPlacesException -> {
+                is PlacesApiException.UnexpectedPlacesException -> {
                     errCount["unexpected_places_exception"].add()
                 }
                 else -> {

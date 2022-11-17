@@ -6,7 +6,7 @@ loader: taskgraph.loader.transform:loader
 
 kind-dependencies:
   - branch-build-as
-  - branch-build-ac
+  - branch-build-firefox-android
   - branch-build-fenix
 
 transforms:

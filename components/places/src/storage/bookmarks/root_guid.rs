@@ -14,7 +14,7 @@ pub const USER_CONTENT_ROOTS: &[BookmarkRootGuid] = &[
 
 /// Special GUIDs associated with bookmark roots.
 /// It's guaranteed that the roots will always have these guids.
-#[derive(Debug, Clone, Copy, PartialEq, PartialOrd, Hash)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Hash)]
 #[repr(u8)]
 pub enum BookmarkRootGuid {
     Root,

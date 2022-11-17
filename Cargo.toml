@@ -23,7 +23,6 @@ members = [
     "components/support/rc_crypto/nss/nss_sys",
     "components/support/rc_crypto/nss/systest",
     "components/support/sql",
-    "components/support/sync15-traits",
     "components/support/types",
     "components/support/viaduct-reqwest",
     "components/sync_manager",
@@ -35,8 +34,6 @@ members = [
     "megazords/full",
     "megazords/ios-rust",
     "megazords/ios-rust/focus",
-# Disabled for intermittent failures; see SDK-233 and #3909 for details.
-#    "testing/sync-test",
     "tools/protobuf-gen",
     "tools/embedded-uniffi-bindgen",
 
@@ -44,10 +41,13 @@ members = [
     "testing/separated/*/",
 ]
 
-# Don't include git submodules in our workspace, since those packages haven't
-# been written with that in mind. They might work, but they might not.
 exclude = [
+    # Don't include git submodules in our workspace, since those packages haven't
+    # been written with that in mind. They might work, but they might not.
     "components/external/glean/",
+    # Excluding this due to intermittent failures; see SDK-233 and #3909 for details.
+    # (including it here means you can still explicitly run it from the test directory)
+    "testing/sync-test",
 ]
 
 # The `default-members` are the things that are built/tested when you run `cargo
@@ -88,7 +88,6 @@ default-members = [
     "components/support/rc_crypto/nss/nss_build_common",
     "components/support/rc_crypto/nss/nss_sys",
     "components/support/sql",
-    "components/support/sync15-traits",
     "components/support/types",
     "components/support/viaduct-reqwest",
     "components/sync_manager",

@@ -21,7 +21,7 @@ pub enum SyncManagerError {
     #[error("Error parsing JSON data: {0}")]
     JsonError(#[from] serde_json::Error),
     #[error("Logins error: {0}")]
-    LoginsError(#[from] logins::LoginsError),
+    LoginsError(#[from] logins::Error),
     #[error("Places error: {0}")]
     PlacesError(#[from] places::Error),
     // We should probably upgrade this crate to anyhow, which would mean this

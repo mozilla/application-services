@@ -6,6 +6,7 @@ use crate::db::models::address::{Address, UpdatableAddressFields};
 use crate::db::models::credit_card::{CreditCard, UpdatableCreditCardFields};
 use crate::db::{addresses, credit_cards, AutofillDb};
 use crate::error::*;
+use error_support::handle_error;
 use rusqlite::{
     types::{FromSql, ToSql},
     Connection,
@@ -13,7 +14,7 @@ use rusqlite::{
 use sql_support::{self, ConnExt};
 use std::path::Path;
 use std::sync::{Arc, Mutex, Weak};
-use sync15_traits::{SyncEngine, SyncEngineId};
+use sync15::engine::{SyncEngine, SyncEngineId};
 use sync_guid::Guid;
 
 // Our "sync manager" will use whatever is stashed here.
@@ -48,10 +49,12 @@ pub struct Store {
 }
 
 impl Store {
-    pub fn new(db_path: impl AsRef<Path>) -> Result<Self> {
-        Ok(Self {
-            db: Mutex::new(AutofillDb::new(db_path)?),
-        })
+    pub fn new(db_path: impl AsRef<Path>) -> ApiResult<Self> {
+        handle_error! {
+            Ok(Self {
+                db: Mutex::new(AutofillDb::new(db_path)?),
+            })
+        }
     }
 
     /// Creates a store backed by an in-memory database with its own memory API (required for unit tests).
@@ -63,87 +66,115 @@ impl Store {
     }
 
     /// Creates a store backed by an in-memory database that shares its memory API (required for autofill sync tests).
-    pub fn new_shared_memory(db_name: &str) -> Result<Self> {
-        Ok(Self {
-            db: Mutex::new(AutofillDb::new_memory(db_name)?),
-        })
+    pub fn new_shared_memory(db_name: &str) -> ApiResult<Self> {
+        handle_error! {
+            Ok(Self {
+                db: Mutex::new(AutofillDb::new_memory(db_name)?),
+            })
+        }
     }
 
-    pub fn add_credit_card(&self, fields: UpdatableCreditCardFields) -> Result<CreditCard> {
-        let credit_card = credit_cards::add_credit_card(&self.db.lock().unwrap().writer, fields)?;
-        Ok(credit_card.into())
+    pub fn add_credit_card(&self, fields: UpdatableCreditCardFields) -> ApiResult<CreditCard> {
+        handle_error! {
+            let credit_card = credit_cards::add_credit_card(&self.db.lock().unwrap().writer, fields)?;
+            Ok(credit_card.into())
+        }
     }
 
-    pub fn get_credit_card(&self, guid: String) -> Result<CreditCard> {
-        let credit_card =
-            credit_cards::get_credit_card(&self.db.lock().unwrap().writer, &Guid::new(&guid))?;
-        Ok(credit_card.into())
+    pub fn get_credit_card(&self, guid: String) -> ApiResult<CreditCard> {
+        handle_error! {
+            let credit_card =
+                credit_cards::get_credit_card(&self.db.lock().unwrap().writer, &Guid::new(&guid))?;
+            Ok(credit_card.into())
+        }
     }
 
-    pub fn get_all_credit_cards(&self) -> Result<Vec<CreditCard>> {
-        let credit_cards = credit_cards::get_all_credit_cards(&self.db.lock().unwrap().writer)?
-            .into_iter()
-            .map(|x| x.into())
-            .collect();
-        Ok(credit_cards)
+    pub fn get_all_credit_cards(&self) -> ApiResult<Vec<CreditCard>> {
+        handle_error! {
+            let credit_cards = credit_cards::get_all_credit_cards(&self.db.lock().unwrap().writer)?
+                .into_iter()
+                .map(|x| x.into())
+                .collect();
+            Ok(credit_cards)
+        }
     }
 
     pub fn update_credit_card(
         &self,
         guid: String,
         credit_card: UpdatableCreditCardFields,
-    ) -> Result<()> {
-        credit_cards::update_credit_card(
-            &self.db.lock().unwrap().writer,
-            &Guid::new(&guid),
-            &credit_card,
-        )
+    ) -> ApiResult<()> {
+        handle_error! {
+            credit_cards::update_credit_card(
+                &self.db.lock().unwrap().writer,
+                &Guid::new(&guid),
+                &credit_card,
+            )
+        }
     }
 
-    pub fn delete_credit_card(&self, guid: String) -> Result<bool> {
-        credit_cards::delete_credit_card(&self.db.lock().unwrap().writer, &Guid::new(&guid))
+    pub fn delete_credit_card(&self, guid: String) -> ApiResult<bool> {
+        handle_error! {
+            credit_cards::delete_credit_card(&self.db.lock().unwrap().writer, &Guid::new(&guid))
+        }
     }
 
-    pub fn touch_credit_card(&self, guid: String) -> Result<()> {
-        credit_cards::touch(&self.db.lock().unwrap().writer, &Guid::new(&guid))
+    pub fn touch_credit_card(&self, guid: String) -> ApiResult<()> {
+        handle_error! {
+            credit_cards::touch(&self.db.lock().unwrap().writer, &Guid::new(&guid))
+        }
     }
 
-    pub fn add_address(&self, new_address: UpdatableAddressFields) -> Result<Address> {
-        Ok(addresses::add_address(&self.db.lock().unwrap().writer, new_address)?.into())
+    pub fn add_address(&self, new_address: UpdatableAddressFields) -> ApiResult<Address> {
+        handle_error! {
+            Ok(addresses::add_address(&self.db.lock().unwrap().writer, new_address)?.into())
+        }
     }
 
-    pub fn get_address(&self, guid: String) -> Result<Address> {
-        Ok(addresses::get_address(&self.db.lock().unwrap().writer, &Guid::new(&guid))?.into())
+    pub fn get_address(&self, guid: String) -> ApiResult<Address> {
+        handle_error! {
+            Ok(addresses::get_address(&self.db.lock().unwrap().writer, &Guid::new(&guid))?.into())
+        }
     }
 
-    pub fn get_all_addresses(&self) -> Result<Vec<Address>> {
-        let addresses = addresses::get_all_addresses(&self.db.lock().unwrap().writer)?
-            .into_iter()
-            .map(|x| x.into())
-            .collect();
-        Ok(addresses)
+    pub fn get_all_addresses(&self) -> ApiResult<Vec<Address>> {
+        handle_error! {
+            let addresses = addresses::get_all_addresses(&self.db.lock().unwrap().writer)?
+                .into_iter()
+                .map(|x| x.into())
+                .collect();
+            Ok(addresses)
+        }
     }
 
-    pub fn update_address(&self, guid: String, address: UpdatableAddressFields) -> Result<()> {
-        addresses::update_address(&self.db.lock().unwrap().writer, &Guid::new(&guid), &address)
+    pub fn update_address(&self, guid: String, address: UpdatableAddressFields) -> ApiResult<()> {
+        handle_error! {
+            addresses::update_address(&self.db.lock().unwrap().writer, &Guid::new(&guid), &address)
+        }
     }
 
-    pub fn delete_address(&self, guid: String) -> Result<bool> {
-        addresses::delete_address(&self.db.lock().unwrap().writer, &Guid::new(&guid))
+    pub fn delete_address(&self, guid: String) -> ApiResult<bool> {
+        handle_error! {
+            addresses::delete_address(&self.db.lock().unwrap().writer, &Guid::new(&guid))
+        }
     }
 
-    pub fn touch_address(&self, guid: String) -> Result<()> {
-        addresses::touch(&self.db.lock().unwrap().writer, &Guid::new(&guid))
+    pub fn touch_address(&self, guid: String) -> ApiResult<()> {
+        handle_error! {
+            addresses::touch(&self.db.lock().unwrap().writer, &Guid::new(&guid))
+        }
     }
 
-    pub fn scrub_encrypted_data(self: Arc<Self>) -> Result<()> {
-        // scrub the data on disk
-        // Currently only credit cards have encrypted data
-        credit_cards::scrub_encrypted_credit_card_data(&self.db.lock().unwrap().writer)?;
-        // Force the sync engine to refetch data (only need to do this for the credit cards, since the
-        // addresses engine doesn't store encrypted data).
-        crate::sync::credit_card::create_engine(self).reset_local_sync_data()?;
-        Ok(())
+    pub fn scrub_encrypted_data(self: Arc<Self>) -> ApiResult<()> {
+        handle_error! {
+            // scrub the data on disk
+            // Currently only credit cards have encrypted data
+            credit_cards::scrub_encrypted_credit_card_data(&self.db.lock().unwrap().writer)?;
+            // Force the sync engine to refetch data (only need to do this for the credit cards, since the
+            // addresses engine doesn't store encrypted data).
+            crate::sync::credit_card::create_engine(self).reset_local_sync_data()?;
+            Ok(())
+        }
     }
 
     // This allows the embedding app to say "make this instance available to

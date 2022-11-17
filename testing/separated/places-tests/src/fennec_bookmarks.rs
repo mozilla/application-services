@@ -4,7 +4,7 @@
 
 use places::import::fennec::bookmarks::BookmarksMigrationResult;
 use places::storage::bookmarks::fetch::Item;
-use places::{api::places_api::PlacesApi, ErrorKind, Result};
+use places::{api::places_api::PlacesApi, Error, Result};
 use rusqlite::types::{ToSql, ToSqlOutput};
 use rusqlite::Connection;
 use std::path::Path;
@@ -130,11 +130,8 @@ fn test_import_unsupported_db_version() -> Result<()> {
     let fennec_db = empty_fennec_db(&fennec_path)?;
     fennec_db.execute("PRAGMA user_version=22", [])?;
     let places_api = PlacesApi::new(tmpdir.path().join("places.sqlite"))?;
-    match places::import::import_fennec_bookmarks(&places_api, fennec_path)
-        .unwrap_err()
-        .kind()
-    {
-        ErrorKind::UnsupportedDatabaseVersion(_) => {}
+    match places::import::import_fennec_bookmarks(&places_api, fennec_path).unwrap_err() {
+        Error::UnsupportedDatabaseVersion(_) => {}
         _ => unreachable!("Should fail with UnsupportedDatabaseVersion!"),
     }
     Ok(())
@@ -756,7 +753,8 @@ fn do_test_sync_after_migrate(test_type: TimestampTestType) -> Result<()> {
     use serde_json::json;
     use std::collections::HashSet;
     use std::time::{Duration, SystemTime, UNIX_EPOCH};
-    use sync15::{telemetry, IncomingChangeset, Payload, ServerTimestamp, SyncEngine};
+    use sync15::engine::{IncomingChangeset, SyncEngine};
+    use sync15::{telemetry, Payload, ServerTimestamp};
     use url::Url;
 
     let _ = env_logger::try_init();

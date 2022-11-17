@@ -17,7 +17,7 @@ dictionary AppContext {
     // the unix time, which is milliseconds since epoch
     i64? installation_date;
     string? home_directory;
-    record<DOMString, string>? custom_targeting_attributes;
+    JsonObject? custom_targeting_attributes;
 };
 
 dictionary EnrolledExperiment {
@@ -65,8 +65,10 @@ dictionary EnrollmentChangeEvent {
 
 enum EnrollmentChangeEventType {
     "Enrollment",
+    "EnrollFailed",
     "Disqualification",
     "Unenrollment",
+    "UnenrollFailed",
 };
 
 [Error]
@@ -76,7 +78,8 @@ enum NimbusError {
     "TryFromSliceError", "EmptyRatiosError", "OutOfBoundsError","UrlParsingError",
     "RequestError", "ResponseError", "UuidError", "InvalidExperimentFormat",
     "InvalidPath", "InternalError", "NoSuchExperiment", "NoSuchBranch", "BackoffError",
-    "DatabaseNotReady", "VersionParsingError"
+    "DatabaseNotReady", "VersionParsingError", "BehaviorError", "TryFromIntError",
+    "ParseIntError", "TransformParameterError"
 };
 
 interface NimbusClient {
@@ -197,6 +200,12 @@ interface NimbusClient {
     // It's first use is in GleanPlumb message helper, to add extra parameters to URLs.
     [Throws=NimbusError]
     NimbusStringHelper create_string_helper(optional JsonObject? additional_context = null);
+
+    // Records an event for the purposes of behavioral targeting.
+    // This function is used to record and persist data used for the behavioral
+    // targeting such as "core-active" user targeting.
+    [Throws=NimbusError]
+    void record_event(string event_id);
 };
 
 [Custom]

@@ -4,16 +4,16 @@
 
 use crate::error;
 use crate::key_bundle::KeyBundle;
-use crate::util::ServerTimestamp;
+use crate::Payload;
+use crate::ServerTimestamp;
 use lazy_static::lazy_static;
 use serde::de::{Deserialize, DeserializeOwned};
 use serde::ser::Serialize;
 use serde_derive::*;
 use std::ops::{Deref, DerefMut};
-pub use sync15_traits::Payload;
 use sync_guid::Guid;
 
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 pub struct BsoRecord<T> {
     pub id: Guid,
 
@@ -436,9 +436,9 @@ mod tests {
             .decrypt(&keybundle2)
             .expect_err("Should fail because wrong keybundle");
 
-        // Note: ErrorKind isn't PartialEq, so.
-        match e.kind() {
-            error::ErrorKind::CryptoError(_) => {
+        // Note: Error isn't PartialEq, so.
+        match e {
+            error::Error::CryptoError(_) => {
                 // yay.
             }
             other => {

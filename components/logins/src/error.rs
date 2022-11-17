@@ -3,56 +3,41 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
 use std::ffi::OsString;
-pub type Result<T> = std::result::Result<T, LoginsError>;
+pub type Result<T> = std::result::Result<T, Error>;
 // Functions which are part of the public API should use this Result.
-pub type ApiResult<T> = std::result::Result<T, LoginsStorageError>;
+pub type ApiResult<T> = std::result::Result<T, LoginsApiError>;
 
 pub use error_support::{breadcrumb, handle_error, report_error};
 use error_support::{ErrorHandling, GetErrorHandling};
-use sync15::ErrorKind as Sync15ErrorKind;
+use sync15::Error as Sync15Error;
 
 // Errors we return via the public interface.
-//
-// Named `LoginsStorageError` for backwards compatibility reasons, although
-// this name shouldn't need to be used anywhere other than this file and the .udl
-//
-// Note that there is no `Into` between public and internal errors, but
-// instead the `ErrorHandling` mechanisms are used to explicitly convert
-// when necessary.
-//
-// XXX - not clear that these actually need to use `thiserror`? Certainly
-// not necessary to use `#[from]` though.
 #[derive(Debug, thiserror::Error)]
-pub enum LoginsStorageError {
-    #[error("Invalid login: {0}")]
-    InvalidRecord(String),
+pub enum LoginsApiError {
+    #[error("Invalid login: {reason}")]
+    InvalidRecord { reason: String },
 
-    #[error("No record with guid exists (when one was required): {0:?}")]
-    NoSuchRecord(String),
+    #[error("No record with guid exists (when one was required): {reason:?}")]
+    NoSuchRecord { reason: String },
 
     #[error("Encryption key is in the correct format, but is not the correct key.")]
     IncorrectKey,
 
-    #[error("{0}")]
-    Interrupted(String),
+    #[error("{reason}")]
+    Interrupted { reason: String },
 
-    #[error("SyncAuthInvalid error {0}")]
-    SyncAuthInvalid(String),
+    #[error("SyncAuthInvalid error {reason}")]
+    SyncAuthInvalid { reason: String },
 
-    // This error is emitted if a request to a sync server failed.
-    /// We can probably kill this? The sync manager is what cares about this.
-    #[error("RequestFailed error: {0}")]
-    RequestFailed(String),
-
-    #[error("Unexpected Error: {0}")]
-    UnexpectedLoginsStorageError(String),
+    #[error("Unexpected Error: {reason}")]
+    UnexpectedLoginsApiError { reason: String },
 }
 
 /// Logins error type
 /// These are "internal" errors used by the implementation. This error type
 /// is never returned to the consumer.
 #[derive(Debug, thiserror::Error)]
-pub enum LoginsError {
+pub enum Error {
     #[error("Invalid login: {0}")]
     InvalidLogin(#[from] InvalidLogin),
 
@@ -121,67 +106,72 @@ pub enum InvalidLogin {
     IllegalFieldValue { field_info: String },
 }
 
-// Define how our internal errors are handled and converted to external errors.
-impl GetErrorHandling for LoginsError {
-    type ExternalError = LoginsStorageError;
+// Define how our internal errors are handled and converted to external errors
+// See `support/error/README.md` for how this works, especially the warning about PII.
+impl GetErrorHandling for Error {
+    type ExternalError = LoginsApiError;
 
-    // Return how to handle our internal errors
     fn get_error_handling(&self) -> ErrorHandling<Self::ExternalError> {
-        // WARNING: The details inside the `LoginsStorageError` we return should not
-        // contain any personally identifying information.
-        // However, because many of the string details come from the underlying
-        // internal error, we operate on a best-effort basis, since we can't be
-        // completely sure that our dependencies don't leak PII in their error
-        // strings.  For example, `rusqlite::Error` could include data from a
-        // user's database in their errors, which would then cause it to appear
-        // in our `LoginsStorageError::Unexpected` structs, log messages, etc.
-        // But because we've never seen that in practice we are comfortable
-        // forwarding that error message into ours without attempting to sanitize.
         match self {
-            Self::InvalidLogin(why) => {
-                ErrorHandling::convert(LoginsStorageError::InvalidRecord(why.to_string()))
-            }
+            Self::InvalidLogin(why) => ErrorHandling::convert(LoginsApiError::InvalidRecord {
+                reason: why.to_string(),
+            }),
             // Our internal "no such record" error is converted to our public "no such record" error, with no logging and no error reporting.
-            Self::NoSuchRecord(guid) => {
-                ErrorHandling::convert(LoginsStorageError::NoSuchRecord(guid.to_string()))
-            }
+            Self::NoSuchRecord(guid) => ErrorHandling::convert(LoginsApiError::NoSuchRecord {
+                reason: guid.to_string(),
+            }),
             // NonEmptyTable error is just a sanity check to ensure we aren't asked to migrate into an
             // existing DB - consumers should never actually do this, and will never expect to handle this as a specific
             // error - so it gets reported to the error reporter and converted to an "internal" error.
             Self::NonEmptyTable => {
-                ErrorHandling::convert(LoginsStorageError::UnexpectedLoginsStorageError(
-                    "must be an empty DB to migrate".to_string(),
-                ))
+                ErrorHandling::convert(LoginsApiError::UnexpectedLoginsApiError {
+                    reason: "must be an empty DB to migrate".to_string(),
+                })
                 .report_error("logins-migration")
             }
             Self::CryptoError(_) => {
-                ErrorHandling::convert(LoginsStorageError::IncorrectKey).log_warning()
+                ErrorHandling::convert(LoginsApiError::IncorrectKey).log_warning()
             }
-            Self::Interrupted(_) => {
-                ErrorHandling::convert(LoginsStorageError::Interrupted(self.to_string()))
-            }
-            Self::SyncAdapterError(e) => match e.kind() {
-                Sync15ErrorKind::TokenserverHttpError(401) | Sync15ErrorKind::BadKeyLength(..) => {
-                    ErrorHandling::convert(LoginsStorageError::SyncAuthInvalid(e.to_string()))
-                        .log_warning()
+            Self::Interrupted(_) => ErrorHandling::convert(LoginsApiError::Interrupted {
+                reason: self.to_string(),
+            }),
+            Self::SyncAdapterError(e) => match e {
+                Sync15Error::TokenserverHttpError(401) | Sync15Error::BadKeyLength(..) => {
+                    ErrorHandling::convert(LoginsApiError::SyncAuthInvalid {
+                        reason: e.to_string(),
+                    })
+                    .log_warning()
                 }
-                Sync15ErrorKind::RequestError(_) => {
-                    ErrorHandling::convert(LoginsStorageError::RequestFailed(e.to_string()))
-                        .log_warning()
+                Sync15Error::RequestError(_) => {
+                    ErrorHandling::convert(LoginsApiError::UnexpectedLoginsApiError {
+                        reason: e.to_string(),
+                    })
+                    .log_warning()
                 }
-                _ => ErrorHandling::convert(LoginsStorageError::UnexpectedLoginsStorageError(
-                    self.to_string(),
-                ))
+                _ => ErrorHandling::convert(LoginsApiError::UnexpectedLoginsApiError {
+                    reason: self.to_string(),
+                })
                 .report_error("logins-sync"),
             },
-            // This list is partial - not clear if a best-practice should be to ask that every
-            // internal error is listed here (and remove this default branch) to ensure every error
-            // is considered, or whether this default is fine for obscure errors?
-            // But it's fine for now because errors were always converted with a default
-            // branch to "unexpected"
-            _ => ErrorHandling::convert(LoginsStorageError::UnexpectedLoginsStorageError(
-                self.to_string(),
-            ))
+            // Errors that are unexpected in the sense that they are too rare to deserve a
+            // LoginsApiError variant, but we still don't need to report them to Sentry.
+            //
+            // For now, just log a warning.  Eventually, it would be nice to count these with
+            // telemetry.
+            Self::InvalidDatabaseFile(_) => {
+                ErrorHandling::convert(LoginsApiError::UnexpectedLoginsApiError {
+                    reason: self.to_string(),
+                })
+                .log_warning()
+            }
+            // Unexpected errors that we report to Sentry.  We should watch the reports for these
+            // and do one or more of these things if we see them:
+            //   - Fix the underlying issue
+            //   - Add breadcrumbs or other context to help uncover the issue
+            //   - Decide that these are expected errors and move them to the above case
+            _ => ErrorHandling::convert(LoginsApiError::UnexpectedLoginsApiError {
+                reason: self.to_string(),
+            })
             .report_error("logins-unexpected"),
         }
     }

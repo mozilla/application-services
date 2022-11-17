@@ -5,6 +5,7 @@
 #![allow(unknown_lints)]
 #![warn(rust_2018_idioms)]
 
+pub use error_support;
 pub use nimbus;
 pub use rc_log_ffi;
 pub use viaduct_reqwest;

@@ -18,8 +18,9 @@ WORKDIR /builds/worker/
 
 # Configuration
 
-ENV ANDROID_BUILD_TOOLS "30.0.3"
-ENV ANDROID_PLATFORM_VERSION "31"
+ENV ANDROID_BUILD_TOOLS "33.0.0"
+ENV ANDROID_TOOLS_VERSION "8512546"
+ENV ANDROID_PLATFORM_VERSION "32"
 ENV ANDROID_NDK_VERSION "21.3.6528147"
 
 # Set up the language variables to avoid problems (we run locale-gen later).
@@ -118,7 +119,7 @@ ENV PATH ${PATH}:${ANDROID_SDK_HOME}/cmdline-tools/latest/bin:${ANDROID_SDK_HOME
 
 # Download the Android SDK tools, unzip them to ${ANDROID_SDK_HOME}/cmdline-tools/latest/, accept all licenses
 # The download link comes from https://developer.android.com/studio/#downloads
-RUN curl -sfSL --retry 5 --retry-delay 10 https://dl.google.com/android/repository/commandlinetools-linux-7583922_latest.zip > sdk.zip \
+RUN curl -sfSL --retry 5 --retry-delay 10 https://dl.google.com/android/repository/commandlinetools-linux-${ANDROID_TOOLS_VERSION}_latest.zip > sdk.zip \
     && unzip -q sdk.zip \
     && mkdir $ANDROID_SDK_HOME/cmdline-tools \
     && mv cmdline-tools $ANDROID_HOME/cmdline-tools/latest \

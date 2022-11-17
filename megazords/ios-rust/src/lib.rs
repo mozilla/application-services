@@ -7,6 +7,7 @@
 
 pub use autofill;
 pub use crashtest;
+pub use error_support;
 pub use fxa_client;
 pub use logins;
 pub use nimbus;

@@ -206,7 +206,6 @@ dependencies = [
  "sql-support",
  "sync-guid",
  "sync15",
- "sync15-traits",
  "thiserror",
  "types",
  "uniffi",
@@ -371,14 +370,13 @@ dependencies = [
 
 [[package]]
 name = "cargo_metadata"
-version = "0.13.1"
+version = "0.14.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "081e3f0755c1f380c2d010481b6fa2e02973586d5f2b24eebb7a2a1d98b143d8"
+checksum = "4acbb09d9ee8e23699b9634375c72795d095bf268439da88562cf9b501f181fa"
 dependencies = [
  "camino",
  "cargo-platform",
- "semver 0.11.0",
- "semver-parser 0.10.2",
+ "semver 1.0.12",
  "serde",
  "serde_json",
 ]
@@ -890,6 +888,7 @@ dependencies = [
  "anyhow",
  "autofill",
  "cli-support",
+ "error-support",
  "fxa-client",
  "interrupt-support",
  "log",
@@ -928,6 +927,7 @@ dependencies = [
  "anyhow",
  "cli-support",
  "ctrlc",
+ "error-support",
  "find-places-db",
  "fxa-client",
  "interrupt-support",
@@ -961,6 +961,7 @@ name = "example-sync-pass"
 version = "0.1.0"
 dependencies = [
  "anyhow",
+ "base64 0.13.0",
  "chrono",
  "clap 2.34.0",
  "cli-support",
@@ -982,6 +983,7 @@ name = "example-tabs-sync"
 version = "0.1.0"
 dependencies = [
  "anyhow",
+ "base64 0.13.0",
  "cli-support",
  "clipboard",
  "log",
@@ -1269,10 +1271,28 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "78cc372d058dcf6d5ecd98510e7fbc9e5aec4d21de70f65fea8fecebcd881bd4"
 
 [[package]]
+name = "glean-build"
+version = "6.1.2"
+dependencies = [
+ "xshell-venv",
+]
+
+[[package]]
 name = "glob"
 version = "0.3.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "9b919933a397b79c37e33b77bb2aa3dc8eb6e165ad809e58ff75bc7db2e34574"
+
+[[package]]
+name = "goblin"
+version = "0.5.4"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "a7666983ed0dd8d21a6f6576ee00053ca0926fb281a5522577a4dbd0f1b54143"
+dependencies = [
+ "log",
+ "plain",
+ "scroll",
+]
 
 [[package]]
 name = "h2"
@@ -1542,9 +1562,9 @@ checksum = "112c678d4050afce233f4f2852bb2eb519230b3cf12f33585275537d7e41578d"
 
 [[package]]
 name = "jexl-eval"
-version = "0.2.1"
+version = "0.2.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "70c015085093f5f4836054483386ffcd18500f4816e9178daec7cfea6fb80fab"
+checksum = "41bb0cb58f20e39d58869c2cf1a69b88aaa7854557904ed404e829d3b64e1046"
 dependencies = [
  "anyhow",
  "jexl-parser",
@@ -1555,9 +1575,9 @@ dependencies = [
 
 [[package]]
 name = "jexl-parser"
-version = "0.2.1"
+version = "0.2.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "ad099b3290c625d9147b51810c0a63b9087e1439039840c9e3f974a2747deb20"
+checksum = "0ab43a7eb505d3871a8debbaebc35b3402e26968dd4bcac258e6f40881238673"
 dependencies = [
  "lalrpop-util",
  "regex",
@@ -1602,6 +1622,8 @@ name = "jwcrypto"
 version = "0.1.0"
 dependencies = [
  "base64 0.13.0",
+ "error-support",
+ "log",
  "rc_crypto",
  "serde",
  "serde_derive",
@@ -1768,6 +1790,7 @@ dependencies = [
 name = "megazord_focus"
 version = "0.1.0"
 dependencies = [
+ "error-support",
  "nimbus-sdk",
  "rc_log_ffi",
  "viaduct",
@@ -1780,6 +1803,7 @@ version = "0.1.0"
 dependencies = [
  "autofill",
  "crashtest",
+ "error-support",
  "fxa-client",
  "logins",
  "nimbus-sdk",
@@ -1964,6 +1988,8 @@ dependencies = [
  "chrono",
  "clap 2.34.0",
  "env_logger 0.7.1",
+ "error-support",
+ "glean-build",
  "hex",
  "jexl-eval",
  "log",
@@ -1994,16 +2020,6 @@ dependencies = [
  "bitflags",
  "cfg-if 1.0.0",
  "libc",
-]
-
-[[package]]
-name = "nom"
-version = "5.1.2"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "ffb4262d26ed83a1c0a33a38fe2bb15797329c85770da05e6b828ddb782627af"
-dependencies = [
- "memchr",
- "version_check",
 ]
 
 [[package]]
@@ -2332,15 +2348,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "d4fd5641d01c8f18a23da7b6fe29298ff4b55afcccdf78973b24cf3175fee32e"
 
 [[package]]
-name = "pest"
-version = "2.1.3"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "10f4872ae94d7b90ae48754df22fd42ad52ce740b8f370b03da4835417403e53"
-dependencies = [
- "ucd-trie",
-]
-
-[[package]]
 name = "petgraph"
 version = "0.5.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2433,6 +2440,12 @@ dependencies = [
  "types",
  "url",
 ]
+
+[[package]]
+name = "plain"
+version = "0.2.3"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "b4596b6d070b27117e987119b4dac604f3c58cfb0b191112e24771b2faeac1a6"
 
 [[package]]
 name = "plotters"
@@ -2596,6 +2609,7 @@ dependencies = [
  "base64 0.13.0",
  "bincode",
  "env_logger 0.8.4",
+ "error-support",
  "hex",
  "lazy_static",
  "log",
@@ -2960,6 +2974,26 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "d29ab0c6d3fc0ee92fe66e2d99f700eab17a8d57d1c1d3b748380fb20baa78cd"
 
 [[package]]
+name = "scroll"
+version = "0.11.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "04c565b551bafbef4157586fa379538366e4385d42082f255bfd96e4fe8519da"
+dependencies = [
+ "scroll_derive",
+]
+
+[[package]]
+name = "scroll_derive"
+version = "0.11.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "bdbda6ac5cd1321e724fa9cee216f3a61885889b896f073b8f82322789c5250e"
+dependencies = [
+ "proc-macro2",
+ "quote",
+ "syn",
+]
+
+[[package]]
 name = "security-framework"
 version = "2.6.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2988,17 +3022,7 @@ version = "0.9.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "1d7eb9ef2c18661902cc47e535f9bc51b78acd254da71d375c2f6720d9a40403"
 dependencies = [
- "semver-parser 0.7.0",
-]
-
-[[package]]
-name = "semver"
-version = "0.11.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "f301af10236f6df4160f7c3f04eec6dbc70ace82d23326abad5edee88801c6b6"
-dependencies = [
- "semver-parser 0.10.2",
- "serde",
+ "semver-parser",
 ]
 
 [[package]]
@@ -3006,21 +3030,15 @@ name = "semver"
 version = "1.0.12"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "a2333e6df6d6598f2b1974829f853c2b4c5f4a6e503c10af918081aa6f8564e1"
+dependencies = [
+ "serde",
+]
 
 [[package]]
 name = "semver-parser"
 version = "0.7.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "388a1df253eca08550bef6c72392cfe7c30914bf41df5269b68cbd6ff8f570a3"
-
-[[package]]
-name = "semver-parser"
-version = "0.10.2"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "00b0bef5b7f9e0df16536d3961cfb6e84331c065b4066afb39768d0e319411f7"
-dependencies = [
- "pest",
-]
 
 [[package]]
 name = "serde"
@@ -3246,23 +3264,9 @@ dependencies = [
  "serde_derive",
  "serde_json",
  "sync-guid",
- "sync15-traits",
  "thiserror",
  "url",
  "viaduct",
-]
-
-[[package]]
-name = "sync15-traits"
-version = "0.1.0"
-dependencies = [
- "anyhow",
- "ffi-support",
- "log",
- "serde",
- "serde_json",
- "sync-guid",
- "url",
 ]
 
 [[package]]
@@ -3604,12 +3608,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "ucd-trie"
-version = "0.1.4"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "89570599c4fe5585de2b388aab47e99f7fa4e9238a1399f707a02e356058141c"
-
-[[package]]
 name = "unicase"
 version = "2.6.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -3668,57 +3666,81 @@ checksum = "957e51f3646910546462e67d5f7599b9e4fb8acdd304b087a6494730f9eebf04"
 
 [[package]]
 name = "uniffi"
-version = "0.18.0"
+version = "0.21.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "d0fe14882ae6ea89f31ac922ad8e6f76b3f346f07965791a60ade60cc3bcdd60"
+checksum = "f54af5ada67d1173457a99a7bb44a7917f63e7466764cb4714865c7a6678b830"
 dependencies = [
  "anyhow",
  "bytes",
+ "camino",
  "cargo_metadata",
- "lazy_static",
  "log",
+ "once_cell",
  "paste",
  "static_assertions",
+ "uniffi_macros",
 ]
 
 [[package]]
 name = "uniffi_bindgen"
-version = "0.18.0"
+version = "0.21.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "49a9810482e988792ed22fc6747d872bd32600f7e3bfc11fe93019d155d7e89c"
+checksum = "12cc4af3c0180c7e86c4a3acf2b6587af04ba2567b1e948993df10f421796621"
 dependencies = [
  "anyhow",
  "askama 0.11.1",
- "cargo_metadata",
+ "bincode",
+ "camino",
  "clap 3.2.8",
+ "fs-err",
+ "goblin",
  "heck 0.4.0",
+ "once_cell",
  "paste",
  "serde",
+ "serde_json",
  "toml",
+ "uniffi_meta",
  "weedle2",
 ]
 
 [[package]]
 name = "uniffi_build"
-version = "0.18.0"
+version = "0.21.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "bcb7401cfd8da93541c23a0683c1dab3c782d2a118254536106b0aa4d9b30607"
+checksum = "510287c368a9386eb731ebe824a6fc6c82a105e20d020af1aa20519c1c1561db"
 dependencies = [
  "anyhow",
+ "camino",
  "uniffi_bindgen",
 ]
 
 [[package]]
 name = "uniffi_macros"
-version = "0.18.0"
+version = "0.21.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "4e7b60ccb030ef51b0c85eb9ca55f28ff68b82c1a29d2bc0c7053777010af0d3"
+checksum = "5c8604503caa2cbcf271578dc51ca236d40e3b22e1514ffa2e638e2c39f6ad10"
 dependencies = [
- "glob",
+ "bincode",
+ "camino",
+ "fs-err",
+ "once_cell",
  "proc-macro2",
  "quote",
+ "serde",
  "syn",
+ "toml",
  "uniffi_build",
+ "uniffi_meta",
+]
+
+[[package]]
+name = "uniffi_meta"
+version = "0.21.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "cd9417cc653937681436b93838d8c5f97a5b8c58697813982ee8810bd1dc3b57"
+dependencies = [
+ "serde",
 ]
 
 [[package]]
@@ -3933,7 +3955,7 @@ dependencies = [
  "serde_json",
  "sql-support",
  "sync-guid",
- "sync15-traits",
+ "sync15",
  "tempfile",
  "thiserror",
  "url",
@@ -3952,12 +3974,11 @@ dependencies = [
 
 [[package]]
 name = "weedle2"
-version = "2.0.1"
+version = "4.0.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "8a69b360c3d0df7dc1a18124677ee8476576c806418f30a360a6cf6cf4e072a6"
+checksum = "2e79c5206e1f43a2306fd64bdb95025ee4228960f2e6c5a8b173f3caaf807741"
 dependencies = [
- "fs-err",
- "nom 5.1.2",
+ "nom 7.1.1",
 ]
 
 [[package]]
@@ -4083,6 +4104,30 @@ checksum = "5e917a3f24142e9ff8be2414e36c649d47d6cc2ba81f16201cdef96e533e02de"
 dependencies = [
  "libc",
  "log",
+]
+
+[[package]]
+name = "xshell"
+version = "0.2.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "6d47097dc5c85234b1e41851b3422dd6d19b3befdd35b4ae5ce386724aeca981"
+dependencies = [
+ "xshell-macros",
+]
+
+[[package]]
+name = "xshell-macros"
+version = "0.2.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "88301b56c26dd9bf5c43d858538f82d6f3f7764767defbc5d34e59459901c41a"
+
+[[package]]
+name = "xshell-venv"
+version = "1.1.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "f43c2e9236bfd40d392b5ef2c073ef2719f7c69a758293cec4d8eff909a8917c"
+dependencies = [
+ "xshell",
 ]
 
 [[package]]

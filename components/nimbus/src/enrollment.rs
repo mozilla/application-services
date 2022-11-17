@@ -1,3 +1,4 @@
+use crate::behavior::EventStore;
 use crate::defaults::Defaults;
 // This Source Code Form is subject to the terms of the Mozilla Public
 // License, v. 2.0. If a copy of the MPL was not distributed with this
@@ -66,7 +67,7 @@ pub enum DisqualifiedReason {
 
 // ⚠️ Attention : Changes to this type should be accompanied by a new test  ⚠️
 // ⚠️ in `mod test_schema_bw_compat` below, and may require a DB migration. ⚠️
-#[derive(Deserialize, Serialize, Debug, Clone, PartialEq)]
+#[derive(Deserialize, Serialize, Debug, Clone, PartialEq, Eq)]
 pub struct ExperimentEnrollment {
     pub slug: String,
     pub status: EnrollmentStatus,
@@ -81,6 +82,7 @@ impl ExperimentEnrollment {
         available_randomization_units: &AvailableRandomizationUnits,
         targeting_attributes: &TargetingAttributes,
         experiment: &Experiment,
+        event_store: &EventStore,
         out_enrollment_events: &mut Vec<EnrollmentChangeEvent>,
     ) -> Result<Self> {
         Ok(if !is_user_participating {
@@ -103,6 +105,7 @@ impl ExperimentEnrollment {
                 available_randomization_units,
                 targeting_attributes,
                 experiment,
+                event_store,
             )?;
             log::debug!(
                 "Experiment '{}' is new - enrollment status is {:?}",
@@ -123,6 +126,14 @@ impl ExperimentEnrollment {
         out_enrollment_events: &mut Vec<EnrollmentChangeEvent>,
     ) -> Result<Self> {
         if !experiment.has_branch(branch_slug) {
+            out_enrollment_events.push(EnrollmentChangeEvent {
+                experiment_slug: experiment.slug.to_string(),
+                branch_slug: branch_slug.to_string(),
+                enrollment_id: "N/A".to_string(),
+                reason: Some("does-not-exist".to_string()),
+                change: EnrollmentChangeEventType::EnrollFailed,
+            });
+
             return Err(NimbusError::NoSuchBranch(
                 branch_slug.to_owned(),
                 experiment.slug.clone(),
@@ -137,6 +148,7 @@ impl ExperimentEnrollment {
     }
 
     /// Update our enrollment to an experiment we have seen before.
+    #[allow(clippy::too_many_arguments)]
     fn on_experiment_updated(
         &self,
         is_user_participating: bool,
@@ -144,6 +156,7 @@ impl ExperimentEnrollment {
         available_randomization_units: &AvailableRandomizationUnits,
         targeting_attributes: &TargetingAttributes,
         updated_experiment: &Experiment,
+        event_store: &EventStore,
         out_enrollment_events: &mut Vec<EnrollmentChangeEvent>,
     ) -> Result<Self> {
         Ok(match self.status {
@@ -156,6 +169,7 @@ impl ExperimentEnrollment {
                         available_randomization_units,
                         targeting_attributes,
                         updated_experiment,
+                        event_store,
                     )?;
                     log::debug!(
                         "Experiment '{}' with enrollment {:?} is now {:?}",
@@ -199,6 +213,7 @@ impl ExperimentEnrollment {
                         available_randomization_units,
                         targeting_attributes,
                         updated_experiment,
+                        event_store,
                     )?;
                     match evaluated_enrollment.status {
                         EnrollmentStatus::Error { .. } => {
@@ -574,6 +589,7 @@ impl<'a> EnrollmentsEvolver<'a> {
         db: &Database,
         writer: &mut Writer,
         next_experiments: &[Experiment],
+        event_store: &EventStore,
     ) -> Result<Vec<EnrollmentChangeEvent>> {
         // Get the state from the db.
         let is_user_participating = get_global_user_participation(db, writer)?;
@@ -587,6 +603,7 @@ impl<'a> EnrollmentsEvolver<'a> {
             &prev_experiments,
             next_experiments,
             &prev_enrollments,
+            event_store,
         )?;
         let next_enrollments = map_enrollments(&next_enrollments);
         // Write the changes to the Database.
@@ -598,7 +615,7 @@ impl<'a> EnrollmentsEvolver<'a> {
         for experiment in next_experiments {
             // Sanity check.
             if !next_enrollments.contains_key(&experiment.slug) {
-                log::error!("evolve_enrollments_in_db: experiment '{}' has no enrollment, dropping to keep database consistent", &experiment.slug);
+                error_support::report_error!("nimbus-evolve-enrollments", "evolve_enrollments_in_db: experiment '{}' has no enrollment, dropping to keep database consistent", &experiment.slug);
                 continue;
             }
             experiments_store.put(writer, &experiment.slug, experiment)?;
@@ -612,6 +629,7 @@ impl<'a> EnrollmentsEvolver<'a> {
         prev_experiments: &[Experiment],
         next_experiments: &[Experiment],
         prev_enrollments: &[ExperimentEnrollment],
+        event_store: &EventStore,
     ) -> Result<(Vec<ExperimentEnrollment>, Vec<EnrollmentChangeEvent>)> {
         let mut enrollments: Vec<ExperimentEnrollment> = Default::default();
         let mut events: Vec<EnrollmentChangeEvent> = Default::default();
@@ -630,6 +648,7 @@ impl<'a> EnrollmentsEvolver<'a> {
             &prev_rollouts,
             &next_rollouts,
             &ro_enrollments,
+            event_store,
         )?;
 
         enrollments.extend(next_ro_enrollments.into_iter());
@@ -655,6 +674,7 @@ impl<'a> EnrollmentsEvolver<'a> {
             &prev_experiments,
             &next_experiments,
             &prev_enrollments,
+            event_store,
         )?;
 
         enrollments.extend(next_exp_enrollments.into_iter());
@@ -671,6 +691,7 @@ impl<'a> EnrollmentsEvolver<'a> {
         prev_experiments: &[Experiment],
         next_experiments: &[Experiment],
         prev_enrollments: &[ExperimentEnrollment],
+        event_store: &EventStore,
     ) -> Result<(Vec<ExperimentEnrollment>, Vec<EnrollmentChangeEvent>)> {
         let mut enrollment_events = vec![];
         let prev_experiments = map_experiments(prev_experiments);
@@ -705,6 +726,7 @@ impl<'a> EnrollmentsEvolver<'a> {
                 prev_experiments.get(slug).copied(),
                 next_experiments.get(slug).copied(),
                 Some(prev_enrollment),
+                event_store,
                 &mut enrollment_events,
             ) {
                 Ok(enrollment) => enrollment,
@@ -760,6 +782,14 @@ impl<'a> EnrollmentsEvolver<'a> {
                             reason: NotEnrolledReason::FeatureConflict,
                         },
                     });
+
+                    enrollment_events.push(EnrollmentChangeEvent {
+                        experiment_slug: slug.clone(),
+                        branch_slug: "N/A".to_string(),
+                        enrollment_id: "N/A".to_string(),
+                        reason: Some("feature-conflict".to_string()),
+                        change: EnrollmentChangeEventType::EnrollFailed,
+                    })
                 }
                 // Whether it's our experiment or not that is using these features, no further enrollment can
                 // happen.
@@ -788,6 +818,7 @@ impl<'a> EnrollmentsEvolver<'a> {
                     prev_experiments.get(slug).copied(),
                     Some(next_experiment),
                     prev_enrollment,
+                    event_store,
                     &mut enrollment_events,
                 ) {
                     Ok(enrollment) => enrollment,
@@ -859,6 +890,7 @@ impl<'a> EnrollmentsEvolver<'a> {
         prev_experiment: Option<&Experiment>,
         next_experiment: Option<&Experiment>,
         prev_enrollment: Option<&ExperimentEnrollment>,
+        event_store: &EventStore,
         out_enrollment_events: &mut Vec<EnrollmentChangeEvent>, // out param containing the events we'd like to emit to glean.
     ) -> Result<Option<ExperimentEnrollment>> {
         let is_already_enrolled = if let Some(enrollment) = prev_enrollment {
@@ -878,6 +910,7 @@ impl<'a> EnrollmentsEvolver<'a> {
                 self.available_randomization_units,
                 &targeting_attributes,
                 experiment,
+                event_store,
                 out_enrollment_events,
             )?),
             // Experiment deleted remotely.
@@ -892,6 +925,7 @@ impl<'a> EnrollmentsEvolver<'a> {
                     self.available_randomization_units,
                     &targeting_attributes,
                     experiment,
+                    event_store,
                     out_enrollment_events,
                 )?)
             }
@@ -1060,7 +1094,7 @@ fn get_enrolled_feature_configs(
 /// Small transitory struct to contain all the information needed to configure a feature with the Feature API.
 /// By design, we don't want to store it on the disk. Instead we calculate it from experiments
 /// and enrollments.
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct EnrolledFeatureConfig {
     pub feature: FeatureConfig,
     pub slug: String,
@@ -1124,11 +1158,13 @@ impl EnrollmentChangeEvent {
     }
 }
 
-#[derive(Debug, PartialEq)]
+#[derive(Debug, PartialEq, Eq)]
 pub enum EnrollmentChangeEventType {
     Enrollment,
+    EnrollFailed,
     Disqualification,
     Unenrollment,
+    UnenrollFailed,
 }
 
 pub fn opt_in_with_branch(
@@ -1138,13 +1174,23 @@ pub fn opt_in_with_branch(
     branch: &str,
 ) -> Result<Vec<EnrollmentChangeEvent>> {
     let mut events = vec![];
-    let exp: Experiment = db
+    if let Ok(Some(exp)) = db
         .get_store(StoreId::Experiments)
-        .get(writer, experiment_slug)?
-        .ok_or_else(|| NimbusError::NoSuchExperiment(experiment_slug.to_owned()))?;
-    let enrollment = ExperimentEnrollment::from_explicit_opt_in(&exp, branch, &mut events)?;
-    db.get_store(StoreId::Enrollments)
-        .put(writer, experiment_slug, &enrollment)?;
+        .get::<Experiment, Writer>(writer, experiment_slug)
+    {
+        let enrollment = ExperimentEnrollment::from_explicit_opt_in(&exp, branch, &mut events);
+        db.get_store(StoreId::Enrollments)
+            .put(writer, experiment_slug, &enrollment.unwrap())?;
+    } else {
+        events.push(EnrollmentChangeEvent {
+            experiment_slug: experiment_slug.to_string(),
+            branch_slug: branch.to_string(),
+            enrollment_id: "N/A".to_string(),
+            reason: Some("does-not-exist".to_string()),
+            change: EnrollmentChangeEventType::EnrollFailed,
+        });
+    }
+
     Ok(events)
 }
 
@@ -1155,11 +1201,21 @@ pub fn opt_out(
 ) -> Result<Vec<EnrollmentChangeEvent>> {
     let mut events = vec![];
     let enr_store = db.get_store(StoreId::Enrollments);
-    let existing_enrollment: ExperimentEnrollment = enr_store
-        .get(writer, experiment_slug)?
-        .ok_or_else(|| NimbusError::NoSuchExperiment(experiment_slug.to_owned()))?;
-    let updated_enrollment = existing_enrollment.on_explicit_opt_out(&mut events);
-    enr_store.put(writer, experiment_slug, &updated_enrollment)?;
+    if let Ok(Some(existing_enrollment)) =
+        enr_store.get::<ExperimentEnrollment, Writer>(writer, experiment_slug)
+    {
+        let updated_enrollment = &existing_enrollment.on_explicit_opt_out(&mut events);
+        enr_store.put(writer, experiment_slug, updated_enrollment)?;
+    } else {
+        events.push(EnrollmentChangeEvent {
+            experiment_slug: experiment_slug.to_string(),
+            branch_slug: "N/A".to_string(),
+            enrollment_id: "N/A".to_string(),
+            reason: Some("does-not-exist".to_string()),
+            change: EnrollmentChangeEventType::UnenrollFailed,
+        });
+    }
+
     Ok(events)
 }
 

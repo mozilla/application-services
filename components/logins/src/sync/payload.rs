@@ -16,7 +16,7 @@ use serde_derive::*;
 use sync_guid::Guid;
 
 /// The JSON payload that lives on the storage servers.
-#[derive(Debug, Clone, Hash, PartialEq, Serialize, Deserialize, Default)]
+#[derive(Debug, Clone, Hash, PartialEq, Eq, Serialize, Deserialize, Default)]
 #[serde(rename_all = "camelCase")]
 pub struct LoginPayload {
     #[serde(rename = "id")]

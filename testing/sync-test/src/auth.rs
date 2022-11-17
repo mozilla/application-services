@@ -9,7 +9,10 @@ use logins::LoginStore;
 use serde_json::json;
 use std::collections::HashMap;
 use std::sync::Arc;
-use sync15::{KeyBundle, Sync15StorageClientInit};
+use sync15::DeviceType;
+use sync_manager::{
+    manager::SyncManager, DeviceSettings, SyncAuthInfo, SyncEngineSelection, SyncParams, SyncReason,
+};
 use tabs::TabsStore;
 use url::Url;
 use viaduct::Request;
@@ -63,8 +66,8 @@ impl TestAccount {
         log::info!("POST /v1/account/create succeeded");
 
         log::info!("Autoverifying account on restmail... uid = {}", uid);
-        Self::verify_account(&email, &cfg, &uid)?;
-        let (sync_key, xcs_key) = auth::get_sync_keys(&cfg, &key_fetch_token, &email, &pass)?;
+        Self::verify_account(&email, &cfg, uid)?;
+        let (sync_key, xcs_key) = auth::get_sync_keys(&cfg, key_fetch_token, &email, &pass)?;
         log::info!("Account created and verified!");
 
         Ok(Arc::new(TestAccount {
@@ -84,9 +87,12 @@ impl TestAccount {
         let name = opts.force_username.clone().unwrap_or_else(|| {
             format!(
                 "rust-login-sql-test--{}",
-                rng.sample_iter(&rand::distributions::Alphanumeric)
-                    .take(5)
-                    .collect::<String>()
+                std::str::from_utf8(
+                    &rng.sample_iter(&rand::distributions::Alphanumeric)
+                        .take(5)
+                        .collect::<Vec<u8>>()
+                )
+                .unwrap()
             )
         });
         // We should probably check this some other time, but whatever.
@@ -123,7 +129,7 @@ impl TestAccount {
             "uid": uid,
             "code": verification_email["headers"]["x-verify-code"].as_str().unwrap(),
         });
-        let resp = auth::send_verification(&config, body).unwrap();
+        let resp = auth::send_verification(config, body).unwrap();
         if !resp.is_success() {
             log::warn!(
                 "Error verifying account: {}",
@@ -147,9 +153,9 @@ impl TestAccount {
         let code_challenge = query_map.get("code_challenge").unwrap();
         let code_challenge_method = query_map.get("code_challenge_method").unwrap();
         let keys_jwe = auth::create_keys_jwe(
-            &client_id,
-            &scope,
-            &jwk,
+            client_id,
+            scope,
+            jwk,
             &auth_key,
             &self.cfg,
             (&self.k_sync, &self.xcs),
@@ -167,7 +173,7 @@ impl TestAccount {
     }
 
     fn execute_oauth_pair_flow(&self, oauth_uri: &str) -> Result<(String, String)> {
-        let url = Url::parse(&oauth_uri)?;
+        let url = Url::parse(oauth_uri)?;
         let auth_params = auth::AuthorizationParameters::try_from(url)?;
         let scoped_keys = auth::get_scoped_keys(
             &auth_params.scope.join(" "),
@@ -223,9 +229,11 @@ pub struct TestClient {
     pub fxa: fxa_client::internal::FirefoxAccount,
     pub test_acct: Arc<TestAccount>,
     // XXX do this more generically...
-    pub autofill_store: AutofillStore,
-    pub logins_store: LoginStore,
-    pub tabs_store: TabsStore,
+    pub autofill_store: Arc<AutofillStore>,
+    pub logins_store: Arc<LoginStore>,
+    pub tabs_store: Arc<TabsStore>,
+    sync_manager: SyncManager,
+    persisted_state: Option<String>,
 }
 
 impl TestClient {
@@ -258,22 +266,20 @@ impl TestClient {
         fxa.complete_oauth_flow(&code, &state)?;
         log::info!("OAuth flow finished");
 
-        fxa.initialize_device(
-            "Testing Device",
-            fxa_client::internal::device::Type::Desktop,
-            &[],
-        )?;
+        fxa.initialize_device("Testing Device", DeviceType::Desktop, &[])?;
 
         Ok(Self {
             fxa,
             test_acct: acct,
-            autofill_store: AutofillStore::new_shared_memory("sync-test")?,
-            logins_store: LoginStore::new_in_memory(None)?,
-            tabs_store: TabsStore::new(),
+            autofill_store: Arc::new(AutofillStore::new_shared_memory("sync-test")?),
+            logins_store: Arc::new(LoginStore::new_in_memory()?),
+            tabs_store: Arc::new(TabsStore::new_with_mem_path("sync-test-tabs")),
+            sync_manager: SyncManager::new(),
+            persisted_state: None,
         })
     }
 
-    pub fn get_sync_data(&mut self) -> Result<(Sync15StorageClientInit, String, String)> {
+    pub fn get_sync_data(&mut self) -> Result<(SyncAuthInfo, DeviceSettings)> {
         // Allow overriding it via environment
         let tokenserver_url = option_env!("TOKENSERVER_URL")
             .map(|env_var| {
@@ -287,36 +293,81 @@ impl TestClient {
 
         let key = token.key.as_ref().unwrap();
 
-        let client_init = Sync15StorageClientInit {
-            key_id: key.kid.clone(),
-            access_token: token.token,
-            tokenserver_url,
+        let auth_info = SyncAuthInfo {
+            kid: key.kid.clone(),
+            fxa_access_token: token.token,
+            sync_key: key.k.clone(),
+            tokenserver_url: tokenserver_url.to_string(),
         };
 
-        let device_id = self.fxa.get_current_device_id()?;
+        let device_settings = DeviceSettings {
+            fxa_device_id: self.fxa.get_current_device_id()?,
+            name: "sync-test".to_string(),
+            kind: DeviceType::Desktop,
+        };
 
-        Ok((client_init, key.k.clone(), device_id))
+        Ok((auth_info, device_settings))
     }
 
-    pub fn data_for_sync(&mut self) -> Result<(Sync15StorageClientInit, KeyBundle, String)> {
-        let (client_init, scoped_key, device_id) = self.get_sync_data()?;
-        let root_sync_key = KeyBundle::from_ksync_base64(&scoped_key)?;
-
-        Ok((client_init, root_sync_key, device_id))
+    pub fn sync(
+        &mut self,
+        engines: &[String],
+        local_encryption_keys: HashMap<String, String>,
+    ) -> Result<()> {
+        // ensure all our engines are registered.
+        self.autofill_store.clone().register_with_sync_manager();
+        self.tabs_store.clone().register_with_sync_manager();
+        self.logins_store.clone().register_with_sync_manager();
+        let (auth_info, device_settings) = self.get_sync_data()?;
+        let params = SyncParams {
+            reason: SyncReason::User,
+            engines: SyncEngineSelection::Some {
+                engines: engines.to_vec(),
+            },
+            enabled_changes: HashMap::new(),
+            local_encryption_keys,
+            auth_info,
+            persisted_state: self.persisted_state.take(),
+            device_settings,
+        };
+        let result = self.sync_manager.sync(params)?;
+        // We expect all syncs in these tests to pass, so let's catch that here
+        // rather than waiting for a test to fail later.
+        assert!(
+            result.status.is_ok(),
+            "Service status is not OK: {:?}",
+            result.status
+        );
+        assert!(
+            result.failures.is_empty(),
+            "Engines failed: {:?}",
+            result.failures
+        );
+        self.persisted_state = Some(result.persisted_state);
+        Ok(())
     }
 
     pub fn fully_wipe_server(&mut self) -> Result<()> {
-        use sync15::{SetupStorageClient, Sync15StorageClient};
-        let client_init = self.data_for_sync()?.0;
-        Sync15StorageClient::new(client_init)?.wipe_all_remote()?;
+        let (auth_info, _device_settings) = self
+            .get_sync_data()
+            .expect("Should have data for syncing first client");
+
+        use sync15::client::{SetupStorageClient, Sync15StorageClient, Sync15StorageClientInit};
+        let storage_init = Sync15StorageClientInit {
+            key_id: auth_info.kid,
+            access_token: auth_info.fxa_access_token,
+            tokenserver_url: url::Url::parse(auth_info.tokenserver_url.as_str()).unwrap(),
+        };
+
+        Sync15StorageClient::new(storage_init)?.wipe_all_remote()?;
         Ok(())
     }
 
     pub fn fully_reset_local_db(&mut self) -> Result<()> {
         // Not great...
-        self.autofill_store = AutofillStore::new_shared_memory("sync-test")?;
-        self.logins_store = LoginStore::new_in_memory(None)?;
-        self.tabs_store = TabsStore::new();
+        self.autofill_store = Arc::new(AutofillStore::new_shared_memory("sync-test")?);
+        self.logins_store = Arc::new(LoginStore::new_in_memory()?);
+        self.tabs_store = Arc::new(TabsStore::new_with_mem_path("sync-test-tabs"));
         Ok(())
     }
 }
@@ -349,7 +400,7 @@ impl TestUser {
     fn new_random(opts: &Opts, client_count: usize) -> Result<Self> {
         log::info!("Creating test account with {} clients", client_count);
 
-        let account = TestAccount::new_random(&opts)?;
+        let account = TestAccount::new_random(opts)?;
         let mut clients = Vec::with_capacity(client_count);
 
         for c in 0..client_count {

@@ -9,14 +9,31 @@
 pub mod error;
 mod schema;
 mod storage;
+mod store;
 mod sync;
 
 uniffi_macros::include_scaffolding!("tabs");
 
+// Our UDL uses a `Guid` type.
+use sync_guid::Guid as TabsGuid;
+impl UniffiCustomTypeConverter for TabsGuid {
+    type Builtin = String;
+
+    fn into_custom(val: Self::Builtin) -> uniffi::Result<TabsGuid> {
+        Ok(TabsGuid::new(val.as_str()))
+    }
+
+    fn from_custom(obj: Self) -> Self::Builtin {
+        obj.into()
+    }
+}
+
 pub use crate::storage::{ClientRemoteTabs, RemoteTabRecord, TabsDeviceType};
-pub use crate::sync::engine::TabsEngine;
-pub use crate::sync::store::TabsStore;
-use error::TabsError;
+pub use crate::store::TabsStore;
+pub use error::{ApiResult, Error, Result, TabsApiError};
 use sync15::DeviceType;
 
-pub use crate::sync::store::get_registered_sync_engine;
+pub use crate::sync::engine::get_registered_sync_engine;
+
+pub use crate::sync::bridge::TabsBridgedEngine;
+pub use crate::sync::engine::TabsEngine;

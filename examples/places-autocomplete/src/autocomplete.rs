@@ -216,7 +216,7 @@ mod autocomplete {
     use super::*;
     use interrupt_support::SqlInterruptHandle;
     use places::api::matcher::{search_frecent, SearchParams, SearchResult};
-    use places::ErrorKind;
+    use places::Error;
     use rusqlite::{Error as RusqlError, ErrorCode};
     use std::sync::{
         atomic::{AtomicUsize, Ordering},
@@ -308,11 +308,11 @@ mod autocomplete {
                                     .unwrap(); // This failing means the main thread has died (most likely)
                             }
                             Err(e) => {
-                                match e.kind() {
-                                    ErrorKind::InterruptedError(_) => {
+                                match e {
+                                    Error::InterruptedError(_) => {
                                         // Ignore.
                                     }
-                                    ErrorKind::SqlError(RusqlError::SqliteFailure(err, _))
+                                    Error::SqlError(RusqlError::SqliteFailure(err, _))
                                         if err.code == ErrorCode::OperationInterrupted =>
                                     {
                                         // Ignore.

@@ -53,7 +53,7 @@ pub(crate) fn string_to_cstring_lossy(s: String) -> CString {
     CString::new(bytes).expect("Bug in string_to_cstring_lossy!")
 }
 
-#[derive(Debug, PartialEq, Clone, Copy)]
+#[derive(Debug, PartialEq, Eq, Clone, Copy)]
 #[repr(i32)]
 pub enum LogLevel {
     // Android logger levels

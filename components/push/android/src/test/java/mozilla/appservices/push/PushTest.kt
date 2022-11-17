@@ -27,12 +27,12 @@ class PushTest {
         dbFile = tmpFolder.newFile().toString()
     }
 
-    protected val private_key_raw = "MHcCAQEEIKiZMcVhlVccuwSr62jWN4YPBrPmPKotJUWl1id0d2ifoAoGCCq" +
-            "GSM49AwEHoUQDQgAEFwl1-zUa0zLKYVO23LqUgZZEVesS0k_jQN_SA69ENHgPwIpWCoTq-VhHu0JiSwhF0o" +
-            "PUzEM-FBWYoufO6J97nQ"
-    protected val auth_raw = "LsuUOBKVQRY6-l7_Ajo-Ag"
-    protected val public_key_raw = "BBcJdfs1GtMyymFTtty6lIGWRFXrEtJP40Df0gOvRDR4D8CKVgqE6vlYR7tC" +
-            "YksIRdKD1MxDPhQVmKLnzuife50"
+    protected val privateKeyRaw = "MHcCAQEEIKiZMcVhlVccuwSr62jWN4YPBrPmPKotJUWl1id0d2ifoAoGCCqGS" +
+            "M49AwEHoUQDQgAEFwl1-zUa0zLKYVO23LqUgZZEVesS0k_jQN_SA69ENHgPwIpWCoTq-VhHu0JiSwhF0oPU" +
+            "zEM-FBWYoufO6J97nQ"
+    protected val authRaw = "LsuUOBKVQRY6-l7_Ajo-Ag"
+    protected val publicKeyRaw = "BBcJdfs1GtMyymFTtty6lIGWRFXrEtJP40Df0gOvRDR4D8CKVgqE6vlYR7tCYk" +
+            "sIRdKD1MxDPhQVmKLnzuife50"
 
     // This is the older, but still used message encryption format.
     // this does not use mock calls.
@@ -193,8 +193,8 @@ class PushTest {
         val subscriptionResponse = manager.subscribe(testChannelid, "foo")
         // These are mock values, but it's important that they exist.
         assertEquals("ChannelID Check", testChannelid, subscriptionResponse.channelId)
-        assertEquals("Auth Check", auth_raw, subscriptionResponse.subscriptionInfo.keys.auth)
-        assertEquals("p256 Check", public_key_raw, subscriptionResponse.subscriptionInfo.keys.p256dh)
+        assertEquals("Auth Check", authRaw, subscriptionResponse.subscriptionInfo.keys.auth)
+        assertEquals("p256 Check", publicKeyRaw, subscriptionResponse.subscriptionInfo.keys.p256dh)
         assertEquals("endpoint Check", "http://push.example.com/test/opaque",
             subscriptionResponse.subscriptionInfo.endpoint)
     }

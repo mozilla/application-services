@@ -41,7 +41,7 @@ def get_android_components_projects(args):
 def write_projects(ac_projects):
     path = os.path.join(TASKCLUSTER_DIR, PROJECTS_FILENAME)
     with open(path, "wt") as f:
-        json.dump(ac_projects, f)
+        json.dump(ac_projects, f, sort_keys=True, indent=4)
 
 if __name__ == '__main__':
     main()

@@ -3,6 +3,8 @@
 # License, v. 2.0. If a copy of the MPL was not distributed with this
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 
+set -e
+
 # Small script to be run on the CI server to cross compile nimbus-fml on Android
 # and iOS developer machines.
 #
@@ -31,15 +33,18 @@ prompt='$'
 echo "## Installing tools for cross compiling"
 install_musl_cross="brew install filosottile/musl-cross/musl-cross"
 install_mingw="brew install mingw-w64"
+link_musl_gcc="ln -sf /usr/local/opt/musl-cross/bin/x86_64-linux-musl-gcc /usr/local/bin/musl-gcc"
 cargo_clean="cargo clean"
 if [[ $dry_run != "true" ]] ; then
     $install_musl_cross
     $install_mingw
     $cargo_clean
+    $link_musl_gcc
 else
     echo "$prompt $install_musl_cross"
     echo "$prompt $install_mingw"
     echo "$prompt $cargo_clean"
+    echo "$prompt $link_musl_gcc"
 fi
 
 # Start creating a zip command with the zipfile

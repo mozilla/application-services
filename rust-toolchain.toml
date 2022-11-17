@@ -7,7 +7,7 @@
 #   supported and used in CI.
 
 [toolchain]
-channel = "1.60.0"
+channel = "1.63.0"
 targets = [
     "aarch64-linux-android",
     "armv7-linux-androideabi",

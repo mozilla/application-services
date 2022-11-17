@@ -231,7 +231,7 @@ class FeatureVariablesTest {
     }
 }
 
-@Suppress("EnumEntryName")
+@Suppress("EnumNaming")
 enum class MenuItemId {
     settings,
     bookmarks,
@@ -241,7 +241,7 @@ enum class MenuItemId {
 
 data class MenuItem(val deepLink: String, val label: String)
 
-@Suppress("EnumEntryName")
+@Suppress("EnumNaming")
 enum class NumKey {
     one,
     two

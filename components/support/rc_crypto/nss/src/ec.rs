@@ -20,7 +20,7 @@ use std::{
     ptr,
 };
 
-#[derive(Serialize, Deserialize, Clone, Copy, Debug, PartialEq)]
+#[derive(Serialize, Deserialize, Clone, Copy, Debug, PartialEq, Eq)]
 #[repr(u8)]
 pub enum Curve {
     P256,
@@ -39,7 +39,7 @@ impl Curve {
 const CRV_P256: &str = "P-256";
 const CRV_P384: &str = "P-384";
 
-#[derive(Serialize, Deserialize, Clone, Debug, PartialEq)]
+#[derive(Serialize, Deserialize, Clone, Debug)]
 pub struct EcKey {
     curve: String,
     // The `d` value of the EC Key.

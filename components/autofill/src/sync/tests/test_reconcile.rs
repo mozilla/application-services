@@ -26,10 +26,8 @@ use types::Timestamp;
 use rusqlite::Connection;
 use serde_json::{json, Map, Value};
 use std::sync::Arc;
-use sync15::telemetry;
-use sync15::IncomingChangeset;
-use sync15::ServerTimestamp;
-use sync15_traits::SyncEngine;
+use sync15::engine::{IncomingChangeset, SyncEngine};
+use sync15::{telemetry, ServerTimestamp};
 use sync_guid::Guid as SyncGuid;
 
 lazy_static::lazy_static! {
@@ -592,7 +590,7 @@ fn test_reconcile_addresses() -> Result<()> {
             log::trace!("local record: doesn't exist");
             SyncGuid::random()
         } else {
-            let local = local_array.get(local_array.len() - 1).unwrap();
+            let local = local_array.last().unwrap();
             log::trace!("local record: {local}");
             let guid = SyncGuid::random();
             addresses::add_internal_address(&tx, &make_local_from_json(&guid, local))?;

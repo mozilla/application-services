@@ -16,7 +16,7 @@ use rusqlite::{self, Connection, Row};
 use serde_json::{self, json};
 use sql_support::{self, ConnExt};
 use std::cmp::{max, min};
-use sync15::EngineSyncAssociation;
+use sync15::engine::EngineSyncAssociation;
 use sync_guid::Guid as SyncGuid;
 use types::Timestamp;
 use url::Url;
@@ -555,7 +555,7 @@ impl UpdatableItem {
 /// `UpdatableItem`, used to avoid needing to pass in the `type` to update, and
 /// to give us a place to check things that we can't enforce in Swift/Kotlin's
 /// type system, but that we do in Rust's.
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct BookmarkUpdateInfo {
     pub guid: SyncGuid,
     pub title: Option<String>,

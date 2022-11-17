@@ -237,6 +237,7 @@ impl PushManager {
         registration_id: String,
         database_path: String,
     ) -> Result<Self> {
+        log::debug!("PushManager server_host: {server_host}, http_protocol: {http_protocol}");
         let bridge_type = match bridge_type {
             BridgeType::Adm => "adm",
             BridgeType::Apns => "apns",
@@ -435,7 +436,7 @@ pub enum BridgeType {
 }
 
 /// Dispatch Information returned from [`PushManager::dispatch_info_for_chid`]
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone)]
 pub struct DispatchInfo {
     pub scope: String,
     pub endpoint: String,
@@ -443,21 +444,21 @@ pub struct DispatchInfo {
 }
 
 /// Key Information that can be used to encrypt payloads
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct KeyInfo {
     pub auth: String,
     pub p256dh: String,
 }
 /// Subscription Information, the endpoint to send push messages to and
 /// the key information that can be used to encrypt payloads
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone)]
 pub struct SubscriptionInfo {
     pub endpoint: String,
     pub keys: KeyInfo,
 }
 
 /// The subscription response object returned from [`PushManager::subscribe`]
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone)]
 pub struct SubscriptionResponse {
     pub channel_id: String,
     pub subscription_info: SubscriptionInfo,
@@ -467,7 +468,7 @@ pub struct SubscriptionResponse {
 /// will receive a list of [`PushSubscriptionChanged`] when calling
 /// [`PushManager::verify_connection`], one entry for each channel that the
 /// caller should resubscribe to
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone)]
 pub struct PushSubscriptionChanged {
     pub channel_id: String,
     pub scope: String,

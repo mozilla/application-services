@@ -24,7 +24,7 @@ use sync_guid::Guid as SyncGuid;
 ///
 /// Internally, we convert record IDs to GUIDs when applying incoming records,
 /// and only convert back to GUIDs during upload.
-#[derive(Clone, Debug, Hash, PartialEq)]
+#[derive(Clone, Debug, Hash, PartialEq, Eq)]
 pub struct BookmarkRecordId(SyncGuid);
 
 impl BookmarkRecordId {
@@ -135,7 +135,7 @@ impl<'de> Deserialize<'de> for BookmarkRecordId {
     }
 }
 
-#[derive(Clone, Debug, Deserialize, Hash, PartialEq, Serialize)]
+#[derive(Clone, Debug, Deserialize, Hash, PartialEq, Eq, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct BookmarkRecord {
     // Note that `SyncGuid` does not check for validity, which is what we
@@ -176,7 +176,7 @@ impl From<BookmarkRecord> for BookmarkItemRecord {
     }
 }
 
-#[derive(Clone, Debug, Deserialize, Hash, PartialEq, Serialize)]
+#[derive(Clone, Debug, Deserialize, Hash, PartialEq, Eq, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct QueryRecord {
     #[serde(rename = "id")]
@@ -212,7 +212,7 @@ impl From<QueryRecord> for BookmarkItemRecord {
     }
 }
 
-#[derive(Clone, Debug, Deserialize, Hash, PartialEq, Serialize)]
+#[derive(Clone, Debug, Deserialize, Hash, PartialEq, Eq, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct FolderRecord {
     #[serde(rename = "id")]
@@ -245,7 +245,7 @@ impl From<FolderRecord> for BookmarkItemRecord {
     }
 }
 
-#[derive(Clone, Debug, Deserialize, Hash, PartialEq, Serialize)]
+#[derive(Clone, Debug, Deserialize, Hash, PartialEq, Eq, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct LivemarkRecord {
     #[serde(rename = "id")]
@@ -281,7 +281,7 @@ impl From<LivemarkRecord> for BookmarkItemRecord {
     }
 }
 
-#[derive(Clone, Debug, Deserialize, Hash, PartialEq, Serialize)]
+#[derive(Clone, Debug, Deserialize, Hash, PartialEq, Eq, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct SeparatorRecord {
     #[serde(rename = "id")]
@@ -313,7 +313,7 @@ impl From<SeparatorRecord> for BookmarkItemRecord {
     }
 }
 
-#[derive(Clone, Debug, Deserialize, Hash, PartialEq, Serialize)]
+#[derive(Clone, Debug, Deserialize, Hash, PartialEq, Eq, Serialize)]
 #[serde(tag = "type", rename_all = "camelCase")]
 pub enum BookmarkItemRecord {
     Bookmark(BookmarkRecord),

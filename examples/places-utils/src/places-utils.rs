@@ -18,10 +18,8 @@ use serde_derive::*;
 use std::fs::File;
 use std::io::{BufReader, BufWriter};
 use structopt::StructOpt;
-use sync15::{
-    sync_multiple, EngineSyncAssociation, MemoryCachedState, SetupStorageClient,
-    Sync15StorageClient, SyncEngine, SyncEngineId,
-};
+use sync15::client::{sync_multiple, MemoryCachedState, SetupStorageClient, Sync15StorageClient};
+use sync15::engine::{EngineSyncAssociation, SyncEngine, SyncEngineId};
 use sync_guid::Guid as SyncGuid;
 use types::Timestamp;
 use url::Url;
@@ -132,10 +130,16 @@ fn run_desktop_import(db: &PlacesDb, filename: String) -> Result<()> {
     do_import(db, root)
 }
 
-fn run_ios_import(api: &PlacesApi, filename: String) -> Result<()> {
-    println!("ios import from {}", filename);
+fn run_ios_import_bookmarks(api: &PlacesApi, filename: String) -> Result<()> {
+    println!("ios import bookmarks from {}", filename);
     places::import::import_ios_bookmarks(api, filename)?;
     println!("Import finished!");
+    Ok(())
+}
+
+fn run_ios_import_history(conn: &PlacesDb, filename: String) -> Result<()> {
+    let res = places::import::import_ios_history(conn, filename, 0)?;
+    println!("Import finished!, results: {:?}", res);
     Ok(())
 }
 
@@ -242,7 +246,7 @@ fn sync(
         match result.result {
             Err(e) => {
                 log::warn!("Sync failed! {}", e);
-                log::warn!("BT: {:?}", e.backtrace());
+                log::warn!("BT: {:?}", error_support::backtrace::Backtrace);
                 error_to_report = Some(e);
             }
             Ok(()) => log::info!("Sync was successful!"),
@@ -347,6 +351,14 @@ enum Command {
         input_file: String,
     },
 
+    #[structopt(name = "import-ios-history")]
+    /// Import history from an iOS browser.db
+    ImportIosHistory {
+        #[structopt(name = "input-file", long, short = "i")]
+        /// The name of the file to read
+        input_file: String,
+    },
+
     #[structopt(name = "import-desktop-bookmarks")]
     /// Import bookmarks from JSON file exported by desktop Firefox
     ImportDesktopBookmarks {
@@ -394,7 +406,8 @@ fn main() -> Result<()> {
         ),
         Command::ExportBookmarks { output_file } => run_native_export(&db, output_file),
         Command::ImportBookmarks { input_file } => run_native_import(&db, input_file),
-        Command::ImportIosBookmarks { input_file } => run_ios_import(&api, input_file),
+        Command::ImportIosBookmarks { input_file } => run_ios_import_bookmarks(&api, input_file),
         Command::ImportDesktopBookmarks { input_file } => run_desktop_import(&db, input_file),
+        Command::ImportIosHistory { input_file } => run_ios_import_history(&db, input_file),
     }
 }

@@ -2,8 +2,8 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-use places::import::fennec::history::HistoryMigrationResult;
-use places::{api::places_api::PlacesApi, types::VisitTransition, ErrorKind, Result};
+use places::import::common::HistoryMigrationResult;
+use places::{api::places_api::PlacesApi, types::VisitTransition, Error, Result};
 use rusqlite::Connection;
 use std::path::Path;
 use std::sync::atomic::{AtomicUsize, Ordering};
@@ -132,11 +132,8 @@ fn test_import_unsupported_db_version() -> Result<()> {
     let fennec_db = empty_fennec_db(&fennec_path)?;
     fennec_db.execute("PRAGMA user_version=33", [])?;
     let places_api = PlacesApi::new(tmpdir.path().join("places.sqlite"))?;
-    match places::import::import_fennec_history(&places_api, fennec_path)
-        .unwrap_err()
-        .kind()
-    {
-        ErrorKind::UnsupportedDatabaseVersion(_) => {}
+    match places::import::import_fennec_history(&places_api, fennec_path).unwrap_err() {
+        Error::UnsupportedDatabaseVersion(_) => {}
         _ => unreachable!("Should fail with UnsupportedDatabaseVersion!"),
     }
     Ok(())

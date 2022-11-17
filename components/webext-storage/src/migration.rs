@@ -224,7 +224,7 @@ fn do_insert(tx: &Transaction<'_>, ext_id: &str, vals: Vec<(String, Value)>) -> 
     Ok(num_entries)
 }
 
-#[derive(Debug, Clone, Default, PartialEq, serde::Serialize, serde::Deserialize)]
+#[derive(Debug, Clone, Default, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 pub struct MigrationInfo {
     /// The number of entries (rows in the original table) we attempted to
     /// migrate. Zero if there was some error in computing this number.
@@ -295,7 +295,11 @@ impl MigrationInfo {
                     // Force test failure, but just log an error otherwise so that
                     // we commit the transaction that wil.
                     debug_assert!(false, "Failed to read migration JSON: {:?}", e);
-                    log::error!("Failed to read migration JSON: {}", e);
+                    error_support::report_error!(
+                        "webext-storage-migration-json",
+                        "Failed to read migration JSON: {}",
+                        e
+                    );
                     Ok(None)
                 }
             }

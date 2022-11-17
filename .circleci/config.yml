@@ -12,8 +12,8 @@ commands:
   # Our minimum supported rust version is specified here.
   setup-rust-min-version:
     steps:
-      # https://searchfox.org/mozilla-central/source/python/mozboot/mozboot/util.py#20
-      - run: rustup override set 1.59.0
+      # https://searchfox.org/mozilla-central/source/python/mozboot/mozboot/util.py#26
+      - run: rustup override set 1.61.0
 
   full-checkout:
     steps:
@@ -137,6 +137,8 @@ commands:
             python3 setup.py install
             popd
             popd
+            echo 'export PATH=/usr/local/opt/python@3.9/Frameworks/Python.framework/Versions/3.9/bin:$PATH' >> $BASH_ENV
+            ln -s /usr/local/opt/python@3.9/Frameworks/Python.framework/Versions/3.9/bin/python3 /usr/local/bin/python
       - build-libs:
           platform: ios
   test-setup:
@@ -213,7 +215,7 @@ executors:
       - image: cimg/rust:1.53.0
   macos:
     macos:
-      xcode: 13.2.1
+      xcode: 13.4.1
     resource_class: macos.x86.medium.gen2
 
 jobs:
@@ -293,7 +295,12 @@ jobs:
       - setup-rust-min-version
       # tests.py doesn't support skipping tests, and we need to skip the systests on this rust version.
       # It's not in the default workspace members, so just `cargo test` is OK.
-      - run: RUST_LOG=trace cargo test
+      #
+      # Note "-j" here and below - we saw OOM errors which this tries to workaround and is
+      # hopefully a cheaper workaround than an "resource_class: xlarge".
+      # Probably https://github.com/rust-lang/rust/issues/97549 which is a 1.61 issue.
+      # We should revert this once we move past 1.61
+      - run: RUST_LOG=trace cargo test -j2
       - save-sccache-cache
   # These run periodically (driven by cron).
   Rust tests - beta:
@@ -307,34 +314,6 @@ jobs:
       - run-tests
       - save-sccache-cache
 
-  iOS build xcframework:
-    executor: macos
-    steps:
-      - full-checkout
-      - restore-sccache-cache
-      - install-rust
-      - setup-rust-target-version
-      - setup-sccache
-      - setup-ios-environment
-      - run:
-          name: Build XCFramework archive
-          command: |
-            bash megazords/ios-rust/build-xcframework.sh --build-profile release
-      - save-sccache-cache:
-          path: "~/Library/Caches/Mozilla.sccache"
-      - store_artifacts:
-          name: Store XCFramework bundle in workspace
-          path: megazords/ios-rust/MozillaRustComponents.xcframework.zip
-          destination: dist/MozillaRustComponents.xcframework.zip
-      - run:
-          name: "XCFramework bundle checksum"
-          command: |
-            shasum -a 256 ./megazords/ios-rust/MozillaRustComponents.xcframework.zip
-            echo "Use the above checksum to depend on MozillaRustComponents.xcframework.zip as a Swift Package binary target"
-      - persist_to_workspace:
-          root: .
-          paths:
-            - megazords/ios-rust/MozillaRustComponents.xcframework.zip
   Focus build XCFramework:
     executor: macos
     steps:
@@ -405,6 +384,19 @@ jobs:
           destination: logs/raw_xcodetest.log
       - save-sccache-cache:
           path: "~/Library/Caches/Mozilla.sccache"
+      - store_artifacts:
+          name: Store XCFramework bundle in workspace
+          path: megazords/ios-rust/MozillaRustComponents.xcframework.zip
+          destination: dist/MozillaRustComponents.xcframework.zip
+      - run:
+          name: "XCFramework bundle checksum"
+          command: |
+            shasum -a 256 ./megazords/ios-rust/MozillaRustComponents.xcframework.zip
+            echo "Use the above checksum to depend on MozillaRustComponents.xcframework.zip as a Swift Package binary target"
+      - persist_to_workspace:
+          root: .
+          paths:
+            - megazords/ios-rust/MozillaRustComponents.xcframework.zip
 
   build-nimbus-fml:
     executor: macos
@@ -485,15 +477,14 @@ workflows:
       - Generate code coverage
   ios-test-and-artifacts:
     jobs:
-      - iOS test
-      - iOS build xcframework:
+      - iOS test:
           filters: # required since `XCFramework release` has tag filters AND requires this job
             tags:
               only: /.*/
 ####  The following iOS jobs will only run on release
       - XCFramework release:
           requires:
-            - iOS build xcframework
+            - iOS test
           filters:
             branches:
               ignore: /.*/

@@ -11,10 +11,12 @@ pub mod history_metadata;
 pub mod tags;
 
 use crate::db::PlacesDb;
-use crate::error::{ErrorKind, InvalidPlaceInfo, Result};
+use crate::error::{Error, InvalidPlaceInfo, Result};
 use crate::ffi::HistoryVisitInfo;
 use crate::ffi::TopFrecentSiteInfo;
+use crate::frecency::{calculate_frecency, DEFAULT_FRECENCY_SETTINGS};
 use crate::types::{SyncStatus, VisitTransition};
+use interrupt_support::SqlInterruptScope;
 use rusqlite::types::{FromSql, FromSqlResult, ToSql, ToSqlOutput, ValueRef};
 use rusqlite::Result as RusqliteResult;
 use rusqlite::Row;
@@ -162,7 +164,7 @@ fn new_page_info(db: &PlacesDb, url: &Url, new_guid: Option<SyncGuid>) -> Result
     let url_str = url.as_str();
     if url_str.len() > URL_LENGTH_MAX {
         // Generally callers check this first (bookmarks don't, history does).
-        return Err(ErrorKind::InvalidPlaceInfo(InvalidPlaceInfo::UrlTooLong).into());
+        return Err(Error::InvalidPlaceInfo(InvalidPlaceInfo::UrlTooLong));
     }
     let sql = "INSERT INTO moz_places (guid, url, url_hash)
                VALUES (:guid, :url, hash(:url))";
@@ -220,6 +222,12 @@ impl TopFrecentSiteInfo {
     }
 }
 
+pub struct RunMaintenanceMetrics {
+    pub pruned_visits: bool,
+    pub db_size_before: u32,
+    pub db_size_after: u32,
+}
+
 /// Run various maintenance on the places DB
 ///
 /// This function is intended to be run during idle time and will take steps to clean up / shrink
@@ -227,8 +235,10 @@ impl TopFrecentSiteInfo {
 ///
 /// db_size_limit is the approximate storage limit in bytes.  If the database is using more space
 /// than this, some older visits will be deleted to free up space.  Pass in a 0 to skip this.
-pub fn run_maintenance(conn: &PlacesDb, db_size_limit: u32) -> Result<()> {
-    if db_size_limit > 0 && conn.get_db_size()? > db_size_limit {
+pub fn run_maintenance(conn: &PlacesDb, db_size_limit: u32) -> Result<RunMaintenanceMetrics> {
+    let db_size_before = conn.get_db_size()?;
+    let should_prune = db_size_limit > 0 && db_size_before > db_size_limit;
+    if should_prune {
         history::prune_older_visits(conn)?;
     }
     conn.execute_all(&[
@@ -236,6 +246,65 @@ pub fn run_maintenance(conn: &PlacesDb, db_size_limit: u32) -> Result<()> {
         "PRAGMA optimize",
         "PRAGMA wal_checkpoint(PASSIVE)",
     ])?;
+    let db_size_after = conn.get_db_size()?;
+    Ok(RunMaintenanceMetrics {
+        pruned_visits: should_prune,
+        db_size_before,
+        db_size_after,
+    })
+}
+
+pub fn update_all_frecencies_at_once(db: &PlacesDb, scope: &SqlInterruptScope) -> Result<()> {
+    let tx = db.begin_transaction()?;
+
+    let need_frecency_update = tx.query_rows_and_then(
+        "SELECT place_id FROM moz_places_stale_frecencies",
+        [],
+        |r| r.get::<_, i64>(0),
+    )?;
+    scope.err_if_interrupted()?;
+    let frecencies = need_frecency_update
+        .iter()
+        .map(|places_id| {
+            scope.err_if_interrupted()?;
+            Ok((
+                *places_id,
+                calculate_frecency(db, &DEFAULT_FRECENCY_SETTINGS, *places_id, Some(false))?,
+            ))
+        })
+        .collect::<Result<Vec<(i64, i32)>>>()?;
+
+    if frecencies.is_empty() {
+        return Ok(());
+    }
+    // Update all frecencies in one fell swoop
+    tx.execute_batch(&format!(
+        "WITH frecencies(id, frecency) AS (
+            VALUES {}
+            )
+            UPDATE moz_places SET
+            frecency = (SELECT frecency FROM frecencies f
+                        WHERE f.id = id)
+            WHERE id IN (SELECT f.id FROM frecencies f)",
+        sql_support::repeat_display(frecencies.len(), ",", |index, f| {
+            let (id, frecency) = frecencies[index];
+            write!(f, "({}, {})", id, frecency)
+        })
+    ))?;
+
+    scope.err_if_interrupted()?;
+
+    // ...And remove them from the stale table.
+    tx.execute_batch(&format!(
+        "DELETE FROM moz_places_stale_frecencies
+         WHERE place_id IN ({})",
+        sql_support::repeat_display(frecencies.len(), ",", |index, f| {
+            let (id, _) = frecencies[index];
+            write!(f, "{}", id)
+        })
+    ))?;
+    tx.commit()?;
+
     Ok(())
 }
 

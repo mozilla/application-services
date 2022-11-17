@@ -19,7 +19,7 @@ use std::path::{Path, PathBuf};
 pub type TabsDeviceType = crate::DeviceType;
 pub type RemoteTabRecord = RemoteTab;
 
-#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct RemoteTab {
     pub title: String,
     pub url_history: Vec<String>,
@@ -78,7 +78,6 @@ impl TabsStorage {
 
     /// Arrange for a new memory-based TabsStorage. As per other DB semantics, creating
     /// this isn't enough to actually create the db!
-    #[cfg(test)]
     pub fn new_with_mem_path(db_path: &str) -> Self {
         let name = PathBuf::from(format!("file:{}?mode=memory&cache=shared", db_path));
         Self::new(name)
@@ -163,7 +162,11 @@ impl TabsStorage {
     pub fn get_remote_tabs(&mut self) -> Option<Vec<ClientRemoteTabs>> {
         match self.open_if_exists() {
             Err(e) => {
-                log::error!("Failed to read remote tabs: {}", e);
+                error_support::report_error!(
+                    "tabs-read-remote",
+                    "Failed to read remote tabs: {}",
+                    e
+                );
                 None
             }
             Ok(None) => None,
@@ -175,14 +178,20 @@ impl TabsStorage {
                 ) {
                     Ok(crts) => Some(crts),
                     Err(e) => {
-                        log::error!("Failed to read database: {}", e);
+                        error_support::report_error!(
+                            "tabs-read-remote",
+                            "Failed to read database: {}",
+                            e
+                        );
                         None
                     }
                 }
             }
         }
     }
+}
 
+impl TabsStorage {
     pub(crate) fn replace_remote_tabs(
         &mut self,
         new_remote_tabs: Vec<ClientRemoteTabs>,

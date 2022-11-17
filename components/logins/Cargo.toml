@@ -10,7 +10,9 @@ exclude = ["/android", "/ios"]
 default = []
 
 [dependencies]
-sync15 = { path = "../sync15" }
+# TODO: we've enabled the "standalone-sync" feature - see the description
+# of this feature in sync15's Cargo.toml for what we should do instead.
+sync15 = { path = "../sync15", features=["standalone-sync"] }
 serde = "1"
 serde_derive = "1"
 serde_json = "1"
@@ -21,19 +23,19 @@ url = "2.2"
 sql-support = { path = "../support/sql" }
 jwcrypto = { path = "../support/jwcrypto" }
 interrupt-support = { path = "../support/interrupt" }
-error-support = { path = "../support/error", features = ["reporting"] }
+error-support = { path = "../support/error" }
 sync-guid = { path = "../support/guid", features = ["rusqlite_support", "random"] }
 thiserror = "1.0"
 anyhow = "1.0"
-uniffi = "^0.18"
-uniffi_macros = "^0.18"
+uniffi = "^0.21"
+uniffi_macros = "^0.21"
 
 [dependencies.rusqlite]
 version = "0.27.0"
 features = ["sqlcipher", "limits", "unlock_notify"]
 
 [build-dependencies]
-uniffi_build = { version = "^0.18", features=["builtin-bindgen"] }
+uniffi_build = { version = "^0.21", features=["builtin-bindgen"] }
 
 [dev-dependencies]
 more-asserts = "0.2"

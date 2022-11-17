@@ -4,6 +4,8 @@ credentials.json
 *-engine.json
 *.db
 .*.swp
+*.db-shm
+*.db-wal
 
 # Android stuff.
 *.iml
@@ -25,6 +27,8 @@ xcuserdata
 # UniFFI generated artifacts
 components/**/ios/Generated
 
+# We don't car about Cargo.lock for our tests.
+testing/sync-test/Cargo.lock
 
 # XCFramework artifact
 megazords/ios-rust/MozillaRustComponents.xcframework*

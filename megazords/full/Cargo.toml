@@ -11,7 +11,7 @@ crate-type = ["cdylib"]
 [dependencies]
 fxa-client = { path = "../../components/fxa-client" }
 logins = { path = "../../components/logins" }
-tabs = { path = "../../components/tabs/" }
+tabs = { path = "../../components/tabs/", features = ["full-sync"] }
 sync_manager = { path = "../../components/sync_manager/" }
 places = { path = "../../components/places" }
 push = { path = "../../components/push" }

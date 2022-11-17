@@ -30,10 +30,11 @@ use std::cell::RefCell;
 use std::collections::HashMap;
 use std::fmt;
 use std::sync::Arc;
-use sync15::{
-    telemetry, CollSyncIds, CollectionRequest, EngineSyncAssociation, IncomingChangeset,
-    OutgoingChangeset, Payload, ServerTimestamp, SyncEngine,
+use sync15::engine::{
+    CollSyncIds, CollectionRequest, EngineSyncAssociation, IncomingChangeset, OutgoingChangeset,
+    SyncEngine,
 };
+use sync15::{telemetry, Payload, ServerTimestamp};
 use sync_guid::Guid as SyncGuid;
 use types::Timestamp;
 pub const LAST_SYNC_META_KEY: &str = "bookmarks_last_sync_time";
@@ -1347,7 +1348,7 @@ impl<'a> dogear::Store for Merger<'a> {
                 let (item, _) = self.local_row_to_item(row)?;
                 Tree::with_root(item)
             }
-            None => return Err(ErrorKind::Corruption(Corruption::InvalidLocalRoots).into()),
+            None => return Err(Error::Corruption(Corruption::InvalidLocalRoots)),
         };
 
         // Add items and contents to the builder, keeping track of their
@@ -1435,7 +1436,7 @@ impl<'a> dogear::Store for Merger<'a> {
                 },
                 false,
             )?
-            .ok_or(ErrorKind::Corruption(Corruption::InvalidSyncedRoots))?;
+            .ok_or(Error::Corruption(Corruption::InvalidSyncedRoots))?;
         builder.reparent_orphans_to(&dogear::UNFILED_GUID);
 
         let sql = format!(
@@ -1755,7 +1756,8 @@ mod tests {
     use sync_guid::Guid;
     use url::Url;
 
-    use sync15::{CollSyncIds, Payload};
+    use sync15::engine::CollSyncIds;
+    use sync15::Payload;
 
     // A helper type to simplify writing table-driven tests with synced items.
     struct ExpectedSyncedItem<'a>(SyncGuid, Cow<'a, SyncedBookmarkItem>);

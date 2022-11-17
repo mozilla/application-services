@@ -8,12 +8,11 @@ use crate::storage::history::{delete_everything, history_sync::reset};
 use crate::storage::{get_meta, put_meta};
 use interrupt_support::SqlInterruptScope;
 use std::sync::Arc;
-use sync15::telemetry;
-use sync15::{
+use sync15::engine::{
     CollSyncIds, CollectionRequest, EngineSyncAssociation, IncomingChangeset, OutgoingChangeset,
-    ServerTimestamp, SyncEngine,
+    SyncEngine,
 };
-use sync_guid::Guid;
+use sync15::{telemetry, Guid, ServerTimestamp};
 
 use super::plan::{apply_plan, finish_plan};
 use super::MAX_INCOMING_PLACES;

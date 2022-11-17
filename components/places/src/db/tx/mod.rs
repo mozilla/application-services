@@ -10,14 +10,6 @@ use coop_transaction::ChunkedCoopTransaction;
 use rusqlite::Connection;
 use sql_support::{ConnExt, UncheckedTransaction};
 
-macro_rules! debug_complaint {
-    ($($fmt_args:tt)*) => {
-        log::error!($($fmt_args)*);
-        if cfg!(debug_assertions) {
-            panic!($($fmt_args)*);
-        }
-    };
-}
 /// High level transaction type which "does the right thing" for you.
 /// Construct one with `PlacesDb::begin_transaction()`.
 pub struct PlacesTransaction<'conn>(PlacesTransactionRepr<'conn>);
@@ -53,7 +45,13 @@ impl<'conn> PlacesTransaction<'conn> {
         if let PlacesTransactionRepr::ChunkedWrite(tx) = &mut self.0 {
             tx.maybe_commit()?;
         } else {
-            debug_complaint!("maybe_commit called on a non-chunked transaction");
+            error_support::report_error!(
+                "places-nonchunked-maybe-commit",
+                "maybe_commit called on a non-chunked transaction"
+            );
+            if cfg!(debug_assertions) {
+                panic!("maybe_commit called on a non-chunked transaction");
+            }
         }
         Ok(())
     }
@@ -118,6 +116,6 @@ impl<'conn> std::ops::Deref for PlacesTransaction<'conn> {
 impl<'conn> ConnExt for PlacesTransaction<'conn> {
     #[inline]
     fn conn(&self) -> &Connection {
-        &*self
+        self
     }
 }

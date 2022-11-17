@@ -747,6 +747,16 @@ PACKAGE_METADATA_FIXUPS = {
             "fixup": "https://raw.githubusercontent.com/mozilla/uniffi-rs/main/LICENSE",
         }
     },
+    "uniffi_meta": {
+        "license_url": {
+            "check": None,
+            "fixup": "https://github.com/mozilla/uniffi-rs/blob/main/LICENSE",
+        },
+        "license_file": {
+            "check": None,
+            "fixup": "https://raw.githubusercontent.com/mozilla/uniffi-rs/main/LICENSE",
+        }
+    },
     "uniffi": {
         "license_url": {
             "check": None,
@@ -803,7 +813,6 @@ PACKAGE_METADATA_FIXUPS = {
             "fixup": "https://raw.githubusercontent.com/LeopoldArkham/humansize/master/LICENSE-APACHE",
         }
     },
-
     "encoding_rs": {
         "license": {
             "check": "(Apache-2.0 OR MIT) AND BSD-3-Clause",
@@ -817,7 +826,46 @@ PACKAGE_METADATA_FIXUPS = {
             "fixup": "https://raw.githubusercontent.com/hsivonen/encoding_rs/master/COPYRIGHT"
         }
     },
+    "enum_variant_macros_macros": {
+        "license": {
+            "check": "MIT OR Apache-2.0",
+        },
+        "license_url": {
+            "check": None,
+            "fixup": "https://github.com/MisterEggnog/enum-variant-macros/blob/trunk/LICENSE-APACHE"
+        },
+        "license_file": {
+            "check": None,
+            "fixup": "https://raw.githubusercontent.com/MisterEggnog/enum-variant-macros/trunk/LICENSE-APACHE"
+        }
+    },
+    "extension-trait": {
+        "license": {
+            "check": "MIT OR Apache-2.0",
+        },
+        "license_url": {
+            "check": None,
+            "fixup": "https://gitlab.com/KonradBorowski/extension-trait/-/blob/master/LICENSE-APACHE"
+        },
+        "license_file": {
+            "check": None,
+            "fixup": "https://gitlab.com/KonradBorowski/extension-trait/-/raw/master/LICENSE-APACHE"
+        }
+    },
 
+    "xshell-macros": {
+        "license": {
+            "check": "MIT OR Apache-2.0",
+        },
+        "license_url": {
+            "check": None,
+            "fixup": "https://github.com/matklad/xshell/blob/master/LICENSE-APACHE"
+        },
+        "license_file": {
+            "check": None,
+            "fixup": "https://raw.githubusercontent.com/matklad/xshell/master/LICENSE-APACHE"
+        }
+    },
     # The following crates do not have repositories in the package metadata
     "openssl-macros": {
         "repository": {

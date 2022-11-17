@@ -11,7 +11,7 @@ use super::types::Timestamp;
 
 pub type ChannelID = String;
 
-#[derive(Clone, Debug, PartialEq)]
+#[derive(Clone, Debug, PartialEq, Eq)]
 pub struct PushRecord {
     /// Designation label provided by the subscribing service
     pub channel_id: ChannelID,

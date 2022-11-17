@@ -12,7 +12,8 @@ pub(crate) use crate::db::models::Metadata;
 use crate::error::Result;
 use interrupt_support::Interruptee;
 use rusqlite::Transaction;
-use sync15::{OutgoingChangeset, Payload, ServerTimestamp};
+use sync15::engine::OutgoingChangeset;
+use sync15::{Payload, ServerTimestamp};
 use sync_guid::Guid;
 use types::Timestamp;
 
@@ -20,12 +21,15 @@ use types::Timestamp;
 // for sync in various ways - and one non-obvious way is that the tables that
 // store sync payloads can't just store them directly as they are not encrypted
 // in that form.
-// So this type abstracts that away - addresses will just store the json version
-// of the payload, where credit-cards will store an encrypted version.
-struct PersistablePayload {
-    guid: Guid,
-    payload: String,
-}
+// ie, in the database, an address record's "payload" column looks like:
+// > '{"entry":{"address-level1":"VIC", "street-address":"2/25 Somewhere St","timeCreated":1497567116554, "version":1},"id":"29ac67adae7d"}'
+// or a tombstone: '{"deleted":true,"id":"6544992973e6"}'
+// > (Note a number of fields have been removed from 'entry' for clarity)
+// and in the database a credit-card's "payload" looks like:
+// > 'eyJhbGciOiJkaXIiLCJlbmMiOiJBMjU2R0NNIn0..<snip>-<snip>.<snip lots more>'
+// > while a tombstone here remains encrypted but has the 'deleted' entry after decryption.
+// (Note also that the address entry, and the decrypted credit-card json both have an "id" in
+// the JSON, but we ignore that when deserializing and will stop persisting that soon)
 
 // Some traits that help us abstract away much of the sync functionality.
 
@@ -178,6 +182,13 @@ impl Metadata {
 // An "incoming" record can be in only 2 states.
 #[derive(Debug)]
 enum IncomingRecord<T> {
+    Record { record: T },
+    Tombstone { guid: Guid },
+}
+
+// Ditto for outgoing - either a record or a tombstone
+#[derive(Debug)]
+enum OutgoingRecord<T> {
     Record { record: T },
     Tombstone { guid: Guid },
 }

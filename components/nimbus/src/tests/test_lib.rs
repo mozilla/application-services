@@ -3,14 +3,19 @@
 * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
 use crate::{
+    behavior::{
+        EventStore, Interval, IntervalConfig, IntervalData, MultiIntervalCounter,
+        SingleIntervalCounter,
+    },
     enrollment::{EnrolledReason, EnrollmentStatus, ExperimentEnrollment},
     error::Result,
+    persistence::Database,
     AppContext, AvailableRandomizationUnits, Experiment, NimbusClient, Path, StoreId,
     TargetingAttributes, DB_KEY_APP_VERSION, DB_KEY_UPDATE_DATE,
 };
 use chrono::{DateTime, Duration, Utc};
 use serde_json::json;
-use std::io::Write;
+use std::{collections::VecDeque, io::Write};
 
 #[test]
 fn test_telemetry_reset() -> Result<()> {
@@ -201,6 +206,53 @@ fn test_installation_date() -> Result<()> {
     client.apply_pending_experiments()?;
     let targeting_attributes = client.get_targeting_attributes();
     assert!(matches!(targeting_attributes.days_since_install, Some(4)));
+    Ok(())
+}
+
+#[test]
+fn test_days_since_calculation_happens_at_startup() -> Result<()> {
+    // Set up a client with an install date.
+    // We'll need two of these, to test the two scenarios.
+    let tmp_dir = tempfile::tempdir()?;
+
+    let three_days_ago = Utc::now() - Duration::days(3);
+    let time_stamp = three_days_ago.timestamp_millis();
+    let app_context = AppContext {
+        installation_date: Some(time_stamp),
+        home_directory: Some(tmp_dir.path().to_str().unwrap().to_string()),
+        ..Default::default()
+    };
+    let client = NimbusClient::new(
+        app_context.clone(),
+        tmp_dir.path(),
+        None,
+        Default::default(),
+    )?;
+
+    // 0. We haven't initialized anything yet, so dates won't be available.
+    // In practice this should never happen.
+    let targeting_attributes = client.get_targeting_attributes();
+    assert!(targeting_attributes.days_since_install.is_none());
+    assert!(targeting_attributes.days_since_update.is_none());
+
+    // 1. This is the initialize case, where the app is opened with no Nimbus URL
+    // or local experiments. Prior to v94.3, this was the default flow.
+    // After v94.3, either initialize() _or_ apply_pending_experiments() could
+    // be called.
+    client.initialize()?;
+    let targeting_attributes = client.get_targeting_attributes();
+    assert!(matches!(targeting_attributes.days_since_install, Some(3)));
+    assert!(targeting_attributes.days_since_update.is_some());
+
+    // 2. This is the new case: exactly one of initialize() or apply_pending_experiments()
+    // is called during start up.
+    // This case ensures that dates are available after apply_pending_experiments().
+    let client = NimbusClient::new(app_context, tmp_dir.path(), None, Default::default())?;
+    client.apply_pending_experiments()?;
+    let targeting_attributes = client.get_targeting_attributes();
+    assert!(matches!(targeting_attributes.days_since_install, Some(3)));
+    assert!(targeting_attributes.days_since_update.is_some());
+
     Ok(())
 }
 
@@ -627,6 +679,222 @@ fn test_days_since_update_failed_targeting() -> Result<()> {
 
     // The targeting targeted days_since_update < 10, which is false in the client
     // so we should be enrolled in that experiment
+    let active_experiments = client.get_active_experiments()?;
+    assert_eq!(active_experiments.len(), 0);
+    Ok(())
+}
+
+#[test]
+fn event_store_exists_for_apply_pending_experiments() -> Result<()> {
+    let mock_client_id = "client-1".to_string();
+
+    let temp_dir = tempfile::tempdir()?;
+
+    let db = Database::new(temp_dir.path())?;
+    let counter = MultiIntervalCounter::new(vec![SingleIntervalCounter::from(
+        IntervalData {
+            bucket_count: 3,
+            starting_instant: Utc::now(),
+            buckets: VecDeque::from(vec![1, 1, 0]),
+        },
+        IntervalConfig::new(3, Interval::Days),
+    )]);
+    let event_store = EventStore::from(vec![("app.foregrounded".to_string(), counter)]);
+    event_store.persist_data(&db).ok();
+
+    let app_context = AppContext {
+        app_name: "fenix".to_string(),
+        app_id: "org.mozilla.fenix".to_string(),
+        channel: "nightly".to_string(),
+        ..Default::default()
+    };
+    let mut client = NimbusClient::new(
+        app_context.clone(),
+        temp_dir.path(),
+        None,
+        AvailableRandomizationUnits {
+            client_id: Some(mock_client_id),
+            ..AvailableRandomizationUnits::default()
+        },
+    )?;
+    let targeting_attributes = TargetingAttributes {
+        app_context,
+        ..Default::default()
+    };
+    client.with_targeting_attributes(targeting_attributes);
+    client.initialize()?;
+    let experiment_json = serde_json::to_string(&json!({
+        "data": [{
+            "schemaVersion": "1.0.0",
+            "slug": "test-1",
+            "endDate": null,
+            "featureIds": ["some-feature-1"],
+            "branches": [
+                {
+                "slug": "control",
+                "ratio": 1
+                },
+                {
+                "slug": "treatment",
+                "ratio": 1
+                }
+            ],
+            "channel": "nightly",
+            "probeSets": [],
+            "startDate": null,
+            "appName": "fenix",
+            "appId": "org.mozilla.fenix",
+            "bucketConfig": {
+                "count": 10000,
+                "start": 0,
+                "total": 10000,
+                "namespace": "secure-gold",
+                "randomizationUnit": "nimbus_id"
+            },
+            "targeting": "'app.foregrounded'|eventCountNonZero('Days', 3, 0) > 1",
+            "userFacingName": "test experiment",
+            "referenceBranch": "control",
+            "isEnrollmentPaused": false,
+            "proposedEnrollment": 7,
+            "userFacingDescription": "This is a test experiment for testing purposes.",
+            "id": "secure-copper",
+            "last_modified": 1_602_197_324_372i64,
+        }, {
+            "schemaVersion": "1.0.0",
+            "slug": "test-2",
+            "endDate": null,
+            "featureIds": ["some-feature-2"],
+            "branches": [
+                {
+                "slug": "control",
+                "ratio": 1
+                },
+                {
+                "slug": "treatment",
+                "ratio": 1
+                }
+            ],
+            "channel": "nightly",
+            "probeSets": [],
+            "startDate": null,
+            "appName": "fenix",
+            "appId": "org.mozilla.fenix",
+            "bucketConfig": {
+                "count": 10000,
+                "start": 0,
+                "total": 10000,
+                "namespace": "secure-gold",
+                "randomizationUnit": "nimbus_id"
+            },
+            "targeting": "'app.foregrounded'|eventCountNonZero('Days', 3, 0) > 2",
+            "userFacingName": "test experiment",
+            "referenceBranch": "control",
+            "isEnrollmentPaused": false,
+            "proposedEnrollment": 7,
+            "userFacingDescription": "This is a test experiment for testing purposes.",
+            "id": "secure-copper",
+            "last_modified": 1_602_197_324_372i64,
+        }
+    ]}))?;
+    client.set_experiments_locally(experiment_json)?;
+    client.apply_pending_experiments()?;
+
+    // The number of non-zero days in our event store is 2, so the first experiment
+    // should be applied, but the second experiment will not be.
+    let active_experiments = client.get_active_experiments()?;
+    assert_eq!(active_experiments.len(), 1);
+    Ok(())
+}
+
+#[test]
+fn event_store_on_targeting_attributes_is_updated_after_an_event_is_recorded() -> Result<()> {
+    let mock_client_id = "client-1".to_string();
+
+    let temp_dir = tempfile::tempdir()?;
+
+    let db = Database::new(temp_dir.path())?;
+    let counter = MultiIntervalCounter::new(vec![SingleIntervalCounter::from(
+        IntervalData {
+            bucket_count: 5,
+            starting_instant: Utc::now() - Duration::days(1),
+            buckets: VecDeque::from(vec![1, 1, 0, 0, 0]),
+        },
+        IntervalConfig::new(5, Interval::Days),
+    )]);
+    let event_store = EventStore::from(vec![("app.foregrounded".to_string(), counter)]);
+    event_store.persist_data(&db).ok();
+
+    let app_context = AppContext {
+        app_name: "fenix".to_string(),
+        app_id: "org.mozilla.fenix".to_string(),
+        channel: "nightly".to_string(),
+        ..Default::default()
+    };
+    let mut client = NimbusClient::new(
+        app_context.clone(),
+        temp_dir.path(),
+        None,
+        AvailableRandomizationUnits {
+            client_id: Some(mock_client_id),
+            ..AvailableRandomizationUnits::default()
+        },
+    )?;
+    let targeting_attributes = TargetingAttributes {
+        app_context,
+        ..Default::default()
+    };
+    client.with_targeting_attributes(targeting_attributes);
+    client.initialize()?;
+    let experiment_json = serde_json::to_string(&json!({
+        "data": [{
+            "schemaVersion": "1.0.0",
+            "slug": "test-1",
+            "endDate": null,
+            "featureIds": ["some-feature-1"],
+            "branches": [
+                {
+                "slug": "control",
+                "ratio": 1
+                },
+                {
+                "slug": "treatment",
+                "ratio": 1
+                }
+            ],
+            "channel": "nightly",
+            "probeSets": [],
+            "startDate": null,
+            "appName": "fenix",
+            "appId": "org.mozilla.fenix",
+            "bucketConfig": {
+                "count": 10000,
+                "start": 0,
+                "total": 10000,
+                "namespace": "secure-gold",
+                "randomizationUnit": "nimbus_id"
+            },
+            "targeting": "'app.foregrounded'|eventCountNonZero('Days', 5, 0) == 2",
+            "userFacingName": "test experiment",
+            "referenceBranch": "control",
+            "isEnrollmentPaused": false,
+            "proposedEnrollment": 7,
+            "userFacingDescription": "This is a test experiment for testing purposes.",
+            "id": "secure-copper",
+            "last_modified": 1_602_197_324_372i64,
+        }
+    ]}))?;
+    client.set_experiments_locally(experiment_json)?;
+    client.apply_pending_experiments()?;
+
+    let active_experiments = client.get_active_experiments()?;
+    assert_eq!(active_experiments.len(), 1);
+
+    client.record_event("app.foregrounded".to_string())?;
+
+    client.set_global_user_participation(true)?;
+
+    // The number of non-zero days in our event store is 2, so the first experiment
+    // should be applied, but the second experiment will not be.
     let active_experiments = client.get_active_experiments()?;
     assert_eq!(active_experiments.len(), 0);
     Ok(())

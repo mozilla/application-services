@@ -7,14 +7,15 @@ use crate::types::{ServiceStatus, SyncEngineSelection, SyncParams, SyncReason, S
 use crate::{reset, reset_all, wipe};
 use error_support::breadcrumb;
 use parking_lot::Mutex;
-use std::collections::{HashMap, HashSet};
+use std::collections::{BTreeMap, HashMap, HashSet};
 use std::convert::TryFrom;
 use std::time::SystemTime;
-use sync15::{
-    self,
-    clients::{Command, CommandProcessor, CommandStatus, Settings},
-    EngineSyncAssociation, MemoryCachedState, SyncEngine, SyncEngineId,
+use sync15::client::{
+    sync_multiple_with_command_processor, MemoryCachedState, Sync15StorageClientInit,
+    SyncRequestInfo,
 };
+use sync15::clients_engine::{Command, CommandProcessor, CommandStatus, Settings};
+use sync15::engine::{EngineSyncAssociation, SyncEngine, SyncEngineId};
 
 #[derive(Default)]
 pub struct SyncManager {
@@ -68,7 +69,12 @@ impl SyncManager {
         for engine_id in SyncEngineId::iter() {
             if let Some(engine) = Self::get_engine(&engine_id) {
                 if let Err(e) = engine.reset(&EngineSyncAssociation::Disconnected) {
-                    log::error!("Failed to reset {}: {}", engine_id, e);
+                    error_support::report_error!(
+                        "sync-manager-reset",
+                        "Failed to reset {}: {}",
+                        engine_id,
+                        e
+                    );
                 }
             } else {
                 log::warn!("Unable to reset {}, be sure to call register_with_sync_manager before disconnect if this is surprising", engine_id);
@@ -124,9 +130,9 @@ impl SyncManager {
             }
         }
 
-        let engine_refs: Vec<&dyn sync15::SyncEngine> = engines.iter().map(|s| &**s).collect();
+        let engine_refs: Vec<&dyn SyncEngine> = engines.iter().map(|s| &**s).collect();
 
-        let client_init = sync15::Sync15StorageClientInit {
+        let client_init = Sync15StorageClientInit {
             key_id: params.auth_info.kid.clone(),
             access_token: params.auth_info.fxa_access_token.clone(),
             tokenserver_url,
@@ -143,7 +149,7 @@ impl SyncManager {
             device_type: params.device_settings.kind,
         };
         let c = SyncClient::new(settings);
-        let result = sync15::sync_multiple_with_command_processor(
+        let result = sync_multiple_with_command_processor(
             Some(&c),
             &engine_refs,
             &mut disk_cached_state,
@@ -151,7 +157,7 @@ impl SyncManager {
             &client_init,
             &key_bundle,
             &interruptee,
-            Some(sync15::SyncRequestInfo {
+            Some(SyncRequestInfo {
                 engines_to_state_change: engines_to_change,
                 is_user_action: matches!(params.reason, SyncReason::User),
             }),
@@ -202,7 +208,8 @@ impl SyncManager {
         &self,
         selection: &SyncEngineSelection,
     ) -> Result<Vec<Box<dyn SyncEngine>>> {
-        let mut engine_map: HashMap<_, _> = self.iter_registered_engines().collect();
+        // BTreeMap to ensure we sync the engines in priority order.
+        let mut engine_map: BTreeMap<_, _> = self.iter_registered_engines().collect();
         breadcrumb!(
             "Checking engines requested ({:?}) vs local engines ({:?})",
             selection,
@@ -261,9 +268,9 @@ fn backoff_in_effect(next_sync_after: Option<SystemTime>, p: &SyncParams) -> boo
     false
 }
 
-impl From<sync15::ServiceStatus> for ServiceStatus {
-    fn from(s15s: sync15::ServiceStatus) -> Self {
-        use sync15::ServiceStatus::*;
+impl From<sync15::client::ServiceStatus> for ServiceStatus {
+    fn from(s15s: sync15::client::ServiceStatus) -> Self {
+        use sync15::client::ServiceStatus::*;
         match s15s {
             Ok => ServiceStatus::Ok,
             NetworkError => ServiceStatus::NetworkError,
