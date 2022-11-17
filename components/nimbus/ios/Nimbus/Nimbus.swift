@@ -59,7 +59,7 @@ private extension Nimbus {
 extension Nimbus: NimbusEvents {
     public func recordEvent(_ eventId: String) {
         catchAll(dbQueue) {
-            nimbusClient.recordEvent(eventId: eventId)
+            try self.nimbusClient.recordEvent(eventId: eventId)
         }
     }
 }
@@ -390,7 +390,7 @@ public extension NimbusDisabled {
 
     func recordExposureEvent(featureId _: String) {}
 
-    func recordEvent(eventId _: String) {}
+    func recordEvent(_: String) {}
 
     func getExperimentBranches(_: String) -> [Branch]? {
         return nil
