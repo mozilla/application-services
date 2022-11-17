@@ -16,7 +16,8 @@ import Glean
 /// `Nimbus` into their app should use the methods in `NimbusStartup`.
 ///
 public protocol NimbusApi: FeaturesInterface, NimbusStartup,
-    NimbusUserConfiguration, NimbusBranchInterface, GleanPlumbProtocol {}
+    NimbusUserConfiguration, NimbusBranchInterface, GleanPlumbProtocol,
+    NimbusEvents {}
 
 public protocol NimbusBranchInterface {
     /// Get the currently enrolled branch for the given experiment
@@ -137,6 +138,17 @@ public protocol NimbusUserConfiguration {
     /// - Returns  A list of `AvailableExperiment`s
     ///
     func getAvailableExperiments() -> [AvailableExperiment]
+}
+
+public protocol NimbusEvents {
+    /// Records an event to the Nimbus event store.
+    ///
+    /// The method obtains the event counters for the `eventId` that is passed in, advances them if
+    /// needed, then increments the counts by 1. If an event counter does not exist for the `eventId`,
+    /// one will be created.
+    ///
+    /// - Parameter eventId string representing the id of the event which should be recorded.
+    func recordEvent(_ eventId: String)
 }
 
 /// Notifications emitted by the `NotificationCenter`.
