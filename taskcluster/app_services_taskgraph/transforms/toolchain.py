@@ -17,7 +17,6 @@ TOOLCHAIN_OLD_INDEX = {
     'android': 'index.project.application-services.application-services.build.libs.android.{sha}',
     'desktop-linux': 'index.project.application-services.application-services.build.libs.desktop.linux.{sha}',
     'desktop-macos': 'index.project.application-services.application-services.build.libs.desktop.macos.{sha}',
-    'desktop-win32-x86-64': 'index.project.application-services.application-services.build.libs.desktop.win32-x86-64.{sha}',
 }
 
 
