@@ -586,7 +586,10 @@ public class PlacesWriteConnection: PlacesReadConnection {
     open func runMaintenance(dbSizeLimit: UInt32 = 0) throws {
         return try queue.sync {
             try self.checkApi()
-            try self.conn.runMaintenance(dbSizeLimit: dbSizeLimit)
+            try self.conn.runMaintenancePrune(dbSizeLimit: dbSizeLimit)
+            try self.conn.runMaintenanceVacuum()
+            try self.conn.runMaintenanceOptimize()
+            try self.conn.runMaintenanceCheckpoint()
         }
     }
 

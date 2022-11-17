@@ -339,10 +339,25 @@ class PlacesWriterConnection internal constructor(conn: UniffiPlacesConnection, 
     }
 
     override fun runMaintenance(dbSizeLimit: UInt) {
-        val timer = PlacesManagerMetrics.runMaintenanceTime.start()
-        val metrics = this.conn.runMaintenance(dbSizeLimit)
-        PlacesManagerMetrics.runMaintenanceTime.stopAndAccumulate(timer)
-        PlacesManagerMetrics.dbSizeAfterMaintenance.accumulateSamples(listOf(metrics.dbSizeAfter.toLong() / 1024))
+        val pruneMetrics = PlacesManagerMetrics.runMaintenanceTime.measure {
+            val pruneMetrics = PlacesManagerMetrics.runMaintenancePruneTime.measure {
+                this.conn.runMaintenancePrune(dbSizeLimit)
+            }
+
+            PlacesManagerMetrics.runMaintenanceVacuumTime.measure {
+                this.conn.runMaintenanceVacuum()
+            }
+
+            PlacesManagerMetrics.runMaintenanceOptimizeTime.measure {
+                this.conn.runMaintenanceOptimize()
+            }
+
+            PlacesManagerMetrics.runMaintenanceChkPntTime.measure {
+                this.conn.runMaintenanceCheckpoint()
+            }
+            pruneMetrics
+        }
+        PlacesManagerMetrics.dbSizeAfterMaintenance.accumulateSamples(listOf(pruneMetrics.dbSizeAfter.toLong() / 1024))
     }
 
     override fun pruneDestructively() {

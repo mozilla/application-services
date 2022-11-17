@@ -228,30 +228,60 @@ pub struct RunMaintenanceMetrics {
     pub db_size_after: u32,
 }
 
-/// Run various maintenance on the places DB
+/// Run maintenance on the places DB (prune step)
 ///
-/// This function is intended to be run during idle time and will take steps to clean up / shrink
-/// the database.
+/// The `run_maintenance_*()` functions are intended to be run during idle time and will take steps
+/// to clean up / shrink the database.  They're split up so that we can time each one in the
+/// Kotlin wrapper code (This is needed because we only have access to the Glean API in Kotlin and
+/// it supports a stop-watch style API, not recording specific values).
 ///
 /// db_size_limit is the approximate storage limit in bytes.  If the database is using more space
 /// than this, some older visits will be deleted to free up space.  Pass in a 0 to skip this.
-pub fn run_maintenance(conn: &PlacesDb, db_size_limit: u32) -> Result<RunMaintenanceMetrics> {
+pub fn run_maintenance_prune(conn: &PlacesDb, db_size_limit: u32) -> Result<RunMaintenanceMetrics> {
     let db_size_before = conn.get_db_size()?;
     let should_prune = db_size_limit > 0 && db_size_before > db_size_limit;
     if should_prune {
         history::prune_older_visits(conn)?;
     }
-    conn.execute_all(&[
-        "VACUUM",
-        "PRAGMA optimize",
-        "PRAGMA wal_checkpoint(PASSIVE)",
-    ])?;
     let db_size_after = conn.get_db_size()?;
     Ok(RunMaintenanceMetrics {
         pruned_visits: should_prune,
         db_size_before,
         db_size_after,
     })
+}
+
+/// Run maintenance on the places DB (vacuum step)
+///
+/// The `run_maintenance_*()` functions are intended to be run during idle time and will take steps
+/// to clean up / shrink the database.  They're split up so that we can time each one in the
+/// Kotlin wrapper code (This is needed because we only have access to the Glean API in Kotlin and
+/// it supports a stop-watch style API, not recording specific values).
+pub fn run_maintenance_vacuum(conn: &PlacesDb) -> Result<()> {
+    conn.execute_one("VACUUM")?;
+    Ok(())
+}
+
+/// Run maintenance on the places DB (optimize step)
+///
+/// The `run_maintenance_*()` functions are intended to be run during idle time and will take steps
+/// to clean up / shrink the database.  They're split up so that we can time each one in the
+/// Kotlin wrapper code (This is needed because we only have access to the Glean API in Kotlin and
+/// it supports a stop-watch style API, not recording specific values).
+pub fn run_maintenance_optimize(conn: &PlacesDb) -> Result<()> {
+    conn.execute_one("PRAGMA optimize")?;
+    Ok(())
+}
+
+/// Run maintenance on the places DB (checkpoint step)
+///
+/// The `run_maintenance_*()` functions are intended to be run during idle time and will take steps
+/// to clean up / shrink the database.  They're split up so that we can time each one in the
+/// Kotlin wrapper code (This is needed because we only have access to the Glean API in Kotlin and
+/// it supports a stop-watch style API, not recording specific values).
+pub fn run_maintenance_checkpoint(conn: &PlacesDb) -> Result<()> {
+    conn.execute_one("PRAGMA wal_checkpoint(PASSIVE)")?;
+    Ok(())
 }
 
 pub fn update_all_frecencies_at_once(db: &PlacesDb, scope: &SqlInterruptScope) -> Result<()> {

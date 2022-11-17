@@ -144,16 +144,44 @@ interface PlacesConnection {
     void prune_destructively();
 
 
-    // Run various maintenance on the places DB
-    //
-    // This function is intended to be run during idle time and will take steps
-    // to clean up / shrink / the database.
-    //
-    // db_size_limit is the approximate storage limit in bytes.  If the
-    // database is using more space than this, some older visits will be
-    // deleted to free up space.  Pass in a 0 to skip this.
+    /// Run maintenance on the places DB (prune step)
+    ///
+    /// The `run_maintenance_*()` functions are intended to be run during idle time and will take steps
+    /// to clean up / shrink the database.  They're split up so that we can time each one in the
+    /// Kotlin wrapper code (This is needed because we only have access to the Glean API in Kotlin and
+    /// it supports a stop-watch style API, not recording specific values).
+    ///
+    /// db_size_limit is the approximate storage limit in bytes.  If the database is using more space
+    /// than this, some older visits will be deleted to free up space.  Pass in a 0 to skip this.
     [Throws=PlacesApiError]
-    RunMaintenanceMetrics run_maintenance(u32 db_size_limit);
+    RunMaintenanceMetrics run_maintenance_prune(u32 db_size_limit);
+
+    /// Run maintenance on the places DB (vacuum step)
+    ///
+    /// The `run_maintenance_*()` functions are intended to be run during idle time and will take steps
+    /// to clean up / shrink the database.  They're split up so that we can time each one in the
+    /// Kotlin wrapper code (This is needed because we only have access to the Glean API in Kotlin and
+    /// it supports a stop-watch style API, not recording specific values).
+    [Throws=PlacesApiError]
+    void run_maintenance_vacuum();
+
+    /// Run maintenance on the places DB (optimize step)
+    ///
+    /// The `run_maintenance_*()` functions are intended to be run during idle time and will take steps
+    /// to clean up / shrink the database.  They're split up so that we can time each one in the
+    /// Kotlin wrapper code (This is needed because we only have access to the Glean API in Kotlin and
+    /// it supports a stop-watch style API, not recording specific values).
+    [Throws=PlacesApiError]
+    void run_maintenance_optimize();
+
+    /// Run maintenance on the places DB (checkpoint step)
+    ///
+    /// The `run_maintenance_*()` functions are intended to be run during idle time and will take steps
+    /// to clean up / shrink the database.  They're split up so that we can time each one in the
+    /// Kotlin wrapper code (This is needed because we only have access to the Glean API in Kotlin and
+    /// it supports a stop-watch style API, not recording specific values).
+    [Throws=PlacesApiError]
+    void run_maintenance_checkpoint();
 
     [Throws=PlacesApiError]
     BookmarkItem? bookmarks_get_tree([ByRef] Guid item_guid);
