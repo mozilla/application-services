@@ -78,7 +78,8 @@ enum NimbusError {
     "TryFromSliceError", "EmptyRatiosError", "OutOfBoundsError","UrlParsingError",
     "RequestError", "ResponseError", "UuidError", "InvalidExperimentFormat",
     "InvalidPath", "InternalError", "NoSuchExperiment", "NoSuchBranch", "BackoffError",
-    "DatabaseNotReady", "VersionParsingError", "BehaviorError", "TryFromIntError"
+    "DatabaseNotReady", "VersionParsingError", "BehaviorError", "TryFromIntError",
+    "ParseIntError", "TransformParameterError"
 };
 
 interface NimbusClient {
@@ -199,6 +200,12 @@ interface NimbusClient {
     // It's first use is in GleanPlumb message helper, to add extra parameters to URLs.
     [Throws=NimbusError]
     NimbusStringHelper create_string_helper(optional JsonObject? additional_context = null);
+
+    // Records an event for the purposes of behavioral targeting.
+    // This function is used to record and persist data used for the behavioral
+    // targeting such as "core-active" user targeting.
+    [Throws=NimbusError]
+    void record_event(string event_id);
 };
 
 [Custom]

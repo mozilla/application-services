@@ -56,6 +56,14 @@ private extension Nimbus {
     }
 }
 
+extension Nimbus: NimbusEvents {
+    public func recordEvent(_ eventId: String) {
+        catchAll(dbQueue) {
+            try self.nimbusClient.recordEvent(eventId: eventId)
+        }
+    }
+}
+
 extension Nimbus: FeaturesInterface {
     public func recordExposureEvent(featureId: String) {
         // First we need a list of the active experiments that are enrolled.
@@ -381,6 +389,8 @@ public extension NimbusDisabled {
     func resetTelemetryIdentifiers() {}
 
     func recordExposureEvent(featureId _: String) {}
+
+    func recordEvent(_: String) {}
 
     func getExperimentBranches(_: String) -> [Branch]? {
         return nil

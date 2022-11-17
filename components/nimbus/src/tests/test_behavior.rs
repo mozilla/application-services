@@ -466,6 +466,87 @@ mod event_store_tests {
     }
 
     #[test]
+    fn record_event_should_create_events_where_applicable() -> Result<()> {
+        let mut store = EventStore::new();
+        store.record_event("test".to_string(), None)?;
+
+        assert_eq!(
+            store
+                .events
+                .get(&"test".to_string())
+                .unwrap()
+                .intervals
+                .get(&Interval::Minutes)
+                .unwrap()
+                .data
+                .buckets[0],
+            1
+        );
+        assert_eq!(
+            store
+                .events
+                .get(&"test".to_string())
+                .unwrap()
+                .intervals
+                .get(&Interval::Hours)
+                .unwrap()
+                .data
+                .buckets[0],
+            1
+        );
+        assert_eq!(
+            store
+                .events
+                .get(&"test".to_string())
+                .unwrap()
+                .intervals
+                .get(&Interval::Days)
+                .unwrap()
+                .data
+                .buckets[0],
+            1
+        );
+        assert_eq!(
+            store
+                .events
+                .get(&"test".to_string())
+                .unwrap()
+                .intervals
+                .get(&Interval::Weeks)
+                .unwrap()
+                .data
+                .buckets[0],
+            1
+        );
+        assert_eq!(
+            store
+                .events
+                .get(&"test".to_string())
+                .unwrap()
+                .intervals
+                .get(&Interval::Months)
+                .unwrap()
+                .data
+                .buckets[0],
+            1
+        );
+        assert_eq!(
+            store
+                .events
+                .get(&"test".to_string())
+                .unwrap()
+                .intervals
+                .get(&Interval::Years)
+                .unwrap()
+                .data
+                .buckets[0],
+            1
+        );
+
+        Ok(())
+    }
+
+    #[test]
     fn query_sum_should_function() -> Result<()> {
         let counter1 = MultiIntervalCounter::new(vec![
             SingleIntervalCounter::new(IntervalConfig::new(12, Interval::Months)),
@@ -494,7 +575,7 @@ mod event_store_tests {
                 0,
                 EventQueryType::Sum
             )?,
-            3
+            3.0
         );
         assert_eq!(
             store.query(
@@ -504,7 +585,7 @@ mod event_store_tests {
                 0,
                 EventQueryType::Sum
             )?,
-            0
+            0.0
         );
         assert_eq!(
             store.query(
@@ -514,7 +595,7 @@ mod event_store_tests {
                 7,
                 EventQueryType::Sum
             )?,
-            0
+            0.0
         );
 
         Ok(())
@@ -549,7 +630,7 @@ mod event_store_tests {
                 0,
                 EventQueryType::CountNonZero
             )?,
-            2
+            2.0
         );
         assert_eq!(
             store.query(
@@ -559,7 +640,7 @@ mod event_store_tests {
                 2,
                 EventQueryType::CountNonZero
             )?,
-            0
+            0.0
         );
 
         Ok(())
@@ -594,7 +675,7 @@ mod event_store_tests {
                 0,
                 EventQueryType::AveragePerInterval
             )?,
-            0
+            0.42857142857142855
         );
         assert_eq!(
             store.query(
@@ -604,7 +685,7 @@ mod event_store_tests {
                 0,
                 EventQueryType::AveragePerInterval
             )?,
-            1
+            1.5
         );
 
         Ok(())
@@ -639,7 +720,7 @@ mod event_store_tests {
                 0,
                 EventQueryType::AveragePerNonZeroInterval
             )?,
-            1
+            1.5
         );
         assert_eq!(
             store.query(
@@ -649,7 +730,7 @@ mod event_store_tests {
                 2,
                 EventQueryType::AveragePerNonZeroInterval
             )?,
-            0
+            0.0
         );
 
         Ok(())

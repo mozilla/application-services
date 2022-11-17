@@ -24,6 +24,8 @@ mod message_tests {
         let nimbus = common::new_test_client("jexl_test")?;
         nimbus.initialize()?;
 
+        nimbus.record_event("test".to_string())?;
+
         let helper = nimbus.create_targeting_helper(None)?;
 
         // We get a boolean back from a string!
@@ -36,6 +38,9 @@ mod message_tests {
 
         // The expression contains a variable not declared (snek_case Good, camelCase Bad)
         assert!(helper.eval_jexl("appName == 'fenix'".to_string()).is_err());
+
+        // This validates that helpers created from the create_targeting_helper have the event_store present in jexl operations
+        assert!(helper.eval_jexl("'test'|eventSum('Days', 1, 0) == 1".to_string())?);
 
         let helper = nimbus.create_targeting_helper(
             json!(

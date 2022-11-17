@@ -11,6 +11,7 @@ use std::collections::vec_deque::Iter;
 use std::collections::{HashMap, VecDeque};
 use std::fmt;
 use std::hash::{Hash, Hasher};
+use std::str::FromStr;
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub enum Interval {
@@ -54,6 +55,26 @@ impl Eq for Interval {}
 impl Hash for Interval {
     fn hash<H: Hasher>(&self, state: &mut H) {
         self.to_string().as_bytes().hash(state);
+    }
+}
+
+impl FromStr for Interval {
+    type Err = NimbusError;
+
+    fn from_str(input: &str) -> Result<Self> {
+        Ok(match input {
+            "Minutes" => Self::Minutes,
+            "Hours" => Self::Hours,
+            "Days" => Self::Days,
+            "Weeks" => Self::Weeks,
+            "Months" => Self::Months,
+            "Years" => Self::Years,
+            _ => {
+                return Err(NimbusError::BehaviorError(
+                    BehaviorError::IntervalParseError(input.to_string()),
+                ))
+            }
+        })
     }
 }
 
@@ -213,6 +234,37 @@ impl MultiIntervalCounter {
     }
 }
 
+impl Default for MultiIntervalCounter {
+    fn default() -> Self {
+        Self::new(vec![
+            SingleIntervalCounter::new(IntervalConfig {
+                bucket_count: 60,
+                interval: Interval::Minutes,
+            }),
+            SingleIntervalCounter::new(IntervalConfig {
+                bucket_count: 24,
+                interval: Interval::Hours,
+            }),
+            SingleIntervalCounter::new(IntervalConfig {
+                bucket_count: 56,
+                interval: Interval::Days,
+            }),
+            SingleIntervalCounter::new(IntervalConfig {
+                bucket_count: 52,
+                interval: Interval::Weeks,
+            }),
+            SingleIntervalCounter::new(IntervalConfig {
+                bucket_count: 12,
+                interval: Interval::Months,
+            }),
+            SingleIntervalCounter::new(IntervalConfig {
+                bucket_count: 4,
+                interval: Interval::Years,
+            }),
+        ])
+    }
+}
+
 pub enum EventQueryType {
     Sum,
     CountNonZero,
@@ -221,11 +273,11 @@ pub enum EventQueryType {
 }
 
 impl EventQueryType {
-    fn perform_query(&self, buckets: Iter<u64>, num_buckets: usize) -> Result<u64> {
+    fn perform_query(&self, buckets: Iter<u64>, num_buckets: usize) -> Result<f64> {
         Ok(match self {
-            Self::Sum => buckets.sum::<u64>(),
-            Self::CountNonZero => buckets.filter(|v| v > &&0u64).count() as u64,
-            Self::AveragePerInterval => buckets.sum::<u64>() / num_buckets as u64,
+            Self::Sum => buckets.sum::<u64>() as f64,
+            Self::CountNonZero => buckets.filter(|v| v > &&0u64).count() as f64,
+            Self::AveragePerInterval => buckets.sum::<u64>() as f64 / num_buckets as f64,
             Self::AveragePerNonZeroInterval => {
                 let values = buckets.fold((0, 0), |accum, item| {
                     (
@@ -234,16 +286,16 @@ impl EventQueryType {
                     )
                 });
                 if values.1 == 0 {
-                    0
+                    0.0
                 } else {
-                    values.0 / values.1
+                    values.0 as f64 / values.1 as f64
                 }
             }
         })
     }
 }
 
-#[derive(Default, Serialize, Deserialize, Debug)]
+#[derive(Default, Serialize, Deserialize, Debug, Clone)]
 pub struct EventStore {
     pub(crate) events: HashMap<String, MultiIntervalCounter>,
 }
@@ -297,7 +349,14 @@ impl EventStore {
 
     pub fn record_event(&mut self, event_id: String, now: Option<DateTime<Utc>>) -> Result<()> {
         let now = now.unwrap_or_else(Utc::now);
-        let counter = self.events.get_mut(&event_id).unwrap();
+        let counter = match self.events.get_mut(&event_id) {
+            Some(v) => v,
+            None => {
+                let new_counter = Default::default();
+                self.events.insert(event_id.clone(), new_counter);
+                self.events.get_mut(&event_id).unwrap()
+            }
+        };
         counter.maybe_advance(now)?;
         counter.increment()
     }
@@ -319,12 +378,12 @@ impl EventStore {
         num_buckets: usize,
         starting_bucket: usize,
         query_type: EventQueryType,
-    ) -> Result<u64> {
+    ) -> Result<f64> {
         if let Some(counter) = self.events.get(&event_id) {
             if let Some(single_counter) = counter.intervals.get(&interval) {
                 let safe_range = 0..single_counter.data.buckets.len();
                 if !safe_range.contains(&starting_bucket) {
-                    return Ok(0);
+                    return Ok(0.0);
                 }
                 let buckets = single_counter.data.buckets.range(
                     starting_bucket..usize::min(num_buckets, single_counter.data.buckets.len()),
@@ -332,6 +391,6 @@ impl EventStore {
                 return query_type.perform_query(buckets, num_buckets);
             }
         }
-        Ok(0)
+        Ok(0.0)
     }
 }

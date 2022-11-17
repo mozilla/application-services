@@ -84,7 +84,7 @@ pub struct NimbusClient {
     // without doing (or waiting for) IO.
     database_cache: DatabaseCache,
     db_path: PathBuf,
-    event_store: Mutex<EventStore>,
+    event_store: Arc<Mutex<EventStore>>,
 }
 
 impl NimbusClient {
@@ -110,7 +110,7 @@ impl NimbusClient {
             database_cache: Default::default(),
             db_path: db_path.into(),
             db: OnceCell::default(),
-            event_store: Mutex::default(),
+            event_store: Arc::default(),
         })
     }
 
@@ -199,13 +199,7 @@ impl NimbusClient {
             db.get_store(StoreId::Experiments).collect_all(&writer)?;
         // We pass the existing experiments as "updated experiments"
         // to the evolver.
-        let nimbus_id = self.read_or_create_nimbus_id(db, &mut writer)?;
-        let evolver = EnrollmentsEvolver::new(
-            &nimbus_id,
-            &state.available_randomization_units,
-            &state.targeting_attributes,
-        );
-        let events = evolver.evolve_enrollments_in_db(db, &mut writer, &existing_experiments)?;
+        let events = self.evolve_experiments(db, &mut writer, &mut state, &existing_experiments)?;
         self.end_initialize(db, writer, &mut state)?;
         Ok(events)
     }
@@ -329,6 +323,23 @@ impl NimbusClient {
         Ok(())
     }
 
+    fn evolve_experiments(
+        &self,
+        db: &Database,
+        writer: &mut Writer,
+        state: &mut InternalMutableState,
+        experiments: &[Experiment],
+    ) -> Result<Vec<EnrollmentChangeEvent>> {
+        let nimbus_id = self.read_or_create_nimbus_id(db, writer)?;
+        let event_store = self.event_store.lock().unwrap();
+        let evolver = EnrollmentsEvolver::new(
+            &nimbus_id,
+            &state.available_randomization_units,
+            &state.targeting_attributes,
+        );
+        evolver.evolve_enrollments_in_db(db, writer, experiments, &event_store)
+    }
+
     pub fn apply_pending_experiments(&self) -> Result<Vec<EnrollmentChangeEvent>> {
         log::info!("updating experiment list");
         let db = self.db()?;
@@ -339,17 +350,12 @@ impl NimbusClient {
         let pending_updates = read_and_remove_pending_experiments(db, &mut writer)?;
         let mut state = self.mutable_state.lock().unwrap();
         self.begin_initialize(db, &mut writer, &mut state)?;
+
         let res = match pending_updates {
             Some(new_experiments) => {
                 self.update_ta_active_experiments(db, &writer, &mut state)?;
                 // Perform the enrollment calculations if there are pending experiments.
-                let nimbus_id = self.read_or_create_nimbus_id(db, &mut writer)?;
-                let evolver = EnrollmentsEvolver::new(
-                    &nimbus_id,
-                    &state.available_randomization_units,
-                    &state.targeting_attributes,
-                );
-                evolver.evolve_enrollments_in_db(db, &mut writer, &new_experiments)?
+                self.evolve_experiments(db, &mut writer, &mut state, &new_experiments)?
             }
             None => vec![],
         };
@@ -554,7 +560,7 @@ impl NimbusClient {
         additional_context: Option<JsonObject>,
     ) -> Result<Arc<NimbusTargetingHelper>> {
         let context = self.merge_additional_context(additional_context)?;
-        let helper = NimbusTargetingHelper::new(context);
+        let helper = NimbusTargetingHelper::new(context, self.event_store.clone());
         Ok(Arc::new(helper))
     }
 
@@ -571,11 +577,15 @@ impl NimbusClient {
     ///
     /// This function is used to record and persist data used for the behavioral
     /// targeting such as "core-active" user targeting.
-    pub fn record_event(&mut self, event_id: String) -> Result<()> {
+    pub fn record_event(&self, event_id: String) -> Result<()> {
         let mut event_store = self.event_store.lock().unwrap();
         event_store.record_event(event_id, None)?;
         event_store.persist_data(self.db()?)?;
         Ok(())
+    }
+
+    pub fn event_store(&self) -> Arc<Mutex<EventStore>> {
+        self.event_store.clone()
     }
 }
 
@@ -852,15 +862,20 @@ impl NimbusStringHelper {
 
 pub struct NimbusTargetingHelper {
     context: Value,
+    event_store: Arc<Mutex<EventStore>>,
 }
 
 impl NimbusTargetingHelper {
-    fn new(context: Value) -> Self {
-        Self { context }
+    fn new(context: Value, event_store: Arc<Mutex<EventStore>>) -> Self {
+        Self {
+            context,
+            event_store,
+        }
     }
 
     pub fn eval_jexl(&self, expr: String) -> Result<bool> {
-        evaluator::jexl_eval(&expr, &self.context)
+        let event_store = self.event_store.lock().unwrap();
+        evaluator::jexl_eval(&expr, &self.context, &event_store)
     }
 }
 
