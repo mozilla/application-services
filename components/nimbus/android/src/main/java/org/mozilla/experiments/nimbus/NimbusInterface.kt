@@ -182,6 +182,17 @@ interface NimbusInterface : FeaturesInterface, GleanPlumbInterface {
     override fun recordExposureEvent(featureId: String) = Unit
 
     /**
+     * Records an event to the Nimbus event store.
+     *
+     * The method obtains the event counters for the `eventId` that is passed in, advances them if
+     * needed, then increments the counts by 1. If an event counter does not exist for the `eventId`,
+     * one will be created.
+     *
+     * @param eventId string representing the id of the event which should be recorded.
+     */
+    override fun recordEvent(eventId: String) = Unit
+
+    /**
      * Control the opt out for all experiments at once. This is likely a user action.
      */
     var globalUserParticipation: Boolean

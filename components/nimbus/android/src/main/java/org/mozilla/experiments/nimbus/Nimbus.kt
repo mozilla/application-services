@@ -357,6 +357,10 @@ open class Nimbus(
         recordExposure(featureId)
     }
 
+    override fun recordEvent(eventId: String) {
+        nimbusClient.recordEvent(eventId)
+    }
+
     override fun createMessageHelper(additionalContext: JSONObject?): GleanPlumbMessageHelper =
         GleanPlumbMessageHelper(
             nimbusClient.createTargetingHelper(additionalContext),

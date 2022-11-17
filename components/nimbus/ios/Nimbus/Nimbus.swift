@@ -75,6 +75,10 @@ extension Nimbus: FeaturesInterface {
         }
     }
 
+    public func recordEvent(eventId: String) {
+        nimbusClient.recordEvent(eventId)
+    }
+
     internal func postEnrollmentCalculation(_ events: [EnrollmentChangeEvent]) {
         // We need to update the experiment enrollment annotations in Glean
         // regardless of whether we recieved any events. Calling the
@@ -381,6 +385,8 @@ public extension NimbusDisabled {
     func resetTelemetryIdentifiers() {}
 
     func recordExposureEvent(featureId _: String) {}
+
+    func recordEvent(eventId _: String) {}
 
     func getExperimentBranches(_: String) -> [Branch]? {
         return nil
