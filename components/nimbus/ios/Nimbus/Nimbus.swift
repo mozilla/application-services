@@ -57,9 +57,9 @@ private extension Nimbus {
 }
 
 extension Nimbus: NimbusEvents {
-    public func recordEvent(eventId: String) {
+    public func recordEvent(_ eventId: String) {
         catchAll(dbQueue) {
-            nimbusClient.recordEvent(eventId)
+            nimbusClient.recordEvent(eventId: eventId)
         }
     }
 }

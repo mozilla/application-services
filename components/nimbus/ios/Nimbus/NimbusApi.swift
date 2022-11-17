@@ -141,7 +141,6 @@ public protocol NimbusUserConfiguration {
 }
 
 public protocol NimbusEvents {
-
     /// Records an event to the Nimbus event store.
     ///
     /// The method obtains the event counters for the `eventId` that is passed in, advances them if
@@ -149,7 +148,7 @@ public protocol NimbusEvents {
     /// one will be created.
     ///
     /// - Parameter eventId string representing the id of the event which should be recorded.
-    func recordEvent(eventId: String)
+    func recordEvent(_ eventId: String)
 }
 
 /// Notifications emitted by the `NotificationCenter`.
