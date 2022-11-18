@@ -58,10 +58,10 @@ fi
 # https://github.com/mozilla/application-services/issues/962
 if [[ "${CROSS_COMPILE_TARGET}" =~ "darwin" ]]; then
   # Generated from nss-try@111b54aaa644978464bec98848ecba6f69d3f42e.
-  curl -sfSL --retry 5 --retry-delay 10 -O "https://fxa-dev-bucket.s3-us-west-2.amazonaws.com/a-s/nss_nspr_static_3.66_darwin.tar.bz2"
-  SHA256="2ad7c85b7b009120c7e883ccd367bbd3653857a4ed3adb4c5471b197d1844141"
-  echo "${SHA256}  nss_nspr_static_3.66_darwin.tar.bz2" | shasum -a 256 -c - || exit 2
-  tar xvjf nss_nspr_static_3.66_darwin.tar.bz2 && rm -rf nss_nspr_static_3.66_darwin.tar.bz2
+  curl -sfSL --retry 5 --retry-delay 10 -O "https://firefox-ci-tc.services.mozilla.com/api/queue/v1/task/xSE_Od-YToytpjnPT-gCpQ/runs/0/artifacts/public/dist.tar.bz2"
+  SHA256="3b2d84122fce109db840bd916c923ca91413bd7d9ab7c632bde0df19c9d1ff9c"
+  echo "${SHA256}  dist.tar.bz2" | shasum -a 256 -c - || exit 2
+  tar xvjf dist.tar.bz2 && rm -rf dist.tar.bz2
   NSS_DIST_DIR=$(abspath "dist")
 elif [[ "$(uname -s)" == "Darwin" ]] || [[ "$(uname -s)" == "Linux" ]]; then
   "${NSS_SRC_DIR}"/nss/build.sh \
@@ -110,6 +110,7 @@ else
   cp -p -L "${NSS_DIST_OBJ_DIR}/lib/libhw-acc-crypto-avx.a" "${DIST_DIR}/lib"
   cp -p -L "${NSS_DIST_OBJ_DIR}/lib/libhw-acc-crypto-avx2.a" "${DIST_DIR}/lib"
   cp -p -L "${NSS_DIST_OBJ_DIR}/lib/libgcm-aes-x86_c_lib.a" "${DIST_DIR}/lib"
+  cp -p -L "${NSS_DIST_OBJ_DIR}/lib/libsha-x86_c_lib.a" "${DIST_DIR}/lib"
 fi
 # https://searchfox.org/mozilla-central/rev/1eb05019f47069172ba81a6c108a584a409a24ea/security/nss/lib/freebl/freebl.gyp#224-233
 if [[ "${TARGET_OS}" == "windows" ]] || [[ "${TARGET_OS}" == "linux" ]]; then
@@ -119,6 +120,11 @@ if [[ "${TARGET_OS}" == "windows" ]] || [[ "${TARGET_OS}" == "linux" ]]; then
     cp -p -L "${NSS_DIST_OBJ_DIR}/lib/libintel-gcm-s_lib.a" "${DIST_DIR}/lib"
   fi
 fi
+
+# Since NSS CI uses -enable_pkix=1
+if [[ "${CROSS_COMPILE_TARGET}" =~ "darwin" ]]; then
+  cp -p -L "${NSS_DIST_OBJ_DIR}/lib/libpkixtop.a" "${DIST_DIR}/lib"
+fi 
 
 cp -p -L -R "${NSS_DIST_DIR}/public/nss/"* "${DIST_DIR}/include/nss"
 cp -p -L -R "${NSS_DIST_OBJ_DIR}/include/nspr/"* "${DIST_DIR}/include/nss"

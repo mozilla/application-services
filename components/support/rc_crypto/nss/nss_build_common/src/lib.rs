@@ -23,6 +23,12 @@ pub enum LinkingKind {
 pub struct NoNssDir;
 
 pub fn link_nss() -> Result<(), NoNssDir> {
+    let target_arch = env::var("CARGO_CFG_TARGET_ARCH").unwrap();
+    let target_os = env::var("CARGO_CFG_TARGET_OS").unwrap();
+    println!(
+        "(link_nss) target_arch: {}, target_os: {}",
+        target_arch, target_os
+    );
     let is_gecko = env::var_os("MOZ_TOPOBJDIR").is_some();
     if !is_gecko {
         let (lib_dir, include_dir) = get_nss()?;
@@ -114,12 +120,13 @@ fn get_nss_libs(kind: LinkingKind) -> Vec<&'static str> {
             // Hardware specific libs.
             let target_arch = env::var("CARGO_CFG_TARGET_ARCH").unwrap();
             let target_os = env::var("CARGO_CFG_TARGET_OS").unwrap();
-            // https://searchfox.org/nss/rev/08c4d05078d00089f8d7540651b0717a9d66f87e/lib/freebl/freebl.gyp#278-296
+            // https://searchfox.org/nss/rev/0d5696b3edce5124353f03159d2aa15549db8306/lib/freebl/freebl.gyp#508-542
             if target_arch == "arm" || target_arch == "aarch64" {
                 static_libs.push("armv8_c_lib");
             }
             if target_arch == "x86_64" || target_arch == "x86" {
                 static_libs.push("gcm-aes-x86_c_lib");
+                static_libs.push("sha-x86_c_lib");
             }
             if target_arch == "arm" {
                 static_libs.push("gcm-aes-arm32-neon_c_lib")
@@ -141,6 +148,9 @@ fn get_nss_libs(kind: LinkingKind) -> Vec<&'static str> {
                     static_libs.push("intel-gcm-s_lib");
                 }
             }
+            if (target_os == "macos") && (target_arch == "x86_64") {
+                static_libs.push("pkixtop");
+            }
             static_libs
         }
         LinkingKind::Dynamic { folded_libs } => {
@@ -155,11 +165,23 @@ fn get_nss_libs(kind: LinkingKind) -> Vec<&'static str> {
 
 pub fn env(name: &str) -> Option<OsString> {
     println!("cargo:rerun-if-env-changed={}", name);
+    let target_arch = env::var("CARGO_CFG_TARGET_ARCH").unwrap();
+    let target_os = env::var("CARGO_CFG_TARGET_OS").unwrap();
+    println!(
+        "(env) target_arch: {}, target_os: {}",
+        target_arch, target_os
+    );
     env::var_os(name)
 }
 
 pub fn env_str(name: &str) -> Option<String> {
     println!("cargo:rerun-if-env-changed={}", name);
+    let target_arch = env::var("CARGO_CFG_TARGET_ARCH").unwrap();
+    let target_os = env::var("CARGO_CFG_TARGET_OS").unwrap();
+    println!(
+        "(env_str) target_arch: {}, target_os: {}",
+        target_arch, target_os
+    );
     env::var(name).ok()
 }
 

@@ -113,7 +113,7 @@ elif [[ "${TARGET_OS}" == "linux" ]]; then
 elif [[ "${TARGET_ARCH}" == "aarch64" ]]; then
   LIBS="${LIBS} -lgcm-aes-aarch64_c_lib -larmv8_c_lib"
 else
-  LIBS="${LIBS} -lhw-acc-crypto-avx -lhw-acc-crypto-avx2 -lgcm-aes-x86_c_lib"
+  LIBS="${LIBS} -lhw-acc-crypto-avx -lhw-acc-crypto-avx2 -lgcm-aes-x86_c_lib -lsha-x86_c_lib"
 fi
 
 BUILD_DIR=$(mktemp -d)
@@ -146,6 +146,8 @@ if [[ "${CROSS_COMPILE_TARGET}" =~ "darwin" ]]; then
 
   # See https://searchfox.org/mozilla-central/rev/8848b9741fc4ee4e9bc3ae83ea0fc048da39979f/build/macosx/cross-mozconfig.common#12-13.
   export LD_LIBRARY_PATH=/tmp/clang/lib
+
+  LIBS="${LIBS} -lpkixtop"
 
   "${SQLCIPHER_SRC_DIR}/configure" \
     --with-pic \
