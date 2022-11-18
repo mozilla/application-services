@@ -20,6 +20,7 @@ Use the template below to make assigning a version number during the release cut
 -->
 
 ## Nimbus
+### What's changed
 - Add methods to Kotlin and Swift to call the record event method on the nimbus client ([#5244](https://github.com/mozilla/application-services/pull/5244))
 
 ## FxA Client
