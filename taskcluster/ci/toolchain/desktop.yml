@@ -27,10 +27,3 @@ desktop-macos:
         script: desktop-macos.sh
         toolchain-alias: desktop-macos-libs
         toolchain-artifact: public/build/macos.tar.gz
-
-desktop-win32-x86-64:
-    description: 'Desktop libs (win32-x86-64): build'
-    run:
-        script: desktop-win32-x86-64.sh
-        toolchain-alias: desktop-win32-x86-64-libs
-        toolchain-artifact: public/build/win.tar.gz
