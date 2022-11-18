@@ -532,9 +532,27 @@ impl PlacesConnection {
         }
     }
 
-    fn run_maintenance(&self, db_size_limit: u32) -> ApiResult<RunMaintenanceMetrics> {
+    fn run_maintenance_prune(&self, db_size_limit: u32) -> ApiResult<RunMaintenanceMetrics> {
         handle_error! {
-            self.with_conn(|conn| storage::run_maintenance(conn, db_size_limit))
+            self.with_conn(|conn| storage::run_maintenance_prune(conn, db_size_limit))
+        }
+    }
+
+    fn run_maintenance_vacuum(&self) -> ApiResult<()> {
+        handle_error! {
+            self.with_conn(storage::run_maintenance_vacuum)
+        }
+    }
+
+    fn run_maintenance_optimize(&self) -> ApiResult<()> {
+        handle_error! {
+            self.with_conn(storage::run_maintenance_optimize)
+        }
+    }
+
+    fn run_maintenance_checkpoint(&self) -> ApiResult<()> {
+        handle_error! {
+            self.with_conn(storage::run_maintenance_checkpoint)
         }
     }
 

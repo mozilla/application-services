@@ -135,6 +135,65 @@ places_manager:
     data_sensitivity:
       - technical
 
+  run_maintenance_prune_time:
+    type: timing_distribution
+    description: Time taken to execute `prune_older_visits()` inside
+      `run_maintenance()`
+    time_unit: millisecond
+    bugs:
+      - https://github.com/mozilla/application-services/issues/5246
+    data_reviews:
+      - https://github.com/mozilla/application-services/issues/5247
+    notification_emails:
+      - synced-client-integrations@mozilla.com
+    expires: 2023-04-01
+    data_sensitivity:
+      - technical
+
+  run_maintenance_vacuum_time:
+    type: timing_distribution
+    description: Time taken to execute `VACUUM` inside `run_maintenance()`
+    time_unit: millisecond
+    bugs:
+      - https://github.com/mozilla/application-services/issues/5246
+    data_reviews:
+      - https://github.com/mozilla/application-services/issues/5247
+    notification_emails:
+      - synced-client-integrations@mozilla.com
+    expires: 2023-04-01
+    data_sensitivity:
+      - technical
+
+  run_maintenance_optimize_time:
+    type: timing_distribution
+    description: Time taken to execute `PRAGMA optimize` inside
+      `run_maintenance()`
+    time_unit: millisecond
+    bugs:
+      - https://github.com/mozilla/application-services/issues/5246
+    data_reviews:
+      - https://github.com/mozilla/application-services/issues/5247
+    notification_emails:
+      - synced-client-integrations@mozilla.com
+    expires: 2023-04-01
+    data_sensitivity:
+      - technical
+
+  run_maintenance_chk_pnt_time:
+    type: timing_distribution
+    description: Time taken to execute `PRAGMA_CHECKPOINT` inside
+      `run_maintenance()`
+    time_unit: millisecond
+    bugs:
+      - https://github.com/mozilla/application-services/issues/5246
+    data_reviews:
+      - https://github.com/mozilla/application-services/issues/5247
+    notification_emails:
+      - synced-client-integrations@mozilla.com
+    expires: 2023-04-01
+    data_sensitivity:
+      - technical
+
   db_size_after_maintenance:
     type: memory_distribution
     description: >
