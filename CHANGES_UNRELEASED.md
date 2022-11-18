@@ -19,6 +19,11 @@ Use the template below to make assigning a version number during the release cut
 
 -->
 
+## Logins
+
+### What's Changed
+  - Updated the URL redaction code to remove potential PII leak.  Version `96.0.0` should not be used by downstream clients.
+
 ## Nimbus
 ### What's changed
 - Add methods to Kotlin and Swift to call the record event method on the nimbus client ([#5244](https://github.com/mozilla/application-services/pull/5244))
