@@ -2,14 +2,14 @@
 
 We use sqlite in `wal` mode. Thus we never expect readers to block or have any locking considerations. Multiple writers will always cause contention, possibly resulting in `SQLITE_BUSY`, and need to be managed.
 
-Note that multiple writers will only cause `SQLITE_BUSY` after some timeout period has expired. Each writer will block for this timeout period in the hope that the other writer completes and it can begin. The current default is 5 seconds.
-    
+Note that multiple writers will only cause `SQLITE_BUSY` after some timeout period has expired. Each writer will block for this timeout period in the hope that the other writer completes and it can begin. The current timeout is 5 seconds, set with the `PRAGMA busy_timeout` statement in `components/places/src/db/db.rs`.
+
 So there are 2 sane options:
 
 * Ensure there's only ever one writer at a time (eg, via a dedicated writer thread) - `SQLITE_BUSY` will never happen, although writing will be queued - a single writer which takes many seconds will block all other writes. This may cause UX issues (eg, visited links not being immediately correct) and given mobile constraints, may never be writen at all (eg, aggressive app termination)
 
 * Allow multiple writers. If you keep the writes short and fast, you should never hit the timeout period and everything should be fine. However, this scenario *does* allow for `SQLITE_BUSY` errors.
-    
+
 Complicating things is that transactions are not only about integrity, they also improve performance. Consider our history-sync "incoming" implementation - when processing 5k records, we can see a performance improvement of around 5x by using a single transaction for all records vs a transaction per record. We can choose between a fast sync with a long-lived transactions that might exceed our timeout budget, or a slow sync with many short transactions that will be within budget.
 
 But in this scenario there are no "integrity" concerns, just performance. And sadly, it's not really possible to "split" a sync up so that it can be interleaved on a single writer thread - ie, once a sync starts, it needs to complete - and much of the time taken for a sync is on the network - it would probably not be workable for sync to block the only writer thread while it makes network requests.
@@ -25,7 +25,7 @@ So we've come up with a compromise: we use 2 writer threads, but:
 * One is dedicated to the small and fast writes (eg, a visit, creation of a bookmark, etc).
 
 * One is dedicated to Sync, but it uses a strategy whereby we use these "performance transactions", but only for a set period of time. For example, when processing 5k records, we use one transaction per (say) 1000ms. We squeeze as many of the 5k records as we can into this time period and commit and start a new transaction as necessary.
-    
+
 This means that the other "small and fast" writer is never blocked for more than this period. This thread should never see a timeout due to this "chunking" technique - we do our best to ensure the sync writer never holds a transaction over this period.
 
 However, this *will* still result in `SQLITE_BUSY` being possible. The 2 scenarios are:
