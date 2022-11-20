@@ -2,7 +2,7 @@
 
 # Unreleased Changes
 
-[Full Changelog](https://github.com/mozilla/application-services/compare/v96.0.0...main)
+[Full Changelog](https://github.com/mozilla/application-services/compare/v96.0.1...main)
 
 <!-- WARNING: New entries should be added below this comment to ensure the `./automation/prepare-release.py` script works as expected.
 
@@ -19,11 +19,6 @@ Use the template below to make assigning a version number during the release cut
 
 -->
 
-## Nimbus
-### What's changed
-- Add methods to Kotlin and Swift to call the record event method on the nimbus client ([#5244](https://github.com/mozilla/application-services/pull/5244))
-
 ## FxA Client
 ### What's changed
-- The devices retrieved from the devices list are now only the devices that have been accessed in 21 days. This should help remove duplicates and idle devices for users. ([#4984](https://github.com/mozilla/application-services/pull/4984))
 - The `processRawIncomingAccountEvent` function will now process all commands, not just one. This moves the responsibilty of ensuring each push gets a UI element to the caller.\

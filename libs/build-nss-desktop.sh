@@ -24,10 +24,7 @@ if [[ -n "${CROSS_COMPILE_TARGET}" ]] && [[ "$(uname -s)" != "Linux" ]]; then
   exit 1
 fi
 
-if [[ "${CROSS_COMPILE_TARGET}" =~ "win32-x86-64" ]]; then
-  DIST_DIR=$(abspath "desktop/win32-x86-64/nss")
-  TARGET_OS="windows"
-elif [[ "${CROSS_COMPILE_TARGET}" =~ "darwin" ]]; then
+if [[ "${CROSS_COMPILE_TARGET}" =~ "darwin" ]]; then
   DIST_DIR=$(abspath "desktop/darwin/nss")
   TARGET_OS="macos"
 elif [[ -n "${CROSS_COMPILE_TARGET}" ]]; then
@@ -65,13 +62,6 @@ if [[ "${CROSS_COMPILE_TARGET}" =~ "darwin" ]]; then
   SHA256="2ad7c85b7b009120c7e883ccd367bbd3653857a4ed3adb4c5471b197d1844141"
   echo "${SHA256}  nss_nspr_static_3.66_darwin.tar.bz2" | shasum -a 256 -c - || exit 2
   tar xvjf nss_nspr_static_3.66_darwin.tar.bz2 && rm -rf nss_nspr_static_3.66_darwin.tar.bz2
-  NSS_DIST_DIR=$(abspath "dist")
-elif [[ "${CROSS_COMPILE_TARGET}" =~ "win32-x86-64" ]]; then
-  # Generated from nss-try@111b54aaa644978464bec98848ecba6f69d3f42e.
-  curl -sfSL --retry 5 --retry-delay 10 -O "https://fxa-dev-bucket.s3-us-west-2.amazonaws.com/a-s/nss_nspr_static_3.66_mingw.7z"
-  SHA256="d245ea7790602ef062ad6e6bac38f2d0452d753bf428c33ced46f022398a53ff"
-  echo "${SHA256}  nss_nspr_static_3.66_mingw.7z" | shasum -a 256 -c - || exit 2
-  7z x nss_nspr_static_3.66_mingw.7z -aoa && rm -rf nss_nspr_static_3.66_mingw.7z
   NSS_DIST_DIR=$(abspath "dist")
 elif [[ "$(uname -s)" == "Darwin" ]] || [[ "$(uname -s)" == "Linux" ]]; then
   "${NSS_SRC_DIR}"/nss/build.sh \

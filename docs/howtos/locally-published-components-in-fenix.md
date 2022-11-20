@@ -21,8 +21,7 @@ that comma separated list:
   - If you're running the `android-components` or `fenix` unit tests, then you'll need the architecture of your machine:
     - OSX running Intel chips: `darwin-x86-64`
     - OSX running M1 chips: `darwin-aarch64`
-    - Linux: `linux-x86-64`:
-    - Windows `win32-x86-64-gnu`
+    - Linux: `linux-x86-64`
 
 ## Using the auto-publishing workflow
 

@@ -1,3 +1,20 @@
+# v96.0.1 (_2022-11-18_)
+
+[Full Changelog](https://github.com/mozilla/application-services/compare/v96.0.0...v96.0.1)
+
+## Logins
+
+### What's Changed
+  - Updated the URL redaction code to remove potential PII leak.  Version `96.0.0` should not be used by downstream clients.
+
+## Nimbus
+### What's changed
+- Add methods to Kotlin and Swift to call the record event method on the nimbus client ([#5244](https://github.com/mozilla/application-services/pull/5244))
+
+## FxA Client
+### What's changed
+- The devices retrieved from the devices list are now only the devices that have been accessed in 21 days. This should help remove duplicates and idle devices for users. ([#4984](https://github.com/mozilla/application-services/pull/4984))
+
 # v96.0.0 (_2022-11-16_)
 
 [Full Changelog](https://github.com/mozilla/application-services/compare/v95.0.1...v96.0.0)
