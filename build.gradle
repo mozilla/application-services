@@ -155,8 +155,6 @@ if (useDownloadedLibs) {
                     return "https://firefox-ci-tc.services.mozilla.com/api/index/v1/task/project.application-services.application-services.build.libs.desktop.macos.${rootProject.ext.libsGitSha}/artifacts/public/build/macos.tar.gz"
                 case 'linux-x86-64':
                     return "https://firefox-ci-tc.services.mozilla.com/api/index/v1/task/project.application-services.application-services.build.libs.desktop.linux.${rootProject.ext.libsGitSha}/artifacts/public/build/linux.tar.gz"
-                case 'win32-x86-64':
-                    return "https://firefox-ci-tc.services.mozilla.com/api/index/v1/task/project.application-services.application-services.build.libs.desktop.win32-x86-64.${rootProject.ext.libsGitSha}/artifacts/public/build/win.tar.gz"
                 default:
                     throw new GradleException("Unknown host platform '${DefaultPlatform.RESOURCE_PREFIX}'.  " +
                                               "Set `ext.libsGitSha = null` in ${rootProject.rootDir}/build.gradle and build your own libs.  " +
@@ -172,8 +170,6 @@ if (useDownloadedLibs) {
                     return new File(buildDir, "libs.desktop.macos.${rootProject.ext.libsGitSha}.tar.gz")
                 case 'linux-x86-64':
                     return new File(buildDir, "libs.desktop.linux.${rootProject.ext.libsGitSha}.tar.gz")
-                case 'win32-x86-64':
-                    return new File(buildDir, "libs.desktop.win32-x86-64.${rootProject.ext.libsGitSha}.tar.gz")
                 default:
                     throw new GradleException("Unknown host platform '${DefaultPlatform.RESOURCE_PREFIX}'.  " +
                                               "Set `ext.libsGitSha = null` in ${rootProject.rootDir}/build.gradle and build your own libs.")
@@ -235,9 +231,6 @@ switch (DefaultPlatform.RESOURCE_PREFIX) {
         break
     case 'linux-x86-64':
         ext.nativeRustTarget = 'linux-x86-64'
-        break
-    case 'win32-x86-64':
-        ext.nativeRustTarget = 'win32-x86-64-gnu'
         break
 }
 ext.rustTargets += ext.nativeRustTarget
