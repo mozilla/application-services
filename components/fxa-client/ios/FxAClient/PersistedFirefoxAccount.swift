@@ -7,6 +7,8 @@ import Foundation
     import MozillaRustComponents
 #endif
 
+// swiftlint:disable type_body_length
+
 /// This class inherits from the Rust `FirefoxAccount` and adds:
 /// - Automatic state persistence through `PersistCallback`.
 /// - Auth error signaling through observer notifications.
