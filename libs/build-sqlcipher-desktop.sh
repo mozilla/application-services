@@ -128,6 +128,8 @@ pushd "${BUILD_DIR}"
 
 if [[ "${CROSS_COMPILE_TARGET}" =~ "darwin" ]]; then
   export CC=/tmp/clang/bin/clang
+  export CXX=/tmp/clang/bin/clang++
+  export MACOSX_DEPLOYMENT_TARGET=10.12
 
   export AR=/tmp/cctools/bin/x86_64-darwin11-ar
   export RANLIB=/tmp/cctools/bin/x86_64-darwin11-ranlib
@@ -136,8 +138,10 @@ if [[ "${CROSS_COMPILE_TARGET}" =~ "darwin" ]]; then
   export NM=/tmp/cctools/bin/x86_64-darwin11-nm
   export LD=/tmp/cctools/bin/x86_64-darwin11-ld
 
-  export CFLAGS='-B /tmp/cctools/bin -target x86_64-darwin11 -mlinker-version=137 -isysroot /tmp/MacOSX10.11.sdk -I/tmp/MacOSX10.11.sdk/usr/include -iframework /tmp/MacOSX10.11.sdk/System/Library/Frameworks'
-  export LDFLAGS='-B /tmp/cctools/bin -Wl,-syslibroot,/tmp/MacOSX10.11.sdk -Wl,-dead_strip'
+
+  export CFLAGS='-B /tmp/cctools/bin -target x86_64-darwin11 -mlinker-version=137 -isysroot /tmp/MacOSX10.12.sdk -I/tmp/MacOSX10.12.sdk/usr/include -iframework /tmp/MacOSX10.12.sdk/System/Library/Frameworks'
+  export CXXFLAGS='-stdlib=libc++ ${CFLAGS}'
+  export LDFLAGS='-B /tmp/cctools/bin -Wl,-syslibroot,/tmp/MacOSX10.12.sdk -Wl,-dead_strip'
   # This is crucial.  Without this, libtool drops the `-target ...`
   # flags from the clang compiler linker driver invocation, resulting
   # in clang choosing a random system `ld` rather than the macOS
