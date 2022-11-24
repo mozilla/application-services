@@ -372,14 +372,15 @@ impl EventStore {
     }
 
     pub fn query(
-        &self,
+        &mut self,
         event_id: String,
         interval: Interval,
         num_buckets: usize,
         starting_bucket: usize,
         query_type: EventQueryType,
     ) -> Result<f64> {
-        if let Some(counter) = self.events.get(&event_id) {
+        if let Some(counter) = self.events.get_mut(&event_id) {
+            counter.maybe_advance(Utc::now()).unwrap();
             if let Some(single_counter) = counter.intervals.get(&interval) {
                 let safe_range = 0..single_counter.data.buckets.len();
                 if !safe_range.contains(&starting_bucket) {

@@ -18,6 +18,7 @@ use serde_derive::*;
 use serde_json::{json, Value};
 use std::collections::HashSet;
 use std::str::FromStr;
+use std::sync::{Arc, Mutex};
 use uuid::Uuid;
 #[derive(Serialize, Deserialize, Debug, Clone, Default)]
 pub struct Bucket {}
@@ -102,7 +103,7 @@ pub fn evaluate_enrollment(
     available_randomization_units: &AvailableRandomizationUnits,
     targeting_attributes: &TargetingAttributes,
     exp: &Experiment,
-    event_store: &EventStore,
+    event_store: Arc<Mutex<EventStore>>,
 ) -> Result<ExperimentEnrollment> {
     if !is_experiment_available(&targeting_attributes.app_context, exp, true) {
         return Ok(ExperimentEnrollment {
@@ -268,7 +269,7 @@ pub(crate) fn choose_branch<'a>(
 pub(crate) fn targeting(
     expression_statement: &str,
     targeting_attributes: &TargetingAttributes,
-    event_store: &EventStore,
+    event_store: Arc<Mutex<EventStore>>,
 ) -> Option<EnrollmentStatus> {
     match jexl_eval(expression_statement, targeting_attributes, event_store) {
         Ok(res) => match res {
@@ -290,30 +291,34 @@ pub(crate) fn targeting(
 pub fn jexl_eval<Context: serde::Serialize>(
     expression_statement: &str,
     context: &Context,
-    event_store: &EventStore,
+    event_store: Arc<Mutex<EventStore>>,
 ) -> Result<bool> {
     let evaluator = Evaluator::new()
         .with_transform("versionCompare", |args| Ok(version_compare(args)?))
         .with_transform("eventSum", |args| {
-            Ok(query_event_store(event_store, EventQueryType::Sum, args)?)
+            Ok(query_event_store(
+                event_store.clone(),
+                EventQueryType::Sum,
+                args,
+            )?)
         })
         .with_transform("eventCountNonZero", |args| {
             Ok(query_event_store(
-                event_store,
+                event_store.clone(),
                 EventQueryType::CountNonZero,
                 args,
             )?)
         })
         .with_transform("eventAveragePerInterval", |args| {
             Ok(query_event_store(
-                event_store,
+                event_store.clone(),
                 EventQueryType::AveragePerInterval,
                 args,
             )?)
         })
         .with_transform("eventAveragePerNonZeroInterval", |args| {
             Ok(query_event_store(
-                event_store,
+                event_store.clone(),
                 EventQueryType::AveragePerNonZeroInterval,
                 args,
             )?)
@@ -353,7 +358,7 @@ fn version_compare(args: &[Value]) -> Result<Value> {
 }
 
 fn query_event_store(
-    event_store: &EventStore,
+    event_store: Arc<Mutex<EventStore>>,
     query_type: EventQueryType,
     args: &[Value],
 ) -> Result<Value> {
@@ -382,7 +387,7 @@ fn query_event_store(
         }
     } as usize;
 
-    Ok(json!(event_store.query(
+    Ok(json!(event_store.lock().unwrap().query(
         event,
         interval,
         num_buckets,

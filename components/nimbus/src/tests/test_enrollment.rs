@@ -19,6 +19,8 @@ use serde_json::{json, Value};
 use uuid::Uuid;
 
 use std::collections::{HashMap, HashSet};
+use std::sync::Arc;
+use std::sync::Mutex;
 
 fn get_test_experiments() -> Vec<Experiment> {
     vec![
@@ -515,9 +517,9 @@ fn test_evolver_new_experiment_enrolled() -> Result<()> {
     let targeting_attributes = app_ctx.into();
     let evolver = enrollment_evolver(&nimbus_id, &targeting_attributes, &aru);
     let mut events = vec![];
-    let event_store = EventStore::new();
+    let event_store = Arc::new(Mutex::new(EventStore::new()));
     let enrollment = evolver
-        .evolve_enrollment(true, None, Some(exp), None, &event_store, &mut events)?
+        .evolve_enrollment(true, None, Some(exp), None, event_store, &mut events)?
         .unwrap();
     assert!(matches!(
         enrollment.status,
@@ -537,9 +539,9 @@ fn test_evolver_new_experiment_not_enrolled() -> Result<()> {
     let targeting_attributes = app_ctx.into();
     let evolver = enrollment_evolver(&nimbus_id, &targeting_attributes, &aru);
     let mut events = vec![];
-    let event_store = EventStore::new();
+    let event_store = Arc::new(Mutex::new(EventStore::new()));
     let enrollment = evolver
-        .evolve_enrollment(true, None, Some(&exp), None, &event_store, &mut events)?
+        .evolve_enrollment(true, None, Some(&exp), None, event_store, &mut events)?
         .unwrap();
     assert!(matches!(
         enrollment.status,
@@ -558,9 +560,9 @@ fn test_evolver_new_experiment_globally_opted_out() -> Result<()> {
     let targeting_attributes = app_ctx.into();
     let evolver = enrollment_evolver(&nimbus_id, &targeting_attributes, &aru);
     let mut events = vec![];
-    let event_store = EventStore::new();
+    let event_store = Arc::new(Mutex::new(EventStore::new()));
     let enrollment = evolver
-        .evolve_enrollment(false, None, Some(&exp), None, &event_store, &mut events)?
+        .evolve_enrollment(false, None, Some(&exp), None, event_store, &mut events)?
         .unwrap();
     assert!(matches!(
         enrollment.status,
@@ -580,9 +582,9 @@ fn test_evolver_new_experiment_enrollment_paused() -> Result<()> {
     let targeting_attributes = app_ctx.into();
     let evolver = enrollment_evolver(&nimbus_id, &targeting_attributes, &aru);
     let mut events = vec![];
-    let event_store = EventStore::new();
+    let event_store = Arc::new(Mutex::new(EventStore::new()));
     let enrollment = evolver
-        .evolve_enrollment(true, None, Some(&exp), None, &event_store, &mut events)?
+        .evolve_enrollment(true, None, Some(&exp), None, event_store, &mut events)?
         .unwrap();
     assert!(matches!(
         enrollment.status,
@@ -601,7 +603,7 @@ fn test_evolver_experiment_update_not_enrolled_opted_out() -> Result<()> {
     let targeting_attributes = app_ctx.into();
     let evolver = enrollment_evolver(&nimbus_id, &targeting_attributes, &aru);
     let mut events = vec![];
-    let event_store = EventStore::new();
+    let event_store = Arc::new(Mutex::new(EventStore::new()));
     let existing_enrollment = ExperimentEnrollment {
         slug: exp.slug.clone(),
         status: EnrollmentStatus::NotEnrolled {
@@ -614,7 +616,7 @@ fn test_evolver_experiment_update_not_enrolled_opted_out() -> Result<()> {
             Some(&exp),
             Some(&exp),
             Some(&existing_enrollment),
-            &event_store,
+            event_store,
             &mut events,
         )?
         .unwrap();
@@ -631,7 +633,7 @@ fn test_evolver_experiment_update_not_enrolled_enrollment_paused() -> Result<()>
     let targeting_attributes = app_ctx.into();
     let evolver = enrollment_evolver(&nimbus_id, &targeting_attributes, &aru);
     let mut events = vec![];
-    let event_store = EventStore::new();
+    let event_store = Arc::new(Mutex::new(EventStore::new()));
     let existing_enrollment = ExperimentEnrollment {
         slug: exp.slug.clone(),
         status: EnrollmentStatus::NotEnrolled {
@@ -644,7 +646,7 @@ fn test_evolver_experiment_update_not_enrolled_enrollment_paused() -> Result<()>
             Some(&exp),
             Some(&exp),
             Some(&existing_enrollment),
-            &event_store,
+            event_store,
             &mut events,
         )?
         .unwrap();
@@ -661,7 +663,7 @@ fn test_evolver_experiment_update_not_enrolled_resuming_not_selected() -> Result
     let targeting_attributes = app_ctx.into();
     let evolver = enrollment_evolver(&nimbus_id, &targeting_attributes, &aru);
     let mut events = vec![];
-    let event_store = EventStore::new();
+    let event_store = Arc::new(Mutex::new(EventStore::new()));
     let existing_enrollment = ExperimentEnrollment {
         slug: exp.slug.clone(),
         status: EnrollmentStatus::NotEnrolled {
@@ -674,7 +676,7 @@ fn test_evolver_experiment_update_not_enrolled_resuming_not_selected() -> Result
             Some(&exp),
             Some(&exp),
             Some(&existing_enrollment),
-            &event_store,
+            event_store,
             &mut events,
         )?
         .unwrap();
@@ -695,7 +697,7 @@ fn test_evolver_experiment_update_not_enrolled_resuming_selected() -> Result<()>
     let targeting_attributes = app_ctx.into();
     let evolver = enrollment_evolver(&nimbus_id, &targeting_attributes, &aru);
     let mut events = vec![];
-    let event_store = EventStore::new();
+    let event_store = Arc::new(Mutex::new(EventStore::new()));
     let existing_enrollment = ExperimentEnrollment {
         slug: exp.slug.clone(),
         status: EnrollmentStatus::NotEnrolled {
@@ -708,7 +710,7 @@ fn test_evolver_experiment_update_not_enrolled_resuming_selected() -> Result<()>
             Some(&exp),
             Some(&exp),
             Some(&existing_enrollment),
-            &event_store,
+            event_store,
             &mut events,
         )?
         .unwrap();
@@ -732,7 +734,7 @@ fn test_evolver_experiment_update_enrolled_then_opted_out() -> Result<()> {
     let targeting_attributes = app_ctx.into();
     let evolver = enrollment_evolver(&nimbus_id, &targeting_attributes, &aru);
     let mut events = vec![];
-    let event_store = EventStore::new();
+    let event_store = Arc::new(Mutex::new(EventStore::new()));
     let enrollment_id = Uuid::new_v4();
     let existing_enrollment = ExperimentEnrollment {
         slug: exp.slug.clone(),
@@ -748,7 +750,7 @@ fn test_evolver_experiment_update_enrolled_then_opted_out() -> Result<()> {
             Some(&exp),
             Some(&exp),
             Some(&existing_enrollment),
-            &event_store,
+            event_store,
             &mut events,
         )?
         .unwrap();
@@ -779,7 +781,7 @@ fn test_evolver_experiment_update_enrolled_then_experiment_paused() -> Result<()
     let targeting_attributes = app_ctx.into();
     let evolver = enrollment_evolver(&nimbus_id, &targeting_attributes, &aru);
     let mut events = vec![];
-    let event_store = EventStore::new();
+    let event_store = Arc::new(Mutex::new(EventStore::new()));
     let enrollment_id = Uuid::new_v4();
     let existing_enrollment = ExperimentEnrollment {
         slug: exp.slug.clone(),
@@ -795,7 +797,7 @@ fn test_evolver_experiment_update_enrolled_then_experiment_paused() -> Result<()
             Some(&exp),
             Some(&exp),
             Some(&existing_enrollment),
-            &event_store,
+            event_store,
             &mut events,
         )?
         .unwrap();
@@ -824,7 +826,7 @@ fn test_evolver_experiment_update_enrolled_then_targeting_changed() -> Result<()
     let targeting_attributes = app_ctx.into();
     let evolver = enrollment_evolver(&nimbus_id, &targeting_attributes, &aru);
     let mut events = vec![];
-    let event_store = EventStore::new();
+    let event_store = Arc::new(Mutex::new(EventStore::new()));
     let enrollment_id = Uuid::new_v4();
     let existing_enrollment = ExperimentEnrollment {
         slug: exp.slug.clone(),
@@ -840,7 +842,7 @@ fn test_evolver_experiment_update_enrolled_then_targeting_changed() -> Result<()
             Some(&exp),
             Some(&exp),
             Some(&existing_enrollment),
-            &event_store,
+            event_store,
             &mut events,
         )?
         .unwrap();
@@ -876,7 +878,7 @@ fn test_evolver_experiment_update_enrolled_then_bucketing_changed() -> Result<()
     let targeting_attributes = app_ctx.into();
     let evolver = enrollment_evolver(&nimbus_id, &targeting_attributes, &aru);
     let mut events = vec![];
-    let event_store = EventStore::new();
+    let event_store = Arc::new(Mutex::new(EventStore::new()));
     let enrollment_id = Uuid::new_v4();
     let existing_enrollment = ExperimentEnrollment {
         slug: exp.slug.clone(),
@@ -892,7 +894,7 @@ fn test_evolver_experiment_update_enrolled_then_bucketing_changed() -> Result<()
             Some(&exp),
             Some(&exp),
             Some(&existing_enrollment),
-            &event_store,
+            event_store,
             &mut events,
         )?
         .unwrap();
@@ -922,7 +924,7 @@ fn test_evolver_experiment_update_enrolled_then_branches_changed() -> Result<()>
     let targeting_attributes = app_ctx.into();
     let evolver = enrollment_evolver(&nimbus_id, &targeting_attributes, &aru);
     let mut events = vec![];
-    let event_store = EventStore::new();
+    let event_store = Arc::new(Mutex::new(EventStore::new()));
     let enrollment_id = Uuid::new_v4();
     let existing_enrollment = ExperimentEnrollment {
         slug: exp.slug.clone(),
@@ -938,7 +940,7 @@ fn test_evolver_experiment_update_enrolled_then_branches_changed() -> Result<()>
             Some(&exp),
             Some(&exp),
             Some(&existing_enrollment),
-            &event_store,
+            event_store,
             &mut events,
         )?
         .unwrap();
@@ -960,7 +962,7 @@ fn test_evolver_experiment_update_enrolled_then_branch_disappears() -> Result<()
     let targeting_attributes = app_ctx.into();
     let evolver = enrollment_evolver(&nimbus_id, &targeting_attributes, &aru);
     let mut events = vec![];
-    let event_store = EventStore::new();
+    let event_store = Arc::new(Mutex::new(EventStore::new()));
     let enrollment_id = Uuid::new_v4();
     let existing_enrollment = ExperimentEnrollment {
         slug: exp.slug.clone(),
@@ -976,7 +978,7 @@ fn test_evolver_experiment_update_enrolled_then_branch_disappears() -> Result<()
             Some(&exp),
             Some(&exp),
             Some(&existing_enrollment),
-            &event_store,
+            event_store,
             &mut events,
         )?
         .unwrap();
@@ -1005,7 +1007,7 @@ fn test_evolver_experiment_update_disqualified_then_opted_out() -> Result<()> {
     let targeting_attributes = app_ctx.into();
     let evolver = enrollment_evolver(&nimbus_id, &targeting_attributes, &aru);
     let mut events = vec![];
-    let event_store = EventStore::new();
+    let event_store = Arc::new(Mutex::new(EventStore::new()));
     let enrollment_id = Uuid::new_v4();
     let existing_enrollment = ExperimentEnrollment {
         slug: exp.slug.clone(),
@@ -1021,7 +1023,7 @@ fn test_evolver_experiment_update_disqualified_then_opted_out() -> Result<()> {
             Some(&exp),
             Some(&exp),
             Some(&existing_enrollment),
-            &event_store,
+            event_store,
             &mut events,
         )?
         .unwrap();
@@ -1043,7 +1045,7 @@ fn test_evolver_experiment_update_disqualified_then_bucketing_ok() -> Result<()>
     let targeting_attributes = app_ctx.into();
     let evolver = enrollment_evolver(&nimbus_id, &targeting_attributes, &aru);
     let mut events = vec![];
-    let event_store = EventStore::new();
+    let event_store = Arc::new(Mutex::new(EventStore::new()));
     let enrollment_id = Uuid::new_v4();
     let existing_enrollment = ExperimentEnrollment {
         slug: exp.slug.clone(),
@@ -1059,7 +1061,7 @@ fn test_evolver_experiment_update_disqualified_then_bucketing_ok() -> Result<()>
             Some(&exp),
             Some(&exp),
             Some(&existing_enrollment),
-            &event_store,
+            event_store,
             &mut events,
         )?
         .unwrap();
@@ -1075,7 +1077,7 @@ fn test_evolver_feature_can_have_only_one_experiment() -> Result<()> {
     let (nimbus_id, app_ctx, aru) = local_ctx();
     let targeting_attributes = app_ctx.into();
     let evolver = enrollment_evolver(&nimbus_id, &targeting_attributes, &aru);
-    let event_store = EventStore::new();
+    let event_store = Arc::new(Mutex::new(EventStore::new()));
     // Let's go from no experiments, to some experiments.
     let existing_experiments: Vec<Experiment> = vec![];
     let existing_enrollments: Vec<ExperimentEnrollment> = vec![];
@@ -1085,7 +1087,7 @@ fn test_evolver_feature_can_have_only_one_experiment() -> Result<()> {
         &existing_experiments,
         &updated_experiments,
         &existing_enrollments,
-        &event_store,
+        event_store.clone(),
     )?;
 
     assert_eq!(2, enrollments.len());
@@ -1125,7 +1127,7 @@ fn test_evolver_feature_can_have_only_one_experiment() -> Result<()> {
         &existing_experiments,
         &updated_experiments,
         &existing_enrollments,
-        &event_store,
+        event_store.clone(),
     )?;
 
     assert_eq!(2, enrollments.len());
@@ -1153,7 +1155,7 @@ fn test_evolver_feature_can_have_only_one_experiment() -> Result<()> {
         &existing_experiments,
         &updated_experiments,
         &existing_enrollments,
-        &event_store,
+        event_store.clone(),
     )?;
 
     assert_eq!(2, enrollments.len());
@@ -1177,7 +1179,7 @@ fn test_evolver_feature_can_have_only_one_experiment() -> Result<()> {
         &existing_experiments,
         &updated_experiments,
         &existing_enrollments,
-        &event_store,
+        event_store,
     )?;
 
     // There should be one WasEnrolled; the NotEnrolled will have been
@@ -1235,9 +1237,9 @@ fn test_evolver_experiment_not_enrolled_feature_conflict() -> Result<()> {
     let (nimbus_id, app_ctx, aru) = local_ctx();
     let targeting_attributes = app_ctx.into();
     let evolver = EnrollmentsEvolver::new(&nimbus_id, &aru, &targeting_attributes);
-    let event_store = EventStore::new();
+    let event_store = Arc::new(Mutex::new(EventStore::new()));
     let (enrollments, events) =
-        evolver.evolve_enrollments(true, &[], &test_experiments, &[], &event_store)?;
+        evolver.evolve_enrollments(true, &[], &test_experiments, &[], event_store)?;
 
     assert_eq!(
         enrollments.len(),
@@ -1297,9 +1299,9 @@ fn test_multi_feature_per_branch_conflict() -> Result<()> {
     let (nimbus_id, app_ctx, aru) = local_ctx();
     let targeting_attributes = app_ctx.into();
     let evolver = EnrollmentsEvolver::new(&nimbus_id, &aru, &targeting_attributes);
-    let event_store = EventStore::new();
+    let event_store = Arc::new(Mutex::new(EventStore::new()));
     let (enrollments, events) =
-        evolver.evolve_enrollments(true, &[], &test_experiments, &[], &event_store)?;
+        evolver.evolve_enrollments(true, &[], &test_experiments, &[], event_store)?;
 
     let enrolled_count = enrollments
         .iter()
@@ -1337,9 +1339,9 @@ fn test_evolver_feature_id_reuse() -> Result<()> {
     let (nimbus_id, app_ctx, aru) = local_ctx();
     let targeting_attributes = app_ctx.into();
     let evolver = EnrollmentsEvolver::new(&nimbus_id, &aru, &targeting_attributes);
-    let event_store = EventStore::new();
+    let event_store = Arc::new(Mutex::new(EventStore::new()));
     let (enrollments, _) =
-        evolver.evolve_enrollments(true, &[], &test_experiments, &[], &event_store)?;
+        evolver.evolve_enrollments(true, &[], &test_experiments, &[], event_store.clone())?;
 
     let enrolled_count = enrollments
         .iter()
@@ -1356,7 +1358,7 @@ fn test_evolver_feature_id_reuse() -> Result<()> {
         &test_experiments,
         &[test_experiments[1].clone(), conflicting_experiment.clone()],
         &enrollments,
-        &event_store,
+        event_store,
     )?;
 
     log::debug!("events = {:?}", events);
@@ -1393,7 +1395,7 @@ fn test_evolver_multi_feature_experiments() -> Result<()> {
     let (nimbus_id, app_ctx, aru) = local_ctx();
     let targeting_attributes = app_ctx.into();
     let evolver = EnrollmentsEvolver::new(&nimbus_id, &aru, &targeting_attributes);
-    let event_store = EventStore::new();
+    let event_store = Arc::new(Mutex::new(EventStore::new()));
 
     let aboutwelcome_experiment = get_experiment_with_aboutwelcome_feature_branches();
     let newtab_experiment = get_experiment_with_newtab_feature_branches();
@@ -1403,7 +1405,7 @@ fn test_evolver_multi_feature_experiments() -> Result<()> {
     let next_experiments = vec![aboutwelcome_experiment.clone(), newtab_experiment.clone()];
 
     let (enrollments, _) =
-        evolver.evolve_enrollments(true, &[], &next_experiments, &[], &event_store)?;
+        evolver.evolve_enrollments(true, &[], &next_experiments, &[], event_store.clone())?;
 
     let feature_map = map_features_by_feature_id(&enrollments, &next_experiments);
     assert_eq!(feature_map.len(), 2);
@@ -1444,7 +1446,7 @@ fn test_evolver_multi_feature_experiments() -> Result<()> {
         &prev_experiments,
         &next_experiments,
         &prev_enrollments,
-        &event_store,
+        event_store.clone(),
     )?;
 
     assert_eq!(
@@ -1488,7 +1490,7 @@ fn test_evolver_multi_feature_experiments() -> Result<()> {
         &prev_experiments,
         &next_experiments,
         &prev_enrollments,
-        &event_store,
+        event_store.clone(),
     )?;
 
     let feature_map = map_features_by_feature_id(&enrollments, &next_experiments);
@@ -1520,7 +1522,7 @@ fn test_evolver_multi_feature_experiments() -> Result<()> {
         &prev_experiments,
         &next_experiments,
         &prev_enrollments,
-        &event_store,
+        event_store.clone(),
     )?;
 
     let feature_map = map_features_by_feature_id(&enrollments, &next_experiments);
@@ -1556,7 +1558,7 @@ fn test_evolver_multi_feature_experiments() -> Result<()> {
         &prev_experiments,
         &next_experiments,
         &prev_enrollments,
-        &event_store,
+        event_store.clone(),
     )?;
 
     // 4b. Add the single feature experiments.
@@ -1572,7 +1574,7 @@ fn test_evolver_multi_feature_experiments() -> Result<()> {
         &prev_experiments,
         &next_experiments,
         &prev_enrollments,
-        &event_store,
+        event_store.clone(),
     )?;
 
     assert_eq!(
@@ -1613,7 +1615,7 @@ fn test_evolver_multi_feature_experiments() -> Result<()> {
         &prev_experiments,
         &next_experiments,
         &prev_enrollments,
-        &event_store,
+        event_store.clone(),
     )?;
 
     assert_eq!(
@@ -1653,7 +1655,7 @@ fn test_evolver_multi_feature_experiments() -> Result<()> {
         &prev_experiments,
         &next_experiments,
         &prev_enrollments,
-        &event_store,
+        event_store,
     )?;
 
     let feature_map = map_features_by_feature_id(&enrollments, &next_experiments);
@@ -1694,7 +1696,7 @@ fn test_evolver_experiment_update_was_enrolled() -> Result<()> {
     let targeting_attributes = app_ctx.into();
     let evolver = enrollment_evolver(&nimbus_id, &targeting_attributes, &aru);
     let mut events = vec![];
-    let event_store = EventStore::new();
+    let event_store = Arc::new(Mutex::new(EventStore::new()));
     let enrollment_id = Uuid::new_v4();
     let existing_enrollment = ExperimentEnrollment {
         slug: exp.slug.clone(),
@@ -1710,7 +1712,7 @@ fn test_evolver_experiment_update_was_enrolled() -> Result<()> {
             Some(&exp),
             Some(&exp),
             Some(&existing_enrollment),
-            &event_store,
+            event_store,
             &mut events,
         )?
         .unwrap();
@@ -1734,7 +1736,7 @@ fn test_evolve_enrollments_error_handling() -> Result<()> {
     let (nimbus_id, app_ctx, aru) = local_ctx();
     let targeting_attributes = app_ctx.into();
     let evolver = EnrollmentsEvolver::new(&nimbus_id, &aru, &targeting_attributes);
-    let event_store = EventStore::new();
+    let event_store = Arc::new(Mutex::new(EventStore::new()));
 
     // test that evolve_enrollments correctly handles the case where a
     // record without a previous enrollment gets dropped
@@ -1746,7 +1748,7 @@ fn test_evolve_enrollments_error_handling() -> Result<()> {
         &test_experiments,
         &test_experiments,
         &[],
-        &event_store,
+        event_store.clone(),
     )?;
 
     assert_eq!(
@@ -1768,7 +1770,7 @@ fn test_evolve_enrollments_error_handling() -> Result<()> {
         &[],
         &test_experiments,
         &existing_enrollments[..],
-        &event_store,
+        event_store,
     )?;
 
     assert_eq!(
@@ -1792,7 +1794,7 @@ fn test_evolve_enrollments_is_already_enrolled_targeting() -> Result<()> {
     let (nimbus_id, mut app_ctx, aru) = local_ctx();
     let targeting_attributes = app_ctx.clone().into();
     let evolver = EnrollmentsEvolver::new(&nimbus_id, &aru, &targeting_attributes);
-    let event_store = EventStore::new();
+    let event_store = Arc::new(Mutex::new(EventStore::new()));
 
     // The targeting for this experiment is
     // "app_id == 'org.mozilla.fenix' || is_already_enrolled"
@@ -1801,7 +1803,7 @@ fn test_evolve_enrollments_is_already_enrolled_targeting() -> Result<()> {
     // The user should get enrolled, since the targeting is OR'ing the app_id == 'org.mozilla.fenix'
     // and the 'is_already_enrolled'
     let (enrollments, events) =
-        evolver.evolve_enrollments(true, &[], test_experiments, &[], &event_store)?;
+        evolver.evolve_enrollments(true, &[], test_experiments, &[], event_store.clone())?;
     assert_eq!(
         enrollments.len(),
         1,
@@ -1823,7 +1825,7 @@ fn test_evolve_enrollments_is_already_enrolled_targeting() -> Result<()> {
         test_experiments,
         test_experiments,
         &enrollments,
-        &event_store,
+        event_store,
     )?;
     assert_eq!(
         enrollments.len(),
@@ -1846,7 +1848,7 @@ fn test_evolver_experiment_update_error() -> Result<()> {
     let targeting_attributes = app_ctx.into();
     let evolver = enrollment_evolver(&nimbus_id, &targeting_attributes, &aru);
     let mut events = vec![];
-    let event_store = EventStore::new();
+    let event_store = Arc::new(Mutex::new(EventStore::new()));
     let existing_enrollment = ExperimentEnrollment {
         slug: exp.slug.clone(),
         status: EnrollmentStatus::Error {
@@ -1860,7 +1862,7 @@ fn test_evolver_experiment_update_error() -> Result<()> {
             Some(&exp),
             Some(&exp),
             Some(&existing_enrollment),
-            &event_store,
+            event_store,
             &mut events,
         )?
         .unwrap();
@@ -1879,7 +1881,7 @@ fn test_evolver_experiment_ended_was_enrolled() -> Result<()> {
     let targeting_attributes = app_ctx.into();
     let evolver = enrollment_evolver(&nimbus_id, &targeting_attributes, &aru);
     let mut events = vec![];
-    let event_store = EventStore::new();
+    let event_store = Arc::new(Mutex::new(EventStore::new()));
     let enrollment_id = Uuid::new_v4();
     let existing_enrollment = ExperimentEnrollment {
         slug: exp.slug.clone(),
@@ -1895,7 +1897,7 @@ fn test_evolver_experiment_ended_was_enrolled() -> Result<()> {
             Some(&exp),
             None,
             Some(&existing_enrollment),
-            &event_store,
+            event_store,
             &mut events,
         )?
         .unwrap();
@@ -1925,7 +1927,7 @@ fn test_evolver_experiment_ended_was_disqualified() -> Result<()> {
     let targeting_attributes = app_ctx.into();
     let evolver = enrollment_evolver(&nimbus_id, &targeting_attributes, &aru);
     let mut events = vec![];
-    let event_store = EventStore::new();
+    let event_store = Arc::new(Mutex::new(EventStore::new()));
     let enrollment_id = Uuid::new_v4();
     let existing_enrollment = ExperimentEnrollment {
         slug: exp.slug.clone(),
@@ -1941,7 +1943,7 @@ fn test_evolver_experiment_ended_was_disqualified() -> Result<()> {
             Some(&exp),
             None,
             Some(&existing_enrollment),
-            &event_store,
+            event_store,
             &mut events,
         )?
         .unwrap();
@@ -1971,7 +1973,7 @@ fn test_evolver_experiment_ended_was_not_enrolled() -> Result<()> {
     let targeting_attributes = app_ctx.into();
     let evolver = enrollment_evolver(&nimbus_id, &targeting_attributes, &aru);
     let mut events = vec![];
-    let event_store = EventStore::new();
+    let event_store = Arc::new(Mutex::new(EventStore::new()));
     let existing_enrollment = ExperimentEnrollment {
         slug: exp.slug.clone(),
         status: EnrollmentStatus::NotEnrolled {
@@ -1983,7 +1985,7 @@ fn test_evolver_experiment_ended_was_not_enrolled() -> Result<()> {
         Some(&exp),
         None,
         Some(&existing_enrollment),
-        &event_store,
+        event_store,
         &mut events,
     )?;
     assert!(enrollment.is_none());
@@ -1997,7 +1999,7 @@ fn test_evolver_garbage_collection_before_threshold() -> Result<()> {
     let targeting_attributes = app_ctx.into();
     let evolver = enrollment_evolver(&nimbus_id, &targeting_attributes, &aru);
     let mut events = vec![];
-    let event_store = EventStore::new();
+    let event_store = Arc::new(Mutex::new(EventStore::new()));
     let existing_enrollment = ExperimentEnrollment {
         slug: "secure-gold".to_owned(),
         status: EnrollmentStatus::WasEnrolled {
@@ -2011,7 +2013,7 @@ fn test_evolver_garbage_collection_before_threshold() -> Result<()> {
         None,
         None,
         Some(&existing_enrollment),
-        &event_store,
+        event_store,
         &mut events,
     )?;
     assert_eq!(enrollment.unwrap(), existing_enrollment);
@@ -2025,7 +2027,7 @@ fn test_evolver_garbage_collection_after_threshold() -> Result<()> {
     let targeting_attributes = app_ctx.into();
     let evolver = enrollment_evolver(&nimbus_id, &targeting_attributes, &aru);
     let mut events = vec![];
-    let event_store = EventStore::new();
+    let event_store = Arc::new(Mutex::new(EventStore::new()));
     let existing_enrollment = ExperimentEnrollment {
         slug: "secure-gold".to_owned(),
         status: EnrollmentStatus::WasEnrolled {
@@ -2039,7 +2041,7 @@ fn test_evolver_garbage_collection_after_threshold() -> Result<()> {
         None,
         None,
         Some(&existing_enrollment),
-        &event_store,
+        event_store,
         &mut events,
     )?;
     assert!(enrollment.is_none());
@@ -2061,13 +2063,13 @@ fn test_evolver_new_experiment_enrollment_already_exists() {
     let (nimbus_id, app_ctx, aru) = local_ctx();
     let targeting_attributes = app_ctx.into();
     let evolver = enrollment_evolver(&nimbus_id, &targeting_attributes, &aru);
-    let event_store = EventStore::new();
+    let event_store = Arc::new(Mutex::new(EventStore::new()));
     let res = evolver.evolve_enrollment(
         true,
         None,
         Some(&exp),
         Some(&existing_enrollment),
-        &event_store,
+        event_store,
         &mut vec![],
     );
     assert!(res.is_err());
@@ -2079,15 +2081,9 @@ fn test_evolver_existing_experiment_has_no_enrollment() {
     let (nimbus_id, app_ctx, aru) = local_ctx();
     let targeting_attributes = app_ctx.into();
     let evolver = enrollment_evolver(&nimbus_id, &targeting_attributes, &aru);
-    let event_store = EventStore::new();
-    let res = evolver.evolve_enrollment(
-        true,
-        Some(&exp),
-        Some(&exp),
-        None,
-        &event_store,
-        &mut vec![],
-    );
+    let event_store = Arc::new(Mutex::new(EventStore::new()));
+    let res =
+        evolver.evolve_enrollment(true, Some(&exp), Some(&exp), None, event_store, &mut vec![]);
     assert!(res.is_err());
 }
 
@@ -2097,9 +2093,9 @@ fn test_evolver_no_experiments_no_enrollment() {
     let (nimbus_id, app_ctx, aru) = local_ctx();
     let targeting_attributes = app_ctx.into();
     let evolver = enrollment_evolver(&nimbus_id, &targeting_attributes, &aru);
-    let event_store = EventStore::new();
+    let event_store = Arc::new(Mutex::new(EventStore::new()));
     evolver
-        .evolve_enrollment(true, None, None, None, &event_store, &mut vec![])
+        .evolve_enrollment(true, None, None, None, event_store, &mut vec![])
         .unwrap();
 }
 
@@ -2139,9 +2135,8 @@ fn test_evolver_rollouts_do_not_conflict_with_experiments() -> Result<()> {
     let (nimbus_id, app_ctx, aru) = local_ctx();
     let targeting_attributes = app_ctx.into();
     let evolver = enrollment_evolver(&nimbus_id, &targeting_attributes, &aru);
-    let event_store = EventStore::new();
-    let (enrollments, events) =
-        evolver.evolve_enrollments(true, &[], recipes, &[], &event_store)?;
+    let event_store = Arc::new(Mutex::new(EventStore::new()));
+    let (enrollments, events) = evolver.evolve_enrollments(true, &[], recipes, &[], event_store)?;
     assert_eq!(enrollments.len(), 2);
     assert_eq!(events.len(), 2);
 
@@ -2200,9 +2195,8 @@ fn test_evolver_rollouts_do_not_conflict_with_rollouts() -> Result<()> {
     let (nimbus_id, app_ctx, aru) = local_ctx();
     let targeting_attributes = app_ctx.into();
     let evolver = enrollment_evolver(&nimbus_id, &targeting_attributes, &aru);
-    let event_store = EventStore::new();
-    let (enrollments, events) =
-        evolver.evolve_enrollments(true, &[], recipes, &[], &event_store)?;
+    let event_store = Arc::new(Mutex::new(EventStore::new()));
+    let (enrollments, events) = evolver.evolve_enrollments(true, &[], recipes, &[], event_store)?;
     assert_eq!(enrollments.len(), 3);
     assert_eq!(events.len(), 3);
 
@@ -2427,10 +2421,10 @@ fn test_rollouts_end_to_end() -> Result<()> {
     let (nimbus_id, app_ctx, aru) = local_ctx();
     let targeting_attributes = app_ctx.into();
     let evolver = enrollment_evolver(&nimbus_id, &targeting_attributes, &aru);
-    let event_store = EventStore::new();
+    let event_store = Arc::new(Mutex::new(EventStore::new()));
 
     let (enrollments, _events) =
-        evolver.evolve_enrollments(true, &[], recipes, &[], &event_store)?;
+        evolver.evolve_enrollments(true, &[], recipes, &[], event_store)?;
 
     let features = map_features_by_feature_id(&enrollments, recipes);
 
@@ -2559,8 +2553,8 @@ fn test_enrollments() -> Result<()> {
     assert_eq!(get_enrollments(&db, &writer)?.len(), 0);
 
     let evolver = EnrollmentsEvolver::new(&nimbus_id, &aru, &targeting_attributes);
-    let event_store = EventStore::new();
-    let events = evolver.evolve_enrollments_in_db(&db, &mut writer, &[exp1], &event_store)?;
+    let event_store = Arc::new(Mutex::new(EventStore::new()));
+    let events = evolver.evolve_enrollments_in_db(&db, &mut writer, &[exp1], event_store)?;
 
     let enrollments = get_enrollments(&db, &writer)?;
     assert_eq!(enrollments.len(), 1);
@@ -2642,8 +2636,8 @@ fn test_updates() -> Result<()> {
     let exps = get_test_experiments();
 
     let evolver = EnrollmentsEvolver::new(&nimbus_id, &aru, &targeting_attributes);
-    let event_store = EventStore::new();
-    let events = evolver.evolve_enrollments_in_db(&db, &mut writer, &exps, &event_store)?;
+    let event_store = Arc::new(Mutex::new(EventStore::new()));
+    let events = evolver.evolve_enrollments_in_db(&db, &mut writer, &exps, event_store.clone())?;
 
     let enrollments = get_enrollments(&db, &writer)?;
     assert_eq!(enrollments.len(), 2);
@@ -2652,7 +2646,7 @@ fn test_updates() -> Result<()> {
     // pretend we just updated from the server and one of the 2 is missing.
     let exps = &[exps[1].clone()];
     let evolver = EnrollmentsEvolver::new(&nimbus_id, &aru, &targeting_attributes);
-    let events = evolver.evolve_enrollments_in_db(&db, &mut writer, exps, &event_store)?;
+    let events = evolver.evolve_enrollments_in_db(&db, &mut writer, exps, event_store)?;
 
     // should only have 1 now.
     let enrollments = get_enrollments(&db, &writer)?;
@@ -2692,8 +2686,8 @@ fn test_global_opt_out() -> Result<()> {
     set_global_user_participation(&db, &mut writer, false)?;
 
     let evolver = EnrollmentsEvolver::new(&nimbus_id, &aru, &targeting_attributes);
-    let event_store = EventStore::new();
-    let events = evolver.evolve_enrollments_in_db(&db, &mut writer, &exps, &event_store)?;
+    let event_store = Arc::new(Mutex::new(EventStore::new()));
+    let events = evolver.evolve_enrollments_in_db(&db, &mut writer, &exps, event_store.clone())?;
 
     let enrollments = get_enrollments(&db, &writer)?;
     assert_eq!(enrollments.len(), 0);
@@ -2717,7 +2711,7 @@ fn test_global_opt_out() -> Result<()> {
     set_global_user_participation(&db, &mut writer, true)?;
 
     let evolver = EnrollmentsEvolver::new(&nimbus_id, &aru, &targeting_attributes);
-    let events = evolver.evolve_enrollments_in_db(&db, &mut writer, &exps, &event_store)?;
+    let events = evolver.evolve_enrollments_in_db(&db, &mut writer, &exps, event_store.clone())?;
 
     let enrollments = get_enrollments(&db, &writer)?;
     assert_eq!(enrollments.len(), 2);
@@ -2734,7 +2728,7 @@ fn test_global_opt_out() -> Result<()> {
     set_global_user_participation(&db, &mut writer, false)?;
 
     let evolver = EnrollmentsEvolver::new(&nimbus_id, &aru, &targeting_attributes);
-    let events = evolver.evolve_enrollments_in_db(&db, &mut writer, &exps, &event_store)?;
+    let events = evolver.evolve_enrollments_in_db(&db, &mut writer, &exps, event_store.clone())?;
 
     let enrollments = get_enrollments(&db, &writer)?;
     assert_eq!(enrollments.len(), 0);
@@ -2762,7 +2756,7 @@ fn test_global_opt_out() -> Result<()> {
     set_global_user_participation(&db, &mut writer, true)?;
 
     let evolver = EnrollmentsEvolver::new(&nimbus_id, &aru, &targeting_attributes);
-    let events = evolver.evolve_enrollments_in_db(&db, &mut writer, &exps, &event_store)?;
+    let events = evolver.evolve_enrollments_in_db(&db, &mut writer, &exps, event_store)?;
 
     let enrollments = get_enrollments(&db, &writer)?;
     assert_eq!(enrollments.len(), 0);
