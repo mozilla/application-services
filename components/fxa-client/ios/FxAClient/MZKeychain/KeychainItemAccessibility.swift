@@ -100,7 +100,7 @@ public enum MZKeychainItemAccessibility {
 }
 
 private let keychainItemAccessibilityLookup: [MZKeychainItemAccessibility: CFString] = {
-    return [MZKeychainItemAccessibility: CFString] = [
+    return [
         .afterFirstUnlock: kSecAttrAccessibleAfterFirstUnlock,
         .afterFirstUnlockThisDeviceOnly: kSecAttrAccessibleAfterFirstUnlockThisDeviceOnly,
         .whenPasscodeSetThisDeviceOnly: kSecAttrAccessibleWhenPasscodeSetThisDeviceOnly,

@@ -251,19 +251,19 @@ open class MZKeychainWrapper {
     // MARK: Public Setters
 
     @discardableResult open func set(_ value: Int, forKey key: String, withAccessibility accessibility: MZKeychainItemAccessibility? = nil, isSynchronizable: Bool = false) -> Bool {
-        return set(Int(NSNumber(value: value)), forKey: key, withAccessibility: accessibility, isSynchronizable: isSynchronizable)
+        return set(Int(truncating: NSNumber(value: value)), forKey: key, withAccessibility: accessibility, isSynchronizable: isSynchronizable)
     }
 
     @discardableResult open func set(_ value: Float, forKey key: String, withAccessibility accessibility: MZKeychainItemAccessibility? = nil, isSynchronizable: Bool = false) -> Bool {
-        return set(Int(NSNumber(value: value)), forKey: key, withAccessibility: accessibility, isSynchronizable: isSynchronizable)
+        return set(Int(truncating: NSNumber(value: value)), forKey: key, withAccessibility: accessibility, isSynchronizable: isSynchronizable)
     }
 
     @discardableResult open func set(_ value: Double, forKey key: String, withAccessibility accessibility: MZKeychainItemAccessibility? = nil, isSynchronizable: Bool = false) -> Bool {
-        return set(Int(NSNumber(value: value)), forKey: key, withAccessibility: accessibility, isSynchronizable: isSynchronizable)
+        return set(Int(truncating: NSNumber(value: value)), forKey: key, withAccessibility: accessibility, isSynchronizable: isSynchronizable)
     }
 
     @discardableResult open func set(_ value: Bool, forKey key: String, withAccessibility accessibility: MZKeychainItemAccessibility? = nil, isSynchronizable: Bool = false) -> Bool {
-        return set(Int(NSNumber(value: value)), forKey: key, withAccessibility: accessibility, isSynchronizable: isSynchronizable)
+        return set(Int(truncating: NSNumber(value: value)), forKey: key, withAccessibility: accessibility, isSynchronizable: isSynchronizable)
     }
 
     /// Save a String value to the keychain associated with a specified key. If a String value already exists for the given key, the string will be overwritten with the new value.
@@ -289,7 +289,7 @@ open class MZKeychainWrapper {
                                         forKey key: String,
                                         withAccessibility accessibility: MZKeychainItemAccessibility? = nil,
                                         isSynchronizable: Bool = false
-    ) -> Bool where T : NSSecureCoding { {
+    ) -> Bool where T : NSSecureCoding {
         guard let data = try? NSKeyedArchiver.archivedData(withRootObject: value, requiringSecureCoding: true) else {
             return false
         }
