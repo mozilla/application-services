@@ -107,13 +107,6 @@ class DatabaseLoginsStorage(dbPath: String) : AutoCloseable {
         }
     }
 
-    @Throws(LoginsApiException::class)
-    fun importMultiple(logins: List<Login>, encryptionKey: String): String {
-        return writeQueryCounters.measure {
-            store.importMultiple(logins, encryptionKey)
-        }
-    }
-
     fun registerWithSyncManager() {
         return store.registerWithSyncManager()
     }
