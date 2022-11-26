@@ -71,6 +71,12 @@ open class FxAccountManager {
             state == .authenticationProblem ||
             state == .canAutoretryMigration
     }
+    
+    // Resets the inner Persisted Account based on the persisted state
+    public func resetPersistedAccount() throws {
+        self.account = accountStorage.read()
+        self.account?.registerPersistCallback(statePersistenceCallback)
+    }
 
     /// Returns true if the account needs re-authentication.
     /// Your app should present the option to start a new OAuth flow.
