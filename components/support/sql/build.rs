@@ -8,17 +8,10 @@
 //! Work around the fact that `sqlcipher` might get enabled by a cargo feature
 //! another crate in the workspace needs, without setting up nss. (This is a
 //! gross hack).
-use std::env;
 
 fn main() {
     println!("cargo:rerun-if-changed=build.rs");
 
     // If NSS_DIR isn't set, we don't really care, ignore the Err case.
-    let target_arch = env::var("CARGO_CFG_TARGET_ARCH").unwrap();
-    let target_os = env::var("CARGO_CFG_TARGET_OS").unwrap();
-    println!(
-        "(sql) target_arch: {}, target_os: {}",
-        target_arch, target_os
-    );
     let _ = nss_build_common::link_nss();
 }

@@ -23,12 +23,6 @@ pub enum LinkingKind {
 pub struct NoNssDir;
 
 pub fn link_nss() -> Result<(), NoNssDir> {
-    let target_arch = env::var("CARGO_CFG_TARGET_ARCH").unwrap();
-    let target_os = env::var("CARGO_CFG_TARGET_OS").unwrap();
-    println!(
-        "(link_nss) target_arch: {}, target_os: {}",
-        target_arch, target_os
-    );
     let is_gecko = env::var_os("MOZ_TOPOBJDIR").is_some();
     if !is_gecko {
         let (lib_dir, include_dir) = get_nss()?;
@@ -148,8 +142,21 @@ fn get_nss_libs(kind: LinkingKind) -> Vec<&'static str> {
                     static_libs.push("intel-gcm-s_lib");
                 }
             }
+            // We need this due to using the NSS CI, which enables PKIX lib by default
+            // However this is only used for Macs testing android on desktop
+            // https://searchfox.org/mozilla-central/source/security/nss/lib/libpkix/libpkix.gyp#15-25
             if (target_os == "macos") && (target_arch == "x86_64") {
+                static_libs.push("pkixcertsel");
+                static_libs.push("pkixchecker");
+                static_libs.push("pkixcrlsel");
+                static_libs.push("pkixparams");
+                static_libs.push("pkixresults");
+                static_libs.push("pkixstore");
                 static_libs.push("pkixtop");
+                static_libs.push("pkixutil");
+                static_libs.push("pkixmodule");
+                static_libs.push("pkixpki");
+                static_libs.push("pkixsystem");
             }
             static_libs
         }
@@ -165,23 +172,11 @@ fn get_nss_libs(kind: LinkingKind) -> Vec<&'static str> {
 
 pub fn env(name: &str) -> Option<OsString> {
     println!("cargo:rerun-if-env-changed={}", name);
-    let target_arch = env::var("CARGO_CFG_TARGET_ARCH").unwrap();
-    let target_os = env::var("CARGO_CFG_TARGET_OS").unwrap();
-    println!(
-        "(env) target_arch: {}, target_os: {}",
-        target_arch, target_os
-    );
     env::var_os(name)
 }
 
 pub fn env_str(name: &str) -> Option<String> {
     println!("cargo:rerun-if-env-changed={}", name);
-    let target_arch = env::var("CARGO_CFG_TARGET_ARCH").unwrap();
-    let target_os = env::var("CARGO_CFG_TARGET_OS").unwrap();
-    println!(
-        "(env_str) target_arch: {}, target_os: {}",
-        target_arch, target_os
-    );
     env::var(name).ok()
 }
 

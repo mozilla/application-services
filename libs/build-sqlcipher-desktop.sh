@@ -147,8 +147,6 @@ if [[ "${CROSS_COMPILE_TARGET}" =~ "darwin" ]]; then
   # See https://searchfox.org/mozilla-central/rev/8848b9741fc4ee4e9bc3ae83ea0fc048da39979f/build/macosx/cross-mozconfig.common#12-13.
   export LD_LIBRARY_PATH=/tmp/clang/lib
 
-  LIBS="${LIBS} -lpkixtop"
-
   "${SQLCIPHER_SRC_DIR}/configure" \
     --with-pic \
     --disable-shared \

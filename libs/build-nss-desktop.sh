@@ -121,9 +121,21 @@ if [[ "${TARGET_OS}" == "windows" ]] || [[ "${TARGET_OS}" == "linux" ]]; then
   fi
 fi
 
-# Since NSS CI uses -enable_pkix=1
+# Since NSS CI enables PKIX by default, we need to copy these libs over
+# This is only used by macs running android tests on desktop
+# https://searchfox.org/mozilla-central/source/security/nss/lib/libpkix/libpkix.gyp#15-25
 if [[ "${CROSS_COMPILE_TARGET}" =~ "darwin" ]]; then
+  cp -p -L "${NSS_DIST_OBJ_DIR}/lib/libpkixcertsel.a" "${DIST_DIR}/lib"
+  cp -p -L "${NSS_DIST_OBJ_DIR}/lib/libpkixchecker.a" "${DIST_DIR}/lib"
+  cp -p -L "${NSS_DIST_OBJ_DIR}/lib/libpkixcrlsel.a" "${DIST_DIR}/lib"
+  cp -p -L "${NSS_DIST_OBJ_DIR}/lib/libpkixparams.a" "${DIST_DIR}/lib"
+  cp -p -L "${NSS_DIST_OBJ_DIR}/lib/libpkixresults.a" "${DIST_DIR}/lib"
+  cp -p -L "${NSS_DIST_OBJ_DIR}/lib/libpkixstore.a" "${DIST_DIR}/lib"
   cp -p -L "${NSS_DIST_OBJ_DIR}/lib/libpkixtop.a" "${DIST_DIR}/lib"
+  cp -p -L "${NSS_DIST_OBJ_DIR}/lib/libpkixutil.a" "${DIST_DIR}/lib"
+  cp -p -L "${NSS_DIST_OBJ_DIR}/lib/libpkixmodule.a" "${DIST_DIR}/lib"
+  cp -p -L "${NSS_DIST_OBJ_DIR}/lib/libpkixpki.a" "${DIST_DIR}/lib"
+  cp -p -L "${NSS_DIST_OBJ_DIR}/lib/libpkixsystem.a" "${DIST_DIR}/lib"
 fi 
 
 cp -p -L -R "${NSS_DIST_DIR}/public/nss/"* "${DIST_DIR}/include/nss"
