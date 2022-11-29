@@ -326,6 +326,168 @@ mod multi_interval_counter_tests {
         );
         Ok(())
     }
+
+    #[test]
+    fn test_advance_minutes_relative() {
+        let d1 = DateTime::parse_from_rfc3339("2022-06-10T23:59:30Z")
+            .unwrap()
+            .with_timezone(&Utc);
+        let d2 = DateTime::parse_from_rfc3339("2022-06-11T00:01:20Z")
+            .unwrap()
+            .with_timezone(&Utc);
+        let mut counter: MultiIntervalCounter = Default::default();
+        counter
+            .intervals
+            .iter_mut()
+            .for_each(|(_, c)| c.data.starting_instant = d1);
+        counter.maybe_advance(d2).unwrap();
+
+        assert_eq!(
+            counter
+                .intervals
+                .get(&Interval::Minutes)
+                .unwrap()
+                .data
+                .buckets
+                .len(),
+            2
+        );
+    }
+
+    #[test]
+    fn test_advance_hours_relative() {
+        let d1 = DateTime::parse_from_rfc3339("2022-06-10T23:59:00Z")
+            .unwrap()
+            .with_timezone(&Utc);
+        let d2 = DateTime::parse_from_rfc3339("2022-06-11T01:15:00Z")
+            .unwrap()
+            .with_timezone(&Utc);
+        let mut counter: MultiIntervalCounter = Default::default();
+        counter
+            .intervals
+            .iter_mut()
+            .for_each(|(_, c)| c.data.starting_instant = d1);
+        counter.maybe_advance(d2).unwrap();
+
+        assert_eq!(
+            counter
+                .intervals
+                .get(&Interval::Hours)
+                .unwrap()
+                .data
+                .buckets
+                .len(),
+            2
+        );
+    }
+
+    #[test]
+    fn test_advance_days_relative() {
+        let d1 = DateTime::parse_from_rfc3339("2022-06-10T23:59:00Z")
+            .unwrap()
+            .with_timezone(&Utc);
+        let d2 = DateTime::parse_from_rfc3339("2022-06-12T01:15:00Z")
+            .unwrap()
+            .with_timezone(&Utc);
+        let mut counter: MultiIntervalCounter = Default::default();
+        counter
+            .intervals
+            .iter_mut()
+            .for_each(|(_, c)| c.data.starting_instant = d1);
+        counter.maybe_advance(d2).unwrap();
+
+        assert_eq!(
+            counter
+                .intervals
+                .get(&Interval::Days)
+                .unwrap()
+                .data
+                .buckets
+                .len(),
+            2
+        );
+    }
+
+    #[test]
+    fn test_advance_weeks_relative() {
+        let d1 = DateTime::parse_from_rfc3339("2022-06-10T23:59:00Z")
+            .unwrap()
+            .with_timezone(&Utc);
+        let d2 = DateTime::parse_from_rfc3339("2022-06-19T01:15:00Z")
+            .unwrap()
+            .with_timezone(&Utc);
+        let mut counter: MultiIntervalCounter = Default::default();
+        counter
+            .intervals
+            .iter_mut()
+            .for_each(|(_, c)| c.data.starting_instant = d1);
+        counter.maybe_advance(d2).unwrap();
+
+        assert_eq!(
+            counter
+                .intervals
+                .get(&Interval::Weeks)
+                .unwrap()
+                .data
+                .buckets
+                .len(),
+            2
+        );
+    }
+
+    #[test]
+    fn test_advance_months_relative() {
+        let d1 = DateTime::parse_from_rfc3339("2022-06-10T23:59:00Z")
+            .unwrap()
+            .with_timezone(&Utc);
+        let d2 = DateTime::parse_from_rfc3339("2022-08-02T01:15:00Z")
+            .unwrap()
+            .with_timezone(&Utc);
+        let mut counter: MultiIntervalCounter = Default::default();
+        counter
+            .intervals
+            .iter_mut()
+            .for_each(|(_, c)| c.data.starting_instant = d1);
+        counter.maybe_advance(d2).unwrap();
+
+        assert_eq!(
+            counter
+                .intervals
+                .get(&Interval::Months)
+                .unwrap()
+                .data
+                .buckets
+                .len(),
+            2
+        );
+    }
+
+    #[test]
+    fn test_advance_years_relative() {
+        let d1 = DateTime::parse_from_rfc3339("2022-06-10T23:59:00Z")
+            .unwrap()
+            .with_timezone(&Utc);
+        let d2 = DateTime::parse_from_rfc3339("2024-06-02T01:15:00Z")
+            .unwrap()
+            .with_timezone(&Utc);
+        let mut counter: MultiIntervalCounter = Default::default();
+        counter
+            .intervals
+            .iter_mut()
+            .for_each(|(_, c)| c.data.starting_instant = d1);
+        counter.maybe_advance(d2).unwrap();
+
+        assert_eq!(
+            counter
+                .intervals
+                .get(&Interval::Years)
+                .unwrap()
+                .data
+                .buckets
+                .len(),
+            2
+        );
+    }
 }
 
 #[cfg(test)]

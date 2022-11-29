@@ -5,7 +5,7 @@
 
 use crate::error::{BehaviorError, NimbusError, Result};
 use crate::persistence::{Database, StoreId};
-use chrono::{DateTime, Timelike, Utc};
+use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use std::collections::vec_deque::Iter;
 use std::collections::{HashMap, VecDeque};
@@ -25,17 +25,15 @@ pub enum Interval {
 
 impl Interval {
     pub fn num_rotations(&self, then: DateTime<Utc>, now: DateTime<Utc>) -> Result<i32> {
-        let minute_diff = i32::try_from(now.minute())? - i32::try_from(then.minute())?;
-        let hour_diff = i32::try_from(now.hour())? - i32::try_from(then.hour())?;
-        let date_diff = i32::try_from((now.date() - then.date()).num_days())?;
-        Ok(match self {
-            Interval::Minutes => (date_diff * 1440) + (hour_diff * 60) + minute_diff,
-            Interval::Hours => (date_diff * 24) + hour_diff,
-            Interval::Days => date_diff,
-            Interval::Weeks => date_diff / 7,
-            Interval::Months => date_diff / 28,
-            Interval::Years => date_diff / 365,
-        })
+        let date_diff = now - then;
+        Ok(i32::try_from(match self {
+            Interval::Minutes => date_diff.num_minutes(),
+            Interval::Hours => date_diff.num_hours(),
+            Interval::Days => date_diff.num_days(),
+            Interval::Weeks => date_diff.num_weeks(),
+            Interval::Months => date_diff.num_days() / 28,
+            Interval::Years => date_diff.num_days() / 365,
+        })?)
     }
 }
 
