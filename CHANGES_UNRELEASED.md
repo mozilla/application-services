@@ -2,7 +2,7 @@
 
 # Unreleased Changes
 
-[Full Changelog](https://github.com/mozilla/application-services/compare/v96.0.1...main)
+[Full Changelog](https://github.com/mozilla/application-services/compare/v96.1.0...main)
 
 <!-- WARNING: New entries should be added below this comment to ensure the `./automation/prepare-release.py` script works as expected.
 
@@ -18,15 +18,3 @@ Use the template below to make assigning a version number during the release cut
   - Description of the change with a link to the pull request ([#0000](https://github.com/mozilla/application-services/pull/0000))
 
 -->
-
-## FxA Client
-
-### What's new
-- Exposed a new function for swift consumers `resetPersistedState`
-   - `resetPersistedState` can be used to refresh the account manager to reflect the latest persisted state.
-   - `resetPersistedState` should be called in between a different account manager instance persisting the state, and the current account manager persisting state
-     - For example, the Notification Service in iOS creates its own instance of the account manager, changes its state (by changing the index of the last retrieved send tab)
-     - The main account manager held by the application should call` resetPersistedState` before calling any other method that might change its state. This way it can retrieve the most up to date index that the Notification Services persisted.
-### What's changed
-- The `processRawIncomingAccountEvent` function will now process all commands, not just one. This moves the responsibilty of ensuring each push gets a UI element to the caller.
-
