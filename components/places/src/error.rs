@@ -212,10 +212,18 @@ impl GetErrorHandling for Error {
                 })
                 .report_error("places-invalid-place-info")
             }
-            Error::UrlParseError(e) => ErrorHandling::convert(PlacesApiError::UrlParseFailed {
-                reason: e.to_string(),
-            })
-            .report_error("places-url-parse-error"),
+            Error::UrlParseError(e) => {
+                let handling = ErrorHandling::convert(PlacesApiError::UrlParseFailed {
+                    reason: e.to_string(),
+                });
+                match e {
+                    // This is a known issue with URLs coming from Fenix with invalid schemes.
+                    // Let's just log a warning for this one. See #5235 for more details.
+                    url::ParseError::RelativeUrlWithoutBase => handling.log_warning(),
+                    // Report all other errors to Sentry.
+                    _ => handling.report_error("places-url-parse-error"),
+                }
+            }
             // Can't pattern match on `err` without adding a dep on the sqlite3-sys crate,
             // so we just use a `if` guard.
             Error::SqlError(rusqlite::Error::SqliteFailure(err, _))

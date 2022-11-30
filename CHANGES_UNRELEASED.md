@@ -27,7 +27,15 @@ Use the template below to make assigning a version number during the release cut
   - Don't report sentry errors when we try to decrypt the empty string.  This happens when the consumer tries to decript
     a CC number after `scrub_encrypted_data()` is called.
 
+## logins
+
+### What's Changed
+  -  Don't report `Origin is Malformed` errors to Sentry.  This is a known issue stemming from FF Desktop sending us
+     URLs without a scheme.  See #5233 for details.
+
 ## places
 
 ### What's Changed
   - Switch to using incremental vacuums for maintenance, which should speed up the process.
+  - Don't report places `relative URL without a base` to Sentry.  This is a known issue caused by Fenix sending us URLs
+    with an invalid scheme (see #5235)
