@@ -30,3 +30,9 @@ Use the template below to make assigning a version number during the release cut
    - `importBookmarksFromFennec`
    - `importPinnedSitesFromFennec`
    - `importVisitsFromFennec`
+
+## Viaduct
+### What's New
+  - Allow viaduct to make requests to the android emulator's host address via
+    a new viaduct_allow_android_emulator_loopback() (in Rust)/allowAndroidEmulatorLoopback() (in Kotlin)
+    ([#5270](https://github.com/mozilla/application-services/pull/5270))

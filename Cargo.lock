@@ -3791,6 +3791,7 @@ dependencies = [
  "ffi-support",
  "log",
  "once_cell",
+ "parking_lot",
  "prost",
  "prost-derive",
  "serde",
@@ -3804,8 +3805,8 @@ name = "viaduct-reqwest"
 version = "0.2.0"
 dependencies = [
  "ffi-support",
- "lazy_static",
  "log",
+ "once_cell",
  "reqwest",
  "viaduct",
 ]
