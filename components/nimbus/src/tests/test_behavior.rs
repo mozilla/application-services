@@ -231,6 +231,192 @@ mod single_interval_counter_tests {
         assert_eq!(counter.data.buckets.len(), 2);
         Ok(())
     }
+
+    #[test]
+    fn test_maybe_advance_updates_time_in_minutes_correctly() {
+        let d1 = DateTime::parse_from_rfc3339("2022-06-10T08:00:00Z")
+            .unwrap()
+            .with_timezone(&Utc);
+        let d2 = DateTime::parse_from_rfc3339("2022-06-10T08:00:59Z")
+            .unwrap()
+            .with_timezone(&Utc);
+        let d3 = DateTime::parse_from_rfc3339("2022-06-10T08:01:58Z")
+            .unwrap()
+            .with_timezone(&Utc);
+        let d4 = DateTime::parse_from_rfc3339("2022-06-10T08:02:57Z")
+            .unwrap()
+            .with_timezone(&Utc);
+        let mut counter: SingleIntervalCounter = SingleIntervalCounter::from(
+            IntervalData {
+                bucket_count: 7,
+                buckets: VecDeque::with_capacity(7),
+                starting_instant: d1,
+            },
+            IntervalConfig::new(7, Interval::Minutes),
+        );
+        counter.data.buckets.push_front(0);
+
+        counter.maybe_advance(d2).unwrap();
+        counter.maybe_advance(d3).unwrap();
+        counter.maybe_advance(d4).unwrap();
+
+        assert_eq!(counter.data.buckets.len(), 3);
+    }
+
+    #[test]
+    fn test_maybe_advance_updates_time_in_hours_correctly() {
+        let d1 = DateTime::parse_from_rfc3339("2022-06-10T08:00:00Z")
+            .unwrap()
+            .with_timezone(&Utc);
+        let d2 = DateTime::parse_from_rfc3339("2022-06-10T08:59:00Z")
+            .unwrap()
+            .with_timezone(&Utc);
+        let d3 = DateTime::parse_from_rfc3339("2022-06-10T09:58:00Z")
+            .unwrap()
+            .with_timezone(&Utc);
+        let d4 = DateTime::parse_from_rfc3339("2022-06-10T10:57:00Z")
+            .unwrap()
+            .with_timezone(&Utc);
+        let mut counter: SingleIntervalCounter = SingleIntervalCounter::from(
+            IntervalData {
+                bucket_count: 7,
+                buckets: VecDeque::with_capacity(7),
+                starting_instant: d1,
+            },
+            IntervalConfig::new(7, Interval::Hours),
+        );
+        counter.data.buckets.push_front(0);
+
+        counter.maybe_advance(d2).unwrap();
+        counter.maybe_advance(d3).unwrap();
+        counter.maybe_advance(d4).unwrap();
+
+        assert_eq!(counter.data.buckets.len(), 3);
+    }
+
+    #[test]
+    fn test_maybe_advance_updates_time_in_days_correctly() {
+        let d1 = DateTime::parse_from_rfc3339("2022-06-10T08:00:00Z")
+            .unwrap()
+            .with_timezone(&Utc);
+        let d2 = DateTime::parse_from_rfc3339("2022-06-11T07:59:00Z")
+            .unwrap()
+            .with_timezone(&Utc);
+        let d3 = DateTime::parse_from_rfc3339("2022-06-12T07:58:00Z")
+            .unwrap()
+            .with_timezone(&Utc);
+        let d4 = DateTime::parse_from_rfc3339("2022-06-13T07:57:00Z")
+            .unwrap()
+            .with_timezone(&Utc);
+        let mut counter: SingleIntervalCounter = SingleIntervalCounter::from(
+            IntervalData {
+                bucket_count: 7,
+                buckets: VecDeque::with_capacity(7),
+                starting_instant: d1,
+            },
+            IntervalConfig::new(7, Interval::Days),
+        );
+        counter.data.buckets.push_front(0);
+
+        counter.maybe_advance(d2).unwrap();
+        counter.maybe_advance(d3).unwrap();
+        counter.maybe_advance(d4).unwrap();
+
+        assert_eq!(counter.data.buckets.len(), 3);
+    }
+
+    #[test]
+    fn test_maybe_advance_updates_time_in_weeks_correctly() {
+        let d1 = DateTime::parse_from_rfc3339("2022-06-10T08:00:00Z")
+            .unwrap()
+            .with_timezone(&Utc);
+        let d2 = DateTime::parse_from_rfc3339("2022-06-17T07:59:00Z")
+            .unwrap()
+            .with_timezone(&Utc);
+        let d3 = DateTime::parse_from_rfc3339("2022-06-25T07:58:00Z")
+            .unwrap()
+            .with_timezone(&Utc);
+        let d4 = DateTime::parse_from_rfc3339("2022-07-01T07:57:00Z")
+            .unwrap()
+            .with_timezone(&Utc);
+        let mut counter: SingleIntervalCounter = SingleIntervalCounter::from(
+            IntervalData {
+                bucket_count: 7,
+                buckets: VecDeque::with_capacity(7),
+                starting_instant: d1,
+            },
+            IntervalConfig::new(7, Interval::Weeks),
+        );
+        counter.data.buckets.push_front(0);
+
+        counter.maybe_advance(d2).unwrap();
+        counter.maybe_advance(d3).unwrap();
+        counter.maybe_advance(d4).unwrap();
+
+        assert_eq!(counter.data.buckets.len(), 3);
+    }
+
+    #[test]
+    fn test_maybe_advance_updates_time_in_months_correctly() {
+        let d1 = DateTime::parse_from_rfc3339("2022-06-10T08:00:00Z")
+            .unwrap()
+            .with_timezone(&Utc);
+        let d2 = DateTime::parse_from_rfc3339("2022-07-07T07:59:00Z")
+            .unwrap()
+            .with_timezone(&Utc);
+        let d3 = DateTime::parse_from_rfc3339("2022-08-02T07:58:00Z")
+            .unwrap()
+            .with_timezone(&Utc);
+        let d4 = DateTime::parse_from_rfc3339("2022-08-30T07:57:00Z")
+            .unwrap()
+            .with_timezone(&Utc);
+        let mut counter: SingleIntervalCounter = SingleIntervalCounter::from(
+            IntervalData {
+                bucket_count: 7,
+                buckets: VecDeque::with_capacity(7),
+                starting_instant: d1,
+            },
+            IntervalConfig::new(7, Interval::Months),
+        );
+        counter.data.buckets.push_front(0);
+
+        counter.maybe_advance(d2).unwrap();
+        counter.maybe_advance(d3).unwrap();
+        counter.maybe_advance(d4).unwrap();
+
+        assert_eq!(counter.data.buckets.len(), 3);
+    }
+
+    #[test]
+    fn test_maybe_advance_updates_time_in_years_correctly() {
+        let d1 = DateTime::parse_from_rfc3339("2022-06-10T08:00:00Z")
+            .unwrap()
+            .with_timezone(&Utc);
+        let d2 = DateTime::parse_from_rfc3339("2023-06-10T07:59:00Z")
+            .unwrap()
+            .with_timezone(&Utc);
+        let d3 = DateTime::parse_from_rfc3339("2024-06-09T07:58:00Z")
+            .unwrap()
+            .with_timezone(&Utc);
+        let d4 = DateTime::parse_from_rfc3339("2025-06-09T07:57:00Z")
+            .unwrap()
+            .with_timezone(&Utc);
+        let mut counter: SingleIntervalCounter = SingleIntervalCounter::from(
+            IntervalData {
+                bucket_count: 7,
+                buckets: VecDeque::with_capacity(7),
+                starting_instant: d1,
+            },
+            IntervalConfig::new(7, Interval::Years),
+        );
+        counter.data.buckets.push_front(0);
+
+        counter.maybe_advance(d2).unwrap();
+        counter.maybe_advance(d3).unwrap();
+        counter.maybe_advance(d4).unwrap();
+
+        assert_eq!(counter.data.buckets.len(), 3);
+    }
 }
 
 #[cfg(test)]

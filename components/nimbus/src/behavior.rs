@@ -5,7 +5,7 @@
 
 use crate::error::{BehaviorError, NimbusError, Result};
 use crate::persistence::{Database, StoreId};
-use chrono::{DateTime, Utc};
+use chrono::{DateTime, Duration, Utc};
 use serde::{Deserialize, Serialize};
 use std::collections::vec_deque::Iter;
 use std::collections::{HashMap, VecDeque};
@@ -34,6 +34,17 @@ impl Interval {
             Interval::Months => date_diff.num_days() / 28,
             Interval::Years => date_diff.num_days() / 365,
         })?)
+    }
+
+    pub fn to_duration(&self, count: i64) -> Duration {
+        match self {
+            Interval::Minutes => Duration::minutes(count),
+            Interval::Hours => Duration::hours(count),
+            Interval::Days => Duration::days(count),
+            Interval::Weeks => Duration::weeks(count),
+            Interval::Months => Duration::days(28 * count),
+            Interval::Years => Duration::days(365 * count),
+        }
     }
 }
 
@@ -192,7 +203,8 @@ impl SingleIntervalCounter {
             .config
             .interval
             .num_rotations(self.data.starting_instant, now)?;
-        self.data.starting_instant = now;
+        self.data.starting_instant =
+            self.data.starting_instant + self.config.interval.to_duration(rotations.into());
         if rotations > 0 {
             return self.data.rotate(rotations);
         }
