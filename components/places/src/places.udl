@@ -43,15 +43,6 @@ interface PlacesApi {
     string bookmarks_sync(string key_id, string access_token, string sync_key, Url tokenserver_url);
 
     [Throws=PlacesApiError]
-    sequence<BookmarkItem> places_pinned_sites_import_from_fennec(string db_path);
-
-    [Throws=PlacesApiError]
-    string places_history_import_from_fennec(string db_path);
-
-    [Throws=PlacesApiError]
-    string places_bookmarks_import_from_fennec(string db_path);
-
-    [Throws=PlacesApiError]
     void places_bookmarks_import_from_ios(string db_path);
 
     [Throws=PlacesApiError]
