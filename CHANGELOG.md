@@ -1,3 +1,28 @@
+# v96.1.1 (_2022-12-01_)
+
+[Full Changelog](https://github.com/mozilla/application-services/compare/v96.1.0...v96.1.1)
+
+## autofill
+
+### What's Changed
+  - Fixed a bug where `scrub_encrypted_data()` didn't update the last sync time, which prevented the scrubbed CC data
+    from being fixed.
+  - Don't report sentry errors when we try to decrypt the empty string.  This happens when the consumer tries to decript
+    a CC number after `scrub_encrypted_data()` is called.
+
+## logins
+
+### What's Changed
+  -  Don't report `Origin is Malformed` errors to Sentry.  This is a known issue stemming from FF Desktop sending us
+     URLs without a scheme.  See #5233 for details.
+
+## places
+
+### What's Changed
+  - Switch to using incremental vacuums for maintenance, which should speed up the process.
+  - Don't report places `relative URL without a base` to Sentry.  This is a known issue caused by Fenix sending us URLs
+    with an invalid scheme (see #5235)
+
 # v96.1.0 (_2022-11-29_)
 
 [Full Changelog](https://github.com/mozilla/application-services/compare/v96.0.1...v96.1.0)
