@@ -102,6 +102,10 @@ pub enum InvalidLogin {
     BothTargets,
     #[error("Neither `formActionOrigin` or `httpRealm` are present")]
     NoTarget,
+    // Login has an illegal origin field, split off from IllegalFieldValue since this is a known
+    // issue with the Desktop logins and we don't want to report it to Sentry (see #5233).
+    #[error("Login has illegal origin")]
+    IllegalOrigin,
     #[error("Login has illegal field: {field_info}")]
     IllegalFieldValue { field_info: String },
 }

@@ -164,6 +164,18 @@ fn run_native_export(db: &PlacesDb, filename: String) -> Result<()> {
     Ok(())
 }
 
+fn run_maintenance(conn: &PlacesDb, db_size_limit: u32, count: u32) -> Result<()> {
+    for _ in 0..count {
+        let prune_metrics = places::storage::run_maintenance_prune(conn, db_size_limit)?;
+        places::storage::run_maintenance_vacuum(conn)?;
+        places::storage::run_maintenance_optimize(conn)?;
+        places::storage::run_maintenance_checkpoint(conn)?;
+        println!("Maintenance complete");
+        println!("Prune metrics: {prune_metrics:?}");
+    }
+    Ok(())
+}
+
 #[allow(clippy::too_many_arguments)]
 fn sync(
     mut engine_names: Vec<String>,
@@ -366,6 +378,17 @@ enum Command {
         /// Imports bookmarks from a desktop export
         input_file: String,
     },
+
+    #[structopt(name = "run-maintenance")]
+    /// Run maintenence on the database
+    RunMaintenance {
+        #[structopt(name = "db-size-limit", long, default_value = "75000000")]
+        /// Target size of the database (in bytes)
+        db_size_limit: u32,
+        #[structopt(name = "count", long, short = "c", default_value = "1")]
+        /// Repeat the operation N times
+        count: u32,
+    },
 }
 
 fn main() -> Result<()> {
@@ -409,5 +432,9 @@ fn main() -> Result<()> {
         Command::ImportIosBookmarks { input_file } => run_ios_import_bookmarks(&api, input_file),
         Command::ImportDesktopBookmarks { input_file } => run_desktop_import(&db, input_file),
         Command::ImportIosHistory { input_file } => run_ios_import_history(&db, input_file),
+        Command::RunMaintenance {
+            db_size_limit,
+            count,
+        } => run_maintenance(&db, db_size_limit, count),
     }
 }

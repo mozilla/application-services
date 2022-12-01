@@ -80,7 +80,7 @@ impl ConnectionInitializer for AutofillConnectionInitializer {
     const NAME: &'static str = "autofill db";
     const END_VERSION: u32 = 2;
 
-    fn prepare(&self, conn: &Connection) -> Result<()> {
+    fn prepare(&self, conn: &Connection, _db_empty: bool) -> Result<()> {
         define_functions(conn)?;
 
         let initial_pragmas = "

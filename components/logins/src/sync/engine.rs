@@ -142,11 +142,21 @@ impl LoginsSyncEngine {
                 match SyncLoginData::from_payload(incoming.0.clone(), incoming.1, self.encdec()?) {
                     Ok(v) => sync_data.push(v),
                     Err(e) => {
-                        report_error!(
-                            "logins-deserialize-error",
-                            "Failed to deserialize record {:?}: {e}",
-                            incoming.0.id
-                        );
+                        match e {
+                            // This is a known error with Deskop logins (see #5233), just log it
+                            // rather than reporting to sentry
+                            Error::InvalidLogin(InvalidLogin::IllegalOrigin) => {
+                                log::warn!("logins-deserialize-error: {e}");
+                            }
+                            // For all other errors, report them to Sentry
+                            _ => {
+                                report_error!(
+                                    "logins-deserialize-error",
+                                    "Failed to deserialize record {:?}: {e}",
+                                    incoming.0.id
+                                );
+                            }
+                        };
                         // Ideally we'd track new_failed, but it's unclear how
                         // much value it has.
                         telem.failed(1);
