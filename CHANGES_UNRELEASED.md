@@ -19,6 +19,14 @@ Use the template below to make assigning a version number during the release cut
 
 -->
 
+## autofill
+
+### What's Changed
+  - Fixed a bug where `scrub_encrypted_data()` didn't update the last sync time, which prevented the scrubbed CC data
+    from being fixed.
+  - Don't report sentry errors when we try to decrypt the empty string.  This happens when the consumer tries to decript
+    a CC number after `scrub_encrypted_data()` is called.
+
 ## places
 
 ### What's Changed

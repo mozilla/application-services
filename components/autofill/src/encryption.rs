@@ -62,6 +62,9 @@ impl EncryptorDecryptor {
     }
 
     pub fn decrypt(&self, ciphertext: &str) -> Result<String> {
+        if ciphertext.is_empty() {
+            return Err(Error::EmptyCyphertext);
+        }
         Ok(jwcrypto::decrypt_jwe(
             ciphertext,
             jwcrypto::DecryptionParameters::Direct {
@@ -106,6 +109,19 @@ mod test {
         assert!(matches!(
             ed2.decrypt(&ciphertext),
             Err(Error::CryptoError(_))
+        ));
+    }
+
+    #[test]
+    fn test_decryption_errors() {
+        let ed = EncryptorDecryptor::new(&create_key().unwrap()).unwrap();
+        assert!(matches!(
+            ed.decrypt("invalid-ciphertext").unwrap_err(),
+            Error::CryptoError(_)
+        ));
+        assert!(matches!(
+            ed.decrypt("").unwrap_err(),
+            Error::EmptyCyphertext
         ));
     }
 }

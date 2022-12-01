@@ -63,6 +63,9 @@ pub enum Error {
     #[error("Crypto Error: {0}")]
     CryptoError(#[from] jwcrypto::JwCryptoError),
 
+    #[error("Crypto Error: Cyphertext is the empty string")]
+    EmptyCyphertext,
+
     #[error("Missing local encryption key")]
     MissingEncryptionKey,
 
@@ -121,6 +124,13 @@ impl GetErrorHandling for Error {
                 })
                 .report_error("autofill-invalid-sync-payload")
             }
+
+            // This happens when we try to decrypt CC numbers after scrub_encrypted_data has run.
+            // No need to report these to Sentry (see #5232 for details).
+            Self::EmptyCyphertext => ErrorHandling::convert(AutofillApiError::CryptoError {
+                reason: "Ciphertext is empty".to_string(),
+            })
+            .log_warning(),
 
             Self::CryptoError(e) => ErrorHandling::convert(AutofillApiError::CryptoError {
                 reason: e.to_string(),
