@@ -53,7 +53,7 @@ impl BridgedEngine for BridgedEngineImpl {
                 .sync_impl
                 .lock()
                 .unwrap()
-                .last_sync
+                .get_last_sync()?
                 .unwrap_or_default()
                 .as_millis())
         }
@@ -61,15 +61,14 @@ impl BridgedEngine for BridgedEngineImpl {
 
     fn set_last_sync(&self, last_sync_millis: i64) -> ApiResult<()> {
         handle_error! {
-            self.sync_impl.lock().unwrap().last_sync =
-                Some(ServerTimestamp::from_millis(last_sync_millis));
+            self.sync_impl.lock().unwrap().set_last_sync(ServerTimestamp::from_millis(last_sync_millis))?;
             Ok(())
         }
     }
 
     fn sync_id(&self) -> ApiResult<Option<String>> {
         handle_error! {
-            Ok(match self.sync_impl.lock().unwrap().get_sync_assoc() {
+            Ok(match self.sync_impl.lock().unwrap().get_sync_assoc().unwrap() {
                 EngineSyncAssociation::Connected(id) => Some(id.coll.to_string()),
                 EngineSyncAssociation::Disconnected => None,
             })
@@ -86,7 +85,7 @@ impl BridgedEngine for BridgedEngineImpl {
             self.sync_impl
                 .lock()
                 .unwrap()
-                .reset(EngineSyncAssociation::Connected(new_coll_ids))?;
+                .reset(&EngineSyncAssociation::Connected(new_coll_ids))?;
             Ok(new_id)
         }
     }
@@ -94,7 +93,7 @@ impl BridgedEngine for BridgedEngineImpl {
     fn ensure_current_sync_id(&self, sync_id: &str) -> ApiResult<String> {
         handle_error! {
             let mut sync_impl = self.sync_impl.lock().unwrap();
-            let assoc = sync_impl.get_sync_assoc();
+            let assoc = sync_impl.get_sync_assoc().unwrap();
             if matches!(assoc, EngineSyncAssociation::Connected(c) if c.coll == sync_id) {
                 log::debug!("ensure_current_sync_id is current");
             } else {
@@ -102,7 +101,7 @@ impl BridgedEngine for BridgedEngineImpl {
                     global: SyncGuid::empty(),
                     coll: sync_id.into(),
                 };
-                sync_impl.reset(EngineSyncAssociation::Connected(new_coll_ids))?;
+                sync_impl.reset(&EngineSyncAssociation::Connected(new_coll_ids))?;
             }
             Ok(sync_id.to_string()) // this is a bit odd, why the result?
         }
@@ -169,7 +168,7 @@ impl BridgedEngine for BridgedEngineImpl {
             self.sync_impl
                 .lock()
                 .unwrap()
-                .reset(EngineSyncAssociation::Disconnected)?;
+                .reset(&EngineSyncAssociation::Disconnected)?;
             Ok(())
         }
     }
@@ -279,7 +278,7 @@ mod tests {
     use std::collections::HashMap;
     use sync15::{ClientData, DeviceType, RemoteClient};
 
-    const TTL_1_YEAR: u32 = 31_622_400;
+    const TTL_3_WEEKS: u32 = 15_552_000; // 21 days
 
     // A copy of the normal "engine" tests but which go via the bridge
     #[test]
@@ -372,6 +371,19 @@ mod tests {
                     "lastUsed": 1643764207
                 }]
             }),
+            // test an updated payload will replace the previous record
+            json!({
+                "id": "device-with-a-tab",
+                "clientName": "updated device with a tab",
+                "tabs": [{
+                    "title": "the title",
+                    "urlHistory": [
+                        "https://mozilla.org/"
+                    ],
+                    "icon": "https://mozilla.org/icon",
+                    "lastUsed": 1643764208
+                }]
+            }),
             // This has the main payload as OK but the tabs part invalid.
             json!({
                 "id": "device-with-invalid-tab",
@@ -416,7 +428,7 @@ mod tests {
                 "clientName": "my device",
                 "tabs": serde_json::to_value(expected_tabs).unwrap(),
             }).to_string(),
-            "ttl": TTL_1_YEAR,
+            "ttl": TTL_3_WEEKS,
         });
 
         assert_eq!(ours, expected);
@@ -431,6 +443,8 @@ mod tests {
         let store = Arc::new(TabsStore::new_with_mem_path("test-meta"));
         let bridge = store.bridged_engine();
 
+        // Should not error or panic
+        assert_eq!(bridge.last_sync().unwrap(), 0);
         bridge.set_last_sync(3).unwrap();
         assert_eq!(bridge.last_sync().unwrap(), 3);
 
