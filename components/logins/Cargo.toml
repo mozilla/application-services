@@ -41,3 +41,4 @@ uniffi_build = { version = "^0.21", features=["builtin-bindgen"] }
 more-asserts = "0.2"
 tempfile = "3.2.0"
 env_logger = { version = "0.7", default-features = false }
+sync15 = { path = "../sync15", features=["test-utils"] }

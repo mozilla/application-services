@@ -3,13 +3,14 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
 // Merging for Sync.
-use super::SyncStatus;
+use super::{LoginPayload, SyncStatus};
 use crate::encryption::EncryptorDecryptor;
 use crate::error::*;
 use crate::login::EncryptedLogin;
 use crate::util;
 use rusqlite::Row;
 use std::time::{self, SystemTime};
+use sync15::bso::{IncomingBso, IncomingKind};
 use sync15::ServerTimestamp;
 use sync_guid::Guid;
 
@@ -123,17 +124,16 @@ impl SyncLoginData {
         &self.guid
     }
 
-    pub fn from_payload(
-        payload: sync15::Payload,
-        ts: ServerTimestamp,
-        encdec: &EncryptorDecryptor,
-    ) -> Result<Self> {
-        let guid = payload.id.clone();
-        let login: Option<EncryptedLogin> = if payload.is_tombstone() {
-            None
-        } else {
-            // from_payload does fixups if necessary and possible.
-            Some(EncryptedLogin::from_payload(payload, encdec)?)
+    pub fn from_bso(bso: IncomingBso, encdec: &EncryptorDecryptor) -> Result<Self> {
+        let guid = bso.envelope.id.clone();
+        // from_incoming_payload does fixups if necessary and possible.
+        let ts = bso.envelope.modified;
+        let login = match bso.into_content::<LoginPayload>().kind {
+            IncomingKind::Content(p) => Some(EncryptedLogin::from_incoming_payload(p, encdec)?),
+            IncomingKind::Tombstone => None,
+            // Before the IncomingKind refactor we returned an error. We could probably just
+            // treat it as a tombstone but should check that's sane, so for now, we also err.
+            IncomingKind::Malformed => return Err(Error::MalformedIncomingRecord),
         };
         Ok(Self {
             guid,
@@ -366,7 +366,7 @@ mod tests {
     fn test_invalid_payload_timestamps() {
         #[allow(clippy::unreadable_literal)]
         let bad_timestamp = 18446732429235952000u64;
-        let bad_payload: sync15::Payload = serde_json::from_value(serde_json::json!({
+        let bad_payload = IncomingBso::from_test_content(serde_json::json!({
             "id": "123412341234",
             "formSubmitURL": "https://www.example.com/submit",
             "hostname": "https://www.example.com",
@@ -375,20 +375,18 @@ mod tests {
             "timeCreated": bad_timestamp,
             "timeLastUsed": "some other garbage",
             "timePasswordChanged": -30, // valid i64 but negative
-        }))
-        .unwrap();
-        let login =
-            SyncLoginData::from_payload(bad_payload, ServerTimestamp::default(), &TEST_ENCRYPTOR)
-                .unwrap()
-                .inbound
-                .0
-                .unwrap();
+        }));
+        let login = SyncLoginData::from_bso(bad_payload, &TEST_ENCRYPTOR)
+            .unwrap()
+            .inbound
+            .0
+            .unwrap();
         assert_eq!(login.record.time_created, 0);
         assert_eq!(login.record.time_last_used, 0);
         assert_eq!(login.record.time_password_changed, 0);
 
         let now64 = util::system_time_ms_i64(std::time::SystemTime::now());
-        let good_payload: sync15::Payload = serde_json::from_value(serde_json::json!({
+        let good_payload = IncomingBso::from_test_content(serde_json::json!({
             "id": "123412341234",
             "formSubmitURL": "https://www.example.com/submit",
             "hostname": "https://www.example.com",
@@ -397,15 +395,13 @@ mod tests {
             "timeCreated": now64 - 100,
             "timeLastUsed": now64 - 50,
             "timePasswordChanged": now64 - 25,
-        }))
-        .unwrap();
+        }));
 
-        let login =
-            SyncLoginData::from_payload(good_payload, ServerTimestamp::default(), &TEST_ENCRYPTOR)
-                .unwrap()
-                .inbound
-                .0
-                .unwrap();
+        let login = SyncLoginData::from_bso(good_payload, &TEST_ENCRYPTOR)
+            .unwrap()
+            .inbound
+            .0
+            .unwrap();
 
         assert_eq!(login.record.time_created, now64 - 100);
         assert_eq!(login.record.time_last_used, now64 - 50);

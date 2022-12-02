@@ -3,6 +3,7 @@
 * file, You can obtain one at http://mozilla.org/MPL/2.0/.
 */
 
+use super::CreditCardPayload;
 use crate::db::credit_cards::{add_internal_credit_card, update_internal_credit_card};
 use crate::db::models::credit_card::InternalCreditCard;
 use crate::db::schema::CREDIT_CARD_COMMON_COLS;
@@ -10,8 +11,8 @@ use crate::encryption::EncryptorDecryptor;
 use crate::error::*;
 use crate::sync::common::*;
 use crate::sync::{
-    IncomingRecord, IncomingState, LocalRecordInfo, Payload, ProcessIncomingRecordImpl,
-    ServerTimestamp, SyncRecord,
+    IncomingBso, IncomingContent, IncomingEnvelope, IncomingKind, IncomingState, LocalRecordInfo,
+    ProcessIncomingRecordImpl, ServerTimestamp, SyncRecord,
 };
 use interrupt_support::Interruptee;
 use rusqlite::{named_params, Transaction};
@@ -22,19 +23,37 @@ use sync_guid::Guid as SyncGuid;
 // or a tombstone. Credit-cards store the payload as an encrypted string, so we
 // decrypt before conversion.
 fn raw_payload_to_incoming(
+    id: SyncGuid,
     raw: String,
     encdec: &EncryptorDecryptor,
-) -> Result<IncomingRecord<InternalCreditCard>> {
-    let decrypted_payload = encdec.decrypt(&raw)?;
-    let payload = serde_json::from_str::<Payload>(&decrypted_payload)?;
-    Ok(if payload.is_tombstone() {
-        IncomingRecord::Tombstone {
-            guid: payload.id().into(),
-        }
-    } else {
-        IncomingRecord::Record {
-            record: InternalCreditCard::from_payload(payload.into_record()?, encdec)?,
-        }
+) -> Result<IncomingContent<InternalCreditCard>> {
+    let payload = encdec.decrypt(&raw)?;
+    // Turn it into a BSO
+    let bso = IncomingBso {
+        envelope: IncomingEnvelope {
+            id,
+            modified: ServerTimestamp::default(),
+            sortindex: None,
+            ttl: None,
+        },
+        payload,
+    };
+    // For hysterical raisins, we use an IncomingContent<CCPayload> to convert
+    // to an IncomingContent<InternalCC>
+    let payload_content = bso.into_content::<CreditCardPayload>();
+    Ok(match payload_content.kind {
+        IncomingKind::Content(content) => IncomingContent {
+            envelope: payload_content.envelope,
+            kind: IncomingKind::Content(InternalCreditCard::from_payload(content, encdec)?),
+        },
+        IncomingKind::Tombstone => IncomingContent {
+            envelope: payload_content.envelope,
+            kind: IncomingKind::Tombstone,
+        },
+        IncomingKind::Malformed => IncomingContent {
+            envelope: payload_content.envelope,
+            kind: IncomingKind::Malformed,
+        },
     })
 }
 
@@ -49,16 +68,16 @@ impl ProcessIncomingRecordImpl for IncomingCreditCardsImpl {
     fn stage_incoming(
         &self,
         tx: &Transaction<'_>,
-        incoming: Vec<(Payload, ServerTimestamp)>,
+        incoming: Vec<IncomingBso>,
         signal: &dyn Interruptee,
     ) -> Result<()> {
         // Convert the sync15::Payloads to encrypted strings.
         let to_stage = incoming
             .into_iter()
-            .map(|(payload, timestamp)| {
-                let guid = SyncGuid::new(payload.id());
-                let encrypted = self.encdec.encrypt(&payload.into_json_string())?;
-                Ok((guid, encrypted, timestamp))
+            .map(|bso| {
+                // consider turning this into malformed?
+                let encrypted = self.encdec.encrypt(&bso.payload)?;
+                Ok((bso.envelope.id, encrypted, bso.envelope.modified))
             })
             .collect::<Result<_>>()?;
         common_stage_incoming_records(tx, "credit_cards_sync_staging", to_stage, signal)
@@ -101,7 +120,8 @@ impl ProcessIncomingRecordImpl for IncomingCreditCardsImpl {
         tx.query_rows_and_then(sql, [], |row| -> Result<IncomingState<Self::Record>> {
             // the 'guid' and 's_payload' rows must be non-null.
             let guid: SyncGuid = row.get("guid")?;
-            let incoming = raw_payload_to_incoming(row.get("s_payload")?, &self.encdec)?;
+            let incoming =
+                raw_payload_to_incoming(guid.clone(), row.get("s_payload")?, &self.encdec)?;
             Ok(IncomingState {
                 incoming,
                 local: match row.get_unwrap::<_, Option<String>>("l_guid") {
@@ -125,7 +145,7 @@ impl ProcessIncomingRecordImpl for IncomingCreditCardsImpl {
                         match row.get::<_, Option<String>>("t_guid")? {
                             Some(t_guid) => {
                                 assert_eq!(guid, t_guid);
-                                LocalRecordInfo::Tombstone { guid }
+                                LocalRecordInfo::Tombstone { guid: guid.clone() }
                             }
                             None => LocalRecordInfo::Missing,
                         }
@@ -135,10 +155,7 @@ impl ProcessIncomingRecordImpl for IncomingCreditCardsImpl {
                     match row.get::<_, Option<String>>("m_payload")? {
                         Some(m_payload) => {
                             // a tombstone in the mirror can be treated as though it's missing.
-                            match raw_payload_to_incoming(m_payload, &self.encdec)? {
-                                IncomingRecord::Record { record } => Some(record),
-                                IncomingRecord::Tombstone { .. } => None,
-                            }
+                            raw_payload_to_incoming(guid, m_payload, &self.encdec)?.content()
                         }
                         None => None,
                     }
@@ -340,7 +357,7 @@ mod tests {
 
         for tc in test_cases {
             log::info!("starting new testcase");
-            let tx = db.transaction()?;
+            let tx = db.transaction().unwrap();
             let encdec = EncryptorDecryptor::new_test_key();
 
             // Add required items to the mirrors.
@@ -364,18 +381,22 @@ mod tests {
                 &NeverInterrupts,
             )?;
 
-            let payloads = tx.conn().query_rows_and_then(
+            let records = tx.conn().query_rows_and_then(
                 "SELECT * FROM temp.credit_cards_sync_staging;",
                 [],
-                |row| -> Result<Payload> {
+                |row| -> Result<IncomingContent<InternalCreditCard>> {
+                    let guid: SyncGuid = row.get_unwrap("guid");
                     let enc_payload: String = row.get_unwrap("payload");
-                    let payload = ri.encdec.decrypt(&enc_payload)?;
-                    Ok(Payload::from_json(serde_json::from_str(&payload)?)?)
+                    raw_payload_to_incoming(guid, enc_payload, &ri.encdec)
                 },
             )?;
 
-            let record_count = payloads.iter().filter(|p| !p.is_tombstone()).count();
-            let tombstone_count = payloads.len() - record_count;
+            let record_count = records
+                .iter()
+                .filter(|p| !matches!(p.kind, IncomingKind::Tombstone))
+                .count();
+            let tombstone_count = records.len() - record_count;
+            log::trace!("record count: {record_count}, tombstone count: {tombstone_count}");
 
             assert_eq!(record_count, tc.expected_record_count);
             assert_eq!(tombstone_count, tc.expected_tombstone_count);
@@ -416,8 +437,8 @@ mod tests {
             encdec: EncryptorDecryptor::new_test_key(),
         };
         let record = test_record('C', &ci.encdec);
-        let payload = record.clone().into_sync_payload(&ci.encdec);
-        do_test_incoming_same(&ci, &tx, record, payload);
+        let bso = record.clone().into_test_incoming_bso(&ci.encdec);
+        do_test_incoming_same(&ci, &tx, record, bso);
     }
 
     #[test]
@@ -438,9 +459,9 @@ mod tests {
             encdec: EncryptorDecryptor::new_test_key(),
         };
         let mut scrubbed_record = test_record('A', &ci.encdec);
-        let payload = scrubbed_record.clone().into_sync_payload(&ci.encdec);
+        let bso = scrubbed_record.clone().into_test_incoming_bso(&ci.encdec);
         scrubbed_record.cc_number_enc = "".to_string();
-        do_test_scrubbed_local_data(&ci, &tx, scrubbed_record, payload);
+        do_test_scrubbed_local_data(&ci, &tx, scrubbed_record, bso);
     }
 
     #[test]
@@ -451,8 +472,8 @@ mod tests {
             encdec: EncryptorDecryptor::new_test_key(),
         };
         let record = test_record('C', &ci.encdec);
-        let payload = record.clone().into_sync_payload(&ci.encdec);
-        do_test_staged_to_mirror(&ci, &tx, record, payload, "credit_cards_mirror");
+        let bso = record.clone().into_test_incoming_bso(&ci.encdec);
+        do_test_staged_to_mirror(&ci, &tx, record, bso, "credit_cards_mirror");
     }
 
     #[test]
@@ -507,7 +528,15 @@ mod tests {
         incoming.guid = incoming_guid.clone();
 
         let incoming_state = IncomingState {
-            incoming: IncomingRecord::Record { record: incoming },
+            incoming: IncomingContent {
+                envelope: IncomingEnvelope {
+                    id: incoming_guid.clone(),
+                    modified: ServerTimestamp::default(),
+                    sortindex: None,
+                    ttl: None,
+                },
+                kind: IncomingKind::Content(incoming),
+            },
             // LocalRecordInfo::Missing because we don't have a local record with
             // the incoming GUID.
             local: LocalRecordInfo::Missing,

@@ -18,7 +18,8 @@ use sync15::client::{sync_multiple, MemoryCachedState, Sync15StorageClientInit};
 use sync15::engine::{
     CollectionRequest, EngineSyncAssociation, IncomingChangeset, OutgoingChangeset, SyncEngine,
 };
-use sync15::{telemetry, Payload, ServerTimestamp};
+use sync15::{telemetry, ServerTimestamp};
+use sync15::bso::OutgoingBso;
 use sync_guid::Guid;
 
 use crate::auth::TestClient;
@@ -71,8 +72,8 @@ impl SyncEngine for TestEngine {
         let temp: Vec<TestRecord> = mem::take(&mut *self.test_records.borrow_mut());
 
         let inbound = inbound.into_iter().next().unwrap();
-        for (payload, _timestamp) in inbound.changes {
-            let incoming_record: TestRecord = payload.into_record()?;
+        for bso in inbound.changes {
+            let incoming_record = bso.into_content::<TestRecord>().content().unwrap();
             info!("Got incoming record {:?}", incoming_record);
 
             self.test_records.borrow_mut().push(incoming_record);
@@ -81,8 +82,8 @@ impl SyncEngine for TestEngine {
         let mut outgoing = OutgoingChangeset::new(self.collection_name(), inbound.timestamp);
         outgoing.changes = temp
             .into_iter()
-            .map(Payload::from_record)
-            .collect::<Result<Vec<Payload>, serde_json::error::Error>>()?;
+            .map(OutgoingBso::from_content_with_id)
+            .collect::<Result<_, _>>()?;
 
         Ok(outgoing)
     }

@@ -6,7 +6,6 @@ use crate::storage::bookmarks::BookmarkRootGuid;
 use crate::types::BookmarkType;
 use error_support::{ErrorHandling, GetErrorHandling};
 use interrupt_support::Interrupted;
-use serde_json::Value as JsonValue;
 
 // Result type used internally
 pub type Result<T> = std::result::Result<T, Error>;
@@ -88,9 +87,6 @@ pub enum Error {
 
     #[error("Incoming bookmark missing type")]
     MissingBookmarkKind,
-
-    #[error("Incoming bookmark has unsupported type {0}")]
-    UnsupportedIncomingBookmarkType(JsonValue),
 
     #[error("Synced bookmark has unsupported kind {0}")]
     UnsupportedSyncedBookmarkKind(u8),
