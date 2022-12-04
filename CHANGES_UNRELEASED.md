@@ -36,3 +36,8 @@ Use the template below to make assigning a version number during the release cut
   - Allow viaduct to make requests to the android emulator's host address via
     a new viaduct_allow_android_emulator_loopback() (in Rust)/allowAndroidEmulatorLoopback() (in Kotlin)
     ([#5270](https://github.com/mozilla/application-services/pull/5270))
+
+## Tabs
+### What's changes
+  - The ClientRemoteTabs struct/interface now has a last_modified field which is the time
+    when the device last uploaded the tabs.
