@@ -26,10 +26,11 @@ Use the template below to make assigning a version number during the release cut
 ## Places
 ### What's changed
  - Removes Fennec migration code. ([#5268](https://github.com/mozilla/application-services/pull/5268))
-  The following functions no longer exist: 
+  The following functions no longer exist:
    - `importBookmarksFromFennec`
    - `importPinnedSitesFromFennec`
    - `importVisitsFromFennec`
+ - Removes old iOS bookmarks migration code. The function `migrateBookmarksFromBrowserDb` no longer exists. ([#5276](https://github.com/mozilla/application-services/pull/5276))
 
 ## Viaduct
 ### What's New
