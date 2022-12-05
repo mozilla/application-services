@@ -430,6 +430,11 @@ impl Engine {
         self.incoming = Some(inc);
     }
 
+    // A bit hacky as we need this to report telemetry for desktop via the bridged engine.
+    pub fn get_incoming(&self) -> &Option<EngineIncoming> {
+        &self.incoming
+    }
+
     pub fn outgoing(&mut self, out: EngineOutgoing) {
         self.outgoing.push(out);
     }
