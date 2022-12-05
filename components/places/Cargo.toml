@@ -44,7 +44,6 @@ features = ["functions", "window", "bundled", "unlock_notify"]
 pretty_assertions = "0.6"
 tempfile = "3.1"
 env_logger = {version = "0.7", default-features = false}
-sync15 = { path = "../sync15", features=["test-utils"] }
 
 [build-dependencies]
 uniffi_build = { version = "^0.21", features=["builtin-bindgen"] }
