@@ -8,7 +8,6 @@ use crate::api::matcher::{self, search_frecent, SearchParams};
 use crate::api::places_api::places_api_new;
 use crate::error::{ApiResult, PlacesApiError};
 use crate::import::common::HistoryMigrationResult;
-use crate::import::import_ios_bookmarks;
 use crate::import::import_ios_history;
 use crate::storage;
 use crate::storage::bookmarks;
@@ -207,13 +206,6 @@ impl PlacesApi {
                 &root_sync_key,
             )?;
             Ok(serde_json::to_string(&ping).unwrap())
-        }
-    }
-
-    fn places_bookmarks_import_from_ios(&self, db_path: String) -> ApiResult<()> {
-        handle_error! {
-            import_ios_bookmarks(self, db_path.as_str())?;
-            Ok(())
         }
     }
 

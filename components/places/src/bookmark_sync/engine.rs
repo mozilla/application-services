@@ -1068,6 +1068,7 @@ pub(crate) struct Merger<'a> {
 }
 
 impl<'a> Merger<'a> {
+    #[cfg(test)]
     pub(crate) fn new(
         db: &'a PlacesDb,
         scope: &'a SqlInterruptScope,
@@ -1117,14 +1118,6 @@ impl<'a> Merger<'a> {
             telem: None,
             global_change_tracker: db.global_bookmark_change_tracker(),
         }
-    }
-
-    /// Prevent (or re-enable, in principal) using `begin_transaction` in `apply()`.
-    ///
-    /// The assumption is that if you call this, someone higher up the call_stack is
-    /// managing the transaction at that point.
-    pub(crate) fn set_external_transaction(&mut self, v: bool) {
-        self.external_transaction = v;
     }
 
     pub(crate) fn merge(&mut self) -> Result<()> {
