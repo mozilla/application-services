@@ -2,10 +2,13 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
+use crate::{telemetry, ServerTimestamp};
 use anyhow::Result;
 
 use crate::bso::{IncomingBso, OutgoingBso};
 use crate::Guid;
+
+use super::{CollSyncIds, EngineSyncAssociation, SyncEngine};
 
 /// A BridgedEngine acts as a bridge between application-services, rust
 /// implemented sync engines and sync engines as defined by Desktop Firefox.
@@ -87,8 +90,118 @@ pub trait BridgedEngine: Send + Sync {
     fn wipe(&self) -> Result<()>;
 }
 
-// TODO: We should replace this with OutgoingChangeset to reduce the number
-// of types engines need to deal with.
+// This is an adaptor trait - the idea is that engines can implement this
+// trait along with SyncEngine and get a BridgedEngine for free. It's temporary
+// so we can land this trait without needing to update desktop.
+// Longer term, we should remove both this trait and BridgedEngine entirely, sucking up
+// the breaking change for desktop. The main blocker to this is moving desktop away
+// from the explicit timestamp handling and moving closer to the `get_collection_request`
+// model.
+pub trait BridgedEngineAdaptor: Send + Sync {
+    // These are the main mismatches between the 2 engines
+    fn last_sync(&self) -> Result<i64>;
+    fn set_last_sync(&self, last_sync_millis: i64) -> Result<()>;
+    fn sync_started(&self) -> Result<()> {
+        Ok(())
+    }
+
+    fn engine(&self) -> &dyn SyncEngine;
+}
+
+impl<A: BridgedEngineAdaptor> BridgedEngine for A {
+    fn last_sync(&self) -> Result<i64> {
+        self.last_sync()
+    }
+
+    fn set_last_sync(&self, last_sync_millis: i64) -> Result<()> {
+        self.set_last_sync(last_sync_millis)
+    }
+
+    fn sync_id(&self) -> Result<Option<String>> {
+        Ok(match self.engine().get_sync_assoc()? {
+            EngineSyncAssociation::Disconnected => None,
+            EngineSyncAssociation::Connected(c) => Some(c.coll.into()),
+        })
+    }
+
+    fn reset_sync_id(&self) -> Result<String> {
+        let global = Guid::empty();
+        let coll = Guid::random();
+        self.engine()
+            .reset(&EngineSyncAssociation::Connected(CollSyncIds {
+                global,
+                coll: coll.clone(),
+            }))?;
+        Ok(coll.to_string())
+    }
+
+    fn ensure_current_sync_id(&self, sync_id: &str) -> Result<String> {
+        let engine = self.engine();
+        let assoc = engine.get_sync_assoc()?;
+        if matches!(assoc, EngineSyncAssociation::Connected(c) if c.coll == sync_id) {
+            log::debug!("ensure_current_sync_id is current");
+        } else {
+            let new_coll_ids = CollSyncIds {
+                global: Guid::empty(),
+                coll: sync_id.into(),
+            };
+            engine.reset(&EngineSyncAssociation::Connected(new_coll_ids))?;
+        }
+        Ok(sync_id.to_string())
+    }
+
+    fn prepare_for_sync(&self, client_data: &str) -> Result<()> {
+        // unwrap here is unfortunate, but can hopefully go away if we can
+        // start using the ClientData type instead of the string.
+        self.engine()
+            .prepare_for_sync(&|| serde_json::from_str::<crate::ClientData>(client_data).unwrap())
+    }
+
+    fn sync_started(&self) -> Result<()> {
+        A::sync_started(self)
+    }
+
+    fn store_incoming(&self, incoming_records: Vec<IncomingBso>) -> Result<()> {
+        let engine = self.engine();
+        let mut telem = telemetry::Engine::new(engine.collection_name());
+        engine.stage_incoming(incoming_records, &mut telem)
+    }
+
+    fn apply(&self) -> Result<ApplyResults> {
+        let engine = self.engine();
+        let mut telem = telemetry::Engine::new(engine.collection_name());
+        // we tell it to apply with an invalid timestamp then update it.
+        // this isn't atomic and we probably shouldn't do it, but to get a feel...
+        let records = engine.apply(ServerTimestamp::from_millis(0), &mut telem)?;
+        Ok(ApplyResults {
+            records,
+            num_reconciled: telem
+                .get_incoming()
+                .as_ref()
+                .map(|i| i.get_reconciled() as usize),
+        })
+    }
+
+    fn set_uploaded(&self, millis: i64, ids: &[Guid]) -> Result<()> {
+        self.engine()
+            .set_uploaded(ServerTimestamp::from_millis(millis), ids.to_vec())
+    }
+
+    fn sync_finished(&self) -> Result<()> {
+        self.engine().sync_finished()
+    }
+
+    fn reset(&self) -> Result<()> {
+        self.engine().reset(&EngineSyncAssociation::Disconnected)
+    }
+
+    fn wipe(&self) -> Result<()> {
+        self.engine().wipe()
+    }
+}
+
+// TODO: We should see if we can remove this to reduce the number of types engines need to deal
+// with. num_reconciled is only used for telemetry on desktop.
 #[derive(Debug, Default)]
 pub struct ApplyResults {
     /// List of records
