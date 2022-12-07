@@ -18,10 +18,14 @@ Use the template below to make assigning a version number during the release cut
   - Description of the change with a link to the pull request ([#0000](https://github.com/mozilla/application-services/pull/0000))
 
 -->
-
 ## Logins
 ### What's changed
  - Removes Fennec migration code. The function `importMultiple` no longer exists. ([#5268](https://github.com/mozilla/application-services/pull/5268))
+
+## Nimbus
+
+### What's Changed
+  - Event store date comparison logic update to be entirely relative ([#5265](https://github.com/mozilla/application-services/pull/5265))
 
 ## Places
 ### What's changed

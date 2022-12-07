@@ -304,7 +304,7 @@ fn main() -> Result<()> {
                         &aru,
                         &targeting_attributes,
                         exp,
-                        &event_store.lock().unwrap(),
+                        event_store.clone(),
                     )?;
                     if enr.status.is_enrolled() {
                         num_of_experiments_enrolled += 1;
@@ -366,7 +366,7 @@ fn main() -> Result<()> {
                     &aru,
                     &targeting_attributes,
                     &exp,
-                    &event_store.lock().unwrap(),
+                    event_store.clone(),
                 )?;
                 let key = match enrollment.status.clone() {
                     EnrollmentStatus::Enrolled { .. } => "Enrolled",

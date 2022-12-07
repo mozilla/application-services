@@ -331,13 +331,12 @@ impl NimbusClient {
         experiments: &[Experiment],
     ) -> Result<Vec<EnrollmentChangeEvent>> {
         let nimbus_id = self.read_or_create_nimbus_id(db, writer)?;
-        let event_store = self.event_store.lock().unwrap();
         let evolver = EnrollmentsEvolver::new(
             &nimbus_id,
             &state.available_randomization_units,
             &state.targeting_attributes,
         );
-        evolver.evolve_enrollments_in_db(db, writer, experiments, &event_store)
+        evolver.evolve_enrollments_in_db(db, writer, experiments, self.event_store.clone())
     }
 
     pub fn apply_pending_experiments(&self) -> Result<Vec<EnrollmentChangeEvent>> {
@@ -874,8 +873,7 @@ impl NimbusTargetingHelper {
     }
 
     pub fn eval_jexl(&self, expr: String) -> Result<bool> {
-        let event_store = self.event_store.lock().unwrap();
-        evaluator::jexl_eval(&expr, &self.context, &event_store)
+        evaluator::jexl_eval(&expr, &self.context, self.event_store.clone())
     }
 }
 
