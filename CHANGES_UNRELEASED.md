@@ -26,6 +26,9 @@ Use the template below to make assigning a version number during the release cut
 
 ### What's Changed
   - Event store date comparison logic update to be entirely relative ([#5265](https://github.com/mozilla/application-services/pull/5265))
+  - Updates event store to initialize all dates at the start of the current year ([#5279](https://github.com/mozilla/application-services/pull/5279))
+  - Adds new Kotlin/Swift methods to clear the event store ([#5279](https://github.com/mozilla/application-services/pull/5279))
+  - Adds Swift methods to wait for operation queues to finish ([#5279](https://github.com/mozilla/application-services/pull/5279))
 
 ## Places
 ### What's changed
