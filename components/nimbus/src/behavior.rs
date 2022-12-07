@@ -129,6 +129,7 @@ impl IntervalData {
             starting_instant: Utc::now(),
         };
         data.buckets.push_front(0);
+        // Set the starting instant to Jan 1 00:00:00 in order to sync rotations
         data.starting_instant = data
             .starting_instant
             .with_month(1)
