@@ -214,7 +214,10 @@ mod single_interval_counter_tests {
 
     #[test]
     fn test_advance_do_not_advance() -> Result<()> {
-        let mut counter = SingleIntervalCounter::new(IntervalConfig::new(7, Interval::Days));
+        let mut counter = SingleIntervalCounter::from(
+            IntervalData::from(VecDeque::new(), 7, Utc::now()),
+            IntervalConfig::new(7, Interval::Days),
+        );
         let date = Utc::now();
         counter.maybe_advance(date).ok();
 
@@ -224,7 +227,10 @@ mod single_interval_counter_tests {
 
     #[test]
     fn test_advance_do_advance() -> Result<()> {
-        let mut counter = SingleIntervalCounter::new(IntervalConfig::new(7, Interval::Days));
+        let mut counter = SingleIntervalCounter::from(
+            IntervalData::from(VecDeque::new(), 7, Utc::now()),
+            IntervalConfig::new(7, Interval::Days),
+        );
         let date = Utc::now() + Duration::days(1);
         counter.maybe_advance(date).ok();
 
@@ -452,10 +458,16 @@ mod multi_interval_counter_tests {
     #[test]
     fn test_advance_do_not_advance() -> Result<()> {
         let mut counter = MultiIntervalCounter::new(vec![
-            SingleIntervalCounter::new(IntervalConfig::new(12, Interval::Months)),
-            SingleIntervalCounter::new(IntervalConfig::new(28, Interval::Days)),
+            SingleIntervalCounter::from(
+                IntervalData::from(VecDeque::new(), 12, Utc::now()),
+                IntervalConfig::new(12, Interval::Months),
+            ),
+            SingleIntervalCounter::from(
+                IntervalData::from(VecDeque::new(), 28, Utc::now()),
+                IntervalConfig::new(28, Interval::Days),
+            ),
         ]);
-        let date = Utc::now();
+        let date = Utc::now() + Duration::minutes(1);
         counter.maybe_advance(date).ok();
 
         assert_eq!(
@@ -484,8 +496,14 @@ mod multi_interval_counter_tests {
     #[test]
     fn test_advance_advance_some() -> Result<()> {
         let mut counter = MultiIntervalCounter::new(vec![
-            SingleIntervalCounter::new(IntervalConfig::new(12, Interval::Months)),
-            SingleIntervalCounter::new(IntervalConfig::new(28, Interval::Days)),
+            SingleIntervalCounter::from(
+                IntervalData::from(VecDeque::new(), 12, Utc::now()),
+                IntervalConfig::new(12, Interval::Months),
+            ),
+            SingleIntervalCounter::from(
+                IntervalData::from(VecDeque::new(), 28, Utc::now()),
+                IntervalConfig::new(28, Interval::Days),
+            ),
         ]);
         let date = Utc::now() + Duration::days(1);
         counter.maybe_advance(date).ok();
@@ -514,7 +532,7 @@ mod multi_interval_counter_tests {
     }
 
     #[test]
-    fn test_advance_minutes_relative() {
+    fn test_advance_minutes_relative() -> Result<()> {
         let d1 = DateTime::parse_from_rfc3339("2022-06-10T23:59:30Z")
             .unwrap()
             .with_timezone(&Utc);
@@ -526,7 +544,8 @@ mod multi_interval_counter_tests {
             .intervals
             .iter_mut()
             .for_each(|(_, c)| c.data.starting_instant = d1);
-        counter.maybe_advance(d2).unwrap();
+        counter.increment()?;
+        counter.maybe_advance(d2)?;
 
         assert_eq!(
             counter
@@ -534,14 +553,14 @@ mod multi_interval_counter_tests {
                 .get(&Interval::Minutes)
                 .unwrap()
                 .data
-                .buckets
-                .len(),
-            2
+                .buckets[1],
+            1
         );
+        Ok(())
     }
 
     #[test]
-    fn test_advance_hours_relative() {
+    fn test_advance_hours_relative() -> Result<()> {
         let d1 = DateTime::parse_from_rfc3339("2022-06-10T23:59:00Z")
             .unwrap()
             .with_timezone(&Utc);
@@ -553,7 +572,8 @@ mod multi_interval_counter_tests {
             .intervals
             .iter_mut()
             .for_each(|(_, c)| c.data.starting_instant = d1);
-        counter.maybe_advance(d2).unwrap();
+        counter.increment()?;
+        counter.maybe_advance(d2)?;
 
         assert_eq!(
             counter
@@ -561,14 +581,14 @@ mod multi_interval_counter_tests {
                 .get(&Interval::Hours)
                 .unwrap()
                 .data
-                .buckets
-                .len(),
-            2
+                .buckets[1],
+            1
         );
+        Ok(())
     }
 
     #[test]
-    fn test_advance_days_relative() {
+    fn test_advance_days_relative() -> Result<()> {
         let d1 = DateTime::parse_from_rfc3339("2022-06-10T23:59:00Z")
             .unwrap()
             .with_timezone(&Utc);
@@ -580,22 +600,18 @@ mod multi_interval_counter_tests {
             .intervals
             .iter_mut()
             .for_each(|(_, c)| c.data.starting_instant = d1);
-        counter.maybe_advance(d2).unwrap();
+        counter.increment()?;
+        counter.maybe_advance(d2)?;
 
         assert_eq!(
-            counter
-                .intervals
-                .get(&Interval::Days)
-                .unwrap()
-                .data
-                .buckets
-                .len(),
-            2
+            counter.intervals.get(&Interval::Days).unwrap().data.buckets[1],
+            1
         );
+        Ok(())
     }
 
     #[test]
-    fn test_advance_weeks_relative() {
+    fn test_advance_weeks_relative() -> Result<()> {
         let d1 = DateTime::parse_from_rfc3339("2022-06-10T23:59:00Z")
             .unwrap()
             .with_timezone(&Utc);
@@ -607,7 +623,8 @@ mod multi_interval_counter_tests {
             .intervals
             .iter_mut()
             .for_each(|(_, c)| c.data.starting_instant = d1);
-        counter.maybe_advance(d2).unwrap();
+        counter.increment()?;
+        counter.maybe_advance(d2)?;
 
         assert_eq!(
             counter
@@ -615,14 +632,14 @@ mod multi_interval_counter_tests {
                 .get(&Interval::Weeks)
                 .unwrap()
                 .data
-                .buckets
-                .len(),
-            2
+                .buckets[1],
+            1
         );
+        Ok(())
     }
 
     #[test]
-    fn test_advance_months_relative() {
+    fn test_advance_months_relative() -> Result<()> {
         let d1 = DateTime::parse_from_rfc3339("2022-06-10T23:59:00Z")
             .unwrap()
             .with_timezone(&Utc);
@@ -634,7 +651,8 @@ mod multi_interval_counter_tests {
             .intervals
             .iter_mut()
             .for_each(|(_, c)| c.data.starting_instant = d1);
-        counter.maybe_advance(d2).unwrap();
+        counter.increment()?;
+        counter.maybe_advance(d2)?;
 
         assert_eq!(
             counter
@@ -642,14 +660,14 @@ mod multi_interval_counter_tests {
                 .get(&Interval::Months)
                 .unwrap()
                 .data
-                .buckets
-                .len(),
-            2
+                .buckets[1],
+            1
         );
+        Ok(())
     }
 
     #[test]
-    fn test_advance_years_relative() {
+    fn test_advance_years_relative() -> Result<()> {
         let d1 = DateTime::parse_from_rfc3339("2022-06-10T23:59:00Z")
             .unwrap()
             .with_timezone(&Utc);
@@ -661,7 +679,8 @@ mod multi_interval_counter_tests {
             .intervals
             .iter_mut()
             .for_each(|(_, c)| c.data.starting_instant = d1);
-        counter.maybe_advance(d2).unwrap();
+        counter.increment()?;
+        counter.maybe_advance(d2)?;
 
         assert_eq!(
             counter
@@ -669,10 +688,10 @@ mod multi_interval_counter_tests {
                 .get(&Interval::Years)
                 .unwrap()
                 .data
-                .buckets
-                .len(),
-            2
+                .buckets[1],
+            1
         );
+        Ok(())
     }
 }
 
@@ -685,13 +704,25 @@ mod event_store_tests {
     #[test]
     fn record_event_should_function() -> Result<()> {
         let counter1 = MultiIntervalCounter::new(vec![
-            SingleIntervalCounter::new(IntervalConfig::new(12, Interval::Months)),
-            SingleIntervalCounter::new(IntervalConfig::new(28, Interval::Days)),
+            SingleIntervalCounter::from(
+                IntervalData::from(VecDeque::new(), 12, Utc::now()),
+                IntervalConfig::new(12, Interval::Months),
+            ),
+            SingleIntervalCounter::from(
+                IntervalData::from(VecDeque::new(), 28, Utc::now()),
+                IntervalConfig::new(28, Interval::Days),
+            ),
         ]);
 
         let counter2 = MultiIntervalCounter::new(vec![
-            SingleIntervalCounter::new(IntervalConfig::new(12, Interval::Months)),
-            SingleIntervalCounter::new(IntervalConfig::new(28, Interval::Days)),
+            SingleIntervalCounter::from(
+                IntervalData::from(VecDeque::new(), 12, Utc::now()),
+                IntervalConfig::new(12, Interval::Months),
+            ),
+            SingleIntervalCounter::from(
+                IntervalData::from(VecDeque::new(), 28, Utc::now()),
+                IntervalConfig::new(28, Interval::Days),
+            ),
         ]);
 
         let mut store = EventStore::from(vec![

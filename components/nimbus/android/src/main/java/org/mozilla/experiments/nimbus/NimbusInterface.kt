@@ -193,6 +193,13 @@ interface NimbusInterface : FeaturesInterface, GleanPlumbInterface {
     fun recordEvent(eventId: String) = Unit
 
     /**
+     * Clears the Nimbus event store.
+     *
+     * This should only be used in testing or cases where the previous event store is no longer viable.
+     */
+    fun clearEvents() = Unit
+
+    /**
      * Control the opt out for all experiments at once. This is likely a user action.
      */
     var globalUserParticipation: Boolean

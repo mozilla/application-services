@@ -364,6 +364,13 @@ open class Nimbus(
         }
     }
 
+    @WorkerThread
+    override fun clearEvents() {
+        dbScope.launch {
+            nimbusClient.clearEvents()
+        }
+    }
+
     override fun createMessageHelper(additionalContext: JSONObject?): GleanPlumbMessageHelper =
         GleanPlumbMessageHelper(
             nimbusClient.createTargetingHelper(additionalContext),

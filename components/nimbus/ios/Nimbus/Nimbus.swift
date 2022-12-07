@@ -56,10 +56,26 @@ private extension Nimbus {
     }
 }
 
+extension Nimbus: NimbusQueues {
+    public func waitForFetchQueue() {
+        fetchQueue.waitUntilAllOperationsAreFinished()
+    }
+
+    public func waitForDbQueue() {
+        dbQueue.waitUntilAllOperationsAreFinished()
+    }
+}
+
 extension Nimbus: NimbusEvents {
     public func recordEvent(_ eventId: String) {
         catchAll(dbQueue) {
             try self.nimbusClient.recordEvent(eventId: eventId)
+        }
+    }
+
+    public func clearEvents() {
+        catchAll(dbQueue) {
+            try self.nimbusClient.clearEvents()
         }
     }
 }
@@ -392,9 +408,15 @@ public extension NimbusDisabled {
 
     func recordEvent(_: String) {}
 
+    func clearEvents() {}
+
     func getExperimentBranches(_: String) -> [Branch]? {
         return nil
     }
+
+    func waitForFetchQueue() {}
+
+    func waitForDbQueue() {}
 }
 
 extension NimbusDisabled: GleanPlumbProtocol {

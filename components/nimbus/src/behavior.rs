@@ -5,7 +5,7 @@
 
 use crate::error::{BehaviorError, NimbusError, Result};
 use crate::persistence::{Database, StoreId};
-use chrono::{DateTime, Duration, Utc};
+use chrono::{DateTime, Datelike, Duration, Utc};
 use serde::{Deserialize, Serialize};
 use std::collections::vec_deque::Iter;
 use std::collections::{HashMap, VecDeque};
@@ -129,6 +129,14 @@ impl IntervalData {
             starting_instant: Utc::now(),
         };
         data.buckets.push_front(0);
+        data.starting_instant = data
+            .starting_instant
+            .with_month(1)
+            .unwrap()
+            .with_day(1)
+            .unwrap()
+            .date()
+            .and_hms(0, 0, 0);
         data
     }
 
@@ -137,11 +145,15 @@ impl IntervalData {
         bucket_count: usize,
         starting_instant: DateTime<Utc>,
     ) -> Self {
-        Self {
+        let mut data = Self {
             buckets,
             bucket_count,
             starting_instant,
+        };
+        if data.buckets.is_empty() {
+            data.buckets.push_front(0);
         }
+        data
     }
 
     pub fn increment(&mut self) -> Result<()> {
@@ -176,10 +188,12 @@ pub struct SingleIntervalCounter {
 
 impl SingleIntervalCounter {
     pub fn new(config: IntervalConfig) -> Self {
-        Self {
+        let mut counter = Self {
             data: IntervalData::new(config.bucket_count),
             config,
-        }
+        };
+        counter.maybe_advance(Utc::now()).unwrap();
+        counter
     }
 
     pub fn from(data: IntervalData, config: IntervalConfig) -> Self {
@@ -203,9 +217,9 @@ impl SingleIntervalCounter {
             .config
             .interval
             .num_rotations(self.data.starting_instant, now)?;
-        self.data.starting_instant =
-            self.data.starting_instant + self.config.interval.to_duration(rotations.into());
         if rotations > 0 {
+            self.data.starting_instant =
+                self.data.starting_instant + self.config.interval.to_duration(rotations.into());
             return self.data.rotate(rotations);
         }
         Ok(())
@@ -378,6 +392,12 @@ impl EventStore {
                 .put(&mut writer, key, &(key.clone(), value.clone()))
         })?;
         writer.commit()?;
+        Ok(())
+    }
+
+    pub fn clear(&mut self, db: &Database) -> Result<()> {
+        self.events = HashMap::<String, MultiIntervalCounter>::new();
+        self.persist_data(db)?;
         Ok(())
     }
 
