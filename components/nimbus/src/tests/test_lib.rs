@@ -15,7 +15,7 @@ use crate::{
 };
 use chrono::{DateTime, Duration, Utc};
 use serde_json::json;
-use std::{collections::VecDeque, io::Write};
+use std::io::Write;
 
 #[test]
 fn test_telemetry_reset() -> Result<()> {
@@ -691,14 +691,14 @@ fn event_store_exists_for_apply_pending_experiments() -> Result<()> {
     let temp_dir = tempfile::tempdir()?;
 
     let db = Database::new(temp_dir.path())?;
-    let counter = MultiIntervalCounter::new(vec![SingleIntervalCounter::from(
-        IntervalData {
+    let counter = MultiIntervalCounter::new(vec![SingleIntervalCounter {
+        data: IntervalData {
             bucket_count: 3,
             starting_instant: Utc::now(),
-            buckets: VecDeque::from(vec![1, 1, 0]),
+            buckets: vec![1, 1, 0].into(),
         },
-        IntervalConfig::new(3, Interval::Days),
-    )]);
+        config: IntervalConfig::new(3, Interval::Days),
+    }]);
     let event_store = EventStore::from(vec![("app.foregrounded".to_string(), counter)]);
     event_store.persist_data(&db).ok();
 
@@ -813,14 +813,14 @@ fn event_store_on_targeting_attributes_is_updated_after_an_event_is_recorded() -
     let temp_dir = tempfile::tempdir()?;
 
     let db = Database::new(temp_dir.path())?;
-    let counter = MultiIntervalCounter::new(vec![SingleIntervalCounter::from(
-        IntervalData {
+    let counter = MultiIntervalCounter::new(vec![SingleIntervalCounter {
+        data: IntervalData {
             bucket_count: 5,
             starting_instant: Utc::now() - Duration::days(1),
-            buckets: VecDeque::from(vec![1, 1, 0, 0, 0]),
+            buckets: vec![1, 1, 0, 0, 0].into(),
         },
-        IntervalConfig::new(5, Interval::Days),
-    )]);
+        config: IntervalConfig::new(5, Interval::Days),
+    }]);
     let event_store = EventStore::from(vec![("app.foregrounded".to_string(), counter)]);
     event_store.persist_data(&db).ok();
 

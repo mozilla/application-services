@@ -214,10 +214,14 @@ mod single_interval_counter_tests {
 
     #[test]
     fn test_advance_do_not_advance() -> Result<()> {
-        let mut counter = SingleIntervalCounter::from(
-            IntervalData::from(VecDeque::new(), 7, Utc::now()),
-            IntervalConfig::new(7, Interval::Days),
-        );
+        let mut counter = SingleIntervalCounter {
+            data: IntervalData {
+                buckets: [0].into(),
+                bucket_count: 7,
+                starting_instant: Utc::now(),
+            },
+            config: IntervalConfig::new(7, Interval::Days),
+        };
         let date = Utc::now();
         counter.maybe_advance(date).ok();
 
@@ -227,10 +231,14 @@ mod single_interval_counter_tests {
 
     #[test]
     fn test_advance_do_advance() -> Result<()> {
-        let mut counter = SingleIntervalCounter::from(
-            IntervalData::from(VecDeque::new(), 7, Utc::now()),
-            IntervalConfig::new(7, Interval::Days),
-        );
+        let mut counter = SingleIntervalCounter {
+            data: IntervalData {
+                buckets: [0].into(),
+                bucket_count: 7,
+                starting_instant: Utc::now(),
+            },
+            config: IntervalConfig::new(7, Interval::Days),
+        };
         let date = Utc::now() + Duration::days(1);
         counter.maybe_advance(date).ok();
 
@@ -252,14 +260,14 @@ mod single_interval_counter_tests {
         let d4 = DateTime::parse_from_rfc3339("2022-06-10T08:02:57Z")
             .unwrap()
             .with_timezone(&Utc);
-        let mut counter: SingleIntervalCounter = SingleIntervalCounter::from(
-            IntervalData {
+        let mut counter: SingleIntervalCounter = SingleIntervalCounter {
+            data: IntervalData {
                 bucket_count: 7,
                 buckets: VecDeque::with_capacity(7),
                 starting_instant: d1,
             },
-            IntervalConfig::new(7, Interval::Minutes),
-        );
+            config: IntervalConfig::new(7, Interval::Minutes),
+        };
         counter.data.buckets.push_front(0);
 
         counter.maybe_advance(d2).unwrap();
@@ -283,14 +291,14 @@ mod single_interval_counter_tests {
         let d4 = DateTime::parse_from_rfc3339("2022-06-10T10:57:00Z")
             .unwrap()
             .with_timezone(&Utc);
-        let mut counter: SingleIntervalCounter = SingleIntervalCounter::from(
-            IntervalData {
+        let mut counter: SingleIntervalCounter = SingleIntervalCounter {
+            data: IntervalData {
                 bucket_count: 7,
                 buckets: VecDeque::with_capacity(7),
                 starting_instant: d1,
             },
-            IntervalConfig::new(7, Interval::Hours),
-        );
+            config: IntervalConfig::new(7, Interval::Hours),
+        };
         counter.data.buckets.push_front(0);
 
         counter.maybe_advance(d2).unwrap();
@@ -314,14 +322,14 @@ mod single_interval_counter_tests {
         let d4 = DateTime::parse_from_rfc3339("2022-06-13T07:57:00Z")
             .unwrap()
             .with_timezone(&Utc);
-        let mut counter: SingleIntervalCounter = SingleIntervalCounter::from(
-            IntervalData {
+        let mut counter: SingleIntervalCounter = SingleIntervalCounter {
+            data: IntervalData {
                 bucket_count: 7,
                 buckets: VecDeque::with_capacity(7),
                 starting_instant: d1,
             },
-            IntervalConfig::new(7, Interval::Days),
-        );
+            config: IntervalConfig::new(7, Interval::Days),
+        };
         counter.data.buckets.push_front(0);
 
         counter.maybe_advance(d2).unwrap();
@@ -345,14 +353,14 @@ mod single_interval_counter_tests {
         let d4 = DateTime::parse_from_rfc3339("2022-07-01T07:57:00Z")
             .unwrap()
             .with_timezone(&Utc);
-        let mut counter: SingleIntervalCounter = SingleIntervalCounter::from(
-            IntervalData {
+        let mut counter: SingleIntervalCounter = SingleIntervalCounter {
+            data: IntervalData {
                 bucket_count: 7,
                 buckets: VecDeque::with_capacity(7),
                 starting_instant: d1,
             },
-            IntervalConfig::new(7, Interval::Weeks),
-        );
+            config: IntervalConfig::new(7, Interval::Weeks),
+        };
         counter.data.buckets.push_front(0);
 
         counter.maybe_advance(d2).unwrap();
@@ -376,14 +384,14 @@ mod single_interval_counter_tests {
         let d4 = DateTime::parse_from_rfc3339("2022-08-30T07:57:00Z")
             .unwrap()
             .with_timezone(&Utc);
-        let mut counter: SingleIntervalCounter = SingleIntervalCounter::from(
-            IntervalData {
+        let mut counter: SingleIntervalCounter = SingleIntervalCounter {
+            data: IntervalData {
                 bucket_count: 7,
                 buckets: VecDeque::with_capacity(7),
                 starting_instant: d1,
             },
-            IntervalConfig::new(7, Interval::Months),
-        );
+            config: IntervalConfig::new(7, Interval::Months),
+        };
         counter.data.buckets.push_front(0);
 
         counter.maybe_advance(d2).unwrap();
@@ -407,14 +415,14 @@ mod single_interval_counter_tests {
         let d4 = DateTime::parse_from_rfc3339("2025-06-09T07:57:00Z")
             .unwrap()
             .with_timezone(&Utc);
-        let mut counter: SingleIntervalCounter = SingleIntervalCounter::from(
-            IntervalData {
+        let mut counter: SingleIntervalCounter = SingleIntervalCounter {
+            data: IntervalData {
                 bucket_count: 7,
                 buckets: VecDeque::with_capacity(7),
                 starting_instant: d1,
             },
-            IntervalConfig::new(7, Interval::Years),
-        );
+            config: IntervalConfig::new(7, Interval::Years),
+        };
         counter.data.buckets.push_front(0);
 
         counter.maybe_advance(d2).unwrap();
@@ -458,14 +466,22 @@ mod multi_interval_counter_tests {
     #[test]
     fn test_advance_do_not_advance() -> Result<()> {
         let mut counter = MultiIntervalCounter::new(vec![
-            SingleIntervalCounter::from(
-                IntervalData::from(VecDeque::new(), 12, Utc::now()),
-                IntervalConfig::new(12, Interval::Months),
-            ),
-            SingleIntervalCounter::from(
-                IntervalData::from(VecDeque::new(), 28, Utc::now()),
-                IntervalConfig::new(28, Interval::Days),
-            ),
+            SingleIntervalCounter {
+                data: IntervalData {
+                    buckets: [0].into(),
+                    bucket_count: 12,
+                    starting_instant: Utc::now(),
+                },
+                config: IntervalConfig::new(12, Interval::Months),
+            },
+            SingleIntervalCounter {
+                data: IntervalData {
+                    buckets: [0].into(),
+                    bucket_count: 28,
+                    starting_instant: Utc::now(),
+                },
+                config: IntervalConfig::new(28, Interval::Days),
+            },
         ]);
         let date = Utc::now() + Duration::minutes(1);
         counter.maybe_advance(date).ok();
@@ -496,14 +512,22 @@ mod multi_interval_counter_tests {
     #[test]
     fn test_advance_advance_some() -> Result<()> {
         let mut counter = MultiIntervalCounter::new(vec![
-            SingleIntervalCounter::from(
-                IntervalData::from(VecDeque::new(), 12, Utc::now()),
-                IntervalConfig::new(12, Interval::Months),
-            ),
-            SingleIntervalCounter::from(
-                IntervalData::from(VecDeque::new(), 28, Utc::now()),
-                IntervalConfig::new(28, Interval::Days),
-            ),
+            SingleIntervalCounter {
+                data: IntervalData {
+                    buckets: [0].into(),
+                    bucket_count: 12,
+                    starting_instant: Utc::now(),
+                },
+                config: IntervalConfig::new(12, Interval::Months),
+            },
+            SingleIntervalCounter {
+                data: IntervalData {
+                    buckets: [0].into(),
+                    bucket_count: 28,
+                    starting_instant: Utc::now(),
+                },
+                config: IntervalConfig::new(28, Interval::Days),
+            },
         ]);
         let date = Utc::now() + Duration::days(1);
         counter.maybe_advance(date).ok();
@@ -704,25 +728,41 @@ mod event_store_tests {
     #[test]
     fn record_event_should_function() -> Result<()> {
         let counter1 = MultiIntervalCounter::new(vec![
-            SingleIntervalCounter::from(
-                IntervalData::from(VecDeque::new(), 12, Utc::now()),
-                IntervalConfig::new(12, Interval::Months),
-            ),
-            SingleIntervalCounter::from(
-                IntervalData::from(VecDeque::new(), 28, Utc::now()),
-                IntervalConfig::new(28, Interval::Days),
-            ),
+            SingleIntervalCounter {
+                data: IntervalData {
+                    buckets: [0].into(),
+                    bucket_count: 12,
+                    starting_instant: Utc::now(),
+                },
+                config: IntervalConfig::new(12, Interval::Months),
+            },
+            SingleIntervalCounter {
+                data: IntervalData {
+                    buckets: [0].into(),
+                    bucket_count: 28,
+                    starting_instant: Utc::now(),
+                },
+                config: IntervalConfig::new(28, Interval::Days),
+            },
         ]);
 
         let counter2 = MultiIntervalCounter::new(vec![
-            SingleIntervalCounter::from(
-                IntervalData::from(VecDeque::new(), 12, Utc::now()),
-                IntervalConfig::new(12, Interval::Months),
-            ),
-            SingleIntervalCounter::from(
-                IntervalData::from(VecDeque::new(), 28, Utc::now()),
-                IntervalConfig::new(28, Interval::Days),
-            ),
+            SingleIntervalCounter {
+                data: IntervalData {
+                    buckets: [0].into(),
+                    bucket_count: 12,
+                    starting_instant: Utc::now(),
+                },
+                config: IntervalConfig::new(12, Interval::Months),
+            },
+            SingleIntervalCounter {
+                data: IntervalData {
+                    buckets: [0].into(),
+                    bucket_count: 28,
+                    starting_instant: Utc::now(),
+                },
+                config: IntervalConfig::new(28, Interval::Days),
+            },
         ]);
 
         let mut store = EventStore::from(vec![

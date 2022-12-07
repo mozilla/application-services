@@ -141,22 +141,6 @@ impl IntervalData {
         data
     }
 
-    pub fn from(
-        buckets: VecDeque<u64>,
-        bucket_count: usize,
-        starting_instant: DateTime<Utc>,
-    ) -> Self {
-        let mut data = Self {
-            buckets,
-            bucket_count,
-            starting_instant,
-        };
-        if data.buckets.is_empty() {
-            data.buckets.push_front(0);
-        }
-        data
-    }
-
     pub fn increment(&mut self) -> Result<()> {
         match self.buckets.front_mut() {
             Some(x) => *x += 1,
@@ -195,10 +179,6 @@ impl SingleIntervalCounter {
         };
         counter.maybe_advance(Utc::now()).unwrap();
         counter
-    }
-
-    pub fn from(data: IntervalData, config: IntervalConfig) -> Self {
-        Self { data, config }
     }
 
     pub fn from_config(bucket_count: usize, interval: Interval) -> Self {
@@ -240,10 +220,6 @@ impl MultiIntervalCounter {
                 .map(|v| (v.config.interval.clone(), v))
                 .collect::<HashMap<Interval, SingleIntervalCounter>>(),
         }
-    }
-
-    pub fn from(intervals: HashMap<Interval, SingleIntervalCounter>) -> Self {
-        Self { intervals }
     }
 
     pub fn increment(&mut self) -> Result<()> {

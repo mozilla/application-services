@@ -393,7 +393,7 @@ fn test_targeting() {
         })
     ));
 }
-use std::collections::{HashSet, VecDeque};
+use std::collections::HashSet;
 use std::sync::{Arc, Mutex};
 
 #[test]
@@ -1059,14 +1059,14 @@ fn test_enrollment_bucketing() {
 
 #[test]
 fn test_event_sum_transform() {
-    let counter = MultiIntervalCounter::new(vec![SingleIntervalCounter::from(
-        IntervalData {
+    let counter = MultiIntervalCounter::new(vec![SingleIntervalCounter {
+        data: IntervalData {
             bucket_count: 3,
             starting_instant: Utc::now(),
-            buckets: VecDeque::from(vec![1, 1, 0]),
+            buckets: vec![1, 1, 0].into(),
         },
-        IntervalConfig::new(3, Interval::Days),
-    )]);
+        config: IntervalConfig::new(3, Interval::Days),
+    }]);
 
     let event_store = Arc::new(Mutex::new(EventStore::from(vec![(
         "app.foregrounded".to_string(),
@@ -1098,14 +1098,14 @@ fn test_event_sum_transform() {
 
 #[test]
 fn test_event_count_non_zero_transform() {
-    let counter = MultiIntervalCounter::new(vec![SingleIntervalCounter::from(
-        IntervalData {
+    let counter = MultiIntervalCounter::new(vec![SingleIntervalCounter {
+        data: IntervalData {
             bucket_count: 3,
             starting_instant: Utc::now(),
-            buckets: VecDeque::from(vec![1, 2, 0]),
+            buckets: vec![1, 2, 0].into(),
         },
-        IntervalConfig::new(3, Interval::Days),
-    )]);
+        config: IntervalConfig::new(3, Interval::Days),
+    }]);
 
     let event_store = Arc::new(Mutex::new(EventStore::from(vec![(
         "app.foregrounded".to_string(),
@@ -1137,14 +1137,14 @@ fn test_event_count_non_zero_transform() {
 
 #[test]
 fn test_event_average_per_interval_transform() {
-    let counter = MultiIntervalCounter::new(vec![SingleIntervalCounter::from(
-        IntervalData {
-            bucket_count: 7,
+    let counter = MultiIntervalCounter::new(vec![SingleIntervalCounter {
+        data: IntervalData {
+            bucket_count: 3,
             starting_instant: Utc::now(),
-            buckets: VecDeque::from(vec![1, 2, 0, 0, 0, 2, 3]),
+            buckets: vec![1, 2, 0, 0, 0, 2, 3].into(),
         },
-        IntervalConfig::new(7, Interval::Days),
-    )]);
+        config: IntervalConfig::new(3, Interval::Days),
+    }]);
 
     let event_store = Arc::new(Mutex::new(EventStore::from(vec![(
         "app.foregrounded".to_string(),
@@ -1176,14 +1176,14 @@ fn test_event_average_per_interval_transform() {
 
 #[test]
 fn test_event_average_per_non_zero_interval_transform() {
-    let counter = MultiIntervalCounter::new(vec![SingleIntervalCounter::from(
-        IntervalData {
-            bucket_count: 7,
+    let counter = MultiIntervalCounter::new(vec![SingleIntervalCounter {
+        data: IntervalData {
+            bucket_count: 3,
             starting_instant: Utc::now(),
-            buckets: VecDeque::from(vec![1, 2, 0, 0, 0, 2, 4]),
+            buckets: vec![1, 2, 0, 0, 0, 2, 4].into(),
         },
-        IntervalConfig::new(7, Interval::Days),
-    )]);
+        config: IntervalConfig::new(3, Interval::Days),
+    }]);
 
     let event_store = Arc::new(Mutex::new(EventStore::from(vec![(
         "app.foregrounded".to_string(),
