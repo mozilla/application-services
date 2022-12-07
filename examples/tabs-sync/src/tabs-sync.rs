@@ -37,6 +37,14 @@ pub struct Opts {
     pub db_path: String,
 }
 
+fn ms_to_string(ms: i64) -> String {
+    use chrono::{DateTime, Local};
+    use std::time::{Duration, UNIX_EPOCH};
+    let time = UNIX_EPOCH + Duration::from_millis(ms as u64);
+    let dtl: DateTime<Local> = time.into();
+    dtl.format("%F %r").to_string()
+}
+
 fn main() -> Result<()> {
     viaduct_reqwest::use_reqwest_backend();
     cli_support::init_logging();
@@ -78,10 +86,19 @@ fn main() -> Result<()> {
                 };
                 println!("--------------------------------");
                 for tabs_and_client in tabs_and_clients {
-                    println!("> {}", tabs_and_client.client_id);
+                    let modified = ms_to_string(tabs_and_client.last_modified);
+                    println!(
+                        "> {} ({}) - {}",
+                        tabs_and_client.client_id, tabs_and_client.client_name, modified
+                    );
                     for tab in tabs_and_client.remote_tabs {
                         let (first, rest) = tab.url_history.split_first().unwrap();
-                        println!("  - {} ({})", tab.title, first);
+                        println!(
+                            "  - {} ({}, {})",
+                            tab.title,
+                            first,
+                            ms_to_string(tab.last_used)
+                        );
                         for url in rest {
                             println!("      {}", url);
                         }

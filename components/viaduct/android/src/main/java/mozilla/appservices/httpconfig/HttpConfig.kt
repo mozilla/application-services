@@ -54,6 +54,18 @@ object RustHttpConfig {
         }
     }
 
+    /** Allows connections to the hard-coded address the Android Emulator uses
+      * to connect to the emulator's host (ie, http://10.0.2.2) - if you don't
+      * call this, viaduct will fail to use that address as it isn't https. The
+      * expectation is that you will only call this in debug builds or if you
+      * are sure you are running on an emulator.
+      */
+    fun allowAndroidEmulatorLoopback() {
+        lock.read {
+            LibViaduct.INSTANCE.viaduct_allow_android_emulator_loopback()
+        }
+    }
+
     internal fun convertRequest(request: MsgTypes.Request): Request {
         val headers = MutableHeaders()
         for (h in request.headersMap) {

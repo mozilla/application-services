@@ -18,11 +18,12 @@ use rusqlite::named_params;
 use sql_support::ConnExt;
 use std::collections::HashSet;
 use std::sync::Arc;
+use sync15::bso::{IncomingBso, OutgoingBso, OutgoingEnvelope};
 use sync15::engine::{
     CollSyncIds, CollectionRequest, EngineSyncAssociation, IncomingChangeset, OutgoingChangeset,
     SyncEngine,
 };
-use sync15::{telemetry, Payload, ServerTimestamp};
+use sync15::{telemetry, ServerTimestamp};
 use sync_guid::Guid;
 
 // The sync engine.
@@ -130,16 +131,16 @@ impl LoginsSyncEngine {
     // want to insert stuff while we're doing this so ugh.
     fn fetch_login_data(
         &self,
-        records: &[(sync15::Payload, ServerTimestamp)],
+        records: Vec<IncomingBso>,
         telem: &mut telemetry::EngineIncoming,
         scope: &SqlInterruptScope,
     ) -> Result<Vec<SyncLoginData>> {
         let mut sync_data = Vec::with_capacity(records.len());
         {
             let mut seen_ids: HashSet<Guid> = HashSet::with_capacity(records.len());
-            for incoming in records.iter() {
-                seen_ids.insert(incoming.0.id.clone());
-                match SyncLoginData::from_payload(incoming.0.clone(), incoming.1, self.encdec()?) {
+            for incoming in records.into_iter() {
+                let id = incoming.envelope.id.clone();
+                match SyncLoginData::from_bso(incoming, self.encdec()?) {
                     Ok(v) => sync_data.push(v),
                     Err(e) => {
                         match e {
@@ -153,7 +154,7 @@ impl LoginsSyncEngine {
                                 report_error!(
                                     "logins-deserialize-error",
                                     "Failed to deserialize record {:?}: {e}",
-                                    incoming.0.id
+                                    id
                                 );
                             }
                         };
@@ -162,6 +163,7 @@ impl LoginsSyncEngine {
                         telem.failed(1);
                     }
                 }
+                seen_ids.insert(id);
             }
         }
         scope.err_if_interrupted()?;
@@ -254,12 +256,16 @@ impl LoginsSyncEngine {
         let rows = stmt.query_and_then([], |row| {
             scope.err_if_interrupted()?;
             Ok(if row.get::<_, bool>("is_deleted")? {
-                Payload::new_tombstone(row.get::<_, String>("guid")?)
-                    .with_sortindex(TOMBSTONE_SORTINDEX)
+                let envelope = OutgoingEnvelope {
+                    id: row.get::<_, String>("guid")?.into(),
+                    sortindex: Some(TOMBSTONE_SORTINDEX),
+                    ..Default::default()
+                };
+                OutgoingBso::new_tombstone(envelope)
             } else {
-                EncryptedLogin::from_row(row)?
-                    .into_payload(self.encdec()?)?
-                    .with_sortindex(DEFAULT_SORTINDEX)
+                let mut bso = EncryptedLogin::from_row(row)?.into_bso(self.encdec()?)?;
+                bso.envelope.sortindex = Some(DEFAULT_SORTINDEX);
+                bso
             })
         })?;
         outgoing.changes = rows.collect::<Result<_>>()?;
@@ -274,7 +280,7 @@ impl LoginsSyncEngine {
         scope: &SqlInterruptScope,
     ) -> Result<OutgoingChangeset> {
         let mut incoming_telemetry = telemetry::EngineIncoming::new();
-        let data = self.fetch_login_data(&inbound.changes, &mut incoming_telemetry, scope)?;
+        let data = self.fetch_login_data(inbound.changes, &mut incoming_telemetry, scope)?;
         let plan = {
             let result = self.reconcile(data, inbound.timestamp, &mut incoming_telemetry, scope);
             telem.incoming(incoming_telemetry);
@@ -513,7 +519,7 @@ mod tests {
     // Wrap sync functions for easier testing
     fn run_fetch_login_data(
         store: LoginStore,
-        records: &[(sync15::Payload, ServerTimestamp)],
+        records: Vec<IncomingBso>,
     ) -> (Vec<SyncLoginData>, telemetry::EngineIncoming) {
         let mut engine = LoginsSyncEngine::new(Arc::new(store)).unwrap();
         engine
@@ -553,29 +559,20 @@ mod tests {
 
         let (res, _) = run_fetch_login_data(
             store,
-            &[
-                (
-                    sync15::Payload::new_tombstone("deleted_remotely"),
-                    sync15::ServerTimestamp(10000),
-                ),
-                (
-                    enc_login("added_remotely", "password")
-                        .into_payload(&TEST_ENCRYPTOR)
-                        .unwrap(),
-                    sync15::ServerTimestamp(10000),
-                ),
-                (
-                    enc_login("updated_remotely", "new-password")
-                        .into_payload(&TEST_ENCRYPTOR)
-                        .unwrap(),
-                    sync15::ServerTimestamp(10000),
-                ),
-                (
-                    enc_login("three_way_merge", "new-remote-password")
-                        .into_payload(&TEST_ENCRYPTOR)
-                        .unwrap(),
-                    sync15::ServerTimestamp(10000),
-                ),
+            vec![
+                IncomingBso::new_test_tombstone(Guid::new("deleted_remotely")),
+                enc_login("added_remotely", "password")
+                    .into_bso(&TEST_ENCRYPTOR)
+                    .unwrap()
+                    .to_test_incoming(),
+                enc_login("updated_remotely", "new-password")
+                    .into_bso(&TEST_ENCRYPTOR)
+                    .unwrap()
+                    .to_test_incoming(),
+                enc_login("three_way_merge", "new-remote-password")
+                    .into_bso(&TEST_ENCRYPTOR)
+                    .unwrap()
+                    .to_test_incoming(),
             ],
         );
         // For simpler testing, extract/decrypt passwords and put them in a hash map
@@ -665,20 +662,22 @@ mod tests {
         store.db.lock().delete("deleted").unwrap();
 
         let changeset = run_fetch_outgoing(store);
-        let changes: HashMap<String, &Payload> = changeset
+        let changes: HashMap<String, serde_json::Value> = changeset
             .changes
-            .iter()
-            .map(|p| (p.id.to_string(), p))
+            .into_iter()
+            .map(|b| {
+                (
+                    b.envelope.id.to_string(),
+                    serde_json::from_str(&b.payload).unwrap(),
+                )
+            })
             .collect();
         assert_eq!(changes.len(), 3);
-        assert_eq!(changes["added"].data.get("password").unwrap(), "password");
-        assert_eq!(
-            changes["changed"].data.get("password").unwrap(),
-            "new-password"
-        );
-        assert!(changes["deleted"].deleted);
-        assert!(!changes["added"].deleted);
-        assert!(!changes["changed"].deleted);
+        assert_eq!(changes["added"].get("password").unwrap(), "password");
+        assert_eq!(changes["changed"].get("password").unwrap(), "new-password");
+        assert!(changes["deleted"].get("deleted").is_some());
+        assert!(changes["added"].get("deleted").is_none());
+        assert!(changes["changed"].get("deleted").is_none());
     }
 
     #[test]
@@ -689,34 +688,22 @@ mod tests {
         }
         let (res, telem) = run_fetch_login_data(
             store,
-            &[
-                // tombstone
-                (
-                    sync15::Payload::new_tombstone("dummy_000001"),
-                    sync15::ServerTimestamp(10000),
-                ),
+            vec![
+                IncomingBso::new_test_tombstone(Guid::new("dummy_000001")),
                 // invalid
-                (
-                    sync15::Payload::from_json(serde_json::json!({
-                        "id": "dummy_000002",
-                        "garbage": "data",
-                        "etc": "not a login"
-                    }))
-                    .unwrap(),
-                    sync15::ServerTimestamp(10000),
-                ),
+                IncomingBso::from_test_content(serde_json::json!({
+                    "id": "dummy_000002",
+                    "garbage": "data",
+                    "etc": "not a login"
+                })),
                 // valid
-                (
-                    sync15::Payload::from_json(serde_json::json!({
-                        "id": "dummy_000003",
-                        "formSubmitURL": "https://www.example.com/submit",
-                        "hostname": "https://www.example.com",
-                        "username": "test",
-                        "password": "test",
-                    }))
-                    .unwrap(),
-                    sync15::ServerTimestamp(10000),
-                ),
+                IncomingBso::from_test_content(serde_json::json!({
+                    "id": "dummy_000003",
+                    "formSubmitURL": "https://www.example.com/submit",
+                    "hostname": "https://www.example.com",
+                    "username": "test",
+                    "password": "test",
+                })),
             ],
         );
         assert_eq!(telem.get_failed(), 1);

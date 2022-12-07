@@ -6,14 +6,11 @@ use std::sync::{Arc, Mutex};
 
 use crate::error::{ApiResult, Result, TabsApiError};
 use crate::sync::engine::TabsSyncImpl;
-use crate::sync::record::TabsRecord;
 use crate::TabsStore;
 use error_support::handle_error;
-use sync15::engine::{
-    ApplyResults, BridgedEngine, CollSyncIds, EngineSyncAssociation, IncomingEnvelope,
-    OutgoingEnvelope,
-};
-use sync15::{ClientData, Payload, ServerTimestamp};
+use sync15::bso::{IncomingBso, OutgoingBso};
+use sync15::engine::{ApplyResults, BridgedEngine, CollSyncIds, EngineSyncAssociation};
+use sync15::{ClientData, ServerTimestamp};
 use sync_guid::Guid as SyncGuid;
 
 impl TabsStore {
@@ -34,7 +31,7 @@ impl TabsStore {
 /// See also #2841 and #5139
 pub struct BridgedEngineImpl {
     sync_impl: Mutex<TabsSyncImpl>,
-    incoming_payload: Mutex<Vec<IncomingEnvelope>>,
+    incoming: Mutex<Vec<IncomingBso>>,
 }
 
 impl BridgedEngineImpl {
@@ -42,7 +39,7 @@ impl BridgedEngineImpl {
     pub fn new(store: &Arc<TabsStore>) -> Self {
         Self {
             sync_impl: Mutex::new(TabsSyncImpl::new(store.clone())),
-            incoming_payload: Mutex::default(),
+            incoming: Mutex::default(),
         }
     }
 }
@@ -123,51 +120,28 @@ impl BridgedEngine for BridgedEngineImpl {
         Ok(())
     }
 
-    fn store_incoming(&self, incoming_envelopes: &[IncomingEnvelope]) -> ApiResult<()> {
+    fn store_incoming(&self, incoming: Vec<IncomingBso>) -> ApiResult<()> {
         handle_error! {
             // Store the incoming payload in memory so we can use it in apply
-            *(self.incoming_payload.lock().unwrap()) = incoming_envelopes.to_vec();
+            *(self.incoming.lock().unwrap()) = incoming;
             Ok(())
         }
     }
 
     fn apply(&self) -> ApiResult<ApplyResults> {
         handle_error! {
-            let incoming = self.incoming_payload.lock().unwrap();
-
-            // turn them into a TabRecord.
-            let mut records = Vec::with_capacity(incoming.len());
-            for inc in &*incoming {
-                // This error handling is a bit unfortunate, but will soon be removed as we
-                // move towards unifying the bridged_engine with a "real" engine.
-                let payload = match inc.payload() {
-                    Ok(p) => p,
-                    Err(e) => {
-                        log::warn!("Ignoring invalid incoming envelope: {}", e);
-                        continue;
-                    }
-                };
-                let record = match TabsRecord::from_payload(payload) {
-                    Ok(r) => r,
-                    Err(e) => {
-                        log::warn!("Ignoring invalid incoming tab record: {}", e);
-                        continue;
-                    }
-                };
-                records.push(record);
-            }
+            let mut incoming = self.incoming.lock().unwrap();
+            // We've a reference to a Vec<> but it's owned by the mutex - swap the mutex owned
+            // value for an empty vec so we can consume the original.
+            let mut records = Vec::new();
+            std::mem::swap(&mut records, &mut *incoming);
+            let mut telem = sync15::telemetry::Engine::new("tabs");
 
             let mut sync_impl = self.sync_impl.lock().unwrap();
-            let outgoing = sync_impl.apply_incoming(records)?;
+            let outgoing = sync_impl.apply_incoming(records, &mut telem)?;
 
-            // Turn outgoing back into envelopes - a bit inefficient going via a Payload.
-            let mut outgoing_envelopes = Vec::with_capacity(1);
-            if let Some(outgoing_record) = outgoing {
-                let payload = Payload::from_record(outgoing_record)?;
-                outgoing_envelopes.push(payload.into());
-            }
             Ok(ApplyResults {
-                envelopes: outgoing_envelopes,
+                records: outgoing,
                 num_reconciled: Some(0),
             })
         }
@@ -185,7 +159,7 @@ impl BridgedEngine for BridgedEngineImpl {
 
     fn sync_finished(&self) -> ApiResult<()> {
         handle_error! {
-            *(self.incoming_payload.lock().unwrap()) = Vec::default();
+            *(self.incoming.lock().unwrap()) = Vec::default();
             Ok(())
         }
     }
@@ -246,42 +220,36 @@ impl TabsBridgedEngine {
         self.bridge_impl.sync_started()
     }
 
-    // Decode the JSON-encoded incoming envelopes that UniFFI passes to us
-    fn convert_incoming_envelopes(
-        &self,
-        incoming: Vec<String>,
-    ) -> ApiResult<Vec<IncomingEnvelope>> {
+    // Decode the JSON-encoded IncomingBso's that UniFFI passes to us
+    fn convert_incoming_bsos(&self, incoming: Vec<String>) -> ApiResult<Vec<IncomingBso>> {
         handle_error! {
-            let mut envelopes = Vec::with_capacity(incoming.len());
+            let mut bsos = Vec::with_capacity(incoming.len());
             for inc in incoming {
-                envelopes.push(serde_json::from_str::<IncomingEnvelope>(&inc)?);
+                bsos.push(serde_json::from_str::<IncomingBso>(&inc)?);
             }
-            Ok(envelopes)
+            Ok(bsos)
         }
     }
 
-    // Encode outgoing envelops into JSON for UniFFI
-    fn convert_outgoing_envelopes(
-        &self,
-        outgoing: Vec<OutgoingEnvelope>,
-    ) -> ApiResult<Vec<String>> {
+    // Encode OutgoingBso's into JSON for UniFFI
+    fn convert_outgoing_bsos(&self, outgoing: Vec<OutgoingBso>) -> ApiResult<Vec<String>> {
         handle_error! {
-            let mut envelopes = Vec::with_capacity(outgoing.len());
+            let mut bsos = Vec::with_capacity(outgoing.len());
             for e in outgoing {
-                envelopes.push(serde_json::to_string(&e)?);
+                bsos.push(serde_json::to_string(&e)?);
             }
-            Ok(envelopes)
+            Ok(bsos)
         }
     }
 
     pub fn store_incoming(&self, incoming: Vec<String>) -> ApiResult<()> {
         self.bridge_impl
-            .store_incoming(&self.convert_incoming_envelopes(incoming)?)
+            .store_incoming(self.convert_incoming_bsos(incoming)?)
     }
 
     pub fn apply(&self) -> ApiResult<Vec<String>> {
         let apply_results = self.bridge_impl.apply()?;
-        self.convert_outgoing_envelopes(apply_results.envelopes)
+        self.convert_outgoing_bsos(apply_results.records)
     }
 
     pub fn set_uploaded(&self, server_modified_millis: i64, guids: Vec<SyncGuid>) -> ApiResult<()> {
@@ -444,13 +412,9 @@ mod tests {
         let expected = json!({
             "id": "my-device".to_string(),
             "payload": json!({
-                // XXX - we aren't supposed to have the ID here, but this isn't a tabs
-                // issue, it's a pre-existing `Payload` issue.
-                "id": "my-device".to_string(),
                 "clientName": "my device",
                 "tabs": serde_json::to_value(expected_tabs).unwrap(),
             }).to_string(),
-            "sortindex": (),
             "ttl": TTL_1_YEAR,
         });
 

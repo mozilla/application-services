@@ -3,14 +3,15 @@
 * file, You can obtain one at http://mozilla.org/MPL/2.0/.
 */
 
+use super::AddressPayload;
 use crate::db::addresses::{add_internal_address, update_internal_address};
 use crate::db::models::address::InternalAddress;
 use crate::db::schema::ADDRESS_COMMON_COLS;
 use crate::error::*;
 use crate::sync::common::*;
 use crate::sync::{
-    IncomingRecord, IncomingState, LocalRecordInfo, Payload, ProcessIncomingRecordImpl,
-    ServerTimestamp, SyncRecord,
+    IncomingBso, IncomingContent, IncomingEnvelope, IncomingKind, IncomingState, LocalRecordInfo,
+    ProcessIncomingRecordImpl, ServerTimestamp, SyncRecord,
 };
 use interrupt_support::Interruptee;
 use rusqlite::{named_params, Transaction};
@@ -19,16 +20,33 @@ use sync_guid::Guid as SyncGuid;
 
 // Takes a raw payload, as stored in our database, and returns an InternalAddress
 // or a tombstone. Addresses store the raw payload as cleartext json.
-fn raw_payload_to_incoming(raw: String) -> Result<IncomingRecord<InternalAddress>> {
-    let payload = serde_json::from_str::<Payload>(&raw)?;
-    Ok(if payload.is_tombstone() {
-        IncomingRecord::Tombstone {
-            guid: payload.id().into(),
-        }
-    } else {
-        IncomingRecord::Record {
-            record: InternalAddress::from_payload(payload.into_record()?)?,
-        }
+fn raw_payload_to_incoming(id: SyncGuid, raw: String) -> Result<IncomingContent<InternalAddress>> {
+    // Make an IncomingBso from the payload.
+    let bso = IncomingBso {
+        envelope: IncomingEnvelope {
+            id,
+            modified: ServerTimestamp::default(),
+            sortindex: None,
+            ttl: None,
+        },
+        payload: raw,
+    };
+    // For hysterical raisins, we use an IncomingContent<AddressPayload> to convert
+    // to an IncomingContent<InternalAddress>
+    let payload_content = bso.into_content::<AddressPayload>();
+    Ok(match payload_content.kind {
+        IncomingKind::Content(content) => IncomingContent {
+            envelope: payload_content.envelope,
+            kind: IncomingKind::Content(InternalAddress::from_payload(content)?),
+        },
+        IncomingKind::Tombstone => IncomingContent {
+            envelope: payload_content.envelope,
+            kind: IncomingKind::Tombstone,
+        },
+        IncomingKind::Malformed => IncomingContent {
+            envelope: payload_content.envelope,
+            kind: IncomingKind::Malformed,
+        },
     })
 }
 
@@ -41,16 +59,13 @@ impl ProcessIncomingRecordImpl for IncomingAddressesImpl {
     fn stage_incoming(
         &self,
         tx: &Transaction<'_>,
-        incoming: Vec<(Payload, ServerTimestamp)>,
+        incoming: Vec<IncomingBso>,
         signal: &dyn Interruptee,
     ) -> Result<()> {
         let to_stage = incoming
             .into_iter()
-            .map(|(payload, timestamp)| {
-                let guid = SyncGuid::new(payload.id());
-                let cleartext = payload.into_json_string();
-                (guid, cleartext, timestamp)
-            })
+            // We persist the entire payload as cleartext - which it already is!
+            .map(|bso| (bso.envelope.id, bso.payload, bso.envelope.modified))
             .collect();
         common_stage_incoming_records(tx, "addresses_sync_staging", to_stage, signal)
     }
@@ -99,7 +114,7 @@ impl ProcessIncomingRecordImpl for IncomingAddressesImpl {
             // the 'guid' and 's_payload' rows must be non-null.
             let guid: SyncGuid = row.get("guid")?;
             // turn it into a sync15::Payload
-            let incoming = raw_payload_to_incoming(row.get("s_payload")?)?;
+            let incoming = raw_payload_to_incoming(guid.clone(), row.get("s_payload")?)?;
             Ok(IncomingState {
                 incoming,
                 local: match row.get_unwrap::<_, Option<String>>("l_guid") {
@@ -119,7 +134,7 @@ impl ProcessIncomingRecordImpl for IncomingAddressesImpl {
                         match row.get::<_, Option<String>>("t_guid")? {
                             Some(t_guid) => {
                                 assert_eq!(guid, t_guid);
-                                LocalRecordInfo::Tombstone { guid }
+                                LocalRecordInfo::Tombstone { guid: guid.clone() }
                             }
                             None => LocalRecordInfo::Missing,
                         }
@@ -129,10 +144,7 @@ impl ProcessIncomingRecordImpl for IncomingAddressesImpl {
                     match row.get::<_, Option<String>>("m_payload")? {
                         Some(m_payload) => {
                             // a tombstone in the mirror can be treated as though it's missing.
-                            match raw_payload_to_incoming(m_payload)? {
-                                IncomingRecord::Record { record } => Some(record),
-                                IncomingRecord::Tombstone { .. } => None,
-                            }
+                            raw_payload_to_incoming(guid, m_payload)?.content()
                         }
                         None => None,
                     }
@@ -252,9 +264,8 @@ mod tests {
     use sql_support::ConnExt;
 
     impl InternalAddress {
-        fn into_sync_payload(self) -> sync15::Payload {
-            sync15::Payload::from_record(self.into_payload().expect("is json"))
-                .expect("can get sync payload")
+        fn into_test_incoming_bso(self) -> IncomingBso {
+            IncomingBso::from_test_content(self.into_payload().expect("is json"))
         }
     }
 
@@ -375,17 +386,21 @@ mod tests {
                 &NeverInterrupts,
             )?;
 
-            let payloads = tx.conn().query_rows_and_then(
+            let records = tx.conn().query_rows_and_then(
                 "SELECT * FROM temp.addresses_sync_staging;",
                 [],
-                |row| -> Result<Payload> {
+                |row| -> Result<IncomingContent<InternalAddress>> {
+                    let guid: SyncGuid = row.get_unwrap("guid");
                     let payload: String = row.get_unwrap("payload");
-                    Ok(Payload::from_json(serde_json::from_str(&payload)?)?)
+                    raw_payload_to_incoming(guid, payload)
                 },
             )?;
 
-            let record_count = payloads.iter().filter(|p| !p.is_tombstone()).count();
-            let tombstone_count = payloads.len() - record_count;
+            let record_count = records
+                .iter()
+                .filter(|p| !matches!(p.kind, IncomingKind::Tombstone))
+                .count();
+            let tombstone_count = records.len() - record_count;
 
             assert_eq!(record_count, tc.expected_record_count);
             assert_eq!(tombstone_count, tc.expected_tombstone_count);
@@ -422,8 +437,8 @@ mod tests {
         let tx = db.transaction().expect("should get tx");
         let ai = IncomingAddressesImpl {};
         let record = test_record('C');
-        let payload = record.clone().into_sync_payload();
-        do_test_incoming_same(&ai, &tx, record, payload);
+        let bso = record.clone().into_test_incoming_bso();
+        do_test_incoming_same(&ai, &tx, record, bso);
     }
 
     #[test]
@@ -440,7 +455,7 @@ mod tests {
         let tx = db.transaction().expect("should get tx");
         let ai = IncomingAddressesImpl {};
         let record = test_record('C');
-        let payload = record.clone().into_sync_payload();
-        do_test_staged_to_mirror(&ai, &tx, record, payload, "addresses_mirror");
+        let bso = record.clone().into_test_incoming_bso();
+        do_test_staged_to_mirror(&ai, &tx, record, bso, "addresses_mirror");
     }
 }

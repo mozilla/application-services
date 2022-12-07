@@ -10,10 +10,10 @@
 // using a sql database and knows that the schemas for addresses and cards are
 // very similar.
 
-use super::OutgoingRecord;
 use crate::error::*;
 use interrupt_support::Interruptee;
 use rusqlite::{types::ToSql, Connection, Row};
+use sync15::bso::OutgoingBso;
 use sync15::ServerTimestamp;
 use sync_guid::Guid;
 
@@ -164,47 +164,43 @@ macro_rules! sync_merge_field_check {
     };
 }
 
-pub(super) fn common_get_outgoing_staging_records<T>(
+pub(super) fn common_get_outgoing_staging_records(
     conn: &Connection,
     data_sql: &str,
     tombstones_sql: &str,
-    payload_from_data_row: &dyn Fn(&Row<'_>) -> Result<OutgoingRecord<T>>,
-) -> anyhow::Result<Vec<(OutgoingRecord<T>, i64)>> {
+    payload_from_data_row: &dyn Fn(&Row<'_>) -> Result<(OutgoingBso, i64)>,
+) -> anyhow::Result<Vec<(OutgoingBso, i64)>> {
     let outgoing_records =
         common_get_outgoing_records(conn, data_sql, tombstones_sql, payload_from_data_row)?;
     Ok(outgoing_records.into_iter().collect::<Vec<_>>())
 }
 
-fn get_outgoing_records<T>(
+fn get_outgoing_records(
     conn: &Connection,
     sql: &str,
-    record_from_data_row: &dyn Fn(&Row<'_>) -> Result<OutgoingRecord<T>>,
-) -> anyhow::Result<Vec<(OutgoingRecord<T>, i64)>> {
+    record_from_data_row: &dyn Fn(&Row<'_>) -> Result<(OutgoingBso, i64)>,
+) -> anyhow::Result<Vec<(OutgoingBso, i64)>> {
     Ok(conn
         .prepare(sql)?
         .query_map([], |row| {
-            let record = record_from_data_row(row).unwrap(); // XXX - this unwrap()!
-            let sync_change_counter = match record {
-                OutgoingRecord::Tombstone { .. } => 0,
-                OutgoingRecord::Record { .. } => row.get::<_, i64>("sync_change_counter")?,
-            };
-            Ok((record, sync_change_counter))
+            Ok(record_from_data_row(row).unwrap()) // XXX - this unwrap()!
         })?
         .collect::<std::result::Result<_, _>>()?)
 }
 
-pub(super) fn common_get_outgoing_records<T>(
+pub(super) fn common_get_outgoing_records(
     conn: &Connection,
     data_sql: &str,
     tombstone_sql: &str,
-    record_from_data_row: &dyn Fn(&Row<'_>) -> Result<OutgoingRecord<T>>,
-) -> anyhow::Result<Vec<(OutgoingRecord<T>, i64)>> {
+    record_from_data_row: &dyn Fn(&Row<'_>) -> Result<(OutgoingBso, i64)>,
+) -> anyhow::Result<Vec<(OutgoingBso, i64)>> {
     let mut payload = get_outgoing_records(conn, data_sql, record_from_data_row)?;
 
     payload.append(&mut get_outgoing_records(conn, tombstone_sql, &|row| {
-        Ok(OutgoingRecord::Tombstone {
-            guid: Guid::from_string(row.get("guid")?),
-        })
+        Ok((
+            OutgoingBso::new_tombstone(Guid::from_string(row.get("guid")?).into()),
+            0,
+        ))
     })?);
 
     Ok(payload)
@@ -310,14 +306,9 @@ pub(super) mod tests {
     use serde_json::{json, Value};
     use sync15::ServerTimestamp;
 
-    pub(in crate::sync) fn array_to_incoming(vals: Vec<Value>) -> Vec<(Payload, ServerTimestamp)> {
+    pub(in crate::sync) fn array_to_incoming(vals: Vec<Value>) -> Vec<IncomingBso> {
         vals.into_iter()
-            .map(|v| {
-                (
-                    Payload::from_json(v).expect("should be a payload"),
-                    ServerTimestamp::from_millis(0),
-                )
-            })
+            .map(IncomingBso::from_test_content)
             .collect()
     }
 
@@ -340,16 +331,12 @@ pub(super) mod tests {
         ri: &dyn ProcessIncomingRecordImpl<Record = T>,
         tx: &Transaction<'_>,
         record: T,
-        payload: sync15::Payload,
+        bso: IncomingBso,
     ) {
         ri.insert_local_record(tx, record)
             .expect("insert should work");
-        ri.stage_incoming(
-            tx,
-            vec![(payload, ServerTimestamp::from_millis(0))],
-            &NeverInterrupts,
-        )
-        .expect("stage should work");
+        ri.stage_incoming(tx, vec![bso], &NeverInterrupts)
+            .expect("stage should work");
         let mut states = ri.fetch_incoming_states(tx).expect("fetch should work");
         assert_eq!(states.len(), 1, "1 records == 1 state!");
         let action =
@@ -368,10 +355,9 @@ pub(super) mod tests {
         let guid = record.id().clone();
         ri.insert_local_record(tx, record)
             .expect("insert should work");
-        let payload = Payload::new_tombstone(guid);
         ri.stage_incoming(
             tx,
-            vec![(payload, ServerTimestamp::from_millis(0))],
+            vec![IncomingBso::new_test_tombstone(guid)],
             &NeverInterrupts,
         )
         .expect("stage should work");
@@ -392,16 +378,12 @@ pub(super) mod tests {
         ri: &dyn ProcessIncomingRecordImpl<Record = T>,
         tx: &Transaction<'_>,
         record: T,
-        payload: sync15::Payload,
+        bso: IncomingBso,
     ) {
         ri.insert_local_record(tx, record)
             .expect("insert should work");
-        ri.stage_incoming(
-            tx,
-            vec![(payload, ServerTimestamp::from_millis(0))],
-            &NeverInterrupts,
-        )
-        .expect("stage should work");
+        ri.stage_incoming(tx, vec![bso], &NeverInterrupts)
+            .expect("stage should work");
         let mut states = ri.fetch_incoming_states(tx).expect("fetch should work");
         assert_eq!(states.len(), 1, "1 records == 1 state!");
         assert!(
@@ -420,22 +402,15 @@ pub(super) mod tests {
         ri: &dyn ProcessIncomingRecordImpl<Record = T>,
         tx: &Transaction<'_>,
         record: T,
-        payload1: sync15::Payload,
+        bso1: IncomingBso,
         mirror_table_name: &str,
     ) {
         let guid1 = record.id().clone();
         let guid2 = Guid::random();
-        let payload2 = Payload::new_tombstone(guid2.clone());
+        let bso2 = IncomingBso::new_test_tombstone(guid2.clone());
 
-        ri.stage_incoming(
-            tx,
-            vec![
-                (payload1, ServerTimestamp::from_millis(0)),
-                (payload2, ServerTimestamp::from_millis(0)),
-            ],
-            &NeverInterrupts,
-        )
-        .expect("stage should work");
+        ri.stage_incoming(tx, vec![bso1, bso2], &NeverInterrupts)
+            .expect("stage should work");
 
         ri.finish_incoming(tx).expect("finish should work");
 

@@ -3,7 +3,6 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
 use super::ServerVisitTimestamp;
-use crate::error::*;
 use serde_derive::*;
 use sync_guid::Guid as SyncGuid;
 
@@ -28,34 +27,4 @@ pub struct HistoryRecord {
     pub hist_uri: String,
 
     pub visits: Vec<HistoryRecordVisit>,
-
-    // These fields are somewhat magic - they are moved to and from the
-    // BSO record, so are not expected to be on the unencrypted payload
-    // when incoming and are not put on the unencrypted payload when outgoing.
-    // There are hysterical raisens for this, which we should fix.
-    // https://github.com/mozilla/application-services/issues/2712
-    #[serde(default)]
-    pub sortindex: i32,
-
-    #[serde(default)]
-    pub ttl: u32,
-}
-
-#[derive(Debug)]
-pub struct HistorySyncRecord {
-    pub guid: SyncGuid,
-    pub record: Option<HistoryRecord>,
-}
-
-impl HistorySyncRecord {
-    pub fn from_payload(payload: sync15::Payload) -> Result<Self> {
-        let guid = payload.id.clone();
-        let record: Option<HistoryRecord> = if payload.is_tombstone() {
-            None
-        } else {
-            let record: HistoryRecord = payload.into_record()?;
-            Some(record)
-        };
-        Ok(Self { guid, record })
-    }
 }

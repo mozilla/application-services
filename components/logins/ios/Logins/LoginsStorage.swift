@@ -127,13 +127,13 @@ public func migrateLoginsFromSqlcipher(
 ) -> Bool {
     var didMigrationSucceed = false
 
-    if let result = try? migrateLogins(
+    if (try? migrateLogins(
         path: path,
         newEncryptionKey: newEncryptionKey,
         sqlcipherPath: sqlcipherPath,
         sqlcipherKey: sqlcipherKey,
         salt: salt
-    ) {
+    )) != nil {
         didMigrationSucceed = true
     }
 

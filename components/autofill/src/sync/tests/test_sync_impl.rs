@@ -35,7 +35,7 @@ impl ProcessIncomingRecordImpl for TestImpl {
     fn stage_incoming(
         &self,
         _tx: &Transaction<'_>,
-        _incoming: Vec<(Payload, ServerTimestamp)>,
+        _incoming: Vec<IncomingBso>,
         _signal: &dyn Interruptee,
     ) -> Result<()> {
         unreachable!();
@@ -171,6 +171,30 @@ impl SyncRecord for TestStruct {
     }
 }
 
+fn new_test_incoming_content(t: TestStruct) -> IncomingContent<TestStruct> {
+    IncomingContent {
+        envelope: IncomingEnvelope {
+            id: t.guid.clone(),
+            modified: ServerTimestamp::default(),
+            sortindex: None,
+            ttl: None,
+        },
+        kind: IncomingKind::Content(t),
+    }
+}
+
+fn new_test_incoming_tombstone(guid: SyncGuid) -> IncomingContent<TestStruct> {
+    IncomingContent {
+        envelope: IncomingEnvelope {
+            id: guid,
+            modified: ServerTimestamp::default(),
+            sortindex: None,
+            ttl: None,
+        },
+        kind: IncomingKind::Tombstone,
+    }
+}
+
 #[test]
 fn test_plan_incoming_record() -> Result<()> {
     let conn = new_syncable_mem_db();
@@ -179,9 +203,7 @@ fn test_plan_incoming_record() -> Result<()> {
     let guid = SyncGuid::random();
     // LocalRecordInfo::UnModified - update the local with the incoming.
     let state = IncomingState {
-        incoming: IncomingRecord::Record {
-            record: TestStruct::new(&guid, 0),
-        },
+        incoming: new_test_incoming_content(TestStruct::new(&guid, 0)),
         local: LocalRecordInfo::Unmodified {
             record: TestStruct::new(&guid, 1),
         },
@@ -197,9 +219,7 @@ fn test_plan_incoming_record() -> Result<()> {
 
     // LocalRecordInfo::Scrubbed - update the local with the incoming.
     let state = IncomingState {
-        incoming: IncomingRecord::Record {
-            record: TestStruct::new(&guid, 0),
-        },
+        incoming: new_test_incoming_content(TestStruct::new(&guid, 0)),
         local: LocalRecordInfo::Scrubbed {
             record: TestStruct::new(&guid, 1),
         },
@@ -215,9 +235,7 @@ fn test_plan_incoming_record() -> Result<()> {
 
     // LocalRecordInfo::Modified - but it turns out they are identical.
     let state = IncomingState {
-        incoming: IncomingRecord::Record {
-            record: TestStruct::new(&guid, 0),
-        },
+        incoming: new_test_incoming_content(TestStruct::new(&guid, 0)),
         local: LocalRecordInfo::Modified {
             record: TestStruct::new(&guid, 0),
         },
@@ -233,9 +251,7 @@ fn test_plan_incoming_record() -> Result<()> {
 
     // LocalRecordInfo::Modified and they need to be "forked"
     let state = IncomingState {
-        incoming: IncomingRecord::Record {
-            record: TestStruct::new(&guid, 1),
-        },
+        incoming: new_test_incoming_content(TestStruct::new(&guid, 1)),
         local: LocalRecordInfo::Modified {
             record: TestStruct::new(&guid, 2),
         },
@@ -254,9 +270,7 @@ fn test_plan_incoming_record() -> Result<()> {
     // LocalRecordInfo::Tombstone - the local tombstone needs to be
     // resurrected.
     let state = IncomingState {
-        incoming: IncomingRecord::Record {
-            record: TestStruct::new(&guid, 1),
-        },
+        incoming: new_test_incoming_content(TestStruct::new(&guid, 1)),
         local: LocalRecordInfo::Tombstone { guid: guid.clone() },
         mirror: None,
     };
@@ -269,9 +283,7 @@ fn test_plan_incoming_record() -> Result<()> {
 
     // LocalRecordInfo::Missing and a local dupe (even numbers will dupe)
     let state = IncomingState {
-        incoming: IncomingRecord::Record {
-            record: TestStruct::new(&guid, 0),
-        },
+        incoming: new_test_incoming_content(TestStruct::new(&guid, 0)),
         local: LocalRecordInfo::Missing,
         mirror: None,
     };
@@ -282,9 +294,7 @@ fn test_plan_incoming_record() -> Result<()> {
 
     // LocalRecordInfo::Missing and no dupe - it's an insert.
     let state = IncomingState {
-        incoming: IncomingRecord::Record {
-            record: TestStruct::new(&guid, 1),
-        },
+        incoming: new_test_incoming_content(TestStruct::new(&guid, 1)),
         local: LocalRecordInfo::Missing,
         mirror: None,
     };
@@ -307,7 +317,7 @@ fn test_plan_incoming_tombstone() -> Result<()> {
     // LocalRecordInfo::Modified
     // Incoming tombstone with an modified local record deletes the local record.
     let state = IncomingState {
-        incoming: IncomingRecord::Tombstone { guid: guid.clone() },
+        incoming: new_test_incoming_tombstone(guid.clone()),
         local: LocalRecordInfo::Unmodified {
             record: TestStruct::new(&guid, 0),
         },
@@ -321,7 +331,7 @@ fn test_plan_incoming_tombstone() -> Result<()> {
     // LocalRecordInfo::Modified
     // Incoming tombstone with an modified local record keeps the local record.
     let state = IncomingState {
-        incoming: IncomingRecord::Tombstone { guid: guid.clone() },
+        incoming: new_test_incoming_tombstone(guid.clone()),
         local: LocalRecordInfo::Modified {
             record: TestStruct::new(&guid, 0),
         },
@@ -336,7 +346,7 @@ fn test_plan_incoming_tombstone() -> Result<()> {
     // LocalRecordInfo::Tombstone
     // Local tombstone and incoming tombstone == DoNothing.
     let state = IncomingState {
-        incoming: IncomingRecord::Tombstone { guid: guid.clone() },
+        incoming: new_test_incoming_tombstone(guid.clone()),
         local: LocalRecordInfo::Tombstone { guid: guid.clone() },
         mirror: None,
     };
@@ -348,7 +358,7 @@ fn test_plan_incoming_tombstone() -> Result<()> {
     // LocalRecordInfo::Missing
     // Incoming tombstone and no local record == DoNothing.
     let state = IncomingState {
-        incoming: IncomingRecord::Tombstone { guid },
+        incoming: new_test_incoming_tombstone(guid),
         local: LocalRecordInfo::Missing,
         mirror: None,
     };

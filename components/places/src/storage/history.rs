@@ -26,6 +26,7 @@ use rusqlite::Row;
 use sql_support::{self, ConnExt};
 use std::collections::HashSet;
 use std::time::Duration;
+use sync15::bso::OutgoingBso;
 use sync15::engine::EngineSyncAssociation;
 use sync_guid::Guid as SyncGuid;
 use types::Timestamp;
@@ -802,10 +803,12 @@ fn reset_in_tx(db: &PlacesDb, assoc: &EngineSyncAssociation) -> Result<()> {
 
 // Support for Sync - in its own module to try and keep a delineation
 pub mod history_sync {
+    use sync15::bso::OutgoingEnvelope;
+
     use super::*;
     use crate::history_sync::record::{HistoryRecord, HistoryRecordVisit};
     use crate::history_sync::HISTORY_TTL;
-    use std::collections::{HashMap, HashSet};
+    use std::collections::HashSet;
 
     #[derive(Debug, Clone, PartialEq, Eq)]
     pub struct FetchedVisit {
@@ -1038,17 +1041,11 @@ pub mod history_sync {
         Ok(())
     }
 
-    #[derive(Debug)]
-    pub enum OutgoingInfo {
-        Record(HistoryRecord),
-        Tombstone,
-    }
-
     pub fn fetch_outgoing(
         db: &PlacesDb,
         max_places: usize,
         max_visits: usize,
-    ) -> Result<HashMap<SyncGuid, OutgoingInfo>> {
+    ) -> Result<Vec<OutgoingBso>> {
         // Note that we want *all* "new" regardless of change counter,
         // so that we do the right thing after a "reset". We also
         // exclude hidden URLs from syncing, to match Desktop
@@ -1075,7 +1072,8 @@ pub mod history_sync {
         // tombstones
         let tombstones_sql = "SELECT guid FROM moz_places_tombstones LIMIT :max_places";
 
-        let mut result: HashMap<SyncGuid, OutgoingInfo> = HashMap::new();
+        let mut tombstone_ids = HashSet::new();
+        let mut result = Vec::new();
 
         // We want to limit to 5000 places - tombstones are arguably the
         // most important, so we fetch these first.
@@ -1088,9 +1086,16 @@ pub mod history_sync {
         // (which would be very hard to do), but as long as we have it, we might as well make use
         // of it...
         result.reserve(ts_rows.len());
+        tombstone_ids.reserve(ts_rows.len());
         for guid in ts_rows {
             log::trace!("outgoing tombstone {:?}", &guid);
-            result.insert(guid, OutgoingInfo::Tombstone);
+            let envelope = OutgoingEnvelope {
+                id: guid.clone(),
+                ttl: Some(HISTORY_TTL),
+                ..Default::default()
+            };
+            result.push(OutgoingBso::new_tombstone(envelope));
+            tombstone_ids.insert(guid);
         }
 
         // Max records is now limited by how many tombstones we found.
@@ -1116,6 +1121,7 @@ pub mod history_sync {
             &[(":max_places", &(max_places_left as u32))],
             PageInfo::from_row,
         )?;
+        result.reserve(rows.len());
         let mut ids_to_update = Vec::with_capacity(rows.len());
         for page in rows {
             let visits = db.query_rows_and_then_cached(
@@ -1131,7 +1137,7 @@ pub mod history_sync {
                     })
                 },
             )?;
-            if result.contains_key(&page.guid) {
+            if tombstone_ids.contains(&page.guid) {
                 // should be impossible!
                 log::warn!("Found {:?} in both tombstones and live records", &page.guid);
                 continue;
@@ -1156,17 +1162,20 @@ pub mod history_sync {
                 ],
             )?;
 
-            result.insert(
-                page.guid.clone(),
-                OutgoingInfo::Record(HistoryRecord {
-                    id: page.guid,
-                    title: page.title,
-                    hist_uri: page.url.to_string(),
-                    sortindex: page.frecency,
-                    ttl: HISTORY_TTL,
-                    visits,
-                }),
-            );
+            let content = HistoryRecord {
+                id: page.guid.clone(),
+                title: page.title,
+                hist_uri: page.url.to_string(),
+                visits,
+            };
+
+            let envelope = OutgoingEnvelope {
+                id: page.guid,
+                sortindex: Some(page.frecency),
+                ttl: Some(HISTORY_TTL),
+            };
+            let bso = OutgoingBso::from_content(envelope, content)?;
+            result.push(bso);
         }
 
         // We need to update the sync status of these items now rather than after
@@ -1506,7 +1515,7 @@ mod tests {
     use super::history_sync::*;
     use super::*;
     use crate::api::places_api::ConnectionType;
-    use crate::history_sync::record::{HistoryRecord, HistoryRecordVisit};
+    use crate::history_sync::record::HistoryRecordVisit;
     use crate::types::VisitTransitionSet;
     use pretty_assertions::assert_eq;
     use std::time::{Duration, SystemTime};
@@ -2021,20 +2030,12 @@ mod tests {
             ],
         )?;
 
-        let mut outgoing = fetch_outgoing(&conn, 2, 3)?;
+        let outgoing = fetch_outgoing(&conn, 2, 3)?;
         assert_eq!(outgoing.len(), 2, "should have restricted to the limit");
-        // I'm sure there's a shorter way to express this...
-        let mut records: Vec<HistoryRecord> = Vec::with_capacity(outgoing.len());
-        for (_, outgoing) in outgoing.drain() {
-            records.push(match outgoing {
-                OutgoingInfo::Record(record) => record,
-                _ => continue,
-            });
-        }
-        // want p1 or pi1 (but order is indeterminate)
-        assert!(records[0].id != records[1].id);
-        assert!(records[0].id == pi.guid || records[0].id == pi2.guid);
-        assert!(records[1].id == pi.guid || records[1].id == pi2.guid);
+        // want pi or pi2 (but order is indeterminate) and this seems simpler than sorting.
+        assert!(outgoing[0].envelope.id != outgoing[1].envelope.id);
+        assert!(outgoing[0].envelope.id == pi.guid || outgoing[0].envelope.id == pi2.guid);
+        assert!(outgoing[1].envelope.id == pi.guid || outgoing[1].envelope.id == pi2.guid);
         finish_outgoing(&conn)?;
 
         pi = fetch_page_info(&conn, &pi.url)?

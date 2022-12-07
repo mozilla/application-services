@@ -36,6 +36,7 @@ pub struct ClientRemoteTabs {
         skip_serializing_if = "devicetype_is_unknown"
     )]
     pub device_type: DeviceType,
+    pub last_modified: i64,
     pub remote_tabs: Vec<RemoteTab>,
 }
 
