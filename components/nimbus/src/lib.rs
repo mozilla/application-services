@@ -572,7 +572,7 @@ impl NimbusClient {
         Ok(Arc::new(helper))
     }
 
-    /// Records an event for the purposes of behavioral targeting
+    /// Records an event for the purposes of behavioral targeting.
     ///
     /// This function is used to record and persist data used for the behavioral
     /// targeting such as "core-active" user targeting.
@@ -580,6 +580,15 @@ impl NimbusClient {
         let mut event_store = self.event_store.lock().unwrap();
         event_store.record_event(event_id, None)?;
         event_store.persist_data(self.db()?)?;
+        Ok(())
+    }
+
+    /// Clear all events in the Nimbus event store.
+    ///
+    /// This should only be used in testing or cases where the previous event store is no longer viable.
+    pub fn clear_events(&self) -> Result<()> {
+        let mut event_store = self.event_store.lock().unwrap();
+        event_store.clear(self.db()?)?;
         Ok(())
     }
 
