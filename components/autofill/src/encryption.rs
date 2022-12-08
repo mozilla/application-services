@@ -73,18 +73,63 @@ impl EncryptorDecryptor {
 
 // public functions we expose over the FFI (which is why they take `String`
 // rather than the `&str` you'd otherwise expect)
+
+/// Encrypts the given `cleartext` with the given `key`.
+///
+/// Returns a [`ApiResult`] of either a base64 encoded JWE encrypted [`String`] upon success or an [`AutofillApiError`] upon failure.
+///
+/// # Examples
+///
+/// ```
+/// use crate::autofill::encryption;
+///
+/// let key = encryption::create_key().unwrap();
+/// let cc_number = "1234567812345678";
+///
+/// let cc_number_enc = encryption::encrypt_string(key.clone(), cc_number.to_string()).unwrap();
+/// assert!(!cc_number_enc.is_empty())
+/// ```
 pub fn encrypt_string(key: String, cleartext: String) -> ApiResult<String> {
     handle_error! {
         EncryptorDecryptor::new(&key)?.encrypt(&cleartext)
     }
 }
 
+/// Decrypts the given `ciphertext` with the given `key`.
+///
+/// Returns a [`ApiResult`] of either the decrypted `ciphertext` upon success or an [`AutofillApiError`] upon failure.
+///
+/// # Examples
+///
+/// ```
+/// use crate::autofill::encryption;
+///
+/// let key = encryption::create_key().unwrap();
+/// let cc_number = "1234567812345678";
+/// let cc_number_enc = encryption::encrypt_string(key.clone(), cc_number.to_string()).unwrap();
+///
+/// let cc_number_dec = encryption::decrypt_string(key.clone(), cc_number_enc).unwrap();
+/// assert_eq!(cc_number.to_string(), cc_number_dec)
+/// ```
 pub fn decrypt_string(key: String, ciphertext: String) -> ApiResult<String> {
     handle_error! {
         EncryptorDecryptor::new(&key)?.decrypt(&ciphertext)
     }
 }
 
+/// Creates an encryption key.
+///
+/// Returns a [`ApiResult`] of the key upon success or an [`AutofillApiError`] upon failure.
+///
+/// # Examples
+///
+/// ```
+/// use crate::autofill::encryption;
+///
+/// let key = encryption::create_key().unwrap();
+///
+/// assert!(!key.is_empty())
+/// ```
 pub fn create_key() -> ApiResult<String> {
     handle_error! {
         let key = jwcrypto::Jwk::new_direct_key(None)?;

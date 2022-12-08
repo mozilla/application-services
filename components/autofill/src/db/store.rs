@@ -49,6 +49,11 @@ pub struct Store {
 }
 
 impl Store {
+    /// Creates a [`Store`] backed by a database at the given `db_path` in the file system.
+    ///
+    /// Returns an [`ApiResult`] of the newly create `Store` upon success or an [`AutofillApiError`]
+    /// upon failure.
+    ///
     pub fn new(db_path: impl AsRef<Path>) -> ApiResult<Self> {
         handle_error! {
             Ok(Self {
@@ -74,6 +79,46 @@ impl Store {
         }
     }
 
+    /// Adds the given `new_credit_card_fields` to the database. See [`UpdatableCreditCardFields`] for input details.
+    ///
+    /// Returns an [`ApiResult`] of either a [`CreditCard`] with the given credit card data upon success or an [`AutofillApiError`]
+    /// upon failure.
+    ///
+    /// # Validation
+    ///
+    /// This function does not validate `new_credit_card_fields` outside of the following database constraints:
+    ///
+    ///  * With the exception of `cc_exp_month` and `cc_exp_year` all fields in `new_credit_card_fields` must have non-null values
+    ///
+    ///  * `cc_number_enc` must either have a length greater than 20 or be an empty string
+    ///
+    ///  * `cc_number_last_4` must have a length less than or equal to 4
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use crate::autofill::db::{
+    ///     models::credit_card::UpdatableCreditCardFields,
+    ///     store::Store,
+    /// };
+    ///
+    /// let store = Store::new_shared_memory("autofill-db").unwrap();
+    /// let cc = store.add_credit_card(
+    ///     UpdatableCreditCardFields {
+    ///         cc_name: "john doe".to_string(),
+    ///         cc_number_enc: "WWWWWWWWWWWWWWWWWWWWWWWWWWWWWWW".to_string(),
+    ///         cc_number_last_4: "6543".to_string(),
+    ///         cc_exp_month: 5,
+    ///         cc_exp_year: 2024,
+    ///         cc_type: "visa".to_string(),
+    ///     },
+    /// )
+    /// .unwrap();
+    ///
+    /// assert_eq!(cc.cc_name, "john doe");
+    /// assert_eq!(cc.times_used, 0);
+    /// assert!(cc.time_created > 0);
+    /// ```
     pub fn add_credit_card(&self, fields: UpdatableCreditCardFields) -> ApiResult<CreditCard> {
         handle_error! {
             let credit_card = credit_cards::add_credit_card(&self.db.lock().unwrap().writer, fields)?;
@@ -81,6 +126,36 @@ impl Store {
         }
     }
 
+    /// Retrieves the credit card record with the given `guid`.
+    ///
+    /// Returns an [`ApiResult`] of either the retrieved [`CreditCard`] upon success or an [`AutofillApiError`] upon failure.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use crate::autofill::db::{
+    ///     models::credit_card::UpdatableCreditCardFields,
+    ///     store::Store,
+    /// };
+    ///
+    /// let store = Store::new_shared_memory("autofill-db").unwrap();
+    /// let cc = store.add_credit_card(
+    ///     UpdatableCreditCardFields {
+    ///         cc_name: "john doe".to_string(),
+    ///         cc_number_enc: "WWWWWWWWWWWWWWWWWWWWWWWWWWWWWWW".to_string(),
+    ///         cc_number_last_4: "6543".to_string(),
+    ///         cc_exp_month: 5,
+    ///         cc_exp_year: 2024,
+    ///         cc_type: "visa".to_string(),
+    ///     },
+    /// ).unwrap();
+    ///
+    /// let retrieved_cc = store.get_credit_card(cc.guid.clone()).unwrap();
+    ///
+    /// assert_eq!(cc.guid, retrieved_cc.guid);
+    /// assert_eq!(cc.cc_name, retrieved_cc.cc_name);
+    ///
+    /// ```
     pub fn get_credit_card(&self, guid: String) -> ApiResult<CreditCard> {
         handle_error! {
             let credit_card =
@@ -89,6 +164,36 @@ impl Store {
         }
     }
 
+    /// Retrieves all of the credit card records in the database.
+    ///
+    /// Returns an [`ApiResult`] of either an array of [`CreditCard`] records upon success or an [`AutofillApiError`] upon failure.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use crate::autofill::db::{
+    ///     models::credit_card::UpdatableCreditCardFields,
+    ///     store::Store,
+    /// };
+    ///
+    /// let store = Store::new_shared_memory("autofill-db").unwrap();
+    /// let cc = store.add_credit_card(
+    ///     UpdatableCreditCardFields {
+    ///         cc_name: "john doe".to_string(),
+    ///         cc_number_enc: "WWWWWWWWWWWWWWWWWWWWWWWWWWWWWWW".to_string(),
+    ///         cc_number_last_4: "6543".to_string(),
+    ///         cc_exp_month: 5,
+    ///         cc_exp_year: 2024,
+    ///         cc_type: "visa".to_string(),
+    ///     },
+    /// ).unwrap();
+    ///
+    /// let retrieved_ccs = store.get_all_credit_cards().unwrap();
+    ///
+    /// assert_eq!(retrieved_ccs.len(), 1);
+    /// assert_eq!(retrieved_ccs[0].guid, cc.guid);
+    ///
+    /// ```
     pub fn get_all_credit_cards(&self) -> ApiResult<Vec<CreditCard>> {
         handle_error! {
             let credit_cards = credit_cards::get_all_credit_cards(&self.db.lock().unwrap().writer)?
@@ -99,6 +204,48 @@ impl Store {
         }
     }
 
+    /// Updates the credit card record having the given `guid` (if found) with the given `credit_card` data. See [`UpdatableCreditCardFields`] for input details.
+    ///
+    /// Returns an [`ApiResult`] with the unit type (void for consumers) upon success or an [`AutofillApiError`] upon failure.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use crate::autofill::db::{
+    ///     AutofillDb,
+    ///     models::credit_card::UpdatableCreditCardFields,
+    ///     store::Store,
+    /// };
+    ///
+    /// let store = Store::new_shared_memory("autofill-db").unwrap();
+    /// let cc = store.add_credit_card(
+    ///     UpdatableCreditCardFields {
+    ///         cc_name: "john doe".to_string(),
+    ///         cc_number_enc: "WWWWWWWWWWWWWWWWWWWWWWWWWWWWWWW".to_string(),
+    ///         cc_number_last_4: "6543".to_string(),
+    ///         cc_exp_month: 5,
+    ///         cc_exp_year: 2024,
+    ///         cc_type: "visa".to_string(),
+    ///     },
+    /// )
+    /// .unwrap();
+    ///
+    /// let update_result = store.update_credit_card(
+    ///     cc.guid.clone(),
+    ///     UpdatableCreditCardFields {
+    ///         cc_name: "john doe".to_string(),
+    ///         cc_number_enc: "WWWWWWWWWWWWWWWWWWWWWWWWWWWWWWW".to_string(),
+    ///         cc_number_last_4: "6543".to_string(),
+    ///         cc_exp_month: 5,
+    ///         cc_exp_year: 2025,
+    ///         cc_type: "visa".to_string(),
+    ///     },
+    /// );
+    ///
+    /// let retrieved_cc = store.get_credit_card(cc.guid).unwrap();
+    /// assert!(update_result.is_ok());
+    /// assert_eq!(retrieved_cc.cc_exp_year, 2025);
+    /// ```
     pub fn update_credit_card(
         &self,
         guid: String,
@@ -113,12 +260,76 @@ impl Store {
         }
     }
 
+    /// Deletes the credit card record having the given `guid` (if found) with the given `credit_card` data.
+    ///
+    /// Returns an [`ApiResult`] with true if the record was deleted or false if no record was deleted upon success or an [`AutofillApiError`] upon failure.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use crate::autofill::db::{
+    ///     AutofillDb,
+    ///     models::credit_card::UpdatableCreditCardFields,
+    ///     store::Store,
+    /// };
+    ///
+    /// let store = Store::new_shared_memory("autofill-db").unwrap();
+    /// let cc = store.add_credit_card(
+    ///     UpdatableCreditCardFields {
+    ///         cc_name: "john doe".to_string(),
+    ///         cc_number_enc: "WWWWWWWWWWWWWWWWWWWWWWWWWWWWWWW".to_string(),
+    ///         cc_number_last_4: "6543".to_string(),
+    ///         cc_exp_month: 5,
+    ///         cc_exp_year: 2024,
+    ///         cc_type: "visa".to_string(),
+    ///     },
+    /// )
+    /// .unwrap();
+    ///
+    /// assert!(store.delete_credit_card(cc.guid).unwrap());
+    ///
+    /// let retrieved_ccs = store.get_all_credit_cards().unwrap();
+    /// assert!(retrieved_ccs.is_empty());
+    /// ```
     pub fn delete_credit_card(&self, guid: String) -> ApiResult<bool> {
         handle_error! {
             credit_cards::delete_credit_card(&self.db.lock().unwrap().writer, &Guid::new(&guid))
         }
     }
 
+    /// Bumps the usage count of the credit card record with the given `guid` by incrementing the `times_used` and
+    /// `sync_change_counter` properties and setting the `time_last_used` to the current time.
+    ///
+    /// Returns an [`ApiResult`] with the unit type (void for consumers) upon success or an [`AutofillApiError`] upon failure.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use crate::autofill::db::{
+    ///     AutofillDb,
+    ///     models::credit_card::UpdatableCreditCardFields,
+    ///     store::Store,
+    /// };
+    ///
+    /// let store = Store::new_shared_memory("autofill-db").unwrap();
+    /// let cc = store.add_credit_card(
+    ///     UpdatableCreditCardFields {
+    ///         cc_name: "john doe".to_string(),
+    ///         cc_number_enc: "WWWWWWWWWWWWWWWWWWWWWWWWWWWWWWW".to_string(),
+    ///         cc_number_last_4: "6543".to_string(),
+    ///         cc_exp_month: 5,
+    ///         cc_exp_year: 2024,
+    ///         cc_type: "visa".to_string(),
+    ///     },
+    /// )
+    /// .unwrap();
+    /// assert_eq!(cc.times_used, 0);
+    ///
+    /// assert!(store.touch_credit_card(cc.guid.clone()).is_ok());
+    ///
+    /// let retrieved_cc = store.get_credit_card(cc.guid).unwrap();
+    /// assert_eq!(retrieved_cc.times_used, 1);
+    /// ```
     pub fn touch_credit_card(&self, guid: String) -> ApiResult<()> {
         handle_error! {
             credit_cards::touch(&self.db.lock().unwrap().writer, &Guid::new(&guid))
@@ -165,6 +376,58 @@ impl Store {
         }
     }
 
+    /// Scrubs the encrypted credit card number from all of the credit card records in the database and resets
+    /// the local sync data to force the sync engine to pull data from the server without merging on the
+    /// next sync.
+    ///
+    /// Returns a [`ApiResult`] with the unit type (void for consumers) upon success or an [`AutofillApiError`] upon failure.
+    ///
+    /// This should be called when the encryption key is lost or corrupted as any credit card numbers encrypted
+    /// with it can no longer be decrypted. These records are not being deleted because the credit card number
+    /// may be populated on the next sync.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use std::sync::{
+    ///     Arc,
+    ///     Mutex
+    /// };
+    /// use crate::autofill::{
+    ///     db::{
+    ///         AutofillDb,
+    ///         models::credit_card::UpdatableCreditCardFields,
+    ///         store::Store,
+    ///     },
+    ///     encryption,
+    /// };
+    ///
+    /// let store = Arc::new(Store::new_shared_memory("autofill-example").unwrap());
+    /// let key = encryption::create_key().unwrap();
+    /// let cc_number = "1234567812345678".to_string();
+    /// let cc_number_enc = encryption::encrypt_string(key.clone(), cc_number).unwrap();
+    ///
+    /// let cc = store.add_credit_card(
+    ///     UpdatableCreditCardFields {
+    ///         cc_name: "john doe".to_string(),
+    ///         cc_number_enc: cc_number_enc.clone(),
+    ///         cc_number_last_4: "6543".to_string(),
+    ///         cc_exp_month: 5,
+    ///         cc_exp_year: 2024,
+    ///         cc_type: "visa".to_string(),
+    ///     },
+    /// )
+    /// .unwrap();
+    ///
+    /// let retrieved_cc = store.get_credit_card(cc.guid.clone()).unwrap();
+    /// assert_eq!(retrieved_cc.cc_number_enc, cc_number_enc);
+    ///
+    /// assert!(Arc::clone(&store).scrub_encrypted_data().is_ok());
+    ///
+    /// let scrubbed_cc = store.get_credit_card(cc.guid).unwrap();
+    /// assert!(scrubbed_cc.cc_number_enc.is_empty())
+    ///
+    /// ```
     pub fn scrub_encrypted_data(self: Arc<Self>) -> ApiResult<()> {
         handle_error! {
             // scrub the data on disk
@@ -182,6 +445,11 @@ impl Store {
     // (thereby avoiding us needing to link with the sync manager) but
     // `register_with_sync_manager()` is logically what's happening so that's
     // the name it gets.
+
+    /// Registers the instance of the [`Store`] with the sync manager component.
+    ///
+    /// This should be called before each `sync_manager::sync` call where the `Autofill` engine
+    /// should be synced.
     pub fn register_with_sync_manager(self: Arc<Self>) {
         let mut state = STORE_FOR_MANAGER.lock().unwrap();
         *state = Arc::downgrade(&self);

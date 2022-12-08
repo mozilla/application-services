@@ -7,35 +7,53 @@ use super::Metadata;
 use rusqlite::Row;
 use sync_guid::Guid;
 
+/// This struct represents credit card data to add records to the database or update existing records.
 #[derive(Debug, Clone, Default)]
 pub struct UpdatableCreditCardFields {
+    /// The full name of the credit card holder.
     pub cc_name: String,
+    /// The encrypted credit card number stored as a JWE. This value has a length greater than 20 or will be an
+    /// empty string if the credit card has been scrubbed because the encryption key was lost.
     pub cc_number_enc: String,
+    /// The last four digits of the credit card number, unencrypted.
     pub cc_number_last_4: String,
+    /// The last four digits of the credit card number, unencrypted.
     pub cc_exp_month: i64,
+    /// The last four digits of the credit card number, unencrypted.
     pub cc_exp_year: i64,
-    // Credit card types are a fixed set of strings as defined in the link below
-    // (https://searchfox.org/mozilla-central/rev/7ef5cefd0468b8f509efe38e0212de2398f4c8b3/toolkit/modules/CreditCard.jsm#9-22)
+    /// The credit card type, one of the values in a fixed set of strings as defined
+    /// [for Desktop](https://searchfox.org/mozilla-central/rev/7ef5cefd0468b8f509efe38e0212de2398f4c8b3/toolkit/modules/CreditCard.jsm#9-22)
     pub cc_type: String,
 }
 
+/// This struct represents credit card data returned from the database.
 #[derive(Debug, Clone, Default)]
 pub struct CreditCard {
+    /// The unique ID of the credit card.
     pub guid: String,
+    /// The full name of the credit card holder.
     pub cc_name: String,
+    /// The encrypted credit card number stored as a JWE. This value has a length greater than 20 or will be an
+    /// empty string if the credit card has been scrubbed because the encryption key was lost.
     pub cc_number_enc: String,
+    /// The last four digits of the credit card number, unencrypted.
     pub cc_number_last_4: String,
+    /// The last four digits of the credit card number, unencrypted.
     pub cc_exp_month: i64,
+    /// The last four digits of the credit card number, unencrypted.
     pub cc_exp_year: i64,
-
-    // Credit card types are a fixed set of strings as defined in the link below
-    // (https://searchfox.org/mozilla-central/rev/7ef5cefd0468b8f509efe38e0212de2398f4c8b3/toolkit/modules/CreditCard.jsm#9-22)
+    /// The credit card type, one of the values in a fixed set of strings as defined
+    /// [for Desktop](https://searchfox.org/mozilla-central/rev/7ef5cefd0468b8f509efe38e0212de2398f4c8b3/toolkit/modules/CreditCard.jsm#9-22)
     pub cc_type: String,
 
     // The metadata
+    /// The time the credit card was created.
     pub time_created: i64,
+    /// The time the credit card was last used or [`touch`]ed, [`None`] if never used.
     pub time_last_used: Option<i64>,
+    /// The time the credit card was last changed.
     pub time_last_modified: i64,
+    /// The number of times the credit card was used or [`touch`]ed.
     pub times_used: i64,
 }
 
