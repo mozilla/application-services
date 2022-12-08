@@ -32,6 +32,13 @@
             - Run the `./automation/smoke-test-fenix.py` script to test integration with Fenix.
     5. Get it PRed and landed.
 
+**Note**: Before your release can be consumed by iOS, you will have to release [rust-components-swift](https://github.com/mozilla/rust-components-swift#cutting-a-new-release) too. There is automation that runs everyday to prepare a release PR, however, if your release is urgent run the job manually. You can run the job by:
+1. Navigating in [rust-component-swift's github](https://github.com/mozilla/rust-components-swift) to the `Actions` tab
+1. Clicking the `Create a PR for release with the newest A-S version available` GitHub action
+1. Click `run workflow` and base off the main branch
+1. The job will take a few minutes, but then will create a PR in `rust-components-swift`. Approve and merge the PR
+1. Cut a GitHub release using the GitHub UI with the tag in the form of `XX.YY.ZZ` (no `v` prefix)
+
 **Note:** If you need to manually produce the iOS build for some reason (for example, if CircleCI cannot), someone with a mac needs to do the following steps:
     1. If necessary, set up for performing iOS builds using `./libs/verify-ios-environment.sh`.
     2. Run `./megazords/ios-rust/build-xcframework.sh`
