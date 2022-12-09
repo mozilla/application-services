@@ -2,7 +2,7 @@
 
 # Unreleased Changes
 
-[Full Changelog](https://github.com/mozilla/application-services/compare/v96.1.2...main)
+[Full Changelog](https://github.com/mozilla/application-services/compare/v96.1.3...main)
 
 <!-- WARNING: New entries should be added below this comment to ensure the `./automation/prepare-release.py` script works as expected.
 
