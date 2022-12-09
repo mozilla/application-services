@@ -1,3 +1,12 @@
+# v96.1.3 (_2022-12-08_)
+
+[Full Changelog](https://github.com/mozilla/application-services/compare/v96.1.2...v96.1.3)
+
+## Tabs
+
+### What's Changed
+  - Fixed a regression causing failure to read old tabs databases ([#5286](https://github.com/mozilla/application-services/pull/5286))
+
 # v96.1.2 (_2022-12-07_)
 
 [Full Changelog](https://github.com/mozilla/application-services/compare/v96.1.1...v96.1.2)
