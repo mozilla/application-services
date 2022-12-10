@@ -142,22 +142,6 @@ fn get_nss_libs(kind: LinkingKind) -> Vec<&'static str> {
                     static_libs.push("intel-gcm-s_lib");
                 }
             }
-            // We need this due to using the NSS CI, which enables PKIX lib by default
-            // However this is only used for Macs testing android on desktop
-            // https://searchfox.org/mozilla-central/source/security/nss/lib/libpkix/libpkix.gyp#15-25
-            if (target_os == "macos") && (target_arch == "x86_64") {
-                static_libs.push("pkixcertsel");
-                static_libs.push("pkixchecker");
-                static_libs.push("pkixcrlsel");
-                static_libs.push("pkixparams");
-                static_libs.push("pkixresults");
-                static_libs.push("pkixstore");
-                static_libs.push("pkixtop");
-                static_libs.push("pkixutil");
-                static_libs.push("pkixmodule");
-                static_libs.push("pkixpki");
-                static_libs.push("pkixsystem");
-            }
             static_libs
         }
         LinkingKind::Dynamic { folded_libs } => {

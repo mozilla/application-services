@@ -54,12 +54,12 @@ if [[ -d "${DIST_DIR}" ]]; then
   exit 0
 fi
 
-# TODO We do not know how to cross compile these, so we cheat by downloading them and the how is pretty disgusting.
+# We do not know how to cross compile these, so we pull pre-built versions from NSS CI
 # https://github.com/mozilla/application-services/issues/962
 if [[ "${CROSS_COMPILE_TARGET}" =~ "darwin" ]]; then
-  # Generated from nss-try@111b54aaa644978464bec98848ecba6f69d3f42e.
-  curl -sfSL --retry 5 --retry-delay 10 -O "https://firefox-ci-tc.services.mozilla.com/api/queue/v1/task/xSE_Od-YToytpjnPT-gCpQ/runs/0/artifacts/public/dist.tar.bz2"
-  SHA256="3b2d84122fce109db840bd916c923ca91413bd7d9ab7c632bde0df19c9d1ff9c"
+  #https://treeherder.mozilla.org/jobs?repo=nss&revision=3ab9260101b1a0d5c3d709ba45975f7e4a9d0077
+  curl -sfSL --retry 5 --retry-delay 10 -O "https://firefox-ci-tc.services.mozilla.com/api/queue/v1/task/op7XqxH-T1WN3Ob8N9cDHA/runs/0/artifacts/public/dist.tar.bz2"
+  SHA256="f90c29611de1d8f84c6eac382938da5849d3ea5e1487cf2a230947693f09aa89"
   echo "${SHA256}  dist.tar.bz2" | shasum -a 256 -c - || exit 2
   tar xvjf dist.tar.bz2 && rm -rf dist.tar.bz2
   NSS_DIST_DIR=$(abspath "dist")
@@ -120,23 +120,6 @@ if [[ "${TARGET_OS}" == "windows" ]] || [[ "${TARGET_OS}" == "linux" ]]; then
     cp -p -L "${NSS_DIST_OBJ_DIR}/lib/libintel-gcm-s_lib.a" "${DIST_DIR}/lib"
   fi
 fi
-
-# Since NSS CI enables PKIX by default, we need to copy these libs over
-# This is only used by macs running android tests on desktop
-# https://searchfox.org/mozilla-central/source/security/nss/lib/libpkix/libpkix.gyp#15-25
-if [[ "${CROSS_COMPILE_TARGET}" =~ "darwin" ]]; then
-  cp -p -L "${NSS_DIST_OBJ_DIR}/lib/libpkixcertsel.a" "${DIST_DIR}/lib"
-  cp -p -L "${NSS_DIST_OBJ_DIR}/lib/libpkixchecker.a" "${DIST_DIR}/lib"
-  cp -p -L "${NSS_DIST_OBJ_DIR}/lib/libpkixcrlsel.a" "${DIST_DIR}/lib"
-  cp -p -L "${NSS_DIST_OBJ_DIR}/lib/libpkixparams.a" "${DIST_DIR}/lib"
-  cp -p -L "${NSS_DIST_OBJ_DIR}/lib/libpkixresults.a" "${DIST_DIR}/lib"
-  cp -p -L "${NSS_DIST_OBJ_DIR}/lib/libpkixstore.a" "${DIST_DIR}/lib"
-  cp -p -L "${NSS_DIST_OBJ_DIR}/lib/libpkixtop.a" "${DIST_DIR}/lib"
-  cp -p -L "${NSS_DIST_OBJ_DIR}/lib/libpkixutil.a" "${DIST_DIR}/lib"
-  cp -p -L "${NSS_DIST_OBJ_DIR}/lib/libpkixmodule.a" "${DIST_DIR}/lib"
-  cp -p -L "${NSS_DIST_OBJ_DIR}/lib/libpkixpki.a" "${DIST_DIR}/lib"
-  cp -p -L "${NSS_DIST_OBJ_DIR}/lib/libpkixsystem.a" "${DIST_DIR}/lib"
-fi 
 
 cp -p -L -R "${NSS_DIST_DIR}/public/nss/"* "${DIST_DIR}/include/nss"
 cp -p -L -R "${NSS_DIST_OBJ_DIR}/include/nspr/"* "${DIST_DIR}/include/nss"
