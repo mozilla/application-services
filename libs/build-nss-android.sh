@@ -61,7 +61,7 @@ export READELF="${TOOLCHAIN_PATH}/bin/${TOOLCHAIN}-readelf"
 NSPR_BUILD_DIR=$(mktemp -d)
 pushd "${NSPR_BUILD_DIR}"
 "${NSS_SRC_DIR}"/nspr/configure \
-  ${NSPR_64} \
+  "${NSPR_64}" \
   --target="${TOOLCHAIN}" \
    --disable-debug \
    --enable-optimize
