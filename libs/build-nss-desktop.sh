@@ -54,14 +54,14 @@ if [[ -d "${DIST_DIR}" ]]; then
   exit 0
 fi
 
-# TODO We do not know how to cross compile these, so we cheat by downloading them and the how is pretty disgusting.
+# We do not know how to cross compile these, so we pull pre-built versions from NSS CI
 # https://github.com/mozilla/application-services/issues/962
 if [[ "${CROSS_COMPILE_TARGET}" =~ "darwin" ]]; then
-  # Generated from nss-try@111b54aaa644978464bec98848ecba6f69d3f42e.
-  curl -sfSL --retry 5 --retry-delay 10 -O "https://fxa-dev-bucket.s3-us-west-2.amazonaws.com/a-s/nss_nspr_static_3.66_darwin.tar.bz2"
-  SHA256="2ad7c85b7b009120c7e883ccd367bbd3653857a4ed3adb4c5471b197d1844141"
-  echo "${SHA256}  nss_nspr_static_3.66_darwin.tar.bz2" | shasum -a 256 -c - || exit 2
-  tar xvjf nss_nspr_static_3.66_darwin.tar.bz2 && rm -rf nss_nspr_static_3.66_darwin.tar.bz2
+  #https://treeherder.mozilla.org/jobs?repo=nss&revision=3ab9260101b1a0d5c3d709ba45975f7e4a9d0077
+  curl -sfSL --retry 5 --retry-delay 10 -O "https://firefox-ci-tc.services.mozilla.com/api/queue/v1/task/op7XqxH-T1WN3Ob8N9cDHA/runs/0/artifacts/public/dist.tar.bz2"
+  SHA256="f90c29611de1d8f84c6eac382938da5849d3ea5e1487cf2a230947693f09aa89"
+  echo "${SHA256}  dist.tar.bz2" | shasum -a 256 -c - || exit 2
+  tar xvjf dist.tar.bz2 && rm -rf dist.tar.bz2
   NSS_DIST_DIR=$(abspath "dist")
 elif [[ "$(uname -s)" == "Darwin" ]] || [[ "$(uname -s)" == "Linux" ]]; then
   "${NSS_SRC_DIR}"/nss/build.sh \
@@ -110,6 +110,7 @@ else
   cp -p -L "${NSS_DIST_OBJ_DIR}/lib/libhw-acc-crypto-avx.a" "${DIST_DIR}/lib"
   cp -p -L "${NSS_DIST_OBJ_DIR}/lib/libhw-acc-crypto-avx2.a" "${DIST_DIR}/lib"
   cp -p -L "${NSS_DIST_OBJ_DIR}/lib/libgcm-aes-x86_c_lib.a" "${DIST_DIR}/lib"
+  cp -p -L "${NSS_DIST_OBJ_DIR}/lib/libsha-x86_c_lib.a" "${DIST_DIR}/lib"
 fi
 # https://searchfox.org/mozilla-central/rev/1eb05019f47069172ba81a6c108a584a409a24ea/security/nss/lib/freebl/freebl.gyp#224-233
 if [[ "${TARGET_OS}" == "windows" ]] || [[ "${TARGET_OS}" == "linux" ]]; then

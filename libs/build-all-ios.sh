@@ -64,6 +64,7 @@ universal_lib "nss" "libssl.a" "${TARGET_ARCHS[@]}"
 universal_lib "nss" "libhw-acc-crypto-avx.a" "x86_64"
 universal_lib "nss" "libhw-acc-crypto-avx2.a" "x86_64"
 universal_lib "nss" "libgcm-aes-x86_c_lib.a" "x86_64"
+universal_lib "nss" "libsha-x86_c_lib.a" "x86_64"
 universal_lib "nss" "libgcm-aes-aarch64_c_lib.a" "arm64"
 universal_lib "nss" "libarmv8_c_lib.a" "arm64"
 
