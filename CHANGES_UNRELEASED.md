@@ -23,6 +23,8 @@ Use the template below to make assigning a version number during the release cut
 
 ### What's Changed
   - Fixed an issue where the NimbusQueues protocol was missing from the NimbusApi ([#5298](https://github.com/mozilla/application-services/pull/5298))
+### What's New
+  - Added `eventLastSeen` query to the event store and jexl transforms ([#0000](https://github.com/mozilla/application-services/pull/0000))
 
 ## Tabs
 

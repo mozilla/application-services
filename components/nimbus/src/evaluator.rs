@@ -3,7 +3,7 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
  */
 
-use crate::behavior::{EventQueryType, EventStore, Interval};
+use crate::behavior::{EventQueryType, EventStore};
 use crate::enrollment::{
     EnrolledReason, EnrollmentStatus, ExperimentEnrollment, NotEnrolledReason,
 };
@@ -17,7 +17,6 @@ use jexl_eval::Evaluator;
 use serde_derive::*;
 use serde_json::{json, Value};
 use std::collections::HashSet;
-use std::str::FromStr;
 use std::sync::{Arc, Mutex};
 use uuid::Uuid;
 #[derive(Serialize, Deserialize, Debug, Clone, Default)]
@@ -322,6 +321,13 @@ pub fn jexl_eval<Context: serde::Serialize>(
                 EventQueryType::AveragePerNonZeroInterval,
                 args,
             )?)
+        })
+        .with_transform("eventLastSeen", |args| {
+            Ok(query_event_store(
+                event_store.clone(),
+                EventQueryType::LastSeen,
+                args,
+            )?)
         });
 
     let res = evaluator.eval_in_context(expression_statement, context)?;
@@ -362,30 +368,8 @@ fn query_event_store(
     query_type: EventQueryType,
     args: &[Value],
 ) -> Result<Value> {
-    if args.len() != 4 {
-        return Err(NimbusError::TransformParameterError(
-            "event transforms require 3 parameters".to_string(),
-        ));
-    }
-    let event = serde_json::from_value::<String>(args.get(0).unwrap().clone())?;
-    let interval = serde_json::from_value::<String>(args.get(1).unwrap().clone())?;
-    let interval = Interval::from_str(&interval)?;
-    let num_buckets = match args.get(2).unwrap().as_f64() {
-        Some(v) => v,
-        None => {
-            return Err(NimbusError::TransformParameterError(
-                "event transforms require a positive number as the second parameter".to_string(),
-            ))
-        }
-    } as usize;
-    let starting_bucket = match args.get(3).unwrap().as_f64() {
-        Some(v) => v,
-        None => {
-            return Err(NimbusError::TransformParameterError(
-                "event transforms require a positive number as the third parameter".to_string(),
-            ))
-        }
-    } as usize;
+    let (event, interval, num_buckets, starting_bucket, query_type) =
+        query_type.validate_arguments(args)?;
 
     Ok(json!(event_store.lock().unwrap().query(
         event,
