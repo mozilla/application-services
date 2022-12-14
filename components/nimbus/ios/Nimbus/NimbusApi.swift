@@ -17,7 +17,7 @@ import Glean
 ///
 public protocol NimbusApi: FeaturesInterface, NimbusStartup,
     NimbusUserConfiguration, NimbusBranchInterface, GleanPlumbProtocol,
-    NimbusEvents {}
+    NimbusEvents, NimbusQueues {}
 
 public protocol NimbusBranchInterface {
     /// Get the currently enrolled branch for the given experiment
