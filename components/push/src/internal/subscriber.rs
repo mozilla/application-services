@@ -36,7 +36,7 @@ impl From<Key> for KeyInfo {
     fn from(key: Key) -> Self {
         KeyInfo {
             auth: base64::encode_config(&key.auth, base64::URL_SAFE_NO_PAD),
-            p256dh: base64::encode_config(&key.public_key(), base64::URL_SAFE_NO_PAD),
+            p256dh: base64::encode_config(key.public_key(), base64::URL_SAFE_NO_PAD),
         }
     }
 }

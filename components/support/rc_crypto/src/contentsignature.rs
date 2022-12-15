@@ -21,7 +21,7 @@ fn decode_root_hash(input: &str) -> Result<Vec<u8>> {
 
     let mut result: Vec<u8> = vec![];
     for byte_hex in bytes_hex {
-        let byte = match hex::decode(&byte_hex) {
+        let byte = match hex::decode(byte_hex) {
             Ok(v) => v,
             Err(_) => return Err(ErrorKind::RootHashFormatError(input.to_string()).into()),
         };
@@ -115,7 +115,7 @@ pub fn verify(
         Err(err) => return Err(ErrorKind::CertificateContentError(err.to_string()).into()),
     };
 
-    let signature_bytes = match base64::decode_config(&signature, base64::URL_SAFE) {
+    let signature_bytes = match base64::decode_config(signature, base64::URL_SAFE) {
         Ok(b) => b,
         Err(err) => return Err(ErrorKind::SignatureContentError(err.to_string()).into()),
     };

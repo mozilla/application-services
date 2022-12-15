@@ -35,7 +35,7 @@ impl Jwk {
         Jwk {
             kid,
             key_parameters: JwkKeyParameters::Direct {
-                k: base64::encode_config(&key, base64::URL_SAFE_NO_PAD),
+                k: base64::encode_config(key, base64::URL_SAFE_NO_PAD),
             },
         }
     }
@@ -57,7 +57,7 @@ pub(crate) fn encrypt_to_jwe(
         apv: None,
     };
     let secret = match &jwk.key_parameters {
-        JwkKeyParameters::Direct { k } => base64::decode_config(&k, base64::URL_SAFE_NO_PAD)?,
+        JwkKeyParameters::Direct { k } => base64::decode_config(k, base64::URL_SAFE_NO_PAD)?,
         _ => return Err(JwCryptoError::IllegalState("Not a Direct key")),
     };
     aes::aes_gcm_encrypt(data, protected_header, &secret)

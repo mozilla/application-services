@@ -133,7 +133,7 @@ mod test {
     fn test_decrypt() {
         let key_bytes = base64::decode(KEY_B64).unwrap();
         let key = aead::Key::new(&LEGACY_SYNC_AES_256_CBC_HMAC_SHA256, &key_bytes).unwrap();
-        let ciphertext_and_tag = base64::decode(&CIPHERTEXT_AND_TAG_B64).unwrap();
+        let ciphertext_and_tag = base64::decode(CIPHERTEXT_AND_TAG_B64).unwrap();
 
         let iv = base64::decode(IV_B64).unwrap();
         let nonce =
@@ -141,7 +141,7 @@ mod test {
                 .unwrap();
         let cleartext_bytes = open(&key, nonce, &aead::Aad::empty(), &ciphertext_and_tag).unwrap();
 
-        let expected_cleartext_bytes = base64::decode(&CLEARTEXT_B64).unwrap();
+        let expected_cleartext_bytes = base64::decode(CLEARTEXT_B64).unwrap();
         assert_eq!(&expected_cleartext_bytes, &cleartext_bytes);
     }
 
@@ -149,7 +149,7 @@ mod test {
     fn test_encrypt() {
         let key_bytes = base64::decode(KEY_B64).unwrap();
         let key = aead::Key::new(&LEGACY_SYNC_AES_256_CBC_HMAC_SHA256, &key_bytes).unwrap();
-        let cleartext = base64::decode(&CLEARTEXT_B64).unwrap();
+        let cleartext = base64::decode(CLEARTEXT_B64).unwrap();
 
         let iv = base64::decode(IV_B64).unwrap();
         let nonce =
@@ -157,7 +157,7 @@ mod test {
                 .unwrap();
         let ciphertext_bytes = seal(&key, nonce, &aead::Aad::empty(), &cleartext).unwrap();
 
-        let expected_ciphertext_bytes = base64::decode(&CIPHERTEXT_AND_TAG_B64).unwrap();
+        let expected_ciphertext_bytes = base64::decode(CIPHERTEXT_AND_TAG_B64).unwrap();
         assert_eq!(&expected_ciphertext_bytes, &ciphertext_bytes);
     }
 
@@ -165,7 +165,7 @@ mod test {
     fn test_roundtrip() {
         let key_bytes = base64::decode(KEY_B64).unwrap();
         let key = aead::Key::new(&LEGACY_SYNC_AES_256_CBC_HMAC_SHA256, &key_bytes).unwrap();
-        let cleartext = base64::decode(&CLEARTEXT_B64).unwrap();
+        let cleartext = base64::decode(CLEARTEXT_B64).unwrap();
 
         let iv = base64::decode(IV_B64).unwrap();
         let nonce =
@@ -186,7 +186,7 @@ mod test {
         key_bytes[1] = b'X';
 
         let key = aead::Key::new(&LEGACY_SYNC_AES_256_CBC_HMAC_SHA256, &key_bytes).unwrap();
-        let ciphertext_and_tag = base64::decode(&CIPHERTEXT_AND_TAG_B64).unwrap();
+        let ciphertext_and_tag = base64::decode(CIPHERTEXT_AND_TAG_B64).unwrap();
         let iv = base64::decode(IV_B64).unwrap();
         let nonce =
             aead::Nonce::try_assume_unique_for_key(&LEGACY_SYNC_AES_256_CBC_HMAC_SHA256, &iv)
@@ -205,7 +205,7 @@ mod test {
         key_bytes[60] = b'X';
 
         let key = aead::Key::new(&LEGACY_SYNC_AES_256_CBC_HMAC_SHA256, &key_bytes).unwrap();
-        let ciphertext_and_tag = base64::decode(&CIPHERTEXT_AND_TAG_B64).unwrap();
+        let ciphertext_and_tag = base64::decode(CIPHERTEXT_AND_TAG_B64).unwrap();
         let iv = base64::decode(IV_B64).unwrap();
         let nonce =
             aead::Nonce::try_assume_unique_for_key(&LEGACY_SYNC_AES_256_CBC_HMAC_SHA256, &iv)
@@ -227,7 +227,7 @@ mod test {
             aead::Nonce::try_assume_unique_for_key(&LEGACY_SYNC_AES_256_CBC_HMAC_SHA256, &iv)
                 .unwrap();
 
-        let mut ciphertext_and_tag = base64::decode(&CIPHERTEXT_AND_TAG_B64).unwrap();
+        let mut ciphertext_and_tag = base64::decode(CIPHERTEXT_AND_TAG_B64).unwrap();
         ciphertext_and_tag[4] = b'Z';
 
         let err = open(&key, nonce, &aead::Aad::empty(), &ciphertext_and_tag).unwrap_err();
@@ -246,7 +246,7 @@ mod test {
             aead::Nonce::try_assume_unique_for_key(&LEGACY_SYNC_AES_256_CBC_HMAC_SHA256, &iv)
                 .unwrap();
 
-        let mut ciphertext_and_tag = base64::decode(&CIPHERTEXT_AND_TAG_B64).unwrap();
+        let mut ciphertext_and_tag = base64::decode(CIPHERTEXT_AND_TAG_B64).unwrap();
         let end = ciphertext_and_tag.len();
         ciphertext_and_tag[end - 4] = b'Z';
 
