@@ -19,6 +19,11 @@ Use the template below to make assigning a version number during the release cut
 
 -->
 
+## Nimbus
+
+### What's Changed
+  - Fixed an issue where the NimbusQueues protocol was missing from the NimbusApi ([#5298](https://github.com/mozilla/application-services/pull/5298))
+
 ## Tabs
 
 ### What's Changed
