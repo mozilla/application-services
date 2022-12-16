@@ -91,7 +91,7 @@ pub(crate) fn get_credit_card(conn: &Connection, guid: &Guid) -> Result<Internal
         common_cols = CREDIT_CARD_COMMON_COLS
     );
 
-    conn.query_row(&sql, &[guid], InternalCreditCard::from_row)
+    conn.query_row(&sql, [guid], InternalCreditCard::from_row)
         .map_err(|e| match e {
             rusqlite::Error::QueryReturnedNoRows => Error::NoSuchRecord(guid.to_string()),
             e => e.into(),
@@ -512,7 +512,7 @@ pub(crate) mod tests {
                 AND cc_exp_month = :cc_exp_month
                 AND sync_change_counter = 0
             )",
-            &[&guid.to_string(), &expected_cc_exp_month.to_string()],
+            [&guid.to_string(), &expected_cc_exp_month.to_string()],
             |row| row.get(0),
         )?;
         assert!(record_exists);
@@ -570,7 +570,7 @@ pub(crate) mod tests {
                 FROM credit_cards_tombstones
                 WHERE guid = :guid
             )",
-            &[&cc2_guid],
+            [&cc2_guid],
             |row| row.get(0),
         )?;
         assert!(tombstone_exists);

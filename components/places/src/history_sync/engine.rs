@@ -56,7 +56,7 @@ fn do_sync_finished(
     // write timestamp to reflect what we just wrote.
     put_meta(db, LAST_SYNC_META_KEY, &(new_timestamp.as_millis() as i64))?;
 
-    db.pragma_update(None, "wal_checkpoint", &"PASSIVE")?;
+    db.pragma_update(None, "wal_checkpoint", "PASSIVE")?;
 
     Ok(())
 }

@@ -41,7 +41,7 @@ fn main() {
         let proto_path_absolute = proto_path_absolute.to_str().unwrap();
         let include_dir_absolute = config_dir.join(&opts.dir).canonicalize().unwrap();
         let include_dir_absolute = include_dir_absolute.to_str().unwrap();
-        config.out_dir(&out_dir_absolute);
+        config.out_dir(out_dir_absolute);
         config
             .compile_protos(&[proto_path_absolute], &[&include_dir_absolute])
             .unwrap();

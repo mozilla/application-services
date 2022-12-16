@@ -96,7 +96,7 @@ pub(crate) fn get_address(conn: &Connection, guid: &Guid) -> Result<InternalAddr
         WHERE guid = :guid",
         common_cols = ADDRESS_COMMON_COLS
     );
-    conn.query_row(&sql, &[guid], InternalAddress::from_row)
+    conn.query_row(&sql, [guid], InternalAddress::from_row)
         .map_err(|e| match e {
             rusqlite::Error::QueryReturnedNoRows => Error::NoSuchRecord(guid.to_string()),
             e => e.into(),
@@ -536,7 +536,7 @@ mod tests {
                 AND family_name = :family_name
                 AND sync_change_counter = 0
             )",
-            &[&guid.to_string(), &expected_family_name.to_string()],
+            [&guid.to_string(), &expected_family_name.to_string()],
             |row| row.get(0),
         )?;
         assert!(record_exists);

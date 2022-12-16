@@ -1161,7 +1161,7 @@ mod default_block {
             }
         ))
         .unwrap();
-        assert!(input.merge_channels() == None)
+        assert!(input.merge_channels().is_none())
     }
 
     #[test]
@@ -1177,7 +1177,7 @@ mod default_block {
         ))
         .unwrap();
         let res = input.merge_channels();
-        assert!(res != None);
+        assert!(res.is_some());
         let res = res.unwrap();
         assert!(res.contains(&"a".to_string()));
         assert!(res.contains(&"b".to_string()));
@@ -1197,7 +1197,7 @@ mod default_block {
         ))
         .unwrap();
         let res = input.merge_channels();
-        assert!(res != None);
+        assert!(res.is_some());
         let res = res.unwrap();
         assert!(res.contains(&"a".to_string()));
         assert!(res.len() == 1)

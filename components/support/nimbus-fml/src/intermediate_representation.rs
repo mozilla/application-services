@@ -203,7 +203,7 @@ impl FeatureManifest {
         for feature_def in &self.feature_defs {
             for prop in &feature_def.props {
                 let path = format!("features/{}.{}", &feature_def.name, &prop.name);
-                self.validate_type_ref(&path, &prop.typ, &enum_names, &obj_names)?;
+                Self::validate_type_ref(&path, &prop.typ, &enum_names, &obj_names)?;
             }
         }
         self.validate_defaults()?;
@@ -218,7 +218,6 @@ impl FeatureManifest {
     }
 
     fn validate_type_ref(
-        &self,
         path: &str,
         type_ref: &TypeRef,
         enum_names: &HashSet<String>,
@@ -251,8 +250,8 @@ impl FeatureManifest {
             }
             TypeRef::EnumMap(key_type, value_type) => {
                 if let TypeRef::Enum(_) = key_type.as_ref() {
-                    self.validate_type_ref(path, key_type, enum_names, obj_names)?;
-                    self.validate_type_ref(path, value_type, enum_names, obj_names)
+                    Self::validate_type_ref(path, key_type, enum_names, obj_names)?;
+                    Self::validate_type_ref(path, value_type, enum_names, obj_names)
                 } else {
                     Err(FMLError::ValidationError(
                         path.to_string(),
@@ -261,10 +260,10 @@ impl FeatureManifest {
                 }
             }
             TypeRef::List(list_type) => {
-                self.validate_type_ref(path, list_type, enum_names, obj_names)
+                Self::validate_type_ref(path, list_type, enum_names, obj_names)
             }
             TypeRef::StringMap(value_type) => {
-                self.validate_type_ref(path, value_type, enum_names, obj_names)
+                Self::validate_type_ref(path, value_type, enum_names, obj_names)
             }
             TypeRef::Option(option_type) => {
                 if let TypeRef::Option(_) = option_type.as_ref() {
@@ -273,7 +272,7 @@ impl FeatureManifest {
                         "Found nested optional types".into(),
                     ))
                 } else {
-                    self.validate_type_ref(path, option_type, enum_names, obj_names)
+                    Self::validate_type_ref(path, option_type, enum_names, obj_names)
                 }
             }
             _ => Ok(()),

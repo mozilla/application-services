@@ -106,7 +106,7 @@ mod test {
         let hash3 = hawk::PayloadHasher::hash("text/plain", hawk::SHA256, "pàyload").unwrap();
 
         let hash4 = // "pàyload" as utf-8 bytes
-            hawk::PayloadHasher::hash("text/plain", hawk::SHA256, &[112, 195, 160, 121, 108, 111, 97, 100]).unwrap();
+            hawk::PayloadHasher::hash("text/plain", hawk::SHA256, [112, 195, 160, 121, 108, 111, 97, 100]).unwrap();
 
         assert_eq!(
             hash1,
@@ -125,7 +125,7 @@ mod test {
     fn test_hawk_signing() {
         crate::ensure_initialized();
         let key = hawk::Key::new(
-            &[
+            [
                 11u8, 19, 228, 209, 79, 189, 200, 59, 166, 47, 86, 254, 235, 184, 120, 197, 75,
                 152, 201, 79, 115, 61, 111, 242, 219, 187, 173, 14, 227, 108, 60, 232,
             ],
