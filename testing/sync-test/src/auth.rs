@@ -145,7 +145,7 @@ impl TestAccount {
         let auth_key = auth::derive_auth_key_from_session_token(&self.session_token)?;
         let query_map: HashMap<String, String> = url.query_pairs().into_owned().collect();
         let jwk_base_64 = query_map.get("keys_jwk").unwrap();
-        let decoded = base64::decode(&jwk_base_64).unwrap();
+        let decoded = base64::decode(jwk_base_64).unwrap();
         let jwk = std::str::from_utf8(&decoded)?;
         let scope = query_map.get("scope").unwrap();
         let client_id = query_map.get("client_id").unwrap();

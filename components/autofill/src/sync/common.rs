@@ -451,7 +451,7 @@ pub(super) mod tests {
         );
 
         let num_rows = tx
-            .query_row(&sql, &[guid], |row| Ok(row.get::<_, u32>(0).unwrap()))
+            .query_row(&sql, [guid], |row| Ok(row.get::<_, u32>(0).unwrap()))
             .unwrap();
         assert_eq!(num_rows, 1);
     }

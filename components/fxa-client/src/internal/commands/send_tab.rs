@@ -206,7 +206,7 @@ impl From<PrivateSendTabKeys> for PublicSendTabKeys {
     fn from(internal: PrivateSendTabKeys) -> Self {
         Self {
             public_key: base64::encode_config(
-                &internal.p256key.public_key(),
+                internal.p256key.public_key(),
                 base64::URL_SAFE_NO_PAD,
             ),
             auth_secret: base64::encode_config(&internal.auth_secret, base64::URL_SAFE_NO_PAD),
@@ -237,7 +237,7 @@ fn extract_oldsync_key_components(oldsync_key: &ScopedKey) -> Result<(Vec<u8>, V
         .into());
     }
     let kxcs: &str = oldsync_key.kid.splitn(2, '-').collect::<Vec<_>>()[1];
-    let kxcs = base64::decode_config(&kxcs, base64::URL_SAFE_NO_PAD)?;
+    let kxcs = base64::decode_config(kxcs, base64::URL_SAFE_NO_PAD)?;
     let ksync = oldsync_key.key_bytes()?;
     Ok((ksync, kxcs))
 }

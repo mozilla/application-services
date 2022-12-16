@@ -360,7 +360,7 @@ fn set_encryption_key(store: &LoginStore, key: &str) -> rusqlite::Result<()> {
         INSERT INTO  loginsSyncMeta (key, value)
         VALUES ('sync-pass-key', ?)
         ",
-            &[&key],
+            [&key],
         )
         .map(|_| ())
 }
