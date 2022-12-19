@@ -112,7 +112,7 @@ LIBS="\
 "
 
 if [[ "${ARCH}" == "x86_64" ]]; then
-  LIBS="${LIBS} -lgcm-aes-x86_c_lib -lhw-acc-crypto-avx -lhw-acc-crypto-avx2"
+  LIBS="${LIBS} -lgcm-aes-x86_c_lib -lhw-acc-crypto-avx -lhw-acc-crypto-avx2 -lsha-x86_c_lib"
 else
   LIBS="${LIBS} -lgcm-aes-aarch64_c_lib -larmv8_c_lib"
 fi

@@ -232,10 +232,7 @@ impl SyncManager {
                 selected_engine_ids.insert(engine_id);
             }
             // Filter engines based on the selection
-            engine_map = engine_map
-                .into_iter()
-                .filter(|(engine_id, _)| selected_engine_ids.contains(engine_id))
-                .collect()
+            engine_map.retain(|engine_id, _| selected_engine_ids.contains(engine_id))
         }
         Ok(engine_map.into_iter().map(|(_, engine)| engine).collect())
     }

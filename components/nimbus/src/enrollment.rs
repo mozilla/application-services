@@ -11,6 +11,7 @@ use crate::{AvailableRandomizationUnits, EnrolledExperiment, Experiment, Feature
 
 use ::uuid::Uuid;
 use serde_derive::*;
+use std::sync::{Arc, Mutex};
 use std::{
     collections::{HashMap, HashSet},
     time::{Duration, SystemTime, UNIX_EPOCH},
@@ -82,7 +83,7 @@ impl ExperimentEnrollment {
         available_randomization_units: &AvailableRandomizationUnits,
         targeting_attributes: &TargetingAttributes,
         experiment: &Experiment,
-        event_store: &EventStore,
+        event_store: Arc<Mutex<EventStore>>,
         out_enrollment_events: &mut Vec<EnrollmentChangeEvent>,
     ) -> Result<Self> {
         Ok(if !is_user_participating {
@@ -156,7 +157,7 @@ impl ExperimentEnrollment {
         available_randomization_units: &AvailableRandomizationUnits,
         targeting_attributes: &TargetingAttributes,
         updated_experiment: &Experiment,
-        event_store: &EventStore,
+        event_store: Arc<Mutex<EventStore>>,
         out_enrollment_events: &mut Vec<EnrollmentChangeEvent>,
     ) -> Result<Self> {
         Ok(match self.status {
@@ -589,7 +590,7 @@ impl<'a> EnrollmentsEvolver<'a> {
         db: &Database,
         writer: &mut Writer,
         next_experiments: &[Experiment],
-        event_store: &EventStore,
+        event_store: Arc<Mutex<EventStore>>,
     ) -> Result<Vec<EnrollmentChangeEvent>> {
         // Get the state from the db.
         let is_user_participating = get_global_user_participation(db, writer)?;
@@ -629,7 +630,7 @@ impl<'a> EnrollmentsEvolver<'a> {
         prev_experiments: &[Experiment],
         next_experiments: &[Experiment],
         prev_enrollments: &[ExperimentEnrollment],
-        event_store: &EventStore,
+        event_store: Arc<Mutex<EventStore>>,
     ) -> Result<(Vec<ExperimentEnrollment>, Vec<EnrollmentChangeEvent>)> {
         let mut enrollments: Vec<ExperimentEnrollment> = Default::default();
         let mut events: Vec<EnrollmentChangeEvent> = Default::default();
@@ -648,7 +649,7 @@ impl<'a> EnrollmentsEvolver<'a> {
             &prev_rollouts,
             &next_rollouts,
             &ro_enrollments,
-            event_store,
+            event_store.clone(),
         )?;
 
         enrollments.extend(next_ro_enrollments.into_iter());
@@ -691,7 +692,7 @@ impl<'a> EnrollmentsEvolver<'a> {
         prev_experiments: &[Experiment],
         next_experiments: &[Experiment],
         prev_enrollments: &[ExperimentEnrollment],
-        event_store: &EventStore,
+        event_store: Arc<Mutex<EventStore>>,
     ) -> Result<(Vec<ExperimentEnrollment>, Vec<EnrollmentChangeEvent>)> {
         let mut enrollment_events = vec![];
         let prev_experiments = map_experiments(prev_experiments);
@@ -726,7 +727,7 @@ impl<'a> EnrollmentsEvolver<'a> {
                 prev_experiments.get(slug).copied(),
                 next_experiments.get(slug).copied(),
                 Some(prev_enrollment),
-                event_store,
+                event_store.clone(),
                 &mut enrollment_events,
             ) {
                 Ok(enrollment) => enrollment,
@@ -818,7 +819,7 @@ impl<'a> EnrollmentsEvolver<'a> {
                     prev_experiments.get(slug).copied(),
                     Some(next_experiment),
                     prev_enrollment,
-                    event_store,
+                    event_store.clone(),
                     &mut enrollment_events,
                 ) {
                     Ok(enrollment) => enrollment,
@@ -890,7 +891,7 @@ impl<'a> EnrollmentsEvolver<'a> {
         prev_experiment: Option<&Experiment>,
         next_experiment: Option<&Experiment>,
         prev_enrollment: Option<&ExperimentEnrollment>,
-        event_store: &EventStore,
+        event_store: Arc<Mutex<EventStore>>,
         out_enrollment_events: &mut Vec<EnrollmentChangeEvent>, // out param containing the events we'd like to emit to glean.
     ) -> Result<Option<ExperimentEnrollment>> {
         let is_already_enrolled = if let Some(enrollment) = prev_enrollment {
@@ -989,7 +990,7 @@ fn filter_experiments(
 ) -> Vec<Experiment> {
     experiments
         .iter()
-        .filter(|e| filter_fn(*e))
+        .filter(|e| filter_fn(e))
         .map(|e| e.to_owned())
         .collect()
 }

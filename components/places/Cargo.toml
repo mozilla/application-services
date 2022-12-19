@@ -37,14 +37,13 @@ uniffi = "^0.21"
 uniffi_macros = "^0.21"
 
 [dependencies.rusqlite]
-version = "0.27.0"
+version = "0.28.0"
 features = ["functions", "window", "bundled", "unlock_notify"]
 
 [dev-dependencies]
 pretty_assertions = "0.6"
 tempfile = "3.1"
 env_logger = {version = "0.7", default-features = false}
-sync15 = { path = "../sync15", features=["test-utils"] }
 
 [build-dependencies]
 uniffi_build = { version = "^0.21", features=["builtin-bindgen"] }

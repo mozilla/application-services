@@ -525,7 +525,7 @@ fn create_old_database(
 ) -> Result<()> {
     let _ = env_logger::try_init();
 
-    let rkv = Database::open_rkv(&tmp_dir)?;
+    let rkv = Database::open_rkv(tmp_dir)?;
     let meta_store = SingleStore::new(rkv.open_single("meta", StoreOptions::create())?);
     let experiment_store =
         SingleStore::new(rkv.open_single("experiments", StoreOptions::create())?);

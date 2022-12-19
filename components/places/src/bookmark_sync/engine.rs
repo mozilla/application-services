@@ -943,7 +943,7 @@ impl SyncEngine for BookmarksSyncEngine {
         let conn = self.db.lock();
         push_synced_items(&conn, &self.scope, new_timestamp, records_synced)?;
         update_frecencies(&conn, &self.scope)?;
-        conn.pragma_update(None, "wal_checkpoint", &"PASSIVE")?;
+        conn.pragma_update(None, "wal_checkpoint", "PASSIVE")?;
         Ok(())
     }
 

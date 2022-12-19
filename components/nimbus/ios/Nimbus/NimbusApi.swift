@@ -17,7 +17,7 @@ import Glean
 ///
 public protocol NimbusApi: FeaturesInterface, NimbusStartup,
     NimbusUserConfiguration, NimbusBranchInterface, GleanPlumbProtocol,
-    NimbusEvents {}
+    NimbusEvents, NimbusQueues {}
 
 public protocol NimbusBranchInterface {
     /// Get the currently enrolled branch for the given experiment
@@ -149,6 +149,19 @@ public protocol NimbusEvents {
     ///
     /// - Parameter eventId string representing the id of the event which should be recorded.
     func recordEvent(_ eventId: String)
+
+    /// Clears the Nimbus event store.
+    ///
+    /// This should only be used in testing or cases where the previous event store is no longer viable.
+    func clearEvents()
+}
+
+public protocol NimbusQueues {
+    /// Waits for the fetch queue to complete
+    func waitForFetchQueue()
+
+    /// Waits for the db queue to complete
+    func waitForDbQueue()
 }
 
 /// Notifications emitted by the `NotificationCenter`.

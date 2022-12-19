@@ -612,7 +612,7 @@ pub fn get_keys_bundle(config: &Config, hkdf_sha256_key: &[u8]) -> Result<Vec<u8
     let client = Client::new();
     let resp: serde_json::Value = client.make_request(req)?.json()?;
     let bundle = hex::decode(
-        &resp["bundle"]
+        resp["bundle"]
             .as_str()
             .ok_or(ErrorKind::UnrecoverableServerError("bundle not present"))?,
     )?;
@@ -659,7 +659,7 @@ impl<'a> HawkRequestBuilder<'a> {
         let method = format!("{}", self.method);
         let mut hawk_request_builder = RequestBuilder::from_url(method.as_str(), &self.url)?;
         if let Some(ref body) = self.body {
-            hash = PayloadHasher::hash("application/json", SHA256, &body)?;
+            hash = PayloadHasher::hash("application/json", SHA256, body)?;
             hawk_request_builder = hawk_request_builder.hash(&hash[..]);
         }
         let hawk_request = hawk_request_builder.request();

@@ -206,6 +206,9 @@ interface NimbusClient {
     // targeting such as "core-active" user targeting.
     [Throws=NimbusError]
     void record_event(string event_id);
+
+    [Throws=NimbusError]
+    void clear_events();
 };
 
 [Custom]

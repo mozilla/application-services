@@ -2,7 +2,7 @@
 
 # Unreleased Changes
 
-[Full Changelog](https://github.com/mozilla/application-services/compare/v96.1.1...main)
+[Full Changelog](https://github.com/mozilla/application-services/compare/v96.1.3...main)
 
 <!-- WARNING: New entries should be added below this comment to ensure the `./automation/prepare-release.py` script works as expected.
 
@@ -19,26 +19,15 @@ Use the template below to make assigning a version number during the release cut
 
 -->
 
-## Logins
-### What's changed
- - Removes Fennec migration code. The function `importMultiple` no longer exists. ([#5268](https://github.com/mozilla/application-services/pull/5268))
+## Nimbus
+### What's Changed
+  - Fixed an issue where the NimbusQueues protocol was missing from the NimbusApi ([#5298](https://github.com/mozilla/application-services/pull/5298))
 
 ## Places
 ### What's changed
- - Removes Fennec migration code. ([#5268](https://github.com/mozilla/application-services/pull/5268))
-  The following functions no longer exist:
-   - `importBookmarksFromFennec`
-   - `importPinnedSitesFromFennec`
-   - `importVisitsFromFennec`
  - Removes old iOS bookmarks migration code. The function `migrateBookmarksFromBrowserDb` no longer exists. ([#5276](https://github.com/mozilla/application-services/pull/5276))
 
-## Viaduct
-### What's New
-  - Allow viaduct to make requests to the android emulator's host address via
-    a new viaduct_allow_android_emulator_loopback() (in Rust)/allowAndroidEmulatorLoopback() (in Kotlin)
-    ([#5270](https://github.com/mozilla/application-services/pull/5270))
-
 ## Tabs
-### What's changes
-  - The ClientRemoteTabs struct/interface now has a last_modified field which is the time
-    when the device last uploaded the tabs.
+
+### What's Changed
+  - Fixed a regression causing failure to read old tabs databases ([#5286](https://github.com/mozilla/application-services/pull/5286))

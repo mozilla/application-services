@@ -331,13 +331,12 @@ impl NimbusClient {
         experiments: &[Experiment],
     ) -> Result<Vec<EnrollmentChangeEvent>> {
         let nimbus_id = self.read_or_create_nimbus_id(db, writer)?;
-        let event_store = self.event_store.lock().unwrap();
         let evolver = EnrollmentsEvolver::new(
             &nimbus_id,
             &state.available_randomization_units,
             &state.targeting_attributes,
         );
-        evolver.evolve_enrollments_in_db(db, writer, experiments, &event_store)
+        evolver.evolve_enrollments_in_db(db, writer, experiments, self.event_store.clone())
     }
 
     pub fn apply_pending_experiments(&self) -> Result<Vec<EnrollmentChangeEvent>> {
@@ -573,7 +572,7 @@ impl NimbusClient {
         Ok(Arc::new(helper))
     }
 
-    /// Records an event for the purposes of behavioral targeting
+    /// Records an event for the purposes of behavioral targeting.
     ///
     /// This function is used to record and persist data used for the behavioral
     /// targeting such as "core-active" user targeting.
@@ -581,6 +580,15 @@ impl NimbusClient {
         let mut event_store = self.event_store.lock().unwrap();
         event_store.record_event(event_id, None)?;
         event_store.persist_data(self.db()?)?;
+        Ok(())
+    }
+
+    /// Clear all events in the Nimbus event store.
+    ///
+    /// This should only be used in testing or cases where the previous event store is no longer viable.
+    pub fn clear_events(&self) -> Result<()> {
+        let mut event_store = self.event_store.lock().unwrap();
+        event_store.clear(self.db()?)?;
         Ok(())
     }
 
@@ -874,8 +882,7 @@ impl NimbusTargetingHelper {
     }
 
     pub fn eval_jexl(&self, expr: String) -> Result<bool> {
-        let event_store = self.event_store.lock().unwrap();
-        evaluator::jexl_eval(&expr, &self.context, &event_store)
+        evaluator::jexl_eval(&expr, &self.context, self.event_store.clone())
     }
 }
 

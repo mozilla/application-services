@@ -140,16 +140,16 @@ impl CompactJwe {
             .unwrap_or_default();
         let encrypted_key = encrypted_key
             .as_ref()
-            .map(|k| base64::encode_config(&k, base64::URL_SAFE_NO_PAD))
+            .map(|k| base64::encode_config(k, base64::URL_SAFE_NO_PAD))
             .unwrap_or_default();
         let iv = iv
             .as_ref()
-            .map(|iv| base64::encode_config(&iv, base64::URL_SAFE_NO_PAD))
+            .map(|iv| base64::encode_config(iv, base64::URL_SAFE_NO_PAD))
             .unwrap_or_default();
         let ciphertext = base64::encode_config(&ciphertext, base64::URL_SAFE_NO_PAD);
         let auth_tag = auth_tag
             .as_ref()
-            .map(|t| base64::encode_config(&t, base64::URL_SAFE_NO_PAD))
+            .map(|t| base64::encode_config(t, base64::URL_SAFE_NO_PAD))
             .unwrap_or_default();
         let jwe_segments = vec![protected_header, encrypted_key, iv, ciphertext, auth_tag];
         Ok(Self { jwe_segments })

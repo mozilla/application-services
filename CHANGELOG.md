@@ -1,3 +1,47 @@
+# v96.1.3 (_2022-12-08_)
+
+[Full Changelog](https://github.com/mozilla/application-services/compare/v96.1.2...v96.1.3)
+
+## Tabs
+
+### What's Changed
+  - Fixed a regression causing failure to read old tabs databases ([#5286](https://github.com/mozilla/application-services/pull/5286))
+
+# v96.1.2 (_2022-12-07_)
+
+[Full Changelog](https://github.com/mozilla/application-services/compare/v96.1.1...v96.1.2)
+
+## Logins
+### What's changed
+ - Removes Fennec migration code. The function `importMultiple` no longer exists. ([#5268](https://github.com/mozilla/application-services/pull/5268))
+
+## Nimbus
+
+### What's Changed
+  - Event store date comparison logic update to be entirely relative ([#5265](https://github.com/mozilla/application-services/pull/5265))
+  - Updates event store to initialize all dates at the start of the current year ([#5279](https://github.com/mozilla/application-services/pull/5279))
+  - Adds new Kotlin/Swift methods to clear the event store ([#5279](https://github.com/mozilla/application-services/pull/5279))
+  - Adds Swift methods to wait for operation queues to finish ([#5279](https://github.com/mozilla/application-services/pull/5279))
+
+## Places
+### What's changed
+ - Removes Fennec migration code. ([#5268](https://github.com/mozilla/application-services/pull/5268))
+  The following functions no longer exist: 
+   - `importBookmarksFromFennec`
+   - `importPinnedSitesFromFennec`
+   - `importVisitsFromFennec`
+
+## Viaduct
+### What's New
+  - Allow viaduct to make requests to the android emulator's host address via
+    a new viaduct_allow_android_emulator_loopback() (in Rust)/allowAndroidEmulatorLoopback() (in Kotlin)
+    ([#5270](https://github.com/mozilla/application-services/pull/5270))
+
+## Tabs
+### What's changes
+  - The ClientRemoteTabs struct/interface now has a last_modified field which is the time
+    when the device last uploaded the tabs.
+
 # v96.1.1 (_2022-12-01_)
 
 [Full Changelog](https://github.com/mozilla/application-services/compare/v96.1.0...v96.1.1)

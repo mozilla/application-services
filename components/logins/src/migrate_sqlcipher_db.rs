@@ -76,8 +76,8 @@ pub fn migrate_logins(
             ));
         }
         migrate_sqlcipher_db_to_plaintext(
-            &sqlcipher_path,
-            &path,
+            sqlcipher_path,
+            path,
             sqlcipher_key,
             new_encryption_key,
             salt.as_ref(),

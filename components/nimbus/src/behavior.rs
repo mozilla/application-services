@@ -5,7 +5,7 @@
 
 use crate::error::{BehaviorError, NimbusError, Result};
 use crate::persistence::{Database, StoreId};
-use chrono::{DateTime, Timelike, Utc};
+use chrono::{DateTime, Datelike, Duration, Utc};
 use serde::{Deserialize, Serialize};
 use std::collections::vec_deque::Iter;
 use std::collections::{HashMap, VecDeque};
@@ -25,17 +25,26 @@ pub enum Interval {
 
 impl Interval {
     pub fn num_rotations(&self, then: DateTime<Utc>, now: DateTime<Utc>) -> Result<i32> {
-        let minute_diff = i32::try_from(now.minute())? - i32::try_from(then.minute())?;
-        let hour_diff = i32::try_from(now.hour())? - i32::try_from(then.hour())?;
-        let date_diff = i32::try_from((now.date() - then.date()).num_days())?;
-        Ok(match self {
-            Interval::Minutes => (date_diff * 1440) + (hour_diff * 60) + minute_diff,
-            Interval::Hours => (date_diff * 24) + hour_diff,
-            Interval::Days => date_diff,
-            Interval::Weeks => date_diff / 7,
-            Interval::Months => date_diff / 28,
-            Interval::Years => date_diff / 365,
-        })
+        let date_diff = now - then;
+        Ok(i32::try_from(match self {
+            Interval::Minutes => date_diff.num_minutes(),
+            Interval::Hours => date_diff.num_hours(),
+            Interval::Days => date_diff.num_days(),
+            Interval::Weeks => date_diff.num_weeks(),
+            Interval::Months => date_diff.num_days() / 28,
+            Interval::Years => date_diff.num_days() / 365,
+        })?)
+    }
+
+    pub fn to_duration(&self, count: i64) -> Duration {
+        match self {
+            Interval::Minutes => Duration::minutes(count),
+            Interval::Hours => Duration::hours(count),
+            Interval::Days => Duration::days(count),
+            Interval::Weeks => Duration::weeks(count),
+            Interval::Months => Duration::days(28 * count),
+            Interval::Years => Duration::days(365 * count),
+        }
     }
 }
 
@@ -120,19 +129,16 @@ impl IntervalData {
             starting_instant: Utc::now(),
         };
         data.buckets.push_front(0);
+        // Set the starting instant to Jan 1 00:00:00 in order to sync rotations
+        data.starting_instant = data
+            .starting_instant
+            .with_month(1)
+            .unwrap()
+            .with_day(1)
+            .unwrap()
+            .date()
+            .and_hms(0, 0, 0);
         data
-    }
-
-    pub fn from(
-        buckets: VecDeque<u64>,
-        bucket_count: usize,
-        starting_instant: DateTime<Utc>,
-    ) -> Self {
-        Self {
-            buckets,
-            bucket_count,
-            starting_instant,
-        }
     }
 
     pub fn increment(&mut self) -> Result<()> {
@@ -167,14 +173,12 @@ pub struct SingleIntervalCounter {
 
 impl SingleIntervalCounter {
     pub fn new(config: IntervalConfig) -> Self {
-        Self {
+        let mut counter = Self {
             data: IntervalData::new(config.bucket_count),
             config,
-        }
-    }
-
-    pub fn from(data: IntervalData, config: IntervalConfig) -> Self {
-        Self { data, config }
+        };
+        counter.maybe_advance(Utc::now()).unwrap();
+        counter
     }
 
     pub fn from_config(bucket_count: usize, interval: Interval) -> Self {
@@ -194,8 +198,9 @@ impl SingleIntervalCounter {
             .config
             .interval
             .num_rotations(self.data.starting_instant, now)?;
-        self.data.starting_instant = now;
         if rotations > 0 {
+            self.data.starting_instant =
+                self.data.starting_instant + self.config.interval.to_duration(rotations.into());
             return self.data.rotate(rotations);
         }
         Ok(())
@@ -215,10 +220,6 @@ impl MultiIntervalCounter {
                 .map(|v| (v.config.interval.clone(), v))
                 .collect::<HashMap<Interval, SingleIntervalCounter>>(),
         }
-    }
-
-    pub fn from(intervals: HashMap<Interval, SingleIntervalCounter>) -> Self {
-        Self { intervals }
     }
 
     pub fn increment(&mut self) -> Result<()> {
@@ -371,15 +372,22 @@ impl EventStore {
         Ok(())
     }
 
+    pub fn clear(&mut self, db: &Database) -> Result<()> {
+        self.events = HashMap::<String, MultiIntervalCounter>::new();
+        self.persist_data(db)?;
+        Ok(())
+    }
+
     pub fn query(
-        &self,
+        &mut self,
         event_id: String,
         interval: Interval,
         num_buckets: usize,
         starting_bucket: usize,
         query_type: EventQueryType,
     ) -> Result<f64> {
-        if let Some(counter) = self.events.get(&event_id) {
+        if let Some(counter) = self.events.get_mut(&event_id) {
+            counter.maybe_advance(Utc::now()).unwrap();
             if let Some(single_counter) = counter.intervals.get(&interval) {
                 let safe_range = 0..single_counter.data.buckets.len();
                 if !safe_range.contains(&starting_bucket) {

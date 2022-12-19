@@ -102,7 +102,7 @@ LIBS="\
 "
 
 if [[ "${TOOLCHAIN}" == "x86_64-linux-android" ]] || [[ "${TOOLCHAIN}" == "i686-linux-android" ]]; then
-  LIBS="${LIBS} -lgcm-aes-x86_c_lib"
+  LIBS="${LIBS} -lgcm-aes-x86_c_lib -lsha-x86_c_lib"
 fi
 if [[ "${TOOLCHAIN}" == "arm-linux-androideabi" ]] || [[ "${TOOLCHAIN}" == "aarch64-linux-android" ]]; then
   LIBS="${LIBS} -larmv8_c_lib"
