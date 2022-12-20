@@ -88,7 +88,7 @@ pub fn decrypt_string(key: String, ciphertext: String) -> ApiResult<String> {
     }
 }
 
-pub fn create_key() -> ApiResult<String> {
+pub fn create_autofill_key() -> ApiResult<String> {
     handle_error! {
         let key = jwcrypto::Jwk::new_direct_key(None)?;
         Ok(serde_json::to_string(&key)?)
@@ -101,11 +101,11 @@ mod test {
 
     #[test]
     fn test_encrypt() {
-        let ed = EncryptorDecryptor::new(&create_key().unwrap()).unwrap();
+        let ed = EncryptorDecryptor::new(&create_autofill_key().unwrap()).unwrap();
         let cleartext = "secret";
         let ciphertext = ed.encrypt(cleartext).unwrap();
         assert_eq!(ed.decrypt(&ciphertext).unwrap(), cleartext);
-        let ed2 = EncryptorDecryptor::new(&create_key().unwrap()).unwrap();
+        let ed2 = EncryptorDecryptor::new(&create_autofill_key().unwrap()).unwrap();
         assert!(matches!(
             ed2.decrypt(&ciphertext),
             Err(Error::CryptoError(_))
@@ -114,7 +114,7 @@ mod test {
 
     #[test]
     fn test_decryption_errors() {
-        let ed = EncryptorDecryptor::new(&create_key().unwrap()).unwrap();
+        let ed = EncryptorDecryptor::new(&create_autofill_key().unwrap()).unwrap();
         assert!(matches!(
             ed.decrypt("invalid-ciphertext").unwrap_err(),
             Error::CryptoError(_)
