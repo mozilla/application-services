@@ -368,8 +368,7 @@ fn query_event_store(
     query_type: EventQueryType,
     args: &[Value],
 ) -> Result<Value> {
-    let (event, interval, num_buckets, starting_bucket, query_type) =
-        query_type.validate_arguments(args)?;
+    let (event, interval, num_buckets, starting_bucket) = query_type.validate_arguments(args)?;
 
     Ok(json!(event_store.lock().unwrap().query(
         event,

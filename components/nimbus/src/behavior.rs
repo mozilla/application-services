@@ -308,10 +308,70 @@ impl EventQueryType {
         })
     }
 
-    pub fn validate_arguments(
-        self,
+    fn validate_counting_arguments(
+        &self,
         args: &[Value],
-    ) -> Result<(String, Interval, usize, usize, Self)> {
+    ) -> Result<(String, Interval, usize, usize)> {
+        if args.len() < 3 || args.len() > 4 {
+            return Err(NimbusError::TransformParameterError(format!(
+                "event transform {} requires 2-3 parameters",
+                self
+            )));
+        }
+        let event = serde_json::from_value::<String>(args.get(0).unwrap().clone())?;
+        let interval = serde_json::from_value::<String>(args.get(1).unwrap().clone())?;
+        let interval = Interval::from_str(&interval)?;
+        let num_buckets = match args.get(2).unwrap().as_f64() {
+            Some(v) => v,
+            None => {
+                return Err(NimbusError::TransformParameterError(format!(
+                    "event transform {} requires a positive number as the second parameter",
+                    self
+                )))
+            }
+        } as usize;
+        let zero = &Value::from(0);
+        let starting_bucket = match args.get(3).unwrap_or(zero).as_f64() {
+            Some(v) => v,
+            None => {
+                return Err(NimbusError::TransformParameterError(format!(
+                    "event transform {} requires a positive number as the third parameter",
+                    self
+                )))
+            }
+        } as usize;
+
+        Ok((event, interval, num_buckets, starting_bucket))
+    }
+
+    fn validate_last_seen_arguments(
+        &self,
+        args: &[Value],
+    ) -> Result<(String, Interval, usize, usize)> {
+        if args.len() < 2 || args.len() > 3 {
+            return Err(NimbusError::TransformParameterError(format!(
+                "event transform {} requires 1-2 parameters",
+                self
+            )));
+        }
+        let event = serde_json::from_value::<String>(args.get(0).unwrap().clone())?;
+        let interval = serde_json::from_value::<String>(args.get(1).unwrap().clone())?;
+        let interval = Interval::from_str(&interval)?;
+        let zero = &Value::from(0);
+        let starting_bucket = match args.get(2).unwrap_or(zero).as_f64() {
+            Some(v) => v,
+            None => {
+                return Err(NimbusError::TransformParameterError(format!(
+                    "event transform {} requires a positive number as the second parameter",
+                    self
+                )))
+            }
+        } as usize;
+
+        Ok((event, interval, usize::MAX, starting_bucket))
+    }
+
+    pub fn validate_arguments(&self, args: &[Value]) -> Result<(String, Interval, usize, usize)> {
         // `args` is an array of values sent by the evaluator for a JEXL transform.
         // The first parameter will always be the event_id, and subsequent parameters are up to the developer's discretion.
         // All parameters should be validated, and a `TransformParameterError` should be sent when there is an error.
@@ -319,61 +379,8 @@ impl EventQueryType {
             Self::Sum
             | Self::CountNonZero
             | Self::AveragePerInterval
-            | Self::AveragePerNonZeroInterval => {
-                if args.len() < 3 || args.len() > 4 {
-                    return Err(NimbusError::TransformParameterError(format!(
-                        "event transform {} requires 2-3 parameters",
-                        self
-                    )));
-                }
-                let event = serde_json::from_value::<String>(args.get(0).unwrap().clone())?;
-                let interval = serde_json::from_value::<String>(args.get(1).unwrap().clone())?;
-                let interval = Interval::from_str(&interval)?;
-                let num_buckets = match args.get(2).unwrap().as_f64() {
-                    Some(v) => v,
-                    None => {
-                        return Err(NimbusError::TransformParameterError(format!(
-                            "event transform {} requires a positive number as the second parameter",
-                            self
-                        )))
-                    }
-                } as usize;
-                let zero = &Value::from(0);
-                let starting_bucket = match args.get(3).unwrap_or(zero).as_f64() {
-                    Some(v) => v,
-                    None => {
-                        return Err(NimbusError::TransformParameterError(format!(
-                            "event transform {} requires a positive number as the third parameter",
-                            self
-                        )))
-                    }
-                } as usize;
-
-                (event, interval, num_buckets, starting_bucket, self)
-            }
-            Self::LastSeen => {
-                if args.len() < 2 || args.len() > 3 {
-                    return Err(NimbusError::TransformParameterError(format!(
-                        "event transform {} requires 1-2 parameters",
-                        self
-                    )));
-                }
-                let event = serde_json::from_value::<String>(args.get(0).unwrap().clone())?;
-                let interval = serde_json::from_value::<String>(args.get(1).unwrap().clone())?;
-                let interval = Interval::from_str(&interval)?;
-                let zero = &Value::from(0);
-                let starting_bucket = match args.get(2).unwrap_or(zero).as_f64() {
-                    Some(v) => v,
-                    None => {
-                        return Err(NimbusError::TransformParameterError(format!(
-                            "event transform {} requires a positive number as the second parameter",
-                            self
-                        )))
-                    }
-                } as usize;
-
-                (event, interval, usize::MAX, starting_bucket, self)
-            }
+            | Self::AveragePerNonZeroInterval => self.validate_counting_arguments(args)?,
+            Self::LastSeen => self.validate_last_seen_arguments(args)?,
         })
     }
 }
