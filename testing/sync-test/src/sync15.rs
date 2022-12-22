@@ -14,12 +14,12 @@ use log::*;
 use serde_derive::*;
 use std::cell::{Cell, RefCell};
 use std::mem;
+use sync15::bso::OutgoingBso;
 use sync15::client::{sync_multiple, MemoryCachedState, Sync15StorageClientInit};
 use sync15::engine::{
     CollectionRequest, EngineSyncAssociation, IncomingChangeset, OutgoingChangeset, SyncEngine,
 };
 use sync15::{telemetry, ServerTimestamp};
-use sync15::bso::OutgoingBso;
 use sync_guid::Guid;
 
 use crate::auth::TestClient;

@@ -91,11 +91,10 @@ impl LoginStore {
     pub fn find_login_to_update(
         &self,
         entry: LoginEntry,
-        enc_key: &str,
+        encdec: &EncryptorDecryptor,
     ) -> ApiResult<Option<Login>> {
         handle_error! {
-            let encdec = EncryptorDecryptor::new(enc_key)?;
-            self.db.lock().find_login_to_update(entry, &encdec)
+            self.db.lock().find_login_to_update(entry, encdec)
         }
     }
 
@@ -143,24 +142,30 @@ impl LoginStore {
         }
     }
 
-    pub fn update(&self, id: &str, entry: LoginEntry, enc_key: &str) -> ApiResult<EncryptedLogin> {
+    pub fn update(
+        &self,
+        id: &str,
+        entry: LoginEntry,
+        encdec: &EncryptorDecryptor,
+    ) -> ApiResult<EncryptedLogin> {
         handle_error! {
-            let encdec = EncryptorDecryptor::new(enc_key)?;
-            self.db.lock().update(id, entry, &encdec)
+            self.db.lock().update(id, entry, encdec)
         }
     }
 
-    pub fn add(&self, entry: LoginEntry, enc_key: &str) -> ApiResult<EncryptedLogin> {
+    pub fn add(&self, entry: LoginEntry, encdec: &EncryptorDecryptor) -> ApiResult<EncryptedLogin> {
         handle_error! {
-            let encdec = EncryptorDecryptor::new(enc_key)?;
-            self.db.lock().add(entry, &encdec)
+            self.db.lock().add(entry, encdec)
         }
     }
 
-    pub fn add_or_update(&self, entry: LoginEntry, enc_key: &str) -> ApiResult<EncryptedLogin> {
+    pub fn add_or_update(
+        &self,
+        entry: LoginEntry,
+        encdec: &EncryptorDecryptor,
+    ) -> ApiResult<EncryptedLogin> {
         handle_error! {
-            let encdec = EncryptorDecryptor::new(enc_key)?;
-            self.db.lock().add_or_update(entry, &encdec)
+            self.db.lock().add_or_update(entry, encdec)
         }
     }
 
@@ -175,12 +180,12 @@ impl LoginStore {
         access_token: String,
         sync_key: String,
         tokenserver_url: String,
-        local_encryption_key: String,
+        encdec: Arc<EncryptorDecryptor>,
     ) -> ApiResult<String> {
         handle_error! {
             let mut engine = LoginsSyncEngine::new(Arc::clone(&self))?;
             engine
-                .set_local_encryption_key(&local_encryption_key)
+                .set_local_encryption_key(&encdec._get_key()?)
                 .unwrap();
 
             // This is a bit hacky but iOS still uses sync() and we can only pass strings over ffi
@@ -248,7 +253,7 @@ impl LoginStore {
 #[cfg(test)]
 mod test {
     use super::*;
-    use crate::encryption::test_utils::{TEST_ENCRYPTION_KEY, TEST_ENCRYPTOR};
+    use crate::encryption::test_utils::TEST_ENCRYPTOR;
     use crate::util;
     use crate::{LoginFields, SecureLoginFields};
     use more_asserts::*;
@@ -295,12 +300,12 @@ mod test {
             },
         };
         let a_id = store
-            .add(a.clone(), &TEST_ENCRYPTION_KEY)
+            .add(a.clone(), &TEST_ENCRYPTOR)
             .expect("added a")
             .record
             .id;
         let b_id = store
-            .add(b.clone(), &TEST_ENCRYPTION_KEY)
+            .add(b.clone(), &TEST_ENCRYPTOR)
             .expect("added b")
             .record
             .id;
@@ -367,7 +372,7 @@ mod test {
         };
 
         store
-            .update(&b_id, b2.clone(), &TEST_ENCRYPTION_KEY)
+            .update(&b_id, b2.clone(), &TEST_ENCRYPTOR)
             .expect("update b should work");
 
         let b_after_update = store

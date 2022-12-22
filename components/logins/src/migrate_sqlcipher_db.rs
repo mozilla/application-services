@@ -52,7 +52,7 @@ enum MigrationOp {
 // migration for consumers to migrate from their SQLCipher DB
 pub fn migrate_logins(
     path: impl AsRef<Path>,
-    new_encryption_key: &str,
+    encdec: &EncryptorDecryptor,
     sqlcipher_path: impl AsRef<Path>,
     sqlcipher_key: &str,
     // The salt arg is for iOS where the salt is stored externally.
@@ -79,7 +79,7 @@ pub fn migrate_logins(
             sqlcipher_path,
             path,
             sqlcipher_key,
-            new_encryption_key,
+            encdec,
             salt.as_ref(),
         )
     }
@@ -89,7 +89,7 @@ fn migrate_sqlcipher_db_to_plaintext(
     old_db_path: impl AsRef<Path>,
     new_db_path: impl AsRef<Path>,
     old_encryption_key: &str,
-    new_encryption_key: &str,
+    encdec: &EncryptorDecryptor,
     salt: Option<&String>,
 ) -> Result<()> {
     let mut db = Connection::open(old_db_path)?;
@@ -97,7 +97,7 @@ fn migrate_sqlcipher_db_to_plaintext(
 
     // Init the new plaintext db as we would a regular client
     let new_db_store = LoginStore::new_from_db(LoginDb::open(new_db_path)?);
-    migrate_from_sqlcipher_db(&mut db, new_db_store, new_encryption_key)
+    migrate_from_sqlcipher_db(&mut db, new_db_store, encdec)
 }
 
 fn init_sqlcipher_db(
@@ -143,13 +143,10 @@ fn sqlcipher_3_compat(conn: &Connection) -> Result<()> {
 fn migrate_from_sqlcipher_db(
     cipher_conn: &mut Connection,
     new_db_store: LoginStore,
-    encryption_key: &str,
+    encdec: &EncryptorDecryptor,
 ) -> Result<()> {
-    // encrypt the username/password data
-    let encdec = EncryptorDecryptor::new(encryption_key)?;
-
-    let migration_plan: MigrationPlan = generate_plan_from_db(cipher_conn, &encdec)?;
-    insert_logins(&migration_plan, &new_db_store, &encdec)?;
+    let migration_plan: MigrationPlan = generate_plan_from_db(cipher_conn, encdec)?;
+    insert_logins(&migration_plan, &new_db_store, encdec)?;
     migrate_sync_metadata(cipher_conn, &new_db_store)
 }
 
@@ -668,7 +665,7 @@ fn migrate_sync_metadata(cipher_conn: &Connection, store: &LoginStore) -> Result
 mod tests {
     use super::*;
     use crate::db::LoginDb;
-    use crate::encryption::test_utils::{decrypt_struct, TEST_ENCRYPTION_KEY};
+    use crate::encryption::test_utils::{decrypt_struct, TEST_ENCRYPTOR};
     use crate::schema;
     use crate::sync::LocalLogin;
     use crate::EncryptedLogin;
@@ -894,7 +891,7 @@ mod tests {
             testpaths.old_db.as_path(),
             testpaths.new_db.as_path(),
             "old-key",
-            &TEST_ENCRYPTION_KEY,
+            &TEST_ENCRYPTOR,
             None,
         )
         .unwrap();
@@ -918,7 +915,7 @@ mod tests {
             testpaths.old_db.as_path(),
             testpaths.new_db.as_path(),
             "old-key",
-            &TEST_ENCRYPTION_KEY,
+            &TEST_ENCRYPTOR,
             None,
         )
         .unwrap();
@@ -963,7 +960,7 @@ mod tests {
             testpaths.old_db.as_path(),
             testpaths.new_db.as_path(),
             "old-key",
-            &TEST_ENCRYPTION_KEY,
+            &TEST_ENCRYPTOR,
             None,
         )
         .unwrap();
@@ -1005,7 +1002,7 @@ mod tests {
             testpaths.old_db.as_path(),
             testpaths.new_db.as_path(),
             "old-key",
-            &TEST_ENCRYPTION_KEY,
+            &TEST_ENCRYPTOR,
             None,
         )
         .unwrap();
@@ -1061,7 +1058,7 @@ mod tests {
             testpaths.old_db.as_path(),
             testpaths.new_db.as_path(),
             "old-key",
-            &TEST_ENCRYPTION_KEY,
+            &TEST_ENCRYPTOR,
             None,
         )
         .unwrap();
@@ -1098,7 +1095,7 @@ mod tests {
             testpaths.old_db.as_path(),
             testpaths.new_db.as_path(),
             "old-key",
-            &TEST_ENCRYPTION_KEY,
+            &TEST_ENCRYPTOR,
             Some(&String::from(TEST_SALT)),
         )
         .unwrap();
@@ -1107,7 +1104,6 @@ mod tests {
     }
 
     fn gen_migrate_plan() -> MigrationPlan {
-        let encdec = EncryptorDecryptor::new(&TEST_ENCRYPTION_KEY).unwrap();
         let mut migrate_plan = MigrationPlan::new();
 
         // Taken from db.rs
@@ -1166,13 +1162,13 @@ mod tests {
             valid_login1.guid().to_string(),
             MigrationLogin {
                 local_login: Some(create_local_login(
-                    valid_login1.clone().encrypt(&encdec).unwrap(),
+                    valid_login1.clone().encrypt(&TEST_ENCRYPTOR).unwrap(),
                     SyncStatus::Synced,
                     false,
                     SystemTime::now(),
                 )),
                 mirror_login: Some(create_mirror_login(
-                    valid_login1.encrypt(&encdec).unwrap(),
+                    valid_login1.encrypt(&TEST_ENCRYPTOR).unwrap(),
                     true,
                     ServerTimestamp::from_millis(1000),
                 )),
@@ -1186,7 +1182,7 @@ mod tests {
             MigrationLogin {
                 local_login: None,
                 mirror_login: Some(create_mirror_login(
-                    valid_login2.clone().encrypt(&encdec).unwrap(),
+                    valid_login2.clone().encrypt(&TEST_ENCRYPTOR).unwrap(),
                     true,
                     ServerTimestamp::from_millis(1000),
                 )),
@@ -1199,7 +1195,7 @@ mod tests {
             valid_login2.guid().to_string(),
             MigrationLogin {
                 local_login: Some(create_local_login(
-                    valid_login3.encrypt(&encdec).unwrap(),
+                    valid_login3.encrypt(&TEST_ENCRYPTOR).unwrap(),
                     SyncStatus::Synced,
                     false,
                     SystemTime::now(),
@@ -1217,8 +1213,7 @@ mod tests {
         let testpaths = TestPaths::new();
         let store = LoginStore::new(testpaths.new_db.as_path()).unwrap();
         let migration_plan = gen_migrate_plan();
-        let encdec = EncryptorDecryptor::new(&TEST_ENCRYPTION_KEY).unwrap();
-        insert_logins(&migration_plan, &store, &encdec).unwrap();
+        insert_logins(&migration_plan, &store, &TEST_ENCRYPTOR).unwrap();
 
         let db = LoginDb::open(testpaths.new_db.as_path()).unwrap();
         assert_eq!(
@@ -1239,7 +1234,7 @@ mod tests {
         assert!(matches!(
             migrate_logins(
                 testpaths.new_db.as_path(),
-                &TEST_ENCRYPTION_KEY,
+                &TEST_ENCRYPTOR,
                 "/some/path/to/db.db",
                 "old-key",
                 None,
@@ -1261,7 +1256,7 @@ mod tests {
         assert!(matches!(
             migrate_logins(
                 testpaths.new_db.as_path(),
-                &TEST_ENCRYPTION_KEY,
+                &TEST_ENCRYPTOR,
                 testpaths.old_db.as_path(),
                 "old-key",
                 None,
@@ -1301,7 +1296,7 @@ mod tests {
         create_old_db_with_test_data(testpaths.old_db.as_path(), None, inserts);
         migrate_logins(
             testpaths.new_db.as_path(),
-            &TEST_ENCRYPTION_KEY,
+            &TEST_ENCRYPTOR,
             testpaths.old_db.as_path(),
             "old-key",
             None,
@@ -1334,7 +1329,7 @@ mod tests {
         create_old_db_with_test_data(testpaths.old_db.as_path(), None, inserts);
         migrate_logins(
             testpaths.new_db.as_path(),
-            &TEST_ENCRYPTION_KEY,
+            &TEST_ENCRYPTOR,
             testpaths.old_db.as_path(),
             "old-key",
             None,

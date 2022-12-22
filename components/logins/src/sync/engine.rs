@@ -443,7 +443,7 @@ impl SyncEngine for LoginsSyncEngine {
     }
 
     fn set_local_encryption_key(&mut self, key: &str) -> anyhow::Result<()> {
-        self.encdec = Some(EncryptorDecryptor::new(key)?);
+        self.encdec = Some(EncryptorDecryptor::_from_key(key)?);
         Ok(())
     }
 
@@ -510,7 +510,7 @@ impl SyncEngine for LoginsSyncEngine {
 mod tests {
     use super::*;
     use crate::db::test_utils::insert_login;
-    use crate::encryption::test_utils::{TEST_ENCRYPTION_KEY, TEST_ENCRYPTOR};
+    use crate::encryption::test_utils::TEST_ENCRYPTOR;
     use crate::login::test_utils::enc_login;
     use crate::{LoginEntry, LoginFields, RecordFields, SecureLoginFields};
     use std::collections::HashMap;
@@ -523,7 +523,7 @@ mod tests {
     ) -> (Vec<SyncLoginData>, telemetry::EngineIncoming) {
         let mut engine = LoginsSyncEngine::new(Arc::new(store)).unwrap();
         engine
-            .set_local_encryption_key(&TEST_ENCRYPTION_KEY)
+            .set_local_encryption_key(&TEST_ENCRYPTOR.get_key().unwrap())
             .unwrap();
         let mut telem = sync15::telemetry::EngineIncoming::new();
         (
@@ -537,7 +537,7 @@ mod tests {
     fn run_fetch_outgoing(store: LoginStore) -> OutgoingChangeset {
         let mut engine = LoginsSyncEngine::new(Arc::new(store)).unwrap();
         engine
-            .set_local_encryption_key(&TEST_ENCRYPTION_KEY)
+            .set_local_encryption_key(&TEST_ENCRYPTOR.get_key().unwrap())
             .unwrap();
         engine
             .fetch_outgoing(sync15::ServerTimestamp(10000), &engine.scope)
@@ -754,7 +754,7 @@ mod tests {
             },
         };
         let first_id = store
-            .add(to_add, &TEST_ENCRYPTION_KEY)
+            .add(to_add, &TEST_ENCRYPTOR)
             .expect("should insert first")
             .record
             .id;
@@ -771,7 +771,7 @@ mod tests {
             },
         };
         let second_id = store
-            .add(to_add, &TEST_ENCRYPTION_KEY)
+            .add(to_add, &TEST_ENCRYPTOR)
             .expect("should insert second")
             .record
             .id;
@@ -788,14 +788,14 @@ mod tests {
             },
         };
         let no_form_origin_id = store
-            .add(to_add, &TEST_ENCRYPTION_KEY)
+            .add(to_add, &TEST_ENCRYPTOR)
             .expect("should insert second")
             .record
             .id;
 
         let mut engine = LoginsSyncEngine::new(Arc::new(store)).unwrap();
         engine
-            .set_local_encryption_key(&TEST_ENCRYPTION_KEY)
+            .set_local_encryption_key(&TEST_ENCRYPTOR.get_key().unwrap())
             .unwrap();
 
         let to_find = make_enc_login("test", "test", Some("https://www.example.com".into()), None);

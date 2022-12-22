@@ -62,17 +62,17 @@ open class LoginsStorage {
     /// then this throws `LoginStoreError.DuplicateGuid` if there is a collision
     ///
     /// Returns the `id` of the newly inserted record.
-    open func add(login: LoginEntry, encryptionKey: String) throws -> EncryptedLogin {
+    open func add(login: LoginEntry, encdec: EncryptorDecryptor) throws -> EncryptedLogin {
         return try queue.sync {
-            return try self.store.add(login: login, encryptionKey: encryptionKey)
+            return try self.store.add(login: login, encdec: encdec)
         }
     }
 
     /// Update `login` in the database. If `login.id` does not refer to a known
     /// login, then this throws `LoginStoreError.NoSuchRecord`.
-    open func update(id: String, login: LoginEntry, encryptionKey: String) throws -> EncryptedLogin {
+    open func update(id: String, login: LoginEntry, encdec: EncryptorDecryptor) throws -> EncryptedLogin {
         return try queue.sync {
-            return try self.store.update(id: id, login: login, encryptionKey: encryptionKey)
+            return try self.store.update(id: id, login: login, encdec: encdec)
         }
     }
 
@@ -112,7 +112,7 @@ open class LoginsStorage {
                     accessToken: unlockInfo.fxaAccessToken,
                     syncKey: unlockInfo.syncKey,
                     tokenserverUrl: unlockInfo.tokenserverURL,
-                    localEncryptionKey: unlockInfo.loginEncryptionKey
+                    encdec: EncryptorDecryptor.fromKey(encryptionKey: unlockInfo.loginEncryptionKey)
                 )
         }
     }
@@ -120,7 +120,7 @@ open class LoginsStorage {
 
 public func migrateLoginsFromSqlcipher(
     path: String,
-    newEncryptionKey: String,
+    encdec: EncryptorDecryptor,
     sqlcipherPath: String,
     sqlcipherKey: String,
     salt: String
@@ -129,7 +129,7 @@ public func migrateLoginsFromSqlcipher(
 
     if (try? migrateLogins(
         path: path,
-        newEncryptionKey: newEncryptionKey,
+        encdec: encdec,
         sqlcipherPath: sqlcipherPath,
         sqlcipherKey: sqlcipherKey,
         salt: salt

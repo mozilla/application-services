@@ -38,7 +38,7 @@ class DatabaseLoginsStorageTest {
         return DatabaseLoginsStorage(dbPath = dbPath.absolutePath)
     }
 
-    protected val encryptionKey = createKey()
+    protected val encdec = EncryptorDecryptor()
 
     protected fun getTestStore(): DatabaseLoginsStorage {
         val store = createTestStore()
@@ -57,7 +57,7 @@ class DatabaseLoginsStorageTest {
                     password = "hunter2"
                 )
             ),
-            encryptionKey
+            encdec
         )
 
         store.add(
@@ -74,7 +74,7 @@ class DatabaseLoginsStorageTest {
                     username = "Foobar2000"
                 )
             ),
-            encryptionKey
+            encdec
         )
 
         return store
@@ -106,7 +106,7 @@ class DatabaseLoginsStorageTest {
                     password = "hunter2"
                 )
             ),
-            encryptionKey
+            encdec
         )
 
         assertEquals(LoginsStoreMetrics.writeQueryCount.testGetValue(), 1)
@@ -128,7 +128,7 @@ class DatabaseLoginsStorageTest {
         )
 
         try {
-            store.add(invalid, encryptionKey)
+            store.add(invalid, encdec)
             fail("Should have thrown")
         } catch (e: LoginsApiException.InvalidRecord) {
             // All good.

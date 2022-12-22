@@ -3,40 +3,26 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
 namespace logins {
-    // We expose the crypto primitives on the namespace
-
-    // Create a new, random, encryption key.
-    [Throws=LoginsApiError]
-    string create_key();
-
     // Decrypt an `EncryptedLogin` to a `Login`
     [Throws=LoginsApiError]
-    Login decrypt_login(EncryptedLogin login, [ByRef]string encryption_key);
-
+    Login decrypt_login(EncryptedLogin login, [ByRef]EncryptorDecryptor encdec);
+ 
     // Encrypt a `Login` to an `EncryptedLogin`
     [Throws=LoginsApiError]
-    EncryptedLogin encrypt_login(Login login, [ByRef]string encryption_key);
-
+    EncryptedLogin encrypt_login(Login login, [ByRef]EncryptorDecryptor encdec);
+ 
     // Decrypt an encrypted `string` to `SecureLoginFields`
     [Throws=LoginsApiError]
-    SecureLoginFields decrypt_fields(string sec_fields, [ByRef]string encryption_key);
-
+    SecureLoginFields decrypt_fields(string sec_fields, [ByRef]EncryptorDecryptor encdec);
+ 
     // Encrypt `SecureLoginFields` to an encrypted `string`
     [Throws=LoginsApiError]
-    string encrypt_fields(SecureLoginFields sec_fields, [ByRef]string encryption_key);
-
-    // Create a "canary" string, which can be used to test if the encryption key is still valid for the logins data
-    [Throws=LoginsApiError]
-    string create_canary([ByRef]string text, [ByRef]string encryption_key);
-
-    // Check that key is still valid using the output of `create_canary`.  `text` much match the text you initially passed to `create_canary()`
-    [Throws=LoginsApiError]
-    boolean check_canary([ByRef]string canary, [ByRef]string text, [ByRef]string encryption_key);
+    string encrypt_fields(SecureLoginFields sec_fields, [ByRef]EncryptorDecryptor encdec);
 
     [Throws=LoginsApiError]
     void migrate_logins(
         [ByRef]string path,
-        [ByRef]string new_encryption_key,
+        [ByRef]EncryptorDecryptor encdec,
         [ByRef]string sqlcipher_path,
         [ByRef]string sqlcipher_key,
         string? salt
@@ -115,19 +101,18 @@ interface LoginsApiError {
     UnexpectedLoginsApiError(string reason);
 };
 
-
 interface LoginStore {
     [Throws=LoginsApiError]
     constructor(string path);
 
     [Throws=LoginsApiError]
-    EncryptedLogin add(LoginEntry login, [ByRef]string encryption_key);
+    EncryptedLogin add(LoginEntry login, [ByRef]EncryptorDecryptor encdec);
 
     [Throws=LoginsApiError]
-    EncryptedLogin update([ByRef] string id, LoginEntry login, [ByRef]string encryption_key);
+    EncryptedLogin update([ByRef] string id, LoginEntry login, [ByRef]EncryptorDecryptor encdec);
 
     [Throws=LoginsApiError]
-    EncryptedLogin add_or_update(LoginEntry login, [ByRef]string encryption_key);
+    EncryptedLogin add_or_update(LoginEntry login, [ByRef]EncryptorDecryptor encdec);
 
     [Throws=LoginsApiError]
     boolean delete([ByRef] string id);
@@ -151,7 +136,7 @@ interface LoginStore {
     sequence<EncryptedLogin> get_by_base_domain([ByRef] string base_domain);
 
     [Throws=LoginsApiError]
-    Login? find_login_to_update(LoginEntry look, [ByRef]string encryption_key);
+    Login? find_login_to_update(LoginEntry look, [ByRef]EncryptorDecryptor encdec);
 
     [Throws=LoginsApiError]
     EncryptedLogin? get([ByRef] string id);
@@ -160,5 +145,25 @@ interface LoginStore {
     void register_with_sync_manager();
 
     [Throws=LoginsApiError, Self=ByArc]
-    string sync(string key_id, string access_token, string sync_key, string tokenserver_url, string local_encryption_key);
+    string sync(string key_id, string access_token, string sync_key, string tokenserver_url, EncryptorDecryptor encdec);
+};
+
+interface EncryptorDecryptor {
+    [Throws=LoginsApiError]
+    constructor();
+
+    [Name=from_key, Throws=LoginsApiError]
+    constructor([ByRef]string encryption_key);
+
+    [Throws=LoginsApiError]
+    string get_key();
+
+    // Create a "canary" string, which can be used to test if the encryption key is still valid for the logins data
+    [Throws=LoginsApiError]
+    string create_canary([ByRef] string text);
+
+    // Check that key is still valid using the output of `create_canary`
+    //
+    // `text` much match the text you initially passed to `create_canary()`
+    boolean check_canary([ByRef] string canary, [ByRef] string text);
 };

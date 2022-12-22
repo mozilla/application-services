@@ -80,30 +80,30 @@ class DatabaseLoginsStorage(dbPath: String) : AutoCloseable {
     }
 
     @Throws(LoginsApiException::class)
-    fun findLoginToUpdate(look: LoginEntry, encryptionKey: String): Login? {
+    fun findLoginToUpdate(look: LoginEntry, encdec: EncryptorDecryptor): Login? {
         return readQueryCounters.measure {
-            store.findLoginToUpdate(look, encryptionKey)
+            store.findLoginToUpdate(look, encdec)
         }
     }
 
     @Throws(LoginsApiException::class)
-    fun add(entry: LoginEntry, encryptionKey: String): EncryptedLogin {
+    fun add(entry: LoginEntry, encdec: EncryptorDecryptor): EncryptedLogin {
         return writeQueryCounters.measure {
-            store.add(entry, encryptionKey)
+            store.add(entry, encdec)
         }
     }
 
     @Throws(LoginsApiException::class)
-    fun update(id: String, entry: LoginEntry, encryptionKey: String): EncryptedLogin {
+    fun update(id: String, entry: LoginEntry, encdec: EncryptorDecryptor): EncryptedLogin {
         return writeQueryCounters.measure {
-            store.update(id, entry, encryptionKey)
+            store.update(id, entry, encdec)
         }
     }
 
     @Throws(LoginsApiException::class)
-    fun addOrUpdate(entry: LoginEntry, encryptionKey: String): EncryptedLogin {
+    fun addOrUpdate(entry: LoginEntry, encdec: EncryptorDecryptor): EncryptedLogin {
         return writeQueryCounters.measure {
-            store.addOrUpdate(entry, encryptionKey)
+            store.addOrUpdate(entry, encdec)
         }
     }
 
@@ -132,10 +132,10 @@ class DatabaseLoginsStorage(dbPath: String) : AutoCloseable {
     }
 }
 
-fun migrateLoginsWithMetrics(newDbPath: String, newDbEncKey: String, sqlCipherDbPath: String, sqlCipherEncKey: String) {
+fun migrateLoginsWithMetrics(newDbPath: String, encdec: EncryptorDecryptor, sqlCipherDbPath: String, sqlCipherEncKey: String) {
     try {
         // last param is the "salt" which is only used on iOS.
-        migrateLogins(newDbPath, newDbEncKey, sqlCipherDbPath, sqlCipherEncKey, null)
+        migrateLogins(newDbPath, encdec, sqlCipherDbPath, sqlCipherEncKey, null)
     } catch (e: LoginsApiException) {
         // Ignore all migration errors. There's nothing the consuming app can
         // do about it, and we are never going to retry.

@@ -20,7 +20,7 @@ mod util;
 uniffi_macros::include_scaffolding!("logins");
 
 pub use crate::db::LoginDb;
-use crate::encryption::{check_canary, create_canary, create_key};
+use crate::encryption::EncryptorDecryptor;
 pub use crate::error::*;
 pub use crate::login::*;
 pub use crate::migrate_sqlcipher_db::migrate_logins;
@@ -29,30 +29,26 @@ pub use crate::sync::LoginsSyncEngine;
 
 // Public encryption functions.  We publish these as top-level functions to expose them across
 // UniFFI
-fn encrypt_login(login: Login, enc_key: &str) -> ApiResult<EncryptedLogin> {
+fn encrypt_login(login: Login, encdec: &EncryptorDecryptor) -> ApiResult<EncryptedLogin> {
     handle_error! {
-        let encdec = encryption::EncryptorDecryptor::new(enc_key)?;
-        login.encrypt(&encdec)
+        login.encrypt(encdec)
     }
 }
 
-fn decrypt_login(login: EncryptedLogin, enc_key: &str) -> ApiResult<Login> {
+fn decrypt_login(login: EncryptedLogin, encdec: &EncryptorDecryptor) -> ApiResult<Login> {
     handle_error! {
-        let encdec = encryption::EncryptorDecryptor::new(enc_key)?;
-        login.decrypt(&encdec)
+        login.decrypt(encdec)
     }
 }
 
-fn encrypt_fields(sec_fields: SecureLoginFields, enc_key: &str) -> ApiResult<String> {
+fn encrypt_fields(sec_fields: SecureLoginFields, encdec: &EncryptorDecryptor) -> ApiResult<String> {
     handle_error! {
-        let encdec = encryption::EncryptorDecryptor::new(enc_key)?;
-        sec_fields.encrypt(&encdec)
+        sec_fields.encrypt(encdec)
     }
 }
 
-fn decrypt_fields(sec_fields: String, enc_key: &str) -> ApiResult<SecureLoginFields> {
+fn decrypt_fields(sec_fields: String, encdec: &EncryptorDecryptor) -> ApiResult<SecureLoginFields> {
     handle_error! {
-        let encdec = encryption::EncryptorDecryptor::new(enc_key)?;
         encdec.decrypt_struct(&sec_fields)
     }
 }

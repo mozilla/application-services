@@ -7,7 +7,7 @@
 
 use cli_support::fxa_creds::{get_account_and_token, get_cli_fxa, get_default_fxa_config};
 use cli_support::prompt::{prompt_char, prompt_string, prompt_usize};
-use logins::encryption::{create_key, EncryptorDecryptor};
+use logins::encryption::EncryptorDecryptor;
 use logins::migrate_sqlcipher_db::migrate_logins;
 use logins::{
     EncryptedLogin, LoginEntry, LoginFields, LoginStore, LoginsSyncEngine, SecureLoginFields,
@@ -284,31 +284,27 @@ fn open_database(
     db_path: &str,
     sqlcipher_path: Option<&str>,
     sqlcipher_encryption_key: Option<&str>,
-) -> Result<(LoginStore, EncryptorDecryptor, String)> {
+) -> Result<(LoginStore, EncryptorDecryptor)> {
     Ok(match (sqlcipher_path, sqlcipher_encryption_key) {
         (None, None) => {
             let store = LoginStore::new(db_path)?;
             // Get or create an encryption key to use
-            let encryption_key = match get_encryption_key(&store) {
-                Some(s) => s,
+            let encdec = match get_encryption_key(&store) {
+                Some(s) => EncryptorDecryptor::from_key(&s)?,
                 None => {
                     log::warn!("Creating new encryption key");
-                    let encryption_key = create_key()?;
-                    set_encryption_key(&store, &encryption_key)?;
-                    encryption_key
+                    let encdec = EncryptorDecryptor::new()?;
+                    set_encryption_key(&store, &encdec.get_key()?)?;
+                    encdec
                 }
             };
-            (
-                store,
-                EncryptorDecryptor::new(&encryption_key)?,
-                encryption_key,
-            )
+            (store, encdec)
         }
         (Some(sqlcipher_path), Some(sqlcipher_encryption_key)) => {
-            let encryption_key = create_key()?;
+            let encdec = EncryptorDecryptor::new()?;
             let metrics = migrate_logins(
                 db_path,
-                &encryption_key,
+                &encdec,
                 sqlcipher_path,
                 sqlcipher_encryption_key,
                 None,
@@ -318,18 +314,14 @@ fn open_database(
 
             // For new migrations, we want to set the encryption key.  But it's also possible that
             // the migration already happened, in that use the encryption key from that migration.
-            let encryption_key = match get_encryption_key(&store) {
-                Some(s) => s,
+            let encdec = match get_encryption_key(&store) {
+                Some(s) => EncryptorDecryptor::from_key(&s)?,
                 None => {
-                    set_encryption_key(&store, &encryption_key)?;
-                    encryption_key
+                    set_encryption_key(&store, &encdec.get_key()?)?;
+                    encdec
                 }
             };
-            (
-                store,
-                EncryptorDecryptor::new(&encryption_key)?,
-                encryption_key,
-            )
+            (store, encdec)
         }
         _ => {
             bail!("--sqlcipher-database and --sqlcipher-key must be specified together");
@@ -421,8 +413,7 @@ fn main() -> Result<()> {
 
     // TODO: allow users to use stage/etc.
     let cli_fxa = get_cli_fxa(get_default_fxa_config(), cred_file)?;
-    let (store, encdec, encryption_key) =
-        open_database(db_path, sqlcipher_database_path, sqlcipher_key)?;
+    let (store, encdec) = open_database(db_path, sqlcipher_database_path, sqlcipher_key)?;
     let store = Arc::new(store);
 
     log::info!("Store has {} passwords", store.list()?.len());
@@ -436,7 +427,7 @@ fn main() -> Result<()> {
             'A' | 'a' => {
                 log::info!("Adding new record");
                 let record = read_login();
-                if let Err(e) = store.add(record, &encryption_key) {
+                if let Err(e) = store.add(record, &encdec) {
                     log::warn!("Failed to create record! {}", e);
                 }
             }
@@ -472,7 +463,7 @@ fn main() -> Result<()> {
                                 continue;
                             }
                         };
-                        if let Err(e) = store.update(&id, update_login(login_record.clone(), &encdec), &encryption_key) {
+                        if let Err(e) = store.update(&id, update_login(login_record.clone(), &encdec), &encdec) {
                             log::warn!("Failed to update record! {}", e);
                         }
                     }
@@ -504,7 +495,7 @@ fn main() -> Result<()> {
                                     cli_fxa.client_init.access_token.clone(),
                                     sync_key,
                                     cli_fxa.client_init.tokenserver_url.to_string(),
-                                    encryption_key.clone(),
+                                    Arc::new(encdec.clone()),
                                 ) {
                     Err(e) => {
                         log::warn!("Sync failed! {}", e);
