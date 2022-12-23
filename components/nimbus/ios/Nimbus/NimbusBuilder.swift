@@ -20,45 +20,97 @@ public class NimbusBuilder {
      * This will only be null or empty in development or testing, or in any build variant of a
      * non-Mozilla fork.
      */
+    func withUrl(_ url: String?) {
+        self.url = url
+    }
+
     var url: String?
 
     /**
      * A closure for reporting errors from Rust.
      */
+    @discardableResult
+    func withErrorReporter(_ reporter: @escaping NimbusErrorReporter) -> NimbusBuilder {
+        errorReporter = reporter
+        return self
+    }
+
     var errorReporter: NimbusErrorReporter = defaultErrorReporter
 
     /**
      * A flag to select the main or preview collection of remote settings. Defaults to `false`.
      */
+    @discardableResult
+    func usingPreviewCollection(_ flag: Bool) -> NimbusBuilder {
+        usePreviewCollection = flag
+        return self
+    }
+
     var usePreviewCollection: Bool = false
 
     /**
      * A flag to indicate if this is being run on the first run of the app. This is used to control
      * whether the `initial_experiments` file is used to populate Nimbus.
      */
+    @discardableResult
+    func isFirstRun(_ flag: Bool) -> NimbusBuilder {
+        isFirstRun = flag
+        return self
+    }
+
     var isFirstRun: Bool = true
 
     /**
      * A optional raw resource of a file downloaded at or near build time from Remote Settings.
      */
+    @discardableResult
+    func withInitialExperiments(fileURL: URL?) -> NimbusBuilder {
+        initialExperiments = fileURL
+        return self
+    }
+
     var initialExperiments: URL?
 
     /**
      * The timeout used to wait for the loading of the `initial_experiments
      */
+    @discardableResult
+    func withTimeoutForLoadingInitialExperiments(_ seconds: TimeInterval) -> NimbusBuilder {
+        timeoutLoadingExperiment = seconds
+        return self
+    }
+
     var timeoutLoadingExperiment: TimeInterval = 0.200 /* seconds */
 
     /**
      * Optional callback to be called after the creation of the nimbus object and it is ready
      * to be used.
      */
+    @discardableResult
+    func onCreate(callback: @escaping (NimbusInterface) -> Void) -> NimbusBuilder {
+        onCreateCallback = callback
+        return self
+    }
+
     var onCreateCallback: ((NimbusInterface) -> Void)?
 
     /**
      * Optional callback to be called after the calculatoin of new enrollments and applying of changes to
      * experiments recipes.
      */
+    @discardableResult
+    func onApply(callback: @escaping (NimbusInterface) -> Void) -> NimbusBuilder {
+        onApplyCallback = callback
+        return self
+    }
+
     var onApplyCallback: ((NimbusInterface) -> Void)?
+
+    @discardableResult
+    func withResourceBundles(_ bundles: [Bundle]) -> NimbusBuilder {
+        resourceBundles = bundles
+        return self
+    }
 
     var resourceBundles: [Bundle] = [.main]
 
