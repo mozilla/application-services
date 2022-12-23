@@ -38,7 +38,7 @@ public extension Nimbus {
         resourceBundles: [Bundle] = [Bundle.main],
         enabled: Bool = true,
         errorReporter: @escaping NimbusErrorReporter = defaultErrorReporter
-    ) throws -> NimbusApi {
+    ) throws -> NimbusInterface {
         guard enabled else {
             return NimbusDisabled.shared
         }

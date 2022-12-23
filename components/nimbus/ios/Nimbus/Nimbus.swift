@@ -5,7 +5,7 @@
 import Foundation
 import Glean
 
-public class Nimbus: NimbusApi {
+public class Nimbus: NimbusInterface {
     private let nimbusClient: NimbusClientProtocol
 
     private let resourceBundles: [Bundle]
@@ -49,10 +49,15 @@ private extension Nimbus {
         }
     }
 
-    func catchAll(_ queue: OperationQueue, thunk: @escaping () throws -> Void) {
-        queue.addOperation {
-            self.catchAll(thunk)
+    func catchAll(_ queue: OperationQueue, thunk: @escaping (Operation) throws -> Void) -> Operation {
+        let op = BlockOperation()
+        op.addExecutionBlock {
+            self.catchAll {
+                try thunk(op)
+            }
         }
+        queue.addOperation(op)
+        return op
     }
 }
 
@@ -68,13 +73,13 @@ extension Nimbus: NimbusQueues {
 
 extension Nimbus: NimbusEvents {
     public func recordEvent(_ eventId: String) {
-        catchAll(dbQueue) {
+        _ = catchAll(dbQueue) { _ in
             try self.nimbusClient.recordEvent(eventId: eventId)
         }
     }
 
     public func clearEvents() {
-        catchAll(dbQueue) {
+        _ = catchAll(dbQueue) { _ in
             try self.nimbusClient.clearEvents()
         }
     }
@@ -252,7 +257,7 @@ extension Nimbus: NimbusUserConfiguration {
             catchAll { try nimbusClient.getGlobalUserParticipation() } ?? false
         }
         set {
-            catchAll(dbQueue) {
+            _ = catchAll(dbQueue) { _ in
                 try self.setGlobalUserParticipationOnThisThread(newValue)
             }
         }
@@ -277,19 +282,19 @@ extension Nimbus: NimbusUserConfiguration {
     }
 
     public func optOut(_ experimentId: String) {
-        catchAll(dbQueue) {
+        _ = catchAll(dbQueue) { _ in
             try self.optOutOnThisThread(experimentId)
         }
     }
 
     public func optIn(_ experimentId: String, branch: String) {
-        catchAll(dbQueue) {
+        _ = catchAll(dbQueue) { _ in
             try self.optInOnThisThread(experimentId, branch: branch)
         }
     }
 
     public func resetTelemetryIdentifiers() {
-        catchAll(dbQueue) {
+        _ = catchAll(dbQueue) { _ in
             // The "dummy" field here is required for obscure reasons when generating code on desktop,
             // so we just automatically set it to a dummy value.
             let aru = AvailableRandomizationUnits(clientId: nil, dummy: 0)
@@ -300,32 +305,50 @@ extension Nimbus: NimbusUserConfiguration {
 
 extension Nimbus: NimbusStartup {
     public func initialize() {
-        catchAll(dbQueue) {
+        _ = catchAll(dbQueue) { _ in
             try self.initializeOnThisThread()
         }
     }
 
     public func fetchExperiments() {
-        catchAll(fetchQueue) {
+        _ = catchAll(fetchQueue) { _ in
             try self.fetchExperimentsOnThisThread()
         }
     }
 
-    public func applyPendingExperiments() {
-        catchAll(dbQueue) {
+    public func applyPendingExperiments() -> Operation {
+        catchAll(dbQueue) { _ in
             try self.applyPendingExperimentsOnThisThread()
         }
     }
 
+
+    public func applyLocalExperiments(fileURL: URL) -> Operation {
+        applyLocalExperiments(getString: { try String(contentsOf: fileURL) })
+    }
+
+    func applyLocalExperiments(getString: @escaping () throws -> String) -> Operation {
+        catchAll(dbQueue) { op in
+            let json = try getString()
+
+            if op.isCancelled {
+                try self.initializeOnThisThread()
+            } else {
+                try self.setExperimentsLocallyOnThisThread(json)
+                try self.applyPendingExperimentsOnThisThread()
+            }
+        }
+    }
+
     public func setExperimentsLocally(_ fileURL: URL) {
-        catchAll(dbQueue) {
+        _ = catchAll(dbQueue) { _ in
             let json = try String(contentsOf: fileURL)
             try self.setExperimentsLocallyOnThisThread(json)
         }
     }
 
     public func setExperimentsLocally(_ experimentsJson: String) {
-        catchAll(dbQueue) {
+        _ = catchAll(dbQueue) { _ in
             try self.setExperimentsLocallyOnThisThread(experimentsJson)
         }
     }
@@ -392,7 +415,13 @@ public extension NimbusDisabled {
 
     func fetchExperiments() {}
 
-    func applyPendingExperiments() {}
+    func applyPendingExperiments() -> Operation {
+        BlockOperation()
+    }
+
+    func applyLocalExperiments(fileURL: URL) -> Operation {
+        BlockOperation()
+    }
 
     func setExperimentsLocally(_: URL) {}
 

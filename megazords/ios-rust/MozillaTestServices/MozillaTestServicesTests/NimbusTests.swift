@@ -153,8 +153,9 @@ class NimbusTests: XCTestCase {
         // This shows that delegating to a background thread is working, and
         // that Rust is callable from a background thread.
         nimbus.setExperimentsLocally(minimalExperimentJSON())
-        nimbus.applyPendingExperiments()
-        Thread.sleep(until: Date(timeIntervalSinceNow: 1.0))
+        let job = nimbus.applyPendingExperiments()
+        let finishedNormally = job.joinOrTimeout(timeout: 3600.0)
+        XCTAssertTrue(finishedNormally)
 
         let branch = nimbus.getExperimentBranch(experimentId: "secure-gold")
         XCTAssertNotNil(branch)
@@ -164,11 +165,45 @@ class NimbusTests: XCTestCase {
         XCTAssertEqual(experiments.count, 1)
 
         nimbus.setExperimentsLocally(emptyExperimentJSON())
-        nimbus.applyPendingExperiments()
-        Thread.sleep(until: Date(timeIntervalSinceNow: 1.0))
+        let job1 = nimbus.applyPendingExperiments()
+        let finishedNormally1 = job1.joinOrTimeout(timeout: 3600.0)
+        XCTAssertTrue(finishedNormally1)
 
         let noExperiments = nimbus.getActiveExperiments()
         XCTAssertEqual(noExperiments.count, 0)
+    }
+
+    func testApplyLocalExperimentsTimedOut() throws {
+        let appSettings = NimbusAppSettings(appName: "test", channel: "nightly")
+        let nimbus = try Nimbus.create(nil, appSettings: appSettings, dbPath: createDatabasePath()) as! Nimbus
+
+        let job = nimbus.applyLocalExperiments {
+            Thread.sleep(forTimeInterval: 5.0)
+            return self.minimalExperimentJSON()
+        }
+
+        let finishedNormally = job.joinOrTimeout(timeout: 1.0)
+        XCTAssertFalse(finishedNormally)
+
+        let noExperiments = nimbus.getActiveExperiments()
+        XCTAssertEqual(noExperiments.count, 0)
+    }
+
+
+    func testApplyLocalExperiments() throws {
+        let appSettings = NimbusAppSettings(appName: "test", channel: "nightly")
+        let nimbus = try Nimbus.create(nil, appSettings: appSettings, dbPath: createDatabasePath()) as! Nimbus
+
+        let job = nimbus.applyLocalExperiments {
+            Thread.sleep(forTimeInterval: 0.1)
+            return self.minimalExperimentJSON()
+        }
+
+        let finishedNormally = job.joinOrTimeout(timeout: 1.0)
+        XCTAssertTrue(finishedNormally)
+
+        let noExperiments = nimbus.getActiveExperiments()
+        XCTAssertEqual(noExperiments.count, 1)
     }
 
     func testBuildExperimentContext() throws {
