@@ -19,12 +19,14 @@ Use the template below to make assigning a version number during the release cut
 
 -->
 
-## Nimbus
+## Nimbus ⛅️🔬🔭
 
 ### What's Changed
   - Fixed an issue where the NimbusQueues protocol was missing from the NimbusApi ([#5298](https://github.com/mozilla/application-services/pull/5298))
-### What's New
+
+### ✨ What's New ✨
   - Added `eventLastSeen` query to the event store and jexl transforms ([#5297](https://github.com/mozilla/application-services/pull/5297))
+  - Introduced the `NimbusBuilder` for Swift ([#5307](https://github.com/mozilla/application-services/pull/5307))
 
 ## Tabs
 
