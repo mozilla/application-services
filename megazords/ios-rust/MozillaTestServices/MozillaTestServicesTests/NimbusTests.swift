@@ -189,7 +189,6 @@ class NimbusTests: XCTestCase {
         XCTAssertEqual(noExperiments.count, 0)
     }
 
-
     func testApplyLocalExperiments() throws {
         let appSettings = NimbusAppSettings(appName: "test", channel: "nightly")
         let nimbus = try Nimbus.create(nil, appSettings: appSettings, dbPath: createDatabasePath()) as! Nimbus

@@ -4,11 +4,11 @@
 
 import Foundation
 
-extension Operation {
+public extension Operation {
     /// Wait for the operation to finish, or a timeout.
     ///
     /// The operation is cooperatively cancelled on timeout, that is to say, it checks its {isCancelled}.
-    public func joinOrTimeout(timeout: TimeInterval) -> Bool {
+    func joinOrTimeout(timeout: TimeInterval) -> Bool {
         if isFinished {
             return !isCancelled
         }

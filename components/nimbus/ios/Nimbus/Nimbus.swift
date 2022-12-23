@@ -322,7 +322,6 @@ extension Nimbus: NimbusStartup {
         }
     }
 
-
     public func applyLocalExperiments(fileURL: URL) -> Operation {
         applyLocalExperiments(getString: { try String(contentsOf: fileURL) })
     }
@@ -419,7 +418,7 @@ public extension NimbusDisabled {
         BlockOperation()
     }
 
-    func applyLocalExperiments(fileURL: URL) -> Operation {
+    func applyLocalExperiments(fileURL _: URL) -> Operation {
         BlockOperation()
     }
 

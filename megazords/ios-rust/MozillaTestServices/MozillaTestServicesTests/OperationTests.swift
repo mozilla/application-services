@@ -5,7 +5,6 @@
 import XCTest
 
 final class OperationTests: XCTestCase {
-
     lazy var queue: OperationQueue = {
         let operationQueue = OperationQueue()
         operationQueue.maxConcurrentOperationCount = 1

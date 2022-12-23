@@ -8,7 +8,6 @@ import Foundation
  * A builder for [Nimbus] singleton objects, parameterized in a declarative class.
  */
 public class NimbusBuilder {
-
     let dbFilePath: String
 
     init(dbPath: String) {
@@ -24,7 +23,7 @@ public class NimbusBuilder {
     var url: String?
 
     /**
-     * A closure for reporting errors from Rust.  
+     * A closure for reporting errors from Rust.
      */
     var errorReporter: NimbusErrorReporter = defaultErrorReporter
 
@@ -42,10 +41,10 @@ public class NimbusBuilder {
     /**
      * A optional raw resource of a file downloaded at or near build time from Remote Settings.
      */
-    var initialExperiments: URL? = nil
+    var initialExperiments: URL?
 
     /**
-     * The timeout used to wait for the loading of the `initial_experiments`.
+     * The timeout used to wait for the loading of the `initial_experiments
      */
     var timeoutLoadingExperiment: TimeInterval = 0.200 /* seconds */
 
@@ -53,14 +52,13 @@ public class NimbusBuilder {
      * Optional callback to be called after the creation of the nimbus object and it is ready
      * to be used.
      */
-    var onCreateCallback: ((NimbusInterface) -> Void)? = nil
-
+    var onCreateCallback: ((NimbusInterface) -> Void)?
 
     /**
      * Optional callback to be called after the calculatoin of new enrollments and applying of changes to
      * experiments recipes.
      */
-    var onApplyCallback: ((NimbusInterface) -> Void)? = nil
+    var onApplyCallback: ((NimbusInterface) -> Void)?
 
     var resourceBundles: [Bundle] = [.main]
 
@@ -74,9 +72,9 @@ public class NimbusBuilder {
      */
     func build(appInfo: NimbusAppSettings) -> NimbusInterface {
         let serverSettings: NimbusServerSettings?
-        if  let string = url,
-            let url = URL(string: string) {
-
+        if let string = url,
+           let url = URL(string: string)
+        {
             if usePreviewCollection {
                 serverSettings = NimbusServerSettings(url: url, collection: remoteSettingsPreviewCollection)
             } else {
@@ -88,14 +86,16 @@ public class NimbusBuilder {
 
         do {
             let nimbus = try newNimbus(appInfo, serverSettings: serverSettings)
-            if let onApplyCallback = self.onApplyCallback {
-                NotificationCenter.default.addObserver(forName: .nimbusExperimentsApplied, object: nil, queue: nil) { _ in
+            if let onApplyCallback = onApplyCallback {
+                NotificationCenter.default.addObserver(forName: .nimbusExperimentsApplied,
+                                                       object: nil,
+                                                       queue: nil) { _ in
                     onApplyCallback(nimbus)
                 }
             }
 
             let job: Operation
-            if let file = initialExperiments, (isFirstRun || serverSettings == nil) {
+            if let file = initialExperiments, isFirstRun || serverSettings == nil {
                 job = nimbus.applyLocalExperiments(fileURL: file)
             } else {
                 job = nimbus.applyPendingExperiments()
@@ -117,7 +117,8 @@ public class NimbusBuilder {
     }
 
     open func newNimbus(_ appInfo: NimbusAppSettings, serverSettings: NimbusServerSettings?) throws -> NimbusInterface {
-        try Nimbus.create(serverSettings, appSettings: appInfo, dbPath: dbFilePath, resourceBundles: resourceBundles, errorReporter: errorReporter)
+        try Nimbus.create(serverSettings, appSettings: appInfo, dbPath: dbFilePath,
+                          resourceBundles: resourceBundles, errorReporter: errorReporter)
     }
 
     open func newNimbusDisabled() -> NimbusInterface {
