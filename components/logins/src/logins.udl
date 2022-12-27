@@ -6,34 +6,34 @@ namespace logins {
     // We expose the crypto primitives on the namespace
 
     // Create a new, random, encryption key.
-    [Throws=LoginsStorageError]
+    [Throws=LoginsApiError]
     string create_key();
 
     // Decrypt an `EncryptedLogin` to a `Login`
-    [Throws=LoginsStorageError]
+    [Throws=LoginsApiError]
     Login decrypt_login(EncryptedLogin login, [ByRef]string encryption_key);
 
     // Encrypt a `Login` to an `EncryptedLogin`
-    [Throws=LoginsStorageError]
+    [Throws=LoginsApiError]
     EncryptedLogin encrypt_login(Login login, [ByRef]string encryption_key);
 
     // Decrypt an encrypted `string` to `SecureLoginFields`
-    [Throws=LoginsStorageError]
+    [Throws=LoginsApiError]
     SecureLoginFields decrypt_fields(string sec_fields, [ByRef]string encryption_key);
 
     // Encrypt `SecureLoginFields` to an encrypted `string`
-    [Throws=LoginsStorageError]
+    [Throws=LoginsApiError]
     string encrypt_fields(SecureLoginFields sec_fields, [ByRef]string encryption_key);
 
     // Create a "canary" string, which can be used to test if the encryption key is still valid for the logins data
-    [Throws=LoginsStorageError]
+    [Throws=LoginsApiError]
     string create_canary([ByRef]string text, [ByRef]string encryption_key);
 
     // Check that key is still valid using the output of `create_canary`.  `text` much match the text you initially passed to `create_canary()`
-    [Throws=LoginsStorageError]
+    [Throws=LoginsApiError]
     boolean check_canary([ByRef]string canary, [ByRef]string text, [ByRef]string encryption_key);
 
-    [Throws=LoginsStorageError]
+    [Throws=LoginsApiError]
     void migrate_logins(
         [ByRef]string path,
         [ByRef]string new_encryption_key,
@@ -91,81 +91,74 @@ dictionary EncryptedLogin {
 
 // These are the errors returned by our public API.
 [Error]
-enum LoginsStorageError {
-    // The login data supplied is invalid. The message will indicate what's wrong with it.
-    "InvalidRecord",
+interface LoginsApiError {
+    // The login data supplied is invalid. The reason will indicate what's wrong with it.
+    InvalidRecord(string reason);
 
     // Asking to do something with a guid which doesn't exist.
-    "NoSuchRecord",
+    NoSuchRecord(string reason);
 
     // The encryption key supplied of the correct format, but not the correct key.
-    "IncorrectKey",
+    IncorrectKey();
 
     // An operation was interrupted at the request of the consuming app.
-    "Interrupted",
+    Interrupted(string reason);
 
     // Sync reported that authentication failed and the user should re-enter their FxA password.
     // TODO: remove this at the same time as remove the sync() method in favour of the SyncManager.
-    "SyncAuthInvalid",
-
-    // Sync reported that a request failed.
-    // TODO: remove this at the same time as remove the sync() method in favour of the SyncManager.
-    "RequestFailed",
+    SyncAuthInvalid(string reason);
 
     // something internal went wrong which doesn't have a public error value
     // because the consuming app can not reasonably take any action to resolve it.
     // The underlying error will have been logged and reported.
     // (ideally would just be `Unexpected`, but that would be a breaking change)
-    "UnexpectedLoginsStorageError",
+    UnexpectedLoginsApiError(string reason);
 };
 
 
 interface LoginStore {
-    [Throws=LoginsStorageError]
+    [Throws=LoginsApiError]
     constructor(string path);
 
-    [Throws=LoginsStorageError]
+    [Throws=LoginsApiError]
     EncryptedLogin add(LoginEntry login, [ByRef]string encryption_key);
 
-    [Throws=LoginsStorageError]
+    [Throws=LoginsApiError]
     EncryptedLogin update([ByRef] string id, LoginEntry login, [ByRef]string encryption_key);
 
-    [Throws=LoginsStorageError]
+    [Throws=LoginsApiError]
     EncryptedLogin add_or_update(LoginEntry login, [ByRef]string encryption_key);
 
-    [Throws=LoginsStorageError]
+    [Throws=LoginsApiError]
     boolean delete([ByRef] string id);
 
-    [Throws=LoginsStorageError]
+    [Throws=LoginsApiError]
     void wipe();
 
-    [Throws=LoginsStorageError]
+    [Throws=LoginsApiError]
     void wipe_local();
 
-    [Throws=LoginsStorageError, Self=ByArc]
+    [Throws=LoginsApiError, Self=ByArc]
     void reset();
 
-    [Throws=LoginsStorageError]
+    [Throws=LoginsApiError]
     void touch([ByRef] string id);
 
-    [Throws=LoginsStorageError]
+    [Throws=LoginsApiError]
     sequence<EncryptedLogin> list();
 
-    [Throws=LoginsStorageError]
+    [Throws=LoginsApiError]
     sequence<EncryptedLogin> get_by_base_domain([ByRef] string base_domain);
 
-    [Throws=LoginsStorageError]
+    [Throws=LoginsApiError]
     Login? find_login_to_update(LoginEntry look, [ByRef]string encryption_key);
 
-    [Throws=LoginsStorageError]
+    [Throws=LoginsApiError]
     EncryptedLogin? get([ByRef] string id);
-
-    [Throws=LoginsStorageError]
-    string import_multiple(sequence<Login> login, [ByRef]string encryption_key);
 
     [Self=ByArc]
     void register_with_sync_manager();
 
-    [Throws=LoginsStorageError, Self=ByArc]
+    [Throws=LoginsApiError, Self=ByArc]
     string sync(string key_id, string access_token, string sync_key, string tokenserver_url, string local_encryption_key);
 };

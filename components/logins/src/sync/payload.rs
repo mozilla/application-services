@@ -13,6 +13,7 @@ use crate::login::ValidateAndFixup;
 use crate::SecureLoginFields;
 use crate::{EncryptedLogin, LoginFields, RecordFields};
 use serde_derive::*;
+use sync15::bso::OutgoingBso;
 use sync_guid::Guid;
 
 /// The JSON payload that lives on the storage servers.
@@ -64,12 +65,10 @@ pub struct LoginPayload {
 
 // These probably should be on the payload itself, but one refactor at a time!
 impl EncryptedLogin {
-    pub fn from_payload(
-        sync_payload: sync15::Payload,
+    pub fn from_incoming_payload(
+        p: crate::sync::LoginPayload,
         encdec: &EncryptorDecryptor,
     ) -> Result<EncryptedLogin> {
-        let p: crate::sync::LoginPayload = sync_payload.into_record()?;
-
         let fields = LoginFields {
             origin: p.hostname,
             form_action_origin: p.form_submit_url,
@@ -99,22 +98,24 @@ impl EncryptedLogin {
         })
     }
 
-    pub fn into_payload(self, encdec: &EncryptorDecryptor) -> Result<sync15::Payload> {
+    pub fn into_bso(self, encdec: &EncryptorDecryptor) -> Result<OutgoingBso> {
         let sec_fields: SecureLoginFields = encdec.decrypt_struct(&self.sec_fields)?;
-        Ok(sync15::Payload::from_record(crate::sync::LoginPayload {
-            guid: self.guid(),
-            hostname: self.fields.origin,
-            form_submit_url: self.fields.form_action_origin,
-            http_realm: self.fields.http_realm,
-            username_field: self.fields.username_field,
-            password_field: self.fields.password_field,
-            username: sec_fields.username,
-            password: sec_fields.password,
-            time_created: self.record.time_created,
-            time_password_changed: self.record.time_password_changed,
-            time_last_used: self.record.time_last_used,
-            times_used: self.record.times_used,
-        })?)
+        Ok(OutgoingBso::from_content_with_id(
+            crate::sync::LoginPayload {
+                guid: self.guid(),
+                hostname: self.fields.origin,
+                form_submit_url: self.fields.form_action_origin,
+                http_realm: self.fields.http_realm,
+                username_field: self.fields.username_field,
+                password_field: self.fields.password_field,
+                username: sec_fields.username,
+                password: sec_fields.password,
+                time_created: self.record.time_created,
+                time_password_changed: self.record.time_password_changed,
+                time_last_used: self.record.time_last_used,
+                times_used: self.record.times_used,
+            },
+        )?)
     }
 }
 
@@ -136,20 +137,24 @@ where
 mod tests {
     use crate::encryption::test_utils::{encrypt_struct, TEST_ENCRYPTOR};
     use crate::sync::merge::SyncLoginData;
+    use crate::sync::LoginPayload;
     use crate::{EncryptedLogin, LoginFields, RecordFields, SecureLoginFields};
-    use sync15::ServerTimestamp;
+    use sync15::bso::IncomingBso;
 
     #[test]
     fn test_payload_to_login() {
-        let payload = sync15::Payload::from_json(serde_json::json!({
+        let bso = IncomingBso::from_test_content(serde_json::json!({
             "id": "123412341234",
             "httpRealm": "test",
             "hostname": "https://www.example.com",
             "username": "user",
             "password": "password",
-        }))
+        }));
+        let login = EncryptedLogin::from_incoming_payload(
+            bso.into_content::<LoginPayload>().content().unwrap(),
+            &TEST_ENCRYPTOR,
+        )
         .unwrap();
-        let login = EncryptedLogin::from_payload(payload, &TEST_ENCRYPTOR).unwrap();
         assert_eq!(login.record.id, "123412341234");
         assert_eq!(login.fields.http_realm, Some("test".to_string()));
         assert_eq!(login.fields.origin, "https://www.example.com");
@@ -161,16 +166,19 @@ mod tests {
 
     #[test]
     fn test_form_submit_payload_to_login() {
-        let payload = sync15::Payload::from_json(serde_json::json!({
+        let bso = IncomingBso::from_test_content(serde_json::json!({
             "id": "123412341234",
             "hostname": "https://www.example.com",
             "formSubmitURL": "https://www.example.com",
             "usernameField": "username-field",
             "username": "user",
             "password": "password",
-        }))
+        }));
+        let login = EncryptedLogin::from_incoming_payload(
+            bso.into_content::<LoginPayload>().content().unwrap(),
+            &TEST_ENCRYPTOR,
+        )
         .unwrap();
-        let login = EncryptedLogin::from_payload(payload, &TEST_ENCRYPTOR).unwrap();
         assert_eq!(login.record.id, "123412341234");
         assert_eq!(login.fields.http_realm, None);
         assert_eq!(login.fields.origin, "https://www.example.com");
@@ -201,56 +209,65 @@ mod tests {
                 password: "password".into(),
             }),
         };
-        let payload = login.into_payload(&TEST_ENCRYPTOR).unwrap();
-
-        assert_eq!(payload.id, "123412341234");
-        assert!(!payload.deleted);
-        assert_eq!(payload.data["httpRealm"], "test".to_string());
-        assert_eq!(payload.data["hostname"], "https://www.example.com");
-        assert_eq!(payload.data["username"], "user");
-        assert_eq!(payload.data["password"], "password");
-        assert!(!payload.data.contains_key("formActionOrigin"));
+        let bso = login.into_bso(&TEST_ENCRYPTOR).unwrap();
+        assert_eq!(bso.envelope.id, "123412341234");
+        let payload_data: serde_json::Value = serde_json::from_str(&bso.payload).unwrap();
+        assert_eq!(payload_data["httpRealm"], "test".to_string());
+        assert_eq!(payload_data["hostname"], "https://www.example.com");
+        assert_eq!(payload_data["username"], "user");
+        assert_eq!(payload_data["password"], "password");
+        assert!(matches!(
+            payload_data["formActionOrigin"],
+            serde_json::Value::Null
+        ));
     }
 
     #[test]
     fn test_username_field_requires_a_form_target() {
-        let bad_payload: sync15::Payload = serde_json::from_value(serde_json::json!({
+        let bad_json = serde_json::json!({
             "id": "123412341234",
             "httpRealm": "test",
             "hostname": "https://www.example.com",
             "username": "test",
             "password": "test",
             "usernameField": "invalid"
-        }))
-        .unwrap();
+        });
+        let bad_bso = IncomingBso::from_test_content(bad_json.clone());
 
         // Incoming sync data gets fixed automatically.
-        let login = EncryptedLogin::from_payload(bad_payload.clone(), &TEST_ENCRYPTOR).unwrap();
+        let login = EncryptedLogin::from_incoming_payload(
+            bad_bso.into_content::<LoginPayload>().content().unwrap(),
+            &TEST_ENCRYPTOR,
+        )
+        .unwrap();
         assert_eq!(login.fields.username_field, "");
 
         // SyncLoginData::from_payload also fixes up.
-        let login =
-            SyncLoginData::from_payload(bad_payload, ServerTimestamp::default(), &TEST_ENCRYPTOR)
-                .unwrap()
-                .inbound
-                .0
-                .unwrap();
+        let bad_bso = IncomingBso::from_test_content(bad_json);
+        let login = SyncLoginData::from_bso(bad_bso, &TEST_ENCRYPTOR)
+            .unwrap()
+            .inbound
+            .0
+            .unwrap();
         assert_eq!(login.fields.username_field, "");
     }
 
     #[test]
     fn test_password_field_requires_a_form_target() {
-        let bad_payload: sync15::Payload = serde_json::from_value(serde_json::json!({
+        let bad_bso = IncomingBso::from_test_content(serde_json::json!({
             "id": "123412341234",
             "httpRealm": "test",
             "hostname": "https://www.example.com",
             "username": "test",
             "password": "test",
             "passwordField": "invalid"
-        }))
-        .unwrap();
+        }));
 
-        let login = EncryptedLogin::from_payload(bad_payload, &TEST_ENCRYPTOR).unwrap();
+        let login = EncryptedLogin::from_incoming_payload(
+            bad_bso.into_content::<LoginPayload>().content().unwrap(),
+            &TEST_ENCRYPTOR,
+        )
+        .unwrap();
         assert_eq!(login.fields.password_field, "");
     }
 }

@@ -11,7 +11,7 @@ import mozilla.appservices.places.uniffi.VisitObservation
 import mozilla.appservices.places.uniffi.VisitTransition
 import mozilla.appservices.places.uniffi.FrecencyThresholdOption
 import mozilla.appservices.syncmanager.SyncManager
-import mozilla.appservices.places.uniffi.PlacesException
+import mozilla.appservices.places.uniffi.PlacesApiException
 import mozilla.appservices.places.uniffi.BookmarkItem
 import mozilla.telemetry.glean.testing.GleanTestRule
 import org.junit.After
@@ -130,8 +130,8 @@ class PlacesConnectionTest {
     fun testNoteObservationBadUrl() {
         try {
             db.noteObservation(VisitObservation(url = "http://www.[].com", visitType = VisitTransition.LINK))
-        } catch (e: PlacesException) {
-            assert(e is PlacesException.UrlParseFailed)
+        } catch (e: PlacesApiException) {
+            assert(e is PlacesApiException.UrlParseFailed)
         }
     }
     // Basically equivalent to test_get_visited in rust, but exercises the FFI,
@@ -392,7 +392,7 @@ class PlacesConnectionTest {
         try {
             db.noteObservation(VisitObservation(url = "4", visitType = VisitTransition.REDIRECT_TEMPORARY, at = 160000))
             fail("Should have thrown")
-        } catch (e: PlacesException.UrlParseFailed) {
+        } catch (e: PlacesApiException.UrlParseFailed) {
             // nothing to do here
         }
 
@@ -437,7 +437,7 @@ class PlacesConnectionTest {
                 title = "example"
             )
             fail("Should have thrown")
-        } catch (e: PlacesException.UrlParseFailed) {
+        } catch (e: PlacesApiException.UrlParseFailed) {
             // nothing to do here
         }
 
@@ -589,8 +589,8 @@ class PlacesConnectionTest {
         try {
             db.noteHistoryMetadataObservationViewTime(metaKeyBad, 200)
             assert(false) // should fail
-        } catch (e: PlacesException) {
-            assert(e is PlacesException.UrlParseFailed)
+        } catch (e: PlacesApiException) {
+            assert(e is PlacesApiException.UrlParseFailed)
         }
     }
 

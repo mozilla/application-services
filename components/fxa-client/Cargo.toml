@@ -24,11 +24,11 @@ error-support = { path = "../support/error" }
 thiserror = "1.0"
 anyhow = "1.0"
 sync-guid = { path = "../support/guid", features = ["random"] }
-uniffi = "^0.20"
-uniffi_macros = "^0.20"
+uniffi = "^0.21"
+uniffi_macros = "^0.21"
 
 [build-dependencies]
-uniffi_build = { version = "^0.20", features=["builtin-bindgen"] }
+uniffi_build = { version = "^0.21", features=["builtin-bindgen"] }
 
 [dev-dependencies]
 viaduct-reqwest = { path = "../support/viaduct-reqwest" }

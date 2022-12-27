@@ -7,7 +7,7 @@ use crate::types::{ServiceStatus, SyncEngineSelection, SyncParams, SyncReason, S
 use crate::{reset, reset_all, wipe};
 use error_support::breadcrumb;
 use parking_lot::Mutex;
-use std::collections::{HashMap, HashSet};
+use std::collections::{BTreeMap, HashMap, HashSet};
 use std::convert::TryFrom;
 use std::time::SystemTime;
 use sync15::client::{
@@ -69,7 +69,12 @@ impl SyncManager {
         for engine_id in SyncEngineId::iter() {
             if let Some(engine) = Self::get_engine(&engine_id) {
                 if let Err(e) = engine.reset(&EngineSyncAssociation::Disconnected) {
-                    log::error!("Failed to reset {}: {}", engine_id, e);
+                    error_support::report_error!(
+                        "sync-manager-reset",
+                        "Failed to reset {}: {}",
+                        engine_id,
+                        e
+                    );
                 }
             } else {
                 log::warn!("Unable to reset {}, be sure to call register_with_sync_manager before disconnect if this is surprising", engine_id);
@@ -203,7 +208,8 @@ impl SyncManager {
         &self,
         selection: &SyncEngineSelection,
     ) -> Result<Vec<Box<dyn SyncEngine>>> {
-        let mut engine_map: HashMap<_, _> = self.iter_registered_engines().collect();
+        // BTreeMap to ensure we sync the engines in priority order.
+        let mut engine_map: BTreeMap<_, _> = self.iter_registered_engines().collect();
         breadcrumb!(
             "Checking engines requested ({:?}) vs local engines ({:?})",
             selection,
@@ -226,10 +232,7 @@ impl SyncManager {
                 selected_engine_ids.insert(engine_id);
             }
             // Filter engines based on the selection
-            engine_map = engine_map
-                .into_iter()
-                .filter(|(engine_id, _)| selected_engine_ids.contains(engine_id))
-                .collect()
+            engine_map.retain(|engine_id, _| selected_engine_ids.contains(engine_id))
         }
         Ok(engine_map.into_iter().map(|(_, engine)| engine).collect())
     }

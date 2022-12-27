@@ -19,7 +19,7 @@ use crate::db::addresses;
 use crate::db::schema::create_empty_sync_temp_tables;
 use crate::error::Result;
 use crate::sync::address::create_engine as create_address_engine;
-use crate::sync::Metadata;
+use crate::sync::{IncomingBso, Metadata};
 use crate::{InternalAddress, Store};
 use types::Timestamp;
 
@@ -489,14 +489,14 @@ lazy_static::lazy_static! {
 // NOTE: test_reconcile.js also has CREDIT_CARD_RECONCILE_TESTCASES which
 // we should also do.
 
-// Takes the JSON from one of the tests above and turns it into a sync15 payload,
+// Takes the JSON from one of the tests above and turns it into an IncomingBso,
 // suitable for sticking in the mirror or passing to the sync impl.
-fn test_to_payload(guid: &SyncGuid, test_payload: &serde_json::Value) -> sync15::Payload {
+fn test_to_bso(guid: &SyncGuid, test_payload: &serde_json::Value) -> IncomingBso {
     let json = json!({
         "id": guid.clone(),
         "entry": test_payload.clone(),
     });
-    sync15::Payload::from_json(json).unwrap()
+    IncomingBso::from_test_content(json)
 }
 
 fn check_address_as_expected(address: &InternalAddress, expected: &Map<String, Value>) {
@@ -555,13 +555,13 @@ fn make_local_from_json(guid: &SyncGuid, json: &serde_json::Value) -> InternalAd
 
 // Insert a mirror record from the JSON in our test cases.
 fn insert_mirror_record(conn: &Connection, guid: &SyncGuid, test_payload: &serde_json::Value) {
-    let payload = test_to_payload(guid, test_payload);
+    let bso = test_to_bso(guid, test_payload);
     conn.execute(
         "INSERT OR IGNORE INTO addresses_mirror (guid, payload)
          VALUES (:guid, :payload)",
         rusqlite::named_params! {
-            ":guid": guid,
-            ":payload": payload.into_json_string(),
+            ":guid": bso.envelope.id,
+            ":payload": bso.payload,
         },
     )
     .expect("should insert");
@@ -614,10 +614,10 @@ fn test_reconcile_addresses() -> Result<()> {
         let map = remote.as_object_mut().unwrap();
         map.insert("id".to_string(), serde_json::to_value(guid.clone())?);
 
-        let payload = test_to_payload(&guid, &remote);
+        let bso = test_to_bso(&guid, &remote);
         let remote_time = ServerTimestamp(0);
         let mut incoming = IncomingChangeset::new("test".to_string(), remote_time);
-        incoming.changes.push((payload, ServerTimestamp(0)));
+        incoming.changes.push(bso);
 
         let mut telem = telemetry::Engine::new("addresses");
 

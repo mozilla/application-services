@@ -22,11 +22,7 @@ if [[ -n "${CROSS_COMPILE_TARGET}" ]] && [[ "$(uname -s)" != "Linux" ]]; then
   exit 1
 fi
 
-if [[ "${CROSS_COMPILE_TARGET}" =~ "win32-x86-64" ]]; then
-  DIST_DIR=$(abspath "desktop/win32-x86-64/sqlcipher")
-  NSS_DIR=$(abspath "desktop/win32-x86-64/nss")
-  TARGET_OS="windows"
-elif [[ "${CROSS_COMPILE_TARGET}" =~ "darwin" ]]; then
+if [[ "${CROSS_COMPILE_TARGET}" =~ "darwin" ]]; then
   DIST_DIR=$(abspath "desktop/darwin/sqlcipher")
   NSS_DIR=$(abspath "desktop/darwin/nss")
   TARGET_OS="macos"
@@ -117,7 +113,7 @@ elif [[ "${TARGET_OS}" == "linux" ]]; then
 elif [[ "${TARGET_ARCH}" == "aarch64" ]]; then
   LIBS="${LIBS} -lgcm-aes-aarch64_c_lib -larmv8_c_lib"
 else
-  LIBS="${LIBS} -lhw-acc-crypto-avx -lhw-acc-crypto-avx2 -lgcm-aes-x86_c_lib"
+  LIBS="${LIBS} -lhw-acc-crypto-avx -lhw-acc-crypto-avx2 -lgcm-aes-x86_c_lib -lsha-x86_c_lib"
 fi
 
 BUILD_DIR=$(mktemp -d)
@@ -161,33 +157,6 @@ if [[ "${CROSS_COMPILE_TARGET}" =~ "darwin" ]]; then
     CFLAGS="${CFLAGS} ${SQLCIPHER_CFLAGS}" \
     LDFLAGS="${LDFLAGS} -L${NSS_DIR}/lib" \
     LIBS="${LIBS}"
-elif [[ "${CROSS_COMPILE_TARGET}" =~ "win32-x86-64" ]]; then
-
-pushd "${SQLCIPHER_SRC_DIR}"
-
-# From https://github.com/qTox/qTox/blob/9525505bff8719c84b6193174ea5e7ec097c54b8/windows/cross-compile/build.sh#L390-L446.
-# shellcheck disable=SC2016
-sed -i s/'if test "$TARGET_EXEEXT" = ".exe"'/'if test ".exe" = ".exe"'/g configure
-
-# Can't quite figure out what to tell ./configure so that it gets the picture
-# here (it doesn't seem to handle host/build/target args correctly)... Oh well,
-# this is a bit of a sledgehammer but does the job.
-sed -i s/'BEXE = @BUILD_EXEEXT@'/'BEXE = ""'/g Makefile.in
-
-popd
-
-  "${SQLCIPHER_SRC_DIR}/configure" \
-    --with-pic \
-    --disable-shared \
-    --build=x86_64 \
-    --host=x86_64-w64-mingw32 \
-    --target=x86_64-w64-mingw32 \
-    --enable-tempstore=yes \
-    --with-crypto-lib=none \
-    --disable-tcl \
-    CFLAGS="${SQLCIPHER_CFLAGS}" \
-    LDFLAGS="-L${NSS_DIR}/lib" \
-    LIBS="${LIBS}"
 elif [[ "$(uname -s)" == "Darwin" ]]; then
   "${SQLCIPHER_SRC_DIR}/configure" \
     --with-pic \
@@ -222,9 +191,5 @@ cp -p "${BUILD_DIR}/sqlite3ext.h" "${DIST_DIR}/include/sqlcipher"
 cp -p "${BUILD_DIR}/.libs/libsqlcipher.a" "${DIST_DIR}/lib"
 
 chmod +w "${DIST_DIR}/lib/libsqlcipher.a"
-
-if [[ "${CROSS_COMPILE_TARGET}" =~ "win32-x86-64" ]]; then
-  mv "${DIST_DIR}/lib/libsqlcipher.a" "${DIST_DIR}/lib/sqlcipher.lib"
-fi
 
 popd

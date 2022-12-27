@@ -58,10 +58,7 @@ Notes:
 
 ### Adding a new component
 
-A new component is slightly trickier, but not much - you will need to add the
-new crate as a dependency to some `Cargo.toml` somewhere in the tree.
-Exactly where you need to add this will depend on who is consuming the
-component, but you will follow the same pattern as above:
+Follow the [Uniffi documentation on mozilla-central](https://github.com/mozilla/gecko-dev/blob/master/docs/writing-rust-code/uniffi.md) to understand where you'll need to add your crate path and UDL. In general:
 
 * The consuming component will specify the dependency as a nominal "version 0.1"
 * The top-level `Cargo.toml` will override that dependency with a specific git
@@ -70,7 +67,7 @@ component, but you will follow the same pattern as above:
 For example, consider the webext-storage crate:
 
 * The [consuming crate specifies version 0.1
-  ](https://searchfox.org/mozilla-central/search?q=MINIMUM_RUST_VERSION&path=python/mozboot/mozboot/util.py)
+  ](https://searchfox.org/mozilla-central/source/toolkit/components/extensions/storage/webext_storage_bridge/Cargo.toml#23)
 * The [top-level Cargo.toml](https://searchfox.org/mozilla-central/search?q=application-services+overrides&path=Cargo.toml)
   specifies the exact revision.
 
@@ -81,6 +78,8 @@ different phabricator patches. As noted above, the best-practice is that all
 application-services components are on the same revision, so adding a new
 component implies you will generally also be updating all the existing
 components.
+
+For an example of a recently added component, [the tabs was recently added to mozilla-central with uniffi](https://bugzilla.mozilla.org/show_bug.cgi?id=1791851) and shows a general process to follow.
 
 ### Vendoring an unreleased version for testing purposes
 

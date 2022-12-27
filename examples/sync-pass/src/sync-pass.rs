@@ -5,7 +5,7 @@
 #![recursion_limit = "4096"]
 #![warn(rust_2018_idioms)]
 
-use cli_support::fxa_creds::{get_cli_fxa, get_default_fxa_config};
+use cli_support::fxa_creds::{get_account_and_token, get_cli_fxa, get_default_fxa_config};
 use cli_support::prompt::{prompt_char, prompt_string, prompt_usize};
 use logins::encryption::{create_key, EncryptorDecryptor};
 use logins::migrate_sqlcipher_db::migrate_logins;
@@ -360,7 +360,7 @@ fn set_encryption_key(store: &LoginStore, key: &str) -> rusqlite::Result<()> {
         INSERT INTO  loginsSyncMeta (key, value)
         VALUES ('sync-pass-key', ?)
         ",
-            &[&key],
+            [&key],
         )
         .map(|_| ())
 }
@@ -494,10 +494,15 @@ fn main() -> Result<()> {
             }
             'S' | 's' => {
                 log::info!("Syncing!");
+                let (_, token_info) = get_account_and_token(get_default_fxa_config(), cred_file)?;
+                let sync_key = base64::encode_config(
+                    &token_info.key.unwrap().key_bytes()?,
+                    base64::URL_SAFE_NO_PAD,
+                );
                 match Arc::clone(&store).sync(
                                     cli_fxa.client_init.key_id.clone(),
                                     cli_fxa.client_init.access_token.clone(),
-                                    cli_fxa.root_sync_key.to_b64_array().join(","),
+                                    sync_key,
                                     cli_fxa.client_init.tokenserver_url.to_string(),
                                     encryption_key.clone(),
                                 ) {

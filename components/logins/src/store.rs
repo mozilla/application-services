@@ -164,16 +164,6 @@ impl LoginStore {
         }
     }
 
-    pub fn import_multiple(&self, logins: Vec<Login>, enc_key: &str) -> ApiResult<String> {
-        handle_error! {
-            let encdec = EncryptorDecryptor::new(enc_key)?;
-            self.db.lock().import_multiple(logins, &encdec)?;
-            // We want to return a JSON string to keep API compatability, but the function doesn't
-            // acutally return anything.  Serialize the unit struct for now.
-            Ok(serde_json::to_string(&())?)
-        }
-    }
-
     /// A convenience wrapper around sync_multiple.
     // Unfortunately, iOS still uses this until they use the sync manager
     // This can almost die later - consumers should never call it (they should

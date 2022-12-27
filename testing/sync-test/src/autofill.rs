@@ -11,7 +11,7 @@ use autofill::{
         store::Store as AutofillStore,
     },
     encryption::{create_key, encrypt_string},
-    error::Result as AutofillResult,
+    error::ApiResult as AutofillResult,
 };
 use std::collections::HashMap;
 

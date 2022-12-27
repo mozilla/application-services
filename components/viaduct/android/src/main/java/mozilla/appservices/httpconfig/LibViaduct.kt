@@ -26,6 +26,8 @@ internal interface LibViaduct : Library {
     fun viaduct_alloc_bytebuffer(sz: Int): RustBuffer.ByValue
     // Returns 0 to indicate redundant init.
     fun viaduct_initialize(cb: RawFetchCallback): Byte
+    // No return value, never fails.
+    fun viaduct_allow_android_emulator_loopback()
 
     fun viaduct_log_error(s: String)
 }

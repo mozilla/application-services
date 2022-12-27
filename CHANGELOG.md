@@ -1,3 +1,217 @@
+# v96.1.3 (_2022-12-08_)
+
+[Full Changelog](https://github.com/mozilla/application-services/compare/v96.1.2...v96.1.3)
+
+## Tabs
+
+### What's Changed
+  - Fixed a regression causing failure to read old tabs databases ([#5286](https://github.com/mozilla/application-services/pull/5286))
+
+# v96.1.2 (_2022-12-07_)
+
+[Full Changelog](https://github.com/mozilla/application-services/compare/v96.1.1...v96.1.2)
+
+## Logins
+### What's changed
+ - Removes Fennec migration code. The function `importMultiple` no longer exists. ([#5268](https://github.com/mozilla/application-services/pull/5268))
+
+## Nimbus
+
+### What's Changed
+  - Event store date comparison logic update to be entirely relative ([#5265](https://github.com/mozilla/application-services/pull/5265))
+  - Updates event store to initialize all dates at the start of the current year ([#5279](https://github.com/mozilla/application-services/pull/5279))
+  - Adds new Kotlin/Swift methods to clear the event store ([#5279](https://github.com/mozilla/application-services/pull/5279))
+  - Adds Swift methods to wait for operation queues to finish ([#5279](https://github.com/mozilla/application-services/pull/5279))
+
+## Places
+### What's changed
+ - Removes Fennec migration code. ([#5268](https://github.com/mozilla/application-services/pull/5268))
+  The following functions no longer exist: 
+   - `importBookmarksFromFennec`
+   - `importPinnedSitesFromFennec`
+   - `importVisitsFromFennec`
+
+## Viaduct
+### What's New
+  - Allow viaduct to make requests to the android emulator's host address via
+    a new viaduct_allow_android_emulator_loopback() (in Rust)/allowAndroidEmulatorLoopback() (in Kotlin)
+    ([#5270](https://github.com/mozilla/application-services/pull/5270))
+
+## Tabs
+### What's changes
+  - The ClientRemoteTabs struct/interface now has a last_modified field which is the time
+    when the device last uploaded the tabs.
+
+# v96.1.1 (_2022-12-01_)
+
+[Full Changelog](https://github.com/mozilla/application-services/compare/v96.1.0...v96.1.1)
+
+## autofill
+
+### What's Changed
+  - Fixed a bug where `scrub_encrypted_data()` didn't update the last sync time, which prevented the scrubbed CC data
+    from being fixed.
+  - Don't report sentry errors when we try to decrypt the empty string.  This happens when the consumer tries to decript
+    a CC number after `scrub_encrypted_data()` is called.
+
+## logins
+
+### What's Changed
+  -  Don't report `Origin is Malformed` errors to Sentry.  This is a known issue stemming from FF Desktop sending us
+     URLs without a scheme.  See #5233 for details.
+
+## places
+
+### What's Changed
+  - Switch to using incremental vacuums for maintenance, which should speed up the process.
+  - Don't report places `relative URL without a base` to Sentry.  This is a known issue caused by Fenix sending us URLs
+    with an invalid scheme (see #5235)
+
+# v96.1.0 (_2022-11-29_)
+
+[Full Changelog](https://github.com/mozilla/application-services/compare/v96.0.1...v96.1.0)
+
+## FxA Client
+
+### What's new
+- Exposed a new function for swift consumers `resetPersistedState`
+   - `resetPersistedState` can be used to refresh the account manager to reflect the latest persisted state.
+   - `resetPersistedState` should be called in between a different account manager instance persisting the state, and the current account manager persisting state
+     - For example, the Notification Service in iOS creates its own instance of the account manager, changes its state (by changing the index of the last retrieved send tab)
+     - The main account manager held by the application should call` resetPersistedState` before calling any other method that might change its state. This way it can retrieve the most up to date index that the Notification Services persisted.
+### What's changed
+- The `processRawIncomingAccountEvent` function will now process all commands, not just one. This moves the responsibilty of ensuring each push gets a UI element to the caller.
+
+# v96.0.1 (_2022-11-18_)
+
+[Full Changelog](https://github.com/mozilla/application-services/compare/v96.0.0...v96.0.1)
+
+## Logins
+
+### What's Changed
+  - Updated the URL redaction code to remove potential PII leak.  Version `96.0.0` should not be used by downstream clients.
+
+## Nimbus
+### What's changed
+- Add methods to Kotlin and Swift to call the record event method on the nimbus client ([#5244](https://github.com/mozilla/application-services/pull/5244))
+
+## FxA Client
+### What's changed
+- The devices retrieved from the devices list are now only the devices that have been accessed in 21 days. This should help remove duplicates and idle devices for users. ([#4984](https://github.com/mozilla/application-services/pull/4984))
+
+# v96.0.0 (_2022-11-16_)
+
+[Full Changelog](https://github.com/mozilla/application-services/compare/v95.0.1...v96.0.0)
+
+## ⛅️🔬🔭 Nimbus
+
+### ✨ What's New ✨
+  - `active_experiments` is available to JEXL as a set containing slugs of all enrolled experiments ([#5227](https://github.com/mozilla/application-services/pull/5227))
+  - Added Behavioral Targeting/Display Triggers accessible from JEXL for experiments and messages ([#5226](https://github.com/mozilla/application-services/pull/5226), [#5228](https://github.com/mozilla/application-services/pull/5228))
+  - Android only: added a new `NimbusBuilder` method to unify Fenix and Focus startup sequences. ([5239](https://github.com/mozilla/application-services/pull/5239))
+
+### ⚠️ Breaking Changes ⚠️
+  - Changed the type of `customTargetingAttributes` in `NimbusAppSettings` to a `JSONObject`. The change will be breaking only for Android. ([#5229](https://github.com/mozilla/application-services/pull/5229))
+  - Android only: Removed the `initialize()` methods in favor of `NimbusBuilder` class. ([5239](https://github.com/mozilla/application-services/pull/5239))
+
+## Logins
+
+### What's Changed
+  - Include a redacted version of the URL in the Sentry error report when we see a login with an invalid origin field.
+  - Made it so `InvalidDatabaseFile` errors aren't reported to Sentry.  These occurs when a non-existent path is passed
+    to `migrateLoginsWithMetrics()`, which happens about 1-2 times a day.  This is very low volume, the code is going
+    away soon, and we have a plausible theory that these happen when Fenix is killed after the migration but before
+    `SQL_CIPHER_MIGRATION` is stored.
+
+## Places
+
+### What's Changed
+  - Report a Sentry breadcrumb when we fail to parse URLs, with a redacted version of the URL.
+
+## JwCrypto
+
+### What's Changed
+  - Log a breadcrumb with a redacted version of the crypto key when it has an invalid form (before throwing
+    DeserializationError)
+
+# v95.0.1 (_2022-11-03_)
+
+[Full Changelog](https://github.com/mozilla/application-services/compare/v95.0.0...v95.0.1)
+
+# General
+  - Added function to unset the app-services error reporter
+
+# v95.0.0 (_2022-10-28_)
+
+[Full Changelog](https://github.com/mozilla/application-services/compare/v94.3.2...v95.0.0)
+
+## General
+### What's fixed
+- Fixed a bug released in 94.3.1. The bug broke firefox-ios builds due to a name conflict. ([#5181](https://github.com/mozilla/application-services/pull/5181))
+
+### What's Changed
+  - Updated UniFFI to 0.21.0.  This improves the string display of the fielded errors on Kotlin.  Currently only logins is using these errors, but we plan to start using them for all components.
+
+## Autofill
+
+### ⚠️ Breaking Changes ⚠️
+
+   - The autofill API now uses `AutofillApiError` instead of `AutofillError`.   `AutofillApiError` exposes a smaller number of variants, which
+     will hopefully make it easier to use for the consumer.
+
+## Logins
+
+### ⚠️ Breaking Changes ⚠️
+
+   - Renamed `LoginsStorageError` to `LoginsApiError`, which better reflects how it's used and makes it consistent with
+     the places error name.
+   - Removed the `LoginsApiError::RequestFailed` variant.  This was only thrown when calling the sync-related methods
+     manually, rather than going through the SyncManager which is the preferred way to sync. Those errors will now be
+     grouped under `LoginsApiError::UnexpectedLoginsApiError`.
+
+### What's Changed
+  - Added fields to errors in `logins.udl`.  Most variants will now have a `message` field.
+
+## Nimbus ⛅️🔬🔭
+
+### What's Changed
+  - Disabled Glean events recorded when the SDK is not ready for a feature ([#5185](https://github.com/mozilla/application-services/pull/5185))
+  - Add structs for behavioral targeting ([#5205](https://github.com/mozilla/application-services/pull/5205))
+  - Calls to `log::error` have been replaced with `error_support::report_error` ([#5204](https://github.com/mozilla/application-services/pull/5204))
+
+## Places
+
+### ⚠️ Breaking Changes ⚠️
+
+   - Renamed `PlacesError` to `PlacesApiError`, which better reflects that it's used in the public API rather than for
+     internal errors.
+   - Removed the `JsonError`, `InternalError`, and `BookmarksCorruption` variants from places error. Errors that
+     resulted in `InternalError` will now result in `UnexpectedPlacesError`. `BookmarksCorruption` will also result in
+     an `UnexpectedPlacesError` and an error report will be automatically generated. `JsonError` didn't seem to be
+     actually used.
+
+## Tabs
+
+### ⚠️ Breaking Changes ⚠️
+
+   - The tabs API now uses  `TabsError` with `TabsApiError`.  `TabsApiError` exposes a smaller number of variants, which
+     will hopefully make it easier to use for the consumer.
+
+# v94.3.2 (_2022-10-13_)
+
+[Full Changelog](https://github.com/mozilla/application-services/compare/v94.3.1...v94.3.2)
+
+## General
+
+### What's Changed
+
+- Android: Reverted NDK back to r21d from r25b. ([#5156](https://github.com/mozilla/application-services/issues/5165))
+
+## Sync Manager
+
+### What's Changed
+  - Syncing will sync each engine in a deterministic order which matches desktop ([#5171](https://github.com/mozilla/application-services/issues/5171))
+
 # v94.3.1 (_2022-09-23_)
 
 [Full Changelog](https://github.com/mozilla/application-services/compare/v94.3.0...v94.3.1)

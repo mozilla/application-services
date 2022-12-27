@@ -21,6 +21,12 @@ pub fn now_secs() -> u64 {
     since_epoch.as_secs()
 }
 
+/// Gets unix timestamp at `days` days ago
+pub fn past_timestamp(days: u64) -> u64 {
+    // 1000 milliseconds, 60 seconds, 60 minutes, 24 hours
+    now() - (1000 * 60 * 60 * 24 * days)
+}
+
 pub fn random_base64_url_string(len: usize) -> Result<String> {
     let mut out = vec![0u8; len];
     rand::fill(&mut out)?;

@@ -119,7 +119,7 @@ impl LoginDb {
         self.try_query_row(
             "SELECT value FROM loginsSyncMeta WHERE key = :key",
             named_params! { ":key": key },
-            |row| Ok::<_, LoginsError>(row.get(0)?),
+            |row| Ok::<_, Error>(row.get(0)?),
             true,
         )
     }
@@ -355,55 +355,6 @@ impl LoginDb {
         Ok(())
     }
 
-    pub fn import_multiple(&self, logins: Vec<Login>, encdec: &EncryptorDecryptor) -> Result<()> {
-        // Check if the logins table is empty first.
-        let mut num_existing_logins =
-            self.query_row::<i64, _, _>("SELECT COUNT(*) FROM loginsL", [], |r| r.get(0))?;
-        num_existing_logins +=
-            self.query_row::<i64, _, _>("SELECT COUNT(*) FROM loginsM", [], |r| r.get(0))?;
-        if num_existing_logins > 0 {
-            return Err(LoginsError::NonEmptyTable);
-        }
-        let tx = self.unchecked_transaction()?;
-
-        for login in logins.into_iter() {
-            let old_guid = login.guid();
-            let login = match self.fixup_and_check_for_dupes(&Guid::empty(), login.entry(), encdec)
-            {
-                Ok(new_entry) => EncryptedLogin {
-                    record: RecordFields {
-                        id: if old_guid.is_valid_for_sync_server() {
-                            old_guid.to_string()
-                        } else {
-                            Guid::random().to_string()
-                        },
-                        ..login.record
-                    },
-                    fields: new_entry.fields,
-                    sec_fields: new_entry.sec_fields.encrypt(encdec)?,
-                },
-                Err(e) => {
-                    log::warn!("Skipping login {} as it is invalid ({}).", old_guid, e);
-                    continue;
-                }
-            };
-            // Now we can safely insert it, knowing that it's valid data.
-            match self.insert_new_login(&login) {
-                Ok(_) => log::info!(
-                    "Imported {} (new GUID {}) successfully.",
-                    old_guid,
-                    login.record.id
-                ),
-                Err(e) => {
-                    log::warn!("Could not import {} ({}).", old_guid, e);
-                }
-            };
-        }
-        tx.commit()?;
-
-        Ok(())
-    }
-
     pub fn add(&self, entry: LoginEntry, encdec: &EncryptorDecryptor) -> Result<EncryptedLogin> {
         let guid = Guid::random();
         let now_ms = util::system_time_ms_i64(SystemTime::now());
@@ -461,7 +412,7 @@ impl LoginDb {
         // We must read the existing record so we can correctly manage timePasswordChanged.
         let existing = match self.get_by_id(sguid)? {
             Some(e) => e,
-            None => return Err(LoginsError::NoSuchRecord(sguid.to_owned())),
+            None => return Err(Error::NoSuchRecord(sguid.to_owned())),
         };
         let time_password_changed =
             if existing.decrypt_fields(encdec)?.password == entry.sec_fields.password {
@@ -704,13 +655,13 @@ impl LoginDb {
                 "logins-local-overlay-error",
                 "Failed to create local overlay for GUID {guid:?}."
             );
-            return Err(LoginsError::NoSuchRecord(guid.to_owned()));
+            return Err(Error::NoSuchRecord(guid.to_owned()));
         }
         Ok(())
     }
 
     fn clone_mirror_to_overlay(&self, guid: &str) -> Result<usize> {
-        Ok(self.execute_cached(&*CLONE_SINGLE_MIRROR_SQL, &[(":guid", &guid as &dyn ToSql)])?)
+        Ok(self.execute_cached(&CLONE_SINGLE_MIRROR_SQL, &[(":guid", &guid as &dyn ToSql)])?)
     }
 
     // Wipe is called both by Sync and also exposed publically, so it's
@@ -923,7 +874,7 @@ pub mod test_utils {
         let row: (String, i64, bool) = db
             .query_row(
                 "SELECT secFields, local_modified, is_deleted FROM loginsL WHERE guid=?",
-                &[guid],
+                [guid],
                 |row| Ok((row.get(0)?, row.get(1)?, row.get(2)?)),
             )
             .unwrap();
@@ -943,7 +894,7 @@ pub mod test_utils {
         let row: (String, i64, bool) = db
             .query_row(
                 "SELECT secFields, server_modified, is_overridden FROM loginsM WHERE guid=?",
-                &[guid],
+                [guid],
                 |row| Ok((row.get(0)?, row.get(1)?, row.get(2)?)),
             )
             .unwrap();
@@ -1366,166 +1317,6 @@ mod tests {
         assert_eq!(expected_tombstone_count, actual_tombstone_count);
         assert!(!db.exists(login1.guid_str()).unwrap());
         assert!(!db.exists(login2.guid_str()).unwrap());
-    }
-
-    fn delete_logins(db: &LoginDb, guids: &[String]) -> Result<()> {
-        sql_support::each_chunk(guids, |chunk, _| -> Result<()> {
-            db.execute(
-                &format!(
-                    "DELETE FROM loginsL WHERE guid IN ({vars})",
-                    vars = sql_support::repeat_sql_vars(chunk.len())
-                ),
-                rusqlite::params_from_iter(chunk),
-            )?;
-            Ok(())
-        })?;
-        Ok(())
-    }
-
-    #[test]
-    fn test_import_multiple() {
-        let db = LoginDb::open_in_memory().unwrap();
-
-        // Adding login to trigger non-empty table error
-        let login = db
-            .add(
-                LoginEntry {
-                    fields: LoginFields {
-                        origin: "https://www.example.com".into(),
-                        http_realm: Some("https://www.example.com".into()),
-                        ..Default::default()
-                    },
-                    sec_fields: SecureLoginFields {
-                        username: "test_user_1".into(),
-                        password: "test_password_1".into(),
-                    },
-                },
-                &TEST_ENCRYPTOR,
-            )
-            .unwrap();
-
-        let import_with_populated_table = db.import_multiple(Vec::new(), &TEST_ENCRYPTOR);
-        assert!(import_with_populated_table.is_err());
-        assert_eq!(
-            import_with_populated_table.unwrap_err().to_string(),
-            "The logins tables are not empty"
-        );
-
-        // Removing added login so the test cases below don't fail
-        delete_logins(&db, &[login.record.id]).unwrap();
-
-        // Setting up test cases
-        let valid_login_guid1: Guid = Guid::random();
-        let valid_login1 = Login {
-            record: RecordFields {
-                id: valid_login_guid1.to_string(),
-                ..Default::default()
-            },
-            fields: LoginFields {
-                form_action_origin: Some("https://www.example.com".into()),
-                origin: "https://www.example.com".into(),
-                http_realm: None,
-                ..Default::default()
-            },
-            sec_fields: SecureLoginFields {
-                username: "test".into(),
-                password: "test".into(),
-            },
-        };
-        let valid_login_guid2: Guid = Guid::random();
-        let valid_login2 = Login {
-            record: RecordFields {
-                id: valid_login_guid2.to_string(),
-                ..Default::default()
-            },
-            fields: LoginFields {
-                form_action_origin: Some("https://www.example2.com".into()),
-                origin: "https://www.example2.com".into(),
-                http_realm: None,
-                ..Default::default()
-            },
-            sec_fields: SecureLoginFields {
-                username: "test2".into(),
-                password: "test2".into(),
-            },
-        };
-        let valid_login_guid3: Guid = Guid::random();
-        let valid_login3 = Login {
-            record: RecordFields {
-                id: valid_login_guid3.to_string(),
-                ..Default::default()
-            },
-            fields: LoginFields {
-                form_action_origin: Some("https://www.example3.com".into()),
-                origin: "https://www.example3.com".into(),
-                http_realm: None,
-                ..Default::default()
-            },
-            sec_fields: SecureLoginFields {
-                username: "test3".into(),
-                password: "test3".into(),
-            },
-        };
-        let duplicate_login_guid: Guid = Guid::random();
-        let duplicate_login = Login {
-            record: RecordFields {
-                id: duplicate_login_guid.to_string(),
-                ..Default::default()
-            },
-            fields: LoginFields {
-                form_action_origin: Some("https://www.example.com".into()),
-                origin: "https://www.example.com".into(),
-                http_realm: None,
-                ..Default::default()
-            },
-            sec_fields: SecureLoginFields {
-                username: "test".into(),
-                password: "test2".into(),
-            },
-        };
-
-        let duplicate_logins = vec![valid_login1.clone(), duplicate_login, valid_login2.clone()];
-
-        let valid_logins = vec![valid_login1, valid_login2, valid_login3];
-
-        let test_cases = vec![Vec::new(), duplicate_logins, valid_logins];
-
-        for logins in test_cases.into_iter() {
-            let mut guids = Vec::new();
-            for login in &logins {
-                guids.push(login.guid().into_string());
-            }
-            db.import_multiple(logins, &TEST_ENCRYPTOR)
-                .expect("import should work");
-            // clearing the database for next test case
-            delete_logins(&db, guids.as_slice()).unwrap();
-        }
-    }
-
-    #[test]
-    fn test_import_multiple_bad_guid() {
-        let db = LoginDb::open_in_memory().unwrap();
-        let bad_guid = Guid::new("😍");
-        assert!(!bad_guid.is_valid_for_sync_server());
-        let login = Login {
-            record: RecordFields {
-                id: bad_guid.to_string(),
-                ..Default::default()
-            },
-            fields: LoginFields {
-                form_action_origin: Some("https://www.example.com".into()),
-                origin: "https://www.example.com".into(),
-                ..Default::default()
-            },
-            sec_fields: SecureLoginFields {
-                username: "test".into(),
-                password: "test2".into(),
-            },
-        };
-        db.import_multiple(vec![login], &TEST_ENCRYPTOR).unwrap();
-        let logins = db.get_by_base_domain("www.example.com").unwrap();
-        assert_eq!(logins.len(), 1);
-        assert_ne!(logins[0].record.id, bad_guid, "guid was fixed");
     }
 
     mod test_find_login_to_update {

@@ -47,7 +47,14 @@ impl ConnectionInitializer for PlacesInitializer {
         Ok(schema::upgrade_from(tx, version)?)
     }
 
-    fn prepare(&self, conn: &Connection) -> open_database::Result<()> {
+    fn prepare(&self, conn: &Connection, db_empty: bool) -> open_database::Result<()> {
+        // If this is an empty DB, setup incremental auto-vacuum now rather than wait for the first
+        // run_maintenance_vacuum() call.  It should be much faster now with an empty DB.
+        if db_empty && !matches!(self.conn_type, ConnectionType::ReadOnly) {
+            conn.execute_one("PRAGMA auto_vacuum=incremental")?;
+            conn.execute_one("VACUUM")?;
+        }
+
         let initial_pragmas = "
             -- The value we use was taken from Desktop Firefox, and seems necessary to
             -- help ensure good performance on autocomplete-style queries.
@@ -83,7 +90,11 @@ impl ConnectionInitializer for PlacesInitializer {
 
             -- How often to autocheckpoint (in units of pages).
             -- 2048000 (our max desired WAL size) / 32760 (page size).
-            PRAGMA wal_autocheckpoint=62
+            PRAGMA wal_autocheckpoint=62;
+
+            -- How long to wait for a lock before returning SQLITE_BUSY (in ms)
+            -- See `doc/sql_concurrency.md` for details.
+            PRAGMA busy_timeout = 5000;
         ";
         conn.execute_batch(initial_pragmas)?;
         define_functions(conn, self.api_id)?;

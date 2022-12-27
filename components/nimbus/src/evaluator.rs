@@ -3,6 +3,7 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
  */
 
+use crate::behavior::{EventQueryType, EventStore, Interval};
 use crate::enrollment::{
     EnrolledReason, EnrollmentStatus, ExperimentEnrollment, NotEnrolledReason,
 };
@@ -15,7 +16,9 @@ use crate::{Branch, Experiment};
 use jexl_eval::Evaluator;
 use serde_derive::*;
 use serde_json::{json, Value};
-use std::collections::HashMap;
+use std::collections::HashSet;
+use std::str::FromStr;
+use std::sync::{Arc, Mutex};
 use uuid::Uuid;
 #[derive(Serialize, Deserialize, Debug, Clone, Default)]
 pub struct Bucket {}
@@ -27,7 +30,7 @@ impl Bucket {
     }
 }
 
-#[derive(Serialize, Deserialize, Debug, Clone, Default)]
+#[derive(Serialize, Debug, Clone, Default)]
 pub struct TargetingAttributes {
     #[serde(flatten)]
     pub app_context: AppContext,
@@ -36,7 +39,7 @@ pub struct TargetingAttributes {
     pub is_already_enrolled: bool,
     pub days_since_install: Option<i32>,
     pub days_since_update: Option<i32>,
-    pub active_experiments: Option<HashMap<String, String>>,
+    pub active_experiments: HashSet<String>,
 }
 
 impl From<AppContext> for TargetingAttributes {
@@ -100,6 +103,7 @@ pub fn evaluate_enrollment(
     available_randomization_units: &AvailableRandomizationUnits,
     targeting_attributes: &TargetingAttributes,
     exp: &Experiment,
+    event_store: Arc<Mutex<EventStore>>,
 ) -> Result<ExperimentEnrollment> {
     if !is_experiment_available(&targeting_attributes.app_context, exp, true) {
         return Ok(ExperimentEnrollment {
@@ -113,7 +117,7 @@ pub fn evaluate_enrollment(
     // Get targeting out of the way - "if let chains" are experimental,
     // otherwise we could improve this.
     if let Some(expr) = &exp.targeting {
-        if let Some(status) = targeting(expr, targeting_attributes) {
+        if let Some(status) = targeting(expr, targeting_attributes, event_store) {
             return Ok(ExperimentEnrollment {
                 slug: exp.slug.clone(),
                 status,
@@ -265,8 +269,9 @@ pub(crate) fn choose_branch<'a>(
 pub(crate) fn targeting(
     expression_statement: &str,
     targeting_attributes: &TargetingAttributes,
+    event_store: Arc<Mutex<EventStore>>,
 ) -> Option<EnrollmentStatus> {
-    match jexl_eval(expression_statement, &targeting_attributes) {
+    match jexl_eval(expression_statement, targeting_attributes, event_store) {
         Ok(res) => match res {
             true => None,
             false => Some(EnrollmentStatus::NotEnrolled {
@@ -286,9 +291,38 @@ pub(crate) fn targeting(
 pub fn jexl_eval<Context: serde::Serialize>(
     expression_statement: &str,
     context: &Context,
+    event_store: Arc<Mutex<EventStore>>,
 ) -> Result<bool> {
-    let evaluator =
-        Evaluator::new().with_transform("versionCompare", |args| Ok(version_compare(args)?));
+    let evaluator = Evaluator::new()
+        .with_transform("versionCompare", |args| Ok(version_compare(args)?))
+        .with_transform("eventSum", |args| {
+            Ok(query_event_store(
+                event_store.clone(),
+                EventQueryType::Sum,
+                args,
+            )?)
+        })
+        .with_transform("eventCountNonZero", |args| {
+            Ok(query_event_store(
+                event_store.clone(),
+                EventQueryType::CountNonZero,
+                args,
+            )?)
+        })
+        .with_transform("eventAveragePerInterval", |args| {
+            Ok(query_event_store(
+                event_store.clone(),
+                EventQueryType::AveragePerInterval,
+                args,
+            )?)
+        })
+        .with_transform("eventAveragePerNonZeroInterval", |args| {
+            Ok(query_event_store(
+                event_store.clone(),
+                EventQueryType::AveragePerNonZeroInterval,
+                args,
+            )?)
+        });
 
     let res = evaluator.eval_in_context(expression_statement, context)?;
     match res.as_bool() {
@@ -321,6 +355,45 @@ fn version_compare(args: &[Value]) -> Result<Value> {
     } else {
         0
     }))
+}
+
+fn query_event_store(
+    event_store: Arc<Mutex<EventStore>>,
+    query_type: EventQueryType,
+    args: &[Value],
+) -> Result<Value> {
+    if args.len() != 4 {
+        return Err(NimbusError::TransformParameterError(
+            "event transforms require 3 parameters".to_string(),
+        ));
+    }
+    let event = serde_json::from_value::<String>(args.get(0).unwrap().clone())?;
+    let interval = serde_json::from_value::<String>(args.get(1).unwrap().clone())?;
+    let interval = Interval::from_str(&interval)?;
+    let num_buckets = match args.get(2).unwrap().as_f64() {
+        Some(v) => v,
+        None => {
+            return Err(NimbusError::TransformParameterError(
+                "event transforms require a positive number as the second parameter".to_string(),
+            ))
+        }
+    } as usize;
+    let starting_bucket = match args.get(3).unwrap().as_f64() {
+        Some(v) => v,
+        None => {
+            return Err(NimbusError::TransformParameterError(
+                "event transforms require a positive number as the third parameter".to_string(),
+            ))
+        }
+    } as usize;
+
+    Ok(json!(event_store.lock().unwrap().query(
+        event,
+        interval,
+        num_buckets,
+        starting_bucket,
+        query_type,
+    )?))
 }
 
 #[cfg(test)]

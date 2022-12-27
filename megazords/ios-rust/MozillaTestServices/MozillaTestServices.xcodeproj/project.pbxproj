@@ -58,6 +58,7 @@
 		1BF50F1927B1E19500A9C8A5 /* FxAccountManagerTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1BBAC54127AE065300DAFEF2 /* FxAccountManagerTests.swift */; };
 		1BF50F1A27B1E19800A9C8A5 /* FxAccountMocks.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1BBAC53C27AE065300DAFEF2 /* FxAccountMocks.swift */; };
 		1BFC469827C99F250034E0A5 /* Metrics.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1BFC469627C99F250034E0A5 /* Metrics.swift */; };
+		3963A5862919A541001ED4C3 /* Dictionary+.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3963A5852919A541001ED4C3 /* Dictionary+.swift */; };
 		45CC574A28AD9C86006D55AA /* errorsupport.udl in Sources */ = {isa = PBXBuildFile; fileRef = 45CC574828AD9C31006D55AA /* errorsupport.udl */; };
 /* End PBXBuildFile section */
 
@@ -167,6 +168,7 @@
 		1BF50F2327B1E53E00A9C8A5 /* metrics.yaml */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.yaml; name = metrics.yaml; path = ../../../components/nimbus/metrics.yaml; sourceTree = SOURCE_ROOT; };
 		1BF50F2B27B1EB7D00A9C8A5 /* sdk_generator.sh */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.script.sh; name = sdk_generator.sh; path = "../../../../../components/external/glean/glean-core/ios/sdk_generator.sh"; sourceTree = SOURCE_ROOT; };
 		1BFC469627C99F250034E0A5 /* Metrics.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; name = Metrics.swift; path = MozillaTestServices/Generated/Metrics.swift; sourceTree = SOURCE_ROOT; };
+		3963A5852919A541001ED4C3 /* Dictionary+.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = "Dictionary+.swift"; path = "Nimbus/Dictionary+.swift"; sourceTree = "<group>"; };
 		45CC574528AD9C0B006D55AA /* errorFFI.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = errorFFI.h; path = ../../../../components/support/error/ios/Generated/errorFFI.h; sourceTree = "<group>"; };
 		45CC574628AD9C0B006D55AA /* errorsupport.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; name = errorsupport.swift; path = ../../../../components/support/error/ios/Generated/errorsupport.swift; sourceTree = "<group>"; };
 		45CC574828AD9C31006D55AA /* errorsupport.udl */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; name = errorsupport.udl; path = ../../../../components/support/error/src/errorsupport.udl; sourceTree = "<group>"; };
@@ -199,6 +201,7 @@
 				1BF50EF327B1DD7D00A9C8A5 /* Generated */,
 				1B3BC98E27B1D9D600229CF6 /* nimbus.udl */,
 				1B3BC97527B1D9B700229CF6 /* Collections+.swift */,
+				3963A5852919A541001ED4C3 /* Dictionary+.swift */,
 				1B3BC97627B1D9B700229CF6 /* FeatureHolder.swift */,
 				1B3BC97B27B1D9B700229CF6 /* FeatureInterface.swift */,
 				1B3BC97927B1D9B700229CF6 /* FeatureVariables.swift */,
@@ -635,6 +638,7 @@
 				1B3BC94D27B1D7B700229CF6 /* RustLog.swift in Sources */,
 				1BF50F1627B1E18000A9C8A5 /* KeychainWrapper.swift in Sources */,
 				1BF50F1227B1E17B00A9C8A5 /* FxAccountManager.swift in Sources */,
+				3963A5862919A541001ED4C3 /* Dictionary+.swift in Sources */,
 				1B3BC98D27B1D9B800229CF6 /* NimbusCreate.swift in Sources */,
 				1B3BC98727B1D9B800229CF6 /* Nimbus.swift in Sources */,
 				1B3BC98827B1D9B800229CF6 /* FeatureInterface.swift in Sources */,

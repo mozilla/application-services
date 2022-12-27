@@ -11,10 +11,12 @@ pub mod history_metadata;
 pub mod tags;
 
 use crate::db::PlacesDb;
-use crate::error::{ErrorKind, InvalidPlaceInfo, Result};
+use crate::error::{Error, InvalidPlaceInfo, Result};
 use crate::ffi::HistoryVisitInfo;
 use crate::ffi::TopFrecentSiteInfo;
+use crate::frecency::{calculate_frecency, DEFAULT_FRECENCY_SETTINGS};
 use crate::types::{SyncStatus, VisitTransition};
+use interrupt_support::SqlInterruptScope;
 use rusqlite::types::{FromSql, FromSqlResult, ToSql, ToSqlOutput, ValueRef};
 use rusqlite::Result as RusqliteResult;
 use rusqlite::Row;
@@ -162,7 +164,7 @@ fn new_page_info(db: &PlacesDb, url: &Url, new_guid: Option<SyncGuid>) -> Result
     let url_str = url.as_str();
     if url_str.len() > URL_LENGTH_MAX {
         // Generally callers check this first (bookmarks don't, history does).
-        return Err(ErrorKind::InvalidPlaceInfo(InvalidPlaceInfo::UrlTooLong).into());
+        return Err(Error::InvalidPlaceInfo(InvalidPlaceInfo::UrlTooLong));
     }
     let sql = "INSERT INTO moz_places (guid, url, url_hash)
                VALUES (:guid, :url, hash(:url))";
@@ -220,36 +222,132 @@ impl TopFrecentSiteInfo {
     }
 }
 
+#[derive(Debug)]
 pub struct RunMaintenanceMetrics {
     pub pruned_visits: bool,
     pub db_size_before: u32,
     pub db_size_after: u32,
 }
 
-/// Run various maintenance on the places DB
+/// Run maintenance on the places DB (prune step)
 ///
-/// This function is intended to be run during idle time and will take steps to clean up / shrink
-/// the database.
+/// The `run_maintenance_*()` functions are intended to be run during idle time and will take steps
+/// to clean up / shrink the database.  They're split up so that we can time each one in the
+/// Kotlin wrapper code (This is needed because we only have access to the Glean API in Kotlin and
+/// it supports a stop-watch style API, not recording specific values).
 ///
 /// db_size_limit is the approximate storage limit in bytes.  If the database is using more space
 /// than this, some older visits will be deleted to free up space.  Pass in a 0 to skip this.
-pub fn run_maintenance(conn: &PlacesDb, db_size_limit: u32) -> Result<RunMaintenanceMetrics> {
+pub fn run_maintenance_prune(conn: &PlacesDb, db_size_limit: u32) -> Result<RunMaintenanceMetrics> {
     let db_size_before = conn.get_db_size()?;
     let should_prune = db_size_limit > 0 && db_size_before > db_size_limit;
     if should_prune {
         history::prune_older_visits(conn)?;
     }
-    conn.execute_all(&[
-        "VACUUM",
-        "PRAGMA optimize",
-        "PRAGMA wal_checkpoint(PASSIVE)",
-    ])?;
     let db_size_after = conn.get_db_size()?;
     Ok(RunMaintenanceMetrics {
         pruned_visits: should_prune,
         db_size_before,
         db_size_after,
     })
+}
+
+/// Run maintenance on the places DB (vacuum step)
+///
+/// The `run_maintenance_*()` functions are intended to be run during idle time and will take steps
+/// to clean up / shrink the database.  They're split up so that we can time each one in the
+/// Kotlin wrapper code (This is needed because we only have access to the Glean API in Kotlin and
+/// it supports a stop-watch style API, not recording specific values).
+pub fn run_maintenance_vacuum(conn: &PlacesDb) -> Result<()> {
+    let auto_vacuum_setting: u32 = conn.query_one("PRAGMA auto_vacuum")?;
+    if auto_vacuum_setting == 2 {
+        // Ideally, we run an incremental vacuum to delete 2 pages
+        conn.execute_one("PRAGMA incremental_vacuum(2)")?;
+    } else {
+        // If auto_vacuum=incremental isn't set, configure it and run a full vacuum.
+        log::warn!(
+            "run_maintenance_vacuum: Need to run a full vacuum to set auto_vacuum=incremental"
+        );
+        conn.execute_one("PRAGMA auto_vacuum=incremental")?;
+        conn.execute_one("VACUUM")?;
+    }
+    Ok(())
+}
+
+/// Run maintenance on the places DB (optimize step)
+///
+/// The `run_maintenance_*()` functions are intended to be run during idle time and will take steps
+/// to clean up / shrink the database.  They're split up so that we can time each one in the
+/// Kotlin wrapper code (This is needed because we only have access to the Glean API in Kotlin and
+/// it supports a stop-watch style API, not recording specific values).
+pub fn run_maintenance_optimize(conn: &PlacesDb) -> Result<()> {
+    conn.execute_one("PRAGMA optimize")?;
+    Ok(())
+}
+
+/// Run maintenance on the places DB (checkpoint step)
+///
+/// The `run_maintenance_*()` functions are intended to be run during idle time and will take steps
+/// to clean up / shrink the database.  They're split up so that we can time each one in the
+/// Kotlin wrapper code (This is needed because we only have access to the Glean API in Kotlin and
+/// it supports a stop-watch style API, not recording specific values).
+pub fn run_maintenance_checkpoint(conn: &PlacesDb) -> Result<()> {
+    conn.execute_one("PRAGMA wal_checkpoint(PASSIVE)")?;
+    Ok(())
+}
+
+pub fn update_all_frecencies_at_once(db: &PlacesDb, scope: &SqlInterruptScope) -> Result<()> {
+    let tx = db.begin_transaction()?;
+
+    let need_frecency_update = tx.query_rows_and_then(
+        "SELECT place_id FROM moz_places_stale_frecencies",
+        [],
+        |r| r.get::<_, i64>(0),
+    )?;
+    scope.err_if_interrupted()?;
+    let frecencies = need_frecency_update
+        .iter()
+        .map(|places_id| {
+            scope.err_if_interrupted()?;
+            Ok((
+                *places_id,
+                calculate_frecency(db, &DEFAULT_FRECENCY_SETTINGS, *places_id, Some(false))?,
+            ))
+        })
+        .collect::<Result<Vec<(i64, i32)>>>()?;
+
+    if frecencies.is_empty() {
+        return Ok(());
+    }
+    // Update all frecencies in one fell swoop
+    tx.execute_batch(&format!(
+        "WITH frecencies(id, frecency) AS (
+            VALUES {}
+            )
+            UPDATE moz_places SET
+            frecency = (SELECT frecency FROM frecencies f
+                        WHERE f.id = id)
+            WHERE id IN (SELECT f.id FROM frecencies f)",
+        sql_support::repeat_display(frecencies.len(), ",", |index, f| {
+            let (id, frecency) = frecencies[index];
+            write!(f, "({}, {})", id, frecency)
+        })
+    ))?;
+
+    scope.err_if_interrupted()?;
+
+    // ...And remove them from the stale table.
+    tx.execute_batch(&format!(
+        "DELETE FROM moz_places_stale_frecencies
+         WHERE place_id IN ({})",
+        sql_support::repeat_display(frecencies.len(), ",", |index, f| {
+            let (id, _) = frecencies[index];
+            write!(f, "{}", id)
+        })
+    ))?;
+    tx.commit()?;
+
+    Ok(())
 }
 
 pub(crate) fn put_meta(db: &PlacesDb, key: &str, value: &dyn ToSql) -> Result<()> {

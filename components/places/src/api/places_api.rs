@@ -10,6 +10,7 @@ use crate::storage::{
     self, bookmarks::bookmark_sync, delete_meta, get_meta, history::history_sync, put_meta,
 };
 use crate::util::normalize_path;
+use error_support::handle_error;
 use interrupt_support::register_interrupt;
 use lazy_static::lazy_static;
 use parking_lot::Mutex;
@@ -53,7 +54,11 @@ pub fn get_registered_sync_engine(engine_id: &SyncEngineId) -> Option<Box<dyn Sy
         Some(places_api) => match create_sync_engine(&places_api, engine_id) {
             Ok(engine) => Some(engine),
             Err(e) => {
-                log::error!("places: get_registered_sync_engine: {}", e);
+                error_support::report_error!(
+                    "places-no-registered-sync-engine",
+                    "places: get_registered_sync_engine: {}",
+                    e
+                );
                 None
             }
         },
@@ -119,8 +124,10 @@ pub struct SyncState {
 /// For uniffi we need to expose our `Arc` returning constructor as a global function :(
 /// https://github.com/mozilla/uniffi-rs/pull/1063 would fix this, but got some pushback
 /// meaning we are forced into this unfortunate workaround.
-pub fn places_api_new(db_name: impl AsRef<Path>) -> Result<Arc<PlacesApi>> {
-    PlacesApi::new(db_name)
+pub fn places_api_new(db_name: impl AsRef<Path>) -> ApiResult<Arc<PlacesApi>> {
+    handle_error! {
+        PlacesApi::new(db_name)
+    }
 }
 
 /// The entry-point to the places API. This object gives access to database
@@ -210,7 +217,7 @@ impl PlacesApi {
                 // We only allow one of these.
                 let mut guard = self.write_connection.lock();
                 match mem::replace(&mut *guard, None) {
-                    None => Err(ErrorKind::ConnectionAlreadyOpen.into()),
+                    None => Err(Error::ConnectionAlreadyOpen),
                     Some(db) => Ok(db),
                 }
             }
@@ -253,7 +260,7 @@ impl PlacesApi {
     /// connection, you can re-fetch it using open_connection.
     pub fn close_connection(&self, connection: PlacesDb) -> Result<()> {
         if connection.api_id() != self.id {
-            return Err(ErrorKind::WrongApiForClose.into());
+            return Err(Error::WrongApiForClose);
         }
         if connection.conn_type() == ConnectionType::ReadWrite {
             // We only allow one of these.
@@ -415,7 +422,11 @@ impl PlacesApi {
         // even on failure we set the persisted state - sync itself takes care
         // to ensure this has been None'd out if necessary.
         if let Err(e) = self.set_disk_persisted_state(&conn.lock(), &disk_cached_state) {
-            log::error!("Failed to persist the sync state: {:?}", e);
+            error_support::report_error!(
+                "places-sync-persist-failure",
+                "Failed to persist the sync state: {:?}",
+                e
+            );
         }
         sync_state.mem_cached_state.replace(mem_cached_state);
         sync_state.disk_cached_state.replace(disk_cached_state);
@@ -441,22 +452,15 @@ impl PlacesApi {
         Ok(())
     }
 
-    pub fn wipe_history(&self) -> Result<()> {
-        // Take the lock to prevent syncing while we're doing this.
-        let _guard = self.sync_state.lock();
-        let conn = self.get_sync_connection()?;
+    pub fn reset_history(&self) -> ApiResult<()> {
+        handle_error! {
+            // Take the lock to prevent syncing while we're doing this.
+            let _guard = self.sync_state.lock();
+            let conn = self.get_sync_connection()?;
 
-        storage::history::delete_everything(&conn.lock())?;
-        Ok(())
-    }
-
-    pub fn reset_history(&self) -> Result<()> {
-        // Take the lock to prevent syncing while we're doing this.
-        let _guard = self.sync_state.lock();
-        let conn = self.get_sync_connection()?;
-
-        history_sync::reset(&conn.lock(), &EngineSyncAssociation::Disconnected)?;
-        Ok(())
+            history_sync::reset(&conn.lock(), &EngineSyncAssociation::Disconnected)?;
+            Ok(())
+        }
     }
 }
 
@@ -577,11 +581,10 @@ mod tests {
             .open_connection(ConnectionType::ReadWrite)
             .expect("should get writer 2");
 
-        // No PartialEq on ErrorKind, so we abuse match.
-        match api.close_connection(fake_writer).unwrap_err().kind() {
-            &ErrorKind::WrongApiForClose => {}
-            e => panic!("Expected error WrongApiForClose, got {:?}", e),
-        }
+        assert!(matches!(
+            api.close_connection(fake_writer).unwrap_err(),
+            Error::WrongApiForClose
+        ));
     }
 
     #[test]

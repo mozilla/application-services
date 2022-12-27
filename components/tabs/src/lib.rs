@@ -15,12 +15,12 @@ mod sync;
 uniffi_macros::include_scaffolding!("tabs");
 
 // Our UDL uses a `Guid` type.
-use sync_guid::Guid;
-impl UniffiCustomTypeConverter for Guid {
+use sync_guid::Guid as TabsGuid;
+impl UniffiCustomTypeConverter for TabsGuid {
     type Builtin = String;
 
-    fn into_custom(val: Self::Builtin) -> uniffi::Result<Guid> {
-        Ok(Guid::new(val.as_str()))
+    fn into_custom(val: Self::Builtin) -> uniffi::Result<TabsGuid> {
+        Ok(TabsGuid::new(val.as_str()))
     }
 
     fn from_custom(obj: Self) -> Self::Builtin {
@@ -30,7 +30,7 @@ impl UniffiCustomTypeConverter for Guid {
 
 pub use crate::storage::{ClientRemoteTabs, RemoteTabRecord, TabsDeviceType};
 pub use crate::store::TabsStore;
-use error::TabsError;
+pub use error::{ApiResult, Error, Result, TabsApiError};
 use sync15::DeviceType;
 
 pub use crate::sync::engine::get_registered_sync_engine;

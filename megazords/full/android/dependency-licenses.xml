@@ -177,10 +177,6 @@ the details of which are reproduced below.
     <url>https://github.com/rust-lang/hashbrown/blob/master/LICENSE-APACHE</url>
   </license>
   <license>
-    <name>Apache License 2.0: hashbrown</name>
-    <url>https://github.com/rust-lang/hashbrown/blob/master/LICENSE-APACHE</url>
-  </license>
-  <license>
     <name>Apache License 2.0: hashlink</name>
     <url>https://github.com/kyren/hashlink/blob/master/LICENSE-APACHE</url>
   </license>

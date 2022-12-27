@@ -10,19 +10,21 @@
 // using a sql database and knows that the schemas for addresses and cards are
 // very similar.
 
-use super::PersistablePayload;
 use crate::error::*;
 use interrupt_support::Interruptee;
 use rusqlite::{types::ToSql, Connection, Row};
-use sync15::{Payload, ServerTimestamp};
+use sync15::bso::OutgoingBso;
+use sync15::ServerTimestamp;
 use sync_guid::Guid;
 
 /// Stages incoming records (excluding incoming tombstones) in preparation for
 /// applying incoming changes for the syncing autofill records.
+/// The incoming record is a String, because for credit-cards it is the encrypted
+/// version of a JSON record.
 pub(super) fn common_stage_incoming_records(
     conn: &Connection,
     table_name: &str,
-    incoming: Vec<(PersistablePayload, ServerTimestamp)>,
+    incoming: Vec<(Guid, String, ServerTimestamp)>,
     signal: &dyn Interruptee,
 ) -> Result<()> {
     log::info!(
@@ -33,7 +35,7 @@ pub(super) fn common_stage_incoming_records(
     let chunk_size = 2;
     let vals: Vec<(Guid, String)> = incoming
         .into_iter()
-        .map(|(p, _)| (p.guid, p.payload))
+        .map(|(guid, data, _)| (guid, data))
         .collect();
     sql_support::each_sized_chunk(
         &vals,
@@ -166,44 +168,39 @@ pub(super) fn common_get_outgoing_staging_records(
     conn: &Connection,
     data_sql: &str,
     tombstones_sql: &str,
-    payload_from_data_row: &dyn Fn(&Row<'_>) -> Result<Payload>,
-) -> anyhow::Result<Vec<(Payload, i64)>> {
+    payload_from_data_row: &dyn Fn(&Row<'_>) -> Result<(OutgoingBso, i64)>,
+) -> anyhow::Result<Vec<(OutgoingBso, i64)>> {
     let outgoing_records =
         common_get_outgoing_records(conn, data_sql, tombstones_sql, payload_from_data_row)?;
-    Ok(outgoing_records
-        .into_iter()
-        .collect::<Vec<(Payload, i64)>>())
+    Ok(outgoing_records.into_iter().collect::<Vec<_>>())
 }
 
 fn get_outgoing_records(
     conn: &Connection,
     sql: &str,
-    payload_from_data_row: &dyn Fn(&Row<'_>) -> Result<Payload>,
-) -> anyhow::Result<Vec<(Payload, i64)>> {
+    record_from_data_row: &dyn Fn(&Row<'_>) -> Result<(OutgoingBso, i64)>,
+) -> anyhow::Result<Vec<(OutgoingBso, i64)>> {
     Ok(conn
         .prepare(sql)?
         .query_map([], |row| {
-            let payload = payload_from_data_row(row).unwrap();
-            let sync_change_counter = if payload.deleted {
-                0
-            } else {
-                row.get::<_, i64>("sync_change_counter")?
-            };
-            Ok((payload, sync_change_counter))
+            Ok(record_from_data_row(row).unwrap()) // XXX - this unwrap()!
         })?
-        .collect::<std::result::Result<Vec<(Payload, i64)>, _>>()?)
+        .collect::<std::result::Result<_, _>>()?)
 }
 
 pub(super) fn common_get_outgoing_records(
     conn: &Connection,
     data_sql: &str,
     tombstone_sql: &str,
-    payload_from_data_row: &dyn Fn(&Row<'_>) -> Result<Payload>,
-) -> anyhow::Result<Vec<(Payload, i64)>> {
-    let mut payload = get_outgoing_records(conn, data_sql, payload_from_data_row)?;
+    record_from_data_row: &dyn Fn(&Row<'_>) -> Result<(OutgoingBso, i64)>,
+) -> anyhow::Result<Vec<(OutgoingBso, i64)>> {
+    let mut payload = get_outgoing_records(conn, data_sql, record_from_data_row)?;
 
     payload.append(&mut get_outgoing_records(conn, tombstone_sql, &|row| {
-        Ok(Payload::new_tombstone(Guid::from_string(row.get("guid")?)))
+        Ok((
+            OutgoingBso::new_tombstone(Guid::from_string(row.get("guid")?).into()),
+            0,
+        ))
     })?);
 
     Ok(payload)
@@ -309,14 +306,9 @@ pub(super) mod tests {
     use serde_json::{json, Value};
     use sync15::ServerTimestamp;
 
-    pub(in crate::sync) fn array_to_incoming(vals: Vec<Value>) -> Vec<(Payload, ServerTimestamp)> {
+    pub(in crate::sync) fn array_to_incoming(vals: Vec<Value>) -> Vec<IncomingBso> {
         vals.into_iter()
-            .map(|v| {
-                (
-                    Payload::from_json(v).expect("should be a payload"),
-                    ServerTimestamp::from_millis(0),
-                )
-            })
+            .map(IncomingBso::from_test_content)
             .collect()
     }
 
@@ -339,16 +331,12 @@ pub(super) mod tests {
         ri: &dyn ProcessIncomingRecordImpl<Record = T>,
         tx: &Transaction<'_>,
         record: T,
-        payload: sync15::Payload,
+        bso: IncomingBso,
     ) {
         ri.insert_local_record(tx, record)
             .expect("insert should work");
-        ri.stage_incoming(
-            tx,
-            vec![(payload, ServerTimestamp::from_millis(0))],
-            &NeverInterrupts,
-        )
-        .expect("stage should work");
+        ri.stage_incoming(tx, vec![bso], &NeverInterrupts)
+            .expect("stage should work");
         let mut states = ri.fetch_incoming_states(tx).expect("fetch should work");
         assert_eq!(states.len(), 1, "1 records == 1 state!");
         let action =
@@ -367,10 +355,9 @@ pub(super) mod tests {
         let guid = record.id().clone();
         ri.insert_local_record(tx, record)
             .expect("insert should work");
-        let payload = Payload::new_tombstone(guid);
         ri.stage_incoming(
             tx,
-            vec![(payload, ServerTimestamp::from_millis(0))],
+            vec![IncomingBso::new_test_tombstone(guid)],
             &NeverInterrupts,
         )
         .expect("stage should work");
@@ -391,16 +378,12 @@ pub(super) mod tests {
         ri: &dyn ProcessIncomingRecordImpl<Record = T>,
         tx: &Transaction<'_>,
         record: T,
-        payload: sync15::Payload,
+        bso: IncomingBso,
     ) {
         ri.insert_local_record(tx, record)
             .expect("insert should work");
-        ri.stage_incoming(
-            tx,
-            vec![(payload, ServerTimestamp::from_millis(0))],
-            &NeverInterrupts,
-        )
-        .expect("stage should work");
+        ri.stage_incoming(tx, vec![bso], &NeverInterrupts)
+            .expect("stage should work");
         let mut states = ri.fetch_incoming_states(tx).expect("fetch should work");
         assert_eq!(states.len(), 1, "1 records == 1 state!");
         assert!(
@@ -419,22 +402,15 @@ pub(super) mod tests {
         ri: &dyn ProcessIncomingRecordImpl<Record = T>,
         tx: &Transaction<'_>,
         record: T,
-        payload1: sync15::Payload,
+        bso1: IncomingBso,
         mirror_table_name: &str,
     ) {
         let guid1 = record.id().clone();
         let guid2 = Guid::random();
-        let payload2 = Payload::new_tombstone(guid2.clone());
+        let bso2 = IncomingBso::new_test_tombstone(guid2.clone());
 
-        ri.stage_incoming(
-            tx,
-            vec![
-                (payload1, ServerTimestamp::from_millis(0)),
-                (payload2, ServerTimestamp::from_millis(0)),
-            ],
-            &NeverInterrupts,
-        )
-        .expect("stage should work");
+        ri.stage_incoming(tx, vec![bso1, bso2], &NeverInterrupts)
+            .expect("stage should work");
 
         ri.finish_incoming(tx).expect("finish should work");
 
@@ -475,7 +451,7 @@ pub(super) mod tests {
         );
 
         let num_rows = tx
-            .query_row(&sql, &[guid], |row| Ok(row.get::<_, u32>(0).unwrap()))
+            .query_row(&sql, [guid], |row| Ok(row.get::<_, u32>(0).unwrap()))
             .unwrap();
         assert_eq!(num_rows, 1);
     }

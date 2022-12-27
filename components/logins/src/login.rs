@@ -337,12 +337,12 @@ impl LoginFields {
                 Ok(None)
             }
             Err(e) => {
-                breadcrumb!("Error parsing login origin: {e:?}");
+                breadcrumb!(
+                    "Error parsing login origin: {e:?} ({})",
+                    error_support::redact_url(origin)
+                );
                 // We can't fixup completely invalid records, so always throw.
-                Err(InvalidLogin::IllegalFieldValue {
-                    field_info: "Origin is Malformed".into(),
-                }
-                .into())
+                Err(InvalidLogin::IllegalOrigin.into())
             }
         }
     }
@@ -1123,7 +1123,7 @@ mod tests {
             TestCase {
                 login: login_with_malformed_origin_parens,
                 should_err: true,
-                expected_err: "Invalid login: Login has illegal field: Origin is Malformed",
+                expected_err: "Invalid login: Login has illegal origin",
             },
             TestCase {
                 login: login_with_host_unicode,

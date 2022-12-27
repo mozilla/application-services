@@ -25,11 +25,19 @@ impl KeyBundle {
     /// Panics (asserts) if they aren't both 32 bytes.
     pub fn new(enc: Vec<u8>, mac: Vec<u8>) -> Result<KeyBundle> {
         if enc.len() != 32 {
-            log::error!("Bad key length (enc_key): {} != 32", enc.len());
+            error_support::report_error!(
+                "sync15-key-bundle",
+                "Bad key length (enc_key): {} != 32",
+                enc.len()
+            );
             return Err(Error::BadKeyLength("enc_key", enc.len(), 32));
         }
         if mac.len() != 32 {
-            log::error!("Bad key length (mac_key): {} != 32", mac.len());
+            error_support::report_error!(
+                "sync15-key-bundle",
+                "Bad key length (mac_key): {} != 32",
+                mac.len()
+            );
             return Err(Error::BadKeyLength("mac_key", mac.len(), 32));
         }
         Ok(KeyBundle {
@@ -46,7 +54,11 @@ impl KeyBundle {
 
     pub fn from_ksync_bytes(ksync: &[u8]) -> Result<KeyBundle> {
         if ksync.len() != 64 {
-            log::error!("Bad key length (kSync): {} != 64", ksync.len());
+            error_support::report_error!(
+                "sync15-key-bundle",
+                "Bad key length (kSync): {} != 64",
+                ksync.len()
+            );
             return Err(Error::BadKeyLength("kSync", ksync.len(), 64));
         }
         Ok(KeyBundle {
@@ -56,13 +68,13 @@ impl KeyBundle {
     }
 
     pub fn from_ksync_base64(ksync: &str) -> Result<KeyBundle> {
-        let bytes = base64::decode_config(&ksync, base64::URL_SAFE_NO_PAD)?;
+        let bytes = base64::decode_config(ksync, base64::URL_SAFE_NO_PAD)?;
         KeyBundle::from_ksync_bytes(&bytes)
     }
 
     pub fn from_base64(enc: &str, mac: &str) -> Result<KeyBundle> {
-        let enc_bytes = base64::decode(&enc)?;
-        let mac_bytes = base64::decode(&mac)?;
+        let enc_bytes = base64::decode(enc)?;
+        let mac_bytes = base64::decode(mac)?;
         KeyBundle::new(enc_bytes, mac_bytes)
     }
 
@@ -120,7 +132,7 @@ impl KeyBundle {
         let ciphertext_len = ciphertext_and_hmac.len() - key.algorithm().tag_len();
         // Do the string conversions here so we don't have to split and copy to 2 vectors.
         let (ciphertext, hmac_signature) = ciphertext_and_hmac.split_at(ciphertext_len);
-        let enc_base64 = base64::encode(&ciphertext);
+        let enc_base64 = base64::encode(ciphertext);
         let hmac_base16 = base16::encode_lower(&hmac_signature);
         Ok((enc_base64, hmac_base16))
     }
@@ -134,7 +146,7 @@ impl KeyBundle {
         let mut iv = [0u8; 16];
         rand::fill(&mut iv)?;
         let (enc_base64, hmac_base16) = self.encrypt_bytes_with_iv(cleartext_bytes, &iv)?;
-        let iv_base64 = base64::encode(&iv);
+        let iv_base64 = base64::encode(iv);
         Ok((enc_base64, iv_base64, hmac_base16))
     }
 

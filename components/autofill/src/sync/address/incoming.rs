@@ -3,19 +3,52 @@
 * file, You can obtain one at http://mozilla.org/MPL/2.0/.
 */
 
+use super::AddressPayload;
 use crate::db::addresses::{add_internal_address, update_internal_address};
 use crate::db::models::address::InternalAddress;
 use crate::db::schema::ADDRESS_COMMON_COLS;
 use crate::error::*;
 use crate::sync::common::*;
 use crate::sync::{
-    IncomingRecord, IncomingState, LocalRecordInfo, Payload, PersistablePayload,
+    IncomingBso, IncomingContent, IncomingEnvelope, IncomingKind, IncomingState, LocalRecordInfo,
     ProcessIncomingRecordImpl, ServerTimestamp, SyncRecord,
 };
 use interrupt_support::Interruptee;
 use rusqlite::{named_params, Transaction};
 use sql_support::ConnExt;
 use sync_guid::Guid as SyncGuid;
+
+// Takes a raw payload, as stored in our database, and returns an InternalAddress
+// or a tombstone. Addresses store the raw payload as cleartext json.
+fn raw_payload_to_incoming(id: SyncGuid, raw: String) -> Result<IncomingContent<InternalAddress>> {
+    // Make an IncomingBso from the payload.
+    let bso = IncomingBso {
+        envelope: IncomingEnvelope {
+            id,
+            modified: ServerTimestamp::default(),
+            sortindex: None,
+            ttl: None,
+        },
+        payload: raw,
+    };
+    // For hysterical raisins, we use an IncomingContent<AddressPayload> to convert
+    // to an IncomingContent<InternalAddress>
+    let payload_content = bso.into_content::<AddressPayload>();
+    Ok(match payload_content.kind {
+        IncomingKind::Content(content) => IncomingContent {
+            envelope: payload_content.envelope,
+            kind: IncomingKind::Content(InternalAddress::from_payload(content)?),
+        },
+        IncomingKind::Tombstone => IncomingContent {
+            envelope: payload_content.envelope,
+            kind: IncomingKind::Tombstone,
+        },
+        IncomingKind::Malformed => IncomingContent {
+            envelope: payload_content.envelope,
+            kind: IncomingKind::Malformed,
+        },
+    })
+}
 
 pub(super) struct IncomingAddressesImpl {}
 
@@ -26,20 +59,14 @@ impl ProcessIncomingRecordImpl for IncomingAddressesImpl {
     fn stage_incoming(
         &self,
         tx: &Transaction<'_>,
-        incoming: Vec<(Payload, ServerTimestamp)>,
+        incoming: Vec<IncomingBso>,
         signal: &dyn Interruptee,
     ) -> Result<()> {
         let to_stage = incoming
             .into_iter()
-            .map(|(payload, timestamp)| {
-                let p = PersistablePayload {
-                    guid: SyncGuid::new(payload.id()),
-                    payload: payload.into_json_string(),
-                };
-                (p, timestamp)
-            })
+            // We persist the entire payload as cleartext - which it already is!
+            .map(|bso| (bso.envelope.id, bso.payload, bso.envelope.modified))
             .collect();
-
         common_stage_incoming_records(tx, "addresses_sync_staging", to_stage, signal)
     }
 
@@ -86,22 +113,10 @@ impl ProcessIncomingRecordImpl for IncomingAddressesImpl {
         tx.query_rows_and_then(sql, [], |row| -> Result<IncomingState<Self::Record>> {
             // the 'guid' and 's_payload' rows must be non-null.
             let guid: SyncGuid = row.get("guid")?;
-            // the incoming sync15::Payload
-            let incoming_payload =
-                Payload::from_json(serde_json::from_str(&row.get::<_, String>("s_payload")?)?)?;
-
+            // turn it into a sync15::Payload
+            let incoming = raw_payload_to_incoming(guid.clone(), row.get("s_payload")?)?;
             Ok(IncomingState {
-                incoming: {
-                    if incoming_payload.is_tombstone() {
-                        IncomingRecord::Tombstone {
-                            guid: incoming_payload.id().into(),
-                        }
-                    } else {
-                        IncomingRecord::Record {
-                            record: InternalAddress::from_payload(incoming_payload)?,
-                        }
-                    }
-                },
+                incoming,
                 local: match row.get_unwrap::<_, Option<String>>("l_guid") {
                     Some(l_guid) => {
                         assert_eq!(l_guid, guid);
@@ -119,7 +134,7 @@ impl ProcessIncomingRecordImpl for IncomingAddressesImpl {
                         match row.get::<_, Option<String>>("t_guid")? {
                             Some(t_guid) => {
                                 assert_eq!(guid, t_guid);
-                                LocalRecordInfo::Tombstone { guid }
+                                LocalRecordInfo::Tombstone { guid: guid.clone() }
                             }
                             None => LocalRecordInfo::Missing,
                         }
@@ -128,13 +143,8 @@ impl ProcessIncomingRecordImpl for IncomingAddressesImpl {
                 mirror: {
                     match row.get::<_, Option<String>>("m_payload")? {
                         Some(m_payload) => {
-                            let payload = Payload::from_json(serde_json::from_str(&m_payload)?)?;
                             // a tombstone in the mirror can be treated as though it's missing.
-                            if payload.is_tombstone() {
-                                None
-                            } else {
-                                Some(InternalAddress::from_payload(payload)?)
-                            }
+                            raw_payload_to_incoming(guid, m_payload)?.content()
                         }
                         None => None,
                     }
@@ -253,6 +263,12 @@ mod tests {
     use serde_json::{json, Map, Value};
     use sql_support::ConnExt;
 
+    impl InternalAddress {
+        fn into_test_incoming_bso(self) -> IncomingBso {
+            IncomingBso::from_test_content(self.into_payload().expect("is json"))
+        }
+    }
+
     lazy_static::lazy_static! {
         static ref TEST_JSON_RECORDS: Map<String, Value> = {
             // NOTE: the JSON here is the same as stored on the sync server -
@@ -298,8 +314,8 @@ mod tests {
 
     fn test_record(guid_prefix: char) -> InternalAddress {
         let json = test_json_record(guid_prefix);
-        let sync_payload = sync15::Payload::from_json(json).unwrap();
-        InternalAddress::from_payload(sync_payload).expect("should be valid")
+        let address_payload = serde_json::from_value(json).unwrap();
+        InternalAddress::from_payload(address_payload).expect("should be valid")
     }
 
     #[test]
@@ -370,17 +386,21 @@ mod tests {
                 &NeverInterrupts,
             )?;
 
-            let payloads = tx.conn().query_rows_and_then(
+            let records = tx.conn().query_rows_and_then(
                 "SELECT * FROM temp.addresses_sync_staging;",
                 [],
-                |row| -> Result<Payload> {
+                |row| -> Result<IncomingContent<InternalAddress>> {
+                    let guid: SyncGuid = row.get_unwrap("guid");
                     let payload: String = row.get_unwrap("payload");
-                    Ok(Payload::from_json(serde_json::from_str(&payload)?)?)
+                    raw_payload_to_incoming(guid, payload)
                 },
             )?;
 
-            let record_count = payloads.iter().filter(|p| !p.is_tombstone()).count();
-            let tombstone_count = payloads.len() - record_count;
+            let record_count = records
+                .iter()
+                .filter(|p| !matches!(p.kind, IncomingKind::Tombstone))
+                .count();
+            let tombstone_count = records.len() - record_count;
 
             assert_eq!(record_count, tc.expected_record_count);
             assert_eq!(tombstone_count, tc.expected_tombstone_count);
@@ -417,8 +437,8 @@ mod tests {
         let tx = db.transaction().expect("should get tx");
         let ai = IncomingAddressesImpl {};
         let record = test_record('C');
-        let payload = record.clone().into_payload().expect("must get a payload");
-        do_test_incoming_same(&ai, &tx, record, payload);
+        let bso = record.clone().into_test_incoming_bso();
+        do_test_incoming_same(&ai, &tx, record, bso);
     }
 
     #[test]
@@ -435,7 +455,7 @@ mod tests {
         let tx = db.transaction().expect("should get tx");
         let ai = IncomingAddressesImpl {};
         let record = test_record('C');
-        let payload = record.clone().into_payload().expect("must get a payload");
-        do_test_staged_to_mirror(&ai, &tx, record, payload, "addresses_mirror");
+        let bso = record.clone().into_test_incoming_bso();
+        do_test_staged_to_mirror(&ai, &tx, record, bso, "addresses_mirror");
     }
 }

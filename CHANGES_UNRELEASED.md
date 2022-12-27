@@ -2,10 +2,7 @@
 
 # Unreleased Changes
 
-### What's New
-  - Moved the Nimbus Gradle Plugin into application-services and updated its functionality to support local development. ([#5173](https://github.com/mozilla/application-services/pull/5173))
-
-[Full Changelog](https://github.com/mozilla/application-services/compare/v94.3.1...main)
+[Full Changelog](https://github.com/mozilla/application-services/compare/v96.1.3...main)
 
 <!-- WARNING: New entries should be added below this comment to ensure the `./automation/prepare-release.py` script works as expected.
 
@@ -21,3 +18,16 @@ Use the template below to make assigning a version number during the release cut
   - Description of the change with a link to the pull request ([#0000](https://github.com/mozilla/application-services/pull/0000))
 
 -->
+
+## Nimbus
+
+### What's Changed
+ - Fixed an issue where the NimbusQueues protocol was missing from the NimbusApi ([#5298](https://github.com/mozilla/application-services/pull/5298))
+
+### What's New
+  - Moved the Nimbus Gradle Plugin into application-services and updated its functionality to support local development. ([#5173](https://github.com/mozilla/application-services/pull/5173))
+
+## Tabs
+
+### What's Changed
+  - Fixed a regression causing failure to read old tabs databases ([#5286](https://github.com/mozilla/application-services/pull/5286))

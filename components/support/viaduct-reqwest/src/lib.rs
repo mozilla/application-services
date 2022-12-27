@@ -2,6 +2,7 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
+use once_cell::sync::Lazy;
 use std::{io::Read, sync::Once};
 use viaduct::{settings::GLOBAL_SETTINGS, Backend};
 
@@ -9,31 +10,29 @@ use viaduct::{settings::GLOBAL_SETTINGS, Backend};
 // it would be rather confusing given that we have the same name for
 // most things as them.
 
-lazy_static::lazy_static! {
-    static ref CLIENT: reqwest::blocking::Client = {
-        let mut builder = reqwest::blocking::ClientBuilder::new()
-            .timeout(GLOBAL_SETTINGS.read_timeout)
-            .connect_timeout(GLOBAL_SETTINGS.connect_timeout)
-            .redirect(
-                if GLOBAL_SETTINGS.follow_redirects {
-                    reqwest::redirect::Policy::default()
-                } else {
-                    reqwest::redirect::Policy::none()
-                }
-            );
-            if cfg!(target_os = "ios") {
-                // The FxA servers rely on the UA agent to filter
-                // some push messages directed to iOS devices.
-                // This is obviously a terrible hack and we should
-                // probably do https://github.com/mozilla/application-services/issues/1326
-                // instead, but this will unblock us for now.
-                builder = builder.user_agent("Firefox-iOS-FxA/24");
-            }
-            // Note: no cookie or cache support.
-            builder.build()
-            .expect("Failed to initialize global reqwest::Client")
-    };
-}
+static CLIENT: Lazy<reqwest::blocking::Client> = Lazy::new(|| {
+    let settings = GLOBAL_SETTINGS.read();
+    let mut builder = reqwest::blocking::ClientBuilder::new()
+        .timeout(settings.read_timeout)
+        .connect_timeout(settings.connect_timeout)
+        .redirect(if settings.follow_redirects {
+            reqwest::redirect::Policy::default()
+        } else {
+            reqwest::redirect::Policy::none()
+        });
+    if cfg!(target_os = "ios") {
+        // The FxA servers rely on the UA agent to filter
+        // some push messages directed to iOS devices.
+        // This is obviously a terrible hack and we should
+        // probably do https://github.com/mozilla/application-services/issues/1326
+        // instead, but this will unblock us for now.
+        builder = builder.user_agent("Firefox-iOS-FxA/24");
+    }
+    // Note: no cookie or cache support.
+    builder
+        .build()
+        .expect("Failed to initialize global reqwest::Client")
+});
 
 #[allow(clippy::unnecessary_wraps)] // not worth the time to untangle
 fn into_reqwest(request: viaduct::Request) -> Result<reqwest::blocking::Request, viaduct::Error> {

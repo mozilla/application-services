@@ -7,7 +7,7 @@ use crate::db::models::address::InternalAddress;
 use crate::db::schema::ADDRESS_COMMON_COLS;
 use crate::error::*;
 use crate::sync::common::*;
-use crate::sync::{OutgoingChangeset, Payload, ProcessOutgoingRecordImpl, ServerTimestamp};
+use crate::sync::{OutgoingBso, OutgoingChangeset, ProcessOutgoingRecordImpl, ServerTimestamp};
 use rusqlite::{Row, Transaction};
 use sync_guid::Guid as SyncGuid;
 
@@ -28,8 +28,6 @@ impl ProcessOutgoingRecordImpl for OutgoingAddressesImpl {
         collection_name: String,
         timestamp: ServerTimestamp,
     ) -> anyhow::Result<OutgoingChangeset> {
-        let mut outgoing = OutgoingChangeset::new(collection_name, timestamp);
-
         let data_sql = format!(
             "SELECT
                 {common_cols},
@@ -42,8 +40,12 @@ impl ProcessOutgoingRecordImpl for OutgoingAddressesImpl {
                 )",
             common_cols = ADDRESS_COMMON_COLS,
         );
-        let payload_from_data_row: &dyn Fn(&Row<'_>) -> Result<Payload> =
-            &|row| InternalAddress::from_row(row)?.into_payload();
+        let record_from_data_row: &dyn Fn(&Row<'_>) -> Result<(OutgoingBso, i64)> = &|row| {
+            Ok((
+                OutgoingBso::from_content_with_id(InternalAddress::from_row(row)?.into_payload()?)?,
+                row.get::<_, i64>("sync_change_counter")?,
+            ))
+        };
 
         let tombstones_sql = "SELECT guid FROM addresses_tombstones";
 
@@ -55,28 +57,24 @@ impl ProcessOutgoingRecordImpl for OutgoingAddressesImpl {
             tx,
             &data_sql,
             tombstones_sql,
-            payload_from_data_row,
+            record_from_data_row,
         )?
         .into_iter()
-        .map(|(payload, sync_change_counter)| {
-            (
-                SyncGuid::new(payload.id()),
-                payload.into_json_string(),
-                sync_change_counter,
-            )
-        })
-        .collect::<Vec<(SyncGuid, String, i64)>>();
+        .map(|(bso, change_counter)| (bso.envelope.id, bso.payload, change_counter))
+        .collect::<Vec<_>>();
         common_save_outgoing_records(tx, STAGING_TABLE_NAME, staging_records)?;
 
         // return outgoing changes
-        let outgoing_records: Vec<(Payload, i64)> =
-            common_get_outgoing_records(tx, &data_sql, tombstones_sql, payload_from_data_row)?;
-
-        outgoing.changes = outgoing_records
-            .into_iter()
-            .map(|(payload, _)| payload)
-            .collect::<Vec<Payload>>();
-        Ok(outgoing)
+        let outgoing_records =
+            common_get_outgoing_records(tx, &data_sql, tombstones_sql, record_from_data_row)?
+                .into_iter()
+                .map(|(bso, _change_counter)| bso)
+                .collect();
+        Ok(OutgoingChangeset::new_with_changes(
+            collection_name,
+            timestamp,
+            outgoing_records,
+        ))
     }
 
     fn finish_synced_items(
@@ -109,7 +107,7 @@ mod tests {
     fn test_insert_mirror_record(conn: &Connection, address: InternalAddress) {
         // This should probably be in the sync module, but it's used here.
         let guid = address.guid.clone();
-        let payload = address.into_payload().expect("is json").into_json_string();
+        let payload = serde_json::to_string(&address.into_payload().unwrap()).expect("is json");
         conn.execute(
             "INSERT OR IGNORE INTO addresses_mirror (guid, payload)
              VALUES (:guid, :payload)",
@@ -155,8 +153,8 @@ mod tests {
 
     fn test_record(guid_prefix: char) -> InternalAddress {
         let json = test_json_record(guid_prefix);
-        let sync_payload = sync15::Payload::from_json(json).unwrap();
-        InternalAddress::from_payload(sync_payload).expect("should be valid")
+        let payload = serde_json::from_value(json).unwrap();
+        InternalAddress::from_payload(payload).expect("should be valid")
     }
 
     #[test]

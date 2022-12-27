@@ -51,10 +51,8 @@ impl BookmarkRecordId {
     /// `as_payload_id`, and exists to avoid copying strings when uploading
     /// tombstones.
     #[inline]
-    pub fn into_payload_id(self) -> String {
-        self.root_payload_id()
-            .map(Into::into)
-            .unwrap_or_else(|| (self.0).into_string())
+    pub fn into_payload_id(self) -> SyncGuid {
+        self.root_payload_id().map(Into::into).unwrap_or(self.0)
     }
 
     /// Returns a reference to the GUID for this record ID.

@@ -5,10 +5,10 @@ set -euvx
 SQLCIPHER_VERSION="4.5.2"
 SQLCIPHER_SHA256="6925f012deb5582e39761a7d4816883cc15b41851a8e70b447c223b8ef406e2a"
 
-NSS="nss-3.66"
-NSS_ARCHIVE="nss-3.66-with-nspr-4.30.tar.gz"
-NSS_URL="https://ftp.mozilla.org/pub/security/nss/releases/NSS_3_66_RTM/src/${NSS_ARCHIVE}"
-NSS_SHA256="4eb72ca78b497a2a425139fdcfb9068cbd318dd51542baaa5365fcfbcb165009"
+NSS="nss-3.86"
+NSS_ARCHIVE="nss-3.86-with-nspr-4.35.tar.gz"
+NSS_URL="https://ftp.mozilla.org/pub/security/nss/releases/NSS_3_86_RTM/src/${NSS_ARCHIVE}"
+NSS_SHA256="8b5a2e9e3d632a78ad4d9c8d2ea502d2790d7a8e7b1986d173107232eca27432"
 
 # End of configuration.
 
@@ -138,7 +138,7 @@ elif [[ "${PLATFORM}" == "desktop" ]]
 then
   ./build-nss-desktop.sh "${NSS_SRC_PATH}"
   ./build-sqlcipher-desktop.sh "${SQLCIPHER_SRC_PATH}"
-elif [[ "${PLATFORM}" == "darwin" ]] || [[ "${PLATFORM}" == "win32-x86-64" ]]
+elif [[ "${PLATFORM}" == "darwin" ]]
 then
   ./build-nss-desktop.sh "${NSS_SRC_PATH}" "${PLATFORM}"
   ./build-sqlcipher-desktop.sh "${SQLCIPHER_SRC_PATH}" "${PLATFORM}"

@@ -72,6 +72,16 @@ open class FxAccountManager {
             state == .canAutoretryMigration
     }
 
+    /// Resets the inner Persisted Account based on the persisted state
+    /// Callers can use this method to refresh the account manager to reflect
+    /// the latest persisted state.
+    /// It's possible for the account manager to go out sync with the persisted state
+    /// in case an extension (Notification Service for example) modifies the persisted state
+    public func resetPersistedAccount() {
+        account = accountStorage.read()
+        account?.registerPersistCallback(statePersistenceCallback)
+    }
+
     /// Returns true if the account needs re-authentication.
     /// Your app should present the option to start a new OAuth flow.
     public func accountNeedsReauth() -> Bool {

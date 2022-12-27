@@ -14,6 +14,7 @@ use rusqlite::Connection;
 use serde_json::Value as JsonValue;
 use sql_support::{self, ConnExt};
 use std::{collections::HashSet, iter};
+use sync15::bso::{IncomingBso, IncomingKind};
 use sync15::ServerTimestamp;
 use sync_guid::Guid as SyncGuid;
 use url::Url;
@@ -33,30 +34,45 @@ impl<'a> IncomingApplicator<'a> {
         Self { db }
     }
 
-    pub fn apply_payload(
-        &self,
-        payload: sync15::Payload,
-        timestamp: ServerTimestamp,
-    ) -> Result<()> {
-        if payload.is_tombstone() {
-            self.store_incoming_tombstone(
-                timestamp,
-                BookmarkRecordId::from_payload_id(payload.id).as_guid(),
-            )?;
-        } else {
-            let value: JsonValue = payload.into();
-            match value["type"].as_str() {
-                Some("bookmark") => self.store_incoming_bookmark(timestamp, &value)?,
-                Some("query") => self.store_incoming_query(timestamp, &value)?,
-                Some("folder") => self.store_incoming_folder(timestamp, &value)?,
-                Some("livemark") => self.store_incoming_livemark(timestamp, &value)?,
-                Some("separator") => self.store_incoming_sep(timestamp, &value)?,
-                _ => {
-                    return Err(
-                        ErrorKind::UnsupportedIncomingBookmarkType(value["type"].clone()).into(),
-                    )
-                }
-            };
+    pub fn apply_bso(&self, record: IncomingBso) -> Result<()> {
+        // This is a little odd - we need to go via serde_json::Value so we can
+        // work out what we want to deserialize it as.
+        let timestamp = record.envelope.modified;
+        let json_content = record.into_content::<serde_json::Value>();
+        match json_content.kind {
+            IncomingKind::Tombstone => {
+                self.store_incoming_tombstone(
+                    timestamp,
+                    BookmarkRecordId::from_payload_id(json_content.envelope.id.clone()).as_guid(),
+                )?;
+            }
+            IncomingKind::Content(value) => {
+                match value["type"].as_str() {
+                    Some("bookmark") => self.store_incoming_bookmark(timestamp, &value)?,
+                    Some("query") => self.store_incoming_query(timestamp, &value)?,
+                    Some("folder") => self.store_incoming_folder(timestamp, &value)?,
+                    Some("livemark") => self.store_incoming_livemark(timestamp, &value)?,
+                    Some("separator") => self.store_incoming_sep(timestamp, &value)?,
+                    _ => {
+                        // We support all known bookmark types, so this is probably just malformed.
+                        error_support::report_error!(
+                            "unknown-bookmark-type",
+                            "Unknown bookmark type: {}",
+                            value["type"]
+                        );
+                    }
+                };
+            }
+            IncomingKind::Malformed => {
+                log::trace!(
+                    "skipping malformed bookmark record: {}",
+                    json_content.envelope.id
+                );
+                error_support::report_error!(
+                    "malformed-incoming-bookmark",
+                    "Malformed bookmark record"
+                );
+            }
         }
         Ok(())
     }
@@ -106,7 +122,7 @@ impl<'a> IncomingApplicator<'a> {
 
         let url = unpack_optional_str("bmkUri", b, &mut validity);
         let url = match self.maybe_store_href(url) {
-            Ok(u) => (Some(String::from(u))),
+            Ok(u) => Some(String::from(u)),
             Err(e) => {
                 log::warn!("Incoming bookmark has an invalid URL: {:?}", e);
                 // The bookmark has an invalid URL, so we can't apply it.
@@ -179,9 +195,7 @@ impl<'a> IncomingApplicator<'a> {
                         v.as_str().unwrap().into(),
                     ));
                 } else {
-                    return Err(
-                        ErrorKind::InvalidPlaceInfo(InvalidPlaceInfo::InvalidChildGuid).into(),
-                    );
+                    return Err(Error::InvalidPlaceInfo(InvalidPlaceInfo::InvalidChildGuid));
                 }
             }
             children
@@ -489,7 +503,7 @@ impl<'a> IncomingApplicator<'a> {
     fn maybe_store_url(&self, url: Option<Url>) -> Result<Url> {
         if let Some(url) = url {
             if url.as_str().len() > URL_LENGTH_MAX {
-                return Err(ErrorKind::InvalidPlaceInfo(InvalidPlaceInfo::UrlTooLong).into());
+                return Err(Error::InvalidPlaceInfo(InvalidPlaceInfo::UrlTooLong));
             }
             self.db.execute_cached(
                 "INSERT OR IGNORE INTO moz_places(guid, url, url_hash, frecency)
@@ -502,7 +516,7 @@ impl<'a> IncomingApplicator<'a> {
             )?;
             Ok(url)
         } else {
-            Err(ErrorKind::InvalidPlaceInfo(InvalidPlaceInfo::NoUrl).into())
+            Err(Error::InvalidPlaceInfo(InvalidPlaceInfo::NoUrl))
         }
     }
 }
@@ -511,7 +525,7 @@ fn unpack_id(key: &str, data: &JsonValue) -> Result<BookmarkRecordId> {
     if let Some(id) = data[key].as_str() {
         Ok(BookmarkRecordId::from_payload_id(id.into()))
     } else {
-        Err(ErrorKind::InvalidPlaceInfo(InvalidPlaceInfo::InvalidGuid).into())
+        Err(Error::InvalidPlaceInfo(InvalidPlaceInfo::InvalidGuid))
     }
 }
 
@@ -610,28 +624,24 @@ mod tests {
     use crate::bookmark_sync::tests::SyncedBookmarkItem;
     use pretty_assertions::assert_eq;
     use serde_json::{json, Value};
-    use sync15::Payload;
 
     fn apply_incoming(api: &PlacesApi, records_json: Value) {
         let db = api.get_sync_connection().expect("should get a db mutex");
         let conn = db.lock();
 
-        let server_timestamp = ServerTimestamp(0);
         let applicator = IncomingApplicator::new(&conn);
 
         match records_json {
             Value::Array(records) => {
                 for record in records {
-                    let payload = Payload::from_json(record).unwrap();
                     applicator
-                        .apply_payload(payload, server_timestamp)
+                        .apply_bso(IncomingBso::from_test_content(record))
                         .expect("Should apply incoming and stage outgoing records");
                 }
             }
             Value::Object(_) => {
-                let payload = Payload::from_json(records_json).unwrap();
                 applicator
-                    .apply_payload(payload, server_timestamp)
+                    .apply_bso(IncomingBso::from_test_content(records_json))
                     .expect("Should apply incoming and stage outgoing records");
             }
             _ => panic!("unexpected json value"),
@@ -918,16 +928,10 @@ mod tests {
             "id": "unknownAAAA",
             "type": "fancy",
         });
-        let payload = Payload::from_json(record).unwrap();
-        match applicator
-            .apply_payload(payload, ServerTimestamp(0))
-            .expect_err("Should not apply record with unknown type")
-            .kind()
-        {
-            ErrorKind::UnsupportedIncomingBookmarkType(t) => {
-                assert_eq!(t.as_str().unwrap(), "fancy")
-            }
-            kind => panic!("Wrong error kind for unknown type: {:?}", kind),
-        }
+        let inc = IncomingBso::from_test_content(record);
+        // We report an error for an invalid type but don't fail.
+        applicator
+            .apply_bso(inc)
+            .expect("Should not fail with a record with unknown type");
     }
 }

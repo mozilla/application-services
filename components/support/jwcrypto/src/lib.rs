@@ -140,16 +140,16 @@ impl CompactJwe {
             .unwrap_or_default();
         let encrypted_key = encrypted_key
             .as_ref()
-            .map(|k| base64::encode_config(&k, base64::URL_SAFE_NO_PAD))
+            .map(|k| base64::encode_config(k, base64::URL_SAFE_NO_PAD))
             .unwrap_or_default();
         let iv = iv
             .as_ref()
-            .map(|iv| base64::encode_config(&iv, base64::URL_SAFE_NO_PAD))
+            .map(|iv| base64::encode_config(iv, base64::URL_SAFE_NO_PAD))
             .unwrap_or_default();
         let ciphertext = base64::encode_config(&ciphertext, base64::URL_SAFE_NO_PAD);
         let auth_tag = auth_tag
             .as_ref()
-            .map(|t| base64::encode_config(&t, base64::URL_SAFE_NO_PAD))
+            .map(|t| base64::encode_config(t, base64::URL_SAFE_NO_PAD))
             .unwrap_or_default();
         let jwe_segments = vec![protected_header, encrypted_key, iv, ciphertext, auth_tag];
         Ok(Self { jwe_segments })
@@ -199,6 +199,10 @@ impl FromStr for CompactJwe {
     fn from_str(str: &str) -> Result<Self> {
         let jwe_segments: Vec<String> = str.split('.').map(|s| s.to_owned()).collect();
         if jwe_segments.len() != 5 {
+            error_support::breadcrumb!(
+                "Error in CompactJwe::from_str ({})",
+                error_support::redact_compact_jwe(str)
+            );
             return Err(JwCryptoError::DeserializationError);
         }
         Ok(Self { jwe_segments })

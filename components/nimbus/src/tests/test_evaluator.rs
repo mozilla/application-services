@@ -2,6 +2,12 @@
 * License, v. 2.0. If a copy of the MPL was not distributed with this
 * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
+use crate::behavior::{
+    EventStore, Interval, IntervalConfig, IntervalData, MultiIntervalCounter, SingleIntervalCounter,
+};
+use chrono::Utc;
+use serde_json::{json, Map, Value};
+
 use crate::enrollment::{EnrolledReason, EnrollmentStatus, NotEnrolledReason};
 use crate::evaluator::{choose_branch, targeting};
 use crate::{
@@ -18,7 +24,11 @@ fn test_locale_substring() -> Result<()> {
         ..Default::default()
     };
     let targeting_attributes = ctx.into();
-    assert_eq!(targeting(expression_statement, &targeting_attributes), None);
+    let event_store = Arc::new(Mutex::new(EventStore::new()));
+    assert_eq!(
+        targeting(expression_statement, &targeting_attributes, event_store),
+        None
+    );
     Ok(())
 }
 
@@ -30,7 +40,9 @@ fn test_locale_substring_fails() -> Result<()> {
         ..Default::default()
     };
     let targeting_attributes = ctx.into();
-    let enrollment_status = targeting(expression_statement, &targeting_attributes).unwrap();
+    let event_store = Arc::new(Mutex::new(EventStore::new()));
+    let enrollment_status =
+        targeting(expression_statement, &targeting_attributes, event_store).unwrap();
     if let EnrollmentStatus::NotEnrolled { reason } = enrollment_status {
         if let NotEnrolledReason::NotTargeted = reason {
             // OK
@@ -75,7 +87,11 @@ fn test_geo_targeting_one_locale() -> Result<()> {
         ..Default::default()
     };
     let targeting_attributes = ctx.into();
-    assert_eq!(targeting(expression_statement, &targeting_attributes), None);
+    let event_store = Arc::new(Mutex::new(EventStore::new()));
+    assert_eq!(
+        targeting(expression_statement, &targeting_attributes, event_store),
+        None
+    );
     Ok(())
 }
 
@@ -87,7 +103,11 @@ fn test_geo_targeting_multiple_locales() -> Result<()> {
         ..Default::default()
     };
     let targeting_attributes = ctx.into();
-    assert_eq!(targeting(expression_statement, &targeting_attributes), None);
+    let event_store = Arc::new(Mutex::new(EventStore::new()));
+    assert_eq!(
+        targeting(expression_statement, &targeting_attributes, event_store),
+        None
+    );
     Ok(())
 }
 
@@ -99,7 +119,9 @@ fn test_geo_targeting_fails_properly() -> Result<()> {
         ..Default::default()
     };
     let targeting_attributes = ctx.into();
-    let enrollment_status = targeting(expression_statement, &targeting_attributes).unwrap();
+    let event_store = Arc::new(Mutex::new(EventStore::new()));
+    let enrollment_status =
+        targeting(expression_statement, &targeting_attributes, event_store).unwrap();
     if let EnrollmentStatus::NotEnrolled { reason } = enrollment_status {
         if let NotEnrolledReason::NotTargeted = reason {
             // OK
@@ -121,7 +143,11 @@ fn test_minimum_version_targeting_passes() -> Result<()> {
         ..Default::default()
     };
     let targeting_attributes = ctx.into();
-    assert_eq!(targeting(expression_statement, &targeting_attributes), None);
+    let event_store = Arc::new(Mutex::new(EventStore::new()));
+    assert_eq!(
+        targeting(expression_statement, &targeting_attributes, event_store),
+        None
+    );
     Ok(())
 }
 
@@ -134,8 +160,9 @@ fn test_minimum_version_targeting_fails() -> Result<()> {
         ..Default::default()
     };
     let targeting_attributes = ctx.into();
+    let event_store = Arc::new(Mutex::new(EventStore::new()));
     assert_eq!(
-        targeting(expression_statement, &targeting_attributes),
+        targeting(expression_statement, &targeting_attributes, event_store),
         Some(EnrollmentStatus::NotEnrolled {
             reason: NotEnrolledReason::NotTargeted
         })
@@ -153,8 +180,16 @@ fn test_targeting_specific_verision() -> Result<()> {
         ..Default::default()
     };
     let targeting_attributes = ctx.into();
+    let event_store = Arc::new(Mutex::new(EventStore::new()));
     // OK 96.1 is a 96 version
-    assert_eq!(targeting(expression_statement, &targeting_attributes), None);
+    assert_eq!(
+        targeting(
+            expression_statement,
+            &targeting_attributes,
+            event_store.clone()
+        ),
+        None
+    );
     let ctx = AppContext {
         app_version: Some("97.1".into()),
         ..Default::default()
@@ -162,7 +197,11 @@ fn test_targeting_specific_verision() -> Result<()> {
     let targeting_attributes = ctx.into();
     // Not targeted, version is 97
     assert_eq!(
-        targeting(expression_statement, &targeting_attributes),
+        targeting(
+            expression_statement,
+            &targeting_attributes,
+            event_store.clone()
+        ),
         Some(EnrollmentStatus::NotEnrolled {
             reason: NotEnrolledReason::NotTargeted
         })
@@ -176,7 +215,7 @@ fn test_targeting_specific_verision() -> Result<()> {
 
     // Not targeted, version is 95
     assert_eq!(
-        targeting(expression_statement, &targeting_attributes),
+        targeting(expression_statement, &targeting_attributes, event_store),
         Some(EnrollmentStatus::NotEnrolled {
             reason: NotEnrolledReason::NotTargeted
         })
@@ -193,7 +232,8 @@ fn test_targeting_invalid_transform() -> Result<()> {
         ..Default::default()
     };
     let targeting_attributes = ctx.into();
-    let err = targeting(expression_statement, &targeting_attributes);
+    let event_store = Arc::new(Mutex::new(EventStore::new()));
+    let err = targeting(expression_statement, &targeting_attributes, event_store);
     if let Some(e) = err {
         if let EnrollmentStatus::Error { reason: _ } = e {
             // OK
@@ -231,7 +271,15 @@ fn test_targeting() {
         ..Default::default()
     }
     .into();
-    assert_eq!(targeting(expression_statement, &targeting_attributes), None);
+    let event_store = Arc::new(Mutex::new(EventStore::new()));
+    assert_eq!(
+        targeting(
+            expression_statement,
+            &targeting_attributes,
+            event_store.clone()
+        ),
+        None
+    );
 
     // A matching context testing the logical OR of the expression
     let targeting_attributes = AppContext {
@@ -252,7 +300,14 @@ fn test_targeting() {
         ..Default::default()
     }
     .into();
-    assert_eq!(targeting(expression_statement, &targeting_attributes), None);
+    assert_eq!(
+        targeting(
+            expression_statement,
+            &targeting_attributes,
+            event_store.clone()
+        ),
+        None
+    );
 
     // A matching context testing the other branch of the logical OR
     let targeting_attributes = AppContext {
@@ -273,7 +328,14 @@ fn test_targeting() {
         ..Default::default()
     }
     .into();
-    assert_eq!(targeting(expression_statement, &targeting_attributes), None);
+    assert_eq!(
+        targeting(
+            expression_statement,
+            &targeting_attributes,
+            event_store.clone()
+        ),
+        None
+    );
 
     // A non-matching context testing the logical AND of the expression
     let non_matching_targeting = AppContext {
@@ -295,7 +357,11 @@ fn test_targeting() {
     }
     .into();
     assert!(matches!(
-        targeting(expression_statement, &non_matching_targeting),
+        targeting(
+            expression_statement,
+            &non_matching_targeting,
+            event_store.clone()
+        ),
         Some(EnrollmentStatus::NotEnrolled {
             reason: NotEnrolledReason::NotTargeted
         })
@@ -321,23 +387,24 @@ fn test_targeting() {
     }
     .into();
     assert!(matches!(
-        targeting(expression_statement, &non_matching_targeting),
+        targeting(expression_statement, &non_matching_targeting, event_store),
         Some(EnrollmentStatus::NotEnrolled {
             reason: NotEnrolledReason::NotTargeted
         })
     ));
 }
-use std::collections::HashMap;
+use std::collections::HashSet;
+use std::sync::{Arc, Mutex};
 
 #[test]
 fn test_targeting_custom_targeting_attributes() {
     // Here's our valid jexl statement
     let expression_statement =
-        "app_id == '1010' && (app_version == '4.4' || locale == \"en-US\") && is_first_run == 'true' && ios_version == '8.8'";
+        "app_id == '1010' && (app_version == '4.4' || locale == \"en-US\") && is_first_run == true && ios_version == '8.8'";
 
-    let mut custom_targeting_attributes = HashMap::new();
-    custom_targeting_attributes.insert("is_first_run".into(), "true".into());
-    custom_targeting_attributes.insert("ios_version".into(), "8.8".into());
+    let mut custom_targeting_attributes = Map::<String, Value>::new();
+    custom_targeting_attributes.insert("is_first_run".into(), json!(true));
+    custom_targeting_attributes.insert("ios_version".into(), json!("8.8"));
     // A matching context that includes the appropriate specific context
     let targeting_attributes = AppContext {
         app_name: "nimbus_test".to_string(),
@@ -357,7 +424,15 @@ fn test_targeting_custom_targeting_attributes() {
         ..Default::default()
     }
     .into();
-    assert_eq!(targeting(expression_statement, &targeting_attributes), None);
+    let event_store = Arc::new(Mutex::new(EventStore::new()));
+    assert_eq!(
+        targeting(
+            expression_statement,
+            &targeting_attributes,
+            event_store.clone()
+        ),
+        None
+    );
 
     // A matching context without the specific context
     let targeting_attributes = AppContext {
@@ -380,7 +455,7 @@ fn test_targeting_custom_targeting_attributes() {
     .into();
     // We haven't defined `is_first_run` here, so this should error out, i.e. return an error.
     assert!(matches!(
-        targeting(expression_statement, &targeting_attributes),
+        targeting(expression_statement, &targeting_attributes, event_store),
         Some(EnrollmentStatus::Error { .. })
     ));
 }
@@ -409,14 +484,22 @@ fn test_targeting_is_already_enrolled() {
     }
     .into();
     targeting_attributes.is_already_enrolled = true;
+    let event_store = Arc::new(Mutex::new(EventStore::new()));
 
     // The targeting should pass!
-    assert_eq!(targeting(expression_statement, &targeting_attributes), None);
+    assert_eq!(
+        targeting(
+            expression_statement,
+            &targeting_attributes,
+            event_store.clone()
+        ),
+        None
+    );
 
     // We make the is_already_enrolled false and try again
     targeting_attributes.is_already_enrolled = false;
     assert_eq!(
-        targeting(expression_statement, &targeting_attributes),
+        targeting(expression_statement, &targeting_attributes, event_store),
         Some(EnrollmentStatus::NotEnrolled {
             reason: NotEnrolledReason::NotTargeted
         })
@@ -426,7 +509,7 @@ fn test_targeting_is_already_enrolled() {
 #[test]
 fn test_targeting_active_experiments_equivalency() {
     // Here's our valid jexl statement
-    let expression_statement = "active_experiments['test'] == 'treatment'";
+    let expression_statement = "'test' in active_experiments";
     // A matching context that includes the appropriate specific context
     let mut targeting_attributes: TargetingAttributes = AppContext {
         app_name: "nimbus_test".to_string(),
@@ -446,28 +529,41 @@ fn test_targeting_active_experiments_equivalency() {
         ..Default::default()
     }
     .into();
-    let mut map: HashMap<String, String> = HashMap::new();
-    map.insert("test".into(), "treatment".into());
-    targeting_attributes.active_experiments = Some(map);
+    let mut set = HashSet::<String>::new();
+    set.insert("test".into());
+    targeting_attributes.active_experiments = set;
+    let event_store = Arc::new(Mutex::new(EventStore::new()));
 
     // The targeting should pass!
-    assert_eq!(targeting(expression_statement, &targeting_attributes), None);
+    assert_eq!(
+        targeting(
+            expression_statement,
+            &targeting_attributes,
+            event_store.clone()
+        ),
+        None
+    );
 
     // We set active_experiment treatment to something not expected and try again
-    let mut map: HashMap<String, String> = HashMap::new();
-    map.insert("test".into(), "treatment1".into());
-    targeting_attributes.active_experiments = Some(map);
+    let mut set = HashSet::<String>::new();
+    set.insert("test1".into());
+    targeting_attributes.active_experiments = set;
     assert_eq!(
-        targeting(expression_statement, &targeting_attributes),
+        targeting(
+            expression_statement,
+            &targeting_attributes,
+            event_store.clone()
+        ),
         Some(EnrollmentStatus::NotEnrolled {
             reason: NotEnrolledReason::NotTargeted
         })
     );
 
     // We set active_experiments to None and try again
-    targeting_attributes.active_experiments = None;
+    let set = HashSet::<String>::new();
+    targeting_attributes.active_experiments = set;
     assert_eq!(
-        targeting(expression_statement, &targeting_attributes),
+        targeting(expression_statement, &targeting_attributes, event_store),
         Some(EnrollmentStatus::NotEnrolled {
             reason: NotEnrolledReason::NotTargeted
         })
@@ -497,18 +593,26 @@ fn test_targeting_active_experiments_exists() {
         ..Default::default()
     }
     .into();
-    let mut map: HashMap<String, String> = HashMap::new();
-    map.insert("test".into(), "treatment".into());
-    targeting_attributes.active_experiments = Some(map);
+    let mut set = HashSet::<String>::new();
+    set.insert("test".into());
+    targeting_attributes.active_experiments = set;
+    let event_store = Arc::new(Mutex::new(EventStore::new()));
 
     // The targeting should pass!
-    assert_eq!(targeting(expression_statement, &targeting_attributes), None);
+    assert_eq!(
+        targeting(
+            expression_statement,
+            &targeting_attributes,
+            event_store.clone()
+        ),
+        None
+    );
 
     // We set active_experiment treatment to something not expected and try again
-    let map: HashMap<String, String> = HashMap::new();
-    targeting_attributes.active_experiments = Some(map);
+    let set = HashSet::<String>::new();
+    targeting_attributes.active_experiments = set;
     assert_eq!(
-        targeting(expression_statement, &targeting_attributes),
+        targeting(expression_statement, &targeting_attributes, event_store),
         Some(EnrollmentStatus::NotEnrolled {
             reason: NotEnrolledReason::NotTargeted
         })
@@ -519,9 +623,10 @@ fn test_targeting_active_experiments_exists() {
 fn test_invalid_expression() {
     // This expression doesn't return a bool
     let expression_statement = "2.0";
+    let event_store = Arc::new(Mutex::new(EventStore::new()));
 
     assert_eq!(
-        targeting(expression_statement, &Default::default()),
+        targeting(expression_statement, &Default::default(), event_store),
         Some(EnrollmentStatus::Error {
             reason: "Invalid Expression - didn't evaluate to a bool".to_string()
         })
@@ -532,9 +637,11 @@ fn test_invalid_expression() {
 fn test_evaluation_error() {
     // This is an invalid JEXL statement
     let expression_statement = "This is not a valid JEXL expression";
+    let event_store = Arc::new(Mutex::new(EventStore::new()));
 
     assert!(
-        matches!(targeting(expression_statement, &Default::default()), Some(EnrollmentStatus::Error { reason }) if reason.starts_with("EvaluationError:"))
+        matches!(targeting(expression_statement, &Default::default(),
+        event_store), Some(EnrollmentStatus::Error { reason }) if reason.starts_with("EvaluationError:"))
     )
 }
 
@@ -675,11 +782,18 @@ fn test_qualified_enrollment() {
         ..Default::default()
     }
     .into();
+    let event_store = Arc::new(Mutex::new(EventStore::new()));
 
     let id = uuid::Uuid::new_v4();
 
-    let enrollment =
-        evaluate_enrollment(&id, &Default::default(), &targeting_attributes, &experiment).unwrap();
+    let enrollment = evaluate_enrollment(
+        &id,
+        &Default::default(),
+        &targeting_attributes,
+        &experiment,
+        event_store.clone(),
+    )
+    .unwrap();
     println!("Uh oh!  {:#?}", enrollment.status);
     assert!(matches!(
         enrollment.status,
@@ -694,8 +808,14 @@ fn test_qualified_enrollment() {
     targeting_attributes.app_context.channel = "Nightly".to_string();
 
     // Now we will be enrolled in the experiment because we have the right channel, but with different capitalization
-    let enrollment =
-        evaluate_enrollment(&id, &Default::default(), &targeting_attributes, &experiment).unwrap();
+    let enrollment = evaluate_enrollment(
+        &id,
+        &Default::default(),
+        &targeting_attributes,
+        &experiment,
+        event_store,
+    )
+    .unwrap();
     assert!(matches!(
         enrollment.status,
         EnrollmentStatus::Enrolled {
@@ -749,6 +869,7 @@ fn test_wrong_randomization_units() {
         ..Default::default()
     }
     .into();
+    let event_store = Arc::new(Mutex::new(EventStore::new()));
 
     // We won't be enrolled in the experiment because we don't have the right randomization units since the
     // experiment is requesting the `ClientId` and the `Default::default()` here will just have the
@@ -758,6 +879,7 @@ fn test_wrong_randomization_units() {
         &Default::default(),
         &targeting_attributes,
         &experiment,
+        event_store.clone(),
     )
     .unwrap();
     // The status should be `Error`
@@ -771,6 +893,7 @@ fn test_wrong_randomization_units() {
         &available_randomization_units,
         &targeting_attributes,
         &experiment,
+        event_store,
     )
     .unwrap();
     assert!(matches!(
@@ -828,10 +951,17 @@ fn test_not_targeted_for_enrollment() {
         ..Default::default()
     }
     .into();
+    let event_store = Arc::new(Mutex::new(EventStore::new()));
 
     // We won't be enrolled in the experiment because we don't have the right app_name
-    let enrollment =
-        evaluate_enrollment(&id, &Default::default(), &targeting_attributes, &experiment).unwrap();
+    let enrollment = evaluate_enrollment(
+        &id,
+        &Default::default(),
+        &targeting_attributes,
+        &experiment,
+        event_store.clone(),
+    )
+    .unwrap();
     assert!(matches!(
         enrollment.status,
         EnrollmentStatus::NotEnrolled {
@@ -845,8 +975,14 @@ fn test_not_targeted_for_enrollment() {
 
     // Now we won't be enrolled in the experiment because we don't have the right channel, but with the same
     // `NotTargeted` reason
-    let enrollment =
-        evaluate_enrollment(&id, &Default::default(), &targeting_attributes, &experiment).unwrap();
+    let enrollment = evaluate_enrollment(
+        &id,
+        &Default::default(),
+        &targeting_attributes,
+        &experiment,
+        event_store,
+    )
+    .unwrap();
     assert!(matches!(
         enrollment.status,
         EnrollmentStatus::NotEnrolled {
@@ -902,12 +1038,14 @@ fn test_enrollment_bucketing() {
         ..Default::default()
     }
     .into();
+    let event_store = Arc::new(Mutex::new(EventStore::new()));
 
     let enrollment = evaluate_enrollment(
         &id,
         &available_randomization_units,
         &targeting_attributes,
         &experiment,
+        event_store,
     )
     .unwrap();
     assert!(matches!(
@@ -917,4 +1055,236 @@ fn test_enrollment_bucketing() {
             ..
         }
     ));
+}
+
+#[test]
+fn test_event_sum_transform() {
+    let counter = MultiIntervalCounter::new(vec![SingleIntervalCounter {
+        data: IntervalData {
+            bucket_count: 3,
+            starting_instant: Utc::now(),
+            buckets: vec![1, 1, 0].into(),
+        },
+        config: IntervalConfig::new(3, Interval::Days),
+    }]);
+
+    let event_store = Arc::new(Mutex::new(EventStore::from(vec![(
+        "app.foregrounded".to_string(),
+        counter,
+    )])));
+    let targeting_attributes: TargetingAttributes = AppContext {
+        ..Default::default()
+    }
+    .into();
+    assert_eq!(
+        targeting(
+            "'app.foregrounded'|eventSum('Days', 3, 0) > 2",
+            &targeting_attributes,
+            event_store.clone()
+        ),
+        Some(EnrollmentStatus::NotEnrolled {
+            reason: NotEnrolledReason::NotTargeted
+        })
+    );
+    assert_eq!(
+        targeting(
+            "'app.foregrounded'|eventSum('Days', 3, 0) > 1",
+            &targeting_attributes,
+            event_store
+        ),
+        None
+    );
+}
+
+#[test]
+fn test_event_count_non_zero_transform() {
+    let counter = MultiIntervalCounter::new(vec![SingleIntervalCounter {
+        data: IntervalData {
+            bucket_count: 3,
+            starting_instant: Utc::now(),
+            buckets: vec![1, 2, 0].into(),
+        },
+        config: IntervalConfig::new(3, Interval::Days),
+    }]);
+
+    let event_store = Arc::new(Mutex::new(EventStore::from(vec![(
+        "app.foregrounded".to_string(),
+        counter,
+    )])));
+    let targeting_attributes: TargetingAttributes = AppContext {
+        ..Default::default()
+    }
+    .into();
+    assert_eq!(
+        targeting(
+            "'app.foregrounded'|eventCountNonZero('Days', 3, 0) > 2",
+            &targeting_attributes,
+            event_store.clone()
+        ),
+        Some(EnrollmentStatus::NotEnrolled {
+            reason: NotEnrolledReason::NotTargeted
+        })
+    );
+    assert_eq!(
+        targeting(
+            "'app.foregrounded'|eventCountNonZero('Days', 3, 0) > 1",
+            &targeting_attributes,
+            event_store
+        ),
+        None
+    );
+}
+
+#[test]
+fn test_event_average_per_interval_transform() {
+    let counter = MultiIntervalCounter::new(vec![SingleIntervalCounter {
+        data: IntervalData {
+            bucket_count: 3,
+            starting_instant: Utc::now(),
+            buckets: vec![1, 2, 0, 0, 0, 2, 3].into(),
+        },
+        config: IntervalConfig::new(3, Interval::Days),
+    }]);
+
+    let event_store = Arc::new(Mutex::new(EventStore::from(vec![(
+        "app.foregrounded".to_string(),
+        counter,
+    )])));
+    let targeting_attributes: TargetingAttributes = AppContext {
+        ..Default::default()
+    }
+    .into();
+    assert_eq!(
+        targeting(
+            "'app.foregrounded'|eventAveragePerInterval('Days', 7, 0) > 2",
+            &targeting_attributes,
+            event_store.clone()
+        ),
+        Some(EnrollmentStatus::NotEnrolled {
+            reason: NotEnrolledReason::NotTargeted
+        })
+    );
+    assert_eq!(
+        targeting(
+            "'app.foregrounded'|eventAveragePerInterval('Days', 7, 0) > 1.14",
+            &targeting_attributes,
+            event_store
+        ),
+        None
+    );
+}
+
+#[test]
+fn test_event_average_per_non_zero_interval_transform() {
+    let counter = MultiIntervalCounter::new(vec![SingleIntervalCounter {
+        data: IntervalData {
+            bucket_count: 3,
+            starting_instant: Utc::now(),
+            buckets: vec![1, 2, 0, 0, 0, 2, 4].into(),
+        },
+        config: IntervalConfig::new(3, Interval::Days),
+    }]);
+
+    let event_store = Arc::new(Mutex::new(EventStore::from(vec![(
+        "app.foregrounded".to_string(),
+        counter,
+    )])));
+    let targeting_attributes: TargetingAttributes = AppContext {
+        ..Default::default()
+    }
+    .into();
+    assert_eq!(
+        targeting(
+            "'app.foregrounded'|eventAveragePerNonZeroInterval('Days', 7, 0) == 1",
+            &targeting_attributes,
+            event_store.clone()
+        ),
+        Some(EnrollmentStatus::NotEnrolled {
+            reason: NotEnrolledReason::NotTargeted
+        })
+    );
+    assert_eq!(
+        targeting(
+            "'app.foregrounded'|eventAveragePerNonZeroInterval('Days', 7, 0) == 2.25",
+            &targeting_attributes,
+            event_store
+        ),
+        None
+    );
+}
+
+#[test]
+fn test_event_transforms_parameters() {
+    let targeting_attributes: TargetingAttributes = AppContext {
+        ..Default::default()
+    }
+    .into();
+    let event_store = Arc::new(Mutex::new(EventStore::new()));
+
+    assert_eq!(
+        targeting(
+            "'app.foregrounded'|eventSum('Days', 3) > 1",
+            &targeting_attributes,
+            event_store.clone()
+        ),
+        Some(EnrollmentStatus::Error {
+            reason: "EvaluationError: Custom error: Transform parameter error: event transforms require 3 parameters"
+                .to_string()
+        })
+    );
+    assert_eq!(
+        targeting(
+            "1|eventSum('Days', 3, 0) > 1",
+            &targeting_attributes,
+            event_store.clone()
+        ),
+        Some(EnrollmentStatus::Error {
+            reason: "EvaluationError: Custom error: JSON Error: invalid type: floating point `1`, expected a string"
+                .to_string()
+        })
+    );
+    assert_eq!(
+        targeting(
+            "'app.foregrounded'|eventSum(1, 3, 0) > 1",
+            &targeting_attributes,
+            event_store.clone()
+        ),
+        Some(EnrollmentStatus::Error {
+            reason: "EvaluationError: Custom error: JSON Error: invalid type: floating point `1`, expected a string"
+                .to_string()
+        })
+    );
+    assert_eq!(
+        targeting(
+            "'app.foregrounded'|eventSum('Day', 3, 0) > 1",
+            &targeting_attributes,
+            event_store.clone()
+        ),
+        Some(EnrollmentStatus::Error {
+            reason: "EvaluationError: Custom error: Behavior error: IntervalParseError: Day is not a valid Interval"
+                .to_string()
+        })
+    );
+    assert_eq!(
+        targeting(
+            "'app.foregrounded'|eventSum('Days', 'test', 0) > 1",
+            &targeting_attributes,
+            event_store.clone()
+        ),
+        Some(EnrollmentStatus::Error {
+            reason: "EvaluationError: Custom error: Transform parameter error: event transforms require a positive number as the second parameter"
+                .to_string()
+        })
+    );
+    assert_eq!(
+        targeting(
+            "'app.foregrounded'|eventSum('Days', 3, 'test') > 1",
+            &targeting_attributes,
+            event_store
+        ),
+        Some(EnrollmentStatus::Error {
+            reason: "EvaluationError: Custom error: Transform parameter error: event transforms require a positive number as the third parameter"
+                .to_string()
+        })
+    );
 }

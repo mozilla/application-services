@@ -36,6 +36,9 @@ pub struct ClientRemoteTabs {
         skip_serializing_if = "devicetype_is_unknown"
     )]
     pub device_type: DeviceType,
+    // serde default so we can read old rows that didn't persist this.
+    #[serde(default)]
+    pub last_modified: i64,
     pub remote_tabs: Vec<RemoteTab>,
 }
 
@@ -162,7 +165,11 @@ impl TabsStorage {
     pub fn get_remote_tabs(&mut self) -> Option<Vec<ClientRemoteTabs>> {
         match self.open_if_exists() {
             Err(e) => {
-                log::error!("Failed to read remote tabs: {}", e);
+                error_support::report_error!(
+                    "tabs-read-remote",
+                    "Failed to read remote tabs: {}",
+                    e
+                );
                 None
             }
             Ok(None) => None,
@@ -174,7 +181,11 @@ impl TabsStorage {
                 ) {
                     Ok(crts) => Some(crts),
                     Err(e) => {
-                        log::error!("Failed to read database: {}", e);
+                        error_support::report_error!(
+                            "tabs-read-remote",
+                            "Failed to read database: {}",
+                            e
+                        );
                         None
                     }
                 }
@@ -325,5 +336,50 @@ mod tests {
                 },
             ])
         );
+    }
+
+    #[test]
+    fn test_old_client_remote_tabs_version() {
+        env_logger::try_init().ok();
+        // The initial version of ClientRemoteTabs which we persisted looks like:
+        let old = serde_json::json!({
+            "client_id": "id",
+            "client_name": "name",
+            "remote_tabs": [
+                serde_json::json!({
+                    "title": "tab title",
+                    "url_history": ["url"],
+                    "last_used": 1234,
+                }),
+            ]
+        });
+
+        let dir = tempfile::tempdir().unwrap();
+        let db_name = dir.path().join("test_old_client_remote_tabs_version.db");
+        let mut storage = TabsStorage::new(db_name);
+
+        let connection = storage.open_or_create().expect("should create");
+        connection
+            .execute_cached(
+                "INSERT INTO tabs (payload) VALUES (:payload);",
+                rusqlite::named_params! {
+                    ":payload": serde_json::to_string(&old).expect("tabs don't fail to serialize"),
+                },
+            )
+            .expect("should insert");
+
+        // We should be able to read it out.
+        let clients = storage.get_remote_tabs().expect("should work");
+        assert_eq!(clients.len(), 1, "must be 1 tab");
+        let client = &clients[0];
+        assert_eq!(client.client_id, "id");
+        assert_eq!(client.client_name, "name");
+        assert_eq!(client.remote_tabs.len(), 1);
+        assert_eq!(client.remote_tabs[0].title, "tab title");
+        assert_eq!(client.remote_tabs[0].url_history, vec!["url".to_string()]);
+        assert_eq!(client.remote_tabs[0].last_used, 1234);
+
+        // The old version didn't have last_modified - check it is the default.
+        assert_eq!(client.last_modified, 0);
     }
 }

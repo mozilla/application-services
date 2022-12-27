@@ -29,7 +29,7 @@
 // To make life a little easier, we do that via a struct.
 
 use crate::error::*;
-use jwcrypto::{self};
+use error_support::handle_error;
 
 // Rather than passing keys around everywhere we abstract the encryption
 // and decryption behind this struct.
@@ -62,6 +62,9 @@ impl EncryptorDecryptor {
     }
 
     pub fn decrypt(&self, ciphertext: &str) -> Result<String> {
+        if ciphertext.is_empty() {
+            return Err(Error::EmptyCyphertext);
+        }
         Ok(jwcrypto::decrypt_jwe(
             ciphertext,
             jwcrypto::DecryptionParameters::Direct {
@@ -73,17 +76,23 @@ impl EncryptorDecryptor {
 
 // public functions we expose over the FFI (which is why they take `String`
 // rather than the `&str` you'd otherwise expect)
-pub fn encrypt_string(key: String, cleartext: String) -> Result<String> {
-    EncryptorDecryptor::new(&key)?.encrypt(&cleartext)
+pub fn encrypt_string(key: String, cleartext: String) -> ApiResult<String> {
+    handle_error! {
+        EncryptorDecryptor::new(&key)?.encrypt(&cleartext)
+    }
 }
 
-pub fn decrypt_string(key: String, ciphertext: String) -> Result<String> {
-    EncryptorDecryptor::new(&key)?.decrypt(&ciphertext)
+pub fn decrypt_string(key: String, ciphertext: String) -> ApiResult<String> {
+    handle_error! {
+        EncryptorDecryptor::new(&key)?.decrypt(&ciphertext)
+    }
 }
 
-pub fn create_key() -> Result<String> {
-    let key = jwcrypto::Jwk::new_direct_key(None)?;
-    Ok(serde_json::to_string(&key)?)
+pub fn create_key() -> ApiResult<String> {
+    handle_error! {
+        let key = jwcrypto::Jwk::new_direct_key(None)?;
+        Ok(serde_json::to_string(&key)?)
+    }
 }
 
 #[cfg(test)]
@@ -100,6 +109,19 @@ mod test {
         assert!(matches!(
             ed2.decrypt(&ciphertext),
             Err(Error::CryptoError(_))
+        ));
+    }
+
+    #[test]
+    fn test_decryption_errors() {
+        let ed = EncryptorDecryptor::new(&create_key().unwrap()).unwrap();
+        assert!(matches!(
+            ed.decrypt("invalid-ciphertext").unwrap_err(),
+            Error::CryptoError(_)
+        ));
+        assert!(matches!(
+            ed.decrypt("").unwrap_err(),
+            Error::EmptyCyphertext
         ));
     }
 }

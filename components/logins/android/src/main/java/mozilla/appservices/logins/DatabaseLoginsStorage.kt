@@ -29,88 +29,81 @@ class DatabaseLoginsStorage(dbPath: String) : AutoCloseable {
         this.store = LoginStore(dbPath)
     }
 
-    @Throws(LoginsStorageException::class)
+    @Throws(LoginsApiException::class)
     fun reset() {
         this.store.reset()
     }
 
-    @Throws(LoginsStorageException::class)
+    @Throws(LoginsApiException::class)
     fun wipe() {
         this.store.wipe()
     }
 
-    @Throws(LoginsStorageException::class)
+    @Throws(LoginsApiException::class)
     fun wipeLocal() {
         this.store.wipeLocal()
     }
 
-    @Throws(LoginsStorageException::class)
+    @Throws(LoginsApiException::class)
     fun delete(id: String): Boolean {
         return writeQueryCounters.measure {
             store.delete(id)
         }
     }
 
-    @Throws(LoginsStorageException::class)
+    @Throws(LoginsApiException::class)
     fun get(id: String): EncryptedLogin? {
         return readQueryCounters.measure {
             store.get(id)
         }
     }
 
-    @Throws(LoginsStorageException::class)
+    @Throws(LoginsApiException::class)
     fun touch(id: String) {
         writeQueryCounters.measure {
             store.touch(id)
         }
     }
 
-    @Throws(LoginsStorageException::class)
+    @Throws(LoginsApiException::class)
     fun list(): List<EncryptedLogin> {
         return readQueryCounters.measure {
             store.list()
         }
     }
 
-    @Throws(LoginsStorageException::class)
+    @Throws(LoginsApiException::class)
     fun getByBaseDomain(baseDomain: String): List<EncryptedLogin> {
         return readQueryCounters.measure {
             store.getByBaseDomain(baseDomain)
         }
     }
 
-    @Throws(LoginsStorageException::class)
+    @Throws(LoginsApiException::class)
     fun findLoginToUpdate(look: LoginEntry, encryptionKey: String): Login? {
         return readQueryCounters.measure {
             store.findLoginToUpdate(look, encryptionKey)
         }
     }
 
-    @Throws(LoginsStorageException::class)
+    @Throws(LoginsApiException::class)
     fun add(entry: LoginEntry, encryptionKey: String): EncryptedLogin {
         return writeQueryCounters.measure {
             store.add(entry, encryptionKey)
         }
     }
 
-    @Throws(LoginsStorageException::class)
+    @Throws(LoginsApiException::class)
     fun update(id: String, entry: LoginEntry, encryptionKey: String): EncryptedLogin {
         return writeQueryCounters.measure {
             store.update(id, entry, encryptionKey)
         }
     }
 
-    @Throws(LoginsStorageException::class)
+    @Throws(LoginsApiException::class)
     fun addOrUpdate(entry: LoginEntry, encryptionKey: String): EncryptedLogin {
         return writeQueryCounters.measure {
             store.addOrUpdate(entry, encryptionKey)
-        }
-    }
-
-    @Throws(LoginsStorageException::class)
-    fun importMultiple(logins: List<Login>, encryptionKey: String): String {
-        return writeQueryCounters.measure {
-            store.importMultiple(logins, encryptionKey)
         }
     }
 
@@ -119,7 +112,7 @@ class DatabaseLoginsStorage(dbPath: String) : AutoCloseable {
     }
 
     @Synchronized
-    @Throws(LoginsStorageException::class)
+    @Throws(LoginsApiException::class)
     override fun close() {
         store.close()
     }
@@ -143,7 +136,7 @@ fun migrateLoginsWithMetrics(newDbPath: String, newDbEncKey: String, sqlCipherDb
     try {
         // last param is the "salt" which is only used on iOS.
         migrateLogins(newDbPath, newDbEncKey, sqlCipherDbPath, sqlCipherEncKey, null)
-    } catch (e: LoginsStorageException) {
+    } catch (e: LoginsApiException) {
         // Ignore all migration errors. There's nothing the consuming app can
         // do about it, and we are never going to retry.
     }
@@ -193,16 +186,16 @@ class LoginsStoreCounterMetrics(
                 throw e
             }
             when (e) {
-                is LoginsStorageException.NoSuchRecord -> {
+                is LoginsApiException.NoSuchRecord -> {
                     errCount["no_such_record"].add()
                 }
-                is LoginsStorageException.Interrupted -> {
+                is LoginsApiException.Interrupted -> {
                     errCount["interrupted"].add()
                 }
-                is LoginsStorageException.InvalidRecord -> {
+                is LoginsApiException.InvalidRecord -> {
                     errCount["invalid_record"].add()
                 }
-                is LoginsStorageException -> {
+                is LoginsApiException -> {
                     errCount["storage_error"].add()
                 }
                 else -> {

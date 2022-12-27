@@ -17,7 +17,7 @@ branch_build_schema = Schema({
   # Which repository are we working on
   Required("repository"): In([
       'application-services',
-      'android-components',
+      'firefox-android',
       'fenix',
   ]),
   # Name of the task, taken from the key in the jobs dict.  This determines
@@ -48,7 +48,6 @@ TASK_COMMON = {
             'android-libs',
             'desktop-linux-libs',
             'desktop-macos-libs',
-            'desktop-win32-x86-64-libs',
             'robolectric',
             'rust',
         ],
@@ -82,8 +81,8 @@ def setup(config, tasks):
         task['description'] = '{} {}'.format(operation, repo_name)
         if repo_name == 'application-services':
             setup_application_services(task)
-        elif repo_name == 'android-components':
-            setup_android_components(task, branch_build_params)
+        elif repo_name == 'firefox-android':
+            setup_firefox_android(task, branch_build_params)
         elif repo_name == 'fenix':
             setup_fenix(task, branch_build_params)
         else:
@@ -109,12 +108,11 @@ def setup_application_services(task):
             'android-libs',
             'desktop-linux-libs',
             'desktop-macos-libs',
-            'desktop-win32-x86-64-libs',
             'rust',
         ],
     }
 
-def setup_android_components(task, branch_build_params):
+def setup_firefox_android(task, branch_build_params):
     task['dependencies'] = {
         'branch-build-as': 'branch-build-as-build',
     }
@@ -128,7 +126,7 @@ def setup_android_components(task, branch_build_params):
     task['run']['pre-gradlew'].extend([
         ['rsync', '-a', '/builds/worker/fetches/.m2/', '/builds/worker/.m2/'],
         setup_branch_build_command_line(branch_build_params, setup_fenix=False),
-        ['cd', 'android-components'],
+        ['cd', 'firefox-android/android-components'],
         ['git', 'rev-parse', '--short', 'HEAD'],
         # Building this up-front seems to make the build more stable.  I think
         # having multiple components all try to execute the
@@ -139,7 +137,7 @@ def setup_android_components(task, branch_build_params):
 def setup_fenix(task, branch_build_params):
     task['dependencies'] = {
         'branch-build-as': 'branch-build-as-build',
-        'branch-build-ac': 'branch-build-ac-build',
+        'branch-build-firefox-android': 'branch-build-firefox-android-build',
     }
 
     task['fetches'] = {
@@ -147,7 +145,7 @@ def setup_fenix(task, branch_build_params):
             'robolectric',
         ],
         'branch-build-as': [ 'application-services-m2.tar.gz' ],
-        'branch-build-ac': ['android-components-m2.tar.gz' ],
+        'branch-build-firefox-android': ['firefox-android-m2.tar.gz' ],
     }
     task['run']['pre-gradlew'].extend([
         ['rsync', '-a', '/builds/worker/fetches/.m2/', '/builds/worker/.m2/'],
@@ -159,10 +157,10 @@ def setup_fenix(task, branch_build_params):
 def setup_branch_build_command_line(branch_build_params, setup_fenix):
     cmd_line = [
             'taskcluster/scripts/setup-branch-build.py',
-            '--android-components-owner',
-            branch_build_params.get('android-components-owner', 'mozilla-mobile'),
-            '--android-components-branch',
-            branch_build_params.get('android-components-branch', 'main'),
+            '--firefox-android-owner',
+            branch_build_params.get('firefox-android-owner', 'mozilla-mobile'),
+            '--firefox-android-branch',
+            branch_build_params.get('firefox-android-branch', 'main'),
     ]
     if setup_fenix:
         cmd_line.extend([
@@ -210,7 +208,7 @@ def get_fenix_build_tasks(task):
     yield task
 
 def get_test_tasks(task, repo_name):
-    if repo_name == 'android-components':
+    if repo_name == 'firefox-android':
         # Split up the android components tasks by project.  Running them all at once in the same task tends to cause failures
         # Also, use `testRelease` instead of `testDebugUnitTest`.  I'm not sure what the difference is, but this is what the android-components CI runs.
         for project in get_android_components_projects():

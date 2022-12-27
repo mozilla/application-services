@@ -64,20 +64,20 @@ pub fn migrate_logins(
 
         // If the sqlcipher db doesn't exist we can't do anything.
         if !sqlcipher_path.exists() {
-            return Err(LoginsError::InvalidDatabaseFile(
+            return Err(Error::InvalidDatabaseFile(
                 sqlcipher_path.to_string_lossy().to_string(),
             ));
         }
 
         // If the target does exist we fail as we don't want to migrate twice.
         if path.exists() {
-            return Err(LoginsError::MigrationError(
+            return Err(Error::MigrationError(
                 "target database already exists".to_string(),
             ));
         }
         migrate_sqlcipher_db_to_plaintext(
-            &sqlcipher_path,
-            &path,
+            sqlcipher_path,
+            path,
             sqlcipher_key,
             new_encryption_key,
             salt.as_ref(),
@@ -1246,7 +1246,7 @@ mod tests {
             )
             .err()
             .unwrap(),
-            LoginsStorageError::UnexpectedLoginsStorageError(s) if s == "Invalid database file: /some/path/to/db.db",
+            LoginsApiError::UnexpectedLoginsApiError { reason: s } if s == "Invalid database file: /some/path/to/db.db",
         ))
     }
 
@@ -1268,7 +1268,7 @@ mod tests {
             )
             .err()
             .unwrap(),
-            LoginsStorageError::UnexpectedLoginsStorageError(s) if s == "Migration Error: target database already exists",
+            LoginsApiError::UnexpectedLoginsApiError { reason: s } if s == "Migration Error: target database already exists",
         ));
     }
 

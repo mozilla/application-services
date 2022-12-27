@@ -42,24 +42,26 @@ else
 fi
 NSPR_64="${NSPR_64:-""}"
 
-export AR="${TOOLCHAIN_PATH}/bin/llvm-ar"
+export AR="${TOOLCHAIN_PATH}/bin/${TOOLCHAIN}-ar"
 export CC="${TOOLCHAIN_PATH}/bin/${TOOLCHAIN}${ANDROID_NDK_API_VERSION}-clang"
 export CXX="${TOOLCHAIN_PATH}/bin/${TOOLCHAIN}${ANDROID_NDK_API_VERSION}-clang++"
-# For 32-bit ARM, the compiler is prefixed with armv7a-linux-androideabi
+# https://developer.android.com/ndk/guides/other_build_systems:
+# For 32-bit ARM, the compiler is prefixed with armv7a-linux-androideabi,
+# but the binutils tools are prefixed with arm-linux-androideabi.
 if [[ "${TOOLCHAIN}" == "arm-linux-androideabi" ]]; then
   export CC="${TOOLCHAIN_PATH}/bin/armv7a-linux-androideabi${ANDROID_NDK_API_VERSION}-clang"
   export CXX="${TOOLCHAIN_PATH}/bin/armv7a-linux-androideabi${ANDROID_NDK_API_VERSION}-clang++"
 fi
-export LD="${TOOLCHAIN_PATH}/bin/ld"
-export NM="${TOOLCHAIN_PATH}/bin/llvm-nm"
-export RANLIB="${TOOLCHAIN_PATH}/bin/llvm-ranlib"
-export READELF="${TOOLCHAIN_PATH}/bin/llvm-readelf"
+export LD="${TOOLCHAIN_PATH}/bin/${TOOLCHAIN}-ld"
+export NM="${TOOLCHAIN_PATH}/bin/${TOOLCHAIN}-nm"
+export RANLIB="${TOOLCHAIN_PATH}/bin/${TOOLCHAIN}-ranlib"
+export READELF="${TOOLCHAIN_PATH}/bin/${TOOLCHAIN}-readelf"
 
 # Build NSPR
 NSPR_BUILD_DIR=$(mktemp -d)
 pushd "${NSPR_BUILD_DIR}"
 "${NSS_SRC_DIR}"/nspr/configure \
-  ${NSPR_64} \
+  "${NSPR_64}" \
   --target="${TOOLCHAIN}" \
    --disable-debug \
    --enable-optimize
@@ -110,9 +112,10 @@ cp -p -L "${BUILD_DIR}/lib/libsmime.a" "${DIST_DIR}/lib"
 cp -p -L "${BUILD_DIR}/lib/libsoftokn_static.a" "${DIST_DIR}/lib"
 cp -p -L "${BUILD_DIR}/lib/libssl.a" "${DIST_DIR}/lib"
 # HW specific.
-# https://searchfox.org/nss/rev/08c4d05078d00089f8d7540651b0717a9d66f87e/lib/freebl/freebl.gyp#278-296
+# https://searchfox.org/nss/rev/0d5696b3edce5124353f03159d2aa15549db8306/lib/freebl/freebl.gyp#508-542
 if [[ "${TOOLCHAIN}" == "i686-linux-android" ]] || [[ "${TOOLCHAIN}" == "x86_64-linux-android" ]]; then
   cp -p -L "${BUILD_DIR}/lib/libgcm-aes-x86_c_lib.a" "${DIST_DIR}/lib"
+  cp -p -L "${BUILD_DIR}/lib/libsha-x86_c_lib.a" "${DIST_DIR}/lib"
 fi
 if [[ "${TOOLCHAIN}" == "aarch64-linux-android" ]] || [[ "${TOOLCHAIN}" == "arm-linux-androideabi" ]]; then
   cp -p -L "${BUILD_DIR}/lib/libarmv8_c_lib.a" "${DIST_DIR}/lib"

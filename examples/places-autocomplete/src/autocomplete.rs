@@ -204,8 +204,6 @@ fn import_places(
     println!("Finished processing records");
     println!("Committing....");
     tx.commit()?;
-    println!("running maintenance...");
-    places::storage::run_maintenance(new, 0)?;
 
     log::info!("Finished import!");
     Ok(())
@@ -216,7 +214,7 @@ mod autocomplete {
     use super::*;
     use interrupt_support::SqlInterruptHandle;
     use places::api::matcher::{search_frecent, SearchParams, SearchResult};
-    use places::ErrorKind;
+    use places::Error;
     use rusqlite::{Error as RusqlError, ErrorCode};
     use std::sync::{
         atomic::{AtomicUsize, Ordering},
@@ -308,11 +306,11 @@ mod autocomplete {
                                     .unwrap(); // This failing means the main thread has died (most likely)
                             }
                             Err(e) => {
-                                match e.kind() {
-                                    ErrorKind::InterruptedError(_) => {
+                                match e {
+                                    Error::InterruptedError(_) => {
                                         // Ignore.
                                     }
-                                    ErrorKind::SqlError(RusqlError::SqliteFailure(err, _))
+                                    Error::SqlError(RusqlError::SqliteFailure(err, _))
                                         if err.code == ErrorCode::OperationInterrupted =>
                                     {
                                         // Ignore.
@@ -761,7 +759,7 @@ fn main() -> Result<()> {
         .value_of("database_path")
         .unwrap_or("./new-places.db");
 
-    let api = places::PlacesApi::new(&db_path)?;
+    let api = places::PlacesApi::new(db_path)?;
     let mut conn = api.open_connection(places::ConnectionType::ReadWrite)?;
 
     if let Some(import_places_arg) = matches.value_of("import_places") {

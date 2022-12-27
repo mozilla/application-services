@@ -91,7 +91,7 @@ pub(crate) fn get_credit_card(conn: &Connection, guid: &Guid) -> Result<Internal
         common_cols = CREDIT_CARD_COMMON_COLS
     );
 
-    conn.query_row(&sql, &[guid], InternalCreditCard::from_row)
+    conn.query_row(&sql, [guid], InternalCreditCard::from_row)
         .map_err(|e| match e {
             rusqlite::Error::QueryReturnedNoRows => Error::NoSuchRecord(guid.to_string()),
             e => e.into(),
@@ -236,6 +236,7 @@ pub(crate) mod tests {
     use super::*;
     use crate::db::test::new_mem_db;
     use crate::encryption::EncryptorDecryptor;
+    use sync15::bso::IncomingBso;
 
     pub fn get_all(
         conn: &Connection,
@@ -274,19 +275,17 @@ pub(crate) mod tests {
         )
     }
 
-    pub(crate) fn test_insert_mirror_record(conn: &Connection, payload: sync15::Payload) {
+    pub(crate) fn test_insert_mirror_record(conn: &Connection, bso: IncomingBso) {
         // This test function is a bit suspect, because credit-cards always
         // store encrypted records, which this ignores entirely, and stores the
         // raw payload with a cleartext cc_number.
         // It's OK for all current test consumers, but it's a bit of a smell...
-        let guid = payload.id.clone();
-        let payload_string = payload.into_json_string();
         conn.execute(
             "INSERT INTO credit_cards_mirror (guid, payload)
              VALUES (:guid, :payload)",
             rusqlite::named_params! {
-                ":guid": guid,
-                ":payload": &payload_string,
+                ":guid": &bso.envelope.id,
+                ":payload": &bso.payload,
             },
         )
         .expect("should insert");
@@ -513,7 +512,7 @@ pub(crate) mod tests {
                 AND cc_exp_month = :cc_exp_month
                 AND sync_change_counter = 0
             )",
-            &[&guid.to_string(), &expected_cc_exp_month.to_string()],
+            [&guid.to_string(), &expected_cc_exp_month.to_string()],
             |row| row.get(0),
         )?;
         assert!(record_exists);
@@ -556,7 +555,7 @@ pub(crate) mod tests {
 
         // create a mirror record to check that a tombstone record is created upon deletion
         let cc2_guid = saved_credit_card2.guid.clone();
-        let payload = saved_credit_card2.into_payload(&encdec).expect("is json");
+        let payload = saved_credit_card2.into_test_incoming_bso(&encdec);
 
         test_insert_mirror_record(&db, payload);
 
@@ -571,7 +570,7 @@ pub(crate) mod tests {
                 FROM credit_cards_tombstones
                 WHERE guid = :guid
             )",
-            &[&cc2_guid],
+            [&cc2_guid],
             |row| row.get(0),
         )?;
         assert!(tombstone_exists);

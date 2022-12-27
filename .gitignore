@@ -4,6 +4,8 @@ credentials.json
 *-engine.json
 *.db
 .*.swp
+*.db-shm
+*.db-wal
 
 # Android stuff.
 *.iml

@@ -25,6 +25,7 @@ tabs = { path = "../../components/tabs", features=["full-sync"] }
 serde_json = "1"
 log = "0.4"
 anyhow = "1.0"
+chrono = "0.4"
 clipboard = "0.5"
 structopt = "0.3"
 cli-support = { path = "../cli-support" }

@@ -56,6 +56,30 @@ private extension Nimbus {
     }
 }
 
+extension Nimbus: NimbusQueues {
+    public func waitForFetchQueue() {
+        fetchQueue.waitUntilAllOperationsAreFinished()
+    }
+
+    public func waitForDbQueue() {
+        dbQueue.waitUntilAllOperationsAreFinished()
+    }
+}
+
+extension Nimbus: NimbusEvents {
+    public func recordEvent(_ eventId: String) {
+        catchAll(dbQueue) {
+            try self.nimbusClient.recordEvent(eventId: eventId)
+        }
+    }
+
+    public func clearEvents() {
+        catchAll(dbQueue) {
+            try self.nimbusClient.clearEvents()
+        }
+    }
+}
+
 extension Nimbus: FeaturesInterface {
     public func recordExposureEvent(featureId: String) {
         // First we need a list of the active experiments that are enrolled.
@@ -70,7 +94,6 @@ extension Nimbus: FeaturesInterface {
             // for an experiment without an active enrollment.
             GleanMetrics.NimbusEvents.exposure.record(GleanMetrics.NimbusEvents.ExposureExtra(
                 branch: experiment.branchSlug,
-                enrollmentId: experiment.enrollmentId,
                 experiment: experiment.slug
             ))
         }
@@ -122,19 +145,28 @@ extension Nimbus: FeaturesInterface {
                     enrollmentId: event.enrollmentId,
                     experiment: event.experimentSlug
                 ))
+
+            case .enrollFailed:
+                GleanMetrics.NimbusEvents.enrollFailed.record(GleanMetrics.NimbusEvents.EnrollFailedExtra(
+                    branch: event.branchSlug,
+                    experiment: event.experimentSlug,
+                    reason: event.reason
+                ))
+            case .unenrollFailed:
+                GleanMetrics.NimbusEvents.unenrollFailed.record(GleanMetrics.NimbusEvents.UnenrollFailedExtra(
+                    experiment: event.experimentSlug,
+                    reason: event.reason
+                ))
             }
         }
     }
 
     internal func getFeatureConfigVariablesJson(featureId: String) -> [String: Any]? {
         do {
-            if let string = try nimbusClient.getFeatureConfigVariables(featureId: featureId),
-               let data = string.data(using: .utf8)
-            {
-                return try JSONSerialization.jsonObject(with: data, options: []) as? [String: Any]
-            } else {
+            guard let string = try nimbusClient.getFeatureConfigVariables(featureId: featureId) else {
                 return nil
             }
+            return try Dictionary.parse(jsonString: string)
         } catch NimbusError.DatabaseNotReady {
             GleanMetrics.NimbusHealth.cacheNotReadyForFeature.record(
                 GleanMetrics.NimbusHealth.CacheNotReadyForFeatureExtra(
@@ -313,8 +345,7 @@ extension Nimbus: GleanPlumbProtocol {
     }
 
     public func createMessageHelper(additionalContext: [String: Any]) throws -> GleanPlumbMessageHelper {
-        let data = try JSONSerialization.data(withJSONObject: additionalContext, options: [])
-        let string = String(data: data, encoding: .utf8)
+        let string = try additionalContext.stringify()
         return try createMessageHelper(string: string)
     }
 
@@ -375,9 +406,17 @@ public extension NimbusDisabled {
 
     func recordExposureEvent(featureId _: String) {}
 
+    func recordEvent(_: String) {}
+
+    func clearEvents() {}
+
     func getExperimentBranches(_: String) -> [Branch]? {
         return nil
     }
+
+    func waitForFetchQueue() {}
+
+    func waitForDbQueue() {}
 }
 
 extension NimbusDisabled: GleanPlumbProtocol {

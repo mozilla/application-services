@@ -81,6 +81,7 @@ impl<T> ConfigSyncEngine<T> {
         let tx = db.unchecked_transaction()?;
         self.storage_impl.reset_storage(&tx)?;
         self.put_meta(&tx, LAST_SYNC_META_KEY, &0)?;
+        tx.commit()?;
         Ok(())
     }
 }
@@ -238,7 +239,15 @@ mod tests {
     use crate::db::models::credit_card::InternalCreditCard;
     use crate::db::schema::create_empty_sync_temp_tables;
     use crate::encryption::EncryptorDecryptor;
+    use crate::sync::IncomingBso;
     use sql_support::ConnExt;
+
+    impl InternalCreditCard {
+        pub fn into_test_incoming_bso(self, encdec: &EncryptorDecryptor) -> IncomingBso {
+            let payload = self.into_payload(encdec).expect("is json");
+            IncomingBso::from_test_content(payload)
+        }
+    }
 
     // We use the credit-card engine here.
     fn create_engine() -> ConfigSyncEngine<InternalCreditCard> {
@@ -335,7 +344,7 @@ mod tests {
             let tx = db.writer.unchecked_transaction()?;
             // create a normal record, a mirror record and a tombstone.
             add_internal_credit_card(&tx, &cc)?;
-            test_insert_mirror_record(&tx, cc.clone().into_payload(&encdec).expect("is json"));
+            test_insert_mirror_record(&tx, cc.clone().into_test_incoming_bso(&encdec));
             insert_tombstone_record(&tx, Guid::random().to_string())?;
             tx.commit()?;
         }
@@ -387,7 +396,7 @@ mod tests {
             // re-populating the tables
             let tx = conn.unchecked_transaction()?;
             add_internal_credit_card(&tx, &cc)?;
-            test_insert_mirror_record(&tx, cc.into_payload(&encdec).expect("is json"));
+            test_insert_mirror_record(&tx, cc.into_test_incoming_bso(&encdec));
             insert_tombstone_record(&tx, Guid::random().to_string())?;
             tx.commit()?;
         }

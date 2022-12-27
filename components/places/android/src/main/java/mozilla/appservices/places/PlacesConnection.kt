@@ -8,7 +8,7 @@ import mozilla.appservices.places.uniffi.BookmarkPosition
 import mozilla.appservices.places.uniffi.ConnectionType
 import mozilla.appservices.places.uniffi.DocumentType
 import mozilla.appservices.places.uniffi.FrecencyThresholdOption
-import mozilla.appservices.places.uniffi.PlacesException
+import mozilla.appservices.places.uniffi.PlacesApiException
 import mozilla.appservices.places.uniffi.HistoryHighlight
 import mozilla.appservices.places.uniffi.HistoryHighlightWeights
 import mozilla.appservices.places.uniffi.HistoryMetadata
@@ -31,7 +31,6 @@ import mozilla.appservices.places.uniffi.BookmarkUpdateInfo
 import mozilla.appservices.sync15.SyncTelemetryPing
 import mozilla.telemetry.glean.private.CounterMetricType
 import mozilla.telemetry.glean.private.LabeledMetricType
-import org.json.JSONObject
 import java.lang.ref.WeakReference
 import org.mozilla.appservices.places.GleanMetrics.PlacesManager as PlacesManagerMetrics
 
@@ -103,20 +102,6 @@ class PlacesApi(path: String) : PlacesManager, AutoCloseable {
                 syncInfo.tokenserverURL
             )
         return SyncTelemetryPing.fromJSONString(pingJSONString)
-    }
-
-    override fun importBookmarksFromFennec(path: String): JSONObject {
-        val metrics = this.api.placesBookmarksImportFromFennec(path)
-        return JSONObject(metrics)
-    }
-
-    override fun importPinnedSitesFromFennec(path: String): List<BookmarkItem> {
-        return this.api.placesPinnedSitesImportFromFennec(path)
-    }
-
-    override fun importVisitsFromFennec(path: String): JSONObject {
-        val metrics = this.api.placesHistoryImportFromFennec(path)
-        return JSONObject(metrics)
     }
 
     override fun resetHistorySyncMetadata() {
@@ -339,10 +324,25 @@ class PlacesWriterConnection internal constructor(conn: UniffiPlacesConnection, 
     }
 
     override fun runMaintenance(dbSizeLimit: UInt) {
-        val timer = PlacesManagerMetrics.runMaintenanceTime.start()
-        val metrics = this.conn.runMaintenance(dbSizeLimit)
-        PlacesManagerMetrics.runMaintenanceTime.stopAndAccumulate(timer)
-        PlacesManagerMetrics.dbSizeAfterMaintenance.accumulateSamples(listOf(metrics.dbSizeAfter.toLong() / 1024))
+        val pruneMetrics = PlacesManagerMetrics.runMaintenanceTime.measure {
+            val pruneMetrics = PlacesManagerMetrics.runMaintenancePruneTime.measure {
+                this.conn.runMaintenancePrune(dbSizeLimit)
+            }
+
+            PlacesManagerMetrics.runMaintenanceVacuumTime.measure {
+                this.conn.runMaintenanceVacuum()
+            }
+
+            PlacesManagerMetrics.runMaintenanceOptimizeTime.measure {
+                this.conn.runMaintenanceOptimize()
+            }
+
+            PlacesManagerMetrics.runMaintenanceChkPntTime.measure {
+                this.conn.runMaintenanceCheckpoint()
+            }
+            pruneMetrics
+        }
+        PlacesManagerMetrics.dbSizeAfterMaintenance.accumulateSamples(listOf(pruneMetrics.dbSizeAfter.toLong() / 1024))
     }
 
     override fun pruneDestructively() {
@@ -541,41 +541,6 @@ interface PlacesManager {
      * you have all connections you intend using open before calling this.
      */
     fun syncBookmarks(syncInfo: SyncAuthInfo): SyncTelemetryPing
-
-    /**
-     * Imports bookmarks from a Fennec `browser.db` database.
-     *
-     * It has been designed exclusively for non-sync users.
-     *
-     * @param path Path to the `browser.db` file database.
-     * @return JSONObject with import metrics.
-     */
-    fun importBookmarksFromFennec(path: String): JSONObject
-
-    /**
-     * Imports visits from a Fennec `browser.db` database.
-     *
-     * It has been designed exclusively for non-sync users and should
-     * be called before bookmarks import.
-     *
-     * @param path Path to the `browser.db` file database.
-     * @return JSONObject with import metrics.
-     */
-    fun importVisitsFromFennec(path: String): JSONObject
-
-    /**
-     * Returns pinned sites from a Fennec `browser.db` bookmark database.
-     *
-     * Fennec used to store "pinned websites" as normal bookmarks
-     * under an invisible root.
-     * During import, this un-syncable root and its children are ignored,
-     * so we return the pinned websites separately as a list so
-     * Fenix can store them in a collection.
-     *
-     * @param path Path to the `browser.db` file database.
-     * @return A list of pinned websites.
-     */
-    fun importPinnedSitesFromFennec(path: String): List<BookmarkItem>
 
     /**
      * Resets all sync metadata for history, including change flags,
@@ -977,37 +942,22 @@ class PlacesManagerCounterMetrics(
             return callback()
         } catch (e: Exception) {
             when (e) {
-                is PlacesException.UrlParseFailed -> {
+                is PlacesApiException.UrlParseFailed -> {
                     errCount["url_parse_failed"].add()
                 }
-                is PlacesException.OperationInterrupted -> {
+                is PlacesApiException.OperationInterrupted -> {
                     errCount["operation_interrupted"].add()
                 }
-                is PlacesException.InvalidParent -> {
-                    errCount["invalid_parent"].add()
-                }
-                is PlacesException.UnknownBookmarkItem -> {
+                is PlacesApiException.UnknownBookmarkItem -> {
                     errCount["unknown_bookmark_item"].add()
                 }
-                is PlacesException.UrlTooLong -> {
-                    errCount["url_too_long"].add()
+                is PlacesApiException.InvalidBookmarkOperation -> {
+                    errCount["invalid_bookmark_operation"].add()
                 }
-                is PlacesException.InvalidBookmarkUpdate -> {
-                    errCount["invalid_bookmark_update"].add()
-                }
-                is PlacesException.CannotUpdateRoot -> {
-                    errCount["cannot_update_root"].add()
-                }
-                is PlacesException.JsonParseFailed -> {
-                    errCount["json_parse_failed"].add()
-                }
-                is PlacesException.PlacesConnectionBusy -> {
+                is PlacesApiException.PlacesConnectionBusy -> {
                     errCount["places_connection_busy"].add()
                 }
-                is PlacesException.BookmarksCorruption -> {
-                    errCount["bookmarks_corruption"].add()
-                }
-                is PlacesException.UnexpectedPlacesException -> {
+                is PlacesApiException.UnexpectedPlacesException -> {
                     errCount["unexpected_places_exception"].add()
                 }
                 else -> {

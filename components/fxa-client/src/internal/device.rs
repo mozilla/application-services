@@ -180,29 +180,6 @@ impl FirefoxAccount {
         self.fetch_and_parse_commands(last_command_index + 1, None, reason)
     }
 
-    /// Retrieve and parse a specific command designated by its index.
-    ///
-    /// **💾 This method alters the persisted account state.**
-    ///
-    /// Note that this should not be used if possible, as it does not correctly
-    /// handle missed messages. It's currently used only on iOS due to platform
-    /// restrictions (but we should still try and work out how to correctly
-    /// handle missed messages within those restrictions)
-    /// (What's wrong: if we get a push for tab-1 and a push for tab-3, and
-    /// between them I've never explicitly polled, I'll miss tab-2, even if I
-    /// try polling now)
-    pub fn ios_fetch_device_command(&mut self, index: u64) -> Result<IncomingDeviceCommand> {
-        let mut device_commands =
-            self.fetch_and_parse_commands(index, Some(1), CommandFetchReason::Push(index))?;
-        let device_command = device_commands
-            .pop()
-            .ok_or(ErrorKind::IllegalState("Index fetch came out empty."))?;
-        if !device_commands.is_empty() {
-            log::warn!("Index fetch resulted in more than 1 element");
-        }
-        Ok(device_command)
-    }
-
     fn fetch_and_parse_commands(
         &mut self,
         index: u64,
@@ -233,7 +210,11 @@ impl FirefoxAccount {
             .filter_map(|msg| match self.parse_command(msg, &devices, reason) {
                 Ok(device_command) => Some(device_command),
                 Err(e) => {
-                    log::error!("Error while processing command: {}", e);
+                    error_support::report_error!(
+                        "fxaclient-command",
+                        "Error while processing command: {}",
+                        e
+                    );
                     None
                 }
             })

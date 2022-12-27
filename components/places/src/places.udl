@@ -12,7 +12,7 @@ typedef i32 VisitTransitionSet;
 typedef string Guid;
 
 namespace places {
-    [Throws=PlacesError]
+    [Throws=PlacesApiError]
     PlacesApi places_api_new(string db_path);
 };
 
@@ -27,168 +27,187 @@ interface SqlInterruptHandle {
 };
 
 interface PlacesApi {
-    [Throws=PlacesError]
+    [Throws=PlacesApiError]
     PlacesConnection new_connection(ConnectionType conn_type);
 
     [Self=ByArc]
     void register_with_sync_manager();
 
-    [Throws=PlacesError]
+    [Throws=PlacesApiError]
     void reset_history();
 
-    [Throws=PlacesError]
+    [Throws=PlacesApiError]
     string history_sync(string key_id, string access_token, string sync_key, Url tokenserver_url);
 
-    [Throws=PlacesError]
+    [Throws=PlacesApiError]
     string bookmarks_sync(string key_id, string access_token, string sync_key, Url tokenserver_url);
 
-    [Throws=PlacesError]
-    sequence<BookmarkItem> places_pinned_sites_import_from_fennec(string db_path);
-
-    [Throws=PlacesError]
-    string places_history_import_from_fennec(string db_path);
-
-    [Throws=PlacesError]
-    string places_bookmarks_import_from_fennec(string db_path);
-
-    [Throws=PlacesError]
+    [Throws=PlacesApiError]
     void places_bookmarks_import_from_ios(string db_path);
 
-    [Throws=PlacesError]
+    [Throws=PlacesApiError]
     void bookmarks_reset();
 };
 
 interface PlacesConnection {
     SqlInterruptHandle new_interrupt_handle();
 
-    [Throws=PlacesError]
+    [Throws=PlacesApiError]
     HistoryMetadata? get_latest_history_metadata_for_url(Url url);
 
-    [Throws=PlacesError]
+    [Throws=PlacesApiError]
     sequence<HistoryMetadata> get_history_metadata_between(PlacesTimestamp start, PlacesTimestamp end);
 
-    [Throws=PlacesError]
+    [Throws=PlacesApiError]
     sequence<HistoryMetadata> get_history_metadata_since(PlacesTimestamp since);
 
-    [Throws=PlacesError]
+    [Throws=PlacesApiError]
     sequence<SearchResult> query_autocomplete(string search, i32 limit);
 
     // `url` is a `string` and not a `URL` because `accept_result`
     // handles malformed urls
-    [Throws=PlacesError]
+    [Throws=PlacesApiError]
     void accept_result(string search_string, string url);
 
-    [Throws=PlacesError]
+    [Throws=PlacesApiError]
     Url? match_url(string query);
 
-    [Throws=PlacesError]
+    [Throws=PlacesApiError]
     sequence<HistoryMetadata> query_history_metadata(string query, i32 limit);
 
-    [Throws=PlacesError]
+    [Throws=PlacesApiError]
     sequence<HistoryHighlight> get_history_highlights(HistoryHighlightWeights weights, i32 limit);
 
-    [Throws=PlacesError]
+    [Throws=PlacesApiError]
     void note_history_metadata_observation(HistoryMetadataObservation data);
 
-    [Throws=PlacesError]
+    [Throws=PlacesApiError]
     void metadata_delete(Url url, Url? referrer_url, string? search_term);
 
-    [Throws=PlacesError]
+    [Throws=PlacesApiError]
     void metadata_delete_older_than(PlacesTimestamp older_than);
 
-    [Throws=PlacesError]
+    [Throws=PlacesApiError]
     void apply_observation(VisitObservation visit);
 
-    [Throws=PlacesError]
+    [Throws=PlacesApiError]
     sequence<Url> get_visited_urls_in_range(PlacesTimestamp start, PlacesTimestamp end, boolean include_remote);
 
-    [Throws=PlacesError]
+    [Throws=PlacesApiError]
     sequence<HistoryVisitInfo> get_visit_infos(PlacesTimestamp start_date, PlacesTimestamp end_date, VisitTransitionSet exclude_types);
 
-    [Throws=PlacesError]
+    [Throws=PlacesApiError]
     i64 get_visit_count(VisitTransitionSet exclude_types);
 
-    [Throws=PlacesError]
+    [Throws=PlacesApiError]
     sequence<HistoryVisitInfo> get_visit_page(i64 offset, i64 count, VisitTransitionSet exclude_types);
     // TODO: bound should be a `PlacesTimestamp`?
-    [Throws=PlacesError]
+    [Throws=PlacesApiError]
     HistoryVisitInfosWithBound get_visit_page_with_bound(i64 bound, i64 offset, i64 count, VisitTransitionSet exclude_types);
 
-    [Throws=PlacesError]
+    [Throws=PlacesApiError]
     sequence<boolean> get_visited(sequence<string> urls);
 
-    [Throws=PlacesError]
+    [Throws=PlacesApiError]
     void delete_visits_for(string url);
 
-    [Throws=PlacesError]
+    [Throws=PlacesApiError]
     void delete_visits_between(PlacesTimestamp start, PlacesTimestamp end);
 
-    [Throws=PlacesError]
+    [Throws=PlacesApiError]
     void delete_visit(string url, PlacesTimestamp timestamp);
 
-    [Throws=PlacesError]
+    [Throws=PlacesApiError]
     sequence<TopFrecentSiteInfo> get_top_frecent_site_infos(i32 num_items, FrecencyThresholdOption threshold_option);
 
     // These three methods below are not actively being used by the consumers, we should investigate further
     // and remove if so https://github.com/mozilla/application-services/issues/4719
-    [Throws=PlacesError]
+    [Throws=PlacesApiError]
     void wipe_local_history();
 
     //From a-c: will not remove any history from remote devices, but it will prevent deleted
     // history from returning.
-    [Throws=PlacesError]
+    [Throws=PlacesApiError]
     void delete_everything_history();
 
     // Exactly the same as wipe_local_history
-    [Throws=PlacesError]
+    [Throws=PlacesApiError]
     void prune_destructively();
 
 
-    // Run various maintenance on the places DB
-    //
-    // This function is intended to be run during idle time and will take steps
-    // to clean up / shrink / the database.
-    //
-    // db_size_limit is the approximate storage limit in bytes.  If the
-    // database is using more space than this, some older visits will be
-    // deleted to free up space.  Pass in a 0 to skip this.
-    [Throws=PlacesError]
-    RunMaintenanceMetrics run_maintenance(u32 db_size_limit);
+    /// Run maintenance on the places DB (prune step)
+    ///
+    /// The `run_maintenance_*()` functions are intended to be run during idle time and will take steps
+    /// to clean up / shrink the database.  They're split up so that we can time each one in the
+    /// Kotlin wrapper code (This is needed because we only have access to the Glean API in Kotlin and
+    /// it supports a stop-watch style API, not recording specific values).
+    ///
+    /// db_size_limit is the approximate storage limit in bytes.  If the database is using more space
+    /// than this, some older visits will be deleted to free up space.  Pass in a 0 to skip this.
+    [Throws=PlacesApiError]
+    RunMaintenanceMetrics run_maintenance_prune(u32 db_size_limit);
 
-    [Throws=PlacesError]
+    /// Run maintenance on the places DB (vacuum step)
+    ///
+    /// The `run_maintenance_*()` functions are intended to be run during idle time and will take steps
+    /// to clean up / shrink the database.  They're split up so that we can time each one in the
+    /// Kotlin wrapper code (This is needed because we only have access to the Glean API in Kotlin and
+    /// it supports a stop-watch style API, not recording specific values).
+    [Throws=PlacesApiError]
+    void run_maintenance_vacuum();
+
+    /// Run maintenance on the places DB (optimize step)
+    ///
+    /// The `run_maintenance_*()` functions are intended to be run during idle time and will take steps
+    /// to clean up / shrink the database.  They're split up so that we can time each one in the
+    /// Kotlin wrapper code (This is needed because we only have access to the Glean API in Kotlin and
+    /// it supports a stop-watch style API, not recording specific values).
+    [Throws=PlacesApiError]
+    void run_maintenance_optimize();
+
+    /// Run maintenance on the places DB (checkpoint step)
+    ///
+    /// The `run_maintenance_*()` functions are intended to be run during idle time and will take steps
+    /// to clean up / shrink the database.  They're split up so that we can time each one in the
+    /// Kotlin wrapper code (This is needed because we only have access to the Glean API in Kotlin and
+    /// it supports a stop-watch style API, not recording specific values).
+    [Throws=PlacesApiError]
+    void run_maintenance_checkpoint();
+
+    [Throws=PlacesApiError]
     BookmarkItem? bookmarks_get_tree([ByRef] Guid item_guid);
 
-    [Throws=PlacesError]
+    [Throws=PlacesApiError]
     BookmarkItem? bookmarks_get_by_guid([ByRef] Guid guid, boolean get_direct_children);
 
     // XXX - should return BookmarkData
-    [Throws=PlacesError]
+    [Throws=PlacesApiError]
     sequence<BookmarkItem> bookmarks_get_all_with_url(string url);
 
     // XXX - should return BookmarkData
-    [Throws=PlacesError]
+    [Throws=PlacesApiError]
     sequence<BookmarkItem> bookmarks_search(string query, i32 limit);
 
     // XXX - should return BookmarkData
-    [Throws=PlacesError]
+    [Throws=PlacesApiError]
     sequence<BookmarkItem> bookmarks_get_recent(i32 limit);
 
-    [Throws=PlacesError]
+    [Throws=PlacesApiError]
     boolean bookmarks_delete(Guid id);
 
-    [Throws=PlacesError]
+    [Throws=PlacesApiError]
     void bookmarks_delete_everything();
 
-    [Throws=PlacesError]
+    [Throws=PlacesApiError]
     Url? bookmarks_get_url_for_keyword(string keyword);
 
-    [Throws=PlacesError]
+    [Throws=PlacesApiError]
     void bookmarks_update(BookmarkUpdateInfo data);
 
-    [Throws=PlacesError]
+    [Throws=PlacesApiError]
     Guid bookmarks_insert(InsertableBookmarkItem bookmark);
 
-    [Throws=PlacesError]
+    [Throws=PlacesApiError]
     HistoryMigrationResult places_history_import_from_ios(string db_path, i64 last_sync_timestamp);
 };
 
@@ -338,19 +357,13 @@ dictionary HistoryMigrationResult {
 
 
 [Error]
-enum PlacesError {
-    "UnexpectedPlacesException",
-    "UrlParseFailed",
-    "JsonParseFailed",
-    "PlacesConnectionBusy",
-    "OperationInterrupted",
-    "BookmarksCorruption",
-    "InvalidParent",
-    "UnknownBookmarkItem",
-    "UrlTooLong",
-    "InvalidBookmarkUpdate", // XXX - can we kill this?
-    "CannotUpdateRoot",
-    "InternalError",
+interface PlacesApiError {
+    UnexpectedPlacesException(string reason);
+    UrlParseFailed(string reason);
+    PlacesConnectionBusy(string reason);
+    OperationInterrupted(string reason);
+    UnknownBookmarkItem(string reason);
+    InvalidBookmarkOperation(string reason);
 };
 
 dictionary BookmarkData {

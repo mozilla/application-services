@@ -122,7 +122,12 @@ fn extract_value(string: Option<&str>, target: &str) -> Option<Vec<u8>> {
                 return match base64::decode_config(kv[1], base64::URL_SAFE_NO_PAD) {
                     Ok(v) => Some(v),
                     Err(e) => {
-                        log::error!("base64 failed for target:{}; {:?}", target, e);
+                        error_support::report_error!(
+                            "push-base64-decode",
+                            "base64 failed for target:{}; {:?}",
+                            target,
+                            e
+                        );
                         None
                     }
                 };

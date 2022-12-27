@@ -2,16 +2,16 @@ namespace autofill {
     // We expose the crypto primitives on the namespace
 
     // Create a new, random, encryption key.
-    [Throws=AutofillError]
+    [Throws=AutofillApiError]
     string create_key();
 
     // Encrypt an arbitrary string - `key` must have come from `create_key()`
-    [Throws=AutofillError]
+    [Throws=AutofillApiError]
     string encrypt_string(string key, string cleartext);
 
     // Decrypt an arbitrary string - `key` must have come from `create_key()`
     // and `ciphertext` must have come from `encrypt_string()`
-    [Throws=AutofillError]
+    [Throws=AutofillApiError]
     string decrypt_string(string key, string ciphertext);
 };
 
@@ -80,53 +80,55 @@ dictionary Address {
 };
 
 [Error]
-enum AutofillError {
-   "OpenDatabaseError", "SqlError", "IoError", "InterruptedError",
-   "IllegalDatabasePath", "Utf8Error", "JsonError", "InvalidSyncPayload",
-   "MissingEncryptionKey", "CryptoError", "NoSuchRecord",
+interface AutofillApiError {
+    SqlError(string reason);
+    InterruptedError();
+    CryptoError(string reason);
+    NoSuchRecord(string guid);
+    UnexpectedAutofillApiError(string reason);
 };
 
 interface Store {
-    [Throws=AutofillError]
+    [Throws=AutofillApiError]
     constructor(string dbpath);
 
-    [Throws=AutofillError]
+    [Throws=AutofillApiError]
     CreditCard add_credit_card(UpdatableCreditCardFields cc);
 
-    [Throws=AutofillError]
+    [Throws=AutofillApiError]
     CreditCard get_credit_card(string guid);
 
-    [Throws=AutofillError]
+    [Throws=AutofillApiError]
     sequence<CreditCard> get_all_credit_cards();
 
-    [Throws=AutofillError]
+    [Throws=AutofillApiError]
     void update_credit_card(string guid, UpdatableCreditCardFields cc);
 
-    [Throws=AutofillError]
+    [Throws=AutofillApiError]
     boolean delete_credit_card(string guid);
 
-    [Throws=AutofillError]
+    [Throws=AutofillApiError]
     void touch_credit_card(string guid);
 
-    [Throws=AutofillError]
+    [Throws=AutofillApiError]
     Address add_address(UpdatableAddressFields a);
 
-    [Throws=AutofillError]
+    [Throws=AutofillApiError]
     Address get_address(string guid);
 
-    [Throws=AutofillError]
+    [Throws=AutofillApiError]
     sequence<Address> get_all_addresses();
 
-    [Throws=AutofillError]
+    [Throws=AutofillApiError]
     void update_address(string guid, UpdatableAddressFields a);
 
-    [Throws=AutofillError]
+    [Throws=AutofillApiError]
     boolean delete_address(string guid);
 
-    [Throws=AutofillError]
+    [Throws=AutofillApiError]
     void touch_address(string guid);
 
-    [Throws=AutofillError, Self=ByArc]
+    [Throws=AutofillApiError, Self=ByArc]
     void scrub_encrypted_data();
 
     [Self=ByArc]
