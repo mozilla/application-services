@@ -13,6 +13,8 @@ use std::collections::HashMap;
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct ClientData {
     pub local_client_id: String,
+    /// A hashmap of records in the `clients` collection. Key is the id of the record in
+    /// that collection, which may or may not be the device's fxa_device_id.
     pub recent_clients: HashMap<String, RemoteClient>,
 }
 
