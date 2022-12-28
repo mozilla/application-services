@@ -21,5 +21,6 @@ nimbus-sdk = { path = "../../components/nimbus" }
 autofill = { path = "../../components/autofill" }
 crashtest = { path = "../../components/crashtest" }
 error-support = { path = "../../components/support/error" }
+merino_client = { path = "../../components/merino_client" }
 
 lazy_static = "1.4"

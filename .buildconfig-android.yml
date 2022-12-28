@@ -99,6 +99,13 @@ projects:
     - name: nimbus
       type: aar
     description: The Nimbus SDK, compiled to work with the Application Services full-megazord.
+  merinoclient:
+    path: components/merino_client/android
+    artifactId: merinoclient
+    publications:
+    - name: merinoclient
+      type: aar
+    description: Firefox Suggest Service client.
   full-megazord:
     uploadSymbols: true
     path: megazords/full/android

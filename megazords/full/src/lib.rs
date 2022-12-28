@@ -13,6 +13,7 @@ pub use crashtest;
 pub use error_support;
 pub use fxa_client;
 pub use logins;
+pub use merino_client;
 pub use nimbus;
 pub use places;
 pub use push;

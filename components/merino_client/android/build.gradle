@@ -1,0 +1,7 @@
+
+apply from: "$rootDir/build-scripts/component-common.gradle"
+apply from: "$rootDir/publish.gradle"
+
+ext.configureUniFFIBindgen("../src/merino_client.udl")
+ext.dependsOnTheMegazord()
+ext.configurePublish()

@@ -22,3 +22,4 @@ tabs = { path = "../../components/tabs", features = ["full-sync"] }
 places = {path = "../../components/places" }
 sync15 = {path = "../../components/sync15"}
 error-support = { path = "../../components/support/error" }
+merino_client = { path = "../../components/merino_client" }

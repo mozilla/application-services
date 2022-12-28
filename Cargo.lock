@@ -1772,6 +1772,7 @@ dependencies = [
  "fxa-client",
  "lazy_static",
  "logins",
+ "merino_client",
  "nimbus-sdk",
  "places",
  "push",
@@ -1801,6 +1802,7 @@ dependencies = [
  "error-support",
  "fxa-client",
  "logins",
+ "merino_client",
  "nimbus-sdk",
  "places",
  "push",
@@ -1824,6 +1826,25 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "5aa361d4faea93603064a027415f07bd8e1d5c88c9fbf68bf56a285428fd79ce"
 dependencies = [
  "autocfg",
+]
+
+[[package]]
+name = "merino_client"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "error-support",
+ "log",
+ "serde",
+ "serde_derive",
+ "serde_json",
+ "thiserror",
+ "uniffi",
+ "uniffi_build",
+ "uniffi_macros",
+ "url",
+ "viaduct",
+ "viaduct-reqwest",
 ]
 
 [[package]]
