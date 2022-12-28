@@ -38,7 +38,6 @@ pub fn get_registered_sync_engine(engine_id: &SyncEngineId) -> Option<Box<dyn Sy
     }
 }
 
-/// XXX - move to storage.rs? The struct is defined there
 impl ClientRemoteTabs {
     pub(crate) fn from_record_with_remote_client(
         client_id: String,
@@ -126,7 +125,7 @@ impl TabsSyncImpl {
         // return a ClientRemoteTab struct
         storage.put_meta(
             schema::REMOTE_CLIENTS_KEY,
-            &serde_json::to_string(&client_data.recent_clients).unwrap(),
+            &serde_json::to_string(&client_data.recent_clients)?,
         )?;
         self.local_id = client_data.local_client_id;
         Ok(())
@@ -143,10 +142,7 @@ impl TabsSyncImpl {
 
         let remote_clients: HashMap<String, RemoteClient> = {
             let mut storage = self.store.storage.lock().unwrap();
-            match storage
-                .get_meta::<String>(schema::REMOTE_CLIENTS_KEY)
-                .unwrap()
-            {
+            match storage.get_meta::<String>(schema::REMOTE_CLIENTS_KEY)? {
                 None => HashMap::default(),
                 Some(json) => serde_json::from_str(&json).unwrap(),
             }
@@ -227,7 +223,6 @@ impl TabsSyncImpl {
         let mut storage = self.store.storage.lock().unwrap();
         storage.delete_meta(schema::REMOTE_CLIENTS_KEY)?;
         storage.wipe_remote_tabs()?;
-        storage.wipe_local_tabs();
         match assoc {
             EngineSyncAssociation::Disconnected => {
                 storage.delete_meta(schema::GLOBAL_SYNCID_META_KEY)?;
@@ -243,10 +238,13 @@ impl TabsSyncImpl {
 
     pub fn wipe(&mut self) -> Result<()> {
         self.reset(&EngineSyncAssociation::Disconnected)?;
+        // not clear why we need to wipe the local tabs - the app is just going
+        // to re-add them?
+        self.store.storage.lock().unwrap().wipe_local_tabs();
         Ok(())
     }
 
-    pub fn get_sync_assoc(&self) -> anyhow::Result<EngineSyncAssociation> {
+    pub fn get_sync_assoc(&self) -> Result<EngineSyncAssociation> {
         let mut storage = self.store.storage.lock().unwrap();
         let global = storage.get_meta::<String>(schema::GLOBAL_SYNCID_META_KEY)?;
         let coll = storage.get_meta::<String>(schema::COLLECTION_SYNCID_META_KEY)?;
@@ -350,7 +348,7 @@ impl SyncEngine for TabsEngine {
     }
 
     fn get_sync_assoc(&self) -> anyhow::Result<EngineSyncAssociation> {
-        self.sync_impl.lock().unwrap().get_sync_assoc()
+        Ok(self.sync_impl.lock().unwrap().get_sync_assoc()?)
     }
 
     fn reset(&self, assoc: &EngineSyncAssociation) -> anyhow::Result<()> {
@@ -404,6 +402,19 @@ pub mod test {
                     "lastUsed": 1643764207
                 }]
             }),
+            // test an updated payload will replace the previous record
+            json!({
+                "id": "device-with-a-tab",
+                "clientName": "device with an updated tab",
+                "tabs": [{
+                    "title": "the new title",
+                    "urlHistory": [
+                        "https://mozilla.org/"
+                    ],
+                    "icon": "https://mozilla.org/icon",
+                    "lastUsed": 1643764208
+                }]
+            }),
             // This has the main payload as OK but the tabs part invalid.
             json!({
                 "id": "device-with-invalid-tab",
@@ -440,10 +451,10 @@ pub mod test {
         crts.sort_by(|a, b| a.client_name.partial_cmp(&b.client_name).unwrap());
         assert_eq!(crts.len(), 2, "we currently include devices with no tabs");
         let crt = &crts[0];
-        assert_eq!(crt.client_name, "device with a tab");
+        assert_eq!(crt.client_name, "device with an updated tab");
         assert_eq!(crt.device_type, DeviceType::Unknown);
         assert_eq!(crt.remote_tabs.len(), 1);
-        assert_eq!(crt.remote_tabs[0].title, "the title");
+        assert_eq!(crt.remote_tabs[0].title, "the new title");
 
         let crt = &crts[1];
         assert_eq!(crt.client_name, "device with no tabs");

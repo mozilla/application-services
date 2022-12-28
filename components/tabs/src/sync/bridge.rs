@@ -68,7 +68,7 @@ impl BridgedEngine for BridgedEngineImpl {
 
     fn sync_id(&self) -> ApiResult<Option<String>> {
         handle_error! {
-            Ok(match self.sync_impl.lock().unwrap().get_sync_assoc().unwrap() {
+            Ok(match self.sync_impl.lock().unwrap().get_sync_assoc()? {
                 EngineSyncAssociation::Connected(id) => Some(id.coll.to_string()),
                 EngineSyncAssociation::Disconnected => None,
             })
@@ -93,7 +93,7 @@ impl BridgedEngine for BridgedEngineImpl {
     fn ensure_current_sync_id(&self, sync_id: &str) -> ApiResult<String> {
         handle_error! {
             let mut sync_impl = self.sync_impl.lock().unwrap();
-            let assoc = sync_impl.get_sync_assoc().unwrap();
+            let assoc = sync_impl.get_sync_assoc()?;
             if matches!(assoc, EngineSyncAssociation::Connected(c) if c.coll == sync_id) {
                 log::debug!("ensure_current_sync_id is current");
             } else {
@@ -369,19 +369,6 @@ mod tests {
                     ],
                     "icon": "https://mozilla.org/icon",
                     "lastUsed": 1643764207
-                }]
-            }),
-            // test an updated payload will replace the previous record
-            json!({
-                "id": "device-with-a-tab",
-                "clientName": "updated device with a tab",
-                "tabs": [{
-                    "title": "the title",
-                    "urlHistory": [
-                        "https://mozilla.org/"
-                    ],
-                    "icon": "https://mozilla.org/icon",
-                    "lastUsed": 1643764208
                 }]
             }),
             // This has the main payload as OK but the tabs part invalid.

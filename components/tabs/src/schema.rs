@@ -18,9 +18,9 @@ use sql_support::{
 // store each client as its own row.
 const CREATE_SCHEMA_SQL: &str = "
     CREATE TABLE IF NOT EXISTS tabs (
-        guid             TEXT NOT NULL PRIMARY KEY,
-        record              TEXT NOT NULL,
-        last_modified    INTEGER NOT NULL
+        guid            TEXT NOT NULL PRIMARY KEY,
+        record          TEXT NOT NULL,
+        last_modified   INTEGER NOT NULL
     );
 ";
 
@@ -67,7 +67,6 @@ impl MigrationLogic for TabsMigrationLogic {
     }
 
     fn upgrade_from(&self, db: &Transaction<'_>, version: u32) -> MigrationResult<()> {
-        log::debug!("upgrading from {}", version);
         match version {
             1 => upgrade_from_v1(db),
             _ => Err(MigrationError::IncompatibleVersion(version)),

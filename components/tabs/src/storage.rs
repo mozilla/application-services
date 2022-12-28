@@ -176,75 +176,84 @@ impl TabsStorage {
     }
 
     pub fn get_remote_tabs(&mut self) -> Option<Vec<ClientRemoteTabs>> {
-        let remote_clients: HashMap<String, RemoteClient> =
-            match self.get_meta::<String>(schema::REMOTE_CLIENTS_KEY).unwrap() {
-                None => HashMap::default(),
-                Some(json) => serde_json::from_str(&json).unwrap(),
-            };
-        match self.open_if_exists() {
+        let conn = match self.open_if_exists() {
             Err(e) => {
                 error_support::report_error!(
                     "tabs-read-remote",
                     "Failed to read remote tabs: {}",
                     e
                 );
-                None
+                return None;
             }
-            Ok(None) => None,
-            Ok(Some(c)) => {
-                let records: Option<Vec<(TabsRecord, ServerTimestamp)>> = match c
-                    .query_rows_and_then_cached(
-                        "SELECT record, last_modified FROM tabs",
-                        [],
-                        |row| -> Result<_> {
-                            Ok((
-                                serde_json::from_str(&row.get::<_, String>(0)?)?,
-                                ServerTimestamp(row.get::<_, i64>(1)?),
-                            ))
-                        },
-                    ) {
-                    Ok(records) => Some(records),
-                    Err(e) => {
-                        error_support::report_error!(
-                            "tabs-read-remote",
-                            "Failed to read database: {}",
-                            e
-                        );
-                        None
-                    }
-                };
-                let mut crts: Vec<ClientRemoteTabs> = Vec::new();
-                for (record, last_modified) in records.unwrap_or_default() {
-                    let id = record.id.clone();
-                    let crt = if let Some(remote_client) = remote_clients.get(&id) {
-                        ClientRemoteTabs::from_record_with_remote_client(
-                            remote_client
-                                .fxa_device_id
-                                .as_ref()
-                                .unwrap_or(&id)
-                                .to_owned(),
-                            last_modified,
-                            remote_client,
-                            record,
-                        )
-                    } else {
-                        // A record with a device that's not in our remote clients seems unlikely, but
-                        // could happen - in most cases though, it will be due to a disconnected client -
-                        // so we really should consider just dropping it? (Sadly though, it does seem
-                        // possible it's actually a very recently connected client, so we keep it)
-                        log::info!(
-                        "Storing tabs from a client that doesn't appear in the devices list: {}",
-                        id,
+            Ok(None) => return None,
+            Ok(Some(conn)) => conn,
+        };
+
+        let records: Vec<(TabsRecord, ServerTimestamp)> = match conn.query_rows_and_then_cached(
+            "SELECT record, last_modified FROM tabs",
+            [],
+            |row| -> Result<_> {
+                Ok((
+                    serde_json::from_str(&row.get::<_, String>(0)?)?,
+                    ServerTimestamp(row.get::<_, i64>(1)?),
+                ))
+            },
+        ) {
+            Ok(records) => records,
+            Err(e) => {
+                error_support::report_error!("tabs-read-remote", "Failed to read database: {}", e);
+                return None;
+            }
+        };
+        let mut crts: Vec<ClientRemoteTabs> = Vec::new();
+        let remote_clients: HashMap<String, RemoteClient> =
+            match self.get_meta::<String>(schema::REMOTE_CLIENTS_KEY) {
+                Err(e) => {
+                    error_support::report_error!(
+                        "tabs-read-remote",
+                        "Failed to get remote clients: {}",
+                        e
                     );
-                        ClientRemoteTabs::from_record(id, last_modified, record)
-                    };
-                    crts.push(crt);
+                    return None;
                 }
-                Some(crts)
-            }
+                // We don't return early here since we still store tabs even if we don't
+                // "know" about the client it's associated with (incase it becomes available later)
+                Ok(None) => HashMap::default(),
+                Ok(Some(json)) => serde_json::from_str(&json).unwrap(),
+            };
+        for (record, last_modified) in records {
+            let id = record.id.clone();
+            let crt = if let Some(remote_client) = remote_clients.get(&id) {
+                ClientRemoteTabs::from_record_with_remote_client(
+                    remote_client
+                        .fxa_device_id
+                        .as_ref()
+                        .unwrap_or(&id)
+                        .to_owned(),
+                    last_modified,
+                    remote_client,
+                    record,
+                )
+            } else {
+                // A record with a device that's not in our remote clients seems unlikely, but
+                // could happen - in most cases though, it will be due to a disconnected client -
+                // so we really should consider just dropping it? (Sadly though, it does seem
+                // possible it's actually a very recently connected client, so we keep it)
+                error_support::breadcrumb!(
+                    "Storing tabs from a client that doesn't appear in the devices list: {}",
+                    id,
+                );
+                ClientRemoteTabs::from_record(id, last_modified, record)
+            };
+            crts.push(crt);
         }
+        Some(crts)
     }
 
+    // Keep DB from growing infinitely since we only ask for records since our last sync
+    // and may or may not know about the client it's associated with -- but we could at some point
+    // and should start returning those tabs immediately. If that client hasn't been seen in 3 weeks,
+    // we remove it until it reconnects
     pub fn remove_stale_clients(&mut self) -> Result<()> {
         let last_sync = self.get_meta::<i64>(schema::LAST_SYNC_META_KEY)?;
         if let Some(conn) = self.open_if_exists()? {
@@ -545,5 +554,7 @@ mod tests {
         let remote_tabs = storage.get_remote_tabs().unwrap();
         // We should've removed the outdated device
         assert_eq!(remote_tabs.len(), 1);
+        // Assert the correct record is still being returned
+        assert_eq!(remote_tabs[0].client_id, "device-1");
     }
 }
