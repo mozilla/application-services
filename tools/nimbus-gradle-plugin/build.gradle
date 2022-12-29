@@ -7,14 +7,25 @@ plugins {
     id 'groovy'
     id 'maven-publish'
     id 'groovy-gradle-plugin'
-    id 'org.jetbrains.kotlin.jvm'
+    id "org.gradle.kotlin.kotlin-dsl" version "2.4.1"
 }
 
 gradlePlugin {
-    plugins {
-        create("nimbusPlugins") {
-            id = "org.mozilla.components.nimbus-gradle-plugin"
-            implementationClass = "mozilla.components.tooling.nimbus.NimbusPlugin"
+    plugins.register("org.mozilla.appservices.nimbus-gradle-plugin") {
+        id = "org.mozilla.appservices.nimbus-gradle-plugin"
+        implementationClass = "mozilla.appservices.tooling.nimbus.NimbusPlugin"
+    }
+}
+
+repositories {
+    google()
+    jcenter()
+    maven {
+        name "Mozilla"
+        url "https://maven.mozilla.org/maven2"
+        content {
+            // Improve performance: only check moz maven for mozilla deps.
+            includeGroupByRegex "org\\.mozilla\\..*"
         }
     }
 }
@@ -91,15 +102,15 @@ publishing {
             artifact sourcesJar
 
             pom {
-                groupId = "org.mozilla.components"
+                groupId = rootProject.ext.library.groupId
                 artifactId = archivesBaseName
                 description = project.ext.description
                 version = rootProject.ext.library.version + (rootProject.hasProperty('local') ? '-' + rootProject.property('local') : '')
 
                 licenses {
                     license {
-                        name = libLicense
-                        url = libLicenseUrl
+                        name = properties.libLicense
+                        url = properties.libLicenseUrl
                     }
                 }
 
@@ -111,9 +122,9 @@ publishing {
                 }
 
                 scm {
-                    connection = libVcsUrl
-                    developerConnection = libVcsUrl
-                    url = libUrl
+                    connection = properties.libVcsUrl
+                    developerConnection = properties.libVcsUrl
+                    url = properties.libUrl
                 }
             }
         }

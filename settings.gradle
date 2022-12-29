@@ -1,8 +1,12 @@
 /* This Source Code Form is subject to the terms of the Mozilla Public
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
-
 import org.yaml.snakeyaml.Yaml
+
+pluginManagement {
+    includeBuild './tools/nimbus-gradle-plugin'
+}
+
 buildscript {
     dependencies {
         classpath 'org.yaml:snakeyaml:1.23'
@@ -11,6 +15,7 @@ buildscript {
         jcenter()
     }
 }
+
 rootProject.name = "appservices"
 
 def setupProject(name, projectProps) {

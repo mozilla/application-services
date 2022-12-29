@@ -2,7 +2,7 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-package mozilla.components.tooling.nimbus
+package mozilla.appservices.tooling.nimbus
 
 import org.gradle.api.Task
 import org.gradle.api.provider.ListProperty
@@ -190,24 +190,22 @@ class NimbusPlugin implements Plugin<Project> {
 
     // Fetches and extracts the pre-built nimbus-fml binaries
     def fetchNimbusBinaries(Project project) {
-        def fmlPath = new File(getFMLPath(project))
+        Properties props = new Properties()
+        props.load(getClass().getResourceAsStream("/plugin.properties"))
+        def asVersion = props.get("version")
+
+        def fmlPath = new File(getFMLPath(project, asVersion))
         println("Checking fml binaries in $fmlPath")
         if (fmlPath.exists()) {
             println("nimbus-fml already exists at $fmlPath")
             return
         }
 
-        def rootDirectory = new File(getFMLRoot(project))
+        def rootDirectory = new File(getFMLRoot(project, asVersion))
         def archive = new File(rootDirectory, "nimbus-fml.zip")
         ensureDirExists(rootDirectory)
 
         if (!archive.exists()) {
-            println("Downloading archive to $archive")
-            // See https://github.com/mozilla-mobile/android-components/issues/11422 for tying this
-            // to a version that is specified in buildSrc/src/main/java/Dependencies.kt
-            Properties props = new Properties()
-            props.load(getClass().getResourceAsStream("/plugin.properties"))
-            def asVersion = props.get("version")
             println("Downloading nimbus-fml cli version $asVersion")
 
             def successfulHost = tryDownload(archive.getParentFile(), archive.getName(),
@@ -249,8 +247,8 @@ class NimbusPlugin implements Plugin<Project> {
      * @param project
      * @return
      */
-    static def getFMLRoot(Project project) {
-        return [project.buildDir, "bin", "nimbus"].join(File.separator)
+    static def getFMLRoot(Project project, String version) {
+        return [project.buildDir, "bin", "nimbus", version].join(File.separator)
     }
 
     static def getArchOs() {
@@ -281,13 +279,13 @@ class NimbusPlugin implements Plugin<Project> {
         return "${archPart}-${osPart}"
     }
 
-    static def getFMLPath(Project project) {
+    static def getFMLPath(Project project, String version) {
         String os = System.getProperty("os.name").toLowerCase()
         String binaryName = "nimbus-fml"
         if (os.contains("win")) {
             binaryName = "nimbus-fml.exe"
         }
-        return [getFMLRoot(project), binaryName].join(File.separator)
+        return [getFMLRoot(project, version), binaryName].join(File.separator)
     }
 
     def setupVariantTasks(variant, project, extension, oneTimeTasks, isLibrary = false) {
