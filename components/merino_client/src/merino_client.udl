@@ -4,19 +4,26 @@ namespace merino_client {
 
 [Error]
 interface MerinoClientError {
-    Other(string reason);
+    BadUrl(string reason);
+    FetchFailed(string reason);
 };
 
-dictionary MerinoClientOptions {
-    string endpoint_url;
-    sequence<string> client_variants;
-    i64 timeout_ms;
-    sequence<string> providers;
+[Enum]
+interface MerinoServer {
+    Production();
+    Stage();
+    Custom(string url);
+};
+
+dictionary MerinoClientSettings {
+    MerinoServer server;
+    u64 session_duration_ms;
+    sequence<string> client_variants = [];
+    sequence<string> default_providers = [];
 };
 
 dictionary MerinoClientFetchOptions {
-    sequence<string> providers;
-    i64 timeout_ms;
+    sequence<string>? providers = null;
 };
 
 dictionary MerinoSuggestion {
@@ -27,12 +34,12 @@ dictionary MerinoSuggestion {
     f64 score;
     string? icon;
     string request_id;
-    sequence<string> client_variants;
 };
 
 interface MerinoClient {
-    constructor(MerinoClientOptions options);
+    [Throws=MerinoClientError]
+    constructor(MerinoClientSettings settings);
 
     [Throws=MerinoClientError]
-    sequence<MerinoSuggestion> fetch([ByRef] string query, MerinoClientFetchOptions? options);
+    sequence<MerinoSuggestion> fetch([ByRef] string query, optional MerinoClientFetchOptions? options = null);
 };

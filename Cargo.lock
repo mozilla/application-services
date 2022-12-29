@@ -1834,7 +1834,9 @@ version = "0.1.0"
 dependencies = [
  "anyhow",
  "error-support",
+ "hex",
  "log",
+ "rc_crypto",
  "serde",
  "serde_derive",
  "serde_json",
