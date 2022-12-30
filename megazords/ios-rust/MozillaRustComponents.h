@@ -16,3 +16,4 @@
 #import "pushFFI.h"
 #import "tabsFFI.h"
 #import "errorFFI.h"
+#import "merino_clientFFI.h"

@@ -65,6 +65,7 @@
 		39F5D7642956161E004E2384 /* Operation+.swift in Sources */ = {isa = PBXBuildFile; fileRef = 39F5D7632956161E004E2384 /* Operation+.swift */; };
 		39F5D766295616E3004E2384 /* NimbusBuilder.swift in Sources */ = {isa = PBXBuildFile; fileRef = 39F5D765295616E3004E2384 /* NimbusBuilder.swift */; };
 		45CC574A28AD9C86006D55AA /* errorsupport.udl in Sources */ = {isa = PBXBuildFile; fileRef = 45CC574828AD9C31006D55AA /* errorsupport.udl */; };
+		BCB616A0295E27DB0032AEC7 /* merino_client.udl in Sources */ = {isa = PBXBuildFile; fileRef = BCB61696295E23320032AEC7 /* merino_client.udl */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXBuildRule section */
@@ -184,6 +185,9 @@
 		45CC574528AD9C0B006D55AA /* errorFFI.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = errorFFI.h; path = ../../../../components/support/error/ios/Generated/errorFFI.h; sourceTree = "<group>"; };
 		45CC574628AD9C0B006D55AA /* errorsupport.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; name = errorsupport.swift; path = ../../../../components/support/error/ios/Generated/errorsupport.swift; sourceTree = "<group>"; };
 		45CC574828AD9C31006D55AA /* errorsupport.udl */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; name = errorsupport.udl; path = ../../../../components/support/error/src/errorsupport.udl; sourceTree = "<group>"; };
+		BCB61696295E23320032AEC7 /* merino_client.udl */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; name = merino_client.udl; path = ../src/merino_client.udl; sourceTree = "<group>"; };
+		BCB6169C295E26A30032AEC7 /* merino_client.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = merino_client.swift; sourceTree = "<group>"; };
+		BCB6169D295E26A30032AEC7 /* merino_clientFFI.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = merino_clientFFI.h; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -316,6 +320,7 @@
 				1BBAC58027AE099B00DAFEF2 /* Logins */,
 				1BBAC55B27AE082400DAFEF2 /* FxAClient */,
 				1BBAC55227AE073A00DAFEF2 /* RustLog */,
+				BCB61695295E22A40032AEC7 /* MerinoClient */,
 			);
 			path = MozillaTestServices;
 			sourceTree = "<group>";
@@ -516,6 +521,25 @@
 			name = Generated;
 			sourceTree = "<group>";
 		};
+		BCB61695295E22A40032AEC7 /* MerinoClient */ = {
+			isa = PBXGroup;
+			children = (
+				BCB61696295E23320032AEC7 /* merino_client.udl */,
+				BCB6169A295E23620032AEC7 /* Generated */,
+			);
+			name = MerinoClient;
+			path = ../../../../components/merino_client/ios;
+			sourceTree = "<group>";
+		};
+		BCB6169A295E23620032AEC7 /* Generated */ = {
+			isa = PBXGroup;
+			children = (
+				BCB6169C295E26A30032AEC7 /* merino_client.swift */,
+				BCB6169D295E26A30032AEC7 /* merino_clientFFI.h */,
+			);
+			path = Generated;
+			sourceTree = "<group>";
+		};
 /* End PBXGroup section */
 
 /* Begin PBXNativeTarget section */
@@ -655,6 +679,7 @@
 				1BE9B60F27C9CD770029D11A /* places.udl in Sources */,
 				1BE9B61027C9CD770029D11A /* logins.udl in Sources */,
 				1BE9B61127C9CD770029D11A /* fxa_client.udl in Sources */,
+				BCB616A0295E27DB0032AEC7 /* merino_client.udl in Sources */,
 				1BFC469827C99F250034E0A5 /* Metrics.swift in Sources */,
 				39F5D766295616E3004E2384 /* NimbusBuilder.swift in Sources */,
 				1B3BC98627B1D9B800229CF6 /* FeatureVariables.swift in Sources */,

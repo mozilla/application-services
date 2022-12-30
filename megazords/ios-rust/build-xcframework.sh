@@ -164,6 +164,7 @@ if [ -z $IS_FOCUS ]; then
   $CARGO uniffi-bindgen generate "$REPO_ROOT/components/push/src/push.udl" -l swift -o "$COMMON/Headers"
   $CARGO uniffi-bindgen generate "$REPO_ROOT/components/tabs/src/tabs.udl" -l swift -o "$COMMON/Headers"
   $CARGO uniffi-bindgen generate "$REPO_ROOT/components/places/src/places.udl" -l swift -o "$COMMON/Headers"
+  $CARGO uniffi-bindgen generate "$REPO_ROOT/components/merino_client/src/merino_client.udl" -l swift -o "$COMMON/Headers"
 fi
 rm -rf "$COMMON"/Headers/*.swift
 
