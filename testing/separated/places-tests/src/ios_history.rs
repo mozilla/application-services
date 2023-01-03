@@ -175,7 +175,7 @@ fn generate_test_history(
     let mut last_visit_id = 1;
     (1..=num_history)
         .map(|id| IOSHistory {
-            id: id,
+            id,
             guid: format!("Example GUID {}", id),
             url: Some(format!("https://example{}.com", id)),
             title: format!("Example Title {}", id),
