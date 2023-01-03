@@ -15,9 +15,11 @@ import Glean
 /// enrollment will mostly use `NimbusUserConfiguration` methods. Application developers integrating
 /// `Nimbus` into their app should use the methods in `NimbusStartup`.
 ///
-public protocol NimbusApi: FeaturesInterface, NimbusStartup,
+public protocol NimbusInterface: FeaturesInterface, NimbusStartup,
     NimbusUserConfiguration, NimbusBranchInterface, GleanPlumbProtocol,
     NimbusEvents, NimbusQueues {}
+
+public typealias NimbusApi = NimbusInterface
 
 public protocol NimbusBranchInterface {
     /// Get the currently enrolled branch for the given experiment
@@ -75,7 +77,9 @@ public protocol NimbusStartup {
     ///
     /// Notifies `.nimbusExperimentsApplied` once enrollments are recalculated.
     ///
-    func applyPendingExperiments()
+    func applyPendingExperiments() -> Operation
+
+    func applyLocalExperiments(fileURL: URL) -> Operation
 
     /// Set the experiments as the passed string, just as `fetchExperiments` gets the string from
     /// the server. Like `fetchExperiments`, this requires `applyPendingExperiments` to be called
@@ -184,6 +188,7 @@ public struct NimbusServerSettings {
 }
 
 public let remoteSettingsCollection = "nimbus-mobile-experiments"
+public let remoteSettingsPreviewCollection = "nimbus-preview"
 
 /// Name, channel and specific context of the app which should agree with what is specified in Experimenter.
 /// The specifc context is there to capture any context that the SDK doesn't need to be explictly aware of.
