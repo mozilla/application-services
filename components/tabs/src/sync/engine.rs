@@ -55,6 +55,10 @@ impl ClientRemoteTabs {
         }
     }
 
+    // Note that this should die as part of https://github.com/mozilla/application-services/issues/5199
+    // If we don't have a `RemoteClient` record, then we don't know whether the ID passed here is
+    // the fxa_device_id (which is must be) or the client_id (which it will be if this ends up being
+    // called for desktop records, where client_id != fxa_device_id)
     fn from_record(client_id: String, last_modified: ServerTimestamp, record: TabsRecord) -> Self {
         Self {
             client_id,
@@ -184,7 +188,11 @@ impl TabsSyncImpl {
         // We want to keep the mutex for as short as possible
         let local_tabs = {
             let mut storage = self.store.storage.lock().unwrap();
-            storage.replace_remote_tabs(remote_tabs)?;
+            // In desktop we might end up here with zero records when doing a quick-write, in
+            // which case we don't want to wipe the DB.
+            if !remote_tabs.is_empty() {
+                storage.replace_remote_tabs(remote_tabs)?;
+            }
             storage.prepare_local_tabs_for_upload()
         };
         let outgoing = if let Some(local_tabs) = local_tabs {
@@ -426,6 +434,64 @@ pub mod test {
         assert_eq!(crt.client_name, "device with no tabs");
         assert_eq!(crt.device_type, DeviceType::Unknown);
         assert_eq!(crt.remote_tabs.len(), 0);
+    }
+
+    #[test]
+    fn test_no_incoming_doesnt_write() {
+        env_logger::try_init().ok();
+
+        let engine = TabsEngine::new(Arc::new(TabsStore::new_with_mem_path(
+            "test_no_incoming_doesnt_write",
+        )));
+
+        let records = vec![json!({
+            "id": "device-with-a-tab",
+            "clientName": "device with a tab",
+            "tabs": [{
+                "title": "the title",
+                "urlHistory": [
+                    "https://mozilla.org/"
+                ],
+                "icon": "https://mozilla.org/icon",
+                "lastUsed": 1643764207
+            }]
+        })];
+
+        let incoming = IncomingChangeset::new_with_changes(
+            engine.collection_name(),
+            ServerTimestamp(0),
+            records
+                .into_iter()
+                .map(IncomingBso::from_test_content)
+                .collect(),
+        );
+        engine
+            .apply_incoming(vec![incoming], &mut telemetry::Engine::new("tabs"))
+            .expect("Should apply incoming and stage outgoing records");
+
+        // now check the store has what we think it has.
+        {
+            let sync_impl = engine.sync_impl.lock().unwrap();
+            let mut storage = sync_impl.store.storage.lock().unwrap();
+            assert_eq!(storage.get_remote_tabs().expect("should work").len(), 1);
+        }
+
+        // Now another sync with zero incoming records, should still be able to get back
+        // our one client.
+        let incoming = IncomingChangeset::new_with_changes(
+            engine.collection_name(),
+            ServerTimestamp(0),
+            vec![],
+        );
+        engine
+            .apply_incoming(vec![incoming], &mut telemetry::Engine::new("tabs"))
+            .expect("Should succeed applying zero records");
+
+        {
+            let sync_impl = engine.sync_impl.lock().unwrap();
+            let mut storage = sync_impl.store.storage.lock().unwrap();
+            assert_eq!(storage.get_remote_tabs().expect("should work").len(), 1);
+        }
     }
 
     #[test]

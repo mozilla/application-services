@@ -98,8 +98,8 @@ mod test {
     fn test_decrypt() {
         let key_bytes = hex::decode(KEY_HEX).unwrap();
         let key = aead::Key::new(&AES_256_GCM, &key_bytes).unwrap();
-        let mut ciphertext_and_tag = hex::decode(&CIPHERTEXT_HEX).unwrap();
-        let tag = hex::decode(&TAG_HEX).unwrap();
+        let mut ciphertext_and_tag = hex::decode(CIPHERTEXT_HEX).unwrap();
+        let tag = hex::decode(TAG_HEX).unwrap();
         ciphertext_and_tag.extend(&tag);
 
         let iv = hex::decode(NONCE_HEX).unwrap();
@@ -115,7 +115,7 @@ mod test {
     fn test_encrypt() {
         let key_bytes = hex::decode(KEY_HEX).unwrap();
         let key = aead::Key::new(&AES_256_GCM, &key_bytes).unwrap();
-        let cleartext = hex::decode(&CLEARTEXT_HEX).unwrap();
+        let cleartext = hex::decode(CLEARTEXT_HEX).unwrap();
 
         let iv = hex::decode(NONCE_HEX).unwrap();
         let nonce = aead::Nonce::try_assume_unique_for_key(&AES_256_GCM, &iv).unwrap();
@@ -123,8 +123,8 @@ mod test {
         let aad = aead::Aad::from(&aad_bytes);
         let ciphertext_bytes = seal(&key, nonce, &aad, &cleartext).unwrap();
 
-        let expected_tag = hex::decode(&TAG_HEX).unwrap();
-        let mut expected_ciphertext = hex::decode(&CIPHERTEXT_HEX).unwrap();
+        let expected_tag = hex::decode(TAG_HEX).unwrap();
+        let mut expected_ciphertext = hex::decode(CIPHERTEXT_HEX).unwrap();
         expected_ciphertext.extend(&expected_tag);
         assert_eq!(&expected_ciphertext, &ciphertext_bytes);
     }
@@ -133,7 +133,7 @@ mod test {
     fn test_roundtrip() {
         let key_bytes = hex::decode(KEY_HEX).unwrap();
         let key = aead::Key::new(&AES_256_GCM, &key_bytes).unwrap();
-        let cleartext = hex::decode(&CLEARTEXT_HEX).unwrap();
+        let cleartext = hex::decode(CLEARTEXT_HEX).unwrap();
 
         let iv = hex::decode(NONCE_HEX).unwrap();
         let nonce = aead::Nonce::try_assume_unique_for_key(&AES_256_GCM, &iv).unwrap();

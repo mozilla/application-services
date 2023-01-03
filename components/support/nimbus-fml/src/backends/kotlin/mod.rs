@@ -143,7 +143,7 @@ pub mod test {
             .arg("-classpath")
             .arg(json_jar())
             .arg("-d")
-            .arg(&build_dir)
+            .arg(build_dir)
             .arg(&variables_kt())
             .arg(&features_kt())
             .arg(&runtime_dir())
@@ -175,7 +175,7 @@ pub mod test {
             .arg("-classpath")
             .arg(&classpath(build_dir)?)
             .arg("-script")
-            .arg(&script)
+            .arg(script)
             .spawn()?
             .wait()?;
 

@@ -661,7 +661,7 @@ impl LoginDb {
     }
 
     fn clone_mirror_to_overlay(&self, guid: &str) -> Result<usize> {
-        Ok(self.execute_cached(&*CLONE_SINGLE_MIRROR_SQL, &[(":guid", &guid as &dyn ToSql)])?)
+        Ok(self.execute_cached(&CLONE_SINGLE_MIRROR_SQL, &[(":guid", &guid as &dyn ToSql)])?)
     }
 
     // Wipe is called both by Sync and also exposed publically, so it's
@@ -874,7 +874,7 @@ pub mod test_utils {
         let row: (String, i64, bool) = db
             .query_row(
                 "SELECT secFields, local_modified, is_deleted FROM loginsL WHERE guid=?",
-                &[guid],
+                [guid],
                 |row| Ok((row.get(0)?, row.get(1)?, row.get(2)?)),
             )
             .unwrap();
@@ -894,7 +894,7 @@ pub mod test_utils {
         let row: (String, i64, bool) = db
             .query_row(
                 "SELECT secFields, server_modified, is_overridden FROM loginsM WHERE guid=?",
-                &[guid],
+                [guid],
                 |row| Ok((row.get(0)?, row.get(1)?, row.get(2)?)),
             )
             .unwrap();

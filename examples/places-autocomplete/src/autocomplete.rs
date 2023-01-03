@@ -759,7 +759,7 @@ fn main() -> Result<()> {
         .value_of("database_path")
         .unwrap_or("./new-places.db");
 
-    let api = places::PlacesApi::new(&db_path)?;
+    let api = places::PlacesApi::new(db_path)?;
     let mut conn = api.open_connection(places::ConnectionType::ReadWrite)?;
 
     if let Some(import_places_arg) = matches.value_of("import_places") {

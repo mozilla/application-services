@@ -990,7 +990,7 @@ fn filter_experiments(
 ) -> Vec<Experiment> {
     experiments
         .iter()
-        .filter(|e| filter_fn(*e))
+        .filter(|e| filter_fn(e))
         .map(|e| e.to_owned())
         .collect()
 }

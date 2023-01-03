@@ -29,7 +29,10 @@ pub struct RemoteTab {
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct ClientRemoteTabs {
-    pub client_id: String, // Corresponds to the `clients` collection ID of the client.
+    // The fxa_device_id of the client. *Should not* come from the id in the `clients` collection,
+    // because that may or may not be the fxa_device_id (currently, it will not be for desktop
+    // records.)
+    pub client_id: String,
     pub client_name: String,
     #[serde(
         default = "devicetype_default_deser",
