@@ -134,9 +134,9 @@ Use the template below to make assigning a version number during the release cut
 
 ### ⚠️ Breaking Changes ⚠️
   - Description of the change with a link to the pull request ([#0000](https://github.com/mozilla/application-services/pull/0000))
-### What's Changed
+### 🦊 What's Changed 🦊
   - Description of the change with a link to the pull request ([#0000](https://github.com/mozilla/application-services/pull/0000))
-### What's New
+### ✨ What's New ✨
   - Description of the change with a link to the pull request ([#0000](https://github.com/mozilla/application-services/pull/0000))
 
 -->
