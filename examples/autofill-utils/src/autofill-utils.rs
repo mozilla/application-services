@@ -9,7 +9,7 @@ use autofill::db::{
     models::{address, credit_card},
     store::Store,
 };
-use autofill::encryption::{create_key, EncryptorDecryptor};
+use autofill::encryption::{create_autofill_key, EncryptorDecryptor};
 use autofill::error::Error;
 use cli_support::fxa_creds::{get_cli_fxa, get_default_fxa_config};
 use cli_support::prompt::{prompt_string, prompt_usize};
@@ -488,7 +488,7 @@ fn get_encryption_key(store: &Store, db_path: &str, opts: &Opts) -> Result<Strin
     }
     // ok, generate it.
     println!("***** Generating and storing example key");
-    let key = create_key()?;
+    let key = create_autofill_key()?;
     put_meta(&db, "example-encryption-key", &key)?;
     Ok(key)
 }

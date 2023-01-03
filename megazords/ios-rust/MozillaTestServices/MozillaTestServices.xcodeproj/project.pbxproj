@@ -7,6 +7,7 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
+		15DAE213294418F600DB06FE /* autofill.udl in Sources */ = {isa = PBXBuildFile; fileRef = 15DAE20D2944155E00DB06FE /* autofill.udl */; };
 		1B3BC93F27B1D62800229CF6 /* Bookmark.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1BBAC5A527AE0F2E00DAFEF2 /* Bookmark.swift */; };
 		1B3BC94027B1D62800229CF6 /* Places.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1BBAC5A727AE0F2E00DAFEF2 /* Places.swift */; };
 		1B3BC94127B1D62800229CF6 /* HistoryMetadata.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1BBAC5A627AE0F2E00DAFEF2 /* HistoryMetadata.swift */; };
@@ -106,6 +107,9 @@
 /* End PBXCopyFilesBuildPhase section */
 
 /* Begin PBXFileReference section */
+		15DAE20D2944155E00DB06FE /* autofill.udl */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; name = autofill.udl; path = ../../../components/autofill/src/autofill.udl; sourceTree = SOURCE_ROOT; };
+		15DAE2102944165300DB06FE /* autofillFFI.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = autofillFFI.h; sourceTree = "<group>"; };
+		15DAE2112944165300DB06FE /* autofill.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = autofill.swift; sourceTree = "<group>"; };
 		1B3BC97527B1D9B700229CF6 /* Collections+.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; name = "Collections+.swift"; path = "../../../components/nimbus/ios/Nimbus/Collections+.swift"; sourceTree = SOURCE_ROOT; };
 		1B3BC97627B1D9B700229CF6 /* FeatureHolder.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; name = FeatureHolder.swift; path = ../../../components/nimbus/ios/Nimbus/FeatureHolder.swift; sourceTree = SOURCE_ROOT; };
 		1B3BC97727B1D9B700229CF6 /* NimbusApi.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; name = NimbusApi.swift; path = ../../../components/nimbus/ios/Nimbus/NimbusApi.swift; sourceTree = SOURCE_ROOT; };
@@ -200,6 +204,26 @@
 /* End PBXFrameworksBuildPhase section */
 
 /* Begin PBXGroup section */
+		15DAE2082944142000DB06FE /* Autofill */ = {
+			isa = PBXGroup;
+			children = (
+				15DAE20F294415B100DB06FE /* Generated */,
+				15DAE20D2944155E00DB06FE /* autofill.udl */,
+			);
+			name = Autofill;
+			path = ../../../../components/autofill/ios;
+			sourceTree = "<group>";
+		};
+		15DAE20F294415B100DB06FE /* Generated */ = {
+			isa = PBXGroup;
+			children = (
+				15DAE2112944165300DB06FE /* autofill.swift */,
+				15DAE2102944165300DB06FE /* autofillFFI.h */,
+			);
+			name = Generated;
+			path = ../../../components/autofill/ios/Generated;
+			sourceTree = SOURCE_ROOT;
+		};
 		1B3BC97427B1D99A00229CF6 /* Nimbus */ = {
 			isa = PBXGroup;
 			children = (
@@ -277,6 +301,7 @@
 		1BBAC4FA27AE049500DAFEF2 /* MozillaTestServices */ = {
 			isa = PBXGroup;
 			children = (
+				15DAE2082944142000DB06FE /* Autofill */,
 				45CC574328AD9BC8006D55AA /* ErrorSupport */,
 				1BFC469427C99F250034E0A5 /* Generated */,
 				1BB64C7B27B1FF9F00A4247F /* TestClient */,
@@ -620,6 +645,7 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				15DAE213294418F600DB06FE /* autofill.udl in Sources */,
 				45CC574A28AD9C86006D55AA /* errorsupport.udl in Sources */,
 				1BE9B60D27C9CD770029D11A /* crashtest.udl in Sources */,
 				1BE9B60E27C9CD770029D11A /* nimbus.udl in Sources */,

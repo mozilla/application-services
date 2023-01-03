@@ -32,3 +32,8 @@ Use the template below to make assigning a version number during the release cut
 
 ### What's Changed
   - Fixed a regression causing failure to read old tabs databases ([#5286](https://github.com/mozilla/application-services/pull/5286))
+
+## Autofill
+
+## What's Changed
+  - Exposed autofill api to iOS consumer and resolved `createKey` function conflict with the Logins component.
