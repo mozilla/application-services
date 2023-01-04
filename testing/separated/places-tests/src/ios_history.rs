@@ -137,29 +137,55 @@ impl VisitTable {
         Ok(())
     }
 
-    fn populate_one(conn: &Connection, visit: &IOSVisit) -> Result<()> {
-        let mut stmt = conn.prepare(
-            "INSERT INTO visits (
+    fn populate_many(
+        ios_db: &Connection,
+        site_id: u64,
+        first_date: u64,
+        num_visits_per: u64,
+        last_visit_id: u64,
+    ) -> Result<()> {
+        let max_id = last_visit_id + num_visits_per - 1;
+        // We create a recursive trigger so we can move the job
+        // of the insertion of the visits down to the query optimizer
+        // In practice, this is reduces the time to run the tests
+        // down to a second from 7 seconds.
+        ios_db.execute_batch(&format!(
+            "
+            DROP TRIGGER IF EXISTS visit_insert_trigger;
+            CREATE TRIGGER visit_insert_trigger AFTER INSERT ON visits
+            WHEN new.id < {max_id} begin
+              INSERT INTO visits (
                 id,
                 siteID,
                 date,
                 type,
                 is_local
-            ) VALUES (
-                :id,
-                :siteID,
-                :date,
-                :type,
-                :is_local
-            )",
-        )?;
-        stmt.execute(rusqlite::named_params! {
-            ":id": visit.id,
-            ":siteID": visit.site_id,
-            ":date": visit.date,
-            ":type": visit.type_,
-            ":is_local": visit.is_local,
-        })?;
+              ) VALUES (
+                new.id + 1,
+                {site_id},
+                {first_date} + new.id + 1,
+                1,
+                1
+            );
+            end;
+          
+           pragma recursive_triggers = 1;
+          
+           INSERT INTO visits (
+            id,
+            siteID,
+            date,
+            type,
+            is_local
+          )  VALUES (
+            {last_visit_id},
+            {site_id},
+            {first_date} + 1,
+            1,
+            1
+        );
+        "
+        ))?;
         Ok(())
     }
 }
@@ -169,7 +195,7 @@ fn generate_test_history(
     num_history: u64,
     num_visits_per: u64,
     start_timestamp: Timestamp,
-    seconds_between_visits: u64,
+    seconds_between_history_visits: u64,
 ) -> Result<()> {
     let mut start_timestamp = start_timestamp;
     let mut last_visit_id = 1;
@@ -184,23 +210,17 @@ fn generate_test_history(
         })
         .for_each(|h| {
             HistoryTable::populate_one(ios_db, &h).unwrap();
-            (0..num_visits_per).for_each(|v_id| {
-                let res = IOSVisit {
-                    id: v_id + last_visit_id,
-                    site_id: h.id,
-                    date: start_timestamp
-                        .checked_add(Duration::from_secs(seconds_between_visits))
-                        .unwrap()
-                        .as_millis_i64()
-                        * 1000,
-                    type_: 1,
-                    ..Default::default()
-                };
-                start_timestamp = start_timestamp
-                    .checked_add(Duration::from_secs(seconds_between_visits))
-                    .unwrap();
-                VisitTable::populate_one(ios_db, &res).unwrap();
-            });
+            VisitTable::populate_many(
+                ios_db,
+                h.id,
+                start_timestamp.0,
+                num_visits_per,
+                last_visit_id,
+            )
+            .unwrap();
+            start_timestamp = start_timestamp
+                .checked_add(Duration::from_secs(seconds_between_history_visits))
+                .unwrap();
             last_visit_id += num_visits_per;
         });
     Ok(())
