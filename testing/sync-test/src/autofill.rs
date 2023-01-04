@@ -10,7 +10,7 @@ use autofill::{
         models::credit_card::{CreditCard, UpdatableCreditCardFields},
         store::Store as AutofillStore,
     },
-    encryption::{create_key, encrypt_string},
+    encryption::{create_autofill_key, encrypt_string},
     error::ApiResult as AutofillResult,
 };
 use std::collections::HashMap;
@@ -111,7 +111,7 @@ pub fn assert_credit_cards_equiv(a: &CreditCard, b: &CreditCard) {
 fn test_autofill_credit_cards_general(c0: &mut TestClient, c1: &mut TestClient) {
     log::info!("Add some credit cards to client0");
 
-    let key = create_key().expect("encryption key created");
+    let key = create_autofill_key().expect("encryption key created");
 
     let cc1 = add_credit_card(
         &c0.autofill_store,

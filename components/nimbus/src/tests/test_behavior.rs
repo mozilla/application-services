@@ -1154,4 +1154,42 @@ mod event_store_tests {
 
         Ok(())
     }
+
+    #[test]
+    fn query_last_seen_should_function() -> Result<()> {
+        let mut counter1 = MultiIntervalCounter::new(vec![
+            SingleIntervalCounter::new(IntervalConfig::new(12, Interval::Months)),
+            SingleIntervalCounter::new(IntervalConfig::new(28, Interval::Days)),
+        ]);
+
+        counter1.increment()?;
+        counter1.maybe_advance(Utc::now() + Duration::days(10))?;
+        counter1.increment()?;
+        counter1.maybe_advance(Utc::now() + Duration::days(20))?;
+
+        let mut store = EventStore::from(vec![("event-1".to_string(), counter1)]);
+
+        assert_eq!(
+            store.query(
+                "event-1".to_string(),
+                Interval::Days,
+                usize::MAX,
+                0,
+                EventQueryType::LastSeen
+            )?,
+            10.0
+        );
+        assert_eq!(
+            store.query(
+                "event-1".to_string(),
+                Interval::Days,
+                usize::MAX,
+                21,
+                EventQueryType::LastSeen
+            )?,
+            f64::MAX
+        );
+
+        Ok(())
+    }
 }

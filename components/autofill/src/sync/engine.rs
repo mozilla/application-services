@@ -267,7 +267,7 @@ mod tests {
     #[test]
     fn test_credit_card_engine_sync_finished() -> Result<()> {
         let mut credit_card_engine = create_engine();
-        let test_key = crate::encryption::create_key().unwrap();
+        let test_key = crate::encryption::create_autofill_key().unwrap();
         credit_card_engine
             .set_local_encryption_key(&test_key)
             .unwrap();

@@ -55,6 +55,10 @@ impl ClientRemoteTabs {
         }
     }
 
+    // Note that this should die as part of https://github.com/mozilla/application-services/issues/5199
+    // If we don't have a `RemoteClient` record, then we don't know whether the ID passed here is
+    // the fxa_device_id (which is must be) or the client_id (which it will be if this ends up being
+    // called for desktop records, where client_id != fxa_device_id)
     fn from_record(client_id: String, last_modified: ServerTimestamp, record: TabsRecord) -> Self {
         Self {
             client_id,

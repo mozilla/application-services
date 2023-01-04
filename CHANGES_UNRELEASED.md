@@ -2,7 +2,7 @@
 
 # Unreleased Changes
 
-[Full Changelog](https://github.com/mozilla/application-services/compare/v96.1.3...main)
+[Full Changelog](https://github.com/mozilla/application-services/compare/v96.2.1...main)
 
 <!-- WARNING: New entries should be added below this comment to ensure the `./automation/prepare-release.py` script works as expected.
 
@@ -19,15 +19,6 @@ Use the template below to make assigning a version number during the release cut
 
 -->
 
-## Nimbus
-### What's Changed
-  - Fixed an issue where the NimbusQueues protocol was missing from the NimbusApi ([#5298](https://github.com/mozilla/application-services/pull/5298))
-
 ## Places
 ### What's changed
  - Removes old iOS bookmarks migration code. The function `migrateBookmarksFromBrowserDb` no longer exists. ([#5276](https://github.com/mozilla/application-services/pull/5276))
-
-## Tabs
-
-### What's Changed
-  - Fixed a regression causing failure to read old tabs databases ([#5286](https://github.com/mozilla/application-services/pull/5286))

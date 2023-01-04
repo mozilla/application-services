@@ -1214,7 +1214,7 @@ fn test_event_average_per_non_zero_interval_transform() {
 }
 
 #[test]
-fn test_event_transforms_parameters() {
+fn test_event_transform_sum_cnz_avg_avgnz_parameters() {
     let targeting_attributes: TargetingAttributes = AppContext {
         ..Default::default()
     }
@@ -1223,12 +1223,12 @@ fn test_event_transforms_parameters() {
 
     assert_eq!(
         targeting(
-            "'app.foregrounded'|eventSum('Days', 3) > 1",
+            "'app.foregrounded'|eventSum('Days') > 1",
             &targeting_attributes,
             event_store.clone()
         ),
         Some(EnrollmentStatus::Error {
-            reason: "EvaluationError: Custom error: Transform parameter error: event transforms require 3 parameters"
+            reason: "EvaluationError: Custom error: Transform parameter error: event transform Sum requires 2-3 parameters"
                 .to_string()
         })
     );
@@ -1272,7 +1272,7 @@ fn test_event_transforms_parameters() {
             event_store.clone()
         ),
         Some(EnrollmentStatus::Error {
-            reason: "EvaluationError: Custom error: Transform parameter error: event transforms require a positive number as the second parameter"
+            reason: "EvaluationError: Custom error: Transform parameter error: event transform Sum requires a positive number as the second parameter"
                 .to_string()
         })
     );
@@ -1283,7 +1283,83 @@ fn test_event_transforms_parameters() {
             event_store
         ),
         Some(EnrollmentStatus::Error {
-            reason: "EvaluationError: Custom error: Transform parameter error: event transforms require a positive number as the third parameter"
+            reason: "EvaluationError: Custom error: Transform parameter error: event transform Sum requires a positive number as the third parameter"
+                .to_string()
+        })
+    );
+}
+
+#[test]
+fn test_event_transform_last_seen_parameters() {
+    let targeting_attributes: TargetingAttributes = AppContext {
+        ..Default::default()
+    }
+    .into();
+    let event_store = Arc::new(Mutex::new(EventStore::new()));
+
+    assert_eq!(
+        targeting(
+            "'app.foregrounded'|eventLastSeen() > 1",
+            &targeting_attributes,
+            event_store.clone()
+        ),
+        Some(EnrollmentStatus::Error {
+            reason: "EvaluationError: Custom error: Transform parameter error: event transform LastSeen requires 1-2 parameters"
+                .to_string()
+        })
+    );
+    assert_eq!(
+        targeting(
+            "'app.foregrounded'|eventLastSeen('Days', 0, 10) > 1",
+            &targeting_attributes,
+            event_store.clone()
+        ),
+        Some(EnrollmentStatus::Error {
+            reason: "EvaluationError: Custom error: Transform parameter error: event transform LastSeen requires 1-2 parameters"
+                .to_string()
+        })
+    );
+    assert_eq!(
+        targeting(
+            "1|eventLastSeen('Days', 0) > 1",
+            &targeting_attributes,
+            event_store.clone()
+        ),
+        Some(EnrollmentStatus::Error {
+            reason: "EvaluationError: Custom error: JSON Error: invalid type: floating point `1`, expected a string"
+                .to_string()
+        })
+    );
+    assert_eq!(
+        targeting(
+            "'app.foregrounded'|eventLastSeen(1, 0) > 1",
+            &targeting_attributes,
+            event_store.clone()
+        ),
+        Some(EnrollmentStatus::Error {
+            reason: "EvaluationError: Custom error: JSON Error: invalid type: floating point `1`, expected a string"
+                .to_string()
+        })
+    );
+    assert_eq!(
+        targeting(
+            "'app.foregrounded'|eventLastSeen('Day', 0) > 1",
+            &targeting_attributes,
+            event_store.clone()
+        ),
+        Some(EnrollmentStatus::Error {
+            reason: "EvaluationError: Custom error: Behavior error: IntervalParseError: Day is not a valid Interval"
+                .to_string()
+        })
+    );
+    assert_eq!(
+        targeting(
+            "'app.foregrounded'|eventLastSeen('Days', 'test') > 1",
+            &targeting_attributes,
+            event_store
+        ),
+        Some(EnrollmentStatus::Error {
+            reason: "EvaluationError: Custom error: Transform parameter error: event transform LastSeen requires a positive number as the second parameter"
                 .to_string()
         })
     );

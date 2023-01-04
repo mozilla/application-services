@@ -77,6 +77,35 @@ impl HistoryTable {
         }
         Ok(())
     }
+
+    fn populate_one(conn: &Connection, history_item: &IOSHistory) -> Result<()> {
+        let mut stmt = conn.prepare(
+            "INSERT INTO history(
+                id,
+                guid,
+                url,
+                title,
+                is_deleted,
+                should_upload
+            ) VALUES (
+                :id,
+                :guid,
+                :url,
+                :title,
+                :is_deleted,
+                :should_upload
+            )",
+        )?;
+        stmt.execute(rusqlite::named_params! {
+            ":guid": history_item.id,
+            ":guid": history_item.guid,
+            ":url": history_item.url,
+            ":title": history_item.title,
+            ":is_deleted": history_item.is_deleted,
+            ":should_upload": history_item.should_upload,
+        })?;
+        Ok(())
+    }
 }
 
 impl VisitTable {
@@ -107,6 +136,94 @@ impl VisitTable {
         }
         Ok(())
     }
+
+    fn populate_many(
+        ios_db: &Connection,
+        site_id: u64,
+        first_date: u64,
+        num_visits_per: u64,
+        last_visit_id: u64,
+    ) -> Result<()> {
+        let max_id = last_visit_id + num_visits_per - 1;
+        // We create a recursive trigger so we can move the job
+        // of the insertion of the visits down to the query optimizer
+        // In practice, this is reduces the time to run the tests
+        // down to a second from 7 seconds.
+        ios_db.execute_batch(&format!(
+            "
+            DROP TRIGGER IF EXISTS visit_insert_trigger;
+            CREATE TRIGGER visit_insert_trigger AFTER INSERT ON visits
+            WHEN new.id < {max_id} begin
+              INSERT INTO visits (
+                id,
+                siteID,
+                date,
+                type,
+                is_local
+              ) VALUES (
+                new.id + 1,
+                {site_id},
+                {first_date} + new.id + 1,
+                1,
+                1
+            );
+            end;
+          
+           pragma recursive_triggers = 1;
+          
+           INSERT INTO visits (
+            id,
+            siteID,
+            date,
+            type,
+            is_local
+          )  VALUES (
+            {last_visit_id},
+            {site_id},
+            {first_date} + 1,
+            1,
+            1
+        );
+        "
+        ))?;
+        Ok(())
+    }
+}
+
+fn generate_test_history(
+    ios_db: &Connection,
+    num_history: u64,
+    num_visits_per: u64,
+    start_timestamp: Timestamp,
+    seconds_between_history_visits: u64,
+) -> Result<()> {
+    let mut start_timestamp = start_timestamp;
+    let mut last_visit_id = 1;
+    (1..=num_history)
+        .map(|id| IOSHistory {
+            id,
+            guid: format!("Example GUID {}", id),
+            url: Some(format!("https://example{}.com", id)),
+            title: format!("Example Title {}", id),
+            is_deleted: false,
+            should_upload: false,
+        })
+        .for_each(|h| {
+            HistoryTable::populate_one(ios_db, &h).unwrap();
+            VisitTable::populate_many(
+                ios_db,
+                h.id,
+                start_timestamp.0,
+                num_visits_per,
+                last_visit_id,
+            )
+            .unwrap();
+            start_timestamp = start_timestamp
+                .checked_add(Duration::from_secs(seconds_between_history_visits))
+                .unwrap();
+            last_visit_id += num_visits_per;
+        });
+    Ok(())
 }
 
 #[test]
@@ -143,7 +260,7 @@ fn test_import_basic() -> Result<()> {
     // We subtract a bit because our sanitization logic is smart and rejects
     // visits that have a future timestamp,
     let before_first_visit_ts = Timestamp::now()
-        .checked_sub(Duration::from_secs(10000))
+        .checked_sub(Duration::from_secs(30 * 24 * 60 * 60))
         .unwrap();
     let first_visit_ts = before_first_visit_ts
         .checked_add(Duration::from_secs(100))
@@ -218,13 +335,19 @@ fn test_update_missing_title() -> Result<()> {
             .with_title(Some("Mozilla!".to_string()))
             .with_visit_type(Some(VisitTransition::Link)),
     )?;
+    apply_observation(
+        &mut conn,
+        VisitObservation::new(Url::parse("https://firefox.com/").unwrap())
+            .with_title(Some("Firefox!".to_string()))
+            .with_visit_type(Some(VisitTransition::Link)),
+    )?;
     let visit_infos = get_visit_infos(
         &conn,
         Timestamp::EARLIEST,
         Timestamp::now(),
         VisitTransitionSet::empty(),
     )?;
-    assert_eq!(visit_infos.len(), 2);
+    assert_eq!(visit_infos.len(), 3);
     // We verify that before the migration example.com had no title
     // and mozilla.org had "Mozilla!" as title
     for visit in visit_infos {
@@ -232,6 +355,8 @@ fn test_update_missing_title() -> Result<()> {
             assert!(visit.title.is_none())
         } else if visit.url.to_string() == "https://mozilla.org/" {
             assert_eq!(visit.title, Some("Mozilla!".to_string()))
+        } else if visit.url.to_string() == "https://firefox.com/" {
+            assert_eq!(visit.title, Some("Firefox!".to_string()))
         } else {
             panic!("Unexpected visit: {}", visit.url)
         }
@@ -249,16 +374,43 @@ fn test_update_missing_title() -> Result<()> {
     };
 
     let mozilla_org_entry = IOSHistory {
-        id: 1,
+        id: 2,
         guid: "EXAMPLE GUID2".to_string(),
         url: Some("https://mozilla.org/".to_string()),
         title: "New Mozilla Title".to_string(),
         is_deleted: false,
         should_upload: false,
     };
+    // We subtract a bit because our sanitization logic is smart and rejects
+    // visits that have a future timestamp,
+    let before_first_visit_ts = Timestamp::now()
+        .checked_sub(Duration::from_secs(30 * 24 * 60 * 60))
+        .unwrap();
 
-    let history_table = HistoryTable(vec![example_com_entry, mozilla_org_entry]);
+    let history_entries = vec![example_com_entry, mozilla_org_entry];
+    let visits = vec![
+        IOSVisit {
+            id: 0,
+            site_id: 1,
+            type_: 1,
+            date: before_first_visit_ts.as_millis_i64() * 1000,
+            is_local: true,
+        },
+        IOSVisit {
+            id: 1,
+            site_id: 2,
+            type_: 1,
+            date: before_first_visit_ts.as_millis_i64() * 1000 + 2,
+            is_local: true,
+        },
+    ];
+
+    assert_eq!(visits.len(), 2);
+
+    let history_table = HistoryTable(history_entries);
+    let visit_table = VisitTable(visits);
     history_table.populate(&ios_db)?;
+    visit_table.populate(&ios_db)?;
 
     // We now run the migration, both places should get an updated title
     places::import::import_ios_history(&conn, ios_path, 0)?;
@@ -268,17 +420,41 @@ fn test_update_missing_title() -> Result<()> {
         Timestamp::now(),
         VisitTransitionSet::empty(),
     )?;
-    assert_eq!(visit_infos.len(), 2);
+
+    // Three visits we manually added, and 2 imported from iOS
+    assert_eq!(visit_infos.len(), 5);
 
     for visit in visit_infos {
         if visit.url.to_string() == "https://example.com/" {
             assert_eq!(visit.title, Some("Example(dot)com".to_string()))
         } else if visit.url.to_string() == "https://mozilla.org/" {
             assert_eq!(visit.title, Some("New Mozilla Title".to_string()))
+        } else if visit.url.to_string() == "https://firefox.com/" {
+            assert_eq!(visit.title, Some("Firefox!".to_string()))
         } else {
             panic!("Unexpected visit: {}", visit.url)
         }
     }
 
+    Ok(())
+}
+
+#[test]
+fn test_import_a_lot() -> Result<()> {
+    let tmpdir = tempdir().unwrap();
+    let ios_path = tmpdir.path().join("browser.db");
+    let ios_db = empty_ios_db(&ios_path)?;
+
+    // We subtract a bit because our sanitization logic is smart and rejects
+    // visits that have a future timestamp,
+    let before_first_visit_ts = Timestamp::now()
+        .checked_sub(Duration::from_secs(30 * 24 * 60 * 60))
+        .unwrap();
+    generate_test_history(&ios_db, 101, 100, before_first_visit_ts, 1)?;
+
+    let places_api = PlacesApi::new(tmpdir.path().join("places.sqlite"))?;
+    let conn = places_api.open_connection(ConnectionType::ReadWrite)?;
+    let results = places::import::import_ios_history(&conn, &ios_path, 0)?;
+    assert_eq!(results.num_succeeded, 10000);
     Ok(())
 }
