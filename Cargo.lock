@@ -1792,6 +1792,7 @@ dependencies = [
  "places",
  "push",
  "rc_log_ffi",
+ "rust-log-forwarder",
  "sync_manager",
  "tabs",
  "viaduct",
@@ -1821,6 +1822,7 @@ dependencies = [
  "places",
  "push",
  "rc_log_ffi",
+ "rust-log-forwarder",
  "sync15",
  "tabs",
  "viaduct",
@@ -2921,6 +2923,15 @@ dependencies = [
  "blake2b_simd",
  "constant_time_eq",
  "crossbeam-utils",
+]
+
+[[package]]
+name = "rust-log-forwarder"
+version = "0.1.0"
+dependencies = [
+ "log",
+ "parking_lot",
+ "uniffi",
 ]
 
 [[package]]
