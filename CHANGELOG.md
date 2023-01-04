@@ -1,3 +1,11 @@
+# v96.2.1 (_2023-01-04_)
+
+[Full Changelog](https://github.com/mozilla/application-services/compare/v96.2.0...v96.2.1)
+
+## Places
+### What's changed
+  - Limited the number of visits to migrate for History to 10,000 visits. ([#5310](https://github.com/mozilla/application-services/pull/5310))
+
 # v96.2.0 (_2023-01-03_)
 
 [Full Changelog](https://github.com/mozilla/application-services/compare/v96.1.3...v96.2.0)
