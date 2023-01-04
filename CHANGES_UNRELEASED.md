@@ -2,7 +2,7 @@
 
 # Unreleased Changes
 
-[Full Changelog](https://github.com/mozilla/application-services/compare/v96.2.0...main)
+[Full Changelog](https://github.com/mozilla/application-services/compare/v96.1.3...main)
 
 <!-- WARNING: New entries should be added below this comment to ensure the `./automation/prepare-release.py` script works as expected.
 
@@ -18,3 +18,22 @@ Use the template below to make assigning a version number during the release cut
   - Description of the change with a link to the pull request ([#0000](https://github.com/mozilla/application-services/pull/0000))
 
 -->
+
+## Nimbus ⛅️🔬🔭
+
+### What's Changed
+  - Fixed an issue where the NimbusQueues protocol was missing from the NimbusApi ([#5298](https://github.com/mozilla/application-services/pull/5298))
+
+### ✨ What's New ✨
+  - Added `eventLastSeen` query to the event store and jexl transforms ([#5297](https://github.com/mozilla/application-services/pull/5297))
+  - Introduced the `NimbusBuilder` for Swift ([#5307](https://github.com/mozilla/application-services/pull/5307))
+
+## Tabs
+
+### What's Changed
+  - Fixed a regression causing failure to read old tabs databases ([#5286](https://github.com/mozilla/application-services/pull/5286))
+
+## Autofill
+
+## What's Changed
+  - Exposed autofill api to iOS consumer and resolved `createKey` function conflict with the Logins component.
