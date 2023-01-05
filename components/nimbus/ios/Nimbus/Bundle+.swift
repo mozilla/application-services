@@ -69,7 +69,8 @@ public extension Bundle {
     /// If no bundle for the language exists, then return `nil`.
     func fallbackTranslationBundle(language: String? = nil) -> Bundle? {
         if let lang = language ?? infoDictionary?["CFBundleDevelopmentRegion"] as? String,
-           let path = path(forResource: lang, ofType: "lproj") {
+           let path = path(forResource: lang, ofType: "lproj")
+        {
             return Bundle(path: path)
         } else {
             return nil
