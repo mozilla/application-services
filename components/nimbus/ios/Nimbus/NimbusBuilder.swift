@@ -20,7 +20,7 @@ public class NimbusBuilder {
      * This will only be null or empty in development or testing, or in any build variant of a
      * non-Mozilla fork.
      */
-    func withUrl(_ url: String?) {
+    func with(url: String?) {
         self.url = url
     }
 
@@ -30,7 +30,7 @@ public class NimbusBuilder {
      * A closure for reporting errors from Rust.
      */
     @discardableResult
-    func withErrorReporter(_ reporter: @escaping NimbusErrorReporter) -> NimbusBuilder {
+    func with(errorReporter reporter: @escaping NimbusErrorReporter) -> NimbusBuilder {
         errorReporter = reporter
         return self
     }
@@ -41,7 +41,7 @@ public class NimbusBuilder {
      * A flag to select the main or preview collection of remote settings. Defaults to `false`.
      */
     @discardableResult
-    func usingPreviewCollection(_ flag: Bool) -> NimbusBuilder {
+    func using(previewCollection flag: Bool) -> NimbusBuilder {
         usePreviewCollection = flag
         return self
     }
@@ -64,7 +64,7 @@ public class NimbusBuilder {
      * A optional raw resource of a file downloaded at or near build time from Remote Settings.
      */
     @discardableResult
-    func withInitialExperiments(fileURL: URL?) -> NimbusBuilder {
+    func with(initialExperiments fileURL: URL?) -> NimbusBuilder {
         initialExperiments = fileURL
         return self
     }
@@ -75,7 +75,7 @@ public class NimbusBuilder {
      * The timeout used to wait for the loading of the `initial_experiments
      */
     @discardableResult
-    func withTimeoutForLoadingInitialExperiments(_ seconds: TimeInterval) -> NimbusBuilder {
+    func with(timeoutForLoadingInitialExperiments seconds: TimeInterval) -> NimbusBuilder {
         timeoutLoadingExperiment = seconds
         return self
     }
@@ -107,7 +107,7 @@ public class NimbusBuilder {
     var onApplyCallback: ((NimbusInterface) -> Void)?
 
     @discardableResult
-    func withResourceBundles(_ bundles: [Bundle]) -> NimbusBuilder {
+    func with(bundles: [Bundle]) -> NimbusBuilder {
         resourceBundles = bundles
         return self
     }
