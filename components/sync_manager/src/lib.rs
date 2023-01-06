@@ -10,7 +10,6 @@ pub mod manager;
 mod types;
 
 pub use error::{Result, SyncManagerError};
-use sync15::DeviceType as SyncManagerDeviceType;
 pub use types::*;
 
 use manager::SyncManager;

@@ -76,6 +76,7 @@
 		F85ED649299C1F49005EEF36 /* RustSyncTelemetryPingTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = F85ED648299C1F49005EEF36 /* RustSyncTelemetryPingTests.swift */; };
 		F8BEFFDA299C4F1100776186 /* RustSyncTelemetryPing.swift in Sources */ = {isa = PBXBuildFile; fileRef = F8BEFFD9299C4F1100776186 /* RustSyncTelemetryPing.swift */; };
 		F8C88393298B4BF80006E9E9 /* syncmanager.udl in Sources */ = {isa = PBXBuildFile; fileRef = F8AAC1CC298B41FC000BCDEC /* syncmanager.udl */; };
+		F40A9DCD29765EB20033D10E /* sync15.udl in Sources */ = {isa = PBXBuildFile; fileRef = F40A9DCB29765DCB0033D10E /* sync15.udl */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXBuildRule section */
@@ -208,6 +209,9 @@
 		F8BEFFD9299C4F1100776186 /* RustSyncTelemetryPing.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; name = RustSyncTelemetryPing.swift; path = ../../../components/sync15/ios/RustSyncTelemetryPing.swift; sourceTree = SOURCE_ROOT; };
 		F8C88394298B4EC00006E9E9 /* syncmanagerFFI.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = syncmanagerFFI.h; path = ../../../components/sync_manager/ios/Generated/syncmanagerFFI.h; sourceTree = SOURCE_ROOT; };
 		F8C88395298B4EC00006E9E9 /* syncmanager.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; name = syncmanager.swift; path = ../../../components/sync_manager/ios/Generated/syncmanager.swift; sourceTree = SOURCE_ROOT; };
+		F40A9DCB29765DCB0033D10E /* sync15.udl */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; name = sync15.udl; path = ../../../components/sync15/src/sync15.udl; sourceTree = SOURCE_ROOT; };
+		F4FCED2E2976605400BA127E /* sync15FFI.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = sync15FFI.h; path = ../../../components/sync15/ios/Generated/sync15FFI.h; sourceTree = SOURCE_ROOT; };
+		F4FCED2F2976605400BA127E /* sync15.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; name = sync15.swift; path = ../../../components/sync15/ios/Generated/sync15.swift; sourceTree = SOURCE_ROOT; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -457,6 +461,8 @@
 			isa = PBXGroup;
 			children = (
 				F8BEFFD9299C4F1100776186 /* RustSyncTelemetryPing.swift */,
+				F4FCED2D2976605400BA127E /* Generated */,
+				F40A9DCB29765DCB0033D10E /* sync15.udl */,
 				1BBAC5B127AE11AA00DAFEF2 /* ResultError.swift */,
 				1BBAC5B027AE11AA00DAFEF2 /* SyncUnlockInfo.swift */,
 			);
@@ -570,6 +576,15 @@
 			name = Generated;
 			path = ../../../components/sync_manager/ios/Generated;
 			sourceTree = SOURCE_ROOT;
+		};
+		F4FCED2D2976605400BA127E /* Generated */ = {
+			isa = PBXGroup;
+			children = (
+				F4FCED2E2976605400BA127E /* sync15FFI.h */,
+				F4FCED2F2976605400BA127E /* sync15.swift */,
+			);
+			path = Generated;
+			sourceTree = "<group>";
 		};
 /* End PBXGroup section */
 
@@ -707,6 +722,7 @@
 			files = (
 				39AD326F2988468B00E42E13 /* FeatureManifestInterface.swift in Sources */,
 				F8C88393298B4BF80006E9E9 /* syncmanager.udl in Sources */,
+				F40A9DCD29765EB20033D10E /* sync15.udl in Sources */,
 				15DAE213294418F600DB06FE /* autofill.udl in Sources */,
 				45CC574A28AD9C86006D55AA /* errorsupport.udl in Sources */,
 				F81C7B9A29DE309C00FAF8F9 /* SyncManagerComponent.swift in Sources */,

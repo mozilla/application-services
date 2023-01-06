@@ -14,6 +14,7 @@
 #import "nimbusFFI.h"
 #import "placesFFI.h"
 #import "pushFFI.h"
+#import "sync15FFI.h"
 #import "tabsFFI.h"
 #import "errorFFI.h"
 #import "syncmanagerFFI.h"
