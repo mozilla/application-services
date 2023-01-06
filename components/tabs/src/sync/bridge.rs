@@ -278,7 +278,7 @@ mod tests {
     use std::collections::HashMap;
     use sync15::{ClientData, DeviceType, RemoteClient};
 
-    const TTL_3_WEEKS: u32 = 15_552_000; // 21 days
+    const TABS_CLIENT_TTL: u32 = 15_552_000; // same as in storage.rs
 
     // A copy of the normal "engine" tests but which go via the bridge
     #[test]
@@ -415,7 +415,7 @@ mod tests {
                 "clientName": "my device",
                 "tabs": serde_json::to_value(expected_tabs).unwrap(),
             }).to_string(),
-            "ttl": TTL_3_WEEKS,
+            "ttl": TABS_CLIENT_TTL,
         });
 
         assert_eq!(ours, expected);

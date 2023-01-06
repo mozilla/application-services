@@ -3,7 +3,7 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
 use crate::schema;
-use crate::storage::{ClientRemoteTabs, RemoteTab, TTL_3_WEEKS};
+use crate::storage::{ClientRemoteTabs, RemoteTab, TABS_CLIENT_TTL};
 use crate::store::TabsStore;
 use crate::sync::record::{TabsRecord, TabsRecordTab};
 use crate::Result;
@@ -191,7 +191,7 @@ impl TabsSyncImpl {
             log::trace!("outgoing {:?}", local_record);
             let envelope = OutgoingEnvelope {
                 id: local_id.into(),
-                ttl: Some(TTL_3_WEEKS),
+                ttl: Some(TABS_CLIENT_TTL),
                 ..Default::default()
             };
             vec![OutgoingBso::from_content(

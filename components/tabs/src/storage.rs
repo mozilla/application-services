@@ -21,13 +21,12 @@ use sql_support::ConnExt;
 use std::cell::RefCell;
 use std::collections::HashMap;
 use std::path::{Path, PathBuf};
-use sync15::RemoteClient;
-use sync15::ServerTimestamp;
-
+use sync15::{RemoteClient, ServerTimestamp};
 pub type TabsDeviceType = crate::DeviceType;
 pub type RemoteTabRecord = RemoteTab;
 
-pub(crate) const TTL_3_WEEKS: u32 = 15_552_000; // 21 days
+pub(crate) const TABS_CLIENT_TTL: u32 = 15_552_000; // 180 days, same as CLIENTS_TTL
+const FAR_FUTURE: i64 = 4_102_405_200_000; // 2100/01/01
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct RemoteTab {
@@ -239,7 +238,7 @@ impl TabsStorage {
                 // could happen - in most cases though, it will be due to a disconnected client -
                 // so we really should consider just dropping it? (Sadly though, it does seem
                 // possible it's actually a very recently connected client, so we keep it)
-                error_support::breadcrumb!(
+                log::info!(
                     "Storing tabs from a client that doesn't appear in the devices list: {}",
                     id,
                 );
@@ -258,16 +257,26 @@ impl TabsStorage {
         let last_sync = self.get_meta::<i64>(schema::LAST_SYNC_META_KEY)?;
         if let Some(conn) = self.open_if_exists()? {
             if let Some(last_sync) = last_sync {
-                let tx = conn.unchecked_transaction()?;
-                // Get rid of anything older than 3 weeks of our last sync
-                tx.execute_cached(
-                    "DELETE FROM tabs WHERE last_modified <= :last_sync - :ttl",
-                    rusqlite::named_params! {
-                        ":last_sync": last_sync,
-                        ":ttl": TTL_3_WEEKS,
-                    },
-                )?;
-                tx.commit()?;
+                let client_ttl_ms = (TABS_CLIENT_TTL as i64) * 1000;
+                // On desktop, a quick write sets the last_sync to FAR_FUTURE
+                // which means we'll most likely trash all our records (as it's more than any TTL we'd ever do)
+                // so we need to detect this for now until we have native quick write support
+                if last_sync - client_ttl_ms >= 0 && last_sync != (FAR_FUTURE * 1000) {
+                    let tx = conn.unchecked_transaction()?;
+                    let num_removed = tx.execute_cached(
+                        "DELETE FROM tabs WHERE last_modified <= :last_sync - :ttl",
+                        rusqlite::named_params! {
+                            ":last_sync": last_sync,
+                            ":ttl": client_ttl_ms,
+                        },
+                    )?;
+                    log::info!(
+                        "removed {} stale clients (threshold was {})",
+                        num_removed,
+                        last_sync - client_ttl_ms
+                    );
+                    tx.commit()?;
+                }
             }
         }
         Ok(())
@@ -289,6 +298,11 @@ impl TabsStorage {
         for remote_tab in new_remote_tabs {
             let record = remote_tab.0;
             let last_modified = remote_tab.1;
+            log::info!(
+                "inserting tab for device {}, last modified at {}",
+                record.id,
+                last_modified.as_millis()
+            );
             tx.execute_cached(
                 "INSERT OR REPLACE INTO tabs (guid, record, last_modified) VALUES (:guid, :record, :last_modified);",
                 rusqlite::named_params! {
@@ -513,10 +527,10 @@ mod tests {
                         title: "the title".to_string(),
                         url_history: vec!["https://mozilla.org/".to_string()],
                         icon: Some("https://mozilla.org/icon".to_string()),
-                        last_used: 1643764207,
+                        last_used: 1643764207000,
                     }],
                 },
-                last_modified: 1643764207,
+                last_modified: 1643764207000,
             },
             TabsSQLRecord {
                 guid: "device-outdated".to_string(),
@@ -527,10 +541,10 @@ mod tests {
                         title: "the title".to_string(),
                         url_history: vec!["https://mozilla.org/".to_string()],
                         icon: Some("https://mozilla.org/icon".to_string()),
-                        last_used: 1643764207,
+                        last_used: 1643764207000,
                     }],
                 },
-                last_modified: 1443764207, // old
+                last_modified: 1443764207000, // old
             },
         ];
         let db = storage.open_if_exists().unwrap().unwrap();
@@ -545,7 +559,7 @@ mod tests {
             ).unwrap();
         }
         // pretend we just synced
-        let last_synced = 1643764207_i64;
+        let last_synced = 1643764207000_i64;
         storage
             .put_meta(schema::LAST_SYNC_META_KEY, &last_synced)
             .unwrap();
