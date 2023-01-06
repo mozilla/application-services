@@ -13,7 +13,7 @@ plugins {
 gradlePlugin {
     plugins.register("org.mozilla.appservices.nimbus-gradle-plugin") {
         id = "org.mozilla.appservices.nimbus-gradle-plugin"
-        implementationClass = "mozilla.appservices.tooling.nimbus.NimbusPlugin"
+        implementationClass = "org.mozilla.appservices.tooling.nimbus.NimbusPlugin"
     }
 }
 

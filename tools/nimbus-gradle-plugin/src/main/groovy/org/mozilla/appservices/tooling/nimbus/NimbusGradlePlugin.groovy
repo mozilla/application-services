@@ -2,11 +2,10 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-package mozilla.appservices.tooling.nimbus
+package org.mozilla.appservices.tooling.nimbus
 
 import org.gradle.api.Task
 import org.gradle.api.provider.ListProperty
-import org.gradle.api.tasks.Optional
 
 import java.util.stream.Collectors
 import java.util.zip.ZipFile
@@ -165,6 +164,8 @@ class NimbusPlugin implements Plugin<Project> {
             doLast {
                 if (extension.getApplicationServicesDirActual() == null) {
                     fetchNimbusBinaries(project)
+                } else {
+                    println("Using local application services")
                 }
             }
         }
@@ -190,9 +191,7 @@ class NimbusPlugin implements Plugin<Project> {
 
     // Fetches and extracts the pre-built nimbus-fml binaries
     def fetchNimbusBinaries(Project project) {
-        Properties props = new Properties()
-        props.load(getClass().getResourceAsStream("/plugin.properties"))
-        def asVersion = props.get("version")
+        def asVersion = getProjectVersion()
 
         def fmlPath = new File(getFMLPath(project, asVersion))
         println("Checking fml binaries in $fmlPath")
@@ -288,6 +287,13 @@ class NimbusPlugin implements Plugin<Project> {
         return [getFMLRoot(project, version), binaryName].join(File.separator)
     }
 
+    String getProjectVersion() {
+        Properties props = new Properties()
+        def stream = getClass().getResourceAsStream("/plugin.properties")
+        props.load(stream)
+        return props.get("version")
+    }
+
     def setupVariantTasks(variant, project, extension, oneTimeTasks, isLibrary = false) {
         def task = setupNimbusFeatureTasks(variant, project, extension)
 
@@ -332,7 +338,7 @@ class NimbusPlugin implements Plugin<Project> {
                 println("Nimbus FML generating Kotlin")
                 println("manifest        $inputFile")
                 println("cache dir       $cacheDir")
-                println("repo file(s)    ${repoFiles.join(", ")}")
+                println("repo file(s)     ${repoFiles.join(", ")}")
                 println("channel         $channel")
             }
 
@@ -343,7 +349,7 @@ class NimbusPlugin implements Plugin<Project> {
             def localAppServices = extension.getApplicationServicesDirActual()
             if (localAppServices == null) {
                 workingDir project.rootDir
-                commandLine getFMLPath(project)
+                commandLine getFMLPath(project, getProjectVersion())
             } else {
                 def cargoManifest = [project.rootDir, localAppServices, "$APPSERVICES_FML_HOME/Cargo.toml"].join(File.separator)
 
@@ -413,7 +419,7 @@ class NimbusPlugin implements Plugin<Project> {
             def localAppServices = extension.getApplicationServicesDirActual()
             if (localAppServices == null) {
                 workingDir project.rootDir
-                commandLine getFMLPath(project)
+                commandLine getFMLPath(project, getProjectVersion())
             } else {
                 def cargoManifest = [project.rootDir, localAppServices, "$APPSERVICES_FML_HOME/Cargo.toml"].join(File.separator)
 
