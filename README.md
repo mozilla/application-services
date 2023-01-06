@@ -2,7 +2,7 @@
 
 # Firefox Application Services
 
-Application Services (a-s) is a collection of Rust Components that are used to enable Firefox applications to integrate with Firefox accounts, sync, experimentation, etc. Each component is built using a core of shared code written in Rust, wrapped with native language bindings for different platforms.
+Application Services (a-s) is a collection of Rust Components that are used to enable Firefox applications to integrate with Firefox Accounts, sync, experimentation, etc. Each component is built using a core of shared code written in Rust, wrapped with native language bindings for different platforms.
 
 ### Contributing
 To contribute, please review the Mozilla [Community Participation Guidelines](https://www.mozilla.org/en-US/about/governance/policies/participation/) and then visit our [how to contribute](docs/contributing.md) guide.
