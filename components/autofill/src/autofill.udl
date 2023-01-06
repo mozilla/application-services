@@ -3,7 +3,7 @@ namespace autofill {
 
     // Create a new, random, encryption key.
     [Throws=AutofillApiError]
-    string create_key();
+    string create_autofill_key();
 
     // Encrypt an arbitrary string - `key` must have come from `create_key()`
     [Throws=AutofillApiError]

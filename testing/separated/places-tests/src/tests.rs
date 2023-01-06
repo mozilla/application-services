@@ -3,5 +3,4 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
 mod check_coop_tx;
-mod ios_bookmarks;
 mod ios_history;

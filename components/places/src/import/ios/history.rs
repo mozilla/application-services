@@ -60,7 +60,11 @@ fn do_import(
     let tx = conn.begin_transaction()?;
     let num_total = select_count(conn, &COUNT_IOS_HISTORY_VISITS)?;
     log::info!("The number of visits is: {:?}", num_total);
+
     log::info!("Creating and populating staging table");
+
+    tx.execute_batch(&CREATE_TEMP_VISIT_TABLE)?;
+    tx.execute_batch(&FILL_VISIT_TABLE)?;
     tx.execute_batch(&CREATE_STAGING_TABLE)?;
     tx.execute_batch(&FILL_STAGING)?;
     scope.err_if_interrupted()?;
@@ -87,7 +91,6 @@ fn do_import(
     put_meta(conn, LAST_SYNC_META_KEY, &last_sync_timestamp)?;
 
     tx.commit()?;
-
     log::info!("Successfully imported history visits!");
 
     log::info!("Counting Places history visits");
@@ -104,14 +107,12 @@ fn do_import(
     log::info!("Frecencies updated!");
     auto_detach.execute_now()?;
 
-    let metrics = HistoryMigrationResult {
+    Ok(HistoryMigrationResult {
         num_total,
         num_succeeded,
         num_failed,
         total_duration: import_start.elapsed().as_millis() as u64,
-    };
-
-    Ok(metrics)
+    })
 }
 
 lazy_static::lazy_static! {
@@ -122,36 +123,62 @@ lazy_static::lazy_static! {
         WHERE h.is_deleted = 0"
    ;
 
+   // Create a temporrary table for visists
+   static ref CREATE_TEMP_VISIT_TABLE: &'static str = "
+    CREATE TEMP TABLE IF NOT EXISTS temp.latestVisits(
+        id INTEGER PRIMARY KEY,
+        siteID INTEGER NOT NULL,
+        date REAL NOT NULL,
+        type INTEGER NOT NULL,
+        is_local TINYINT NOT NULL
+    ) WITHOUT ROWID;
+   ";
+
+   // Insert into temp visit table
+   static ref FILL_VISIT_TABLE: &'static str = "
+    INSERT OR IGNORE INTO temp.latestVisits(id, siteID, date, type, is_local)
+        SELECT
+            id,
+            siteID,
+            date,
+            type,
+            is_local
+        FROM ios.visits
+        ORDER BY date DESC
+        LIMIT 10000
+   ";
+
    // We use a staging table purely so that we can normalize URLs (and
    // specifically, punycode them)
    static ref CREATE_STAGING_TABLE: &'static str = "
-        CREATE TEMP TABLE temp.iOSHistoryStaging(
+        CREATE TEMP TABLE IF NOT EXISTS temp.iOSHistoryStaging(
             id INTEGER PRIMARY KEY,
             url TEXT,
             url_hash INTEGER NOT NULL,
-            title TEXT,
-            is_deleted TINYINT NOT NULL
+            title TEXT
         ) WITHOUT ROWID;";
 
    static ref FILL_STAGING: &'static str = "
-    INSERT OR IGNORE INTO temp.iOSHistoryStaging(id, url, url_hash, title, is_deleted)
+    INSERT OR IGNORE INTO temp.iOSHistoryStaging(id, url, url_hash, title)
         SELECT
             h.id,
             validate_url(h.url),
             hash(validate_url(h.url)),
-            sanitize_utf8(h.title),
-            h.is_deleted
-        FROM ios.history h
-        WHERE url IS NOT NULL"
+            sanitize_utf8(h.title)
+        FROM temp.latestVisits v
+        JOIN ios.history h on v.siteID = h.id
+        WHERE h.url IS NOT NULL
+        AND h.is_deleted = 0
+        "
    ;
 
     // Unfortunately UPDATE FROM is not available until sqlite 3.33
    // however, iOS does not ship with 3.33 yet as of the time of writing.
    static ref UPDATE_PLACES_TITLES: &'static str =
    "UPDATE main.moz_places
-        SET title = ( SELECT t.title
+        SET title = IFNULL((SELECT t.title
                             FROM temp.iOSHistoryStaging t
-                            WHERE t.url_hash = main.moz_places.url_hash AND t.url = main.moz_places.url )"
+                            WHERE t.url_hash = main.moz_places.url_hash AND t.url = main.moz_places.url), title)"
     ;
 
    // Insert any missing entries into moz_places that we'll need for this.
@@ -168,7 +195,7 @@ lazy_static::lazy_static! {
             -1,
             1
         FROM temp.iOSHistoryStaging t
-        WHERE t.is_deleted = 0"
+   "
    ;
 
    // Insert history visits
@@ -180,9 +207,9 @@ lazy_static::lazy_static! {
             sanitize_float_timestamp(v.date),
             v.type, -- iOS stores visit types that map 1:1 to ours.
             v.is_local
-        FROM ios.visits v
-        LEFT JOIN temp.iOSHistoryStaging t on v.siteID = t.id
-        WHERE t.is_deleted = 0"
+        FROM temp.latestVisits v
+        JOIN temp.iOSHistoryStaging t on v.siteID = t.id
+    "
    ;
 
 

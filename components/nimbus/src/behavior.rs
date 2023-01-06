@@ -7,6 +7,7 @@ use crate::error::{BehaviorError, NimbusError, Result};
 use crate::persistence::{Database, StoreId};
 use chrono::{DateTime, Datelike, Duration, Utc};
 use serde::{Deserialize, Serialize};
+use serde_json::Value;
 use std::collections::vec_deque::Iter;
 use std::collections::{HashMap, VecDeque};
 use std::fmt;
@@ -266,15 +267,23 @@ impl Default for MultiIntervalCounter {
     }
 }
 
+#[derive(Debug)]
 pub enum EventQueryType {
     Sum,
     CountNonZero,
     AveragePerInterval,
     AveragePerNonZeroInterval,
+    LastSeen,
+}
+
+impl fmt::Display for EventQueryType {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        fmt::Debug::fmt(self, f)
+    }
 }
 
 impl EventQueryType {
-    fn perform_query(&self, buckets: Iter<u64>, num_buckets: usize) -> Result<f64> {
+    pub fn perform_query(&self, buckets: Iter<u64>, num_buckets: usize) -> Result<f64> {
         Ok(match self {
             Self::Sum => buckets.sum::<u64>() as f64,
             Self::CountNonZero => buckets.filter(|v| v > &&0u64).count() as f64,
@@ -292,6 +301,86 @@ impl EventQueryType {
                     values.0 as f64 / values.1 as f64
                 }
             }
+            Self::LastSeen => match buckets.into_iter().position(|v| v > &0) {
+                Some(v) => v as f64,
+                None => f64::MAX,
+            },
+        })
+    }
+
+    fn validate_counting_arguments(
+        &self,
+        args: &[Value],
+    ) -> Result<(String, Interval, usize, usize)> {
+        if args.len() < 3 || args.len() > 4 {
+            return Err(NimbusError::TransformParameterError(format!(
+                "event transform {} requires 2-3 parameters",
+                self
+            )));
+        }
+        let event = serde_json::from_value::<String>(args.get(0).unwrap().clone())?;
+        let interval = serde_json::from_value::<String>(args.get(1).unwrap().clone())?;
+        let interval = Interval::from_str(&interval)?;
+        let num_buckets = match args.get(2).unwrap().as_f64() {
+            Some(v) => v,
+            None => {
+                return Err(NimbusError::TransformParameterError(format!(
+                    "event transform {} requires a positive number as the second parameter",
+                    self
+                )))
+            }
+        } as usize;
+        let zero = &Value::from(0);
+        let starting_bucket = match args.get(3).unwrap_or(zero).as_f64() {
+            Some(v) => v,
+            None => {
+                return Err(NimbusError::TransformParameterError(format!(
+                    "event transform {} requires a positive number as the third parameter",
+                    self
+                )))
+            }
+        } as usize;
+
+        Ok((event, interval, num_buckets, starting_bucket))
+    }
+
+    fn validate_last_seen_arguments(
+        &self,
+        args: &[Value],
+    ) -> Result<(String, Interval, usize, usize)> {
+        if args.len() < 2 || args.len() > 3 {
+            return Err(NimbusError::TransformParameterError(format!(
+                "event transform {} requires 1-2 parameters",
+                self
+            )));
+        }
+        let event = serde_json::from_value::<String>(args.get(0).unwrap().clone())?;
+        let interval = serde_json::from_value::<String>(args.get(1).unwrap().clone())?;
+        let interval = Interval::from_str(&interval)?;
+        let zero = &Value::from(0);
+        let starting_bucket = match args.get(2).unwrap_or(zero).as_f64() {
+            Some(v) => v,
+            None => {
+                return Err(NimbusError::TransformParameterError(format!(
+                    "event transform {} requires a positive number as the second parameter",
+                    self
+                )))
+            }
+        } as usize;
+
+        Ok((event, interval, usize::MAX, starting_bucket))
+    }
+
+    pub fn validate_arguments(&self, args: &[Value]) -> Result<(String, Interval, usize, usize)> {
+        // `args` is an array of values sent by the evaluator for a JEXL transform.
+        // The first parameter will always be the event_id, and subsequent parameters are up to the developer's discretion.
+        // All parameters should be validated, and a `TransformParameterError` should be sent when there is an error.
+        Ok(match self {
+            Self::Sum
+            | Self::CountNonZero
+            | Self::AveragePerInterval
+            | Self::AveragePerNonZeroInterval => self.validate_counting_arguments(args)?,
+            Self::LastSeen => self.validate_last_seen_arguments(args)?,
         })
     }
 }

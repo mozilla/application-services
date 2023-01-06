@@ -7,6 +7,7 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
+		15DAE213294418F600DB06FE /* autofill.udl in Sources */ = {isa = PBXBuildFile; fileRef = 15DAE20D2944155E00DB06FE /* autofill.udl */; };
 		1B3BC93F27B1D62800229CF6 /* Bookmark.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1BBAC5A527AE0F2E00DAFEF2 /* Bookmark.swift */; };
 		1B3BC94027B1D62800229CF6 /* Places.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1BBAC5A727AE0F2E00DAFEF2 /* Places.swift */; };
 		1B3BC94127B1D62800229CF6 /* HistoryMetadata.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1BBAC5A627AE0F2E00DAFEF2 /* HistoryMetadata.swift */; };
@@ -58,7 +59,11 @@
 		1BF50F1927B1E19500A9C8A5 /* FxAccountManagerTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1BBAC54127AE065300DAFEF2 /* FxAccountManagerTests.swift */; };
 		1BF50F1A27B1E19800A9C8A5 /* FxAccountMocks.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1BBAC53C27AE065300DAFEF2 /* FxAccountMocks.swift */; };
 		1BFC469827C99F250034E0A5 /* Metrics.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1BFC469627C99F250034E0A5 /* Metrics.swift */; };
+		39083AAB29561E2400FDD302 /* OperationTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 39083AAA29561E2400FDD302 /* OperationTests.swift */; };
+		395EFD6E2966EB6D00D24B97 /* Bundle+.swift in Sources */ = {isa = PBXBuildFile; fileRef = 395EFD6D2966EB6D00D24B97 /* Bundle+.swift */; };
 		3963A5862919A541001ED4C3 /* Dictionary+.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3963A5852919A541001ED4C3 /* Dictionary+.swift */; };
+		39F5D7642956161E004E2384 /* Operation+.swift in Sources */ = {isa = PBXBuildFile; fileRef = 39F5D7632956161E004E2384 /* Operation+.swift */; };
+		39F5D766295616E3004E2384 /* NimbusBuilder.swift in Sources */ = {isa = PBXBuildFile; fileRef = 39F5D765295616E3004E2384 /* NimbusBuilder.swift */; };
 		45CC574A28AD9C86006D55AA /* errorsupport.udl in Sources */ = {isa = PBXBuildFile; fileRef = 45CC574828AD9C31006D55AA /* errorsupport.udl */; };
 /* End PBXBuildFile section */
 
@@ -103,6 +108,9 @@
 /* End PBXCopyFilesBuildPhase section */
 
 /* Begin PBXFileReference section */
+		15DAE20D2944155E00DB06FE /* autofill.udl */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; name = autofill.udl; path = ../../../components/autofill/src/autofill.udl; sourceTree = SOURCE_ROOT; };
+		15DAE2102944165300DB06FE /* autofillFFI.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = autofillFFI.h; sourceTree = "<group>"; };
+		15DAE2112944165300DB06FE /* autofill.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = autofill.swift; sourceTree = "<group>"; };
 		1B3BC97527B1D9B700229CF6 /* Collections+.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; name = "Collections+.swift"; path = "../../../components/nimbus/ios/Nimbus/Collections+.swift"; sourceTree = SOURCE_ROOT; };
 		1B3BC97627B1D9B700229CF6 /* FeatureHolder.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; name = FeatureHolder.swift; path = ../../../components/nimbus/ios/Nimbus/FeatureHolder.swift; sourceTree = SOURCE_ROOT; };
 		1B3BC97727B1D9B700229CF6 /* NimbusApi.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; name = NimbusApi.swift; path = ../../../components/nimbus/ios/Nimbus/NimbusApi.swift; sourceTree = SOURCE_ROOT; };
@@ -168,7 +176,11 @@
 		1BF50F2327B1E53E00A9C8A5 /* metrics.yaml */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.yaml; name = metrics.yaml; path = ../../../components/nimbus/metrics.yaml; sourceTree = SOURCE_ROOT; };
 		1BF50F2B27B1EB7D00A9C8A5 /* sdk_generator.sh */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.script.sh; name = sdk_generator.sh; path = "../../../../../components/external/glean/glean-core/ios/sdk_generator.sh"; sourceTree = SOURCE_ROOT; };
 		1BFC469627C99F250034E0A5 /* Metrics.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; name = Metrics.swift; path = MozillaTestServices/Generated/Metrics.swift; sourceTree = SOURCE_ROOT; };
+		39083AAA29561E2400FDD302 /* OperationTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OperationTests.swift; sourceTree = "<group>"; };
+		395EFD6D2966EB6D00D24B97 /* Bundle+.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = "Bundle+.swift"; path = "Nimbus/Bundle+.swift"; sourceTree = "<group>"; };
 		3963A5852919A541001ED4C3 /* Dictionary+.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = "Dictionary+.swift"; path = "Nimbus/Dictionary+.swift"; sourceTree = "<group>"; };
+		39F5D7632956161E004E2384 /* Operation+.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = "Operation+.swift"; path = "Nimbus/Operation+.swift"; sourceTree = "<group>"; };
+		39F5D765295616E3004E2384 /* NimbusBuilder.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = NimbusBuilder.swift; path = Nimbus/NimbusBuilder.swift; sourceTree = "<group>"; };
 		45CC574528AD9C0B006D55AA /* errorFFI.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = errorFFI.h; path = ../../../../components/support/error/ios/Generated/errorFFI.h; sourceTree = "<group>"; };
 		45CC574628AD9C0B006D55AA /* errorsupport.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; name = errorsupport.swift; path = ../../../../components/support/error/ios/Generated/errorsupport.swift; sourceTree = "<group>"; };
 		45CC574828AD9C31006D55AA /* errorsupport.udl */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; name = errorsupport.udl; path = ../../../../components/support/error/src/errorsupport.udl; sourceTree = "<group>"; };
@@ -194,14 +206,36 @@
 /* End PBXFrameworksBuildPhase section */
 
 /* Begin PBXGroup section */
+		15DAE2082944142000DB06FE /* Autofill */ = {
+			isa = PBXGroup;
+			children = (
+				15DAE20F294415B100DB06FE /* Generated */,
+				15DAE20D2944155E00DB06FE /* autofill.udl */,
+			);
+			name = Autofill;
+			path = ../../../../components/autofill/ios;
+			sourceTree = "<group>";
+		};
+		15DAE20F294415B100DB06FE /* Generated */ = {
+			isa = PBXGroup;
+			children = (
+				15DAE2112944165300DB06FE /* autofill.swift */,
+				15DAE2102944165300DB06FE /* autofillFFI.h */,
+			);
+			name = Generated;
+			path = ../../../components/autofill/ios/Generated;
+			sourceTree = SOURCE_ROOT;
+		};
 		1B3BC97427B1D99A00229CF6 /* Nimbus */ = {
 			isa = PBXGroup;
 			children = (
 				1BF50F2327B1E53E00A9C8A5 /* metrics.yaml */,
 				1BF50EF327B1DD7D00A9C8A5 /* Generated */,
 				1B3BC98E27B1D9D600229CF6 /* nimbus.udl */,
+				395EFD6D2966EB6D00D24B97 /* Bundle+.swift */,
 				1B3BC97527B1D9B700229CF6 /* Collections+.swift */,
 				3963A5852919A541001ED4C3 /* Dictionary+.swift */,
+				39F5D7632956161E004E2384 /* Operation+.swift */,
 				1B3BC97627B1D9B700229CF6 /* FeatureHolder.swift */,
 				1B3BC97B27B1D9B700229CF6 /* FeatureInterface.swift */,
 				1B3BC97927B1D9B700229CF6 /* FeatureVariables.swift */,
@@ -209,6 +243,7 @@
 				1B3BC97A27B1D9B700229CF6 /* Nimbus.swift */,
 				1B3BC97727B1D9B700229CF6 /* NimbusApi.swift */,
 				1B3BC98127B1D9B700229CF6 /* NimbusCreate.swift */,
+				39F5D765295616E3004E2384 /* NimbusBuilder.swift */,
 				1B3BC97C27B1D9B700229CF6 /* Utils */,
 			);
 			name = Nimbus;
@@ -269,6 +304,7 @@
 		1BBAC4FA27AE049500DAFEF2 /* MozillaTestServices */ = {
 			isa = PBXGroup;
 			children = (
+				15DAE2082944142000DB06FE /* Autofill */,
 				45CC574328AD9BC8006D55AA /* ErrorSupport */,
 				1BFC469427C99F250034E0A5 /* Generated */,
 				1BB64C7B27B1FF9F00A4247F /* TestClient */,
@@ -295,6 +331,7 @@
 				1BBAC53F27AE065300DAFEF2 /* LogTest.swift */,
 				1BBAC54427AE065300DAFEF2 /* NimbusFeatureVariablesTests.swift */,
 				1BBAC53E27AE065300DAFEF2 /* NimbusTests.swift */,
+				39083AAA29561E2400FDD302 /* OperationTests.swift */,
 				1BBAC54027AE065300DAFEF2 /* PlacesTests.swift */,
 			);
 			path = MozillaTestServicesTests;
@@ -611,6 +648,7 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				15DAE213294418F600DB06FE /* autofill.udl in Sources */,
 				45CC574A28AD9C86006D55AA /* errorsupport.udl in Sources */,
 				1BE9B60D27C9CD770029D11A /* crashtest.udl in Sources */,
 				1BE9B60E27C9CD770029D11A /* nimbus.udl in Sources */,
@@ -618,6 +656,7 @@
 				1BE9B61027C9CD770029D11A /* logins.udl in Sources */,
 				1BE9B61127C9CD770029D11A /* fxa_client.udl in Sources */,
 				1BFC469827C99F250034E0A5 /* Metrics.swift in Sources */,
+				39F5D766295616E3004E2384 /* NimbusBuilder.swift in Sources */,
 				1B3BC98627B1D9B800229CF6 /* FeatureVariables.swift in Sources */,
 				1BBAC59C27AE0BB600DAFEF2 /* ContentView.swift in Sources */,
 				1B3BC98B27B1D9B800229CF6 /* Sysctl.swift in Sources */,
@@ -632,12 +671,14 @@
 				1B3BC94627B1D6A500229CF6 /* ResultError.swift in Sources */,
 				1B3BC98327B1D9B700229CF6 /* FeatureHolder.swift in Sources */,
 				1B3BC98527B1D9B800229CF6 /* GleanPlumbHelpers.swift in Sources */,
+				395EFD6E2966EB6D00D24B97 /* Bundle+.swift in Sources */,
 				1BF50F1427B1E17B00A9C8A5 /* PersistedFirefoxAccount.swift in Sources */,
 				1BF50F1027B1E17B00A9C8A5 /* FxAccountStorage.swift in Sources */,
 				1BF50F0E27B1E17B00A9C8A5 /* FxAccountLogging.swift in Sources */,
 				1B3BC94D27B1D7B700229CF6 /* RustLog.swift in Sources */,
 				1BF50F1627B1E18000A9C8A5 /* KeychainWrapper.swift in Sources */,
 				1BF50F1227B1E17B00A9C8A5 /* FxAccountManager.swift in Sources */,
+				39F5D7642956161E004E2384 /* Operation+.swift in Sources */,
 				3963A5862919A541001ED4C3 /* Dictionary+.swift in Sources */,
 				1B3BC98D27B1D9B800229CF6 /* NimbusCreate.swift in Sources */,
 				1B3BC98727B1D9B800229CF6 /* Nimbus.swift in Sources */,
@@ -669,6 +710,7 @@
 				1B3BC94827B1D73700229CF6 /* LoginsTests.swift in Sources */,
 				1B3BC94F27B1D92800229CF6 /* NimbusTests.swift in Sources */,
 				1BF50F1927B1E19500A9C8A5 /* FxAccountManagerTests.swift in Sources */,
+				39083AAB29561E2400FDD302 /* OperationTests.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
