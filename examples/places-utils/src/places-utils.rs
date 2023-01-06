@@ -130,13 +130,6 @@ fn run_desktop_import(db: &PlacesDb, filename: String) -> Result<()> {
     do_import(db, root)
 }
 
-fn run_ios_import_bookmarks(api: &PlacesApi, filename: String) -> Result<()> {
-    println!("ios import bookmarks from {}", filename);
-    places::import::import_ios_bookmarks(api, filename)?;
-    println!("Import finished!");
-    Ok(())
-}
-
 fn run_ios_import_history(conn: &PlacesDb, filename: String) -> Result<()> {
     let res = places::import::import_ios_history(conn, filename, 0)?;
     println!("Import finished!, results: {:?}", res);
@@ -355,14 +348,6 @@ enum Command {
         input_file: String,
     },
 
-    #[structopt(name = "import-ios-bookmarks")]
-    /// Import bookmarks from an iOS browser.db
-    ImportIosBookmarks {
-        #[structopt(name = "input-file", long, short = "i")]
-        /// The name of the file to read.
-        input_file: String,
-    },
-
     #[structopt(name = "import-ios-history")]
     /// Import history from an iOS browser.db
     ImportIosHistory {
@@ -401,7 +386,7 @@ fn main() -> Result<()> {
     let api = PlacesApi::new(&db_path)?;
     let db = api.open_connection(ConnectionType::ReadWrite)?;
     // Needed to make the get_registered_sync_engine() calls work.
-    api.clone().register_with_sync_manager();
+    api.register_with_sync_manager();
 
     ctrlc::set_handler(move || {
         println!("\nCTRL-C detected, enabling shutdown mode\n");
@@ -429,7 +414,6 @@ fn main() -> Result<()> {
         ),
         Command::ExportBookmarks { output_file } => run_native_export(&db, output_file),
         Command::ImportBookmarks { input_file } => run_native_import(&db, input_file),
-        Command::ImportIosBookmarks { input_file } => run_ios_import_bookmarks(&api, input_file),
         Command::ImportDesktopBookmarks { input_file } => run_desktop_import(&db, input_file),
         Command::ImportIosHistory { input_file } => run_ios_import_history(&db, input_file),
         Command::RunMaintenance {

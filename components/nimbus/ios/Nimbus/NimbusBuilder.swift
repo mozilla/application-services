@@ -10,7 +10,7 @@ import Foundation
 public class NimbusBuilder {
     let dbFilePath: String
 
-    init(dbPath: String) {
+    public init(dbPath: String) {
         dbFilePath = dbPath
     }
 
@@ -20,7 +20,7 @@ public class NimbusBuilder {
      * This will only be null or empty in development or testing, or in any build variant of a
      * non-Mozilla fork.
      */
-    func withUrl(_ url: String?) {
+    public func with(url: String?) {
         self.url = url
     }
 
@@ -30,7 +30,7 @@ public class NimbusBuilder {
      * A closure for reporting errors from Rust.
      */
     @discardableResult
-    func withErrorReporter(_ reporter: @escaping NimbusErrorReporter) -> NimbusBuilder {
+    public func with(errorReporter reporter: @escaping NimbusErrorReporter) -> NimbusBuilder {
         errorReporter = reporter
         return self
     }
@@ -41,7 +41,7 @@ public class NimbusBuilder {
      * A flag to select the main or preview collection of remote settings. Defaults to `false`.
      */
     @discardableResult
-    func usingPreviewCollection(_ flag: Bool) -> NimbusBuilder {
+    public func using(previewCollection flag: Bool) -> NimbusBuilder {
         usePreviewCollection = flag
         return self
     }
@@ -53,7 +53,7 @@ public class NimbusBuilder {
      * whether the `initial_experiments` file is used to populate Nimbus.
      */
     @discardableResult
-    func isFirstRun(_ flag: Bool) -> NimbusBuilder {
+    public func isFirstRun(_ flag: Bool) -> NimbusBuilder {
         isFirstRun = flag
         return self
     }
@@ -64,7 +64,7 @@ public class NimbusBuilder {
      * A optional raw resource of a file downloaded at or near build time from Remote Settings.
      */
     @discardableResult
-    func withInitialExperiments(fileURL: URL?) -> NimbusBuilder {
+    public func with(initialExperiments fileURL: URL?) -> NimbusBuilder {
         initialExperiments = fileURL
         return self
     }
@@ -75,7 +75,7 @@ public class NimbusBuilder {
      * The timeout used to wait for the loading of the `initial_experiments
      */
     @discardableResult
-    func withTimeoutForLoadingInitialExperiments(_ seconds: TimeInterval) -> NimbusBuilder {
+    public func with(timeoutForLoadingInitialExperiments seconds: TimeInterval) -> NimbusBuilder {
         timeoutLoadingExperiment = seconds
         return self
     }
@@ -87,7 +87,7 @@ public class NimbusBuilder {
      * to be used.
      */
     @discardableResult
-    func onCreate(callback: @escaping (NimbusInterface) -> Void) -> NimbusBuilder {
+    public func onCreate(callback: @escaping (NimbusInterface) -> Void) -> NimbusBuilder {
         onCreateCallback = callback
         return self
     }
@@ -99,7 +99,7 @@ public class NimbusBuilder {
      * experiments recipes.
      */
     @discardableResult
-    func onApply(callback: @escaping (NimbusInterface) -> Void) -> NimbusBuilder {
+    public func onApply(callback: @escaping (NimbusInterface) -> Void) -> NimbusBuilder {
         onApplyCallback = callback
         return self
     }
@@ -107,7 +107,7 @@ public class NimbusBuilder {
     var onApplyCallback: ((NimbusInterface) -> Void)?
 
     @discardableResult
-    func withResourceBundles(_ bundles: [Bundle]) -> NimbusBuilder {
+    public func with(bundles: [Bundle]) -> NimbusBuilder {
         resourceBundles = bundles
         return self
     }
@@ -122,7 +122,7 @@ public class NimbusBuilder {
      * network. This is to allow the networking stack to be initialized after this method is called
      * and the networking stack to be involved in experiments.
      */
-    func build(appInfo: NimbusAppSettings) -> NimbusInterface {
+    public func build(appInfo: NimbusAppSettings) -> NimbusInterface {
         let serverSettings: NimbusServerSettings?
         if let string = url,
            let url = URL(string: string)
@@ -168,12 +168,12 @@ public class NimbusBuilder {
         }
     }
 
-    open func newNimbus(_ appInfo: NimbusAppSettings, serverSettings: NimbusServerSettings?) throws -> NimbusInterface {
+    func newNimbus(_ appInfo: NimbusAppSettings, serverSettings: NimbusServerSettings?) throws -> NimbusInterface {
         try Nimbus.create(serverSettings, appSettings: appInfo, dbPath: dbFilePath,
                           resourceBundles: resourceBundles, errorReporter: errorReporter)
     }
 
-    open func newNimbusDisabled() -> NimbusInterface {
+    func newNimbusDisabled() -> NimbusInterface {
         NimbusDisabled.shared
     }
 }
