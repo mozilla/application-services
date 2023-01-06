@@ -22,3 +22,7 @@ Use the template below to make assigning a version number during the release cut
 ## Places
 ### What's changed
  - Removes old iOS bookmarks migration code. The function `migrateBookmarksFromBrowserDb` no longer exists. ([#5276](https://github.com/mozilla/application-services/pull/5276))
+
+## Nimbus ⛅️🔬🔭
+### What's New
+  - iOS: added a `Bundle.fallbackTranslationBundle()` method. ([#5314](https://github.com/mozilla/application-services/pull/5314))
