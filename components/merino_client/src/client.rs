@@ -96,15 +96,7 @@ impl MerinoClient {
         Ok(response
             .suggestions
             .into_iter()
-            .map(|suggestion| MerinoSuggestion {
-                title: suggestion.title,
-                url: suggestion.url,
-                provider: suggestion.provider,
-                is_sponsored: suggestion.is_sponsored,
-                score: suggestion.score,
-                icon: suggestion.icon,
-                request_id: response.request_id.clone(),
-            })
+            .map(MerinoSuggestion::from)
             .collect())
     }
 }
@@ -147,31 +139,113 @@ pub struct MerinoClientFetchOptions {
     pub providers: Option<Vec<String>>,
 }
 
-#[derive(Clone, Debug, PartialEq)]
-pub struct MerinoSuggestion {
+#[derive(Clone, Debug, Deserialize, PartialEq)]
+pub struct MerinoSuggestionDetails {
     pub title: String,
     pub url: String,
-    pub provider: String,
     pub is_sponsored: bool,
     pub score: f64,
     pub icon: Option<String>,
-    pub request_id: String,
+}
+
+#[derive(Clone, Debug, PartialEq)]
+pub enum MerinoSuggestion {
+    Adm {
+        details: MerinoSuggestionDetails,
+        block_id: i64,
+        full_keyword: String,
+        advertiser: String,
+        impression_url: Option<String>,
+        click_url: Option<String>,
+    },
+    TopPicks {
+        details: MerinoSuggestionDetails,
+        block_id: i64,
+        is_top_pick: bool,
+    },
+    Other {
+        details: MerinoSuggestionDetails,
+        provider: String,
+    },
+}
+
+impl From<SuggestResponseSuggestion> for MerinoSuggestion {
+    fn from(suggestion: SuggestResponseSuggestion) -> Self {
+        match suggestion {
+            SuggestResponseSuggestion::Known(SuggestResponseKnownProviderSuggestion::Adm {
+                details,
+                block_id,
+                full_keyword,
+                advertiser,
+                impression_url,
+                click_url,
+            }) => MerinoSuggestion::Adm {
+                details,
+                block_id,
+                full_keyword,
+                advertiser,
+                impression_url,
+                click_url,
+            },
+            SuggestResponseSuggestion::Known(
+                SuggestResponseKnownProviderSuggestion::TopPicks {
+                    details,
+                    block_id,
+                    is_top_pick,
+                },
+            ) => MerinoSuggestion::TopPicks {
+                details,
+                block_id,
+                is_top_pick,
+            },
+            SuggestResponseSuggestion::Unknown { details, provider } => {
+                MerinoSuggestion::Other { details, provider }
+            }
+        }
+    }
 }
 
 #[derive(Deserialize)]
 struct SuggestResponse {
-    suggestions: Vec<SuggestionResponse>,
-    request_id: String,
+    suggestions: Vec<SuggestResponseSuggestion>,
 }
 
 #[derive(Deserialize)]
-struct SuggestionResponse {
-    pub title: String,
-    pub url: String,
-    pub provider: String,
-    pub is_sponsored: bool,
-    pub score: f64,
-    pub icon: Option<String>,
+#[serde(untagged)]
+enum SuggestResponseSuggestion {
+    Known(SuggestResponseKnownProviderSuggestion),
+    // `#[serde(other)]` doesn't support associated data, so we can't
+    // deserialize the response suggestion directly into a `MerinoSuggestion`.
+    // Instead, we have an "outer", untagged `SuggestResponseSuggestion` that
+    // has our unknown / other variant, and an "inner", internally tagged
+    // `SuggestResponseKnownProviderSuggestion` with our known variants.
+    Unknown {
+        #[serde(flatten)]
+        details: MerinoSuggestionDetails,
+        provider: String,
+    },
+}
+
+#[derive(Deserialize)]
+#[serde(tag = "provider")]
+enum SuggestResponseKnownProviderSuggestion {
+    #[serde(rename = "adm")]
+    Adm {
+        #[serde(flatten)]
+        details: MerinoSuggestionDetails,
+        block_id: i64,
+        full_keyword: String,
+        advertiser: String,
+        impression_url: Option<String>,
+        click_url: Option<String>,
+    },
+    #[serde(rename = "top_picks")]
+    TopPicks {
+        #[serde(flatten)]
+        details: MerinoSuggestionDetails,
+        block_id: i64,
+        is_top_pick: bool,
+    },
 }
 
 struct SessionState {

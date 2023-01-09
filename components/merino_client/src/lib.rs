@@ -8,7 +8,7 @@ mod error;
 pub use crate::{
     client::{
         MerinoClient, MerinoClientFetchOptions, MerinoClientSettings, MerinoServer,
-        MerinoSuggestion,
+        MerinoSuggestion, MerinoSuggestionDetails,
     },
     error::MerinoClientError,
 };

@@ -26,14 +26,19 @@ dictionary MerinoClientFetchOptions {
     sequence<string>? providers = null;
 };
 
-dictionary MerinoSuggestion {
+dictionary MerinoSuggestionDetails {
     string title;
     string url;
-    string provider;
     boolean is_sponsored;
     f64 score;
     string? icon;
-    string request_id;
+};
+
+[Enum]
+interface MerinoSuggestion {
+    Adm(MerinoSuggestionDetails details, i64 block_id, string full_keyword, string advertiser, string? impression_url, string? click_url);
+    TopPicks(MerinoSuggestionDetails details, i64 block_id, boolean is_top_pick);
+    Other(MerinoSuggestionDetails details, string provider);
 };
 
 interface MerinoClient {
