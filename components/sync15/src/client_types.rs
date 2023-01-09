@@ -5,12 +5,12 @@
 //! This module has to be here because of some hard-to-avoid hacks done for the
 //! tabs engine... See issue #2590
 
-use serde::{Deserialize, Serialize};
+use serde::{Deserialize, Serialize, Serializer};
 use std::collections::HashMap;
 
 /// Argument to Store::prepare_for_sync. See comment there for more info. Only
 /// really intended to be used by tabs engine.
-#[derive(Clone, Debug, Serialize, Deserialize)]
+#[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]
 pub struct ClientData {
     pub local_client_id: String,
     /// A hashmap of records in the `clients` collection. Key is the id of the record in
@@ -23,7 +23,35 @@ pub struct ClientData {
 pub struct RemoteClient {
     pub fxa_device_id: Option<String>,
     pub device_name: String,
+    #[serde(default)]
+    #[serde(deserialize_with = "deserialize_option_device_type")]
+    #[serde(serialize_with = "serialize_option_device_type")]
     pub device_type: Option<DeviceType>,
+}
+
+fn deserialize_option_device_type<'de, D>(d: D) -> std::result::Result<Option<DeviceType>, D::Error>
+where
+    D: serde::de::Deserializer<'de>,
+{
+    let opt_device_type: Option<DeviceType> = Option::deserialize(d)?;
+    Ok(match opt_device_type {
+        Some(val) => match val {
+            DeviceType::Unknown => None,
+            _ => Some(val),
+        },
+        None => None,
+    })
+}
+
+fn serialize_option_device_type<S>(id: &Option<DeviceType>, s: S) -> Result<S::Ok, S::Error>
+where
+    S: Serializer,
+{
+    match id {
+        Some(DeviceType::Unknown) => s.serialize_none(),
+        Some(d) => d.serialize(s),
+        None => s.serialize_none(),
+    }
 }
 
 /// Enumeration for the different types of device.
@@ -99,5 +127,89 @@ mod device_type_tests {
             serde_json::from_str::<DeviceType>("\"something-else\"").unwrap(),
             DeviceType::Unknown,
         ));
+    }
+
+    #[test]
+    fn test_remote_client() {
+        // Missing `device_type` gets None.
+        let dt = serde_json::from_str::<RemoteClient>("{\"device_name\": \"foo\"}").unwrap();
+        assert_eq!(dt.device_type, None);
+        // But reserializes as null.
+        assert_eq!(
+            serde_json::to_string(&dt).unwrap(),
+            "{\"fxa_device_id\":null,\"device_name\":\"foo\",\"device_type\":null}"
+        );
+
+        // Unknown device_type string deserializes as None.
+        let dt = serde_json::from_str::<RemoteClient>(
+            "{\"device_name\": \"foo\", \"device_type\": \"foo\"}",
+        )
+        .unwrap();
+        assert_eq!(dt.device_type, None);
+        // The None gets re-serialized as null.
+        assert_eq!(
+            serde_json::to_string(&dt).unwrap(),
+            "{\"fxa_device_id\":null,\"device_name\":\"foo\",\"device_type\":null}"
+        );
+
+        // Some(DeviceType::Unknown) gets serialized as null.
+        let dt = RemoteClient {
+            device_name: "bar".to_string(),
+            fxa_device_id: None,
+            device_type: Some(DeviceType::Unknown),
+        };
+        assert_eq!(
+            serde_json::to_string(&dt).unwrap(),
+            "{\"fxa_device_id\":null,\"device_name\":\"bar\",\"device_type\":null}"
+        );
+
+        // Some(DeviceType::Desktop) gets serialized as "desktop".
+        let dt = RemoteClient {
+            device_name: "bar".to_string(),
+            fxa_device_id: Some("fxa".to_string()),
+            device_type: Some(DeviceType::Desktop),
+        };
+        assert_eq!(
+            serde_json::to_string(&dt).unwrap(),
+            "{\"fxa_device_id\":\"fxa\",\"device_name\":\"bar\",\"device_type\":\"desktop\"}"
+        );
+    }
+
+    #[test]
+    fn test_client_data() {
+        let client_data = ClientData {
+            local_client_id: "my-device".to_string(),
+            recent_clients: HashMap::from([
+                (
+                    "my-device".to_string(),
+                    RemoteClient {
+                        fxa_device_id: None,
+                        device_name: "my device".to_string(),
+                        device_type: None,
+                    },
+                ),
+                (
+                    "device-no-tabs".to_string(),
+                    RemoteClient {
+                        fxa_device_id: None,
+                        device_name: "device with no tabs".to_string(),
+                        device_type: None,
+                    },
+                ),
+                (
+                    "device-with-a-tab".to_string(),
+                    RemoteClient {
+                        fxa_device_id: None,
+                        device_name: "device with a tab".to_string(),
+                        device_type: Some(DeviceType::Desktop),
+                    },
+                ),
+            ]),
+        };
+        //serialize
+        let client_data_ser = serde_json::to_string(&client_data).unwrap();
+        // deserialize
+        let client_data_des: ClientData = serde_json::from_str(&client_data_ser).unwrap();
+        assert_eq!(client_data_des, client_data);
     }
 }
