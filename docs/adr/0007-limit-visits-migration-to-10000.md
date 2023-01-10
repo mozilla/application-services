@@ -8,14 +8,14 @@
 
 [The Application-Services team removed a legacy implementation of history in Firefox-ios and replaced it with a maintained implementation that was powering Firefox Android.](https://mozilla-hub.atlassian.net/browse/SYNC-3086)
 
-A significant part of the project is migrating users’ history from the old database to a new one. To measure risk, we ran a dry-run migration. A dry-run migration runs a background thread in the user’s application and attempts to migrate to a fake database. The dry-run was implemented purely to collect telemetry on the migration to evaluate risk. The results can be found in the following Looker dashboard. Below is a list of observations.
+A significant part of the project is migrating users’ history from the old database to a new one. To measure risk, we ran a dry-run migration. A dry-run migration runs a background thread in the user’s application and attempts to migrate to a fake database. The dry-run was implemented purely to collect telemetry on the migration to evaluate risk. The results can be found in the [following Looker dashboard](https://mozilla.cloud.looker.com/dashboards/917?Submission+Date=28+day+ago+for+28+day&Channel=mozdata.firefox%5E_ios.metrics&Places+History+Migration+Migration+Error+Rate+Numerator=NOT+NULL). Below is a list of observations.
 
 ### Observations from Dry-Run Experiment
 The following is a list of observations from the experiment:
 - 5-6% of migrations do not end. This means for 5-6% of users, the application was terminated before migration ended. For a real migration, this would mean those users lose all of their history unless we attempt the migration multiple times.
 - Out of the migrations that failed (the 5-6% mentioned above) 97% of those users had over 10,000 history visits.
 - Out of migrations that do end, over 99% of migrations are successful.
-  - This means that we are not examining many errors with the migration beyond the time it takes.
+  - This means that we are not experiencing many errors with the migration beyond the time it takes.
 - The average for visits migrated is around 25,000 - 45,000 visits.
 - The median for visits migrated is around 5,000-15,000 visits.
   - The difference between the average and the median suggests that we have many users with a large number of visits
@@ -73,6 +73,7 @@ Chosen option: **Introduce a visit number-based limit for the migration**. This 
 2. User’s experience with History must not regress, and ideally should improve.
   * We have established in our decision driver that the user’s experience with history is coupled with the database size.
   * By setting a reasonable limit, we can keep the size of the history database controlled.
+  * It's also worth noting that with the switch to the new implementation of history, we are also introducing a target size for the database. This means that we have maintenance logic that would compact the database and prune it if it grows beyond the target size.
 
 
 ### Positive Consequences
