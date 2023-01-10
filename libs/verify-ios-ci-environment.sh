@@ -9,7 +9,7 @@
 
 set -e
 
-RUST_TARGETS=("aarch64-apple-ios" "x86_64-apple-ios")
+RUST_TARGETS=("aarch64-apple-ios" "x86_64-apple-ios" "aarch64-apple-ios-sim")
 
 if [[ ! -f "$(pwd)/libs/build-all.sh" ]]; then
   echo "ERROR: verify-ios-ci-environment.sh should be run from the root directory of the repo"
