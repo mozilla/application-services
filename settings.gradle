@@ -3,8 +3,10 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 import org.yaml.snakeyaml.Yaml
 
-pluginManagement {
-    includeBuild './tools/nimbus-gradle-plugin'
+includeBuild('tools/nimbus-gradle-plugin') {
+    dependencySubstitution {
+        substitute module("org.mozilla.appservices:tooling-nimbus-gradle") using(project(':'))
+    }
 }
 
 buildscript {
