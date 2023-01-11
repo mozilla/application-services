@@ -17,6 +17,7 @@
     - [How to use Rust Components in Android](android-faqs.md)
   - [How to vendor application-services into mozilla-central](howtos/vendoring-into-mozilla-central.md)
   - [Logging](logging.md)
+  - [UniFFI Object Destruction on Kotlin](howtos/uniffi-object-destruction-on-kotlin.md)
 - [Architectural Decision Records](adr/README.md)
   - [ADR-0000](adr/0000-use-markdown-architectural-decision-records.md)
   - [ADR-0001](adr/0001-update-logins-api.md)
