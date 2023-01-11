@@ -141,8 +141,8 @@ class NimbusPlugin implements Plugin<Project> {
     void apply(Project project) {
         def extension = project.extensions.create('nimbus', NimbusPluginExtension)
 
+        Collection<Task> oneTimeTasks = new ArrayList<>()
         if (project.hasProperty("android")) {
-            Collection<Task> oneTimeTasks = new ArrayList<>()
             if (project.android.hasProperty('applicationVariants')) {
                 project.android.applicationVariants.all { variant ->
                     setupVariantTasks(variant, project, extension, oneTimeTasks, false)
@@ -154,6 +154,11 @@ class NimbusPlugin implements Plugin<Project> {
                     setupVariantTasks(variant, project, extension, oneTimeTasks, true)
                 }
             }
+        } else {
+            setupVariantTasks([
+                    name: project.name
+            ],
+            project, extension, oneTimeTasks, true)
         }
     }
 
@@ -373,14 +378,19 @@ class NimbusPlugin implements Plugin<Project> {
             println args
         }
 
-        variant.registerJavaGeneratingTask(generateTask, new File(outputDir))
+        if(variant.hasProperty('registerJavaGeneratingTask')) {
+            variant.registerJavaGeneratingTask(generateTask, new File(outputDir))
+        }
 
         def generateSourcesTask = project.tasks.findByName("generate${variant.name.capitalize()}Sources")
         if (generateSourcesTask != null) {
             generateSourcesTask.dependsOn(generateTask)
         } else {
-            def compileTask = project.tasks.findByName("compile${variant.name.capitalize()}Kotlin")
-            compileTask.dependsOn(generateTask)
+            project.tasks.findAll().stream().filter({ task ->
+                task.name.startsWith("compile")
+            }).forEach({ task ->
+                task.dependsOn(generateTask)
+            })
         }
 
         return generateTask
