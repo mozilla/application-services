@@ -120,7 +120,6 @@ fn get_nss_libs(kind: LinkingKind) -> Vec<&'static str> {
             }
             if target_arch == "x86_64" || target_arch == "x86" {
                 static_libs.push("gcm-aes-x86_c_lib");
-                static_libs.push("sha-x86_c_lib");
             }
             if target_arch == "arm" {
                 static_libs.push("gcm-aes-arm32-neon_c_lib")
