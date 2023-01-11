@@ -23,6 +23,8 @@
   - [ADR-0002](adr/0002-database-corruption.md)
   - [ADR-0003](adr/0003-swift-packaging.md)
   - [ADR-0004](adr/0004-early-startup-experiments.md)
+  - [ADR-0005](adr/0005-remote-settings-client.md)
+  - [ADR-0007](adr/0007-limit-visits-migration-to-10000.md)
 - [Design](design/README.md)
   - [Megazords](design/megazords.md)
   - [Sync Manager](design/sync-manager.md)
