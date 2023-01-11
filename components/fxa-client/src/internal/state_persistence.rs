@@ -97,7 +97,7 @@ pub(crate) struct StateV2 {
     pub(crate) last_handled_command: Option<u64>,
     // Everything below here was added after `StateV2` was initially defined,
     // and hence needs to have a suitable default value.
-    // We can remove the serde(default) when we define a `StateV3`.
+    // We can remove the serde(default)s when we define a `StateV3`.
     #[serde(default)]
     pub(crate) commands_data: HashMap<String, String>,
     #[serde(default)]
