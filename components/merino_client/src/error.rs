@@ -2,7 +2,20 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-pub type MerinoClientResult<T> = std::result::Result<T, MerinoClientError>;
+#[derive(Debug, thiserror::Error)]
+pub(crate) enum InternalError {
+    #[error(transparent)]
+    UrlParseError(#[from] url::ParseError),
+
+    #[error(transparent)]
+    RequestError(#[from] viaduct::Error),
+
+    #[error(transparent)]
+    UnexpectedStatus(#[from] viaduct::UnexpectedStatus),
+
+    #[error(transparent)]
+    JsonError(#[from] serde_json::Error),
+}
 
 #[derive(Debug, thiserror::Error)]
 pub enum MerinoClientError {
@@ -11,4 +24,12 @@ pub enum MerinoClientError {
 
     #[error("Failed to fetch suggestions: {reason}")]
     FetchFailed { reason: String },
+}
+
+impl From<url::ParseError> for MerinoClientError {
+    fn from(err: url::ParseError) -> Self {
+        Self::BadUrl {
+            reason: err.to_string(),
+        }
+    }
 }

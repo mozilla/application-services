@@ -12,7 +12,9 @@ use serde_derive::*;
 use url::Url;
 use viaduct::Request;
 
-use crate::error::{MerinoClientError, MerinoClientResult};
+use crate::error::{InternalError, MerinoClientError};
+
+pub type MerinoClientResult<T> = std::result::Result<T, MerinoClientError>;
 
 pub struct MerinoClient {
     base_url: Url,
@@ -48,12 +50,7 @@ impl MerinoClient {
         query: &str,
         options: Option<MerinoClientFetchOptions>,
     ) -> MerinoClientResult<Vec<MerinoSuggestion>> {
-        let mut endpoint_url =
-            self.base_url
-                .join("/api/v1/suggest")
-                .map_err(|err| MerinoClientError::BadUrl {
-                    reason: err.to_string(),
-                })?;
+        let mut endpoint_url = self.base_url.join("/api/v1/suggest")?;
         let (session_id, sequence_number) = self.session_params();
 
         endpoint_url
@@ -79,19 +76,12 @@ impl MerinoClient {
         endpoint_url.query_pairs_mut().finish();
 
         let request = Request::get(endpoint_url);
-        let response: SuggestResponse = request
-            .send()
-            .map_err(|err| MerinoClientError::FetchFailed {
-                reason: err.to_string(),
-            })?
-            .require_success()
-            .map_err(|err| MerinoClientError::FetchFailed {
-                reason: err.to_string(),
-            })?
-            .json()
-            .map_err(|err| MerinoClientError::FetchFailed {
-                reason: err.to_string(),
-            })?;
+        let response = (|| -> Result<SuggestResponse, InternalError> {
+            Ok(request.send()?.require_success()?.json()?)
+        })()
+        .map_err(|err| MerinoClientError::FetchFailed {
+            reason: err.to_string(),
+        })?;
 
         Ok(response
             .suggestions
@@ -119,17 +109,13 @@ pub enum MerinoServer {
 impl TryFrom<MerinoServer> for Url {
     type Error = MerinoClientError;
 
-    fn try_from(server_url: MerinoServer) -> Result<Self, Self::Error> {
+    fn try_from(server_url: MerinoServer) -> MerinoClientResult<Self> {
         Ok(match server_url {
             MerinoServer::Production => Url::parse("https://merino.services.mozilla.com").unwrap(),
             MerinoServer::Stage => {
                 Url::parse(" https://stage.merino.nonprod.cloudops.mozgcp.net").unwrap()
             }
-            MerinoServer::Custom { url } => {
-                Url::parse(&url).map_err(|err| MerinoClientError::BadUrl {
-                    reason: err.to_string(),
-                })?
-            }
+            MerinoServer::Custom { url } => Url::parse(&url)?,
         })
     }
 }
