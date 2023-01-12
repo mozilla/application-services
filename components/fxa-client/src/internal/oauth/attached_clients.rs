@@ -37,7 +37,7 @@ impl TryFrom<AttachedClient> for crate::AttachedClient {
         Ok(crate::AttachedClient {
             client_id: c.client_id,
             device_id: c.device_id,
-            device_type: c.device_type.map(Into::into),
+            device_type: c.device_type,
             is_current_session: c.is_current_session,
             name: c.name,
             created_time: c.created_time.map(TryInto::try_into).transpose()?,
@@ -69,7 +69,7 @@ mod tests {
                 session_token_id: None,
                 refresh_token_id: None,
                 device_id: None,
-                device_type: Some(DeviceType::Desktop),
+                device_type: DeviceType::Desktop,
                 is_current_session: true,
                 name: None,
                 created_time: None,
