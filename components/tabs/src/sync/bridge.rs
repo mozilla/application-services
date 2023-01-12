@@ -277,7 +277,7 @@ mod tests {
     use crate::sync::record::TabsRecordTab;
     use serde_json::json;
     use std::collections::HashMap;
-    use sync15::{ClientData, RemoteClient};
+    use sync15::{ClientData, DeviceType, RemoteClient};
 
     const TTL_1_YEAR: u32 = 31_622_400;
 
@@ -315,7 +315,7 @@ mod tests {
                     RemoteClient {
                         fxa_device_id: None,
                         device_name: "my device".to_string(),
-                        device_type: None,
+                        device_type: sync15::DeviceType::Unknown,
                     },
                 ),
                 (
@@ -323,7 +323,7 @@ mod tests {
                     RemoteClient {
                         fxa_device_id: None,
                         device_name: "device with no tabs".to_string(),
-                        device_type: None,
+                        device_type: DeviceType::Unknown,
                     },
                 ),
                 (
@@ -331,7 +331,7 @@ mod tests {
                     RemoteClient {
                         fxa_device_id: None,
                         device_name: "device with a tab".to_string(),
-                        device_type: None,
+                        device_type: DeviceType::Unknown,
                     },
                 ),
             ]),
