@@ -257,3 +257,125 @@ impl SessionState {
         }
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use mockito::{mock, Matcher};
+
+    #[test]
+    fn fetch_adm_suggestion() -> MerinoClientResult<()> {
+        viaduct_reqwest::use_reqwest_backend();
+        let m = mock("GET", "/api/v1/suggest")
+            .match_query(Matcher::UrlEncoded("q".into(), "test".into()))
+            .with_status(200)
+            .with_header("Content-Type", "application/json")
+            .with_body(
+                r#"{
+                    "suggestions": [{
+                        "title": "Test adM suggestion",
+                        "url": "https://example.com",
+                        "is_sponsored": false,
+                        "score": 0.1,
+                        "provider": "adm",
+                        "block_id": 1,
+                        "full_keyword": "testing",
+                        "advertiser": "Test"
+                    }]
+                }"#,
+            )
+            .create();
+
+        let client = MerinoClient::new(MerinoClientSettings {
+            server: MerinoServer::Custom {
+                url: mockito::server_url(),
+            },
+            session_duration_ms: 5000,
+            client_variants: vec![],
+            default_providers: vec![],
+        })?;
+        let suggestions = client.fetch("test", None)?;
+        m.expect(1).assert();
+
+        assert_eq!(suggestions.len(), 1);
+        match &suggestions[0] {
+            MerinoSuggestion::Adm {
+                details,
+                block_id,
+                full_keyword,
+                advertiser,
+                ..
+            } => {
+                assert_eq!(
+                    details,
+                    &MerinoSuggestionDetails {
+                        title: "Test adM suggestion".into(),
+                        url: "https://example.com".into(),
+                        is_sponsored: false,
+                        score: 0.1,
+                        icon: None,
+                    }
+                );
+                assert_eq!(*block_id, 1);
+                assert_eq!(full_keyword, "testing");
+                assert_eq!(advertiser, "Test");
+            }
+            _ => assert!(false, "Wanted adM suggestion; got {:?}", suggestions[0]),
+        };
+
+        Ok(())
+    }
+
+    #[test]
+    fn fetch_unknown_provider_suggestion() -> MerinoClientResult<()> {
+        viaduct_reqwest::use_reqwest_backend();
+        let m = mock("GET", "/api/v1/suggest")
+            .match_query(Matcher::UrlEncoded("q".into(), "test".into()))
+            .with_status(200)
+            .with_header("Content-Type", "application/json")
+            .with_body(
+                r#"{
+                    "suggestions": [{
+                        "title": "Test suggestion",
+                        "url": "https://example.com",
+                        "is_sponsored": false,
+                        "score": 0.1,
+                        "provider": "fancy_future_provider",
+                        "some_field": 123
+                    }]
+                }"#,
+            )
+            .create();
+
+        let client = MerinoClient::new(MerinoClientSettings {
+            server: MerinoServer::Custom {
+                url: mockito::server_url(),
+            },
+            session_duration_ms: 5000,
+            client_variants: vec![],
+            default_providers: vec![],
+        })?;
+        let suggestions = client.fetch("test", None)?;
+        m.expect(1).assert();
+
+        assert_eq!(suggestions.len(), 1);
+        match &suggestions[0] {
+            MerinoSuggestion::Other { details, provider } => {
+                assert_eq!(
+                    details,
+                    &MerinoSuggestionDetails {
+                        title: "Test suggestion".into(),
+                        url: "https://example.com".into(),
+                        is_sponsored: false,
+                        score: 0.1,
+                        icon: None,
+                    }
+                );
+                assert_eq!(provider, "fancy_future_provider");
+            }
+            _ => assert!(false, "Wanted other suggestion; got {:?}", suggestions[0]),
+        };
+
+        Ok(())
+    }
+}

@@ -26,3 +26,4 @@ uniffi_build = { version = "^0.21", features = [ "builtin-bindgen" ]}
 
 [dev-dependencies]
 viaduct-reqwest = { path = "../support/viaduct-reqwest" }
+mockito = "0.31"

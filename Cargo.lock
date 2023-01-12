@@ -1836,6 +1836,7 @@ dependencies = [
  "error-support",
  "hex",
  "log",
+ "mockito",
  "rc_crypto",
  "serde",
  "serde_derive",
