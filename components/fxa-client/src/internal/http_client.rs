@@ -776,7 +776,7 @@ pub struct DeviceUpdateRequest<'a> {
     display_name: Option<Option<&'a str>>,
     #[serde(skip_serializing_if = "Option::is_none")]
     #[serde(rename = "type")]
-    device_type: Option<Option<&'a DeviceType>>,
+    device_type: Option<&'a DeviceType>,
     #[serde(flatten)]
     push_subscription: Option<&'a PushSubscription>,
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -786,7 +786,7 @@ pub struct DeviceUpdateRequest<'a> {
 
 #[allow(clippy::option_option)]
 pub struct DeviceUpdateRequestBuilder<'a> {
-    device_type: Option<Option<&'a DeviceType>>,
+    device_type: Option<&'a DeviceType>,
     display_name: Option<Option<&'a str>>,
     push_subscription: Option<&'a PushSubscription>,
     available_commands: Option<Option<&'a HashMap<String, String>>>,
@@ -828,7 +828,7 @@ impl<'a> DeviceUpdateRequestBuilder<'a> {
     }
 
     pub fn device_type(mut self, device_type: &'a DeviceType) -> Self {
-        self.device_type = Some(Some(device_type));
+        self.device_type = Some(device_type);
         self
     }
 
@@ -893,7 +893,7 @@ pub struct GetAttachedClientResponse {
     pub session_token_id: Option<String>,
     pub refresh_token_id: Option<String>,
     pub device_id: Option<String>,
-    pub device_type: Option<DeviceType>,
+    pub device_type: DeviceType,
     pub is_current_session: bool,
     pub name: Option<String>,
     pub created_time: Option<u64>,

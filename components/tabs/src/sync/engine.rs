@@ -49,7 +49,7 @@ impl ClientRemoteTabs {
         Self {
             client_id,
             client_name: remote_client.device_name.clone(),
-            device_type: remote_client.device_type.unwrap_or(DeviceType::Unknown),
+            device_type: remote_client.device_type,
             last_modified: last_modified.as_millis(),
             remote_tabs: record.tabs.iter().map(RemoteTab::from_record_tab).collect(),
         }
@@ -199,12 +199,7 @@ impl TabsSyncImpl {
             let (client_name, device_type) = self
                 .remote_clients
                 .get(&local_id)
-                .map(|client| {
-                    (
-                        client.device_name.clone(),
-                        client.device_type.unwrap_or(DeviceType::Unknown),
-                    )
-                })
+                .map(|client| (client.device_name.clone(), client.device_type))
                 .unwrap_or_else(|| (String::new(), DeviceType::Unknown));
             let local_record = ClientRemoteTabs {
                 client_id: local_id.clone(),

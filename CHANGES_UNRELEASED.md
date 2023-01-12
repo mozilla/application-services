@@ -26,3 +26,4 @@ Use the template below to make assigning a version number during the release cut
 ## Nimbus ⛅️🔬🔭
 ### What's New
   - iOS: added a `Bundle.fallbackTranslationBundle()` method. ([#5314](https://github.com/mozilla/application-services/pull/5314))
+  - Moved the Nimbus Gradle Plugin into application-services and updated its functionality to support local development. ([#5173](https://github.com/mozilla/application-services/pull/5173))
