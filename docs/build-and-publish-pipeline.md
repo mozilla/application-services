@@ -79,7 +79,7 @@ For iOS consumers the corresponding steps are:
     * An XCFramework containing just Rust code and header files, as a zipfile, for use by Swift Packags.
     * TODO: could a malicious dev dependency from step (3) influence the build environment here?
 5. CircleCI uses [dpl](https://github.com/travis-ci/dpl) to publish to GitHub as a release artifact.
-    * CircleCI config contains a github token (owned by the @appsvc-moz GitHub account) with appropriate permissions to add release artifacts.
+    * See [Authentication and secrets below](#authentication-and-secrets)
 6. Consumers add Application services as a dependency from the [Rust Components Swift](https://github.com/mozilla/rust-components-swift/) repo using Apple's Swift Package Manager.
 
 For consuming in mozilla-central, see [how to vendor components into mozilla-central
@@ -91,3 +91,21 @@ libraries in Application Services:
 (Source: https://miro.com/app/board/o9J_lWx3jhY=/)
 
 ![Nimbus SDK Build and Publish Pipeline](./diagrams/Nimbus-SDK-Build-and-Publish-Pipeline.jpg)
+
+## Authentication and secrets
+
+### @appsvc-moz account
+
+There's an appsvc-moz github account owned by one of the application-services team (currently markh, but we should consider rotating ownership).
+Given only 1 2fa device can be connected to a github account, multiple owners doesn't seem practical.
+In most cases, whenever a github account needs to own a secret for any CI, it will be owned by this account.
+
+### CircleCI
+
+CircleCI config requires a github token (owned by @appsvc-moz). This is a "personal access token"
+obtained via github's Settings -> Developer Settings -> Personal Access Tokens -> Classic Token. This token:
+* Should be named something like "circleci"
+* Have "no expiration" (XXX - this seems wrong, should we adjust?)
+
+Once you have generated the token, it must be added to https://app.circleci.com/settings/project/github/mozilla/application-services/environment-variables as the environment variable `GITHUB_TOKEN`
+
