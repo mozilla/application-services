@@ -33,6 +33,7 @@ For convenience, there is a script that will do all the necessary steps to confi
     - You can reset package caches by going to `File -> Packages -> Reset Package Caches`
 1. If this is not the first time you run the script, make sure to also update package versions. This forces Xcode to pull the latest changes in the `rust-components-swift` branch.
     - You can update package versions by going to `File -> Packages -> Update To Latest Package Versions`
+    - If this step fails, it's possible that the `Reset Package Caches` step above left some cruft behind. You can force this step by manually removing  `~/Library/Caches/org.swift.swiftpm` and `~/Library/Developer/Xcode/DerivedData/Client-{some-long-string}`
 1. Once the above steps are done, attempt building firefox ios. If you face problems, feel free to [contact us](../index.md#contact-us)
 
 ### Disabling local development
