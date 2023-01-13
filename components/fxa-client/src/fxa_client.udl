@@ -893,7 +893,7 @@ dictionary TabHistoryEntry {
 dictionary AttachedClient {
   string? client_id;
   string? device_id;
-  DeviceType? device_type;
+  DeviceType device_type;
   boolean is_current_session;
   string? name;
   i64? created_time;
