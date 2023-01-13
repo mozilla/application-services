@@ -21,11 +21,11 @@ error-support = { path = "../support/error" }
 sql-support = { path = "../support/sql" }
 rc_crypto = { path = "../support/rc_crypto", features = ["ece"] }
 thiserror = "1.0"
-uniffi = "^0.21"
-uniffi_macros = "^0.21"
+uniffi = "^0.22"
+uniffi_macros = "^0.22"
 
 [build-dependencies]
-uniffi_build = { version = "^0.21", features=["builtin-bindgen"] }
+uniffi_build = { version = "^0.22", features=["builtin-bindgen"] }
 
 
 [dev-dependencies]
