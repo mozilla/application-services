@@ -17,6 +17,10 @@ impl FirefoxAccount {
     /// * `ignore_cache` - If set to true, bypass the in-memory cache
     /// and fetch the entire profile data from the server.
     ///
+    /// ⚠️ This method currently both returns and triggers a callback with its result ⚠️
+    /// This was done to support backward compatibility. TODO(teshaq) before landing add a
+    /// filed ticket for this. Once both consumers use the callback, we can remove the return value
+    ///
     /// **💾 This method alters the persisted account state.**
     pub fn get_profile(&mut self, ignore_cache: bool) -> Result<Profile> {
         match self.get_profile_helper(ignore_cache) {
@@ -38,6 +42,10 @@ impl FirefoxAccount {
     fn get_profile_helper(&mut self, ignore_cache: bool) -> Result<Profile> {
         let mut etag = None;
         if let Some(ref cached_profile) = self.state.last_seen_profile {
+            // We always first notify the consumer of the cache, so they have some state in case we have to
+            // go the FxA server.
+            self.event_handler
+                .profile_updated(cached_profile.response.clone().into());
             if !ignore_cache && util::now() < cached_profile.cached_at + PROFILE_FRESHNESS_THRESHOLD
             {
                 return Ok(cached_profile.response.clone());
@@ -57,6 +65,8 @@ impl FirefoxAccount {
                         etag,
                     });
                 }
+                self.event_handler
+                    .profile_updated(response_and_etag.response.clone().into());
                 Ok(response_and_etag.response)
             }
             None => {
@@ -68,6 +78,8 @@ impl FirefoxAccount {
                             cached_at: util::now(),
                             etag: cached_profile.etag.clone(),
                         });
+                        self.event_handler
+                            .profile_updated(cached_profile.response.clone().into());
                         Ok(cached_profile.response.clone())
                     }
                     None => Err(ErrorKind::UnrecoverableServerError(

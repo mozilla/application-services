@@ -383,10 +383,14 @@ impl FirefoxAccount {
     ///
     ///    - Profile information is only available to applications that have been
     ///      granted the `profile` scope.
-    ///    - There is currently no API for fetching cached profile information without
-    ///      potentially hitting the server.
     ///    - If there is no signed-in user, this method will throw an
     ///      [`Authentication`](FxaError::Authentication) error.
+    ///     /// Fetch the profile for the user.
+    ///   - ⚠️ This method currently both returns and triggers a callback with it's result ⚠️
+    ///     This was done to support backward compatibility. TODO(teshaq) before landing add a
+    ///     filed ticket for this. Once both consumers use the callback, we can remove the return value
+    ///
+    /// **💾 This method alters the persisted account state.**
     ///
     pub fn get_profile(&self, ignore_cache: bool) -> Result<Profile, FxaError> {
         Ok(self
@@ -1006,6 +1010,35 @@ impl FirefoxAccount {
     }
 }
 
+/// Event handling implementation of Firefox Account
+///
+/// The following methods register and unregister event handlers that the app
+/// can register to control what happens when specific events occur. For example
+/// when a new profile state is available, the Firefox Account client will trigger the
+/// [`FirefoxAccountEventHandler::profile_updated`] method
+impl FirefoxAccount {
+    /// Register a new event handler that is implemented by the application
+    fn register_event_handler(&self, event_handler: Box<dyn FirefoxAccountEventHandler>) {
+        self.internal
+            .lock()
+            .unwrap()
+            .register_event_handler(event_handler)
+    }
+
+    /// Unregister the event handler set by the app, and resets it to the default, no-op handler
+    fn unregister_event_handler(&self) {
+        self.internal.lock().unwrap().unregister_event_handler()
+    }
+}
+
+/// A callback interface representing events the application is interested in
+/// The methods in the callback interface are set by the app, and the Firefox Account client
+/// will trigger the methods on specific events. For example, when any profile updates are available,
+/// the [`profile_updated`] callback will be triggered, the app is responsible for implementing what happens then.
+pub trait FirefoxAccountEventHandler: Sync + Send {
+    fn profile_updated(&self, profile: Profile);
+}
+
 /// Information about the authorization state of the application.
 ///
 /// This struct represents metadata about whether the application is currently
@@ -1269,6 +1302,7 @@ pub struct AttachedClient {
 /// used to customize account-related UI in the browser so that it is personalize
 /// for the current user.
 ///
+#[derive(Default)]
 pub struct Profile {
     /// The user's account uid
     ///

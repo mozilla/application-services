@@ -719,7 +719,18 @@ interface FirefoxAccount {
   // in check whether such state exists, then retry at an appropriate time.
   //
   MigrationState is_in_migration_state();
-  
+
+  // Registers a Firefox Account event handler
+  //
+  // The event handler is a callback interface implemented by the application
+  // that allows the Firefox Account client to trigger events defined by the application
+  void register_event_handler(FirefoxAccountEventHandler event_handler);
+
+  // Unregisters a Firefox Account event handler
+  //
+  // The event handler is a callback interface implemented by the application
+  // that allows the Firefox Account client to trigger events defined by the application
+  void unregister_event_handler();
 };
 
 // Information about the authorization state of the application.
@@ -1066,4 +1077,12 @@ enum MigrationState {
 
   // An in-flight migration that will re-use the sessionToken.
   "ReuseSessionToken",
+};
+
+// A callback interface representing events the application is interested in
+// The methods in the callback interface are set by the app, and the Firefox Account client
+// will trigger the methods on specific events. For example, when any profile updates are available,
+// the `profile_updated` callback will be triggered, the app is responsible for implementing what happens then.
+callback interface FirefoxAccountEventHandler {
+    void profile_updated(Profile profile);
 };
