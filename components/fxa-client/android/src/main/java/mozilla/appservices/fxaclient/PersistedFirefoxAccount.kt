@@ -516,6 +516,14 @@ class PersistedFirefoxAccount(inner: FirefoxAccount, persistCallback: PersistCal
         return this.inner.gatherTelemetry()
     }
 
+    fun registerEventHandler(handler: FirefoxAccountEventHandler) {
+        this.inner.registerEventHandler(handler)
+    }
+
+    fun unregisterEventHandler() {
+        this.inner.unregisterEventHandler()
+    }
+
     @Synchronized
     override fun close() {
         this.inner.destroy()
