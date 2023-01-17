@@ -45,6 +45,10 @@ the details of which are reproduced below.
     <url>https://github.com/mozilla/uniffi-rs/blob/main/LICENSE</url>
   </license>
   <license>
+    <name>Mozilla Public License 2.0: uniffi_core</name>
+    <url>https://github.com/mozilla/uniffi-rs/blob/main/LICENSE</url>
+  </license>
+  <license>
     <name>Mozilla Public License 2.0: uniffi_macros</name>
     <url>https://github.com/mozilla/uniffi-rs/blob/main/LICENSE</url>
   </license>
@@ -125,6 +129,18 @@ the details of which are reproduced below.
     <url>https://github.com/chronotope/chrono/blob/main/LICENSE.txt</url>
   </license>
   <license>
+    <name>Apache License 2.0: clap</name>
+    <url>https://github.com/clap-rs/clap/blob/master/LICENSE-APACHE</url>
+  </license>
+  <license>
+    <name>Apache License 2.0: clap_derive</name>
+    <url>https://github.com/clap-rs/clap/blob/master/LICENSE-APACHE</url>
+  </license>
+  <license>
+    <name>Apache License 2.0: clap_lex</name>
+    <url>https://github.com/clap-rs/clap/blob/master/LICENSE-APACHE</url>
+  </license>
+  <license>
     <name>Apache License 2.0: cpufeatures</name>
     <url>https://github.com/RustCrypto/utils/blob/master/cpufeatures/LICENSE-APACHE</url>
   </license>
@@ -197,6 +213,10 @@ the details of which are reproduced below.
     <url>https://github.com/servo/rust-url/blob//master/LICENSE-APACHE</url>
   </license>
   <license>
+    <name>Apache License 2.0: indexmap</name>
+    <url>https://github.com/bluss/indexmap/blob/master/LICENSE-APACHE</url>
+  </license>
+  <license>
     <name>Apache License 2.0: itertools</name>
     <url>https://github.com/rust-itertools/itertools/blob/master/LICENSE-APACHE</url>
   </license>
@@ -261,6 +281,10 @@ the details of which are reproduced below.
     <url>https://github.com/RustCrypto/utils/blob/master/opaque-debug/LICENSE-APACHE</url>
   </license>
   <license>
+    <name>Apache License 2.0: os_str_bytes</name>
+    <url>https://github.com/dylni/os_str_bytes/blob/master/LICENSE-APACHE</url>
+  </license>
+  <license>
     <name>Apache License 2.0: parking_lot</name>
     <url>https://github.com/Amanieu/parking_lot/blob/master/LICENSE-APACHE</url>
   </license>
@@ -287,6 +311,14 @@ the details of which are reproduced below.
   <license>
     <name>Apache License 2.0: ppv-lite86</name>
     <url>https://github.com/cryptocorrosion/cryptocorrosion/blob/master/utils-simd/ppv-lite86/LICENSE-APACHE</url>
+  </license>
+  <license>
+    <name>Apache License 2.0: proc-macro-error</name>
+    <url>https://gitlab.com/CreepySkeleton/proc-macro-error/-/raw/master/LICENSE-APACHE</url>
+  </license>
+  <license>
+    <name>Apache License 2.0: proc-macro-error-attr</name>
+    <url>https://gitlab.com/CreepySkeleton/proc-macro-error/-/raw/master/LICENSE-APACHE</url>
   </license>
   <license>
     <name>Apache License 2.0: proc-macro2</name>
@@ -489,6 +521,14 @@ the details of which are reproduced below.
     <url>https://github.com/BurntSushi/memchr/blob/master/LICENSE-MIT</url>
   </license>
   <license>
+    <name>MIT License: termcolor</name>
+    <url>https://github.com/BurntSushi/termcolor/blob/master/LICENSE-MIT</url>
+  </license>
+  <license>
+    <name>MIT License: atty</name>
+    <url>https://github.com/softprops/atty/blob/master/LICENSE</url>
+  </license>
+  <license>
     <name>MIT License: bincode</name>
     <url>https://github.com/servo/bincode/blob/master/LICENSE.md</url>
   </license>
@@ -545,8 +585,20 @@ the details of which are reproduced below.
     <url>https://github.com/m4b/scroll/blob/master/LICENSE</url>
   </license>
   <license>
+    <name>MIT License: strsim</name>
+    <url>https://github.com/dguo/strsim-rs/blob/master/LICENSE</url>
+  </license>
+  <license>
+    <name>MIT License: textwrap</name>
+    <url>https://github.com/mgeisler/textwrap/blob/master/LICENSE</url>
+  </license>
+  <license>
     <name>MIT License: weedle2</name>
     <url>https://github.com/mozilla/uniffi-rs/blob/main/weedle2/LICENSE.md</url>
+  </license>
+  <license>
+    <name>MIT License: winapi-util</name>
+    <url>https://github.com/BurntSushi/winapi-util/blob/master/LICENSE-MIT</url>
   </license>
   <license>
     <name>MIT License: xshell-venv</name>

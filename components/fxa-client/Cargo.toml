@@ -25,10 +25,9 @@ thiserror = "1.0"
 anyhow = "1.0"
 sync-guid = { path = "../support/guid", features = ["random"] }
 uniffi = "^0.22"
-uniffi_macros = "^0.22"
 
 [build-dependencies]
-uniffi_build = { version = "^0.22", features=["builtin-bindgen"] }
+uniffi = { version = "^0.22" }
 
 [dev-dependencies]
 viaduct-reqwest = { path = "../support/viaduct-reqwest" }

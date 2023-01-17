@@ -3,5 +3,6 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
 fn main() -> anyhow::Result<()> {
-    uniffi_bindgen::run_main()
+    uniffi::uniffi_bindgen_main();
+    Ok(())
 }

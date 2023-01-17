@@ -180,7 +180,7 @@
 //!     return result.toString(Charset.forName("UTF-8"))
 //!```
 
-uniffi_macros::include_scaffolding!("push");
+uniffi::include_scaffolding!("push");
 // All implementation detail lives in the `internal` module
 mod internal;
 use std::sync::Mutex;

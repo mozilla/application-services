@@ -51,7 +51,7 @@ use thiserror::Error;
 // not currently expose to consumers. But we should figure out how to expose them!
 pub mod internal;
 
-uniffi_macros::include_scaffolding!("fxa_client");
+uniffi::include_scaffolding!("fxa_client");
 
 /// Generic error type thrown by many [`FirefoxAccount`] operations.
 ///

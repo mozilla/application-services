@@ -17,7 +17,7 @@ use thiserror::Error;
 #[cfg(test)]
 mod tests;
 
-uniffi_macros::include_scaffolding!("crashtest");
+uniffi::include_scaffolding!("crashtest");
 
 /// Trigger a hard abort inside the Rust code.
 ///

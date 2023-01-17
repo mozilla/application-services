@@ -45,4 +45,4 @@ pub fn sync(params: SyncParams) -> Result<SyncResult> {
     manager.sync(params)
 }
 
-uniffi_macros::include_scaffolding!("syncmanager");
+uniffi::include_scaffolding!("syncmanager");

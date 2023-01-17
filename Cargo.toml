@@ -117,8 +117,5 @@ viaduct = { path = "components/viaduct" }
 # for a convenient way to use a local checkout rather than the published version.
 # You just have to make sure that the version number in your local checkout
 # matches the one used in the `Cargo.toml` files in this workspace.
-#[patch.crates-io]
-#uniffi = { path = "../uniffi-rs/uniffi" }
-#uniffi_bindgen = { path = "../uniffi-rs/uniffi_bindgen" }
-#uniffi_build = { path = "../uniffi-rs/uniffi_build" }
-#uniffi_macros = { path = "../uniffi-rs/uniffi_macros" }
+[patch.crates-io]
+uniffi = { git = "https://github.com/mhammond/uniffi-rs", rev = "e74ad9c20eb3371999ae59a453e80633f683aaac" }

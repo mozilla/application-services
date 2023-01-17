@@ -6,7 +6,7 @@ use glean_build::Builder;
 
 pub fn main() {
     #[cfg(feature = "uniffi-bindings")]
-    uniffi_build::generate_scaffolding("./src/nimbus.udl").unwrap();
+    uniffi::generate_scaffolding("./src/nimbus.udl").unwrap();
 
     Builder::default()
         .file("./metrics.yaml")

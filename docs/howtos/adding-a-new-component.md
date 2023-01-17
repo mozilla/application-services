@@ -18,13 +18,12 @@ introduces any new dependencies.
 
 Use [UniFFI](https://mozilla.github.io/uniffi-rs/) to define how your crate's
 API will get exposed to foreign-language bindings. By convention, put the interface
-definition file at `./components/<your_crate_name>/<your_crate_name>.udl`. Use
-the `builtin-bindgen` feature of UniFFI to simplify the build process, by
-putting the following in your `Cargo.toml`:
+definition file at `./components/<your_crate_name>/<your_crate_name>.udl`.
+Put the following in your `Cargo.toml`:
 
 ```
 [build-dependencies]
-uniffi_build = { version = "<latest version here>", features=["builtin-bindgen"] }
+uniffi = { version = "<latest version here>" }
 ```
 
 Include your new crate in the `application-services` workspace, by adding

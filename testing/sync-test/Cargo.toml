@@ -28,3 +28,6 @@ serde = "1.0"
 serde_derive = "1.0"
 serde_json = "1.0"
 base64 = "0.13"
+
+[patch.crates-io]
+uniffi = { git = "https://github.com/mhammond/uniffi-rs", rev = "e74ad9c20eb3371999ae59a453e80633f683aaac" }

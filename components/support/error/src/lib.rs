@@ -157,4 +157,4 @@ macro_rules! define_error {
     };
 }
 
-uniffi_macros::include_scaffolding!("errorsupport");
+uniffi::include_scaffolding!("errorsupport");
