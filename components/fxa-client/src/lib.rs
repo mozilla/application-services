@@ -367,7 +367,10 @@ impl FirefoxAccount {
 /// These methods can be used to find out information about the connected user.
 ///
 impl FirefoxAccount {
-    /// Get profile information for the signed-in user, if any.
+    /// WARNING: The following method has been depreicated. Please use
+    /// `[`refresh_profile`](FirefoxAccount::refresh_profile) instead.
+    ///
+    ///  Get profile information for the signed-in user, if any.
     ///
     /// **💾 This method alters the persisted account state.**
     ///
@@ -399,6 +402,42 @@ impl FirefoxAccount {
             .unwrap()
             .get_profile(ignore_cache)?
             .into())
+    }
+
+    ///  Get profile information for the signed-in user, if any.
+    ///
+    /// **💾 This method alters the persisted account state.**
+    ///
+    /// This method triggers a callback with a [`Profile`] struct with information about the currently-signed-in
+    /// user, either by using locally-cached profile information or by fetching fresh data from
+    /// the server.
+    ///
+    /// # Arguments
+    ///
+    ///    - `force_fetch` - if true, always hit the server for fresh profile information.
+    ///    - `profile_updated_callback` - A callback that triggers whenever the client encounters a profile
+    ///         the handler will be triggered once with the cached profile, if any, and might be triggered
+    ///         again if we hit the server.
+    ///
+    /// # Notes
+    ///
+    ///    - Profile information is only available to applications that have been
+    ///      granted the `profile` scope.
+    ///    - If there is no signed-in user, this method will throw an
+    ///      [`Authentication`](FxaError::Authentication) error.
+    ///
+    /// **💾 This method alters the persisted account state.**
+    ///
+    pub fn refresh_profile(
+        &self,
+        force_fetch: bool,
+        profile_updated_callback: Box<dyn ProfileUpdatedCallback>,
+    ) -> Result<(), FxaError> {
+        Ok(self
+            .internal
+            .lock()
+            .unwrap()
+            .refresh_profile(force_fetch, profile_updated_callback)?)
     }
 }
 
@@ -1010,33 +1049,21 @@ impl FirefoxAccount {
     }
 }
 
-/// Event handling implementation of Firefox Account
-///
-/// The following methods register and unregister event handlers that the app
-/// can register to control what happens when specific events occur. For example
-/// when a new profile state is available, the Firefox Account client will trigger the
-/// [`FirefoxAccountEventHandler::profile_updated`] method
-impl FirefoxAccount {
-    /// Register a new event handler that is implemented by the application
-    fn register_event_handler(&self, event_handler: Box<dyn FirefoxAccountEventHandler>) {
-        self.internal
-            .lock()
-            .unwrap()
-            .register_event_handler(event_handler)
-    }
-
-    /// Unregister the event handler set by the app, and resets it to the default, no-op handler
-    fn unregister_event_handler(&self) {
-        self.internal.lock().unwrap().unregister_event_handler()
-    }
+/// A callback interface representing a handler for when the Firefox Account client has a new
+/// profile.
+/// The application will pass an instance of the callback interface with every call to `refresh_profile`
+pub trait ProfileUpdatedCallback: Sync + Send {
+    fn profile_updated(&self, profile: Profile);
 }
 
-/// A callback interface representing events the application is interested in
-/// The methods in the callback interface are set by the app, and the Firefox Account client
-/// will trigger the methods on specific events. For example, when any profile updates are available,
-/// the [`profile_updated`] callback will be triggered, the app is responsible for implementing what happens then.
-pub trait FirefoxAccountEventHandler: Sync + Send {
-    fn profile_updated(&self, profile: Profile);
+// The implementation for Arc is useful for tests that would like to
+// clone the callback interface, then verify the values the callback interface
+// is holding
+#[cfg(test)]
+impl<T: ProfileUpdatedCallback> ProfileUpdatedCallback for std::sync::Arc<T> {
+    fn profile_updated(&self, profile: Profile) {
+        self.as_ref().profile_updated(profile)
+    }
 }
 
 /// Information about the authorization state of the application.
@@ -1198,8 +1225,8 @@ pub enum AccountEvent {
     /// Sent when the user has modified their account profile information.
     ///
     /// When receiving this event, the application should request fresh profile
-    /// information by calling [`get_profile`](FirefoxAccount::get_profile) with
-    /// `ignore_cache` set to true, and update any profile information displayed
+    /// information by calling [`refresh_profile`](FirefoxAccount::refresh_profile) with
+    /// `force_fetch` set to true, and update any profile information displayed
     /// in its UI.
     ///
     ProfileUpdated,

@@ -9,12 +9,10 @@
 pub use self::{commands::IncomingDeviceCommand, config::Config};
 use self::{
     error::*,
-    events::DefaultFirefoxAccountEventHandler,
     oauth::{AuthCircuitBreaker, OAuthFlow, OAUTH_WEBCHANNEL_REDIRECT},
     state_persistence::State,
     telemetry::FxaTelemetry,
 };
-use super::FirefoxAccountEventHandler;
 use serde_derive::*;
 use std::{
     cell::RefCell,
@@ -29,7 +27,6 @@ mod commands;
 pub mod config;
 pub mod device;
 pub mod error;
-mod events;
 mod http_client;
 mod migrator;
 mod oauth;
@@ -63,7 +60,6 @@ pub struct FirefoxAccount {
     // 'telemetry' is only currently used by `&mut self` functions, but that's
     // not something we want to insist on going forward, so RefCell<> it.
     telemetry: RefCell<FxaTelemetry>,
-    event_handler: Box<dyn FirefoxAccountEventHandler>,
 }
 
 impl FirefoxAccount {
@@ -76,7 +72,6 @@ impl FirefoxAccount {
             devices_cache: None,
             auth_circuit_breaker: Default::default(),
             telemetry: RefCell::new(FxaTelemetry::new()),
-            event_handler: Box::new(DefaultFirefoxAccountEventHandler),
         }
     }
 

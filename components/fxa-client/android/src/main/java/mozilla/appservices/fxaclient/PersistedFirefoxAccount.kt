@@ -165,6 +165,27 @@ class PersistedFirefoxAccount(inner: FirefoxAccount, persistCallback: PersistCal
     }
 
     /**
+     * Fetches the profile object for the current client either from the existing cached account,
+     * or from the server (requires the client to have access to the profile scope).
+     *
+     * This performs network requests, and should not be used on the main thread.
+     *
+     * @param forceFetch Fetch the profile information directly from the server
+     * @param profileUpdatedCallback A callback interface that is triggered whenever the client has profile
+     *  data. It will be triggered with a cached profile, if one exists, then it will get triggered
+     *  with an updated profile from network, if we hit the server.
+     * @throws FxaException.Unauthorized We couldn't find any suitable access token to make that call.
+     * The caller should then start the OAuth Flow again with the "profile" scope.
+     */
+    fun refreshProfile(forceFetch: Boolean, profileUpdatedCallback: ProfileUpdatedCallback) {
+        try {
+            this.inner.refreshProfile(forceFetch, profileUpdatedCallback)
+        } finally {
+            this.tryPersistState()
+        }
+    }
+
+    /**
      * Convenience method to fetch the profile from a cached account by default, but fall back
      * to retrieval from the server.
      *
@@ -514,14 +535,6 @@ class PersistedFirefoxAccount(inner: FirefoxAccount, persistCallback: PersistCal
      */
     fun gatherTelemetry(): String {
         return this.inner.gatherTelemetry()
-    }
-
-    fun registerEventHandler(handler: FirefoxAccountEventHandler) {
-        this.inner.registerEventHandler(handler)
-    }
-
-    fun unregisterEventHandler() {
-        this.inner.unregisterEventHandler()
     }
 
     @Synchronized

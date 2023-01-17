@@ -27,7 +27,7 @@
 //   [`complete_oauth_flow`](FirefoxAccount::complete_oauth_flow) to sign them in.
 //
 // * Display information about the signed-in user by using the data from
-//   [`get_profile`](FirefoxAccount::get_profile).
+//   [`refresh_profile`](FirefoxAccount::refresh_profile).
 //
 // * Access account-related services on behalf of the user by obtaining OAuth
 //   access tokens via [`get_access_token`](FirefoxAccount::get_access_token).
@@ -258,8 +258,11 @@ interface FirefoxAccount {
   // is not desired then the application should discard the persisted account state.
   //
   void disconnect();
-  
 
+
+  // WARNING: The following method has been depreicated. Please use
+  // `[`refresh_profile`](FirefoxAccount::refresh_profile) instead.
+  //
   // Get profile information for the signed-in user, if any.
   //
   // **💾 This method alters the persisted account state.**
@@ -283,6 +286,32 @@ interface FirefoxAccount {
   //
   [Throws=FxaError]
   Profile get_profile( boolean ignore_cache );
+
+  // Get profile information for the signed-in user, if any.
+  //
+  // **💾 This method alters the persisted account state.**
+  //
+  // This method triggers a callback with a [`Profile`] struct with information about the currently-signed-in
+  // user, either by using locally-cached profile information or by fetching fresh data from
+  // the server.
+  //
+  // # Arguments
+  //
+  //    - `force_fetch` - if true, always hit the server for fresh profile information.
+  //    - `profile_updated_callback` - A callback that triggers whenever the client encounters a profile
+  //         the handler will be triggered once with the cached profile, if any, and might be triggered
+  //         again if we hit the server.
+  // # Notes
+  //
+  //    - Profile information is only available to applications that have been
+  //      granted the `profile` scope.
+  //    - There is currently no API for fetching cached profile information without
+  //      potentially hitting the server.
+  //    - If there is no signed-in user, this method will throw an
+  //      [`Authentication`](FxaError::Authentication) error.
+  //
+  [Throws=FxaError]
+  void refresh_profile(boolean force_fetch, ProfileUpdatedCallback profile_updated_callback );
   
 
   // Create a new device record for this application.
@@ -386,7 +415,7 @@ interface FirefoxAccount {
   //
   [Throws=FxaError]
   void set_device_name([ByRef] string display_name );
-  
+
 
   // Clear any custom display name used for this application instance.
   //
@@ -719,18 +748,6 @@ interface FirefoxAccount {
   // in check whether such state exists, then retry at an appropriate time.
   //
   MigrationState is_in_migration_state();
-
-  // Registers a Firefox Account event handler
-  //
-  // The event handler is a callback interface implemented by the application
-  // that allows the Firefox Account client to trigger events defined by the application
-  void register_event_handler(FirefoxAccountEventHandler event_handler);
-
-  // Unregisters a Firefox Account event handler
-  //
-  // The event handler is a callback interface implemented by the application
-  // that allows the Firefox Account client to trigger events defined by the application
-  void unregister_event_handler();
 };
 
 // Information about the authorization state of the application.
@@ -1011,8 +1028,8 @@ interface AccountEvent {
   // Sent when the user has modified their account profile information.
   //
   // When receiving this event, the application should request fresh profile
-  // information by calling [`get_profile`](FirefoxAccount::get_profile) with
-  // `ignore_cache` set to true, and update any profile information displayed
+  // information by calling [`refresh_profile`](FirefoxAccount::refresh_profile) with
+  // `force_fetch` set to true, and update any profile information displayed
   // in its UI.
   //
   ProfileUpdated();
@@ -1079,10 +1096,9 @@ enum MigrationState {
   "ReuseSessionToken",
 };
 
-// A callback interface representing events the application is interested in
-// The methods in the callback interface are set by the app, and the Firefox Account client
-// will trigger the methods on specific events. For example, when any profile updates are available,
-// the `profile_updated` callback will be triggered, the app is responsible for implementing what happens then.
-callback interface FirefoxAccountEventHandler {
+// A callback interface representing a handler for when the Firefox Account client has a new
+// profile.
+// The application will pass an instance of the callback interface with every call to `refresh_profile`
+callback interface ProfileUpdatedCallback {
     void profile_updated(Profile profile);
 };
