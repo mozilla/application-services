@@ -1,3 +1,16 @@
+# v96.3.0 (_2023-01-18_)
+
+[Full Changelog](https://github.com/mozilla/application-services/compare/v96.2.1...v96.3.0)
+
+## Places
+### What's changed
+ - Removes old iOS bookmarks migration code. The function `migrateBookmarksFromBrowserDb` no longer exists. ([#5276](https://github.com/mozilla/application-services/pull/5276))
+
+## Nimbus ⛅️🔬🔭
+### What's New
+  - iOS: added a `Bundle.fallbackTranslationBundle()` method. ([#5314](https://github.com/mozilla/application-services/pull/5314))
+  - Moved the Nimbus Gradle Plugin into application-services and updated its functionality to support local development. ([#5173](https://github.com/mozilla/application-services/pull/5173))
+
 # v96.2.1 (_2023-01-04_)
 
 [Full Changelog](https://github.com/mozilla/application-services/compare/v96.2.0...v96.2.1)
