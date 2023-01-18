@@ -94,7 +94,7 @@ impl ConnectionInitializer for PlacesInitializer {
 
             -- How long to wait for a lock before returning SQLITE_BUSY (in ms)
             -- See `doc/sql_concurrency.md` for details.
-            PRAGMA busy_timeout = 5000;
+            PRAGMA busy_timeout = 10000;
         ";
         conn.execute_batch(initial_pragmas)?;
         define_functions(conn, self.api_id)?;
