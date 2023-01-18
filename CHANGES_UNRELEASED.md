@@ -18,3 +18,13 @@ Use the template below to make assigning a version number during the release cut
   - Description of the change with a link to the pull request ([#0000](https://github.com/mozilla/application-services/pull/0000))
 
 -->
+
+## Tabs
+
+### What's Changed
+
+The Tabs engine no longer resets after every sync:
+
+- Tabs will be stored in a DB per client.
+- Tabs now tracks the last time it synced and only fetches tabs that have changed since last sync.
+- Tabs will keep records for up to 180 days, the same as the clients engine.
