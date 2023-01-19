@@ -312,7 +312,7 @@ mod tests {
             _ => panic!("error not NoCachedToken"),
         };
         // With current user -> expected Url.
-        fxa.add_cached_profile("123", "test@example.com");
+        fxa.add_cached_profile("123", "test@example.com", util::now());
         let url = fxa.get_manage_account_url("test").unwrap();
         assert_eq!(
             url,
@@ -329,7 +329,7 @@ mod tests {
             OAUTH_WEBCHANNEL_REDIRECT,
         );
         let mut fxa = FirefoxAccount::with_config(config);
-        fxa.add_cached_profile("123", "test@example.com");
+        fxa.add_cached_profile("123", "test@example.com", util::now());
         let url = fxa.get_manage_account_url("test").unwrap();
         assert_eq!(
             url,
@@ -348,7 +348,7 @@ mod tests {
             _ => panic!("error not NoCachedToken"),
         };
         // With current user -> expected Url.
-        fxa.add_cached_profile("123", "test@example.com");
+        fxa.add_cached_profile("123", "test@example.com", util::now());
         let url = fxa.get_manage_devices_url("test").unwrap();
         assert_eq!(
             url,

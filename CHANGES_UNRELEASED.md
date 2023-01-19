@@ -18,3 +18,9 @@ Use the template below to make assigning a version number during the release cut
   - Description of the change with a link to the pull request ([#0000](https://github.com/mozilla/application-services/pull/0000))
 
 -->
+## FxA Client
+### ✨ What's New ✨
+  - Exposes a new API `refreshProfile` that triggers a callback instead of returning a new profile. ([#5333](https://github.com/mozilla/application-services/pull/5333))
+     - The `refreshProfile` function will first trigger the callback with the result from cache if one exists,
+     - Then, the `refreshProfile` might trigger the callback again if it triggered a network request.
+  - For iOS, the behavior should be unchanged, as the `getProfile` function that `refreshProfile` replaces, is only used internally within Application Services.

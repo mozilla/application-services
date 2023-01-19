@@ -159,6 +159,7 @@ mod tests {
     use crate::internal::http_client::FxAClientMock;
     use crate::internal::http_client::IntrospectResponse;
     use crate::internal::oauth::RefreshToken;
+    use crate::internal::util;
     use crate::internal::CachedResponse;
     use crate::internal::Config;
     use std::sync::Arc;
@@ -175,7 +176,7 @@ mod tests {
             "12345678",
             "https://foo.bar",
         ));
-        fxa.add_cached_profile("123", "test@example.com");
+        fxa.add_cached_profile("123", "test@example.com", util::now());
         let json = "{\"version\":1,\"command\":\"fxaccounts:profile_updated\"}";
         let events = fxa.handle_push_message(json).unwrap();
         assert!(fxa.state.last_seen_profile.is_none());

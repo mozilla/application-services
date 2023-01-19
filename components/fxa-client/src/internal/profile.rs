@@ -179,7 +179,7 @@ mod tests {
     use std::sync::{Arc, Mutex};
 
     impl FirefoxAccount {
-        pub fn add_cached_profile(&mut self, uid: &str, email: &str) {
+        pub fn add_cached_profile(&mut self, uid: &str, email: &str, cached_at: u64) {
             self.state.last_seen_profile = Some(CachedResponse {
                 response: Profile {
                     uid: uid.into(),
@@ -188,7 +188,7 @@ mod tests {
                     avatar: "".into(),
                     avatar_default: true,
                 },
-                cached_at: util::now(),
+                cached_at,
                 etag: "fake etag".into(),
             });
         }
@@ -234,7 +234,7 @@ mod tests {
     }
 
     #[test]
-    fn test_refresh_profile() {
+    fn test_refresh_profile_cached_profile_expired() {
         let config = Config::stable_dev("12345678", "https://foo.bar");
         let mut fxa = FirefoxAccount::with_config(config);
 
@@ -248,12 +248,32 @@ mod tests {
             },
         );
 
+        // We add an expired profile to cache, we should get back two callback calls
+        // one with the cache, and one from network
+        fxa.add_cached_profile(
+            "cached_id",
+            "cached_email@foo.com",
+            util::now() - PROFILE_FRESHNESS_THRESHOLD,
+        );
+
         struct CustomUpdateHandler {
-            profile: Mutex<crate::Profile>,
+            // not perfect to have two mutexes, but simpler than
+            // a mutex wrapping a tuple and this is only for a test
+            num_times_called: Mutex<u32>,
+            latest_profile: Mutex<crate::Profile>,
         }
         impl ProfileUpdatedCallback for CustomUpdateHandler {
             fn profile_updated(&self, profile: crate::Profile) {
-                *self.profile.lock().unwrap() = profile;
+                let num_times_called = *self.num_times_called.lock().unwrap();
+                if num_times_called == 0 {
+                    // we are first called with the cached value, verify that
+                    assert_eq!(profile.email, "cached_email@foo.com")
+                } else {
+                    // we are then called with the value from network
+                    assert_eq!(profile.email, "foo@bar.com")
+                }
+                *self.latest_profile.lock().unwrap() = profile;
+                *self.num_times_called.lock().unwrap() += 1;
             }
         }
 
@@ -278,14 +298,164 @@ mod tests {
         fxa.set_client(Arc::new(client));
 
         let profile_updated_callback = Arc::new(CustomUpdateHandler {
-            profile: Mutex::new(Default::default()),
+            num_times_called: Mutex::new(0),
+            latest_profile: Mutex::new(Default::default()),
         });
 
         fxa.refresh_profile(false, Box::new(Arc::clone(&profile_updated_callback)))
             .unwrap();
         assert_eq!(
-            profile_updated_callback.profile.lock().unwrap().email,
+            profile_updated_callback
+                .latest_profile
+                .lock()
+                .unwrap()
+                .email,
             "foo@bar.com"
+        );
+        assert_eq!(
+            *profile_updated_callback.num_times_called.lock().unwrap(),
+            2
+        );
+    }
+
+    #[test]
+    fn test_refresh_profile_fresh_cache() {
+        let config = Config::stable_dev("12345678", "https://foo.bar");
+        let mut fxa = FirefoxAccount::with_config(config);
+
+        fxa.add_cached_token(
+            "profile",
+            AccessTokenInfo {
+                scope: "profile".to_string(),
+                token: "profiletok".to_string(),
+                key: None,
+                expires_at: u64::max_value(),
+            },
+        );
+
+        // We add an a fresh profile cache, we should get back exactly one callback
+        // to cache and no network request
+        fxa.add_cached_profile("cached_id", "cached_email@foo.com", util::now());
+
+        struct CustomUpdateHandler {
+            // not perfect to have two mutexes, but simpler than
+            // a mutex wrapping a tuple and this is only for a test
+            num_times_called: Mutex<u32>,
+            latest_profile: Mutex<crate::Profile>,
+        }
+        impl ProfileUpdatedCallback for CustomUpdateHandler {
+            fn profile_updated(&self, profile: crate::Profile) {
+                let num_times_called = *self.num_times_called.lock().unwrap();
+                assert!(num_times_called < 1);
+                // we are only ever called with the cached value, verify that
+                assert_eq!(profile.email, "cached_email@foo.com");
+                *self.latest_profile.lock().unwrap() = profile;
+                *self.num_times_called.lock().unwrap() += 1;
+            }
+        }
+
+        let mut client = FxAClientMock::new();
+        client
+            .expect_get_profile(
+                mockiato::Argument::any,
+                |token| token.partial_eq("profiletok"),
+                mockiato::Argument::any,
+            )
+            // We make sure the network request wasn't triggered
+            .times(0);
+        fxa.set_client(Arc::new(client));
+
+        let profile_updated_callback = Arc::new(CustomUpdateHandler {
+            num_times_called: Mutex::new(0),
+            latest_profile: Mutex::new(Default::default()),
+        });
+
+        fxa.refresh_profile(false, Box::new(Arc::clone(&profile_updated_callback)))
+            .unwrap();
+        assert_eq!(
+            profile_updated_callback
+                .latest_profile
+                .lock()
+                .unwrap()
+                .email,
+            "cached_email@foo.com"
+        );
+        assert_eq!(
+            *profile_updated_callback.num_times_called.lock().unwrap(),
+            1
+        );
+    }
+
+    #[test]
+    fn test_refresh_profile_no_cache() {
+        let config = Config::stable_dev("12345678", "https://foo.bar");
+        let mut fxa = FirefoxAccount::with_config(config);
+
+        fxa.add_cached_token(
+            "profile",
+            AccessTokenInfo {
+                scope: "profile".to_string(),
+                token: "profiletok".to_string(),
+                key: None,
+                expires_at: u64::max_value(),
+            },
+        );
+
+        struct CustomUpdateHandler {
+            // not perfect to have two mutexes, but simpler than
+            // a mutex wrapping a tuple and this is only for a test
+            num_times_called: Mutex<u32>,
+            latest_profile: Mutex<crate::Profile>,
+        }
+        impl ProfileUpdatedCallback for CustomUpdateHandler {
+            fn profile_updated(&self, profile: crate::Profile) {
+                let num_times_called = *self.num_times_called.lock().unwrap();
+                assert!(num_times_called < 1);
+                // we are only ever called with the value from network verify that
+                assert_eq!(profile.email, "foo@bar.com");
+                *self.latest_profile.lock().unwrap() = profile;
+                *self.num_times_called.lock().unwrap() += 1;
+            }
+        }
+
+        let mut client = FxAClientMock::new();
+        client
+            .expect_get_profile(
+                mockiato::Argument::any,
+                |token| token.partial_eq("profiletok"),
+                mockiato::Argument::any,
+            )
+            .times(1)
+            .returns_once(Ok(Some(ResponseAndETag {
+                response: ProfileResponse {
+                    uid: "12345ab".to_string(),
+                    email: "foo@bar.com".to_string(),
+                    display_name: None,
+                    avatar: "https://foo.avatar".to_string(),
+                    avatar_default: true,
+                },
+                etag: None,
+            })));
+        fxa.set_client(Arc::new(client));
+
+        let profile_updated_callback = Arc::new(CustomUpdateHandler {
+            num_times_called: Mutex::new(0),
+            latest_profile: Mutex::new(Default::default()),
+        });
+
+        fxa.refresh_profile(false, Box::new(Arc::clone(&profile_updated_callback)))
+            .unwrap();
+        assert_eq!(
+            profile_updated_callback
+                .latest_profile
+                .lock()
+                .unwrap()
+                .email,
+            "foo@bar.com"
+        );
+        assert_eq!(
+            *profile_updated_callback.num_times_called.lock().unwrap(),
+            1
         );
     }
 

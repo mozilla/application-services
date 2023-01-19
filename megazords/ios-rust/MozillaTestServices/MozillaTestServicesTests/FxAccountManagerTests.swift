@@ -157,11 +157,11 @@ class FxAccountManagerTests: XCTestCase {
         }
         waitForExpectations(timeout: 5, handler: nil)
 
-        // Fetch devices is run async, so it could happen after getProfile, hence we don't do a strict
+        // Fetch devices is run async, so it could happen after refreshProfile, hence we don't do a strict
         // equality.
         XCTAssertTrue(account.invocations.contains(MockFxAccount.MethodInvocation.registerPersistCallback))
         XCTAssertTrue(account.invocations.contains(MockFxAccount.MethodInvocation.ensureCapabilities))
-        XCTAssertTrue(account.invocations.contains(MockFxAccount.MethodInvocation.getProfile))
+        XCTAssertTrue(account.invocations.contains(MockFxAccount.MethodInvocation.refreshProfile))
 
         let constellation = mgr.constellation as! MockDeviceConstellation
         XCTAssertEqual(constellation.invocations, [
@@ -190,7 +190,7 @@ class FxAccountManagerTests: XCTestCase {
         waitForExpectations(timeout: 5, handler: nil)
 
         XCTAssertTrue(account.invocations.contains(MockFxAccount.MethodInvocation.registerPersistCallback))
-        XCTAssertTrue(account.invocations.contains(MockFxAccount.MethodInvocation.getProfile))
+        XCTAssertTrue(account.invocations.contains(MockFxAccount.MethodInvocation.refreshProfile))
 
         let constellation = mgr.constellation as! MockDeviceConstellation
         XCTAssertEqual(constellation.invocations, [
@@ -228,7 +228,7 @@ class FxAccountManagerTests: XCTestCase {
         XCTAssertTrue(mgr.accountNeedsReauth())
 
         XCTAssertTrue(account.invocations.contains(MockFxAccount.MethodInvocation.registerPersistCallback))
-        XCTAssertTrue(account.invocations.contains(MockFxAccount.MethodInvocation.getProfile))
+        XCTAssertTrue(account.invocations.contains(MockFxAccount.MethodInvocation.refreshProfile))
         XCTAssertTrue(account.invocations.contains(MockFxAccount.MethodInvocation.checkAuthorizationStatus))
 
         let constellation = mgr.constellation as! MockDeviceConstellation
@@ -262,7 +262,7 @@ class FxAccountManagerTests: XCTestCase {
         let account = mgr.account! as! MockFxAccount
         XCTAssertTrue(account.invocations.contains(MockFxAccount.MethodInvocation.registerPersistCallback))
         XCTAssertTrue(account.invocations.contains(MockFxAccount.MethodInvocation.initializeDevice))
-        XCTAssertTrue(account.invocations.contains(MockFxAccount.MethodInvocation.getProfile))
+        XCTAssertTrue(account.invocations.contains(MockFxAccount.MethodInvocation.refreshProfile))
 
         let constellation = mgr.constellation as! MockDeviceConstellation
         XCTAssertEqual(constellation.invocations, [
@@ -296,14 +296,12 @@ class FxAccountManagerTests: XCTestCase {
     func testProfileRecoverableAuthError() {
         class MockAccount: MockFxAccount {
             var profileCallCount = 0
-            override func getProfile(ignoreCache: Bool) throws -> Profile {
-                let profile = try super.getProfile(ignoreCache: ignoreCache)
+            override func refreshProfile(forceFetch: Bool, profileUpdatedCallback: ProfileUpdatedCallback) throws {
+                try super.refreshProfile(forceFetch: forceFetch, profileUpdatedCallback: profileUpdatedCallback)
                 profileCallCount += 1
                 if profileCallCount == 1 {
                     notifyAuthError()
                     throw FxaError.Authentication(message: "Uh oh.")
-                } else {
-                    return profile
                 }
             }
         }

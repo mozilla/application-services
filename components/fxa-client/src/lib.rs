@@ -367,8 +367,8 @@ impl FirefoxAccount {
 /// These methods can be used to find out information about the connected user.
 ///
 impl FirefoxAccount {
-    /// WARNING: The following method has been depreicated. Please use
-    /// `[`refresh_profile`](FirefoxAccount::refresh_profile) instead.
+    /// ⚠️ The following method has been depreciated. ⚠️
+    /// Please use [`refresh_profile`](FirefoxAccount::refresh_profile) instead.
     ///
     ///  Get profile information for the signed-in user, if any.
     ///
@@ -388,10 +388,6 @@ impl FirefoxAccount {
     ///      granted the `profile` scope.
     ///    - If there is no signed-in user, this method will throw an
     ///      [`Authentication`](FxaError::Authentication) error.
-    ///     /// Fetch the profile for the user.
-    ///   - ⚠️ This method currently both returns and triggers a callback with it's result ⚠️
-    ///     This was done to support backward compatibility. TODO(teshaq) before landing add a
-    ///     filed ticket for this. Once both consumers use the callback, we can remove the return value
     ///
     /// **💾 This method alters the persisted account state.**
     ///

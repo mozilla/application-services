@@ -146,6 +146,9 @@ class PersistedFirefoxAccount(inner: FirefoxAccount, persistCallback: PersistCal
     }
 
     /**
+     * ⚠️ The following method has been depreciated. ⚠️
+     * Please use [`refresh_profile`](FirefoxAccount::refresh_profile) instead.
+     *
      * Fetches the profile object for the current client either from the existing cached account,
      * or from the server (requires the client to have access to the profile scope).
      *
@@ -186,6 +189,9 @@ class PersistedFirefoxAccount(inner: FirefoxAccount, persistCallback: PersistCal
     }
 
     /**
+     * ⚠️ The following method has been depreciated. ⚠️
+     * Please use [`refresh_profile`](FirefoxAccount::refresh_profile) instead.
+     *
      * Convenience method to fetch the profile from a cached account by default, but fall back
      * to retrieval from the server.
      *
@@ -197,6 +203,21 @@ class PersistedFirefoxAccount(inner: FirefoxAccount, persistCallback: PersistCal
      */
     fun getProfile(): Profile {
         return getProfile(false)
+    }
+
+    /**
+     * Convenience method to refresh the profile from a cached account by default, but fall back
+     * to retrieval from the server.
+     *
+     * This performs network requests, and should not be used on the main thread.
+     * @param profileUpdatedCallback A callback interface that is triggered whenever the client has profile
+     *  data. It will be triggered with a cached profile, if one exists, then it will get triggered
+     *  with an updated profile from network, if we hit the server.
+     * @throws FxaException.Unauthorized We couldn't find any suitable access token to make that call.
+     * The caller should then start the OAuth Flow again with the "profile" scope.
+     */
+    fun refreshProfile(profileUpdatedCallback: ProfileUpdatedCallback) {
+        refreshProfile(false, profileUpdatedCallback)
     }
 
     /**
@@ -309,7 +330,7 @@ class PersistedFirefoxAccount(inner: FirefoxAccount, persistCallback: PersistCal
      * This method should be called when a request made with
      * an OAuth token failed with an authentication error.
      * It clears the internal cache of OAuth access tokens,
-     * so the caller can try to call `getAccessToken` or `getProfile`
+     * so the caller can try to call `getAccessToken` or `refreshProfile`
      * again.
      */
     fun clearAccessTokenCache() {

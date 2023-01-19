@@ -108,10 +108,10 @@ class PersistedFirefoxAccount {
         inner.disconnect()
     }
 
-    public func getProfile(ignoreCache: Bool) throws -> Profile {
+    public func refreshProfile(forceFetch: Bool, profileUpdatedCallback: ProfileUpdatedCallback) throws {
         defer { tryPersistState() }
-        return try notifyAuthErrors {
-            try self.inner.getProfile(ignoreCache: ignoreCache)
+        try notifyAuthErrors {
+            try self.inner.refreshProfile(forceFetch: forceFetch, profileUpdatedCallback: profileUpdatedCallback)
         }
     }
 

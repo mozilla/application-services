@@ -710,7 +710,7 @@ mod tests {
         let config = Config::stable_dev("12345678", "https://foo.bar");
         let mut fxa = FirefoxAccount::with_config(config);
         let email = "test@example.com";
-        fxa.add_cached_profile("123", email);
+        fxa.add_cached_profile("123", email, util::now());
         let url = fxa
             .begin_oauth_flow(&["profile"], "test_force_auth_url", None)
             .unwrap();

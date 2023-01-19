@@ -12,6 +12,19 @@ public extension Notification.Name {
     static let accountMigrationFailed = Notification.Name("accountMigrationFailed")
 }
 
+private class WrappedProfileUpdatedCallback: ProfileUpdatedCallback {
+    func profileUpdated(profile: Profile) {
+        accountManager?.profile = profile
+    }
+
+    weak var accountManager: FxAccountManager?
+    public required init(
+        _ accountManager: FxAccountManager)
+    {
+        self.accountManager = accountManager
+    }
+}
+
 // swiftlint:disable type_body_length
 open class FxAccountManager {
     let accountStorage: KeyChainAccountStorage
@@ -529,13 +542,16 @@ open class FxAccountManager {
                             FxALog.error("Error handling the session token change: \(error)")
                         }
                     }
-                case let .fetchProfile(ignoreCache): do {
+                case let .fetchProfile(forceFetch): do {
                         // Profile fetching and account authentication issues:
                         // https://github.com/mozilla/application-services/issues/483
                         FxALog.info("Fetching profile...")
 
                         do {
-                            profile = try requireAccount().getProfile(ignoreCache: ignoreCache)
+                            try requireAccount().refreshProfile(
+                                forceFetch: forceFetch,
+                                profileUpdatedCallback: WrappedProfileUpdatedCallback(self)
+                            )
                         } catch {
                             return Event.failedToFetchProfile
                         }
@@ -558,7 +574,10 @@ open class FxAccountManager {
                 case let .fetchProfile(refresh): do {
                         FxALog.info("Refreshing profile...")
                         do {
-                            profile = try requireAccount().getProfile(ignoreCache: refresh)
+                            try requireAccount().refreshProfile(
+                                forceFetch: refresh,
+                                profileUpdatedCallback: WrappedProfileUpdatedCallback(self)
+                            )
                         } catch {
                             return Event.failedToFetchProfile
                         }

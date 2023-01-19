@@ -13,7 +13,7 @@ class MockFxAccount: PersistedFirefoxAccount {
     enum MethodInvocation {
         case checkAuthorizationStatus
         case ensureCapabilities
-        case getProfile
+        case refreshProfile
         case registerPersistCallback
         case clearAccessTokenCache
         case getAccessToken
@@ -68,9 +68,9 @@ class MockFxAccount: PersistedFirefoxAccount {
         return AccessTokenInfo(scope: "profile", token: "toktok", key: nil, expiresAt: Int64.max)
     }
 
-    override func getProfile(ignoreCache _: Bool) throws -> Profile {
-        queue.sync { invocations.append(.getProfile) }
-        return Profile(uid: "uid", email: "foo@bar.bobo", displayName: "Bobo the Foo", avatar: "https://example.com/avatar.png", isDefaultAvatar: false)
+    override func refreshProfile(forceFetch _: Bool, profileUpdatedCallback: ProfileUpdatedCallback) throws {
+        queue.sync { invocations.append(.refreshProfile) }
+        profileUpdatedCallback.profileUpdated(profile: Profile(uid: "uid", email: "foo@bar.bobo", displayName: "Bobo the Foo", avatar: "https://example.com/avatar.png", isDefaultAvatar: false))
     }
 
     override func beginOAuthFlow(

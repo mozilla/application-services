@@ -260,8 +260,8 @@ interface FirefoxAccount {
   void disconnect();
 
 
-  // WARNING: The following method has been depreicated. Please use
-  // `[`refresh_profile`](FirefoxAccount::refresh_profile) instead.
+  // ⚠️ The following method has been depreciated. ⚠️
+  // Please use [`refresh_profile`](FirefoxAccount::refresh_profile) instead.
   //
   // Get profile information for the signed-in user, if any.
   //
