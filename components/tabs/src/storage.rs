@@ -238,6 +238,7 @@ impl TabsStorage {
                 // could happen - in most cases though, it will be due to a disconnected client -
                 // so we really should consider just dropping it? (Sadly though, it does seem
                 // possible it's actually a very recently connected client, so we keep it)
+                // We should get rid of this eventually - https://github.com/mozilla/application-services/issues/5199
                 log::info!(
                     "Storing tabs from a client that doesn't appear in the devices list: {}",
                     id,
@@ -258,8 +259,9 @@ impl TabsStorage {
         if let Some(conn) = self.open_if_exists()? {
             if let Some(last_sync) = last_sync {
                 let client_ttl_ms = (TABS_CLIENT_TTL as i64) * 1000;
-                // On desktop, a quick write sets the last_sync to FAR_FUTURE
-                // which means we'll most likely trash all our records (as it's more than any TTL we'd ever do)
+                // On desktop, a quick write temporarily sets the last_sync to FAR_FUTURE
+                // but if it doesn't set it back to the original (crash, etc) it
+                // means we'll most likely trash all our records (as it's more than any TTL we'd ever do)
                 // so we need to detect this for now until we have native quick write support
                 if last_sync - client_ttl_ms >= 0 && last_sync != (FAR_FUTURE * 1000) {
                     let tx = conn.unchecked_transaction()?;

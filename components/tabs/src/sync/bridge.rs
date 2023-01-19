@@ -272,13 +272,11 @@ impl TabsBridgedEngine {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::storage::RemoteTab;
+    use crate::storage::{RemoteTab, TABS_CLIENT_TTL};
     use crate::sync::record::TabsRecordTab;
     use serde_json::json;
     use std::collections::HashMap;
     use sync15::{ClientData, DeviceType, RemoteClient};
-
-    const TABS_CLIENT_TTL: u32 = 15_552_000; // same as in storage.rs
 
     // A copy of the normal "engine" tests but which go via the bridge
     #[test]

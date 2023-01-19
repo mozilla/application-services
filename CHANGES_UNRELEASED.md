@@ -23,8 +23,8 @@ Use the template below to make assigning a version number during the release cut
 
 ### What's Changed
 
-The Tabs engine no longer resets after every sync:
+The Tabs engine is now more efficient in how it fetches its records:
 
-- Tabs will be stored in a DB per client.
-- Tabs now tracks the last time it synced and only fetches tabs that have changed since last sync.
-- Tabs will keep records for up to 180 days, the same as the clients engine.
+- The Tabs engine no longer clears the DB on every sync.
+- Tabs now tracks the last time it synced and only fetches tabs that have changed since the last sync.
+- Tabs will keep records for up to 180 days, in parity with the clients engine. To prevent the DB from getting too large.

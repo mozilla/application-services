@@ -34,9 +34,9 @@ const CREATE_META_TABLE_SQL: &str = "
 pub(crate) static LAST_SYNC_META_KEY: &str = "last_sync_time";
 pub(crate) static GLOBAL_SYNCID_META_KEY: &str = "global_sync_id";
 pub(crate) static COLLECTION_SYNCID_META_KEY: &str = "tabs_sync_id";
-// Tabs stores this in the meta table due to a unique requirement that we only know
-// the list of connected clients when syncing, however getting list of tabs could be
-// called at anytime -- thus we need to store this in a way we can retrieve the clients list on the fly
+// Tabs stores this in the meta table due to a unique requirement that we only know the list
+// of connected clients when syncing, however getting the list of tabs could be called at anytime
+// so we store it so we can translate from the tabs sync record ID to the FxA device id for the client
 pub(crate) static REMOTE_CLIENTS_KEY: &str = "remote_clients";
 
 pub struct TabsMigrationLogic;
