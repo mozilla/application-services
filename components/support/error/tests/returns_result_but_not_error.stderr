@@ -1,26 +1,11 @@
-error[E0277]: the trait bound `String: GetErrorHandling` is not satisfied
-  --> tests/returns_result_but_not_error.rs:30:2
+error[E0308]: mismatched types
+  --> tests/returns_result_but_not_error.rs:31:2
    |
-30 |  #[handle_error(ExternalError)]
-   |  ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ the trait `GetErrorHandling` is not implemented for `String`
+31 |  #[handle_error]
+   |  ^^^^^^^^^^^^^^^ expected struct `String`, found struct `ExternalError`
+32 |  fn func() -> Result<String, String> {
+   |               ---------------------- expected `std::result::Result<String, String>` because of return type
    |
-   = help: the trait `GetErrorHandling` is implemented for `Error`
-note: required by a bound in `convert_log_report_error`
-  --> src/handling.rs
-   |
-   |     IE: GetErrorHandling<ExternalError = EE> + std::error::Error,
-   |         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ required by this bound in `convert_log_report_error`
-   = note: this error originates in the attribute macro `handle_error` (in Nightly builds, run with -Z macro-backtrace for more info)
-
-error[E0277]: the trait bound `String: std::error::Error` is not satisfied
-  --> tests/returns_result_but_not_error.rs:30:2
-   |
-30 |  #[handle_error(ExternalError)]
-   |  ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ the trait `std::error::Error` is not implemented for `String`
-   |
-note: required by a bound in `convert_log_report_error`
-  --> src/handling.rs
-   |
-   |     IE: GetErrorHandling<ExternalError = EE> + std::error::Error,
-   |                                                ^^^^^^^^^^^^^^^^^ required by this bound in `convert_log_report_error`
+   = note: expected enum `std::result::Result<_, String>`
+              found enum `std::result::Result<_, ExternalError>`
    = note: this error originates in the attribute macro `handle_error` (in Nightly builds, run with -Z macro-backtrace for more info)

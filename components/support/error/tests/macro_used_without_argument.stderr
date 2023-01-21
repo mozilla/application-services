@@ -1,7 +1,0 @@
-error: Expected #[handle_error(ErrorName)]
-  --> tests/macro_used_without_argument.rs:37:2
-   |
-37 |  #[handle_error]
-   |  ^^^^^^^^^^^^^^^
-   |
-   = note: this error originates in the attribute macro `handle_error` (in Nightly builds, run with -Z macro-backtrace for more info)

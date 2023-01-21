@@ -34,8 +34,8 @@
      }
  }
 
- #[handle_error]
- fn func() -> ::std::result::Result<String, Error> {
+ #[handle_error(String)]
+ fn func() -> ::std::result::Result<String, ExternalError> {
      Err(Error{})
  }
 

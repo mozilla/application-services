@@ -50,7 +50,7 @@ enum MigrationOp {
 }
 
 // migration for consumers to migrate from their SQLCipher DB
-#[handle_error(LoginsStorageError)]
+#[handle_error]
 pub fn migrate_logins(
     path: impl AsRef<Path>,
     new_encryption_key: &str,
@@ -58,7 +58,7 @@ pub fn migrate_logins(
     sqlcipher_key: &str,
     // The salt arg is for iOS where the salt is stored externally.
     salt: Option<String>,
-) -> Result<()> {
+) -> ApiResult<()> {
     let path = path.as_ref();
     let sqlcipher_path = sqlcipher_path.as_ref();
 

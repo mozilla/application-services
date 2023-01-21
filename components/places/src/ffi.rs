@@ -154,19 +154,19 @@ fn check_connection_count_inner(
 }
 
 impl PlacesApi {
+    #[handle_error]
     fn new_connection(&self, conn_type: ConnectionType) -> ApiResult<Arc<PlacesConnection>> {
-        handle_error! {
-            let db = self.open_connection(conn_type)?;
-            let connection = Arc::new(PlacesConnection::new(db));
-            check_connection_count(conn_type, &connection);
-            register_interrupt(Arc::<PlacesConnection>::downgrade(&connection));
-            Ok(connection)
-        }
+        let db = self.open_connection(conn_type)?;
+        let connection = Arc::new(PlacesConnection::new(db));
+        check_connection_count(conn_type, &connection);
+        register_interrupt(Arc::<PlacesConnection>::downgrade(&connection));
+        Ok(connection)
     }
 
     // NOTE: These methods are unused on Android but will remain needed for
     // iOS until we can move them to the sync manager and replace their existing
     // sync engines with ours
+    #[handle_error]
     fn history_sync(
         &self,
         key_id: String,
@@ -174,20 +174,19 @@ impl PlacesApi {
         sync_key: String,
         tokenserver_url: Url,
     ) -> ApiResult<String> {
-        handle_error! {
-            let root_sync_key = sync15::KeyBundle::from_ksync_base64(sync_key.as_str())?;
-            let ping = self.sync_history(
-                &Sync15StorageClientInit {
-                    key_id,
-                    access_token,
-                    tokenserver_url,
-                },
-                &root_sync_key,
-            )?;
-            Ok(serde_json::to_string(&ping).unwrap())
-        }
+        let root_sync_key = sync15::KeyBundle::from_ksync_base64(sync_key.as_str())?;
+        let ping = self.sync_history(
+            &Sync15StorageClientInit {
+                key_id,
+                access_token,
+                tokenserver_url,
+            },
+            &root_sync_key,
+        )?;
+        Ok(serde_json::to_string(&ping).unwrap())
     }
 
+    #[handle_error]
     fn bookmarks_sync(
         &self,
         key_id: String,
@@ -195,25 +194,22 @@ impl PlacesApi {
         sync_key: String,
         tokenserver_url: Url,
     ) -> ApiResult<String> {
-        handle_error! {
-            let root_sync_key = sync15::KeyBundle::from_ksync_base64(sync_key.as_str())?;
-            let ping = self.sync_bookmarks(
-                &Sync15StorageClientInit {
-                    key_id,
-                    access_token,
-                    tokenserver_url,
-                },
-                &root_sync_key,
-            )?;
-            Ok(serde_json::to_string(&ping).unwrap())
-        }
+        let root_sync_key = sync15::KeyBundle::from_ksync_base64(sync_key.as_str())?;
+        let ping = self.sync_bookmarks(
+            &Sync15StorageClientInit {
+                key_id,
+                access_token,
+                tokenserver_url,
+            },
+            &root_sync_key,
+        )?;
+        Ok(serde_json::to_string(&ping).unwrap())
     }
 
+    #[handle_error]
     fn bookmarks_reset(&self) -> ApiResult<()> {
-        handle_error! {
-            self.reset_bookmarks()?;
-            Ok(())
-        }
+        self.reset_bookmarks()?;
+        Ok(())
     }
 }
 
@@ -244,134 +240,122 @@ impl PlacesConnection {
         Arc::clone(&self.interrupt_handle)
     }
 
+    #[handle_error]
     fn get_latest_history_metadata_for_url(&self, url: Url) -> ApiResult<Option<HistoryMetadata>> {
-        handle_error! {
-            self.with_conn(|conn| history_metadata::get_latest_for_url(conn, &url))
-        }
+        self.with_conn(|conn| history_metadata::get_latest_for_url(conn, &url))
     }
 
+    #[handle_error]
     fn get_history_metadata_between(
         &self,
         start: PlacesTimestamp,
         end: PlacesTimestamp,
     ) -> ApiResult<Vec<HistoryMetadata>> {
-        handle_error! {
-            self.with_conn(|conn| {
-                history_metadata::get_between(conn, start.as_millis_i64(), end.as_millis_i64())
-            })
-        }
+        self.with_conn(|conn| {
+            history_metadata::get_between(conn, start.as_millis_i64(), end.as_millis_i64())
+        })
     }
 
+    #[handle_error]
     fn get_history_metadata_since(
         &self,
         start: PlacesTimestamp,
     ) -> ApiResult<Vec<HistoryMetadata>> {
-        handle_error! {
-            self.with_conn(|conn| history_metadata::get_since(conn, start.as_millis_i64()))
-        }
+        self.with_conn(|conn| history_metadata::get_since(conn, start.as_millis_i64()))
     }
 
+    #[handle_error]
     fn query_history_metadata(&self, query: String, limit: i32) -> ApiResult<Vec<HistoryMetadata>> {
-        handle_error! {
-            self.with_conn(|conn| history_metadata::query(conn, query.as_str(), limit))
-        }
+        self.with_conn(|conn| history_metadata::query(conn, query.as_str(), limit))
     }
 
+    #[handle_error]
     fn get_history_highlights(
         &self,
         weights: HistoryHighlightWeights,
         limit: i32,
     ) -> ApiResult<Vec<HistoryHighlight>> {
-        handle_error! {
-            self.with_conn(|conn| history_metadata::get_highlights(conn, weights, limit))
-        }
+        self.with_conn(|conn| history_metadata::get_highlights(conn, weights, limit))
     }
 
+    #[handle_error]
     fn note_history_metadata_observation(&self, data: HistoryMetadataObservation) -> ApiResult<()> {
-        handle_error! {
-            // odd historical naming discrepency - public function is "note_*", impl is "apply_*"
-            self.with_conn(|conn| history_metadata::apply_metadata_observation(conn, data))
-        }
+        // odd historical naming discrepency - public function is "note_*", impl is "apply_*"
+        self.with_conn(|conn| history_metadata::apply_metadata_observation(conn, data))
     }
 
+    #[handle_error]
     fn metadata_delete_older_than(&self, older_than: PlacesTimestamp) -> ApiResult<()> {
-        handle_error! {
-            self.with_conn(|conn| history_metadata::delete_older_than(conn, older_than.as_millis_i64()))
-        }
+        self.with_conn(|conn| history_metadata::delete_older_than(conn, older_than.as_millis_i64()))
     }
 
+    #[handle_error]
     fn metadata_delete(
         &self,
         url: Url,
         referrer_url: Option<Url>,
         search_term: Option<String>,
     ) -> ApiResult<()> {
-        handle_error! {
-            self.with_conn(|conn| {
-                history_metadata::delete_metadata(
-                    conn,
-                    &url,
-                    referrer_url.as_ref(),
-                    search_term.as_deref(),
-                )
-            })
-        }
+        self.with_conn(|conn| {
+            history_metadata::delete_metadata(
+                conn,
+                &url,
+                referrer_url.as_ref(),
+                search_term.as_deref(),
+            )
+        })
     }
 
     /// Add an observation to the database.
+    #[handle_error]
     fn apply_observation(&self, visit: VisitObservation) -> ApiResult<()> {
-        handle_error! {
-            self.with_conn(|conn| history::apply_observation(conn, visit))?;
-            Ok(())
-        }
+        self.with_conn(|conn| history::apply_observation(conn, visit))?;
+        Ok(())
     }
 
+    #[handle_error]
     fn get_visited_urls_in_range(
         &self,
         start: PlacesTimestamp,
         end: PlacesTimestamp,
         include_remote: bool,
     ) -> ApiResult<Vec<Url>> {
-        handle_error! {
-            self.with_conn(|conn| {
-                let urls = history::get_visited_urls(conn, start, end, include_remote)?
-                    .iter()
-                    // Turn the list of strings into valid Urls
-                    .filter_map(|s| Url::parse(s).ok())
-                    .collect::<Vec<_>>();
-                Ok(urls)
-            })
-        }
+        self.with_conn(|conn| {
+            let urls = history::get_visited_urls(conn, start, end, include_remote)?
+                .iter()
+                // Turn the list of strings into valid Urls
+                .filter_map(|s| Url::parse(s).ok())
+                .collect::<Vec<_>>();
+            Ok(urls)
+        })
     }
 
+    #[handle_error]
     fn get_visit_infos(
         &self,
         start_date: PlacesTimestamp,
         end_date: PlacesTimestamp,
         exclude_types: VisitTransitionSet,
     ) -> ApiResult<Vec<HistoryVisitInfo>> {
-        handle_error! {
-            self.with_conn(|conn| history::get_visit_infos(conn, start_date, end_date, exclude_types))
-        }
+        self.with_conn(|conn| history::get_visit_infos(conn, start_date, end_date, exclude_types))
     }
 
+    #[handle_error]
     fn get_visit_count(&self, exclude_types: VisitTransitionSet) -> ApiResult<i64> {
-        handle_error! {
-            self.with_conn(|conn| history::get_visit_count(conn, exclude_types))
-        }
+        self.with_conn(|conn| history::get_visit_count(conn, exclude_types))
     }
 
+    #[handle_error]
     fn get_visit_page(
         &self,
         offset: i64,
         count: i64,
         exclude_types: VisitTransitionSet,
     ) -> ApiResult<Vec<HistoryVisitInfo>> {
-        handle_error! {
-            self.with_conn(|conn| history::get_visit_page(conn, offset, count, exclude_types))
-        }
+        self.with_conn(|conn| history::get_visit_page(conn, offset, count, exclude_types))
     }
 
+    #[handle_error]
     fn get_visit_page_with_bound(
         &self,
         bound: i64,
@@ -379,285 +363,258 @@ impl PlacesConnection {
         count: i64,
         exclude_types: VisitTransitionSet,
     ) -> ApiResult<HistoryVisitInfosWithBound> {
-        handle_error! {
-            self.with_conn(|conn| {
-                history::get_visit_page_with_bound(conn, bound, offset, count, exclude_types)
-            })
-        }
+        self.with_conn(|conn| {
+            history::get_visit_page_with_bound(conn, bound, offset, count, exclude_types)
+        })
     }
 
     // This is identical to get_visited in history.rs but takes a list of strings instead of urls
     // This is necessary b/c we still need to return 'false' for bad URLs which prevents us from
     // parsing/filtering them before reaching the history layer
+    #[handle_error]
     fn get_visited(&self, urls: Vec<String>) -> ApiResult<Vec<bool>> {
-        handle_error! {
-            let iter = urls.into_iter();
-            let mut result = vec![false; iter.len()];
-            let url_idxs = iter
-                .enumerate()
-                .filter_map(|(idx, s)| Url::parse(&s).ok().map(|url| (idx, url)))
-                .collect::<Vec<_>>();
-            self.with_conn(|conn| history::get_visited_into(conn, &url_idxs, &mut result))?;
-            Ok(result)
-        }
+        let iter = urls.into_iter();
+        let mut result = vec![false; iter.len()];
+        let url_idxs = iter
+            .enumerate()
+            .filter_map(|(idx, s)| Url::parse(&s).ok().map(|url| (idx, url)))
+            .collect::<Vec<_>>();
+        self.with_conn(|conn| history::get_visited_into(conn, &url_idxs, &mut result))?;
+        Ok(result)
     }
 
+    #[handle_error]
     fn delete_visits_for(&self, url: String) -> ApiResult<()> {
-        handle_error! {
-            self.with_conn(|conn| {
-                let guid = match Url::parse(&url) {
-                    Ok(url) => history::url_to_guid(conn, &url)?,
-                    Err(e) => {
-                        log::warn!("Invalid URL passed to places_delete_visits_for, {}", e);
-                        history::href_to_guid(conn, url.clone().as_str())?
-                    }
-                };
-                if let Some(guid) = guid {
-                    history::delete_visits_for(conn, &guid)?;
+        self.with_conn(|conn| {
+            let guid = match Url::parse(&url) {
+                Ok(url) => history::url_to_guid(conn, &url)?,
+                Err(e) => {
+                    log::warn!("Invalid URL passed to places_delete_visits_for, {}", e);
+                    history::href_to_guid(conn, url.clone().as_str())?
                 }
-                Ok(())
-            })
-        }
+            };
+            if let Some(guid) = guid {
+                history::delete_visits_for(conn, &guid)?;
+            }
+            Ok(())
+        })
     }
 
+    #[handle_error]
     fn delete_visits_between(&self, start: PlacesTimestamp, end: PlacesTimestamp) -> ApiResult<()> {
-        handle_error! {
-            self.with_conn(|conn| history::delete_visits_between(conn, start, end))
-        }
+        self.with_conn(|conn| history::delete_visits_between(conn, start, end))
     }
 
+    #[handle_error]
     fn delete_visit(&self, url: String, timestamp: PlacesTimestamp) -> ApiResult<()> {
-        handle_error! {
-            self.with_conn(|conn| {
-                match Url::parse(&url) {
-                    Ok(url) => {
-                        history::delete_place_visit_at_time(conn, &url, timestamp)?;
-                    }
-                    Err(e) => {
-                        log::warn!("Invalid URL passed to places_delete_visit, {}", e);
-                        history::delete_place_visit_at_time_by_href(conn, url.as_str(), timestamp)?;
-                    }
-                };
-                Ok(())
-            })
-        }
+        self.with_conn(|conn| {
+            match Url::parse(&url) {
+                Ok(url) => {
+                    history::delete_place_visit_at_time(conn, &url, timestamp)?;
+                }
+                Err(e) => {
+                    log::warn!("Invalid URL passed to places_delete_visit, {}", e);
+                    history::delete_place_visit_at_time_by_href(conn, url.as_str(), timestamp)?;
+                }
+            };
+            Ok(())
+        })
     }
 
+    #[handle_error]
     fn get_top_frecent_site_infos(
         &self,
         num_items: i32,
         threshold_option: FrecencyThresholdOption,
     ) -> ApiResult<Vec<TopFrecentSiteInfo>> {
-        handle_error! {
-            self.with_conn(|conn| {
-                crate::storage::history::get_top_frecent_site_infos(
-                    conn,
-                    num_items,
-                    threshold_option.value(),
-                )
-            })
-        }
+        self.with_conn(|conn| {
+            crate::storage::history::get_top_frecent_site_infos(
+                conn,
+                num_items,
+                threshold_option.value(),
+            )
+        })
     }
 
     // XXX - We probably need to document/name this a little better as it's specifically for
     // history and NOT bookmarks...
+    #[handle_error]
     fn wipe_local_history(&self) -> ApiResult<()> {
-        handle_error! {
-            self.with_conn(history::wipe_local)
-        }
+        self.with_conn(history::wipe_local)
     }
 
     // Calls wipe_local_history but also updates the
     // sync metadata to only sync after most recent visit to prevent
     // further syncing of older data
+    #[handle_error]
     fn delete_everything_history(&self) -> ApiResult<()> {
-        handle_error! {
-            // Do some extra work to track down #4856
-            let conn = self.db.lock();
-            let result = history::delete_everything(&conn);
-            if let Err(e) = &result {
-                if matches!(e,
-                    crate::error::Error::SqlError(rusqlite::Error::QueryReturnedNoRows)
-                ) {
-                    report_error!("SqlErrorQueryReturnedNoRows", "{}", e);
-                }
+        // Do some extra work to track down #4856
+        let conn = self.db.lock();
+        let result = history::delete_everything(&conn);
+        if let Err(e) = &result {
+            if matches!(
+                e,
+                crate::error::Error::SqlError(rusqlite::Error::QueryReturnedNoRows)
+            ) {
+                report_error!("SqlErrorQueryReturnedNoRows", "{}", e);
             }
-            result
         }
+        result
     }
 
     // XXX - This just calls wipe_local under the hood...
     // should probably have this go away?
+    #[handle_error]
     fn prune_destructively(&self) -> ApiResult<()> {
-        handle_error! {
-            self.with_conn(history::prune_destructively)
-        }
+        self.with_conn(history::prune_destructively)
     }
 
+    #[handle_error]
     fn run_maintenance_prune(&self, db_size_limit: u32) -> ApiResult<RunMaintenanceMetrics> {
-        handle_error! {
-            self.with_conn(|conn| storage::run_maintenance_prune(conn, db_size_limit))
-        }
+        self.with_conn(|conn| storage::run_maintenance_prune(conn, db_size_limit))
     }
 
+    #[handle_error]
     fn run_maintenance_vacuum(&self) -> ApiResult<()> {
-        handle_error! {
-            self.with_conn(storage::run_maintenance_vacuum)
-        }
+        self.with_conn(storage::run_maintenance_vacuum)
     }
 
+    #[handle_error]
     fn run_maintenance_optimize(&self) -> ApiResult<()> {
-        handle_error! {
-            self.with_conn(storage::run_maintenance_optimize)
-        }
+        self.with_conn(storage::run_maintenance_optimize)
     }
 
+    #[handle_error]
     fn run_maintenance_checkpoint(&self) -> ApiResult<()> {
-        handle_error! {
-            self.with_conn(storage::run_maintenance_checkpoint)
-        }
+        self.with_conn(storage::run_maintenance_checkpoint)
     }
 
+    #[handle_error]
     fn query_autocomplete(&self, search: String, limit: i32) -> ApiResult<Vec<SearchResult>> {
-        handle_error! {
-            self.with_conn(|conn| {
-                search_frecent(
-                    conn,
-                    SearchParams {
-                        search_string: search,
-                        limit: limit as u32,
-                    },
-                )
-                .map(|search_results| search_results.into_iter().map(Into::into).collect())
-            })
-        }
+        self.with_conn(|conn| {
+            search_frecent(
+                conn,
+                SearchParams {
+                    search_string: search,
+                    limit: limit as u32,
+                },
+            )
+            .map(|search_results| search_results.into_iter().map(Into::into).collect())
+        })
     }
 
+    #[handle_error]
     fn accept_result(&self, search_string: String, url: String) -> ApiResult<()> {
-        handle_error! {
-            self.with_conn(|conn| {
-                match Url::parse(&url) {
-                    Ok(url) => {
-                        matcher::accept_result(conn, &search_string, &url)?;
-                    }
-                    Err(_) => {
-                        log::warn!("Ignoring invalid URL in places_accept_result");
-                        return Ok(());
-                    }
-                };
-                Ok(())
-            })
-        }
+        self.with_conn(|conn| {
+            match Url::parse(&url) {
+                Ok(url) => {
+                    matcher::accept_result(conn, &search_string, &url)?;
+                }
+                Err(_) => {
+                    log::warn!("Ignoring invalid URL in places_accept_result");
+                    return Ok(());
+                }
+            };
+            Ok(())
+        })
     }
 
+    #[handle_error]
     fn match_url(&self, query: String) -> ApiResult<Option<Url>> {
-        handle_error! {
-            self.with_conn(|conn| matcher::match_url(conn, query))
-        }
+        self.with_conn(|conn| matcher::match_url(conn, query))
     }
 
+    #[handle_error]
     fn bookmarks_get_tree(&self, item_guid: &Guid) -> ApiResult<Option<BookmarkItem>> {
-        handle_error! {
-            self.with_conn(|conn| bookmarks::fetch::fetch_tree(conn, item_guid))
-        }
+        self.with_conn(|conn| bookmarks::fetch::fetch_tree(conn, item_guid))
     }
 
+    #[handle_error]
     fn bookmarks_get_by_guid(
         &self,
         guid: &Guid,
         get_direct_children: bool,
     ) -> ApiResult<Option<BookmarkItem>> {
-        handle_error! {
-            self.with_conn(|conn| {
-                let bookmark = bookmarks::fetch::fetch_bookmark(conn, guid, get_direct_children)?;
-                Ok(bookmark.map(BookmarkItem::from))
-            })
-        }
+        self.with_conn(|conn| {
+            let bookmark = bookmarks::fetch::fetch_bookmark(conn, guid, get_direct_children)?;
+            Ok(bookmark.map(BookmarkItem::from))
+        })
     }
 
+    #[handle_error]
     fn bookmarks_get_all_with_url(&self, url: String) -> ApiResult<Vec<BookmarkItem>> {
-        handle_error! {
-            self.with_conn(|conn| {
-                // XXX - We should return the exact type - ie, BookmarkData rather than BookmarkItem.
-                match Url::parse(&url) {
-                    Ok(url) => Ok(bookmarks::fetch::fetch_bookmarks_by_url(conn, &url)?
-                        .into_iter()
-                        .map(|b| BookmarkItem::Bookmark { b })
-                        .collect::<Vec<BookmarkItem>>()),
-                    Err(e) => {
-                        // There are no bookmarks with the URL if it's invalid.
-                        log::warn!("Invalid URL passed to bookmarks_get_all_with_url, {}", e);
-                        Ok(Vec::<BookmarkItem>::new())
-                    }
-                }
-            })
-        }
-    }
-
-    fn bookmarks_search(&self, query: String, limit: i32) -> ApiResult<Vec<BookmarkItem>> {
-        handle_error! {
-            self.with_conn(|conn| {
-                // XXX - We should return the exact type - ie, BookmarkData rather than BookmarkItem.
-                Ok(
-                    bookmarks::fetch::search_bookmarks(conn, query.as_str(), limit as u32)?
-                        .into_iter()
-                        .map(|b| BookmarkItem::Bookmark { b })
-                        .collect(),
-                )
-            })
-        }
-    }
-
-    fn bookmarks_get_recent(&self, limit: i32) -> ApiResult<Vec<BookmarkItem>> {
-        handle_error! {
-            self.with_conn(|conn| {
-                // XXX - We should return the exact type - ie, BookmarkData rather than BookmarkItem.
-                Ok(bookmarks::fetch::recent_bookmarks(conn, limit as u32)?
+        self.with_conn(|conn| {
+            // XXX - We should return the exact type - ie, BookmarkData rather than BookmarkItem.
+            match Url::parse(&url) {
+                Ok(url) => Ok(bookmarks::fetch::fetch_bookmarks_by_url(conn, &url)?
                     .into_iter()
                     .map(|b| BookmarkItem::Bookmark { b })
-                    .collect())
-            })
-        }
+                    .collect::<Vec<BookmarkItem>>()),
+                Err(e) => {
+                    // There are no bookmarks with the URL if it's invalid.
+                    log::warn!("Invalid URL passed to bookmarks_get_all_with_url, {}", e);
+                    Ok(Vec::<BookmarkItem>::new())
+                }
+            }
+        })
     }
 
+    #[handle_error]
+    fn bookmarks_search(&self, query: String, limit: i32) -> ApiResult<Vec<BookmarkItem>> {
+        self.with_conn(|conn| {
+            // XXX - We should return the exact type - ie, BookmarkData rather than BookmarkItem.
+            Ok(
+                bookmarks::fetch::search_bookmarks(conn, query.as_str(), limit as u32)?
+                    .into_iter()
+                    .map(|b| BookmarkItem::Bookmark { b })
+                    .collect(),
+            )
+        })
+    }
+
+    #[handle_error]
+    fn bookmarks_get_recent(&self, limit: i32) -> ApiResult<Vec<BookmarkItem>> {
+        self.with_conn(|conn| {
+            // XXX - We should return the exact type - ie, BookmarkData rather than BookmarkItem.
+            Ok(bookmarks::fetch::recent_bookmarks(conn, limit as u32)?
+                .into_iter()
+                .map(|b| BookmarkItem::Bookmark { b })
+                .collect())
+        })
+    }
+
+    #[handle_error]
     fn bookmarks_delete(&self, id: Guid) -> ApiResult<bool> {
-        handle_error! {
-            self.with_conn(|conn| bookmarks::delete_bookmark(conn, &id))
-        }
+        self.with_conn(|conn| bookmarks::delete_bookmark(conn, &id))
     }
 
+    #[handle_error]
     fn bookmarks_delete_everything(&self) -> ApiResult<()> {
-        handle_error! {
-            self.with_conn(bookmarks::delete_everything)
-        }
+        self.with_conn(bookmarks::delete_everything)
     }
 
+    #[handle_error]
     fn bookmarks_get_url_for_keyword(&self, keyword: String) -> ApiResult<Option<Url>> {
-        handle_error! {
-            self.with_conn(|conn| bookmarks::bookmarks_get_url_for_keyword(conn, keyword.as_str()))
-        }
+        self.with_conn(|conn| bookmarks::bookmarks_get_url_for_keyword(conn, keyword.as_str()))
     }
 
+    #[handle_error]
     fn bookmarks_insert(&self, data: InsertableBookmarkItem) -> ApiResult<Guid> {
-        handle_error! {
-            self.with_conn(|conn| bookmarks::insert_bookmark(conn, data))
-        }
+        self.with_conn(|conn| bookmarks::insert_bookmark(conn, data))
     }
 
+    #[handle_error]
     fn bookmarks_update(&self, item: BookmarkUpdateInfo) -> ApiResult<()> {
-        handle_error! {
-            self.with_conn(|conn| bookmarks::update_bookmark_from_info(conn, item))
-        }
+        self.with_conn(|conn| bookmarks::update_bookmark_from_info(conn, item))
     }
 
+    #[handle_error]
     fn places_history_import_from_ios(
         &self,
         db_path: String,
         last_sync_timestamp: i64,
     ) -> ApiResult<HistoryMigrationResult> {
-        handle_error! {
-            self.with_conn(|conn| import_ios_history(conn, &db_path, last_sync_timestamp))
-        }
+        self.with_conn(|conn| import_ios_history(conn, &db_path, last_sync_timestamp))
     }
 }
 

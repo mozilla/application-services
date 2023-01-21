@@ -124,10 +124,9 @@ pub struct SyncState {
 /// For uniffi we need to expose our `Arc` returning constructor as a global function :(
 /// https://github.com/mozilla/uniffi-rs/pull/1063 would fix this, but got some pushback
 /// meaning we are forced into this unfortunate workaround.
+#[handle_error]
 pub fn places_api_new(db_name: impl AsRef<Path>) -> ApiResult<Arc<PlacesApi>> {
-    handle_error! {
-        PlacesApi::new(db_name)
-    }
+    PlacesApi::new(db_name)
 }
 
 /// The entry-point to the places API. This object gives access to database
@@ -452,15 +451,14 @@ impl PlacesApi {
         Ok(())
     }
 
+    #[handle_error]
     pub fn reset_history(&self) -> ApiResult<()> {
-        handle_error! {
-            // Take the lock to prevent syncing while we're doing this.
-            let _guard = self.sync_state.lock();
-            let conn = self.get_sync_connection()?;
+        // Take the lock to prevent syncing while we're doing this.
+        let _guard = self.sync_state.lock();
+        let conn = self.get_sync_connection()?;
 
-            history_sync::reset(&conn.lock(), &EngineSyncAssociation::Disconnected)?;
-            Ok(())
-        }
+        history_sync::reset(&conn.lock(), &EngineSyncAssociation::Disconnected)?;
+        Ok(())
     }
 }
 

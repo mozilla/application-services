@@ -8,6 +8,7 @@ use error_support::{handle_error, ErrorHandling, GetErrorHandling};
 
 #[derive(Debug, thiserror::Error)]
 struct Error {}
+type Result<T, E = Error> = std::result::Result<T, E>;
 
 impl Display for Error {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
@@ -34,19 +35,19 @@ impl GetErrorHandling for Error {
     }
 }
 
-#[handle_error(ExternalError)]
-fn func() -> ::std::result::Result<String, Error> {
+#[handle_error]
+fn func() -> ::std::result::Result<String, ExternalError> {
     Err(Error{})
 }
 
-#[handle_error(ExternalError)]
-fn func2() -> Result<String, Error> {
+#[handle_error]
+fn func2() -> Result<String, ExternalError> {
     Err(Error{})
 }
 
-type MyResult<T, E = Error> = std::result::Result<T, E>;
+type MyResult<T, E = ExternalError> = std::result::Result<T, E>;
 
-#[handle_error(ExternalError)]
+#[handle_error]
 fn func3() -> MyResult<String> {
     Err(Error{})
 }

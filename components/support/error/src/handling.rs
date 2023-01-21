@@ -8,9 +8,9 @@
 #[derive(Debug, Default)]
 pub struct ErrorReporting {
     /// If Some(level), will write a log message at that level.
-    pub log_level: Option<log::Level>,
+    log_level: Option<log::Level>,
     /// If Some(report_class) will call the error reporter with details.
-    pub report_class: Option<String>,
+    report_class: Option<String>,
 }
 
 /// Specifies how an "internal" error is converted to an "external" public error and

@@ -10,5 +10,5 @@ fn tests() {
     t.compile_fail("tests/returns_result_but_not_error.rs");
     t.compile_fail("tests/returns_result_but_incorrect_error.rs");
     t.compile_fail("tests/handle_error_on_non_functions.rs");
-    t.compile_fail("tests/macro_used_without_argument.rs");
+    t.compile_fail("tests/macro_used_with_argument.rs");
 }

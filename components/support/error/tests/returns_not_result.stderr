@@ -1,5 +1,5 @@
-error: Expected a Result<T> or Result<T, E>
-  --> tests/returns_not_result.rs:31:15
+error: Expected Result<T> or Result<T, E>
+  --> tests/returns_not_result.rs:32:15
    |
-31 |  fn func() -> String {
+32 |  fn func() -> String {
    |               ^^^^^^

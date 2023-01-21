@@ -7,7 +7,15 @@
  use error_support::{handle_error, ErrorHandling, GetErrorHandling};
  
  #[derive(Debug, thiserror::Error)]
- enum Error {}
+ struct Error {}
+ impl Display for Error {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "Internal Error!")
+    }
+}
+
+ type Result<T, E = Error> = std::result::Result<T, E>;
+
  
  
  #[derive(Debug, thiserror::Error)]
@@ -39,9 +47,9 @@
 
  // handle_error expects that `Error` implements GetErrorHandling<E = ExternalError>
  // instead, it implements GetErrorHandling<E = OtherExternalError>
- #[handle_error(ExternalError)]
- fn func() -> Result<String, Error> {
-     Ok("".to_string())
+ #[handle_error]
+ fn func() -> Result<String, ExternalError> {
+     Err(Error{})
  }
 
  fn main() {}

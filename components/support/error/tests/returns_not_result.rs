@@ -5,11 +5,12 @@
  use std::fmt::Display;
 
  use error_support::{handle_error, ErrorHandling, GetErrorHandling};
- 
+
  #[derive(Debug, thiserror::Error)]
  enum Error {}
- 
- 
+
+ type Result<T, E = Error> = std::result::Result<T, E>;
+
  #[derive(Debug, thiserror::Error)]
  struct ExternalError {}
  
@@ -27,7 +28,7 @@
      }
  }
 
- #[handle_error(ExternalError)]
+ #[handle_error]
  fn func() -> String {
      Ok("".to_string())
  }
