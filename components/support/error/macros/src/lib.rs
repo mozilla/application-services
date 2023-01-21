@@ -20,9 +20,9 @@ mod signature;
 ///   is implemented using Sentry in the app.
 ///
 /// # Example
-/// ```
-/// use error_support::{handle_error, GetErrorHandling};
-///
+/// ```ignore
+/// use error_support::{handle_error, GetErrorHandling, ErrorHandling};
+/// use std::fmt::Display
 ///#[derive(Debug, thiserror::Error)]
 /// struct Error {}
 /// type Result<T, E = Error> = std::result::Result<T, E>;
@@ -45,7 +45,7 @@ mod signature;
 /// impl GetErrorHandling for Error {
 ///    type ExternalError = ExternalError;
 ///
-///    fn get_error_handling(&self) -> error_support::ErrorHandling<Self::ExternalError> {
+///    fn get_error_handling(&self) -> ErrorHandling<Self::ExternalError> {
 ///        ErrorHandling::convert(ExternalError {})
 ///    }
 /// }
