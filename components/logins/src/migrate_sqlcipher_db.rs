@@ -50,6 +50,7 @@ enum MigrationOp {
 }
 
 // migration for consumers to migrate from their SQLCipher DB
+#[uniffi::export]
 pub fn migrate_logins(
     path: impl AsRef<Path>,
     new_encryption_key: &str,

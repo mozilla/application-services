@@ -29,6 +29,7 @@ pub use crate::sync::LoginsSyncEngine;
 
 // Public encryption functions.  We publish these as top-level functions to expose them across
 // UniFFI
+#[uniffi::export]
 fn encrypt_login(login: Login, enc_key: &str) -> ApiResult<EncryptedLogin> {
     handle_error! {
         let encdec = encryption::EncryptorDecryptor::new(enc_key)?;
@@ -36,6 +37,7 @@ fn encrypt_login(login: Login, enc_key: &str) -> ApiResult<EncryptedLogin> {
     }
 }
 
+#[uniffi::export]
 fn decrypt_login(login: EncryptedLogin, enc_key: &str) -> ApiResult<Login> {
     handle_error! {
         let encdec = encryption::EncryptorDecryptor::new(enc_key)?;
@@ -43,6 +45,7 @@ fn decrypt_login(login: EncryptedLogin, enc_key: &str) -> ApiResult<Login> {
     }
 }
 
+#[uniffi::export]
 fn encrypt_fields(sec_fields: SecureLoginFields, enc_key: &str) -> ApiResult<String> {
     handle_error! {
         let encdec = encryption::EncryptorDecryptor::new(enc_key)?;
@@ -50,6 +53,7 @@ fn encrypt_fields(sec_fields: SecureLoginFields, enc_key: &str) -> ApiResult<Str
     }
 }
 
+#[uniffi::export]
 fn decrypt_fields(sec_fields: String, enc_key: &str) -> ApiResult<SecureLoginFields> {
     handle_error! {
         let encdec = encryption::EncryptorDecryptor::new(enc_key)?;
