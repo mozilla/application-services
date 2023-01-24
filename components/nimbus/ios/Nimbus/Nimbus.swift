@@ -222,12 +222,16 @@ internal extension Nimbus {
     }
 
     func fetchExperimentsOnThisThread() throws {
-        try nimbusClient.fetchExperiments()
+        try GleanMetrics.NimbusHealth.fetchExperimentsTime.measure {
+            try nimbusClient.fetchExperiments()
+        }
         notifyOnExperimentsFetched()
     }
 
     func applyPendingExperimentsOnThisThread() throws {
-        let changes = try nimbusClient.applyPendingExperiments()
+        let changes = try GleanMetrics.NimbusHealth.applyPendingExperimentsTime.measure {
+            try nimbusClient.applyPendingExperiments()
+        }
         postEnrollmentCalculation(changes)
     }
 
