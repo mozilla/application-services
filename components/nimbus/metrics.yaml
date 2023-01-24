@@ -228,11 +228,11 @@ nimbus_health:
     bugs:
       - https://mozilla-hub.atlassian.net/browse/EXP-3083
     data_reviews:
-      - https://github.com/mozilla/application-services/pull/0000#pullrequestreview-000000000
+      - https://github.com/mozilla/application-services/pull/5344#issuecomment-1402584994
     data_sensitivity:
       - technical
     notification_emails:
-      - tlong@mozilla.com
+      - nimbus-dev@mozilla.com
     expires: never
   fetch_experiments_time:
     send_in_pings:
@@ -244,9 +244,9 @@ nimbus_health:
     bugs:
       - https://mozilla-hub.atlassian.net/browse/EXP-3083
     data_reviews:
-      - https://github.com/mozilla/application-services/pull/0000#pullrequestreview-000000000
+      - https://github.com/mozilla/application-services/pull/5344#issuecomment-1402584994
     data_sensitivity:
       - technical
     notification_emails:
-      - tlong@mozilla.com
+      - nimbus-dev@mozilla.com
     expires: never
