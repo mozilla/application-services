@@ -1,0 +1,11 @@
+error[E0308]: mismatched types
+  --> tests/returns_result_but_incorrect_error.rs:50:2
+   |
+50 |  #[handle_error]
+   |  ^^^^^^^^^^^^^^^ expected struct `ExternalError`, found struct `OtherExternalError`
+51 |  fn func() -> Result<String, ExternalError> {
+   |               ----------------------------- expected `std::result::Result<String, ExternalError>` because of return type
+   |
+   = note: expected enum `std::result::Result<String, ExternalError>`
+              found enum `std::result::Result<_, OtherExternalError>`
+   = note: this error originates in the attribute macro `handle_error` (in Nightly builds, run with -Z macro-backtrace for more info)

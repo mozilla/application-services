@@ -49,12 +49,11 @@ pub struct Store {
 }
 
 impl Store {
+    #[handle_error]
     pub fn new(db_path: impl AsRef<Path>) -> ApiResult<Self> {
-        handle_error! {
-            Ok(Self {
-                db: Mutex::new(AutofillDb::new(db_path)?),
-            })
-        }
+        Ok(Self {
+            db: Mutex::new(AutofillDb::new(db_path)?),
+        })
     }
 
     /// Creates a store backed by an in-memory database with its own memory API (required for unit tests).
@@ -66,115 +65,101 @@ impl Store {
     }
 
     /// Creates a store backed by an in-memory database that shares its memory API (required for autofill sync tests).
+    #[handle_error]
     pub fn new_shared_memory(db_name: &str) -> ApiResult<Self> {
-        handle_error! {
-            Ok(Self {
-                db: Mutex::new(AutofillDb::new_memory(db_name)?),
-            })
-        }
+        Ok(Self {
+            db: Mutex::new(AutofillDb::new_memory(db_name)?),
+        })
     }
 
+    #[handle_error]
     pub fn add_credit_card(&self, fields: UpdatableCreditCardFields) -> ApiResult<CreditCard> {
-        handle_error! {
-            let credit_card = credit_cards::add_credit_card(&self.db.lock().unwrap().writer, fields)?;
-            Ok(credit_card.into())
-        }
+        let credit_card = credit_cards::add_credit_card(&self.db.lock().unwrap().writer, fields)?;
+        Ok(credit_card.into())
     }
 
+    #[handle_error]
     pub fn get_credit_card(&self, guid: String) -> ApiResult<CreditCard> {
-        handle_error! {
-            let credit_card =
-                credit_cards::get_credit_card(&self.db.lock().unwrap().writer, &Guid::new(&guid))?;
-            Ok(credit_card.into())
-        }
+        let credit_card =
+            credit_cards::get_credit_card(&self.db.lock().unwrap().writer, &Guid::new(&guid))?;
+        Ok(credit_card.into())
     }
 
+    #[handle_error]
     pub fn get_all_credit_cards(&self) -> ApiResult<Vec<CreditCard>> {
-        handle_error! {
-            let credit_cards = credit_cards::get_all_credit_cards(&self.db.lock().unwrap().writer)?
-                .into_iter()
-                .map(|x| x.into())
-                .collect();
-            Ok(credit_cards)
-        }
+        let credit_cards = credit_cards::get_all_credit_cards(&self.db.lock().unwrap().writer)?
+            .into_iter()
+            .map(|x| x.into())
+            .collect();
+        Ok(credit_cards)
     }
 
+    #[handle_error]
     pub fn update_credit_card(
         &self,
         guid: String,
         credit_card: UpdatableCreditCardFields,
     ) -> ApiResult<()> {
-        handle_error! {
-            credit_cards::update_credit_card(
-                &self.db.lock().unwrap().writer,
-                &Guid::new(&guid),
-                &credit_card,
-            )
-        }
+        credit_cards::update_credit_card(
+            &self.db.lock().unwrap().writer,
+            &Guid::new(&guid),
+            &credit_card,
+        )
     }
 
+    #[handle_error]
     pub fn delete_credit_card(&self, guid: String) -> ApiResult<bool> {
-        handle_error! {
-            credit_cards::delete_credit_card(&self.db.lock().unwrap().writer, &Guid::new(&guid))
-        }
+        credit_cards::delete_credit_card(&self.db.lock().unwrap().writer, &Guid::new(&guid))
     }
 
+    #[handle_error]
     pub fn touch_credit_card(&self, guid: String) -> ApiResult<()> {
-        handle_error! {
-            credit_cards::touch(&self.db.lock().unwrap().writer, &Guid::new(&guid))
-        }
+        credit_cards::touch(&self.db.lock().unwrap().writer, &Guid::new(&guid))
     }
 
+    #[handle_error]
     pub fn add_address(&self, new_address: UpdatableAddressFields) -> ApiResult<Address> {
-        handle_error! {
-            Ok(addresses::add_address(&self.db.lock().unwrap().writer, new_address)?.into())
-        }
+        Ok(addresses::add_address(&self.db.lock().unwrap().writer, new_address)?.into())
     }
 
+    #[handle_error]
     pub fn get_address(&self, guid: String) -> ApiResult<Address> {
-        handle_error! {
-            Ok(addresses::get_address(&self.db.lock().unwrap().writer, &Guid::new(&guid))?.into())
-        }
+        Ok(addresses::get_address(&self.db.lock().unwrap().writer, &Guid::new(&guid))?.into())
     }
 
+    #[handle_error]
     pub fn get_all_addresses(&self) -> ApiResult<Vec<Address>> {
-        handle_error! {
-            let addresses = addresses::get_all_addresses(&self.db.lock().unwrap().writer)?
-                .into_iter()
-                .map(|x| x.into())
-                .collect();
-            Ok(addresses)
-        }
+        let addresses = addresses::get_all_addresses(&self.db.lock().unwrap().writer)?
+            .into_iter()
+            .map(|x| x.into())
+            .collect();
+        Ok(addresses)
     }
 
+    #[handle_error]
     pub fn update_address(&self, guid: String, address: UpdatableAddressFields) -> ApiResult<()> {
-        handle_error! {
-            addresses::update_address(&self.db.lock().unwrap().writer, &Guid::new(&guid), &address)
-        }
+        addresses::update_address(&self.db.lock().unwrap().writer, &Guid::new(&guid), &address)
     }
 
+    #[handle_error]
     pub fn delete_address(&self, guid: String) -> ApiResult<bool> {
-        handle_error! {
-            addresses::delete_address(&self.db.lock().unwrap().writer, &Guid::new(&guid))
-        }
+        addresses::delete_address(&self.db.lock().unwrap().writer, &Guid::new(&guid))
     }
 
+    #[handle_error]
     pub fn touch_address(&self, guid: String) -> ApiResult<()> {
-        handle_error! {
-            addresses::touch(&self.db.lock().unwrap().writer, &Guid::new(&guid))
-        }
+        addresses::touch(&self.db.lock().unwrap().writer, &Guid::new(&guid))
     }
 
+    #[handle_error]
     pub fn scrub_encrypted_data(self: Arc<Self>) -> ApiResult<()> {
-        handle_error! {
-            // scrub the data on disk
-            // Currently only credit cards have encrypted data
-            credit_cards::scrub_encrypted_credit_card_data(&self.db.lock().unwrap().writer)?;
-            // Force the sync engine to refetch data (only need to do this for the credit cards, since the
-            // addresses engine doesn't store encrypted data).
-            crate::sync::credit_card::create_engine(self).reset_local_sync_data()?;
-            Ok(())
-        }
+        // scrub the data on disk
+        // Currently only credit cards have encrypted data
+        credit_cards::scrub_encrypted_credit_card_data(&self.db.lock().unwrap().writer)?;
+        // Force the sync engine to refetch data (only need to do this for the credit cards, since the
+        // addresses engine doesn't store encrypted data).
+        crate::sync::credit_card::create_engine(self).reset_local_sync_data()?;
+        Ok(())
     }
 
     // This allows the embedding app to say "make this instance available to
