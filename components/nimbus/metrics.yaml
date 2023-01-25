@@ -232,6 +232,7 @@ nimbus_health:
     data_sensitivity:
       - technical
     notification_emails:
+      - jhugman@mozilla.com
       - nimbus-dev@mozilla.com
     expires: never
   fetch_experiments_time:
@@ -248,5 +249,6 @@ nimbus_health:
     data_sensitivity:
       - technical
     notification_emails:
+      - jhugman@mozilla.com
       - nimbus-dev@mozilla.com
     expires: never
