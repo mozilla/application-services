@@ -216,3 +216,39 @@ nimbus_health:
     notification_emails:
       - tlong@mozilla.com
     expires: never
+  apply_pending_experiments_time:
+    send_in_pings:
+      - metrics
+    type: timing_distribution
+    time_unit: millisecond
+    description: |
+      Measure how long `applyPendingExperiments` takes.
+      `applyPendingExperiments` uses disk I/O, and happens at
+      startup, as part of the initialization sequence.
+    bugs:
+      - https://mozilla-hub.atlassian.net/browse/EXP-3083
+    data_reviews:
+      - https://github.com/mozilla/application-services/pull/5344#issuecomment-1402584994
+    data_sensitivity:
+      - technical
+    notification_emails:
+      - jhugman@mozilla.com
+      - nimbus-dev@mozilla.com
+    expires: never
+  fetch_experiments_time:
+    send_in_pings:
+      - metrics
+    type: timing_distribution
+    time_unit: millisecond
+    description: |
+      Measures how long `fetchExperiments` takes.
+    bugs:
+      - https://mozilla-hub.atlassian.net/browse/EXP-3083
+    data_reviews:
+      - https://github.com/mozilla/application-services/pull/5344#issuecomment-1402584994
+    data_sensitivity:
+      - technical
+    notification_emails:
+      - jhugman@mozilla.com
+      - nimbus-dev@mozilla.com
+    expires: never
