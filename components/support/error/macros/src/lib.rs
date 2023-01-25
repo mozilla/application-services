@@ -6,9 +6,7 @@ use quote::quote;
 use syn::{parse_quote, spanned::Spanned};
 
 mod argument;
-mod signature;
 
-#[proc_macro_attribute]
 /// A procedural macro that exposes internal errors to external errors the
 /// consuming applications should handle. It requires that the internal error
 /// implements [`error_support::ErrorHandling`].
@@ -59,6 +57,7 @@ mod signature;
 /// // The error here is an `ExternalError`
 /// let _: ExternalError = do_something().unwrap_err();
 /// ```
+#[proc_macro_attribute]
 pub fn handle_error(args: TokenStream, input: TokenStream) -> TokenStream {
     let args = syn::parse_macro_input!(args as syn::AttributeArgs);
     let parsed = syn::parse_macro_input!(input as syn::Item);
@@ -73,7 +72,6 @@ fn impl_handle_error(
     arguments: &syn::AttributeArgs,
 ) -> syn::Result<proc_macro2::TokenStream> {
     if let syn::Item::Fn(item_fn) = input {
-        signature::validate(&item_fn.sig)?;
         argument::validate(arguments)?;
         let original_body = &item_fn.block;
 

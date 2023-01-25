@@ -7,7 +7,12 @@
  use error_support::{handle_error, ErrorHandling, GetErrorHandling};
 
  #[derive(Debug, thiserror::Error)]
- enum Error {}
+ struct Error {}
+ impl Display for Error {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        Ok(())
+    }
+}
 
  type Result<T, E = Error> = std::result::Result<T, E>;
 
@@ -28,9 +33,14 @@
      }
  }
 
+ // This function says it should return a string and
+ // it's body returns a Result<String, Error>. The error will be mapped to `ExternalError`
+ // using the macro
+ // however, the compiler will error because the return type is still a String
+ // and the function after the macro returns `Result<String,ExternalError>`
  #[handle_error]
  fn func() -> String {
      Ok("".to_string())
  }
- 
+
  fn main() {}

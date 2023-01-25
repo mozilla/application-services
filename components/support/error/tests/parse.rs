@@ -47,14 +47,27 @@ fn func2() -> Result<String, ExternalError> {
 
 type MyResult<T, E = ExternalError> = std::result::Result<T, E>;
 
+
+
 #[handle_error]
 fn func3() -> MyResult<String> {
     Err(Error{})
 }
 
+type FullyAliasedResult<T = String, E = ExternalError> = std::result::Result<T, E>;
+
+#[handle_error]
+fn func4() -> FullyAliasedResult {
+    Err(Error{})
+}
+
+
 fn main() {
     // We verify that all functions now return Result<T, ExternalError>
     let _: Vec<ExternalError> = vec![
-        func().unwrap_err(), func2().unwrap_err(), func3().unwrap_err()
+        func().unwrap_err(),
+        func2().unwrap_err(),
+        func3().unwrap_err(),
+        func4().unwrap_err()
     ];
 }
