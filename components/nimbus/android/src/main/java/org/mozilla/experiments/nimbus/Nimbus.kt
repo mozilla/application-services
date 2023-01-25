@@ -204,7 +204,9 @@ open class Nimbus(
     @VisibleForTesting(otherwise = VisibleForTesting.PRIVATE)
     internal fun fetchExperimentsOnThisThread() = withCatchAll {
         try {
-            nimbusClient.fetchExperiments()
+            NimbusHealth.fetchExperimentsTime.measure {
+                nimbusClient.fetchExperiments()
+            }
             updateObserver {
                 it.onExperimentsFetched()
             }
@@ -237,7 +239,10 @@ open class Nimbus(
     @VisibleForTesting(otherwise = VisibleForTesting.PRIVATE)
     internal fun applyPendingExperimentsOnThisThread() = withCatchAll {
         try {
-            nimbusClient.applyPendingExperiments().also(::recordExperimentTelemetryEvents)
+            val events = NimbusHealth.applyPendingExperimentsTime.measure {
+                nimbusClient.applyPendingExperiments()
+            }
+            recordExperimentTelemetryEvents(events)
             // Get the experiments to record in telemetry
             postEnrolmentCalculation()
         } catch (e: NimbusException.InvalidExperimentFormat) {
