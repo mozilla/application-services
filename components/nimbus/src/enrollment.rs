@@ -84,6 +84,7 @@ impl ExperimentEnrollment {
         targeting_attributes: &TargetingAttributes,
         experiment: &Experiment,
         event_store: Arc<Mutex<EventStore>>,
+        db: &Database,
         out_enrollment_events: &mut Vec<EnrollmentChangeEvent>,
     ) -> Result<Self> {
         Ok(if !is_user_participating {
@@ -107,6 +108,7 @@ impl ExperimentEnrollment {
                 targeting_attributes,
                 experiment,
                 event_store,
+                db,
             )?;
             log::debug!(
                 "Experiment '{}' is new - enrollment status is {:?}",
@@ -158,6 +160,7 @@ impl ExperimentEnrollment {
         targeting_attributes: &TargetingAttributes,
         updated_experiment: &Experiment,
         event_store: Arc<Mutex<EventStore>>,
+        db: &Database,
         out_enrollment_events: &mut Vec<EnrollmentChangeEvent>,
     ) -> Result<Self> {
         Ok(match self.status {
@@ -171,6 +174,7 @@ impl ExperimentEnrollment {
                         targeting_attributes,
                         updated_experiment,
                         event_store,
+                        db,
                     )?;
                     log::debug!(
                         "Experiment '{}' with enrollment {:?} is now {:?}",
@@ -215,6 +219,7 @@ impl ExperimentEnrollment {
                         targeting_attributes,
                         updated_experiment,
                         event_store,
+                        db,
                     )?;
                     match evaluated_enrollment.status {
                         EnrollmentStatus::Error { .. } => {
@@ -605,6 +610,7 @@ impl<'a> EnrollmentsEvolver<'a> {
             next_experiments,
             &prev_enrollments,
             event_store,
+            db,
         )?;
         let next_enrollments = map_enrollments(&next_enrollments);
         // Write the changes to the Database.
@@ -631,6 +637,7 @@ impl<'a> EnrollmentsEvolver<'a> {
         next_experiments: &[Experiment],
         prev_enrollments: &[ExperimentEnrollment],
         event_store: Arc<Mutex<EventStore>>,
+        db: &Database,
     ) -> Result<(Vec<ExperimentEnrollment>, Vec<EnrollmentChangeEvent>)> {
         let mut enrollments: Vec<ExperimentEnrollment> = Default::default();
         let mut events: Vec<EnrollmentChangeEvent> = Default::default();
@@ -650,6 +657,7 @@ impl<'a> EnrollmentsEvolver<'a> {
             &next_rollouts,
             &ro_enrollments,
             event_store.clone(),
+            db,
         )?;
 
         enrollments.extend(next_ro_enrollments.into_iter());
@@ -676,6 +684,7 @@ impl<'a> EnrollmentsEvolver<'a> {
             &next_experiments,
             &prev_enrollments,
             event_store,
+            db,
         )?;
 
         enrollments.extend(next_exp_enrollments.into_iter());
@@ -693,6 +702,7 @@ impl<'a> EnrollmentsEvolver<'a> {
         next_experiments: &[Experiment],
         prev_enrollments: &[ExperimentEnrollment],
         event_store: Arc<Mutex<EventStore>>,
+        db: &Database,
     ) -> Result<(Vec<ExperimentEnrollment>, Vec<EnrollmentChangeEvent>)> {
         let mut enrollment_events = vec![];
         let prev_experiments = map_experiments(prev_experiments);
@@ -728,6 +738,7 @@ impl<'a> EnrollmentsEvolver<'a> {
                 next_experiments.get(slug).copied(),
                 Some(prev_enrollment),
                 event_store.clone(),
+                db,
                 &mut enrollment_events,
             ) {
                 Ok(enrollment) => enrollment,
@@ -820,6 +831,7 @@ impl<'a> EnrollmentsEvolver<'a> {
                     Some(next_experiment),
                     prev_enrollment,
                     event_store.clone(),
+                    db,
                     &mut enrollment_events,
                 ) {
                     Ok(enrollment) => enrollment,
@@ -892,6 +904,7 @@ impl<'a> EnrollmentsEvolver<'a> {
         next_experiment: Option<&Experiment>,
         prev_enrollment: Option<&ExperimentEnrollment>,
         event_store: Arc<Mutex<EventStore>>,
+        db: &Database,
         out_enrollment_events: &mut Vec<EnrollmentChangeEvent>, // out param containing the events we'd like to emit to glean.
     ) -> Result<Option<ExperimentEnrollment>> {
         let is_already_enrolled = if let Some(enrollment) = prev_enrollment {
@@ -912,6 +925,7 @@ impl<'a> EnrollmentsEvolver<'a> {
                 &targeting_attributes,
                 experiment,
                 event_store,
+                db,
                 out_enrollment_events,
             )?),
             // Experiment deleted remotely.
@@ -927,6 +941,7 @@ impl<'a> EnrollmentsEvolver<'a> {
                     &targeting_attributes,
                     experiment,
                     event_store,
+                    db,
                     out_enrollment_events,
                 )?)
             }

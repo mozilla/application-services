@@ -7,6 +7,7 @@ use crate::behavior::{EventQueryType, EventStore};
 use crate::enrollment::{
     EnrolledReason, EnrollmentStatus, ExperimentEnrollment, NotEnrolledReason,
 };
+use crate::persistence::Database;
 use crate::{
     error::{NimbusError, Result},
     AvailableRandomizationUnits,
@@ -103,6 +104,7 @@ pub fn evaluate_enrollment(
     targeting_attributes: &TargetingAttributes,
     exp: &Experiment,
     event_store: Arc<Mutex<EventStore>>,
+    db: &Database,
 ) -> Result<ExperimentEnrollment> {
     if !is_experiment_available(&targeting_attributes.app_context, exp, true) {
         return Ok(ExperimentEnrollment {
@@ -116,7 +118,7 @@ pub fn evaluate_enrollment(
     // Get targeting out of the way - "if let chains" are experimental,
     // otherwise we could improve this.
     if let Some(expr) = &exp.targeting {
-        if let Some(status) = targeting(expr, targeting_attributes, event_store) {
+        if let Some(status) = targeting(expr, targeting_attributes, event_store, db) {
             return Ok(ExperimentEnrollment {
                 slug: exp.slug.clone(),
                 status,
@@ -269,8 +271,9 @@ pub(crate) fn targeting(
     expression_statement: &str,
     targeting_attributes: &TargetingAttributes,
     event_store: Arc<Mutex<EventStore>>,
+    db: &Database,
 ) -> Option<EnrollmentStatus> {
-    match jexl_eval(expression_statement, targeting_attributes, event_store) {
+    match jexl_eval(expression_statement, targeting_attributes, event_store, db) {
         Ok(res) => match res {
             true => None,
             false => Some(EnrollmentStatus::NotEnrolled {
@@ -291,6 +294,7 @@ pub fn jexl_eval<Context: serde::Serialize>(
     expression_statement: &str,
     context: &Context,
     event_store: Arc<Mutex<EventStore>>,
+    db: &Database,
 ) -> Result<bool> {
     let evaluator = Evaluator::new()
         .with_transform("versionCompare", |args| Ok(version_compare(args)?))
@@ -299,6 +303,7 @@ pub fn jexl_eval<Context: serde::Serialize>(
                 event_store.clone(),
                 EventQueryType::Sum,
                 args,
+                db,
             )?)
         })
         .with_transform("eventCountNonZero", |args| {
@@ -306,6 +311,7 @@ pub fn jexl_eval<Context: serde::Serialize>(
                 event_store.clone(),
                 EventQueryType::CountNonZero,
                 args,
+                db,
             )?)
         })
         .with_transform("eventAveragePerInterval", |args| {
@@ -313,6 +319,7 @@ pub fn jexl_eval<Context: serde::Serialize>(
                 event_store.clone(),
                 EventQueryType::AveragePerInterval,
                 args,
+                db,
             )?)
         })
         .with_transform("eventAveragePerNonZeroInterval", |args| {
@@ -320,6 +327,7 @@ pub fn jexl_eval<Context: serde::Serialize>(
                 event_store.clone(),
                 EventQueryType::AveragePerNonZeroInterval,
                 args,
+                db,
             )?)
         })
         .with_transform("eventLastSeen", |args| {
@@ -367,10 +375,12 @@ fn query_event_store(
     event_store: Arc<Mutex<EventStore>>,
     query_type: EventQueryType,
     args: &[Value],
+    db: &Database,
 ) -> Result<Value> {
     let (event, interval, num_buckets, starting_bucket) = query_type.validate_arguments(args)?;
 
     Ok(json!(event_store.lock().unwrap().query(
+        db,
         event,
         interval,
         num_buckets,

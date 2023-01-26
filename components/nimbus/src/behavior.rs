@@ -385,7 +385,7 @@ impl EventQueryType {
     }
 }
 
-#[derive(Default, Serialize, Deserialize, Debug, Clone)]
+#[derive(Default, Serialize, Deserialize)]
 pub struct EventStore {
     pub(crate) events: HashMap<String, MultiIntervalCounter>,
 }
@@ -394,6 +394,7 @@ impl From<Vec<(String, MultiIntervalCounter)>> for EventStore {
     fn from(event_store: Vec<(String, MultiIntervalCounter)>) -> Self {
         Self {
             events: HashMap::from_iter(event_store.into_iter()),
+            ..Default::default()
         }
     }
 }
@@ -402,6 +403,7 @@ impl From<HashMap<String, MultiIntervalCounter>> for EventStore {
     fn from(event_store: HashMap<String, MultiIntervalCounter>) -> Self {
         Self {
             events: event_store,
+            ..Default::default()
         }
     }
 }
@@ -419,7 +421,7 @@ impl TryFrom<&Database> for EventStore {
 }
 
 impl EventStore {
-    pub fn new() -> Self {
+    pub fn new(db: &Database) -> Self {
         Self {
             events: HashMap::<String, MultiIntervalCounter>::new(),
         }
@@ -437,56 +439,63 @@ impl EventStore {
         Ok(())
     }
 
-    pub fn record_event(&mut self, event_id: String, now: Option<DateTime<Utc>>) -> Result<()> {
-        let now = now.unwrap_or_else(Utc::now);
-        let counter = match self.events.get_mut(&event_id) {
-            Some(v) => v,
-            None => {
-                let new_counter = Default::default();
-                self.events.insert(event_id.clone(), new_counter);
-                self.events.get_mut(&event_id).unwrap()
-            }
-        };
-        counter.maybe_advance(now)?;
-        counter.increment()
-    }
-
-    pub fn persist_data(&self, db: &Database) -> Result<()> {
+    pub fn record_event(&mut self, event_id: String, now: Option<DateTime<Utc>>, db: &Database) -> Result<()> {
+        // Persist just the event that's been updated to minimize the size of writes
+        let mut counter = self.get_counter(event_id.clone(), now, db);
+        counter.increment()?;
         let mut writer = db.write()?;
-        self.events.iter().try_for_each(|(key, value)| {
-            db.get_store(StoreId::EventCounts)
-                .put(&mut writer, key, &(key.clone(), value.clone()))
-        })?;
+        db.get_store(StoreId::EventCounts).put(&mut writer, &event_id, &counter)?;
         writer.commit()?;
+
         Ok(())
     }
 
+    pub fn get_counter(&mut self, event_id: String, now: Option<DateTime<Utc>>, db: &Database) -> MultiIntervalCounter {
+        let mut counter: MultiIntervalCounter = match self.events.get_mut(&event_id) {
+            Some(counter) => counter.clone(),
+            None => {
+                if let Ok(reader) = db.read() {
+                    db.get_store(StoreId::EventCounts).get(&reader, event_id.as_str()).unwrap_or_else(|_| Some(MultiIntervalCounter::default())).unwrap()
+                } else {
+                    MultiIntervalCounter::default()
+                }
+            },
+        };
+
+        let now = now.unwrap_or_else(Utc::now);
+        counter.maybe_advance(now);
+
+        counter
+      }
+
     pub fn clear(&mut self, db: &Database) -> Result<()> {
         self.events = HashMap::<String, MultiIntervalCounter>::new();
-        self.persist_data(db)?;
+        let mut writer = db.write()?;
+        db.get_store(StoreId::EventCounts).clear(&mut writer)?;
         Ok(())
     }
 
     pub fn query(
         &mut self,
+        db: &Database,
         event_id: String,
         interval: Interval,
         num_buckets: usize,
         starting_bucket: usize,
         query_type: EventQueryType,
     ) -> Result<f64> {
-        if let Some(counter) = self.events.get_mut(&event_id) {
-            counter.maybe_advance(Utc::now()).unwrap();
-            if let Some(single_counter) = counter.intervals.get(&interval) {
-                let safe_range = 0..single_counter.data.buckets.len();
-                if !safe_range.contains(&starting_bucket) {
-                    return Ok(0.0);
-                }
-                let buckets = single_counter.data.buckets.range(
-                    starting_bucket..usize::min(num_buckets, single_counter.data.buckets.len()),
-                );
-                return query_type.perform_query(buckets, num_buckets);
+        let mut counter = self.get_counter(event_id, None, db);
+
+        counter.maybe_advance(Utc::now()).unwrap();
+        if let Some(single_counter) = counter.intervals.get(&interval) {
+            let safe_range = 0..single_counter.data.buckets.len();
+            if !safe_range.contains(&starting_bucket) {
+                return Ok(0.0);
             }
+            let buckets = single_counter.data.buckets.range(
+                starting_bucket..usize::min(num_buckets, single_counter.data.buckets.len()),
+            );
+            return query_type.perform_query(buckets, num_buckets);
         }
         Ok(0.0)
     }

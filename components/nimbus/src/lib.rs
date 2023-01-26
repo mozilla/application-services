@@ -145,7 +145,7 @@ impl NimbusClient {
         state: &mut MutexGuard<InternalMutableState>,
     ) -> Result<()> {
         self.update_ta_install_dates(db, writer, state)?;
-        self.event_store.lock().unwrap().read_from_db(db)?;
+        *self.event_store.lock().unwrap() = EventStore::new(db);
         Ok(())
     }
 
@@ -559,7 +559,7 @@ impl NimbusClient {
         additional_context: Option<JsonObject>,
     ) -> Result<Arc<NimbusTargetingHelper>> {
         let context = self.merge_additional_context(additional_context)?;
-        let helper = NimbusTargetingHelper::new(context, self.event_store.clone());
+        let helper = NimbusTargetingHelper::new(context, self.event_store.clone(), self.db()?);
         Ok(Arc::new(helper))
     }
 
@@ -578,8 +578,7 @@ impl NimbusClient {
     /// targeting such as "core-active" user targeting.
     pub fn record_event(&self, event_id: String) -> Result<()> {
         let mut event_store = self.event_store.lock().unwrap();
-        event_store.record_event(event_id, None)?;
-        event_store.persist_data(self.db()?)?;
+        event_store.record_event(event_id, None, self.db()?)?;
         Ok(())
     }
 
@@ -587,8 +586,7 @@ impl NimbusClient {
     ///
     /// This should only be used in testing or cases where the previous event store is no longer viable.
     pub fn clear_events(&self) -> Result<()> {
-        let mut event_store = self.event_store.lock().unwrap();
-        event_store.clear(self.db()?)?;
+        self.event_store.lock().unwrap().clear(self.db()?)?;
         Ok(())
     }
 
@@ -868,21 +866,23 @@ impl NimbusStringHelper {
     }
 }
 
-pub struct NimbusTargetingHelper {
+pub struct NimbusTargetingHelper<'a> {
     context: Value,
     event_store: Arc<Mutex<EventStore>>,
+    db: &'a Database
 }
 
-impl NimbusTargetingHelper {
-    fn new(context: Value, event_store: Arc<Mutex<EventStore>>) -> Self {
+impl NimbusTargetingHelper<'_> {
+    fn new(context: Value, event_store: Arc<Mutex<EventStore>>, db: &Database) -> Self {
         Self {
             context,
             event_store,
+            db
         }
     }
 
     pub fn eval_jexl(&self, expr: String) -> Result<bool> {
-        evaluator::jexl_eval(&expr, &self.context, self.event_store.clone())
+        evaluator::jexl_eval(&expr, &self.context, self.event_store.clone(), &self.db)
     }
 }
 
