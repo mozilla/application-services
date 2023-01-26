@@ -18,3 +18,8 @@ Use the template below to make assigning a version number during the release cut
   - Description of the change with a link to the pull request ([#0000](https://github.com/mozilla/application-services/pull/0000))
 
 -->
+
+## Nimbus ⛅️🔬🔭
+
+### 🦊 What's Changed 🦊
+- Updated the Nimbus Gradle Plugin to fix a number of issues after migrating it to this repository ([#5348](https://github.com/mozilla/application-services/pull/5348))
