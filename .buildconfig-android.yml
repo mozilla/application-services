@@ -109,11 +109,10 @@ projects:
     - name: full-megazord-forUnitTests
       type: jar
     description: Megazord containing all features
-  # See https://github.com/mozilla/application-services/issues/5341
-  # tooling-nimbus-gradle:
-  #   path: tools/nimbus-gradle-plugin
-  #   artifactId: tooling-nimbus-gradle
-  #   description: A Gradle plugin to generate code for the Nimbus Feature API.
-  #   publications:
-  #   - name: tooling-nimbus-gradle
-  #     type: jar
+  tooling-nimbus-gradle:
+    path: tools/nimbus-gradle-plugin
+    artifactId: tooling-nimbus-gradle
+    description: A Gradle plugin to generate code for the Nimbus Feature API.
+    publications:
+    - name: tooling-nimbus-gradle
+      type: jar

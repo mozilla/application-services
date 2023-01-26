@@ -78,6 +78,13 @@ tasks.register("sourcesJar", Jar) {
     from sourceSets.main.allSource
 }
 
+tasks.register("checkMavenArtifacts") {
+    doLast {
+        // Do nothing. Like the `lint` task above this is just a dummy task so that this module
+        // behaves like our others and we do not need to special case it in automation.
+    }
+}
+
 compileKotlin {
     kotlinOptions {
         jvmTarget = "1.8"
@@ -135,4 +142,11 @@ publishing {
             url = "$buildDir/maven"
         }
     }
+}
+
+publishing.publications.withType(MavenPublication).each {publication ->
+    def checkFileSizeTask = task "checkLibSizeForMavenArtifact-${publication.artifactId}"(type: Exec) {
+        commandLine "${rootProject.projectDir}/automation/check_artifact_size.sh", project.buildDir, publication.artifactId
+    }
+    checkMavenArtifacts.dependsOn(checkFileSizeTask)
 }
