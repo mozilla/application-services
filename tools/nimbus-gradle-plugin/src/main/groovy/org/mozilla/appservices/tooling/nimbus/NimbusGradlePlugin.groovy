@@ -203,7 +203,7 @@ class NimbusPlugin implements Plugin<Project> {
             )
 
             if (successfulHost == null) {
-                throw java.io.IOException("Unable to download nimbus-fml tooling. If you are using a development version of the Nimbus Gradle Plugin, please set applicationServicesDir appropriately.")
+                throw java.io.IOException("Unable to download nimbus-fml tooling with version $asVersion.\n\nIf you are using a development version of the Nimbus Gradle Plugin, please set `applicationServicesDir` in your `build.gradle`'s nimbus block as the path to your local application services directory relative to your project's root.")
             }
 
             // We get the checksum, although don't do anything with it yet;
@@ -341,7 +341,7 @@ class NimbusPlugin implements Plugin<Project> {
                 workingDir project.rootDir
                 commandLine getFMLPath(project, getProjectVersion())
             } else {
-                def cargoManifest = [project.projectDir, localAppServices, "$APPSERVICES_FML_HOME/Cargo.toml"].join(File.separator)
+                def cargoManifest = [project.rootDir, localAppServices, "$APPSERVICES_FML_HOME/Cargo.toml"].join(File.separator)
 
                 commandLine "cargo"
                 args "run"
@@ -416,7 +416,7 @@ class NimbusPlugin implements Plugin<Project> {
                 workingDir project.rootDir
                 commandLine getFMLPath(project, getProjectVersion())
             } else {
-                def cargoManifest = [project.projectDir, localAppServices, "$APPSERVICES_FML_HOME/Cargo.toml"].join(File.separator)
+                def cargoManifest = [project.rootDir, localAppServices, "$APPSERVICES_FML_HOME/Cargo.toml"].join(File.separator)
 
                 commandLine "cargo"
                 args "run"
