@@ -341,7 +341,7 @@ class NimbusPlugin implements Plugin<Project> {
                 workingDir project.rootDir
                 commandLine getFMLPath(project, getProjectVersion())
             } else {
-                def cargoManifest = [project.rootDir, localAppServices, "$APPSERVICES_FML_HOME/Cargo.toml"].join(File.separator)
+                def cargoManifest = [project.projectDir, localAppServices, "$APPSERVICES_FML_HOME/Cargo.toml"].join(File.separator)
 
                 commandLine "cargo"
                 args "run"
@@ -416,7 +416,7 @@ class NimbusPlugin implements Plugin<Project> {
                 workingDir project.rootDir
                 commandLine getFMLPath(project, getProjectVersion())
             } else {
-                def cargoManifest = [project.rootDir, localAppServices, "$APPSERVICES_FML_HOME/Cargo.toml"].join(File.separator)
+                def cargoManifest = [project.projectDir, localAppServices, "$APPSERVICES_FML_HOME/Cargo.toml"].join(File.separator)
 
                 commandLine "cargo"
                 args "run"
