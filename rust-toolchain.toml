@@ -2,12 +2,12 @@
 # and how you can override the choices made herein.
 
 # See also:
-# * ./docs/rust-versions.md for our policy on what version is specified here.
+# * ./docs/design/rust-versions.md for our policy on what version is specified here.
 # * ./.circleci/config.yml which also specifies the minimum rust version
 #   supported and used in CI.
 
 [toolchain]
-channel = "1.65.0"
+channel = "1.66.0"
 targets = [
     "aarch64-linux-android",
     "armv7-linux-androideabi",
