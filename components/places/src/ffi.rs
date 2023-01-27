@@ -685,7 +685,7 @@ pub enum MatchReason {
     Tags,
 }
 
-uniffi_macros::include_scaffolding!("places");
+uniffi::include_scaffolding!("places");
 // Exists just to convince uniffi to generate `liftSequence*` helpers!
 pub struct Dummy {
     md: Option<Vec<HistoryMetadata>>,

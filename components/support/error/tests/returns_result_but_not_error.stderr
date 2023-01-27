@@ -1,5 +1,5 @@
 error[E0308]: mismatched types
-  --> tests/returns_result_but_not_error.rs:31:2
+  --> returns_result_but_not_error.rs:31:2
    |
 31 |  #[handle_error]
    |  ^^^^^^^^^^^^^^^ expected struct `String`, found struct `ExternalError`

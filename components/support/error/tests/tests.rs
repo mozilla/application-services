@@ -5,10 +5,10 @@
 #[test]
 fn tests() {
     let t = trybuild::TestCases::new();
-    t.pass("tests/parse.rs");
-    t.compile_fail("tests/returns_not_result.rs");
-    t.compile_fail("tests/returns_result_but_not_error.rs");
-    t.compile_fail("tests/returns_result_but_incorrect_error.rs");
-    t.compile_fail("tests/handle_error_on_non_functions.rs");
-    t.compile_fail("tests/macro_used_with_argument.rs");
+    t.pass("parse.rs");
+    t.compile_fail("returns_not_result.rs");
+    t.compile_fail("returns_result_but_not_error.rs");
+    t.compile_fail("returns_result_but_incorrect_error.rs");
+    t.compile_fail("handle_error_on_non_functions.rs");
+    t.compile_fail("macro_used_with_argument.rs");
 }

@@ -6,5 +6,4 @@ edition = "2021"
 license = "MPL-2.0"
 
 [dependencies]
-anyhow = "1"
-uniffi_bindgen = "^0.21"
+uniffi = { workspace = true, features = ["cli"] }

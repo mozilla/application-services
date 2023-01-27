@@ -209,7 +209,6 @@ dependencies = [
  "thiserror",
  "types",
  "uniffi",
- "uniffi_build",
  "url",
 ]
 
@@ -370,15 +369,16 @@ dependencies = [
 
 [[package]]
 name = "cargo_metadata"
-version = "0.14.2"
+version = "0.15.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "4acbb09d9ee8e23699b9634375c72795d095bf268439da88562cf9b501f181fa"
+checksum = "982a0cf6a99c350d7246035613882e376d58cebe571785abc5da4f648d53ac0a"
 dependencies = [
  "camino",
  "cargo-platform",
  "semver 1.0.12",
  "serde",
  "serde_json",
+ "thiserror",
 ]
 
 [[package]]
@@ -594,8 +594,6 @@ dependencies = [
  "log",
  "thiserror",
  "uniffi",
- "uniffi_build",
- "uniffi_macros",
 ]
 
 [[package]]
@@ -830,8 +828,7 @@ checksum = "3f107b87b6afc2a64fd13cac55fe06d6c8859f12d4b14cbcdd2c67d0976781be"
 name = "embedded-uniffi-bindgen"
 version = "0.1.0"
 dependencies = [
- "anyhow",
- "uniffi_bindgen",
+ "uniffi",
 ]
 
 [[package]]
@@ -883,11 +880,7 @@ dependencies = [
  "lazy_static",
  "log",
  "parking_lot",
- "thiserror",
- "trybuild",
  "uniffi",
- "uniffi_build",
- "uniffi_macros",
 ]
 
 [[package]]
@@ -897,6 +890,15 @@ dependencies = [
  "proc-macro2",
  "quote",
  "syn",
+]
+
+[[package]]
+name = "error-support-tests"
+version = "0.1.0"
+dependencies = [
+ "error-support",
+ "thiserror",
+ "trybuild",
 ]
 
 [[package]]
@@ -1207,8 +1209,6 @@ dependencies = [
  "sync15",
  "thiserror",
  "uniffi",
- "uniffi_build",
- "uniffi_macros",
  "url",
  "viaduct",
  "viaduct-reqwest",
@@ -1304,9 +1304,9 @@ checksum = "9b919933a397b79c37e33b77bb2aa3dc8eb6e165ad809e58ff75bc7db2e34574"
 
 [[package]]
 name = "goblin"
-version = "0.5.4"
+version = "0.6.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "a7666983ed0dd8d21a6f6576ee00053ca0926fb281a5522577a4dbd0f1b54143"
+checksum = "572564d6cba7d09775202c8e7eebc4d534d5ae36578ab402fb21e182a0ac9505"
 dependencies = [
  "log",
  "plain",
@@ -1612,7 +1612,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "877e398ffb23c1c311c417ef5e72e8699c3822dbf835468f009c6ce91b6c206b"
 dependencies = [
  "ahash",
- "base64 0.12.3",
+ "base64 0.13.0",
  "bytecount",
  "fancy-regex",
  "fraction",
@@ -1760,8 +1760,6 @@ dependencies = [
  "tempfile",
  "thiserror",
  "uniffi",
- "uniffi_build",
- "uniffi_macros",
  "url",
 ]
 
@@ -2017,7 +2015,6 @@ dependencies = [
  "thiserror",
  "unicode-segmentation",
  "uniffi",
- "uniffi_build",
  "url",
  "uuid",
  "viaduct",
@@ -2417,8 +2414,6 @@ dependencies = [
  "thiserror",
  "types",
  "uniffi",
- "uniffi_build",
- "uniffi_macros",
  "url",
 ]
 
@@ -2636,8 +2631,6 @@ dependencies = [
  "tempfile",
  "thiserror",
  "uniffi",
- "uniffi_build",
- "uniffi_macros",
  "url",
  "viaduct",
  "viaduct-reqwest",
@@ -3146,6 +3139,12 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "2e24979f63a11545f5f2c60141afe249d4f19f84581ea2138065e400941d83d3"
 
 [[package]]
+name = "siphasher"
+version = "0.3.10"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "7bd3e3206899af3f8b12af284fafc038cc1dc2b41d1b89dd17297221c5d225de"
+
+[[package]]
 name = "slab"
 version = "0.4.6"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -3302,8 +3301,6 @@ dependencies = [
  "tabs",
  "thiserror",
  "uniffi",
- "uniffi_build",
- "uniffi_macros",
  "url",
 ]
 
@@ -3336,8 +3333,6 @@ dependencies = [
  "tempfile",
  "thiserror",
  "uniffi",
- "uniffi_build",
- "uniffi_macros",
  "url",
 ]
 
@@ -3694,9 +3689,69 @@ checksum = "957e51f3646910546462e67d5f7599b9e4fb8acdd304b087a6494730f9eebf04"
 
 [[package]]
 name = "uniffi"
-version = "0.21.0"
+version = "0.23.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "f54af5ada67d1173457a99a7bb44a7917f63e7466764cb4714865c7a6678b830"
+checksum = "f71cc01459bc34cfe43fabf32b39f1228709bc6db1b3a664a92940af3d062376"
+dependencies = [
+ "anyhow",
+ "camino",
+ "clap 3.2.8",
+ "uniffi_bindgen",
+ "uniffi_build",
+ "uniffi_core",
+ "uniffi_macros",
+]
+
+[[package]]
+name = "uniffi_bindgen"
+version = "0.23.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "dbbba5103051c18f10b22f80a74439ddf7100273f217a547005d2735b2498994"
+dependencies = [
+ "anyhow",
+ "askama 0.11.1",
+ "bincode",
+ "camino",
+ "fs-err",
+ "glob",
+ "goblin",
+ "heck 0.4.0",
+ "once_cell",
+ "paste",
+ "serde",
+ "serde_json",
+ "toml",
+ "uniffi_meta",
+ "uniffi_testing",
+ "weedle2",
+]
+
+[[package]]
+name = "uniffi_build"
+version = "0.23.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "0ee1a28368ff3d83717e3d3e2e15a66269c43488c3f036914131bb68892f29fb"
+dependencies = [
+ "anyhow",
+ "camino",
+ "uniffi_bindgen",
+]
+
+[[package]]
+name = "uniffi_checksum_derive"
+version = "0.23.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "03de61393a42b4ad4984a3763c0600594ac3e57e5aaa1d05cede933958987c03"
+dependencies = [
+ "quote",
+ "syn",
+]
+
+[[package]]
+name = "uniffi_core"
+version = "0.23.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "7a2b4852d638d74ca2d70e450475efb6d91fe6d54a7cd8d6bd80ad2ee6cd7daa"
 dependencies = [
  "anyhow",
  "bytes",
@@ -3706,48 +3761,13 @@ dependencies = [
  "once_cell",
  "paste",
  "static_assertions",
- "uniffi_macros",
-]
-
-[[package]]
-name = "uniffi_bindgen"
-version = "0.21.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "12cc4af3c0180c7e86c4a3acf2b6587af04ba2567b1e948993df10f421796621"
-dependencies = [
- "anyhow",
- "askama 0.11.1",
- "bincode",
- "camino",
- "clap 3.2.8",
- "fs-err",
- "goblin",
- "heck 0.4.0",
- "once_cell",
- "paste",
- "serde",
- "serde_json",
- "toml",
- "uniffi_meta",
- "weedle2",
-]
-
-[[package]]
-name = "uniffi_build"
-version = "0.21.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "510287c368a9386eb731ebe824a6fc6c82a105e20d020af1aa20519c1c1561db"
-dependencies = [
- "anyhow",
- "camino",
- "uniffi_bindgen",
 ]
 
 [[package]]
 name = "uniffi_macros"
-version = "0.21.0"
+version = "0.23.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "5c8604503caa2cbcf271578dc51ca236d40e3b22e1514ffa2e638e2c39f6ad10"
+checksum = "fa03394de21e759e0022f1ea8d992d2e39290d735b9ed52b1f74b20a684f794e"
 dependencies = [
  "bincode",
  "camino",
@@ -3764,11 +3784,28 @@ dependencies = [
 
 [[package]]
 name = "uniffi_meta"
-version = "0.21.0"
+version = "0.23.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "cd9417cc653937681436b93838d8c5f97a5b8c58697813982ee8810bd1dc3b57"
+checksum = "66fdab2c436aed7a6391bec64204ec33948bfed9b11b303235740771f85c4ea6"
 dependencies = [
  "serde",
+ "siphasher",
+ "uniffi_checksum_derive",
+]
+
+[[package]]
+name = "uniffi_testing"
+version = "0.23.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "92b0570953ec41d97ce23e3b92161ac18231670a1f97523258a6d2ab76d7f76c"
+dependencies = [
+ "anyhow",
+ "camino",
+ "cargo_metadata",
+ "fs-err",
+ "once_cell",
+ "serde",
+ "serde_json",
 ]
 
 [[package]]

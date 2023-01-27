@@ -1,0 +1,16 @@
+[package]
+name = "error-support-tests"
+version = "0.1.0"
+authors = ["application-services@mozilla.com"]
+edition = "2021"
+license = "MPL-2.0"
+publish = false
+
+[[test]]
+name = "tests"
+path = "tests.rs"
+
+[dev-dependencies]
+thiserror = "1"
+trybuild = { version = "1.0.49", features = ["diff"] }
+error-support = { path = "../" }

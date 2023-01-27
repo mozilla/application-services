@@ -1,5 +1,5 @@
 error[E0308]: mismatched types
-  --> tests/returns_not_result.rs:41:2
+  --> returns_not_result.rs:41:2
    |
 41 |  #[handle_error]
    |  ^^^^^^^^^^^^^^^ expected struct `String`, found enum `std::result::Result`

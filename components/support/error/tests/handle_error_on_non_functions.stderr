@@ -1,17 +1,17 @@
 error: #[handle_error] can only be used on functions
-  --> tests/handle_error_on_non_functions.rs:40:2
+  --> handle_error_on_non_functions.rs:40:2
    |
 40 |  struct SomeType {}
    |  ^^^^^^
 
 error: #[handle_error] can only be used on functions
-  --> tests/handle_error_on_non_functions.rs:43:2
+  --> handle_error_on_non_functions.rs:43:2
    |
 43 |  const A: u32 = 0;
    |  ^^^^^
 
 error: #[handle_error] can only be used on functions
-  --> tests/handle_error_on_non_functions.rs:46:2
+  --> handle_error_on_non_functions.rs:46:2
    |
 46 |  impl SomeType {}
    |  ^^^^

@@ -8,7 +8,7 @@
 //! gross hack).
 
 fn main() {
-    uniffi_build::generate_scaffolding("./src/autofill.udl").unwrap();
+    uniffi::generate_scaffolding("./src/autofill.udl").unwrap();
 
     println!("cargo:rerun-if-changed=build.rs");
 

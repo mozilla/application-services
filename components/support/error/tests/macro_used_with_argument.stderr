@@ -1,5 +1,5 @@
 error: Expected #[handle_error] with no arguments
-  --> tests/macro_used_with_argument.rs:37:2
+  --> macro_used_with_argument.rs:37:2
    |
 37 |  #[handle_error(String)]
    |  ^^^^^^^^^^^^^^^^^^^^^^^
