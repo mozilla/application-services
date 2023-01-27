@@ -126,7 +126,7 @@ fn plan_incoming_record(conn: &PlacesDb, record: HistoryRecord, max_visits: usiz
     // is good enough for us at this stage.)
     // We should also consider pushing this deduping down into storage, where
     // it can possibly do a better job directly in SQL or similar.
-    let earliest_allowed: SystemTime = if existing_visits.len() == max_visits as usize {
+    let earliest_allowed: SystemTime = if existing_visits.len() == max_visits {
         existing_visits[existing_visits.len() - 1].visit_date.into()
     } else {
         UNIX_EPOCH

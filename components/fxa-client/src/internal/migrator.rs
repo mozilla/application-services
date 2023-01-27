@@ -133,9 +133,9 @@ impl FirefoxAccount {
         // Do this before creating OAuth tokens because it doesn't have any side-effects,
         // so it's low-consequence if we fail in later steps.
         let k_sync = hex::decode(&migration_data.k_sync)?;
-        let k_sync = base64::encode_config(&k_sync, base64::URL_SAFE_NO_PAD);
+        let k_sync = base64::encode_config(k_sync, base64::URL_SAFE_NO_PAD);
         let k_xcs = hex::decode(&migration_data.k_xcs)?;
-        let k_xcs = base64::encode_config(&k_xcs, base64::URL_SAFE_NO_PAD);
+        let k_xcs = base64::encode_config(k_xcs, base64::URL_SAFE_NO_PAD);
         let scoped_key_data = self.client.get_scoped_key_data(
             &self.state.config,
             &migration_session_token,

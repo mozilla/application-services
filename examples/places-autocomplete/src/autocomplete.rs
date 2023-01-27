@@ -87,7 +87,7 @@ fn import_places(
     options: ImportPlacesOptions,
 ) -> Result<()> {
     let old = rusqlite::Connection::open_with_flags(
-        &old_path,
+        old_path,
         rusqlite::OpenFlags::SQLITE_OPEN_READ_ONLY,
     )?;
 
@@ -805,7 +805,7 @@ fn main() -> Result<()> {
         let dir = tempfile::tempdir()?;
         let temp_places = dir.path().join("places-tmp.sqlite");
 
-        fs::copy(&import_source, &temp_places)?;
+        fs::copy(import_source, &temp_places)?;
         import_places(&mut conn, temp_places, options)?;
     }
     // Close our connection before starting autocomplete.

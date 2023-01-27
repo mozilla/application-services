@@ -52,7 +52,7 @@ fn main() -> Result<()> {
 
     let (_, token_info) = get_account_and_token(get_default_fxa_config(), &opts.creds_file)?;
     let sync_key = base64::encode_config(
-        &token_info.key.unwrap().key_bytes()?,
+        token_info.key.unwrap().key_bytes()?,
         base64::URL_SAFE_NO_PAD,
     );
 

@@ -31,7 +31,7 @@ pub struct EncryptedSendTabPayload {
 impl EncryptedSendTabPayload {
     pub(crate) fn decrypt(self, keys: &PrivateSendTabKeysV1) -> Result<SendTabPayload> {
         rc_crypto::ensure_initialized();
-        let encrypted = base64::decode_config(&self.encrypted, base64::URL_SAFE_NO_PAD)?;
+        let encrypted = base64::decode_config(self.encrypted, base64::URL_SAFE_NO_PAD)?;
         let decrypted = ece::decrypt(&keys.p256key, &keys.auth_secret, &encrypted)?;
         Ok(serde_json::from_slice(&decrypted)?)
     }
@@ -77,7 +77,7 @@ impl SendTabPayload {
         let public_key = base64::decode_config(&keys.public_key, base64::URL_SAFE_NO_PAD)?;
         let auth_secret = base64::decode_config(&keys.auth_secret, base64::URL_SAFE_NO_PAD)?;
         let encrypted = ece::encrypt(&public_key, &auth_secret, &bytes)?;
-        let encrypted = base64::encode_config(&encrypted, base64::URL_SAFE_NO_PAD);
+        let encrypted = base64::encode_config(encrypted, base64::URL_SAFE_NO_PAD);
         Ok(EncryptedSendTabPayload { encrypted })
     }
 }
@@ -226,7 +226,7 @@ pub fn build_send_command(
     let bundle: SendTabKeysPayload = serde_json::from_str(command)?;
     let public_keys = bundle.decrypt(scoped_key)?;
     let encrypted_payload = send_tab_payload.encrypt(public_keys)?;
-    Ok(serde_json::to_value(&encrypted_payload)?)
+    Ok(serde_json::to_value(encrypted_payload)?)
 }
 
 fn extract_oldsync_key_components(oldsync_key: &ScopedKey) -> Result<(Vec<u8>, Vec<u8>)> {

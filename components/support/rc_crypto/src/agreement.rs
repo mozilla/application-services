@@ -298,7 +298,7 @@ mod tests {
         let secret = ikm
             .derive(|z| -> Result<Vec<u8>> { Ok(z.to_vec()) })
             .unwrap();
-        let secret_b64 = hex::encode_upper(&secret);
+        let secret_b64 = hex::encode_upper(secret);
         assert_eq!(secret_b64, *SHARED_SECRET_HEX);
     }
 

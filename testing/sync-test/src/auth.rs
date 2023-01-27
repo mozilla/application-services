@@ -442,7 +442,7 @@ impl TestUser {
                             attempt,
                             attempt + 1
                         );
-                        std::thread::sleep(std::time::Duration::from_millis(delay as u64));
+                        std::thread::sleep(std::time::Duration::from_millis(delay));
                     }
                 }
             }

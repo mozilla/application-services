@@ -133,7 +133,7 @@ impl<T: SyncRecord + std::fmt::Debug> SyncEngine for ConfigSyncEngine<T> {
         // write the timestamp now, so if we are interrupted merging or
         // creating outgoing changesets we don't need to re-download the same
         // records.
-        self.put_meta(&tx, LAST_SYNC_META_KEY, &(timestamp.as_millis() as i64))?;
+        self.put_meta(&tx, LAST_SYNC_META_KEY, &timestamp.as_millis())?;
 
         incoming_impl.finish_incoming(&tx)?;
 
@@ -157,11 +157,7 @@ impl<T: SyncRecord + std::fmt::Debug> SyncEngine for ConfigSyncEngine<T> {
         records_synced: Vec<Guid>,
     ) -> anyhow::Result<()> {
         let db = &self.store.db.lock().unwrap();
-        self.put_meta(
-            &db.writer,
-            LAST_SYNC_META_KEY,
-            &(new_timestamp.as_millis() as i64),
-        )?;
+        self.put_meta(&db.writer, LAST_SYNC_META_KEY, &new_timestamp.as_millis())?;
         let tx = db.writer.unchecked_transaction()?;
         let outgoing_impl = self.storage_impl.get_outgoing_impl(&self.local_enc_key)?;
         outgoing_impl.finish_synced_items(&tx, records_synced)?;

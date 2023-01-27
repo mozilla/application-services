@@ -2024,13 +2024,13 @@ mod tests {
             .with_visit_type(VisitTransition::Link);
         let observation2 =
             VisitObservation::new(Url::parse("https://www.mozilla.org/another/").unwrap())
-                .with_at(Timestamp((now.as_millis() + 10000) as u64))
+                .with_at(Timestamp(now.as_millis() + 10000))
                 .with_title(Some(String::from("Test page 3")))
                 .with_is_remote(false)
                 .with_visit_type(VisitTransition::Link);
         let observation3 =
             VisitObservation::new(Url::parse("https://www.mozilla.org/first/").unwrap())
-                .with_at(Timestamp((now.as_millis() - 10000) as u64))
+                .with_at(Timestamp(now.as_millis() - 10000))
                 .with_title(Some(String::from("Test page 0")))
                 .with_is_remote(true)
                 .with_visit_type(VisitTransition::Link);
@@ -2101,8 +2101,8 @@ mod tests {
         // Delete our first page & its visits. Note that /another/ page will remain in place.
         delete_visits_between(
             &conn,
-            Timestamp((now.as_millis() - 1000) as u64),
-            Timestamp((now.as_millis() + 1000) as u64),
+            Timestamp(now.as_millis() - 1000),
+            Timestamp(now.as_millis() + 1000),
         )
         .expect("delete worked");
 

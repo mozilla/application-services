@@ -268,7 +268,7 @@ fn prompt_record_id(
     action: &str,
 ) -> Result<Option<String>> {
     let index_to_id = show_all(s, encdec)?;
-    let input = if let Some(input) = prompt_usize(&format!("Enter (idx) of record to {}", action)) {
+    let input = if let Some(input) = prompt_usize(format!("Enter (idx) of record to {}", action)) {
         input
     } else {
         return Ok(None);
@@ -496,7 +496,7 @@ fn main() -> Result<()> {
                 log::info!("Syncing!");
                 let (_, token_info) = get_account_and_token(get_default_fxa_config(), cred_file)?;
                 let sync_key = base64::encode_config(
-                    &token_info.key.unwrap().key_bytes()?,
+                    token_info.key.unwrap().key_bytes()?,
                     base64::URL_SAFE_NO_PAD,
                 );
                 match Arc::clone(&store).sync(

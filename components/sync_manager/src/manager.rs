@@ -214,8 +214,8 @@ impl SyncManager {
             "Checking engines requested ({:?}) vs local engines ({:?})",
             selection,
             engine_map
-                .iter()
-                .map(|(engine_id, _)| engine_id.name())
+                .keys()
+                .map(|engine_id| engine_id.name())
                 .collect::<Vec<_>>(),
         );
         if let SyncEngineSelection::Some {
@@ -234,7 +234,7 @@ impl SyncManager {
             // Filter engines based on the selection
             engine_map.retain(|engine_id, _| selected_engine_ids.contains(engine_id))
         }
-        Ok(engine_map.into_iter().map(|(_, engine)| engine).collect())
+        Ok(engine_map.into_values().collect())
     }
 }
 

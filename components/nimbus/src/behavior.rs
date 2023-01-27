@@ -156,7 +156,7 @@ impl IntervalData {
 
     pub fn rotate(&mut self, num_rotations: i32) -> Result<()> {
         let num_rotations = usize::min(self.bucket_count, num_rotations as usize);
-        if num_rotations as usize + self.buckets.len() > self.bucket_count {
+        if num_rotations + self.buckets.len() > self.bucket_count {
             self.buckets.drain((self.bucket_count - num_rotations)..);
         }
         for _ in 1..=num_rotations {

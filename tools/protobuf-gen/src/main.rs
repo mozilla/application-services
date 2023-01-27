@@ -31,7 +31,7 @@ fn main() {
         // Can't re-use Config because the out_dir is always different.
         let mut config = prost_build::Config::new();
         let out_dir = opts.out_dir.clone().unwrap_or_else(|| opts.dir.clone());
-        let out_dir_absolute = config_dir.join(&out_dir).canonicalize().unwrap();
+        let out_dir_absolute = config_dir.join(out_dir).canonicalize().unwrap();
         let out_dir_absolute = out_dir_absolute.to_str().unwrap();
         let proto_path_absolute = config_dir
             .join(&opts.dir)

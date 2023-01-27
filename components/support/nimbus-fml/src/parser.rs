@@ -163,13 +163,13 @@ impl ManifestFrontEnd {
         let types = self.legacy_types.as_ref().unwrap_or(&self.types);
         types
             .enums
-            .iter()
-            .map(|(s, _)| (s.clone(), TypeRef::Enum(s.clone())))
+            .keys()
+            .map(|s| (s.clone(), TypeRef::Enum(s.clone())))
             .chain(
                 types
                     .objects
-                    .iter()
-                    .map(|(s, _)| (s.clone(), TypeRef::Object(s.clone()))),
+                    .keys()
+                    .map(|s| (s.clone(), TypeRef::Object(s.clone()))),
             )
             .collect()
     }

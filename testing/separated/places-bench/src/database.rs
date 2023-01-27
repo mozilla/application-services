@@ -61,7 +61,7 @@ impl TestDb {
         let dir = tempfile::tempdir().unwrap();
         let file = dir.path().join("places.sqlite");
         let mut db = PlacesDb::open(
-            &file,
+            file,
             ConnectionType::ReadWrite,
             0,
             Arc::new(parking_lot::Mutex::new(())),

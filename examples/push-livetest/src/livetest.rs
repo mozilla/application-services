@@ -24,10 +24,10 @@ fn dummy_uuid() -> Result<String> {
     // Use easily findable "test" UUIDs
     Ok(format!(
         "deadbeef-{}-{}-{}-{}",
-        hex::encode(&get_random_bytes(2)?),
-        hex::encode(&get_random_bytes(2)?),
-        hex::encode(&get_random_bytes(2)?),
-        hex::encode(&get_random_bytes(6)?),
+        hex::encode(get_random_bytes(2)?),
+        hex::encode(get_random_bytes(2)?),
+        hex::encode(get_random_bytes(2)?),
+        hex::encode(get_random_bytes(6)?),
     ))
 }
 

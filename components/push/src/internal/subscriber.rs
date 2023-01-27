@@ -322,7 +322,7 @@ mod test {
         let auth = base64::decode_config(&key_info.auth, base64::URL_SAFE_NO_PAD).unwrap();
         // Act like a subscription provider, so create a "local" key to encrypt the data
         let ciphertext = ece::encrypt(&remote_pub, &auth, data_string).unwrap();
-        let body = base64::encode_config(&ciphertext, base64::URL_SAFE_NO_PAD);
+        let body = base64::encode_config(ciphertext, base64::URL_SAFE_NO_PAD);
 
         let result = pm
             .decrypt(&resp.channel_id, &body, "aes128gcm", None, None)

@@ -38,7 +38,7 @@ fn do_apply_incoming(
     }?;
     // write the timestamp now, so if we are interrupted creating outgoing
     // changesets we don't need to re-reconcile what we just did.
-    put_meta(db, LAST_SYNC_META_KEY, &(timestamp.as_millis() as i64))?;
+    put_meta(db, LAST_SYNC_META_KEY, &timestamp.as_millis())?;
     Ok(outgoing)
 }
 
@@ -54,7 +54,7 @@ fn do_sync_finished(
     finish_plan(db)?;
 
     // write timestamp to reflect what we just wrote.
-    put_meta(db, LAST_SYNC_META_KEY, &(new_timestamp.as_millis() as i64))?;
+    put_meta(db, LAST_SYNC_META_KEY, &new_timestamp.as_millis())?;
 
     db.pragma_update(None, "wal_checkpoint", "PASSIVE")?;
 

@@ -160,9 +160,9 @@ pub fn extract_pub_key_jwk(key_pair: &EphemeralKeyPair) -> Result<Jwk> {
     assert_eq!(pub_key_bytes.len(), 1 + 32 + 32);
     assert_eq!(pub_key_bytes[0], 0x04);
     let x = Vec::from(&pub_key_bytes[1..33]);
-    let x = base64::encode_config(&x, base64::URL_SAFE_NO_PAD);
+    let x = base64::encode_config(x, base64::URL_SAFE_NO_PAD);
     let y = Vec::from(&pub_key_bytes[33..]);
-    let y = base64::encode_config(&y, base64::URL_SAFE_NO_PAD);
+    let y = base64::encode_config(y, base64::URL_SAFE_NO_PAD);
     Ok(Jwk {
         kid: None,
         key_parameters: JwkKeyParameters::EC(ECKeysParameters {

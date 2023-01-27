@@ -383,7 +383,7 @@ fn main() -> Result<()> {
     }
 
     let db_path = opts.database_path;
-    let api = PlacesApi::new(&db_path)?;
+    let api = PlacesApi::new(db_path)?;
     let db = api.open_connection(ConnectionType::ReadWrite)?;
     // Needed to make the get_registered_sync_engine() calls work.
     api.register_with_sync_manager();

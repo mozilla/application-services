@@ -136,7 +136,7 @@ impl CompactJwe {
             .as_ref()
             .map(|h| serde_json::to_string(&h))
             .transpose()?
-            .map(|h| base64::encode_config(&h, base64::URL_SAFE_NO_PAD))
+            .map(|h| base64::encode_config(h, base64::URL_SAFE_NO_PAD))
             .unwrap_or_default();
         let encrypted_key = encrypted_key
             .as_ref()
@@ -146,7 +146,7 @@ impl CompactJwe {
             .as_ref()
             .map(|iv| base64::encode_config(iv, base64::URL_SAFE_NO_PAD))
             .unwrap_or_default();
-        let ciphertext = base64::encode_config(&ciphertext, base64::URL_SAFE_NO_PAD);
+        let ciphertext = base64::encode_config(ciphertext, base64::URL_SAFE_NO_PAD);
         let auth_tag = auth_tag
             .as_ref()
             .map(|t| base64::encode_config(t, base64::URL_SAFE_NO_PAD))

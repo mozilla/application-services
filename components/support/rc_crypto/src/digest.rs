@@ -60,9 +60,9 @@ mod tests {
 
     #[test]
     fn sha256_digest() {
-        assert_eq!(hex::encode(&digest(&SHA256, MESSAGE).unwrap()), DIGEST_HEX);
+        assert_eq!(hex::encode(digest(&SHA256, MESSAGE).unwrap()), DIGEST_HEX);
         assert_ne!(
-            hex::encode(&digest(&SHA256, b"notbobo").unwrap()),
+            hex::encode(digest(&SHA256, b"notbobo").unwrap()),
             DIGEST_HEX
         );
     }

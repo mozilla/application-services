@@ -35,7 +35,7 @@ const SUPPORT_URL_LOADING: bool = true;
 const MATCHING_FML_EXTENSION: &str = ".fml.yaml";
 
 fn main() -> Result<()> {
-    let cmd = get_command_from_cli(&mut std::env::args_os(), &std::env::current_dir()?)?;
+    let cmd = get_command_from_cli(std::env::args_os(), &std::env::current_dir()?)?;
     process_command(&cmd)
 }
 

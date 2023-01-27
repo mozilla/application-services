@@ -65,7 +65,7 @@ pub(crate) fn encrypt_to_jwe(
 
 pub(crate) fn decrypt_jwe(jwe: &CompactJwe, jwk: Jwk) -> Result<String> {
     let secret = match jwk.key_parameters {
-        JwkKeyParameters::Direct { k } => base64::decode_config(&k, base64::URL_SAFE_NO_PAD)?,
+        JwkKeyParameters::Direct { k } => base64::decode_config(k, base64::URL_SAFE_NO_PAD)?,
         _ => return Err(JwCryptoError::IllegalState("Not a Direct key")),
     };
     // `alg="dir"` mandates no encrypted key.

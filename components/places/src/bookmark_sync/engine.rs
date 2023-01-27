@@ -807,7 +807,7 @@ fn push_synced_items(
 
     // Fast-forward the last sync time, so that we don't download the
     // records we just uploaded on the next sync.
-    put_meta(db, LAST_SYNC_META_KEY, &(uploaded_at.as_millis() as i64))?;
+    put_meta(db, LAST_SYNC_META_KEY, &uploaded_at.as_millis())?;
 
     // Clean up.
     db.execute_batch("DELETE FROM itemsToUpload")?;
@@ -924,7 +924,7 @@ impl SyncEngine for BookmarksSyncEngine {
         // write the timestamp now, so if we are interrupted merging or
         // creating outgoing changesets we don't need to re-download the same
         // records.
-        put_meta(&conn, LAST_SYNC_META_KEY, &(timestamp.as_millis() as i64))?;
+        put_meta(&conn, LAST_SYNC_META_KEY, &timestamp.as_millis())?;
 
         // Merge.
         let mut merger = Merger::with_telemetry(&conn, &self.scope, timestamp, telem);

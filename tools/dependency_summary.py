@@ -737,6 +737,26 @@ PACKAGE_METADATA_FIXUPS = {
             "fixup": "https://raw.githubusercontent.com/mozilla/uniffi-rs/main/LICENSE",
         }
     },
+    "uniffi_checksum_derive": {
+        "license_url": {
+            "check": None,
+            "fixup": "https://github.com/mozilla/uniffi-rs/blob/main/LICENSE",
+        },
+        "license_file": {
+            "check": None,
+            "fixup": "https://raw.githubusercontent.com/mozilla/uniffi-rs/main/LICENSE",
+        }
+    },
+    "uniffi_core": {
+        "license_url": {
+            "check": None,
+            "fixup": "https://github.com/mozilla/uniffi-rs/blob/main/LICENSE",
+        },
+        "license_file": {
+            "check": None,
+            "fixup": "https://raw.githubusercontent.com/mozilla/uniffi-rs/main/LICENSE",
+        }
+    },
     "uniffi_macros": {
         "license_url": {
             "check": None,
@@ -748,6 +768,16 @@ PACKAGE_METADATA_FIXUPS = {
         }
     },
     "uniffi_meta": {
+        "license_url": {
+            "check": None,
+            "fixup": "https://github.com/mozilla/uniffi-rs/blob/main/LICENSE",
+        },
+        "license_file": {
+            "check": None,
+            "fixup": "https://raw.githubusercontent.com/mozilla/uniffi-rs/main/LICENSE",
+        }
+    },
+    "uniffi_testing": {
         "license_url": {
             "check": None,
             "fixup": "https://github.com/mozilla/uniffi-rs/blob/main/LICENSE",

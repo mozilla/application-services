@@ -243,7 +243,7 @@ pub(crate) fn choose_branch<'a>(
     // https://searchfox.org/mozilla-central/rev/1843375acbbca68127713e402be222350ac99301/toolkit/components/messaging-system/experiments/ExperimentManager.jsm#469
     // TODO: Change it to be something more related to the SDK if it is needed
     let input = format!("{:}-{:}-{:}-branch", "experimentmanager", id, slug);
-    let index = sampling::ratio_sample(&input, &ratios)?;
+    let index = sampling::ratio_sample(input, &ratios)?;
     branches.get(index).ok_or(NimbusError::OutOfBoundsError)
 }
 

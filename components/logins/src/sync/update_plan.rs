@@ -33,7 +33,7 @@ impl UpdatePlan {
         let is_override =
             local.record.time_password_changed > upstream.0.record.time_password_changed;
         self.mirror_inserts
-            .push((upstream.0, upstream.1.as_millis() as i64, is_override));
+            .push((upstream.0, upstream.1.as_millis(), is_override));
         if !is_override {
             self.delete_local.push(local.guid());
         }
@@ -60,7 +60,7 @@ impl UpdatePlan {
 
         // Update mirror to upstream
         self.mirror_updates
-            .push((upstream, upstream_time.as_millis() as i64));
+            .push((upstream, upstream_time.as_millis()));
         let mut new = shared;
 
         new.login.apply_delta(merged_delta, encdec)?;
@@ -75,7 +75,7 @@ impl UpdatePlan {
     }
 
     pub fn plan_mirror_update(&mut self, login: EncryptedLogin, time: ServerTimestamp) {
-        self.mirror_updates.push((login, time.as_millis() as i64));
+        self.mirror_updates.push((login, time.as_millis()));
     }
 
     pub fn plan_mirror_insert(
@@ -85,7 +85,7 @@ impl UpdatePlan {
         is_override: bool,
     ) {
         self.mirror_inserts
-            .push((login, time.as_millis() as i64, is_override));
+            .push((login, time.as_millis(), is_override));
     }
 
     fn perform_deletes(&self, conn: &Connection, scope: &SqlInterruptScope) -> Result<()> {

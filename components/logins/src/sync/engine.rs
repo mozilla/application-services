@@ -292,7 +292,7 @@ impl LoginsSyncEngine {
 
     fn set_last_sync(&self, db: &LoginDb, last_sync: ServerTimestamp) -> Result<()> {
         log::debug!("Updating last sync to {}", last_sync);
-        let last_sync_millis = last_sync.as_millis() as i64;
+        let last_sync_millis = last_sync.as_millis();
         db.put_meta(schema::LAST_SYNC_META_KEY, &last_sync_millis)
     }
 
@@ -342,7 +342,7 @@ impl LoginsSyncEngine {
                      FROM loginsL
                      WHERE is_deleted = 0 AND guid IN ({vars})",
                     common_cols = schema::COMMON_COLS,
-                    modified_ms_i64 = ts.as_millis() as i64,
+                    modified_ms_i64 = ts.as_millis(),
                     vars = sql_support::repeat_sql_vars(chunk.len())
                 ),
                 rusqlite::params_from_iter(chunk),

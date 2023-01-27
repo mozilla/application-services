@@ -64,7 +64,7 @@ pub fn comment(txt: &dyn fmt::Display, spaces: &str) -> Result<String, askama::E
         .initial_indent(&indent_mid)
         .subsequent_indent(&indent_mid);
 
-    let lines = fill(txt.to_string().as_str(), &options);
+    let lines = fill(txt.to_string().as_str(), options);
     Ok(format!(
         "{start}\n{lines}\n{indent}",
         start = indent_start,

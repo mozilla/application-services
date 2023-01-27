@@ -268,7 +268,7 @@ impl FxAClient for Client {
         session_token: &str,
         auth_params: AuthorizationRequestParameters,
     ) -> Result<OAuthAuthResponse> {
-        let parameters = serde_json::to_value(&auth_params)?;
+        let parameters = serde_json::to_value(auth_params)?;
         let key = derive_auth_key_from_session_token(session_token)?;
         let url = config.auth_url_path("v1/oauth/authorization")?;
         let request = HawkRequestBuilder::new(Method::Post, url, &key)
@@ -573,7 +573,7 @@ pub fn send_authorization_request(
 ) -> anyhow::Result<String> {
     let auth_endpoint = config.auth_url_path("v1/oauth/authorization")?;
     let req = HawkRequestBuilder::new(Method::Post, auth_endpoint, auth_key)
-        .body(serde_json::to_value(&auth_params)?)
+        .body(serde_json::to_value(auth_params)?)
         .build()?;
     let client = Client::new();
     let resp: serde_json::Value = client.make_request(req)?.json()?;
