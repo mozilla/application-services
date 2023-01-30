@@ -101,8 +101,8 @@ abstract class NimbusPluginExtension {
     String getCacheDirActual(Project project) {
         var cacheDir = this.cacheDir.getOrNull()
         if (cacheDir == null)
-            return null
-        return [project.projectDir, cacheDir].join(File.separator)
+            cacheDir = "nimbus-cache"
+        return [project.rootProject.buildDir, cacheDir].join(File.separator)
     }
 
     /**
