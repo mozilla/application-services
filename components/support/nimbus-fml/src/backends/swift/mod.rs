@@ -100,6 +100,12 @@ pub mod test {
         join(sdk_ios_dir(), "FeatureHolder.swift")
     }
 
+    // The file with the swift implementation of FeatureVariables
+    fn generated_feature_manifest() -> String {
+        join(sdk_ios_dir(), "GeneratedFeatureManifest.swift")
+    }
+
+
     fn detect_swiftc() -> Result<bool> {
         let output = Command::new("which").arg("swiftc").output()?;
 
@@ -135,6 +141,7 @@ pub mod test {
             .arg(&features_swift())
             .arg(&feature_holder())
             .arg(&bundle_swift())
+            .arg(&generated_feature_manifest())
             .arg(&mock_nimbus_swift())
             .args(manifest_files)
             .spawn()

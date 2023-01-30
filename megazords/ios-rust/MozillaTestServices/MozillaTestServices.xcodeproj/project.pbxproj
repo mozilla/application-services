@@ -62,6 +62,7 @@
 		39083AAB29561E2400FDD302 /* OperationTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 39083AAA29561E2400FDD302 /* OperationTests.swift */; };
 		395EFD6E2966EB6D00D24B97 /* Bundle+.swift in Sources */ = {isa = PBXBuildFile; fileRef = 395EFD6D2966EB6D00D24B97 /* Bundle+.swift */; };
 		3963A5862919A541001ED4C3 /* Dictionary+.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3963A5852919A541001ED4C3 /* Dictionary+.swift */; };
+		39AD326F2988468B00E42E13 /* GeneratedFeatureManifest.swift in Sources */ = {isa = PBXBuildFile; fileRef = 39AD326E2988468B00E42E13 /* GeneratedFeatureManifest.swift */; };
 		39F5D7642956161E004E2384 /* Operation+.swift in Sources */ = {isa = PBXBuildFile; fileRef = 39F5D7632956161E004E2384 /* Operation+.swift */; };
 		39F5D766295616E3004E2384 /* NimbusBuilder.swift in Sources */ = {isa = PBXBuildFile; fileRef = 39F5D765295616E3004E2384 /* NimbusBuilder.swift */; };
 		45CC574A28AD9C86006D55AA /* errorsupport.udl in Sources */ = {isa = PBXBuildFile; fileRef = 45CC574828AD9C31006D55AA /* errorsupport.udl */; };
@@ -179,6 +180,7 @@
 		39083AAA29561E2400FDD302 /* OperationTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OperationTests.swift; sourceTree = "<group>"; };
 		395EFD6D2966EB6D00D24B97 /* Bundle+.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = "Bundle+.swift"; path = "Nimbus/Bundle+.swift"; sourceTree = "<group>"; };
 		3963A5852919A541001ED4C3 /* Dictionary+.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = "Dictionary+.swift"; path = "Nimbus/Dictionary+.swift"; sourceTree = "<group>"; };
+		39AD326E2988468B00E42E13 /* GeneratedFeatureManifest.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = GeneratedFeatureManifest.swift; path = Nimbus/GeneratedFeatureManifest.swift; sourceTree = "<group>"; };
 		39F5D7632956161E004E2384 /* Operation+.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = "Operation+.swift"; path = "Nimbus/Operation+.swift"; sourceTree = "<group>"; };
 		39F5D765295616E3004E2384 /* NimbusBuilder.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = NimbusBuilder.swift; path = Nimbus/NimbusBuilder.swift; sourceTree = "<group>"; };
 		45CC574528AD9C0B006D55AA /* errorFFI.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = errorFFI.h; path = ../../../../components/support/error/ios/Generated/errorFFI.h; sourceTree = "<group>"; };
@@ -245,6 +247,7 @@
 				1B3BC98127B1D9B700229CF6 /* NimbusCreate.swift */,
 				39F5D765295616E3004E2384 /* NimbusBuilder.swift */,
 				1B3BC97C27B1D9B700229CF6 /* Utils */,
+				39AD326E2988468B00E42E13 /* GeneratedFeatureManifest.swift */,
 			);
 			name = Nimbus;
 			path = ../../../../components/nimbus/ios;
@@ -648,6 +651,7 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				39AD326F2988468B00E42E13 /* GeneratedFeatureManifest.swift in Sources */,
 				15DAE213294418F600DB06FE /* autofill.udl in Sources */,
 				45CC574A28AD9C86006D55AA /* errorsupport.udl in Sources */,
 				1BE9B60D27C9CD770029D11A /* crashtest.udl in Sources */,

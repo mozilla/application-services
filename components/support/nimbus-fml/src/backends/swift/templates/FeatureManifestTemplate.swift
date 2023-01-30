@@ -8,11 +8,14 @@
 {%- endfor %}
 
 {% let nimbus_object = self.fm.about.nimbus_object_name_swift() -%}
+{% let features_object = format!("{}Features", nimbus_object) -%}
 ///
 /// An object for safely accessing feature configuration from Nimbus.
 ///
 /// This is generated.
-public class {{ nimbus_object }} {
+public class {{ nimbus_object }} : GeneratedFeatureManifest {
+    public typealias Features = {{ features_object }}
+
     ///
     /// This should be populated at app launch; this method of initializing features
     /// will be removed in favor of the `initialize` function.
@@ -41,7 +44,7 @@ public class {{ nimbus_object }} {
     ///
     /// Represents all the features supported by Nimbus
     ///
-    public let features = {{ nimbus_object }}Features()
+    public let features = Features()
 
     {% let blocks = self.initialization_code() -%}
     ///
@@ -84,7 +87,7 @@ public class {{ nimbus_object }} {
     public static let shared = {{ nimbus_object }}()
 }
 
-public class {{ nimbus_object }}Features {
+public class {{ features_object }} {
     {%- for f in self.iter_feature_defs() %}
     {%- let raw_name = f.name() %}
     {%- let class_name = raw_name|class_name %}
