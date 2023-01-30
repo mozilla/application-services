@@ -10,7 +10,7 @@ autotests = false
 log = "0.4"
 lazy_static = { version = "1.4" }
 parking_lot = { version = ">=0.11,<=0.12" }
-uniffi = { workspace = true }
+uniffi = "0.23"
 error-support-macros = { path = "macros" }
 
 [dependencies.backtrace]
@@ -18,4 +18,4 @@ optional = true
 version = "0.3"
 
 [build-dependencies]
-uniffi = { workspace = true, features = ["build"] }
+uniffi = { version = "0.23", features = ["build"] }

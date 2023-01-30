@@ -21,10 +21,10 @@ error-support = { path = "../support/error" }
 sql-support = { path = "../support/sql" }
 rc_crypto = { path = "../support/rc_crypto", features = ["ece"] }
 thiserror = "1.0"
-uniffi = { workspace = true }
+uniffi = "0.23"
 
 [build-dependencies]
-uniffi = { workspace = true, features = ["build"] }
+uniffi = { version = "0.23", features = ["build"] }
 
 [dev-dependencies]
 env_logger = { version = "0.8", default-features = false, features = ["termcolor", "atty", "humantime"] }

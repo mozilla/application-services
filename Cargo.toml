@@ -106,11 +106,6 @@ default-members = [
     "testing/separated/*/",
 ]
 
-[workspace.dependencies]
-# Use the following line to test local changes to UniFFI (and comment out the main one):
-# uniffi = { path = "../uniffi-rs/uniffi" }
-uniffi = "0.23"
-
 [profile.release]
 opt-level = "s"
 debug = true
@@ -121,3 +116,9 @@ lto = "thin"
 [patch."https://github.com/mozilla/application-services"]
 viaduct = { path = "components/viaduct" }
 
+# If you need to test some local changes to UniFFI, uncomment the following line
+# for a convenient way to use a local checkout rather than the published version.
+# You just have to make sure that the version number in your local checkout
+# matches the one used in the `Cargo.toml` files in this workspace.
+#[patch.crates-io]
+#uniffi = { path = "../uniffi-rs/uniffi" }
