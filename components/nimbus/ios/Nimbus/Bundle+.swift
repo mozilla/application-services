@@ -63,6 +63,7 @@ public extension Array where Element == Bundle {
     }
 }
 
+#if canImport(UIKit)
 public extension Bundle {
     /// Loads the language bundle from this one.
     /// If `language` is `nil`, then look for the development region language.
@@ -77,3 +78,4 @@ public extension Bundle {
         }
     }
 }
+#endif

@@ -91,6 +91,10 @@ pub mod test {
         join(sdk_ios_dir(), "Collections+.swift")
     }
 
+    fn bundle_swift() -> String {
+        join(sdk_ios_dir(), "Bundle+.swift")
+    }
+
     // The file with the swift implementation of FeatureVariables
     fn feature_holder() -> String {
         join(sdk_ios_dir(), "FeatureHolder.swift")
@@ -130,6 +134,7 @@ pub mod test {
             .arg(&variables_swift())
             .arg(&features_swift())
             .arg(&feature_holder())
+            .arg(&bundle_swift())
             .arg(&mock_nimbus_swift())
             .args(manifest_files)
             .spawn()
