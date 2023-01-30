@@ -91,20 +91,20 @@ pub mod test {
         join(sdk_ios_dir(), "Collections+.swift")
     }
 
+    // The file with the swift implementation of Bundle extensions
     fn bundle_swift() -> String {
         join(sdk_ios_dir(), "Bundle+.swift")
     }
 
-    // The file with the swift implementation of FeatureVariables
+    // The file with the swift implementation of FeatureHolder
     fn feature_holder() -> String {
         join(sdk_ios_dir(), "FeatureHolder.swift")
     }
 
-    // The file with the swift implementation of FeatureVariables
+    // The file with the swift implementation of Feature Manifest protocol file
     fn generated_feature_manifest() -> String {
         join(sdk_ios_dir(), "GeneratedFeatureManifest.swift")
     }
-
 
     fn detect_swiftc() -> Result<bool> {
         let output = Command::new("which").arg("swiftc").output()?;
