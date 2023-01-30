@@ -1,3 +1,22 @@
+# v96.4.0 (_2023-01-30_)
+
+[Full Changelog](https://github.com/mozilla/application-services/compare/v96.3.0...v96.4.0)
+
+## Tabs
+
+### What's Changed
+
+The Tabs engine is now more efficient in how it fetches its records:
+
+- The Tabs engine no longer clears the DB on every sync.
+- Tabs now tracks the last time it synced and only fetches tabs that have changed since the last sync.
+- Tabs will keep records for up to 180 days, in parity with the clients engine. To prevent the DB from getting too large.
+
+## Nimbus ⛅️🔬🔭
+
+### 🦊 What's Changed 🦊
+  - Added `GleanMetrics.NimbusHealth` metrics for measuring duration of `apply_pending_experiments` and `fetch_experiments`. ([#5344](https://github.com/mozilla/application-services/pull/5344))
+
 # v96.3.0 (_2023-01-18_)
 
 [Full Changelog](https://github.com/mozilla/application-services/compare/v96.2.1...v96.3.0)
