@@ -7,7 +7,6 @@ package {{ package_name }}
 
 {% else -%}
 {% endmatch %}
-
 {%- for imported_class in self.imports() %}
 import {{ imported_class }}
 {%- endfor %}
@@ -33,7 +32,7 @@ import {{ imported_class }}
  * This class should not be edited manually, but changed by editing the `nimbus.fml.yaml` file, and
  * re-running the `nimbus-fml` tool, which is likely already being used by the build script.
  */
-object {{ nimbus_object }} {
+object {{ nimbus_object }} : GeneratedFeatureManifest<{{ nimbus_object }}.Features> {
     class Features {
         {%- for f in self.iter_feature_defs() %}
         {%- let raw_name = f.name() %}
@@ -54,7 +53,7 @@ object {{ nimbus_object }} {
      *
      * The lambda MUST be threadsafe in its own right.
      */
-    public fun initialize(getSdk: () -> FeaturesInterface?) {
+    public override fun initialize(getSdk: () -> FeaturesInterface?) {
         this.getSdk = getSdk
         {%- for f in self.iter_feature_defs() %}
         this.features.{{- f.name()|var_name -}}.withSdk(getSdk)
@@ -87,7 +86,7 @@ object {{ nimbus_object }} {
      *
      * It must be called whenever the Nimbus SDK finishes the `applyPendingExperiments()` method.
      */
-    public fun invalidateCachedValues() {
+    public override fun invalidateCachedValues() {
         {%- for f in self.iter_feature_defs() %}
         features.{{- f.name()|var_name -}}.withCachedValue(null)
         {%- endfor %}
@@ -100,7 +99,7 @@ object {{ nimbus_object }} {
      * Accessor object for generated configuration classes extracted from Nimbus, with built-in
      * default values.
      */
-    val features = Features()
+    override val features = Features()
 
     {% let blocks = self.initialization_code() -%}
     /**

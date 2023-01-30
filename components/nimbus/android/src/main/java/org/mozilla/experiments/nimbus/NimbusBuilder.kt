@@ -8,6 +8,7 @@ import android.content.Context
 import android.net.Uri
 import androidx.annotation.RawRes
 import kotlinx.coroutines.runBlocking
+import org.mozilla.experiments.nimbus.internal.GeneratedFeatureManifest
 import java.util.Locale
 
 private const val TIME_OUT_LOADING_EXPERIMENT_FROM_DISK_MS = 200L
@@ -59,6 +60,11 @@ abstract class AbstractNimbusBuilder<T : NimbusInterface>(val context: Context) 
     var onCreateCallback: (T) -> Unit = {}
 
     /**
+     * The `object` generated from the `nimbus.fml.yaml` file and the nimbus-gradle-plugin.
+     */
+    var featureManifest: GeneratedFeatureManifest<*>? = null
+
+    /**
      * Build a [Nimbus] singleton for the given [NimbusAppInfo]. Instances built with this method
      * have been initialized, and are ready for use by the app.
      *
@@ -106,6 +112,7 @@ abstract class AbstractNimbusBuilder<T : NimbusInterface>(val context: Context) 
                 // * we gave a 200ms timeout to the loading of a file from res/raw
                 // * on completion or cancellation, applyPendingExperiments or initialize was
                 //   called, and this thread waited for that to complete.
+                featureManifest?.initialize { this }
                 onCreateCallback(this)
             }
         } catch (e: Throwable) {

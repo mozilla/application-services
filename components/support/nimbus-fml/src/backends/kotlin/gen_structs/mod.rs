@@ -96,6 +96,7 @@ impl<'a> FeatureManifestDeclaration<'a> {
             )
             .chain(vec![
                 "org.mozilla.experiments.nimbus.Variables".to_string(),
+                "org.mozilla.experiments.nimbus.internal.GeneratedFeatureManifest".to_string(),
                 "org.mozilla.experiments.nimbus.FeaturesInterface".to_string(),
                 format!("{}.R", self.fm.about.resource_package_name()),
             ])
