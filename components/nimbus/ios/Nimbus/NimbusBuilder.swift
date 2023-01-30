@@ -128,7 +128,7 @@ public class NimbusBuilder {
         return self
     }
 
-    var featureManifest: (any GeneratedFeatureManifest)? = nil
+    var featureManifest: (any GeneratedFeatureManifest)?
 
     /**
      * Build a [Nimbus] singleton for the given [NimbusAppSettings]. Instances built with this method

@@ -63,19 +63,18 @@ public extension Array where Element == Bundle {
     }
 }
 
-#if canImport(UIKit)
 public extension Bundle {
     /// Loads the language bundle from this one.
     /// If `language` is `nil`, then look for the development region language.
     /// If no bundle for the language exists, then return `nil`.
     func fallbackTranslationBundle(language: String? = nil) -> Bundle? {
-        if let lang = language ?? infoDictionary?["CFBundleDevelopmentRegion"] as? String,
-           let path = path(forResource: lang, ofType: "lproj")
-        {
-            return Bundle(path: path)
-        } else {
-            return nil
-        }
+        #if canImport(UIKit)
+            if let lang = language ?? infoDictionary?["CFBundleDevelopmentRegion"] as? String,
+               let path = path(forResource: lang, ofType: "lproj")
+            {
+                return Bundle(path: path)
+            }
+        #endif
+        return nil
     }
 }
-#endif
