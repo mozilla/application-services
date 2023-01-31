@@ -13,7 +13,7 @@
 /// An object for safely accessing feature configuration from Nimbus.
 ///
 /// This is generated.
-public class {{ nimbus_object }} : GeneratedFeatureManifest {
+public class {{ nimbus_object }} : FeatureManifestInterface {
     public typealias Features = {{ features_object }}
 
     ///

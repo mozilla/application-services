@@ -6,7 +6,7 @@ package org.mozilla.experiments.nimbus.internal
 
 import org.mozilla.experiments.nimbus.FeaturesInterface
 
-interface GeneratedFeatureManifest<T> {
+interface FeatureManifestInterface<T> {
     /**
      * This method should be called as early in the startup sequence of the app as possible.
      * This is to connect the Nimbus SDK (and thus server) with the `{{ nimbus_object }}`

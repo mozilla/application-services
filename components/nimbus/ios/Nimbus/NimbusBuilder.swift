@@ -123,12 +123,12 @@ public class NimbusBuilder {
      * The object generated from the `nimbus.fml.yaml` file and the nimbus-gradle-plugin.
      */
     @discardableResult
-    public func with(featureManifest: any GeneratedFeatureManifest) -> NimbusBuilder {
+    public func with(featureManifest: any FeatureManifestInterface) -> NimbusBuilder {
         self.featureManifest = featureManifest
         return self
     }
 
-    var featureManifest: (any GeneratedFeatureManifest)?
+    var featureManifest: (any FeatureManifestInterface)?
 
     /**
      * Build a [Nimbus] singleton for the given [NimbusAppSettings]. Instances built with this method

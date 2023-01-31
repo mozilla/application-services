@@ -103,7 +103,7 @@ pub mod test {
 
     // The file with the swift implementation of Feature Manifest protocol file
     fn generated_feature_manifest() -> String {
-        join(sdk_ios_dir(), "GeneratedFeatureManifest.swift")
+        join(sdk_ios_dir(), "FeatureManifestInterface.swift")
     }
 
     fn detect_swiftc() -> Result<bool> {

@@ -3,7 +3,7 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 import Foundation
 
-public protocol GeneratedFeatureManifest {
+public protocol FeatureManifestInterface {
     associatedtype Features
     /// This method should be called as early in the startup sequence of the app as possible.
     /// This is to connect the Nimbus SDK (and thus server) with the `{{ nimbus_object }}`

@@ -32,7 +32,7 @@ import {{ imported_class }}
  * This class should not be edited manually, but changed by editing the `nimbus.fml.yaml` file, and
  * re-running the `nimbus-fml` tool, which is likely already being used by the build script.
  */
-object {{ nimbus_object }} : GeneratedFeatureManifest<{{ nimbus_object }}.Features> {
+object {{ nimbus_object }} : FeatureManifestInterface<{{ nimbus_object }}.Features> {
     class Features {
         {%- for f in self.iter_feature_defs() %}
         {%- let raw_name = f.name() %}
