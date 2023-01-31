@@ -28,7 +28,7 @@ abstract class NimbusPluginExtension {
 
     String getManifestFileActual(Project project) {
         var filename = this.manifestFile.getOrNull() ?: "nimbus.fml.yaml"
-        return [project.rootDir, filename].join(File.separator)
+        return [project.projectDir, filename].join(File.separator)
     }
 
     /**
@@ -45,20 +45,6 @@ abstract class NimbusPluginExtension {
     }
 
     /**
-     * @deprecated
-     *
-     * The qualified class name which is the destination for the feature classes.
-     *
-     * Like classes in the `AndroidManifest.xml` if the class name starts with a `.`,
-     * the package is derived from the app's package name.
-     *
-     * If not present, it defaults to `.nimbus.MyNimbus`.
-     *
-     * @return
-     */
-    abstract Property<String> getDestinationClass()
-
-    /**
      * The filename of the manifest ingested by Experimenter.
      *
      * If this is a relative name, it is taken to be relative to the project's root directory.
@@ -70,7 +56,7 @@ abstract class NimbusPluginExtension {
 
     String getExperimenterManifestActual(Project project) {
         var filename = this.experimenterManifest.getOrNull() ?: ".experimenter.json"
-        return [project.rootDir, filename].join(File.separator)
+        return [project.projectDir, filename].join(File.separator)
     }
 
     /**
@@ -99,7 +85,7 @@ abstract class NimbusPluginExtension {
     List<String> getRepoFilesActual(Project project) {
         var repoFiles = this.repoFiles.getOrNull() ?: new ArrayList<String>()
         return repoFiles.stream().map(filename -> {
-            [project.rootDir, filename].join(File.separator)
+            [project.projectDir, filename].join(File.separator)
         }).collect(Collectors.toList())
     }
 
@@ -115,8 +101,8 @@ abstract class NimbusPluginExtension {
     String getCacheDirActual(Project project) {
         var cacheDir = this.cacheDir.getOrNull()
         if (cacheDir == null)
-            return null
-        return [project.rootDir, cacheDir].join(File.separator)
+            cacheDir = "nimbus-cache"
+        return [project.rootProject.buildDir, cacheDir].join(File.separator)
     }
 
     /**
@@ -213,13 +199,11 @@ class NimbusPlugin implements Plugin<Project> {
             println("Downloading nimbus-fml cli version $asVersion")
 
             def successfulHost = tryDownload(archive.getParentFile(), archive.getName(),
-                    // …the latest one from github.
-                    "https://github.com/mozilla/application-services/releases/download/v$asVersion",
-                    "https://github.com/mozilla/application-services/releases/latest/download"
+                    "https://github.com/mozilla/application-services/releases/download/v$asVersion"
             )
 
             if (successfulHost == null) {
-                throw java.io.IOException("Unable to download nimbus-fml tooling")
+                throw java.io.IOException("Unable to download nimbus-fml tooling with version $asVersion.\n\nIf you are using a development version of the Nimbus Gradle Plugin, please set `applicationServicesDir` in your `build.gradle`'s nimbus block as the path to your local application services directory relative to your project's root.")
             }
 
             // We get the checksum, although don't do anything with it yet;
@@ -249,10 +233,11 @@ class NimbusPlugin implements Plugin<Project> {
      * The directory where nimbus-fml will live.
      * We put it in a build directory so we refresh it on a clean build.
      * @param project
+     * @param version
      * @return
      */
     static def getFMLRoot(Project project, String version) {
-        return [project.buildDir, "bin", "nimbus", version].join(File.separator)
+        return [project.getRootProject().buildDir, "bin", "nimbus", version].join(File.separator)
     }
 
     static def getArchOs() {
