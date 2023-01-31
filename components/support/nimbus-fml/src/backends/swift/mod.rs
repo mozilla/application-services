@@ -91,9 +91,19 @@ pub mod test {
         join(sdk_ios_dir(), "Collections+.swift")
     }
 
-    // The file with the swift implementation of FeatureVariables
+    // The file with the swift implementation of Bundle extensions
+    fn bundle_swift() -> String {
+        join(sdk_ios_dir(), "Bundle+.swift")
+    }
+
+    // The file with the swift implementation of FeatureHolder
     fn feature_holder() -> String {
         join(sdk_ios_dir(), "FeatureHolder.swift")
+    }
+
+    // The file with the swift implementation of Feature Manifest protocol file
+    fn generated_feature_manifest() -> String {
+        join(sdk_ios_dir(), "FeatureManifestInterface.swift")
     }
 
     fn detect_swiftc() -> Result<bool> {
@@ -130,6 +140,8 @@ pub mod test {
             .arg(&variables_swift())
             .arg(&features_swift())
             .arg(&feature_holder())
+            .arg(&bundle_swift())
+            .arg(&generated_feature_manifest())
             .arg(&mock_nimbus_swift())
             .args(manifest_files)
             .spawn()

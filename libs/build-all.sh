@@ -2,8 +2,8 @@
 
 set -euvx
 
-SQLCIPHER_VERSION="4.5.2"
-SQLCIPHER_SHA256="6925f012deb5582e39761a7d4816883cc15b41851a8e70b447c223b8ef406e2a"
+SQLCIPHER_VERSION="4.5.3"
+SQLCIPHER_SHA256="1bf84a61ffdb9841f7317a067e23e0f1afc489c45efec665d24ab7512955cef4"
 
 NSS="nss-3.86"
 NSS_ARCHIVE="nss-3.86-with-nspr-4.35.tar.gz"
@@ -46,22 +46,22 @@ if ! [[ -x "$(command -v tclsh)" ]]; then
   exit 1
 fi
 
-SQLCIPHER="v${SQLCIPHER_VERSION}"
+SQLCIPHER="sqlcipher-${SQLCIPHER_VERSION}"
 rm -rf "${SQLCIPHER}"
-if [[ ! -e "${SQLCIPHER}.tar.gz" ]]; then
- echo "Downloading ${SQLCIPHER}.tar.gz"
- curl -sfSL --retry 5 --retry-delay 10 -O "https://github.com/sqlcipher/sqlcipher/archive/${SQLCIPHER}.tar.gz"
+if [[ ! -e "${SQLCIPHER}.zip" ]]; then
+ echo "Downloading ${SQLCIPHER}.zip"
+ curl -sfSL --retry 5 --retry-delay 10 -O "https://www.zetetic.net/sqlcipher/verify/${SQLCIPHER_VERSION}/${SQLCIPHER}.zip"
 else
- echo "Using ${SQLCIPHER}.tar.gz"
+ echo "Using ${SQLCIPHER}.zip"
 fi
 # Integrity check for SQLCIPHER
-if ! echo "${SQLCIPHER_SHA256}  ${SQLCIPHER}.tar.gz" | shasum -a 256 -c - 
+if ! echo "${SQLCIPHER_SHA256}  ${SQLCIPHER}.zip" | shasum -a 256 -c - 
 then
-    echo "Error: ${SQLCIPHER}.tar.gz was corrupted. Please try running this build script again."
-    rm -f "${SQLCIPHER}.tar.gz" # remove corrupted file
+    echo "Error: ${SQLCIPHER}.zip was corrupted. Please try running this build script again."
+    rm -f "${SQLCIPHER}.zip" # remove corrupted file
     exit 2
 fi
-tar xfz "${SQLCIPHER}.tar.gz"
+unzip "${SQLCIPHER}.zip"
 SQLCIPHER_SRC_PATH=$(abspath "sqlcipher-${SQLCIPHER_VERSION}")
 
 rm -rf "${NSS}"

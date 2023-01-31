@@ -20,8 +20,10 @@ public class NimbusBuilder {
      * This will only be null or empty in development or testing, or in any build variant of a
      * non-Mozilla fork.
      */
-    public func with(url: String?) {
+    @discardableResult
+    public func with(url: String?) -> Self {
         self.url = url
+        return self
     }
 
     var url: String?
@@ -106,6 +108,9 @@ public class NimbusBuilder {
 
     var onApplyCallback: ((NimbusInterface) -> Void)?
 
+    /**
+     * Resource bundles used to look up bundled text and images. Defaults to `[Bundle.main]`.
+     */
     @discardableResult
     public func with(bundles: [Bundle]) -> NimbusBuilder {
         resourceBundles = bundles
@@ -113,6 +118,17 @@ public class NimbusBuilder {
     }
 
     var resourceBundles: [Bundle] = [.main]
+
+    /**
+     * The object generated from the `nimbus.fml.yaml` file and the nimbus-gradle-plugin.
+     */
+    @discardableResult
+    public func with(featureManifest: FeatureManifestInterface) -> NimbusBuilder {
+        self.featureManifest = featureManifest
+        return self
+    }
+
+    var featureManifest: FeatureManifestInterface?
 
     /**
      * Build a [Nimbus] singleton for the given [NimbusAppSettings]. Instances built with this method
@@ -138,11 +154,14 @@ public class NimbusBuilder {
 
         do {
             let nimbus = try newNimbus(appInfo, serverSettings: serverSettings)
-            if let onApplyCallback = onApplyCallback {
+            let fm = featureManifest
+            let onApplyCallback = onApplyCallback
+            if fm != nil || onApplyCallback != nil {
                 NotificationCenter.default.addObserver(forName: .nimbusExperimentsApplied,
                                                        object: nil,
                                                        queue: nil) { _ in
-                    onApplyCallback(nimbus)
+                    fm?.invalidateCachedValues()
+                    onApplyCallback?(nimbus)
                 }
             }
 
@@ -159,6 +178,7 @@ public class NimbusBuilder {
             // * we gave a 200ms timeout to the loading of a file from res/raw
             // * on completion or cancellation, applyPendingExperiments or initialize was
             //   called, and this thread waited for that to complete.
+            featureManifest?.initialize { nimbus }
             onCreateCallback?(nimbus)
 
             return nimbus
