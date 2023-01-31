@@ -1,10 +1,18 @@
 /* This Source Code Form is subject to the terms of the Mozilla Public
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
+
 import Foundation
 
 public protocol FeatureManifestInterface {
-    associatedtype Features
+    // The `associatedtype``, and the `features`` getter require existential types, in Swift 5.7.
+    // associatedtype Features
+
+    // Accessor object for generated configuration classes extracted from Nimbus, with built-in
+    // default values.
+    // The `associatedtype``, and the `features`` getter require existential types, in Swift 5.7.
+    // var features: Features { get }
+
     /// This method should be called as early in the startup sequence of the app as possible.
     /// This is to connect the Nimbus SDK (and thus server) with the `{{ nimbus_object }}`
     /// class.
@@ -23,8 +31,4 @@ public protocol FeatureManifestInterface {
     ///
     /// This happens automatically if you use the `NimbusBuilder` pattern of initialization.
     func invalidateCachedValues()
-
-    /// Accessor object for generated configuration classes extracted from Nimbus, with built-in
-    /// default values.
-    var features: Features { get }
 }
