@@ -616,6 +616,17 @@ impl PlacesConnection {
     ) -> ApiResult<HistoryMigrationResult> {
         self.with_conn(|conn| import_ios_history(conn, &db_path, last_sync_timestamp))
     }
+
+    #[handle_error]
+    fn set_history_sync_ids(
+        &self,
+        global_sync_id: String,
+        collection_sync_id: String,
+    ) -> ApiResult<()> {
+        self.with_conn(|conn| {
+            history::history_sync::set_sync_ids(conn, global_sync_id, collection_sync_id)
+        })
+    }
 }
 
 impl AsRef<SqlInterruptHandle> for PlacesConnection {

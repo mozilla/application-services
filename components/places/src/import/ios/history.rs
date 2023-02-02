@@ -155,16 +155,18 @@ lazy_static::lazy_static! {
             id INTEGER PRIMARY KEY,
             url TEXT,
             url_hash INTEGER NOT NULL,
-            title TEXT
+            title TEXT,
+            should_upload TINYINT NOT NULL
         ) WITHOUT ROWID;";
 
    static ref FILL_STAGING: &'static str = "
-    INSERT OR IGNORE INTO temp.iOSHistoryStaging(id, url, url_hash, title)
+    INSERT OR IGNORE INTO temp.iOSHistoryStaging(id, url, url_hash, title, should_upload)
         SELECT
             h.id,
             validate_url(h.url),
             hash(validate_url(h.url)),
-            sanitize_utf8(h.title)
+            sanitize_utf8(h.title),
+            h.should_upload
         FROM temp.latestVisits v
         JOIN ios.history h on v.siteID = h.id
         WHERE h.url IS NOT NULL
@@ -183,7 +185,7 @@ lazy_static::lazy_static! {
 
    // Insert any missing entries into moz_places that we'll need for this.
    static ref FILL_MOZ_PLACES: &'static str =
-   "INSERT OR IGNORE INTO main.moz_places(guid, url, url_hash, title, frecency, sync_change_counter)
+   "INSERT OR IGNORE INTO main.moz_places(guid, url, url_hash, title, frecency, sync_change_counter, sync_status)
         SELECT
             IFNULL(
                 (SELECT p.guid FROM main.moz_places p WHERE p.url_hash = t.url_hash AND p.url = t.url),
@@ -193,7 +195,8 @@ lazy_static::lazy_static! {
             t.url_hash,
             t.title,
             -1,
-            1
+            t.should_upload, -- sync_change_counter will be 0 if we shouldn't upload it
+            2 -- 2 for sync_status means SyncStatus::Normal, so we wouldn't sync unless the counter is positive
         FROM temp.iOSHistoryStaging t
    "
    ;

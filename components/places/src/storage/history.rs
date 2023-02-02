@@ -806,6 +806,7 @@ pub mod history_sync {
     use sync15::bso::OutgoingEnvelope;
 
     use super::*;
+    pub use crate::history_sync::engine::set_sync_ids;
     use crate::history_sync::record::{HistoryRecord, HistoryRecordVisit};
     use crate::history_sync::HISTORY_TTL;
     use std::collections::HashSet;

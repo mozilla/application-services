@@ -4,7 +4,10 @@
 use places::{
     api::places_api::{ConnectionType, PlacesApi},
     apply_observation,
-    storage::history::{self, get_visit_infos},
+    storage::{
+        get_meta,
+        history::{self, get_visit_infos, history_sync::fetch_outgoing},
+    },
     Result, VisitObservation, VisitTransition, VisitTransitionSet,
 };
 use rusqlite::Connection;
@@ -456,5 +459,95 @@ fn test_import_a_lot() -> Result<()> {
     let conn = places_api.open_connection(ConnectionType::ReadWrite)?;
     let results = places::import::import_ios_history(&conn, &ios_path, 0)?;
     assert_eq!(results.num_succeeded, 10000);
+    Ok(())
+}
+
+#[test]
+fn test_import_set_outgoing_if_need_upload() -> Result<()> {
+    let tmpdir = tempdir().unwrap();
+    let ios_path = tmpdir.path().join("browser.db");
+    let ios_db = empty_ios_db(&ios_path)?;
+    let history_entry = IOSHistory {
+        id: 1,
+        guid: "EXAMPLE GUID".to_string(),
+        url: Some("https://example.com".to_string()),
+        title: "Example(dot)com".to_string(),
+        is_deleted: false,
+        should_upload: false,
+    };
+
+    let history_entry_should_upload = IOSHistory {
+        id: 2,
+        guid: "EXAMPLE GUID2".to_string(),
+        url: Some("https://example.com/page".to_string()),
+        title: "Example(dot)com".to_string(),
+        is_deleted: false,
+        should_upload: true,
+    };
+
+    // We subtract a bit because our sanitization logic is smart and rejects
+    // visits that have a future timestamp,
+    let before_first_visit_ts = Timestamp::now()
+        .checked_sub(Duration::from_secs(30 * 24 * 60 * 60))
+        .unwrap();
+    let first_visit_ts = before_first_visit_ts
+        .checked_add(Duration::from_secs(100))
+        .unwrap();
+    let visit = IOSVisit {
+        id: 1,
+        site_id: 1,
+        // Dates in iOS are represented as μs
+        // we make sure that they get converted properly.
+        // when we compare them later we will compare against
+        // milliseconds
+        date: first_visit_ts.as_millis_i64() * 1000,
+        type_: 1,
+        ..Default::default()
+    };
+
+    let second_visit_ts = first_visit_ts
+        .checked_add(Duration::from_secs(100))
+        .unwrap();
+
+    let other_visit = IOSVisit {
+        id: 2,
+        site_id: 1,
+        // Dates in iOS are represented as μs
+        date: second_visit_ts.as_millis_i64() * 1000,
+        type_: 1,
+        ..Default::default()
+    };
+
+    let visit_for_should_upload_ts = second_visit_ts
+        .checked_add(Duration::from_secs(100))
+        .unwrap();
+
+    let visit_to_sync = IOSVisit {
+        id: 3,
+        site_id: 2, // The id of the visit to sync
+        // Dates in iOS are represented as μs
+        date: visit_for_should_upload_ts.as_millis_i64() * 1000,
+        type_: 1,
+        ..Default::default()
+    };
+
+    let history_table = HistoryTable(vec![history_entry, history_entry_should_upload]);
+    let visit_table = VisitTable(vec![visit, other_visit, visit_to_sync]);
+    history_table.populate(&ios_db)?;
+    visit_table.populate(&ios_db)?;
+
+    let places_api = PlacesApi::new(tmpdir.path().join("places.sqlite"))?;
+    let conn = places_api.open_connection(ConnectionType::ReadWrite)?;
+    let now = Timestamp::now().as_millis_i64();
+    places::import::import_ios_history(&conn, ios_path, now)?;
+
+    let visit_count = history::get_visit_count(&conn, VisitTransitionSet::empty())?;
+    assert_eq!(visit_count, 3);
+    let outgoing = fetch_outgoing(&conn, 1000, 1000).unwrap();
+
+    assert_eq!(outgoing.len(), 1);
+
+    let last_sync_timestamp: i64 = get_meta(&conn, "history_last_sync_time")?.unwrap();
+    assert_eq!(last_sync_timestamp, now);
     Ok(())
 }

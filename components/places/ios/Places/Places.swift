@@ -912,4 +912,11 @@ public class PlacesWriteConnection: PlacesReadConnection {
             return try self.conn.placesHistoryImportFromIos(dbPath: path, lastSyncTimestamp: lastSyncTimestamp)
         }
     }
+
+    open func setSyncIds(globalSyncId: String, collectionSyncId: String) throws {
+        return try queue.sync {
+            try self.checkApi()
+            return try self.conn.setHistorySyncIds(globalSyncId: globalSyncId, collectionSyncId: collectionSyncId)
+        }
+    }
 }

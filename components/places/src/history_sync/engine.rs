@@ -141,3 +141,8 @@ impl SyncEngine for HistorySyncEngine {
         Ok(())
     }
 }
+
+pub fn set_sync_ids(conn: &PlacesDb, global: String, collection_id: String) -> Result<()> {
+    put_meta(conn, GLOBAL_SYNCID_META_KEY, &global)?;
+    put_meta(conn, COLLECTION_SYNCID_META_KEY, &collection_id)
+}

@@ -23,3 +23,8 @@ Use the template below to make assigning a version number during the release cut
 
 ### 🦊 What's Changed 🦊
 - Updated the Nimbus Gradle Plugin to fix a number of issues after migrating it to this repository ([#5348](https://github.com/mozilla/application-services/pull/5348))
+## Places
+### What's New
+ - We Expose an API to set the Sync IDs for the history engine.
+   This is to be used by iOS to supplement the migration and ensure that
+   the history engine does not re-upload any already uploaded records.

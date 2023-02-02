@@ -358,7 +358,8 @@ pub(crate) fn put_meta(db: &PlacesDb, key: &str, value: &dyn ToSql) -> Result<()
     Ok(())
 }
 
-pub(crate) fn get_meta<T: FromSql>(db: &PlacesDb, key: &str) -> Result<Option<T>> {
+// Public because integration tests for iOS migration uses it
+pub fn get_meta<T: FromSql>(db: &PlacesDb, key: &str) -> Result<Option<T>> {
     let res = db.try_query_one(
         "SELECT value FROM moz_meta WHERE key = :key",
         &[(":key", &key)],

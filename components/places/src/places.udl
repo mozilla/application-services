@@ -206,6 +206,9 @@ interface PlacesConnection {
 
     [Throws=PlacesApiError]
     HistoryMigrationResult places_history_import_from_ios(string db_path, i64 last_sync_timestamp);
+
+    [Throws=PlacesApiError]
+    void set_history_sync_ids(string global_sync_id, string collection_sync_id);
 };
 
 /**
