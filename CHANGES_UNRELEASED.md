@@ -23,3 +23,4 @@ Use the template below to make assigning a version number during the release cut
 
 ### 🦊 What's Changed 🦊
 - Updated the Nimbus Gradle Plugin to fix a number of issues after migrating it to this repository ([#5348](https://github.com/mozilla/application-services/pull/5348))
+- Updated the Nimbus FML CLI to only import the R class if it will be used by a feature property

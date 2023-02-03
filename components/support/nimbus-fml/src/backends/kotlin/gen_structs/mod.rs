@@ -9,6 +9,7 @@ use crate::{
     backends::{CodeDeclaration, CodeOracle, CodeType, TypeIdentifier},
     intermediate_representation::{FeatureDef, FeatureManifest, TypeFinder},
 };
+use crate::intermediate_representation::PropDef;
 
 mod bundled;
 mod common;
@@ -55,6 +56,29 @@ impl<'a> FeatureManifestDeclaration<'a> {
             .collect()
     }
 
+    pub fn feature_properties(&self) -> Vec<PropDef> {
+        let fm = self.fm;
+
+        fm.iter_feature_defs()
+            .map(|feature| feature.props().clone())
+            .flatten()
+            .chain(
+                fm.iter_object_defs().map(|object| object.props.clone()).flatten()
+            )
+            .chain(
+                fm.iter_imported_files()
+                    .into_iter()
+                    .map(|inner| imports::ImportedModuleInitialization::new(inner).inner.fm
+                        .iter_feature_defs()
+                        .map(|feature| feature
+                            .props()
+                            .clone())
+                        .flatten())
+                    .flatten()
+            )
+            .collect()
+    }
+
     pub fn iter_feature_defs(&self) -> Vec<&FeatureDef> {
         self.fm.iter_feature_defs().collect::<_>()
     }
@@ -98,12 +122,22 @@ impl<'a> FeatureManifestDeclaration<'a> {
                 "org.mozilla.experiments.nimbus.Variables".to_string(),
                 "org.mozilla.experiments.nimbus.internal.FeatureManifestInterface".to_string(),
                 "org.mozilla.experiments.nimbus.FeaturesInterface".to_string(),
-                format!("{}.R", self.fm.about.resource_package_name()),
             ])
             .filter(|i| i != &my_package)
             .collect::<HashSet<String>>()
             .into_iter()
             .collect();
+
+        let include_r: bool = self
+            .feature_properties()
+            .into_iter()
+            .map(|prop|
+                self.oracle.find(&prop.typ()).is_resource_id(&prop.default)
+            )
+            .any(|v| v);
+        if include_r {
+            imports.push(format!("{}.R", self.fm.about.resource_package_name()))
+        }
 
         imports.sort();
         imports

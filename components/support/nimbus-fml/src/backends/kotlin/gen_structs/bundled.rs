@@ -86,6 +86,15 @@ impl CodeType for TextCodeType {
         }
     }
 
+    fn is_resource_id(&self, _literal: &Literal) -> bool {
+        match _literal {
+            serde_json::Value::String(v) => {
+                is_resource_id(v)
+            }
+            _ => unreachable!("Expecting a string")
+        }
+    }
+
     fn imports(&self, _oracle: &dyn CodeOracle) -> Option<Vec<String>> {
         Some(vec![
             "android.content.Context".to_string(),
@@ -173,6 +182,15 @@ impl CodeType for ImageCodeType {
         match literal {
             serde_json::Value::String(v) if is_resource_id(v) => {
                 format!(r#"R.drawable.{id}"#, id = v.to_snake_case())
+            }
+            _ => unreachable!("Expecting a string matching an image/drawable resource"),
+        }
+    }
+
+    fn is_resource_id(&self, _literal: &Literal) -> bool {
+        match _literal {
+            serde_json::Value::String(v) => {
+                is_resource_id(v)
             }
             _ => unreachable!("Expecting a string matching an image/drawable resource"),
         }
