@@ -60,21 +60,18 @@ impl<'a> FeatureManifestDeclaration<'a> {
         let fm = self.fm;
 
         fm.iter_feature_defs()
-            .map(|feature| feature.props().clone())
-            .flatten()
+            .flat_map(|feature| feature.props())
             .chain(
-                fm.iter_object_defs().map(|object| object.props.clone()).flatten()
+                fm.iter_object_defs().flat_map(|object| object.props.clone())
             )
             .chain(
                 fm.iter_imported_files()
                     .into_iter()
-                    .map(|inner| imports::ImportedModuleInitialization::new(inner).inner.fm
+                    .flat_map(|inner| imports::ImportedModuleInitialization::new(inner).inner.fm
                         .iter_feature_defs()
-                        .map(|feature| feature
-                            .props()
-                            .clone())
-                        .flatten())
-                    .flatten()
+                        .flat_map(|feature| feature
+                            .props())
+                        )
             )
             .collect()
     }
