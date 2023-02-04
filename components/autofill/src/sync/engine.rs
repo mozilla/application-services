@@ -10,10 +10,10 @@ use rusqlite::{
     Connection, Transaction,
 };
 use std::sync::Arc;
-use sync15::engine::{
-    CollSyncIds, CollectionRequest, EngineSyncAssociation, IncomingChangeset, OutgoingChangeset,
-    SyncEngine,
+use sync15::engine::legacy_engine::{
+    IncomingChangeset, LegacySyncEngine, LegacySyncEngineState, OutgoingChangeset,
 };
+use sync15::engine::{CollSyncIds, CollectionRequest, EngineSyncAssociation};
 use sync15::{telemetry, CollectionName, ServerTimestamp};
 use sync_guid::Guid;
 
@@ -48,6 +48,7 @@ pub struct ConfigSyncEngine<T> {
     pub(crate) store: Arc<Store>,
     pub(crate) storage_impl: Box<dyn SyncEngineStorageImpl<T>>,
     local_enc_key: Option<String>,
+    legacy_state: LegacySyncEngineState,
 }
 
 impl<T> ConfigSyncEngine<T> {
@@ -61,6 +62,7 @@ impl<T> ConfigSyncEngine<T> {
             store,
             storage_impl,
             local_enc_key: None,
+            legacy_state: LegacySyncEngineState::default(),
         }
     }
     fn put_meta(&self, conn: &Connection, tail: &str, value: &dyn ToSql) -> Result<()> {
@@ -87,7 +89,7 @@ impl<T> ConfigSyncEngine<T> {
 }
 
 // We're just an "adaptor" to the sync15 version of an 'engine'
-impl<T: SyncRecord + std::fmt::Debug> SyncEngine for ConfigSyncEngine<T> {
+impl<T: SyncRecord + std::fmt::Debug> LegacySyncEngine for ConfigSyncEngine<T> {
     fn collection_name(&self) -> CollectionName {
         self.config.collection.clone()
     }
@@ -217,6 +219,10 @@ impl<T: SyncRecord + std::fmt::Debug> SyncEngine for ConfigSyncEngine<T> {
     fn wipe(&self) -> anyhow::Result<()> {
         log::warn!("not implemented as there isn't a valid use case for it");
         Ok(())
+    }
+
+    fn get_legacy_engine_state(&self) -> &LegacySyncEngineState {
+        &self.legacy_state
     }
 }
 
