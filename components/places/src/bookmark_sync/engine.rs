@@ -30,11 +30,8 @@ use std::cell::RefCell;
 use std::collections::HashMap;
 use std::fmt;
 use std::sync::Arc;
-use sync15::bso::OutgoingBso;
-use sync15::engine::{
-    CollSyncIds, CollectionRequest, EngineSyncAssociation, IncomingChangeset, OutgoingChangeset,
-    SyncEngine,
-};
+use sync15::bso::{IncomingBso, OutgoingBso};
+use sync15::engine::{CollSyncIds, CollectionRequest, EngineSyncAssociation, SyncEngine};
 use sync15::{telemetry, CollectionName, ServerTimestamp};
 use sync_guid::Guid as SyncGuid;
 use types::Timestamp;
@@ -64,15 +61,14 @@ impl<'a> AbortSignal for MergeInterruptee<'a> {
 fn stage_incoming(
     db: &PlacesDb,
     scope: &SqlInterruptScope,
-    inbound: IncomingChangeset,
+    inbound: Vec<IncomingBso>,
     incoming_telemetry: &mut telemetry::EngineIncoming,
-) -> Result<ServerTimestamp> {
-    let timestamp = inbound.timestamp;
+) -> Result<()> {
     let mut tx = db.begin_transaction()?;
 
     let applicator = IncomingApplicator::new(db);
 
-    for incoming in inbound.changes {
+    for incoming in inbound {
         applicator.apply_bso(incoming)?;
         incoming_telemetry.applied(1);
         if tx.should_commit() {
@@ -88,7 +84,7 @@ fn stage_incoming(
     delete_pending_temp_tables(db)?;
 
     tx.commit()?;
-    Ok(timestamp)
+    Ok(())
 }
 
 fn db_has_changes(db: &PlacesDb) -> Result<bool> {
@@ -644,7 +640,7 @@ fn stage_items_to_upload(
 }
 
 /// Inflates Sync records for all staged outgoing items.
-fn fetch_outgoing_records(db: &PlacesDb, scope: &SqlInterruptScope) -> Result<OutgoingChangeset> {
+fn fetch_outgoing_records(db: &PlacesDb, scope: &SqlInterruptScope) -> Result<Vec<OutgoingBso>> {
     let mut changes = Vec::new();
     let mut child_record_ids_by_local_parent_id: HashMap<i64, Vec<BookmarkRecordId>> =
         HashMap::new();
@@ -772,7 +768,7 @@ fn fetch_outgoing_records(db: &PlacesDb, scope: &SqlInterruptScope) -> Result<Ou
         changes.push(OutgoingBso::from_content_with_id(record)?);
     }
 
-    Ok(OutgoingChangeset::new(COLLECTION_NAME.into(), changes))
+    Ok(changes)
 }
 
 /// Decrements the change counter, updates the sync status, and cleans up
@@ -912,58 +908,67 @@ impl SyncEngine for BookmarksSyncEngine {
         COLLECTION_NAME.into()
     }
 
-    fn apply_incoming(
+    fn stage_incoming(
         &self,
-        inbound: Vec<IncomingChangeset>,
+        inbound: Vec<IncomingBso>,
         telem: &mut telemetry::Engine,
-    ) -> anyhow::Result<OutgoingChangeset> {
+    ) -> anyhow::Result<()> {
         let conn = self.db.lock();
-        assert_eq!(inbound.len(), 1, "bookmarks only requests one item");
-        let inbound = inbound.into_iter().next().unwrap();
         // Stage all incoming items.
         let mut incoming_telemetry = telemetry::EngineIncoming::new();
-        let timestamp = stage_incoming(&conn, &self.scope, inbound, &mut incoming_telemetry)?;
+        stage_incoming(&conn, &self.scope, inbound, &mut incoming_telemetry)?;
         telem.incoming(incoming_telemetry);
+        Ok(())
+    }
 
+    fn apply(
+        &self,
+        timestamp: ServerTimestamp,
+        telem: &mut telemetry::Engine,
+    ) -> anyhow::Result<Vec<OutgoingBso>> {
+        let conn = self.db.lock();
         // write the timestamp now, so if we are interrupted merging or
-        // creating outgoing changesets we don't need to re-download the same
+        // creating outgoing changesets we don't need to re-apply the same
         // records.
         put_meta(&conn, LAST_SYNC_META_KEY, &timestamp.as_millis())?;
 
         // Merge.
         let mut merger = Merger::with_telemetry(&conn, &self.scope, timestamp, telem);
         merger.merge()?;
-
-        // Finally, stage outgoing items.
-        let outgoing = fetch_outgoing_records(&conn, &self.scope)?;
-        Ok(outgoing)
+        Ok(fetch_outgoing_records(&conn, &self.scope)?)
     }
 
-    fn sync_finished(
+    fn set_uploaded(
         &self,
         new_timestamp: ServerTimestamp,
-        records_synced: Vec<SyncGuid>,
+        ids: Vec<SyncGuid>,
     ) -> anyhow::Result<()> {
         let conn = self.db.lock();
-        push_synced_items(&conn, &self.scope, new_timestamp, records_synced)?;
-        update_frecencies(&conn, &self.scope)?;
+        push_synced_items(&conn, &self.scope, new_timestamp, ids)?;
+        Ok(update_frecencies(&conn, &self.scope)?)
+    }
+
+    fn sync_finished(&self) -> anyhow::Result<()> {
+        let conn = self.db.lock();
         conn.pragma_update(None, "wal_checkpoint", "PASSIVE")?;
         Ok(())
     }
 
-    fn get_collection_requests(
+    fn get_collection_request(
         &self,
         server_timestamp: ServerTimestamp,
-    ) -> anyhow::Result<Vec<CollectionRequest>> {
+    ) -> anyhow::Result<Option<CollectionRequest>> {
         let conn = self.db.lock();
         let since =
             ServerTimestamp(get_meta::<i64>(&conn, LAST_SYNC_META_KEY)?.unwrap_or_default());
         Ok(if since == server_timestamp {
-            vec![]
+            None
         } else {
-            vec![CollectionRequest::new(self.collection_name())
-                .full()
-                .newer_than(since)]
+            Some(
+                CollectionRequest::new(self.collection_name())
+                    .full()
+                    .newer_than(since),
+            )
         })
     }
 
@@ -1791,6 +1796,19 @@ mod tests {
         BookmarksSyncEngine::new(api.get_sync_connection().unwrap()).unwrap()
     }
 
+    fn engine_apply_incoming(
+        engine: &BookmarksSyncEngine,
+        incoming: Vec<IncomingBso>,
+    ) -> Vec<OutgoingBso> {
+        let mut telem = telemetry::Engine::new(engine.collection_name());
+        engine
+            .stage_incoming(incoming, &mut telem)
+            .expect("Should stage incoming");
+        engine
+            .apply(ServerTimestamp(0), &mut telem)
+            .expect("Should apply")
+    }
+
     // Applys the incoming records, and also "finishes" the sync by pretending
     // we uploaded the outgoing items and marks them as uploaded.
     // Returns the GUIDs of the outgoing items.
@@ -1802,11 +1820,10 @@ mod tests {
         // suck records into the engine.
         let engine = create_sync_engine(api);
 
-        let mut incoming = IncomingChangeset::new(engine.collection_name(), remote_time);
-
-        match records_json {
-            Value::Array(records) => {
-                for record in records {
+        let incoming = match records_json {
+            Value::Array(records) => records
+                .into_iter()
+                .map(|record| {
                     let timestamp = record
                         .as_object()
                         .and_then(|r| r.get("modified"))
@@ -1815,11 +1832,9 @@ mod tests {
                                 .expect("Should deserialize server modified")
                         })
                         .unwrap_or(remote_time);
-                    let mut inc = IncomingBso::from_test_content(record);
-                    inc.envelope.modified = timestamp;
-                    incoming.changes.push(inc);
-                }
-            }
+                    IncomingBso::from_test_content_ts(record, timestamp)
+                })
+                .collect(),
             Value::Object(ref r) => {
                 let timestamp = r
                     .get("modified")
@@ -1828,16 +1843,12 @@ mod tests {
                             .expect("Should deserialize server modified")
                     })
                     .unwrap_or(remote_time);
-                let mut inc = IncomingBso::from_test_content(records_json);
-                inc.envelope.modified = timestamp;
-                incoming.changes.push(inc);
+                vec![IncomingBso::from_test_content_ts(records_json, timestamp)]
             }
             _ => panic!("unexpected json value"),
-        }
+        };
 
-        engine
-            .apply_incoming(vec![incoming], &mut telemetry::Engine::new("bookmarks"))
-            .expect("Should apply incoming and stage outgoing records");
+        engine_apply_incoming(&engine, incoming);
 
         let sync_db = api.get_sync_connection().unwrap();
         let syncer = sync_db.lock();
@@ -1901,14 +1912,10 @@ mod tests {
         // suck records into the database.
         let interrupt_scope = conn.begin_interrupt_scope()?;
 
-        let incoming = IncomingChangeset::new_with_changes(
-            COLLECTION_NAME.into(),
-            ServerTimestamp(0),
-            records
-                .into_iter()
-                .map(IncomingBso::from_test_content)
-                .collect(),
-        );
+        let incoming = records
+            .into_iter()
+            .map(IncomingBso::from_test_content)
+            .collect();
 
         stage_incoming(
             &conn,
@@ -2335,22 +2342,16 @@ mod tests {
         // Boilerplate to apply incoming records, since we want to check
         // outgoing record contents.
         let engine = create_sync_engine(&api);
-        let mut incoming = IncomingChangeset::new(engine.collection_name(), ServerTimestamp(0));
-        if let Value::Array(records) = remote_records {
-            for record in records {
-                incoming
-                    .changes
-                    .push(IncomingBso::from_test_content(record));
-            }
+        let incoming = if let Value::Array(records) = remote_records {
+            records
+                .into_iter()
+                .map(IncomingBso::from_test_content)
+                .collect()
         } else {
             unreachable!("JSON records must be an array");
-        }
-        let mut outgoing = engine
-            .apply_incoming(vec![incoming], &mut telemetry::Engine::new("bookmarks"))
-            .expect("Should apply incoming and stage outgoing records with tags");
-        outgoing
-            .changes
-            .sort_by(|a, b| a.envelope.id.cmp(&b.envelope.id));
+        };
+        let mut outgoing = engine_apply_incoming(&engine, incoming);
+        outgoing.sort_by(|a, b| a.envelope.id.cmp(&b.envelope.id));
 
         // Verify that we applied all incoming records correctly.
         assert_local_json_tree(
@@ -2447,7 +2448,6 @@ mod tests {
         ];
         assert_eq!(
             outgoing
-                .changes
                 .iter()
                 .map(|p| p.envelope.id.as_str())
                 .collect::<Vec<_>>(),
@@ -2458,11 +2458,12 @@ mod tests {
         // Now push the records back to the engine, so we can check what we're
         // uploading.
         engine
-            .sync_finished(
+            .set_uploaded(
                 ServerTimestamp(0),
                 expected_outgoing_ids.iter().map(SyncGuid::from).collect(),
             )
             .expect("Should push synced changes back to the engine");
+        engine.sync_finished().expect("should work");
 
         // A and C should have the same URL and tags, and should be valid now.
         // Because the builder methods take a `&mut SyncedBookmarkItem`, and we
@@ -2721,7 +2722,6 @@ mod tests {
 
         let outgoing = fetch_outgoing_records(&db, &interrupt_scope)?;
         let record_for_a = outgoing
-            .changes
             .iter()
             .find(|payload| payload.envelope.id == "bookmarkAAAA")
             .expect("Should reupload A");
@@ -2831,29 +2831,21 @@ mod tests {
         drop(syncer);
         let engine = create_sync_engine(&api);
 
-        let mut incoming = IncomingChangeset::new(engine.collection_name(), ServerTimestamp(0));
-        for record in records {
-            incoming
-                .changes
-                .push(IncomingBso::from_test_content(record));
-        }
+        let incoming = records
+            .into_iter()
+            .map(IncomingBso::from_test_content)
+            .collect();
 
-        let mut outgoing = engine
-            .apply_incoming(vec![incoming], &mut telemetry::Engine::new("bookmarks"))
-            .expect("Should apply incoming and stage outgoing records");
-        outgoing
-            .changes
-            .sort_by(|a, b| a.envelope.id.cmp(&b.envelope.id));
+        let mut outgoing = engine_apply_incoming(&engine, incoming);
+        outgoing.sort_by(|a, b| a.envelope.id.cmp(&b.envelope.id));
         assert_eq!(
             outgoing
-                .changes
                 .iter()
                 .map(|p| p.envelope.id.as_str())
                 .collect::<Vec<_>>(),
             vec!["bookmarkAAAA", "bookmarkBBBB", "unfiled",]
         );
         let record_for_a = outgoing
-            .changes
             .iter()
             .find(|p| p.envelope.id == "bookmarkAAAA")
             .expect("Should upload A");
@@ -2917,7 +2909,7 @@ mod tests {
         assert_eq!(info_for_unfiled._sync_change_counter, 2);
 
         engine
-            .sync_finished(
+            .set_uploaded(
                 ServerTimestamp(0),
                 vec![
                     "bookmarkAAAA".into(),
@@ -2926,6 +2918,7 @@ mod tests {
                 ],
             )
             .expect("Should push synced changes back to the engine");
+        engine.sync_finished().expect("finish always works");
 
         let info_for_a = get_raw_bookmark(&writer, &guid_for_a)
             .expect("Should fetch info for A")
@@ -2982,24 +2975,15 @@ mod tests {
         drop(syncer);
         let engine = create_sync_engine(&api);
 
-        let incoming = IncomingChangeset::new_with_changes(
-            engine.collection_name(),
-            ServerTimestamp(0),
-            records
-                .into_iter()
-                .map(IncomingBso::from_test_content)
-                .collect(),
-        );
+        let incoming = records
+            .into_iter()
+            .map(IncomingBso::from_test_content)
+            .collect();
 
-        let mut outgoing = engine
-            .apply_incoming(vec![incoming], &mut telemetry::Engine::new("bookmarks"))
-            .expect("Should apply incoming and stage outgoing records");
-        outgoing
-            .changes
-            .sort_by(|a, b| a.envelope.id.cmp(&b.envelope.id));
+        let mut outgoing = engine_apply_incoming(&engine, incoming);
+        outgoing.sort_by(|a, b| a.envelope.id.cmp(&b.envelope.id));
         assert_eq!(
             outgoing
-                .changes
                 .iter()
                 .map(|p| p.envelope.id.as_str())
                 .collect::<Vec<_>>(),
@@ -3007,7 +2991,6 @@ mod tests {
         );
 
         let record_for_invalid = outgoing
-            .changes
             .iter()
             .find(|p| p.envelope.id == "bookmarkXXXX")
             .expect("Should re-upload the invalid record");
@@ -3024,7 +3007,6 @@ mod tests {
         );
 
         let record_for_menu = outgoing
-            .changes
             .iter()
             .find(|p| p.envelope.id == "menu")
             .expect("Should upload menu");
@@ -3070,17 +3052,8 @@ mod tests {
         );
         // a first sync, which will populate our mirror.
         let engine = create_sync_engine(&api);
-        let outgoing = engine
-            .apply_incoming(
-                vec![IncomingChangeset::new(
-                    engine.collection_name(),
-                    ServerTimestamp(1000),
-                )],
-                &mut telemetry::Engine::new("bookmarks"),
-            )
-            .expect("should apply");
+        let outgoing = engine_apply_incoming(&engine, vec![]);
         let outgoing_ids = outgoing
-            .changes
             .iter()
             .map(|p| p.envelope.id.clone())
             .collect::<Vec<_>>();
@@ -3088,8 +3061,9 @@ mod tests {
         assert_eq!(outgoing_ids.len(), 8, "{:?}", outgoing_ids);
 
         engine
-            .sync_finished(ServerTimestamp(0), outgoing_ids)
+            .set_uploaded(ServerTimestamp(0), outgoing_ids)
             .expect("should work");
+        engine.sync_finished().expect("should work");
 
         // Now the next sync with incoming tombstones.
         let remote_unfiled = json!({
@@ -3100,31 +3074,25 @@ mod tests {
             "children": [],
         });
 
-        let incoming = IncomingChangeset::new_with_changes(
-            engine.collection_name(),
-            ServerTimestamp(0),
-            vec![
-                IncomingBso::new_test_tombstone(Guid::new("bookmarkAAAA")),
-                IncomingBso::new_test_tombstone(Guid::new("separatorAAA")),
-                IncomingBso::new_test_tombstone(Guid::new("folderAAAAAA")),
-                IncomingBso::new_test_tombstone(Guid::new("bookmarkBBBB")),
-                IncomingBso::from_test_content(remote_unfiled),
-            ],
-        );
+        let incoming = vec![
+            IncomingBso::new_test_tombstone(Guid::new("bookmarkAAAA")),
+            IncomingBso::new_test_tombstone(Guid::new("separatorAAA")),
+            IncomingBso::new_test_tombstone(Guid::new("folderAAAAAA")),
+            IncomingBso::new_test_tombstone(Guid::new("bookmarkBBBB")),
+            IncomingBso::from_test_content(remote_unfiled),
+        ];
 
-        let outgoing = engine
-            .apply_incoming(vec![incoming], &mut telemetry::Engine::new("bookmarks"))
-            .expect("should apply");
+        let outgoing = engine_apply_incoming(&engine, incoming);
         let outgoing_ids = outgoing
-            .changes
             .iter()
             .map(|p| p.envelope.id.clone())
             .collect::<Vec<_>>();
         assert_eq!(outgoing_ids.len(), 0, "{:?}", outgoing_ids);
 
         engine
-            .sync_finished(ServerTimestamp(0), outgoing_ids)
+            .set_uploaded(ServerTimestamp(0), outgoing_ids)
             .expect("should work");
+        engine.sync_finished().expect("should work");
 
         // We deleted everything from unfiled.
         assert_local_json_tree(
@@ -3166,20 +3134,13 @@ mod tests {
 
         let engine = create_sync_engine(&api);
 
-        let incoming = IncomingChangeset::new_with_changes(
-            engine.collection_name(),
-            ServerTimestamp(0),
-            records
-                .into_iter()
-                .map(IncomingBso::from_test_content)
-                .collect(),
-        );
+        let incoming = records
+            .into_iter()
+            .map(IncomingBso::from_test_content)
+            .collect();
 
-        let outgoing = engine
-            .apply_incoming(vec![incoming], &mut telemetry::Engine::new("bookmarks"))
-            .expect("Should apply incoming records");
+        let outgoing = engine_apply_incoming(&engine, incoming);
         let mut outgoing_ids = outgoing
-            .changes
             .iter()
             .map(|p| p.envelope.id.clone())
             .collect::<Vec<_>>();
@@ -3192,8 +3153,9 @@ mod tests {
         );
 
         engine
-            .sync_finished(ServerTimestamp(0), outgoing_ids)
+            .set_uploaded(ServerTimestamp(0), outgoing_ids)
             .expect("Should push synced changes back to the engine");
+        engine.sync_finished().expect("should work");
 
         update_bookmark(
             &writer,
@@ -3205,17 +3167,9 @@ mod tests {
             .into(),
         )?;
 
-        let outgoing = engine
-            .apply_incoming(
-                vec![IncomingChangeset::new(
-                    engine.collection_name(),
-                    ServerTimestamp(1000),
-                )],
-                &mut telemetry::Engine::new("bookmarks"),
-            )
-            .expect("Should fetch outgoing records after making local changes");
-        assert_eq!(outgoing.changes.len(), 1);
-        let bk = outgoing.changes[0].to_test_incoming_t::<BookmarkRecord>();
+        let outgoing = engine_apply_incoming(&engine, vec![]);
+        assert_eq!(outgoing.len(), 1);
+        let bk = outgoing[0].to_test_incoming_t::<BookmarkRecord>();
         assert_eq!(bk.record_id.as_guid(), "bookmarkAAAA");
         assert_eq!(bk.keyword.unwrap(), "a");
         assert_eq!(bk.url.unwrap(), "http://example.com/a/%s");
@@ -3344,22 +3298,16 @@ mod tests {
         }]);
 
         let engine = create_sync_engine(&api);
-        let mut incoming = IncomingChangeset::new(engine.collection_name(), ServerTimestamp(0));
-        if let Value::Array(records) = remote_records {
-            for record in records {
-                incoming
-                    .changes
-                    .push(IncomingBso::from_test_content(record));
-            }
+        let incoming = if let Value::Array(records) = remote_records {
+            records
+                .into_iter()
+                .map(IncomingBso::from_test_content)
+                .collect()
         } else {
             unreachable!("JSON records must be an array");
-        }
-        let mut outgoing = engine
-            .apply_incoming(vec![incoming], &mut telemetry::Engine::new("bookmarks"))
-            .expect("Should apply incoming and stage outgoing records with keywords");
-        outgoing
-            .changes
-            .sort_by(|a, b| a.envelope.id.cmp(&b.envelope.id));
+        };
+        let mut outgoing = engine_apply_incoming(&engine, incoming);
+        outgoing.sort_by(|a, b| a.envelope.id.cmp(&b.envelope.id));
 
         assert_local_json_tree(
             &writer,
@@ -3454,7 +3402,6 @@ mod tests {
         ];
         assert_eq!(
             outgoing
-                .changes
                 .iter()
                 .map(|p| (
                     p.envelope.id.as_str(),
@@ -3468,7 +3415,7 @@ mod tests {
         // Now push the records back to the engine, so we can check what we're
         // uploading.
         engine
-            .sync_finished(
+            .set_uploaded(
                 ServerTimestamp(0),
                 expected_outgoing_keywords
                     .iter()
@@ -3476,6 +3423,7 @@ mod tests {
                     .collect(),
             )
             .expect("Should push synced changes back to the engine");
+        engine.sync_finished().expect("should work");
 
         let mut synced_item_for_b = SyncedBookmarkItem::new();
         synced_item_for_b
@@ -3596,20 +3544,13 @@ mod tests {
 
         let engine = create_sync_engine(&api);
 
-        let incoming = IncomingChangeset::new_with_changes(
-            engine.collection_name(),
-            ServerTimestamp(0),
-            records
-                .into_iter()
-                .map(IncomingBso::from_test_content)
-                .collect(),
-        );
+        let incoming = records
+            .into_iter()
+            .map(IncomingBso::from_test_content)
+            .collect();
 
-        let outgoing = engine
-            .apply_incoming(vec![incoming], &mut telemetry::Engine::new("bookmarks"))
-            .expect("Should apply incoming records");
+        let outgoing = engine_apply_incoming(&engine, incoming);
         let mut outgoing_ids = outgoing
-            .changes
             .iter()
             .map(|p| p.envelope.id.clone())
             .collect::<Vec<_>>();
@@ -3617,8 +3558,9 @@ mod tests {
         assert_eq!(outgoing_ids, &["menu", "mobile", "toolbar", "unfiled"],);
 
         engine
-            .sync_finished(ServerTimestamp(0), outgoing_ids)
+            .set_uploaded(ServerTimestamp(0), outgoing_ids)
             .expect("Should push synced changes back to the engine");
+        engine.sync_finished().expect("should work");
 
         engine.wipe().expect("Should wipe the store");
 
@@ -3661,20 +3603,14 @@ mod tests {
             "bmkUri": "http://example.com/f-remote",
         });
 
-        let incoming = IncomingChangeset::new_with_changes(
-            engine.collection_name(),
+        let incoming = vec![IncomingBso::from_test_content_ts(
+            record_for_f,
             ServerTimestamp(1000),
-            vec![IncomingBso::from_test_content_ts(
-                record_for_f,
-                ServerTimestamp(1000),
-            )],
-        );
+        )];
 
-        let outgoing = engine
-            .apply_incoming(vec![incoming], &mut telemetry::Engine::new("bookmarks"))
-            .expect("Should apply F and stage tombstones for A-E");
+        let outgoing = engine_apply_incoming(&engine, incoming);
         let (outgoing_tombstones, outgoing_records): (Vec<_>, Vec<_>) =
-            outgoing.changes.iter().partition(|record| {
+            outgoing.iter().partition(|record| {
                 matches!(
                     record
                         .to_test_incoming()
@@ -3773,16 +3709,11 @@ mod tests {
                 EngineSyncAssociation::Disconnected
             );
 
-            let incoming = IncomingChangeset::new(engine.collection_name(), ServerTimestamp(1_000));
-            let outgoing =
-                engine.apply_incoming(vec![incoming], &mut telemetry::Engine::new("bookmarks"))?;
-            let synced_ids: Vec<Guid> = outgoing
-                .changes
-                .into_iter()
-                .map(|c| c.envelope.id)
-                .collect();
+            let outgoing = engine_apply_incoming(&engine, vec![]);
+            let synced_ids: Vec<Guid> = outgoing.into_iter().map(|c| c.envelope.id).collect();
             assert_eq!(synced_ids.len(), 5, "should be 4 roots + 1 outgoing item");
-            engine.sync_finished(ServerTimestamp(2_000), synced_ids)?;
+            engine.set_uploaded(ServerTimestamp(2_000), synced_ids)?;
+            engine.sync_finished().expect("should work");
 
             let db = api.get_sync_connection().unwrap();
             let syncer = db.lock();
@@ -3811,16 +3742,11 @@ mod tests {
         {
             let engine = create_sync_engine(&api);
 
-            let incoming = IncomingChangeset::new(engine.collection_name(), ServerTimestamp(1_000));
-            let outgoing =
-                engine.apply_incoming(vec![incoming], &mut telemetry::Engine::new("bookmarks"))?;
-            let synced_ids: Vec<Guid> = outgoing
-                .changes
-                .into_iter()
-                .map(|c| c.envelope.id)
-                .collect();
+            let outgoing = engine_apply_incoming(&engine, vec![]);
+            let synced_ids: Vec<Guid> = outgoing.into_iter().map(|c| c.envelope.id).collect();
             assert_eq!(synced_ids.len(), 5, "should be 4 roots + 1 outgoing item");
-            engine.sync_finished(ServerTimestamp(2_000), synced_ids)?;
+            engine.set_uploaded(ServerTimestamp(2_000), synced_ids)?;
+            engine.sync_finished().expect("should work");
 
             let db = api.get_sync_connection().unwrap();
             let syncer = db.lock();

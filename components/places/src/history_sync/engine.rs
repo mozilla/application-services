@@ -7,14 +7,15 @@ use crate::error::*;
 use crate::storage::history::{delete_everything, history_sync::reset};
 use crate::storage::{get_meta, put_meta};
 use interrupt_support::SqlInterruptScope;
+use std::cell::RefCell;
 use std::sync::Arc;
+use sync15::bso::{IncomingBso, OutgoingBso};
 use sync15::engine::{
-    CollSyncIds, CollectionRequest, EngineSyncAssociation, IncomingChangeset, OutgoingChangeset,
-    RequestOrder, SyncEngine,
+    CollSyncIds, CollectionRequest, EngineSyncAssociation, RequestOrder, SyncEngine,
 };
-use sync15::{telemetry, Guid, ServerTimestamp};
+use sync15::{telemetry, ClientData, Guid, ServerTimestamp};
 
-use super::plan::{apply_plan, finish_plan};
+use super::plan::{apply_plan, finish_plan, get_planned_outgoing};
 use super::MAX_INCOMING_PLACES;
 
 pub const LAST_SYNC_META_KEY: &str = "history_last_sync_time";
@@ -26,20 +27,13 @@ pub const COLLECTION_SYNCID_META_KEY: &str = "history_sync_id";
 fn do_apply_incoming(
     db: &PlacesDb,
     scope: &SqlInterruptScope,
-    inbound: IncomingChangeset,
+    inbound: Vec<IncomingBso>,
     telem: &mut telemetry::Engine,
-) -> Result<OutgoingChangeset> {
-    let timestamp = inbound.timestamp;
-    let outgoing = {
-        let mut incoming_telemetry = telemetry::EngineIncoming::new();
-        let result = apply_plan(db, inbound, &mut incoming_telemetry, scope);
-        telem.incoming(incoming_telemetry);
-        result
-    }?;
-    // write the timestamp now, so if we are interrupted creating outgoing
-    // changesets we don't need to re-reconcile what we just did.
-    put_meta(db, LAST_SYNC_META_KEY, &timestamp.as_millis())?;
-    Ok(outgoing)
+) -> Result<()> {
+    let mut incoming_telemetry = telemetry::EngineIncoming::new();
+    apply_plan(db, inbound, &mut incoming_telemetry, scope)?;
+    telem.incoming(incoming_telemetry);
+    Ok(())
 }
 
 fn do_sync_finished(
@@ -54,6 +48,8 @@ fn do_sync_finished(
     finish_plan(db)?;
 
     // write timestamp to reflect what we just wrote.
+    // XXX - should clean up transactions, but we *are not* in a transaction
+    // here, so this value applies immediately.
     put_meta(db, LAST_SYNC_META_KEY, &new_timestamp.as_millis())?;
 
     db.pragma_update(None, "wal_checkpoint", "PASSIVE")?;
@@ -64,6 +60,9 @@ fn do_sync_finished(
 // Short-lived struct that's constructed each sync
 pub struct HistorySyncEngine {
     pub db: Arc<SharedPlacesDb>,
+    // We should stage these in a temp table! For now though we just hold them
+    // in memory.
+    pub staged_incoming: RefCell<Vec<IncomingBso>>,
     // Public because we use it in the [PlacesApi] sync methods.  We can probably make this private
     // once all syncing goes through the sync manager.
     pub(crate) scope: SqlInterruptScope,
@@ -73,6 +72,7 @@ impl HistorySyncEngine {
     pub fn new(db: Arc<SharedPlacesDb>) -> Result<Self> {
         Ok(Self {
             scope: db.begin_interrupt_scope()?,
+            staged_incoming: RefCell::new(Vec::new()),
             db,
         })
     }
@@ -83,40 +83,60 @@ impl SyncEngine for HistorySyncEngine {
         "history".into()
     }
 
-    fn apply_incoming(
-        &self,
-        inbound: Vec<IncomingChangeset>,
-        telem: &mut telemetry::Engine,
-    ) -> anyhow::Result<OutgoingChangeset> {
-        assert_eq!(inbound.len(), 1, "history only requests one item");
-        let inbound = inbound.into_iter().next().unwrap();
-        let conn = self.db.lock();
-        Ok(do_apply_incoming(&conn, &self.scope, inbound, telem)?)
-    }
-
-    fn sync_finished(
-        &self,
-        new_timestamp: ServerTimestamp,
-        records_synced: Vec<Guid>,
-    ) -> anyhow::Result<()> {
-        do_sync_finished(&self.db.lock(), new_timestamp, records_synced)?;
+    fn prepare_for_sync(&self, _get_client_data: &dyn Fn() -> ClientData) -> anyhow::Result<()> {
+        // should not be necessary because engine lifetimes should be exactly 1 sync, but...
+        (*self.staged_incoming.borrow_mut()).clear();
         Ok(())
     }
 
-    fn get_collection_requests(
+    fn stage_incoming(
+        &self,
+        mut inbound: Vec<IncomingBso>,
+        _telem: &mut telemetry::Engine,
+    ) -> anyhow::Result<()> {
+        self.staged_incoming.borrow_mut().append(&mut inbound);
+        Ok(())
+    }
+
+    fn apply(
+        &self,
+        timestamp: ServerTimestamp,
+        telem: &mut telemetry::Engine,
+    ) -> anyhow::Result<Vec<OutgoingBso>> {
+        let conn = self.db.lock();
+        let inbound = self.staged_incoming.replace(vec![]);
+        do_apply_incoming(&conn, &self.scope, inbound, telem)?;
+        // write the timestamp now, so if we are interrupted creating outgoing
+        // BSOs we don't need to re-reconcile what we just did.
+        put_meta(&conn, LAST_SYNC_META_KEY, &timestamp.as_millis())?;
+        Ok(get_planned_outgoing(&conn)?)
+    }
+
+    fn set_uploaded(&self, new_timestamp: ServerTimestamp, ids: Vec<Guid>) -> anyhow::Result<()> {
+        // XXX - this is WRONG!
+        Ok(do_sync_finished(&self.db.lock(), new_timestamp, ids)?)
+    }
+
+    fn sync_finished(&self) -> anyhow::Result<()> {
+        Ok(())
+    }
+
+    fn get_collection_request(
         &self,
         server_timestamp: ServerTimestamp,
-    ) -> anyhow::Result<Vec<CollectionRequest>> {
+    ) -> anyhow::Result<Option<CollectionRequest>> {
         let conn = self.db.lock();
         let since =
             ServerTimestamp(get_meta::<i64>(&conn, LAST_SYNC_META_KEY)?.unwrap_or_default());
         Ok(if since == server_timestamp {
-            vec![]
+            None
         } else {
-            vec![CollectionRequest::new("history".into())
-                .full()
-                .newer_than(since)
-                .limit(MAX_INCOMING_PLACES, RequestOrder::Newest)]
+            Some(
+                CollectionRequest::new("history".into())
+                    .full()
+                    .newer_than(since)
+                    .limit(MAX_INCOMING_PLACES, RequestOrder::Newest),
+            )
         })
     }
 
