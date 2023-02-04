@@ -13,7 +13,7 @@ use crate::error::Result;
 use interrupt_support::Interruptee;
 use rusqlite::Transaction;
 use sync15::bso::{IncomingBso, IncomingContent, IncomingEnvelope, IncomingKind, OutgoingBso};
-use sync15::engine::OutgoingChangeset;
+use sync15::engine::legacy_engine::OutgoingChangeset;
 use sync15::{CollectionName, ServerTimestamp};
 use sync_guid::Guid;
 use types::Timestamp;

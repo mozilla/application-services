@@ -19,10 +19,10 @@ use sql_support::ConnExt;
 use std::collections::HashSet;
 use std::sync::Arc;
 use sync15::bso::{IncomingBso, OutgoingBso, OutgoingEnvelope};
-use sync15::engine::{
-    CollSyncIds, CollectionRequest, EngineSyncAssociation, IncomingChangeset, OutgoingChangeset,
-    SyncEngine,
+use sync15::engine::legacy_engine::{
+    IncomingChangeset, LegacySyncEngine, LegacySyncEngineState, OutgoingChangeset,
 };
+use sync15::engine::{CollSyncIds, CollectionRequest, EngineSyncAssociation};
 use sync15::{telemetry, ServerTimestamp};
 use sync_guid::Guid;
 
@@ -30,6 +30,7 @@ use sync_guid::Guid;
 pub struct LoginsSyncEngine {
     pub store: Arc<LoginStore>,
     pub scope: SqlInterruptScope,
+    pub legacy_state: LegacySyncEngineState,
     // It's unfortunate this is an Option<>, but tricky to change because sometimes we construct
     // an engine for, say, a `reset()` where this isn't needed or known.
     encdec: Option<EncryptorDecryptor>,
@@ -48,6 +49,7 @@ impl LoginsSyncEngine {
         Ok(Self {
             store,
             scope,
+            legacy_state: LegacySyncEngineState::default(),
             encdec: None,
         })
     }
@@ -436,7 +438,7 @@ impl LoginsSyncEngine {
     }
 }
 
-impl SyncEngine for LoginsSyncEngine {
+impl LegacySyncEngine for LoginsSyncEngine {
     fn collection_name(&self) -> std::borrow::Cow<'static, str> {
         "passwords".into()
     }
@@ -505,6 +507,10 @@ impl SyncEngine for LoginsSyncEngine {
         db.wipe(&self.scope)?;
         Ok(())
     }
+
+    fn get_legacy_engine_state(&self) -> &LegacySyncEngineState {
+        &self.legacy_state
+    }
 }
 
 #[cfg(test)]
@@ -523,9 +529,7 @@ mod tests {
         records: Vec<IncomingBso>,
     ) -> (Vec<SyncLoginData>, telemetry::EngineIncoming) {
         let mut engine = LoginsSyncEngine::new(Arc::new(store)).unwrap();
-        engine
-            .set_local_encryption_key(&TEST_ENCRYPTION_KEY)
-            .unwrap();
+        LegacySyncEngine::set_local_encryption_key(&mut engine, &TEST_ENCRYPTION_KEY).unwrap();
         let mut telem = sync15::telemetry::EngineIncoming::new();
         (
             engine
@@ -537,9 +541,7 @@ mod tests {
 
     fn run_fetch_outgoing(store: LoginStore) -> OutgoingChangeset {
         let mut engine = LoginsSyncEngine::new(Arc::new(store)).unwrap();
-        engine
-            .set_local_encryption_key(&TEST_ENCRYPTION_KEY)
-            .unwrap();
+        LegacySyncEngine::set_local_encryption_key(&mut engine, &TEST_ENCRYPTION_KEY).unwrap();
         engine.fetch_outgoing(&engine.scope).unwrap()
     }
 
@@ -797,9 +799,7 @@ mod tests {
             .id;
 
         let mut engine = LoginsSyncEngine::new(Arc::new(store)).unwrap();
-        engine
-            .set_local_encryption_key(&TEST_ENCRYPTION_KEY)
-            .unwrap();
+        LegacySyncEngine::set_local_encryption_key(&mut engine, &TEST_ENCRYPTION_KEY).unwrap();
 
         let to_find = make_enc_login("test", "test", Some("https://www.example.com".into()), None);
         assert_eq!(
