@@ -18,8 +18,7 @@ use crate::types::{UnknownFields, VisitTransition};
 use interrupt_support::Interruptee;
 use std::collections::HashSet;
 use std::time::{SystemTime, UNIX_EPOCH};
-use sync15::bso::IncomingKind;
-use sync15::engine::{IncomingChangeset, OutgoingChangeset};
+use sync15::bso::{IncomingBso, IncomingKind, OutgoingBso};
 use sync15::telemetry;
 use sync_guid::Guid as SyncGuid;
 use types::Timestamp;
@@ -179,13 +178,13 @@ fn plan_incoming_record(conn: &PlacesDb, record: HistoryRecord, max_visits: usiz
 
 pub fn apply_plan(
     db: &PlacesDb,
-    inbound: IncomingChangeset,
+    inbound: Vec<IncomingBso>,
     telem: &mut telemetry::EngineIncoming,
     interruptee: &impl Interruptee,
-) -> Result<OutgoingChangeset> {
+) -> Result<()> {
     // for a first-cut, let's do this in the most naive way possible...
-    let mut plans: Vec<(SyncGuid, IncomingPlan)> = Vec::with_capacity(inbound.changes.len());
-    for incoming in inbound.changes {
+    let mut plans: Vec<(SyncGuid, IncomingPlan)> = Vec::with_capacity(inbound.len());
+    for incoming in inbound {
         interruptee.err_if_interrupted()?;
         let content = incoming.into_content::<HistoryRecord>();
         let plan = match content.kind {
@@ -266,18 +265,18 @@ pub fn apply_plan(
     // frecency and origin updates.
     delete_pending_temp_tables(db)?;
     tx.commit()?;
+    log::info!("incoming: {}", serde_json::to_string(&telem).unwrap());
+    Ok(())
+}
+
+pub fn get_planned_outgoing(db: &PlacesDb) -> Result<Vec<OutgoingBso>> {
     // It might make sense for fetch_outgoing to manage its own
     // begin_transaction - even though doesn't seem a large bottleneck
     // at this time, the fact we hold a single transaction for the entire call
     // really is used only for performance, so it's certainly a candidate.
     let tx = db.begin_transaction()?;
-    let outgoing = OutgoingChangeset::new(
-        "history".into(),
-        fetch_outgoing(db, MAX_OUTGOING_PLACES, MAX_VISITS)?,
-    );
+    let outgoing = fetch_outgoing(db, MAX_OUTGOING_PLACES, MAX_VISITS)?;
     tx.commit()?;
-
-    log::info!("incoming: {}", serde_json::to_string(&telem).unwrap());
     Ok(outgoing)
 }
 
@@ -305,8 +304,6 @@ mod tests {
     use sql_support::ConnExt;
     use std::time::Duration;
     use sync15::bso::IncomingBso;
-    use sync15::engine::IncomingChangeset;
-    use sync15::ServerTimestamp;
     use types::Timestamp;
     use url::Url;
 
@@ -345,6 +342,17 @@ mod tests {
         guid_result
             .expect("should have worked")
             .expect("should have got values")
+    }
+
+    fn apply_and_get_outgoing(db: &PlacesDb, incoming: Vec<IncomingBso>) -> Vec<OutgoingBso> {
+        apply_plan(
+            db,
+            incoming,
+            &mut telemetry::EngineIncoming::new(),
+            &NeverInterrupts,
+        )
+        .expect("should apply");
+        get_planned_outgoing(db).expect("should get outgoing")
     }
 
     #[test]
@@ -492,35 +500,34 @@ mod tests {
         let url = Url::parse("https://example.com")?;
 
         // 2 incoming records with the same URL.
-        let mut incoming = IncomingChangeset::new("history".into(), ServerTimestamp(0i64));
-        let bso = IncomingBso::from_test_content(json!({
-            "id": guid1,
-            "title": "title",
-            "histUri": url.as_str(),
-            "visits": [ {"date": ServerVisitTimestamp::from(ts1), "type": 1}]
-        }));
-        incoming.changes.push(bso);
+        let incoming = vec![
+            IncomingBso::from_test_content(json!({
+                "id": guid1,
+                "title": "title",
+                "histUri": url.as_str(),
+                "visits": [ {"date": ServerVisitTimestamp::from(ts1), "type": 1}]
+            })),
+            IncomingBso::from_test_content(json!({
+                "id": guid2,
+                "title": "title",
+                "histUri": url.as_str(),
+                "visits": [ {"date": ServerVisitTimestamp::from(ts2), "type": 1}]
+            })),
+            IncomingBso::from_test_content(json!({
+                "id": guid2,
+                "title": "title2",
+                "histUri": url.as_str(),
+                "visits": [ {"date": ServerVisitTimestamp::from(ts2), "type": 1}]
+            })),
+        ];
 
-        let bso2 = IncomingBso::from_test_content(json!({
-            "id": guid2,
-            "title": "title2",
-            "histUri": url.as_str(),
-            "visits": [ {"date": ServerVisitTimestamp::from(ts2), "type": 1}]
-        }));
-        incoming.changes.push(bso2);
-
-        let outgoing = apply_plan(
-            &db,
-            incoming,
-            &mut telemetry::EngineIncoming::new(),
-            &NeverInterrupts,
-        )?;
+        let outgoing = apply_and_get_outgoing(&db, incoming);
         assert_eq!(
-            outgoing.changes.len(),
+            outgoing.len(),
             1,
             "should have guid1 as outgoing with both visits."
         );
-        assert_eq!(outgoing.changes[0].envelope.id, guid1);
+        assert_eq!(outgoing[0].envelope.id, guid1);
 
         // should have 1 URL with both visits locally.
         let (page, visits) = fetch_visits(&db, &url, 3)?.expect("page exists");
@@ -561,31 +568,24 @@ mod tests {
         apply_observation(&db, obs)?;
 
         // 2 incoming records with the same URL.
-        let mut incoming = IncomingChangeset::new("history".into(), ServerTimestamp(0i64));
-        let bso = IncomingBso::from_test_content(json!({
-            "id": guid1,
-            "title": "title",
-            "histUri": url.as_str(),
-            "visits": [ {"date": ServerVisitTimestamp::from(ts1), "type": 1}]
-        }));
-        incoming.changes.push(bso);
+        let incoming = vec![
+            IncomingBso::from_test_content(json!({
+                "id": guid1,
+                "title": "title",
+                "histUri": url.as_str(),
+                "visits": [ {"date": ServerVisitTimestamp::from(ts1), "type": 1}]
+            })),
+            IncomingBso::from_test_content(json!({
+                "id": guid2,
+                "title": "title",
+                "histUri": url.as_str(),
+                "visits": [ {"date": ServerVisitTimestamp::from(ts2), "type": 1}]
+            })),
+        ];
 
-        let bso2 = IncomingBso::from_test_content(json!({
-            "id": guid2,
-            "title": "title",
-            "histUri": url.as_str(),
-            "visits": [ {"date": ServerVisitTimestamp::from(ts2), "type": 1}]
-        }));
-        incoming.changes.push(bso2);
-
-        let outgoing = apply_plan(
-            &db,
-            incoming,
-            &mut telemetry::EngineIncoming::new(),
-            &NeverInterrupts,
-        )?;
-        assert_eq!(outgoing.changes.len(), 1, "should have guid1 as outgoing");
-        assert_eq!(outgoing.changes[0].envelope.id, guid1);
+        let outgoing = apply_and_get_outgoing(&db, incoming);
+        assert_eq!(outgoing.len(), 1, "should have guid1 as outgoing");
+        assert_eq!(outgoing[0].envelope.id, guid1);
 
         // should have 1 URL with all visits locally, but with the first incoming guid.
         let (page, visits) = fetch_visits(&db, &url, 3)?.expect("page exists");
@@ -619,33 +619,26 @@ mod tests {
         apply_observation(&db, obs)?;
 
         // 2 incoming records with the same URL.
-        let mut incoming = IncomingChangeset::new("history".into(), ServerTimestamp(0i64));
-        let bso = IncomingBso::from_test_content(json!({
-            "id": guid1,
-            "title": "title",
-            "histUri": url.as_str(),
-            "visits": [ {"date": ServerVisitTimestamp::from(ts1), "type": 1}]
-        }));
-        incoming.changes.push(bso);
+        let incoming = vec![
+            IncomingBso::from_test_content(json!({
+                "id": guid1,
+                "title": "title",
+                "histUri": url.as_str(),
+                "visits": [ {"date": ServerVisitTimestamp::from(ts1), "type": 1}]
+            })),
+            IncomingBso::from_test_content(json!({
+                "id": guid2,
+                "title": "title",
+                "histUri": url.as_str(),
+                "sortindex": 0,
+                "ttl": 100,
+                "visits": [ {"date": ServerVisitTimestamp::from(ts2), "type": 1}]
+            })),
+        ];
 
-        let bso2 = IncomingBso::from_test_content(json!({
-            "id": guid2,
-            "title": "title",
-            "histUri": url.as_str(),
-            "sortindex": 0,
-            "ttl": 100,
-            "visits": [ {"date": ServerVisitTimestamp::from(ts2), "type": 1}]
-        }));
-        incoming.changes.push(bso2);
-
-        let outgoing = apply_plan(
-            &db,
-            incoming,
-            &mut telemetry::EngineIncoming::new(),
-            &NeverInterrupts,
-        )?;
+        let outgoing = apply_and_get_outgoing(&db, incoming);
         assert_eq!(
-            outgoing.changes.len(),
+            outgoing.len(),
             1,
             "should have guid1 as outgoing with both visits."
         );
@@ -667,17 +660,9 @@ mod tests {
             "histUri": "http://example.com",
             "visits": [ {"date": 15_423_493_234_840_000_000u64, "type": 1}]
         });
-        let mut result = IncomingChangeset::new("history".into(), ServerTimestamp(0i64));
-        result.changes.push(IncomingBso::from_test_content(json));
-
         let db = PlacesDb::open_in_memory(ConnectionType::Sync)?;
-        let outgoing = apply_plan(
-            &db,
-            result,
-            &mut telemetry::EngineIncoming::new(),
-            &NeverInterrupts,
-        )?;
-        assert_eq!(outgoing.changes.len(), 0, "nothing outgoing");
+        let outgoing = apply_and_get_outgoing(&db, vec![IncomingBso::from_test_content(json)]);
+        assert_eq!(outgoing.len(), 0, "nothing outgoing");
 
         let now: Timestamp = SystemTime::now().into();
         let (_page, visits) =
@@ -699,17 +684,9 @@ mod tests {
             "histUri": "http://example.com",
             "visits": [ {"date": -123, "type": 1}]
         });
-        let mut result = IncomingChangeset::new("history".into(), ServerTimestamp(0i64));
-        result.changes.push(IncomingBso::from_test_content(json));
-
         let db = PlacesDb::open_in_memory(ConnectionType::Sync)?;
-        let outgoing = apply_plan(
-            &db,
-            result,
-            &mut telemetry::EngineIncoming::new(),
-            &NeverInterrupts,
-        )?;
-        assert_eq!(outgoing.changes.len(), 0, "should skip the invalid entry");
+        let outgoing = apply_and_get_outgoing(&db, vec![IncomingBso::from_test_content(json)]);
+        assert_eq!(outgoing.len(), 0, "should skip the invalid entry");
         Ok(())
     }
 
@@ -745,16 +722,8 @@ mod tests {
             "histUri": "http://example.com",
             "visits": [ {"date": ServerVisitTimestamp::from(now), "type": 1}]
         });
-        let mut result = IncomingChangeset::new("history".into(), ServerTimestamp(0i64));
-        result.changes.push(IncomingBso::from_test_content(json));
-
         let db = PlacesDb::open_in_memory(ConnectionType::Sync)?;
-        let outgoing = apply_plan(
-            &db,
-            result,
-            &mut telemetry::EngineIncoming::new(),
-            &NeverInterrupts,
-        )?;
+        let outgoing = apply_and_get_outgoing(&db, vec![IncomingBso::from_test_content(json)]);
 
         // should have applied it locally.
         let (page, visits) =
@@ -779,7 +748,7 @@ mod tests {
         assert!(result.frecency > 0, "should have frecency");
 
         // and nothing outgoing.
-        assert_eq!(outgoing.changes.len(), 0);
+        assert_eq!(outgoing.len(), 0);
         Ok(())
     }
 
@@ -794,15 +763,9 @@ mod tests {
             .with_at(Some(now.into()));
         apply_observation(&db, obs)?;
 
-        let incoming = IncomingChangeset::new("history".into(), ServerTimestamp(0i64));
-        let outgoing = apply_plan(
-            &db,
-            incoming,
-            &mut telemetry::EngineIncoming::new(),
-            &NeverInterrupts,
-        )?;
+        let outgoing = apply_and_get_outgoing(&db, vec![]);
 
-        assert_eq!(outgoing.changes.len(), 1);
+        assert_eq!(outgoing.len(), 1);
         Ok(())
     }
 
@@ -831,15 +794,7 @@ mod tests {
             "visits": [ {"date": ServerVisitTimestamp::from(ts), "type": 1}]
         });
 
-        let mut incoming = IncomingChangeset::new("history".into(), ServerTimestamp(0i64));
-        incoming.changes.push(IncomingBso::from_test_content(json));
-
-        apply_plan(
-            &db,
-            incoming,
-            &mut telemetry::EngineIncoming::new(),
-            &NeverInterrupts,
-        )?;
+        apply_and_get_outgoing(&db, vec![IncomingBso::from_test_content(json)]);
 
         // should still have only 1 visit and it should still be local.
         let (_page, visits) = fetch_visits(&db, &url, 2)?.expect("page exists");
@@ -874,23 +829,15 @@ mod tests {
             "visits": [ {"date": ServerVisitTimestamp::from(ts2), "type": 1}]
         });
 
-        let mut incoming = IncomingChangeset::new("history".into(), ServerTimestamp(0i64));
-        incoming.changes.push(IncomingBso::from_test_content(json));
-
-        let outgoing = apply_plan(
-            &db,
-            incoming,
-            &mut telemetry::EngineIncoming::new(),
-            &NeverInterrupts,
-        )?;
+        let outgoing = apply_and_get_outgoing(&db, vec![IncomingBso::from_test_content(json)]);
 
         // should now have both visits locally.
         let (_page, visits) = fetch_visits(&db, &url, 3)?.expect("page exists");
         assert_eq!(visits.len(), 2);
 
         // and the record should still be in outgoing due to our local change.
-        assert_eq!(outgoing.changes.len(), 1);
-        let record = outgoing.changes[0].to_test_incoming_t::<HistoryRecord>();
+        assert_eq!(outgoing.len(), 1);
+        let record = outgoing[0].to_test_incoming_t::<HistoryRecord>();
         assert_eq!(record.id, guid);
         assert_eq!(record.visits.len(), 2, "should have both visits outgoing");
         assert_eq!(
@@ -924,17 +871,8 @@ mod tests {
             "id": guid,
             "deleted": true,
         });
-
-        let mut incoming = IncomingChangeset::new("history".into(), ServerTimestamp(0i64));
-        incoming.changes.push(IncomingBso::from_test_content(json));
-
-        let outgoing = apply_plan(
-            &db,
-            incoming,
-            &mut telemetry::EngineIncoming::new(),
-            &NeverInterrupts,
-        )?;
-        assert_eq!(outgoing.changes.len(), 0, "should be nothing outgoing");
+        let outgoing = apply_and_get_outgoing(&db, vec![IncomingBso::from_test_content(json)]);
+        assert_eq!(outgoing.len(), 0, "should be nothing outgoing");
         assert_eq!(get_tombstone_count(&db), 0, "should be no tombstones");
         Ok(())
     }
@@ -951,12 +889,7 @@ mod tests {
         let guid = get_existing_guid(&db, &url);
 
         // Set the status to normal
-        apply_plan(
-            &db,
-            IncomingChangeset::new("history".into(), ServerTimestamp(0i64)),
-            &mut telemetry::EngineIncoming::new(),
-            &NeverInterrupts,
-        )?;
+        apply_and_get_outgoing(&db, vec![]);
         // It should have changed to normal but still have the initial counter.
         assert_eq!(get_sync(&db, &url), (SyncStatus::Normal, 1));
 
@@ -966,16 +899,8 @@ mod tests {
             "deleted": true,
         });
 
-        let mut incoming = IncomingChangeset::new("history".into(), ServerTimestamp(0i64));
-        incoming.changes.push(IncomingBso::from_test_content(json));
-
-        let outgoing = apply_plan(
-            &db,
-            incoming,
-            &mut telemetry::EngineIncoming::new(),
-            &NeverInterrupts,
-        )?;
-        assert_eq!(outgoing.changes.len(), 0, "should be nothing outgoing");
+        let outgoing = apply_and_get_outgoing(&db, vec![IncomingBso::from_test_content(json)]);
+        assert_eq!(outgoing.len(), 0, "should be nothing outgoing");
         Ok(())
     }
 
@@ -991,12 +916,7 @@ mod tests {
         let guid = get_existing_guid(&db, &url);
 
         // Set the status to normal
-        apply_plan(
-            &db,
-            IncomingChangeset::new("history".into(), ServerTimestamp(0i64)),
-            &mut telemetry::EngineIncoming::new(),
-            &NeverInterrupts,
-        )?;
+        apply_and_get_outgoing(&db, vec![]);
         // It should have changed to normal but still have the initial counter.
         assert_eq!(get_sync(&db, &url), (SyncStatus::Normal, 1));
 
@@ -1006,13 +926,8 @@ mod tests {
         // should be a local tombstone.
         assert_eq!(get_tombstone_count(&db), 1);
 
-        let outgoing = apply_plan(
-            &db,
-            IncomingChangeset::new("history".into(), ServerTimestamp(0i64)),
-            &mut telemetry::EngineIncoming::new(),
-            &NeverInterrupts,
-        )?;
-        assert_eq!(outgoing.changes.len(), 1, "tombstone should be uploaded");
+        let outgoing = apply_and_get_outgoing(&db, vec![]);
+        assert_eq!(outgoing.len(), 1, "tombstone should be uploaded");
         finish_plan(&db)?;
         // tombstone should be removed.
         assert_eq!(get_tombstone_count(&db), 0);

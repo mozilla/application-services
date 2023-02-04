@@ -19,7 +19,7 @@ use crate::types::{SyncStatus, UnknownFields, VisitTransition};
 use interrupt_support::SqlInterruptScope;
 use rusqlite::types::{FromSql, FromSqlResult, ToSql, ToSqlOutput, ValueRef};
 use rusqlite::Result as RusqliteResult;
-use rusqlite::Row;
+use rusqlite::{Connection, Row};
 use serde_derive::*;
 use sql_support::{self, ConnExt};
 use std::fmt;
@@ -357,8 +357,8 @@ pub fn update_all_frecencies_at_once(db: &PlacesDb, scope: &SqlInterruptScope) -
     Ok(())
 }
 
-pub(crate) fn put_meta(db: &PlacesDb, key: &str, value: &dyn ToSql) -> Result<()> {
-    db.execute_cached(
+pub(crate) fn put_meta(conn: &Connection, key: &str, value: &dyn ToSql) -> Result<()> {
+    conn.execute_cached(
         "REPLACE INTO moz_meta (key, value) VALUES (:key, :value)",
         &[(":key", &key as &dyn ToSql), (":value", value)],
     )?;
