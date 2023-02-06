@@ -19,7 +19,6 @@ use crate::storage::{
 };
 use crate::types::{SyncStatus, VisitTransition, VisitTransitionSet};
 use actions::*;
-use error_support::breadcrumb;
 use rusqlite::types::ToSql;
 use rusqlite::Result as RusqliteResult;
 use rusqlite::Row;
@@ -42,12 +41,10 @@ static DELETION_HIGH_WATER_MARK_META_KEY: &str = "history_deleted_hwm";
 
 /// Returns the RowId of a new visit in moz_historyvisits, or None if no new visit was added.
 pub fn apply_observation(db: &PlacesDb, visit_ob: VisitObservation) -> Result<Option<RowId>> {
-    breadcrumb!("apply_observation: begin_transaction");
     let tx = db.begin_transaction()?;
     let result = apply_observation_direct(db, visit_ob)?;
     delete_pending_temp_tables(db)?;
     tx.commit()?;
-    breadcrumb!("apply_observation: commit");
     Ok(result)
 }
 
@@ -360,8 +357,6 @@ fn insert_tombstone_for_page(db: &PlacesDb, guid: &SyncGuid) -> Result<()> {
 /// Deletes a page. Note that this throws a constraint violation if the page is
 /// bookmarked, or has a keyword or tags.
 fn delete_page(db: &PlacesDb, page_id: RowId) -> Result<()> {
-    // breadcrumb to track down #4856
-    breadcrumb!("delete places page: {}", page_id);
     db.execute_cached(
         "DELETE FROM moz_places
          WHERE id = :page_id",
@@ -373,21 +368,17 @@ fn delete_page(db: &PlacesDb, page_id: RowId) -> Result<()> {
 /// Deletes all visits for a page given its GUID, creating tombstones if
 /// necessary.
 pub fn delete_visits_for(db: &PlacesDb, guid: &SyncGuid) -> Result<()> {
-    breadcrumb!("delete_visits_for: begin_transaction");
     let tx = db.begin_transaction()?;
     let result = delete_visits_for_in_tx(db, guid);
     tx.commit()?;
-    breadcrumb!("delete_visits_for: commit");
     result
 }
 
 /// Delete all visits in a date range.
 pub fn delete_visits_between(db: &PlacesDb, start: Timestamp, end: Timestamp) -> Result<()> {
-    breadcrumb!("delete_visits_between: begin_transaction");
     let tx = db.begin_transaction()?;
     delete_visits_between_in_tx(db, start, end)?;
     tx.commit()?;
-    breadcrumb!("delete_visits_between: commit");
     Ok(())
 }
 
@@ -400,11 +391,9 @@ pub fn delete_place_visit_at_time_by_href(
     place: &str,
     visit: Timestamp,
 ) -> Result<()> {
-    breadcrumb!("delete_place_visit_at_time_by_href: begin_transaction");
     let tx = db.begin_transaction()?;
     delete_place_visit_at_time_in_tx(db, place, visit)?;
     tx.commit()?;
-    breadcrumb!("delete_place_visit_at_time_by_href: commit");
     Ok(())
 }
 
@@ -414,7 +403,6 @@ pub fn prune_destructively(db: &PlacesDb) -> Result<()> {
 }
 
 pub fn prune_older_visits(db: &PlacesDb) -> Result<()> {
-    breadcrumb!("prune_older_visits: begin_transaction");
     let tx = db.begin_transaction()?;
     // Prune 6 items at a time, which matches desktops "small limit" value
     let limit: usize = 6;
@@ -424,7 +412,6 @@ pub fn prune_older_visits(db: &PlacesDb) -> Result<()> {
         db_actions_from_visits_to_delete(find_visits_to_prune(db, limit, Timestamp::now())?),
     );
     tx.commit()?;
-    breadcrumb!("prune_older_visits: commit");
     result
 }
 
@@ -504,11 +491,9 @@ fn find_exotic_visits_to_prune(
 }
 
 pub fn wipe_local(db: &PlacesDb) -> Result<()> {
-    breadcrumb!("apply_observation: begin_transaction");
     let tx = db.begin_transaction()?;
     wipe_local_in_tx(db)?;
     tx.commit()?;
-    breadcrumb!("apply_observation: commit");
     // Note: SQLite cannot VACUUM within a transaction.
     db.execute_batch("VACUUM")?;
     Ok(())
@@ -516,8 +501,6 @@ pub fn wipe_local(db: &PlacesDb) -> Result<()> {
 
 fn wipe_local_in_tx(db: &PlacesDb) -> Result<()> {
     use crate::frecency::DEFAULT_FRECENCY_SETTINGS;
-    // breadcrumb to track down #4856
-    breadcrumb!("places: wipe_local_in_tx");
     db.execute_all(&[
         "DELETE FROM moz_places WHERE foreign_count == 0",
         "DELETE FROM moz_places_metadata",
@@ -555,8 +538,6 @@ fn wipe_local_in_tx(db: &PlacesDb) -> Result<()> {
 
 #[allow(unreachable_code)]
 pub fn delete_everything(db: &PlacesDb) -> Result<()> {
-    // breadcrumb to track down #4856
-    breadcrumb!("places history delete_everything: begin transaction");
     let tx = db.begin_transaction()?;
 
     // Remote visits could have a higher date than `now` if our clock is weird.
@@ -580,8 +561,6 @@ pub fn delete_everything(db: &PlacesDb) -> Result<()> {
     reset_in_tx(db, &EngineSyncAssociation::Disconnected)?;
 
     tx.commit()?;
-    // breadcrumb to track down #4856
-    breadcrumb!("places history delete_everything: commit");
 
     // Note: SQLite cannot VACUUM within a transaction.
     db.execute_batch("VACUUM")?;
@@ -711,8 +690,6 @@ impl PageToClean {
 /// are no more foreign keys such as bookmarks) or updating
 /// their frecency.
 fn cleanup_pages(db: &PlacesDb, pages: &[PageToClean]) -> Result<()> {
-    // breadcrumb to track down #4856
-    breadcrumb!("places cleanup_pages()");
     // desktop does this frecency work using a function in a single sql
     // statement - we should see if we can do that too.
     let frec_ids = pages
@@ -1032,8 +1009,6 @@ pub mod history_sync {
     }
 
     pub fn apply_synced_deletion(db: &PlacesDb, guid: &SyncGuid) -> Result<()> {
-        // breadcrumb to track down #4856
-        breadcrumb!("places apply_synced_deletion: {}", guid);
         db.execute_cached(
             "DELETE FROM moz_places WHERE guid = :guid",
             &[(":guid", guid)],
