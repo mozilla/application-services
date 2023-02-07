@@ -42,6 +42,9 @@ interface MerinoSuggestion {
 };
 
 interface MerinoClient {
+    [Name=for_server, Throws=MerinoClientError]
+    constructor(MerinoServer server);
+
     [Throws=MerinoClientError]
     constructor(MerinoClientSettings settings);
 

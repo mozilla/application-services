@@ -92,6 +92,16 @@ impl MerinoClient {
             .map(MerinoSuggestion::from)
             .collect())
     }
+
+    pub fn for_server(server: MerinoServer) -> MerinoClientResult<Self> {
+        Ok(Self {
+            base_url: server.try_into()?,
+            session_duration: Duration::from_secs(5),
+            client_variants: vec![],
+            default_providers: vec![],
+            session_state: Default::default(),
+        })
+    }
 }
 
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -409,6 +419,29 @@ mod tests {
             _ => assert!(false, "Wanted other suggestion; got {:?}", suggestions[0]),
         };
 
+        Ok(())
+    }
+
+    #[test]
+    fn test_merino_server_returns_expected_values() -> MerinoClientResult<()> {
+        viaduct_reqwest::use_reqwest_backend();
+        let m = mock("GET", "/api/v1/suggest")
+            .match_query(Matcher::UrlEncoded("q".into(), "test".into()))
+            .with_status(200)
+            .with_header("Content-Type", "application/json")
+            .with_body(
+                r#"{
+                    "suggestions": []
+                }"#,
+            )
+            .create();
+
+        let client = MerinoClient::for_server(MerinoServer::Custom { url: mockito::server_url() })?;
+        let suggestions = client.fetch("test", None)?;
+        m.expect(1).assert();
+
+        assert_eq!(suggestions.len(), 0);
+        assert_eq!(client.session_duration, Duration::from_secs(5));
         Ok(())
     }
 }
