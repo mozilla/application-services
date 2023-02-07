@@ -36,7 +36,9 @@ impl MerinoClient {
         })
     }
 
-    fn session_params(&self) -> (String, i64) {
+    /// Returns the session ID and sequence number to include in the next
+    /// request to Merino.
+    fn current_session_params(&self) -> (String, i64) {
         let mut state = self.session_state.lock().unwrap();
         if state.started_at.elapsed() >= self.session_duration {
             *state = Default::default();
@@ -52,7 +54,7 @@ impl MerinoClient {
         options: Option<MerinoClientFetchOptions>,
     ) -> MerinoClientResult<Vec<MerinoSuggestion>> {
         let mut endpoint_url = self.base_url.join("/api/v1/suggest")?;
-        let (session_id, sequence_number) = self.session_params();
+        let (session_id, sequence_number) = self.current_session_params();
 
         endpoint_url
             .query_pairs_mut()
