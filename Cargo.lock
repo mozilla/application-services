@@ -1834,7 +1834,6 @@ version = "0.1.0"
 dependencies = [
  "anyhow",
  "error-support",
- "hex",
  "log",
  "mockito",
  "rc_crypto",

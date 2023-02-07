@@ -9,7 +9,6 @@ exclude = ["/android", "/ios"]
 [dependencies]
 anyhow = "1.0"
 error-support = { path = "../support/error" }
-hex = "0.4"
 log = "0.4"
 rc_crypto = { path = "../support/rc_crypto" }
 serde = "1"

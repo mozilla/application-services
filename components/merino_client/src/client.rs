@@ -3,6 +3,7 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
 use std::{
+    fmt::{self, Write},
     sync::{Arc, Mutex},
     time::{Duration, Instant},
 };
@@ -248,13 +249,43 @@ impl Default for SessionState {
 
 impl SessionState {
     fn new() -> Self {
-        let mut session_id_bytes = vec![0u8; 16];
-        rand::fill(&mut session_id_bytes).unwrap();
         Self {
             started_at: Instant::now(),
-            session_id: hex::encode(&session_id_bytes),
+            session_id: generate_session_id(),
             sequence_number: 0,
         }
+    }
+}
+
+fn generate_session_id() -> String {
+    let mut bytes = vec![0u8; 16];
+    rand::fill(&mut bytes).unwrap();
+    bytes[6] = (bytes[6] & 0x0f) | 0x40;
+    bytes[8] = (bytes[8] & 0x3f) | 0x80;
+
+    let mut string = String::with_capacity(36);
+    write!(
+        &mut string,
+        "{}-{}-{}-{}-{}",
+        HexSequence(&bytes[0..4]),
+        HexSequence(&bytes[4..6]),
+        HexSequence(&bytes[6..8]),
+        HexSequence(&bytes[8..10]),
+        HexSequence(&bytes[10..16])
+    )
+    .unwrap();
+
+    return string;
+}
+
+struct HexSequence<'a>(&'a [u8]);
+
+impl fmt::Display for HexSequence<'_> {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        Ok(self
+            .0
+            .iter()
+            .try_for_each(|byte| f.write_fmt(format_args!("{:02x}", byte)))?)
     }
 }
 
