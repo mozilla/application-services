@@ -122,12 +122,12 @@ open class Nimbus(
     // This is currently not available from the main thread.
     // see https://jira.mozilla.com/browse/SDK-191
     @WorkerThread
-    override fun getActiveExperiments(): List<EnrolledExperiment> = withCatchAll {
+    override fun getActiveExperiments(): List<EnrolledExperiment> = withCatchAll("getActiveExperiments") {
         nimbusClient.getActiveExperiments()
     } ?: emptyList()
 
     @WorkerThread
-    override fun getAvailableExperiments(): List<AvailableExperiment> = withCatchAll {
+    override fun getAvailableExperiments(): List<AvailableExperiment> = withCatchAll("getAvailableExperiments") {
         nimbusClient.getAvailableExperiments()
     } ?: emptyList()
 
@@ -143,20 +143,20 @@ open class Nimbus(
             ))
             null
         } catch (e: Throwable) {
-            reportError(e)
+            reportError("getFeatureConfigVariablesJson", e)
             null
         }
 
-    private fun reportError(e: Throwable) =
+    private fun reportError(msg: String, e: Throwable) =
         @Suppress("TooGenericExceptionCaught")
         try {
-            errorReporter("Error in Nimbus Rust", e)
+            errorReporter("Nimbus Rust: $msg", e)
         } catch (e1: Throwable) {
             logger("Exception calling rust: $e")
             logger("Exception reporting the exception: $e1")
         }
 
-    override fun getExperimentBranch(experimentId: String): String? = withCatchAll {
+    override fun getExperimentBranch(experimentId: String): String? = withCatchAll("getExperimentBranch") {
         nimbusClient.getExperimentBranch(experimentId)
     }
 
@@ -170,26 +170,26 @@ open class Nimbus(
         ?: NullVariables.instance
 
     @WorkerThread
-    override fun getExperimentBranches(experimentId: String): List<Branch>? = withCatchAll {
+    override fun getExperimentBranches(experimentId: String): List<Branch>? = withCatchAll("getExperimentBranches") {
         nimbusClient.getExperimentBranches(experimentId)
     }
 
     // Method and apparatus to catch any uncaught exceptions
     @SuppressWarnings("TooGenericExceptionCaught")
-    private fun <R> withCatchAll(thunk: () -> R) =
+    private fun <R> withCatchAll(method: String, thunk: () -> R) =
         try {
             thunk()
         } catch (e: NimbusException.DatabaseNotReady) {
             // NOOP
             null
         } catch (e: Throwable) {
-            reportError(e)
+            reportError(method, e)
             null
         }
 
     @WorkerThread
     @VisibleForTesting(otherwise = VisibleForTesting.PRIVATE)
-    internal fun initializeOnThisThread() = withCatchAll {
+    internal fun initializeOnThisThread() = withCatchAll("initialize") {
         nimbusClient.initialize()
         postEnrolmentCalculation()
     }
@@ -202,7 +202,7 @@ open class Nimbus(
 
     @WorkerThread
     @VisibleForTesting(otherwise = VisibleForTesting.PRIVATE)
-    internal fun fetchExperimentsOnThisThread() = withCatchAll {
+    internal fun fetchExperimentsOnThisThread() = withCatchAll("fetchExperiments") {
         try {
             NimbusHealth.fetchExperimentsTime.measure {
                 nimbusClient.fetchExperiments()
@@ -211,9 +211,9 @@ open class Nimbus(
                 it.onExperimentsFetched()
             }
         } catch (e: NimbusException.RequestException) {
-            errorReporter("Error fetching experiments from endpoint", e)
+            reportError("Error fetching experiments from endpoint", e)
         } catch (e: NimbusException.ResponseException) {
-            errorReporter("Error fetching experiments from endpoint", e)
+            reportError("Error fetching experiments from endpoint", e)
         }
     }
 
@@ -237,7 +237,7 @@ open class Nimbus(
 
     @WorkerThread
     @VisibleForTesting(otherwise = VisibleForTesting.PRIVATE)
-    internal fun applyPendingExperimentsOnThisThread() = withCatchAll {
+    internal fun applyPendingExperimentsOnThisThread() = withCatchAll("applyPendingExperiments") {
         try {
             val events = NimbusHealth.applyPendingExperimentsTime.measure {
                 nimbusClient.applyPendingExperiments()
@@ -246,7 +246,7 @@ open class Nimbus(
             // Get the experiments to record in telemetry
             postEnrolmentCalculation()
         } catch (e: NimbusException.InvalidExperimentFormat) {
-            errorReporter("Invalid experiment format", e)
+            reportError("Invalid experiment format", e)
         }
     }
 
@@ -288,7 +288,7 @@ open class Nimbus(
 
     override fun setExperimentsLocally(@RawRes file: Int) {
         dbScope.launch {
-            withCatchAll {
+            withCatchAll("setExperimentsLocally") {
                 loadRawResource(file)
             }?.let { payload ->
                 setExperimentsLocallyOnThisThread(payload)
@@ -309,13 +309,13 @@ open class Nimbus(
 
     @WorkerThread
     @VisibleForTesting(otherwise = VisibleForTesting.PRIVATE)
-    internal fun setExperimentsLocallyOnThisThread(payload: String) = withCatchAll {
+    internal fun setExperimentsLocallyOnThisThread(payload: String) = withCatchAll("setExperimentsLocally") {
         nimbusClient.setExperimentsLocally(payload)
     }
 
     @WorkerThread
     @VisibleForTesting(otherwise = VisibleForTesting.PRIVATE)
-    internal fun setGlobalUserParticipationOnThisThread(active: Boolean) = withCatchAll {
+    internal fun setGlobalUserParticipationOnThisThread(active: Boolean) = withCatchAll("setGlobalUserParticipation") {
         val enrolmentChanges = nimbusClient.setGlobalUserParticipation(active)
         if (enrolmentChanges.isNotEmpty()) {
             recordExperimentTelemetryEvents(enrolmentChanges)
@@ -325,15 +325,13 @@ open class Nimbus(
 
     override fun optOut(experimentId: String) {
         dbScope.launch {
-            withCatchAll {
-                optOutOnThisThread(experimentId)
-            }
+            optOutOnThisThread(experimentId)
         }
     }
 
     @WorkerThread
     @VisibleForTesting(otherwise = VisibleForTesting.PRIVATE)
-    internal fun optOutOnThisThread(experimentId: String) {
+    internal fun optOutOnThisThread(experimentId: String) = withCatchAll("optOut") {
         nimbusClient.optOut(experimentId).also(::recordExperimentTelemetryEvents)
     }
 
@@ -342,7 +340,7 @@ open class Nimbus(
         // so we just automatically set it to a dummy value.
         val aru = AvailableRandomizationUnits(clientId = null, dummy = 0)
         dbScope.launch {
-            withCatchAll {
+            withCatchAll("resetTelemetryIdentifiers") {
                 nimbusClient.resetTelemetryIdentifiers(aru).also { enrollmentChangeEvents ->
                     recordExperimentTelemetryEvents(enrollmentChangeEvents)
                 }
@@ -352,7 +350,7 @@ open class Nimbus(
 
     override fun optInWithBranch(experimentId: String, branch: String) {
         dbScope.launch {
-            withCatchAll {
+            withCatchAll("optIn") {
                 nimbusClient.optInWithBranch(experimentId, branch).also(::recordExperimentTelemetryEvents)
             }
         }
@@ -449,7 +447,7 @@ open class Nimbus(
     // for a "control" branch) is applied or shown to the user.
     @VisibleForTesting(otherwise = VisibleForTesting.PRIVATE)
     @WorkerThread
-    internal fun recordExposureOnThisThread(featureId: String) = withCatchAll {
+    internal fun recordExposureOnThisThread(featureId: String) = withCatchAll("recordExposure") {
         val activeExperiments = getActiveExperiments()
         activeExperiments.find { it.featureIds.contains(featureId) }?.also { experiment ->
             NimbusEvents.exposure.record(NimbusEvents.ExposureExtra(
