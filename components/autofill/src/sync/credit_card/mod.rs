@@ -27,7 +27,7 @@ pub(crate) fn create_engine(store: Arc<crate::Store>) -> ConfigSyncEngine<Intern
     ConfigSyncEngine::new(
         EngineConfig {
             namespace: "credit_cards".to_string(),
-            collection: "creditcards",
+            collection: "creditcards".into(),
         },
         store,
         Box::new(CreditCardsEngineStorageImpl {}),

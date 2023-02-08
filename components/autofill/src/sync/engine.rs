@@ -14,14 +14,14 @@ use sync15::engine::{
     CollSyncIds, CollectionRequest, EngineSyncAssociation, IncomingChangeset, OutgoingChangeset,
     SyncEngine,
 };
-use sync15::{telemetry, ServerTimestamp};
+use sync15::{telemetry, CollectionName, ServerTimestamp};
 use sync_guid::Guid;
 
 // We have 2 engines in this crate and they are identical except for stuff
 // abstracted here!
 pub struct EngineConfig {
-    pub(crate) namespace: String,        // prefix for meta keys, etc.
-    pub(crate) collection: &'static str, // static collection name on the server.
+    pub(crate) namespace: String,          // prefix for meta keys, etc.
+    pub(crate) collection: CollectionName, // collection name on the server.
 }
 
 // meta keys, will be prefixed by the "namespace"
@@ -88,8 +88,8 @@ impl<T> ConfigSyncEngine<T> {
 
 // We're just an "adaptor" to the sync15 version of an 'engine'
 impl<T: SyncRecord + std::fmt::Debug> SyncEngine for ConfigSyncEngine<T> {
-    fn collection_name(&self) -> std::borrow::Cow<'static, str> {
-        self.config.collection.into()
+    fn collection_name(&self) -> CollectionName {
+        self.config.collection.clone()
     }
 
     fn set_local_encryption_key(&mut self, key: &str) -> anyhow::Result<()> {
@@ -112,7 +112,6 @@ impl<T: SyncRecord + std::fmt::Debug> SyncEngine for ConfigSyncEngine<T> {
 
         // Stage all incoming items.
         let mut incoming_telemetry = telemetry::EngineIncoming::new();
-        let timestamp = inbound.timestamp;
         let num_incoming = inbound.changes.len() as u32;
         let tx = db.writer.unchecked_transaction()?;
         let incoming_impl = self.storage_impl.get_incoming_impl(&self.local_enc_key)?;
@@ -133,16 +132,12 @@ impl<T: SyncRecord + std::fmt::Debug> SyncEngine for ConfigSyncEngine<T> {
         // write the timestamp now, so if we are interrupted merging or
         // creating outgoing changesets we don't need to re-download the same
         // records.
-        self.put_meta(&tx, LAST_SYNC_META_KEY, &timestamp.as_millis())?;
+        self.put_meta(&tx, LAST_SYNC_META_KEY, &inbound.timestamp.as_millis())?;
 
         incoming_impl.finish_incoming(&tx)?;
 
         // Finally, stage outgoing items.
-        let outgoing = outgoing_impl.fetch_outgoing_records(
-            &tx,
-            self.config.collection.to_string(),
-            timestamp,
-        )?;
+        let outgoing = outgoing_impl.fetch_outgoing_records(&tx, self.collection_name())?;
         // we're committing now because it may take a long time to actually perform the upload
         // and we've already staged everything we need to complete the sync in a way that
         // doesn't require the transaction to stay alive, so we commit now and start a new

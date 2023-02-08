@@ -386,7 +386,7 @@ fn main() -> Result<()> {
     let api = PlacesApi::new(db_path)?;
     let db = api.open_connection(ConnectionType::ReadWrite)?;
     // Needed to make the get_registered_sync_engine() calls work.
-    api.register_with_sync_manager();
+    std::sync::Arc::clone(&api).register_with_sync_manager();
 
     ctrlc::set_handler(move || {
         println!("\nCTRL-C detected, enabling shutdown mode\n");

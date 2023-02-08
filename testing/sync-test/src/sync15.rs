@@ -14,12 +14,12 @@ use log::*;
 use serde_derive::*;
 use std::cell::{Cell, RefCell};
 use std::mem;
+use sync15::bso::OutgoingBso;
 use sync15::client::{sync_multiple, MemoryCachedState, Sync15StorageClientInit};
 use sync15::engine::{
     CollectionRequest, EngineSyncAssociation, IncomingChangeset, OutgoingChangeset, SyncEngine,
 };
 use sync15::{telemetry, ServerTimestamp};
-use sync15::bso::OutgoingBso;
 use sync_guid::Guid;
 
 use crate::auth::TestClient;
@@ -79,13 +79,12 @@ impl SyncEngine for TestEngine {
             self.test_records.borrow_mut().push(incoming_record);
         }
 
-        let mut outgoing = OutgoingChangeset::new(self.collection_name(), inbound.timestamp);
-        outgoing.changes = temp
-            .into_iter()
-            .map(OutgoingBso::from_content_with_id)
-            .collect::<Result<_, _>>()?;
-
-        Ok(outgoing)
+        Ok(OutgoingChangeset::new(
+            self.collection_name(),
+            temp.into_iter()
+                .map(OutgoingBso::from_content_with_id)
+                .collect::<Result<_, _>>()?,
+        ))
     }
 
     fn sync_finished(
