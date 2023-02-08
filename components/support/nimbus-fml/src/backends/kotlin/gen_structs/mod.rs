@@ -67,7 +67,7 @@ impl<'a> FeatureManifestDeclaration<'a> {
             .chain(
                 fm.iter_imported_files()
                     .into_iter()
-                    .flat_map(|inner| imports::ImportedModuleInitialization::new(inner).inner.fm
+                    .flat_map(|inner| inner.fm
                         .iter_feature_defs()
                         .flat_map(|feature| feature
                             .props())

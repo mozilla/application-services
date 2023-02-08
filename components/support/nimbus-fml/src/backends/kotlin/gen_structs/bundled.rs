@@ -86,8 +86,8 @@ impl CodeType for TextCodeType {
         }
     }
 
-    fn is_resource_id(&self, _literal: &Literal) -> bool {
-        match _literal {
+    fn is_resource_id(&self, literal: &Literal) -> bool {
+        match literal {
             serde_json::Value::String(v) => {
                 is_resource_id(v)
             }
@@ -187,8 +187,8 @@ impl CodeType for ImageCodeType {
         }
     }
 
-    fn is_resource_id(&self, _literal: &Literal) -> bool {
-        match _literal {
+    fn is_resource_id(&self, literal: &Literal) -> bool {
+        match literal {
             serde_json::Value::String(v) => {
                 is_resource_id(v)
             }
