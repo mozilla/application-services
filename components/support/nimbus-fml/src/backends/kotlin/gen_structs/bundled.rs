@@ -192,7 +192,7 @@ impl CodeType for ImageCodeType {
             serde_json::Value::String(v) => {
                 is_resource_id(v)
             }
-            _ => unreachable!("Expecting a string matching an image/drawable resource"),
+            _ => unreachable!("Expecting a string matching an image resource, with pattern [a-z][a-z0-9_]*"),
         }
     }
 
