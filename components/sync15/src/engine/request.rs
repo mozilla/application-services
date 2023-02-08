@@ -1,11 +1,10 @@
 /* This Source Code Form is subject to the terms of the Mozilla Public
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
-use crate::{Guid, ServerTimestamp};
-use std::borrow::Cow;
+use crate::{CollectionName, Guid, ServerTimestamp};
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct CollectionRequest {
-    pub collection: Cow<'static, str>,
+    pub collection: CollectionName,
     pub full: bool,
     pub ids: Option<Vec<Guid>>,
     pub limit: usize,
@@ -18,12 +17,9 @@ pub struct CollectionRequest {
 
 impl CollectionRequest {
     #[inline]
-    pub fn new<S>(collection: S) -> CollectionRequest
-    where
-        S: Into<Cow<'static, str>>,
-    {
+    pub fn new(collection: CollectionName) -> CollectionRequest {
         CollectionRequest {
-            collection: collection.into(),
+            collection,
             full: false,
             ids: None,
             limit: 0,

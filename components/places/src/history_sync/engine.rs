@@ -113,7 +113,7 @@ impl SyncEngine for HistorySyncEngine {
         Ok(if since == server_timestamp {
             vec![]
         } else {
-            vec![CollectionRequest::new("history")
+            vec![CollectionRequest::new("history".into())
                 .full()
                 .newer_than(since)
                 .limit(MAX_INCOMING_PLACES)]

@@ -14,7 +14,7 @@ use interrupt_support::Interruptee;
 use rusqlite::Transaction;
 use sync15::bso::{IncomingBso, IncomingContent, IncomingEnvelope, IncomingKind, OutgoingBso};
 use sync15::engine::OutgoingChangeset;
-use sync15::ServerTimestamp;
+use sync15::{CollectionName, ServerTimestamp};
 use sync_guid::Guid;
 use types::Timestamp;
 
@@ -99,8 +99,7 @@ pub trait ProcessOutgoingRecordImpl {
     fn fetch_outgoing_records(
         &self,
         tx: &Transaction<'_>,
-        collection_name: String,
-        timestamp: ServerTimestamp,
+        collection_name: CollectionName,
     ) -> anyhow::Result<OutgoingChangeset>;
 
     fn finish_synced_items(

@@ -26,7 +26,7 @@ pub(crate) fn create_engine(store: Arc<crate::Store>) -> ConfigSyncEngine<Intern
     ConfigSyncEngine::new(
         EngineConfig {
             namespace: "addresses".to_string(),
-            collection: "addresses",
+            collection: "addresses".into(),
         },
         store,
         Box::new(AddressesEngineStorageImpl {}),

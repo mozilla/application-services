@@ -22,7 +22,7 @@ use crate::ConnectionType;
 use crate::VisitObservation;
 use crate::VisitTransition;
 use crate::{PlacesApi, PlacesDb};
-use error_support::{handle_error, report_error};
+use error_support::handle_error;
 use interrupt_support::{register_interrupt, SqlInterruptHandle};
 use parking_lot::Mutex;
 use std::sync::{Arc, Weak};
@@ -114,51 +114,11 @@ lazy_static::lazy_static! {
     static ref SYNC_CONNECTIONS: Mutex<Vec<Weak<PlacesConnection>>> = Mutex::new(Vec::new());
 }
 
-fn check_connection_count(conn_type: ConnectionType, conn: &Arc<PlacesConnection>) {
-    match conn_type {
-        ConnectionType::ReadWrite => {
-            check_connection_count_inner(
-                &mut READ_WRITE_CONNECTIONS.lock(),
-                conn,
-                "MultiplePlacesReadWriteConnections",
-            );
-        }
-        ConnectionType::Sync => {
-            check_connection_count_inner(
-                &mut SYNC_CONNECTIONS.lock(),
-                conn,
-                "MultiplePlacesSyncConnections",
-            );
-        }
-        ConnectionType::ReadOnly => {}
-    };
-}
-
-fn check_connection_count_inner(
-    connections: &mut Vec<Weak<PlacesConnection>>,
-    new_connection: &Arc<PlacesConnection>,
-    error_str: &'static str,
-) {
-    let mut i = 0;
-    while i < connections.len() {
-        if Weak::strong_count(&connections[i]) == 0 {
-            connections.swap_remove(i);
-        } else {
-            i += 1;
-        }
-    }
-    connections.push(Arc::downgrade(new_connection));
-    if connections.len() > 1 {
-        error_support::report_error!(error_str, "{} connections", connections.len());
-    }
-}
-
 impl PlacesApi {
     #[handle_error]
     fn new_connection(&self, conn_type: ConnectionType) -> ApiResult<Arc<PlacesConnection>> {
         let db = self.open_connection(conn_type)?;
         let connection = Arc::new(PlacesConnection::new(db));
-        check_connection_count(conn_type, &connection);
         register_interrupt(Arc::<PlacesConnection>::downgrade(&connection));
         Ok(connection)
     }
@@ -448,18 +408,7 @@ impl PlacesConnection {
     // further syncing of older data
     #[handle_error]
     fn delete_everything_history(&self) -> ApiResult<()> {
-        // Do some extra work to track down #4856
-        let conn = self.db.lock();
-        let result = history::delete_everything(&conn);
-        if let Err(e) = &result {
-            if matches!(
-                e,
-                crate::error::Error::SqlError(rusqlite::Error::QueryReturnedNoRows)
-            ) {
-                report_error!("SqlErrorQueryReturnedNoRows", "{}", e);
-            }
-        }
-        result
+        history::delete_everything(&self.db.lock())
     }
 
     // XXX - This just calls wipe_local under the hood...

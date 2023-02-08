@@ -10,7 +10,7 @@ use crate::bso::{IncomingBso, IncomingEncryptedBso, OutgoingBso, OutgoingEncrypt
 use crate::engine::CollectionRequest;
 use crate::error::{self, Error, ErrorResponse};
 use crate::record_types::MetaGlobalRecord;
-use crate::{Guid, ServerTimestamp};
+use crate::{CollectionName, Guid, ServerTimestamp};
 use serde_json::Value;
 use std::str::FromStr;
 use std::sync::atomic::{AtomicU32, Ordering};
@@ -367,15 +367,12 @@ impl Sync15StorageClient {
 
     pub fn new_post_queue<'a, F: PostResponseHandler>(
         &'a self,
-        coll: &str,
+        coll: &'a CollectionName,
         config: &InfoConfiguration,
         ts: ServerTimestamp,
         on_response: F,
     ) -> error::Result<PostQueue<PostWrapper<'a>, F>> {
-        let pw = PostWrapper {
-            client: self,
-            coll: coll.into(),
-        };
+        let pw = PostWrapper { client: self, coll };
         Ok(PostQueue::new(config, ts, pw, on_response))
     }
 
@@ -426,7 +423,7 @@ impl Sync15StorageClient {
 
 pub struct PostWrapper<'a> {
     client: &'a Sync15StorageClient,
-    coll: String,
+    coll: &'a CollectionName,
 }
 
 impl<'a> BatchPoster for PostWrapper<'a> {
@@ -536,11 +533,12 @@ mod test {
         let base = Url::parse("https://example.com/sync").unwrap();
 
         let empty =
-            build_collection_request_url(base.clone(), &CollectionRequest::new("foo")).unwrap();
+            build_collection_request_url(base.clone(), &CollectionRequest::new("foo".into()))
+                .unwrap();
         assert_eq!(empty.as_str(), "https://example.com/sync/storage/foo");
         let batch_start = build_collection_request_url(
             base.clone(),
-            &CollectionRequest::new("bar")
+            &CollectionRequest::new("bar".into())
                 .batch(Some("true".into()))
                 .commit(false),
         )
@@ -551,7 +549,7 @@ mod test {
         );
         let batch_commit = build_collection_request_url(
             base.clone(),
-            &CollectionRequest::new("asdf")
+            &CollectionRequest::new("asdf".into())
                 .batch(Some("1234abc".into()))
                 .commit(true),
         )
@@ -563,7 +561,9 @@ mod test {
 
         let idreq = build_collection_request_url(
             base.clone(),
-            &CollectionRequest::new("wutang").full().ids(&["rza", "gza"]),
+            &CollectionRequest::new("wutang".into())
+                .full()
+                .ids(&["rza", "gza"]),
         )
         .unwrap();
         assert_eq!(
@@ -573,7 +573,7 @@ mod test {
 
         let complex = build_collection_request_url(
             base,
-            &CollectionRequest::new("specific")
+            &CollectionRequest::new("specific".into())
                 .full()
                 .limit(10)
                 .sort_by(RequestOrder::Oldest)
