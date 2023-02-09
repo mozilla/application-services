@@ -4,7 +4,7 @@
 
 use clap::{App, Arg, SubCommand};
 use env_logger::Env;
-use nimbus::TargetingAttributes;
+use nimbus::NimbusTargetingHelper;
 use nimbus::{
     error::Result, AppContext, AvailableRandomizationUnits, EnrollmentStatus, NimbusClient,
     RemoteSettingsConfig,
@@ -290,22 +290,13 @@ fn main() -> Result<()> {
 
             let mut num_tries = 0;
             let aru = AvailableRandomizationUnits::with_client_id(&client_id);
-            let targeting_attributes = TargetingAttributes {
-                app_context: context,
-                ..Default::default()
-            };
             'outer: loop {
                 let uuid = uuid::Uuid::new_v4();
                 let mut num_of_experiments_enrolled = 0;
                 let event_store = nimbus_client.event_store();
+                let th = NimbusTargetingHelper::new(&context, event_store.clone());
                 for exp in &all_experiments {
-                    let enr = nimbus::evaluate_enrollment(
-                        &uuid,
-                        &aru,
-                        &targeting_attributes,
-                        exp,
-                        event_store.clone(),
-                    )?;
+                    let enr = nimbus::evaluate_enrollment(&uuid, &aru, exp, &th)?;
                     if enr.status.is_enrolled() {
                         num_of_experiments_enrolled += 1;
                         if num_of_experiments_enrolled >= num {
@@ -360,14 +351,8 @@ fn main() -> Result<()> {
                 // options.
                 let uuid = uuid::Uuid::new_v4();
                 let aru = AvailableRandomizationUnits::with_client_id(&client_id);
-                let targeting_attributes = context.clone().into();
-                let enrollment = nimbus::evaluate_enrollment(
-                    &uuid,
-                    &aru,
-                    &targeting_attributes,
-                    &exp,
-                    event_store.clone(),
-                )?;
+                let th = NimbusTargetingHelper::new(&context, event_store.clone());
+                let enrollment = nimbus::evaluate_enrollment(&uuid, &aru, &exp, &th)?;
                 let key = match enrollment.status.clone() {
                     EnrollmentStatus::Enrolled { .. } => "Enrolled",
                     EnrollmentStatus::NotEnrolled { .. } => "NotEnrolled",

@@ -1,17 +1,17 @@
-use crate::behavior::EventStore;
-use crate::defaults::Defaults;
 // This Source Code Form is subject to the terms of the Mozilla Public
 // License, v. 2.0. If a copy of the MPL was not distributed with this
 // file, You can obtain one at https://mozilla.org/MPL/2.0/.
+use crate::defaults::Defaults;
 use crate::error::{NimbusError, Result};
-use crate::evaluator::TargetingAttributes;
 use crate::persistence::{Database, StoreId, Writer};
 use crate::{evaluator::evaluate_enrollment, persistence::Readable};
-use crate::{AvailableRandomizationUnits, EnrolledExperiment, Experiment, FeatureConfig};
+use crate::{
+    AvailableRandomizationUnits, EnrolledExperiment, Experiment, FeatureConfig,
+    NimbusTargetingHelper,
+};
 
 use ::uuid::Uuid;
 use serde_derive::*;
-use std::sync::{Arc, Mutex};
 use std::{
     collections::{HashMap, HashSet},
     time::{Duration, SystemTime, UNIX_EPOCH},
@@ -81,9 +81,8 @@ impl ExperimentEnrollment {
         is_user_participating: bool,
         nimbus_id: &Uuid,
         available_randomization_units: &AvailableRandomizationUnits,
-        targeting_attributes: &TargetingAttributes,
         experiment: &Experiment,
-        event_store: Arc<Mutex<EventStore>>,
+        targeting_helper: &NimbusTargetingHelper,
         out_enrollment_events: &mut Vec<EnrollmentChangeEvent>,
     ) -> Result<Self> {
         Ok(if !is_user_participating {
@@ -104,9 +103,8 @@ impl ExperimentEnrollment {
             let enrollment = evaluate_enrollment(
                 nimbus_id,
                 available_randomization_units,
-                targeting_attributes,
                 experiment,
-                event_store,
+                targeting_helper,
             )?;
             log::debug!(
                 "Experiment '{}' is new - enrollment status is {:?}",
@@ -155,9 +153,8 @@ impl ExperimentEnrollment {
         is_user_participating: bool,
         nimbus_id: &Uuid,
         available_randomization_units: &AvailableRandomizationUnits,
-        targeting_attributes: &TargetingAttributes,
         updated_experiment: &Experiment,
-        event_store: Arc<Mutex<EventStore>>,
+        targeting_helper: &NimbusTargetingHelper,
         out_enrollment_events: &mut Vec<EnrollmentChangeEvent>,
     ) -> Result<Self> {
         Ok(match self.status {
@@ -168,9 +165,8 @@ impl ExperimentEnrollment {
                     let updated_enrollment = evaluate_enrollment(
                         nimbus_id,
                         available_randomization_units,
-                        targeting_attributes,
                         updated_experiment,
-                        event_store,
+                        targeting_helper,
                     )?;
                     log::debug!(
                         "Experiment '{}' with enrollment {:?} is now {:?}",
@@ -212,9 +208,8 @@ impl ExperimentEnrollment {
                     let evaluated_enrollment = evaluate_enrollment(
                         nimbus_id,
                         available_randomization_units,
-                        targeting_attributes,
                         updated_experiment,
-                        event_store,
+                        targeting_helper,
                     )?;
                     match evaluated_enrollment.status {
                         EnrollmentStatus::Error { .. } => {
@@ -567,19 +562,19 @@ pub fn get_enrollments<'r>(
 pub(crate) struct EnrollmentsEvolver<'a> {
     nimbus_id: &'a Uuid,
     available_randomization_units: &'a AvailableRandomizationUnits,
-    targeting_attributes: &'a TargetingAttributes,
+    targeting_helper: &'a NimbusTargetingHelper,
 }
 
 impl<'a> EnrollmentsEvolver<'a> {
     pub(crate) fn new(
         nimbus_id: &'a Uuid,
         available_randomization_units: &'a AvailableRandomizationUnits,
-        targeting_attributes: &'a TargetingAttributes,
+        targeting_helper: &'a NimbusTargetingHelper,
     ) -> Self {
         Self {
             nimbus_id,
             available_randomization_units,
-            targeting_attributes,
+            targeting_helper,
         }
     }
 
@@ -590,7 +585,6 @@ impl<'a> EnrollmentsEvolver<'a> {
         db: &Database,
         writer: &mut Writer,
         next_experiments: &[Experiment],
-        event_store: Arc<Mutex<EventStore>>,
     ) -> Result<Vec<EnrollmentChangeEvent>> {
         // Get the state from the db.
         let is_user_participating = get_global_user_participation(db, writer)?;
@@ -604,7 +598,6 @@ impl<'a> EnrollmentsEvolver<'a> {
             &prev_experiments,
             next_experiments,
             &prev_enrollments,
-            event_store,
         )?;
         let next_enrollments = map_enrollments(&next_enrollments);
         // Write the changes to the Database.
@@ -630,7 +623,6 @@ impl<'a> EnrollmentsEvolver<'a> {
         prev_experiments: &[Experiment],
         next_experiments: &[Experiment],
         prev_enrollments: &[ExperimentEnrollment],
-        event_store: Arc<Mutex<EventStore>>,
     ) -> Result<(Vec<ExperimentEnrollment>, Vec<EnrollmentChangeEvent>)> {
         let mut enrollments: Vec<ExperimentEnrollment> = Default::default();
         let mut events: Vec<EnrollmentChangeEvent> = Default::default();
@@ -649,7 +641,6 @@ impl<'a> EnrollmentsEvolver<'a> {
             &prev_rollouts,
             &next_rollouts,
             &ro_enrollments,
-            event_store.clone(),
         )?;
 
         enrollments.extend(next_ro_enrollments.into_iter());
@@ -675,7 +666,6 @@ impl<'a> EnrollmentsEvolver<'a> {
             &prev_experiments,
             &next_experiments,
             &prev_enrollments,
-            event_store,
         )?;
 
         enrollments.extend(next_exp_enrollments.into_iter());
@@ -692,7 +682,6 @@ impl<'a> EnrollmentsEvolver<'a> {
         prev_experiments: &[Experiment],
         next_experiments: &[Experiment],
         prev_enrollments: &[ExperimentEnrollment],
-        event_store: Arc<Mutex<EventStore>>,
     ) -> Result<(Vec<ExperimentEnrollment>, Vec<EnrollmentChangeEvent>)> {
         let mut enrollment_events = vec![];
         let prev_experiments = map_experiments(prev_experiments);
@@ -727,7 +716,6 @@ impl<'a> EnrollmentsEvolver<'a> {
                 prev_experiments.get(slug).copied(),
                 next_experiments.get(slug).copied(),
                 Some(prev_enrollment),
-                event_store.clone(),
                 &mut enrollment_events,
             ) {
                 Ok(enrollment) => enrollment,
@@ -819,7 +807,6 @@ impl<'a> EnrollmentsEvolver<'a> {
                     prev_experiments.get(slug).copied(),
                     Some(next_experiment),
                     prev_enrollment,
-                    event_store.clone(),
                     &mut enrollment_events,
                 ) {
                     Ok(enrollment) => enrollment,
@@ -891,7 +878,6 @@ impl<'a> EnrollmentsEvolver<'a> {
         prev_experiment: Option<&Experiment>,
         next_experiment: Option<&Experiment>,
         prev_enrollment: Option<&ExperimentEnrollment>,
-        event_store: Arc<Mutex<EventStore>>,
         out_enrollment_events: &mut Vec<EnrollmentChangeEvent>, // out param containing the events we'd like to emit to glean.
     ) -> Result<Option<ExperimentEnrollment>> {
         let is_already_enrolled = if let Some(enrollment) = prev_enrollment {
@@ -900,8 +886,9 @@ impl<'a> EnrollmentsEvolver<'a> {
             false
         };
 
-        let mut targeting_attributes = self.targeting_attributes.clone();
-        targeting_attributes.is_already_enrolled = is_already_enrolled;
+        let th = self
+            .targeting_helper
+            .put("is_already_enrolled", is_already_enrolled);
 
         Ok(match (prev_experiment, next_experiment, prev_enrollment) {
             // New experiment.
@@ -909,9 +896,8 @@ impl<'a> EnrollmentsEvolver<'a> {
                 is_user_participating,
                 self.nimbus_id,
                 self.available_randomization_units,
-                &targeting_attributes,
                 experiment,
-                event_store,
+                &th,
                 out_enrollment_events,
             )?),
             // Experiment deleted remotely.
@@ -924,9 +910,8 @@ impl<'a> EnrollmentsEvolver<'a> {
                     is_user_participating,
                     self.nimbus_id,
                     self.available_randomization_units,
-                    &targeting_attributes,
                     experiment,
-                    event_store,
+                    &th,
                     out_enrollment_events,
                 )?)
             }
