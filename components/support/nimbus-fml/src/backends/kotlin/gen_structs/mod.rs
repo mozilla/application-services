@@ -5,11 +5,11 @@
 use askama::Template;
 use std::collections::HashSet;
 
+use crate::intermediate_representation::PropDef;
 use crate::{
     backends::{CodeDeclaration, CodeOracle, CodeType, TypeIdentifier},
     intermediate_representation::{FeatureDef, FeatureManifest, TypeFinder},
 };
-use crate::intermediate_representation::PropDef;
 
 mod bundled;
 mod common;
@@ -62,17 +62,15 @@ impl<'a> FeatureManifestDeclaration<'a> {
         fm.iter_feature_defs()
             .flat_map(|feature| feature.props())
             .chain(
-                fm.iter_object_defs().flat_map(|object| object.props.clone())
+                fm.iter_object_defs()
+                    .flat_map(|object| object.props.clone()),
             )
-            .chain(
-                fm.iter_imported_files()
-                    .into_iter()
-                    .flat_map(|inner| inner.fm
-                        .iter_feature_defs()
-                        .flat_map(|feature| feature
-                            .props())
-                        )
-            )
+            .chain(fm.iter_imported_files().into_iter().flat_map(|inner| {
+                inner
+                    .fm
+                    .iter_feature_defs()
+                    .flat_map(|feature| feature.props())
+            }))
             .collect()
     }
 
@@ -128,9 +126,7 @@ impl<'a> FeatureManifestDeclaration<'a> {
         let include_r: bool = self
             .feature_properties()
             .into_iter()
-            .map(|prop|
-                self.oracle.find(&prop.typ()).is_resource_id(&prop.default)
-            )
+            .map(|prop| self.oracle.find(&prop.typ()).is_resource_id(&prop.default))
             .any(|v| v);
         if include_r {
             imports.push(format!("{}.R", self.fm.about.resource_package_name()))

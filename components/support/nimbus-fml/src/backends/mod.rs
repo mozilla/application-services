@@ -155,10 +155,7 @@ pub trait CodeType {
         literal: &Literal,
     ) -> String;
 
-    fn is_resource_id(
-        &self,
-        _literal: &Literal,
-    ) -> bool {
+    fn is_resource_id(&self, _literal: &Literal) -> bool {
         false
     }
 

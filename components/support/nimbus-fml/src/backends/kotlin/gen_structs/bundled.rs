@@ -88,10 +88,8 @@ impl CodeType for TextCodeType {
 
     fn is_resource_id(&self, literal: &Literal) -> bool {
         match literal {
-            serde_json::Value::String(v) => {
-                is_resource_id(v)
-            }
-            _ => unreachable!("Expecting a string")
+            serde_json::Value::String(v) => is_resource_id(v),
+            _ => unreachable!("Expecting a string"),
         }
     }
 
@@ -189,10 +187,10 @@ impl CodeType for ImageCodeType {
 
     fn is_resource_id(&self, literal: &Literal) -> bool {
         match literal {
-            serde_json::Value::String(v) => {
-                is_resource_id(v)
-            }
-            _ => unreachable!("Expecting a string matching an image resource, with pattern [a-z][a-z0-9_]*"),
+            serde_json::Value::String(v) => is_resource_id(v),
+            _ => unreachable!(
+                "Expecting a string matching an image resource, with pattern [a-z][a-z0-9_]*"
+            ),
         }
     }
 
