@@ -34,10 +34,35 @@
      }
  }
 
- #[handle_error(String)]
- fn func() -> ::std::result::Result<String, ExternalError> {
-     Err(Error{})
- }
+#[handle_error(Error)] // Works.
+fn func() -> ::std::result::Result<String, ExternalError> {
+    Err(Error{})
+}
 
- fn main(){}
- 
+#[handle_error("Error")] // Quoted string instead of a path
+fn func() -> ::std::result::Result<String, ExternalError> {
+    Err(Error{})
+}
+
+#[handle_error(2)] // bad type.
+fn func() -> ::std::result::Result<String, ExternalError> {
+    Err(Error{})
+}
+
+#[handle_error] // No args.
+fn func() -> ::std::result::Result<String, ExternalError> {
+    Err(Error{})
+}
+
+#[handle_error()] // empty args.
+fn func() -> ::std::result::Result<String, ExternalError> {
+    Err(Error{})
+}
+
+#[handle_error(Key="Value")] // unknown args.
+fn func() -> ::std::result::Result<String, ExternalError> {
+    Err(Error{})
+}
+
+
+fn main(){}

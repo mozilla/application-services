@@ -50,7 +50,7 @@ enum MigrationOp {
 }
 
 // migration for consumers to migrate from their SQLCipher DB
-#[handle_error]
+#[handle_error(Error)]
 pub fn migrate_logins(
     path: impl AsRef<Path>,
     new_encryption_key: &str,

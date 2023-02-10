@@ -49,7 +49,7 @@ pub struct Store {
 }
 
 impl Store {
-    #[handle_error]
+    #[handle_error(Error)]
     pub fn new(db_path: impl AsRef<Path>) -> ApiResult<Self> {
         Ok(Self {
             db: Mutex::new(AutofillDb::new(db_path)?),
@@ -65,27 +65,27 @@ impl Store {
     }
 
     /// Creates a store backed by an in-memory database that shares its memory API (required for autofill sync tests).
-    #[handle_error]
+    #[handle_error(Error)]
     pub fn new_shared_memory(db_name: &str) -> ApiResult<Self> {
         Ok(Self {
             db: Mutex::new(AutofillDb::new_memory(db_name)?),
         })
     }
 
-    #[handle_error]
+    #[handle_error(Error)]
     pub fn add_credit_card(&self, fields: UpdatableCreditCardFields) -> ApiResult<CreditCard> {
         let credit_card = credit_cards::add_credit_card(&self.db.lock().unwrap().writer, fields)?;
         Ok(credit_card.into())
     }
 
-    #[handle_error]
+    #[handle_error(Error)]
     pub fn get_credit_card(&self, guid: String) -> ApiResult<CreditCard> {
         let credit_card =
             credit_cards::get_credit_card(&self.db.lock().unwrap().writer, &Guid::new(&guid))?;
         Ok(credit_card.into())
     }
 
-    #[handle_error]
+    #[handle_error(Error)]
     pub fn get_all_credit_cards(&self) -> ApiResult<Vec<CreditCard>> {
         let credit_cards = credit_cards::get_all_credit_cards(&self.db.lock().unwrap().writer)?
             .into_iter()
@@ -94,7 +94,7 @@ impl Store {
         Ok(credit_cards)
     }
 
-    #[handle_error]
+    #[handle_error(Error)]
     pub fn update_credit_card(
         &self,
         guid: String,
@@ -107,27 +107,27 @@ impl Store {
         )
     }
 
-    #[handle_error]
+    #[handle_error(Error)]
     pub fn delete_credit_card(&self, guid: String) -> ApiResult<bool> {
         credit_cards::delete_credit_card(&self.db.lock().unwrap().writer, &Guid::new(&guid))
     }
 
-    #[handle_error]
+    #[handle_error(Error)]
     pub fn touch_credit_card(&self, guid: String) -> ApiResult<()> {
         credit_cards::touch(&self.db.lock().unwrap().writer, &Guid::new(&guid))
     }
 
-    #[handle_error]
+    #[handle_error(Error)]
     pub fn add_address(&self, new_address: UpdatableAddressFields) -> ApiResult<Address> {
         Ok(addresses::add_address(&self.db.lock().unwrap().writer, new_address)?.into())
     }
 
-    #[handle_error]
+    #[handle_error(Error)]
     pub fn get_address(&self, guid: String) -> ApiResult<Address> {
         Ok(addresses::get_address(&self.db.lock().unwrap().writer, &Guid::new(&guid))?.into())
     }
 
-    #[handle_error]
+    #[handle_error(Error)]
     pub fn get_all_addresses(&self) -> ApiResult<Vec<Address>> {
         let addresses = addresses::get_all_addresses(&self.db.lock().unwrap().writer)?
             .into_iter()
@@ -136,22 +136,22 @@ impl Store {
         Ok(addresses)
     }
 
-    #[handle_error]
+    #[handle_error(Error)]
     pub fn update_address(&self, guid: String, address: UpdatableAddressFields) -> ApiResult<()> {
         addresses::update_address(&self.db.lock().unwrap().writer, &Guid::new(&guid), &address)
     }
 
-    #[handle_error]
+    #[handle_error(Error)]
     pub fn delete_address(&self, guid: String) -> ApiResult<bool> {
         addresses::delete_address(&self.db.lock().unwrap().writer, &Guid::new(&guid))
     }
 
-    #[handle_error]
+    #[handle_error(Error)]
     pub fn touch_address(&self, guid: String) -> ApiResult<()> {
         addresses::touch(&self.db.lock().unwrap().writer, &Guid::new(&guid))
     }
 
-    #[handle_error]
+    #[handle_error(Error)]
     pub fn scrub_encrypted_data(self: Arc<Self>) -> ApiResult<()> {
         // scrub the data on disk
         // Currently only credit cards have encrypted data

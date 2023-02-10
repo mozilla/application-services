@@ -1,0 +1,33 @@
+error: Expected #[handle_error(path::to::Error)]
+  --> macro_arguments.rs:42:16
+   |
+42 | #[handle_error("Error")] // Quoted string instead of a path
+   |                ^^^^^^^
+
+error: Expected #[handle_error(path::to::Error)]
+  --> macro_arguments.rs:47:16
+   |
+47 | #[handle_error(2)] // bad type.
+   |                ^
+
+error: Expected #[handle_error(path::to::Error)]
+  --> macro_arguments.rs:52:1
+   |
+52 | #[handle_error] // No args.
+   | ^^^^^^^^^^^^^^^
+   |
+   = note: this error originates in the attribute macro `handle_error` (in Nightly builds, run with -Z macro-backtrace for more info)
+
+error: Expected #[handle_error(path::to::Error)]
+  --> macro_arguments.rs:57:1
+   |
+57 | #[handle_error()] // empty args.
+   | ^^^^^^^^^^^^^^^^^
+   |
+   = note: this error originates in the attribute macro `handle_error` (in Nightly builds, run with -Z macro-backtrace for more info)
+
+error: Expected #[handle_error(path::to::Error)]
+  --> macro_arguments.rs:62:16
+   |
+62 | #[handle_error(Key="Value")] // unknown args.
+   |                ^^^
