@@ -20,6 +20,7 @@ use sql_support::open_database::{self, open_database_with_flags};
 use sql_support::ConnExt;
 use std::cell::RefCell;
 use std::collections::HashMap;
+use std::mem;
 use std::path::{Path, PathBuf};
 use sync15::{RemoteClient, ServerTimestamp};
 pub type TabsDeviceType = crate::DeviceType;
@@ -27,6 +28,8 @@ pub type RemoteTabRecord = RemoteTab;
 
 pub(crate) const TABS_CLIENT_TTL: u32 = 15_552_000; // 180 days, same as CLIENTS_TTL
 const FAR_FUTURE: i64 = 4_102_405_200_000; // 2100/01/01
+const MAX_PAYLOAD_SIZE: usize = 256 * 1024; // Same as Desktop, see service.js or sync15/request.rs
+const MAX_TITLE_CHAR_LENGTH: usize = 512; // A high limit, but also sane
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct RemoteTab {
@@ -146,30 +149,34 @@ impl TabsStorage {
         self.local_tabs.borrow_mut().replace(local_state);
     }
 
+    // We try our best to fit as many tabs in a payload as possible, this includes
+    // limiting the url history entries, title character count and finally drop enough tabs
+    // until we have small enough payload that the server will accept
     pub fn prepare_local_tabs_for_upload(&self) -> Option<Vec<RemoteTab>> {
         if let Some(local_tabs) = self.local_tabs.borrow().as_ref() {
-            return Some(
-                local_tabs
-                    .iter()
-                    .cloned()
-                    .filter_map(|mut tab| {
-                        if tab.url_history.is_empty() || !is_url_syncable(&tab.url_history[0]) {
-                            return None;
+            let mut sanitized_tabs: Vec<RemoteTab> = local_tabs
+                .iter()
+                .cloned()
+                .filter_map(|mut tab| {
+                    if tab.url_history.is_empty() || !is_url_syncable(&tab.url_history[0]) {
+                        return None;
+                    }
+                    let mut sanitized_history = Vec::with_capacity(TAB_ENTRIES_LIMIT);
+                    for url in tab.url_history {
+                        if sanitized_history.len() == TAB_ENTRIES_LIMIT {
+                            break;
                         }
-                        let mut sanitized_history = Vec::with_capacity(TAB_ENTRIES_LIMIT);
-                        for url in tab.url_history {
-                            if sanitized_history.len() == TAB_ENTRIES_LIMIT {
-                                break;
-                            }
-                            if is_url_syncable(&url) {
-                                sanitized_history.push(url);
-                            }
+                        if is_url_syncable(&url) {
+                            sanitized_history.push(url);
                         }
-                        tab.url_history = sanitized_history;
-                        Some(tab)
-                    })
-                    .collect(),
-            );
+                    }
+
+                    tab.url_history = sanitized_history;
+                    tab.title.truncate(MAX_TITLE_CHAR_LENGTH);
+                    Some(tab)
+                })
+                .collect();
+            return trim_tabs_length(&mut sanitized_tabs, MAX_PAYLOAD_SIZE);
         }
         None
     }
@@ -362,6 +369,25 @@ impl TabsStorage {
     }
 }
 
+// Trim the amount of tabs in a list to fit the specified memory size
+fn trim_tabs_length(tabs: &mut Vec<RemoteTab>, memory_limit: usize) -> Option<Vec<RemoteTab>> {
+    let tabs_mem_size = calc_memory_size(tabs);
+    // Don't trim if we're under the limit
+    if tabs_mem_size < memory_limit {
+        return Some(tabs.to_vec());
+    }
+    // Calculate the difference needed to hit the memory payload
+    // then drop any over
+    let difference = tabs_mem_size - memory_limit;
+    let elements_to_remove = difference / mem::size_of::<RemoteTab>();
+    tabs.truncate(tabs.len() - elements_to_remove);
+    Some(tabs.to_vec())
+}
+
+fn calc_memory_size<T>(v: &Vec<T>) -> usize {
+    v.capacity() * std::mem::size_of::<T>() + std::mem::size_of::<Vec<T>>()
+}
+
 // Try to keep in sync with https://searchfox.org/mozilla-central/rev/2ad13433da20a0749e1e9a10ec0ab49b987c2c8e/modules/libpref/init/all.js#3927
 fn is_url_syncable(url: &str) -> bool {
     url.len() <= URI_LENGTH_MAX
@@ -504,6 +530,52 @@ mod tests {
                 },
             ])
         );
+    }
+    #[test]
+    fn test_trimming_tab_title() {
+        let mut storage = TabsStorage::new_with_mem_path("test_prepare_local_tabs_for_upload");
+        assert_eq!(storage.prepare_local_tabs_for_upload(), None);
+        storage.update_local_state(vec![RemoteTab {
+            title: "a".repeat(MAX_TITLE_CHAR_LENGTH + 10), // Fill a string more than max
+            url_history: vec!["https://foo.bar".to_owned()],
+            icon: None,
+            last_used: 0,
+        }]);
+        assert_eq!(
+            storage.prepare_local_tabs_for_upload(),
+            Some(vec![
+                // title trimmed to 50 characters
+                RemoteTab {
+                    title: "a".repeat(MAX_TITLE_CHAR_LENGTH), // title was trimmed to only max char length
+                    url_history: vec!["https://foo.bar".to_owned()],
+                    icon: None,
+                    last_used: 0,
+                },
+            ])
+        );
+    }
+    #[test]
+    fn test_trim_tabs_length() {
+        let mut storage = TabsStorage::new_with_mem_path("test_prepare_local_tabs_for_upload");
+        assert_eq!(storage.prepare_local_tabs_for_upload(), None);
+        let mut too_many_tabs: Vec<RemoteTab> = Vec::new();
+        for n in 1..5000 {
+            too_many_tabs.push(RemoteTab {
+                title: "aaaa aaaa aaaa aaaa aaaa aaaa aaaa aaaa aaaa aaaa" //50 characters
+                    .to_owned(),
+                url_history: vec![format!("https://foo{}.bar", n)],
+                icon: None,
+                last_used: 0,
+            });
+        }
+        let tabs_mem_size = calc_memory_size(&too_many_tabs);
+        // ensure we are definitely over the payload limit
+        assert!(tabs_mem_size > MAX_PAYLOAD_SIZE);
+        // Add our over-the-limit tabs to the local state
+        storage.update_local_state(too_many_tabs.clone());
+        // prepare_local_tabs_for_upload did the trimming we needed to get under payload size
+        let tabs_to_upload = &storage.prepare_local_tabs_for_upload().unwrap();
+        assert!(calc_memory_size(tabs_to_upload) <= MAX_PAYLOAD_SIZE);
     }
     // Helper struct to model what's stored in the DB
     struct TabsSQLRecord {
