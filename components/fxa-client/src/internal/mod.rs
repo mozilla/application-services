@@ -134,6 +134,17 @@ impl FirefoxAccount {
         state_persistence::state_to_json(&self.state)
     }
 
+    /// Merges the current state with an old one
+    /// This helps us do a read-merge-write operation on persisted storage
+    pub fn merge_state(&mut self, other_json: String) {
+        let state = state_persistence::state_from_json(&other_json);
+        if let Ok(state) = state {
+            state_persistence::merge_state(&mut self.state, &state);
+        }
+        // If we couldn't convert the old state to a json, we exit
+        // the corrupted old state will get overwritten
+    }
+
     /// Clear the attached clients and devices cache
     pub fn clear_devices_and_attached_clients_cache(&mut self) {
         self.attached_clients_cache = None;

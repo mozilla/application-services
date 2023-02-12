@@ -305,6 +305,9 @@ class PersistedFirefoxAccount {
             return
         }
         do {
+            if let oldJson = cb.readJson() {
+                self.inner.mergeState(otherJson: oldJson)
+            }
             let json = try toJSON()
             cb.persist(json: json)
         } catch {
@@ -333,4 +336,5 @@ class PersistedFirefoxAccount {
 
 public protocol PersistCallback {
     func persist(json: String)
+    func readJson() -> String?
 }

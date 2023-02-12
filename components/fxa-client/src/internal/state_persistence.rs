@@ -30,7 +30,10 @@
 //! The code that was deleted demonstrates how we can implement the migration
 
 use serde_derive::*;
-use std::collections::{HashMap, HashSet};
+use std::{
+    cmp::max,
+    collections::{HashMap, HashSet},
+};
 
 use super::{
     config::Config,
@@ -63,6 +66,28 @@ pub(crate) fn state_to_json(state: &State) -> Result<String> {
 fn upgrade_state(in_state: PersistedState) -> Result<State> {
     match in_state {
         PersistedState::V2(state) => Ok(state),
+    }
+}
+
+/// Merges the current state with an old one
+/// This helps us do a read-merge-write operation on persisted storage
+///
+/// Before writing state to secure storage, the application will first read the
+/// old state, merge it with the current to-be-written state using this function
+/// then write the resulting merged state to storage again.
+///
+/// # Arguments
+/// - current: a mutable reference to a [`State`]. This would refer to the state of the current
+///     FirefoxAccount struct
+/// - old: an immutable reference to a [`State`]. This is a reference to an older state, that is about to
+///     be overwritten by `current`
+pub(crate) fn merge_state(current: &mut State, old: &State) {
+    // Currently we only merge the last_handled_command
+    current.last_handled_command = match (&current.last_handled_command, &old.last_handled_command)
+    {
+        (Some(index), None) | (None, Some(index)) => Some(*index),
+        (Some(current_index), Some(old_index)) => Some(max(*current_index, *old_index)),
+        _ => None,
     }
 }
 
@@ -169,5 +194,37 @@ mod tests {
             "bed5532f4fea7e39c5c4f609f53603ee7518fd1c103cc4034da3618f786ed188"
         );
         assert_eq!(state.access_token_cache.len(), 0);
+    }
+
+    #[test]
+    fn test_merge_state_favors_current() {
+        let state_v2_json = "{\"schema_version\":\"V2\",\"config\":{\"client_id\":\"98adfa37698f255b\",\"redirect_uri\":\"https://lockbox.firefox.com/fxa/ios-redirect.html\",\"content_url\":\"https://accounts.firefox.com\",\"remote_config\":{\"auth_url\":\"https://api.accounts.firefox.com/\",\"oauth_url\":\"https://oauth.accounts.firefox.com/\",\"profile_url\":\"https://profile.accounts.firefox.com/\",\"token_server_endpoint_url\":\"https://token.services.mozilla.com/1.0/sync/1.5\",\"authorization_endpoint\":\"https://accounts.firefox.com/authorization\",\"issuer\":\"https://accounts.firefox.com\",\"jwks_uri\":\"https://oauth.accounts.firefox.com/v1/jwks\",\"token_endpoint\":\"https://oauth.accounts.firefox.com/v1/token\",\"userinfo_endpoint\":\"https://profile.accounts.firefox.com/v1/profile\"}},\"refresh_token\":{\"token\":\"bed5532f4fea7e39c5c4f609f53603ee7518fd1c103cc4034da3618f786ed188\",\"scopes\":[\"https://identity.mozilla.com/apps/oldysnc\"]},\"scoped_keys\":{\"https://identity.mozilla.com/apps/oldsync\":{\"kty\":\"oct\",\"scope\":\"https://identity.mozilla.com/apps/oldsync\",\"k\":\"kMtwpVC0ZaYFJymPza8rXK_0CgCp3KMwRStwGfBRBDtL6hXRDVJgQFaoOQ2dimw0Bko5WVv2gNTy7RX5zFYZHg\",\"kid\":\"1542236016429-Ox1FbJfFfwTe5t-xq4v2hQ\"}},\"login_state\":{\"Unknown\":null},\"a_new_field\":42}";
+        let mut current_state = state_from_json(&state_v2_json).unwrap();
+        let mut old_state = state_from_json(&state_v2_json).unwrap();
+
+        let current_session_token =
+            "I am the current session token, I should overwrite the old one!";
+        current_state.session_token = Some(current_session_token.to_string());
+        old_state.session_token =
+            Some("I am an old session token, I should be overwritten!".to_string());
+
+        merge_state(&mut current_state, &old_state);
+
+        assert_eq!(current_state.session_token.unwrap(), current_session_token)
+    }
+
+    #[test]
+    fn test_merge_state_last_handled_command_max() {
+        let state_v2_json = "{\"schema_version\":\"V2\",\"config\":{\"client_id\":\"98adfa37698f255b\",\"redirect_uri\":\"https://lockbox.firefox.com/fxa/ios-redirect.html\",\"content_url\":\"https://accounts.firefox.com\",\"remote_config\":{\"auth_url\":\"https://api.accounts.firefox.com/\",\"oauth_url\":\"https://oauth.accounts.firefox.com/\",\"profile_url\":\"https://profile.accounts.firefox.com/\",\"token_server_endpoint_url\":\"https://token.services.mozilla.com/1.0/sync/1.5\",\"authorization_endpoint\":\"https://accounts.firefox.com/authorization\",\"issuer\":\"https://accounts.firefox.com\",\"jwks_uri\":\"https://oauth.accounts.firefox.com/v1/jwks\",\"token_endpoint\":\"https://oauth.accounts.firefox.com/v1/token\",\"userinfo_endpoint\":\"https://profile.accounts.firefox.com/v1/profile\"}},\"refresh_token\":{\"token\":\"bed5532f4fea7e39c5c4f609f53603ee7518fd1c103cc4034da3618f786ed188\",\"scopes\":[\"https://identity.mozilla.com/apps/oldysnc\"]},\"scoped_keys\":{\"https://identity.mozilla.com/apps/oldsync\":{\"kty\":\"oct\",\"scope\":\"https://identity.mozilla.com/apps/oldsync\",\"k\":\"kMtwpVC0ZaYFJymPza8rXK_0CgCp3KMwRStwGfBRBDtL6hXRDVJgQFaoOQ2dimw0Bko5WVv2gNTy7RX5zFYZHg\",\"kid\":\"1542236016429-Ox1FbJfFfwTe5t-xq4v2hQ\"}},\"login_state\":{\"Unknown\":null},\"a_new_field\":42}";
+        let mut current_state = state_from_json(&state_v2_json).unwrap();
+        let mut old_state = state_from_json(&state_v2_json).unwrap();
+
+        current_state.last_handled_command = Some(1);
+        old_state.last_handled_command = Some(2);
+        merge_state(&mut current_state, &old_state);
+
+        // Even though we favor the current state, the older one had a higher
+        // index for a retrieved tab! we should take that value
+        assert_eq!(current_state.last_handled_command.unwrap(), 2);
     }
 }

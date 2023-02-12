@@ -191,6 +191,24 @@ impl FirefoxAccount {
     pub fn to_json(&self) -> Result<String, FxaError> {
         Ok(self.internal.lock().unwrap().to_json()?)
     }
+
+    /// Merges the current state with an old one
+    /// This helps us do a read-merge-write operation on persisted storage
+    ///
+    /// Before writing state to secure storage, the application will first read the
+    /// old state, merge it with the current to-be-written state using this function
+    /// then write the resulting merged state to storage again.
+    ///
+    /// # Arguments
+    /// - other_json: a [`String`], which is a json String representing an old state be overwritten by `current`
+    ///
+    /// # Notes
+    /// - The function is a no-op if the other_json is not a valid json string
+    /// - The function favors the current state, unless the older state has more up to date
+    ///   state, for example, if the old state has a higher index for the last_handled_command
+    pub fn merge_state(&self, old_json: String) {
+        self.internal.lock().unwrap().merge_state(old_json)
+    }
 }
 
 /// # Signing in and out

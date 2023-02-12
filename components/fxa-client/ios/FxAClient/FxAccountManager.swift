@@ -691,6 +691,10 @@ class FxAStatePersistenceCallback: PersistCallback {
     public init(manager: FxAccountManager) {
         self.manager = manager
     }
+    
+    func readJson() -> String? {
+        manager?.accountStorage.readJson()
+    }
 
     func persist(json: String) {
         manager?.accountStorage.write(json)
