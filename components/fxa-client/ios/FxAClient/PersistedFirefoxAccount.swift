@@ -306,7 +306,7 @@ class PersistedFirefoxAccount {
         }
         do {
             if let oldJson = cb.readJson() {
-                self.inner.mergeState(otherJson: oldJson)
+                inner.mergeState(otherJson: oldJson)
             }
             let json = try toJSON()
             cb.persist(json: json)

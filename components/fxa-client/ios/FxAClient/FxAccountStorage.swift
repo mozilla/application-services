@@ -12,7 +12,7 @@ class KeyChainAccountStorage {
     init(keychainAccessGroup: String?) {
         keychainWrapper = MZKeychainWrapper.sharedAppContainerKeychain(keychainAccessGroup: keychainAccessGroup)
     }
-    
+
     func readJson() -> String? {
         // Firefox iOS v25.0 shipped with the default accessibility, which breaks Send Tab when the screen is locked.
         // This method migrates the existing keychains to the correct accessibility.
@@ -20,7 +20,7 @@ class KeyChainAccountStorage {
             KeyChainAccountStorage.accessibility,
             forKey: KeyChainAccountStorage.keychainKey
         )
-        
+
         return keychainWrapper.string(
             forKey: KeyChainAccountStorage.keychainKey,
             withAccessibility: KeyChainAccountStorage.accessibility
