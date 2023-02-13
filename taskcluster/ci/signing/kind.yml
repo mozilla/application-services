@@ -15,7 +15,7 @@ kind-dependencies:
 primary-dependency: module-build
 group-by: component
 
-job-template:
+task-template:
   run-on-tasks-for: [github-release]
   description: 'Sign release module {}'
   worker-type: signing

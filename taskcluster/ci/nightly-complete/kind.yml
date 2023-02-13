@@ -15,7 +15,7 @@ transforms:
   - app_services_taskgraph.transforms.deps_complete:reverse_chunk
   - taskgraph.transforms.task:transforms
 
-jobs:
+tasks:
   deps_complete:
     attributes:
       nightly: nightly-only
