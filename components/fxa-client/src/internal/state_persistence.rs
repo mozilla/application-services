@@ -199,8 +199,8 @@ mod tests {
     #[test]
     fn test_merge_state_favors_current() {
         let state_v2_json = "{\"schema_version\":\"V2\",\"config\":{\"client_id\":\"98adfa37698f255b\",\"redirect_uri\":\"https://lockbox.firefox.com/fxa/ios-redirect.html\",\"content_url\":\"https://accounts.firefox.com\",\"remote_config\":{\"auth_url\":\"https://api.accounts.firefox.com/\",\"oauth_url\":\"https://oauth.accounts.firefox.com/\",\"profile_url\":\"https://profile.accounts.firefox.com/\",\"token_server_endpoint_url\":\"https://token.services.mozilla.com/1.0/sync/1.5\",\"authorization_endpoint\":\"https://accounts.firefox.com/authorization\",\"issuer\":\"https://accounts.firefox.com\",\"jwks_uri\":\"https://oauth.accounts.firefox.com/v1/jwks\",\"token_endpoint\":\"https://oauth.accounts.firefox.com/v1/token\",\"userinfo_endpoint\":\"https://profile.accounts.firefox.com/v1/profile\"}},\"refresh_token\":{\"token\":\"bed5532f4fea7e39c5c4f609f53603ee7518fd1c103cc4034da3618f786ed188\",\"scopes\":[\"https://identity.mozilla.com/apps/oldysnc\"]},\"scoped_keys\":{\"https://identity.mozilla.com/apps/oldsync\":{\"kty\":\"oct\",\"scope\":\"https://identity.mozilla.com/apps/oldsync\",\"k\":\"kMtwpVC0ZaYFJymPza8rXK_0CgCp3KMwRStwGfBRBDtL6hXRDVJgQFaoOQ2dimw0Bko5WVv2gNTy7RX5zFYZHg\",\"kid\":\"1542236016429-Ox1FbJfFfwTe5t-xq4v2hQ\"}},\"login_state\":{\"Unknown\":null},\"a_new_field\":42}";
-        let mut current_state = state_from_json(&state_v2_json).unwrap();
-        let mut old_state = state_from_json(&state_v2_json).unwrap();
+        let mut current_state = state_from_json(state_v2_json).unwrap();
+        let mut old_state = state_from_json(state_v2_json).unwrap();
 
         let current_session_token =
             "I am the current session token, I should overwrite the old one!";
@@ -216,8 +216,8 @@ mod tests {
     #[test]
     fn test_merge_state_last_handled_command_max() {
         let state_v2_json = "{\"schema_version\":\"V2\",\"config\":{\"client_id\":\"98adfa37698f255b\",\"redirect_uri\":\"https://lockbox.firefox.com/fxa/ios-redirect.html\",\"content_url\":\"https://accounts.firefox.com\",\"remote_config\":{\"auth_url\":\"https://api.accounts.firefox.com/\",\"oauth_url\":\"https://oauth.accounts.firefox.com/\",\"profile_url\":\"https://profile.accounts.firefox.com/\",\"token_server_endpoint_url\":\"https://token.services.mozilla.com/1.0/sync/1.5\",\"authorization_endpoint\":\"https://accounts.firefox.com/authorization\",\"issuer\":\"https://accounts.firefox.com\",\"jwks_uri\":\"https://oauth.accounts.firefox.com/v1/jwks\",\"token_endpoint\":\"https://oauth.accounts.firefox.com/v1/token\",\"userinfo_endpoint\":\"https://profile.accounts.firefox.com/v1/profile\"}},\"refresh_token\":{\"token\":\"bed5532f4fea7e39c5c4f609f53603ee7518fd1c103cc4034da3618f786ed188\",\"scopes\":[\"https://identity.mozilla.com/apps/oldysnc\"]},\"scoped_keys\":{\"https://identity.mozilla.com/apps/oldsync\":{\"kty\":\"oct\",\"scope\":\"https://identity.mozilla.com/apps/oldsync\",\"k\":\"kMtwpVC0ZaYFJymPza8rXK_0CgCp3KMwRStwGfBRBDtL6hXRDVJgQFaoOQ2dimw0Bko5WVv2gNTy7RX5zFYZHg\",\"kid\":\"1542236016429-Ox1FbJfFfwTe5t-xq4v2hQ\"}},\"login_state\":{\"Unknown\":null},\"a_new_field\":42}";
-        let mut current_state = state_from_json(&state_v2_json).unwrap();
-        let mut old_state = state_from_json(&state_v2_json).unwrap();
+        let mut current_state = state_from_json(state_v2_json).unwrap();
+        let mut old_state = state_from_json(state_v2_json).unwrap();
 
         current_state.last_handled_command = Some(1);
         old_state.last_handled_command = Some(2);

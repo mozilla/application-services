@@ -28,12 +28,6 @@ class KeyChainAccountStorage {
     }
 
     func read() -> PersistedFirefoxAccount? {
-        // Firefox iOS v25.0 shipped with the default accessibility, which breaks Send Tab when the screen is locked.
-        // This method migrates the existing keychains to the correct accessibility.
-        keychainWrapper.ensureStringItemAccessibility(
-            KeyChainAccountStorage.accessibility,
-            forKey: KeyChainAccountStorage.keychainKey
-        )
         if let json = readJson() {
             do {
                 return try PersistedFirefoxAccount.fromJSON(data: json)

@@ -27,7 +27,7 @@ Use the template below to make assigning a version number during the release cut
 
 ## FxA Client
 ### 🦊 What's Changed 🦊
-  - The FxA Client now attempts to merge values from any old persisted state before writing the new state to persisted storage.([#0000](https://github.com/mozilla/application-services/pull/0000))
+  - The FxA Client now attempts to merge values from any old persisted state before writing the new state to persisted storage.([#5377](https://github.com/mozilla/application-services/pull/5377))
      - Currently only merges the `last_handled_command` index, to ensure the state always reflects the highest last handled command.
      - This is mostly relevant for iOS, since in iOS push notifications are managed
     in a separate process. The main process could then overwrite the persisted state
