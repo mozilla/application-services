@@ -20,11 +20,11 @@ branch_build_schema = Schema({
       'firefox-android',
       'fenix',
   ]),
-  # Name of the task, taken from the key in the jobs dict.  This determines
+  # Name of the task, taken from the key in the tasks dict.  This determines
   # what operation we are going to perform
   Required('name'): In(['build', 'test']),
   # Keys used by taskcluster
-  Optional("job-from"): str,
+  Optional("task-from"): str,
 
 })
 

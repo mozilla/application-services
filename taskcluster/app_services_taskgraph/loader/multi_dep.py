@@ -31,10 +31,10 @@ def loader(kind, path, config, params, loaded_tasks):
     collapsed by platform with `platform`
     Optional ``primary-dependency`` (ordered list or string) is used to determine
     which upstream kind to inherit attrs from. See ``get_primary_dep``.
-    Optional ``job-template`` kind configuration value, if specified, will be used to
+    Optional ``task-template`` kind configuration value, if specified, will be used to
     pass configuration down to the specified transforms used.
     """
-    job_template = config.get('job-template')
+    task_template = config.get('task-template')
 
     for dep_tasks in group_tasks(config, loaded_tasks):
         kinds = [dep.kind for dep in dep_tasks]
@@ -44,12 +44,12 @@ def loader(kind, path, config, params, loaded_tasks):
 
         dep_tasks_per_kind = {dep.kind: dep for dep in dep_tasks}
 
-        job = {'dependent-tasks': dep_tasks_per_kind,
+        task = {'dependent-tasks': dep_tasks_per_kind,
                'primary-dependency': get_primary_dep(config, dep_tasks_per_kind)}
-        if job_template:
-            job.update(copy.deepcopy(job_template))
+        if task_template:
+            task.update(copy.deepcopy(task_template))
 
-        yield job
+        yield task
 
 
 def assert_unique_members(kinds, error_msg=None):

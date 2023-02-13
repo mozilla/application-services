@@ -9,10 +9,10 @@ transforms:
     - taskgraph.transforms.job:transforms
     - taskgraph.transforms.task:transforms
 
-job-defaults:
+task-defaults:
     docker-image: {in-tree: linux}
 
-jobs:
+tasks:
     go-1.14.4:
         description: Golang 1.14.4 build tools
         fetch:
