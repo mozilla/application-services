@@ -35,3 +35,7 @@ pub use crate::observation::*;
 pub use crate::storage::PageInfo;
 pub use crate::storage::RowId;
 pub use crate::types::*;
+
+pub use ffi::*;
+
+uniffi::include_scaffolding!("places");

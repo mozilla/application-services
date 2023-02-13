@@ -54,11 +54,17 @@ pub fn get_registered_sync_engine(engine_id: &SyncEngineId) -> Option<Box<dyn Sy
         Some(places_api) => match create_sync_engine(&places_api, engine_id) {
             Ok(engine) => Some(engine),
             Err(e) => {
-                error_support::report_error!(
-                    "places-no-registered-sync-engine",
-                    "places: get_registered_sync_engine: {}",
-                    e
-                );
+                // Report this to Sentry, except if it's an open database error.  That indicates
+                // that there is a registered sync engine, but the connection is busy so we can't
+                // open it.  This is a known issue that we don't need more reports for (see
+                // https://github.com/mozilla/application-services/issues/5237 for discussion).
+                if !matches!(e, Error::OpenDatabaseError(_)) {
+                    error_support::report_error!(
+                        "places-no-registered-sync-engine",
+                        "places: get_registered_sync_engine: {}",
+                        e
+                    );
+                }
                 None
             }
         },

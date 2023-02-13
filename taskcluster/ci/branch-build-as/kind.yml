@@ -12,6 +12,6 @@ transforms:
   - taskgraph.transforms.job:transforms
   - taskgraph.transforms.task:transforms
 
-jobs:
+tasks:
   build:
     repository: "application-services"

@@ -13,7 +13,7 @@ transforms:
   - taskgraph.transforms.cached_tasks:transforms
   - taskgraph.transforms.task:transforms
 
-job-defaults:
+task-defaults:
   routes:
     by-tasks-for:
       github-push:
@@ -27,7 +27,7 @@ job-defaults:
     docker-image: {in-tree: linux}
     max-run-time: 7200
 
-jobs-from:
+tasks-from:
     - android.yml
     - desktop.yml
     - resourcemonitor.yml

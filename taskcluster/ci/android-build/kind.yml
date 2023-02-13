@@ -2,7 +2,7 @@
 # License, v. 2.0. If a copy of the MPL was not distributed with this
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 
-# ⚠️ If you add, rename or delete a job here, please also update .mergify.yml! ⚠️
+# ⚠️ If you add, rename or delete a task here, please also update .mergify.yml! ⚠️
 ---
 loader: taskgraph.loader.transform:loader
 
@@ -13,7 +13,7 @@ transforms:
 kind-dependencies:
   - toolchain
 
-jobs:
+tasks:
   pr:
     attributes:
       run-on-pr-type: all

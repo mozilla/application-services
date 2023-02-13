@@ -47,7 +47,7 @@ def convert_dependencies(config, tasks):
         task.setdefault("soft-dependencies", [])
         task["soft-dependencies"] += [
             dep_task.label
-            for dep_task in config.kind_dependencies_tasks
+            for dep_task in config.kind_dependencies_tasks.values()
         ]
         yield task
 

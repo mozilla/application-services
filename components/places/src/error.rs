@@ -224,7 +224,7 @@ impl GetErrorHandling for Error {
                 ErrorHandling::convert(PlacesApiError::PlacesConnectionBusy {
                     reason: self.to_string(),
                 })
-                .report_error("places-connection-busy")
+                .log_warning()
             }
             Error::SqlError(rusqlite::Error::SqliteFailure(err, _))
                 if err.code == rusqlite::ErrorCode::OperationInterrupted =>

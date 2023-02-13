@@ -3,7 +3,7 @@
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 
 # XXX: This module defines common functions for loaders. A loader is in
-# charge of taking every task in the kind, applying job-defaults and
+# charge of taking every task in the kind, applying task-defaults and
 # finding what are the right upstream dependencies
 
 

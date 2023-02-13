@@ -155,6 +155,10 @@ pub trait CodeType {
         literal: &Literal,
     ) -> String;
 
+    fn is_resource_id(&self, _literal: &Literal) -> bool {
+        false
+    }
+
     /// Optional helper code to make this type work.
     /// This might include functions to patch a default value with another.
     fn helper_code(&self, _oracle: &dyn CodeOracle) -> Option<String> {
