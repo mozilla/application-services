@@ -55,4 +55,3 @@ pull_request_rules:
       queue:
         method: rebase
         name: default
-        rebase_fallback: none
