@@ -48,9 +48,11 @@ mod argument;
 ///    }
 /// }
 ///
+/// // The `handle_error` macro maps from the error supplied in the mandatory argument
+/// // (ie, `Error` in this example) to the error returned by the function (`ExternalError`
+/// // in this example)
 /// #[handle_error(Error)]
 /// fn do_something() -> std::result::Result<String, ExternalError> {
-///    // The `handle_error` macro maps from `Error` to `ExternalError`
 ///    Err(Error{})
 /// }
 ///

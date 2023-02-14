@@ -58,7 +58,7 @@ fn func4() -> FullyAliasedResult {
 
 mod submodule {
     #[super::handle_error(super::Error)]
-    fn func() -> ::std::result::Result<String, super::ExternalError> {
+    pub(super) fn func() -> ::std::result::Result<String, super::ExternalError> {
         Err(super::Error{})
     }
 }
@@ -69,6 +69,7 @@ fn main() {
         func().unwrap_err(),
         func2().unwrap_err(),
         func3().unwrap_err(),
-        func4().unwrap_err()
+        func4().unwrap_err(),
+        submodule::func().unwrap_err(),
     ];
 }

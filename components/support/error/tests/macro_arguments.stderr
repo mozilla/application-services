@@ -31,3 +31,45 @@ error: Expected #[handle_error(path::to::Error)]
    |
 62 | #[handle_error(Key="Value")] // unknown args.
    |                ^^^
+
+error[E0277]: the trait bound `String: std::error::Error` is not satisfied
+  --> macro_arguments.rs:88:1
+   |
+88 | #[handle_error(Error2)] // Must implement `std::error::Error`
+   | ^^^^^^^^^^^^^^^^^^^^^^^ the trait `std::error::Error` is not implemented for `String`
+   |
+note: required by a bound in `convert_log_report_error`
+  --> $WORKSPACE/components/support/error/src/handling.rs
+   |
+   |     EE: std::error::Error,
+   |         ^^^^^^^^^^^^^^^^^ required by this bound in `convert_log_report_error`
+   = note: this error originates in the attribute macro `handle_error` (in Nightly builds, run with -Z macro-backtrace for more info)
+
+error[E0277]: the trait bound `String: GetErrorHandling` is not satisfied
+   --> macro_arguments.rs:107:1
+    |
+107 | #[handle_error(String)] // Must implement `std::error::Error`
+    | ^^^^^^^^^^^^^^^^^^^^^^^ the trait `GetErrorHandling` is not implemented for `String`
+    |
+    = help: the following other types implement trait `GetErrorHandling`:
+              Error
+              Error2
+note: required by a bound in `convert_log_report_error`
+   --> $WORKSPACE/components/support/error/src/handling.rs
+    |
+    |     IE: GetErrorHandling<ExternalError = EE> + std::error::Error,
+    |         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ required by this bound in `convert_log_report_error`
+    = note: this error originates in the attribute macro `handle_error` (in Nightly builds, run with -Z macro-backtrace for more info)
+
+error[E0277]: the trait bound `String: std::error::Error` is not satisfied
+   --> macro_arguments.rs:107:1
+    |
+107 | #[handle_error(String)] // Must implement `std::error::Error`
+    | ^^^^^^^^^^^^^^^^^^^^^^^ the trait `std::error::Error` is not implemented for `String`
+    |
+note: required by a bound in `convert_log_report_error`
+   --> $WORKSPACE/components/support/error/src/handling.rs
+    |
+    |     IE: GetErrorHandling<ExternalError = EE> + std::error::Error,
+    |                                                ^^^^^^^^^^^^^^^^^ required by this bound in `convert_log_report_error`
+    = note: this error originates in the attribute macro `handle_error` (in Nightly builds, run with -Z macro-backtrace for more info)

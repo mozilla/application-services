@@ -64,5 +64,49 @@ fn func() -> ::std::result::Result<String, ExternalError> {
     Err(Error{})
 }
 
+// When the "external" error doesn't implement `std::error::Error` (eg, we use String) but the
+// "inner" one does.
+#[derive(Debug, thiserror::Error)]
+struct Error2 {
+    string: String,
+}
+
+impl Display for Error2 {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "String Error!")
+    }
+}
+
+impl GetErrorHandling for Error2 {
+    type ExternalError = String;
+
+    fn get_error_handling(&self) -> error_support::ErrorHandling<Self::ExternalError> {
+        ErrorHandling::convert(self.string.clone())
+    }
+}
+
+#[handle_error(Error2)] // Must implement `std::error::Error`
+fn func_error_to_string() -> Result<String, String> {
+    Err(Error2 { string: "oops!".into() })
+}
+
+// When the "external" error does implement `std::error::Error` but the
+// "inner" one does not.
+#[derive(Debug, thiserror::Error)]
+struct ExternalError2 {}
+
+impl Display for ExternalError2 {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "External Error")
+    }
+}
+
+// So we can't even try to `impl GetErrorHandling for String` as String isn't
+// in this crate!
+// So the output complains about *both* that trait missing *and* the lack of `std::error::Error`
+#[handle_error(String)] // Must implement `std::error::Error`
+fn func_string_to_error() -> Result<String, ExternalError2> {
+    Err("oops!".into())
+}
 
 fn main(){}
