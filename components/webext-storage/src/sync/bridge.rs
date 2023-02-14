@@ -2,13 +2,13 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
+use anyhow::Result;
 use rusqlite::Transaction;
 use sync15::bso::IncomingBso;
 use sync15::engine::ApplyResults;
 use sync_guid::Guid as SyncGuid;
 
 use crate::db::{delete_meta, get_meta, put_meta, StorageDb};
-use crate::error::{Error, Result};
 use crate::schema;
 use crate::sync::incoming::{apply_actions, get_incoming, plan_incoming, stage_incoming};
 use crate::sync::outgoing::{get_outgoing, record_uploaded, stage_outgoing};
@@ -41,8 +41,6 @@ impl<'a> BridgedEngine<'a> {
 }
 
 impl<'a> sync15::engine::BridgedEngine for BridgedEngine<'a> {
-    type Error = Error;
-
     fn last_sync(&self) -> Result<i64> {
         Ok(get_meta(self.db, LAST_SYNC_META_KEY)?.unwrap_or(0))
     }
@@ -53,7 +51,7 @@ impl<'a> sync15::engine::BridgedEngine for BridgedEngine<'a> {
     }
 
     fn sync_id(&self) -> Result<Option<String>> {
-        get_meta(self.db, SYNC_ID_META_KEY)
+        Ok(get_meta(self.db, SYNC_ID_META_KEY)?)
     }
 
     fn reset_sync_id(&self) -> Result<String> {
@@ -143,6 +141,12 @@ impl<'a> sync15::engine::BridgedEngine for BridgedEngine<'a> {
         )?;
         tx.commit()?;
         Ok(())
+    }
+}
+
+impl From<anyhow::Error> for crate::error::Error {
+    fn from(value: anyhow::Error) -> Self {
+        crate::error::ErrorKind::SyncError(value.to_string()).into()
     }
 }
 

@@ -9,6 +9,7 @@ license = "MPL-2.0"
 default = []
 
 [dependencies]
+anyhow = "1.0"
 error-support = { path = "../support/error" }
 thiserror = "1.0"
 ffi-support = "0.4"
