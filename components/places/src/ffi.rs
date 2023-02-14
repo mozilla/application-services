@@ -117,7 +117,7 @@ lazy_static::lazy_static! {
 }
 
 impl PlacesApi {
-    #[handle_error]
+    #[handle_error(crate::Error)]
     pub fn new_connection(&self, conn_type: ConnectionType) -> ApiResult<Arc<PlacesConnection>> {
         let db = self.open_connection(conn_type)?;
         let connection = Arc::new(PlacesConnection::new(db));
@@ -128,7 +128,7 @@ impl PlacesApi {
     // NOTE: These methods are unused on Android but will remain needed for
     // iOS until we can move them to the sync manager and replace their existing
     // sync engines with ours
-    #[handle_error]
+    #[handle_error(crate::Error)]
     pub fn history_sync(
         &self,
         key_id: String,
@@ -148,7 +148,7 @@ impl PlacesApi {
         Ok(serde_json::to_string(&ping).unwrap())
     }
 
-    #[handle_error]
+    #[handle_error(crate::Error)]
     pub fn bookmarks_sync(
         &self,
         key_id: String,
@@ -168,7 +168,7 @@ impl PlacesApi {
         Ok(serde_json::to_string(&ping).unwrap())
     }
 
-    #[handle_error]
+    #[handle_error(crate::Error)]
     pub fn bookmarks_reset(&self) -> ApiResult<()> {
         self.reset_bookmarks()?;
         Ok(())
@@ -202,7 +202,7 @@ impl PlacesConnection {
         Arc::clone(&self.interrupt_handle)
     }
 
-    #[handle_error]
+    #[handle_error(crate::Error)]
     pub fn get_latest_history_metadata_for_url(
         &self,
         url: Url,
@@ -210,7 +210,7 @@ impl PlacesConnection {
         self.with_conn(|conn| history_metadata::get_latest_for_url(conn, &url))
     }
 
-    #[handle_error]
+    #[handle_error(crate::Error)]
     pub fn get_history_metadata_between(
         &self,
         start: PlacesTimestamp,
@@ -221,7 +221,7 @@ impl PlacesConnection {
         })
     }
 
-    #[handle_error]
+    #[handle_error(crate::Error)]
     pub fn get_history_metadata_since(
         &self,
         start: PlacesTimestamp,
@@ -229,7 +229,7 @@ impl PlacesConnection {
         self.with_conn(|conn| history_metadata::get_since(conn, start.as_millis_i64()))
     }
 
-    #[handle_error]
+    #[handle_error(crate::Error)]
     pub fn query_history_metadata(
         &self,
         query: String,
@@ -238,7 +238,7 @@ impl PlacesConnection {
         self.with_conn(|conn| history_metadata::query(conn, query.as_str(), limit))
     }
 
-    #[handle_error]
+    #[handle_error(crate::Error)]
     pub fn get_history_highlights(
         &self,
         weights: HistoryHighlightWeights,
@@ -247,7 +247,7 @@ impl PlacesConnection {
         self.with_conn(|conn| history_metadata::get_highlights(conn, weights, limit))
     }
 
-    #[handle_error]
+    #[handle_error(crate::Error)]
     pub fn note_history_metadata_observation(
         &self,
         data: HistoryMetadataObservation,
@@ -256,12 +256,12 @@ impl PlacesConnection {
         self.with_conn(|conn| history_metadata::apply_metadata_observation(conn, data))
     }
 
-    #[handle_error]
+    #[handle_error(crate::Error)]
     pub fn metadata_delete_older_than(&self, older_than: PlacesTimestamp) -> ApiResult<()> {
         self.with_conn(|conn| history_metadata::delete_older_than(conn, older_than.as_millis_i64()))
     }
 
-    #[handle_error]
+    #[handle_error(crate::Error)]
     pub fn metadata_delete(
         &self,
         url: Url,
@@ -279,13 +279,13 @@ impl PlacesConnection {
     }
 
     /// Add an observation to the database.
-    #[handle_error]
+    #[handle_error(crate::Error)]
     pub fn apply_observation(&self, visit: VisitObservation) -> ApiResult<()> {
         self.with_conn(|conn| history::apply_observation(conn, visit))?;
         Ok(())
     }
 
-    #[handle_error]
+    #[handle_error(crate::Error)]
     pub fn get_visited_urls_in_range(
         &self,
         start: PlacesTimestamp,
@@ -302,7 +302,7 @@ impl PlacesConnection {
         })
     }
 
-    #[handle_error]
+    #[handle_error(crate::Error)]
     pub fn get_visit_infos(
         &self,
         start_date: PlacesTimestamp,
@@ -312,12 +312,12 @@ impl PlacesConnection {
         self.with_conn(|conn| history::get_visit_infos(conn, start_date, end_date, exclude_types))
     }
 
-    #[handle_error]
+    #[handle_error(crate::Error)]
     pub fn get_visit_count(&self, exclude_types: VisitTransitionSet) -> ApiResult<i64> {
         self.with_conn(|conn| history::get_visit_count(conn, exclude_types))
     }
 
-    #[handle_error]
+    #[handle_error(crate::Error)]
     pub fn get_visit_page(
         &self,
         offset: i64,
@@ -327,7 +327,7 @@ impl PlacesConnection {
         self.with_conn(|conn| history::get_visit_page(conn, offset, count, exclude_types))
     }
 
-    #[handle_error]
+    #[handle_error(crate::Error)]
     pub fn get_visit_page_with_bound(
         &self,
         bound: i64,
@@ -343,7 +343,7 @@ impl PlacesConnection {
     // This is identical to get_visited in history.rs but takes a list of strings instead of urls
     // This is necessary b/c we still need to return 'false' for bad URLs which prevents us from
     // parsing/filtering them before reaching the history layer
-    #[handle_error]
+    #[handle_error(crate::Error)]
     pub fn get_visited(&self, urls: Vec<String>) -> ApiResult<Vec<bool>> {
         let iter = urls.into_iter();
         let mut result = vec![false; iter.len()];
@@ -355,7 +355,7 @@ impl PlacesConnection {
         Ok(result)
     }
 
-    #[handle_error]
+    #[handle_error(crate::Error)]
     pub fn delete_visits_for(&self, url: String) -> ApiResult<()> {
         self.with_conn(|conn| {
             let guid = match Url::parse(&url) {
@@ -372,7 +372,7 @@ impl PlacesConnection {
         })
     }
 
-    #[handle_error]
+    #[handle_error(crate::Error)]
     pub fn delete_visits_between(
         &self,
         start: PlacesTimestamp,
@@ -381,7 +381,7 @@ impl PlacesConnection {
         self.with_conn(|conn| history::delete_visits_between(conn, start, end))
     }
 
-    #[handle_error]
+    #[handle_error(crate::Error)]
     pub fn delete_visit(&self, url: String, timestamp: PlacesTimestamp) -> ApiResult<()> {
         self.with_conn(|conn| {
             match Url::parse(&url) {
@@ -397,7 +397,7 @@ impl PlacesConnection {
         })
     }
 
-    #[handle_error]
+    #[handle_error(crate::Error)]
     pub fn get_top_frecent_site_infos(
         &self,
         num_items: i32,
@@ -414,7 +414,7 @@ impl PlacesConnection {
 
     // XXX - We probably need to document/name this a little better as it's specifically for
     // history and NOT bookmarks...
-    #[handle_error]
+    #[handle_error(crate::Error)]
     pub fn wipe_local_history(&self) -> ApiResult<()> {
         self.with_conn(history::wipe_local)
     }
@@ -422,39 +422,39 @@ impl PlacesConnection {
     // Calls wipe_local_history but also updates the
     // sync metadata to only sync after most recent visit to prevent
     // further syncing of older data
-    #[handle_error]
+    #[handle_error(crate::Error)]
     pub fn delete_everything_history(&self) -> ApiResult<()> {
         history::delete_everything(&self.db.lock())
     }
 
     // XXX - This just calls wipe_local under the hood...
     // should probably have this go away?
-    #[handle_error]
+    #[handle_error(crate::Error)]
     pub fn prune_destructively(&self) -> ApiResult<()> {
         self.with_conn(history::prune_destructively)
     }
 
-    #[handle_error]
+    #[handle_error(crate::Error)]
     pub fn run_maintenance_prune(&self, db_size_limit: u32) -> ApiResult<RunMaintenanceMetrics> {
         self.with_conn(|conn| storage::run_maintenance_prune(conn, db_size_limit))
     }
 
-    #[handle_error]
+    #[handle_error(crate::Error)]
     pub fn run_maintenance_vacuum(&self) -> ApiResult<()> {
         self.with_conn(storage::run_maintenance_vacuum)
     }
 
-    #[handle_error]
+    #[handle_error(crate::Error)]
     pub fn run_maintenance_optimize(&self) -> ApiResult<()> {
         self.with_conn(storage::run_maintenance_optimize)
     }
 
-    #[handle_error]
+    #[handle_error(crate::Error)]
     pub fn run_maintenance_checkpoint(&self) -> ApiResult<()> {
         self.with_conn(storage::run_maintenance_checkpoint)
     }
 
-    #[handle_error]
+    #[handle_error(crate::Error)]
     pub fn query_autocomplete(&self, search: String, limit: i32) -> ApiResult<Vec<SearchResult>> {
         self.with_conn(|conn| {
             search_frecent(
@@ -468,7 +468,7 @@ impl PlacesConnection {
         })
     }
 
-    #[handle_error]
+    #[handle_error(crate::Error)]
     pub fn accept_result(&self, search_string: String, url: String) -> ApiResult<()> {
         self.with_conn(|conn| {
             match Url::parse(&url) {
@@ -484,17 +484,17 @@ impl PlacesConnection {
         })
     }
 
-    #[handle_error]
+    #[handle_error(crate::Error)]
     pub fn match_url(&self, query: String) -> ApiResult<Option<Url>> {
         self.with_conn(|conn| matcher::match_url(conn, query))
     }
 
-    #[handle_error]
+    #[handle_error(crate::Error)]
     pub fn bookmarks_get_tree(&self, item_guid: &Guid) -> ApiResult<Option<BookmarkItem>> {
         self.with_conn(|conn| bookmarks::fetch::fetch_tree(conn, item_guid))
     }
 
-    #[handle_error]
+    #[handle_error(crate::Error)]
     pub fn bookmarks_get_by_guid(
         &self,
         guid: &Guid,
@@ -506,7 +506,7 @@ impl PlacesConnection {
         })
     }
 
-    #[handle_error]
+    #[handle_error(crate::Error)]
     pub fn bookmarks_get_all_with_url(&self, url: String) -> ApiResult<Vec<BookmarkItem>> {
         self.with_conn(|conn| {
             // XXX - We should return the exact type - ie, BookmarkData rather than BookmarkItem.
@@ -524,7 +524,7 @@ impl PlacesConnection {
         })
     }
 
-    #[handle_error]
+    #[handle_error(crate::Error)]
     pub fn bookmarks_search(&self, query: String, limit: i32) -> ApiResult<Vec<BookmarkItem>> {
         self.with_conn(|conn| {
             // XXX - We should return the exact type - ie, BookmarkData rather than BookmarkItem.
@@ -537,7 +537,7 @@ impl PlacesConnection {
         })
     }
 
-    #[handle_error]
+    #[handle_error(crate::Error)]
     pub fn bookmarks_get_recent(&self, limit: i32) -> ApiResult<Vec<BookmarkItem>> {
         self.with_conn(|conn| {
             // XXX - We should return the exact type - ie, BookmarkData rather than BookmarkItem.
@@ -548,32 +548,32 @@ impl PlacesConnection {
         })
     }
 
-    #[handle_error]
+    #[handle_error(crate::Error)]
     pub fn bookmarks_delete(&self, id: Guid) -> ApiResult<bool> {
         self.with_conn(|conn| bookmarks::delete_bookmark(conn, &id))
     }
 
-    #[handle_error]
+    #[handle_error(crate::Error)]
     pub fn bookmarks_delete_everything(&self) -> ApiResult<()> {
         self.with_conn(bookmarks::delete_everything)
     }
 
-    #[handle_error]
+    #[handle_error(crate::Error)]
     pub fn bookmarks_get_url_for_keyword(&self, keyword: String) -> ApiResult<Option<Url>> {
         self.with_conn(|conn| bookmarks::bookmarks_get_url_for_keyword(conn, keyword.as_str()))
     }
 
-    #[handle_error]
+    #[handle_error(crate::Error)]
     pub fn bookmarks_insert(&self, data: InsertableBookmarkItem) -> ApiResult<Guid> {
         self.with_conn(|conn| bookmarks::insert_bookmark(conn, data))
     }
 
-    #[handle_error]
+    #[handle_error(crate::Error)]
     pub fn bookmarks_update(&self, item: BookmarkUpdateInfo) -> ApiResult<()> {
         self.with_conn(|conn| bookmarks::update_bookmark_from_info(conn, item))
     }
 
-    #[handle_error]
+    #[handle_error(crate::Error)]
     pub fn places_history_import_from_ios(
         &self,
         db_path: String,
