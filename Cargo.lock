@@ -2009,6 +2009,7 @@ dependencies = [
  "mockito",
  "once_cell",
  "rkv",
+ "rs_client",
  "serde",
  "serde_derive",
  "serde_json",
@@ -2019,7 +2020,6 @@ dependencies = [
  "uniffi",
  "url",
  "uuid",
- "viaduct",
  "viaduct-reqwest",
 ]
 
@@ -2896,6 +2896,17 @@ dependencies = [
  "thiserror",
  "url",
  "uuid",
+]
+
+[[package]]
+name = "rs_client"
+version = "0.1.0"
+dependencies = [
+ "mockito",
+ "thiserror",
+ "url",
+ "viaduct",
+ "viaduct-reqwest",
 ]
 
 [[package]]

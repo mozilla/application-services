@@ -76,10 +76,10 @@ enum NimbusError {
     "InvalidPersistedData", "RkvError", "IOError",
     "JSONError", "EvaluationError", "InvalidExpression", "InvalidFraction",
     "TryFromSliceError", "EmptyRatiosError", "OutOfBoundsError","UrlParsingError",
-    "RequestError", "ResponseError", "UuidError", "InvalidExperimentFormat",
-    "InvalidPath", "InternalError", "NoSuchExperiment", "NoSuchBranch", "BackoffError",
+    "UuidError", "InvalidExperimentFormat",
+    "InvalidPath", "InternalError", "NoSuchExperiment", "NoSuchBranch",
     "DatabaseNotReady", "VersionParsingError", "BehaviorError", "TryFromIntError",
-    "ParseIntError", "TransformParameterError"
+    "ParseIntError", "TransformParameterError", "ClientError",
 };
 
 interface NimbusClient {
