@@ -176,7 +176,10 @@ impl TabsStorage {
                     Some(tab)
                 })
                 .collect();
-            return trim_tabs_length(&mut sanitized_tabs, MAX_PAYLOAD_SIZE);
+            // If trimming the tab length failed for some reason, just return the untrimmed tabs
+            return Some(
+                trim_tabs_length(&mut sanitized_tabs, MAX_PAYLOAD_SIZE).unwrap_or(sanitized_tabs),
+            );
         }
         None
     }
@@ -370,22 +373,31 @@ impl TabsStorage {
 }
 
 // Trim the amount of tabs in a list to fit the specified memory size
-fn trim_tabs_length(tabs: &mut Vec<RemoteTab>, memory_limit: usize) -> Option<Vec<RemoteTab>> {
-    let tabs_mem_size = calc_memory_size(tabs);
-    // Don't trim if we're under the limit
-    if tabs_mem_size < memory_limit {
-        return Some(tabs.to_vec());
+fn trim_tabs_length(
+    tabs: &mut Vec<RemoteTab>,
+    payload_size_max_bytes: usize,
+) -> Result<Vec<RemoteTab>> {
+    // Same as what desktop does in util.js
+    // See bug 535326 comment 8 for an explanation of the estimation
+    let max_serialized_size = (payload_size_max_bytes / 4) * 3 - 1500;
+    let size = compute_serialized_size(&tabs);
+    if size > max_serialized_size {
+        // Estimate a little more than the direct fraction to maximize packing
+        let cutoff = (tabs.len() * max_serialized_size) / size;
+        log::debug!("Truncating the tabs by: {}", cutoff);
+        tabs.truncate(cutoff);
+
+        // Keep dropping off the last entry until the data fits.
+        while compute_serialized_size(&tabs) > max_serialized_size {
+            tabs.pop();
+        }
     }
-    // Calculate the difference needed to hit the memory payload
-    // then drop any over
-    let difference = tabs_mem_size - memory_limit;
-    let elements_to_remove = difference / mem::size_of::<RemoteTab>();
-    tabs.truncate(tabs.len() - elements_to_remove);
-    Some(tabs.to_vec())
+    Ok(tabs.to_vec())
 }
 
-fn calc_memory_size<T>(v: &Vec<T>) -> usize {
-    v.capacity() * std::mem::size_of::<T>() + std::mem::size_of::<Vec<T>>()
+fn compute_serialized_size(v: &Vec<RemoteTab>) -> usize {
+    let json = serde_json::to_string(v).unwrap();
+    mem::size_of_val(&*json)
 }
 
 // Try to keep in sync with https://searchfox.org/mozilla-central/rev/2ad13433da20a0749e1e9a10ec0ab49b987c2c8e/modules/libpref/init/all.js#3927
@@ -568,14 +580,19 @@ mod tests {
                 last_used: 0,
             });
         }
-        let tabs_mem_size = calc_memory_size(&too_many_tabs);
+        let tabs_mem_size = compute_serialized_size(&too_many_tabs);
+        log::debug!("tabs mem size before: {}", tabs_mem_size);
+        log::debug!("tabs length before: {}", too_many_tabs.len());
         // ensure we are definitely over the payload limit
         assert!(tabs_mem_size > MAX_PAYLOAD_SIZE);
         // Add our over-the-limit tabs to the local state
         storage.update_local_state(too_many_tabs.clone());
         // prepare_local_tabs_for_upload did the trimming we needed to get under payload size
         let tabs_to_upload = &storage.prepare_local_tabs_for_upload().unwrap();
-        assert!(calc_memory_size(tabs_to_upload) <= MAX_PAYLOAD_SIZE);
+        let after_tabs_mem_size = compute_serialized_size(&tabs_to_upload);
+        log::debug!("tabs mem size after: {}", after_tabs_mem_size);
+        log::debug!("tabs length after: {}", tabs_to_upload.len());
+        assert!(compute_serialized_size(tabs_to_upload) <= MAX_PAYLOAD_SIZE);
     }
     // Helper struct to model what's stored in the DB
     struct TabsSQLRecord {
