@@ -20,7 +20,6 @@ use sql_support::open_database::{self, open_database_with_flags};
 use sql_support::ConnExt;
 use std::cell::RefCell;
 use std::collections::HashMap;
-use std::mem;
 use std::path::{Path, PathBuf};
 use sync15::{RemoteClient, ServerTimestamp};
 pub type TabsDeviceType = crate::DeviceType;
@@ -28,8 +27,8 @@ pub type RemoteTabRecord = RemoteTab;
 
 pub(crate) const TABS_CLIENT_TTL: u32 = 15_552_000; // 180 days, same as CLIENTS_TTL
 const FAR_FUTURE: i64 = 4_102_405_200_000; // 2100/01/01
-const MAX_PAYLOAD_SIZE: usize = 256 * 1024; // Same as Desktop, see service.js or sync15/request.rs
-const MAX_TITLE_CHAR_LENGTH: usize = 512; // A high limit, but also sane
+const MAX_PAYLOAD_SIZE: usize = 512 * 1024; // Twice as big as desktop, still smaller than server max (2MB)
+const MAX_TITLE_CHAR_LENGTH: usize = 512; // We put an upper limit on title sizes for tabs to reduce memory
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct RemoteTab {
@@ -172,10 +171,17 @@ impl TabsStorage {
                     }
 
                     tab.url_history = sanitized_history;
-                    tab.title.truncate(MAX_TITLE_CHAR_LENGTH);
+                    // Truncate the title to some limit and append ellipsis
+                    // to incate that we've truncated
+                    if tab.title.len() > MAX_TITLE_CHAR_LENGTH {
+                        tab.title.truncate(MAX_TITLE_CHAR_LENGTH - 3);
+                        tab.title.push_str("...");
+                    }
                     Some(tab)
                 })
                 .collect();
+            // Sort the tabs so when we trim tabs it's the oldest tabs
+            sanitized_tabs.sort_by(|a, b| b.last_used.cmp(&a.last_used));
             // If trimming the tab length failed for some reason, just return the untrimmed tabs
             return Some(
                 trim_tabs_length(&mut sanitized_tabs, MAX_PAYLOAD_SIZE).unwrap_or(sanitized_tabs),
@@ -377,27 +383,25 @@ fn trim_tabs_length(
     tabs: &mut Vec<RemoteTab>,
     payload_size_max_bytes: usize,
 ) -> Result<Vec<RemoteTab>> {
-    // Same as what desktop does in util.js
+    // Ported from https://searchfox.org/mozilla-central/rev/84fb1c4511312a0b9187f647d90059e3a6dd27f8/services/sync/modules/util.sys.mjs#422
     // See bug 535326 comment 8 for an explanation of the estimation
     let max_serialized_size = (payload_size_max_bytes / 4) * 3 - 1500;
-    let size = compute_serialized_size(&tabs);
+    let size = compute_serialized_size(tabs)?;
     if size > max_serialized_size {
         // Estimate a little more than the direct fraction to maximize packing
         let cutoff = (tabs.len() * max_serialized_size) / size;
-        log::debug!("Truncating the tabs by: {}", cutoff);
         tabs.truncate(cutoff);
 
         // Keep dropping off the last entry until the data fits.
-        while compute_serialized_size(&tabs) > max_serialized_size {
+        while compute_serialized_size(tabs)? > max_serialized_size {
             tabs.pop();
         }
     }
     Ok(tabs.to_vec())
 }
 
-fn compute_serialized_size(v: &Vec<RemoteTab>) -> usize {
-    let json = serde_json::to_string(v).unwrap();
-    mem::size_of_val(&*json)
+fn compute_serialized_size(v: &Vec<RemoteTab>) -> Result<usize> {
+    Ok(serde_json::to_string(v)?.len())
 }
 
 // Try to keep in sync with https://searchfox.org/mozilla-central/rev/2ad13433da20a0749e1e9a10ec0ab49b987c2c8e/modules/libpref/init/all.js#3927
@@ -553,12 +557,14 @@ mod tests {
             icon: None,
             last_used: 0,
         }]);
+        let mut truncated_title = "a".repeat(MAX_TITLE_CHAR_LENGTH - 3);
+        truncated_title.push_str("...");
         assert_eq!(
             storage.prepare_local_tabs_for_upload(),
             Some(vec![
                 // title trimmed to 50 characters
                 RemoteTab {
-                    title: "a".repeat(MAX_TITLE_CHAR_LENGTH), // title was trimmed to only max char length
+                    title: truncated_title, // title was trimmed to only max char length
                     url_history: vec!["https://foo.bar".to_owned()],
                     icon: None,
                     last_used: 0,
@@ -580,19 +586,14 @@ mod tests {
                 last_used: 0,
             });
         }
-        let tabs_mem_size = compute_serialized_size(&too_many_tabs);
-        log::debug!("tabs mem size before: {}", tabs_mem_size);
-        log::debug!("tabs length before: {}", too_many_tabs.len());
+        let tabs_mem_size = compute_serialized_size(&too_many_tabs).unwrap();
         // ensure we are definitely over the payload limit
         assert!(tabs_mem_size > MAX_PAYLOAD_SIZE);
         // Add our over-the-limit tabs to the local state
         storage.update_local_state(too_many_tabs.clone());
         // prepare_local_tabs_for_upload did the trimming we needed to get under payload size
         let tabs_to_upload = &storage.prepare_local_tabs_for_upload().unwrap();
-        let after_tabs_mem_size = compute_serialized_size(&tabs_to_upload);
-        log::debug!("tabs mem size after: {}", after_tabs_mem_size);
-        log::debug!("tabs length after: {}", tabs_to_upload.len());
-        assert!(compute_serialized_size(tabs_to_upload) <= MAX_PAYLOAD_SIZE);
+        assert!(compute_serialized_size(tabs_to_upload).unwrap() <= MAX_PAYLOAD_SIZE);
     }
     // Helper struct to model what's stored in the DB
     struct TabsSQLRecord {
