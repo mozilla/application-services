@@ -24,3 +24,11 @@ Use the template below to make assigning a version number during the release cut
 ### 🦊 What's Changed 🦊
 
 - The Tabs engine now trims the payload to be under the max the server will accept ([#5376](https://github.com/mozilla/application-services/pull/5376))
+
+
+## Sync Manager
+
+### 🦊 What's Changed 🦊
+
+- Exposing the Sync Manager component to iOS by addressing the existing naming collisions, adding logic to process the telemetry
+  data returned in the component's `sync` function, and adding the component to the iOS megazord ([#5359](https://github.com/mozilla/application-services/pull/5359)).
