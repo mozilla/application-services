@@ -23,7 +23,6 @@ serde = "1"
 serde_derive = "1"
 serde_json = "1"
 log = "0.4"
-viaduct = { path = "../viaduct" }
 thiserror = "1"
 url = "2.2"
 rkv = "0.17"
@@ -36,6 +35,7 @@ uniffi = { version = "0.23", optional = true }
 chrono = { version = "0.4", features = ["serde"]}
 unicode-segmentation = "1.8.0"
 error-support = { path = "../support/error" }
+rs_client = { path = "../support/rs_client" }
 
 [build-dependencies]
 uniffi = { version = "0.23", features = ["build"], optional = true }
