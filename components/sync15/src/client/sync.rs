@@ -55,7 +55,7 @@ pub fn synchronize_with_clients_engine(
             .map(|(idx, collection_request)| {
                 interruptee.err_if_interrupted()?;
                 let incoming_changes =
-                    super::fetch_incoming(client, &coll_state, &collection_request)?;
+                    super::fetch_incoming(client, &coll_state, collection_request)?;
 
                 log::info!(
                     "Downloaded {} remote changes (request {} of {})",

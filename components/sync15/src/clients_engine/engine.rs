@@ -330,7 +330,7 @@ impl<'a> Engine<'a> {
         let coll_request = CollectionRequest::new(COLLECTION_NAME.into()).full();
 
         self.interruptee.err_if_interrupted()?;
-        let inbound = crate::client::fetch_incoming(storage_client, coll_state, &coll_request)?;
+        let inbound = crate::client::fetch_incoming(storage_client, coll_state, coll_request)?;
 
         Ok(inbound)
     }
