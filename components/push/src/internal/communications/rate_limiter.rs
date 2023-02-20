@@ -2,7 +2,7 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-use crate::internal::storage::{Storage, Store};
+use crate::internal::storage::Storage;
 use std::{
     str::FromStr,
     time::{SystemTime, UNIX_EPOCH},
@@ -26,7 +26,7 @@ impl PersistedRateLimiter {
         }
     }
 
-    pub fn check(&self, store: &Store) -> bool {
+    pub fn check<S: Storage>(&self, store: &S) -> bool {
         let (mut timestamp, mut count) = self.get_counters(store);
 
         let now = now_secs();
@@ -73,7 +73,7 @@ impl PersistedRateLimiter {
         )
     }
 
-    fn get_counters(&self, store: &Store) -> (u64, u16) {
+    fn get_counters<S: Storage>(&self, store: &S) -> (u64, u16) {
         let (timestamp_key, count_key) = self.db_meta_keys();
         (
             Self::get_meta_integer(store, &timestamp_key),
@@ -81,7 +81,7 @@ impl PersistedRateLimiter {
         )
     }
 
-    fn get_meta_integer<T: FromStr + Default>(store: &Store, key: &str) -> T {
+    fn get_meta_integer<S: Storage, T: FromStr + Default>(store: &S, key: &str) -> T {
         store
             .get_meta(key)
             .ok()
@@ -93,7 +93,7 @@ impl PersistedRateLimiter {
             .unwrap_or_default()
     }
 
-    fn persist_counters(&self, store: &Store, timestamp: u64, count: u16) {
+    fn persist_counters<S: Storage>(&self, store: &S, timestamp: u64, count: u16) {
         let (timestamp_key, count_key) = self.db_meta_keys();
         let r1 = store.set_meta(&timestamp_key, &timestamp.to_string());
         let r2 = store.set_meta(&count_key, &count.to_string());
@@ -114,6 +114,7 @@ fn now_secs() -> u64 {
 mod test {
     use super::*;
     use crate::error::Result;
+    use crate::Store;
 
     static PERIODIC_INTERVAL: u64 = 24 * 3600;
     static VERIFY_NOW_INTERVAL: u64 = PERIODIC_INTERVAL + 3600;

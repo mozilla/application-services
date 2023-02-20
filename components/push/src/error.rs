@@ -40,7 +40,7 @@ pub enum PushError {
     MissingRegistrationTokenError,
 
     #[error("Transcoding Error: {0}")]
-    TranscodingError(String),
+    TranscodingError(#[from] base64::DecodeError),
 
     /// A failure to parse a URL.
     #[error("URL parse error: {0:?}")]
@@ -58,6 +58,13 @@ pub enum PushError {
     #[error("Unable to send request to server: {0}")]
     RequestError(#[from] viaduct::Error),
 
+    /// Was unable to open the database
     #[error("Error opening database: {0}")]
     OpenDatabaseError(#[from] sql_support::open_database::Error),
+}
+
+impl From<bincode::Error> for PushError {
+    fn from(value: bincode::Error) -> Self {
+        PushError::CryptoError(format!("bincode error: {value}"))
+    }
 }
