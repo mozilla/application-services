@@ -10,9 +10,9 @@ use crate::error::{PushError, Result};
 
 use super::{record::PushRecord, schema};
 
-// TODO: Add broadcasts storage
+pub trait Storage: Sized {
+    fn from_path(path: &Option<String>) -> Result<Self>;
 
-pub trait Storage {
     fn get_record(&self, chid: &str) -> Result<Option<PushRecord>>;
 
     fn get_record_by_chid(&self, chid: &str) -> Result<Option<PushRecord>>;
@@ -77,23 +77,6 @@ impl PushDb {
     // so that key lookups continue to work.
     pub fn normalize_uuid(uuid: &str) -> String {
         uuid.replace('-', "").to_lowercase()
-    }
-
-    /// Dash UUID strings.
-    // In case it's needed.
-    pub fn uuid_to_dashed(uuid: &str) -> Result<String> {
-        if !uuid.is_ascii() || uuid.len() < 32 || uuid.len() > 36 {
-            return Err(PushError::GeneralError("UUID is invalid".to_owned()));
-        }
-        let norm = Self::normalize_uuid(uuid);
-        Ok(format!(
-            "{}-{}-{}-{}-{}",
-            &norm[0..8],
-            &norm[8..12],
-            &norm[12..16],
-            &norm[16..20],
-            &norm[20..]
-        ))
     }
 }
 
@@ -257,6 +240,14 @@ impl Storage for PushDb {
         self.execute_cached(query, &[(":k", &key), (":v", &value)])?;
         Ok(())
     }
+
+    fn from_path(path: &Option<String>) -> Result<Self> {
+        Ok(if let Some(ref path) = path {
+            PushDb::open(path)?
+        } else {
+            PushDb::open_in_memory()?
+        })
+    }
 }
 
 #[cfg(test)]
@@ -293,6 +284,7 @@ mod test {
             "https://example.com/",
             Crypto::generate_key().expect("Couldn't generate_key"),
         )
+        .unwrap()
     }
 
     #[test]

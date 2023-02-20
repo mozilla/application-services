@@ -189,14 +189,17 @@ use error::*;
 
 // The following are only exposed for use by the examples
 pub use error::Result as InternalResult;
+use internal::communications::ConnectHttp;
 pub use internal::communications::Connection;
 pub use internal::crypto::get_random_bytes;
+use internal::crypto::Crypto;
 pub use internal::storage::Storage as InternalStorage;
 pub use internal::PushConfiguration;
 pub use internal::PushManager as InternalPushManager;
 // =====================
 
 pub use error::PushError;
+use internal::storage::Store;
 
 /// Object representing the PushManager used to manage subscriptions
 ///
@@ -209,7 +212,7 @@ pub struct PushManager {
     // TODO: this can improved by making the locking more granular
     // and moving the mutex down to ensure `internal::PushManager`
     // is Sync + Send
-    internal: Mutex<internal::PushManager>,
+    internal: Mutex<internal::PushManager<ConnectHttp, Crypto, Store>>,
 }
 
 impl PushManager {

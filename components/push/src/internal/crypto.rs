@@ -2,24 +2,26 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
+use std::borrow::Cow;
+
 use crate::error;
 use rc_crypto::ece::{self, EcKeyComponents, LocalKeyPair};
 use rc_crypto::ece_crypto::RcCryptoLocalKeyPair;
 use rc_crypto::rand;
-use serde_derive::*;
+use serde::{Deserialize, Serialize};
 
 pub const SER_AUTH_LENGTH: usize = 16;
 pub type Decrypted = Vec<u8>;
 
 #[derive(Serialize, Deserialize, Clone)]
-pub(crate) enum VersionnedKey {
-    V1(KeyV1),
+pub(crate) enum VersionnedKey<'a> {
+    V1(Cow<'a, KeyV1>),
 }
 
 #[derive(Clone, PartialEq, Serialize, Deserialize)]
 pub struct KeyV1 {
-    p256key: ece::EcKeyComponents,
-    pub auth: Vec<u8>,
+    pub(crate) p256key: EcKeyComponents,
+    pub(crate) auth: Vec<u8>,
 }
 pub type Key = KeyV1;
 
@@ -34,21 +36,17 @@ impl Key {
     // trying to serialize `Key` directly since `bincode::serialize`
     // would compile because both types derive `Serialize`.
     pub(crate) fn serialize(&self) -> error::Result<Vec<u8>> {
-        bincode::serialize(&VersionnedKey::V1(self.clone())).map_err(|e| {
-            error::PushError::GeneralError(format!("Could not serialize key: {:?}", e))
-        })
+        Ok(bincode::serialize(&VersionnedKey::V1(Cow::Borrowed(self)))?)
     }
 
     pub(crate) fn deserialize(bytes: &[u8]) -> error::Result<Self> {
-        let versionned: VersionnedKey = bincode::deserialize(bytes).map_err(|e| {
-            error::PushError::GeneralError(format!("Could not de-serialize key: {:?}", e))
-        })?;
+        let versionned = bincode::deserialize(bytes)?;
         match versionned {
-            VersionnedKey::V1(prv_key) => Ok(prv_key),
+            VersionnedKey::V1(prv_key) => Ok(prv_key.into_owned()),
         }
     }
 
-    pub fn key_pair(&self) -> &ece::EcKeyComponents {
+    pub fn key_pair(&self) -> &EcKeyComponents {
         &self.p256key
     }
 
@@ -65,21 +63,19 @@ impl Key {
     }
 }
 
-pub trait Cryptography {
+#[cfg_attr(test, mockall::automock)]
+pub trait Cryptography: Default {
     /// generate a new local EC p256 key
     fn generate_key() -> error::Result<Key>;
 
-    /// create a test key for testing
-    fn test_key(priv_key: &str, pub_key: &str, auth: &str) -> Key;
-
     /// General decrypt function. Calls to decrypt_aesgcm or decrypt_aes128gcm as needed.
     // (sigh, can't use notifier::Notification because of circular dependencies.)
-    fn decrypt(
+    fn decrypt<'a, 'b>(
         key: &Key,
         body: &str,
         encoding: &str,
-        salt: Option<&str>,
-        dh: Option<&str>,
+        salt: Option<&'a str>,
+        dh: Option<&'b str>,
     ) -> error::Result<Decrypted>;
     // IIUC: objects created on one side of FFI can't be freed on the other side, so we have to use references (or clone)
 
@@ -95,6 +91,7 @@ pub trait Cryptography {
     fn decrypt_aes128gcm(key: &Key, content: &[u8]) -> error::Result<Decrypted>;
 }
 
+#[derive(Default)]
 pub struct Crypto;
 
 pub fn get_random_bytes(size: usize) -> error::Result<Vec<u8>> {
@@ -155,19 +152,6 @@ impl Cryptography for Crypto {
         })
     }
 
-    // generate unit test key
-    fn test_key(priv_key: &str, pub_key: &str, auth: &str) -> Key {
-        let components = EcKeyComponents::new(
-            base64::decode_config(priv_key, base64::URL_SAFE_NO_PAD).unwrap(),
-            base64::decode_config(pub_key, base64::URL_SAFE_NO_PAD).unwrap(),
-        );
-        let auth = base64::decode_config(auth, base64::URL_SAFE_NO_PAD).unwrap();
-        Key {
-            p256key: components,
-            auth,
-        }
-    }
-
     /// Decrypt the incoming webpush message based on the content-encoding
     fn decrypt(
         key: &Key,
@@ -180,9 +164,7 @@ impl Cryptography for Crypto {
         // convert the private key into something useful.
         let d_salt = extract_value(salt, "salt");
         let d_dh = extract_value(dh, "dh");
-        let d_body = base64::decode_config(body, base64::URL_SAFE_NO_PAD).map_err(|e| {
-            error::PushError::TranscodingError(format!("Could not parse incoming body: {:?}", e))
-        })?;
+        let d_body = base64::decode_config(body, base64::URL_SAFE_NO_PAD)?;
 
         match encoding.to_lowercase().as_str() {
             "aesgcm" => Self::decrypt_aesgcm(key, &d_body, d_salt, d_dh),
@@ -237,6 +219,19 @@ impl Cryptography for Crypto {
 mod crypto_tests {
     use super::*;
 
+    // generate unit test key
+    fn test_key(priv_key: &str, pub_key: &str, auth: &str) -> Key {
+        let components = EcKeyComponents::new(
+            base64::decode_config(priv_key, base64::URL_SAFE_NO_PAD).unwrap(),
+            base64::decode_config(pub_key, base64::URL_SAFE_NO_PAD).unwrap(),
+        );
+        let auth = base64::decode_config(auth, base64::URL_SAFE_NO_PAD).unwrap();
+        Key {
+            p256key: components,
+            auth,
+        }
+    }
+
     const PLAINTEXT:&str = "Amidst the mists and coldest frosts I thrust my fists against the\nposts and still demand to see the ghosts.\n\n";
 
     fn decrypter(
@@ -251,7 +246,7 @@ mod crypto_tests {
         // This would be the public key sent to the subscription service.
         let pub_key_raw = "BBcJdfs1GtMyymFTtty6lIGWRFXrEtJP40Df0gOvRDR4D8CKVgqE6vlYR7tCYksIRdKD1MxDPhQVmKLnzuife50";
 
-        let key = Crypto::test_key(priv_key_d, pub_key_raw, auth_raw);
+        let key = test_key(priv_key_d, pub_key_raw, auth_raw);
         Crypto::decrypt(&key, ciphertext, encoding, salt, dh)
     }
 

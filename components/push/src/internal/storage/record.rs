@@ -36,16 +36,15 @@ pub struct PushRecord {
 impl PushRecord {
     /// Create a Push Record from the Subscription info: endpoint, encryption
     /// keys, etc.
-    pub fn new(chid: &str, endpoint: &str, scope: &str, key: Key) -> Self {
-        // XXX: unwrap
-        Self {
+    pub fn new(chid: &str, endpoint: &str, scope: &str, key: Key) -> Result<Self> {
+        Ok(Self {
             channel_id: chid.to_owned(),
             endpoint: endpoint.to_owned(),
             scope: scope.to_owned(),
-            key: key.serialize().unwrap(),
+            key: key.serialize()?,
             ctime: Timestamp::now(),
             app_server_key: None,
-        }
+        })
     }
 
     pub(crate) fn from_row(row: &Row<'_>) -> Result<Self> {
