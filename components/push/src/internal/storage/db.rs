@@ -11,7 +11,7 @@ use crate::error::{PushError, Result};
 use super::{record::PushRecord, schema};
 
 pub trait Storage: Sized {
-    fn from_path(path: &Option<String>) -> Result<Self>;
+    fn open<P: AsRef<Path>>(path: P) -> Result<Self>;
 
     fn get_record(&self, chid: &str) -> Result<Option<PushRecord>>;
 
@@ -62,9 +62,9 @@ impl PushDb {
         Ok(Self { db })
     }
 
+    #[cfg(test)]
     pub fn open_in_memory() -> Result<Self> {
         // A nod to our tests which use this.
-        #[cfg(test)]
         env_logger::try_init().ok();
 
         let initializer = schema::PushConnectionInitializer {};
@@ -241,12 +241,14 @@ impl Storage for PushDb {
         Ok(())
     }
 
-    fn from_path(path: &Option<String>) -> Result<Self> {
-        Ok(if let Some(ref path) = path {
-            PushDb::open(path)?
-        } else {
-            PushDb::open_in_memory()?
-        })
+    #[cfg(not(test))]
+    fn open<P: AsRef<Path>>(path: P) -> Result<Self> {
+        PushDb::open(path)
+    }
+
+    #[cfg(test)]
+    fn open<P: AsRef<Path>>(_path: P) -> Result<Self> {
+        PushDb::open_in_memory()
     }
 }
 
