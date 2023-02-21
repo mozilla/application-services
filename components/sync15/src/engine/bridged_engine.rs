@@ -16,7 +16,7 @@ use crate::Guid;
 /// implemented in Rust use a different shape (specifically, the
 /// [SyncEngine](crate::SyncEngine) trait), so this BridgedEngine trait adapts
 /// between the 2.
-pub trait BridgedEngine {
+pub trait BridgedEngine: Send + Sync {
     /// Returns the last sync time, in milliseconds, for this engine's
     /// collection. This is called before each sync, to determine the lower
     /// bound for new records to fetch from the server.
