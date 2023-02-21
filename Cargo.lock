@@ -1221,6 +1221,7 @@ version = "0.1.0"
 dependencies = [
  "hex",
  "push",
+ "tempfile",
  "viaduct",
  "viaduct-reqwest",
 ]

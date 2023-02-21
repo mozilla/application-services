@@ -2,19 +2,18 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
+use crate::BridgeType;
+
 #[derive(Clone, Debug)]
 pub struct PushConfiguration {
     /// host name:port
     pub server_host: String,
 
-    /// connection protocol (for direct connections "wss")
-    pub socket_protocol: Option<String>,
-
     /// http protocol (for mobile, bridged connections "https")
-    pub http_protocol: Option<String>,
+    pub http_protocol: String,
 
     /// bridge protocol ("fcm")
-    pub bridge_type: Option<String>,
+    pub bridge_type: BridgeType,
 
     /// Service enabled flag
     pub enabled: bool,
@@ -26,20 +25,19 @@ pub struct PushConfiguration {
     pub sender_id: String,
 
     /// OS Path to the database
-    pub database_path: Option<String>,
+    pub database_path: String,
 }
 
 impl Default for PushConfiguration {
     fn default() -> PushConfiguration {
         PushConfiguration {
             server_host: String::from("push.services.mozilla.com"),
-            socket_protocol: None,
-            http_protocol: Some(String::from("https")),
-            bridge_type: Some(String::from("fcm")),
+            http_protocol: String::from("https"),
+            bridge_type: Default::default(),
             enabled: true,
             ping_interval: 1800,
             sender_id: String::from(""),
-            database_path: None,
+            database_path: String::from(""),
         }
     }
 }

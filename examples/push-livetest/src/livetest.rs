@@ -2,12 +2,7 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-use push::get_random_bytes;
-use push::Connection;
-use push::InternalPushManager as PushManager;
-use push::InternalResult as Result;
-use push::InternalStorage;
-use push::PushConfiguration;
+use push::{BridgeType, PushManager};
 
 /** Perform a "Live" test against a locally configured push server
  *
@@ -20,75 +15,54 @@ use push::PushConfiguration;
  * See `PushTest.kt` and look for "LIVETEST".
  */
 
-fn dummy_uuid() -> Result<String> {
+fn dummy_uuid() -> String {
     // Use easily findable "test" UUIDs
-    Ok(format!(
-        "deadbeef-{}-{}-{}-{}",
-        hex::encode(get_random_bytes(2)?),
-        hex::encode(get_random_bytes(2)?),
-        hex::encode(get_random_bytes(2)?),
-        hex::encode(get_random_bytes(6)?),
-    ))
+    "deadbeef-ab-dc-ef-abcdef".to_string()
 }
 
-fn test_live_server() -> Result<()> {
+fn test_live_server() {
+    let tempdir = tempfile::tempdir().unwrap();
     viaduct_reqwest::use_reqwest_backend();
-    let config = PushConfiguration {
-        http_protocol: Some("http".to_owned()),
-        server_host: "localhost:8082".to_owned(),
-        sender_id: "fir-bridgetest".to_owned(),
-        bridge_type: Some("fcm".to_owned()),
-        ..Default::default()
-    };
-    let mut pm = PushManager::new(config)?;
-    let channel1 = dummy_uuid()?;
-    let channel2 = dummy_uuid()?;
+
+    let pm = PushManager::new(
+        "fir-bridgetest".to_string(),
+        "localhost:8082".to_string(),
+        "http".to_string(),
+        BridgeType::Fcm,
+        "".to_string(),
+        tempdir.path().join("test.db").to_string_lossy().to_string(),
+    )
+    .unwrap();
+    let channel1 = dummy_uuid();
+    let channel2 = dummy_uuid();
+
+    pm.update("new-token").unwrap();
 
     println!("Channels: [{}, {}]", channel1, channel2);
 
     println!("\n == Subscribing channels");
-    let sub1 = pm.subscribe(&channel1, "", None).expect("subscribe failed");
-    // These are normally opaque values, displayed here for debug.
-    println!(
-        "Connection info: {:?}",
-        (&pm.store.get_uaid()?, &pm.store.get_auth()?)
-    );
-    println!("## Subscription 1: {:?}", sub1);
-    println!("## Info: {:?}", pm.get_record_by_chid(&channel1));
-    let sub2 = pm.subscribe(&channel2, "", None)?;
-    println!("## Subscription 2: {:?}", sub2);
+    let sub1 = pm
+        .subscribe(&channel1, "", &None)
+        .expect("subscribe failed");
 
-    // You don't need to do this, normally. This is just for
-    // debugging and analysis.
-    println!("\n == Fetching channel list 1");
-    let conn = pm.make_connection()?;
-    let ll = conn.channel_list().expect("channel list failed");
-    println!("Server Known channels: {:?}", ll);
+    println!("## Subscription 1: {:?}", sub1);
+    println!("## Info: {:?}", pm.dispatch_info_for_chid(&channel1));
+    let sub2 = pm.subscribe(&channel2, "", &None).unwrap();
+    println!("## Subscription 2: {:?}", sub2);
 
     println!("\n == Unsubscribing single channel");
     pm.unsubscribe(&channel1).expect("chid unsub failed");
-    println!("\n == Fetching channel list 2");
-    let conn = pm.make_connection()?;
-    let ll = conn.channel_list().expect("channel list failed");
-    println!("Server Known channels: {:?}", ll);
 
     // the list of known channels should come from whatever is
     // holding the index of channels to recipient applications.
-    println!("Verify: {:?}", pm.verify_connection());
+    println!("Verify: {:?}", pm.verify_connection().unwrap());
 
-    println!("\n == Fetching channel list 3");
-    let conn = pm.make_connection()?;
-    let ll = conn.channel_list().expect("channel list failed");
-    println!("Server Known channels: {:?}", ll);
-
-    println!("\n == Unsubscribing all.");
     // Unsubscribe all channels.
-    pm.unsubscribe_all()?;
+    pm.unsubscribe_all().unwrap();
 
     println!("Done");
-    Ok(())
 }
 
-fn main() -> Result<()> {
+fn main() {
     test_live_server()
 }

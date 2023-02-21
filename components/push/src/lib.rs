@@ -183,20 +183,14 @@
 uniffi::include_scaffolding!("push");
 // All implementation detail lives in the `internal` module
 mod internal;
+use std::fmt::Display;
 use std::sync::Mutex;
 mod error;
 use error::*;
 
-// The following are only exposed for use by the examples
-pub use error::Result as InternalResult;
 use internal::communications::ConnectHttp;
-pub use internal::communications::Connection;
-pub use internal::crypto::get_random_bytes;
 use internal::crypto::Crypto;
-pub use internal::storage::Storage as InternalStorage;
-pub use internal::PushConfiguration;
-pub use internal::PushManager as InternalPushManager;
-// =====================
+use internal::PushConfiguration;
 
 pub use error::PushError;
 use internal::storage::Store;
@@ -241,13 +235,6 @@ impl PushManager {
         database_path: String,
     ) -> Result<Self> {
         log::debug!("PushManager server_host: {server_host}, http_protocol: {http_protocol}");
-        let bridge_type = match bridge_type {
-            BridgeType::Adm => "adm",
-            BridgeType::Apns => "apns",
-            BridgeType::Fcm => "fcm",
-            BridgeType::Test => "test",
-        }
-        .to_string();
         if !registration_id.is_empty() {
             log::warn!("`registration_id` is ignored/deprecated when creating a push manager.");
         }
@@ -256,10 +243,10 @@ impl PushManager {
         // would break badly. Unlikely, so later...
         let config = PushConfiguration {
             server_host,
-            http_protocol: Some(http_protocol),
-            bridge_type: Some(bridge_type),
+            http_protocol,
+            bridge_type,
             sender_id,
-            database_path: Some(database_path),
+            database_path,
             ..Default::default()
         };
         Ok(Self {
@@ -431,11 +418,31 @@ impl PushManager {
 ///
 /// Please contact services back-end for any additional bridge protocols.
 ///
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
 pub enum BridgeType {
     Fcm,
     Adm,
     Apns,
-    Test,
+}
+
+impl Default for BridgeType {
+    fn default() -> Self {
+        Self::Fcm
+    }
+}
+
+impl Display for BridgeType {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(
+            f,
+            "{}",
+            match self {
+                BridgeType::Adm => "adm",
+                BridgeType::Apns => "apns",
+                BridgeType::Fcm => "fcm",
+            }
+        )
+    }
 }
 
 /// Dispatch Information returned from [`PushManager::dispatch_info_for_chid`]

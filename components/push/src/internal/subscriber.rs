@@ -6,8 +6,6 @@
 //!
 //! "privileged" system calls may require additional handling and should be flagged as such.
 
-use std::marker::PhantomData;
-
 use crate::error::{self, PushError, Result};
 use crate::internal::communications::{Connection, PersistedRateLimiter, RegisterResponse};
 use crate::internal::config::PushConfiguration;
@@ -63,7 +61,7 @@ impl From<PushRecord> for DispatchInfo {
 }
 
 pub struct PushManager<Co, Cr, S> {
-    _phantom: PhantomData<Cr>,
+    _crypo: Cr,
     connection: Co,
     uaid: Option<String>,
     auth: Option<String>,
@@ -74,17 +72,17 @@ pub struct PushManager<Co, Cr, S> {
 
 impl<Co: Connection, Cr: Cryptography, S: Storage> PushManager<Co, Cr, S> {
     pub fn new(config: PushConfiguration) -> Result<Self> {
-        let store = S::from_path(&config.database_path)?;
+        let store = S::open(&config.database_path)?;
         let uaid = store.get_uaid()?;
         let auth = store.get_auth()?;
-        let reg_id = store.get_registration_id()?;
+        let registration_id = store.get_registration_id()?;
 
         Ok(Self {
-            connection: Co::connect(config)?,
-            _phantom: Default::default(),
+            connection: Co::connect(config),
+            _crypo: Default::default(),
             uaid,
             auth,
-            registration_id: reg_id,
+            registration_id,
             store,
             update_rate_limiter: PersistedRateLimiter::new(
                 "update_token",
@@ -349,7 +347,7 @@ mod test {
     fn basic() -> Result<()> {
         let _m = get_lock(&MTX);
         let ctx = MockConnection::connect_context();
-        ctx.expect().returning(|_| Ok(Default::default()));
+        ctx.expect().returning(|_| Default::default());
 
         let mut pm = get_test_manager()?;
         pm.connection
@@ -424,7 +422,7 @@ mod test {
         use rc_crypto::ece;
         rc_crypto::ensure_initialized();
         let ctx = MockConnection::connect_context();
-        ctx.expect().returning(|_| Ok(Default::default()));
+        ctx.expect().returning(|_| Default::default());
         let data_string = b"Mary had a little lamb, with some nice mint jelly";
         let mut pm = get_test_manager()?;
         pm.connection
@@ -493,7 +491,7 @@ mod test {
     fn test_wipe_uaid() -> Result<()> {
         let _m = get_lock(&MTX);
         let ctx = MockConnection::connect_context();
-        ctx.expect().returning(|_| Ok(Default::default()));
+        ctx.expect().returning(|_| Default::default());
 
         let mut pm = get_test_manager()?;
         pm.connection

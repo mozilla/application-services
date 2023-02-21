@@ -60,7 +60,7 @@ pub enum BroadcastValue {
 #[cfg_attr(test, mockall::automock)]
 pub trait Connection: Sized {
     /// Create a new instance of a [`Connection`]
-    fn connect(options: PushConfiguration) -> error::Result<Self>;
+    fn connect(options: PushConfiguration) -> Self;
 
     /// send a new subscription request to the server, get back the server registration response.
     fn subscribe(
@@ -96,15 +96,11 @@ pub struct ConnectHttp {
 }
 
 impl ConnectHttp {
-    fn headers(&self, auth: Option<&str>) -> error::Result<Headers> {
+    fn auth_headers(&self, auth: &str) -> error::Result<Headers> {
         let mut headers = Headers::new();
-        if let Some(auth) = auth {
-            headers
-                .insert(header_names::AUTHORIZATION, &*format!("webpush {}", auth))
-                .map_err(|e| {
-                    error::PushError::CommunicationError(format!("Header error: {:?}", e))
-                })?;
-        }
+        headers
+            .insert(header_names::AUTHORIZATION, &*format!("webpush {}", auth))
+            .map_err(|e| error::PushError::CommunicationError(format!("Header error: {:?}", e)))?;
 
         Ok(headers)
     }
@@ -144,9 +140,9 @@ impl ConnectHttp {
     fn format_unsubscribe_url(&self, uaid: &str) -> error::Result<String> {
         Ok(format!(
             "{}://{}/v1/{}/{}/registration/{}",
-            &self.options.http_protocol.as_ref().unwrap(),
+            &self.options.http_protocol,
             &self.options.server_host,
-            &self.options.bridge_type.as_ref().unwrap(),
+            &self.options.bridge_type,
             &self.options.sender_id,
             &uaid,
         ))
@@ -155,19 +151,8 @@ impl ConnectHttp {
 
 impl Connection for ConnectHttp {
     // Connect to the Autopush server
-    fn connect(options: PushConfiguration) -> error::Result<ConnectHttp> {
-        // find connection via options
-
-        if options.socket_protocol.is_some() && options.http_protocol.is_some() {
-            return Err(CommunicationError(
-                "Both socket and HTTP protocols cannot be set.".to_owned(),
-            ));
-        };
-        if options.socket_protocol.is_some() {
-            return Err(CommunicationError("Unsupported".to_owned()));
-        };
-        let connection = ConnectHttp { options };
-        Ok(connection)
+    fn connect(options: PushConfiguration) -> ConnectHttp {
+        ConnectHttp { options }
     }
 
     /// send a new subscription request to the server, get back the server registration response.
@@ -179,27 +164,26 @@ impl Connection for ConnectHttp {
         registration_id: &str,
         app_server_key: &Option<String>,
     ) -> error::Result<RegisterResponse> {
-        // check that things are set
-        if self.options.http_protocol.is_none() || self.options.bridge_type.is_none() {
-            return Err(CommunicationError(
-                "Bridge type or application id not set.".to_owned(),
-            ));
-        }
-        let options = self.options.clone();
-        let bridge_type = &options.bridge_type.unwrap();
         let mut url = format!(
             "{}://{}/v1/{}/{}/registration",
-            &options.http_protocol.unwrap(),
-            &options.server_host,
-            &bridge_type,
-            &options.sender_id
+            &self.options.http_protocol,
+            &self.options.server_host,
+            &self.options.bridge_type,
+            &self.options.sender_id
         );
-        // Add the Authorization header if we have a prior subscription.
+        // Add the uaid and authorization if we have a prior subscription.
         if let Some(uaid) = uaid {
             url.push('/');
             url.push_str(uaid);
             url.push_str("/subscription");
         }
+
+        let headers = if let Some(auth) = auth {
+            self.auth_headers(auth)?
+        } else {
+            Headers::new()
+        };
+
         let mut body = HashMap::new();
         // Ideally we'd store "expected" subscriptions in the DB separate from "actual" ones, and
         // then we could record this as "expected" and perform the actual subscription once we
@@ -211,7 +195,7 @@ impl Connection for ConnectHttp {
             body.insert("key", key);
         }
         let response = Request::post(Url::parse(&url)?)
-            .headers(self.headers(auth.as_ref().map(|inner| inner.as_str()))?)
+            .headers(headers)
             .json(&body)
             .send()?;
         log::info!(
@@ -232,7 +216,7 @@ impl Connection for ConnectHttp {
             channel_id
         );
         let response = Request::delete(Url::parse(&url)?)
-            .headers(self.headers(Some(auth))?)
+            .headers(self.auth_headers(auth)?)
             .send()?;
         log::info!("unsubscribed from {}: {}", url, response.status);
         self.check_response_error(&response)?;
@@ -243,7 +227,7 @@ impl Connection for ConnectHttp {
     fn unsubscribe_all(&self, uaid: &str, auth: &str) -> error::Result<()> {
         let url = self.format_unsubscribe_url(uaid)?;
         let response = Request::delete(Url::parse(&url)?)
-            .headers(self.headers(Some(auth))?)
+            .headers(self.auth_headers(auth)?)
             .send()?;
         log::info!("unsubscribed from all via {}: {}", url, response.status);
         self.check_response_error(&response)?;
@@ -255,9 +239,9 @@ impl Connection for ConnectHttp {
         let options = self.options.clone();
         let url = format!(
             "{}://{}/v1/{}/{}/registration/{}",
-            &options.http_protocol.unwrap(),
+            &options.http_protocol,
             &options.server_host,
-            &options.bridge_type.unwrap(),
+            &options.bridge_type,
             &options.sender_id,
             uaid
         );
@@ -265,7 +249,7 @@ impl Connection for ConnectHttp {
         body.insert("token", new_token);
         let response = Request::put(Url::parse(&url)?)
             .json(&body)
-            .headers(self.headers(Some(auth))?)
+            .headers(self.auth_headers(auth)?)
             .send()?;
         log::info!("update via {}: {}", url, response.status);
         self.check_response_error(&response)?;
@@ -283,19 +267,17 @@ impl Connection for ConnectHttp {
         }
 
         let options = self.options.clone();
-        if options.bridge_type.is_none() {
-            return Err(CommunicationError("No Bridge Type set".into()));
-        }
+
         let url = format!(
             "{}://{}/v1/{}/{}/registration/{}",
-            &options.http_protocol.unwrap_or_else(|| "https".to_owned()),
+            &options.http_protocol,
             &options.server_host,
-            &options.bridge_type.unwrap(),
+            &options.bridge_type,
             &options.sender_id,
             &uaid,
         );
         let response = match Request::get(Url::parse(&url)?)
-            .headers(self.headers(Some(auth))?)
+            .headers(self.auth_headers(auth)?)
             .send()
         {
             Ok(v) => v,
@@ -377,10 +359,9 @@ mod test {
         viaduct_reqwest::use_reqwest_backend();
         // mockito forces task serialization, so for now, we test everything in one go.
         let config = PushConfiguration {
-            http_protocol: Some("http".to_owned()),
+            http_protocol: "http".to_owned(),
             server_host: server_address().to_string(),
             sender_id: SENDER_ID.to_owned(),
-            bridge_type: Some("test".to_owned()),
             ..Default::default()
         };
         // SUBSCRIPTION with secret
@@ -393,12 +374,12 @@ mod test {
                 "secret": SECRET,
             })
             .to_string();
-            let ap_mock = mock("POST", &*format!("/v1/test/{}/registration", SENDER_ID))
+            let ap_mock = mock("POST", &*format!("/v1/fcm/{}/registration", SENDER_ID))
                 .with_status(200)
                 .with_header("content-type", "application/json")
                 .with_body(body)
                 .create();
-            let conn = ConnectHttp::connect(config.clone()).unwrap();
+            let conn = ConnectHttp::connect(config.clone());
             let channel_id = hex::encode(crate::internal::crypto::get_random_bytes(16).unwrap());
             let response = conn
                 .subscribe(&channel_id, &None, &None, SENDER_ID, &None)
@@ -411,7 +392,7 @@ mod test {
             let ap_mock = mock(
                 "DELETE",
                 &*format!(
-                    "/v1/test/{}/registration/{}/subscription/{}",
+                    "/v1/fcm/{}/registration/{}/subscription/{}",
                     SENDER_ID, DUMMY_UAID, DUMMY_CHID
                 ),
             )
@@ -420,7 +401,7 @@ mod test {
             .with_header("content-type", "application/json")
             .with_body("{}")
             .create();
-            let conn = ConnectHttp::connect(config.clone()).unwrap();
+            let conn = ConnectHttp::connect(config.clone());
             conn.unsubscribe(DUMMY_CHID, DUMMY_UAID, SECRET).unwrap();
             ap_mock.assert();
         }
@@ -428,14 +409,14 @@ mod test {
         {
             let ap_mock = mock(
                 "DELETE",
-                &*format!("/v1/test/{}/registration/{}", SENDER_ID, DUMMY_UAID),
+                &*format!("/v1/fcm/{}/registration/{}", SENDER_ID, DUMMY_UAID),
             )
             .match_header("authorization", format!("webpush {}", SECRET).as_str())
             .with_status(200)
             .with_header("content-type", "application/json")
             .with_body("{}")
             .create();
-            let conn = ConnectHttp::connect(config.clone()).unwrap();
+            let conn = ConnectHttp::connect(config.clone());
             conn.unsubscribe_all(DUMMY_UAID, SECRET).unwrap();
             ap_mock.assert();
         }
@@ -443,14 +424,14 @@ mod test {
         {
             let ap_mock = mock(
                 "PUT",
-                &*format!("/v1/test/{}/registration/{}", SENDER_ID, DUMMY_UAID),
+                &*format!("/v1/fcm/{}/registration/{}", SENDER_ID, DUMMY_UAID),
             )
             .match_header("authorization", format!("webpush {}", SECRET).as_str())
             .with_status(200)
             .with_header("content-type", "application/json")
             .with_body("{}")
             .create();
-            let conn = ConnectHttp::connect(config.clone()).unwrap();
+            let conn = ConnectHttp::connect(config.clone());
 
             conn.update("NewTokenValue", DUMMY_UAID, SECRET).unwrap();
             ap_mock.assert();
@@ -464,14 +445,14 @@ mod test {
             .to_string();
             let ap_mock = mock(
                 "GET",
-                &*format!("/v1/test/{}/registration/{}", SENDER_ID, DUMMY_UAID),
+                &*format!("/v1/fcm/{}/registration/{}", SENDER_ID, DUMMY_UAID),
             )
             .match_header("authorization", format!("webpush {}", SECRET).as_str())
             .with_status(200)
             .with_header("content-type", "application/json")
             .with_body(body_cl_success)
             .create();
-            let conn = ConnectHttp::connect(config).unwrap();
+            let conn = ConnectHttp::connect(config);
             let response = conn.channel_list(DUMMY_UAID, SECRET).unwrap();
             ap_mock.assert();
             assert!(response == [DUMMY_CHID.to_owned()]);
@@ -481,10 +462,9 @@ mod test {
         // wipe the uaid's from both server and locally
         {
             let config = PushConfiguration {
-                http_protocol: Some("http".to_owned()),
+                http_protocol: "http".to_owned(),
                 server_host: server_address().to_string(),
                 sender_id: SENDER_ID.to_owned(),
-                bridge_type: Some("test".to_owned()),
                 ..Default::default()
             };
             // We first subscribe to get a UAID
@@ -496,12 +476,12 @@ mod test {
                 "secret": SECRET,
             })
             .to_string();
-            let ap_mock = mock("POST", &*format!("/v1/test/{}/registration", SENDER_ID))
+            let ap_mock = mock("POST", &*format!("/v1/fcm/{}/registration", SENDER_ID))
                 .with_status(200)
                 .with_header("content-type", "application/json")
                 .with_body(body)
                 .create();
-            let conn = ConnectHttp::connect(config).unwrap();
+            let conn = ConnectHttp::connect(config);
             let channel_id = hex::encode(crate::internal::crypto::get_random_bytes(16).unwrap());
             let response = conn
                 .subscribe(&channel_id, &None, &None, SENDER_ID, &None)
@@ -516,7 +496,7 @@ mod test {
             .to_string();
             let channel_list_mock = mock(
                 "GET",
-                &*format!("/v1/test/{}/registration/{}", SENDER_ID, DUMMY_UAID),
+                &*format!("/v1/fcm/{}/registration/{}", SENDER_ID, DUMMY_UAID),
             )
             .with_status(200)
             .with_header("content-type", "application/json")
@@ -524,7 +504,7 @@ mod test {
             .create();
             let delete_uaid_mock = mock(
                 "DELETE",
-                &*format!("/v1/test/{}/registration/{}", SENDER_ID, DUMMY_UAID),
+                &*format!("/v1/fcm/{}/registration/{}", SENDER_ID, DUMMY_UAID),
             )
             .match_header("authorization", format!("webpush {}", SECRET).as_str())
             .with_status(200)
@@ -548,7 +528,7 @@ mod test {
                 "secret": SECRET2,
             })
             .to_string();
-            let ap_mock = mock("POST", &*format!("/v1/test/{}/registration", SENDER_ID))
+            let ap_mock = mock("POST", &*format!("/v1/fcm/{}/registration", SENDER_ID))
                 .with_status(200)
                 .with_header("content-type", "application/json")
                 .with_body(body)
@@ -566,10 +546,9 @@ mod test {
         // UAID, and verify_connection doesn't return an error
         {
             let config = PushConfiguration {
-                http_protocol: Some("http".to_owned()),
+                http_protocol: "http".to_owned(),
                 server_host: server_address().to_string(),
                 sender_id: SENDER_ID.to_owned(),
-                bridge_type: Some("test".to_owned()),
                 ..Default::default()
             };
             // We first subscribe to get a UAID
@@ -581,12 +560,12 @@ mod test {
                 "secret": SECRET,
             })
             .to_string();
-            let ap_mock = mock("POST", &*format!("/v1/test/{}/registration", SENDER_ID))
+            let ap_mock = mock("POST", &*format!("/v1/fcm/{}/registration", SENDER_ID))
                 .with_status(200)
                 .with_header("content-type", "application/json")
                 .with_body(body)
                 .create();
-            let conn = ConnectHttp::connect(config).unwrap();
+            let conn = ConnectHttp::connect(config);
             let channel_id = hex::encode(crate::internal::crypto::get_random_bytes(16).unwrap());
             let response = conn
                 .subscribe(&channel_id, &None, &None, SENDER_ID, &None)
@@ -605,7 +584,7 @@ mod test {
             .to_string();
             let channel_list_mock = mock(
                 "GET",
-                &*format!("/v1/test/{}/registration/{}", SENDER_ID, DUMMY_UAID),
+                &*format!("/v1/fcm/{}/registration/{}", SENDER_ID, DUMMY_UAID),
             )
             .with_status(status_codes::GONE as usize)
             .with_header("content-type", "application/json")
@@ -629,10 +608,9 @@ mod test {
         // than losing the UAID
         {
             let config = PushConfiguration {
-                http_protocol: Some("http".to_owned()),
+                http_protocol: "http".to_owned(),
                 server_host: server_address().to_string(),
                 sender_id: SENDER_ID.to_owned(),
-                bridge_type: Some("test".to_owned()),
                 ..Default::default()
             };
             // We first subscribe to get a UAID
@@ -644,12 +622,12 @@ mod test {
                 "secret": SECRET,
             })
             .to_string();
-            let ap_mock = mock("POST", &*format!("/v1/test/{}/registration", SENDER_ID))
+            let ap_mock = mock("POST", &*format!("/v1/fcm/{}/registration", SENDER_ID))
                 .with_status(200)
                 .with_header("content-type", "application/json")
                 .with_body(body)
                 .create();
-            let conn = ConnectHttp::connect(config).unwrap();
+            let conn = ConnectHttp::connect(config);
             let channel_id = hex::encode(crate::internal::crypto::get_random_bytes(16).unwrap());
             let response = conn
                 .subscribe(&channel_id, &None, &None, SENDER_ID, &None)
@@ -667,7 +645,7 @@ mod test {
             .to_string();
             let channel_list_mock = mock(
                 "GET",
-                &*format!("/v1/test/{}/registration/{}", SENDER_ID, DUMMY_UAID),
+                &*format!("/v1/fcm/{}/registration/{}", SENDER_ID, DUMMY_UAID),
             )
             .with_status(status_codes::UNAUTHORIZED as usize)
             .with_header("content-type", "application/json")
@@ -689,10 +667,9 @@ mod test {
         // We test what happens when the server responds with a server error
         {
             let config = PushConfiguration {
-                http_protocol: Some("http".to_owned()),
+                http_protocol: "http".to_owned(),
                 server_host: server_address().to_string(),
                 sender_id: SENDER_ID.to_owned(),
-                bridge_type: Some("test".to_owned()),
                 ..Default::default()
             };
             // We first subscribe to get a UAID
@@ -704,12 +681,12 @@ mod test {
                 "secret": SECRET,
             })
             .to_string();
-            let ap_mock = mock("POST", &*format!("/v1/test/{}/registration", SENDER_ID))
+            let ap_mock = mock("POST", &*format!("/v1/fcm/{}/registration", SENDER_ID))
                 .with_status(200)
                 .with_header("content-type", "application/json")
                 .with_body(body)
                 .create();
-            let conn = ConnectHttp::connect(config).unwrap();
+            let conn = ConnectHttp::connect(config);
             let channel_id = hex::encode(crate::internal::crypto::get_random_bytes(16).unwrap());
             let response = conn
                 .subscribe(&channel_id, &None, &None, SENDER_ID, &None)
@@ -726,7 +703,7 @@ mod test {
             .to_string();
             let channel_list_mock = mock(
                 "GET",
-                &*format!("/v1/test/{}/registration/{}", SENDER_ID, DUMMY_UAID),
+                &*format!("/v1/fcm/{}/registration/{}", SENDER_ID, DUMMY_UAID),
             )
             .with_status(status_codes::INTERNAL_SERVER_ERROR as usize)
             .with_header("content-type", "application/json")
@@ -750,10 +727,9 @@ mod test {
         // gets a `CONFLICT` status code
         {
             let config = PushConfiguration {
-                http_protocol: Some("http".to_owned()),
+                http_protocol: "http".to_owned(),
                 server_host: server_address().to_string(),
                 sender_id: SENDER_ID.to_owned(),
-                bridge_type: Some("test".to_owned()),
                 ..Default::default()
             };
             // We mock that the server thinks
@@ -766,12 +742,12 @@ mod test {
 
             })
             .to_string();
-            let ap_mock = mock("POST", &*format!("/v1/test/{}/registration", SENDER_ID))
+            let ap_mock = mock("POST", &*format!("/v1/fcm/{}/registration", SENDER_ID))
                 .with_status(status_codes::CONFLICT as usize)
                 .with_header("content-type", "application/json")
                 .with_body(body)
                 .create();
-            let conn = ConnectHttp::connect(config).unwrap();
+            let conn = ConnectHttp::connect(config);
             let channel_id = hex::encode(crate::internal::crypto::get_random_bytes(16).unwrap());
             let err = conn
                 .subscribe(&channel_id, &None, &None, SENDER_ID, &None)
