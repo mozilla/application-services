@@ -3,7 +3,7 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
 use crate::api::{self, StorageChanges};
-use crate::db::{SharedStorageDb, StorageDb};
+use crate::db::{StorageDb, ThreadSafeStorageDb};
 use crate::error::*;
 use crate::migration::{migrate, MigrationInfo};
 use crate::sync;
@@ -29,7 +29,7 @@ use serde_json::Value as JsonValue;
 /// connection with our sync engines - ie, these engines also hold an Arc<>
 /// around the same object.
 pub struct Store {
-    db: Arc<SharedStorageDb>,
+    db: Arc<ThreadSafeStorageDb>,
 }
 
 impl Store {
@@ -38,7 +38,7 @@ impl Store {
     pub fn new(db_path: impl AsRef<Path>) -> Result<Self> {
         let db = StorageDb::new(db_path)?;
         Ok(Self {
-            db: Arc::new(SharedStorageDb::new(db)),
+            db: Arc::new(ThreadSafeStorageDb::new(db)),
         })
     }
 
@@ -47,7 +47,7 @@ impl Store {
     pub fn new_memory(db_path: &str) -> Result<Self> {
         let db = StorageDb::new_memory(db_path)?;
         Ok(Self {
-            db: Arc::new(SharedStorageDb::new(db)),
+            db: Arc::new(ThreadSafeStorageDb::new(db)),
         })
     }
 
@@ -135,7 +135,7 @@ impl Store {
         // Even though this consumes `self`, the fact we use an Arc<> means
         // we can't guarantee we can actually consume the inner DB - so do
         // the best we can.
-        let shared: SharedStorageDb = match Arc::try_unwrap(self.db) {
+        let shared: ThreadSafeStorageDb = match Arc::try_unwrap(self.db) {
             Ok(shared) => shared,
             _ => {
                 // Probably means the sync engine has an operation running. The intent
@@ -201,7 +201,7 @@ pub mod test {
 
     pub fn new_mem_store() -> Store {
         Store {
-            db: Arc::new(SharedStorageDb::new(crate::db::test::new_mem_db())),
+            db: Arc::new(ThreadSafeStorageDb::new(crate::db::test::new_mem_db())),
         }
     }
 }

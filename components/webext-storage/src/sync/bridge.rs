@@ -9,7 +9,7 @@ use sync15::bso::IncomingBso;
 use sync15::engine::ApplyResults;
 use sync_guid::Guid as SyncGuid;
 
-use crate::db::{delete_meta, get_meta, put_meta, SharedStorageDb};
+use crate::db::{delete_meta, get_meta, put_meta, ThreadSafeStorageDb};
 use crate::schema;
 use crate::sync::incoming::{apply_actions, get_incoming, plan_incoming, stage_incoming};
 use crate::sync::outgoing::{get_outgoing, record_uploaded, stage_outgoing};
@@ -27,12 +27,12 @@ const SYNC_ID_META_KEY: &str = "sync_id";
 /// the desktop semantics as close as possible to what they were when the
 /// engines all took lifetime params to ensure they don't outlive the store.
 pub struct BridgedEngine {
-    db: Weak<SharedStorageDb>,
+    db: Weak<ThreadSafeStorageDb>,
 }
 
 impl BridgedEngine {
     /// Creates a bridged engine for syncing.
-    pub fn new(db: &Arc<SharedStorageDb>) -> Self {
+    pub fn new(db: &Arc<ThreadSafeStorageDb>) -> Self {
         BridgedEngine {
             db: Arc::downgrade(db),
         }
@@ -47,7 +47,7 @@ impl BridgedEngine {
         Ok(())
     }
 
-    fn get_shared_db(&self) -> Result<Arc<SharedStorageDb>> {
+    fn get_shared_db(&self) -> Result<Arc<ThreadSafeStorageDb>> {
         self.db
             .upgrade()
             .ok_or_else(|| crate::error::ErrorKind::DatabaseConnectionClosed.into())

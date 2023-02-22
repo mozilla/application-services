@@ -110,8 +110,8 @@ impl Drop for StorageDb {
 }
 */
 
-// We almost exclusively use this SharedStorageDb
-pub struct SharedStorageDb {
+// We almost exclusively use this ThreadSafeStorageDb
+pub struct ThreadSafeStorageDb {
     db: Mutex<StorageDb>,
     // This "outer" interrupt_handle not protected by the mutex means
     // consumers can interrupt us when the mutex is held - which it always will
@@ -119,7 +119,7 @@ pub struct SharedStorageDb {
     interrupt_handle: Arc<SqlInterruptHandle>,
 }
 
-impl SharedStorageDb {
+impl ThreadSafeStorageDb {
     pub fn new(db: StorageDb) -> Self {
         Self {
             interrupt_handle: db.interrupt_handle(),
@@ -140,8 +140,8 @@ impl SharedStorageDb {
     }
 }
 
-// Deref to a Mutex<StorageDb>, which is how we will use SharedStorageDb most of the time
-impl Deref for SharedStorageDb {
+// Deref to a Mutex<StorageDb>, which is how we will use ThreadSafeStorageDb most of the time
+impl Deref for ThreadSafeStorageDb {
     type Target = Mutex<StorageDb>;
 
     #[inline]
@@ -151,7 +151,7 @@ impl Deref for SharedStorageDb {
 }
 
 // Also implement AsRef<SqlInterruptHandle> so that we can interrupt this at shutdown
-impl AsRef<SqlInterruptHandle> for SharedStorageDb {
+impl AsRef<SqlInterruptHandle> for ThreadSafeStorageDb {
     fn as_ref(&self) -> &SqlInterruptHandle {
         &self.interrupt_handle
     }
@@ -280,8 +280,8 @@ pub mod test {
         StorageDb::new_memory(&format!("test-api-{}", counter)).expect("should get an API")
     }
 
-    pub fn new_shared_mem_db() -> Arc<SharedStorageDb> {
-        Arc::new(SharedStorageDb::new(new_mem_db()))
+    pub fn new_shared_mem_db() -> Arc<ThreadSafeStorageDb> {
+        Arc::new(ThreadSafeStorageDb::new(new_mem_db()))
     }
 }
 
