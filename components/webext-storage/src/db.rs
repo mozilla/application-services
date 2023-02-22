@@ -76,7 +76,6 @@ impl StorageDb {
     pub fn close(self) -> Result<()> {
         self.writer.close().map_err(|(writer, err)| {
             // If we just let `writer` drop, the close would panic on failure.
-            // (Actually, not sure that's true? Regardless, this seems fine)
             std::mem::forget(writer);
             err.into()
         })
@@ -96,6 +95,20 @@ impl DerefMut for StorageDb {
         &mut self.writer
     }
 }
+
+/* ugh - can't call writer.close() as it consumes self
+impl Drop for StorageDb {
+    // Although we do this same dance in `StorageDb::close()` above, the semantics of the Arc and
+    // Mutex unwrapping in the store means it might not always be possible for `Store::close()`
+    // to actually call `close()` above - and as noted, if `writer` is just dropped and the
+    // close fails at that time, we panic, which is an abort on Desktop.
+    fn drop(&mut self) {
+        self.writer.close().map_err(|(writer, err)| {
+            std::mem::forget(writer);
+        });
+    }
+}
+*/
 
 // We almost exclusively use this SharedStorageDb
 pub struct SharedStorageDb {

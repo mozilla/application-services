@@ -94,7 +94,7 @@ impl BridgedEngine for BridgedEngineImpl {
             };
             sync_impl.reset(&EngineSyncAssociation::Connected(new_coll_ids))?;
         }
-        Ok(sync_id.to_string()) // this is a bit odd, why the result?
+        Ok(sync_id.to_string())
     }
 
     fn prepare_for_sync(&self, client_data: &str) -> Result<()> {

@@ -48,10 +48,9 @@ impl BridgedEngine {
     }
 
     fn get_shared_db(&self) -> Result<Arc<SharedStorageDb>> {
-        match self.db.upgrade() {
-            Some(db) => Ok(db),
-            None => Err(crate::error::ErrorKind::WeakReferenceDropped.into()),
-        }
+        self.db
+            .upgrade()
+            .ok_or_else(|| crate::error::ErrorKind::DatabaseConnectionClosed.into())
     }
 }
 

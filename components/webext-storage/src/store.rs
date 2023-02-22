@@ -24,6 +24,10 @@ use serde_json::Value as JsonValue;
 /// create its own database connection, using up extra memory and CPU cycles,
 /// and causing write contention. For this reason, you should only call
 /// `Store::new()` (or `webext_store_new()`, from the FFI) once.
+///
+/// Note that our Db implementation is behind an Arc<> because we share that
+/// connection with our sync engines - ie, these engines also hold an Arc<>
+/// around the same object.
 pub struct Store {
     db: Arc<SharedStorageDb>,
 }
@@ -134,7 +138,9 @@ impl Store {
         let shared: SharedStorageDb = match Arc::try_unwrap(self.db) {
             Ok(shared) => shared,
             _ => {
-                // Probably means the sync engine remains alive?
+                // Probably means the sync engine has an operation running. The intent
+                // is that there should be other mechanisms external to us which prevents that,
+                // so we make some noise here.
                 log::warn!("Attempting to close a store while other DB references exist.");
                 return Err(ErrorKind::OtherConnectionReferencesExist.into());
             }

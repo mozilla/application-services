@@ -53,9 +53,8 @@ pub enum ErrorKind {
     #[error("Other shared references to this connection are alive")]
     OtherConnectionReferencesExist,
 
-    // When `Weak::upgrade()` returns None.
     #[error("The storage database has been closed")]
-    WeakReferenceDropped,
+    DatabaseConnectionClosed,
 
     #[error("Sync Error: {0}")]
     SyncError(String),
