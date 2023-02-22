@@ -175,7 +175,8 @@ impl TabsStorage {
                     // to incate that we've truncated
                     if tab.title.len() > MAX_TITLE_CHAR_LENGTH {
                         tab.title.truncate(MAX_TITLE_CHAR_LENGTH - 3);
-                        tab.title.push_str("...");
+                        // Append ellipsis char for any client displaying the full title
+                        tab.title.push('\u{2026}');
                     }
                     Some(tab)
                 })
@@ -553,7 +554,7 @@ mod tests {
             last_used: 0,
         }]);
         let mut truncated_title = "a".repeat(MAX_TITLE_CHAR_LENGTH - 3);
-        truncated_title.push_str("...");
+        truncated_title.push('\u{2026}');
         assert_eq!(
             storage.prepare_local_tabs_for_upload(),
             Some(vec![
