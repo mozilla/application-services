@@ -454,21 +454,21 @@ pub struct DispatchInfo {
 }
 
 /// Key Information that can be used to encrypt payloads
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]
 pub struct KeyInfo {
     pub auth: String,
     pub p256dh: String,
 }
 /// Subscription Information, the endpoint to send push messages to and
 /// the key information that can be used to encrypt payloads
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]
 pub struct SubscriptionInfo {
     pub endpoint: String,
     pub keys: KeyInfo,
 }
 
 /// The subscription response object returned from [`PushManager::subscribe`]
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]
 pub struct SubscriptionResponse {
     pub channel_id: String,
     pub subscription_info: SubscriptionInfo,
