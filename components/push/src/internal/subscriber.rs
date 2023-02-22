@@ -299,12 +299,14 @@ impl<Co: Connection, Cr: Cryptography, S: Storage> PushManager<Co, Cr, S> {
 #[cfg(test)]
 mod test {
     use mockall::predicate::eq;
-    use rc_crypto::ece::EcKeyComponents;
+    use rc_crypto::ece::{self, EcKeyComponents};
 
     use crate::internal::{communications::MockConnection, crypto::MockCryptography};
 
     use lazy_static::lazy_static;
     use std::sync::{Mutex, MutexGuard};
+
+    const DATA: &[u8] = b"Mary had a little lamb, with some nice mint jelly";
 
     lazy_static! {
         static ref MTX: Mutex<()> = Mutex::new(());
@@ -362,7 +364,7 @@ mod test {
             .times(1)
             .returning(|_, _, _, _, _| {
                 Ok(RegisterResponse {
-                    uaid: Some("DUMM_UAID".to_string()),
+                    uaid: Some("abad1d3a00000000aabbccdd00000000".to_string()),
                     channel_id: TEST_CHANNEL_ID.to_string(),
                     secret: Some("LsuUOBKVQRY6-l7_Ajo-Ag".to_string()),
                     endpoint: "https://example.com/dummy-endpoint".to_string(),
@@ -398,14 +400,17 @@ mod test {
             .expect_unsubscribe()
             .with(
                 eq(TEST_CHANNEL_ID),
-                eq("DUMM_UAID"),
+                eq("abad1d3a00000000aabbccdd00000000"),
                 eq("LsuUOBKVQRY6-l7_Ajo-Ag"),
             )
             .times(2)
             .returning(|_, _, _| Ok(()));
         pm.connection
             .expect_unsubscribe_all()
-            .with(eq("DUMM_UAID"), eq("LsuUOBKVQRY6-l7_Ajo-Ag"))
+            .with(
+                eq("abad1d3a00000000aabbccdd00000000"),
+                eq("LsuUOBKVQRY6-l7_Ajo-Ag"),
+            )
             .times(1)
             .returning(|_, _| Ok(()));
 
@@ -419,7 +424,6 @@ mod test {
     #[test]
     fn full() -> Result<()> {
         let _m = get_lock(&MTX);
-        use rc_crypto::ece;
         rc_crypto::ensure_initialized();
         let ctx = MockConnection::connect_context();
         ctx.expect().returning(|_| Default::default());
@@ -437,7 +441,7 @@ mod test {
             .times(1)
             .returning(|_, _, _, _, _| {
                 Ok(RegisterResponse {
-                    uaid: Some("DUMM_UAID".to_string()),
+                    uaid: Some("abad1d3a00000000aabbccdd00000000".to_string()),
                     channel_id: TEST_CHANNEL_ID.to_string(),
                     secret: Some("LsuUOBKVQRY6-l7_Ajo-Ag".to_string()),
                     endpoint: "https://example.com/dummy-endpoint".to_string(),
@@ -567,6 +571,177 @@ mod test {
             pm.store.get_record(TEST_CHANNEL_ID)?.unwrap().channel_id,
             TEST_CHANNEL_ID
         );
+        Ok(())
+    }
+
+    #[test]
+    fn test_aesgcm_decryption() -> Result<()> {
+        let _m = get_lock(&MTX);
+        rc_crypto::ensure_initialized();
+
+        let ctx = MockConnection::connect_context();
+        ctx.expect().returning(|_| Default::default());
+
+        let mut pm = get_test_manager()?;
+
+        pm.connection
+            .expect_subscribe()
+            .with(
+                eq(TEST_CHANNEL_ID),
+                eq(None),
+                eq(None),
+                eq("native-id"),
+                eq(None),
+            )
+            .times(1)
+            .returning(|_, _, _, _, _| {
+                Ok(RegisterResponse {
+                    uaid: Some("abad1d3a00000000aabbccdd00000000".to_string()),
+                    channel_id: TEST_CHANNEL_ID.to_string(),
+                    secret: Some("LsuUOBKVQRY6-l7_Ajo-Ag".to_string()),
+                    endpoint: "https://example.com/dummy-endpoint".to_string(),
+                    sender_id: "test".to_string(),
+                })
+            });
+        let crypto_ctx = MockCryptography::generate_key_context();
+        crypto_ctx.expect().returning(|| {
+            let components = EcKeyComponents::new(
+                base64::decode_config(PRIV_KEY_D, base64::URL_SAFE_NO_PAD).unwrap(),
+                base64::decode_config(PUB_KEY_RAW, base64::URL_SAFE_NO_PAD).unwrap(),
+            );
+            let auth = base64::decode_config(AUTH_RAW, base64::URL_SAFE_NO_PAD).unwrap();
+            Ok(Key {
+                p256key: components,
+                auth,
+            })
+        });
+        let resp = pm.subscribe(TEST_CHANNEL_ID, "test-scope", None)?;
+        let key_info = resp.subscription_info.keys;
+        let remote_pub = base64::decode_config(&key_info.p256dh, base64::URL_SAFE_NO_PAD).unwrap();
+        let auth = base64::decode_config(&key_info.auth, base64::URL_SAFE_NO_PAD).unwrap();
+        // Act like a subscription provider, so create a "local" key to encrypt the data
+        let ciphertext = ece::encrypt(&remote_pub, &auth, DATA).unwrap();
+        let body = base64::encode_config(ciphertext, base64::URL_SAFE_NO_PAD);
+
+        let decryp_ctx = MockCryptography::decrypt_context();
+        let body_clone = body.clone();
+        decryp_ctx
+            .expect()
+            .withf(move |key, ibody, encoding, dh, salt| {
+                *key == Key {
+                    p256key: EcKeyComponents::new(
+                        base64::decode_config(PRIV_KEY_D, base64::URL_SAFE_NO_PAD).unwrap(),
+                        base64::decode_config(PUB_KEY_RAW, base64::URL_SAFE_NO_PAD).unwrap(),
+                    ),
+                    auth: base64::decode_config(AUTH_RAW, base64::URL_SAFE_NO_PAD).unwrap(),
+                } && ibody == body_clone
+                    && encoding == "aesgcm"
+                    && dh.is_none()
+                    && salt.is_none()
+            })
+            .returning(|_, _, _, _, _| Ok(DATA.to_vec()));
+        pm.decrypt(&resp.channel_id, &body, "aesgcm", None, None)
+            .unwrap();
+        Ok(())
+    }
+
+    #[test]
+    fn test_get_record_by_chid() -> Result<()> {
+        let _m = get_lock(&MTX);
+        rc_crypto::ensure_initialized();
+
+        let ctx = MockConnection::connect_context();
+        ctx.expect().returning(|_| Default::default());
+
+        let mut pm = get_test_manager()?;
+
+        pm.connection
+            .expect_subscribe()
+            .with(
+                eq(TEST_CHANNEL_ID),
+                eq(None),
+                eq(None),
+                eq("native-id"),
+                eq(Some("server_key!".to_string())),
+            )
+            .times(1)
+            .returning(|_, _, _, _, _| {
+                Ok(RegisterResponse {
+                    uaid: Some("abad1d3a00000000aabbccdd00000000".to_string()),
+                    channel_id: TEST_CHANNEL_ID.to_string(),
+                    secret: Some("LsuUOBKVQRY6-l7_Ajo-Ag".to_string()),
+                    endpoint: "https://example.com/dummy-endpoint".to_string(),
+                    sender_id: "test".to_string(),
+                })
+            });
+        let crypto_ctx = MockCryptography::generate_key_context();
+        crypto_ctx.expect().returning(|| {
+            let components = EcKeyComponents::new(
+                base64::decode_config(PRIV_KEY_D, base64::URL_SAFE_NO_PAD).unwrap(),
+                base64::decode_config(PUB_KEY_RAW, base64::URL_SAFE_NO_PAD).unwrap(),
+            );
+            let auth = base64::decode_config(AUTH_RAW, base64::URL_SAFE_NO_PAD).unwrap();
+            Ok(Key {
+                p256key: components,
+                auth,
+            })
+        });
+        let _ = pm.subscribe(TEST_CHANNEL_ID, "test-scope", Some("server_key!"))?;
+
+        let record = pm.get_record_by_chid(TEST_CHANNEL_ID).unwrap().unwrap();
+        assert_eq!(
+            record.endpoint,
+            "https://example.com/dummy-endpoint".to_string()
+        );
+        assert_eq!(record.app_server_key, Some("server_key!".to_string()));
+        assert_eq!(record.scope, "test-scope");
+        Ok(())
+    }
+
+    #[test]
+    fn test_duplicate_subscription_requests() -> Result<()> {
+        let _m = get_lock(&MTX);
+        rc_crypto::ensure_initialized();
+
+        let ctx = MockConnection::connect_context();
+        ctx.expect().returning(|_| Default::default());
+
+        let mut pm = get_test_manager()?;
+
+        pm.connection
+            .expect_subscribe()
+            .with(
+                eq(TEST_CHANNEL_ID),
+                eq(None),
+                eq(None),
+                eq("native-id"),
+                eq(None),
+            )
+            .times(1) // only once, second time we'll hit cache!
+            .returning(|_, _, _, _, _| {
+                Ok(RegisterResponse {
+                    uaid: Some("abad1d3a00000000aabbccdd00000000".to_string()),
+                    channel_id: TEST_CHANNEL_ID.to_string(),
+                    secret: Some("LsuUOBKVQRY6-l7_Ajo-Ag".to_string()),
+                    endpoint: "https://example.com/dummy-endpoint".to_string(),
+                    sender_id: "test".to_string(),
+                })
+            });
+        let crypto_ctx = MockCryptography::generate_key_context();
+        crypto_ctx.expect().returning(|| {
+            let components = EcKeyComponents::new(
+                base64::decode_config(PRIV_KEY_D, base64::URL_SAFE_NO_PAD).unwrap(),
+                base64::decode_config(PUB_KEY_RAW, base64::URL_SAFE_NO_PAD).unwrap(),
+            );
+            let auth = base64::decode_config(AUTH_RAW, base64::URL_SAFE_NO_PAD).unwrap();
+            Ok(Key {
+                p256key: components,
+                auth,
+            })
+        });
+        let sub_1 = pm.subscribe(TEST_CHANNEL_ID, "test-scope", None)?;
+        let sub_2 = pm.subscribe(TEST_CHANNEL_ID, "test-scope", None)?;
+        assert_eq!(sub_1, sub_2);
         Ok(())
     }
 }
