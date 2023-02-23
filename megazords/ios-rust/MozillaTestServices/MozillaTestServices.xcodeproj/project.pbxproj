@@ -60,6 +60,7 @@
 		1BF50F1A27B1E19800A9C8A5 /* FxAccountMocks.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1BBAC53C27AE065300DAFEF2 /* FxAccountMocks.swift */; };
 		1BFC469827C99F250034E0A5 /* Metrics.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1BFC469627C99F250034E0A5 /* Metrics.swift */; };
 		39083AAB29561E2400FDD302 /* OperationTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 39083AAA29561E2400FDD302 /* OperationTests.swift */; };
+		3948F41329A7F68900AA0D02 /* HardcodedNimbusFeatures.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3948F41229A7F68900AA0D02 /* HardcodedNimbusFeatures.swift */; };
 		395EFD6E2966EB6D00D24B97 /* Bundle+.swift in Sources */ = {isa = PBXBuildFile; fileRef = 395EFD6D2966EB6D00D24B97 /* Bundle+.swift */; };
 		3963A5862919A541001ED4C3 /* Dictionary+.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3963A5852919A541001ED4C3 /* Dictionary+.swift */; };
 		39AD326F2988468B00E42E13 /* FeatureManifestInterface.swift in Sources */ = {isa = PBXBuildFile; fileRef = 39AD326E2988468B00E42E13 /* FeatureManifestInterface.swift */; };
@@ -181,6 +182,7 @@
 		1BF50F2B27B1EB7D00A9C8A5 /* sdk_generator.sh */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.script.sh; name = sdk_generator.sh; path = "../../../../../components/external/glean/glean-core/ios/sdk_generator.sh"; sourceTree = SOURCE_ROOT; };
 		1BFC469627C99F250034E0A5 /* Metrics.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; name = Metrics.swift; path = MozillaTestServices/Generated/Metrics.swift; sourceTree = SOURCE_ROOT; };
 		39083AAA29561E2400FDD302 /* OperationTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OperationTests.swift; sourceTree = "<group>"; };
+		3948F41229A7F68900AA0D02 /* HardcodedNimbusFeatures.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HardcodedNimbusFeatures.swift; sourceTree = "<group>"; };
 		395EFD6D2966EB6D00D24B97 /* Bundle+.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = "Bundle+.swift"; path = "Nimbus/Bundle+.swift"; sourceTree = "<group>"; };
 		3963A5852919A541001ED4C3 /* Dictionary+.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = "Dictionary+.swift"; path = "Nimbus/Dictionary+.swift"; sourceTree = "<group>"; };
 		39AD326E2988468B00E42E13 /* FeatureManifestInterface.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = FeatureManifestInterface.swift; path = Nimbus/FeatureManifestInterface.swift; sourceTree = "<group>"; };
@@ -256,6 +258,7 @@
 				1B3BC98127B1D9B700229CF6 /* NimbusCreate.swift */,
 				39F5D765295616E3004E2384 /* NimbusBuilder.swift */,
 				1B3BC97C27B1D9B700229CF6 /* Utils */,
+				3948F41229A7F68900AA0D02 /* HardcodedNimbusFeatures.swift */,
 			);
 			name = Nimbus;
 			path = ../../../../components/nimbus/ios;
@@ -702,6 +705,7 @@
 				1B3BC98427B1D9B800229CF6 /* NimbusApi.swift in Sources */,
 				1B3BC93F27B1D62800229CF6 /* Bookmark.swift in Sources */,
 				1B3BC94127B1D62800229CF6 /* HistoryMetadata.swift in Sources */,
+				3948F41329A7F68900AA0D02 /* HardcodedNimbusFeatures.swift in Sources */,
 				1BF50F1827B1E18000A9C8A5 /* KeychainWrapperSubscript.swift in Sources */,
 				1BF50F1327B1E17B00A9C8A5 /* FxAccountConfig.swift in Sources */,
 				1B3BC94627B1D6A500229CF6 /* ResultError.swift in Sources */,

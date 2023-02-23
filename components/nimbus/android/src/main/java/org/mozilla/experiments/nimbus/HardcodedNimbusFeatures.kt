@@ -7,6 +7,21 @@ package org.mozilla.experiments.nimbus
 import android.content.Context
 import org.json.JSONObject
 
+/**
+ * Shim class for injecting JSON feature configs, as typed into the experimenter branch config page,
+ * straight into the application.
+ *
+ * This is suitable for unit testing and ui testing.
+ *
+ * <code>
+ *     val hardcodedNimbus = HardcodedNimbus(testContext,
+ *          "my-feature" to JSONObject("""{
+ *              "enabled": true
+ *          }""".trimToIndent()
+ *      )
+ *     FxNimbus.initialize { hardcodedNimbus }
+ * </code>
+ */
 class HardcodedNimbusFeatures(
     override val context: Context,
     private val features: Map<String, JSONObject>) : FeaturesInterface {
@@ -22,7 +37,12 @@ class HardcodedNimbusFeatures(
     }
 
     override fun getVariables(featureId: String, recordExposureEvent: Boolean): Variables =
-        features[featureId]?.let { json -> JSONVariables(context, json) } ?: NullVariables.instance
+        features[featureId]?.let { json ->
+            if (recordExposureEvent) {
+                recordExposureEvent(featureId)
+            }
+            JSONVariables(context, json)
+        } ?: NullVariables.instance
 
     override fun recordExposureEvent(featureId: String) {
         if (features[featureId] != null) {
@@ -41,5 +61,8 @@ class HardcodedNimbusFeatures(
      */
     fun isExposed(featureId: String) = getExposureCount(featureId) > 0
 
+    /**
+     * Utility function for {isUnderTest} to detect if the feature is under test.
+     */
     fun hasFeature(featureId: String) = features.containsKey(featureId)
 }
