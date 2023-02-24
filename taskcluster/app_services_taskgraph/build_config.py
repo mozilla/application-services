@@ -31,9 +31,18 @@ def get_components():
     } for (name, project) in build_config['projects'].items()]
 
 
-def get_version():
-    return _read_build_config()["libraryVersion"]
+def get_version(config):
+    version = _read_build_config()["libraryVersion"]
+    if config.params.get('nightly-build', False):
+        return make_nightly_version(version, config.params['moz_build_date'])
+    else:
+        return version
 
+def make_nightly_version(version, moz_build_date):
+    components = version.split('.')
+    assert len(components) == 3
+    components[2] = moz_build_date
+    return '.'.join(components)
 
 def get_extensions(module_name):
     publications = _read_build_config()["projects"][module_name]['publications']

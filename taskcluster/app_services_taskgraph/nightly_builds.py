@@ -6,7 +6,7 @@ from taskgraph.filter_tasks import filter_task
 
 @filter_task("nightly-build")
 def filter_nightly_tasks(full_task_graph, parameters, graph_config):
-    if parameters.get('nightly-build'):
+    if parameters.get('nightly-build', False):
         # Nothing to filter for nightly builds
         return full_task_graph.tasks.keys()
     else:

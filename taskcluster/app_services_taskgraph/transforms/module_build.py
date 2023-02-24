@@ -46,10 +46,13 @@ def build_task(config, tasks):
     for task in tasks:
         module_info = task["attributes"]["buildconfig"]
         name = module_info["name"]
-        version = get_version()
+        version = get_version(config)
 
         for i,item in enumerate(task["run"]["gradlew"]):
             task["run"]["gradlew"][i] = task["run"]["gradlew"][i].format(module_name=name)
+        if config.params.get('nightly-build', False):
+            for i,item in enumerate(task["run"]["gradlew"]):
+                task["run"]["gradlew"][i] = f"{item} -PnightlyVersion={version}"
         task["description"] = task["description"].format(module_name=name)
         task["worker"]["artifacts"] = artifacts = []
 

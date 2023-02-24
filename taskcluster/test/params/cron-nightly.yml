@@ -1,6 +1,4 @@
 base_repository: https://github.com/mozilla/application-services
-branch-build:
-  firefox-android-branch: main
 build_date: 1651554220
 do_not_optimize: []
 existing_tasks: {}
@@ -20,6 +18,6 @@ project: application-services
 pushdate: 0
 pushlog_id: '0'
 repository_type: git
-target_tasks_method: default
+target_tasks_method: nightly
 tasks_for: cron
 nightly-build: true

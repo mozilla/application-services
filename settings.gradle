@@ -66,7 +66,10 @@ if (file('local.properties').canRead()) {
 
 def calcVersion(buildconfig) {
     def local = gradle.rootProject.findProperty("local")
-    if (gradle.hasProperty("localProperties.branchBuild.application-services.version")) {
+
+    if (gradle.rootProject.hasProperty("nightlyVersion")) {
+        return gradle.rootProject.nightlyVersion
+    } else if (gradle.hasProperty("localProperties.branchBuild.application-services.version")) {
         def branchBuildVersion = gradle.getProperty("localProperties.branchBuild.application-services.version")
         logger.lifecycle("Branch build: forcing all versions to ${branchBuildVersion}")
         return branchBuildVersion

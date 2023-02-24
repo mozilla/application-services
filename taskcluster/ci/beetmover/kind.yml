@@ -17,7 +17,7 @@ primary-dependency: module-build
 group-by: component
 
 task-template:
-  run-on-tasks-for: [github-release]
+  run-on-tasks-for: [github-release, cron]
   description: 'Publish release module {}'
   worker-type: beetmover
   worker:

@@ -19,7 +19,7 @@ def build_upstream_artifacts(config, tasks):
     for task in tasks:
         module_info = task["attributes"]["buildconfig"]
         name = module_info["name"]
-        version = get_version()
+        version = get_version(config)
         publications = module_info["publications"]
 
         worker_definition = {"upstream-artifacts": [{
@@ -43,7 +43,7 @@ def build_artifact_map(config, tasks):
     for task in tasks:
         module_info = task["attributes"]["buildconfig"]
         name = module_info["name"]
-        version = get_version()
+        version = get_version(config)
 
         publications = module_info["publications"]
 
@@ -51,11 +51,14 @@ def build_artifact_map(config, tasks):
             "locale": "en-US",
             "task-id": {"task-reference": "<module-build>"},
             "paths": (publications_to_artifact_map_paths(name, version, publications,
+                                                         config.params.get("nightly-build", False),
                                                          ("", ".sha1", ".md5")))
         }, {
             "locale": "en-US",
             "task-id": {"task-reference": "<signing>"},
-            "paths": publications_to_artifact_map_paths(name, version, publications, (".asc",))
+            "paths": publications_to_artifact_map_paths(name, version, publications,
+                                                        config.params.get("nightly-build", False),
+                                                        (".asc",))
         }]
 
         task["worker"]["artifact-map"] = artifact_map
@@ -66,7 +69,7 @@ def build_artifact_map(config, tasks):
 def beetmover_task(config, tasks):
     for task in tasks:
         task["worker"]["max-run-time"] = 600
-        task["worker"]["version"] = get_version()
+        task["worker"]["version"] = get_version(config)
         task["description"] = task["description"].format(task["attributes"]["buildconfig"]["name"])
         resolve_keyed_by(task, "worker.bucket", item_name=task["name"], **{
             "level": config.params["level"],
