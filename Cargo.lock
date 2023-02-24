@@ -1824,6 +1824,7 @@ dependencies = [
  "rc_log_ffi",
  "rust-log-forwarder",
  "sync15",
+ "sync_manager",
  "tabs",
  "viaduct",
  "viaduct-reqwest",

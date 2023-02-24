@@ -168,6 +168,12 @@ public class PlacesAPI {
             return try self.api.bookmarksReset()
         }
     }
+
+    open func registerWithSyncManager() {
+        queue.sync {
+            self.api.registerWithSyncManager()
+        }
+    }
 }
 
 /**
