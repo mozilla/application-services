@@ -94,7 +94,6 @@
     "lib-auth",
     "lib-crash",
     "lib-crash-sentry",
-    "lib-crash-sentry-legacy",
     "lib-dataprotect",
     "lib-fetch-httpurlconnection",
     "lib-fetch-okhttp",
@@ -114,6 +113,5 @@
     "samples-sync-logins",
     "samples-toolbar",
     "samples-dataprotect",
-    "tooling-glean-gradle",
     "tooling-nimbus-gradle"
 ]
