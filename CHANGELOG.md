@@ -1,3 +1,21 @@
+# v97.1.0 (_2023-02-24_)
+
+[Full Changelog](https://github.com/mozilla/application-services/compare/v97.0.0...v97.1.0)
+
+## Tabs
+
+### 🦊 What's Changed 🦊
+
+- The Tabs engine now trims the payload to be under the max the server will accept ([#5376](https://github.com/mozilla/application-services/pull/5376))
+
+
+## Sync Manager
+
+### 🦊 What's Changed 🦊
+
+- Exposing the Sync Manager component to iOS by addressing the existing naming collisions, adding logic to process the telemetry
+  data returned in the component's `sync` function, and adding the component to the iOS megazord ([#5359](https://github.com/mozilla/application-services/pull/5359)).
+
 # v97.0.0 (_2023-02-22_)
 
 [Full Changelog](https://github.com/mozilla/application-services/compare/v96.4.0...v97.0.0)
