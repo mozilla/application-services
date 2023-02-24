@@ -253,12 +253,12 @@
 				39AD326E2988468B00E42E13 /* FeatureManifestInterface.swift */,
 				1B3BC97927B1D9B700229CF6 /* FeatureVariables.swift */,
 				1B3BC97827B1D9B700229CF6 /* GleanPlumbHelpers.swift */,
+				3948F41229A7F68900AA0D02 /* HardcodedNimbusFeatures.swift */,
 				1B3BC97A27B1D9B700229CF6 /* Nimbus.swift */,
 				1B3BC97727B1D9B700229CF6 /* NimbusApi.swift */,
 				1B3BC98127B1D9B700229CF6 /* NimbusCreate.swift */,
 				39F5D765295616E3004E2384 /* NimbusBuilder.swift */,
 				1B3BC97C27B1D9B700229CF6 /* Utils */,
-				3948F41229A7F68900AA0D02 /* HardcodedNimbusFeatures.swift */,
 			);
 			name = Nimbus;
 			path = ../../../../components/nimbus/ios;

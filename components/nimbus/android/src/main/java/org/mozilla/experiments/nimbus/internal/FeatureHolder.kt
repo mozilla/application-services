@@ -112,11 +112,10 @@ class FeatureHolder<T>(
      * For example, a background worker might be scheduled to run every 24 hours, but
      * under test it would be desirable to run immediately, and only once.
      */
-    val isUnderTest: Boolean
-        get() = lock.runBlock {
-            val sdk = getSdk() as? HardcodedNimbusFeatures ?: return@runBlock false
-            sdk.hasFeature(featureId)
-        }
+    fun isUnderTest(): Boolean = lock.runBlock {
+        val sdk = getSdk() as? HardcodedNimbusFeatures ?: return@runBlock false
+        sdk.hasFeature(featureId)
+    }
 
     private fun <T> ReentrantLock.runBlock(block: () -> T): T {
         lock.lock()

@@ -6,6 +6,7 @@ package org.mozilla.experiments.nimbus
 
 import android.content.Context
 import org.json.JSONObject
+import org.mozilla.experiments.nimbus.internal.FeatureManifestInterface
 
 /**
  * Shim class for injecting JSON feature configs, as typed into the experimenter branch config page,
@@ -19,7 +20,7 @@ import org.json.JSONObject
  *              "enabled": true
  *          }""".trimToIndent()
  *      )
- *     FxNimbus.initialize { hardcodedNimbus }
+ *     hardcodedNimbus.connectWith(FxNimbus)
  * </code>
  */
 class HardcodedNimbusFeatures(
@@ -65,4 +66,11 @@ class HardcodedNimbusFeatures(
      * Utility function for {isUnderTest} to detect if the feature is under test.
      */
     fun hasFeature(featureId: String) = features.containsKey(featureId)
+
+    /**
+     * Use this {NimbusFeatures} instance to populate the passed feature configurations.
+     */
+    fun <T> connectWith(fm: FeatureManifestInterface<T>) {
+        fm.initialize { this }
+    }
 }
