@@ -2,35 +2,20 @@
 * License, v. 2.0. If a copy of the MPL was not distributed with this
 * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-use crate::client::SettingsClient;
-use crate::{Branch, BucketConfig, Experiment, FeatureConfig, RandomizationUnit, SCHEMA_VERSION};
-use mockito::mock;
-use rs_client::{Client, ClientConfig};
+use crate::parse_experiments;
+use crate::{
+    Branch, BucketConfig, Experiment, FeatureConfig, NimbusError, RandomizationUnit, SCHEMA_VERSION,
+};
 
 #[test]
 fn test_fetch_experiments_from_schema() {
-    viaduct_reqwest::use_reqwest_backend();
-    // There are two experiments defined here, one has a "newer" schema version
-    // in order to test filtering of unsupported schema versions.
-    let m = mock(
-        "GET",
-        "/v1/buckets/main/collections/messaging-experiments/records",
-    )
-    .with_body(response_body())
-    .with_status(200)
-    .with_header("content-type", "application/json")
-    .create();
-    let config = ClientConfig {
-        server_url: Some(mockito::server_url()),
-        collection_name: "messaging-experiments".to_string(),
-        bucket_name: None,
-    };
-    let http_client = Client::new(config).unwrap();
-    let resp = http_client.fetch_experiments().unwrap();
+    // There are three experiments defined here, one has a "newer" schema version
+    // in order to test filtering of unsupported schema versions, one is malformed, and one
+    // should parse correctly.
+    let result = parse_experiments(&response_body()).unwrap();
 
-    m.expect(1).assert();
-    assert_eq!(resp.len(), 1);
-    let exp = &resp[0];
+    assert_eq!(result.len(), 1);
+    let exp = &result[0];
     assert_eq!(
         exp.clone(),
         Experiment {
@@ -76,6 +61,18 @@ fn test_fetch_experiments_from_schema() {
     )
 }
 
+#[test]
+fn test_malformed_payload() {
+    let payload = r#"
+        {{ "datar" : [} ]]
+    "#;
+
+    let result = parse_experiments(payload).unwrap_err();
+    assert!(matches!(result, NimbusError::JSONError(_)));
+}
+
+// This response body includes a matching schema version, a non-matching schema version,
+// and a malformed experiment.
 fn response_body() -> String {
     format!(
         r#"
