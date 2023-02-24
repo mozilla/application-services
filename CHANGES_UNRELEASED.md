@@ -19,6 +19,12 @@ Use the template below to make assigning a version number during the release cut
 
 -->
 
+## General
+
+### ⚠️ Breaking Changes ⚠️
+
+- Android: The JVM compatibility target is now version 11 ([#5401](https://github.com/mozilla/application-services/issues/5401))
+
 ## Nimbus ⛅️🔬🔭
 
 ### ✨ What's New ✨
