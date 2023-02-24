@@ -11,8 +11,6 @@ def main():
     if args.firefox_android_branch:
         git_checkout(firefox_android_repo(args), args.firefox_android_branch)
         local_properties.extend(branch_build_properties('android-components', 'firefox-android/android-components'))
-    if args.fenix_branch:
-        git_checkout(fenix_repo(args), args.fenix_branch)
 
     local_properties = '\n'.join(local_properties)
     print("Local properties:")
@@ -21,22 +19,16 @@ def main():
     write_local_properties("local.properties", local_properties)
     if args.firefox_android_branch:
         write_local_properties("firefox-android/android-components/local.properties", local_properties)
-    if args.fenix_branch:
-        write_local_properties("fenix/local.properties", local_properties)
+        write_local_properties("firefox-android/fenix/local.properties", local_properties)
 
 def parse_args():
     parser = argparse.ArgumentParser(description='Setup a branch build in taskcluster')
     parser.add_argument('--firefox-android-owner', help='firefox-android repository owner', default='mozilla-mobile')
     parser.add_argument('--firefox-android-branch', help='firefox-android branch')
-    parser.add_argument('--fenix-owner', help='Fenix repository owner', default='mozilla-mobile')
-    parser.add_argument('--fenix-branch', help='Fenix branch')
     return parser.parse_args()
 
 def firefox_android_repo(args):
     return f'https://github.com/{args.firefox_android_owner}/firefox-android'
-
-def fenix_repo(args):
-    return f'https://github.com/{args.fenix_owner}/fenix'
 
 def git_checkout(url, branch):
     subprocess.check_call(['git', 'clone', '--branch', branch, '--recurse-submodules', '--depth', '1', '--', url])
