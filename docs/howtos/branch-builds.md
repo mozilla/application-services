@@ -1,16 +1,16 @@
 # Branch builds
 
-Branch builds are a way to build and test Fenix using branches from `application-services`, `android-components`, and/or
-`fenix`.  iOS is not currently supported, although we may add it in the future (see [#4966](https://github.com/mozilla/application-services/issues/4966)).
+Branch builds are a way to build and test Fenix using branches from `application-services` and `firefox-android`.
+iOS is not currently supported, although we may add it in the future (see [#4966](https://github.com/mozilla/application-services/issues/4966)).
 
 ## Breaking changes in an application-services branch.
 
  When we make breaking changes in an application-services branch, we typically make corresponding changes in an
- `android-components` or `fenix` branch.  Branch builds allow combining those branches together in order to run CI tests
+ `android-components` branch.  Branch builds allow combining those branches together in order to run CI tests
  and to produce APKs for manual testing.  To trigger a branch build for this:
 
   - Create the PR for the `application-services` branch you're working on
-  - Add `[ac: android-components-branch-name]` and/or `[fenix: fenix-branch-name]` to the PR title
+  - Add `[firefox-android: branch-name]` to the PR title
   - The branch build tasks will be listed as checks the Github PR.  In particular:
     - `branch-build-fenix-test` and `branch-build-ac-test` will run the unit android-components/fenix unit tests
     - `branch-build-fenix-build` will contain the Fenix APK.
