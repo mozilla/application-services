@@ -25,7 +25,8 @@ import org.mozilla.experiments.nimbus.internal.FeatureManifestInterface
  */
 class HardcodedNimbusFeatures(
     override val context: Context,
-    private val features: Map<String, JSONObject>) : FeaturesInterface {
+    private val features: Map<String, JSONObject>
+) : FeaturesInterface {
     private val exposureCounts = mutableMapOf<String, Int>()
 
     constructor(context: Context, vararg pairs: Pair<String, JSONObject>) : this(
