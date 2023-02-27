@@ -139,13 +139,21 @@ impl<Co: Connection, Cr: Cryptography, S: Storage> PushManager<Co, Cr, S> {
             .as_ref()
             .ok_or_else(|| PushError::CommunicationError("No native id".to_string()))?;
 
-        let info = self.connection.subscribe(
-            channel_id,
-            &self.uaid,
-            &self.auth,
-            registration_id,
-            &server_key.map(ToString::to_string),
-        )?;
+        let info = match (&self.uaid, &self.auth) {
+            (Some(uaid), Some(auth)) => self.connection.subscribe_with_uaid(
+                channel_id,
+                uaid,
+                auth,
+                registration_id,
+                &server_key.map(ToString::to_string),
+            ),
+            _ => self.connection.subscribe_new(
+                channel_id,
+                registration_id,
+                &server_key.map(ToString::to_string),
+            ),
+        }?;
+
         log::debug!("server returned subscription info: {:?}", info);
         // If our uaid has changed, or this is the first subscription we have made, all existing
         // records must die - but we can keep this one!
@@ -279,26 +287,30 @@ impl<Co: Connection, Cr: Cryptography, S: Storage> PushManager<Co, Cr, S> {
 
         // verify both lists match. Either side could have lost its mind.
         match remote_channels {
-            Some(channels) if channels == local_channels => Ok(Vec::new()),
-            _ => {
+            // Everything is OK! Lets return early
+            Some(channels) if channels == local_channels => return Ok(Vec::new()),
+            Some(_) => {
                 log::info!("verify_connection found a mismatch - unsubscribing");
                 // Unsubscribe all the channels (just to be sure and avoid a loop).
                 self.connection.unsubscribe_all(uaid, auth)?;
+            }
+            // Means the server lost our UAID, lets not unsubscribe,
+            // as that operation will fail
+            None => (),
+        };
 
-                let mut subscriptions: Vec<PushSubscriptionChanged> = Vec::new();
-                for channel in local_channels {
-                    if let Some(record) = self.store.get_record_by_chid(&channel)? {
-                        subscriptions.push(record.into());
-                    }
-                }
-                // we wipe all existing subscriptions and the UAID if there is a mismatch; the next
-                // `subscribe()` call will get a new UAID.
-                self.store.delete_all_records()?;
-                self.uaid = None;
-                self.auth = None;
-                Ok(subscriptions)
+        let mut subscriptions: Vec<PushSubscriptionChanged> = Vec::new();
+        for channel in local_channels {
+            if let Some(record) = self.store.get_record_by_chid(&channel)? {
+                subscriptions.push(record.into());
             }
         }
+        // we wipe all existing subscriptions and the UAID if there is a mismatch; the next
+        // `subscribe()` call will get a new UAID.
+        self.store.delete_all_records()?;
+        self.uaid = None;
+        self.auth = None;
+        Ok(subscriptions)
     }
 
     pub fn decrypt(
@@ -381,16 +393,10 @@ mod test {
 
         let mut pm = get_test_manager()?;
         pm.connection
-            .expect_subscribe()
-            .with(
-                eq(TEST_CHANNEL_ID),
-                eq(None),
-                eq(None),
-                eq("native-id"),
-                eq(None),
-            )
+            .expect_subscribe_new()
+            .with(eq(TEST_CHANNEL_ID), eq("native-id"), eq(None))
             .times(1)
-            .returning(|_, _, _, _, _| {
+            .returning(|_, _, _| {
                 Ok(RegisterResponse {
                     uaid: Some(TEST_UAID.to_string()),
                     channel_id: TEST_CHANNEL_ID.to_string(),
@@ -448,16 +454,10 @@ mod test {
         let data_string = b"Mary had a little lamb, with some nice mint jelly";
         let mut pm = get_test_manager()?;
         pm.connection
-            .expect_subscribe()
-            .with(
-                eq(TEST_CHANNEL_ID),
-                eq(None),
-                eq(None),
-                eq("native-id"),
-                eq(None),
-            )
+            .expect_subscribe_new()
+            .with(eq(TEST_CHANNEL_ID), eq("native-id"), eq(None))
             .times(1)
-            .returning(|_, _, _, _, _| {
+            .returning(|_, _, _| {
                 Ok(RegisterResponse {
                     uaid: Some(TEST_UAID.to_string()),
                     channel_id: TEST_CHANNEL_ID.to_string(),
@@ -520,16 +520,10 @@ mod test {
         let mut pm = get_test_manager()?;
 
         pm.connection
-            .expect_subscribe()
-            .with(
-                eq(TEST_CHANNEL_ID),
-                eq(None),
-                eq(None),
-                eq("native-id"),
-                eq(None),
-            )
+            .expect_subscribe_new()
+            .with(eq(TEST_CHANNEL_ID), eq("native-id"), eq(None))
             .times(1)
-            .returning(|_, _, _, _, _| {
+            .returning(|_, _, _| {
                 Ok(RegisterResponse {
                     uaid: Some(TEST_UAID.to_string()),
                     channel_id: TEST_CHANNEL_ID.to_string(),
@@ -591,16 +585,14 @@ mod test {
         let mut pm = get_test_manager()?;
 
         pm.connection
-            .expect_subscribe()
+            .expect_subscribe_new()
             .with(
                 eq(TEST_CHANNEL_ID),
-                eq(None),
-                eq(None),
                 eq("native-id"),
                 eq(Some("server_key!".to_string())),
             )
             .times(1)
-            .returning(|_, _, _, _, _| {
+            .returning(|_, _, _| {
                 Ok(RegisterResponse {
                     uaid: Some(TEST_UAID.to_string()),
                     channel_id: TEST_CHANNEL_ID.to_string(),
@@ -644,16 +636,10 @@ mod test {
         let mut pm = get_test_manager()?;
 
         pm.connection
-            .expect_subscribe()
-            .with(
-                eq(TEST_CHANNEL_ID),
-                eq(None),
-                eq(None),
-                eq("native-id"),
-                eq(None),
-            )
+            .expect_subscribe_new()
+            .with(eq(TEST_CHANNEL_ID), eq("native-id"), eq(None))
             .times(1) // only once, second time we'll hit cache!
-            .returning(|_, _, _, _, _| {
+            .returning(|_, _, _| {
                 Ok(RegisterResponse {
                     uaid: Some(TEST_UAID.to_string()),
                     channel_id: TEST_CHANNEL_ID.to_string(),
@@ -687,16 +673,10 @@ mod test {
 
         let mut pm = get_test_manager()?;
         pm.connection
-            .expect_subscribe()
-            .with(
-                eq(TEST_CHANNEL_ID),
-                eq(None),
-                eq(None),
-                eq("native-id"),
-                eq(None),
-            )
+            .expect_subscribe_new()
+            .with(eq(TEST_CHANNEL_ID), eq("native-id"), eq(None))
             .times(2)
-            .returning(|_, _, _, _, _| {
+            .returning(|_, _, _| {
                 Ok(RegisterResponse {
                     uaid: Some(TEST_UAID.to_string()),
                     channel_id: TEST_CHANNEL_ID.to_string(),
@@ -766,16 +746,10 @@ mod test {
 
         let mut pm = get_test_manager()?;
         pm.connection
-            .expect_subscribe()
-            .with(
-                eq(TEST_CHANNEL_ID),
-                eq(None),
-                eq(None),
-                eq("native-id"),
-                eq(None),
-            )
+            .expect_subscribe_new()
+            .with(eq(TEST_CHANNEL_ID), eq("native-id"), eq(None))
             .times(1)
-            .returning(|_, _, _, _, _| {
+            .returning(|_, _, _| {
                 Ok(RegisterResponse {
                     uaid: Some(TEST_UAID.to_string()),
                     channel_id: TEST_CHANNEL_ID.to_string(),
@@ -807,12 +781,6 @@ mod test {
                 ))
             });
 
-        pm.connection
-            .expect_unsubscribe_all()
-            .with(eq(TEST_UAID), eq(TEST_AUTH))
-            .times(1)
-            .returning(|_, _| Ok(()));
-
         let _ = pm.subscribe(TEST_CHANNEL_ID, "test-scope", None)?;
         // verify that a uaid got added to our store and
         // that there is a record associated with the channel ID provided
@@ -839,16 +807,10 @@ mod test {
 
         let mut pm = get_test_manager()?;
         pm.connection
-            .expect_subscribe()
-            .with(
-                eq(TEST_CHANNEL_ID),
-                eq(None),
-                eq(None),
-                eq("native-id"),
-                eq(None),
-            )
+            .expect_subscribe_new()
+            .with(eq(TEST_CHANNEL_ID), eq("native-id"), eq(None))
             .times(1)
-            .returning(|_, _, _, _, _| {
+            .returning(|_, _, _| {
                 Ok(RegisterResponse {
                     uaid: Some(TEST_UAID.to_string()),
                     channel_id: TEST_CHANNEL_ID.to_string(),
