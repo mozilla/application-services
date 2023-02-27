@@ -6,7 +6,7 @@ use std::time::{Duration, SystemTime, UNIX_EPOCH};
 
 use rusqlite::types::{FromSql, FromSqlResult, ToSql, ToSqlOutput, ValueRef};
 use rusqlite::Result as RusqliteResult;
-use serde_derive::*;
+use serde::{Deserialize, Serialize};
 
 /// Typesafe way to manage timestamps.
 // XXX: copied from places, consolidate the impls later
