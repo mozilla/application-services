@@ -279,7 +279,7 @@ mod tests {
                 title: "my first tab".to_string(),
                 url_history: vec!["http://1.com".to_string()],
                 icon: None,
-                last_used: 0,
+                last_used: 2,
             },
             RemoteTab {
                 title: "my second tab".to_string(),

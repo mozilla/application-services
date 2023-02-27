@@ -1291,7 +1291,7 @@ checksum = "78cc372d058dcf6d5ecd98510e7fbc9e5aec4d21de70f65fea8fecebcd881bd4"
 
 [[package]]
 name = "glean-build"
-version = "6.4.0"
+version = "7.0.0"
 dependencies = [
  "xshell-venv",
 ]
@@ -1824,6 +1824,7 @@ dependencies = [
  "rc_log_ffi",
  "rust-log-forwarder",
  "sync15",
+ "sync_manager",
  "tabs",
  "viaduct",
  "viaduct-reqwest",

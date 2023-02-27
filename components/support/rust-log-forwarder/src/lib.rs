@@ -61,8 +61,13 @@ mod test {
         }
     }
 
+    // Lock that we take for each test.  This prevents multiple threads from running these tests at
+    // the same time, which makes them flakey.
+    static TEST_LOCK: Mutex<()> = Mutex::new(());
+
     #[test]
     fn test_logging() {
+        let _lock = TEST_LOCK.lock().unwrap();
         let logger = TestLogger::new();
         set_logger(Some(Box::new(logger.clone())));
         log::info!("Test message");
@@ -88,6 +93,7 @@ mod test {
 
     #[test]
     fn test_max_level() {
+        let _lock = TEST_LOCK.lock().unwrap();
         set_max_level(Level::Debug);
         assert_eq!(log::max_level(), log::Level::Debug);
         set_max_level(Level::Warn);
@@ -96,6 +102,7 @@ mod test {
 
     #[test]
     fn test_max_level_default() {
+        let _lock = TEST_LOCK.lock().unwrap();
         HAVE_SET_MAX_LEVEL.store(false, Ordering::Relaxed);
         let logger = TestLogger::new();
         // Calling set_logger should set the level to `Debug' by default
@@ -105,6 +112,7 @@ mod test {
 
     #[test]
     fn test_max_level_default_ignored_if_set_manually() {
+        let _lock = TEST_LOCK.lock().unwrap();
         HAVE_SET_MAX_LEVEL.store(false, Ordering::Relaxed);
         set_max_level(Level::Warn);
         // Calling set_logger should not set the level if it was set manually.

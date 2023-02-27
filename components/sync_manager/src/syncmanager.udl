@@ -54,6 +54,7 @@ enum SyncReason {
     "PreSleep",
     "Startup",
     "EnabledChange",
+    "Backgrounded",
 };
 
 dictionary SyncAuthInfo {
@@ -66,10 +67,10 @@ dictionary SyncAuthInfo {
 dictionary DeviceSettings {
     string fxa_device_id;
     string name;
-    DeviceType kind;
+    SyncManagerDeviceType kind;
 };
 
-enum DeviceType {
+enum SyncManagerDeviceType {
     "Desktop",
     "Mobile",
     "Tablet",
