@@ -3042,7 +3042,6 @@ dependencies = [
  "rc_crypto",
  "rusqlite",
  "serde",
- "serde_derive",
  "serde_json",
  "sql-support",
  "tempfile",

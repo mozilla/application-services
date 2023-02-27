@@ -6,6 +6,8 @@
 //!
 //! "privileged" system calls may require additional handling and should be flagged as such.
 
+use std::collections::HashSet;
+
 use crate::error::{self, PushError, Result};
 use crate::internal::communications::{Connection, PersistedRateLimiter, RegisterResponse};
 use crate::internal::config::PushConfiguration;
@@ -221,16 +223,20 @@ impl<Co: Connection, Cr: Cryptography, S: Storage> PushManager<Co, Cr, S> {
     }
 
     pub fn update(&mut self, new_token: &str) -> error::Result<bool> {
-        self.store.set_registration_id(new_token)?;
-        self.registration_id = Some(new_token.to_string());
+        if self.registration_id.as_deref() == Some(new_token) {
+            // Already up to date!
+            return Ok(false);
+        }
 
-        // It's OK if we don't have a uaid yet - that means we can't have any subscriptions,
-        // and we've saved our registration_id, so will use it on our first subscription.
+        // It's OK if we don't have a uaid yet - that means we don't have any subscriptions,
+        // let save our registration_id, so will use it on our first subscription.
         if self.uaid.is_none() {
+            self.store.set_registration_id(new_token)?;
+            self.registration_id = Some(new_token.to_string());
             log::info!(
                 "saved the registration ID but not telling the server as we have no subs yet"
             );
-            return Ok(false);
+            return Ok(true);
         }
 
         if !self.update_rate_limiter.check(&self.store) {
@@ -250,29 +256,49 @@ impl<Co: Connection, Cr: Cryptography, S: Storage> PushManager<Co, Cr, S> {
             }
         }
 
-        Ok(true)
+        self.store.set_registration_id(new_token)?;
+        self.registration_id = Some(new_token.to_string());
+        Ok(false)
     }
 
     pub fn verify_connection(&mut self) -> Result<Vec<PushSubscriptionChanged>> {
         let channels = self.store.get_channel_list()?;
         let (uaid, auth) = self.ensure_auth_pair()?;
-        if self.connection.verify_connection(&channels, uaid, auth)? {
-            // Everything is fine, our subscriptions in the db match the remote server.
-            return Ok(Vec::new());
-        }
 
-        let mut subscriptions: Vec<PushSubscriptionChanged> = Vec::new();
-        for channel in channels {
-            if let Some(record) = self.store.get_record_by_chid(&channel)? {
-                subscriptions.push(record.into());
+        let local_channels: HashSet<String> = channels.into_iter().collect();
+        let remote_channels = match self.connection.channel_list(uaid, auth) {
+            Ok(v) => Some(HashSet::from_iter(v)),
+            Err(e) => match e {
+                PushError::UAIDNotRecognizedError(_) => {
+                    // We do not unsubscribe, because the server already lost our UAID
+                    None
+                }
+                _ => return Err(e),
+            },
+        };
+
+        // verify both lists match. Either side could have lost its mind.
+        match remote_channels {
+            Some(channels) if channels == local_channels => Ok(Vec::new()),
+            _ => {
+                log::info!("verify_connection found a mismatch - unsubscribing");
+                // Unsubscribe all the channels (just to be sure and avoid a loop).
+                self.connection.unsubscribe_all(uaid, auth)?;
+
+                let mut subscriptions: Vec<PushSubscriptionChanged> = Vec::new();
+                for channel in local_channels {
+                    if let Some(record) = self.store.get_record_by_chid(&channel)? {
+                        subscriptions.push(record.into());
+                    }
+                }
+                // we wipe all existing subscriptions and the UAID if there is a mismatch; the next
+                // `subscribe()` call will get a new UAID.
+                self.store.delete_all_records()?;
+                self.uaid = None;
+                self.auth = None;
+                Ok(subscriptions)
             }
         }
-        // we wipe all existing subscriptions and the UAID if there is a mismatch; the next
-        // `subscribe()` call will get a new UAID.
-        self.store.delete_all_records()?;
-        self.uaid = None;
-        self.auth = None;
-        Ok(subscriptions)
     }
 
     pub fn decrypt(
@@ -303,10 +329,11 @@ mod test {
 
     use crate::internal::{communications::MockConnection, crypto::MockCryptography};
 
+    use super::*;
     use lazy_static::lazy_static;
     use std::sync::{Mutex, MutexGuard};
 
-    const DATA: &[u8] = b"Mary had a little lamb, with some nice mint jelly";
+    use crate::Store;
 
     lazy_static! {
         static ref MTX: Mutex<()> = Mutex::new(());
@@ -322,13 +349,14 @@ mod test {
         }
     }
 
-    use super::*;
-
-    use crate::Store;
+    const TEST_UAID: &str = "abad1d3a00000000aabbccdd00000000";
+    const DATA: &[u8] = b"Mary had a little lamb, with some nice mint jelly";
     const TEST_CHANNEL_ID: &str = "deadbeef00000000decafbad00000000";
+    const TEST_CHANNEL_ID2: &str = "decafbad00000000deadbeef00000000";
+
     const PRIV_KEY_D: &str = "qJkxxWGVVxy7BKvraNY3hg8Gs-Y8qi0lRaXWJ3R3aJ8";
     // The auth token
-    const AUTH_RAW: &str = "LsuUOBKVQRY6-l7_Ajo-Ag";
+    const TEST_AUTH: &str = "LsuUOBKVQRY6-l7_Ajo-Ag";
     // This would be the public key sent to the subscription service.
     const PUB_KEY_RAW: &str =
         "BBcJdfs1GtMyymFTtty6lIGWRFXrEtJP40Df0gOvRDR4D8CKVgqE6vlYR7tCYksIRdKD1MxDPhQVmKLnzuife50";
@@ -364,11 +392,11 @@ mod test {
             .times(1)
             .returning(|_, _, _, _, _| {
                 Ok(RegisterResponse {
-                    uaid: Some("abad1d3a00000000aabbccdd00000000".to_string()),
+                    uaid: Some(TEST_UAID.to_string()),
                     channel_id: TEST_CHANNEL_ID.to_string(),
-                    secret: Some("LsuUOBKVQRY6-l7_Ajo-Ag".to_string()),
+                    secret: Some(TEST_AUTH.to_string()),
                     endpoint: "https://example.com/dummy-endpoint".to_string(),
-                    sender_id: "test".to_string(),
+                    sender_id: Some("test".to_string()),
                 })
             });
         let crypto_ctx = MockCryptography::generate_key_context();
@@ -377,7 +405,7 @@ mod test {
                 base64::decode_config(PRIV_KEY_D, base64::URL_SAFE_NO_PAD).unwrap(),
                 base64::decode_config(PUB_KEY_RAW, base64::URL_SAFE_NO_PAD).unwrap(),
             );
-            let auth = base64::decode_config(AUTH_RAW, base64::URL_SAFE_NO_PAD).unwrap();
+            let auth = base64::decode_config(TEST_AUTH, base64::URL_SAFE_NO_PAD).unwrap();
             Ok(Key {
                 p256key: components,
                 auth,
@@ -386,10 +414,7 @@ mod test {
         let resp = pm.subscribe(TEST_CHANNEL_ID, "test-scope", None)?;
         // verify that a subsequent request for the same channel ID returns the same subscription
         let resp2 = pm.subscribe(TEST_CHANNEL_ID, "test-scope", None)?;
-        assert_eq!(
-            Some("LsuUOBKVQRY6-l7_Ajo-Ag".to_owned()),
-            pm.store.get_auth()?
-        );
+        assert_eq!(Some(TEST_AUTH.to_owned()), pm.store.get_auth()?);
         assert_eq!(
             resp.subscription_info.endpoint,
             resp2.subscription_info.endpoint
@@ -398,19 +423,12 @@ mod test {
 
         pm.connection
             .expect_unsubscribe()
-            .with(
-                eq(TEST_CHANNEL_ID),
-                eq("abad1d3a00000000aabbccdd00000000"),
-                eq("LsuUOBKVQRY6-l7_Ajo-Ag"),
-            )
+            .with(eq(TEST_CHANNEL_ID), eq(TEST_UAID), eq(TEST_AUTH))
             .times(2)
             .returning(|_, _, _| Ok(()));
         pm.connection
             .expect_unsubscribe_all()
-            .with(
-                eq("abad1d3a00000000aabbccdd00000000"),
-                eq("LsuUOBKVQRY6-l7_Ajo-Ag"),
-            )
+            .with(eq(TEST_UAID), eq(TEST_AUTH))
             .times(1)
             .returning(|_, _| Ok(()));
 
@@ -441,11 +459,11 @@ mod test {
             .times(1)
             .returning(|_, _, _, _, _| {
                 Ok(RegisterResponse {
-                    uaid: Some("abad1d3a00000000aabbccdd00000000".to_string()),
+                    uaid: Some(TEST_UAID.to_string()),
                     channel_id: TEST_CHANNEL_ID.to_string(),
-                    secret: Some("LsuUOBKVQRY6-l7_Ajo-Ag".to_string()),
+                    secret: Some(TEST_AUTH.to_string()),
                     endpoint: "https://example.com/dummy-endpoint".to_string(),
-                    sender_id: "test".to_string(),
+                    sender_id: Some("test".to_string()),
                 })
             });
         let crypto_ctx = MockCryptography::generate_key_context();
@@ -454,7 +472,7 @@ mod test {
                 base64::decode_config(PRIV_KEY_D, base64::URL_SAFE_NO_PAD).unwrap(),
                 base64::decode_config(PUB_KEY_RAW, base64::URL_SAFE_NO_PAD).unwrap(),
             );
-            let auth = base64::decode_config(AUTH_RAW, base64::URL_SAFE_NO_PAD).unwrap();
+            let auth = base64::decode_config(TEST_AUTH, base64::URL_SAFE_NO_PAD).unwrap();
             Ok(Key {
                 p256key: components,
                 auth,
@@ -479,7 +497,7 @@ mod test {
                         base64::decode_config(PRIV_KEY_D, base64::URL_SAFE_NO_PAD).unwrap(),
                         base64::decode_config(PUB_KEY_RAW, base64::URL_SAFE_NO_PAD).unwrap(),
                     ),
-                    auth: base64::decode_config(AUTH_RAW, base64::URL_SAFE_NO_PAD).unwrap(),
+                    auth: base64::decode_config(TEST_AUTH, base64::URL_SAFE_NO_PAD).unwrap(),
                 } && ibody == body_clone
                     && encoding == "aes128gcm"
                     && dh.is_none()
@@ -488,89 +506,6 @@ mod test {
             .returning(|_, _, _, _, _| Ok(data_string.to_vec()));
         pm.decrypt(&resp.channel_id, &body, "aes128gcm", None, None)
             .unwrap();
-        Ok(())
-    }
-
-    #[test]
-    fn test_wipe_uaid() -> Result<()> {
-        let _m = get_lock(&MTX);
-        let ctx = MockConnection::connect_context();
-        ctx.expect().returning(|_| Default::default());
-
-        let mut pm = get_test_manager()?;
-        pm.connection
-            .expect_subscribe()
-            .with(
-                eq(TEST_CHANNEL_ID),
-                eq(None),
-                eq(None),
-                eq("native-id"),
-                eq(None),
-            )
-            .times(2)
-            .returning(|_, _, _, _, _| {
-                Ok(RegisterResponse {
-                    uaid: Some("abad1d3a00000000aabbccdd00000000".to_string()),
-                    channel_id: TEST_CHANNEL_ID.to_string(),
-                    secret: Some("LsuUOBKVQRY6-l7_Ajo-Ag".to_string()),
-                    endpoint: "https://example.com/dummy-endpoint".to_string(),
-                    sender_id: "test".to_string(),
-                })
-            });
-
-        let crypto_ctx = MockCryptography::generate_key_context();
-        crypto_ctx.expect().returning(|| {
-            let components = EcKeyComponents::new(
-                base64::decode_config(PRIV_KEY_D, base64::URL_SAFE_NO_PAD).unwrap(),
-                base64::decode_config(PUB_KEY_RAW, base64::URL_SAFE_NO_PAD).unwrap(),
-            );
-            let auth = base64::decode_config(AUTH_RAW, base64::URL_SAFE_NO_PAD).unwrap();
-            Ok(Key {
-                p256key: components,
-                auth,
-            })
-        });
-        pm.connection
-            .expect_verify_connection()
-            .with(
-                eq([TEST_CHANNEL_ID.to_string()]),
-                eq("abad1d3a00000000aabbccdd00000000"),
-                eq("LsuUOBKVQRY6-l7_Ajo-Ag"),
-            )
-            .times(1)
-            .returning(|_, _, _| Ok(false));
-        let _ = pm.subscribe(TEST_CHANNEL_ID, "test-scope", None)?;
-        // verify that a uaid got added to our store and
-        // that there is a record associated with the channel ID provided
-        assert_eq!(
-            pm.store.get_uaid()?.unwrap(),
-            "abad1d3a00000000aabbccdd00000000"
-        );
-        assert_eq!(
-            pm.store.get_record(TEST_CHANNEL_ID)?.unwrap().channel_id,
-            TEST_CHANNEL_ID
-        );
-        let unsubscribed_channels = pm.verify_connection()?;
-        assert_eq!(unsubscribed_channels.len(), 1);
-        assert_eq!(unsubscribed_channels[0].channel_id, TEST_CHANNEL_ID);
-        // since verify_connection failed,
-        // we wipe the uaid and all associated records from our store
-        assert!(pm.store.get_uaid()?.is_none());
-        assert!(pm.store.get_record(TEST_CHANNEL_ID)?.is_none());
-
-        // we now check that a new subscription will cause us to
-        // re-generate a uaid and store it in our store
-        let _ = pm.subscribe(TEST_CHANNEL_ID, "test-scope", None)?;
-        // verify that the uaid got added to our store and
-        // that there is a record associated with the channel ID provided
-        assert_eq!(
-            pm.store.get_uaid()?.unwrap(),
-            "abad1d3a00000000aabbccdd00000000"
-        );
-        assert_eq!(
-            pm.store.get_record(TEST_CHANNEL_ID)?.unwrap().channel_id,
-            TEST_CHANNEL_ID
-        );
         Ok(())
     }
 
@@ -596,11 +531,11 @@ mod test {
             .times(1)
             .returning(|_, _, _, _, _| {
                 Ok(RegisterResponse {
-                    uaid: Some("abad1d3a00000000aabbccdd00000000".to_string()),
+                    uaid: Some(TEST_UAID.to_string()),
                     channel_id: TEST_CHANNEL_ID.to_string(),
-                    secret: Some("LsuUOBKVQRY6-l7_Ajo-Ag".to_string()),
+                    secret: Some(TEST_AUTH.to_string()),
                     endpoint: "https://example.com/dummy-endpoint".to_string(),
-                    sender_id: "test".to_string(),
+                    sender_id: Some("test".to_string()),
                 })
             });
         let crypto_ctx = MockCryptography::generate_key_context();
@@ -609,7 +544,7 @@ mod test {
                 base64::decode_config(PRIV_KEY_D, base64::URL_SAFE_NO_PAD).unwrap(),
                 base64::decode_config(PUB_KEY_RAW, base64::URL_SAFE_NO_PAD).unwrap(),
             );
-            let auth = base64::decode_config(AUTH_RAW, base64::URL_SAFE_NO_PAD).unwrap();
+            let auth = base64::decode_config(TEST_AUTH, base64::URL_SAFE_NO_PAD).unwrap();
             Ok(Key {
                 p256key: components,
                 auth,
@@ -633,7 +568,7 @@ mod test {
                         base64::decode_config(PRIV_KEY_D, base64::URL_SAFE_NO_PAD).unwrap(),
                         base64::decode_config(PUB_KEY_RAW, base64::URL_SAFE_NO_PAD).unwrap(),
                     ),
-                    auth: base64::decode_config(AUTH_RAW, base64::URL_SAFE_NO_PAD).unwrap(),
+                    auth: base64::decode_config(TEST_AUTH, base64::URL_SAFE_NO_PAD).unwrap(),
                 } && ibody == body_clone
                     && encoding == "aesgcm"
                     && dh.is_none()
@@ -667,11 +602,11 @@ mod test {
             .times(1)
             .returning(|_, _, _, _, _| {
                 Ok(RegisterResponse {
-                    uaid: Some("abad1d3a00000000aabbccdd00000000".to_string()),
+                    uaid: Some(TEST_UAID.to_string()),
                     channel_id: TEST_CHANNEL_ID.to_string(),
-                    secret: Some("LsuUOBKVQRY6-l7_Ajo-Ag".to_string()),
+                    secret: Some(TEST_AUTH.to_string()),
                     endpoint: "https://example.com/dummy-endpoint".to_string(),
-                    sender_id: "test".to_string(),
+                    sender_id: Some("test".to_string()),
                 })
             });
         let crypto_ctx = MockCryptography::generate_key_context();
@@ -680,7 +615,7 @@ mod test {
                 base64::decode_config(PRIV_KEY_D, base64::URL_SAFE_NO_PAD).unwrap(),
                 base64::decode_config(PUB_KEY_RAW, base64::URL_SAFE_NO_PAD).unwrap(),
             );
-            let auth = base64::decode_config(AUTH_RAW, base64::URL_SAFE_NO_PAD).unwrap();
+            let auth = base64::decode_config(TEST_AUTH, base64::URL_SAFE_NO_PAD).unwrap();
             Ok(Key {
                 p256key: components,
                 auth,
@@ -720,11 +655,11 @@ mod test {
             .times(1) // only once, second time we'll hit cache!
             .returning(|_, _, _, _, _| {
                 Ok(RegisterResponse {
-                    uaid: Some("abad1d3a00000000aabbccdd00000000".to_string()),
+                    uaid: Some(TEST_UAID.to_string()),
                     channel_id: TEST_CHANNEL_ID.to_string(),
-                    secret: Some("LsuUOBKVQRY6-l7_Ajo-Ag".to_string()),
+                    secret: Some(TEST_AUTH.to_string()),
                     endpoint: "https://example.com/dummy-endpoint".to_string(),
-                    sender_id: "test".to_string(),
+                    sender_id: Some("test".to_string()),
                 })
             });
         let crypto_ctx = MockCryptography::generate_key_context();
@@ -733,7 +668,7 @@ mod test {
                 base64::decode_config(PRIV_KEY_D, base64::URL_SAFE_NO_PAD).unwrap(),
                 base64::decode_config(PUB_KEY_RAW, base64::URL_SAFE_NO_PAD).unwrap(),
             );
-            let auth = base64::decode_config(AUTH_RAW, base64::URL_SAFE_NO_PAD).unwrap();
+            let auth = base64::decode_config(TEST_AUTH, base64::URL_SAFE_NO_PAD).unwrap();
             Ok(Key {
                 p256key: components,
                 auth,
@@ -742,6 +677,221 @@ mod test {
         let sub_1 = pm.subscribe(TEST_CHANNEL_ID, "test-scope", None)?;
         let sub_2 = pm.subscribe(TEST_CHANNEL_ID, "test-scope", None)?;
         assert_eq!(sub_1, sub_2);
+        Ok(())
+    }
+    #[test]
+    fn test_verify_wipe_uaid_if_mismatch() -> Result<()> {
+        let _m = get_lock(&MTX);
+        let ctx = MockConnection::connect_context();
+        ctx.expect().returning(|_| Default::default());
+
+        let mut pm = get_test_manager()?;
+        pm.connection
+            .expect_subscribe()
+            .with(
+                eq(TEST_CHANNEL_ID),
+                eq(None),
+                eq(None),
+                eq("native-id"),
+                eq(None),
+            )
+            .times(2)
+            .returning(|_, _, _, _, _| {
+                Ok(RegisterResponse {
+                    uaid: Some(TEST_UAID.to_string()),
+                    channel_id: TEST_CHANNEL_ID.to_string(),
+                    secret: Some(TEST_AUTH.to_string()),
+                    endpoint: "https://example.com/dummy-endpoint".to_string(),
+                    sender_id: Some("test".to_string()),
+                })
+            });
+
+        let crypto_ctx = MockCryptography::generate_key_context();
+        crypto_ctx.expect().returning(|| {
+            let components = EcKeyComponents::new(
+                base64::decode_config(PRIV_KEY_D, base64::URL_SAFE_NO_PAD).unwrap(),
+                base64::decode_config(PUB_KEY_RAW, base64::URL_SAFE_NO_PAD).unwrap(),
+            );
+            let auth = base64::decode_config(TEST_AUTH, base64::URL_SAFE_NO_PAD).unwrap();
+            Ok(Key {
+                p256key: components,
+                auth,
+            })
+        });
+        pm.connection
+            .expect_channel_list()
+            .with(eq(TEST_UAID), eq(TEST_AUTH))
+            .times(1)
+            .returning(|_, _| Ok(vec![TEST_CHANNEL_ID2.to_string()]));
+
+        pm.connection
+            .expect_unsubscribe_all()
+            .with(eq(TEST_UAID), eq(TEST_AUTH))
+            .times(1)
+            .returning(|_, _| Ok(()));
+        let _ = pm.subscribe(TEST_CHANNEL_ID, "test-scope", None)?;
+        // verify that a uaid got added to our store and
+        // that there is a record associated with the channel ID provided
+        assert_eq!(pm.store.get_uaid()?.unwrap(), TEST_UAID);
+        assert_eq!(
+            pm.store.get_record(TEST_CHANNEL_ID)?.unwrap().channel_id,
+            TEST_CHANNEL_ID
+        );
+        let unsubscribed_channels = pm.verify_connection()?;
+        assert_eq!(unsubscribed_channels.len(), 1);
+        assert_eq!(unsubscribed_channels[0].channel_id, TEST_CHANNEL_ID);
+        // since verify_connection failed,
+        // we wipe the uaid and all associated records from our store
+        assert!(pm.store.get_uaid()?.is_none());
+        assert!(pm.store.get_record(TEST_CHANNEL_ID)?.is_none());
+
+        // we now check that a new subscription will cause us to
+        // re-generate a uaid and store it in our store
+        let _ = pm.subscribe(TEST_CHANNEL_ID, "test-scope", None)?;
+        // verify that the uaid got added to our store and
+        // that there is a record associated with the channel ID provided
+        assert_eq!(pm.store.get_uaid()?.unwrap(), TEST_UAID);
+        assert_eq!(
+            pm.store.get_record(TEST_CHANNEL_ID)?.unwrap().channel_id,
+            TEST_CHANNEL_ID
+        );
+        Ok(())
+    }
+
+    #[test]
+    fn test_verify_server_lost_uaid_not_error() -> Result<()> {
+        let _m = get_lock(&MTX);
+        let ctx = MockConnection::connect_context();
+        ctx.expect().returning(|_| Default::default());
+
+        let mut pm = get_test_manager()?;
+        pm.connection
+            .expect_subscribe()
+            .with(
+                eq(TEST_CHANNEL_ID),
+                eq(None),
+                eq(None),
+                eq("native-id"),
+                eq(None),
+            )
+            .times(1)
+            .returning(|_, _, _, _, _| {
+                Ok(RegisterResponse {
+                    uaid: Some(TEST_UAID.to_string()),
+                    channel_id: TEST_CHANNEL_ID.to_string(),
+                    secret: Some(TEST_AUTH.to_string()),
+                    endpoint: "https://example.com/dummy-endpoint".to_string(),
+                    sender_id: Some("test".to_string()),
+                })
+            });
+
+        let crypto_ctx = MockCryptography::generate_key_context();
+        crypto_ctx.expect().returning(|| {
+            let components = EcKeyComponents::new(
+                base64::decode_config(PRIV_KEY_D, base64::URL_SAFE_NO_PAD).unwrap(),
+                base64::decode_config(PUB_KEY_RAW, base64::URL_SAFE_NO_PAD).unwrap(),
+            );
+            let auth = base64::decode_config(TEST_AUTH, base64::URL_SAFE_NO_PAD).unwrap();
+            Ok(Key {
+                p256key: components,
+                auth,
+            })
+        });
+        pm.connection
+            .expect_channel_list()
+            .with(eq(TEST_UAID), eq(TEST_AUTH))
+            .times(1)
+            .returning(|_, _| {
+                Err(PushError::UAIDNotRecognizedError(
+                    "Couldn't find uaid".to_string(),
+                ))
+            });
+
+        pm.connection
+            .expect_unsubscribe_all()
+            .with(eq(TEST_UAID), eq(TEST_AUTH))
+            .times(1)
+            .returning(|_, _| Ok(()));
+
+        let _ = pm.subscribe(TEST_CHANNEL_ID, "test-scope", None)?;
+        // verify that a uaid got added to our store and
+        // that there is a record associated with the channel ID provided
+        assert_eq!(pm.store.get_uaid()?.unwrap(), TEST_UAID);
+        assert_eq!(
+            pm.store.get_record(TEST_CHANNEL_ID)?.unwrap().channel_id,
+            TEST_CHANNEL_ID
+        );
+        let unsubscribed_channels = pm.verify_connection()?;
+        assert_eq!(unsubscribed_channels.len(), 1);
+        assert_eq!(unsubscribed_channels[0].channel_id, TEST_CHANNEL_ID);
+        // since verify_connection failed,
+        // we wipe the uaid and all associated records from our store
+        assert!(pm.store.get_uaid()?.is_none());
+        assert!(pm.store.get_record(TEST_CHANNEL_ID)?.is_none());
+        Ok(())
+    }
+
+    #[test]
+    fn test_verify_server_hard_error() -> Result<()> {
+        let _m = get_lock(&MTX);
+        let ctx = MockConnection::connect_context();
+        ctx.expect().returning(|_| Default::default());
+
+        let mut pm = get_test_manager()?;
+        pm.connection
+            .expect_subscribe()
+            .with(
+                eq(TEST_CHANNEL_ID),
+                eq(None),
+                eq(None),
+                eq("native-id"),
+                eq(None),
+            )
+            .times(1)
+            .returning(|_, _, _, _, _| {
+                Ok(RegisterResponse {
+                    uaid: Some(TEST_UAID.to_string()),
+                    channel_id: TEST_CHANNEL_ID.to_string(),
+                    secret: Some(TEST_AUTH.to_string()),
+                    endpoint: "https://example.com/dummy-endpoint".to_string(),
+                    sender_id: Some("test".to_string()),
+                })
+            });
+
+        let crypto_ctx = MockCryptography::generate_key_context();
+        crypto_ctx.expect().returning(|| {
+            let components = EcKeyComponents::new(
+                base64::decode_config(PRIV_KEY_D, base64::URL_SAFE_NO_PAD).unwrap(),
+                base64::decode_config(PUB_KEY_RAW, base64::URL_SAFE_NO_PAD).unwrap(),
+            );
+            let auth = base64::decode_config(TEST_AUTH, base64::URL_SAFE_NO_PAD).unwrap();
+            Ok(Key {
+                p256key: components,
+                auth,
+            })
+        });
+        pm.connection
+            .expect_channel_list()
+            .with(eq(TEST_UAID), eq(TEST_AUTH))
+            .times(1)
+            .returning(|_, _| {
+                Err(PushError::CommunicationError(
+                    "Unrecoverable error".to_string(),
+                ))
+            });
+
+        let _ = pm.subscribe(TEST_CHANNEL_ID, "test-scope", None)?;
+        // verify that a uaid got added to our store and
+        // that there is a record associated with the channel ID provided
+        assert_eq!(pm.store.get_uaid()?.unwrap(), TEST_UAID);
+        assert_eq!(
+            pm.store.get_record(TEST_CHANNEL_ID)?.unwrap().channel_id,
+            TEST_CHANNEL_ID
+        );
+        let err = pm.verify_connection().unwrap_err();
+
+        // the same error got propagated
+        assert!(matches!(err, PushError::CommunicationError(_)));
         Ok(())
     }
 }
