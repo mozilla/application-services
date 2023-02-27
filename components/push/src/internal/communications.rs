@@ -106,11 +106,19 @@ pub trait Connection: Sized {
     fn connect(options: PushConfiguration) -> Self;
 
     /// send a new subscription request to the server, get back the server registration response.
-    fn subscribe(
+    fn subscribe_new(
         &self,
         channel_id: &str,
-        uaid: &Option<String>,
-        auth: &Option<String>,
+        registration_id: &str,
+        app_server_key: &Option<String>,
+    ) -> error::Result<RegisterResponse>;
+
+    /// send a new subscription request to the server, get back the server registration response.
+    fn subscribe_with_uaid(
+        &self,
+        channel_id: &str,
+        uaid: &str,
+        auth: &str,
         registration_id: &str,
         app_server_key: &Option<String>,
     ) -> error::Result<RegisterResponse>;
@@ -185,43 +193,15 @@ impl ConnectHttp {
             &uaid,
         ))
     }
-}
 
-impl Connection for ConnectHttp {
-    // Connect to the Autopush server
-    fn connect(options: PushConfiguration) -> ConnectHttp {
-        ConnectHttp { options }
-    }
-
-    /// send a new subscription request to the server, get back the server registration response.
-    fn subscribe(
+    fn send_subscription_request(
         &self,
+        url: Url,
+        headers: Headers,
         channel_id: &str,
-        uaid: &Option<String>,
-        auth: &Option<String>,
         registration_id: &str,
         app_server_key: &Option<String>,
     ) -> error::Result<RegisterResponse> {
-        let mut url = format!(
-            "{}://{}/v1/{}/{}/registration",
-            &self.options.http_protocol,
-            &self.options.server_host,
-            &self.options.bridge_type,
-            &self.options.sender_id
-        );
-        // Add the uaid and authorization if we have a prior subscription.
-        if let Some(uaid) = uaid {
-            url.push('/');
-            url.push_str(uaid);
-            url.push_str("/subscription");
-        }
-
-        let headers = if let Some(auth) = auth {
-            self.auth_headers(auth)?
-        } else {
-            Headers::new()
-        };
-
         let aps = if let BridgeType::Apns = &self.options.bridge_type {
             Some(Apns {
                 mutable_content: 1,
@@ -238,18 +218,70 @@ impl Connection for ConnectHttp {
             aps,
         };
 
-        let response = Request::post(Url::parse(&url)?)
-            .headers(headers)
-            .json(&body)
-            .send()?;
-        log::info!(
-            "subscribed to channel '{}' via {:?} - {}",
-            channel_id,
-            url,
-            response.status
-        );
+        let response = Request::post(url).headers(headers).json(&body).send()?;
         self.check_response_error(&response)?;
         Ok(response.json()?)
+    }
+}
+
+impl Connection for ConnectHttp {
+    // Connect to the Autopush server
+    fn connect(options: PushConfiguration) -> ConnectHttp {
+        ConnectHttp { options }
+    }
+
+    /// send a new subscription request to the server, get back the server registration response.
+    fn subscribe_new(
+        &self,
+        channel_id: &str,
+        registration_id: &str,
+        app_server_key: &Option<String>,
+    ) -> error::Result<RegisterResponse> {
+        let url = format!(
+            "{}://{}/v1/{}/{}/registration",
+            &self.options.http_protocol,
+            &self.options.server_host,
+            &self.options.bridge_type,
+            &self.options.sender_id
+        );
+
+        let headers = Headers::new();
+
+        self.send_subscription_request(
+            Url::parse(&url)?,
+            headers,
+            channel_id,
+            registration_id,
+            app_server_key,
+        )
+    }
+
+    fn subscribe_with_uaid(
+        &self,
+        channel_id: &str,
+        uaid: &str,
+        auth: &str,
+        registration_id: &str,
+        app_server_key: &Option<String>,
+    ) -> error::Result<RegisterResponse> {
+        let url = format!(
+            "{}://{}/v1/{}/{}/registration/{}/subscription",
+            &self.options.http_protocol,
+            &self.options.server_host,
+            &self.options.bridge_type,
+            &self.options.sender_id,
+            uaid,
+        );
+
+        let headers = self.auth_headers(auth)?;
+
+        self.send_subscription_request(
+            Url::parse(&url)?,
+            headers,
+            channel_id,
+            registration_id,
+            app_server_key,
+        )
     }
 
     /// Drop a channel and stop receiving updates.
@@ -356,6 +388,8 @@ mod test {
     use serde_json::json;
 
     const DUMMY_CHID: &str = "deadbeef00000000decafbad00000000";
+    const DUMMY_CHID2: &str = "decafbad00000000deadbeef00000000";
+
     const DUMMY_UAID: &str = "abad1dea00000000aabbccdd00000000";
 
     // Local test SENDER_ID ("test*" reserved for Kotlin testing.)
@@ -390,11 +424,60 @@ mod test {
                 .create();
             let conn = ConnectHttp::connect(config.clone());
             let channel_id = hex::encode(crate::internal::crypto::get_random_bytes(16).unwrap());
-            let response = conn
-                .subscribe(&channel_id, &None, &None, SENDER_ID, &None)
-                .unwrap();
+            let response = conn.subscribe_new(&channel_id, SENDER_ID, &None).unwrap();
             ap_mock.assert();
             assert_eq!(response.uaid, Some(DUMMY_UAID.to_string()));
+        }
+        // Second subscription, after first is send with uaid
+        {
+            let body = json!({
+                "uaid": DUMMY_UAID,
+                "channelID": DUMMY_CHID,
+                "endpoint": "https://example.com/update",
+                "senderid": SENDER_ID,
+                "secret": SECRET,
+            })
+            .to_string();
+            let ap_mock = mock("POST", &*format!("/v1/fcm/{}/registration", SENDER_ID))
+                .with_status(200)
+                .with_header("content-type", "application/json")
+                .with_body(body)
+                .create();
+            let conn = ConnectHttp::connect(config.clone());
+            let channel_id = hex::encode(crate::internal::crypto::get_random_bytes(16).unwrap());
+            let response = conn.subscribe_new(&channel_id, SENDER_ID, &None).unwrap();
+            ap_mock.assert();
+            assert_eq!(response.uaid, Some(DUMMY_UAID.to_string()));
+            assert_eq!(response.channel_id, DUMMY_CHID);
+            assert_eq!(response.endpoint, "https://example.com/update");
+
+            let body_2 = json!({
+                "uaid": DUMMY_UAID,
+                "channelID": DUMMY_CHID2,
+                "endpoint": "https://example.com/otherendpoint",
+                "senderid": SENDER_ID,
+                "secret": SECRET,
+            })
+            .to_string();
+            let ap_mock_2 = mock(
+                "POST",
+                &*format!(
+                    "/v1/fcm/{}/registration/{}/subscription",
+                    SENDER_ID, DUMMY_UAID
+                ),
+            )
+            .with_status(200)
+            .with_header("content-type", "application/json")
+            .with_body(body_2)
+            .create();
+
+            let response = conn
+                .subscribe_with_uaid(&channel_id, DUMMY_UAID, SECRET, SENDER_ID, &None)
+                .unwrap();
+            ap_mock_2.assert();
+            assert_eq!(response.uaid, Some(DUMMY_UAID.to_string()));
+            assert_eq!(response.channel_id, DUMMY_CHID2);
+            assert_eq!(response.endpoint, "https://example.com/otherendpoint");
         }
         // UNSUBSCRIBE - Single channel
         {
@@ -493,7 +576,7 @@ mod test {
             let conn = ConnectHttp::connect(config);
             let channel_id = hex::encode(crate::internal::crypto::get_random_bytes(16).unwrap());
             let err = conn
-                .subscribe(&channel_id, &None, &None, SENDER_ID, &None)
+                .subscribe_new(&channel_id, SENDER_ID, &None)
                 .unwrap_err();
             ap_mock.assert();
             assert!(matches!(err, error::PushError::AlreadyRegisteredError));
