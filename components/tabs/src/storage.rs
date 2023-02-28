@@ -442,8 +442,9 @@ mod tests {
 
     #[test]
     fn test_tabs_meta() {
-        // Does not create the db on new
-        let mut db = TabsStorage::new("test.db");
+        let dir = tempfile::tempdir().unwrap();
+        let db_name = dir.path().join("test_tabs_meta.db");
+        let mut db = TabsStorage::new(db_name);
         let test_key = "TEST KEY A";
         let test_value = "TEST VALUE A";
         let test_key2 = "TEST KEY B";
