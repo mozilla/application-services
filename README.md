@@ -80,7 +80,7 @@ The application-services library primary consumers are Fenix (Firefox on Android
   with FxA, access encryption keys for sync, and more.
 * [logins](components/logins) - for storage and syncing of a user's saved login
   credentials
-* [nimbus](components/nimbus) - for integrating with Mozilla's [experimentation](https://mozilla.github.io/experimenter-docs/) platform for Firefox
+* [nimbus sdk](components/nimbus-sdk) - for integrating with Mozilla's [experimentation](https://mozilla.github.io/experimenter-docs/) platform for Firefox
 * [places](components/places) - for storage and syncing of a user's saved
   browsing history
 * [push](components/push) - for applications to receive real-time updates via

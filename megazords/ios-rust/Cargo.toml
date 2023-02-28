@@ -13,7 +13,7 @@ rc_log_ffi = { path = "../../components/rc_log" }
 rust-log-forwarder = { path = "../../components/support/rust-log-forwarder" }
 viaduct = { path = "../../components/viaduct" }
 viaduct-reqwest = { path = "../../components/support/viaduct-reqwest" }
-nimbus-sdk = { path = "../../components/nimbus" }
+nimbus-sdk = { path = "../../components/nimbus-sdk" }
 crashtest = { path = "../../components/crashtest" }
 fxa-client = { path = "../../components/fxa-client" }
 logins = { path = "../../components/logins" }

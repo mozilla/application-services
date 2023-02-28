@@ -1291,7 +1291,7 @@ checksum = "78cc372d058dcf6d5ecd98510e7fbc9e5aec4d21de70f65fea8fecebcd881bd4"
 
 [[package]]
 name = "glean-build"
-version = "7.0.0"
+version = "6.1.2"
 dependencies = [
  "xshell-venv",
 ]
@@ -1974,6 +1974,34 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "a629868a433328c35d654e1e1fb4648a68a042e3c71de4e507a9bcf4602c5635"
 
 [[package]]
+name = "nimbus-core"
+version = "0.10.0"
+dependencies = [
+ "anyhow",
+ "chrono",
+ "clap 2.34.0",
+ "env_logger 0.7.1",
+ "error-support",
+ "glean-build",
+ "hex",
+ "jexl-eval",
+ "log",
+ "mockito",
+ "once_cell",
+ "rs_client",
+ "serde",
+ "serde_derive",
+ "serde_json",
+ "sha2",
+ "tempfile",
+ "thiserror",
+ "unicode-segmentation",
+ "url",
+ "uuid",
+ "viaduct-reqwest",
+]
+
+[[package]]
 name = "nimbus-fml"
 version = "0.1.0"
 dependencies = [
@@ -2008,6 +2036,7 @@ dependencies = [
  "jexl-eval",
  "log",
  "mockito",
+ "nimbus-core",
  "once_cell",
  "rkv",
  "rs_client",

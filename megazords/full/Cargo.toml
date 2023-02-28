@@ -18,7 +18,7 @@ push = { path = "../../components/push" }
 rc_log_ffi = { path = "../../components/rc_log" }
 rust-log-forwarder = { path = "../../components/support/rust-log-forwarder" }
 viaduct = { path = "../../components/viaduct" }
-nimbus-sdk = { path = "../../components/nimbus" }
+nimbus-sdk = { path = "../../components/nimbus-sdk" }
 autofill = { path = "../../components/autofill" }
 crashtest = { path = "../../components/crashtest" }
 error-support = { path = "../../components/support/error" }
