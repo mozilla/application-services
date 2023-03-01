@@ -58,8 +58,8 @@ fi
 # https://github.com/mozilla/application-services/issues/962
 if [[ "${CROSS_COMPILE_TARGET}" =~ "darwin" ]]; then
   #https://treeherder.mozilla.org/jobs?repo=nss&revision=3ab9260101b1a0d5c3d709ba45975f7e4a9d0077
-  curl -sfSL --retry 5 --retry-delay 10 -O "https://firefox-ci-tc.services.mozilla.com/api/queue/v1/task/op7XqxH-T1WN3Ob8N9cDHA/runs/0/artifacts/public/dist.tar.bz2"
-  SHA256="f90c29611de1d8f84c6eac382938da5849d3ea5e1487cf2a230947693f09aa89"
+  curl -sfSL --retry 5 --retry-delay 10 -O "https://firefox-ci-tc.services.mozilla.com/api/queue/v1/task/uGFsaHyNS4Oj-HFcOyR6eg/runs/0/artifacts/public/dist.tar.bz2"
+  SHA256="0d36171f6f0815fd0e90fe78d106b7e62e606b9655bf64851debeeaa8a1cb767"
   echo "${SHA256}  dist.tar.bz2" | shasum -a 256 -c - || exit 2
   tar xvjf dist.tar.bz2 && rm -rf dist.tar.bz2
   NSS_DIST_DIR=$(abspath "dist")

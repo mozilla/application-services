@@ -1,0 +1,31 @@
+/* This Source Code Form is subject to the terms of the Mozilla Public
+ * License, v. 2.0. If a copy of the MPL was not distributed with this
+ * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
+
+namespace rust_log_forwarder {
+    // Set the logger to forward to.
+    //
+    // Pass in null to disable logging.
+    void set_logger(Logger? logger);
+    // Set the maximum log level filter.  Records below this level will not be sent to the logger.
+    void set_max_level(Level level);
+};
+
+enum Level {
+    "Error",
+    "Warn",
+    "Info",
+    "Debug",
+    "Trace",
+};
+
+dictionary Record {
+    Level level;
+    // The target field from the Rust log crate.  Usually the Rust module name, however log! calls can manually override the target name.
+    string target;
+    string message;
+};
+
+callback interface Logger {
+    void log(Record record);
+};

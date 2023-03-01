@@ -1,4 +1,4 @@
-libraryVersion: 96.4.0
+libraryVersion: 97.1.0
 groupId: org.mozilla.appservices
 projects:
   autofill:
@@ -50,6 +50,13 @@ projects:
     - name: rustlog
       type: aar
     description: Android hook into the log crate.
+  rust-log-forwarder:
+    path: components/support/rust-log-forwarder/android
+    artifactId: rust-log-forwarder
+    publications:
+    - name: rust-log-forwarder
+      type: aar
+    description: Forward logs from Rust
   httpconfig:
     path: components/viaduct/android
     artifactId: httpconfig

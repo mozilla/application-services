@@ -1291,7 +1291,7 @@ checksum = "78cc372d058dcf6d5ecd98510e7fbc9e5aec4d21de70f65fea8fecebcd881bd4"
 
 [[package]]
 name = "glean-build"
-version = "6.4.0"
+version = "7.0.0"
 dependencies = [
  "xshell-venv",
 ]
@@ -1792,6 +1792,7 @@ dependencies = [
  "places",
  "push",
  "rc_log_ffi",
+ "rust-log-forwarder",
  "sync_manager",
  "tabs",
  "viaduct",
@@ -1821,7 +1822,9 @@ dependencies = [
  "places",
  "push",
  "rc_log_ffi",
+ "rust-log-forwarder",
  "sync15",
+ "sync_manager",
  "tabs",
  "viaduct",
  "viaduct-reqwest",
@@ -2004,9 +2007,9 @@ dependencies = [
  "hex",
  "jexl-eval",
  "log",
- "mockito",
  "once_cell",
  "rkv",
+ "rs_client",
  "serde",
  "serde_derive",
  "serde_json",
@@ -2017,7 +2020,6 @@ dependencies = [
  "uniffi",
  "url",
  "uuid",
- "viaduct",
  "viaduct-reqwest",
 ]
 
@@ -2897,6 +2899,17 @@ dependencies = [
 ]
 
 [[package]]
+name = "rs_client"
+version = "0.1.0"
+dependencies = [
+ "mockito",
+ "thiserror",
+ "url",
+ "viaduct",
+ "viaduct-reqwest",
+]
+
+[[package]]
 name = "rusqlite"
 version = "0.28.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2921,6 +2934,15 @@ dependencies = [
  "blake2b_simd",
  "constant_time_eq",
  "crossbeam-utils",
+]
+
+[[package]]
+name = "rust-log-forwarder"
+version = "0.1.0"
+dependencies = [
+ "log",
+ "parking_lot",
+ "uniffi",
 ]
 
 [[package]]

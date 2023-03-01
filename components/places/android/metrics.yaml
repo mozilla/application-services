@@ -129,9 +129,10 @@ places_manager:
       - https://github.com/mozilla/application-services/issues/5115
     data_reviews:
       - https://github.com/mozilla/application-services/issues/5122
+      - https://github.com/mozilla/application-services/issues/5387
     notification_emails:
       - synced-client-integrations@mozilla.com
-    expires: 2023-04-01
+    expires: 2023-10-01
     data_sensitivity:
       - technical
 
@@ -144,9 +145,10 @@ places_manager:
       - https://github.com/mozilla/application-services/issues/5246
     data_reviews:
       - https://github.com/mozilla/application-services/issues/5247
+      - https://github.com/mozilla/application-services/issues/5387
     notification_emails:
       - synced-client-integrations@mozilla.com
-    expires: 2023-04-01
+    expires: 2023-10-01
     data_sensitivity:
       - technical
 
@@ -158,9 +160,10 @@ places_manager:
       - https://github.com/mozilla/application-services/issues/5246
     data_reviews:
       - https://github.com/mozilla/application-services/issues/5247
+      - https://github.com/mozilla/application-services/issues/5387
     notification_emails:
       - synced-client-integrations@mozilla.com
-    expires: 2023-04-01
+    expires: 2023-10-01
     data_sensitivity:
       - technical
 
@@ -173,9 +176,10 @@ places_manager:
       - https://github.com/mozilla/application-services/issues/5246
     data_reviews:
       - https://github.com/mozilla/application-services/issues/5247
+      - https://github.com/mozilla/application-services/issues/5387
     notification_emails:
       - synced-client-integrations@mozilla.com
-    expires: 2023-04-01
+    expires: 2023-10-01
     data_sensitivity:
       - technical
 
@@ -188,9 +192,10 @@ places_manager:
       - https://github.com/mozilla/application-services/issues/5246
     data_reviews:
       - https://github.com/mozilla/application-services/issues/5247
+      - https://github.com/mozilla/application-services/issues/5387
     notification_emails:
       - synced-client-integrations@mozilla.com
-    expires: 2023-04-01
+    expires: 2023-10-01
     data_sensitivity:
       - technical
 
@@ -203,8 +208,9 @@ places_manager:
       - https://github.com/mozilla/application-services/issues/5115
     data_reviews:
       - https://github.com/mozilla/application-services/issues/5122
+      - https://github.com/mozilla/application-services/issues/5387
     notification_emails:
       - synced-client-integrations@mozilla.com
-    expires: 2023-04-01
+    expires: 2023-10-01
     data_sensitivity:
       - technical

@@ -6,6 +6,7 @@ package org.mozilla.experiments.nimbus.internal
 
 import android.content.Context
 import org.mozilla.experiments.nimbus.FeaturesInterface
+import org.mozilla.experiments.nimbus.HardcodedNimbusFeatures
 import org.mozilla.experiments.nimbus.Variables
 import org.mozilla.experiments.nimbus.NullVariables
 import java.util.concurrent.locks.ReentrantLock
@@ -95,6 +96,25 @@ class FeatureHolder<T>(
             this.getSdk = getSdk
             this.cachedValue = null
         }
+    }
+
+    /**
+     * Is this feature the focus of an automated test.
+     *
+     * A utility flag to be used in conjunction with {HardcodedNimbusFeatures}.
+     *
+     * It is intended for use for app-code to detect when the app is under test, and
+     * take steps to make itself easier to test.
+     *
+     * These cases should be rare, and developers should look for other ways to test
+     * code without relying on this facility.
+     *
+     * For example, a background worker might be scheduled to run every 24 hours, but
+     * under test it would be desirable to run immediately, and only once.
+     */
+    fun isUnderTest(): Boolean = lock.runBlock {
+        val sdk = getSdk() as? HardcodedNimbusFeatures ?: return@runBlock false
+        sdk.hasFeature(featureId)
     }
 
     private fun <T> ReentrantLock.runBlock(block: () -> T): T {

@@ -8,7 +8,6 @@
  
  #[derive(Debug, thiserror::Error)]
  enum Error {}
- type Result<T, E = Error> = std::result::Result<T, E>;
 
  
  #[derive(Debug, thiserror::Error)]
@@ -29,20 +28,20 @@
  }
 
  // This is OK
- #[handle_error]
+ #[handle_error(Error)]
  fn func() -> ::std::result::Result<String, ExternalError> {
      Ok("".to_string())
  }
 
 
  // handle error only works on functions! this will fail to compile
- #[handle_error]
+ #[handle_error(Error)]
  struct SomeType {}
 
- #[handle_error]
+ #[handle_error(Error)]
  const A: u32 = 0;
 
- #[handle_error]
+ #[handle_error(Error)]
  impl SomeType {}
 
  fn main() {}

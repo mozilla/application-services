@@ -98,7 +98,7 @@ open class LoginsStorage {
     }
 
     /// Register with the sync manager
-    open func registerWithSyncManager() throws {
+    open func registerWithSyncManager() {
         return queue.sync {
             return self.store.registerWithSyncManager()
         }

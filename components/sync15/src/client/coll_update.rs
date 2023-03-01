@@ -24,7 +24,7 @@ pub fn encrypt_outgoing(
 pub fn fetch_incoming(
     client: &Sync15StorageClient,
     state: &CollState,
-    collection_request: &CollectionRequest,
+    collection_request: CollectionRequest,
 ) -> Result<IncomingChangeset> {
     let collection = collection_request.collection.clone();
     let (records, timestamp) = match client.get_encrypted_records(collection_request)? {

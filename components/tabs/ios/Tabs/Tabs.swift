@@ -32,6 +32,12 @@ open class TabsStorage {
         }
     }
 
+    open func registerWithSyncManager() {
+        queue.sync {
+            self.store.registerWithSyncManager()
+        }
+    }
+
     open func sync(unlockInfo: SyncUnlockInfo) throws -> String {
         guard let tabsLocalId = unlockInfo.tabsLocalId else {
             throw TabsApiError.UnexpectedTabsError(reason: "tabs local ID was not provided")

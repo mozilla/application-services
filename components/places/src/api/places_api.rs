@@ -130,7 +130,7 @@ pub struct SyncState {
 /// For uniffi we need to expose our `Arc` returning constructor as a global function :(
 /// https://github.com/mozilla/uniffi-rs/pull/1063 would fix this, but got some pushback
 /// meaning we are forced into this unfortunate workaround.
-#[handle_error]
+#[handle_error(crate::Error)]
 pub fn places_api_new(db_name: impl AsRef<Path>) -> ApiResult<Arc<PlacesApi>> {
     PlacesApi::new(db_name)
 }
@@ -457,7 +457,7 @@ impl PlacesApi {
         Ok(())
     }
 
-    #[handle_error]
+    #[handle_error(crate::Error)]
     pub fn reset_history(&self) -> ApiResult<()> {
         // Take the lock to prevent syncing while we're doing this.
         let _guard = self.sync_state.lock();

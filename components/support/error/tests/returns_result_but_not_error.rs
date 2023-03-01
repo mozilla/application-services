@@ -8,8 +8,6 @@
  
  #[derive(Debug, thiserror::Error)]
  enum Error {}
- type Result<T, E = Error> = std::result::Result<T, E>;
-
  
  #[derive(Debug, thiserror::Error)]
  struct ExternalError {}
@@ -28,7 +26,7 @@
      }
  }
 
- #[handle_error]
+ #[handle_error(Error)]
  fn func() -> Result<String, String> {
      Ok("".to_string())
  }

@@ -52,7 +52,7 @@ pub struct LoginStore {
 }
 
 impl LoginStore {
-    #[handle_error]
+    #[handle_error(Error)]
     pub fn new(path: impl AsRef<Path>) -> ApiResult<Self> {
         let db = Mutex::new(LoginDb::open(path)?);
         Ok(Self { db })
@@ -62,28 +62,28 @@ impl LoginStore {
         Self { db: Mutex::new(db) }
     }
 
-    #[handle_error]
+    #[handle_error(Error)]
     pub fn new_in_memory() -> ApiResult<Self> {
         let db = Mutex::new(LoginDb::open_in_memory()?);
         Ok(Self { db })
     }
 
-    #[handle_error]
+    #[handle_error(Error)]
     pub fn list(&self) -> ApiResult<Vec<EncryptedLogin>> {
         self.db.lock().get_all()
     }
 
-    #[handle_error]
+    #[handle_error(Error)]
     pub fn get(&self, id: &str) -> ApiResult<Option<EncryptedLogin>> {
         self.db.lock().get_by_id(id)
     }
 
-    #[handle_error]
+    #[handle_error(Error)]
     pub fn get_by_base_domain(&self, base_domain: &str) -> ApiResult<Vec<EncryptedLogin>> {
         self.db.lock().get_by_base_domain(base_domain)
     }
 
-    #[handle_error]
+    #[handle_error(Error)]
     pub fn find_login_to_update(
         &self,
         entry: LoginEntry,
@@ -93,17 +93,17 @@ impl LoginStore {
         self.db.lock().find_login_to_update(entry, &encdec)
     }
 
-    #[handle_error]
+    #[handle_error(Error)]
     pub fn touch(&self, id: &str) -> ApiResult<()> {
         self.db.lock().touch(id)
     }
 
-    #[handle_error]
+    #[handle_error(Error)]
     pub fn delete(&self, id: &str) -> ApiResult<bool> {
         self.db.lock().delete(id)
     }
 
-    #[handle_error]
+    #[handle_error(Error)]
     pub fn wipe(&self) -> ApiResult<()> {
         // This should not be exposed - it wipes the server too and there's
         // no good reason to expose that to consumers. wipe_local makes some
@@ -116,13 +116,13 @@ impl LoginStore {
         Ok(())
     }
 
-    #[handle_error]
+    #[handle_error(Error)]
     pub fn wipe_local(&self) -> ApiResult<()> {
         self.db.lock().wipe_local()?;
         Ok(())
     }
 
-    #[handle_error]
+    #[handle_error(Error)]
     pub fn reset(self: Arc<Self>) -> ApiResult<()> {
         // Reset should not exist here - all resets should be done via the
         // sync manager. It seems that actual consumers don't use this, but
@@ -132,19 +132,19 @@ impl LoginStore {
         Ok(())
     }
 
-    #[handle_error]
+    #[handle_error(Error)]
     pub fn update(&self, id: &str, entry: LoginEntry, enc_key: &str) -> ApiResult<EncryptedLogin> {
         let encdec = EncryptorDecryptor::new(enc_key)?;
         self.db.lock().update(id, entry, &encdec)
     }
 
-    #[handle_error]
+    #[handle_error(Error)]
     pub fn add(&self, entry: LoginEntry, enc_key: &str) -> ApiResult<EncryptedLogin> {
         let encdec = EncryptorDecryptor::new(enc_key)?;
         self.db.lock().add(entry, &encdec)
     }
 
-    #[handle_error]
+    #[handle_error(Error)]
     pub fn add_or_update(&self, entry: LoginEntry, enc_key: &str) -> ApiResult<EncryptedLogin> {
         let encdec = EncryptorDecryptor::new(enc_key)?;
         self.db.lock().add_or_update(entry, &encdec)
@@ -155,7 +155,7 @@ impl LoginStore {
     // This can almost die later - consumers should never call it (they should
     // use the sync manager) and any of our examples probably can too!
     // Once this dies, `mem_cached_state` can die too.
-    #[handle_error]
+    #[handle_error(Error)]
     pub fn sync(
         self: Arc<Self>,
         key_id: String,
@@ -223,7 +223,7 @@ impl LoginStore {
     // We could probably make the example work with the sync manager - but then
     // our example would link with places and logins etc, and it's not a big
     // deal really.
-    #[handle_error]
+    #[handle_error(Error)]
     pub fn create_logins_sync_engine(self: Arc<Self>) -> ApiResult<Box<dyn SyncEngine>> {
         Ok(Box::new(LoginsSyncEngine::new(self)?) as Box<dyn SyncEngine>)
     }

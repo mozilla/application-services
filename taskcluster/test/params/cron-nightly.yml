@@ -1,7 +1,6 @@
 base_repository: https://github.com/mozilla/application-services
 branch-build:
   firefox-android-branch: main
-  fenix-branch: main
 build_date: 1651554220
 do_not_optimize: []
 existing_tasks: {}
