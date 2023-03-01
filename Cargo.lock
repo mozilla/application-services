@@ -2007,7 +2007,6 @@ dependencies = [
  "hex",
  "jexl-eval",
  "log",
- "mockito",
  "once_cell",
  "rkv",
  "rs_client",
