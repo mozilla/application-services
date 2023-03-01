@@ -22,6 +22,7 @@ use std::cell::RefCell;
 use std::collections::HashMap;
 use std::path::{Path, PathBuf};
 use sync15::{RemoteClient, ServerTimestamp};
+use unicode_segmentation::UnicodeSegmentation;
 pub type TabsDeviceType = crate::DeviceType;
 pub type RemoteTabRecord = RemoteTab;
 
@@ -174,8 +175,8 @@ impl TabsStorage {
                     // Truncate the title to some limit and append ellipsis
                     // to incate that we've truncated
                     if tab.title.len() > MAX_TITLE_CHAR_LENGTH {
-                        tab.title = safe_truncate(&tab.title, MAX_TITLE_CHAR_LENGTH - 1).to_string();
-                        // Append ellipsis char for any client displaying the full title
+                        tab.title = safe_truncate(&tab.title, MAX_TITLE_CHAR_LENGTH);
+                        // Append an ellipsis '...' so clients know it's been truncated
                         tab.title.push('\u{2026}');
                     }
                     Some(tab)
@@ -399,10 +400,12 @@ fn compute_serialized_size(v: &Vec<RemoteTab>) -> usize {
     serde_json::to_string(v).unwrap_or_default().len()
 }
 
-fn safe_truncate(s: &str, max_chars: usize) -> &str {
-    match s.char_indices().nth(max_chars) {
-        None => s,
-        Some((idx, _)) => &s[..idx],
+fn safe_truncate(s: &str, max_chars: usize) -> String {
+    let chars = s.graphemes(true).collect::<Vec<&str>>();
+    if chars.len() > max_chars {
+        chars[0..max_chars].concat()
+    } else {
+        s.to_string()
     }
 }
 
@@ -562,8 +565,9 @@ mod tests {
             icon: None,
             last_used: 0,
         }]);
-        let mut truncated_title = "a".repeat(MAX_TITLE_CHAR_LENGTH - 1);
-        truncated_title.push('\u{2026}');
+        let ellipsis_char = '\u{2026}';
+        let mut truncated_title = "a".repeat(MAX_TITLE_CHAR_LENGTH);
+        truncated_title.push(ellipsis_char);
         assert_eq!(
             storage.prepare_local_tabs_for_upload(),
             Some(vec![
@@ -581,24 +585,29 @@ mod tests {
     fn test_utf8_safe_title_trim() {
         let mut storage = TabsStorage::new_with_mem_path("test_prepare_local_tabs_for_upload");
         assert_eq!(storage.prepare_local_tabs_for_upload(), None);
-        storage.update_local_state(vec![RemoteTab {
-            title: "😍".repeat(MAX_TITLE_CHAR_LENGTH + 10), // Fill a string more than max
-            url_history: vec!["https://foo.bar".to_owned()],
-            icon: None,
-            last_used: 0,
-        }, RemoteTab {
-            title: "を".repeat(MAX_TITLE_CHAR_LENGTH + 5), // Fill a string more than max
-            url_history: vec!["https://foo_jp.bar".to_owned()],
-            icon: None,
-            last_used: 0,
-        }]);
-        let mut truncated_title = "😍".repeat(MAX_TITLE_CHAR_LENGTH - 1);
-        let mut truncated_jp_title = "を".repeat(MAX_TITLE_CHAR_LENGTH - 1);
-        truncated_title.push('\u{2026}');
-        truncated_jp_title.push('\u{2026}');
+        storage.update_local_state(vec![
+            RemoteTab {
+                title: "😍".repeat(MAX_TITLE_CHAR_LENGTH + 10), // Fill a string more than max
+                url_history: vec!["https://foo.bar".to_owned()],
+                icon: None,
+                last_used: 0,
+            },
+            RemoteTab {
+                title: "を".repeat(MAX_TITLE_CHAR_LENGTH + 5), // Fill a string more than max
+                url_history: vec!["https://foo_jp.bar".to_owned()],
+                icon: None,
+                last_used: 0,
+            },
+        ]);
+        let ellipsis_char = '\u{2026}';
+        let mut truncated_title = "😍".repeat(MAX_TITLE_CHAR_LENGTH);
+        let mut truncated_jp_title = "を".repeat(MAX_TITLE_CHAR_LENGTH);
+        truncated_title.push(ellipsis_char);
+        truncated_jp_title.push(ellipsis_char);
+        let remote_tabs = storage.prepare_local_tabs_for_upload().unwrap();
         assert_eq!(
-            storage.prepare_local_tabs_for_upload(),
-            Some(vec![
+            remote_tabs,
+            vec![
                 // title trimmed to 50 characters
                 RemoteTab {
                     title: truncated_title, // title was trimmed to only max char length
@@ -612,7 +621,16 @@ mod tests {
                     icon: None,
                     last_used: 0,
                 },
-            ])
+            ]
+        );
+        // We should be at max + our ellipsis
+        assert_eq!(
+            remote_tabs[0].title.chars().count(),
+            MAX_TITLE_CHAR_LENGTH + 1
+        );
+        assert_eq!(
+            remote_tabs[1].title.chars().count(),
+            MAX_TITLE_CHAR_LENGTH + 1
         );
     }
     #[test]
