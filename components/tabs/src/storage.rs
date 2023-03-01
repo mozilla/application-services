@@ -346,12 +346,11 @@ impl TabsStorage {
     }
 
     pub(crate) fn put_meta(&mut self, key: &str, value: &dyn ToSql) -> Result<()> {
-        if let Some(db) = self.open_if_exists()? {
-            db.execute_cached(
-                "REPLACE INTO moz_meta (key, value) VALUES (:key, :value)",
-                &[(":key", &key as &dyn ToSql), (":value", value)],
-            )?;
-        }
+        let db = self.open_or_create()?;
+        db.execute_cached(
+            "REPLACE INTO moz_meta (key, value) VALUES (:key, :value)",
+            &[(":key", &key as &dyn ToSql), (":value", value)],
+        )?;
         Ok(())
     }
 
@@ -443,12 +442,15 @@ mod tests {
 
     #[test]
     fn test_tabs_meta() {
-        let mut db = TabsStorage::new_with_mem_path("test");
+        let dir = tempfile::tempdir().unwrap();
+        let db_name = dir.path().join("test_tabs_meta.db");
+        let mut db = TabsStorage::new(db_name);
         let test_key = "TEST KEY A";
         let test_value = "TEST VALUE A";
         let test_key2 = "TEST KEY B";
         let test_value2 = "TEST VALUE B";
 
+        // should automatically make the DB if one doesn't exist
         db.put_meta(test_key, &test_value).unwrap();
         db.put_meta(test_key2, &test_value2).unwrap();
 

@@ -125,7 +125,7 @@ def setup_firefox_android(task, branch_build_params):
     }
     task['run']['pre-gradlew'].extend([
         ['rsync', '-a', '/builds/worker/fetches/.m2/', '/builds/worker/.m2/'],
-        setup_branch_build_command_line(branch_build_params, setup_fenix=False),
+        setup_branch_build_command_line(branch_build_params),
         ['cd', 'firefox-android/android-components'],
         ['git', 'rev-parse', '--short', 'HEAD'],
         # Building this up-front seems to make the build more stable.  I think
@@ -149,12 +149,12 @@ def setup_fenix(task, branch_build_params):
     }
     task['run']['pre-gradlew'].extend([
         ['rsync', '-a', '/builds/worker/fetches/.m2/', '/builds/worker/.m2/'],
-        setup_branch_build_command_line(branch_build_params, setup_fenix=True),
-        ['cd', 'fenix'],
+        setup_branch_build_command_line(branch_build_params),
+        ['cd', 'firefox-android/fenix'],
         ['git', 'rev-parse', '--short', 'HEAD'],
     ])
 
-def setup_branch_build_command_line(branch_build_params, setup_fenix):
+def setup_branch_build_command_line(branch_build_params):
     cmd_line = [
             'taskcluster/scripts/setup-branch-build.py',
             '--firefox-android-owner',
@@ -162,13 +162,6 @@ def setup_branch_build_command_line(branch_build_params, setup_fenix):
             '--firefox-android-branch',
             branch_build_params.get('firefox-android-branch', 'main'),
     ]
-    if setup_fenix:
-        cmd_line.extend([
-                '--fenix-owner',
-                branch_build_params.get('fenix-owner', 'mozilla-mobile'),
-                '--fenix-branch',
-                branch_build_params.get('fenix-branch', 'main'),
-        ])
     return cmd_line
 
 def get_build_tasks(task, repo_name):

@@ -70,6 +70,7 @@ mod test {
         let _lock = TEST_LOCK.lock().unwrap();
         let logger = TestLogger::new();
         set_logger(Some(Box::new(logger.clone())));
+        set_max_level(Level::Debug);
         log::info!("Test message");
         log::warn!("Test message2");
         logger.check_records(vec![

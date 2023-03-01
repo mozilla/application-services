@@ -25,8 +25,6 @@ def register(graph_config):
         Optional('branch-build'): {
             Optional('firefox-android-owner'): str,
             Optional('firefox-android-branch'): str,
-            Optional('fenix-owner'): str,
-            Optional('fenix-branch'): str,
         },
         'nightly-build': bool,
     })

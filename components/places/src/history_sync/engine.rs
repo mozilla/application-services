@@ -10,7 +10,7 @@ use interrupt_support::SqlInterruptScope;
 use std::sync::Arc;
 use sync15::engine::{
     CollSyncIds, CollectionRequest, EngineSyncAssociation, IncomingChangeset, OutgoingChangeset,
-    SyncEngine,
+    RequestOrder, SyncEngine,
 };
 use sync15::{telemetry, Guid, ServerTimestamp};
 
@@ -116,7 +116,7 @@ impl SyncEngine for HistorySyncEngine {
             vec![CollectionRequest::new("history".into())
                 .full()
                 .newer_than(since)
-                .limit(MAX_INCOMING_PLACES)]
+                .limit(MAX_INCOMING_PLACES, RequestOrder::Newest)]
         })
     }
 
