@@ -174,7 +174,7 @@ impl TabsStorage {
                     // Truncate the title to some limit and append ellipsis
                     // to incate that we've truncated
                     if tab.title.len() > MAX_TITLE_CHAR_LENGTH {
-                        tab.title.truncate(MAX_TITLE_CHAR_LENGTH - 3);
+                        tab.title = safe_truncate(&tab.title, MAX_TITLE_CHAR_LENGTH - 1).to_string();
                         // Append ellipsis char for any client displaying the full title
                         tab.title.push('\u{2026}');
                     }
@@ -399,6 +399,13 @@ fn compute_serialized_size(v: &Vec<RemoteTab>) -> usize {
     serde_json::to_string(v).unwrap_or_default().len()
 }
 
+fn safe_truncate(s: &str, max_chars: usize) -> &str {
+    match s.char_indices().nth(max_chars) {
+        None => s,
+        Some((idx, _)) => &s[..idx],
+    }
+}
+
 // Try to keep in sync with https://searchfox.org/mozilla-central/rev/2ad13433da20a0749e1e9a10ec0ab49b987c2c8e/modules/libpref/init/all.js#3927
 fn is_url_syncable(url: &str) -> bool {
     url.len() <= URI_LENGTH_MAX
@@ -555,7 +562,7 @@ mod tests {
             icon: None,
             last_used: 0,
         }]);
-        let mut truncated_title = "a".repeat(MAX_TITLE_CHAR_LENGTH - 3);
+        let mut truncated_title = "a".repeat(MAX_TITLE_CHAR_LENGTH - 1);
         truncated_title.push('\u{2026}');
         assert_eq!(
             storage.prepare_local_tabs_for_upload(),
@@ -564,6 +571,44 @@ mod tests {
                 RemoteTab {
                     title: truncated_title, // title was trimmed to only max char length
                     url_history: vec!["https://foo.bar".to_owned()],
+                    icon: None,
+                    last_used: 0,
+                },
+            ])
+        );
+    }
+    #[test]
+    fn test_utf8_safe_title_trim() {
+        let mut storage = TabsStorage::new_with_mem_path("test_prepare_local_tabs_for_upload");
+        assert_eq!(storage.prepare_local_tabs_for_upload(), None);
+        storage.update_local_state(vec![RemoteTab {
+            title: "😍".repeat(MAX_TITLE_CHAR_LENGTH + 10), // Fill a string more than max
+            url_history: vec!["https://foo.bar".to_owned()],
+            icon: None,
+            last_used: 0,
+        }, RemoteTab {
+            title: "を".repeat(MAX_TITLE_CHAR_LENGTH + 5), // Fill a string more than max
+            url_history: vec!["https://foo_jp.bar".to_owned()],
+            icon: None,
+            last_used: 0,
+        }]);
+        let mut truncated_title = "😍".repeat(MAX_TITLE_CHAR_LENGTH - 1);
+        let mut truncated_jp_title = "を".repeat(MAX_TITLE_CHAR_LENGTH - 1);
+        truncated_title.push('\u{2026}');
+        truncated_jp_title.push('\u{2026}');
+        assert_eq!(
+            storage.prepare_local_tabs_for_upload(),
+            Some(vec![
+                // title trimmed to 50 characters
+                RemoteTab {
+                    title: truncated_title, // title was trimmed to only max char length
+                    url_history: vec!["https://foo.bar".to_owned()],
+                    icon: None,
+                    last_used: 0,
+                },
+                RemoteTab {
+                    title: truncated_jp_title, // title was trimmed to only max char length
+                    url_history: vec!["https://foo_jp.bar".to_owned()],
                     icon: None,
                     last_used: 0,
                 },
