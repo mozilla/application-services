@@ -5,8 +5,8 @@
 pub mod communications;
 pub mod config;
 pub mod crypto;
+pub mod push_manager;
 pub mod storage;
-pub mod subscriber;
 
-pub use config::PushConfiguration;
-pub use subscriber::PushManager;
+pub(crate) use config::PushConfiguration;
+pub(crate) use push_manager::PushManager;

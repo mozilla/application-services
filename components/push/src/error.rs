@@ -68,3 +68,9 @@ impl From<bincode::Error> for PushError {
         PushError::CryptoError(format!("bincode error: {value}"))
     }
 }
+
+impl From<rc_crypto::ece::Error> for PushError {
+    fn from(value: rc_crypto::ece::Error) -> Self {
+        PushError::CryptoError(value.to_string())
+    }
+}

@@ -5,10 +5,16 @@
 //! Server Communications.
 //!
 //! Handles however communication to and from the remote Push Server should be done. For Desktop
-//! this will be over Websocket. For mobile, it will probably be calls into the local operating
+//! this will be over Websocket. For mobile, it calls into the local operating
 //! system and HTTPS to the web push server.
 //!
-//! In the future, it could be using gRPC and QUIC, or quantum relay.
+//! Mainly exposes a trait [`Connection`] and a concrete type that implements it [`ConnectHttp`]
+//!
+//! The trait is a lightweight interface that talks to autopush servers and provides the following functionality
+//! - Subscription: Through [`Connection::subscribe_new`] on first subscription, and [`Connection::subscribe_with_uaid`] on subsequent subscriptiosn
+//! - Unsubscription: Through [`Connection::unsubscribe`] for a single channel, and [`Connection::unsubscribe_all`] for all channels
+//! - Updating tokens: Through [`Connection::update`] to update a native token
+//! - Getting all subscription channels: Through [`Connection::channel_list`]
 
 use serde::{Deserialize, Serialize};
 use url::Url;
@@ -105,7 +111,16 @@ pub trait Connection: Sized {
     /// Create a new instance of a [`Connection`]
     fn connect(options: PushConfiguration) -> Self;
 
-    /// send a new subscription request to the server, get back the server registration response.
+    /// Sends this client's very first subscription request. Note that the `uaid` is not available at this stage
+    /// the server will assign and return a uaid. Subsequent subscriptions will call [`Connection::subscribe_with_uaid`]
+    ///
+    /// # Arguments
+    /// - `channel_id`: A string defined by client. The client is expected to provide this id when requesting the subscription record
+    /// - `registration_id`: A string representing a native token. In practice, this is a Firebase token for Android and a APNS token for iOS
+    /// - `app_server_key`: Optional VAPID public key to "lock" subscriptions
+    ///
+    /// # Returns
+    /// - Returns a [`RegisterResponse`] which is the autopush server's registration response deserialized
     fn subscribe_new(
         &self,
         channel_id: &str,
@@ -113,7 +128,17 @@ pub trait Connection: Sized {
         app_server_key: &Option<String>,
     ) -> error::Result<RegisterResponse>;
 
-    /// send a new subscription request to the server, get back the server registration response.
+    /// Sends subsequent subscriptions for this client. This will be called when the client has already been assigned a `uaid`
+    /// by the server when it first called [`Connection::subscribe_new`]
+    /// # Arguments
+    /// - `channel_id`: A string defined by client. The client is expected to provide this id when requesting the subscription record
+    /// - `uaid`: A string representing the users `uaid` that was assigned when the user first registered for a subscription
+    /// - `auth`: A string representing an authorization token that will be sent as a header to autopush. The auth was returned on the user's first subscription.
+    /// - `registration_id`: A string representing a native token. In practice, this is a Firebase token for Android and a APNS token for iOS
+    /// - `app_server_key`: Optional VAPID public key to "lock" subscriptions
+    ///
+    /// # Returns
+    /// - Returns a [`RegisterResponse`] which is the autopush server's registration response deserialized
     fn subscribe_with_uaid(
         &self,
         channel_id: &str,
@@ -123,16 +148,34 @@ pub trait Connection: Sized {
         app_server_key: &Option<String>,
     ) -> error::Result<RegisterResponse>;
 
-    /// Drop an endpoint
+    /// Drop a subscription previously registered with autopush
+    /// # Arguments
+    /// - `channel_id`: A string defined by client. The client is expected to provide this id when requesting the subscription record
+    /// - `uaid`: A string representing the users `uaid` that was assigned when the user first registered for a subscription
+    /// - `auth`: A string representing an authorization token that will be sent as a header to autopush. The auth was returned on the user's first subscription.
     fn unsubscribe(&self, channel_id: &str, uaid: &str, auth: &str) -> error::Result<()>;
 
-    /// drop all endpoints
+    /// Drop all subscriptions previously registered with autopush
+    /// # Arguments
+    /// - `channel_id`: A string defined by client. The client is expected to provide this id when requesting the subscription record
+    /// - `uaid`: A string representing the users `uaid` that was assigned when the user first registered for a subscription
+    /// - `auth`: A string representing an authorization token that will be sent as a header to autopush. The auth was returned on the user's first subscription.
     fn unsubscribe_all(&self, uaid: &str, auth: &str) -> error::Result<()>;
 
     /// Update the autopush server with the new native OS Messaging authorization token
+    /// # Arguments
+    /// - `new_token`: A string representing a new natvie token for the user. This would be an FCM token for Android, and an APNS token for iOS
+    /// - `uaid`: A string representing the users `uaid` that was assigned when the user first registered for a subscription
+    /// - `auth`: A string representing an authorization token that will be sent as a header to autopush. The auth was returned on the user's first subscription.
     fn update(&self, new_token: &str, uaid: &str, auth: &str) -> error::Result<()>;
 
     /// Get a list of server known channels.
+    /// # Arguments
+    /// - `uaid`: A string representing the users `uaid` that was assigned when the user first registered for a subscription
+    /// - `auth`: A string representing an authorization token that will be sent as a header to autopush. The auth was returned on the user's first subscription.
+    ///
+    /// # Returns
+    /// A list of channel ids representing all the channels the user is subscribed to
     fn channel_list(&self, uaid: &str, auth: &str) -> error::Result<Vec<String>>;
 }
 
@@ -225,12 +268,10 @@ impl ConnectHttp {
 }
 
 impl Connection for ConnectHttp {
-    // Connect to the Autopush server
     fn connect(options: PushConfiguration) -> ConnectHttp {
         ConnectHttp { options }
     }
 
-    /// send a new subscription request to the server, get back the server registration response.
     fn subscribe_new(
         &self,
         channel_id: &str,
@@ -284,7 +325,6 @@ impl Connection for ConnectHttp {
         )
     }
 
-    /// Drop a channel and stop receiving updates.
     fn unsubscribe(&self, channel_id: &str, uaid: &str, auth: &str) -> error::Result<()> {
         let url = format!(
             "{}/subscription/{}",
@@ -299,7 +339,6 @@ impl Connection for ConnectHttp {
         Ok(())
     }
 
-    /// Drops all channels and stops receiving notifications.
     fn unsubscribe_all(&self, uaid: &str, auth: &str) -> error::Result<()> {
         let url = self.format_unsubscribe_url(uaid)?;
         let response = Request::delete(Url::parse(&url)?)
@@ -310,7 +349,6 @@ impl Connection for ConnectHttp {
         Ok(())
     }
 
-    /// Update the push server with the new OS push authorization token
     fn update(&self, new_token: &str, uaid: &str, auth: &str) -> error::Result<()> {
         let options = self.options.clone();
         let url = format!(
@@ -331,8 +369,6 @@ impl Connection for ConnectHttp {
         Ok(())
     }
 
-    /// Get a list of server known channels. If it differs from what we have, reset the UAID, and refresh channels.
-    /// Should be done once a day.
     fn channel_list(&self, uaid: &str, auth: &str) -> error::Result<Vec<String>> {
         #[derive(Deserialize, Debug)]
         struct Payload {
@@ -380,6 +416,8 @@ impl Connection for ConnectHttp {
 
 #[cfg(test)]
 mod test {
+    use crate::internal::config::Protocol;
+
     use super::*;
 
     use super::Connection;
@@ -398,11 +436,10 @@ mod test {
 
     #[test]
     fn test_communications() {
-        // FIXME: this test shouldn't make network requests.
         viaduct_reqwest::use_reqwest_backend();
         // mockito forces task serialization, so for now, we test everything in one go.
         let config = PushConfiguration {
-            http_protocol: "http".to_owned(),
+            http_protocol: Protocol::Http,
             server_host: server_address().to_string(),
             sender_id: SENDER_ID.to_owned(),
             ..Default::default()
@@ -553,7 +590,7 @@ mod test {
         // gets a `CONFLICT` status code
         {
             let config = PushConfiguration {
-                http_protocol: "http".to_owned(),
+                http_protocol: Protocol::Http,
                 server_host: server_address().to_string(),
                 sender_id: SENDER_ID.to_owned(),
                 ..Default::default()

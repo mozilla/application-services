@@ -3046,6 +3046,7 @@ dependencies = [
  "sql-support",
  "tempfile",
  "thiserror",
+ "types",
  "uniffi",
  "url",
  "viaduct",
