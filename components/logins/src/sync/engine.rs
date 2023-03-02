@@ -65,14 +65,14 @@ impl LoginsSyncEngine {
         for mut record in records {
             scope.err_if_interrupted()?;
             log::debug!("Processing remote change {}", record.guid());
-            let upstream = if let Some(inbound) = record.inbound.0.take() {
+            let upstream = if let Some(inbound) = record.inbound.take() {
                 inbound
             } else {
                 log::debug!("Processing inbound deletion (always prefer)");
                 plan.plan_delete(record.guid.clone());
                 continue;
             };
-            let upstream_time = record.inbound.1;
+            let upstream_time = record.inbound_ts;
             match (record.mirror.take(), record.local.take()) {
                 (Some(mirror), Some(local)) => {
                     log::debug!("  Conflict between remote and local, Resolving with 3WM");
@@ -97,7 +97,7 @@ impl LoginsSyncEngine {
                     telem.reconciled(1);
                 }
                 (None, None) => {
-                    if let Some(dupe) = self.find_dupe_login(&upstream)? {
+                    if let Some(dupe) = self.find_dupe_login(&upstream.login)? {
                         log::debug!(
                             "  Incoming record {} was is a dupe of local record {}",
                             upstream.guid(),
@@ -245,7 +245,9 @@ impl LoginsSyncEngine {
         const DEFAULT_SORTINDEX: i32 = 1;
         let db = self.store.db.lock();
         let mut stmt = db.prepare_cached(&format!(
-            "SELECT * FROM loginsL WHERE sync_status IS NOT {synced}",
+            "SELECT L.*, M.enc_unknown_fields
+             FROM loginsL L LEFT JOIN loginsM M ON L.guid = M.guid
+             WHERE sync_status IS NOT {synced}",
             synced = SyncStatus::Synced as u8
         ))?;
         let rows = stmt.query_and_then([], |row| {
@@ -258,7 +260,8 @@ impl LoginsSyncEngine {
                 };
                 OutgoingBso::new_tombstone(envelope)
             } else {
-                let mut bso = EncryptedLogin::from_row(row)?.into_bso(self.encdec()?)?;
+                let unknown = row.get::<_, Option<String>>("enc_unknown_fields")?;
+                let mut bso = EncryptedLogin::from_row(row)?.into_bso(self.encdec()?, unknown)?;
                 bso.envelope.sortindex = Some(DEFAULT_SORTINDEX);
                 bso
             })
@@ -558,15 +561,15 @@ mod tests {
             vec![
                 IncomingBso::new_test_tombstone(Guid::new("deleted_remotely")),
                 enc_login("added_remotely", "password")
-                    .into_bso(&TEST_ENCRYPTOR)
+                    .into_bso(&TEST_ENCRYPTOR, None)
                     .unwrap()
                     .to_test_incoming(),
                 enc_login("updated_remotely", "new-password")
-                    .into_bso(&TEST_ENCRYPTOR)
+                    .into_bso(&TEST_ENCRYPTOR, None)
                     .unwrap()
                     .to_test_incoming(),
                 enc_login("three_way_merge", "new-remote-password")
-                    .into_bso(&TEST_ENCRYPTOR)
+                    .into_bso(&TEST_ENCRYPTOR, None)
                     .unwrap()
                     .to_test_incoming(),
             ],
@@ -599,9 +602,13 @@ mod tests {
                             .unwrap()
                             .password
                     }),
-                    inbound: sync_login_data.inbound.0.map(|login| {
-                        guids_seen.insert(login.record.id.clone());
-                        login.decrypt_fields(&TEST_ENCRYPTOR).unwrap().password
+                    inbound: sync_login_data.inbound.map(|incoming| {
+                        guids_seen.insert(incoming.login.record.id.clone());
+                        incoming
+                            .login
+                            .decrypt_fields(&TEST_ENCRYPTOR)
+                            .unwrap()
+                            .password
                     }),
                 };
                 (guids_seen.into_iter().next().unwrap(), passwords)
@@ -853,6 +860,108 @@ mod tests {
                 .record
                 .id,
             no_form_origin_id
+        );
+    }
+
+    #[test]
+    fn test_roundtrip_unknown() {
+        // A couple of helpers
+        fn apply_incoming_payload(engine: &LoginsSyncEngine, payload: serde_json::Value) {
+            let bso = IncomingBso::from_test_content(payload);
+
+            let incoming = IncomingChangeset::new_with_changes(
+                engine.collection_name(),
+                ServerTimestamp::from_millis(0),
+                vec![bso],
+            );
+
+            let mut telem = sync15::telemetry::Engine::new(engine.collection_name());
+            engine.apply_incoming(vec![incoming], &mut telem).unwrap();
+        }
+
+        fn get_outgoing_payload(engine: &LoginsSyncEngine) -> serde_json::Value {
+            // Edit it so it's considered outgoing.
+            engine
+                .store
+                .update(
+                    "dummy_000001",
+                    LoginEntry {
+                        fields: LoginFields {
+                            origin: "https://www.example2.com".into(),
+                            http_realm: Some("https://www.example2.com".into()),
+                            ..Default::default()
+                        },
+                        sec_fields: SecureLoginFields {
+                            username: "test".into(),
+                            password: "test".into(),
+                        },
+                    },
+                    &TEST_ENCRYPTION_KEY,
+                )
+                .unwrap();
+            let changeset = engine.fetch_outgoing(&engine.scope).unwrap();
+            assert_eq!(changeset.changes.len(), 1);
+            serde_json::from_str::<serde_json::Value>(&changeset.changes[0].payload).unwrap()
+        }
+
+        // The test itself...
+        let store = LoginStore::new_in_memory().unwrap();
+        let mut engine = LoginsSyncEngine::new(Arc::new(store)).unwrap();
+        engine
+            .set_local_encryption_key(&TEST_ENCRYPTION_KEY)
+            .unwrap();
+
+        apply_incoming_payload(
+            &engine,
+            serde_json::json!({
+                "id": "dummy_000001",
+                "formSubmitURL": "https://www.example.com/submit",
+                "hostname": "https://www.example.com",
+                "username": "test",
+                "password": "test",
+                "unknown1": "?",
+                "unknown2": {"sub": "object"},
+            }),
+        );
+
+        let payload = get_outgoing_payload(&engine);
+
+        // The outgoing payload for our item should have the unknown fields.
+        assert_eq!(payload.get("unknown1").unwrap().as_str().unwrap(), "?");
+        assert_eq!(
+            payload.get("unknown2").unwrap(),
+            &serde_json::json!({"sub": "object"})
+        );
+
+        // test mirror updates - record is already in our mirror, but now it's
+        // incoming with different unknown fields.
+        apply_incoming_payload(
+            &engine,
+            serde_json::json!({
+                "id": "dummy_000001",
+                "formSubmitURL": "https://www.example.com/submit",
+                "hostname": "https://www.example.com",
+                "username": "test",
+                "password": "test",
+                "unknown2": 99,
+                "unknown3": {"something": "else"},
+            }),
+        );
+        let payload = get_outgoing_payload(&engine);
+        // old unknown values were replaced.
+        assert!(payload.get("unknown1").is_none());
+        assert_eq!(payload.get("unknown2").unwrap().as_u64().unwrap(), 99);
+        assert_eq!(
+            payload
+                .get("unknown3")
+                .unwrap()
+                .as_object()
+                .unwrap()
+                .get("something")
+                .unwrap()
+                .as_str()
+                .unwrap(),
+            "else"
         );
     }
 }

@@ -93,8 +93,9 @@ use lazy_static::lazy_static;
 use rusqlite::Connection;
 use sql_support::ConnExt;
 
-/// The current schema version is 1.  We reset it after the SQLCipher -> plaintext migration.
-const VERSION: i64 = 1;
+/// Version 1: SQLCipher -> plaintext migration.
+/// Version 2: addition of `loginsM.enc_unknown_fields`.
+pub(super) const VERSION: i64 = 2;
 
 /// Every column shared by both tables except for `id`
 ///
@@ -161,7 +162,10 @@ lazy_static! {
             -- Milliseconds (a sync15::ServerTimestamp multiplied by
             -- 1000 and truncated)
             server_modified INTEGER NOT NULL,
-            is_overridden   TINYINT NOT NULL DEFAULT 0
+            is_overridden   TINYINT NOT NULL DEFAULT 0,
+            -- fields on incoming records we don't know about and roundtrip.
+            -- a serde_json::Value::Object as an encrypted string.
+            enc_unknown_fields   TEXT
         )",
         common_sql = COMMON_SQL
     );
@@ -214,7 +218,7 @@ pub(crate) fn init(db: &Connection) -> Result<()> {
 
 // Allow the redundant Ok() here.  It will make more sense once we have an actual upgrade function.
 #[allow(clippy::unnecessary_wraps)]
-fn upgrade(_db: &Connection, from: i64) -> Result<()> {
+fn upgrade(db: &Connection, from: i64) -> Result<()> {
     log::debug!("Upgrading schema from {} to {}", from, VERSION);
     if from == VERSION {
         return Ok(());
@@ -224,7 +228,15 @@ fn upgrade(_db: &Connection, from: i64) -> Result<()> {
         "Upgrading from user_version = 0 should already be handled (in `init`)"
     );
 
-    // Schema upgrades that should happen after the sqlcipher -> plaintext migration go here
+    // Schema upgrades.
+    if from == 1 {
+        // Just one new nullable column makes this fairly easy
+        db.execute_batch("ALTER TABLE loginsM ADD enc_unknown_fields TEXT;")?;
+    }
+    // XXX - next migration, be sure to:
+    // from = 2;
+    // if from == 2 ...
+    db.execute_batch(&SET_VERSION_SQL)?;
     Ok(())
 }
 
@@ -239,4 +251,66 @@ pub(crate) fn create(db: &Connection) -> Result<()> {
         &*SET_VERSION_SQL,
     ])?;
     Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::LoginDb;
+    use rusqlite::Connection;
+
+    #[test]
+    fn test_create_schema() {
+        let db = LoginDb::open_in_memory().unwrap();
+        // should be VERSION.
+        let version = db.query_one::<i64>("PRAGMA user_version").unwrap();
+        assert_eq!(version, VERSION);
+    }
+
+    #[test]
+    fn test_upgrade_v1() {
+        // manually setup a V1 schema.
+        let connection = Connection::open_in_memory().unwrap();
+        connection
+            .execute_batch(
+                "
+                CREATE TABLE IF NOT EXISTS loginsM (
+                    -- this was common_sql as at v1
+                    id                  INTEGER PRIMARY KEY AUTOINCREMENT,
+                    origin              TEXT NOT NULL,
+                    httpRealm           TEXT,
+                    formActionOrigin    TEXT,
+                    usernameField       TEXT,
+                    passwordField       TEXT,
+                    timesUsed           INTEGER NOT NULL DEFAULT 0,
+                    timeCreated         INTEGER NOT NULL,
+                    timeLastUsed        INTEGER,
+                    timePasswordChanged INTEGER NOT NULL,
+                    secFields           TEXT,
+                    guid                TEXT NOT NULL UNIQUE,
+                    server_modified     INTEGER NOT NULL,
+                    is_overridden       TINYINT NOT NULL DEFAULT 0
+                    -- note enc_unknown_fields missing
+                );
+            ",
+            )
+            .unwrap();
+        // Call `create` to create the rest of the schema - the "if not exists" means loginsM
+        // will remain as v1.
+        create(&connection).unwrap();
+        // but that set the version to VERSION - set it back to 1 so our upgrade code runs.
+        connection
+            .execute_batch("PRAGMA user_version = 1;")
+            .unwrap();
+
+        // Now open the DB - it will create loginsL for us and migrate loginsM.
+        let db = LoginDb::with_connection(connection).unwrap();
+        // all migrations should have succeeded.
+        let version = db.query_one::<i64>("PRAGMA user_version").unwrap();
+        assert_eq!(version, VERSION);
+
+        // and ensure sql selecting the new column works.
+        db.execute_batch("SELECT enc_unknown_fields FROM loginsM")
+            .unwrap();
+    }
 }
