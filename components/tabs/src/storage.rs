@@ -175,7 +175,7 @@ impl TabsStorage {
                     // Truncate the title to some limit and append ellipsis
                     // to incate that we've truncated
                     if tab.title.len() > MAX_TITLE_CHAR_LENGTH {
-                        tab.title = safe_truncate(&tab.title, MAX_TITLE_CHAR_LENGTH);
+                        tab.title = safe_truncate(&tab.title, MAX_TITLE_CHAR_LENGTH - 1);
                         // Append an ellipsis '...' so clients know it's been truncated
                         tab.title.push('\u{2026}');
                     }
@@ -566,7 +566,7 @@ mod tests {
             last_used: 0,
         }]);
         let ellipsis_char = '\u{2026}';
-        let mut truncated_title = "a".repeat(MAX_TITLE_CHAR_LENGTH);
+        let mut truncated_title = "a".repeat(MAX_TITLE_CHAR_LENGTH - 1);
         truncated_title.push(ellipsis_char);
         assert_eq!(
             storage.prepare_local_tabs_for_upload(),
@@ -600,8 +600,8 @@ mod tests {
             },
         ]);
         let ellipsis_char = '\u{2026}';
-        let mut truncated_title = "😍".repeat(MAX_TITLE_CHAR_LENGTH);
-        let mut truncated_jp_title = "を".repeat(MAX_TITLE_CHAR_LENGTH);
+        let mut truncated_title = "😍".repeat(MAX_TITLE_CHAR_LENGTH - 1);
+        let mut truncated_jp_title = "を".repeat(MAX_TITLE_CHAR_LENGTH - 1);
         truncated_title.push(ellipsis_char);
         truncated_jp_title.push(ellipsis_char);
         let remote_tabs = storage.prepare_local_tabs_for_upload().unwrap();
@@ -623,15 +623,9 @@ mod tests {
                 },
             ]
         );
-        // We should be at max + our ellipsis
-        assert_eq!(
-            remote_tabs[0].title.chars().count(),
-            MAX_TITLE_CHAR_LENGTH + 1
-        );
-        assert_eq!(
-            remote_tabs[1].title.chars().count(),
-            MAX_TITLE_CHAR_LENGTH + 1
-        );
+        // We should be less than max
+        assert!(remote_tabs[0].title.chars().count() <= MAX_TITLE_CHAR_LENGTH);
+        assert!(remote_tabs[1].title.chars().count() <= MAX_TITLE_CHAR_LENGTH);
     }
     #[test]
     fn test_trim_tabs_length() {
