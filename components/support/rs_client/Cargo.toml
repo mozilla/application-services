@@ -1,0 +1,19 @@
+[package]
+name = "rs_client"
+version = "0.1.0"
+edition = "2021"
+# The Android mobile team originally extracted this component from Nimbus and then continued to iterate on it.
+authors = ["The Android Mobile Team <firefox-android-team@mozilla.com>", "The Glean Team <glean-team@mozilla.com>"] 
+description = "A minimal support client for Remote Settings" 
+license = "MPL-2.0" 
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+url = "2.2"
+viaduct = { path = "../../viaduct" }
+thiserror = "1"
+
+[dev-dependencies]
+viaduct-reqwest = { path = "../viaduct-reqwest" }
+mockito = "0.31"

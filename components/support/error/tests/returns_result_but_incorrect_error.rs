@@ -47,7 +47,7 @@
 
  // handle_error expects that `Error` implements GetErrorHandling<E = ExternalError>
  // instead, it implements GetErrorHandling<E = OtherExternalError>
- #[handle_error]
+ #[handle_error(Error)]
  fn func() -> Result<String, ExternalError> {
      Err(Error{})
  }

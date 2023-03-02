@@ -210,10 +210,8 @@ open class Nimbus(
             updateObserver {
                 it.onExperimentsFetched()
             }
-        } catch (e: NimbusException.RequestException) {
-            reportError("Error fetching experiments from endpoint", e)
-        } catch (e: NimbusException.ResponseException) {
-            reportError("Error fetching experiments from endpoint", e)
+        } catch (e: NimbusException.ClientException) {
+            errorReporter("Error fetching experiments from endpoint", e)
         }
     }
 

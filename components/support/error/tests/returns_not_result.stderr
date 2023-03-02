@@ -1,11 +1,11 @@
 error[E0308]: mismatched types
-  --> returns_not_result.rs:41:2
+  --> returns_not_result.rs:39:2
    |
-41 |  #[handle_error]
-   |  ^^^^^^^^^^^^^^^ expected struct `String`, found enum `std::result::Result`
-42 |  fn func() -> String {
+39 |  #[handle_error(Error)]
+   |  ^^^^^^^^^^^^^^^^^^^^^^ expected struct `String`, found enum `Result`
+40 |  fn func() -> String {
    |               ------ expected `String` because of return type
    |
    = note: expected struct `String`
-                found enum `std::result::Result<String, ExternalError>`
+                found enum `Result<String, ExternalError>`
    = note: this error originates in the attribute macro `handle_error` (in Nightly builds, run with -Z macro-backtrace for more info)

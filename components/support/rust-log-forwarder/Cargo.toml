@@ -1,0 +1,15 @@
+[package]
+name = "rust-log-forwarder"
+version = "0.1.0"
+edition = "2021"
+authors = ["application-services@mozilla.com"]
+license = "MPL-2.0"
+exclude = ["/android", "/ios"]
+
+[dependencies]
+log = "0.4"
+parking_lot = ">=0.11,<=0.12"
+uniffi = "0.23"
+
+[build-dependencies]
+uniffi = { version = "0.23", features = ["build"] }

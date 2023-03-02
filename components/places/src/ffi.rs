@@ -5,51 +5,53 @@
 // This module implement the traits that make the FFI code easier to manage.
 
 use crate::api::matcher::{self, search_frecent, SearchParams};
-use crate::api::places_api::places_api_new;
-use crate::error::{ApiResult, PlacesApiError};
-use crate::import::common::HistoryMigrationResult;
+pub use crate::api::places_api::places_api_new;
+pub use crate::error::Result;
+pub use crate::error::{ApiResult, PlacesApiError};
+pub use crate::import::common::HistoryMigrationResult;
 use crate::import::import_ios_history;
 use crate::storage;
 use crate::storage::bookmarks;
-use crate::storage::bookmarks::BookmarkPosition;
-use crate::storage::history_metadata::{
+pub use crate::storage::bookmarks::BookmarkPosition;
+pub use crate::storage::history_metadata::{
     DocumentType, HistoryHighlight, HistoryHighlightWeights, HistoryMetadata,
     HistoryMetadataObservation,
 };
-use crate::storage::{history, history_metadata, RunMaintenanceMetrics};
+pub use crate::storage::RunMaintenanceMetrics;
+use crate::storage::{history, history_metadata};
 use crate::types::VisitTransitionSet;
 use crate::ConnectionType;
+use crate::UniffiCustomTypeConverter;
 use crate::VisitObservation;
 use crate::VisitTransition;
 use crate::{PlacesApi, PlacesDb};
 use error_support::handle_error;
-use interrupt_support::{register_interrupt, SqlInterruptHandle};
+use interrupt_support::register_interrupt;
+pub use interrupt_support::SqlInterruptHandle;
 use parking_lot::Mutex;
 use std::sync::{Arc, Weak};
 use sync15::client::Sync15StorageClientInit;
-use sync_guid::Guid;
-use types::Timestamp as PlacesTimestamp;
-use url::Url;
-
-pub use crate::error::Result;
+pub use sync_guid::Guid;
+pub use types::Timestamp as PlacesTimestamp;
+pub use url::Url;
 
 // From https://searchfox.org/mozilla-central/rev/1674b86019a96f076e0f98f1d0f5f3ab9d4e9020/browser/components/newtab/lib/TopSitesFeed.jsm#87
 const SKIP_ONE_PAGE_FRECENCY_THRESHOLD: i64 = 101 + 1;
 
 // `bookmarks::InsertableItem` is clear for Rust code, but just `InsertableItem` is less
 // clear in the UDL - so change some of the type names.
-type InsertableBookmarkItem = crate::storage::bookmarks::InsertableItem;
-type InsertableBookmarkFolder = crate::storage::bookmarks::InsertableFolder;
-type InsertableBookmarkSeparator = crate::storage::bookmarks::InsertableSeparator;
-use crate::storage::bookmarks::InsertableBookmark;
+pub type InsertableBookmarkItem = crate::storage::bookmarks::InsertableItem;
+pub type InsertableBookmarkFolder = crate::storage::bookmarks::InsertableFolder;
+pub type InsertableBookmarkSeparator = crate::storage::bookmarks::InsertableSeparator;
+pub use crate::storage::bookmarks::InsertableBookmark;
 
-use crate::storage::bookmarks::BookmarkUpdateInfo;
+pub use crate::storage::bookmarks::BookmarkUpdateInfo;
 
 // And types used when fetching items.
-type BookmarkItem = crate::storage::bookmarks::fetch::Item;
-type BookmarkFolder = crate::storage::bookmarks::fetch::Folder;
-type BookmarkSeparator = crate::storage::bookmarks::fetch::Separator;
-use crate::storage::bookmarks::fetch::BookmarkData;
+pub type BookmarkItem = crate::storage::bookmarks::fetch::Item;
+pub type BookmarkFolder = crate::storage::bookmarks::fetch::Folder;
+pub type BookmarkSeparator = crate::storage::bookmarks::fetch::Separator;
+pub use crate::storage::bookmarks::fetch::BookmarkData;
 
 impl UniffiCustomTypeConverter for Url {
     type Builtin = String;
@@ -115,8 +117,8 @@ lazy_static::lazy_static! {
 }
 
 impl PlacesApi {
-    #[handle_error]
-    fn new_connection(&self, conn_type: ConnectionType) -> ApiResult<Arc<PlacesConnection>> {
+    #[handle_error(crate::Error)]
+    pub fn new_connection(&self, conn_type: ConnectionType) -> ApiResult<Arc<PlacesConnection>> {
         let db = self.open_connection(conn_type)?;
         let connection = Arc::new(PlacesConnection::new(db));
         register_interrupt(Arc::<PlacesConnection>::downgrade(&connection));
@@ -126,8 +128,8 @@ impl PlacesApi {
     // NOTE: These methods are unused on Android but will remain needed for
     // iOS until we can move them to the sync manager and replace their existing
     // sync engines with ours
-    #[handle_error]
-    fn history_sync(
+    #[handle_error(crate::Error)]
+    pub fn history_sync(
         &self,
         key_id: String,
         access_token: String,
@@ -146,8 +148,8 @@ impl PlacesApi {
         Ok(serde_json::to_string(&ping).unwrap())
     }
 
-    #[handle_error]
-    fn bookmarks_sync(
+    #[handle_error(crate::Error)]
+    pub fn bookmarks_sync(
         &self,
         key_id: String,
         access_token: String,
@@ -166,8 +168,8 @@ impl PlacesApi {
         Ok(serde_json::to_string(&ping).unwrap())
     }
 
-    #[handle_error]
-    fn bookmarks_reset(&self) -> ApiResult<()> {
+    #[handle_error(crate::Error)]
+    pub fn bookmarks_reset(&self) -> ApiResult<()> {
         self.reset_bookmarks()?;
         Ok(())
     }
@@ -196,17 +198,20 @@ impl PlacesConnection {
     }
 
     // pass the SqlInterruptHandle as an object through Uniffi
-    fn new_interrupt_handle(&self) -> Arc<SqlInterruptHandle> {
+    pub fn new_interrupt_handle(&self) -> Arc<SqlInterruptHandle> {
         Arc::clone(&self.interrupt_handle)
     }
 
-    #[handle_error]
-    fn get_latest_history_metadata_for_url(&self, url: Url) -> ApiResult<Option<HistoryMetadata>> {
+    #[handle_error(crate::Error)]
+    pub fn get_latest_history_metadata_for_url(
+        &self,
+        url: Url,
+    ) -> ApiResult<Option<HistoryMetadata>> {
         self.with_conn(|conn| history_metadata::get_latest_for_url(conn, &url))
     }
 
-    #[handle_error]
-    fn get_history_metadata_between(
+    #[handle_error(crate::Error)]
+    pub fn get_history_metadata_between(
         &self,
         start: PlacesTimestamp,
         end: PlacesTimestamp,
@@ -216,21 +221,25 @@ impl PlacesConnection {
         })
     }
 
-    #[handle_error]
-    fn get_history_metadata_since(
+    #[handle_error(crate::Error)]
+    pub fn get_history_metadata_since(
         &self,
         start: PlacesTimestamp,
     ) -> ApiResult<Vec<HistoryMetadata>> {
         self.with_conn(|conn| history_metadata::get_since(conn, start.as_millis_i64()))
     }
 
-    #[handle_error]
-    fn query_history_metadata(&self, query: String, limit: i32) -> ApiResult<Vec<HistoryMetadata>> {
+    #[handle_error(crate::Error)]
+    pub fn query_history_metadata(
+        &self,
+        query: String,
+        limit: i32,
+    ) -> ApiResult<Vec<HistoryMetadata>> {
         self.with_conn(|conn| history_metadata::query(conn, query.as_str(), limit))
     }
 
-    #[handle_error]
-    fn get_history_highlights(
+    #[handle_error(crate::Error)]
+    pub fn get_history_highlights(
         &self,
         weights: HistoryHighlightWeights,
         limit: i32,
@@ -238,19 +247,22 @@ impl PlacesConnection {
         self.with_conn(|conn| history_metadata::get_highlights(conn, weights, limit))
     }
 
-    #[handle_error]
-    fn note_history_metadata_observation(&self, data: HistoryMetadataObservation) -> ApiResult<()> {
+    #[handle_error(crate::Error)]
+    pub fn note_history_metadata_observation(
+        &self,
+        data: HistoryMetadataObservation,
+    ) -> ApiResult<()> {
         // odd historical naming discrepency - public function is "note_*", impl is "apply_*"
         self.with_conn(|conn| history_metadata::apply_metadata_observation(conn, data))
     }
 
-    #[handle_error]
-    fn metadata_delete_older_than(&self, older_than: PlacesTimestamp) -> ApiResult<()> {
+    #[handle_error(crate::Error)]
+    pub fn metadata_delete_older_than(&self, older_than: PlacesTimestamp) -> ApiResult<()> {
         self.with_conn(|conn| history_metadata::delete_older_than(conn, older_than.as_millis_i64()))
     }
 
-    #[handle_error]
-    fn metadata_delete(
+    #[handle_error(crate::Error)]
+    pub fn metadata_delete(
         &self,
         url: Url,
         referrer_url: Option<Url>,
@@ -267,14 +279,14 @@ impl PlacesConnection {
     }
 
     /// Add an observation to the database.
-    #[handle_error]
-    fn apply_observation(&self, visit: VisitObservation) -> ApiResult<()> {
+    #[handle_error(crate::Error)]
+    pub fn apply_observation(&self, visit: VisitObservation) -> ApiResult<()> {
         self.with_conn(|conn| history::apply_observation(conn, visit))?;
         Ok(())
     }
 
-    #[handle_error]
-    fn get_visited_urls_in_range(
+    #[handle_error(crate::Error)]
+    pub fn get_visited_urls_in_range(
         &self,
         start: PlacesTimestamp,
         end: PlacesTimestamp,
@@ -290,8 +302,8 @@ impl PlacesConnection {
         })
     }
 
-    #[handle_error]
-    fn get_visit_infos(
+    #[handle_error(crate::Error)]
+    pub fn get_visit_infos(
         &self,
         start_date: PlacesTimestamp,
         end_date: PlacesTimestamp,
@@ -300,13 +312,13 @@ impl PlacesConnection {
         self.with_conn(|conn| history::get_visit_infos(conn, start_date, end_date, exclude_types))
     }
 
-    #[handle_error]
-    fn get_visit_count(&self, exclude_types: VisitTransitionSet) -> ApiResult<i64> {
+    #[handle_error(crate::Error)]
+    pub fn get_visit_count(&self, exclude_types: VisitTransitionSet) -> ApiResult<i64> {
         self.with_conn(|conn| history::get_visit_count(conn, exclude_types))
     }
 
-    #[handle_error]
-    fn get_visit_page(
+    #[handle_error(crate::Error)]
+    pub fn get_visit_page(
         &self,
         offset: i64,
         count: i64,
@@ -315,8 +327,8 @@ impl PlacesConnection {
         self.with_conn(|conn| history::get_visit_page(conn, offset, count, exclude_types))
     }
 
-    #[handle_error]
-    fn get_visit_page_with_bound(
+    #[handle_error(crate::Error)]
+    pub fn get_visit_page_with_bound(
         &self,
         bound: i64,
         offset: i64,
@@ -331,8 +343,8 @@ impl PlacesConnection {
     // This is identical to get_visited in history.rs but takes a list of strings instead of urls
     // This is necessary b/c we still need to return 'false' for bad URLs which prevents us from
     // parsing/filtering them before reaching the history layer
-    #[handle_error]
-    fn get_visited(&self, urls: Vec<String>) -> ApiResult<Vec<bool>> {
+    #[handle_error(crate::Error)]
+    pub fn get_visited(&self, urls: Vec<String>) -> ApiResult<Vec<bool>> {
         let iter = urls.into_iter();
         let mut result = vec![false; iter.len()];
         let url_idxs = iter
@@ -343,8 +355,8 @@ impl PlacesConnection {
         Ok(result)
     }
 
-    #[handle_error]
-    fn delete_visits_for(&self, url: String) -> ApiResult<()> {
+    #[handle_error(crate::Error)]
+    pub fn delete_visits_for(&self, url: String) -> ApiResult<()> {
         self.with_conn(|conn| {
             let guid = match Url::parse(&url) {
                 Ok(url) => history::url_to_guid(conn, &url)?,
@@ -360,13 +372,17 @@ impl PlacesConnection {
         })
     }
 
-    #[handle_error]
-    fn delete_visits_between(&self, start: PlacesTimestamp, end: PlacesTimestamp) -> ApiResult<()> {
+    #[handle_error(crate::Error)]
+    pub fn delete_visits_between(
+        &self,
+        start: PlacesTimestamp,
+        end: PlacesTimestamp,
+    ) -> ApiResult<()> {
         self.with_conn(|conn| history::delete_visits_between(conn, start, end))
     }
 
-    #[handle_error]
-    fn delete_visit(&self, url: String, timestamp: PlacesTimestamp) -> ApiResult<()> {
+    #[handle_error(crate::Error)]
+    pub fn delete_visit(&self, url: String, timestamp: PlacesTimestamp) -> ApiResult<()> {
         self.with_conn(|conn| {
             match Url::parse(&url) {
                 Ok(url) => {
@@ -381,8 +397,8 @@ impl PlacesConnection {
         })
     }
 
-    #[handle_error]
-    fn get_top_frecent_site_infos(
+    #[handle_error(crate::Error)]
+    pub fn get_top_frecent_site_infos(
         &self,
         num_items: i32,
         threshold_option: FrecencyThresholdOption,
@@ -398,48 +414,48 @@ impl PlacesConnection {
 
     // XXX - We probably need to document/name this a little better as it's specifically for
     // history and NOT bookmarks...
-    #[handle_error]
-    fn wipe_local_history(&self) -> ApiResult<()> {
+    #[handle_error(crate::Error)]
+    pub fn wipe_local_history(&self) -> ApiResult<()> {
         self.with_conn(history::wipe_local)
     }
 
     // Calls wipe_local_history but also updates the
     // sync metadata to only sync after most recent visit to prevent
     // further syncing of older data
-    #[handle_error]
-    fn delete_everything_history(&self) -> ApiResult<()> {
+    #[handle_error(crate::Error)]
+    pub fn delete_everything_history(&self) -> ApiResult<()> {
         history::delete_everything(&self.db.lock())
     }
 
     // XXX - This just calls wipe_local under the hood...
     // should probably have this go away?
-    #[handle_error]
-    fn prune_destructively(&self) -> ApiResult<()> {
+    #[handle_error(crate::Error)]
+    pub fn prune_destructively(&self) -> ApiResult<()> {
         self.with_conn(history::prune_destructively)
     }
 
-    #[handle_error]
-    fn run_maintenance_prune(&self, db_size_limit: u32) -> ApiResult<RunMaintenanceMetrics> {
+    #[handle_error(crate::Error)]
+    pub fn run_maintenance_prune(&self, db_size_limit: u32) -> ApiResult<RunMaintenanceMetrics> {
         self.with_conn(|conn| storage::run_maintenance_prune(conn, db_size_limit))
     }
 
-    #[handle_error]
-    fn run_maintenance_vacuum(&self) -> ApiResult<()> {
+    #[handle_error(crate::Error)]
+    pub fn run_maintenance_vacuum(&self) -> ApiResult<()> {
         self.with_conn(storage::run_maintenance_vacuum)
     }
 
-    #[handle_error]
-    fn run_maintenance_optimize(&self) -> ApiResult<()> {
+    #[handle_error(crate::Error)]
+    pub fn run_maintenance_optimize(&self) -> ApiResult<()> {
         self.with_conn(storage::run_maintenance_optimize)
     }
 
-    #[handle_error]
-    fn run_maintenance_checkpoint(&self) -> ApiResult<()> {
+    #[handle_error(crate::Error)]
+    pub fn run_maintenance_checkpoint(&self) -> ApiResult<()> {
         self.with_conn(storage::run_maintenance_checkpoint)
     }
 
-    #[handle_error]
-    fn query_autocomplete(&self, search: String, limit: i32) -> ApiResult<Vec<SearchResult>> {
+    #[handle_error(crate::Error)]
+    pub fn query_autocomplete(&self, search: String, limit: i32) -> ApiResult<Vec<SearchResult>> {
         self.with_conn(|conn| {
             search_frecent(
                 conn,
@@ -452,8 +468,8 @@ impl PlacesConnection {
         })
     }
 
-    #[handle_error]
-    fn accept_result(&self, search_string: String, url: String) -> ApiResult<()> {
+    #[handle_error(crate::Error)]
+    pub fn accept_result(&self, search_string: String, url: String) -> ApiResult<()> {
         self.with_conn(|conn| {
             match Url::parse(&url) {
                 Ok(url) => {
@@ -468,18 +484,18 @@ impl PlacesConnection {
         })
     }
 
-    #[handle_error]
-    fn match_url(&self, query: String) -> ApiResult<Option<Url>> {
+    #[handle_error(crate::Error)]
+    pub fn match_url(&self, query: String) -> ApiResult<Option<Url>> {
         self.with_conn(|conn| matcher::match_url(conn, query))
     }
 
-    #[handle_error]
-    fn bookmarks_get_tree(&self, item_guid: &Guid) -> ApiResult<Option<BookmarkItem>> {
+    #[handle_error(crate::Error)]
+    pub fn bookmarks_get_tree(&self, item_guid: &Guid) -> ApiResult<Option<BookmarkItem>> {
         self.with_conn(|conn| bookmarks::fetch::fetch_tree(conn, item_guid))
     }
 
-    #[handle_error]
-    fn bookmarks_get_by_guid(
+    #[handle_error(crate::Error)]
+    pub fn bookmarks_get_by_guid(
         &self,
         guid: &Guid,
         get_direct_children: bool,
@@ -490,8 +506,8 @@ impl PlacesConnection {
         })
     }
 
-    #[handle_error]
-    fn bookmarks_get_all_with_url(&self, url: String) -> ApiResult<Vec<BookmarkItem>> {
+    #[handle_error(crate::Error)]
+    pub fn bookmarks_get_all_with_url(&self, url: String) -> ApiResult<Vec<BookmarkItem>> {
         self.with_conn(|conn| {
             // XXX - We should return the exact type - ie, BookmarkData rather than BookmarkItem.
             match Url::parse(&url) {
@@ -508,8 +524,8 @@ impl PlacesConnection {
         })
     }
 
-    #[handle_error]
-    fn bookmarks_search(&self, query: String, limit: i32) -> ApiResult<Vec<BookmarkItem>> {
+    #[handle_error(crate::Error)]
+    pub fn bookmarks_search(&self, query: String, limit: i32) -> ApiResult<Vec<BookmarkItem>> {
         self.with_conn(|conn| {
             // XXX - We should return the exact type - ie, BookmarkData rather than BookmarkItem.
             Ok(
@@ -521,8 +537,8 @@ impl PlacesConnection {
         })
     }
 
-    #[handle_error]
-    fn bookmarks_get_recent(&self, limit: i32) -> ApiResult<Vec<BookmarkItem>> {
+    #[handle_error(crate::Error)]
+    pub fn bookmarks_get_recent(&self, limit: i32) -> ApiResult<Vec<BookmarkItem>> {
         self.with_conn(|conn| {
             // XXX - We should return the exact type - ie, BookmarkData rather than BookmarkItem.
             Ok(bookmarks::fetch::recent_bookmarks(conn, limit as u32)?
@@ -532,33 +548,33 @@ impl PlacesConnection {
         })
     }
 
-    #[handle_error]
-    fn bookmarks_delete(&self, id: Guid) -> ApiResult<bool> {
+    #[handle_error(crate::Error)]
+    pub fn bookmarks_delete(&self, id: Guid) -> ApiResult<bool> {
         self.with_conn(|conn| bookmarks::delete_bookmark(conn, &id))
     }
 
-    #[handle_error]
-    fn bookmarks_delete_everything(&self) -> ApiResult<()> {
+    #[handle_error(crate::Error)]
+    pub fn bookmarks_delete_everything(&self) -> ApiResult<()> {
         self.with_conn(bookmarks::delete_everything)
     }
 
-    #[handle_error]
-    fn bookmarks_get_url_for_keyword(&self, keyword: String) -> ApiResult<Option<Url>> {
+    #[handle_error(crate::Error)]
+    pub fn bookmarks_get_url_for_keyword(&self, keyword: String) -> ApiResult<Option<Url>> {
         self.with_conn(|conn| bookmarks::bookmarks_get_url_for_keyword(conn, keyword.as_str()))
     }
 
-    #[handle_error]
-    fn bookmarks_insert(&self, data: InsertableBookmarkItem) -> ApiResult<Guid> {
+    #[handle_error(crate::Error)]
+    pub fn bookmarks_insert(&self, data: InsertableBookmarkItem) -> ApiResult<Guid> {
         self.with_conn(|conn| bookmarks::insert_bookmark(conn, data))
     }
 
-    #[handle_error]
-    fn bookmarks_update(&self, item: BookmarkUpdateInfo) -> ApiResult<()> {
+    #[handle_error(crate::Error)]
+    pub fn bookmarks_update(&self, item: BookmarkUpdateInfo) -> ApiResult<()> {
         self.with_conn(|conn| bookmarks::update_bookmark_from_info(conn, item))
     }
 
-    #[handle_error]
-    fn places_history_import_from_ios(
+    #[handle_error(crate::Error)]
+    pub fn places_history_import_from_ios(
         &self,
         db_path: String,
         last_sync_timestamp: i64,
@@ -634,10 +650,9 @@ pub enum MatchReason {
     Tags,
 }
 
-uniffi::include_scaffolding!("places");
 // Exists just to convince uniffi to generate `liftSequence*` helpers!
 pub struct Dummy {
-    md: Option<Vec<HistoryMetadata>>,
+    pub md: Option<Vec<HistoryMetadata>>,
 }
 
 #[cfg(test)]

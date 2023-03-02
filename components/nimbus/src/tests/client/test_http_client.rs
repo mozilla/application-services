@@ -2,38 +2,20 @@
 * License, v. 2.0. If a copy of the MPL was not distributed with this
 * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-use crate::client::{http_client::*, SettingsClient};
+use crate::parse_experiments;
 use crate::{
-    error::NimbusError, Branch, BucketConfig, Experiment, FeatureConfig, RandomizationUnit,
-    RemoteSettingsConfig, SCHEMA_VERSION,
+    Branch, BucketConfig, Experiment, FeatureConfig, NimbusError, RandomizationUnit, SCHEMA_VERSION,
 };
-use mockito::mock;
-use std::cell::Cell;
-use std::time::{Duration, Instant};
 
 #[test]
 fn test_fetch_experiments_from_schema() {
-    viaduct_reqwest::use_reqwest_backend();
-    // There are two experiments defined here, one has a "newer" schema version
-    // in order to test filtering of unsupported schema versions.
-    let m = mock(
-        "GET",
-        "/v1/buckets/main/collections/messaging-experiments/records",
-    )
-    .with_body(response_body())
-    .with_status(200)
-    .with_header("content-type", "application/json")
-    .create();
-    let config = RemoteSettingsConfig {
-        server_url: mockito::server_url(),
-        collection_name: "messaging-experiments".to_string(),
-    };
-    let http_client = Client::new(config).unwrap();
-    let resp = http_client.fetch_experiments().unwrap();
+    // There are three experiments defined here, one has a "newer" schema version
+    // in order to test filtering of unsupported schema versions, one is malformed, and one
+    // should parse correctly.
+    let result = parse_experiments(&response_body()).unwrap();
 
-    m.expect(1).assert();
-    assert_eq!(resp.len(), 1);
-    let exp = &resp[0];
+    assert_eq!(result.len(), 1);
+    let exp = &result[0];
     assert_eq!(
         exp.clone(),
         Experiment {
@@ -80,84 +62,17 @@ fn test_fetch_experiments_from_schema() {
 }
 
 #[test]
-fn test_backoff() {
-    viaduct_reqwest::use_reqwest_backend();
-    let m = mock(
-        "GET",
-        "/v1/buckets/main/collections/messaging-experiments/records",
-    )
-    .with_body(response_body())
-    .with_status(200)
-    .with_header("content-type", "application/json")
-    .with_header("Backoff", "60")
-    .create();
-    let config = RemoteSettingsConfig {
-        server_url: mockito::server_url(),
-        collection_name: "messaging-experiments".to_string(),
-    };
-    let http_client = Client::new(config).unwrap();
-    assert!(http_client.fetch_experiments().is_ok());
-    let second_request = http_client.fetch_experiments();
-    assert!(matches!(second_request, Err(NimbusError::BackoffError(_))));
-    m.expect(1).assert();
+fn test_malformed_payload() {
+    let payload = r#"
+        {{ "datar" : [} ]]
+    "#;
+
+    let result = parse_experiments(payload).unwrap_err();
+    assert!(matches!(result, NimbusError::JSONError(_)));
 }
 
-#[test]
-fn test_500_retry_after() {
-    viaduct_reqwest::use_reqwest_backend();
-    let m = mock(
-        "GET",
-        "/v1/buckets/main/collections/messaging-experiments/records",
-    )
-    .with_body("Boom!")
-    .with_status(500)
-    .with_header("Retry-After", "60")
-    .create();
-    let config = RemoteSettingsConfig {
-        server_url: mockito::server_url(),
-        collection_name: "messaging-experiments".to_string(),
-    };
-    let http_client = Client::new(config).unwrap();
-    assert!(http_client.fetch_experiments().is_err());
-    let second_request = http_client.fetch_experiments();
-    assert!(matches!(second_request, Err(NimbusError::BackoffError(_))));
-    m.expect(1).assert();
-}
-
-#[test]
-fn test_backoff_recovery() {
-    viaduct_reqwest::use_reqwest_backend();
-    let m = mock(
-        "GET",
-        "/v1/buckets/main/collections/messaging-experiments/records",
-    )
-    .with_body(response_body())
-    .with_status(200)
-    .with_header("content-type", "application/json")
-    .create();
-    let config = RemoteSettingsConfig {
-        server_url: mockito::server_url(),
-        collection_name: "messaging-experiments".to_string(),
-    };
-    let mut http_client = Client::new(config).unwrap();
-    // First, sanity check that manipulating the remote state does something.
-    http_client.remote_state.replace(RemoteState::Backoff {
-        observed_at: Instant::now(),
-        duration: Duration::from_secs(30),
-    });
-    assert!(matches!(
-        http_client.fetch_experiments(),
-        Err(NimbusError::BackoffError(_))
-    ));
-    // Then do the actual test.
-    http_client.remote_state = Cell::new(RemoteState::Backoff {
-        observed_at: Instant::now() - Duration::from_secs(31),
-        duration: Duration::from_secs(30),
-    });
-    assert!(http_client.fetch_experiments().is_ok());
-    m.expect(1).assert();
-}
-
+// This response body includes a matching schema version, a non-matching schema version,
+// and a malformed experiment.
 fn response_body() -> String {
     format!(
         r#"

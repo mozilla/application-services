@@ -35,6 +35,7 @@ pub enum SyncReason {
     PreSleep,
     Startup,
     EnabledChange,
+    Backgrounded,
 }
 
 #[derive(Debug)]

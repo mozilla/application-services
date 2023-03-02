@@ -76,17 +76,17 @@ impl EncryptorDecryptor {
 
 // public functions we expose over the FFI (which is why they take `String`
 // rather than the `&str` you'd otherwise expect)
-#[handle_error]
+#[handle_error(Error)]
 pub fn encrypt_string(key: String, cleartext: String) -> ApiResult<String> {
     EncryptorDecryptor::new(&key)?.encrypt(&cleartext)
 }
 
-#[handle_error]
+#[handle_error(Error)]
 pub fn decrypt_string(key: String, ciphertext: String) -> ApiResult<String> {
     EncryptorDecryptor::new(&key)?.decrypt(&ciphertext)
 }
 
-#[handle_error]
+#[handle_error(Error)]
 pub fn create_autofill_key() -> ApiResult<String> {
     let key = jwcrypto::Jwk::new_direct_key(None)?;
     Ok(serde_json::to_string(&key)?)

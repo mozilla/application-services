@@ -57,6 +57,28 @@ public class FeatureHolder<T> {
         getSdk()?.recordExposureEvent(featureId: featureId)
     }
 
+    /// Is this feature the focus of an automated test.
+    ///
+    /// A utility flag to be used in conjunction with {HardcodedNimbusFeatures}.
+    ///
+    /// It is intended for use for app-code to detect when the app is under test, and
+    /// take steps to make itself easier to test.
+    ///
+    /// These cases should be rare, and developers should look for other ways to test
+    /// code without relying on this facility.
+    ///
+    /// For example, a background worker might be scheduled to run every 24 hours, but
+    /// under test it would be desirable to run immediately, and only once.
+    public func isUnderTest() -> Bool {
+        lock.lock()
+        defer { self.lock.unlock() }
+
+        guard let features = getSdk() as? HardcodedNimbusFeatures else {
+            return false
+        }
+        return features.has(featureId: featureId)
+    }
+
     /// This overwrites the cached value with the passed one.
     ///
     /// This is most likely useful during testing only.

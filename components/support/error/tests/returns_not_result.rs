@@ -14,8 +14,6 @@
     }
 }
 
- type Result<T, E = Error> = std::result::Result<T, E>;
-
  #[derive(Debug, thiserror::Error)]
  struct ExternalError {}
  
@@ -38,7 +36,7 @@
  // using the macro
  // however, the compiler will error because the return type is still a String
  // and the function after the macro returns `Result<String,ExternalError>`
- #[handle_error]
+ #[handle_error(Error)]
  fn func() -> String {
      Ok("".to_string())
  }

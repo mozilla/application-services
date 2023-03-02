@@ -6,17 +6,17 @@ buildscript {
         kotlin_version = '1.7.20'
         kotlin_coroutines_version = '1.6.4'
         jna_version = '5.12.1'
-        android_gradle_plugin_version = '7.3.0'
-        android_components_version = '108.0.8'
-        glean_version = '52.0.0'
+        android_gradle_plugin_version = '7.4.1'
+        android_components_version = '110.0.1'
+        glean_version = '52.2.0'
 
         // NOTE: AndroidX libraries should be synced with AC to avoid compatibility issues
         androidx_annotation_version = '1.5.0'
         androidx_core_version = '1.8.0'
         androidx_test_version = '1.5.0'
-        androidx_test_junit_version = '1.1.4'
+        androidx_test_junit_version = '1.1.5'
         androidx_work_testing_version = '2.7.1'
-        espresso_core_version = '3.5.0'
+        espresso_core_version = '3.5.1'
 
         detekt_version = '1.21.0'
         gradle_download_task_version = '5.2.1'
@@ -35,7 +35,7 @@ buildscript {
         minSdkVersion: 21, // So that we can publish for aarch64.
         // This is required to support new AndroidX support libraries.
         // See mozilla-mobile/android-components#842
-        jvmTargetCompatibility: "1.8",
+        jvmTargetCompatibility: "11",
     ]
 
     repositories {

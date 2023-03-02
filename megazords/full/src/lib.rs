@@ -16,7 +16,10 @@ pub use logins;
 pub use nimbus;
 pub use places;
 pub use push;
+// TODO: Drop this dependency once android-components switches to using `rust_log_forwarder` for
+// log forwarding.
 pub use rc_log_ffi;
+pub use rust_log_forwarder;
 pub use sync_manager;
 pub use tabs;
 pub use viaduct;

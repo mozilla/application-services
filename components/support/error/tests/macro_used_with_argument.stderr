@@ -1,7 +1,0 @@
-error: Expected #[handle_error] with no arguments
-  --> macro_used_with_argument.rs:37:2
-   |
-37 |  #[handle_error(String)]
-   |  ^^^^^^^^^^^^^^^^^^^^^^^
-   |
-   = note: this error originates in the attribute macro `handle_error` (in Nightly builds, run with -Z macro-backtrace for more info)

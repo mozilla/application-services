@@ -9,6 +9,7 @@
 //! impl std::error::Error using `thiserror` and ensuring all errors are handled appropriately
 
 use std::num::{ParseIntError, TryFromIntError};
+
 #[derive(Debug, thiserror::Error)]
 pub enum NimbusError {
     #[error("Invalid persisted data")]
@@ -33,12 +34,8 @@ pub enum NimbusError {
     OutOfBoundsError,
     #[error("Error parsing URL: {0}")]
     UrlParsingError(#[from] url::ParseError),
-    #[error("Error sending request: {0}")]
-    RequestError(#[from] viaduct::Error),
     #[error("UUID parsing error: {0}")]
     UuidError(#[from] uuid::Error),
-    #[error("Error in network response: {0}")]
-    ResponseError(String),
     #[error("Invalid experiments response received")]
     InvalidExperimentFormat,
     #[error("Invalid path: {0}")]
@@ -49,8 +46,6 @@ pub enum NimbusError {
     NoSuchExperiment(String),
     #[error("The branch {0} does not exist for the experiment {1}")]
     NoSuchBranch(String, String),
-    #[error("Server asked the client to back off ({0} seconds remaining)")]
-    BackoffError(u64),
     #[error("Initialization of the database is not yet complete")]
     DatabaseNotReady,
     #[error("Error parsing a sting into a version {0}")]
@@ -63,6 +58,8 @@ pub enum NimbusError {
     ParseIntError(#[from] ParseIntError),
     #[error("Transform parameter error: {0}")]
     TransformParameterError(String),
+    #[error("Error with HTTP client: {0}")]
+    ClientError(#[from] rs_client::ClientError),
 }
 
 #[derive(Debug, thiserror::Error)]
