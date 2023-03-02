@@ -2,9 +2,15 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-//! Handle external Push Subscription Requests.
+//! Main entrypoint for the push component, handles push subscriptions
 //!
-//! "privileged" system calls may require additional handling and should be flagged as such.
+//! Exposes a struct [`PushManager`] that manages push subscriptions for a client
+//!
+//! The [`PushManager`] allows users to:
+//! - Create new subscriptions persist their private keys and return a URL for sender to send encrypted payloads using a returned public key
+//! - Delete existing subscriptions
+//! - Update native tokens with autopush server
+//! - routinely check subscriptions to make sure they are in a good state.
 
 use std::collections::HashSet;
 
@@ -104,7 +110,6 @@ impl<Co: Connection, Cr: Cryptography, S: Storage> PushManager<Co, Cr, S> {
         }
     }
 
-    // XXX: make these trait methods
     pub fn subscribe(
         &mut self,
         channel_id: &str,
@@ -120,10 +125,12 @@ impl<Co: Connection, Cr: Cryptography, S: Storage> PushManager<Co, Cr, S> {
         };
         // Don't fetch the subscription from the server if we've already got one.
         if let Some(record) = self.store.get_record(channel_id)? {
-            self.store.get_uaid()?.ok_or_else(|| {
+            if self.uaid.is_none() {
                 // should be impossible - we should delete all records when we lose our uiad.
-                PushError::StorageError("DB has a subscription but no UAID".to_string())
-            })?;
+                return Err(PushError::StorageError(
+                    "DB has a subscription but no UAID".to_string(),
+                ));
+            }
             log::debug!("returning existing subscription for '{}'", scope);
             return Ok(SubscriptionResponse {
                 channel_id: record.channel_id,
@@ -155,8 +162,8 @@ impl<Co: Connection, Cr: Cryptography, S: Storage> PushManager<Co, Cr, S> {
         }?;
 
         log::debug!("server returned subscription info: {:?}", info);
-        // If our uaid has changed, or this is the first subscription we have made, all existing
-        // records must die - but we can keep this one!
+
+        // We verify if the server gave us a new uaid, which should happen on our first subscription
         let new_uaid = match (&self.uaid, &info.uaid) {
             (Some(old_uaid), Some(new_uaid)) if old_uaid != new_uaid => Some(new_uaid),
             (Some(_), Some(_)) => None,
@@ -168,6 +175,9 @@ impl<Co: Connection, Cr: Cryptography, S: Storage> PushManager<Co, Cr, S> {
                 ))
             }
         };
+
+        // If our uaid has changed, or this is the first subscription we have made, all existing
+        // records must die - but we can keep this one!
         if let Some(new_uaid) = new_uaid {
             // apparently the uaid changing but not getting a new secret guarantees we will be
             // unable to decrypt payloads. This should be impossible, so we could argue an
@@ -223,16 +233,19 @@ impl<Co: Connection, Cr: Cryptography, S: Storage> PushManager<Co, Cr, S> {
     }
 
     pub fn unsubscribe_all(&mut self) -> Result<()> {
-        self.store.delete_all_records()?;
         let (uaid, auth) = self.ensure_auth_pair()?;
 
         self.connection.unsubscribe_all(uaid, auth)?;
+        self.wipe_local_registrations()?;
         Ok(())
     }
 
     pub fn update(&mut self, new_token: &str) -> error::Result<bool> {
         if self.registration_id.as_deref() == Some(new_token) {
             // Already up to date!
+            // if we haven't send it to the server yet, we will on the next subscribe!
+            // if we have sent it to the server, no need to do so again. We will catch any issues
+            // through the [`PushManager::verify_connection`] check
             return Ok(false);
         }
 
@@ -244,11 +257,11 @@ impl<Co: Connection, Cr: Cryptography, S: Storage> PushManager<Co, Cr, S> {
             log::info!(
                 "saved the registration ID but not telling the server as we have no subs yet"
             );
-            return Ok(true);
+            return Ok(false);
         }
 
         if !self.update_rate_limiter.check(&self.store) {
-            return Ok(false);
+            return Ok(true);
         }
 
         let (uaid, auth) = self.ensure_auth_pair()?;
@@ -266,7 +279,7 @@ impl<Co: Connection, Cr: Cryptography, S: Storage> PushManager<Co, Cr, S> {
 
         self.store.set_registration_id(new_token)?;
         self.registration_id = Some(new_token.to_string());
-        Ok(false)
+        Ok(true)
     }
 
     pub fn verify_connection(&mut self) -> Result<Vec<PushSubscriptionChanged>> {
@@ -307,9 +320,7 @@ impl<Co: Connection, Cr: Cryptography, S: Storage> PushManager<Co, Cr, S> {
         }
         // we wipe all existing subscriptions and the UAID if there is a mismatch; the next
         // `subscribe()` call will get a new UAID.
-        self.store.delete_all_records()?;
-        self.uaid = None;
-        self.auth = None;
+        self.wipe_local_registrations()?;
         Ok(subscriptions)
     }
 
@@ -318,8 +329,8 @@ impl<Co: Connection, Cr: Cryptography, S: Storage> PushManager<Co, Cr, S> {
         chid: &str,
         body: &str,
         encoding: &str,
-        salt: Option<&str>,
-        dh: Option<&str>,
+        salt: &str,
+        dh: &str,
     ) -> Result<Vec<u8>> {
         let val = self
             .store
@@ -331,6 +342,13 @@ impl<Co: Connection, Cr: Cryptography, S: Storage> PushManager<Co, Cr, S> {
 
     pub fn get_record_by_chid(&self, chid: &str) -> error::Result<Option<DispatchInfo>> {
         Ok(self.store.get_record_by_chid(chid)?.map(Into::into))
+    }
+
+    fn wipe_local_registrations(&mut self) -> error::Result<()> {
+        self.store.delete_all_records()?;
+        self.auth = None;
+        self.uaid = None;
+        Ok(())
     }
 }
 
@@ -500,11 +518,11 @@ mod test {
                     auth: base64::decode_config(TEST_AUTH, base64::URL_SAFE_NO_PAD).unwrap(),
                 } && ibody == body_clone
                     && encoding == "aes128gcm"
-                    && dh.is_none()
-                    && salt.is_none()
+                    && dh.is_empty()
+                    && salt.is_empty()
             })
             .returning(|_, _, _, _, _| Ok(data_string.to_vec()));
-        pm.decrypt(&resp.channel_id, &body, "aes128gcm", None, None)
+        pm.decrypt(&resp.channel_id, &body, "aes128gcm", "", "")
             .unwrap();
         Ok(())
     }
@@ -565,11 +583,11 @@ mod test {
                     auth: base64::decode_config(TEST_AUTH, base64::URL_SAFE_NO_PAD).unwrap(),
                 } && ibody == body_clone
                     && encoding == "aesgcm"
-                    && dh.is_none()
-                    && salt.is_none()
+                    && dh.is_empty()
+                    && salt.is_empty()
             })
             .returning(|_, _, _, _, _| Ok(DATA.to_vec()));
-        pm.decrypt(&resp.channel_id, &body, "aesgcm", None, None)
+        pm.decrypt(&resp.channel_id, &body, "aesgcm", "", "")
             .unwrap();
         Ok(())
     }

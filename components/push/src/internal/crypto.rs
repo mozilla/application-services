@@ -2,9 +2,24 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-use std::borrow::Cow;
+//! Module providing all the cryptography needed by the push component
+//!
+//! Mainly exports a trait [`Cryptography`] and a concrete type that implements that trait
+//! [`Crypto`]
+//!
+//! The push component encrypts its push notifications. When a subscription is created,
+//! [`Cryptography::generate_key`] is called to generate a public/private key pair.
+//!
+//! The public key is then given to the subscriber (for example, Firefox Accounts) and the private key
+//! is persisted in the client. Subscribers are required to encrypt their payloads using the public key and
+//! when delivered to the client, the client would load the private key from storage and decrypt the payload.
+//!
 
-use crate::error;
+use std::borrow::Cow;
+use std::fmt::Display;
+use std::str::FromStr;
+
+use crate::{error, PushError};
 use rc_crypto::ece::{self, EcKeyComponents, LocalKeyPair};
 use rc_crypto::ece_crypto::RcCryptoLocalKeyPair;
 use rc_crypto::rand;
@@ -16,6 +31,42 @@ pub type Decrypted = Vec<u8>;
 #[derive(Serialize, Deserialize, Clone)]
 pub(crate) enum VersionnedKey<'a> {
     V1(Cow<'a, KeyV1>),
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
+enum CryptoEncoding {
+    Aesgcm,
+    Aes128gcm,
+}
+
+impl FromStr for CryptoEncoding {
+    type Err = PushError;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        Ok(match s.to_lowercase().as_str() {
+            "aesgcm" => Self::Aesgcm,
+            "aes128gcm" => Self::Aes128gcm,
+            _ => {
+                return Err(PushError::CryptoError(format!(
+                    "Invalid crypto encoding {}",
+                    s
+                )))
+            }
+        })
+    }
+}
+
+impl Display for CryptoEncoding {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(
+            f,
+            "{}",
+            match self {
+                Self::Aesgcm => "aesgcm",
+                Self::Aes128gcm => "aes128gcm",
+            }
+        )
+    }
 }
 
 #[derive(Clone, PartialEq, Serialize, Deserialize)]
@@ -69,15 +120,13 @@ pub trait Cryptography: Default {
     fn generate_key() -> error::Result<Key>;
 
     /// General decrypt function. Calls to decrypt_aesgcm or decrypt_aes128gcm as needed.
-    // (sigh, can't use notifier::Notification because of circular dependencies.)
-    fn decrypt<'a, 'b>(
+    fn decrypt(
         key: &Key,
         body: &str,
         encoding: &str,
-        salt: Option<&'a str>,
-        dh: Option<&'b str>,
+        salt: &str,
+        dh: &str,
     ) -> error::Result<Decrypted>;
-    // IIUC: objects created on one side of FFI can't be freed on the other side, so we have to use references (or clone)
 
     /// Decrypt the obsolete "aesgcm" format (which is still used by a number of providers)
     fn decrypt_aesgcm(
@@ -105,18 +154,17 @@ pub fn get_random_bytes(size: usize) -> error::Result<Vec<u8>> {
 /// Extract the sub-value from the header.
 /// Sub values have the form of `label=value`. Due to a bug in some push providers, treat ',' and ';' as
 /// equivalent.
-/// @param string: the string to search,
-fn extract_value(string: Option<&str>, target: &str) -> Option<Vec<u8>> {
-    if let Some(val) = string {
-        if !val.contains(&format!("{}=", target)) {
-            log::debug!("No sub-value found for {}", target);
-            return None;
-        }
-        let items: Vec<&str> = val.split(|c| c == ',' || c == ';').collect();
-        for item in items {
-            let kv: Vec<&str> = item.split('=').collect();
-            if kv[0] == target {
-                return match base64::decode_config(kv[1], base64::URL_SAFE_NO_PAD) {
+fn extract_value(val: &str, target: &str) -> Option<Vec<u8>> {
+    if !val.contains(&format!("{}=", target)) {
+        log::debug!("No sub-value found for {}", target);
+        return None;
+    }
+    let items = val.split(|c| c == ',' || c == ';');
+    for item in items {
+        let mut kv = item.split('=');
+        if kv.next() == Some(target) {
+            if let Some(val) = kv.next() {
+                return match base64::decode_config(val, base64::URL_SAFE_NO_PAD) {
                     Ok(v) => Some(v),
                     Err(e) => {
                         error_support::report_error!(
@@ -135,16 +183,11 @@ fn extract_value(string: Option<&str>, target: &str) -> Option<Vec<u8>> {
 }
 
 impl Cryptography for Crypto {
-    /// Generate a new cryptographic Key
     fn generate_key() -> error::Result<Key> {
         rc_crypto::ensure_initialized();
 
-        let key = RcCryptoLocalKeyPair::generate_random().map_err(|e| {
-            error::PushError::CryptoError(format!("Could not generate key: {:?}", e))
-        })?;
-        let components = key.raw_components().map_err(|e| {
-            error::PushError::CryptoError(format!("Could not extract key components: {:?}", e))
-        })?;
+        let key = RcCryptoLocalKeyPair::generate_random()?;
+        let components = key.raw_components()?;
         let auth = get_random_bytes(SER_AUTH_LENGTH)?;
         Ok(Key {
             p256key: components,
@@ -152,13 +195,12 @@ impl Cryptography for Crypto {
         })
     }
 
-    /// Decrypt the incoming webpush message based on the content-encoding
     fn decrypt(
         key: &Key,
         body: &str,
         encoding: &str,
-        salt: Option<&str>,
-        dh: Option<&str>,
+        salt: &str,
+        dh: &str,
     ) -> error::Result<Decrypted> {
         rc_crypto::ensure_initialized();
         // convert the private key into something useful.
@@ -166,12 +208,9 @@ impl Cryptography for Crypto {
         let d_dh = extract_value(dh, "dh");
         let d_body = base64::decode_config(body, base64::URL_SAFE_NO_PAD)?;
 
-        match encoding.to_lowercase().as_str() {
-            "aesgcm" => Self::decrypt_aesgcm(key, &d_body, d_salt, d_dh),
-            "aes128gcm" => Self::decrypt_aes128gcm(key, &d_body),
-            _ => Err(error::PushError::CryptoError(
-                "Unknown Content Encoding".to_string(),
-            )),
+        match CryptoEncoding::from_str(encoding)? {
+            CryptoEncoding::Aesgcm => Self::decrypt_aesgcm(key, &d_body, d_salt, d_dh),
+            CryptoEncoding::Aes128gcm => Self::decrypt_aes128gcm(key, &d_body),
         }
     }
 
@@ -181,37 +220,19 @@ impl Cryptography for Crypto {
         salt: Option<Vec<u8>>,
         crypto_key: Option<Vec<u8>>,
     ) -> error::Result<Decrypted> {
-        let dh = match crypto_key {
-            Some(v) => v,
-            None => {
-                return Err(error::PushError::CryptoError(
-                    "Missing public key".to_string(),
-                ));
-            }
-        };
-        let salt = match salt {
-            Some(v) => v,
-            None => {
-                return Err(error::PushError::CryptoError("Missing salt".to_string()));
-            }
-        };
-        let block = match ece::legacy::AesGcmEncryptedBlock::new(&dh, &salt, 4096, content.to_vec())
-        {
-            Ok(b) => b,
-            Err(e) => {
-                return Err(error::PushError::CryptoError(format!(
-                    "Could not create block: {}",
-                    e
-                )));
-            }
-        };
-        ece::legacy::decrypt_aesgcm(key.key_pair(), key.auth_secret(), &block)
-            .map_err(|_| error::PushError::CryptoError("Decryption error".to_owned()))
+        let dh = crypto_key
+            .ok_or_else(|| error::PushError::CryptoError("Missing public key".to_string()))?;
+        let salt = salt.ok_or_else(|| error::PushError::CryptoError("Missing salt".to_string()))?;
+        let block = ece::legacy::AesGcmEncryptedBlock::new(&dh, &salt, 4096, content.to_vec())?;
+        Ok(ece::legacy::decrypt_aesgcm(
+            key.key_pair(),
+            key.auth_secret(),
+            &block,
+        )?)
     }
 
     fn decrypt_aes128gcm(key: &Key, content: &[u8]) -> error::Result<Vec<u8>> {
-        ece::decrypt(key.key_pair(), key.auth_secret(), content)
-            .map_err(|_| error::PushError::CryptoError("Decryption error".to_owned()))
+        Ok(ece::decrypt(key.key_pair(), key.auth_secret(), content)?)
     }
 }
 
@@ -234,12 +255,7 @@ mod crypto_tests {
 
     const PLAINTEXT:&str = "Amidst the mists and coldest frosts I thrust my fists against the\nposts and still demand to see the ghosts.\n\n";
 
-    fn decrypter(
-        ciphertext: &str,
-        encoding: &str,
-        salt: Option<&str>,
-        dh: Option<&str>,
-    ) -> error::Result<Vec<u8>> {
+    fn decrypter(ciphertext: &str, encoding: &str, salt: &str, dh: &str) -> error::Result<Vec<u8>> {
         let priv_key_d = "qJkxxWGVVxy7BKvraNY3hg8Gs-Y8qi0lRaXWJ3R3aJ8";
         // The auth token
         let auth_raw = "LsuUOBKVQRY6-l7_Ajo-Ag";
@@ -261,7 +277,7 @@ mod crypto_tests {
 
         // and this is what it should be.
 
-        let decrypted = decrypter(ciphertext, "aesgcm", Some(salt), Some(dh)).unwrap();
+        let decrypted = decrypter(ciphertext, "aesgcm", salt, dh).unwrap();
 
         assert_eq!(String::from_utf8(decrypted).unwrap(), PLAINTEXT.to_string());
     }
@@ -273,8 +289,7 @@ mod crypto_tests {
         let dh = "dh=BMOebOMWSRisAhWpRK9ZPszJC8BL9MiWvLZBoBU6pG6Kh6vUFSW4BHFMh0b83xCg3_7IgfQZXwmVuyu27vwiv5c";
         let salt = "salt=SomeInvalidSaltValue";
 
-        decrypter(ciphertext, "aesgcm", Some(salt), Some(dh))
-            .expect_err("Failed to abort, bad salt");
+        decrypter(ciphertext, "aesgcm", salt, dh).expect_err("Failed to abort, bad salt");
     }
 
     #[test]
@@ -284,7 +299,7 @@ mod crypto_tests {
              TlJ5hnw6IMSiaMqGVlc8drX7Hzy-ugzzAKRhGPV2x-gdsp58DZh9Ww5vHpHyT1xwVkXz\
              x3KTyeBZu4gl_zR0Q00li17g0xGsE6Dg3xlkKEmaalgyUyObl6_a8RA6Ko1Rc6RhAy2jdyY1LQbBUnA";
 
-        let decrypted = decrypter(ciphertext, "aes128gcm", None, None).unwrap();
+        let decrypted = decrypter(ciphertext, "aes128gcm", "", "").unwrap();
         assert_eq!(String::from_utf8(decrypted).unwrap(), PLAINTEXT.to_string());
     }
 }

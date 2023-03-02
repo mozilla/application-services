@@ -183,12 +183,13 @@
 uniffi::include_scaffolding!("push");
 // All implementation detail lives in the `internal` module
 mod internal;
-use std::fmt::Display;
+use std::str::FromStr;
 use std::sync::Mutex;
 mod error;
 use error::*;
 
 use internal::communications::ConnectHttp;
+use internal::config::BridgeType;
 use internal::crypto::Crypto;
 use internal::PushConfiguration;
 
@@ -243,11 +244,10 @@ impl PushManager {
         // would break badly. Unlikely, so later...
         let config = PushConfiguration {
             server_host,
-            http_protocol,
+            http_protocol: internal::config::Protocol::from_str(&http_protocol)?,
             bridge_type,
             sender_id,
             database_path,
-            ..Default::default()
         };
         Ok(Self {
             internal: Mutex::new(internal::PushManager::new(config)?),
@@ -381,13 +381,11 @@ impl PushManager {
         salt: &str,
         dh: &str,
     ) -> Result<Vec<i8>> {
-        let decrypted = self.internal.lock().unwrap().decrypt(
-            channel_id,
-            body,
-            encoding,
-            Some(salt),
-            Some(dh),
-        )?;
+        let decrypted = self
+            .internal
+            .lock()
+            .unwrap()
+            .decrypt(channel_id, body, encoding, salt, dh)?;
 
         // NOTE: this returns a `Vec<i8>` since the kotlin consumer is expecting
         // signed bytes.
@@ -407,41 +405,6 @@ impl PushManager {
     ///   - An error occurred accessing the persisted storage
     pub fn dispatch_info_for_chid(&self, channel_id: &str) -> Result<Option<DispatchInfo>> {
         self.internal.lock().unwrap().get_record_by_chid(channel_id)
-    }
-}
-
-/// The types of supported native bridges.
-///
-/// FCM = Google Android Firebase Cloud Messaging
-/// ADM = Amazon Device Messaging for FireTV
-/// APNS = Apple Push Notification System for iOS
-///
-/// Please contact services back-end for any additional bridge protocols.
-///
-#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
-pub enum BridgeType {
-    Fcm,
-    Adm,
-    Apns,
-}
-
-impl Default for BridgeType {
-    fn default() -> Self {
-        Self::Fcm
-    }
-}
-
-impl Display for BridgeType {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(
-            f,
-            "{}",
-            match self {
-                BridgeType::Adm => "adm",
-                BridgeType::Apns => "apns",
-                BridgeType::Fcm => "fcm",
-            }
-        )
     }
 }
 
