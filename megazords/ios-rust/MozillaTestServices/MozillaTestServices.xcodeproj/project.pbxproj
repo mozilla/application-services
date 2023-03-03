@@ -667,6 +667,7 @@
 			);
 			inputPaths = (
 				"$(SRCROOT)/../../../components/nimbus/metrics.yaml",
+				"$(SRCROOT)/../../../components/sync_manager/metrics.yaml",
 			);
 			name = "Generate Glean Metrics";
 			outputFileListPaths = (
