@@ -172,13 +172,8 @@ impl TabsStorage {
                     }
 
                     tab.url_history = sanitized_history;
-                    // Truncate the title to some limit and append ellipsis
-                    // to incate that we've truncated
-                    if tab.title.len() > MAX_TITLE_CHAR_LENGTH {
-                        tab.title = safe_truncate(&tab.title, MAX_TITLE_CHAR_LENGTH - 1);
-                        // Append an ellipsis '...' so clients know it's been truncated
-                        tab.title.push('\u{2026}');
-                    }
+                    // Potentially truncate the title to some limit
+                    tab.title = safe_truncate(&tab.title, MAX_TITLE_CHAR_LENGTH - 1);
                     Some(tab)
                 })
                 .collect();
@@ -402,11 +397,15 @@ fn compute_serialized_size(v: &Vec<RemoteTab>) -> usize {
 
 fn safe_truncate(s: &str, max_chars: usize) -> String {
     let chars = s.graphemes(true).collect::<Vec<&str>>();
-    if chars.len() > max_chars {
-        chars[0..max_chars].concat()
-    } else {
-        s.to_string()
+    // Don't truncate if we're under char_count
+    if chars.len() <= max_chars {
+        return s.to_string();
     }
+
+    let mut new_s = chars[0..max_chars].concat();
+    // Append an ellipsis '...' so the user knows it's been truncated
+    new_s.push('\u{2026}');
+    new_s
 }
 
 // Try to keep in sync with https://searchfox.org/mozilla-central/rev/2ad13433da20a0749e1e9a10ec0ab49b987c2c8e/modules/libpref/init/all.js#3927
