@@ -1,7 +1,6 @@
 apply plugin: 'com.android.library'
 apply plugin: 'org.mozilla.rust-android-gradle.rust-android'
 apply plugin: 'kotlin-android'
-apply plugin: 'kotlin-android-extensions'
 
 android {
     ndkVersion rootProject.ext.build.ndkVersion
