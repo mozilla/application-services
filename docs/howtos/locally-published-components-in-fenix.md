@@ -29,20 +29,29 @@ Some consumers (notably [Fenix](https://github.com/mozilla-mobile/fenix/)) have 
 automatically publishing and including a local development version of application-services
 in their build. The workflow is:
 
-1. Check out the consuming project.
-1. Edit (or create) the file `local.properties` *in the consuming project* and tell it where to
+1. Check out the firefox-android monp-repo.
+1. Edit (or create) the file `fenix/local.properties` and tell it where to
    find your local checkout of application-services, by adding a line like:
 
    `autoPublish.application-services.dir=relative/path/to/your/checkout/of/application-services`
 
-   Note that the path should be relative from the root of the consumer's directory. For example, if `application-services`
-   and `fenix` are at the same level, the relative path would be `../application-services`
+   Note that the path should be relative from `local.properties`. For example, if `application-services`
+   and `firefox-android` are at the same level, the relative path would be `../../application-services`
 1. Build the consuming project following its usual build procedure, e.g. via `./gradlew assembleDebug` or `./gradlew
    test`.
 
 If all goes well, this should automatically build your checkout of `application-services`, publish it
 to a local maven repository, and configure the consuming project to install it from there instead of
 from our published releases.
+
+### Using Windows/WSL
+
+If you are using Windows, there's a good chance you do most application-services work
+in WSL, but want to run Android Studio on native Windows. In that scenario you must:
+
+* From the app-services root, in WSL, execute `./automation/publish_to_maven_local_if_modified.py`
+* In native Windows, just work as normal - that build process knows to not even attempt to
+  execute the above command automatically.
 
 ## Using a manual workflow
 
@@ -59,28 +68,8 @@ on `android-components`, this procedure involves three separate repos:
 
     2. Run `./gradlew publishToMavenLocal`. This may take between 5 and 10 minutes.
 
-2. Inside the `android-components` repository root:
-    1. In [`.buildconfig.yml`](https://github.com/mozilla-mobile/android-components/blob/main/.buildconfig.yml), change
-       `componentsVersion` to end in `-TESTING$N` <sup><a href="#note1">1</a></sup>,
-       where `$N` is some number that you haven't used for this before.
-
-       Example: `componentsVersion: 0.51.0-TESTING3`
-    2. Inside [`buildSrc/src/main/java/Dependencies.kt`](https://github.com/mozilla-mobile/android-components/blob/main/buildSrc/src/main/java/Dependencies.kt),
-       change `mozilla_appservices` to reference the `libraryVersion` you
-       published in step 1 part 1.
-
-       Example: `const val mozilla_appservices = "0.27.0-TESTING3"`
-
-    3. Inside [`build.gradle`](https://github.com/mozilla-mobile/android-components/blob/main/build.gradle), add
-       `mavenLocal()` inside `allprojects { repositories { <here> } }`.
-
-    4. Inside the android-components `local.properties` file, ensure
-       `autoPublish.application-services.dir` is *NOT* set.
-
-    5. Run `./gradlew publishToMavenLocal`.
-
-3. Inside the consuming project repository root:
-    1. Inside [`build.gradle`](https://github.com/mozilla-mobile/fenix/blob/main/build.gradle), add
+1. Inside the consuming project repository root (eg, `firefox-android/fenix`):
+    1. Inside [`build.gradle`](https://github.com/mozilla-mobile/firefox-android/blob/main/fenix/build.gradle), add
        `mavenLocal()` inside `allprojects { repositories { <here> } }`.
 
     2. Ensure that `local.properties` does not contain any configuration to
