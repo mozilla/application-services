@@ -35,7 +35,6 @@ sync15 = { path = "../sync15", features = ["sync-engine"] }
 thiserror = "1.0"
 uniffi = "0.23"
 url = "2.1" # mozilla-central can't yet take 2.2 (see bug 1734538)
-unicode-segmentation = "1.9.0"
 
 [dev-dependencies]
 env_logger = { version = "0.8.0", default-features = false, features = ["termcolor", "atty", "humantime"] }

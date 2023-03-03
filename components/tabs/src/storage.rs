@@ -22,7 +22,6 @@ use std::cell::RefCell;
 use std::collections::HashMap;
 use std::path::{Path, PathBuf};
 use sync15::{RemoteClient, ServerTimestamp};
-use unicode_segmentation::UnicodeSegmentation;
 pub type TabsDeviceType = crate::DeviceType;
 pub type RemoteTabRecord = RemoteTab;
 
@@ -173,7 +172,7 @@ impl TabsStorage {
 
                     tab.url_history = sanitized_history;
                     // Potentially truncate the title to some limit
-                    tab.title = safe_truncate(&tab.title, MAX_TITLE_CHAR_LENGTH - 1);
+                    tab.title = slice_up_to(tab.title, MAX_TITLE_CHAR_LENGTH);
                     Some(tab)
                 })
                 .collect();
@@ -395,17 +394,24 @@ fn compute_serialized_size(v: &Vec<RemoteTab>) -> usize {
     serde_json::to_string(v).unwrap_or_default().len()
 }
 
-fn safe_truncate(s: &str, max_chars: usize) -> String {
-    let chars = s.graphemes(true).collect::<Vec<&str>>();
-    // Don't truncate if we're under char_count
-    if chars.len() <= max_chars {
-        return s.to_string();
+// Similar to places/utils.js
+// This method ensures we safely truncate a string up to a certain max_len while
+// respecting char bounds to prevent rust panics. If we do end up truncating, we
+// append an ellipsis to the string
+pub fn slice_up_to(s: String, max_len: usize) -> String {
+    if max_len >= s.len() {
+        return s;
     }
 
-    let mut new_s = chars[0..max_chars].concat();
-    // Append an ellipsis '...' so the user knows it's been truncated
-    new_s.push('\u{2026}');
-    new_s
+    let ellipsis = '\u{2026}';
+    // Ensure we leave space for the ellipsis while still being under the max
+    let mut idx = max_len - ellipsis.len_utf8();
+    while !s.is_char_boundary(idx) {
+        idx -= 1;
+    }
+    let mut new_str = s[..idx].to_string();
+    new_str.push(ellipsis);
+    new_str
 }
 
 // Try to keep in sync with https://searchfox.org/mozilla-central/rev/2ad13433da20a0749e1e9a10ec0ab49b987c2c8e/modules/libpref/init/all.js#3927
@@ -565,7 +571,7 @@ mod tests {
             last_used: 0,
         }]);
         let ellipsis_char = '\u{2026}';
-        let mut truncated_title = "a".repeat(MAX_TITLE_CHAR_LENGTH - 1);
+        let mut truncated_title = "a".repeat(MAX_TITLE_CHAR_LENGTH - ellipsis_char.len_utf8());
         truncated_title.push(ellipsis_char);
         assert_eq!(
             storage.prepare_local_tabs_for_upload(),
@@ -599,15 +605,16 @@ mod tests {
             },
         ]);
         let ellipsis_char = '\u{2026}';
-        let mut truncated_title = "😍".repeat(MAX_TITLE_CHAR_LENGTH - 1);
-        let mut truncated_jp_title = "を".repeat(MAX_TITLE_CHAR_LENGTH - 1);
+        // (MAX_TITLE_CHAR_LENGTH - ellipsis / "😍" bytes)
+        let mut truncated_title = "😍".repeat(127);
+        // (MAX_TITLE_CHAR_LENGTH - ellipsis / "を" bytes)
+        let mut truncated_jp_title = "を".repeat(169);
         truncated_title.push(ellipsis_char);
         truncated_jp_title.push(ellipsis_char);
         let remote_tabs = storage.prepare_local_tabs_for_upload().unwrap();
         assert_eq!(
             remote_tabs,
             vec![
-                // title trimmed to 50 characters
                 RemoteTab {
                     title: truncated_title, // title was trimmed to only max char length
                     url_history: vec!["https://foo.bar".to_owned()],
