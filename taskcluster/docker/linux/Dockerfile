@@ -132,7 +132,7 @@ RUN curl -sfSL --retry 5 --retry-delay 10 https://dl.google.com/android/reposito
         "build-tools;${ANDROID_BUILD_TOOLS}" \
         "extras;android;m2repository" \
         "extras;google;m2repository" \
-        "ndk;21.3.6528147"
+        "ndk;${ANDROID_NDK_VERSION}"
 
 RUN chown -R worker:worker /builds/worker/android-sdk
 
