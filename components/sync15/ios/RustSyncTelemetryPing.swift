@@ -42,10 +42,10 @@ public class RustSyncTelemetryPing {
                 jsonArray: obj["syncs"] as? [[String: Any]] ?? [[String: Any]]())
         } ?? [SyncInfo]()
 
-        return RustSyncTelemetryPing(version: version,
-                                     uid: try stringOrNull(jsonObject: jsonObject,
+        return try RustSyncTelemetryPing(version: version,
+                                         uid: stringOrNull(jsonObject: jsonObject,
                                                            key: "uid") ?? EMPTY_UID,
-                                     events: events, syncs: syncs)
+                                         events: events, syncs: syncs)
     }
 
     public static func fromJSONString(jsonObjectText: String) throws -> RustSyncTelemetryPing {
@@ -97,7 +97,7 @@ public class SyncInfo {
         var result = [SyncInfo]()
 
         for item in jsonArray {
-            result.append(try fromJSON(jsonObject: item))
+            try result.append(fromJSON(jsonObject: item))
         }
 
         return result
@@ -179,7 +179,7 @@ public class EngineInfo {
         var result = [EngineInfo]()
 
         for item in jsonArray {
-            result.append(try fromJSON(jsonObject: item))
+            try result.append(fromJSON(jsonObject: item))
         }
 
         return result
@@ -289,7 +289,7 @@ public class ProblemInfo {
         var result = [ProblemInfo]()
 
         for (_, item) in jsonArray.enumerated() {
-            result.append(try fromJSON(jsonObject: item))
+            try result.append(fromJSON(jsonObject: item))
         }
 
         return result
@@ -370,17 +370,17 @@ public class EventInfo {
             }
         }
 
-        return EventInfo(obj: jsonObject["object"] as? String ?? "",
-                         method: jsonObject["method"] as? String ?? "",
-                         value: try stringOrNull(jsonObject: jsonObject, key: "value"),
-                         extra: extra ?? [String: String]())
+        return try EventInfo(obj: jsonObject["object"] as? String ?? "",
+                             method: jsonObject["method"] as? String ?? "",
+                             value: stringOrNull(jsonObject: jsonObject, key: "value"),
+                             extra: extra ?? [String: String]())
     }
 
     static func fromJSONArray(jsonArray: [[String: Any]]) throws -> [EventInfo] {
         var result = [EventInfo]()
 
         for (_, item) in jsonArray.enumerated() {
-            result.append(try fromJSON(jsonObject: item))
+            try result.append(fromJSON(jsonObject: item))
         }
 
         return result

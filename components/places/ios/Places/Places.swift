@@ -88,7 +88,7 @@ public class PlacesAPI {
      */
     open func syncBookmarks(unlockInfo: SyncUnlockInfo) throws -> String {
         return try queue.sync {
-            return try self.api.bookmarksSync(
+            try self.api.bookmarksSync(
                 keyId: unlockInfo.kid,
                 accessToken: unlockInfo.fxaAccessToken,
                 syncKey: unlockInfo.syncKey,
@@ -115,7 +115,7 @@ public class PlacesAPI {
      */
     open func syncHistory(unlockInfo: SyncUnlockInfo) throws -> String {
         return try queue.sync {
-            return try self.api.historySync(
+            try self.api.historySync(
                 keyId: unlockInfo.kid,
                 accessToken: unlockInfo.fxaAccessToken,
                 syncKey: unlockInfo.syncKey,
@@ -165,7 +165,7 @@ public class PlacesAPI {
      */
     open func resetBookmarkSyncMetadata() throws {
         return try queue.sync {
-            return try self.api.bookmarksReset()
+            try self.api.bookmarksReset()
         }
     }
 
