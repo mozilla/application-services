@@ -10,10 +10,10 @@ from taskgraph.target_tasks import _target_task, filter_for_tasks_for
 def target_tasks_pr_skip(full_task_graph, parameters, graph_config):
     return []
 
-@_target_task('nightly')
-def target_tasks_nightly(full_task_graph, parameters, graph_config):
-    # Nightly builds should do a full-ci build
-    return target_tasks_all(full_task_graph, parameters, graph_config)
+@_target_task('preview')
+def target_tasks_preview(full_task_graph, parameters, graph_config):
+    # Run all tasks for preview builds
+    return full_task_graph.tasks
 
 @_target_task('pr-full')
 def target_tasks_all(full_task_graph, parameters, graph_config):

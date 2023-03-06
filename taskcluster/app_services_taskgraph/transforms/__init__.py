@@ -24,13 +24,14 @@ def publications_to_artifact_paths(name, version, publications, secondary_extens
     return paths
 
 
-def publications_to_artifact_map_paths(name, version, publications, nightly_build, secondary_extensions):
+def publications_to_artifact_map_paths(name, version, publications, preview_build, secondary_extensions):
     build_map_paths = {}
     for publication in publications:
         for extension in _extensions(publication["type"], secondary_extensions):
             publication_name = publication['name']
             artifact_filename = _artifact_filename(publication_name, version, extension)
-            if nightly_build:
+            if preview_build is not None:
+                # Both nightly and other preview builds are places in separate directory
                 destination = "maven2/org/mozilla/appservices/nightlies/{}/{}/{}".format(publication_name, version, artifact_filename)
             else:
                 destination = "maven2/org/mozilla/appservices/{}/{}/{}".format(publication_name, version, artifact_filename)

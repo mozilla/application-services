@@ -22,12 +22,6 @@ task-template:
   worker-type: beetmover
   worker:
     app-name: appservices
-    bucket:
-      by-level:
-        "3":
-          maven-production
-        default:
-          maven-staging
   routes:
     - notify.email.a-s-ci-failures@mozilla.com.on-failed
 

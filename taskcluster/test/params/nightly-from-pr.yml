@@ -10,7 +10,7 @@ head_ref: main
 head_repository: https://github.com/mozilla/application-services
 head_rev: 5ad5931c2d91c9f00e9984131925c76136822ab5
 head_tag: ''
-level: '3'
+level: '1'
 moz_build_date: '20220503050340'
 optimize_target_tasks: true
 owner: cron@noreply.mozilla.org
