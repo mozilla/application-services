@@ -363,7 +363,7 @@ class NimbusPlugin implements Plugin<Project> {
             println args
         }
 
-        if(variant.hasProperty('registerJavaGeneratingTask')) {
+        if(variant.metaClass.respondsTo(variant, 'registerJavaGeneratingTask', Task, File)) {
             variant.registerJavaGeneratingTask(generateTask, new File(outputDir))
         }
 
@@ -371,9 +371,11 @@ class NimbusPlugin implements Plugin<Project> {
         if (generateSourcesTask != null) {
             generateSourcesTask.dependsOn(generateTask)
         } else {
-            project.tasks.findAll().stream().filter({ task ->
-                task.name.startsWith("compile")
-            }).forEach({ task ->
+            project.tasks.findAll().stream()
+            .filter({ task ->
+                return task.name.contains("compile")
+            })
+            .forEach({ task ->
                 task.dependsOn(generateTask)
             })
         }
