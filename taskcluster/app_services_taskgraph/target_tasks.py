@@ -11,6 +11,10 @@ def target_tasks_pr_skip(full_task_graph, parameters, graph_config):
     return []
 
 @_target_task('nightly')
+def target_tasks_nightly(full_task_graph, parameters, graph_config):
+    # Nightly builds should do a full-ci build
+    return target_tasks_all(full_task_graph, parameters, graph_config)
+
 @_target_task('pr-full')
 def target_tasks_all(full_task_graph, parameters, graph_config):
     """Target the tasks which have indicated they should be run on this project

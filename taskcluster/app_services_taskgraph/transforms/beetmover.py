@@ -19,7 +19,7 @@ def build_upstream_artifacts(config, tasks):
     for task in tasks:
         module_info = task["attributes"]["buildconfig"]
         name = module_info["name"]
-        version = get_version(config)
+        version = get_version(config.params)
         publications = module_info["publications"]
 
         worker_definition = {"upstream-artifacts": [{
@@ -43,7 +43,7 @@ def build_artifact_map(config, tasks):
     for task in tasks:
         module_info = task["attributes"]["buildconfig"]
         name = module_info["name"]
-        version = get_version(config)
+        version = get_version(config.params)
 
         publications = module_info["publications"]
 
@@ -69,7 +69,7 @@ def build_artifact_map(config, tasks):
 def beetmover_task(config, tasks):
     for task in tasks:
         task["worker"]["max-run-time"] = 600
-        task["worker"]["version"] = get_version(config)
+        task["worker"]["version"] = get_version(config.params)
         task["description"] = task["description"].format(task["attributes"]["buildconfig"]["name"])
         resolve_keyed_by(task, "worker.bucket", item_name=task["name"], **{
             "level": config.params["level"],

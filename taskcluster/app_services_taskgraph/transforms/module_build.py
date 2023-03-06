@@ -46,7 +46,7 @@ def build_task(config, tasks):
     for task in tasks:
         module_info = task["attributes"]["buildconfig"]
         name = module_info["name"]
-        version = get_version(config)
+        version = get_version(config.params)
 
         for i,item in enumerate(task["run"]["gradlew"]):
             task["run"]["gradlew"][i] = task["run"]["gradlew"][i].format(module_name=name)

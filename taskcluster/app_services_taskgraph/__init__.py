@@ -42,7 +42,7 @@ def get_decision_parameters(graph_config, parameters):
                     head_tag
                 )
             )
-        version = get_version(graph_config)
+        version = get_version(graph_config.params)
         # XXX: tags are in the format of `v<semver>`
         if head_tag[1:] != version:
             raise ValueError(
@@ -61,7 +61,6 @@ def get_decision_parameters(graph_config, parameters):
         # We don't have a great way of determining if something is a nightly or
         # not.  But for now, we can assume all cron-based builds are nightlies.
         parameters["nightly-build"] = True
-        parameters["target_tasks_method"] = "nightly"
 
     parameters['branch-build'] = branch_builds.calc_branch_build_param(parameters)
     parameters['filters'].extend([
