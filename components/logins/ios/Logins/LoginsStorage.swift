@@ -45,7 +45,7 @@ open class LoginsStorage {
     /// Delete the record with the given ID. Returns false if no such record existed.
     open func delete(id: String) throws -> Bool {
         return try queue.sync {
-            return try self.store.delete(id: id)
+            try self.store.delete(id: id)
         }
     }
 
@@ -64,7 +64,7 @@ open class LoginsStorage {
     /// Returns the `id` of the newly inserted record.
     open func add(login: LoginEntry, encryptionKey: String) throws -> EncryptedLogin {
         return try queue.sync {
-            return try self.store.add(login: login, encryptionKey: encryptionKey)
+            try self.store.add(login: login, encryptionKey: encryptionKey)
         }
     }
 
@@ -72,41 +72,41 @@ open class LoginsStorage {
     /// login, then this throws `LoginStoreError.NoSuchRecord`.
     open func update(id: String, login: LoginEntry, encryptionKey: String) throws -> EncryptedLogin {
         return try queue.sync {
-            return try self.store.update(id: id, login: login, encryptionKey: encryptionKey)
+            try self.store.update(id: id, login: login, encryptionKey: encryptionKey)
         }
     }
 
     /// Get the record with the given id. Returns nil if there is no such record.
     open func get(id: String) throws -> EncryptedLogin? {
         return try queue.sync {
-            return try self.store.get(id: id)
+            try self.store.get(id: id)
         }
     }
 
     /// Get the entire list of records.
     open func list() throws -> [EncryptedLogin] {
         return try queue.sync {
-            return try self.store.list()
+            try self.store.list()
         }
     }
 
     /// Get the list of records for some base domain.
     open func getByBaseDomain(baseDomain: String) throws -> [EncryptedLogin] {
         return try queue.sync {
-            return try self.store.getByBaseDomain(baseDomain: baseDomain)
+            try self.store.getByBaseDomain(baseDomain: baseDomain)
         }
     }
 
     /// Register with the sync manager
     open func registerWithSyncManager() {
         return queue.sync {
-            return self.store.registerWithSyncManager()
+            self.store.registerWithSyncManager()
         }
     }
 
     open func sync(unlockInfo: SyncUnlockInfo) throws -> String {
         return try queue.sync {
-            return try self.store
+            try self.store
                 .sync(
                     keyId: unlockInfo.kid,
                     accessToken: unlockInfo.fxaAccessToken,

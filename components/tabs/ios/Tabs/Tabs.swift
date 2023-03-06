@@ -15,7 +15,7 @@ open class TabsStorage {
     /// Get all tabs by client.
     open func getAll() -> [ClientRemoteTabs] {
         return queue.sync {
-            return self.store.getAll()
+            self.store.getAll()
         }
     }
 
@@ -44,7 +44,7 @@ open class TabsStorage {
         }
 
         return try queue.sync {
-            return try self.store
+            try self.store
                 .sync(
                     keyId: unlockInfo.kid,
                     accessToken: unlockInfo.fxaAccessToken,
