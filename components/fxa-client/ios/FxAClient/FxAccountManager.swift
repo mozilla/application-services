@@ -232,7 +232,7 @@ open class FxAccountManager {
     /// Note that you should have requested the `.session` scope earlier to be able to get this token.
     public func getSessionToken() -> Result<String, Error> {
         do {
-            return .success(try requireAccount().getSessionToken())
+            return try .success(requireAccount().getSessionToken())
         } catch {
             return .failure(error)
         }

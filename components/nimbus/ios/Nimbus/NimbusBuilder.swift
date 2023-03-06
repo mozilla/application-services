@@ -159,7 +159,8 @@ public class NimbusBuilder {
             if fm != nil || onApplyCallback != nil {
                 NotificationCenter.default.addObserver(forName: .nimbusExperimentsApplied,
                                                        object: nil,
-                                                       queue: nil) { _ in
+                                                       queue: nil)
+                { _ in
                     fm?.invalidateCachedValues()
                     onApplyCallback?(nimbus)
                 }

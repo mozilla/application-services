@@ -50,7 +50,7 @@ class PersistedFirefoxAccount {
     }
 
     public static func fromJSON(data: String) throws -> PersistedFirefoxAccount {
-        return PersistedFirefoxAccount(inner: try FirefoxAccount.fromJson(data: data))
+        return try PersistedFirefoxAccount(inner: FirefoxAccount.fromJson(data: data))
     }
 
     public func toJSON() throws -> String {
@@ -63,7 +63,7 @@ class PersistedFirefoxAccount {
         metrics: MetricsParams = MetricsParams(parameters: [:])
     ) throws -> URL {
         return try notifyAuthErrors {
-            URL(string: try self.inner.beginOauthFlow(
+            try URL(string: self.inner.beginOauthFlow(
                 scopes: scopes,
                 entrypoint: entrypoint,
                 metrics: metrics
@@ -72,7 +72,7 @@ class PersistedFirefoxAccount {
     }
 
     public func getPairingAuthorityURL() throws -> URL {
-        return URL(string: try inner.getPairingAuthorityUrl())!
+        return try URL(string: inner.getPairingAuthorityUrl())!
     }
 
     public func beginPairingFlow(
@@ -82,7 +82,7 @@ class PersistedFirefoxAccount {
         metrics: MetricsParams = MetricsParams(parameters: [:])
     ) throws -> URL {
         return try notifyAuthErrors {
-            URL(string: try self.inner.beginPairingFlow(pairingUrl: pairingUrl,
+            try URL(string: self.inner.beginPairingFlow(pairingUrl: pairingUrl,
                                                         scopes: scopes,
                                                         entrypoint: entrypoint,
                                                         metrics: metrics))!
@@ -194,19 +194,19 @@ class PersistedFirefoxAccount {
     }
 
     public func getTokenServerEndpointURL() throws -> URL {
-        return URL(string: try inner.getTokenServerEndpointUrl())!
+        return try URL(string: inner.getTokenServerEndpointUrl())!
     }
 
     public func getConnectionSuccessURL() throws -> URL {
-        return URL(string: try inner.getConnectionSuccessUrl())!
+        return try URL(string: inner.getConnectionSuccessUrl())!
     }
 
     public func getManageAccountURL(entrypoint: String) throws -> URL {
-        return URL(string: try inner.getManageAccountUrl(entrypoint: entrypoint))!
+        return try URL(string: inner.getManageAccountUrl(entrypoint: entrypoint))!
     }
 
     public func getManageDevicesURL(entrypoint: String) throws -> URL {
-        return URL(string: try inner.getManageDevicesUrl(entrypoint: entrypoint))!
+        return try URL(string: inner.getManageDevicesUrl(entrypoint: entrypoint))!
     }
 
     public func getAccessToken(scope: String, ttl: UInt64? = nil) throws -> AccessTokenInfo {
