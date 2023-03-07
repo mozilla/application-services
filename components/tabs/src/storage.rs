@@ -171,13 +171,8 @@ impl TabsStorage {
                     }
 
                     tab.url_history = sanitized_history;
-                    // Truncate the title to some limit and append ellipsis
-                    // to incate that we've truncated
-                    if tab.title.len() > MAX_TITLE_CHAR_LENGTH {
-                        tab.title.truncate(MAX_TITLE_CHAR_LENGTH - 3);
-                        // Append ellipsis char for any client displaying the full title
-                        tab.title.push('\u{2026}');
-                    }
+                    // Potentially truncate the title to some limit
+                    tab.title = slice_up_to(tab.title, MAX_TITLE_CHAR_LENGTH);
                     Some(tab)
                 })
                 .collect();
@@ -399,6 +394,26 @@ fn compute_serialized_size(v: &Vec<RemoteTab>) -> usize {
     serde_json::to_string(v).unwrap_or_default().len()
 }
 
+// Similar to places/utils.js
+// This method ensures we safely truncate a string up to a certain max_len while
+// respecting char bounds to prevent rust panics. If we do end up truncating, we
+// append an ellipsis to the string
+pub fn slice_up_to(s: String, max_len: usize) -> String {
+    if max_len >= s.len() {
+        return s;
+    }
+
+    let ellipsis = '\u{2026}';
+    // Ensure we leave space for the ellipsis while still being under the max
+    let mut idx = max_len - ellipsis.len_utf8();
+    while !s.is_char_boundary(idx) {
+        idx -= 1;
+    }
+    let mut new_str = s[..idx].to_string();
+    new_str.push(ellipsis);
+    new_str
+}
+
 // Try to keep in sync with https://searchfox.org/mozilla-central/rev/2ad13433da20a0749e1e9a10ec0ab49b987c2c8e/modules/libpref/init/all.js#3927
 fn is_url_syncable(url: &str) -> bool {
     url.len() <= URI_LENGTH_MAX
@@ -555,8 +570,9 @@ mod tests {
             icon: None,
             last_used: 0,
         }]);
-        let mut truncated_title = "a".repeat(MAX_TITLE_CHAR_LENGTH - 3);
-        truncated_title.push('\u{2026}');
+        let ellipsis_char = '\u{2026}';
+        let mut truncated_title = "a".repeat(MAX_TITLE_CHAR_LENGTH - ellipsis_char.len_utf8());
+        truncated_title.push(ellipsis_char);
         assert_eq!(
             storage.prepare_local_tabs_for_upload(),
             Some(vec![
@@ -569,6 +585,53 @@ mod tests {
                 },
             ])
         );
+    }
+    #[test]
+    fn test_utf8_safe_title_trim() {
+        let mut storage = TabsStorage::new_with_mem_path("test_prepare_local_tabs_for_upload");
+        assert_eq!(storage.prepare_local_tabs_for_upload(), None);
+        storage.update_local_state(vec![
+            RemoteTab {
+                title: "😍".repeat(MAX_TITLE_CHAR_LENGTH + 10), // Fill a string more than max
+                url_history: vec!["https://foo.bar".to_owned()],
+                icon: None,
+                last_used: 0,
+            },
+            RemoteTab {
+                title: "を".repeat(MAX_TITLE_CHAR_LENGTH + 5), // Fill a string more than max
+                url_history: vec!["https://foo_jp.bar".to_owned()],
+                icon: None,
+                last_used: 0,
+            },
+        ]);
+        let ellipsis_char = '\u{2026}';
+        // (MAX_TITLE_CHAR_LENGTH - ellipsis / "😍" bytes)
+        let mut truncated_title = "😍".repeat(127);
+        // (MAX_TITLE_CHAR_LENGTH - ellipsis / "を" bytes)
+        let mut truncated_jp_title = "を".repeat(169);
+        truncated_title.push(ellipsis_char);
+        truncated_jp_title.push(ellipsis_char);
+        let remote_tabs = storage.prepare_local_tabs_for_upload().unwrap();
+        assert_eq!(
+            remote_tabs,
+            vec![
+                RemoteTab {
+                    title: truncated_title, // title was trimmed to only max char length
+                    url_history: vec!["https://foo.bar".to_owned()],
+                    icon: None,
+                    last_used: 0,
+                },
+                RemoteTab {
+                    title: truncated_jp_title, // title was trimmed to only max char length
+                    url_history: vec!["https://foo_jp.bar".to_owned()],
+                    icon: None,
+                    last_used: 0,
+                },
+            ]
+        );
+        // We should be less than max
+        assert!(remote_tabs[0].title.chars().count() <= MAX_TITLE_CHAR_LENGTH);
+        assert!(remote_tabs[1].title.chars().count() <= MAX_TITLE_CHAR_LENGTH);
     }
     #[test]
     fn test_trim_tabs_length() {
