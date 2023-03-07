@@ -10,7 +10,6 @@
 
 apply plugin: 'com.android.library'
 apply plugin: 'kotlin-android'
-apply plugin: 'kotlin-android-extensions'
 
 android {
     ndkVersion rootProject.ext.build.ndkVersion
@@ -63,8 +62,6 @@ android {
 }
 
 dependencies {
-    implementation "org.jetbrains.kotlin:kotlin-stdlib-jdk7:$kotlin_version"
-
     testImplementation "junit:junit:$junit_version"
     testImplementation "org.robolectric:robolectric:$robolectric_core_version"
     testImplementation "org.mockito:mockito-core:$mockito_core_version"
