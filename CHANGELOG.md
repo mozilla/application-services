@@ -1,3 +1,21 @@
+# v97.2.0 (_2023-03-08_)
+
+[Full Changelog](https://github.com/mozilla/application-services/compare/v97.1.0...v97.2.0)
+
+## General
+
+### 🦊 What's Changed 🦊
+- Android: The JVM compatibility target is now version 11 ([#5401](https://github.com/mozilla/application-services/issues/5401))
+  - _NOTE: This is technically a breaking change, but all existing downstream projects have already made the necessary changes._
+
+## Nimbus ⛅️🔬🔭
+
+### 🦊 What's Changed 🦊
+- Fix Nimbus gradle plugin source file and task dependency issues ([#5421](https://github.com/mozilla/application-services/pull/5421))
+
+### ✨ What's New ✨
+- Added new testing tooling `HardcodeNimbusFeatures` to aid UI and integration tests ([#5393](https://github.com/mozilla/application-services/pull/5393))
+
 # v97.1.0 (_2023-02-24_)
 
 [Full Changelog](https://github.com/mozilla/application-services/compare/v97.0.0...v97.1.0)
