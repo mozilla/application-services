@@ -27,5 +27,8 @@ Use the template below to make assigning a version number during the release cut
 
 ## Nimbus ⛅️🔬🔭
 
+### 🦊 What's Changed 🦊
+  - Fix Nimbus gradle plugin source file and task dependency issues ([#5421](https://github.com/mozilla/application-services/pull/5421))
+
 ### ✨ What's New ✨
-  - Added new testing tooling `HardcodeNimbusFeatures` to aid UI and integration tests ([#5393](https://github.com/mozilla/application-services/pull/5393).
+  - Added new testing tooling `HardcodeNimbusFeatures` to aid UI and integration tests ([#5393](https://github.com/mozilla/application-services/pull/5393))
