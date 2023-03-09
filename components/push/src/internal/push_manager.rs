@@ -15,7 +15,7 @@
 use std::collections::HashSet;
 
 use crate::error::{self, PushError, Result};
-use crate::internal::communications::{Connection, PersistedRateLimiter, RegisterResponse};
+use crate::internal::communications::{Connection, PersistedRateLimiter};
 use crate::internal::config::PushConfiguration;
 use crate::internal::crypto::KeyV1 as Key;
 use crate::internal::storage::{PushRecord, Storage};
@@ -27,18 +27,6 @@ use super::crypto::Cryptography;
 
 const UPDATE_RATE_LIMITER_INTERVAL: u64 = 24 * 60 * 60; // 500 calls per 24 hours.
 const UPDATE_RATE_LIMITER_MAX_CALLS: u16 = 500;
-
-impl From<(RegisterResponse, Key)> for SubscriptionResponse {
-    fn from(val: (RegisterResponse, Key)) -> Self {
-        SubscriptionResponse {
-            channel_id: val.0.channel_id,
-            subscription_info: SubscriptionInfo {
-                endpoint: val.0.endpoint,
-                keys: val.1.into(),
-            },
-        }
-    }
-}
 
 impl From<Key> for KeyInfo {
     fn from(key: Key) -> Self {
@@ -144,74 +132,14 @@ impl<Co: Connection, Cr: Cryptography, S: Storage> PushManager<Co, Cr, S> {
         let registration_id = self
             .registration_id
             .as_ref()
-            .ok_or_else(|| PushError::CommunicationError("No native id".to_string()))?;
+            .ok_or_else(|| PushError::CommunicationError("No native id".to_string()))?
+            .clone();
 
-        let info = match (&self.uaid, &self.auth) {
-            (Some(uaid), Some(auth)) => self.connection.subscribe_with_uaid(
-                channel_id,
-                uaid,
-                auth,
-                registration_id,
-                &server_key.map(ToString::to_string),
-            ),
-            _ => self.connection.subscribe_new(
-                channel_id,
-                registration_id,
-                &server_key.map(ToString::to_string),
-            ),
-        }?;
-
-        log::debug!("server returned subscription info: {:?}", info);
-
-        // We verify if the server gave us a new uaid, which should happen on our first subscription
-        let new_uaid = match (&self.uaid, &info.uaid) {
-            (Some(old_uaid), Some(new_uaid)) if old_uaid != new_uaid => Some(new_uaid),
-            (Some(_), Some(_)) => None,
-            (None, Some(new_uaid)) => Some(new_uaid),
-            (Some(_), None) => None,
-            (None, None) => {
-                return Err(PushError::CommunicationError(
-                    "Unable to find a valid uaid".to_string(),
-                ))
-            }
-        };
-
-        // If our uaid has changed, or this is the first subscription we have made, all existing
-        // records must die - but we can keep this one!
-        if let Some(new_uaid) = new_uaid {
-            // apparently the uaid changing but not getting a new secret guarantees we will be
-            // unable to decrypt payloads. This should be impossible, so we could argue an
-            // assertion makes more sense so it makes unmistakable noise, but for now we just Err.
-            let new_auth = match &info.secret {
-                Some(secret) => secret,
-                None => {
-                    return Err(PushError::GeneralError(
-                        "Server gave us a new uaid but no secret?".to_string(),
-                    ))
-                }
-            };
-            log::info!(
-                "Got new new UAID of '{}' - deleting all existing records",
-                new_uaid
-            );
-            self.store.delete_all_records()?;
-            self.store.set_uaid(new_uaid)?;
-            self.store.set_auth(new_auth)?;
-            self.uaid = Some(new_uaid.to_owned());
-            self.auth = Some(new_auth.to_owned());
+        if let (Some(uaid), Some(auth)) = (&self.uaid, &self.auth) {
+            self.subscribe_with_uaid(channel_id, scope, uaid, auth, &registration_id, server_key)
+        } else {
+            self.register(channel_id, scope, &registration_id, server_key)
         }
-        // store the channel_id => auth + subscription_key
-        let subscription_key = Cr::generate_key()?;
-        let mut record = crate::internal::storage::PushRecord::new(
-            &info.channel_id,
-            &info.endpoint,
-            scope,
-            subscription_key.clone(),
-        )?;
-        record.app_server_key = server_key.map(|v| v.to_owned());
-        self.store.put_record(&record)?;
-        log::debug!("subscribed OK");
-        Ok((info, subscription_key).into())
     }
 
     pub fn unsubscribe(&mut self, channel_id: &str) -> Result<bool> {
@@ -350,6 +278,75 @@ impl<Co: Connection, Cr: Cryptography, S: Storage> PushManager<Co, Cr, S> {
         self.uaid = None;
         Ok(())
     }
+
+    fn subscribe_with_uaid(
+        &self,
+        channel_id: &str,
+        scope: &str,
+        uaid: &str,
+        auth: &str,
+        registration_id: &str,
+        app_server_key: Option<&str>,
+    ) -> error::Result<SubscriptionResponse> {
+        let app_server_key = app_server_key.map(|v| v.to_owned());
+
+        let subscription_response =
+            self.connection
+                .subscribe(channel_id, uaid, auth, registration_id, &app_server_key)?;
+        let subscription_key = Cr::generate_key()?;
+        let mut record = crate::internal::storage::PushRecord::new(
+            &subscription_response.channel_id,
+            &subscription_response.endpoint,
+            scope,
+            subscription_key.clone(),
+        )?;
+        record.app_server_key = app_server_key;
+        self.store.put_record(&record)?;
+        log::debug!("subscribed OK");
+        Ok(SubscriptionResponse {
+            channel_id: subscription_response.channel_id,
+            subscription_info: SubscriptionInfo {
+                endpoint: subscription_response.endpoint,
+                keys: subscription_key.into(),
+            },
+        })
+    }
+
+    fn register(
+        &mut self,
+        channel_id: &str,
+        scope: &str,
+        registration_id: &str,
+        app_server_key: Option<&str>,
+    ) -> error::Result<SubscriptionResponse> {
+        let app_server_key = app_server_key.map(|v| v.to_owned());
+        let register_response =
+            self.connection
+                .register(channel_id, registration_id, &app_server_key)?;
+        // Registration successful! Before we return our registration, lets save our uaid and auth
+        self.store.set_uaid(&register_response.uaid)?;
+        self.store.set_auth(&register_response.secret)?;
+        self.uaid = Some(register_response.uaid.clone());
+        self.auth = Some(register_response.secret.clone());
+
+        let subscription_key = Cr::generate_key()?;
+        let mut record = crate::internal::storage::PushRecord::new(
+            &register_response.channel_id,
+            &register_response.endpoint,
+            scope,
+            subscription_key.clone(),
+        )?;
+        record.app_server_key = app_server_key;
+        self.store.put_record(&record)?;
+        log::debug!("subscribed OK");
+        Ok(SubscriptionResponse {
+            channel_id: register_response.channel_id,
+            subscription_info: SubscriptionInfo {
+                endpoint: register_response.endpoint,
+                keys: subscription_key.into(),
+            },
+        })
+    }
 }
 
 #[cfg(test)]
@@ -357,7 +354,10 @@ mod test {
     use mockall::predicate::eq;
     use rc_crypto::ece::{self, EcKeyComponents};
 
-    use crate::internal::{communications::MockConnection, crypto::MockCryptography};
+    use crate::internal::{
+        communications::{MockConnection, RegisterResponse, SubscribeResponse},
+        crypto::MockCryptography,
+    };
 
     use super::*;
     use lazy_static::lazy_static;
@@ -411,14 +411,14 @@ mod test {
 
         let mut pm = get_test_manager()?;
         pm.connection
-            .expect_subscribe_new()
+            .expect_register()
             .with(eq(TEST_CHANNEL_ID), eq("native-id"), eq(None))
             .times(1)
             .returning(|_, _, _| {
                 Ok(RegisterResponse {
-                    uaid: Some(TEST_UAID.to_string()),
+                    uaid: TEST_UAID.to_string(),
                     channel_id: TEST_CHANNEL_ID.to_string(),
-                    secret: Some(TEST_AUTH.to_string()),
+                    secret: TEST_AUTH.to_string(),
                     endpoint: "https://example.com/dummy-endpoint".to_string(),
                     sender_id: Some("test".to_string()),
                 })
@@ -472,14 +472,14 @@ mod test {
         let data_string = b"Mary had a little lamb, with some nice mint jelly";
         let mut pm = get_test_manager()?;
         pm.connection
-            .expect_subscribe_new()
+            .expect_register()
             .with(eq(TEST_CHANNEL_ID), eq("native-id"), eq(None))
             .times(1)
             .returning(|_, _, _| {
                 Ok(RegisterResponse {
-                    uaid: Some(TEST_UAID.to_string()),
+                    uaid: TEST_UAID.to_string(),
                     channel_id: TEST_CHANNEL_ID.to_string(),
-                    secret: Some(TEST_AUTH.to_string()),
+                    secret: TEST_AUTH.to_string(),
                     endpoint: "https://example.com/dummy-endpoint".to_string(),
                     sender_id: Some("test".to_string()),
                 })
@@ -538,14 +538,14 @@ mod test {
         let mut pm = get_test_manager()?;
 
         pm.connection
-            .expect_subscribe_new()
+            .expect_register()
             .with(eq(TEST_CHANNEL_ID), eq("native-id"), eq(None))
             .times(1)
             .returning(|_, _, _| {
                 Ok(RegisterResponse {
-                    uaid: Some(TEST_UAID.to_string()),
+                    uaid: TEST_UAID.to_string(),
                     channel_id: TEST_CHANNEL_ID.to_string(),
-                    secret: Some(TEST_AUTH.to_string()),
+                    secret: TEST_AUTH.to_string(),
                     endpoint: "https://example.com/dummy-endpoint".to_string(),
                     sender_id: Some("test".to_string()),
                 })
@@ -603,7 +603,7 @@ mod test {
         let mut pm = get_test_manager()?;
 
         pm.connection
-            .expect_subscribe_new()
+            .expect_register()
             .with(
                 eq(TEST_CHANNEL_ID),
                 eq("native-id"),
@@ -612,9 +612,9 @@ mod test {
             .times(1)
             .returning(|_, _, _| {
                 Ok(RegisterResponse {
-                    uaid: Some(TEST_UAID.to_string()),
+                    uaid: TEST_UAID.to_string(),
                     channel_id: TEST_CHANNEL_ID.to_string(),
-                    secret: Some(TEST_AUTH.to_string()),
+                    secret: TEST_AUTH.to_string(),
                     endpoint: "https://example.com/dummy-endpoint".to_string(),
                     sender_id: Some("test".to_string()),
                 })
@@ -654,14 +654,14 @@ mod test {
         let mut pm = get_test_manager()?;
 
         pm.connection
-            .expect_subscribe_new()
+            .expect_register()
             .with(eq(TEST_CHANNEL_ID), eq("native-id"), eq(None))
             .times(1) // only once, second time we'll hit cache!
             .returning(|_, _, _| {
                 Ok(RegisterResponse {
-                    uaid: Some(TEST_UAID.to_string()),
+                    uaid: TEST_UAID.to_string(),
                     channel_id: TEST_CHANNEL_ID.to_string(),
-                    secret: Some(TEST_AUTH.to_string()),
+                    secret: TEST_AUTH.to_string(),
                     endpoint: "https://example.com/dummy-endpoint".to_string(),
                     sender_id: Some("test".to_string()),
                 })
@@ -691,14 +691,14 @@ mod test {
 
         let mut pm = get_test_manager()?;
         pm.connection
-            .expect_subscribe_new()
+            .expect_register()
             .with(eq(TEST_CHANNEL_ID), eq("native-id"), eq(None))
             .times(2)
             .returning(|_, _, _| {
                 Ok(RegisterResponse {
-                    uaid: Some(TEST_UAID.to_string()),
+                    uaid: TEST_UAID.to_string(),
                     channel_id: TEST_CHANNEL_ID.to_string(),
-                    secret: Some(TEST_AUTH.to_string()),
+                    secret: TEST_AUTH.to_string(),
                     endpoint: "https://example.com/dummy-endpoint".to_string(),
                     sender_id: Some("test".to_string()),
                 })
@@ -764,14 +764,14 @@ mod test {
 
         let mut pm = get_test_manager()?;
         pm.connection
-            .expect_subscribe_new()
+            .expect_register()
             .with(eq(TEST_CHANNEL_ID), eq("native-id"), eq(None))
             .times(1)
             .returning(|_, _, _| {
                 Ok(RegisterResponse {
-                    uaid: Some(TEST_UAID.to_string()),
+                    uaid: TEST_UAID.to_string(),
                     channel_id: TEST_CHANNEL_ID.to_string(),
-                    secret: Some(TEST_AUTH.to_string()),
+                    secret: TEST_AUTH.to_string(),
                     endpoint: "https://example.com/dummy-endpoint".to_string(),
                     sender_id: Some("test".to_string()),
                 })
@@ -825,14 +825,14 @@ mod test {
 
         let mut pm = get_test_manager()?;
         pm.connection
-            .expect_subscribe_new()
+            .expect_register()
             .with(eq(TEST_CHANNEL_ID), eq("native-id"), eq(None))
             .times(1)
             .returning(|_, _, _| {
                 Ok(RegisterResponse {
-                    uaid: Some(TEST_UAID.to_string()),
+                    uaid: TEST_UAID.to_string(),
                     channel_id: TEST_CHANNEL_ID.to_string(),
-                    secret: Some(TEST_AUTH.to_string()),
+                    secret: TEST_AUTH.to_string(),
                     endpoint: "https://example.com/dummy-endpoint".to_string(),
                     sender_id: Some("test".to_string()),
                 })
@@ -872,6 +872,71 @@ mod test {
 
         // the same error got propagated
         assert!(matches!(err, PushError::CommunicationError(_)));
+        Ok(())
+    }
+
+    #[test]
+    fn test_second_subscribe_hits_subscribe_endpoint() -> Result<()> {
+        let _m = get_lock(&MTX);
+        let ctx = MockConnection::connect_context();
+        ctx.expect().returning(|_| Default::default());
+
+        let mut pm = get_test_manager()?;
+        pm.connection
+            .expect_register()
+            .with(eq(TEST_CHANNEL_ID), eq("native-id"), eq(None))
+            .times(1)
+            .returning(|_, _, _| {
+                Ok(RegisterResponse {
+                    uaid: TEST_UAID.to_string(),
+                    channel_id: TEST_CHANNEL_ID.to_string(),
+                    secret: TEST_AUTH.to_string(),
+                    endpoint: "https://example.com/dummy-endpoint".to_string(),
+                    sender_id: Some("test".to_string()),
+                })
+            });
+
+        pm.connection
+            .expect_subscribe()
+            .with(
+                eq(TEST_CHANNEL_ID2),
+                eq(TEST_UAID),
+                eq(TEST_AUTH),
+                eq("native-id"),
+                eq(None),
+            )
+            .times(1)
+            .returning(|_, _, _, _, _| {
+                Ok(SubscribeResponse {
+                    channel_id: TEST_CHANNEL_ID2.to_string(),
+                    endpoint: "https://example.com/different-dummy-endpoint".to_string(),
+                    sender_id: Some("test".to_string()),
+                })
+            });
+
+        let crypto_ctx = MockCryptography::generate_key_context();
+        crypto_ctx.expect().returning(|| {
+            let components = EcKeyComponents::new(
+                base64::decode_config(PRIV_KEY_D, base64::URL_SAFE_NO_PAD).unwrap(),
+                base64::decode_config(PUB_KEY_RAW, base64::URL_SAFE_NO_PAD).unwrap(),
+            );
+            let auth = base64::decode_config(TEST_AUTH, base64::URL_SAFE_NO_PAD).unwrap();
+            Ok(Key {
+                p256key: components,
+                auth,
+            })
+        });
+
+        let resp_1 = pm.subscribe(TEST_CHANNEL_ID, "test-scope", None)?;
+        let resp_2 = pm.subscribe(TEST_CHANNEL_ID2, "another-scope", None)?;
+        assert_eq!(
+            resp_1.subscription_info.endpoint,
+            "https://example.com/dummy-endpoint"
+        );
+        assert_eq!(
+            resp_2.subscription_info.endpoint,
+            "https://example.com/different-dummy-endpoint"
+        );
         Ok(())
     }
 }

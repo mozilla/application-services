@@ -189,7 +189,7 @@ mod error;
 use error::*;
 
 use internal::communications::ConnectHttp;
-use internal::config::BridgeType;
+pub use internal::config::BridgeType;
 use internal::crypto::Crypto;
 use internal::PushConfiguration;
 
