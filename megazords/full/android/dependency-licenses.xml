@@ -145,6 +145,10 @@ the details of which are reproduced below.
     <url>https://github.com/bluss/either/blob/master/LICENSE-APACHE</url>
   </license>
   <license>
+    <name>Apache License 2.0: errno</name>
+    <url>https://github.com/lambda-fairy/rust-errno/blob/main/LICENSE-APACHE</url>
+  </license>
+  <license>
     <name>Apache License 2.0: fallible-iterator</name>
     <url>https://github.com/sfackler/rust-fallible-iterator/blob/master/LICENSE-APACHE</url>
   </license>
@@ -201,6 +205,10 @@ the details of which are reproduced below.
     <url>https://github.com/servo/rust-url/blob//master/LICENSE-APACHE</url>
   </license>
   <license>
+    <name>Apache License 2.0: io-lifetimes</name>
+    <url>https://github.com/sunfishcode/io-lifetimes/blob/main/LICENSE-APACHE</url>
+  </license>
+  <license>
     <name>Apache License 2.0: itertools</name>
     <url>https://github.com/rust-itertools/itertools/blob/master/LICENSE-APACHE</url>
   </license>
@@ -223,6 +231,10 @@ the details of which are reproduced below.
   <license>
     <name>Apache License 2.0: libc</name>
     <url>https://github.com/rust-lang/libc/blob/master/LICENSE-APACHE</url>
+  </license>
+  <license>
+    <name>Apache License 2.0: linux-raw-sys</name>
+    <url>https://github.com/sunfishcode/linux-raw-sys/blob/main/LICENSE-APACHE</url>
   </license>
   <license>
     <name>Apache License 2.0: lmdb-rkv</name>
@@ -329,12 +341,12 @@ the details of which are reproduced below.
     <url>https://github.com/rust-lang/regex/blob/master/LICENSE-APACHE</url>
   </license>
   <license>
-    <name>Apache License 2.0: remove_dir_all</name>
-    <url>https://github.com/XAMPPRocky/remove_dir_all/blob/master/LICENCE-APACHE</url>
-  </license>
-  <license>
     <name>Apache License 2.0: rkv</name>
     <url>https://github.com/mozilla/rkv/blob/main/LICENSE</url>
+  </license>
+  <license>
+    <name>Apache License 2.0: rustix</name>
+    <url>https://github.com/bytecodealliance/rustix/blob/main/LICENSE-APACHE</url>
   </license>
   <license>
     <name>Apache License 2.0: ryu</name>
@@ -465,7 +477,19 @@ the details of which are reproduced below.
     <url>https://github.com/microsoft/windows-rs/blob/master/license-mit</url>
   </license>
   <license>
+    <name>Apache License 2.0: windows-sys</name>
+    <url>https://github.com/microsoft/windows-rs/blob/master/license-mit</url>
+  </license>
+  <license>
     <name>Apache License 2.0: windows_x86_64_gnu</name>
+    <url>https://github.com/microsoft/windows-rs/blob/master/license-mit</url>
+  </license>
+  <license>
+    <name>Apache License 2.0: windows_x86_64_gnu</name>
+    <url>https://github.com/microsoft/windows-rs/blob/master/license-mit</url>
+  </license>
+  <license>
+    <name>Apache License 2.0: windows_x86_64_msvc</name>
     <url>https://github.com/microsoft/windows-rs/blob/master/license-mit</url>
   </license>
   <license>
