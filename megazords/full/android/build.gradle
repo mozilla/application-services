@@ -1,7 +1,6 @@
 apply plugin: 'com.android.library'
 apply plugin: 'org.mozilla.rust-android-gradle.rust-android'
 apply plugin: 'kotlin-android'
-apply plugin: 'kotlin-android-extensions'
 
 android {
     ndkVersion rootProject.ext.build.ndkVersion
@@ -91,8 +90,6 @@ cargo {
 }
 
 dependencies {
-    implementation "org.jetbrains.kotlin:kotlin-stdlib-jdk7:$kotlin_version"
-
     jnaForTest "net.java.dev.jna:jna:$jna_version@jar"
 }
 
