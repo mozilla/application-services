@@ -40,15 +40,37 @@ const UAID_NOT_FOUND_ERRNO: u32 = 103;
 #[derive(Deserialize, Debug)]
 /// The response from the `/registration` endpoint
 pub struct RegisterResponse {
-    /// The UAID associated with the request
-    pub uaid: Option<String>,
+    /// The UAID assigned by autopush
+    pub uaid: String,
 
     /// The Channel ID associated with the request
+    /// The server might assign a new one if "" is sent
+    /// with the request. Consumers should treat this channel_id
+    /// as the tru channel id.
     #[serde(rename = "channelID")]
     pub channel_id: String,
 
     /// Auth token for subsequent calls (note, only generated on new UAIDs)
-    pub secret: Option<String>,
+    pub secret: String,
+
+    /// Push endpoint for 3rd parties
+    pub endpoint: String,
+
+    /// The sender id
+    #[serde(rename = "senderid")]
+    pub sender_id: Option<String>,
+}
+
+#[derive(Deserialize, Debug)]
+/// The response from the `/subscribe` endpoint
+pub struct SubscribeResponse {
+    /// The Channel ID associated with the request
+    /// The server sends it back with the response.
+    /// The server might assign a new one if "" is sent
+    /// with the request. Consumers should treat this channel_id
+    /// as the tru channel id
+    #[serde(rename = "channelID")]
+    pub channel_id: String,
 
     /// Push endpoint for 3rd parties
     pub endpoint: String,
@@ -59,17 +81,19 @@ pub struct RegisterResponse {
 }
 
 #[derive(Serialize)]
-/// The request body for the `\registration` endpoint
+/// The request body for the `/registration` endpoint
 struct RegisterRequest<'a> {
     /// The native registration id, a token provided by the app
     token: &'a str,
+
     #[serde(rename = "channelID")]
     /// The channel id to register with autopush, provided by the app
     channel_id: &'a str,
+
     /// An optional app server key
     key: Option<&'a str>,
     #[serde(skip_serializing_if = "Option::is_none")]
-    /// Extra apns data required by the APNS servers
+    /// Extra apns data required by the Autopush
     /// it will passed through autopush to apns
     aps: Option<Apns<'a>>,
 }
@@ -79,20 +103,12 @@ struct UpdateRequest<'a> {
     token: &'a str,
 }
 
-#[derive(Serialize)]
+#[derive(Serialize, Default)]
 struct AlertBody<'a> {
     title: &'a str,
     body: &'a str,
 }
 
-impl Default for AlertBody<'_> {
-    fn default() -> Self {
-        AlertBody {
-            title: " ",
-            body: " ",
-        }
-    }
-}
 #[derive(Serialize)]
 #[serde(rename_all = "kebab-case")]
 /// Minimum needed configuration for APNS
@@ -121,7 +137,7 @@ pub trait Connection: Sized {
     ///
     /// # Returns
     /// - Returns a [`RegisterResponse`] which is the autopush server's registration response deserialized
-    fn subscribe_new(
+    fn register(
         &self,
         channel_id: &str,
         registration_id: &str,
@@ -139,14 +155,14 @@ pub trait Connection: Sized {
     ///
     /// # Returns
     /// - Returns a [`RegisterResponse`] which is the autopush server's registration response deserialized
-    fn subscribe_with_uaid(
+    fn subscribe(
         &self,
         channel_id: &str,
         uaid: &str,
         auth: &str,
         registration_id: &str,
         app_server_key: &Option<String>,
-    ) -> error::Result<RegisterResponse>;
+    ) -> error::Result<SubscribeResponse>;
 
     /// Drop a subscription previously registered with autopush
     /// # Arguments
@@ -237,14 +253,17 @@ impl ConnectHttp {
         ))
     }
 
-    fn send_subscription_request(
+    fn send_subscription_request<T>(
         &self,
         url: Url,
         headers: Headers,
         channel_id: &str,
         registration_id: &str,
         app_server_key: &Option<String>,
-    ) -> error::Result<RegisterResponse> {
+    ) -> error::Result<T>
+    where
+        T: for<'a> Deserialize<'a>,
+    {
         let aps = if let BridgeType::Apns = &self.options.bridge_type {
             Some(Apns {
                 mutable_content: 1,
@@ -272,7 +291,7 @@ impl Connection for ConnectHttp {
         ConnectHttp { options }
     }
 
-    fn subscribe_new(
+    fn register(
         &self,
         channel_id: &str,
         registration_id: &str,
@@ -297,14 +316,14 @@ impl Connection for ConnectHttp {
         )
     }
 
-    fn subscribe_with_uaid(
+    fn subscribe(
         &self,
         channel_id: &str,
         uaid: &str,
         auth: &str,
         registration_id: &str,
         app_server_key: &Option<String>,
-    ) -> error::Result<RegisterResponse> {
+    ) -> error::Result<SubscribeResponse> {
         let url = format!(
             "{}://{}/v1/{}/{}/registration/{}/subscription",
             &self.options.http_protocol,
@@ -461,9 +480,9 @@ mod test {
                 .create();
             let conn = ConnectHttp::connect(config.clone());
             let channel_id = hex::encode(crate::internal::crypto::get_random_bytes(16).unwrap());
-            let response = conn.subscribe_new(&channel_id, SENDER_ID, &None).unwrap();
+            let response = conn.register(&channel_id, SENDER_ID, &None).unwrap();
             ap_mock.assert();
-            assert_eq!(response.uaid, Some(DUMMY_UAID.to_string()));
+            assert_eq!(response.uaid, DUMMY_UAID);
         }
         // Second subscription, after first is send with uaid
         {
@@ -482,9 +501,9 @@ mod test {
                 .create();
             let conn = ConnectHttp::connect(config.clone());
             let channel_id = hex::encode(crate::internal::crypto::get_random_bytes(16).unwrap());
-            let response = conn.subscribe_new(&channel_id, SENDER_ID, &None).unwrap();
+            let response = conn.register(&channel_id, SENDER_ID, &None).unwrap();
             ap_mock.assert();
-            assert_eq!(response.uaid, Some(DUMMY_UAID.to_string()));
+            assert_eq!(response.uaid, DUMMY_UAID);
             assert_eq!(response.channel_id, DUMMY_CHID);
             assert_eq!(response.endpoint, "https://example.com/update");
 
@@ -509,11 +528,9 @@ mod test {
             .create();
 
             let response = conn
-                .subscribe_with_uaid(&channel_id, DUMMY_UAID, SECRET, SENDER_ID, &None)
+                .subscribe(&channel_id, DUMMY_UAID, SECRET, SENDER_ID, &None)
                 .unwrap();
             ap_mock_2.assert();
-            assert_eq!(response.uaid, Some(DUMMY_UAID.to_string()));
-            assert_eq!(response.channel_id, DUMMY_CHID2);
             assert_eq!(response.endpoint, "https://example.com/otherendpoint");
         }
         // UNSUBSCRIBE - Single channel
@@ -612,9 +629,7 @@ mod test {
                 .create();
             let conn = ConnectHttp::connect(config);
             let channel_id = hex::encode(crate::internal::crypto::get_random_bytes(16).unwrap());
-            let err = conn
-                .subscribe_new(&channel_id, SENDER_ID, &None)
-                .unwrap_err();
+            let err = conn.register(&channel_id, SENDER_ID, &None).unwrap_err();
             ap_mock.assert();
             assert!(matches!(err, error::PushError::AlreadyRegisteredError));
         }
