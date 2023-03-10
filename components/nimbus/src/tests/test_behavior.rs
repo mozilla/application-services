@@ -143,16 +143,16 @@ mod interval_data_tests {
             bucket_count: 7,
             starting_instant: Utc::now(),
         };
-        let result = interval.increment();
+        let result = interval.increment(1);
 
-        assert!(result.is_err());
+        assert!(result.is_ok());
         Ok(())
     }
 
     #[test]
     fn increment_increments_front_bucket_if_it_exists() -> Result<()> {
         let mut interval = IntervalData::new(7);
-        interval.increment().ok();
+        interval.increment(1).ok();
 
         assert_eq!(interval.buckets[0], 1);
         Ok(())
@@ -170,12 +170,12 @@ mod interval_data_tests {
     #[test]
     fn rotate_removes_buckets_when_max_is_reached() -> Result<()> {
         let mut interval = IntervalData::new(3);
-        interval.increment().ok();
+        interval.increment(1).ok();
         interval.rotate(2).ok();
-        interval.increment().ok();
+        interval.increment(1).ok();
         interval.rotate(1).ok();
-        interval.increment().ok();
-        interval.increment().ok();
+        interval.increment(1).ok();
+        interval.increment(1).ok();
 
         assert_eq!(interval.buckets.len(), 3);
         assert_eq!(interval.buckets[0], 2);
@@ -206,7 +206,7 @@ mod single_interval_counter_tests {
     #[test]
     fn test_increment() -> Result<()> {
         let mut counter = SingleIntervalCounter::new(IntervalConfig::new(7, Interval::Days));
-        counter.increment().ok();
+        counter.increment(1).ok();
 
         assert_eq!(counter.data.buckets[0], 1);
         Ok(())
@@ -431,6 +431,65 @@ mod single_interval_counter_tests {
 
         assert_eq!(counter.data.buckets.len(), 3);
     }
+
+    #[test]
+    fn test_increment_events_in_the_past() -> Result<()> {
+        let t0: DateTime<Utc> = DateTime::parse_from_rfc3339("2023-03-10T00:00:00Z")
+            .unwrap()
+            .with_timezone(&Utc);
+
+        let mut counter: SingleIntervalCounter = SingleIntervalCounter {
+            data: IntervalData {
+                bucket_count: 7,
+                buckets: VecDeque::with_capacity(7),
+                starting_instant: t0,
+            },
+            config: IntervalConfig::new(7, Interval::Days),
+        };
+
+        // t0 + 12h
+        let then = DateTime::parse_from_rfc3339("2023-03-10T12:00:00Z")
+            .unwrap()
+            .with_timezone(&Utc);
+        assert_eq!(Interval::Days.num_rotations(then, t0)?, 0);
+        counter.increment_then(then, 1)?;
+        assert_eq!(counter.data.buckets[0], 1u64);
+
+        // t0 - 12h
+        let then = DateTime::parse_from_rfc3339("2023-03-09T12:00:00Z")
+            .unwrap()
+            .with_timezone(&Utc);
+        assert_eq!(Interval::Days.num_rotations(then, t0)?, 0);
+        counter.increment_then(then, 2)?;
+        assert_eq!(counter.data.buckets[1], 2u64);
+
+        // t0 - 1d12h
+        let then = DateTime::parse_from_rfc3339("2023-03-08T12:00:00Z")
+            .unwrap()
+            .with_timezone(&Utc);
+        assert_eq!(Interval::Days.num_rotations(then, t0)?, 1);
+        counter.increment_then(then, 3)?;
+        assert_eq!(counter.data.buckets[2], 3u64);
+
+        // Out of bounds
+        // t0 + 1d12h
+        let then = DateTime::parse_from_rfc3339("2023-03-11T12:00:00Z")
+            .unwrap()
+            .with_timezone(&Utc);
+        assert_eq!(Interval::Days.num_rotations(then, t0)?, -1);
+        assert!(counter.increment_then(then, 1).is_err());
+
+        // t0 - 1y
+        let then = DateTime::parse_from_rfc3339("2022-03-10T00:00:00Z")
+            .unwrap()
+            .with_timezone(&Utc);
+        assert_eq!(Interval::Days.num_rotations(then, t0)?, 365);
+        assert!(counter.increment_then(then, 1).is_ok());
+        // buckets.len() grows up to a maximum of bucket_count.
+        assert_eq!(counter.data.buckets.len(), 3);
+
+        Ok(())
+    }
 }
 
 #[cfg(test)]
@@ -445,7 +504,7 @@ mod multi_interval_counter_tests {
             SingleIntervalCounter::new(IntervalConfig::new(12, Interval::Months)),
             SingleIntervalCounter::new(IntervalConfig::new(28, Interval::Days)),
         ]);
-        counter.increment().ok();
+        counter.increment(1).ok();
 
         assert_eq!(
             counter
@@ -568,7 +627,7 @@ mod multi_interval_counter_tests {
             .intervals
             .iter_mut()
             .for_each(|(_, c)| c.data.starting_instant = d1);
-        counter.increment()?;
+        counter.increment(1)?;
         counter.maybe_advance(d2)?;
 
         assert_eq!(
@@ -596,7 +655,7 @@ mod multi_interval_counter_tests {
             .intervals
             .iter_mut()
             .for_each(|(_, c)| c.data.starting_instant = d1);
-        counter.increment()?;
+        counter.increment(1)?;
         counter.maybe_advance(d2)?;
 
         assert_eq!(
@@ -624,7 +683,7 @@ mod multi_interval_counter_tests {
             .intervals
             .iter_mut()
             .for_each(|(_, c)| c.data.starting_instant = d1);
-        counter.increment()?;
+        counter.increment(1)?;
         counter.maybe_advance(d2)?;
 
         assert_eq!(
@@ -647,7 +706,7 @@ mod multi_interval_counter_tests {
             .intervals
             .iter_mut()
             .for_each(|(_, c)| c.data.starting_instant = d1);
-        counter.increment()?;
+        counter.increment(1)?;
         counter.maybe_advance(d2)?;
 
         assert_eq!(
@@ -675,7 +734,7 @@ mod multi_interval_counter_tests {
             .intervals
             .iter_mut()
             .for_each(|(_, c)| c.data.starting_instant = d1);
-        counter.increment()?;
+        counter.increment(1)?;
         counter.maybe_advance(d2)?;
 
         assert_eq!(
@@ -703,7 +762,7 @@ mod multi_interval_counter_tests {
             .intervals
             .iter_mut()
             .for_each(|(_, c)| c.data.starting_instant = d1);
-        counter.increment()?;
+        counter.increment(1)?;
         counter.maybe_advance(d2)?;
 
         assert_eq!(
@@ -1162,9 +1221,9 @@ mod event_store_tests {
             SingleIntervalCounter::new(IntervalConfig::new(28, Interval::Days)),
         ]);
 
-        counter1.increment()?;
+        counter1.increment(1)?;
         counter1.maybe_advance(Utc::now() + Duration::days(10))?;
-        counter1.increment()?;
+        counter1.increment(1)?;
         counter1.maybe_advance(Utc::now() + Duration::days(20))?;
 
         let mut store = EventStore::from(vec![("event-1".to_string(), counter1)]);

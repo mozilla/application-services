@@ -142,15 +142,25 @@ impl IntervalData {
         data
     }
 
-    pub fn increment(&mut self) -> Result<()> {
-        match self.buckets.front_mut() {
-            Some(x) => *x += 1,
-            None => {
-                return Err(NimbusError::BehaviorError(BehaviorError::InvalidState(
-                    "Interval buckets cannot be empty".to_string(),
-                )))
-            }
-        };
+    pub fn increment(&mut self, count: u64) -> Result<()> {
+        self.increment_at(0, count)
+    }
+
+    pub fn increment_at(&mut self, index: usize, count: u64) -> Result<()> {
+        if index < self.bucket_count {
+            let buckets = &mut self.buckets;
+            match buckets.get_mut(index) {
+                Some(x) => *x += count,
+                None => {
+                    if buckets.len() < index {
+                        for _ in buckets.len()..index {
+                            buckets.push_back(0);
+                        }
+                    }
+                    self.buckets.insert(index, count)
+                }
+            };
+        }
         Ok(())
     }
 
@@ -190,8 +200,31 @@ impl SingleIntervalCounter {
         Self::new(config)
     }
 
-    pub fn increment(&mut self) -> Result<()> {
-        self.data.increment()
+    pub fn increment_then(&mut self, then: DateTime<Utc>, count: u64) -> Result<()> {
+        use std::cmp::Ordering;
+        let now = self.data.starting_instant;
+        let rotations = self.config.interval.num_rotations(then, now)?;
+        match rotations.cmp(&0) {
+            Ordering::Less => {
+                /* We can't increment in the future */
+                return Err(NimbusError::BehaviorError(BehaviorError::InvalidState(
+                    "Cannot increment events far into the future".to_string(),
+                )));
+            }
+            Ordering::Equal => {
+                if now < then {
+                    self.data.increment_at(0, count)?;
+                } else {
+                    self.data.increment_at(1, count)?;
+                }
+            }
+            Ordering::Greater => self.data.increment_at(1 + rotations as usize, count)?,
+        }
+        Ok(())
+    }
+
+    pub fn increment(&mut self, count: u64) -> Result<()> {
+        self.data.increment(count)
     }
 
     pub fn maybe_advance(&mut self, now: DateTime<Utc>) -> Result<()> {
@@ -223,10 +256,16 @@ impl MultiIntervalCounter {
         }
     }
 
-    pub fn increment(&mut self) -> Result<()> {
+    pub fn increment_then(&mut self, then: DateTime<Utc>, count: u64) -> Result<()> {
         self.intervals
             .iter_mut()
-            .try_for_each(|(_, v)| v.increment())
+            .try_for_each(|(_, v)| v.increment_then(then, count))
+    }
+
+    pub fn increment(&mut self, count: u64) -> Result<()> {
+        self.intervals
+            .iter_mut()
+            .try_for_each(|(_, v)| v.increment(count))
     }
 
     pub fn maybe_advance(&mut self, now: DateTime<Utc>) -> Result<()> {
@@ -448,7 +487,7 @@ impl EventStore {
             }
         };
         counter.maybe_advance(now)?;
-        counter.increment()
+        counter.increment(1)
     }
 
     pub fn persist_data(&self, db: &Database) -> Result<()> {
