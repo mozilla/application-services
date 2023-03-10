@@ -10,6 +10,7 @@ from . import (
     publications_to_artifact_paths, publications_to_artifact_map_paths
 )
 from ..build_config import get_version
+from ..beetmover import get_maven_bucket
 
 transforms = TransformSequence()
 
@@ -71,20 +72,7 @@ def beetmover_task(config, tasks):
         task["worker"]["max-run-time"] = 600
         task["worker"]["version"] = get_version(config.params)
         task["description"] = task["description"].format(task["attributes"]["buildconfig"]["name"])
-        if config.params['level'] == '3':
-            if config.params.get('preview-build') is None:
-                task["worker"]["bucket"] = "maven-production"
-            else:
-                # Once we setup access, these should be published to the nightly maven repos
-                # task["worker"]["bucket"] = "maven-nightly-production"
-                task["worker"]["bucket"] = "maven-production"
-        else:
-            if config.params.get('preview-build') is None:
-                task["worker"]["bucket"] = "maven-staging"
-            else:
-                # Once we setup access, these should be published to the nightly maven repos
-                # task["worker"]["bucket"] = "maven-nightly-staging"
-                task["worker"]["bucket"] = "maven-staging"
+        task["worker"]["bucket"] = get_maven_bucket(config.params)
         yield task
 
 

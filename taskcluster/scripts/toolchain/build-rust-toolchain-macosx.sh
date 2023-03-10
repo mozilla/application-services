@@ -10,24 +10,23 @@
 
 set -ex
 
+# Clear out any existing Rust files
+rm -fr ~/.cargo ~/.rustup
 # Install rustup
-RUSTUP_PLATFORM='x86_64-unknown-linux-gnu'
-RUSTUP_VERSION='1.24.1'
-RUSTUP_SHA256='fb3a7425e3f10d51f0480ac3cdb3e725977955b2ba21c9bdac35309563b115e8'
+RUSTUP_PLATFORM=x86_64-apple-darwin
+RUSTUP_VERSION=1.24.1
+RUSTUP_SHA256=d53e8000c8663e1704a2071f7042be917bc90cbc89c11e11c5dfdcb35b84c00e
 curl -sfSL --retry 5 --retry-delay 10 -O "https://static.rust-lang.org/rustup/archive/${RUSTUP_VERSION}/${RUSTUP_PLATFORM}/rustup-init"
-echo "${RUSTUP_SHA256} *rustup-init" | sha256sum -c -
+echo "${RUSTUP_SHA256} *rustup-init" | shasum -a 256 -c -
 chmod +x rustup-init
-./rustup-init -y --no-modify-path --default-toolchain none
-
-# cd to the app-services directory, so that rustup will see our `rust-toolchain.toml` file
-cd "$VCS_PATH"
-# `rustup --version` causes the compilers and components from `rust-toolchain.toml` to be installed
-rustup --version
-# cross-compilation targets
-rustup target add x86_64-apple-darwin
-rustup target add x86_64-pc-windows-gnu
-
-# Tar everything into UPLOAD_DIR
-cd "$HOME"
-mkdir -p "$UPLOAD_DIR"
-tar -czf "$UPLOAD_DIR"/rust.tar.gz .rustup .cargo
+./rustup-init -y --no-modify-path
+rm rustup-init
+# shellcheck source=/dev/null
+source "$HOME"/.cargo/env
+# So long as this is executed after the checkout it will use the version specified in rust-toolchain.yaml
+rustup update
+# TODO: re-enable this once we split out the toolchain tasks from swift-build
+# # Tar everything into UPLOAD_DIR
+# cd "$HOME"
+# mkdir -p "$UPLOAD_DIR"
+# tar -czf "$UPLOAD_DIR"/rust.tar.gz .rustup .cargo

@@ -7,6 +7,7 @@
 loader: taskgraph.loader.transform:loader
 
 transforms:
+  - app_services_taskgraph.transforms.appservices:transforms
   - taskgraph.transforms.job:transforms
   - taskgraph.transforms.task:transforms
 
@@ -14,36 +15,41 @@ kind-dependencies:
   - toolchain
 
 tasks:
-  pr:
+  build:
     attributes:
       run-on-pr-type: all
       resource-monitor: true
     needs-sccache: false # TODO: Bug 1623426 deal with this once we're in prod
     run-on-tasks-for: [github-pull-request, github-release, cron]
-    description: Build and test (Android - linux-x86-64)
+    description: Build and test (Swift)
     scopes:
       - project:releng:services/tooltool/api/download/internal
     worker-type: b-linux
     worker:
       docker-image: { in-tree: linux }
       max-run-time: 1800
-      env: {}
+      artifacts:
+        - name: "public/build/nimbus-fml.zip"
+          path: "/builds/worker/checkouts/vcs/build/nimbus-fml.zip"
+          type: "file"
+        - name: "public/build/nimbus-fml.sha256"
+          path: "/builds/worker/checkouts/vcs/build/nimbus-fml.sha256"
+          type: "file"
     run:
-      pre-gradlew:
+      pre-commands:
         - [git, submodule, update, --init]
         - [source, taskcluster/scripts/toolchain/setup-fetched-rust-toolchain.sh]
-        - [source, taskcluster/scripts/toolchain/cross-compile-setup.sh]
-        - [source, taskcluster/scripts/toolchain/copy-libs-dir.sh, libs]
-        - [bash, '-c', 'echo "rust.targets=linux-x86-64\n" > local.properties']
-      gradlew:
-        - 'clean'
-        - 'assembleDebug'
-        - 'testDebug'
-      using: gradlew
+        - [rsync, '-a', /builds/worker/fetches/libs/, /builds/worker/checkouts/vcs/libs/]
+      commands:
+        - [
+            "/builds/worker/checkouts/vcs/taskcluster/scripts/build-nimbus-fml.py",
+            "/builds/worker/checkouts/vcs/build/",
+          ]
+      using: run-commands
       use-caches: true
-
     fetches:
       toolchain:
-        - android-libs
         - desktop-linux-libs
         - rust
+    routes:
+      - index.project.application-services.v2.nimbus-fml.{appservices_version}

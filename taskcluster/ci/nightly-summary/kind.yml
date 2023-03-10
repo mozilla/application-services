@@ -5,9 +5,11 @@
 loader: taskgraph.loader.transform:loader
 
 kind-dependencies:
-  - branch-build-as
-  - branch-build-firefox-android
-  - branch-build-fenix
+  - module-build
+  - signing
+  - beetmover
+  - swift
+  - nimbus-fml
 
 transforms:
   - app_services_taskgraph.transforms.deps_complete:transforms

@@ -32,7 +32,7 @@ def publications_to_artifact_map_paths(name, version, publications, preview_buil
             artifact_filename = _artifact_filename(publication_name, version, extension)
             if preview_build is not None:
                 # Both nightly and other preview builds are places in separate directory
-                destination = "maven2/org/mozilla/appservices/nightlies/{}/{}/{}".format(publication_name, version, artifact_filename)
+                destination = "maven2/org/mozilla/appservices/nightly/{}/{}/{}".format(publication_name, version, artifact_filename)
             else:
                 destination = "maven2/org/mozilla/appservices/{}/{}/{}".format(publication_name, version, artifact_filename)
             build_map_paths[f"public/build/{artifact_filename}"] = {

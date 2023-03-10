@@ -20,6 +20,11 @@ workers:
       implementation: docker-worker
       os: linux
       worker-type: 'b-linux-gcp'
+    b-osx:
+      provisioner: releng-hardware
+      implementation: generic-worker
+      os: macosx
+      worker-type: applicationservices-b-1-osx1015
     images:
       provisioner: 'app-services-{level}'
       implementation: docker-worker
