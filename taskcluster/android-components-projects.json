@@ -112,6 +112,5 @@
     "samples-sync",
     "samples-sync-logins",
     "samples-toolbar",
-    "samples-dataprotect",
-    "tooling-nimbus-gradle"
+    "samples-dataprotect"
 ]
