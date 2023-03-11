@@ -30,6 +30,7 @@ impl ProcessOutgoingRecordImpl for OutgoingAddressesImpl {
         let data_sql = format!(
             "SELECT
                 {common_cols},
+                unknown_fields,
                 sync_change_counter
             FROM addresses_data
             WHERE sync_change_counter > 0
@@ -131,6 +132,23 @@ mod tests {
                         "timeLastUsed": 0,
                         "timeLastModified": 0,
                         "timesUsed": 0,
+                        "version": 1,
+                    }
+                },
+                "D" : {
+                    "id": expand_test_guid('D'),
+                    "entry": {
+                        "given-name": "john",
+                        "family-name": "doe",
+                        "street-address": "85 Pike St",
+                        "address-level2": "Seattle, WA",
+                        "country": "United States",
+                        "timeCreated": 0,
+                        "timeLastUsed": 0,
+                        "timeLastModified": 0,
+                        "timesUsed": 0,
+                        "foo": "bar",
+                        "baz": "qux",
                         "version": 1,
                     }
                 }
@@ -252,6 +270,65 @@ mod tests {
             &ao,
             &test_record.guid,
             DATA_TABLE_NAME,
+            STAGING_TABLE_NAME,
+            COLLECTION_NAME.into(),
+        );
+    }
+
+    #[test]
+    fn test_outgoing_roundtrip_unknown() {
+        let mut db = new_syncable_mem_db();
+        let tx = db.transaction().expect("should get tx");
+        let ao = OutgoingAddressesImpl {};
+
+        // create synced record with non-zero sync_change_counter
+        let mut test_record = test_record('D');
+        let initial_change_counter_val = 2;
+        test_record.metadata.sync_change_counter = initial_change_counter_val;
+        assert!(add_internal_address(&tx, &test_record).is_ok());
+        test_insert_mirror_record(&tx, test_record.clone());
+        exists_with_counter_value_in_table(
+            &tx,
+            DATA_TABLE_NAME,
+            &test_record.guid,
+            initial_change_counter_val,
+        );
+
+        let outgoing = &ao
+            .fetch_outgoing_records(&tx, COLLECTION_NAME.into())
+            .unwrap();
+        // Kinda annoying to add every field here, probably a better way but i'll leave this for now
+        let test_payload = json!({
+            "id": "DDDDDDDDDDDD",
+            "entry" : {
+                "given-name": "john",
+                "family-name": "doe",
+                "street-address": "85 Pike St",
+                "address-level2": "Seattle, WA",
+                "country": "United States",
+                "timeCreated": 0,
+                "timeLastUsed": 0,
+                "timeLastModified": 0,
+                "timesUsed": 0,
+                "foo": "bar",
+                "baz": "qux",
+                "version": 1,
+                "organization": "",
+                "postal-code": "",
+                "email": "",
+                "tel": "",
+                "address-level1": "",
+                "address-level3": "",
+                "additional-name": "",
+            }
+        });
+        assert_eq!(outgoing.changes[0].payload, test_payload.to_string());
+        do_test_outgoing_synced_with_local_change(
+            &tx,
+            &ao,
+            &test_record.guid,
+            DATA_TABLE_NAME,
+            MIRROR_TABLE_NAME,
             STAGING_TABLE_NAME,
             COLLECTION_NAME.into(),
         );

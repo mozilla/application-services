@@ -9,6 +9,7 @@ pub mod outgoing;
 use super::engine::{ConfigSyncEngine, EngineConfig, SyncEngineStorageImpl};
 use super::{
     MergeResult, Metadata, ProcessIncomingRecordImpl, ProcessOutgoingRecordImpl, SyncRecord,
+    UnknownFields,
 };
 use crate::db::models::address::InternalAddress;
 use crate::error::*;
@@ -96,10 +97,16 @@ struct PayloadEntry {
     #[serde(rename = "timesUsed")]
     pub times_used: i64,
     pub version: u32, // always 3 for credit-cards
+    // Fields that the current schema did not expect, we store them only internally
+    // to round-trip them back to sync without processing them in any way
+    // Additional "unknown" round-tripped fields
+    #[serde(flatten)]
+    unknown_fields: UnknownFields,
 }
 
 impl InternalAddress {
     fn from_payload(p: AddressPayload) -> Result<Self> {
+        // TODO - should it always be version 1?
         if p.entry.version != 1 {
             // Always been version 1
             return Err(Error::InvalidSyncPayload(format!(
@@ -107,6 +114,13 @@ impl InternalAddress {
                 p.entry.version
             )));
         }
+
+        // InternalAddresses won't ever use unknown fields, so we just store it
+        // as a string to make it easier when we roundtrip
+        let unknown: Option<String> = match p.entry.unknown_fields.is_empty() {
+            true => None,
+            false => Some(serde_json::to_string(&p.entry.unknown_fields)?),
+        };
 
         Ok(InternalAddress {
             guid: p.id,
@@ -129,10 +143,15 @@ impl InternalAddress {
                 times_used: p.entry.times_used,
                 sync_change_counter: 0,
             },
+            unknown_fields: unknown,
         })
     }
 
     fn into_payload(self) -> Result<AddressPayload> {
+        let unknown = match &self.unknown_fields {
+            Some(s) => serde_json::from_str::<UnknownFields>(s)?,
+            None => Default::default(),
+        };
         Ok(AddressPayload {
             id: self.guid,
             entry: PayloadEntry {
@@ -152,6 +171,7 @@ impl InternalAddress {
                 time_last_used: self.metadata.time_last_used,
                 time_last_modified: self.metadata.time_last_modified,
                 times_used: self.metadata.times_used,
+                unknown_fields: unknown,
                 version: 1,
             },
         })
@@ -206,6 +226,7 @@ impl SyncRecord for InternalAddress {
         sync_merge_field_check!(country, incoming, local, mirror, merged_record);
         sync_merge_field_check!(tel, incoming, local, mirror, merged_record);
         sync_merge_field_check!(email, incoming, local, mirror, merged_record);
+        sync_merge_field_check!(unknown_fields, incoming, local, mirror, merged_record);
 
         merged_record.metadata = incoming.metadata;
         merged_record

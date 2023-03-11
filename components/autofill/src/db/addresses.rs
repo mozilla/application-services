@@ -44,6 +44,7 @@ pub(crate) fn add_address(
             time_last_modified: now,
             ..Default::default()
         },
+        unknown_fields: None,
     };
     add_internal_address(&tx, &address)?;
     tx.commit()?;
@@ -55,9 +56,11 @@ pub(crate) fn add_internal_address(tx: &Transaction<'_>, address: &InternalAddre
         &format!(
             "INSERT INTO addresses_data (
                 {common_cols},
+                unknown_fields,
                 sync_change_counter
             ) VALUES (
                 {common_vals},
+                :unknown_fields,
                 :sync_change_counter
             )",
             common_cols = ADDRESS_COMMON_COLS,
@@ -82,6 +85,7 @@ pub(crate) fn add_internal_address(tx: &Transaction<'_>, address: &InternalAddre
             ":time_last_modified": address.metadata.time_last_modified,
             ":times_used": address.metadata.times_used,
             ":sync_change_counter": address.metadata.sync_change_counter,
+            ":unknown_fields": address.unknown_fields,
         },
     )?;
     Ok(())
@@ -91,6 +95,7 @@ pub(crate) fn get_address(conn: &Connection, guid: &Guid) -> Result<InternalAddr
     let sql = format!(
         "SELECT
             {common_cols},
+            unknown_fields,
             sync_change_counter
         FROM addresses_data
         WHERE guid = :guid",
@@ -107,6 +112,7 @@ pub(crate) fn get_all_addresses(conn: &Connection) -> Result<Vec<InternalAddress
     let sql = format!(
         "SELECT
             {common_cols},
+            unknown_fields,
             sync_change_counter
         FROM addresses_data",
         common_cols = ADDRESS_COMMON_COLS

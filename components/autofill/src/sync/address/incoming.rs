@@ -104,6 +104,7 @@ impl ProcessIncomingRecordImpl for IncomingAddressesImpl {
             l.time_last_used,
             l.time_last_modified,
             l.times_used,
+            l.unknown_fields,
             l.sync_change_counter
         FROM temp.addresses_sync_staging s
         LEFT JOIN addresses_mirror m ON s.guid = m.guid
@@ -300,6 +301,20 @@ mod tests {
                         "version": 1,
                     }
                 },
+                // XXX - All of the above tests should actually be kebab????
+                "D" : {
+                    "id": expand_test_guid('D'),
+                    "entry": {
+                        "given-name": "test1",
+                        "family-name": "test2",
+                        "street-address": "85 Pike St",
+                        "address-level2": "Seattle, WA",
+                        "country": "United States",
+                        "foo": "bar",
+                        "baz": "qux",
+                        "version": 1,
+                    }
+                }
             }};
             val.as_object().expect("literal is an object").clone()
         };
@@ -437,6 +452,33 @@ mod tests {
         let tx = db.transaction().expect("should get tx");
         let ai = IncomingAddressesImpl {};
         let record = test_record('C');
+        let bso = record.clone().into_test_incoming_bso();
+        do_test_incoming_same(&ai, &tx, record, bso);
+    }
+
+    #[test]
+    fn test_get_incoming_unknown_fields() {
+        let mut db = new_syncable_mem_db();
+        let tx = db.transaction().expect("should get tx");
+        let ai = IncomingAddressesImpl {};
+        let json = test_json_record('D');
+        let address_payload = serde_json::from_value::<AddressPayload>(json).unwrap();
+        // The incoming payload should've correctly serialized any unknown_fields into a Map<String,Value>
+        assert_eq!(address_payload.entry.unknown_fields.len(), 2);
+        assert_eq!(
+            address_payload
+                .entry
+                .unknown_fields
+                .get("foo")
+                .unwrap()
+                .as_str()
+                .unwrap(),
+            "bar"
+        );
+        let record = InternalAddress::from_payload(address_payload).unwrap();
+        // Ensure our record correctly has our "unknown" fields
+        let test_value = json! {{ "foo": "bar", "baz": "qux"}}.to_string();
+        assert_eq!(record.clone().unknown_fields.unwrap(), test_value);
         let bso = record.clone().into_test_incoming_bso();
         do_test_incoming_same(&ai, &tx, record, bso);
     }
