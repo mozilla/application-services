@@ -832,7 +832,7 @@ mod event_store_tests {
         let tmp_dir = tempfile::tempdir()?;
         let db = Database::new(&tmp_dir)?;
 
-        store.record_event("event-1".to_string(), Some(Utc::now() + Duration::days(2)))?;
+        store.record_event(1, "event-1", Some(Utc::now() + Duration::days(2)))?;
         store.persist_data(&db)?;
 
         // Rebuild the EventStore from persisted data in order to test persistence
@@ -946,7 +946,7 @@ mod event_store_tests {
     #[test]
     fn record_event_should_create_events_where_applicable() -> Result<()> {
         let mut store = EventStore::new();
-        store.record_event("test".to_string(), None)?;
+        store.record_event(1, "test", None)?;
 
         assert_eq!(
             store
@@ -1041,13 +1041,13 @@ mod event_store_tests {
             ("event-2".to_string(), counter2),
         ]);
 
-        store.record_event("event-1".to_string(), Some(Utc::now() + Duration::days(2)))?;
-        store.record_event("event-1".to_string(), Some(Utc::now() + Duration::days(3)))?;
-        store.record_event("event-1".to_string(), Some(Utc::now() + Duration::days(3)))?;
+        store.record_event(1, "event-1", Some(Utc::now() + Duration::days(2)))?;
+        store.record_event(1, "event-1", Some(Utc::now() + Duration::days(3)))?;
+        store.record_event(1, "event-1", Some(Utc::now() + Duration::days(3)))?;
 
         assert_eq!(
             store.query(
-                "event-1".to_string(),
+                "event-1",
                 Interval::Days,
                 7,
                 0,
@@ -1057,7 +1057,7 @@ mod event_store_tests {
         );
         assert_eq!(
             store.query(
-                "event-1".to_string(),
+                "event-1",
                 Interval::Days,
                 0,
                 0,
@@ -1067,7 +1067,7 @@ mod event_store_tests {
         );
         assert_eq!(
             store.query(
-                "event-1".to_string(),
+                "event-1",
                 Interval::Days,
                 7,
                 7,
@@ -1096,13 +1096,13 @@ mod event_store_tests {
             ("event-2".to_string(), counter2),
         ]);
 
-        store.record_event("event-1".to_string(), Some(Utc::now() + Duration::days(2)))?;
-        store.record_event("event-1".to_string(), Some(Utc::now() + Duration::days(3)))?;
-        store.record_event("event-1".to_string(), Some(Utc::now() + Duration::days(3)))?;
+        store.record_event(1, "event-1", Some(Utc::now() + Duration::days(2)))?;
+        store.record_event(1, "event-1", Some(Utc::now() + Duration::days(3)))?;
+        store.record_event(1, "event-1", Some(Utc::now() + Duration::days(3)))?;
 
         assert_eq!(
             store.query(
-                "event-1".to_string(),
+                "event-1",
                 Interval::Days,
                 7,
                 0,
@@ -1112,7 +1112,7 @@ mod event_store_tests {
         );
         assert_eq!(
             store.query(
-                "event-1".to_string(),
+                "event-1",
                 Interval::Days,
                 7,
                 2,
@@ -1141,13 +1141,13 @@ mod event_store_tests {
             ("event-2".to_string(), counter2),
         ]);
 
-        store.record_event("event-1".to_string(), Some(Utc::now() + Duration::days(2)))?;
-        store.record_event("event-1".to_string(), Some(Utc::now() + Duration::days(3)))?;
-        store.record_event("event-1".to_string(), Some(Utc::now() + Duration::days(3)))?;
+        store.record_event(1, "event-1", Some(Utc::now() + Duration::days(2)))?;
+        store.record_event(1, "event-1", Some(Utc::now() + Duration::days(3)))?;
+        store.record_event(1, "event-1", Some(Utc::now() + Duration::days(3)))?;
 
         assert_eq!(
             store.query(
-                "event-1".to_string(),
+                "event-1",
                 Interval::Days,
                 7,
                 0,
@@ -1157,7 +1157,7 @@ mod event_store_tests {
         );
         assert_eq!(
             store.query(
-                "event-1".to_string(),
+                "event-1",
                 Interval::Days,
                 2,
                 0,
@@ -1186,13 +1186,13 @@ mod event_store_tests {
             ("event-2".to_string(), counter2),
         ]);
 
-        store.record_event("event-1".to_string(), Some(Utc::now() + Duration::days(2)))?;
-        store.record_event("event-1".to_string(), Some(Utc::now() + Duration::days(3)))?;
-        store.record_event("event-1".to_string(), Some(Utc::now() + Duration::days(3)))?;
+        store.record_event(1, "event-1", Some(Utc::now() + Duration::days(2)))?;
+        store.record_event(1, "event-1", Some(Utc::now() + Duration::days(3)))?;
+        store.record_event(1, "event-1", Some(Utc::now() + Duration::days(3)))?;
 
         assert_eq!(
             store.query(
-                "event-1".to_string(),
+                "event-1",
                 Interval::Days,
                 7,
                 0,
@@ -1202,7 +1202,7 @@ mod event_store_tests {
         );
         assert_eq!(
             store.query(
-                "event-1".to_string(),
+                "event-1",
                 Interval::Days,
                 7,
                 2,
@@ -1230,7 +1230,7 @@ mod event_store_tests {
 
         assert_eq!(
             store.query(
-                "event-1".to_string(),
+                "event-1",
                 Interval::Days,
                 usize::MAX,
                 0,
@@ -1240,9 +1240,9 @@ mod event_store_tests {
         );
         assert_eq!(
             store.query(
-                "event-1".to_string(),
+                "event-1",
                 Interval::Days,
-                usize::MAX,
+                365,
                 21,
                 EventQueryType::LastSeen
             )?,

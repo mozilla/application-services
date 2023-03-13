@@ -889,7 +889,7 @@ fn event_store_on_targeting_attributes_is_updated_after_an_event_is_recorded() -
     let active_experiments = client.get_active_experiments()?;
     assert_eq!(active_experiments.len(), 1);
 
-    client.record_event("app.foregrounded".to_string())?;
+    client.record_event(1, "app.foregrounded".to_string())?;
 
     client.set_global_user_participation(true)?;
 

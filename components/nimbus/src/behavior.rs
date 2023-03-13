@@ -476,18 +476,27 @@ impl EventStore {
         Ok(())
     }
 
-    pub fn record_event(&mut self, event_id: String, now: Option<DateTime<Utc>>) -> Result<()> {
+    pub fn record_event(&mut self, count: u64, event_id: &str, now: Option<DateTime<Utc>>) -> Result<()> {
         let now = now.unwrap_or_else(Utc::now);
-        let counter = match self.events.get_mut(&event_id) {
-            Some(v) => v,
-            None => {
-                let new_counter = Default::default();
-                self.events.insert(event_id.clone(), new_counter);
-                self.events.get_mut(&event_id).unwrap()
-            }
-        };
+        let counter = self.get_or_create_counter(event_id);
         counter.maybe_advance(now)?;
-        counter.increment(1)
+        counter.increment(count)
+    }
+
+    pub fn record_past_event(&mut self, count: u64, event_id: &str, now: Option<DateTime<Utc>>, duration: Duration) -> Result<()> {
+        let now = now.unwrap_or_else(Utc::now);
+        let then = now - duration;
+        let counter = self.get_or_create_counter(&event_id);
+        counter.maybe_advance(now)?;
+        counter.increment_then(then, count)
+    }
+
+    fn get_or_create_counter(&mut self, event_id: &str) -> &mut MultiIntervalCounter {
+        if !self.events.contains_key(event_id) {
+            let new_counter = Default::default();
+            self.events.insert(event_id.to_string(), new_counter);
+        }
+        return self.events.get_mut(event_id).unwrap();
     }
 
     pub fn persist_data(&self, db: &Database) -> Result<()> {
@@ -508,13 +517,13 @@ impl EventStore {
 
     pub fn query(
         &mut self,
-        event_id: String,
+        event_id: &str,
         interval: Interval,
         num_buckets: usize,
         starting_bucket: usize,
         query_type: EventQueryType,
     ) -> Result<f64> {
-        if let Some(counter) = self.events.get_mut(&event_id) {
+        if let Some(counter) = self.events.get_mut(event_id) {
             counter.maybe_advance(Utc::now()).unwrap();
             if let Some(single_counter) = counter.intervals.get(&interval) {
                 let safe_range = 0..single_counter.data.buckets.len();

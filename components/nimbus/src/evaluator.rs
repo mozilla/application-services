@@ -371,7 +371,7 @@ fn query_event_store(
     let (event, interval, num_buckets, starting_bucket) = query_type.validate_arguments(args)?;
 
     Ok(json!(event_store.lock().unwrap().query(
-        event,
+        &event,
         interval,
         num_buckets,
         starting_bucket,
