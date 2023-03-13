@@ -71,11 +71,23 @@ extension Nimbus: NimbusQueues {
     }
 }
 
-extension Nimbus: NimbusEvents {
+extension Nimbus: NimbusEventStore {
+    public var events: NimbusEventStore {
+        self
+    }
+
     public func recordEvent(_ eventId: String) {
+        recordEvent(1, eventId)
+    }
+
+    public func recordEvent(_ count: Int, _ eventId: String) {
         _ = catchAll(dbQueue) { _ in
-            try self.nimbusClient.recordEvent(eventId: eventId)
+            try self.nimbusClient.recordEvent(count: Int64(count), eventId: eventId)
         }
+    }
+
+    public func recordPastEvent(_ count: Int, _ eventId: String, _ timeAgo: TimeInterval) throws {
+        try nimbusClient.recordPastEvent(count: Int64(count), eventId: eventId, secondsAgo: Int64(timeAgo))
     }
 
     public func clearEvents() {
@@ -438,7 +450,11 @@ public extension NimbusDisabled {
 
     func recordExposureEvent(featureId _: String) {}
 
+    func recordEvent(_: Int, _: String) {}
+
     func recordEvent(_: String) {}
+
+    func recordPastEvent(_: Int, _: String, _: TimeInterval) {}
 
     func clearEvents() {}
 

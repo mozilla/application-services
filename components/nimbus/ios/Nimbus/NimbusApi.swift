@@ -17,7 +17,7 @@ import Glean
 ///
 public protocol NimbusInterface: FeaturesInterface, NimbusStartup,
     NimbusUserConfiguration, NimbusBranchInterface, GleanPlumbProtocol,
-    NimbusEvents, NimbusQueues {}
+    NimbusEventStore, NimbusQueues {}
 
 public typealias NimbusApi = NimbusInterface
 
@@ -144,7 +144,17 @@ public protocol NimbusUserConfiguration {
     func getAvailableExperiments() -> [AvailableExperiment]
 }
 
-public protocol NimbusEvents {
+public protocol NimbusEventStore {
+    /// Records an event to the Nimbus event store.
+    ///
+    /// The method obtains the event counters for the `eventId` that is passed in, advances them if
+    /// needed, then increments the counts by `count`. If an event counter does not exist for the `eventId`,
+    /// one will be created.
+    ///
+    /// - Parameter count the number of events seen just now. This is usually 1.
+    /// - Parameter eventId string representing the id of the event which should be recorded.
+    func recordEvent(_ count: Int, _ eventId: String)
+
     /// Records an event to the Nimbus event store.
     ///
     /// The method obtains the event counters for the `eventId` that is passed in, advances them if
@@ -154,11 +164,23 @@ public protocol NimbusEvents {
     /// - Parameter eventId string representing the id of the event which should be recorded.
     func recordEvent(_ eventId: String)
 
+    /// Records an event as if it were emitted in the past.
+    ///
+    /// This method is only likely useful during testing, and so is by design synchronous.
+    ///
+    /// - Parameter count the number of events seen just now. This is usually 1.
+    /// - Parameter eventId string representing the id of the event which should be recorded.
+    /// - Parameter timeAgo the duration subtracted from now when the event are said to have happened.
+    /// - Throws NimbusError if timeAgo is negative.
+    func recordPastEvent(_ count: Int, _ eventId: String, _ timeAgo: TimeInterval) throws
+
     /// Clears the Nimbus event store.
     ///
     /// This should only be used in testing or cases where the previous event store is no longer viable.
     func clearEvents()
 }
+
+public typealias NimbusEvents = NimbusEventStore
 
 public protocol NimbusQueues {
     /// Waits for the fetch queue to complete
