@@ -589,7 +589,12 @@ impl NimbusClient {
     /// recorded `seconds_ago` in the past. This makes it very useful for testing.
     pub fn record_past_event(&self, count: i64, event_id: String, seconds_ago: i64) -> Result<()> {
         let mut event_store = self.event_store.lock().unwrap();
-        event_store.record_past_event(count as u64, &event_id, None, chrono::Duration::seconds(seconds_ago))?;
+        event_store.record_past_event(
+            count as u64,
+            &event_id,
+            None,
+            chrono::Duration::seconds(seconds_ago),
+        )?;
         event_store.persist_data(self.db()?)?;
         Ok(())
     }

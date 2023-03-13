@@ -283,7 +283,7 @@ impl Default for MultiIntervalCounter {
                 interval: Interval::Minutes,
             }),
             SingleIntervalCounter::new(IntervalConfig {
-                bucket_count: 24,
+                bucket_count: 72,
                 interval: Interval::Hours,
             }),
             SingleIntervalCounter::new(IntervalConfig {
@@ -422,6 +422,13 @@ impl EventQueryType {
             Self::LastSeen => self.validate_last_seen_arguments(args)?,
         })
     }
+
+    fn error_value(&self) -> f64 {
+        match self {
+            Self::LastSeen => f64::MAX,
+            _ => 0.0,
+        }
+    }
 }
 
 #[derive(Default, Serialize, Deserialize, Debug, Clone)]
@@ -476,17 +483,28 @@ impl EventStore {
         Ok(())
     }
 
-    pub fn record_event(&mut self, count: u64, event_id: &str, now: Option<DateTime<Utc>>) -> Result<()> {
+    pub fn record_event(
+        &mut self,
+        count: u64,
+        event_id: &str,
+        now: Option<DateTime<Utc>>,
+    ) -> Result<()> {
         let now = now.unwrap_or_else(Utc::now);
         let counter = self.get_or_create_counter(event_id);
         counter.maybe_advance(now)?;
         counter.increment(count)
     }
 
-    pub fn record_past_event(&mut self, count: u64, event_id: &str, now: Option<DateTime<Utc>>, duration: Duration) -> Result<()> {
+    pub fn record_past_event(
+        &mut self,
+        count: u64,
+        event_id: &str,
+        now: Option<DateTime<Utc>>,
+        duration: Duration,
+    ) -> Result<()> {
         let now = now.unwrap_or_else(Utc::now);
         let then = now - duration;
-        let counter = self.get_or_create_counter(&event_id);
+        let counter = self.get_or_create_counter(event_id);
         counter.maybe_advance(now)?;
         counter.increment_then(then, count)
     }
@@ -528,11 +546,13 @@ impl EventStore {
             if let Some(single_counter) = counter.intervals.get(&interval) {
                 let safe_range = 0..single_counter.data.buckets.len();
                 if !safe_range.contains(&starting_bucket) {
-                    return Ok(0.0);
+                    return Ok(query_type.error_value());
                 }
-                let buckets = single_counter.data.buckets.range(
-                    starting_bucket..usize::min(num_buckets, single_counter.data.buckets.len()),
+                let max = usize::min(
+                    num_buckets + starting_bucket,
+                    single_counter.data.buckets.len(),
                 );
+                let buckets = single_counter.data.buckets.range(starting_bucket..max);
                 return query_type.perform_query(buckets, num_buckets);
             }
         }

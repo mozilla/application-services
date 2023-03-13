@@ -1046,33 +1046,15 @@ mod event_store_tests {
         store.record_event(1, "event-1", Some(Utc::now() + Duration::days(3)))?;
 
         assert_eq!(
-            store.query(
-                "event-1",
-                Interval::Days,
-                7,
-                0,
-                EventQueryType::Sum
-            )?,
+            store.query("event-1", Interval::Days, 7, 0, EventQueryType::Sum)?,
             3.0
         );
         assert_eq!(
-            store.query(
-                "event-1",
-                Interval::Days,
-                0,
-                0,
-                EventQueryType::Sum
-            )?,
+            store.query("event-1", Interval::Days, 0, 0, EventQueryType::Sum)?,
             0.0
         );
         assert_eq!(
-            store.query(
-                "event-1",
-                Interval::Days,
-                7,
-                7,
-                EventQueryType::Sum
-            )?,
+            store.query("event-1", Interval::Days, 7, 7, EventQueryType::Sum)?,
             0.0
         );
 
@@ -1239,14 +1221,97 @@ mod event_store_tests {
             10.0
         );
         assert_eq!(
-            store.query(
-                "event-1",
-                Interval::Days,
-                365,
-                21,
-                EventQueryType::LastSeen
-            )?,
+            store.query("event-1", Interval::Days, 365, 21, EventQueryType::LastSeen)?,
             f64::MAX
+        );
+
+        Ok(())
+    }
+
+    #[test]
+    fn record_past_event_should_reflect_in_queries() -> Result<()> {
+        let mut store: EventStore = Default::default();
+        let event_id = "app_launch";
+        store.record_past_event(5, event_id, None, Duration::days(1))?;
+
+        // eventSum, for all intervals
+        assert_eq!(
+            0.0,
+            store.query(event_id, Interval::Minutes, 60, 0, EventQueryType::Sum)?
+        );
+        assert_eq!(
+            0.0,
+            store.query(event_id, Interval::Hours, 24, 0, EventQueryType::Sum)?
+        );
+        assert_eq!(
+            5.0,
+            store.query(event_id, Interval::Days, 56, 0, EventQueryType::Sum)?
+        );
+        assert_eq!(
+            5.0,
+            store.query(event_id, Interval::Weeks, 1, 0, EventQueryType::Sum)?
+        );
+        assert_eq!(
+            5.0,
+            store.query(event_id, Interval::Months, 1, 0, EventQueryType::Sum)?
+        );
+        assert_eq!(
+            5.0,
+            store.query(event_id, Interval::Years, 1, 0, EventQueryType::Sum)?
+        );
+
+        // Precisely mark when the yesterday's event was.
+        assert_eq!(
+            0.0,
+            store.query(event_id, Interval::Days, 1, 0, EventQueryType::Sum)?
+        );
+        assert_eq!(
+            5.0,
+            store.query(event_id, Interval::Days, 1, 1, EventQueryType::Sum)?
+        );
+
+        assert_eq!(
+            f64::MAX,
+            store.query(event_id, Interval::Hours, 24, 0, EventQueryType::LastSeen)?
+        );
+        assert_eq!(
+            1.0,
+            store.query(event_id, Interval::Days, 56, 0, EventQueryType::LastSeen)?
+        );
+        assert_eq!(
+            0.0,
+            store.query(event_id, Interval::Weeks, 52, 0, EventQueryType::LastSeen)?
+        );
+        assert_eq!(
+            0.0,
+            store.query(event_id, Interval::Months, 12, 0, EventQueryType::LastSeen)?
+        );
+        assert_eq!(
+            0.0,
+            store.query(event_id, Interval::Years, 12, 0, EventQueryType::LastSeen)?
+        );
+
+        let mut store: EventStore = Default::default();
+        store.record_past_event(5, event_id, None, Duration::weeks(1))?;
+        assert_eq!(
+            f64::MAX,
+            store.query(event_id, Interval::Hours, 24, 0, EventQueryType::LastSeen)?
+        );
+        assert_eq!(
+            7.0,
+            store.query(event_id, Interval::Days, 56, 0, EventQueryType::LastSeen)?
+        );
+        assert_eq!(
+            1.0,
+            store.query(event_id, Interval::Weeks, 52, 0, EventQueryType::LastSeen)?
+        );
+        assert_eq!(
+            0.0,
+            store.query(event_id, Interval::Months, 12, 0, EventQueryType::LastSeen)?
+        );
+        assert_eq!(
+            0.0,
+            store.query(event_id, Interval::Years, 12, 0, EventQueryType::LastSeen)?
         );
 
         Ok(())
