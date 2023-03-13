@@ -4,13 +4,17 @@
 
 package org.mozilla.experiments.nimbus
 
+import android.annotation.TargetApi
 import android.content.Context
+import android.os.Build
 import androidx.annotation.AnyThread
 import androidx.annotation.RawRes
 import kotlinx.coroutines.Job
 import org.mozilla.experiments.nimbus.internal.AvailableExperiment
 import org.mozilla.experiments.nimbus.internal.EnrolledExperiment
 import org.mozilla.experiments.nimbus.internal.ExperimentBranch
+import java.time.Duration
+import java.util.concurrent.TimeUnit
 
 // Republish these classes from this package.
 typealias Branch = ExperimentBranch
@@ -20,7 +24,7 @@ typealias EnrolledExperiment = EnrolledExperiment
 /**
  * This is the main experiments API, which is exposed through the global [Nimbus] object.
  */
-interface NimbusInterface : FeaturesInterface, GleanPlumbInterface {
+interface NimbusInterface : FeaturesInterface, GleanPlumbInterface, NimbusEventStore {
 
     /**
      * Get the list of currently enrolled experiments
@@ -182,29 +186,14 @@ interface NimbusInterface : FeaturesInterface, GleanPlumbInterface {
     override fun recordExposureEvent(featureId: String) = Unit
 
     /**
-     * Records an event to the Nimbus event store.
-     *
-     * The method obtains the event counters for the `eventId` that is passed in, advances them if
-     * needed, then increments the counts by 1. If an event counter does not exist for the `eventId`,
-     * one will be created.
-     *
-     * @param eventId string representing the id of the event which should be recorded.
-     */
-    fun recordEvent(eventId: String) = Unit
-
-    /**
-     * Clears the Nimbus event store.
-     *
-     * This should only be used in testing or cases where the previous event store is no longer viable.
-     */
-    fun clearEvents() = Unit
-
-    /**
      * Control the opt out for all experiments at once. This is likely a user action.
      */
     var globalUserParticipation: Boolean
         get() = false
         set(_) = Unit
+
+    val events: NimbusEventStore
+        get() = this
 
     /**
      * Interface to be implemented by classes that want to observe experiment updates
@@ -222,6 +211,66 @@ interface NimbusInterface : FeaturesInterface, GleanPlumbInterface {
          */
         fun onUpdatesApplied(updated: List<EnrolledExperiment>) = Unit
     }
+}
+
+interface NimbusEventStore {
+    /**
+     * Records an event to the Nimbus event store.
+     *
+     * The method obtains the event counters for the `eventId` that is passed in, advances them if
+     * needed, then increments the counts by 1. If an event counter does not exist for the `eventId`,
+     * one will be created.
+     *
+     * @param eventId string representing the id of the event which should be recorded.
+     */
+    fun recordEvent(count: Long = 1, eventId: String) = Unit
+
+    /**
+     * Convenience method for [recordEvent].
+     *
+     * This method is discouraged, and will be removed after usage has been migrated to
+     * the preferred [recordEvent].
+     *
+     * @see [recordEvent]
+     */
+    fun recordEvent(eventId: String) =
+        recordEvent(1, eventId)
+
+    /**
+     * Records an event as if it were emitted in the past.
+     *
+     * This method is only likely useful during testing, and so is by design synchronous.
+     *
+     * @param count the number of events seen just now. This is usually 1.
+     * @param eventId string representing the id of the event which should be recorded.
+     * @param durationAgo the duration subtracted from now when the event are said to have happened.
+     * @throws NimbusError if durationAgo is negative.
+     */
+    fun recordPastEvent(count: Long = 1, eventId: String, secondsAgo: Long) = Unit
+
+    /**
+     * Convenience method for [recordPastEvent].
+     *
+     * @see [recordPastEvent]
+     */
+    @TargetApi(Build.VERSION_CODES.O)
+    fun recordPastEvent(count: Long = 1, eventId: String, durationAgo: Duration) =
+        recordPastEvent(count, eventId, durationAgo.seconds)
+
+    /**
+     * Convenience method for [recordPastEvent].
+     *
+     * @see [recordPastEvent]
+     */
+    fun recordPastEvent(count: Long = 1, eventId: String, timeAgo: Long, timeUnit: TimeUnit) =
+        recordPastEvent(count, eventId, timeUnit.toSeconds(timeAgo))
+
+    /**
+     * Clears the Nimbus event store.
+     *
+     * This should only be used in testing or cases where the previous event store is no longer viable.
+     */
+    fun clearEvents() = Unit
 }
 
 class NullNimbus(override val context: Context) : NimbusInterface

@@ -358,12 +358,15 @@ open class Nimbus(
         recordExposure(featureId)
     }
 
-    @WorkerThread
-    override fun recordEvent(eventId: String) {
+    @AnyThread
+    override fun recordEvent(count: Long, eventId: String) {
         dbScope.launch {
-            nimbusClient.recordEvent(eventId)
+            nimbusClient.recordEvent(count, eventId)
         }
     }
+
+    override fun recordPastEvent(count: Long, eventId: String, secondsAgo: Long) =
+        nimbusClient.recordPastEvent(count, eventId, secondsAgo)
 
     @WorkerThread
     override fun clearEvents() {
