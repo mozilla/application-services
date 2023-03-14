@@ -623,12 +623,6 @@ pub struct EnrolledExperiment {
     pub enrollment_id: String,
 }
 
-/// This is the currently supported major schema version.
-pub const SCHEMA_VERSION: u32 = 1;
-// XXX: In the future it would be nice if this lived in its own versioned crate so that
-// the schema could be decoupled from the sdk so that it can be iterated on while the
-// sdk depends on a particular version of the schema through the cargo.toml.
-
 // ⚠️ Attention : Changes to this type should be accompanied by a new test  ⚠️
 // ⚠️ in `test_lib_bw_compat.rs`, and may require a DB migration. ⚠️
 #[derive(Deserialize, Serialize, Debug, Default, Clone, PartialEq, Eq)]
