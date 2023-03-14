@@ -142,15 +142,25 @@ impl IntervalData {
         data
     }
 
-    pub fn increment(&mut self) -> Result<()> {
-        match self.buckets.front_mut() {
-            Some(x) => *x += 1,
-            None => {
-                return Err(NimbusError::BehaviorError(BehaviorError::InvalidState(
-                    "Interval buckets cannot be empty".to_string(),
-                )))
-            }
-        };
+    pub fn increment(&mut self, count: u64) -> Result<()> {
+        self.increment_at(0, count)
+    }
+
+    pub fn increment_at(&mut self, index: usize, count: u64) -> Result<()> {
+        if index < self.bucket_count {
+            let buckets = &mut self.buckets;
+            match buckets.get_mut(index) {
+                Some(x) => *x += count,
+                None => {
+                    if buckets.len() < index {
+                        for _ in buckets.len()..index {
+                            buckets.push_back(0);
+                        }
+                    }
+                    self.buckets.insert(index, count)
+                }
+            };
+        }
         Ok(())
     }
 
@@ -190,8 +200,31 @@ impl SingleIntervalCounter {
         Self::new(config)
     }
 
-    pub fn increment(&mut self) -> Result<()> {
-        self.data.increment()
+    pub fn increment_then(&mut self, then: DateTime<Utc>, count: u64) -> Result<()> {
+        use std::cmp::Ordering;
+        let now = self.data.starting_instant;
+        let rotations = self.config.interval.num_rotations(then, now)?;
+        match rotations.cmp(&0) {
+            Ordering::Less => {
+                /* We can't increment in the future */
+                return Err(NimbusError::BehaviorError(BehaviorError::InvalidState(
+                    "Cannot increment events far into the future".to_string(),
+                )));
+            }
+            Ordering::Equal => {
+                if now < then {
+                    self.data.increment_at(0, count)?;
+                } else {
+                    self.data.increment_at(1, count)?;
+                }
+            }
+            Ordering::Greater => self.data.increment_at(1 + rotations as usize, count)?,
+        }
+        Ok(())
+    }
+
+    pub fn increment(&mut self, count: u64) -> Result<()> {
+        self.data.increment(count)
     }
 
     pub fn maybe_advance(&mut self, now: DateTime<Utc>) -> Result<()> {
@@ -223,10 +256,16 @@ impl MultiIntervalCounter {
         }
     }
 
-    pub fn increment(&mut self) -> Result<()> {
+    pub fn increment_then(&mut self, then: DateTime<Utc>, count: u64) -> Result<()> {
         self.intervals
             .iter_mut()
-            .try_for_each(|(_, v)| v.increment())
+            .try_for_each(|(_, v)| v.increment_then(then, count))
+    }
+
+    pub fn increment(&mut self, count: u64) -> Result<()> {
+        self.intervals
+            .iter_mut()
+            .try_for_each(|(_, v)| v.increment(count))
     }
 
     pub fn maybe_advance(&mut self, now: DateTime<Utc>) -> Result<()> {
@@ -244,7 +283,7 @@ impl Default for MultiIntervalCounter {
                 interval: Interval::Minutes,
             }),
             SingleIntervalCounter::new(IntervalConfig {
-                bucket_count: 24,
+                bucket_count: 72,
                 interval: Interval::Hours,
             }),
             SingleIntervalCounter::new(IntervalConfig {
@@ -383,6 +422,13 @@ impl EventQueryType {
             Self::LastSeen => self.validate_last_seen_arguments(args)?,
         })
     }
+
+    fn error_value(&self) -> f64 {
+        match self {
+            Self::LastSeen => f64::MAX,
+            _ => 0.0,
+        }
+    }
 }
 
 #[derive(Default, Serialize, Deserialize, Debug, Clone)]
@@ -437,18 +483,38 @@ impl EventStore {
         Ok(())
     }
 
-    pub fn record_event(&mut self, event_id: String, now: Option<DateTime<Utc>>) -> Result<()> {
+    pub fn record_event(
+        &mut self,
+        count: u64,
+        event_id: &str,
+        now: Option<DateTime<Utc>>,
+    ) -> Result<()> {
         let now = now.unwrap_or_else(Utc::now);
-        let counter = match self.events.get_mut(&event_id) {
-            Some(v) => v,
-            None => {
-                let new_counter = Default::default();
-                self.events.insert(event_id.clone(), new_counter);
-                self.events.get_mut(&event_id).unwrap()
-            }
-        };
+        let counter = self.get_or_create_counter(event_id);
         counter.maybe_advance(now)?;
-        counter.increment()
+        counter.increment(count)
+    }
+
+    pub fn record_past_event(
+        &mut self,
+        count: u64,
+        event_id: &str,
+        now: Option<DateTime<Utc>>,
+        duration: Duration,
+    ) -> Result<()> {
+        let now = now.unwrap_or_else(Utc::now);
+        let then = now - duration;
+        let counter = self.get_or_create_counter(event_id);
+        counter.maybe_advance(now)?;
+        counter.increment_then(then, count)
+    }
+
+    fn get_or_create_counter(&mut self, event_id: &str) -> &mut MultiIntervalCounter {
+        if !self.events.contains_key(event_id) {
+            let new_counter = Default::default();
+            self.events.insert(event_id.to_string(), new_counter);
+        }
+        return self.events.get_mut(event_id).unwrap();
     }
 
     pub fn persist_data(&self, db: &Database) -> Result<()> {
@@ -469,22 +535,24 @@ impl EventStore {
 
     pub fn query(
         &mut self,
-        event_id: String,
+        event_id: &str,
         interval: Interval,
         num_buckets: usize,
         starting_bucket: usize,
         query_type: EventQueryType,
     ) -> Result<f64> {
-        if let Some(counter) = self.events.get_mut(&event_id) {
+        if let Some(counter) = self.events.get_mut(event_id) {
             counter.maybe_advance(Utc::now()).unwrap();
             if let Some(single_counter) = counter.intervals.get(&interval) {
                 let safe_range = 0..single_counter.data.buckets.len();
                 if !safe_range.contains(&starting_bucket) {
-                    return Ok(0.0);
+                    return Ok(query_type.error_value());
                 }
-                let buckets = single_counter.data.buckets.range(
-                    starting_bucket..usize::min(num_buckets, single_counter.data.buckets.len()),
+                let max = usize::min(
+                    num_buckets + starting_bucket,
+                    single_counter.data.buckets.len(),
                 );
+                let buckets = single_counter.data.buckets.range(starting_bucket..max);
                 return query_type.perform_query(buckets, num_buckets);
             }
         }
