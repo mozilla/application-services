@@ -22,11 +22,7 @@ CREATE TABLE IF NOT EXISTS addresses_data (
     time_last_modified  INTEGER NOT NULL,
     times_used          INTEGER NOT NULL,
 
-    sync_change_counter INTEGER NOT NULL,
-
-    -- fields on incoming records we don't know about and roundtrip.
-    -- a serde_json::Value::Object as an encrypted string.
-    unknown_fields      TEXT
+    sync_change_counter INTEGER NOT NULL
 );
 
 -- What's on the server as the JSON payload.
@@ -36,10 +32,6 @@ CREATE TABLE IF NOT EXISTS addresses_mirror (
     payload             TEXT NOT NULL CHECK(length(payload) != 0)
     -- We could also have `modified`, which is in the server response and
     -- passed around in the sync code, but we don't have a use-case for using it.
-
-    -- unfortunately the mirror gets a bit ugly for shoving the unknown_fields there
-    -- and when it goes to credit cards it'll also need to be encrypted
-    --unknown_fields      TEXT
 );
 
 -- Tombstones are items deleted locally but not deleted in the mirror (ie, ones

@@ -104,7 +104,6 @@ impl ProcessIncomingRecordImpl for IncomingAddressesImpl {
             l.time_last_used,
             l.time_last_modified,
             l.times_used,
-            l.unknown_fields,
             l.sync_change_counter
         FROM temp.addresses_sync_staging s
         LEFT JOIN addresses_mirror m ON s.guid = m.guid
@@ -458,12 +457,9 @@ mod tests {
 
     #[test]
     fn test_get_incoming_unknown_fields() {
-        let mut db = new_syncable_mem_db();
-        let tx = db.transaction().expect("should get tx");
-        let ai = IncomingAddressesImpl {};
         let json = test_json_record('D');
         let address_payload = serde_json::from_value::<AddressPayload>(json).unwrap();
-        // The incoming payload should've correctly serialized any unknown_fields into a Map<String,Value>
+        // The incoming payload should've correctly deserialized any unknown_fields into a Map<String,Value>
         assert_eq!(address_payload.entry.unknown_fields.len(), 2);
         assert_eq!(
             address_payload
@@ -475,12 +471,6 @@ mod tests {
                 .unwrap(),
             "bar"
         );
-        let record = InternalAddress::from_payload(address_payload).unwrap();
-        // Ensure our record correctly has our "unknown" fields
-        let test_value = json! {{ "foo": "bar", "baz": "qux"}}.to_string();
-        assert_eq!(record.clone().unknown_fields.unwrap(), test_value);
-        let bso = record.clone().into_test_incoming_bso();
-        do_test_incoming_same(&ai, &tx, record, bso);
     }
 
     #[test]

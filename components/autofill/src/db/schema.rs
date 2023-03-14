@@ -78,7 +78,7 @@ pub struct AutofillConnectionInitializer;
 
 impl ConnectionInitializer for AutofillConnectionInitializer {
     const NAME: &'static str = "autofill db";
-    const END_VERSION: u32 = 3;
+    const END_VERSION: u32 = 2;
 
     fn prepare(&self, conn: &Connection, _db_empty: bool) -> Result<()> {
         define_functions(conn)?;
@@ -107,7 +107,6 @@ impl ConnectionInitializer for AutofillConnectionInitializer {
             // upgrade_from_v0() for more details.
             0 => upgrade_from_v0(db),
             1 => upgrade_from_v1(db),
-            2 => upgrade_from_v2(db),
             _ => Err(Error::IncompatibleVersion(version)),
         }
     }
@@ -194,13 +193,6 @@ fn upgrade_from_v1(db: &Connection) -> Result<()> {
     Ok(())
 }
 
-fn upgrade_from_v2(db: &Connection) -> Result<()> {
-    // Add unknown_fields to capture any potentially new fields we don't understand yet
-    // from other clients and roundtrip them
-    db.execute_batch("ALTER TABLE addresses_data ADD unknown_fields TEXT")?;
-    Ok(())
-}
-
 pub fn create_empty_sync_temp_tables(db: &Connection) -> Result<()> {
     log::debug!("Initializing sync temp tables");
     db.execute_batch(CREATE_SYNC_TEMP_TABLES_SQL)?;
@@ -219,7 +211,6 @@ mod tests {
 
     const CREATE_V0_DB: &str = include_str!("../../sql/tests/create_v0_db.sql");
     const CREATE_V1_DB: &str = include_str!("../../sql/tests/create_v1_db.sql");
-    const CREATE_V2_DB: &str = include_str!("../../sql/tests/create_v2_db.sql");
 
     #[test]
     fn test_create_schema_twice() {
@@ -274,8 +265,6 @@ mod tests {
         assert_eq!(address.metadata.time_last_modified, Timestamp(2));
         assert_eq!(address.metadata.times_used, 3);
         assert_eq!(address.metadata.sync_change_counter, 0);
-        // We have a new column, default to none
-        assert!(address.unknown_fields.is_none());
     }
 
     #[test]
@@ -309,17 +298,5 @@ mod tests {
             .expect("blank cc_number_enc should be valid");
         db.execute("UPDATE credit_cards_data SET cc_number_enc='x'", [])
             .expect_err("cc_number_enc should be invalid");
-    }
-
-    #[test]
-    fn test_upgrade_version_2() {
-        let db_file = MigratedDatabaseFile::new(AutofillConnectionInitializer, CREATE_V2_DB);
-
-        db_file.upgrade_to(3);
-        let db = db_file.open();
-
-        // Test that we have a new field called "unknown_fields"
-        db.execute_batch("SELECT unknown_fields FROM addresses_data")
-            .expect("unknown_fields should be a valid column");
     }
 }

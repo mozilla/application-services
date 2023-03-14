@@ -102,8 +102,6 @@ pub struct InternalAddress {
     pub tel: String,
     pub email: String,
     pub metadata: Metadata,
-    // Additional "unknown" round-tripped fields
-    pub unknown_fields: Option<String>,
 }
 
 impl InternalAddress {
@@ -129,7 +127,6 @@ impl InternalAddress {
                 times_used: row.get("times_used")?,
                 sync_change_counter: row.get("sync_change_counter")?,
             },
-            unknown_fields: row.get::<_, Option<String>>("unknown_fields")?,
         })
     }
 }
