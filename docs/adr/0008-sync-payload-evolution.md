@@ -14,11 +14,11 @@ Sync exists on all platforms (Desktop, Android, iOS), all channels (Nightly, Bet
 Whenever there are feature changes or requests that potentially involve schema changes, there are not a lot of good options to ensure sync doesn’t break for any specific client.
 Since sync data is synced from all channels, we need to make sure each client can handle the new data and that all channels can support the new schema.
 Issues like [credit card failing on android and desktop release channels due to schema change on desktop Nightly](https://bugzilla.mozilla.org/show_bug.cgi?id=1812235)
-is an example of such cases we can run into.
+are examples of such cases we can run into.
 This document describes our decision on how we will support payload evolution over time.
 
-Note that even though this document existing in the application-services repoository, it should
-be considered to apply too all sync implementation, whether in this repository, in mozilla-central,
+Note that even though this document exists in the application-services repository, it should
+be considered to apply to all sync implementations, whether in this repository, in mozilla-central,
 or anywhere else.
 
 ## Definitions
@@ -47,6 +47,8 @@ or anywhere else.
 * Because such evolution should be rare, we do not want to set an up-front policy about locking out
   "old" versions just because they might have a problem in the future. That is, we want to avoid
   a policy that dictates versions more than (say) 2 years old will break when syncing "just in case"
+* Any solution to this must be achievable in a relatively short timeframe as we know of product
+  asks coming down the line which require this capability.
 
 ## Considered Options
 
@@ -55,6 +57,7 @@ or anywhere else.
 * A policy which prevents "recent" clients from syncing, or editing data, or other restrictions.
 * A formal schema-driven process.
 * Consider the sync payloads frozen and never change them.
+* Use separate collections for new data
 
 ## Decision Outcome
 
@@ -81,7 +84,7 @@ A summary of this option is a policy by which:
   that "new" clients must support both new fields *and* fields which are considered deprecated
   by these "new" clients because they are still used by "recent" versions.
 
-The pros and conts:
+The pros and cons:
 
 * Good, because it meets the requirements.
 
@@ -121,7 +124,7 @@ This was rejected because:
 
 Ideally we could formally describe schemas, but we can't come up with anything here which
 works with the constraints of supporting older clients - we simply can't update older released
-Firefoxes so they know how to work with the new schemas. We also couldn't some up with a solution
+Firefoxes so they know how to work with the new schemas. We also couldn't come up with a solution
 where a schema is downloaded dynamically which also allowed the *semantics* (as opposed to simply
 validity) of new fields to be described.
 
@@ -137,6 +140,25 @@ A process where payloads are frozen was rejected because:
   particularly around data-loss for older clients. For example, adding a credit-card
   on a Nightly version but having it be completely unavailable on a release firefox
   isn't acceptable.
+
+### Use separate collections for new data
+
+We could store the new data in a separate collection. For example define a
+bookmarks2 collection where each record has the same guid as one in bookmarks alongside any new fields.
+Newer clients use both collections to sync.
+
+The pros and cons:
+
+* Good, because it allows newer clients to sync new data without affecting recent or older clients
+* Bad, because sync writes would lose atomicity without server changes.
+  We can currently write to a single collection in an atomic way, but don't have a way to write to multiple collections.
+* Bad because this number of collections grows each time we want to add fields.
+* Bad because it potentially leaks extra information to an attacker that gets access to the encrypted server records.
+  For example if we added a new collection for a single field, then the attacker could guess if that
+  field was set or not based on the size of the encrypted record.
+* Bad because it's difficult to handle nested data with this approach,
+  for example adding a field to a history record visit.
+* Bad because it has the same issue with dependent data as the chosen solution.
 
 ## Links <!-- optional -->
 
