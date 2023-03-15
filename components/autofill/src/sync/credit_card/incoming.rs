@@ -293,6 +293,23 @@ mod tests {
                         "timesUsed": 0,
                         "version": 3,
                     }
+                },
+                "D" : {
+                    "id": expand_test_guid('D'),
+                    "entry": {
+                        "cc-name": "Mr Me Another Person",
+                        "cc-number": "8765432112345678",
+                        "cc-exp-month": 1,
+                        "cc-exp-year": 2020,
+                        "cc-type": "visa",
+                        "timeCreated": 0,
+                        "timeLastUsed": 0,
+                        "timeLastModified": 0,
+                        "timesUsed": 0,
+                        "version": 3,
+                        "foo": "bar",
+                        "baz": "qux",
+                    }
                 }
             }};
             val.as_object().expect("literal is an object").clone()
@@ -437,7 +454,9 @@ mod tests {
             encdec: EncryptorDecryptor::new_test_key(),
         };
         let record = test_record('C', &ci.encdec);
-        let bso = record.clone().into_test_incoming_bso(&ci.encdec);
+        let bso = record
+            .clone()
+            .into_test_incoming_bso(&ci.encdec, Default::default());
         do_test_incoming_same(&ci, &tx, record, bso);
     }
 
@@ -459,7 +478,9 @@ mod tests {
             encdec: EncryptorDecryptor::new_test_key(),
         };
         let mut scrubbed_record = test_record('A', &ci.encdec);
-        let bso = scrubbed_record.clone().into_test_incoming_bso(&ci.encdec);
+        let bso = scrubbed_record
+            .clone()
+            .into_test_incoming_bso(&ci.encdec, Default::default());
         scrubbed_record.cc_number_enc = "".to_string();
         do_test_scrubbed_local_data(&ci, &tx, scrubbed_record, bso);
     }
@@ -472,7 +493,9 @@ mod tests {
             encdec: EncryptorDecryptor::new_test_key(),
         };
         let record = test_record('C', &ci.encdec);
-        let bso = record.clone().into_test_incoming_bso(&ci.encdec);
+        let bso = record
+            .clone()
+            .into_test_incoming_bso(&ci.encdec, Default::default());
         do_test_staged_to_mirror(&ci, &tx, record, bso, "credit_cards_mirror");
     }
 
@@ -557,5 +580,23 @@ mod tests {
         tx.commit().expect("should commit");
         assert!(get_credit_card(&db.writer, &local_guid).is_err());
         assert!(get_credit_card(&db.writer, &incoming_guid).is_ok());
+    }
+
+    #[test]
+    fn test_get_incoming_unknown_fields() {
+        let json = test_json_record('D');
+        let address_payload = serde_json::from_value::<CreditCardPayload>(json).unwrap();
+        // The incoming payload should've correctly deserialized any unknown_fields into a Map<String,Value>
+        assert_eq!(address_payload.entry.unknown_fields.len(), 2);
+        assert_eq!(
+            address_payload
+                .entry
+                .unknown_fields
+                .get("foo")
+                .unwrap()
+                .as_str()
+                .unwrap(),
+            "bar"
+        );
     }
 }

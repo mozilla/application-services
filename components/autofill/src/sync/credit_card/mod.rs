@@ -9,6 +9,7 @@ pub mod outgoing;
 use super::engine::{ConfigSyncEngine, EngineConfig, SyncEngineStorageImpl};
 use super::{
     MergeResult, Metadata, ProcessIncomingRecordImpl, ProcessOutgoingRecordImpl, SyncRecord,
+    UnknownFields,
 };
 use crate::db::models::credit_card::InternalCreditCard;
 use crate::encryption::EncryptorDecryptor;
@@ -78,7 +79,7 @@ pub(crate) struct CreditCardPayload {
 
     // For some historical reason and unlike most other sync records, creditcards
     // are serialized with this explicit 'entry' object.
-    entry: PayloadEntry,
+    pub(crate) entry: PayloadEntry,
 }
 
 // Note that the sync payload contains the "unencrypted" cc_number - but our
@@ -89,7 +90,7 @@ pub(crate) struct CreditCardPayload {
 // payload)
 #[derive(Default, Debug, Deserialize, Serialize)]
 #[serde(default, rename_all = "kebab-case")]
-struct PayloadEntry {
+pub(crate) struct PayloadEntry {
     pub cc_name: String,
     pub cc_number: String,
     pub cc_exp_month: i64,
@@ -105,6 +106,10 @@ struct PayloadEntry {
     #[serde(rename = "timesUsed")]
     pub times_used: i64,
     pub version: u32, // always 3 for credit-cards
+    // Fields that the current schema did not expect, we store them only internally
+    // to round-trip them back to sync without processing them in any way
+    #[serde(flatten)]
+    pub unknown_fields: UnknownFields,
 }
 
 impl InternalCreditCard {
@@ -154,6 +159,7 @@ impl InternalCreditCard {
                 time_last_modified: self.metadata.time_last_modified,
                 times_used: self.metadata.times_used,
                 version: 3,
+                unknown_fields: Default::default(),
             },
         })
     }

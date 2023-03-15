@@ -49,11 +49,10 @@ impl ProcessOutgoingRecordImpl for OutgoingAddressesImpl {
             let mirror_str = row.get::<_, Option<String>>("payload")?;
             // If the server had an unknown field we fetch it and add it to the record
             // we'll be uploading
-            let mirror_payload: AddressPayload = match mirror_str {
-                Some(s) => serde_json::from_str(&s)?,
-                None => Default::default(),
+            if let Some(s) = mirror_str {
+                let mirror_payload: AddressPayload = serde_json::from_str(&s)?;
+                record.entry.unknown_fields = mirror_payload.entry.unknown_fields;
             };
-            record.entry.unknown_fields = mirror_payload.entry.unknown_fields;
 
             Ok((
                 OutgoingBso::from_content_with_id(record)?,
@@ -167,9 +166,10 @@ mod tests {
                         "timeLastUsed": 0,
                         "timeLastModified": 0,
                         "timesUsed": 0,
+                        "version": 1,
+                        // Fields we don't understand from the server
                         "foo": "bar",
                         "baz": "qux",
-                        "version": 1,
                     }
                 }
             }};
@@ -320,7 +320,7 @@ mod tests {
         let outgoing = &ao
             .fetch_outgoing_records(&tx, COLLECTION_NAME.into())
             .unwrap();
-        // Kinda annoying to add every field here, probably a better way but i'll leave this for now
+        // probably a better way but i'll leave this for now
         let test_payload = json!({
             "id": "DDDDDDDDDDDD",
             "entry" : {
@@ -333,8 +333,6 @@ mod tests {
                 "timeLastUsed": 0,
                 "timeLastModified": 0,
                 "timesUsed": 0,
-                "foo": "bar",
-                "baz": "qux",
                 "version": 1,
                 "organization": "",
                 "postal-code": "",
@@ -343,8 +341,12 @@ mod tests {
                 "address-level1": "",
                 "address-level3": "",
                 "additional-name": "",
+                // Fields we don't understand from the server
+                "foo": "bar",
+                "baz": "qux",
             }
         });
+        // Unknown fields are: {"foo": "bar", "baz": "qux"}
         assert_eq!(outgoing.changes[0].payload, test_payload.to_string());
         do_test_outgoing_synced_with_local_change(
             &tx,
