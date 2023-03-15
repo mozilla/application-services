@@ -585,11 +585,11 @@ mod tests {
     #[test]
     fn test_get_incoming_unknown_fields() {
         let json = test_json_record('D');
-        let address_payload = serde_json::from_value::<CreditCardPayload>(json).unwrap();
+        let cc_payload = serde_json::from_value::<CreditCardPayload>(json).unwrap();
         // The incoming payload should've correctly deserialized any unknown_fields into a Map<String,Value>
-        assert_eq!(address_payload.entry.unknown_fields.len(), 2);
+        assert_eq!(cc_payload.entry.unknown_fields.len(), 2);
         assert_eq!(
-            address_payload
+            cc_payload
                 .entry
                 .unknown_fields
                 .get("foo")

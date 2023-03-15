@@ -46,10 +46,9 @@ impl ProcessOutgoingRecordImpl for OutgoingAddressesImpl {
         );
         let record_from_data_row: &dyn Fn(&Row<'_>) -> Result<(OutgoingBso, i64)> = &|row| {
             let mut record = InternalAddress::from_row(row)?.into_payload()?;
-            let mirror_str = row.get::<_, Option<String>>("payload")?;
-            // If the server had an unknown field we fetch it and add it to the record
+            // If the server had unknown fields we fetch it and add it to the record
             // we'll be uploading
-            if let Some(s) = mirror_str {
+            if let Some(s) = row.get::<_, Option<String>>("payload")? {
                 let mirror_payload: AddressPayload = serde_json::from_str(&s)?;
                 record.entry.unknown_fields = mirror_payload.entry.unknown_fields;
             };
@@ -320,34 +319,12 @@ mod tests {
         let outgoing = &ao
             .fetch_outgoing_records(&tx, COLLECTION_NAME.into())
             .unwrap();
-        // probably a better way but i'll leave this for now
-        let test_payload = json!({
-            "id": "DDDDDDDDDDDD",
-            "entry" : {
-                "given-name": "john",
-                "family-name": "doe",
-                "street-address": "85 Pike St",
-                "address-level2": "Seattle, WA",
-                "country": "United States",
-                "timeCreated": 0,
-                "timeLastUsed": 0,
-                "timeLastModified": 0,
-                "timesUsed": 0,
-                "version": 1,
-                "organization": "",
-                "postal-code": "",
-                "email": "",
-                "tel": "",
-                "address-level1": "",
-                "address-level3": "",
-                "additional-name": "",
-                // Fields we don't understand from the server
-                "foo": "bar",
-                "baz": "qux",
-            }
-        });
-        // Unknown fields are: {"foo": "bar", "baz": "qux"}
-        assert_eq!(outgoing.changes[0].payload, test_payload.to_string());
+        // Ensure we have our unknown values for the roundtrip
+        let bso_payload: Map<String, Value> =
+            serde_json::from_str(&outgoing.changes[0].payload).unwrap();
+        let entry = bso_payload.get("entry").unwrap();
+        assert_eq!(entry.get("foo").unwrap(), "bar");
+        assert_eq!(entry.get("baz").unwrap(), "qux");
         do_test_outgoing_synced_with_local_change(
             &tx,
             &ao,

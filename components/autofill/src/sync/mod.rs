@@ -20,7 +20,7 @@ use types::Timestamp;
 
 // This type is used as a snazzy way to capture all unknown fields from the payload
 // upon deserialization without having to work with a concrete type
-pub(super) type UnknownFields = serde_json::Map<String, serde_json::Value>;
+type UnknownFields = serde_json::Map<String, serde_json::Value>;
 
 // The fact that credit-card numbers are encrypted makes things a little tricky
 // for sync in various ways - and one non-obvious way is that the tables that

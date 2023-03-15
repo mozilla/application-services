@@ -79,7 +79,7 @@ pub(crate) struct CreditCardPayload {
 
     // For some historical reason and unlike most other sync records, creditcards
     // are serialized with this explicit 'entry' object.
-    pub(crate) entry: PayloadEntry,
+    pub(super) entry: PayloadEntry,
 }
 
 // Note that the sync payload contains the "unencrypted" cc_number - but our
@@ -90,7 +90,7 @@ pub(crate) struct CreditCardPayload {
 // payload)
 #[derive(Default, Debug, Deserialize, Serialize)]
 #[serde(default, rename_all = "kebab-case")]
-pub(crate) struct PayloadEntry {
+pub(super) struct PayloadEntry {
     pub cc_name: String,
     pub cc_number: String,
     pub cc_exp_month: i64,

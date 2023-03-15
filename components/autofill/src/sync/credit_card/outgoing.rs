@@ -50,9 +50,9 @@ impl ProcessOutgoingRecordImpl for OutgoingCreditCardsImpl {
         );
         let record_from_data_row: &dyn Fn(&Row<'_>) -> Result<(OutgoingBso, i64)> = &|row| {
             let mut record = InternalCreditCard::from_row(row)?.into_payload(&self.encdec)?;
-            // The full payload in the mirror is encrypted
-            let enc_payload_str = row.get::<_, Option<String>>("payload")?;
-            if let Some(enc_s) = enc_payload_str {
+            // If the server had unknown fields we fetch it and add it to the record
+            if let Some(enc_s) = row.get::<_, Option<String>>("payload")? {
+                // The full payload in the credit cards mirror is encrypted
                 let mirror_payload: CreditCardPayload =
                     serde_json::from_str(&self.encdec.decrypt(&enc_s)?)?;
                 record.entry.unknown_fields = mirror_payload.entry.unknown_fields;
@@ -326,27 +326,13 @@ mod tests {
         let outgoing = &co
             .fetch_outgoing_records(&tx, COLLECTION_NAME.into())
             .unwrap();
-        // probably a better way but i'll leave this for now
-        let test_payload = json!({
-            "id": "DDDDDDDDDDDD",
-            "entry": {
-                "cc-name": "Mr Me Another Person",
-                "cc-number": "8765432112345678",
-                "cc-exp-month": 1,
-                "cc-exp-year": 2020,
-                "cc-type": "visa",
-                "timeCreated": 0,
-                "timeLastUsed": 0,
-                "timeLastModified": 0,
-                "timesUsed": 0,
-                "version": 3,
-                // Fields we don't understand from the server
-                "foo": "bar",
-                "baz": "qux",
-            }
-        });
         // Unknown fields are: {"foo": "bar", "baz": "qux"}
-        assert_eq!(outgoing.changes[0].payload, test_payload.to_string());
+        // Ensure we have our unknown values for the roundtrip
+        let bso_payload: Map<String, Value> =
+            serde_json::from_str(&outgoing.changes[0].payload).unwrap();
+        let entry = bso_payload.get("entry").unwrap();
+        assert_eq!(entry.get("foo").unwrap(), "bar");
+        assert_eq!(entry.get("baz").unwrap(), "qux");
         do_test_outgoing_synced_with_local_change(
             &tx,
             &co,

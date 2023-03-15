@@ -273,14 +273,16 @@ mod tests {
         static ref TEST_JSON_RECORDS: Map<String, Value> = {
             // NOTE: the JSON here is the same as stored on the sync server -
             // the superfluous `entry` is unfortunate but from desktop.
+            // JSON from the server is kebab-style, EXCEPT the times{X} fields
+            // see PayloadEntry struct
             let val = json! {{
                 "A" : {
                     "id": expand_test_guid('A'),
                     "entry": {
-                        "givenName": "john",
-                        "familyName": "doe",
-                        "streetAddress": "1300 Broadway",
-                        "addressLevel2": "New York, NY",
+                        "given-name": "john",
+                        "family-name": "doe",
+                        "street-address": "1300 Broadway",
+                        "address-level2": "New York, NY",
                         "country": "United States",
                         "version": 1,
                     }
@@ -288,10 +290,10 @@ mod tests {
                 "C" : {
                     "id": expand_test_guid('C'),
                     "entry": {
-                        "givenName": "jane",
-                        "familyName": "doe",
-                        "streetAddress": "3050 South La Brea Ave",
-                        "addressLevel2": "Los Angeles, CA",
+                        "given-name": "jane",
+                        "family-name": "doe",
+                        "street-address": "3050 South La Brea Ave",
+                        "address-level2": "Los Angeles, CA",
                         "country": "United States",
                         "timeCreated": 0,
                         "timeLastUsed": 0,
@@ -300,7 +302,6 @@ mod tests {
                         "version": 1,
                     }
                 },
-                // XXX - All of the above tests should actually be kebab????
                 "D" : {
                     "id": expand_test_guid('D'),
                     "entry": {
