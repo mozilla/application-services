@@ -24,3 +24,7 @@ Use the template below to make assigning a version number during the release cut
 ### ✨ What's New ✨
 
   - Added `recordPastEvent` for iOS and Android for testing of event store triggers. ([#5431](https://github.com/mozilla/application-services/pull/5431))
+
+### 🦊 What's Changed 🦊
+
+  - Removed the check for major `schemaVersion` in Experiment recipes. ([#5433](https://github.com/mozilla/application-services/pull/5433))

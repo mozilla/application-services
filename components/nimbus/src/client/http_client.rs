@@ -14,7 +14,7 @@
 //! But the simple subset implemented here meets our needs for now.
 
 use crate::error::{NimbusError, Result};
-use crate::{Experiment, SettingsClient, SCHEMA_VERSION};
+use crate::{Experiment, SettingsClient};
 use rs_client::Client;
 
 impl SettingsClient for Client {
@@ -41,29 +41,9 @@ pub fn parse_experiments(payload: &str) -> Result<Vec<Experiment>> {
         .as_array()
         .ok_or(NimbusError::InvalidExperimentFormat)?
     {
-        // Validate the schema major version matches the supported version
-        let exp_schema_version = match exp.get("schemaVersion") {
-            Some(ver) => {
-                serde_json::from_value::<String>(ver.to_owned()).unwrap_or_else(|_| "".to_string())
-            }
-            None => {
-                log::trace!("Missing schemaVersion: {:#?}", exp);
-                continue;
-            }
-        };
-        let schema_maj_version = exp_schema_version.split('.').next().unwrap_or("");
-        // While "0" is a valid schema version, we have already passed that so reserving zero as
-        // a special value here in order to avoid a panic, and just ignore the experiment.
-        let schema_version: u32 = schema_maj_version.parse().unwrap_or(0);
-        if schema_version != SCHEMA_VERSION {
-            log::info!(
-                    "Schema version mismatch: Expected version {}, discarding experiment with version {}",
-                    SCHEMA_VERSION, schema_version
-                );
-            // Schema version mismatch
-            continue;
-        }
-
+        // XXX: In the future it would be nice if this lived in its own versioned crate so that
+        // the schema could be decoupled from the sdk so that it can be iterated on while the
+        // sdk depends on a particular version of the schema through the Cargo.toml.
         match serde_json::from_value::<Experiment>(exp.clone()) {
             Ok(exp) => res.push(exp),
             Err(e) => {
