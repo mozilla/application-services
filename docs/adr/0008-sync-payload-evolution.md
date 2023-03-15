@@ -5,7 +5,7 @@
 * Date: 2023-03-15
 
 Technical Story:
-* https://github.com/mozilla/application-services/pull/5???
+* https://github.com/mozilla/application-services/pull/5434
 * https://docs.google.com/document/d/1ToLOERA5HKzEzRVZNv6Ohv_2wZaujW69pVb1Kef2jNY
 
 ## Context and Problem Statement
