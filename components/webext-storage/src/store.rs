@@ -138,9 +138,20 @@ impl Store {
         let shared: ThreadSafeStorageDb = match Arc::try_unwrap(self.db) {
             Ok(shared) => shared,
             _ => {
-                // Probably means the sync engine has an operation running. The intent
-                // is that there should be other mechanisms external to us which prevents that,
-                // so we make some noise here.
+                // The only way this is possible is if the sync engine has an operation
+                // running - but that shouldn't be possible in practice because desktop
+                // uses a single "task queue" such that the close operation can't possibly
+                // be running concurrently with any sync or storage tasks.
+
+                // If this *could* get hit, rusqlite will attempt to close the DB connection
+                // as it is dropped, and if that close fails, then rusqlite 0.28.0 and earlier
+                // would panic - but even that only happens if prepared statements are
+                // not finalized, which ruqlite also does.
+
+                // tl;dr - this should be impossible. If it was possible, rusqlite might panic,
+                // but we've never seen it panic in practice other places we don't close
+                // connections, and the next rusqlite version will not panic anyway.
+                // So this-is-fine.jpg
                 log::warn!("Attempting to close a store while other DB references exist.");
                 return Err(ErrorKind::OtherConnectionReferencesExist.into());
             }
