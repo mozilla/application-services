@@ -16,8 +16,68 @@ use serde_derive::*;
 use sync15::bso::OutgoingBso;
 use sync_guid::Guid;
 
+type UnknownFields = serde_json::Map<String, serde_json::Value>;
+
+/// What we get from the server after parsing the payload. We need to round-trip "unknown"
+/// fields, but don't want to carry them around in `EncryptedLogin`.
+#[derive(Debug)]
+pub(super) struct IncomingLogin {
+    pub login: EncryptedLogin,
+    // An encrypted UnknownFields, or None if there are none.
+    pub unknown: Option<String>,
+}
+
+impl IncomingLogin {
+    pub fn guid(&self) -> Guid {
+        self.login.guid()
+    }
+
+    pub(super) fn from_incoming_payload(
+        p: LoginPayload,
+        encdec: &EncryptorDecryptor,
+    ) -> Result<Self> {
+        let fields = LoginFields {
+            origin: p.hostname,
+            form_action_origin: p.form_submit_url,
+            http_realm: p.http_realm,
+            username_field: p.username_field,
+            password_field: p.password_field,
+        };
+        let sec_fields = SecureLoginFields {
+            username: p.username,
+            password: p.password,
+        };
+        // We handle NULL in the DB for migrated databases and it's wasteful
+        // to encrypt the common case of an empty map, so...
+        let unknown = if p.unknown_fields.is_empty() {
+            None
+        } else {
+            Some(encdec.encrypt_struct(&p.unknown_fields)?)
+        };
+
+        // If we can't fix the parts we keep the invalid bits.
+        Ok(Self {
+            login: EncryptedLogin {
+                record: RecordFields {
+                    id: p.guid.into(),
+                    time_created: p.time_created,
+                    time_password_changed: p.time_password_changed,
+                    time_last_used: p.time_last_used,
+                    times_used: p.times_used,
+                },
+                fields: fields.maybe_fixup()?.unwrap_or(fields),
+                sec_fields: sec_fields
+                    .maybe_fixup()?
+                    .unwrap_or(sec_fields)
+                    .encrypt(encdec)?,
+            },
+            unknown,
+        })
+    }
+}
+
 /// The JSON payload that lives on the storage servers.
-#[derive(Debug, Clone, Hash, PartialEq, Eq, Serialize, Deserialize, Default)]
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
 #[serde(rename_all = "camelCase")]
 pub struct LoginPayload {
     #[serde(rename = "id")]
@@ -61,44 +121,23 @@ pub struct LoginPayload {
 
     #[serde(default)]
     pub times_used: i64,
+
+    // Additional "unknown" round-tripped fields.
+    #[serde(flatten)]
+    unknown_fields: UnknownFields,
 }
 
 // These probably should be on the payload itself, but one refactor at a time!
 impl EncryptedLogin {
-    pub fn from_incoming_payload(
-        p: crate::sync::LoginPayload,
+    pub fn into_bso(
+        self,
         encdec: &EncryptorDecryptor,
-    ) -> Result<EncryptedLogin> {
-        let fields = LoginFields {
-            origin: p.hostname,
-            form_action_origin: p.form_submit_url,
-            http_realm: p.http_realm,
-            username_field: p.username_field,
-            password_field: p.password_field,
+        enc_unknown_fields: Option<String>,
+    ) -> Result<OutgoingBso> {
+        let unknown_fields = match enc_unknown_fields {
+            Some(s) => encdec.decrypt_struct::<UnknownFields>(&s)?,
+            None => Default::default(),
         };
-        let sec_fields = SecureLoginFields {
-            username: p.username,
-            password: p.password,
-        };
-
-        // If we can't fix the parts we keep the invalid bits.
-        Ok(EncryptedLogin {
-            record: RecordFields {
-                id: p.guid.into(),
-                time_created: p.time_created,
-                time_password_changed: p.time_password_changed,
-                time_last_used: p.time_last_used,
-                times_used: p.times_used,
-            },
-            fields: fields.maybe_fixup()?.unwrap_or(fields),
-            sec_fields: sec_fields
-                .maybe_fixup()?
-                .unwrap_or(sec_fields)
-                .encrypt(encdec)?,
-        })
-    }
-
-    pub fn into_bso(self, encdec: &EncryptorDecryptor) -> Result<OutgoingBso> {
         let sec_fields: SecureLoginFields = encdec.decrypt_struct(&self.sec_fields)?;
         Ok(OutgoingBso::from_content_with_id(
             crate::sync::LoginPayload {
@@ -114,6 +153,7 @@ impl EncryptedLogin {
                 time_password_changed: self.record.time_password_changed,
                 time_last_used: self.record.time_last_used,
                 times_used: self.record.times_used,
+                unknown_fields,
             },
         )?)
     }
@@ -135,9 +175,9 @@ where
 
 #[cfg(test)]
 mod tests {
+    use super::*;
     use crate::encryption::test_utils::{encrypt_struct, TEST_ENCRYPTOR};
     use crate::sync::merge::SyncLoginData;
-    use crate::sync::LoginPayload;
     use crate::{EncryptedLogin, LoginFields, RecordFields, SecureLoginFields};
     use sync15::bso::IncomingBso;
 
@@ -150,11 +190,12 @@ mod tests {
             "username": "user",
             "password": "password",
         }));
-        let login = EncryptedLogin::from_incoming_payload(
+        let login = IncomingLogin::from_incoming_payload(
             bso.into_content::<LoginPayload>().content().unwrap(),
             &TEST_ENCRYPTOR,
         )
-        .unwrap();
+        .unwrap()
+        .login;
         assert_eq!(login.record.id, "123412341234");
         assert_eq!(login.fields.http_realm, Some("test".to_string()));
         assert_eq!(login.fields.origin, "https://www.example.com");
@@ -162,6 +203,51 @@ mod tests {
         let sec_fields = login.decrypt_fields(&TEST_ENCRYPTOR).unwrap();
         assert_eq!(sec_fields.username, "user");
         assert_eq!(sec_fields.password, "password");
+    }
+
+    #[test]
+    fn test_payload_unknown_fields() {
+        // No "unknown" fields.
+        let bso = IncomingBso::from_test_content(serde_json::json!({
+            "id": "123412341234",
+            "httpRealm": "test",
+            "hostname": "https://www.example.com",
+            "username": "user",
+            "password": "password",
+        }));
+        let payload = bso.into_content::<LoginPayload>().content().unwrap();
+        assert!(payload.unknown_fields.is_empty());
+
+        // An unknown "foo"
+        let bso = IncomingBso::from_test_content(serde_json::json!({
+            "id": "123412341234",
+            "httpRealm": "test",
+            "hostname": "https://www.example.com",
+            "username": "user",
+            "password": "password",
+            "foo": "bar",
+        }));
+        let payload = bso.into_content::<LoginPayload>().content().unwrap();
+        assert_eq!(payload.unknown_fields.len(), 1);
+        assert_eq!(
+            payload.unknown_fields.get("foo").unwrap().as_str().unwrap(),
+            "bar"
+        );
+        // re-serialize it.
+        let unknown = Some(
+            TEST_ENCRYPTOR
+                .encrypt_struct::<UnknownFields>(&payload.unknown_fields)
+                .unwrap(),
+        );
+        let login = IncomingLogin::from_incoming_payload(payload, &TEST_ENCRYPTOR)
+            .unwrap()
+            .login;
+        // The raw outgoing payload should have it back.
+        let outgoing = login.into_bso(&TEST_ENCRYPTOR, unknown).unwrap();
+        let json =
+            serde_json::from_str::<serde_json::Map<String, serde_json::Value>>(&outgoing.payload)
+                .unwrap();
+        assert_eq!(json.get("foo").unwrap().as_str().unwrap(), "bar");
     }
 
     #[test]
@@ -174,11 +260,12 @@ mod tests {
             "username": "user",
             "password": "password",
         }));
-        let login = EncryptedLogin::from_incoming_payload(
+        let login = IncomingLogin::from_incoming_payload(
             bso.into_content::<LoginPayload>().content().unwrap(),
             &TEST_ENCRYPTOR,
         )
-        .unwrap();
+        .unwrap()
+        .login;
         assert_eq!(login.record.id, "123412341234");
         assert_eq!(login.fields.http_realm, None);
         assert_eq!(login.fields.origin, "https://www.example.com");
@@ -209,7 +296,7 @@ mod tests {
                 password: "password".into(),
             }),
         };
-        let bso = login.into_bso(&TEST_ENCRYPTOR).unwrap();
+        let bso = login.into_bso(&TEST_ENCRYPTOR, None).unwrap();
         assert_eq!(bso.envelope.id, "123412341234");
         let payload_data: serde_json::Value = serde_json::from_str(&bso.payload).unwrap();
         assert_eq!(payload_data["httpRealm"], "test".to_string());
@@ -235,11 +322,12 @@ mod tests {
         let bad_bso = IncomingBso::from_test_content(bad_json.clone());
 
         // Incoming sync data gets fixed automatically.
-        let login = EncryptedLogin::from_incoming_payload(
+        let login = IncomingLogin::from_incoming_payload(
             bad_bso.into_content::<LoginPayload>().content().unwrap(),
             &TEST_ENCRYPTOR,
         )
-        .unwrap();
+        .unwrap()
+        .login;
         assert_eq!(login.fields.username_field, "");
 
         // SyncLoginData::from_payload also fixes up.
@@ -247,8 +335,8 @@ mod tests {
         let login = SyncLoginData::from_bso(bad_bso, &TEST_ENCRYPTOR)
             .unwrap()
             .inbound
-            .0
-            .unwrap();
+            .unwrap()
+            .login;
         assert_eq!(login.fields.username_field, "");
     }
 
@@ -263,11 +351,12 @@ mod tests {
             "passwordField": "invalid"
         }));
 
-        let login = EncryptedLogin::from_incoming_payload(
+        let login = IncomingLogin::from_incoming_payload(
             bad_bso.into_content::<LoginPayload>().content().unwrap(),
             &TEST_ENCRYPTOR,
         )
-        .unwrap();
+        .unwrap()
+        .login;
         assert_eq!(login.fields.password_field, "");
     }
 }

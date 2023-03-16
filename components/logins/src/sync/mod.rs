@@ -10,7 +10,7 @@ mod update_plan;
 use crate::error::*;
 pub use engine::LoginsSyncEngine;
 pub(crate) use merge::{LocalLogin, MirrorLogin};
-pub(crate) use payload::LoginPayload;
+pub(self) use payload::{IncomingLogin, LoginPayload};
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq, Ord, PartialOrd, Hash)]
 #[repr(u8)]

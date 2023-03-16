@@ -3,7 +3,7 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
 use super::merge::{LocalLogin, MirrorLogin};
-use super::SyncStatus;
+use super::{IncomingLogin, SyncStatus};
 use crate::encryption::EncryptorDecryptor;
 use crate::error::*;
 use crate::login::EncryptedLogin;
@@ -14,24 +14,24 @@ use std::time::SystemTime;
 use sync15::ServerTimestamp;
 use sync_guid::Guid;
 
-#[derive(Default, Debug, Clone)]
-pub(crate) struct UpdatePlan {
+#[derive(Default, Debug)]
+pub(super) struct UpdatePlan {
     pub delete_mirror: Vec<Guid>,
     pub delete_local: Vec<Guid>,
     pub local_updates: Vec<MirrorLogin>,
     // the bool is the `is_overridden` flag, the i64 is ServerTimestamp in millis
-    pub mirror_inserts: Vec<(EncryptedLogin, i64, bool)>,
-    pub mirror_updates: Vec<(EncryptedLogin, i64)>,
+    pub mirror_inserts: Vec<(IncomingLogin, i64, bool)>,
+    pub mirror_updates: Vec<(IncomingLogin, i64)>,
 }
 
 impl UpdatePlan {
     pub fn plan_two_way_merge(
         &mut self,
         local: &EncryptedLogin,
-        upstream: (EncryptedLogin, ServerTimestamp),
+        upstream: (IncomingLogin, ServerTimestamp),
     ) {
         let is_override =
-            local.record.time_password_changed > upstream.0.record.time_password_changed;
+            local.record.time_password_changed > upstream.0.login.record.time_password_changed;
         self.mirror_inserts
             .push((upstream.0, upstream.1.as_millis(), is_override));
         if !is_override {
@@ -43,7 +43,7 @@ impl UpdatePlan {
         &mut self,
         local: LocalLogin,
         shared: MirrorLogin,
-        upstream: EncryptedLogin,
+        upstream: IncomingLogin,
         upstream_time: ServerTimestamp,
         server_now: ServerTimestamp,
         encdec: &EncryptorDecryptor,
@@ -54,7 +54,7 @@ impl UpdatePlan {
         let remote_age = server_now.duration_since(upstream_time).unwrap_or_default();
 
         let local_delta = local.login.delta(&shared.login, encdec)?;
-        let upstream_delta = upstream.delta(&shared.login, encdec)?;
+        let upstream_delta = upstream.login.delta(&shared.login, encdec)?;
 
         let merged_delta = local_delta.merge(upstream_delta, remote_age < local_age);
 
@@ -74,18 +74,18 @@ impl UpdatePlan {
         self.delete_mirror.push(id);
     }
 
-    pub fn plan_mirror_update(&mut self, login: EncryptedLogin, time: ServerTimestamp) {
-        self.mirror_updates.push((login, time.as_millis()));
+    pub fn plan_mirror_update(&mut self, upstream: IncomingLogin, time: ServerTimestamp) {
+        self.mirror_updates.push((upstream, time.as_millis()));
     }
 
     pub fn plan_mirror_insert(
         &mut self,
-        login: EncryptedLogin,
+        upstream: IncomingLogin,
         time: ServerTimestamp,
         is_override: bool,
     ) {
         self.mirror_inserts
-            .push((login, time.as_millis(), is_override));
+            .push((upstream, time.as_millis(), is_override));
     }
 
     fn perform_deletes(&self, conn: &Connection, scope: &SqlInterruptScope) -> Result<()> {
@@ -118,6 +118,7 @@ impl UpdatePlan {
         let sql = "
             UPDATE loginsM
             SET server_modified  = :server_modified,
+                enc_unknown_fields = :enc_unknown_fields,
                 httpRealm        = :http_realm,
                 formActionOrigin = :form_action_origin,
                 usernameField    = :username_field,
@@ -132,10 +133,12 @@ impl UpdatePlan {
             WHERE guid = :guid
         ";
         let mut stmt = conn.prepare_cached(sql)?;
-        for (login, timestamp) in &self.mirror_updates {
+        for (upstream, timestamp) in &self.mirror_updates {
+            let login = &upstream.login;
             log::trace!("Updating mirror {:?}", login.guid_str());
             stmt.execute(named_params! {
                 ":server_modified": *timestamp,
+                ":enc_unknown_fields": upstream.unknown,
                 ":http_realm": login.fields.http_realm,
                 ":form_action_origin": login.fields.form_action_origin,
                 ":username_field": login.fields.username_field,
@@ -158,6 +161,7 @@ impl UpdatePlan {
             INSERT OR IGNORE INTO loginsM (
                 is_overridden,
                 server_modified,
+                enc_unknown_fields,
 
                 httpRealm,
                 formActionOrigin,
@@ -175,6 +179,7 @@ impl UpdatePlan {
             ) VALUES (
                 :is_overridden,
                 :server_modified,
+                :enc_unknown_fields,
 
                 :http_realm,
                 :form_action_origin,
@@ -192,11 +197,13 @@ impl UpdatePlan {
             )";
         let mut stmt = conn.prepare_cached(sql)?;
 
-        for (login, timestamp, is_overridden) in &self.mirror_inserts {
+        for (upstream, timestamp, is_overridden) in &self.mirror_inserts {
+            let login = &upstream.login;
             log::trace!("Inserting mirror {:?}", login.guid_str());
             stmt.execute(named_params! {
                 ":is_overridden": *is_overridden,
                 ":server_modified": *timestamp,
+                ":enc_unknown_fields": upstream.unknown,
                 ":http_realm": login.fields.http_realm,
                 ":form_action_origin": login.fields.form_action_origin,
                 ":username_field": login.fields.username_field,
@@ -289,6 +296,13 @@ mod tests {
     use crate::db::LoginDb;
     use crate::login::test_utils::enc_login;
 
+    fn inc_login(id: &str, password: &str) -> crate::sync::IncomingLogin {
+        IncomingLogin {
+            login: enc_login(id, password),
+            unknown: Default::default(),
+        }
+    }
+
     #[test]
     fn test_deletes() {
         let db = LoginDb::open_in_memory().unwrap();
@@ -324,8 +338,8 @@ mod tests {
 
         UpdatePlan {
             mirror_updates: vec![
-                (enc_login("changed", "new-password"), 20000),
-                (enc_login("changed2", "new-password2"), 21000),
+                (inc_login("changed", "new-password"), 20000),
+                (inc_login("changed2", "new-password2"), 21000),
             ],
             ..UpdatePlan::default()
         }
@@ -341,8 +355,8 @@ mod tests {
         let db = LoginDb::open_in_memory().unwrap();
         UpdatePlan {
             mirror_inserts: vec![
-                (enc_login("login1", "new-password"), 20000, false),
-                (enc_login("login2", "new-password2"), 21000, true),
+                (inc_login("login1", "new-password"), 20000, false),
+                (inc_login("login2", "new-password2"), 21000, true),
             ],
             ..UpdatePlan::default()
         }

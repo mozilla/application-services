@@ -3,7 +3,7 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
 // Merging for Sync.
-use super::{LoginPayload, SyncStatus};
+use super::{IncomingLogin, LoginPayload, SyncStatus};
 use crate::encryption::EncryptorDecryptor;
 use crate::error::*;
 use crate::login::EncryptedLogin;
@@ -105,12 +105,13 @@ impl_login!(MirrorLogin {
 
 // Stores data needed to do a 3-way merge
 #[derive(Debug)]
-pub(crate) struct SyncLoginData {
+pub(super) struct SyncLoginData {
     pub guid: Guid,
     pub local: Option<LocalLogin>,
     pub mirror: Option<MirrorLogin>,
     // None means it's a deletion
-    pub inbound: (Option<EncryptedLogin>, ServerTimestamp),
+    pub inbound: Option<IncomingLogin>,
+    pub inbound_ts: ServerTimestamp,
 }
 
 impl SyncLoginData {
@@ -126,10 +127,9 @@ impl SyncLoginData {
 
     pub fn from_bso(bso: IncomingBso, encdec: &EncryptorDecryptor) -> Result<Self> {
         let guid = bso.envelope.id.clone();
-        // from_incoming_payload does fixups if necessary and possible.
-        let ts = bso.envelope.modified;
-        let login = match bso.into_content::<LoginPayload>().kind {
-            IncomingKind::Content(p) => Some(EncryptedLogin::from_incoming_payload(p, encdec)?),
+        let inbound_ts = bso.envelope.modified;
+        let inbound = match bso.into_content::<LoginPayload>().kind {
+            IncomingKind::Content(p) => Some(IncomingLogin::from_incoming_payload(p, encdec)?),
             IncomingKind::Tombstone => None,
             // Before the IncomingKind refactor we returned an error. We could probably just
             // treat it as a tombstone but should check that's sane, so for now, we also err.
@@ -139,7 +139,8 @@ impl SyncLoginData {
             guid,
             local: None,
             mirror: None,
-            inbound: (login, ts),
+            inbound,
+            inbound_ts,
         })
     }
 }
@@ -379,8 +380,8 @@ mod tests {
         let login = SyncLoginData::from_bso(bad_payload, &TEST_ENCRYPTOR)
             .unwrap()
             .inbound
-            .0
-            .unwrap();
+            .unwrap()
+            .login;
         assert_eq!(login.record.time_created, 0);
         assert_eq!(login.record.time_last_used, 0);
         assert_eq!(login.record.time_password_changed, 0);
@@ -400,8 +401,8 @@ mod tests {
         let login = SyncLoginData::from_bso(good_payload, &TEST_ENCRYPTOR)
             .unwrap()
             .inbound
-            .0
-            .unwrap();
+            .unwrap()
+            .login;
 
         assert_eq!(login.record.time_created, now64 - 100);
         assert_eq!(login.record.time_last_used, now64 - 50);

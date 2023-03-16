@@ -881,8 +881,12 @@ mod tests {
             1234
         );
 
-        // The schema version should reset to 1 after the migration
-        assert_eq!(db.query_one::<i64>("PRAGMA user_version").unwrap(), 1);
+        // The schema version should reset to whatever the non-sqlcipher migration process ends up
+        // with.
+        assert_eq!(
+            db.query_one::<i64>("PRAGMA user_version").unwrap(),
+            schema::VERSION
+        );
     }
 
     #[test]
