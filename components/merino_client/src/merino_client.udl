@@ -5,7 +5,7 @@ namespace merino_client {
 [Error]
 interface MerinoClientError {
     BadUrl(string reason);
-    FetchFailed(string reason);
+    FetchFailed(string reason, u16? status);
 };
 
 [Enum]

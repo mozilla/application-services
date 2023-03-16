@@ -17,13 +17,22 @@ pub(crate) enum InternalError {
     JsonError(#[from] serde_json::Error),
 }
 
+impl InternalError {
+    pub fn status(&self) -> Option<u16> {
+        match self {
+            InternalError::UnexpectedStatus(e) => Some(e.status),
+            _ => None,
+        }
+    }
+}
+
 #[derive(Debug, thiserror::Error)]
 pub enum MerinoClientError {
     #[error("Malformed URL: {reason}")]
     BadUrl { reason: String },
 
     #[error("Failed to fetch suggestions: {reason}")]
-    FetchFailed { reason: String },
+    FetchFailed { reason: String, status: Option<u16> },
 }
 
 impl From<url::ParseError> for MerinoClientError {

@@ -84,6 +84,7 @@ impl MerinoClient {
         })()
         .map_err(|err| MerinoClientError::FetchFailed {
             reason: err.to_string(),
+            status: err.status(),
         })?;
 
         Ok(response
@@ -436,12 +437,181 @@ mod tests {
             )
             .create();
 
-        let client = MerinoClient::for_server(MerinoServer::Custom { url: mockito::server_url() })?;
+        let client = MerinoClient::for_server(MerinoServer::Custom {
+            url: mockito::server_url(),
+        })?;
         let suggestions = client.fetch("test", None)?;
         m.expect(1).assert();
 
         assert_eq!(suggestions.len(), 0);
         assert_eq!(client.session_duration, Duration::from_secs(5));
+        Ok(())
+    }
+
+    #[test]
+    fn fetch_top_pick_provider_suggestion() -> MerinoClientResult<()> {
+        viaduct_reqwest::use_reqwest_backend();
+        let m = mock("GET", "/api/v1/suggest")
+            .match_query(Matcher::UrlEncoded("q".into(), "wiki".into()))
+            .match_query(Matcher::UrlEncoded("providers".into(), "top_picks".into()))
+            .with_status(200)
+            .with_header("Content-Type", "application/json")
+            .with_body(
+                r#"{
+                  "suggestions": [
+                    {
+                      "title": "Wikipedia",
+                      "url": "https://www.wikipedia.org/",
+                      "provider": "top_picks",
+                      "is_sponsored": false,
+                      "score": 0.25,
+                      "icon": "https://www.wikipedia.org/static/apple-touch/wikipedia.png",
+                      "block_id": 0,
+                      "is_top_pick": true
+                    }
+                  ],
+                  "request_id": "e5ae54e03d1d418595ad647ae764ad19",
+                  "client_variants": [],
+                  "server_variants": []
+                }"#,
+            )
+            .create();
+
+        let client = MerinoClient::new(MerinoClientSettings {
+            server: MerinoServer::Custom {
+                url: mockito::server_url(),
+            },
+            session_duration_ms: 5000,
+            client_variants: vec![],
+            default_providers: vec![],
+        })?;
+        let suggestions = client.fetch(
+            "wiki",
+            Some(MerinoClientFetchOptions {
+                providers: Some(vec!["top_picks".to_string()]),
+            }),
+        )?;
+        m.expect(1).assert();
+
+        assert_eq!(suggestions.len(), 1);
+        match &suggestions[0] {
+            MerinoSuggestion::TopPicks {
+                details,
+                block_id,
+                is_top_pick,
+            } => {
+                assert_eq!(
+                    details,
+                    &MerinoSuggestionDetails {
+                        title: "Wikipedia".into(),
+                        url: "https://www.wikipedia.org/".into(),
+                        is_sponsored: false,
+                        score: 0.25,
+                        icon: Some(
+                            "https://www.wikipedia.org/static/apple-touch/wikipedia.png".into()
+                        ),
+                    }
+                );
+                assert_eq!(*is_top_pick, true);
+                assert_eq!(*block_id, 0);
+            }
+            _ => assert!(false, "Wanted other suggestion; got {:?}", suggestions[0]),
+        };
+
+        Ok(())
+    }
+    #[test]
+    fn fetch_suggestion_with_client_variants() -> MerinoClientResult<()> {
+        viaduct_reqwest::use_reqwest_backend();
+        let m = mock("GET", "/api/v1/suggest")
+            .match_query(Matcher::UrlEncoded("q".into(), "test".into()))
+            .match_query(Matcher::UrlEncoded("client_variants".into(), "foo".into()))
+            .with_status(200)
+            .with_header("Content-Type", "application/json")
+            .with_body(
+                r#"{
+                  "suggestions": [
+                    {
+                        "title": "Test suggestion",
+                        "url": "https://example.com",
+                        "is_sponsored": false,
+                        "score": 0.1,
+                        "provider": "fancy_future_provider",
+                        "some_field": 123
+                    }
+                  ],
+                  "request_id": "e5ae54e03d1d418595ad647ae764ad19",
+                  "client_variants": ["foo"],
+                  "server_variants": []
+                }"#,
+            )
+            .create();
+
+        let client = MerinoClient::new(MerinoClientSettings {
+            server: MerinoServer::Custom {
+                url: mockito::server_url(),
+            },
+            session_duration_ms: 5000,
+            client_variants: vec!["foo".to_string()],
+            default_providers: vec![],
+        })?;
+        let suggestions = client.fetch("test", None)?;
+        m.expect(1).assert();
+
+        assert_eq!(suggestions.len(), 1);
+        match &suggestions[0] {
+            MerinoSuggestion::Other {
+                details, provider, ..
+            } => {
+                assert_eq!(
+                    details,
+                    &MerinoSuggestionDetails {
+                        title: "Test suggestion".into(),
+                        url: "https://example.com".into(),
+                        is_sponsored: false,
+                        score: 0.1,
+                        icon: None,
+                    }
+                );
+                assert_eq!(provider, "fancy_future_provider");
+            }
+            _ => assert!(false, "Wanted other suggestion; got {:?}", suggestions[0]),
+        };
+
+        Ok(())
+    }
+    #[test]
+    fn fetch_suggestion_with_bad_response() -> MerinoClientResult<()> {
+        viaduct_reqwest::use_reqwest_backend();
+        let _m = mock("GET", "/api/v1/suggest")
+            .match_query(Matcher::UrlEncoded("q".into(), "test".into()))
+            .with_status(500)
+            .create();
+
+        let client = MerinoClient::new(MerinoClientSettings {
+            server: MerinoServer::Custom {
+                url: mockito::server_url(),
+            },
+            session_duration_ms: 5000,
+            client_variants: vec![],
+            default_providers: vec![],
+        })?;
+        let suggestions = client.fetch("test", None);
+
+        match suggestions {
+            Ok(suggestions) => assert!(
+                false,
+                "No suggestions expected, should return 500 but got {:?}",
+                suggestions
+            ),
+            Err(MerinoClientError::FetchFailed { status, .. }) => {
+                assert_eq!(status, Some(500));
+            }
+            Err(e) => {
+                assert!(false, "Expected MerinoClientError but received {:?}", e);
+            }
+        }
+
         Ok(())
     }
 }
