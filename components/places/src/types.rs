@@ -212,6 +212,10 @@ impl ToSql for SyncStatus {
     }
 }
 
+// This type is used as a snazzy way to capture all unknown fields from the payload
+// upon deserialization without having to work with a concrete type
+pub type UnknownFields = serde_json::Map<String, serde_json::Value>;
+
 #[cfg(test)]
 mod tests {
     use super::*;

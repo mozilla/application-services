@@ -2,7 +2,10 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-use super::record::BookmarkRecordId;
+use super::record::{
+    BookmarkItemRecord, BookmarkRecord, BookmarkRecordId, FolderRecord, LivemarkRecord,
+    QueryRecord, SeparatorRecord,
+};
 use super::{SyncedBookmarkKind, SyncedBookmarkValidity};
 use crate::error::*;
 use crate::storage::{
@@ -35,10 +38,11 @@ impl<'a> IncomingApplicator<'a> {
     }
 
     pub fn apply_bso(&self, record: IncomingBso) -> Result<()> {
-        // This is a little odd - we need to go via serde_json::Value so we can
-        // work out what we want to deserialize it as.
         let timestamp = record.envelope.modified;
-        let json_content = record.into_content::<serde_json::Value>();
+        let mut validity = SyncedBookmarkValidity::Valid;
+        let json_content = record.into_content_with_fixup::<BookmarkItemRecord>(|json| {
+            validity = fixup_bookmark_json(json)
+        });
         match json_content.kind {
             IncomingKind::Tombstone => {
                 self.store_incoming_tombstone(
@@ -46,23 +50,23 @@ impl<'a> IncomingApplicator<'a> {
                     BookmarkRecordId::from_payload_id(json_content.envelope.id.clone()).as_guid(),
                 )?;
             }
-            IncomingKind::Content(value) => {
-                match value["type"].as_str() {
-                    Some("bookmark") => self.store_incoming_bookmark(timestamp, &value)?,
-                    Some("query") => self.store_incoming_query(timestamp, &value)?,
-                    Some("folder") => self.store_incoming_folder(timestamp, &value)?,
-                    Some("livemark") => self.store_incoming_livemark(timestamp, &value)?,
-                    Some("separator") => self.store_incoming_sep(timestamp, &value)?,
-                    _ => {
-                        // We support all known bookmark types, so this is probably just malformed.
-                        error_support::report_error!(
-                            "unknown-bookmark-type",
-                            "Unknown bookmark type: {}",
-                            value["type"]
-                        );
-                    }
-                };
-            }
+            IncomingKind::Content(item) => match item {
+                BookmarkItemRecord::Bookmark(b) => {
+                    self.store_incoming_bookmark(timestamp, &b, validity)?
+                }
+                BookmarkItemRecord::Query(q) => {
+                    self.store_incoming_query(timestamp, &q, validity)?
+                }
+                BookmarkItemRecord::Folder(f) => {
+                    self.store_incoming_folder(timestamp, &f, validity)?
+                }
+                BookmarkItemRecord::Livemark(l) => {
+                    self.store_incoming_livemark(timestamp, &l, validity)?
+                }
+                BookmarkItemRecord::Separator(s) => {
+                    self.store_incoming_sep(timestamp, &s, validity)?
+                }
+            },
             IncomingKind::Malformed => {
                 log::trace!(
                     "skipping malformed bookmark record: {}",
@@ -77,51 +81,13 @@ impl<'a> IncomingApplicator<'a> {
         Ok(())
     }
 
-    fn store_incoming_bookmark(&self, modified: ServerTimestamp, b: &JsonValue) -> Result<()> {
-        let mut validity = SyncedBookmarkValidity::Valid;
-
-        let record_id = unpack_id("id", b)?;
-        let parent_record_id = unpack_optional_id("parentid", b);
-        let date_added = unpack_optional_i64("dateAdded", b, &mut validity);
-        let title = unpack_optional_str("title", b, &mut validity);
-        let keyword = unpack_optional_keyword("keyword", b, &mut validity);
-
-        let raw_tags = &b["tags"];
-        let tags = if let Some(array) = raw_tags.as_array() {
-            let mut seen = HashSet::with_capacity(array.len());
-            for v in array {
-                if let JsonValue::String(s) = v {
-                    let tag = match validate_tag(s) {
-                        ValidatedTag::Invalid(t) => {
-                            log::trace!("Incoming bookmark has invalid tag: {:?}", t);
-                            set_reupload(&mut validity);
-                            continue;
-                        }
-                        ValidatedTag::Normalized(t) => {
-                            set_reupload(&mut validity);
-                            t
-                        }
-                        ValidatedTag::Original(t) => t,
-                    };
-                    if !seen.insert(tag) {
-                        log::trace!("Incoming bookmark has duplicate tag: {:?}", tag);
-                        set_reupload(&mut validity);
-                    }
-                } else {
-                    log::trace!("Incoming bookmark has unexpected tag: {:?}", v);
-                    set_reupload(&mut validity);
-                }
-            }
-            seen
-        } else {
-            if !raw_tags.is_array() {
-                log::trace!("Incoming bookmark has unexpected tags list: {:?}", raw_tags);
-            }
-            HashSet::new()
-        };
-
-        let url = unpack_optional_str("bmkUri", b, &mut validity);
-        let url = match self.maybe_store_href(url) {
+    fn store_incoming_bookmark(
+        &self,
+        modified: ServerTimestamp,
+        b: &BookmarkRecord,
+        mut validity: SyncedBookmarkValidity,
+    ) -> Result<()> {
+        let url = match self.maybe_store_href(b.url.as_deref()) {
             Ok(u) => Some(String::from(u)),
             Err(e) => {
                 log::warn!("Incoming bookmark has an invalid URL: {:?}", e);
@@ -130,12 +96,13 @@ impl<'a> IncomingApplicator<'a> {
                 None
             }
         };
+        let unknown_fields = serde_json::to_string(&b.unknown_fields)?;
 
         self.db.execute_cached(
             r#"REPLACE INTO moz_bookmarks_synced(guid, parentGuid, serverModified, needsMerge, kind,
-                                                 dateAdded, title, keyword, validity, placeId)
+                                                 dateAdded, title, keyword, validity, unknownFields, placeId)
                VALUES(:guid, :parentGuid, :serverModified, 1, :kind,
-                      :dateAdded, NULLIF(:title, ""), :keyword, :validity,
+                      :dateAdded, NULLIF(:title, ""), :keyword, :validity, :unknownFields,
                       CASE WHEN :url ISNULL
                       THEN NULL
                       ELSE (SELECT id FROM moz_places
@@ -146,22 +113,23 @@ impl<'a> IncomingApplicator<'a> {
             &[
                 (
                     ":guid",
-                    &record_id.as_guid().as_str() as &dyn rusqlite::ToSql,
+                    &b.record_id.as_guid().as_str() as &dyn rusqlite::ToSql,
                 ),
                 (
                     ":parentGuid",
-                    &parent_record_id.as_ref().map(BookmarkRecordId::as_guid),
+                    &b.parent_record_id.as_ref().map(BookmarkRecordId::as_guid),
                 ),
                 (":serverModified", &modified.as_millis()),
                 (":kind", &SyncedBookmarkKind::Bookmark),
-                (":dateAdded", &date_added),
-                (":title", &maybe_truncate_title(&title)),
-                (":keyword", &keyword),
+                (":dateAdded", &b.date_added),
+                (":title", &maybe_truncate_title(&b.title.as_deref())),
+                (":keyword", &b.keyword),
                 (":validity", &validity),
                 (":url", &url),
+                (":unknownFields", &unknown_fields),
             ],
         )?;
-        for t in tags {
+        for t in b.tags.iter() {
             self.db.execute_cached(
                 "INSERT OR IGNORE INTO moz_tags(tag, lastModified)
                  VALUES(:tag, now())",
@@ -173,58 +141,43 @@ impl<'a> IncomingApplicator<'a> {
                          WHERE guid = :guid),
                         (SELECT id FROM moz_tags
                          WHERE tag = :tag))",
-                &[(":guid", &record_id.as_guid().as_str()), (":tag", &t)],
+                &[(":guid", b.record_id.as_guid().as_str()), (":tag", t)],
             )?;
         }
         Ok(())
     }
 
-    fn store_incoming_folder(&self, modified: ServerTimestamp, f: &JsonValue) -> Result<()> {
-        let mut validity = SyncedBookmarkValidity::Valid;
-
-        let record_id = unpack_id("id", f)?;
-        let parent_record_id = unpack_optional_id("parentid", f);
-        let date_added = unpack_optional_i64("dateAdded", f, &mut validity);
-        let title = unpack_optional_str("title", f, &mut validity);
-
-        let children = if let Some(array) = f["children"].as_array() {
-            let mut children = Vec::with_capacity(array.len());
-            for v in array {
-                if v.is_string() {
-                    children.push(BookmarkRecordId::from_payload_id(
-                        v.as_str().unwrap().into(),
-                    ));
-                } else {
-                    return Err(Error::InvalidPlaceInfo(InvalidPlaceInfo::InvalidChildGuid));
-                }
-            }
-            children
-        } else {
-            vec![]
-        };
-
+    fn store_incoming_folder(
+        &self,
+        modified: ServerTimestamp,
+        f: &FolderRecord,
+        validity: SyncedBookmarkValidity,
+    ) -> Result<()> {
+        let unknown_fields = serde_json::to_string(&f.unknown_fields)?;
         self.db.execute_cached(
             r#"REPLACE INTO moz_bookmarks_synced(guid, parentGuid, serverModified, needsMerge, kind,
-                                                 dateAdded, title)
+                                                 dateAdded, validity, unknownFields, title)
                VALUES(:guid, :parentGuid, :serverModified, 1, :kind,
-                      :dateAdded, NULLIF(:title, ""))"#,
+                      :dateAdded, :validity, :unknownFields, NULLIF(:title, ""))"#,
             &[
                 (
                     ":guid",
-                    &record_id.as_guid().as_str() as &dyn rusqlite::ToSql,
+                    &f.record_id.as_guid().as_str() as &dyn rusqlite::ToSql,
                 ),
                 (
                     ":parentGuid",
-                    &parent_record_id.as_ref().map(BookmarkRecordId::as_guid),
+                    &f.parent_record_id.as_ref().map(BookmarkRecordId::as_guid),
                 ),
                 (":serverModified", &modified.as_millis()),
                 (":kind", &SyncedBookmarkKind::Folder),
-                (":dateAdded", &date_added),
-                (":title", &maybe_truncate_title(&title)),
+                (":dateAdded", &f.date_added),
+                (":title", &maybe_truncate_title(&f.title.as_deref())),
+                (":validity", &validity),
+                (":unknownFields", &unknown_fields),
             ],
         )?;
         sql_support::each_sized_chunk(
-            &children,
+            &f.children,
             // -1 because we want to leave an extra binding parameter (`?1`)
             // for the folder's GUID.
             sql_support::default_max_variable_number() - 1,
@@ -249,7 +202,7 @@ impl<'a> IncomingApplicator<'a> {
                 self.db.execute(
                     &sql,
                     rusqlite::params_from_iter(
-                        iter::once(&record_id)
+                        iter::once(&f.record_id)
                             .chain(chunk.iter())
                             .map(|id| id.as_guid().as_str()),
                     ),
@@ -342,25 +295,23 @@ impl<'a> IncomingApplicator<'a> {
         })
     }
 
-    fn store_incoming_query(&self, modified: ServerTimestamp, q: &JsonValue) -> Result<()> {
-        let mut validity = SyncedBookmarkValidity::Valid;
+    fn store_incoming_query(
+        &self,
+        modified: ServerTimestamp,
+        q: &QueryRecord,
+        mut validity: SyncedBookmarkValidity,
+    ) -> Result<()> {
+        let unknown_fields = serde_json::to_string(&q.unknown_fields)?;
 
-        let record_id = unpack_id("id", q)?;
-        let parent_record_id = unpack_optional_id("parentid", q);
-        let date_added = unpack_optional_i64("dateAdded", q, &mut validity);
-        let title = unpack_optional_str("title", q, &mut validity);
-        let url = unpack_optional_str("bmkUri", q, &mut validity);
-        let tag_folder_name = unpack_optional_str("folderName", q, &mut validity);
-
-        let url = match url.and_then(|href| Url::parse(href).ok()) {
+        let url = match q.url.as_ref().and_then(|href| Url::parse(href).ok()) {
             Some(url) => self.maybe_rewrite_and_store_query_url(
-                tag_folder_name,
-                &record_id,
+                q.tag_folder_name.as_deref(),
+                &q.record_id,
                 url,
                 &mut validity,
             )?,
             None => {
-                log::warn!("query {} has invalid URL", &record_id.as_guid(),);
+                log::warn!("query {} has invalid URL", &q.record_id.as_guid(),);
                 set_replace(&mut validity);
                 None
             }
@@ -368,9 +319,9 @@ impl<'a> IncomingApplicator<'a> {
 
         self.db.execute_cached(
             r#"REPLACE INTO moz_bookmarks_synced(guid, parentGuid, serverModified, needsMerge, kind,
-                                                 dateAdded, title, validity, placeId)
+                                                 dateAdded, title, validity, unknownFields, placeId)
                VALUES(:guid, :parentGuid, :serverModified, 1, :kind,
-                      :dateAdded, NULLIF(:title, ""), :validity,
+                      :dateAdded, NULLIF(:title, ""), :validity, :unknownFields,
                       (SELECT id FROM moz_places
                             WHERE url_hash = hash(:url) AND
                             url = :url
@@ -379,35 +330,32 @@ impl<'a> IncomingApplicator<'a> {
             &[
                 (
                     ":guid",
-                    &record_id.as_guid().as_str() as &dyn rusqlite::ToSql,
+                    &q.record_id.as_guid().as_str() as &dyn rusqlite::ToSql,
                 ),
                 (
                     ":parentGuid",
-                    &parent_record_id.as_ref().map(BookmarkRecordId::as_guid),
+                    &q.parent_record_id.as_ref().map(BookmarkRecordId::as_guid),
                 ),
                 (":serverModified", &modified.as_millis()),
                 (":kind", &SyncedBookmarkKind::Query),
-                (":dateAdded", &date_added),
-                (":title", &maybe_truncate_title(&title)),
+                (":dateAdded", &q.date_added),
+                (":title", &maybe_truncate_title(&q.title.as_deref())),
                 (":validity", &validity),
+                (":unknownFields", &unknown_fields),
                 (":url", &url.map(String::from)),
             ],
         )?;
         Ok(())
     }
 
-    fn store_incoming_livemark(&self, modified: ServerTimestamp, l: &JsonValue) -> Result<()> {
-        let mut validity = SyncedBookmarkValidity::Valid;
-
-        let record_id = unpack_id("id", l)?;
-        let parent_record_id = unpack_optional_id("parentid", l);
-        let date_added = unpack_optional_i64("dateAdded", l, &mut validity);
-        let title = unpack_optional_str("title", l, &mut validity);
-        let feed_url = unpack_optional_str("feedUri", l, &mut validity);
-        let site_url = unpack_optional_str("siteUri", l, &mut validity);
-
+    fn store_incoming_livemark(
+        &self,
+        modified: ServerTimestamp,
+        l: &LivemarkRecord,
+        mut validity: SyncedBookmarkValidity,
+    ) -> Result<()> {
         // livemarks don't store a reference to the place, so we validate it manually.
-        fn validate_href(h: Option<&str>, guid: &SyncGuid, what: &str) -> Option<String> {
+        fn validate_href(h: &Option<String>, guid: &SyncGuid, what: &str) -> Option<String> {
             match h {
                 Some(h) => match Url::parse(h) {
                     Ok(url) => {
@@ -430,8 +378,8 @@ impl<'a> IncomingApplicator<'a> {
                 }
             }
         }
-        let feed_url = validate_href(feed_url, record_id.as_guid(), "feed");
-        let site_url = validate_href(site_url, record_id.as_guid(), "site");
+        let feed_url = validate_href(&l.feed_url, l.record_id.as_guid(), "feed");
+        let site_url = validate_href(&l.site_url, l.record_id.as_guid(), "site");
 
         if feed_url.is_none() {
             set_replace(&mut validity);
@@ -445,16 +393,16 @@ impl<'a> IncomingApplicator<'a> {
             &[
                 (
                     ":guid",
-                    &record_id.as_guid().as_str() as &dyn rusqlite::ToSql,
+                    &l.record_id.as_guid().as_str() as &dyn rusqlite::ToSql,
                 ),
                 (
                     ":parentGuid",
-                    &parent_record_id.as_ref().map(BookmarkRecordId::as_guid),
+                    &l.parent_record_id.as_ref().map(BookmarkRecordId::as_guid),
                 ),
                 (":serverModified", &modified.as_millis()),
                 (":kind", &SyncedBookmarkKind::Livemark),
-                (":dateAdded", &date_added),
-                (":title", &title),
+                (":dateAdded", &l.date_added),
+                (":title", &l.title),
                 (":feedUrl", &feed_url),
                 (":siteUrl", &site_url),
                 (":validity", &validity),
@@ -463,30 +411,32 @@ impl<'a> IncomingApplicator<'a> {
         Ok(())
     }
 
-    fn store_incoming_sep(&self, modified: ServerTimestamp, s: &JsonValue) -> Result<()> {
-        let mut validity = SyncedBookmarkValidity::Valid;
-
-        let record_id = unpack_id("id", s)?;
-        let parent_record_id = unpack_optional_id("parentid", s);
-        let date_added = unpack_optional_i64("dateAdded", s, &mut validity);
-
+    fn store_incoming_sep(
+        &self,
+        modified: ServerTimestamp,
+        s: &SeparatorRecord,
+        validity: SyncedBookmarkValidity,
+    ) -> Result<()> {
+        let unknown_fields = serde_json::to_string(&s.unknown_fields)?;
         self.db.execute_cached(
             "REPLACE INTO moz_bookmarks_synced(guid, parentGuid, serverModified, needsMerge, kind,
-                                               dateAdded)
+                                               dateAdded, validity, unknownFields)
              VALUES(:guid, :parentGuid, :serverModified, 1, :kind,
-                    :dateAdded)",
+                    :dateAdded, :validity, :unknownFields)",
             &[
                 (
                     ":guid",
-                    &record_id.as_guid().as_str() as &dyn rusqlite::ToSql,
+                    &s.record_id.as_guid().as_str() as &dyn rusqlite::ToSql,
                 ),
                 (
                     ":parentGuid",
-                    &parent_record_id.as_ref().map(BookmarkRecordId::as_guid),
+                    &s.parent_record_id.as_ref().map(BookmarkRecordId::as_guid),
                 ),
                 (":serverModified", &modified.as_millis()),
                 (":kind", &SyncedBookmarkKind::Separator),
-                (":dateAdded", &date_added),
+                (":dateAdded", &s.date_added),
+                (":validity", &validity),
+                (":unknownFields", &unknown_fields),
             ],
         )?;
         Ok(())
@@ -521,83 +471,120 @@ impl<'a> IncomingApplicator<'a> {
     }
 }
 
-fn unpack_id(key: &str, data: &JsonValue) -> Result<BookmarkRecordId> {
-    if let Some(id) = data[key].as_str() {
-        Ok(BookmarkRecordId::from_payload_id(id.into()))
-    } else {
-        Err(Error::InvalidPlaceInfo(InvalidPlaceInfo::InvalidGuid))
+/// Go through the raw JSON value and try to fixup invalid data -- this mostly means fields with
+/// invalid types.
+///
+/// This is extra important since bookmarks form a tree.  If a parent node is invalid, then we will
+/// have issues trying to merge its children.
+fn fixup_bookmark_json(json: &mut JsonValue) -> SyncedBookmarkValidity {
+    let mut validity = SyncedBookmarkValidity::Valid;
+    // the json value should always be on object, if not don't try to do any fixups.  The result will
+    // be that into_content_with_fixup() returns an IncomingContent with IncomingKind::Malformed.
+    if let JsonValue::Object(ref mut obj) = json {
+        obj.entry("parentid")
+            .and_modify(|v| fixup_optional_str(v, &mut validity));
+        obj.entry("title")
+            .and_modify(|v| fixup_optional_str(v, &mut validity));
+        obj.entry("bmkUri")
+            .and_modify(|v| fixup_optional_str(v, &mut validity));
+        obj.entry("folderName")
+            .and_modify(|v| fixup_optional_str(v, &mut validity));
+        obj.entry("feedUri")
+            .and_modify(|v| fixup_optional_str(v, &mut validity));
+        obj.entry("siteUri")
+            .and_modify(|v| fixup_optional_str(v, &mut validity));
+        obj.entry("dateAdded")
+            .and_modify(|v| fixup_optional_i64(v, &mut validity));
+        obj.entry("keyword")
+            .and_modify(|v| fixup_optional_keyword(v, &mut validity));
+        obj.entry("tags")
+            .and_modify(|v| fixup_optional_tags(v, &mut validity));
+    }
+    validity
+}
+
+fn fixup_optional_str(val: &mut JsonValue, validity: &mut SyncedBookmarkValidity) {
+    if !matches!(val, JsonValue::String(_) | JsonValue::Null) {
+        set_reupload(validity);
+        *val = JsonValue::Null;
     }
 }
 
-fn unpack_optional_id(key: &str, data: &JsonValue) -> Option<BookmarkRecordId> {
-    let val = &data[key];
-    val.as_str()
-        .map(|v| BookmarkRecordId::from_payload_id(v.into()))
-}
-
-fn unpack_optional_str<'a>(
-    key: &str,
-    data: &'a JsonValue,
-    validity: &mut SyncedBookmarkValidity,
-) -> Option<&'a str> {
-    let val = &data[key];
+fn fixup_optional_i64(val: &mut JsonValue, validity: &mut SyncedBookmarkValidity) {
     match val {
-        JsonValue::String(s) => Some(s),
-        JsonValue::Null => None,
-        _ => {
+        // There's basically nothing to do for numbers, although we could try to drop any fraction.
+        JsonValue::Number(_) => (),
+        JsonValue::String(s) => {
             set_reupload(validity);
-            None
-        }
-    }
-}
-
-fn unpack_optional_i64(
-    key: &str,
-    data: &JsonValue,
-    validity: &mut SyncedBookmarkValidity,
-) -> Option<i64> {
-    let val = &data[key];
-    if val.is_i64() {
-        val.as_i64()
-    } else if val.is_u64() {
-        Some(val.as_u64().unwrap() as i64)
-    } else if val.is_string() {
-        set_reupload(validity);
-        if let Ok(n) = val.as_str().unwrap().parse() {
-            Some(n)
-        } else {
-            None
-        }
-    } else if val.is_null() {
-        None
-    } else {
-        set_reupload(validity);
-        None
-    }
-}
-
-fn unpack_optional_keyword(
-    key: &str,
-    data: &JsonValue,
-    validity: &mut SyncedBookmarkValidity,
-) -> Option<String> {
-    match &data[key] {
-        JsonValue::String(ref s) => {
-            // Like Desktop, we don't reupload if a keyword has leading or
-            // trailing whitespace, or isn't lowercase.
-            let k = s.trim();
-            if k.is_empty() {
-                None
+            if let Ok(n) = s.parse::<u64>() {
+                *val = JsonValue::Number(n.into());
             } else {
-                Some(k.to_lowercase())
+                *val = JsonValue::Null;
             }
         }
-        JsonValue::Null => None,
+        JsonValue::Null => (),
         _ => {
-            // ...But we do reupload if it's not a string, since older
-            // clients expect that.
             set_reupload(validity);
-            None
+            *val = JsonValue::Null;
+        }
+    }
+}
+
+// Fixup incoming keywords by lowercasing them and removing surrounding whitespace
+//
+// Like Desktop, we don't reupload if a keyword needs to be fixed-up
+// trailing whitespace, or isn't lowercase.
+fn fixup_optional_keyword(val: &mut JsonValue, validity: &mut SyncedBookmarkValidity) {
+    match val {
+        JsonValue::String(s) => {
+            let fixed = s.trim().to_lowercase();
+            if fixed.is_empty() {
+                *val = JsonValue::Null;
+            } else if fixed != *s {
+                *val = JsonValue::String(fixed);
+            }
+        }
+        JsonValue::Null => (),
+        _ => {
+            set_reupload(validity);
+            *val = JsonValue::Null;
+        }
+    }
+}
+
+fn fixup_optional_tags(val: &mut JsonValue, validity: &mut SyncedBookmarkValidity) {
+    match val {
+        JsonValue::Array(ref tags) => {
+            let mut valid_tags = HashSet::with_capacity(tags.len());
+            for v in tags {
+                if let JsonValue::String(tag) = v {
+                    let tag = match validate_tag(tag) {
+                        ValidatedTag::Invalid(t) => {
+                            log::trace!("Incoming bookmark has invalid tag: {:?}", t);
+                            set_reupload(validity);
+                            continue;
+                        }
+                        ValidatedTag::Normalized(t) => {
+                            set_reupload(validity);
+                            t
+                        }
+                        ValidatedTag::Original(t) => t,
+                    };
+                    if !valid_tags.insert(tag) {
+                        log::trace!("Incoming bookmark has duplicate tag: {:?}", tag);
+                        set_reupload(validity);
+                    }
+                } else {
+                    log::trace!("Incoming bookmark has unexpected tag: {:?}", v);
+                    set_reupload(validity);
+                }
+            }
+            *val = JsonValue::Array(valid_tags.into_iter().map(JsonValue::from).collect());
+        }
+        JsonValue::Null => (),
+        _ => {
+            set_reupload(validity);
+            *val = JsonValue::Null;
         }
     }
 }
@@ -618,10 +605,10 @@ fn set_reupload(validity: &mut SyncedBookmarkValidity) {
 mod tests {
     use super::*;
     use crate::api::places_api::{test::new_mem_api, PlacesApi};
-    use crate::storage::bookmarks::BookmarkRootGuid;
-
     use crate::bookmark_sync::record::{BookmarkItemRecord, FolderRecord};
     use crate::bookmark_sync::tests::SyncedBookmarkItem;
+    use crate::storage::bookmarks::BookmarkRootGuid;
+    use crate::types::UnknownFields;
     use pretty_assertions::assert_eq;
     use serde_json::{json, Value};
 
@@ -702,6 +689,7 @@ mod tests {
                 .iter()
                 .map(|guid| BookmarkRecordId::from(guid.clone()))
                 .collect(),
+            unknown_fields: UnknownFields::new(),
         }))
         .expect("Should serialize folder with children");
         assert_incoming_creates_mirror_item(

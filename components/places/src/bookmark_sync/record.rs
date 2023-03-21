@@ -5,6 +5,7 @@
 use std::fmt;
 
 use crate::storage::bookmarks::BookmarkRootGuid;
+use crate::types::UnknownFields;
 use serde::{
     de::{Deserialize, Deserializer, Visitor},
     ser::{Serialize, Serializer},
@@ -133,7 +134,7 @@ impl<'de> Deserialize<'de> for BookmarkRecordId {
     }
 }
 
-#[derive(Clone, Debug, Deserialize, Hash, PartialEq, Eq, Serialize)]
+#[derive(Clone, Debug, Deserialize, PartialEq, Eq, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct BookmarkRecord {
     // Note that `SyncGuid` does not check for validity, which is what we
@@ -165,6 +166,9 @@ pub struct BookmarkRecord {
 
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub tags: Vec<String>,
+
+    #[serde(flatten)]
+    pub unknown_fields: UnknownFields,
 }
 
 impl From<BookmarkRecord> for BookmarkItemRecord {
@@ -174,7 +178,7 @@ impl From<BookmarkRecord> for BookmarkItemRecord {
     }
 }
 
-#[derive(Clone, Debug, Deserialize, Hash, PartialEq, Eq, Serialize)]
+#[derive(Clone, Debug, Deserialize, PartialEq, Eq, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct QueryRecord {
     #[serde(rename = "id")]
@@ -201,6 +205,9 @@ pub struct QueryRecord {
 
     #[serde(rename = "folderName", skip_serializing_if = "Option::is_none")]
     pub tag_folder_name: Option<String>,
+
+    #[serde(flatten)]
+    pub unknown_fields: UnknownFields,
 }
 
 impl From<QueryRecord> for BookmarkItemRecord {
@@ -210,7 +217,7 @@ impl From<QueryRecord> for BookmarkItemRecord {
     }
 }
 
-#[derive(Clone, Debug, Deserialize, Hash, PartialEq, Eq, Serialize)]
+#[derive(Clone, Debug, Deserialize, PartialEq, Eq, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct FolderRecord {
     #[serde(rename = "id")]
@@ -234,6 +241,9 @@ pub struct FolderRecord {
 
     #[serde(default)]
     pub children: Vec<BookmarkRecordId>,
+
+    #[serde(flatten)]
+    pub unknown_fields: UnknownFields,
 }
 
 impl From<FolderRecord> for BookmarkItemRecord {
@@ -243,7 +253,7 @@ impl From<FolderRecord> for BookmarkItemRecord {
     }
 }
 
-#[derive(Clone, Debug, Deserialize, Hash, PartialEq, Eq, Serialize)]
+#[derive(Clone, Debug, Deserialize, PartialEq, Eq, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct LivemarkRecord {
     #[serde(rename = "id")]
@@ -270,6 +280,9 @@ pub struct LivemarkRecord {
 
     #[serde(rename = "siteUri", skip_serializing_if = "Option::is_none")]
     pub site_url: Option<String>,
+
+    #[serde(flatten)]
+    pub unknown_fields: UnknownFields,
 }
 
 impl From<LivemarkRecord> for BookmarkItemRecord {
@@ -279,7 +292,7 @@ impl From<LivemarkRecord> for BookmarkItemRecord {
     }
 }
 
-#[derive(Clone, Debug, Deserialize, Hash, PartialEq, Eq, Serialize)]
+#[derive(Clone, Debug, Deserialize, PartialEq, Eq, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct SeparatorRecord {
     #[serde(rename = "id")]
@@ -302,6 +315,9 @@ pub struct SeparatorRecord {
     // position disagreements. Older clients use this for deduping.
     #[serde(rename = "pos", skip_serializing_if = "Option::is_none")]
     pub position: Option<i64>,
+
+    #[serde(flatten)]
+    pub unknown_fields: UnknownFields,
 }
 
 impl From<SeparatorRecord> for BookmarkItemRecord {
@@ -311,7 +327,7 @@ impl From<SeparatorRecord> for BookmarkItemRecord {
     }
 }
 
-#[derive(Clone, Debug, Deserialize, Hash, PartialEq, Eq, Serialize)]
+#[derive(Clone, Debug, Deserialize, PartialEq, Eq, Serialize)]
 #[serde(tag = "type", rename_all = "camelCase")]
 pub enum BookmarkItemRecord {
     Bookmark(BookmarkRecord),
@@ -319,6 +335,28 @@ pub enum BookmarkItemRecord {
     Folder(FolderRecord),
     Livemark(LivemarkRecord),
     Separator(SeparatorRecord),
+}
+
+impl BookmarkItemRecord {
+    pub fn record_id(&self) -> &BookmarkRecordId {
+        match self {
+            Self::Bookmark(b) => &b.record_id,
+            Self::Query(q) => &q.record_id,
+            Self::Folder(f) => &f.record_id,
+            Self::Livemark(l) => &l.record_id,
+            Self::Separator(s) => &s.record_id,
+        }
+    }
+
+    pub fn unknown_fields(&self) -> Option<&UnknownFields> {
+        match self {
+            Self::Bookmark(b) => Some(&b.unknown_fields),
+            Self::Folder(f) => Some(&f.unknown_fields),
+            Self::Separator(s) => Some(&s.unknown_fields),
+            Self::Query(q) => Some(&q.unknown_fields),
+            Self::Livemark(l) => Some(&l.unknown_fields),
+        }
+    }
 }
 
 // dateAdded on a bookmark might be a string! See #1148.

@@ -196,7 +196,9 @@ CREATE TABLE IF NOT EXISTS moz_bookmarks_synced(
     loadInSidebar BOOLEAN,
     smartBookmarkName TEXT,
     feedURL TEXT,
-    siteURL TEXT
+    siteURL TEXT,
+    -- All unknown fields from the server record, encoded as a JSON object.
+    unknownFields TEXT
 );
 
 CREATE INDEX IF NOT EXISTS moz_bookmarks_synced_urls ON moz_bookmarks_synced(placeId);
