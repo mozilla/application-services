@@ -243,6 +243,15 @@ impl ProcessIncomingRecordImpl for IncomingAddressesImpl {
         common_change_guid(tx, "addresses_data", old_guid, new_guid)
     }
 
+    fn change_mirror_guid(
+        &self,
+        tx: &Transaction<'_>,
+        old_guid: &SyncGuid,
+        new_guid: &SyncGuid,
+    ) -> Result<()> {
+        common_change_mirror_guid(tx, "addresses_mirror", old_guid, new_guid)
+    }
+
     fn remove_record(&self, tx: &Transaction<'_>, guid: &SyncGuid) -> Result<()> {
         common_remove_record(tx, "addresses_data", guid)
     }

@@ -87,6 +87,15 @@ impl ProcessIncomingRecordImpl for TestImpl {
         unreachable!();
     }
 
+    fn change_mirror_guid(
+        &self,
+        _tx: &Transaction<'_>,
+        _old_guid: &Guid,
+        _new_guid: &Guid,
+    ) -> Result<()> {
+        unreachable!();
+    }
+
     fn remove_record(&self, _tx: &Transaction<'_>, _guid: &SyncGuid) -> Result<()> {
         unreachable!();
     }

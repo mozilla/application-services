@@ -243,6 +243,15 @@ impl ProcessIncomingRecordImpl for IncomingCreditCardsImpl {
         common_change_guid(tx, "credit_cards_data", old_guid, new_guid)
     }
 
+    fn change_mirror_guid(
+        &self,
+        tx: &Transaction<'_>,
+        old_guid: &SyncGuid,
+        new_guid: &SyncGuid,
+    ) -> Result<()> {
+        common_change_mirror_guid(tx, "credit_cards_mirror", old_guid, new_guid)
+    }
+
     fn remove_record(&self, tx: &Transaction<'_>, guid: &SyncGuid) -> Result<()> {
         common_remove_record(tx, "credit_cards_data", guid)
     }

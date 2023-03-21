@@ -100,6 +100,31 @@ pub(super) fn common_change_guid(
     Ok(())
 }
 
+// This should really only be used for forking strategy
+pub(super) fn common_change_mirror_guid(
+    conn: &Connection,
+    table_name: &str,
+    old_guid: &Guid,
+    new_guid: &Guid,
+) -> Result<()> {
+    assert_ne!(old_guid, new_guid);
+    let nrows = conn.execute(
+        &format!(
+            "UPDATE {}
+            SET guid = :new_guid
+            WHERE guid = :old_guid",
+            table_name
+        ),
+        rusqlite::named_params! {
+            ":old_guid": old_guid,
+            ":new_guid": new_guid,
+        },
+    )?;
+    // something's gone badly wrong if this didn't affect exactly 1 row.
+    assert_eq!(nrows, 1);
+    Ok(())
+}
+
 /// Records in the incoming staging table need to end up in the mirror.
 pub(super) fn common_mirror_staged_records(
     conn: &Connection,

@@ -92,6 +92,13 @@ pub trait ProcessIncomingRecordImpl {
         new_guid: &Guid,
     ) -> Result<()>;
 
+    fn change_mirror_guid(
+        &self,
+        tx: &Transaction<'_>,
+        old_guid: &Guid,
+        new_guid: &Guid,
+    ) -> Result<()>;
+
     fn remove_record(&self, tx: &Transaction<'_>, guid: &Guid) -> Result<()>;
 
     fn remove_tombstone(&self, tx: &Transaction<'_>, guid: &Guid) -> Result<()>;
@@ -374,6 +381,10 @@ fn apply_incoming_action<T: std::fmt::Debug + SyncRecord>(
         IncomingAction::Fork { forked, incoming } => {
             // `forked` exists in the DB with the same guid as `incoming`, so fix that.
             rec_impl.change_local_guid(tx, incoming.id(), forked.id())?;
+            // The mirror will be overridden by what's newer on the server, causing us
+            // to potentially lose any unknown_fields here: so we change the guid to match the new
+            // forked record so we can extract any unknown fields
+            rec_impl.change_mirror_guid(tx, incoming.id(), forked.id())?;
             // `incoming` has the correct new guid.
             rec_impl.insert_local_record(tx, incoming)?;
         }
