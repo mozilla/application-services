@@ -338,17 +338,16 @@ fn generate_session_id() -> String {
     )
     .unwrap();
 
-    return string;
+    string
 }
 
 struct HexSequence<'a>(&'a [u8]);
 
 impl fmt::Display for HexSequence<'_> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        Ok(self
-            .0
+        self.0
             .iter()
-            .try_for_each(|byte| f.write_fmt(format_args!("{:02x}", byte)))?)
+            .try_for_each(|byte| f.write_fmt(format_args!("{:02x}", byte)))
     }
 }
 
@@ -414,7 +413,7 @@ mod tests {
                 assert_eq!(full_keyword, "testing");
                 assert_eq!(advertiser, "Test");
             }
-            _ => assert!(false, "Wanted adM suggestion; got {:?}", suggestions[0]),
+            _ => unreachable!("Wanted adM suggestion; got {:?}", suggestions[0]),
         };
 
         Ok(())
@@ -467,7 +466,7 @@ mod tests {
                 );
                 assert_eq!(provider, "fancy_future_provider");
             }
-            _ => assert!(false, "Wanted other suggestion; got {:?}", suggestions[0]),
+            _ => unreachable!("Wanted other suggestion; got {:?}", suggestions[0]),
         };
 
         Ok(())
@@ -562,10 +561,10 @@ mod tests {
                         ),
                     }
                 );
-                assert_eq!(*is_top_pick, true);
+                assert!(*is_top_pick);
                 assert_eq!(*block_id, 0);
             }
-            _ => assert!(false, "Wanted other suggestion; got {:?}", suggestions[0]),
+            _ => unreachable!("Wanted other suggestion; got {:?}", suggestions[0]),
         };
 
         Ok(())
@@ -649,8 +648,20 @@ mod tests {
                     }
                 );
                 assert_eq!(*city_name, "Milton");
+                assert_eq!(*current_conditions, MerinoWeatherCurrentConditions{
+                    url: "http://www.accuweather.com/en/us/milton-wa/98354/current-weather/41512_pc?lang=en-us".to_string(),
+                    summary: "Mostly sunny".to_string(),
+                    icon_id: 2,
+                    temperature: Temperature { c: -3.0, f: 27.0 }
+                });
+                assert_eq!(*forecast, MerinoWeatherForecast{
+                    url: "http://www.accuweather.com/en/us/milton-wa/98354/daily-weather-forecast/41512_pc?lang=en-us".to_string(),
+                    summary: "Snow tomorrow evening accumulating 1-2 inches, then changing to ice and continuing into Friday morning".to_string(),
+                    high: Temperature { c: -2.0, f: 29.0 },
+                    low: Temperature { c: -8.0, f: 18.0 }
+                });
             }
-            _ => assert!(false, "Wanted other suggestion; got {:?}", suggestions[0]),
+            _ => unreachable!("Wanted other suggestion; got {:?}", suggestions[0]),
         };
 
         Ok(())
@@ -711,7 +722,7 @@ mod tests {
                 );
                 assert_eq!(provider, "fancy_future_provider");
             }
-            _ => assert!(false, "Wanted other suggestion; got {:?}", suggestions[0]),
+            _ => unreachable!("Wanted other suggestion; got {:?}", suggestions[0]),
         };
 
         Ok(())
@@ -735,8 +746,7 @@ mod tests {
         let suggestions = client.fetch("test", None);
 
         match suggestions {
-            Ok(suggestions) => assert!(
-                false,
+            Ok(suggestions) => panic!(
                 "No suggestions expected, should return 500 but got {:?}",
                 suggestions
             ),
@@ -744,7 +754,7 @@ mod tests {
                 assert_eq!(status, Some(500));
             }
             Err(e) => {
-                assert!(false, "Expected MerinoClientError but received {:?}", e);
+                panic!("Expected MerinoClientError but received {:?}", e);
             }
         }
 
