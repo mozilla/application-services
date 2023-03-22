@@ -269,7 +269,7 @@ pub mod test {
         StorageDb::new_memory(&format!("test-api-{}", counter)).expect("should get an API")
     }
 
-    pub fn new_shared_mem_db() -> Arc<ThreadSafeStorageDb> {
+    pub fn new_mem_thread_safe_storage_db() -> Arc<ThreadSafeStorageDb> {
         Arc::new(ThreadSafeStorageDb::new(new_mem_db()))
     }
 }
