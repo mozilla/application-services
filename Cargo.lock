@@ -4069,6 +4069,7 @@ dependencies = [
 name = "webext-storage"
 version = "0.1.0"
 dependencies = [
+ "anyhow",
  "env_logger 0.7.1",
  "error-support",
  "ffi-support",
@@ -4077,6 +4078,7 @@ dependencies = [
  "libsqlite3-sys",
  "log",
  "nss_build_common",
+ "parking_lot",
  "prettytable-rs",
  "rusqlite",
  "serde",
