@@ -147,9 +147,36 @@ pub struct MerinoSuggestionDetails {
     pub score: f64,
     pub icon: Option<String>,
 }
+#[derive(Clone, Debug, Deserialize, PartialEq)]
+pub struct Temperature {
+    pub c: f64,
+    pub f: f64,
+}
+
+#[derive(Clone, Debug, Deserialize, PartialEq)]
+pub struct MerinoWeatherCurrentConditions {
+    pub url: String,
+    pub summary: String,
+    pub icon_id: i64,
+    pub temperature: Temperature,
+}
+
+#[derive(Clone, Debug, Deserialize, PartialEq)]
+pub struct MerinoWeatherForecast {
+    pub url: String,
+    pub summary: String,
+    pub high: Temperature,
+    pub low: Temperature,
+}
 
 #[derive(Clone, Debug, PartialEq)]
 pub enum MerinoSuggestion {
+    Accuweather {
+        details: MerinoSuggestionDetails,
+        city_name: String,
+        current_conditions: MerinoWeatherCurrentConditions,
+        forecast: MerinoWeatherForecast,
+    },
     Adm {
         details: MerinoSuggestionDetails,
         block_id: i64,
@@ -187,6 +214,7 @@ impl From<SuggestResponseSuggestion> for MerinoSuggestion {
                 impression_url,
                 click_url,
             },
+
             SuggestResponseSuggestion::Known(
                 SuggestResponseKnownProviderSuggestion::TopPicks {
                     details,
@@ -198,6 +226,20 @@ impl From<SuggestResponseSuggestion> for MerinoSuggestion {
                 block_id,
                 is_top_pick,
             },
+            SuggestResponseSuggestion::Known(
+                SuggestResponseKnownProviderSuggestion::Accuweather {
+                    details,
+                    city_name,
+                    current_conditions,
+                    forecast,
+                },
+            ) => MerinoSuggestion::Accuweather {
+                details,
+                city_name,
+                current_conditions,
+                forecast,
+            },
+
             SuggestResponseSuggestion::Unknown { details, provider } => {
                 MerinoSuggestion::Other { details, provider }
             }
@@ -245,6 +287,14 @@ enum SuggestResponseKnownProviderSuggestion {
         details: MerinoSuggestionDetails,
         block_id: i64,
         is_top_pick: bool,
+    },
+    #[serde(rename = "accuweather")]
+    Accuweather {
+        #[serde(flatten)]
+        details: MerinoSuggestionDetails,
+        city_name: String,
+        current_conditions: MerinoWeatherCurrentConditions,
+        forecast: MerinoWeatherForecast,
     },
 }
 
@@ -520,6 +570,92 @@ mod tests {
 
         Ok(())
     }
+
+    #[test]
+    fn fetch_accuweather_provider_suggestion() -> MerinoClientResult<()> {
+        viaduct_reqwest::use_reqwest_backend();
+        let m = mock("GET", "/api/v1/suggest")
+            .match_query(Matcher::UrlEncoded("q".into(), "weather".into()))
+            .with_status(200)
+            .with_header("Content-Type", "application/json")
+            .with_body(
+                r#"{
+                   "suggestions":[
+                      {
+                         "title":"Weather for Milton",
+                         "url":"http://www.accuweather.com/en/us/milton-wa/98354/current-weather/41512_pc?lang=en-us",
+                         "provider":"accuweather",
+                         "is_sponsored":false,
+                         "score":0.3,
+                         "icon": null,
+                         "city_name":"Milton",
+                         "current_conditions":{
+                            "url":"http://www.accuweather.com/en/us/milton-wa/98354/current-weather/41512_pc?lang=en-us",
+                            "summary":"Mostly sunny",
+                            "icon_id":2,
+                            "temperature":{
+                               "c":-3,
+                               "f":27
+                            }
+                         },
+                         "forecast":{
+                            "url":"http://www.accuweather.com/en/us/milton-wa/98354/daily-weather-forecast/41512_pc?lang=en-us",
+                            "summary":"Snow tomorrow evening accumulating 1-2 inches, then changing to ice and continuing into Friday morning",
+                            "high":{
+                               "c":-2,
+                               "f":29
+                            },
+                            "low":{
+                               "c":-8,
+                               "f":18
+                            }
+                         }
+                      }
+                   ],
+                   "request_id":"0b1c8d7692b04b0ea42333c65bf65705",
+                   "client_variants":[],
+                   "server_variants":[]
+                }"#,
+            )
+            .create();
+
+        let client = MerinoClient::new(MerinoClientSettings {
+            server: MerinoServer::Custom {
+                url: mockito::server_url(),
+            },
+            session_duration_ms: 5000,
+            client_variants: vec![],
+            default_providers: vec![],
+        })?;
+        let suggestions = client.fetch("weather", None)?;
+        m.expect(1).assert();
+
+        assert_eq!(suggestions.len(), 1);
+        match &suggestions[0] {
+            MerinoSuggestion::Accuweather {
+                details,
+                city_name,
+                current_conditions,
+                forecast,
+            } => {
+                assert_eq!(
+                    details,
+                    &MerinoSuggestionDetails {
+                        title: "Weather for Milton".into(),
+                        url: "http://www.accuweather.com/en/us/milton-wa/98354/current-weather/41512_pc?lang=en-us".into(),
+                        is_sponsored: false,
+                        score: 0.3,
+                        icon: None
+                    }
+                );
+                assert_eq!(*city_name, "Milton");
+            }
+            _ => assert!(false, "Wanted other suggestion; got {:?}", suggestions[0]),
+        };
+
+        Ok(())
+    }
+
     #[test]
     fn fetch_suggestion_with_client_variants() -> MerinoClientResult<()> {
         viaduct_reqwest::use_reqwest_backend();

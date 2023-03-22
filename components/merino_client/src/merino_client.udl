@@ -26,6 +26,10 @@ dictionary MerinoClientFetchOptions {
     sequence<string>? providers = null;
 };
 
+dictionary Temperature {
+    f64 c;
+    f64 f;
+};
 dictionary MerinoSuggestionDetails {
     string title;
     string url;
@@ -34,8 +38,23 @@ dictionary MerinoSuggestionDetails {
     string? icon;
 };
 
+dictionary MerinoWeatherCurrentConditions {
+    string url;
+    string summary;
+    i64 icon_id;
+    Temperature temperature;
+};
+
+dictionary MerinoWeatherForecast {
+    string url;
+    string summary;
+    Temperature high;
+    Temperature low;
+};
+
 [Enum]
 interface MerinoSuggestion {
+    Accuweather(MerinoSuggestionDetails details, string city_name, MerinoWeatherCurrentConditions current_conditions, MerinoWeatherForecast forecast);
     Adm(MerinoSuggestionDetails details, i64 block_id, string full_keyword, string advertiser, string? impression_url, string? click_url);
     TopPicks(MerinoSuggestionDetails details, i64 block_id, boolean is_top_pick);
     Other(MerinoSuggestionDetails details, string provider);

@@ -10,7 +10,8 @@ mod error;
 pub use crate::{
     client::{
         MerinoClient, MerinoClientFetchOptions, MerinoClientSettings, MerinoServer,
-        MerinoSuggestion, MerinoSuggestionDetails,
+        MerinoSuggestion, MerinoSuggestionDetails, MerinoWeatherCurrentConditions,
+        MerinoWeatherForecast, Temperature,
     },
     error::MerinoClientError,
 };
