@@ -29,7 +29,7 @@ use dbcache::DatabaseCache;
 pub use enrollment::EnrollmentStatus;
 use enrollment::{
     get_global_user_participation, opt_in_with_branch, opt_out, set_global_user_participation,
-    EnrollmentChangeEvent, EnrollmentsEvolver,
+    EnrolledFeature, EnrollmentChangeEvent, EnrollmentsEvolver,
 };
 use evaluator::is_experiment_available;
 
@@ -222,6 +222,10 @@ impl NimbusClient {
             .filter(|exp| is_experiment_available(&self.app_context, exp, false))
             .map(|exp| exp.into())
             .collect())
+    }
+
+    pub fn get_enrollment_by_feature(&self, feature_id: String) -> Result<Option<EnrolledFeature>> {
+        self.database_cache.get_enrollment_by_feature(&feature_id)
     }
 
     pub fn opt_in_with_branch(

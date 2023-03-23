@@ -2,7 +2,9 @@
 // License, v. 2.0. If a copy of the MPL was not distributed with this
 // file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
-use crate::enrollment::{get_enrollments, map_features_by_feature_id, EnrolledFeatureConfig};
+use crate::enrollment::{
+    get_enrollments, map_features_by_feature_id, EnrolledFeature, EnrolledFeatureConfig,
+};
 use crate::error::{NimbusError, Result};
 use crate::persistence::{Database, StoreId, Writer};
 use crate::EnrolledExperiment;
@@ -131,6 +133,14 @@ impl DatabaseCache {
             } else {
                 None
             }
+        })
+    }
+
+    pub fn get_enrollment_by_feature(&self, feature_id: &str) -> Result<Option<EnrolledFeature>> {
+        self.get_data(|data| {
+            data.features_by_feature_id
+                .get(feature_id)
+                .map(|feature| feature.into())
         })
     }
 

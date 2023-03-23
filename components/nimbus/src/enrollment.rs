@@ -1132,6 +1132,23 @@ impl EnrolledFeatureConfig {
     }
 }
 
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct EnrolledFeature {
+    pub slug: String,
+    pub branch: Option<String>,
+    pub feature_id: String,
+}
+
+impl From<&EnrolledFeatureConfig> for EnrolledFeature {
+    fn from(value: &EnrolledFeatureConfig) -> Self {
+        Self {
+            slug: value.slug.clone(),
+            branch: value.branch.clone(),
+            feature_id: value.feature_id.clone(),
+        }
+    }
+}
+
 #[derive(Debug)]
 pub struct EnrollmentChangeEvent {
     pub experiment_slug: String,
