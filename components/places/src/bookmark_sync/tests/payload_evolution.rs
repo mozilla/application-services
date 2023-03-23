@@ -155,7 +155,6 @@ impl RoundtripTest {
             .collect();
         let mut correct_outgoing_keys = correct_outgoing_unknown_fields
             .keys()
-            .into_iter()
             .cloned()
             .collect::<Vec<_>>();
         // For each outgoing item, check that the unknown fields match what we expect

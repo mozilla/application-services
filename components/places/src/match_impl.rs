@@ -445,7 +445,7 @@ mod test {
         for c in 0u8..=255u8 {
             assert_eq!(
                 is_ascii_lower_alpha(c),
-                (b'a'..=b'z').contains(&c),
+                c.is_ascii_lowercase(),
                 "is_lower_ascii_alpha is wrong for {}",
                 c
             );

@@ -43,7 +43,6 @@ impl TryFrom<FeatureManifest> for ExperimenterManifest {
     fn try_from(fm: FeatureManifest) -> Result<Self> {
         fm.all_imports
             .values()
-            .into_iter()
             .chain(vec![&fm])
             .flat_map(|fm| {
                 fm.feature_defs
