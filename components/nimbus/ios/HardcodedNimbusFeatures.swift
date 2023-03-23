@@ -20,6 +20,7 @@ public class HardcodedNimbusFeatures {
     let features: [String: [String: Any]]
     let bundles: [Bundle]
     var exposureCounts = [String: Int]()
+    var malformedFeatures = [String: String]()
 
     init(bundles: [Bundle] = [.main], with features: [String: [String: Any]]) {
         self.features = features
@@ -27,7 +28,7 @@ public class HardcodedNimbusFeatures {
     }
 
     convenience init(bundles: [Bundle] = [.main], with jsons: [String: String]) {
-        var features = jsons.mapValuesNotNull {
+        let features = jsons.mapValuesNotNull {
             try? Dictionary.parse(jsonString: $0)
         }
         self.init(bundles: bundles, with: features)
@@ -41,6 +42,17 @@ public class HardcodedNimbusFeatures {
     /// Helper function for testing if the exposure count for this feature is greater than zero.
     public func isExposed(featuredId: String) -> Bool {
         return getExposureCount(featureId: featuredId) > 0
+    }
+
+    /// Helper function for testing if app code has reported that any of the feature
+    /// configuration is malformed.
+    public func isMalformed(featureId: String) -> Bool {
+        return malformedFeatures[featureId] != nil
+    }
+
+    /// Getter method for the last part of the given feature was reported malformed.
+    public func getMalformed(for featureId: String) -> String? {
+        return malformedFeatures[featureId]
     }
 
     /// Utility function for {isUnderTest} to detect if the feature is under test.
@@ -69,5 +81,9 @@ extension HardcodedNimbusFeatures: FeaturesInterface {
         if features[featureId] != nil {
             exposureCounts[featureId] = getExposureCount(featureId: featureId) + 1
         }
+    }
+
+    public func recordMalformedConfiguration(featureId: String, with partId: String) {
+        malformedFeatures[featureId] = partId
     }
 }

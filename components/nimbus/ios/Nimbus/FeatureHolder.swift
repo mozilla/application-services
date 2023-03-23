@@ -57,6 +57,13 @@ public class FeatureHolder<T> {
         getSdk()?.recordExposureEvent(featureId: featureId)
     }
 
+    /// Send a malformed feature event for this feature.
+    ///
+    /// - Parameter partId an optional detail or part identifier to be attached to the event.
+    public func recordMalformedConfiguration(with partId: String = "") {
+        getSdk()?.recordMalformedConfiguration(featureId: featureId, with: partId)
+    }
+
     /// Is this feature the focus of an automated test.
     ///
     /// A utility flag to be used in conjunction with {HardcodedNimbusFeatures}.
