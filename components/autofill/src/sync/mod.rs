@@ -85,14 +85,7 @@ pub trait ProcessIncomingRecordImpl {
 
     fn insert_local_record(&self, tx: &Transaction<'_>, record: Self::Record) -> Result<()>;
 
-    fn change_local_guid(
-        &self,
-        tx: &Transaction<'_>,
-        old_guid: &Guid,
-        new_guid: &Guid,
-    ) -> Result<()>;
-
-    fn change_mirror_guid(
+    fn change_record_guid(
         &self,
         tx: &Transaction<'_>,
         old_guid: &Guid,
@@ -380,11 +373,9 @@ fn apply_incoming_action<T: std::fmt::Debug + SyncRecord>(
         }
         IncomingAction::Fork { forked, incoming } => {
             // `forked` exists in the DB with the same guid as `incoming`, so fix that.
-            rec_impl.change_local_guid(tx, incoming.id(), forked.id())?;
-            // The mirror will be overridden by what's newer on the server, causing us
-            // to potentially lose any unknown_fields here: so we change the guid to match the new
-            // forked record so we can extract any unknown fields
-            rec_impl.change_mirror_guid(tx, incoming.id(), forked.id())?;
+            // change_record_guid will also update the mirror (if it exists) to prevent
+            // the server from overriding the forked mirror record (and losing any unknown fields)
+            rec_impl.change_record_guid(tx, incoming.id(), forked.id())?;
             // `incoming` has the correct new guid.
             rec_impl.insert_local_record(tx, incoming)?;
         }
@@ -394,7 +385,7 @@ fn apply_incoming_action<T: std::fmt::Debug + SyncRecord>(
         IncomingAction::UpdateLocalGuid { old_guid, record } => {
             // expect record to have the new guid.
             assert_ne!(old_guid, *record.id());
-            rec_impl.change_local_guid(tx, &old_guid, record.id())?;
+            rec_impl.change_record_guid(tx, &old_guid, record.id())?;
             // the item is identical with the item with the new guid
             // *except* for the metadata - so we still need to update, but
             // don't need to treat the item as dirty.

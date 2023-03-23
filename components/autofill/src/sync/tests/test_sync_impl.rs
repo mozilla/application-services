@@ -78,20 +78,11 @@ impl ProcessIncomingRecordImpl for TestImpl {
         unreachable!();
     }
 
-    fn change_local_guid(
+    fn change_record_guid(
         &self,
         _tx: &Transaction<'_>,
         _old_guid: &SyncGuid,
         _new_guid: &SyncGuid,
-    ) -> Result<()> {
-        unreachable!();
-    }
-
-    fn change_mirror_guid(
-        &self,
-        _tx: &Transaction<'_>,
-        _old_guid: &Guid,
-        _new_guid: &Guid,
     ) -> Result<()> {
         unreachable!();
     }

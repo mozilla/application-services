@@ -221,6 +221,7 @@ lazy_static::lazy_static! {
             "country": "AU",
         },
         "outgoing": {
+            "given-name": "Skip",
             // We should be roundtripping the newest "unknown"
             "unknown-1": "we have a new unknown",
         }
@@ -287,6 +288,7 @@ lazy_static::lazy_static! {
             "family-name": "Jones",
         },
         "outgoing": {
+            "given-name": "Skip",
             // We expect the new unknown instead of the previous
             "unknown-2": "changing the schema",
         }
@@ -326,10 +328,15 @@ lazy_static::lazy_static! {
             // And we've updated the local version of the record to be the remote version.
             "given-name": "Kip",
             "family-name": "Jones",
+            // Verify that the mirror DB has the expected fields
+            "expected_unknown_fields" : {
+                "new-unknown-field": "we love to change schema",
+            },
         },
         // Because our record has been "forked" the local change we send out
         // should have the ORIGINAL unknown fields
         "outgoing": {
+            "given-name": "Skip",
             "foo": "bar",
         },
     },
@@ -548,6 +555,8 @@ fn check_address_as_expected(address: &InternalAddress, expected: &Map<String, V
                 address.metadata.time_last_used
             ),
             "timesUsed" => assert_eq!(val.as_i64().unwrap(), address.metadata.times_used),
+            // Sometimes we'll have an `expected_unknown_fields` set for reconciled, we can skip it safely here
+            "expected_unknown_fields" => (),
             _ => unreachable!("unexpected field {name}"),
         }
     }
@@ -664,10 +673,7 @@ fn test_reconcile_addresses() -> Result<()> {
 
             // Verify all fields we want tested are in the payload
             for expected in oeb {
-                assert_eq!(
-                    entry.get(expected.0).unwrap(),
-                    outgoing_expected.get(expected.0).unwrap()
-                );
+                assert_eq!(entry.get(expected.0).unwrap(), expected.1);
             }
         };
 
@@ -698,6 +704,29 @@ fn test_reconcile_addresses() -> Result<()> {
         };
         let expected = test_case["reconciled"].as_object().unwrap();
         check_address_as_expected(reconciled, expected);
+
+        // If the reconciled json has `expected_unknown_fields` then we want to validate that the mirror
+        // DB has the fields we're trying to roundtrip
+        if let Some(unknown_fields) = expected.get("expected_unknown_fields") {
+            let tx = db.unchecked_transaction().unwrap();
+            let mut stmt = tx.prepare("SELECT payload FROM addresses_mirror")?;
+            let rows = stmt.query_map([], |row| row.get(0)).unwrap();
+
+            for row in rows {
+                let payload_str: String = row.unwrap();
+                let payload: Value = serde_json::from_str(&payload_str).unwrap();
+                let entry = payload.get("entry").unwrap();
+
+                // There's probably multiple rows in the mirror, we only want to test against the
+                // record we reconciled
+                if expected.get("given-name").unwrap() == entry.get("given-name").unwrap() {
+                    let expected_unknown = unknown_fields.as_object().unwrap();
+                    for expected in expected_unknown {
+                        assert_eq!(entry.get(expected.0).unwrap(), expected.1);
+                    }
+                }
+            }
+        };
     }
     Ok(())
 }

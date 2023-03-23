@@ -234,22 +234,20 @@ impl ProcessIncomingRecordImpl for IncomingCreditCardsImpl {
 
     /// Changes the guid of the local record for the given `old_guid` to the given `new_guid` used
     /// for the `HasLocalDupe` incoming state, and mark the item as dirty.
-    fn change_local_guid(
+    /// We also update the mirror record if it exists in forking scenarios
+    fn change_record_guid(
         &self,
         tx: &Transaction<'_>,
         old_guid: &SyncGuid,
         new_guid: &SyncGuid,
     ) -> Result<()> {
-        common_change_guid(tx, "credit_cards_data", old_guid, new_guid)
-    }
-
-    fn change_mirror_guid(
-        &self,
-        tx: &Transaction<'_>,
-        old_guid: &SyncGuid,
-        new_guid: &SyncGuid,
-    ) -> Result<()> {
-        common_change_mirror_guid(tx, "credit_cards_mirror", old_guid, new_guid)
+        common_change_guid(
+            tx,
+            "credit_cards_data",
+            "credit_cards_mirror",
+            old_guid,
+            new_guid,
+        )
     }
 
     fn remove_record(&self, tx: &Transaction<'_>, guid: &SyncGuid) -> Result<()> {
@@ -435,7 +433,7 @@ mod tests {
     }
 
     #[test]
-    fn test_change_local_guid() -> Result<()> {
+    fn test_change_record_guid() -> Result<()> {
         let mut db = new_syncable_mem_db();
         let tx = db.transaction()?;
         let ri = IncomingCreditCardsImpl {
@@ -444,7 +442,7 @@ mod tests {
 
         ri.insert_local_record(&tx, test_record('C', &ri.encdec))?;
 
-        ri.change_local_guid(
+        ri.change_record_guid(
             &tx,
             &SyncGuid::new(&expand_test_guid('C')),
             &SyncGuid::new(&expand_test_guid('B')),
