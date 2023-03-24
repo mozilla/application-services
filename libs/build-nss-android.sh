@@ -42,18 +42,8 @@ else
 fi
 NSPR_64="${NSPR_64:-""}"
 
-export AR="${TOOLCHAIN_PATH}/bin/llvm-ar"
-export CC="${TOOLCHAIN_PATH}/bin/${TOOLCHAIN}${ANDROID_NDK_API_VERSION}-clang"
-export CXX="${TOOLCHAIN_PATH}/bin/${TOOLCHAIN}${ANDROID_NDK_API_VERSION}-clang++"
-# For 32-bit ARM, the compiler is prefixed with armv7a-linux-androideabi
-if [[ "${TOOLCHAIN}" == "arm-linux-androideabi" ]]; then
-  export CC="${TOOLCHAIN_PATH}/bin/armv7a-linux-androideabi${ANDROID_NDK_API_VERSION}-clang"
-  export CXX="${TOOLCHAIN_PATH}/bin/armv7a-linux-androideabi${ANDROID_NDK_API_VERSION}-clang++"
-fi
-export LD="${TOOLCHAIN_PATH}/bin/ld"
-export NM="${TOOLCHAIN_PATH}/bin/llvm-nm"
-export RANLIB="${TOOLCHAIN_PATH}/bin/llvm-ranlib"
-export READELF="${TOOLCHAIN_PATH}/bin/llvm-readelf"
+# shellcheck source=libs/build-android-common.sh
+source ./build-android-common.sh
 
 # Build NSPR
 NSPR_BUILD_DIR=$(mktemp -d)
