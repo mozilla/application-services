@@ -196,7 +196,7 @@ nimbus_events:
     bugs:
       - https://jira.mozilla.com/browse/EXP-3310
     data_reviews:
-      - https://github.com/mozilla/application-services/pull/5440#issuecomment-1481999207
+      - https://github.com/mozilla/application-services/pull/5440#pullrequestreview-1356564351
     data_sensitivity:
       - technical
     notification_emails:
