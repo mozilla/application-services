@@ -23,4 +23,4 @@ Use the template below to make assigning a version number during the release cut
 
 ### What's Changed
 
-- Android: Upgraded NDK from r21d to r25b.
+- Android: Upgraded NDK from r21d to r25c.
