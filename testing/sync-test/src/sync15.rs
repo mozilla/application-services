@@ -14,10 +14,10 @@ use log::*;
 use serde_derive::*;
 use std::cell::{Cell, RefCell};
 use std::mem;
-use sync15::bso::OutgoingBso;
+use sync15::bso::{IncomingBso, OutgoingBso};
 use sync15::client::{sync_multiple, MemoryCachedState, Sync15StorageClientInit};
 use sync15::engine::{
-    CollectionRequest, EngineSyncAssociation, IncomingChangeset, OutgoingChangeset, SyncEngine,
+    CollectionRequest, EngineSyncAssociation, SyncEngine,
 };
 use sync15::{telemetry, ServerTimestamp};
 use sync_guid::Guid;
@@ -62,32 +62,36 @@ impl SyncEngine for TestEngine {
         "addresses".into()
     }
 
-    fn apply_incoming(
+    fn stage_incoming(
         &self,
-        inbound: Vec<IncomingChangeset>,
+        inbound: Vec<IncomingBso>,
         _telem: &mut telemetry::Engine,
-    ) -> anyhow::Result<OutgoingChangeset> {
-        // Notice the `&mut *` and `.borrow_mut()` to extract the Vec from
-        // the RefCell.
-        let temp: Vec<TestRecord> = mem::take(&mut *self.test_records.borrow_mut());
-
-        let inbound = inbound.into_iter().next().unwrap();
-        for bso in inbound.changes {
+    ) -> anyhow::Result<()> {
+        for bso in inbound {
             let incoming_record = bso.into_content::<TestRecord>().content().unwrap();
             info!("Got incoming record {:?}", incoming_record);
 
             self.test_records.borrow_mut().push(incoming_record);
         }
-
-        Ok(OutgoingChangeset::new(
-            self.collection_name(),
-            temp.into_iter()
-                .map(OutgoingBso::from_content_with_id)
-                .collect::<Result<_, _>>()?,
-        ))
+        Ok(())
     }
 
-    fn sync_finished(
+    fn apply(
+        &self,
+        _timestamp: ServerTimestamp,
+        _telem: &mut telemetry::Engine,
+    ) -> anyhow::Result<Vec<OutgoingBso>> {
+        // Notice the `&mut *` and `.borrow_mut()` to extract the Vec from
+        // the RefCell.
+        let temp: Vec<TestRecord> = mem::take(&mut *self.test_records.borrow_mut());
+
+        Ok(temp.into_iter()
+                .map(OutgoingBso::from_content_with_id)
+                .collect::<Result<_, _>>()?
+        )
+    }
+
+    fn set_uploaded(
         &self,
         _new_timestamp: ServerTimestamp,
         records_synced: Vec<Guid>,
@@ -100,14 +104,14 @@ impl SyncEngine for TestEngine {
         Ok(())
     }
 
-    fn get_collection_requests(
+    fn get_collection_request(
         &self,
         _server_timestamp: ServerTimestamp,
-    ) -> anyhow::Result<Vec<CollectionRequest>> {
+    ) -> anyhow::Result<Option<CollectionRequest>> {
         // This is where we can add a `since` bound, so we only fetch records
         // since the last sync time...but, we aren't storing that yet, so we
         // just fetch all records that we've ever written.
-        Ok(vec![CollectionRequest::new(self.collection_name()).full()])
+        Ok(Some(CollectionRequest::new(self.collection_name()).full()))
     }
 
     /// This is where we return our test collection's sync ID (and global sync
