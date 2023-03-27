@@ -194,7 +194,7 @@ def get_fenix_build_tasks(task):
     task['worker']['artifacts'] = [
         {
             'name': 'public/branch-build/app-x86-debug.apk',
-            'path': '/builds/worker/checkouts/vcs/fenix/app/build/outputs/apk/debug/app-x86-debug.apk',
+            'path': '/builds/worker/checkouts/vcs/firefox-android/fenix/app/build/outputs/apk/fenix/debug/app-fenix-x86-debug.apk',
             'type': 'file',
         }
     ]
