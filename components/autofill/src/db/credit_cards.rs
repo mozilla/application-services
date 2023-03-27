@@ -555,7 +555,7 @@ pub(crate) mod tests {
 
         // create a mirror record to check that a tombstone record is created upon deletion
         let cc2_guid = saved_credit_card2.guid.clone();
-        let payload = saved_credit_card2.into_test_incoming_bso(&encdec);
+        let payload = saved_credit_card2.into_test_incoming_bso(&encdec, Default::default());
 
         test_insert_mirror_record(&db, payload);
 

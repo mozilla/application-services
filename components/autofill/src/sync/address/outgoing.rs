@@ -6,7 +6,7 @@
 use crate::db::models::address::InternalAddress;
 use crate::db::schema::ADDRESS_COMMON_COLS;
 use crate::error::*;
-use crate::sync::common::*;
+use crate::sync::{address::AddressPayload, common::*};
 use crate::sync::{CollectionName, OutgoingBso, OutgoingChangeset, ProcessOutgoingRecordImpl};
 use rusqlite::{Row, Transaction};
 use sync_guid::Guid as SyncGuid;
@@ -27,21 +27,34 @@ impl ProcessOutgoingRecordImpl for OutgoingAddressesImpl {
         tx: &Transaction<'_>,
         collection_name: CollectionName,
     ) -> anyhow::Result<OutgoingChangeset> {
+        // We left join the mirror table since we'll need to know if
+        // there were any unknown fields from the server we need to roundtrip
         let data_sql = format!(
             "SELECT
-                {common_cols},
-                sync_change_counter
-            FROM addresses_data
+                l.{common_cols},
+                m.payload,
+                l.sync_change_counter
+            FROM addresses_data l
+            LEFT JOIN addresses_mirror m
+            ON l.guid = m.guid
             WHERE sync_change_counter > 0
-                OR guid NOT IN (
+                OR l.guid NOT IN (
                     SELECT m.guid
                     FROM addresses_mirror m
                 )",
             common_cols = ADDRESS_COMMON_COLS,
         );
         let record_from_data_row: &dyn Fn(&Row<'_>) -> Result<(OutgoingBso, i64)> = &|row| {
+            let mut record = InternalAddress::from_row(row)?.into_payload()?;
+            // If the server had unknown fields we fetch it and add it to the record
+            // we'll be uploading
+            if let Some(s) = row.get::<_, Option<String>>("payload")? {
+                let mirror_payload: AddressPayload = serde_json::from_str(&s)?;
+                record.entry.unknown_fields = mirror_payload.entry.unknown_fields;
+            };
+
             Ok((
-                OutgoingBso::from_content_with_id(InternalAddress::from_row(row)?.into_payload()?)?,
+                OutgoingBso::from_content_with_id(record)?,
                 row.get::<_, i64>("sync_change_counter")?,
             ))
         };
@@ -92,17 +105,23 @@ impl ProcessOutgoingRecordImpl for OutgoingAddressesImpl {
 mod tests {
     use super::*;
     use crate::db::{addresses::add_internal_address, models::address::InternalAddress};
-    use crate::sync::{common::tests::*, test::new_syncable_mem_db};
+    use crate::sync::{common::tests::*, test::new_syncable_mem_db, UnknownFields};
     use rusqlite::Connection;
     use serde_json::{json, Map, Value};
     use types::Timestamp;
 
     const COLLECTION_NAME: &str = "addresses";
 
-    fn test_insert_mirror_record(conn: &Connection, address: InternalAddress) {
+    fn test_insert_mirror_record(
+        conn: &Connection,
+        address: InternalAddress,
+        unknown_fields: UnknownFields,
+    ) {
         // This should probably be in the sync module, but it's used here.
         let guid = address.guid.clone();
-        let payload = serde_json::to_string(&address.into_payload().unwrap()).expect("is json");
+        let mut addr_payload = address.into_payload().unwrap();
+        addr_payload.entry.unknown_fields = unknown_fields;
+        let payload = serde_json::to_string(&addr_payload).expect("is json");
         conn.execute(
             "INSERT OR IGNORE INTO addresses_mirror (guid, payload)
              VALUES (:guid, :payload)",
@@ -132,6 +151,24 @@ mod tests {
                         "timeLastModified": 0,
                         "timesUsed": 0,
                         "version": 1,
+                    }
+                },
+                "D" : {
+                    "id": expand_test_guid('D'),
+                    "entry": {
+                        "given-name": "john",
+                        "family-name": "doe",
+                        "street-address": "85 Pike St",
+                        "address-level2": "Seattle, WA",
+                        "country": "United States",
+                        "timeCreated": 0,
+                        "timeLastUsed": 0,
+                        "timeLastModified": 0,
+                        "timesUsed": 0,
+                        "version": 1,
+                        // Fields we don't understand from the server
+                        "foo": "bar",
+                        "baz": "qux",
                     }
                 }
             }};
@@ -217,7 +254,7 @@ mod tests {
         let initial_change_counter_val = 2;
         test_record.metadata.sync_change_counter = initial_change_counter_val;
         assert!(add_internal_address(&tx, &test_record).is_ok());
-        test_insert_mirror_record(&tx, test_record.clone());
+        test_insert_mirror_record(&tx, test_record.clone(), Default::default());
         exists_with_counter_value_in_table(
             &tx,
             DATA_TABLE_NAME,
@@ -245,13 +282,55 @@ mod tests {
         // create synced record with no changes (sync_change_counter = 0)
         let test_record = test_record('C');
         assert!(add_internal_address(&tx, &test_record).is_ok());
-        test_insert_mirror_record(&tx, test_record.clone());
+        test_insert_mirror_record(&tx, test_record.clone(), Default::default());
 
         do_test_outgoing_synced_with_no_change(
             &tx,
             &ao,
             &test_record.guid,
             DATA_TABLE_NAME,
+            STAGING_TABLE_NAME,
+            COLLECTION_NAME.into(),
+        );
+    }
+
+    #[test]
+    fn test_outgoing_roundtrip_unknown() {
+        let mut db = new_syncable_mem_db();
+        let tx = db.transaction().expect("should get tx");
+        let ao = OutgoingAddressesImpl {};
+
+        // create synced record with non-zero sync_change_counter
+        let mut test_record = test_record('D');
+        let initial_change_counter_val = 2;
+        test_record.metadata.sync_change_counter = initial_change_counter_val;
+        assert!(add_internal_address(&tx, &test_record).is_ok());
+        // put "unknown_fields" into the mirror payload to imitate the server
+        let unknown_fields: UnknownFields =
+            serde_json::from_value(json! {{ "foo": "bar", "baz": "qux"}}).unwrap();
+        test_insert_mirror_record(&tx, test_record.clone(), unknown_fields);
+        exists_with_counter_value_in_table(
+            &tx,
+            DATA_TABLE_NAME,
+            &test_record.guid,
+            initial_change_counter_val,
+        );
+
+        let outgoing = &ao
+            .fetch_outgoing_records(&tx, COLLECTION_NAME.into())
+            .unwrap();
+        // Ensure we have our unknown values for the roundtrip
+        let bso_payload: Map<String, Value> =
+            serde_json::from_str(&outgoing.changes[0].payload).unwrap();
+        let entry = bso_payload.get("entry").unwrap();
+        assert_eq!(entry.get("foo").unwrap(), "bar");
+        assert_eq!(entry.get("baz").unwrap(), "qux");
+        do_test_outgoing_synced_with_local_change(
+            &tx,
+            &ao,
+            &test_record.guid,
+            DATA_TABLE_NAME,
+            MIRROR_TABLE_NAME,
             STAGING_TABLE_NAME,
             COLLECTION_NAME.into(),
         );

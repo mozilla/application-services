@@ -195,6 +195,8 @@ lazy_static::lazy_static! {
             "given-name": "Mark",
             "family-name": "Jones",
             "country": "NZ",
+            // We also had an unknown field we round-tripped
+            "foo": "bar",
         },
         "local": [
             {
@@ -210,12 +212,19 @@ lazy_static::lazy_static! {
             "given-name": "Mark",
             "family-name": "Jones",
             "country": "AU",
+            // This is a new unknown field that should send instead!
+            "unknown-1": "we have a new unknown",
         },
         "reconciled": {
             "given-name": "Skip",
             "family-name": "Jones",
             "country": "AU",
         },
+        "outgoing": {
+            "given-name": "Skip",
+            // We should be roundtripping the newest "unknown"
+            "unknown-1": "we have a new unknown",
+        }
     },
     {
         "description": "Multiple local changes",
@@ -258,6 +267,8 @@ lazy_static::lazy_static! {
             "version": 1,
             "given-name": "Mark",
             "family-name": "Jones",
+            // unknown fields we previous roundtripped
+            "foo": "bar",
         },
         "local": [
             {
@@ -269,11 +280,18 @@ lazy_static::lazy_static! {
             "version": 1,
             "given-name": "Skip",
             "family-name": "Jones",
+            // New unknown field that should be the new round trip
+            "unknown-2": "changing the schema",
             },
         "reconciled": {
             "given-name": "Skip",
             "family-name": "Jones",
         },
+        "outgoing": {
+            "given-name": "Skip",
+            // We expect the new unknown instead of the previous
+            "unknown-2": "changing the schema",
+        }
     },
     {
         "description": "Conflicting changes to single field",
@@ -282,6 +300,8 @@ lazy_static::lazy_static! {
             "version": 1,
             "given-name": "Mark",
             "family-name": "Jones",
+            // An unknown field we round tripped
+            "foo": "bar",
         },
         "local": [
             {
@@ -295,6 +315,8 @@ lazy_static::lazy_static! {
             "version": 1,
             "given-name": "Kip",
             "family-name": "Jones",
+            // A NEW unknown field
+            "new-unknown-field": "we love to change schema",
         },
         "forked": {
             // So we've forked the local record to a new GUID (and the next sync is
@@ -306,6 +328,16 @@ lazy_static::lazy_static! {
             // And we've updated the local version of the record to be the remote version.
             "given-name": "Kip",
             "family-name": "Jones",
+            // Verify that the mirror DB has the expected fields
+            "expected_unknown_fields" : {
+                "new-unknown-field": "we love to change schema",
+            },
+        },
+        // Because our record has been "forked" the local change we send out
+        // should have the ORIGINAL unknown fields
+        "outgoing": {
+            "given-name": "Skip",
+            "foo": "bar",
         },
     },
     {
@@ -523,6 +555,8 @@ fn check_address_as_expected(address: &InternalAddress, expected: &Map<String, V
                 address.metadata.time_last_used
             ),
             "timesUsed" => assert_eq!(val.as_i64().unwrap(), address.metadata.times_used),
+            // Sometimes we'll have an `expected_unknown_fields` set for reconciled, we can skip it safely here
+            "expected_unknown_fields" => (),
             _ => unreachable!("unexpected field {name}"),
         }
     }
@@ -624,9 +658,24 @@ fn test_reconcile_addresses() -> Result<()> {
         std::mem::drop(db); // unlock the mutex for the engine.
         let engine = create_address_engine(Arc::clone(&store));
 
-        engine
+        let outgoing = engine
             .apply_incoming(vec![incoming], &mut telem)
             .expect("should apply");
+
+        // For some tests, we want to check that the outgoing has what we're expecting
+        // to go to the server
+        if let Some(outgoing_expected) = test_case.get("outgoing") {
+            log::trace!("Testing outgoing changeset: {:?}", outgoing);
+            let bso_payload: Map<String, Value> =
+                serde_json::from_str(&outgoing.changes[0].payload).unwrap();
+            let entry = bso_payload.get("entry").unwrap();
+            let oeb = outgoing_expected.as_object().unwrap();
+
+            // Verify all fields we want tested are in the payload
+            for expected in oeb {
+                assert_eq!(entry.get(expected.0).unwrap(), expected.1);
+            }
+        };
 
         // get a DB reference back to we can check the results.
         let db = store.db.lock().unwrap();
@@ -655,6 +704,29 @@ fn test_reconcile_addresses() -> Result<()> {
         };
         let expected = test_case["reconciled"].as_object().unwrap();
         check_address_as_expected(reconciled, expected);
+
+        // If the reconciled json has `expected_unknown_fields` then we want to validate that the mirror
+        // DB has the fields we're trying to roundtrip
+        if let Some(unknown_fields) = expected.get("expected_unknown_fields") {
+            let tx = db.unchecked_transaction().unwrap();
+            let mut stmt = tx.prepare("SELECT payload FROM addresses_mirror")?;
+            let rows = stmt.query_map([], |row| row.get(0)).unwrap();
+
+            for row in rows {
+                let payload_str: String = row.unwrap();
+                let payload: Value = serde_json::from_str(&payload_str).unwrap();
+                let entry = payload.get("entry").unwrap();
+
+                // There's probably multiple rows in the mirror, we only want to test against the
+                // record we reconciled
+                if expected.get("given-name").unwrap() == entry.get("given-name").unwrap() {
+                    let expected_unknown = unknown_fields.as_object().unwrap();
+                    for expected in expected_unknown {
+                        assert_eq!(entry.get(expected.0).unwrap(), expected.1);
+                    }
+                }
+            }
+        };
     }
     Ok(())
 }

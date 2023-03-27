@@ -8,7 +8,9 @@ use crate::db::schema::CREDIT_CARD_COMMON_COLS;
 use crate::encryption::EncryptorDecryptor;
 use crate::error::*;
 use crate::sync::common::*;
-use crate::sync::{OutgoingBso, OutgoingChangeset, ProcessOutgoingRecordImpl};
+use crate::sync::{
+    credit_card::CreditCardPayload, OutgoingBso, OutgoingChangeset, ProcessOutgoingRecordImpl,
+};
 use rusqlite::{Row, Transaction};
 use sync15::CollectionName;
 use sync_guid::Guid as SyncGuid;
@@ -33,21 +35,31 @@ impl ProcessOutgoingRecordImpl for OutgoingCreditCardsImpl {
     ) -> anyhow::Result<OutgoingChangeset> {
         let data_sql = format!(
             "SELECT
-                {common_cols},
-                sync_change_counter
-            FROM credit_cards_data
+                l.{common_cols},
+                m.payload,
+                l.sync_change_counter
+            FROM credit_cards_data l
+            LEFT JOIN credit_cards_mirror m
+            ON l.guid = m.guid
             WHERE sync_change_counter > 0
-                OR guid NOT IN (
+                OR l.guid NOT IN (
                     SELECT m.guid
                     FROM credit_cards_mirror m
                 )",
             common_cols = CREDIT_CARD_COMMON_COLS,
         );
         let record_from_data_row: &dyn Fn(&Row<'_>) -> Result<(OutgoingBso, i64)> = &|row| {
+            let mut record = InternalCreditCard::from_row(row)?.into_payload(&self.encdec)?;
+            // If the server had unknown fields we fetch it and add it to the record
+            if let Some(enc_s) = row.get::<_, Option<String>>("payload")? {
+                // The full payload in the credit cards mirror is encrypted
+                let mirror_payload: CreditCardPayload =
+                    serde_json::from_str(&self.encdec.decrypt(&enc_s)?)?;
+                record.entry.unknown_fields = mirror_payload.entry.unknown_fields;
+            };
+
             Ok((
-                OutgoingBso::from_content_with_id(
-                    InternalCreditCard::from_row(row)?.into_payload(&self.encdec)?,
-                )?,
+                OutgoingBso::from_content_with_id(record)?,
                 row.get::<_, i64>("sync_change_counter")?,
             ))
         };
@@ -101,7 +113,7 @@ impl ProcessOutgoingRecordImpl for OutgoingCreditCardsImpl {
 mod tests {
     use super::*;
     use crate::db::credit_cards::{add_internal_credit_card, tests::test_insert_mirror_record};
-    use crate::sync::{common::tests::*, test::new_syncable_mem_db};
+    use crate::sync::{common::tests::*, test::new_syncable_mem_db, UnknownFields};
     use serde_json::{json, Map, Value};
     use types::Timestamp;
 
@@ -125,6 +137,24 @@ mod tests {
                         "timeLastModified": 0,
                         "timesUsed": 0,
                         "version": 3,
+                    }
+                },
+                "D" : {
+                    "id": expand_test_guid('D'),
+                    "entry": {
+                        "cc-name": "Mr Me Another Person",
+                        "cc-number": "8765432112345678",
+                        "cc-exp-month": 1,
+                        "cc-exp-year": 2020,
+                        "cc-type": "visa",
+                        "timeCreated": 0,
+                        "timeLastUsed": 0,
+                        "timeLastModified": 0,
+                        "timesUsed": 0,
+                        "version": 3,
+                        // Fields we don't understand from the server
+                        "foo": "bar",
+                        "baz": "qux",
                     }
                 }
             }};
@@ -217,7 +247,11 @@ mod tests {
         test_record.metadata.sync_change_counter = initial_change_counter_val;
         assert!(add_internal_credit_card(&tx, &test_record).is_ok());
         let guid = test_record.guid.clone();
-        test_insert_mirror_record(&tx, test_record.into_test_incoming_bso(&co.encdec));
+        //test_insert_mirror_record doesn't encrypt the mirror payload, but in reality we do
+        // so we encrypt here so our fetch_outgoing_records doesn't break
+        let mut bso = test_record.into_test_incoming_bso(&co.encdec, Default::default());
+        bso.payload = co.encdec.encrypt(&bso.payload).unwrap();
+        test_insert_mirror_record(&tx, bso);
         exists_with_counter_value_in_table(&tx, DATA_TABLE_NAME, &guid, initial_change_counter_val);
 
         do_test_outgoing_synced_with_local_change(
@@ -243,13 +277,68 @@ mod tests {
         let test_record = test_record('C', &co.encdec);
         let guid = test_record.guid.clone();
         assert!(add_internal_credit_card(&tx, &test_record).is_ok());
-        test_insert_mirror_record(&tx, test_record.into_test_incoming_bso(&co.encdec));
+        test_insert_mirror_record(
+            &tx,
+            test_record.into_test_incoming_bso(&co.encdec, Default::default()),
+        );
 
         do_test_outgoing_synced_with_no_change(
             &tx,
             &co,
             &guid,
             DATA_TABLE_NAME,
+            STAGING_TABLE_NAME,
+            COLLECTION_NAME.into(),
+        );
+    }
+
+    #[test]
+    fn test_outgoing_roundtrip_unknown() {
+        let mut db = new_syncable_mem_db();
+        let tx = db.transaction().expect("should get tx");
+        let co = OutgoingCreditCardsImpl {
+            encdec: EncryptorDecryptor::new_test_key(),
+        };
+
+        // create synced record with non-zero sync_change_counter
+        let mut test_record = test_record('D', &co.encdec);
+        let initial_change_counter_val = 2;
+        test_record.metadata.sync_change_counter = initial_change_counter_val;
+        assert!(add_internal_credit_card(&tx, &test_record).is_ok());
+
+        let unknown_fields: UnknownFields =
+            serde_json::from_value(json! {{ "foo": "bar", "baz": "qux"}}).unwrap();
+
+        //test_insert_mirror_record doesn't encrypt the mirror payload, but in reality we do
+        // so we encrypt here so our fetch_outgoing_records doesn't break
+        let mut bso = test_record
+            .clone()
+            .into_test_incoming_bso(&co.encdec, unknown_fields);
+        bso.payload = co.encdec.encrypt(&bso.payload).unwrap();
+        test_insert_mirror_record(&tx, bso);
+        exists_with_counter_value_in_table(
+            &tx,
+            DATA_TABLE_NAME,
+            &test_record.guid,
+            initial_change_counter_val,
+        );
+
+        let outgoing = &co
+            .fetch_outgoing_records(&tx, COLLECTION_NAME.into())
+            .unwrap();
+        // Unknown fields are: {"foo": "bar", "baz": "qux"}
+        // Ensure we have our unknown values for the roundtrip
+        let bso_payload: Map<String, Value> =
+            serde_json::from_str(&outgoing.changes[0].payload).unwrap();
+        let entry = bso_payload.get("entry").unwrap();
+        assert_eq!(entry.get("foo").unwrap(), "bar");
+        assert_eq!(entry.get("baz").unwrap(), "qux");
+        do_test_outgoing_synced_with_local_change(
+            &tx,
+            &co,
+            &test_record.guid,
+            DATA_TABLE_NAME,
+            MIRROR_TABLE_NAME,
             STAGING_TABLE_NAME,
             COLLECTION_NAME.into(),
         );
