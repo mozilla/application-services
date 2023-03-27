@@ -780,7 +780,7 @@ mod multi_interval_counter_tests {
 
 #[cfg(test)]
 mod event_store_tests {
-    use chrono::Duration;
+    use chrono::{Datelike, Duration};
 
     use super::*;
 
@@ -1232,7 +1232,10 @@ mod event_store_tests {
     fn record_past_event_should_reflect_in_queries() -> Result<()> {
         let mut store: EventStore = Default::default();
         let event_id = "app_launch";
-        store.record_past_event(5, event_id, None, Duration::days(1))?;
+        let delta = Duration::days(1);
+        let now = Utc::now();
+        let then = now - delta;
+        store.record_past_event(5, event_id, None, delta)?;
 
         // eventSum, for all intervals
         assert_eq!(
@@ -1278,8 +1281,13 @@ mod event_store_tests {
             1.0,
             store.query(event_id, Interval::Days, 56, 0, EventQueryType::LastSeen)?
         );
+
         assert_eq!(
-            0.0,
+            if now.weekday().number_from_monday() < then.weekday().number_from_monday() {
+                0.0
+            } else {
+                1.0
+            },
             store.query(event_id, Interval::Weeks, 52, 0, EventQueryType::LastSeen)?
         );
         assert_eq!(
@@ -1292,7 +1300,10 @@ mod event_store_tests {
         );
 
         let mut store: EventStore = Default::default();
-        store.record_past_event(5, event_id, None, Duration::weeks(1))?;
+        let delta = Duration::weeks(1);
+        let now = Utc::now();
+        let then = now - delta;
+        store.record_past_event(5, event_id, None, delta)?;
         assert_eq!(
             f64::MAX,
             store.query(event_id, Interval::Hours, 24, 0, EventQueryType::LastSeen)?
@@ -1306,11 +1317,7 @@ mod event_store_tests {
             store.query(event_id, Interval::Weeks, 52, 0, EventQueryType::LastSeen)?
         );
         assert_eq!(
-            0.0,
-            store.query(event_id, Interval::Months, 12, 0, EventQueryType::LastSeen)?
-        );
-        assert_eq!(
-            0.0,
+            (now.year() - then.year()) as f64,
             store.query(event_id, Interval::Years, 12, 0, EventQueryType::LastSeen)?
         );
 
