@@ -58,5 +58,20 @@ interface FeaturesInterface {
      * @param featureId string representing the id of the feature for which to record the exposure
      *     event.
      */
-    fun recordExposureEvent(featureId: String)
+    fun recordExposureEvent(featureId: String) = Unit
+
+    /**
+     * Records the `malformedFeature` event in telemetry.
+     *
+     * In the event that some or part of a feature's configuration is not semantically valid,
+     * this method should be called, to record a telemetry event.
+     *
+     * Note: the application developers should use [FeatureHolder.recordMalformedConfiguration]
+     * method, which calls this one.
+     *
+     * @param featureId String
+     * @param partId The feature specific identifier for which part is malformed (e.g. message or
+     *  card).
+     */
+    fun recordMalformedConfiguration(featureId: String, partId: String) = Unit
 }

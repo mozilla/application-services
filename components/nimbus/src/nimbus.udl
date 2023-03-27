@@ -29,6 +29,12 @@ dictionary EnrolledExperiment {
     string enrollment_id;
 };
 
+dictionary EnrolledFeature {
+    string slug;
+    string? branch;
+    string feature_id;
+};
+
 dictionary AvailableExperiment {
     string slug;
     string user_facing_name;
@@ -120,6 +126,10 @@ interface NimbusClient {
     // Returns a list of experiments this user is enrolled in.
     [Throws=NimbusError]
     sequence<EnrolledExperiment> get_active_experiments();
+
+    // Returns details of a feature's enrollemnt.
+    [Throws=NimbusError]
+    EnrolledFeature? get_enrollment_by_feature(string feature_id);
 
     // Returns a list of experiments for this `app_name`, as specified in the `AppContext`.
     // It is not intended to be used to be used for user facing applications.

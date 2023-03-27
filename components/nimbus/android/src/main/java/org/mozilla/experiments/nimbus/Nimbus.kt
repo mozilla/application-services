@@ -163,7 +163,7 @@ open class Nimbus(
     override fun getVariables(featureId: String, recordExposureEvent: Boolean): Variables =
         getFeatureConfigVariablesJson(featureId)?.let { json ->
             if (recordExposureEvent) {
-                recordExposure(featureId)
+                recordExposureEvent(featureId)
             }
             JSONVariables(context, json)
         }
@@ -355,7 +355,11 @@ open class Nimbus(
     }
 
     override fun recordExposureEvent(featureId: String) {
-        recordExposure(featureId)
+        recordExposureOnThisThread(featureId)
+    }
+
+    override fun recordMalformedConfiguration(featureId: String, partId: String) {
+        recordMalformedConfigurationOnThisThread(featureId, partId)
     }
 
     @AnyThread
@@ -437,26 +441,45 @@ open class Nimbus(
         }
     }
 
-    @VisibleForTesting(otherwise = VisibleForTesting.PRIVATE)
-    internal fun recordExposure(featureId: String) {
-        dbScope.launch {
-            recordExposureOnThisThread(featureId)
-        }
-    }
-
     // The exposure event should be recorded when the expected treatment (or no-treatment, such as
     // for a "control" branch) is applied or shown to the user.
     @VisibleForTesting(otherwise = VisibleForTesting.PRIVATE)
-    @WorkerThread
+    @AnyThread
     internal fun recordExposureOnThisThread(featureId: String) = withCatchAll("recordExposure") {
-        val activeExperiments = getActiveExperiments()
-        activeExperiments.find { it.featureIds.contains(featureId) }?.also { experiment ->
-            NimbusEvents.exposure.record(NimbusEvents.ExposureExtra(
-                experiment = experiment.slug,
-                branch = experiment.branchSlug,
+        // First, we get the enrolled feature, if there is one, for this id.
+        val enrollment = nimbusClient.getEnrollmentByFeature(featureId) ?: return@withCatchAll
+        // If branch is null, this is a rollout, and we're not interested in recording
+        // exposure for rollouts.
+        val branch = enrollment.branch ?: return@withCatchAll
+        // Finally, if we do have an experiment for the given featureId, we will record the
+        // exposure event in Glean. This is to protect against accidentally recording an event
+        // for an experiment without an active enrollment.
+        NimbusEvents.exposure.record(
+            NimbusEvents.ExposureExtra(
+                experiment = enrollment.slug,
+                branch = branch,
                 featureId = featureId
-            ))
-        }
+            )
+        )
+    }
+
+    // The malformed feature event is recorded by app developers, if the configuration is
+    // _semantically_ invalid or malformed.
+    @VisibleForTesting(otherwise = VisibleForTesting.PRIVATE)
+    @AnyThread
+    internal fun recordMalformedConfigurationOnThisThread(featureId: String, partId: String) = withCatchAll("recordMalformedConfiguration") {
+        // First, we get the enrolled feature, if there is one, for this id.
+        val enrollment = nimbusClient.getEnrollmentByFeature(featureId)
+        // If the enrollment is null, then that's the most serious: we've shipped invalid FML,
+        // If the branch is null, then this is also serious: we've shipped an invalid rollout.
+        NimbusEvents.malformedFeature.record(
+            NimbusEvents.MalformedFeatureExtra(
+                experiment = enrollment?.slug,
+                branch = enrollment?.branch,
+                featureId = featureId,
+                partId = partId
+            )
+        )
     }
 
     @VisibleForTesting(otherwise = VisibleForTesting.PRIVATE)

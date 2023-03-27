@@ -350,6 +350,33 @@ class NimbusTests: XCTestCase {
         )
     }
 
+    func testRecordMalformedConfiguration() throws {
+        let appSettings = NimbusAppSettings(appName: "NimbusUnitTest", channel: "test")
+        let nimbus = try Nimbus.create(nil, appSettings: appSettings, dbPath: createDatabasePath()) as! Nimbus
+
+        // Load an experiment in nimbus that we will record an event in. The experiment bucket configuration
+        // is set so that it will be guaranteed to be active. This is necessary because the SDK checks for
+        // active experiments before recording.
+        try nimbus.setExperimentsLocallyOnThisThread(minimalExperimentJSON())
+        try nimbus.applyPendingExperimentsOnThisThread()
+
+        // Record a valid exposure event in Glean that matches the featureId from the test experiment
+        nimbus.recordMalformedConfiguration(featureId: "aboutwelcome", with: "detail")
+
+        // Use the Glean test API to check that the valid event is present
+        XCTAssertNotNil(GleanMetrics.NimbusEvents.malformedFeature.testGetValue(), "Event must have a value")
+        let events = GleanMetrics.NimbusEvents.malformedFeature.testGetValue()!
+        XCTAssertEqual(1, events.count, "Event count must match")
+        let extras = events.first!.extra
+        XCTAssertEqual("secure-gold", extras!["experiment"], "Experiment slug must match")
+        XCTAssertTrue(
+            extras!["branch"] == "control" || extras!["branch"] == "treatment",
+            "Experiment branch must match"
+        )
+        XCTAssertEqual("detail", extras!["part_id"], "Part identifier should match")
+        XCTAssertEqual("aboutwelcome", extras!["feature_id"], "Feature identifier should match")
+    }
+
     func testRecordDisqualificationOnOptOut() throws {
         let appSettings = NimbusAppSettings(appName: "NimbusUnitTest", channel: "test")
         let nimbus = try Nimbus.create(nil, appSettings: appSettings, dbPath: createDatabasePath()) as! Nimbus

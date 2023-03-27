@@ -24,6 +24,7 @@ Use the template below to make assigning a version number during the release cut
 ### ✨ What's New ✨
 
   - Added `recordPastEvent` for iOS and Android for testing of event store triggers. ([#5431](https://github.com/mozilla/application-services/pull/5431))
+  - Added `recordMalformedConfiguration` method for `FeatureHolder` to record when some or all of a feature configuration is found to be invalid. ([#5440](https://github.com/mozilla/application-services/pull/5440))
 
 ### 🦊 What's Changed 🦊
 

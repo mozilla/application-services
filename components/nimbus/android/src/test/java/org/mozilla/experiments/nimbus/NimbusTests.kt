@@ -257,6 +257,36 @@ class NimbusTests {
     }
 
     @Test
+    fun `recordMalformedConfiguration records telemetry`() {
+        // Load the experiment in nimbus so and optIn so that it will be active. This is necessary
+        // because recordExposure checks for active experiments before recording.
+        nimbus.setUpTestExperiments(packageName, appInfo)
+
+        // Assert that there are no events to start with
+        assertNull(
+            "There must not be any pre-existing events",
+            NimbusEvents.malformedFeature.testGetValue()
+        )
+
+        // Record a valid exposure event in Glean that matches the featureId from the test experiment
+        nimbus.recordMalformedConfigurationOnThisThread("about_welcome", "detail")
+
+        // Use the Glean test API to check that the valid event is present
+        assertNotNull("Event must have a value", NimbusEvents.malformedFeature.testGetValue())
+        val events = NimbusEvents.malformedFeature.testGetValue()!!
+        assertEquals("Event count must match", events.count(), 1)
+        val extras = events.first().extra!!
+        assertEquals(
+            "Experiment slug must match",
+            "test-experiment",
+            extras["experiment"]
+        )
+        assertEquals("Experiment branch must match", "test-branch", extras["branch"])
+        assertEquals("Feature Id must match", "about_welcome", extras["feature_id"])
+        assertEquals("Part Id must match", "detail", extras["part_id"])
+    }
+
+    @Test
     fun `opting out generates the correct Glean event`() {
         // Load the experiment in nimbus so and optIn so that it will be active. This is necessary
         // because recordExposure checks for active experiments before recording.

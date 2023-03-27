@@ -99,20 +99,38 @@ extension Nimbus: NimbusEventStore {
 
 extension Nimbus: FeaturesInterface {
     public func recordExposureEvent(featureId: String) {
-        // First we need a list of the active experiments that are enrolled.
-        let activeExperiments = getActiveExperiments()
-
-        // Next, we search for any experiment that has a matching featureId. This depends on the
-        // fact that we can only be enrolled in a single experiment per feature, so there should
-        // only ever be zero or one experiments for a given featureId.
-        if let experiment = activeExperiments.first(where: { $0.featureIds.contains(featureId) }) {
+        // First, we get the enrolled feature, if there is one, for this id.
+        if let enrollment = getEnrollmentByFeature(featureId: featureId),
+           // If branch is nil, this is a rollout, and we're not interested in recording
+           // exposure for rollouts.
+           let branch = enrollment.branch
+        {
             // Finally, if we do have an experiment for the given featureId, we will record the
             // exposure event in Glean. This is to protect against accidentally recording an event
             // for an experiment without an active enrollment.
             GleanMetrics.NimbusEvents.exposure.record(GleanMetrics.NimbusEvents.ExposureExtra(
-                branch: experiment.branchSlug,
-                experiment: experiment.slug
+                branch: branch,
+                experiment: enrollment.slug
             ))
+        }
+    }
+
+    public func recordMalformedConfiguration(featureId: String, with partId: String) {
+        // First, we get the enrolled feature, if there is one, for this id.
+        let enrollment = getEnrollmentByFeature(featureId: featureId)
+        // If the enrollment is nil, then that's the most serious: we've shipped invalid FML,
+        // If the branch is nil, then this is also serious: we've shipped an invalid rollout.
+        GleanMetrics.NimbusEvents.malformedFeature.record(GleanMetrics.NimbusEvents.MalformedFeatureExtra(
+            branch: enrollment?.branch,
+            experiment: enrollment?.slug,
+            featureId: featureId,
+            partId: partId
+        ))
+    }
+
+    internal func getEnrollmentByFeature(featureId: String) -> EnrolledFeature? {
+        return catchAll {
+            try nimbusClient.getEnrollmentByFeature(featureId: featureId)
         }
     }
 
@@ -449,6 +467,8 @@ public extension NimbusDisabled {
     func resetTelemetryIdentifiers() {}
 
     func recordExposureEvent(featureId _: String) {}
+
+    func recordMalformedConfiguration(featureId _: String, with _: String) {}
 
     func recordEvent(_: Int, _: String) {}
 
