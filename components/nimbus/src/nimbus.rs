@@ -640,7 +640,7 @@ impl NimbusTargetingHelper {
 
 type JsonObject = Map<String, Value>;
 
-#[cfg(feature = "uniffi-bindings")]
+#[cfg(feature = "nimbus-uniffi-bindings")]
 impl UniffiCustomTypeConverter for JsonObject {
     type Builtin = String;
 
@@ -660,5 +660,5 @@ impl UniffiCustomTypeConverter for JsonObject {
     }
 }
 
-#[cfg(feature = "uniffi-bindings")]
+#[cfg(feature = "nimbus-uniffi-bindings")]
 include!(concat!(env!("OUT_DIR"), "/nimbus.uniffi.rs"));
