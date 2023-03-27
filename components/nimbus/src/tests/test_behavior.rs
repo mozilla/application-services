@@ -1250,24 +1250,63 @@ mod event_store_tests {
             5.0,
             store.query(event_id, Interval::Days, 56, 0, EventQueryType::Sum)?
         );
+        if same_year(now, then) {
+            assert_eq!(
+                5.0,
+                store.query(
+                    event_id,
+                    Interval::Weeks,
+                    1,
+                    usize::from(!same_week(now, then)), // 0 if the same week, 1 if not
+                    EventQueryType::Sum
+                )?
+            );
+            assert_eq!(
+                5.0,
+                store.query(
+                    event_id,
+                    Interval::Months,
+                    1,
+                    usize::from(!same_month(now, then)), // 0 if the same month, 1 if not
+                    EventQueryType::Sum
+                )?
+            );
+            assert_eq!(
+                5.0,
+                store.query(event_id, Interval::Years, 1, 0, EventQueryType::Sum)?
+            );
+        }
+
+        // If we want to be absolute timings, use the interval of
+        // with greater than the granularity that the event was recorded.
+        // You need to give up on some precision to avoid the dance of
+        // week days and months.
         assert_eq!(
             5.0,
-            store.query(event_id, Interval::Weeks, 1, 0, EventQueryType::Sum)?
+            store.query(event_id, Interval::Weeks, 2, 0, EventQueryType::Sum)?
         );
         assert_eq!(
             5.0,
-            store.query(event_id, Interval::Months, 1, 0, EventQueryType::Sum)?
+            store.query(event_id, Interval::Months, 2, 0, EventQueryType::Sum)?
         );
         assert_eq!(
             5.0,
-            store.query(event_id, Interval::Years, 1, 0, EventQueryType::Sum)?
+            store.query(event_id, Interval::Years, 2, 0, EventQueryType::Sum)?
         );
 
-        // Precisely mark when the yesterday's event was.
+        // If we want to be precise and relative, use the interval of
+        // with less than or equal to the granularity that the event was recorded.
         assert_eq!(
-            0.0,
-            store.query(event_id, Interval::Days, 1, 0, EventQueryType::Sum)?
+            5.0,
+            store.query(event_id, Interval::Days, 1, 1, EventQueryType::Sum)?
         );
+        assert_eq!(
+            5.0,
+            store.query(event_id, Interval::Hours, 1, 24, EventQueryType::Sum)?
+        );
+
+        // Mark out when the event was not, in order to prove we're recording the
+        // event in the correct time.
         assert_eq!(
             5.0,
             store.query(event_id, Interval::Days, 1, 1, EventQueryType::Sum)?
@@ -1282,23 +1321,36 @@ mod event_store_tests {
             store.query(event_id, Interval::Days, 56, 0, EventQueryType::LastSeen)?
         );
 
-        assert_eq!(
-            if now.weekday().number_from_monday() < then.weekday().number_from_monday() {
-                0.0
-            } else {
-                1.0
-            },
-            store.query(event_id, Interval::Weeks, 52, 0, EventQueryType::LastSeen)?
-        );
-        assert_eq!(
-            0.0,
-            store.query(event_id, Interval::Months, 12, 0, EventQueryType::LastSeen)?
-        );
-        assert_eq!(
-            0.0,
-            store.query(event_id, Interval::Years, 12, 0, EventQueryType::LastSeen)?
-        );
-
+        if same_year(now, then) {
+            // We disable this test for the first few days of January
+            // because the same_week fn uses the day_of_year.
+            // We use day_of_year because we treat weeks as relative to the
+            // first day of the year, which could be any day.
+            assert_eq!(
+                if same_week(now, then) {
+                    // Same week.
+                    0.0
+                } else {
+                    // Last week.
+                    1.0
+                },
+                store.query(event_id, Interval::Weeks, 52, 0, EventQueryType::LastSeen)?
+            );
+            assert_eq!(
+                if same_month(now, then) {
+                    // Same month
+                    0.0
+                } else {
+                    // Last month
+                    1.0
+                },
+                store.query(event_id, Interval::Months, 12, 0, EventQueryType::LastSeen)?
+            );
+            assert_eq!(
+                0.0,
+                store.query(event_id, Interval::Years, 12, 0, EventQueryType::LastSeen)?
+            );
+        }
         let mut store: EventStore = Default::default();
         let delta = Duration::weeks(1);
         let now = Utc::now();
@@ -1320,6 +1372,43 @@ mod event_store_tests {
             (now.year() - then.year()) as f64,
             store.query(event_id, Interval::Years, 12, 0, EventQueryType::LastSeen)?
         );
+
+        Ok(())
+    }
+
+    fn same_week(now: DateTime<Utc>, then: DateTime<Utc>) -> bool {
+        let now_week_num = now.ordinal0() / 7;
+        let then_week_num = then.ordinal0() / 7;
+
+        now_week_num == then_week_num
+    }
+
+    fn same_month(now: DateTime<Utc>, then: DateTime<Utc>) -> bool {
+        let now_num = now.ordinal0() / 28;
+        let then_num = then.ordinal0() / 28;
+
+        now_num == then_num
+    }
+
+    fn same_year(now: DateTime<Utc>, then: DateTime<Utc>) -> bool {
+        now.year() == then.year()
+    }
+
+    #[test]
+    fn test_days_weeks() -> Result<()> {
+        let one_day = Duration::days(1);
+        let mut now = Utc::now();
+
+        for _ in 1..10 {
+            let then = now - one_day;
+            println!(
+                "today is {}, yesterday is {}, same week? {}",
+                now.weekday(),
+                then.weekday(),
+                same_week(now, then)
+            );
+            now = now + one_day;
+        }
 
         Ok(())
     }
