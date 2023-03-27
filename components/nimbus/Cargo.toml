@@ -13,9 +13,10 @@ name = "nimbus"
 
 [features]
 # `rkv-safe-mode` is the same name as used by glean. For us though, it's the default.
-default=["rkv-safe-mode", "uniffi-bindings"]
-rkv-safe-mode = []
-uniffi-bindings = ["uniffi"]
+default=["nimbus"]
+rkv-safe-mode = ["dep:rkv"]
+nimbus-uniffi-bindings = ["dep:uniffi"]
+nimbus = ["rkv-safe-mode", "nimbus-uniffi-bindings"]
 
 [dependencies]
 anyhow = "1"
@@ -25,7 +26,7 @@ serde_json = "1"
 log = "0.4"
 thiserror = "1"
 url = "2.2"
-rkv = "0.17"
+rkv = { version = "0.17", optional = true }
 jexl-eval = "0.2.2"
 uuid = { version = "0.8", features = ["serde", "v4"]}
 sha2 = "0.9"

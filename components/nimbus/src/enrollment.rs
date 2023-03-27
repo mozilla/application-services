@@ -1,12 +1,13 @@
+#[cfg(feature = "nimbus")]
 use crate::behavior::EventStore;
 use crate::defaults::Defaults;
 // This Source Code Form is subject to the terms of the Mozilla Public
 // License, v. 2.0. If a copy of the MPL was not distributed with this
 // file, You can obtain one at https://mozilla.org/MPL/2.0/.
 use crate::error::{NimbusError, Result};
-use crate::evaluator::TargetingAttributes;
-use crate::persistence::{Database, StoreId, Writer};
-use crate::{evaluator::evaluate_enrollment, persistence::Readable};
+use crate::evaluator::{TargetingAttributes, evaluate_enrollment};
+#[cfg(feature = "nimbus")]
+use crate::persistence::{Database, StoreId, Writer, Readable};
 use crate::{AvailableRandomizationUnits, EnrolledExperiment, Experiment, FeatureConfig};
 
 use ::uuid::Uuid;
@@ -77,6 +78,7 @@ pub struct ExperimentEnrollment {
 impl ExperimentEnrollment {
     /// Evaluate an experiment enrollment for an experiment
     /// we are seeing for the first time.
+    #[cfg(feature = "nimbus")]
     fn from_new_experiment(
         is_user_participating: bool,
         nimbus_id: &Uuid,
@@ -149,6 +151,7 @@ impl ExperimentEnrollment {
     }
 
     /// Update our enrollment to an experiment we have seen before.
+    #[cfg(feature = "nimbus")]
     #[allow(clippy::too_many_arguments)]
     fn on_experiment_updated(
         &self,
@@ -521,6 +524,7 @@ impl EnrollmentStatus {
 
 /// Return information about all enrolled experiments.
 /// Note this does not include rollouts
+#[cfg(feature = "nimbus")]
 pub fn get_enrollments<'r>(
     db: &Database,
     reader: &'r impl Readable<'r>,
@@ -585,6 +589,7 @@ impl<'a> EnrollmentsEvolver<'a> {
 
     /// Convenient wrapper around `evolve_enrollments` that fetches the current state of experiments,
     /// enrollments and user participation from the database.
+    #[cfg(feature = "nimbus")]
     pub(crate) fn evolve_enrollments_in_db(
         &self,
         db: &Database,
@@ -624,6 +629,7 @@ impl<'a> EnrollmentsEvolver<'a> {
         Ok(enrollments_change_events)
     }
 
+    #[cfg(feature = "nimbus")]
     pub(crate) fn evolve_enrollments(
         &self,
         is_user_participating: bool,
@@ -686,6 +692,7 @@ impl<'a> EnrollmentsEvolver<'a> {
 
     /// Evolve and calculate the new set of enrollments, using the
     /// previous and current state of experiments and current enrollments.
+    #[cfg(feature = "nimbus")]
     pub(crate) fn evolve_enrollment_recipes(
         &self,
         is_user_participating: bool,
@@ -885,6 +892,7 @@ impl<'a> EnrollmentsEvolver<'a> {
     ///
     /// Returns an Option-wrapped version of the updated enrollment.  None
     /// means that the enrollment has been/should be discarded.
+    #[cfg(feature = "nimbus")]
     pub(crate) fn evolve_enrollment(
         &self,
         is_user_participating: bool,
@@ -1185,6 +1193,7 @@ pub enum EnrollmentChangeEventType {
     UnenrollFailed,
 }
 
+#[cfg(feature = "nimbus")]
 pub fn opt_in_with_branch(
     db: &Database,
     writer: &mut Writer,
@@ -1212,6 +1221,7 @@ pub fn opt_in_with_branch(
     Ok(events)
 }
 
+#[cfg(feature = "nimbus")]
 pub fn opt_out(
     db: &Database,
     writer: &mut Writer,
@@ -1237,6 +1247,7 @@ pub fn opt_out(
     Ok(events)
 }
 
+#[cfg(feature = "nimbus")]
 pub fn get_global_user_participation<'r>(
     db: &Database,
     reader: &'r impl Readable<'r>,
@@ -1250,6 +1261,7 @@ pub fn get_global_user_participation<'r>(
     }
 }
 
+#[cfg(feature = "nimbus")]
 pub fn set_global_user_participation(
     db: &Database,
     writer: &mut Writer,
@@ -1261,6 +1273,7 @@ pub fn set_global_user_participation(
 
 /// Reset unique identifiers in response to application-level telemetry reset.
 ///
+#[cfg(feature = "nimbus")]
 pub fn reset_telemetry_identifiers(
     db: &Database,
     writer: &mut Writer,
