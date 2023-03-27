@@ -19,6 +19,12 @@ Use the template below to make assigning a version number during the release cut
 
 -->
 
+## Places ⛅️🔬🔭
+
+### 🦊 What's Changed 🦊
+
+  - Added support for sync payload evolution in bookmarks.  If other clients sync bookmark records with fields that we don't know about, we store that data as JSON and send it back when it's synced next.
+
 ## Nimbus ⛅️🔬🔭
 
 ### ✨ What's New ✨
