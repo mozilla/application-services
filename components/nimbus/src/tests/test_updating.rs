@@ -7,7 +7,7 @@
 
 use crate::error::Result;
 use crate::updating::*;
-use crate::Database;
+use crate::persistence::Database;
 use crate::Experiment;
 
 // This test crashes lmdb for reasons that make no sense, so only run it

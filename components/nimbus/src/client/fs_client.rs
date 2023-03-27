@@ -8,7 +8,7 @@
 
 use crate::error::Result;
 use crate::Experiment;
-use crate::SettingsClient;
+use crate::client::SettingsClient;
 use std::ffi::OsStr;
 use std::fs::File;
 use std::io::BufReader;

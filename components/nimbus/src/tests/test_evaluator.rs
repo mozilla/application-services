@@ -11,7 +11,7 @@ use serde_json::{json, Map, Value};
 use crate::enrollment::{EnrolledReason, EnrollmentStatus, NotEnrolledReason};
 use crate::evaluator::{choose_branch, targeting};
 use crate::{
-    error::Result, evaluate_enrollment, is_experiment_available, AppContext,
+    error::Result, evaluate_enrollment, evaluator::is_experiment_available, AppContext,
     AvailableRandomizationUnits, Branch, BucketConfig, Experiment, RandomizationUnit,
     TargetingAttributes,
 };

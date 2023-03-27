@@ -3,7 +3,7 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
 use crate::error::Result;
-use crate::{Experiment, SettingsClient};
+use crate::client::{Experiment, SettingsClient};
 
 /// This is a client for use when no server is provided.
 /// Its primary use is for non-Mozilla forks of apps that are not using their

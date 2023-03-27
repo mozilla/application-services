@@ -4,7 +4,7 @@
 
 use crate::enrollment::ExperimentEnrollment;
 use crate::persistence::*;
-use crate::{error::Result, Database, Experiment};
+use crate::{error::Result, persistence::Database, Experiment};
 use rkv::StoreOptions;
 use serde_json::json;
 use std::fs;

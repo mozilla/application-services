@@ -14,7 +14,7 @@
 //! But the simple subset implemented here meets our needs for now.
 
 use crate::error::{NimbusError, Result};
-use crate::{Experiment, SettingsClient};
+use crate::client::{Experiment, SettingsClient};
 use rs_client::Client;
 
 impl SettingsClient for Client {

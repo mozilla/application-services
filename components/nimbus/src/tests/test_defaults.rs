@@ -4,7 +4,7 @@
 
 // cargo test --package nimbus-sdk --lib --all-features -- tests::test_defaults --nocapture
 
-use crate::{error::Result, Defaults, NimbusError::InternalError};
+use crate::{error::Result, defaults::Defaults, NimbusError::InternalError};
 use serde_json::{json, Value};
 use std::collections::HashMap;
 
