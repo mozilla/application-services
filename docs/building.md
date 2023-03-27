@@ -29,6 +29,9 @@ a number of hours to complete.
         1. Install ninja-build: `apt install ninja-build`
         1. Install python3 (at least 3.6): `apt install python3`
         1. Install zlib: `apt install zlib1g-dev`
+        1. Install perl (needed to build openssl): `apt install perl`
+        1. Install patch (to build the libs): `apt install patch`
+
     1. Install the system dependencies required for SQLcipher
         1. Install tcl: `apt install tclsh` (required for SQLcipher)
     #### MacOS
@@ -78,7 +81,8 @@ a number of hours to complete.
     1. Install tcl: `sudo apt install tcl-dev`
 4. Check dependencies and environment variables by running: `./libs/verify-desktop-environment.sh`
   > Note that this script might instruct you to set some environment variables, set those by adding them to your
-  `.zshrc` or `.bashrc` so they are set by default on your terminal
+  `.zshrc` or `.bashrc` so they are set by default on your terminal. If it does so instruct you, you must
+  run the command again after setting them so the libraries are built.
 5. Run cargo test: `cargo test`
 
 Once you have successfully run `./libs/verify-desktop-environment.sh` and `cargo test` you can move to the [**Building for Fenix**](building.md#building-for-fenix) and [**Building for iOS**](building.md#building-for-firefox-ios) sections below to setup your local environment for testing with our client applications.
