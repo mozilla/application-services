@@ -35,6 +35,16 @@ pub struct PlacesInitializer {
     conn_type: ConnectionType,
 }
 
+impl PlacesInitializer {
+    #[cfg(test)]
+    pub fn new_for_test() -> Self {
+        Self {
+            api_id: 0,
+            conn_type: ConnectionType::ReadWrite,
+        }
+    }
+}
+
 impl ConnectionInitializer for PlacesInitializer {
     const NAME: &'static str = "places";
     const END_VERSION: u32 = schema::VERSION;

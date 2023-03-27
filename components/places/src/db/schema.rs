@@ -260,6 +260,14 @@ pub fn upgrade_from(db: &Connection, from: u32) -> rusqlite::Result<()> {
         || Ok(()),
     )?;
 
+    migration(
+        db,
+        from,
+        15,
+        &["ALTER TABLE moz_bookmarks_synced ADD COLUMN unknownFields TEXT"],
+        || Ok(()),
+    )?;
+
     // Add more migrations here...
     Ok(())
 }
@@ -267,8 +275,9 @@ pub fn upgrade_from(db: &Connection, from: u32) -> rusqlite::Result<()> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::db::PlacesDb;
+    use crate::db::{db::PlacesInitializer, PlacesDb};
     use crate::error::Result;
+    use sql_support::open_database::test_utils::MigratedDatabaseFile;
     use sync_guid::Guid as SyncGuid;
     use url::Url;
 
@@ -830,5 +839,21 @@ mod tests {
         );
 
         Ok(())
+    }
+
+    const CREATE_V15_DB: &str = include_str!("../../sql/tests/create_v15_db.sql");
+
+    #[test]
+    fn test_upgrade_schema_15_16() {
+        let db_file = MigratedDatabaseFile::new(PlacesInitializer::new_for_test(), CREATE_V15_DB);
+
+        db_file.upgrade_to(16);
+        let db = db_file.open();
+
+        // Test the unknownFields column was added
+        assert_eq!(
+            db.query_one::<String>("SELECT type FROM pragma_table_info('moz_bookmarks_synced') WHERE name = 'unknownFields'").unwrap(),
+            "TEXT"
+        );
     }
 }

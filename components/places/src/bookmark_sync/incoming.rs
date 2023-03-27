@@ -13,6 +13,7 @@ use crate::storage::{
     tags::{validate_tag, ValidatedTag},
     URL_LENGTH_MAX,
 };
+use crate::types::UnknownFields;
 use rusqlite::Connection;
 use serde_json::Value as JsonValue;
 use sql_support::{self, ConnExt};
@@ -96,7 +97,6 @@ impl<'a> IncomingApplicator<'a> {
                 None
             }
         };
-        let unknown_fields = serde_json::to_string(&b.unknown_fields)?;
 
         self.db.execute_cached(
             r#"REPLACE INTO moz_bookmarks_synced(guid, parentGuid, serverModified, needsMerge, kind,
@@ -126,7 +126,7 @@ impl<'a> IncomingApplicator<'a> {
                 (":keyword", &b.keyword),
                 (":validity", &validity),
                 (":url", &url),
-                (":unknownFields", &unknown_fields),
+                (":unknownFields", &serialize_unknown_fields(&b.unknown_fields)?),
             ],
         )?;
         for t in b.tags.iter() {
@@ -153,7 +153,6 @@ impl<'a> IncomingApplicator<'a> {
         f: &FolderRecord,
         validity: SyncedBookmarkValidity,
     ) -> Result<()> {
-        let unknown_fields = serde_json::to_string(&f.unknown_fields)?;
         self.db.execute_cached(
             r#"REPLACE INTO moz_bookmarks_synced(guid, parentGuid, serverModified, needsMerge, kind,
                                                  dateAdded, validity, unknownFields, title)
@@ -173,7 +172,10 @@ impl<'a> IncomingApplicator<'a> {
                 (":dateAdded", &f.date_added),
                 (":title", &maybe_truncate_title(&f.title.as_deref())),
                 (":validity", &validity),
-                (":unknownFields", &unknown_fields),
+                (
+                    ":unknownFields",
+                    &serialize_unknown_fields(&f.unknown_fields)?,
+                ),
             ],
         )?;
         sql_support::each_sized_chunk(
@@ -301,8 +303,6 @@ impl<'a> IncomingApplicator<'a> {
         q: &QueryRecord,
         mut validity: SyncedBookmarkValidity,
     ) -> Result<()> {
-        let unknown_fields = serde_json::to_string(&q.unknown_fields)?;
-
         let url = match q.url.as_ref().and_then(|href| Url::parse(href).ok()) {
             Some(url) => self.maybe_rewrite_and_store_query_url(
                 q.tag_folder_name.as_deref(),
@@ -341,7 +341,10 @@ impl<'a> IncomingApplicator<'a> {
                 (":dateAdded", &q.date_added),
                 (":title", &maybe_truncate_title(&q.title.as_deref())),
                 (":validity", &validity),
-                (":unknownFields", &unknown_fields),
+                (
+                    ":unknownFields",
+                    &serialize_unknown_fields(&q.unknown_fields)?,
+                ),
                 (":url", &url.map(String::from)),
             ],
         )?;
@@ -417,7 +420,6 @@ impl<'a> IncomingApplicator<'a> {
         s: &SeparatorRecord,
         validity: SyncedBookmarkValidity,
     ) -> Result<()> {
-        let unknown_fields = serde_json::to_string(&s.unknown_fields)?;
         self.db.execute_cached(
             "REPLACE INTO moz_bookmarks_synced(guid, parentGuid, serverModified, needsMerge, kind,
                                                dateAdded, validity, unknownFields)
@@ -436,7 +438,10 @@ impl<'a> IncomingApplicator<'a> {
                 (":kind", &SyncedBookmarkKind::Separator),
                 (":dateAdded", &s.date_added),
                 (":validity", &validity),
-                (":unknownFields", &unknown_fields),
+                (
+                    ":unknownFields",
+                    &serialize_unknown_fields(&s.unknown_fields)?,
+                ),
             ],
         )?;
         Ok(())
@@ -468,6 +473,14 @@ impl<'a> IncomingApplicator<'a> {
         } else {
             Err(Error::InvalidPlaceInfo(InvalidPlaceInfo::NoUrl))
         }
+    }
+}
+
+fn serialize_unknown_fields(unknown_fields: &UnknownFields) -> Result<Option<String>> {
+    if unknown_fields.is_empty() {
+        Ok(None)
+    } else {
+        Ok(Some(serde_json::to_string(unknown_fields)?))
     }
 }
 
@@ -608,7 +621,6 @@ mod tests {
     use crate::bookmark_sync::record::{BookmarkItemRecord, FolderRecord};
     use crate::bookmark_sync::tests::SyncedBookmarkItem;
     use crate::storage::bookmarks::BookmarkRootGuid;
-    use crate::types::UnknownFields;
     use pretty_assertions::assert_eq;
     use serde_json::{json, Value};
 
