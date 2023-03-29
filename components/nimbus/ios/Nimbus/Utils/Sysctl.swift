@@ -1,6 +1,5 @@
 // swiftlint:disable line_length
 // REASON: URLs and doc strings
-
 // Copyright © 2017 Matt Gallagher ( http://cocoawithlove.com ). All rights reserved.
 //
 // Original: https://github.com/mattgallagher/CwlUtils/blob/0e08b0194bf95861e5aac27e8857a972983315d7/Sources/CwlUtils/CwlSysctl.swift
@@ -160,3 +159,5 @@ struct Sysctl {
     /// e.g. "15D21" or "13D20"
     public static var osVersion: String { return try! Sysctl.string(for: [CTL_KERN, KERN_OSVERSION]) }
 }
+// swiftlint:enable force_try
+// swiftlint:enable line_length
