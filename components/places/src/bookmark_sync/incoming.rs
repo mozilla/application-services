@@ -31,11 +31,16 @@ const RESULTS_AS_TAG_CONTENTS: &str = "7";
 /// and related tables.
 pub struct IncomingApplicator<'a> {
     db: &'a Connection,
+    // For tests to override chunk sizes so they can finish quicker!
+    default_max_variable_number: Option<usize>,
 }
 
 impl<'a> IncomingApplicator<'a> {
     pub fn new(db: &'a Connection) -> Self {
-        Self { db }
+        Self {
+            db,
+            default_max_variable_number: None,
+        }
     }
 
     pub fn apply_bso(&self, record: IncomingBso) -> Result<()> {
@@ -178,11 +183,14 @@ impl<'a> IncomingApplicator<'a> {
                 ),
             ],
         )?;
+        let default_max_variable_number = self
+            .default_max_variable_number
+            .unwrap_or_else(sql_support::default_max_variable_number);
         sql_support::each_sized_chunk(
             &f.children,
             // -1 because we want to leave an extra binding parameter (`?1`)
             // for the folder's GUID.
-            sql_support::default_max_variable_number() - 1,
+            default_max_variable_number - 1,
             |chunk, offset| -> Result<()> {
                 let sql = format!(
                     "INSERT INTO moz_bookmarks_synced_structure(guid, parentGuid, position)
@@ -628,7 +636,8 @@ mod tests {
         let db = api.get_sync_connection().expect("should get a db mutex");
         let conn = db.lock();
 
-        let applicator = IncomingApplicator::new(&conn);
+        let mut applicator = IncomingApplicator::new(&conn);
+        applicator.default_max_variable_number = Some(5);
 
         match records_json {
             Value::Array(records) => {
@@ -687,7 +696,9 @@ mod tests {
 
     #[test]
     fn test_apply_folder() {
-        let children = (1..sql_support::default_max_variable_number() * 2)
+        // apply_incoming arranges for the chunk-size to be 5, so to ensure
+        // we exercise the chunking done for folders we only need more than that.
+        let children = (1..6)
             .map(|i| SyncGuid::from(format!("{:A>12}", i)))
             .collect::<Vec<_>>();
         let value = serde_json::to_value(BookmarkItemRecord::from(FolderRecord {
