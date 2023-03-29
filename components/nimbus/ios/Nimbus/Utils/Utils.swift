@@ -18,8 +18,6 @@ extension UInt8 {
     }
 }
 
-// swiftlint:enable function_parameter_count
-
 /// Create a temporary array of C-compatible (null-terminated) strings to pass over FFI.
 ///
 /// The strings are deallocated after the closure returns.
