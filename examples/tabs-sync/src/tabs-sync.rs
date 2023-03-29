@@ -5,7 +5,7 @@
 #![warn(rust_2018_idioms)]
 
 use cli_support::fxa_creds::{get_account_and_token, get_cli_fxa, get_default_fxa_config};
-use cli_support::prompt::prompt_char;
+use cli_support::prompt::{prompt_char, prompt_string};
 use std::path::Path;
 use std::sync::Arc;
 use structopt::StructOpt;
@@ -62,8 +62,10 @@ fn main() -> Result<()> {
     let store = Arc::new(TabsStore::new(Path::new(&opts.db_path)));
 
     loop {
-        match prompt_char("[U]pdate local state, [L]ist remote tabs, [S]ync or [Q]uit")
-            .unwrap_or('?')
+        match prompt_char(
+            "[U]pdate local state, Update with a [d]ummy tab, [L]ist remote tabs, [S]ync or [Q]uit",
+        )
+        .unwrap_or('?')
         {
             'U' | 'u' => {
                 log::info!("Updating the local state.");
@@ -74,6 +76,17 @@ fn main() -> Result<()> {
                     .lock()
                     .unwrap()
                     .update_local_state(local_state);
+            }
+            'D' | 'd' => {
+                log::info!("Updating the local state with a dummy mozilla.org tab.");
+                let tabs = vec![RemoteTabRecord {
+                    title: "Mozilla".to_string(),
+                    url_history: vec!["https://www.mozilla.org".to_string()],
+                    icon: None,
+                    last_used: 0,
+                }];
+                dbg!(&tabs);
+                store.storage.lock().unwrap().update_local_state(tabs);
             }
             'L' | 'l' => {
                 log::info!("Listing remote tabs.");
@@ -142,24 +155,22 @@ fn main() -> Result<()> {
     Ok(())
 }
 
-#[cfg(feature = "with-clipboard")]
 fn read_local_state() -> Vec<RemoteTabRecord> {
-    use clipboard::{ClipboardContext, ClipboardProvider};
-    println!("Please run the following command in the Firefox Browser Toolbox and copy it.");
+    println!("Please run the following command in the Firefox Browser Toolbox:");
     println!(
-        "   JSON.stringify(await Weave.Service.engineManager.get(\"tabs\")._store.getAllTabs())"
+        "   JSON.stringify(await Weave.Service.engineManager.get(\"tabs\").getTabsWithinPayloadSize())"
     );
-    println!("Because of platform limitations, we can't let you paste a long string here.");
-    println!("So instead we'll read from your clipboard. Press ENTER when ready!");
+    println!("And paste the contents into a file. Then enter the name of that file:");
 
-    prompt_char("Ready?").unwrap_or_default();
+    let filename = prompt_string("Filename").unwrap_or_default();
+    let json = std::fs::read_to_string(filename).expect("Failed to read from the file");
 
-    let mut ctx: ClipboardContext = ClipboardProvider::new().unwrap();
-    let json = ctx.get_contents().unwrap();
-
-    // Yeah we double parse coz the devtools console wraps the result in quotes. Sorry.
-    let json: serde_json::Value = serde_json::from_str(&json).unwrap();
-    let json: serde_json::Value = serde_json::from_str(json.as_str().unwrap()).unwrap();
+    // Devtools writes the output in single-quotes, which we want to trim. If also might cause
+    // trailing whitespace and trailing zero-width-space (`u{200b}`) (which isn't considered
+    // whitespace!?)
+    // So trim all those things...
+    let json = json.trim_matches(|c: char| c.is_whitespace() || c == '\'' || c == '\u{200b}');
+    let json: serde_json::Value = serde_json::from_str(json).unwrap();
 
     let tabs = json.as_array().unwrap();
 
@@ -184,17 +195,4 @@ fn read_local_state() -> Vec<RemoteTabRecord> {
         });
     }
     local_state
-}
-
-#[cfg(not(feature = "with-clipboard"))]
-fn read_local_state() -> Vec<RemoteTabRecord> {
-    println!("This module is build without the `clipboard` feature, so we can't");
-    println!("read the local state.");
-    println!("Instead, we'll write one dummy tab:");
-    vec![RemoteTabRecord {
-        title: "Mozilla".to_string(),
-        url_history: vec!["https://www.mozilla.org".to_string()],
-        icon: None,
-        last_used: 0,
-    }]
 }
