@@ -21,7 +21,6 @@ use crate::{
     strings::fmt_with_map,
 };
 use once_cell::sync::OnceCell;
-use serde_derive::*;
 use serde_json::{Map, Value};
 use std::collections::HashSet;
 use std::path::{Path, PathBuf};

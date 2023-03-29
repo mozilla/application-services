@@ -122,8 +122,7 @@ pub fn evaluate_enrollment(
         if let Some(status) = targeting(
             expr,
             targeting_attributes,
-            #[cfg(feature = "nimbus")]
-            event_store
+            #[cfg(feature = "nimbus")] event_store
         ) {
             return Ok(ExperimentEnrollment {
                 slug: exp.slug.clone(),
@@ -282,8 +281,7 @@ pub(crate) fn targeting(
     match jexl_eval(
         expression_statement,
         targeting_attributes,
-        #[cfg(feature = "nimbus")]
-        event_store
+        #[cfg(feature = "nimbus")] event_store
     ) {
         Ok(res) => match res {
             true => None,
@@ -307,10 +305,11 @@ pub fn jexl_eval<Context: serde::Serialize>(
     #[cfg(feature = "nimbus")]
     event_store: Arc<Mutex<EventStore>>,
 ) -> Result<bool> {
-    #[cfg(feature = "nimbus")]
     let evaluator = Evaluator::new()
-        .with_transform("versionCompare", |args| Ok(version_compare(args)?))
-        .with_transform("eventSum", |args| {
+        .with_transform("versionCompare", |args| Ok(version_compare(args)?));
+
+    #[cfg(feature = "nimbus")]
+    let evaluator = evaluator.with_transform("eventSum", |args| {
             Ok(query_event_store(
                 event_store.clone(),
                 EventQueryType::Sum,
@@ -345,9 +344,6 @@ pub fn jexl_eval<Context: serde::Serialize>(
                 args,
             )?)
         });
-    #[cfg(not(feature = "nimbus"))]
-    let evaluator = Evaluator::new()
-        .with_transform("versionCompare", |args| Ok(version_compare(args)?));
 
     let res = evaluator.eval_in_context(expression_statement, context)?;
     match res.as_bool() {

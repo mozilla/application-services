@@ -18,6 +18,7 @@ use std::{
     time::{Duration, SystemTime, UNIX_EPOCH},
 };
 
+#[cfg(feature = "nimbus")]
 const DB_KEY_GLOBAL_USER_PARTICIPATION: &str = "user-opt-in";
 const DEFAULT_GLOBAL_USER_PARTICIPATION: bool = true;
 pub(crate) const PREVIOUS_ENROLLMENTS_GC_TIME: Duration = Duration::from_secs(30 * 24 * 3600);
@@ -78,13 +79,13 @@ pub struct ExperimentEnrollment {
 impl ExperimentEnrollment {
     /// Evaluate an experiment enrollment for an experiment
     /// we are seeing for the first time.
-    #[cfg(feature = "nimbus")]
     fn from_new_experiment(
         is_user_participating: bool,
         nimbus_id: &Uuid,
         available_randomization_units: &AvailableRandomizationUnits,
         targeting_attributes: &TargetingAttributes,
         experiment: &Experiment,
+        #[cfg(feature = "nimbus")]
         event_store: Arc<Mutex<EventStore>>,
         out_enrollment_events: &mut Vec<EnrollmentChangeEvent>,
     ) -> Result<Self> {
@@ -108,7 +109,7 @@ impl ExperimentEnrollment {
                 available_randomization_units,
                 targeting_attributes,
                 experiment,
-                event_store,
+                #[cfg(feature = "nimbus")] event_store,
             )?;
             log::debug!(
                 "Experiment '{}' is new - enrollment status is {:?}",
