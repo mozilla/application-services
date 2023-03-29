@@ -114,3 +114,5 @@ extension MZKeychainItemAccessibility: MZKeychainAttrRepresentable {
         keychainItemAccessibilityLookup[self]!
     }
 }
+
+// swiftlint:enable all

@@ -149,3 +149,5 @@ public extension MZKeychainWrapper {
         }
     }
 }
+
+// swiftlint:enable all

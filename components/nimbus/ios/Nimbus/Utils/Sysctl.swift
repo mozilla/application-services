@@ -160,3 +160,6 @@ struct Sysctl {
     /// e.g. "15D21" or "13D20"
     public static var osVersion: String { return try! Sysctl.string(for: [CTL_KERN, KERN_OSVERSION]) }
 }
+
+// swiftlint:enable force_try
+// swiftlint:enable line_length

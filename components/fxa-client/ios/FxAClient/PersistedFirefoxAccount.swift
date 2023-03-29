@@ -334,3 +334,5 @@ class PersistedFirefoxAccount {
 public protocol PersistCallback {
     func persist(json: String)
 }
+
+// swiftlint:enable type_body_length
