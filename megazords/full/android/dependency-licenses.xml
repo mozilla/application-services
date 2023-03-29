@@ -65,6 +65,10 @@ the details of which are reproduced below.
     <url>https://github.com/tkaitchuck/ahash/blob/master/LICENSE-APACHE</url>
   </license>
   <license>
+    <name>Apache License 2.0: android_system_properties</name>
+    <url>https://github.com/nical/android_system_properties/blob/main/LICENSE-APACHE</url>
+  </license>
+  <license>
     <name>Apache License 2.0: anyhow</name>
     <url>https://github.com/dtolnay/anyhow/blob/master/LICENSE-APACHE</url>
   </license>
@@ -127,6 +131,10 @@ the details of which are reproduced below.
   <license>
     <name>Apache License 2.0: chrono</name>
     <url>https://github.com/chronotope/chrono/blob/main/LICENSE.txt</url>
+  </license>
+  <license>
+    <name>Apache License 2.0: core-foundation-sys</name>
+    <url>https://github.com/servo/core-foundation-rs/blob/master/LICENSE-APACHE</url>
   </license>
   <license>
     <name>Apache License 2.0: cpufeatures</name>
@@ -195,6 +203,10 @@ the details of which are reproduced below.
   <license>
     <name>Apache License 2.0: hex</name>
     <url>https://github.com/KokaKiwi/rust-hex/blob/main/LICENSE-APACHE</url>
+  </license>
+  <license>
+    <name>Apache License 2.0: iana-time-zone</name>
+    <url>https://github.com/strawlab/iana-time-zone/blob/main/LICENSE-APACHE</url>
   </license>
   <license>
     <name>Apache License 2.0: id-arena</name>

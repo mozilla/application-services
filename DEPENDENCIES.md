@@ -444,6 +444,7 @@ Exhibit B - "Incompatible With Secondary Licenses" Notice
 
 The following text applies to code linked from these dependencies:
 [ahash](https://github.com/tkaitchuck/ahash),
+[android_system_properties](https://github.com/nical/android_system_properties),
 [anyhow](https://github.com/dtolnay/anyhow),
 [askama](https://github.com/djc/askama),
 [askama_derive](https://github.com/djc/askama),
@@ -490,6 +491,7 @@ The following text applies to code linked from these dependencies:
 [httparse](https://github.com/seanmonstar/httparse),
 [httpdate](https://github.com/pyfisch/httpdate),
 [hyper-tls](https://github.com/hyperium/hyper-tls),
+[iana-time-zone](https://github.com/strawlab/iana-time-zone),
 [id-arena](https://github.com/fitzgen/id-arena),
 [idna](https://github.com/servo/rust-url/),
 [indexmap](https://github.com/bluss/indexmap),

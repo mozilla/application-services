@@ -1407,7 +1407,7 @@ mod event_store_tests {
                 then.weekday(),
                 same_week(now, then)
             );
-            now = now + one_day;
+            now += one_day;
         }
 
         Ok(())

@@ -372,7 +372,7 @@ impl NimbusClient {
         // we first check our context
         if let Some(context_installation_date) = self.app_context.installation_date {
             let res = DateTime::<Utc>::from_utc(
-                NaiveDateTime::from_timestamp(context_installation_date / 1_000, 0),
+                NaiveDateTime::from_timestamp_opt(context_installation_date / 1_000, 0).unwrap(),
                 Utc,
             );
             log::info!("[Nimbus] Retrieved date from Context: {}", res);

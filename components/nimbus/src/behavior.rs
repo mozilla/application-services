@@ -5,7 +5,7 @@
 
 use crate::error::{BehaviorError, NimbusError, Result};
 use crate::persistence::{Database, StoreId};
-use chrono::{DateTime, Datelike, Duration, Utc};
+use chrono::{DateTime, Datelike, Duration, TimeZone, Utc};
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use std::collections::vec_deque::Iter;
@@ -131,14 +131,17 @@ impl IntervalData {
         };
         data.buckets.push_front(0);
         // Set the starting instant to Jan 1 00:00:00 in order to sync rotations
-        data.starting_instant = data
-            .starting_instant
-            .with_month(1)
-            .unwrap()
-            .with_day(1)
-            .unwrap()
-            .date()
-            .and_hms(0, 0, 0);
+        data.starting_instant = Utc.from_utc_datetime(
+            &data
+                .starting_instant
+                .with_month(1)
+                .unwrap()
+                .with_day(1)
+                .unwrap()
+                .date_naive()
+                .and_hms_opt(0, 0, 0)
+                .unwrap(),
+        );
         data
     }
 
@@ -233,8 +236,7 @@ impl SingleIntervalCounter {
             .interval
             .num_rotations(self.data.starting_instant, now)?;
         if rotations > 0 {
-            self.data.starting_instant =
-                self.data.starting_instant + self.config.interval.to_duration(rotations.into());
+            self.data.starting_instant += self.config.interval.to_duration(rotations.into());
             return self.data.rotate(rotations);
         }
         Ok(())
