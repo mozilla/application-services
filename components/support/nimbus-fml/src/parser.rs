@@ -229,7 +229,6 @@ impl ManifestFrontEnd {
                 merger.merge_feature_defaults(&mut def, &body.default)?;
                 Ok(def)
             })
-            .into_iter()
             .collect()
     }
 

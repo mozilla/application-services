@@ -132,11 +132,11 @@ fn db_has_changes(db: &PlacesDb) -> Result<bool> {
 /// Conceptually, we examine the merge state of each item, and either leave the
 /// item unchanged, upload the local side, apply the remote side, or apply and
 /// then reupload the remote side with a new structure.
-fn update_local_items_in_places<'t>(
+fn update_local_items_in_places(
     db: &PlacesDb,
     scope: &SqlInterruptScope,
     now: Timestamp,
-    ops: &CompletionOps<'t>,
+    ops: &CompletionOps<'_>,
 ) -> Result<()> {
     // Build a table of new and updated items.
     log::debug!("Staging apply remote item ops");

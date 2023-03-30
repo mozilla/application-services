@@ -148,7 +148,6 @@ impl DatabaseCache {
         self.get_data(|data| {
             data.experiments_by_slug
                 .values()
-                .into_iter()
                 .map(|e| e.to_owned())
                 .collect::<Vec<EnrolledExperiment>>()
         })

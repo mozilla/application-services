@@ -30,6 +30,9 @@ pub enum SyncedBookmarkValue<T> {
     Specified(T),
 }
 
+// 1.65 gets upset if we derive default here due to the <T>
+// We should move to a derived default once the MSR is 1.68+
+#[allow(clippy::derivable_impls)]
 impl<T> Default for SyncedBookmarkValue<T> {
     fn default() -> Self {
         SyncedBookmarkValue::Unspecified

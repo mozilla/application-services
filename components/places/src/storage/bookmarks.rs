@@ -457,8 +457,9 @@ fn delete_bookmark_in_tx(db: &PlacesDb, guid: &SyncGuid) -> Result<bool> {
 /// the tree.
 
 // Used to specify how the location of the item in the tree should be updated.
-#[derive(Debug, Clone)]
+#[derive(Debug, Default, Clone)]
 pub enum UpdateTreeLocation {
+    #[default]
     None, // no change
     Position {
         pos: BookmarkPosition,
@@ -467,12 +468,6 @@ pub enum UpdateTreeLocation {
         guid: SyncGuid,
         pos: BookmarkPosition,
     }, // new parent
-}
-
-impl Default for UpdateTreeLocation {
-    fn default() -> Self {
-        UpdateTreeLocation::None
-    }
 }
 
 /// Structures which can be used to update a bookmark, folder or separator.
