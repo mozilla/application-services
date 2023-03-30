@@ -67,6 +67,7 @@
     "ui-fonts",
     "ui-icons",
     "ui-tabcounter",
+    "ui-widgets",
     "service-firefox-accounts",
     "service-location",
     "service-sync-autofill",
