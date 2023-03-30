@@ -535,6 +535,7 @@ The following text applies to code linked from these dependencies:
 [serde](https://github.com/serde-rs/serde),
 [serde_derive](https://github.com/serde-rs/serde),
 [serde_json](https://github.com/serde-rs/json),
+[serde_path_to_error](https://github.com/dtolnay/path-to-error),
 [serde_urlencoded](https://github.com/nox/serde_urlencoded),
 [sha2](https://github.com/RustCrypto/hashes),
 [siphasher](https://github.com/jedisct1/rust-siphash),
