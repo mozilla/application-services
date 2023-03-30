@@ -181,10 +181,10 @@ where
             }
         }
     };
-    match serde_json::from_value(json) {
+    match serde_path_to_error::deserialize(json) {
         Ok(v) => IncomingKind::Content(v),
         Err(e) => {
-            report_error!("invalid-incoming-content", "Invalid incoming T: {}", e);
+            report_error!("invalid-incoming-content", "{}: {}", e.path(), e.inner());
             IncomingKind::Malformed
         }
     }

@@ -468,6 +468,7 @@ The following text applies to code linked from these dependencies:
 [httparse](https://github.com/seanmonstar/httparse),
 [httpdate](https://github.com/pyfisch/httpdate),
 [hyper-tls](https://github.com/hyperium/hyper-tls),
+[iana-time-zone](https://github.com/strawlab/iana-time-zone),
 [id-arena](https://github.com/fitzgen/id-arena),
 [idna](https://github.com/servo/rust-url/),
 [indexmap](https://github.com/bluss/indexmap),
