@@ -13,8 +13,8 @@
 //!
 //! But the simple subset implemented here meets our needs for now.
 
-use crate::error::{NimbusError, Result};
 use crate::client::{Experiment, SettingsClient};
+use crate::error::{NimbusError, Result};
 use rs_client::Client;
 
 impl SettingsClient for Client {

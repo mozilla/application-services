@@ -129,19 +129,21 @@ fn test_is_experiment_available() {
 #[cfg(feature = "nimbus")]
 mod nimbus_tests {
     use super::*;
-    use std::collections::HashSet;
-    use std::sync::{Arc, Mutex};
     use chrono::Utc;
     use serde_json::{json, Map, Value};
+    use std::collections::HashSet;
+    use std::sync::{Arc, Mutex};
 
     use crate::{
-        AvailableRandomizationUnits, evaluate_enrollment,
         behavior::{
-            EventStore, Interval, IntervalConfig, IntervalData, MultiIntervalCounter, SingleIntervalCounter,
+            EventStore, Interval, IntervalConfig, IntervalData, MultiIntervalCounter,
+            SingleIntervalCounter,
         },
         enrollment::{EnrolledReason, EnrollmentStatus, NotEnrolledReason},
         error::Result,
+        evaluate_enrollment,
         evaluator::targeting,
+        AvailableRandomizationUnits,
     };
 
     #[test]
@@ -374,7 +376,7 @@ mod nimbus_tests {
             custom_targeting_attributes: None,
             ..Default::default()
         }
-            .into();
+        .into();
         let event_store = Arc::new(Mutex::new(EventStore::new()));
         assert_eq!(
             targeting(
@@ -403,7 +405,7 @@ mod nimbus_tests {
             custom_targeting_attributes: None,
             ..Default::default()
         }
-            .into();
+        .into();
         assert_eq!(
             targeting(
                 expression_statement,
@@ -431,7 +433,7 @@ mod nimbus_tests {
             custom_targeting_attributes: None,
             ..Default::default()
         }
-            .into();
+        .into();
         assert_eq!(
             targeting(
                 expression_statement,
@@ -459,17 +461,17 @@ mod nimbus_tests {
             custom_targeting_attributes: None,
             ..Default::default()
         }
-            .into();
+        .into();
         assert!(matches!(
-        targeting(
-            expression_statement,
-            &non_matching_targeting,
-            event_store.clone()
-        ),
-        Some(EnrollmentStatus::NotEnrolled {
-            reason: NotEnrolledReason::NotTargeted
-        })
-    ));
+            targeting(
+                expression_statement,
+                &non_matching_targeting,
+                event_store.clone()
+            ),
+            Some(EnrollmentStatus::NotEnrolled {
+                reason: NotEnrolledReason::NotTargeted
+            })
+        ));
 
         // A non-matching context testing the logical OR of the expression
         let non_matching_targeting = AppContext {
@@ -489,7 +491,7 @@ mod nimbus_tests {
             custom_targeting_attributes: None,
             ..Default::default()
         }
-            .into();
+        .into();
         assert!(matches!(
             targeting(expression_statement, &non_matching_targeting, event_store),
             Some(EnrollmentStatus::NotEnrolled {
@@ -525,7 +527,7 @@ mod nimbus_tests {
             custom_targeting_attributes: Some(custom_targeting_attributes),
             ..Default::default()
         }
-            .into();
+        .into();
         let event_store = Arc::new(Mutex::new(EventStore::new()));
         assert_eq!(
             targeting(
@@ -554,12 +556,12 @@ mod nimbus_tests {
             custom_targeting_attributes: None,
             ..Default::default()
         }
-            .into();
+        .into();
         // We haven't defined `is_first_run` here, so this should error out, i.e. return an error.
         assert!(matches!(
-        targeting(expression_statement, &targeting_attributes, event_store),
-        Some(EnrollmentStatus::Error { .. })
-    ));
+            targeting(expression_statement, &targeting_attributes, event_store),
+            Some(EnrollmentStatus::Error { .. })
+        ));
     }
 
     #[test]
@@ -584,7 +586,7 @@ mod nimbus_tests {
             custom_targeting_attributes: None,
             ..Default::default()
         }
-            .into();
+        .into();
         targeting_attributes.is_already_enrolled = true;
         let event_store = Arc::new(Mutex::new(EventStore::new()));
 
@@ -630,7 +632,7 @@ mod nimbus_tests {
             custom_targeting_attributes: None,
             ..Default::default()
         }
-            .into();
+        .into();
         let mut set = HashSet::<String>::new();
         set.insert("test".into());
         targeting_attributes.active_experiments = set;
@@ -694,7 +696,7 @@ mod nimbus_tests {
             custom_targeting_attributes: None,
             ..Default::default()
         }
-            .into();
+        .into();
         let mut set = HashSet::<String>::new();
         set.insert("test".into());
         targeting_attributes.active_experiments = set;
@@ -789,7 +791,7 @@ mod nimbus_tests {
             channel: "nightly".to_string(),
             ..Default::default()
         }
-            .into();
+        .into();
         let event_store = Arc::new(Mutex::new(EventStore::new()));
 
         let id = uuid::Uuid::new_v4();
@@ -801,15 +803,15 @@ mod nimbus_tests {
             &experiment,
             event_store.clone(),
         )
-            .unwrap();
+        .unwrap();
         println!("Uh oh!  {:#?}", enrollment.status);
         assert!(matches!(
-        enrollment.status,
-        EnrollmentStatus::Enrolled {
-            reason: EnrolledReason::Qualified,
-            ..
-        }
-    ));
+            enrollment.status,
+            EnrollmentStatus::Enrolled {
+                reason: EnrolledReason::Qualified,
+                ..
+            }
+        ));
 
         // Change the channel to test when it has a different case than expected
         // (See SDK-246: https://jira.mozilla.com/browse/SDK-246 )
@@ -823,7 +825,7 @@ mod nimbus_tests {
             &experiment,
             event_store,
         )
-            .unwrap();
+        .unwrap();
         assert!(matches!(
             enrollment.status,
             EnrollmentStatus::Enrolled {
@@ -876,7 +878,7 @@ mod nimbus_tests {
             channel: "nightly".to_string(),
             ..Default::default()
         }
-            .into();
+        .into();
         let event_store = Arc::new(Mutex::new(EventStore::new()));
 
         // We won't be enrolled in the experiment because we don't have the right randomization units since the
@@ -889,7 +891,7 @@ mod nimbus_tests {
             &experiment,
             event_store.clone(),
         )
-            .unwrap();
+        .unwrap();
         // The status should be `Error`
         assert!(matches!(enrollment.status, EnrollmentStatus::Error { .. }));
 
@@ -903,7 +905,7 @@ mod nimbus_tests {
             &experiment,
             event_store,
         )
-            .unwrap();
+        .unwrap();
         assert!(matches!(
             enrollment.status,
             EnrollmentStatus::Enrolled {
@@ -958,7 +960,7 @@ mod nimbus_tests {
             channel: "nightly".to_string(),
             ..Default::default()
         }
-            .into();
+        .into();
         let event_store = Arc::new(Mutex::new(EventStore::new()));
 
         // We won't be enrolled in the experiment because we don't have the right app_name
@@ -969,13 +971,13 @@ mod nimbus_tests {
             &experiment,
             event_store.clone(),
         )
-            .unwrap();
+        .unwrap();
         assert!(matches!(
-        enrollment.status,
-        EnrollmentStatus::NotEnrolled {
-            reason: NotEnrolledReason::NotTargeted
-        }
-    ));
+            enrollment.status,
+            EnrollmentStatus::NotEnrolled {
+                reason: NotEnrolledReason::NotTargeted
+            }
+        ));
 
         // Change the app_name back and change the channel to test when it doesn't match:
         targeting_attributes.app_context.app_name = "NimbusTest".to_string();
@@ -990,13 +992,13 @@ mod nimbus_tests {
             &experiment,
             event_store,
         )
-            .unwrap();
+        .unwrap();
         assert!(matches!(
-        enrollment.status,
-        EnrollmentStatus::NotEnrolled {
-            reason: NotEnrolledReason::NotTargeted
-        }
-    ));
+            enrollment.status,
+            EnrollmentStatus::NotEnrolled {
+                reason: NotEnrolledReason::NotTargeted
+            }
+        ));
     }
 
     #[test]
@@ -1045,7 +1047,7 @@ mod nimbus_tests {
             channel: "nightly".to_string(),
             ..Default::default()
         }
-            .into();
+        .into();
         let event_store = Arc::new(Mutex::new(EventStore::new()));
 
         let enrollment = evaluate_enrollment(
@@ -1055,14 +1057,14 @@ mod nimbus_tests {
             &experiment,
             event_store,
         )
-            .unwrap();
+        .unwrap();
         assert!(matches!(
-        enrollment.status,
-        EnrollmentStatus::Enrolled {
-            reason: EnrolledReason::Qualified,
-            ..
-        }
-    ));
+            enrollment.status,
+            EnrollmentStatus::Enrolled {
+                reason: EnrolledReason::Qualified,
+                ..
+            }
+        ));
     }
 
     #[test]
@@ -1083,7 +1085,7 @@ mod nimbus_tests {
         let targeting_attributes: TargetingAttributes = AppContext {
             ..Default::default()
         }
-            .into();
+        .into();
         assert_eq!(
             targeting(
                 "'app.foregrounded'|eventSum('Days', 3, 0) > 2",
@@ -1122,7 +1124,7 @@ mod nimbus_tests {
         let targeting_attributes: TargetingAttributes = AppContext {
             ..Default::default()
         }
-            .into();
+        .into();
         assert_eq!(
             targeting(
                 "'app.foregrounded'|eventCountNonZero('Days', 3, 0) > 2",
@@ -1161,7 +1163,7 @@ mod nimbus_tests {
         let targeting_attributes: TargetingAttributes = AppContext {
             ..Default::default()
         }
-            .into();
+        .into();
         assert_eq!(
             targeting(
                 "'app.foregrounded'|eventAveragePerInterval('Days', 7, 0) > 2",
@@ -1200,7 +1202,7 @@ mod nimbus_tests {
         let targeting_attributes: TargetingAttributes = AppContext {
             ..Default::default()
         }
-            .into();
+        .into();
         assert_eq!(
             targeting(
                 "'app.foregrounded'|eventAveragePerNonZeroInterval('Days', 7, 0) == 1",
@@ -1226,7 +1228,7 @@ mod nimbus_tests {
         let targeting_attributes: TargetingAttributes = AppContext {
             ..Default::default()
         }
-            .into();
+        .into();
         let event_store = Arc::new(Mutex::new(EventStore::new()));
 
         assert_eq!(
@@ -1302,7 +1304,7 @@ mod nimbus_tests {
         let targeting_attributes: TargetingAttributes = AppContext {
             ..Default::default()
         }
-            .into();
+        .into();
         let event_store = Arc::new(Mutex::new(EventStore::new()));
 
         assert_eq!(

@@ -3,7 +3,7 @@ use crate::defaults::Defaults;
 // License, v. 2.0. If a copy of the MPL was not distributed with this
 // file, You can obtain one at https://mozilla.org/MPL/2.0/.
 use crate::error::{NimbusError, Result};
-use crate::evaluator::{TargetingAttributes, evaluate_enrollment};
+use crate::evaluator::{evaluate_enrollment, TargetingAttributes};
 use crate::{AvailableRandomizationUnits, Experiment, FeatureConfig};
 use ::uuid::Uuid;
 use serde_derive::*;
@@ -14,9 +14,9 @@ use std::{
 
 #[cfg(feature = "nimbus")]
 use crate::{
-    EnrolledExperiment,
     behavior::EventStore,
-    persistence::{Database, StoreId, Writer, Readable}
+    persistence::{Database, Readable, StoreId, Writer},
+    EnrolledExperiment,
 };
 #[cfg(feature = "nimbus")]
 use std::sync::{Arc, Mutex};
@@ -91,8 +91,7 @@ impl ExperimentEnrollment {
         available_randomization_units: &AvailableRandomizationUnits,
         targeting_attributes: &TargetingAttributes,
         experiment: &Experiment,
-        #[cfg(feature = "nimbus")]
-        event_store: Arc<Mutex<EventStore>>,
+        #[cfg(feature = "nimbus")] event_store: Arc<Mutex<EventStore>>,
         out_enrollment_events: &mut Vec<EnrollmentChangeEvent>,
     ) -> Result<Self> {
         Ok(if !is_user_participating {
@@ -115,7 +114,8 @@ impl ExperimentEnrollment {
                 available_randomization_units,
                 targeting_attributes,
                 experiment,
-                #[cfg(feature = "nimbus")] event_store,
+                #[cfg(feature = "nimbus")]
+                event_store,
             )?;
             log::debug!(
                 "Experiment '{}' is new - enrollment status is {:?}",

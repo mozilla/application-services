@@ -6,8 +6,8 @@
 #![allow(unused_imports)]
 
 use crate::error::Result;
-use crate::updating::*;
 use crate::persistence::Database;
+use crate::updating::*;
 use crate::Experiment;
 
 // This test crashes lmdb for reasons that make no sense, so only run it

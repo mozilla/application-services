@@ -5,8 +5,7 @@
 // Testing enrollment.rs
 
 use crate::{
-    AppContext, AvailableRandomizationUnits, Experiment, TargetingAttributes,
-    enrollment::*,
+    enrollment::*, AppContext, AvailableRandomizationUnits, Experiment, TargetingAttributes,
 };
 use serde_json::json;
 use uuid::Uuid;
@@ -498,16 +497,16 @@ mod nimbus_tests {
     // XXX: make them less complicated (since the transitions are covered above), just see if we write to the DB properly.
     use super::*;
     use crate::{
-        Branch, BucketConfig, FeatureConfig,
         behavior::EventStore,
         defaults::Defaults,
         enrollment::PREVIOUS_ENROLLMENTS_GC_TIME,
         error::Result,
         persistence::{Database, Readable, StoreId},
+        Branch, BucketConfig, FeatureConfig,
     };
-    use std::sync::{Arc, Mutex};
     use serde_json::Value;
     use std::collections::{HashMap, HashSet};
+    use std::sync::{Arc, Mutex};
 
     fn get_experiment_enrollments<'r>(
         db: &Database,
@@ -531,7 +530,7 @@ mod nimbus_tests {
             channel: "nightly".to_string(),
             ..Default::default()
         }
-            .into();
+        .into();
         assert_eq!(get_enrollments(&db, &writer)?.len(), 0);
 
         let evolver = EnrollmentsEvolver::new(&nimbus_id, &aru, &targeting_attributes);
@@ -554,9 +553,9 @@ mod nimbus_tests {
         assert_eq!(event.experiment_slug, "secure-gold");
         assert!(event.branch_slug == "control" || event.branch_slug == "treatment");
         assert!(matches!(
-        event.change,
-        EnrollmentChangeEventType::Enrollment
-    ));
+            event.change,
+            EnrollmentChangeEventType::Enrollment
+        ));
 
         // Get the ExperimentEnrollment from the DB.
         let ee: ExperimentEnrollment = db
@@ -564,12 +563,12 @@ mod nimbus_tests {
             .get(&writer, "secure-gold")?
             .expect("should exist");
         assert!(matches!(
-        ee.status,
-        EnrollmentStatus::Enrolled {
-            reason: EnrolledReason::Qualified,
-            ..
-        }
-    ));
+            ee.status,
+            EnrollmentStatus::Enrolled {
+                reason: EnrolledReason::Qualified,
+                ..
+            }
+        ));
 
         // Now opt-out.
         opt_out(&db, &mut writer, "secure-gold")?;
@@ -580,12 +579,12 @@ mod nimbus_tests {
             .get(&writer, "secure-gold")?
             .expect("should exist");
         assert!(matches!(
-        ee.status,
-        EnrollmentStatus::Disqualified {
-            reason: DisqualifiedReason::OptOut,
-            ..
-        }
-    ));
+            ee.status,
+            EnrollmentStatus::Disqualified {
+                reason: DisqualifiedReason::OptOut,
+                ..
+            }
+        ));
 
         // Opt in to a specific branch.
         opt_in_with_branch(&db, &mut writer, "secure-gold", "treatment")?;
@@ -613,13 +612,14 @@ mod nimbus_tests {
             channel: "nightly".to_string(),
             ..Default::default()
         }
-            .into();
+        .into();
         assert_eq!(get_enrollments(&db, &writer)?.len(), 0);
         let exps = get_test_experiments();
 
         let evolver = EnrollmentsEvolver::new(&nimbus_id, &aru, &targeting_attributes);
         let event_store = Arc::new(Mutex::new(EventStore::new()));
-        let events = evolver.evolve_enrollments_in_db(&db, &mut writer, &exps, event_store.clone())?;
+        let events =
+            evolver.evolve_enrollments_in_db(&db, &mut writer, &exps, event_store.clone())?;
 
         let enrollments = get_enrollments(&db, &writer)?;
         assert_eq!(enrollments.len(), 2);
@@ -638,9 +638,9 @@ mod nimbus_tests {
         let event = &events[0];
         assert_eq!(event.experiment_slug, "secure-gold");
         assert!(matches!(
-        event.change,
-        EnrollmentChangeEventType::Unenrollment
-    ));
+            event.change,
+            EnrollmentChangeEventType::Unenrollment
+        ));
 
         writer.commit()?;
         Ok(())
@@ -659,7 +659,7 @@ mod nimbus_tests {
             channel: "nightly".to_string(),
             ..Default::default()
         }
-            .into();
+        .into();
         let aru = Default::default();
         assert_eq!(get_enrollments(&db, &writer)?.len(), 0);
         let exps = get_test_experiments();
@@ -669,7 +669,8 @@ mod nimbus_tests {
 
         let evolver = EnrollmentsEvolver::new(&nimbus_id, &aru, &targeting_attributes);
         let event_store = Arc::new(Mutex::new(EventStore::new()));
-        let events = evolver.evolve_enrollments_in_db(&db, &mut writer, &exps, event_store.clone())?;
+        let events =
+            evolver.evolve_enrollments_in_db(&db, &mut writer, &exps, event_store.clone())?;
 
         let enrollments = get_enrollments(&db, &writer)?;
         assert_eq!(enrollments.len(), 0);
@@ -680,11 +681,11 @@ mod nimbus_tests {
             .into_iter()
             .filter(|enr| {
                 matches!(
-                enr.status,
-                EnrollmentStatus::NotEnrolled {
-                    reason: NotEnrolledReason::OptOut
-                }
-            )
+                    enr.status,
+                    EnrollmentStatus::NotEnrolled {
+                        reason: NotEnrolledReason::OptOut
+                    }
+                )
             })
             .count();
         assert_eq!(num_not_enrolled_enrollments, 2);
@@ -693,7 +694,8 @@ mod nimbus_tests {
         set_global_user_participation(&db, &mut writer, true)?;
 
         let evolver = EnrollmentsEvolver::new(&nimbus_id, &aru, &targeting_attributes);
-        let events = evolver.evolve_enrollments_in_db(&db, &mut writer, &exps, event_store.clone())?;
+        let events =
+            evolver.evolve_enrollments_in_db(&db, &mut writer, &exps, event_store.clone())?;
 
         let enrollments = get_enrollments(&db, &writer)?;
         assert_eq!(enrollments.len(), 2);
@@ -710,7 +712,8 @@ mod nimbus_tests {
         set_global_user_participation(&db, &mut writer, false)?;
 
         let evolver = EnrollmentsEvolver::new(&nimbus_id, &aru, &targeting_attributes);
-        let events = evolver.evolve_enrollments_in_db(&db, &mut writer, &exps, event_store.clone())?;
+        let events =
+            evolver.evolve_enrollments_in_db(&db, &mut writer, &exps, event_store.clone())?;
 
         let enrollments = get_enrollments(&db, &writer)?;
         assert_eq!(enrollments.len(), 0);
@@ -723,12 +726,12 @@ mod nimbus_tests {
                 .into_iter()
                 .filter(|enr| {
                     matches!(
-                    enr.status,
-                    EnrollmentStatus::Disqualified {
-                        reason: DisqualifiedReason::OptOut,
-                        ..
-                    }
-                )
+                        enr.status,
+                        EnrollmentStatus::Disqualified {
+                            reason: DisqualifiedReason::OptOut,
+                            ..
+                        }
+                    )
                 })
                 .count(),
             2
@@ -749,12 +752,12 @@ mod nimbus_tests {
                 .into_iter()
                 .filter(|enr| {
                     matches!(
-                    enr.status,
-                    EnrollmentStatus::Disqualified {
-                        reason: DisqualifiedReason::OptOut,
-                        ..
-                    }
-                )
+                        enr.status,
+                        EnrollmentStatus::Disqualified {
+                            reason: DisqualifiedReason::OptOut,
+                            ..
+                        }
+                    )
                 })
                 .count(),
             2
@@ -784,7 +787,10 @@ mod nimbus_tests {
             &mock_exp1_slug,
             &ExperimentEnrollment {
                 slug: mock_exp1_slug.clone(),
-                status: EnrollmentStatus::new_enrolled(EnrolledReason::Qualified, &mock_exp1_branch),
+                status: EnrollmentStatus::new_enrolled(
+                    EnrolledReason::Qualified,
+                    &mock_exp1_branch,
+                ),
             },
         )?;
         store.put(
@@ -843,26 +849,26 @@ mod nimbus_tests {
         // The not-enrolled experiment should have been unchanged.
         assert_eq!(enrollments[2].slug, mock_exp3_slug);
         assert!(matches!(
-        &enrollments[2].status,
-        EnrollmentStatus::NotEnrolled {
-            reason: NotEnrolledReason::NotTargeted,
-            ..
-        }
-    ));
+            &enrollments[2].status,
+            EnrollmentStatus::NotEnrolled {
+                reason: NotEnrolledReason::NotTargeted,
+                ..
+            }
+        ));
 
         // We should have returned a single disqualification event.
         assert_eq!(events.len(), 1);
         assert!(matches!(&events[0], EnrollmentChangeEvent {
-        change: EnrollmentChangeEventType::Disqualification,
-        reason: Some(reason),
-        experiment_slug,
-        branch_slug,
-        enrollment_id,
-    } if reason == "optout"
-        && *experiment_slug == mock_exp1_slug
-        && *branch_slug == mock_exp1_branch
-        && ! Uuid::parse_str(enrollment_id)?.is_nil()
-    ));
+            change: EnrollmentChangeEventType::Disqualification,
+            reason: Some(reason),
+            experiment_slug,
+            branch_slug,
+            enrollment_id,
+        } if reason == "optout"
+            && *experiment_slug == mock_exp1_slug
+            && *branch_slug == mock_exp1_branch
+            && ! Uuid::parse_str(enrollment_id)?.is_nil()
+        ));
 
         Ok(())
     }
@@ -879,9 +885,9 @@ mod nimbus_tests {
             .evolve_enrollment(true, None, Some(exp), None, event_store, &mut events)?
             .unwrap();
         assert!(matches!(
-        enrollment.status,
-        EnrollmentStatus::Enrolled { .. }
-    ));
+            enrollment.status,
+            EnrollmentStatus::Enrolled { .. }
+        ));
         assert_eq!(events.len(), 1);
         assert_eq!(events[0].experiment_slug, exp.slug);
         assert_eq!(events[0].change, EnrollmentChangeEventType::Enrollment);
@@ -901,11 +907,11 @@ mod nimbus_tests {
             .evolve_enrollment(true, None, Some(&exp), None, event_store, &mut events)?
             .unwrap();
         assert!(matches!(
-        enrollment.status,
-        EnrollmentStatus::NotEnrolled {
-            reason: NotEnrolledReason::NotSelected
-        }
-    ));
+            enrollment.status,
+            EnrollmentStatus::NotEnrolled {
+                reason: NotEnrolledReason::NotSelected
+            }
+        ));
         assert!(events.is_empty());
         Ok(())
     }
@@ -922,11 +928,11 @@ mod nimbus_tests {
             .evolve_enrollment(false, None, Some(&exp), None, event_store, &mut events)?
             .unwrap();
         assert!(matches!(
-        enrollment.status,
-        EnrollmentStatus::NotEnrolled {
-            reason: NotEnrolledReason::OptOut
-        }
-    ));
+            enrollment.status,
+            EnrollmentStatus::NotEnrolled {
+                reason: NotEnrolledReason::OptOut
+            }
+        ));
         assert!(events.is_empty());
         Ok(())
     }
@@ -944,11 +950,11 @@ mod nimbus_tests {
             .evolve_enrollment(true, None, Some(&exp), None, event_store, &mut events)?
             .unwrap();
         assert!(matches!(
-        enrollment.status,
-        EnrollmentStatus::NotEnrolled {
-            reason: NotEnrolledReason::EnrollmentsPaused
-        }
-    ));
+            enrollment.status,
+            EnrollmentStatus::NotEnrolled {
+                reason: NotEnrolledReason::EnrollmentsPaused
+            }
+        ));
         assert!(events.is_empty());
         Ok(())
     }
@@ -1038,11 +1044,11 @@ mod nimbus_tests {
             )?
             .unwrap();
         assert!(matches!(
-        enrollment.status,
-        EnrollmentStatus::NotEnrolled {
-            reason: NotEnrolledReason::NotSelected
-        }
-    ));
+            enrollment.status,
+            EnrollmentStatus::NotEnrolled {
+                reason: NotEnrolledReason::NotSelected
+            }
+        ));
         assert!(events.is_empty());
         Ok(())
     }
@@ -1072,12 +1078,12 @@ mod nimbus_tests {
             )?
             .unwrap();
         assert!(matches!(
-        enrollment.status,
-        EnrollmentStatus::Enrolled {
-            reason: EnrolledReason::Qualified,
-            ..
-        }
-    ));
+            enrollment.status,
+            EnrollmentStatus::Enrolled {
+                reason: EnrolledReason::Qualified,
+                ..
+            }
+        ));
         assert_eq!(events.len(), 1);
         assert_eq!(events[0].experiment_slug, exp.slug);
         assert_eq!(events[0].change, EnrollmentChangeEventType::Enrollment);
@@ -1112,12 +1118,12 @@ mod nimbus_tests {
             )?
             .unwrap();
         assert!(matches!(
-        enrollment.status,
-        EnrollmentStatus::Disqualified {
-            reason: DisqualifiedReason::OptOut,
-            ..
-        }
-    ));
+            enrollment.status,
+            EnrollmentStatus::Disqualified {
+                reason: DisqualifiedReason::OptOut,
+                ..
+            }
+        ));
         assert_eq!(events.len(), 1);
         assert_eq!(events[0].enrollment_id, enrollment_id.to_string());
         assert_eq!(events[0].experiment_slug, exp.slug);
@@ -1340,12 +1346,12 @@ mod nimbus_tests {
             )?
             .unwrap();
         assert!(matches!(
-        enrollment.status,
-        EnrollmentStatus::Disqualified {
-            reason: DisqualifiedReason::Error,
-            ..
-        }
-    ));
+            enrollment.status,
+            EnrollmentStatus::Disqualified {
+                reason: DisqualifiedReason::Error,
+                ..
+            }
+        ));
         assert_eq!(events.len(), 1);
         assert_eq!(
             events[0].change,
@@ -1385,12 +1391,12 @@ mod nimbus_tests {
             )?
             .unwrap();
         assert!(matches!(
-        enrollment.status,
-        EnrollmentStatus::Disqualified {
-            reason: DisqualifiedReason::OptOut,
-            ..
-        }
-    ));
+            enrollment.status,
+            EnrollmentStatus::Disqualified {
+                reason: DisqualifiedReason::OptOut,
+                ..
+            }
+        ));
         assert!(events.is_empty());
         Ok(())
     }
@@ -1608,11 +1614,11 @@ mod nimbus_tests {
             .iter()
             .filter(|&e| {
                 matches!(
-                e.status,
-                EnrollmentStatus::NotEnrolled {
-                    reason: NotEnrolledReason::FeatureConflict
-                }
-            )
+                    e.status,
+                    EnrollmentStatus::NotEnrolled {
+                        reason: NotEnrolledReason::FeatureConflict
+                    }
+                )
             })
             .count();
         assert_eq!(
@@ -1785,9 +1791,9 @@ mod nimbus_tests {
                 "newtab-feature-experiment",
                 "about_welcome-feature-experiment"
             ]
-                .iter()
-                .map(|s| s.to_string())
-                .collect::<HashSet<_>>()
+            .iter()
+            .map(|s| s.to_string())
+            .collect::<HashSet<_>>()
         );
 
         // 2. We add a third, which uses both the features that the other experiments use, i.e. it shouldn't be enrolled.
@@ -1833,9 +1839,9 @@ mod nimbus_tests {
                 "newtab-feature-experiment",
                 "about_welcome-feature-experiment"
             ]
-                .iter()
-                .map(|s| s.to_string())
-                .collect::<HashSet<_>>()
+            .iter()
+            .map(|s| s.to_string())
+            .collect::<HashSet<_>>()
         );
 
         // 3. Next we take away each of the single feature experiments, until the multi-feature can enroll.
@@ -2224,9 +2230,9 @@ mod nimbus_tests {
             )?
             .unwrap();
         assert!(matches!(
-        enrollment.status,
-        EnrollmentStatus::Enrolled { .. }
-    ));
+            enrollment.status,
+            EnrollmentStatus::Enrolled { .. }
+        ));
         assert_eq!(events.len(), 1);
         Ok(())
     }
@@ -2493,7 +2499,8 @@ mod nimbus_tests {
         let targeting_attributes = app_ctx.into();
         let evolver = enrollment_evolver(&nimbus_id, &targeting_attributes, &aru);
         let event_store = Arc::new(Mutex::new(EventStore::new()));
-        let (enrollments, events) = evolver.evolve_enrollments(true, &[], recipes, &[], event_store)?;
+        let (enrollments, events) =
+            evolver.evolve_enrollments(true, &[], recipes, &[], event_store)?;
         assert_eq!(enrollments.len(), 2);
         assert_eq!(events.len(), 2);
 
@@ -2553,7 +2560,8 @@ mod nimbus_tests {
         let targeting_attributes = app_ctx.into();
         let evolver = enrollment_evolver(&nimbus_id, &targeting_attributes, &aru);
         let event_store = Arc::new(Mutex::new(EventStore::new()));
-        let (enrollments, events) = evolver.evolve_enrollments(true, &[], recipes, &[], event_store)?;
+        let (enrollments, events) =
+            evolver.evolve_enrollments(true, &[], recipes, &[], event_store)?;
         assert_eq!(enrollments.len(), 3);
         assert_eq!(events.len(), 3);
 
@@ -2576,21 +2584,21 @@ mod nimbus_tests {
         let exp_bob = FeatureConfig {
             feature_id: "bob".into(),
             value: json!({
-            "specified": "Experiment in part".to_string(),
-        })
-                .as_object()
-                .unwrap()
-                .to_owned(),
+                "specified": "Experiment in part".to_string(),
+            })
+            .as_object()
+            .unwrap()
+            .to_owned(),
         };
         let ro_bob = FeatureConfig {
             feature_id: "bob".into(),
             value: json!({
-            "name": "Bob".to_string(),
-            "specified": "Rollout".to_string(),
-        })
-                .as_object()
-                .unwrap()
-                .to_owned(),
+                "name": "Bob".to_string(),
+                "specified": "Rollout".to_string(),
+            })
+            .as_object()
+            .unwrap()
+            .to_owned(),
         };
 
         let bob = exp_bob.defaults(&ro_bob)?;
@@ -2599,9 +2607,9 @@ mod nimbus_tests {
         assert_eq!(
             Value::Object(bob.value),
             json!({
-            "name": "Bob".to_string(),
-            "specified": "Experiment in part".to_string(),
-        })
+                "name": "Bob".to_string(),
+                "specified": "Experiment in part".to_string(),
+            })
         );
 
         let exp_bob = EnrolledFeatureConfig {
@@ -2624,9 +2632,9 @@ mod nimbus_tests {
         assert_eq!(
             Value::Object(bob.value),
             json!({
-            "name": "Bob".to_string(),
-            "specified": "Experiment in part".to_string(),
-        })
+                "name": "Bob".to_string(),
+                "specified": "Experiment in part".to_string(),
+            })
         );
 
         Ok(())
@@ -2643,21 +2651,21 @@ mod nimbus_tests {
                     FeatureConfig {
                         feature_id: "alice".into(),
                         value: json!({
-                        "name": "Alice".to_string(),
-                        "specified": "Experiment only".to_string(),
-                    })
-                            .as_object()
-                            .unwrap()
-                            .to_owned(),
+                            "name": "Alice".to_string(),
+                            "specified": "Experiment only".to_string(),
+                        })
+                        .as_object()
+                        .unwrap()
+                        .to_owned(),
                     },
                     FeatureConfig {
                         feature_id: "bob".into(),
                         value: json!({
-                        "specified": "Experiment in part".to_string(),
-                    })
-                            .as_object()
-                            .unwrap()
-                            .to_owned(),
+                            "specified": "Experiment in part".to_string(),
+                        })
+                        .as_object()
+                        .unwrap()
+                        .to_owned(),
                     },
                 ]),
                 ratio: 1,
@@ -2677,22 +2685,22 @@ mod nimbus_tests {
                     FeatureConfig {
                         feature_id: "bob".into(),
                         value: json!({
-                        "name": "Bob".to_string(),
-                        "specified": "Rollout".to_string(),
-                    })
-                            .as_object()
-                            .unwrap()
-                            .to_owned(),
+                            "name": "Bob".to_string(),
+                            "specified": "Rollout".to_string(),
+                        })
+                        .as_object()
+                        .unwrap()
+                        .to_owned(),
                     },
                     FeatureConfig {
                         feature_id: "charlie".into(),
                         value: json!({
-                        "name": "Charlie".to_string(),
-                        "specified": "Rollout".to_string(),
-                    })
-                            .as_object()
-                            .unwrap()
-                            .to_owned(),
+                            "name": "Charlie".to_string(),
+                            "specified": "Rollout".to_string(),
+                        })
+                        .as_object()
+                        .unwrap()
+                        .to_owned(),
                     },
                 ]),
                 ratio: 1,
@@ -2716,27 +2724,27 @@ mod nimbus_tests {
         assert_eq!(
             Value::Object(alice.feature.value.clone()),
             json!({
-            "name": "Alice".to_string(),
-            "specified": "Experiment only".to_string(),
-        })
+                "name": "Alice".to_string(),
+                "specified": "Experiment only".to_string(),
+            })
         );
 
         assert!(!bob.is_rollout());
         assert_eq!(
             Value::Object(bob.feature.value.clone()),
             json!({
-            "name": "Bob".to_string(),
-            "specified": "Experiment in part".to_string(),
-        })
+                "name": "Bob".to_string(),
+                "specified": "Experiment in part".to_string(),
+            })
         );
 
         assert!(charlie.is_rollout());
         assert_eq!(
             Value::Object(charlie.feature.value.clone()),
             json!({
-            "name": "Charlie".to_string(),
-            "specified": "Rollout".to_string(),
-        })
+                "name": "Charlie".to_string(),
+                "specified": "Rollout".to_string(),
+            })
         );
     }
 
@@ -2796,17 +2804,17 @@ mod nimbus_tests {
         let mut events = vec![];
         let enrollment = ExperimentEnrollment::from_explicit_opt_in(&exp, "control", &mut events)?;
         assert!(matches!(
-        enrollment.status,
-        EnrollmentStatus::Enrolled {
-            reason: EnrolledReason::OptIn,
-            ..
-        }
-    ));
+            enrollment.status,
+            EnrollmentStatus::Enrolled {
+                reason: EnrolledReason::OptIn,
+                ..
+            }
+        ));
         assert_eq!(events.len(), 1);
         assert!(matches!(
-        events[0].change,
-        EnrollmentChangeEventType::Enrollment
-    ));
+            events[0].change,
+            EnrollmentChangeEventType::Enrollment
+        ));
         Ok(())
     }
 
@@ -2845,9 +2853,9 @@ mod nimbus_tests {
         }
         assert_eq!(events.len(), 1);
         assert!(matches!(
-        events[0].change,
-        EnrollmentChangeEventType::Disqualification
-    ));
+            events[0].change,
+            EnrollmentChangeEventType::Disqualification
+        ));
     }
 
     #[test]
@@ -2862,12 +2870,12 @@ mod nimbus_tests {
         };
         let enrollment = existing_enrollment.on_explicit_opt_out(&mut events);
         assert!(matches!(
-        enrollment.status,
-        EnrollmentStatus::NotEnrolled {
-            reason: NotEnrolledReason::OptOut,
-            ..
-        }
-    ));
+            enrollment.status,
+            EnrollmentStatus::NotEnrolled {
+                reason: NotEnrolledReason::OptOut,
+                ..
+            }
+        ));
         assert!(events.is_empty());
     }
 

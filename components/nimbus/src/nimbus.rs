@@ -2,31 +2,31 @@
 // at all
 #[allow(unused_imports)]
 use crate::{
-    NimbusError, Result, AvailableRandomizationUnits, ExperimentBranch, Experiment,
-    EnrolledExperiment, AvailableExperiment,
-    persistence::{Database, StoreId, Writer},
-    updating::{read_and_remove_pending_experiments, write_pending_experiments},
+    behavior::EventStore,
     client::{create_client, parse_experiments, SettingsClient},
     config::RemoteSettingsConfig,
     dbcache::DatabaseCache,
+    defaults::Defaults,
     enrollment::{
-        get_global_user_participation, opt_in_with_branch, opt_out, set_global_user_participation,
-        EnrollmentChangeEvent, EnrollmentsEvolver, ExperimentEnrollment, EnrollmentStatus,
-        EnrolledFeature, reset_telemetry_identifiers, EnrollmentChangeEventType,
+        get_global_user_participation, opt_in_with_branch, opt_out, reset_telemetry_identifiers,
+        set_global_user_participation, EnrolledFeature, EnrollmentChangeEvent,
+        EnrollmentChangeEventType, EnrollmentStatus, EnrollmentsEvolver, ExperimentEnrollment,
     },
     evaluator::{is_experiment_available, jexl_eval, TargetingAttributes},
     matcher::AppContext,
-    behavior::EventStore,
-    defaults::Defaults,
+    persistence::{Database, StoreId, Writer},
     strings::fmt_with_map,
+    updating::{read_and_remove_pending_experiments, write_pending_experiments},
+    AvailableExperiment, AvailableRandomizationUnits, EnrolledExperiment, Experiment,
+    ExperimentBranch, NimbusError, Result,
 };
+use chrono::{DateTime, NaiveDateTime, Utc};
 use once_cell::sync::OnceCell;
 use serde_json::{Map, Value};
 use std::collections::HashSet;
 use std::path::{Path, PathBuf};
 use std::sync::{Arc, Mutex, MutexGuard};
 use uuid::Uuid;
-use chrono::{DateTime, NaiveDateTime, Utc};
 
 const DB_KEY_NIMBUS_ID: &str = "nimbus-id";
 pub const DB_KEY_INSTALLATION_DATE: &str = "installation-date";
@@ -284,8 +284,7 @@ impl NimbusClient {
         state: &mut MutexGuard<InternalMutableState>,
     ) -> Result<()> {
         let enrollments_store = db.get_store(StoreId::Enrollments);
-        let prev_enrollments: Vec<ExperimentEnrollment> =
-            enrollments_store.collect_all(writer)?;
+        let prev_enrollments: Vec<ExperimentEnrollment> = enrollments_store.collect_all(writer)?;
 
         let mut set = HashSet::<String>::new();
         for ee in prev_enrollments {

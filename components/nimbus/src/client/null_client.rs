@@ -2,8 +2,8 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-use crate::error::Result;
 use crate::client::{Experiment, SettingsClient};
+use crate::error::Result;
 
 /// This is a client for use when no server is provided.
 /// Its primary use is for non-Mozilla forks of apps that are not using their

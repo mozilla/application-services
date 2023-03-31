@@ -236,7 +236,8 @@ impl SingleIntervalCounter {
             .interval
             .num_rotations(self.data.starting_instant, now)?;
         if rotations > 0 {
-            self.data.starting_instant = self.data.starting_instant + self.config.interval.to_duration(rotations.into());
+            self.data.starting_instant =
+                self.data.starting_instant + self.config.interval.to_duration(rotations.into());
             return self.data.rotate(rotations);
         }
         Ok(())

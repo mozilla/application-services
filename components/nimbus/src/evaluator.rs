@@ -3,6 +3,8 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
  */
 
+#[cfg(feature = "nimbus")]
+use crate::behavior::{EventQueryType, EventStore};
 use crate::enrollment::{
     EnrolledReason, EnrollmentStatus, ExperimentEnrollment, NotEnrolledReason,
 };
@@ -16,11 +18,9 @@ use jexl_eval::Evaluator;
 use serde_derive::*;
 use serde_json::{json, Value};
 use std::collections::HashSet;
-use uuid::Uuid;
-#[cfg(feature = "nimbus")]
-use crate::behavior::{EventQueryType, EventStore};
 #[cfg(feature = "nimbus")]
 use std::sync::{Arc, Mutex};
+use uuid::Uuid;
 
 #[derive(Serialize, Deserialize, Debug, Clone, Default)]
 pub struct Bucket {}
@@ -105,8 +105,7 @@ pub fn evaluate_enrollment(
     available_randomization_units: &AvailableRandomizationUnits,
     targeting_attributes: &TargetingAttributes,
     exp: &Experiment,
-    #[cfg(feature = "nimbus")]
-    event_store: Arc<Mutex<EventStore>>,
+    #[cfg(feature = "nimbus")] event_store: Arc<Mutex<EventStore>>,
 ) -> Result<ExperimentEnrollment> {
     if !is_experiment_available(&targeting_attributes.app_context, exp, true) {
         return Ok(ExperimentEnrollment {
@@ -123,7 +122,8 @@ pub fn evaluate_enrollment(
         if let Some(status) = targeting(
             expr,
             targeting_attributes,
-            #[cfg(feature = "nimbus")] event_store
+            #[cfg(feature = "nimbus")]
+            event_store,
         ) {
             return Ok(ExperimentEnrollment {
                 slug: exp.slug.clone(),
@@ -276,13 +276,13 @@ pub(crate) fn choose_branch<'a>(
 pub(crate) fn targeting(
     expression_statement: &str,
     targeting_attributes: &TargetingAttributes,
-    #[cfg(feature = "nimbus")]
-    event_store: Arc<Mutex<EventStore>>,
+    #[cfg(feature = "nimbus")] event_store: Arc<Mutex<EventStore>>,
 ) -> Option<EnrollmentStatus> {
     match jexl_eval(
         expression_statement,
         targeting_attributes,
-        #[cfg(feature = "nimbus")] event_store
+        #[cfg(feature = "nimbus")]
+        event_store,
     ) {
         Ok(res) => match res {
             true => None,
@@ -303,14 +303,14 @@ pub(crate) fn targeting(
 pub fn jexl_eval<Context: serde::Serialize>(
     expression_statement: &str,
     context: &Context,
-    #[cfg(feature = "nimbus")]
-    event_store: Arc<Mutex<EventStore>>,
+    #[cfg(feature = "nimbus")] event_store: Arc<Mutex<EventStore>>,
 ) -> Result<bool> {
-    let evaluator = Evaluator::new()
-        .with_transform("versionCompare", |args| Ok(version_compare(args)?));
+    let evaluator =
+        Evaluator::new().with_transform("versionCompare", |args| Ok(version_compare(args)?));
 
     #[cfg(feature = "nimbus")]
-    let evaluator = evaluator.with_transform("eventSum", |args| {
+    let evaluator = evaluator
+        .with_transform("eventSum", |args| {
             Ok(query_event_store(
                 event_store.clone(),
                 EventQueryType::Sum,

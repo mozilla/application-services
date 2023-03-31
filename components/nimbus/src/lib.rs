@@ -5,13 +5,13 @@
 #[cfg(feature = "nimbus")]
 mod behavior;
 #[cfg(feature = "nimbus")]
-mod dbcache;
-mod enrollment;
-mod evaluator;
-#[cfg(feature = "nimbus")]
 mod client;
 mod config;
+#[cfg(feature = "nimbus")]
+mod dbcache;
 mod defaults;
+mod enrollment;
+mod evaluator;
 mod matcher;
 mod sampling;
 mod strings;
@@ -25,14 +25,14 @@ pub mod nimbus;
 pub mod persistence;
 pub mod versioning;
 
-#[cfg(debug_assertions)]
-pub use evaluator::evaluate_enrollment;
-pub use config::RemoteSettingsConfig;
-pub use enrollment::{EnrollmentStatus, EnrolledFeature};
-pub use error::{NimbusError, Result};
-pub use matcher::AppContext;
 #[cfg(feature = "nimbus")]
 pub use crate::nimbus::*;
+pub use config::RemoteSettingsConfig;
+pub use enrollment::{EnrolledFeature, EnrollmentStatus};
+pub use error::{NimbusError, Result};
+#[cfg(debug_assertions)]
+pub use evaluator::evaluate_enrollment;
+pub use matcher::AppContext;
 
 // Exposed for Example only
 pub use evaluator::TargetingAttributes;

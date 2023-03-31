@@ -10,13 +10,14 @@ use crate::{
     enrollment::{EnrolledReason, EnrollmentStatus, ExperimentEnrollment},
     error::Result,
     persistence::Database,
-    AppContext, AvailableRandomizationUnits, Experiment, NimbusClient, persistence::StoreId,
-    TargetingAttributes, DB_KEY_APP_VERSION, DB_KEY_UPDATE_DATE,
+    persistence::StoreId,
+    AppContext, AvailableRandomizationUnits, Experiment, NimbusClient, TargetingAttributes,
+    DB_KEY_APP_VERSION, DB_KEY_UPDATE_DATE,
 };
-use std::path::Path;
 use chrono::{DateTime, Duration, Utc};
 use serde_json::json;
 use std::io::Write;
+use std::path::Path;
 
 #[test]
 fn test_telemetry_reset() -> Result<()> {
