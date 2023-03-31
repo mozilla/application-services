@@ -8,6 +8,7 @@ mod behavior;
 mod dbcache;
 mod enrollment;
 mod evaluator;
+#[cfg(feature = "nimbus")]
 mod client;
 mod config;
 mod defaults;
@@ -87,6 +88,7 @@ pub struct Experiment {
     // but we ignore them because they're for internal use by RemoteSettings.
 }
 
+#[allow(unused)]
 impl Experiment {
     pub(crate) fn has_branch(&self, branch_slug: &str) -> bool {
         self.branches

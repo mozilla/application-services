@@ -3,8 +3,6 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
  */
 
-#[cfg(feature = "nimbus")]
-use crate::behavior::{EventQueryType, EventStore};
 use crate::enrollment::{
     EnrolledReason, EnrollmentStatus, ExperimentEnrollment, NotEnrolledReason,
 };
@@ -18,8 +16,11 @@ use jexl_eval::Evaluator;
 use serde_derive::*;
 use serde_json::{json, Value};
 use std::collections::HashSet;
-use std::sync::{Arc, Mutex};
 use uuid::Uuid;
+#[cfg(feature = "nimbus")]
+use crate::behavior::{EventQueryType, EventStore};
+#[cfg(feature = "nimbus")]
+use std::sync::{Arc, Mutex};
 
 #[derive(Serialize, Deserialize, Debug, Clone, Default)]
 pub struct Bucket {}

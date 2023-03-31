@@ -1,26 +1,31 @@
-#[cfg(feature = "nimbus")]
-use crate::behavior::EventStore;
 use crate::defaults::Defaults;
 // This Source Code Form is subject to the terms of the Mozilla Public
 // License, v. 2.0. If a copy of the MPL was not distributed with this
 // file, You can obtain one at https://mozilla.org/MPL/2.0/.
 use crate::error::{NimbusError, Result};
 use crate::evaluator::{TargetingAttributes, evaluate_enrollment};
-#[cfg(feature = "nimbus")]
-use crate::persistence::{Database, StoreId, Writer, Readable};
-use crate::{AvailableRandomizationUnits, EnrolledExperiment, Experiment, FeatureConfig};
-
+use crate::{AvailableRandomizationUnits, Experiment, FeatureConfig};
 use ::uuid::Uuid;
 use serde_derive::*;
-use std::sync::{Arc, Mutex};
 use std::{
     collections::{HashMap, HashSet},
     time::{Duration, SystemTime, UNIX_EPOCH},
 };
 
 #[cfg(feature = "nimbus")]
+use crate::{
+    EnrolledExperiment,
+    behavior::EventStore,
+    persistence::{Database, StoreId, Writer, Readable}
+};
+#[cfg(feature = "nimbus")]
+use std::sync::{Arc, Mutex};
+
+#[cfg(feature = "nimbus")]
 const DB_KEY_GLOBAL_USER_PARTICIPATION: &str = "user-opt-in";
+#[allow(unused)]
 const DEFAULT_GLOBAL_USER_PARTICIPATION: bool = true;
+#[allow(unused)]
 pub(crate) const PREVIOUS_ENROLLMENTS_GC_TIME: Duration = Duration::from_secs(30 * 24 * 3600);
 
 // These are types we use internally for managing enrollments.
@@ -76,6 +81,7 @@ pub struct ExperimentEnrollment {
     pub status: EnrollmentStatus,
 }
 
+#[allow(unused)]
 impl ExperimentEnrollment {
     /// Evaluate an experiment enrollment for an experiment
     /// we are seeing for the first time.
@@ -569,12 +575,14 @@ pub fn get_enrollments<'r>(
     Ok(result)
 }
 
+#[allow(unused)]
 pub(crate) struct EnrollmentsEvolver<'a> {
     nimbus_id: &'a Uuid,
     available_randomization_units: &'a AvailableRandomizationUnits,
     targeting_attributes: &'a TargetingAttributes,
 }
 
+#[allow(unused)]
 impl<'a> EnrollmentsEvolver<'a> {
     pub(crate) fn new(
         nimbus_id: &'a Uuid,
@@ -959,6 +967,7 @@ impl<'a> EnrollmentsEvolver<'a> {
     }
 }
 
+#[allow(unused)]
 fn map_experiments(experiments: &[Experiment]) -> HashMap<String, &Experiment> {
     let mut map_experiments = HashMap::with_capacity(experiments.len());
     for e in experiments {
@@ -967,6 +976,7 @@ fn map_experiments(experiments: &[Experiment]) -> HashMap<String, &Experiment> {
     map_experiments
 }
 
+#[allow(unused)]
 fn map_enrollments(enrollments: &[ExperimentEnrollment]) -> HashMap<String, &ExperimentEnrollment> {
     let mut map_enrollments = HashMap::with_capacity(enrollments.len());
     for e in enrollments {
@@ -975,6 +985,7 @@ fn map_enrollments(enrollments: &[ExperimentEnrollment]) -> HashMap<String, &Exp
     map_enrollments
 }
 
+#[allow(unused)]
 pub(crate) fn filter_experiments_and_enrollments(
     experiments: &[Experiment],
     enrollments: &[ExperimentEnrollment],
@@ -1004,6 +1015,7 @@ fn filter_experiments(
         .collect()
 }
 
+#[allow(unused)]
 /// Take a list of enrollments and a map of experiments, and generate mapping of `feature_id` to
 /// `EnrolledFeatureConfig` structs.
 fn map_features(
@@ -1024,6 +1036,7 @@ fn map_features(
     map
 }
 
+#[allow(unused)]
 pub fn map_features_by_feature_id(
     enrollments: &[ExperimentEnrollment],
     experiments: &[Experiment],
@@ -1041,6 +1054,7 @@ pub fn map_features_by_feature_id(
         .unwrap()
 }
 
+#[allow(unused)]
 fn get_enrolled_feature_configs(
     enrollment: &ExperimentEnrollment,
     experiments: &HashMap<String, &Experiment>,
@@ -1159,6 +1173,7 @@ impl From<&EnrolledFeatureConfig> for EnrolledFeature {
 }
 
 #[derive(Debug)]
+#[allow(unused)]
 pub struct EnrollmentChangeEvent {
     pub experiment_slug: String,
     pub branch_slug: String,
@@ -1186,6 +1201,7 @@ impl EnrollmentChangeEvent {
 }
 
 #[derive(Debug, PartialEq, Eq)]
+#[allow(unused)]
 pub enum EnrollmentChangeEventType {
     Enrollment,
     EnrollFailed,
@@ -1292,6 +1308,7 @@ pub fn reset_telemetry_identifiers(
     Ok(events)
 }
 
+#[allow(unused)]
 pub(crate) fn now_secs() -> u64 {
     SystemTime::now()
         .duration_since(UNIX_EPOCH)
