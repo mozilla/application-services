@@ -470,14 +470,6 @@ fn get_is_already_enrolled_targeting_experiment() -> Experiment {
     .unwrap()
 }
 
-#[cfg(feature = "nimbus")]
-fn get_experiment_enrollments<'r>(
-    db: &Database,
-    reader: &'r impl Readable<'r>,
-) -> Result<Vec<ExperimentEnrollment>> {
-    db.get_store(StoreId::Enrollments).collect_all(reader)
-}
-
 fn local_ctx() -> (Uuid, AppContext, AvailableRandomizationUnits) {
     // Use a fixed nimbus_id so we don't switch between branches.
     let nimbus_id = Uuid::parse_str("29686b11-00c0-4905-b5e4-f5f945eda60a").unwrap();
@@ -504,6 +496,7 @@ fn enrollment_evolver<'a>(
 mod nimbus_tests {
     // Older tests that also use the DB.
     // XXX: make them less complicated (since the transitions are covered above), just see if we write to the DB properly.
+    use super::*;
     use crate::{
         Branch, BucketConfig, FeatureConfig,
         behavior::EventStore,
@@ -515,6 +508,13 @@ mod nimbus_tests {
     use std::sync::{Arc, Mutex};
     use serde_json::Value;
     use std::collections::{HashMap, HashSet};
+
+    fn get_experiment_enrollments<'r>(
+        db: &Database,
+        reader: &'r impl Readable<'r>,
+    ) -> Result<Vec<ExperimentEnrollment>> {
+        db.get_store(StoreId::Enrollments).collect_all(reader)
+    }
 
     #[test]
     fn test_enrollments() -> Result<()> {
