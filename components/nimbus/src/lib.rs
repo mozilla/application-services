@@ -580,7 +580,7 @@ impl NimbusClient {
     ///
     /// This function is used to record and persist data used for the behavioral
     /// targeting such as "core-active" user targeting.
-    pub fn record_event(&self, count: i64, event_id: String) -> Result<()> {
+    pub fn record_event(&self, event_id: String, count: i64) -> Result<()> {
         let mut event_store = self.event_store.lock().unwrap();
         event_store.record_event(count as u64, &event_id, None)?;
         event_store.persist_data(self.db()?)?;
@@ -591,7 +591,7 @@ impl NimbusClient {
     ///
     /// This differs from the `record_event` method in that the event is recorded as if it were
     /// recorded `seconds_ago` in the past. This makes it very useful for testing.
-    pub fn record_past_event(&self, count: i64, event_id: String, seconds_ago: i64) -> Result<()> {
+    pub fn record_past_event(&self, event_id: String, seconds_ago: i64, count: i64) -> Result<()> {
         let mut event_store = self.event_store.lock().unwrap();
         event_store.record_past_event(
             count as u64,
