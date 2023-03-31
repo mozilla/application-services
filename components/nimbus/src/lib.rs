@@ -32,7 +32,7 @@ pub use enrollment::{EnrollmentStatus, EnrolledFeature};
 pub use error::{NimbusError, Result};
 pub use matcher::AppContext;
 #[cfg(feature = "nimbus")]
-pub use nimbus::*;
+pub use crate::nimbus::*;
 
 // Exposed for Example only
 pub use evaluator::TargetingAttributes;
