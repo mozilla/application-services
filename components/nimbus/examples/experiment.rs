@@ -1,20 +1,25 @@
 // This Source Code Form is subject to the terms of the Mozilla Public
 // License, v. 2.0. If a copy of the MPL was not distributed with this
 // file, You can obtain one at https://mozilla.org/MPL/2.0/.
+#![allow(unused)]
 
-use clap::{App, Arg, SubCommand};
-use env_logger::Env;
-use nimbus::TargetingAttributes;
-use nimbus::{
-    error::Result, AppContext, AvailableRandomizationUnits, EnrollmentStatus, NimbusClient,
-    RemoteSettingsConfig,
-};
-use std::collections::HashMap;
-use std::io::prelude::*;
+use nimbus::error::Result;
 
 const DEFAULT_BASE_URL: &str = "https://firefox.settings.services.mozilla.com";
 const DEFAULT_COLLECTION_NAME: &str = "messaging-experiments";
+
+#[cfg(feature = "nimbus")]
 fn main() -> Result<()> {
+    use clap::{App, Arg, SubCommand};
+    use env_logger::Env;
+    use nimbus::TargetingAttributes;
+    use nimbus::{
+        AppContext, AvailableRandomizationUnits, EnrollmentStatus, NimbusClient,
+        RemoteSettingsConfig,
+    };
+    use std::collections::HashMap;
+    use std::io::prelude::*;
+
     // We set the logging level to be `warn` here, meaning that only
     // logs of `warn` or higher will be actually be shown, any other
     // error will be omitted
@@ -381,5 +386,10 @@ fn main() -> Result<()> {
         }
         (&_, _) => println!("Invalid subcommand"),
     };
+    Ok(())
+}
+
+#[cfg(not(feature = "nimbus"))]
+fn main() -> Result<()> {
     Ok(())
 }
