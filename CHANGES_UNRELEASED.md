@@ -24,3 +24,10 @@ Use the template below to make assigning a version number during the release cut
 ### What's Changed
 
 - Android: Upgraded NDK from r21d to r25c.
+
+## Nimbus ⛅️🔬🔭
+
+### 🦊 What's Changed 🦊
+
+- Changed the ordering around for optional arguments for Python compatibility ([#5460](https://github.com/mozilla/application-services/pull/5460)).
+  - This does not change Kotlin or Swift APIs, but affects code that uses the uniffi generated FFI for `record_event` and `record_past_event` directly.
