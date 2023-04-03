@@ -215,10 +215,10 @@ interface NimbusClient {
     // This function is used to record and persist data used for the behavioral
     // targeting such as "core-active" user targeting.
     [Throws=NimbusError]
-    void record_event(optional i64 count = 1, string event_id);
+    void record_event(string event_id, optional i64 count = 1);
 
     [Throws=NimbusError]
-    void record_past_event(optional i64 count = 1, string event_id, i64 seconds_ago);
+    void record_past_event(string event_id, i64 seconds_ago, optional i64 count = 1);
 
     [Throws=NimbusError]
     void clear_events();

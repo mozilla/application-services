@@ -82,12 +82,12 @@ extension Nimbus: NimbusEventStore {
 
     public func recordEvent(_ count: Int, _ eventId: String) {
         _ = catchAll(dbQueue) { _ in
-            try self.nimbusClient.recordEvent(count: Int64(count), eventId: eventId)
+            try self.nimbusClient.recordEvent(eventId: eventId, count: Int64(count))
         }
     }
 
     public func recordPastEvent(_ count: Int, _ eventId: String, _ timeAgo: TimeInterval) throws {
-        try nimbusClient.recordPastEvent(count: Int64(count), eventId: eventId, secondsAgo: Int64(timeAgo))
+        try nimbusClient.recordPastEvent(eventId: eventId, secondsAgo: Int64(timeAgo), count: Int64(count))
     }
 
     public func clearEvents() {
