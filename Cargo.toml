@@ -10,6 +10,7 @@ members = [
     "components/push",
     "components/remote_settings",
     "components/rc_log",
+    "components/suggest",
     "components/support/error",
     "components/support/error/tests",
     "components/support/guid",
