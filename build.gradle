@@ -8,7 +8,7 @@ buildscript {
         jna_version = '5.13.0'
         android_gradle_plugin_version = '7.4.1'
         android_components_version = '111.1.1'
-        glean_version = '52.4.3'
+        glean_version = '52.4.2'
 
         // NOTE: AndroidX libraries should be synced with AC to avoid compatibility issues
         androidx_annotation_version = '1.5.0'
