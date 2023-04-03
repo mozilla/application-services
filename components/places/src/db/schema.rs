@@ -11,7 +11,7 @@ use crate::types::SyncStatus;
 use rusqlite::Connection;
 use sql_support::ConnExt;
 
-pub const VERSION: u32 = 15;
+pub const VERSION: u32 = 16;
 
 // Shared schema and temp tables for the read-write and Sync connections.
 const CREATE_SHARED_SCHEMA_SQL: &str = include_str!("../../sql/create_shared_schema.sql");
