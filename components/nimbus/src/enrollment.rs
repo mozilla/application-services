@@ -89,8 +89,7 @@ impl ExperimentEnrollment {
         available_randomization_units: &AvailableRandomizationUnits,
         targeting_attributes: &TargetingAttributes,
         experiment: &Experiment,
-        #[cfg(feature = "nimbus")]
-        event_store: Arc<Mutex<EventStore>>,
+        #[cfg(feature = "nimbus")] event_store: Arc<Mutex<EventStore>>,
         out_enrollment_events: &mut Vec<EnrollmentChangeEvent>,
     ) -> Result<Self> {
         Ok(if !is_user_participating {
@@ -166,8 +165,7 @@ impl ExperimentEnrollment {
         available_randomization_units: &AvailableRandomizationUnits,
         targeting_attributes: &TargetingAttributes,
         updated_experiment: &Experiment,
-        #[cfg(feature = "nimbus")]
-        event_store: Arc<Mutex<EventStore>>,
+        #[cfg(feature = "nimbus")] event_store: Arc<Mutex<EventStore>>,
         out_enrollment_events: &mut Vec<EnrollmentChangeEvent>,
     ) -> Result<Self> {
         Ok(match self.status {
@@ -648,8 +646,7 @@ impl<'a> EnrollmentsEvolver<'a> {
         prev_experiments: &[Experiment],
         next_experiments: &[Experiment],
         prev_enrollments: &[ExperimentEnrollment],
-        #[cfg(feature = "nimbus")]
-        event_store: Arc<Mutex<EventStore>>,
+        #[cfg(feature = "nimbus")] event_store: Arc<Mutex<EventStore>>,
     ) -> Result<(Vec<ExperimentEnrollment>, Vec<EnrollmentChangeEvent>)> {
         let mut enrollments: Vec<ExperimentEnrollment> = Default::default();
         let mut events: Vec<EnrollmentChangeEvent> = Default::default();
@@ -713,8 +710,7 @@ impl<'a> EnrollmentsEvolver<'a> {
         prev_experiments: &[Experiment],
         next_experiments: &[Experiment],
         prev_enrollments: &[ExperimentEnrollment],
-        #[cfg(feature = "nimbus")]
-        event_store: Arc<Mutex<EventStore>>,
+        #[cfg(feature = "nimbus")] event_store: Arc<Mutex<EventStore>>,
     ) -> Result<(Vec<ExperimentEnrollment>, Vec<EnrollmentChangeEvent>)> {
         let mut enrollment_events = vec![];
         let prev_experiments = map_experiments(prev_experiments);
@@ -915,8 +911,7 @@ impl<'a> EnrollmentsEvolver<'a> {
         prev_experiment: Option<&Experiment>,
         next_experiment: Option<&Experiment>,
         prev_enrollment: Option<&ExperimentEnrollment>,
-        #[cfg(feature = "nimbus")]
-        event_store: Arc<Mutex<EventStore>>,
+        #[cfg(feature = "nimbus")] event_store: Arc<Mutex<EventStore>>,
         out_enrollment_events: &mut Vec<EnrollmentChangeEvent>, // out param containing the events we'd like to emit to glean.
     ) -> Result<Option<ExperimentEnrollment>> {
         let is_already_enrolled = if let Some(enrollment) = prev_enrollment {
