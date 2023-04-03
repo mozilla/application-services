@@ -3805,6 +3805,23 @@ dependencies = [
 ]
 
 [[package]]
+name = "suggest"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "interrupt-support",
+ "remote_settings",
+ "rusqlite",
+ "serde",
+ "serde_derive",
+ "serde_json",
+ "sql-support",
+ "thiserror",
+ "viaduct",
+ "viaduct-reqwest",
+]
+
+[[package]]
 name = "syn"
 version = "1.0.98"
 source = "registry+https://github.com/rust-lang/crates.io-index"
