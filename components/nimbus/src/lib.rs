@@ -192,6 +192,7 @@ pub struct BucketConfig {
     pub total: u32,
 }
 
+#[allow(unused)]
 #[cfg(test)]
 impl BucketConfig {
     pub(crate) fn always() -> Self {
