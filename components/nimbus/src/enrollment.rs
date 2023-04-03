@@ -25,7 +25,6 @@ use std::sync::{Arc, Mutex};
 const DB_KEY_GLOBAL_USER_PARTICIPATION: &str = "user-opt-in";
 #[allow(unused)]
 const DEFAULT_GLOBAL_USER_PARTICIPATION: bool = true;
-#[allow(unused)]
 pub(crate) const PREVIOUS_ENROLLMENTS_GC_TIME: Duration = Duration::from_secs(30 * 24 * 3600);
 
 // These are types we use internally for managing enrollments.
@@ -81,7 +80,6 @@ pub struct ExperimentEnrollment {
     pub status: EnrollmentStatus,
 }
 
-#[allow(unused)]
 impl ExperimentEnrollment {
     /// Evaluate an experiment enrollment for an experiment
     /// we are seeing for the first time.
@@ -91,7 +89,8 @@ impl ExperimentEnrollment {
         available_randomization_units: &AvailableRandomizationUnits,
         targeting_attributes: &TargetingAttributes,
         experiment: &Experiment,
-        #[cfg(feature = "nimbus")] event_store: Arc<Mutex<EventStore>>,
+        #[cfg(feature = "nimbus")]
+        event_store: Arc<Mutex<EventStore>>,
         out_enrollment_events: &mut Vec<EnrollmentChangeEvent>,
     ) -> Result<Self> {
         Ok(if !is_user_participating {
@@ -130,6 +129,7 @@ impl ExperimentEnrollment {
     }
 
     /// Force enroll ourselves in an experiment.
+    #[allow(unused)]
     pub(crate) fn from_explicit_opt_in(
         experiment: &Experiment,
         branch_slug: &str,
@@ -158,7 +158,6 @@ impl ExperimentEnrollment {
     }
 
     /// Update our enrollment to an experiment we have seen before.
-    #[cfg(feature = "nimbus")]
     #[allow(clippy::too_many_arguments)]
     fn on_experiment_updated(
         &self,
@@ -167,6 +166,7 @@ impl ExperimentEnrollment {
         available_randomization_units: &AvailableRandomizationUnits,
         targeting_attributes: &TargetingAttributes,
         updated_experiment: &Experiment,
+        #[cfg(feature = "nimbus")]
         event_store: Arc<Mutex<EventStore>>,
         out_enrollment_events: &mut Vec<EnrollmentChangeEvent>,
     ) -> Result<Self> {
@@ -180,6 +180,7 @@ impl ExperimentEnrollment {
                         available_randomization_units,
                         targeting_attributes,
                         updated_experiment,
+                        #[cfg(feature = "nimbus")]
                         event_store,
                     )?;
                     log::debug!(
@@ -224,6 +225,7 @@ impl ExperimentEnrollment {
                         available_randomization_units,
                         targeting_attributes,
                         updated_experiment,
+                        #[cfg(feature = "nimbus")]
                         event_store,
                     )?;
                     match evaluated_enrollment.status {
@@ -317,7 +319,7 @@ impl ExperimentEnrollment {
     }
 
     /// Force unenroll ourselves from an experiment.
-    #[allow(clippy::unnecessary_wraps)]
+    #[allow(unused, clippy::unnecessary_wraps)]
     pub(crate) fn on_explicit_opt_out(
         &self,
         out_enrollment_events: &mut Vec<EnrollmentChangeEvent>,
@@ -353,6 +355,7 @@ impl ExperimentEnrollment {
     /// We also move any enrolled experiments to the "disqualified" state, since their further
     /// partipation would submit partial data that could skew analysis.
     ///
+    #[allow(unused)]
     fn reset_telemetry_identifiers(
         &self,
         out_enrollment_events: &mut Vec<EnrollmentChangeEvent>,
@@ -508,6 +511,7 @@ impl EnrollmentStatus {
     }
 
     /// Make a clone of this status, but with the special nil enrollment_id.
+    #[allow(unused)]
     fn clone_with_nil_enrollment_id(&self) -> Self {
         let mut updated = self.clone();
         match updated {
@@ -638,13 +642,13 @@ impl<'a> EnrollmentsEvolver<'a> {
         Ok(enrollments_change_events)
     }
 
-    #[cfg(feature = "nimbus")]
     pub(crate) fn evolve_enrollments(
         &self,
         is_user_participating: bool,
         prev_experiments: &[Experiment],
         next_experiments: &[Experiment],
         prev_enrollments: &[ExperimentEnrollment],
+        #[cfg(feature = "nimbus")]
         event_store: Arc<Mutex<EventStore>>,
     ) -> Result<(Vec<ExperimentEnrollment>, Vec<EnrollmentChangeEvent>)> {
         let mut enrollments: Vec<ExperimentEnrollment> = Default::default();
@@ -664,6 +668,7 @@ impl<'a> EnrollmentsEvolver<'a> {
             &prev_rollouts,
             &next_rollouts,
             &ro_enrollments,
+            #[cfg(feature = "nimbus")]
             event_store.clone(),
         )?;
 
@@ -690,6 +695,7 @@ impl<'a> EnrollmentsEvolver<'a> {
             &prev_experiments,
             &next_experiments,
             &prev_enrollments,
+            #[cfg(feature = "nimbus")]
             event_store,
         )?;
 
@@ -701,13 +707,13 @@ impl<'a> EnrollmentsEvolver<'a> {
 
     /// Evolve and calculate the new set of enrollments, using the
     /// previous and current state of experiments and current enrollments.
-    #[cfg(feature = "nimbus")]
     pub(crate) fn evolve_enrollment_recipes(
         &self,
         is_user_participating: bool,
         prev_experiments: &[Experiment],
         next_experiments: &[Experiment],
         prev_enrollments: &[ExperimentEnrollment],
+        #[cfg(feature = "nimbus")]
         event_store: Arc<Mutex<EventStore>>,
     ) -> Result<(Vec<ExperimentEnrollment>, Vec<EnrollmentChangeEvent>)> {
         let mut enrollment_events = vec![];
@@ -743,6 +749,7 @@ impl<'a> EnrollmentsEvolver<'a> {
                 prev_experiments.get(slug).copied(),
                 next_experiments.get(slug).copied(),
                 Some(prev_enrollment),
+                #[cfg(feature = "nimbus")]
                 event_store.clone(),
                 &mut enrollment_events,
             ) {
@@ -835,6 +842,7 @@ impl<'a> EnrollmentsEvolver<'a> {
                     prev_experiments.get(slug).copied(),
                     Some(next_experiment),
                     prev_enrollment,
+                    #[cfg(feature = "nimbus")]
                     event_store.clone(),
                     &mut enrollment_events,
                 ) {
@@ -901,13 +909,13 @@ impl<'a> EnrollmentsEvolver<'a> {
     ///
     /// Returns an Option-wrapped version of the updated enrollment.  None
     /// means that the enrollment has been/should be discarded.
-    #[cfg(feature = "nimbus")]
     pub(crate) fn evolve_enrollment(
         &self,
         is_user_participating: bool,
         prev_experiment: Option<&Experiment>,
         next_experiment: Option<&Experiment>,
         prev_enrollment: Option<&ExperimentEnrollment>,
+        #[cfg(feature = "nimbus")]
         event_store: Arc<Mutex<EventStore>>,
         out_enrollment_events: &mut Vec<EnrollmentChangeEvent>, // out param containing the events we'd like to emit to glean.
     ) -> Result<Option<ExperimentEnrollment>> {
@@ -928,6 +936,7 @@ impl<'a> EnrollmentsEvolver<'a> {
                 self.available_randomization_units,
                 &targeting_attributes,
                 experiment,
+                #[cfg(feature = "nimbus")]
                 event_store,
                 out_enrollment_events,
             )?),
@@ -943,6 +952,7 @@ impl<'a> EnrollmentsEvolver<'a> {
                     self.available_randomization_units,
                     &targeting_attributes,
                     experiment,
+                    #[cfg(feature = "nimbus")]
                     event_store,
                     out_enrollment_events,
                 )?)
@@ -967,7 +977,6 @@ impl<'a> EnrollmentsEvolver<'a> {
     }
 }
 
-#[allow(unused)]
 fn map_experiments(experiments: &[Experiment]) -> HashMap<String, &Experiment> {
     let mut map_experiments = HashMap::with_capacity(experiments.len());
     for e in experiments {
@@ -976,7 +985,6 @@ fn map_experiments(experiments: &[Experiment]) -> HashMap<String, &Experiment> {
     map_experiments
 }
 
-#[allow(unused)]
 fn map_enrollments(enrollments: &[ExperimentEnrollment]) -> HashMap<String, &ExperimentEnrollment> {
     let mut map_enrollments = HashMap::with_capacity(enrollments.len());
     for e in enrollments {
@@ -985,7 +993,6 @@ fn map_enrollments(enrollments: &[ExperimentEnrollment]) -> HashMap<String, &Exp
     map_enrollments
 }
 
-#[allow(unused)]
 pub(crate) fn filter_experiments_and_enrollments(
     experiments: &[Experiment],
     enrollments: &[ExperimentEnrollment],
@@ -1015,7 +1022,6 @@ fn filter_experiments(
         .collect()
 }
 
-#[allow(unused)]
 /// Take a list of enrollments and a map of experiments, and generate mapping of `feature_id` to
 /// `EnrolledFeatureConfig` structs.
 fn map_features(
@@ -1054,7 +1060,6 @@ pub fn map_features_by_feature_id(
         .unwrap()
 }
 
-#[allow(unused)]
 fn get_enrolled_feature_configs(
     enrollment: &ExperimentEnrollment,
     experiments: &HashMap<String, &Experiment>,
@@ -1173,7 +1178,6 @@ impl From<&EnrolledFeatureConfig> for EnrolledFeature {
 }
 
 #[derive(Debug)]
-#[allow(unused)]
 pub struct EnrollmentChangeEvent {
     pub experiment_slug: String,
     pub branch_slug: String,
@@ -1201,12 +1205,12 @@ impl EnrollmentChangeEvent {
 }
 
 #[derive(Debug, PartialEq, Eq)]
-#[allow(unused)]
 pub enum EnrollmentChangeEventType {
     Enrollment,
     EnrollFailed,
     Disqualification,
     Unenrollment,
+    #[allow(unused)]
     UnenrollFailed,
 }
 
@@ -1308,7 +1312,6 @@ pub fn reset_telemetry_identifiers(
     Ok(events)
 }
 
-#[allow(unused)]
 pub(crate) fn now_secs() -> u64 {
     SystemTime::now()
         .duration_since(UNIX_EPOCH)

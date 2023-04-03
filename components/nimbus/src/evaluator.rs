@@ -105,7 +105,8 @@ pub fn evaluate_enrollment(
     available_randomization_units: &AvailableRandomizationUnits,
     targeting_attributes: &TargetingAttributes,
     exp: &Experiment,
-    #[cfg(feature = "nimbus")] event_store: Arc<Mutex<EventStore>>,
+    #[cfg(feature = "nimbus")]
+    event_store: Arc<Mutex<EventStore>>,
 ) -> Result<ExperimentEnrollment> {
     if !is_experiment_available(&targeting_attributes.app_context, exp, true) {
         return Ok(ExperimentEnrollment {
@@ -303,7 +304,8 @@ pub(crate) fn targeting(
 pub fn jexl_eval<Context: serde::Serialize>(
     expression_statement: &str,
     context: &Context,
-    #[cfg(feature = "nimbus")] event_store: Arc<Mutex<EventStore>>,
+    #[cfg(feature = "nimbus")]
+    event_store: Arc<Mutex<EventStore>>,
 ) -> Result<bool> {
     let evaluator =
         Evaluator::new().with_transform("versionCompare", |args| Ok(version_compare(args)?));
