@@ -1,3 +1,14 @@
+# v97.4.0 (_2023-04-03_)
+
+[Full Changelog](https://github.com/mozilla/application-services/compare/v97.3.0...v97.4.0)
+
+## Nimbus ⛅️🔬🔭
+
+### 🦊 What's Changed 🦊
+
+- Changed the ordering around for optional arguments for Python compatibility ([#5460](https://github.com/mozilla/application-services/pull/5460)).
+  - This does not change Kotlin or Swift APIs, but affects code that uses the uniffi generated FFI for `record_event` and `record_past_event` directly.
+
 # v97.3.0 (_2023-03-29_)
 
 [Full Changelog](https://github.com/mozilla/application-services/compare/v97.2.0...v97.3.0)
