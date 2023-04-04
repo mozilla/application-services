@@ -2,7 +2,7 @@
 
 # Unreleased Changes
 
-[Full Changelog](https://github.com/mozilla/application-services/compare/v97.4.0...main)
+[Full Changelog](https://github.com/mozilla/application-services/compare/v97.4.1...main)
 
 <!-- WARNING: New entries should be added below this comment to ensure the `./automation/prepare-release.py` script works as expected.
 
@@ -18,9 +18,3 @@ Use the template below to make assigning a version number during the release cut
   - Description of the change with a link to the pull request ([#0000](https://github.com/mozilla/application-services/pull/0000))
 
 -->
-
-## Places
-
-### 🦊 What's Changed 🦊
-  - Added a workaround for a database migration issue that was breaking places for some nightly users
-    (https://github.com/mozilla/application-services/issues/5464)
