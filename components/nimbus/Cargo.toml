@@ -13,10 +13,10 @@ name = "nimbus"
 
 [features]
 # `rkv-safe-mode` is the same name as used by glean. For us though, it's the default.
-default=["nimbus"]
+default=["stateful"]
 rkv-safe-mode = ["dep:rkv"]
-nimbus-uniffi-bindings = ["dep:uniffi"]
-nimbus = ["rkv-safe-mode", "nimbus-uniffi-bindings"]
+stateful-uniffi-bindings = ["dep:uniffi"]
+stateful = ["rkv-safe-mode", "stateful-uniffi-bindings"]
 
 [dependencies]
 anyhow = "1"

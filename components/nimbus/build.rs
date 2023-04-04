@@ -5,7 +5,7 @@
 use glean_build::Builder;
 
 pub fn main() {
-    #[cfg(feature = "nimbus-uniffi-bindings")]
+    #[cfg(feature = "stateful-uniffi-bindings")]
     uniffi::generate_scaffolding("./src/nimbus.udl").unwrap();
 
     Builder::default()

@@ -14,7 +14,7 @@ use std::num::{ParseIntError, TryFromIntError};
 pub enum NimbusError {
     #[error("Invalid persisted data")]
     InvalidPersistedData,
-    #[cfg(feature = "nimbus")]
+    #[cfg(feature = "stateful")]
     #[error("Rkv error: {0}")]
     RkvError(#[from] rkv::StoreError),
     #[error("IO error: {0}")]
@@ -51,7 +51,7 @@ pub enum NimbusError {
     DatabaseNotReady,
     #[error("Error parsing a sting into a version {0}")]
     VersionParsingError(String),
-    #[cfg(feature = "nimbus")]
+    #[cfg(feature = "stateful")]
     #[error("Behavior error: {0}")]
     BehaviorError(#[from] BehaviorError),
     #[error("TryFromIntError: {0}")]
@@ -64,7 +64,7 @@ pub enum NimbusError {
     ClientError(#[from] rs_client::ClientError),
 }
 
-#[cfg(feature = "nimbus")]
+#[cfg(feature = "stateful")]
 #[derive(Debug, thiserror::Error)]
 pub enum BehaviorError {
     #[error("Invalid state: {0}")]

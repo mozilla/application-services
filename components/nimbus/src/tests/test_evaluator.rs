@@ -126,7 +126,7 @@ fn test_is_experiment_available() {
     assert!(!is_experiment_available(&app_context, &experiment, false));
 }
 
-#[cfg(feature = "nimbus")]
+#[cfg(feature = "stateful")]
 mod nimbus_tests {
     use super::*;
     use chrono::Utc;

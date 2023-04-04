@@ -12,16 +12,16 @@ use std::{
     time::{Duration, SystemTime, UNIX_EPOCH},
 };
 
-#[cfg(feature = "nimbus")]
+#[cfg(feature = "stateful")]
 use crate::{
     behavior::EventStore,
     persistence::{Database, Readable, StoreId, Writer},
     EnrolledExperiment,
 };
-#[cfg(feature = "nimbus")]
+#[cfg(feature = "stateful")]
 use std::sync::{Arc, Mutex};
 
-#[cfg(feature = "nimbus")]
+#[cfg(feature = "stateful")]
 const DB_KEY_GLOBAL_USER_PARTICIPATION: &str = "user-opt-in";
 #[allow(unused)]
 const DEFAULT_GLOBAL_USER_PARTICIPATION: bool = true;
@@ -89,7 +89,7 @@ impl ExperimentEnrollment {
         available_randomization_units: &AvailableRandomizationUnits,
         targeting_attributes: &TargetingAttributes,
         experiment: &Experiment,
-        #[cfg(feature = "nimbus")] event_store: Arc<Mutex<EventStore>>,
+        #[cfg(feature = "stateful")] event_store: Arc<Mutex<EventStore>>,
         out_enrollment_events: &mut Vec<EnrollmentChangeEvent>,
     ) -> Result<Self> {
         Ok(if !is_user_participating {
@@ -112,7 +112,7 @@ impl ExperimentEnrollment {
                 available_randomization_units,
                 targeting_attributes,
                 experiment,
-                #[cfg(feature = "nimbus")]
+                #[cfg(feature = "stateful")]
                 event_store,
             )?;
             log::debug!(
@@ -165,7 +165,7 @@ impl ExperimentEnrollment {
         available_randomization_units: &AvailableRandomizationUnits,
         targeting_attributes: &TargetingAttributes,
         updated_experiment: &Experiment,
-        #[cfg(feature = "nimbus")] event_store: Arc<Mutex<EventStore>>,
+        #[cfg(feature = "stateful")] event_store: Arc<Mutex<EventStore>>,
         out_enrollment_events: &mut Vec<EnrollmentChangeEvent>,
     ) -> Result<Self> {
         Ok(match self.status {
@@ -178,7 +178,7 @@ impl ExperimentEnrollment {
                         available_randomization_units,
                         targeting_attributes,
                         updated_experiment,
-                        #[cfg(feature = "nimbus")]
+                        #[cfg(feature = "stateful")]
                         event_store,
                     )?;
                     log::debug!(
@@ -223,7 +223,7 @@ impl ExperimentEnrollment {
                         available_randomization_units,
                         targeting_attributes,
                         updated_experiment,
-                        #[cfg(feature = "nimbus")]
+                        #[cfg(feature = "stateful")]
                         event_store,
                     )?;
                     match evaluated_enrollment.status {
@@ -533,7 +533,7 @@ impl EnrollmentStatus {
 
 /// Return information about all enrolled experiments.
 /// Note this does not include rollouts
-#[cfg(feature = "nimbus")]
+#[cfg(feature = "stateful")]
 pub fn get_enrollments<'r>(
     db: &Database,
     reader: &'r impl Readable<'r>,
@@ -600,7 +600,7 @@ impl<'a> EnrollmentsEvolver<'a> {
 
     /// Convenient wrapper around `evolve_enrollments` that fetches the current state of experiments,
     /// enrollments and user participation from the database.
-    #[cfg(feature = "nimbus")]
+    #[cfg(feature = "stateful")]
     pub(crate) fn evolve_enrollments_in_db(
         &self,
         db: &Database,
@@ -646,7 +646,7 @@ impl<'a> EnrollmentsEvolver<'a> {
         prev_experiments: &[Experiment],
         next_experiments: &[Experiment],
         prev_enrollments: &[ExperimentEnrollment],
-        #[cfg(feature = "nimbus")] event_store: Arc<Mutex<EventStore>>,
+        #[cfg(feature = "stateful")] event_store: Arc<Mutex<EventStore>>,
     ) -> Result<(Vec<ExperimentEnrollment>, Vec<EnrollmentChangeEvent>)> {
         let mut enrollments: Vec<ExperimentEnrollment> = Default::default();
         let mut events: Vec<EnrollmentChangeEvent> = Default::default();
@@ -665,7 +665,7 @@ impl<'a> EnrollmentsEvolver<'a> {
             &prev_rollouts,
             &next_rollouts,
             &ro_enrollments,
-            #[cfg(feature = "nimbus")]
+            #[cfg(feature = "stateful")]
             event_store.clone(),
         )?;
 
@@ -692,7 +692,7 @@ impl<'a> EnrollmentsEvolver<'a> {
             &prev_experiments,
             &next_experiments,
             &prev_enrollments,
-            #[cfg(feature = "nimbus")]
+            #[cfg(feature = "stateful")]
             event_store,
         )?;
 
@@ -710,7 +710,7 @@ impl<'a> EnrollmentsEvolver<'a> {
         prev_experiments: &[Experiment],
         next_experiments: &[Experiment],
         prev_enrollments: &[ExperimentEnrollment],
-        #[cfg(feature = "nimbus")] event_store: Arc<Mutex<EventStore>>,
+        #[cfg(feature = "stateful")] event_store: Arc<Mutex<EventStore>>,
     ) -> Result<(Vec<ExperimentEnrollment>, Vec<EnrollmentChangeEvent>)> {
         let mut enrollment_events = vec![];
         let prev_experiments = map_experiments(prev_experiments);
@@ -745,7 +745,7 @@ impl<'a> EnrollmentsEvolver<'a> {
                 prev_experiments.get(slug).copied(),
                 next_experiments.get(slug).copied(),
                 Some(prev_enrollment),
-                #[cfg(feature = "nimbus")]
+                #[cfg(feature = "stateful")]
                 event_store.clone(),
                 &mut enrollment_events,
             ) {
@@ -838,7 +838,7 @@ impl<'a> EnrollmentsEvolver<'a> {
                     prev_experiments.get(slug).copied(),
                     Some(next_experiment),
                     prev_enrollment,
-                    #[cfg(feature = "nimbus")]
+                    #[cfg(feature = "stateful")]
                     event_store.clone(),
                     &mut enrollment_events,
                 ) {
@@ -911,7 +911,7 @@ impl<'a> EnrollmentsEvolver<'a> {
         prev_experiment: Option<&Experiment>,
         next_experiment: Option<&Experiment>,
         prev_enrollment: Option<&ExperimentEnrollment>,
-        #[cfg(feature = "nimbus")] event_store: Arc<Mutex<EventStore>>,
+        #[cfg(feature = "stateful")] event_store: Arc<Mutex<EventStore>>,
         out_enrollment_events: &mut Vec<EnrollmentChangeEvent>, // out param containing the events we'd like to emit to glean.
     ) -> Result<Option<ExperimentEnrollment>> {
         let is_already_enrolled = if let Some(enrollment) = prev_enrollment {
@@ -931,7 +931,7 @@ impl<'a> EnrollmentsEvolver<'a> {
                 self.available_randomization_units,
                 &targeting_attributes,
                 experiment,
-                #[cfg(feature = "nimbus")]
+                #[cfg(feature = "stateful")]
                 event_store,
                 out_enrollment_events,
             )?),
@@ -947,7 +947,7 @@ impl<'a> EnrollmentsEvolver<'a> {
                     self.available_randomization_units,
                     &targeting_attributes,
                     experiment,
-                    #[cfg(feature = "nimbus")]
+                    #[cfg(feature = "stateful")]
                     event_store,
                     out_enrollment_events,
                 )?)
@@ -1209,7 +1209,7 @@ pub enum EnrollmentChangeEventType {
     UnenrollFailed,
 }
 
-#[cfg(feature = "nimbus")]
+#[cfg(feature = "stateful")]
 pub fn opt_in_with_branch(
     db: &Database,
     writer: &mut Writer,
@@ -1237,7 +1237,7 @@ pub fn opt_in_with_branch(
     Ok(events)
 }
 
-#[cfg(feature = "nimbus")]
+#[cfg(feature = "stateful")]
 pub fn opt_out(
     db: &Database,
     writer: &mut Writer,
@@ -1263,7 +1263,7 @@ pub fn opt_out(
     Ok(events)
 }
 
-#[cfg(feature = "nimbus")]
+#[cfg(feature = "stateful")]
 pub fn get_global_user_participation<'r>(
     db: &Database,
     reader: &'r impl Readable<'r>,
@@ -1277,7 +1277,7 @@ pub fn get_global_user_participation<'r>(
     }
 }
 
-#[cfg(feature = "nimbus")]
+#[cfg(feature = "stateful")]
 pub fn set_global_user_participation(
     db: &Database,
     writer: &mut Writer,
@@ -1289,7 +1289,7 @@ pub fn set_global_user_participation(
 
 /// Reset unique identifiers in response to application-level telemetry reset.
 ///
-#[cfg(feature = "nimbus")]
+#[cfg(feature = "stateful")]
 pub fn reset_telemetry_identifiers(
     db: &Database,
     writer: &mut Writer,

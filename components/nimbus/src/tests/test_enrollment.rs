@@ -492,7 +492,7 @@ fn enrollment_evolver<'a>(
     EnrollmentsEvolver::new(nimbus_id, aru, targeting_attributes)
 }
 
-#[cfg(feature = "nimbus")]
+#[cfg(feature = "stateful")]
 mod nimbus_tests {
     // Older tests that also use the DB.
     // XXX: make them less complicated (since the transitions are covered above), just see if we write to the DB properly.

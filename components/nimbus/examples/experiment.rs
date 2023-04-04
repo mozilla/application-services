@@ -8,7 +8,7 @@ use nimbus::error::Result;
 const DEFAULT_BASE_URL: &str = "https://firefox.settings.services.mozilla.com";
 const DEFAULT_COLLECTION_NAME: &str = "messaging-experiments";
 
-#[cfg(feature = "nimbus")]
+#[cfg(feature = "stateful")]
 fn main() -> Result<()> {
     use clap::{App, Arg, SubCommand};
     use env_logger::Env;
@@ -389,7 +389,7 @@ fn main() -> Result<()> {
     Ok(())
 }
 
-#[cfg(not(feature = "nimbus"))]
+#[cfg(not(feature = "stateful"))]
 fn main() -> Result<()> {
     Ok(())
 }

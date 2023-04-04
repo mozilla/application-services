@@ -3,23 +3,23 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
 // utilities shared between tests
-#[cfg(feature = "nimbus")]
+#[cfg(feature = "stateful")]
 use nimbus::{error::Result, AppContext, NimbusClient, RemoteSettingsConfig};
 
-#[cfg(feature = "nimbus")]
+#[cfg(feature = "stateful")]
 #[allow(dead_code)] // work around https://github.com/rust-lang/rust/issues/46379
 pub fn new_test_client(_identifier: &str) -> Result<NimbusClient> {
     let tmp_dir = tempfile::tempdir()?;
     new_test_client_internal(&tmp_dir)
 }
 
-#[cfg(feature = "nimbus")]
+#[cfg(feature = "stateful")]
 #[allow(dead_code)] // work around https://github.com/rust-lang/rust/issues/46379
 pub fn new_test_client_with_db(tmp_dir: &tempfile::TempDir) -> Result<NimbusClient> {
     new_test_client_internal(tmp_dir)
 }
 
-#[cfg(feature = "nimbus")]
+#[cfg(feature = "stateful")]
 fn new_test_client_internal(
     tmp_dir: &tempfile::TempDir,
 ) -> Result<NimbusClient, nimbus::NimbusError> {
@@ -383,14 +383,14 @@ pub fn no_test_experiments() -> String {
     .to_string()
 }
 
-#[cfg(feature = "nimbus")]
+#[cfg(feature = "stateful")]
 use nimbus::persistence::{Database, SingleStore};
 #[cfg(feature = "rkv-safe-mode")]
 use rkv::StoreOptions;
-#[cfg(feature = "nimbus")]
+#[cfg(feature = "stateful")]
 use std::path::Path;
 
-#[cfg(feature = "nimbus")]
+#[cfg(feature = "stateful")]
 #[allow(dead_code)] //  work around https://github.com/rust-lang/rust/issues/46379
 pub fn create_database<P: AsRef<Path>>(
     path: P,

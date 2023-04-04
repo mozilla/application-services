@@ -2,12 +2,12 @@
 // License, v. 2.0. If a copy of the MPL was not distributed with this
 // file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
-#[cfg(feature = "nimbus")]
+#[cfg(feature = "stateful")]
 mod behavior;
-#[cfg(feature = "nimbus")]
+#[cfg(feature = "stateful")]
 mod client;
 mod config;
-#[cfg(feature = "nimbus")]
+#[cfg(feature = "stateful")]
 mod dbcache;
 mod defaults;
 mod enrollment;
@@ -15,17 +15,17 @@ mod evaluator;
 mod matcher;
 mod sampling;
 mod strings;
-#[cfg(feature = "nimbus")]
+#[cfg(feature = "stateful")]
 mod updating;
 
 pub mod error;
-#[cfg(feature = "nimbus")]
+#[cfg(feature = "stateful")]
 pub mod nimbus;
-#[cfg(feature = "nimbus")]
+#[cfg(feature = "stateful")]
 pub mod persistence;
 pub mod versioning;
 
-#[cfg(feature = "nimbus")]
+#[cfg(feature = "stateful")]
 pub use crate::nimbus::*;
 pub use config::RemoteSettingsConfig;
 pub use enrollment::{EnrolledFeature, EnrollmentStatus};
