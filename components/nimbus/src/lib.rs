@@ -15,6 +15,7 @@ mod evaluator;
 mod matcher;
 mod sampling;
 mod strings;
+mod targeting;
 #[cfg(feature = "stateful")]
 mod updating;
 
@@ -35,6 +36,7 @@ pub use error::{NimbusError, Result};
 pub use evaluator::evaluate_enrollment;
 pub use matcher::AppContext;
 pub use schema::*;
+pub use targeting::NimbusTargetingHelper;
 
 // Exposed for Example only
 pub use evaluator::TargetingAttributes;

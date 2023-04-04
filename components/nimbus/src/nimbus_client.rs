@@ -13,13 +13,13 @@ use crate::{
         set_global_user_participation, EnrolledFeature, EnrollmentChangeEvent,
         EnrollmentChangeEventType, EnrollmentStatus, EnrollmentsEvolver, ExperimentEnrollment,
     },
-    evaluator::{is_experiment_available, jexl_eval, TargetingAttributes},
+    evaluator::{is_experiment_available, TargetingAttributes},
     matcher::AppContext,
     persistence::{Database, StoreId, Writer},
     strings::fmt_with_map,
     updating::{read_and_remove_pending_experiments, write_pending_experiments},
     AvailableExperiment, AvailableRandomizationUnits, EnrolledExperiment, Experiment,
-    ExperimentBranch, NimbusError, Result,
+    ExperimentBranch, NimbusError, NimbusTargetingHelper, Result,
 };
 use chrono::{DateTime, NaiveDateTime, Utc};
 use once_cell::sync::OnceCell;
@@ -193,10 +193,11 @@ impl NimbusClient {
     }
 
     pub fn get_available_experiments(&self) -> Result<Vec<AvailableExperiment>> {
+        let th = self.create_targeting_helper(None)?;
         Ok(self
             .get_all_experiments()?
             .into_iter()
-            .filter(|exp| is_experiment_available(&self.app_context, exp, false))
+            .filter(|exp| is_experiment_available(&th, exp, false))
             .map(|exp| exp.into())
             .collect())
     }
@@ -307,12 +308,14 @@ impl NimbusClient {
         experiments: &[Experiment],
     ) -> Result<Vec<EnrollmentChangeEvent>> {
         let nimbus_id = self.read_or_create_nimbus_id(db, writer)?;
+        let targeting_helper =
+            NimbusTargetingHelper::new(&state.targeting_attributes, self.event_store.clone());
         let evolver = EnrollmentsEvolver::new(
             &nimbus_id,
             &state.available_randomization_units,
-            &state.targeting_attributes,
+            &targeting_helper,
         );
-        evolver.evolve_enrollments_in_db(db, writer, experiments, self.event_store.clone())
+        evolver.evolve_enrollments_in_db(db, writer, experiments)
     }
 
     pub fn apply_pending_experiments(&self) -> Result<Vec<EnrollmentChangeEvent>> {
@@ -616,24 +619,6 @@ impl NimbusStringHelper {
             }
             _ => fmt_with_map(&template, &self.context),
         }
-    }
-}
-
-pub struct NimbusTargetingHelper {
-    context: Value,
-    event_store: Arc<Mutex<EventStore>>,
-}
-
-impl NimbusTargetingHelper {
-    fn new(context: Value, event_store: Arc<Mutex<EventStore>>) -> Self {
-        Self {
-            context,
-            event_store,
-        }
-    }
-
-    pub fn eval_jexl(&self, expr: String) -> Result<bool> {
-        jexl_eval(&expr, &self.context, self.event_store.clone())
     }
 }
 

@@ -13,7 +13,7 @@ use crate::{
     AvailableRandomizationUnits,
 };
 use crate::{matcher::AppContext, sampling};
-use crate::{Branch, Experiment};
+use crate::{Branch, Experiment, NimbusTargetingHelper};
 use jexl_eval::Evaluator;
 use serde_derive::*;
 use serde_json::{json, Value};
@@ -103,11 +103,10 @@ fn split_locale(locale: String) -> (Option<String>, Option<String>) {
 pub fn evaluate_enrollment(
     nimbus_id: &Uuid,
     available_randomization_units: &AvailableRandomizationUnits,
-    targeting_attributes: &TargetingAttributes,
     exp: &Experiment,
-    #[cfg(feature = "stateful")] event_store: Arc<Mutex<EventStore>>,
+    th: &NimbusTargetingHelper,
 ) -> Result<ExperimentEnrollment> {
-    if !is_experiment_available(&targeting_attributes.app_context, exp, true) {
+    if !is_experiment_available(th, exp, true) {
         return Ok(ExperimentEnrollment {
             slug: exp.slug.clone(),
             status: EnrollmentStatus::NotEnrolled {
@@ -119,12 +118,7 @@ pub fn evaluate_enrollment(
     // Get targeting out of the way - "if let chains" are experimental,
     // otherwise we could improve this.
     if let Some(expr) = &exp.targeting {
-        if let Some(status) = targeting(
-            expr,
-            targeting_attributes,
-            #[cfg(feature = "stateful")]
-            event_store,
-        ) {
+        if let Some(status) = targeting(expr, th) {
             return Ok(ExperimentEnrollment {
                 slug: exp.slug.clone(),
                 status,
@@ -183,19 +177,19 @@ pub fn evaluate_enrollment(
 /// # Returns:
 /// Returns `true` if the experiment matches the targeting
 pub fn is_experiment_available(
-    app_context: &AppContext,
+    th: &NimbusTargetingHelper,
     exp: &Experiment,
     is_release: bool,
 ) -> bool {
     // Verify the app_name matches the application being targeted
     // by the experiment.
-    match &exp.app_name {
-        Some(app_name) => {
-            if !app_name.eq(&app_context.app_name) {
+    match (&exp.app_name, th.context.get("app_name".to_string())) {
+        (Some(exp), Some(Value::String(mine))) => {
+            if !exp.eq(mine) {
                 return false;
             }
         }
-        None => log::debug!("Experiment missing app_name, skipping it as a targeting parameter"),
+        (_, _) => log::debug!("Experiment missing app_name, skipping it as a targeting parameter"),
     }
 
     if !is_release {
@@ -205,16 +199,13 @@ pub fn is_experiment_available(
     // Verify the channel matches the application being targeted
     // by the experiment.  Note, we are intentionally comparing in a case-insensitive way.
     // See https://jira.mozilla.com/browse/SDK-246 for more info.
-    match &exp.channel {
-        Some(channel) => {
-            if !channel
-                .to_lowercase()
-                .eq(&app_context.channel.to_lowercase())
-            {
+    match (&exp.channel, th.context.get("channel".to_string())) {
+        (Some(exp), Some(Value::String(mine))) => {
+            if !exp.to_lowercase().eq(&mine.to_lowercase()) {
                 return false;
             }
         }
-        None => log::debug!("Experiment missing channel, skipping it as a targeting parameter"),
+        (_, _) => log::debug!("Experiment missing channel, skipping it as a targeting parameter"),
     }
     true
 }
@@ -275,15 +266,9 @@ pub(crate) fn choose_branch<'a>(
 /// - jexl-rs returned an error
 pub(crate) fn targeting(
     expression_statement: &str,
-    targeting_attributes: &TargetingAttributes,
-    #[cfg(feature = "stateful")] event_store: Arc<Mutex<EventStore>>,
+    targeting_helper: &NimbusTargetingHelper,
 ) -> Option<EnrollmentStatus> {
-    match jexl_eval(
-        expression_statement,
-        targeting_attributes,
-        #[cfg(feature = "stateful")]
-        event_store,
-    ) {
+    match targeting_helper.eval_jexl(expression_statement.to_string()) {
         Ok(res) => match res {
             true => None,
             false => Some(EnrollmentStatus::NotEnrolled {
