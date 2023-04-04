@@ -1,3 +1,13 @@
+# v97.4.1 (_2023-04-04_)
+
+[Full Changelog](https://github.com/mozilla/application-services/compare/v97.4.0...v97.4.1)
+
+## Places
+
+### 🦊 What's Changed 🦊
+  - Added a workaround for a database migration issue that was breaking places for some nightly users
+    (https://github.com/mozilla/application-services/issues/5464)
+
 # v97.4.0 (_2023-04-03_)
 
 [Full Changelog](https://github.com/mozilla/application-services/compare/v97.3.0...v97.4.0)
