@@ -299,6 +299,7 @@ mod tests {
     use crate::db::{db::PlacesInitializer, PlacesDb};
     use crate::error::Result;
     use sql_support::open_database::test_utils::MigratedDatabaseFile;
+    use std::collections::BTreeSet;
     use sync_guid::Guid as SyncGuid;
     use url::Url;
 
@@ -774,5 +775,73 @@ mod tests {
         db.execute("PRAGMA user_version=15", []).unwrap();
         drop(db);
         db_file.upgrade_to(16);
+    }
+
+    #[test]
+    fn test_all_upgrades() {
+        // Test the migration process in general: open a fresh DB and a DB that's gone through the migration
+        // process.  Check that the schemas match.
+        let fresh_db = PlacesDb::open_in_memory(ConnectionType::ReadWrite).unwrap();
+
+        let db_file = MigratedDatabaseFile::new(PlacesInitializer::new_for_test(), CREATE_V15_DB);
+        db_file.run_all_upgrades();
+        let upgraded_db = db_file.open();
+
+        assert_eq!(
+            fresh_db.query_one::<u32>("PRAGMA user_version").unwrap(),
+            upgraded_db.query_one::<u32>("PRAGMA user_version").unwrap(),
+        );
+        let all_tables = [
+            "moz_places",
+            "moz_places_tombstones",
+            "moz_places_stale_frecencies",
+            "moz_historyvisits",
+            "moz_historyvisit_tombstones",
+            "moz_inputhistory",
+            "moz_bookmarks",
+            "moz_bookmarks_deleted",
+            "moz_origins",
+            "moz_meta",
+            "moz_tags",
+            "moz_tags_relation",
+            "moz_bookmarks_synced",
+            "moz_bookmarks_synced_structure",
+            "moz_bookmarks_synced_tag_relation",
+            "moz_keywords",
+            "moz_places_metadata",
+            "moz_places_metadata_search_queries",
+        ];
+        #[derive(Debug, Ord, PartialOrd, Eq, PartialEq)]
+        struct ColumnInfo {
+            name: String,
+            type_: String,
+            not_null: bool,
+            default_value: Option<String>,
+            pk: bool,
+        }
+
+        fn get_table_column_info(conn: &Connection, table_name: &str) -> BTreeSet<ColumnInfo> {
+            let mut stmt = conn
+                .prepare("SELECT name, type, `notnull`, dflt_value, pk FROM pragma_table_info(?)")
+                .unwrap();
+            stmt.query_map((table_name,), |row| {
+                Ok(ColumnInfo {
+                    name: row.get(0)?,
+                    type_: row.get(1)?,
+                    not_null: row.get(2)?,
+                    default_value: row.get(3)?,
+                    pk: row.get(4)?,
+                })
+            })
+            .unwrap()
+            .collect::<rusqlite::Result<BTreeSet<_>>>()
+            .unwrap()
+        }
+        for table_name in all_tables {
+            assert_eq!(
+                get_table_column_info(&upgraded_db, table_name),
+                get_table_column_info(&fresh_db, table_name),
+            );
+        }
     }
 }
