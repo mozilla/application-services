@@ -76,6 +76,14 @@ pub trait ConnExt {
         Ok(res)
     }
 
+    /// Return true if a query returns any rows
+    fn exists<P: Params>(&self, sql: &str, params: P) -> SqlResult<bool> {
+        let conn = self.conn();
+        let mut stmt = conn.prepare(sql)?;
+        let exists = stmt.query(params)?.next()?.is_some();
+        Ok(exists)
+    }
+
     /// Execute a query that returns 0 or 1 result columns, returning None
     /// if there were no rows, or if the only result was NULL.
     fn try_query_one<T: FromSql, P: Params>(
