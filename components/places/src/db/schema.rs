@@ -140,6 +140,8 @@ where
 pub fn upgrade_from(db: &Connection, from: u32) -> rusqlite::Result<()> {
     log::debug!("Upgrading schema from {} to {}", from, VERSION);
 
+    // Old-style migrations
+
     migration(db, from, 2, &[CREATE_SHARED_SCHEMA_SQL], || Ok(()))?;
     migration(
         db,
@@ -260,15 +262,34 @@ pub fn upgrade_from(db: &Connection, from: u32) -> rusqlite::Result<()> {
         || Ok(()),
     )?;
 
-    migration(
-        db,
-        from,
-        15,
-        &["ALTER TABLE moz_bookmarks_synced ADD COLUMN unknownFields TEXT"],
-        || Ok(()),
-    )?;
+    // End of old style migrations, starting with the 15 -> 16 migration, we just use match
+    // statements
 
-    // Add more migrations here...
+    match from {
+        // Skip the old style migrations
+        n if n < 15 => (),
+        // New-style migrations start here
+        15 => {
+            // Add the `unknownFields` column
+            //
+            // This migration was rolled out incorrectly and we need to check if it was already
+            // applied (https://github.com/mozilla/application-services/issues/5464)
+            let exists_sql = "SELECT 1 FROM pragma_table_info('moz_bookmarks_synced') WHERE name = 'unknownFields'";
+            let add_column_sql = "ALTER TABLE moz_bookmarks_synced ADD COLUMN unknownFields TEXT";
+            if !db.exists(exists_sql, [])? {
+                db.execute(add_column_sql, [])?;
+            }
+        }
+        // Add more migrations here...
+
+        // Any other from value indicates that something very wrong happened
+        _ => panic!(
+            "Places does not have a v{} -> v{} migration",
+            from,
+            from + 1
+        ),
+    }
+
     Ok(())
 }
 
@@ -741,5 +762,17 @@ mod tests {
             db.query_one::<String>("SELECT type FROM pragma_table_info('moz_bookmarks_synced') WHERE name = 'unknownFields'").unwrap(),
             "TEXT"
         );
+    }
+
+    #[test]
+    fn test_gh5464() {
+        // Test the gh-5464 error case: A user with the `v16` schema, but with `user_version` set
+        // to 15
+        let db_file = MigratedDatabaseFile::new(PlacesInitializer::new_for_test(), CREATE_V15_DB);
+        db_file.upgrade_to(16);
+        let db = db_file.open();
+        db.execute("PRAGMA user_version=15", []).unwrap();
+        drop(db);
+        db_file.upgrade_to(16);
     }
 }
