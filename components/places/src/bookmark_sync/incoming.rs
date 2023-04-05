@@ -13,7 +13,7 @@ use crate::storage::{
     tags::{validate_tag, ValidatedTag},
     URL_LENGTH_MAX,
 };
-use crate::types::UnknownFields;
+use crate::types::serialize_unknown_fields;
 use rusqlite::Connection;
 use serde_json::Value as JsonValue;
 use sql_support::{self, ConnExt};
@@ -484,14 +484,6 @@ impl<'a> IncomingApplicator<'a> {
     }
 }
 
-fn serialize_unknown_fields(unknown_fields: &UnknownFields) -> Result<Option<String>> {
-    if unknown_fields.is_empty() {
-        Ok(None)
-    } else {
-        Ok(Some(serde_json::to_string(unknown_fields)?))
-    }
-}
-
 /// Go through the raw JSON value and try to fixup invalid data -- this mostly means fields with
 /// invalid types.
 ///
@@ -629,6 +621,7 @@ mod tests {
     use crate::bookmark_sync::record::{BookmarkItemRecord, FolderRecord};
     use crate::bookmark_sync::tests::SyncedBookmarkItem;
     use crate::storage::bookmarks::BookmarkRootGuid;
+    use crate::types::UnknownFields;
     use pretty_assertions::assert_eq;
     use serde_json::{json, Value};
 
