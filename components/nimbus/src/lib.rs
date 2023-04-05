@@ -44,6 +44,7 @@ use enrollment::EnrollmentChangeEventType;
 pub use matcher::AppContext;
 use once_cell::sync::OnceCell;
 use persistence::{Database, StoreId, Writer};
+use serde::Serialize;
 use serde_derive::*;
 use serde_json::{Map, Value};
 use std::collections::HashSet;
@@ -216,10 +217,11 @@ impl NimbusClient {
     }
 
     pub fn get_available_experiments(&self) -> Result<Vec<AvailableExperiment>> {
+        let th = self.create_targeting_helper(None)?;
         Ok(self
             .get_all_experiments()?
             .into_iter()
-            .filter(|exp| is_experiment_available(&self.app_context, exp, false))
+            .filter(|exp| is_experiment_available(&th, exp, false))
             .map(|exp| exp.into())
             .collect())
     }
@@ -335,12 +337,14 @@ impl NimbusClient {
         experiments: &[Experiment],
     ) -> Result<Vec<EnrollmentChangeEvent>> {
         let nimbus_id = self.read_or_create_nimbus_id(db, writer)?;
+        let targeting_helper =
+            NimbusTargetingHelper::new(&state.targeting_attributes, self.event_store.clone());
         let evolver = EnrollmentsEvolver::new(
             &nimbus_id,
             &state.available_randomization_units,
-            &state.targeting_attributes,
+            &targeting_helper,
         );
-        evolver.evolve_enrollments_in_db(db, writer, experiments, self.event_store.clone())
+        evolver.evolve_enrollments_in_db(db, writer, experiments)
     }
 
     pub fn apply_pending_experiments(&self) -> Result<Vec<EnrollmentChangeEvent>> {
@@ -888,15 +892,31 @@ pub struct NimbusTargetingHelper {
 }
 
 impl NimbusTargetingHelper {
-    fn new(context: Value, event_store: Arc<Mutex<EventStore>>) -> Self {
+    pub fn new<C: Serialize>(context: C, event_store: Arc<Mutex<EventStore>>) -> Self {
         Self {
-            context,
+            context: serde_json::to_value(context).unwrap(),
             event_store,
         }
     }
 
     pub fn eval_jexl(&self, expr: String) -> Result<bool> {
         evaluator::jexl_eval(&expr, &self.context, self.event_store.clone())
+    }
+
+    pub(crate) fn put(&self, key: &str, value: bool) -> Self {
+        let context = if let Value::Object(map) = &self.context {
+            let mut map = map.clone();
+            map.insert(key.to_string(), Value::Bool(value));
+            Value::Object(map)
+        } else {
+            self.context.clone()
+        };
+
+        let event_store = self.event_store.clone();
+        Self {
+            context,
+            event_store,
+        }
     }
 }
 
