@@ -2,13 +2,16 @@
 // License, v. 2.0. If a copy of the MPL was not distributed with this
 // file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
-#[cfg(feature = "stateful")]
-use crate::behavior::EventStore;
 use crate::{evaluator::jexl_eval, Result};
 use serde::Serialize;
 use serde_json::Value;
-#[cfg(feature = "stateful")]
-use std::sync::{Arc, Mutex};
+
+cfg_if::cfg_if! {
+    if #[cfg(feature = "stateful")] {
+        use crate::behavior::EventStore;
+        use std::sync::{Arc, Mutex};
+    }
+}
 
 pub struct NimbusTargetingHelper {
     pub(crate) context: Value,
@@ -29,10 +32,13 @@ impl NimbusTargetingHelper {
     }
 
     pub fn eval_jexl(&self, expr: String) -> Result<bool> {
-        #[cfg(feature = "stateful")]
-        return jexl_eval(&expr, &self.context, self.event_store.clone());
-        #[cfg(not(feature = "stateful"))]
-        jexl_eval(&expr, &self.context)
+        cfg_if::cfg_if! {
+            if #[cfg(feature = "stateful")] {
+                jexl_eval(&expr, &self.context, self.event_store.clone())
+            } else {
+                jexl_eval(&expr, &self.context)
+            }
+        }
     }
 
     pub(crate) fn put(&self, key: &str, value: bool) -> Self {

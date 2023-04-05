@@ -12,10 +12,12 @@ use serde_json::{json, Value};
 use std::collections::{HashMap, HashSet};
 use uuid::Uuid;
 
-#[cfg(feature = "stateful")]
-use crate::behavior::EventStore;
-#[cfg(feature = "stateful")]
-use std::sync::{Arc, Mutex};
+cfg_if::cfg_if! {
+    if #[cfg(feature = "stateful")] {
+        use crate::behavior::EventStore;
+        use std::sync::{Arc, Mutex};
+    }
+}
 
 fn get_test_experiments() -> Vec<Experiment> {
     vec![
@@ -499,30 +501,30 @@ fn enrollment_evolver<'a>(
 }
 
 impl From<TargetingAttributes> for NimbusTargetingHelper {
-    #[cfg(feature = "stateful")]
     fn from(value: TargetingAttributes) -> Self {
-        let store = Arc::new(Mutex::new(EventStore::new()));
-        NimbusTargetingHelper::new(value, store)
-    }
-
-    #[cfg(not(feature = "stateful"))]
-    fn from(value: TargetingAttributes) -> Self {
-        NimbusTargetingHelper::new(value)
+        cfg_if::cfg_if! {
+            if #[cfg(feature = "stateful")] {
+                let store = Arc::new(Mutex::new(EventStore::new()));
+                NimbusTargetingHelper::new(value, store)
+            } else {
+                NimbusTargetingHelper::new(value)
+            }
+        }
     }
 }
 
 impl Default for NimbusTargetingHelper {
-    #[cfg(feature = "stateful")]
     fn default() -> Self {
-        let ctx: AppContext = Default::default();
-        let store = Arc::new(Mutex::new(EventStore::new()));
-        NimbusTargetingHelper::new(ctx, store)
-    }
-
-    #[cfg(not(feature = "stateful"))]
-    fn default() -> Self {
-        let ctx: AppContext = Default::default();
-        NimbusTargetingHelper::new(ctx)
+        cfg_if::cfg_if! {
+            if #[cfg(feature = "stateful")] {
+                let ctx: AppContext = Default::default();
+                let store = Arc::new(Mutex::new(EventStore::new()));
+                NimbusTargetingHelper::new(ctx, store)
+            } else {
+                let ctx: AppContext = Default::default();
+                NimbusTargetingHelper::new(ctx)
+            }
+        }
     }
 }
 

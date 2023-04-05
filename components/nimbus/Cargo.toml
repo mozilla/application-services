@@ -37,6 +37,7 @@ chrono = { version = "0.4", features = ["serde"]}
 unicode-segmentation = "1.8.0"
 error-support = { path = "../support/error" }
 rs_client = { path = "../support/rs_client" }
+cfg-if = "1.0.0"
 
 [build-dependencies]
 uniffi = { version = "0.23", features = ["build"], optional = true }

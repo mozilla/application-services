@@ -15,14 +15,17 @@ use std::{
     time::{Duration, SystemTime, UNIX_EPOCH},
 };
 
-#[cfg(feature = "stateful")]
-use crate::{
-    persistence::{Database, Readable, StoreId, Writer},
-    EnrolledExperiment,
-};
+cfg_if::cfg_if! {
+    if #[cfg(feature = "stateful")] {
+        use crate::{
+            persistence::{Database, Readable, StoreId, Writer},
+            EnrolledExperiment,
+        };
 
-#[cfg(feature = "stateful")]
-const DB_KEY_GLOBAL_USER_PARTICIPATION: &str = "user-opt-in";
+        const DB_KEY_GLOBAL_USER_PARTICIPATION: &str = "user-opt-in";
+    }
+}
+
 #[cfg_attr(not(feature = "stateful"), allow(unused))]
 const DEFAULT_GLOBAL_USER_PARTICIPATION: bool = true;
 pub(crate) const PREVIOUS_ENROLLMENTS_GC_TIME: Duration = Duration::from_secs(30 * 24 * 3600);
@@ -1190,102 +1193,101 @@ pub enum EnrollmentChangeEventType {
     UnenrollFailed,
 }
 
-#[cfg(feature = "stateful")]
-pub fn opt_in_with_branch(
-    db: &Database,
-    writer: &mut Writer,
-    experiment_slug: &str,
-    branch: &str,
-) -> Result<Vec<EnrollmentChangeEvent>> {
-    let mut events = vec![];
-    if let Ok(Some(exp)) = db
-        .get_store(StoreId::Experiments)
-        .get::<Experiment, Writer>(writer, experiment_slug)
-    {
-        let enrollment = ExperimentEnrollment::from_explicit_opt_in(&exp, branch, &mut events);
-        db.get_store(StoreId::Enrollments)
-            .put(writer, experiment_slug, &enrollment.unwrap())?;
-    } else {
-        events.push(EnrollmentChangeEvent {
-            experiment_slug: experiment_slug.to_string(),
-            branch_slug: branch.to_string(),
-            enrollment_id: "N/A".to_string(),
-            reason: Some("does-not-exist".to_string()),
-            change: EnrollmentChangeEventType::EnrollFailed,
-        });
+cfg_if::cfg_if! {
+    if #[cfg(feature = "stateful")] {
+        pub fn opt_in_with_branch(
+            db: &Database,
+            writer: &mut Writer,
+            experiment_slug: &str,
+            branch: &str,
+        ) -> Result<Vec<EnrollmentChangeEvent>> {
+            let mut events = vec![];
+            if let Ok(Some(exp)) = db
+                .get_store(StoreId::Experiments)
+                .get::<Experiment, Writer>(writer, experiment_slug)
+            {
+                let enrollment = ExperimentEnrollment::from_explicit_opt_in(&exp, branch, &mut events);
+                db.get_store(StoreId::Enrollments)
+                    .put(writer, experiment_slug, &enrollment.unwrap())?;
+            } else {
+                events.push(EnrollmentChangeEvent {
+                    experiment_slug: experiment_slug.to_string(),
+                    branch_slug: branch.to_string(),
+                    enrollment_id: "N/A".to_string(),
+                    reason: Some("does-not-exist".to_string()),
+                    change: EnrollmentChangeEventType::EnrollFailed,
+                });
+            }
+
+            Ok(events)
+        }
+
+        pub fn opt_out(
+            db: &Database,
+            writer: &mut Writer,
+            experiment_slug: &str,
+        ) -> Result<Vec<EnrollmentChangeEvent>> {
+            let mut events = vec![];
+            let enr_store = db.get_store(StoreId::Enrollments);
+            if let Ok(Some(existing_enrollment)) =
+                enr_store.get::<ExperimentEnrollment, Writer>(writer, experiment_slug)
+            {
+                let updated_enrollment = &existing_enrollment.on_explicit_opt_out(&mut events);
+                enr_store.put(writer, experiment_slug, updated_enrollment)?;
+            } else {
+                events.push(EnrollmentChangeEvent {
+                    experiment_slug: experiment_slug.to_string(),
+                    branch_slug: "N/A".to_string(),
+                    enrollment_id: "N/A".to_string(),
+                    reason: Some("does-not-exist".to_string()),
+                    change: EnrollmentChangeEventType::UnenrollFailed,
+                });
+            }
+
+            Ok(events)
+        }
+
+        pub fn get_global_user_participation<'r>(
+            db: &Database,
+            reader: &'r impl Readable<'r>,
+        ) -> Result<bool> {
+            let store = db.get_store(StoreId::Meta);
+            let opted_in = store.get::<bool, _>(reader, DB_KEY_GLOBAL_USER_PARTICIPATION)?;
+            if let Some(opted_in) = opted_in {
+                Ok(opted_in)
+            } else {
+                Ok(DEFAULT_GLOBAL_USER_PARTICIPATION)
+            }
+        }
+
+        pub fn set_global_user_participation(
+            db: &Database,
+            writer: &mut Writer,
+            opt_in: bool,
+        ) -> Result<()> {
+            let store = db.get_store(StoreId::Meta);
+            store.put(writer, DB_KEY_GLOBAL_USER_PARTICIPATION, &opt_in)
+        }
+
+        /// Reset unique identifiers in response to application-level telemetry reset.
+        ///
+        pub fn reset_telemetry_identifiers(
+            db: &Database,
+            writer: &mut Writer,
+        ) -> Result<Vec<EnrollmentChangeEvent>> {
+            let mut events = vec![];
+            let store = db.get_store(StoreId::Enrollments);
+            let enrollments: Vec<ExperimentEnrollment> = store.collect_all(writer)?;
+            let updated_enrollments = enrollments
+                .iter()
+                .map(|enrollment| enrollment.reset_telemetry_identifiers(&mut events));
+            store.clear(writer)?;
+            for enrollment in updated_enrollments {
+                store.put(writer, &enrollment.slug, &enrollment)?;
+            }
+            Ok(events)
+        }
     }
-
-    Ok(events)
-}
-
-#[cfg(feature = "stateful")]
-pub fn opt_out(
-    db: &Database,
-    writer: &mut Writer,
-    experiment_slug: &str,
-) -> Result<Vec<EnrollmentChangeEvent>> {
-    let mut events = vec![];
-    let enr_store = db.get_store(StoreId::Enrollments);
-    if let Ok(Some(existing_enrollment)) =
-        enr_store.get::<ExperimentEnrollment, Writer>(writer, experiment_slug)
-    {
-        let updated_enrollment = &existing_enrollment.on_explicit_opt_out(&mut events);
-        enr_store.put(writer, experiment_slug, updated_enrollment)?;
-    } else {
-        events.push(EnrollmentChangeEvent {
-            experiment_slug: experiment_slug.to_string(),
-            branch_slug: "N/A".to_string(),
-            enrollment_id: "N/A".to_string(),
-            reason: Some("does-not-exist".to_string()),
-            change: EnrollmentChangeEventType::UnenrollFailed,
-        });
-    }
-
-    Ok(events)
-}
-
-#[cfg(feature = "stateful")]
-pub fn get_global_user_participation<'r>(
-    db: &Database,
-    reader: &'r impl Readable<'r>,
-) -> Result<bool> {
-    let store = db.get_store(StoreId::Meta);
-    let opted_in = store.get::<bool, _>(reader, DB_KEY_GLOBAL_USER_PARTICIPATION)?;
-    if let Some(opted_in) = opted_in {
-        Ok(opted_in)
-    } else {
-        Ok(DEFAULT_GLOBAL_USER_PARTICIPATION)
-    }
-}
-
-#[cfg(feature = "stateful")]
-pub fn set_global_user_participation(
-    db: &Database,
-    writer: &mut Writer,
-    opt_in: bool,
-) -> Result<()> {
-    let store = db.get_store(StoreId::Meta);
-    store.put(writer, DB_KEY_GLOBAL_USER_PARTICIPATION, &opt_in)
-}
-
-/// Reset unique identifiers in response to application-level telemetry reset.
-///
-#[cfg(feature = "stateful")]
-pub fn reset_telemetry_identifiers(
-    db: &Database,
-    writer: &mut Writer,
-) -> Result<Vec<EnrollmentChangeEvent>> {
-    let mut events = vec![];
-    let store = db.get_store(StoreId::Enrollments);
-    let enrollments: Vec<ExperimentEnrollment> = store.collect_all(writer)?;
-    let updated_enrollments = enrollments
-        .iter()
-        .map(|enrollment| enrollment.reset_telemetry_identifiers(&mut events));
-    store.clear(writer)?;
-    for enrollment in updated_enrollments {
-        store.put(writer, &enrollment.slug, &enrollment)?;
-    }
-    Ok(events)
 }
 
 pub(crate) fn now_secs() -> u64 {
