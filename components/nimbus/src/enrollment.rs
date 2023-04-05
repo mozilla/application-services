@@ -23,7 +23,7 @@ use crate::{
 
 #[cfg(feature = "stateful")]
 const DB_KEY_GLOBAL_USER_PARTICIPATION: &str = "user-opt-in";
-#[allow(unused)]
+#[cfg_attr(not(feature = "stateful"), allow(unused))]
 const DEFAULT_GLOBAL_USER_PARTICIPATION: bool = true;
 pub(crate) const PREVIOUS_ENROLLMENTS_GC_TIME: Duration = Duration::from_secs(30 * 24 * 3600);
 
@@ -125,7 +125,7 @@ impl ExperimentEnrollment {
     }
 
     /// Force enroll ourselves in an experiment.
-    #[allow(unused)]
+    #[cfg_attr(not(feature = "stateful"), allow(unused))]
     pub(crate) fn from_explicit_opt_in(
         experiment: &Experiment,
         branch_slug: &str,
@@ -309,7 +309,8 @@ impl ExperimentEnrollment {
     }
 
     /// Force unenroll ourselves from an experiment.
-    #[allow(unused, clippy::unnecessary_wraps)]
+    #[allow(clippy::unnecessary_wraps)]
+    #[cfg_attr(not(feature = "stateful"), allow(unused))]
     pub(crate) fn on_explicit_opt_out(
         &self,
         out_enrollment_events: &mut Vec<EnrollmentChangeEvent>,
@@ -345,7 +346,7 @@ impl ExperimentEnrollment {
     /// We also move any enrolled experiments to the "disqualified" state, since their further
     /// partipation would submit partial data that could skew analysis.
     ///
-    #[allow(unused)]
+    #[cfg_attr(not(feature = "stateful"), allow(unused))]
     fn reset_telemetry_identifiers(
         &self,
         out_enrollment_events: &mut Vec<EnrollmentChangeEvent>,
@@ -501,7 +502,7 @@ impl EnrollmentStatus {
     }
 
     /// Make a clone of this status, but with the special nil enrollment_id.
-    #[allow(unused)]
+    #[cfg_attr(not(feature = "stateful"), allow(unused))]
     fn clone_with_nil_enrollment_id(&self) -> Self {
         let mut updated = self.clone();
         match updated {
@@ -569,14 +570,14 @@ pub fn get_enrollments<'r>(
     Ok(result)
 }
 
-#[allow(unused)]
+#[cfg_attr(not(feature = "stateful"), allow(unused))]
 pub(crate) struct EnrollmentsEvolver<'a> {
     nimbus_id: &'a Uuid,
     available_randomization_units: &'a AvailableRandomizationUnits,
     targeting_helper: &'a NimbusTargetingHelper,
 }
 
-#[allow(unused)]
+#[cfg_attr(not(feature = "stateful"), allow(unused))]
 impl<'a> EnrollmentsEvolver<'a> {
     pub(crate) fn new(
         nimbus_id: &'a Uuid,
@@ -1013,7 +1014,7 @@ fn map_features(
     map
 }
 
-#[allow(unused)]
+#[cfg_attr(not(feature = "stateful"), allow(unused))]
 pub fn map_features_by_feature_id(
     enrollments: &[ExperimentEnrollment],
     experiments: &[Experiment],
@@ -1181,7 +1182,7 @@ pub enum EnrollmentChangeEventType {
     EnrollFailed,
     Disqualification,
     Unenrollment,
-    #[allow(unused)]
+    #[cfg_attr(not(feature = "stateful"), allow(unused))]
     UnenrollFailed,
 }
 

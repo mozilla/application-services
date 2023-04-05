@@ -50,7 +50,7 @@ pub struct Experiment {
     // but we ignore them because they're for internal use by RemoteSettings.
 }
 
-#[allow(unused)]
+#[cfg_attr(not(feature = "stateful"), allow(unused))]
 impl Experiment {
     pub(crate) fn has_branch(&self, branch_slug: &str) -> bool {
         self.branches
