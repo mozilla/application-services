@@ -348,13 +348,13 @@ impl BookmarkItemRecord {
         }
     }
 
-    pub fn unknown_fields(&self) -> Option<&UnknownFields> {
+    pub fn unknown_fields(&self) -> &UnknownFields {
         match self {
-            Self::Bookmark(b) => Some(&b.unknown_fields),
-            Self::Folder(f) => Some(&f.unknown_fields),
-            Self::Separator(s) => Some(&s.unknown_fields),
-            Self::Query(q) => Some(&q.unknown_fields),
-            Self::Livemark(l) => Some(&l.unknown_fields),
+            Self::Bookmark(b) => &b.unknown_fields,
+            Self::Folder(f) => &f.unknown_fields,
+            Self::Separator(s) => &s.unknown_fields,
+            Self::Query(q) => &q.unknown_fields,
+            Self::Livemark(l) => &l.unknown_fields,
         }
     }
 }
