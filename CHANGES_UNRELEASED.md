@@ -2,7 +2,7 @@
 
 # Unreleased Changes
 
-[Full Changelog](https://github.com/mozilla/application-services/compare/v97.3.0...main)
+[Full Changelog](https://github.com/mozilla/application-services/compare/v97.4.1...main)
 
 <!-- WARNING: New entries should be added below this comment to ensure the `./automation/prepare-release.py` script works as expected.
 
@@ -32,3 +32,4 @@ Use the template below to make assigning a version number during the release cut
   - This does not functionally change build processes, as the `stateful` feature is now the default feature for the `nimbus-sdk` library.
 - Changed the ordering around for optional arguments for Python compatibility ([#5460](https://github.com/mozilla/application-services/pull/5460)).
   - This does not change Kotlin or Swift APIs, but affects code that uses the uniffi generated FFI for `record_event` and `record_past_event` directly.
+- Refactor the `EnrollmentEvolver` in preparation for a larger refactor to split out a `stateful` feature. ([#5374](https://github.com/mozilla/application-services/pull/5374)).

@@ -900,6 +900,10 @@ impl<'a> EnrollmentsEvolver<'a> {
             false
         };
 
+        // XXX This is not pretty, however, we need to re-write the way sticky targeting strings are generated in
+        // experimenter. Once https://github.com/mozilla/experimenter/issues/8661 is fixed, we can remove the calculation
+        // for `is_already_enrolled` above, the `put` call here and the `put` method declaration, and replace it with
+        // let th = self.targeting_helper;
         let th = self
             .targeting_helper
             .put("is_already_enrolled", is_already_enrolled);
