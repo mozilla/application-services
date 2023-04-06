@@ -25,3 +25,9 @@ Use the template below to make assigning a version number during the release cut
 - Added processing of command line arguments (or intent extras) to be driven by a command line tool. ([#5482](https://github.com/mozilla/application-services/pull/5482))
   - Requires passing `CommandLine.arguments` to `NimbusBuilder` in iOS.
   - Requires passing `intent` to `NimbusInterface` in Android.
+
+## Places ⛅️🔬🔭
+
+### 🦊 What's Changed 🦊
+
+  - Added support for sync payload evolution in history.  If other clients sync history records / visits with fields that we don't know about, we store that data as JSON and send it back when it's synced next.
