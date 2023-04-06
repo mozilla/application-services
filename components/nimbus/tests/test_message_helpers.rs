@@ -4,7 +4,9 @@
 
 // Testing get_experiment_branch semantics.
 
+#[cfg(feature = "rkv-safe-mode")]
 mod common;
+
 #[allow(unused_imports)]
 #[allow(unused_attributes)]
 #[macro_use]

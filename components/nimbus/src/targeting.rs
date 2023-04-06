@@ -2,13 +2,14 @@
 // License, v. 2.0. If a copy of the MPL was not distributed with this
 // file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
-use crate::{evaluator::jexl_eval, Result};
+use crate::{versioning::Version, NimbusError, Result};
+use jexl_eval::Evaluator;
 use serde::Serialize;
-use serde_json::Value;
+use serde_json::{json, Value};
 
 cfg_if::cfg_if! {
     if #[cfg(feature = "stateful")] {
-        use crate::behavior::EventStore;
+        use crate::behavior::{EventStore, EventQueryType};
         use std::sync::{Arc, Mutex};
     }
 }
@@ -58,4 +59,102 @@ impl NimbusTargetingHelper {
             event_store,
         }
     }
+}
+
+// This is the common entry point to JEXL evaluation.
+// The targeting attributes and additional context should have been merged and calculated before
+// getting here.
+// Any additional transforms should be added here.
+pub fn jexl_eval<Context: serde::Serialize>(
+    expression_statement: &str,
+    context: &Context,
+    #[cfg(feature = "stateful")] event_store: Arc<Mutex<EventStore>>,
+) -> Result<bool> {
+    let evaluator =
+        Evaluator::new().with_transform("versionCompare", |args| Ok(version_compare(args)?));
+
+    #[cfg(feature = "stateful")]
+    let evaluator = evaluator
+        .with_transform("eventSum", |args| {
+            Ok(query_event_store(
+                event_store.clone(),
+                EventQueryType::Sum,
+                args,
+            )?)
+        })
+        .with_transform("eventCountNonZero", |args| {
+            Ok(query_event_store(
+                event_store.clone(),
+                EventQueryType::CountNonZero,
+                args,
+            )?)
+        })
+        .with_transform("eventAveragePerInterval", |args| {
+            Ok(query_event_store(
+                event_store.clone(),
+                EventQueryType::AveragePerInterval,
+                args,
+            )?)
+        })
+        .with_transform("eventAveragePerNonZeroInterval", |args| {
+            Ok(query_event_store(
+                event_store.clone(),
+                EventQueryType::AveragePerNonZeroInterval,
+                args,
+            )?)
+        })
+        .with_transform("eventLastSeen", |args| {
+            Ok(query_event_store(
+                event_store.clone(),
+                EventQueryType::LastSeen,
+                args,
+            )?)
+        });
+
+    let res = evaluator.eval_in_context(expression_statement, context)?;
+    match res.as_bool() {
+        Some(v) => Ok(v),
+        None => Err(NimbusError::InvalidExpression),
+    }
+}
+
+fn version_compare(args: &[Value]) -> Result<Value> {
+    let curr_version = args.get(0).ok_or_else(|| {
+        NimbusError::VersionParsingError("current version doesn't exist in jexl transform".into())
+    })?;
+    let curr_version = curr_version.as_str().ok_or_else(|| {
+        NimbusError::VersionParsingError("current version in jexl transform is not a string".into())
+    })?;
+    let min_version = args.get(1).ok_or_else(|| {
+        NimbusError::VersionParsingError("minimum version doesn't exist in jexl transform".into())
+    })?;
+    let min_version = min_version.as_str().ok_or_else(|| {
+        NimbusError::VersionParsingError("minium version is not a string in jexl transform".into())
+    })?;
+    let min_version = Version::try_from(min_version)?;
+    let curr_version = Version::try_from(curr_version)?;
+    Ok(json!(if curr_version > min_version {
+        1
+    } else if curr_version < min_version {
+        -1
+    } else {
+        0
+    }))
+}
+
+#[cfg(feature = "stateful")]
+fn query_event_store(
+    event_store: Arc<Mutex<EventStore>>,
+    query_type: EventQueryType,
+    args: &[Value],
+) -> Result<Value> {
+    let (event, interval, num_buckets, starting_bucket) = query_type.validate_arguments(args)?;
+
+    Ok(json!(event_store.lock().unwrap().query(
+        &event,
+        interval,
+        num_buckets,
+        starting_bucket,
+        query_type,
+    )?))
 }

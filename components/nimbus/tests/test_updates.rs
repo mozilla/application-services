@@ -6,6 +6,7 @@
 // This test crashes lmdb for reasons that make no sense, so only run it
 // in the "safe mode" backend.
 
+#[cfg(feature = "rkv-safe-mode")]
 mod common;
 
 #[cfg(feature = "rkv-safe-mode")]

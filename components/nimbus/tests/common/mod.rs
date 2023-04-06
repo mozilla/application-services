@@ -6,95 +6,92 @@
 use rkv::StoreOptions;
 
 // utilities shared between tests
-cfg_if::cfg_if! {
-    if #[cfg(feature = "stateful")] {
-        use nimbus::{error::Result, AppContext, NimbusClient, RemoteSettingsConfig};
 
-        #[allow(dead_code)] // work around https://github.com/rust-lang/rust/issues/46379
-        pub fn new_test_client(_identifier: &str) -> Result<NimbusClient> {
-            let tmp_dir = tempfile::tempdir()?;
-            new_test_client_internal(&tmp_dir)
-        }
+use nimbus::{error::Result, AppContext, NimbusClient, RemoteSettingsConfig};
 
-        #[allow(dead_code)] // work around https://github.com/rust-lang/rust/issues/46379
-        pub fn new_test_client_with_db(tmp_dir: &tempfile::TempDir) -> Result<NimbusClient> {
-            new_test_client_internal(tmp_dir)
-        }
+#[allow(dead_code)] // work around https://github.com/rust-lang/rust/issues/46379
+pub fn new_test_client(_identifier: &str) -> Result<NimbusClient> {
+    let tmp_dir = tempfile::tempdir()?;
+    new_test_client_internal(&tmp_dir)
+}
 
-        fn new_test_client_internal(
-            tmp_dir: &tempfile::TempDir,
-        ) -> Result<NimbusClient, nimbus::NimbusError> {
-            use std::path::PathBuf;
-            use url::Url;
-            let _ = env_logger::try_init();
-            let mut dir = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
-            dir.push("tests/experiments");
-            let url = Url::from_file_path(dir).expect("experiments dir should exist");
+#[allow(dead_code)] // work around https://github.com/rust-lang/rust/issues/46379
+pub fn new_test_client_with_db(tmp_dir: &tempfile::TempDir) -> Result<NimbusClient> {
+    new_test_client_internal(tmp_dir)
+}
 
-            let config = RemoteSettingsConfig {
-                server_url: url.as_str().to_string(),
-                collection_name: "doesn't matter".to_string(),
-            };
-            let aru = Default::default();
-            let ctx = AppContext {
-                app_name: "fenix".to_string(),
-                app_id: "org.mozilla.fenix".to_string(),
-                channel: "nightly".to_string(),
-                locale: Some("en-GB".to_string()),
-                ..Default::default()
-            };
-            NimbusClient::new(ctx, tmp_dir.path(), Some(config), aru)
-        }
+fn new_test_client_internal(
+    tmp_dir: &tempfile::TempDir,
+) -> Result<NimbusClient, nimbus::NimbusError> {
+    use std::path::PathBuf;
+    use url::Url;
+    let _ = env_logger::try_init();
+    let mut dir = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
+    dir.push("tests/experiments");
+    let url = Url::from_file_path(dir).expect("experiments dir should exist");
 
-        use nimbus::persistence::{Database, SingleStore};
-        use std::path::Path;
+    let config = RemoteSettingsConfig {
+        server_url: url.as_str().to_string(),
+        collection_name: "doesn't matter".to_string(),
+    };
+    let aru = Default::default();
+    let ctx = AppContext {
+        app_name: "fenix".to_string(),
+        app_id: "org.mozilla.fenix".to_string(),
+        channel: "nightly".to_string(),
+        locale: Some("en-GB".to_string()),
+        ..Default::default()
+    };
+    NimbusClient::new(ctx, tmp_dir.path(), Some(config), aru)
+}
 
-        #[allow(dead_code)] //  work around https://github.com/rust-lang/rust/issues/46379
-        pub fn create_database<P: AsRef<Path>>(
-            path: P,
-            old_version: u16,
-            experiments_json: &[serde_json::Value],
-            enrollments_json: &[serde_json::Value],
-        ) -> Result<()> {
-            let _ = env_logger::try_init();
-            log::debug!("create_database(): old_version = {:?}", old_version);
-            log::debug!("create_database(): path = {:?}", path.as_ref());
-            let rkv = Database::open_rkv(path)?;
-            let meta_store = SingleStore::new(rkv.open_single("meta", StoreOptions::create())?);
-            let experiment_store =
-                SingleStore::new(rkv.open_single("experiments", StoreOptions::create())?);
-            let enrollment_store =
-                SingleStore::new(rkv.open_single("enrollments", StoreOptions::create())?);
-            let mut writer = rkv.write()?;
+use nimbus::persistence::{Database, SingleStore};
+use std::path::Path;
 
-            meta_store.put(&mut writer, "db_version", &old_version)?;
+#[allow(dead_code)] //  work around https://github.com/rust-lang/rust/issues/46379
+pub fn create_database<P: AsRef<Path>>(
+    path: P,
+    old_version: u16,
+    experiments_json: &[serde_json::Value],
+    enrollments_json: &[serde_json::Value],
+) -> Result<()> {
+    let _ = env_logger::try_init();
+    log::debug!("create_database(): old_version = {:?}", old_version);
+    log::debug!("create_database(): path = {:?}", path.as_ref());
+    let rkv = Database::open_rkv(path)?;
+    let meta_store = SingleStore::new(rkv.open_single("meta", StoreOptions::create())?);
+    let experiment_store =
+        SingleStore::new(rkv.open_single("experiments", StoreOptions::create())?);
+    let enrollment_store =
+        SingleStore::new(rkv.open_single("enrollments", StoreOptions::create())?);
+    let mut writer = rkv.write()?;
 
-            // write out the experiments
-            for experiment_json in experiments_json {
-                log::debug!("create_database(): experiment_json = {:?}", experiment_json);
-                experiment_store.put(
-                    &mut writer,
-                    experiment_json["slug"].as_str().unwrap(),
-                    experiment_json,
-                )?;
-            }
+    meta_store.put(&mut writer, "db_version", &old_version)?;
 
-            // write out the enrollments
-            for enrollment_json in enrollments_json {
-                // log::debug!("enrollment_json = {:?}", enrollment_json);
-                enrollment_store.put(
-                    &mut writer,
-                    enrollment_json["slug"].as_str().unwrap(),
-                    enrollment_json,
-                )?;
-            }
-
-            writer.commit()?;
-            log::debug!("create_database: writer committed");
-
-            Ok(())
-        }
+    // write out the experiments
+    for experiment_json in experiments_json {
+        log::debug!("create_database(): experiment_json = {:?}", experiment_json);
+        experiment_store.put(
+            &mut writer,
+            experiment_json["slug"].as_str().unwrap(),
+            experiment_json,
+        )?;
     }
+
+    // write out the enrollments
+    for enrollment_json in enrollments_json {
+        // log::debug!("enrollment_json = {:?}", enrollment_json);
+        enrollment_store.put(
+            &mut writer,
+            enrollment_json["slug"].as_str().unwrap(),
+            enrollment_json,
+        )?;
+    }
+
+    writer.commit()?;
+    log::debug!("create_database: writer committed");
+
+    Ok(())
 }
 
 #[allow(dead_code)] //  work around https://github.com/rust-lang/rust/issues/46379
