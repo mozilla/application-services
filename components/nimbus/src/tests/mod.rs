@@ -26,3 +26,8 @@ mod stateful {
         mod test_null_client;
     }
 }
+
+#[cfg(not(feature = "stateful"))]
+mod stateless {
+    mod test_cirrus_client;
+}

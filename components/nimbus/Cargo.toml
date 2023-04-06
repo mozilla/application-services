@@ -17,6 +17,7 @@ default=["stateful"]
 rkv-safe-mode = ["dep:rkv"]
 stateful-uniffi-bindings = ["dep:uniffi"]
 stateful = ["rkv-safe-mode", "stateful-uniffi-bindings"]
+stateless-uniffi-bindings = ["dep:uniffi"]
 
 [dependencies]
 anyhow = "1"

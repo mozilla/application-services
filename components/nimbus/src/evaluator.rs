@@ -27,7 +27,7 @@ impl Bucket {
     }
 }
 
-#[derive(Serialize, Debug, Clone, Default)]
+#[derive(Serialize, Deserialize, Debug, Clone, Default)]
 pub struct TargetingAttributes {
     #[serde(flatten)]
     pub app_context: AppContext,

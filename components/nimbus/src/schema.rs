@@ -2,7 +2,7 @@
 // License, v. 2.0. If a copy of the MPL was not distributed with this
 // file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
-use crate::{defaults::Defaults, NimbusError, Result};
+use crate::{defaults::Defaults, enrollment::SharedExperimentMetadata, NimbusError, Result};
 use serde_derive::*;
 use serde_json::{Map, Value};
 use std::collections::HashSet;
@@ -76,8 +76,14 @@ impl Experiment {
 
         feature_ids.into_iter().collect()
     }
+}
 
-    pub(crate) fn is_rollout(&self) -> bool {
+impl SharedExperimentMetadata for Experiment {
+    fn get_slug(&self) -> String {
+        self.slug.clone()
+    }
+
+    fn is_rollout(&self) -> bool {
         self.is_rollout
     }
 }
@@ -245,3 +251,5 @@ impl AvailableRandomizationUnits {
         }
     }
 }
+
+pub type JsonObject = Map<String, Value>;

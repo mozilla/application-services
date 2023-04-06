@@ -527,6 +527,16 @@ impl EnrollmentStatus {
     }
 }
 
+pub(crate) trait SharedExperimentMetadata {
+    fn get_slug(&self) -> String;
+
+    fn is_rollout(&self) -> bool;
+
+    fn is_not_rollout(&self) -> bool {
+        !self.is_rollout()
+    }
+}
+
 /// Return information about all enrolled experiments.
 /// Note this does not include rollouts
 #[cfg(feature = "stateful")]
@@ -573,14 +583,12 @@ pub fn get_enrollments<'r>(
     Ok(result)
 }
 
-#[cfg_attr(not(feature = "stateful"), allow(unused))]
 pub(crate) struct EnrollmentsEvolver<'a> {
     nimbus_id: &'a Uuid,
     available_randomization_units: &'a AvailableRandomizationUnits,
     targeting_helper: &'a NimbusTargetingHelper,
 }
 
-#[cfg_attr(not(feature = "stateful"), allow(unused))]
 impl<'a> EnrollmentsEvolver<'a> {
     pub(crate) fn new(
         nimbus_id: &'a Uuid,
@@ -634,13 +642,16 @@ impl<'a> EnrollmentsEvolver<'a> {
         Ok(enrollments_change_events)
     }
 
-    pub(crate) fn evolve_enrollments(
+    pub(crate) fn evolve_enrollments<E>(
         &self,
         is_user_participating: bool,
-        prev_experiments: &[Experiment],
+        prev_experiments: &[E],
         next_experiments: &[Experiment],
         prev_enrollments: &[ExperimentEnrollment],
-    ) -> Result<(Vec<ExperimentEnrollment>, Vec<EnrollmentChangeEvent>)> {
+    ) -> Result<(Vec<ExperimentEnrollment>, Vec<EnrollmentChangeEvent>)>
+    where
+        E: SharedExperimentMetadata + Clone,
+    {
         let mut enrollments: Vec<ExperimentEnrollment> = Default::default();
         let mut events: Vec<EnrollmentChangeEvent> = Default::default();
 
@@ -649,9 +660,10 @@ impl<'a> EnrollmentsEvolver<'a> {
         let (prev_rollouts, ro_enrollments) = filter_experiments_and_enrollments(
             prev_experiments,
             prev_enrollments,
-            Experiment::is_rollout,
+            SharedExperimentMetadata::is_rollout,
         );
-        let next_rollouts = filter_experiments(next_experiments, Experiment::is_rollout);
+        let next_rollouts =
+            filter_experiments(next_experiments, SharedExperimentMetadata::is_rollout);
 
         let (next_ro_enrollments, ro_events) = self.evolve_enrollment_recipes(
             is_user_participating,
@@ -669,9 +681,10 @@ impl<'a> EnrollmentsEvolver<'a> {
         // We need to mop up all the enrollments that aren't rollouts (not just belonging to experiments that aren't rollouts)
         // because some of them don't belong to any experiments recipes, and evolve_enrollment_recipes will handle the error
         // states for us.
-        let experiments_only = |e: &Experiment| !e.is_rollout();
-        let prev_experiments = filter_experiments(prev_experiments, experiments_only);
-        let next_experiments = filter_experiments(next_experiments, experiments_only);
+        let prev_experiments =
+            filter_experiments(prev_experiments, SharedExperimentMetadata::is_not_rollout);
+        let next_experiments =
+            filter_experiments(next_experiments, SharedExperimentMetadata::is_not_rollout);
         let prev_enrollments: Vec<ExperimentEnrollment> = prev_enrollments
             .iter()
             .filter(|e| !ro_slugs.contains(&e.slug))
@@ -693,13 +706,16 @@ impl<'a> EnrollmentsEvolver<'a> {
 
     /// Evolve and calculate the new set of enrollments, using the
     /// previous and current state of experiments and current enrollments.
-    pub(crate) fn evolve_enrollment_recipes(
+    pub(crate) fn evolve_enrollment_recipes<E>(
         &self,
         is_user_participating: bool,
-        prev_experiments: &[Experiment],
+        prev_experiments: &[E],
         next_experiments: &[Experiment],
         prev_enrollments: &[ExperimentEnrollment],
-    ) -> Result<(Vec<ExperimentEnrollment>, Vec<EnrollmentChangeEvent>)> {
+    ) -> Result<(Vec<ExperimentEnrollment>, Vec<EnrollmentChangeEvent>)>
+    where
+        E: SharedExperimentMetadata + Clone,
+    {
         let mut enrollment_events = vec![];
         let prev_experiments = map_experiments(prev_experiments);
         let next_experiments = map_experiments(next_experiments);
@@ -889,14 +905,17 @@ impl<'a> EnrollmentsEvolver<'a> {
     ///
     /// Returns an Option-wrapped version of the updated enrollment.  None
     /// means that the enrollment has been/should be discarded.
-    pub(crate) fn evolve_enrollment(
+    pub(crate) fn evolve_enrollment<E>(
         &self,
         is_user_participating: bool,
-        prev_experiment: Option<&Experiment>,
+        prev_experiment: Option<&E>,
         next_experiment: Option<&Experiment>,
         prev_enrollment: Option<&ExperimentEnrollment>,
         out_enrollment_events: &mut Vec<EnrollmentChangeEvent>, // out param containing the events we'd like to emit to glean.
-    ) -> Result<Option<ExperimentEnrollment>> {
+    ) -> Result<Option<ExperimentEnrollment>>
+    where
+        E: SharedExperimentMetadata + Clone,
+    {
         let is_already_enrolled = if let Some(enrollment) = prev_enrollment {
             enrollment.status.is_enrolled()
         } else {
@@ -956,10 +975,13 @@ impl<'a> EnrollmentsEvolver<'a> {
     }
 }
 
-fn map_experiments(experiments: &[Experiment]) -> HashMap<String, &Experiment> {
+fn map_experiments<E>(experiments: &[E]) -> HashMap<String, &E>
+where
+    E: SharedExperimentMetadata + Clone,
+{
     let mut map_experiments = HashMap::with_capacity(experiments.len());
     for e in experiments {
-        map_experiments.insert(e.slug.clone(), e);
+        map_experiments.insert(e.get_slug(), e);
     }
     map_experiments
 }
@@ -972,14 +994,17 @@ fn map_enrollments(enrollments: &[ExperimentEnrollment]) -> HashMap<String, &Exp
     map_enrollments
 }
 
-pub(crate) fn filter_experiments_and_enrollments(
-    experiments: &[Experiment],
+pub(crate) fn filter_experiments_and_enrollments<E>(
+    experiments: &[E],
     enrollments: &[ExperimentEnrollment],
-    filter_fn: fn(&Experiment) -> bool,
-) -> (Vec<Experiment>, Vec<ExperimentEnrollment>) {
-    let experiments: Vec<Experiment> = filter_experiments(experiments, filter_fn);
+    filter_fn: fn(&E) -> bool,
+) -> (Vec<E>, Vec<ExperimentEnrollment>)
+where
+    E: SharedExperimentMetadata + Clone,
+{
+    let experiments: Vec<E> = filter_experiments(experiments, filter_fn);
 
-    let slugs: HashSet<String> = experiments.iter().map(|e| e.slug.clone()).collect();
+    let slugs: HashSet<String> = experiments.iter().map(|e| e.get_slug()).collect();
 
     let enrollments: Vec<ExperimentEnrollment> = enrollments
         .iter()
@@ -990,14 +1015,14 @@ pub(crate) fn filter_experiments_and_enrollments(
     (experiments, enrollments)
 }
 
-fn filter_experiments(
-    experiments: &[Experiment],
-    filter_fn: fn(&Experiment) -> bool,
-) -> Vec<Experiment> {
+fn filter_experiments<E>(experiments: &[E], filter_fn: fn(&E) -> bool) -> Vec<E>
+where
+    E: SharedExperimentMetadata + Clone,
+{
     experiments
         .iter()
         .filter(|e| filter_fn(e))
-        .map(|e| e.to_owned())
+        .cloned()
         .collect()
 }
 
@@ -1021,15 +1046,20 @@ fn map_features(
     map
 }
 
-#[cfg_attr(not(feature = "stateful"), allow(unused))]
 pub fn map_features_by_feature_id(
     enrollments: &[ExperimentEnrollment],
     experiments: &[Experiment],
 ) -> HashMap<String, EnrolledFeatureConfig> {
-    let (rollouts, ro_enrollments) =
-        filter_experiments_and_enrollments(experiments, enrollments, Experiment::is_rollout);
-    let (experiments, exp_enrollments) =
-        filter_experiments_and_enrollments(experiments, enrollments, |e| !e.is_rollout());
+    let (rollouts, ro_enrollments) = filter_experiments_and_enrollments(
+        experiments,
+        enrollments,
+        SharedExperimentMetadata::is_rollout,
+    );
+    let (experiments, exp_enrollments) = filter_experiments_and_enrollments(
+        experiments,
+        enrollments,
+        SharedExperimentMetadata::is_not_rollout,
+    );
 
     let features_under_rollout = map_features(&ro_enrollments, &map_experiments(&rollouts));
     let features_under_experiment = map_features(&exp_enrollments, &map_experiments(&experiments));
@@ -1102,7 +1132,8 @@ fn get_enrolled_feature_configs(
 /// Small transitory struct to contain all the information needed to configure a feature with the Feature API.
 /// By design, we don't want to store it on the disk. Instead we calculate it from experiments
 /// and enrollments.
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq, Eq)]
+#[serde(rename_all = "camelCase")]
 pub struct EnrolledFeatureConfig {
     pub feature: FeatureConfig,
     pub slug: String,
@@ -1132,9 +1163,12 @@ impl Defaults for EnrolledFeatureConfig {
     }
 }
 
-#[cfg(test)]
-impl EnrolledFeatureConfig {
-    pub fn is_rollout(&self) -> bool {
+impl SharedExperimentMetadata for EnrolledFeatureConfig {
+    fn get_slug(&self) -> String {
+        self.slug.clone()
+    }
+
+    fn is_rollout(&self) -> bool {
         self.branch.is_none()
     }
 }
@@ -1156,7 +1190,7 @@ impl From<&EnrolledFeatureConfig> for EnrolledFeature {
     }
 }
 
-#[derive(Debug)]
+#[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct EnrollmentChangeEvent {
     pub experiment_slug: String,
     pub branch_slug: String,
@@ -1183,7 +1217,7 @@ impl EnrollmentChangeEvent {
     }
 }
 
-#[derive(Debug, PartialEq, Eq)]
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq, Eq)]
 pub enum EnrollmentChangeEventType {
     Enrollment,
     EnrollFailed,
