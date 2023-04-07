@@ -3,10 +3,12 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
 use serde_derive::{Deserialize, Serialize};
+use sync15::bso::utils::deserialize_null_default;
 
 #[derive(Debug, Clone, Hash, PartialEq, Eq, Serialize, Deserialize, Default)]
 #[serde(rename_all = "camelCase")]
 pub struct TabsRecordTab {
+    #[serde(deserialize_with = "deserialize_null_default")]
     pub title: String,
     pub url_history: Vec<String>,
     pub icon: Option<String>,

@@ -81,6 +81,8 @@ pub use crypto::{IncomingEncryptedBso, OutgoingEncryptedBso};
 
 mod content;
 
+pub mod utils;
+
 // A feature for this would be ideal, but (a) the module is small and (b) it
 // doesn't really fit the "features" model for sync15 to have a dev-dependency
 // against itself but with a different feature set.

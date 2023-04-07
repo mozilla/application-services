@@ -519,6 +519,55 @@ pub mod test {
     }
 
     #[test]
+    fn test_incoming_null_title() {
+        // We've seen incoming tabs with a `null` title in the wild
+        // (https://github.com/mozilla/application-services/issues/5457).  Default to an empty
+        // string so this doesn't prevent syncing.
+        env_logger::try_init().ok();
+
+        let engine = TabsEngine::new(Arc::new(TabsStore::new_with_mem_path(
+            "test-incoming-null-title",
+        )));
+
+        let records = vec![json!({
+            "id": "device-with-a-null-tab",
+            "clientName": "device with a null tab",
+            "tabs": [{
+                "title": null,
+                "urlHistory": [
+                    "https://mozilla.org/"
+                ],
+                "icon": "https://mozilla.org/icon",
+                "lastUsed": 1643764207
+            }]
+        })];
+
+        let incoming = IncomingChangeset::new_with_changes(
+            engine.collection_name(),
+            ServerTimestamp(0),
+            records
+                .into_iter()
+                .map(IncomingBso::from_test_content)
+                .collect(),
+        );
+        let outgoing = engine
+            .apply_incoming(vec![incoming], &mut telemetry::Engine::new("tabs"))
+            .expect("Should apply incoming and stage outgoing records");
+
+        assert!(outgoing.changes.is_empty());
+
+        // now check the store has what we think it has.
+        let sync_impl = engine.sync_impl.lock().unwrap();
+        let mut storage = sync_impl.store.storage.lock().unwrap();
+        let mut crts = storage.get_remote_tabs().expect("should work");
+        crts.sort_by(|a, b| a.client_name.partial_cmp(&b.client_name).unwrap());
+        assert_eq!(crts.len(), 1);
+        let crt = &crts[0];
+        assert_eq!(crt.client_name, "device with a null tab");
+        assert_eq!(crt.remote_tabs[0].title, "");
+    }
+
+    #[test]
     fn test_sync_manager_registration() {
         let store = Arc::new(TabsStore::new_with_mem_path("test-registration"));
         assert_eq!(Arc::strong_count(&store), 1);
