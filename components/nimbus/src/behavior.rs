@@ -123,16 +123,11 @@ impl Default for IntervalData {
 
 impl IntervalData {
     pub fn new(bucket_count: usize) -> Self {
-        let mut data = Self {
-            buckets: VecDeque::with_capacity(bucket_count),
-            bucket_count,
-            starting_instant: Utc::now(),
-        };
-        data.buckets.push_front(0);
+        let mut buckets = VecDeque::with_capacity(bucket_count);
+        buckets.push_front(0);
         // Set the starting instant to Jan 1 00:00:00 in order to sync rotations
-        data.starting_instant = Utc.from_utc_datetime(
-            &data
-                .starting_instant
+        let starting_instant = Utc.from_utc_datetime(
+            &Utc::now()
                 .with_month(1)
                 .unwrap()
                 .with_day(1)
@@ -141,7 +136,11 @@ impl IntervalData {
                 .and_hms_opt(0, 0, 0)
                 .unwrap(),
         );
-        data
+        Self {
+            buckets,
+            bucket_count,
+            starting_instant,
+        }
     }
 
     pub fn increment(&mut self, count: u64) -> Result<()> {
@@ -154,10 +153,8 @@ impl IntervalData {
             match buckets.get_mut(index) {
                 Some(x) => *x += count,
                 None => {
-                    if buckets.len() < index {
-                        for _ in buckets.len()..index {
-                            buckets.push_back(0);
-                        }
+                    for _ in buckets.len()..index {
+                        buckets.push_back(0);
                     }
                     self.buckets.insert(index, count)
                 }
@@ -186,12 +183,10 @@ pub struct SingleIntervalCounter {
 
 impl SingleIntervalCounter {
     pub fn new(config: IntervalConfig) -> Self {
-        let mut counter = Self {
+        Self {
             data: IntervalData::new(config.bucket_count),
             config,
-        };
-        counter.maybe_advance(Utc::now()).unwrap();
-        counter
+        }
     }
 
     pub fn from_config(bucket_count: usize, interval: Interval) -> Self {
@@ -571,6 +566,6 @@ impl EventStore {
                 return query_type.perform_query(buckets, num_buckets);
             }
         }
-        Ok(0.0)
+        Ok(query_type.error_value())
     }
 }
