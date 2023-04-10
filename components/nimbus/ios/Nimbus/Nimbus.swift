@@ -90,6 +90,10 @@ extension Nimbus: NimbusEventStore {
         try nimbusClient.recordPastEvent(eventId: eventId, secondsAgo: Int64(timeAgo), count: Int64(count))
     }
 
+    public func advanceEventTime(by duration: TimeInterval) throws {
+        try nimbusClient.advanceEventTime(bySeconds: Int64(duration))
+    }
+
     public func clearEvents() {
         _ = catchAll(dbQueue) { _ in
             try self.nimbusClient.clearEvents()
@@ -475,6 +479,8 @@ public extension NimbusDisabled {
     func recordEvent(_: String) {}
 
     func recordPastEvent(_: Int, _: String, _: TimeInterval) {}
+
+    func advanceEventTime(by _: TimeInterval) throws {}
 
     func clearEvents() {}
 

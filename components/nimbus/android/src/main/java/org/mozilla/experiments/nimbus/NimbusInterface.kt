@@ -238,6 +238,34 @@ interface NimbusEventStore {
         recordPastEvent(count, eventId, timeUnit.toSeconds(timeAgo))
 
     /**
+     * Advance the time of the event store into the future.
+     *
+     * This is not needed for normal operation, but is especially useful for testing queries,
+     * without having to wait for actual time to pass.
+     *
+     * @param bySeconds the number of seconds to advance into the future. Must be positive.
+     * @throws NimbusError is [bySeconds] is negative.
+     */
+    fun advanceEventTime(bySeconds: Long) = Unit
+
+    /**
+     * Convenience method for [advanceEventTime]
+     *
+     * @see [advanceEventTime]
+     */
+    @TargetApi(Build.VERSION_CODES.O)
+    fun advanceEventTime(byDuration: Duration) =
+        advanceEventTime(byDuration.seconds)
+
+    /**
+     * Convenience method for [advanceEventTime]
+     *
+     * @see [advanceEventTime]
+     */
+    fun advanceEventTime(byTime: Long, unit: TimeUnit) =
+        advanceEventTime(unit.toSeconds(byTime))
+
+    /**
      * Clears the Nimbus event store.
      *
      * This should only be used in testing or cases where the previous event store is no longer viable.

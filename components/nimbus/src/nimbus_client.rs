@@ -13,6 +13,7 @@ use crate::{
         set_global_user_participation, EnrolledFeature, EnrollmentChangeEvent,
         EnrollmentChangeEventType, EnrollmentStatus, EnrollmentsEvolver, ExperimentEnrollment,
     },
+    error::BehaviorError,
     evaluator::{is_experiment_available, TargetingAttributes},
     matcher::AppContext,
     persistence::{Database, StoreId, Writer},
@@ -567,6 +568,11 @@ impl NimbusClient {
     /// This differs from the `record_event` method in that the event is recorded as if it were
     /// recorded `seconds_ago` in the past. This makes it very useful for testing.
     pub fn record_past_event(&self, event_id: String, seconds_ago: i64, count: i64) -> Result<()> {
+        if seconds_ago < 0 {
+            return Err(NimbusError::BehaviorError(BehaviorError::InvalidDuration(
+                "Time duration in the past must be positive".to_string(),
+            )));
+        }
         let mut event_store = self.event_store.lock().unwrap();
         event_store.record_past_event(
             count as u64,
@@ -575,6 +581,20 @@ impl NimbusClient {
             chrono::Duration::seconds(seconds_ago),
         )?;
         event_store.persist_data(self.db()?)?;
+        Ok(())
+    }
+
+    /// Advances the event store's concept of `now` artificially.
+    ///
+    /// This works alongside `record_event` and `record_past_event` for testing purposes.
+    pub fn advance_event_time(&self, by_seconds: i64) -> Result<()> {
+        if by_seconds < 0 {
+            return Err(NimbusError::BehaviorError(BehaviorError::InvalidDuration(
+                "Time duration in the future must be positive".to_string(),
+            )));
+        }
+        let mut event_store = self.event_store.lock().unwrap();
+        event_store.advance_datum(chrono::Duration::seconds(by_seconds));
         Ok(())
     }
 
