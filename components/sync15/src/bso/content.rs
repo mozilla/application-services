@@ -184,7 +184,13 @@ where
     match serde_path_to_error::deserialize(json) {
         Ok(v) => IncomingKind::Content(v),
         Err(e) => {
-            report_error!("invalid-incoming-content", "{}: {}", e.path(), e.inner());
+            report_error!(
+                "invalid-incoming-content",
+                "{}.{}: {}",
+                std::any::type_name::<T>(),
+                e.path(),
+                e.inner()
+            );
             IncomingKind::Malformed
         }
     }
