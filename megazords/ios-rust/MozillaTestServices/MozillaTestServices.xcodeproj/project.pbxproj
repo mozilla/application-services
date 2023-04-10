@@ -60,6 +60,7 @@
 		1BF50F1A27B1E19800A9C8A5 /* FxAccountMocks.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1BBAC53C27AE065300DAFEF2 /* FxAccountMocks.swift */; };
 		1BFC469827C99F250034E0A5 /* Metrics.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1BFC469627C99F250034E0A5 /* Metrics.swift */; };
 		39083AAB29561E2400FDD302 /* OperationTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 39083AAA29561E2400FDD302 /* OperationTests.swift */; };
+		3937440A29E43B8800726A72 /* EventStoreTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3937440929E43B8800726A72 /* EventStoreTests.swift */; };
 		3948F41329A7F68900AA0D02 /* HardcodedNimbusFeatures.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3948F41229A7F68900AA0D02 /* HardcodedNimbusFeatures.swift */; };
 		395EFD6E2966EB6D00D24B97 /* Bundle+.swift in Sources */ = {isa = PBXBuildFile; fileRef = 395EFD6D2966EB6D00D24B97 /* Bundle+.swift */; };
 		3963A5862919A541001ED4C3 /* Dictionary+.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3963A5852919A541001ED4C3 /* Dictionary+.swift */; };
@@ -182,6 +183,7 @@
 		1BF50F2B27B1EB7D00A9C8A5 /* sdk_generator.sh */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.script.sh; name = sdk_generator.sh; path = "../../../../../components/external/glean/glean-core/ios/sdk_generator.sh"; sourceTree = SOURCE_ROOT; };
 		1BFC469627C99F250034E0A5 /* Metrics.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; name = Metrics.swift; path = MozillaTestServices/Generated/Metrics.swift; sourceTree = SOURCE_ROOT; };
 		39083AAA29561E2400FDD302 /* OperationTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OperationTests.swift; sourceTree = "<group>"; };
+		3937440929E43B8800726A72 /* EventStoreTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = EventStoreTests.swift; sourceTree = "<group>"; };
 		3948F41229A7F68900AA0D02 /* HardcodedNimbusFeatures.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = HardcodedNimbusFeatures.swift; path = ../../../components/nimbus/ios/Nimbus/HardcodedNimbusFeatures.swift; sourceTree = SOURCE_ROOT; };
 		395EFD6D2966EB6D00D24B97 /* Bundle+.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = "Bundle+.swift"; path = "Nimbus/Bundle+.swift"; sourceTree = "<group>"; };
 		3963A5852919A541001ED4C3 /* Dictionary+.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = "Dictionary+.swift"; path = "Nimbus/Dictionary+.swift"; sourceTree = "<group>"; };
@@ -339,6 +341,7 @@
 			isa = PBXGroup;
 			children = (
 				1BBAC54327AE065300DAFEF2 /* CrashTestTests.swift */,
+				3937440929E43B8800726A72 /* EventStoreTests.swift */,
 				1BBAC54127AE065300DAFEF2 /* FxAccountManagerTests.swift */,
 				1BBAC53C27AE065300DAFEF2 /* FxAccountMocks.swift */,
 				1BBAC54227AE065300DAFEF2 /* GleanPlumbTests.swift */,
@@ -748,6 +751,7 @@
 				1B3BC95127B1D93100229CF6 /* CrashTestTests.swift in Sources */,
 				1B3BC94727B1D73500229CF6 /* LogTest.swift in Sources */,
 				F85ED649299C1F49005EEF36 /* RustSyncTelemetryPingTests.swift in Sources */,
+				3937440A29E43B8800726A72 /* EventStoreTests.swift in Sources */,
 				1B3BC94327B1D63B00229CF6 /* PlacesTests.swift in Sources */,
 				1B3BC94827B1D73700229CF6 /* LoginsTests.swift in Sources */,
 				1B3BC94F27B1D92800229CF6 /* NimbusTests.swift in Sources */,
