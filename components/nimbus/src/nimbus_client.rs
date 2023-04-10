@@ -13,6 +13,7 @@ use crate::{
         set_global_user_participation, EnrolledFeature, EnrollmentChangeEvent,
         EnrollmentChangeEventType, EnrollmentStatus, EnrollmentsEvolver, ExperimentEnrollment,
     },
+    error::BehaviorError,
     evaluator::{is_experiment_available, TargetingAttributes},
     matcher::AppContext,
     persistence::{Database, StoreId, Writer},
