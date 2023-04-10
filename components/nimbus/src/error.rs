@@ -69,7 +69,7 @@ pub enum NimbusError {
 pub enum BehaviorError {
     #[error("Invalid state: {0}")]
     InvalidState(String),
-    #[error("Invalid argument: {0}")]
+    #[error("Invalid duration: {0}")]
     InvalidDuration(String),
     #[error("IntervalParseError: {0} is not a valid Interval")]
     IntervalParseError(String),
