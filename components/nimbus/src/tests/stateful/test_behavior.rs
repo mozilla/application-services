@@ -1395,6 +1395,40 @@ mod event_store_tests {
     }
 
     #[test]
+    fn advancing_datum_should_reflect_in_queries() -> Result<()> {
+        let mut store: EventStore = Default::default();
+        let event_id = "app_launch";
+        let num_days = 10;
+        let delta = Duration::days(num_days);
+
+        // Record now
+        store.record_event(2, event_id, None)?;
+        // Advance 10 days.
+        store.advance_datum(delta);
+        // Test that the last time we saw an event was 10 days ago.
+        assert_eq!(
+            num_days as f64,
+            store.query(event_id, Interval::Days, 56, 0, EventQueryType::LastSeen)?
+        );
+
+        // Record an event 2 days in the past.
+        let num_days = 2;
+        store.record_past_event(1, event_id, None, Duration::days(num_days))?;
+        // Test that the last time we saw an event was 10 days ago.
+        assert_eq!(
+            num_days as f64,
+            store.query(event_id, Interval::Days, 56, 0, EventQueryType::LastSeen)?,
+        );
+
+        assert_eq!(
+            3f64,
+            store.query(event_id, Interval::Days, 56, 0, EventQueryType::Sum)?
+        );
+
+        Ok(())
+    }
+
+    #[test]
     fn test_days_weeks() -> Result<()> {
         let one_day = Duration::days(1);
         let mut now = Utc::now();

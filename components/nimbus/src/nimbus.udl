@@ -217,8 +217,17 @@ interface NimbusClient {
     [Throws=NimbusError]
     void record_event(string event_id, optional i64 count = 1);
 
+    // Records an event as if it were in the past.
+    // This, and `advance_event_time` are useful for testing.
+    // `seconds_ago` must be positive.
     [Throws=NimbusError]
     void record_past_event(string event_id, i64 seconds_ago, optional i64 count = 1);
+
+    // Advances what the event store thinks is now.
+    // This, and `record_past_event` are useful for testing.
+    // `by_seconds` must be positive.
+    [Throws=NimbusError]
+    void advance_event_time(i64 by_seconds);
 
     [Throws=NimbusError]
     void clear_events();

@@ -123,16 +123,11 @@ impl Default for IntervalData {
 
 impl IntervalData {
     pub fn new(bucket_count: usize) -> Self {
-        let mut data = Self {
-            buckets: VecDeque::with_capacity(bucket_count),
-            bucket_count,
-            starting_instant: Utc::now(),
-        };
-        data.buckets.push_front(0);
+        let mut buckets = VecDeque::with_capacity(bucket_count);
+        buckets.push_front(0);
         // Set the starting instant to Jan 1 00:00:00 in order to sync rotations
-        data.starting_instant = Utc.from_utc_datetime(
-            &data
-                .starting_instant
+        let starting_instant = Utc.from_utc_datetime(
+            &Utc::now()
                 .with_month(1)
                 .unwrap()
                 .with_day(1)
@@ -141,7 +136,11 @@ impl IntervalData {
                 .and_hms_opt(0, 0, 0)
                 .unwrap(),
         );
-        data
+        Self {
+            buckets,
+            bucket_count,
+            starting_instant,
+        }
     }
 
     pub fn increment(&mut self, count: u64) -> Result<()> {
@@ -154,10 +153,8 @@ impl IntervalData {
             match buckets.get_mut(index) {
                 Some(x) => *x += count,
                 None => {
-                    if buckets.len() < index {
-                        for _ in buckets.len()..index {
-                            buckets.push_back(0);
-                        }
+                    for _ in buckets.len()..index {
+                        buckets.push_back(0);
                     }
                     self.buckets.insert(index, count)
                 }
@@ -186,12 +183,10 @@ pub struct SingleIntervalCounter {
 
 impl SingleIntervalCounter {
     pub fn new(config: IntervalConfig) -> Self {
-        let mut counter = Self {
+        Self {
             data: IntervalData::new(config.bucket_count),
             config,
-        };
-        counter.maybe_advance(Utc::now()).unwrap();
-        counter
+        }
     }
 
     pub fn from_config(bucket_count: usize, interval: Interval) -> Self {
@@ -435,12 +430,14 @@ impl EventQueryType {
 #[derive(Default, Serialize, Deserialize, Debug, Clone)]
 pub struct EventStore {
     pub(crate) events: HashMap<String, MultiIntervalCounter>,
+    datum: Option<DateTime<Utc>>,
 }
 
 impl From<Vec<(String, MultiIntervalCounter)>> for EventStore {
     fn from(event_store: Vec<(String, MultiIntervalCounter)>) -> Self {
         Self {
             events: HashMap::from_iter(event_store.into_iter()),
+            datum: None,
         }
     }
 }
@@ -449,6 +446,7 @@ impl From<HashMap<String, MultiIntervalCounter>> for EventStore {
     fn from(event_store: HashMap<String, MultiIntervalCounter>) -> Self {
         Self {
             events: event_store,
+            datum: None,
         }
     }
 }
@@ -469,7 +467,16 @@ impl EventStore {
     pub fn new() -> Self {
         Self {
             events: HashMap::<String, MultiIntervalCounter>::new(),
+            datum: None,
         }
+    }
+
+    fn now(&self) -> DateTime<Utc> {
+        self.datum.unwrap_or_else(Utc::now)
+    }
+
+    pub fn advance_datum(&mut self, duration: Duration) {
+        self.datum = Some(self.now() + duration);
     }
 
     pub fn read_from_db(&mut self, db: &Database) -> Result<()> {
@@ -490,7 +497,7 @@ impl EventStore {
         event_id: &str,
         now: Option<DateTime<Utc>>,
     ) -> Result<()> {
-        let now = now.unwrap_or_else(Utc::now);
+        let now = now.unwrap_or_else(|| self.now());
         let counter = self.get_or_create_counter(event_id);
         counter.maybe_advance(now)?;
         counter.increment(count)
@@ -503,7 +510,7 @@ impl EventStore {
         now: Option<DateTime<Utc>>,
         duration: Duration,
     ) -> Result<()> {
-        let now = now.unwrap_or_else(Utc::now);
+        let now = now.unwrap_or_else(|| self.now());
         let then = now - duration;
         let counter = self.get_or_create_counter(event_id);
         counter.maybe_advance(now)?;
@@ -530,6 +537,7 @@ impl EventStore {
 
     pub fn clear(&mut self, db: &Database) -> Result<()> {
         self.events = HashMap::<String, MultiIntervalCounter>::new();
+        self.datum = None;
         self.persist_data(db)?;
         Ok(())
     }
@@ -542,8 +550,9 @@ impl EventStore {
         starting_bucket: usize,
         query_type: EventQueryType,
     ) -> Result<f64> {
+        let now = self.now();
         if let Some(counter) = self.events.get_mut(event_id) {
-            counter.maybe_advance(Utc::now()).unwrap();
+            counter.maybe_advance(now)?;
             if let Some(single_counter) = counter.intervals.get(&interval) {
                 let safe_range = 0..single_counter.data.buckets.len();
                 if !safe_range.contains(&starting_bucket) {
@@ -557,6 +566,6 @@ impl EventStore {
                 return query_type.perform_query(buckets, num_buckets);
             }
         }
-        Ok(0.0)
+        Ok(query_type.error_value())
     }
 }

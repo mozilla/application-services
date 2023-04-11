@@ -372,6 +372,9 @@ open class Nimbus(
     override fun recordPastEvent(count: Long, eventId: String, secondsAgo: Long) =
         nimbusClient.recordPastEvent(eventId, secondsAgo, count)
 
+    override fun advanceEventTime(bySeconds: Long) =
+        nimbusClient.advanceEventTime(bySeconds)
+
     @WorkerThread
     override fun clearEvents() {
         dbScope.launch {
