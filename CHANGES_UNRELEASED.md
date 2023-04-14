@@ -37,3 +37,8 @@ Use the template below to make assigning a version number during the release cut
 
 - Added more testing tools for the `NimbusEventStore`, for iOS and Android ([#5477](https://github.com/mozilla/application-services/pull/5477))
   - `events.advanceEventTime(by: time)` lets you queue up a sequence of events to test JEXL queries.
+
+## Sync Manager
+
+### 🦊 What's Changed 🦊
+  - Added the sync telemetry reporting logic to replace the temp metrics in iOS. ([#5479](https://github.com/mozilla/application-services/pull/5479))
