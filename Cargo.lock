@@ -2148,6 +2148,7 @@ dependencies = [
  "rc_log_ffi",
  "remote_settings",
  "rust-log-forwarder",
+ "suggest",
  "sync_manager",
  "tabs",
  "viaduct",
@@ -3818,6 +3819,7 @@ dependencies = [
  "serde_json",
  "sql-support",
  "thiserror",
+ "uniffi",
  "viaduct",
  "viaduct-reqwest",
 ]
