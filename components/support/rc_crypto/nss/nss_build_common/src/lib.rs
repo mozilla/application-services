@@ -93,6 +93,10 @@ fn link_nss_libs(kind: LinkingKind) {
     if target_arch == "x86_64" && target_os == "android" {
         let android_home = env::var("ANDROID_HOME").expect("ANDROID_HOME not set");
         const ANDROID_NDK_VERSION: &str = "25.2.9519653";
+        // One of these will exist, depending on the host platform.
+        const DARWIN_X86_64_LIB_DIR: &str =
+            "/toolchains/llvm/prebuilt/darwin-x86_64/lib64/clang/14.0.7/lib/linux/";
+        println!("cargo:rustc-link-search={android_home}/ndk/{ANDROID_NDK_VERSION}/{DARWIN_X86_64_LIB_DIR}");
         const LINUX_X86_64_LIB_DIR: &str =
             "/toolchains/llvm/prebuilt/linux-x86_64/lib64/clang/14.0.7/lib/linux/";
         println!("cargo:rustc-link-search={android_home}/ndk/{ANDROID_NDK_VERSION}/{LINUX_X86_64_LIB_DIR}");
