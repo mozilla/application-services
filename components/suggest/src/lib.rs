@@ -5,9 +5,10 @@ mod schema;
 
 use serde_derive::*;
 
+pub use error::SuggestError;
 pub use provider::{IngestLimits, SuggestionProvider};
 
-pub type Result<T> = std::result::Result<T, error::Error>;
+pub type Result<T, E = error::Error> = std::result::Result<T, E>;
 
 #[derive(Clone, Debug, Deserialize, Eq, Hash, Ord, PartialEq, PartialOrd)]
 #[serde(transparent)]

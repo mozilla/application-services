@@ -9,6 +9,7 @@ use serde_derive::*;
 
 use crate::{
     db::{ConnectionType, SuggestDb, LAST_FETCH_META_KEY},
+    error::SuggestError,
     RemoteRecordId, RemoteSuggestion, Result, Suggestion,
 };
 
@@ -47,12 +48,16 @@ pub struct SuggestionProvider {
 pub struct IngestLimits {
     /// The maximum number of records to request from Remote Settings.
     /// Each record has about 200 suggestions.
-    pub records: Option<usize>,
+    pub records: Option<u64>,
 }
 
 impl SuggestionProvider {
     /// Creates a suggestion provider.
-    pub fn new(path: impl AsRef<Path>) -> Result<Self> {
+    pub fn new(path: &str) -> Result<Self, SuggestError> {
+        Ok(Self::new_inner(path)?)
+    }
+
+    fn new_inner(path: impl AsRef<Path>) -> Result<Self> {
         let settings_client = remote_settings::Client::new(RemoteSettingsConfig {
             server_url: Some(REMOTE_SETTINGS_SERVER_URL.into()),
             bucket_name: Some(REMOTE_SETTINGS_DEFAULT_BUCKET.into()),
@@ -73,8 +78,8 @@ impl SuggestionProvider {
     }
 
     /// Queries the database for suggestions that match the `keyword`.
-    pub fn query(&self, keyword: &str) -> Result<Vec<Suggestion>> {
-        self.dbs()?.reader.fetch_by_keyword(keyword)
+    pub fn query(&self, keyword: &str) -> Result<Vec<Suggestion>, SuggestError> {
+        Ok(self.dbs()?.reader.fetch_by_keyword(keyword)?)
     }
 
     /// Interrupts any ongoing queries. This should be called when the
@@ -89,7 +94,11 @@ impl SuggestionProvider {
 
     /// Ingests new suggestions from Remote Settings. `limits` can be used to
     /// constrain the amount of work done.
-    pub fn ingest(&self, limits: &IngestLimits) -> Result<()> {
+    pub fn ingest(&self, limits: &IngestLimits) -> Result<(), SuggestError> {
+        Ok(self.ingest_inner(limits)?)
+    }
+
+    fn ingest_inner(&self, limits: &IngestLimits) -> Result<()> {
         let writer = &self.dbs()?.writer;
         let scope = writer.interrupt_handle.begin_interrupt_scope()?;
 
@@ -104,7 +113,7 @@ impl SuggestionProvider {
             options.gt("last_modified", last_fetch.to_string());
         }
         if let Some(records) = &limits.records {
-            options.limit(*records as u64);
+            options.limit(*records);
         }
 
         scope.err_if_interrupted()?;
