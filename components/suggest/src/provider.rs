@@ -1,5 +1,9 @@
-use std::{ops::Deref, path::Path};
+use std::{
+    ops::Deref,
+    path::{Path, PathBuf},
+};
 
+use once_cell::sync::OnceCell;
 use remote_settings::{self, Attachment, GetItemsOptions, RemoteSettingsConfig, SortOrder};
 use serde_derive::*;
 
@@ -34,10 +38,8 @@ const RS_COLLECTION: &'static str = "quicksuggest";
 /// and fetch the rest later, while a Desktop browser on a fast link might
 /// request the entire dataset on first launch.
 pub struct SuggestionProvider {
-    /// A read-only connection used to query the database.
-    reader: SuggestDb,
-    /// A read-write connection used to update the database with new data.
-    writer: SuggestDb,
+    path: PathBuf,
+    dbs: OnceCell<SuggestionProviderDbs>,
     settings_client: remote_settings::Client,
 }
 
@@ -49,50 +51,54 @@ pub struct IngestLimits {
 }
 
 impl SuggestionProvider {
-    /// Opens a database at the given `path`.
-    pub fn open(path: impl AsRef<Path>) -> Result<Self> {
-        let path = path.as_ref();
-        let writer = SuggestDb::open(path, ConnectionType::ReadWrite)?;
-        let reader = SuggestDb::open(path, ConnectionType::ReadOnly)?;
-        Self::with_databases(reader, writer)
-    }
-
-    fn with_databases(reader: SuggestDb, writer: SuggestDb) -> Result<Self> {
+    /// Creates a suggestion provider.
+    pub fn new(path: impl AsRef<Path>) -> Result<Self> {
         let settings_client = remote_settings::Client::new(RemoteSettingsConfig {
             server_url: Some(REMOTE_SETTINGS_SERVER_URL.into()),
             bucket_name: Some(REMOTE_SETTINGS_DEFAULT_BUCKET.into()),
             collection_name: RS_COLLECTION.into(),
         })?;
         Ok(Self {
-            reader,
-            writer,
+            path: path.as_ref().into(),
+            dbs: OnceCell::new(),
             settings_client,
         })
     }
 
+    /// Returns this provider's database connections, initializing them if
+    /// they're not already open.
+    fn dbs(&self) -> Result<&SuggestionProviderDbs> {
+        self.dbs
+            .get_or_try_init(|| SuggestionProviderDbs::open(&self.path))
+    }
+
     /// Queries the database for suggestions that match the `keyword`.
     pub fn query(&self, keyword: &str) -> Result<Vec<Suggestion>> {
-        self.reader.fetch_by_keyword(keyword)
+        self.dbs()?.reader.fetch_by_keyword(keyword)
     }
 
     /// Interrupts any ongoing queries. This should be called when the
     /// user types a new keyword into the address bar, to ensure that they
     /// see fresh suggestions as they type.
     pub fn interrupt(&self) {
-        self.reader.interrupt_handle.interrupt();
+        if let Some(dbs) = self.dbs.get() {
+            // Only interrupt if the databases are already open.
+            dbs.reader.interrupt_handle.interrupt();
+        }
     }
 
     /// Ingests new suggestions from Remote Settings. `limits` can be used to
     /// constrain the amount of work done.
     pub fn ingest(&self, limits: &IngestLimits) -> Result<()> {
-        let scope = self.writer.interrupt_handle.begin_interrupt_scope()?;
+        let writer = &self.dbs()?.writer;
+        let scope = writer.interrupt_handle.begin_interrupt_scope()?;
 
         let mut options = GetItemsOptions::new();
         // Remote Settings returns records in descending modification order
         // (newest first), but we want them in ascending order (oldest first),
         // so that we can eventually resume fetching where we left off.
         options.sort("last_modified", SortOrder::Ascending);
-        if let Some(last_fetch) = self.writer.get_meta::<u64>(LAST_FETCH_META_KEY)? {
+        if let Some(last_fetch) = writer.get_meta::<u64>(LAST_FETCH_META_KEY)? {
             // Only fetch changes since our last fetch. If our last fetch was
             // interrupted, we'll pick up where we left off.
             options.gt("last_modified", last_fetch.to_string());
@@ -120,7 +126,7 @@ impl SuggestionProvider {
                     // stable identifier, and determining which suggestions in
                     // the attachment actually changed is more complicated than
                     // dropping and re-ingesting all of them.
-                    self.writer.drop(record_id)?;
+                    writer.drop(record_id)?;
 
                     // Ingest (or re-ingest) all suggestions in the attachment.
                     scope.err_if_interrupted()?;
@@ -129,11 +135,11 @@ impl SuggestionProvider {
                         .get_attachment(&attachment.location)?
                         .json::<SuggestAttachmentData>()?
                         .0;
-                    self.writer.ingest(record_id, &suggestions)?;
+                    writer.ingest(record_id, &suggestions)?;
 
                     // Advance the last fetch time, so that we can resume
                     // fetching after this record if we're interrupted.
-                    self.writer.put_meta(LAST_FETCH_META_KEY, last_modified)?;
+                    writer.put_meta(LAST_FETCH_META_KEY, last_modified)?;
                 }
                 FetchedChange::Unknown {
                     id: record_id,
@@ -142,14 +148,31 @@ impl SuggestionProvider {
                 } if *deleted => {
                     // If the entire record was deleted, drop all its
                     // suggestions and advance the last fetch time.
-                    self.writer.drop(record_id)?;
-                    self.writer.put_meta(LAST_FETCH_META_KEY, last_modified)?
+                    writer.drop(record_id)?;
+                    writer.put_meta(LAST_FETCH_META_KEY, last_modified)?
                 }
                 _ => continue,
             }
         }
 
         Ok(())
+    }
+}
+
+struct SuggestionProviderDbs {
+    /// A read-write connection used to update the database with new data.
+    writer: SuggestDb,
+    /// A read-only connection used to query the database.
+    reader: SuggestDb,
+}
+
+impl SuggestionProviderDbs {
+    fn open(path: &Path) -> Result<Self> {
+        // Order is important here: the writer must be opened first, so that it
+        // can set up the database and run any migrations.
+        let writer = SuggestDb::open(path, ConnectionType::ReadWrite)?;
+        let reader = SuggestDb::open(path, ConnectionType::ReadOnly)?;
+        Ok(Self { writer, reader })
     }
 }
 
@@ -227,7 +250,7 @@ mod tests {
     fn ingest() -> anyhow::Result<()> {
         viaduct_reqwest::use_reqwest_backend();
 
-        let provider = SuggestionProvider::open("file:ingest?mode=memory&cache=shared")?;
+        let provider = SuggestionProvider::new("file:ingest?mode=memory&cache=shared")?;
         provider.ingest(&IngestLimits { records: Some(3) })?;
         Ok(())
     }
