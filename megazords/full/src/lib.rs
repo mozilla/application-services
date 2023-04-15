@@ -21,6 +21,7 @@ pub use push;
 pub use rc_log_ffi;
 pub use remote_settings;
 pub use rust_log_forwarder;
+pub use suggest;
 pub use sync_manager;
 pub use tabs;
 pub use viaduct;

@@ -42,3 +42,5 @@ pub struct Suggestion {
     pub impression_url: Option<String>,
     pub click_url: Option<String>,
 }
+
+uniffi::include_scaffolding!("suggest");

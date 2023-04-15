@@ -112,6 +112,13 @@ projects:
     - name: nimbus
       type: aar
     description: The Nimbus SDK, compiled to work with the Application Services full-megazord.
+  suggest:
+    path: components/suggest/android
+    artifactId: suggest
+    publications:
+    - name: suggest
+      type: aar
+    description: Manages sponsored and web suggestions for Firefox Suggest.
   full-megazord:
     uploadSymbols: true
     path: megazords/full/android
