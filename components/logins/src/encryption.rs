@@ -28,96 +28,48 @@
 // To make life a little easier, we do that via a struct.
 
 use crate::error::*;
-use serde::{de::DeserializeOwned, Serialize};
 
-// Rather than passing keys around everywhere we abstract the encryption
-// and decryption behind this struct.
-pub struct EncryptorDecryptor {
-    jwk: jwcrypto::Jwk,
-}
+pub type EncryptorDecryptor = jwcrypto::EncryptorDecryptor<Error>;
 
-impl EncryptorDecryptor {
-    pub fn new(key: &str) -> Result<Self> {
-        match serde_json::from_str(key) {
-            Ok(jwk) => Ok(EncryptorDecryptor { jwk }),
-            Err(_) => Err(Error::InvalidKey),
-        }
-    }
-
-    pub fn encrypt(&self, cleartext: &str) -> Result<String> {
-        Ok(jwcrypto::encrypt_to_jwe(
-            cleartext.as_bytes(),
-            jwcrypto::EncryptionParameters::Direct {
-                enc: jwcrypto::EncryptionAlgorithm::A256GCM,
-                jwk: &self.jwk,
-            },
-        )?)
-    }
-
-    pub fn encrypt_struct<T: Serialize>(&self, fields: &T) -> Result<String> {
-        let str = serde_json::to_string(fields)?;
-        self.encrypt(&str)
-    }
-
-    pub fn decrypt(&self, ciphertext: &str) -> Result<String> {
-        Ok(jwcrypto::decrypt_jwe(
-            ciphertext,
-            jwcrypto::DecryptionParameters::Direct {
-                jwk: self.jwk.clone(),
-            },
-        )?)
-    }
-
-    pub fn decrypt_struct<T: DeserializeOwned>(&self, ciphertext: &str) -> Result<T> {
-        let json = self.decrypt(ciphertext)?;
-        Ok(serde_json::from_str(&json)?)
-    }
-}
-
-// Canary checking functions.  These are used to check if a key is still valid for a database.  The
-// basic process is:
-//   - When opening a database the first time, store the output of `create_canary()` alongside the DB
-//     and encryption key.
-//   - When reopening the database, check that the encryption key is still valid for the canary
-//     text using `check_canary()`
-//     - If it returns true, then it's safe to assume the key can decrypt the DB data
-//     - If it returns false, then the key is no longer valid.  It should be regenerated and the DB
-//       data should be wiped since we can no longer read it properly
 #[handle_error(Error)]
 pub fn create_canary(text: &str, key: &str) -> ApiResult<String> {
-    EncryptorDecryptor::new(key)?.encrypt(text)
+    EncryptorDecryptor::new_with_key(key)?.create_canary(text)
 }
 
 #[handle_error(Error)]
 pub fn check_canary(canary: &str, text: &str, key: &str) -> ApiResult<bool> {
-    Ok(EncryptorDecryptor::new(key)?.decrypt(canary)? == text)
+    EncryptorDecryptor::new_with_key(key)?.check_canary(canary, text)
 }
 
 #[handle_error(Error)]
 pub fn create_key() -> ApiResult<String> {
-    let key = jwcrypto::Jwk::new_direct_key(None)?;
-    Ok(serde_json::to_string(&key)?)
+    EncryptorDecryptor::create_key()
 }
 
 #[cfg(test)]
 pub mod test_utils {
     use super::*;
+    use serde::{de::DeserializeOwned, Serialize};
 
     lazy_static::lazy_static! {
         pub static ref TEST_ENCRYPTION_KEY: String = serde_json::to_string(&jwcrypto::Jwk::new_direct_key(Some("test-key".to_string())).unwrap()).unwrap();
-        pub static ref TEST_ENCRYPTOR: EncryptorDecryptor = EncryptorDecryptor::new(&TEST_ENCRYPTION_KEY).unwrap();
+        pub static ref TEST_ENCRYPTOR: EncryptorDecryptor = EncryptorDecryptor::new_with_key(&TEST_ENCRYPTION_KEY).unwrap();
     }
     pub fn encrypt(value: &str) -> String {
-        TEST_ENCRYPTOR.encrypt(value).unwrap()
+        TEST_ENCRYPTOR.encrypt(value, "test encrypt").unwrap()
     }
     pub fn decrypt(value: &str) -> String {
-        TEST_ENCRYPTOR.decrypt(value).unwrap()
+        TEST_ENCRYPTOR.decrypt(value, "test decrypt").unwrap()
     }
     pub fn encrypt_struct<T: Serialize>(fields: &T) -> String {
-        TEST_ENCRYPTOR.encrypt_struct(fields).unwrap()
+        TEST_ENCRYPTOR
+            .encrypt_struct(fields, "test encrypt struct")
+            .unwrap()
     }
     pub fn decrypt_struct<T: DeserializeOwned>(ciphertext: String) -> T {
-        TEST_ENCRYPTOR.decrypt_struct(&ciphertext).unwrap()
+        TEST_ENCRYPTOR
+            .decrypt_struct(&ciphertext, "test decrypt struct")
+            .unwrap()
     }
 }
 
@@ -127,21 +79,28 @@ mod test {
 
     #[test]
     fn test_encrypt() {
-        let ed = EncryptorDecryptor::new(&create_key().unwrap()).unwrap();
+        let ed = EncryptorDecryptor::new_with_key(&create_key().unwrap()).unwrap();
         let cleartext = "secret";
-        let ciphertext = ed.encrypt(cleartext).unwrap();
-        assert_eq!(ed.decrypt(&ciphertext).unwrap(), cleartext);
-        let ed2 = EncryptorDecryptor::new(&create_key().unwrap()).unwrap();
+        let ciphertext = ed.encrypt(cleartext, "test encrypt").unwrap();
+        assert_eq!(ed.decrypt(&ciphertext, "test decrypt").unwrap(), cleartext);
+        let ed2 = EncryptorDecryptor::new_with_key(&create_key().unwrap()).unwrap();
         assert!(matches!(
-            ed2.decrypt(&ciphertext).err().unwrap(),
-            Error::CryptoError(_)
+            ed2.decrypt(&ciphertext, "test decrypt").err().unwrap(),
+            Error::CryptoError(jwcrypto::EncryptorDecryptorError { description, .. })
+            if description == "test decrypt"
         ));
     }
 
     #[test]
     fn test_key_error() {
-        let storage_err = EncryptorDecryptor::new("bad-key").err().unwrap();
-        assert!(matches!(storage_err, Error::InvalidKey));
+        let storage_err = EncryptorDecryptor::new_with_key("bad-key").err().unwrap();
+        assert!(matches!(
+            storage_err,
+            Error::CryptoError(jwcrypto::EncryptorDecryptorError {
+                from: jwcrypto::JwCryptoError::InvalidKey,
+                ..
+            })
+        ));
     }
 
     #[test]

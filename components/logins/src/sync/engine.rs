@@ -442,7 +442,7 @@ impl SyncEngine for LoginsSyncEngine {
     }
 
     fn set_local_encryption_key(&mut self, key: &str) -> anyhow::Result<()> {
-        self.encdec = Some(EncryptorDecryptor::new(key)?);
+        self.encdec = Some(EncryptorDecryptor::new_with_key(key)?);
         Ok(())
     }
 
