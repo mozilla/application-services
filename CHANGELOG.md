@@ -1,3 +1,12 @@
+# v97.5.1 (_2023-04-17_)
+
+[Full Changelog](https://github.com/mozilla/application-services/compare/v97.5.0...v97.5.1)
+
+## General
+
+### ✨ What's New ✨
+  - Fixing the objcopy path when building the megazord ([#5154](https://github.com/mozilla/application-services/pull/5154)).
+
 # v97.5.0 (_2023-04-17_)
 
 [Full Changelog](https://github.com/mozilla/application-services/compare/v97.4.1...v97.5.0)
