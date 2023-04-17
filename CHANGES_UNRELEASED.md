@@ -18,3 +18,10 @@ Use the template below to make assigning a version number during the release cut
   - Description of the change with a link to the pull request ([#0000](https://github.com/mozilla/application-services/pull/0000))
 
 -->
+## Nimbus ⛅️🔬🔭
+
+### ✨ What's New ✨
+
+- Added processing of command line arguments (or intent extras) to be driven by a command line tool. ([#5482](https://github.com/mozilla/application-services/pull/5482))
+  - Requires passing `CommandLine.arguments` to `NimbusBuilder` in iOS.
+  - Requires passing `intent` to `NimbusInterface` in Android.
