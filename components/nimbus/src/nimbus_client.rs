@@ -34,6 +34,7 @@ const DB_KEY_NIMBUS_ID: &str = "nimbus-id";
 pub const DB_KEY_INSTALLATION_DATE: &str = "installation-date";
 pub const DB_KEY_UPDATE_DATE: &str = "update-date";
 pub const DB_KEY_APP_VERSION: &str = "app-version";
+pub const DB_KEY_FETCH_ENABLED: &str = "fetch-enabled";
 
 // The main `NimbusClient` struct must not expose any methods that make an `&mut self`,
 // in order to be compatible with the uniffi's requirements on objects. This is a helper
@@ -225,12 +226,10 @@ impl NimbusClient {
         Ok(result)
     }
 
-    pub fn update_experiments(&self) -> Result<Vec<EnrollmentChangeEvent>> {
-        self.fetch_experiments()?;
-        self.apply_pending_experiments()
-    }
-
     pub fn fetch_experiments(&self) -> Result<()> {
+        if !self.is_fetch_enabled()? {
+            return Ok(());
+        }
         log::info!("fetching experiments");
         let settings_client = self.settings_client.lock().unwrap();
         let new_experiments = settings_client.fetch_experiments()?;
@@ -239,6 +238,25 @@ impl NimbusClient {
         write_pending_experiments(db, &mut writer, new_experiments)?;
         writer.commit()?;
         Ok(())
+    }
+
+    pub fn set_fetch_enabled(&self, allow: bool) -> Result<()> {
+        let db = self.db()?;
+        let mut writer = db.write()?;
+        db.get_store(StoreId::Meta)
+            .put(&mut writer, DB_KEY_FETCH_ENABLED, &allow)?;
+        writer.commit()?;
+        Ok(())
+    }
+
+    fn is_fetch_enabled(&self) -> Result<bool> {
+        let db = self.db()?;
+        let reader = db.read()?;
+        let enabled = db
+            .get_store(StoreId::Meta)
+            .get(&reader, DB_KEY_FETCH_ENABLED)?
+            .unwrap_or(true);
+        Ok(enabled)
     }
 
     /**

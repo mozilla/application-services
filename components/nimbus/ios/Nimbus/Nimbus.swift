@@ -354,6 +354,18 @@ extension Nimbus: NimbusStartup {
         }
     }
 
+    public func setFetchEnabled(_ enabled: Bool) {
+        _ = catchAll(fetchQueue) { _ in
+            try self.nimbusClient.setFetchEnabled(flag: enabled)
+        }
+    }
+
+    public func isFetchEnabled() -> Bool {
+        return catchAll {
+            try self.nimbusClient.isFetchEnabled()
+        } ?? true
+    }
+
     public func applyPendingExperiments() -> Operation {
         catchAll(dbQueue) { _ in
             try self.applyPendingExperimentsOnThisThread()
@@ -451,6 +463,12 @@ public extension NimbusDisabled {
     func initialize() {}
 
     func fetchExperiments() {}
+
+    func setFetchEnabled(_: Bool) {}
+
+    func isFetchEnabled() -> Bool {
+        false
+    }
 
     func applyPendingExperiments() -> Operation {
         BlockOperation()
