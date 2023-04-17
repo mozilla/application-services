@@ -17,8 +17,8 @@
 // against: jansson, openssl and cjose itself.
 // So now, this *is* our JWT library.
 
-pub use error::JwCryptoError;
 use error::Result;
+pub use error::{EncryptorDecryptorError, JwCryptoError};
 use rc_crypto::agreement::EphemeralKeyPair;
 use serde_derive::{Deserialize, Serialize};
 use std::str::FromStr;
@@ -26,7 +26,10 @@ use std::str::FromStr;
 mod aes;
 mod direct;
 pub mod ec;
+mod encdec;
 mod error;
+
+pub use encdec::EncryptorDecryptor;
 
 /// Specifies the mode, algorithm and keys of the encryption operation.
 pub enum EncryptionParameters<'a> {

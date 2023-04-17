@@ -31,24 +31,24 @@ pub use crate::sync::LoginsSyncEngine;
 // UniFFI
 #[handle_error(Error)]
 fn encrypt_login(login: Login, enc_key: &str) -> ApiResult<EncryptedLogin> {
-    let encdec = encryption::EncryptorDecryptor::new(enc_key)?;
+    let encdec = encryption::EncryptorDecryptor::new_with_key(enc_key)?;
     login.encrypt(&encdec)
 }
 
 #[handle_error(Error)]
 fn decrypt_login(login: EncryptedLogin, enc_key: &str) -> ApiResult<Login> {
-    let encdec = encryption::EncryptorDecryptor::new(enc_key)?;
+    let encdec = encryption::EncryptorDecryptor::new_with_key(enc_key)?;
     login.decrypt(&encdec)
 }
 
 #[handle_error(Error)]
 fn encrypt_fields(sec_fields: SecureLoginFields, enc_key: &str) -> ApiResult<String> {
-    let encdec = encryption::EncryptorDecryptor::new(enc_key)?;
+    let encdec = encryption::EncryptorDecryptor::new_with_key(enc_key)?;
     sec_fields.encrypt(&encdec)
 }
 
 #[handle_error(Error)]
 fn decrypt_fields(sec_fields: String, enc_key: &str) -> ApiResult<SecureLoginFields> {
-    let encdec = encryption::EncryptorDecryptor::new(enc_key)?;
-    encdec.decrypt_struct(&sec_fields)
+    let encdec = encryption::EncryptorDecryptor::new_with_key(enc_key)?;
+    SecureLoginFields::decrypt(&sec_fields, &encdec)
 }
