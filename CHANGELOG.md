@@ -1,3 +1,31 @@
+# v97.5.0 (_2023-04-17_)
+
+[Full Changelog](https://github.com/mozilla/application-services/compare/v97.4.1...v97.5.0)
+
+## General
+
+### What's Changed
+
+- Android: Upgraded NDK from r21d to r25c.
+
+## Nimbus ⛅️🔬🔭
+
+### 🦊 What's Changed 🦊
+- Refactor the `EnrollmentEvolver` in preparation for a larger refactor to split out the `stateful` feature. ([#5374](https://github.com/mozilla/application-services/pull/5374)).
+- Added a `stateful` cargo feature and added appropriate feature flag attributes ([#5448](https://github.com/mozilla/application-services/pull/5448)).
+  - This does not functionally change build processes, as the `stateful` feature is now the default feature for the `nimbus-sdk` library.
+- Changed the ordering around for optional arguments for Python compatibility ([#5460](https://github.com/mozilla/application-services/pull/5460)).
+  - This does not change Kotlin or Swift APIs, but affects code that uses the uniffi generated FFI for `record_event` and `record_past_event` directly.
+### ✨ What's New ✨
+
+- Added more testing tools for the `NimbusEventStore`, for iOS and Android ([#5477](https://github.com/mozilla/application-services/pull/5477))
+  - `events.advanceEventTime(by: time)` lets you queue up a sequence of events to test JEXL queries.
+
+## Sync Manager
+
+### 🦊 What's Changed 🦊
+  - Added the sync telemetry reporting logic to replace the temp metrics in iOS. ([#5479](https://github.com/mozilla/application-services/pull/5479))
+
 # v97.4.1 (_2023-04-04_)
 
 [Full Changelog](https://github.com/mozilla/application-services/compare/v97.4.0...v97.4.1)
