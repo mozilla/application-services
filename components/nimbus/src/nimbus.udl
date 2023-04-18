@@ -146,17 +146,21 @@ interface NimbusClient {
     [Throws=NimbusError]
     sequence<EnrollmentChangeEvent> set_global_user_participation(boolean opt_in);
 
-    // Updates the list of experiments from the server.
-    // This method is deprecated, in favour of calling `fetch_experiments()` and then
-    // `apply_pending_updates()`.
-    [Throws=NimbusError]
-    sequence<EnrollmentChangeEvent> update_experiments();
-
     // Fetches the list of experiments from the server. This does not affect the list
     // of active experiments or experiment enrolment.
     // Fetched experiments are not applied until `apply_pending_updates()` is called.
     [Throws=NimbusError]
     void fetch_experiments();
+
+    // Toggles the enablement of the fetch. If `false`, then calling `fetch_experiments`
+    // returns immediately, having not done any fetching from remote settings.
+    // This is only useful for QA, and should not be used in production: use
+    // `set_global_user_participation` instead.
+    [Throws=NimbusError]
+    void set_fetch_enabled(boolean flag);
+
+    [Throws=NimbusError]
+    boolean is_fetch_enabled();
 
     // Apply the updated experiments from the last fetch.
     // After calling this, the list of active experiments might change
