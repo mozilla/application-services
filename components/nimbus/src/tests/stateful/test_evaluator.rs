@@ -9,7 +9,7 @@ use crate::{
     },
     enrollment::NotEnrolledReason,
     evaluator::targeting,
-    EnrollmentStatus, TargetingAttributes, AppContext,
+    AppContext, EnrollmentStatus, TargetingAttributes,
 };
 use chrono::Utc;
 use std::collections::HashSet;
@@ -286,7 +286,7 @@ fn test_targeting_active_experiments_equivalency() {
         custom_targeting_attributes: None,
         ..Default::default()
     }
-        .into();
+    .into();
     let mut set = HashSet::<String>::new();
     set.insert("test".into());
     targeting_attributes.active_experiments = set;
@@ -341,7 +341,7 @@ fn test_targeting_active_experiments_exists() {
         custom_targeting_attributes: None,
         ..Default::default()
     }
-        .into();
+    .into();
     let mut set = HashSet::<String>::new();
     set.insert("test".into());
     targeting_attributes.active_experiments = set;

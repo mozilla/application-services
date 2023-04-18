@@ -658,8 +658,7 @@ impl<'a> EnrollmentsEvolver<'a> {
             prev_enrollments,
             ExperimentMetadata::is_rollout,
         );
-        let next_rollouts =
-            filter_experiments(next_experiments, ExperimentMetadata::is_rollout);
+        let next_rollouts = filter_experiments(next_experiments, ExperimentMetadata::is_rollout);
 
         let (next_ro_enrollments, ro_events) = self.evolve_enrollment_recipes(
             is_user_participating,
@@ -677,10 +676,8 @@ impl<'a> EnrollmentsEvolver<'a> {
         // We need to mop up all the enrollments that aren't rollouts (not just belonging to experiments that aren't rollouts)
         // because some of them don't belong to any experiments recipes, and evolve_enrollment_recipes will handle the error
         // states for us.
-        let prev_experiments =
-            filter_experiments(prev_experiments, |exp| !exp.is_rollout());
-        let next_experiments =
-            filter_experiments(next_experiments, |exp| !exp.is_rollout());
+        let prev_experiments = filter_experiments(prev_experiments, |exp| !exp.is_rollout());
+        let next_experiments = filter_experiments(next_experiments, |exp| !exp.is_rollout());
         let prev_enrollments: Vec<ExperimentEnrollment> = prev_enrollments
             .iter()
             .filter(|e| !ro_slugs.contains(&e.slug))
@@ -1051,11 +1048,8 @@ pub fn map_features_by_feature_id(
         enrollments,
         ExperimentMetadata::is_rollout,
     );
-    let (experiments, exp_enrollments) = filter_experiments_and_enrollments(
-        experiments,
-        enrollments,
-        |exp| !exp.is_rollout(),
-    );
+    let (experiments, exp_enrollments) =
+        filter_experiments_and_enrollments(experiments, enrollments, |exp| !exp.is_rollout());
 
     let features_under_rollout = map_features(&ro_enrollments, &map_experiments(&rollouts));
     let features_under_experiment = map_features(&exp_enrollments, &map_experiments(&experiments));

@@ -10,8 +10,8 @@ use crate::{
     defaults::Defaults,
     enrollment::{
         get_global_user_participation, opt_in_with_branch, opt_out, reset_telemetry_identifiers,
-        set_global_user_participation, EnrolledFeature, EnrollmentChangeEvent, EnrollmentStatus,
-        EnrollmentsEvolver, ExperimentEnrollment,
+        set_global_user_participation, EnrolledFeature, EnrollmentChangeEvent,
+        EnrollmentChangeEventType, EnrollmentStatus, EnrollmentsEvolver, ExperimentEnrollment,
     },
     error::BehaviorError,
     evaluator::{is_experiment_available, TargetingAttributes},
@@ -661,3 +661,26 @@ impl NimbusStringHelper {
 }
 
 type JsonObject = Map<String, Value>;
+
+#[cfg(feature = "stateful-uniffi-bindings")]
+impl UniffiCustomTypeConverter for JsonObject {
+    type Builtin = String;
+
+    fn into_custom(val: Self::Builtin) -> uniffi::Result<Self> {
+        let json: Value = serde_json::from_str(&val)?;
+
+        match json.as_object() {
+            Some(obj) => Ok(obj.clone()),
+            _ => Err(uniffi::deps::anyhow::anyhow!(
+                "Unexpected JSON-non-object in the bagging area"
+            )),
+        }
+    }
+
+    fn from_custom(obj: Self) -> Self::Builtin {
+        serde_json::Value::Object(obj).to_string()
+    }
+}
+
+#[cfg(feature = "stateful-uniffi-bindings")]
+include!(concat!(env!("OUT_DIR"), "/nimbus.uniffi.rs"));

@@ -88,4 +88,3 @@ pub struct AppContext {
     #[serde(flatten)]
     pub custom_targeting_attributes: Option<Map<String, Value>>,
 }
-

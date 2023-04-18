@@ -2,13 +2,26 @@
 * License, v. 2.0. If a copy of the MPL was not distributed with this
 * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-use crate::{AppContext, Experiment, NimbusTargetingHelper};
+use crate::{AppContext, Experiment, NimbusTargetingHelper, TargetingAttributes};
 use serde_json::json;
 
 cfg_if::cfg_if! {
     if #[cfg(feature = "stateful")] {
         use crate::behavior::EventStore;
         use std::sync::{Arc, Mutex};
+    }
+}
+
+impl From<TargetingAttributes> for NimbusTargetingHelper {
+    fn from(value: TargetingAttributes) -> Self {
+        cfg_if::cfg_if! {
+            if #[cfg(feature = "stateful")] {
+                let store = Arc::new(Mutex::new(EventStore::new()));
+                NimbusTargetingHelper::new(value, store)
+            } else {
+                NimbusTargetingHelper::new(value)
+            }
+        }
     }
 }
 

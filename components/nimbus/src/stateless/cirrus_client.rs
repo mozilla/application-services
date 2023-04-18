@@ -9,7 +9,8 @@ use crate::{
         EnrollmentsEvolver, ExperimentEnrollment,
     },
     error::CirrusClientError,
-    AvailableRandomizationUnits, Experiment, NimbusError, Result, TargetingAttributes,
+    AvailableRandomizationUnits, Experiment, NimbusError, NimbusTargetingHelper, Result,
+    TargetingAttributes,
 };
 use serde_derive::*;
 use std::collections::HashMap;
@@ -94,7 +95,7 @@ impl CirrusClient {
         let nimbus_id = Uuid::new_v4();
         let available_randomization_units =
             AvailableRandomizationUnits::with_client_id(client_id.as_str());
-        let th = context.into();
+        let th = NimbusTargetingHelper::new(context);
         let enrollments_evolver =
             EnrollmentsEvolver::new(&nimbus_id, &available_randomization_units, &th);
 

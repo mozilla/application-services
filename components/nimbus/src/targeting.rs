@@ -2,7 +2,7 @@
 // License, v. 2.0. If a copy of the MPL was not distributed with this
 // file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
-use crate::{versioning::Version, AppContext, NimbusError, Result, TargetingAttributes};
+use crate::{versioning::Version, NimbusError, Result};
 use jexl_eval::Evaluator;
 use serde::Serialize;
 use serde_json::{json, Value};
@@ -58,26 +58,6 @@ impl NimbusTargetingHelper {
             #[cfg(feature = "stateful")]
             event_store,
         }
-    }
-}
-
-impl From<TargetingAttributes> for NimbusTargetingHelper {
-    fn from(value: TargetingAttributes) -> Self {
-        cfg_if::cfg_if! {
-            if #[cfg(feature = "stateful")] {
-                let store = Arc::new(Mutex::new(EventStore::new()));
-                NimbusTargetingHelper::new(value, store)
-            } else {
-                NimbusTargetingHelper::new(value)
-            }
-        }
-    }
-}
-
-impl From<AppContext> for NimbusTargetingHelper {
-    fn from(context: AppContext) -> Self {
-        let ta: TargetingAttributes = context.into();
-        ta.into()
     }
 }
 

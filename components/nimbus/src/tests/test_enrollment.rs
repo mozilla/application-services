@@ -7,11 +7,18 @@
 use crate::{
     defaults::Defaults, enrollment::*, error::Result, tests::helpers::get_test_experiments,
     AppContext, AvailableRandomizationUnits, Branch, BucketConfig, Experiment, FeatureConfig,
-    NimbusTargetingHelper,
+    NimbusTargetingHelper, TargetingAttributes,
 };
 use serde_json::{json, Value};
 use std::collections::{HashMap, HashSet};
 use uuid::Uuid;
+
+impl From<AppContext> for NimbusTargetingHelper {
+    fn from(context: AppContext) -> Self {
+        let ta: TargetingAttributes = context.into();
+        ta.into()
+    }
+}
 
 fn get_feature_conflict_test_experiments() -> Vec<Experiment> {
     vec![
