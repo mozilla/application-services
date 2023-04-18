@@ -14,8 +14,10 @@ use crate::{matcher::AppContext, sampling};
 use crate::{Branch, Experiment, NimbusTargetingHelper};
 use serde_derive::*;
 use serde_json::Value;
-use std::collections::HashSet;
 use uuid::Uuid;
+
+#[cfg(feature = "stateful")]
+use std::collections::HashSet;
 
 #[derive(Serialize, Deserialize, Debug, Clone, Default)]
 pub struct Bucket {}
@@ -34,8 +36,11 @@ pub struct TargetingAttributes {
     pub language: Option<String>,
     pub region: Option<String>,
     pub is_already_enrolled: bool,
+    #[cfg(feature = "stateful")]
     pub days_since_install: Option<i32>,
+    #[cfg(feature = "stateful")]
     pub days_since_update: Option<i32>,
+    #[cfg(feature = "stateful")]
     pub active_experiments: HashSet<String>,
 }
 

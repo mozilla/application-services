@@ -51,10 +51,9 @@ pub use evaluator::TargetingAttributes;
 mod tests;
 
 cfg_if::cfg_if! {
-    if #[cfg(any(
-        feature = "stateful-uniffi-bindings",
-        feature = "stateless-uniffi-bindings"
-    ))] {
+    if #[cfg(
+        feature = "stateful-uniffi-bindings"
+    )] {
         use enrollment::{EnrollmentChangeEvent, EnrollmentChangeEventType};
         use serde_json::Value;
 

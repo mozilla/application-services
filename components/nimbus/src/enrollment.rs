@@ -527,14 +527,10 @@ impl EnrollmentStatus {
     }
 }
 
-pub(crate) trait SharedExperimentMetadata {
+pub(crate) trait ExperimentMetadata {
     fn get_slug(&self) -> String;
 
     fn is_rollout(&self) -> bool;
-
-    fn is_not_rollout(&self) -> bool {
-        !self.is_rollout()
-    }
 }
 
 /// Return information about all enrolled experiments.
@@ -650,7 +646,7 @@ impl<'a> EnrollmentsEvolver<'a> {
         prev_enrollments: &[ExperimentEnrollment],
     ) -> Result<(Vec<ExperimentEnrollment>, Vec<EnrollmentChangeEvent>)>
     where
-        E: SharedExperimentMetadata + Clone,
+        E: ExperimentMetadata + Clone,
     {
         let mut enrollments: Vec<ExperimentEnrollment> = Default::default();
         let mut events: Vec<EnrollmentChangeEvent> = Default::default();
@@ -660,10 +656,10 @@ impl<'a> EnrollmentsEvolver<'a> {
         let (prev_rollouts, ro_enrollments) = filter_experiments_and_enrollments(
             prev_experiments,
             prev_enrollments,
-            SharedExperimentMetadata::is_rollout,
+            ExperimentMetadata::is_rollout,
         );
         let next_rollouts =
-            filter_experiments(next_experiments, SharedExperimentMetadata::is_rollout);
+            filter_experiments(next_experiments, ExperimentMetadata::is_rollout);
 
         let (next_ro_enrollments, ro_events) = self.evolve_enrollment_recipes(
             is_user_participating,
@@ -682,9 +678,9 @@ impl<'a> EnrollmentsEvolver<'a> {
         // because some of them don't belong to any experiments recipes, and evolve_enrollment_recipes will handle the error
         // states for us.
         let prev_experiments =
-            filter_experiments(prev_experiments, SharedExperimentMetadata::is_not_rollout);
+            filter_experiments(prev_experiments, |exp| !exp.is_rollout());
         let next_experiments =
-            filter_experiments(next_experiments, SharedExperimentMetadata::is_not_rollout);
+            filter_experiments(next_experiments, |exp| !exp.is_rollout());
         let prev_enrollments: Vec<ExperimentEnrollment> = prev_enrollments
             .iter()
             .filter(|e| !ro_slugs.contains(&e.slug))
@@ -714,7 +710,7 @@ impl<'a> EnrollmentsEvolver<'a> {
         prev_enrollments: &[ExperimentEnrollment],
     ) -> Result<(Vec<ExperimentEnrollment>, Vec<EnrollmentChangeEvent>)>
     where
-        E: SharedExperimentMetadata + Clone,
+        E: ExperimentMetadata + Clone,
     {
         let mut enrollment_events = vec![];
         let prev_experiments = map_experiments(prev_experiments);
@@ -914,7 +910,7 @@ impl<'a> EnrollmentsEvolver<'a> {
         out_enrollment_events: &mut Vec<EnrollmentChangeEvent>, // out param containing the events we'd like to emit to glean.
     ) -> Result<Option<ExperimentEnrollment>>
     where
-        E: SharedExperimentMetadata + Clone,
+        E: ExperimentMetadata + Clone,
     {
         let is_already_enrolled = if let Some(enrollment) = prev_enrollment {
             enrollment.status.is_enrolled()
@@ -977,7 +973,7 @@ impl<'a> EnrollmentsEvolver<'a> {
 
 fn map_experiments<E>(experiments: &[E]) -> HashMap<String, &E>
 where
-    E: SharedExperimentMetadata + Clone,
+    E: ExperimentMetadata + Clone,
 {
     let mut map_experiments = HashMap::with_capacity(experiments.len());
     for e in experiments {
@@ -1000,7 +996,7 @@ pub(crate) fn filter_experiments_and_enrollments<E>(
     filter_fn: fn(&E) -> bool,
 ) -> (Vec<E>, Vec<ExperimentEnrollment>)
 where
-    E: SharedExperimentMetadata + Clone,
+    E: ExperimentMetadata + Clone,
 {
     let experiments: Vec<E> = filter_experiments(experiments, filter_fn);
 
@@ -1017,7 +1013,7 @@ where
 
 fn filter_experiments<E>(experiments: &[E], filter_fn: fn(&E) -> bool) -> Vec<E>
 where
-    E: SharedExperimentMetadata + Clone,
+    E: ExperimentMetadata + Clone,
 {
     experiments
         .iter()
@@ -1053,12 +1049,12 @@ pub fn map_features_by_feature_id(
     let (rollouts, ro_enrollments) = filter_experiments_and_enrollments(
         experiments,
         enrollments,
-        SharedExperimentMetadata::is_rollout,
+        ExperimentMetadata::is_rollout,
     );
     let (experiments, exp_enrollments) = filter_experiments_and_enrollments(
         experiments,
         enrollments,
-        SharedExperimentMetadata::is_not_rollout,
+        |exp| !exp.is_rollout(),
     );
 
     let features_under_rollout = map_features(&ro_enrollments, &map_experiments(&rollouts));
@@ -1163,7 +1159,7 @@ impl Defaults for EnrolledFeatureConfig {
     }
 }
 
-impl SharedExperimentMetadata for EnrolledFeatureConfig {
+impl ExperimentMetadata for EnrolledFeatureConfig {
     fn get_slug(&self) -> String {
         self.slug.clone()
     }

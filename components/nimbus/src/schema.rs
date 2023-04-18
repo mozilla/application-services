@@ -2,7 +2,7 @@
 // License, v. 2.0. If a copy of the MPL was not distributed with this
 // file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
-use crate::{defaults::Defaults, enrollment::SharedExperimentMetadata, NimbusError, Result};
+use crate::{defaults::Defaults, enrollment::ExperimentMetadata, NimbusError, Result};
 use serde_derive::*;
 use serde_json::{Map, Value};
 use std::collections::HashSet;
@@ -78,7 +78,7 @@ impl Experiment {
     }
 }
 
-impl SharedExperimentMetadata for Experiment {
+impl ExperimentMetadata for Experiment {
     fn get_slug(&self) -> String {
         self.slug.clone()
     }
