@@ -24,9 +24,8 @@ use crate::{
 };
 
 use super::crypto::Cryptography;
-
-const UPDATE_RATE_LIMITER_INTERVAL: u64 = 24 * 60 * 60; // 500 calls per 24 hours.
-const UPDATE_RATE_LIMITER_MAX_CALLS: u16 = 500;
+const UPDATE_RATE_LIMITER_INTERVAL: u64 = 24 * 60 * 60; // 24 hours.
+const UPDATE_RATE_LIMITER_MAX_CALLS: u16 = 500; // 500
 
 impl From<Key> for KeyInfo {
     fn from(key: Key) -> Self {
@@ -64,6 +63,7 @@ pub struct PushManager<Co, Cr, S> {
     registration_id: Option<String>,
     store: S,
     update_rate_limiter: PersistedRateLimiter,
+    verify_connection_rate_limiter: PersistedRateLimiter,
 }
 
 impl<Co: Connection, Cr: Cryptography, S: Storage> PushManager<Co, Cr, S> {
@@ -72,6 +72,19 @@ impl<Co: Connection, Cr: Cryptography, S: Storage> PushManager<Co, Cr, S> {
         let uaid = store.get_uaid()?;
         let auth = store.get_auth()?;
         let registration_id = store.get_registration_id()?;
+        let verify_connection_rate_limiter = PersistedRateLimiter::new(
+            "verify_connection",
+            config
+                .verify_connection_rate_limiter
+                .unwrap_or(super::config::DEFAULT_VERIFY_CONNECTION_LIMITER_INTERVAL),
+            1,
+        );
+
+        let update_rate_limiter = PersistedRateLimiter::new(
+            "update_token",
+            UPDATE_RATE_LIMITER_INTERVAL,
+            UPDATE_RATE_LIMITER_MAX_CALLS,
+        );
 
         Ok(Self {
             connection: Co::connect(config),
@@ -80,11 +93,8 @@ impl<Co: Connection, Cr: Cryptography, S: Storage> PushManager<Co, Cr, S> {
             auth,
             registration_id,
             store,
-            update_rate_limiter: PersistedRateLimiter::new(
-                "update_token",
-                UPDATE_RATE_LIMITER_INTERVAL,
-                UPDATE_RATE_LIMITER_MAX_CALLS,
-            ),
+            update_rate_limiter,
+            verify_connection_rate_limiter,
         })
     }
 
@@ -168,13 +178,13 @@ impl<Co: Connection, Cr: Cryptography, S: Storage> PushManager<Co, Cr, S> {
         Ok(())
     }
 
-    pub fn update(&mut self, new_token: &str) -> error::Result<bool> {
+    pub fn update(&mut self, new_token: &str) -> error::Result<()> {
         if self.registration_id.as_deref() == Some(new_token) {
             // Already up to date!
             // if we haven't send it to the server yet, we will on the next subscribe!
             // if we have sent it to the server, no need to do so again. We will catch any issues
             // through the [`PushManager::verify_connection`] check
-            return Ok(false);
+            return Ok(());
         }
 
         // It's OK if we don't have a uaid yet - that means we don't have any subscriptions,
@@ -185,11 +195,11 @@ impl<Co: Connection, Cr: Cryptography, S: Storage> PushManager<Co, Cr, S> {
             log::info!(
                 "saved the registration ID but not telling the server as we have no subs yet"
             );
-            return Ok(false);
+            return Ok(());
         }
 
         if !self.update_rate_limiter.check(&self.store) {
-            return Ok(true);
+            return Ok(());
         }
 
         let (uaid, auth) = self.ensure_auth_pair()?;
@@ -207,10 +217,13 @@ impl<Co: Connection, Cr: Cryptography, S: Storage> PushManager<Co, Cr, S> {
 
         self.store.set_registration_id(new_token)?;
         self.registration_id = Some(new_token.to_string());
-        Ok(true)
+        Ok(())
     }
 
     pub fn verify_connection(&mut self) -> Result<Vec<PushSubscriptionChanged>> {
+        if !self.verify_connection_rate_limiter.check(&self.store) {
+            return Ok(vec![]);
+        }
         let channels = self.store.get_channel_list()?;
         let (uaid, auth) = self.ensure_auth_pair()?;
 

@@ -20,7 +20,6 @@ interface PushManager {
     //   - `server_host` - The host name for the service (e.g. "updates.push.services.mozilla.com").
     //   - `http_protocol` - The optional socket protocol (default: "https")
     //   - `bridge_type` - The [`BridgeType`] the consumer would like to use to deliver the push messages
-    //   - `registration_id` - NOT USED. REMOVE ME.
     //   - `database_path` - The path where [`PushManager`] will store persisted state
     //
     // # Errors
@@ -28,7 +27,7 @@ interface PushManager {
     //   - PushManager is unable to open the `database_path` given
     //   - PushManager is unable to establish a connection to the autopush server
     [Throws=PushError]
-    constructor(string sender_id, optional string server_host = "updates.push.services.mozilla.com", optional string http_protocol = "https", BridgeType bridge_type, optional string registration_id = "", optional string database_path = "push.sqlite");
+    constructor(PushConfiguration config);
 
     // Subscribes to a new channel and gets the Subscription Info block
     //
@@ -89,16 +88,13 @@ interface PushManager {
     // # Arguments:
     //   - `new_token` - the new Native OS push registration ID
     //
-    // # Returns
-    // Returns a boolean indicating if tried to tell the server about it.
-    //
     // # Errors
     // Return an error in the following cases:
     //   - The PushManager does not contain a valid UAID
     //   - An error occurred sending an update request to the autopush server
     //   - An error occurred accessing the PushManager's persisted storage
     [Throws=PushError]
-    boolean update([ByRef] string registration_token);
+    void update([ByRef] string registration_token);
 
     // Verifies the connection state
     //
@@ -254,4 +250,21 @@ enum BridgeType {
     "Fcm",
     "Adm",
     "Apns",
+};
+
+dictionary PushConfiguration {
+    string server_host;
+    PushHttpProtocol http_protocol;
+    BridgeType bridge_type;
+    string sender_id;
+    string database_path;
+    u64? verify_connection_rate_limiter;
+};
+
+// Supported protocols for push
+// "Https" is default, and "Http" is only
+//  supported  for tests
+enum PushHttpProtocol {
+    "Https",
+    "Http"
 };

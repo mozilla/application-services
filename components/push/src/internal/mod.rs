@@ -8,5 +8,4 @@ pub mod crypto;
 pub mod push_manager;
 pub mod storage;
 
-pub(crate) use config::PushConfiguration;
 pub(crate) use push_manager::PushManager;
