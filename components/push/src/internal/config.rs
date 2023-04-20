@@ -7,6 +7,8 @@
 
 use std::{fmt::Display, str::FromStr};
 
+pub const DEFAULT_VERIFY_CONNECTION_LIMITER_INTERVAL: u64 = 24 * 60 * 60; // 24 hours.
+
 use crate::PushError;
 /// The types of supported native bridges.
 ///
@@ -60,10 +62,16 @@ pub struct PushConfiguration {
 
     /// OS Path to the database
     pub database_path: String,
+
+    /// Number of seconds between to rate limit
+    /// the verify connection call
+    /// defaults to 24 hours
+    pub verify_connection_rate_limiter: Option<u64>,
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Default)]
 pub enum Protocol {
+    #[default]
     Https,
     Http,
 }
@@ -78,12 +86,6 @@ impl Display for Protocol {
                 Protocol::Https => "https",
             }
         )
-    }
-}
-
-impl Default for Protocol {
-    fn default() -> Self {
-        Protocol::Https
     }
 }
 
@@ -108,6 +110,7 @@ impl Default for PushConfiguration {
             bridge_type: Default::default(),
             sender_id: String::from(""),
             database_path: String::from(""),
+            verify_connection_rate_limiter: Some(DEFAULT_VERIFY_CONNECTION_LIMITER_INTERVAL),
         }
     }
 }

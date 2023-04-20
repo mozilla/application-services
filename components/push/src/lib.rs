@@ -183,15 +183,13 @@
 uniffi::include_scaffolding!("push");
 // All implementation detail lives in the `internal` module
 mod internal;
-use std::str::FromStr;
 use std::sync::Mutex;
 mod error;
 use error::*;
 
 use internal::communications::ConnectHttp;
-pub use internal::config::BridgeType;
+pub use internal::config::{BridgeType, Protocol as PushHttpProtocol, PushConfiguration};
 use internal::crypto::Crypto;
-use internal::PushConfiguration;
 
 pub use error::PushError;
 use internal::storage::Store;
@@ -215,40 +213,18 @@ impl PushManager {
     /// channels
     ///
     /// # Arguments
-    ///
-    ///   - `sender_id` - Sender/Application ID value
-    ///   - `server_host` - The host name for the service (e.g. "updates.push.services.mozilla.com").
-    ///   - `http_protocol` - The optional socket protocol (default: "https")
-    ///   - `bridge_type` - The [`BridgeType`] the consumer would like to use to deliver the push messages
-    ///   - `registration_id` - The native OS messaging registration ID
-    ///   - `database_path` - The path where [`PushManager`] will store persisted state
+    ///   - `config`: [`PushConfiguration`] the configuration for this instance of PushManager
     ///
     /// # Errors
     /// Returns an error in the following cases:
     ///   - PushManager is unable to open the `database_path` given
     ///   - PushManager is unable to establish a connection to the autopush server
-    pub fn new(
-        sender_id: String,
-        server_host: String,
-        http_protocol: String,
-        bridge_type: BridgeType,
-        registration_id: String,
-        database_path: String,
-    ) -> Result<Self> {
-        log::debug!("PushManager server_host: {server_host}, http_protocol: {http_protocol}");
-        if !registration_id.is_empty() {
-            log::warn!("`registration_id` is ignored/deprecated when creating a push manager.");
-        }
-        // XXX - we probably should persist, say, this as JSON and ensure it's the same
-        // on each run, then nuke the DB if not. Eg, imagine "bridge_type" changing, things
-        // would break badly. Unlikely, so later...
-        let config = PushConfiguration {
-            server_host,
-            http_protocol: internal::config::Protocol::from_str(&http_protocol)?,
-            bridge_type,
-            sender_id,
-            database_path,
-        };
+    pub fn new(config: PushConfiguration) -> Result<Self> {
+        log::debug!(
+            "PushManager server_host: {}, http_protocol: {}",
+            config.server_host,
+            config.http_protocol
+        );
         Ok(Self {
             internal: Mutex::new(internal::PushManager::new(config)?),
         })
@@ -313,21 +289,15 @@ impl PushManager {
     }
 
     /// Updates the Native OS push registration ID.
-    /// **NOTE**: If this returns false, the subsequent [`PushManager::verify_connection`]
-    /// may result in new endpoint registration
     ///
     /// # Arguments:
     ///   - `new_token` - the new Native OS push registration ID
-    ///
-    /// # Returns
-    /// Returns a boolean indicating if the update was successful
-    ///
     /// # Errors
     /// Return an error in the following cases:
     ///   - The PushManager does not contain a valid UAID
     ///   - An error occurred sending an update request to the autopush server
     ///   - An error occurred accessing the PushManager's persisted storage
-    pub fn update(&self, new_token: &str) -> Result<bool> {
+    pub fn update(&self, new_token: &str) -> Result<()> {
         self.internal.lock().unwrap().update(new_token)
     }
 

@@ -2,7 +2,7 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-use push::{BridgeType, PushManager};
+use push::{BridgeType, PushConfiguration, PushManager};
 
 /** Perform a "Live" test against a locally configured push server
  *
@@ -24,15 +24,17 @@ fn test_live_server() {
     let tempdir = tempfile::tempdir().unwrap();
     viaduct_reqwest::use_reqwest_backend();
 
-    let pm = PushManager::new(
-        "fir-bridgetest".to_string(),
-        "localhost:8082".to_string(),
-        "http".to_string(),
-        BridgeType::Fcm,
-        "".to_string(),
-        tempdir.path().join("test.db").to_string_lossy().to_string(),
-    )
-    .unwrap();
+    let push_config = PushConfiguration {
+        server_host: "localhost:8082".to_string(),
+
+        http_protocol: push::PushHttpProtocol::Http,
+        bridge_type: BridgeType::Fcm,
+        sender_id: "".to_string(),
+        database_path: tempdir.path().join("test.db").to_string_lossy().to_string(),
+        verify_connection_rate_limiter: Some(0),
+    };
+
+    let pm = PushManager::new(push_config).unwrap();
     let channel1 = dummy_uuid();
     let channel2 = dummy_uuid();
 
