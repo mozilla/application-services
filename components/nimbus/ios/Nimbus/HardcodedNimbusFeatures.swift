@@ -9,25 +9,30 @@ import Foundation
 ///
 /// This is suitable for unit testing and ui testing.
 /// <code>
-///     let hardcodedNimbus = HardcodedNimbus([
+///     let hardcodedNimbus = HardcodedNimbus(with: [
 ///          "my-feature": """{
 ///              "enabled": true
 ///          }"""
 ///      ])
 ///      hardcodedNimbus.connect(with: FxNimbus.shared)
 /// </code>
+///
+/// Once the `hardcodedNimbus` is connected to the `FxNimbus.shared`, then
+/// calling `FxNimbus.shared.features.myFeature.value()` will behave as if the given JSON
+/// came from an experiment.
+///
 public class HardcodedNimbusFeatures {
     let features: [String: [String: Any]]
     let bundles: [Bundle]
     var exposureCounts = [String: Int]()
     var malformedFeatures = [String: String]()
 
-    init(bundles: [Bundle] = [.main], with features: [String: [String: Any]]) {
+    public init(bundles: [Bundle] = [.main], with features: [String: [String: Any]]) {
         self.features = features
         self.bundles = bundles
     }
 
-    convenience init(bundles: [Bundle] = [.main], with jsons: [String: String]) {
+    public convenience init(bundles: [Bundle] = [.main], with jsons: [String: String]) {
         let features = jsons.mapValuesNotNull {
             try? Dictionary.parse(jsonString: $0)
         }
