@@ -61,7 +61,7 @@ pub enum Error {
     InvalidSyncPayload(String),
 
     #[error("Crypto Error: {0}")]
-    CryptoError(#[from] jwcrypto::JwCryptoError),
+    CryptoError(#[from] jwcrypto::EncryptorDecryptorError),
 
     #[error("Crypto Error: Cyphertext is the empty string")]
     EmptyCyphertext,

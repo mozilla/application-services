@@ -123,7 +123,7 @@ impl InternalCreditCard {
             )));
         }
         // need to encrypt the cleartext in the sync record.
-        let cc_number_enc = encdec.encrypt(&p.entry.cc_number)?;
+        let cc_number_enc = encdec.encrypt(&p.entry.cc_number, "cc_number")?;
         let cc_number_last_4 = get_last_4(&p.entry.cc_number);
 
         Ok(InternalCreditCard {
@@ -145,7 +145,7 @@ impl InternalCreditCard {
     }
 
     pub(crate) fn into_payload(self, encdec: &EncryptorDecryptor) -> Result<CreditCardPayload> {
-        let cc_number = encdec.decrypt(&self.cc_number_enc)?;
+        let cc_number = encdec.decrypt(&self.cc_number_enc, "cc_number")?;
         Ok(CreditCardPayload {
             id: self.guid,
             entry: PayloadEntry {

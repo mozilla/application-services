@@ -89,7 +89,7 @@ impl LoginStore {
         entry: LoginEntry,
         enc_key: &str,
     ) -> ApiResult<Option<Login>> {
-        let encdec = EncryptorDecryptor::new_with_key(enc_key)?;
+        let encdec = EncryptorDecryptor::new(enc_key)?;
         self.db.lock().find_login_to_update(entry, &encdec)
     }
 
@@ -134,19 +134,19 @@ impl LoginStore {
 
     #[handle_error(Error)]
     pub fn update(&self, id: &str, entry: LoginEntry, enc_key: &str) -> ApiResult<EncryptedLogin> {
-        let encdec = EncryptorDecryptor::new_with_key(enc_key)?;
+        let encdec = EncryptorDecryptor::new(enc_key)?;
         self.db.lock().update(id, entry, &encdec)
     }
 
     #[handle_error(Error)]
     pub fn add(&self, entry: LoginEntry, enc_key: &str) -> ApiResult<EncryptedLogin> {
-        let encdec = EncryptorDecryptor::new_with_key(enc_key)?;
+        let encdec = EncryptorDecryptor::new(enc_key)?;
         self.db.lock().add(entry, &encdec)
     }
 
     #[handle_error(Error)]
     pub fn add_or_update(&self, entry: LoginEntry, enc_key: &str) -> ApiResult<EncryptedLogin> {
-        let encdec = EncryptorDecryptor::new_with_key(enc_key)?;
+        let encdec = EncryptorDecryptor::new(enc_key)?;
         self.db.lock().add_or_update(entry, &encdec)
     }
 

@@ -145,7 +145,7 @@ fn migrate_from_sqlcipher_db(
     encryption_key: &str,
 ) -> Result<()> {
     // encrypt the username/password data
-    let encdec = EncryptorDecryptor::new_with_key(encryption_key)?;
+    let encdec = EncryptorDecryptor::new(encryption_key)?;
 
     let migration_plan: MigrationPlan = generate_plan_from_db(cipher_conn, &encdec)?;
     insert_logins(&migration_plan, &new_db_store, &encdec)?;
@@ -1110,7 +1110,7 @@ mod tests {
     }
 
     fn gen_migrate_plan() -> MigrationPlan {
-        let encdec = EncryptorDecryptor::new_with_key(&TEST_ENCRYPTION_KEY).unwrap();
+        let encdec = EncryptorDecryptor::new(&TEST_ENCRYPTION_KEY).unwrap();
         let mut migrate_plan = MigrationPlan::new();
 
         // Taken from db.rs
@@ -1220,7 +1220,7 @@ mod tests {
         let testpaths = TestPaths::new();
         let store = LoginStore::new(testpaths.new_db.as_path()).unwrap();
         let migration_plan = gen_migrate_plan();
-        let encdec = EncryptorDecryptor::new_with_key(&TEST_ENCRYPTION_KEY).unwrap();
+        let encdec = EncryptorDecryptor::new(&TEST_ENCRYPTION_KEY).unwrap();
         insert_logins(&migration_plan, &store, &encdec).unwrap();
 
         let db = LoginDb::open(testpaths.new_db.as_path()).unwrap();

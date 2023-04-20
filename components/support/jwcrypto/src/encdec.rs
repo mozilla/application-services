@@ -17,8 +17,14 @@ use std::marker::PhantomData;
 /// for a crate.
 pub struct EncryptorDecryptor<E = EncryptorDecryptorError> {
     jwk: Jwk,
-    phantom: PhantomData<E>,
+    phantom: PhantomData<*const E>,
 }
+
+// Need to implement Send/Sync by hand, since technically we have a pointer field.  This is safe
+// since we don't actually store the error value.
+unsafe impl<E> Send for EncryptorDecryptor<E> {}
+
+unsafe impl<E> Sync for EncryptorDecryptor<E> {}
 
 impl<E: From<EncryptorDecryptorError>> EncryptorDecryptor<E> {
     /// Create a key that can be used to construct an EncryptorDecryptor
@@ -27,11 +33,7 @@ impl<E: From<EncryptorDecryptorError>> EncryptorDecryptor<E> {
         Ok(serde_json::to_string(&key).to_encdec_result("create_key (serialization)")?)
     }
 
-    pub fn new() -> Result<Self, E> {
-        Self::new_with_key(&Self::create_key()?)
-    }
-
-    pub fn new_with_key(key: &str) -> Result<Self, E> {
+    pub fn new(key: &str) -> Result<Self, E> {
         match serde_json::from_str(key) {
             Ok(jwk) => Ok(Self {
                 jwk,
@@ -43,6 +45,10 @@ impl<E: From<EncryptorDecryptorError>> EncryptorDecryptor<E> {
             }
             .into()),
         }
+    }
+
+    pub fn new_with_random_key() -> Result<Self, E> {
+        Self::new(&Self::create_key()?)
     }
 
     /// Encrypt a string
