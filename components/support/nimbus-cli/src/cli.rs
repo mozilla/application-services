@@ -5,8 +5,10 @@
 use clap::{Parser, Subcommand};
 
 #[derive(Parser)]
-#[command(author, version, about, long_about = None)]
-#[command(propagate_version = true)]
+#[command(
+    author,
+    long_about = r#"Mozilla Nimbus' command line tool for mobile apps"#
+)]
 pub(crate) struct Cli {
     /// The app name according to Nimbus.
     #[arg(short, long, value_name = "APP")]
@@ -26,10 +28,21 @@ pub(crate) struct Cli {
 
 #[derive(Subcommand, Clone)]
 pub(crate) enum CliCommand {
-    /// Enroll into an experiment or a rollout
+    /// Enroll into an experiment or a rollout.
+    ///
+    /// The experiment slug is a combination of the actual slug, and the server it came from.
+    ///
+    /// * `release`/`stage` determines the server.
+    ///
+    /// * `preview` selects the preview collection.
+    ///
+    /// These can be further combined: e.g. $slug, preview/$slug, stage/$slug, stage/preview/$slug
     Enroll {
+        /// The experiment slug, including the server and collection.
         #[arg(value_name = "SLUG")]
         experiment: String,
+
+        /// The branch slug.
         #[arg(short, long, value_name = "BRANCH")]
         branch: String,
 

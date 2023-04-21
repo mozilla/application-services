@@ -7,6 +7,7 @@ use crate::{
     NimbusApp,
 };
 use anyhow::{bail, Result};
+use console::Term;
 use serde_json::{json, Value};
 use std::process::Command;
 
@@ -27,6 +28,17 @@ pub(crate) fn process_cmd(cmd: &AppCommand) -> Result<bool> {
     };
 
     Ok(status)
+}
+
+fn prompt(term: &Term, command: &str) -> Result<()> {
+    let prompt = term.style().cyan();
+    let style = term.style().yellow();
+    term.write_line(&format!(
+        "{} {}",
+        prompt.apply_to("$"),
+        style.apply_to(command)
+    ))?;
+    Ok(())
 }
 
 impl LaunchableApp {
@@ -102,13 +114,16 @@ impl LaunchableApp {
         preserve_targeting: &bool,
     ) -> Result<bool> {
         let mut experiment = Value::try_from(experiment)?;
-        let experiment_slug = experiment.get_str("slug")?.to_string();
+        let slug = experiment.get_str("slug")?.to_string();
+
+        let term = Term::stdout();
+        prompt(
+            &term,
+            &format!("# Enrolling in '{0}' branch of {1}", branch, &slug),
+        )?;
 
         if params.app_name != experiment.get_str("appName")? {
-            bail!(format!(
-                "'{}' is not for app {}",
-                experiment_slug, params.app_name
-            ));
+            bail!(format!("'{}' is not for app {}", slug, params.app_name));
         }
         experiment.set("channel", &params.channel)?;
 
@@ -135,7 +150,7 @@ impl LaunchableApp {
         if !found {
             bail!(format!(
                 "No branch called '{}' was found in '{}'",
-                branch, experiment_slug
+                branch, slug
             ));
         }
 
@@ -162,15 +177,18 @@ impl LaunchableApp {
     }
 
     fn ios_reset(&self, data_dir: String, groups_string: String) -> Result<bool> {
-        println!("rm -Rf {}", data_dir);
-        let _ = std::fs::remove_dir_all(&data_dir);
-        let _ = std::fs::create_dir_all(&data_dir);
+        let term = Term::stdout();
+        let data_dir = data_dir.trim_end();
+        prompt(&term, "# Resetting the app")?;
+        prompt(&term, &format!("rm -Rf {}/* 2>/dev/null", data_dir))?;
+        let _ = std::fs::remove_dir_all(data_dir);
+        let _ = std::fs::create_dir_all(data_dir);
         let lines = groups_string.split('\n');
 
         for line in lines {
             let words = line.splitn(2, '\t').collect::<Vec<_>>();
             if let [_, dir] = words.as_slice() {
-                println!("rm -Rf {}", dir);
+                prompt(&term, &format!("rm -Rf {}/* 2>/dev/null", dir))?;
                 let _ = std::fs::remove_dir_all(dir);
                 let _ = std::fs::create_dir_all(dir);
             }
@@ -198,7 +216,8 @@ impl LaunchableApp {
                 package_name, activity_name, json,
             );
             cmd.arg("shell").arg(&sh);
-            println!("adb shell \"{}\"", sh);
+            let term = Term::stdout();
+            prompt(&term, &format!("adb shell \"{}\"", sh))?;
             Ok(cmd)
         } else {
             unreachable!();
@@ -220,8 +239,8 @@ impl LaunchableApp {
         --experiments '{}'"#,
                 device_id, app_id, json
             );
-
-            println!("{}", sh);
+            let term = Term::stdout();
+            prompt(&term, &sh)?;
             Ok(cmd)
         } else {
             unreachable!()
@@ -297,6 +316,11 @@ impl ExperimentListSource {
     fn ls(&self, params: &NimbusApp) -> Result<bool> {
         let value: Value = self.try_into()?;
         let array = try_extract_data_list(&value)?;
+        let term = Term::stdout();
+        term.write_line(&format!(
+            "{0: <65} {1: <30} {2}",
+            "Experiment slug", "Features", "Branches"
+        ))?;
         for exp in array {
             let slug = exp.get_str("slug")?;
             let app_name = exp.get_str("appName")?;
@@ -317,7 +341,13 @@ impl ExperimentListSource {
                         .as_str()
                 })
                 .collect();
-            println!("{} branches={:?} features={:?}", slug, branches, features);
+
+            term.write_line(&format!(
+                "{0: <65} {1: <30} {2}",
+                slug,
+                features.join(", "),
+                branches.join(", ")
+            ))?;
         }
         Ok(true)
     }
