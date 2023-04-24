@@ -401,6 +401,11 @@ open class Nimbus(
         }
     }
 
+    @AnyThread
+    override fun dumpStateToLog() {
+        nimbusClient.dumpStateToLog()
+    }
+
     override fun createMessageHelper(additionalContext: JSONObject?): GleanPlumbMessageHelper =
         GleanPlumbMessageHelper(
             nimbusClient.createTargetingHelper(additionalContext),

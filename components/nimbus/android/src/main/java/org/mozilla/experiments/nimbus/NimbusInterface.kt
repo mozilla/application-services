@@ -296,6 +296,13 @@ interface NimbusEventStore {
      * This should only be used in testing or cases where the previous event store is no longer viable.
      */
     fun clearEvents() = Unit
+
+    /**
+     * Dump the state of the Nimbus SDK to logcat.
+     *
+     * This is only useful for testing.
+     */
+    fun dumpStateToLog() = Unit
 }
 
 class NullNimbus(override val context: Context) : NimbusInterface

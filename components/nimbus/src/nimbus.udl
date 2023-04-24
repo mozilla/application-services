@@ -239,6 +239,9 @@ interface NimbusClient {
 
     [Throws=NimbusError]
     void clear_events();
+
+    [Throws=NimbusError]
+    void dump_state_to_log();
 };
 
 [Custom]

@@ -36,17 +36,22 @@ final class NimbusArgumentProcessorTests: XCTestCase {
     func testArgs() {
         XCTAssertEqual(
             ArgumentProcessor.createCommandLineArgs(args: ["--nimbus-cli", "--version", "1", "--experiments", unenrollExperiments]),
-            CliArgs(resetDatabase: false, experiments: unenrollExperiments)
+            CliArgs(resetDatabase: false, experiments: unenrollExperiments, logState: false)
         )
 
         XCTAssertEqual(
             ArgumentProcessor.createCommandLineArgs(args: ["--nimbus-cli", "--version", "1", "--experiments", unenrollExperiments, "--reset-db"]),
-            CliArgs(resetDatabase: true, experiments: unenrollExperiments)
+            CliArgs(resetDatabase: true, experiments: unenrollExperiments, logState: false)
         )
 
         XCTAssertEqual(
             ArgumentProcessor.createCommandLineArgs(args: ["--nimbus-cli", "--version", "1", "--reset-db"]),
-            CliArgs(resetDatabase: true, experiments: nil)
+            CliArgs(resetDatabase: true, experiments: nil, logState: false)
+        )
+
+        XCTAssertEqual(
+            ArgumentProcessor.createCommandLineArgs(args: ["--nimbus-cli", "--version", "1", "--log-state"]),
+            CliArgs(resetDatabase: false, experiments: nil, logState: true)
         )
     }
 }

@@ -17,6 +17,9 @@ enum ArgumentProcessor {
             // and wait for the apply.
             nimbus.setFetchEnabled(false)
         }
+        if args.logState {
+            nimbus.dumpStateToLog()
+        }
     }
 
     static func createCommandLineArgs(args: [String]?) -> CliArgs? {
@@ -30,6 +33,7 @@ enum ArgumentProcessor {
         var argMap = [String: String]()
         var key: String?
         var resetDatabase = false
+        var logState = false
 
         args.forEach { arg in
             var value: String?
@@ -40,6 +44,8 @@ enum ArgumentProcessor {
                 key = "experiments"
             case "--reset-db":
                 resetDatabase = true
+            case "--log-state":
+                logState = true
             default:
                 value = arg.replacingOccurrences(of: "&apos;", with: "'")
             }
@@ -62,11 +68,12 @@ enum ArgumentProcessor {
             return string
         }
 
-        return CliArgs(resetDatabase: resetDatabase, experiments: experiments)
+        return CliArgs(resetDatabase: resetDatabase, experiments: experiments, logState: logState)
     }
 }
 
 struct CliArgs: Equatable {
     let resetDatabase: Bool
     let experiments: String?
+    let logState: Bool
 }

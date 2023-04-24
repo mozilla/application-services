@@ -407,6 +407,12 @@ extension Nimbus: NimbusStartup {
             try self.nimbusClient.resetEnrollments()
         }
     }
+
+    public func dumpStateToLog() {
+        catchAll {
+            try self.nimbusClient.dumpStateToLog()
+        }
+    }
 }
 
 extension Nimbus: NimbusBranchInterface {
@@ -511,6 +517,8 @@ public extension NimbusDisabled {
     func advanceEventTime(by _: TimeInterval) throws {}
 
     func clearEvents() {}
+
+    func dumpStateToLog() {}
 
     func getExperimentBranches(_: String) -> [Branch]? {
         return nil

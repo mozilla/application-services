@@ -12,6 +12,7 @@ import org.json.JSONObject
 
 private const val NIMBUS_FLAG = "nimbus-cli"
 private const val EXPERIMENTS_KEY = "experiments"
+private const val LOG_STATE_KEY = "log-state"
 private const val RESET_DB_KEY = "reset-db"
 private const val VERSION_KEY = "version"
 private const val DATA_KEY = "data"
@@ -38,6 +39,10 @@ fun NimbusInterface.initializeTooling(context: Context, intent: Intent) {
             job.join()
         }
         setFetchEnabled(false)
+    }
+
+    if (args.logState) {
+        dumpStateToLog()
     }
 }
 
@@ -70,8 +75,9 @@ private fun createCommandLineArgs(intent: Intent): CliArgs? {
             }
 
     val resetDatabase = intent.getBooleanExtra(RESET_DB_KEY, false)
+    val logState = intent.getBooleanExtra(LOG_STATE_KEY, false)
 
-    return CliArgs(resetDatabase, experiments)
+    return CliArgs(resetDatabase, experiments, logState)
 }
 
-data class CliArgs(val resetDatabase: Boolean, val experiments: String?)
+data class CliArgs(val resetDatabase: Boolean, val experiments: String?, val logState: Boolean)

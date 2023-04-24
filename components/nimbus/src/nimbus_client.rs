@@ -640,6 +640,20 @@ impl NimbusClient {
     pub fn event_store(&self) -> Arc<Mutex<EventStore>> {
         self.event_store.clone()
     }
+
+    pub fn dump_state_to_log(&self) -> Result<()> {
+        let experiments = self.get_active_experiments()?;
+        log::info!("{0: <65}| {1: <30}| {2}", "Slug", "Features", "Branch");
+        for exp in &experiments {
+            log::info!(
+                "{0: <65}| {1: <30}| {2}",
+                &exp.slug,
+                &exp.feature_ids.join(", "),
+                &exp.branch_slug
+            );
+        }
+        Ok(())
+    }
 }
 
 pub struct NimbusStringHelper {
