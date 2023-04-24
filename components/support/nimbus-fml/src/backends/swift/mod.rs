@@ -68,8 +68,8 @@ pub mod test {
         join(sdk_dir(), "ios/Nimbus")
     }
 
-    fn mock_nimbus_swift() -> String {
-        join(pkg_dir(), "fixtures/ios/runtime/MockNimbus.swift")
+    fn mock_nimbus_error_swift() -> String {
+        join(pkg_dir(), "fixtures/ios/runtime/NimbusError.swift")
     }
 
     fn mock_uiimage_swift() -> String {
@@ -91,6 +91,11 @@ pub mod test {
         join(sdk_ios_dir(), "Collections+.swift")
     }
 
+    // The file with the swift implementation of FeatureVariables
+    fn dictionaries_swift() -> String {
+        join(sdk_ios_dir(), "Dictionary+.swift")
+    }
+
     // The file with the swift implementation of Bundle extensions
     fn bundle_swift() -> String {
         join(sdk_ios_dir(), "Bundle+.swift")
@@ -99,6 +104,10 @@ pub mod test {
     // The file with the swift implementation of FeatureHolder
     fn feature_holder() -> String {
         join(sdk_ios_dir(), "FeatureHolder.swift")
+    }
+
+    fn hardcoded_nimbus_features() -> String {
+        join(sdk_ios_dir(), "HardcodedNimbusFeatures.swift")
     }
 
     // The file with the swift implementation of Feature Manifest protocol file
@@ -136,13 +145,15 @@ pub mod test {
             .arg("-L")
             .arg(&out_path)
             .arg(&collections_swift())
+            .arg(&dictionaries_swift())
             .arg(&mock_uiimage_swift())
             .arg(&variables_swift())
             .arg(&features_swift())
             .arg(&feature_holder())
+            .arg(&hardcoded_nimbus_features())
             .arg(&bundle_swift())
             .arg(&generated_feature_manifest())
-            .arg(&mock_nimbus_swift())
+            .arg(&mock_nimbus_error_swift())
             .args(manifest_files)
             .spawn()
             .context("Failed to spawn `swiftc` when compiling bindings")?

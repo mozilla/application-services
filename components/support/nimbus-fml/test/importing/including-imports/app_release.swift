@@ -6,7 +6,7 @@ import FeatureManifest
 import Foundation
 
 // We must call AppConfig to link AppConfig and UIConfig together.
-let injected: MockNimbus = MockNimbus()
+let injected: FeaturesInterface = HardcodedNimbusFeatures()
 AppConfig.shared.initialize { injected }
 
 // By now, UI config should have all the things from system and pocket.

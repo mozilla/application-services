@@ -17,23 +17,27 @@ assert(feature.sectionsEnabled[HomeScreenSection.libraryShortcuts] == false)
 
 
 // Test whether we can selectively override the property based default.
-let api = MockNimbus(("homescreen", """
-{
-    "sections-enabled": {
-        "pocket": false
+let api = HardcodedNimbusFeatures(with: [
+    "homescreen": """
+    {
+        "sections-enabled": {
+            "pocket": false
+        }
     }
-}
-"""), ("nimbus-validation", """
-{
-    "settings-title": "hello"
-}
-"""), ("search",  """
-{
-    "spotlight": {
-        "enabled": true
+    """,
+    "nimbus-validation": """
+    {
+        "settings-title": "hello"
     }
-}
-"""))
+    """,
+    "search": """
+    {
+        "spotlight": {
+            "enabled": true
+        }
+    }
+    """
+])
 nimbus.api = api
 nimbus.invalidateCachedValues()
 let feature1 = nimbus.features.homescreen.value()
