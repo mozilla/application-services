@@ -73,6 +73,7 @@ pub struct AppContext {
 /// - `locale`: The locale of the application during initialization (e.g. "es-ES")
 /// - `os`: The name of the operating system (e.g. "Android", "iOS", "Darwin", "Windows")
 /// - `os_version`: The user-visible version of the operating system (e.g. "1.2.3")
+/// - `user_agent`: The user agent as defined by the browser (e.g. "Mozilla/5.0 (Macintosh; Intel Mac OS X 10.15; rv:109.0) Gecko/20100101 Firefox/114.0" )
 /// - `custom_targeting_attributes`: Contains attributes specific to the application, derived by the application
 #[cfg(not(feature = "stateful"))]
 #[derive(Deserialize, Serialize, Debug, Clone, Default)]
@@ -85,6 +86,7 @@ pub struct AppContext {
     pub locale: Option<String>,
     pub os: Option<String>,
     pub os_version: Option<String>,
+    pub user_agent: Option<String>,
     #[serde(flatten)]
     pub custom_targeting_attributes: Option<Map<String, Value>>,
 }

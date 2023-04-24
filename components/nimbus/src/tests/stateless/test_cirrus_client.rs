@@ -5,7 +5,6 @@
 use crate::enrollment::{EnrolledReason, ExperimentEnrollment, NotEnrolledReason};
 use crate::{
     tests::test_enrollment::local_ctx, CirrusClient, EnrollmentRequest, EnrollmentStatus, Result,
-    TargetingAttributes,
 };
 use serde_json::{from_str, to_string, to_value, Map, Value};
 use uuid::Uuid;
@@ -21,14 +20,7 @@ fn test_can_enroll() -> Result<()> {
     let (_, context, _) = local_ctx();
     let exp = helpers::get_experiment_with_newtab_feature_branches();
 
-    let result = client.enroll(
-        "test".to_string(),
-        context.into(),
-        true,
-        &[],
-        &[exp.clone()],
-        &[],
-    )?;
+    let result = client.enroll("test".to_string(), context, true, &[exp.clone()], &[])?;
 
     assert_eq!(result.enrolled_feature_config_map.len(), 1);
     assert_eq!(
@@ -36,9 +28,11 @@ fn test_can_enroll() -> Result<()> {
             .enrolled_feature_config_map
             .get("newtab")
             .unwrap()
-            .branch
-            .clone()
-            .unwrap(),
+            .get("branch")
+            .unwrap()
+            .as_str()
+            .unwrap()
+            .to_owned(),
         exp.branches[1].slug
     );
     assert_eq!(
@@ -71,14 +65,7 @@ fn test_will_not_enroll_if_previously_did_not_enroll() -> Result<()> {
         },
     };
 
-    let result = client.enroll(
-        "test".to_string(),
-        context.into(),
-        true,
-        &[],
-        &[exp],
-        &[enrollment],
-    )?;
+    let result = client.enroll("test".to_string(), context, true, &[exp], &[enrollment])?;
 
     assert_eq!(result.enrolled_feature_config_map.len(), 0);
 
@@ -93,7 +80,7 @@ fn test_handle_enrollment_works_with_request() -> Result<()> {
 
     let request = EnrollmentRequest {
         client_id: Some("test".to_string()),
-        context: context.into(),
+        context,
         next_experiments: vec![exp.clone()],
         ..Default::default()
     };
@@ -105,9 +92,11 @@ fn test_handle_enrollment_works_with_request() -> Result<()> {
             .enrolled_feature_config_map
             .get("newtab")
             .unwrap()
-            .branch
-            .clone()
-            .unwrap(),
+            .get("branch")
+            .unwrap()
+            .as_str()
+            .unwrap()
+            .to_owned(),
         exp.branches[1].slug
     );
     assert_eq!(
@@ -148,7 +137,6 @@ fn test_handle_enrollment_works_with_json() -> Result<()> {
     let client = CirrusClient::new();
     let (_, context, _) = local_ctx();
     let exp = helpers::get_experiment_with_newtab_feature_branches();
-    let context: TargetingAttributes = context.into();
 
     let request = to_string(&Map::from_iter([
         ("clientId".to_string(), Value::from("test")),
@@ -157,7 +145,6 @@ fn test_handle_enrollment_works_with_json() -> Result<()> {
             Value::Object(from_str(to_string(&context)?.as_str())?),
         ),
         ("isUserParticipating".to_string(), Value::from(true)),
-        ("prevExperiments".to_string(), Value::Array(vec![])),
         (
             "nextExperiments".to_string(),
             Value::Array(vec![to_value(exp.clone())?]),
@@ -173,9 +160,11 @@ fn test_handle_enrollment_works_with_json() -> Result<()> {
             .enrolled_feature_config_map
             .get("newtab")
             .unwrap()
-            .branch
-            .clone()
-            .unwrap(),
+            .get("branch")
+            .unwrap()
+            .as_str()
+            .unwrap()
+            .to_owned(),
         exp.branches[1].slug
     );
     assert_eq!(
