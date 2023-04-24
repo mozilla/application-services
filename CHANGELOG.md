@@ -1,3 +1,28 @@
+# v114.0 (In progress)
+
+[Full Changelog](In progress)
+
+## General
+
+### ✨ What's New ✨
+  - Updated the version system to follow the Firefox major version
+  - Implemented nightly builds
+
+## Nimbus ⛅️🔬🔭
+
+### ✨ What's New ✨
+
+- Added processing of command line arguments (or intent extras) to be driven by a command line tool. ([#5482](https://github.com/mozilla/application-services/pull/5482))
+  - Requires passing `CommandLine.arguments` to `NimbusBuilder` in iOS.
+  - Requires passing `intent` to `NimbusInterface` in Android.
+- Added Cirrus client object for working with Nimbus in a static, stateless manner ([#5471](https://github.com/mozilla/application-services/pull/5471)).
+
+## Places ⛅️🔬🔭
+
+### 🦊 What's Changed 🦊
+
+  - Added support for sync payload evolution in history.  If other clients sync history records / visits with fields that we don't know about, we store that data as JSON and send it back when it's synced next.
+
 # v97.5.1 (_2023-04-17_)
 
 [Full Changelog](https://github.com/mozilla/application-services/compare/v97.5.0...v97.5.1)
