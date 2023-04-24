@@ -19,11 +19,18 @@ pub(crate) fn process_cmd(cmd: &AppCommand) -> Result<bool> {
             experiment,
             branch,
             preserve_targeting,
+            preserve_bucketing,
             ..
-        } => app.enroll(params, experiment, branch, preserve_targeting)?,
+        } => app.enroll(
+            params,
+            experiment,
+            branch,
+            preserve_targeting,
+            preserve_bucketing,
+        )?,
         AppCommand::Kill { app } => app.kill_app()?,
         AppCommand::List { params, list } => list.ls(params)?,
-        AppCommand::Reset { app } => app.reset()?,
+        AppCommand::Reset { app } => app.reset_app()?,
         AppCommand::Unenroll { app } => app.unenroll_all()?,
     };
 
@@ -88,7 +95,7 @@ impl LaunchableApp {
         })
     }
 
-    fn reset(&self) -> Result<bool> {
+    fn reset_app(&self) -> Result<bool> {
         Ok(match self {
             Self::Android { package_name, .. } => self
                 .exe()?
@@ -112,6 +119,7 @@ impl LaunchableApp {
         experiment: &ExperimentSource,
         branch: &str,
         preserve_targeting: &bool,
+        preserve_bucketing: &bool,
     ) -> Result<bool> {
         let experiment = Value::try_from(experiment)?;
         let slug = experiment.get_str("slug")?.to_string();
@@ -131,7 +139,7 @@ impl LaunchableApp {
             &params.channel,
             branch,
             *preserve_targeting,
-            false,
+            *preserve_bucketing,
         )?;
 
         let payload = json! {{ "data": [experiment] }};

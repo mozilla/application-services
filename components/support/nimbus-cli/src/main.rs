@@ -147,7 +147,8 @@ enum AppCommand {
         experiment: ExperimentSource,
         branch: String,
         preserve_targeting: bool,
-        reset: bool,
+        preserve_bucketing: bool,
+        reset_app: bool,
     },
 
     Kill {
@@ -177,12 +178,14 @@ impl AppCommand {
                 experiment,
                 branch,
                 preserve_targeting,
-                reset,
+                preserve_bucketing,
+                reset_app: reset,
                 ..
             } => {
                 let experiment = ExperimentSource::try_from(experiment.as_str())?;
                 let branch = branch.to_owned();
                 let preserve_targeting = *preserve_targeting;
+                let preserve_bucketing = *preserve_bucketing;
                 let reset = *reset;
                 Self::Enroll {
                     app,
@@ -190,7 +193,8 @@ impl AppCommand {
                     experiment,
                     branch,
                     preserve_targeting,
-                    reset,
+                    preserve_bucketing,
+                    reset_app: reset,
                 }
             }
             CliCommand::List { server } => {
@@ -210,7 +214,10 @@ impl AppCommand {
     }
 
     fn should_reset(&self) -> bool {
-        if let AppCommand::Enroll { reset, .. } = self {
+        if let AppCommand::Enroll {
+            reset_app: reset, ..
+        } = self
+        {
             *reset
         } else {
             false

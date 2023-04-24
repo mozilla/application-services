@@ -47,12 +47,16 @@ pub(crate) enum CliCommand {
         branch: String,
 
         /// Preserves the original experiment targeting
-        #[arg(short, long, default_value = "false")]
+        #[arg(long, default_value = "false")]
         preserve_targeting: bool,
 
+        /// Preserves the original experiment bucketing
+        #[arg(long, default_value = "false")]
+        preserve_bucketing: bool,
+
         /// Resets the app back to its initial state before launching
-        #[arg(long)]
-        reset: bool,
+        #[arg(long, default_value = "false")]
+        reset_app: bool,
     },
 
     /// List the experiments from a server
