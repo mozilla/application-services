@@ -144,12 +144,10 @@ fn test_handle_enrollment_works_with_json() -> Result<()> {
             "context".to_string(),
             Value::Object(from_str(to_string(&context)?.as_str())?),
         ),
-        ("isUserParticipating".to_string(), Value::from(true)),
         (
             "nextExperiments".to_string(),
             Value::Array(vec![to_value(exp.clone())?]),
         ),
-        ("prevEnrollments".to_string(), Value::Array(vec![])),
     ]))?;
 
     let result = client.handle_enrollment(from_str(request.as_str())?)?;
