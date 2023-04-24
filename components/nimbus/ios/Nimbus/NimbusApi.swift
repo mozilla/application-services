@@ -100,6 +100,9 @@ public protocol NimbusStartup {
     ///
     func setExperimentsLocally(_ fileURL: URL)
 
+    /// Testing method to reset the enrollments and experiments database back to its initial state.
+    func resetEnrollmentsDatabase() -> Operation
+
     /// Enable or disable fetching of experiments.
     ///
     /// This is performed on a background thread.

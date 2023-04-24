@@ -323,6 +323,13 @@ open class Nimbus(
         nimbusClient.setExperimentsLocally(payload)
     }
 
+    override fun resetEnrollmentsDatabase() =
+        dbScope.launch {
+            withCatchAll("resetEnrollments") {
+                nimbusClient.resetEnrollments()
+            }
+        }
+
     @WorkerThread
     @VisibleForTesting(otherwise = VisibleForTesting.PRIVATE)
     internal fun setGlobalUserParticipationOnThisThread(active: Boolean) = withCatchAll("setGlobalUserParticipation") {

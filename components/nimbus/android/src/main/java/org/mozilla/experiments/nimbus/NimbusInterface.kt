@@ -156,6 +156,11 @@ interface NimbusInterface : FeaturesInterface, GleanPlumbInterface, NimbusEventS
     fun setExperimentsLocally(@RawRes file: Int) = Unit
 
     /**
+     * Testing method to reset the enrollments and experiments database back to its initial state.
+     */
+    fun resetEnrollmentsDatabase(): Job = Job()
+
+    /**
      * Opt into a specific branch for the given experiment.
      *
      * @param experimentId The string experiment-id or "slug" for which to opt into

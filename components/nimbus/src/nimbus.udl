@@ -178,6 +178,10 @@ interface NimbusClient {
     // These are test-only functions and should never be exposed to production
     // users, as they mess with the "statistical requirements" of the SDK.
 
+    // Reset the enrollments and experiments in the database to an empty state.
+    [Throws=NimbusError]
+    void reset_enrollments();
+
     // Opt in to a specific branch on a specific experiment. Useful for
     // developers to test their app's interaction with the experiment.
     [Throws=NimbusError]
