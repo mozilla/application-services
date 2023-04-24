@@ -1,6 +1,7 @@
 /* This Source Code Form is subject to the terms of the Mozilla Public
 * License, v. 2.0. If a copy of the MPL was not distributed with this
 * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
+#![cfg_attr(not(feature = "stateful"), allow(clippy::needless_update))]
 
 use crate::{
     enrollment::{EnrolledReason, EnrollmentStatus, NotEnrolledReason},
@@ -10,7 +11,6 @@ use crate::{
     Result, TargetingAttributes,
 };
 use serde_json::{json, Map, Value};
-use std::collections::HashSet;
 
 #[test]
 fn test_locale_substring() -> Result<()> {
@@ -212,14 +212,9 @@ fn test_targeting() {
         channel: "test".to_string(),
         app_version: Some("4.4".to_string()),
         app_build: Some("1234".to_string()),
-        architecture: Some("x86_64".to_string()),
-        device_manufacturer: Some("Samsung".to_string()),
-        device_model: Some("Galaxy S10".to_string()),
         locale: Some("en-US".to_string()),
         os: Some("Android".to_string()),
         os_version: Some("10".to_string()),
-        android_sdk_version: Some("29".to_string()),
-        debug_tag: None,
         custom_targeting_attributes: None,
         ..Default::default()
     };
@@ -232,14 +227,9 @@ fn test_targeting() {
         channel: "test".to_string(),
         app_version: Some("4.4".to_string()),
         app_build: Some("1234".to_string()),
-        architecture: Some("x86_64".to_string()),
-        device_manufacturer: Some("Samsung".to_string()),
-        device_model: Some("Galaxy S10".to_string()),
         locale: Some("de-DE".to_string()),
         os: Some("Android".to_string()),
         os_version: Some("10".to_string()),
-        android_sdk_version: Some("29".to_string()),
-        debug_tag: None,
         custom_targeting_attributes: None,
         ..Default::default()
     };
@@ -252,14 +242,9 @@ fn test_targeting() {
         channel: "test".to_string(),
         app_version: Some("3.4".to_string()),
         app_build: Some("1234".to_string()),
-        architecture: Some("x86_64".to_string()),
-        device_manufacturer: Some("Samsung".to_string()),
-        device_model: Some("Galaxy S10".to_string()),
         locale: Some("en-US".to_string()),
         os: Some("Android".to_string()),
         os_version: Some("10".to_string()),
-        android_sdk_version: Some("29".to_string()),
-        debug_tag: None,
         custom_targeting_attributes: None,
         ..Default::default()
     };
@@ -272,14 +257,9 @@ fn test_targeting() {
         channel: "test".to_string(),
         app_version: Some("4.4".to_string()),
         app_build: Some("1234".to_string()),
-        architecture: Some("x86_64".to_string()),
-        device_manufacturer: Some("Samsung".to_string()),
-        device_model: Some("Galaxy S10".to_string()),
         locale: Some("en-US".to_string()),
         os: Some("Android".to_string()),
         os_version: Some("10".to_string()),
-        android_sdk_version: Some("29".to_string()),
-        debug_tag: None,
         custom_targeting_attributes: None,
         ..Default::default()
     };
@@ -297,14 +277,9 @@ fn test_targeting() {
         channel: "test".to_string(),
         app_version: Some("3.5".to_string()),
         app_build: Some("1234".to_string()),
-        architecture: Some("x86_64".to_string()),
-        device_manufacturer: Some("Samsung".to_string()),
-        device_model: Some("Galaxy S10".to_string()),
         locale: Some("de-DE".to_string()),
         os: Some("Android".to_string()),
         os_version: Some("10".to_string()),
-        android_sdk_version: Some("29".to_string()),
-        debug_tag: None,
         custom_targeting_attributes: None,
         ..Default::default()
     };
@@ -332,14 +307,9 @@ fn test_targeting_custom_targeting_attributes() {
         channel: "test".to_string(),
         app_version: Some("4.4".to_string()),
         app_build: Some("1234".to_string()),
-        architecture: Some("x86_64".to_string()),
-        device_manufacturer: Some("Samsung".to_string()),
-        device_model: Some("Galaxy S10".to_string()),
         locale: Some("en-US".to_string()),
         os: Some("Android".to_string()),
         os_version: Some("10".to_string()),
-        android_sdk_version: Some("29".to_string()),
-        debug_tag: None,
         custom_targeting_attributes: Some(custom_targeting_attributes),
         ..Default::default()
     };
@@ -352,14 +322,9 @@ fn test_targeting_custom_targeting_attributes() {
         channel: "test".to_string(),
         app_version: Some("4.4".to_string()),
         app_build: Some("1234".to_string()),
-        architecture: Some("x86_64".to_string()),
-        device_manufacturer: Some("Samsung".to_string()),
-        device_model: Some("Galaxy S10".to_string()),
         locale: Some("en-US".to_string()),
         os: Some("Android".to_string()),
         os_version: Some("10".to_string()),
-        android_sdk_version: Some("29".to_string()),
-        debug_tag: None,
         custom_targeting_attributes: None,
         ..Default::default()
     };
@@ -381,14 +346,9 @@ fn test_targeting_is_already_enrolled() {
         channel: "test".to_string(),
         app_version: Some("4.4".to_string()),
         app_build: Some("1234".to_string()),
-        architecture: Some("x86_64".to_string()),
-        device_manufacturer: Some("Samsung".to_string()),
-        device_model: Some("Galaxy S10".to_string()),
         locale: Some("en-US".to_string()),
         os: Some("Android".to_string()),
         os_version: Some("10".to_string()),
-        android_sdk_version: Some("29".to_string()),
-        debug_tag: None,
         custom_targeting_attributes: None,
         ..Default::default()
     }
@@ -403,105 +363,6 @@ fn test_targeting_is_already_enrolled() {
 
     // We make the is_already_enrolled false and try again
     targeting_attributes.is_already_enrolled = false;
-    assert_eq!(
-        targeting(expression_statement, &targeting_attributes.into()),
-        Some(EnrollmentStatus::NotEnrolled {
-            reason: NotEnrolledReason::NotTargeted
-        })
-    );
-}
-
-#[test]
-fn test_targeting_active_experiments_equivalency() {
-    // Here's our valid jexl statement
-    let expression_statement = "'test' in active_experiments";
-    // A matching context that includes the appropriate specific context
-    let mut targeting_attributes: TargetingAttributes = AppContext {
-        app_name: "nimbus_test".to_string(),
-        app_id: "1010".to_string(),
-        channel: "test".to_string(),
-        app_version: Some("4.4".to_string()),
-        app_build: Some("1234".to_string()),
-        architecture: Some("x86_64".to_string()),
-        device_manufacturer: Some("Samsung".to_string()),
-        device_model: Some("Galaxy S10".to_string()),
-        locale: Some("en-US".to_string()),
-        os: Some("Android".to_string()),
-        os_version: Some("10".to_string()),
-        android_sdk_version: Some("29".to_string()),
-        debug_tag: None,
-        custom_targeting_attributes: None,
-        ..Default::default()
-    }
-    .into();
-    let mut set = HashSet::<String>::new();
-    set.insert("test".into());
-    targeting_attributes.active_experiments = set;
-
-    // The targeting should pass!
-    assert_eq!(
-        targeting(expression_statement, &targeting_attributes.clone().into()),
-        None
-    );
-
-    // We set active_experiment treatment to something not expected and try again
-    let mut set = HashSet::<String>::new();
-    set.insert("test1".into());
-    targeting_attributes.active_experiments = set;
-    assert_eq!(
-        targeting(expression_statement, &targeting_attributes.clone().into()),
-        Some(EnrollmentStatus::NotEnrolled {
-            reason: NotEnrolledReason::NotTargeted
-        })
-    );
-
-    // We set active_experiments to None and try again
-    let set = HashSet::<String>::new();
-    targeting_attributes.active_experiments = set;
-    assert_eq!(
-        targeting(expression_statement, &targeting_attributes.into()),
-        Some(EnrollmentStatus::NotEnrolled {
-            reason: NotEnrolledReason::NotTargeted
-        })
-    );
-}
-
-#[test]
-fn test_targeting_active_experiments_exists() {
-    // Here's our valid jexl statement
-    let expression_statement = "'test' in active_experiments";
-    // A matching context that includes the appropriate specific context
-    let mut targeting_attributes: TargetingAttributes = AppContext {
-        app_name: "nimbus_test".to_string(),
-        app_id: "1010".to_string(),
-        channel: "test".to_string(),
-        app_version: Some("4.4".to_string()),
-        app_build: Some("1234".to_string()),
-        architecture: Some("x86_64".to_string()),
-        device_manufacturer: Some("Samsung".to_string()),
-        device_model: Some("Galaxy S10".to_string()),
-        locale: Some("en-US".to_string()),
-        os: Some("Android".to_string()),
-        os_version: Some("10".to_string()),
-        android_sdk_version: Some("29".to_string()),
-        debug_tag: None,
-        custom_targeting_attributes: None,
-        ..Default::default()
-    }
-    .into();
-    let mut set = HashSet::<String>::new();
-    set.insert("test".into());
-    targeting_attributes.active_experiments = set;
-
-    // The targeting should pass!
-    assert_eq!(
-        targeting(expression_statement, &targeting_attributes.clone().into()),
-        None
-    );
-
-    // We set active_experiment treatment to something not expected and try again
-    let set = HashSet::<String>::new();
-    targeting_attributes.active_experiments = set;
     assert_eq!(
         targeting(expression_statement, &targeting_attributes.into()),
         Some(EnrollmentStatus::NotEnrolled {
