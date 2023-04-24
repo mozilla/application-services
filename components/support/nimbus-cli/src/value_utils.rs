@@ -64,3 +64,195 @@ impl CliUtils for Value {
         Ok(())
     }
 }
+
+pub(crate) fn try_find_experiment(value: &Value, slug: &str) -> Result<Value> {
+    let array = try_extract_data_list(value)?;
+    let exp = array
+        .iter()
+        .find(|exp| {
+            if let Some(Value::String(s)) = exp.get("slug") {
+                slug == s
+            } else {
+                false
+            }
+        })
+        .ok_or_else(|| anyhow::Error::msg(format!("No experiment with slug {}", slug)))?;
+
+    Ok(exp.clone())
+}
+
+pub(crate) fn try_extract_data_list(value: &Value) -> Result<Vec<Value>> {
+    assert!(value.is_object());
+    Ok(value.get_array("data")?.to_vec())
+}
+
+pub(crate) fn prepare_experiment(
+    experiment: &Value,
+    slug: &str,
+    channel: &str,
+    branch: &str,
+    preserve_targeting: bool,
+    preserve_bucketing: bool,
+) -> Result<Value> {
+    let mut experiment = experiment.clone();
+    experiment.set("channel", channel)?;
+
+    if !preserve_targeting {
+        experiment.set("targeting", "true")?;
+    }
+
+    if !preserve_bucketing {
+        let bucketing = experiment.get_mut_object("bucketConfig")?;
+        bucketing.set("start", 0)?;
+        bucketing.set("count", 10_000)?;
+
+        let branches = experiment.get_mut_array("branches")?;
+        let mut found = false;
+        for b in branches {
+            let slug = b.get_str("slug")?;
+            let ratio = if slug == branch {
+                found = true;
+                100
+            } else {
+                0
+            };
+            b.set("ratio", ratio)?;
+        }
+        if !found {
+            anyhow::bail!(format!(
+                "No branch called '{}' was found in '{}'",
+                branch, slug
+            ));
+        }
+    }
+    Ok(experiment)
+}
+
+#[cfg(test)]
+mod tests {
+    use serde_json::json;
+
+    use super::*;
+
+    #[test]
+    fn test_find_experiment() -> Result<()> {
+        let exp = json!({
+            "slug": "a-name",
+        });
+        let source = json!({ "data": [exp] });
+
+        assert_eq!(try_find_experiment(&source, "a-name")?, exp);
+
+        let source = json!({
+            "data": {},
+        });
+        assert!(try_find_experiment(&source, "a-name").is_err());
+
+        let source = json!({
+            "data": [],
+        });
+        assert!(try_find_experiment(&source, "a-name").is_err());
+
+        Ok(())
+    }
+
+    #[test]
+    fn test_prepare_experiment() -> Result<()> {
+        let src = json!({
+            "slug": "a-name",
+            "branches": [
+                {
+                    "slug": "another-branch",
+                },
+                {
+                    "slug": "a-branch",
+                }
+            ],
+            "bucketConfig": {
+            }
+        });
+
+        assert_eq!(
+            json!({
+                "channel": "developer",
+                "slug": "a-name",
+                "branches": [
+                    {
+                        "slug": "another-branch",
+                        "ratio": 0,
+                    },
+                    {
+                        "slug": "a-branch",
+                        "ratio": 100,
+                    }
+                ],
+                "bucketConfig": {
+                    "start": 0,
+                    "count": 10_000,
+                },
+                "targeting": "true"
+            }),
+            prepare_experiment(&src, "a-name", "developer", "a-branch", false, false)?
+        );
+
+        assert_eq!(
+            json!({
+                "channel": "developer",
+                "slug": "a-name",
+                "branches": [
+                    {
+                        "slug": "another-branch",
+                    },
+                    {
+                        "slug": "a-branch",
+                    }
+                ],
+                "bucketConfig": {
+                },
+                "targeting": "true"
+            }),
+            prepare_experiment(&src, "a-name", "developer", "a-branch", false, true)?
+        );
+
+        assert_eq!(
+            json!({
+                "channel": "developer",
+                "slug": "a-name",
+                "branches": [
+                    {
+                        "slug": "another-branch",
+                        "ratio": 0,
+                    },
+                    {
+                        "slug": "a-branch",
+                        "ratio": 100,
+                    }
+                ],
+                "bucketConfig": {
+                    "start": 0,
+                    "count": 10_000,
+                },
+            }),
+            prepare_experiment(&src, "a-name", "developer", "a-branch", true, false)?
+        );
+
+        assert_eq!(
+            json!({
+                "slug": "a-name",
+                "channel": "developer",
+                "branches": [
+                    {
+                        "slug": "another-branch",
+                    },
+                    {
+                        "slug": "a-branch",
+                    }
+                ],
+                "bucketConfig": {
+                }
+            }),
+            prepare_experiment(&src, "a-name", "developer", "a-branch", true, true)?
+        );
+        Ok(())
+    }
+}

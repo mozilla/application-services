@@ -44,7 +44,7 @@ where
     Ok(commands)
 }
 
-#[derive(Clone)]
+#[derive(Clone, Debug, PartialEq)]
 enum LaunchableApp {
     Android {
         package_name: String,
@@ -218,25 +218,15 @@ impl AppCommand {
     }
 }
 
-#[derive(Debug)]
-enum ExperimentSource {
-    FromList {
-        slug: String,
-        list: ExperimentListSource,
-    },
-}
-
-#[derive(Debug)]
+#[derive(Clone, Debug, PartialEq)]
 enum ExperimentListSource {
     FromRemoteSettings { endpoint: String, is_preview: bool },
 }
 
 impl ExperimentListSource {
     fn try_from_pair(server: &str, preview: &str) -> Result<Self> {
-        let release = std::env::var("NIMBUS_URL")
-            .unwrap_or_else(|_| "https://firefox.settings.services.mozilla.com".to_string());
-        let stage = std::env::var("NIMBUS_URL_STAGE")
-            .unwrap_or_else(|_| "https://settings.stage.mozaws.net".to_string());
+        let release = Self::release_server();
+        let stage = Self::stage_server();
         let is_preview = preview == "preview";
 
         let endpoint = match server {
@@ -249,6 +239,16 @@ impl ExperimentListSource {
             endpoint,
             is_preview,
         })
+    }
+
+    fn release_server() -> String {
+        std::env::var("NIMBUS_URL")
+            .unwrap_or_else(|_| "https://firefox.settings.services.mozilla.com".to_string())
+    }
+
+    fn stage_server() -> String {
+        std::env::var("NIMBUS_URL_STAGE")
+            .unwrap_or_else(|_| "https://settings.stage.mozaws.net".to_string())
     }
 }
 
@@ -266,6 +266,14 @@ impl TryFrom<&str> for ExperimentListSource {
             _ => bail!(format!("Can't unpack '{}' into an experiment; try preview, release, stage, or stage/preview", value)),
         })
     }
+}
+
+#[derive(Clone, Debug, PartialEq)]
+enum ExperimentSource {
+    FromList {
+        slug: String,
+        list: ExperimentListSource,
+    },
 }
 
 impl TryFrom<&str> for ExperimentSource {
@@ -296,5 +304,267 @@ impl TryFrom<&str> for ExperimentSource {
                 value
             )),
         })
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_experiment_list_from_pair() -> Result<()> {
+        let release = ExperimentListSource::release_server();
+        let stage = ExperimentListSource::stage_server();
+        assert_eq!(
+            ExperimentListSource::try_from_pair("", "")?,
+            ExperimentListSource::FromRemoteSettings {
+                endpoint: release.clone(),
+                is_preview: false
+            }
+        );
+        assert_eq!(
+            ExperimentListSource::try_from_pair("", "preview")?,
+            ExperimentListSource::FromRemoteSettings {
+                endpoint: release.clone(),
+                is_preview: true
+            }
+        );
+        assert_eq!(
+            ExperimentListSource::try_from_pair("release", "")?,
+            ExperimentListSource::FromRemoteSettings {
+                endpoint: release.clone(),
+                is_preview: false
+            }
+        );
+        assert_eq!(
+            ExperimentListSource::try_from_pair("release", "preview")?,
+            ExperimentListSource::FromRemoteSettings {
+                endpoint: release.clone(),
+                is_preview: true
+            }
+        );
+        assert_eq!(
+            ExperimentListSource::try_from_pair("stage", "")?,
+            ExperimentListSource::FromRemoteSettings {
+                endpoint: stage.clone(),
+                is_preview: false
+            }
+        );
+        assert_eq!(
+            ExperimentListSource::try_from_pair("stage", "preview")?,
+            ExperimentListSource::FromRemoteSettings {
+                endpoint: stage,
+                is_preview: true
+            }
+        );
+        assert_eq!(
+            ExperimentListSource::try_from_pair("release", "preview")?,
+            ExperimentListSource::FromRemoteSettings {
+                endpoint: release,
+                is_preview: true
+            }
+        );
+
+        assert!(ExperimentListSource::try_from_pair("not-real", "preview").is_err());
+
+        Ok(())
+    }
+
+    #[test]
+    fn test_experiment_list_from_str() -> Result<()> {
+        let release = ExperimentListSource::release_server();
+        let stage = ExperimentListSource::stage_server();
+        assert_eq!(
+            ExperimentListSource::try_from("")?,
+            ExperimentListSource::FromRemoteSettings {
+                endpoint: release.clone(),
+                is_preview: false
+            }
+        );
+        assert_eq!(
+            ExperimentListSource::try_from("release")?,
+            ExperimentListSource::FromRemoteSettings {
+                endpoint: release.clone(),
+                is_preview: false
+            }
+        );
+        assert_eq!(
+            ExperimentListSource::try_from("stage")?,
+            ExperimentListSource::FromRemoteSettings {
+                endpoint: stage.clone(),
+                is_preview: false
+            }
+        );
+        assert_eq!(
+            ExperimentListSource::try_from("preview")?,
+            ExperimentListSource::FromRemoteSettings {
+                endpoint: release.clone(),
+                is_preview: true
+            }
+        );
+        assert_eq!(
+            ExperimentListSource::try_from("release/preview")?,
+            ExperimentListSource::FromRemoteSettings {
+                endpoint: release,
+                is_preview: true
+            }
+        );
+        assert_eq!(
+            ExperimentListSource::try_from("stage/preview")?,
+            ExperimentListSource::FromRemoteSettings {
+                endpoint: stage,
+                is_preview: true
+            }
+        );
+
+        assert!(ExperimentListSource::try_from("not-real/preview").is_err());
+        assert!(ExperimentListSource::try_from("release/not-real").is_err());
+
+        Ok(())
+    }
+
+    #[test]
+    fn test_experiment_source_from_str() -> Result<()> {
+        let release = ExperimentListSource::try_from("")?;
+        let stage = ExperimentListSource::try_from("stage")?;
+        let release_preview = ExperimentListSource::try_from("preview")?;
+        let stage_preview = ExperimentListSource::try_from("stage/preview")?;
+        let slug = "my-slug".to_string();
+        assert_eq!(
+            ExperimentSource::try_from("my-slug")?,
+            ExperimentSource::FromList {
+                list: release.clone(),
+                slug: slug.clone()
+            }
+        );
+        assert_eq!(
+            ExperimentSource::try_from("release/my-slug")?,
+            ExperimentSource::FromList {
+                list: release,
+                slug: slug.clone()
+            }
+        );
+        assert_eq!(
+            ExperimentSource::try_from("stage/my-slug")?,
+            ExperimentSource::FromList {
+                list: stage,
+                slug: slug.clone()
+            }
+        );
+        assert_eq!(
+            ExperimentSource::try_from("preview/my-slug")?,
+            ExperimentSource::FromList {
+                list: release_preview.clone(),
+                slug: slug.clone()
+            }
+        );
+        assert_eq!(
+            ExperimentSource::try_from("release/preview/my-slug")?,
+            ExperimentSource::FromList {
+                list: release_preview,
+                slug: slug.clone()
+            }
+        );
+        assert_eq!(
+            ExperimentSource::try_from("stage/preview/my-slug")?,
+            ExperimentSource::FromList {
+                list: stage_preview,
+                slug
+            }
+        );
+
+        assert!(ExperimentListSource::try_from("not-real/preview/my-slug").is_err());
+        assert!(ExperimentListSource::try_from("release/not-real/my-slug").is_err());
+
+        Ok(())
+    }
+
+    #[test]
+    fn test_launchable_app() -> Result<()> {
+        fn cli(app: &str, channel: &str) -> Cli {
+            Cli {
+                app: app.to_string(),
+                channel: channel.to_string(),
+                device_id: None,
+                command: CliCommand::ResetApp,
+            }
+        }
+        fn android(package: &str, activity: &str) -> LaunchableApp {
+            LaunchableApp::Android {
+                package_name: package.to_string(),
+                activity_name: activity.to_string(),
+                device_id: None,
+            }
+        }
+        fn ios(id: &str) -> LaunchableApp {
+            LaunchableApp::Ios {
+                app_id: id.to_string(),
+                device_id: "booted".to_string(),
+            }
+        }
+
+        // Firefox for Android, a.k.a. fenix
+        assert_eq!(
+            LaunchableApp::try_from(&cli("fenix", "developer"))?,
+            android("org.mozilla.fenix.debug", ".App")
+        );
+        assert_eq!(
+            LaunchableApp::try_from(&cli("fenix", "nightly"))?,
+            android("org.mozilla.fenix", ".App")
+        );
+        assert_eq!(
+            LaunchableApp::try_from(&cli("fenix", "beta"))?,
+            android("org.mozilla.firefox_beta", ".App")
+        );
+        assert_eq!(
+            LaunchableApp::try_from(&cli("fenix", "release"))?,
+            android("org.mozilla.firefox", ".App")
+        );
+
+        // Firefox for iOS
+        assert_eq!(
+            LaunchableApp::try_from(&cli("firefox_ios", "developer"))?,
+            ios("org.mozilla.ios.Fennec")
+        );
+        assert_eq!(
+            LaunchableApp::try_from(&cli("firefox_ios", "beta"))?,
+            ios("org.mozilla.ios.FirefoxBeta")
+        );
+        assert_eq!(
+            LaunchableApp::try_from(&cli("firefox_ios", "release"))?,
+            ios("org.mozilla.ios.Firefox")
+        );
+
+        // Focus for Android
+        assert_eq!(
+            LaunchableApp::try_from(&cli("focus_android", "developer"))?,
+            android(
+                "org.mozilla.focus.debug",
+                "org.mozilla.focus.activity.MainActivity"
+            )
+        );
+        assert_eq!(
+            LaunchableApp::try_from(&cli("focus_android", "nightly"))?,
+            android(
+                "org.mozilla.focus.nightly",
+                "org.mozilla.focus.activity.MainActivity"
+            )
+        );
+        assert_eq!(
+            LaunchableApp::try_from(&cli("focus_android", "beta"))?,
+            android(
+                "org.mozilla.focus.beta",
+                "org.mozilla.focus.activity.MainActivity"
+            )
+        );
+        assert_eq!(
+            LaunchableApp::try_from(&cli("focus_android", "release"))?,
+            android(
+                "org.mozilla.focus",
+                "org.mozilla.focus.activity.MainActivity"
+            )
+        );
+
+        Ok(())
     }
 }
