@@ -1,6 +1,5 @@
 # Common code used by the automation python scripts.
 
-import os
 import subprocess
 from pathlib import Path
 
@@ -17,6 +16,10 @@ def run_cmd_checked(*args, **kwargs):
     kwargs["check"] = True
     return subprocess.run(*args, **kwargs)
 
+def check_output(*args, **kwargs):
+    """Run a command, throwing an exception if it exits with non-zero status."""
+    return subprocess.check_output(*args, **kwargs, encoding='utf8')
+
 def ensure_working_tree_clean():
     """Error out if there are un-committed or staged files in the working tree."""
     if run_cmd_checked(["git", "status", "--porcelain"], capture_output=True).stdout:
@@ -28,6 +31,19 @@ def find_app_services_root():
     while not Path(cur_dir, "LICENSE").exists():
         cur_dir = cur_dir.parent
     return cur_dir.absolute()
+
+def get_moz_remote():
+    """
+    Get the name of the remote for the official mozilla application-services repo
+    """
+    for line in check_output(["git", "remote", "-v"]).splitlines():
+        split = line.split()
+        if (len(split) == 3
+            and split[1] == 'git@github.com:mozilla/application-services.git'
+            and split[2] == '(push)'):
+            return split[0]
+    else:
+        fatal_err("Can't find remote origin for git@github.com:mozilla/application-services.git")
 
 def set_gradle_substitution_path(project_dir, name, value):
     """Set a substitution path property in a gradle `local.properties` file.
