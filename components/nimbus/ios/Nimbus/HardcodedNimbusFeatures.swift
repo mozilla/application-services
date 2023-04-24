@@ -32,7 +32,7 @@ public class HardcodedNimbusFeatures {
         self.bundles = bundles
     }
 
-    public convenience init(bundles: [Bundle] = [.main], with jsons: [String: String]) {
+    public convenience init(bundles: [Bundle] = [.main], with jsons: [String: String] = [String: String]()) {
         let features = jsons.mapValuesNotNull {
             try? Dictionary.parse(jsonString: $0)
         }
@@ -45,8 +45,8 @@ public class HardcodedNimbusFeatures {
     }
 
     /// Helper function for testing if the exposure count for this feature is greater than zero.
-    public func isExposed(featuredId: String) -> Bool {
-        return getExposureCount(featureId: featuredId) > 0
+    public func isExposed(featureId: String) -> Bool {
+        return getExposureCount(featureId: featureId) > 0
     }
 
     /// Helper function for testing if app code has reported that any of the feature

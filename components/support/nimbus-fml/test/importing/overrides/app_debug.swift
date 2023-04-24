@@ -5,15 +5,14 @@
 import FeatureManifest
 import Foundation
 
-let injected: MockNimbus = MockNimbus(
-    (
-        "property-overrides-test",
+let injected = HardcodedNimbusFeatures(with: [
+        "property-overrides-test":
         """
         {
             "variables-json": "variables-json"
         }
         """
-    )
+    ]
 )
 
 AppNimbus.shared.initialize { injected }
