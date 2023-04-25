@@ -158,7 +158,7 @@ impl LaunchableApp {
                 .output()
                 .expect("Expected an app-container from the simulator");
             let string = String::from_utf8_lossy(&output.stdout).to_string();
-            Ok(string)
+            Ok(string.trim().to_string())
         } else {
             unreachable!()
         }
@@ -166,11 +166,10 @@ impl LaunchableApp {
 
     fn ios_reset(&self, data_dir: String, groups_string: String) -> Result<bool> {
         let term = Term::stdout();
-        let data_dir = data_dir.trim_end();
         prompt(&term, "# Resetting the app")?;
         prompt(&term, &format!("rm -Rf {}/* 2>/dev/null", data_dir))?;
-        let _ = std::fs::remove_dir_all(data_dir);
-        let _ = std::fs::create_dir_all(data_dir);
+        let _ = std::fs::remove_dir_all(&data_dir);
+        let _ = std::fs::create_dir_all(&data_dir);
         let lines = groups_string.split('\n');
 
         for line in lines {
