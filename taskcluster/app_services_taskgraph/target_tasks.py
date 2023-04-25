@@ -10,9 +10,9 @@ from taskgraph.target_tasks import _target_task, filter_for_tasks_for
 def target_tasks_pr_skip(full_task_graph, parameters, graph_config):
     return []
 
-@_target_task('preview')
-def target_tasks_preview(full_task_graph, parameters, graph_config):
-    # Run all tasks for preview builds
+@_target_task('release')
+def target_tasks_release(full_task_graph, parameters, graph_config):
+    # Run all tasks for release builds
     return full_task_graph.tasks
 
 @_target_task('pr-full')
@@ -20,8 +20,9 @@ def target_tasks_all(full_task_graph, parameters, graph_config):
     """Target the tasks which have indicated they should be run on this project
     via the `run_on_projects` attributes."""
     def filter(task):
-        return filter_for_tasks_for(task, parameters) \
-            and task.attributes.get("run-on-pr-type", "all") in ("full-ci", "all")
+        return (filter_for_tasks_for(task, parameters) 
+                and task.attributes.get("run-on-pr-type", "all") in ("full-ci", "all")
+                and task.attributes.get('release') != 'release-only')
 
     return [l for l, task in full_task_graph.tasks.items() if filter(task)]
 
@@ -30,7 +31,8 @@ def target_tasks_default(full_task_graph, parameters, graph_config):
     """Target the tasks which have indicated they should be run on this project
     via the `run_on_projects` attributes."""
     def filter(task):
-        return filter_for_tasks_for(task, parameters) \
+        return (filter_for_tasks_for(task, parameters)
                 and task.attributes.get("run-on-pr-type", "all") in ("normal-ci", "all")
+                and task.attributes.get('release') != 'release-only')
 
     return [l for l, task in full_task_graph.tasks.items() if filter(task)]
