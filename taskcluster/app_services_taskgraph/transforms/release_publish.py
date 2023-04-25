@@ -23,18 +23,26 @@ def setup_command(config, tasks):
             maven_channel = "maven-staging"
         else:
             maven_channel = "maven-nightly-staging"
+    release_type = config.params.get('release', 'nightly')
 
     for task in tasks:
         task["run"]["commands"] = [
            [
-               "/builds/worker/checkouts/vcs/taskcluster/scripts/generate-nightly-json.py",
-               "/builds/worker/checkouts/vcs/build/nightly.json",
+               "/builds/worker/checkouts/vcs/taskcluster/scripts/generate-release-json.py",
+               f"/builds/worker/checkouts/vcs/build/{release_type}.json",
                "--version", version,
                "--maven-channel", maven_channel,
            ]
-       ]
+        ]
+        task['worker']['artifacts'] = [
+            {
+                "name": f"public/build/{release_type}.json",
+                "path": f"/builds/worker/checkouts/vcs/build/{release_type}.json",
+                "type": "file",
+            }
+        ]
         task["routes"] = [
-            "index.project.application-services.v2.nightly.latest",
-            f"index.project.application-services.v2.nightly.{version}",
+            f"index.project.application-services.v2.{release_type}.latest",
+            f"index.project.application-services.v2.{release_type}.{version}",
         ]
         yield task

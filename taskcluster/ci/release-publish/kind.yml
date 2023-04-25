@@ -1,0 +1,36 @@
+# This Source Code Form is subject to the terms of the Mozilla Public
+# License, v. 2.0. If a copy of the MPL was not distributed with this
+# file, You can obtain one at http://mozilla.org/MPL/2.0/.
+---
+# release-publish: publish artifacts for successful nightly/release builds
+#
+# This task publishes a JSON file for the nightly/release builds. The JSON file is used by consumer
+# apps for app-services version bumps.
+#
+# This task only runs if build-summary succeeds, which implies that all other
+# tasks suceeded.  This task should not fail, since that could leave the
+# build artifacts in an inconsistent state.
+loader: taskgraph.loader.transform:loader
+
+kind-dependencies:
+  - build-summary
+
+transforms:
+  - app_services_taskgraph.transforms.release_publish:transforms
+  - taskgraph.transforms.job:transforms
+  - taskgraph.transforms.task:transforms
+
+tasks:
+  release_publish:
+    attributes:
+      release: release-only
+    label: "Build publish task"
+    description: "Publish build artifacts"
+    worker-type: b-linux
+    worker:
+      chain-of-trust: true
+      docker-image: { in-tree: linux }
+      max-run-time: 1800
+      env: {}
+    run:
+        using: run-commands

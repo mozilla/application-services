@@ -20,8 +20,8 @@ transforms:
 tasks:
   deps_complete:
     attributes:
-      nightly: nightly-only
-    label: "Nightly build summary task"
-    description: "Summary task for the nightly build that reports failures."
+      release: release-only
+    label: "Build summary task"
+    description: "Summary task for the nightly/release builds that reports failures."
     alerts:
       slack-channel: CKL0LGV9B
