@@ -2,6 +2,8 @@
 // License, v. 2.0. If a copy of the MPL was not distributed with this
 // file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
+use std::path::PathBuf;
+
 use clap::{Parser, Subcommand};
 
 #[derive(Parser)]
@@ -28,6 +30,12 @@ pub(crate) struct Cli {
 
 #[derive(Subcommand, Clone)]
 pub(crate) enum CliCommand {
+    /// Capture the logs into a file.
+    CaptureLogs {
+        /// The file to put the logs.
+        file: PathBuf,
+    },
+
     /// Enroll into an experiment or a rollout.
     ///
     /// The experiment slug is a combination of the actual slug, and the server it came from.

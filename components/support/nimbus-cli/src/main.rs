@@ -8,7 +8,10 @@ mod value_utils;
 
 use clap::Parser;
 use cli::{Cli, CliCommand};
-use std::{ffi::OsString, path::Path};
+use std::{
+    ffi::OsString,
+    path::{Path, PathBuf},
+};
 
 use anyhow::{bail, Result};
 // use clap::{load_yaml, App, ArgMatches};
@@ -141,6 +144,11 @@ impl From<&Cli> for NimbusApp {
 }
 
 enum AppCommand {
+    CaptureLogs {
+        app: LaunchableApp,
+        file: PathBuf,
+    },
+
     Enroll {
         app: LaunchableApp,
         params: NimbusApp,
@@ -178,6 +186,10 @@ impl AppCommand {
         let app = app.clone();
         let params = NimbusApp::from(cli);
         Ok(match &cli.command {
+            CliCommand::CaptureLogs { file } => AppCommand::CaptureLogs {
+                app,
+                file: file.clone(),
+            },
             CliCommand::Enroll {
                 experiment,
                 branch,
