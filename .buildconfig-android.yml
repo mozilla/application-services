@@ -1,4 +1,4 @@
-libraryVersion: 114.0a1
+libraryVersion: '114.0'
 groupId: org.mozilla.appservices
 projects:
   autofill:
