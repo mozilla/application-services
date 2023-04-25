@@ -1,6 +1,10 @@
-# v114.0 (In progress)
+# v115.0 (In progress)
 
 [Full Changelog](In progress)
+
+# v114.0 (_2023-04-25_)
+
+[Full Changelog](https://github.com/mozilla/application-services/compare/fake-v113.0...fake-v114.0)
 
 ## General
 
