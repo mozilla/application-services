@@ -164,6 +164,10 @@ enum AppCommand {
         app: LaunchableApp,
     },
 
+    TailLogs {
+        app: LaunchableApp,
+    },
+
     Unenroll {
         app: LaunchableApp,
     },
@@ -202,6 +206,7 @@ impl AppCommand {
                 AppCommand::List { params, list }
             }
             CliCommand::ResetApp => AppCommand::Reset { app },
+            CliCommand::TailLogs => AppCommand::TailLogs { app },
             CliCommand::Unenroll => AppCommand::Unenroll { app },
         })
     }
@@ -209,7 +214,7 @@ impl AppCommand {
 
 impl AppCommand {
     fn should_kill(&self) -> bool {
-        !matches!(self, AppCommand::List { .. })
+        !matches!(self, AppCommand::List { .. }) && !matches!(self, AppCommand::TailLogs { .. })
     }
 
     fn should_reset(&self) -> bool {

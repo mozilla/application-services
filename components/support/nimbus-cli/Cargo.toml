@@ -16,3 +16,4 @@ thiserror = "1.0.29"
 unicode-segmentation = "1.8.0"
 viaduct-reqwest = { path = "../viaduct-reqwest" }
 console = "0.15.5"
+glob = "0.3.1"
