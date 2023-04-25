@@ -68,6 +68,9 @@ pub(crate) enum CliCommand {
     /// Reset the app back to its just installed state
     ResetApp,
 
+    /// Follow the logs for the given app.
+    TailLogs,
+
     /// Unenroll from all experiments and rollouts
     Unenroll,
 }

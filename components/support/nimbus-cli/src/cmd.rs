@@ -31,6 +31,7 @@ pub(crate) fn process_cmd(cmd: &AppCommand) -> Result<bool> {
         AppCommand::Kill { app } => app.kill_app()?,
         AppCommand::List { params, list } => list.ls(params)?,
         AppCommand::Reset { app } => app.reset_app()?,
+        AppCommand::TailLogs { app } => app.tail_logs()?,
         AppCommand::Unenroll { app } => app.unenroll_all()?,
     };
 
@@ -109,6 +110,45 @@ impl LaunchableApp {
                 let groups = self.ios_app_container("groups")?;
                 self.ios_reset(data, groups)?;
                 true
+            }
+        })
+    }
+
+    fn tail_logs(&self) -> Result<bool> {
+        let term = Term::stdout();
+        Ok(match self {
+            Self::Android { .. } => {
+                // let sh = format!("logcat --pid=$(pidof -s {})", package_name);
+                let sh = "logcat";
+                prompt(&term, &format!("adb shell '{}'", sh))?;
+                self.exe()?.arg("shell").arg(sh).spawn()?.wait()?.success()
+            }
+            Self::Ios {
+                app_id, device_id, ..
+            } => {
+                prompt(
+                    &term,
+                    &format!(
+                        "find $(xcrun simctl get_app_container {0} {1} data) -name \\*.log | xargs tail -f",
+                        device_id, app_id,
+                    ),
+                )?;
+
+                let data = self.ios_app_container("data")?;
+                let mut files = glob::glob(&format!("{}/**/*.log", data))?;
+                let log = files.next();
+                let log = log.ok_or_else(|| {
+                    anyhow::Error::msg(
+                        "Logs are not available before the app is started for the first time",
+                    )
+                })??;
+
+                Command::new("tail")
+                    .arg("-f")
+                    .arg(log.canonicalize()?.as_path().as_os_str().to_str().unwrap())
+                    .spawn()?
+                    .wait()?
+                    .success()
             }
         })
     }
