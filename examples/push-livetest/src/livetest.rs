@@ -57,7 +57,7 @@ fn test_live_server() {
 
     // the list of known channels should come from whatever is
     // holding the index of channels to recipient applications.
-    println!("Verify: {:?}", pm.verify_connection().unwrap());
+    println!("Verify: {:?}", pm.verify_connection(true).unwrap());
 
     // Unsubscribe all channels.
     pm.unsubscribe_all().unwrap();

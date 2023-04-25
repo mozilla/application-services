@@ -2,7 +2,26 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
+use error_support::{ErrorHandling, GetErrorHandling};
+
 pub type Result<T, E = PushError> = std::result::Result<T, E>;
+
+pub type ApiResult<T, E = PushApiError> = std::result::Result<T, E>;
+
+#[derive(Debug, thiserror::Error)]
+pub enum PushApiError {
+    /// The UAID was not recognized by the server
+    #[error("Unrecognized UAID: {0}")]
+    UAIDNotRecognizedError(String),
+
+    /// Record not found for the given chid
+    #[error("No record for chid {0}")]
+    RecordNotFoundError(String),
+
+    /// Internal Error
+    #[error("Internal Error: {0}")]
+    InternalError(String),
+}
 
 #[derive(Debug, thiserror::Error)]
 pub enum PushError {
@@ -35,9 +54,6 @@ pub enum PushError {
     /// A failure to encode data to/from storage.
     #[error("Error executing SQL: {0}")]
     StorageSqlError(#[from] rusqlite::Error),
-
-    #[error("Missing Registration Token")]
-    MissingRegistrationTokenError,
 
     #[error("Transcoding Error: {0}")]
     TranscodingError(String),
@@ -78,5 +94,23 @@ impl From<base64::DecodeError> for PushError {
 impl From<rc_crypto::ece::Error> for PushError {
     fn from(value: rc_crypto::ece::Error) -> Self {
         PushError::CryptoError(value.to_string())
+    }
+}
+
+impl GetErrorHandling for PushError {
+    type ExternalError = PushApiError;
+
+    fn get_error_handling(&self) -> error_support::ErrorHandling<Self::ExternalError> {
+        match self {
+            Self::UAIDNotRecognizedError(s) => {
+                ErrorHandling::convert(PushApiError::UAIDNotRecognizedError(s.clone()))
+                    .report_error("uaid-not-recognized")
+            }
+            Self::RecordNotFoundError(s) => {
+                ErrorHandling::convert(PushApiError::RecordNotFoundError(s.clone()))
+            }
+
+            _ => ErrorHandling::convert(PushApiError::InternalError(self.to_string())),
+        }
     }
 }
