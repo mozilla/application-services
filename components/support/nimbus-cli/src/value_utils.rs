@@ -96,7 +96,7 @@ pub(crate) fn prepare_experiment(
 ) -> Result<Value> {
     let mut experiment = experiment.clone();
     experiment.set("channel", channel)?;
-
+    experiment.set("isEnrollmentPaused", false)?;
     if !preserve_targeting {
         experiment.set("targeting", "true")?;
     }
@@ -190,6 +190,7 @@ mod tests {
                     "start": 0,
                     "count": 10_000,
                 },
+                "isEnrollmentPaused": false,
                 "targeting": "true"
             }),
             prepare_experiment(&src, "a-name", "developer", "a-branch", false, false)?
@@ -209,6 +210,7 @@ mod tests {
                 ],
                 "bucketConfig": {
                 },
+                "isEnrollmentPaused": false,
                 "targeting": "true"
             }),
             prepare_experiment(&src, "a-name", "developer", "a-branch", false, true)?
@@ -232,6 +234,7 @@ mod tests {
                     "start": 0,
                     "count": 10_000,
                 },
+                "isEnrollmentPaused": false,
             }),
             prepare_experiment(&src, "a-name", "developer", "a-branch", true, false)?
         );
@@ -249,7 +252,8 @@ mod tests {
                     }
                 ],
                 "bucketConfig": {
-                }
+                },
+                "isEnrollmentPaused": false,
             }),
             prepare_experiment(&src, "a-name", "developer", "a-branch", true, true)?
         );
