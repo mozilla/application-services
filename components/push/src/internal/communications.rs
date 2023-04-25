@@ -215,7 +215,7 @@ impl ConnectHttp {
         // https://autopush.readthedocs.io/en/latest/http.html#response
         #[derive(Deserialize)]
         struct ResponseError {
-            pub errno: u32,
+            pub errno: Option<u32>,
             pub message: String,
         }
         if response.is_server_error() {
@@ -230,7 +230,8 @@ impl ConnectHttp {
             if response.status == status_codes::CONFLICT {
                 return Err(AlreadyRegisteredError);
             }
-            if response.status == status_codes::GONE && response_error.errno == UAID_NOT_FOUND_ERRNO
+            if response.status == status_codes::GONE
+                && matches!(response_error.errno, Some(UAID_NOT_FOUND_ERRNO))
             {
                 return Err(UAIDNotRecognizedError(response_error.message));
             }

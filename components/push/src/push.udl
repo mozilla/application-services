@@ -26,7 +26,7 @@ interface PushManager {
     // Returns an error in the following cases:
     //   - PushManager is unable to open the `database_path` given
     //   - PushManager is unable to establish a connection to the autopush server
-    [Throws=PushError]
+    [Throws=PushApiError]
     constructor(PushConfiguration config);
 
     // Subscribes to a new channel and gets the Subscription Info block
@@ -47,7 +47,7 @@ interface PushManager {
     //   - PushManager was unable to access its persisted storage
     //   - An error occurred sending a subscription request to the autopush server
     //   - An error occurred generating or deserializing the cryptographic keys
-    [Throws=PushError]
+    [Throws=PushApiError]
     SubscriptionResponse subscribe([ByRef] optional string channel_id = "", [ByRef] optional string scope = "",[ByRef] optional string? app_server_sey = null);
 
     // Unsubscribe from given channelID, ending that subscription for the user.
@@ -63,8 +63,8 @@ interface PushManager {
     //   - The PushManager does not contain a valid UAID
     //   - An error occurred sending an unsubscribe request to the autopush server
     //   - An error occurred accessing the PushManager's persisted storage
-    [Throws=PushError]
-    boolean unsubscribe([ByRef] string channel_id);
+    [Throws=PushApiError]
+    void unsubscribe([ByRef] string channel_id);
 
     // Unsubscribe all channels for the user
     //
@@ -73,7 +73,7 @@ interface PushManager {
     //   - The PushManager does not contain a valid UAID
     //   - An error occurred sending an unsubscribe request to the autopush server
     //   - An error occurred accessing the PushManager's persisted storage
-    [Throws=PushError]
+    [Throws=PushApiError]
     void unsubscribe_all();
 
     // Updates the Native OS push registration ID.
@@ -93,7 +93,7 @@ interface PushManager {
     //   - The PushManager does not contain a valid UAID
     //   - An error occurred sending an update request to the autopush server
     //   - An error occurred accessing the PushManager's persisted storage
-    [Throws=PushError]
+    [Throws=PushApiError]
     void update([ByRef] string registration_token);
 
     // Verifies the connection state
@@ -113,8 +113,8 @@ interface PushManager {
     //   - The PushManager does not contain a valid UAID
     //   - An error occurred sending an channel list retrieval request to the autopush server
     //   - An error occurred accessing the PushManager's persisted storage
-    [Throws=PushError]
-    sequence<PushSubscriptionChanged> verify_connection();
+    [Throws=PushApiError]
+    sequence<PushSubscriptionChanged> verify_connection(optional boolean force_verify = false);
 
     // Decrypts a raw push message.
     //
@@ -135,7 +135,7 @@ interface PushManager {
     //   - There are no records associated with the UAID the [`PushManager`] contains
     //   - An error occurred while decrypting the message
     //   - An error occurred accessing the PushManager's persisted storage
-    [Throws=PushError]
+    [Throws=PushApiError]
     sequence<i8> decrypt([ByRef] string channel_id, [ByRef] string body, [ByRef] optional string encoding = "aes128gcm", [ByRef] optional string salt = "", [ByRef] optional string dh = "");
 
     // Get the dispatch info for a given subscription channel
@@ -149,7 +149,7 @@ interface PushManager {
     // # Errors
     // Returns an error in the following cases:
     //   - An error occurred accessing the persisted storage
-    [Throws=PushError]
+    [Throws=PushApiError]
     DispatchInfo? dispatch_info_for_chid([ByRef] string channel_id);
 };
 
@@ -191,51 +191,12 @@ dictionary PushSubscriptionChanged {
 // The main Error returned from the Push component, each
 // variant describes a different error
 [Error]
-enum PushError {
-    // An unspecified general error has occured
-    "GeneralError",
-
-    // A Client communication error
-    "CryptoError",
-
-    // An error returned from the registration Server
-    "CommunicationError",
-
-    // Channel is already registered, generate new channelID
-    "CommunicationServerError",
-
-    // Channel is already registered, generate new channelID
-    "AlreadyRegisteredError",
-
-    // An error with Storage
-    "StorageError",
-
-    // Record for uaid:chid pair not found
-    "RecordNotFoundError",
-
-    // A failure to encode data to/from storage.
-    "StorageSqlError",
-
-    // Registration token is missing,
-    "MissingRegistrationTokenError",
-
-    // Error occurred while transcoding
-    "TranscodingError",
-
-    // A failure to parse a URL.
-    "UrlParseError",
-
-    // A failure deserializing json.
-    "JSONDeserializeError",
-
-    // The UAID was not recognized by the server
+enum PushApiError {
     "UAIDNotRecognizedError",
 
-    // Was unable to send request to server
-    "RequestError",
+    "RecordNotFoundError",
 
-    // Error opening/initializing the database
-    "OpenDatabaseError"
+    "InternalError"
 };
 
 // The types of supported native bridges.

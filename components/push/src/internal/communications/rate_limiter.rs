@@ -27,7 +27,7 @@ impl PersistedRateLimiter {
     }
 
     pub fn check<S: Storage>(&self, store: &S) -> bool {
-        let (mut timestamp, mut count) = self.get_counters(store);
+        let (mut timestamp, mut count) = self.impl_get_counters(store);
 
         let now = now_secs();
         if (now - timestamp) >= self.periodic_interval {
@@ -48,7 +48,7 @@ impl PersistedRateLimiter {
         }
 
         count += 1;
-        self.persist_counters(store, timestamp, count);
+        self.impl_persist_counters(store, timestamp, count);
 
         // within interval counter
         if count > self.max_requests_in_interval {
@@ -66,6 +66,10 @@ impl PersistedRateLimiter {
         true
     }
 
+    pub fn reset<S: Storage>(&self, store: &S) {
+        self.impl_persist_counters(store, now_secs(), 0)
+    }
+
     fn db_meta_keys(&self) -> (String, String) {
         (
             format!("ratelimit_{}_timestamp", &self.op_name),
@@ -73,12 +77,17 @@ impl PersistedRateLimiter {
         )
     }
 
-    fn get_counters<S: Storage>(&self, store: &S) -> (u64, u16) {
+    fn impl_get_counters<S: Storage>(&self, store: &S) -> (u64, u16) {
         let (timestamp_key, count_key) = self.db_meta_keys();
         (
             Self::get_meta_integer(store, &timestamp_key),
             Self::get_meta_integer(store, &count_key),
         )
+    }
+
+    #[cfg(test)]
+    pub(crate) fn get_counters<S: Storage>(&self, store: &S) -> (u64, u16) {
+        self.impl_get_counters(store)
     }
 
     fn get_meta_integer<S: Storage, T: FromStr + Default>(store: &S, key: &str) -> T {
@@ -93,13 +102,18 @@ impl PersistedRateLimiter {
             .unwrap_or_default()
     }
 
-    fn persist_counters<S: Storage>(&self, store: &S, timestamp: u64, count: u16) {
+    fn impl_persist_counters<S: Storage>(&self, store: &S, timestamp: u64, count: u16) {
         let (timestamp_key, count_key) = self.db_meta_keys();
         let r1 = store.set_meta(&timestamp_key, &timestamp.to_string());
         let r2 = store.set_meta(&count_key, &count.to_string());
         if r1.is_err() || r2.is_err() {
             log::warn!("Error updating persisted counters for {}.", &self.op_name);
         }
+    }
+
+    #[cfg(test)]
+    pub(crate) fn persist_counters<S: Storage>(&self, store: &S, timestamp: u64, count: u16) {
+        self.impl_persist_counters(store, timestamp, count)
     }
 }
 
@@ -124,8 +138,8 @@ mod test {
     fn test_persisted_rate_limiter_store_counters_roundtrip() -> Result<()> {
         let limiter = PersistedRateLimiter::new("op1", PERIODIC_INTERVAL, MAX_REQUESTS);
         let store = Store::open_in_memory()?;
-        limiter.persist_counters(&store, 123, 321);
-        assert_eq!((123, 321), limiter.get_counters(&store));
+        limiter.impl_persist_counters(&store, 123, 321);
+        assert_eq!((123, 321), limiter.impl_get_counters(&store));
         Ok(())
     }
 
@@ -133,9 +147,9 @@ mod test {
     fn test_persisted_rate_limiter_after_interval_counter_resets() -> Result<()> {
         let limiter = PersistedRateLimiter::new("op1", PERIODIC_INTERVAL, MAX_REQUESTS);
         let store = Store::open_in_memory()?;
-        limiter.persist_counters(&store, now_secs() - VERIFY_NOW_INTERVAL, 50);
+        limiter.impl_persist_counters(&store, now_secs() - VERIFY_NOW_INTERVAL, 50);
         assert!(limiter.check(&store));
-        assert_eq!(1, limiter.get_counters(&store).1);
+        assert_eq!(1, limiter.impl_get_counters(&store).1);
         Ok(())
     }
 
@@ -143,9 +157,9 @@ mod test {
     fn test_persisted_rate_limiter_false_above_rate_limit() -> Result<()> {
         let limiter = PersistedRateLimiter::new("op1", PERIODIC_INTERVAL, MAX_REQUESTS);
         let store = Store::open_in_memory()?;
-        limiter.persist_counters(&store, now_secs(), MAX_REQUESTS + 1);
+        limiter.impl_persist_counters(&store, now_secs(), MAX_REQUESTS + 1);
         assert!(!limiter.check(&store));
-        assert_eq!(MAX_REQUESTS + 2, limiter.get_counters(&store).1);
+        assert_eq!(MAX_REQUESTS + 2, limiter.impl_get_counters(&store).1);
         Ok(())
     }
 
@@ -153,9 +167,9 @@ mod test {
     fn test_persisted_rate_limiter_reset_above_rate_limit_and_interval() -> Result<()> {
         let limiter = PersistedRateLimiter::new("op1", PERIODIC_INTERVAL, MAX_REQUESTS);
         let store = Store::open_in_memory()?;
-        limiter.persist_counters(&store, now_secs() - VERIFY_NOW_INTERVAL, 501);
+        limiter.impl_persist_counters(&store, now_secs() - VERIFY_NOW_INTERVAL, 501);
         assert!(limiter.check(&store));
-        assert_eq!(1, limiter.get_counters(&store).1);
+        assert_eq!(1, limiter.impl_get_counters(&store).1);
         Ok(())
     }
 

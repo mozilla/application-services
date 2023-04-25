@@ -185,13 +185,13 @@ uniffi::include_scaffolding!("push");
 mod internal;
 use std::sync::Mutex;
 mod error;
-use error::*;
 
+use error_support::handle_error;
 use internal::communications::ConnectHttp;
 pub use internal::config::{BridgeType, Protocol as PushHttpProtocol, PushConfiguration};
 use internal::crypto::Crypto;
 
-pub use error::PushError;
+pub use error::{ApiResult, PushApiError, PushError};
 use internal::storage::Store;
 
 /// Object representing the PushManager used to manage subscriptions
@@ -219,7 +219,8 @@ impl PushManager {
     /// Returns an error in the following cases:
     ///   - PushManager is unable to open the `database_path` given
     ///   - PushManager is unable to establish a connection to the autopush server
-    pub fn new(config: PushConfiguration) -> Result<Self> {
+    #[handle_error(PushError)]
+    pub fn new(config: PushConfiguration) -> ApiResult<Self> {
         log::debug!(
             "PushManager server_host: {}, http_protocol: {}",
             config.server_host,
@@ -248,12 +249,13 @@ impl PushManager {
     ///   - PushManager was unable to access its persisted storage
     ///   - An error occurred sending a subscription request to the autopush server
     ///   - An error occurred generating or deserializing the cryptographic keys
+    #[handle_error(PushError)]
     pub fn subscribe(
         &self,
         channel_id: &str,
         scope: &str,
         server_key: &Option<String>,
-    ) -> Result<SubscriptionResponse> {
+    ) -> ApiResult<SubscriptionResponse> {
         self.internal
             .lock()
             .unwrap()
@@ -273,7 +275,8 @@ impl PushManager {
     ///   - The PushManager does not contain a valid UAID
     ///   - An error occurred sending an unsubscribe request to the autopush server
     ///   - An error occurred accessing the PushManager's persisted storage
-    pub fn unsubscribe(&self, channel_id: &str) -> Result<bool> {
+    #[handle_error(PushError)]
+    pub fn unsubscribe(&self, channel_id: &str) -> ApiResult<()> {
         self.internal.lock().unwrap().unsubscribe(channel_id)
     }
 
@@ -284,7 +287,8 @@ impl PushManager {
     ///   - The PushManager does not contain a valid UAID
     ///   - An error occurred sending an unsubscribe request to the autopush server
     ///   - An error occurred accessing the PushManager's persisted storage
-    pub fn unsubscribe_all(&self) -> Result<()> {
+    #[handle_error(PushError)]
+    pub fn unsubscribe_all(&self) -> ApiResult<()> {
         self.internal.lock().unwrap().unsubscribe_all()
     }
 
@@ -297,7 +301,8 @@ impl PushManager {
     ///   - The PushManager does not contain a valid UAID
     ///   - An error occurred sending an update request to the autopush server
     ///   - An error occurred accessing the PushManager's persisted storage
-    pub fn update(&self, new_token: &str) -> Result<()> {
+    #[handle_error(PushError)]
+    pub fn update(&self, new_token: &str) -> ApiResult<()> {
         self.internal.lock().unwrap().update(new_token)
     }
 
@@ -306,6 +311,9 @@ impl PushManager {
     /// **NOTE**: This does not resubscribe to any channels
     /// it only returns the list of channels that the client should
     /// re-subscribe to.
+    ///
+    /// # Arguments
+    ///   - `force_verify`: Force verification and ignore the rate limiter
     ///
     /// # Returns
     /// Returns a list of [`PushSubscriptionChanged`]
@@ -318,8 +326,12 @@ impl PushManager {
     ///   - The PushManager does not contain a valid UAID
     ///   - An error occurred sending an channel list retrieval request to the autopush server
     ///   - An error occurred accessing the PushManager's persisted storage
-    pub fn verify_connection(&self) -> Result<Vec<PushSubscriptionChanged>> {
-        self.internal.lock().unwrap().verify_connection()
+    #[handle_error(PushError)]
+    pub fn verify_connection(&self, force_verify: bool) -> ApiResult<Vec<PushSubscriptionChanged>> {
+        self.internal
+            .lock()
+            .unwrap()
+            .verify_connection(force_verify)
     }
 
     /// Decrypts a raw push message.
@@ -343,6 +355,7 @@ impl PushManager {
     ///   - There are no records associated with the UAID the [`PushManager`] contains
     ///   - An error occurred while decrypting the message
     ///   - An error occurred accessing the PushManager's persisted storage
+    #[handle_error(PushError)]
     pub fn decrypt(
         &self,
         channel_id: &str,
@@ -350,7 +363,7 @@ impl PushManager {
         encoding: &str,
         salt: &str,
         dh: &str,
-    ) -> Result<Vec<i8>> {
+    ) -> ApiResult<Vec<i8>> {
         let decrypted = self
             .internal
             .lock()
@@ -373,7 +386,8 @@ impl PushManager {
     /// # Errors
     /// Returns an error in the following cases:
     ///   - An error occurred accessing the persisted storage
-    pub fn dispatch_info_for_chid(&self, channel_id: &str) -> Result<Option<DispatchInfo>> {
+    #[handle_error(PushError)]
+    pub fn dispatch_info_for_chid(&self, channel_id: &str) -> ApiResult<Option<DispatchInfo>> {
         self.internal.lock().unwrap().get_record_by_chid(channel_id)
     }
 }

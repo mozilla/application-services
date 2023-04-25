@@ -145,29 +145,27 @@ impl<Co: Connection, Cr: Cryptography, S: Storage> PushManager<Co, Cr, S> {
             .ok_or_else(|| PushError::CommunicationError("No native id".to_string()))?
             .clone();
 
-        if let (Some(uaid), Some(auth)) = (&self.uaid, &self.auth) {
-            self.subscribe_with_uaid(channel_id, scope, uaid, auth, &registration_id, server_key)
+        let subscription_response =
+            self.impl_subscribe(channel_id, scope, &registration_id, server_key);
+
+        if matches!(
+            subscription_response,
+            Err(PushError::AlreadyRegisteredError)
+        ) {
+            // somehow the server thinks we're registered, but we don't have the
+            // record locally. So, we unsubscribe from the server, then try to re-subscribe
+            self.unsubscribe(channel_id)?;
+            self.impl_subscribe(channel_id, scope, &registration_id, server_key)
         } else {
-            self.register(channel_id, scope, &registration_id, server_key)
+            subscription_response
         }
     }
 
-    pub fn unsubscribe(&mut self, channel_id: &str) -> Result<bool> {
-        // TODO(teshaq): This should throw an error instead of return false
-        // keeping this as false in the meantime while uniffing to not change behavior
-        // markh: both branches below are broken in our v3 schema - someone may have subscribed,
-        // we then discover the server lost our subs (causing us to delete the world), and the
-        // consumer then tries to unsubscribe. The consumer hasn't done anything wrong! We should
-        // store "requested subscriptions" separately from "actual subscriptions" and this dilemma
-        // would go away - it's an error to unsubscribe from something never subscribed to, but
-        // not because we lost it!
-        if channel_id.is_empty() {
-            return Ok(false);
-        }
-
+    pub fn unsubscribe(&mut self, channel_id: &str) -> Result<()> {
         let (uaid, auth) = self.ensure_auth_pair()?;
         self.connection.unsubscribe(channel_id, uaid, auth)?;
-        self.store.delete_record(channel_id)
+        self.store.delete_record(channel_id)?;
+        Ok(())
     }
 
     pub fn unsubscribe_all(&mut self) -> Result<()> {
@@ -220,7 +218,13 @@ impl<Co: Connection, Cr: Cryptography, S: Storage> PushManager<Co, Cr, S> {
         Ok(())
     }
 
-    pub fn verify_connection(&mut self) -> Result<Vec<PushSubscriptionChanged>> {
+    pub fn verify_connection(
+        &mut self,
+        force_verify: bool,
+    ) -> Result<Vec<PushSubscriptionChanged>> {
+        if force_verify {
+            self.verify_connection_rate_limiter.reset(&self.store);
+        }
         if !self.verify_connection_rate_limiter.check(&self.store) {
             return Ok(vec![]);
         }
@@ -290,6 +294,20 @@ impl<Co: Connection, Cr: Cryptography, S: Storage> PushManager<Co, Cr, S> {
         self.auth = None;
         self.uaid = None;
         Ok(())
+    }
+
+    fn impl_subscribe(
+        &mut self,
+        channel_id: &str,
+        scope: &str,
+        registration_id: &str,
+        server_key: Option<&str>,
+    ) -> error::Result<SubscriptionResponse> {
+        if let (Some(uaid), Some(auth)) = (&self.uaid, &self.auth) {
+            self.subscribe_with_uaid(channel_id, scope, uaid, auth, registration_id, server_key)
+        } else {
+            self.register(channel_id, scope, registration_id, server_key)
+        }
     }
 
     fn subscribe_with_uaid(
@@ -404,6 +422,8 @@ mod test {
     const PUB_KEY_RAW: &str =
         "BBcJdfs1GtMyymFTtty6lIGWRFXrEtJP40Df0gOvRDR4D8CKVgqE6vlYR7tCYksIRdKD1MxDPhQVmKLnzuife50";
 
+    const ONE_DAY_AND_ONE_SECOND: u64 = (24 * 60 * 60) + 1;
+
     fn get_test_manager() -> Result<PushManager<MockConnection, MockCryptography, Store>> {
         let test_config = PushConfiguration {
             sender_id: "test".to_owned(),
@@ -469,9 +489,9 @@ mod test {
             .times(1)
             .returning(|_, _| Ok(()));
 
-        assert!(pm.unsubscribe(TEST_CHANNEL_ID)?);
-        // // It's already deleted, so return false.
-        assert!(!pm.unsubscribe(TEST_CHANNEL_ID)?);
+        pm.unsubscribe(TEST_CHANNEL_ID)?;
+        // // It's already deleted, we still return an OK
+        pm.unsubscribe(TEST_CHANNEL_ID)?;
         pm.unsubscribe_all()?;
         Ok(())
     }
@@ -748,7 +768,7 @@ mod test {
             pm.store.get_record(TEST_CHANNEL_ID)?.unwrap().channel_id,
             TEST_CHANNEL_ID
         );
-        let unsubscribed_channels = pm.verify_connection()?;
+        let unsubscribed_channels = pm.verify_connection(false)?;
         assert_eq!(unsubscribed_channels.len(), 1);
         assert_eq!(unsubscribed_channels[0].channel_id, TEST_CHANNEL_ID);
         // since verify_connection failed,
@@ -820,7 +840,7 @@ mod test {
             pm.store.get_record(TEST_CHANNEL_ID)?.unwrap().channel_id,
             TEST_CHANNEL_ID
         );
-        let unsubscribed_channels = pm.verify_connection()?;
+        let unsubscribed_channels = pm.verify_connection(false)?;
         assert_eq!(unsubscribed_channels.len(), 1);
         assert_eq!(unsubscribed_channels[0].channel_id, TEST_CHANNEL_ID);
         // since verify_connection failed,
@@ -881,7 +901,7 @@ mod test {
             pm.store.get_record(TEST_CHANNEL_ID)?.unwrap().channel_id,
             TEST_CHANNEL_ID
         );
-        let err = pm.verify_connection().unwrap_err();
+        let err = pm.verify_connection(false).unwrap_err();
 
         // the same error got propagated
         assert!(matches!(err, PushError::CommunicationError(_)));
@@ -950,6 +970,158 @@ mod test {
             resp_2.subscription_info.endpoint,
             "https://example.com/different-dummy-endpoint"
         );
+        Ok(())
+    }
+
+    #[test]
+    fn test_server_returns_already_registered() -> Result<()> {
+        let _m = get_lock(&MTX);
+        let ctx = MockConnection::connect_context();
+        ctx.expect().returning(|_| Default::default());
+
+        let mut pm = get_test_manager()?;
+        pm.connection
+            .expect_register()
+            .with(eq(TEST_CHANNEL_ID), eq("native-id"), eq(None))
+            .times(1)
+            .returning(|_, _, _| {
+                Ok(RegisterResponse {
+                    uaid: TEST_UAID.to_string(),
+                    channel_id: TEST_CHANNEL_ID.to_string(),
+                    secret: TEST_AUTH.to_string(),
+                    endpoint: "https://example.com/dummy-endpoint".to_string(),
+                    sender_id: Some("test".to_string()),
+                })
+            });
+
+        pm.connection
+            .expect_subscribe()
+            .with(
+                eq(TEST_CHANNEL_ID),
+                eq(TEST_UAID),
+                eq(TEST_AUTH),
+                eq("native-id"),
+                eq(None),
+            )
+            .times(1)
+            .returning(|_, _, _, _, _| Err(PushError::AlreadyRegisteredError));
+        pm.connection
+            .expect_subscribe()
+            .with(
+                eq(TEST_CHANNEL_ID),
+                eq(TEST_UAID),
+                eq(TEST_AUTH),
+                eq("native-id"),
+                eq(None),
+            )
+            .times(1)
+            .returning(|_, _, _, _, _| {
+                Ok(SubscribeResponse {
+                    channel_id: TEST_CHANNEL_ID.to_string(),
+                    endpoint: "https://example.com/different-dummy-endpoint".to_string(),
+                    sender_id: Some("test".to_string()),
+                })
+            });
+
+        pm.connection
+            .expect_unsubscribe()
+            .with(eq(TEST_CHANNEL_ID), eq(TEST_UAID), eq(TEST_AUTH))
+            .times(1)
+            .returning(|_, _, _| Ok(()));
+
+        let crypto_ctx = MockCryptography::generate_key_context();
+        crypto_ctx.expect().returning(|| {
+            let components = EcKeyComponents::new(
+                base64::decode_config(PRIV_KEY_D, base64::URL_SAFE_NO_PAD).unwrap(),
+                base64::decode_config(PUB_KEY_RAW, base64::URL_SAFE_NO_PAD).unwrap(),
+            );
+            let auth = base64::decode_config(TEST_AUTH, base64::URL_SAFE_NO_PAD).unwrap();
+            Ok(Key {
+                p256key: components,
+                auth,
+            })
+        });
+
+        // This call will trigger both registration and caching of the record
+        let resp_1 = pm.subscribe(TEST_CHANNEL_ID, "test-scope", None)?;
+        // We wipe all records to mock the case where the server thinks there is a registration already
+        // that the client lost
+        pm.store.delete_all_records()?;
+        // The call will trigger subscription, and mocks a server returning an `AlreadyRegistered` error
+        let resp_2 = pm.subscribe(TEST_CHANNEL_ID, "test-scope", None)?;
+        assert_eq!(
+            resp_1.subscription_info.endpoint,
+            "https://example.com/dummy-endpoint"
+        );
+        assert_eq!(
+            resp_2.subscription_info.endpoint,
+            "https://example.com/different-dummy-endpoint"
+        );
+        Ok(())
+    }
+
+    #[test]
+    fn test_verify_connection_rate_limiter() -> Result<()> {
+        let _m = get_lock(&MTX);
+        let ctx = MockConnection::connect_context();
+        ctx.expect().returning(|_| Default::default());
+
+        let mut pm = get_test_manager()?;
+        pm.connection
+            .expect_register()
+            .with(eq(TEST_CHANNEL_ID), eq("native-id"), eq(None))
+            .times(1)
+            .returning(|_, _, _| {
+                Ok(RegisterResponse {
+                    uaid: TEST_UAID.to_string(),
+                    channel_id: TEST_CHANNEL_ID.to_string(),
+                    secret: TEST_AUTH.to_string(),
+                    endpoint: "https://example.com/dummy-endpoint".to_string(),
+                    sender_id: Some("test".to_string()),
+                })
+            });
+        let crypto_ctx = MockCryptography::generate_key_context();
+        crypto_ctx.expect().returning(|| {
+            let components = EcKeyComponents::new(
+                base64::decode_config(PRIV_KEY_D, base64::URL_SAFE_NO_PAD).unwrap(),
+                base64::decode_config(PUB_KEY_RAW, base64::URL_SAFE_NO_PAD).unwrap(),
+            );
+            let auth = base64::decode_config(TEST_AUTH, base64::URL_SAFE_NO_PAD).unwrap();
+            Ok(Key {
+                p256key: components,
+                auth,
+            })
+        });
+        let _ = pm.subscribe(TEST_CHANNEL_ID, "test-scope", None)?;
+        pm.connection
+            .expect_channel_list()
+            .with(eq(TEST_UAID), eq(TEST_AUTH))
+            .times(3)
+            .returning(|_, _| Ok(vec![TEST_CHANNEL_ID.to_string()]));
+        let _ = pm.verify_connection(false)?;
+        let (_, count) = pm.verify_connection_rate_limiter.get_counters(&pm.store);
+        assert_eq!(count, 1);
+        let _ = pm.verify_connection(false)?;
+        let (timestamp, count) = pm.verify_connection_rate_limiter.get_counters(&pm.store);
+
+        assert_eq!(count, 2);
+
+        pm.verify_connection_rate_limiter.persist_counters(
+            &pm.store,
+            timestamp - ONE_DAY_AND_ONE_SECOND,
+            count,
+        );
+
+        let _ = pm.verify_connection(false)?;
+        let (_, count) = pm.verify_connection_rate_limiter.get_counters(&pm.store);
+        assert_eq!(count, 1);
+
+        // Even though a day hasn't passed, we passed `true` to force verify
+        // so the counter is now reset
+        let _ = pm.verify_connection(true)?;
+        let (_, count) = pm.verify_connection_rate_limiter.get_counters(&pm.store);
+        assert_eq!(count, 1);
+
         Ok(())
     }
 }
