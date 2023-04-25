@@ -9,10 +9,11 @@ use crate::{
 use anyhow::{bail, Result};
 use console::Term;
 use serde_json::{json, Value};
-use std::process::Command;
+use std::{path::PathBuf, process::Command};
 
 pub(crate) fn process_cmd(cmd: &AppCommand) -> Result<bool> {
     let status = match cmd {
+        AppCommand::CaptureLogs { app, file } => app.capture_logs(file)?,
         AppCommand::Enroll {
             app,
             params,
@@ -116,41 +117,86 @@ impl LaunchableApp {
 
     fn tail_logs(&self) -> Result<bool> {
         let term = Term::stdout();
+        let _ = term.clear_screen();
         Ok(match self {
             Self::Android { .. } => {
-                // let sh = format!("logcat --pid=$(pidof -s {})", package_name);
-                let sh = "logcat";
-                prompt(&term, &format!("adb shell '{}'", sh))?;
-                self.exe()?.arg("shell").arg(sh).spawn()?.wait()?.success()
+                let mut args = logcat_args();
+                args.append(&mut vec!["-v", "color"]);
+                prompt(&term, &format!("adb {}", args.join(" ")))?;
+                self.exe()?.args(args).spawn()?.wait()?.success()
             }
-            Self::Ios {
-                app_id, device_id, ..
-            } => {
+            Self::Ios { .. } => {
                 prompt(
                     &term,
-                    &format!(
-                        "find $(xcrun simctl get_app_container {0} {1} data) -name \\*.log | xargs tail -f",
-                        device_id, app_id,
-                    ),
+                    &format!("{} | xargs tail -f", self.ios_log_file_command(),),
                 )?;
-
-                let data = self.ios_app_container("data")?;
-                let mut files = glob::glob(&format!("{}/**/*.log", data))?;
-                let log = files.next();
-                let log = log.ok_or_else(|| {
-                    anyhow::Error::msg(
-                        "Logs are not available before the app is started for the first time",
-                    )
-                })??;
+                let log = self.ios_log_file()?;
 
                 Command::new("tail")
                     .arg("-f")
-                    .arg(log.canonicalize()?.as_path().as_os_str().to_str().unwrap())
+                    .arg(log.as_path().to_str().unwrap())
                     .spawn()?
                     .wait()?
                     .success()
             }
         })
+    }
+
+    fn capture_logs(&self, file: &PathBuf) -> Result<bool> {
+        let term = Term::stdout();
+        Ok(match self {
+            Self::Android { .. } => {
+                let mut args = logcat_args();
+                args.append(&mut vec!["-d"]);
+                prompt(
+                    &term,
+                    &format!(
+                        "adb {} > {}",
+                        args.join(" "),
+                        file.as_path().to_str().unwrap()
+                    ),
+                )?;
+                let output = self.exe()?.args(args).output()?;
+                std::fs::write(file, String::from_utf8_lossy(&output.stdout).to_string())?;
+                true
+            }
+
+            Self::Ios { .. } => {
+                let log = self.ios_log_file()?;
+                prompt(
+                    &term,
+                    &format!(
+                        "{} | xargs -J %log_file% cp %log_file% {}",
+                        self.ios_log_file_command(),
+                        file.as_path().to_str().unwrap()
+                    ),
+                )?;
+                std::fs::copy(log, file)?;
+                true
+            }
+        })
+    }
+
+    fn ios_log_file(&self) -> Result<PathBuf> {
+        let data = self.ios_app_container("data")?;
+        let mut files = glob::glob(&format!("{}/**/*.log", data))?;
+        let log = files.next();
+        Ok(log.ok_or_else(|| {
+            anyhow::Error::msg(
+                "Logs are not available before the app is started for the first time",
+            )
+        })??)
+    }
+
+    fn ios_log_file_command(&self) -> String {
+        if let Self::Ios { device_id, app_id } = self {
+            format!(
+                "find $(xcrun simctl get_app_container {0} {1} data) -name \\*.log",
+                device_id, app_id
+            )
+        } else {
+            unreachable!()
+        }
     }
 
     fn enroll(
@@ -273,6 +319,10 @@ impl LaunchableApp {
             unreachable!()
         }
     }
+}
+
+fn logcat_args<'a>() -> Vec<&'a str> {
+    vec!["logcat", "-b", "main"]
 }
 
 impl TryFrom<&ExperimentSource> for Value {
