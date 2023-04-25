@@ -50,5 +50,5 @@ fn encrypt_fields(sec_fields: SecureLoginFields, enc_key: &str) -> ApiResult<Str
 #[handle_error(Error)]
 fn decrypt_fields(sec_fields: String, enc_key: &str) -> ApiResult<SecureLoginFields> {
     let encdec = encryption::EncryptorDecryptor::new(enc_key)?;
-    encdec.decrypt_struct(&sec_fields)
+    SecureLoginFields::decrypt(&sec_fields, &encdec)
 }

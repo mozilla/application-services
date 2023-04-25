@@ -18,6 +18,23 @@ use sync_guid::Guid;
 
 type UnknownFields = serde_json::Map<String, serde_json::Value>;
 
+trait UnknownFieldsExt {
+    fn encrypt(&self, encdec: &EncryptorDecryptor) -> Result<String>;
+    fn decrypt(ciphertext: &str, encdec: &EncryptorDecryptor) -> Result<Self>
+    where
+        Self: Sized;
+}
+
+impl UnknownFieldsExt for UnknownFields {
+    fn encrypt(&self, encdec: &EncryptorDecryptor) -> Result<String> {
+        encdec.encrypt_struct(&self, "encrypt unknown fields")
+    }
+
+    fn decrypt(ciphertext: &str, encdec: &EncryptorDecryptor) -> Result<Self> {
+        encdec.decrypt_struct(ciphertext, "decrypt unknown fields")
+    }
+}
+
 /// What we get from the server after parsing the payload. We need to round-trip "unknown"
 /// fields, but don't want to carry them around in `EncryptedLogin`.
 #[derive(Debug)]
@@ -52,7 +69,7 @@ impl IncomingLogin {
         let unknown = if p.unknown_fields.is_empty() {
             None
         } else {
-            Some(encdec.encrypt_struct(&p.unknown_fields)?)
+            Some(p.unknown_fields.encrypt(encdec)?)
         };
 
         // If we can't fix the parts we keep the invalid bits.
@@ -135,10 +152,10 @@ impl EncryptedLogin {
         enc_unknown_fields: Option<String>,
     ) -> Result<OutgoingBso> {
         let unknown_fields = match enc_unknown_fields {
-            Some(s) => encdec.decrypt_struct::<UnknownFields>(&s)?,
+            Some(s) => UnknownFields::decrypt(&s, encdec)?,
             None => Default::default(),
         };
-        let sec_fields: SecureLoginFields = encdec.decrypt_struct(&self.sec_fields)?;
+        let sec_fields = SecureLoginFields::decrypt(&self.sec_fields, encdec)?;
         Ok(OutgoingBso::from_content_with_id(
             crate::sync::LoginPayload {
                 guid: self.guid(),
@@ -236,7 +253,10 @@ mod tests {
         // re-serialize it.
         let unknown = Some(
             TEST_ENCRYPTOR
-                .encrypt_struct::<UnknownFields>(&payload.unknown_fields)
+                .encrypt_struct::<UnknownFields>(
+                    &payload.unknown_fields,
+                    "test encrypt unknown fields",
+                )
                 .unwrap(),
         );
         let login = IncomingLogin::from_incoming_payload(payload, &TEST_ENCRYPTOR)

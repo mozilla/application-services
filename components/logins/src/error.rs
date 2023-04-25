@@ -9,6 +9,7 @@ pub type ApiResult<T> = std::result::Result<T, LoginsApiError>;
 
 pub use error_support::{breadcrumb, handle_error, report_error};
 use error_support::{ErrorHandling, GetErrorHandling};
+use jwcrypto::EncryptorDecryptorError;
 use sync15::Error as Sync15Error;
 
 // Errors we return via the public interface.
@@ -75,11 +76,8 @@ pub enum Error {
     #[error("Invalid database file: {0}")]
     InvalidDatabaseFile(String),
 
-    #[error("Invalid encryption key")]
-    InvalidKey,
-
-    #[error("Crypto Error: {0}")]
-    CryptoError(#[from] jwcrypto::JwCryptoError),
+    #[error("CryptoError({0})")]
+    CryptoError(#[from] EncryptorDecryptorError),
 
     #[error("{0}")]
     Interrupted(#[from] interrupt_support::Interrupted),
@@ -141,9 +139,8 @@ impl GetErrorHandling for Error {
                 })
                 .report_error("logins-migration")
             }
-            Self::CryptoError(_) => {
-                ErrorHandling::convert(LoginsApiError::IncorrectKey).log_warning()
-            }
+            Self::CryptoError { .. } => ErrorHandling::convert(LoginsApiError::IncorrectKey)
+                .report_error("logins-crypto-error"),
             Self::Interrupted(_) => ErrorHandling::convert(LoginsApiError::Interrupted {
                 reason: self.to_string(),
             }),
