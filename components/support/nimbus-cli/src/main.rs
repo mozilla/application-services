@@ -179,14 +179,13 @@ impl AppCommand {
                 branch,
                 preserve_targeting,
                 preserve_bucketing,
-                reset_app: reset,
+                reset_app,
                 ..
             } => {
                 let experiment = ExperimentSource::try_from(experiment.as_str())?;
                 let branch = branch.to_owned();
                 let preserve_targeting = *preserve_targeting;
                 let preserve_bucketing = *preserve_bucketing;
-                let reset = *reset;
                 Self::Enroll {
                     app,
                     params,
@@ -194,7 +193,7 @@ impl AppCommand {
                     branch,
                     preserve_targeting,
                     preserve_bucketing,
-                    reset_app: reset,
+                    reset_app: *reset_app,
                 }
             }
             CliCommand::List { server } => {
