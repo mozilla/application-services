@@ -78,12 +78,12 @@ class RefNames:
     def __init__(self, major_version_number, minor_version_number):
         major_version_number = int(major_version_number)
         minor_version_number = int(minor_version_number)
-        self.main = "main"
-        self.release = f"release-v{major_version_number}"
-        self.release_pr = f"cut-v{major_version_number}.{minor_version_number}"
-        self.start_release_pr = f"start-release-v{major_version_number+1}"
-        self.version_tag = f"v{major_version_number}.{minor_version_number}"
+        self.main = "fake-main"
+        self.release = f"fake-release-v{major_version_number}"
+        self.release_pr = f"fake-cut-v{major_version_number}.{minor_version_number}"
+        self.start_release_pr = f"fake-start-release-v{major_version_number+1}"
+        self.version_tag = f"fake-v{major_version_number}.{minor_version_number}"
         if minor_version_number == 0:
-            self.previous_version_tag = f"v{major_version_number-1}.0"
+            self.previous_version_tag = f"fake-v{major_version_number-1}.0"
         else:
-            self.previous_version_tag = f"v{major_version_number}.{minor_version_number-1}"
+            self.previous_version_tag = f"fake-v{major_version_number}.{minor_version_number-1}"
