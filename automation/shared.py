@@ -64,3 +64,26 @@ def set_gradle_substitution_path(project_dir, name, value):
     step_msg(f"Setting relative path from {project_dir} to {abs_value} as {relpath}")
     with properties_file.open("a") as f:
         f.write(f"{name}={relpath}\n")
+
+class RefNames:
+    """
+    Contains the branch and tag names we use for automation.
+
+    Attributes:
+        main -- where new development happens
+        release_branch -- contains the code for a given major release
+        release_pr_branch -- Used for PRs against release_branch for a new version
+        start_release_pr_branch -- Used for PRs against main to start a new major release
+    """
+    def __init__(self, major_version_number, minor_version_number):
+        major_version_number = int(major_version_number)
+        minor_version_number = int(minor_version_number)
+        self.main = "main"
+        self.release = f"release-v{major_version_number}"
+        self.release_pr = f"cut-v{major_version_number}.{minor_version_number}"
+        self.start_release_pr = f"start-release-v{major_version_number+1}"
+        self.version_tag = f"v{major_version_number}.{minor_version_number}"
+        if minor_version_number == 0:
+            self.previous_version_tag = f"v{major_version_number-1}.0"
+        else:
+            self.previous_version_tag = f"v{major_version_number}.{minor_version_number-1}"
