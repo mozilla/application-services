@@ -367,7 +367,11 @@ pub struct SecureLoginFields {
 
 impl SecureLoginFields {
     pub fn encrypt(&self, encdec: &EncryptorDecryptor) -> Result<String> {
-        encdec.encrypt_struct(&self)
+        encdec.encrypt_struct(&self, "encrypt SecureLoginFields")
+    }
+
+    pub fn decrypt(ciphertext: &str, encdec: &EncryptorDecryptor) -> Result<Self> {
+        encdec.decrypt_struct(ciphertext, "decrypt SecureLoginFields")
     }
 }
 
@@ -413,7 +417,7 @@ impl Login {
         Ok(EncryptedLogin {
             record: self.record,
             fields: self.fields,
-            sec_fields: encdec.encrypt_struct(&self.sec_fields)?,
+            sec_fields: self.sec_fields.encrypt(encdec)?,
         })
     }
 }
@@ -442,12 +446,12 @@ impl EncryptedLogin {
         Ok(Login {
             record: self.record,
             fields: self.fields,
-            sec_fields: encdec.decrypt_struct(&self.sec_fields)?,
+            sec_fields: SecureLoginFields::decrypt(&self.sec_fields, encdec)?,
         })
     }
 
     pub fn decrypt_fields(&self, encdec: &EncryptorDecryptor) -> Result<SecureLoginFields> {
-        encdec.decrypt_struct(&self.sec_fields)
+        SecureLoginFields::decrypt(&self.sec_fields, encdec)
     }
 
     pub(crate) fn from_row(row: &Row<'_>) -> Result<EncryptedLogin> {
