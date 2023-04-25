@@ -37,7 +37,7 @@ configurations.all { config ->
                     }
 
                     def group = dependency.requested.group
-                    if (group == 'org.mozilla.appservices') {
+                    if (group == 'org.mozilla.appservices' || group == 'org.mozilla.appservices.nightly') {
                         def name = dependency.requested.module
                         dependency.useTarget([group: group, name: name, version: version])
                     }

@@ -16,3 +16,8 @@ linux64-resource-monitor:
     description: "linux64 resourcemonitor toolchain build"
     run:
         arguments: ['linux64']
+
+macosx64-resource-monitor:
+    description: "macos64 resourcemonitor toolchain build"
+    run:
+        arguments: ['macos64']

@@ -19,7 +19,7 @@ use url::Url;
 /// It exposes a "builder api", but for convenience, that API allows Options too.
 /// So, eg, `.with_title(None)` or `with_is_error(None)` is allowed but records
 /// no observation.
-#[derive(Debug)]
+#[derive(Clone, Debug)]
 pub struct VisitObservation {
     pub url: Url,
     pub title: Option<String>,

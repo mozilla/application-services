@@ -8,6 +8,8 @@ use std::time::{SystemTime, UNIX_EPOCH};
 use types::Timestamp;
 
 pub mod engine;
+#[cfg(test)]
+mod payload_evolution_tests;
 mod plan;
 pub mod record;
 

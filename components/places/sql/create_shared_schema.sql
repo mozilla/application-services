@@ -30,6 +30,7 @@ CREATE TABLE IF NOT EXISTS moz_places (
     -- a couple of sync-related fields.
     sync_status TINYINT NOT NULL DEFAULT 1, -- 1 is SyncStatus::New
     sync_change_counter INTEGER NOT NULL DEFAULT 0, -- adding visits will increment this
+    unknown_fields TEXT,
 
     FOREIGN KEY(origin_id) REFERENCES moz_origins(id) ON DELETE CASCADE
 );
@@ -67,6 +68,7 @@ CREATE TABLE IF NOT EXISTS moz_historyvisits (
     visit_date INTEGER NOT NULL,
     visit_type INTEGER NOT NULL,
     -- session INTEGER, -- XXX - what is 'session'? Appears unused.
+    unknown_fields TEXT,
 
     FOREIGN KEY(place_id) REFERENCES moz_places(id) ON DELETE CASCADE,
     FOREIGN KEY(from_visit) REFERENCES moz_historyvisits(id)

@@ -35,6 +35,12 @@ cfg_if::cfg_if! {
 
         pub use crate::nimbus_client::*;
         pub use config::RemoteSettingsConfig;
+    } else {
+        pub mod stateless {
+            pub mod cirrus_client;
+        }
+
+        pub use crate::stateless::cirrus_client::*;
     }
 }
 

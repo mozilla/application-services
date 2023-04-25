@@ -11,7 +11,7 @@ use crate::types::SyncStatus;
 use rusqlite::Connection;
 use sql_support::ConnExt;
 
-pub const VERSION: u32 = 16;
+pub const VERSION: u32 = 17;
 
 // Shared schema and temp tables for the read-write and Sync connections.
 const CREATE_SHARED_SCHEMA_SQL: &str = include_str!("../../sql/create_shared_schema.sql");
@@ -279,6 +279,14 @@ pub fn upgrade_from(db: &Connection, from: u32) -> rusqlite::Result<()> {
             if !db.exists(exists_sql, [])? {
                 db.execute(add_column_sql, [])?;
             }
+        }
+        16 => {
+            // Add the `unknownFields` column for history
+            db.execute("ALTER TABLE moz_places ADD COLUMN unknown_fields TEXT", ())?;
+            db.execute(
+                "ALTER TABLE moz_historyvisits ADD COLUMN unknown_fields TEXT",
+                (),
+            )?;
         }
         // Add more migrations here...
 

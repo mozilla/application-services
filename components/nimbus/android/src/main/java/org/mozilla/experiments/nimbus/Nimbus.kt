@@ -200,6 +200,18 @@ open class Nimbus(
         }
     }
 
+    override fun setFetchEnabled(enabled: Boolean) {
+        fetchScope.launch {
+            withCatchAll("setFetchEnabled") {
+                nimbusClient.setFetchEnabled(enabled)
+            }
+        }
+    }
+
+    override fun isFetchEnabled() = withCatchAll("isFetchEnabled") {
+        nimbusClient.isFetchEnabled()
+    } ?: true
+
     @WorkerThread
     @VisibleForTesting(otherwise = VisibleForTesting.PRIVATE)
     internal fun fetchExperimentsOnThisThread() = withCatchAll("fetchExperiments") {

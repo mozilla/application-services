@@ -17,7 +17,9 @@ use crate::observation::VisitObservation;
 use crate::storage::{
     delete_meta, delete_pending_temp_tables, get_meta, history_metadata, put_meta,
 };
-use crate::types::{SyncStatus, VisitTransition, VisitTransitionSet};
+use crate::types::{
+    serialize_unknown_fields, SyncStatus, UnknownFields, VisitTransition, VisitTransitionSet,
+};
 use actions::*;
 use rusqlite::types::ToSql;
 use rusqlite::Result as RusqliteResult;
@@ -106,7 +108,7 @@ pub fn apply_observation_direct(
 
             let at = visit_ob.at.unwrap_or_else(Timestamp::now);
             let is_remote = visit_ob.is_remote.unwrap_or(false);
-            let row_id = add_visit(db, page_info.row_id, None, at, visit_type, !is_remote)?;
+            let row_id = add_visit(db, page_info.row_id, None, at, visit_type, !is_remote, None)?;
             // a new visit implies new frecency except in error cases.
             if !visit_ob.is_error.unwrap_or(false) {
                 update_frec = true;
@@ -199,10 +201,11 @@ fn add_visit(
     visit_date: Timestamp,
     visit_type: VisitTransition,
     is_local: bool,
+    unknown_fields: Option<String>,
 ) -> Result<RowId> {
     let sql = "INSERT INTO moz_historyvisits
-            (from_visit, place_id, visit_date, visit_type, is_local)
-        VALUES (:from_visit, :page_id, :visit_date, :visit_type, :is_local)";
+            (from_visit, place_id, visit_date, visit_type, is_local, unknown_fields)
+        VALUES (:from_visit, :page_id, :visit_date, :visit_type, :is_local, :unknown_fields)";
     db.execute_cached(
         sql,
         &[
@@ -211,6 +214,7 @@ fn add_visit(
             (":visit_date", &visit_date),
             (":visit_type", &visit_type),
             (":is_local", &is_local),
+            (":unknown_fields", &unknown_fields),
         ],
     )?;
     let rid = db.conn().last_insert_rowid();
@@ -814,6 +818,7 @@ pub mod history_sync {
         pub guid: SyncGuid,
         pub row_id: RowId,
         pub title: String,
+        pub unknown_fields: UnknownFields,
     }
 
     impl FetchedVisitPage {
@@ -823,6 +828,10 @@ pub mod history_sync {
                 guid: row.get::<_, String>("guid")?.into(),
                 row_id: row.get("id")?,
                 title: row.get::<_, Option<String>>("title")?.unwrap_or_default(),
+                unknown_fields: match row.get::<_, Option<String>>("unknown_fields")? {
+                    None => UnknownFields::new(),
+                    Some(v) => serde_json::from_str(&v)?,
+                },
             })
         }
     }
@@ -834,7 +843,7 @@ pub mod history_sync {
     ) -> Result<Option<(FetchedVisitPage, Vec<FetchedVisit>)>> {
         // We do this in 2 steps - "do we have a page" then "get visits"
         let page_sql = "
-          SELECT guid, url, id, title
+          SELECT guid, url, id, title, unknown_fields
           FROM moz_places h
           WHERE url_hash = hash(:url) AND url = :url";
 
@@ -870,6 +879,7 @@ pub mod history_sync {
         url: &Url,
         title: &Option<String>,
         visits: &[HistoryRecordVisit],
+        unknown_fields: &UnknownFields,
     ) -> Result<()> {
         // At some point we may have done a local wipe of all visits. We skip applying
         // incoming visits that could have been part of that deletion, to avoid them
@@ -957,7 +967,15 @@ pub mod history_sync {
                 }
                 let transition = VisitTransition::from_primitive(visit.transition)
                     .expect("these should already be validated");
-                add_visit(db, page_info.row_id, None, timestamp, transition, false)?;
+                add_visit(
+                    db,
+                    page_info.row_id,
+                    None,
+                    timestamp,
+                    transition,
+                    false,
+                    serialize_unknown_fields(&visit.unknown_fields)?,
+                )?;
                 // Make sure that even if a history entry weirdly has the same visit
                 // twice, we don't insert it twice. (This avoids us needing to
                 // recompute visits_to_skip in each step of the iteration)
@@ -977,6 +995,7 @@ pub mod history_sync {
         db.execute_cached(
             "UPDATE moz_places
              SET title = :title,
+                 unknown_fields = :unknown_fields,
                  sync_status = :status,
                  sync_change_counter = :sync_change_counter
              WHERE id == :row_id",
@@ -984,6 +1003,10 @@ pub mod history_sync {
                 (":title", new_title as &dyn rusqlite::ToSql),
                 (":row_id", &page_info.row_id),
                 (":status", &SyncStatus::Normal),
+                (
+                    ":unknown_fields",
+                    &serialize_unknown_fields(unknown_fields)?,
+                ),
                 (
                     ":sync_change_counter",
                     &(page_info.sync_change_counter + counter_incr),
@@ -1030,7 +1053,8 @@ pub mod history_sync {
             SELECT guid, url, id, title, hidden, typed, frecency,
                 visit_count_local, visit_count_remote,
                 last_visit_date_local, last_visit_date_remote,
-                sync_status, sync_change_counter, preview_image_url
+                sync_status, sync_change_counter, preview_image_url,
+                unknown_fields
             FROM moz_places
             WHERE (sync_change_counter > 0 OR sync_status != {}) AND
                   NOT hidden
@@ -1039,7 +1063,7 @@ pub mod history_sync {
             (SyncStatus::Normal as u8)
         );
         let visits_sql = "
-            SELECT visit_date as date, visit_type as transition
+            SELECT visit_date as date, visit_type as transition, unknown_fields
             FROM moz_historyvisits
             WHERE place_id = :place_id
             ORDER BY visit_date DESC
@@ -1105,10 +1129,14 @@ pub mod history_sync {
                     (":max_visits", &(max_visits as u32) as &dyn rusqlite::ToSql),
                     (":place_id", &page.row_id),
                 ],
-                |row| -> RusqliteResult<_> {
+                |row| -> Result<_> {
                     Ok(HistoryRecordVisit {
                         date: row.get::<_, Timestamp>("date")?.into(),
                         transition: row.get::<_, u8>("transition")?,
+                        unknown_fields: match row.get::<_, Option<String>>("unknown_fields")? {
+                            None => UnknownFields::new(),
+                            Some(v) => serde_json::from_str(&v)?,
+                        },
                     })
                 },
             )?;
@@ -1142,6 +1170,7 @@ pub mod history_sync {
                 title: page.title,
                 hist_uri: page.url.to_string(),
                 visits,
+                unknown_fields: page.unknown_fields,
             };
 
             let envelope = OutgoingEnvelope {
@@ -2493,8 +2522,10 @@ mod tests {
                 .map(|&d| HistoryRecordVisit {
                     date: d.into(),
                     transition: VisitTransition::Link as u8,
+                    unknown_fields: UnknownFields::new(),
                 })
                 .collect::<Vec<_>>(),
+            &UnknownFields::new(),
         )
         .unwrap();
 
@@ -2751,13 +2782,16 @@ mod tests {
                     // This should make it in
                     date: Timestamp::now().into(),
                     transition: VisitTransition::Link as u8,
+                    unknown_fields: UnknownFields::new(),
                 },
                 HistoryRecordVisit {
                     // This should not.
                     date: start.into(),
                     transition: VisitTransition::Link as u8,
+                    unknown_fields: UnknownFields::new(),
                 },
             ],
+            &UnknownFields::new(),
         )
         .unwrap();
         assert_eq!(
@@ -2781,7 +2815,9 @@ mod tests {
             &[HistoryRecordVisit {
                 date: start.into(),
                 transition: VisitTransition::Link as u8,
+                unknown_fields: UnknownFields::new(),
             }],
+            &UnknownFields::new(),
         )
         .unwrap();
         // unchanged.

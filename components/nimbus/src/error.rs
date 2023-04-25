@@ -62,6 +62,9 @@ pub enum NimbusError {
     TransformParameterError(String),
     #[error("Error with HTTP client: {0}")]
     ClientError(#[from] rs_client::ClientError),
+    #[cfg(not(feature = "stateful"))]
+    #[error("Error in Cirrus: {0}")]
+    CirrusError(#[from] CirrusClientError),
 }
 
 #[cfg(feature = "stateful")]
@@ -75,6 +78,13 @@ pub enum BehaviorError {
     IntervalParseError(String),
     #[error("The event store is not available on the targeting attributes")]
     MissingEventStore,
+}
+
+#[cfg(not(feature = "stateful"))]
+#[derive(Debug, thiserror::Error)]
+pub enum CirrusClientError {
+    #[error("Request missing parameter: {0}")]
+    RequestMissingParameter(String),
 }
 
 impl<'a> From<jexl_eval::error::EvaluationError<'a>> for NimbusError {

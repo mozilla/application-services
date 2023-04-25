@@ -42,11 +42,30 @@ run_commands_schema = Schema({
     Optional("use-caches"): bool,
     Optional("secrets"): [secret_schema],
     Optional("dummy-secrets"): [dummy_secret_schema],
+    Optional("run-task-command"): [str],
 })
 
 
 @run_job_using("docker-worker", "run-commands", schema=run_commands_schema)
 def configure_run_commands_schema(config, job, taskdesc):
+    run = job["run"]
+    pre_commands = run.pop("pre-commands", [])
+    pre_commands += [
+        _generate_dummy_secret_command(secret) for secret in run.pop("dummy-secrets", [])
+    ]
+    pre_commands += [
+        _generate_secret_command(secret) for secret in run.get("secrets", [])
+    ]
+
+    all_commands = pre_commands + run.pop("commands", [])
+
+    run["command"] = _convert_commands_to_string(all_commands)
+    _inject_secrets_scopes(run, taskdesc)
+    _set_run_task_attributes(job)
+    configure_taskdesc_for_run(config, job, taskdesc, job["worker"]["implementation"])
+
+@run_job_using("generic-worker", "run-commands", schema=run_commands_schema)
+def configure_run_commands_schema_generic(config, job, taskdesc):
     run = job["run"]
     pre_commands = run.pop("pre-commands", [])
     pre_commands += [

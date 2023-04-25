@@ -99,6 +99,24 @@ public protocol NimbusStartup {
     /// - Parameter fileURL the URL of a JSON document in the app `Bundle`.
     ///
     func setExperimentsLocally(_ fileURL: URL)
+
+    /// Enable or disable fetching of experiments.
+    ///
+    /// This is performed on a background thread.
+    ///
+    /// This is only used during QA of the app, and not meant for application developers.
+    /// Application developers should allow users to opt out with `setGlobalUserParticipation`
+    /// instead.
+    ///
+    /// - Parameter enabled
+    func setFetchEnabled(_ enabled: Bool)
+
+    /// The complement for [setFetchEnabled].
+    ///
+    /// This is only used during QA of the app, and not meant for application developers.
+    ///
+    /// - Returns true if fetch is allowed
+    func isFetchEnabled() -> Bool
 }
 
 public protocol NimbusUserConfiguration {

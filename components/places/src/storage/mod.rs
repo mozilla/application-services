@@ -15,7 +15,7 @@ use crate::error::{Error, InvalidPlaceInfo, Result};
 use crate::ffi::HistoryVisitInfo;
 use crate::ffi::TopFrecentSiteInfo;
 use crate::frecency::{calculate_frecency, DEFAULT_FRECENCY_SETTINGS};
-use crate::types::{SyncStatus, VisitTransition};
+use crate::types::{SyncStatus, UnknownFields, VisitTransition};
 use interrupt_support::SqlInterruptScope;
 use rusqlite::types::{FromSql, FromSqlResult, ToSql, ToSqlOutput, ValueRef};
 use rusqlite::Result as RusqliteResult;
@@ -82,6 +82,7 @@ pub struct PageInfo {
     pub last_visit_date_remote: Timestamp,
     pub sync_status: SyncStatus,
     pub sync_change_counter: u32,
+    pub unknown_fields: UnknownFields,
 }
 
 impl PageInfo {
@@ -113,6 +114,10 @@ impl PageInfo {
             sync_change_counter: row
                 .get::<_, Option<u32>>("sync_change_counter")?
                 .unwrap_or_default(),
+            unknown_fields: match row.get::<_, Option<String>>("unknown_fields")? {
+                Some(v) => serde_json::from_str(&v)?,
+                None => UnknownFields::new(),
+            },
         })
     }
 }
@@ -142,6 +147,7 @@ pub fn fetch_page_info(db: &PlacesDb, url: &Url) -> Result<Option<FetchedPageInf
              visit_count_local, visit_count_remote,
              last_visit_date_local, last_visit_date_remote,
              sync_status, sync_change_counter, preview_image_url,
+             unknown_fields,
              (SELECT id FROM moz_historyvisits
               WHERE place_id = h.id
                 AND (visit_date = h.last_visit_date_local OR
@@ -184,6 +190,7 @@ fn new_page_info(db: &PlacesDb, url: &Url, new_guid: Option<SyncGuid>) -> Result
         last_visit_date_remote: Timestamp(0),
         sync_status: SyncStatus::New,
         sync_change_counter: 0,
+        unknown_fields: UnknownFields::new(),
     })
 }
 

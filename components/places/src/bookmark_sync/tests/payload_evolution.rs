@@ -169,7 +169,6 @@ impl RoundtripTest {
             let guid = bookmark_item.record_id().as_guid().to_string();
             let mut unknown_fields: Vec<(String, String)> = bookmark_item
                 .unknown_fields()
-                .unwrap()
                 .iter()
                 .map(|(key, value)| (key.clone(), value.as_str().unwrap().to_string()))
                 .collect();

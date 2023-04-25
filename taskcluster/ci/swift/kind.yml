@@ -1,0 +1,56 @@
+# This Source Code Form is subject to the terms of the Mozilla Public
+# License, v. 2.0. If a copy of the MPL was not distributed with this
+# file, You can obtain one at http://mozilla.org/MPL/2.0/.
+
+# ⚠️ If you add, rename or delete a task here, please also update .mergify.yml! ⚠️
+---
+loader: taskgraph.loader.transform:loader
+
+transforms:
+  - app_services_taskgraph.transforms.appservices:transforms
+  - taskgraph.transforms.job:transforms
+  - taskgraph.transforms.task:transforms
+
+kind-dependencies:
+  - toolchain
+
+tasks:
+  build:
+    attributes:
+      run-on-pr-type: full-ci
+      resource-monitor: true
+    needs-sccache: false # TODO: Bug 1623426 deal with this once we're in prod
+    run-on-tasks-for: [github-pull-request, github-release, cron]
+    description: Build and test (Swift)
+    scopes:
+      - project:releng:services/tooltool/api/download/internal
+    worker-type: b-osx
+    worker:
+      max-run-time: 1800
+      artifacts:
+        - name: "public/build/swift-components.tar.xz"
+          path: "checkouts/vcs/build/swift-components.tar.xz"
+          type: "file"
+        - name: "public/build/MozillaRustComponents.xcframework.zip"
+          path: "checkouts/vcs/build/MozillaRustComponents.xcframework.zip"
+          type: "file"
+        - name: "public/build/FocusRustComponents.xcframework.zip"
+          path: "checkouts/vcs/build/FocusRustComponents.xcframework.zip"
+          type: "file"
+        # TODO: re-enable once we get tests working
+        # - name: "public/build/raw_xcodetest.log"
+        #   path: "checkouts/vcs/logs/raw_xcodetest.log"
+        #   type: "file"
+    run:
+      pre-commands:
+        - ["taskcluster/scripts/toolchain/build-rust-toolchain-macosx.sh"]
+        - ["taskcluster/scripts/toolchain/libs-ios.sh"]
+      commands:
+        - ["taskcluster/scripts/build-and-test-swift.sh"]
+        - [ "cd", "build/" ]
+        - [ "tar", "acf", "swift-components.tar.xz", "swift-components" ]
+      using: run-commands
+      run-task-command: ["/usr/local/bin/python3", "run-task"]
+      use-caches: true
+    routes:
+      - index.project.application-services.v2.swift.{appservices_version}

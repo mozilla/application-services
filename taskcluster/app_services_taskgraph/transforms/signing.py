@@ -18,7 +18,7 @@ def build_upstream_artifacts(config, tasks):
         dep = task.pop("primary-dependency")
         module_info = task["attributes"]["buildconfig"]
         name = module_info["name"]
-        version = get_version()
+        version = get_version(config.params)
 
         worker_definition = {"upstream-artifacts": [{
             "taskId": {"task-reference": f"<{dep.kind}>"},

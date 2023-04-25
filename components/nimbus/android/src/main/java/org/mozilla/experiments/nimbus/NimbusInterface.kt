@@ -94,6 +94,26 @@ interface NimbusInterface : FeaturesInterface, GleanPlumbInterface, NimbusEventS
     fun fetchExperiments() = Unit
 
     /**
+     * Enable or disable fetching of experiments.
+     *
+     * This is performed on a background thread.
+     *
+     * This is only used during QA of the app, and not meant for application developers.
+     * Application developers should allow users to opt out with [globalUserParticipation]
+     * instead.
+     */
+    fun setFetchEnabled(enabled: Boolean) = Unit
+
+    /**
+     * The complement for [setFetchEnabled].
+     *
+     * This is only used during QA of the app, and not meant for application developers.
+     * Application developers should allow users to opt out with [globalUserParticipation]
+     * instead.
+     */
+    fun isFetchEnabled(): Boolean = true
+
+    /**
      * Calculates the experiment enrolment from experiments from the last `fetchExperiments` or
      * `setExperimentsLocally`, and then informs Glean of new experiment enrolment.
      *
