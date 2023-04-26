@@ -55,7 +55,12 @@ impl LaunchableApp {
     fn exe(&self) -> Result<Command> {
         Ok(match self {
             Self::Android { device_id, .. } => {
-                let adb = std::env::var("ADB_PATH").unwrap_or_else(|_| "adb".to_string());
+                let adb_name = if std::env::consts::OS != "windows" {
+                    "adb"
+                } else {
+                    "adb.exe"
+                };
+                let adb = std::env::var("ADB_PATH").unwrap_or_else(|_| adb_name.to_string());
                 let mut cmd = Command::new(adb);
                 if let Some(id) = device_id {
                     cmd.args(["-s", id]);
@@ -63,6 +68,9 @@ impl LaunchableApp {
                 cmd
             }
             Self::Ios { .. } => {
+                if std::env::consts::OS != "macos" {
+                    panic!("Cannot run commands for iOS on anything except macOS");
+                }
                 let xcrun = std::env::var("XCRUN_PATH").unwrap_or_else(|_| "xcrun".to_string());
                 let mut cmd = Command::new(xcrun);
                 cmd.arg("simctl");
