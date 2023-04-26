@@ -26,9 +26,9 @@ dictionary EnrollmentRequest {
     string? client_id;
     JsonObject app_context;
     JsonObject request_context;
-    boolean is_user_participating = true;
     JsonArray next_experiments;
     JsonArray prev_enrollments;
+    boolean is_user_participating = true;
 };
 
 [Error]
