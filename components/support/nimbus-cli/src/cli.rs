@@ -79,6 +79,21 @@ pub(crate) enum CliCommand {
     /// Follow the logs for the given app.
     TailLogs,
 
+    /// Configure an application feature with one or more feature config files.
+    ///
+    /// One file per branch. The branch slugs will correspond to the file names.
+    TestFeature {
+        /// The identifier of the feature to configure
+        feature_id: String,
+
+        /// One or more files containing a feature config for the feature.
+        files: Vec<PathBuf>,
+
+        /// Resets the app back to its initial state before launching
+        #[arg(long, default_value = "false")]
+        reset_app: bool,
+    },
+
     /// Unenroll from all experiments and rollouts
     Unenroll,
 }
