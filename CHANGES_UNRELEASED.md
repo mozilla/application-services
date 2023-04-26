@@ -22,7 +22,7 @@ Use the template below to make assigning a version number during the release cut
 
 ### ✨ What's New ✨
 
-- Added processing of command line arguments (or intent extras) to be driven by a command line tool. ([#5482](https://github.com/mozilla/application-services/pull/5482))
+- Added processing of command line arguments (or intent extras) to be driven by a command line tool. ([#5482](https://github.com/mozilla/application-services/pull/5482), [#5497](https://github.com/mozilla/application-services/pull/5497))
   - Requires passing `CommandLine.arguments` to `NimbusBuilder` in iOS.
   - Requires passing `intent` to `NimbusInterface` in Android.
 - Added Cirrus client object for working with Nimbus in a static, stateless manner ([#5471](https://github.com/mozilla/application-services/pull/5471)).
