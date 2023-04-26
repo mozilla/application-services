@@ -26,6 +26,7 @@ Use the template below to make assigning a version number during the release cut
   - Requires passing `CommandLine.arguments` to `NimbusBuilder` in iOS.
   - Requires passing `intent` to `NimbusInterface` in Android.
 - Added Cirrus client object for working with Nimbus in a static, stateless manner ([#5471](https://github.com/mozilla/application-services/pull/5471)).
+- Added [`nimbus-cli`](./components/support/nimbus-cli). ([#5494](https://github.com/mozilla/application-services/pull/5494))
 
 ## Places ⛅️🔬🔭
 
