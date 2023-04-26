@@ -93,8 +93,16 @@ impl LaunchableApp {
     fn unenroll_all(&self) -> Result<bool> {
         let payload = json! {{ "data": [] }};
         Ok(match self {
-            Self::Android { .. } => self.android_start(&payload)?.spawn()?.wait()?.success(),
-            Self::Ios { .. } => self.ios_start(&payload)?.spawn()?.wait()?.success(),
+            Self::Android { .. } => self
+                .android_start(false, Some(&payload), true)?
+                .spawn()?
+                .wait()?
+                .success(),
+            Self::Ios { .. } => self
+                .ios_start(false, Some(&payload), true)?
+                .spawn()?
+                .wait()?
+                .success(),
         })
     }
 
@@ -229,10 +237,19 @@ impl LaunchableApp {
             *preserve_bucketing,
         )?;
 
+        let preserve_db = false;
         let payload = json! {{ "data": [experiment] }};
         Ok(match self {
-            Self::Android { .. } => self.android_start(&payload)?.spawn()?.wait()?.success(),
-            Self::Ios { .. } => self.ios_start(&payload)?.spawn()?.wait()?.success(),
+            Self::Android { .. } => self
+                .android_start(!preserve_db, Some(&payload), true)?
+                .spawn()?
+                .wait()?
+                .success(),
+            Self::Ios { .. } => self
+                .ios_start(!preserve_db, Some(&payload), true)?
+                .spawn()?
+                .wait()?
+                .success(),
         })
     }
 
@@ -270,14 +287,41 @@ impl LaunchableApp {
         Ok(true)
     }
 
-    fn android_start(&self, json: &Value) -> Result<Command> {
+    fn android_start(
+        &self,
+        reset_db: bool,
+        json: Option<&Value>,
+        log_state: bool,
+    ) -> Result<Command> {
         if let Self::Android {
             package_name,
             activity_name,
             ..
         } = self
         {
-            let json = json.to_string().replace('\'', "\\\"");
+            let reset_db_arg = if reset_db {
+                Some("--ez reset-db true".to_string())
+            } else {
+                None
+            };
+            let experiments_arg = if let Some(s) = json {
+                let json = s.to_string().replace('\'', "&apos;");
+                Some(format!("--es experiments '{}'", json))
+            } else {
+                None
+            };
+            let log_state_arg = if log_state {
+                Some("--ez log-state true".to_string())
+            } else {
+                None
+            };
+
+            let args = vec![reset_db_arg, experiments_arg, log_state_arg]
+                .iter()
+                .flatten()
+                .map(String::clone)
+                .collect::<Vec<_>>();
+
             let mut cmd = self.exe()?;
             // TODO add adb pass through args for debugger, wait for debugger etc.
             let sh = format!(
@@ -286,8 +330,10 @@ impl LaunchableApp {
         -c android.intent.category.LAUNCHER \
         --esn nimbus-cli \
         --ei version 1 \
-        --es experiments '{}'"#,
-                package_name, activity_name, json,
+        {}"#,
+                package_name,
+                activity_name,
+                args.join(" \\\n        "),
             );
             cmd.arg("shell").arg(&sh);
             let term = Term::stdout();
@@ -298,20 +344,51 @@ impl LaunchableApp {
         }
     }
 
-    fn ios_start(&self, json: &Value) -> Result<Command> {
+    fn ios_start(&self, reset_db: bool, json: Option<&Value>, log_state: bool) -> Result<Command> {
         if let Self::Ios { app_id, device_id } = self {
             let mut cmd = self.exe()?;
             cmd.args(["launch", device_id, app_id])
                 .arg("--nimbus-cli")
-                .args(["--version", "1"])
-                .args(["--experiments", &json.to_string()]);
+                .args(["--version", "1"]);
+
+            let reset_db_arg = if reset_db {
+                let arg = "--reset-db";
+                cmd.arg(arg);
+                Some(arg.to_string())
+            } else {
+                None
+            };
+            let experiments_arg = if let Some(s) = json {
+                let json = s.to_string().replace('\'', "&apos;");
+                let arg = "--experiments";
+                let args = [arg, &json];
+                cmd.args(args);
+                Some(format!("{} '{}'", arg, json))
+            } else {
+                None
+            };
+            let log_state_arg = if log_state {
+                let arg = "--log-state";
+                cmd.arg(arg);
+                Some(arg.to_string())
+            } else {
+                None
+            };
+
+            let args = vec![reset_db_arg, experiments_arg, log_state_arg]
+                .iter()
+                .flatten()
+                .map(String::clone)
+                .collect::<Vec<_>>();
 
             let sh = format!(
                 r#"xcrun simctl launch {} {} \
         --nimbus-cli \
         --version 1 \
-        --experiments '{}'"#,
-                device_id, app_id, json
+        {}"#,
+                device_id,
+                app_id,
+                args.join(" \\\n        "),
             );
             let term = Term::stdout();
             prompt(&term, &sh)?;
