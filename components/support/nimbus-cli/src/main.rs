@@ -297,7 +297,7 @@ impl ExperimentListSource {
 
     fn stage_server() -> String {
         std::env::var("NIMBUS_URL_STAGE")
-            .unwrap_or_else(|_| "https://settings.stage.mozaws.net".to_string())
+            .unwrap_or_else(|_| "https://stage.remote-settings.nonprod.webservices.mozgcp.net".to_string())
     }
 }
 
