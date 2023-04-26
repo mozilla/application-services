@@ -90,8 +90,7 @@ The following instructions assume that you are building `application-services` f
 [Fenix Auto-publication workflow for android-components and application-services](howtos/locally-published-components-in-fenix.md).
 
 1. Install Android SDK, JAVA, NDK and set required env vars
-   1. Clone the [Fenix](https://github.com/mozilla-mobile/fenix/) repository (**not** inside the Application Service repository).
-   1. Clone the [android-components](https://github.com/mozilla-mobile/android-components/) repository (**not** inside the Application Service repository).
+   1. Clone the [firefox-android](https://github.com/mozilla-mobile/firefox-android) repository (**not** inside the Application Service repository).
    1. Install [Java **11**](https://www.oracle.com/java/technologies/downloads/#java11) for your system
    1. Set `JAVA_HOME` to point to the JDK 11 installation directory.
    1. Download and install [Android Studio](https://developer.android.com/studio/#downloads).
