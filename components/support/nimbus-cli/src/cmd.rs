@@ -3,6 +3,7 @@
 // file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
 use crate::{
+    feature_utils,
     value_utils::{prepare_experiment, try_extract_data_list, try_find_experiment, CliUtils},
     AppCommand, ExperimentListSource, ExperimentSource, LaunchableApp, NimbusApp,
 };
@@ -334,6 +335,11 @@ impl TryFrom<&ExperimentSource> for Value {
                 let value = Value::try_from(list)?;
                 try_find_experiment(&value, slug)?
             }
+            ExperimentSource::FromFeatureFiles {
+                app,
+                feature_id,
+                files,
+            } => feature_utils::create_experiment(app, feature_id, files)?,
         })
     }
 }

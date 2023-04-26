@@ -4,6 +4,7 @@
 
 mod cli;
 mod cmd;
+mod feature_utils;
 mod value_utils;
 
 use clap::Parser;
@@ -129,6 +130,7 @@ impl TryFrom<&Cli> for LaunchableApp {
     }
 }
 
+#[derive(Clone, Debug, PartialEq)]
 pub(crate) struct NimbusApp {
     app_name: String,
     channel: String,
@@ -219,6 +221,30 @@ impl AppCommand {
             }
             CliCommand::ResetApp => AppCommand::Reset { app },
             CliCommand::TailLogs => AppCommand::TailLogs { app },
+            CliCommand::TestFeature {
+                feature_id,
+                files,
+                reset_app,
+            } => {
+                let first = files
+                    .first()
+                    .ok_or_else(|| anyhow::Error::msg("Need at least one file to make a branch"))?;
+                let branch = feature_utils::slug(first)?;
+                let experiment = ExperimentSource::FromFeatureFiles {
+                    app: params.clone(),
+                    feature_id: feature_id.clone(),
+                    files: files.clone(),
+                };
+                Self::Enroll {
+                    app,
+                    params,
+                    experiment,
+                    branch,
+                    preserve_targeting: false,
+                    preserve_bucketing: false,
+                    reset_app: *reset_app,
+                }
+            }
             CliCommand::Unenroll => AppCommand::Unenroll { app },
         })
     }
@@ -296,6 +322,11 @@ enum ExperimentSource {
     FromList {
         slug: String,
         list: ExperimentListSource,
+    },
+    FromFeatureFiles {
+        app: NimbusApp,
+        feature_id: String,
+        files: Vec<PathBuf>,
     },
 }
 
