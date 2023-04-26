@@ -29,7 +29,7 @@ Some consumers (notably [Fenix](https://github.com/mozilla-mobile/fenix/)) have 
 automatically publishing and including a local development version of application-services
 in their build. The workflow is:
 
-1. Check out the firefox-android monp-repo.
+1. Check out the firefox-android mono-repo.
 1. Edit (or create) the file `fenix/local.properties` and tell it where to
    find your local checkout of application-services, by adding a line like:
 
