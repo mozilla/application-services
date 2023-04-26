@@ -26,6 +26,8 @@ Use the template below to make assigning a version number during the release cut
   - Requires passing `CommandLine.arguments` to `NimbusBuilder` in iOS.
   - Requires passing `intent` to `NimbusInterface` in Android.
 - Added Cirrus client object for working with Nimbus in a static, stateless manner ([#5471](https://github.com/mozilla/application-services/pull/5471)).
+  - Added Cirrus client UDL bindings ([#5475](https://github.com/mozilla/application-services/pull/5475)).
+    - *NOTE:* The Cirrus UDL bindings are only intended to function with Python, additional types should be set in the `uniffi.toml` if another language is needed.
 - Added [`nimbus-cli`](./components/support/nimbus-cli). ([#5494](https://github.com/mozilla/application-services/pull/5494))
 
 ## Places ⛅️🔬🔭
