@@ -2,12 +2,13 @@
 // License, v. 2.0. If a copy of the MPL was not distributed with this
 // file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
-use crate::enrollment::{EnrolledReason, ExperimentEnrollment, NotEnrolledReason};
+use crate::enrollment::{EnrollmentChangeEventType, ExperimentEnrollment, NotEnrolledReason};
+use crate::matcher::RequestContext;
 use crate::{
-    tests::test_enrollment::local_ctx, CirrusClient, EnrollmentRequest, EnrollmentStatus, Result,
+    tests::test_enrollment::local_ctx, CirrusClient, EnrollmentRequest, EnrollmentResponse,
+    EnrollmentStatus, Result, TargetingAttributes,
 };
-use serde_json::{from_str, to_string, to_value, Map, Value};
-use uuid::Uuid;
+use serde_json::{from_value, to_value, Map, Value};
 
 #[test]
 fn test_can_instantiate() {
@@ -19,8 +20,9 @@ fn test_can_enroll() -> Result<()> {
     let client = CirrusClient::new();
     let (_, context, _) = local_ctx();
     let exp = helpers::get_experiment_with_newtab_feature_branches();
+    let ta = TargetingAttributes::new(context, Default::default());
 
-    let result = client.enroll("test".to_string(), context, true, &[exp.clone()], &[])?;
+    let result = client.enroll("test".to_string(), ta, true, &[exp.clone()], &[])?;
 
     assert_eq!(result.enrolled_feature_config_map.len(), 1);
     assert_eq!(
@@ -36,18 +38,8 @@ fn test_can_enroll() -> Result<()> {
         exp.branches[1].slug
     );
     assert_eq!(
-        result.enrollments[0],
-        ExperimentEnrollment {
-            slug: exp.slug,
-            status: EnrollmentStatus::Enrolled {
-                enrollment_id: match result.enrollments[0].status {
-                    EnrollmentStatus::Enrolled { enrollment_id, .. } => enrollment_id,
-                    _ => Uuid::new_v4(),
-                },
-                reason: EnrolledReason::Qualified,
-                branch: "treatment".to_string()
-            },
-        }
+        result.events[0].change,
+        EnrollmentChangeEventType::Enrollment
     );
 
     Ok(())
@@ -64,29 +56,39 @@ fn test_will_not_enroll_if_previously_did_not_enroll() -> Result<()> {
             reason: NotEnrolledReason::NotTargeted,
         },
     };
+    let ta = TargetingAttributes::new(context, Default::default());
 
-    let result = client.enroll("test".to_string(), context, true, &[exp], &[enrollment])?;
+    let result = client.enroll("test".to_string(), ta, true, &[exp], &[enrollment])?;
 
-    assert_eq!(result.enrolled_feature_config_map.len(), 0);
+    assert_eq!(result.events.len(), 0);
 
     Ok(())
 }
 
 #[test]
-fn test_handle_enrollment_works_with_request() -> Result<()> {
+fn test_handle_enrollment_works_with_json() -> Result<()> {
     let client = CirrusClient::new();
     let (_, context, _) = local_ctx();
     let exp = helpers::get_experiment_with_newtab_feature_branches();
 
-    let request = EnrollmentRequest {
-        client_id: Some("test".to_string()),
-        context,
-        next_experiments: vec![exp.clone()],
-        ..Default::default()
-    };
-    let result = client.handle_enrollment(request)?;
+    let request = Map::from_iter(vec![
+        ("clientId".to_string(), Value::String("test".to_string())),
+        ("appContext".to_string(), to_value(context).unwrap()),
+        (
+            "requestContext".to_string(),
+            to_value(RequestContext {
+                ..Default::default()
+            })
+            .unwrap(),
+        ),
+        (
+            "nextExperiments".to_string(),
+            Value::Array(vec![to_value(exp.clone()).unwrap()]),
+        ),
+    ]);
+    let result: EnrollmentResponse =
+        from_value(Value::Object(client.handle_enrollment(request)?)).unwrap();
 
-    assert_eq!(result.enrolled_feature_config_map.len(), 1);
     assert_eq!(
         result
             .enrolled_feature_config_map
@@ -100,18 +102,8 @@ fn test_handle_enrollment_works_with_request() -> Result<()> {
         exp.branches[1].slug
     );
     assert_eq!(
-        result.enrollments[0],
-        ExperimentEnrollment {
-            slug: exp.slug,
-            status: EnrollmentStatus::Enrolled {
-                enrollment_id: match result.enrollments[0].status {
-                    EnrollmentStatus::Enrolled { enrollment_id, .. } => enrollment_id,
-                    _ => Uuid::new_v4(),
-                },
-                reason: EnrolledReason::Qualified,
-                branch: "treatment".to_string()
-            },
-        }
+        result.events[0].change,
+        EnrollmentChangeEventType::Enrollment
     );
 
     Ok(())
@@ -123,62 +115,16 @@ fn test_handle_enrollment_errors_on_no_client_id() -> Result<()> {
 
     let request = EnrollmentRequest {
         client_id: None,
+        app_context: Map::from_iter(vec![
+            ("app_id".to_string(), Value::from("test".to_string())),
+            ("app_name".to_string(), Value::from("test".to_string())),
+            ("channel".to_string(), Value::from("test".to_string())),
+        ]),
         ..Default::default()
     };
-    let result = client.handle_enrollment(request);
+    let result = client.handle_enrollment(to_value(request).unwrap().as_object().unwrap().clone());
 
     assert!(result.is_err());
-
-    Ok(())
-}
-
-#[test]
-fn test_handle_enrollment_works_with_json() -> Result<()> {
-    let client = CirrusClient::new();
-    let (_, context, _) = local_ctx();
-    let exp = helpers::get_experiment_with_newtab_feature_branches();
-
-    let request = to_string(&Map::from_iter([
-        ("clientId".to_string(), Value::from("test")),
-        (
-            "context".to_string(),
-            Value::Object(from_str(to_string(&context)?.as_str())?),
-        ),
-        (
-            "nextExperiments".to_string(),
-            Value::Array(vec![to_value(exp.clone())?]),
-        ),
-    ]))?;
-
-    let result = client.handle_enrollment(from_str(request.as_str())?)?;
-
-    assert_eq!(result.enrolled_feature_config_map.len(), 1);
-    assert_eq!(
-        result
-            .enrolled_feature_config_map
-            .get("newtab")
-            .unwrap()
-            .get("branch")
-            .unwrap()
-            .as_str()
-            .unwrap()
-            .to_owned(),
-        exp.branches[1].slug
-    );
-    assert_eq!(
-        result.enrollments[0],
-        ExperimentEnrollment {
-            slug: exp.slug,
-            status: EnrollmentStatus::Enrolled {
-                enrollment_id: match result.enrollments[0].status {
-                    EnrollmentStatus::Enrolled { enrollment_id, .. } => enrollment_id,
-                    _ => Uuid::new_v4(),
-                },
-                reason: EnrolledReason::Qualified,
-                branch: "treatment".to_string()
-            },
-        }
-    );
 
     Ok(())
 }

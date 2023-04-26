@@ -493,6 +493,14 @@ dependencies = [
 ]
 
 [[package]]
+name = "cirrus"
+version = "0.1.0"
+dependencies = [
+ "lazy_static",
+ "nimbus-sdk",
+]
+
+[[package]]
 name = "clap"
 version = "2.34.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"

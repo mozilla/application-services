@@ -1,0 +1,14 @@
+[package]
+name = "cirrus"
+version = "0.1.0"
+authors = ["application-services <application-services@mozilla.com>"]
+edition = "2021"
+license = "MPL-2.0"
+
+[lib]
+crate-type = ["cdylib"]
+path = "./lib.rs"
+
+[dependencies]
+nimbus-sdk = { path = "../../components/nimbus", features = [], default-features = false }
+lazy_static = "1.4"

@@ -35,6 +35,7 @@ members = [
     "components/viaduct",
     "components/webext-storage",
     "components/webext-storage/ffi",
+    "megazords/cirrus",
     "megazords/full",
     "megazords/ios-rust",
     "megazords/ios-rust/focus",

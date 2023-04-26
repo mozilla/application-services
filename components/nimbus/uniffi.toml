@@ -15,3 +15,15 @@ from_custom = "{}.toString()"
 ffi_module_name = "MozillaRustComponents"
 ffi_module_filename = "nimbusFFI"
 generate_module_map = false
+
+# Python bindings for Cirrus
+# They should work fine for Nimbus too
+[bindings.python.custom_types.JsonObject]
+imports = ["json"]
+into_custom = "json.loads({})"
+from_custom = "json.dumps({})"
+
+[bindings.python.custom_types.JsonArray]
+imports = ["json"]
+into_custom = "json.loads({})"
+from_custom = "json.dumps({})"
