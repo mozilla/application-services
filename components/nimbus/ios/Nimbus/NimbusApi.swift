@@ -100,6 +100,9 @@ public protocol NimbusStartup {
     ///
     func setExperimentsLocally(_ fileURL: URL)
 
+    /// Testing method to reset the enrollments and experiments database back to its initial state.
+    func resetEnrollmentsDatabase() -> Operation
+
     /// Enable or disable fetching of experiments.
     ///
     /// This is performed on a background thread.
@@ -117,6 +120,10 @@ public protocol NimbusStartup {
     ///
     /// - Returns true if fetch is allowed
     func isFetchEnabled() -> Bool
+
+    /// Dump the state of the Nimbus SDK to the rust log.
+    /// This is only useful for testing.
+    func dumpStateToLog()
 }
 
 public protocol NimbusUserConfiguration {

@@ -464,6 +464,18 @@ impl NimbusClient {
         Ok(())
     }
 
+    /// Reset all enrollments and experiments in the database.
+    ///
+    /// This should only be used in testing.
+    pub fn reset_enrollments(&self) -> Result<()> {
+        let db = self.db()?;
+        let mut writer = db.write()?;
+        let mut state = self.mutable_state.lock().unwrap();
+        db.clear_experiments_and_enrollments(&mut writer)?;
+        self.end_initialize(db, writer, &mut state)?;
+        Ok(())
+    }
+
     /// Reset internal state in response to application-level telemetry reset.
     ///
     /// When the user resets their telemetry state in the consuming application, we need learn
@@ -627,6 +639,20 @@ impl NimbusClient {
 
     pub fn event_store(&self) -> Arc<Mutex<EventStore>> {
         self.event_store.clone()
+    }
+
+    pub fn dump_state_to_log(&self) -> Result<()> {
+        let experiments = self.get_active_experiments()?;
+        log::info!("{0: <65}| {1: <30}| {2}", "Slug", "Features", "Branch");
+        for exp in &experiments {
+            log::info!(
+                "{0: <65}| {1: <30}| {2}",
+                &exp.slug,
+                &exp.feature_ids.join(", "),
+                &exp.branch_slug
+            );
+        }
+        Ok(())
     }
 }
 

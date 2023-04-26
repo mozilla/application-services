@@ -156,6 +156,11 @@ interface NimbusInterface : FeaturesInterface, GleanPlumbInterface, NimbusEventS
     fun setExperimentsLocally(@RawRes file: Int) = Unit
 
     /**
+     * Testing method to reset the enrollments and experiments database back to its initial state.
+     */
+    fun resetEnrollmentsDatabase(): Job = Job()
+
+    /**
      * Opt into a specific branch for the given experiment.
      *
      * @param experimentId The string experiment-id or "slug" for which to opt into
@@ -291,6 +296,13 @@ interface NimbusEventStore {
      * This should only be used in testing or cases where the previous event store is no longer viable.
      */
     fun clearEvents() = Unit
+
+    /**
+     * Dump the state of the Nimbus SDK to logcat.
+     *
+     * This is only useful for testing.
+     */
+    fun dumpStateToLog() = Unit
 }
 
 class NullNimbus(override val context: Context) : NimbusInterface

@@ -176,15 +176,8 @@ public class NimbusBuilder {
                     onApplyCallback?(nimbus)
                 }
             }
-            if let args = unpack(args: commandLineArgs), let experiments = args["experiments"] {
-                // If we have command line arguments, then load experiments from there,
-                // and disable future fetching.
-                nimbus.setExperimentsLocally(experiments)
-                nimbus.applyPendingExperiments().waitUntilFinished()
-                // setExperimentsLocally and applyPendingExperiments run on the
-                // same single threaded dispatch queue, so we can run them in series,
-                // and wait for the apply.
-                nimbus.setFetchEnabled(false)
+            if let args = ArgumentProcessor.createCommandLineArgs(args: commandLineArgs) {
+                ArgumentProcessor.initializeTooling(nimbus: nimbus, args: args)
             } else if let file = initialExperiments, isFirstRun || serverSettings == nil {
                 let job = nimbus.applyLocalExperiments(fileURL: file)
                 _ = job.joinOrTimeout(timeout: timeoutLoadingExperiment)
@@ -204,48 +197,6 @@ public class NimbusBuilder {
             errorReporter(error)
             return newNimbusDisabled()
         }
-    }
-
-    private func unpack(args: [String]?) -> [String: String]? {
-        guard let args = args else {
-            return nil
-        }
-        if !args.contains("--nimbus-cli") {
-            return nil
-        }
-
-        var argMap = [String: String]()
-        var key: String?
-        args.forEach { arg in
-            var value: String?
-            switch arg {
-            case "--version":
-                key = "version"
-            case "--experiments":
-                key = "experiments"
-            default:
-                value = arg
-            }
-
-            if let k = key, let v = value {
-                argMap[k] = v
-                key = nil
-                value = nil
-            }
-        }
-
-        if argMap["version"] != "1" {
-            return nil
-        }
-
-        guard let experiments = argMap["experiments"],
-              let payload = try? Dictionary.parse(jsonString: experiments),
-              payload["data"] is [Any]
-        else {
-            return nil
-        }
-
-        return argMap
     }
 
     func newNimbus(_ appInfo: NimbusAppSettings, serverSettings: NimbusServerSettings?) throws -> NimbusInterface {
