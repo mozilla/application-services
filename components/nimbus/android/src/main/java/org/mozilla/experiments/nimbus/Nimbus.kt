@@ -323,6 +323,13 @@ open class Nimbus(
         nimbusClient.setExperimentsLocally(payload)
     }
 
+    override fun resetEnrollmentsDatabase() =
+        dbScope.launch {
+            withCatchAll("resetEnrollments") {
+                nimbusClient.resetEnrollments()
+            }
+        }
+
     @WorkerThread
     @VisibleForTesting(otherwise = VisibleForTesting.PRIVATE)
     internal fun setGlobalUserParticipationOnThisThread(active: Boolean) = withCatchAll("setGlobalUserParticipation") {
@@ -392,6 +399,11 @@ open class Nimbus(
         dbScope.launch {
             nimbusClient.clearEvents()
         }
+    }
+
+    @AnyThread
+    override fun dumpStateToLog() {
+        nimbusClient.dumpStateToLog()
     }
 
     override fun createMessageHelper(additionalContext: JSONObject?): GleanPlumbMessageHelper =

@@ -401,6 +401,18 @@ extension Nimbus: NimbusStartup {
             try self.setExperimentsLocallyOnThisThread(experimentsJson)
         }
     }
+
+    public func resetEnrollmentsDatabase() -> Operation {
+        catchAll(dbQueue) { _ in
+            try self.nimbusClient.resetEnrollments()
+        }
+    }
+
+    public func dumpStateToLog() {
+        catchAll {
+            try self.nimbusClient.dumpStateToLog()
+        }
+    }
 }
 
 extension Nimbus: NimbusBranchInterface {
@@ -482,6 +494,10 @@ public extension NimbusDisabled {
 
     func setExperimentsLocally(_: String) {}
 
+    func resetEnrollmentsDatabase() -> Operation {
+        BlockOperation()
+    }
+
     func optOut(_: String) {}
 
     func optIn(_: String, branch _: String) {}
@@ -501,6 +517,8 @@ public extension NimbusDisabled {
     func advanceEventTime(by _: TimeInterval) throws {}
 
     func clearEvents() {}
+
+    func dumpStateToLog() {}
 
     func getExperimentBranches(_: String) -> [Branch]? {
         return nil
