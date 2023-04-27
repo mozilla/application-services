@@ -147,7 +147,7 @@ impl LaunchableApp {
             Self::Ios { .. } => {
                 prompt(
                     &term,
-                    &format!("{} | xargs tail -f", self.ios_log_file_command(),),
+                    &format!("{} | xargs tail -f", self.ios_log_file_command()),
                 )?;
                 let log = self.ios_log_file()?;
 
@@ -466,9 +466,12 @@ impl ExperimentListSource {
         let value: Value = self.try_into()?;
         let array = try_extract_data_list(&value)?;
         let term = Term::stdout();
+        let style = term.style().italic().underlined();
         term.write_line(&format!(
-            "{0: <65} {1: <30} {2}",
-            "Experiment slug", "Features", "Branches"
+            "{0: <66}|{1: <31}|{2: <20}",
+            style.apply_to("Experiment slug"),
+            style.apply_to(" Features"),
+            style.apply_to(" Branches")
         ))?;
         for exp in array {
             let slug = exp.get_str("slug")?;
@@ -492,7 +495,7 @@ impl ExperimentListSource {
                 .collect();
 
             term.write_line(&format!(
-                "{0: <65} {1: <30} {2}",
+                " {0: <65}| {1: <30}| {2}",
                 slug,
                 features.join(", "),
                 branches.join(", ")
