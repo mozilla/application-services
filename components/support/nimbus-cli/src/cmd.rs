@@ -22,6 +22,7 @@ pub(crate) fn process_cmd(cmd: &AppCommand) -> Result<bool> {
             branch,
             preserve_targeting,
             preserve_bucketing,
+            preserve_nimbus_db,
             ..
         } => app.enroll(
             params,
@@ -29,6 +30,7 @@ pub(crate) fn process_cmd(cmd: &AppCommand) -> Result<bool> {
             branch,
             preserve_targeting,
             preserve_bucketing,
+            preserve_nimbus_db,
         )?,
         AppCommand::Kill { app } => app.kill_app()?,
         AppCommand::List { params, list } => list.ls(params)?,
@@ -223,6 +225,7 @@ impl LaunchableApp {
         branch: &str,
         preserve_targeting: &bool,
         preserve_bucketing: &bool,
+        preserve_nimbus_db: &bool,
     ) -> Result<bool> {
         let experiment = Value::try_from(experiment)?;
         let slug = experiment.get_str("slug")?.to_string();
@@ -245,16 +248,15 @@ impl LaunchableApp {
             *preserve_bucketing,
         )?;
 
-        let preserve_db = false;
         let payload = json! {{ "data": [experiment] }};
         Ok(match self {
             Self::Android { .. } => self
-                .android_start(!preserve_db, Some(&payload), true)?
+                .android_start(!preserve_nimbus_db, Some(&payload), true)?
                 .spawn()?
                 .wait()?
                 .success(),
             Self::Ios { .. } => self
-                .ios_start(!preserve_db, Some(&payload), true)?
+                .ios_start(!preserve_nimbus_db, Some(&payload), true)?
                 .spawn()?
                 .wait()?
                 .success(),
