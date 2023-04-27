@@ -160,6 +160,7 @@ enum AppCommand {
         app: LaunchableApp,
         params: NimbusApp,
         experiment: ExperimentSource,
+        rollouts: Vec<ExperimentSource>,
         branch: String,
         preserve_targeting: bool,
         preserve_bucketing: bool,
@@ -225,6 +226,7 @@ impl AppCommand {
             CliCommand::Enroll {
                 experiment,
                 branch,
+                rollouts,
                 preserve_targeting,
                 preserve_bucketing,
                 preserve_nimbus_db,
@@ -232,15 +234,24 @@ impl AppCommand {
                 file,
                 ..
             } => {
-                let experiment = match file {
+                let experiment = match file.clone() {
                     Some(file) => ExperimentSource::try_from_file(&file, &experiment)?,
                     _ => ExperimentSource::try_from(experiment.as_str())?,
                 };
+                let mut recipes = Vec::new();
+                for r in rollouts {
+                    recipes.push(match file.clone() {
+                        Some(file) => ExperimentSource::try_from_file(&file, r.as_str())?,
+                        _ => ExperimentSource::try_from(r.as_str())?,
+                    });
+                }
+
                 Self::Enroll {
                     app,
                     params,
                     experiment,
                     branch,
+                    rollouts: recipes,
                     preserve_targeting,
                     preserve_bucketing,
                     preserve_nimbus_db,
@@ -305,6 +316,7 @@ impl AppCommand {
                     params,
                     experiment,
                     branch,
+                    rollouts: Default::default(),
                     preserve_targeting: false,
                     preserve_bucketing: false,
                     preserve_nimbus_db: false,
