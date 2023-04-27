@@ -1,5 +1,11 @@
 # v115.0 (In progress)
 
+## Nimbus ⛅️🔬🔭
+
+### 🦊 What's Changed 🦊
+
+ - [`nimbus-cli`](./components/support/nimbus-cli) now has commands: `capture-logs`, `tail-logs`, `test-feature`, `fetch` and `apply-files`. ([#5517](https://github.com/mozilla/application-services/pull/5517)))
+
 [Full Changelog](In progress)
 
 # v114.0 (_2023-05-08_)
