@@ -79,6 +79,11 @@ pub(crate) enum CliCommand {
         server: Option<String>,
     },
 
+    /// Print the state of the Nimbus database to logs.
+    ///
+    /// This causes a restart of the app.
+    LogState,
+
     /// Reset the app back to its just installed state
     ResetApp,
 

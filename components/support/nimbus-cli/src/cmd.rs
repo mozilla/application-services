@@ -34,6 +34,7 @@ pub(crate) fn process_cmd(cmd: &AppCommand) -> Result<bool> {
         )?,
         AppCommand::Kill { app } => app.kill_app()?,
         AppCommand::List { params, list } => list.ls(params)?,
+        AppCommand::LogState { app } => app.log_state()?,
         AppCommand::Reset { app } => app.reset_app()?,
         AppCommand::TailLogs { app } => app.tail_logs()?,
         AppCommand::Unenroll { app } => app.unenroll_all()?,
@@ -218,6 +219,10 @@ impl LaunchableApp {
         }
     }
 
+    fn log_state(&self) -> Result<bool> {
+        self.start_app(false, None, true)
+    }
+
     fn enroll(
         &self,
         params: &NimbusApp,
@@ -249,18 +254,7 @@ impl LaunchableApp {
         )?;
 
         let payload = json! {{ "data": [experiment] }};
-        Ok(match self {
-            Self::Android { .. } => self
-                .android_start(!preserve_nimbus_db, Some(&payload), true)?
-                .spawn()?
-                .wait()?
-                .success(),
-            Self::Ios { .. } => self
-                .ios_start(!preserve_nimbus_db, Some(&payload), true)?
-                .spawn()?
-                .wait()?
-                .success(),
-        })
+        self.start_app(!preserve_nimbus_db, Some(&payload), true)
     }
 
     fn ios_app_container(&self, container: &str) -> Result<String> {
@@ -295,6 +289,21 @@ impl LaunchableApp {
             }
         }
         Ok(true)
+    }
+
+    fn start_app(&self, reset_db: bool, payload: Option<&Value>, log_state: bool) -> Result<bool> {
+        Ok(match self {
+            Self::Android { .. } => self
+                .android_start(reset_db, payload, log_state)?
+                .spawn()?
+                .wait()?
+                .success(),
+            Self::Ios { .. } => self
+                .ios_start(reset_db, payload, log_state)?
+                .spawn()?
+                .wait()?
+                .success(),
+        })
     }
 
     fn android_start(
