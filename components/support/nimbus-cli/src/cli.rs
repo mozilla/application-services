@@ -65,6 +65,12 @@ pub(crate) enum CliCommand {
         /// Resets the app back to its initial state before launching
         #[arg(long, default_value = "false")]
         reset_app: bool,
+
+        /// Keeps existing enrollments and experiments before enrolling.
+        ///
+        /// This is unlikely what you want to do.
+        #[arg(long, default_value = "false")]
+        preserve_nimbus_db: bool,
     },
 
     /// List the experiments from a server
