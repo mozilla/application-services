@@ -118,18 +118,7 @@ impl LaunchableApp {
 
     fn unenroll_all(&self) -> Result<bool> {
         let payload = json! {{ "data": [] }};
-        Ok(match self {
-            Self::Android { .. } => self
-                .android_start(false, Some(&payload), true)?
-                .spawn()?
-                .wait()?
-                .success(),
-            Self::Ios { .. } => self
-                .ios_start(false, Some(&payload), true)?
-                .spawn()?
-                .wait()?
-                .success(),
-        })
+        self.start_app(false, Some(&payload), true)
     }
 
     fn reset_app(&self) -> Result<bool> {
