@@ -106,6 +106,10 @@ pub(crate) enum CliCommand {
     List {
         /// A server slug e.g. preview, release, stage, stage/preview
         server: Option<String>,
+
+        /// An optional file
+        #[arg(short, long, value_name = "FILE")]
+        file: Option<PathBuf>,
     },
 
     /// Print the state of the Nimbus database to logs.

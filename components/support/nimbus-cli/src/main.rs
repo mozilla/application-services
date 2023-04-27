@@ -268,9 +268,15 @@ impl AppCommand {
                     AppCommand::FetchList { list, file, params }
                 }
             }
-            CliCommand::List { server } => {
-                let list = server.unwrap_or_default();
-                let list = list.as_str().try_into()?;
+            CliCommand::List { server, file } => {
+                if server.is_some() && file.is_some() {
+                    bail!("list supports only a file or a server at the same time")
+                }
+                let list = if file.is_some() {
+                    file.unwrap().as_path().try_into()?
+                } else {
+                    server.unwrap_or_default().as_str().try_into()?
+                };
                 AppCommand::List { params, list }
             }
             CliCommand::LogState => AppCommand::LogState { app },
