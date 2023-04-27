@@ -14,6 +14,11 @@ use std::{path::PathBuf, process::Command};
 
 pub(crate) fn process_cmd(cmd: &AppCommand) -> Result<bool> {
     let status = match cmd {
+        AppCommand::ApplyFile {
+            app,
+            list,
+            preserve_nimbus_db,
+        } => app.apply_list(list, preserve_nimbus_db)?,
         AppCommand::CaptureLogs { app, file } => app.capture_logs(file)?,
         AppCommand::Enroll {
             app,
@@ -32,8 +37,14 @@ pub(crate) fn process_cmd(cmd: &AppCommand) -> Result<bool> {
             preserve_bucketing,
             preserve_nimbus_db,
         )?,
+        AppCommand::FetchList { params, list, file } => params.fetch_list(list, file)?,
+        AppCommand::FetchRecipes {
+            params,
+            recipes,
+            file,
+        } => params.fetch_recipes(recipes, file)?,
         AppCommand::Kill { app } => app.kill_app()?,
-        AppCommand::List { params, list } => list.ls(params)?,
+        AppCommand::List { params, list } => params.list(list)?,
         AppCommand::LogState { app } => app.log_state()?,
         AppCommand::Reset { app } => app.reset_app()?,
         AppCommand::TailLogs { app } => app.tail_logs()?,
@@ -257,6 +268,12 @@ impl LaunchableApp {
         self.start_app(!preserve_nimbus_db, Some(&payload), true)
     }
 
+    fn apply_list(&self, list: &ExperimentListSource, preserve_nimbus_db: &bool) -> Result<bool> {
+        let value: Value = list.try_into()?;
+
+        self.start_app(!preserve_nimbus_db, Some(&value), true)
+    }
+
     fn ios_app_container(&self, container: &str) -> Result<String> {
         if let Self::Ios { app_id, device_id } = self {
             // We need to get the app container directories, and delete them.
@@ -466,13 +483,59 @@ impl TryFrom<&ExperimentListSource> for Value {
                 let response = client.get_records()?;
                 response.json::<Value>()?
             }
+            ExperimentListSource::FromFile { file } => {
+                let string = std::fs::read_to_string(file)?;
+                serde_json::from_str(&string)?
+            }
         })
     }
 }
 
-impl ExperimentListSource {
-    fn ls(&self, params: &NimbusApp) -> Result<bool> {
-        let value: Value = self.try_into()?;
+impl NimbusApp {
+    fn fetch_list(&self, list: &ExperimentListSource, file: &PathBuf) -> Result<bool> {
+        let value: Value = list.try_into()?;
+        let array = try_extract_data_list(&value)?;
+        let mut data = Vec::new();
+
+        for exp in array {
+            let app_name = exp.get_str("appName")?;
+            if app_name != self.app_name {
+                continue;
+            }
+
+            data.push(exp);
+        }
+        self.write_experiments_to_file(&data, file)?;
+        Ok(true)
+    }
+
+    fn fetch_recipes(&self, recipes: &Vec<ExperimentSource>, file: &PathBuf) -> Result<bool> {
+        let mut data = Vec::new();
+
+        for exp in recipes {
+            let exp: Value = exp.try_into()?;
+            let app_name = exp.get_str("appName")?;
+            if app_name != self.app_name {
+                continue;
+            }
+
+            data.push(exp);
+        }
+
+        self.write_experiments_to_file(&data, file)?;
+        Ok(true)
+    }
+
+    fn write_experiments_to_file(&self, data: &Vec<Value>, file: &PathBuf) -> Result<()> {
+        let contents = json!({
+            "data": data,
+        });
+        std::fs::write(file, serde_json::to_string_pretty(&contents)?)?;
+        Ok(())
+    }
+
+    fn list(&self, list: &ExperimentListSource) -> Result<bool> {
+        let value: Value = list.try_into()?;
         let array = try_extract_data_list(&value)?;
         let term = Term::stdout();
         let style = term.style().italic().underlined();
@@ -485,7 +548,7 @@ impl ExperimentListSource {
         for exp in array {
             let slug = exp.get_str("slug")?;
             let app_name = exp.get_str("appName")?;
-            if app_name != params.app_name {
+            if app_name != self.app_name {
                 continue;
             }
             let features: Vec<_> = exp

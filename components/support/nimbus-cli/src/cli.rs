@@ -30,6 +30,19 @@ pub(crate) struct Cli {
 
 #[derive(Subcommand, Clone)]
 pub(crate) enum CliCommand {
+    /// Send a complete JSON file to the Nimbus SDK and apply it immediately.
+    ApplyFile {
+        /// The filename to be loaded into the SDK.
+        #[arg(short, long, value_name = "FILE")]
+        file: PathBuf,
+
+        /// Keeps existing enrollments and experiments before enrolling.
+        ///
+        /// This is unlikely what you want to do.
+        #[arg(long, default_value = "false")]
+        preserve_nimbus_db: bool,
+    },
+
     /// Capture the logs into a file.
     CaptureLogs {
         /// The file to put the logs.
@@ -71,6 +84,22 @@ pub(crate) enum CliCommand {
         /// This is unlikely what you want to do.
         #[arg(long, default_value = "false")]
         preserve_nimbus_db: bool,
+    },
+
+    /// Fetch one or more experiments and put it in a file.
+    Fetch {
+        /// The file to download the recipes to.
+        #[arg(short, long, value_name = "FILE")]
+        file: PathBuf,
+
+        /// An optional server slug, e.g. release or stage/preview.
+        #[arg(short, long, value_name = "SERVER")]
+        server: Option<String>,
+
+        /// The recipe slugs, including server.
+        ///
+        /// Cannot be used with the server option.
+        recipes: Vec<String>,
     },
 
     /// List the experiments from a server
