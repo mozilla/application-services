@@ -158,6 +158,7 @@ enum AppCommand {
         branch: String,
         preserve_targeting: bool,
         preserve_bucketing: bool,
+        preserve_nimbus_db: bool,
         reset_app: bool,
     },
 
@@ -187,7 +188,7 @@ impl AppCommand {
     fn try_from(app: &LaunchableApp, cli: &Cli) -> Result<Self> {
         let app = app.clone();
         let params = NimbusApp::from(cli);
-        Ok(match &cli.command {
+        Ok(match cli.command.clone() {
             CliCommand::CaptureLogs { file } => AppCommand::CaptureLogs {
                 app,
                 file: file.clone(),
@@ -197,13 +198,11 @@ impl AppCommand {
                 branch,
                 preserve_targeting,
                 preserve_bucketing,
+                preserve_nimbus_db,
                 reset_app,
                 ..
             } => {
                 let experiment = ExperimentSource::try_from(experiment.as_str())?;
-                let branch = branch.to_owned();
-                let preserve_targeting = *preserve_targeting;
-                let preserve_bucketing = *preserve_bucketing;
                 Self::Enroll {
                     app,
                     params,
@@ -211,7 +210,8 @@ impl AppCommand {
                     branch,
                     preserve_targeting,
                     preserve_bucketing,
-                    reset_app: *reset_app,
+                    preserve_nimbus_db,
+                    reset_app,
                 }
             }
             CliCommand::List { server } => {
@@ -242,7 +242,8 @@ impl AppCommand {
                     branch,
                     preserve_targeting: false,
                     preserve_bucketing: false,
-                    reset_app: *reset_app,
+                    preserve_nimbus_db: false,
+                    reset_app,
                 }
             }
             CliCommand::Unenroll => AppCommand::Unenroll { app },
