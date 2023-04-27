@@ -7,6 +7,7 @@ mod cmd;
 mod feature_utils;
 mod value_utils;
 
+use anyhow::{bail, Result};
 use clap::Parser;
 use cli::{Cli, CliCommand};
 use std::{
@@ -14,8 +15,6 @@ use std::{
     path::{Path, PathBuf},
 };
 
-use anyhow::{bail, Result};
-// use clap::{load_yaml, App, ArgMatches};
 fn main() -> Result<()> {
     let cmds = get_commands_from_cli(std::env::args_os(), &std::env::current_dir()?)?;
     for c in cmds {
@@ -171,6 +170,10 @@ enum AppCommand {
         list: ExperimentListSource,
     },
 
+    LogState {
+        app: LaunchableApp,
+    },
+
     Reset {
         app: LaunchableApp,
     },
@@ -219,6 +222,7 @@ impl AppCommand {
                 let list = list.as_str().try_into()?;
                 AppCommand::List { params, list }
             }
+            CliCommand::LogState => AppCommand::LogState { app },
             CliCommand::ResetApp => AppCommand::Reset { app },
             CliCommand::TailLogs => AppCommand::TailLogs { app },
             CliCommand::TestFeature {
