@@ -30,7 +30,6 @@ use crate::{
             UAIDNotRecognizedError,
         },
     },
-    BridgeType,
 };
 
 mod rate_limiter;
@@ -92,33 +91,11 @@ struct RegisterRequest<'a> {
 
     /// An optional app server key
     key: Option<&'a str>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    /// Extra apns data required by the Autopush
-    /// it will passed through autopush to apns
-    aps: Option<Apns<'a>>,
 }
 
 #[derive(Serialize)]
 struct UpdateRequest<'a> {
     token: &'a str,
-}
-
-#[derive(Serialize, Default)]
-struct AlertBody<'a> {
-    title: &'a str,
-    body: &'a str,
-}
-
-#[derive(Serialize)]
-#[serde(rename_all = "kebab-case")]
-/// Minimum needed configuration for APNS
-/// Note: this allows us to modify a push notification
-/// before showing it to a user.
-struct Apns<'a> {
-    /// Set to 1 to allow push to modify a message
-    mutable_content: u8,
-    /// The alert's body, a title and a body
-    alert: AlertBody<'a>,
 }
 
 /// A new communication link to the Autopush server
@@ -265,20 +242,10 @@ impl ConnectHttp {
     where
         T: for<'a> Deserialize<'a>,
     {
-        let aps = if let BridgeType::Apns = &self.options.bridge_type {
-            Some(Apns {
-                mutable_content: 1,
-                alert: Default::default(),
-            })
-        } else {
-            None
-        };
-
         let body = RegisterRequest {
             token: registration_id,
             channel_id,
             key: app_server_key.as_ref().map(|s| s.as_str()),
-            aps,
         };
 
         let response = Request::post(url).headers(headers).json(&body).send()?;
