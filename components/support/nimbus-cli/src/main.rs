@@ -145,6 +145,12 @@ impl From<&Cli> for NimbusApp {
 }
 
 enum AppCommand {
+    ApplyFile {
+        app: LaunchableApp,
+        list: ExperimentListSource,
+        preserve_nimbus_db: bool,
+    },
+
     CaptureLogs {
         app: LaunchableApp,
         file: PathBuf,
@@ -159,6 +165,18 @@ enum AppCommand {
         preserve_bucketing: bool,
         preserve_nimbus_db: bool,
         reset_app: bool,
+    },
+
+    FetchList {
+        params: NimbusApp,
+        list: ExperimentListSource,
+        file: PathBuf,
+    },
+
+    FetchRecipes {
+        params: NimbusApp,
+        recipes: Vec<ExperimentSource>,
+        file: PathBuf,
     },
 
     Kill {
@@ -192,10 +210,18 @@ impl AppCommand {
         let app = app.clone();
         let params = NimbusApp::from(cli);
         Ok(match cli.command.clone() {
-            CliCommand::CaptureLogs { file } => AppCommand::CaptureLogs {
-                app,
-                file: file.clone(),
-            },
+            CliCommand::ApplyFile {
+                file,
+                preserve_nimbus_db,
+            } => {
+                let list = ExperimentListSource::try_from(file.as_path())?;
+                AppCommand::ApplyFile {
+                    app,
+                    list,
+                    preserve_nimbus_db,
+                }
+            }
+            CliCommand::CaptureLogs { file } => AppCommand::CaptureLogs { app, file },
             CliCommand::Enroll {
                 experiment,
                 branch,
@@ -217,8 +243,33 @@ impl AppCommand {
                     reset_app,
                 }
             }
+            CliCommand::Fetch {
+                file,
+                server,
+                recipes,
+            } => {
+                if server.is_some() && !recipes.is_empty() {
+                    anyhow::bail!("Cannot fetch experiments AND from a server");
+                }
+
+                let mut sources = Vec::new();
+                if !recipes.is_empty() {
+                    for r in recipes {
+                        sources.push(ExperimentSource::try_from(r.as_str())?);
+                    }
+                    AppCommand::FetchRecipes {
+                        recipes: sources,
+                        file,
+                        params,
+                    }
+                } else {
+                    let server = server.unwrap_or_default();
+                    let list = ExperimentListSource::try_from(server.as_str())?;
+                    AppCommand::FetchList { list, file, params }
+                }
+            }
             CliCommand::List { server } => {
-                let list = server.to_owned().unwrap_or_default();
+                let list = server.unwrap_or_default();
                 let list = list.as_str().try_into()?;
                 AppCommand::List { params, list }
             }
@@ -236,8 +287,8 @@ impl AppCommand {
                 let branch = feature_utils::slug(first)?;
                 let experiment = ExperimentSource::FromFeatureFiles {
                     app: params.clone(),
-                    feature_id: feature_id.clone(),
-                    files: files.clone(),
+                    feature_id,
+                    files,
                 };
                 Self::Enroll {
                     app,
@@ -257,7 +308,14 @@ impl AppCommand {
 
 impl AppCommand {
     fn should_kill(&self) -> bool {
-        !matches!(self, AppCommand::List { .. }) && !matches!(self, AppCommand::TailLogs { .. })
+        !matches!(
+            self,
+            Self::List { .. }
+                | Self::CaptureLogs { .. }
+                | Self::TailLogs { .. }
+                | Self::FetchList { .. }
+                | Self::FetchRecipes { .. }
+        )
     }
 
     fn should_reset(&self) -> bool {
@@ -275,6 +333,7 @@ impl AppCommand {
 #[derive(Clone, Debug, PartialEq)]
 enum ExperimentListSource {
     FromRemoteSettings { endpoint: String, is_preview: bool },
+    FromFile { file: PathBuf },
 }
 
 impl ExperimentListSource {
@@ -318,6 +377,16 @@ impl TryFrom<&str> for ExperimentListSource {
             [server] => Self::try_from_pair(server, "")?,
             [server, "preview"] => Self::try_from_pair(server, "preview")?,
             _ => bail!(format!("Can't unpack '{}' into an experiment; try preview, release, stage, or stage/preview", value)),
+        })
+    }
+}
+
+impl TryFrom<&Path> for ExperimentListSource {
+    type Error = anyhow::Error;
+
+    fn try_from(value: &Path) -> Result<Self> {
+        Ok(Self::FromFile {
+            file: value.to_path_buf(),
         })
     }
 }
