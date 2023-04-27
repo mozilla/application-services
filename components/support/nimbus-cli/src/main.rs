@@ -229,9 +229,13 @@ impl AppCommand {
                 preserve_bucketing,
                 preserve_nimbus_db,
                 reset_app,
+                file,
                 ..
             } => {
-                let experiment = ExperimentSource::try_from(experiment.as_str())?;
+                let experiment = match file {
+                    Some(file) => ExperimentSource::try_from_file(&file, &experiment)?,
+                    _ => ExperimentSource::try_from(experiment.as_str())?,
+                };
                 Self::Enroll {
                     app,
                     params,
@@ -437,6 +441,15 @@ impl TryFrom<&str> for ExperimentSource {
                 "Can't unpack '{}' into an experiment; try preview/SLUG or stage/SLUG, or stage/preview/SLUG",
                 value
             )),
+        })
+    }
+}
+
+impl ExperimentSource {
+    fn try_from_file(file: &Path, slug: &str) -> Result<Self> {
+        Ok(ExperimentSource::FromList {
+            slug: slug.to_string(),
+            list: file.try_into()?,
         })
     }
 }

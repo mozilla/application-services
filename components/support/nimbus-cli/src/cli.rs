@@ -84,6 +84,10 @@ pub(crate) enum CliCommand {
         /// This is unlikely what you want to do.
         #[arg(long, default_value = "false")]
         preserve_nimbus_db: bool,
+
+        /// Instead of fetching from the server, use a file instead
+        #[arg(short, long, value_name = "FILE")]
+        file: Option<PathBuf>,
     },
 
     /// Fetch one or more experiments and put it in a file.
