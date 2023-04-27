@@ -17,10 +17,9 @@ kind-dependencies:
 tasks:
   build:
     attributes:
-      run-on-pr-type: full-ci
       resource-monitor: true
     needs-sccache: false # TODO: Bug 1623426 deal with this once we're in prod
-    run-on-tasks-for: [github-pull-request, github-release, cron]
+    run-on-tasks-for: [github-release, cron]
     description: Build and test (Swift)
     scopes:
       - project:releng:services/tooltool/api/download/internal
