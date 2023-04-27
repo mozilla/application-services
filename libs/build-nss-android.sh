@@ -65,6 +65,7 @@ gyp -f ninja-android "${NSS_SRC_DIR}/nss/nss.gyp" \
   --depth "${NSS_SRC_DIR}/nss/" \
   --generator-output=. \
   -DOS=android \
+  -Dforce_integrated_as=1 \
   -Dnspr_lib_dir="${NSPR_BUILD_DIR}/dist/lib" \
   -Dnspr_include_dir="${NSPR_BUILD_DIR}/dist/include/nspr" \
   -Dnss_dist_dir="${BUILD_DIR}" \
