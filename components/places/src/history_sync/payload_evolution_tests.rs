@@ -16,7 +16,7 @@ use serde_json::{json, Value};
 use std::collections::{HashMap, HashSet};
 use sync15::{
     bso::{IncomingBso, IncomingKind, OutgoingBso},
-    engine::{IncomingChangeset, SyncEngine},
+    engine::SyncEngine,
     telemetry, ServerTimestamp,
 };
 
@@ -372,17 +372,14 @@ impl RoundtripTest {
         engine: &HistorySyncEngine,
         records: &[Value],
     ) -> Vec<OutgoingBso> {
-        let changeset = IncomingChangeset {
-            changes: records.iter().map(IncomingBso::from_test_content).collect(),
-            timestamp: ServerTimestamp::from_millis(timestamp(1000)),
-            collection: "history".into(),
-        };
+        let changes = records.iter().map(IncomingBso::from_test_content).collect();
 
-        let changeset = engine
-            .apply_incoming(vec![changeset], &mut telemetry::Engine::new("history"))
-            .expect("Should apply incoming and stage outgoing records");
-        assert_eq!(changeset.collection, "history");
-        changeset.changes
+        let mut telem = telemetry::Engine::new("history");
+        engine
+            .stage_incoming(changes, &mut telemetry::Engine::new("history"))
+            .expect("Should stageapply incoming and stage outgoing records");
+        let timestamp = ServerTimestamp::from_millis(timestamp(1000));
+        engine.apply(timestamp, &mut telem).expect("should apply")
     }
 
     fn make_local_updates(&self, api: &PlacesApi) {
