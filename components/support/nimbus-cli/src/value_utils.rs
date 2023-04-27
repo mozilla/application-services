@@ -5,8 +5,11 @@ use anyhow::Result;
 use serde::Serialize;
 use serde_json::Value;
 
+use crate::NimbusApp;
+
 pub(crate) trait CliUtils {
     fn get_str<'a>(&'a self, key: &str) -> Result<&'a str>;
+    fn get_bool(&self, key: &str) -> Result<bool>;
     fn get_array<'a>(&'a self, key: &str) -> Result<&'a Vec<Value>>;
     fn get_mut_array<'a>(&'a mut self, key: &str) -> Result<&'a mut Vec<Value>>;
     fn get_mut_object<'a>(&'a mut self, key: &str) -> Result<&'a mut Value>;
@@ -22,6 +25,16 @@ impl CliUtils for Value {
             .get(key)
             .ok_or_else(|| anyhow::Error::msg("Expected a string in the JSONObject"))?
             .as_str()
+            .ok_or_else(|| anyhow::Error::msg("value is not a string"))?;
+
+        Ok(v)
+    }
+
+    fn get_bool(&self, key: &str) -> Result<bool> {
+        let v = self
+            .get(key)
+            .ok_or_else(|| anyhow::Error::msg("Expected a string in the JSONObject"))?
+            .as_bool()
             .ok_or_else(|| anyhow::Error::msg("value is not a string"))?;
 
         Ok(v)
@@ -86,26 +99,54 @@ pub(crate) fn try_extract_data_list(value: &Value) -> Result<Vec<Value>> {
     Ok(value.get_array("data")?.to_vec())
 }
 
+fn prepare_recipe(
+    recipe: &Value,
+    params: &NimbusApp,
+    preserve_targeting: bool,
+    preserve_bucketing: bool,
+) -> Result<Value> {
+    let mut recipe = recipe.clone();
+    let slug = recipe.get_str("slug")?;
+    if params.app_name != recipe.get_str("appName")? {
+        anyhow::bail!(format!("'{}' is not for app {}", slug, params.app_name));
+    }
+    recipe.set("channel", &params.channel)?;
+    recipe.set("isEnrollmentPaused", false)?;
+    if !preserve_targeting {
+        recipe.set("targeting", "true")?;
+    }
+    if !preserve_bucketing {
+        let bucketing = recipe.get_mut_object("bucketConfig")?;
+        bucketing.set("start", 0)?;
+        bucketing.set("count", 10_000)?;
+    }
+    Ok(recipe)
+}
+
+pub(crate) fn prepare_rollout(
+    recipe: &Value,
+    params: &NimbusApp,
+    preserve_targeting: bool,
+    preserve_bucketing: bool,
+) -> Result<Value> {
+    let rollout = prepare_recipe(recipe, params, preserve_targeting, preserve_bucketing)?;
+    if !rollout.get_bool("isRollout")? {
+        let slug = rollout.get_str("slug")?;
+        anyhow::bail!(format!("Recipe '{}' isn't a rollout", slug));
+    }
+    Ok(rollout)
+}
+
 pub(crate) fn prepare_experiment(
-    experiment: &Value,
-    slug: &str,
-    channel: &str,
+    recipe: &Value,
+    params: &NimbusApp,
     branch: &str,
     preserve_targeting: bool,
     preserve_bucketing: bool,
 ) -> Result<Value> {
-    let mut experiment = experiment.clone();
-    experiment.set("channel", channel)?;
-    experiment.set("isEnrollmentPaused", false)?;
-    if !preserve_targeting {
-        experiment.set("targeting", "true")?;
-    }
+    let mut experiment = prepare_recipe(recipe, params, preserve_targeting, preserve_bucketing)?;
 
     if !preserve_bucketing {
-        let bucketing = experiment.get_mut_object("bucketConfig")?;
-        bucketing.set("start", 0)?;
-        bucketing.set("count", 10_000)?;
-
         let branches = experiment.get_mut_array("branches")?;
         let mut found = false;
         for b in branches {
@@ -119,6 +160,7 @@ pub(crate) fn prepare_experiment(
             b.set("ratio", ratio)?;
         }
         if !found {
+            let slug = experiment.get_str("slug")?;
             anyhow::bail!(format!(
                 "No branch called '{}' was found in '{}'",
                 branch, slug
@@ -159,6 +201,7 @@ mod tests {
     #[test]
     fn test_prepare_experiment() -> Result<()> {
         let src = json!({
+            "appName": "an-app",
             "slug": "a-name",
             "branches": [
                 {
@@ -172,8 +215,14 @@ mod tests {
             }
         });
 
+        let params = NimbusApp {
+            app_name: "an-app".to_string(),
+            channel: "developer".to_string(),
+        };
+
         assert_eq!(
             json!({
+                "appName": "an-app",
                 "channel": "developer",
                 "slug": "a-name",
                 "branches": [
@@ -193,11 +242,12 @@ mod tests {
                 "isEnrollmentPaused": false,
                 "targeting": "true"
             }),
-            prepare_experiment(&src, "a-name", "developer", "a-branch", false, false)?
+            prepare_experiment(&src, &params, "a-branch", false, false)?
         );
 
         assert_eq!(
             json!({
+                "appName": "an-app",
                 "channel": "developer",
                 "slug": "a-name",
                 "branches": [
@@ -213,11 +263,12 @@ mod tests {
                 "isEnrollmentPaused": false,
                 "targeting": "true"
             }),
-            prepare_experiment(&src, "a-name", "developer", "a-branch", false, true)?
+            prepare_experiment(&src, &params, "a-branch", false, true)?
         );
 
         assert_eq!(
             json!({
+                "appName": "an-app",
                 "channel": "developer",
                 "slug": "a-name",
                 "branches": [
@@ -236,11 +287,12 @@ mod tests {
                 },
                 "isEnrollmentPaused": false,
             }),
-            prepare_experiment(&src, "a-name", "developer", "a-branch", true, false)?
+            prepare_experiment(&src, &params, "a-branch", true, false)?
         );
 
         assert_eq!(
             json!({
+                "appName": "an-app",
                 "slug": "a-name",
                 "channel": "developer",
                 "branches": [
@@ -255,7 +307,7 @@ mod tests {
                 },
                 "isEnrollmentPaused": false,
             }),
-            prepare_experiment(&src, "a-name", "developer", "a-branch", true, true)?
+            prepare_experiment(&src, &params, "a-branch", true, true)?
         );
         Ok(())
     }

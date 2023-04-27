@@ -67,6 +67,10 @@ pub(crate) enum CliCommand {
         #[arg(short, long, value_name = "BRANCH")]
         branch: String,
 
+        /// Optional rollout slugs, including the server and collection.
+        #[arg(value_name = "ROLLOUTS")]
+        rollouts: Vec<String>,
+
         /// Preserves the original experiment targeting
         #[arg(long, default_value = "false")]
         preserve_targeting: bool,
