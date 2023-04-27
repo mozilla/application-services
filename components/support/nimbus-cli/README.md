@@ -22,11 +22,17 @@ The apps currently supported are:
 Usage: nimbus-cli [OPTIONS] --app <APP> --channel <CHANNEL> <COMMAND>
 
 Commands:
-  enroll     Enroll into an experiment or a rollout
-  list       List the experiments from a server
-  reset-app  Reset the app back to its just installed state
-  unenroll   Unenroll from all experiments and rollouts
-  help       Print this message or the help of the given subcommand(s)
+  apply-file    Send a complete JSON file to the Nimbus SDK and apply it immediately
+  capture-logs  Capture the logs into a file
+  enroll        Enroll into an experiment or a rollout
+  fetch         Fetch one or more experiments and put it in a file
+  list          List the experiments from a server
+  log-state     Print the state of the Nimbus database to logs
+  reset-app     Reset the app back to its just installed state
+  tail-logs     Follow the logs for the given app
+  test-feature  Configure an application feature with one or more feature config files
+  unenroll      Unenroll from all experiments and rollouts
+  help          Print this message or the help of the given subcommand(s)
 
 Options:
   -a, --app <APP>              The app name according to Nimbus
@@ -48,11 +54,14 @@ The experiment slug is a combination of the actual slug, and the server it came 
 
 These can be further combined: e.g. $slug, preview/$slug, stage/$slug, stage/preview/$slug
 
-Usage: nimbus-cli --app <APP> --channel <CHANNEL> enroll [OPTIONS] --branch <BRANCH> <SLUG>
+Usage: nimbus-cli --app <APP> --channel <CHANNEL> enroll [OPTIONS] --branch <BRANCH> <SLUG> [ROLLOUTS]...
 
 Arguments:
   <SLUG>
           The experiment slug, including the server and collection
+
+  [ROLLOUTS]...
+          Optional rollout slugs, including the server and collection
 
 Options:
   -b, --branch <BRANCH>
@@ -67,6 +76,14 @@ Options:
       --reset-app
           Resets the app back to its initial state before launching
 
+      --preserve-nimbus-db
+          Keeps existing enrollments and experiments before enrolling.
+
+          This is unlikely what you want to do.
+
+  -f, --file <FILE>
+          Instead of fetching from the server, use a file instead
+
   -h, --help
           Print help (see a summary with '-h')
 ```
@@ -76,13 +93,38 @@ Options:
 ```sh
 List the experiments from a server
 
-Usage: nimbus-cli --app <APP> --channel <CHANNEL> list [SERVER]
+Usage: nimbus-cli --app <APP> --channel <CHANNEL> list [OPTIONS] [SERVER]
 
 Arguments:
   [SERVER]  A server slug e.g. preview, release, stage, stage/preview
 
 Options:
-  -h, --help  Print help
+  -f, --file <FILE>  An optional file
+  -h, --help         Print help
+```
+
+### Test Feature
+
+```sh
+Configure an application feature with one or more feature config files.
+
+One file per branch. The branch slugs will correspond to the file names.
+
+Usage: nimbus-cli --app <APP> --channel <CHANNEL> test-feature [OPTIONS] <FEATURE_ID> [FILES]...
+
+Arguments:
+  <FEATURE_ID>
+          The identifier of the feature to configure
+
+  [FILES]...
+          One or more files containing a feature config for the feature
+
+Options:
+      --reset-app
+          Resets the app back to its initial state before launching
+
+  -h, --help
+          Print help (see a summary with '-h')
 ```
 
 ## Environment Variables
