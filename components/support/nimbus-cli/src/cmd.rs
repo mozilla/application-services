@@ -4,10 +4,12 @@
 
 use crate::{
     feature_utils,
-    value_utils::{prepare_experiment, try_extract_data_list, try_find_experiment, CliUtils},
+    value_utils::{
+        prepare_experiment, prepare_rollout, try_extract_data_list, try_find_experiment, CliUtils,
+    },
     AppCommand, ExperimentListSource, ExperimentSource, LaunchableApp, NimbusApp,
 };
-use anyhow::{bail, Result};
+use anyhow::Result;
 use console::Term;
 use serde_json::{json, Value};
 use std::{path::PathBuf, process::Command};
@@ -24,6 +26,7 @@ pub(crate) fn process_cmd(cmd: &AppCommand) -> Result<bool> {
             app,
             params,
             experiment,
+            rollouts,
             branch,
             preserve_targeting,
             preserve_bucketing,
@@ -32,6 +35,7 @@ pub(crate) fn process_cmd(cmd: &AppCommand) -> Result<bool> {
         } => app.enroll(
             params,
             experiment,
+            rollouts,
             branch,
             preserve_targeting,
             preserve_bucketing,
@@ -234,37 +238,47 @@ impl LaunchableApp {
         self.start_app(false, None, true)
     }
 
+    #[allow(clippy::too_many_arguments)]
     fn enroll(
         &self,
         params: &NimbusApp,
         experiment: &ExperimentSource,
+        rollouts: &Vec<ExperimentSource>,
         branch: &str,
         preserve_targeting: &bool,
         preserve_bucketing: &bool,
         preserve_nimbus_db: &bool,
     ) -> Result<bool> {
+        let term = Term::stdout();
+
         let experiment = Value::try_from(experiment)?;
         let slug = experiment.get_str("slug")?.to_string();
 
-        let term = Term::stdout();
-        prompt(
-            &term,
-            &format!("# Enrolling in '{0}' branch of {1}", branch, &slug),
-        )?;
-
-        if params.app_name != experiment.get_str("appName")? {
-            bail!(format!("'{}' is not for app {}", slug, params.app_name));
-        }
-        let experiment = prepare_experiment(
+        let mut recipes = vec![prepare_experiment(
             &experiment,
-            &slug,
-            &params.channel,
+            params,
             branch,
             *preserve_targeting,
             *preserve_bucketing,
+        )?];
+        prompt(
+            &term,
+            &format!("# Enrolling in the '{0}' branch of '{1}'", branch, &slug),
         )?;
 
-        let payload = json! {{ "data": [experiment] }};
+        for r in rollouts {
+            let rollout = Value::try_from(r)?;
+            let slug = rollout.get_str("slug")?.to_string();
+            recipes.push(prepare_rollout(
+                &rollout,
+                params,
+                *preserve_targeting,
+                *preserve_bucketing,
+            )?);
+            prompt(&term, &format!("# Enrolling into the '{0}' rollout", &slug))?;
+        }
+
+        let payload = json! {{ "data": recipes }};
         self.start_app(!preserve_nimbus_db, Some(&payload), true)
     }
 
