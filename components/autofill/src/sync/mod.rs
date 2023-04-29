@@ -13,8 +13,7 @@ use crate::error::Result;
 use interrupt_support::Interruptee;
 use rusqlite::Transaction;
 use sync15::bso::{IncomingBso, IncomingContent, IncomingEnvelope, IncomingKind, OutgoingBso};
-use sync15::engine::legacy_engine::OutgoingChangeset;
-use sync15::{CollectionName, ServerTimestamp};
+use sync15::ServerTimestamp;
 use sync_guid::Guid;
 use types::Timestamp;
 
@@ -100,11 +99,7 @@ pub trait ProcessIncomingRecordImpl {
 pub trait ProcessOutgoingRecordImpl {
     type Record;
 
-    fn fetch_outgoing_records(
-        &self,
-        tx: &Transaction<'_>,
-        collection_name: CollectionName,
-    ) -> anyhow::Result<OutgoingChangeset>;
+    fn fetch_outgoing_records(&self, tx: &Transaction<'_>) -> anyhow::Result<Vec<OutgoingBso>>;
 
     fn finish_synced_items(
         &self,

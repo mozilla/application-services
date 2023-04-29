@@ -21,12 +21,12 @@ use crate::error::Result;
 use crate::sync::address::create_engine as create_address_engine;
 use crate::sync::{IncomingBso, Metadata};
 use crate::{InternalAddress, Store};
+use sync15::engine::SyncEngine;
 use types::Timestamp;
 
 use rusqlite::Connection;
 use serde_json::{json, Map, Value};
 use std::sync::Arc;
-use sync15::engine::legacy_engine::{IncomingChangeset, LegacySyncEngine};
 use sync15::{telemetry, ServerTimestamp};
 use sync_guid::Guid as SyncGuid;
 
@@ -650,24 +650,22 @@ fn test_reconcile_addresses() -> Result<()> {
 
         let bso = test_to_bso(&guid, &remote);
         let remote_time = ServerTimestamp(0);
-        let mut incoming = IncomingChangeset::new("test".into(), remote_time);
-        incoming.changes.push(bso);
-
         let mut telem = telemetry::Engine::new("addresses");
 
         std::mem::drop(db); // unlock the mutex for the engine.
         let engine = create_address_engine(Arc::clone(&store));
 
-        let outgoing = engine
-            .apply_incoming(vec![incoming], &mut telem)
-            .expect("should apply");
+        engine
+            .stage_incoming(vec![bso], &mut telem)
+            .expect("should stage");
 
+        let outgoing = engine.apply(remote_time, &mut telem).expect("should apply");
         // For some tests, we want to check that the outgoing has what we're expecting
         // to go to the server
         if let Some(outgoing_expected) = test_case.get("outgoing") {
             log::trace!("Testing outgoing changeset: {:?}", outgoing);
             let bso_payload: Map<String, Value> =
-                serde_json::from_str(&outgoing.changes[0].payload).unwrap();
+                serde_json::from_str(&outgoing[0].payload).unwrap();
             let entry = bso_payload.get("entry").unwrap();
             let oeb = outgoing_expected.as_object().unwrap();
 

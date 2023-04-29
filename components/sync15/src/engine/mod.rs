@@ -26,7 +26,6 @@
 //! types and payload management used by these traits, then to combine the
 //! requirements into a single trait that captures both use-cases.
 mod bridged_engine;
-pub mod legacy_engine;
 mod request;
 mod sync_engine;
 
