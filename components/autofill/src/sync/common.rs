@@ -482,10 +482,9 @@ pub(super) mod tests {
         data_table_name: &str,
         mirror_table_name: &str,
         staging_table_name: &str,
-        collection_name: CollectionName,
     ) {
         // call fetch outgoing records
-        assert!(ro.fetch_outgoing_records(tx, collection_name).is_ok());
+        assert!(ro.fetch_outgoing_records(tx).is_ok());
 
         // check that the record is in the outgoing table
         exists_in_table(tx, &format!("temp.{}", staging_table_name), guid);
@@ -507,10 +506,9 @@ pub(super) mod tests {
         data_table_name: &str,
         mirror_table_name: &str,
         staging_table_name: &str,
-        collection_name: CollectionName,
     ) {
         // call fetch outgoing records
-        assert!(ro.fetch_outgoing_records(tx, collection_name).is_ok());
+        assert!(ro.fetch_outgoing_records(tx).is_ok());
 
         // check that the record is in the outgoing table
         exists_in_table(tx, &format!("temp.{}", staging_table_name), guid);
@@ -541,10 +539,9 @@ pub(super) mod tests {
         data_table_name: &str,
         mirror_table_name: &str,
         staging_table_name: &str,
-        collection_name: CollectionName,
     ) {
         // call fetch outgoing records
-        assert!(ro.fetch_outgoing_records(tx, collection_name).is_ok());
+        assert!(ro.fetch_outgoing_records(tx).is_ok());
 
         // check that the record is in the outgoing table
         exists_in_table(tx, &format!("temp.{}", staging_table_name), guid);
@@ -567,10 +564,9 @@ pub(super) mod tests {
         guid: &Guid,
         data_table_name: &str,
         staging_table_name: &str,
-        collection_name: CollectionName,
     ) {
         // call fetch outgoing records
-        assert!(ro.fetch_outgoing_records(tx, collection_name).is_ok());
+        assert!(ro.fetch_outgoing_records(tx).is_ok());
 
         // check that the record is not in the outgoing table
         let sql = format!(

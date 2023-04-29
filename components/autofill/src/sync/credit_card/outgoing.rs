@@ -8,11 +8,8 @@ use crate::db::schema::CREDIT_CARD_COMMON_COLS;
 use crate::encryption::EncryptorDecryptor;
 use crate::error::*;
 use crate::sync::common::*;
-use crate::sync::{
-    credit_card::CreditCardPayload, OutgoingBso, OutgoingChangeset, ProcessOutgoingRecordImpl,
-};
+use crate::sync::{credit_card::CreditCardPayload, OutgoingBso, ProcessOutgoingRecordImpl};
 use rusqlite::{Row, Transaction};
-use sync15::CollectionName;
 use sync_guid::Guid as SyncGuid;
 
 const DATA_TABLE_NAME: &str = "credit_cards_data";
@@ -28,11 +25,7 @@ impl ProcessOutgoingRecordImpl for OutgoingCreditCardsImpl {
 
     /// Gets the local records that have unsynced changes or don't have corresponding mirror
     /// records and upserts them to the mirror table
-    fn fetch_outgoing_records(
-        &self,
-        tx: &Transaction<'_>,
-        collection_name: CollectionName,
-    ) -> anyhow::Result<OutgoingChangeset> {
+    fn fetch_outgoing_records(&self, tx: &Transaction<'_>) -> anyhow::Result<Vec<OutgoingBso>> {
         let data_sql = format!(
             "SELECT
                 l.{common_cols},
@@ -83,13 +76,12 @@ impl ProcessOutgoingRecordImpl for OutgoingCreditCardsImpl {
         common_save_outgoing_records(tx, STAGING_TABLE_NAME, staging_records)?;
 
         // return outgoing changes
-        let outgoing_records =
+        Ok(
             common_get_outgoing_records(tx, &data_sql, tombstones_sql, record_from_data_row)?
                 .into_iter()
                 .map(|(bso, _change_counter)| bso)
-                .collect();
-
-        Ok(OutgoingChangeset::new(collection_name, outgoing_records))
+                .collect::<Vec<OutgoingBso>>(),
+        )
     }
 
     fn finish_synced_items(
@@ -116,8 +108,6 @@ mod tests {
     use crate::sync::{common::tests::*, test::new_syncable_mem_db, UnknownFields};
     use serde_json::{json, Map, Value};
     use types::Timestamp;
-
-    const COLLECTION_NAME: &str = "creditcards";
 
     lazy_static::lazy_static! {
         static ref TEST_JSON_RECORDS: Map<String, Value> = {
@@ -193,7 +183,6 @@ mod tests {
             DATA_TABLE_NAME,
             MIRROR_TABLE_NAME,
             STAGING_TABLE_NAME,
-            COLLECTION_NAME.into(),
         );
     }
 
@@ -229,7 +218,6 @@ mod tests {
             DATA_TABLE_NAME,
             MIRROR_TABLE_NAME,
             STAGING_TABLE_NAME,
-            COLLECTION_NAME.into(),
         );
     }
 
@@ -261,7 +249,6 @@ mod tests {
             DATA_TABLE_NAME,
             MIRROR_TABLE_NAME,
             STAGING_TABLE_NAME,
-            COLLECTION_NAME.into(),
         );
     }
 
@@ -288,7 +275,6 @@ mod tests {
             &guid,
             DATA_TABLE_NAME,
             STAGING_TABLE_NAME,
-            COLLECTION_NAME.into(),
         );
     }
 
@@ -323,13 +309,10 @@ mod tests {
             initial_change_counter_val,
         );
 
-        let outgoing = &co
-            .fetch_outgoing_records(&tx, COLLECTION_NAME.into())
-            .unwrap();
+        let outgoing = &co.fetch_outgoing_records(&tx).unwrap();
         // Unknown fields are: {"foo": "bar", "baz": "qux"}
         // Ensure we have our unknown values for the roundtrip
-        let bso_payload: Map<String, Value> =
-            serde_json::from_str(&outgoing.changes[0].payload).unwrap();
+        let bso_payload: Map<String, Value> = serde_json::from_str(&outgoing[0].payload).unwrap();
         let entry = bso_payload.get("entry").unwrap();
         assert_eq!(entry.get("foo").unwrap(), "bar");
         assert_eq!(entry.get("baz").unwrap(), "qux");
@@ -340,7 +323,6 @@ mod tests {
             DATA_TABLE_NAME,
             MIRROR_TABLE_NAME,
             STAGING_TABLE_NAME,
-            COLLECTION_NAME.into(),
         );
     }
 }

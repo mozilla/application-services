@@ -10,10 +10,8 @@ use rusqlite::{
     Connection, Transaction,
 };
 use std::sync::Arc;
-use sync15::engine::legacy_engine::{
-    IncomingChangeset, LegacySyncEngine, LegacySyncEngineState, OutgoingChangeset,
-};
-use sync15::engine::{CollSyncIds, CollectionRequest, EngineSyncAssociation};
+use sync15::bso::{IncomingBso, OutgoingBso};
+use sync15::engine::{CollSyncIds, CollectionRequest, EngineSyncAssociation, SyncEngine};
 use sync15::{telemetry, CollectionName, ServerTimestamp};
 use sync_guid::Guid;
 
@@ -48,7 +46,6 @@ pub struct ConfigSyncEngine<T> {
     pub(crate) store: Arc<Store>,
     pub(crate) storage_impl: Box<dyn SyncEngineStorageImpl<T>>,
     local_enc_key: Option<String>,
-    legacy_state: LegacySyncEngineState,
 }
 
 impl<T> ConfigSyncEngine<T> {
@@ -62,7 +59,6 @@ impl<T> ConfigSyncEngine<T> {
             store,
             storage_impl,
             local_enc_key: None,
-            legacy_state: LegacySyncEngineState::default(),
         }
     }
     fn put_meta(&self, conn: &Connection, tail: &str, value: &dyn ToSql) -> Result<()> {
@@ -88,8 +84,7 @@ impl<T> ConfigSyncEngine<T> {
     }
 }
 
-// We're just an "adaptor" to the sync15 version of an 'engine'
-impl<T: SyncRecord + std::fmt::Debug> LegacySyncEngine for ConfigSyncEngine<T> {
+impl<T: SyncRecord + std::fmt::Debug> SyncEngine for ConfigSyncEngine<T> {
     fn collection_name(&self) -> CollectionName {
         self.config.collection.clone()
     }
@@ -99,47 +94,65 @@ impl<T: SyncRecord + std::fmt::Debug> LegacySyncEngine for ConfigSyncEngine<T> {
         Ok(())
     }
 
-    fn apply_incoming(
+    fn prepare_for_sync(
         &self,
-        inbound: Vec<IncomingChangeset>,
-        telem: &mut telemetry::Engine,
-    ) -> anyhow::Result<OutgoingChangeset> {
-        assert_eq!(inbound.len(), 1, "we only request one item");
-        let inbound = inbound.into_iter().next().unwrap();
-
+        _get_client_data: &dyn Fn() -> sync15::ClientData,
+    ) -> anyhow::Result<()> {
         let db = &self.store.db.lock().unwrap();
+        let signal = db.begin_interrupt_scope()?;
         crate::db::schema::create_empty_sync_temp_tables(&db.writer)?;
+        signal.err_if_interrupted()?;
+        Ok(())
+    }
 
+    fn stage_incoming(
+        &self,
+        inbound: Vec<IncomingBso>,
+        telem: &mut telemetry::Engine,
+    ) -> anyhow::Result<()> {
+        let db = &self.store.db.lock().unwrap();
         let signal = db.begin_interrupt_scope()?;
 
         // Stage all incoming items.
         let mut incoming_telemetry = telemetry::EngineIncoming::new();
-        let num_incoming = inbound.changes.len() as u32;
+        incoming_telemetry.applied(inbound.len() as u32);
+        telem.incoming(incoming_telemetry);
+        let tx = db.writer.unchecked_transaction()?;
+        let incoming_impl = self.storage_impl.get_incoming_impl(&self.local_enc_key)?;
+
+        incoming_impl.stage_incoming(&tx, inbound, &signal)?;
+        tx.commit()?;
+        Ok(())
+    }
+
+    fn apply(
+        &self,
+        timestamp: ServerTimestamp,
+        _telem: &mut telemetry::Engine,
+    ) -> anyhow::Result<Vec<OutgoingBso>> {
+        let db = &self.store.db.lock().unwrap();
+        let signal = db.begin_interrupt_scope()?;
         let tx = db.writer.unchecked_transaction()?;
         let incoming_impl = self.storage_impl.get_incoming_impl(&self.local_enc_key)?;
         let outgoing_impl = self.storage_impl.get_outgoing_impl(&self.local_enc_key)?;
 
-        // The first step in the "apply incoming" process for syncing autofill records.
-        incoming_impl.stage_incoming(&tx, inbound.changes, &signal)?;
-        // 2nd step is to get "states" for each record...
+        // Get "states" for each record...
         for state in incoming_impl.fetch_incoming_states(&tx)? {
             signal.err_if_interrupted()?;
             // Finally get a "plan" and apply it.
             let action = plan_incoming(&*incoming_impl, &tx, state)?;
             super::apply_incoming_action(&*incoming_impl, &tx, action)?;
         }
-        incoming_telemetry.applied(num_incoming);
-        telem.incoming(incoming_telemetry);
 
         // write the timestamp now, so if we are interrupted merging or
         // creating outgoing changesets we don't need to re-download the same
         // records.
-        self.put_meta(&tx, LAST_SYNC_META_KEY, &inbound.timestamp.as_millis())?;
+        self.put_meta(&tx, LAST_SYNC_META_KEY, &timestamp.as_millis())?;
 
         incoming_impl.finish_incoming(&tx)?;
 
         // Finally, stage outgoing items.
-        let outgoing = outgoing_impl.fetch_outgoing_records(&tx, self.collection_name())?;
+        let outgoing = outgoing_impl.fetch_outgoing_records(&tx)?;
         // we're committing now because it may take a long time to actually perform the upload
         // and we've already staged everything we need to complete the sync in a way that
         // doesn't require the transaction to stay alive, so we commit now and start a new
@@ -148,35 +161,33 @@ impl<T: SyncRecord + std::fmt::Debug> LegacySyncEngine for ConfigSyncEngine<T> {
         Ok(outgoing)
     }
 
-    fn sync_finished(
-        &self,
-        new_timestamp: ServerTimestamp,
-        records_synced: Vec<Guid>,
-    ) -> anyhow::Result<()> {
+    fn set_uploaded(&self, new_timestamp: ServerTimestamp, ids: Vec<Guid>) -> anyhow::Result<()> {
         let db = &self.store.db.lock().unwrap();
         self.put_meta(&db.writer, LAST_SYNC_META_KEY, &new_timestamp.as_millis())?;
         let tx = db.writer.unchecked_transaction()?;
         let outgoing_impl = self.storage_impl.get_outgoing_impl(&self.local_enc_key)?;
-        outgoing_impl.finish_synced_items(&tx, records_synced)?;
+        outgoing_impl.finish_synced_items(&tx, ids)?;
         tx.commit()?;
         Ok(())
     }
 
-    fn get_collection_requests(
+    fn get_collection_request(
         &self,
         server_timestamp: ServerTimestamp,
-    ) -> anyhow::Result<Vec<CollectionRequest>> {
+    ) -> anyhow::Result<Option<CollectionRequest>> {
         let db = &self.store.db.lock().unwrap();
         let since = ServerTimestamp(
             self.get_meta::<i64>(&db.writer, LAST_SYNC_META_KEY)?
                 .unwrap_or_default(),
         );
         Ok(if since == server_timestamp {
-            vec![]
+            None
         } else {
-            vec![CollectionRequest::new(self.collection_name())
-                .full()
-                .newer_than(since)]
+            Some(
+                CollectionRequest::new(self.collection_name())
+                    .full()
+                    .newer_than(since),
+            )
         })
     }
 
@@ -219,10 +230,6 @@ impl<T: SyncRecord + std::fmt::Debug> LegacySyncEngine for ConfigSyncEngine<T> {
     fn wipe(&self) -> anyhow::Result<()> {
         log::warn!("not implemented as there isn't a valid use case for it");
         Ok(())
-    }
-
-    fn get_legacy_engine_state(&self) -> &LegacySyncEngineState {
-        &self.legacy_state
     }
 }
 
@@ -267,7 +274,7 @@ mod tests {
     }
 
     #[test]
-    fn test_credit_card_engine_sync_finished() -> Result<()> {
+    fn test_credit_card_engine_apply_timestamp() -> Result<()> {
         let mut credit_card_engine = create_engine();
         let test_key = crate::encryption::create_autofill_key().unwrap();
         credit_card_engine
@@ -277,9 +284,9 @@ mod tests {
             create_empty_sync_temp_tables(&credit_card_engine.store.db.lock().unwrap())?;
         }
 
+        let mut telem = telemetry::Engine::new("whatever");
         let last_sync = 24;
-        let result =
-            credit_card_engine.sync_finished(ServerTimestamp::from_millis(last_sync), Vec::new());
+        let result = credit_card_engine.apply(ServerTimestamp::from_millis(last_sync), &mut telem);
         assert!(result.is_ok());
 
         // check that last sync metadata was set
