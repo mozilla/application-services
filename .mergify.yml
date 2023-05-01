@@ -2,10 +2,10 @@ queue_rules:
   - name: default
     conditions:
       # Conditions to get out of the queue (= merged)
-      - "check-success=Decision Task"
-      - "check-success=run-tests"
-      - "check-success=check-formatting"
-      - "#check-success-or-neutral>=5" # we should always have at least this many checks
+      - check-success=Decision Task
+      - check-success=run-tests
+      - check-success=check-formatting
+      - "#check-success>=5" # we should always have at least this many checks
       - "#check-pending=0"
       - "#check-stale=0"
       - "#check-failure=0"
@@ -25,6 +25,7 @@ pull_request_rules:
   - name: automatic merge for main
     conditions:
       - "#approved-reviews-by>=1"
+      - "#changes-requested-reviews-by=0"
       - base=main
       - label=checkin-needed
       # What we want to say here is "all checks passed", but that's not a concept
@@ -38,10 +39,12 @@ pull_request_rules:
       #
       # So instead we insist that a small set of known checks has completed,
       # and also that there are no other checks in unexpected states.
-      - "check-success=Decision Task"
-      - "check-success=run-tests"
-      - "check-success=check-formatting"
-      - "#check-success-or-neutral>=5" # we should always have at least this many checks
+      - check-success=Decision Task
+      - check-success=run-tests
+      - check-success=ios-test-and-artifacts
+      - check-success=clippy
+      - check-success=check-formatting
+      - "#check-success>=5" # we should always have at least this many checks
       - "#check-pending=0"
       - "#check-stale=0"
       - "#check-failure=0"
