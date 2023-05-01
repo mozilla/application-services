@@ -20,6 +20,8 @@ BINDINGS_UDL_PATHS = [
     "components/push/src/push.udl",
     "components/support/error/src/errorsupport.udl",
     "components/sync_manager/src/syncmanager.udl",
+    "components/sync15/src/sync15.udl",
+
 ]
 # List of globs to copy the sources from
 SOURCE_TO_COPY = [
