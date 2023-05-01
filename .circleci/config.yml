@@ -297,17 +297,6 @@ jobs:
       # It's not in the default workspace members, so just `cargo test` is OK.
       - run: RUST_LOG=trace cargo test
       - save-sccache-cache
-  # These run periodically (driven by cron).
-  Rust tests - beta:
-    executor: docker
-    resource_class: large
-    steps:
-      - full-checkout
-      - restore-sccache-cache
-      - test-setup
-      - run: rustup override set beta
-      - run-tests
-      - save-sccache-cache
 
   Focus build XCFramework:
     executor: macos
@@ -451,16 +440,6 @@ workflows:
   bash-lint:
     jobs:
       - Lint Bash scripts
-  run-beta-tests-periodically:
-    jobs:
-      - Rust tests - beta
-    triggers:
-      - schedule:
-          cron: "0 7 * * *"
-          filters:
-            branches:
-              only:
-                - main
   run-tests:
     jobs:
       - Rust tests
