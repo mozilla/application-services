@@ -10,7 +10,6 @@ taskgraph:
   repositories:
     appservices:
       name: "Application Services"
-  cached-task-prefix: project.application-services
   decision-parameters: 'app_services_taskgraph:get_decision_parameters'
 
 workers:
