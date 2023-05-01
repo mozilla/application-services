@@ -11,13 +11,14 @@ ROOT_DIR = pathlib.Path(__file__).parent.parent.parent
 # List of udl_paths to generate bindings for
 BINDINGS_UDL_PATHS = [
     "components/autofill/src/autofill.udl",
+    "components/support/error/src/errorsupport.udl",
     "components/fxa-client/src/fxa_client.udl",
     "components/logins/src/logins.udl",
     "components/nimbus/src/nimbus.udl",
     "components/places/src/places.udl",
     "components/push/src/push.udl",
-    "components/support/error/src/errorsupport.udl",
     "components/sync_manager/src/syncmanager.udl",
+    "components/tabs/src/tabs.udl",
     "components/sync15/src/sync15.udl",
 ]
 
@@ -35,6 +36,7 @@ SOURCE_TO_COPY = [
     "components/tabs/ios/Tabs",
     "components/places/ios/Places",
     "components/sync15/ios/*",
+    "components/sync_manager/ios/SyncManager",
     "components/rc_log/ios/*",
     "components/viaduct/ios/*",
 ]
