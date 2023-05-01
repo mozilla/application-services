@@ -34,10 +34,11 @@ def setup_command(config, tasks):
                 "type": "file",
             }
         ]
-        task["routes"] = [
-            f"index.project.application-services.v2.{release_type}.latest",
-            f"index.project.application-services.v2.{release_type}.{version}",
-        ]
+        if config.params['level'] == '3':
+            task["routes"] = [
+                f"index.project.application-services.v2.{release_type}.latest",
+                f"index.project.application-services.v2.{release_type}.{version}",
+            ]
         yield task
 
 @transforms.add
