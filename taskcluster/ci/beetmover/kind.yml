@@ -6,6 +6,7 @@ loader: app_services_taskgraph.loader.multi_dep:loader
 
 transforms:
   - app_services_taskgraph.transforms.multi_dep:transforms
+  - app_services_taskgraph.transforms.deps_complete:alerts
   - app_services_taskgraph.transforms.beetmover:transforms
   - taskgraph.transforms.task:transforms
 
@@ -25,5 +26,5 @@ task-template:
   worker-type: beetmover
   worker:
     app-name: appservices
-  routes:
-    - notify.email.a-s-ci-failures@mozilla.com.on-failed
+  alerts:
+    email: a-s-ci-failures@mozilla.com
