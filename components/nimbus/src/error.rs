@@ -60,6 +60,7 @@ pub enum NimbusError {
     ParseIntError(#[from] ParseIntError),
     #[error("Transform parameter error: {0}")]
     TransformParameterError(String),
+    #[cfg(feature = "stateful")]
     #[error("Error with HTTP client: {0}")]
     ClientError(#[from] rs_client::ClientError),
     #[cfg(not(feature = "stateful"))]

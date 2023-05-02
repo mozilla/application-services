@@ -8,6 +8,9 @@ pub fn main() {
     #[cfg(feature = "stateful-uniffi-bindings")]
     uniffi::generate_scaffolding("./src/nimbus.udl").unwrap();
 
+    #[cfg(not(feature = "stateful-uniffi-bindings"))]
+    uniffi::generate_scaffolding("./src/cirrus.udl").unwrap();
+
     Builder::default()
         .file("./metrics.yaml")
         .generate()

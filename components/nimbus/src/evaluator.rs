@@ -19,6 +19,9 @@ use uuid::Uuid;
 #[cfg(feature = "stateful")]
 use std::collections::HashSet;
 
+#[cfg(not(feature = "stateful"))]
+use crate::matcher::RequestContext;
+
 #[derive(Serialize, Deserialize, Debug, Clone, Default)]
 pub struct Bucket {}
 
@@ -29,6 +32,7 @@ impl Bucket {
     }
 }
 
+#[cfg(feature = "stateful")]
 #[derive(Serialize, Deserialize, Debug, Clone, Default)]
 pub struct TargetingAttributes {
     #[serde(flatten)]
@@ -36,14 +40,43 @@ pub struct TargetingAttributes {
     pub language: Option<String>,
     pub region: Option<String>,
     pub is_already_enrolled: bool,
-    #[cfg(feature = "stateful")]
     pub days_since_install: Option<i32>,
-    #[cfg(feature = "stateful")]
     pub days_since_update: Option<i32>,
-    #[cfg(feature = "stateful")]
     pub active_experiments: HashSet<String>,
 }
 
+#[cfg(not(feature = "stateful"))]
+#[derive(Serialize, Deserialize, Debug, Clone, Default)]
+pub struct TargetingAttributes {
+    #[serde(flatten)]
+    pub app_context: AppContext,
+    #[serde(flatten)]
+    pub request_context: RequestContext,
+    pub language: Option<String>,
+    pub region: Option<String>,
+    pub os: Option<String>,
+}
+
+#[cfg(not(feature = "stateful"))]
+impl TargetingAttributes {
+    pub fn new(app_context: AppContext, request_context: RequestContext) -> Self {
+        let (language, region) = request_context
+            .locale
+            .clone()
+            .map(split_locale)
+            .unwrap_or_else(|| (None, None));
+
+        Self {
+            app_context,
+            request_context,
+            language,
+            region,
+            ..Default::default()
+        }
+    }
+}
+
+#[cfg(feature = "stateful")]
 impl From<AppContext> for TargetingAttributes {
     fn from(app_context: AppContext) -> Self {
         let (language, region) = app_context
