@@ -29,6 +29,7 @@ Other Modes:
     - nss-bindings
     - gradle
     - ios-tests
+    - python-tests
 """
 
 from enum import Enum
@@ -308,6 +309,9 @@ def run_ios_tests():
     else:
         print("WARNING: skipping iOS tests on non-Darwin host")
 
+def run_python_tests():
+    run_command([AUTOMATION_DIR / 'run_python_tests.sh'])
+
 def cargo_fmt(package=None, fix_issues=False):
     cmdline = ['cargo', 'fmt']
     if package:
@@ -406,6 +410,8 @@ def calc_steps(args):
         yield Step('gradle tests', run_gradle_tests)
     elif args.mode == 'ios-tests':
         yield Step('ios tests', run_ios_tests)
+    elif args.mode == 'python-tests':
+        yield Step('python tests', run_python_tests)
     else:
         print('Invalid mode: {}'.format(args.mode))
         sys.exit(1)

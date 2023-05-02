@@ -5,24 +5,39 @@
 use crate::enrollment::{EnrollmentChangeEventType, ExperimentEnrollment, NotEnrolledReason};
 use crate::matcher::RequestContext;
 use crate::{
-    tests::test_enrollment::local_ctx, AppContext, CirrusClient, EnrollmentRequest,
-    EnrollmentResponse, EnrollmentStatus, Result, TargetingAttributes,
+    AppContext, CirrusClient, EnrollmentRequest, EnrollmentResponse, EnrollmentStatus, Result,
 };
 use serde_json::{from_str, to_string, to_value, Map, Value};
+use std::collections::HashMap;
+
+fn create_client() -> CirrusClient {
+    CirrusClient::new(
+        to_string(&AppContext {
+            app_id: "test app id".to_string(),
+            app_name: "test app name".to_string(),
+            channel: "test channel".to_string(),
+            app_version: None,
+            app_build: None,
+            custom_targeting_attributes: None,
+        })
+        .unwrap(),
+    )
+}
 
 #[test]
 fn test_can_instantiate() {
-    CirrusClient::new();
+    create_client();
 }
 
 #[test]
 fn test_can_enroll() -> Result<()> {
-    let client = CirrusClient::new();
-    let (_, context, _) = local_ctx();
+    let client = create_client();
     let exp = helpers::get_experiment_with_newtab_feature_branches();
-    let ta = TargetingAttributes::new(context, Default::default());
+    client
+        .set_experiments(to_string(&HashMap::from([("data", &[exp.clone()])])).unwrap())
+        .unwrap();
 
-    let result = client.enroll("test".to_string(), ta, true, &[exp.clone()], &[])?;
+    let result = client.enroll("test".to_string(), Default::default(), true, &[])?;
 
     assert_eq!(result.enrolled_feature_config_map.len(), 1);
     assert_eq!(
@@ -45,18 +60,20 @@ fn test_can_enroll() -> Result<()> {
 
 #[test]
 fn test_will_not_enroll_if_previously_did_not_enroll() -> Result<()> {
-    let client = CirrusClient::new();
-    let (_, context, _) = local_ctx();
+    let client = create_client();
     let exp = helpers::get_experiment_with_newtab_feature_branches();
+    client
+        .set_experiments(to_string(&HashMap::from([("data", &[exp.clone()])])).unwrap())
+        .unwrap();
+
     let enrollment = ExperimentEnrollment {
-        slug: exp.slug.clone(),
+        slug: exp.slug,
         status: EnrollmentStatus::NotEnrolled {
             reason: NotEnrolledReason::NotTargeted,
         },
     };
-    let ta = TargetingAttributes::new(context, Default::default());
 
-    let result = client.enroll("test".to_string(), ta, true, &[exp], &[enrollment])?;
+    let result = client.enroll("test".to_string(), Default::default(), true, &[enrollment])?;
 
     assert_eq!(result.events.len(), 0);
 
@@ -65,13 +82,14 @@ fn test_will_not_enroll_if_previously_did_not_enroll() -> Result<()> {
 
 #[test]
 fn test_handle_enrollment_works_with_json() -> Result<()> {
-    let client = CirrusClient::new();
-    let (_, context, _) = local_ctx();
+    let client = create_client();
     let exp = helpers::get_experiment_with_newtab_feature_branches();
+    client
+        .set_experiments(to_string(&HashMap::from([("data", &[exp.clone()])])).unwrap())
+        .unwrap();
 
     let request = Map::from_iter(vec![
         ("clientId".to_string(), Value::String("test".to_string())),
-        ("appContext".to_string(), to_value(context).unwrap()),
         (
             "requestContext".to_string(),
             to_value(RequestContext {
@@ -87,6 +105,7 @@ fn test_handle_enrollment_works_with_json() -> Result<()> {
     let result: EnrollmentResponse =
         from_str(client.handle_enrollment(to_string(&request)?)?.as_str()).unwrap();
 
+    assert_eq!(result.enrolled_feature_config_map.len(), 1);
     assert_eq!(
         result
             .enrolled_feature_config_map
@@ -107,18 +126,10 @@ fn test_handle_enrollment_works_with_json() -> Result<()> {
 
 #[test]
 fn test_handle_enrollment_errors_on_no_client_id() -> Result<()> {
-    let client = CirrusClient::new();
+    let client = create_client();
 
     let request = EnrollmentRequest {
         client_id: None,
-        app_context: AppContext {
-            app_id: "test".to_string(),
-            app_name: "test".to_string(),
-            channel: "test".to_string(),
-            app_version: None,
-            app_build: None,
-            custom_targeting_attributes: None,
-        },
         ..Default::default()
     };
     let result = client.handle_enrollment(to_string(&request)?);
@@ -136,6 +147,9 @@ mod helpers {
         serde_json::from_value(json!({
             "schemaVersion": "1.0.0",
             "slug": "newtab-feature-experiment",
+            "appId": "test app id",
+            "appName": "test app name",
+            "channel": "test channel",
             "branches": [
                 {
                     "slug": "control",
