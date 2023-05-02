@@ -318,45 +318,6 @@ fn test_targeting_custom_targeting_attributes() {
 }
 
 #[test]
-fn test_targeting_is_already_enrolled() {
-    // Here's our valid jexl statement
-    let expression_statement = "is_already_enrolled";
-    // A matching context that includes the appropriate specific context
-    let ac = AppContext {
-        app_name: "nimbus_test".to_string(),
-        app_id: "1010".to_string(),
-        channel: "test".to_string(),
-        app_version: Some("4.4".to_string()),
-        app_build: Some("1234".to_string()),
-        custom_targeting_attributes: None,
-        ..Default::default()
-    };
-    cfg_if::cfg_if! {
-        if #[cfg(feature = "stateful")] {
-            let mut targeting_attributes = TargetingAttributes::from(ac);
-        } else {
-            let mut targeting_attributes = TargetingAttributes::new(ac, Default::default());
-        }
-    }
-    targeting_attributes.is_already_enrolled = true;
-
-    // The targeting should pass!
-    assert_eq!(
-        targeting(expression_statement, &targeting_attributes.clone().into(),),
-        None
-    );
-
-    // We make the is_already_enrolled false and try again
-    targeting_attributes.is_already_enrolled = false;
-    assert_eq!(
-        targeting(expression_statement, &targeting_attributes.into()),
-        Some(EnrollmentStatus::NotEnrolled {
-            reason: NotEnrolledReason::NotTargeted
-        })
-    );
-}
-
-#[test]
 fn test_invalid_expression() {
     // This expression doesn't return a bool
     let expression_statement = "2.0";

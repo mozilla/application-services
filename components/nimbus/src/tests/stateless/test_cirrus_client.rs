@@ -5,10 +5,10 @@
 use crate::enrollment::{EnrollmentChangeEventType, ExperimentEnrollment, NotEnrolledReason};
 use crate::matcher::RequestContext;
 use crate::{
-    tests::test_enrollment::local_ctx, CirrusClient, EnrollmentRequest, EnrollmentResponse,
-    EnrollmentStatus, Result, TargetingAttributes,
+    tests::test_enrollment::local_ctx, AppContext, CirrusClient, EnrollmentRequest,
+    EnrollmentResponse, EnrollmentStatus, Result, TargetingAttributes,
 };
-use serde_json::{from_value, to_value, Map, Value};
+use serde_json::{from_str, to_string, to_value, Map, Value};
 
 #[test]
 fn test_can_instantiate() {
@@ -30,11 +30,9 @@ fn test_can_enroll() -> Result<()> {
             .enrolled_feature_config_map
             .get("newtab")
             .unwrap()
-            .get("branch")
-            .unwrap()
-            .as_str()
-            .unwrap()
-            .to_owned(),
+            .branch
+            .clone()
+            .unwrap(),
         exp.branches[1].slug
     );
     assert_eq!(
@@ -87,18 +85,16 @@ fn test_handle_enrollment_works_with_json() -> Result<()> {
         ),
     ]);
     let result: EnrollmentResponse =
-        from_value(Value::Object(client.handle_enrollment(request)?)).unwrap();
+        from_str(client.handle_enrollment(to_string(&request)?)?.as_str()).unwrap();
 
     assert_eq!(
         result
             .enrolled_feature_config_map
             .get("newtab")
             .unwrap()
-            .get("branch")
-            .unwrap()
-            .as_str()
-            .unwrap()
-            .to_owned(),
+            .branch
+            .clone()
+            .unwrap(),
         exp.branches[1].slug
     );
     assert_eq!(
@@ -115,14 +111,17 @@ fn test_handle_enrollment_errors_on_no_client_id() -> Result<()> {
 
     let request = EnrollmentRequest {
         client_id: None,
-        app_context: Map::from_iter(vec![
-            ("app_id".to_string(), Value::from("test".to_string())),
-            ("app_name".to_string(), Value::from("test".to_string())),
-            ("channel".to_string(), Value::from("test".to_string())),
-        ]),
+        app_context: AppContext {
+            app_id: "test".to_string(),
+            app_name: "test".to_string(),
+            channel: "test".to_string(),
+            app_version: None,
+            app_build: None,
+            custom_targeting_attributes: None,
+        },
         ..Default::default()
     };
-    let result = client.handle_enrollment(to_value(request).unwrap().as_object().unwrap().clone());
+    let result = client.handle_enrollment(to_string(&request)?);
 
     assert!(result.is_err());
 

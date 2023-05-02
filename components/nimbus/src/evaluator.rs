@@ -54,7 +54,6 @@ pub struct TargetingAttributes {
     pub request_context: RequestContext,
     pub language: Option<String>,
     pub region: Option<String>,
-    pub is_already_enrolled: bool,
     pub os: Option<String>,
 }
 

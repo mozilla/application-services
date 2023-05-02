@@ -1,36 +1,5 @@
 namespace cirrus {};
 
-enum EnrollmentChangeEventType {
-    "Enrollment",
-    "EnrollFailed",
-    "Disqualification",
-    "Unenrollment",
-    "UnenrollFailed",
-};
-
-dictionary EnrollmentChangeEvent {
-    string experiment_slug;
-    string branch_slug;
-    string enrollment_id;
-    string? reason;
-    EnrollmentChangeEventType change;
-};
-
-dictionary EnrollmentResponse {
-    record<DOMString, JsonObject> enrolled_feature_config_map;
-    JsonArray enrollments;
-    sequence<EnrollmentChangeEvent> events;
-};
-
-dictionary EnrollmentRequest {
-    string? client_id;
-    JsonObject app_context;
-    JsonObject request_context;
-    JsonArray next_experiments;
-    JsonArray prev_enrollments;
-    boolean is_user_participating = true;
-};
-
 [Error]
 enum NimbusError {
     "InvalidPersistedData", "IOError",
@@ -42,16 +11,10 @@ enum NimbusError {
     "ParseIntError", "TransformParameterError", "CirrusError"
 };
 
-[Custom]
-typedef string JsonObject;
-
-[Custom]
-typedef string JsonArray;
-
 interface CirrusClient {
     constructor();
 
-    // Handles an enrollment request and returns an enrollment response.
+    // Handles an enrollment request string and returns an enrollment response string.
     [Throws=NimbusError]
-    JsonObject handle_enrollment(JsonObject request);
+    string handle_enrollment(string request);
 };

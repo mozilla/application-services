@@ -6,14 +6,14 @@ use crate::matcher::RequestContext;
 use crate::{
     enrollment::{
         map_features_by_feature_id, EnrolledFeatureConfig, EnrollmentChangeEvent,
-        EnrollmentChangeEventType, EnrollmentsEvolver, ExperimentEnrollment,
+        EnrollmentsEvolver, ExperimentEnrollment,
     },
     error::CirrusClientError,
     AppContext, AvailableRandomizationUnits, Experiment, NimbusError, NimbusTargetingHelper,
     Result, TargetingAttributes,
 };
 use serde_derive::*;
-use serde_json::{from_value, to_value, Map, Value};
+use serde_json::{from_str, to_string};
 use std::collections::HashMap;
 use std::fmt;
 use uuid::Uuid;
@@ -27,20 +27,14 @@ use uuid::Uuid;
 #[derive(Serialize, Deserialize, Debug, Default, Clone)]
 #[serde(rename_all = "camelCase")]
 pub struct EnrollmentResponse {
-    pub enrolled_feature_config_map: HashMap<String, JsonObject>,
-    pub enrollments: JsonArray,
+    pub enrolled_feature_config_map: HashMap<String, EnrolledFeatureConfig>,
+    pub enrollments: Vec<ExperimentEnrollment>,
     pub events: Vec<EnrollmentChangeEvent>,
 }
 
 impl fmt::Display for EnrollmentResponse {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         fmt::Debug::fmt(self, f)
-    }
-}
-
-impl From<EnrollmentResponse> for JsonObject {
-    fn from(value: EnrollmentResponse) -> JsonObject {
-        to_value(value).unwrap().as_object().unwrap().clone()
     }
 }
 
@@ -60,13 +54,13 @@ fn default_true() -> bool {
 #[serde(rename_all = "camelCase")]
 pub struct EnrollmentRequest {
     pub client_id: Option<String>,
-    pub app_context: JsonObject,
-    pub request_context: JsonObject,
+    pub app_context: AppContext,
+    pub request_context: RequestContext,
     #[serde(default = "default_true")]
     pub is_user_participating: bool,
-    pub next_experiments: JsonArray,
+    pub next_experiments: Vec<Experiment>,
     #[serde(default)]
-    pub prev_enrollments: JsonArray,
+    pub prev_enrollments: Vec<ExperimentEnrollment>,
 }
 
 impl Default for EnrollmentRequest {
@@ -97,7 +91,7 @@ impl CirrusClient {
     /// method. The information returned from this method can be used to merge the default feature
     /// values with the values applied by the enrolled experiments and to send enrollment-
     /// related Glean events.
-    pub fn handle_enrollment(&self, request: JsonObject) -> Result<JsonObject> {
+    pub fn handle_enrollment(&self, request: String) -> Result<String> {
         let EnrollmentRequest {
             client_id,
             app_context,
@@ -105,9 +99,7 @@ impl CirrusClient {
             is_user_participating,
             next_experiments,
             prev_enrollments,
-        } = from_value(Value::Object(request))?;
-        let app_context: AppContext = from_value(Value::Object(app_context)).unwrap();
-        let request_context: RequestContext = from_value(Value::Object(request_context)).unwrap();
+        } = from_str(request.as_str())?;
         let client_id = if let Some(client_id) = client_id {
             client_id
         } else {
@@ -115,21 +107,16 @@ impl CirrusClient {
                 CirrusClientError::RequestMissingParameter("client_id".to_string()),
             ));
         };
-        let next_experiments: Vec<Experiment> = from_value(Value::Array(next_experiments)).unwrap();
-        let prev_enrollments: Vec<ExperimentEnrollment> =
-            from_value(Value::Array(prev_enrollments)).unwrap();
 
         let context = TargetingAttributes::new(app_context, request_context);
 
-        Ok(self
-            .enroll(
-                client_id,
-                context,
-                is_user_participating,
-                &next_experiments,
-                &prev_enrollments,
-            )?
-            .into())
+        Ok(to_string(&self.enroll(
+            client_id,
+            context,
+            is_user_participating,
+            &next_experiments,
+            &prev_enrollments,
+        )?)?)
     }
 
     pub(crate) fn enroll(
@@ -162,59 +149,10 @@ impl CirrusClient {
             map_features_by_feature_id(&enrollments, next_experiments);
 
         Ok(EnrollmentResponse {
-            enrolled_feature_config_map: HashMap::from_iter(
-                enrolled_feature_config_map
-                    .into_iter()
-                    .map(|(k, v)| (k, to_value(v).unwrap().as_object().unwrap().clone())),
-            ),
-            enrollments: enrollments
-                .into_iter()
-                .map(|e| to_value(e).unwrap())
-                .collect(),
+            enrolled_feature_config_map,
+            enrollments,
             events,
         })
-    }
-}
-
-type JsonObject = Map<String, Value>;
-
-impl UniffiCustomTypeConverter for JsonObject {
-    type Builtin = String;
-
-    fn into_custom(val: Self::Builtin) -> uniffi::Result<Self> {
-        let json: Value = serde_json::from_str(&val)?;
-
-        match json.as_object() {
-            Some(obj) => Ok(obj.clone()),
-            _ => Err(uniffi::deps::anyhow::anyhow!(
-                "Unexpected JSON-non-object in the bagging area"
-            )),
-        }
-    }
-
-    fn from_custom(obj: Self) -> Self::Builtin {
-        Value::Object(obj).to_string()
-    }
-}
-
-type JsonArray = Vec<Value>;
-
-impl UniffiCustomTypeConverter for JsonArray {
-    type Builtin = String;
-
-    fn into_custom(val: Self::Builtin) -> uniffi::Result<Self> {
-        let json: Value = serde_json::from_str(&val)?;
-
-        match json.as_array() {
-            Some(arr) => Ok(arr.clone()),
-            _ => Err(uniffi::deps::anyhow::anyhow!(
-                "Unexpected JSON-non-array in the bagging area"
-            )),
-        }
-    }
-
-    fn from_custom(arr: Self) -> Self::Builtin {
-        Value::Array(arr).to_string()
     }
 }
 
