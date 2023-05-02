@@ -7,21 +7,15 @@ import os
 
 # Repository root dir
 ROOT_DIR = pathlib.Path(__file__).parent.parent.parent
+COMMAND = 'components/support/nimbus-fml/scripts/build-dist.sh'
+
 
 def main():
     args = parse_args()
     if not args.out_dir.exists():
         os.makedirs(args.out_dir)
-    # TODO: implement this for real once we have access to a Mac worker on taskcluster
     subprocess.check_call([
-        'curl', '-LsS',
-        '-o', str(args.out_dir / 'nimbus-fml.zip'),
-        'https://github.com/mozilla/application-services/releases/download/v97.2.0/nimbus-fml.zip',
-    ])
-    subprocess.check_call([
-        'curl', '-LsS',
-        '-o', str(args.out_dir / 'nimbus-fml.sha256'),
-        'https://github.com/mozilla/application-services/releases/download/v97.2.0/nimbus-fml.sha256',
+        COMMAND
     ])
 
 def parse_args():

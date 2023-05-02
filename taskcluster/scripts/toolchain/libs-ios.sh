@@ -22,6 +22,18 @@ pip3 install -v --user ./gyp six
 popd
 export PATH="$HOME/bin:$HOME/Library/Python/3.7/bin:$PATH"
 
+HOMEBREW_TARBALL=https://github.com/Homebrew/brew/archive/refs/tags/4.0.16.tar.gz
+HOMEBREW_SHA256=ffa11c67aeb3182360b0d6fe82e2ac9e1c08f140e8d9aa5a1c19756d89f8e2f6
+curl -OL "$HOMEBREW_TARBALL"
+echo "${HOMEBREW_SHA256}  4.0.16.tar.gz" | shasum -a 256 -c -
+tar -xzf 4.0.16.tar.gz --strip 1 -C "$HOME/bin"
+
+export PATH="$HOME/bin/bin:$PATH"
+
+brew update
+brew install filosottile/musl-cross/musl-cross
+brew install mingw-w64
+ln -sf /usr/local/opt/musl-cross/bin/x86_64-linux-musl-gcc /usr/local/bin/musl-gcc
 # Build the libs
 pushd libs
 ./build-all.sh ios

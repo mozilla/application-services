@@ -36,10 +36,10 @@ install_mingw="brew install mingw-w64"
 link_musl_gcc="ln -sf /usr/local/opt/musl-cross/bin/x86_64-linux-musl-gcc /usr/local/bin/musl-gcc"
 cargo_clean="cargo clean"
 if [[ $dry_run != "true" ]] ; then
-    $install_musl_cross
-    $install_mingw
+    # $install_musl_cross
+    # $install_mingw
     $cargo_clean
-    $link_musl_gcc
+    # $link_musl_gcc
 else
     echo "$prompt $install_musl_cross"
     echo "$prompt $install_mingw"
