@@ -382,7 +382,7 @@ fn get_is_already_enrolled_targeting_experiment() -> Experiment {
     .unwrap()
 }
 
-pub fn local_ctx() -> (Uuid, AppContext, AvailableRandomizationUnits) {
+fn local_ctx() -> (Uuid, AppContext, AvailableRandomizationUnits) {
     // Use a fixed nimbus_id so we don't switch between branches.
     let nimbus_id = Uuid::parse_str("29686b11-00c0-4905-b5e4-f5f945eda60a").unwrap();
     // Create a matching context for the experiments above

@@ -9,13 +9,14 @@ use crate::{
         EnrollmentsEvolver, ExperimentEnrollment,
     },
     error::CirrusClientError,
-    AppContext, AvailableRandomizationUnits, Experiment, NimbusError, NimbusTargetingHelper,
-    Result, TargetingAttributes,
+    parse_experiments, AppContext, AvailableRandomizationUnits, Experiment, NimbusError,
+    NimbusTargetingHelper, Result, TargetingAttributes,
 };
 use serde_derive::*;
 use serde_json::{from_str, to_string};
 use std::collections::HashMap;
 use std::fmt;
+use std::sync::Mutex;
 use uuid::Uuid;
 
 /// EnrollmentResponse is a DTO for the response from handling enrollment for a given client.
@@ -54,11 +55,9 @@ fn default_true() -> bool {
 #[serde(rename_all = "camelCase")]
 pub struct EnrollmentRequest {
     pub client_id: Option<String>,
-    pub app_context: AppContext,
     pub request_context: RequestContext,
     #[serde(default = "default_true")]
     pub is_user_participating: bool,
-    pub next_experiments: Vec<Experiment>,
     #[serde(default)]
     pub prev_enrollments: Vec<ExperimentEnrollment>,
 }
@@ -67,21 +66,31 @@ impl Default for EnrollmentRequest {
     fn default() -> Self {
         Self {
             client_id: None,
-            app_context: Default::default(),
             request_context: Default::default(),
             is_user_participating: true,
-            next_experiments: Default::default(),
             prev_enrollments: Default::default(),
         }
     }
 }
 
 #[derive(Default)]
-pub struct CirrusClient {}
+pub struct InternalMutableState {
+    experiments: Vec<Experiment>,
+}
+
+#[derive(Default)]
+pub struct CirrusClient {
+    app_context: AppContext,
+    state: Mutex<InternalMutableState>,
+}
 
 impl CirrusClient {
-    pub fn new() -> Self {
-        Self {}
+    pub fn new(app_context: String) -> Self {
+        let app_context: AppContext = from_str(&app_context).unwrap();
+        Self {
+            app_context,
+            state: Default::default(),
+        }
     }
 
     /// Handles an EnrollmentRequest, returning an EnrollmentResponse on success.
@@ -94,10 +103,8 @@ impl CirrusClient {
     pub fn handle_enrollment(&self, request: String) -> Result<String> {
         let EnrollmentRequest {
             client_id,
-            app_context,
             request_context,
             is_user_participating,
-            next_experiments,
             prev_enrollments,
         } = from_str(request.as_str())?;
         let client_id = if let Some(client_id) = client_id {
@@ -108,13 +115,10 @@ impl CirrusClient {
             ));
         };
 
-        let context = TargetingAttributes::new(app_context, request_context);
-
         Ok(to_string(&self.enroll(
             client_id,
-            context,
+            request_context,
             is_user_participating,
-            &next_experiments,
             &prev_enrollments,
         )?)?)
     }
@@ -122,9 +126,8 @@ impl CirrusClient {
     pub(crate) fn enroll(
         &self,
         client_id: String,
-        targeting_attributes: TargetingAttributes,
+        request_context: RequestContext,
         is_user_participating: bool,
-        next_experiments: &[Experiment],
         prev_enrollments: &[ExperimentEnrollment],
     ) -> Result<EnrollmentResponse> {
         // nimbus_id is set randomly here because all applications using the CirrusClient will not
@@ -133,26 +136,38 @@ impl CirrusClient {
         let nimbus_id = Uuid::new_v4();
         let available_randomization_units =
             AvailableRandomizationUnits::with_client_id(client_id.as_str());
-        let th = NimbusTargetingHelper::new(targeting_attributes);
+        let ta = TargetingAttributes::new(self.app_context.clone(), request_context);
+        let th = NimbusTargetingHelper::new(ta);
         let enrollments_evolver =
             EnrollmentsEvolver::new(&nimbus_id, &available_randomization_units, &th);
+        let state = self.state.lock().unwrap();
 
         let (enrollments, events) = enrollments_evolver
             .evolve_enrollments::<EnrolledFeatureConfig>(
                 is_user_participating,
                 Default::default(),
-                next_experiments,
+                &state.experiments,
                 prev_enrollments,
             )?;
 
         let enrolled_feature_config_map =
-            map_features_by_feature_id(&enrollments, next_experiments);
+            map_features_by_feature_id(&enrollments, &state.experiments);
 
         Ok(EnrollmentResponse {
             enrolled_feature_config_map,
             enrollments,
             events,
         })
+    }
+
+    /// Sets the `experiments` value in the internal mutable state.
+    ///
+    /// This method accepts and parses a JSON string, writing the resulting value to the client's
+    /// internal mutable state.
+    pub fn set_experiments(&self, experiments: String) -> Result<()> {
+        let mut state = self.state.lock().unwrap();
+        state.experiments = parse_experiments(&experiments)?;
+        Ok(())
     }
 }
 

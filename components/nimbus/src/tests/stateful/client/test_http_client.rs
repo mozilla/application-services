@@ -2,7 +2,7 @@
 * License, v. 2.0. If a copy of the MPL was not distributed with this
 * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-use crate::client::parse_experiments;
+use crate::schema::parse_experiments;
 use crate::{Branch, BucketConfig, Experiment, FeatureConfig, NimbusError, RandomizationUnit};
 
 #[test]

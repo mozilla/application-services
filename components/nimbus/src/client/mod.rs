@@ -14,8 +14,6 @@ use rs_client::Client;
 use rs_client::ClientConfig;
 use url::Url;
 
-pub use http_client::parse_experiments;
-
 pub(crate) fn create_client(
     config: Option<RemoteSettingsConfig>,
 ) -> Result<Box<dyn SettingsClient + Send>> {

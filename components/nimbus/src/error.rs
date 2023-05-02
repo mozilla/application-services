@@ -37,7 +37,7 @@ pub enum NimbusError {
     UrlParsingError(#[from] url::ParseError),
     #[error("UUID parsing error: {0}")]
     UuidError(#[from] uuid::Error),
-    #[error("Invalid experiments response received")]
+    #[error("Invalid experiment data received")]
     InvalidExperimentFormat,
     #[error("Invalid path: {0}")]
     InvalidPath(String),

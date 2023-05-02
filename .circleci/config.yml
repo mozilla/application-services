@@ -147,25 +147,27 @@ commands:
       - setup-rust-target-version
       - setup-sccache
       # clipboard crate depends on some x11 libs.
-      - run: sudo apt-get install libxcb-shape0-dev libxcb-xfixes0-dev
+      - run: sudo apt-get install libxcb-shape0-dev libxcb-xfixes0-dev pip
       - run: |
           echo 'export NSS_STATIC=1' >> $BASH_ENV
           echo 'export NSS_DIR=$(pwd)/libs/desktop/linux-x86-64/nss' >> $BASH_ENV
           echo 'export SQLCIPHER_LIB_DIR=$(pwd)/libs/desktop/linux-x86-64/sqlcipher/lib' >> $BASH_ENV
           echo 'export SQLCIPHER_INCLUDE_DIR=$(pwd)/libs/desktop/linux-x86-64/sqlcipher/include' >> $BASH_ENV
           echo 'export RUST_LOG=trace' >> $BASH_ENV
+      - run: pip install pytest
       - run:
           name: Verify the build environment
           command: ./libs/verify-desktop-environment.sh
   run-tests:
     steps:
       - run: automation/tests.py rust-tests
+      - run: automation/tests.py python-tests
       - run: automation/tests.py nss-bindings
   restore-sccache-cache:
     steps:
       - restore_cache:
           name: Restore sccache cache
-          keys: 
+          keys:
           # We have multiple keys to increase the chance of a cache hit
           # in case the Cargo.lock is updated, we still want to retrieve
           # some cache

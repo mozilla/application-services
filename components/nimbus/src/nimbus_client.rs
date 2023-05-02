@@ -4,7 +4,7 @@
 
 use crate::{
     behavior::EventStore,
-    client::{create_client, parse_experiments, SettingsClient},
+    client::{create_client, SettingsClient},
     config::RemoteSettingsConfig,
     dbcache::DatabaseCache,
     defaults::Defaults,
@@ -17,6 +17,7 @@ use crate::{
     evaluator::{is_experiment_available, TargetingAttributes},
     matcher::AppContext,
     persistence::{Database, StoreId, Writer},
+    schema::parse_experiments,
     strings::fmt_with_map,
     updating::{read_and_remove_pending_experiments, write_pending_experiments},
     AvailableExperiment, AvailableRandomizationUnits, EnrolledExperiment, Experiment,
