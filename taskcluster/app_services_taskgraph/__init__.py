@@ -17,6 +17,7 @@ PREVIEW_RE = re.compile(r'\[preview ([\w-]+)\]')
 def register(graph_config):
     # Import modules to register decorated functions
     _import_modules([
+        "actions.release_promotion",
         "branch_builds",
         "job",
         "target_tasks",

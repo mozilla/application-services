@@ -1,0 +1,60 @@
+base_ref: origin/main
+base_repository: https://github.com/mozilla-releng/application-services
+base_rev: c7b530d61ea8dd4a6dd2d876c4f05a7066dfee5f
+branch-build: {}
+build_date: 1683647278
+build_number: 1
+do_not_optimize: []
+enable_always_target: true
+existing_tasks:
+  Build summary task: YEuUOoVbRNeGKtOvBJlInQ
+  build-docker-image-linux: CD--BKGXRAOfpGJviIxY6w
+  fetch-go-1.14.4: LUCoOzsCTTeWJgSSDszEvg
+  fetch-resource-monitor: OYpix6V9TIS_CUBv8zEf-Q
+  lint-detekt: CipDmbrkQH2ccXSGtrStZA
+  lint-ktlint: ckD6DYUOQleJp7ng7OmfZA
+  module-build-autofill: X5xdPX1KSE232byWlLK2_Q
+  module-build-crashtest: VYYDYqGBTzS8d16X3ZB-yQ
+  module-build-errorsupport: Nf8WFWLhRGK9fKVebJkn4w
+  module-build-full-megazord: VvBgm9H8TPKAuO11b-alwQ
+  module-build-fxaclient: NfhMA9mSQQ-wl1h9t-G5cQ
+  module-build-httpconfig: O5rztTUjT32bBWjMyKpcRA
+  module-build-logins: OQfCHW4_QTq4ZaYKRz84rA
+  module-build-native-support: J-h6f8zAQOCnzf0NnCtWbA
+  module-build-nimbus: KL2gtWC3RMKMbWa2zhMLuw
+  module-build-places: CjxF6i5XTUuue3N6hur76A
+  module-build-push: Eb1ryYa0TQas2d6L8shrKg
+  module-build-rust-log-forwarder: PavZP7KCQUa6eIiH7rcguw
+  module-build-rustlog: DzsCxDB2RfmjXjSb9sXUcg
+  module-build-sync15: c-mAP_Z5Tt-jep2NqUVEPQ
+  module-build-syncmanager: aO_QpDq_RoOcNf56oxDtug
+  module-build-tabs: d_M2TbtARdeqZdNuLDGMxA
+  module-build-tooling-nimbus-gradle: OfsUfpFkTRiSJIsPbA0cTA
+  toolchain-android: Tf8GiXQBSpOIpg0KqSmR8Q
+  toolchain-desktop-linux: FXqdOHj-Q72AiSvjQiiXYw
+  toolchain-desktop-macos: VfWl6da-QYaF_Xch88tjdA
+  toolchain-linux64-resource-monitor: M5U6TKbGSSSfzJoSGNEh5g
+  toolchain-macosx64-resource-monitor: MawQ-sNYSVieeRo9djQk8Q
+  toolchain-robolectric: Z9JODYylR0Wjw2GzzaclTg
+  toolchain-rust: XwjhfYmLSMytDOulmyxM0g
+filters:
+- target_tasks_method
+- branch-build
+head_ref: refs/heads/main
+head_repository: https://github.com/mozilla-releng/application-services
+head_rev: c7b530d61ea8dd4a6dd2d876c4f05a7066dfee5f
+head_tag: ''
+level: '1'
+moz_build_date: '20230509154758'
+next_version: null
+optimize_strategies: null
+optimize_target_tasks: true
+owner: user@example.com
+project: application-services
+pushdate: 0
+pushlog_id: '0'
+repository_type: git
+shipping_phase: promote
+target_tasks_method: promote
+tasks_for: action
+version: null
