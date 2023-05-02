@@ -12,27 +12,44 @@ use crate::{
 };
 use serde_json::{json, Map, Value};
 
+#[cfg(not(feature = "stateful"))]
+use crate::matcher::RequestContext;
+
+fn ta_with_locale(locale: String) -> TargetingAttributes {
+    let app_ctx = AppContext {
+        #[cfg(feature = "stateful")]
+        locale: Some(locale),
+        ..Default::default()
+    };
+    #[cfg(not(feature = "stateful"))]
+    let req_ctx = RequestContext {
+        locale: Some(locale),
+        ..Default::default()
+    };
+
+    cfg_if::cfg_if! {
+        if #[cfg(feature = "stateful")] {
+            app_ctx.into()
+        } else {
+            TargetingAttributes::new(app_ctx, req_ctx)
+        }
+    }
+}
+
 #[test]
 fn test_locale_substring() -> Result<()> {
     let expression_statement = "'en' in locale || 'de' in locale";
-    let ctx = AppContext {
-        locale: Some("de-US".to_string()),
-        ..Default::default()
-    };
-    let th = ctx.into();
-    assert_eq!(targeting(expression_statement, &th), None);
+    let ta = ta_with_locale("de-US".to_string());
+
+    assert_eq!(targeting(expression_statement, &ta.into()), None);
     Ok(())
 }
 
 #[test]
 fn test_locale_substring_fails() -> Result<()> {
     let expression_statement = "'en' in locale || 'de' in locale";
-    let ctx = AppContext {
-        locale: Some("cz-US".to_string()),
-        ..Default::default()
-    };
-    let th = ctx.into();
-    let enrollment_status = targeting(expression_statement, &th).unwrap();
+    let ta = ta_with_locale("cz-US".to_string());
+    let enrollment_status = targeting(expression_statement, &ta.into()).unwrap();
     if let EnrollmentStatus::NotEnrolled { reason } = enrollment_status {
         if let NotEnrolledReason::NotTargeted = reason {
             // OK
@@ -48,12 +65,7 @@ fn test_locale_substring_fails() -> Result<()> {
 #[test]
 fn test_language_region_from_locale() {
     fn test(locale: &str, language: Option<&str>, region: Option<&str>) {
-        let app_context = AppContext {
-            locale: Some(locale.to_string()),
-            ..Default::default()
-        };
-
-        let ta: TargetingAttributes = app_context.into();
+        let ta = ta_with_locale(locale.to_string());
 
         assert_eq!(ta.language, language.map(String::from));
         assert_eq!(ta.region, region.map(String::from));
@@ -72,34 +84,25 @@ fn test_language_region_from_locale() {
 #[test]
 fn test_geo_targeting_one_locale() -> Result<()> {
     let expression_statement = "language in ['ro']";
-    let ctx = AppContext {
-        locale: Some("ro".to_string()),
-        ..Default::default()
-    };
+    let ta = ta_with_locale("ro".to_string());
 
-    assert_eq!(targeting(expression_statement, &ctx.into()), None);
+    assert_eq!(targeting(expression_statement, &ta.into()), None);
     Ok(())
 }
 
 #[test]
 fn test_geo_targeting_multiple_locales() -> Result<()> {
     let expression_statement = "language in ['en', 'ro']";
-    let ctx = AppContext {
-        locale: Some("ro".to_string()),
-        ..Default::default()
-    };
-    assert_eq!(targeting(expression_statement, &ctx.into()), None);
+    let ta = ta_with_locale("ro".to_string());
+    assert_eq!(targeting(expression_statement, &ta.into()), None);
     Ok(())
 }
 
 #[test]
 fn test_geo_targeting_fails_properly() -> Result<()> {
     let expression_statement = "language in ['en', 'ro']";
-    let ctx = AppContext {
-        locale: Some("ar".to_string()),
-        ..Default::default()
-    };
-    let enrollment_status = targeting(expression_statement, &ctx.into()).unwrap();
+    let ta = ta_with_locale("ar".to_string());
+    let enrollment_status = targeting(expression_statement, &ta.into()).unwrap();
     if let EnrollmentStatus::NotEnrolled { reason } = enrollment_status {
         if let NotEnrolledReason::NotTargeted = reason {
             // OK
@@ -203,7 +206,7 @@ fn test_targeting_invalid_transform() -> Result<()> {
 fn test_targeting() {
     // Here's our valid jexl statement
     let expression_statement =
-        "app_id == '1010' && (app_version|versionCompare('4.0') >= 0 || locale == \"en-US\")";
+        "app_id == '1010' && (app_version|versionCompare('4.0') >= 0 || app_build == \"1234\")";
 
     // A matching context testing the logical AND + OR of the expression
     let ctx = AppContext {
@@ -212,9 +215,6 @@ fn test_targeting() {
         channel: "test".to_string(),
         app_version: Some("4.4".to_string()),
         app_build: Some("1234".to_string()),
-        locale: Some("en-US".to_string()),
-        os: Some("Android".to_string()),
-        os_version: Some("10".to_string()),
         custom_targeting_attributes: None,
         ..Default::default()
     };
@@ -227,9 +227,6 @@ fn test_targeting() {
         channel: "test".to_string(),
         app_version: Some("4.4".to_string()),
         app_build: Some("1234".to_string()),
-        locale: Some("de-DE".to_string()),
-        os: Some("Android".to_string()),
-        os_version: Some("10".to_string()),
         custom_targeting_attributes: None,
         ..Default::default()
     };
@@ -242,9 +239,6 @@ fn test_targeting() {
         channel: "test".to_string(),
         app_version: Some("3.4".to_string()),
         app_build: Some("1234".to_string()),
-        locale: Some("en-US".to_string()),
-        os: Some("Android".to_string()),
-        os_version: Some("10".to_string()),
         custom_targeting_attributes: None,
         ..Default::default()
     };
@@ -257,9 +251,6 @@ fn test_targeting() {
         channel: "test".to_string(),
         app_version: Some("4.4".to_string()),
         app_build: Some("1234".to_string()),
-        locale: Some("en-US".to_string()),
-        os: Some("Android".to_string()),
-        os_version: Some("10".to_string()),
         custom_targeting_attributes: None,
         ..Default::default()
     };
@@ -276,10 +267,7 @@ fn test_targeting() {
         app_id: "1010".to_string(),
         channel: "test".to_string(),
         app_version: Some("3.5".to_string()),
-        app_build: Some("1234".to_string()),
-        locale: Some("de-DE".to_string()),
-        os: Some("Android".to_string()),
-        os_version: Some("10".to_string()),
+        app_build: Some("12345".to_string()),
         custom_targeting_attributes: None,
         ..Default::default()
     };
@@ -295,7 +283,7 @@ fn test_targeting() {
 fn test_targeting_custom_targeting_attributes() {
     // Here's our valid jexl statement
     let expression_statement =
-        "app_id == '1010' && (app_version == '4.4' || locale == \"en-US\") && is_first_run == true && ios_version == '8.8'";
+        "app_id == '1010' && (app_version == '4.4' || app_build == \"1234\") && is_first_run == true && ios_version == '8.8'";
 
     let mut custom_targeting_attributes = Map::<String, Value>::new();
     custom_targeting_attributes.insert("is_first_run".into(), json!(true));
@@ -307,9 +295,6 @@ fn test_targeting_custom_targeting_attributes() {
         channel: "test".to_string(),
         app_version: Some("4.4".to_string()),
         app_build: Some("1234".to_string()),
-        locale: Some("en-US".to_string()),
-        os: Some("Android".to_string()),
-        os_version: Some("10".to_string()),
         custom_targeting_attributes: Some(custom_targeting_attributes),
         ..Default::default()
     };
@@ -322,9 +307,6 @@ fn test_targeting_custom_targeting_attributes() {
         channel: "test".to_string(),
         app_version: Some("4.4".to_string()),
         app_build: Some("1234".to_string()),
-        locale: Some("en-US".to_string()),
-        os: Some("Android".to_string()),
-        os_version: Some("10".to_string()),
         custom_targeting_attributes: None,
         ..Default::default()
     };
@@ -333,42 +315,6 @@ fn test_targeting_custom_targeting_attributes() {
         targeting(expression_statement, &ctx.into()),
         Some(EnrollmentStatus::Error { .. })
     ));
-}
-
-#[test]
-fn test_targeting_is_already_enrolled() {
-    // Here's our valid jexl statement
-    let expression_statement = "is_already_enrolled";
-    // A matching context that includes the appropriate specific context
-    let mut targeting_attributes: TargetingAttributes = AppContext {
-        app_name: "nimbus_test".to_string(),
-        app_id: "1010".to_string(),
-        channel: "test".to_string(),
-        app_version: Some("4.4".to_string()),
-        app_build: Some("1234".to_string()),
-        locale: Some("en-US".to_string()),
-        os: Some("Android".to_string()),
-        os_version: Some("10".to_string()),
-        custom_targeting_attributes: None,
-        ..Default::default()
-    }
-    .into();
-    targeting_attributes.is_already_enrolled = true;
-
-    // The targeting should pass!
-    assert_eq!(
-        targeting(expression_statement, &targeting_attributes.clone().into(),),
-        None
-    );
-
-    // We make the is_already_enrolled false and try again
-    targeting_attributes.is_already_enrolled = false;
-    assert_eq!(
-        targeting(expression_statement, &targeting_attributes.into()),
-        Some(EnrollmentStatus::NotEnrolled {
-            reason: NotEnrolledReason::NotTargeted
-        })
-    );
 }
 
 #[test]

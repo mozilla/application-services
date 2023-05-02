@@ -251,5 +251,3 @@ impl AvailableRandomizationUnits {
         }
     }
 }
-
-pub type JsonObject = Map<String, Value>;

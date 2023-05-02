@@ -2,17 +2,19 @@
 // License, v. 2.0. If a copy of the MPL was not distributed with this
 // file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
+use crate::matcher::RequestContext;
 use crate::{
     enrollment::{
         map_features_by_feature_id, EnrolledFeatureConfig, EnrollmentChangeEvent,
         EnrollmentsEvolver, ExperimentEnrollment,
     },
     error::CirrusClientError,
-    AppContext, AvailableRandomizationUnits, Experiment, JsonObject, NimbusError,
-    NimbusTargetingHelper, Result, TargetingAttributes,
+    AppContext, AvailableRandomizationUnits, Experiment, NimbusError, NimbusTargetingHelper,
+    Result, TargetingAttributes,
 };
 use serde_derive::*;
-use serde_json::to_value;
+use serde_json::{from_str, to_string};
+use std::collections::HashMap;
 use std::fmt;
 use uuid::Uuid;
 
@@ -22,9 +24,10 @@ use uuid::Uuid;
 /// - `enrolled_feature_config_map`: This field contains the Map representation of the feature value JSON that should be merged with the default feature values.
 /// - `enrollments`: This is the list of ExperimentEnrollments — it should be returned to the client.
 /// - `events`: This is the list of EnrollmentChangeEvents. These events should be recorded to Glean.
-#[derive(Debug, Default, Clone)]
+#[derive(Serialize, Deserialize, Debug, Default, Clone)]
+#[serde(rename_all = "camelCase")]
 pub struct EnrollmentResponse {
-    pub enrolled_feature_config_map: JsonObject,
+    pub enrolled_feature_config_map: HashMap<String, EnrolledFeatureConfig>,
     pub enrollments: Vec<ExperimentEnrollment>,
     pub events: Vec<EnrollmentChangeEvent>,
 }
@@ -47,11 +50,12 @@ fn default_true() -> bool {
 /// - `is_user_participating`: Whether or not the user is participating in experimentation. Defaults to `true`
 /// - `next_experiments`: The list of experiments for which enrollment should be evaluated.
 /// - `prev_enrollments`: The client's current list of enrollments.
-#[derive(Deserialize, Debug, Clone)]
+#[derive(Serialize, Deserialize, Debug, Clone)]
 #[serde(rename_all = "camelCase")]
 pub struct EnrollmentRequest {
     pub client_id: Option<String>,
-    pub context: AppContext,
+    pub app_context: AppContext,
+    pub request_context: RequestContext,
     #[serde(default = "default_true")]
     pub is_user_participating: bool,
     pub next_experiments: Vec<Experiment>,
@@ -63,7 +67,8 @@ impl Default for EnrollmentRequest {
     fn default() -> Self {
         Self {
             client_id: None,
-            context: Default::default(),
+            app_context: Default::default(),
+            request_context: Default::default(),
             is_user_participating: true,
             next_experiments: Default::default(),
             prev_enrollments: Default::default(),
@@ -86,14 +91,15 @@ impl CirrusClient {
     /// method. The information returned from this method can be used to merge the default feature
     /// values with the values applied by the enrolled experiments and to send enrollment-
     /// related Glean events.
-    pub fn handle_enrollment(&self, request: EnrollmentRequest) -> Result<EnrollmentResponse> {
+    pub fn handle_enrollment(&self, request: String) -> Result<String> {
         let EnrollmentRequest {
             client_id,
-            context,
+            app_context,
+            request_context,
             is_user_participating,
             next_experiments,
             prev_enrollments,
-        } = request;
+        } = from_str(request.as_str())?;
         let client_id = if let Some(client_id) = client_id {
             client_id
         } else {
@@ -102,19 +108,21 @@ impl CirrusClient {
             ));
         };
 
-        self.enroll(
+        let context = TargetingAttributes::new(app_context, request_context);
+
+        Ok(to_string(&self.enroll(
             client_id,
             context,
             is_user_participating,
             &next_experiments,
             &prev_enrollments,
-        )
+        )?)?)
     }
 
     pub(crate) fn enroll(
         &self,
         client_id: String,
-        context: AppContext,
+        targeting_attributes: TargetingAttributes,
         is_user_participating: bool,
         next_experiments: &[Experiment],
         prev_enrollments: &[ExperimentEnrollment],
@@ -125,8 +133,7 @@ impl CirrusClient {
         let nimbus_id = Uuid::new_v4();
         let available_randomization_units =
             AvailableRandomizationUnits::with_client_id(client_id.as_str());
-        let context = TargetingAttributes::from(context);
-        let th = NimbusTargetingHelper::new(context);
+        let th = NimbusTargetingHelper::new(targeting_attributes);
         let enrollments_evolver =
             EnrollmentsEvolver::new(&nimbus_id, &available_randomization_units, &th);
 
@@ -142,12 +149,11 @@ impl CirrusClient {
             map_features_by_feature_id(&enrollments, next_experiments);
 
         Ok(EnrollmentResponse {
-            enrolled_feature_config_map: enrolled_feature_config_map
-                .into_iter()
-                .map(|(k, v)| (k, to_value(v).unwrap()))
-                .collect(),
+            enrolled_feature_config_map,
             enrollments,
             events,
         })
     }
 }
+
+include!(concat!(env!("OUT_DIR"), "/cirrus.uniffi.rs"));

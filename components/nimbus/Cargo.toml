@@ -15,8 +15,8 @@ name = "nimbus"
 # `rkv-safe-mode` is the same name as used by glean. For us though, it's the default.
 default=["stateful"]
 rkv-safe-mode = ["dep:rkv"]
-stateful-uniffi-bindings = ["dep:uniffi"]
-stateful = ["rkv-safe-mode", "stateful-uniffi-bindings"]
+stateful-uniffi-bindings = []
+stateful = ["rkv-safe-mode", "stateful-uniffi-bindings", "dep:rs_client"]
 
 [dependencies]
 anyhow = "1"
@@ -32,15 +32,15 @@ uuid = { version = "0.8", features = ["serde", "v4"]}
 sha2 = "0.9"
 hex = "0.4"
 once_cell = "1"
-uniffi = { version = "0.23", optional = true }
+uniffi = "0.23"
 chrono = { version = "0.4", features = ["serde"]}
 unicode-segmentation = "1.8.0"
 error-support = { path = "../support/error" }
-rs_client = { path = "../support/rs_client" }
+rs_client = { path = "../support/rs_client", optional = true }
 cfg-if = "1.0.0"
 
 [build-dependencies]
-uniffi = { version = "0.23", features = ["build"], optional = true }
+uniffi = { version = "0.23", features = ["build"] }
 glean-build = { path = "../external/glean/glean-core/build" }
 
 [dev-dependencies]

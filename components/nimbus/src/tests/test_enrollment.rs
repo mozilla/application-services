@@ -15,7 +15,13 @@ use uuid::Uuid;
 
 impl From<AppContext> for NimbusTargetingHelper {
     fn from(context: AppContext) -> Self {
-        let ta: TargetingAttributes = context.into();
+        cfg_if::cfg_if! {
+            if #[cfg(feature = "stateful")] {
+                let ta: TargetingAttributes = context.into();
+            } else {
+                let ta = TargetingAttributes::new(context, Default::default());
+            }
+        }
         ta.into()
     }
 }

@@ -1,0 +1,20 @@
+namespace cirrus {};
+
+[Error]
+enum NimbusError {
+    "InvalidPersistedData", "IOError",
+    "JSONError", "EvaluationError", "InvalidExpression", "InvalidFraction",
+    "TryFromSliceError", "EmptyRatiosError", "OutOfBoundsError","UrlParsingError",
+    "UuidError", "InvalidExperimentFormat",
+    "InvalidPath", "InternalError", "NoSuchExperiment", "NoSuchBranch",
+    "DatabaseNotReady", "VersionParsingError", "TryFromIntError",
+    "ParseIntError", "TransformParameterError", "CirrusError"
+};
+
+interface CirrusClient {
+    constructor();
+
+    // Handles an enrollment request string and returns an enrollment response string.
+    [Throws=NimbusError]
+    string handle_enrollment(string request);
+};
