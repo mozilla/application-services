@@ -2,7 +2,6 @@
 
 from collections import namedtuple
 import argparse
-import shutil
 import subprocess
 import pathlib
 import os
@@ -12,17 +11,23 @@ ROOT_DIR = pathlib.Path(__file__).parent.parent.parent
 # List of udl_paths to generate bindings for
 BINDINGS_UDL_PATHS = [
     "components/autofill/src/autofill.udl",
-    "components/crashtest/src/crashtest.udl",
+    "components/support/error/src/errorsupport.udl",
     "components/fxa-client/src/fxa_client.udl",
     "components/logins/src/logins.udl",
     "components/nimbus/src/nimbus.udl",
     "components/places/src/places.udl",
     "components/push/src/push.udl",
-    "components/support/error/src/errorsupport.udl",
     "components/sync_manager/src/syncmanager.udl",
+    "components/tabs/src/tabs.udl",
     "components/sync15/src/sync15.udl",
-
 ]
+
+# List of udl_paths to generate bindings for
+FOCUS_UDL_PATHS = [
+    "components/nimbus/src/nimbus.udl",
+    "components/support/error/src/errorsupport.udl",
+]
+
 # List of globs to copy the sources from
 SOURCE_TO_COPY = [
     "components/nimbus/ios/Nimbus",
@@ -31,9 +36,18 @@ SOURCE_TO_COPY = [
     "components/tabs/ios/Tabs",
     "components/places/ios/Places",
     "components/sync15/ios/*",
+    "components/sync_manager/ios/SyncManager",
     "components/rc_log/ios/*",
     "components/viaduct/ios/*",
 ]
+
+# List of udl_paths to generate bindings for
+FOCUS_SOURCE_TO_COPY = [
+    "components/nimbus/ios/Nimbus",
+    "components/rc_log/ios/*",
+    "components/viaduct/ios/*",
+]
+
 
 def main():
     args = parse_args()
@@ -41,7 +55,7 @@ def main():
     run_tests(args)
     xcframework_build(args, "MozillaRustComponents.xcframework.zip")
     xcframework_build(args, "FocusRustComponents.xcframework.zip")
-    generate_nimbus_metrics(args)
+    generate_glean_metrics(args)
     generate_uniffi_bindings(args)
     copy_source_dirs(args)
     log("build complete")
@@ -102,7 +116,7 @@ def xcframework_build(args, filename):
 
 Run this first, because it appears to delete any other .swift files in the output directory.
 """
-def generate_nimbus_metrics(args):
+def generate_glean_metrics(args):
     # Make sure there's a python venv for glean to use
     venv_dir = args.glean_work_dir / '.venv'
     if not venv_dir.exists():
@@ -119,20 +133,32 @@ def generate_nimbus_metrics(args):
         'LANG': 'C.UTF-8',
     }
     glean_script = ROOT_DIR / "components/external/glean/glean-core/ios/sdk_generator.sh"
-    out_dir = args.out_dir / "glean-metrics"
-    metrics_yaml = ROOT_DIR / "components/nimbus/metrics.yaml"
+    out_dir = args.out_dir / 'all' / 'Generated' / 'Metrics'
+    focus_out_dir = args.out_dir / 'focus' / 'Generated' / 'Metrics'
+    focus_glean_files = map(str, [ROOT_DIR / "components/nimbus/metrics.yaml"])
+    firefox_glean_files = map(str, [ROOT_DIR / "components/nimbus/metrics.yaml", ROOT_DIR / "components/sync_manager/metrics.yaml", ROOT_DIR / "components/sync_manager/pings.yaml"])
+    generate_glean_metrics_for_target(env, glean_script, out_dir, firefox_glean_files)
+    generate_glean_metrics_for_target(env, glean_script, focus_out_dir, focus_glean_files)
+
+def generate_glean_metrics_for_target(env, glean_script, out_dir, input_files):
     ensure_dir(out_dir)
     subprocess.check_call([
         str(glean_script),
         "-o", str(out_dir),
-        str(metrics_yaml)
+        *input_files
     ], env=env)
 
 def generate_uniffi_bindings(args):
-    out_dir = args.out_dir / 'generated-swift-sources'
+    out_dir = args.out_dir / 'all' / 'Generated'
+    focus_out_dir = args.out_dir / 'focus' / 'Generated'
+
     ensure_dir(out_dir)
 
-    for udl_path in BINDINGS_UDL_PATHS:
+    generate_uniffi_bindings_for_target(out_dir, BINDINGS_UDL_PATHS)
+    generate_uniffi_bindings_for_target(focus_out_dir, FOCUS_UDL_PATHS)
+
+def generate_uniffi_bindings_for_target(out_dir, bindings_path):
+    for udl_path in bindings_path:
         log(f"generating sources for {udl_path}")
         run_uniffi_bindgen(['generate', '-l', 'swift', '--no-format', '-o', out_dir, ROOT_DIR / udl_path])
 
@@ -144,10 +170,15 @@ def run_uniffi_bindgen(bindgen_args):
     subprocess.check_call(all_args, cwd=ROOT_DIR)
 
 def copy_source_dirs(args):
-    out_dir = args.out_dir / 'swift-sources'
-    ensure_dir(out_dir)
+    out_dir = args.out_dir / 'all'
+    focus_out_dir = args.out_dir / 'focus'
 
-    for source in SOURCE_TO_COPY:
+    copy_sources(out_dir, SOURCE_TO_COPY)
+    copy_sources(focus_out_dir, FOCUS_SOURCE_TO_COPY)
+
+def copy_sources(out_dir, sources):
+    ensure_dir(out_dir)
+    for source in sources:
         log(f"copying {source}")
         for path in ROOT_DIR.glob(source):
             subprocess.check_call(['cp', '-r', path, out_dir])
