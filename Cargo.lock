@@ -3582,6 +3582,7 @@ dependencies = [
  "serde_path_to_error",
  "sync-guid",
  "thiserror",
+ "uniffi",
  "url",
  "viaduct",
 ]

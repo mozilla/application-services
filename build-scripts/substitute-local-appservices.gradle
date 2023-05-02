@@ -39,7 +39,9 @@ configurations.all { config ->
                     def group = dependency.requested.group
                     if (group == 'org.mozilla.appservices' || group == 'org.mozilla.appservices.nightly') {
                         def name = dependency.requested.module
-                        dependency.useTarget([group: group, name: name, version: version])
+                        // Although there are a number of app-services group names which might be configured,
+                        // our local publish flow always uses exactly `org.mozilla.appservices`
+                        dependency.useTarget([group: 'org.mozilla.appservices', name: name, version: version])
                     }
                 }
             }

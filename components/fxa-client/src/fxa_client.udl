@@ -1,6 +1,3 @@
-
-
-
 // # Firefox Accounts Client
 //
 // The fxa-client component lets applications integrate with the
@@ -35,8 +32,10 @@
 // * If the user opts to sign out of the application, calling [`disconnect`](FirefoxAccount::disconnect)
 //   and then discarding any persisted account data.
 
+[External="sync15"]
+typedef extern DeviceType;
+
 namespace fxa_client {
-    
 };
 
 
@@ -945,24 +944,6 @@ dictionary FxAMigrationResult {
   // Note that this is a signed integer, for compatibility with languages
   // that do not have unsigned integers.
   i64 total_duration;
-};
-
-
-
-// Enumeration for the different types of device.
-//
-// Firefox Accounts seprates devices into broad categories for display purposes,
-// such as distinguishing a desktop PC from a mobile phone. Upon signin, the
-// application should inspect the device it is running on and select an appropriate
-// [`DeviceType`] to include in its device registration record.
-//
-enum DeviceType {
-  "Desktop",
-  "Mobile",
-  "Tablet",
-  "VR",
-  "TV",
-  "Unknown",
 };
 
 

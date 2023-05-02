@@ -2,6 +2,10 @@
 apply from: "$rootDir/build-scripts/component-common.gradle"
 apply from: "$rootDir/publish.gradle"
 
+dependencies {
+    api project(':sync15')
+}
+
 ext.configureUniFFIBindgen("../src/fxa_client.udl")
 ext.dependsOnTheMegazord()
 ext.configurePublish()

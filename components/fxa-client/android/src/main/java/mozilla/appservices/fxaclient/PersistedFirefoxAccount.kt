@@ -5,6 +5,7 @@
 package mozilla.appservices.fxaclient
 
 import android.util.Log
+import mozilla.appservices.sync15.DeviceType
 import org.json.JSONObject
 
 /**
