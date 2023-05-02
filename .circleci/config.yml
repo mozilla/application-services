@@ -382,21 +382,21 @@ jobs:
           paths:
             - megazords/ios-rust/MozillaRustComponents.xcframework.zip
 
-  build-nimbus-fml:
+  build-nimbus-command-line-apps:
     executor: macos
     steps:
       - full-checkout
       - install-rust
       - setup-rust-target-version
       - run:
-          name: Build nimbus-fml
+          name: Build nimbus FML command line app
           command: |
             if [ -z "${CIRCLE_TAG}" ]; then
               # On non-release builds do not update brew (takes ages).
               echo 'export HOMEBREW_NO_AUTO_UPDATE=1' >> $BASH_ENV
             fi
             # Produces nimbus-fml.zip archive and a checksum.
-            ./components/support/nimbus-fml/scripts/build-dist.sh
+            ./build-scripts/build-cli-app.sh --project components/support/nimbus-fml
       - store_artifacts:
           name: Store nimbus-fml build archive in workspace
           path: nimbus-fml.zip
@@ -405,12 +405,31 @@ jobs:
           name: Store nimbus-fml checksum in workspace
           path: nimbus-fml.sha256
           destination: nimbus-fml.sha256
+      - run:
+          name: Build nimbus CLI command line app
+          command: |
+            if [ -z "${CIRCLE_TAG}" ]; then
+              # On non-release builds do not update brew (takes ages).
+              echo 'export HOMEBREW_NO_AUTO_UPDATE=1' >> $BASH_ENV
+            fi
+            # Produces nimbus-cli.zip archive and a checksum.
+            ./build-scripts/build-cli-app.sh --project components/support/nimbus-cli
+      - store_artifacts:
+          name: Store nimbus-cli build archive in workspace
+          path: nimbus-cli.zip
+          destination: nimbus-cli.zip
+      - store_artifacts:
+          name: Store nimbus-cli checksum in workspace
+          path: nimbus-cli.sha256
+          destination: nimbus-cli.sha256
       - persist_to_workspace:
           root: .
           paths:
             - nimbus-fml.sha256
             - nimbus-fml.zip
-  release-nimbus-fml:
+            - nimbus-cli.sha256
+            - nimbus-cli.zip
+  release-nimbus-command-line-apps:
     executor: macos
     steps:
       - full-checkout
@@ -422,6 +441,8 @@ jobs:
           command: |
             ghr -replace "${CIRCLE_TAG}" nimbus-fml.zip
             ghr -replace "${CIRCLE_TAG}" nimbus-fml.sha256
+            ghr -replace "${CIRCLE_TAG}" nimbus-cli.zip
+            ghr -replace "${CIRCLE_TAG}" nimbus-cli.sha256
 
 workflows:
   version: 2
@@ -480,15 +501,15 @@ workflows:
               ignore: /.*/
             tags:
               only: /^v.*/
-  nimbus-artifacts:
+  nimbus-command-line-apps:
     jobs:
-      - build-nimbus-fml:
-          filters: # required since `release-nimbus-fml` has tag filters AND requires this job
+      - build-nimbus-command-line-apps:
+          filters: # required since `release-nimbus-command-line-apps` has tag filters AND requires this job
             tags:
               only: /.*/
-      - release-nimbus-fml:
+      - release-nimbus-command-line-apps:
           requires:
-            - build-nimbus-fml
+            - build-nimbus-command-line-apps
           filters:
             branches:
               ignore: /.*/
