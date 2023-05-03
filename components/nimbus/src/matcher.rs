@@ -86,13 +86,3 @@ pub struct AppContext {
     #[serde(flatten)]
     pub custom_targeting_attributes: Option<Map<String, Value>>,
 }
-
-#[cfg(not(feature = "stateful"))]
-#[derive(Deserialize, Serialize, Debug, Clone, Default)]
-pub struct RequestContext {
-    pub locale: Option<String>,
-    pub user_agent: Option<String>,
-    // headers, cookies, query_params
-    #[serde(flatten)]
-    pub custom_targeting_attributes: Option<Map<String, Value>>,
-}

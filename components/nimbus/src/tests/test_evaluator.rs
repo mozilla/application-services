@@ -12,9 +12,6 @@ use crate::{
 };
 use serde_json::{json, Map, Value};
 
-#[cfg(not(feature = "stateful"))]
-use crate::matcher::RequestContext;
-
 fn ta_with_locale(locale: String) -> TargetingAttributes {
     let app_ctx = AppContext {
         #[cfg(feature = "stateful")]
@@ -22,10 +19,7 @@ fn ta_with_locale(locale: String) -> TargetingAttributes {
         ..Default::default()
     };
     #[cfg(not(feature = "stateful"))]
-    let req_ctx = RequestContext {
-        locale: Some(locale),
-        ..Default::default()
-    };
+    let req_ctx = Map::from_iter([("locale".to_string(), Value::String(locale))]);
 
     cfg_if::cfg_if! {
         if #[cfg(feature = "stateful")] {

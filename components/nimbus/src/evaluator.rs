@@ -20,7 +20,7 @@ use uuid::Uuid;
 use std::collections::HashSet;
 
 #[cfg(not(feature = "stateful"))]
-use crate::matcher::RequestContext;
+use serde_json::Map;
 
 #[derive(Serialize, Deserialize, Debug, Clone, Default)]
 pub struct Bucket {}
@@ -51,27 +51,28 @@ pub struct TargetingAttributes {
     #[serde(flatten)]
     pub app_context: AppContext,
     #[serde(flatten)]
-    pub request_context: RequestContext,
+    pub request_context: Map<String, Value>,
     pub language: Option<String>,
     pub region: Option<String>,
-    pub os: Option<String>,
 }
 
 #[cfg(not(feature = "stateful"))]
 impl TargetingAttributes {
-    pub fn new(app_context: AppContext, request_context: RequestContext) -> Self {
-        let (language, region) = request_context
-            .locale
-            .clone()
-            .map(split_locale)
-            .unwrap_or_else(|| (None, None));
+    pub fn new(app_context: AppContext, request_context: Map<String, Value>) -> Self {
+        let (language, region) = match request_context
+            .get("locale")
+            .unwrap_or(&Value::Null)
+            .as_str()
+        {
+            Some(locale) => split_locale(locale.to_string()),
+            _ => (None, None),
+        };
 
         Self {
             app_context,
             request_context,
             language,
             region,
-            ..Default::default()
         }
     }
 }
