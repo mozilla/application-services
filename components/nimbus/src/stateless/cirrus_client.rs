@@ -2,7 +2,6 @@
 // License, v. 2.0. If a copy of the MPL was not distributed with this
 // file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
-use crate::matcher::RequestContext;
 use crate::{
     enrollment::{
         map_features_by_feature_id, EnrolledFeatureConfig, EnrollmentChangeEvent,
@@ -13,7 +12,7 @@ use crate::{
     NimbusTargetingHelper, Result, TargetingAttributes,
 };
 use serde_derive::*;
-use serde_json::{from_str, to_string};
+use serde_json::{from_str, to_string, Map, Value};
 use std::collections::HashMap;
 use std::fmt;
 use std::sync::Mutex;
@@ -55,7 +54,7 @@ fn default_true() -> bool {
 #[serde(rename_all = "camelCase")]
 pub struct EnrollmentRequest {
     pub client_id: Option<String>,
-    pub request_context: RequestContext,
+    pub request_context: Map<String, Value>,
     #[serde(default = "default_true")]
     pub is_user_participating: bool,
     #[serde(default)]
@@ -126,7 +125,7 @@ impl CirrusClient {
     pub(crate) fn enroll(
         &self,
         client_id: String,
-        request_context: RequestContext,
+        request_context: Map<String, Value>,
         is_user_participating: bool,
         prev_enrollments: &[ExperimentEnrollment],
     ) -> Result<EnrollmentResponse> {

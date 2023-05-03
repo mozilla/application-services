@@ -3,7 +3,6 @@
 // file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
 use crate::enrollment::{EnrollmentChangeEventType, ExperimentEnrollment, NotEnrolledReason};
-use crate::matcher::RequestContext;
 use crate::{
     AppContext, CirrusClient, EnrollmentRequest, EnrollmentResponse, EnrollmentStatus, Result,
 };
@@ -83,7 +82,9 @@ fn test_will_not_enroll_if_previously_did_not_enroll() -> Result<()> {
 #[test]
 fn test_handle_enrollment_works_with_json() -> Result<()> {
     let client = create_client();
-    let exp = helpers::get_experiment_with_newtab_feature_branches();
+    let exp = helpers::get_experiment_with_newtab_feature_branches_with_targeting(
+        "language == 'en' && region == 'US'",
+    );
     client
         .set_experiments(to_string(&HashMap::from([("data", &[exp.clone()])])).unwrap())
         .unwrap();
@@ -92,9 +93,10 @@ fn test_handle_enrollment_works_with_json() -> Result<()> {
         ("clientId".to_string(), Value::String("test".to_string())),
         (
             "requestContext".to_string(),
-            to_value(RequestContext {
-                ..Default::default()
-            })
+            to_value(Map::from_iter([(
+                "locale".to_string(),
+                Value::String("en-US".to_string()),
+            )]))
             .unwrap(),
         ),
         (
@@ -183,6 +185,53 @@ mod helpers {
             "proposedEnrollment":7,
             "userFacingDescription":"2nd test experiment.",
             "userFacingName":"2nd test experiment",
+        }))
+        .unwrap()
+    }
+
+    pub fn get_experiment_with_newtab_feature_branches_with_targeting(
+        targeting: &str,
+    ) -> Experiment {
+        serde_json::from_value(json!({
+            "schemaVersion": "1.0.0",
+            "slug": "newtab-feature-experiment",
+            "appId": "test app id",
+            "appName": "test app name",
+            "channel": "test channel",
+            "branches": [
+                {
+                    "slug": "control",
+                    "ratio": 1,
+                    "feature": {
+                        "featureId": "newtab",
+                        "enabled": false,
+                        "value": {},
+                    }
+                },
+                {
+                    "slug": "treatment",
+                    "ratio":1,
+                    "feature": {
+                        "featureId": "newtab",
+                        "enabled": true,
+                        "value": {},
+                    }
+                }
+            ],
+            "probeSets":[],
+            "bucketConfig":{
+                // Also enroll everyone.
+                "count":10_000,
+                "start":0,
+                "total":10_000,
+                "namespace":"secure-silver",
+                "randomizationUnit":"client_id"
+            },
+            "isEnrollmentPaused":false,
+            "proposedEnrollment":7,
+            "userFacingDescription":"2nd test experiment.",
+            "userFacingName":"2nd test experiment",
+            "targeting": targeting
         }))
         .unwrap()
     }
