@@ -19,6 +19,7 @@ DRY_RUN=false
 DIRTY=false
 PROJECT_DIR=
 DIST_DIR=$(pwd)
+INSTALL_TOOLS_ONLY=false
 
 # Assume we're in $root_dir/build-scripts
 root_dir=$(dirname "$0")/..
@@ -42,6 +43,10 @@ while (( "$#" )); do
             TARGETS="$2"
             shift 2
             ;;
+        --install-only)
+            INSTALL_TOOLS_ONLY="true"
+            shift
+            ;;
         --dry-run)
             DRY_RUN="true"
             shift
@@ -52,16 +57,6 @@ while (( "$#" )); do
             ;;
     esac
 done
-
-if [ -z "$PROJECT_DIR" ] ; then
-    echo "Require a project directory" 1>&2
-    exit 1
-fi
-
-basename=$(basename "$PROJECT_DIR")
-
-# But we'll dump the zip file wherever we run the script from.
-dist_file=${basename}.zip
 
 function maybeRun {
     local prompt='$'
@@ -97,9 +92,21 @@ for target in $TARGETS ; do
         *)
             ;;
     esac
-
-    maybeRun "rustup target add $target"
 done
+
+if [[ $INSTALL_TOOLS_ONLY == "true" ]] ; then
+    exit 0
+fi
+
+if [ -z "$PROJECT_DIR" ] ; then
+    echo "Require a project directory" 1>&2
+    exit 1
+fi
+
+basename=$(basename "$PROJECT_DIR")
+
+# But we'll dump the zip file wherever we run the script from.
+dist_file=${basename}.zip
 
 if [[ $DIRTY != "true" ]] ; then
     maybeRun "cargo clean --manifest-path $PROJECT_DIR/Cargo.toml"
@@ -111,6 +118,8 @@ files_to_zip=""
 for target in $TARGETS ; do
     echo
     echo "## Cross compiling for $target"
+
+    maybeRun "rustup target add $target"
 
     cargo_target="$target"
     binary_name="$basename"
