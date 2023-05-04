@@ -183,13 +183,13 @@
 uniffi::include_scaffolding!("push");
 // All implementation detail lives in the `internal` module
 mod internal;
-use std::sync::Mutex;
+use std::{collections::HashMap, sync::Mutex};
 mod error;
 
 use error_support::handle_error;
-use internal::communications::ConnectHttp;
 pub use internal::config::{BridgeType, Protocol as PushHttpProtocol, PushConfiguration};
 use internal::crypto::Crypto;
+use internal::{communications::ConnectHttp, push_manager::DecryptResponse};
 
 pub use error::{ApiResult, PushApiError, PushError};
 use internal::storage::Store;
@@ -252,14 +252,33 @@ impl PushManager {
     #[handle_error(PushError)]
     pub fn subscribe(
         &self,
-        channel_id: &str,
         scope: &str,
         server_key: &Option<String>,
     ) -> ApiResult<SubscriptionResponse> {
         self.internal
             .lock()
             .unwrap()
-            .subscribe(channel_id, scope, server_key.as_deref())
+            .subscribe(scope, server_key.as_deref())
+    }
+
+    /// Retrieves an existing push subscription
+    ///
+    /// # Arguments
+    ///   - `scope` - Site scope string
+    ///
+    /// # Returns
+    /// A Subscription response that includes the following:
+    ///   - A URL that can be used to deliver push messages
+    ///   - A cryptographic key that can be used to encrypt messages
+    ///     that would then be decrypted using the [`PushManager::decrypt`] function
+    ///
+    /// # Errors
+    /// Returns an error in the following cases:
+    ///   - PushManager was unable to access its persisted storage
+    ///   - An error occurred generating or deserializing the cryptographic keys
+    #[handle_error(PushError)]
+    pub fn get_subscription(&self, scope: &str) -> ApiResult<Option<SubscriptionResponse>> {
+        self.internal.lock().unwrap().get_subscription(scope)
     }
 
     /// Unsubscribe from given channelID, ending that subscription for the user.
@@ -356,48 +375,9 @@ impl PushManager {
     ///   - An error occurred while decrypting the message
     ///   - An error occurred accessing the PushManager's persisted storage
     #[handle_error(PushError)]
-    pub fn decrypt(
-        &self,
-        channel_id: &str,
-        body: &str,
-        encoding: &str,
-        salt: &str,
-        dh: &str,
-    ) -> ApiResult<Vec<i8>> {
-        let decrypted = self
-            .internal
-            .lock()
-            .unwrap()
-            .decrypt(channel_id, body, encoding, salt, dh)?;
-
-        // NOTE: this returns a `Vec<i8>` since the kotlin consumer is expecting
-        // signed bytes.
-        Ok(decrypted.into_iter().map(|ub| ub as i8).collect())
+    pub fn decrypt(&self, payload: HashMap<String, String>) -> ApiResult<DecryptResponse> {
+        self.internal.lock().unwrap().decrypt(payload)
     }
-
-    /// Get the dispatch info for a given subscription channel
-    ///
-    /// # Arguments
-    ///   - `channel_id`: The subscription channelID
-    ///
-    /// # Returns
-    /// [`DispatchInfo`] containing the channel ID and scope string
-    ///
-    /// # Errors
-    /// Returns an error in the following cases:
-    ///   - An error occurred accessing the persisted storage
-    #[handle_error(PushError)]
-    pub fn dispatch_info_for_chid(&self, channel_id: &str) -> ApiResult<Option<DispatchInfo>> {
-        self.internal.lock().unwrap().get_record_by_chid(channel_id)
-    }
-}
-
-/// Dispatch Information returned from [`PushManager::dispatch_info_for_chid`]
-#[derive(Debug, Clone)]
-pub struct DispatchInfo {
-    pub scope: String,
-    pub endpoint: String,
-    pub app_server_key: Option<String>,
 }
 
 /// Key Information that can be used to encrypt payloads

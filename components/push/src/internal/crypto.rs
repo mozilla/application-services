@@ -16,6 +16,7 @@
 //!
 
 use std::borrow::Cow;
+use std::collections::HashMap;
 use std::fmt::Display;
 use std::str::FromStr;
 
@@ -120,13 +121,9 @@ pub trait Cryptography: Default {
     fn generate_key() -> error::Result<Key>;
 
     /// General decrypt function. Calls to decrypt_aesgcm or decrypt_aes128gcm as needed.
-    fn decrypt(
-        key: &Key,
-        body: &str,
-        encoding: &str,
-        salt: &str,
-        dh: &str,
-    ) -> error::Result<Decrypted>;
+    #[allow(clippy::needless_lifetimes)]
+    // Clippy complains here although the lifetime is needed, seems like a bug with automock
+    fn decrypt<'a>(key: &Key, push_payload: PushPayload<'a>) -> error::Result<Decrypted>;
 
     /// Decrypt the obsolete "aesgcm" format (which is still used by a number of providers)
     fn decrypt_aesgcm(
@@ -195,20 +192,14 @@ impl Cryptography for Crypto {
         })
     }
 
-    fn decrypt(
-        key: &Key,
-        body: &str,
-        encoding: &str,
-        salt: &str,
-        dh: &str,
-    ) -> error::Result<Decrypted> {
+    fn decrypt(key: &Key, push_payload: PushPayload<'_>) -> error::Result<Decrypted> {
         rc_crypto::ensure_initialized();
         // convert the private key into something useful.
-        let d_salt = extract_value(salt, "salt");
-        let d_dh = extract_value(dh, "dh");
-        let d_body = base64::decode_config(body, base64::URL_SAFE_NO_PAD)?;
+        let d_salt = extract_value(push_payload.salt, "salt");
+        let d_dh = extract_value(push_payload.dh, "dh");
+        let d_body = base64::decode_config(push_payload.body, base64::URL_SAFE_NO_PAD)?;
 
-        match CryptoEncoding::from_str(encoding)? {
+        match CryptoEncoding::from_str(push_payload.encoding)? {
             CryptoEncoding::Aesgcm => Self::decrypt_aesgcm(key, &d_body, d_salt, d_dh),
             CryptoEncoding::Aes128gcm => Self::decrypt_aes128gcm(key, &d_body),
         }
@@ -233,6 +224,38 @@ impl Cryptography for Crypto {
 
     fn decrypt_aes128gcm(key: &Key, content: &[u8]) -> error::Result<Vec<u8>> {
         Ok(ece::decrypt(key.key_pair(), key.auth_secret(), content)?)
+    }
+}
+
+#[derive(Debug, Deserialize)]
+pub struct PushPayload<'a> {
+    pub(crate) channel_id: &'a str,
+    pub(crate) body: &'a str,
+    pub(crate) encoding: &'a str,
+    pub(crate) salt: &'a str,
+    pub(crate) dh: &'a str,
+}
+
+impl<'a> TryFrom<&'a HashMap<String, String>> for PushPayload<'a> {
+    type Error = PushError;
+
+    fn try_from(value: &'a HashMap<String, String>) -> Result<Self, Self::Error> {
+        let channel_id = value
+            .get("chid")
+            .ok_or_else(|| PushError::CryptoError("Invalid Push payload".to_string()))?;
+        let body = value
+            .get("body")
+            .ok_or_else(|| PushError::CryptoError("Invalid Push payload".to_string()))?;
+        let encoding = value.get("con").map(|s| s.as_str()).unwrap_or("aes128gcm");
+        let salt = value.get("enc").map(|s| s.as_str()).unwrap_or("");
+        let dh = value.get("cryptokey").map(|s| s.as_str()).unwrap_or("");
+        Ok(Self {
+            channel_id,
+            body,
+            encoding,
+            salt,
+            dh,
+        })
     }
 }
 
@@ -263,7 +286,16 @@ mod crypto_tests {
         let pub_key_raw = "BBcJdfs1GtMyymFTtty6lIGWRFXrEtJP40Df0gOvRDR4D8CKVgqE6vlYR7tCYksIRdKD1MxDPhQVmKLnzuife50";
 
         let key = test_key(priv_key_d, pub_key_raw, auth_raw);
-        Crypto::decrypt(&key, ciphertext, encoding, salt, dh)
+        Crypto::decrypt(
+            &key,
+            PushPayload {
+                channel_id: "channel_id",
+                body: ciphertext,
+                encoding,
+                salt,
+                dh,
+            },
+        )
     }
 
     #[test]
