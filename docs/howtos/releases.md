@@ -12,11 +12,15 @@ Nightly builds are automatically generated using a taskcluster cron task.
 
 ## Release builds
 
-Release builds are generated from the `release-vXXX` branches.  Whenever a commit is pushed there,
-we build all artifacts needed for the release.  Once we're ready to publish the release, we run the
-taskcluster release promotion action which signs and publishes the artifacts.
+Release builds are generated from the `release-vXXX` branches and published with the
+`release-promotion` action, which has several phases:
 
-TODO: explain release-promotion more.
+- Whenever a commit is pushed to a release branch, we build candidate artifacts. These artifacts are
+  shippable -- if we decide that the release is ready, they just need to be copied to the correct
+  location.
+- The `push` phase of `release-promotion` copies the candidate to a staging location where they can
+  be tested.
+- The `ship` phase of `release-promotion` copies the candidate to their final, published, location.
 
 ## What to do at the end of a nightly cycle
 
@@ -38,11 +42,9 @@ index 8cd923873..6482018e0 100644
  groupId: org.mozilla.appservices
 ```
 
- * Create a PR on `main` that starts a new CHANGELOG haeder.
+ * Create a PR on `main` that starts a new CHANGELOG header.
 
-3. Trigger release-promotion once the PRs are approved, merged, and CI has completed
-
- * TODO: explain how to do this
+3. Ask releng to trigger release-promotion once the PRs are approved, merged, and CI has completed
 
 4. Tag the release with `automation/tag-release.py [major-version-number]`
 

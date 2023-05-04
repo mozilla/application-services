@@ -19,4 +19,4 @@ pushlog_id: '0'
 repository_type: git
 target_tasks_method: release
 tasks_for: github-push
-release: "release"
+release-type: "release"

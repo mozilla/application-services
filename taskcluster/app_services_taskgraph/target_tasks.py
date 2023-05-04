@@ -22,7 +22,7 @@ def target_tasks_all(full_task_graph, parameters, graph_config):
     def filter(task):
         return (filter_for_tasks_for(task, parameters) 
                 and task.attributes.get("run-on-pr-type", "all") in ("full-ci", "all")
-                and task.attributes.get('release') != 'release-only')
+                and task.attributes.get('release-type') != 'release-only')
 
     return [l for l, task in full_task_graph.tasks.items() if filter(task)]
 
@@ -33,6 +33,6 @@ def target_tasks_default(full_task_graph, parameters, graph_config):
     def filter(task):
         return (filter_for_tasks_for(task, parameters)
                 and task.attributes.get("run-on-pr-type", "all") in ("normal-ci", "all")
-                and task.attributes.get('release') != 'release-only')
+                and task.attributes.get('release-type') != 'release-only')
 
     return [l for l, task in full_task_graph.tasks.items() if filter(task)]
