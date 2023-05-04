@@ -33,7 +33,7 @@ def register(graph_config):
         # preview build for a particular application-services branch.
         'preview-build': str,
         # Release type.  We set this to "release" for non-nightly builds, it defaults to "nightly".
-        'release': Optional(str),
+        'release-type': Optional(str),
     })
 
 def _import_modules(modules):

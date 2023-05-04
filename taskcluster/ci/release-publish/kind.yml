@@ -23,7 +23,7 @@ transforms:
 tasks:
   release_publish:
     attributes:
-      release: release-only
+      release-type: release-only
     label: "Build publish task"
     description: "Publish build artifacts"
     worker-type: b-linux

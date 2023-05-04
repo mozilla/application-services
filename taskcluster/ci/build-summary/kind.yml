@@ -20,7 +20,7 @@ transforms:
 tasks:
   deps_complete:
     attributes:
-      release: release-only
+      release-type: release-only
     label: "Build summary task"
     description: "Summary task for the nightly/release builds that reports failures."
     alerts:
