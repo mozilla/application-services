@@ -12,6 +12,9 @@ transforms:
 kind-dependencies:
   - module-build
   - signing
+  # Adding this means that we will not run _any_ beetmover task until
+  # _all_ signing has been completed.
+  - post-signing-dummy
 
 primary-dependency: module-build
 group-by: component
@@ -24,4 +27,3 @@ task-template:
     app-name: appservices
   routes:
     - notify.email.a-s-ci-failures@mozilla.com.on-failed
-

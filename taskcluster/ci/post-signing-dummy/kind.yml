@@ -1,0 +1,25 @@
+# This Source Code Form is subject to the terms of the Mozilla Public
+# License, v. 2.0. If a copy of the MPL was not distributed with this
+# file, You can obtain one at http://mozilla.org/MPL/2.0/.
+---
+loader: taskgraph.loader.transform:loader
+
+transforms:
+    - app_services_taskgraph.transforms.reverse_chunk_deps:transforms
+    - taskgraph.transforms.task:transforms
+
+kind-dependencies:
+    - signing
+
+tasks:
+    post-signing-dummy:
+        label: post-signing-dummy
+        name: post-signing-dummy
+        description: Dummy task to make it easier to block beetmover on signing completion
+        attributes:
+            buildconfig:
+                name: all
+        run-on-tasks-for: [github-release, cron]
+        worker-type: succeed
+        worker:
+            implementation: succeed
