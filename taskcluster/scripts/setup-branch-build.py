@@ -38,7 +38,7 @@ def branch_build_properties(name, checkout_dir):
     commit_id = subprocess.check_output(['git', 'rev-parse', '--short', 'HEAD'], encoding='utf8', cwd=checkout_dir).strip()
     return [
         f'branchBuild.{name}.dir={checkout_dir}',
-        f'branchBuild.{name}.version={commit_id}',
+        f'branchBuild.{name}.version=0.0a-{commit_id}',
     ]
 
 def write_local_properties(path, local_properties):
