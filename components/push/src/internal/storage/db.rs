@@ -15,7 +15,7 @@ pub trait Storage: Sized {
 
     fn get_record(&self, chid: &str) -> Result<Option<PushRecord>>;
 
-    fn get_record_by_chid(&self, chid: &str) -> Result<Option<PushRecord>>;
+    fn get_record_by_scope(&self, scope: &str) -> Result<Option<PushRecord>>;
 
     fn put_record(&self, record: &PushRecord) -> Result<bool>;
 
@@ -108,18 +108,13 @@ impl Storage for PushDb {
         )
     }
 
-    fn get_record_by_chid(&self, chid: &str) -> Result<Option<PushRecord>> {
+    fn get_record_by_scope(&self, scope: &str) -> Result<Option<PushRecord>> {
         let query = format!(
             "SELECT {common_cols}
-             FROM push_record WHERE channel_id = :chid",
+             FROM push_record WHERE scope = :scope",
             common_cols = schema::COMMON_COLS,
         );
-        self.try_query_row(
-            &query,
-            &[(":chid", &Self::normalize_uuid(chid))],
-            PushRecord::from_row,
-            false,
-        )
+        self.try_query_row(&query, &[(":scope", scope)], PushRecord::from_row, false)
     }
 
     fn put_record(&self, record: &PushRecord) -> Result<bool> {
@@ -309,6 +304,10 @@ mod test {
         let result = db.get_record(chid)?.unwrap();
         assert_ne!(result, rec);
         assert_eq!(result, rec2);
+
+        let result = db.get_record_by_scope("https://example.com/")?.unwrap();
+        assert_eq!(result, rec2);
+
         Ok(())
     }
 

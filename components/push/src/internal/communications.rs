@@ -20,17 +20,15 @@ use serde::{Deserialize, Serialize};
 use url::Url;
 use viaduct::{header_names, status_codes, Headers, Request};
 
-use crate::internal::config::PushConfiguration;
-use crate::internal::storage::Store;
-use crate::{
-    error::{
-        self,
-        PushError::{
-            AlreadyRegisteredError, CommunicationError, CommunicationServerError,
-            UAIDNotRecognizedError,
-        },
+use crate::error::{
+    self,
+    PushError::{
+        AlreadyRegisteredError, CommunicationError, CommunicationServerError,
+        UAIDNotRecognizedError,
     },
 };
+use crate::internal::config::PushConfiguration;
+use crate::internal::storage::Store;
 
 mod rate_limiter;
 pub use rate_limiter::PersistedRateLimiter;
@@ -85,10 +83,6 @@ struct RegisterRequest<'a> {
     /// The native registration id, a token provided by the app
     token: &'a str,
 
-    #[serde(rename = "channelID")]
-    /// The channel id to register with autopush, provided by the app
-    channel_id: &'a str,
-
     /// An optional app server key
     key: Option<&'a str>,
 }
@@ -108,7 +102,6 @@ pub trait Connection: Sized {
     /// the server will assign and return a uaid. Subsequent subscriptions will call [`Connection::subscribe_with_uaid`]
     ///
     /// # Arguments
-    /// - `channel_id`: A string defined by client. The client is expected to provide this id when requesting the subscription record
     /// - `registration_id`: A string representing a native token. In practice, this is a Firebase token for Android and a APNS token for iOS
     /// - `app_server_key`: Optional VAPID public key to "lock" subscriptions
     ///
@@ -116,7 +109,6 @@ pub trait Connection: Sized {
     /// - Returns a [`RegisterResponse`] which is the autopush server's registration response deserialized
     fn register(
         &self,
-        channel_id: &str,
         registration_id: &str,
         app_server_key: &Option<String>,
     ) -> error::Result<RegisterResponse>;
@@ -124,7 +116,6 @@ pub trait Connection: Sized {
     /// Sends subsequent subscriptions for this client. This will be called when the client has already been assigned a `uaid`
     /// by the server when it first called [`Connection::subscribe_new`]
     /// # Arguments
-    /// - `channel_id`: A string defined by client. The client is expected to provide this id when requesting the subscription record
     /// - `uaid`: A string representing the users `uaid` that was assigned when the user first registered for a subscription
     /// - `auth`: A string representing an authorization token that will be sent as a header to autopush. The auth was returned on the user's first subscription.
     /// - `registration_id`: A string representing a native token. In practice, this is a Firebase token for Android and a APNS token for iOS
@@ -134,7 +125,6 @@ pub trait Connection: Sized {
     /// - Returns a [`RegisterResponse`] which is the autopush server's registration response deserialized
     fn subscribe(
         &self,
-        channel_id: &str,
         uaid: &str,
         auth: &str,
         registration_id: &str,
@@ -235,7 +225,6 @@ impl ConnectHttp {
         &self,
         url: Url,
         headers: Headers,
-        channel_id: &str,
         registration_id: &str,
         app_server_key: &Option<String>,
     ) -> error::Result<T>
@@ -244,7 +233,6 @@ impl ConnectHttp {
     {
         let body = RegisterRequest {
             token: registration_id,
-            channel_id,
             key: app_server_key.as_ref().map(|s| s.as_str()),
         };
 
@@ -261,7 +249,6 @@ impl Connection for ConnectHttp {
 
     fn register(
         &self,
-        channel_id: &str,
         registration_id: &str,
         app_server_key: &Option<String>,
     ) -> error::Result<RegisterResponse> {
@@ -275,18 +262,11 @@ impl Connection for ConnectHttp {
 
         let headers = Headers::new();
 
-        self.send_subscription_request(
-            Url::parse(&url)?,
-            headers,
-            channel_id,
-            registration_id,
-            app_server_key,
-        )
+        self.send_subscription_request(Url::parse(&url)?, headers, registration_id, app_server_key)
     }
 
     fn subscribe(
         &self,
-        channel_id: &str,
         uaid: &str,
         auth: &str,
         registration_id: &str,
@@ -303,13 +283,7 @@ impl Connection for ConnectHttp {
 
         let headers = self.auth_headers(auth)?;
 
-        self.send_subscription_request(
-            Url::parse(&url)?,
-            headers,
-            channel_id,
-            registration_id,
-            app_server_key,
-        )
+        self.send_subscription_request(Url::parse(&url)?, headers, registration_id, app_server_key)
     }
 
     fn unsubscribe(&self, channel_id: &str, uaid: &str, auth: &str) -> error::Result<()> {
@@ -447,8 +421,7 @@ mod test {
                 .with_body(body)
                 .create();
             let conn = ConnectHttp::connect(config.clone());
-            let channel_id = hex::encode(crate::internal::crypto::get_random_bytes(16).unwrap());
-            let response = conn.register(&channel_id, SENDER_ID, &None).unwrap();
+            let response = conn.register(SENDER_ID, &None).unwrap();
             ap_mock.assert();
             assert_eq!(response.uaid, DUMMY_UAID);
         }
@@ -468,8 +441,7 @@ mod test {
                 .with_body(body)
                 .create();
             let conn = ConnectHttp::connect(config.clone());
-            let channel_id = hex::encode(crate::internal::crypto::get_random_bytes(16).unwrap());
-            let response = conn.register(&channel_id, SENDER_ID, &None).unwrap();
+            let response = conn.register(SENDER_ID, &None).unwrap();
             ap_mock.assert();
             assert_eq!(response.uaid, DUMMY_UAID);
             assert_eq!(response.channel_id, DUMMY_CHID);
@@ -496,7 +468,7 @@ mod test {
             .create();
 
             let response = conn
-                .subscribe(&channel_id, DUMMY_UAID, SECRET, SENDER_ID, &None)
+                .subscribe(DUMMY_UAID, SECRET, SENDER_ID, &None)
                 .unwrap();
             ap_mock_2.assert();
             assert_eq!(response.endpoint, "https://example.com/otherendpoint");
@@ -596,8 +568,7 @@ mod test {
                 .with_body(body)
                 .create();
             let conn = ConnectHttp::connect(config);
-            let channel_id = hex::encode(crate::internal::crypto::get_random_bytes(16).unwrap());
-            let err = conn.register(&channel_id, SENDER_ID, &None).unwrap_err();
+            let err = conn.register(SENDER_ID, &None).unwrap_err();
             ap_mock.assert();
             assert!(matches!(err, error::PushError::AlreadyRegisteredError));
         }

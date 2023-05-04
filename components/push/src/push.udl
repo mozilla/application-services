@@ -16,24 +16,18 @@ interface PushManager {
     //
     // # Arguments
     //
-    //   - `sender_id` - The project identifier set by the server. Contact your server ops team to know what value to set.
-    //   - `server_host` - The host name for the service (e.g. "updates.push.services.mozilla.com").
-    //   - `http_protocol` - The optional socket protocol (default: "https")
-    //   - `bridge_type` - The [`BridgeType`] the consumer would like to use to deliver the push messages
-    //   - `database_path` - The path where [`PushManager`] will store persisted state
+    //   - `config`: The PushConfiguration for the PushManager
     //
     // # Errors
     // Returns an error in the following cases:
     //   - PushManager is unable to open the `database_path` given
-    //   - PushManager is unable to establish a connection to the autopush server
     [Throws=PushApiError]
     constructor(PushConfiguration config);
 
     // Subscribes to a new channel and gets the Subscription Info block
     //
     // # Arguments
-    //   - `channel_id` - Channel ID (UUID4) for new subscription, either pre-generated or "" and one will be created.
-    //   - `scope` - Site scope string (defaults to "" for no site scope string).
+    //   - `scope` - Site scope string
     //   - `server_key` - optional VAPID public key to "lock" subscriptions (defaults to "" for no key)
     //
     // # Returns
@@ -48,23 +42,41 @@ interface PushManager {
     //   - An error occurred sending a subscription request to the autopush server
     //   - An error occurred generating or deserializing the cryptographic keys
     [Throws=PushApiError]
-    SubscriptionResponse subscribe([ByRef] optional string channel_id = "", [ByRef] optional string scope = "",[ByRef] optional string? app_server_sey = null);
+    SubscriptionResponse subscribe([ByRef] string scope, [ByRef] optional string? app_server_sey = null);
 
-    // Unsubscribe from given channelID, ending that subscription for the user.
+
+    // Retrieves an existing push subscription
     //
     // # Arguments
-    //   - `channel_id` - Channel ID (UUID) for subscription to remove
+    //   - `scope` - Site scope string
+    //
+    // # Returns
+    // A Subscription response that includes the following:
+    //   - A URL that can be used to deliver push messages
+    //   - A cryptographic key that can be used to encrypt messages
+    //     that would then be decrypted using the [`PushManager::decrypt`] function
+    //
+    // # Errors
+    // Returns an error in the following cases:
+    //   - PushManager was unable to access its persisted storage
+    //   - An error occurred generating or deserializing the cryptographic keys
+    [Throws=PushApiError]
+    SubscriptionResponse? get_subscription([ByRef] string scope);
+
+    // Unsubscribe from given scope, ending that subscription for the user.
+    //
+    // # Arguments
+    //   - `scope` - The scope for the channel to remove
     //
     // # Returns
     // Returns a boolean indicating if un-subscription was successful
     //
     // # Errors
     // Returns an error in the following cases:
-    //   - The PushManager does not contain a valid UAID
     //   - An error occurred sending an unsubscribe request to the autopush server
     //   - An error occurred accessing the PushManager's persisted storage
     [Throws=PushApiError]
-    void unsubscribe([ByRef] string channel_id);
+    void unsubscribe([ByRef] string scope);
 
     // Unsubscribe all channels for the user
     //
@@ -77,13 +89,6 @@ interface PushManager {
     void unsubscribe_all();
 
     // Updates the Native OS push registration ID.
-    // **NOTE**: If this returns false, it means we were rate limited!
-    // XXX - this concept needs love - this was originally documented as:
-    // > If this returns false, the subsequent [`PushManager::verify_connection`]
-    // > may result in new endpoint registration
-    // Long story short, there's no way to know that this `update()` call thinks all our
-    // subscriptions need renewal, but we instead rely on `verify_connection()` being
-    // called regularly for this purpose.
     //
     // # Arguments:
     //   - `new_token` - the new Native OS push registration ID
@@ -120,11 +125,7 @@ interface PushManager {
     //
     // This accepts the content of a Push Message (from websocket or via Native Push systems).
     // # Arguments:
-    //   - `channel_id` - the ChannelID (included in the envelope of the message)
-    //   - `body` - The encrypted body of the message
-    //   - `encoding` - The Content Encoding "enc" field of the message (defaults to "aes128gcm")
-    //   - `salt` - The "salt" field (if present in the raw message, defaults to "")
-    //   - `dh` - The "dh" field (if present in the raw message, defaults to "")
+    //   - `payload`: The Push payload as received by the client from Push.
     //
     // # Returns
     // Decrypted message body
@@ -136,28 +137,7 @@ interface PushManager {
     //   - An error occurred while decrypting the message
     //   - An error occurred accessing the PushManager's persisted storage
     [Throws=PushApiError]
-    sequence<i8> decrypt([ByRef] string channel_id, [ByRef] string body, [ByRef] optional string encoding = "aes128gcm", [ByRef] optional string salt = "", [ByRef] optional string dh = "");
-
-    // Get the dispatch info for a given subscription channel
-    //
-    // # Arguments
-    //   - `channel_id`: The subscription channelID
-    //
-    // # Returns
-    // [`DispatchInfo`] containing the channel ID and scope string
-    //
-    // # Errors
-    // Returns an error in the following cases:
-    //   - An error occurred accessing the persisted storage
-    [Throws=PushApiError]
-    DispatchInfo? dispatch_info_for_chid([ByRef] string channel_id);
-};
-
-// Dispatch Information returned from [`PushManager::dispatch_info_for_chid`]
-dictionary DispatchInfo {
-    string scope;
-    string endpoint;
-    string? app_server_key;
+    DecryptResponse decrypt(record<DOMString, string> payload);
 };
 
 // Key Information that can be used to encrypt payloads
@@ -185,6 +165,11 @@ dictionary SubscriptionResponse {
 // caller should resubscribe to
 dictionary PushSubscriptionChanged {
     string channel_id;
+    string scope;
+};
+
+dictionary DecryptResponse {
+    sequence<i8> result;
     string scope;
 };
 
