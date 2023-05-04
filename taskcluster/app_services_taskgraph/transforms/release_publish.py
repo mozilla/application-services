@@ -46,3 +46,20 @@ def setup_command(config, tasks):
             f"index.project.application-services.v2.{release_type}.{version}",
         ]
         yield task
+
+@transforms.add
+def convert_dependencies(config, tasks):
+    """
+    Convert kind dependencies into soft-dependencies
+
+    The `release-publish` task lists the `build-summary` task as a kind dependency, but we need a
+    transform to setup the actual dependency.  When
+    https://github.com/taskcluster/taskgraph/pull/236 is merged, we could simplify this code.
+    """
+    for task in tasks:
+        task.setdefault("soft-dependencies", [])
+        task["soft-dependencies"] += [
+            dep_task.label
+            for dep_task in config.kind_dependencies_tasks.values()
+        ]
+        yield task
