@@ -267,7 +267,7 @@ class NimbusPlugin implements Plugin<Project> {
 
     String getProjectVersion() {
         Properties props = new Properties()
-        def stream = getClass().getResourceAsStream("/plugin.properties")
+        def stream = getClass().getResourceAsStream("/nimbus-gradle-plugin.properties")
         props.load(stream)
         return props.get("version")
     }
