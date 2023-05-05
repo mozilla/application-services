@@ -19,3 +19,6 @@ remote_settings = "mozilla.appservices.remotesettings"
 ffi_module_name = "MozillaRustComponents"
 ffi_module_filename = "nimbusFFI"
 generate_module_map = false
+
+[bindings.python]
+cdylib_name = "cirrus"

@@ -6,6 +6,7 @@ use std::ffi::CString;
 use std::os::raw::c_char;
 
 pub use nimbus as cirrus;
+pub use nimbus_fml as fml;
 
 #[no_mangle]
 pub extern "C" fn cirrus_megazord_get_version() -> *const c_char {

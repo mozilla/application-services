@@ -13,7 +13,8 @@
 
 ### ✨ What's New ✨
 
-- Added `toJSONObject()` and `getFeatures(featureId)` for Kotlin. This serializes the FML into a `JSONObject`. ([#5574](https://github.com/mozilla/application-services/pull/5574)).
+- Added `toJSONObject()` and `getFeatures(featureId)` for Kotlin. This serializes the FML into a `JSONObject` ([#5574](https://github.com/mozilla/application-services/pull/5574)).
+- Added `FmlClient`, additional methods to `FeatureManifest`, and Python UniFFI bindings ([#5557](https://github.com/mozilla/application-services/pull/5557)).
 
 [Full Changelog](In progress)
 

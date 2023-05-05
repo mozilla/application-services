@@ -8,9 +8,9 @@ use std::fmt::Display;
 use serde::{Deserialize, Serialize};
 
 use crate::{
-    commands::{GenerateExperimenterManifestCmd, TargetLanguage},
+    commands::GenerateExperimenterManifestCmd,
     error::{FMLError, Result},
-    intermediate_representation::{FeatureDef, FeatureManifest, PropDef, TypeRef},
+    intermediate_representation::{FeatureDef, FeatureManifest, PropDef, TargetLanguage, TypeRef},
 };
 
 pub(crate) type ExperimenterManifest = BTreeMap<String, ExperimenterFeature>;

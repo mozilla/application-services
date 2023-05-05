@@ -8,10 +8,10 @@ use serde::{Deserialize, Serialize};
 use serde_json::json;
 
 use crate::{
-    commands::TargetLanguage,
     error::{FMLError, Result},
     intermediate_representation::{
-        EnumDef, FeatureDef, FeatureManifest, ModuleId, ObjectDef, PropDef, TypeRef, VariantDef,
+        EnumDef, FeatureDef, FeatureManifest, ModuleId, ObjectDef, PropDef, TargetLanguage,
+        TypeRef, VariantDef,
     },
     util::loaders::{FileLoader, FilePath},
 };
@@ -76,6 +76,7 @@ impl AboutBlock {
         self.kotlin_about.is_none() && self.swift_about.is_none()
     }
 
+    #[allow(unused)]
     pub(crate) fn supports(&self, lang: &TargetLanguage) -> bool {
         match lang {
             TargetLanguage::Kotlin => self.kotlin_about.is_some(),
@@ -215,6 +216,7 @@ impl ManifestFrontEnd {
         self.features
             .iter()
             .map(|(name, body)| {
+                #[allow(deprecated)]
                 let mut def = FeatureDef {
                     name: name.clone(),
                     doc: body.description.clone(),
@@ -389,7 +391,8 @@ fn collect_channel_defaults(
     Ok(channel_map)
 }
 
-struct DefaultsMerger<'object> {
+pub struct DefaultsMerger<'object> {
+    #[deprecated]
     defaults: HashMap<String, serde_json::Value>,
     objects: HashMap<String, &'object ObjectDef>,
 
@@ -398,16 +401,16 @@ struct DefaultsMerger<'object> {
 }
 
 impl<'object> DefaultsMerger<'object> {
-    fn new(
+    pub fn new(
         objects: HashMap<String, &'object ObjectDef>,
         supported_channels: Vec<String>,
         channel: String,
     ) -> Self {
+        #[allow(deprecated)]
         Self {
             objects,
             supported_channels,
             channel,
-
             defaults: Default::default(),
         }
     }
@@ -426,6 +429,7 @@ impl<'object> DefaultsMerger<'object> {
     }
 
     fn collect_object_defaults(&self, nm: &str) -> Result<serde_json::Value> {
+        #[allow(deprecated)]
         if let Some(value) = self.defaults.get(nm) {
             return Ok(value.clone());
         }
@@ -1107,7 +1111,7 @@ fn check_can_import_list(
 }
 
 #[derive(Debug, Deserialize, Serialize, Clone)]
-pub(crate) struct DefaultBlock {
+pub struct DefaultBlock {
     #[serde(skip_serializing_if = "Option::is_none")]
     channel: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -1140,6 +1144,17 @@ impl DefaultBlock {
             None
         } else {
             Some(res)
+        }
+    }
+}
+
+impl From<serde_json::Value> for DefaultBlock {
+    fn from(value: serde_json::Value) -> Self {
+        Self {
+            value,
+            channels: None,
+            channel: None,
+            targeting: None,
         }
     }
 }

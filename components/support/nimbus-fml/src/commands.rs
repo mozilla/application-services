@@ -2,7 +2,9 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
+use crate::intermediate_representation::TargetLanguage;
 use crate::parser::AboutBlock;
+use crate::util::loaders::LoaderConfig;
 use anyhow::{bail, Error, Result};
 use std::path::Path;
 use std::path::PathBuf;
@@ -40,66 +42,6 @@ pub(crate) struct GenerateIRCmd {
     pub(crate) load_from_ir: bool,
     pub(crate) channel: String,
     pub(crate) loader: LoaderConfig,
-}
-
-#[derive(Clone)]
-pub(crate) struct LoaderConfig {
-    pub(crate) cwd: PathBuf,
-    pub(crate) repo_files: Vec<String>,
-    pub(crate) cache_dir: PathBuf,
-}
-
-impl Default for LoaderConfig {
-    fn default() -> Self {
-        Self {
-            repo_files: Default::default(),
-            cache_dir: std::env::temp_dir(),
-            cwd: std::env::current_dir().expect("Current Working Directory is not set"),
-        }
-    }
-}
-
-#[derive(Eq, PartialEq, Hash, Debug, Clone)]
-pub(crate) enum TargetLanguage {
-    Kotlin,
-    Swift,
-    IR,
-    ExperimenterYAML,
-    ExperimenterJSON,
-}
-
-impl TargetLanguage {
-    pub(crate) fn extension(&self) -> &str {
-        match self {
-            TargetLanguage::Kotlin => "kt",
-            TargetLanguage::Swift => "swift",
-            TargetLanguage::IR => "fml.json",
-            TargetLanguage::ExperimenterJSON => "json",
-            TargetLanguage::ExperimenterYAML => "yaml",
-        }
-    }
-
-    pub(crate) fn from_extension(path: &str) -> Result<TargetLanguage> {
-        if let Some((_, extension)) = path.rsplit_once('.') {
-            extension.try_into()
-        } else {
-            bail!("Unknown or unsupported target language: \"{}\"", path)
-        }
-    }
-}
-
-impl TryFrom<&str> for TargetLanguage {
-    type Error = Error;
-    fn try_from(value: &str) -> Result<Self> {
-        Ok(match value.to_ascii_lowercase().as_str() {
-            "kotlin" | "kt" | "kts" => TargetLanguage::Kotlin,
-            "swift" => TargetLanguage::Swift,
-            "fml.json" => TargetLanguage::IR,
-            "yaml" => TargetLanguage::ExperimenterYAML,
-            "json" => TargetLanguage::ExperimenterJSON,
-            _ => bail!("Unknown or unsupported target language: \"{}\"", value),
-        })
-    }
 }
 
 impl TryFrom<&std::ffi::OsStr> for TargetLanguage {

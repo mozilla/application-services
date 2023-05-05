@@ -10,5 +10,6 @@ crate-type = ["cdylib"]
 path = "./lib.rs"
 
 [dependencies]
-nimbus-sdk = { path = "../../components/nimbus", features = [], default-features = false }
+nimbus-sdk = { path = "../../components/nimbus", default-features = false }
+nimbus-fml = { path = "../../components/support/nimbus-fml", features = ["uniffi-bindings"] }
 lazy_static = "1.4"

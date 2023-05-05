@@ -1,0 +1,21 @@
+---
+about:
+  description: Nimbus Feature Manifest for Python Testing
+channels:
+  - nightly
+  - developer
+features:
+  example-feature:
+    description: An example feature
+    variables:
+      enabled:
+        description: If the feature is enabled
+        type: NotAValidType
+        default: false
+    defaults:
+      - channel: nightly
+        value: true
+
+types:
+  objects: {}
+  enums: {}

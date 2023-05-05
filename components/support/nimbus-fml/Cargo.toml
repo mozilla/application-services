@@ -6,6 +6,13 @@ authors = ["Nimbus SDK Engineering"]
 license = "MPL-2.0"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
+[features]
+client-lib = []
+uniffi-bindings = ["client-lib", "dep:uniffi"]
+
+[lib]
+name = "nimbus_fml"
+
 [dependencies]
 clap = {version = "2.33.0", features = ["yaml"]}
 anyhow = "1.0.44"
@@ -20,6 +27,11 @@ unicode-segmentation = "1.8.0"
 url = "2.2.2"
 reqwest = { version = "0.11", features = ["blocking", "native-tls-vendored"] }
 glob = "0.3.0"
+uniffi = { version = "0.23", optional = true }
+cfg-if = "1.0.0"
+
+[build-dependencies]
+uniffi = { version = "0.23", features = ["build"], optional = true }
 
 [dev-dependencies]
 tempfile = "3"

@@ -41,6 +41,26 @@ pub enum FMLError {
 
     #[error("{0}")]
     CliError(String),
+
+    #[cfg(feature = "client-lib")]
+    #[error("{0}")]
+    ClientError(#[from] ClientError),
+
+    #[error("Feature `{0}` not found on manifest")]
+    InvalidFeatureError(String),
+}
+
+#[cfg(feature = "client-lib")]
+#[derive(Debug, thiserror::Error)]
+pub enum ClientError {
+    #[error("{0}")]
+    InvalidFeatureConfig(String),
+    #[error("{0}")]
+    InvalidFeatureId(String),
+    #[error("{0}")]
+    InvalidFeatureValue(String),
+    #[error("{0}")]
+    JsonMergeError(String),
 }
 
 pub type Result<T, E = FMLError> = std::result::Result<T, E>;
