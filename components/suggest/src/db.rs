@@ -87,11 +87,7 @@ impl SuggestDb {
                     iab_category: row.get("iab_category")?,
                     title: row.get("title")?,
                     url: row.get("url")?,
-                    full_keyword: keywords
-                        .first()
-                        .map(|keyword| keyword.as_str())
-                        .unwrap_or(keyword)
-                        .to_owned(),
+                    full_keyword: full_keyword(keyword, &keywords),
                     impression_url: row.get("impression_url")?,
                     click_url: row.get("click_url")?,
                 })
@@ -200,4 +196,34 @@ impl SuggestDb {
         )?;
         Ok(())
     }
+}
+
+fn full_keyword(query: &str, keywords: &[impl AsRef<str>]) -> String {
+    let mut longer_phrase: Option<&str> = None;
+    let query_words_len = query.trim().split_whitespace().count();
+    for phrase in keywords
+        .iter()
+        .filter(|phrase| phrase.as_ref().starts_with(query))
+    {
+        let trimmed_phrase = phrase.as_ref().trim();
+        let phrase_words = trimmed_phrase.split_whitespace().collect::<Vec<_>>();
+        let len = if query.ends_with(char::is_whitespace) {
+            query_words_len + 1
+        } else {
+            query_words_len
+        };
+        if len < phrase_words.len() {
+            return phrase_words[..len].join(" ");
+        }
+        if query.len() < phrase.as_ref().len()
+            && longer_phrase
+                .map(|p| p.len() < trimmed_phrase.len())
+                .unwrap_or(true)
+        {
+            longer_phrase = Some(trimmed_phrase);
+        }
+    }
+    longer_phrase
+        .map(ToOwned::to_owned)
+        .unwrap_or_else(|| query.to_owned())
 }
