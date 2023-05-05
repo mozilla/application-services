@@ -33,7 +33,6 @@ pub(crate) enum CliCommand {
     /// Send a complete JSON file to the Nimbus SDK and apply it immediately.
     ApplyFile {
         /// The filename to be loaded into the SDK.
-        #[arg(short, long, value_name = "FILE")]
         file: PathBuf,
 
         /// Keeps existing enrollments and experiments before enrolling.
@@ -97,16 +96,19 @@ pub(crate) enum CliCommand {
     /// Fetch one or more experiments and put it in a file.
     Fetch {
         /// The file to download the recipes to.
-        #[arg(short, long, value_name = "FILE")]
         file: PathBuf,
 
         /// An optional server slug, e.g. release or stage/preview.
-        #[arg(short, long, value_name = "SERVER")]
-        server: Option<String>,
+        #[arg(long, short, value_name = "SERVER", default_value = "")]
+        server: String,
 
         /// The recipe slugs, including server.
         ///
+        /// Use once per recipe to download. e.g.
+        /// fetch file.json -r preview/my-experiment -r my-rollout
+        ///
         /// Cannot be used with the server option.
+        #[arg(long = "recipe", short, value_name = "RECIPE")]
         recipes: Vec<String>,
     },
 
