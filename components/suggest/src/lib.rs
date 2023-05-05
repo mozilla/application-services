@@ -18,6 +18,10 @@ impl RemoteRecordId {
     pub fn as_str(&self) -> &str {
         &self.0
     }
+
+    pub fn as_icon_id(&self) -> Option<&str> {
+        self.0.strip_prefix("icon-")
+    }
 }
 
 #[derive(Debug, Deserialize)]
@@ -29,6 +33,8 @@ pub struct RemoteSuggestion {
     pub keywords: Vec<String>,
     pub title: String,
     pub url: String,
+    #[serde(rename = "icon")]
+    pub icon_id: String,
     pub impression_url: Option<String>,
     pub click_url: Option<String>,
 }
@@ -40,6 +46,7 @@ pub struct Suggestion {
     pub full_keyword: String,
     pub title: String,
     pub url: String,
+    pub icon: Option<Vec<u8>>,
     pub impression_url: Option<String>,
     pub click_url: Option<String>,
 }

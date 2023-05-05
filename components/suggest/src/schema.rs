@@ -26,11 +26,17 @@ pub const SQL: &str = "
         iab_category TEXT NOT NULL,
         title TEXT NOT NULL,
         url TEXT NOT NULL,
+        icon_id TEXT NOT NULL,
         impression_url TEXT,
         click_url TEXT
     );
 
     CREATE INDEX suggestions_record_id ON suggestions(record_id);
+
+    CREATE TABLE icons(
+        id TEXT PRIMARY KEY,
+        data BLOB NOT NULL
+    ) WITHOUT ROWID;
 ";
 
 pub struct SuggestConnectionInitializer;

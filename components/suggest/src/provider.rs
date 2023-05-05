@@ -157,8 +157,27 @@ impl SuggestionProvider {
                 } if *deleted => {
                     // If the entire record was deleted, drop all its
                     // suggestions and advance the last fetch time.
-                    writer.drop(record_id)?;
+                    match record_id.as_icon_id() {
+                        Some(icon_id) => writer.drop_icon(icon_id)?,
+                        None => writer.drop(record_id)?,
+                    };
                     writer.put_meta(LAST_FETCH_META_KEY, last_modified)?
+                }
+                FetchedChange::Record(SuggestRecord::Icon {
+                    id: record_id,
+                    last_modified,
+                    attachment,
+                }) => {
+                    let Some(icon_id) = record_id.as_icon_id() else {
+                        continue
+                    };
+                    scope.err_if_interrupted()?;
+                    let data = self
+                        .settings_client
+                        .get_attachment(&attachment.location)?
+                        .body;
+                    writer.put_icon(icon_id, &data)?;
+                    writer.put_meta(LAST_FETCH_META_KEY, last_modified)?;
                 }
                 _ => continue,
             }

@@ -63,7 +63,8 @@ impl SuggestDb {
         let conn = self.conn.lock().unwrap();
         conn.query_rows_and_then_cached(
             "SELECT s.id, k.rank, s.block_id, s.advertiser, s.iab_category,
-                    s.title, s.url, s.impression_url, s.click_url
+                    s.title, s.url, s.impression_url, s.click_url,
+                    (SELECT i.data FROM icons i WHERE i.id = s.icon_id) AS icon
              FROM suggestions s
              JOIN keywords k ON k.suggestion_id = s.id
              WHERE k.keyword = :keyword
@@ -88,6 +89,7 @@ impl SuggestDb {
                     title: row.get("title")?,
                     url: row.get("url")?,
                     full_keyword: full_keyword(keyword, &keywords),
+                    icon: row.get("icon")?,
                     impression_url: row.get("impression_url")?,
                     click_url: row.get("click_url")?,
                 })
@@ -113,6 +115,7 @@ impl SuggestDb {
                      iab_category,
                      title,
                      url,
+                     icon_id,
                      impression_url,
                      click_url
                  )
@@ -123,6 +126,7 @@ impl SuggestDb {
                      :iab_category,
                      :title,
                      :url,
+                     :icon_id,
                      :impression_url,
                      :click_url
                  )
@@ -134,6 +138,7 @@ impl SuggestDb {
                     ":iab_category": suggestion.iab_category,
                     ":title": suggestion.title,
                     ":url": suggestion.url,
+                    ":icon_id": suggestion.icon_id,
                     ":impression_url": suggestion.impression_url,
                     ":click_url": suggestion.click_url,
                 },
@@ -165,10 +170,38 @@ impl SuggestDb {
     }
 
     // ...
+    pub fn put_icon(&self, icon_id: &str, data: &[u8]) -> Result<()> {
+        self.conn.lock().unwrap().execute(
+            "INSERT INTO icons(
+                 id,
+                 data
+             )
+             VALUES(
+                 :id,
+                 :data
+             )",
+            named_params! {
+                ":id": icon_id,
+                ":data": data,
+            },
+        )?;
+        Ok(())
+    }
+
+    // ...
     pub fn drop(&self, record_id: &RemoteRecordId) -> Result<()> {
         self.conn.lock().unwrap().execute_cached(
             "DELETE FROM suggestions WHERE record_id = :record_id",
             named_params! { ":record_id": record_id.as_str() },
+        )?;
+        Ok(())
+    }
+
+    // ...
+    pub fn drop_icon(&self, icon_id: &str) -> Result<()> {
+        self.conn.lock().unwrap().execute_cached(
+            "DELETE FROM icons WHERE id = :id",
+            named_params! { ":id": icon_id },
         )?;
         Ok(())
     }
