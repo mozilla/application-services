@@ -18,11 +18,10 @@ mod workflows;
 
 use anyhow::{bail, Result};
 use clap::{App, ArgMatches};
-use commands::{
-    CliCmd, GenerateExperimenterManifestCmd, GenerateIRCmd, GenerateStructCmd, LoaderConfig,
-    TargetLanguage,
-};
+use commands::{CliCmd, GenerateExperimenterManifestCmd, GenerateIRCmd, GenerateStructCmd};
+use intermediate_representation::TargetLanguage;
 use parser::{AboutBlock, KotlinAboutBlock, SwiftAboutBlock};
+use util::loaders::LoaderConfig;
 
 use std::{
     ffi::OsString,

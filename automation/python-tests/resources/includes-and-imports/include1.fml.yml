@@ -1,0 +1,9 @@
+---
+features:
+  included-feature-1:
+    description: An example feature
+    variables:
+      enabled:
+        description: If the feature is enabled
+        type: Boolean
+        default: false

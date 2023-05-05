@@ -1,0 +1,21 @@
+---
+about:
+  description: An imported module
+channels:
+  - nightly
+  - developer
+includes:
+  - import1-include1.fml.yml
+features:
+  imported-module-1-feature-1:
+    description: An example feature
+    variables:
+      enabled:
+        description: If the feature is enabled
+        type: Boolean
+        default: false
+    defaults:
+      - channel: developer
+        value: {
+          "enabled": true
+        }

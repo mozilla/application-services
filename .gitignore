@@ -65,7 +65,8 @@ docs/book
 # Generated rustdocs
 docs/rust-docs
 
-# Cirrus UniFFI files
-components/nimbus/cirrus.py
-components/nimbus/*.dylib
-components/nimbus/*.so
+# UniFFI files
+cirrus.py
+fml.py
+*.dylib
+*.so

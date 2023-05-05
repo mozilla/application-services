@@ -1,0 +1,36 @@
+namespace fml {};
+
+[Error]
+enum FMLError {
+    "IOError", "JSONError", "YAMLError", "UrlError", "FetchError", "InvalidPath",
+    "TemplateProblem", "Fatal", "InternalError", "ValidationError", "TypeParsingError",
+    "InvalidChannelError", "FMLModuleError", "CliError", "ClientError", "InvalidFeatureError"
+};
+
+dictionary MergedJsonWithErrors {
+    string json;
+    sequence<FMLError> errors;
+};
+
+interface FmlClient {
+    // Constructs a new FmlClient object.
+    //
+    // Definitions of the parameters are as follows:
+    // - `manifest_path`: The path (relative to the current working directory) to the fml.yml that should be loaded.
+    // - `channel`: The channel that should be loaded for the manifest.
+    [Throws=FMLError]
+    constructor(string manifest, string channel);
+
+    // Validates a supplied feature configuration. Returns true or an FMLError.
+    [Throws=FMLError]
+    boolean validate_feature_config(string feature_config);
+
+    // Validates a supplied list of feature configurations. The valid configurations will be merged into the manifest's
+    // default feature JSON, and invalid configurations will be returned as a list of their respective errors.
+    [Throws=FMLError]
+    MergedJsonWithErrors validate_feature_configs_and_merge_into_defaults(string feature_config);
+
+    // Returns the default feature JSON for the loaded FML's selected channel.
+    [Throws=FMLError]
+    string get_default_json();
+};

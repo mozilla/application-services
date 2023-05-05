@@ -497,6 +497,7 @@ name = "cirrus"
 version = "0.1.0"
 dependencies = [
  "lazy_static",
+ "nimbus-fml",
  "nimbus-sdk",
 ]
 
@@ -2251,6 +2252,7 @@ version = "0.1.0"
 dependencies = [
  "anyhow",
  "askama 0.10.5",
+ "cfg-if 1.0.0",
  "clap 2.34.0",
  "glob",
  "heck 0.3.3",
@@ -2263,6 +2265,7 @@ dependencies = [
  "textwrap 0.14.2",
  "thiserror",
  "unicode-segmentation",
+ "uniffi",
  "url",
 ]
 

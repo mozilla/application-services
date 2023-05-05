@@ -2,7 +2,6 @@
 * License, v. 2.0. If a copy of the MPL was not distributed with this
 * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 use crate::{
-    commands::LoaderConfig,
     error::{FMLError, Result},
     SUPPORT_URL_LOADING,
 };
@@ -18,6 +17,23 @@ use std::{
 use url::Url;
 
 pub(crate) const GITHUB_USER_CONTENT_DOTCOM: &str = "https://raw.githubusercontent.com";
+
+#[derive(Clone)]
+pub struct LoaderConfig {
+    pub cwd: PathBuf,
+    pub repo_files: Vec<String>,
+    pub cache_dir: PathBuf,
+}
+
+impl Default for LoaderConfig {
+    fn default() -> Self {
+        Self {
+            repo_files: Default::default(),
+            cache_dir: env::temp_dir(),
+            cwd: env::current_dir().expect("Current Working Directory is not set"),
+        }
+    }
+}
 
 /// A small enum for working with URLs and relative files
 #[derive(Clone, Debug)]
@@ -176,6 +192,7 @@ impl FileLoader {
         })
     }
 
+    #[allow(clippy::should_implement_trait)]
     #[cfg(test)]
     pub fn default() -> Result<Self> {
         let cwd = std::env::current_dir()?;

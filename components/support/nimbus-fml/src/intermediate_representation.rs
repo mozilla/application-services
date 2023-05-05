@@ -1,15 +1,59 @@
 /* This Source Code Form is subject to the terms of the Mozilla Public
 * License, v. 2.0. If a copy of the MPL was not distributed with this
 * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
-use crate::commands::TargetLanguage;
+use crate::error::FMLError::InvalidFeatureError;
 use crate::error::{FMLError, Result};
-use crate::parser::AboutBlock;
+use crate::parser::{AboutBlock, DefaultsMerger};
 use crate::util::loaders::FilePath;
+use anyhow::{bail, Error, Result as AnyhowResult};
 use serde::{Deserialize, Serialize};
-use serde_json::Value;
+use serde_json::{Map, Value};
 use std::collections::{BTreeSet, HashMap, HashSet};
 use std::fmt::Display;
 use std::slice::Iter;
+
+#[derive(Eq, PartialEq, Hash, Debug, Clone)]
+pub enum TargetLanguage {
+    Kotlin,
+    Swift,
+    IR,
+    ExperimenterYAML,
+    ExperimenterJSON,
+}
+
+impl TargetLanguage {
+    pub fn extension(&self) -> &str {
+        match self {
+            TargetLanguage::Kotlin => "kt",
+            TargetLanguage::Swift => "swift",
+            TargetLanguage::IR => "fml.json",
+            TargetLanguage::ExperimenterJSON => "json",
+            TargetLanguage::ExperimenterYAML => "yaml",
+        }
+    }
+
+    pub fn from_extension(path: &str) -> AnyhowResult<TargetLanguage> {
+        if let Some((_, extension)) = path.rsplit_once('.') {
+            extension.try_into()
+        } else {
+            bail!("Unknown or unsupported target language: \"{}\"", path)
+        }
+    }
+}
+
+impl TryFrom<&str> for TargetLanguage {
+    type Error = Error;
+    fn try_from(value: &str) -> AnyhowResult<Self> {
+        Ok(match value.to_ascii_lowercase().as_str() {
+            "kotlin" | "kt" | "kts" => TargetLanguage::Kotlin,
+            "swift" => TargetLanguage::Swift,
+            "fml.json" => TargetLanguage::IR,
+            "yaml" => TargetLanguage::ExperimenterYAML,
+            "json" => TargetLanguage::ExperimenterJSON,
+            _ => bail!("Unknown or unsupported target language: \"{}\"", value),
+        })
+    }
+}
 
 /// The `TypeRef` enum defines a reference to a type.
 ///
@@ -168,6 +212,7 @@ impl TypeFinder for FeatureManifest {
 }
 
 impl FeatureManifest {
+    #[allow(unused)]
     pub(crate) fn validate_manifest_for_lang(&self, lang: &TargetLanguage) -> Result<()> {
         if !&self.about.supports(lang) {
             return Err(FMLError::ValidationError(
@@ -354,10 +399,15 @@ impl FeatureManifest {
             }
         }
         for feature in &self.feature_defs {
-            for prop in &feature.props {
-                let path = format!("features/{}.{}", feature.name, prop.name);
-                self.validate_prop_defaults(&path, prop)?;
-            }
+            self.validate_feature_def(feature)?;
+        }
+        Ok(())
+    }
+
+    fn validate_feature_def(&self, feature_def: &FeatureDef) -> Result<()> {
+        for prop in &feature_def.props {
+            let path = format!("features/{}.{}", feature_def.name, prop.name);
+            self.validate_prop_defaults(&path, prop)?;
         }
         Ok(())
     }
@@ -366,7 +416,7 @@ impl FeatureManifest {
         self.validate_default_by_typ(path, &prop.typ, &prop.default)
     }
 
-    fn validate_default_by_typ(
+    pub fn validate_default_by_typ(
         &self,
         path: &str,
         type_ref: &TypeRef,
@@ -521,10 +571,31 @@ impl FeatureManifest {
         self.obj_defs.iter()
     }
 
+    pub fn iter_object_defs_deep(&self) -> impl Iterator<Item = (&FeatureManifest, &ObjectDef)> {
+        let objects = self.obj_defs.iter().map(move |o| (self, o));
+        let imported_objects: Vec<(&FeatureManifest, &ObjectDef)> = self
+            .all_imports
+            .iter()
+            .flat_map(|(_, fm)| fm.iter_object_defs_deep())
+            .collect();
+        objects.chain(imported_objects)
+    }
+
     pub fn iter_feature_defs(&self) -> Iter<FeatureDef> {
         self.feature_defs.iter()
     }
 
+    pub fn iter_feature_defs_deep(&self) -> impl Iterator<Item = (&FeatureManifest, &FeatureDef)> {
+        let features = self.feature_defs.iter().map(move |f| (self, f));
+        let imported_features: Vec<(&FeatureManifest, &FeatureDef)> = self
+            .all_imports
+            .iter()
+            .flat_map(|(_, fm)| fm.iter_feature_defs_deep())
+            .collect();
+        features.chain(imported_features)
+    }
+
+    #[allow(unused)]
     pub(crate) fn iter_imported_files(&self) -> Vec<ImportedModule> {
         let map = &self.all_imports;
 
@@ -546,11 +617,57 @@ impl FeatureManifest {
     }
 
     pub fn find_feature(&self, nm: &str) -> Option<&FeatureDef> {
-        self.iter_feature_defs().find(|e| e.name() == nm)
+        self.iter_feature_defs().find(|f| f.name() == nm)
+    }
+
+    pub fn find_feature_deep(&self, nm: &str) -> Option<(&FeatureManifest, &FeatureDef)> {
+        self.iter_feature_defs_deep().find(|(_, f)| f.name() == nm)
     }
 
     pub fn find_import(&self, id: &ModuleId) -> Option<&FeatureManifest> {
         self.all_imports.get(id)
+    }
+
+    pub fn default_json(&self) -> Value {
+        Value::Object(
+            self.iter_feature_defs_deep()
+                .map(|(_, f)| (f.name(), f.default_json()))
+                .collect(),
+        )
+    }
+
+    /// This function is used to validate a new value for a feature. It accepts a feature name and
+    /// a feature value, and returns a Result containing a FeatureDef.
+    ///
+    /// If the value is invalid for the feature, it will return an Err result.
+    ///
+    /// If the value is valid for the feature, it will return an Ok result with a new FeatureDef
+    /// with the supplied feature value applied to the feature's property defaults.
+    #[allow(unused)]
+    pub(crate) fn validate_feature_config(
+        &self,
+        feature_name: &str,
+        feature_value: Value,
+    ) -> Result<FeatureDef> {
+        let dummy_channel = "dummy".to_string();
+        let objects: HashMap<String, &ObjectDef> = self
+            .iter_object_defs_deep()
+            .map(|(_, o)| (o.name(), o))
+            .collect();
+        let merger = DefaultsMerger::new(
+            objects.into_iter().map(|(k, o)| (k, o)).collect(),
+            vec![dummy_channel.clone()],
+            dummy_channel,
+        );
+
+        if let Some((manifest, feature_def)) = self.find_feature_deep(feature_name) {
+            let mut feature_def = feature_def.clone();
+            merger.merge_feature_defaults(&mut feature_def, &Some(vec![feature_value.into()]))?;
+            manifest.validate_feature_def(&feature_def)?;
+            Ok(feature_def.clone())
+        } else {
+            Err(InvalidFeatureError(feature_name.to_string()))
+        }
     }
 }
 
@@ -559,11 +676,13 @@ pub struct FeatureDef {
     pub(crate) name: String,
     pub(crate) doc: String,
     pub(crate) props: Vec<PropDef>,
+    #[deprecated]
     pub(crate) default: Option<Literal>,
 }
 impl FeatureDef {
     #[allow(dead_code)]
     pub fn new(name: &str, doc: &str, props: Vec<PropDef>, default: Option<Literal>) -> Self {
+        #[allow(deprecated)]
         Self {
             name: name.into(),
             doc: doc.into(),
@@ -580,8 +699,20 @@ impl FeatureDef {
     pub fn props(&self) -> Vec<PropDef> {
         self.props.clone()
     }
+    #[allow(deprecated)]
+    #[deprecated]
     pub fn _default(&self) -> Option<Literal> {
         self.default.clone()
+    }
+
+    pub fn default_json(&self) -> Value {
+        let mut props = Map::new();
+
+        for prop in self.props().iter() {
+            props.insert(prop.name(), prop.default());
+        }
+
+        Value::Object(props)
     }
 }
 impl TypeFinder for FeatureDef {
@@ -651,8 +782,9 @@ pub struct ObjectDef {
     pub(crate) doc: String,
     pub(crate) props: Vec<PropDef>,
 }
+
+#[allow(unused)]
 impl ObjectDef {
-    #[allow(dead_code)]
     pub fn new(name: &str, doc: &str, props: Vec<PropDef>) -> Self {
         Self {
             name: name.into(),
@@ -666,7 +798,7 @@ impl ObjectDef {
     pub(crate) fn doc(&self) -> String {
         self.doc.clone()
     }
-    pub(crate) fn props(&self) -> Vec<PropDef> {
+    pub fn props(&self) -> Vec<PropDef> {
         self.props.clone()
     }
 
@@ -718,14 +850,15 @@ impl TypeFinder for PropDef {
 
 pub type Literal = Value;
 
+#[allow(unused)]
 #[derive(Debug, Clone)]
 pub(crate) struct ImportedModule<'a> {
-    #[allow(dead_code)]
     pub(crate) id: ModuleId,
     pub(crate) fm: &'a FeatureManifest,
     features: &'a BTreeSet<String>,
 }
 
+#[allow(unused)]
 impl<'a> ImportedModule<'a> {
     pub(crate) fn new(
         id: ModuleId,
@@ -749,16 +882,16 @@ impl<'a> ImportedModule<'a> {
 }
 
 #[cfg(test)]
-mod unit_tests {
-    use serde_json::json;
+pub mod unit_tests {
+    use serde_json::{json, Number};
 
     use super::*;
     use crate::error::Result;
-    use crate::fixtures::intermediate_representation::{self, get_simple_homescreen_feature};
+    use crate::fixtures::intermediate_representation::get_simple_homescreen_feature;
 
     #[test]
     fn can_ir_represent_smoke_test() -> Result<()> {
-        let reference_manifest = intermediate_representation::get_simple_homescreen_feature();
+        let reference_manifest = get_simple_homescreen_feature();
         let json_string = serde_json::to_string(&reference_manifest)?;
         let manifest_from_json: FeatureManifest = serde_json::from_str(&json_string)?;
 
@@ -1038,6 +1171,21 @@ mod unit_tests {
         Ok(())
     }
 
+    pub fn get_feature_manifest(
+        obj_defs: Vec<ObjectDef>,
+        enum_defs: Vec<EnumDef>,
+        feature_defs: Vec<FeatureDef>,
+        all_imports: HashMap<ModuleId, FeatureManifest>,
+    ) -> FeatureManifest {
+        FeatureManifest {
+            enum_defs,
+            obj_defs,
+            feature_defs,
+            all_imports,
+            ..Default::default()
+        }
+    }
+
     fn get_one_prop_feature_manifest(
         obj_defs: Vec<ObjectDef>,
         enum_defs: Vec<EnumDef>,
@@ -1046,6 +1194,24 @@ mod unit_tests {
         FeatureManifest {
             enum_defs,
             obj_defs,
+            feature_defs: vec![FeatureDef {
+                props: vec![prop.clone()],
+                ..Default::default()
+            }],
+            ..Default::default()
+        }
+    }
+
+    fn get_one_prop_feature_manifest_with_imports(
+        obj_defs: Vec<ObjectDef>,
+        enum_defs: Vec<EnumDef>,
+        prop: &PropDef,
+        all_imports: HashMap<ModuleId, FeatureManifest>,
+    ) -> FeatureManifest {
+        FeatureManifest {
+            enum_defs,
+            obj_defs,
+            all_imports,
             feature_defs: vec![FeatureDef {
                 props: vec![prop.clone()],
                 ..Default::default()
@@ -1535,6 +1701,302 @@ mod unit_tests {
         // OK because the value is optional, and thus it's okay if it's missing (green is missing from the default)
         let path = format!("test.{}", &prop.name);
         fm.validate_prop_defaults(&path, &prop)?;
+        Ok(())
+    }
+
+    #[test]
+    fn test_iter_object_defs_deep_iterates_on_all_imports() -> Result<()> {
+        let prop_i = PropDef {
+            name: "key_i".into(),
+            doc: "simple string property".into(),
+            typ: TypeRef::Object("SampleObjImported".into()),
+            default: json!({
+                "string": "bobo",
+            }),
+        };
+        let obj_defs_i = vec![ObjectDef {
+            name: "SampleObjImported".into(),
+            props: vec![PropDef {
+                name: "string".into(),
+                typ: TypeRef::String,
+                doc: "".into(),
+                default: json!("a string"),
+            }],
+            ..Default::default()
+        }];
+        let fm_i = get_one_prop_feature_manifest(obj_defs_i, vec![], &prop_i);
+
+        let prop = PropDef {
+            name: "key".into(),
+            doc: "simple string property".into(),
+            typ: TypeRef::Object("SampleObj".into()),
+            default: json!({
+                "string": "bobo",
+            }),
+        };
+        let obj_defs = vec![ObjectDef {
+            name: "SampleObj".into(),
+            props: vec![PropDef {
+                name: "string".into(),
+                typ: TypeRef::String,
+                doc: "".into(),
+                default: json!("a string"),
+            }],
+            ..Default::default()
+        }];
+        let fm = get_one_prop_feature_manifest_with_imports(
+            obj_defs,
+            vec![],
+            &prop,
+            HashMap::from([(ModuleId::Local("test".into()), fm_i)]),
+        );
+
+        let names: Vec<String> = fm.iter_object_defs_deep().map(|(_, o)| o.name()).collect();
+
+        assert_eq!(names[0], "SampleObj".to_string());
+        assert_eq!(names[1], "SampleObjImported".to_string());
+
+        Ok(())
+    }
+
+    #[test]
+    fn test_iter_feature_defs_deep_iterates_on_all_imports() -> Result<()> {
+        let prop_i = PropDef {
+            name: "key_i".into(),
+            doc: "simple string property".into(),
+            typ: TypeRef::String,
+            default: json!("string"),
+        };
+        let fm_i = get_one_prop_feature_manifest(vec![], vec![], &prop_i);
+
+        let prop = PropDef {
+            name: "key".into(),
+            doc: "simple string property".into(),
+            typ: TypeRef::String,
+            default: json!("string"),
+        };
+        let fm = get_one_prop_feature_manifest_with_imports(
+            vec![],
+            vec![],
+            &prop,
+            HashMap::from([(ModuleId::Local("test".into()), fm_i)]),
+        );
+
+        let names: Vec<String> = fm
+            .iter_feature_defs_deep()
+            .map(|(_, f)| f.props[0].name())
+            .collect();
+
+        assert_eq!(names[0], "key".to_string());
+        assert_eq!(names[1], "key_i".to_string());
+
+        Ok(())
+    }
+
+    #[test]
+    fn test_find_feature_deep_finds_across_all_imports() -> Result<()> {
+        let fm_i = get_feature_manifest(
+            vec![],
+            vec![],
+            vec![FeatureDef {
+                name: "feature_i".into(),
+                ..Default::default()
+            }],
+            HashMap::new(),
+        );
+
+        let fm = get_feature_manifest(
+            vec![],
+            vec![],
+            vec![FeatureDef {
+                name: "feature".into(),
+                ..Default::default()
+            }],
+            HashMap::from([(ModuleId::Local("test".into()), fm_i)]),
+        );
+
+        let feature = fm.find_feature_deep("feature_i");
+
+        assert!(feature.is_some());
+
+        Ok(())
+    }
+
+    #[test]
+    fn test_default_json_works_across_all_imports() -> Result<()> {
+        let fm_i = get_feature_manifest(
+            vec![],
+            vec![],
+            vec![FeatureDef {
+                name: "feature_i".into(),
+                props: vec![PropDef {
+                    name: "prop_i_1".into(),
+                    typ: TypeRef::String,
+                    default: Value::String("prop_i_1_value".into()),
+                    doc: "".into(),
+                }],
+                ..Default::default()
+            }],
+            HashMap::new(),
+        );
+
+        let fm = get_feature_manifest(
+            vec![],
+            vec![],
+            vec![FeatureDef {
+                name: "feature".into(),
+                props: vec![PropDef {
+                    name: "prop_1".into(),
+                    typ: TypeRef::String,
+                    default: Value::String("prop_1_value".into()),
+                    doc: "".into(),
+                }],
+                ..Default::default()
+            }],
+            HashMap::from([(ModuleId::Local("test".into()), fm_i)]),
+        );
+
+        let json = fm.default_json();
+        assert_eq!(
+            json.get("feature_i").unwrap().get("prop_i_1").unwrap(),
+            &Value::String("prop_i_1_value".into())
+        );
+        assert_eq!(
+            json.get("feature").unwrap().get("prop_1").unwrap(),
+            &Value::String("prop_1_value".into())
+        );
+
+        Ok(())
+    }
+
+    #[test]
+    fn test_validate_feature_config_success() -> Result<()> {
+        let fm = get_feature_manifest(
+            vec![],
+            vec![],
+            vec![FeatureDef {
+                name: "feature".into(),
+                props: vec![PropDef {
+                    name: "prop_1".into(),
+                    typ: TypeRef::String,
+                    default: Value::String("prop_1_value".into()),
+                    doc: "".into(),
+                }],
+                ..Default::default()
+            }],
+            HashMap::new(),
+        );
+
+        let result = fm.validate_feature_config(
+            "feature",
+            Value::Object(Map::from_iter([(
+                "prop_1".to_string(),
+                Value::String("new value".into()),
+            )])),
+        )?;
+        assert_eq!(result.props[0].default, Value::String("new value".into()));
+
+        Ok(())
+    }
+
+    #[test]
+    fn test_validate_feature_config_invalid_feature_name() -> Result<()> {
+        let fm = get_feature_manifest(
+            vec![],
+            vec![],
+            vec![FeatureDef {
+                name: "feature".into(),
+                props: vec![PropDef {
+                    name: "prop_1".into(),
+                    typ: TypeRef::String,
+                    default: Value::String("prop_1_value".into()),
+                    doc: "".into(),
+                }],
+                ..Default::default()
+            }],
+            HashMap::new(),
+        );
+
+        let result = fm.validate_feature_config(
+            "feature-1",
+            Value::Object(Map::from_iter([(
+                "prop_1".to_string(),
+                Value::String("new value".into()),
+            )])),
+        );
+        assert!(result.is_err());
+        assert_eq!(
+            result.err().unwrap().to_string(),
+            "Feature `feature-1` not found on manifest".to_string()
+        );
+
+        Ok(())
+    }
+
+    /// This functionality is hindered by EXP-3503
+    #[ignore]
+    #[test]
+    fn test_validate_feature_config_invalid_feature_prop_name() -> Result<()> {
+        let fm = get_feature_manifest(
+            vec![],
+            vec![],
+            vec![FeatureDef {
+                name: "feature".into(),
+                props: vec![PropDef {
+                    name: "prop_1".into(),
+                    typ: TypeRef::String,
+                    default: Value::String("prop_1_value".into()),
+                    doc: "".into(),
+                }],
+                ..Default::default()
+            }],
+            HashMap::new(),
+        );
+
+        let result = fm.validate_feature_config(
+            "feature",
+            Value::Object(Map::from_iter([(
+                "prop".to_string(),
+                Value::String("new value".into()),
+            )])),
+        );
+        assert!(result.is_err());
+        assert_eq!(
+            result.err().unwrap().to_string(),
+            "Prop `prop` not found on feature `feature`".to_string()
+        );
+
+        Ok(())
+    }
+
+    #[test]
+    fn test_validate_feature_config_invalid_feature_prop_value() -> Result<()> {
+        let fm = get_feature_manifest(
+            vec![],
+            vec![],
+            vec![FeatureDef {
+                name: "feature".into(),
+                props: vec![PropDef {
+                    name: "prop_1".into(),
+                    typ: TypeRef::String,
+                    default: Value::String("prop_1_value".into()),
+                    doc: "".into(),
+                }],
+                ..Default::default()
+            }],
+            HashMap::new(),
+        );
+
+        let result = fm.validate_feature_config(
+            "feature",
+            Value::Object(Map::from_iter([(
+                "prop_1".to_string(),
+                Value::Number(Number::from(1)),
+            )])),
+        );
+        assert!(result.is_err());
+        assert_eq!(result.err().unwrap().to_string(), "Validation Error at features/feature.prop_1: Mismatch between type String and default 1".to_string());
+
         Ok(())
     }
 }

@@ -1,0 +1,36 @@
+---
+about:
+  description: Nimbus Feature Manifest for Python Testing
+channels:
+  - nightly
+  - developer
+includes:
+  - includes-and-imports/include1.fml.yml
+imports:
+  - path: includes-and-imports/import1.fml.yml
+    channel: developer
+features:
+  example-feature:
+    description: An example feature
+    variables:
+      enabled:
+        description: If the feature is enabled
+        type: Boolean
+        default: false
+      something:
+        description: Another variable
+        type: Option<String>
+        default: null
+    defaults:
+      - channel: nightly
+        value: {
+           "enabled": true
+        }
+      - channel: developer
+        value: {
+           "something": "wicked"
+        }
+
+types:
+  objects: {}
+  enums: {}

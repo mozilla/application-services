@@ -4,7 +4,7 @@
 
 use std::{env, path::PathBuf};
 
-pub(crate) mod loaders;
+pub mod loaders;
 
 #[allow(dead_code)]
 pub(crate) fn pkg_dir() -> String {
