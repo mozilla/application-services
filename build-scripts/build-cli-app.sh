@@ -14,7 +14,7 @@ set -e
 # CircleCI then stores this as an artifact, and pushes it to Github on each release.
 #
 # This will be downloaded and unzipped as part of the buid processes for iOS and Android.
-TARGETS="aarch64-apple-darwin x86_64-unknown-linux-gnu x86_64-apple-darwin x86_64-pc-windows-gnu"
+TARGETS="aarch64-apple-darwin x86_64-unknown-linux-musl x86_64-apple-darwin x86_64-pc-windows-gnu"
 DRY_RUN=false
 DIRTY=false
 PROJECT_DIR=
@@ -52,7 +52,7 @@ while (( "$#" )); do
             shift
             ;;
         *)
-            echo "'$1' not supported"
+            echo "'$1' not supported"  1>&2
             exit 1
             ;;
     esac
@@ -87,7 +87,6 @@ for target in $TARGETS ; do
             # https://blog.filippo.io/easy-windows-and-linux-cross-compilers-for-macos/
             # We'd like to run the binary on developer machines and the Android CIs (which are linux)
             maybeRun "brew install filosottile/musl-cross/musl-cross"
-            maybeRun "ln -sf /usr/local/opt/musl-cross/bin/x86_64-linux-musl-gcc /usr/local/bin/musl-gcc"
             ;;
         *)
             ;;
@@ -134,14 +133,35 @@ for target in $TARGETS ; do
             # https://stackoverflow.com/a/68121888
             export CARGO_TARGET_X86_64_UNKNOWN_LINUX_GNU_LINKER=x86_64-unknown-linux-gnu-gcc
             ;;
+        x86_64-unknown-linux-musl)
+            # https://betterprogramming.pub/cross-compiling-rust-from-mac-to-linux-7fad5a454ab1
+            export CARGO_TARGET_X86_64_UNKNOWN_LINUX_MUSL_LINKER=x86_64-linux-musl-gcc
+            # Instead of soft linking (ln -sf) from musl-cross, we set TARGET_CC here.
+            export TARGET_CC=x86_64-linux-musl-gcc
+            ;;
         *)
             ;;
     esac
 
+    # Build everything!
     maybeRun "cargo build --manifest-path $PROJECT_DIR/Cargo.toml --release --target $cargo_target"
 
     # Keep building the zip command with the commands as we build them.
     files_to_zip="$files_to_zip $target/release/$binary_name"
+
+    # Now unset the environment variables we just used, so it doesn't upset the next
+    # way around the loop.
+    case "$target" in
+        x86_64-unknown-linux-gnu)
+            unset CARGO_TARGET_X86_64_UNKNOWN_LINUX_GNU_LINKER
+            ;;
+        x86_64-unknown-linux-musl)
+            unset CARGO_TARGET_X86_64_UNKNOWN_LINUX_MUSL_LINKER
+            unset TARGET_CC
+            ;;
+        *)
+            ;;
+    esac
 done
 
 # Finish up by executing the zip command.
