@@ -18,6 +18,7 @@ dictionary Suggestion {
     string full_keyword;
     string title;
     string url;
+    sequence<u8>? icon;
     string? impression_url;
     string? click_url;
 };
