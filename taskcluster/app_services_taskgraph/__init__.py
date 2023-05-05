@@ -31,8 +31,8 @@ def register(graph_config):
         # Publish a "preview build" for a future version.  This is set to
         # "nightly" for the nightly builds.  Other strings indicate making a
         # preview build for a particular application-services branch.
-        'preview-build': str,
-        # Release type.  We set this to "release" for non-nightly builds, it defaults to "nightly".
+        'preview-build': Optional(str),
+        # Release type.  Set to `release` or `nightly` when we're building release artifacts.
         'release-type': Optional(str),
     })
 
@@ -62,10 +62,10 @@ def get_decision_parameters(graph_config, parameters):
         if preview_match is not None:
             if preview_match.group(1) == 'nightly':
                 parameters["preview-build"] = "nightly"
-                parameters["target_tasks_method"] = "release"
+                parameters["target_tasks_method"] = "full"
             elif preview_match.group(1) == 'release':
-                parameters["target_tasks_method"] = "release"
-                parameters["release"] = "release"
+                parameters["target_tasks_method"] = "full"
+                parameters["release-type"] = "release"
             else:
                 raise NotImplemented("Only nightly preview builds are currently supported")
         elif "[ci full]" in pr_title:
@@ -77,11 +77,13 @@ def get_decision_parameters(graph_config, parameters):
     elif parameters["tasks_for"] == "github-push":
         if parameters["head_tag"].startswith("release-"):
             parameters["target_tasks_method"] = "release"
-            parameters["release"] = "release"
+            parameters["release-type"] = "release"
     elif parameters["tasks_for"] == "cron":
         # We don't have a great way of determining if something is a nightly or
         # not.  But for now, we can assume all cron-based builds are nightlies.
         parameters["preview-build"] = "nightly"
+        parameters["target_tasks_method"] = "full"
+        parameters["release-type"] = "nightly"
 
     parameters['branch-build'] = branch_builds.calc_branch_build_param(parameters)
     parameters['filters'].extend([

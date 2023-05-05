@@ -17,9 +17,12 @@ kind-dependencies:
 tasks:
   build:
     attributes:
+      run-on-pr-type: full-ci
       resource-monitor: true
+      release-routes:
+        - index.project.application-services.v2.swift.{appservices_version}
     needs-sccache: false # TODO: Bug 1623426 deal with this once we're in prod
-    run-on-tasks-for: [github-release, cron]
+    run-on-tasks-for: [github-pull-request, github-release, cron]
     description: Build and test (Swift)
     scopes:
       - project:releng:services/tooltool/api/download/internal
@@ -51,5 +54,3 @@ tasks:
       using: run-commands
       run-task-command: ["/usr/local/bin/python3", "run-task"]
       use-caches: true
-    routes:
-      - index.project.application-services.v2.swift.{appservices_version}
