@@ -10,9 +10,16 @@ from taskgraph.target_tasks import _target_task, filter_for_tasks_for
 def target_tasks_pr_skip(full_task_graph, parameters, graph_config):
     return []
 
-@_target_task('release')
+# Don't filter out any tasks. We use this for:
+#   - Pushes to a release branch
+#   - The nightly cron task
+#   - PRs with `[preview: (nightly|release)]`
+#
+# This runs the same tasks as `pr-full`, plus:
+#  - build-summary, which sends a slack alert if the build fails
+#  - release-publish, which creates the `release.json` or `nightly.json` artifact
+@_target_task('full')
 def target_tasks_release(full_task_graph, parameters, graph_config):
-    # Run all tasks for release builds
     return full_task_graph.tasks
 
 @_target_task('pr-full')

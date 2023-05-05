@@ -13,17 +13,10 @@ transforms = TransformSequence()
 @transforms.add
 def setup_command(config, tasks):
     version = get_version(config.params)
-    if config.params['level'] == '3':
-        if config.params.get('preview-build') is None:
-            maven_channel = "maven-production"
-        else:
-            maven_channel = "maven-nightly-production"
-    else:
-        if config.params.get('preview-build') is None:
-            maven_channel = "maven-staging"
-        else:
-            maven_channel = "maven-nightly-staging"
-    release_type = config.params.get('release', 'nightly')
+    instance = "production" if config.params["level"] == "3" else "staging"
+    nightly = "-nightly" if config.params.get("preview-build") else ""
+    maven_channel = f"maven{nightly}-{instance}"
+    release_type = config.params.get('release-type', 'nightly')
 
     for task in tasks:
         task["run"]["commands"] = [

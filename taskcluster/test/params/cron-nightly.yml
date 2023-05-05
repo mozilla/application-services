@@ -17,6 +17,7 @@ project: application-services
 pushdate: 0
 pushlog_id: '0'
 repository_type: git
-target_tasks_method: release
+target_tasks_method: full
 tasks_for: cron
 preview-build: nightly
+release-type: nightly

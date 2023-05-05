@@ -9,7 +9,7 @@ head_ref: release-v114
 head_repository: https://github.com/mozilla/application-services
 head_rev: 5ad5931c2d91c9f00e9984131925c76136822ab5
 head_tag: ''
-level: '1'
+level: '3'
 moz_build_date: '20220503050340'
 optimize_target_tasks: true
 owner: committer@users.noreply.github.com
@@ -17,6 +17,6 @@ project: application-services
 pushdate: 0
 pushlog_id: '0'
 repository_type: git
-target_tasks_method: release
+target_tasks_method: full
 tasks_for: github-push
 release-type: "release"
