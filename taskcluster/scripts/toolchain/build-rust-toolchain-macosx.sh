@@ -25,6 +25,7 @@ rm rustup-init
 source "$HOME"/.cargo/env
 # So long as this is executed after the checkout it will use the version specified in rust-toolchain.yaml
 rustup update
+rustup target add aarch64-apple-darwin
 # TODO: re-enable this once we split out the toolchain tasks from swift-build
 # # Tar everything into UPLOAD_DIR
 # cd "$HOME"

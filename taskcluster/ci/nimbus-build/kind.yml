@@ -1,0 +1,64 @@
+# This Source Code Form is subject to the terms of the Mozilla Public
+# License, v. 2.0. If a copy of the MPL was not distributed with this
+# file, You can obtain one at http://mozilla.org/MPL/2.0/.
+
+# ⚠️ If you add, rename or delete a task here, please also update .mergify.yml! ⚠️
+---
+loader: taskgraph.loader.transform:loader
+
+transforms:
+  - app_services_taskgraph.transforms.appservices:transforms
+  - app_services_taskgraph.transforms.nimbus:build
+  - taskgraph.transforms.job:transforms
+  - taskgraph.transforms.task:transforms
+
+kind-dependencies:
+  - toolchain
+
+task-defaults:
+  attributes:
+    run-on-pr-type: full-ci
+    resource-monitor: true
+  scopes:
+    - project:releng:services/tooltool/api/download/internal
+
+tasks:
+  fml-linux:
+    attributes:
+      target: x86_64-unknown-linux-gnu
+      binary: nimbus-fml
+
+  fml-windows:
+    attributes:
+      target: x86_64-pc-windows-gnu
+      binary: nimbus-fml
+
+  fml-osx-x86-64:
+    attributes:
+      target: x86_64-apple-darwin
+      binary: nimbus-fml
+
+  fml-osx-aarch64:
+    attributes:
+      target: aarch64-apple-darwin
+      binary: nimbus-fml
+
+  cli-linux:
+    attributes:
+      target: x86_64-unknown-linux-gnu
+      binary: nimbus-cli
+
+  cli-windows:
+    attributes:
+      target: x86_64-pc-windows-gnu
+      binary: nimbus-cli
+
+  cli-osx-x86-64:
+    attributes:
+      target: x86_64-apple-darwin
+      binary: nimbus-cli
+
+  cli-osx-aarch64:
+    attributes:
+      target: aarch64-apple-darwin
+      binary: nimbus-cli

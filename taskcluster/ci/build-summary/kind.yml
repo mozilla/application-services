@@ -9,7 +9,8 @@ kind-dependencies:
   - signing
   - beetmover
   - swift
-  - nimbus-fml
+  - nimbus-build
+  - nimbus-binaries-assemble
 
 transforms:
   - app_services_taskgraph.transforms.deps_complete:transforms

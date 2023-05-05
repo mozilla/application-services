@@ -1,0 +1,45 @@
+# This Source Code Form is subject to the terms of the Mozilla Public
+# License, v. 2.0. If a copy of the MPL was not distributed with this
+# file, You can obtain one at http://mozilla.org/MPL/2.0/.
+---
+# release-publish: publish artifacts for successful nightly/release builds
+#
+# This task publishes a JSON file for the nightly/release builds. The JSON file is used by consumer
+# apps for app-services version bumps.
+#
+# This task only runs if build-summary succeeds, which implies that all other
+# tasks suceeded.  This task should not fail, since that could leave the
+# build artifacts in an inconsistent state.
+loader: taskgraph.loader.transform:loader
+
+kind-dependencies:
+  - nimbus-build
+
+transforms:
+  - app_services_taskgraph.transforms.nimbus:assemble
+  - taskgraph.transforms.job:transforms
+  - taskgraph.transforms.task:transforms
+
+tasks:
+  assemble:
+    attributes:
+      run-on-pr-type: full-ci
+      release-routes:
+        - index.project.application-services.v2.nimbus-fml.{appservices_version}
+    description: "Assemble nimbus binaries"
+    worker-type: b-linux
+    worker:
+      chain-of-trust: true
+      docker-image: { in-tree: linux }
+      max-run-time: 1800
+      artifacts:
+        - name: "public/build/nimbus-fml.zip"
+          path: "/builds/worker/checkouts/vcs/build/nimbus-fml.zip"
+          type: "file"
+        - name: "public/build/nimbus-fml.sha256"
+          path: "/builds/worker/checkouts/vcs/build/nimbus-fml.sha256"
+          type: "file"
+    run:
+      using: run-commands
+      commands:
+        - ["taskcluster/scripts/assemble-nimbus-binaries.sh"]
