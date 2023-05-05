@@ -29,6 +29,12 @@ dictionary EnrolledExperiment {
     string enrollment_id;
 };
 
+dictionary EnrolledFeature {
+    string slug;
+    string? branch;
+    string feature_id;
+};
+
 dictionary AvailableExperiment {
     string slug;
     string user_facing_name;
@@ -121,6 +127,10 @@ interface NimbusClient {
     [Throws=NimbusError]
     sequence<EnrolledExperiment> get_active_experiments();
 
+    // Returns details of a feature's enrollemnt.
+    [Throws=NimbusError]
+    EnrolledFeature? get_enrollment_by_feature(string feature_id);
+
     // Returns a list of experiments for this `app_name`, as specified in the `AppContext`.
     // It is not intended to be used to be used for user facing applications.
     [Throws=NimbusError]
@@ -136,17 +146,21 @@ interface NimbusClient {
     [Throws=NimbusError]
     sequence<EnrollmentChangeEvent> set_global_user_participation(boolean opt_in);
 
-    // Updates the list of experiments from the server.
-    // This method is deprecated, in favour of calling `fetch_experiments()` and then
-    // `apply_pending_updates()`.
-    [Throws=NimbusError]
-    sequence<EnrollmentChangeEvent> update_experiments();
-
     // Fetches the list of experiments from the server. This does not affect the list
     // of active experiments or experiment enrolment.
     // Fetched experiments are not applied until `apply_pending_updates()` is called.
     [Throws=NimbusError]
     void fetch_experiments();
+
+    // Toggles the enablement of the fetch. If `false`, then calling `fetch_experiments`
+    // returns immediately, having not done any fetching from remote settings.
+    // This is only useful for QA, and should not be used in production: use
+    // `set_global_user_participation` instead.
+    [Throws=NimbusError]
+    void set_fetch_enabled(boolean flag);
+
+    [Throws=NimbusError]
+    boolean is_fetch_enabled();
 
     // Apply the updated experiments from the last fetch.
     // After calling this, the list of active experiments might change
@@ -163,6 +177,10 @@ interface NimbusClient {
 
     // These are test-only functions and should never be exposed to production
     // users, as they mess with the "statistical requirements" of the SDK.
+
+    // Reset the enrollments and experiments in the database to an empty state.
+    [Throws=NimbusError]
+    void reset_enrollments();
 
     // Opt in to a specific branch on a specific experiment. Useful for
     // developers to test their app's interaction with the experiment.
@@ -205,13 +223,25 @@ interface NimbusClient {
     // This function is used to record and persist data used for the behavioral
     // targeting such as "core-active" user targeting.
     [Throws=NimbusError]
-    void record_event(optional i64 count = 1, string event_id);
+    void record_event(string event_id, optional i64 count = 1);
 
+    // Records an event as if it were in the past.
+    // This, and `advance_event_time` are useful for testing.
+    // `seconds_ago` must be positive.
     [Throws=NimbusError]
-    void record_past_event(optional i64 count = 1, string event_id, i64 seconds_ago);
+    void record_past_event(string event_id, i64 seconds_ago, optional i64 count = 1);
+
+    // Advances what the event store thinks is now.
+    // This, and `record_past_event` are useful for testing.
+    // `by_seconds` must be positive.
+    [Throws=NimbusError]
+    void advance_event_time(i64 by_seconds);
 
     [Throws=NimbusError]
     void clear_events();
+
+    [Throws=NimbusError]
+    void dump_state_to_log();
 };
 
 [Custom]

@@ -6,9 +6,9 @@
 //! (eg, for testing against experiments which are not deployed anywhere) and
 //! for tests.
 
+use crate::client::SettingsClient;
 use crate::error::Result;
 use crate::Experiment;
-use crate::SettingsClient;
 use std::ffi::OsStr;
 use std::fs::File;
 use std::io::BufReader;

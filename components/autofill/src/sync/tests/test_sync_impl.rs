@@ -78,7 +78,7 @@ impl ProcessIncomingRecordImpl for TestImpl {
         unreachable!();
     }
 
-    fn change_local_guid(
+    fn change_record_guid(
         &self,
         _tx: &Transaction<'_>,
         _old_guid: &SyncGuid,

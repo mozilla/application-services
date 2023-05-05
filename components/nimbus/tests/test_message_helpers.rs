@@ -4,7 +4,9 @@
 
 // Testing get_experiment_branch semantics.
 
+#[cfg(feature = "rkv-safe-mode")]
 mod common;
+
 #[allow(unused_imports)]
 #[allow(unused_attributes)]
 #[macro_use]
@@ -24,7 +26,7 @@ mod message_tests {
         let nimbus = common::new_test_client("jexl_test")?;
         nimbus.initialize()?;
 
-        nimbus.record_event(1, "test".to_string())?;
+        nimbus.record_event("test".to_string(), 1)?;
 
         let helper = nimbus.create_targeting_helper(None)?;
 

@@ -1,0 +1,27 @@
+# This Source Code Form is subject to the terms of the Mozilla Public
+# License, v. 2.0. If a copy of the MPL was not distributed with this
+# file, You can obtain one at http://mozilla.org/MPL/2.0/.
+---
+loader: taskgraph.loader.transform:loader
+
+kind-dependencies:
+  - module-build
+  - signing
+  - beetmover
+  - swift
+  - nimbus-fml
+
+transforms:
+  - app_services_taskgraph.transforms.deps_complete:transforms
+  - taskgraph.transforms.job:transforms
+  - app_services_taskgraph.transforms.deps_complete:reverse_chunk
+  - taskgraph.transforms.task:transforms
+
+tasks:
+  deps_complete:
+    attributes:
+      nightly: nightly-only
+    label: "Nightly build summary task"
+    description: "Summary task for the nightly build that reports failures."
+    alerts:
+      slack-channel: CKL0LGV9B

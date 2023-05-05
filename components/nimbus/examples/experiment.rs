@@ -2,19 +2,22 @@
 // License, v. 2.0. If a copy of the MPL was not distributed with this
 // file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
-use clap::{App, Arg, SubCommand};
-use env_logger::Env;
-use nimbus::TargetingAttributes;
-use nimbus::{
-    error::Result, AppContext, AvailableRandomizationUnits, EnrollmentStatus, NimbusClient,
-    RemoteSettingsConfig,
-};
-use std::collections::HashMap;
-use std::io::prelude::*;
+use nimbus::error::Result;
 
-const DEFAULT_BASE_URL: &str = "https://firefox.settings.services.mozilla.com";
-const DEFAULT_COLLECTION_NAME: &str = "messaging-experiments";
+#[cfg(feature = "stateful")]
 fn main() -> Result<()> {
+    const DEFAULT_BASE_URL: &str = "https://firefox.settings.services.mozilla.com";
+    const DEFAULT_COLLECTION_NAME: &str = "messaging-experiments";
+
+    use clap::{App, Arg, SubCommand};
+    use env_logger::Env;
+    use nimbus::{
+        AppContext, AvailableRandomizationUnits, EnrollmentStatus, NimbusClient,
+        NimbusTargetingHelper, RemoteSettingsConfig,
+    };
+    use std::collections::HashMap;
+    use std::io::prelude::*;
+
     // We set the logging level to be `warn` here, meaning that only
     // logs of `warn` or higher will be actually be shown, any other
     // error will be omitted
@@ -290,22 +293,13 @@ fn main() -> Result<()> {
 
             let mut num_tries = 0;
             let aru = AvailableRandomizationUnits::with_client_id(&client_id);
-            let targeting_attributes = TargetingAttributes {
-                app_context: context,
-                ..Default::default()
-            };
             'outer: loop {
                 let uuid = uuid::Uuid::new_v4();
                 let mut num_of_experiments_enrolled = 0;
                 let event_store = nimbus_client.event_store();
+                let th = NimbusTargetingHelper::new(&context, event_store.clone());
                 for exp in &all_experiments {
-                    let enr = nimbus::evaluate_enrollment(
-                        &uuid,
-                        &aru,
-                        &targeting_attributes,
-                        exp,
-                        event_store.clone(),
-                    )?;
+                    let enr = nimbus::evaluate_enrollment(&uuid, &aru, exp, &th)?;
                     if enr.status.is_enrolled() {
                         num_of_experiments_enrolled += 1;
                         if num_of_experiments_enrolled >= num {
@@ -360,14 +354,8 @@ fn main() -> Result<()> {
                 // options.
                 let uuid = uuid::Uuid::new_v4();
                 let aru = AvailableRandomizationUnits::with_client_id(&client_id);
-                let targeting_attributes = context.clone().into();
-                let enrollment = nimbus::evaluate_enrollment(
-                    &uuid,
-                    &aru,
-                    &targeting_attributes,
-                    &exp,
-                    event_store.clone(),
-                )?;
+                let th = NimbusTargetingHelper::new(&context, event_store.clone());
+                let enrollment = nimbus::evaluate_enrollment(&uuid, &aru, &exp, &th)?;
                 let key = match enrollment.status.clone() {
                     EnrollmentStatus::Enrolled { .. } => "Enrolled",
                     EnrollmentStatus::NotEnrolled { .. } => "NotEnrolled",
@@ -381,5 +369,10 @@ fn main() -> Result<()> {
         }
         (&_, _) => println!("Invalid subcommand"),
     };
+    Ok(())
+}
+
+#[cfg(not(feature = "stateful"))]
+fn main() -> Result<()> {
     Ok(())
 }

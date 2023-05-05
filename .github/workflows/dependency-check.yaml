@@ -55,20 +55,16 @@ jobs:
         run: |
             cargo install cargo-audit
             # Explanation for ignored issues:
-            #  * RUSTSEC-2021-0019:  Soundness issues in `xcb`, a clipboard library we only use for examples.
-            #                        There is currently no fixed version available.
-            #  * RUSTSEC-2020-0159:  A possible Segfault in `chrono`'s `localtime_r' invocation, at the time of this
-            #                        patch, there is no fixed versions available, but an issue is filed on chrono: https://github.com/chronotope/chrono/issues/602
-            #  * RUSTSEC-2020-0071: Related to the one above, `chrono` pulls in a version of `time` that has the same problem, where invocations of
-            #                       `localtime_r` could segfault, our code base doesn't trigger this, there is a PR on chrono that should
-            #                       fix this: https://github.com/chronotope/chrono/pull/578
-            #                       note that both the Nimbus-SDK and glean use chrono, so if we would like to move away from it, both projects
-            #                       need to do that before we can remove the ignores (assuming `chrono` doesn't release a fixed version)
+            #  * RUSTSEC-2020-0071: `time` has a problem where invocations of `localtime_r` could segfault, our code base doesn't trigger this,
+            #                       but time is a transitive dependency for other crates so is difficult to update.
             #  * RUSTSEC-2018-0006: Uncontrolled recursion in `yaml-rust`, which is included by `clap` v2. `clap` itself already updated to a safe
-            #                       version of `yaml-rust`, which will be released in `v3` and additionally, 
+            #                       version of `yaml-rust`, which will be released in `v3` and additionally,
             #                       reading https://github.com/rustsec/advisory-db/issues/288, this is a false
             #                       positive for clap and based on our dependency tree, we only use `yaml-rust` in `clap`.
-            cargo audit --ignore RUSTSEC-2021-0019 --ignore RUSTSEC-2020-0159 --ignore RUSTSEC-2020-0071 --ignore RUSTSEC-2018-0006
+            #  * RUSTSEC-2023-0034: `h2` is being used by `reqwest`, via `viaduct-reqwest`; reading
+            #                       https://github.com/hyperium/hyper/issues/2877#issuecomment-1505146275 and because we control all the URLs
+            #                       and servers that we talk to via viaduct, this seems safe to ignore.
+            cargo audit --ignore RUSTSEC-2020-0071 --ignore RUSTSEC-2018-0006 --ignore RUSTSEC-2023-0034
       - name: Check for any unrecorded changes in our dependency trees
         run: |
             cargo metadata --locked > /dev/null

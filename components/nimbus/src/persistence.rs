@@ -342,7 +342,10 @@ impl Database {
         Ok(())
     }
 
-    fn clear_experiments_and_enrollments(&self, writer: &mut Writer) -> Result<(), NimbusError> {
+    pub(crate) fn clear_experiments_and_enrollments(
+        &self,
+        writer: &mut Writer,
+    ) -> Result<(), NimbusError> {
         self.experiment_store.clear(writer)?;
         self.enrollment_store.clear(writer)?;
         Ok(())

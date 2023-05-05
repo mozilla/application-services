@@ -10,8 +10,13 @@ from taskgraph.target_tasks import _target_task, filter_for_tasks_for
 def target_tasks_pr_skip(full_task_graph, parameters, graph_config):
     return []
 
+@_target_task('preview')
+def target_tasks_preview(full_task_graph, parameters, graph_config):
+    # Run all tasks for preview builds
+    return full_task_graph.tasks
+
 @_target_task('pr-full')
-def target_tasks_default(full_task_graph, parameters, graph_config):
+def target_tasks_all(full_task_graph, parameters, graph_config):
     """Target the tasks which have indicated they should be run on this project
     via the `run_on_projects` attributes."""
     def filter(task):

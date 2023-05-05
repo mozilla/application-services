@@ -14,7 +14,7 @@ use crate::storage::{
         fetch_visits, finish_outgoing, FetchedVisit, FetchedVisitPage,
     },
 };
-use crate::types::VisitTransition;
+use crate::types::{UnknownFields, VisitTransition};
 use interrupt_support::Interruptee;
 use std::collections::HashSet;
 use std::time::{SystemTime, UNIX_EPOCH};
@@ -56,6 +56,7 @@ pub enum IncomingPlan {
         url: Url,
         new_title: Option<String>,
         visits: Vec<HistoryRecordVisit>,
+        unknown_fields: UnknownFields,
     },
     /// Entry exists locally and it's the same as the incoming record. This is
     /// subtly different from Skip as we may still need to write metadata to
@@ -150,6 +151,7 @@ fn plan_incoming_record(conn: &PlacesDb, record: HistoryRecord, max_visits: usiz
                     to_apply.push(HistoryRecordVisit {
                         date: timestamp.into(),
                         transition: transition as u8,
+                        unknown_fields: incoming_visit.unknown_fields,
                     });
                     cur_visit_map.insert(key);
                 }
@@ -168,6 +170,7 @@ fn plan_incoming_record(conn: &PlacesDb, record: HistoryRecord, max_visits: usiz
             url,
             new_title,
             visits: to_apply,
+            unknown_fields: record.unknown_fields,
         }
     } else {
         IncomingPlan::Reconciled
@@ -237,15 +240,12 @@ pub fn apply_plan(
                 url,
                 new_title,
                 visits,
+                unknown_fields,
             } => {
                 log::trace!(
-                    "incoming: will apply {:?}: url={:?}, title={:?}, to_add={:?}",
-                    guid,
-                    url,
-                    new_title,
-                    visits
+                    "incoming: will apply {guid:?}: url={url:?}, title={new_title:?}, to_add={visits:?}, unknown_fields={unknown_fields:?}"
                 );
-                apply_synced_visits(db, &guid, url, new_title, visits)?;
+                apply_synced_visits(db, &guid, url, new_title, visits, unknown_fields)?;
                 telem.applied(1);
             }
             IncomingPlan::Reconciled => {
@@ -356,6 +356,7 @@ mod tests {
             title: "title".into(),
             hist_uri: "http://example.com".into(),
             visits: vec![],
+            unknown_fields: UnknownFields::new(),
         };
 
         assert!(matches!(
@@ -374,6 +375,7 @@ mod tests {
             title: "title".into(),
             hist_uri: "invalid".into(),
             visits: vec![],
+            unknown_fields: UnknownFields::new(),
         };
 
         assert!(matches!(
@@ -390,12 +392,14 @@ mod tests {
         let visits = vec![HistoryRecordVisit {
             date: SystemTime::now().into(),
             transition: 1,
+            unknown_fields: UnknownFields::new(),
         }];
         let record = HistoryRecord {
             id: "aaaaaaaaaaaa".into(),
             title: "title".into(),
             hist_uri: "https://example.com".into(),
             visits,
+            unknown_fields: UnknownFields::new(),
         };
 
         assert!(matches!(
@@ -425,12 +429,14 @@ mod tests {
         let visits = vec![HistoryRecordVisit {
             date: now.into(),
             transition: 1,
+            unknown_fields: UnknownFields::new(),
         }];
         let record = HistoryRecord {
             id: guid,
             title: "title".into(),
             hist_uri: "https://example.com".into(),
             visits,
+            unknown_fields: UnknownFields::new(),
         };
         // We should have reconciled it.
         assert!(matches!(
@@ -459,6 +465,7 @@ mod tests {
             title: "title".into(),
             hist_uri: "https://example.com".into(),
             visits: vec![],
+            unknown_fields: UnknownFields::new(),
         };
         // Even though there are no visits we should record that it will be
         // applied with the guid change.
@@ -496,7 +503,7 @@ mod tests {
 
         let bso2 = IncomingBso::from_test_content(json!({
             "id": guid2,
-            "title": "title",
+            "title": "title2",
             "histUri": url.as_str(),
             "visits": [ {"date": ServerVisitTimestamp::from(ts2), "type": 1}]
         }));
@@ -517,7 +524,14 @@ mod tests {
 
         // should have 1 URL with both visits locally.
         let (page, visits) = fetch_visits(&db, &url, 3)?.expect("page exists");
-        assert_eq!(page.guid, guid1, "page should have the expected guid");
+        assert_eq!(
+            page.guid, guid1,
+            "page should have the guid from the first record"
+        );
+        assert_eq!(
+            page.title, "title2",
+            "page should have the title from the second record"
+        );
         assert_eq!(visits.len(), 2, "page should have 2 visits");
 
         Ok(())
@@ -705,12 +719,14 @@ mod tests {
         let visits = vec![HistoryRecordVisit {
             date: SystemTime::now().into(),
             transition: 99,
+            unknown_fields: UnknownFields::new(),
         }];
         let record = HistoryRecord {
             id: "aaaaaaaaaaaa".into(),
             title: "title".into(),
             hist_uri: "http://example.com".into(),
             visits,
+            unknown_fields: UnknownFields::new(),
         };
         let plan = plan_incoming_record(&db, record, 10);
         // We expect "Reconciled" because after skipping the invalid visit

@@ -14,6 +14,7 @@ use std::num::{ParseIntError, TryFromIntError};
 pub enum NimbusError {
     #[error("Invalid persisted data")]
     InvalidPersistedData,
+    #[cfg(feature = "stateful")]
     #[error("Rkv error: {0}")]
     RkvError(#[from] rkv::StoreError),
     #[error("IO error: {0}")]
@@ -50,6 +51,7 @@ pub enum NimbusError {
     DatabaseNotReady,
     #[error("Error parsing a sting into a version {0}")]
     VersionParsingError(String),
+    #[cfg(feature = "stateful")]
     #[error("Behavior error: {0}")]
     BehaviorError(#[from] BehaviorError),
     #[error("TryFromIntError: {0}")]
@@ -58,18 +60,32 @@ pub enum NimbusError {
     ParseIntError(#[from] ParseIntError),
     #[error("Transform parameter error: {0}")]
     TransformParameterError(String),
+    #[cfg(feature = "stateful")]
     #[error("Error with HTTP client: {0}")]
     ClientError(#[from] rs_client::ClientError),
+    #[cfg(not(feature = "stateful"))]
+    #[error("Error in Cirrus: {0}")]
+    CirrusError(#[from] CirrusClientError),
 }
 
+#[cfg(feature = "stateful")]
 #[derive(Debug, thiserror::Error)]
 pub enum BehaviorError {
     #[error("Invalid state: {0}")]
     InvalidState(String),
+    #[error("Invalid duration: {0}")]
+    InvalidDuration(String),
     #[error("IntervalParseError: {0} is not a valid Interval")]
     IntervalParseError(String),
     #[error("The event store is not available on the targeting attributes")]
     MissingEventStore,
+}
+
+#[cfg(not(feature = "stateful"))]
+#[derive(Debug, thiserror::Error)]
+pub enum CirrusClientError {
+    #[error("Request missing parameter: {0}")]
+    RequestMissingParameter(String),
 }
 
 impl<'a> From<jexl_eval::error::EvaluationError<'a>> for NimbusError {

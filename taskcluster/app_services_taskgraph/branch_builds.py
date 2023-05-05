@@ -14,10 +14,6 @@ def update_decision_parameters(parameters):
     parameters['branch-build'] = calc_branch_build_param(parameters)
 
 def calc_branch_build_param(parameters):
-    if parameters.get('nightly-build'):
-        return {
-            'firefox-android-branch': 'main',
-        }
     title = os.environ.get("APPSERVICES_PULL_REQUEST_TITLE", "")
     branch_build = {}
 

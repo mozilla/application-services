@@ -23,7 +23,7 @@ assert(feature.anObjectWithNewDefaults.nested.propertySource == "an-object-with-
 assert(feature.anObjectWithFeatureDefaults.nested.propertySource == "example-object-property-via-constructor")
 
 // Test if we can override the defaults with JSON coming from Nimbus.
-let api = MockNimbus(("with-objects-feature",  """
+let api = HardcodedNimbusFeatures(with: ["with-objects-feature":  """
 {
     "an-object-with-feature-defaults": {
         "a-string": "Sounds good",
@@ -32,7 +32,7 @@ let api = MockNimbus(("with-objects-feature",  """
         }
     }
 }
-"""))
+"""])
 nimbus.api = api
 nimbus.invalidateCachedValues()
 

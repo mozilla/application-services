@@ -38,7 +38,6 @@ impl<'a> FeatureManifestDeclaration<'a> {
         let fm = self.fm;
 
         fm.iter_feature_defs()
-            .into_iter()
             .map(|inner| {
                 Box::new(feature::FeatureCodeDeclaration::new(fm, inner))
                     as Box<dyn CodeDeclaration>
@@ -46,7 +45,7 @@ impl<'a> FeatureManifestDeclaration<'a> {
             .chain(fm.iter_enum_defs().map(|inner| {
                 Box::new(enum_::EnumCodeDeclaration::new(fm, inner)) as Box<dyn CodeDeclaration>
             }))
-            .chain(fm.iter_object_defs().into_iter().map(|inner| {
+            .chain(fm.iter_object_defs().map(|inner| {
                 Box::new(object::ObjectCodeDeclaration::new(fm, inner)) as Box<dyn CodeDeclaration>
             }))
             .chain(fm.iter_imported_files().into_iter().map(|inner| {

@@ -230,12 +230,17 @@ mod tests {
     use crate::db::models::credit_card::InternalCreditCard;
     use crate::db::schema::create_empty_sync_temp_tables;
     use crate::encryption::EncryptorDecryptor;
-    use crate::sync::IncomingBso;
+    use crate::sync::{IncomingBso, UnknownFields};
     use sql_support::ConnExt;
 
     impl InternalCreditCard {
-        pub fn into_test_incoming_bso(self, encdec: &EncryptorDecryptor) -> IncomingBso {
-            let payload = self.into_payload(encdec).expect("is json");
+        pub fn into_test_incoming_bso(
+            self,
+            encdec: &EncryptorDecryptor,
+            unknown_fields: UnknownFields,
+        ) -> IncomingBso {
+            let mut payload = self.into_payload(encdec).expect("is json");
+            payload.entry.unknown_fields = unknown_fields;
             IncomingBso::from_test_content(payload)
         }
     }
@@ -316,12 +321,12 @@ mod tests {
     #[test]
     fn test_engine_sync_reset() -> Result<()> {
         let engine = create_engine();
-        let encdec = EncryptorDecryptor::new_test_key();
+        let encdec = EncryptorDecryptor::new_with_random_key().unwrap();
 
         let cc = InternalCreditCard {
             guid: Guid::random(),
             cc_name: "Ms Jane Doe".to_string(),
-            cc_number_enc: encdec.encrypt("12341232412341234")?,
+            cc_number_enc: encdec.encrypt("12341232412341234", "cc_number")?,
             cc_number_last_4: "1234".to_string(),
             cc_exp_month: 12,
             cc_exp_year: 2021,
@@ -335,7 +340,11 @@ mod tests {
             let tx = db.writer.unchecked_transaction()?;
             // create a normal record, a mirror record and a tombstone.
             add_internal_credit_card(&tx, &cc)?;
-            test_insert_mirror_record(&tx, cc.clone().into_test_incoming_bso(&encdec));
+            test_insert_mirror_record(
+                &tx,
+                cc.clone()
+                    .into_test_incoming_bso(&encdec, Default::default()),
+            );
             insert_tombstone_record(&tx, Guid::random().to_string())?;
             tx.commit()?;
         }
@@ -387,7 +396,7 @@ mod tests {
             // re-populating the tables
             let tx = conn.unchecked_transaction()?;
             add_internal_credit_card(&tx, &cc)?;
-            test_insert_mirror_record(&tx, cc.into_test_incoming_bso(&encdec));
+            test_insert_mirror_record(&tx, cc.into_test_incoming_bso(&encdec, Default::default()));
             insert_tombstone_record(&tx, Guid::random().to_string())?;
             tx.commit()?;
         }

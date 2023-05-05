@@ -1,3 +1,82 @@
+# v97.5.1 (_2023-04-17_)
+
+[Full Changelog](https://github.com/mozilla/application-services/compare/v97.5.0...v97.5.1)
+
+## General
+
+### ✨ What's New ✨
+  - Fixing the objcopy path when building the megazord ([#5154](https://github.com/mozilla/application-services/pull/5154)).
+
+# v97.5.0 (_2023-04-17_)
+
+[Full Changelog](https://github.com/mozilla/application-services/compare/v97.4.1...v97.5.0)
+
+## General
+
+### What's Changed
+
+- Android: Upgraded NDK from r21d to r25c.
+
+## Nimbus ⛅️🔬🔭
+
+### 🦊 What's Changed 🦊
+- Refactor the `EnrollmentEvolver` in preparation for a larger refactor to split out the `stateful` feature. ([#5374](https://github.com/mozilla/application-services/pull/5374)).
+- Added a `stateful` cargo feature and added appropriate feature flag attributes ([#5448](https://github.com/mozilla/application-services/pull/5448)).
+  - This does not functionally change build processes, as the `stateful` feature is now the default feature for the `nimbus-sdk` library.
+- Changed the ordering around for optional arguments for Python compatibility ([#5460](https://github.com/mozilla/application-services/pull/5460)).
+  - This does not change Kotlin or Swift APIs, but affects code that uses the uniffi generated FFI for `record_event` and `record_past_event` directly.
+### ✨ What's New ✨
+
+- Added more testing tools for the `NimbusEventStore`, for iOS and Android ([#5477](https://github.com/mozilla/application-services/pull/5477))
+  - `events.advanceEventTime(by: time)` lets you queue up a sequence of events to test JEXL queries.
+
+## Sync Manager
+
+### 🦊 What's Changed 🦊
+  - Added the sync telemetry reporting logic to replace the temp metrics in iOS. ([#5479](https://github.com/mozilla/application-services/pull/5479))
+
+# v97.4.1 (_2023-04-04_)
+
+[Full Changelog](https://github.com/mozilla/application-services/compare/v97.4.0...v97.4.1)
+
+## Places
+
+### 🦊 What's Changed 🦊
+  - Added a workaround for a database migration issue that was breaking places for some nightly users
+    (https://github.com/mozilla/application-services/issues/5464)
+
+# v97.4.0 (_2023-04-03_)
+
+[Full Changelog](https://github.com/mozilla/application-services/compare/v97.3.0...v97.4.0)
+
+## Nimbus ⛅️🔬🔭
+
+### 🦊 What's Changed 🦊
+
+- Changed the ordering around for optional arguments for Python compatibility ([#5460](https://github.com/mozilla/application-services/pull/5460)).
+  - This does not change Kotlin or Swift APIs, but affects code that uses the uniffi generated FFI for `record_event` and `record_past_event` directly.
+
+# v97.3.0 (_2023-03-29_)
+
+[Full Changelog](https://github.com/mozilla/application-services/compare/v97.2.0...v97.3.0)
+
+## Places ⛅️🔬🔭
+
+### 🦊 What's Changed 🦊
+
+  - Added support for sync payload evolution in bookmarks.  If other clients sync bookmark records with fields that we don't know about, we store that data as JSON and send it back when it's synced next.
+
+## Nimbus ⛅️🔬🔭
+
+### ✨ What's New ✨
+
+  - Added `recordPastEvent` for iOS and Android for testing of event store triggers. ([#5431](https://github.com/mozilla/application-services/pull/5431))
+  - Added `recordMalformedConfiguration` method for `FeatureHolder` to record when some or all of a feature configuration is found to be invalid. ([#5440](https://github.com/mozilla/application-services/pull/5440))
+
+### 🦊 What's Changed 🦊
+
+  - Removed the check for major `schemaVersion` in Experiment recipes. ([#5433](https://github.com/mozilla/application-services/pull/5433))
+
 # v97.2.0 (_2023-03-08_)
 
 [Full Changelog](https://github.com/mozilla/application-services/compare/v97.1.0...v97.2.0)

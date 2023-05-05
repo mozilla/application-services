@@ -64,6 +64,15 @@ class FeatureHolder<T>(
     }
 
     /**
+     * Send a malformed feature event for this feature.
+     *
+     * @param partId an optional detail or part identifier to be attached to the event.
+     */
+    fun recordMalformedConfiguration(partId: String = "") {
+        getSdk()?.recordMalformedConfiguration(featureId, partId)
+    }
+
+    /**
      * This overwrites the cached value with the passed one.
      *
      * This is most likely useful during testing only.

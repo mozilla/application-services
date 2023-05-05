@@ -99,6 +99,31 @@ public protocol NimbusStartup {
     /// - Parameter fileURL the URL of a JSON document in the app `Bundle`.
     ///
     func setExperimentsLocally(_ fileURL: URL)
+
+    /// Testing method to reset the enrollments and experiments database back to its initial state.
+    func resetEnrollmentsDatabase() -> Operation
+
+    /// Enable or disable fetching of experiments.
+    ///
+    /// This is performed on a background thread.
+    ///
+    /// This is only used during QA of the app, and not meant for application developers.
+    /// Application developers should allow users to opt out with `setGlobalUserParticipation`
+    /// instead.
+    ///
+    /// - Parameter enabled
+    func setFetchEnabled(_ enabled: Bool)
+
+    /// The complement for [setFetchEnabled].
+    ///
+    /// This is only used during QA of the app, and not meant for application developers.
+    ///
+    /// - Returns true if fetch is allowed
+    func isFetchEnabled() -> Bool
+
+    /// Dump the state of the Nimbus SDK to the rust log.
+    /// This is only useful for testing.
+    func dumpStateToLog()
 }
 
 public protocol NimbusUserConfiguration {
@@ -173,6 +198,15 @@ public protocol NimbusEventStore {
     /// - Parameter timeAgo the duration subtracted from now when the event are said to have happened.
     /// - Throws NimbusError if timeAgo is negative.
     func recordPastEvent(_ count: Int, _ eventId: String, _ timeAgo: TimeInterval) throws
+
+    /// Advance the time of the event store into the future.
+    ///
+    /// This is not needed for normal operation, but is especially useful for testing queries,
+    /// without having to wait for actual time to pass.
+    ///
+    /// - Parameter bySeconds the number of seconds to advance into the future. Must be positive.
+    /// - Throws NimbusError is [bySeconds] is negative.
+    func advanceEventTime(by duration: TimeInterval) throws
 
     /// Clears the Nimbus event store.
     ///

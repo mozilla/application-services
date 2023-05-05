@@ -5,7 +5,7 @@
 import FeatureManifest
 import Foundation
 
-let injected: MockNimbus = MockNimbus()
+let injected = HardcodedNimbusFeatures()
 
 AppNimbus.shared.initialize { injected }
 

@@ -4,7 +4,9 @@
 
 // Testing featured-based get_experiment_branch semantics.
 
+#[cfg(feature = "rkv-safe-mode")]
 mod common;
+
 #[allow(unused_imports)]
 use nimbus::error::Result;
 

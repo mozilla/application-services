@@ -179,7 +179,6 @@ mod tests {
             .unwrap()
             .query_map(params, |row| row.get(0))
             .unwrap()
-            .into_iter()
             .collect::<rusqlite::Result<Vec<T>>>()
             .unwrap()
     }
@@ -193,7 +192,6 @@ mod tests {
             .unwrap()
             .query_map(params, |row| Ok((row.get(0)?, row.get(1)?)))
             .unwrap()
-            .into_iter()
             .collect::<rusqlite::Result<Vec<(T, V)>>>()
             .unwrap()
     }

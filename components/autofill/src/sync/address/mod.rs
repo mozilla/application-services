@@ -9,6 +9,7 @@ pub mod outgoing;
 use super::engine::{ConfigSyncEngine, EngineConfig, SyncEngineStorageImpl};
 use super::{
     MergeResult, Metadata, ProcessIncomingRecordImpl, ProcessOutgoingRecordImpl, SyncRecord,
+    UnknownFields,
 };
 use crate::db::models::address::InternalAddress;
 use crate::error::*;
@@ -96,6 +97,10 @@ struct PayloadEntry {
     #[serde(rename = "timesUsed")]
     pub times_used: i64,
     pub version: u32, // always 3 for credit-cards
+    // Fields that the current schema did not expect, we store them only internally
+    // to round-trip them back to sync without processing them in any way
+    #[serde(flatten)]
+    unknown_fields: UnknownFields,
 }
 
 impl InternalAddress {
@@ -152,6 +157,7 @@ impl InternalAddress {
                 time_last_used: self.metadata.time_last_used,
                 time_last_modified: self.metadata.time_last_modified,
                 times_used: self.metadata.times_used,
+                unknown_fields: Default::default(),
                 version: 1,
             },
         })

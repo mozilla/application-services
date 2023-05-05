@@ -11,7 +11,7 @@ use crate::types::SyncStatus;
 use rusqlite::Connection;
 use sql_support::ConnExt;
 
-pub const VERSION: u32 = 15;
+pub const VERSION: u32 = 17;
 
 // Shared schema and temp tables for the read-write and Sync connections.
 const CREATE_SHARED_SCHEMA_SQL: &str = include_str!("../../sql/create_shared_schema.sql");
@@ -140,6 +140,8 @@ where
 pub fn upgrade_from(db: &Connection, from: u32) -> rusqlite::Result<()> {
     log::debug!("Upgrading schema from {} to {}", from, VERSION);
 
+    // Old-style migrations
+
     migration(db, from, 2, &[CREATE_SHARED_SCHEMA_SQL], || Ok(()))?;
     migration(
         db,
@@ -260,21 +262,54 @@ pub fn upgrade_from(db: &Connection, from: u32) -> rusqlite::Result<()> {
         || Ok(()),
     )?;
 
-    // Add more migrations here...
+    // End of old style migrations, starting with the 15 -> 16 migration, we just use match
+    // statements
+
+    match from {
+        // Skip the old style migrations
+        n if n < 15 => (),
+        // New-style migrations start here
+        15 => {
+            // Add the `unknownFields` column
+            //
+            // This migration was rolled out incorrectly and we need to check if it was already
+            // applied (https://github.com/mozilla/application-services/issues/5464)
+            let exists_sql = "SELECT 1 FROM pragma_table_info('moz_bookmarks_synced') WHERE name = 'unknownFields'";
+            let add_column_sql = "ALTER TABLE moz_bookmarks_synced ADD COLUMN unknownFields TEXT";
+            if !db.exists(exists_sql, [])? {
+                db.execute(add_column_sql, [])?;
+            }
+        }
+        16 => {
+            // Add the `unknownFields` column for history
+            db.execute("ALTER TABLE moz_places ADD COLUMN unknown_fields TEXT", ())?;
+            db.execute(
+                "ALTER TABLE moz_historyvisits ADD COLUMN unknown_fields TEXT",
+                (),
+            )?;
+        }
+        // Add more migrations here...
+
+        // Any other from value indicates that something very wrong happened
+        _ => panic!(
+            "Places does not have a v{} -> v{} migration",
+            from,
+            from + 1
+        ),
+    }
+
     Ok(())
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::db::PlacesDb;
+    use crate::db::{db::PlacesInitializer, PlacesDb};
     use crate::error::Result;
+    use sql_support::open_database::test_utils::MigratedDatabaseFile;
+    use std::collections::BTreeSet;
     use sync_guid::Guid as SyncGuid;
     use url::Url;
-
-    fn get_current_schema_version(db: &PlacesDb) -> rusqlite::Result<u32> {
-        db.query_one::<u32>("PRAGMA user_version")
-    }
 
     #[test]
     fn test_create_schema_twice() {
@@ -722,113 +757,99 @@ mod tests {
         .expect_err("changing the guid should fail");
     }
 
+    const CREATE_V15_DB: &str = include_str!("../../sql/tests/create_v15_db.sql");
+
     #[test]
-    fn test_downgrade_schema() -> Result<()> {
-        // This test uses SQLite's URI filenames and shared cache features to
-        // create a named in-memory database.
-        let path = "file:downgrade_schema?mode=memory&cache=shared";
+    fn test_upgrade_schema_15_16() {
+        let db_file = MigratedDatabaseFile::new(PlacesInitializer::new_for_test(), CREATE_V15_DB);
 
-        // On the first connection, we downgrade the schema version to 2, the
-        // first one that we support for migrations. We don't actually roll
-        // back any of the schema changes; we just want to make sure that
-        // running through all our migration routines doesn't trigger errors.
-        let downgrade = PlacesDb::open(path, ConnectionType::ReadWrite, 0, Default::default())
-            .expect("Should open first in-memory database with shared cache");
-        downgrade.execute_batch("PRAGMA user_version = 2")?;
+        db_file.upgrade_to(16);
+        let db = db_file.open();
+
+        // Test the unknownFields column was added
         assert_eq!(
-            get_current_schema_version(&downgrade)?,
-            2,
-            "Should downgrade schema version"
+            db.query_one::<String>("SELECT type FROM pragma_table_info('moz_bookmarks_synced') WHERE name = 'unknownFields'").unwrap(),
+            "TEXT"
         );
-
-        // Now open a second connection to the same named in-memory database.
-        // This should run through all our migrations.
-        let upgrade = PlacesDb::open(path, ConnectionType::ReadWrite, 0, Default::default())
-            .expect("Should open second in-memory database with shared cache");
-        assert_eq!(
-            get_current_schema_version(&upgrade)?,
-            VERSION,
-            "Should upgrade schema without errors"
-        );
-
-        Ok(())
     }
 
     #[test]
-    fn test_upgrade_schema_12_13() -> Result<()> {
-        // As above, create a named in-memory database.
-        let path = "file:test_upgrade_schema_12_13?mode=memory&cache=shared";
+    fn test_gh5464() {
+        // Test the gh-5464 error case: A user with the `v16` schema, but with `user_version` set
+        // to 15
+        let db_file = MigratedDatabaseFile::new(PlacesInitializer::new_for_test(), CREATE_V15_DB);
+        db_file.upgrade_to(16);
+        let db = db_file.open();
+        db.execute("PRAGMA user_version=15", []).unwrap();
+        drop(db);
+        db_file.upgrade_to(16);
+    }
 
-        // On the first connection, we downgrade the schema version to 12 and
-        // setup test data.
-        let db = PlacesDb::open(path, ConnectionType::ReadWrite, 0, Default::default())
-            .expect("Should open first in-memory database with shared cache");
-        db.execute_batch("PRAGMA user_version = 12")?;
+    #[test]
+    fn test_all_upgrades() {
+        // Test the migration process in general: open a fresh DB and a DB that's gone through the migration
+        // process.  Check that the schemas match.
+        let fresh_db = PlacesDb::open_in_memory(ConnectionType::ReadWrite).unwrap();
+
+        let db_file = MigratedDatabaseFile::new(PlacesInitializer::new_for_test(), CREATE_V15_DB);
+        db_file.run_all_upgrades();
+        let upgraded_db = db_file.open();
+
         assert_eq!(
-            get_current_schema_version(&db)?,
-            12,
-            "Should downgrade schema version"
+            fresh_db.query_one::<u32>("PRAGMA user_version").unwrap(),
+            upgraded_db.query_one::<u32>("PRAGMA user_version").unwrap(),
         );
+        let all_tables = [
+            "moz_places",
+            "moz_places_tombstones",
+            "moz_places_stale_frecencies",
+            "moz_historyvisits",
+            "moz_historyvisit_tombstones",
+            "moz_inputhistory",
+            "moz_bookmarks",
+            "moz_bookmarks_deleted",
+            "moz_origins",
+            "moz_meta",
+            "moz_tags",
+            "moz_tags_relation",
+            "moz_bookmarks_synced",
+            "moz_bookmarks_synced_structure",
+            "moz_bookmarks_synced_tag_relation",
+            "moz_keywords",
+            "moz_places_metadata",
+            "moz_places_metadata_search_queries",
+        ];
+        #[derive(Debug, Ord, PartialOrd, Eq, PartialEq)]
+        struct ColumnInfo {
+            name: String,
+            type_: String,
+            not_null: bool,
+            default_value: Option<String>,
+            pk: bool,
+        }
 
-        // Create 2 items - both with SyncStatus::New
-        db.execute(
-            "INSERT INTO moz_bookmarks
-                (type, parent, position, dateAdded, lastModified, guid, syncStatus)
-             VALUES
-                (3, 1, 0, 1, 1, 'fake_guid_1_', 1)",
-            [],
-        )
-        .expect("should insert first regular bookmark folder");
-        db.execute(
-            "INSERT INTO moz_bookmarks
-                (type, parent, position, dateAdded, lastModified, guid, syncStatus)
-             VALUES
-                (3, 1, 0, 1, 1, 'fake_guid_2_', 1)",
-            [],
-        )
-        .expect("should insert regular bookmark folder");
-
-        // create a mirror entry for one of them.
-        db.execute(
-            "
-            INSERT INTO moz_bookmarks_synced
-                (guid, parentGuid)
-            VALUES
-                ('fake_guid_2_', 'root')",
-            [],
-        )
-        .expect("should insert into moz_bookmarks_synced");
-
-        // Now open a second connection to the same named in-memory database.
-        // This should do our migration. It'll migrate to the latest schema version, not the next one.
-        let upgrade = PlacesDb::open(path, ConnectionType::ReadWrite, 0, Default::default())
-            .expect("Should open second in-memory database with shared cache");
-        assert_eq!(
-            get_current_schema_version(&upgrade)?,
-            15,
-            "Should upgrade schema without errors"
-        );
-        // One with no mirror entry should still be New
-        assert_eq!(
-            select_simple_int(
-                &upgrade,
-                "
-                SELECT syncStatus FROM moz_bookmarks
-                WHERE guid='fake_guid_1_'"
-            ),
-            SyncStatus::New as u32
-        );
-        // One with the mirror should be Normal
-        assert_eq!(
-            select_simple_int(
-                &upgrade,
-                "
-                SELECT syncStatus FROM moz_bookmarks
-                WHERE guid='fake_guid_2_'"
-            ),
-            SyncStatus::Normal as u32
-        );
-
-        Ok(())
+        fn get_table_column_info(conn: &Connection, table_name: &str) -> BTreeSet<ColumnInfo> {
+            let mut stmt = conn
+                .prepare("SELECT name, type, `notnull`, dflt_value, pk FROM pragma_table_info(?)")
+                .unwrap();
+            stmt.query_map((table_name,), |row| {
+                Ok(ColumnInfo {
+                    name: row.get(0)?,
+                    type_: row.get(1)?,
+                    not_null: row.get(2)?,
+                    default_value: row.get(3)?,
+                    pk: row.get(4)?,
+                })
+            })
+            .unwrap()
+            .collect::<rusqlite::Result<BTreeSet<_>>>()
+            .unwrap()
+        }
+        for table_name in all_tables {
+            assert_eq!(
+                get_table_column_info(&upgraded_db, table_name),
+                get_table_column_info(&fresh_db, table_name),
+            );
+        }
     }
 }

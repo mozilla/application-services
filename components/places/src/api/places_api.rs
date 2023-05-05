@@ -604,22 +604,4 @@ mod tests {
         // Make sure we can open it again.
         assert!(api.open_connection(ConnectionType::ReadWrite).is_ok());
     }
-
-    #[test]
-    fn test_old_db_version() -> Result<()> {
-        let dirname = tempfile::tempdir().unwrap();
-        let db_name = dirname.path().join("temp.db");
-        let id = {
-            let api = PlacesApi::new(&db_name)?;
-            let conn = api.open_connection(ConnectionType::ReadWrite)?;
-            conn.execute_batch("PRAGMA user_version = 1;")?;
-            api.close_connection(conn)?;
-            api.id
-        };
-        let api2 = PlacesApi::new(&db_name)?;
-        assert_ne!(id, api2.id);
-        let conn = api2.open_connection(ConnectionType::ReadWrite)?;
-        assert_ne!(1, conn.db.query_one::<i64>("PRAGMA user_version")?);
-        Ok(())
-    }
 }

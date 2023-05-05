@@ -131,6 +131,17 @@ public class NimbusBuilder {
     var featureManifest: FeatureManifestInterface?
 
     /**
+     * The command line arguments for the app. This is useful for QA, and can be safely left in the app in production.
+     */
+    @discardableResult
+    public func with(commandLineArgs: [String]) -> NimbusBuilder {
+        self.commandLineArgs = commandLineArgs
+        return self
+    }
+
+    var commandLineArgs: [String]?
+
+    /**
      * Build a [Nimbus] singleton for the given [NimbusAppSettings]. Instances built with this method
      * have been initialized, and are ready for use by the app.
      *
@@ -165,15 +176,14 @@ public class NimbusBuilder {
                     onApplyCallback?(nimbus)
                 }
             }
-
-            let job: Operation
-            if let file = initialExperiments, isFirstRun || serverSettings == nil {
-                job = nimbus.applyLocalExperiments(fileURL: file)
+            if let args = ArgumentProcessor.createCommandLineArgs(args: commandLineArgs) {
+                ArgumentProcessor.initializeTooling(nimbus: nimbus, args: args)
+            } else if let file = initialExperiments, isFirstRun || serverSettings == nil {
+                let job = nimbus.applyLocalExperiments(fileURL: file)
+                _ = job.joinOrTimeout(timeout: timeoutLoadingExperiment)
             } else {
-                job = nimbus.applyPendingExperiments()
+                nimbus.applyPendingExperiments().waitUntilFinished()
             }
-
-            _ = job.joinOrTimeout(timeout: timeoutLoadingExperiment)
 
             // By now, on this thread, we have a fully initialized Nimbus object, ready for use:
             // * we gave a 200ms timeout to the loading of a file from res/raw

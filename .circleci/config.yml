@@ -295,23 +295,7 @@ jobs:
       - setup-rust-min-version
       # tests.py doesn't support skipping tests, and we need to skip the systests on this rust version.
       # It's not in the default workspace members, so just `cargo test` is OK.
-      #
-      # Note "-j" here and below - we saw OOM errors which this tries to workaround and is
-      # hopefully a cheaper workaround than an "resource_class: xlarge".
-      # Probably https://github.com/rust-lang/rust/issues/97549 which is a 1.61 issue.
-      # We should revert this once we move past 1.61
-      - run: RUST_LOG=trace cargo test -j2
-      - save-sccache-cache
-  # These run periodically (driven by cron).
-  Rust tests - beta:
-    executor: docker
-    resource_class: large
-    steps:
-      - full-checkout
-      - restore-sccache-cache
-      - test-setup
-      - run: rustup override set beta
-      - run-tests
+      - run: RUST_LOG=trace cargo test
       - save-sccache-cache
 
   Focus build XCFramework:
@@ -456,16 +440,6 @@ workflows:
   bash-lint:
     jobs:
       - Lint Bash scripts
-  run-beta-tests-periodically:
-    jobs:
-      - Rust tests - beta
-    triggers:
-      - schedule:
-          cron: "0 7 * * *"
-          filters:
-            branches:
-              only:
-                - main
   run-tests:
     jobs:
       - Rust tests

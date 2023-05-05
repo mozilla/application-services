@@ -47,4 +47,12 @@ public protocol FeaturesInterface: AnyObject {
     ///     event.
     ///
     func recordExposureEvent(featureId: String)
+
+    /// Records an event signifying a malformed feature configuration, or part of one.
+    ///
+    /// - Parameter featureId string representing the id of the feature which app code has found to
+    ///     malformed.
+    /// - Parameter partId string representing the card id or message id of the part of the feature that
+    ///     is malformed, providing more detail to experiment owners of where to look for the problem.
+    func recordMalformedConfiguration(featureId: String, with partId: String)
 }

@@ -234,13 +234,14 @@ impl ProcessIncomingRecordImpl for IncomingAddressesImpl {
 
     /// Changes the guid of the local record for the given `old_guid` to the given `new_guid` used
     /// for the `HasLocalDupe` incoming state, and mark the item as dirty.
-    fn change_local_guid(
+    /// We also update the mirror record if it exists in forking scenarios
+    fn change_record_guid(
         &self,
         tx: &Transaction<'_>,
         old_guid: &SyncGuid,
         new_guid: &SyncGuid,
     ) -> Result<()> {
-        common_change_guid(tx, "addresses_data", old_guid, new_guid)
+        common_change_guid(tx, "addresses_data", "addresses_mirror", old_guid, new_guid)
     }
 
     fn remove_record(&self, tx: &Transaction<'_>, guid: &SyncGuid) -> Result<()> {
@@ -273,14 +274,16 @@ mod tests {
         static ref TEST_JSON_RECORDS: Map<String, Value> = {
             // NOTE: the JSON here is the same as stored on the sync server -
             // the superfluous `entry` is unfortunate but from desktop.
+            // JSON from the server is kebab-style, EXCEPT the times{X} fields
+            // see PayloadEntry struct
             let val = json! {{
                 "A" : {
                     "id": expand_test_guid('A'),
                     "entry": {
-                        "givenName": "john",
-                        "familyName": "doe",
-                        "streetAddress": "1300 Broadway",
-                        "addressLevel2": "New York, NY",
+                        "given-name": "john",
+                        "family-name": "doe",
+                        "street-address": "1300 Broadway",
+                        "address-level2": "New York, NY",
                         "country": "United States",
                         "version": 1,
                     }
@@ -288,10 +291,10 @@ mod tests {
                 "C" : {
                     "id": expand_test_guid('C'),
                     "entry": {
-                        "givenName": "jane",
-                        "familyName": "doe",
-                        "streetAddress": "3050 South La Brea Ave",
-                        "addressLevel2": "Los Angeles, CA",
+                        "given-name": "jane",
+                        "family-name": "doe",
+                        "street-address": "3050 South La Brea Ave",
+                        "address-level2": "Los Angeles, CA",
                         "country": "United States",
                         "timeCreated": 0,
                         "timeLastUsed": 0,
@@ -300,6 +303,19 @@ mod tests {
                         "version": 1,
                     }
                 },
+                "D" : {
+                    "id": expand_test_guid('D'),
+                    "entry": {
+                        "given-name": "test1",
+                        "family-name": "test2",
+                        "street-address": "85 Pike St",
+                        "address-level2": "Seattle, WA",
+                        "country": "United States",
+                        "foo": "bar",
+                        "baz": "qux",
+                        "version": 1,
+                    }
+                }
             }};
             val.as_object().expect("literal is an object").clone()
         };
@@ -413,14 +429,14 @@ mod tests {
     }
 
     #[test]
-    fn test_change_local_guid() -> Result<()> {
+    fn test_change_record_guid() -> Result<()> {
         let mut db = new_syncable_mem_db();
         let tx = db.transaction()?;
         let ri = IncomingAddressesImpl {};
 
         ri.insert_local_record(&tx, test_record('C'))?;
 
-        ri.change_local_guid(
+        ri.change_record_guid(
             &tx,
             &SyncGuid::new(&expand_test_guid('C')),
             &SyncGuid::new(&expand_test_guid('B')),
@@ -439,6 +455,24 @@ mod tests {
         let record = test_record('C');
         let bso = record.clone().into_test_incoming_bso();
         do_test_incoming_same(&ai, &tx, record, bso);
+    }
+
+    #[test]
+    fn test_get_incoming_unknown_fields() {
+        let json = test_json_record('D');
+        let address_payload = serde_json::from_value::<AddressPayload>(json).unwrap();
+        // The incoming payload should've correctly deserialized any unknown_fields into a Map<String,Value>
+        assert_eq!(address_payload.entry.unknown_fields.len(), 2);
+        assert_eq!(
+            address_payload
+                .entry
+                .unknown_fields
+                .get("foo")
+                .unwrap()
+                .as_str()
+                .unwrap(),
+            "bar"
+        );
     }
 
     #[test]

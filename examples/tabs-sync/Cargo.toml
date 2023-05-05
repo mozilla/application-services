@@ -6,15 +6,6 @@ license = "MPL-2.0"
 edition = "2021"
 publish = false
 
-[features]
-default = ["with-clipboard"]
-
-# The `clipboard` module we use appears to want to link against X11, which
-# is a problem in some cases (notably, Windows/WSL)
-# Running this example with, eg, `--no-default-features` will avoid using that module,
-# but disable certain functionality.
-with-clipboard = []
-
 [[example]]
 name = "tabs-sync"
 path = "src/tabs-sync.rs"
@@ -26,7 +17,6 @@ serde_json = "1"
 log = "0.4"
 anyhow = "1.0"
 chrono = "0.4"
-clipboard = "0.5"
 structopt = "0.3"
 cli-support = { path = "../cli-support" }
 viaduct-reqwest = { path = "../../components/support/viaduct-reqwest" }

@@ -523,13 +523,13 @@ pub(crate) mod tests {
     #[test]
     fn test_credit_card_delete() -> Result<()> {
         let db = new_mem_db();
-        let encdec = EncryptorDecryptor::new_test_key();
+        let encdec = EncryptorDecryptor::new_with_random_key().unwrap();
 
         let saved_credit_card = add_credit_card(
             &db,
             UpdatableCreditCardFields {
                 cc_name: "john deer".to_string(),
-                cc_number_enc: encdec.encrypt("1234567812345678")?,
+                cc_number_enc: encdec.encrypt("1234567812345678", "cc_number")?,
                 cc_number_last_4: "5678".to_string(),
                 cc_exp_month: 10,
                 cc_exp_year: 2025,
@@ -545,7 +545,7 @@ pub(crate) mod tests {
             &db,
             UpdatableCreditCardFields {
                 cc_name: "john doe".to_string(),
-                cc_number_enc: encdec.encrypt("1234123412341234")?,
+                cc_number_enc: encdec.encrypt("1234123412341234", "cc_number")?,
                 cc_number_last_4: "1234".to_string(),
                 cc_exp_month: 5,
                 cc_exp_year: 2024,
@@ -555,7 +555,7 @@ pub(crate) mod tests {
 
         // create a mirror record to check that a tombstone record is created upon deletion
         let cc2_guid = saved_credit_card2.guid.clone();
-        let payload = saved_credit_card2.into_test_incoming_bso(&encdec);
+        let payload = saved_credit_card2.into_test_incoming_bso(&encdec, Default::default());
 
         test_insert_mirror_record(&db, payload);
 
@@ -590,14 +590,14 @@ pub(crate) mod tests {
     #[test]
     fn test_scrub_encrypted_credit_card_data() -> Result<()> {
         let db = new_mem_db();
-        let encdec = EncryptorDecryptor::new_test_key();
+        let encdec = EncryptorDecryptor::new_with_random_key().unwrap();
         let mut saved_credit_cards = Vec::with_capacity(10);
         for _ in 0..5 {
             saved_credit_cards.push(add_credit_card(
                 &db,
                 UpdatableCreditCardFields {
                     cc_name: "john deer".to_string(),
-                    cc_number_enc: encdec.encrypt("1234567812345678")?,
+                    cc_number_enc: encdec.encrypt("1234567812345678", "cc_number")?,
                     cc_number_last_4: "5678".to_string(),
                     cc_exp_month: 10,
                     cc_exp_year: 2025,

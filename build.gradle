@@ -3,16 +3,16 @@
 buildscript {
 
     ext {
-        kotlin_version = '1.8.10'
+        kotlin_version = '1.8.21'
         kotlin_coroutines_version = '1.6.4'
         jna_version = '5.13.0'
-        android_gradle_plugin_version = '7.4.1'
-        android_components_version = '110.0.1'
-        glean_version = '52.4.1'
+        android_gradle_plugin_version = '7.4.2'
+        android_components_version = '112.2.0'
+        glean_version = '52.6.0'
 
         // NOTE: AndroidX libraries should be synced with AC to avoid compatibility issues
-        androidx_annotation_version = '1.5.0'
-        androidx_core_version = '1.8.0'
+        androidx_annotation_version = '1.6.0'
+        androidx_core_version = '1.10.0'
         androidx_test_version = '1.5.0'
         androidx_test_junit_version = '1.1.5'
         androidx_work_testing_version = '2.7.1'
@@ -22,14 +22,14 @@ buildscript {
         gradle_download_task_version = '5.2.1'
         junit_version = '4.13.2'
         mockito_core_version = '4.8.0'
-        robolectric_core_version = '4.9'
+        robolectric_core_version = '4.10.1'
         rust_android_gradle_version = '0.9.3'
         protobuf_version = '3.21.10'
-        gradle_protobuf_version = '0.9.1'
+        gradle_protobuf_version = '0.9.3'
     }
 
     ext.build = [
-        ndkVersion: "21.3.6528147", // Keep it in sync in TC Dockerfile.
+        ndkVersion: "25.2.9519653", // Keep it in sync in TC Dockerfile.
         compileSdkVersion: 33,
         targetSdkVersion: 33,
         minSdkVersion: 21, // So that we can publish for aarch64.

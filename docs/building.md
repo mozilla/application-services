@@ -94,8 +94,7 @@ The following instructions assume that you are building `application-services` f
 [Fenix Auto-publication workflow for android-components and application-services](howtos/locally-published-components-in-fenix.md).
 
 1. Install Android SDK, JAVA, NDK and set required env vars
-   1. Clone the [Fenix](https://github.com/mozilla-mobile/fenix/) repository (**not** inside the Application Service repository).
-   1. Clone the [android-components](https://github.com/mozilla-mobile/android-components/) repository (**not** inside the Application Service repository).
+   1. Clone the [firefox-android](https://github.com/mozilla-mobile/firefox-android) repository (**not** inside the Application Service repository).
    1. Install [Java **11**](https://www.oracle.com/java/technologies/downloads/#java11) for your system
    1. Set `JAVA_HOME` to point to the JDK 11 installation directory.
    1. Download and install [Android Studio](https://developer.android.com/studio/#downloads).
@@ -103,7 +102,7 @@ The following instructions assume that you are building `application-services` f
    1. Configure the required versions of NDK
   `Configure menu > System Settings > Android SDK > SDK Tools > NDK > Show Package Details > NDK (Side by side)`
         - 21.4.7075529 (required by Fenix; note: a specific NDK version isn't configured, this maps to default [NDK version](https://developer.android.com/studio/projects/install-ndk#default-ndk-per-agp) for the [AGP version](https://github.com/mozilla-mobile/fenix/blob/main/buildSrc/src/main/java/Dependencies.kt#L11))
-        - 21.3.6528147 (required by Application Services, [as configured](https://github.com/mozilla/application-services/blob/main/build.gradle#L30))
+        - 25.2.9519653 (required by Application Services, [as configured](https://github.com/mozilla/application-services/blob/main/build.gradle#L30))
 1. If you are on Windows using WSL - drop to the section below, [Windows setup
 for Android (WSL)](building.md#windows-setup-for-android-via-wsl) before proceeding.
 1. Check dependencies, environment variables

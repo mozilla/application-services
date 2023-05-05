@@ -31,65 +31,27 @@
 use crate::error::*;
 use error_support::handle_error;
 
-// Rather than passing keys around everywhere we abstract the encryption
-// and decryption behind this struct.
-pub struct EncryptorDecryptor {
-    jwk: jwcrypto::Jwk,
-}
-
-impl EncryptorDecryptor {
-    pub fn new(key: &str) -> Result<Self> {
-        Ok(EncryptorDecryptor {
-            jwk: serde_json::from_str(key)?,
-        })
-    }
-
-    // For tests.
-    #[cfg(test)]
-    pub fn new_test_key() -> Self {
-        let jwk = jwcrypto::Jwk::new_direct_key(Some("test-key".to_string())).unwrap();
-        Self { jwk }
-    }
-
-    pub fn encrypt(&self, cleartext: &str) -> Result<String> {
-        Ok(jwcrypto::encrypt_to_jwe(
-            cleartext.as_bytes(),
-            jwcrypto::EncryptionParameters::Direct {
-                enc: jwcrypto::EncryptionAlgorithm::A256GCM,
-                jwk: &self.jwk,
-            },
-        )?)
-    }
-
-    pub fn decrypt(&self, ciphertext: &str) -> Result<String> {
-        if ciphertext.is_empty() {
-            return Err(Error::EmptyCyphertext);
-        }
-        Ok(jwcrypto::decrypt_jwe(
-            ciphertext,
-            jwcrypto::DecryptionParameters::Direct {
-                jwk: self.jwk.clone(),
-            },
-        )?)
-    }
-}
+pub type EncryptorDecryptor = jwcrypto::EncryptorDecryptor<Error>;
 
 // public functions we expose over the FFI (which is why they take `String`
 // rather than the `&str` you'd otherwise expect)
 #[handle_error(Error)]
 pub fn encrypt_string(key: String, cleartext: String) -> ApiResult<String> {
-    EncryptorDecryptor::new(&key)?.encrypt(&cleartext)
+    // It would be nice to have more detailed error messages, but that would require the consumer
+    // to pass them in.  Let's not change the API yet.
+    EncryptorDecryptor::new(&key)?.encrypt(&cleartext, "single string field")
 }
 
 #[handle_error(Error)]
 pub fn decrypt_string(key: String, ciphertext: String) -> ApiResult<String> {
-    EncryptorDecryptor::new(&key)?.decrypt(&ciphertext)
+    // It would be nice to have more detailed error messages, but that would require the consumer
+    // to pass them in.  Let's not change the API yet.
+    EncryptorDecryptor::new(&key)?.decrypt(&ciphertext, "single string field")
 }
 
 #[handle_error(Error)]
 pub fn create_autofill_key() -> ApiResult<String> {
-    let key = jwcrypto::Jwk::new_direct_key(None)?;
-    Ok(serde_json::to_string(&key)?)
+    EncryptorDecryptor::create_key()
 }
 
 #[cfg(test)]
@@ -100,11 +62,11 @@ mod test {
     fn test_encrypt() {
         let ed = EncryptorDecryptor::new(&create_autofill_key().unwrap()).unwrap();
         let cleartext = "secret";
-        let ciphertext = ed.encrypt(cleartext).unwrap();
-        assert_eq!(ed.decrypt(&ciphertext).unwrap(), cleartext);
+        let ciphertext = ed.encrypt(cleartext, "secret").unwrap();
+        assert_eq!(ed.decrypt(&ciphertext, "secret").unwrap(), cleartext);
         let ed2 = EncryptorDecryptor::new(&create_autofill_key().unwrap()).unwrap();
         assert!(matches!(
-            ed2.decrypt(&ciphertext),
+            ed2.decrypt(&ciphertext, "secret"),
             Err(Error::CryptoError(_))
         ));
     }
@@ -113,12 +75,15 @@ mod test {
     fn test_decryption_errors() {
         let ed = EncryptorDecryptor::new(&create_autofill_key().unwrap()).unwrap();
         assert!(matches!(
-            ed.decrypt("invalid-ciphertext").unwrap_err(),
+            ed.decrypt("invalid-ciphertext", "invalid").unwrap_err(),
             Error::CryptoError(_)
         ));
         assert!(matches!(
-            ed.decrypt("").unwrap_err(),
-            Error::EmptyCyphertext
+            ed.decrypt("", "empty").unwrap_err(),
+            Error::CryptoError(jwcrypto::EncryptorDecryptorError {
+                from: jwcrypto::JwCryptoError::EmptyCyphertext,
+                ..
+            })
         ));
     }
 }

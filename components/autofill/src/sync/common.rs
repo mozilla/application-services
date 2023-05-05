@@ -75,9 +75,12 @@ pub(super) fn common_remove_record(conn: &Connection, table_name: &str, guid: &G
     Ok(())
 }
 
+// This optionally takes a mirror table name to update if
+// there is a corresponding record with the same guid we'd like to update
 pub(super) fn common_change_guid(
     conn: &Connection,
     table_name: &str,
+    mirror_table_name: &str,
     old_guid: &Guid,
     new_guid: &Guid,
 ) -> Result<()> {
@@ -97,6 +100,21 @@ pub(super) fn common_change_guid(
     )?;
     // something's gone badly wrong if this didn't affect exactly 1 row.
     assert_eq!(nrows, 1);
+
+    // If there is also a corresponding mirror row (e.g forking situations), update aswell
+    conn.execute(
+        &format!(
+            "UPDATE {}
+                SET guid = :new_guid
+                WHERE guid = :old_guid",
+            mirror_table_name
+        ),
+        rusqlite::named_params! {
+            ":old_guid": old_guid,
+            ":new_guid": new_guid,
+        },
+    )?;
+
     Ok(())
 }
 

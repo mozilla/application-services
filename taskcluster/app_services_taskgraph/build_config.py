@@ -31,9 +31,18 @@ def get_components():
     } for (name, project) in build_config['projects'].items()]
 
 
-def get_version():
-    return _read_build_config()["libraryVersion"]
-
+def get_version(params):
+    version = _read_build_config()["libraryVersion"]
+    preview_build = params.get('preview-build')
+    if preview_build == 'nightly':
+        components = version.split('.')
+        assert len(components) == 2
+        components[1] = params['moz_build_date']
+        return '.'.join(components)
+    elif preview_build is not None:
+        raise NotImplemented("Only nightly preview builds are currently supported")
+    else:
+        return version
 
 def get_extensions(module_name):
     publications = _read_build_config()["projects"][module_name]['publications']

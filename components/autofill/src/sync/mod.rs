@@ -18,6 +18,10 @@ use sync15::{CollectionName, ServerTimestamp};
 use sync_guid::Guid;
 use types::Timestamp;
 
+// This type is used as a snazzy way to capture all unknown fields from the payload
+// upon deserialization without having to work with a concrete type
+type UnknownFields = serde_json::Map<String, serde_json::Value>;
+
 // The fact that credit-card numbers are encrypted makes things a little tricky
 // for sync in various ways - and one non-obvious way is that the tables that
 // store sync payloads can't just store them directly as they are not encrypted
@@ -81,7 +85,7 @@ pub trait ProcessIncomingRecordImpl {
 
     fn insert_local_record(&self, tx: &Transaction<'_>, record: Self::Record) -> Result<()>;
 
-    fn change_local_guid(
+    fn change_record_guid(
         &self,
         tx: &Transaction<'_>,
         old_guid: &Guid,
@@ -369,7 +373,9 @@ fn apply_incoming_action<T: std::fmt::Debug + SyncRecord>(
         }
         IncomingAction::Fork { forked, incoming } => {
             // `forked` exists in the DB with the same guid as `incoming`, so fix that.
-            rec_impl.change_local_guid(tx, incoming.id(), forked.id())?;
+            // change_record_guid will also update the mirror (if it exists) to prevent
+            // the server from overriding the forked mirror record (and losing any unknown fields)
+            rec_impl.change_record_guid(tx, incoming.id(), forked.id())?;
             // `incoming` has the correct new guid.
             rec_impl.insert_local_record(tx, incoming)?;
         }
@@ -379,7 +385,7 @@ fn apply_incoming_action<T: std::fmt::Debug + SyncRecord>(
         IncomingAction::UpdateLocalGuid { old_guid, record } => {
             // expect record to have the new guid.
             assert_ne!(old_guid, *record.id());
-            rec_impl.change_local_guid(tx, &old_guid, record.id())?;
+            rec_impl.change_record_guid(tx, &old_guid, record.id())?;
             // the item is identical with the item with the new guid
             // *except* for the metadata - so we still need to update, but
             // don't need to treat the item as dirty.

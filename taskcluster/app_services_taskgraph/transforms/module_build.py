@@ -43,13 +43,20 @@ def release_upload_symbols(config, tasks):
 
 @transforms.add
 def build_task(config, tasks):
+    if config.params.get("preview-build") is None:
+        path_prefix = "/builds/worker/checkouts/vcs/build/maven/org/mozilla/appservices/"
+    else:
+        path_prefix = "/builds/worker/checkouts/vcs/build/maven/org/mozilla/appservices/nightly"
+
     for task in tasks:
         module_info = task["attributes"]["buildconfig"]
         name = module_info["name"]
-        version = get_version()
+        version = get_version(config.params)
 
         for i,item in enumerate(task["run"]["gradlew"]):
             task["run"]["gradlew"][i] = task["run"]["gradlew"][i].format(module_name=name)
+        if config.params.get('preview-build') is not None:
+            task["run"]["gradlew"].append(f"-PnightlyVersion={version}")
         task["description"] = task["description"].format(module_name=name)
         task["worker"]["artifacts"] = artifacts = []
 
@@ -59,7 +66,7 @@ def build_task(config, tasks):
                 artifact_filename = f"{publication_name}-{version}{extension}"
                 artifacts.append({
                     "name": f"public/build/{artifact_filename}",
-                    "path": f"/builds/worker/checkouts/vcs/build/maven/org/mozilla/appservices/{publication_name}/{version}/{artifact_filename}",
+                    "path": f"{path_prefix}/{publication_name}/{version}/{artifact_filename}",
                     "type": "file",
                 })
 

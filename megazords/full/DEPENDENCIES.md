@@ -428,6 +428,7 @@ Exhibit B - "Incompatible With Secondary Licenses" Notice
 
 The following text applies to code linked from these dependencies:
 [ahash](https://github.com/tkaitchuck/ahash),
+[android_system_properties](https://github.com/nical/android_system_properties),
 [anyhow](https://github.com/dtolnay/anyhow),
 [askama](https://github.com/djc/askama),
 [askama_derive](https://github.com/djc/askama),
@@ -442,6 +443,7 @@ The following text applies to code linked from these dependencies:
 [cc](https://github.com/alexcrichton/cc-rs),
 [cfg-if](https://github.com/alexcrichton/cfg-if),
 [chrono](https://github.com/chronotope/chrono),
+[core-foundation-sys](https://github.com/servo/core-foundation-rs),
 [cpufeatures](https://github.com/RustCrypto/utils),
 [digest](https://github.com/RustCrypto/traits),
 [dogear](https://github.com/mozilla/dogear),
@@ -459,6 +461,7 @@ The following text applies to code linked from these dependencies:
 [hashlink](https://github.com/kyren/hashlink),
 [heck](https://github.com/withoutboats/heck),
 [hex](https://github.com/KokaKiwi/rust-hex),
+[iana-time-zone](https://github.com/strawlab/iana-time-zone),
 [id-arena](https://github.com/fitzgen/id-arena),
 [idna](https://github.com/servo/rust-url/),
 [io-lifetimes](https://github.com/sunfishcode/io-lifetimes),
@@ -503,6 +506,7 @@ The following text applies to code linked from these dependencies:
 [serde](https://github.com/serde-rs/serde),
 [serde_derive](https://github.com/serde-rs/serde),
 [serde_json](https://github.com/serde-rs/json),
+[serde_path_to_error](https://github.com/dtolnay/path-to-error),
 [sha2](https://github.com/RustCrypto/hashes),
 [siphasher](https://github.com/jedisct1/rust-siphash),
 [smallbitvec](https://github.com/servo/smallbitvec),
@@ -1464,7 +1468,7 @@ The following text applies to code linked from these dependencies:
 [sqlcipher](https://github.com/sqlcipher/sqlcipher)
 
 ```
-Copyright (c) 2008, ZETETIC LLC
+Copyright (c) 2008-2023, ZETETIC LLC
 All rights reserved.
 
 Redistribution and use in source and binary forms, with or without

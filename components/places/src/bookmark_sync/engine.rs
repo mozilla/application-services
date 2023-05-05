@@ -18,7 +18,7 @@ use crate::storage::{
     },
     delete_pending_temp_tables, get_meta, put_meta,
 };
-use crate::types::{BookmarkType, SyncStatus};
+use crate::types::{BookmarkType, SyncStatus, UnknownFields};
 use dogear::{
     self, AbortSignal, CompletionOps, Content, Item, MergedRoot, TelemetryEvent, Tree, UploadItem,
     UploadTombstone,
@@ -132,11 +132,11 @@ fn db_has_changes(db: &PlacesDb) -> Result<bool> {
 /// Conceptually, we examine the merge state of each item, and either leave the
 /// item unchanged, upload the local side, apply the remote side, or apply and
 /// then reupload the remote side with a new structure.
-fn update_local_items_in_places<'t>(
+fn update_local_items_in_places(
     db: &PlacesDb,
     scope: &SqlInterruptScope,
     now: Timestamp,
-    ops: &CompletionOps<'t>,
+    ops: &CompletionOps<'_>,
 ) -> Result<()> {
     // Build a table of new and updated items.
     log::debug!("Staging apply remote item ops");
@@ -676,10 +676,12 @@ fn fetch_outgoing_records(db: &PlacesDb, scope: &SqlInterruptScope) -> Result<Ou
     }
 
     let mut stmt = db.prepare(
-        "SELECT id, syncChangeCounter, guid, isDeleted, kind, keyword,
-                url, IFNULL(title, '') AS title, position, parentGuid,
-                IFNULL(parentTitle, '') AS parentTitle, dateAdded
-         FROM itemsToUpload",
+        "SELECT i.id, i.syncChangeCounter, i.guid, i.isDeleted, i.kind, i.keyword,
+                i.url, IFNULL(i.title, '') AS title, i.position, i.parentGuid,
+                IFNULL(i.parentTitle, '') AS parentTitle, i.dateAdded, m.unknownFields
+         FROM itemsToUpload i
+         LEFT JOIN moz_bookmarks_synced m ON i.guid == m.guid
+         ",
     )?;
     let mut results = stmt.query([])?;
     while let Some(row) = results.next()? {
@@ -695,6 +697,10 @@ fn fetch_outgoing_records(db: &PlacesDb, scope: &SqlInterruptScope) -> Result<Ou
         let parent_guid = row.get::<_, SyncGuid>("parentGuid")?;
         let parent_title = row.get::<_, String>("parentTitle")?;
         let date_added = row.get::<_, i64>("dateAdded")?;
+        let unknown_fields = match row.get::<_, Option<String>>("unknownFields")? {
+            None => UnknownFields::new(),
+            Some(s) => serde_json::from_str(&s)?,
+        };
         let record: BookmarkItemRecord = match SyncedBookmarkKind::from_u8(row.get("kind")?)? {
             SyncedBookmarkKind::Bookmark => {
                 let local_id = row.get::<_, i64>("id")?;
@@ -710,6 +716,7 @@ fn fetch_outgoing_records(db: &PlacesDb, scope: &SqlInterruptScope) -> Result<Ou
                     url: Some(url),
                     keyword: row.get::<_, Option<String>>("keyword")?,
                     tags: tags_by_local_id.remove(&local_id).unwrap_or_default(),
+                    unknown_fields,
                 }
                 .into()
             }
@@ -725,6 +732,7 @@ fn fetch_outgoing_records(db: &PlacesDb, scope: &SqlInterruptScope) -> Result<Ou
                     title: Some(title),
                     url: Some(url),
                     tag_folder_name: None,
+                    unknown_fields,
                 }
                 .into()
             }
@@ -742,6 +750,7 @@ fn fetch_outgoing_records(db: &PlacesDb, scope: &SqlInterruptScope) -> Result<Ou
                     has_dupe: true,
                     title: Some(title),
                     children,
+                    unknown_fields,
                 }
                 .into()
             }
@@ -755,6 +764,7 @@ fn fetch_outgoing_records(db: &PlacesDb, scope: &SqlInterruptScope) -> Result<Ou
                     date_added: Some(date_added),
                     has_dupe: true,
                     position: Some(position),
+                    unknown_fields,
                 }
                 .into()
             }

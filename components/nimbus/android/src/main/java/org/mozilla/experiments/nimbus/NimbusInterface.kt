@@ -94,6 +94,26 @@ interface NimbusInterface : FeaturesInterface, GleanPlumbInterface, NimbusEventS
     fun fetchExperiments() = Unit
 
     /**
+     * Enable or disable fetching of experiments.
+     *
+     * This is performed on a background thread.
+     *
+     * This is only used during QA of the app, and not meant for application developers.
+     * Application developers should allow users to opt out with [globalUserParticipation]
+     * instead.
+     */
+    fun setFetchEnabled(enabled: Boolean) = Unit
+
+    /**
+     * The complement for [setFetchEnabled].
+     *
+     * This is only used during QA of the app, and not meant for application developers.
+     * Application developers should allow users to opt out with [globalUserParticipation]
+     * instead.
+     */
+    fun isFetchEnabled(): Boolean = true
+
+    /**
      * Calculates the experiment enrolment from experiments from the last `fetchExperiments` or
      * `setExperimentsLocally`, and then informs Glean of new experiment enrolment.
      *
@@ -136,6 +156,11 @@ interface NimbusInterface : FeaturesInterface, GleanPlumbInterface, NimbusEventS
     fun setExperimentsLocally(@RawRes file: Int) = Unit
 
     /**
+     * Testing method to reset the enrollments and experiments database back to its initial state.
+     */
+    fun resetEnrollmentsDatabase(): Job = Job()
+
+    /**
      * Opt into a specific branch for the given experiment.
      *
      * @param experimentId The string experiment-id or "slug" for which to opt into
@@ -156,34 +181,6 @@ interface NimbusInterface : FeaturesInterface, GleanPlumbInterface, NimbusEventS
      *  consuming application, such as by opting out of (or in to) submitting telemetry.
      */
     fun resetTelemetryIdentifiers() = Unit
-
-    /**
-     * Records the `exposure` event in telemetry.
-     *
-     * This is a manual function to accomplish the same purpose as passing `true` as the
-     * `recordExposureEvent` property of the [getVariables] function. It is intended to be used
-     * when requesting feature variables must occur at a different time than the actual user's
-     * exposure to the feature within the app.
-     *
-     * Examples:
-     * * If the [Variables] are needed at a different time than when the exposure to the feature
-     *   actually happens, such as constructing a menu happening at a different time than the user
-     *   seeing the menu.
-     * * If [getVariables] is required to be called multiple times for the same feature and it is
-     *   desired to only record the exposure once, such as if [getVariables] were called with every
-     *   keystroke.
-     *
-     * In the case where the use of this function is required, then the [getVariables] function
-     * should be called with `false` so that the exposure event is not recorded when the variables
-     * are fetched.
-     *
-     * This function is safe to call even when there is no active experiment for the feature. The SDK
-     * will ensure that an event is only recorded for active experiments.
-     *
-     * @param featureId string representing the id of the feature for which to record the exposure
-     *     event.
-     */
-    override fun recordExposureEvent(featureId: String) = Unit
 
     /**
      * Control the opt out for all experiments at once. This is likely a user action.
@@ -266,11 +263,46 @@ interface NimbusEventStore {
         recordPastEvent(count, eventId, timeUnit.toSeconds(timeAgo))
 
     /**
+     * Advance the time of the event store into the future.
+     *
+     * This is not needed for normal operation, but is especially useful for testing queries,
+     * without having to wait for actual time to pass.
+     *
+     * @param bySeconds the number of seconds to advance into the future. Must be positive.
+     * @throws NimbusError is [bySeconds] is negative.
+     */
+    fun advanceEventTime(bySeconds: Long) = Unit
+
+    /**
+     * Convenience method for [advanceEventTime]
+     *
+     * @see [advanceEventTime]
+     */
+    @TargetApi(Build.VERSION_CODES.O)
+    fun advanceEventTime(byDuration: Duration) =
+        advanceEventTime(byDuration.seconds)
+
+    /**
+     * Convenience method for [advanceEventTime]
+     *
+     * @see [advanceEventTime]
+     */
+    fun advanceEventTime(byTime: Long, unit: TimeUnit) =
+        advanceEventTime(unit.toSeconds(byTime))
+
+    /**
      * Clears the Nimbus event store.
      *
      * This should only be used in testing or cases where the previous event store is no longer viable.
      */
     fun clearEvents() = Unit
+
+    /**
+     * Dump the state of the Nimbus SDK to logcat.
+     *
+     * This is only useful for testing.
+     */
+    fun dumpStateToLog() = Unit
 }
 
 class NullNimbus(override val context: Context) : NimbusInterface

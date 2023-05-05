@@ -2,7 +2,7 @@
 
 # Unreleased Changes
 
-[Full Changelog](https://github.com/mozilla/application-services/compare/v97.2.0...main)
+[Full Changelog](https://github.com/mozilla/application-services/compare/v97.5.1...main)
 
 <!-- WARNING: New entries should be added below this comment to ensure the `./automation/prepare-release.py` script works as expected.
 
@@ -18,13 +18,20 @@ Use the template below to make assigning a version number during the release cut
   - Description of the change with a link to the pull request ([#0000](https://github.com/mozilla/application-services/pull/0000))
 
 -->
-
 ## Nimbus ⛅️🔬🔭
 
 ### ✨ What's New ✨
 
-  - Added `recordPastEvent` for iOS and Android for testing of event store triggers. ([#5431](https://github.com/mozilla/application-services/pull/5431))
+- Added processing of command line arguments (or intent extras) to be driven by a command line tool. ([#5482](https://github.com/mozilla/application-services/pull/5482), [#5497](https://github.com/mozilla/application-services/pull/5497))
+  - Requires passing `CommandLine.arguments` to `NimbusBuilder` in iOS.
+  - Requires passing `intent` to `NimbusInterface` in Android.
+- Added Cirrus client object for working with Nimbus in a static, stateless manner ([#5471](https://github.com/mozilla/application-services/pull/5471)).
+  - Added Cirrus client UDL bindings ([#5475](https://github.com/mozilla/application-services/pull/5475)).
+    - *NOTE:* The Cirrus UDL bindings are only intended to function with Python, additional types should be set in the `uniffi.toml` if another language is needed.
+- Added [`nimbus-cli`](./components/support/nimbus-cli). ([#5494](https://github.com/mozilla/application-services/pull/5494))
+
+## Places ⛅️🔬🔭
 
 ### 🦊 What's Changed 🦊
 
-  - Removed the check for major `schemaVersion` in Experiment recipes. ([#5433](https://github.com/mozilla/application-services/pull/5433))
+  - Added support for sync payload evolution in history.  If other clients sync history records / visits with fields that we don't know about, we store that data as JSON and send it back when it's synced next.

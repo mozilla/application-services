@@ -483,6 +483,7 @@ The following text applies to code linked from these dependencies:
 [httparse](https://github.com/seanmonstar/httparse),
 [httpdate](https://github.com/pyfisch/httpdate),
 [hyper-tls](https://github.com/hyperium/hyper-tls),
+[iana-time-zone](https://github.com/strawlab/iana-time-zone),
 [id-arena](https://github.com/fitzgen/id-arena),
 [idna](https://github.com/servo/rust-url/),
 [indexmap](https://github.com/bluss/indexmap),
@@ -534,6 +535,7 @@ The following text applies to code linked from these dependencies:
 [serde](https://github.com/serde-rs/serde),
 [serde_derive](https://github.com/serde-rs/serde),
 [serde_json](https://github.com/serde-rs/json),
+[serde_path_to_error](https://github.com/dtolnay/path-to-error),
 [serde_urlencoded](https://github.com/nox/serde_urlencoded),
 [sha2](https://github.com/RustCrypto/hashes),
 [siphasher](https://github.com/jedisct1/rust-siphash),
@@ -1804,7 +1806,7 @@ The following text applies to code linked from these dependencies:
 [sqlcipher](https://github.com/sqlcipher/sqlcipher)
 
 ```
-Copyright (c) 2008, ZETETIC LLC
+Copyright (c) 2008-2023, ZETETIC LLC
 All rights reserved.
 
 Redistribution and use in source and binary forms, with or without

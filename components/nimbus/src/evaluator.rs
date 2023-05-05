@@ -3,7 +3,6 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
  */
 
-use crate::behavior::{EventQueryType, EventStore};
 use crate::enrollment::{
     EnrolledReason, EnrollmentStatus, ExperimentEnrollment, NotEnrolledReason,
 };
@@ -12,13 +11,17 @@ use crate::{
     AvailableRandomizationUnits,
 };
 use crate::{matcher::AppContext, sampling};
-use crate::{Branch, Experiment};
-use jexl_eval::Evaluator;
+use crate::{Branch, Experiment, NimbusTargetingHelper};
 use serde_derive::*;
-use serde_json::{json, Value};
-use std::collections::HashSet;
-use std::sync::{Arc, Mutex};
+use serde_json::Value;
 use uuid::Uuid;
+
+#[cfg(feature = "stateful")]
+use std::collections::HashSet;
+
+#[cfg(not(feature = "stateful"))]
+use crate::matcher::RequestContext;
+
 #[derive(Serialize, Deserialize, Debug, Clone, Default)]
 pub struct Bucket {}
 
@@ -29,7 +32,8 @@ impl Bucket {
     }
 }
 
-#[derive(Serialize, Debug, Clone, Default)]
+#[cfg(feature = "stateful")]
+#[derive(Serialize, Deserialize, Debug, Clone, Default)]
 pub struct TargetingAttributes {
     #[serde(flatten)]
     pub app_context: AppContext,
@@ -41,6 +45,38 @@ pub struct TargetingAttributes {
     pub active_experiments: HashSet<String>,
 }
 
+#[cfg(not(feature = "stateful"))]
+#[derive(Serialize, Deserialize, Debug, Clone, Default)]
+pub struct TargetingAttributes {
+    #[serde(flatten)]
+    pub app_context: AppContext,
+    #[serde(flatten)]
+    pub request_context: RequestContext,
+    pub language: Option<String>,
+    pub region: Option<String>,
+    pub os: Option<String>,
+}
+
+#[cfg(not(feature = "stateful"))]
+impl TargetingAttributes {
+    pub fn new(app_context: AppContext, request_context: RequestContext) -> Self {
+        let (language, region) = request_context
+            .locale
+            .clone()
+            .map(split_locale)
+            .unwrap_or_else(|| (None, None));
+
+        Self {
+            app_context,
+            request_context,
+            language,
+            region,
+            ..Default::default()
+        }
+    }
+}
+
+#[cfg(feature = "stateful")]
 impl From<AppContext> for TargetingAttributes {
     fn from(app_context: AppContext) -> Self {
         let (language, region) = app_context
@@ -100,11 +136,10 @@ fn split_locale(locale: String) -> (Option<String>, Option<String>) {
 pub fn evaluate_enrollment(
     nimbus_id: &Uuid,
     available_randomization_units: &AvailableRandomizationUnits,
-    targeting_attributes: &TargetingAttributes,
     exp: &Experiment,
-    event_store: Arc<Mutex<EventStore>>,
+    th: &NimbusTargetingHelper,
 ) -> Result<ExperimentEnrollment> {
-    if !is_experiment_available(&targeting_attributes.app_context, exp, true) {
+    if !is_experiment_available(th, exp, true) {
         return Ok(ExperimentEnrollment {
             slug: exp.slug.clone(),
             status: EnrollmentStatus::NotEnrolled {
@@ -116,7 +151,7 @@ pub fn evaluate_enrollment(
     // Get targeting out of the way - "if let chains" are experimental,
     // otherwise we could improve this.
     if let Some(expr) = &exp.targeting {
-        if let Some(status) = targeting(expr, targeting_attributes, event_store) {
+        if let Some(status) = targeting(expr, th) {
             return Ok(ExperimentEnrollment {
                 slug: exp.slug.clone(),
                 status,
@@ -175,19 +210,19 @@ pub fn evaluate_enrollment(
 /// # Returns:
 /// Returns `true` if the experiment matches the targeting
 pub fn is_experiment_available(
-    app_context: &AppContext,
+    th: &NimbusTargetingHelper,
     exp: &Experiment,
     is_release: bool,
 ) -> bool {
     // Verify the app_name matches the application being targeted
     // by the experiment.
-    match &exp.app_name {
-        Some(app_name) => {
-            if !app_name.eq(&app_context.app_name) {
+    match (&exp.app_name, th.context.get("app_name".to_string())) {
+        (Some(exp), Some(Value::String(mine))) => {
+            if !exp.eq(mine) {
                 return false;
             }
         }
-        None => log::debug!("Experiment missing app_name, skipping it as a targeting parameter"),
+        (_, _) => log::debug!("Experiment missing app_name, skipping it as a targeting parameter"),
     }
 
     if !is_release {
@@ -197,16 +232,13 @@ pub fn is_experiment_available(
     // Verify the channel matches the application being targeted
     // by the experiment.  Note, we are intentionally comparing in a case-insensitive way.
     // See https://jira.mozilla.com/browse/SDK-246 for more info.
-    match &exp.channel {
-        Some(channel) => {
-            if !channel
-                .to_lowercase()
-                .eq(&app_context.channel.to_lowercase())
-            {
+    match (&exp.channel, th.context.get("channel".to_string())) {
+        (Some(exp), Some(Value::String(mine))) => {
+            if !exp.to_lowercase().eq(&mine.to_lowercase()) {
                 return false;
             }
         }
-        None => log::debug!("Experiment missing channel, skipping it as a targeting parameter"),
+        (_, _) => log::debug!("Experiment missing channel, skipping it as a targeting parameter"),
     }
     true
 }
@@ -267,10 +299,9 @@ pub(crate) fn choose_branch<'a>(
 /// - jexl-rs returned an error
 pub(crate) fn targeting(
     expression_statement: &str,
-    targeting_attributes: &TargetingAttributes,
-    event_store: Arc<Mutex<EventStore>>,
+    targeting_helper: &NimbusTargetingHelper,
 ) -> Option<EnrollmentStatus> {
-    match jexl_eval(expression_statement, targeting_attributes, event_store) {
+    match targeting_helper.eval_jexl(expression_statement.to_string()) {
         Ok(res) => match res {
             true => None,
             false => Some(EnrollmentStatus::NotEnrolled {
@@ -281,102 +312,6 @@ pub(crate) fn targeting(
             reason: e.to_string(),
         }),
     }
-}
-
-// This is the common entry point to JEXL evaluation.
-// The targeting attributes and additional context should have been merged and calculated before
-// getting here.
-// Any additional transforms should be added here.
-pub fn jexl_eval<Context: serde::Serialize>(
-    expression_statement: &str,
-    context: &Context,
-    event_store: Arc<Mutex<EventStore>>,
-) -> Result<bool> {
-    let evaluator = Evaluator::new()
-        .with_transform("versionCompare", |args| Ok(version_compare(args)?))
-        .with_transform("eventSum", |args| {
-            Ok(query_event_store(
-                event_store.clone(),
-                EventQueryType::Sum,
-                args,
-            )?)
-        })
-        .with_transform("eventCountNonZero", |args| {
-            Ok(query_event_store(
-                event_store.clone(),
-                EventQueryType::CountNonZero,
-                args,
-            )?)
-        })
-        .with_transform("eventAveragePerInterval", |args| {
-            Ok(query_event_store(
-                event_store.clone(),
-                EventQueryType::AveragePerInterval,
-                args,
-            )?)
-        })
-        .with_transform("eventAveragePerNonZeroInterval", |args| {
-            Ok(query_event_store(
-                event_store.clone(),
-                EventQueryType::AveragePerNonZeroInterval,
-                args,
-            )?)
-        })
-        .with_transform("eventLastSeen", |args| {
-            Ok(query_event_store(
-                event_store.clone(),
-                EventQueryType::LastSeen,
-                args,
-            )?)
-        });
-
-    let res = evaluator.eval_in_context(expression_statement, context)?;
-    match res.as_bool() {
-        Some(v) => Ok(v),
-        None => Err(NimbusError::InvalidExpression),
-    }
-}
-
-use crate::versioning::Version;
-
-fn version_compare(args: &[Value]) -> Result<Value> {
-    let curr_version = args.get(0).ok_or_else(|| {
-        NimbusError::VersionParsingError("current version doesn't exist in jexl transform".into())
-    })?;
-    let curr_version = curr_version.as_str().ok_or_else(|| {
-        NimbusError::VersionParsingError("current version in jexl transform is not a string".into())
-    })?;
-    let min_version = args.get(1).ok_or_else(|| {
-        NimbusError::VersionParsingError("minimum version doesn't exist in jexl transform".into())
-    })?;
-    let min_version = min_version.as_str().ok_or_else(|| {
-        NimbusError::VersionParsingError("minium version is not a string in jexl transform".into())
-    })?;
-    let min_version = Version::try_from(min_version)?;
-    let curr_version = Version::try_from(curr_version)?;
-    Ok(json!(if curr_version > min_version {
-        1
-    } else if curr_version < min_version {
-        -1
-    } else {
-        0
-    }))
-}
-
-fn query_event_store(
-    event_store: Arc<Mutex<EventStore>>,
-    query_type: EventQueryType,
-    args: &[Value],
-) -> Result<Value> {
-    let (event, interval, num_buckets, starting_bucket) = query_type.validate_arguments(args)?;
-
-    Ok(json!(event_store.lock().unwrap().query(
-        &event,
-        interval,
-        num_buckets,
-        starting_bucket,
-        query_type,
-    )?))
 }
 
 #[cfg(test)]

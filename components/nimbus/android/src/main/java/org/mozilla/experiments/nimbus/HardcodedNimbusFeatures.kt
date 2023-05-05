@@ -28,6 +28,7 @@ class HardcodedNimbusFeatures(
     private val features: Map<String, JSONObject>
 ) : FeaturesInterface {
     private val exposureCounts = mutableMapOf<String, Int>()
+    private val malformedFeatures = mutableMapOf<String, String>()
 
     constructor(context: Context, vararg pairs: Pair<String, JSONObject>) : this(
         context,
@@ -52,6 +53,10 @@ class HardcodedNimbusFeatures(
         }
     }
 
+    override fun recordMalformedConfiguration(featureId: String, partId: String) {
+        malformedFeatures[featureId] = partId
+    }
+
     /**
      * Reports how many times the feature has had {recordExposureEvent} on it.
      */
@@ -67,6 +72,19 @@ class HardcodedNimbusFeatures(
      * Utility function for {isUnderTest} to detect if the feature is under test.
      */
     fun hasFeature(featureId: String) = features.containsKey(featureId)
+
+    /**
+     * Helper function for testing if app code has reported that any of the feature
+     * configuration is malformed.
+     */
+    fun isMalformed(featureId: String) =
+        malformedFeatures[featureId] != null
+
+    /**
+     * Getter method for the last part of the given feature was reported malformed.
+     */
+    fun getMalformed(featureId: String) =
+        malformedFeatures[featureId]
 
     /**
      * Use this {NimbusFeatures} instance to populate the passed feature configurations.

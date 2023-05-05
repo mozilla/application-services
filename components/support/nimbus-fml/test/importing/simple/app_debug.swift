@@ -5,9 +5,9 @@
 import FeatureManifest
 import Foundation
 
-let injected: MockNimbus = MockNimbus(
-    (
-        "search",
+let injected = HardcodedNimbusFeatures(with:
+    [
+        "search":
         """
         {
             "spotlight": {
@@ -15,10 +15,8 @@ let injected: MockNimbus = MockNimbus(
                 "icon": "screenshot"
             }
         }
-        """
-    ),
-    (
-        "homescreen",
+        """,
+        "homescreen":
         """
         {
             "sections-enabled": {
@@ -26,7 +24,7 @@ let injected: MockNimbus = MockNimbus(
             }
         }
         """
-    )
+    ]
 )
 
 AppNimbus.shared.initialize { injected }
