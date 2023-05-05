@@ -263,7 +263,7 @@ impl AppCommand {
                 server,
                 recipes,
             } => {
-                if server.is_some() && !recipes.is_empty() {
+                if !server.is_empty() && !recipes.is_empty() {
                     anyhow::bail!("Cannot fetch experiments AND from a server");
                 }
 
@@ -278,7 +278,6 @@ impl AppCommand {
                         params,
                     }
                 } else {
-                    let server = server.unwrap_or_default();
                     let list = ExperimentListSource::try_from(server.as_str())?;
                     AppCommand::FetchList { list, file, params }
                 }
