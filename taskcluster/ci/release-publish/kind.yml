@@ -26,6 +26,7 @@ tasks:
       release-type: release-only
     label: "Build publish task"
     description: "Publish build artifacts"
+    run-on-tasks-for: [github-release, cron]
     worker-type: b-linux
     worker:
       chain-of-trust: true
