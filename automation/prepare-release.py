@@ -84,6 +84,12 @@ step_msg(f"checkout {refs.main}")
 run_cmd_checked(["git", "checkout", refs.main])
 run_cmd_checked(["git", "checkout", "-b", refs.start_release_pr])
 
+step_msg(f"Bumping version in {BUILDCONFIG_FILE}")
+build_config[BUILDCONFIG_VERSION_FIELD] = f"{major_version_number}.0a1"
+
+with open(BUILDCONFIG_FILE, "w") as stream:
+    yaml.dump(build_config, stream, sort_keys=False)
+
 step_msg(f"UPDATING {CHANGELOG_FILE}")
 changelog[0:0] = [
     f"# v{major_version_number+1}.0 (In progress)",
