@@ -180,6 +180,17 @@ impl FirefoxAccount {
         self.fetch_and_parse_commands(last_command_index + 1, None, reason)
     }
 
+    pub fn get_command_for_index(&mut self, index: u64) -> Result<IncomingDeviceCommand> {
+        let refresh_token = self.get_refresh_token()?;
+        let pending_commands =
+            self.client
+                .get_pending_commands(&self.state.config, refresh_token, index, Some(1))?;
+        self.parse_commands_messages(pending_commands.messages, CommandFetchReason::Push(index))?
+            .into_iter()
+            .next()
+            .ok_or_else(|| ErrorKind::CommandNotFound.into())
+    }
+
     fn fetch_and_parse_commands(
         &mut self,
         index: u64,

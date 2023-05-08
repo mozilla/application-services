@@ -128,6 +128,22 @@ public class DeviceConstellation {
         }
     }
 
+    /// Once Push has decrypted a payload, send the payload to this method
+    /// which will tell the app what to do with it in form of  an `AccountEvent`.
+    public func eventForPushMessage(pushPayload: String,
+                                    completionHandler: @escaping (Result<AccountEvent, Error>) -> Void)
+    {
+        DispatchQueue.global().async {
+            do {
+                let event = try self.account.eventForPushMessage(payload: pushPayload)
+                self.processAccountEvents([event])
+                DispatchQueue.main.async { completionHandler(.success(event)) }
+            } catch {
+                DispatchQueue.main.async { completionHandler(.failure(error)) }
+            }
+        }
+    }
+
     /// This allows us to be helpful in certain circumstances e.g. refreshing the device list
     /// if we see a "device disconnected" push notification.
     internal func processAccountEvents(_ events: [AccountEvent]) {

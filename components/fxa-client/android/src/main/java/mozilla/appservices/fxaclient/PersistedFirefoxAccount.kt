@@ -471,6 +471,23 @@ class PersistedFirefoxAccount(inner: FirefoxAccount, persistCallback: PersistCal
     }
 
     /**
+     * Retrieves the account event associated with an
+     * incoming push message payload coming Firefox Accounts.
+     * Assumes the message that has been decrypted and authenticated by the Push crate.
+     *
+     * This performs network requests, and should not be used on the main thread.
+     *
+     * @return A collection of [AccountEvent] that should be handled by the caller.
+     */
+    fun eventForPushMessage(payload: String): AccountEvent {
+        try {
+            return this.inner.eventForPushMessage(payload)
+        } finally {
+            this.tryPersistState()
+        }
+    }
+
+    /**
      * Ensure the current device is registered with the specified name and device type, with
      * the required capabilities (at this time only Send Tab).
      * This method should be called once per "device lifetime".

@@ -180,6 +180,13 @@ class PersistedFirefoxAccount {
         }
     }
 
+    public func eventForPushMessage(payload: String) throws -> AccountEvent {
+        defer { tryPersistState() }
+        return try notifyAuthErrors {
+            try self.inner.eventForPushMessage(payload: payload)
+        }
+    }
+
     public func pollDeviceCommands() throws -> [IncomingDeviceCommand] {
         defer { tryPersistState() }
         return try notifyAuthErrors {
