@@ -1,6 +1,6 @@
-# v114.0 (In progress)
+# v114.0 (_2023-05-08_)
 
-[Full Changelog](In progress)
+[Full Changelog](https://github.com/mozilla/application-services/compare/v113.0...v114.0)
 
 ## General
 
