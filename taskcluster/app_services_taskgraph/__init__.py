@@ -10,7 +10,7 @@ import re
 
 from taskgraph.parameters import extend_parameters_schema
 from . import branch_builds
-from .build_config import get_version
+from .build_config import get_version_from_build_config
 
 PREVIEW_RE = re.compile(r'\[preview ([\w-]+)\]')
 
@@ -49,7 +49,7 @@ def get_decision_parameters(graph_config, parameters):
                     head_tag
                 )
             )
-        version = get_version(graph_config.params)
+        version = get_version_from_build_config()
         # XXX: tags are in the format of `v<semver>`
         if head_tag[1:] != version:
             raise ValueError(

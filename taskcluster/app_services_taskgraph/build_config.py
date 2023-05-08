@@ -32,7 +32,7 @@ def get_components():
 
 
 def get_version(params):
-    version = _read_build_config()["libraryVersion"]
+    version = get_version_from_build_config()
     preview_build = params.get('preview-build')
     if preview_build == 'nightly':
         components = version.split('.')
@@ -43,6 +43,9 @@ def get_version(params):
         raise NotImplemented("Only nightly preview builds are currently supported")
     else:
         return version
+
+def get_version_from_build_config():
+    return _read_build_config()["libraryVersion"]
 
 def get_extensions(module_name):
     publications = _read_build_config()["projects"][module_name]['publications']
