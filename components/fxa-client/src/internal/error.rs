@@ -123,6 +123,12 @@ pub enum ErrorKind {
 
     #[error("Integer conversion error: {0}")]
     IntegerConversionError(#[from] std::num::TryFromIntError),
+
+    #[error("Command not found by fxa")]
+    CommandNotFound,
+
+    #[error("Invalid Push Event")]
+    InvalidPushEvent,
 }
 
 error_support::define_error! {

@@ -2,6 +2,12 @@
 
 [Full Changelog](In progress)
 
+## FxA Client
+### ✨ What's New ✨
+- Added an `eventForPushMessage` API that converts a single push message to the account event it is associated with. ([#5556](https://github.com/mozilla/application-services/pull/5556))
+   - This API does not attempt to retrieve any missing tabs.
+   - Users of this API should only use it to display the notification, and should use `pollDeviceCommands` to capture the commands after.
+
 # v114.0 (_2023-05-08_)
 
 [Full Changelog](https://github.com/mozilla/application-services/compare/v97.5.1...v114.0)

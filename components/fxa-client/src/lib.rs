@@ -631,7 +631,7 @@ impl FirefoxAccount {
     ///
     /// **💾 This method alters the persisted account state.**
     ///
-    /// Applications should call this method whenever they receive a push notiication on subscription
+    /// Applications should call this method whenever they receive a push notification on subscription
     /// endpoint previously registered with the Firefox Accounts server. Such messages typically indicate
     /// a noteworthy change of state on the user's account, such as an update to their profile information
     /// or the disconnection of a client. The [`FirefoxAccount`] struct will update its internl state
@@ -640,6 +640,27 @@ impl FirefoxAccount {
     ///
     pub fn handle_push_message(&self, payload: &str) -> Result<Vec<AccountEvent>, FxaError> {
         Ok(self.internal.lock().unwrap().handle_push_message(payload)?)
+    }
+
+    /// Get the account event associated with a single server-delivered account update message
+    ///
+    /// **💾 This method alters the persisted account state.**
+    ///
+    /// Applications should call this method whenever they receive a push notification on subscription
+    /// endpoint previously registered with the Firefox Accounts server. Such messages typically indicate
+    /// a noteworthy change of state on the user's account, such as an update to their profile information
+    /// or the disconnection of a client. The [`FirefoxAccount`] struct will update its internal state
+    /// accordingly and return an individual [`AccountEvent`] structs describing the events, which the application
+    /// may use for further processing.
+    ///
+    /// It's important to note that this API does **not** alter the index of the last processed command
+    ///
+    pub fn event_for_push_message(&self, payload: &str) -> Result<AccountEvent, FxaError> {
+        Ok(self
+            .internal
+            .lock()
+            .unwrap()
+            .event_for_push_message(payload)?)
     }
 
     /// Poll the server for any pending device commands.
