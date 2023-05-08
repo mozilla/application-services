@@ -70,6 +70,7 @@ else:
 changelog[0] = f"# v{major_version_number}.0 (_{today_date}_)"
 with open(CHANGELOG_FILE, "w") as stream:
     stream.write("\n".join(changelog))
+    stream.write("\n")
 
 step_msg(f"Creating a commit with the changes")
 run_cmd_checked(["git", "add", CHANGELOG_FILE])
@@ -93,6 +94,7 @@ changelog[0:0] = [
 ]
 with open(CHANGELOG_FILE, "w") as stream:
     stream.write("\n".join(changelog))
+    stream.write("\n")
 
 step_msg(f"Creating a commit with the changes")
 run_cmd_checked(["git", "add", CHANGELOG_FILE])
