@@ -51,9 +51,6 @@ pub enum Error {
     #[error("Illegal database path: {0:?}")]
     IllegalDatabasePath(std::path::PathBuf),
 
-    #[error("UTF8 Error: {0}")]
-    Utf8Error(#[from] std::str::Utf8Error),
-
     #[error("JSON Error: {0}")]
     JsonError(#[from] serde_json::Error),
 
@@ -62,9 +59,6 @@ pub enum Error {
 
     #[error("Crypto Error: {0}")]
     CryptoError(#[from] jwcrypto::EncryptorDecryptorError),
-
-    #[error("Crypto Error: Cyphertext is the empty string")]
-    EmptyCyphertext,
 
     #[error("Missing local encryption key")]
     MissingEncryptionKey,
@@ -104,13 +98,6 @@ impl GetErrorHandling for Error {
             })
             .report_error("autofill-illegal-database-path"),
 
-            Self::Utf8Error(e) => {
-                ErrorHandling::convert(AutofillApiError::UnexpectedAutofillApiError {
-                    reason: e.to_string(),
-                })
-                .report_error("autofill-utf8-error")
-            }
-
             Self::JsonError(e) => {
                 ErrorHandling::convert(AutofillApiError::UnexpectedAutofillApiError {
                     reason: e.to_string(),
@@ -124,13 +111,6 @@ impl GetErrorHandling for Error {
                 })
                 .report_error("autofill-invalid-sync-payload")
             }
-
-            // This happens when we try to decrypt CC numbers after scrub_encrypted_data has run.
-            // No need to report these to Sentry (see #5232 for details).
-            Self::EmptyCyphertext => ErrorHandling::convert(AutofillApiError::CryptoError {
-                reason: "Ciphertext is empty".to_string(),
-            })
-            .log_warning(),
 
             Self::CryptoError(e) => ErrorHandling::convert(AutofillApiError::CryptoError {
                 reason: e.to_string(),
