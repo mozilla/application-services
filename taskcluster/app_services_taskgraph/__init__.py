@@ -83,7 +83,6 @@ def get_decision_parameters(graph_config, parameters):
         # We don't have a great way of determining if something is a nightly or
         # not.  But for now, we can assume all cron-based builds are nightlies.
         parameters["preview-build"] = "nightly"
-        parameters["target_tasks_method"] = "full"
         parameters["release-type"] = "nightly"
 
     parameters['branch-build'] = branch_builds.calc_branch_build_param(parameters)

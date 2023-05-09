@@ -2,9 +2,13 @@
 # License, v. 2.0. If a copy of the MPL was not distributed with this
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 
+import json
+import logging
 
 from taskgraph.target_tasks import _target_task, filter_for_tasks_for
+from taskgraph.util import taskcluster
 
+logger = logging.getLogger(__name__)
 
 @_target_task('pr-skip')
 def target_tasks_pr_skip(full_task_graph, parameters, graph_config):
@@ -12,7 +16,6 @@ def target_tasks_pr_skip(full_task_graph, parameters, graph_config):
 
 # Don't filter out any tasks. We use this for:
 #   - Pushes to a release branch
-#   - The nightly cron task
 #   - PRs with `[preview: (nightly|release)]`
 #
 # This runs the same tasks as `pr-full`, plus:
@@ -22,6 +25,20 @@ def target_tasks_pr_skip(full_task_graph, parameters, graph_config):
 def target_tasks_release(full_task_graph, parameters, graph_config):
     return full_task_graph.tasks
 
+@_target_task('nightly')
+def target_tasks_nightly(full_task_graph, parameters, graph_config):
+    head_rev = parameters["head_rev"]
+    try:
+        taskcluster.find_task_id(
+            f'project.application-services.v2.branch.main.revision.'
+            f'{head_rev}.taskgraph.decision-nightly')
+    except BaseException:
+        # No nightly decision task run for this commit, which is expected
+        pass
+    else:
+        # We already ran the nightly decision task and tried to build the nightly.  Don't try again.
+        return []
+    return full_task_graph.tasks
 
 @_target_task('pr-full')
 def target_tasks_all(full_task_graph, parameters, graph_config):
