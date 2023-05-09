@@ -130,7 +130,10 @@ impl LaunchableApp {
                 .spawn()?
                 .wait()?
                 .success(),
-            Self::Ios { .. } => {
+            Self::Ios { app_id, device_id  } => {
+                self.exe()?
+                    .args(["privacy", device_id, "reset", "all", app_id])
+                    .status()?;
                 let data = self.ios_app_container("data")?;
                 let groups = self.ios_app_container("groups")?;
                 self.ios_reset(data, groups)?;
@@ -295,17 +298,21 @@ impl LaunchableApp {
     fn ios_reset(&self, data_dir: String, groups_string: String) -> Result<bool> {
         let term = Term::stdout();
         prompt(&term, "# Resetting the app")?;
-        prompt(&term, &format!("rm -Rf {}/* 2>/dev/null", data_dir))?;
-        let _ = std::fs::remove_dir_all(&data_dir);
-        let _ = std::fs::create_dir_all(&data_dir);
+        if !data_dir.is_empty() {
+            prompt(&term, &format!("rm -Rf {}/* 2>/dev/null", data_dir))?;
+            let _ = std::fs::remove_dir_all(&data_dir);
+            let _ = std::fs::create_dir_all(&data_dir);
+        }
         let lines = groups_string.split('\n');
 
         for line in lines {
             let words = line.splitn(2, '\t').collect::<Vec<_>>();
             if let [_, dir] = words.as_slice() {
-                prompt(&term, &format!("rm -Rf {}/* 2>/dev/null", dir))?;
-                let _ = std::fs::remove_dir_all(dir);
-                let _ = std::fs::create_dir_all(dir);
+                if !dir.is_empty() {
+                    prompt(&term, &format!("rm -Rf {}/* 2>/dev/null", dir))?;
+                    let _ = std::fs::remove_dir_all(dir);
+                    let _ = std::fs::create_dir_all(dir);
+                }
             }
         }
         Ok(true)
