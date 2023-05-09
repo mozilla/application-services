@@ -452,22 +452,6 @@ class PersistedFirefoxAccount(inner: FirefoxAccount, persistCallback: PersistCal
     }
 
     /**
-     * Handle any incoming push message payload coming from the Firefox Accounts
-     * servers that has been decrypted and authenticated by the Push crate.
-     *
-     * This performs network requests, and should not be used on the main thread.
-     *
-     * @return A collection of [AccountEvent] that should be handled by the caller.
-     */
-    fun handlePushMessage(payload: String): Array<AccountEvent> {
-        try {
-            return this.inner.handlePushMessage(payload).toTypedArray()
-        } finally {
-            this.tryPersistState()
-        }
-    }
-
-    /**
      * Retrieves the account event associated with an
      * incoming push message payload coming Firefox Accounts.
      * Assumes the message that has been decrypted and authenticated by the Push crate.
@@ -476,9 +460,9 @@ class PersistedFirefoxAccount(inner: FirefoxAccount, persistCallback: PersistCal
      *
      * @return A collection of [AccountEvent] that should be handled by the caller.
      */
-    fun eventForPushMessage(payload: String): AccountEvent {
+    fun handlePushMessage(payload: String): AccountEvent {
         try {
-            return this.inner.eventForPushMessage(payload)
+            return this.inner.handlePushMessage(payload)
         } finally {
             this.tryPersistState()
         }

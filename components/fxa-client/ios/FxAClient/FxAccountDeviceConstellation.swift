@@ -113,30 +113,14 @@ public class DeviceConstellation {
     }
 
     /// Once Push has decrypted a payload, send the payload to this method
-    /// which will tell the app what to do with it in form of `DeviceEvents`.
-    public func processRawIncomingAccountEvent(pushPayload: String,
-                                               completionHandler: @escaping (Result<[AccountEvent], Error>) -> Void)
-    {
-        DispatchQueue.global().async {
-            do {
-                let events = try self.account.handlePushMessage(payload: pushPayload)
-                self.processAccountEvents(events)
-                DispatchQueue.main.async { completionHandler(.success(events)) }
-            } catch {
-                DispatchQueue.main.async { completionHandler(.failure(error)) }
-            }
-        }
-    }
-
-    /// Once Push has decrypted a payload, send the payload to this method
     /// which will tell the app what to do with it in form of  an `AccountEvent`.
-    public func eventForPushMessage(pushPayload: String,
-                                    completionHandler: @escaping (Result<AccountEvent, Error>) -> Void)
+    public func handlePushMessage(pushPayload: String,
+                                  completionHandler: @escaping (Result<AccountEvent, Error>) -> Void)
     {
         DispatchQueue.global().async {
             do {
-                let event = try self.account.eventForPushMessage(payload: pushPayload)
-                self.processAccountEvents([event])
+                let event = try self.account.handlePushMessage(payload: pushPayload)
+                self.processAccountEvent(event)
                 DispatchQueue.main.async { completionHandler(.success(event)) }
             } catch {
                 DispatchQueue.main.async { completionHandler(.failure(error)) }
@@ -146,15 +130,10 @@ public class DeviceConstellation {
 
     /// This allows us to be helpful in certain circumstances e.g. refreshing the device list
     /// if we see a "device disconnected" push notification.
-    internal func processAccountEvents(_ events: [AccountEvent]) {
-        let shouldRefreshDevices = events.contains { evt in
-            switch evt {
-            case .deviceDisconnected, .deviceConnected: return true
-            default: return false
-            }
-        }
-        if shouldRefreshDevices {
-            refreshState()
+    internal func processAccountEvent(_ event: AccountEvent) {
+        switch event {
+        case .deviceDisconnected, .deviceConnected: refreshState()
+        default: return
         }
     }
 
