@@ -4,66 +4,11 @@
 
 use std::convert::TryInto;
 
-use super::device::CommandFetchReason;
 use super::{error::*, FirefoxAccount};
 use crate::AccountEvent;
 use serde_derive::Deserialize;
 
 impl FirefoxAccount {
-    /// Handle any incoming push message payload coming from the Firefox Accounts
-    /// servers that has been decrypted and authenticated by the Push crate.
-    ///
-    /// ** ⚠️ Due to iOS platform restrictions, a push notification must always show UI. **
-    /// iOS callers of this API need to ensure that if this returns an empty list
-    /// they display some type error notification.
-    ///
-    /// This API could return an empty list if:
-    ///  1. The user sends themselves multiple tabs, tab A and tab B
-    ///  2. The device receives the notification for tab A, and queries FxA
-    ///  3. The device gets **both** tab A and tab B from FxA
-    ///  4. The device handles both tabs
-    ///  5. The device receives the notification for tab B (late)
-    ///  6. The device queries FxA again, and the tab is already gone!
-    ///
-    /// We leave handling of the above case to the caller
-    ///
-    /// **💾 This method alters the persisted account state.**
-    pub fn handle_push_message(&mut self, payload: &str) -> Result<Vec<AccountEvent>> {
-        let push_payload = serde_json::from_str(payload).or_else(|err| {
-            // Due to a limitation of serde (https://github.com/serde-rs/serde/issues/1714)
-            // we can't parse some payloads with an unknown "command" value. Try doing a
-            // less-strongly-validating parse so we can silently ignore such messages, while
-            // while reporting errors if the payload is completely unintelligible.
-            let v: serde_json::Value = serde_json::from_str(payload)?;
-            match v.get("command") {
-                Some(_) => Ok(PushPayload::Unknown),
-                None => Err(err),
-            }
-        })?;
-        match push_payload {
-            PushPayload::CommandReceived(CommandReceivedPushPayload { index, .. }) => {
-                let cmds = self.poll_device_commands(CommandFetchReason::Push(index))?;
-                cmds.into_iter()
-                    .map(|command| {
-                        Ok(AccountEvent::CommandReceived {
-                            command: command.try_into()?,
-                        })
-                    })
-                    .collect()
-            }
-            _ => match self.event_for_push_message(payload) {
-                Ok(event) => Ok(vec![event]),
-                Err(e) => {
-                    if let ErrorKind::InvalidPushEvent = e.kind() {
-                        Ok(vec![])
-                    } else {
-                        Err(e)
-                    }
-                }
-            },
-        }
-    }
-
     /// Handles a push message and returns a single [`AccountEvent`]
     ///
     /// This API is useful for when the app would like to get the AccountEvent associated
@@ -72,7 +17,7 @@ impl FirefoxAccount {
     /// **💾 This method alters the persisted account state.**
     ///
     /// **⚠️ This API does not increment the command index if a command was received**
-    pub fn event_for_push_message(&mut self, payload: &str) -> Result<AccountEvent> {
+    pub fn handle_push_message(&mut self, payload: &str) -> Result<AccountEvent> {
         let payload = serde_json::from_str(payload).or_else(|err| {
             let v: serde_json::Value = serde_json::from_str(payload)?;
             match v.get("command") {
@@ -128,12 +73,13 @@ impl FirefoxAccount {
                 Ok(if !status.active {
                     AccountEvent::AccountAuthStateChanged
                 } else {
-                    return Err(ErrorKind::InvalidPushEvent.into());
+                    log::info!("Password change event, but no action required");
+                    AccountEvent::Unknown
                 })
             }
             PushPayload::Unknown => {
                 log::info!("Unknown Push command.");
-                Err(ErrorKind::InvalidPushEvent.into())
+                Ok(AccountEvent::Unknown)
             }
         }
     }
@@ -213,13 +159,9 @@ mod tests {
         ));
         fxa.add_cached_profile("123", "test@example.com");
         let json = "{\"version\":1,\"command\":\"fxaccounts:profile_updated\"}";
-        let events = fxa.handle_push_message(json).unwrap();
+        let event = fxa.handle_push_message(json).unwrap();
         assert!(fxa.state.last_seen_profile.is_none());
-        assert_eq!(events.len(), 1);
-        match events[0] {
-            AccountEvent::ProfileUpdated => {}
-            _ => unreachable!(),
-        };
+        assert!(matches!(event, AccountEvent::ProfileUpdated));
     }
 
     #[test]
@@ -233,10 +175,9 @@ mod tests {
         });
         fxa.state.current_device_id = Some("my_id".to_owned());
         let json = "{\"version\":1,\"command\":\"fxaccounts:device_disconnected\",\"data\":{\"id\":\"my_id\"}}";
-        let events = fxa.handle_push_message(json).unwrap();
+        let event = fxa.handle_push_message(json).unwrap();
         assert!(fxa.state.refresh_token.is_none());
-        assert_eq!(events.len(), 1);
-        match &events[0] {
+        match event {
             AccountEvent::DeviceDisconnected {
                 device_id,
                 is_local_device,
@@ -258,7 +199,7 @@ mod tests {
                 token.partial_eq("refresh_token")
             })
             .times(1)
-            .returns_once(Ok(IntrospectResponse { active: true }));
+            .returns_once(Ok(IntrospectResponse { active: false }));
         fxa.set_client(Arc::new(client));
         let refresh_token_scopes = std::collections::HashSet::new();
         fxa.state.refresh_token = Some(RefreshToken {
@@ -273,10 +214,40 @@ mod tests {
         });
         let json = "{\"version\":1,\"command\":\"fxaccounts:password_reset\"}";
         assert!(fxa.devices_cache.is_some());
-        fxa.handle_push_message(json).unwrap();
+        let event = fxa.handle_push_message(json).unwrap();
+        assert!(matches!(event, AccountEvent::AccountAuthStateChanged));
         assert!(fxa.devices_cache.is_none());
     }
 
+    #[test]
+    fn test_push_password_change() {
+        let mut fxa =
+            FirefoxAccount::with_config(Config::stable_dev("12345678", "https://foo.bar"));
+        let mut client = FxAClientMock::new();
+        client
+            .expect_check_refresh_token_status(mockiato::Argument::any, |token| {
+                token.partial_eq("refresh_token")
+            })
+            .times(1)
+            .returns_once(Ok(IntrospectResponse { active: true }));
+        fxa.set_client(Arc::new(client));
+        let refresh_token_scopes = std::collections::HashSet::new();
+        fxa.state.refresh_token = Some(RefreshToken {
+            token: "refresh_token".to_owned(),
+            scopes: refresh_token_scopes,
+        });
+        fxa.state.current_device_id = Some("my_id".to_owned());
+        fxa.devices_cache = Some(CachedResponse {
+            response: vec![],
+            cached_at: 0,
+            etag: "".to_string(),
+        });
+        let json = "{\"version\":1,\"command\":\"fxaccounts:password_changed\"}";
+        assert!(fxa.devices_cache.is_some());
+        let event = fxa.handle_push_message(json).unwrap();
+        assert!(matches!(event, AccountEvent::Unknown));
+        assert!(fxa.devices_cache.is_none());
+    }
     #[test]
     fn test_push_device_disconnected_remote() {
         let mut fxa = FirefoxAccount::with_config(crate::internal::Config::stable_dev(
@@ -284,9 +255,8 @@ mod tests {
             "https://foo.bar",
         ));
         let json = "{\"version\":1,\"command\":\"fxaccounts:device_disconnected\",\"data\":{\"id\":\"remote_id\"}}";
-        let events = fxa.handle_push_message(json).unwrap();
-        assert_eq!(events.len(), 1);
-        match &events[0] {
+        let event = fxa.handle_push_message(json).unwrap();
+        match event {
             AccountEvent::DeviceDisconnected {
                 device_id,
                 is_local_device,
@@ -303,8 +273,8 @@ mod tests {
         let mut fxa =
             FirefoxAccount::with_config(Config::stable_dev("12345678", "https://foo.bar"));
         let json = "{\"version\":1,\"command\":\"huh\"}";
-        let events = fxa.handle_push_message(json).unwrap();
-        assert!(events.is_empty());
+        let event = fxa.handle_push_message(json).unwrap();
+        assert!(matches!(event, AccountEvent::Unknown));
     }
 
     #[test]
@@ -312,8 +282,8 @@ mod tests {
         let mut fxa =
             FirefoxAccount::with_config(Config::stable_dev("12345678", "https://foo.bar"));
         let json = "{\"version\":1,\"command\":\"huh\",\"data\":{\"value\":42}}";
-        let events = fxa.handle_push_message(json).unwrap();
-        assert!(events.is_empty());
+        let event = fxa.handle_push_message(json).unwrap();
+        assert!(matches!(event, AccountEvent::Unknown));
     }
 
     #[test]
@@ -322,18 +292,5 @@ mod tests {
             FirefoxAccount::with_config(Config::stable_dev("12345678", "https://foo.bar"));
         let json = "{\"wtf\":\"bbq\"}";
         fxa.handle_push_message(json).unwrap_err();
-    }
-
-    #[test]
-    fn test_directly_getting_event_for_push_message() {
-        let mut fxa = FirefoxAccount::with_config(crate::internal::Config::stable_dev(
-            "12345678",
-            "https://foo.bar",
-        ));
-        fxa.add_cached_profile("123", "test@example.com");
-        let json = "{\"version\":1,\"command\":\"fxaccounts:profile_updated\"}";
-        let event = fxa.event_for_push_message(json).unwrap();
-        assert!(fxa.state.last_seen_profile.is_none());
-        assert!(matches!(event, AccountEvent::ProfileUpdated));
     }
 }
