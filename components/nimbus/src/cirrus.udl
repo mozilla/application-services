@@ -12,12 +12,14 @@ enum NimbusError {
 };
 
 interface CirrusClient {
+    [Throws=NimbusError]
     constructor(string app_context);
 
     // Handles an enrollment request string and returns an enrollment response string.
     [Throws=NimbusError]
     string handle_enrollment(string request);
 
+    // Sets the experiments list in the CirrusClient's internal state.
     [Throws=NimbusError]
     void set_experiments(string experiments);
 };

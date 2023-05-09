@@ -12,7 +12,7 @@ use crate::{
     NimbusTargetingHelper, Result, TargetingAttributes,
 };
 use serde_derive::*;
-use serde_json::{from_str, to_string, Map, Value};
+use serde_json::{Map, Value};
 use std::collections::HashMap;
 use std::fmt;
 use std::sync::Mutex;
@@ -73,23 +73,23 @@ impl Default for EnrollmentRequest {
 }
 
 #[derive(Default)]
-pub struct InternalMutableState {
+pub struct CirrusMutableState {
     experiments: Vec<Experiment>,
 }
 
 #[derive(Default)]
 pub struct CirrusClient {
     app_context: AppContext,
-    state: Mutex<InternalMutableState>,
+    state: Mutex<CirrusMutableState>,
 }
 
 impl CirrusClient {
-    pub fn new(app_context: String) -> Self {
-        let app_context: AppContext = from_str(&app_context).unwrap();
-        Self {
+    pub fn new(app_context: String) -> Result<Self> {
+        let app_context: AppContext = serde_json::from_str(&app_context)?;
+        Ok(Self {
             app_context,
             state: Default::default(),
-        }
+        })
     }
 
     /// Handles an EnrollmentRequest, returning an EnrollmentResponse on success.
@@ -105,7 +105,7 @@ impl CirrusClient {
             request_context,
             is_user_participating,
             prev_enrollments,
-        } = from_str(request.as_str())?;
+        } = serde_json::from_str(request.as_str())?;
         let client_id = if let Some(client_id) = client_id {
             client_id
         } else {
@@ -114,7 +114,7 @@ impl CirrusClient {
             ));
         };
 
-        Ok(to_string(&self.enroll(
+        Ok(serde_json::to_string(&self.enroll(
             client_id,
             request_context,
             is_user_participating,
