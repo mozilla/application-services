@@ -9,7 +9,7 @@ use crate::{
 use serde_json::{from_str, to_string, to_value, Map, Value};
 use std::collections::HashMap;
 
-fn create_client() -> CirrusClient {
+fn create_client() -> Result<CirrusClient> {
     CirrusClient::new(
         to_string(&AppContext {
             app_id: "test app id".to_string(),
@@ -24,13 +24,14 @@ fn create_client() -> CirrusClient {
 }
 
 #[test]
-fn test_can_instantiate() {
-    create_client();
+fn test_can_instantiate() -> Result<()> {
+    create_client()?;
+    Ok(())
 }
 
 #[test]
 fn test_can_enroll() -> Result<()> {
-    let client = create_client();
+    let client = create_client()?;
     let exp = helpers::get_experiment_with_newtab_feature_branches();
     client
         .set_experiments(to_string(&HashMap::from([("data", &[exp.clone()])])).unwrap())
@@ -59,7 +60,7 @@ fn test_can_enroll() -> Result<()> {
 
 #[test]
 fn test_will_not_enroll_if_previously_did_not_enroll() -> Result<()> {
-    let client = create_client();
+    let client = create_client()?;
     let exp = helpers::get_experiment_with_newtab_feature_branches();
     client
         .set_experiments(to_string(&HashMap::from([("data", &[exp.clone()])])).unwrap())
@@ -81,7 +82,7 @@ fn test_will_not_enroll_if_previously_did_not_enroll() -> Result<()> {
 
 #[test]
 fn test_handle_enrollment_works_with_json() -> Result<()> {
-    let client = create_client();
+    let client = create_client()?;
     let exp = helpers::get_experiment_with_newtab_feature_branches_with_targeting(
         "language == 'en' && region == 'US'",
     );
@@ -128,7 +129,7 @@ fn test_handle_enrollment_works_with_json() -> Result<()> {
 
 #[test]
 fn test_handle_enrollment_errors_on_no_client_id() -> Result<()> {
-    let client = create_client();
+    let client = create_client()?;
 
     let request = EnrollmentRequest {
         client_id: None,

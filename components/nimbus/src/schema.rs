@@ -4,7 +4,7 @@
 
 use crate::{defaults::Defaults, enrollment::ExperimentMetadata, NimbusError, Result};
 use serde_derive::*;
-use serde_json::{from_str, from_value, Map, Value};
+use serde_json::{Map, Value};
 use std::collections::HashSet;
 
 const DEFAULT_TOTAL_BUCKETS: u32 = 10000;
@@ -92,7 +92,7 @@ pub fn parse_experiments(payload: &str) -> Result<Vec<Experiment>> {
     // We first encode the response into a `serde_json::Value`
     // to allow us to deserialize each experiment individually,
     // omitting any malformed experiments
-    let value: Value = from_str(payload)?;
+    let value: Value = serde_json::from_str(payload)?;
     let data = value
         .get("data")
         .ok_or(NimbusError::InvalidExperimentFormat)?;
@@ -104,7 +104,7 @@ pub fn parse_experiments(payload: &str) -> Result<Vec<Experiment>> {
         // XXX: In the future it would be nice if this lived in its own versioned crate so that
         // the schema could be decoupled from the sdk so that it can be iterated on while the
         // sdk depends on a particular version of the schema through the Cargo.toml.
-        match from_value::<Experiment>(exp.clone()) {
+        match serde_json::from_value::<Experiment>(exp.clone()) {
             Ok(exp) => res.push(exp),
             Err(e) => {
                 log::trace!("Malformed experiment data: {:#?}", exp);
