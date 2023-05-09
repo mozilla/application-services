@@ -17,7 +17,9 @@ def build_name_and_attributes(config, tasks):
         }
         primary_dep = task["primary-dependency"]
         copy_of_attributes = primary_dep.attributes.copy()
-        task.setdefault("attributes", copy_of_attributes)
+        task.setdefault("attributes", {})
+        for k, v in copy_of_attributes.items():
+            task["attributes"].setdefault(k, v)
         # run_on_tasks_for is set as an attribute later in the pipeline
         task.setdefault("run-on-tasks-for", copy_of_attributes['run_on_tasks_for'])
         task["name"] = _get_dependent_job_name_without_its_kind(primary_dep)

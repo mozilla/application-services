@@ -17,6 +17,8 @@ primary-dependency: module-build
 group-by: component
 
 task-template:
+  attributes:
+    shipping_phase: promote
   run-on-tasks-for: [github-release, cron]
   description: 'Sign release module {}'
   worker-type: signing

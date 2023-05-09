@@ -21,6 +21,8 @@ primary-dependency: module-build
 group-by: component
 
 task-template:
+  attributes:
+    shipping_phase: ship
   run-on-tasks-for: [github-release, cron]
   description: 'Publish release module {}'
   worker-type: beetmover
