@@ -2,6 +2,7 @@ import pytest
 import json
 from components.nimbus.cirrus import CirrusClient
 
+
 @pytest.fixture
 def bucket_config():
     return {
@@ -41,7 +42,6 @@ def branches():
 
 @pytest.fixture
 def experiment(bucket_config, branches):
-
     return {
         "schemaVersion": '1.0.0',
         "slug": 'experiment-slug',
