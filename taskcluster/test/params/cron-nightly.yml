@@ -26,6 +26,6 @@ pushdate: 0
 pushlog_id: '0'
 release-type: nightly
 repository_type: git
-target_tasks_method: full
+target_tasks_method: nightly
 tasks_for: cron
 version: null
