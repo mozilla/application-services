@@ -6,7 +6,7 @@ from components.nimbus.cirrus import CirrusClient
 @pytest.fixture
 def bucket_config():
     return {
-        "randomizationUnit": "client_id",
+        "randomizationUnit": "user_id",
         "count": 100,
         "namespace": '',
         "start": 1,
