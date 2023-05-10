@@ -125,6 +125,8 @@ impl<A: BridgedEngineAdaptor> BridgedEngine for A {
     }
 
     fn reset_sync_id(&self) -> Result<String> {
+        // Note that bridged engines never maintain the "global" guid - that's all managed
+        // by desktop. bridged_engines only care about the per-collection one.
         let global = Guid::empty();
         let coll = Guid::random();
         self.engine()
@@ -170,8 +172,13 @@ impl<A: BridgedEngineAdaptor> BridgedEngine for A {
     fn apply(&self) -> Result<ApplyResults> {
         let engine = self.engine();
         let mut telem = telemetry::Engine::new(engine.collection_name());
-        // we tell it to apply with an invalid timestamp then update it.
-        // this isn't atomic and we probably shouldn't do it, but to get a feel...
+        // Desktop tells a bridged engine to apply the records without telling it
+        // the server timestamp, and once applied, explicitly calls `set_last_sync()`
+        // with that timestamp. So this adaptor needs to call apply with an invalid
+        // timestamp, and hope that later call with the correct timestamp does come.
+        // This isn't ideal as it means the timestamp is updated in a different transaction,
+        // but nothing too bad should happen if it doesn't - we'll just end up applying
+        // the same records again next sync.
         let records = engine.apply(ServerTimestamp::from_millis(0), &mut telem)?;
         Ok(ApplyResults {
             records,
