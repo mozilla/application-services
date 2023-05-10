@@ -246,6 +246,7 @@ impl From<Branch> for ExperimentBranch {
 pub enum RandomizationUnit {
     NimbusId,
     ClientId,
+    UserId,
 }
 
 impl Default for RandomizationUnit {
@@ -257,6 +258,7 @@ impl Default for RandomizationUnit {
 #[derive(Default)]
 pub struct AvailableRandomizationUnits {
     pub client_id: Option<String>,
+    pub user_id: Option<String>,
     #[allow(dead_code)]
     pub(crate) dummy: i8, // See comments in nimbus.udl for why this hacky item exists.
 }
@@ -267,6 +269,17 @@ impl AvailableRandomizationUnits {
     pub fn with_client_id(client_id: &str) -> Self {
         Self {
             client_id: Some(client_id.to_string()),
+            user_id: None,
+            dummy: 0,
+        }
+    }
+
+    // Use ::with_user_id when you want to specify one, or use
+    // Default::default if you don't!
+    pub fn with_user_id(user_id: &str) -> Self {
+        Self {
+            client_id: None,
+            user_id: Some(user_id.to_string()),
             dummy: 0,
         }
     }
@@ -279,6 +292,7 @@ impl AvailableRandomizationUnits {
         match wanted {
             RandomizationUnit::NimbusId => Some(nimbus_id),
             RandomizationUnit::ClientId => self.client_id.as_deref(),
+            RandomizationUnit::UserId => self.user_id.as_deref(),
         }
     }
 }
