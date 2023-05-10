@@ -115,7 +115,7 @@ open class Nimbus(
             remoteSettingsConfig,
             // The "dummy" field here is required for obscure reasons when generating code on desktop,
             // so we just automatically set it to a dummy value.
-            AvailableRandomizationUnits(clientId = null, dummy = 0)
+            AvailableRandomizationUnits(clientId = null, userId = null, dummy = 0)
         )
     }
 
@@ -355,7 +355,7 @@ open class Nimbus(
     override fun resetTelemetryIdentifiers() {
         // The "dummy" field here is required for obscure reasons when generating code on desktop,
         // so we just automatically set it to a dummy value.
-        val aru = AvailableRandomizationUnits(clientId = null, dummy = 0)
+        val aru = AvailableRandomizationUnits(clientId = null, userId = null, dummy = 0)
         dbScope.launch {
             withCatchAll("resetTelemetryIdentifiers") {
                 nimbusClient.resetTelemetryIdentifiers(aru).also { enrollmentChangeEvents ->

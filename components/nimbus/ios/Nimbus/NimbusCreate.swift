@@ -56,7 +56,7 @@ public extension Nimbus {
             remoteSettingsConfig: remoteSettings,
             // The "dummy" field here is required for obscure reasons when generating code on desktop,
             // so we just automatically set it to a dummy value.
-            availableRandomizationUnits: AvailableRandomizationUnits(clientId: nil, dummy: 0)
+            availableRandomizationUnits: AvailableRandomizationUnits(clientId: nil, userId: nil, dummy: 0)
         )
 
         return Nimbus(nimbusClient: nimbusClient, resourceBundles: resourceBundles, errorReporter: errorReporter)
