@@ -180,7 +180,7 @@ mod helpers {
                 "start":0,
                 "total":10_000,
                 "namespace":"secure-silver",
-                "randomizationUnit":"client_id"
+                "randomizationUnit":"user_id"
             },
             "isEnrollmentPaused":false,
             "proposedEnrollment":7,
@@ -226,7 +226,7 @@ mod helpers {
                 "start":0,
                 "total":10_000,
                 "namespace":"secure-silver",
-                "randomizationUnit":"client_id"
+                "randomizationUnit":"user_id"
             },
             "isEnrollmentPaused":false,
             "proposedEnrollment":7,
