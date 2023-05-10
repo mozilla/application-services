@@ -16,6 +16,7 @@ sync_manager = { path = "../../components/sync_manager/" }
 places = { path = "../../components/places" }
 push = { path = "../../components/push" }
 rc_log_ffi = { path = "../../components/rc_log" }
+remote_settings = { path = "../../components/remote_settings" }
 rust-log-forwarder = { path = "../../components/support/rust-log-forwarder" }
 viaduct = { path = "../../components/viaduct" }
 nimbus-sdk = { path = "../../components/nimbus" }

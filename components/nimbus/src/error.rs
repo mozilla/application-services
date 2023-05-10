@@ -61,8 +61,8 @@ pub enum NimbusError {
     #[error("Transform parameter error: {0}")]
     TransformParameterError(String),
     #[cfg(feature = "stateful")]
-    #[error("Error with HTTP client: {0}")]
-    ClientError(#[from] rs_client::ClientError),
+    #[error("Error with Remote Settings client: {0}")]
+    ClientError(#[from] remote_settings::RemoteSettingsError),
     #[cfg(not(feature = "stateful"))]
     #[error("Error in Cirrus: {0}")]
     CirrusError(#[from] CirrusClientError),

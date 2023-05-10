@@ -1,10 +1,15 @@
 /* This Source Code Form is subject to the terms of the Mozilla Public
-* License, v. 2.0. If a copy of the MPL was not distributed with this
-* file, You can obtain one at http://mozilla.org/MPL/2.0/. */
+ * License, v. 2.0. If a copy of the MPL was not distributed with this
+ * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-/// Errors that can occur when using a [crate::Client].
 #[derive(Debug, thiserror::Error)]
-pub enum ClientError {
+pub enum RemoteSettingsError {
+    #[error("JSON Error: {0}")]
+    JSONError(#[from] serde_json::Error),
+    #[error("Error writing downloaded attachment: {0}")]
+    FileError(#[from] std::io::Error),
+    #[error("ParseIntError: {0}")]
+    ParseIntError(#[from] std::num::ParseIntError),
     /// An error has occured while sending a request.
     #[error("Error sending request: {0}")]
     RequestError(#[from] viaduct::Error),
@@ -17,6 +22,8 @@ pub enum ClientError {
     /// The server returned an error code or the response was unexpected.
     #[error("Error in network response: {0}")]
     ResponseError(String),
+    #[error("This server doesn't support attachments")]
+    AttachmentsUnsupportedError,
 }
 
-pub type Result<T, E = ClientError> = std::result::Result<T, E>;
+pub type Result<T, E = RemoteSettingsError> = std::result::Result<T, E>;

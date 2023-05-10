@@ -11,6 +11,10 @@ imports = [ "org.json.JSONObject" ]
 into_custom = "JSONObject({})"
 from_custom = "{}.toString()"
 
+[bindings.kotlin.external_packages]
+# Map from [External={crate-name}] into Kotlin package names
+remote_settings = "mozilla.appservices.remotesettings"
+
 [bindings.swift]
 ffi_module_name = "MozillaRustComponents"
 ffi_module_filename = "nimbusFFI"

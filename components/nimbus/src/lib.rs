@@ -26,7 +26,6 @@ cfg_if::cfg_if! {
     if #[cfg(feature = "stateful")] {
         mod behavior;
         mod client;
-        mod config;
         mod dbcache;
         mod updating;
 
@@ -34,7 +33,7 @@ cfg_if::cfg_if! {
         pub mod persistence;
 
         pub use crate::nimbus_client::*;
-        pub use config::RemoteSettingsConfig;
+        pub use remote_settings::RemoteSettingsConfig;
     } else {
         pub mod stateless {
             pub mod cirrus_client;

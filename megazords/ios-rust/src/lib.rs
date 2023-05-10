@@ -16,6 +16,7 @@ pub use push;
 // TODO: Drop this dependency once firefox-ios switches to using `rust_log_forwarder` for log
 // forwarding.
 pub use rc_log_ffi;
+pub use remote_settings;
 pub use rust_log_forwarder;
 pub use sync15;
 pub use sync_manager;

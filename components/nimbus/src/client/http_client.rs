@@ -16,7 +16,7 @@
 use crate::client::{Experiment, SettingsClient};
 use crate::error::Result;
 use crate::schema::parse_experiments;
-use rs_client::Client;
+use remote_settings::Client;
 
 impl SettingsClient for Client {
     fn get_experiments_metadata(&self) -> Result<String> {
@@ -24,7 +24,7 @@ impl SettingsClient for Client {
     }
 
     fn fetch_experiments(&self) -> Result<Vec<Experiment>> {
-        let resp = self.get_records()?;
+        let resp = self.get_records_raw()?;
         parse_experiments(&resp.text())
     }
 }

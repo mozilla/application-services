@@ -8,7 +8,7 @@ enum NimbusError {
     "UuidError", "InvalidExperimentFormat",
     "InvalidPath", "InternalError", "NoSuchExperiment", "NoSuchBranch",
     "DatabaseNotReady", "VersionParsingError", "TryFromIntError",
-    "ParseIntError", "TransformParameterError", "CirrusError"
+    "ParseIntError", "TransformParameterError", "CirrusError",
 };
 
 interface CirrusClient {

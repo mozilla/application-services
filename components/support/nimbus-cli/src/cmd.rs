@@ -476,21 +476,21 @@ impl TryFrom<&ExperimentListSource> for Value {
                 endpoint,
                 is_preview,
             } => {
-                use rs_client::{Client, ClientConfig};
+                use remote_settings::{Client, RemoteSettingsConfig};
                 viaduct_reqwest::use_reqwest_backend();
                 let collection_name = if *is_preview {
                     "nimbus-preview".to_string()
                 } else {
                     "nimbus-mobile-experiments".to_string()
                 };
-                let config = ClientConfig {
+                let config = RemoteSettingsConfig {
                     server_url: Some(endpoint.clone()),
                     bucket_name: None,
                     collection_name,
                 };
                 let client = Client::new(config)?;
 
-                let response = client.get_records()?;
+                let response = client.get_records_raw()?;
                 response.json::<Value>()?
             }
             ExperimentListSource::FromFile { file } => {

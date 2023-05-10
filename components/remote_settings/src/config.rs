@@ -14,7 +14,7 @@
 /// - `bucket_name`: The optional name of the bucket containing the collection on the server. If not specified, the standard bucket will be used.
 /// - `collection_name`: The name of the collection for the settings server.
 #[derive(Debug, Clone)]
-pub struct ClientConfig {
+pub struct RemoteSettingsConfig {
     pub server_url: Option<String>,
     pub bucket_name: Option<String>,
     pub collection_name: String,
