@@ -335,7 +335,7 @@ extension Nimbus: NimbusUserConfiguration {
         _ = catchAll(dbQueue) { _ in
             // The "dummy" field here is required for obscure reasons when generating code on desktop,
             // so we just automatically set it to a dummy value.
-            let aru = AvailableRandomizationUnits(clientId: nil, dummy: 0)
+            let aru = AvailableRandomizationUnits(clientId: nil, userId: nil, dummy: 0)
             try self.resetTelemetryIdentifiersOnThisThread(aru)
         }
     }
