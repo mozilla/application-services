@@ -43,6 +43,13 @@ projects:
     - name: places
       type: aar
     description: Low level places storage implementation.
+  remotesettings:
+    path: components/remote_settings/android
+    artifactId: remotesettings
+    publications:
+    - name: remotesettings
+      type: aar
+    description: A Remote Settings client intended for the application layer.
   rustlog:
     path: components/rc_log/android
     artifactId: rustlog

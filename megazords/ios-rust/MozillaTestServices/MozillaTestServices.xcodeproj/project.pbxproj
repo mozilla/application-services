@@ -70,13 +70,14 @@
 		39F5D7642956161E004E2384 /* Operation+.swift in Sources */ = {isa = PBXBuildFile; fileRef = 39F5D7632956161E004E2384 /* Operation+.swift */; };
 		39F5D766295616E3004E2384 /* NimbusBuilder.swift in Sources */ = {isa = PBXBuildFile; fileRef = 39F5D765295616E3004E2384 /* NimbusBuilder.swift */; };
 		45CC574A28AD9C86006D55AA /* errorsupport.udl in Sources */ = {isa = PBXBuildFile; fileRef = 45CC574828AD9C31006D55AA /* errorsupport.udl */; };
+		AB9C392E2A0DA61900AF5ADE /* remote_settings.udl in Sources */ = {isa = PBXBuildFile; fileRef = AB65933B2A0C524E00DBF059 /* remote_settings.udl */; };
+		F40A9DCD29765EB20033D10E /* sync15.udl in Sources */ = {isa = PBXBuildFile; fileRef = F40A9DCB29765DCB0033D10E /* sync15.udl */; };
 		F814DE8029DF762800FD26F5 /* SyncManagerTelemetryTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = F814DE7F29DF762800FD26F5 /* SyncManagerTelemetryTests.swift */; };
 		F81C7B9829DE305C00FAF8F9 /* SyncManagerTelemetry.swift in Sources */ = {isa = PBXBuildFile; fileRef = F81C7B9729DE305C00FAF8F9 /* SyncManagerTelemetry.swift */; };
 		F81C7B9A29DE309C00FAF8F9 /* SyncManagerComponent.swift in Sources */ = {isa = PBXBuildFile; fileRef = F81C7B9929DE309C00FAF8F9 /* SyncManagerComponent.swift */; };
 		F85ED649299C1F49005EEF36 /* RustSyncTelemetryPingTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = F85ED648299C1F49005EEF36 /* RustSyncTelemetryPingTests.swift */; };
 		F8BEFFDA299C4F1100776186 /* RustSyncTelemetryPing.swift in Sources */ = {isa = PBXBuildFile; fileRef = F8BEFFD9299C4F1100776186 /* RustSyncTelemetryPing.swift */; };
 		F8C88393298B4BF80006E9E9 /* syncmanager.udl in Sources */ = {isa = PBXBuildFile; fileRef = F8AAC1CC298B41FC000BCDEC /* syncmanager.udl */; };
-		F40A9DCD29765EB20033D10E /* sync15.udl in Sources */ = {isa = PBXBuildFile; fileRef = F40A9DCB29765DCB0033D10E /* sync15.udl */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXBuildRule section */
@@ -201,6 +202,12 @@
 		45CC574528AD9C0B006D55AA /* errorFFI.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = errorFFI.h; path = ../../../../components/support/error/ios/Generated/errorFFI.h; sourceTree = "<group>"; };
 		45CC574628AD9C0B006D55AA /* errorsupport.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; name = errorsupport.swift; path = ../../../../components/support/error/ios/Generated/errorsupport.swift; sourceTree = "<group>"; };
 		45CC574828AD9C31006D55AA /* errorsupport.udl */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; name = errorsupport.udl; path = ../../../../components/support/error/src/errorsupport.udl; sourceTree = "<group>"; };
+		AB65933B2A0C524E00DBF059 /* remote_settings.udl */ = {isa = PBXFileReference; lastKnownFileType = text; name = remote_settings.udl; path = ../src/remote_settings.udl; sourceTree = "<group>"; };
+		AB65933E2A0C52A000DBF059 /* remote_settingsFFI.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = remote_settingsFFI.h; sourceTree = "<group>"; };
+		AB9C392C2A0D9E2D00AF5ADE /* remote_settings.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = remote_settings.swift; sourceTree = "<group>"; };
+		F40A9DCB29765DCB0033D10E /* sync15.udl */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; name = sync15.udl; path = ../../../components/sync15/src/sync15.udl; sourceTree = SOURCE_ROOT; };
+		F4FCED2E2976605400BA127E /* sync15FFI.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = sync15FFI.h; path = ../../../components/sync15/ios/Generated/sync15FFI.h; sourceTree = SOURCE_ROOT; };
+		F4FCED2F2976605400BA127E /* sync15.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; name = sync15.swift; path = ../../../components/sync15/ios/Generated/sync15.swift; sourceTree = SOURCE_ROOT; };
 		F814DE7F29DF762800FD26F5 /* SyncManagerTelemetryTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SyncManagerTelemetryTests.swift; sourceTree = "<group>"; };
 		F81C7B9729DE305C00FAF8F9 /* SyncManagerTelemetry.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; name = SyncManagerTelemetry.swift; path = ../../../components/sync_manager/ios/SyncManager/SyncManagerTelemetry.swift; sourceTree = SOURCE_ROOT; };
 		F81C7B9929DE309C00FAF8F9 /* SyncManagerComponent.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; name = SyncManagerComponent.swift; path = ../../../components/sync_manager/ios/SyncManager/SyncManagerComponent.swift; sourceTree = SOURCE_ROOT; };
@@ -209,9 +216,6 @@
 		F8BEFFD9299C4F1100776186 /* RustSyncTelemetryPing.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; name = RustSyncTelemetryPing.swift; path = ../../../components/sync15/ios/RustSyncTelemetryPing.swift; sourceTree = SOURCE_ROOT; };
 		F8C88394298B4EC00006E9E9 /* syncmanagerFFI.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = syncmanagerFFI.h; path = ../../../components/sync_manager/ios/Generated/syncmanagerFFI.h; sourceTree = SOURCE_ROOT; };
 		F8C88395298B4EC00006E9E9 /* syncmanager.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; name = syncmanager.swift; path = ../../../components/sync_manager/ios/Generated/syncmanager.swift; sourceTree = SOURCE_ROOT; };
-		F40A9DCB29765DCB0033D10E /* sync15.udl */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; name = sync15.udl; path = ../../../components/sync15/src/sync15.udl; sourceTree = SOURCE_ROOT; };
-		F4FCED2E2976605400BA127E /* sync15FFI.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = sync15FFI.h; path = ../../../components/sync15/ios/Generated/sync15FFI.h; sourceTree = SOURCE_ROOT; };
-		F4FCED2F2976605400BA127E /* sync15.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; name = sync15.swift; path = ../../../components/sync15/ios/Generated/sync15.swift; sourceTree = SOURCE_ROOT; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -335,6 +339,7 @@
 		1BBAC4FA27AE049500DAFEF2 /* MozillaTestServices */ = {
 			isa = PBXGroup;
 			children = (
+				AB65933A2A0C51F300DBF059 /* RemoteSettings */,
 				F8AAC1CB298B40B8000BCDEC /* SyncManager */,
 				15DAE2082944142000DB06FE /* Autofill */,
 				45CC574328AD9BC8006D55AA /* ErrorSupport */,
@@ -555,6 +560,35 @@
 			name = Generated;
 			sourceTree = "<group>";
 		};
+		AB65933A2A0C51F300DBF059 /* RemoteSettings */ = {
+			isa = PBXGroup;
+			children = (
+				AB65933D2A0C528800DBF059 /* Generated */,
+				AB65933B2A0C524E00DBF059 /* remote_settings.udl */,
+			);
+			name = RemoteSettings;
+			path = ../../../components/remote_settings/ios;
+			sourceTree = SOURCE_ROOT;
+		};
+		AB65933D2A0C528800DBF059 /* Generated */ = {
+			isa = PBXGroup;
+			children = (
+				AB9C392C2A0D9E2D00AF5ADE /* remote_settings.swift */,
+				AB65933E2A0C52A000DBF059 /* remote_settingsFFI.h */,
+			);
+			name = Generated;
+			path = ../../../components/remote_settings/ios/Generated;
+			sourceTree = SOURCE_ROOT;
+		};
+		F4FCED2D2976605400BA127E /* Generated */ = {
+			isa = PBXGroup;
+			children = (
+				F4FCED2E2976605400BA127E /* sync15FFI.h */,
+				F4FCED2F2976605400BA127E /* sync15.swift */,
+			);
+			path = Generated;
+			sourceTree = "<group>";
+		};
 		F8AAC1CB298B40B8000BCDEC /* SyncManager */ = {
 			isa = PBXGroup;
 			children = (
@@ -576,15 +610,6 @@
 			name = Generated;
 			path = ../../../components/sync_manager/ios/Generated;
 			sourceTree = SOURCE_ROOT;
-		};
-		F4FCED2D2976605400BA127E /* Generated */ = {
-			isa = PBXGroup;
-			children = (
-				F4FCED2E2976605400BA127E /* sync15FFI.h */,
-				F4FCED2F2976605400BA127E /* sync15.swift */,
-			);
-			path = Generated;
-			sourceTree = "<group>";
 		};
 /* End PBXGroup section */
 
@@ -720,6 +745,7 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				AB9C392E2A0DA61900AF5ADE /* remote_settings.udl in Sources */,
 				39AD326F2988468B00E42E13 /* FeatureManifestInterface.swift in Sources */,
 				F8C88393298B4BF80006E9E9 /* syncmanager.udl in Sources */,
 				F40A9DCD29765EB20033D10E /* sync15.udl in Sources */,

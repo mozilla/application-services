@@ -194,7 +194,8 @@ fn main() -> Result<()> {
 
     // initiate the optional config
     let config = RemoteSettingsConfig {
-        server_url: server_url.to_string(),
+        server_url: Some(server_url.to_string()),
+        bucket_name: None,
         collection_name: collection_name.to_string(),
     };
 

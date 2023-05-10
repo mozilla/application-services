@@ -16,7 +16,7 @@ name = "nimbus"
 default=["stateful"]
 rkv-safe-mode = ["dep:rkv"]
 stateful-uniffi-bindings = []
-stateful = ["rkv-safe-mode", "stateful-uniffi-bindings", "dep:rs_client"]
+stateful = ["rkv-safe-mode", "stateful-uniffi-bindings", "dep:remote_settings"]
 
 [dependencies]
 anyhow = "1"
@@ -36,7 +36,7 @@ uniffi = "0.23"
 chrono = { version = "0.4", features = ["serde"]}
 unicode-segmentation = "1.8.0"
 error-support = { path = "../support/error" }
-rs_client = { path = "../support/rs_client", optional = true }
+remote_settings = { path = "../remote_settings", optional = true }
 cfg-if = "1.0.0"
 
 [build-dependencies]

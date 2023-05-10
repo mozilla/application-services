@@ -1,3 +1,6 @@
+[External="remote_settings"]
+typedef extern RemoteSettingsConfig;
+
 namespace nimbus {};
 dictionary AppContext {
     string app_name;
@@ -46,11 +49,6 @@ dictionary AvailableExperiment {
 dictionary ExperimentBranch {
     string slug;
     i32 ratio;
-};
-
-dictionary RemoteSettingsConfig {
-    string server_url;
-    string collection_name;
 };
 
 dictionary AvailableRandomizationUnits {
