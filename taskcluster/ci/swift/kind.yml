@@ -12,6 +12,7 @@ transforms:
   - taskgraph.transforms.task:transforms
 
 kind-dependencies:
+  - fetch
   - toolchain
 
 tasks:
@@ -54,3 +55,6 @@ tasks:
       using: run-commands
       run-task-command: ["/usr/local/bin/python3", "run-task"]
       use-caches: true
+    fetches:
+        fetch:
+            - swiftformat
