@@ -26,3 +26,10 @@ tasks:
             type: git
             repo: https://github.com/mozilla-releng/resource-monitor
             revision: 17371502a3b04579375d707844e6bf08dee95d22
+    swiftformat:
+        description: swiftformat
+        fetch:
+            type: static-url
+            url: https://github.com/nicklockwood/SwiftFormat/releases/download/0.51.9/swiftformat.zip
+            sha256: f5db4d7e1cc0e0daf77266983bad5931fb95f6ffcecf08fa1aa19fdbb7c53fc4
+            size: 1656725

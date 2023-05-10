@@ -160,7 +160,7 @@ def generate_uniffi_bindings(args):
 def generate_uniffi_bindings_for_target(out_dir, bindings_path):
     for udl_path in bindings_path:
         log(f"generating sources for {udl_path}")
-        run_uniffi_bindgen(['generate', '-l', 'swift', '--no-format', '-o', out_dir, ROOT_DIR / udl_path])
+        run_uniffi_bindgen(['generate', '-l', 'swift', '-o', out_dir, ROOT_DIR / udl_path])
 
 def run_uniffi_bindgen(bindgen_args):
     all_args = [

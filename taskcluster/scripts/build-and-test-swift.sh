@@ -8,4 +8,6 @@ set -ex
 # shellcheck source=/dev/null
 source "$HOME/.cargo/env"
 export PATH="$HOME/bin:$HOME/Library/Python/3.7/bin:$PATH"
+mv "$MOZ_FETCHES_DIR/swiftformat" "$HOME/bin/swiftformat"
+
 taskcluster/scripts/build-and-test-swift.py build/swift-components build/ build/glean-workdir
