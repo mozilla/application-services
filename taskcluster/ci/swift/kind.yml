@@ -7,6 +7,7 @@
 loader: taskgraph.loader.transform:loader
 
 transforms:
+  - app_services_taskgraph.transforms.worker:transforms
   - app_services_taskgraph.transforms.appservices:transforms
   - taskgraph.transforms.job:transforms
   - taskgraph.transforms.task:transforms
@@ -46,8 +47,9 @@ tasks:
         #   type: "file"
     run:
       pre-commands:
-        - ["taskcluster/scripts/toolchain/build-rust-toolchain-macosx.sh"]
-        - ["taskcluster/scripts/toolchain/libs-ios.sh"]
+        - ["source", "taskcluster/scripts/setup-mac-worker.sh"]
+        - ["source", "taskcluster/scripts/toolchain/setup-fetched-rust-toolchain.sh"]
+        - ["source", "taskcluster/scripts/toolchain/setup-libs-ios.sh"]
       commands:
         - ["taskcluster/scripts/build-and-test-swift.sh"]
         - [ "cd", "build/" ]
@@ -56,5 +58,8 @@ tasks:
       run-task-command: ["/usr/local/bin/python3", "run-task"]
       use-caches: true
     fetches:
-        fetch:
-            - swiftformat
+      toolchain:
+        - rust-osx
+        - libs-ios
+      fetch:
+          - swiftformat

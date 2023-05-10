@@ -1,0 +1,14 @@
+# This Source Code Form is subject to the terms of the Mozilla Public
+# License, v. 2.0. If a copy of the MPL was not distributed with this
+# file, You can obtain one at http://mozilla.org/MPL/2.0/.
+---
+libs-ios:
+    description: 'Build NSS/SQLCipher for iOS'
+    run:
+        resources:
+            - libs
+        script: libs-ios.sh
+        toolchain-alias: libs-ios
+        toolchain-artifact: public/build/ios.tar.gz
+        run-task-command: ["/usr/local/bin/python3", "run-task"]
+    worker-type: b-osx

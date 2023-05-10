@@ -69,12 +69,17 @@ def setup_mac_build_task(task, target, binary):
         'using': 'run-commands',
         'run-task-command': ["/usr/local/bin/python3", "run-task"],
         'pre-commands': [
-            ["taskcluster/scripts/toolchain/build-rust-toolchain-macosx.sh"],
-            ["taskcluster/scripts/toolchain/libs-ios.sh"],
+            ["source", "taskcluster/scripts/setup-mac-worker.sh"],
+            ["source", "taskcluster/scripts/toolchain/setup-fetched-rust-toolchain.sh"],
         ],
         'commands': [
             [ "taskcluster/scripts/nimbus-build-osx.sh", "build/", binary, target ]
         ],
+    }
+    task['fetches'] = {
+        'toolchain': [
+            'rust-osx',
+        ]
     }
 
 # Transform for the nimbus-assemble task
