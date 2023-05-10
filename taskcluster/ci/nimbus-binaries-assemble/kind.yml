@@ -16,6 +16,7 @@ kind-dependencies:
   - nimbus-build
 
 transforms:
+  - app_services_taskgraph.transforms.worker:transforms
   - app_services_taskgraph.transforms.nimbus:assemble
   - app_services_taskgraph.transforms.release_artifacts
   - app_services_taskgraph.transforms.appservices
@@ -28,7 +29,6 @@ task-defaults:
   worker-type: b-linux
   worker:
     chain-of-trust: true
-    docker-image: { in-tree: linux }
     max-run-time: 1800
 
 tasks:

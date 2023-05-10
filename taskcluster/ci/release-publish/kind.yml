@@ -16,6 +16,7 @@ kind-dependencies:
   - build-summary
 
 transforms:
+  - app_services_taskgraph.transforms.worker:transforms
   - app_services_taskgraph.transforms.release_publish:transforms
   - taskgraph.transforms.job:transforms
   - taskgraph.transforms.task:transforms
@@ -30,7 +31,6 @@ tasks:
     worker-type: b-linux
     worker:
       chain-of-trust: true
-      docker-image: { in-tree: linux }
       max-run-time: 1800
       env: {}
     run:
