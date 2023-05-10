@@ -4,9 +4,9 @@
 
 ### 🦊 What's Changed 🦊
 
- - [`nimbus-cli`](./components/support/nimbus-cli) now has commands: `capture-logs`, `tail-logs`, `test-feature`, `fetch` and `apply-files`. ([#5517](https://github.com/mozilla/application-services/pull/5517)))
- - Add additional Cirrus SDK helper methods and add Python testing for the generated Cirrus Python code [#5478](https://github.com/mozilla/application-services/pull/5478)).
- - Add `user_id` RandomizationUnit (for Cirrus) ([#<id>](https://github.com/mozilla/application-services/pull/<id>)).
+ - [`nimbus-cli`](./components/support/nimbus-cli) now has commands: `capture-logs`, `tail-logs`, `test-feature`, `fetch` and `apply-files`. ([#5517](https://github.com/mozilla/application-services/pull/5517))
+ - Add additional Cirrus SDK helper methods and add Python testing for the generated Cirrus Python code ([#5478](https://github.com/mozilla/application-services/pull/5478)).
+ - Add `user_id` RandomizationUnit (for Cirrus) ([#5564](https://github.com/mozilla/application-services/pull/5564)).
 
 [Full Changelog](In progress)
 
