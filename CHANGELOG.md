@@ -1,5 +1,17 @@
 # v115.0 (In progress)
 
+## Push
+### ⚠️ Breaking Changes ⚠️
+  - The constructor for the Push Manager has changed. ([#5389](https://github.com/mozilla/application-services/pull/5389))
+    - Push manager now takes only one argument, a Push Configuration object
+    - Push manager no longer takes in the registration_id (token) in construction
+    - Push manager now takes a new `verifyConnectionRateLimiter` parameter in its configuration, it defines the number of seconds between consecutive verify connection requests.
+  - The `update` function no longer returns a boolean, the consumers did not use the return value. ([#5389](https://github.com/mozilla/application-services/pull/5389))
+  - The Error exposed by push is now `PushApiError`, which is reduced to the set of errors the consumer is expected to handle. ([#5389](https://github.com/mozilla/application-services/pull/5389)):
+     - `PushApiError::UAIDNotRecognizedError`: The server lost the client's uaid. The app should call `verify_connection(true)` and notify all consumers of push
+     - `RecordNotFoundError`: The record containing the private key cannot be found. The consumer should call `verify_connection(true)` and notify all consumers of push
+     - `InternalError`: Consumer should report the error, but ignore it
+
 ## Nimbus ⛅️🔬🔭
 
 ### 🦊 What's Changed 🦊
