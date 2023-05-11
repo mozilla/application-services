@@ -93,7 +93,10 @@ def setup_assemble_tasks(config, tasks):
         fetches = {}
 
         for (label, build_task) in config.kind_dependencies_tasks.items():
-            # Since `nimbus-build` is our only kind-dependency, this loops through all the
+            if build_task.kind != "nimbus-build":
+                continue
+
+            # Since `nimbus-build` is listed in kind-dependencies, this loops through all the
             # nimbus-build tasks.  For each task, fetch it's artifacts.
             binary = build_task.attributes['binary']
             target = build_task.attributes['target']
