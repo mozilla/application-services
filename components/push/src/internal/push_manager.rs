@@ -155,16 +155,17 @@ impl<Co: Connection, Cr: Cryptography, S: Storage> PushManager<Co, Cr, S> {
             .transpose()
     }
 
-    pub fn unsubscribe(&mut self, scope: &str) -> Result<()> {
+    pub fn unsubscribe(&mut self, scope: &str) -> Result<bool> {
         let (uaid, auth) = self.ensure_auth_pair()?;
         let record = self.store.get_record_by_scope(scope)?;
         if let Some(record) = record {
             self.connection
                 .unsubscribe(&record.channel_id, uaid, auth)?;
             self.store.delete_record(&record.channel_id)?;
+            Ok(true)
+        } else {
+            Ok(false)
         }
-
-        Ok(())
     }
 
     pub fn unsubscribe_all(&mut self) -> Result<()> {

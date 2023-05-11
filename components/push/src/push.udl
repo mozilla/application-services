@@ -69,14 +69,15 @@ interface PushManager {
     //   - `scope` - The scope for the channel to remove
     //
     // # Returns
-    // Returns a boolean indicating if un-subscription was successful
+    // Returns a boolean. Boolean is False if the subscription was already
+    // terminated in the past.
     //
     // # Errors
     // Returns an error in the following cases:
     //   - An error occurred sending an unsubscribe request to the autopush server
     //   - An error occurred accessing the PushManager's persisted storage
     [Throws=PushApiError]
-    void unsubscribe([ByRef] string scope);
+    boolean unsubscribe([ByRef] string scope);
 
     // Unsubscribe all channels for the user
     //

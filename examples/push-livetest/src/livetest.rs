@@ -11,14 +11,7 @@ use push::{BridgeType, PushConfiguration, PushManager};
  * test database under "/tmp". This database should be deleted before
  * you re-run this test.
  *
- * NOTE: if you wish to do a "live" test inside of the kotlin layer,
- * See `PushTest.kt` and look for "LIVETEST".
  */
-
-fn dummy_uuid() -> String {
-    // Use easily findable "test" UUIDs
-    "deadbeef-ab-dc-ef-abcdef".to_string()
-}
 
 fn test_live_server() {
     let tempdir = tempfile::tempdir().unwrap();
@@ -35,25 +28,23 @@ fn test_live_server() {
     };
 
     let pm = PushManager::new(push_config).unwrap();
-    let channel1 = dummy_uuid();
-    let channel2 = dummy_uuid();
+    let scope1 = "scope1";
+    let scope2 = "scope2";
 
     pm.update("new-token").unwrap();
 
-    println!("Channels: [{}, {}]", channel1, channel2);
+    println!("Scopes: [{}, {}]", scope1, scope2);
 
     println!("\n == Subscribing channels");
-    let sub1 = pm
-        .subscribe(&channel1, "", &None)
-        .expect("subscribe failed");
+    let sub1 = pm.subscribe(scope1, &None).expect("subscribe failed");
 
     println!("## Subscription 1: {:?}", sub1);
-    println!("## Info: {:?}", pm.dispatch_info_for_chid(&channel1));
-    let sub2 = pm.subscribe(&channel2, "", &None).unwrap();
+    println!("## Info: {:?}", pm.get_subscription(scope1));
+    let sub2 = pm.subscribe(scope2, &None).unwrap();
     println!("## Subscription 2: {:?}", sub2);
 
     println!("\n == Unsubscribing single channel");
-    pm.unsubscribe(&channel1).expect("chid unsub failed");
+    pm.unsubscribe(scope1).expect("chid unsub failed");
 
     // the list of known channels should come from whatever is
     // holding the index of channels to recipient applications.

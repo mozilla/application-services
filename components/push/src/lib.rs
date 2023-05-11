@@ -287,7 +287,8 @@ impl PushManager {
     ///   - `channel_id` - Channel ID (UUID) for subscription to remove
     ///
     /// # Returns
-    /// Returns a boolean indicating if un-subscription was successful
+    /// Returns a boolean. Boolean is False if the subscription was already
+    /// terminated in the past.
     ///
     /// # Errors
     /// Returns an error in the following cases:
@@ -295,7 +296,7 @@ impl PushManager {
     ///   - An error occurred sending an unsubscribe request to the autopush server
     ///   - An error occurred accessing the PushManager's persisted storage
     #[handle_error(PushError)]
-    pub fn unsubscribe(&self, channel_id: &str) -> ApiResult<()> {
+    pub fn unsubscribe(&self, channel_id: &str) -> ApiResult<bool> {
         self.internal.lock().unwrap().unsubscribe(channel_id)
     }
 
