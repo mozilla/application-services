@@ -17,6 +17,7 @@ kind-dependencies:
 
 transforms:
   - app_services_taskgraph.transforms.nimbus:assemble
+  - app_services_taskgraph.transforms.appservices:transforms
   - taskgraph.transforms.job:transforms
   - taskgraph.transforms.task:transforms
 
