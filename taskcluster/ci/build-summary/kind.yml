@@ -27,4 +27,4 @@ tasks:
       buildconfig:
         name: all
     alerts:
-      slack-channel: CKL0LGV9B
+      slack-channel: C0559DDDPQF
