@@ -234,7 +234,7 @@ class NimbusPlugin implements Plugin<Project> {
         if (os.contains("win")) {
             osPart = "pc-windows-gnu"
         } else if (os.contains("nix") || os.contains("nux") || os.contains("aix")) {
-            osPart = "unknown-linux-musl"
+            osPart = "unknown-linux"
         } else if (os.contains("mac")) {
             osPart = "apple-darwin"
         } else {
