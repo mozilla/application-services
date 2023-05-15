@@ -1,5 +1,8 @@
 ### Pull Request checklist ###
 <!-- Before submitting the PR, please address each item -->
+- **Breaking changes**:  This PR follows our [breaking change policy](https://github.com/mozilla/application-services/blob/main/docs/howtos/breaking-changes.md)
+  - [ ] This PR has no breaking API changes
+  - [ ] There are corresponding PRs for our consumer applications that resolve the breaking changes and have been approved
 - [ ] **Quality**: This PR builds and tests run cleanly
   - Note:
     - For changes that need extra cross-platform testing, consider adding `[ci full]` to the PR title.
