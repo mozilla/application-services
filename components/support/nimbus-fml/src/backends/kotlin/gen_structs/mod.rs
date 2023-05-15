@@ -116,6 +116,7 @@ impl<'a> FeatureManifestDeclaration<'a> {
                 "org.mozilla.experiments.nimbus.Variables".to_string(),
                 "org.mozilla.experiments.nimbus.internal.FeatureManifestInterface".to_string(),
                 "org.mozilla.experiments.nimbus.FeaturesInterface".to_string(),
+                "org.json.JSONObject".to_string(),
             ])
             .filter(|i| i != &my_package)
             .collect::<HashSet<String>>()

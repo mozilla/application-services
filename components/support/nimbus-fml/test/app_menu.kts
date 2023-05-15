@@ -83,3 +83,102 @@ assert(feature1.profileItems[PlayerProfile.CHILD]!![MenuItemId.SETTINGS]?.label 
 assert(feature1.profileItems[PlayerProfile.ADULT]!![MenuItemId.START_GAME]?.label == "START NIMBUS")
 assert(feature1.profileItems[PlayerProfile.ADULT]!![MenuItemId.RESUME_GAME]?.label == "RESUME NIMBUS")
 assert(feature1.profileItems[PlayerProfile.ADULT]!![MenuItemId.SETTINGS]?.label == "NIMBUS SETTINGS")
+
+val exp = org.json.JSONObject("""
+{
+	"item-enabled": {
+		"start-game": true,
+		"resume-game": false,
+		"settings": true,
+		"community": false
+	},
+	"profile-ordering": [{
+			"adult": "settings",
+			"child": "start-game"
+		},
+		{
+			"adult": "settings",
+			"child": "resume-game"
+		}
+	],
+	"all-menu-items": [{
+			"label": "Start Game",
+			"deeplink": "deeplink://start"
+		},
+		{
+			"label": "Resume Game",
+			"deeplink": "deeplink://start?continue=true"
+		}
+	],
+	"item-ordering": [
+		"resume-game",
+		"start-game",
+		"community",
+		"settings"
+	],
+	"profile-items": {
+		"adult": {
+			"start-game": {
+				"label": "START NIMBUS",
+				"deeplink": "deeplink://start"
+			},
+			"resume-game": {
+				"label": "RESUME NIMBUS",
+				"deeplink": "deeplink://start?continue=true"
+			},
+			"settings": {
+				"label": "NIMBUS SETTINGS",
+				"deeplink": "deeplink://settings"
+			},
+			"community": {
+				"label": "COMMUNITY",
+				"deeplink": "deeplink://community"
+			}
+		},
+		"child": {
+			"start-game": {
+				"label": "start child-friendly game",
+				"deeplink": "deeplink://start"
+			},
+			"resume-game": {
+				"label": "resume child-friendly game",
+				"deeplink": "deeplink://start?continue=true"
+			},
+			"settings": {
+				"label": "child-friendly tweaks",
+				"deeplink": "deeplink://settings"
+			},
+			"community": {
+				"label": "child-friendly community engagement!",
+				"deeplink": "deeplink://community"
+			}
+		}
+	},
+	"items": {
+		"start-game": {
+			"label": "Start Nimbus",
+			"deeplink": "deeplink://start"
+		},
+		"resume-game": {
+			"label": "Resume Nimbus",
+			"deeplink": "deeplink://start?continue=true"
+		},
+		"settings": {
+			"label": "Nimbus Settings",
+			"deeplink": "deeplink://settings"
+		},
+		"community": {
+			"label": "Share Nimbus",
+			"deeplink": "deeplink://community"
+		}
+	}
+}
+""".trimIndent())
+val obs = feature1.toJSONObject()
+if (exp.similar(obs)) {
+    assert(true)
+} else {
+    println("exp = $exp")
+    println("obs = $obs")
+    assert(false)
+}

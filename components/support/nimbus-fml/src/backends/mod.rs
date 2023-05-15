@@ -145,6 +145,17 @@ pub trait CodeType {
         None
     }
 
+    /// Call from the template
+    fn as_json(&self, oracle: &dyn CodeOracle, prop: &dyn Display) -> String {
+        self.as_json_transform(oracle, prop)
+            .unwrap_or_else(|| prop.to_string())
+    }
+
+    /// Implement these in different code types, and call recursively from different code types.
+    fn as_json_transform(&self, _oracle: &dyn CodeOracle, _prop: &dyn Display) -> Option<String> {
+        None
+    }
+
     /// A representation of the given literal for this type.
     /// N.B. `Literal` is aliased from `serde_json::Value`.
     fn literal(
