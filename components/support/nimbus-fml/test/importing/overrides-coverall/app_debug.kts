@@ -5,6 +5,7 @@
 import org.mozilla.experiments.nimbus.MockNimbus
 import com.example.app.nimbus.*
 import com.example.lib.nimbus.*
+import org.json.JSONObject
 
 var injected: MockNimbus = MockNimbus(
     "property-overrides-test" to """{
@@ -22,3 +23,37 @@ assert(value.map[OverrideSource.CHANNEL_SPECIFIC] == true) // because we used re
 assert(value.stringMap["app-fml"] == OverrideSource.APP_FML)
 assert(value.nestedObject.scalar == OverrideSource.APP_FML)
 assert(value.nestedObject.noOverride == OverrideSource.NONE)
+
+// Make sure toJSONObject() works: Map<Enum, Boolean>, Map<String, Enum>, Object.
+val obs = value.toJSONObject()
+val exp = JSONObject("""
+    {
+        "no-override": "none",
+        "scalar": "app-fml",
+        "map": {
+            "none": false,
+            "lib-fml": true,
+            "app-fml": true,
+            "variables-json": false,
+            "channel-specific": true
+        },
+        "string-map": {
+            "none": "none",
+            "lib-fml": "lib-fml",
+            "app-fml": "app-fml",
+            "variables-json": "none",
+            "channel-specific": "channel-specific"
+        },
+        "nested-object": {
+            "no-override": "none",
+            "scalar": "app-fml"
+        }
+    }
+""".trimIndent())
+if (obs.similar(exp)) {
+    assert(true)
+} else {
+    println("exp = ${exp}")
+    println("obs = ${obs}")
+    assert(false)
+}

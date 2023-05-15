@@ -76,6 +76,10 @@ impl CodeType for ObjectCodeType {
         Some(format!("_mergeWith({})", default))
     }
 
+    fn as_json_transform(&self, _oracle: &dyn CodeOracle, prop: &dyn Display) -> Option<String> {
+        Some(format!("{}.toJSONObject()", prop))
+    }
+
     fn literal(
         &self,
         oracle: &dyn CodeOracle,

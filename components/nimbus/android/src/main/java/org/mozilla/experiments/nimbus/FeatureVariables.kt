@@ -10,7 +10,6 @@ import org.json.JSONArray
 import org.json.JSONObject
 import org.mozilla.experiments.nimbus.internal.NimbusFeatureException
 import org.mozilla.experiments.nimbus.internal.mapValuesNotNull
-import java.lang.IllegalArgumentException
 
 /**
  * `Variables` provides a type safe key-value style interface to configure application features
@@ -507,6 +506,11 @@ interface Res<T> {
      */
     val resource: T
 
+    /**
+     * The resource name used to identify this resource.
+     */
+    val resourceName: String
+
     companion object {
         fun drawable(context: Context, resId: Int): Res<Drawable> =
             DrawableRes(context, resId)
@@ -523,6 +527,10 @@ internal class DrawableRes(
 ) : Res<Drawable> {
     override val resource: Drawable
         get() = context.resources.getDrawable(resourceId, context.theme)
+
+    override val resourceName: String
+        @Suppress("TooGenericExceptionCaught")
+        get() = try { context.resources.getResourceName(resourceId) } catch (e: Throwable) { "unknown" }
 }
 
 class StringHolder(

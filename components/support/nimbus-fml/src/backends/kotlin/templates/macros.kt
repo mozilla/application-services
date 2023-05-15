@@ -44,4 +44,14 @@
       {{ p.typ()|property(p.name(), "_variables", defaults)}}
    }
 {% endfor %}
+
+   {#- toJSON #}
+   fun toJSONObject(): JSONObject =
+      JSONObject(
+         mapOf(
+            {%- for p in inner.props() %}
+            {{ p.name()|quoted }} to {{ p.name()|var_name|to_json(p.typ()) }},
+            {%- endfor %}
+         )
+      )
 {% endmacro %}
