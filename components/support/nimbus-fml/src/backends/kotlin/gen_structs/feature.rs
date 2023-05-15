@@ -40,6 +40,7 @@ impl CodeDeclaration for FeatureCodeDeclaration {
     fn imports(&self, _oracle: &dyn CodeOracle) -> Option<Vec<String>> {
         Some(vec![
             "org.mozilla.experiments.nimbus.internal.FeatureHolder".to_string(),
+            "org.mozilla.experiments.nimbus.internal.FMLFeatureInterface".to_string(),
             "org.mozilla.experiments.nimbus.NullVariables".to_string(),
         ])
     }

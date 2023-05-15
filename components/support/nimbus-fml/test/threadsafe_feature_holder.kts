@@ -3,16 +3,24 @@
 * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
 import android.content.Context as MockContext
+import org.json.JSONObject
 import org.mozilla.experiments.nimbus.FeaturesInterface
 import org.mozilla.experiments.nimbus.MockNimbus
 import org.mozilla.experiments.nimbus.internal.FeatureHolder
+import org.mozilla.experiments.nimbus.internal.FMLFeatureInterface
 import java.util.concurrent.Executors
 import java.util.concurrent.TimeUnit
 
 val scope = Executors.newWorkStealingPool(5)
 
 val api: FeaturesInterface = MockNimbus("test-feature-holder" to "{}")
-val holder = FeatureHolder<String>({ api }, featureId = "test-feature-holder") { "NO CRASH" }
+
+class Feature(val string: String): FMLFeatureInterface {
+    override fun toJSONObject() =
+        JSONObject(mapOf("string" to string))
+}
+
+val holder = FeatureHolder<Feature>({ api }, featureId = "test-feature-holder") { Feature("NO CRASH") }
 
 for (i in 0..10000) {
     scope.submit {

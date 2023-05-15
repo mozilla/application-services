@@ -35,4 +35,10 @@ interface FeatureManifestInterface<T> {
      * default values.
      */
     val features: T
+
+    /**
+     * Get a feature configuration. This is of limited use for most uses of the FML, though
+     * is quite useful for introspection.
+     */
+    fun getFeature(featureId: String): FeatureHolder<*>?
 }

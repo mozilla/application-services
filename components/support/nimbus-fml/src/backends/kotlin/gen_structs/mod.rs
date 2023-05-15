@@ -114,6 +114,7 @@ impl<'a> FeatureManifestDeclaration<'a> {
             )
             .chain(vec![
                 "org.mozilla.experiments.nimbus.Variables".to_string(),
+                "org.mozilla.experiments.nimbus.internal.FeatureHolder".to_string(),
                 "org.mozilla.experiments.nimbus.internal.FeatureManifestInterface".to_string(),
                 "org.mozilla.experiments.nimbus.FeaturesInterface".to_string(),
                 "org.json.JSONObject".to_string(),
