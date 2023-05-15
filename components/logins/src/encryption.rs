@@ -42,7 +42,7 @@ pub fn check_canary(canary: &str, text: &str, key: &str) -> ApiResult<bool> {
 }
 
 #[handle_error(Error)]
-pub fn create_key() -> ApiResult<String> {
+pub fn create_a_key() -> ApiResult<String> {
     EncryptorDecryptor::create_key()
 }
 
@@ -79,11 +79,11 @@ mod test {
 
     #[test]
     fn test_encrypt() {
-        let ed = EncryptorDecryptor::new(&create_key().unwrap()).unwrap();
+        let ed = EncryptorDecryptor::new(&create_a_key().unwrap()).unwrap();
         let cleartext = "secret";
         let ciphertext = ed.encrypt(cleartext, "test encrypt").unwrap();
         assert_eq!(ed.decrypt(&ciphertext, "test decrypt").unwrap(), cleartext);
-        let ed2 = EncryptorDecryptor::new(&create_key().unwrap()).unwrap();
+        let ed2 = EncryptorDecryptor::new(&create_a_key().unwrap()).unwrap();
         assert!(matches!(
             ed2.decrypt(&ciphertext, "test decrypt").err().unwrap(),
             Error::CryptoError(jwcrypto::EncryptorDecryptorError { description, .. })
@@ -106,11 +106,11 @@ mod test {
     #[test]
     fn test_canary_functionality() {
         const CANARY_TEXT: &str = "Arbitrary sequence of text";
-        let key = create_key().unwrap();
+        let key = create_a_key().unwrap();
         let canary = create_canary(CANARY_TEXT, &key).unwrap();
         assert!(check_canary(&canary, CANARY_TEXT, &key).unwrap());
 
-        let different_key = create_key().unwrap();
+        let different_key = create_a_key().unwrap();
         assert!(matches!(
             check_canary(&canary, CANARY_TEXT, &different_key)
                 .err()

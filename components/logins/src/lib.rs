@@ -20,7 +20,7 @@ mod util;
 uniffi::include_scaffolding!("logins");
 
 pub use crate::db::LoginDb;
-use crate::encryption::{check_canary, create_canary, create_key};
+use crate::encryption::{check_canary, create_canary, create_a_key};
 pub use crate::error::*;
 pub use crate::login::*;
 pub use crate::migrate_sqlcipher_db::migrate_logins;

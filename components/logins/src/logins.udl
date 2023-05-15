@@ -7,7 +7,7 @@ namespace logins {
 
     // Create a new, random, encryption key.
     [Throws=LoginsApiError]
-    string create_key();
+    string create_a_key();
 
     // Decrypt an `EncryptedLogin` to a `Login`
     [Throws=LoginsApiError]
