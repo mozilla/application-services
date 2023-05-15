@@ -196,6 +196,11 @@ def get_fenix_build_tasks(task):
             'name': 'public/branch-build/app-x86-debug.apk',
             'path': '/builds/worker/checkouts/vcs/firefox-android/fenix/app/build/outputs/apk/fenix/debug/app-fenix-x86-debug.apk',
             'type': 'file',
+        },
+        {
+            'name': 'public/branch-build/app-arm64-debug.apk',
+            'path': '/builds/worker/checkouts/vcs/firefox-android/fenix/app/build/outputs/apk/fenix/debug/app-fenix-arm64-v8a-debug.apk',
+            'type': 'file',
         }
     ]
     yield task
