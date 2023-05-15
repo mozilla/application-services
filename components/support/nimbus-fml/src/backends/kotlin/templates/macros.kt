@@ -8,12 +8,15 @@
     and rendering literals for Objects.
 -#}
 
+{% macro render_constructor() -%}
+private constructor(
+   private val _variables: Variables,
+   private val _defaults: Defaults)
+{% endmacro %}
+
 {% macro render_class_body(inner) %}
 {%- let prop_name = inner.name()|var_name %}
 {%- let raw_name = inner.name() -%}
-   private constructor(
-      private val _variables: Variables,
-      private val _defaults: Defaults) {
    {# The data class holds the default values that come from the manifest. They should completely
    specify all values needed for the  feature #}
    private data class Defaults({% for p in inner.props() %}
@@ -46,7 +49,7 @@
 {% endfor %}
 
    {#- toJSON #}
-   fun toJSONObject(): JSONObject =
+   override fun toJSONObject(): JSONObject =
       JSONObject(
          mapOf(
             {%- for p in inner.props() %}

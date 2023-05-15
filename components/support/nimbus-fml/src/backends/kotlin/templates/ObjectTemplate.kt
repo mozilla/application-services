@@ -3,7 +3,7 @@
 {%- let class_name = inner.name()|class_name %}
 
 {{ inner.doc()|comment("") }}
-public class {{ class_name }}
+public class {{ class_name }} {% call kt::render_constructor() %} : FMLObjectInterface {
     {% call kt::render_class_body(inner) %}
 
     internal fun _mergeWith(defaults: {{class_name}}?): {{class_name}} =

@@ -101,6 +101,24 @@ object {{ nimbus_object }} : FeatureManifestInterface<{{ nimbus_object }}.Featur
      */
     override val features = Features()
 
+    /**
+     * Introspection utility method.
+     */
+    {%- let features = self.iter_feature_defs() %}
+    {%- if features.is_empty() %}
+    @Suppress("UNUSED_PARAMETER")
+    override fun getFeature(featureId: String): FeatureHolder<*>? = null
+    {%- else %}
+    override fun getFeature(featureId: String): FeatureHolder<*>? =
+        when (featureId) {
+            {%- for f in features %}
+            {%- let raw_name = f.name() %}
+            {{ raw_name|quoted }} -> features.{{ raw_name|var_name }}
+            {%- endfor %}
+            else -> null
+        }
+        {%- endif %}
+
     {% let blocks = self.initialization_code() -%}
     /**
      * All generated initialization code. Clients shouldn't need to override or call

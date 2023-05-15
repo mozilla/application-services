@@ -4,7 +4,7 @@
 
 package org.mozilla.experiments.nimbus.internal
 
-import android.content.Context
+import org.json.JSONObject
 import org.mozilla.experiments.nimbus.FeaturesInterface
 import org.mozilla.experiments.nimbus.HardcodedNimbusFeatures
 import org.mozilla.experiments.nimbus.Variables
@@ -19,7 +19,7 @@ import java.util.concurrent.locks.ReentrantLock
  *
  * There are methods useful for testing, and more advanced uses: these all start with `with`.
  */
-class FeatureHolder<T>(
+class FeatureHolder<T : FMLFeatureInterface>(
     private var getSdk: () -> FeaturesInterface?,
     private val featureId: String,
     private var create: (Variables) -> T
@@ -40,8 +40,7 @@ class FeatureHolder<T>(
      * @throws NimbusFeatureException thrown before the Nimbus object has been constructed or `FxNimbus.initialize` has not been set.
      * This can be resolved by setting `FxNimbus.initialize`, and after that by passing in a `Context` object.
      */
-    @Suppress("UNUSED_PARAMETER")
-    fun value(context: Context? = null): T =
+    fun value(): T =
         lock.runBlock {
             if (cachedValue != null) {
                 cachedValue!!
@@ -62,6 +61,14 @@ class FeatureHolder<T>(
     fun recordExposure() {
         getSdk()?.recordExposureEvent(featureId)
     }
+
+    /**
+     * A convenience method for calling [value()].[toJSONObject()].
+     *
+     * This is likely only useful for integrations that are going to serialize the configuration.
+     * Regular app developers should use the type safety provided by [value()].
+     */
+    fun toJSONObject() = value().toJSONObject()
 
     /**
      * Send a malformed feature event for this feature.
@@ -137,3 +144,21 @@ class FeatureHolder<T>(
 }
 
 class NimbusFeatureException(message: String) : Exception(message)
+
+/**
+ * A bare-bones interface for the FML generated objects.
+ */
+interface FMLObjectInterface {
+    fun toJSONObject(): JSONObject
+}
+
+/**
+ * A bare-bones interface for the FML generated features.
+ *
+ * App developers should use the generated concrete classes, which
+ * implement this interface.
+ *
+ * This interface is really only here to allow bridging between Kotlin
+ * and other languages.
+ */
+interface FMLFeatureInterface : FMLObjectInterface
