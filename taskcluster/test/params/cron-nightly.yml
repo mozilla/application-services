@@ -1,6 +1,6 @@
 base_ref: origin/main
 base_repository: https://github.com/mozilla/application-services
-base_rev: e30a10ae6cbbb3e0f4f27fc6fba31ff591c84dad
+base_rev: aaaa10ae6cbbb3e0f4f27fc6fba31ff591c84dad
 branch-build: {}
 build_date: 1683867834
 build_number: 1
@@ -12,7 +12,7 @@ filters:
 - branch-build
 head_ref: main
 head_repository: https://github.com/mozilla/application-services
-head_rev: e30a10ae6cbbb3e0f4f27fc6fba31ff591c84dad
+head_rev: aaaa10ae6cbbb3e0f4f27fc6fba31ff591c84dad
 head_tag: ''
 level: '3'
 moz_build_date: '20230512050354'
