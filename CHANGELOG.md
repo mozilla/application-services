@@ -9,6 +9,12 @@
 - Add `user_id` RandomizationUnit (for Cirrus) ([#5564](https://github.com/mozilla/application-services/pull/5564)).
 - Fixed up a bug in `get_experiment_branch` and `get_active_experiments` ([(#5584)](https://github.com/mozilla/application-services/pull/5584)).
 
+## Nimbus FML ⛅️🔬🔭🔧
+
+### ✨ What's New ✨
+
+- Added `toJSONObject()` and `getFeatures(featureId)` for Kotlin. This serializes the FML into a `JSONObject`. ([#5574](https://github.com/mozilla/application-services/pull/5574)).
+
 [Full Changelog](In progress)
 
 # v114.0 (_2023-05-08_)
