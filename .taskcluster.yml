@@ -241,26 +241,30 @@ tasks:
                               - '--'
                               - bash
                               - -cx
-                              - $if: 'tasks_for == "action"'
-                                then: >
-                                  ln -s /builds/worker/artifacts artifacts &&
-                                  ~/.local/bin/taskgraph action-callback
-                                else: >
-                                  ln -s /builds/worker/artifacts artifacts &&
-                                  ~/.local/bin/taskgraph decision
-                                  --pushlog-id='0'
-                                  --pushdate='0'
-                                  --project='${project}'
-                                  --message=""
-                                  --owner='${ownerEmail}'
-                                  --level='${level}'
-                                  --base-repository="$APPSERVICES_BASE_REPOSITORY"
-                                  --head-repository="$APPSERVICES_HEAD_REPOSITORY"
-                                  --head-ref="$APPSERVICES_HEAD_REF"
-                                  --head-rev="$APPSERVICES_HEAD_REV"
-                                  --head-tag="$APPSERVICES_HEAD_TAG"
-                                  --repository-type="$APPSERVICES_REPOSITORY_TYPE"
-                                  --tasks-for='${tasks_for}'
+                              - $let:
+                                  extraArgs: {$if: 'tasks_for == "cron"', then: '${cron.quoted_args}', else: ''}
+                                in:
+                                  $if: 'tasks_for == "action"'
+                                  then: >
+                                    ln -s /builds/worker/artifacts artifacts &&
+                                    ~/.local/bin/taskgraph action-callback
+                                  else: >
+                                    ln -s /builds/worker/artifacts artifacts &&
+                                    ~/.local/bin/taskgraph decision
+                                    --pushlog-id='0'
+                                    --pushdate='0'
+                                    --project='${project}'
+                                    --message=""
+                                    --owner='${ownerEmail}'
+                                    --level='${level}'
+                                    --base-repository="$APPSERVICES_BASE_REPOSITORY"
+                                    --head-repository="$APPSERVICES_HEAD_REPOSITORY"
+                                    --head-ref="$APPSERVICES_HEAD_REF"
+                                    --head-rev="$APPSERVICES_HEAD_REV"
+                                    --head-tag="$APPSERVICES_HEAD_TAG"
+                                    --repository-type="$APPSERVICES_REPOSITORY_TYPE"
+                                    --tasks-for='${tasks_for}'
+                                    ${extraArgs}
                           artifacts:
                               'public':
                                   type: 'directory'
