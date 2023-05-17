@@ -109,17 +109,9 @@ impl DatabaseCache {
 
     pub fn get_experiment_branch(&self, id: &str) -> Result<Option<String>> {
         self.get_data(|data| -> Option<String> {
-            // Getting experiment branch by feature id will be going away soon: it doesn't really
-            // make sense.
-            if let Some(feature) = data.features_by_feature_id.get(id) {
-                // Features may be involved in rollouts and experiments.
-                // If it's only involved in a rollout, then the branch is None.
-                feature.branch.clone()
-            } else {
-                data.experiments_by_slug
-                    .get(id)
-                    .map(|experiment| experiment.branch_slug.clone())
-            }
+            data.experiments_by_slug
+                .get(id)
+                .map(|experiment| experiment.branch_slug.clone())
         })
     }
 
@@ -127,12 +119,9 @@ impl DatabaseCache {
     // support JSON yet.
     pub fn get_feature_config_variables(&self, feature_id: &str) -> Result<Option<String>> {
         self.get_data(|data| {
-            if let Some(enrolled_feature) = data.features_by_feature_id.get(feature_id) {
-                let string = serde_json::to_string(&enrolled_feature.feature.value).unwrap();
-                Some(string)
-            } else {
-                None
-            }
+            let enrolled_feature = data.features_by_feature_id.get(feature_id)?;
+            let string = serde_json::to_string(&enrolled_feature.feature.value).unwrap();
+            Some(string)
         })
     }
 
