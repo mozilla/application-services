@@ -11,6 +11,7 @@ use crate::{
     error::Result,
     persistence::Database,
     persistence::StoreId,
+    tests::helpers::get_ios_rollout_experiment,
     AppContext, AvailableRandomizationUnits, Experiment, NimbusClient, TargetingAttributes,
     DB_KEY_APP_VERSION, DB_KEY_UPDATE_DATE,
 };
@@ -18,6 +19,7 @@ use chrono::{DateTime, Duration, Utc};
 use serde_json::json;
 use std::io::Write;
 use std::path::Path;
+use tempfile::TempDir;
 
 #[test]
 fn test_telemetry_reset() -> Result<()> {
@@ -918,5 +920,33 @@ fn set_test_creation_date<P: AsRef<Path>>(date: DateTime<Utc>, path: P) -> Resul
 fn delete_test_creation_date<P: AsRef<Path>>(path: P) -> Result<()> {
     let test_path = path.as_ref().with_file_name("test.json");
     std::fs::remove_file(test_path)?;
+    Ok(())
+}
+
+#[test]
+fn test_ios_rollout() -> Result<()> {
+    let aru = Default::default();
+    let ctx = AppContext {
+        app_name: "firefox_ios".to_string(),
+        channel: "release".to_string(),
+        locale: Some("en-GB".to_string()),
+        app_version: Some("114.0".to_string()),
+        ..Default::default()
+    };
+    let tmp_dir = TempDir::new()?;
+    let client = NimbusClient::new(ctx, tmp_dir.path(), None, aru)?;
+
+    let exp = get_ios_rollout_experiment();
+    let data = json!({
+        "data": [
+            &exp,
+        ]
+    });
+    client.set_experiments_locally(data.to_string())?;
+    client.apply_pending_experiments()?;
+
+    let branch = client.get_experiment_branch(exp.slug)?;
+    assert_eq!(branch, Some("control".to_string()));
+    client.dump_state_to_log()?;
     Ok(())
 }
