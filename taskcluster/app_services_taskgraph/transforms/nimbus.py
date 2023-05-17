@@ -2,6 +2,7 @@
 # License, v. 2.0. If a copy of the MPL was not distributed with this
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 
+from collections import namedtuple
 from taskgraph.transforms.base import TransformSequence
 
 # Transform for the nimbus-build tasks
@@ -82,46 +83,81 @@ def setup_mac_build_task(task, target, binary):
 # build task.
 assemble = TransformSequence()
 
+# nimbus-build task that a nimbus-binaries-assemble task depends on
+NimbusBuildDep = namedtuple("NimbusBuildDep", "label target")
+
 @assemble.add
 def setup_assemble_tasks(config, tasks):
-    binaries = [
-        'nimbus-fml',
-        'nimbus-cli',
-    ]
     for task in tasks:
-        dependencies = {}
-        fetches = {}
+        # Which nimbus binary are we assembling?
+        binary = task['attributes']['nimbus-binary']
 
-        for (label, build_task) in config.kind_dependencies_tasks.items():
-            if build_task.kind != "nimbus-build":
-                continue
+        # Find nimbus-build task dependencies for our binary.
+        build_task_deps = [
+            NimbusBuildDep(label, build_task.attributes['target'])
+            for (label, build_task) in config.kind_dependencies_tasks.items()
+            if build_task.kind == "nimbus-build" and build_task.attributes.get('binary') == binary
+        ]
 
-            # Since `nimbus-build` is listed in kind-dependencies, this loops through all the
-            # nimbus-build tasks.  For each task, fetch it's artifacts.
-            binary = build_task.attributes['binary']
-            target = build_task.attributes['target']
-            dependencies[label] = label
-            fetches[label] = [
+        task['dependencies'] = {
+            dep.label: dep.label
+            for dep in build_task_deps
+        }
+        task['fetches'] = {
+            dep.label: [
                 {
-                    'artifact': f'{binary}-{target}.zip',
+                    'artifact': f'{binary}-{dep.target}.zip',
                     'dest': binary,
-                    'extract': True,
+                    'extract': True if binary == 'nimbus-fml' else False
                 }
             ]
-        task['dependencies'] = dependencies
-        task['fetches'] = fetches
+            for dep in build_task_deps
+        }
 
-        # For each nimbus binary, the `assemble-nimbus-binaries.sh` script will combine the binary from
-        # each of the individual tasks into a single zipfile with all artifacts (plus a checksum
-        # file).  Output these as artifacts.
-        task['worker']['artifacts'] = [
-            {
-                'name': f'public/build/{binary}.{ext}',
-                'path': f'/builds/worker/checkouts/vcs/build/{binary}.{ext}',
-                'type': 'file',
+        if binary == 'nimbus-fml':
+            # For nimbus-fml, we zip all binaries together and include the sha256
+            task['worker']['artifacts'] = [
+                {
+                    'name': f'public/build/{binary}.{ext}',
+                    'path': f'/builds/worker/checkouts/vcs/build/{binary}.{ext}',
+                    'type': 'file',
+                }
+                for ext in ('zip', 'sha256')
+            ]
+
+            task['run'] = {
+                'using': 'run-commands',
+                'commands': [
+                    ['mkdir', '-p', 'build'],
+                    ['cd', '/builds/worker/fetches/nimbus-fml'],
+                    ['zip', '/builds/worker/checkouts/vcs/build/nimbus-fml.zip', '-r', '.'],
+                    ['cd', '/builds/worker/checkouts/vcs/build'],
+                    ['eval', 'sha256sum', 'nimbus-fml.zip', '>', 'nimbus-fml.sha256'],
+                ]
             }
-            for binary in binaries
-            for ext in ('zip', 'sha256')
-        ]
+        elif binary == "nimbus-cli":
+            # For nimbus-cli, we just publish the binaries separately
+            task['worker']['artifacts'] = [
+                {
+                    'name': f'public/build/{binary}-{dep.target}.zip',
+                    'path': f'/builds/worker/checkouts/vcs/build/{binary}-{dep.target}.zip',
+                    'type': 'file',
+                }
+                for dep in build_task_deps
+            ]
+
+            sources = [
+                f'/builds/worker/fetches/{binary}/{binary}-{dep.target}.zip'
+                for dep in build_task_deps
+            ]
+
+            task['run'] = {
+                'using': 'run-commands',
+                'commands': [
+                    ['mkdir', '-p', 'build'],
+                    ['cp'] + sources + ['build'],
+                ]
+            }
+
 
         yield task

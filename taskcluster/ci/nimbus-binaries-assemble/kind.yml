@@ -21,26 +21,27 @@ transforms:
   - taskgraph.transforms.job:transforms
   - taskgraph.transforms.task:transforms
 
+task-defaults:
+  attributes:
+    # TODO: uncomment when we're done testing
+    # run-on-pr-type: full-ci
+  worker-type: b-linux
+  worker:
+    chain-of-trust: true
+    docker-image: { in-tree: linux }
+    max-run-time: 1800
+
 tasks:
-  assemble:
+  nimbus-fml:
     attributes:
-      run-on-pr-type: full-ci
+      nimbus-binary: "nimbus-fml"
       release-routes:
         - index.project.application-services.v2.nimbus-fml.{appservices_version}
-    description: "Assemble nimbus binaries"
-    worker-type: b-linux
-    worker:
-      chain-of-trust: true
-      docker-image: { in-tree: linux }
-      max-run-time: 1800
-      artifacts:
-        - name: "public/build/nimbus-fml.zip"
-          path: "/builds/worker/checkouts/vcs/build/nimbus-fml.zip"
-          type: "file"
-        - name: "public/build/nimbus-fml.sha256"
-          path: "/builds/worker/checkouts/vcs/build/nimbus-fml.sha256"
-          type: "file"
-    run:
-      using: run-commands
-      commands:
-        - ["taskcluster/scripts/assemble-nimbus-binaries.sh"]
+    description: "Assemble nimbus-fml"
+
+  nimbus-cli:
+    attributes:
+      nimbus-binary: "nimbus-cli"
+      release-routes:
+        - index.project.application-services.v2.nimbus-cli.{appservices_version}
+    description: "Assemble nimbus-cli"
