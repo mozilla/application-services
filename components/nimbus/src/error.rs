@@ -49,7 +49,7 @@ pub enum NimbusError {
     NoSuchBranch(String, String),
     #[error("Initialization of the database is not yet complete")]
     DatabaseNotReady,
-    #[error("Error parsing a sting into a version {0}")]
+    #[error("Error parsing a string into a version {0}")]
     VersionParsingError(String),
     #[cfg(feature = "stateful")]
     #[error("Behavior error: {0}")]
