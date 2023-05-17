@@ -556,16 +556,14 @@ pub fn get_enrollments<'r>(
                 .get::<Experiment, _>(reader, &enrollment.slug)?
             {
                 Some(experiment) => {
-                    if !experiment.is_rollout() {
-                        result.push(EnrolledExperiment {
-                            feature_ids: experiment.get_feature_ids(),
-                            slug: experiment.slug,
-                            user_facing_name: experiment.user_facing_name,
-                            user_facing_description: experiment.user_facing_description,
-                            branch_slug: branch.to_string(),
-                            enrollment_id: enrollment_id.to_string(),
-                        });
-                    }
+                    result.push(EnrolledExperiment {
+                        feature_ids: experiment.get_feature_ids(),
+                        slug: experiment.slug,
+                        user_facing_name: experiment.user_facing_name,
+                        user_facing_description: experiment.user_facing_description,
+                        branch_slug: branch.to_string(),
+                        enrollment_id: enrollment_id.to_string(),
+                    });
                 }
                 _ => {
                     log::warn!(
