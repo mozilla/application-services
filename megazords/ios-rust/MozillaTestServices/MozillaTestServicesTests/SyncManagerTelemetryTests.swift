@@ -54,43 +54,43 @@ class SyncManagerTelemetryTests: XCTestCase {
                                                                                                 message: "Synergies not aligned"))])
 
         func submitGlobalPing(_: NoReasonCodes?) {
-            XCTAssertEqual("Synergies not aligned", GleanMetrics.Sync.failureReason["other"].testGetValue())
+            XCTAssertEqual("Synergies not aligned", SyncMetrics.failureReason["other"].testGetValue())
             XCTAssertNotNil(globalSyncUuid)
-            XCTAssertEqual(globalSyncUuid, GleanMetrics.Sync.syncUuid.testGetValue("sync"))
+            XCTAssertEqual(globalSyncUuid, SyncMetrics.syncUuid.testGetValue("sync"))
         }
 
         func submitHistoryPing(_: NoReasonCodes?) {
-            globalSyncUuid = GleanMetrics.Sync.syncUuid.testGetValue("history-sync")!
-            XCTAssertEqual("abc123", GleanMetrics.HistorySync.uid.testGetValue())
+            globalSyncUuid = SyncMetrics.syncUuid.testGetValue("history-sync")!
+            XCTAssertEqual("abc123", HistoryMetrics.uid.testGetValue())
 
-            XCTAssertNotNil(GleanMetrics.HistorySync.startedAt.testGetValue())
-            XCTAssertNotNil(GleanMetrics.HistorySync.finishedAt.testGetValue())
-            XCTAssertEqual(now, Int64(GleanMetrics.HistorySync.startedAt.testGetValue()!.timeIntervalSince1970) / BaseGleanSyncPing.MILLIS_PER_SEC)
-            XCTAssertEqual(now + 5, Int64(GleanMetrics.HistorySync.finishedAt.testGetValue()!.timeIntervalSince1970) / BaseGleanSyncPing.MILLIS_PER_SEC)
+            XCTAssertNotNil(HistoryMetrics.startedAt.testGetValue())
+            XCTAssertNotNil(HistoryMetrics.finishedAt.testGetValue())
+            XCTAssertEqual(now, Int64(HistoryMetrics.startedAt.testGetValue()!.timeIntervalSince1970) / BaseGleanSyncPing.MILLIS_PER_SEC)
+            XCTAssertEqual(now + 5, Int64(HistoryMetrics.finishedAt.testGetValue()!.timeIntervalSince1970) / BaseGleanSyncPing.MILLIS_PER_SEC)
 
-            XCTAssertEqual(5, GleanMetrics.HistorySync.incoming["applied"].testGetValue())
-            XCTAssertEqual(7, GleanMetrics.HistorySync.incoming["failed_to_apply"].testGetValue())
-            XCTAssertEqual(2, GleanMetrics.HistorySync.incoming["reconciled"].testGetValue())
-            XCTAssertEqual(14, GleanMetrics.HistorySync.outgoing["uploaded"].testGetValue())
-            XCTAssertEqual(7, GleanMetrics.HistorySync.outgoing["failed_to_upload"].testGetValue())
-            XCTAssertEqual(2, GleanMetrics.HistorySync.outgoingBatches.testGetValue())
+            XCTAssertEqual(5, HistoryMetrics.incoming["applied"].testGetValue())
+            XCTAssertEqual(7, HistoryMetrics.incoming["failed_to_apply"].testGetValue())
+            XCTAssertEqual(2, HistoryMetrics.incoming["reconciled"].testGetValue())
+            XCTAssertEqual(14, HistoryMetrics.outgoing["uploaded"].testGetValue())
+            XCTAssertEqual(7, HistoryMetrics.outgoing["failed_to_upload"].testGetValue())
+            XCTAssertEqual(2, HistoryMetrics.outgoingBatches.testGetValue())
         }
 
         func submitLoginsPing(_: NoReasonCodes?) {
-            globalSyncUuid = GleanMetrics.Sync.syncUuid.testGetValue("logins-sync")!
-            XCTAssertEqual("abc123", GleanMetrics.LoginsSync.uid.testGetValue())
+            globalSyncUuid = SyncMetrics.syncUuid.testGetValue("logins-sync")!
+            XCTAssertEqual("abc123", LoginsMetrics.uid.testGetValue())
 
-            XCTAssertNotNil(GleanMetrics.LoginsSync.startedAt.testGetValue())
-            XCTAssertNotNil(GleanMetrics.LoginsSync.finishedAt.testGetValue())
-            XCTAssertEqual(now, Int64(GleanMetrics.LoginsSync.startedAt.testGetValue()!.timeIntervalSince1970) / BaseGleanSyncPing.MILLIS_PER_SEC)
-            XCTAssertEqual(now + 5, Int64(GleanMetrics.LoginsSync.finishedAt.testGetValue()!.timeIntervalSince1970) / BaseGleanSyncPing.MILLIS_PER_SEC)
+            XCTAssertNotNil(LoginsMetrics.startedAt.testGetValue())
+            XCTAssertNotNil(LoginsMetrics.finishedAt.testGetValue())
+            XCTAssertEqual(now, Int64(LoginsMetrics.startedAt.testGetValue()!.timeIntervalSince1970) / BaseGleanSyncPing.MILLIS_PER_SEC)
+            XCTAssertEqual(now + 5, Int64(LoginsMetrics.finishedAt.testGetValue()!.timeIntervalSince1970) / BaseGleanSyncPing.MILLIS_PER_SEC)
 
-            XCTAssertEqual(5, GleanMetrics.LoginsSync.incoming["applied"].testGetValue())
-            XCTAssertEqual(7, GleanMetrics.LoginsSync.incoming["failed_to_apply"].testGetValue())
-            XCTAssertEqual(2, GleanMetrics.LoginsSync.incoming["reconciled"].testGetValue())
-            XCTAssertEqual(14, GleanMetrics.LoginsSync.outgoing["uploaded"].testGetValue())
-            XCTAssertEqual(7, GleanMetrics.LoginsSync.outgoing["failed_to_upload"].testGetValue())
-            XCTAssertEqual(2, GleanMetrics.LoginsSync.outgoingBatches.testGetValue())
+            XCTAssertEqual(5, LoginsMetrics.incoming["applied"].testGetValue())
+            XCTAssertEqual(7, LoginsMetrics.incoming["failed_to_apply"].testGetValue())
+            XCTAssertEqual(2, LoginsMetrics.incoming["reconciled"].testGetValue())
+            XCTAssertEqual(14, LoginsMetrics.outgoing["uploaded"].testGetValue())
+            XCTAssertEqual(7, LoginsMetrics.outgoing["failed_to_upload"].testGetValue())
+            XCTAssertEqual(2, LoginsMetrics.outgoingBatches.testGetValue())
         }
 
         try! processSyncTelemetry(syncTelemetry: syncTelemetry,
@@ -116,26 +116,26 @@ class SyncManagerTelemetryTests: XCTestCase {
                                                                    failureReason: nil)])
 
         func submitGlobalPing(_: NoReasonCodes?) {
-            XCTAssertNil(GleanMetrics.Sync.failureReason["other"].testGetValue())
+            XCTAssertNil(SyncMetrics.failureReason["other"].testGetValue())
             XCTAssertNotNil(globalSyncUuid)
-            XCTAssertEqual(globalSyncUuid, GleanMetrics.Sync.syncUuid.testGetValue("sync"))
+            XCTAssertEqual(globalSyncUuid, SyncMetrics.syncUuid.testGetValue("sync"))
         }
 
         func submitHistoryPing(_: NoReasonCodes?) {
-            globalSyncUuid = GleanMetrics.Sync.syncUuid.testGetValue("history-sync")!
-            XCTAssertEqual("abc123", GleanMetrics.HistorySync.uid.testGetValue())
+            globalSyncUuid = SyncMetrics.syncUuid.testGetValue("history-sync")!
+            XCTAssertEqual("abc123", HistoryMetrics.uid.testGetValue())
 
-            XCTAssertNotNil(GleanMetrics.HistorySync.startedAt.testGetValue())
-            XCTAssertNotNil(GleanMetrics.HistorySync.finishedAt.testGetValue())
-            XCTAssertEqual(now + 10, Int64(GleanMetrics.HistorySync.startedAt.testGetValue()!.timeIntervalSince1970) / BaseGleanSyncPing.MILLIS_PER_SEC)
-            XCTAssertEqual(now + 15, Int64(GleanMetrics.HistorySync.finishedAt.testGetValue()!.timeIntervalSince1970) / BaseGleanSyncPing.MILLIS_PER_SEC)
+            XCTAssertNotNil(HistoryMetrics.startedAt.testGetValue())
+            XCTAssertNotNil(HistoryMetrics.finishedAt.testGetValue())
+            XCTAssertEqual(now + 10, Int64(HistoryMetrics.startedAt.testGetValue()!.timeIntervalSince1970) / BaseGleanSyncPing.MILLIS_PER_SEC)
+            XCTAssertEqual(now + 15, Int64(HistoryMetrics.finishedAt.testGetValue()!.timeIntervalSince1970) / BaseGleanSyncPing.MILLIS_PER_SEC)
 
-            XCTAssertNil(GleanMetrics.HistorySync.incoming["applied"].testGetValue())
-            XCTAssertNil(GleanMetrics.HistorySync.incoming["failed_to_apply"].testGetValue())
-            XCTAssertNil(GleanMetrics.HistorySync.incoming["reconciled"].testGetValue())
-            XCTAssertNil(GleanMetrics.HistorySync.outgoing["uploaded"].testGetValue())
-            XCTAssertNil(GleanMetrics.HistorySync.outgoing["failed_to_upload"].testGetValue())
-            XCTAssertNil(GleanMetrics.HistorySync.outgoingBatches.testGetValue())
+            XCTAssertNil(HistoryMetrics.incoming["applied"].testGetValue())
+            XCTAssertNil(HistoryMetrics.incoming["failed_to_apply"].testGetValue())
+            XCTAssertNil(HistoryMetrics.incoming["reconciled"].testGetValue())
+            XCTAssertNil(HistoryMetrics.outgoing["uploaded"].testGetValue())
+            XCTAssertNil(HistoryMetrics.outgoing["failed_to_upload"].testGetValue())
+            XCTAssertNil(HistoryMetrics.outgoingBatches.testGetValue())
         }
 
         try! processSyncTelemetry(syncTelemetry: syncTelemetry,
@@ -165,26 +165,26 @@ class SyncManagerTelemetryTests: XCTestCase {
                                                                    failureReason: nil)])
 
         func submitGlobalPing(_: NoReasonCodes?) {
-            XCTAssertNil(GleanMetrics.Sync.failureReason["other"].testGetValue())
+            XCTAssertNil(SyncMetrics.failureReason["other"].testGetValue())
             XCTAssertNotNil(globalSyncUuid)
-            XCTAssertEqual(globalSyncUuid, GleanMetrics.Sync.syncUuid.testGetValue("sync"))
+            XCTAssertEqual(globalSyncUuid, SyncMetrics.syncUuid.testGetValue("sync"))
         }
 
         func submitBookmarksPing(_: NoReasonCodes?) {
-            globalSyncUuid = GleanMetrics.Sync.syncUuid.testGetValue("bookmarks-sync")!
-            XCTAssertEqual("abc123", GleanMetrics.BookmarksSync.uid.testGetValue())
+            globalSyncUuid = SyncMetrics.syncUuid.testGetValue("bookmarks-sync")!
+            XCTAssertEqual("abc123", BookmarksMetrics.uid.testGetValue())
 
-            XCTAssertNotNil(GleanMetrics.BookmarksSync.startedAt.testGetValue())
-            XCTAssertNotNil(GleanMetrics.BookmarksSync.finishedAt.testGetValue())
-            XCTAssertEqual(now + 25, Int64(GleanMetrics.BookmarksSync.startedAt.testGetValue()!.timeIntervalSince1970) / BaseGleanSyncPing.MILLIS_PER_SEC)
-            XCTAssertEqual(now + 31, Int64(GleanMetrics.BookmarksSync.finishedAt.testGetValue()!.timeIntervalSince1970) / BaseGleanSyncPing.MILLIS_PER_SEC)
+            XCTAssertNotNil(BookmarksMetrics.startedAt.testGetValue())
+            XCTAssertNotNil(BookmarksMetrics.finishedAt.testGetValue())
+            XCTAssertEqual(now + 25, Int64(BookmarksMetrics.startedAt.testGetValue()!.timeIntervalSince1970) / BaseGleanSyncPing.MILLIS_PER_SEC)
+            XCTAssertEqual(now + 31, Int64(BookmarksMetrics.finishedAt.testGetValue()!.timeIntervalSince1970) / BaseGleanSyncPing.MILLIS_PER_SEC)
 
-            XCTAssertNil(GleanMetrics.BookmarksSync.incoming["applied"].testGetValue())
-            XCTAssertNil(GleanMetrics.BookmarksSync.incoming["failed_to_apply"].testGetValue())
-            XCTAssertNil(GleanMetrics.BookmarksSync.incoming["reconciled"].testGetValue())
-            XCTAssertEqual(10, GleanMetrics.BookmarksSync.outgoing["uploaded"].testGetValue())
-            XCTAssertEqual(5, GleanMetrics.BookmarksSync.outgoing["failed_to_upload"].testGetValue())
-            XCTAssertEqual(1, GleanMetrics.BookmarksSync.outgoingBatches.testGetValue())
+            XCTAssertNil(BookmarksMetrics.incoming["applied"].testGetValue())
+            XCTAssertNil(BookmarksMetrics.incoming["failed_to_apply"].testGetValue())
+            XCTAssertNil(BookmarksMetrics.incoming["reconciled"].testGetValue())
+            XCTAssertEqual(10, BookmarksMetrics.outgoing["uploaded"].testGetValue())
+            XCTAssertEqual(5, BookmarksMetrics.outgoing["failed_to_upload"].testGetValue())
+            XCTAssertEqual(1, BookmarksMetrics.outgoingBatches.testGetValue())
         }
 
         try! processSyncTelemetry(syncTelemetry: syncTelemetry,
@@ -219,42 +219,42 @@ class SyncManagerTelemetryTests: XCTestCase {
                                                                    failureReason: nil)])
 
         func submitGlobalPing(_: NoReasonCodes?) {
-            XCTAssertNil(GleanMetrics.Sync.failureReason["other"].testGetValue())
+            XCTAssertNil(SyncMetrics.failureReason["other"].testGetValue())
             XCTAssertNotNil(globalSyncUuid)
-            XCTAssertEqual(globalSyncUuid, GleanMetrics.Sync.syncUuid.testGetValue("sync"))
+            XCTAssertEqual(globalSyncUuid, SyncMetrics.syncUuid.testGetValue("sync"))
         }
 
         func submitCreditCardsPing(_: NoReasonCodes?) {
-            globalSyncUuid = GleanMetrics.Sync.syncUuid.testGetValue("creditcards-sync")!
-            XCTAssertEqual("abc123", GleanMetrics.CreditcardsSync.uid.testGetValue())
+            globalSyncUuid = SyncMetrics.syncUuid.testGetValue("creditcards-sync")!
+            XCTAssertEqual("abc123", CreditcardsMetrics.uid.testGetValue())
 
-            XCTAssertNotNil(GleanMetrics.CreditcardsSync.startedAt.testGetValue())
-            XCTAssertNotNil(GleanMetrics.CreditcardsSync.finishedAt.testGetValue())
-            XCTAssertEqual(now + 15, Int64(GleanMetrics.CreditcardsSync.startedAt.testGetValue()!.timeIntervalSince1970) / BaseGleanSyncPing.MILLIS_PER_SEC)
-            XCTAssertEqual(now + 19, Int64(GleanMetrics.CreditcardsSync.finishedAt.testGetValue()!.timeIntervalSince1970) / BaseGleanSyncPing.MILLIS_PER_SEC)
+            XCTAssertNotNil(CreditcardsMetrics.startedAt.testGetValue())
+            XCTAssertNotNil(CreditcardsMetrics.finishedAt.testGetValue())
+            XCTAssertEqual(now + 15, Int64(CreditcardsMetrics.startedAt.testGetValue()!.timeIntervalSince1970) / BaseGleanSyncPing.MILLIS_PER_SEC)
+            XCTAssertEqual(now + 19, Int64(CreditcardsMetrics.finishedAt.testGetValue()!.timeIntervalSince1970) / BaseGleanSyncPing.MILLIS_PER_SEC)
 
-            XCTAssertEqual(3, GleanMetrics.CreditcardsSync.incoming["applied"].testGetValue())
-            XCTAssertEqual(2, GleanMetrics.CreditcardsSync.incoming["failed_to_apply"].testGetValue())
-            XCTAssertNil(GleanMetrics.CreditcardsSync.incoming["reconciled"].testGetValue())
-            XCTAssertNil(GleanMetrics.HistorySync.outgoing["uploaded"].testGetValue())
-            XCTAssertNil(GleanMetrics.HistorySync.outgoing["failed_to_upload"].testGetValue())
-            XCTAssertNil(GleanMetrics.CreditcardsSync.outgoingBatches.testGetValue())
+            XCTAssertEqual(3, CreditcardsMetrics.incoming["applied"].testGetValue())
+            XCTAssertEqual(2, CreditcardsMetrics.incoming["failed_to_apply"].testGetValue())
+            XCTAssertNil(CreditcardsMetrics.incoming["reconciled"].testGetValue())
+            XCTAssertNil(HistoryMetrics.outgoing["uploaded"].testGetValue())
+            XCTAssertNil(HistoryMetrics.outgoing["failed_to_upload"].testGetValue())
+            XCTAssertNil(CreditcardsMetrics.outgoingBatches.testGetValue())
         }
 
         func submitTabsPing(_: NoReasonCodes?) {
-            globalSyncUuid = GleanMetrics.Sync.syncUuid.testGetValue("tabs-sync")!
-            XCTAssertEqual("abc123", GleanMetrics.TabsSync.uid.testGetValue())
+            globalSyncUuid = SyncMetrics.syncUuid.testGetValue("tabs-sync")!
+            XCTAssertEqual("abc123", TabsMetrics.uid.testGetValue())
 
-            XCTAssertNotNil(GleanMetrics.TabsSync.startedAt.testGetValue())
-            XCTAssertNotNil(GleanMetrics.TabsSync.finishedAt.testGetValue())
-            XCTAssertEqual(now + 10, Int64(GleanMetrics.TabsSync.startedAt.testGetValue()!.timeIntervalSince1970) / BaseGleanSyncPing.MILLIS_PER_SEC)
-            XCTAssertEqual(now + 16, Int64(GleanMetrics.TabsSync.finishedAt.testGetValue()!.timeIntervalSince1970) / BaseGleanSyncPing.MILLIS_PER_SEC)
+            XCTAssertNotNil(TabsMetrics.startedAt.testGetValue())
+            XCTAssertNotNil(TabsMetrics.finishedAt.testGetValue())
+            XCTAssertEqual(now + 10, Int64(TabsMetrics.startedAt.testGetValue()!.timeIntervalSince1970) / BaseGleanSyncPing.MILLIS_PER_SEC)
+            XCTAssertEqual(now + 16, Int64(TabsMetrics.finishedAt.testGetValue()!.timeIntervalSince1970) / BaseGleanSyncPing.MILLIS_PER_SEC)
 
-            XCTAssertNil(GleanMetrics.TabsSync.incoming["applied"].testGetValue())
-            XCTAssertNil(GleanMetrics.TabsSync.incoming["failed_to_apply"].testGetValue())
-            XCTAssertNil(GleanMetrics.TabsSync.incoming["reconciled"].testGetValue())
-            XCTAssertEqual(8, GleanMetrics.TabsSync.outgoing["uploaded"].testGetValue())
-            XCTAssertEqual(2, GleanMetrics.TabsSync.outgoing["failed_to_upload"].testGetValue())
+            XCTAssertNil(TabsMetrics.incoming["applied"].testGetValue())
+            XCTAssertNil(TabsMetrics.incoming["failed_to_apply"].testGetValue())
+            XCTAssertNil(TabsMetrics.incoming["reconciled"].testGetValue())
+            XCTAssertEqual(8, TabsMetrics.outgoing["uploaded"].testGetValue())
+            XCTAssertEqual(2, TabsMetrics.outgoing["failed_to_upload"].testGetValue())
         }
 
         try! processSyncTelemetry(syncTelemetry: syncTelemetry,

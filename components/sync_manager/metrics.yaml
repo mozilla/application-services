@@ -5,7 +5,7 @@
 
 $schema: moz://mozilla.org/schemas/glean/metrics/2-0-0
 
-sync:
+sync_v2:
   sync_uuid:
     type: uuid
     description: >
@@ -28,6 +28,7 @@ sync:
       - technical
     notification_emails:
       - sync-team@mozilla.com
+      - skhamis@mozilla.com
     expires: never
     lifetime: ping
   failure_reason:
@@ -51,6 +52,7 @@ sync:
       - interaction
     notification_emails:
       - sync-team@mozilla.com
+      - skhamis@mozilla.com
     expires: never
     lifetime: ping
 
@@ -60,7 +62,7 @@ sync:
 # but must be specified individually. We can't define them once and use
 # `send_in_pings` because the stores might be synced in parallel, and we can't
 # guarantee that a ping for one store would be sent before the others.
-history_sync:
+history_sync_v2:
   uid:
     type: string
     description: >
@@ -75,6 +77,7 @@ history_sync:
       - interaction
     notification_emails:
       - sync-team@mozilla.com
+      - skhamis@mozilla.com
     expires: never
     lifetime: ping
   started_at:
@@ -92,6 +95,7 @@ history_sync:
       - interaction
     notification_emails:
       - sync-team@mozilla.com
+      - skhamis@mozilla.com
     expires: never
     lifetime: ping
   finished_at:
@@ -110,6 +114,7 @@ history_sync:
       - interaction
     notification_emails:
       - sync-team@mozilla.com
+      - skhamis@mozilla.com
     expires: never
     lifetime: ping
   incoming:
@@ -134,6 +139,7 @@ history_sync:
       - interaction
     notification_emails:
       - sync-team@mozilla.com
+      - skhamis@mozilla.com
     expires: never
     lifetime: ping
   outgoing:
@@ -156,6 +162,7 @@ history_sync:
       - interaction
     notification_emails:
       - sync-team@mozilla.com
+      - skhamis@mozilla.com
     expires: never
     lifetime: ping
   outgoing_batches:
@@ -175,6 +182,7 @@ history_sync:
       - interaction
     notification_emails:
       - sync-team@mozilla.com
+      - skhamis@mozilla.com
     expires: never
     lifetime: ping
   failure_reason:
@@ -197,10 +205,11 @@ history_sync:
       - interaction
     notification_emails:
       - sync-team@mozilla.com
+      - skhamis@mozilla.com
     expires: never
     lifetime: ping
 
-logins_sync:
+logins_sync_v2:
   uid:
     type: string
     description: >
@@ -215,6 +224,7 @@ logins_sync:
       - interaction
     notification_emails:
       - sync-team@mozilla.com
+      - skhamis@mozilla.com
     expires: never
     lifetime: ping
   started_at:
@@ -232,6 +242,7 @@ logins_sync:
       - interaction
     notification_emails:
       - sync-team@mozilla.com
+      - skhamis@mozilla.com
     expires: never
     lifetime: ping
   finished_at:
@@ -250,6 +261,7 @@ logins_sync:
       - interaction
     notification_emails:
       - sync-team@mozilla.com
+      - skhamis@mozilla.com
     expires: never
     lifetime: ping
   incoming:
@@ -274,6 +286,7 @@ logins_sync:
       - interaction
     notification_emails:
       - sync-team@mozilla.com
+      - skhamis@mozilla.com
     expires: never
     lifetime: ping
   outgoing:
@@ -296,6 +309,7 @@ logins_sync:
       - interaction
     notification_emails:
       - sync-team@mozilla.com
+      - skhamis@mozilla.com
     expires: never
     lifetime: ping
   outgoing_batches:
@@ -315,6 +329,7 @@ logins_sync:
       - interaction
     notification_emails:
       - sync-team@mozilla.com
+      - skhamis@mozilla.com
     expires: never
     lifetime: ping
   failure_reason:
@@ -337,10 +352,11 @@ logins_sync:
       - interaction
     notification_emails:
       - sync-team@mozilla.com
+      - skhamis@mozilla.com
     expires: never
     lifetime: ping
 
-bookmarks_sync:
+bookmarks_sync_v2:
   uid:
     type: string
     description: >
@@ -355,6 +371,7 @@ bookmarks_sync:
       - interaction
     notification_emails:
       - sync-team@mozilla.com
+      - skhamis@mozilla.com
     expires: never
     lifetime: ping
   started_at:
@@ -372,6 +389,7 @@ bookmarks_sync:
       - interaction
     notification_emails:
       - sync-team@mozilla.com
+      - skhamis@mozilla.com
     expires: never
     lifetime: ping
   finished_at:
@@ -389,6 +407,7 @@ bookmarks_sync:
       - interaction
     notification_emails:
       - sync-team@mozilla.com
+      - skhamis@mozilla.com
     expires: never
     lifetime: ping
   incoming:
@@ -409,6 +428,7 @@ bookmarks_sync:
       - interaction
     notification_emails:
       - sync-team@mozilla.com
+      - skhamis@mozilla.com
     expires: never
     lifetime: ping
   outgoing:
@@ -428,6 +448,7 @@ bookmarks_sync:
       - interaction
     notification_emails:
       - sync-team@mozilla.com
+      - skhamis@mozilla.com
     expires: never
     lifetime: ping
   outgoing_batches:
@@ -444,6 +465,7 @@ bookmarks_sync:
       - interaction
     notification_emails:
       - sync-team@mozilla.com
+      - skhamis@mozilla.com
     expires: never
     lifetime: ping
   failure_reason:
@@ -464,6 +486,7 @@ bookmarks_sync:
       - interaction
     notification_emails:
       - sync-team@mozilla.com
+      - skhamis@mozilla.com
     expires: never
     lifetime: ping
   remote_tree_problems:
@@ -490,10 +513,11 @@ bookmarks_sync:
       - interaction
     notification_emails:
       - sync-team@mozilla.com
+      - skhamis@mozilla.com
     expires: never
     lifetime: ping
 
-creditcards_sync:
+creditcards_sync_v2:
   uid:
     type: string
     description: >
@@ -508,6 +532,7 @@ creditcards_sync:
       - interaction
     notification_emails:
       - sync-team@mozilla.com
+      - skhamis@mozilla.com
     expires: never
     lifetime: ping
   started_at:
@@ -525,6 +550,7 @@ creditcards_sync:
       - interaction
     notification_emails:
       - sync-team@mozilla.com
+      - skhamis@mozilla.com
     expires: never
     lifetime: ping
   finished_at:
@@ -543,6 +569,7 @@ creditcards_sync:
       - interaction
     notification_emails:
       - sync-team@mozilla.com
+      - skhamis@mozilla.com
     expires: never
     lifetime: ping
   incoming:
@@ -566,6 +593,7 @@ creditcards_sync:
       - interaction
     notification_emails:
       - sync-team@mozilla.com
+      - skhamis@mozilla.com
     expires: never
     lifetime: ping
   outgoing:
@@ -588,6 +616,7 @@ creditcards_sync:
       - interaction
     notification_emails:
       - sync-team@mozilla.com
+      - skhamis@mozilla.com
     expires: never
     lifetime: ping
   outgoing_batches:
@@ -607,6 +636,7 @@ creditcards_sync:
       - interaction
     notification_emails:
       - sync-team@mozilla.com
+      - skhamis@mozilla.com
     expires: never
     lifetime: ping
   failure_reason:
@@ -629,10 +659,11 @@ creditcards_sync:
       - interaction
     notification_emails:
       - sync-team@mozilla.com
+      - skhamis@mozilla.com
     expires: never
     lifetime: ping
 
-addresses_sync:
+addresses_sync_v2:
   uid:
     type: string
     description: >
@@ -647,6 +678,7 @@ addresses_sync:
       - interaction
     notification_emails:
       - sync-team@mozilla.com
+      - skhamis@mozilla.com
     expires: never
     lifetime: ping
   started_at:
@@ -664,6 +696,7 @@ addresses_sync:
       - interaction
     notification_emails:
       - sync-team@mozilla.com
+      - skhamis@mozilla.com
     expires: never
     lifetime: ping
   finished_at:
@@ -682,6 +715,7 @@ addresses_sync:
       - interaction
     notification_emails:
       - sync-team@mozilla.com
+      - skhamis@mozilla.com
     expires: never
     lifetime: ping
   incoming:
@@ -705,6 +739,7 @@ addresses_sync:
       - interaction
     notification_emails:
       - sync-team@mozilla.com
+      - skhamis@mozilla.com
     expires: never
     lifetime: ping
   outgoing:
@@ -727,6 +762,7 @@ addresses_sync:
       - interaction
     notification_emails:
       - sync-team@mozilla.com
+      - skhamis@mozilla.com
     expires: never
     lifetime: ping
   outgoing_batches:
@@ -746,6 +782,7 @@ addresses_sync:
       - interaction
     notification_emails:
       - sync-team@mozilla.com
+      - skhamis@mozilla.com
     expires: never
     lifetime: ping
   failure_reason:
@@ -768,10 +805,11 @@ addresses_sync:
       - interaction
     notification_emails:
       - sync-team@mozilla.com
+      - skhamis@mozilla.com
     expires: never
     lifetime: ping
 
-tabs_sync:
+tabs_sync_v2:
   uid:
     type: string
     description: >
@@ -786,6 +824,7 @@ tabs_sync:
       - interaction
     notification_emails:
       - sync-team@mozilla.com
+      - skhamis@mozilla.com
     expires: never
     lifetime: ping
   started_at:
@@ -803,6 +842,7 @@ tabs_sync:
       - interaction
     notification_emails:
       - sync-team@mozilla.com
+      - skhamis@mozilla.com
     expires: never
     lifetime: ping
   finished_at:
@@ -821,6 +861,7 @@ tabs_sync:
       - interaction
     notification_emails:
       - sync-team@mozilla.com
+      - skhamis@mozilla.com
     expires: never
     lifetime: ping
   incoming:
@@ -844,6 +885,7 @@ tabs_sync:
       - interaction
     notification_emails:
       - sync-team@mozilla.com
+      - skhamis@mozilla.com
     expires: never
     lifetime: ping
   outgoing:
@@ -866,6 +908,7 @@ tabs_sync:
       - interaction
     notification_emails:
       - sync-team@mozilla.com
+      - skhamis@mozilla.com
     expires: never
     lifetime: ping
   outgoing_batches:
@@ -885,6 +928,7 @@ tabs_sync:
       - interaction
     notification_emails:
       - sync-team@mozilla.com
+      - skhamis@mozilla.com
     expires: never
     lifetime: ping
   failure_reason:
@@ -907,5 +951,69 @@ tabs_sync:
       - interaction
     notification_emails:
       - sync-team@mozilla.com
+      - skhamis@mozilla.com
     expires: never
     lifetime: ping
+
+fxa_tab_v2:
+  sent:
+    type: event
+    description: >
+      Recorded when a tab is sent. Also sent by desktop - see also the docs at
+      https://firefox-source-docs.mozilla.org/toolkit/components/telemetry/data/sync-ping.html
+    send_in_pings:
+      - sync
+    extra_keys:
+      flow_id:
+        type: string
+        description: >
+          A guid, unique for the URL being sent but common for all target
+          devices. The value is randomly generated so can not identify details
+          about the user or tab.
+      stream_id:
+        type: string
+        description: >
+          A guid, unique for both the URL being sent and the target device. The
+          value is randomly generated so can not identify details about the
+          user or tab.
+    bugs:
+      - https://github.com/mozilla/application-services/pull/3308
+      - https://github.com/mozilla-mobile/android-components/pull/7618
+    data_reviews:
+      - https://bugzilla.mozilla.org/show_bug.cgi?id=1652902
+    notification_emails:
+      - sync-team@mozilla.com
+      - skhamis@mozilla.com
+    expires: never
+  received:
+    type: event
+    description: >
+      Recorded when a tab is received.  Also sent by desktop - see also the
+      docs at
+      https://firefox-source-docs.mozilla.org/toolkit/components/telemetry/data/sync-ping.html
+    send_in_pings:
+      - sync
+    extra_keys:
+      flow_id:
+        type: string
+        description: >
+          A guid, unique for the URL being sent but common for all target
+          devices.
+      stream_id:
+        type: string
+        description: >
+          A guid, unique for both the URL being sent and the target device.
+      reason:
+        type: string
+        description: >
+          The reason we discovered the tab. Will be one of 'push', 'push-missed'
+          or 'poll'.
+    bugs:
+      - https://github.com/mozilla/application-services/pull/3308
+      - https://github.com/mozilla-mobile/android-components/pull/7618
+    data_reviews:
+      - https://bugzilla.mozilla.org/show_bug.cgi?id=1652902
+    notification_emails:
+      - sync-team@mozilla.com
+      - skhamis@mozilla.com
+    expires: never
