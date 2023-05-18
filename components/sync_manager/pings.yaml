@@ -26,7 +26,8 @@ sync:
   bugs:
     - https://github.com/mozilla-mobile/android-components/issues/5371
   notification_emails:
-    - sync-core@mozilla.com
+    - sync-team@mozilla.com
+    - skhamis@mozilla.com
   data_reviews:
     - https://github.com/mozilla-mobile/android-components/pull/5386#pullrequestreview-392363687
 history-sync:
@@ -37,7 +38,8 @@ history-sync:
   bugs:
     - https://github.com/mozilla-mobile/android-components/pull/3092
   notification_emails:
-    - sync-core@mozilla.com
+    - sync-team@mozilla.com
+    - skhamis@mozilla.com
   data_reviews:
     - https://github.com/mozilla-mobile/android-components/pull/3092
 bookmarks-sync:
@@ -48,7 +50,8 @@ bookmarks-sync:
   bugs:
     - https://github.com/mozilla-mobile/android-components/pull/3092
   notification_emails:
-    - sync-core@mozilla.com
+    - sync-team@mozilla.com
+    - skhamis@mozilla.com
   data_reviews:
     - https://github.com/mozilla-mobile/android-components/pull/3092
 logins-sync:
@@ -60,7 +63,8 @@ logins-sync:
   bugs:
     - https://github.com/mozilla-mobile/android-components/issues/4556
   notification_emails:
-    - sync-core@mozilla.com
+    - sync-team@mozilla.com
+    - skhamis@mozilla.com
   data_reviews:
     - https://github.com/mozilla-mobile/android-components/pull/5294
 creditcards-sync:
@@ -72,7 +76,8 @@ creditcards-sync:
   bugs:
     - https://github.com/mozilla-mobile/android-components/issues/10371
   notification_emails:
-    - sync-core@mozilla.com
+    - sync-team@mozilla.com
+    - skhamis@mozilla.com
   data_reviews:
     - https://github.com/mozilla-mobile/android-components/pull/10372#issuecomment-850378481
 addresses-sync:
@@ -84,7 +89,8 @@ addresses-sync:
   bugs:
     - https://github.com/mozilla-mobile/android-components/issues/10371
   notification_emails:
-    - sync-core@mozilla.com
+    - sync-team@mozilla.com
+    - skhamis@mozilla.com
   data_reviews:
     - https://github.com/mozilla-mobile/android-components/pull/10372#issuecomment-850378481
 tabs-sync:
@@ -96,6 +102,7 @@ tabs-sync:
   bugs:
     - https://github.com/mozilla-mobile/android-components/issues/10371
   notification_emails:
-    - sync-core@mozilla.com
+    - sync-team@mozilla.com
+    - skhamis@mozilla.com
   data_reviews:
     - https://github.com/mozilla-mobile/android-components/pull/10372#issuecomment-850378481

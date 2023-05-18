@@ -5,6 +5,13 @@
 import Foundation
 import Glean
 
+typealias SyncMetrics = GleanMetrics.SyncV2
+typealias LoginsMetrics = GleanMetrics.LoginsSyncV2
+typealias BookmarksMetrics = GleanMetrics.BookmarksSyncV2
+typealias HistoryMetrics = GleanMetrics.HistorySyncV2
+typealias CreditcardsMetrics = GleanMetrics.CreditcardsSyncV2
+typealias TabsMetrics = GleanMetrics.TabsSyncV2
+
 enum SupportedEngines: String {
     case History = "history"
     case Bookmarks = "bookmarks"
@@ -27,11 +34,11 @@ func processSyncTelemetry(syncTelemetry: RustSyncTelemetryPing,
                           submitTabsPing: (NoReasonCodes?) -> Void = GleanMetrics.Pings.shared.tabsSync.submit) throws
 {
     for syncInfo in syncTelemetry.syncs {
-        _ = GleanMetrics.Sync.syncUuid.generateAndSet()
+        _ = SyncMetrics.syncUuid.generateAndSet()
 
         if let failureReason = syncInfo.failureReason {
             recordFailureReason(reason: failureReason,
-                                failureReasonMetric: GleanMetrics.Sync.failureReason)
+                                failureReasonMetric: SyncMetrics.failureReason)
         }
 
         try syncInfo.engines.forEach { engineInfo in
@@ -72,37 +79,37 @@ private func individualLoginsSync(hashedFxaUid: String, engineInfo: EngineInfo) 
     }
 
     let base = BaseGleanSyncPing.fromEngineInfo(uid: hashedFxaUid, info: engineInfo)
-    GleanMetrics.LoginsSync.uid.set(base.uid)
-    GleanMetrics.LoginsSync.startedAt.set(base.startedAt)
-    GleanMetrics.LoginsSync.finishedAt.set(base.finishedAt)
+    LoginsMetrics.uid.set(base.uid)
+    LoginsMetrics.startedAt.set(base.startedAt)
+    LoginsMetrics.finishedAt.set(base.finishedAt)
 
     if base.applied > 0 {
-        GleanMetrics.LoginsSync.incoming["applied"].add(base.applied)
+        LoginsMetrics.incoming["applied"].add(base.applied)
     }
 
     if base.failedToApply > 0 {
-        GleanMetrics.LoginsSync.incoming["failed_to_apply"].add(base.failedToApply)
+        LoginsMetrics.incoming["failed_to_apply"].add(base.failedToApply)
     }
 
     if base.reconciled > 0 {
-        GleanMetrics.LoginsSync.incoming["reconciled"].add(base.reconciled)
+        LoginsMetrics.incoming["reconciled"].add(base.reconciled)
     }
 
     if base.uploaded > 0 {
-        GleanMetrics.LoginsSync.outgoing["uploaded"].add(base.uploaded)
+        LoginsMetrics.outgoing["uploaded"].add(base.uploaded)
     }
 
     if base.failedToUpload > 0 {
-        GleanMetrics.LoginsSync.outgoing["failed_to_upload"].add(base.failedToUpload)
+        LoginsMetrics.outgoing["failed_to_upload"].add(base.failedToUpload)
     }
 
     if base.outgoingBatches > 0 {
-        GleanMetrics.LoginsSync.outgoingBatches.add(base.outgoingBatches)
+        LoginsMetrics.outgoingBatches.add(base.outgoingBatches)
     }
 
     if let reason = base.failureReason {
         recordFailureReason(reason: reason,
-                            failureReasonMetric: GleanMetrics.LoginsSync.failureReason)
+                            failureReasonMetric: LoginsMetrics.failureReason)
     }
 }
 
@@ -113,42 +120,42 @@ private func individualBookmarksSync(hashedFxaUid: String, engineInfo: EngineInf
     }
 
     let base = BaseGleanSyncPing.fromEngineInfo(uid: hashedFxaUid, info: engineInfo)
-    GleanMetrics.BookmarksSync.uid.set(base.uid)
-    GleanMetrics.BookmarksSync.startedAt.set(base.startedAt)
-    GleanMetrics.BookmarksSync.finishedAt.set(base.finishedAt)
+    BookmarksMetrics.uid.set(base.uid)
+    BookmarksMetrics.startedAt.set(base.startedAt)
+    BookmarksMetrics.finishedAt.set(base.finishedAt)
 
     if base.applied > 0 {
-        GleanMetrics.BookmarksSync.incoming["applied"].add(base.applied)
+        BookmarksMetrics.incoming["applied"].add(base.applied)
     }
 
     if base.failedToApply > 0 {
-        GleanMetrics.BookmarksSync.incoming["failed_to_apply"].add(base.failedToApply)
+        BookmarksMetrics.incoming["failed_to_apply"].add(base.failedToApply)
     }
 
     if base.reconciled > 0 {
-        GleanMetrics.BookmarksSync.incoming["reconciled"].add(base.reconciled)
+        BookmarksMetrics.incoming["reconciled"].add(base.reconciled)
     }
 
     if base.uploaded > 0 {
-        GleanMetrics.BookmarksSync.outgoing["uploaded"].add(base.uploaded)
+        BookmarksMetrics.outgoing["uploaded"].add(base.uploaded)
     }
 
     if base.failedToUpload > 0 {
-        GleanMetrics.BookmarksSync.outgoing["failed_to_upload"].add(base.failedToUpload)
+        BookmarksMetrics.outgoing["failed_to_upload"].add(base.failedToUpload)
     }
 
     if base.outgoingBatches > 0 {
-        GleanMetrics.BookmarksSync.outgoingBatches.add(base.outgoingBatches)
+        BookmarksMetrics.outgoingBatches.add(base.outgoingBatches)
     }
 
     if let reason = base.failureReason {
         recordFailureReason(reason: reason,
-                            failureReasonMetric: GleanMetrics.BookmarksSync.failureReason)
+                            failureReasonMetric: BookmarksMetrics.failureReason)
     }
 
     if let validation = engineInfo.validation {
         validation.problems.forEach { problemInfo in
-            GleanMetrics.BookmarksSync.remoteTreeProblems[problemInfo.name].add(Int32(problemInfo.count))
+            BookmarksMetrics.remoteTreeProblems[problemInfo.name].add(Int32(problemInfo.count))
         }
     }
 }
@@ -160,37 +167,37 @@ private func individualHistorySync(hashedFxaUid: String, engineInfo: EngineInfo)
     }
 
     let base = BaseGleanSyncPing.fromEngineInfo(uid: hashedFxaUid, info: engineInfo)
-    GleanMetrics.HistorySync.uid.set(base.uid)
-    GleanMetrics.HistorySync.startedAt.set(base.startedAt)
-    GleanMetrics.HistorySync.finishedAt.set(base.finishedAt)
+    HistoryMetrics.uid.set(base.uid)
+    HistoryMetrics.startedAt.set(base.startedAt)
+    HistoryMetrics.finishedAt.set(base.finishedAt)
 
     if base.applied > 0 {
-        GleanMetrics.HistorySync.incoming["applied"].add(base.applied)
+        HistoryMetrics.incoming["applied"].add(base.applied)
     }
 
     if base.failedToApply > 0 {
-        GleanMetrics.HistorySync.incoming["failed_to_apply"].add(base.failedToApply)
+        HistoryMetrics.incoming["failed_to_apply"].add(base.failedToApply)
     }
 
     if base.reconciled > 0 {
-        GleanMetrics.HistorySync.incoming["reconciled"].add(base.reconciled)
+        HistoryMetrics.incoming["reconciled"].add(base.reconciled)
     }
 
     if base.uploaded > 0 {
-        GleanMetrics.HistorySync.outgoing["uploaded"].add(base.uploaded)
+        HistoryMetrics.outgoing["uploaded"].add(base.uploaded)
     }
 
     if base.failedToUpload > 0 {
-        GleanMetrics.HistorySync.outgoing["failed_to_upload"].add(base.failedToUpload)
+        HistoryMetrics.outgoing["failed_to_upload"].add(base.failedToUpload)
     }
 
     if base.outgoingBatches > 0 {
-        GleanMetrics.HistorySync.outgoingBatches.add(base.outgoingBatches)
+        HistoryMetrics.outgoingBatches.add(base.outgoingBatches)
     }
 
     if let reason = base.failureReason {
         recordFailureReason(reason: reason,
-                            failureReasonMetric: GleanMetrics.HistorySync.failureReason)
+                            failureReasonMetric: HistoryMetrics.failureReason)
     }
 }
 
@@ -201,37 +208,37 @@ private func individualCreditCardsSync(hashedFxaUid: String, engineInfo: EngineI
     }
 
     let base = BaseGleanSyncPing.fromEngineInfo(uid: hashedFxaUid, info: engineInfo)
-    GleanMetrics.CreditcardsSync.uid.set(base.uid)
-    GleanMetrics.CreditcardsSync.startedAt.set(base.startedAt)
-    GleanMetrics.CreditcardsSync.finishedAt.set(base.finishedAt)
+    CreditcardsMetrics.uid.set(base.uid)
+    CreditcardsMetrics.startedAt.set(base.startedAt)
+    CreditcardsMetrics.finishedAt.set(base.finishedAt)
 
     if base.applied > 0 {
-        GleanMetrics.CreditcardsSync.incoming["applied"].add(base.applied)
+        CreditcardsMetrics.incoming["applied"].add(base.applied)
     }
 
     if base.failedToApply > 0 {
-        GleanMetrics.CreditcardsSync.incoming["failed_to_apply"].add(base.failedToApply)
+        CreditcardsMetrics.incoming["failed_to_apply"].add(base.failedToApply)
     }
 
     if base.reconciled > 0 {
-        GleanMetrics.CreditcardsSync.incoming["reconciled"].add(base.reconciled)
+        CreditcardsMetrics.incoming["reconciled"].add(base.reconciled)
     }
 
     if base.uploaded > 0 {
-        GleanMetrics.CreditcardsSync.outgoing["uploaded"].add(base.uploaded)
+        CreditcardsMetrics.outgoing["uploaded"].add(base.uploaded)
     }
 
     if base.failedToUpload > 0 {
-        GleanMetrics.CreditcardsSync.outgoing["failed_to_upload"].add(base.failedToUpload)
+        CreditcardsMetrics.outgoing["failed_to_upload"].add(base.failedToUpload)
     }
 
     if base.outgoingBatches > 0 {
-        GleanMetrics.CreditcardsSync.outgoingBatches.add(base.outgoingBatches)
+        CreditcardsMetrics.outgoingBatches.add(base.outgoingBatches)
     }
 
     if let reason = base.failureReason {
         recordFailureReason(reason: reason,
-                            failureReasonMetric: GleanMetrics.CreditcardsSync.failureReason)
+                            failureReasonMetric: CreditcardsMetrics.failureReason)
     }
 }
 
@@ -242,37 +249,37 @@ private func individualTabsSync(hashedFxaUid: String, engineInfo: EngineInfo) th
     }
 
     let base = BaseGleanSyncPing.fromEngineInfo(uid: hashedFxaUid, info: engineInfo)
-    GleanMetrics.TabsSync.uid.set(base.uid)
-    GleanMetrics.TabsSync.startedAt.set(base.startedAt)
-    GleanMetrics.TabsSync.finishedAt.set(base.finishedAt)
+    TabsMetrics.uid.set(base.uid)
+    TabsMetrics.startedAt.set(base.startedAt)
+    TabsMetrics.finishedAt.set(base.finishedAt)
 
     if base.applied > 0 {
-        GleanMetrics.TabsSync.incoming["applied"].add(base.applied)
+        TabsMetrics.incoming["applied"].add(base.applied)
     }
 
     if base.failedToApply > 0 {
-        GleanMetrics.TabsSync.incoming["failed_to_apply"].add(base.failedToApply)
+        TabsMetrics.incoming["failed_to_apply"].add(base.failedToApply)
     }
 
     if base.reconciled > 0 {
-        GleanMetrics.TabsSync.incoming["reconciled"].add(base.reconciled)
+        TabsMetrics.incoming["reconciled"].add(base.reconciled)
     }
 
     if base.uploaded > 0 {
-        GleanMetrics.TabsSync.outgoing["uploaded"].add(base.uploaded)
+        TabsMetrics.outgoing["uploaded"].add(base.uploaded)
     }
 
     if base.failedToUpload > 0 {
-        GleanMetrics.TabsSync.outgoing["failed_to_upload"].add(base.failedToUpload)
+        TabsMetrics.outgoing["failed_to_upload"].add(base.failedToUpload)
     }
 
     if base.outgoingBatches > 0 {
-        GleanMetrics.TabsSync.outgoingBatches.add(base.outgoingBatches)
+        TabsMetrics.outgoingBatches.add(base.outgoingBatches)
     }
 
     if let reason = base.failureReason {
         recordFailureReason(reason: reason,
-                            failureReasonMetric: GleanMetrics.TabsSync.failureReason)
+                            failureReasonMetric: TabsMetrics.failureReason)
     }
 }
 
