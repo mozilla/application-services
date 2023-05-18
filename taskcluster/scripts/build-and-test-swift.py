@@ -58,12 +58,12 @@ def main():
     generate_glean_metrics(args)
     generate_uniffi_bindings(args)
     copy_source_dirs(args)
+    create_source_tarball(args)
     log("build complete")
 
 def parse_args():
     parser = argparse.ArgumentParser(prog='build-and-test-swift.py')
     parser.add_argument('out_dir', type=pathlib.Path)
-    parser.add_argument('xcframework_dir', type=pathlib.Path)
     parser.add_argument('glean_work_dir', type=pathlib.Path)
     return parser.parse_args()
 
@@ -110,7 +110,7 @@ def xcframework_build(args, filename):
         subprocess.check_call(build_info.build_command)
 
     # Copy the XCFramework to our output directory
-    subprocess.check_call(['cp', '-a', build_info.out_path, args.xcframework_dir])
+    subprocess.check_call(['cp', '-a', build_info.out_path, args.out_dir])
 
 """Generate Glean metrics.
 
@@ -133,8 +133,8 @@ def generate_glean_metrics(args):
         'LANG': 'C.UTF-8',
     }
     glean_script = ROOT_DIR / "components/external/glean/glean-core/ios/sdk_generator.sh"
-    out_dir = args.out_dir / 'all' / 'Generated' / 'Metrics'
-    focus_out_dir = args.out_dir / 'focus' / 'Generated' / 'Metrics'
+    out_dir = args.out_dir / 'swift-components' / 'all' / 'Generated' / 'Metrics'
+    focus_out_dir = args.out_dir / 'swift-components' / 'focus' / 'Generated' / 'Metrics'
     focus_glean_files = map(str, [ROOT_DIR / "components/nimbus/metrics.yaml"])
     firefox_glean_files = map(str, [ROOT_DIR / "components/nimbus/metrics.yaml", ROOT_DIR / "components/sync_manager/metrics.yaml", ROOT_DIR / "components/sync_manager/pings.yaml"])
     generate_glean_metrics_for_target(env, glean_script, out_dir, firefox_glean_files)
@@ -149,8 +149,8 @@ def generate_glean_metrics_for_target(env, glean_script, out_dir, input_files):
     ], env=env)
 
 def generate_uniffi_bindings(args):
-    out_dir = args.out_dir / 'all' / 'Generated'
-    focus_out_dir = args.out_dir / 'focus' / 'Generated'
+    out_dir = args.out_dir / 'swift-components' / 'all' / 'Generated'
+    focus_out_dir = args.out_dir / 'swift-components' / 'focus' / 'Generated'
 
     ensure_dir(out_dir)
 
@@ -170,8 +170,8 @@ def run_uniffi_bindgen(bindgen_args):
     subprocess.check_call(all_args, cwd=ROOT_DIR)
 
 def copy_source_dirs(args):
-    out_dir = args.out_dir / 'all'
-    focus_out_dir = args.out_dir / 'focus'
+    out_dir = args.out_dir / 'swift-components' / 'all'
+    focus_out_dir = args.out_dir / 'swift-components' / 'focus'
 
     copy_sources(out_dir, SOURCE_TO_COPY)
     copy_sources(focus_out_dir, FOCUS_SOURCE_TO_COPY)
@@ -182,6 +182,22 @@ def copy_sources(out_dir, sources):
         log(f"copying {source}")
         for path in ROOT_DIR.glob(source):
             subprocess.check_call(['cp', '-r', path, out_dir])
+
+def create_source_tarball(args):
+    old_cwd = os.getcwd()
+    os.chdir(args.out_dir)
+
+    source_files = []
+    for (dirpath, _, files) in os.walk('swift-components'):
+        source_files.extend(
+                pathlib.Path(dirpath) / f
+                for f in files
+                # Skip over Apple Double files
+                if not f.startswith("._")
+        )
+
+    subprocess.check_call(['tar', 'acf', 'swift-components.tar.xz'] + source_files)
+    os.chdir(old_cwd)
 
 def ensure_dir(path):
     if not path.exists():

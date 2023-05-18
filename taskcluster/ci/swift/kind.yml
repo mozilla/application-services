@@ -51,7 +51,6 @@ tasks:
       commands:
         - ["taskcluster/scripts/build-and-test-swift.sh"]
         - [ "cd", "build/" ]
-        - [ "tar", "acf", "swift-components.tar.xz", "swift-components" ]
       using: run-commands
       run-task-command: ["/usr/local/bin/python3", "run-task"]
       use-caches: true

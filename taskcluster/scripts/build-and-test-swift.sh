@@ -10,4 +10,4 @@ source "$HOME/.cargo/env"
 export PATH="$HOME/bin:$HOME/Library/Python/3.7/bin:$PATH"
 mv "$MOZ_FETCHES_DIR/swiftformat" "$HOME/bin/swiftformat"
 
-taskcluster/scripts/build-and-test-swift.py build/swift-components build/ build/glean-workdir
+taskcluster/scripts/build-and-test-swift.py build/ build/glean-workdir
