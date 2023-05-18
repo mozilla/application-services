@@ -2057,6 +2057,7 @@ dependencies = [
  "error-support",
  "nimbus-sdk",
  "rc_log_ffi",
+ "remote_settings",
  "viaduct",
  "viaduct-reqwest",
 ]
