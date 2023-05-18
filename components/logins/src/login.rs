@@ -862,6 +862,18 @@ mod tests {
             },
         };
 
+        let login_with_legacy_form_submit_and_http_realm = LoginEntry {
+            fields: LoginFields {
+                origin: "https://www.example.com".into(),
+                form_action_origin: Some("".into()),
+                ..Default::default()
+            },
+            sec_fields: SecureLoginFields {
+                username: "".into(),
+                password: "test".into(),
+            },
+        };
+
         let login_with_null_http_realm = LoginEntry {
             fields: LoginFields {
                 origin: "https://www.example.com".into(),
@@ -1146,6 +1158,11 @@ mod tests {
             },
             TestCase {
                 login: login_with_unknown_protocol,
+                should_err: false,
+                expected_err: "",
+            },
+            TestCase {
+                login: login_with_legacy_form_submit_and_http_realm,
                 should_err: false,
                 expected_err: "",
             },

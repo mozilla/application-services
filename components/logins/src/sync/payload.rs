@@ -222,6 +222,39 @@ mod tests {
         assert_eq!(sec_fields.password, "password");
     }
 
+    // formSubmitURL (now formActionOrigin) being an empty string is a valid
+    // legacy case that is supported on desktop, we should ensure we are as well
+    // https://searchfox.org/mozilla-central/rev/32c74afbb24dce4b5dd6b33be71197e615631d71/toolkit/components/passwordmgr/test/unit/test_logins_change.js#183-184
+    #[test]
+    fn test_payload_empty_form_action_to_login() {
+        let bso = IncomingBso::from_test_content(serde_json::json!({
+            "id": "123412341234",
+            "formSubmitURL": "",
+            "hostname": "https://www.example.com",
+            "username": "user",
+            "password": "password",
+        }));
+        let login = IncomingLogin::from_incoming_payload(
+            bso.into_content::<LoginPayload>().content().unwrap(),
+            &TEST_ENCRYPTOR,
+        )
+        .unwrap()
+        .login;
+        assert_eq!(login.record.id, "123412341234");
+        assert_eq!(login.fields.form_action_origin, Some("".to_string()));
+        assert_eq!(login.fields.http_realm, None);
+        assert_eq!(login.fields.origin, "https://www.example.com");
+        let sec_fields = login.decrypt_fields(&TEST_ENCRYPTOR).unwrap();
+        assert_eq!(sec_fields.username, "user");
+        assert_eq!(sec_fields.password, "password");
+
+        let bso = login.into_bso(&TEST_ENCRYPTOR, None).unwrap();
+        assert_eq!(bso.envelope.id, "123412341234");
+        let payload_data: serde_json::Value = serde_json::from_str(&bso.payload).unwrap();
+        assert_eq!(payload_data["httpRealm"], serde_json::Value::Null);
+        assert_eq!(payload_data["formSubmitURL"], "".to_string());
+    }
+
     #[test]
     fn test_payload_unknown_fields() {
         // No "unknown" fields.
