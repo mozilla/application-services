@@ -14,6 +14,7 @@ pub use types::*;
 
 use manager::SyncManager;
 use parking_lot::Mutex;
+use sync15::DeviceType;
 
 lazy_static::lazy_static! {
     static ref MANAGER: Mutex<SyncManager> = Mutex::new(SyncManager::new());
