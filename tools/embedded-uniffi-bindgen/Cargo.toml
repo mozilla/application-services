@@ -6,4 +6,4 @@ edition = "2021"
 license = "MPL-2.0"
 
 [dependencies]
-uniffi = { version = "0.23", features = ["cli"] }
+uniffi = { git = "https://github.com/bendk/uniffi-rs", branch="multi-crate-build", features = ["cli"] }

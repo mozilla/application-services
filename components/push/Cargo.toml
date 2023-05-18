@@ -21,10 +21,10 @@ error-support = { path = "../support/error" }
 sql-support = { path = "../support/sql" }
 rc_crypto = { path = "../support/rc_crypto", features = ["ece"] }
 thiserror = "1.0"
-uniffi = "0.23"
+uniffi = { git = "https://github.com/bendk/uniffi-rs", branch="multi-crate-build" }
 
 [build-dependencies]
-uniffi = { version = "0.23", features = ["build"] }
+uniffi = { git = "https://github.com/bendk/uniffi-rs", branch="multi-crate-build", features=["build" ]}
 
 [dev-dependencies]
 env_logger = { version = "0.8", default-features = false, features = ["termcolor", "atty", "humantime"] }
