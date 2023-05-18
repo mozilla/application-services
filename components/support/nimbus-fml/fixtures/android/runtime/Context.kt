@@ -31,4 +31,6 @@ object Resources {
     fun getIdentifier(resName: String, defType: String, packageName: String): Int? = null
 
     fun getDrawable(resId: Int, theme: String) = Drawable(resId)
+
+    fun getResourceName(resId: Int) = "res:$resId"
 }

@@ -142,3 +142,56 @@ pub(crate) fn get_test_experiments() -> Vec<Experiment> {
         .unwrap(),
     ]
 }
+
+pub fn get_ios_rollout_experiment() -> Experiment {
+    serde_json::from_value(json!(
+    {
+      "appId": "org.mozilla.ios.Firefox",
+      "appName": "firefox_ios",
+      "application": "org.mozilla.ios.Firefox",
+      "arguments": {},
+      "branches": [
+        {
+          "feature": {
+            "enabled": true,
+            "featureId": "coordinators-refactor-feature",
+            "value": {
+              "enabled": true
+            }
+          },
+          "ratio": 1,
+          "slug": "control"
+        }
+      ],
+      "bucketConfig": {
+        "count": 10000,
+        "namespace": "ios-coordinators-refactor-feature-release-no_targeting-rollout-1",
+        "randomizationUnit": "nimbus_id",
+        "start": 0,
+        "total": 10000
+      },
+      "channel": "release",
+      "endDate": null,
+      "enrollmentEndDate": null,
+      "featureIds": [
+        "coordinators-refactor-feature"
+      ],
+      "featureValidationOptOut": false,
+      "id": "ios-coordinators-rollout",
+      "isEnrollmentPaused": false,
+      "isRollout": true,
+      "localizations": null,
+      "outcomes": [],
+      "probeSets": [],
+      "proposedDuration": 28,
+      "proposedEnrollment": 7,
+      "referenceBranch": "control",
+      "schemaVersion": "1.12.0",
+      "slug": "ios-coordinators-rollout",
+      "startDate": null,
+      "targeting": "(app_version|versionCompare('114.!') >= 0)",
+      "userFacingDescription": "Rollout of coordinators refactor.",
+      "userFacingName": "iOS Coordinators Rollout"
+    }))
+    .unwrap()
+}

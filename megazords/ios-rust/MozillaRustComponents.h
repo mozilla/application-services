@@ -18,3 +18,4 @@
 #import "tabsFFI.h"
 #import "errorFFI.h"
 #import "syncmanagerFFI.h"
+#import "remote_settingsFFI.h"

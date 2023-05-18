@@ -38,6 +38,12 @@ pub fn property(
     Ok(ct.property_getter(oracle, vars, prop, default))
 }
 
+pub fn to_json(prop: &dyn fmt::Display, type_: &TypeIdentifier) -> Result<String, askama::Error> {
+    let oracle = &ConcreteCodeOracle;
+    let ct = oracle.find(type_);
+    Ok(ct.as_json(oracle, prop))
+}
+
 /// Get the idiomatic Kotlin rendering of a class name (for enums, records, errors, etc).
 pub fn class_name(nm: &dyn fmt::Display) -> Result<String, askama::Error> {
     Ok(common::class_name(nm))

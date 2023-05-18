@@ -1,3 +1,6 @@
+[External="remote_settings"]
+typedef extern RemoteSettingsConfig;
+
 namespace nimbus {};
 dictionary AppContext {
     string app_name;
@@ -48,13 +51,9 @@ dictionary ExperimentBranch {
     i32 ratio;
 };
 
-dictionary RemoteSettingsConfig {
-    string server_url;
-    string collection_name;
-};
-
 dictionary AvailableRandomizationUnits {
     string? client_id;
+    string? user_id;
     // work around uniffi-rs #331 by including a non-optional value. We'll
     // try and hide this in the bindings used by clients and eventually remove
     // it entirely.

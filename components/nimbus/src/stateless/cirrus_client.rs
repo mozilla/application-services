@@ -124,7 +124,7 @@ impl CirrusClient {
 
     pub(crate) fn enroll(
         &self,
-        client_id: String,
+        user_id: String,
         request_context: Map<String, Value>,
         is_user_participating: bool,
         prev_enrollments: &[ExperimentEnrollment],
@@ -134,7 +134,7 @@ impl CirrusClient {
         // part of https://mozilla-hub.atlassian.net/browse/EXP-3401
         let nimbus_id = Uuid::new_v4();
         let available_randomization_units =
-            AvailableRandomizationUnits::with_client_id(client_id.as_str());
+            AvailableRandomizationUnits::with_user_id(user_id.as_str());
         let ta = TargetingAttributes::new(self.app_context.clone(), request_context);
         let th = NimbusTargetingHelper::new(ta);
         let enrollments_evolver =

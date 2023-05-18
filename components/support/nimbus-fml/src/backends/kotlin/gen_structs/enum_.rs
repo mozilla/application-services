@@ -66,6 +66,10 @@ impl CodeType for EnumCodeType {
         ))
     }
 
+    fn as_json_transform(&self, _oracle: &dyn CodeOracle, prop: &dyn Display) -> Option<String> {
+        Some(format!("{}.toJSONString()", prop))
+    }
+
     /// A representation of the given literal for this type.
     /// N.B. `Literal` is aliased from `serde_json::Value`.
     fn literal(

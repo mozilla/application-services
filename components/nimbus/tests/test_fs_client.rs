@@ -24,7 +24,8 @@ fn test_simple() -> Result<()> {
     let url = Url::from_file_path(dir).expect("experiments dir should exist");
 
     let config = RemoteSettingsConfig {
-        server_url: url.as_str().to_string(),
+        server_url: Some(url.as_str().to_string()),
+        bucket_name: None,
         collection_name: "doesn't matter".to_string(),
     };
 

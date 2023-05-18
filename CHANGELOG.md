@@ -4,8 +4,16 @@
 
 ### 🦊 What's Changed 🦊
 
- - [`nimbus-cli`](./components/support/nimbus-cli) now has commands: `capture-logs`, `tail-logs`, `test-feature`, `fetch` and `apply-files`. ([#5517](https://github.com/mozilla/application-services/pull/5517)))
- - Add additional Cirrus SDK helper methods and add Python testing for the generated Cirrus Python code [#5478](https://github.com/mozilla/application-services/pull/5478)).
+- [`nimbus-cli`](./components/support/nimbus-cli) now has commands: `capture-logs`, `tail-logs`, `test-feature`, `fetch` and `apply-files`. ([#5517](https://github.com/mozilla/application-services/pull/5517))
+- Add additional Cirrus SDK helper methods and add Python testing for the generated Cirrus Python code ([#5478](https://github.com/mozilla/application-services/pull/5478)).
+- Add `user_id` RandomizationUnit (for Cirrus) ([#5564](https://github.com/mozilla/application-services/pull/5564)).
+- Fixed up a bug in `get_experiment_branch` and `get_active_experiments` ([(#5584)](https://github.com/mozilla/application-services/pull/5584)).
+
+## Nimbus FML ⛅️🔬🔭🔧
+
+### ✨ What's New ✨
+
+- Added `toJSONObject()` and `getFeatures(featureId)` for Kotlin. This serializes the FML into a `JSONObject`. ([#5574](https://github.com/mozilla/application-services/pull/5574)).
 
 [Full Changelog](In progress)
 

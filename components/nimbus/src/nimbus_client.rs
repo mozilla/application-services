@@ -5,7 +5,6 @@
 use crate::{
     behavior::EventStore,
     client::{create_client, SettingsClient},
-    config::RemoteSettingsConfig,
     dbcache::DatabaseCache,
     defaults::Defaults,
     enrollment::{
@@ -25,6 +24,7 @@ use crate::{
 };
 use chrono::{DateTime, NaiveDateTime, Utc};
 use once_cell::sync::OnceCell;
+use remote_settings::RemoteSettingsConfig;
 use serde_json::{Map, Value};
 use std::collections::HashSet;
 use std::path::{Path, PathBuf};

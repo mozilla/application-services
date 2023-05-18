@@ -7,9 +7,9 @@ loader: taskgraph.loader.transform:loader
 kind-dependencies:
   - module-build
   - signing
-  - beetmover
   - swift
-  - nimbus-fml
+  - nimbus-build
+  - nimbus-binaries-assemble
 
 transforms:
   - app_services_taskgraph.transforms.deps_complete:transforms
@@ -23,5 +23,8 @@ tasks:
       release-type: release-only
     label: "Build summary task"
     description: "Summary task for the nightly/release builds that reports failures."
+    attributes:
+      buildconfig:
+        name: all
     alerts:
-      slack-channel: CKL0LGV9B
+      slack-channel: C0559DDDPQF

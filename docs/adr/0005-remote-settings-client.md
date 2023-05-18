@@ -147,7 +147,7 @@ flowchart RL
     end
 
     Nimbus -- nimbus.udl --> mobile
-    RemoteSettings -- remotesettings.udl --> mobile
+    RemoteSettings -- remote_settings.udl --> mobile
 
     rs-client -.-> Nimbus
     other-support-components -.-> Nimbus

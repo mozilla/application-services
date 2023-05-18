@@ -22,6 +22,7 @@ import kotlinx.coroutines.Job
 import kotlinx.coroutines.NonCancellable
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import mozilla.appservices.remotesettings.RemoteSettingsConfig
 import mozilla.telemetry.glean.Glean
 import org.json.JSONObject
 import org.mozilla.experiments.nimbus.GleanMetrics.NimbusEvents
@@ -35,7 +36,6 @@ import org.mozilla.experiments.nimbus.internal.EnrollmentChangeEventType
 import org.mozilla.experiments.nimbus.internal.NimbusClient
 import org.mozilla.experiments.nimbus.internal.NimbusClientInterface
 import org.mozilla.experiments.nimbus.internal.NimbusException
-import org.mozilla.experiments.nimbus.internal.RemoteSettingsConfig
 import java.io.File
 import java.io.IOException
 
@@ -115,7 +115,7 @@ open class Nimbus(
             remoteSettingsConfig,
             // The "dummy" field here is required for obscure reasons when generating code on desktop,
             // so we just automatically set it to a dummy value.
-            AvailableRandomizationUnits(clientId = null, dummy = 0)
+            AvailableRandomizationUnits(clientId = null, userId = null, dummy = 0)
         )
     }
 
@@ -355,7 +355,7 @@ open class Nimbus(
     override fun resetTelemetryIdentifiers() {
         // The "dummy" field here is required for obscure reasons when generating code on desktop,
         // so we just automatically set it to a dummy value.
-        val aru = AvailableRandomizationUnits(clientId = null, dummy = 0)
+        val aru = AvailableRandomizationUnits(clientId = null, userId = null, dummy = 0)
         dbScope.launch {
             withCatchAll("resetTelemetryIdentifiers") {
                 nimbusClient.resetTelemetryIdentifiers(aru).also { enrollmentChangeEvents ->

@@ -14,6 +14,7 @@ dependencies {
 
     implementation "org.jetbrains.kotlinx:kotlinx-coroutines-android:$kotlin_coroutines_version"
 
+    api project(":remotesettings")
     implementation "org.mozilla.telemetry:glean:$glean_version"
     implementation "androidx.core:core-ktx:$androidx_core_version"
 

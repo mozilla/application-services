@@ -82,6 +82,7 @@ RUN apt-get update -qq \
         # <TODO: Is this still true?>.
         g++ \
         # taskcluster > mohawk > setuptools.
+        zip \
         # Required to extract the Android SDK/NDK.
         unzip \
         # Required by tooltool to extract tar.xz archives.

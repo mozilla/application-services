@@ -43,5 +43,12 @@ workers:
       os: scriptworker
       worker-type: 'app-services-{level}-beetmover'
 
+release-promotion:
+  flavors:
+    promote:
+      target-tasks-method: promote
+    ship:
+      target-tasks-method: ship
+
 scriptworker:
   scope-prefix: project:mozilla:app-services:releng

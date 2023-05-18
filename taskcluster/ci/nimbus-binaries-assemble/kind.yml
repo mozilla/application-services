@@ -1,33 +1,36 @@
 # This Source Code Form is subject to the terms of the Mozilla Public
 # License, v. 2.0. If a copy of the MPL was not distributed with this
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
-
-# ⚠️ If you add, rename or delete a task here, please also update .mergify.yml! ⚠️
 ---
+# release-publish: publish artifacts for successful nightly/release builds
+#
+# This task publishes a JSON file for the nightly/release builds. The JSON file is used by consumer
+# apps for app-services version bumps.
+#
+# This task only runs if build-summary succeeds, which implies that all other
+# tasks suceeded.  This task should not fail, since that could leave the
+# build artifacts in an inconsistent state.
 loader: taskgraph.loader.transform:loader
 
+kind-dependencies:
+  - nimbus-build
+
 transforms:
+  - app_services_taskgraph.transforms.nimbus:assemble
   - app_services_taskgraph.transforms.appservices:transforms
   - taskgraph.transforms.job:transforms
   - taskgraph.transforms.task:transforms
 
-kind-dependencies:
-  - toolchain
-
 tasks:
-  build:
+  assemble:
     attributes:
       run-on-pr-type: full-ci
-      resource-monitor: true
       release-routes:
         - index.project.application-services.v2.nimbus-fml.{appservices_version}
-    needs-sccache: false # TODO: Bug 1623426 deal with this once we're in prod
-    run-on-tasks-for: [github-pull-request, github-release, cron]
-    description: Build and test (Swift)
-    scopes:
-      - project:releng:services/tooltool/api/download/internal
+    description: "Assemble nimbus binaries"
     worker-type: b-linux
     worker:
+      chain-of-trust: true
       docker-image: { in-tree: linux }
       max-run-time: 1800
       artifacts:
@@ -38,18 +41,6 @@ tasks:
           path: "/builds/worker/checkouts/vcs/build/nimbus-fml.sha256"
           type: "file"
     run:
-      pre-commands:
-        - [git, submodule, update, --init]
-        - [source, taskcluster/scripts/toolchain/setup-fetched-rust-toolchain.sh]
-        - [rsync, '-a', /builds/worker/fetches/libs/, /builds/worker/checkouts/vcs/libs/]
-      commands:
-        - [
-            "/builds/worker/checkouts/vcs/taskcluster/scripts/build-nimbus-fml.py",
-            "/builds/worker/checkouts/vcs/build/",
-          ]
       using: run-commands
-      use-caches: true
-    fetches:
-      toolchain:
-        - desktop-linux-libs
-        - rust
+      commands:
+        - ["taskcluster/scripts/assemble-nimbus-binaries.sh"]

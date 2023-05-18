@@ -76,6 +76,10 @@ impl CodeType for ObjectCodeType {
         Some(format!("_mergeWith({})", default))
     }
 
+    fn as_json_transform(&self, _oracle: &dyn CodeOracle, prop: &dyn Display) -> Option<String> {
+        Some(format!("{}.toJSONObject()", prop))
+    }
+
     fn literal(
         &self,
         oracle: &dyn CodeOracle,
@@ -89,13 +93,6 @@ impl CodeType for ObjectCodeType {
             literal,
             ctx,
         )
-    }
-
-    fn imports(&self, _oracle: &dyn CodeOracle) -> Option<Vec<String>> {
-        Some(vec![
-            "org.mozilla.experiments.nimbus.NullVariables".to_string(),
-            "android.content.Context".to_string(),
-        ])
     }
 }
 
@@ -121,6 +118,12 @@ impl ObjectCodeDeclaration {
 impl CodeDeclaration for ObjectCodeDeclaration {
     fn definition_code(&self, _oracle: &dyn CodeOracle) -> Option<String> {
         Some(self.render().unwrap())
+    }
+
+    fn imports(&self, _oracle: &dyn CodeOracle) -> Option<Vec<String>> {
+        Some(vec![
+            "org.mozilla.experiments.nimbus.internal.FMLObjectInterface".to_string(),
+        ])
     }
 }
 

@@ -1,0 +1,26 @@
+[package]
+name = "remote_settings"
+version = "0.1.0"
+edition = "2021"
+# The Android mobile team took the basis of this client from Nimbus originally.
+authors = ["The Android Mobile Team <firefox-android-team@mozilla.com>", "The Glean Team <glean-team@mozilla.com>"]
+description = "A Remote Settings client intended for application layer platforms."
+license = "MPL-2.0" 
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+uniffi = "^0.23"
+thiserror = "1.0"
+serde = "1"
+serde_json = "1"
+parking_lot = "0.12"
+viaduct = { path = "../viaduct" }
+url = "2.2"
+
+[build-dependencies]
+uniffi = { version = "0.23", features = ["build"] }
+
+[dev-dependencies]
+viaduct-reqwest = { path = "../support/viaduct-reqwest" }
+mockito = "0.31"

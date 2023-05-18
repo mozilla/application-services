@@ -49,7 +49,7 @@ pub enum NimbusError {
     NoSuchBranch(String, String),
     #[error("Initialization of the database is not yet complete")]
     DatabaseNotReady,
-    #[error("Error parsing a sting into a version {0}")]
+    #[error("Error parsing a string into a version {0}")]
     VersionParsingError(String),
     #[cfg(feature = "stateful")]
     #[error("Behavior error: {0}")]
@@ -61,8 +61,8 @@ pub enum NimbusError {
     #[error("Transform parameter error: {0}")]
     TransformParameterError(String),
     #[cfg(feature = "stateful")]
-    #[error("Error with HTTP client: {0}")]
-    ClientError(#[from] rs_client::ClientError),
+    #[error("Error with Remote Settings client: {0}")]
+    ClientError(#[from] remote_settings::RemoteSettingsError),
     #[cfg(not(feature = "stateful"))]
     #[error("Error in Cirrus: {0}")]
     CirrusError(#[from] CirrusClientError),

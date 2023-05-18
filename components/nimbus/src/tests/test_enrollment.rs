@@ -5,7 +5,10 @@
 // Testing enrollment.rs
 
 use crate::{
-    defaults::Defaults, enrollment::*, error::Result, tests::helpers::get_test_experiments,
+    defaults::Defaults,
+    enrollment::*,
+    error::Result,
+    tests::helpers::{get_ios_rollout_experiment, get_test_experiments},
     AppContext, AvailableRandomizationUnits, Branch, BucketConfig, Experiment, FeatureConfig,
     NimbusTargetingHelper, TargetingAttributes,
 };
@@ -402,6 +405,30 @@ fn enrollment_evolver<'a>(
     aru: &'a AvailableRandomizationUnits,
 ) -> EnrollmentsEvolver<'a> {
     EnrollmentsEvolver::new(nimbus_id, aru, targeting_helper)
+}
+
+#[test]
+fn test_ios_rollout_experiment() -> Result<()> {
+    let exp = &get_ios_rollout_experiment();
+    let (nimbus_id, app_ctx, aru) = local_ctx();
+    let app_ctx = AppContext {
+        app_name: "firefox_ios".to_string(),
+        app_version: Some("114.0".to_string()),
+        channel: "release".to_string(),
+        ..app_ctx
+    };
+    let th = app_ctx.into();
+    let evolver = enrollment_evolver(&nimbus_id, &th, &aru);
+    let mut events = vec![];
+    let enrollment = evolver
+        .evolve_enrollment::<Experiment>(true, None, Some(exp), None, &mut events)?
+        .unwrap();
+    println!("Enrollment: {:?}", &enrollment.status);
+    assert!(matches!(
+        enrollment.status,
+        EnrollmentStatus::Enrolled { .. }
+    ));
+    Ok(())
 }
 
 #[test]

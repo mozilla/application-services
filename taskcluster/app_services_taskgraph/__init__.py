@@ -17,6 +17,7 @@ PREVIEW_RE = re.compile(r'\[preview ([\w-]+)\]')
 def register(graph_config):
     # Import modules to register decorated functions
     _import_modules([
+        "actions.release_promotion",
         "branch_builds",
         "job",
         "target_tasks",
@@ -82,7 +83,6 @@ def get_decision_parameters(graph_config, parameters):
         # We don't have a great way of determining if something is a nightly or
         # not.  But for now, we can assume all cron-based builds are nightlies.
         parameters["preview-build"] = "nightly"
-        parameters["target_tasks_method"] = "full"
         parameters["release-type"] = "nightly"
 
     parameters['branch-build'] = branch_builds.calc_branch_build_param(parameters)

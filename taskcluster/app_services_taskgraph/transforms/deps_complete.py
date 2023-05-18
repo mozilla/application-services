@@ -5,6 +5,7 @@ from taskgraph import MAX_DEPENDENCIES
 from taskgraph.transforms.base import TransformSequence
 
 transforms = TransformSequence()
+alerts = TransformSequence()
 
 @transforms.add
 def deps_complete_script(config, tasks):
@@ -51,14 +52,19 @@ def convert_dependencies(config, tasks):
         ]
         yield task
 
+@alerts.add
 @transforms.add
 def add_alert_routes(config, tasks):
     """
     Add routes to alert channels when this task fails.
     """
     for task in tasks:
-        task.setdefault('routes', [])
         alerts = task.pop("alerts", {})
+        if config.params["level"] != "3":
+            yield task
+            continue
+
+        task.setdefault('routes', [])
         for name, value in alerts.items():
             if name not in ("slack-channel", "email", "pulse", "matrix-room"):
                 raise KeyError("Unknown alert type: {}".format(name))

@@ -120,6 +120,13 @@ pub mod test {
         )
     }
 
+    fn hardcoded_features_kt() -> String {
+        join(
+            sdk_android_dir(),
+            "org/mozilla/experiments/nimbus/HardcodedNimbusFeatures.kt",
+        )
+    }
+
     fn classpath(classes: &Path) -> Result<String> {
         Ok(format!("{}:{}", json_jar(), classes.to_str().unwrap()))
     }
@@ -146,6 +153,7 @@ pub mod test {
             .arg(build_dir)
             .arg(&variables_kt())
             .arg(&features_kt())
+            .arg(&hardcoded_features_kt())
             .arg(&runtime_dir())
             .arg(&nimbus_internals_kt())
             .args(manifest_paths)

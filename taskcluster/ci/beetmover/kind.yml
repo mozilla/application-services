@@ -6,24 +6,25 @@ loader: app_services_taskgraph.loader.multi_dep:loader
 
 transforms:
   - app_services_taskgraph.transforms.multi_dep:transforms
+  - app_services_taskgraph.transforms.deps_complete:alerts
   - app_services_taskgraph.transforms.beetmover:transforms
   - taskgraph.transforms.task:transforms
 
 kind-dependencies:
   - module-build
   - signing
-  # Adding this means that we will not run _any_ beetmover task until
-  # _all_ signing has been completed.
-  - post-signing-dummy
+  - build-summary
 
 primary-dependency: module-build
 group-by: component
 
 task-template:
+  attributes:
+    shipping_phase: ship
   run-on-tasks-for: [github-release, cron]
   description: 'Publish release module {}'
   worker-type: beetmover
   worker:
     app-name: appservices
-  routes:
-    - notify.email.a-s-ci-failures@mozilla.com.on-failed
+  alerts:
+    email: a-s-ci-failures@mozilla.com

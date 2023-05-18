@@ -16,4 +16,10 @@ enum class {{class_name}} {
 
         fun enumValue(string: String): {{class_name}}? = enumMap[string]
     }
+
+    fun toJSONString() =
+        when (this) {
+            {%- for v in inner.variants() %}
+            {{ v.name()|enum_variant_name }} -> {{ v.name()|quoted }}{% endfor %}
+        }
 }

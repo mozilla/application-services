@@ -103,6 +103,14 @@ impl CodeType for OptionalCodeType {
         ))
     }
 
+    /// Implement these in different code types, and call recursively from different code types.
+    fn as_json_transform(&self, oracle: &dyn CodeOracle, prop: &dyn Display) -> Option<String> {
+        // We want to return None if the inner's json trasform is none,
+        // but if it's not, then use `prop?` as the new prop
+        let prop = format!("{}?", prop);
+        oracle.find(&self.inner).as_json_transform(oracle, &prop)
+    }
+
     /// A representation of the given literal for this type.
     /// N.B. `Literal` is aliased from `serde_json::Value`.
     fn literal(
@@ -281,6 +289,34 @@ impl CodeType for MapCodeType {
         ))
     }
 
+    fn as_json_transform(&self, oracle: &dyn CodeOracle, prop: &dyn Display) -> Option<String> {
+        let k_type = oracle.find(&self.k_type);
+        let v_type = oracle.find(&self.v_type);
+        Some(
+            match (
+                k_type.as_json_transform(oracle, &"it".to_string()),
+                v_type.as_json_transform(oracle, &"it".to_string()),
+            ) {
+                (Some(k), Some(v)) => {
+                    format!(
+                        "{prop}.mapEntriesNotNull({{ {k} }}, {{ {v} }})",
+                        prop = prop,
+                        k = k,
+                        v = v
+                    )
+                }
+                (None, Some(v)) => {
+                    format!("{prop}.mapValuesNotNull {{ {v} }}", prop = prop, v = v)
+                }
+                // We could do something with keys, but it's only every strings and enums.
+                (Some(k), None) => {
+                    format!("{prop}.mapKeysNotNull {{ {k} }}", prop = prop, k = k)
+                }
+                _ => return None,
+            },
+        )
+    }
+
     /// A representation of the given literal for this type.
     /// N.B. `Literal` is aliased from `serde_json::Value`.
     fn literal(
@@ -313,28 +349,38 @@ impl CodeType for MapCodeType {
     fn imports(&self, oracle: &dyn CodeOracle) -> Option<Vec<String>> {
         let k_type = oracle.find(&self.k_type);
         let v_type = oracle.find(&self.v_type);
-        let mapper = match (
+        let mapper = map_functions(
             k_type.create_transform(oracle),
             v_type.create_transform(oracle),
-        ) {
-            (Some(_), Some(_)) => {
-                Some("org.mozilla.experiments.nimbus.internal.mapEntriesNotNull".to_string())
-            }
-            (None, Some(_)) => {
-                Some("org.mozilla.experiments.nimbus.internal.mapValuesNotNull".to_string())
-            }
-            (Some(_), None) => {
-                Some("org.mozilla.experiments.nimbus.internal.mapKeysNotNull".to_string())
-            }
-            _ => None,
-        };
+        );
 
-        let merger = "org.mozilla.experiments.nimbus.internal.mergeWith".to_string();
+        let json_mapper = map_functions(
+            k_type.as_json_transform(oracle, &"k".to_string()),
+            v_type.as_json_transform(oracle, &"v".to_string()),
+        );
 
-        Some(match mapper {
-            Some(mapper) => vec![mapper, merger],
-            _ => vec![merger],
-        })
+        let merger = Some("org.mozilla.experiments.nimbus.internal.mergeWith".to_string());
+        Some(
+            vec![mapper, json_mapper, merger]
+                .iter()
+                .filter_map(|i| i.to_owned())
+                .collect(),
+        )
+    }
+}
+
+fn map_functions(k: Option<String>, v: Option<String>) -> Option<String> {
+    match (k, v) {
+        (Some(_), Some(_)) => {
+            Some("org.mozilla.experiments.nimbus.internal.mapEntriesNotNull".to_string())
+        }
+        (None, Some(_)) => {
+            Some("org.mozilla.experiments.nimbus.internal.mapValuesNotNull".to_string())
+        }
+        (Some(_), None) => {
+            Some("org.mozilla.experiments.nimbus.internal.mapKeysNotNull".to_string())
+        }
+        _ => None,
     }
 }
 
@@ -427,6 +473,17 @@ impl CodeType for ListCodeType {
         Some(format!(
             "{value}.map {{ {mapper} }}",
             value = value,
+            mapper = mapper
+        ))
+    }
+
+    fn as_json_transform(&self, oracle: &dyn CodeOracle, prop: &dyn Display) -> Option<String> {
+        let mapper = oracle
+            .find(&self.inner)
+            .as_json_transform(oracle, &"it".to_string())?;
+        Some(format!(
+            "{prop}.map {{ {mapper} }}",
+            prop = prop,
             mapper = mapper
         ))
     }

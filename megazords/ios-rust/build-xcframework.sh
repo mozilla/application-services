@@ -164,6 +164,7 @@ if [ -z $IS_FOCUS ]; then
   $CARGO uniffi-bindgen generate "$REPO_ROOT/components/push/src/push.udl" -l swift -o "$COMMON/Headers"
   $CARGO uniffi-bindgen generate "$REPO_ROOT/components/tabs/src/tabs.udl" -l swift -o "$COMMON/Headers"
   $CARGO uniffi-bindgen generate "$REPO_ROOT/components/places/src/places.udl" -l swift -o "$COMMON/Headers"
+  $CARGO uniffi-bindgen generate "$REPO_ROOT/components/remote_settings/src/remote_settings.udl" -l swift -o "$COMMON/Headers"
   $CARGO uniffi-bindgen generate "$REPO_ROOT/components/sync_manager/src/syncmanager.udl" -l swift -o "$COMMON/Headers"
   $CARGO uniffi-bindgen generate "$REPO_ROOT/components/sync15/src/sync15.udl" -l swift -o "$COMMON/Headers"
 fi
