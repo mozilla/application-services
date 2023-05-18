@@ -8,4 +8,5 @@
 pub use error_support;
 pub use nimbus;
 pub use rc_log_ffi;
+pub use remote_settings;
 pub use viaduct_reqwest;
