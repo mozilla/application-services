@@ -60,7 +60,7 @@ serde_json = "1"
 serde_path_to_error = "0.1"
 sync-guid = { path = "../support/guid", features = ["random"] }
 thiserror = "1.0"
-uniffi = "0.23"
+uniffi = { git = "https://github.com/bendk/uniffi-rs", branch="multi-crate-build" }
 url = { version = "2.1", optional = true } # mozilla-central can't yet take 2.2 (see bug 1734538)
 viaduct = { path = "../viaduct", optional = true }
 
@@ -68,4 +68,4 @@ viaduct = { path = "../viaduct", optional = true }
 env_logger = { version = "0.7", default-features = false }
 
 [build-dependencies]
-uniffi = { version = "0.23", features = ["build"] }
+uniffi = { git = "https://github.com/bendk/uniffi-rs", branch="multi-crate-build", features=["build" ]}

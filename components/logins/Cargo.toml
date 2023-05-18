@@ -27,14 +27,14 @@ error-support = { path = "../support/error" }
 sync-guid = { path = "../support/guid", features = ["rusqlite_support", "random"] }
 thiserror = "1.0"
 anyhow = "1.0"
-uniffi = "0.23"
+uniffi = { git = "https://github.com/bendk/uniffi-rs", branch="multi-crate-build" }
 
 [dependencies.rusqlite]
 version = "0.28.0"
 features = ["sqlcipher", "limits", "unlock_notify"]
 
 [build-dependencies]
-uniffi = { version = "0.23", features = ["build"] }
+uniffi = { git = "https://github.com/bendk/uniffi-rs", branch="multi-crate-build", features=["build" ]}
 
 [dev-dependencies]
 more-asserts = "0.2"
