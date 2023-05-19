@@ -6,7 +6,10 @@ pub mod error;
 pub use error::{RemoteSettingsError, Result};
 use std::{fs::File, io::prelude::Write};
 pub mod client;
-pub use client::{Attachment, Client, RemoteSettingsRecord, RemoteSettingsResponse, RsJsonObject};
+pub use client::{
+    Attachment, Client, GetItemsOptions, RemoteSettingsRecord, RemoteSettingsResponse,
+    RsJsonObject, SortOrder,
+};
 pub mod config;
 pub use config::RemoteSettingsConfig;
 
@@ -51,7 +54,7 @@ impl RemoteSettings {
 mod test {
     use super::*;
     use crate::RemoteSettingsRecord;
-    use mockito::mock;
+    use mockito::{mock, Matcher};
 
     #[test]
     fn test_get_records() {
@@ -75,6 +78,33 @@ mod test {
 
         let resp = remote_settings.get_records().unwrap();
 
+        assert!(are_equal_json(JPG_ATTACHMENT, &resp.records[0]));
+        assert_eq!(1000, resp.last_modified);
+        m.expect(1).assert();
+    }
+
+    #[test]
+    fn test_get_records_since() {
+        viaduct_reqwest::use_reqwest_backend();
+        let m = mock(
+            "GET",
+            "/v1/buckets/the-bucket/collections/the-collection/records",
+        )
+        .match_query(Matcher::UrlEncoded("gt_last_modified".into(), "500".into()))
+        .with_body(response_body())
+        .with_status(200)
+        .with_header("content-type", "application/json")
+        .with_header("etag", "1000")
+        .create();
+
+        let config = RemoteSettingsConfig {
+            server_url: Some(mockito::server_url()),
+            bucket_name: Some(String::from("the-bucket")),
+            collection_name: String::from("the-collection"),
+        };
+        let remote_settings = RemoteSettings::new(config).unwrap();
+
+        let resp = remote_settings.get_records_since(500).unwrap();
         assert!(are_equal_json(JPG_ATTACHMENT, &resp.records[0]));
         assert_eq!(1000, resp.last_modified);
         m.expect(1).assert();

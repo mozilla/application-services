@@ -7,7 +7,10 @@ use crate::error::{RemoteSettingsError, Result};
 use crate::UniffiCustomTypeConverter;
 use parking_lot::Mutex;
 use serde::Deserialize;
-use std::time::{Duration, Instant};
+use std::{
+    borrow::Cow,
+    time::{Duration, Instant},
+};
 use url::Url;
 use viaduct::{Request, Response};
 
@@ -61,22 +64,16 @@ impl Client {
     /// bucket, and collection defined by the [ClientConfig] used to generate
     /// this [Client]. This function will return the raw network [Response].
     pub fn get_records_raw(&self) -> Result<Response> {
-        let path = format!(
-            "v1/buckets/{}/collections/{}/records",
-            &self.bucket_name, &self.collection_name
-        );
-        self.make_request(path)
+        self.get_records_raw_with_options(&GetItemsOptions::new())
     }
 
     /// Fetches all records that have been published since provided timestamp
     /// for a collection that can be found in the server, bucket, and
     /// collection defined by the [ClientConfig] used to generate this [Client].
     pub fn get_records_since(&self, timestamp: u64) -> Result<RemoteSettingsResponse> {
-        let path = format!(
-            "v1/buckets/{}/collections/{}/records?_since={}",
-            &self.bucket_name, &self.collection_name, timestamp
-        );
-        let resp = self.make_request(path)?;
+        let resp = self.get_records_raw_with_options(
+            GetItemsOptions::new().gt("last_modified", timestamp.to_string()),
+        )?;
         let records = resp.json::<RecordsResponse>()?.data;
         let last_modified = resp
             .headers
@@ -86,6 +83,20 @@ impl Client {
             records,
             last_modified,
         })
+    }
+
+    /// Fetches a raw network [Response] for records from this client's
+    /// collection with the given options.
+    pub fn get_records_raw_with_options(&self, options: &GetItemsOptions) -> Result<Response> {
+        let path = format!(
+            "v1/buckets/{}/collections/{}/records",
+            &self.bucket_name, &self.collection_name
+        );
+        let mut url = self.base_url.join(&path)?;
+        for (name, value) in options.iter_query_pairs() {
+            url.query_pairs_mut().append_pair(&name, &value);
+        }
+        self.make_request(url)
     }
 
     /// Downloads an attachment from [attachment_location]. NOTE: there are no
@@ -108,15 +119,14 @@ impl Client {
         current_remote_state.attachments_base_url = Some(attachments_base_url.clone());
         drop(current_remote_state);
 
-        self.make_request(attachments_base_url.join(attachment_location)?.into())
+        self.make_request(attachments_base_url.join(attachment_location)?)
     }
 
-    fn make_request(&self, path: String) -> Result<Response> {
+    fn make_request(&self, url: Url) -> Result<Response> {
         let mut current_remote_state = self.remote_state.lock();
         self.ensure_no_backoff(&mut current_remote_state.backoff)?;
         drop(current_remote_state);
 
-        let url = self.base_url.join(&path)?;
         let req = Request::get(url);
         let resp = req.send()?;
 
@@ -271,10 +281,211 @@ struct AttachmentsCapability {
     base_url: String,
 }
 
+/// Options for requests to endpoints that return multiple items.
+#[derive(Clone, Debug, Default)]
+pub struct GetItemsOptions {
+    filters: Vec<Filter>,
+    sort: Vec<Sort>,
+    fields: Vec<String>,
+    limit: Option<u64>,
+}
+
+impl GetItemsOptions {
+    /// Creates an empty option set.
+    pub fn new() -> Self {
+        Self::default()
+    }
+
+    /// Sets an option to only return items whose `field` is equal to the given
+    /// `value`.
+    ///
+    /// `field` can be a simple or dotted field name, like `author` or
+    /// `author.name`. `value` can be a bare number or string (like
+    /// `2` or `Ben`), or a stringified JSON value (`"2.0"`, `[1, 2]`,
+    /// `{"checked": true}`).
+    pub fn eq(&mut self, field: impl Into<String>, value: impl Into<String>) -> &mut Self {
+        self.filters.push(Filter::Eq(field.into(), value.into()));
+        self
+    }
+
+    /// Sets an option to only return items whose `field` is not equal to the
+    /// given `value`.
+    pub fn not(&mut self, field: impl Into<String>, value: impl Into<String>) -> &mut Self {
+        self.filters.push(Filter::Not(field.into(), value.into()));
+        self
+    }
+
+    /// Sets an option to only return items whose `field` is an array that
+    /// contains the given `value`. If `value` is a stringified JSON array, the
+    /// field must contain all its elements.
+    pub fn contains(&mut self, field: impl Into<String>, value: impl Into<String>) -> &mut Self {
+        self.filters
+            .push(Filter::Contains(field.into(), value.into()));
+        self
+    }
+
+    /// Sets an option to only return items whose `field` is strictly less
+    /// than the given `value`.
+    pub fn lt(&mut self, field: impl Into<String>, value: impl Into<String>) -> &mut Self {
+        self.filters.push(Filter::Lt(field.into(), value.into()));
+        self
+    }
+
+    /// Sets an option to only return items whose `field` is strictly greater
+    /// than the given `value`.
+    pub fn gt(&mut self, field: impl Into<String>, value: impl Into<String>) -> &mut Self {
+        self.filters.push(Filter::Gt(field.into(), value.into()));
+        self
+    }
+
+    /// Sets an option to only return items whose `field` is less than or equal
+    /// to the given `value`.
+    pub fn max(&mut self, field: impl Into<String>, value: impl Into<String>) -> &mut Self {
+        self.filters.push(Filter::Max(field.into(), value.into()));
+        self
+    }
+
+    /// Sets an option to only return items whose `field` is greater than or
+    /// equal to the given `value`.
+    pub fn min(&mut self, field: impl Into<String>, value: impl Into<String>) -> &mut Self {
+        self.filters.push(Filter::Min(field.into(), value.into()));
+        self
+    }
+
+    /// Sets an option to only return items whose `field` is a string that
+    /// contains the substring `value`. `value` can contain `*` wildcards.
+    pub fn like(&mut self, field: impl Into<String>, value: impl Into<String>) -> &mut Self {
+        self.filters.push(Filter::Like(field.into(), value.into()));
+        self
+    }
+
+    /// Sets an option to only return items that have the given `field`.
+    pub fn has(&mut self, field: impl Into<String>) -> &mut Self {
+        self.filters.push(Filter::Has(field.into()));
+        self
+    }
+
+    /// Sets an option to only return items that do not have the given `field`.
+    pub fn has_not(&mut self, field: impl Into<String>) -> &mut Self {
+        self.filters.push(Filter::HasNot(field.into()));
+        self
+    }
+
+    /// Sets an option to return items in `order` for the given `field`.
+    pub fn sort(&mut self, field: impl Into<String>, order: SortOrder) -> &mut Self {
+        self.sort.push(Sort(field.into(), order));
+        self
+    }
+
+    /// Sets an option to only return the given `field` of each item.
+    ///
+    /// The special `id` and `last_modified` fields are always returned.
+    pub fn field(&mut self, field: impl Into<String>) -> &mut Self {
+        self.fields.push(field.into());
+        self
+    }
+
+    /// Sets the option to return at most `count` items.
+    pub fn limit(&mut self, count: u64) -> &mut Self {
+        self.limit = Some(count);
+        self
+    }
+
+    /// Returns an iterator of (name, value) query pairs for these options.
+    pub fn iter_query_pairs(&self) -> impl Iterator<Item = (Cow<str>, Cow<str>)> {
+        self.filters
+            .iter()
+            .map(Filter::as_query_pair)
+            .chain({
+                // For sorting (https://docs.kinto-storage.org/en/latest/api/1.x/sorting.html),
+                // the query pair syntax is `_sort=field1,-field2`, where the
+                // fields to sort by are specified in a comma-separated ordered
+                // list, and `-` indicates descending order.
+                (!self.sort.is_empty()).then(|| {
+                    (
+                        "_sort".into(),
+                        (self
+                            .sort
+                            .iter()
+                            .map(Sort::as_query_value)
+                            .collect::<Vec<_>>()
+                            .join(","))
+                        .into(),
+                    )
+                })
+            })
+            .chain({
+                // For selecting fields (https://docs.kinto-storage.org/en/latest/api/1.x/selecting_fields.html),
+                // the query pair syntax is `_fields=field1,field2`.
+                (!self.fields.is_empty()).then(|| ("_fields".into(), self.fields.join(",").into()))
+            })
+            .chain({
+                // For pagination (https://docs.kinto-storage.org/en/latest/api/1.x/pagination.html),
+                // the query pair syntax is `_limit={count}`.
+                self.limit
+                    .map(|count| ("_limit".into(), count.to_string().into()))
+            })
+    }
+}
+
+/// The order in which to return items.
+#[derive(Clone, Copy, Debug, Eq, Hash, PartialEq)]
+pub enum SortOrder {
+    /// Smaller values first.
+    Ascending,
+    /// Larger values first.
+    Descending,
+}
+
+#[derive(Clone, Debug)]
+enum Filter {
+    Eq(String, String),
+    Not(String, String),
+    Contains(String, String),
+    Lt(String, String),
+    Gt(String, String),
+    Max(String, String),
+    Min(String, String),
+    Like(String, String),
+    Has(String),
+    HasNot(String),
+}
+
+impl Filter {
+    fn as_query_pair(&self) -> (Cow<str>, Cow<str>) {
+        // For filters (https://docs.kinto-storage.org/en/latest/api/1.x/filtering.html),
+        // the query pair syntax is `[operator_]field=value` for each field.
+        match self {
+            Filter::Eq(field, value) => (field.into(), value.into()),
+            Filter::Not(field, value) => (format!("not_{field}").into(), value.into()),
+            Filter::Contains(field, value) => (format!("contains_{field}").into(), value.into()),
+            Filter::Lt(field, value) => (format!("lt_{field}").into(), value.into()),
+            Filter::Gt(field, value) => (format!("gt_{field}").into(), value.into()),
+            Filter::Max(field, value) => (format!("max_{field}").into(), value.into()),
+            Filter::Min(field, value) => (format!("min_{field}").into(), value.into()),
+            Filter::Like(field, value) => (format!("like_{field}").into(), value.into()),
+            Filter::Has(field) => (format!("has_{field}").into(), "true".into()),
+            Filter::HasNot(field) => (format!("has_{field}").into(), "false".into()),
+        }
+    }
+}
+
+#[derive(Clone, Debug)]
+struct Sort(String, SortOrder);
+
+impl Sort {
+    fn as_query_value(&self) -> Cow<str> {
+        match self.1 {
+            SortOrder::Ascending => self.0.as_str().into(),
+            SortOrder::Descending => format!("-{}", self.0).into(),
+        }
+    }
+}
+
 #[cfg(test)]
 mod test {
     use super::*;
-    use mockito::mock;
+    use mockito::{mock, Matcher};
     #[test]
     fn test_defaults() {
         let config = RemoteSettingsConfig {
@@ -412,6 +623,63 @@ mod test {
             second_request,
             Err(RemoteSettingsError::BackoffError(_))
         ));
+        m.expect(1).assert();
+    }
+
+    #[test]
+    fn test_options() {
+        viaduct_reqwest::use_reqwest_backend();
+        let m = mock(
+            "GET",
+            "/v1/buckets/the-bucket/collections/the-collection/records",
+        )
+        .match_query(Matcher::AllOf(vec![
+            Matcher::UrlEncoded("a".into(), "b".into()),
+            Matcher::UrlEncoded("lt_c.d".into(), "5".into()),
+            Matcher::UrlEncoded("gt_e".into(), "15".into()),
+            Matcher::UrlEncoded("max_f".into(), "20".into()),
+            Matcher::UrlEncoded("min_g".into(), "10".into()),
+            Matcher::UrlEncoded("not_h".into(), "i".into()),
+            Matcher::UrlEncoded("like_j".into(), "*k*".into()),
+            Matcher::UrlEncoded("has_l".into(), "true".into()),
+            Matcher::UrlEncoded("has_m".into(), "false".into()),
+            Matcher::UrlEncoded("contains_n".into(), "o".into()),
+            Matcher::UrlEncoded("_sort".into(), "-b,a".into()),
+            Matcher::UrlEncoded("_fields".into(), "a,c,b".into()),
+            Matcher::UrlEncoded("_limit".into(), "3".into()),
+        ]))
+        .with_body(response_body())
+        .with_status(200)
+        .with_header("content-type", "application/json")
+        .with_header("etag", "1000")
+        .create();
+        let config = RemoteSettingsConfig {
+            server_url: Some(mockito::server_url()),
+            collection_name: String::from("the-collection"),
+            bucket_name: Some(String::from("the-bucket")),
+        };
+        let http_client = Client::new(config).unwrap();
+        assert!(http_client
+            .get_records_raw_with_options(
+                GetItemsOptions::new()
+                    .field("a")
+                    .field("c")
+                    .field("b")
+                    .eq("a", "b")
+                    .lt("c.d", "5")
+                    .gt("e", "15")
+                    .max("f", "20")
+                    .min("g", "10")
+                    .not("h", "i")
+                    .like("j", "*k*")
+                    .has("l")
+                    .has_not("m")
+                    .contains("n", "o")
+                    .sort("b", SortOrder::Descending)
+                    .sort("a", SortOrder::Ascending)
+                    .limit(3)
+            )
+            .is_ok());
         m.expect(1).assert();
     }
 
