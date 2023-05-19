@@ -139,37 +139,22 @@ cp "$WORKING_DIR/DEPENDENCIES.md" "$COMMON/DEPENDENCIES.md"
 
 mkdir -p "$COMMON/Headers"
 
-# First we move the files that are common between both
-# firefox-ios and Focus
+# Library to generate the UniFFI bindings with.  We use an arbitrary target, since that doesn't
+# affect the bindings.
+UNIFFI_BINDGEN_LIBRARY="$TARGET_DIR/aarch64-apple-ios/$BUILD_PROFILE/$LIB_NAME"
+
+# First move the non-generated headers (these are all common between both firefox-ios and Focus)
 cp "$WORKING_DIR/$FRAMEWORK_NAME.h" "$COMMON/Headers"
 cp "$REPO_ROOT/components/viaduct/ios/RustViaductFFI.h" "$COMMON/Headers"
-$CARGO uniffi-bindgen generate "$REPO_ROOT/components/remote_settings/src/remote_settings.udl" -l swift -o "$COMMON/Headers"
-$CARGO uniffi-bindgen generate "$REPO_ROOT/components/nimbus/src/nimbus.udl" -l swift -o "$COMMON/Headers"
-$CARGO uniffi-bindgen generate "$REPO_ROOT/components/support/error/src/errorsupport.udl" -l swift -o "$COMMON/Headers"
-$CARGO uniffi-bindgen generate "$REPO_ROOT/components/support/rust-log-forwarder/src/rust_log_forwarder.udl" -l swift -o "$COMMON/Headers"
 
+# Next, move the generated headers.
+#
+# TODO: https://github.com/mozilla/uniffi-rs/issues/1060
+#
+# It would be neat if there was a single UniFFI command that would generate headers-only, but for
+# now we generate both the `.h` and `.swift` files, then delete the `.swift`.  Bleh.
 
-
-# We now only move/generate the rest of the headers if we are generating a full
-# iOS megazord
-if [ -z $IS_FOCUS ]; then
-  # TODO: https://github.com/mozilla/uniffi-rs/issues/1060
-  # it would be neat if there was a single UniFFI command that would spit out
-  # all of the generated headers for all UniFFIed dependencies of a given crate.
-  # For now we generate the Swift bindings to get the headers as a side effect,
-  # then delete the generated Swift code. Bleh.
-  $CARGO uniffi-bindgen generate "$REPO_ROOT/components/crashtest/src/crashtest.udl" -l swift -o "$COMMON/Headers"
-  $CARGO uniffi-bindgen generate "$REPO_ROOT/components/fxa-client/src/fxa_client.udl" -l swift -o "$COMMON/Headers"
-  $CARGO uniffi-bindgen generate "$REPO_ROOT/components/logins/src/logins.udl" -l swift -o "$COMMON/Headers"
-  $CARGO uniffi-bindgen generate "$REPO_ROOT/components/autofill/src/autofill.udl" -l swift -o "$COMMON/Headers"
-  $CARGO uniffi-bindgen generate "$REPO_ROOT/components/push/src/push.udl" -l swift -o "$COMMON/Headers"
-  $CARGO uniffi-bindgen generate "$REPO_ROOT/components/tabs/src/tabs.udl" -l swift -o "$COMMON/Headers"
-  $CARGO uniffi-bindgen generate "$REPO_ROOT/components/places/src/places.udl" -l swift -o "$COMMON/Headers"
-  $CARGO uniffi-bindgen generate "$REPO_ROOT/components/suggest/src/suggest.udl" -l swift -o "$COMMON/Headers"
-  $CARGO uniffi-bindgen generate "$REPO_ROOT/components/sync_manager/src/syncmanager.udl" -l swift -o "$COMMON/Headers"
-  $CARGO uniffi-bindgen generate "$REPO_ROOT/components/sync15/src/sync15.udl" -l swift -o "$COMMON/Headers"
-  $CARGO uniffi-bindgen generate "$REPO_ROOT/components/as-ohttp-client/src/as_ohttp_client.udl" -l swift -o "$COMMON/Headers"
-fi
+$CARGO uniffi-bindgen generate --library "$UNIFFI_BINDGEN_LIBRARY" -l swift -o "$COMMON/Headers"
 rm -rf "$COMMON"/Headers/*.swift
 
 
