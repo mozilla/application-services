@@ -28,6 +28,7 @@ Commands:
   fetch         Fetch one or more experiments and put it in a file
   list          List the experiments from a server
   log-state     Print the state of the Nimbus database to logs
+  open          Open the app without changing the state of experiment enrollments
   reset-app     Reset the app back to its just installed state
   tail-logs     Follow the logs for the given app
   test-feature  Configure an application feature with one or more feature config files
@@ -72,6 +73,9 @@ Options:
 
       --preserve-bucketing
           Preserves the original experiment bucketing
+
+      --deeplink <DEEPLINK>
+          Optional deeplink. If present, launch with this link
 
       --reset-app
           Resets the app back to its initial state before launching
@@ -122,6 +126,11 @@ Arguments:
 Options:
       --reset-app
           Resets the app back to its initial state before launching
+
+      --deeplink <DEEPLINK>
+          Optional deeplink.
+
+          Instead of mimicking the app launcher, send open a URL to the device, which may or may not be handled by the app.
 
   -h, --help
           Print help (see a summary with '-h')
