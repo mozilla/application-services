@@ -78,6 +78,10 @@ pub(crate) enum CliCommand {
         #[arg(long, default_value = "false")]
         preserve_bucketing: bool,
 
+        /// Optional deeplink. If present, launch with this link.
+        #[arg(long, value_name = "DEEPLINK")]
+        deeplink: Option<String>,
+
         /// Resets the app back to its initial state before launching
         #[arg(long, default_value = "false")]
         reset_app: bool,
@@ -127,6 +131,26 @@ pub(crate) enum CliCommand {
     /// This causes a restart of the app.
     LogState,
 
+    /// Open the app without changing the state of experiment enrollments.
+    Open {
+        /// Optional deeplink.
+        ///
+        /// Instead of mimicking the app launcher, send open a URL to the device,
+        /// which may or may not be handled by the app.
+        #[arg(long, value_name = "DEEPLINK")]
+        deeplink: Option<String>,
+
+        /// Resets the app back to its initial state before launching
+        #[arg(long, default_value = "false")]
+        reset_app: bool,
+
+        /// By default, the app is terminated before sending the a deeplink.
+        ///
+        /// If this flag is set, then do not terminate the app if it is already runnning.
+        #[arg(long, default_value = "false")]
+        no_clobber: bool,
+    },
+
     /// Reset the app back to its just installed state
     ResetApp,
 
@@ -146,6 +170,13 @@ pub(crate) enum CliCommand {
         /// Resets the app back to its initial state before launching
         #[arg(long, default_value = "false")]
         reset_app: bool,
+
+        /// Optional deeplink.
+        ///
+        /// Instead of mimicking the app launcher, send open a URL to the device,
+        /// which may or may not be handled by the app.
+        #[arg(long, value_name = "DEEPLINK")]
+        deeplink: Option<String>,
     },
 
     /// Unenroll from all experiments and rollouts

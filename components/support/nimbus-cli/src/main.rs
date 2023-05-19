@@ -37,10 +37,10 @@ where
     let cmd = AppCommand::try_from(&app, &cli)?;
 
     let mut commands: Vec<AppCommand> = Default::default();
-    if cmd.should_kill() {
+    if cli.command.should_kill() {
         commands.push(AppCommand::Kill { app: app.clone() });
     }
-    if cmd.should_reset() {
+    if cli.command.should_reset() {
         commands.push(AppCommand::Reset { app });
     }
     commands.push(cmd);
@@ -53,10 +53,12 @@ enum LaunchableApp {
         package_name: String,
         activity_name: String,
         device_id: Option<String>,
+        scheme: Option<String>,
     },
     Ios {
         device_id: String,
         app_id: String,
+        scheme: Option<String>,
     },
 }
 
@@ -105,24 +107,61 @@ impl TryFrom<&Cli> for LaunchableApp {
             _ => None,
         };
 
+        // Scheme for deeplinks.
+        let scheme = match app {
+            "fenix" => Some(match channel {
+                // Firefox for Android defines per channel deeplink schemes in the app/build.gradle.
+                // e.g. https://github.com/mozilla-mobile/firefox-android/blob/5d18e7ffe2f3e4505ea815d584d20e66ad10f515/fenix/app/build.gradle#L154
+                "developer" => "fenix-dev",
+                "nightly" => "fenix-nightly",
+                "beta" => "fenix-beta",
+                "release" => "fenix",
+                _ => unreachable!(),
+            }),
+            "firefox_ios" => Some(match channel {
+                // Firefox for iOS uses MOZ_PUBLIC_URL_SCHEME, which is always
+                // [`firefox`](https://github.com/mozilla-mobile/firefox-ios/blob/f1acc8a2232a736e65e235b811372ddbf3e802f8/Client/Configuration/Common.xcconfig#L24)
+                // and MOZ_INTERNAL_URL_SCHEME which is different per channel.
+                // e.g. https://github.com/mozilla-mobile/firefox-ios/blob/f1acc8a2232a736e65e235b811372ddbf3e802f8/Client/Configuration/Firefox.xcconfig#L12
+                // From inspection of the code, there are no different uses for the internal vs
+                // public, so very useful for launching the specific app on a phone where you
+                // have multiple versions installed.
+                "developer" => "fennec",
+                "beta" => "firefox-beta",
+                "release" => "firefox-internal",
+                _ => unreachable!(),
+            }),
+            // Focus for iOS has two, firefox-focus and firefox-klar
+            // It's not clear if Focus's channels are configured for this
+            "focus_ios" => Some("firefox-focus"),
+
+            // Focus for Android provides no deeplinks.
+            _ => None,
+        }
+        .map(str::to_string);
+
         Ok(match (app, prefix, suffix) {
             ("fenix", Some(prefix), Some(suffix)) => Self::Android {
                 package_name: format!("{}.{}", prefix, suffix),
                 activity_name: ".App".to_string(),
                 device_id,
+                scheme,
             },
             ("focus_android", Some(prefix), Some(suffix)) => Self::Android {
                 package_name: format!("{}.{}", prefix, suffix),
                 activity_name: "org.mozilla.focus.activity.MainActivity".to_string(),
                 device_id,
+                scheme,
             },
             ("firefox_ios", Some(prefix), Some(suffix)) => Self::Ios {
                 app_id: format!("{}.{}", prefix, suffix),
                 device_id: device_id.unwrap_or_else(|| "booted".to_string()),
+                scheme,
             },
             ("focus_ios", Some(prefix), Some(suffix)) => Self::Ios {
                 app_id: format!("{}.{}", prefix, suffix),
                 device_id: device_id.unwrap_or_else(|| "booted".to_string()),
+                scheme,
             },
             _ => unimplemented!(),
         })
@@ -165,7 +204,7 @@ enum AppCommand {
         preserve_targeting: bool,
         preserve_bucketing: bool,
         preserve_nimbus_db: bool,
-        reset_app: bool,
+        deeplink: Option<String>,
     },
 
     FetchList {
@@ -191,6 +230,11 @@ enum AppCommand {
 
     LogState {
         app: LaunchableApp,
+    },
+
+    Open {
+        app: LaunchableApp,
+        deeplink: Option<String>,
     },
 
     Reset {
@@ -230,8 +274,8 @@ impl AppCommand {
                 preserve_targeting,
                 preserve_bucketing,
                 preserve_nimbus_db,
-                reset_app,
                 file,
+                deeplink,
                 ..
             } => {
                 let experiment = match file.clone() {
@@ -255,7 +299,7 @@ impl AppCommand {
                     preserve_targeting,
                     preserve_bucketing,
                     preserve_nimbus_db,
-                    reset_app,
+                    deeplink,
                 }
             }
             CliCommand::Fetch {
@@ -294,12 +338,14 @@ impl AppCommand {
                 AppCommand::List { params, list }
             }
             CliCommand::LogState => AppCommand::LogState { app },
+            CliCommand::Open { deeplink, .. } => AppCommand::Open { app, deeplink },
             CliCommand::ResetApp => AppCommand::Reset { app },
             CliCommand::TailLogs => AppCommand::TailLogs { app },
             CliCommand::TestFeature {
                 feature_id,
                 files,
-                reset_app,
+                deeplink,
+                ..
             } => {
                 let first = files
                     .first()
@@ -316,10 +362,10 @@ impl AppCommand {
                     experiment,
                     branch,
                     rollouts: Default::default(),
+                    deeplink,
                     preserve_targeting: false,
                     preserve_bucketing: false,
                     preserve_nimbus_db: false,
-                    reset_app,
                 }
             }
             CliCommand::Unenroll => AppCommand::Unenroll { app },
@@ -327,26 +373,24 @@ impl AppCommand {
     }
 }
 
-impl AppCommand {
+impl CliCommand {
     fn should_kill(&self) -> bool {
-        !matches!(
-            self,
+        match self {
             Self::List { .. }
-                | Self::CaptureLogs { .. }
-                | Self::TailLogs { .. }
-                | Self::FetchList { .. }
-                | Self::FetchRecipes { .. }
-        )
+            | Self::CaptureLogs { .. }
+            | Self::TailLogs { .. }
+            | Self::Fetch { .. } => false,
+            Self::Open { no_clobber, .. } => !*no_clobber,
+            _ => true,
+        }
     }
 
     fn should_reset(&self) -> bool {
-        if let AppCommand::Enroll {
-            reset_app: reset, ..
-        } = self
-        {
-            *reset
-        } else {
-            false
+        match self {
+            Self::Enroll { reset_app, .. }
+            | Self::Open { reset_app, .. }
+            | Self::TestFeature { reset_app, .. } => *reset_app,
+            _ => false,
         }
     }
 }
@@ -364,7 +408,7 @@ impl ExperimentListSource {
         let is_preview = preview == "preview";
 
         let endpoint = match server {
-            "" | "release" => release,
+            "" | "release" | "production" | "prod" => release,
             "stage" => stage,
             _ => bail!("Only stage or release currently supported"),
         };
@@ -647,50 +691,52 @@ mod tests {
                 command: CliCommand::ResetApp,
             }
         }
-        fn android(package: &str, activity: &str) -> LaunchableApp {
+        fn android(package: &str, activity: &str, scheme: Option<&str>) -> LaunchableApp {
             LaunchableApp::Android {
                 package_name: package.to_string(),
                 activity_name: activity.to_string(),
                 device_id: None,
+                scheme: scheme.map(str::to_string),
             }
         }
-        fn ios(id: &str) -> LaunchableApp {
+        fn ios(id: &str, scheme: Option<&str>) -> LaunchableApp {
             LaunchableApp::Ios {
                 app_id: id.to_string(),
                 device_id: "booted".to_string(),
+                scheme: scheme.map(str::to_string),
             }
         }
 
         // Firefox for Android, a.k.a. fenix
         assert_eq!(
             LaunchableApp::try_from(&cli("fenix", "developer"))?,
-            android("org.mozilla.fenix.debug", ".App")
+            android("org.mozilla.fenix.debug", ".App", Some("fenix-dev"))
         );
         assert_eq!(
             LaunchableApp::try_from(&cli("fenix", "nightly"))?,
-            android("org.mozilla.fenix", ".App")
+            android("org.mozilla.fenix", ".App", Some("fenix-nightly"))
         );
         assert_eq!(
             LaunchableApp::try_from(&cli("fenix", "beta"))?,
-            android("org.mozilla.firefox_beta", ".App")
+            android("org.mozilla.firefox_beta", ".App", Some("fenix-beta"))
         );
         assert_eq!(
             LaunchableApp::try_from(&cli("fenix", "release"))?,
-            android("org.mozilla.firefox", ".App")
+            android("org.mozilla.firefox", ".App", Some("fenix"))
         );
 
         // Firefox for iOS
         assert_eq!(
             LaunchableApp::try_from(&cli("firefox_ios", "developer"))?,
-            ios("org.mozilla.ios.Fennec")
+            ios("org.mozilla.ios.Fennec", Some("fennec"))
         );
         assert_eq!(
             LaunchableApp::try_from(&cli("firefox_ios", "beta"))?,
-            ios("org.mozilla.ios.FirefoxBeta")
+            ios("org.mozilla.ios.FirefoxBeta", Some("firefox-beta"))
         );
         assert_eq!(
             LaunchableApp::try_from(&cli("firefox_ios", "release"))?,
-            ios("org.mozilla.ios.Firefox")
+            ios("org.mozilla.ios.Firefox", Some("firefox-internal"))
         );
 
         // Focus for Android
@@ -698,28 +744,32 @@ mod tests {
             LaunchableApp::try_from(&cli("focus_android", "developer"))?,
             android(
                 "org.mozilla.focus.debug",
-                "org.mozilla.focus.activity.MainActivity"
+                "org.mozilla.focus.activity.MainActivity",
+                None,
             )
         );
         assert_eq!(
             LaunchableApp::try_from(&cli("focus_android", "nightly"))?,
             android(
                 "org.mozilla.focus.nightly",
-                "org.mozilla.focus.activity.MainActivity"
+                "org.mozilla.focus.activity.MainActivity",
+                None,
             )
         );
         assert_eq!(
             LaunchableApp::try_from(&cli("focus_android", "beta"))?,
             android(
                 "org.mozilla.focus.beta",
-                "org.mozilla.focus.activity.MainActivity"
+                "org.mozilla.focus.activity.MainActivity",
+                None,
             )
         );
         assert_eq!(
             LaunchableApp::try_from(&cli("focus_android", "release"))?,
             android(
                 "org.mozilla.focus",
-                "org.mozilla.focus.activity.MainActivity"
+                "org.mozilla.focus.activity.MainActivity",
+                None,
             )
         );
 
