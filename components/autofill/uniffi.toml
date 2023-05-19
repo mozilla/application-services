@@ -1,6 +1,5 @@
 [bindings.kotlin]
 package_name = "mozilla.appservices.autofill"
-cdylib_name = "megazord"
 
 [bindings.swift]
 ffi_module_name = "MozillaRustComponents"
