@@ -94,24 +94,8 @@ def client(app_context, experiment):
     return c
 
 
-@pytest.fixture(scope="class")
-def cirrus_client(request):
-    app_context = json.dumps(
-        {
-            "app_id": "test app id",
-            "app_name": "test app name",
-            "channel": "dev",
-        }
-    )
-
-    bucket_config = {
-        "randomizationUnit": "user_id",
-        "count": 100,
-        "namespace": "",
-        "start": 1,
-        "total": 100,
-    }
-
+@pytest.fixture
+def cirrus_client(app_context, bucket_config):
     branches = [
         {
             "slug": "control",
@@ -149,14 +133,15 @@ def cirrus_client(request):
         "featureIds": ["imported-module-1-included-feature-1"],
     }
 
-    request.cls.cirrus_client = CirrusClient(app_context)
+    client = CirrusClient(app_context)
     data = json.dumps({"data": [experiment]})
-    request.cls.cirrus_client.set_experiments(data)
+    client.set_experiments(data)
+    return client
 
 
-@pytest.fixture(scope="class")
-def fml_client(request):
-    def _client(_, path, channel):
+@pytest.fixture
+def fml_client():
+    def _client(path, channel):
         return FmlClient("./automation/python-tests/resources/" + path, channel)
 
-    request.cls.fml_client = _client
+    return _client
