@@ -95,6 +95,66 @@ def client(app_context, experiment):
 
 
 @pytest.fixture(scope="class")
+def cirrus_client(request):
+    app_context = json.dumps(
+        {
+            "app_id": "test app id",
+            "app_name": "test app name",
+            "channel": "dev",
+        }
+    )
+
+    bucket_config = {
+        "randomizationUnit": "user_id",
+        "count": 100,
+        "namespace": "",
+        "start": 1,
+        "total": 100,
+    }
+
+    branches = [
+        {
+            "slug": "control",
+            "ratio": 1,
+            "feature": {
+                "featureId": "imported-module-1-included-feature-1",
+                "value": {"enabled": False},
+            },
+        },
+        {
+            "slug": "treatment",
+            "ratio": 1,
+            "feature": {
+                "featureId": "imported-module-1-included-feature-1",
+                "value": {"enabled": True},
+            },
+        },
+    ]
+
+    experiment = {
+        "schemaVersion": "1.0.0",
+        "slug": "experiment-slug",
+        "userFacingName": "",
+        "userFacingDescription": "",
+        "appId": "test app id",
+        "appName": "test app name",
+        "channel": "dev",
+        # Use is_already_enrolled for sticky targeting, otherwise we check lang, region, and a custom attribute
+        "targeting": '(is_already_enrolled) || (username in ["test", "jeddai"])',
+        "bucketConfig": bucket_config,
+        "isRollout": False,
+        "isEnrollmentPaused": False,
+        "proposedEnrollment": 10,
+        "branches": branches,
+        "featureIds": ["imported-module-1-included-feature-1"],
+    }
+
+    request.cls.cirrus_client = CirrusClient(app_context)
+    data = json.dumps({"data": [experiment]})
+    request.cls.cirrus_client.set_experiments(data)
+
+
+@pytest.fixture(scope="class")
 def fml_client(request):
     def _client(_, path, channel):
         return FmlClient("./automation/python-tests/resources/" + path, channel)
