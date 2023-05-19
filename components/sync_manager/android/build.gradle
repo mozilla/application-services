@@ -28,6 +28,6 @@ dependencies {
     testImplementation libs.test.work
 }
 
-ext.configureUniFFIBindgen("../src/syncmanager.udl")
+ext.configureUniFFIBindgen("sync_manager")
 ext.dependsOnTheMegazord()
 ext.configurePublish()

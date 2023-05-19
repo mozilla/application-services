@@ -7,7 +7,7 @@ edition = "2021"
 publish = false
 
 [[bench]]
-name = "places"
+name = "places-bench"
 harness = false
 path = "src/bench.rs"
 

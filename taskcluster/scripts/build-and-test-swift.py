@@ -8,31 +8,6 @@ import os
 
 # Repository root dir
 ROOT_DIR = pathlib.Path(__file__).parent.parent.parent
-# List of udl_paths to generate bindings for
-BINDINGS_UDL_PATHS = [
-    "components/as-ohttp-client/src/as_ohttp_client.udl",
-    "components/autofill/src/autofill.udl",
-    "components/fxa-client/src/fxa_client.udl",
-    "components/logins/src/logins.udl",
-    "components/nimbus/src/nimbus.udl",
-    "components/places/src/places.udl",
-    "components/push/src/push.udl",
-    "components/remote_settings/src/remote_settings.udl",
-    "components/suggest/src/suggest.udl",
-    "components/support/error/src/errorsupport.udl",
-    "components/sync15/src/sync15.udl",
-    "components/sync_manager/src/syncmanager.udl",
-    "components/tabs/src/tabs.udl",
-    "components/support/rust-log-forwarder/src/rust_log_forwarder.udl",
-]
-
-# List of udl_paths to generate bindings for
-FOCUS_UDL_PATHS = [
-    "components/nimbus/src/nimbus.udl",
-    "components/remote_settings/src/remote_settings.udl",
-    "components/support/error/src/errorsupport.udl",
-    "components/support/rust-log-forwarder/src/rust_log_forwarder.udl",
-]
 
 # List of globs to copy the sources from
 SOURCE_TO_COPY = [
@@ -162,13 +137,20 @@ def generate_uniffi_bindings(args):
 
     ensure_dir(out_dir)
 
-    generate_uniffi_bindings_for_target(out_dir, BINDINGS_UDL_PATHS)
-    generate_uniffi_bindings_for_target(focus_out_dir, FOCUS_UDL_PATHS)
+    # Generate sources for Firefox
+    generate_uniffi_bindings_for_target(out_dir, "megazord_ios")
 
-def generate_uniffi_bindings_for_target(out_dir, bindings_path):
-    for udl_path in bindings_path:
-        log(f"generating sources for {udl_path}")
-        run_uniffi_bindgen(['generate', '-l', 'swift', '-o', out_dir, ROOT_DIR / udl_path])
+    # Generate sources for Focus
+    generate_uniffi_bindings_for_target(focus_out_dir, "megazord_focus")
+
+def generate_uniffi_bindings_for_target(out_dir, library_name):
+    log(f"generating sources for {library_name}")
+    # Use a megazord library that was built for the XCFramework.  Pick an arbitrary target, since
+    # the target doesn't affect the UniFFI bindings.
+    lib_path = f'target/aarch64-apple-ios/release/lib{library_name}.a'
+
+    cmdline = ['generate', '--library', lib_path, '-l', 'swift', '-o', out_dir]
+    run_uniffi_bindgen(cmdline)
 
 def run_uniffi_bindgen(bindgen_args):
     all_args = [

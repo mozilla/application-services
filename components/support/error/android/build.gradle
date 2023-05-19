@@ -5,6 +5,6 @@ android {
     namespace 'org.mozilla.appservices.errorsupport'
 }
 
-ext.configureUniFFIBindgen("../src/errorsupport.udl")
+ext.configureUniFFIBindgen("error_support")
 ext.dependsOnTheMegazord()
 ext.configurePublish()

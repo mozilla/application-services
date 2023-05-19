@@ -14,6 +14,6 @@ dependencies {
     testImplementation project(":syncmanager")
 }
 
-ext.configureUniFFIBindgen("../src/autofill.udl")
+ext.configureUniFFIBindgen("autofill")
 ext.dependsOnTheMegazord()
 ext.configurePublish()

@@ -27,6 +27,6 @@ dependencies {
     testImplementation libs.test.work
 }
 
-ext.configureUniFFIBindgen("../src/nimbus.udl")
+ext.configureUniFFIBindgen("nimbus")
 ext.dependsOnTheMegazord()
 ext.configurePublish()
