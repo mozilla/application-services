@@ -5,6 +5,6 @@ dependencies {
     api project(":remotesettings")
 }
 
-ext.configureUniFFIBindgen("../src/suggest.udl")
+ext.configureUniFFIBindgen("suggest")
 ext.dependsOnTheMegazord()
 ext.configurePublish()

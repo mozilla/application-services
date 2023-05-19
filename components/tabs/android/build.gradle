@@ -8,6 +8,6 @@ dependencies {
     testImplementation project(':syncmanager')
 }
 
-ext.configureUniFFIBindgen("../src/tabs.udl")
+ext.configureUniFFIBindgen("tabs")
 ext.dependsOnTheMegazord()
 ext.configurePublish()
