@@ -199,7 +199,7 @@ struct RecordsResponse {
 
 /// A parsed Remote Settings record. Records can contain arbitrary fields, so clients
 /// are required to further extract expected values from the [fields] member.
-#[derive(Deserialize, PartialEq)]
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq)]
 pub struct RemoteSettingsRecord {
     pub id: String,
     pub last_modified: u64,
@@ -210,7 +210,7 @@ pub struct RemoteSettingsRecord {
 
 /// Attachment metadata that can be optionally attached to a [Record]. The [location] should
 /// included in calls to [Client::get_attachment].
-#[derive(Deserialize, PartialEq)]
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq)]
 pub struct Attachment {
     pub filename: String,
     pub mimetype: String,
