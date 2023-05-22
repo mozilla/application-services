@@ -272,10 +272,12 @@ interface Variables {
      * Synonym for [getDrawable(key: String)], for easier code generation.
      */
     fun getImage(key: String): Res<Drawable>? = getDrawable(key)
+
     /**
      * Synonym for [getDrawableList(key: String)], for easier code generation.
      */
     fun getImageList(key: String): List<Res<Drawable>>? = getDrawableList(key)
+
     /**
      * Synonym for [getDrawableMap(key: String)], for easier code generation.
      */
@@ -397,7 +399,7 @@ private fun Context.getResource(resName: String, defType: String): Int? {
  */
 class JSONVariables(
     override val context: Context,
-    private val json: JSONObject = JSONObject()
+    private val json: JSONObject = JSONObject(),
 ) : VariablesWithContext {
     // These `get*` methods get values from the wrapped JSON object, and transform them using the
     // `as*` methods.
@@ -467,14 +469,15 @@ private inline fun <reified T> JSONObject.asMap(): Map<String, T>? {
 class NullVariables : Variables {
     override val context: Context
         get() = this._context
-            ?: throw NimbusFeatureException("""
+            ?: throw NimbusFeatureException(
+                """
                 Nimbus hasn't been initialized yet.
 
                 Calling NullVariables.instance.setContext(context) earlier in the app startup will
                 cause this error to go away, but won't fix the problem.
 
                 The best remedy for this error is to initialize Nimbus earlier in the start up sequence.
-                """.trimIndent()
+                """.trimIndent(),
             )
 
     private var _context: Context? = null
@@ -523,7 +526,7 @@ interface Res<T> {
 
 internal class DrawableRes(
     private val context: Context,
-    override val resourceId: Int
+    override val resourceId: Int,
 ) : Res<Drawable> {
     override val resource: Drawable
         get() = context.resources.getDrawable(resourceId, context.theme)
@@ -535,7 +538,7 @@ internal class DrawableRes(
 
 class StringHolder(
     private val resourceId: Int?,
-    private val literal: String?
+    private val literal: String?,
 ) {
 
     @Suppress("ExceptionRaisedInUnexpectedLocation")

@@ -58,21 +58,21 @@ private fun createCommandLineArgs(intent: Intent): CliArgs? {
     }
 
     val experiments = intent.getStringExtra(EXPERIMENTS_KEY)
-            // There is a quoting within quoting problem meaning apostrophes don't get sent
-            // through the multiple shells properly. This steps around this issue completely.
-            ?.replace("&apos;", "'")
-            ?.let { string ->
-                // We do some rudimentary taint checking of the string:
-                // we make sure it looks like a JSON object, with a `data` key
-                // and an array value.
-                try {
-                    val jsonObject = JSONObject(string)
-                    jsonObject.optJSONArray(DATA_KEY) ?: return@let null
-                    string
-                } catch (e: JSONException) {
-                    null
-                }
+        // There is a quoting within quoting problem meaning apostrophes don't get sent
+        // through the multiple shells properly. This steps around this issue completely.
+        ?.replace("&apos;", "'")
+        ?.let { string ->
+            // We do some rudimentary taint checking of the string:
+            // we make sure it looks like a JSON object, with a `data` key
+            // and an array value.
+            try {
+                val jsonObject = JSONObject(string)
+                jsonObject.optJSONArray(DATA_KEY) ?: return@let null
+                string
+            } catch (e: JSONException) {
+                null
             }
+        }
 
     val resetDatabase = intent.getBooleanExtra(RESET_DB_KEY, false)
     val logState = intent.getBooleanExtra(LOG_STATE_KEY, false)

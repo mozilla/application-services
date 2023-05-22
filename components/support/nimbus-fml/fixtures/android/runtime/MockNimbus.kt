@@ -3,6 +3,7 @@
 * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
 @file:Suppress("InvalidPackageDeclaration")
+
 package org.mozilla.experiments.nimbus
 
 import android.content.Context
@@ -14,7 +15,7 @@ class MockNimbus(override val context: Context, val map: Map<String, JSONObject>
         context,
         pairs.toMap().mapValues { entry ->
             JSONObject(entry.value)
-        }
+        },
     )
 
     init {

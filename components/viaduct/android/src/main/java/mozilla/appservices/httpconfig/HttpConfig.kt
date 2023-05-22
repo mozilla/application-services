@@ -31,8 +31,10 @@ class UnsupportedRequestMethodError(method: MsgTypes.Request.Method) : ViaductCl
 object RustHttpConfig {
     // Protects imp/client
     private var lock = ReentrantReadWriteLock()
+
     @Volatile
     private var client: Lazy<Client>? = null
+
     // Important note to future maintainers: if you mess around with
     // this code, you have to make sure `imp` can't get GCed. Extremely
     // bad things will happen if it does!
@@ -55,11 +57,11 @@ object RustHttpConfig {
     }
 
     /** Allows connections to the hard-coded address the Android Emulator uses
-      * to connect to the emulator's host (ie, http://10.0.2.2) - if you don't
-      * call this, viaduct will fail to use that address as it isn't https. The
-      * expectation is that you will only call this in debug builds or if you
-      * are sure you are running on an emulator.
-      */
+     * to connect to the emulator's host (ie, http://10.0.2.2) - if you don't
+     * call this, viaduct will fail to use that address as it isn't https. The
+     * expectation is that you will only call this in debug builds or if you
+     * are sure you are running on an emulator.
+     */
     fun allowAndroidEmulatorLoopback() {
         lock.read {
             LibViaduct.INSTANCE.viaduct_allow_android_emulator_loopback()
@@ -72,23 +74,23 @@ object RustHttpConfig {
             headers.append(h.key, h.value)
         }
         return Request(
-                url = request.url,
-                method = convertMethod(request.method),
-                headers = headers,
-                connectTimeout = Pair(request.connectTimeoutSecs.toLong(), TimeUnit.SECONDS),
-                readTimeout = Pair(request.readTimeoutSecs.toLong(), TimeUnit.SECONDS),
-                body = if (request.hasBody()) {
-                    Request.Body(request.body.newInput())
-                } else {
-                    null
-                },
-                redirect = if (request.followRedirects) {
-                    Request.Redirect.FOLLOW
-                } else {
-                    Request.Redirect.MANUAL
-                },
-                cookiePolicy = Request.CookiePolicy.OMIT,
-                useCaches = request.useCaches
+            url = request.url,
+            method = convertMethod(request.method),
+            headers = headers,
+            connectTimeout = Pair(request.connectTimeoutSecs.toLong(), TimeUnit.SECONDS),
+            readTimeout = Pair(request.readTimeoutSecs.toLong(), TimeUnit.SECONDS),
+            body = if (request.hasBody()) {
+                Request.Body(request.body.newInput())
+            } else {
+                null
+            },
+            redirect = if (request.followRedirects) {
+                Request.Redirect.FOLLOW
+            } else {
+                Request.Redirect.MANUAL
+            },
+            cookiePolicy = Request.CookiePolicy.OMIT,
+            useCaches = request.useCaches,
         )
     }
 
@@ -102,11 +104,13 @@ object RustHttpConfig {
                     // we wouldn't have yet initialized
                     val resp = client!!.value.fetch(convertRequest(request))
                     val rb = MsgTypes.Response.newBuilder()
-                            .setUrl(resp.url)
-                            .setStatus(resp.status)
-                            .setBody(resp.body.useStream {
+                        .setUrl(resp.url)
+                        .setStatus(resp.status)
+                        .setBody(
+                            resp.body.useStream {
                                 ByteString.readFrom(it)
-                            })
+                            },
+                        )
 
                     for (h in resp.headers) {
                         rb.putHeaders(h.name, h.value)

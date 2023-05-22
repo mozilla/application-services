@@ -128,7 +128,7 @@ abstract class AbstractNimbusBuilder<T : NimbusInterface>(val context: Context) 
      */
     protected abstract fun newNimbus(
         appInfo: NimbusAppInfo,
-        serverSettings: NimbusServerSettings?
+        serverSettings: NimbusServerSettings?,
     ): T
 
     /**
@@ -140,11 +140,12 @@ abstract class AbstractNimbusBuilder<T : NimbusInterface>(val context: Context) 
 
 class DefaultNimbusBuilder(context: Context) : AbstractNimbusBuilder<NimbusInterface>(context) {
     override fun newNimbus(appInfo: NimbusAppInfo, serverSettings: NimbusServerSettings?) =
-        Nimbus(context,
+        Nimbus(
+            context,
             appInfo = appInfo,
             server = serverSettings,
             deviceInfo = NimbusDeviceInfo(Locale.getDefault().toLanguageTag()),
-            delegate = NimbusDelegate.default()
+            delegate = NimbusDelegate.default(),
         )
 
     override fun newNimbusDisabled() = NullNimbus(context)

@@ -3,12 +3,12 @@
 
 package mozilla.appservices.rustlog
 
+import mozilla.appservices.Megazord
+import org.junit.Assert.assertEquals
+import org.junit.Test
 import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
 import org.robolectric.annotation.Config
-import mozilla.appservices.Megazord
-import org.junit.Test
-import org.junit.Assert.assertEquals
 import java.lang.RuntimeException
 import java.util.WeakHashMap
 

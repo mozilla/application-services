@@ -4,34 +4,34 @@
 
 package mozilla.appservices.places
 
+import mozilla.appservices.places.uniffi.BookmarkItem
 import mozilla.appservices.places.uniffi.BookmarkPosition
+import mozilla.appservices.places.uniffi.BookmarkUpdateInfo
 import mozilla.appservices.places.uniffi.ConnectionType
 import mozilla.appservices.places.uniffi.DocumentType
 import mozilla.appservices.places.uniffi.FrecencyThresholdOption
-import mozilla.appservices.places.uniffi.PlacesApiException
 import mozilla.appservices.places.uniffi.HistoryHighlight
 import mozilla.appservices.places.uniffi.HistoryHighlightWeights
 import mozilla.appservices.places.uniffi.HistoryMetadata
 import mozilla.appservices.places.uniffi.HistoryMetadataObservation
-import mozilla.appservices.places.uniffi.TopFrecentSiteInfo
-import mozilla.appservices.places.uniffi.PlacesApi as UniffiPlacesApi
-import mozilla.appservices.places.uniffi.PlacesConnection as UniffiPlacesConnection
-import mozilla.appservices.places.uniffi.placesApiNew
-import mozilla.appservices.places.uniffi.VisitObservation
 import mozilla.appservices.places.uniffi.HistoryVisitInfo
 import mozilla.appservices.places.uniffi.HistoryVisitInfosWithBound
-import mozilla.appservices.places.uniffi.SearchResult
-import mozilla.appservices.places.uniffi.SqlInterruptHandle
-import mozilla.appservices.places.uniffi.BookmarkItem
 import mozilla.appservices.places.uniffi.InsertableBookmark
 import mozilla.appservices.places.uniffi.InsertableBookmarkFolder
 import mozilla.appservices.places.uniffi.InsertableBookmarkItem
 import mozilla.appservices.places.uniffi.InsertableBookmarkSeparator
-import mozilla.appservices.places.uniffi.BookmarkUpdateInfo
+import mozilla.appservices.places.uniffi.PlacesApiException
+import mozilla.appservices.places.uniffi.SearchResult
+import mozilla.appservices.places.uniffi.SqlInterruptHandle
+import mozilla.appservices.places.uniffi.TopFrecentSiteInfo
+import mozilla.appservices.places.uniffi.VisitObservation
+import mozilla.appservices.places.uniffi.placesApiNew
 import mozilla.appservices.sync15.SyncTelemetryPing
 import mozilla.telemetry.glean.private.CounterMetricType
 import mozilla.telemetry.glean.private.LabeledMetricType
 import java.lang.ref.WeakReference
+import mozilla.appservices.places.uniffi.PlacesApi as UniffiPlacesApi
+import mozilla.appservices.places.uniffi.PlacesConnection as UniffiPlacesConnection
 import org.mozilla.appservices.places.GleanMetrics.PlacesManager as PlacesManagerMetrics
 
 typealias Url = String
@@ -86,21 +86,21 @@ class PlacesApi(path: String) : PlacesManager, AutoCloseable {
 
     override fun syncHistory(syncInfo: SyncAuthInfo): SyncTelemetryPing {
         val pingJSONString = this.api.historySync(
-                syncInfo.kid,
-                syncInfo.fxaAccessToken,
-                syncInfo.syncKey,
-                syncInfo.tokenserverURL
-            )
+            syncInfo.kid,
+            syncInfo.fxaAccessToken,
+            syncInfo.syncKey,
+            syncInfo.tokenserverURL,
+        )
         return SyncTelemetryPing.fromJSONString(pingJSONString)
     }
 
     override fun syncBookmarks(syncInfo: SyncAuthInfo): SyncTelemetryPing {
         val pingJSONString = this.api.bookmarksSync(
-                syncInfo.kid,
-                syncInfo.fxaAccessToken,
-                syncInfo.syncKey,
-                syncInfo.tokenserverURL
-            )
+            syncInfo.kid,
+            syncInfo.fxaAccessToken,
+            syncInfo.syncKey,
+            syncInfo.tokenserverURL,
+        )
         return SyncTelemetryPing.fromJSONString(pingJSONString)
     }
 
@@ -184,7 +184,7 @@ open class PlacesReaderConnection internal constructor(conn: UniffiPlacesConnect
         bound: Long,
         offset: Long,
         count: Long,
-        excludeTypes: List<VisitType>
+        excludeTypes: List<VisitType>,
     ): HistoryVisitInfosWithBound {
         return this.conn.getVisitPageWithBound(offset, bound, count, visitTransitionSet(excludeTypes))
     }
@@ -219,7 +219,7 @@ open class PlacesReaderConnection internal constructor(conn: UniffiPlacesConnect
 
     override suspend fun getHighlights(
         weights: HistoryHighlightWeights,
-        limit: Int
+        limit: Int,
     ): List<HistoryHighlight> {
         return readQueryCounters.measure {
             this.conn.getHistoryHighlights(weights, limit)
@@ -265,7 +265,7 @@ open class PlacesReaderConnection internal constructor(conn: UniffiPlacesConnect
     private val readQueryCounters: PlacesManagerCounterMetrics by lazy {
         PlacesManagerCounterMetrics(
             PlacesManagerMetrics.readQueryCount,
-            PlacesManagerMetrics.readQueryErrorCount
+            PlacesManagerMetrics.readQueryErrorCount,
         )
     }
 }
@@ -383,7 +383,7 @@ class PlacesWriterConnection internal constructor(conn: UniffiPlacesConnection, 
             url = key.url,
             searchTerm = key.searchTerm,
             referrerUrl = key.referrerUrl,
-            viewTime = viewTime
+            viewTime = viewTime,
         )
         noteHistoryMetadataObservation(obs)
     }
@@ -393,7 +393,7 @@ class PlacesWriterConnection internal constructor(conn: UniffiPlacesConnection, 
             url = key.url,
             searchTerm = key.searchTerm,
             referrerUrl = key.referrerUrl,
-            documentType = documentType
+            documentType = documentType,
         )
         noteHistoryMetadataObservation(obs)
     }
@@ -409,7 +409,7 @@ class PlacesWriterConnection internal constructor(conn: UniffiPlacesConnection, 
             this.conn.metadataDelete(
                 key.url,
                 key.referrerUrl,
-                key.searchTerm
+                key.searchTerm,
             )
         }
     }
@@ -480,7 +480,7 @@ class PlacesWriterConnection internal constructor(conn: UniffiPlacesConnection, 
     private val writeQueryCounters: PlacesManagerCounterMetrics by lazy {
         PlacesManagerCounterMetrics(
             PlacesManagerMetrics.writeQueryCount,
-            PlacesManagerMetrics.writeQueryErrorCount
+            PlacesManagerMetrics.writeQueryErrorCount,
         )
     }
 }
@@ -494,7 +494,7 @@ class SyncAuthInfo(
     val kid: String,
     val fxaAccessToken: String,
     val syncKey: String,
-    val tokenserverURL: String
+    val tokenserverURL: String,
 )
 
 /**
@@ -632,6 +632,7 @@ interface WritableHistoryMetadataConnection : ReadableHistoryMetadataConnection 
      * Record or update metadata information about a URL. See [HistoryMetadataObservation].
      */
     suspend fun noteHistoryMetadataObservation(observation: HistoryMetadataObservation)
+
     // There's a bit of an impedance mismatch here; `HistoryMetadataKey` is
     // a concept that only exists here and not in the rust. We can iterate on
     // this as the entire "history metadata" requirement evolves.
@@ -714,7 +715,7 @@ interface ReadableHistoryConnection : InterruptibleConnection {
     fun getVisitInfos(
         start: Long,
         end: Long = Long.MAX_VALUE,
-        excludeTypes: List<VisitType> = listOf()
+        excludeTypes: List<VisitType> = listOf(),
     ): List<HistoryVisitInfo>
 
     /**
@@ -746,7 +747,7 @@ interface ReadableHistoryConnection : InterruptibleConnection {
         bound: Long,
         offset: Long,
         count: Long,
-        excludeTypes: List<VisitType> = listOf()
+        excludeTypes: List<VisitType> = listOf(),
     ): HistoryVisitInfosWithBound
 
     /**
@@ -893,12 +894,15 @@ interface WritableHistoryConnection : ReadableHistoryConnection {
 enum class VisitType(val type: Int) {
     /** This isn't a visit, but a request to update meta data about a page */
     UPDATE_PLACE(-1),
+
     /** This transition type means the user followed a link. */
     LINK(1),
+
     /** This transition type means that the user typed the page's URL in the
      *  URL bar or selected it from UI (URL bar autocomplete results, etc).
      */
     TYPED(2),
+
     // TODO: rest of docs
     BOOKMARK(3),
     EMBED(4),
@@ -906,7 +910,7 @@ enum class VisitType(val type: Int) {
     REDIRECT_TEMPORARY(6),
     DOWNLOAD(7),
     FRAMED_LINK(8),
-    RELOAD(9)
+    RELOAD(9),
 }
 
 /**
@@ -919,7 +923,7 @@ enum class VisitType(val type: Int) {
 data class HistoryMetadataKey(
     val url: String,
     val searchTerm: String?,
-    val referrerUrl: String?
+    val referrerUrl: String?,
 )
 
 /**
@@ -933,7 +937,7 @@ data class HistoryMetadataKey(
  */
 class PlacesManagerCounterMetrics(
     val count: CounterMetricType,
-    val errCount: LabeledMetricType<CounterMetricType>
+    val errCount: LabeledMetricType<CounterMetricType>,
 ) {
     @Suppress("ComplexMethod", "TooGenericExceptionCaught")
     inline fun <U> measure(callback: () -> U): U {

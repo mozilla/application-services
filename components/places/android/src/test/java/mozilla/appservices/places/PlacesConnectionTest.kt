@@ -6,19 +6,19 @@ package mozilla.appservices.places
 import androidx.test.core.app.ApplicationProvider
 import kotlinx.coroutines.runBlocking
 import mozilla.appservices.Megazord
+import mozilla.appservices.places.uniffi.BookmarkItem
 import mozilla.appservices.places.uniffi.DocumentType
+import mozilla.appservices.places.uniffi.FrecencyThresholdOption
+import mozilla.appservices.places.uniffi.PlacesApiException
 import mozilla.appservices.places.uniffi.VisitObservation
 import mozilla.appservices.places.uniffi.VisitTransition
-import mozilla.appservices.places.uniffi.FrecencyThresholdOption
 import mozilla.appservices.syncmanager.SyncManager
-import mozilla.appservices.places.uniffi.PlacesApiException
-import mozilla.appservices.places.uniffi.BookmarkItem
 import mozilla.telemetry.glean.testing.GleanTestRule
 import org.junit.After
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
-import org.junit.Assert.assertFalse
 import org.junit.Assert.fail
 import org.junit.Before
 import org.junit.Rule
@@ -59,7 +59,6 @@ class PlacesConnectionTest {
     // as well as the handling of invalid urls.
     @Test
     fun testGetVisited() {
-
         val unicodeInPath = "http://www.example.com/tëst😀abc"
         val escapedUnicodeInPath = "http://www.example.com/t%C3%ABst%F0%9F%98%80abc"
 
@@ -76,7 +75,7 @@ class PlacesConnectionTest {
             "$unicodeInPath/1",
             "$escapedUnicodeInPath/2",
             "$unicodeInDomain/1",
-            "$escapedUnicodeInDomain/2"
+            "$escapedUnicodeInDomain/2",
         )
 
         for (url in toAdd) {
@@ -112,7 +111,7 @@ class PlacesConnectionTest {
             Pair("$unicodeInPath/2", true),
             Pair("$escapedUnicodeInPath/1", true),
             Pair("$unicodeInDomain/2", true),
-            Pair("$escapedUnicodeInDomain/1", true)
+            Pair("$escapedUnicodeInDomain/1", true),
         )
 
         val visited = db.getVisited(toSearch.map { it.first }.toList())
@@ -134,11 +133,11 @@ class PlacesConnectionTest {
             assert(e is PlacesApiException.UrlParseFailed)
         }
     }
+
     // Basically equivalent to test_get_visited in rust, but exercises the FFI,
     // as well as the handling of invalid urls.
     @Test
     fun testMatchUrl() {
-
         val toAdd = listOf(
             // add twice to ensure its frecency is higher
             "https://www.example.com/123",
@@ -147,7 +146,7 @@ class PlacesConnectionTest {
             "https://www.mozilla.com/foo/bar/baz",
             "https://www.mozilla.com/foo/bar/baz",
             "https://mozilla.com/a1/b2/c3",
-            "https://news.ycombinator.com/"
+            "https://news.ycombinator.com/",
         )
 
         for (url in toAdd) {
@@ -187,28 +186,36 @@ class PlacesConnectionTest {
 
     @Test
     fun testObservingPreviewImage() {
-        db.noteObservation(VisitObservation(
-            url = "https://www.example.com/0",
-            visitType = VisitTransition.LINK)
+        db.noteObservation(
+            VisitObservation(
+                url = "https://www.example.com/0",
+                visitType = VisitTransition.LINK,
+            ),
         )
 
-        db.noteObservation(VisitObservation(
-            url = "https://www.example.com/1",
-            visitType = VisitTransition.LINK)
+        db.noteObservation(
+            VisitObservation(
+                url = "https://www.example.com/1",
+                visitType = VisitTransition.LINK,
+            ),
         )
 
         // Can change preview image.
-        db.noteObservation(VisitObservation(
-            url = "https://www.example.com/1",
-            visitType = VisitTransition.LINK,
-            previewImageUrl = "https://www.example.com/1/previewImage.png")
+        db.noteObservation(
+            VisitObservation(
+                url = "https://www.example.com/1",
+                visitType = VisitTransition.LINK,
+                previewImageUrl = "https://www.example.com/1/previewImage.png",
+            ),
         )
 
         // Can make an initial observation with the preview image.
-        db.noteObservation(VisitObservation(
-            url = "https://www.example.com/2",
-            visitType = VisitTransition.LINK,
-            previewImageUrl = "https://www.example.com/2/previewImage.png")
+        db.noteObservation(
+            VisitObservation(
+                url = "https://www.example.com/2",
+                visitType = VisitTransition.LINK,
+                previewImageUrl = "https://www.example.com/2/previewImage.png",
+            ),
         )
 
         val all = db.getVisitInfos(0)
@@ -236,7 +243,7 @@ class PlacesConnectionTest {
             "https://www.mozilla.com/foo/bar/baz",
             "https://mozilla.com/a1/b2/c3",
             "https://news.ycombinator.com/",
-            "https://www.mozilla.com/foo/bar/baz"
+            "https://www.mozilla.com/foo/bar/baz",
         )
 
         for (url in toAdd) {
@@ -318,7 +325,7 @@ class PlacesConnectionTest {
         val want = listOf(
             listOf("https://www.example.com/8", "https://www.example.com/7", "https://www.example.com/6"),
             listOf("https://www.example.com/5", "https://www.example.com/4", "https://www.example.com/2"),
-            listOf("https://www.example.com/1")
+            listOf("https://www.example.com/1"),
         )
 
         var offset = 0L
@@ -326,7 +333,7 @@ class PlacesConnectionTest {
             val page = db.getVisitPage(
                 offset = offset,
                 count = 3,
-                excludeTypes = listOf(VisitType.REDIRECT_TEMPORARY)
+                excludeTypes = listOf(VisitType.REDIRECT_TEMPORARY),
             )
             assertEquals(expect.size, page.size)
             for (i in 0..(expect.size - 1)) {
@@ -337,7 +344,7 @@ class PlacesConnectionTest {
         val empty = db.getVisitPage(
             offset = offset,
             count = 3,
-            excludeTypes = listOf(VisitType.REDIRECT_TEMPORARY)
+            excludeTypes = listOf(VisitType.REDIRECT_TEMPORARY),
         )
         assertEquals(0, empty.size)
     }
@@ -347,17 +354,17 @@ class PlacesConnectionTest {
         val itemGUID = db.createBookmarkItem(
             parentGUID = BookmarkRoot.Unfiled.id,
             url = "https://www.example.com/",
-            title = "example"
+            title = "example",
         )
 
         val sepGUID = db.createSeparator(
             parentGUID = BookmarkRoot.Unfiled.id,
-            position = 0u
+            position = 0u,
         )
 
         val folderGUID = db.createFolder(
             parentGUID = BookmarkRoot.Unfiled.id,
-            title = "example folder"
+            title = "example folder",
         )
 
         val item = db.getBookmark(itemGUID)!! as BookmarkItem.Bookmark
@@ -424,7 +431,7 @@ class PlacesConnectionTest {
         val itemGUID = db.createBookmarkItem(
             parentGUID = BookmarkRoot.Unfiled.id,
             url = "https://www.example.com/",
-            title = "example"
+            title = "example",
         )
 
         assertEquals(1, PlacesManagerMetrics.writeQueryCount.testGetValue())
@@ -434,7 +441,7 @@ class PlacesConnectionTest {
             db.createBookmarkItem(
                 parentGUID = BookmarkRoot.Unfiled.id,
                 url = "3",
-                title = "example"
+                title = "example",
             )
             fail("Should have thrown")
         } catch (e: PlacesApiException.UrlParseFailed) {
@@ -454,25 +461,25 @@ class PlacesConnectionTest {
 
         val folderGUID = db.createFolder(
             parentGUID = BookmarkRoot.Unfiled.id,
-            title = "example folder"
+            title = "example folder",
         )
 
         db.createBookmarkItem(
             parentGUID = folderGUID,
             url = "https://www.example2.com/",
-            title = "example2"
+            title = "example2",
         )
 
         db.createBookmarkItem(
             parentGUID = folderGUID,
             url = "https://www.example3.com/",
-            title = "example3"
+            title = "example3",
         )
 
         db.createBookmarkItem(
             parentGUID = BookmarkRoot.Unfiled.id,
             url = "https://www.example4.com/",
-            title = "example4"
+            title = "example4",
         )
 
         db.getBookmarksTree(folderGUID, false)
@@ -489,14 +496,14 @@ class PlacesConnectionTest {
                 url = "https://www.ifixit.com/News/35377/which-wireless-earbuds-are-the-least-evil",
                 title = "Are All Wireless Earbuds As Evil As AirPods?",
                 previewImageUrl = "https://valkyrie.cdn.ifixit.com/media/2020/02/03121341/bose_soundsport_13.jpg",
-                visitType = VisitTransition.LINK
-            )
+                visitType = VisitTransition.LINK,
+            ),
         )
 
         val metaKey1 = HistoryMetadataKey(
             url = "https://www.ifixit.com/News/35377/which-wireless-earbuds-are-the-least-evil",
             searchTerm = "repairable wireless headset",
-            referrerUrl = "https://www.google.com/search?client=firefox-b-d&q=headsets+ifixit"
+            referrerUrl = "https://www.google.com/search?client=firefox-b-d&q=headsets+ifixit",
         )
 
         db.noteHistoryMetadataObservationDocumentType(metaKey1, DocumentType.REGULAR)
@@ -532,16 +539,16 @@ class PlacesConnectionTest {
             HistoryMetadataKey(
                 url = "https://www.youtube.com/watch?v=Cs1b5qvCZ54",
                 searchTerm = "путин валдай",
-                referrerUrl = "https://yandex.ru/query?путин+валдай"
+                referrerUrl = "https://yandex.ru/query?путин+валдай",
             ),
-            documentType = DocumentType.MEDIA
+            documentType = DocumentType.MEDIA,
         )
 
         // recording view time first, before the document type. either order should be fine.
         val metaKey2 = HistoryMetadataKey(
             url = "https://www.youtube.com/watch?v=fdf4r43g",
             searchTerm = null,
-            referrerUrl = null
+            referrerUrl = null,
         )
         db.noteHistoryMetadataObservationViewTime(metaKey2, 200)
 
@@ -584,7 +591,7 @@ class PlacesConnectionTest {
         val metaKeyBad = HistoryMetadataKey(
             url = "invalid-url",
             searchTerm = null,
-            referrerUrl = null
+            referrerUrl = null,
         )
         try {
             db.noteHistoryMetadataObservationViewTime(metaKeyBad, 200)

@@ -12,20 +12,20 @@ class Config constructor(
     val contentUrl: String,
     val clientId: String,
     val redirectUri: String,
-    val tokenServerUrlOverride: String? = null
+    val tokenServerUrlOverride: String? = null,
 ) {
     enum class Server(val contentUrl: String) {
         RELEASE("https://accounts.firefox.com"),
         STABLE("https://stable.dev.lcip.org"),
         STAGE("https://accounts.stage.mozaws.net"),
         CHINA("https://accounts.firefox.com.cn"),
-        LOCALDEV("http://127.0.0.1:3030")
+        LOCALDEV("http://127.0.0.1:3030"),
     }
 
     constructor(
         server: Server,
         clientId: String,
         redirectUri: String,
-        tokenServerUrlOverride: String? = null
+        tokenServerUrlOverride: String? = null,
     ) : this(server.contentUrl, clientId, redirectUri, tokenServerUrlOverride)
 }

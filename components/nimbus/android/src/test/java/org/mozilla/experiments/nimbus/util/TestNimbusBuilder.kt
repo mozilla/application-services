@@ -17,7 +17,7 @@ import org.mozilla.experiments.nimbus.uninitialized
 class TestNimbusBuilder(context: Context) : AbstractNimbusBuilder<NimbusInterface>(context) {
     override fun newNimbus(
         appInfo: NimbusAppInfo,
-        serverSettings: NimbusServerSettings?
+        serverSettings: NimbusServerSettings?,
     ): NimbusInterface =
         Nimbus(context, appInfo, serverSettings, NimbusDeviceInfo("en-US"), null, NimbusDelegate.default())
 

@@ -35,12 +35,12 @@ data class NimbusAppInfo(
      *
      * Example: mapOf("userType": "casual", "isFirstTime": "true")
      */
-    val customTargetingAttributes: JSONObject = JSONObject()
+    val customTargetingAttributes: JSONObject = JSONObject(),
 )
 
 /**
  * Small struct for info derived from the device itself.
  */
 data class NimbusDeviceInfo(
-    val localeTag: String
+    val localeTag: String,
 )

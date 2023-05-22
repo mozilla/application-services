@@ -12,13 +12,13 @@ import mozilla.components.concept.fetch.Headers
 import mozilla.components.concept.fetch.MutableHeaders
 import mozilla.components.concept.fetch.Request
 import mozilla.components.concept.fetch.Response
-import org.junit.Before
-import org.junit.Test
-import org.junit.runner.RunWith
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
+import org.junit.Before
 import org.junit.Rule
+import org.junit.Test
 import org.junit.rules.TemporaryFolder
+import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
 import java.io.File
 import java.io.InputStream
@@ -41,9 +41,11 @@ class RemoteSettingsTest {
 
     @Before
     fun setup() {
-        RustHttpConfig.setClient(lazyOf(object : Client() {
-            override fun fetch(request: Request): Response = doFetch(request)
-        }))
+        RustHttpConfig.setClient(
+            lazyOf(object : Client() {
+                override fun fetch(request: Request): Response = doFetch(request)
+            }),
+        )
     }
 
     @Test
@@ -51,7 +53,7 @@ class RemoteSettingsTest {
         val config = RemoteSettingsConfig(
             serverUrl = "http://localhost:8888",
             bucketName = "the-bucket",
-            collectionName = "the-collection"
+            collectionName = "the-collection",
         )
 
         // Setup the client
@@ -75,7 +77,7 @@ class RemoteSettingsTest {
 
     private fun setupAttachmentResponses(
         config: RemoteSettingsConfig,
-        attachmentLocation: String
+        attachmentLocation: String,
     ) {
         val topUrl = config.serverUrl
         val attachmentUrl = "${config.serverUrl}/attachments/$attachmentLocation"
@@ -88,8 +90,8 @@ class RemoteSettingsTest {
                         headers = fakeHeaders,
                         body = Response.Body(
                             stream = attachmentsInfoJson(topUrl!!).byteInputStream(),
-                            null
-                        )
+                            null,
+                        ),
                     )
                 }
                 attachmentUrl -> {
@@ -99,8 +101,8 @@ class RemoteSettingsTest {
                         headers = fakeHeaders,
                         body = Response.Body(
                             stream = csv.byteInputStream(),
-                            null
-                        )
+                            null,
+                        ),
                     )
                 }
                 else -> error("unexpected url")
@@ -109,7 +111,7 @@ class RemoteSettingsTest {
     }
     private fun setupRecordResponse(
         config: RemoteSettingsConfig,
-        responseBodyStream: InputStream = recordJson.byteInputStream()
+        responseBodyStream: InputStream = recordJson.byteInputStream(),
     ) {
         fakeUrl = "${config.serverUrl}/v1/buckets/${config.bucketName}/collections/${config.collectionName}/records"
         fakeBody = Response.Body(responseBodyStream, null)

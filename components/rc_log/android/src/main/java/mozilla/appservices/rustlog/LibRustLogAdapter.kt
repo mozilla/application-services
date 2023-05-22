@@ -4,8 +4,8 @@
 
 package mozilla.appservices.rustlog
 
-import com.sun.jna.Library
 import com.sun.jna.Callback
+import com.sun.jna.Library
 import com.sun.jna.Pointer
 import com.sun.jna.PointerType
 import mozilla.appservices.support.native.loadIndirect
@@ -21,24 +21,24 @@ internal interface LibRustLogAdapter : Library {
 
     fun rc_log_adapter_create(
         callback: RawLogCallback,
-        outErr: RustError.ByReference
+        outErr: RustError.ByReference,
     ): RawLogAdapter?
 
     fun rc_log_adapter_set_max_level(
         level: Int,
-        outErr: RustError.ByReference
+        outErr: RustError.ByReference,
     )
 
     fun rc_log_adapter_destroy(
-        adapter: RawLogAdapter
+        adapter: RawLogAdapter,
     )
 
     fun rc_log_adapter_destroy_string(
-        stringPtr: Pointer
+        stringPtr: Pointer,
     )
 
     fun rc_log_adapter_test__log_msg(
-        string: String
+        string: String,
     )
 }
 

@@ -25,14 +25,14 @@ import org.mozilla.experiments.nimbus.internal.FeatureManifestInterface
  */
 class HardcodedNimbusFeatures(
     override val context: Context,
-    private val features: Map<String, JSONObject>
+    private val features: Map<String, JSONObject>,
 ) : FeaturesInterface {
     private val exposureCounts = mutableMapOf<String, Int>()
     private val malformedFeatures = mutableMapOf<String, String>()
 
     constructor(context: Context, vararg pairs: Pair<String, JSONObject>) : this(
         context,
-        pairs.toMap()
+        pairs.toMap(),
     )
 
     init {

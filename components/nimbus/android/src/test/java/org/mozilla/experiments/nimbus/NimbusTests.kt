@@ -16,14 +16,14 @@ import kotlinx.coroutines.runBlocking
 import mozilla.telemetry.glean.BuildInfo
 import mozilla.telemetry.glean.Glean
 import mozilla.telemetry.glean.config.Configuration
-import mozilla.telemetry.glean.testing.GleanTestRule
-import mozilla.telemetry.glean.net.PingUploader
 import mozilla.telemetry.glean.net.HttpStatus
+import mozilla.telemetry.glean.net.PingUploader
+import mozilla.telemetry.glean.testing.GleanTestRule
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
-import org.junit.Assert.assertFalse
 import org.junit.Before
 import org.junit.Ignore
 import org.junit.Rule
@@ -36,8 +36,8 @@ import org.mozilla.experiments.nimbus.GleanMetrics.NimbusHealth
 import org.mozilla.experiments.nimbus.internal.EnrollmentChangeEvent
 import org.mozilla.experiments.nimbus.internal.EnrollmentChangeEventType
 import org.robolectric.RobolectricTestRunner
-import java.util.concurrent.Executors
 import java.util.Calendar
+import java.util.concurrent.Executors
 
 @RunWith(RobolectricTestRunner::class)
 class NimbusTests {
@@ -46,11 +46,11 @@ class NimbusTests {
 
     private val appInfo = NimbusAppInfo(
         appName = "NimbusUnitTest",
-        channel = "test"
+        channel = "test",
     )
 
     private val deviceInfo = NimbusDeviceInfo(
-        localeTag = "en-GB"
+        localeTag = "en-GB",
     )
 
     private val packageName = context.packageName
@@ -60,7 +60,7 @@ class NimbusTests {
         fetchScope = CoroutineScope(Executors.newSingleThreadExecutor().asCoroutineDispatcher()),
         updateScope = null,
         logger = { Log.i("NimbusTest", it) },
-        errorReporter = { message, e -> Log.e("NimbusTest", message, e) }
+        errorReporter = { message, e -> Log.e("NimbusTest", message, e) },
     )
 
     private val nimbus = Nimbus(
@@ -69,7 +69,7 @@ class NimbusTests {
         server = null,
         deviceInfo = deviceInfo,
         observer = null,
-        delegate = nimbusDelegate
+        delegate = nimbusDelegate,
     )
 
     @get:Rule
@@ -83,15 +83,15 @@ class NimbusTests {
         // init it with a mock client so we don't upload anything.
         val mockClient: PingUploader = mock()
         `when`(mockClient.upload(any(), any(), any())).thenReturn(
-            HttpStatus(200)
+            HttpStatus(200),
         )
         Glean.initialize(
             context,
             true,
             Configuration(
-                httpClient = mockClient
+                httpClient = mockClient,
             ),
-            buildInfo
+            buildInfo,
         )
     }
 
@@ -105,8 +105,8 @@ class NimbusTests {
                 featureIds = listOf(),
                 branchSlug = "test-branch",
                 userFacingDescription = "A test experiment for testing experiments",
-                userFacingName = "Test Experiment"
-            )
+                userFacingName = "Test Experiment",
+            ),
         )
 
         nimbus.recordExperimentTelemetry(experiments = enrolledExperiments)
@@ -124,22 +124,22 @@ class NimbusTests {
                 branchSlug = "test-branch",
                 enrollmentId = "test-enrollment-id",
                 reason = "test-reason",
-                change = EnrollmentChangeEventType.ENROLLMENT
+                change = EnrollmentChangeEventType.ENROLLMENT,
             ),
             EnrollmentChangeEvent(
                 experimentSlug = "test-experiment",
                 branchSlug = "test-branch",
                 enrollmentId = "test-enrollment-id",
                 reason = "test-reason",
-                change = EnrollmentChangeEventType.UNENROLLMENT
+                change = EnrollmentChangeEventType.UNENROLLMENT,
             ),
             EnrollmentChangeEvent(
                 experimentSlug = "test-experiment",
                 branchSlug = "test-branch",
                 enrollmentId = "test-enrollment-id",
                 reason = "test-reason",
-                change = EnrollmentChangeEventType.DISQUALIFICATION
-            )
+                change = EnrollmentChangeEventType.DISQUALIFICATION,
+            ),
         )
 
         // Record the experiments in Glean
@@ -155,13 +155,13 @@ class NimbusTests {
         assertEquals(
             "Experiment slug must match",
             "test-experiment",
-            enrollmentEventExtras["experiment"]
+            enrollmentEventExtras["experiment"],
         )
         assertEquals("Experiment branch must match", "test-branch", enrollmentEventExtras["branch"])
         assertEquals(
             "Experiment enrollment-id must match",
             "test-enrollment-id",
-            enrollmentEventExtras["enrollment_id"]
+            enrollmentEventExtras["enrollment_id"],
         )
 
         // Unenrollment
@@ -172,17 +172,17 @@ class NimbusTests {
         assertEquals(
             "Experiment slug must match",
             "test-experiment",
-            unenrollmentEventExtras["experiment"]
+            unenrollmentEventExtras["experiment"],
         )
         assertEquals(
             "Experiment branch must match",
             "test-branch",
-            unenrollmentEventExtras["branch"]
+            unenrollmentEventExtras["branch"],
         )
         assertEquals(
             "Experiment enrollment-id must match",
             "test-enrollment-id",
-            unenrollmentEventExtras["enrollment_id"]
+            unenrollmentEventExtras["enrollment_id"],
         )
 
         // Disqualification
@@ -193,17 +193,17 @@ class NimbusTests {
         assertEquals(
             "Experiment slug must match",
             "test-experiment",
-            disqualificationEventExtras["experiment"]
+            disqualificationEventExtras["experiment"],
         )
         assertEquals(
             "Experiment branch must match",
             "test-branch",
-            disqualificationEventExtras["branch"]
+            disqualificationEventExtras["branch"],
         )
         assertEquals(
             "Experiment enrollment-id must match",
             "test-enrollment-id",
-            disqualificationEventExtras["enrollment_id"]
+            disqualificationEventExtras["enrollment_id"],
         )
     }
 
@@ -216,7 +216,7 @@ class NimbusTests {
         // Assert that there are no events to start with
         assertNull(
             "There must not be any pre-existing events",
-            NimbusEvents.exposure.testGetValue()
+            NimbusEvents.exposure.testGetValue(),
         )
 
         // Record a valid exposure event in Glean that matches the featureId from the test experiment
@@ -230,7 +230,7 @@ class NimbusTests {
         assertEquals(
             "Experiment slug must match",
             "test-experiment",
-            exposureEventExtras["experiment"]
+            exposureEventExtras["experiment"],
         )
         assertEquals("Experiment branch must match", "test-branch", exposureEventExtras["branch"])
 
@@ -247,12 +247,12 @@ class NimbusTests {
         assertEquals(
             "Experiment slug must match",
             "test-experiment",
-            exposureEventExtrasTryTwo["experiment"]
+            exposureEventExtrasTryTwo["experiment"],
         )
         assertEquals(
             "Experiment branch must match",
             "test-branch",
-            exposureEventExtrasTryTwo["branch"]
+            exposureEventExtrasTryTwo["branch"],
         )
     }
 
@@ -265,7 +265,7 @@ class NimbusTests {
         // Assert that there are no events to start with
         assertNull(
             "There must not be any pre-existing events",
-            NimbusEvents.malformedFeature.testGetValue()
+            NimbusEvents.malformedFeature.testGetValue(),
         )
 
         // Record a valid exposure event in Glean that matches the featureId from the test experiment
@@ -279,7 +279,7 @@ class NimbusTests {
         assertEquals(
             "Experiment slug must match",
             "test-experiment",
-            extras["experiment"]
+            extras["experiment"],
         )
         assertEquals("Experiment branch must match", "test-branch", extras["branch"])
         assertEquals("Feature Id must match", "about_welcome", extras["feature_id"])
@@ -295,7 +295,7 @@ class NimbusTests {
         // Assert that there are no events to start with
         assertNull(
             "There must not be any pre-existing events",
-            NimbusEvents.disqualification.testGetValue()
+            NimbusEvents.disqualification.testGetValue(),
         )
 
         // Opt out of the specific experiment
@@ -309,12 +309,12 @@ class NimbusTests {
         assertEquals(
             "Experiment slug must match",
             "test-experiment",
-            enrollmentEventExtras["experiment"]
+            enrollmentEventExtras["experiment"],
         )
         assertEquals("Experiment branch must match", "test-branch", enrollmentEventExtras["branch"])
         assertNotNull(
             "Experiment enrollment-id must not be null",
-            enrollmentEventExtras["enrollment_id"]
+            enrollmentEventExtras["enrollment_id"],
         )
     }
 
@@ -327,7 +327,7 @@ class NimbusTests {
         // Assert that there are no events to start with
         assertNull(
             "There must not be any pre-existing events",
-            NimbusEvents.disqualification.testGetValue()
+            NimbusEvents.disqualification.testGetValue(),
         )
 
         // Opt out of all experiments
@@ -341,25 +341,25 @@ class NimbusTests {
         assertEquals(
             "Experiment slug must match",
             "test-experiment",
-            enrollmentEventExtras["experiment"]
+            enrollmentEventExtras["experiment"],
         )
         assertEquals("Experiment branch must match", "test-branch", enrollmentEventExtras["branch"])
         assertNotNull(
             "Experiment enrollment-id must not be null",
-            enrollmentEventExtras["enrollment_id"]
+            enrollmentEventExtras["enrollment_id"],
         )
     }
 
     private fun Nimbus.setUpTestExperiments(appId: String, appInfo: NimbusAppInfo) {
         this.setExperimentsLocallyOnThisThread(
-            testExperimentsJsonString(appInfo, appId)
+            testExperimentsJsonString(appInfo, appId),
         )
         this.applyPendingExperimentsOnThisThread()
     }
 
     private fun testExperimentsJsonString(
         appInfo: NimbusAppInfo,
-        appId: String
+        appId: String,
     ) = """
                     {"data": [{
                       "schemaVersion": "1.0.0",
@@ -400,7 +400,7 @@ class NimbusTests {
                       "id": "test-experiment",
                       "last_modified": 1602197324372
                     }]}
-                """.trimIndent()
+    """.trimIndent()
 
     @Test
     fun `buildExperimentContext returns a valid context`() {
@@ -437,7 +437,7 @@ class NimbusTests {
             appInfo = developmentAppInfo,
             server = null,
             deviceInfo = deviceInfo,
-            delegate = nimbusDelegate
+            delegate = nimbusDelegate,
         )
 
         nimbus.setUpTestExperiments("$packageName.nightly", targetedAppInfo)
@@ -457,7 +457,7 @@ class NimbusTests {
             appInfo = developmentAppInfo,
             server = null,
             deviceInfo = deviceInfo,
-            delegate = nimbusDelegate
+            delegate = nimbusDelegate,
         )
 
         nimbus.setUpTestExperiments(packageName, targetedAppInfo)
@@ -548,7 +548,7 @@ class NimbusTests {
             server = null,
             deviceInfo = deviceInfo,
             observer = observer,
-            delegate = nimbusDelegate
+            delegate = nimbusDelegate,
         )
 
         suspend fun getString() = testExperimentsJsonString(appInfo, packageName)
@@ -578,7 +578,7 @@ class NimbusTests {
             server = null,
             deviceInfo = deviceInfo,
             observer = observer,
-            delegate = nimbusDelegate
+            delegate = nimbusDelegate,
         )
 
         suspend fun getString(): String = throw CancellationException()

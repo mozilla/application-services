@@ -7,6 +7,7 @@
  * code against the real `FeatureVariables` code.
  */
 @file:Suppress("InvalidPackageDeclaration")
+
 package android.graphics.drawable
 
 @Suppress("PACKAGE_OR_CLASSIFIER_REDECLARATION")

@@ -30,14 +30,14 @@ class GleanPlumbTests {
         get() = ApplicationProvider.getApplicationContext()
 
     private val deviceInfo = NimbusDeviceInfo(
-        localeTag = "en-GB"
+        localeTag = "en-GB",
     )
 
     private val nimbusDelegate = NimbusDelegate(
         dbScope = CoroutineScope(Executors.newSingleThreadExecutor().asCoroutineDispatcher()),
         fetchScope = CoroutineScope(Executors.newSingleThreadExecutor().asCoroutineDispatcher()),
         logger = { Log.i("NimbusTest", it) },
-        errorReporter = { message, e -> Log.e("NimbusTest", message, e) }
+        errorReporter = { message, e -> Log.e("NimbusTest", message, e) },
     )
 
     @Test
@@ -49,7 +49,7 @@ class GleanPlumbTests {
             appInfo = developmentAppInfo,
             server = null,
             deviceInfo = deviceInfo,
-            delegate = nimbusDelegate
+            delegate = nimbusDelegate,
         )
         nimbus.initializeOnThisThread()
 
@@ -74,7 +74,7 @@ class GleanPlumbTests {
             appInfo = developmentAppInfo,
             server = null,
             deviceInfo = deviceInfo,
-            delegate = nimbusDelegate
+            delegate = nimbusDelegate,
         )
         nimbus.initializeOnThisThread()
 
@@ -83,7 +83,8 @@ class GleanPlumbTests {
         val context = JSONObject(
             """{
                     "test_value_from_json": 42
-                }""".trimIndent()
+                }
+            """.trimIndent(),
         )
 
         assertThrows("no context, so no variable", NimbusException::class.java) {
@@ -94,8 +95,8 @@ class GleanPlumbTests {
         val messageHelper = nimbus.createMessageHelper(context)
         assertTrue(
             messageHelper.evalJexl(
-                "test_value_from_json == 42"
-            )
+                "test_value_from_json == 42",
+            ),
         )
     }
 
@@ -108,7 +109,7 @@ class GleanPlumbTests {
             appInfo = developmentAppInfo,
             server = null,
             deviceInfo = deviceInfo,
-            delegate = nimbusDelegate
+            delegate = nimbusDelegate,
         )
         nimbus.initializeOnThisThread()
 
@@ -116,7 +117,8 @@ class GleanPlumbTests {
         val context = JSONObject(
             """{
                     "test_string": "foobar"
-                }""".trimIndent()
+                }
+            """.trimIndent(),
         )
 
         val helper = nimbus.createMessageHelper(context)

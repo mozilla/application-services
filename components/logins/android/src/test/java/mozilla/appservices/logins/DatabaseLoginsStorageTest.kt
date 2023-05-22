@@ -50,14 +50,14 @@ class DatabaseLoginsStorageTest {
                     httpRealm = "Something",
                     usernameField = "users_name",
                     passwordField = "users_password",
-                    formActionOrigin = null
+                    formActionOrigin = null,
                 ),
                 secFields = SecureLoginFields(
                     username = "Foobar2000",
-                    password = "hunter2"
-                )
+                    password = "hunter2",
+                ),
             ),
-            encryptionKey
+            encryptionKey,
         )
 
         store.add(
@@ -67,14 +67,14 @@ class DatabaseLoginsStorageTest {
                     httpRealm = "",
                     formActionOrigin = "https://www.example.org/login",
                     usernameField = "users_name",
-                    passwordField = "users_password"
+                    passwordField = "users_password",
                 ),
                 secFields = SecureLoginFields(
                     password = "MyVeryCoolPassword",
-                    username = "Foobar2000"
-                )
+                    username = "Foobar2000",
+                ),
             ),
-            encryptionKey
+            encryptionKey,
         )
 
         return store
@@ -99,14 +99,14 @@ class DatabaseLoginsStorageTest {
                     httpRealm = "Something",
                     usernameField = "users_name",
                     passwordField = "users_password",
-                    formActionOrigin = null
+                    formActionOrigin = null,
                 ),
                 secFields = SecureLoginFields(
                     username = "Foobar2000",
-                    password = "hunter2"
-                )
+                    password = "hunter2",
+                ),
             ),
-            encryptionKey
+            encryptionKey,
         )
 
         assertEquals(LoginsStoreMetrics.writeQueryCount.testGetValue(), 1)
@@ -119,12 +119,12 @@ class DatabaseLoginsStorageTest {
                 formActionOrigin = "not a url",
                 httpRealm = "",
                 usernameField = "users_name",
-                passwordField = "users_password"
+                passwordField = "users_password",
             ),
             secFields = SecureLoginFields(
                 username = "Foobar2000",
-                password = "hunter2"
-            )
+                password = "hunter2",
+            ),
         )
 
         try {
