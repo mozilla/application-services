@@ -18,9 +18,9 @@ def test_enroll_and_get_enrolled_feature_json_control(fml_client, cirrus_client)
         }
     )
     res = json.loads(cirrus_client.handle_enrollment(req))
-    feature_configs = json.dumps(
-        [value["feature"] for value in res["enrolledFeatureConfigMap"].values()]
-    )
+    feature_configs = [
+        value["feature"] for value in res["enrolledFeatureConfigMap"].values()
+    ]
 
     assert (
         res["enrolledFeatureConfigMap"]["imported-module-1-included-feature-1"]["slug"]
@@ -34,9 +34,7 @@ def test_enroll_and_get_enrolled_feature_json_control(fml_client, cirrus_client)
     )
 
     fml_client = fml_client("test-include-import.fml.yml", "developer")
-    merged_res = fml_client.validate_feature_configs_and_merge_into_defaults(
-        feature_configs
-    )
+    merged_res = fml_client.merge(feature_configs)
     merged_res_json = json.loads(merged_res.json)
 
     assert merged_res_json["imported-module-1-included-feature-1"]["enabled"] is False
@@ -52,9 +50,9 @@ def test_enroll_and_get_enrolled_feature_json_treatment(fml_client, cirrus_clien
         }
     )
     res = json.loads(cirrus_client.handle_enrollment(req))
-    feature_configs = json.dumps(
-        [value["feature"] for value in res["enrolledFeatureConfigMap"].values()]
-    )
+    feature_configs = [
+        value["feature"] for value in res["enrolledFeatureConfigMap"].values()
+    ]
 
     assert (
         res["enrolledFeatureConfigMap"]["imported-module-1-included-feature-1"]["slug"]
@@ -68,9 +66,7 @@ def test_enroll_and_get_enrolled_feature_json_treatment(fml_client, cirrus_clien
     )
 
     fml_client = fml_client("test-include-import.fml.yml", "developer")
-    merged_res = fml_client.validate_feature_configs_and_merge_into_defaults(
-        feature_configs
-    )
+    merged_res = fml_client.merge(feature_configs)
     merged_res_json = json.loads(merged_res.json)
 
     assert merged_res_json["imported-module-1-included-feature-1"]["enabled"] is True
