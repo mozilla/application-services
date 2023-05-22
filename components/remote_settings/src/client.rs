@@ -178,19 +178,19 @@ impl Client {
 /// Data structure representing the top-level response from the Remote Settings.
 /// [last_modified] will be extracted from the etag header of the response.
 pub struct RemoteSettingsResponse {
-    pub records: Vec<Record>,
+    pub records: Vec<RemoteSettingsRecord>,
     pub last_modified: u64,
 }
 
 #[derive(Deserialize)]
 struct RecordsResponse {
-    data: Vec<Record>,
+    data: Vec<RemoteSettingsRecord>,
 }
 
 /// A parsed Remote Settings record. Records can contain arbitrary fields, so clients
 /// are required to further extract expected values from the [fields] member.
 #[derive(Deserialize, PartialEq)]
-pub struct Record {
+pub struct RemoteSettingsRecord {
     pub id: String,
     pub last_modified: u64,
     pub attachment: Option<Attachment>,

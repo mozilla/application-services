@@ -6,7 +6,7 @@ pub mod error;
 pub use error::{RemoteSettingsError, Result};
 use std::{fs::File, io::prelude::Write};
 pub mod client;
-pub use client::{Attachment, Client, Record, RemoteSettingsResponse, RsJsonObject};
+pub use client::{Attachment, Client, RemoteSettingsRecord, RemoteSettingsResponse, RsJsonObject};
 pub mod config;
 pub use config::RemoteSettingsConfig;
 
@@ -50,7 +50,7 @@ impl RemoteSettings {
 #[cfg(test)]
 mod test {
     use super::*;
-    use crate::Record;
+    use crate::RemoteSettingsRecord;
     use mockito::mock;
 
     #[test]
@@ -103,8 +103,8 @@ mod test {
             .unwrap();
     }
 
-    fn are_equal_json(str: &str, rec: &Record) -> bool {
-        let r1: Record = serde_json::from_str(str).unwrap();
+    fn are_equal_json(str: &str, rec: &RemoteSettingsRecord) -> bool {
+        let r1: RemoteSettingsRecord = serde_json::from_str(str).unwrap();
         &r1 == rec
     }
 

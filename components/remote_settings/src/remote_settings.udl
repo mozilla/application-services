@@ -14,11 +14,11 @@ dictionary RemoteSettingsConfig {
 };
 
 dictionary RemoteSettingsResponse {
-    sequence<Record> records;
+    sequence<RemoteSettingsRecord> records;
     u64 last_modified;
 };
 
-dictionary Record {
+dictionary RemoteSettingsRecord {
     string id;
     u64 last_modified;
     Attachment? attachment;
