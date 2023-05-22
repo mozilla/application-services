@@ -3,6 +3,7 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
 @file:Suppress("InvalidPackageDeclaration")
+
 package mozilla.appservices.remotetabs
 
 // We needed to rename the Rust `RemoteTab` struct to `RemoteTabRecord` in order to circumvent the naming conflict in

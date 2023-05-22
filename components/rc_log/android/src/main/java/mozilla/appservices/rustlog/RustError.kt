@@ -16,6 +16,7 @@ open class RustError : Structure() {
     class ByReference : RustError(), Structure.ByReference
 
     @JvmField var code: Int = 0
+
     @JvmField var message: Pointer? = null
 
     fun isFailure(): Boolean {

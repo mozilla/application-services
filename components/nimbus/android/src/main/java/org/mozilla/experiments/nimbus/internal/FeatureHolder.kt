@@ -7,8 +7,8 @@ package org.mozilla.experiments.nimbus.internal
 import org.json.JSONObject
 import org.mozilla.experiments.nimbus.FeaturesInterface
 import org.mozilla.experiments.nimbus.HardcodedNimbusFeatures
-import org.mozilla.experiments.nimbus.Variables
 import org.mozilla.experiments.nimbus.NullVariables
+import org.mozilla.experiments.nimbus.Variables
 import java.util.concurrent.locks.ReentrantLock
 
 /**
@@ -22,7 +22,7 @@ import java.util.concurrent.locks.ReentrantLock
 class FeatureHolder<T : FMLFeatureInterface>(
     private var getSdk: () -> FeaturesInterface?,
     private val featureId: String,
-    private var create: (Variables) -> T
+    private var create: (Variables) -> T,
 ) {
     private val lock = ReentrantLock()
 

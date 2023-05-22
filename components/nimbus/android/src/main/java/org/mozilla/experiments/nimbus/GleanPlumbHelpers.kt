@@ -16,7 +16,7 @@ interface GleanPlumbInterface {
     fun createMessageHelper(additionalContext: JSONObject? = null): GleanPlumbMessageHelper =
         GleanPlumbMessageHelper(
             AlwaysFalseTargetingHelper(),
-            NonStringHelper()
+            NonStringHelper(),
         )
 }
 
@@ -31,7 +31,7 @@ interface GleanPlumbInterface {
  */
 class GleanPlumbMessageHelper(
     private val targetingHelper: NimbusTargetingHelperInterface,
-    private val stringHelper: NimbusStringHelperInterface
+    private val stringHelper: NimbusStringHelperInterface,
 ) : NimbusStringHelperInterface by stringHelper, NimbusTargetingHelperInterface by targetingHelper
 
 internal class AlwaysFalseTargetingHelper : NimbusTargetingHelperInterface {
@@ -41,7 +41,7 @@ internal class AlwaysFalseTargetingHelper : NimbusTargetingHelperInterface {
 internal class NonStringHelper : NimbusStringHelperInterface {
     override fun stringFormat(
         template: String,
-        uuid: String?
+        uuid: String?,
     ): String = template
 
     override fun getUuid(template: String) = null

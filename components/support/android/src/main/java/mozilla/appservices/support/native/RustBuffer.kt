@@ -44,6 +44,7 @@ import java.nio.ByteBuffer
 @Structure.FieldOrder("len", "data")
 open class RustBuffer : Structure() {
     @JvmField var len: Long = 0
+
     @JvmField var data: Pointer? = null
 
     @Suppress("TooGenericExceptionThrown")

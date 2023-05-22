@@ -23,7 +23,7 @@ class NimbusBuilderTest {
 
     private val appInfo = NimbusAppInfo(
         appName = "test-app",
-        channel = "test-channel"
+        channel = "test-channel",
     )
 
     @Test
@@ -96,7 +96,7 @@ class NimbusBuilderTest {
 class NimbusBuilder(context: Context) : AbstractNimbusBuilder<NimbusInterface>(context) {
     override fun newNimbus(
         appInfo: NimbusAppInfo,
-        serverSettings: NimbusServerSettings?
+        serverSettings: NimbusServerSettings?,
     ): NimbusInterface =
         DummyNimbus(context, appInfo = appInfo, serverSettings = serverSettings)
 
@@ -107,7 +107,7 @@ class NimbusBuilder(context: Context) : AbstractNimbusBuilder<NimbusInterface>(c
 class DummyNimbus(
     override val context: Context,
     val serverSettings: NimbusServerSettings?,
-    val appInfo: NimbusAppInfo
+    val appInfo: NimbusAppInfo,
 ) : NimbusInterface {
 
     var initialExperiments: Int? = null

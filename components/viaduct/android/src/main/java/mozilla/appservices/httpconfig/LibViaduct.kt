@@ -16,16 +16,19 @@ internal interface LibViaduct : Library {
         internal var INSTANCE: LibViaduct = {
             loadIndirect<LibViaduct>(
                 componentName = "viaduct",
-                componentVersion = BuildConfig.LIBRARY_VERSION
+                componentVersion = BuildConfig.LIBRARY_VERSION,
             )
         }()
     }
 
     fun viaduct_destroy_bytebuffer(b: RustBuffer.ByValue)
+
     // Returns null buffer to indicate failure
     fun viaduct_alloc_bytebuffer(sz: Int): RustBuffer.ByValue
+
     // Returns 0 to indicate redundant init.
     fun viaduct_initialize(cb: RawFetchCallback): Byte
+
     // No return value, never fails.
     fun viaduct_allow_android_emulator_loopback()
 

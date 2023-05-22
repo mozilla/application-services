@@ -1,12 +1,11 @@
-import mozilla.appservices.autofill.Store
 import mozilla.appservices.Megazord
+import mozilla.appservices.autofill.Store
 import mozilla.appservices.syncmanager.SyncManager
-
-import org.junit.rules.TemporaryFolder
-import org.junit.runner.RunWith
 import org.junit.Assert
 import org.junit.Rule
 import org.junit.Test
+import org.junit.rules.TemporaryFolder
+import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
 import org.robolectric.annotation.Config
 

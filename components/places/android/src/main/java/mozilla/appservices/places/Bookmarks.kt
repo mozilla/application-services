@@ -163,7 +163,7 @@ interface WritableBookmarksConnection : ReadableBookmarksConnection {
     fun createFolder(
         parentGUID: Guid,
         title: String,
-        position: UInt? = null
+        position: UInt? = null,
     ): Guid
 
     /**
@@ -182,7 +182,7 @@ interface WritableBookmarksConnection : ReadableBookmarksConnection {
      */
     fun createSeparator(
         parentGUID: Guid,
-        position: UInt? = null
+        position: UInt? = null,
     ): Guid
 
     /**
@@ -207,7 +207,7 @@ interface WritableBookmarksConnection : ReadableBookmarksConnection {
         parentGUID: Guid,
         url: Url,
         title: String,
-        position: UInt? = null
+        position: UInt? = null,
     ): Guid
 
     /**

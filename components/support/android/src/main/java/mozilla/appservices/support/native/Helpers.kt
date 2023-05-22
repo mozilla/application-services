@@ -57,17 +57,17 @@ class IncompatibleMegazordVersion(
     componentName: String,
     val componentVersion: String,
     val megazordLibrary: String,
-    val megazordVersion: String?
+    val megazordVersion: String?,
 ) : MegazordError(
     componentName,
     "Incompatible megazord version: library \"$componentName\" was compiled expecting " +
         "app-services version \"$componentVersion\", but the megazord \"$megazordLibrary\" provides " +
-        "version \"${megazordVersion ?: "unknown"}\""
+        "version \"${megazordVersion ?: "unknown"}\"",
 )
 
 class MegazordNotInitialized(componentName: String) : MegazordError(
     componentName,
-    "The application-services megazord has not yet been initialized, but is needed by \"$componentName\""
+    "The application-services megazord has not yet been initialized, but is needed by \"$componentName\"",
 )
 
 /**
@@ -83,12 +83,12 @@ class MegazordNotInitialized(componentName: String) : MegazordError(
 class MultipleMegazordsPresent(
     componentName: String,
     val loadedMegazord: String,
-    val requestedMegazord: String
+    val requestedMegazord: String,
 ) : MegazordError(
     componentName,
     "Multiple megazords are present, and bindings have already been loaded from " +
         "\"$loadedMegazord\" when a request to load $componentName from $requestedMegazord " +
-        "is made. (This probably stems from an error in your build configuration)"
+        "is made. (This probably stems from an error in your build configuration)",
 )
 
 internal const val FULL_MEGAZORD_LIBRARY: String = "megazord"
@@ -103,7 +103,7 @@ internal fun lookupMegazordLibrary(componentName: String, componentVersion: Stri
         }
         Log.e(
             "RustNativeSupport",
-            "megazord not initialized, and default not present. failing to init $componentName"
+            "megazord not initialized, and default not present. failing to init $componentName",
         )
         throw MegazordNotInitialized(componentName)
     }
@@ -119,7 +119,7 @@ internal fun lookupMegazordLibrary(componentName: String, componentVersion: Stri
         Log.e(
             "RustNativeSupport",
             "version requested by component doesn't match initialized " +
-                "megazord version ($componentVersion != $mzVersion)"
+                "megazord version ($componentVersion != $mzVersion)",
         )
         throw IncompatibleMegazordVersion(componentName, componentVersion, mzLibrary, mzVersion)
     }
@@ -148,7 +148,7 @@ fun findMegazordLibraryName(componentName: String, componentVersion: String): St
     if (mzLibraryUsed != null && mzLibraryDetermined != mzLibraryUsed) {
         Log.e(
             "RustNativeSupport",
-            "Different than first time through ($mzLibraryDetermined != $mzLibraryUsed)!"
+            "Different than first time through ($mzLibraryDetermined != $mzLibraryUsed)!",
         )
         throw MultipleMegazordsPresent(componentName, mzLibraryUsed, mzLibraryDetermined)
     }
@@ -172,7 +172,7 @@ fun findMegazordLibraryName(componentName: String, componentVersion: String): St
  */
 inline fun <reified Lib : Library> loadIndirect(
     componentName: String,
-    componentVersion: String
+    componentVersion: String,
 ): Lib {
     val mzLibrary = findMegazordLibraryName(componentName, componentVersion)
     // Rust code always expects strings to be UTF-8 encoded.
@@ -220,7 +220,7 @@ internal fun checkFullMegazord(componentName: String, componentVersion: String):
     return try {
         Log.d(
             "RustNativeSupport",
-            "No lib configured, trying full megazord"
+            "No lib configured, trying full megazord",
         )
         // It's not ideal to do this every time, but it should be rare, not too costly,
         // and the workaround for the app is simple (just init the megazord).
@@ -230,27 +230,27 @@ internal fun checkFullMegazord(componentName: String, componentVersion: String):
 
         Log.d(
             "RustNativeSupport",
-            "found full megazord, it self-reports version as: ${version ?: "unknown"}"
+            "found full megazord, it self-reports version as: ${version ?: "unknown"}",
         )
         if (version == null) {
             throw IncompatibleMegazordVersion(
                 componentName,
                 componentVersion,
                 FULL_MEGAZORD_LIBRARY,
-                null
+                null,
             )
         }
 
         if (version != componentVersion) {
             Log.e(
                 "RustNativeSupport",
-                "found default megazord, but versions don't match ($version != $componentVersion)"
+                "found default megazord, but versions don't match ($version != $componentVersion)",
             )
             throw IncompatibleMegazordVersion(
                 componentName,
                 componentVersion,
                 FULL_MEGAZORD_LIBRARY,
-                version
+                version,
             )
         }
 

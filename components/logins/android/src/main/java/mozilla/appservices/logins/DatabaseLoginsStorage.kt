@@ -4,8 +4,6 @@
 
 package mozilla.appservices.logins
 
-import org.mozilla.appservices.logins.GleanMetrics.LoginsStore as LoginsStoreMetrics
-
 /**
  * Import some private Glean types, so that we can use them in type declarations.
  *
@@ -16,6 +14,7 @@ import org.mozilla.appservices.logins.GleanMetrics.LoginsStore as LoginsStoreMet
  */
 import mozilla.telemetry.glean.private.CounterMetricType
 import mozilla.telemetry.glean.private.LabeledMetricType
+import org.mozilla.appservices.logins.GleanMetrics.LoginsStore as LoginsStoreMetrics
 
 /**
  * An artifact of the uniffi conversion - a thin-ish wrapper around a
@@ -120,14 +119,14 @@ class DatabaseLoginsStorage(dbPath: String) : AutoCloseable {
     private val readQueryCounters: LoginsStoreCounterMetrics by lazy {
         LoginsStoreCounterMetrics(
             LoginsStoreMetrics.readQueryCount,
-            LoginsStoreMetrics.readQueryErrorCount
+            LoginsStoreMetrics.readQueryErrorCount,
         )
     }
 
     private val writeQueryCounters: LoginsStoreCounterMetrics by lazy {
         LoginsStoreCounterMetrics(
             LoginsStoreMetrics.writeQueryCount,
-            LoginsStoreMetrics.writeQueryErrorCount
+            LoginsStoreMetrics.writeQueryErrorCount,
         )
     }
 }
@@ -167,7 +166,7 @@ fun recordKeyRegenerationEvent(reason: KeyRegenerationEventReason) {
  */
 class LoginsStoreCounterMetrics(
     val count: CounterMetricType,
-    val errCount: LabeledMetricType<CounterMetricType>
+    val errCount: LabeledMetricType<CounterMetricType>,
 ) {
     inline fun <U> measure(callback: () -> U): U {
         return measureIgnoring({ false }, callback)
@@ -176,7 +175,7 @@ class LoginsStoreCounterMetrics(
     @Suppress("ComplexMethod", "TooGenericExceptionCaught")
     inline fun <U> measureIgnoring(
         shouldIgnore: (Exception) -> Boolean,
-        callback: () -> U
+        callback: () -> U,
     ): U {
         count.add()
         try {

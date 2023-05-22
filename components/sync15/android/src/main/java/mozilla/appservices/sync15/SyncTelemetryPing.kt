@@ -28,14 +28,14 @@ enum class FailureName {
     Unexpected,
     Auth,
     Http,
-    Unknown
+    Unknown,
 }
 
 data class SyncTelemetryPing(
     val version: Int,
     val uid: String,
     val events: List<EventInfo>,
-    val syncs: List<SyncInfo>
+    val syncs: List<SyncInfo>,
 ) {
     companion object {
         @JvmField val EMPTY_UID = "0".repeat(32)
@@ -45,7 +45,7 @@ data class SyncTelemetryPing(
                 version = 1,
                 uid = EMPTY_UID,
                 events = emptyList(),
-                syncs = emptyList()
+                syncs = emptyList(),
             )
         }
 
@@ -64,7 +64,7 @@ data class SyncTelemetryPing(
                 version = jsonObject.getInt("version"),
                 uid = stringOrNull(jsonObject, "uid") ?: EMPTY_UID,
                 events = events,
-                syncs = syncs
+                syncs = syncs,
             )
         }
 
@@ -78,18 +78,24 @@ data class SyncTelemetryPing(
         result.put("version", version)
         result.put("uid", uid)
         if (!events.isEmpty()) {
-            result.put("events", JSONArray().apply {
-                events.forEach {
-                    put(it.toJSON())
-                }
-            })
+            result.put(
+                "events",
+                JSONArray().apply {
+                    events.forEach {
+                        put(it.toJSON())
+                    }
+                },
+            )
         }
         if (!syncs.isEmpty()) {
-            result.put("syncs", JSONArray().apply {
-                syncs.forEach {
-                    put(it.toJSON())
-                }
-            })
+            result.put(
+                "syncs",
+                JSONArray().apply {
+                    syncs.forEach {
+                        put(it.toJSON())
+                    }
+                },
+            )
         }
         return result
     }
@@ -99,7 +105,7 @@ data class SyncInfo(
     val at: Long,
     val took: Long,
     val engines: List<EngineInfo>,
-    val failureReason: FailureReason?
+    val failureReason: FailureReason?,
 ) {
     companion object {
         fun fromJSON(jsonObject: JSONObject): SyncInfo {
@@ -117,7 +123,7 @@ data class SyncInfo(
                 at = jsonObject.getLong("when"),
                 took = longOrZero(jsonObject, "took"),
                 engines = engines,
-                failureReason = failureReason
+                failureReason = failureReason,
             )
         }
 
@@ -137,11 +143,14 @@ data class SyncInfo(
             result.put("took", took)
         }
         if (!engines.isEmpty()) {
-            result.put("engines", JSONArray().apply {
-                engines.forEach {
-                    put(it.toJSON())
-                }
-            })
+            result.put(
+                "engines",
+                JSONArray().apply {
+                    engines.forEach {
+                        put(it.toJSON())
+                    }
+                },
+            )
         }
         failureReason?.let {
             result.put("failureReason", it.toJSON())
@@ -157,7 +166,7 @@ data class EngineInfo(
     val incoming: IncomingInfo?,
     val outgoing: List<OutgoingInfo>,
     val failureReason: FailureReason?,
-    val validation: ValidationInfo?
+    val validation: ValidationInfo?,
 ) {
     companion object {
         fun fromJSON(jsonObject: JSONObject): EngineInfo {
@@ -188,7 +197,7 @@ data class EngineInfo(
                 incoming = incoming,
                 outgoing = outgoing,
                 failureReason = failureReason,
-                validation = validation
+                validation = validation,
             )
         }
 
@@ -212,11 +221,14 @@ data class EngineInfo(
             result.put("incoming", it.toJSON())
         }
         if (!outgoing.isEmpty()) {
-            result.put("outgoing", JSONArray().apply {
-                outgoing.forEach {
-                    put(it.toJSON())
-                }
-            })
+            result.put(
+                "outgoing",
+                JSONArray().apply {
+                    outgoing.forEach {
+                        put(it.toJSON())
+                    }
+                },
+            )
         }
         failureReason?.let {
             result.put("failureReason", it.toJSON())
@@ -232,7 +244,7 @@ data class IncomingInfo(
     val applied: Int,
     val failed: Int,
     val newFailed: Int,
-    val reconciled: Int
+    val reconciled: Int,
 ) {
     companion object {
         fun fromJSON(jsonObject: JSONObject): IncomingInfo {
@@ -240,7 +252,7 @@ data class IncomingInfo(
                 applied = intOrZero(jsonObject, "applied"),
                 failed = intOrZero(jsonObject, "failed"),
                 newFailed = intOrZero(jsonObject, "newFailed"),
-                reconciled = intOrZero(jsonObject, "reconciled")
+                reconciled = intOrZero(jsonObject, "reconciled"),
             )
         }
     }
@@ -265,13 +277,13 @@ data class IncomingInfo(
 
 data class OutgoingInfo(
     val sent: Int,
-    val failed: Int
+    val failed: Int,
 ) {
     companion object {
         fun fromJSON(jsonObject: JSONObject): OutgoingInfo {
             return OutgoingInfo(
                 sent = intOrZero(jsonObject, "sent"),
-                failed = intOrZero(jsonObject, "failed")
+                failed = intOrZero(jsonObject, "failed"),
             )
         }
 
@@ -299,7 +311,7 @@ data class OutgoingInfo(
 data class ValidationInfo(
     val version: Int,
     val problems: List<ProblemInfo>,
-    val failureReason: FailureReason?
+    val failureReason: FailureReason?,
 ) {
     companion object {
         fun fromJSON(jsonObject: JSONObject): ValidationInfo {
@@ -316,7 +328,7 @@ data class ValidationInfo(
             return ValidationInfo(
                 version = jsonObject.getInt("version"),
                 problems = problems,
-                failureReason = failureReason
+                failureReason = failureReason,
             )
         }
     }
@@ -325,11 +337,14 @@ data class ValidationInfo(
         val result = JSONObject()
         result.put("version", version)
         if (!problems.isEmpty()) {
-            result.put("problems", JSONArray().apply {
-                problems.forEach {
-                    put(it.toJSON())
-                }
-            })
+            result.put(
+                "problems",
+                JSONArray().apply {
+                    problems.forEach {
+                        put(it.toJSON())
+                    }
+                },
+            )
         }
         failureReason?.let {
             result.put("failueReason", it.toJSON())
@@ -340,13 +355,13 @@ data class ValidationInfo(
 
 data class ProblemInfo(
     val name: String,
-    val count: Int
+    val count: Int,
 ) {
     companion object {
         fun fromJSON(jsonObject: JSONObject): ProblemInfo {
             return ProblemInfo(
                 name = jsonObject.getString("name"),
-                count = intOrZero(jsonObject, "count")
+                count = intOrZero(jsonObject, "count"),
             )
         }
 
@@ -372,33 +387,33 @@ data class ProblemInfo(
 data class FailureReason(
     val name: FailureName,
     val message: String? = null,
-    val code: Int = -1
+    val code: Int = -1,
 ) {
     companion object {
         fun fromJSON(jsonObject: JSONObject): FailureReason? {
             return jsonObject.getString("name").let {
                 when (it) {
                     "shutdownerror" -> FailureReason(
-                        name = FailureName.Shutdown
+                        name = FailureName.Shutdown,
                     )
                     "othererror" -> FailureReason(
                         name = FailureName.Other,
-                        message = jsonObject.getString("error")
+                        message = jsonObject.getString("error"),
                     )
                     "unexpectederror" -> FailureReason(
                         name = FailureName.Unexpected,
-                        message = jsonObject.getString("error")
+                        message = jsonObject.getString("error"),
                     )
                     "autherror" -> FailureReason(
                         name = FailureName.Auth,
-                        message = jsonObject.getString("from")
+                        message = jsonObject.getString("from"),
                     )
                     "httperror" -> FailureReason(
                         name = FailureName.Http,
-                        code = jsonObject.getInt("code")
+                        code = jsonObject.getInt("code"),
                     )
                     else -> FailureReason(
-                        name = FailureName.Unknown
+                        name = FailureName.Unknown,
                     )
                 }
             }
@@ -442,7 +457,7 @@ data class EventInfo(
     val obj: String,
     val method: String,
     val value: String?,
-    val extra: Map<String, String>
+    val extra: Map<String, String>,
 ) {
     companion object {
         fun fromJSON(jsonObject: JSONObject): EventInfo {
@@ -459,7 +474,7 @@ data class EventInfo(
                 obj = jsonObject.getString("object"),
                 method = jsonObject.getString("method"),
                 value = stringOrNull(jsonObject, "value"),
-                extra = extra
+                extra = extra,
             )
         }
 

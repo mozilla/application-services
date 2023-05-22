@@ -32,11 +32,11 @@ class NimbusDelegate(
      */
     val updateScope: CoroutineScope? = MainScope(),
     val errorReporter: ErrorReporter,
-    val logger: LoggerFunction
+    val logger: LoggerFunction,
 ) {
     companion object {
         private fun createCoroutineScope() = CoroutineScope(
-            Executors.newSingleThreadExecutor().asCoroutineDispatcher()
+            Executors.newSingleThreadExecutor().asCoroutineDispatcher(),
         )
 
         private const val logTag = "app-services-Nimbus.kt"
@@ -45,7 +45,7 @@ class NimbusDelegate(
             dbScope = createCoroutineScope(),
             fetchScope = createCoroutineScope(),
             errorReporter = { msg: String, e: Throwable -> Log.e(logTag, msg, e) },
-            logger = { Log.i(logTag, it) }
+            logger = { Log.i(logTag, it) },
         )
     }
 }

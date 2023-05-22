@@ -2,14 +2,14 @@ package mozilla.appservices.remotetabs
 
 import mozilla.appservices.Megazord
 import mozilla.appservices.syncmanager.SyncManager
-import org.junit.runner.RunWith
-import org.robolectric.RobolectricTestRunner
-import org.robolectric.annotation.Config
 import org.junit.Assert
 import org.junit.Before
 import org.junit.Rule
 import org.junit.Test
 import org.junit.rules.TemporaryFolder
+import org.junit.runner.RunWith
+import org.robolectric.RobolectricTestRunner
+import org.robolectric.annotation.Config
 
 @RunWith(RobolectricTestRunner::class)
 @Config(manifest = Config.NONE)
@@ -31,20 +31,22 @@ class RemoteTabsTest {
     fun setLocalTabsTest() {
         val store = getTestStore()
         store.use { tabs ->
-            tabs.setLocalTabs(listOf(
-                RemoteTab(
-                    title = "cool things to look at in your remote tabs",
-                    urlHistory = listOf("https://example.com"),
-                    icon = null,
-                    lastUsed = 0
+            tabs.setLocalTabs(
+                listOf(
+                    RemoteTab(
+                        title = "cool things to look at in your remote tabs",
+                        urlHistory = listOf("https://example.com"),
+                        icon = null,
+                        lastUsed = 0,
+                    ),
+                    RemoteTab(
+                        title = "cool things to look at in your remote tabs",
+                        urlHistory = listOf(),
+                        icon = null,
+                        lastUsed = 12,
+                    ),
                 ),
-                RemoteTab(
-                    title = "cool things to look at in your remote tabs",
-                    urlHistory = listOf(),
-                    icon = null,
-                    lastUsed = 12
-                )
-            ))
+            )
         }
     }
 

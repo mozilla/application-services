@@ -49,7 +49,7 @@ private const val NIMBUS_DATA_DIR: String = "nimbus_data"
  */
 data class NimbusServerSettings(
     val url: Uri,
-    val collection: String = EXPERIMENT_COLLECTION_NAME
+    val collection: String = EXPERIMENT_COLLECTION_NAME,
 )
 
 /**
@@ -62,7 +62,7 @@ open class Nimbus(
     server: NimbusServerSettings?,
     deviceInfo: NimbusDeviceInfo,
     private val observer: NimbusInterface.Observer? = null,
-    delegate: NimbusDelegate
+    delegate: NimbusDelegate,
 ) : NimbusInterface {
     // An I/O scope is used for reading or writing from the Nimbus's RKV database.
     private val dbScope: CoroutineScope = delegate.dbScope
@@ -93,7 +93,7 @@ open class Nimbus(
         // the appservices megazord for compiled code.
         System.setProperty(
             "uniffi.component.nimbus.libraryOverride",
-            System.getProperty("mozilla.appservices.megazord.library", "megazord")
+            System.getProperty("mozilla.appservices.megazord.library", "megazord"),
         )
         // Build a File object to represent the data directory for Nimbus data
         val dataDir = File(context.applicationInfo.dataDir, NIMBUS_DATA_DIR)
@@ -105,7 +105,7 @@ open class Nimbus(
         val remoteSettingsConfig = server?.let {
             RemoteSettingsConfig(
                 serverUrl = it.url.toString(),
-                collectionName = it.collection
+                collectionName = it.collection,
             )
         }
 
@@ -115,7 +115,7 @@ open class Nimbus(
             remoteSettingsConfig,
             // The "dummy" field here is required for obscure reasons when generating code on desktop,
             // so we just automatically set it to a dummy value.
-            AvailableRandomizationUnits(clientId = null, userId = null, dummy = 0)
+            AvailableRandomizationUnits(clientId = null, userId = null, dummy = 0),
         )
     }
 
@@ -138,9 +138,11 @@ open class Nimbus(
         try {
             nimbusClient.getFeatureConfigVariables(featureId)?.let { JSONObject(it) }
         } catch (e: NimbusException.DatabaseNotReady) {
-            NimbusHealth.cacheNotReadyForFeature.record(NimbusHealth.CacheNotReadyForFeatureExtra(
-                featureId = featureId
-            ))
+            NimbusHealth.cacheNotReadyForFeature.record(
+                NimbusHealth.CacheNotReadyForFeatureExtra(
+                    featureId = featureId,
+                ),
+            )
             null
         } catch (e: Throwable) {
             reportError("getFeatureConfigVariablesJson", e)
@@ -167,7 +169,7 @@ open class Nimbus(
             }
             JSONVariables(context, json)
         }
-        ?: NullVariables.instance
+            ?: NullVariables.instance
 
     @WorkerThread
     override fun getExperimentBranches(experimentId: String): List<Branch>? = withCatchAll("getExperimentBranches") {
@@ -409,7 +411,7 @@ open class Nimbus(
     override fun createMessageHelper(additionalContext: JSONObject?): GleanPlumbMessageHelper =
         GleanPlumbMessageHelper(
             nimbusClient.createTargetingHelper(additionalContext),
-            nimbusClient.createStringHelper(additionalContext)
+            nimbusClient.createStringHelper(additionalContext),
         )
 
     @VisibleForTesting(otherwise = VisibleForTesting.PRIVATE)
@@ -421,7 +423,7 @@ open class Nimbus(
             Glean.setExperimentActive(
                 experiment.slug,
                 experiment.branchSlug,
-                mapOf("enrollmentId" to experiment.enrollmentId)
+                mapOf("enrollmentId" to experiment.enrollmentId),
             )
         }
     }
@@ -431,38 +433,48 @@ open class Nimbus(
         enrollmentChangeEvents.forEach { event ->
             when (event.change) {
                 EnrollmentChangeEventType.ENROLLMENT -> {
-                    NimbusEvents.enrollment.record(NimbusEvents.EnrollmentExtra(
-                        experiment = event.experimentSlug,
-                        branch = event.branchSlug,
-                        enrollmentId = event.enrollmentId
-                    ))
+                    NimbusEvents.enrollment.record(
+                        NimbusEvents.EnrollmentExtra(
+                            experiment = event.experimentSlug,
+                            branch = event.branchSlug,
+                            enrollmentId = event.enrollmentId,
+                        ),
+                    )
                 }
                 EnrollmentChangeEventType.DISQUALIFICATION -> {
-                    NimbusEvents.disqualification.record(NimbusEvents.DisqualificationExtra(
-                        experiment = event.experimentSlug,
-                        branch = event.branchSlug,
-                        enrollmentId = event.enrollmentId
-                    ))
+                    NimbusEvents.disqualification.record(
+                        NimbusEvents.DisqualificationExtra(
+                            experiment = event.experimentSlug,
+                            branch = event.branchSlug,
+                            enrollmentId = event.enrollmentId,
+                        ),
+                    )
                 }
                 EnrollmentChangeEventType.UNENROLLMENT -> {
-                    NimbusEvents.unenrollment.record(NimbusEvents.UnenrollmentExtra(
-                        experiment = event.experimentSlug,
-                        branch = event.branchSlug,
-                        enrollmentId = event.enrollmentId
-                    ))
+                    NimbusEvents.unenrollment.record(
+                        NimbusEvents.UnenrollmentExtra(
+                            experiment = event.experimentSlug,
+                            branch = event.branchSlug,
+                            enrollmentId = event.enrollmentId,
+                        ),
+                    )
                 }
                 EnrollmentChangeEventType.ENROLL_FAILED -> {
-                    NimbusEvents.enrollFailed.record(NimbusEvents.EnrollFailedExtra(
-                        experiment = event.experimentSlug,
-                        branch = event.branchSlug,
-                        reason = event.reason
-                    ))
+                    NimbusEvents.enrollFailed.record(
+                        NimbusEvents.EnrollFailedExtra(
+                            experiment = event.experimentSlug,
+                            branch = event.branchSlug,
+                            reason = event.reason,
+                        ),
+                    )
                 }
                 EnrollmentChangeEventType.UNENROLL_FAILED -> {
-                    NimbusEvents.unenrollFailed.record(NimbusEvents.UnenrollFailedExtra(
-                        experiment = event.experimentSlug,
-                        reason = event.reason
-                    ))
+                    NimbusEvents.unenrollFailed.record(
+                        NimbusEvents.UnenrollFailedExtra(
+                            experiment = event.experimentSlug,
+                            reason = event.reason,
+                        ),
+                    )
                 }
             }
         }
@@ -485,8 +497,8 @@ open class Nimbus(
             NimbusEvents.ExposureExtra(
                 experiment = enrollment.slug,
                 branch = branch,
-                featureId = featureId
-            )
+                featureId = featureId,
+            ),
         )
     }
 
@@ -504,8 +516,8 @@ open class Nimbus(
                 experiment = enrollment?.slug,
                 branch = enrollment?.branch,
                 featureId = featureId,
-                partId = partId
-            )
+                partId = partId,
+            ),
         )
     }
 
@@ -538,6 +550,7 @@ open class Nimbus(
             osVersion = Build.VERSION.RELEASE,
             installationDate = packageInfo?.firstInstallTime,
             homeDirectory = context.applicationInfo?.dataDir,
-            customTargetingAttributes = appInfo.customTargetingAttributes)
+            customTargetingAttributes = appInfo.customTargetingAttributes,
+        )
     }
 }

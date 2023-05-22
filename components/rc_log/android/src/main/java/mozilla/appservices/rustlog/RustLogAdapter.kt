@@ -14,7 +14,7 @@ class RustLogAdapter private constructor(
     // IMPORTANT: This must not be GCed while the adapter is alive!
     @Suppress("Unused")
     private val callbackImpl: RawLogCallbackImpl,
-    private val adapter: RawLogAdapter
+    private val adapter: RawLogAdapter,
 ) {
     companion object {
         @Volatile
@@ -53,11 +53,11 @@ class RustLogAdapter private constructor(
             }
             // Tell JNA to reuse the callback thread.
             val initializer = CallbackThreadInitializer(
-                    // Don't block JVM shutdown waiting for this thread to exit.
-                    /* daemon */ true,
-                    // Don't detach the JVM from this thread after invoking the callback.
-                    /* detach */ false,
-                    /* name */ "RustLogThread"
+                // Don't block JVM shutdown waiting for this thread to exit.
+                /* daemon */ true,
+                // Don't detach the JVM from this thread after invoking the callback.
+                /* detach */ false,
+                /* name */ "RustLogThread",
             )
             val callbackImpl = RawLogCallbackImpl(onLog)
             Native.setCallbackThreadInitializer(callbackImpl, initializer)
@@ -105,8 +105,8 @@ class RustLogAdapter private constructor(
             if (isEnabled) {
                 rustCall { e ->
                     LibRustLogAdapter.INSTANCE.rc_log_adapter_set_max_level(
-                            level.value,
-                            e
+                        level.value,
+                        e,
                     )
                 }
             }
@@ -145,14 +145,19 @@ class LogAdapterUnexpectedError(msg: String) : LogAdapterError("Unexpected log a
 enum class LogLevelFilter(internal val value: Int) {
     /** Disable all logging */
     OFF(0),
+
     /** Only allow ERROR logs. */
     ERROR(1),
+
     /** Allow WARN and ERROR logs. */
     WARN(2),
+
     /** Allow WARN, ERROR, and INFO logs. The default. */
     INFO(3),
+
     /** Allow WARN, ERROR, INFO, and DEBUG logs. */
     DEBUG(4),
+
     /** Allow all logs, including those that may contain PII. */
     TRACE(5),
 }

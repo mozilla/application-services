@@ -20,7 +20,7 @@ class EventStoreTest {
 
     private val appInfo = NimbusAppInfo(
         appName = "NimbusUnitTest",
-        channel = "test"
+        channel = "test",
     )
 
     private val nimbus = TestNimbusBuilder(context).build(appInfo)
