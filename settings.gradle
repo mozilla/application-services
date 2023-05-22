@@ -11,7 +11,7 @@ includeBuild('tools/nimbus-gradle-plugin') {
 
 buildscript {
     dependencies {
-        classpath 'org.yaml:snakeyaml:1.23'
+        classpath 'org.yaml:snakeyaml:2.0'
     }
     repositories {
         jcenter()
