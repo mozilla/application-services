@@ -80,7 +80,10 @@ impl FmlClient {
     pub fn merge(&self, feature_configs: Vec<JsonObject>) -> Result<MergedJsonWithErrors> {
         let mut json = self.default_json.clone();
         let mut errors: Vec<FMLError> = Default::default();
-        let configs: Vec<FeatureConfig> = feature_configs.iter().map(|fc| serde_json::from_value(Value::Object(fc.to_owned())).unwrap()).collect();
+        let configs: Vec<FeatureConfig> = feature_configs
+            .iter()
+            .map(|fc| serde_json::from_value(Value::Object(fc.to_owned())).unwrap())
+            .collect();
         for feature_config in configs {
             match self
                 .manifest
@@ -217,22 +220,28 @@ mod unit_tests {
     fn test_validate_and_merge_feature_configs() -> Result<()> {
         let client: FmlClient = create_manifest().into();
 
-        let result = client.merge(
-            vec![
-                Map::from_iter([
-                    ("featureId".to_string(), Value::String("feature".into())),
-                    ("value".to_string(), Value::Object(Map::from_iter([
-                        ("prop_1".to_string(), Value::String("new value".to_string()))
-                    ])))
-                ]),
-                Map::from_iter([
-                    ("featureId".to_string(), Value::String("feature_i".into())),
-                    ("value".to_string(), Value::Object(Map::from_iter([
-                        ("prop_i_1".to_string(), Value::Number(Number::from(1)))
-                    ])))
-                ])
-            ]
-        )?;
+        let result = client.merge(vec![
+            Map::from_iter([
+                ("featureId".to_string(), Value::String("feature".into())),
+                (
+                    "value".to_string(),
+                    Value::Object(Map::from_iter([(
+                        "prop_1".to_string(),
+                        Value::String("new value".to_string()),
+                    )])),
+                ),
+            ]),
+            Map::from_iter([
+                ("featureId".to_string(), Value::String("feature_i".into())),
+                (
+                    "value".to_string(),
+                    Value::Object(Map::from_iter([(
+                        "prop_i_1".to_string(),
+                        Value::Number(Number::from(1)),
+                    )])),
+                ),
+            ]),
+        ])?;
 
         assert_eq!(
             serde_json::from_str::<Value>(&result.json)?,
