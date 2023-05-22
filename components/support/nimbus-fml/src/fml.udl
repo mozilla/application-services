@@ -12,6 +12,9 @@ dictionary MergedJsonWithErrors {
     sequence<FMLError> errors;
 };
 
+[Custom]
+typedef string JsonObject;
+
 interface FmlClient {
     // Constructs a new FmlClient object.
     //
@@ -23,12 +26,12 @@ interface FmlClient {
 
     // Validates a supplied feature configuration. Returns true or an FMLError.
     [Throws=FMLError]
-    boolean validate_feature_config(string feature_config);
+    boolean is_feature_valid(string feature_id, JsonObject value);
 
     // Validates a supplied list of feature configurations. The valid configurations will be merged into the manifest's
     // default feature JSON, and invalid configurations will be returned as a list of their respective errors.
     [Throws=FMLError]
-    MergedJsonWithErrors validate_feature_configs_and_merge_into_defaults(string feature_config);
+    MergedJsonWithErrors merge(sequence<JsonObject> feature_configs);
 
     // Returns the default feature JSON for the loaded FML's selected channel.
     [Throws=FMLError]

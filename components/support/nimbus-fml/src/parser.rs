@@ -216,7 +216,6 @@ impl ManifestFrontEnd {
         self.features
             .iter()
             .map(|(name, body)| {
-                #[allow(deprecated)]
                 let mut def = FeatureDef {
                     name: name.clone(),
                     doc: body.description.clone(),
@@ -225,7 +224,6 @@ impl ManifestFrontEnd {
                         .iter()
                         .map(|v| self.get_prop_def_from_field(v))
                         .collect(),
-                    default: Default::default(),
                 };
 
                 merger.merge_feature_defaults(&mut def, &body.default)?;
@@ -392,8 +390,6 @@ fn collect_channel_defaults(
 }
 
 pub struct DefaultsMerger<'object> {
-    #[deprecated]
-    defaults: HashMap<String, serde_json::Value>,
     objects: HashMap<String, &'object ObjectDef>,
 
     supported_channels: Vec<String>,
@@ -411,7 +407,6 @@ impl<'object> DefaultsMerger<'object> {
             objects,
             supported_channels,
             channel,
-            defaults: Default::default(),
         }
     }
 
@@ -429,11 +424,6 @@ impl<'object> DefaultsMerger<'object> {
     }
 
     fn collect_object_defaults(&self, nm: &str) -> Result<serde_json::Value> {
-        #[allow(deprecated)]
-        if let Some(value) = self.defaults.get(nm) {
-            return Ok(value.clone());
-        }
-
         if !self.objects.contains_key(nm) {
             return Err(FMLError::ValidationError(
                 format!("objects/{}", nm),
