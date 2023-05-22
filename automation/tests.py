@@ -310,7 +310,7 @@ def run_ios_tests():
         print("WARNING: skipping iOS tests on non-Darwin host")
 
 def run_python_tests():
-    run_command([AUTOMATION_DIR / 'run_python_tests.sh'])
+    run_command([PROJECT_ROOT / 'megazords/cirrus/tests/run_python_tests.sh'])
 
 def cargo_fmt(package=None, fix_issues=False):
     cmdline = ['cargo', 'fmt']
