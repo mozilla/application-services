@@ -2,7 +2,7 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-package org.mozilla.appservices.syncmanager
+package mozilla.appservices.syncmanager
 
 import mozilla.appservices.sync15.EngineInfo
 import mozilla.appservices.sync15.FailureReason
@@ -21,7 +21,7 @@ internal data class BaseGleanSyncPing(
     val uploaded: Int,
     val failedToUpload: Int,
     val outgoingBatches: Int,
-    val failureReason: FailureReason?,
+    val failureReason: FailureReason?
 ) {
     companion object {
         const val MILLIS_PER_SEC = 1000L
@@ -50,7 +50,7 @@ internal data class BaseGleanSyncPing(
                 uploaded = uploaded,
                 failedToUpload = failedToUpload,
                 outgoingBatches = info.outgoing.size,
-                failureReason = info.failureReason,
+                failureReason = info.failureReason
             )
         }
     }

@@ -2,7 +2,7 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-package org.mozilla.appservices.syncmanager
+package mozilla.appservices.syncmanager
 
 import androidx.test.core.app.ApplicationProvider
 import androidx.test.ext.junit.runners.AndroidJUnit4
@@ -43,6 +43,7 @@ import java.util.UUID
 private fun Date.asSeconds() = time / BaseGleanSyncPing.MILLIS_PER_SEC
 
 @RunWith(AndroidJUnit4::class)
+@Suppress("LargeClass")
 class SyncTelemetryTest {
     @get:Rule
     val gleanRule = GleanTestRule(ApplicationProvider.getApplicationContext())
@@ -74,7 +75,7 @@ class SyncTelemetryTest {
                                 incoming = null,
                                 outgoing = emptyList(),
                                 failureReason = null,
-                                validation = null,
+                                validation = null
                             ),
                             EngineInfo(
                                 name = "history",
@@ -84,23 +85,23 @@ class SyncTelemetryTest {
                                     applied = 5,
                                     failed = 4,
                                     newFailed = 3,
-                                    reconciled = 2,
+                                    reconciled = 2
                                 ),
                                 outgoing = listOf(
                                     OutgoingInfo(
                                         sent = 10,
-                                        failed = 5,
+                                        failed = 5
                                     ),
                                     OutgoingInfo(
                                         sent = 4,
-                                        failed = 2,
-                                    ),
+                                        failed = 2
+                                    )
                                 ),
                                 failureReason = null,
-                                validation = null,
-                            ),
+                                validation = null
+                            )
                         ),
-                        failureReason = null,
+                        failureReason = null
                     ),
                     SyncInfo(
                         at = now + 10,
@@ -113,14 +114,14 @@ class SyncTelemetryTest {
                                 incoming = null,
                                 outgoing = emptyList(),
                                 failureReason = null,
-                                validation = null,
-                            ),
+                                validation = null
+                            )
                         ),
-                        failureReason = null,
-                    ),
+                        failureReason = null
+                    )
                 ),
-                events = emptyList(),
-            ),
+                events = emptyList()
+            )
         ) {
             when (pingCount) {
                 0 -> {
@@ -149,7 +150,7 @@ class SyncTelemetryTest {
                                 incoming["reconciled"],
                                 outgoing["uploaded"],
                                 outgoing["failed_to_upload"],
-                                outgoingBatches,
+                                outgoingBatches
                             ).none { it.testGetValue() != null },
                         )
                         assertNull(Sync.syncUuid.testGetValue("history-sync"))
@@ -187,7 +188,7 @@ class SyncTelemetryTest {
                                 incoming = null,
                                 outgoing = emptyList(),
                                 failureReason = FailureReason(FailureName.Unknown, "Boxes not locked"),
-                                validation = null,
+                                validation = null
                             ),
                             // Multiple history engine syncs per sync isn't
                             // expected, but it's easier to test the
@@ -201,7 +202,7 @@ class SyncTelemetryTest {
                                 incoming = null,
                                 outgoing = emptyList(),
                                 failureReason = FailureReason(FailureName.Shutdown),
-                                validation = null,
+                                validation = null
                             ),
                             EngineInfo(
                                 name = "history",
@@ -210,7 +211,7 @@ class SyncTelemetryTest {
                                 incoming = null,
                                 outgoing = emptyList(),
                                 failureReason = FailureReason(FailureName.Unknown, "Synergies not aligned"),
-                                validation = null,
+                                validation = null
                             ),
                             EngineInfo(
                                 name = "history",
@@ -219,7 +220,7 @@ class SyncTelemetryTest {
                                 incoming = null,
                                 outgoing = emptyList(),
                                 failureReason = FailureReason(FailureName.Http, code = 418),
-                                validation = null,
+                                validation = null
                             ),
                         ),
                         failureReason = null,
@@ -903,6 +904,7 @@ class SyncTelemetryTest {
     }
 
     @Test
+    @Suppress("ComplexMethod")
     fun `sends a global sync ping alongside individual data type pings`() {
         val pings = mutableListOf<MutableMap<String, Int>>(HashMap())
         var globalPingCount = 0
