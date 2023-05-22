@@ -23,8 +23,6 @@ use std::convert::{TryFrom, TryInto};
 impl FirefoxAccount {
     /// Get a short-lived OAuth access token for the user's account.
     ///
-    /// **💾 This method alters the persisted account state.**
-    ///
     /// Applications that need to access resources on behalf of the user must obtain an
     /// `access_token` in order to do so. For example, an access token is required when
     /// fetching the user's profile data, or when accessing their data stored in Firefox Sync.
@@ -57,8 +55,6 @@ impl FirefoxAccount {
 
     /// Get the session token for the user's account, if one is available.
     ///
-    /// **💾 This method alters the persisted account state.**
-    ///
     /// Applications that function as a web browser may need to hold on to a session token
     /// on behalf of Firefox Accounts web content. This method exists so that they can retreive
     /// it an pass it back to said web content when required.
@@ -76,8 +72,6 @@ impl FirefoxAccount {
     }
 
     /// Update the stored session token for the user's account.
-    ///
-    /// **💾 This method alters the persisted account state.**
     ///
     /// Applications that function as a web browser may need to hold on to a session token
     /// on behalf of Firefox Accounts web content. This method exists so that said web content
@@ -118,8 +112,6 @@ impl FirefoxAccount {
     }
 
     /// Clear the access token cache in response to an auth failure.
-    ///
-    /// **💾 This method alters the persisted account state.**
     ///
     /// Applications that receive an authentication error when trying to use an access token,
     /// should call this method before creating a new token and retrying the failed operation.

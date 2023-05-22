@@ -19,8 +19,6 @@ use error_support::handle_error;
 impl FirefoxAccount {
     /// Sign in by using legacy session-token state.
     ///
-    /// **💾 This method alters the persisted account state.**
-    ///
     /// When migrating to use the FxA client component, create a [`FirefoxAccount`] instance
     /// and then pass any legacy sign-in state to this method. It will attempt to use the
     /// session token to bootstrap a full internal state of OAuth tokens, and will store the
@@ -58,8 +56,6 @@ impl FirefoxAccount {
     }
 
     /// Retry a previously failed migration from legacy session-token state.
-    ///
-    /// **💾 This method alters the persisted account state.**
     ///
     /// If an earlier call to [`migrate_from_session_token`](FirefoxAccount::migrate_from_session_token)
     /// failed, it may have stored the provided state for retrying at a later time. Call this method

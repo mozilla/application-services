@@ -17,8 +17,6 @@ use crate::{Error, Result};
 
 impl FirefoxAccount {
     /// Generate the Send Tab command to be registered with the server.
-    ///
-    /// **💾 This method alters the persisted account state.**
     pub(crate) fn generate_send_tab_command_data(&mut self) -> Result<String> {
         let own_keys = self.load_or_generate_keys()?;
         let public_keys: PublicSendTabKeys = own_keys.into();

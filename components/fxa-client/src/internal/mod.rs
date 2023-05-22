@@ -74,8 +74,6 @@ impl FirefoxAccount {
     }
 
     /// Create a new `FirefoxAccount` instance using a `Config`.
-    ///
-    /// **💾 This method alters the persisted account state.**
     pub fn with_config(config: Config) -> Self {
         Self::from_state(State {
             config,
@@ -99,8 +97,6 @@ impl FirefoxAccount {
     /// * `redirect_uri` - The OAuth `redirect_uri`.
     /// * `token_server_url_override` - Override the Token Server URL provided
     ///                                 by the FxA's autoconfig endpoint.
-    ///
-    /// **💾 This method alters the persisted account state.**
     pub fn new(
         content_url: &str,
         client_id: &str,
@@ -226,8 +222,6 @@ impl FirefoxAccount {
     /// leave the account object in a state where it can eventually reconnect to the same user.
     /// This is a "best effort" infallible method: e.g. if the network is unreachable,
     /// the device could still be in the FxA devices manager.
-    ///
-    /// **💾 This method alters the persisted account state.**
     pub fn disconnect(&mut self) {
         let current_device_result;
         {

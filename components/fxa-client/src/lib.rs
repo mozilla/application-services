@@ -55,6 +55,7 @@ pub use profile::Profile;
 pub use push::{
     AccountEvent, DevicePushSubscription, IncomingDeviceCommand, SendTabPayload, TabHistoryEntry,
 };
+pub use storage::FxaStorage;
 pub use token::{AccessTokenInfo, AuthorizationParameters, ScopedKey};
 
 // All the implementation details live in this "internal" module.
@@ -85,11 +86,12 @@ pub struct FirefoxAccount {
 impl FirefoxAccount {
     /// Create a new [`FirefoxAccount`] instance, not connected to any account.
     ///
-    /// **💾 This method alters the persisted account state.**
-    ///
     /// This method constructs as new [`FirefoxAccount`] instance configured to connect
     /// the application to a user's account.
-    pub fn new(config: FxaConfig) -> FirefoxAccount {
+    ///
+    /// A async call to the `FxaStorage::load_state` will be queued to restore the state from
+    /// before the last shutdown.
+    pub fn new(config: FxaConfig, storage: Box<dyn FxaStorage>) -> FirefoxAccount {
         unimplemented!()
     }
 }

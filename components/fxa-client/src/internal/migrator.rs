@@ -30,8 +30,6 @@ impl FirefoxAccount {
     /// This method remembers the provided token details and may persist them in the
     /// account state if it encounters a temporary failure such as a network error.
     /// Calling code is expected to store the updated state even if an error is thrown.
-    ///
-    /// **💾 This method alters the persisted account state.**
     pub fn migrate_from_session_token(
         &mut self,
         session_token: &str,
