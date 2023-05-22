@@ -37,26 +37,24 @@ def test_default_json(fml_client):
     assert defaults["example-feature"].get("something") is None
 
 
-def test_validate_single_feature(fml_client):
+def test_is_feature_valid(fml_client):
     client = fml_client("test.fml.yml", "developer")
-    config = {"featureId": "example-feature", "value": {"enabled": True}}
-    assert client.validate_feature_config(json.dumps(config)) is True
+    config = {"enabled": True}
+    assert client.is_feature_valid("example-feature", config) is True
 
 
-def test_validate_single_feature_false_invalid_feature(fml_client):
+def test_is_feature_valid_is_invalid(fml_client):
     client = fml_client("test.fml.yml", "developer")
-    config = {"featureId": "example-featurea", "value": {"enabled": True}}
+    config = {"enabled": True}
 
     with pytest.raises(FmlError):
-        client.validate_feature_config(json.dumps(config))
+        client.is_feature_valid("example-featurea", config)
 
 
-def test_merge_and_validate(fml_client):
+def test_merge(fml_client):
     client = fml_client("test.fml.yml", "developer")
     configs = [{"featureId": "example-feature", "value": {"enabled": True}}]
-    result = client.validate_feature_configs_and_merge_into_defaults(
-        json.dumps(configs)
-    )
+    result = client.merge(configs)
     assert len(result.errors) == 0
 
     result_json = json.loads(result.json)["example-feature"]
@@ -65,29 +63,25 @@ def test_merge_and_validate(fml_client):
 
 
 @pytest.mark.skip(reason="This functionality is hindered by EXP-3503")
-def test_merge_and_validate_error_on_invalid_key(fml_client):
+def test_merge_error_on_invalid_key(fml_client):
     client = fml_client("test.fml.yml", "developer")
     configs = [{"featureId": "example-feature", "value": {"enabled1": False}}]
-    result = client.validate_feature_configs_and_merge_into_defaults(
-        json.dumps(configs)
-    )
+    result = client.merge(configs)
 
     assert len(result.errors) == 1
     assert isinstance(result.errors[0], FmlError)
 
 
-def test_merge_and_validate_error_on_invalid_value(fml_client):
+def test_merge_error_on_invalid_value(fml_client):
     client = fml_client("test.fml.yml", "developer")
     configs = [{"featureId": "example-feature", "value": {"enabled": "false"}}]
-    result = client.validate_feature_configs_and_merge_into_defaults(
-        json.dumps(configs)
-    )
+    result = client.merge(configs)
 
     assert len(result.errors) == 1
     assert isinstance(result.errors[0], FmlError)
 
 
-def test_merge_and_validate_on_included_and_imported_features(fml_client):
+def test_merge_included_and_imported_features(fml_client):
     client = fml_client(
         "test-include-import.fml.yml",
         "developer",
@@ -100,9 +94,7 @@ def test_merge_and_validate_on_included_and_imported_features(fml_client):
             "value": {"enabled": True},
         },
     ]
-    result = client.validate_feature_configs_and_merge_into_defaults(
-        json.dumps(configs)
-    )
+    result = client.merge(configs)
 
     assert len(result.errors) == 0
 

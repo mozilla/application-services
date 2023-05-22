@@ -4,3 +4,8 @@
 
 [bindings.python]
 cdylib_name = "cirrus"
+
+[bindings.python.custom_types.JsonObject]
+imports = [ "json" ]
+into_custom = "json.loads({})"
+from_custom = "json.dumps({})"
