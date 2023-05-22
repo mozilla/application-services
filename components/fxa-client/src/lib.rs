@@ -40,6 +40,7 @@ mod account;
 mod auth;
 mod device;
 mod error;
+mod events;
 mod migration;
 mod profile;
 mod push;
@@ -47,9 +48,10 @@ mod storage;
 mod telemetry;
 mod token;
 
-pub use auth::{AuthorizationInfo, MetricsParams};
+pub use auth::{MetricsParams, OAuthResult};
 pub use device::{AttachedClient, Device, DeviceCapability, DeviceRecord};
 pub use error::{Error, FxaError};
+pub use events::FxaEventHandler;
 pub use migration::{FxAMigrationResult, MigrationState};
 pub use profile::Profile;
 pub use push::{
@@ -90,8 +92,14 @@ impl FirefoxAccount {
     /// the application to a user's account.
     ///
     /// A async call to the `FxaStorage::load_state` will be queued to restore the state from
-    /// before the last shutdown.
-    pub fn new(config: FxaConfig, storage: Box<dyn FxaStorage>) -> FirefoxAccount {
+    /// before the last shutdown.  The [`FirefoxAccount`] instance will be in the
+    /// [FxaState::Loading] state until then.
+    pub fn new(config: FxaConfig, storage: Box<dyn FxaStorage>, event_handler: Box<dyn FxaEventHandler>) -> FirefoxAccount {
+        unimplemented!()
+    }
+
+    /// Get the current state of the client
+    pub fn get_state(&self) -> FxaState {
         unimplemented!()
     }
 }
@@ -116,4 +124,21 @@ pub struct FxaConfig {
     pub token_server_url_override: Option<String>,
     /// Device record to register with the FxA server
     pub device_record: DeviceRecord,
+}
+
+/// Current state of the FxA client
+pub enum FxaState {
+    /// User is logged out
+    Disconnected,
+    /// User is logged in
+    Connected,
+    /// User has been logged out by some external event and needs to re-authenticate, for example a
+    /// password change from another device
+    ReauthenticationNeeded,
+    /// User is currently going through an oauth flow
+    Authenticating,
+    /// The client currently logging out
+    LoggingOut,
+    /// The client is waiting for the saved state to load
+    Loading,
 }

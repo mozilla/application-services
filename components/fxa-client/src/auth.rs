@@ -23,21 +23,15 @@
 //! Technical details of the pairing flow can be found in the [Firefox Accounts
 //! documentation hub](https://mozilla.github.io/ecosystem-platform/docs/features/firefox-accounts/pairing).
 
-use crate::{ApiResult, Error, FirefoxAccount};
+use crate::{ApiResult, Error, FirefoxAccount, FxaError};
 use error_support::handle_error;
 use std::collections::HashMap;
 
 impl FirefoxAccount {
     /// Initiate a web-based OAuth sign-in flow.
     ///
-    /// This method initializes some internal state and then returns a URL at which the
-    /// user may perform a web-based authorization flow to connect the application to
-    /// their account. The application should direct the user to the provided URL.
-    ///
-    /// When the resulting OAuth flow redirects back to the configured `redirect_uri`,
-    /// the query parameters should be extracting from the URL and passed to the
-    /// [`complete_oauth_flow`](FirefoxAccount::complete_oauth_flow) method to finalize
-    /// the signin.
+    /// This method initializes some internal state, then calls `begin_flow` on the consumer's
+    /// `OAuthHandler` instance.
     ///
     /// # Arguments
     ///
@@ -56,13 +50,8 @@ impl FirefoxAccount {
         scopes: &[String],
         entrypoint: &str,
         metrics: Option<MetricsParams>,
-    ) -> ApiResult<String> {
-        // UniFFI can't represent `&[&str]` yet, so convert it internally here.
-        let scopes = scopes.iter().map(String::as_str).collect::<Vec<_>>();
-        self.internal
-            .lock()
-            .unwrap()
-            .begin_oauth_flow(&scopes, entrypoint, metrics)
+    ) -> ApiResult<()> {
+        unimplemented!()
     }
 
     /// Get the URL at which to begin a device-pairing signin flow.
@@ -79,13 +68,7 @@ impl FirefoxAccount {
     /// Initiate a device-pairing sign-in flow.
     ///
     /// Once the user has scanned a pairing QR code, pass the scanned value to this
-    /// method. It will return a URL to which the application should redirect the user
-    /// in order to continue the sign-in flow.
-    ///
-    /// When the resulting flow redirects back to the configured `redirect_uri`,
-    /// the resulting OAuth parameters should be extracting from the URL and passed
-    /// to [`complete_oauth_flow`](FirefoxAccount::complete_oauth_flow) to finalize
-    /// the signin.
+    /// method.  It will call `begin_flow` on the consumer's `OAuthHandler` instance.
     ///
     /// # Arguments
     ///
@@ -106,47 +89,13 @@ impl FirefoxAccount {
         scopes: &[String],
         entrypoint: &str,
         metrics: Option<MetricsParams>,
-    ) -> ApiResult<String> {
-        // UniFFI can't represent `&[&str]` yet, so convert it internally here.
-        let scopes = scopes.iter().map(String::as_str).collect::<Vec<_>>();
-        self.internal
-            .lock()
-            .unwrap()
-            .begin_pairing_flow(pairing_url, &scopes, entrypoint, metrics)
+    ) -> ApiResult<()> {
+        unimplemented!()
     }
 
-    /// Complete an OAuth flow.
-    ///
-    /// At the conclusion of an OAuth flow, the user will be redirect to the
-    /// application's registered `redirect_uri`. It should extract the `code`
-    /// and `state` parameters from the resulting URL and pass them to this
-    /// method in order to complete the sign-in.
-    ///
-    /// # Arguments
-    ///
-    ///   - `code` - the OAuth authorization code obtained from the redirect URI.
-    ///   - `state` - the OAuth state parameter obtained from the redirect URI.
-    #[handle_error(Error)]
-    pub fn complete_oauth_flow(&self, code: &str, state: &str) -> ApiResult<()> {
-        self.internal
-            .lock()
-            .unwrap()
-            .complete_oauth_flow(code, state)
-    }
-
-    /// Check authorization status for this application.
-    ///
-    /// Applications may call this method to check with the FxA server about the status
-    /// of their authentication tokens. It returns an [`AuthorizationInfo`] struct
-    /// with details about whether the tokens are still active.
-    #[handle_error(Error)]
-    pub fn check_authorization_status(&self) -> ApiResult<AuthorizationInfo> {
-        Ok(self
-            .internal
-            .lock()
-            .unwrap()
-            .check_authorization_status()?
-            .into())
+    /// Cancel any in-progress oauth/pairing flows
+    pub fn cancel_oauth_flow(&self) {
+        unimplemented!()
     }
 
     /// Disconnect from the user's account.
@@ -164,12 +113,22 @@ impl FirefoxAccount {
     }
 }
 
-/// Information about the authorization state of the application.
-///
-/// This struct represents metadata about whether the application is currently
-/// connected to the user's account.
-pub struct AuthorizationInfo {
-    pub active: bool,
+/// OAuth handler.  These are defined in the foreign code
+pub trait OAuthHandler {
+    /// Start an OAuth flow at a URL
+    ///
+    /// When the resulting OAuth flow redirects back to the configured `redirect_uri`,
+    /// the query parameters should be extracting from the URL and returned.
+    fn begin_flow(&self, url: String) -> Result<OAuthResult, FxaError>;
+
+    /// Cancel the current OAuth flow
+    fn cancel(&self);
+}
+
+// Result of an Oauth flow, each field value should be extracted from the URL query parameters
+pub struct OAuthResult {
+    pub code: String,
+    pub state: String,
 }
 
 /// Additional metrics tracking parameters to include in an OAuth request.

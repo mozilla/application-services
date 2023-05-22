@@ -588,12 +588,6 @@ impl std::fmt::Debug for AccessTokenInfo {
     }
 }
 
-impl From<IntrospectInfo> for crate::AuthorizationInfo {
-    fn from(r: IntrospectInfo) -> Self {
-        crate::AuthorizationInfo { active: r.active }
-    }
-}
-
 #[cfg(test)]
 mod tests {
     use super::super::{http_client::*, Config};
