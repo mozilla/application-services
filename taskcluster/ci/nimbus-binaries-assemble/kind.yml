@@ -23,8 +23,7 @@ transforms:
 
 task-defaults:
   attributes:
-    # TODO: uncomment when we're done testing
-    # run-on-pr-type: full-ci
+    run-on-pr-type: full-ci
   worker-type: b-linux
   worker:
     chain-of-trust: true
