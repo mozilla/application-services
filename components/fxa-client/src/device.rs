@@ -20,43 +20,6 @@ use error_support::handle_error;
 use sync15::DeviceType;
 
 impl FirefoxAccount {
-    /// Create a new device record for this application.
-    ///
-    /// This method register a device record for the application, providing basic metadata for
-    /// the device along with a list of supported [Device Capabilities](DeviceCapability) for
-    /// participating in the "device commands" ecosystem.
-    ///
-    /// Applications should call this method soon after a successful sign-in, to ensure
-    /// they they appear correctly in the user's account-management pages and when discovered
-    /// by other devices connected to the account.
-    ///
-    /// # Arguments
-    ///
-    ///    - `name` - human-readable display name to use for this application
-    ///    - `device_type` - the [type](DeviceType) of device the application is installed on
-    ///    - `supported_capabilities` - the set of [capabilities](DeviceCapability) to register
-    ///       for this device in the "device commands" ecosystem.
-    ///
-    /// # Notes
-    ///
-    ///    - Device registration is only available to applications that have been
-    ///      granted the `https://identity.mozilla.com/apps/oldsync` scope.
-    #[handle_error(Error)]
-    pub fn initialize_device(
-        &self,
-        name: &str,
-        device_type: DeviceType,
-        supported_capabilities: Vec<DeviceCapability>,
-    ) -> ApiResult<()> {
-        // UniFFI doesn't have good handling of lists of references, work around it.
-        let supported_capabilities: Vec<_> =
-            supported_capabilities.into_iter().map(Into::into).collect();
-        self.internal
-            .lock()
-            .unwrap()
-            .initialize_device(name, device_type, &supported_capabilities)
-    }
-
     /// Get the device id registered for this application.
     ///
     /// # Notes
@@ -239,4 +202,14 @@ pub struct AttachedClient {
     pub created_time: Option<i64>,
     pub last_access_time: Option<i64>,
     pub scope: Option<Vec<String>>,
+}
+
+/// Device record information for the client.  This is passed in at startup.
+pub struct DeviceRecord {
+    /// human-readable display name to use for this application
+    pub name: String,
+    /// the type of of device the application is installed on
+    pub device_type: DeviceType,
+    /// capabilities to register for this device in the "device commands" ecosystem.
+    pub supported_capabilities: Vec<DeviceCapability>,
 }

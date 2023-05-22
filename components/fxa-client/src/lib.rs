@@ -48,7 +48,7 @@ mod telemetry;
 mod token;
 
 pub use auth::{AuthorizationInfo, MetricsParams};
-pub use device::{AttachedClient, Device, DeviceCapability};
+pub use device::{AttachedClient, Device, DeviceCapability, DeviceRecord};
 pub use error::{Error, FxaError};
 pub use migration::{FxAMigrationResult, MigrationState};
 pub use profile::Profile;
@@ -114,4 +114,6 @@ pub struct FxaConfig {
     ///  URL for the user's Sync Tokenserver. This can be used to support users who self-host their
     ///  sync data. If `None` then it will default to the Mozilla-hosted Sync server.
     pub token_server_url_override: Option<String>,
+    /// Device record to register with the FxA server
+    pub device_record: DeviceRecord,
 }
