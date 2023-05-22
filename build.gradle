@@ -325,7 +325,7 @@ tasks.register("ktlintFormat", JavaExec) {
     description = "Fix Kotlin code style deviations."
     classpath = configurations.ktlint
     main = "com.pinterest.ktlint.Main"
-    args "-F", "${projectDir}/components/**/*.kt", "${projectDir}/gradle-plugin/**/*.kt", "buildSrc/**/*.kt", "!**/build", "!components/external", "!**/generated/**"
+    args "-F", "${projectDir}/components/**/*.kt", "${projectDir}/gradle-plugin/**/*.kt", "buildSrc/**/*.kt", "!**/build", "!**/templates/**", "!components/external", "!**/generated/**"
 }
 
 // Extremely unsophisticated way to publish a local development version while hiding implementation details.
