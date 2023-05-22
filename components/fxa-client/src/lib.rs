@@ -89,32 +89,27 @@ impl FirefoxAccount {
     ///
     /// This method constructs as new [`FirefoxAccount`] instance configured to connect
     /// the application to a user's account.
-    ///
-    /// # Arguments
-    ///
-    ///   - `content_url` - the URL of the Firefox Accounts server to use
-    ///       - For example, use `https://accounts.firefox.com` for the main
-    ///         Mozilla-hosted service.
-    ///   - `client_id` - the registered OAuth client id of the application.
-    ///   - `redirect_uri` - the registered OAuth redirect URI of the application.
-    ///   - `token_server_url_override`: optionally, URL for the user's Sync Tokenserver.
-    ///        - This can be used to support users who self-host their sync data.
-    ///          If `None` then it will default to the Mozilla-hosted Sync server.
-    pub fn new(
-        content_url: &str,
-        client_id: &str,
-        redirect_uri: &str,
-        token_server_url_override: &Option<String>,
-    ) -> FirefoxAccount {
-        FirefoxAccount {
-            internal: std::sync::Mutex::new(internal::FirefoxAccount::new(
-                content_url,
-                client_id,
-                redirect_uri,
-                token_server_url_override.as_deref(),
-            )),
-        }
+    pub fn new(config: FxaConfig) -> FirefoxAccount {
+        unimplemented!()
     }
 }
 
-uniffi::include_scaffolding!("fxa_client");
+pub enum FxaServer {
+    Release,
+    Stable,
+    Stage,
+    China,
+    LocalDev,
+}
+
+pub struct FxaConfig {
+    /// FxaServer to connect with
+    pub server: FxaServer,
+    /// registered OAuth client id of the application.
+    pub client_id: String,
+    /// `redirect_uri` - the registered OAuth redirect URI of the application.
+    pub redirect_uri: String,
+    ///  URL for the user's Sync Tokenserver. This can be used to support users who self-host their
+    ///  sync data. If `None` then it will default to the Mozilla-hosted Sync server.
+    pub token_server_url_override: Option<String>,
+}
