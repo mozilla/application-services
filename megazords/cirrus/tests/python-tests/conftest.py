@@ -145,6 +145,8 @@ def cirrus_client(app_context, bucket_config):
 @pytest.fixture
 def fml_client():
     def _client(path, channel):
-        return FmlClient("./automation/python-tests/resources/" + path, channel)
+        return FmlClient(
+            "./megazords/cirrus/tests/python-tests/resources/" + path, channel
+        )
 
     return _client

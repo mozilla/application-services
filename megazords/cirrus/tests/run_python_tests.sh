@@ -15,4 +15,4 @@ else
   mv target/release/libcirrus.so ./
 fi
 
-PYTHONPATH=$PYTHONPATH:$(pwd) pytest -s automation/python-tests
+PYTHONPATH=$PYTHONPATH:$(pwd) pytest -s megazords/cirrus/tests/python-tests
