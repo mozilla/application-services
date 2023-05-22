@@ -676,18 +676,14 @@ pub struct FeatureDef {
     pub(crate) name: String,
     pub(crate) doc: String,
     pub(crate) props: Vec<PropDef>,
-    #[deprecated]
-    pub(crate) default: Option<Literal>,
 }
 impl FeatureDef {
     #[allow(dead_code)]
-    pub fn new(name: &str, doc: &str, props: Vec<PropDef>, default: Option<Literal>) -> Self {
-        #[allow(deprecated)]
+    pub fn new(name: &str, doc: &str, props: Vec<PropDef>) -> Self {
         Self {
             name: name.into(),
             doc: doc.into(),
             props,
-            default,
         }
     }
     pub fn name(&self) -> String {
@@ -698,11 +694,6 @@ impl FeatureDef {
     }
     pub fn props(&self) -> Vec<PropDef> {
         self.props.clone()
-    }
-    #[allow(deprecated)]
-    #[deprecated]
-    pub fn _default(&self) -> Option<Literal> {
-        self.default.clone()
     }
 
     pub fn default_json(&self) -> Value {
@@ -962,7 +953,6 @@ pub mod unit_tests {
                     "recently-saved": false,
                 }),
             }],
-            None,
         ));
         fm.validate_manifest()
             .expect_err("Should fail on duplicate feature defs");
@@ -1003,7 +993,6 @@ pub mod unit_tests {
                     }),
                 },
             ],
-            None,
         ));
         fm.validate_manifest()
             .expect_err("Should fail on duplicate props in the same feature");
@@ -1022,7 +1011,6 @@ pub mod unit_tests {
                 typ: TypeRef::Enum("EnumDoesntExist".into()),
                 default: json!(null),
             }],
-            None,
         ));
         fm.validate_manifest().expect_err(
             "Should fail since EnumDoesntExist isn't a an enum defined in the manifest",
@@ -1042,7 +1030,6 @@ pub mod unit_tests {
                 typ: TypeRef::Object("ObjDoesntExist".into()),
                 default: json!(null),
             }],
-            None,
         ));
         fm.validate_manifest().expect_err(
             "Should fail since ObjDoesntExist isn't a an Object defined in the manifest",
@@ -1062,7 +1049,6 @@ pub mod unit_tests {
                 typ: TypeRef::EnumMap(Box::new(TypeRef::String), Box::new(TypeRef::String)),
                 default: json!(null),
             }],
-            None,
         ));
         fm.validate_manifest()
             .expect_err("Should fail since the key on an EnumMap must be an Enum");
@@ -1081,7 +1067,6 @@ pub mod unit_tests {
                 typ: TypeRef::List(Box::new(TypeRef::Enum("EnumDoesntExist".into()))),
                 default: json!(null),
             }],
-            None,
         ));
         fm.validate_manifest()
             .expect_err("Should fail EnumDoesntExist isn't a an enum defined in the manifest");
@@ -1103,7 +1088,6 @@ pub mod unit_tests {
                 ),
                 default: json!(null),
             }],
-            None,
         ));
         fm.validate_manifest().expect_err(
             "Should fail since EnumDoesntExist isn't a an enum defined in the manifest",
@@ -1126,7 +1110,6 @@ pub mod unit_tests {
                 ),
                 default: json!(null),
             }],
-            None,
         ));
         fm.validate_manifest()
             .expect_err("Should fail since ObjDoesntExist isn't an Object defined in the manifest");
@@ -1145,7 +1128,6 @@ pub mod unit_tests {
                 typ: TypeRef::StringMap(Box::new(TypeRef::Enum("EnumDoesntExist".into()))),
                 default: json!(null),
             }],
-            None,
         ));
         fm.validate_manifest()
             .expect_err("Should fail since ObjDoesntExist isn't an Object defined in the manifest");
@@ -1164,7 +1146,6 @@ pub mod unit_tests {
                 typ: TypeRef::Option(Box::new(TypeRef::Option(Box::new(TypeRef::String)))),
                 default: json!(null),
             }],
-            None,
         ));
         fm.validate_manifest()
             .expect_err("Should fail since we can't have nested optionals");

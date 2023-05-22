@@ -81,7 +81,6 @@ pub(crate) fn get_simple_nimbus_validation_feature() -> FeatureManifest {
                     default: json!(["top", "bottom"]),
                 },
             ],
-            None,
         )],
         ..Default::default()
     }
@@ -153,11 +152,6 @@ pub(crate) fn get_with_objects_feature() -> FeatureManifest {
                     default: json!({}),
                 },
             ],
-            Some(json!({
-                "an-object-with-feature-defaults": {
-                    "a-string": "YES: overridden from the FEATURE"
-                }
-            })),
         )],
         ..Default::default()
     }
@@ -196,7 +190,6 @@ pub(crate) fn get_simple_homescreen_feature() -> FeatureManifest {
                     "pocket": false,
                 }),
             }],
-            None,
         )],
         ..Default::default()
     }
@@ -243,7 +236,6 @@ pub(crate) fn get_full_homescreen_feature() -> FeatureManifest {
                     default: json!(["top-sites", "jump-back-in", "recently-saved",]),
                 },
             ],
-            None,
         )],
         ..Default::default()
     }
