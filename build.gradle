@@ -317,7 +317,7 @@ tasks.register("ktlint", JavaExec) {
     description = "Check Kotlin code style."
     classpath = configurations.ktlint
     main = "com.pinterest.ktlint.Main"
-    args "${projectDir}/components/**/*.kt", "${projectDir}/gradle-plugin/**/*.kt", "buildSrc/**/*.kt", "!**/build", "!**/templates", "!components/external", "!**/generated/**"
+    args "${projectDir}/components/**/*.kt", "${projectDir}/gradle-plugin/**/*.kt", "buildSrc/**/*.kt", "!**/build", "!**/templates/**", "!components/external", "!**/generated/**"
 }
 
 tasks.register("ktlintFormat", JavaExec) {

@@ -249,6 +249,7 @@ class FeatureVariablesTest {
     }
 }
 
+// ktlint-disable enum-entry-name-case
 @Suppress("EnumNaming")
 enum class MenuItemId {
     settings,
@@ -259,6 +260,7 @@ enum class MenuItemId {
 
 data class MenuItem(val deepLink: String, val label: String)
 
+// ktlint-disable enum-entry-name-case
 @Suppress("EnumNaming")
 enum class NumKey {
     one,
