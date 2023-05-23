@@ -15,7 +15,7 @@ use crate::{
     schema::SuggestConnectionInitializer, RemoteRecordId, RemoteSuggestion, Result, Suggestion,
 };
 
-pub const LAST_FETCH_META_KEY: &'static str = "last_fetch";
+pub const LAST_FETCH_META_KEY: &str = "last_fetch";
 
 #[derive(Clone, Copy)]
 pub enum ConnectionType {
@@ -233,7 +233,7 @@ impl SuggestDb {
 
 fn full_keyword(query: &str, keywords: &[impl AsRef<str>]) -> String {
     let mut longer_phrase: Option<&str> = None;
-    let query_words_len = query.trim().split_whitespace().count();
+    let query_words_len = query.split_whitespace().count();
     for phrase in keywords
         .iter()
         .filter(|phrase| phrase.as_ref().starts_with(query))
