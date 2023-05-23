@@ -145,6 +145,12 @@ def setup_assemble_tasks(config, tasks):
                 }
                 for dep in build_task_deps
             ]
+            # Publish a JSON file with information about the build
+            task['worker']['artifacts'].append({
+                    'name': f'public/build/nimbus-cli.json',
+                    'path': f'/builds/worker/checkouts/vcs/build/nimbus-cli.json',
+                    'type': 'file',
+            })
 
             sources = [
                 f'/builds/worker/fetches/{binary}/{binary}-{dep.target}.zip'
@@ -156,6 +162,7 @@ def setup_assemble_tasks(config, tasks):
                 'commands': [
                     ['mkdir', '-p', 'build'],
                     ['cp'] + sources + ['build'],
+                    ['taskcluster/scripts/generate-nimbus-cli-json.py', 'build/nimbus-cli.json'],
                 ]
             }
 
