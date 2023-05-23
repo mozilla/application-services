@@ -53,7 +53,7 @@ def test_is_feature_valid_is_invalid(fml_client):
 
 def test_merge(fml_client):
     client = fml_client("test.fml.yml", "developer")
-    configs = [{"featureId": "example-feature", "value": {"enabled": True}}]
+    configs = {"example-feature": {"enabled": True}}
     result = client.merge(configs)
     assert len(result.errors) == 0
 
@@ -65,7 +65,7 @@ def test_merge(fml_client):
 @pytest.mark.skip(reason="This functionality is hindered by EXP-3503")
 def test_merge_error_on_invalid_key(fml_client):
     client = fml_client("test.fml.yml", "developer")
-    configs = [{"featureId": "example-feature", "value": {"enabled1": False}}]
+    configs = {"example-feature": {"enabled1": False}}
     result = client.merge(configs)
 
     assert len(result.errors) == 1
@@ -74,7 +74,7 @@ def test_merge_error_on_invalid_key(fml_client):
 
 def test_merge_error_on_invalid_value(fml_client):
     client = fml_client("test.fml.yml", "developer")
-    configs = [{"featureId": "example-feature", "value": {"enabled": "false"}}]
+    configs = {"example-feature": {"enabled": "false"}}
     result = client.merge(configs)
 
     assert len(result.errors) == 1
@@ -86,14 +86,11 @@ def test_merge_included_and_imported_features(fml_client):
         "test-include-import.fml.yml",
         "developer",
     )
-    configs = [
-        {"featureId": "example-feature", "value": {"enabled": True}},
-        {"featureId": "included-feature-1", "value": {"enabled": True}},
-        {
-            "featureId": "imported-module-1-included-feature-1",
-            "value": {"enabled": True},
-        },
-    ]
+    configs = {
+        "example-feature": {"enabled": True},
+        "included-feature-1": {"enabled": True},
+        "imported-module-1-included-feature-1": {"enabled": True},
+    }
     result = client.merge(configs)
 
     assert len(result.errors) == 0

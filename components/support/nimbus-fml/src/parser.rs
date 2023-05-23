@@ -402,7 +402,6 @@ impl<'object> DefaultsMerger<'object> {
         supported_channels: Vec<String>,
         channel: String,
     ) -> Self {
-        #[allow(deprecated)]
         Self {
             objects,
             supported_channels,

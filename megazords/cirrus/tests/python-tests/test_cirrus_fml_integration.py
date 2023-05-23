@@ -4,13 +4,15 @@
 import json
 
 
-# 1. create request
-# 2. enroll, convert response to dict from JSON
-# 3. map enrolledFeatureConfigMap values to the feature values
-# 4. create FmlClient
-# 5. merge feature configs into default JSON and validate their values against the manifest
-# 6. load JSON response as dict
 def test_enroll_and_get_enrolled_feature_json_control(fml_client, cirrus_client):
+    """
+    1. create request
+    2. enroll, convert response to dict from JSON
+    3. map enrolledFeatureConfigMap values to the feature values
+    4. create FmlClient
+    5. merge feature configs into default JSON and validate their values against the manifest
+    6. load JSON response as dict
+    """
     req = json.dumps(
         {
             "clientId": "jeddai",
@@ -18,9 +20,10 @@ def test_enroll_and_get_enrolled_feature_json_control(fml_client, cirrus_client)
         }
     )
     res = json.loads(cirrus_client.handle_enrollment(req))
-    feature_configs = [
-        value["feature"] for value in res["enrolledFeatureConfigMap"].values()
-    ]
+    feature_configs = {
+        key: value["feature"]["value"]
+        for key, value in res["enrolledFeatureConfigMap"].items()
+    }
 
     assert (
         res["enrolledFeatureConfigMap"]["imported-module-1-included-feature-1"]["slug"]
@@ -41,8 +44,8 @@ def test_enroll_and_get_enrolled_feature_json_control(fml_client, cirrus_client)
     assert len(merged_res.errors) == 0
 
 
-# repeat the above but with a different client/username on the request
 def test_enroll_and_get_enrolled_feature_json_treatment(fml_client, cirrus_client):
+    # repeat the above test but with a different client/username on the request
     req = json.dumps(
         {
             "clientId": "test",
@@ -50,9 +53,10 @@ def test_enroll_and_get_enrolled_feature_json_treatment(fml_client, cirrus_clien
         }
     )
     res = json.loads(cirrus_client.handle_enrollment(req))
-    feature_configs = [
-        value["feature"] for value in res["enrolledFeatureConfigMap"].values()
-    ]
+    feature_configs = {
+        key: value["feature"]["value"]
+        for key, value in res["enrolledFeatureConfigMap"].items()
+    }
 
     assert (
         res["enrolledFeatureConfigMap"]["imported-module-1-included-feature-1"]["slug"]

@@ -13,15 +13,7 @@ use crate::{
     parser::Parser,
     util::loaders::FileLoader,
 };
-use serde::Deserialize;
-use serde_json::Value;
-
-#[derive(Deserialize)]
-#[serde(rename_all = "camelCase")]
-pub struct FeatureConfig {
-    pub feature_id: String,
-    pub value: serde_json::Value,
-}
+use std::collections::HashMap;
 
 pub struct MergedJsonWithErrors {
     pub json: String,
@@ -71,26 +63,25 @@ impl FmlClient {
     /// Validates a supplied feature configuration. Returns true or an FMLError.
     pub fn is_feature_valid(&self, feature_id: String, value: JsonObject) -> Result<bool> {
         self.manifest
-            .validate_feature_config(&feature_id, Value::Object(value))
+            .validate_feature_config(&feature_id, serde_json::Value::Object(value))
             .map(|_| true)
     }
 
     /// Validates a supplied list of feature configurations. The valid configurations will be merged into the manifest's
     /// default feature JSON, and invalid configurations will be returned as a list of their respective errors.
-    pub fn merge(&self, feature_configs: Vec<JsonObject>) -> Result<MergedJsonWithErrors> {
+    pub fn merge(
+        &self,
+        feature_configs: HashMap<String, JsonObject>,
+    ) -> Result<MergedJsonWithErrors> {
         let mut json = self.default_json.clone();
         let mut errors: Vec<FMLError> = Default::default();
-        let configs: Vec<FeatureConfig> = feature_configs
-            .iter()
-            .map(|fc| serde_json::from_value(Value::Object(fc.to_owned())).unwrap())
-            .collect();
-        for feature_config in configs {
+        for (feature_id, value) in feature_configs {
             match self
                 .manifest
-                .validate_feature_config(&feature_config.feature_id, feature_config.value)
+                .validate_feature_config(&feature_id, serde_json::Value::Object(value))
             {
                 Ok(fd) => {
-                    json.insert(feature_config.feature_id, fd.default_json());
+                    json.insert(feature_id, fd.default_json());
                 }
                 Err(e) => errors.push(e),
             };
@@ -117,7 +108,7 @@ impl UniffiCustomTypeConverter for JsonObject {
         let json: serde_json::Value = serde_json::from_str(&val)?;
 
         match json.as_object() {
-            Some(obj) => Ok(obj.clone()),
+            Some(obj) => Ok(obj.to_owned()),
             _ => Err(uniffi::deps::anyhow::anyhow!(
                 "Unexpected JSON-non-object in the bagging area"
             )),
@@ -220,28 +211,16 @@ mod unit_tests {
     fn test_validate_and_merge_feature_configs() -> Result<()> {
         let client: FmlClient = create_manifest().into();
 
-        let result = client.merge(vec![
-            Map::from_iter([
-                ("featureId".to_string(), Value::String("feature".into())),
-                (
-                    "value".to_string(),
-                    Value::Object(Map::from_iter([(
-                        "prop_1".to_string(),
-                        Value::String("new value".to_string()),
-                    )])),
-                ),
-            ]),
-            Map::from_iter([
-                ("featureId".to_string(), Value::String("feature_i".into())),
-                (
-                    "value".to_string(),
-                    Value::Object(Map::from_iter([(
-                        "prop_i_1".to_string(),
-                        Value::Number(Number::from(1)),
-                    )])),
-                ),
-            ]),
-        ])?;
+        let result = client.merge(HashMap::from_iter([
+            (
+                "feature".to_string(),
+                Map::from_iter([("prop_1".to_string(), Value::String("new value".to_string()))]),
+            ),
+            (
+                "feature_i".to_string(),
+                Map::from_iter([("prop_i_1".to_string(), Value::Number(Number::from(1)))]),
+            ),
+        ]))?;
 
         assert_eq!(
             serde_json::from_str::<Value>(&result.json)?,

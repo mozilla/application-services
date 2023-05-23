@@ -31,7 +31,7 @@ interface FmlClient {
     // Validates a supplied list of feature configurations. The valid configurations will be merged into the manifest's
     // default feature JSON, and invalid configurations will be returned as a list of their respective errors.
     [Throws=FMLError]
-    MergedJsonWithErrors merge(sequence<JsonObject> feature_configs);
+    MergedJsonWithErrors merge(record<DOMString, JsonObject> feature_configs);
 
     // Returns the default feature JSON for the loaded FML's selected channel.
     [Throws=FMLError]
