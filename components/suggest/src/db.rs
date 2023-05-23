@@ -16,6 +16,7 @@ use crate::{
 };
 
 pub const LAST_FETCH_META_KEY: &str = "last_fetch";
+pub const NONSPONSORED_IAB_CATEGORIES: &[&str] = &["5 - Education"];
 
 #[derive(Clone, Copy)]
 pub enum ConnectionType {
@@ -82,10 +83,13 @@ impl SuggestDb {
                     },
                     |row| row.get(0),
                 )?;
+                let iab_category = row.get::<_, String>("iab_category")?;
+                let is_sponsored = !NONSPONSORED_IAB_CATEGORIES.contains(&iab_category.as_str());
                 Ok(Suggestion {
                     block_id: row.get("block_id")?,
                     advertiser: row.get("advertiser")?,
-                    iab_category: row.get("iab_category")?,
+                    iab_category,
+                    is_sponsored,
                     title: row.get("title")?,
                     url: row.get("url")?,
                     full_keyword: full_keyword(keyword, &keywords),

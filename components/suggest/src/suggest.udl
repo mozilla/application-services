@@ -15,6 +15,7 @@ dictionary Suggestion {
     string block_id;
     string advertiser;
     string iab_category;
+    boolean is_sponsored;
     string full_keyword;
     string title;
     string url;
