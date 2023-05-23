@@ -571,12 +571,12 @@ impl FeatureManifest {
         self.obj_defs.iter()
     }
 
-    pub fn iter_object_defs_deep(&self) -> impl Iterator<Item = (&FeatureManifest, &ObjectDef)> {
+    pub fn iter_all_object_defs(&self) -> impl Iterator<Item = (&FeatureManifest, &ObjectDef)> {
         let objects = self.obj_defs.iter().map(move |o| (self, o));
         let imported_objects: Vec<(&FeatureManifest, &ObjectDef)> = self
             .all_imports
             .iter()
-            .flat_map(|(_, fm)| fm.iter_object_defs_deep())
+            .flat_map(|(_, fm)| fm.iter_all_object_defs())
             .collect();
         objects.chain(imported_objects)
     }
@@ -585,12 +585,12 @@ impl FeatureManifest {
         self.feature_defs.iter()
     }
 
-    pub fn iter_feature_defs_deep(&self) -> impl Iterator<Item = (&FeatureManifest, &FeatureDef)> {
+    pub fn iter_all_feature_defs(&self) -> impl Iterator<Item = (&FeatureManifest, &FeatureDef)> {
         let features = self.feature_defs.iter().map(move |f| (self, f));
         let imported_features: Vec<(&FeatureManifest, &FeatureDef)> = self
             .all_imports
             .iter()
-            .flat_map(|(_, fm)| fm.iter_feature_defs_deep())
+            .flat_map(|(_, fm)| fm.iter_all_feature_defs())
             .collect();
         features.chain(imported_features)
     }
@@ -616,12 +616,12 @@ impl FeatureManifest {
         self.iter_enum_defs().find(|e| e.name() == nm)
     }
 
-    pub fn find_feature(&self, nm: &str) -> Option<&FeatureDef> {
+    pub fn get_feature(&self, nm: &str) -> Option<&FeatureDef> {
         self.iter_feature_defs().find(|f| f.name() == nm)
     }
 
-    pub fn find_feature_deep(&self, nm: &str) -> Option<(&FeatureManifest, &FeatureDef)> {
-        self.iter_feature_defs_deep().find(|(_, f)| f.name() == nm)
+    pub fn find_feature(&self, nm: &str) -> Option<(&FeatureManifest, &FeatureDef)> {
+        self.iter_all_feature_defs().find(|(_, f)| f.name() == nm)
     }
 
     pub fn find_import(&self, id: &ModuleId) -> Option<&FeatureManifest> {
@@ -630,7 +630,7 @@ impl FeatureManifest {
 
     pub fn default_json(&self) -> Value {
         Value::Object(
-            self.iter_feature_defs_deep()
+            self.iter_all_feature_defs()
                 .map(|(_, f)| (f.name(), f.default_json()))
                 .collect(),
         )
@@ -651,7 +651,7 @@ impl FeatureManifest {
     ) -> Result<FeatureDef> {
         let dummy_channel = "dummy".to_string();
         let objects: HashMap<String, &ObjectDef> = self
-            .iter_object_defs_deep()
+            .iter_all_object_defs()
             .map(|(_, o)| (o.name(), o))
             .collect();
         let merger = DefaultsMerger::new(
@@ -660,7 +660,7 @@ impl FeatureManifest {
             dummy_channel,
         );
 
-        if let Some((manifest, feature_def)) = self.find_feature_deep(feature_name) {
+        if let Some((manifest, feature_def)) = self.find_feature(feature_name) {
             let mut feature_def = feature_def.clone();
             merger.merge_feature_defaults(&mut feature_def, &Some(vec![feature_value.into()]))?;
             manifest.validate_feature_def(&feature_def)?;
@@ -867,7 +867,7 @@ impl<'a> ImportedModule<'a> {
         let fm = self.fm;
         self.features
             .iter()
-            .filter_map(|f| fm.find_feature(f))
+            .filter_map(|f| fm.get_feature(f))
             .collect()
     }
 }
@@ -1732,7 +1732,7 @@ pub mod unit_tests {
             HashMap::from([(ModuleId::Local("test".into()), fm_i)]),
         );
 
-        let names: Vec<String> = fm.iter_object_defs_deep().map(|(_, o)| o.name()).collect();
+        let names: Vec<String> = fm.iter_all_object_defs().map(|(_, o)| o.name()).collect();
 
         assert_eq!(names[0], "SampleObj".to_string());
         assert_eq!(names[1], "SampleObjImported".to_string());
@@ -1764,7 +1764,7 @@ pub mod unit_tests {
         );
 
         let names: Vec<String> = fm
-            .iter_feature_defs_deep()
+            .iter_all_feature_defs()
             .map(|(_, f)| f.props[0].name())
             .collect();
 
@@ -1796,7 +1796,7 @@ pub mod unit_tests {
             HashMap::from([(ModuleId::Local("test".into()), fm_i)]),
         );
 
-        let feature = fm.find_feature_deep("feature_i");
+        let feature = fm.find_feature("feature_i");
 
         assert!(feature.is_some());
 
