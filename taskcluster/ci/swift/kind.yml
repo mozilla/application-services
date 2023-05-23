@@ -18,7 +18,6 @@ kind-dependencies:
 tasks:
   build:
     attributes:
-      run-on-pr-type: full-ci
       resource-monitor: true
       release-routes:
         - index.project.application-services.v2.swift.{appservices_version}
