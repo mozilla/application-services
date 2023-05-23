@@ -44,6 +44,7 @@ pub struct Suggestion {
     pub block_id: String,
     pub advertiser: String,
     pub iab_category: String,
+    pub is_sponsored: bool,
     pub full_keyword: String,
     pub title: String,
     pub url: String,
