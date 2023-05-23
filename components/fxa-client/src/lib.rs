@@ -57,7 +57,7 @@ pub use profile::Profile;
 pub use push::{
     AccountEvent, DevicePushSubscription, IncomingDeviceCommand, SendTabPayload, TabHistoryEntry,
 };
-pub use storage::FxaStorage;
+pub use storage::{FxaStorage, SavedState};
 pub use token::{AccessTokenInfo, AuthorizationParameters, ScopedKey};
 
 // All the implementation details live in this "internal" module.

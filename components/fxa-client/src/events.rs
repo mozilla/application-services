@@ -19,6 +19,10 @@ pub enum FxaEvent {
     },
     /// The account itself was deleted
     AccountDeleted,
+    /// Error when trying to migrate old account data
+    AccountMigrationFailed {
+        // TODO: what fields would be useful here
+    },
     /// The account's profile was updated
     ProfileUpdated,
     /// The list of devices changed

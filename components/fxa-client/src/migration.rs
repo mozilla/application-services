@@ -13,68 +13,6 @@
 //! can be used to help migrate from such legacy state into state that's suitable for use with
 //! this component.
 
-use crate::{ApiResult, Error, FirefoxAccount};
-use error_support::handle_error;
-
-impl FirefoxAccount {
-    /// Sign in by using legacy session-token state.
-    ///
-    /// When migrating to use the FxA client component, create a [`FirefoxAccount`] instance
-    /// and then pass any legacy sign-in state to this method. It will attempt to use the
-    /// session token to bootstrap a full internal state of OAuth tokens, and will store the
-    /// provided credentials internally in case it needs to retry after e.g. a network failure.
-    ///
-    /// # Arguments
-    ///
-    ///    - `session_token` - the session token from legacy sign-in state
-    ///    - `k_sync` - the Firefox Sync encryption key from legacy sign-in state
-    ///    - `k_xcs` - the Firefox Sync "X-Client-State: value from legacy sign-in state
-    ///    - `copy_session_token` - if true, copy the given session token rather than using it directly
-    ///
-    /// # Notes
-    ///
-    ///    - If successful, this method will return an [`FxAMigrationResult`] with some statistics
-    ///      about the migration process.
-    ///    - If unsuccessful this method will throw an error, but you may be able to retry the
-    ///      migration again at a later time.
-    ///    - Use [is_in_migration_state](FirefoxAccount::is_in_migration_state) to check whether the
-    ///      persisted account state includes a pending migration that can be retried.
-    #[handle_error(Error)]
-    pub fn migrate_from_session_token(
-        &self,
-        session_token: &str,
-        k_sync: &str,
-        k_xcs: &str,
-        copy_session_token: bool,
-    ) -> ApiResult<FxAMigrationResult> {
-        self.internal.lock().unwrap().migrate_from_session_token(
-            session_token,
-            k_sync,
-            k_xcs,
-            copy_session_token,
-        )
-    }
-
-    /// Retry a previously failed migration from legacy session-token state.
-    ///
-    /// If an earlier call to [`migrate_from_session_token`](FirefoxAccount::migrate_from_session_token)
-    /// failed, it may have stored the provided state for retrying at a later time. Call this method
-    /// in order to execute such a retry.
-    #[handle_error(Error)]
-    pub fn retry_migrate_from_session_token(&self) -> ApiResult<FxAMigrationResult> {
-        self.internal.lock().unwrap().try_migration()
-    }
-
-    /// Check for a previously failed migration from legacy session-token state.
-    ///
-    /// If an earlier call to [`migrate_from_session_token`](FirefoxAccount::migrate_from_session_token)
-    /// failed, it may have stored the provided state for retrying at a later time. Call this method
-    /// in check whether such state exists, then retry at an appropriate time.
-    pub fn is_in_migration_state(&self) -> MigrationState {
-        self.internal.lock().unwrap().is_in_migration_state()
-    }
-}
-
 /// The current state migration from legacy sign-in data.
 ///
 /// This enum distinguishes the different states of a potential in-flight

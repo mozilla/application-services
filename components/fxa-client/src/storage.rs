@@ -18,8 +18,9 @@ pub trait FxaStorage {
 
     /// Load the saved state.
     ///
-    /// Return the last `state` sent to `save_state`.
-    fn load_state(&self) -> ApiResult<String>;
+    /// This method returns a `SavedState` value, which means it can either return the current data
+    /// or legacy saved data that needs to be migrated.
+    fn load_state(&self) -> ApiResult<SavedState>;
 
     /// Save the current FxA state
     ///
@@ -27,4 +28,17 @@ pub trait FxaStorage {
     /// while one `save_state` call is still executing, `fxa_client` will wait to send the second
     /// `save_state` call.
     fn save_state(&self, state: String) -> ApiResult<()>;
+}
+
+pub enum SavedState {
+    // Legacy data from desktop
+    DesktopLegacy {
+        session_token: String,
+        // TODO: do we need more fields here?
+    },
+    // Version 1 of the storage schema: a simple JSON string
+    V1 {
+        // The `state` value from the last `save_state()` call
+        state: String,
+    },
 }
