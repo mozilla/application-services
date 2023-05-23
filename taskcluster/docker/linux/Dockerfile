@@ -102,6 +102,7 @@ RUN apt-get update -qq \
 RUN pip3 install --upgrade pip
 RUN pip3 install \
     pyyaml \
+    toml \
     taskcluster \
     # Required to manipulate archiving operations for upcoming monitoring work
     zstandard
