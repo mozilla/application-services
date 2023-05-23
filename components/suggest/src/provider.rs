@@ -13,9 +13,9 @@ use crate::{
     RemoteRecordId, RemoteSuggestion, Result, Suggestion,
 };
 
-const REMOTE_SETTINGS_SERVER_URL: &'static str = "https://firefox.settings.services.mozilla.com/v1";
-const REMOTE_SETTINGS_DEFAULT_BUCKET: &'static str = "main";
-const RS_COLLECTION: &'static str = "quicksuggest";
+const REMOTE_SETTINGS_SERVER_URL: &str = "https://firefox.settings.services.mozilla.com/v1";
+const REMOTE_SETTINGS_DEFAULT_BUCKET: &str = "main";
+const RS_COLLECTION: &str = "quicksuggest";
 
 /// The provider is the entry point to the Suggest component. It incrementally
 /// fetches suggestions from the Remote Settings service, stores them in a local
