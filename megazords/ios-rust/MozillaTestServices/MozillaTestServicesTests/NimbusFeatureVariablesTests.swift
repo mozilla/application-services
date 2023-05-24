@@ -47,7 +47,7 @@ class NimbusFeatureVariablesTests: XCTestCase {
                 "stringVariable": "string",
                 "intVariable": 3,
                 "booleanVariable": true,
-            ],
+            ] as [String: Any],
             "really-a-string": "a string",
         ])
 
@@ -64,9 +64,9 @@ class NimbusFeatureVariablesTests: XCTestCase {
 
     func testListsOfTypes() throws {
         let variables: Variables = JSONVariables(with: [
-            "ints": [1, 2, 3, "not a int"],
-            "strings": ["a", "b", "c", 4],
-            "booleans": [true, false, "not a bool"],
+            "ints": [1, 2, 3, "not a int"] as [Any],
+            "strings": ["a", "b", "c", 4] as [Any],
+            "booleans": [true, false, "not a bool"] as [Any],
             "enums": ["one", "two", "three"],
         ])
 
@@ -78,9 +78,9 @@ class NimbusFeatureVariablesTests: XCTestCase {
 
     func testMapsOfTypes() throws {
         let variables: Variables = JSONVariables(with: [
-            "ints": ["one": 1, "two": 2, "three": "string!"],
-            "strings": ["a": "A", "b": "B", "c": 4],
-            "booleans": ["a": true, "b": false, "c": "not a bool"],
+            "ints": ["one": 1, "two": 2, "three": "string!"] as [String: Any],
+            "strings": ["a": "A", "b": "B", "c": 4] as [String: Any],
+            "booleans": ["a": true, "b": false, "c": "not a bool"] as [String: Any],
             "enums": ["one": "one", "two": "two", "three": "three"],
         ])
 
