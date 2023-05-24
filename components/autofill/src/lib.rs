@@ -21,4 +21,4 @@ use crate::db::store::Store;
 use crate::encryption::{create_autofill_key, decrypt_string, encrypt_string};
 pub use error::{ApiResult, AutofillApiError, Error, Result};
 
-include!(concat!(env!("OUT_DIR"), "/autofill.uniffi.rs"));
+uniffi::include_scaffolding!("autofill");

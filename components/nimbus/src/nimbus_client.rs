@@ -710,4 +710,4 @@ impl UniffiCustomTypeConverter for JsonObject {
 }
 
 #[cfg(feature = "stateful-uniffi-bindings")]
-include!(concat!(env!("OUT_DIR"), "/nimbus.uniffi.rs"));
+uniffi::include_scaffolding!("nimbus");

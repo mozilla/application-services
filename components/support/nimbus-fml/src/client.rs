@@ -121,7 +121,7 @@ impl UniffiCustomTypeConverter for JsonObject {
 }
 
 #[cfg(feature = "uniffi-bindings")]
-include!(concat!(env!("OUT_DIR"), "/fml.uniffi.rs"));
+uniffi::include_scaffolding!("fml");
 
 #[cfg(test)]
 mod unit_tests {
