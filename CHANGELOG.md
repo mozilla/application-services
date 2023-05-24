@@ -1,3 +1,12 @@
+# v114.1 (_2023-05-08_)
+
+[Full Changelog](https://github.com/mozilla/application-services/compare/v114.0...v114.1)
+
+## Nimbus FML
+### What's fixed
+- Removed changes to the FML downloader plugin introduced in v114.0 so artifacts are retrieved from
+  GitHub releases for 114
+
 # v114.0 (_2023-05-08_)
 
 [Full Changelog](https://github.com/mozilla/application-services/compare/v97.5.1...v114.0)

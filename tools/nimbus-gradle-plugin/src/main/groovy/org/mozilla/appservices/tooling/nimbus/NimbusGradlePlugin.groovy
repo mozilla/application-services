@@ -9,7 +9,6 @@ import org.gradle.api.provider.ListProperty
 
 import java.util.stream.Collectors
 import java.util.zip.ZipFile
-import org.gradle.api.GradleException
 import org.gradle.api.Plugin
 import org.gradle.api.Project
 import org.gradle.api.provider.MapProperty
@@ -165,11 +164,18 @@ class NimbusPlugin implements Plugin<Project> {
 
     // Try one or more hosts to download the given file.
     // Return the hostname that successfully downloaded, or null if none succeeded.
-    static def download(File directory, String filename, String asVersion) {
-        def url = "https://firefox-ci-tc.services.mozilla.com/api/index/v1/task/project.application-services.v2.nimbus-fml.$asVersion/artifacts/public%2Fbuild%2F$filename"
-        new URL(url).withInputStream { from ->
-            new File(directory, filename).withOutputStream { out ->
-                out << from;
+    static def tryDownload(File directory, String filename, String[] urlPrefixes) {
+        return urlPrefixes.find { prefix ->
+            def urlString = filename == null ? prefix : "$prefix/$filename"
+            try {
+                new URL(urlString).withInputStream { from ->
+                    new File(directory, filename).withOutputStream { out ->
+                        out << from;
+                    }
+                }
+                true
+            } catch (e) {
+                false
             }
         }
     }
@@ -192,13 +198,19 @@ class NimbusPlugin implements Plugin<Project> {
         if (!archive.exists()) {
             println("Downloading nimbus-fml cli version $asVersion")
 
-            download(archive.getParentFile(), archive.getName(), asVersion)
+            def successfulHost = tryDownload(archive.getParentFile(), archive.getName(),
+                    "https://github.com/mozilla/application-services/releases/download/v$asVersion"
+            )
+
+            if (successfulHost == null) {
+                throw java.io.IOException("Unable to download nimbus-fml tooling with version $asVersion.\n\nIf you are using a development version of the Nimbus Gradle Plugin, please set `applicationServicesDir` in your `build.gradle`'s nimbus block as the path to your local application services directory relative to your project's root.")
+            }
 
             // We get the checksum, although don't do anything with it yet;
             // Checking it here would be able to detect if the zip file was tampered with
             // in transit between here and the server.
             // It won't detect compromise of the CI server.
-            download(rootDirectory, "nimbus-fml.sha256", asVersion)
+            tryDownload(rootDirectory, "nimbus-fml.sha256", successfulHost)
         }
 
         def archOs = getArchOs()
