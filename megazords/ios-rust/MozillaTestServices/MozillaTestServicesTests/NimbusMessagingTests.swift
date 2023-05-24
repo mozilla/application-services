@@ -6,7 +6,7 @@ import XCTest
 
 @testable import MozillaTestServices
 
-class GleanPlumbTests: XCTestCase {
+class NimbusMessagingTests: XCTestCase {
     func createDatabasePath() -> String {
         // For whatever reason, we cannot send a file:// because it'll fail
         // to make the DB both locally and on CI, so we just send the path
@@ -16,7 +16,7 @@ class GleanPlumbTests: XCTestCase {
         return dbPath
     }
 
-    func createNimbus() throws -> GleanPlumbProtocol {
+    func createNimbus() throws -> NimbusMessagingProtocol {
         let appSettings = NimbusAppSettings(appName: "GleanPlumbTest", channel: "nightly")
         let nimbusEnabled = try Nimbus.create(nil, appSettings: appSettings, dbPath: createDatabasePath())
         XCTAssert(nimbusEnabled is Nimbus)
