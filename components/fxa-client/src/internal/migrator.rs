@@ -2,9 +2,8 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-pub use crate::{FxAMigrationResult, MigrationState};
-
-use super::{error::*, scoped_keys::ScopedKey, scopes, FirefoxAccount};
+use crate::{Error, FxAMigrationResult, MigrationState, Result, ScopedKey};
+use super::{FirefoxAccount, scopes};
 use serde_derive::*;
 use std::time::Instant;
 
@@ -42,7 +41,7 @@ impl FirefoxAccount {
     ) -> Result<FxAMigrationResult> {
         // if there is already a session token on account, we error out.
         if self.state.session_token.is_some() {
-            return Err(ErrorKind::IllegalState("Session Token is already set.").into());
+            return Err(Error::IllegalState("Session Token is already set.").into());
         }
 
         self.state.in_flight_migration = Some(MigrationData {
@@ -76,12 +75,12 @@ impl FirefoxAccount {
         match self.network_migration() {
             Ok(_) => {}
             Err(err) => {
-                match err.kind() {
-                    ErrorKind::RemoteError {
+                match err {
+                    Error::RemoteError {
                         code: 500..=599, ..
                     }
-                    | ErrorKind::RemoteError { code: 429, .. }
-                    | ErrorKind::RequestError(_) => {
+                    | Error::RemoteError { code: 429, .. }
+                    | Error::RequestError(_) => {
                         // network errors that will allow hopefully migrate later
                         log::warn!("Network error: {:?}", err);
                         return Err(err);
@@ -111,7 +110,7 @@ impl FirefoxAccount {
         let migration_data = match self.state.in_flight_migration {
             Some(ref data) => data.clone(),
             None => {
-                return Err(ErrorKind::NoMigrationData.into());
+                return Err(Error::NoMigrationData.into());
             }
         };
 
@@ -143,7 +142,7 @@ impl FirefoxAccount {
             scopes::OLD_SYNC,
         )?;
         let oldsync_key_data = scoped_key_data.get(scopes::OLD_SYNC).ok_or({
-            ErrorKind::IllegalState("The session token doesn't have access to kSync!")
+            Error::IllegalState("The session token doesn't have access to kSync!")
         })?;
         let kid = format!("{}-{}", oldsync_key_data.key_rotation_timestamp, k_xcs);
         let k_sync_scoped_key = ScopedKey {
@@ -198,7 +197,7 @@ mod tests {
             .expect_duplicate_session_token(mockiato::Argument::any, |arg| {
                 arg.partial_eq("session")
             })
-            .returns_once(Err(ErrorKind::RemoteError {
+            .returns_once(Err(Error::RemoteError {
                 code: 500,
                 errno: 999,
                 error: "server error".to_string(),
@@ -212,8 +211,8 @@ mod tests {
             .migrate_from_session_token("session", "aabbcc", "ddeeff", true)
             .unwrap_err();
         assert!(matches!(
-            err.kind(),
-            ErrorKind::RemoteError { code: 500, .. }
+            err,
+            Error::RemoteError { code: 500, .. }
         ));
         assert!(matches!(
             fxa.is_in_migration_state(),
@@ -284,7 +283,7 @@ mod tests {
             .expect_duplicate_session_token(mockiato::Argument::any, |arg| {
                 arg.partial_eq("session")
             })
-            .returns_once(Err(ErrorKind::RemoteError {
+            .returns_once(Err(Error::RemoteError {
                 code: 400,
                 errno: 102,
                 error: "invalid token".to_string(),
@@ -298,8 +297,8 @@ mod tests {
             .migrate_from_session_token("session", "aabbcc", "ddeeff", true)
             .unwrap_err();
         assert!(matches!(
-            err.kind(),
-            ErrorKind::RemoteError { code: 400, .. }
+            err,
+            Error::RemoteError { code: 400, .. }
         ));
         assert!(matches!(fxa.is_in_migration_state(), MigrationState::None));
     }
@@ -311,7 +310,7 @@ mod tests {
         assert!(matches!(fxa.is_in_migration_state(), MigrationState::None));
 
         let err = fxa.try_migration().unwrap_err();
-        assert!(matches!(err.kind(), ErrorKind::NoMigrationData));
+        assert!(matches!(err, Error::NoMigrationData));
         assert!(matches!(fxa.is_in_migration_state(), MigrationState::None));
     }
 
@@ -329,7 +328,7 @@ mod tests {
                 |arg| arg.partial_eq("12345678"),
                 |arg| arg.partial_eq(scopes::OLD_SYNC),
             )
-            .returns_once(Err(ErrorKind::RemoteError {
+            .returns_once(Err(Error::RemoteError {
                 code: 500,
                 errno: 999,
                 error: "server error".to_string(),
@@ -343,8 +342,8 @@ mod tests {
             .migrate_from_session_token("session", "aabbcc", "ddeeff", false)
             .unwrap_err();
         assert!(matches!(
-            err.kind(),
-            ErrorKind::RemoteError { code: 500, .. }
+            err,
+            Error::RemoteError { code: 500, .. }
         ));
         assert!(matches!(
             fxa.is_in_migration_state(),
@@ -361,7 +360,7 @@ mod tests {
                 |arg| arg.partial_eq("12345678"),
                 |arg| arg.partial_eq(scopes::OLD_SYNC),
             )
-            .returns_once(Err(ErrorKind::RemoteError {
+            .returns_once(Err(Error::RemoteError {
                 code: 500,
                 errno: 999,
                 error: "server error".to_string(),
@@ -373,8 +372,8 @@ mod tests {
 
         let err = fxa.try_migration().unwrap_err();
         assert!(matches!(
-            err.kind(),
-            ErrorKind::RemoteError { code: 500, .. }
+            err,
+            Error::RemoteError { code: 500, .. }
         ));
         assert!(matches!(
             fxa.is_in_migration_state(),

@@ -5,14 +5,13 @@
 pub mod attached_clients;
 use super::scopes;
 use super::{
-    error::*,
     http_client::{
         AuthorizationRequestParameters, IntrospectResponse as IntrospectInfo, OAuthTokenResponse,
     },
-    scoped_keys::{ScopedKey, ScopedKeysFlow},
+    scoped_keys::ScopedKeysFlow,
     util, FirefoxAccount,
 };
-pub use crate::{AuthorizationParameters, MetricsParams};
+use crate::{AuthorizationParameters, Error, MetricsParams, Result, ScopedKey};
 use jwcrypto::{EncryptionAlgorithm, EncryptionParameters};
 use rate_limiter::RateLimiter;
 use rc_crypto::digest;
@@ -42,7 +41,7 @@ impl FirefoxAccount {
     /// **💾 This method may alter the persisted account state.**
     pub fn get_access_token(&mut self, scope: &str, ttl: Option<u64>) -> Result<AccessTokenInfo> {
         if scope.contains(' ') {
-            return Err(ErrorKind::MultipleScopesRequested.into());
+            return Err(Error::MultipleScopesRequested.into());
         }
         if let Some(oauth_info) = self.state.access_token_cache.get(scope) {
             if oauth_info.expires_at > util::now_secs() + OAUTH_MIN_TIME_LEFT {
@@ -59,7 +58,7 @@ impl FirefoxAccount {
                         &[scope],
                     )?
                 } else {
-                    return Err(ErrorKind::NoCachedToken(scope.to_string()).into());
+                    return Err(Error::NoCachedToken(scope.to_string()).into());
                 }
             }
             None => match self.state.session_token {
@@ -68,12 +67,12 @@ impl FirefoxAccount {
                     session_token,
                     &[scope],
                 )?,
-                None => return Err(ErrorKind::NoCachedToken(scope.to_string()).into()),
+                None => return Err(Error::NoCachedToken(scope.to_string()).into()),
             },
         };
         let since_epoch = SystemTime::now()
             .duration_since(UNIX_EPOCH)
-            .map_err(|_| ErrorKind::IllegalState("Current date before Unix Epoch."))?;
+            .map_err(|_| Error::IllegalState("Current date before Unix Epoch."))?;
         let expires_at = since_epoch.as_secs() + resp.expires_in;
         let token_info = AccessTokenInfo {
             scope: resp.scope,
@@ -91,7 +90,7 @@ impl FirefoxAccount {
     pub fn get_session_token(&self) -> Result<String> {
         match self.state.session_token {
             Some(ref session_token) => Ok(session_token.to_string()),
-            None => Err(ErrorKind::NoSessionToken.into()),
+            None => Err(Error::NoSessionToken.into()),
         }
     }
 
@@ -103,7 +102,7 @@ impl FirefoxAccount {
                 self.client
                     .check_refresh_token_status(&self.state.config, &refresh_token.token)?
             }
-            None => return Err(ErrorKind::NoRefreshToken.into()),
+            None => return Err(Error::NoRefreshToken.into()),
         };
         Ok(IntrospectInfo {
             active: resp.active,
@@ -131,7 +130,7 @@ impl FirefoxAccount {
         }
         let pairing_url = Url::parse(pairing_url)?;
         if url.host_str() != pairing_url.host_str() {
-            return Err(ErrorKind::OriginMismatch.into());
+            return Err(Error::OriginMismatch.into());
         }
         url.set_fragment(pairing_url.fragment());
         self.oauth_flow(url, scopes)
@@ -213,7 +212,7 @@ impl FirefoxAccount {
             .iter()
             .find(|scope| !allowed_scopes.contains_key(*scope))
         {
-            return Err(ErrorKind::ScopeNotAllowed(
+            return Err(Error::ScopeNotAllowed(
                 auth_params.client_id.clone(),
                 not_allowed_scope.clone(),
             )
@@ -230,7 +229,7 @@ impl FirefoxAccount {
                         self.state
                             .scoped_keys
                             .get(scope)
-                            .ok_or_else(|| ErrorKind::NoScopedKey(scope.clone()))?,
+                            .ok_or_else(|| Error::NoScopedKey(scope.clone()))?,
                     );
                     Ok(())
                 })?;
@@ -312,7 +311,7 @@ impl FirefoxAccount {
         self.clear_access_token_cache();
         let oauth_flow = match self.flow_store.remove(state) {
             Some(oauth_flow) => oauth_flow,
-            None => return Err(ErrorKind::UnknownOAuthState.into()),
+            None => return Err(Error::UnknownOAuthState.into()),
         };
         let resp = self.client.create_refresh_token_using_authorization_code(
             &self.state.config,
@@ -330,7 +329,7 @@ impl FirefoxAccount {
         let sync_scope_granted = resp.scope.split(' ').any(|s| s == scopes::OLD_SYNC);
         if let Some(ref jwe) = resp.keys_jwe {
             let scoped_keys_flow = scoped_keys_flow.ok_or({
-                ErrorKind::UnrecoverableServerError("Got a JWE but have no JWK to decrypt it.")
+                Error::UnrecoverableServerError("Got a JWE but have no JWK to decrypt it.")
             })?;
             let decrypted_keys = scoped_keys_flow.decrypt_keys_jwe(jwe)?;
             let scoped_keys: serde_json::Map<String, serde_json::Value> =
@@ -372,7 +371,7 @@ impl FirefoxAccount {
         let old_refresh_token = self.state.refresh_token.clone();
         let new_refresh_token = resp
             .refresh_token
-            .ok_or(ErrorKind::UnrecoverableServerError(
+            .ok_or(Error::UnrecoverableServerError(
                 "No refresh token in response",
             ))?;
         // Destroying a refresh token also destroys its associated device,
@@ -429,7 +428,7 @@ impl FirefoxAccount {
             .state
             .refresh_token
             .as_ref()
-            .ok_or(ErrorKind::NoRefreshToken)?;
+            .ok_or(Error::NoRefreshToken)?;
         let scopes: Vec<&str> = old_refresh_token.scopes.iter().map(AsRef::as_ref).collect();
         let resp = self.client.create_refresh_token_using_session_token(
             &self.state.config,
@@ -438,7 +437,7 @@ impl FirefoxAccount {
         )?;
         let new_refresh_token = resp
             .refresh_token
-            .ok_or(ErrorKind::UnrecoverableServerError(
+            .ok_or(Error::UnrecoverableServerError(
                 "No refresh token in response",
             ))?;
         self.state.refresh_token = Some(RefreshToken {
@@ -496,7 +495,7 @@ impl Default for AuthCircuitBreaker {
 impl AuthCircuitBreaker {
     pub(crate) fn check(&mut self) -> Result<()> {
         if !self.rate_limiter.check() {
-            return Err(ErrorKind::AuthCircuitBreakerError.into());
+            return Err(Error::AuthCircuitBreakerError.into());
         }
         Ok(())
     }
@@ -510,19 +509,19 @@ impl TryFrom<Url> for AuthorizationParameters {
         let scope = query_map
             .get("scope")
             .cloned()
-            .ok_or(ErrorKind::MissingUrlParameter("scope"))?;
+            .ok_or(Error::MissingUrlParameter("scope"))?;
         let client_id = query_map
             .get("client_id")
             .cloned()
-            .ok_or(ErrorKind::MissingUrlParameter("client_id"))?;
+            .ok_or(Error::MissingUrlParameter("client_id"))?;
         let state = query_map
             .get("state")
             .cloned()
-            .ok_or(ErrorKind::MissingUrlParameter("state"))?;
+            .ok_or(Error::MissingUrlParameter("state"))?;
         let access_type = query_map
             .get("access_type")
             .cloned()
-            .ok_or(ErrorKind::MissingUrlParameter("access_type"))?;
+            .ok_or(Error::MissingUrlParameter("access_type"))?;
         let code_challenge = query_map.get("code_challenge").cloned();
         let code_challenge_method = query_map.get("code_challenge_method").cloned();
         let keys_jwk = query_map.get("keys_jwk").cloned();
@@ -874,8 +873,8 @@ mod tests {
             Ok(_) => {
                 panic!("should have error");
             }
-            Err(err) => match err.kind() {
-                ErrorKind::OriginMismatch { .. } => {}
+            Err(err) => match err {
+                Error::OriginMismatch { .. } => {}
                 _ => panic!("error not OriginMismatch"),
             },
         }
@@ -952,7 +951,7 @@ mod tests {
         }
         match fxa.check_authorization_status() {
             Ok(_) => unreachable!("should not happen"),
-            Err(err) => assert!(matches!(err.kind(), ErrorKind::AuthCircuitBreakerError)),
+            Err(err) => assert!(matches!(err, Error::AuthCircuitBreakerError)),
         }
     }
 
@@ -977,7 +976,7 @@ mod tests {
                 |arg| arg.partial_eq("12345678"),
                 |arg| arg.partial_eq(expected_scopes),
             )
-            .returns_once(Err(ErrorKind::RemoteError {
+            .returns_once(Err(Error::RemoteError {
                 code: 400,
                 errno: 163,
                 error: "Invalid Scopes".to_string(),
@@ -998,16 +997,16 @@ mod tests {
         let res = fxa.authorize_code_using_session_token(auth_params);
         assert!(res.is_err());
         let err = res.unwrap_err();
-        if let ErrorKind::RemoteError {
+        if let Error::RemoteError {
             code,
             errno,
             error: _,
             message: _,
             info: _,
-        } = err.kind()
+        } = err
         {
-            assert_eq!(*code, 400);
-            assert_eq!(*errno, 163); // Requested scopes not allowed
+            assert_eq!(code, 400);
+            assert_eq!(errno, 163); // Requested scopes not allowed
         } else {
             panic!("Should return an error from the server specifying that the requested scopes are not allowed");
         }
@@ -1056,7 +1055,7 @@ mod tests {
         let res = fxa.authorize_code_using_session_token(auth_params);
         assert!(res.is_err());
         let err = res.unwrap_err();
-        if let ErrorKind::ScopeNotAllowed(client_id, scope) = err.kind() {
+        if let Error::ScopeNotAllowed(client_id, scope) = err {
             assert_eq!(client_id.clone(), "12345678");
             assert_eq!(scope.clone(), "IamAnInvalidScope");
         } else {
@@ -1100,7 +1099,7 @@ mod tests {
         let res = fxa.authorize_code_using_session_token(auth_params);
         assert!(res.is_err());
         let err = res.unwrap_err();
-        if let ErrorKind::NoScopedKey(scope) = err.kind() {
+        if let Error::NoScopedKey(scope) = err {
             assert_eq!(scope.clone(), scopes::OLD_SYNC.to_string());
         } else {
             panic!("Should return an error that specifies the scope that is not in the state");

@@ -4,8 +4,8 @@
 
 use std::convert::TryInto;
 
-use super::{error::*, FirefoxAccount};
-use crate::AccountEvent;
+use super::FirefoxAccount;
+use crate::{AccountEvent, Error, Result};
 use serde_derive::Deserialize;
 
 impl FirefoxAccount {
@@ -63,7 +63,7 @@ impl FirefoxAccount {
                 Ok(if is_local_account {
                     AccountEvent::AccountDestroyed
                 } else {
-                    return Err(ErrorKind::InvalidPushEvent.into());
+                    return Err(Error::InvalidPushEvent.into());
                 })
             }
             PushPayload::PasswordChanged | PushPayload::PasswordReset => {

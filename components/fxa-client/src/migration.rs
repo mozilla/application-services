@@ -13,7 +13,8 @@
 //! can be used to help migrate from such legacy state into state that's suitable for use with
 //! this component.
 
-use crate::{FirefoxAccount, FxaError};
+use error_support::handle_error;
+use crate::{ApiResult, FirefoxAccount, Error};
 
 impl FirefoxAccount {
     /// Sign in by using legacy session-token state.
@@ -40,14 +41,14 @@ impl FirefoxAccount {
     ///      migration again at a later time.
     ///    - Use [is_in_migration_state](FirefoxAccount::is_in_migration_state) to check whether the
     ///      persisted account state includes a a pending migration that can be retried.
-    ///
+    #[handle_error(Error)]
     pub fn migrate_from_session_token(
         &self,
         session_token: &str,
         k_sync: &str,
         k_xcs: &str,
         copy_session_token: bool,
-    ) -> Result<FxAMigrationResult, FxaError> {
+    ) -> ApiResult<FxAMigrationResult> {
         Ok(self.internal.lock().unwrap().migrate_from_session_token(
             session_token,
             k_sync,
@@ -63,8 +64,8 @@ impl FirefoxAccount {
     /// If an earlier call to [`migrate_from_session_token`](FirefoxAccount::migrate_from_session_token)
     /// failed, it may have stored the provided state for retrying at a later time. Call this method
     /// in order to execute such a retry.
-    ///
-    pub fn retry_migrate_from_session_token(&self) -> Result<FxAMigrationResult, FxaError> {
+    #[handle_error(Error)]
+    pub fn retry_migrate_from_session_token(&self) -> ApiResult<FxAMigrationResult> {
         Ok(self.internal.lock().unwrap().try_migration()?)
     }
 
@@ -73,7 +74,6 @@ impl FirefoxAccount {
     /// If an earlier call to [`migrate_from_session_token`](FirefoxAccount::migrate_from_session_token)
     /// failed, it may have stored the provided state for retrying at a later time. Call this method
     /// in check whether such state exists, then retry at an appropriate time.
-    ///
     pub fn is_in_migration_state(&self) -> MigrationState {
         self.internal.lock().unwrap().is_in_migration_state()
     }

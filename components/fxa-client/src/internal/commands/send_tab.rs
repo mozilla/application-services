@@ -18,7 +18,8 @@ use serde_derive::*;
 use rc_crypto::ece::{self, EcKeyComponents};
 use sync15::{EncryptedPayload, KeyBundle};
 
-use super::super::{device::Device, error::*, scoped_keys::ScopedKey, scopes, telemetry};
+use crate::{Error, Result, ScopedKey};
+use super::super::{device::Device, scopes, telemetry};
 
 pub const COMMAND_NAME: &str = "https://identity.mozilla.com/cmd/open-uri";
 
@@ -156,7 +157,7 @@ impl SendTabKeysPayload {
     pub(crate) fn decrypt(self, scoped_key: &ScopedKey) -> Result<PublicSendTabKeys> {
         let (ksync, kxcs) = extract_oldsync_key_components(scoped_key)?;
         if hex::decode(self.kid)? != kxcs {
-            return Err(ErrorKind::MismatchedKeys.into());
+            return Err(Error::MismatchedKeys.into());
         }
         let key = KeyBundle::from_ksync_bytes(&ksync)?;
         let encrypted_payload = EncryptedPayload {
@@ -222,7 +223,7 @@ pub fn build_send_command(
     let command = target
         .available_commands
         .get(COMMAND_NAME)
-        .ok_or(ErrorKind::UnsupportedCommand(COMMAND_NAME))?;
+        .ok_or(Error::UnsupportedCommand(COMMAND_NAME))?;
     let bundle: SendTabKeysPayload = serde_json::from_str(command)?;
     let public_keys = bundle.decrypt(scoped_key)?;
     let encrypted_payload = send_tab_payload.encrypt(public_keys)?;
@@ -231,7 +232,7 @@ pub fn build_send_command(
 
 fn extract_oldsync_key_components(oldsync_key: &ScopedKey) -> Result<(Vec<u8>, Vec<u8>)> {
     if oldsync_key.scope != scopes::OLD_SYNC {
-        return Err(ErrorKind::IllegalState(
+        return Err(Error::IllegalState(
             "Only oldsync scoped keys are supported at the moment.",
         )
         .into());

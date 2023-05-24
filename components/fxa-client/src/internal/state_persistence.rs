@@ -32,13 +32,13 @@
 use serde_derive::*;
 use std::collections::{HashMap, HashSet};
 
+use crate::ScopedKey;
 use super::{
     config::Config,
     device::Capability as DeviceCapability,
     migrator::MigrationData,
     oauth::{AccessTokenInfo, RefreshToken},
     profile::Profile,
-    scoped_keys::ScopedKey,
     CachedResponse, Result,
 };
 

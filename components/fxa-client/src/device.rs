@@ -15,8 +15,9 @@
 //! [Firefox Accounts Device Registration docs](
 //! https://github.com/mozilla/fxa/blob/main/packages/fxa-auth-server/docs/device_registration.md).
 
-use crate::{internal, FirefoxAccount, FxaError};
+use error_support::handle_error;
 use sync15::DeviceType;
+use crate::{internal, ApiResult, Error, FirefoxAccount};
 
 impl FirefoxAccount {
     /// Create a new device record for this application.
@@ -42,13 +43,13 @@ impl FirefoxAccount {
     ///
     ///    - Device registration is only available to applications that have been
     ///      granted the `https://identity.mozilla.com/apps/oldsync` scope.
-    ///
+    #[handle_error(Error)]
     pub fn initialize_device(
         &self,
         name: &str,
         device_type: DeviceType,
         supported_capabilities: Vec<DeviceCapability>,
-    ) -> Result<(), FxaError> {
+    ) -> ApiResult<()> {
         // UniFFI doesn't have good handling of lists of references, work around it.
         let supported_capabilities: Vec<_> =
             supported_capabilities.into_iter().map(Into::into).collect();
@@ -68,8 +69,8 @@ impl FirefoxAccount {
     ///        - (Yeah...sorry. This should be changed to do something better.)
     ///    - Device metadata is only visible to applications that have been
     ///      granted the `https://identity.mozilla.com/apps/oldsync` scope.
-    ///
-    pub fn get_current_device_id(&self) -> Result<String, FxaError> {
+    #[handle_error(Error)]
+    pub fn get_current_device_id(&self) -> ApiResult<String> {
         Ok(self.internal.lock().unwrap().get_current_device_id()?)
     }
 
@@ -90,8 +91,8 @@ impl FirefoxAccount {
     ///
     ///    - Device metadata is only visible to applications that have been
     ///      granted the `https://identity.mozilla.com/apps/oldsync` scope.
-    ///
-    pub fn get_devices(&self, ignore_cache: bool) -> Result<Vec<Device>, FxaError> {
+    #[handle_error(Error)]
+    pub fn get_devices(&self, ignore_cache: bool) -> ApiResult<Vec<Device>> {
         Ok(self
             .internal
             .lock()
@@ -116,8 +117,8 @@ impl FirefoxAccount {
     ///
     ///    - Attached client metadata is only visible to applications that have been
     ///      granted the `https://identity.mozilla.com/apps/oldsync` scope.
-    ///
-    pub fn get_attached_clients(&self) -> Result<Vec<AttachedClient>, FxaError> {
+    #[handle_error(Error)]
+    pub fn get_attached_clients(&self) -> ApiResult<Vec<AttachedClient>> {
         Ok(self
             .internal
             .lock()
@@ -143,8 +144,8 @@ impl FirefoxAccount {
     ///
     ///    - Device registration is only available to applications that have been
     ///      granted the `https://identity.mozilla.com/apps/oldsync` scope.
-    ///
-    pub fn set_device_name(&self, display_name: &str) -> Result<(), FxaError> {
+    #[handle_error(Error)]
+    pub fn set_device_name(&self, display_name: &str) -> ApiResult<()> {
         Ok(self
             .internal
             .lock()
@@ -164,8 +165,8 @@ impl FirefoxAccount {
     ///
     ///    - Device registration is only available to applications that have been
     ///      granted the `https://identity.mozilla.com/apps/oldsync` scope.
-    ///
-    pub fn clear_device_name(&self) -> Result<(), FxaError> {
+    #[handle_error(Error)]
+    pub fn clear_device_name(&self) -> ApiResult<()> {
         Ok(self.internal.lock().unwrap().clear_device_name()?)
     }
 
@@ -190,11 +191,11 @@ impl FirefoxAccount {
     ///
     ///    - Device registration is only available to applications that have been
     ///      granted the `https://identity.mozilla.com/apps/oldsync` scope.
-    ///
+    #[handle_error(Error)]
     pub fn ensure_capabilities(
         &self,
         supported_capabilities: Vec<DeviceCapability>,
-    ) -> Result<(), FxaError> {
+    ) -> ApiResult<()> {
         let supported_capabilities: Vec<_> =
             supported_capabilities.into_iter().map(Into::into).collect();
         Ok(self
@@ -222,11 +223,11 @@ impl FirefoxAccount {
     ///
     ///    - Device registration is only available to applications that have been
     ///      granted the `https://identity.mozilla.com/apps/oldsync` scope.
-    ///
+    #[handle_error(Error)]
     pub fn set_push_subscription(
         &self,
         subscription: DevicePushSubscription,
-    ) -> Result<(), FxaError> {
+    ) -> ApiResult<()> {
         Ok(self
             .internal
             .lock()
@@ -246,8 +247,8 @@ impl FirefoxAccount {
     ///
     /// It's important to note if the event is [`AccountEvent::CommandReceived`], the caller should call
     /// [`FirefoxAccount::poll_device_commands`]
-    ///
-    pub fn handle_push_message(&self, payload: &str) -> Result<AccountEvent, FxaError> {
+    #[handle_error(Error)]
+    pub fn handle_push_message(&self, payload: &str) -> ApiResult<AccountEvent> {
         Ok(self.internal.lock().unwrap().handle_push_message(payload)?)
     }
 
@@ -266,8 +267,8 @@ impl FirefoxAccount {
     ///      mechanism, f the application has reason to believe that push messages may have been missed.
     ///    - Device commands functionality is only available to applications that have been
     ///      granted the `https://identity.mozilla.com/apps/oldsync` scope.
-    ///
-    pub fn poll_device_commands(&self) -> Result<Vec<IncomingDeviceCommand>, FxaError> {
+    #[handle_error(Error)]
+    pub fn poll_device_commands(&self) -> ApiResult<Vec<IncomingDeviceCommand>> {
         Ok(self
             .internal
             .lock()
@@ -294,13 +295,13 @@ impl FirefoxAccount {
     ///      but that's purely an API limitation that should go away in future.
     ///    - Device commands functionality is only available to applications that have been
     ///      granted the `https://identity.mozilla.com/apps/oldsync` scope.
-    ///
+    #[handle_error(Error)]
     pub fn send_single_tab(
         &self,
         target_device_id: &str,
         title: &str,
         url: &str,
-    ) -> Result<(), FxaError> {
+    ) -> ApiResult<()> {
         Ok(self
             .internal
             .lock()

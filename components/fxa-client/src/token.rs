@@ -15,9 +15,10 @@
 //!      typically managed on behalf of web content that runs within the context
 //!      of the application.
 
-use crate::{FirefoxAccount, FxaError};
-use serde_derive::*;
 use std::convert::{TryFrom, TryInto};
+use serde_derive::*;
+use error_support::handle_error;
+use crate::{ApiResult, FirefoxAccount, Error};
 
 impl FirefoxAccount {
     /// Get a short-lived OAuth access token for the user's account.
@@ -43,12 +44,12 @@ impl FirefoxAccount {
     ///    - If the application receives an authorization error when trying to use the resulting
     ///      token, it should call [`clear_access_token_cache`](FirefoxAccount::clear_access_token_cache)
     ///      before requesting a fresh token.
-    ///
+    #[handle_error(Error)]
     pub fn get_access_token(
         &self,
         scope: &str,
         ttl: Option<i64>,
-    ) -> Result<AccessTokenInfo, FxaError> {
+    ) -> ApiResult<AccessTokenInfo> {
         // Signedness converstion for Kotlin compatibility :-/
         let ttl = ttl.map(|ttl| u64::try_from(ttl).unwrap_or_default());
         Ok(self
@@ -74,8 +75,8 @@ impl FirefoxAccount {
     ///      in web content.
     ///    - A session token is only available to applications that have requested the
     ///      `https://identity.mozilla.com/tokens/session` scope.
-    ///
-    pub fn get_session_token(&self) -> Result<String, FxaError> {
+    #[handle_error(Error)]
+    pub fn get_session_token(&self) -> ApiResult<String> {
         Ok(self.internal.lock().unwrap().get_session_token()?)
     }
 
@@ -91,8 +92,8 @@ impl FirefoxAccount {
     /// # Arguments
     ///
     ///    - `session_token` - the new session token value provided from web content.
-    ///
-    pub fn handle_session_token_change(&self, session_token: &str) -> Result<(), FxaError> {
+    #[handle_error(Error)]
+    pub fn handle_session_token_change(&self, session_token: &str) -> ApiResult<()> {
         Ok(self
             .internal
             .lock()
@@ -111,11 +112,11 @@ impl FirefoxAccount {
     /// # Arguments
     ///
     ///    - `params` - the OAuth parameters from the incoming authorization request
-    ///
+    #[handle_error(Error)]
     pub fn authorize_code_using_session_token(
         &self,
         params: AuthorizationParameters,
-    ) -> Result<String, FxaError> {
+    ) -> ApiResult<String> {
         Ok(self
             .internal
             .lock()
@@ -130,7 +131,6 @@ impl FirefoxAccount {
     /// Applications that receive an authentication error when trying to use an access token,
     /// should call this method before creating a new token and retrying the failed operation.
     /// It ensures that the expired token is removed and a fresh one generated.
-    ///
     pub fn clear_access_token_cache(&self) {
         self.internal.lock().unwrap().clear_access_token_cache()
     }

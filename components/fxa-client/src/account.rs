@@ -12,14 +12,15 @@
 //! The methods in this section provide URLs at which the user can perform various
 //! account-management activities.
 
-use crate::{FirefoxAccount, FxaError};
+use crate::{ApiResult, Error, FirefoxAccount};
+use error_support::handle_error;
 
 impl FirefoxAccount {
     /// Get the URL at which to access the user's sync data.
     ///
     /// **💾 This method alters the persisted account state.**
-    ///
-    pub fn get_token_server_endpoint_url(&self) -> Result<String, FxaError> {
+    #[handle_error(Error)]
+    pub fn get_token_server_endpoint_url(&self) -> ApiResult<String> {
         Ok(self
             .internal
             .lock()
@@ -34,8 +35,8 @@ impl FirefoxAccount {
     /// Applications can use this method after a successful signin, to redirect the
     /// user to a success message displayed in web content rather than having to
     /// implement their own native success UI.
-    ///
-    pub fn get_connection_success_url(&self) -> Result<String, FxaError> {
+    #[handle_error(Error)]
+    pub fn get_connection_success_url(&self) -> ApiResult<String> {
         Ok(self.internal.lock().unwrap().get_connection_success_url()?)
     }
 
@@ -51,8 +52,8 @@ impl FirefoxAccount {
     ///   - `entrypoint` - metrics identifier for UX entrypoint.
     ///       - This parameter is used for metrics purposes, to identify the
     ///         UX entrypoint from which the user followed the link.
-    ///
-    pub fn get_manage_account_url(&self, entrypoint: &str) -> Result<String, FxaError> {
+    #[handle_error(Error)]
+    pub fn get_manage_account_url(&self, entrypoint: &str) -> ApiResult<String> {
         Ok(self
             .internal
             .lock()
@@ -73,8 +74,8 @@ impl FirefoxAccount {
     ///   - `entrypoint` - metrics identifier for UX entrypoint.
     ///       - This parameter is used for metrics purposes, to identify the
     ///         UX entrypoint from which the user followed the link.
-    ///
-    pub fn get_manage_devices_url(&self, entrypoint: &str) -> Result<String, FxaError> {
+    #[handle_error(Error)]
+    pub fn get_manage_devices_url(&self, entrypoint: &str) -> ApiResult<String> {
         Ok(self
             .internal
             .lock()

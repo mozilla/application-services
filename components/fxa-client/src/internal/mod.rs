@@ -3,12 +3,11 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
 //! # Internal implementation details for the fxa_client crate.
-//!
 
+use crate::{Error, Result};
 // Currently public for use by example crates, but should be made private eventually.
 pub use self::{commands::IncomingDeviceCommand, config::Config};
 use self::{
-    error::*,
     oauth::{AuthCircuitBreaker, OAuthFlow, OAUTH_WEBCHANNEL_REDIRECT},
     state_persistence::State,
     telemetry::FxaTelemetry,
@@ -26,7 +25,6 @@ pub mod auth;
 mod commands;
 pub mod config;
 pub mod device;
-pub mod error;
 mod http_client;
 mod migrator;
 mod oauth;
@@ -220,7 +218,7 @@ impl FirefoxAccount {
     fn get_refresh_token(&self) -> Result<&str> {
         match self.state.refresh_token {
             Some(ref token_info) => Ok(&token_info.token),
-            None => Err(ErrorKind::NoRefreshToken.into()),
+            None => Err(Error::NoRefreshToken.into()),
         }
     }
 
@@ -307,8 +305,8 @@ mod tests {
         let config = Config::new("https://stable.dev.lcip.org", "12345678", "https://foo.bar");
         let mut fxa = FirefoxAccount::with_config(config);
         // No current user -> Error.
-        match fxa.get_manage_account_url("test").unwrap_err().kind() {
-            ErrorKind::NoCachedToken(_) => {}
+        match fxa.get_manage_account_url("test").unwrap_err() {
+            Error::NoCachedToken(_) => {}
             _ => panic!("error not NoCachedToken"),
         };
         // With current user -> expected Url.
@@ -343,8 +341,8 @@ mod tests {
         let config = Config::new("https://stable.dev.lcip.org", "12345678", "https://foo.bar");
         let mut fxa = FirefoxAccount::with_config(config);
         // No current user -> Error.
-        match fxa.get_manage_devices_url("test").unwrap_err().kind() {
-            ErrorKind::NoCachedToken(_) => {}
+        match fxa.get_manage_devices_url("test").unwrap_err() {
+            Error::NoCachedToken(_) => {}
             _ => panic!("error not NoCachedToken"),
         };
         // With current user -> expected Url.
@@ -518,7 +516,7 @@ mod tests {
                 token.partial_eq("refreshtok")
             })
             .times(1)
-            .returns_once(Err(ErrorKind::RemoteError {
+            .returns_once(Err(Error::RemoteError {
                 code: 500,
                 errno: 101,
                 error: "Did not work!".to_owned(),

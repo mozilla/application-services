@@ -5,15 +5,15 @@
 use jwcrypto::{self, DecryptionParameters, Jwk};
 use rc_crypto::{agreement, agreement::EphemeralKeyPair};
 
-use super::{error::*, FirefoxAccount};
-pub use crate::ScopedKey;
+use super::FirefoxAccount;
+use crate::{Error, ScopedKey, Result};
 
 impl FirefoxAccount {
     pub(crate) fn get_scoped_key(&self, scope: &str) -> Result<&ScopedKey> {
         self.state
             .scoped_keys
             .get(scope)
-            .ok_or_else(|| ErrorKind::NoScopedKey(scope.to_string()).into())
+            .ok_or_else(|| Error::NoScopedKey(scope.to_string()).into())
     }
 }
 

@@ -8,7 +8,8 @@
 //! a small amount of telemetry about send-tab that the application may submit on its
 //! behalf.
 
-use crate::{FirefoxAccount, FxaError};
+use error_support::handle_error;
+use crate::{ApiResult, FirefoxAccount, Error};
 
 impl FirefoxAccount {
     /// Collect and return telemetry about send-tab attempts.
@@ -20,8 +21,8 @@ impl FirefoxAccount {
     /// Sorry, this is not particularly carefully documented because it is intended
     /// as a stop-gap until we get native Glean support. If you know how to submit
     /// a sync ping, you'll know what to do with the contents of the JSON string.
-    ///
-    pub fn gather_telemetry(&self) -> Result<String, FxaError> {
+    #[handle_error(Error)]
+    pub fn gather_telemetry(&self) -> ApiResult<String> {
         Ok(self.internal.lock().unwrap().gather_telemetry()?)
     }
 }

@@ -51,7 +51,7 @@ pub use device::{
     AccountEvent, AttachedClient, Device, DeviceCapability, DevicePushSubscription,
     IncomingDeviceCommand, SendTabPayload, TabHistoryEntry,
 };
-pub use error::FxaError;
+pub use error::{FxaError, Error};
 pub use migration::{FxAMigrationResult, MigrationState};
 pub use profile::Profile;
 pub use token::{AccessTokenInfo, AuthorizationParameters, ScopedKey};
@@ -62,6 +62,11 @@ pub use token::{AccessTokenInfo, AuthorizationParameters, ScopedKey};
 // possible right now because some of our tests/example use features that we do
 // not currently expose to consumers. But we should figure out how to expose them!
 pub mod internal;
+
+/// Result returned by internal functions
+type Result<T> = std::result::Result<T, Error>;
+/// Result returned by public-facing API functions
+type ApiResult<T> = std::result::Result<T, FxaError>;
 
 /// Object representing the signed-in state of an application.
 ///

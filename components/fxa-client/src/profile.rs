@@ -6,7 +6,8 @@
 //!
 //! These methods can be used to find out information about the connected user.
 
-use crate::{FirefoxAccount, FxaError};
+use error_support::handle_error;
+use crate::{ApiResult, FirefoxAccount, Error};
 
 impl FirefoxAccount {
     /// Get profile information for the signed-in user, if any.
@@ -29,8 +30,8 @@ impl FirefoxAccount {
     ///      potentially hitting the server.
     ///    - If there is no signed-in user, this method will throw an
     ///      [`Authentication`](FxaError::Authentication) error.
-    ///
-    pub fn get_profile(&self, ignore_cache: bool) -> Result<Profile, FxaError> {
+    #[handle_error(Error)]
+    pub fn get_profile(&self, ignore_cache: bool) -> ApiResult<Profile> {
         Ok(self
             .internal
             .lock()
