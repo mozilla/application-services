@@ -3,7 +3,7 @@ namespace suggest {
 };
 
 [Error]
-interface SuggestError {
+interface SuggestApiError {
     Other(string reason);
 };
 
@@ -25,14 +25,14 @@ dictionary Suggestion {
 };
 
 interface SuggestionProvider {
-    [Throws=SuggestError]
+    [Throws=SuggestApiError]
     constructor([ByRef] string path);
 
-    [Throws=SuggestError]
+    [Throws=SuggestApiError]
     sequence<Suggestion> query([ByRef] string keyword);
 
     void interrupt();
 
-    [Throws=SuggestError]
+    [Throws=SuggestApiError]
     void ingest([ByRef] IngestLimits limits);
 };

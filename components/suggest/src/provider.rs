@@ -9,7 +9,7 @@ use serde_derive::*;
 
 use crate::{
     db::{ConnectionType, SuggestDb, LAST_FETCH_META_KEY},
-    error::SuggestError,
+    error::SuggestApiError,
     RemoteRecordId, RemoteSuggestion, Result, Suggestion,
 };
 
@@ -53,7 +53,7 @@ pub struct IngestLimits {
 
 impl SuggestionProvider {
     /// Creates a suggestion provider.
-    pub fn new(path: &str) -> Result<Self, SuggestError> {
+    pub fn new(path: &str) -> Result<Self, SuggestApiError> {
         Ok(Self::new_inner(path)?)
     }
 
@@ -78,7 +78,7 @@ impl SuggestionProvider {
     }
 
     /// Queries the database for suggestions that match the `keyword`.
-    pub fn query(&self, keyword: &str) -> Result<Vec<Suggestion>, SuggestError> {
+    pub fn query(&self, keyword: &str) -> Result<Vec<Suggestion>, SuggestApiError> {
         Ok(self.dbs()?.reader.fetch_by_keyword(keyword)?)
     }
 
@@ -94,7 +94,7 @@ impl SuggestionProvider {
 
     /// Ingests new suggestions from Remote Settings. `limits` can be used to
     /// constrain the amount of work done.
-    pub fn ingest(&self, limits: &IngestLimits) -> Result<(), SuggestError> {
+    pub fn ingest(&self, limits: &IngestLimits) -> Result<(), SuggestApiError> {
         Ok(self.ingest_inner(limits)?)
     }
 

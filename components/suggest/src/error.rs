@@ -18,12 +18,12 @@ pub enum Error {
 }
 
 #[derive(Debug, thiserror::Error)]
-pub enum SuggestError {
+pub enum SuggestApiError {
     #[error("Other error: {reason}")]
     Other { reason: String },
 }
 
-impl From<Error> for SuggestError {
+impl From<Error> for SuggestApiError {
     fn from(error: Error) -> Self {
         Self::Other {
             reason: error.to_string(),
