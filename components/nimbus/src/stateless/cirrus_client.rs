@@ -170,4 +170,4 @@ impl CirrusClient {
     }
 }
 
-include!(concat!(env!("OUT_DIR"), "/cirrus.uniffi.rs"));
+uniffi::include_scaffolding!("cirrus");
