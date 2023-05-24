@@ -6,12 +6,12 @@ use std::collections::{HashMap, HashSet};
 
 use serde_derive::*;
 
+use crate::{Error, Result};
 pub use super::http_client::{
     DeviceLocation as Location, GetDeviceResponse as Device, PushSubscription,
 };
 use super::{
     commands::{self, IncomingDeviceCommand},
-    error::*,
     http_client::{DeviceUpdateRequest, DeviceUpdateRequestBuilder, PendingCommand},
     telemetry, util, CachedResponse, FirefoxAccount,
 };
@@ -188,7 +188,7 @@ impl FirefoxAccount {
         self.parse_commands_messages(pending_commands.messages, CommandFetchReason::Push(index))?
             .into_iter()
             .next()
-            .ok_or_else(|| ErrorKind::CommandNotFound.into())
+            .ok_or_else(|| Error::CommandNotFound.into())
     }
 
     fn fetch_and_parse_commands(
@@ -254,7 +254,7 @@ impl FirefoxAccount {
             commands::send_tab::COMMAND_NAME => {
                 self.handle_send_tab_command(sender, command_data.payload, telem_reason)
             }
-            _ => Err(ErrorKind::UnknownCommand(command_data.command).into()),
+            _ => Err(Error::UnknownCommand(command_data.command).into()),
         }
     }
 
@@ -353,7 +353,7 @@ impl FirefoxAccount {
     pub fn get_current_device_id(&mut self) -> Result<String> {
         match self.state.current_device_id {
             Some(ref device_id) => Ok(device_id.to_string()),
-            None => Err(ErrorKind::NoCurrentDeviceId.into()),
+            None => Err(Error::NoCurrentDeviceId.into()),
         }
     }
 }
@@ -407,9 +407,9 @@ impl TryFrom<Device> for crate::Device {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::ScopedKey;
     use crate::internal::http_client::*;
     use crate::internal::oauth::RefreshToken;
-    use crate::internal::scoped_keys::ScopedKey;
     use crate::internal::Config;
     use std::collections::HashSet;
     use std::sync::Arc;
@@ -635,7 +635,7 @@ mod tests {
         let mut client = FxAClientMock::new();
         client
             .expect_destroy_access_token(mockiato::Argument::any, mockiato::Argument::any)
-            .returns_once(Err(ErrorKind::RemoteError {
+            .returns_once(Err(Error::RemoteError {
                 code: 500,
                 errno: 999,
                 error: "server error".to_string(),
@@ -645,7 +645,7 @@ mod tests {
             .into()));
         client
             .expect_get_devices(mockiato::Argument::any, mockiato::Argument::any)
-            .returns_once(Err(ErrorKind::RemoteError {
+            .returns_once(Err(Error::RemoteError {
                 code: 500,
                 errno: 999,
                 error: "server error".to_string(),
@@ -655,7 +655,7 @@ mod tests {
             .into()));
         client
             .expect_destroy_refresh_token(mockiato::Argument::any, mockiato::Argument::any)
-            .returns_once(Err(ErrorKind::RemoteError {
+            .returns_once(Err(Error::RemoteError {
                 code: 500,
                 errno: 999,
                 error: "server error".to_string(),
@@ -713,7 +713,7 @@ mod tests {
                 |arg| arg.partial_eq("refreshtok"),
                 mockiato::Argument::any,
             )
-            .returns_once(Err(ErrorKind::RemoteError {
+            .returns_once(Err(Error::RemoteError {
                 code: 500,
                 errno: 999,
                 error: "server error".to_string(),
@@ -804,7 +804,7 @@ mod tests {
         client
             .expect_get_devices(mockiato::Argument::any, mockiato::Argument::any)
             .times(1)
-            .returns_once(Err(ErrorKind::RemoteError {
+            .returns_once(Err(Error::RemoteError {
                 code: 500,
                 errno: 101,
                 error: "Did not work!".to_owned(),

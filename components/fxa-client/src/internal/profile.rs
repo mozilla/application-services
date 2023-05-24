@@ -2,8 +2,9 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
+use crate::{Error, Result};
 pub use super::http_client::ProfileResponse as Profile;
-use super::{error::*, scopes, util, CachedResponse, FirefoxAccount};
+use super::{scopes, util, CachedResponse, FirefoxAccount};
 
 // A cached profile response is considered fresh for `PROFILE_FRESHNESS_THRESHOLD` ms.
 const PROFILE_FRESHNESS_THRESHOLD: u64 = 120_000; // 2 minutes
@@ -21,8 +22,8 @@ impl FirefoxAccount {
     pub fn get_profile(&mut self, ignore_cache: bool) -> Result<Profile> {
         match self.get_profile_helper(ignore_cache) {
             Ok(res) => Ok(res),
-            Err(e) => match e.kind() {
-                ErrorKind::RemoteError { code: 401, .. } => {
+            Err(e) => match e {
+                Error::RemoteError { code: 401, .. } => {
                     log::warn!(
                         "Access token rejected, clearing the tokens cache and trying again."
                     );
@@ -70,7 +71,7 @@ impl FirefoxAccount {
                         });
                         Ok(cached_profile.response.clone())
                     }
-                    None => Err(ErrorKind::UnrecoverableServerError(
+                    None => Err(Error::UnrecoverableServerError(
                         "Got a 304 without having sent an eTag.",
                     )
                     .into()),
@@ -175,7 +176,7 @@ mod tests {
                 mockiato::Argument::any,
             )
             .times(1)
-            .returns_once(Err(ErrorKind::RemoteError{
+            .returns_once(Err(Error::RemoteError{
                 code: 401,
                 errno: 110,
                 error: "Unauthorized".to_owned(),

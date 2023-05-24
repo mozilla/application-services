@@ -17,7 +17,8 @@
 //! the modified account state and persist the resulting string in application
 //! settings.
 
-use crate::{internal, FirefoxAccount, FxaError};
+use error_support::handle_error;
+use crate::{internal, ApiResult, FirefoxAccount, Error};
 
 impl FirefoxAccount {
     /// Restore a [`FirefoxAccount`] instance from serialized state.
@@ -29,8 +30,8 @@ impl FirefoxAccount {
     /// not call `from_json` multiple times on the same data. This would result
     /// in multiple live objects sharing the same access tokens and is likely to
     /// produce unexpected behaviour.
-    ///
-    pub fn from_json(data: &str) -> Result<FirefoxAccount, FxaError> {
+    #[handle_error(Error)]
+    pub fn from_json(data: &str) -> ApiResult<FirefoxAccount> {
         Ok(FirefoxAccount {
             internal: std::sync::Mutex::new(internal::FirefoxAccount::from_json(data)?),
         })
@@ -47,8 +48,8 @@ impl FirefoxAccount {
     /// tokens that let anyone holding them access the user's data in Firefox Sync
     /// and/or other FxA services. Applications should take care to store the resulting
     /// data in a secure fashion, as appropriate for their target platform.
-    ///
-    pub fn to_json(&self) -> Result<String, FxaError> {
+    #[handle_error(Error)]
+    pub fn to_json(&self) -> ApiResult<String> {
         Ok(self.internal.lock().unwrap().to_json()?)
     }
 }

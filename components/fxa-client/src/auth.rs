@@ -23,8 +23,9 @@
 //! Technical details of the pairing flow can be found in the [Firefox Accounts
 //! documentation hub](https://mozilla.github.io/ecosystem-platform/docs/features/firefox-accounts/pairing).
 
-use crate::{FirefoxAccount, FxaError};
 use std::collections::HashMap;
+use crate::{ApiResult, Error, FirefoxAccount};
+use error_support::handle_error;
 
 impl FirefoxAccount {
     /// Initiate a web-based OAuth sign-in flow.
@@ -49,13 +50,13 @@ impl FirefoxAccount {
     ///         For example, the application toolbar, on the onboarding flow.
     ///   - `metrics` - optionally, additional metrics tracking paramters.
     ///       - These will be included as query parameters in the resulting URL.
-    ///
+    #[handle_error(Error)]
     pub fn begin_oauth_flow(
         &self,
         scopes: &[String],
         entrypoint: &str,
         metrics: Option<MetricsParams>,
-    ) -> Result<String, FxaError> {
+    ) -> ApiResult<String> {
         // UniFFI can't represent `&[&str]` yet, so convert it internally here.
         let scopes = scopes.iter().map(String::as_str).collect::<Vec<_>>();
         Ok(self
@@ -71,8 +72,8 @@ impl FirefoxAccount {
     /// direct them to visit the resulting URL on an already-signed-in device. Doing
     /// so will trigger the other device to show a QR code to be scanned, and the result
     /// from said QR code can be passed to [`begin_pairing_flow`](FirefoxAccount::begin_pairing_flow).
-    ///
-    pub fn get_pairing_authority_url(&self) -> Result<String, FxaError> {
+    #[handle_error(Error)]
+    pub fn get_pairing_authority_url(&self) -> ApiResult<String> {
         Ok(self.internal.lock().unwrap().get_pairing_authority_url()?)
     }
 
@@ -99,14 +100,14 @@ impl FirefoxAccount {
     ///         For example, the application toolbar, on the onboarding flow.
     ///   - `metrics` - optionally, additional metrics tracking paramters.
     ///       - These will be included as query parameters in the resulting URL.
-    ///
+    #[handle_error(Error)]
     pub fn begin_pairing_flow(
         &self,
         pairing_url: &str,
         scopes: &[String],
         entrypoint: &str,
         metrics: Option<MetricsParams>,
-    ) -> Result<String, FxaError> {
+    ) -> ApiResult<String> {
         // UniFFI can't represent `&[&str]` yet, so convert it internally here.
         let scopes = scopes.iter().map(String::as_str).collect::<Vec<_>>();
         Ok(self.internal.lock().unwrap().begin_pairing_flow(
@@ -130,8 +131,8 @@ impl FirefoxAccount {
     ///
     ///   - `code` - the OAuth authorization code obtained from the redirect URI.
     ///   - `state` - the OAuth state parameter obtained from the redirect URI.
-    ///
-    pub fn complete_oauth_flow(&self, code: &str, state: &str) -> Result<(), FxaError> {
+    #[handle_error(Error)]
+    pub fn complete_oauth_flow(&self, code: &str, state: &str) -> ApiResult<()> {
         Ok(self
             .internal
             .lock()
@@ -146,8 +147,8 @@ impl FirefoxAccount {
     /// Applications may call this method to check with the FxA server about the status
     /// of their authentication tokens. It returns an [`AuthorizationInfo`] struct
     /// with details about whether the tokens are still active.
-    ///
-    pub fn check_authorization_status(&self) -> Result<AuthorizationInfo, FxaError> {
+    #[handle_error(Error)]
+    pub fn check_authorization_status(&self) -> ApiResult<AuthorizationInfo> {
         Ok(self
             .internal
             .lock()
@@ -168,7 +169,6 @@ impl FirefoxAccount {
     /// user's last-seen profile information, if any. This may be useful in helping
     /// the user to reconnnect to their account. If reconnecting to the same account
     /// is not desired then the application should discard the persisted account state.
-    ///
     pub fn disconnect(&self) {
         self.internal.lock().unwrap().disconnect()
     }

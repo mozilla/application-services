@@ -2,8 +2,9 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
+use crate::{Error, Result};
 pub use super::super::http_client::GetAttachedClientResponse as AttachedClient;
-use super::super::{error::*, util, CachedResponse, FirefoxAccount};
+use super::super::{util, CachedResponse, FirefoxAccount};
 
 // An attached clients response is considered fresh for `ATTACHED_CLIENTS_FRESHNESS_THRESHOLD` ms.
 const ATTACHED_CLIENTS_FRESHNESS_THRESHOLD: u64 = 60_000; // 1 minute
@@ -108,7 +109,7 @@ mod tests {
         client
             .expect_get_attached_clients(mockiato::Argument::any, |arg| arg.partial_eq("session"))
             .times(1)
-            .returns_once(Err(ErrorKind::RemoteError {
+            .returns_once(Err(Error::RemoteError {
                 code: 500,
                 errno: 101,
                 error: "Did not work!".to_owned(),

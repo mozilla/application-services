@@ -8,7 +8,8 @@
 //! serializing request bodies and deserializing response payloads into
 //! live objects that can be inspected by other parts of the code.
 
-use super::{config::Config, error::*, util};
+use crate::{Error, Result};
+use super::{config::Config, util};
 use rc_crypto::{
     digest,
     hawk::{Credentials, Key, PayloadHasher, RequestBuilder, SHA256},
@@ -480,7 +481,7 @@ impl Client {
                 time_since_backoff: Instant::now(),
             };
             self.state.lock().unwrap().insert(path, time_out_state);
-            return Err(ErrorKind::BackoffError(retry_after).into());
+            return Err(Error::BackoffError(retry_after).into());
         }
         Self::default_handle_response_error(resp)
     }
@@ -488,7 +489,7 @@ impl Client {
     fn default_handle_response_error(resp: Response) -> Result<Response> {
         let json: std::result::Result<serde_json::Value, _> = resp.json();
         match json {
-            Ok(json) => Err(ErrorKind::RemoteError {
+            Ok(json) => Err(Error::RemoteError {
                 code: json["code"].as_u64().unwrap_or(0),
                 errno: json["errno"].as_u64().unwrap_or(0),
                 error: json["error"].as_str().unwrap_or("").to_string(),
@@ -515,7 +516,7 @@ impl Client {
             let elapsed_time = time_since_backoff.elapsed();
             if elapsed_time < *backoff_end_duration {
                 let remaining = *backoff_end_duration - elapsed_time;
-                return Err(ErrorKind::BackoffError(remaining.as_secs()).into());
+                return Err(Error::BackoffError(remaining.as_secs()).into());
             }
         }
         self.state.lock().unwrap().insert(url, HttpClientState::Ok);
@@ -614,7 +615,7 @@ pub fn get_keys_bundle(config: &Config, hkdf_sha256_key: &[u8]) -> Result<Vec<u8
     let bundle = hex::decode(
         resp["bundle"]
             .as_str()
-            .ok_or(ErrorKind::UnrecoverableServerError("bundle not present"))?,
+            .ok_or(Error::UnrecoverableServerError("bundle not present"))?,
     )?;
     Ok(bundle)
 }
