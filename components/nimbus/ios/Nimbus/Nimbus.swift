@@ -423,17 +423,17 @@ extension Nimbus: NimbusBranchInterface {
     }
 }
 
-extension Nimbus: GleanPlumbProtocol {
-    public func createMessageHelper() throws -> GleanPlumbMessageHelper {
+extension Nimbus: NimbusMessagingProtocol {
+    public func createMessageHelper() throws -> NimbusMessagingHelperProtocol {
         return try createMessageHelper(string: nil)
     }
 
-    public func createMessageHelper(additionalContext: [String: Any]) throws -> GleanPlumbMessageHelper {
+    public func createMessageHelper(additionalContext: [String: Any]) throws -> NimbusMessagingHelperProtocol {
         let string = try additionalContext.stringify()
         return try createMessageHelper(string: string)
     }
 
-    public func createMessageHelper<T: Encodable>(additionalContext: T) throws -> GleanPlumbMessageHelper {
+    public func createMessageHelper<T: Encodable>(additionalContext: T) throws -> NimbusMessagingHelperProtocol {
         let encoder = JSONEncoder()
         encoder.keyEncodingStrategy = .convertToSnakeCase
 
@@ -442,10 +442,10 @@ extension Nimbus: GleanPlumbProtocol {
         return try createMessageHelper(string: string)
     }
 
-    private func createMessageHelper(string: String?) throws -> GleanPlumbMessageHelper {
+    private func createMessageHelper(string: String?) throws -> NimbusMessagingHelperProtocol {
         let targetingHelper = try nimbusClient.createTargetingHelper(additionalContext: string)
         let stringHelper = try nimbusClient.createStringHelper(additionalContext: string)
-        return GleanPlumbMessageHelper(targetingHelper: targetingHelper, stringHelper: stringHelper)
+        return NimbusMessagingHelper(targetingHelper: targetingHelper, stringHelper: stringHelper)
     }
 }
 
@@ -529,19 +529,19 @@ public extension NimbusDisabled {
     func waitForDbQueue() {}
 }
 
-extension NimbusDisabled: GleanPlumbProtocol {
-    public func createMessageHelper() throws -> GleanPlumbMessageHelper {
-        GleanPlumbMessageHelper(
-            targetingHelper: AlwaysFalseTargetingHelper(),
-            stringHelper: NonStringHelper()
+extension NimbusDisabled: NimbusMessagingProtocol {
+    public func createMessageHelper() throws -> NimbusMessagingHelperProtocol {
+        NimbusMessagingHelper(
+            targetingHelper: AlwaysConstantTargetingHelper(),
+            stringHelper: EchoStringHelper()
         )
     }
 
-    public func createMessageHelper(additionalContext _: [String: Any]) throws -> GleanPlumbMessageHelper {
+    public func createMessageHelper(additionalContext _: [String: Any]) throws -> NimbusMessagingHelperProtocol {
         try createMessageHelper()
     }
 
-    public func createMessageHelper<T: Encodable>(additionalContext _: T) throws -> GleanPlumbMessageHelper {
+    public func createMessageHelper<T: Encodable>(additionalContext _: T) throws -> NimbusMessagingHelperProtocol {
         try createMessageHelper()
     }
 }

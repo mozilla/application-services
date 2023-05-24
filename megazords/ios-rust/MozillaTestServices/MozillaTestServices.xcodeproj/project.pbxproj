@@ -24,7 +24,7 @@
 		1B3BC98227B1D9B700229CF6 /* Collections+.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1B3BC97527B1D9B700229CF6 /* Collections+.swift */; };
 		1B3BC98327B1D9B700229CF6 /* FeatureHolder.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1B3BC97627B1D9B700229CF6 /* FeatureHolder.swift */; };
 		1B3BC98427B1D9B800229CF6 /* NimbusApi.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1B3BC97727B1D9B700229CF6 /* NimbusApi.swift */; };
-		1B3BC98527B1D9B800229CF6 /* GleanPlumbHelpers.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1B3BC97827B1D9B700229CF6 /* GleanPlumbHelpers.swift */; };
+		1B3BC98527B1D9B800229CF6 /* NimbusMessagingHelpers.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1B3BC97827B1D9B700229CF6 /* NimbusMessagingHelpers.swift */; };
 		1B3BC98627B1D9B800229CF6 /* FeatureVariables.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1B3BC97927B1D9B700229CF6 /* FeatureVariables.swift */; };
 		1B3BC98727B1D9B800229CF6 /* Nimbus.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1B3BC97A27B1D9B700229CF6 /* Nimbus.swift */; };
 		1B3BC98827B1D9B800229CF6 /* FeatureInterface.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1B3BC97B27B1D9B700229CF6 /* FeatureInterface.swift */; };
@@ -34,7 +34,7 @@
 		1B3BC98C27B1D9B800229CF6 /* Utils.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1B3BC98027B1D9B700229CF6 /* Utils.swift */; };
 		1B3BC98D27B1D9B800229CF6 /* NimbusCreate.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1B3BC98127B1D9B700229CF6 /* NimbusCreate.swift */; };
 		1B5CB50E27B202B600C31B56 /* MozillaRustComponents.xcframework in Frameworks */ = {isa = PBXBuildFile; fileRef = 1B5CB50D27B202B600C31B56 /* MozillaRustComponents.xcframework */; };
-		1BB64C7A27B1FA0400A4247F /* GleanPlumbTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1BBAC54227AE065300DAFEF2 /* GleanPlumbTests.swift */; };
+		1BB64C7A27B1FA0400A4247F /* NimbusMessagingTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1BBAC54227AE065300DAFEF2 /* NimbusMessagingTests.swift */; };
 		1BBAC4FC27AE049500DAFEF2 /* MozillaTestServicesApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1BBAC4FB27AE049500DAFEF2 /* MozillaTestServicesApp.swift */; };
 		1BBAC55127AE06FD00DAFEF2 /* Glean in Frameworks */ = {isa = PBXBuildFile; productRef = 1BBAC55027AE06FD00DAFEF2 /* Glean */; };
 		1BBAC59C27AE0BB600DAFEF2 /* ContentView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1BBAC4FD27AE049500DAFEF2 /* ContentView.swift */; };
@@ -127,7 +127,7 @@
 		1B3BC97527B1D9B700229CF6 /* Collections+.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; name = "Collections+.swift"; path = "../../../components/nimbus/ios/Nimbus/Collections+.swift"; sourceTree = SOURCE_ROOT; };
 		1B3BC97627B1D9B700229CF6 /* FeatureHolder.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; name = FeatureHolder.swift; path = ../../../components/nimbus/ios/Nimbus/FeatureHolder.swift; sourceTree = SOURCE_ROOT; };
 		1B3BC97727B1D9B700229CF6 /* NimbusApi.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; name = NimbusApi.swift; path = ../../../components/nimbus/ios/Nimbus/NimbusApi.swift; sourceTree = SOURCE_ROOT; };
-		1B3BC97827B1D9B700229CF6 /* GleanPlumbHelpers.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; name = GleanPlumbHelpers.swift; path = ../../../components/nimbus/ios/Nimbus/GleanPlumbHelpers.swift; sourceTree = SOURCE_ROOT; };
+		1B3BC97827B1D9B700229CF6 /* NimbusMessagingHelpers.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; name = NimbusMessagingHelpers.swift; path = ../../../components/nimbus/ios/Nimbus/NimbusMessagingHelpers.swift; sourceTree = SOURCE_ROOT; };
 		1B3BC97927B1D9B700229CF6 /* FeatureVariables.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; name = FeatureVariables.swift; path = ../../../components/nimbus/ios/Nimbus/FeatureVariables.swift; sourceTree = SOURCE_ROOT; };
 		1B3BC97A27B1D9B700229CF6 /* Nimbus.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; name = Nimbus.swift; path = ../../../components/nimbus/ios/Nimbus/Nimbus.swift; sourceTree = SOURCE_ROOT; };
 		1B3BC97B27B1D9B700229CF6 /* FeatureInterface.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; name = FeatureInterface.swift; path = ../../../components/nimbus/ios/Nimbus/FeatureInterface.swift; sourceTree = SOURCE_ROOT; };
@@ -151,7 +151,7 @@
 		1BBAC53F27AE065300DAFEF2 /* LogTest.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = LogTest.swift; path = MozillaTestServicesTests/LogTest.swift; sourceTree = SOURCE_ROOT; };
 		1BBAC54027AE065300DAFEF2 /* PlacesTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = PlacesTests.swift; path = MozillaTestServicesTests/PlacesTests.swift; sourceTree = SOURCE_ROOT; };
 		1BBAC54127AE065300DAFEF2 /* FxAccountManagerTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = FxAccountManagerTests.swift; path = MozillaTestServicesTests/FxAccountManagerTests.swift; sourceTree = SOURCE_ROOT; };
-		1BBAC54227AE065300DAFEF2 /* GleanPlumbTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = GleanPlumbTests.swift; path = MozillaTestServicesTests/GleanPlumbTests.swift; sourceTree = SOURCE_ROOT; };
+		1BBAC54227AE065300DAFEF2 /* NimbusMessagingTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = NimbusMessagingTests.swift; path = MozillaTestServicesTests/NimbusMessagingTests.swift; sourceTree = SOURCE_ROOT; };
 		1BBAC54327AE065300DAFEF2 /* CrashTestTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = CrashTestTests.swift; path = MozillaTestServicesTests/CrashTestTests.swift; sourceTree = SOURCE_ROOT; };
 		1BBAC54427AE065300DAFEF2 /* NimbusFeatureVariablesTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = NimbusFeatureVariablesTests.swift; path = MozillaTestServicesTests/NimbusFeatureVariablesTests.swift; sourceTree = SOURCE_ROOT; };
 		1BBAC55327AE076200DAFEF2 /* RustLog.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; name = RustLog.swift; path = ../../../components/rc_log/ios/RustLog.swift; sourceTree = SOURCE_ROOT; };
@@ -273,7 +273,7 @@
 				1B3BC97B27B1D9B700229CF6 /* FeatureInterface.swift */,
 				39AD326E2988468B00E42E13 /* FeatureManifestInterface.swift */,
 				1B3BC97927B1D9B700229CF6 /* FeatureVariables.swift */,
-				1B3BC97827B1D9B700229CF6 /* GleanPlumbHelpers.swift */,
+				1B3BC97827B1D9B700229CF6 /* NimbusMessagingHelpers.swift */,
 				3948F41229A7F68900AA0D02 /* HardcodedNimbusFeatures.swift */,
 				1B3BC97A27B1D9B700229CF6 /* Nimbus.swift */,
 				1B3BC97727B1D9B700229CF6 /* NimbusApi.swift */,
@@ -364,7 +364,7 @@
 				3937440929E43B8800726A72 /* EventStoreTests.swift */,
 				1BBAC54127AE065300DAFEF2 /* FxAccountManagerTests.swift */,
 				1BBAC53C27AE065300DAFEF2 /* FxAccountMocks.swift */,
-				1BBAC54227AE065300DAFEF2 /* GleanPlumbTests.swift */,
+				1BBAC54227AE065300DAFEF2 /* NimbusMessagingTests.swift */,
 				1BBAC53B27AE065300DAFEF2 /* LoginsTests.swift */,
 				1BBAC53F27AE065300DAFEF2 /* LogTest.swift */,
 				1BBAC54427AE065300DAFEF2 /* NimbusFeatureVariablesTests.swift */,
@@ -773,7 +773,7 @@
 				1BF50F1327B1E17B00A9C8A5 /* FxAccountConfig.swift in Sources */,
 				1B3BC94627B1D6A500229CF6 /* ResultError.swift in Sources */,
 				1B3BC98327B1D9B700229CF6 /* FeatureHolder.swift in Sources */,
-				1B3BC98527B1D9B800229CF6 /* GleanPlumbHelpers.swift in Sources */,
+				1B3BC98527B1D9B800229CF6 /* NimbusMessagingHelpers.swift in Sources */,
 				395EFD6E2966EB6D00D24B97 /* Bundle+.swift in Sources */,
 				1BF50F1427B1E17B00A9C8A5 /* PersistedFirefoxAccount.swift in Sources */,
 				1BF50F1027B1E17B00A9C8A5 /* FxAccountStorage.swift in Sources */,
@@ -808,7 +808,7 @@
 			buildActionMask = 2147483647;
 			files = (
 				F814DE8029DF762800FD26F5 /* SyncManagerTelemetryTests.swift in Sources */,
-				1BB64C7A27B1FA0400A4247F /* GleanPlumbTests.swift in Sources */,
+				1BB64C7A27B1FA0400A4247F /* NimbusMessagingTests.swift in Sources */,
 				1B3BC95027B1D92A00229CF6 /* NimbusFeatureVariablesTests.swift in Sources */,
 				39EE00FF29F6DBBA001E7758 /* NimbusArgumentProcessorTests.swift in Sources */,
 				1BF50F1A27B1E19800A9C8A5 /* FxAccountMocks.swift in Sources */,

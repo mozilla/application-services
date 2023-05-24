@@ -16,7 +16,7 @@ import Glean
 /// `Nimbus` into their app should use the methods in `NimbusStartup`.
 ///
 public protocol NimbusInterface: FeaturesInterface, NimbusStartup,
-    NimbusUserConfiguration, NimbusBranchInterface, GleanPlumbProtocol,
+    NimbusUserConfiguration, NimbusBranchInterface, NimbusMessagingProtocol,
     NimbusEventStore, NimbusQueues {}
 
 public typealias NimbusApi = NimbusInterface
