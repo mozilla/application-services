@@ -8,8 +8,8 @@
 //! a small amount of telemetry about send-tab that the application may submit on its
 //! behalf.
 
+use crate::{ApiResult, Error, FirefoxAccount};
 use error_support::handle_error;
-use crate::{ApiResult, FirefoxAccount, Error};
 
 impl FirefoxAccount {
     /// Collect and return telemetry about send-tab attempts.

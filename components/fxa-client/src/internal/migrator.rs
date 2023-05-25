@@ -2,8 +2,8 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
+use super::{scopes, FirefoxAccount};
 use crate::{Error, FxAMigrationResult, MigrationState, Result, ScopedKey};
-use super::{FirefoxAccount, scopes};
 use serde_derive::*;
 use std::time::Instant;
 
@@ -141,9 +141,11 @@ impl FirefoxAccount {
             &self.state.config.client_id,
             scopes::OLD_SYNC,
         )?;
-        let oldsync_key_data = scoped_key_data.get(scopes::OLD_SYNC).ok_or({
-            Error::IllegalState("The session token doesn't have access to kSync!")
-        })?;
+        let oldsync_key_data = scoped_key_data
+            .get(scopes::OLD_SYNC)
+            .ok_or(Error::IllegalState(
+                "The session token doesn't have access to kSync!",
+            ))?;
         let kid = format!("{}-{}", oldsync_key_data.key_rotation_timestamp, k_xcs);
         let k_sync_scoped_key = ScopedKey {
             kty: "oct".to_string(),
@@ -210,10 +212,7 @@ mod tests {
         let err = fxa
             .migrate_from_session_token("session", "aabbcc", "ddeeff", true)
             .unwrap_err();
-        assert!(matches!(
-            err,
-            Error::RemoteError { code: 500, .. }
-        ));
+        assert!(matches!(err, Error::RemoteError { code: 500, .. }));
         assert!(matches!(
             fxa.is_in_migration_state(),
             MigrationState::CopySessionToken
@@ -296,10 +295,7 @@ mod tests {
         let err = fxa
             .migrate_from_session_token("session", "aabbcc", "ddeeff", true)
             .unwrap_err();
-        assert!(matches!(
-            err,
-            Error::RemoteError { code: 400, .. }
-        ));
+        assert!(matches!(err, Error::RemoteError { code: 400, .. }));
         assert!(matches!(fxa.is_in_migration_state(), MigrationState::None));
     }
 
@@ -341,10 +337,7 @@ mod tests {
         let err = fxa
             .migrate_from_session_token("session", "aabbcc", "ddeeff", false)
             .unwrap_err();
-        assert!(matches!(
-            err,
-            Error::RemoteError { code: 500, .. }
-        ));
+        assert!(matches!(err, Error::RemoteError { code: 500, .. }));
         assert!(matches!(
             fxa.is_in_migration_state(),
             MigrationState::ReuseSessionToken
@@ -371,10 +364,7 @@ mod tests {
         fxa.set_client(Arc::new(client));
 
         let err = fxa.try_migration().unwrap_err();
-        assert!(matches!(
-            err,
-            Error::RemoteError { code: 500, .. }
-        ));
+        assert!(matches!(err, Error::RemoteError { code: 500, .. }));
         assert!(matches!(
             fxa.is_in_migration_state(),
             MigrationState::ReuseSessionToken

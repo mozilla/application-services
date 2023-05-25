@@ -2,8 +2,8 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-use error_support::handle_error;
 use crate::{internal, ApiResult, Device, Error, FirefoxAccount};
+use error_support::handle_error;
 
 impl FirefoxAccount {
     /// Set or update a push subscription endpoint for this device.
@@ -25,10 +25,7 @@ impl FirefoxAccount {
     ///    - Device registration is only available to applications that have been
     ///      granted the `https://identity.mozilla.com/apps/oldsync` scope.
     #[handle_error(Error)]
-    pub fn set_push_subscription(
-        &self,
-        subscription: DevicePushSubscription,
-    ) -> ApiResult<()> {
+    pub fn set_push_subscription(&self, subscription: DevicePushSubscription) -> ApiResult<()> {
         Ok(self
             .internal
             .lock()
@@ -97,12 +94,7 @@ impl FirefoxAccount {
     ///    - Device commands functionality is only available to applications that have been
     ///      granted the `https://identity.mozilla.com/apps/oldsync` scope.
     #[handle_error(Error)]
-    pub fn send_single_tab(
-        &self,
-        target_device_id: &str,
-        title: &str,
-        url: &str,
-    ) -> ApiResult<()> {
+    pub fn send_single_tab(&self, target_device_id: &str, title: &str, url: &str) -> ApiResult<()> {
         Ok(self
             .internal
             .lock()

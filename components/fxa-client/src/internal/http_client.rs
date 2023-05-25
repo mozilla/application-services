@@ -8,8 +8,8 @@
 //! serializing request bodies and deserializing response payloads into
 //! live objects that can be inspected by other parts of the code.
 
-use crate::{Error, Result};
 use super::{config::Config, util};
+use crate::{Error, Result};
 use rc_crypto::{
     digest,
     hawk::{Credentials, Key, PayloadHasher, RequestBuilder, SHA256},

@@ -6,8 +6,8 @@
 //!
 //! These methods can be used to find out information about the connected user.
 
+use crate::{ApiResult, Error, FirefoxAccount};
 use error_support::handle_error;
-use crate::{ApiResult, FirefoxAccount, Error};
 
 impl FirefoxAccount {
     /// Get profile information for the signed-in user, if any.

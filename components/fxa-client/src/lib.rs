@@ -49,10 +49,12 @@ mod token;
 
 pub use auth::{AuthorizationInfo, MetricsParams};
 pub use device::{AttachedClient, Device, DeviceCapability};
-pub use error::{FxaError, Error};
+pub use error::{Error, FxaError};
 pub use migration::{FxAMigrationResult, MigrationState};
 pub use profile::Profile;
-pub use push::{AccountEvent, DevicePushSubscription, IncomingDeviceCommand, SendTabPayload, TabHistoryEntry};
+pub use push::{
+    AccountEvent, DevicePushSubscription, IncomingDeviceCommand, SendTabPayload, TabHistoryEntry,
+};
 pub use token::{AccessTokenInfo, AuthorizationParameters, ScopedKey};
 
 // All the implementation details live in this "internal" module.

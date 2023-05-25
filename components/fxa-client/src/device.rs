@@ -15,9 +15,9 @@
 //! [Firefox Accounts Device Registration docs](
 //! https://github.com/mozilla/fxa/blob/main/packages/fxa-auth-server/docs/device_registration.md).
 
+use crate::{ApiResult, DevicePushSubscription, Error, FirefoxAccount};
 use error_support::handle_error;
 use sync15::DeviceType;
-use crate::{ApiResult, DevicePushSubscription, Error, FirefoxAccount};
 
 impl FirefoxAccount {
     /// Create a new device record for this application.
