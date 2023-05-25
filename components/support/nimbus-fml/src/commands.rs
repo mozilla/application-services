@@ -15,6 +15,7 @@ pub(crate) enum CliCmd {
     GenerateExperimenter(GenerateExperimenterManifestCmd),
     GenerateIR(GenerateIRCmd),
     FetchFile(LoaderConfig, String),
+    Validate(ValidateCmd),
 }
 
 #[derive(Clone)]
@@ -41,6 +42,11 @@ pub(crate) struct GenerateIRCmd {
     pub(crate) output: PathBuf,
     pub(crate) load_from_ir: bool,
     pub(crate) channel: String,
+    pub(crate) loader: LoaderConfig,
+}
+
+pub(crate) struct ValidateCmd {
+    pub(crate) manifest: String,
     pub(crate) loader: LoaderConfig,
 }
 

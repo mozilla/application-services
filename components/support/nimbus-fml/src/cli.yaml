@@ -124,6 +124,22 @@ subcommands:
                 long: repo-file
                 takes_value: true
                 multiple: true
+    - validate:
+          about: Validate an FML configuration and all of its channels.
+          args:
+              - INPUT:
+                    help: Sets the input file to use
+                    required: true
+                    index: 1
+              - cache-dir:
+                    help: The directory where downloaded files are cached
+                    long: cache-dir
+                    takes_value: true
+              - repo-file:
+                    help: The file containing the version/refs/locations for other repos
+                    long: repo-file
+                    takes_value: true
+                    multiple: true
 ######################################
 # Deprecated commands.
 ######################################

@@ -122,7 +122,7 @@ pub(crate) struct FeatureBody {
 }
 #[derive(Debug, Deserialize, Serialize, Clone, Default)]
 #[serde(deny_unknown_fields)]
-pub(crate) struct ManifestFrontEnd {
+pub struct ManifestFrontEnd {
     #[serde(default)]
     version: String,
     #[serde(default)]
@@ -145,7 +145,7 @@ pub(crate) struct ManifestFrontEnd {
     imports: Vec<ImportBlock>,
 
     #[serde(default)]
-    channels: Vec<String>,
+    pub channels: Vec<String>,
 
     // If a types attribute isn't explicitly expressed,
     // then we should assume that we use the flattened version.
@@ -693,7 +693,7 @@ impl Parser {
     // This method loads a manifest, including resolving the includes and merging the included files
     // into this top level one.
     // It recursively calls itself and then calls `merge_manifest`.
-    fn load_manifest(
+    pub fn load_manifest(
         &self,
         path: &FilePath,
         loading: &mut HashSet<ModuleId>,
