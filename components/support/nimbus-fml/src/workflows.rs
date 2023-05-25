@@ -3,7 +3,9 @@
 * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
 use glob::MatchOptions;
+use std::collections::HashSet;
 
+use crate::commands::ValidateCmd;
 use crate::{
     backends,
     commands::{GenerateExperimenterManifestCmd, GenerateIRCmd, GenerateStructCmd},
@@ -158,6 +160,37 @@ pub(crate) fn fetch_file(files: &LoaderConfig, nm: &str) -> Result<()> {
     Ok(())
 }
 
+pub(crate) fn validate(cmd: &ValidateCmd) -> Result<()> {
+    let files: FileLoader = TryFrom::try_from(&cmd.loader)?;
+
+    let filename = &cmd.manifest;
+    let file_path = files.file_path(filename)?;
+    let parser: Parser = Parser::new(files, file_path.clone())?;
+    let mut loading = HashSet::new();
+    let fe = parser.load_manifest(&file_path, &mut loading)?;
+
+    println!(
+        "Loaded modules: [\n\t{}\n]",
+        loading
+            .iter()
+            .map(|id| id.to_string())
+            .collect::<Vec<String>>()
+            .join(",\n\t")
+    );
+
+    for channel in fe.channels {
+        print!("Validating manifest for channel \"{}\".", &channel);
+        let ir = parser.get_intermediate_representation(&channel)?;
+        print!(".");
+        ir.validate_manifest()?;
+        println!(".valid!");
+    }
+
+    println!("Manifest {} is valid!", &filename);
+
+    Ok(())
+}
+
 #[cfg(test)]
 mod test {
     use std::fs;
@@ -169,6 +202,7 @@ mod test {
     use super::*;
     use crate::backends::experimenter_manifest::ExperimenterManifest;
     use crate::backends::{kotlin, swift};
+    use crate::error::FMLError::ValidationError;
     use crate::parser::KotlinAboutBlock;
     use crate::util::{generated_src_dir, join, pkg_dir};
 
@@ -700,6 +734,48 @@ mod test {
                 &generated_yaml,
             )?;
         }
+        Ok(())
+    }
+
+    #[test]
+    fn test_validate_command() -> Result<()> {
+        for path in MANIFEST_PATHS {
+            if path.ends_with(".yaml") {
+                println!("{}", path);
+                let manifest = join(pkg_dir(), path);
+                let cmd = ValidateCmd {
+                    loader: Default::default(),
+                    manifest,
+                };
+                validate(&cmd)?;
+            }
+        }
+        Ok(())
+    }
+
+    #[test]
+    fn test_validate_command_fails_on_bad_default_value_for_one_channel() -> Result<()> {
+        let path = "fixtures/fe/invalid/invalid_default_value_for_one_channel.fml.yaml";
+        let manifest = join(pkg_dir(), path);
+        let cmd = ValidateCmd {
+            loader: Default::default(),
+            manifest,
+        };
+        let result = validate(&cmd);
+
+        assert!(result.is_err());
+
+        match result.err().unwrap() {
+            ValidationError(path, error) => {
+                assert_eq!(path, "features/example-feature.enabled".to_string());
+                assert_eq!(
+                    error,
+                    "Mismatch between type Boolean and default 1".to_string()
+                );
+            }
+            _ => panic!("Error is not a ValidationError"),
+        };
+
         Ok(())
     }
 

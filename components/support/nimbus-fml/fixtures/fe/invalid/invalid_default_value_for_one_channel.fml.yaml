@@ -1,0 +1,23 @@
+version: 1.0
+about:
+  description: The default value for `example-feature` on the `app-release` channel does not match its type.
+channels:
+  - app-debug
+  - app-release
+features:
+  example-feature:
+    description: An example feature
+    variables:
+      enabled:
+        description: Whether the feature is enabled
+        type: Boolean
+        default: false
+    defaults:
+      - value: {
+          "enabled": true
+        }
+        channel: app-debug
+      - value: {
+          "enabled": 1
+        }
+        channel: app-release

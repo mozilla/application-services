@@ -23,6 +23,7 @@ use intermediate_representation::TargetLanguage;
 use parser::{AboutBlock, KotlinAboutBlock, SwiftAboutBlock};
 use util::loaders::LoaderConfig;
 
+use crate::commands::ValidateCmd;
 use std::{
     ffi::OsString,
     path::{Path, PathBuf},
@@ -47,6 +48,7 @@ fn process_command(cmd: &CliCmd) -> Result<()> {
         CliCmd::GenerateExperimenter(params) => workflows::generate_experimenter_manifest(params)?,
         CliCmd::GenerateIR(params) => workflows::generate_ir(params)?,
         CliCmd::FetchFile(files, nm) => workflows::fetch_file(files, nm)?,
+        CliCmd::Validate(params) => workflows::validate(params)?,
     };
     Ok(())
 }
@@ -129,6 +131,9 @@ where
         ),
         ("fetch", Some(matches)) => {
             CliCmd::FetchFile(create_loader(matches, cwd)?, input_file(matches)?)
+        }
+        ("validate", Some(matches)) => {
+            CliCmd::Validate(create_validate_command_from_cli(matches, cwd)?)
         }
         (word, _) => unimplemented!("Command {} not implemented", word),
     })
@@ -218,6 +223,12 @@ fn create_loader(matches: &ArgMatches, cwd: &Path) -> Result<LoaderConfig> {
         repo_files,
         cwd,
     })
+}
+
+fn create_validate_command_from_cli(matches: &ArgMatches, cwd: &Path) -> Result<ValidateCmd> {
+    let manifest = input_file(matches)?;
+    let loader = create_loader(matches, cwd)?;
+    Ok(ValidateCmd { manifest, loader })
 }
 
 fn input_file(args: &ArgMatches) -> Result<String> {
@@ -683,6 +694,20 @@ mod cli_tests {
             assert!(!cmd.load_from_ir);
             assert!(cmd.output.ends_with("build/cli-test"));
             assert_eq!(&cmd.manifest, TEST_DIR);
+        }
+        Ok(())
+    }
+
+    ///////////////////////////////////////////////////////////////////////////
+    #[test]
+    fn test_cli_generate_validate() -> Result<()> {
+        let cwd = package_dir()?;
+        let cmd = get_command_from_cli([FML_BIN, "validate", TEST_FILE], &cwd)?;
+
+        assert!(matches!(cmd, CliCmd::Validate(_)));
+
+        if let CliCmd::Validate(cmd) = cmd {
+            assert!(cmd.manifest.ends_with(TEST_FILE));
         }
         Ok(())
     }
