@@ -6,7 +6,7 @@ use jwcrypto::{self, DecryptionParameters, Jwk};
 use rc_crypto::{agreement, agreement::EphemeralKeyPair};
 
 use super::FirefoxAccount;
-use crate::{Error, ScopedKey, Result};
+use crate::{Error, Result, ScopedKey};
 
 impl FirefoxAccount {
     pub(crate) fn get_scoped_key(&self, scope: &str) -> Result<&ScopedKey> {

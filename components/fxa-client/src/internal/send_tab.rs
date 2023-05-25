@@ -2,7 +2,6 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-use crate::{Error, Result};
 use super::{
     commands::{
         send_tab::{
@@ -14,6 +13,7 @@ use super::{
     http_client::GetDeviceResponse,
     scopes, telemetry, FirefoxAccount,
 };
+use crate::{Error, Result};
 
 impl FirefoxAccount {
     /// Generate the Send Tab command to be registered with the server.
@@ -137,9 +137,9 @@ impl FirefoxAccount {
             .ok_or(Error::SendTabDiagnosisError("No remote command."))?;
         let bundle: SendTabKeysPayload = serde_json::from_str(command)?;
         let oldsync_key = self.get_scoped_key(scopes::OLD_SYNC)?;
-        let public_keys_remote = bundle.decrypt(oldsync_key).map_err(|_| {
-            Error::SendTabDiagnosisError("Unable to decrypt public key bundle.")
-        })?;
+        let public_keys_remote = bundle
+            .decrypt(oldsync_key)
+            .map_err(|_| Error::SendTabDiagnosisError("Unable to decrypt public key bundle."))?;
 
         let public_keys_local: PublicSendTabKeys = local_send_tab_key.into();
 

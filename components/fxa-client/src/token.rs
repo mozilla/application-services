@@ -15,10 +15,10 @@
 //!      typically managed on behalf of web content that runs within the context
 //!      of the application.
 
-use std::convert::{TryFrom, TryInto};
-use serde_derive::*;
+use crate::{ApiResult, Error, FirefoxAccount};
 use error_support::handle_error;
-use crate::{ApiResult, FirefoxAccount, Error};
+use serde_derive::*;
+use std::convert::{TryFrom, TryInto};
 
 impl FirefoxAccount {
     /// Get a short-lived OAuth access token for the user's account.
@@ -45,11 +45,7 @@ impl FirefoxAccount {
     ///      token, it should call [`clear_access_token_cache`](FirefoxAccount::clear_access_token_cache)
     ///      before requesting a fresh token.
     #[handle_error(Error)]
-    pub fn get_access_token(
-        &self,
-        scope: &str,
-        ttl: Option<i64>,
-    ) -> ApiResult<AccessTokenInfo> {
+    pub fn get_access_token(&self, scope: &str, ttl: Option<i64>) -> ApiResult<AccessTokenInfo> {
         // Signedness converstion for Kotlin compatibility :-/
         let ttl = ttl.map(|ttl| u64::try_from(ttl).unwrap_or_default());
         Ok(self

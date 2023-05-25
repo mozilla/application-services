@@ -369,11 +369,9 @@ impl FirefoxAccount {
             log::warn!("Access token destruction failure: {:?}", err);
         }
         let old_refresh_token = self.state.refresh_token.clone();
-        let new_refresh_token = resp
-            .refresh_token
-            .ok_or(Error::UnrecoverableServerError(
-                "No refresh token in response",
-            ))?;
+        let new_refresh_token = resp.refresh_token.ok_or(Error::UnrecoverableServerError(
+            "No refresh token in response",
+        ))?;
         // Destroying a refresh token also destroys its associated device,
         // grab the device information for replication later.
         let old_device_info = match old_refresh_token {
@@ -435,11 +433,9 @@ impl FirefoxAccount {
             session_token,
             &scopes,
         )?;
-        let new_refresh_token = resp
-            .refresh_token
-            .ok_or(Error::UnrecoverableServerError(
-                "No refresh token in response",
-            ))?;
+        let new_refresh_token = resp.refresh_token.ok_or(Error::UnrecoverableServerError(
+            "No refresh token in response",
+        ))?;
         self.state.refresh_token = Some(RefreshToken {
             token: new_refresh_token,
             scopes: resp.scope.split(' ').map(ToString::to_string).collect(),

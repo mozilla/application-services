@@ -18,8 +18,8 @@ use serde_derive::*;
 use rc_crypto::ece::{self, EcKeyComponents};
 use sync15::{EncryptedPayload, KeyBundle};
 
-use crate::{Error, Result, ScopedKey};
 use super::super::{device::Device, scopes, telemetry};
+use crate::{Error, Result, ScopedKey};
 
 pub const COMMAND_NAME: &str = "https://identity.mozilla.com/cmd/open-uri";
 
@@ -232,10 +232,9 @@ pub fn build_send_command(
 
 fn extract_oldsync_key_components(oldsync_key: &ScopedKey) -> Result<(Vec<u8>, Vec<u8>)> {
     if oldsync_key.scope != scopes::OLD_SYNC {
-        return Err(Error::IllegalState(
-            "Only oldsync scoped keys are supported at the moment.",
-        )
-        .into());
+        return Err(
+            Error::IllegalState("Only oldsync scoped keys are supported at the moment.").into(),
+        );
     }
     let kxcs: &str = oldsync_key.kid.splitn(2, '-').collect::<Vec<_>>()[1];
     let kxcs = base64::decode_config(kxcs, base64::URL_SAFE_NO_PAD)?;

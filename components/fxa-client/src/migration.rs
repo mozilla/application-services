@@ -13,8 +13,8 @@
 //! can be used to help migrate from such legacy state into state that's suitable for use with
 //! this component.
 
+use crate::{ApiResult, Error, FirefoxAccount};
 use error_support::handle_error;
-use crate::{ApiResult, FirefoxAccount, Error};
 
 impl FirefoxAccount {
     /// Sign in by using legacy session-token state.

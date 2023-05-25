@@ -2,9 +2,9 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
+use error_support::{ErrorHandling, GetErrorHandling};
 use rc_crypto::hawk;
 use std::string;
-use error_support::{ErrorHandling, GetErrorHandling};
 
 /// Public error type thrown by many [`FirefoxAccount`] operations.
 ///
@@ -188,17 +188,12 @@ impl GetErrorHandling for Error {
             | Error::NoRefreshToken
             | Error::NoScopedKey(_)
             | Error::NoCachedToken(_) => {
-                ErrorHandling::convert(crate::FxaError::Authentication)
-                    .log_warning()
+                ErrorHandling::convert(crate::FxaError::Authentication).log_warning()
             }
             Error::RequestError(_) => {
-                ErrorHandling::convert(crate::FxaError::Network)
-                    .log_warning()
+                ErrorHandling::convert(crate::FxaError::Network).log_warning()
             }
-            _ => {
-                ErrorHandling::convert(crate::FxaError::Other)
-                    .log_warning()
-            }
+            _ => ErrorHandling::convert(crate::FxaError::Other).log_warning(),
         }
     }
 }

@@ -23,9 +23,9 @@
 //! Technical details of the pairing flow can be found in the [Firefox Accounts
 //! documentation hub](https://mozilla.github.io/ecosystem-platform/docs/features/firefox-accounts/pairing).
 
-use std::collections::HashMap;
 use crate::{ApiResult, Error, FirefoxAccount};
 use error_support::handle_error;
+use std::collections::HashMap;
 
 impl FirefoxAccount {
     /// Initiate a web-based OAuth sign-in flow.

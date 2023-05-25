@@ -32,7 +32,6 @@
 use serde_derive::*;
 use std::collections::{HashMap, HashSet};
 
-use crate::ScopedKey;
 use super::{
     config::Config,
     device::Capability as DeviceCapability,
@@ -41,6 +40,7 @@ use super::{
     profile::Profile,
     CachedResponse, Result,
 };
+use crate::ScopedKey;
 
 // These are the public API for working with the persisted state.
 

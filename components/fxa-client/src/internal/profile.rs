@@ -2,9 +2,9 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-use crate::{Error, Result};
 pub use super::http_client::ProfileResponse as Profile;
 use super::{scopes, util, CachedResponse, FirefoxAccount};
+use crate::{Error, Result};
 
 // A cached profile response is considered fresh for `PROFILE_FRESHNESS_THRESHOLD` ms.
 const PROFILE_FRESHNESS_THRESHOLD: u64 = 120_000; // 2 minutes

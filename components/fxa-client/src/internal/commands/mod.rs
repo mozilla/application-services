@@ -5,8 +5,8 @@
 pub mod send_tab;
 pub use send_tab::SendTabPayload;
 
-use crate::{Error, Result};
 use super::device::Device;
+use crate::{Error, Result};
 
 // Currently public for use by example crates, but should be made private eventually.
 #[derive(Clone, Debug)]

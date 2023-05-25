@@ -17,8 +17,8 @@
 //! the modified account state and persist the resulting string in application
 //! settings.
 
+use crate::{internal, ApiResult, Error, FirefoxAccount};
 use error_support::handle_error;
-use crate::{internal, ApiResult, FirefoxAccount, Error};
 
 impl FirefoxAccount {
     /// Restore a [`FirefoxAccount`] instance from serialized state.

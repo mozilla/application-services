@@ -6,7 +6,6 @@ use std::collections::{HashMap, HashSet};
 
 use serde_derive::*;
 
-use crate::{Error, Result};
 pub use super::http_client::{
     DeviceLocation as Location, GetDeviceResponse as Device, PushSubscription,
 };
@@ -15,6 +14,7 @@ use super::{
     http_client::{DeviceUpdateRequest, DeviceUpdateRequestBuilder, PendingCommand},
     telemetry, util, CachedResponse, FirefoxAccount,
 };
+use crate::{Error, Result};
 use sync15::DeviceType;
 
 // An devices response is considered fresh for `DEVICES_FRESHNESS_THRESHOLD` ms.
@@ -407,10 +407,10 @@ impl TryFrom<Device> for crate::Device {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::ScopedKey;
     use crate::internal::http_client::*;
     use crate::internal::oauth::RefreshToken;
     use crate::internal::Config;
+    use crate::ScopedKey;
     use std::collections::HashSet;
     use std::sync::Arc;
 
