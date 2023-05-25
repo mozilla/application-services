@@ -8,15 +8,10 @@ import mozilla.appservices.sync15.EngineInfo
 import mozilla.appservices.sync15.FailureName
 import mozilla.appservices.sync15.FailureReason
 import mozilla.appservices.sync15.SyncTelemetryPing
-
-// import mozilla.telemetry.glean.Glean
 import mozilla.telemetry.glean.private.LabeledMetricType
 import mozilla.telemetry.glean.private.StringMetricType
-
-// TODO: ??
-// import mozilla.components.concept.base.crash.CrashReporting
-// import mozilla.components.support.base.log.logger.Logger
-
+import org.json.JSONException
+import org.json.JSONObject
 import org.mozilla.appservices.syncmanager.GleanMetrics.AddressesSync
 import org.mozilla.appservices.syncmanager.GleanMetrics.BookmarksSync
 import org.mozilla.appservices.syncmanager.GleanMetrics.CreditcardsSync
@@ -27,13 +22,10 @@ import org.mozilla.appservices.syncmanager.GleanMetrics.Pings
 import org.mozilla.appservices.syncmanager.GleanMetrics.Sync
 import org.mozilla.appservices.syncmanager.GleanMetrics.TabsSync
 
-import org.json.JSONException
-import org.json.JSONObject
-
 const val MAX_FAILURE_REASON_LENGTH = 100
 
 // The exceptions we report to the crash reporter, but otherwise don't escape this module.
-internal sealed class InvalidTelemetryException(cause: Exception) : Exception(cause) {
+sealed class InvalidTelemetryException(cause: Exception) : Exception(cause) {
     // The top-level data passed in is invalid.
     class InvalidData(cause: JSONException) : InvalidTelemetryException(cause)
 
@@ -64,7 +56,7 @@ object SyncTelemetry {
         submitLoginsPing: () -> Unit = { Pings.loginsSync.submit() },
         submitCreditCardsPing: () -> Unit = { Pings.creditcardsSync.submit() },
         submitAddressesPing: () -> Unit = { Pings.addressesSync.submit() },
-        submitTabsPing: () -> Unit = { Pings.tabsSync.submit() }
+        submitTabsPing: () -> Unit = { Pings.tabsSync.submit() },
     ) {
         syncTelemetry.syncs.forEach { syncInfo ->
             // Note that `syncUuid` is configured to be submitted in all of the sync pings (it's set
@@ -127,7 +119,7 @@ object SyncTelemetry {
     @Suppress("ComplexMethod", "NestedBlockDepth", "ReturnCount")
     fun processHistoryPing(
         ping: SyncTelemetryPing,
-        sendPing: () -> Unit = { Pings.historySync.submit() }
+        sendPing: () -> Unit = { Pings.historySync.submit() },
     ): Boolean {
         ping.syncs.forEach eachSync@{ sync ->
             sync.failureReason?.let {
@@ -153,7 +145,7 @@ object SyncTelemetry {
     @Suppress("ComplexMethod", "NestedBlockDepth", "ReturnCount")
     fun processLoginsPing(
         ping: SyncTelemetryPing,
-        sendPing: () -> Unit = { Pings.loginsSync.submit() }
+        sendPing: () -> Unit = { Pings.loginsSync.submit() },
     ): Boolean {
         ping.syncs.forEach eachSync@{ sync ->
             sync.failureReason?.let {
@@ -179,7 +171,7 @@ object SyncTelemetry {
     @Suppress("ComplexMethod", "NestedBlockDepth", "ReturnCount")
     fun processBookmarksPing(
         ping: SyncTelemetryPing,
-        sendPing: () -> Unit = { Pings.bookmarksSync.submit() }
+        sendPing: () -> Unit = { Pings.bookmarksSync.submit() },
     ): Boolean {
         // This function is almost identical to `recordHistoryPing`, with additional
         // reporting for validation problems. Unfortunately, since the
@@ -433,14 +425,14 @@ object SyncTelemetry {
         metric.set(message.take(MAX_FAILURE_REASON_LENGTH))
     }
 
-    // fun processFxaTelemetry(jsonStr: String, crashReporter: CrashReporting? = null) {
-    fun processFxaTelemetry(jsonStr: String) {
+    @Throws(Throwable::class)
+    fun processFxaTelemetry(jsonStr: String): List<Throwable> {
+        val errors = mutableListOf<Throwable>()
         val json = try {
             JSONObject(jsonStr)
         } catch (e: JSONException) {
-            // crashReporter?.submitCaughtException(InvalidTelemetryException.InvalidData(e))
-            // logger.error("Invalid JSON in FxA telemetry", e)
-            return
+            // top level failures return immediately
+            return listOf(InvalidTelemetryException.InvalidData(e))
         }
         try {
             val sent = json.getJSONArray("commands_sent")
@@ -448,14 +440,13 @@ object SyncTelemetry {
                 val one = sent.getJSONObject(i)
                 val extras = FxaTab.SentExtra(
                     flowId = one.getString("flow_id"),
-                    streamId = one.getString("stream_id")
+                    streamId = one.getString("stream_id"),
                 )
                 FxaTab.sent.record(extras)
             }
             // logger.info("Reported telemetry for ${sent.length()} sent commands")
         } catch (e: JSONException) {
-            // crashReporter?.submitCaughtException(InvalidTelemetryException.InvalidEvents(e))
-            // logger.error("Failed to report sent commands", e)
+            errors.add(InvalidTelemetryException.InvalidEvents(e))
         }
         try {
             val recd = json.getJSONArray("commands_received")
@@ -464,14 +455,14 @@ object SyncTelemetry {
                 val extras = FxaTab.ReceivedExtra(
                     flowId = one.getString("flow_id"),
                     streamId = one.getString("stream_id"),
-                    reason = one.getString("reason")
+                    reason = one.getString("reason"),
                 )
                 FxaTab.received.record(extras)
             }
             // logger.info("Reported telemetry for ${recd.length()} received commands")
         } catch (e: JSONException) {
-            // crashReporter?.submitCaughtException(InvalidTelemetryException.InvalidEvents(e))
-            // logger.error("Failed to report received commands", e)
+            errors.add(InvalidTelemetryException.InvalidEvents(e))
         }
+        return errors
     }
 }

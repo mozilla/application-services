@@ -86,7 +86,6 @@
     "support-rusterrors",
     "support-test-appservices",
     "support-utils",
-    "support-sync-telemetry",
     "support-rustlog",
     "support-rusthttp",
     "support-locale",

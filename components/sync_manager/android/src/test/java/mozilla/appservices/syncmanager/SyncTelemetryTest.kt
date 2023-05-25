@@ -15,16 +15,7 @@ import mozilla.appservices.sync15.ProblemInfo
 import mozilla.appservices.sync15.SyncInfo
 import mozilla.appservices.sync15.SyncTelemetryPing
 import mozilla.appservices.sync15.ValidationInfo
-
-//import mozilla.components.concept.base.crash.CrashReporting
 import mozilla.telemetry.glean.testing.GleanTestRule
-import org.mozilla.appservices.syncmanager.GleanMetrics.BookmarksSync
-import org.mozilla.appservices.syncmanager.GleanMetrics.FxaTab
-import org.mozilla.appservices.syncmanager.GleanMetrics.HistorySync
-import org.mozilla.appservices.syncmanager.GleanMetrics.LoginsSync
-import org.mozilla.appservices.syncmanager.GleanMetrics.Pings
-import org.mozilla.appservices.syncmanager.GleanMetrics.Sync
-import org.json.JSONException
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNotNull
@@ -35,8 +26,12 @@ import org.junit.Before
 import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
-import org.mockito.Mockito.times
-import org.mockito.Mockito.verify
+import org.mozilla.appservices.syncmanager.GleanMetrics.BookmarksSync
+import org.mozilla.appservices.syncmanager.GleanMetrics.FxaTab
+import org.mozilla.appservices.syncmanager.GleanMetrics.HistorySync
+import org.mozilla.appservices.syncmanager.GleanMetrics.LoginsSync
+import org.mozilla.appservices.syncmanager.GleanMetrics.Pings
+import org.mozilla.appservices.syncmanager.GleanMetrics.Sync
 import java.util.Date
 import java.util.UUID
 
@@ -75,7 +70,7 @@ class SyncTelemetryTest {
                                 incoming = null,
                                 outgoing = emptyList(),
                                 failureReason = null,
-                                validation = null
+                                validation = null,
                             ),
                             EngineInfo(
                                 name = "history",
@@ -85,23 +80,23 @@ class SyncTelemetryTest {
                                     applied = 5,
                                     failed = 4,
                                     newFailed = 3,
-                                    reconciled = 2
+                                    reconciled = 2,
                                 ),
                                 outgoing = listOf(
                                     OutgoingInfo(
                                         sent = 10,
-                                        failed = 5
+                                        failed = 5,
                                     ),
                                     OutgoingInfo(
                                         sent = 4,
-                                        failed = 2
-                                    )
+                                        failed = 2,
+                                    ),
                                 ),
                                 failureReason = null,
-                                validation = null
-                            )
+                                validation = null,
+                            ),
                         ),
-                        failureReason = null
+                        failureReason = null,
                     ),
                     SyncInfo(
                         at = now + 10,
@@ -114,14 +109,14 @@ class SyncTelemetryTest {
                                 incoming = null,
                                 outgoing = emptyList(),
                                 failureReason = null,
-                                validation = null
-                            )
+                                validation = null,
+                            ),
                         ),
-                        failureReason = null
-                    )
+                        failureReason = null,
+                    ),
                 ),
-                events = emptyList()
-            )
+                events = emptyList(),
+            ),
         ) {
             when (pingCount) {
                 0 -> {
@@ -150,7 +145,7 @@ class SyncTelemetryTest {
                                 incoming["reconciled"],
                                 outgoing["uploaded"],
                                 outgoing["failed_to_upload"],
-                                outgoingBatches
+                                outgoingBatches,
                             ).none { it.testGetValue() != null },
                         )
                         assertNull(Sync.syncUuid.testGetValue("history-sync"))
@@ -188,7 +183,7 @@ class SyncTelemetryTest {
                                 incoming = null,
                                 outgoing = emptyList(),
                                 failureReason = FailureReason(FailureName.Unknown, "Boxes not locked"),
-                                validation = null
+                                validation = null,
                             ),
                             // Multiple history engine syncs per sync isn't
                             // expected, but it's easier to test the
@@ -202,7 +197,7 @@ class SyncTelemetryTest {
                                 incoming = null,
                                 outgoing = emptyList(),
                                 failureReason = FailureReason(FailureName.Shutdown),
-                                validation = null
+                                validation = null,
                             ),
                             EngineInfo(
                                 name = "history",
@@ -211,7 +206,7 @@ class SyncTelemetryTest {
                                 incoming = null,
                                 outgoing = emptyList(),
                                 failureReason = FailureReason(FailureName.Unknown, "Synergies not aligned"),
-                                validation = null
+                                validation = null,
                             ),
                             EngineInfo(
                                 name = "history",
@@ -220,7 +215,7 @@ class SyncTelemetryTest {
                                 incoming = null,
                                 outgoing = emptyList(),
                                 failureReason = FailureReason(FailureName.Http, code = 418),
-                                validation = null
+                                validation = null,
                             ),
                         ),
                         failureReason = null,
@@ -1197,29 +1192,28 @@ class SyncTelemetryTest {
 
     @Test
     fun `checks invalid tab telemetry doesn't record anything and doesn't crash`() {
-        //val crashReporter: CrashReporting = mock()
         // commands_sent is missing the stream_id, command_received is missing a reason
-        // val json = """
-        //     {
-        //         "commands_sent":[{
-        //             "flow_id":"test-flow-id"
-        //         }],
-        //         "commands_received":[{
-        //             "flow_id":"test-flow-id",
-        //             "stream_id":"test-stream-id"
-        //         }]
-        //     }
-        // """
-        // TODO: this looks important
-        //SyncTelemetry.processFxaTelemetry(json, crashReporter)
+        val json = """
+            {
+                "commands_sent":[{
+                    "flow_id":"test-flow-id"
+                }],
+                "commands_received":[{
+                    "flow_id":"test-flow-id",
+                    "stream_id":"test-stream-id"
+                }]
+            }
+        """
+        val sendRecieveExceptions: List<Throwable> = SyncTelemetry.processFxaTelemetry(json)
         // one exception for each of 'send' and 'received'
-        //verify(crashReporter, times(2)).submitCaughtException(any<JSONException>())
+        assertEquals(sendRecieveExceptions.count(), 2)
+
         // completely invalid json
-        //SyncTelemetry.processFxaTelemetry(""" foo bar """, crashReporter)
+        val topLevelExceptions: List<Throwable> = SyncTelemetry.processFxaTelemetry(""" foo bar """)
         assertNull(FxaTab.sent.testGetValue())
         assertNull(FxaTab.received.testGetValue())
-        // One more exception, making it the 3rd time
-        //verify(crashReporter, times(3)).submitCaughtException(any<JSONException>())
+        // processFxaTelemetry should report only one error
+        assertEquals(topLevelExceptions.count(), 1)
     }
 
     private fun MutableMap<String, Int>.incrementForKey(key: String) {
