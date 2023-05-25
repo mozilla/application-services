@@ -115,8 +115,7 @@ mod tests {
                 error: "Did not work!".to_owned(),
                 message: "Did not work!".to_owned(),
                 info: "Did not work!".to_owned(),
-            }
-            .into()));
+            }));
 
         fxa.set_client(Arc::new(client));
         assert!(fxa.attached_clients_cache.is_none());

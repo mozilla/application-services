@@ -48,12 +48,11 @@ impl FirefoxAccount {
     pub fn get_access_token(&self, scope: &str, ttl: Option<i64>) -> ApiResult<AccessTokenInfo> {
         // Signedness converstion for Kotlin compatibility :-/
         let ttl = ttl.map(|ttl| u64::try_from(ttl).unwrap_or_default());
-        Ok(self
-            .internal
+        self.internal
             .lock()
             .unwrap()
             .get_access_token(scope, ttl)?
-            .try_into()?)
+            .try_into()
     }
 
     /// Get the session token for the user's account, if one is available.
@@ -73,7 +72,7 @@ impl FirefoxAccount {
     ///      `https://identity.mozilla.com/tokens/session` scope.
     #[handle_error(Error)]
     pub fn get_session_token(&self) -> ApiResult<String> {
-        Ok(self.internal.lock().unwrap().get_session_token()?)
+        self.internal.lock().unwrap().get_session_token()
     }
 
     /// Update the stored session token for the user's account.
@@ -90,11 +89,10 @@ impl FirefoxAccount {
     ///    - `session_token` - the new session token value provided from web content.
     #[handle_error(Error)]
     pub fn handle_session_token_change(&self, session_token: &str) -> ApiResult<()> {
-        Ok(self
-            .internal
+        self.internal
             .lock()
             .unwrap()
-            .handle_session_token_change(session_token)?)
+            .handle_session_token_change(session_token)
     }
 
     /// Create a new OAuth authorization code using the stored session token.
@@ -113,11 +111,10 @@ impl FirefoxAccount {
         &self,
         params: AuthorizationParameters,
     ) -> ApiResult<String> {
-        Ok(self
-            .internal
+        self.internal
             .lock()
             .unwrap()
-            .authorize_code_using_session_token(params)?)
+            .authorize_code_using_session_token(params)
     }
 
     /// Clear the access token cache in response to an auth failure.

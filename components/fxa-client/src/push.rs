@@ -26,11 +26,10 @@ impl FirefoxAccount {
     ///      granted the `https://identity.mozilla.com/apps/oldsync` scope.
     #[handle_error(Error)]
     pub fn set_push_subscription(&self, subscription: DevicePushSubscription) -> ApiResult<()> {
-        Ok(self
-            .internal
+        self.internal
             .lock()
             .unwrap()
-            .set_push_subscription(subscription.into())?)
+            .set_push_subscription(subscription.into())
     }
 
     /// Process and respond to a server-delivered account update message
@@ -47,7 +46,7 @@ impl FirefoxAccount {
     /// [`FirefoxAccount::poll_device_commands`]
     #[handle_error(Error)]
     pub fn handle_push_message(&self, payload: &str) -> ApiResult<AccountEvent> {
-        Ok(self.internal.lock().unwrap().handle_push_message(payload)?)
+        self.internal.lock().unwrap().handle_push_message(payload)
     }
 
     /// Poll the server for any pending device commands.
@@ -67,14 +66,13 @@ impl FirefoxAccount {
     ///      granted the `https://identity.mozilla.com/apps/oldsync` scope.
     #[handle_error(Error)]
     pub fn poll_device_commands(&self) -> ApiResult<Vec<IncomingDeviceCommand>> {
-        Ok(self
-            .internal
+        self.internal
             .lock()
             .unwrap()
             .poll_device_commands(internal::device::CommandFetchReason::Poll)?
             .into_iter()
             .map(TryFrom::try_from)
-            .collect::<Result<_, _>>()?)
+            .collect::<Result<_, _>>()
     }
 
     /// Use device commands to send a single tab to another device.
@@ -95,11 +93,10 @@ impl FirefoxAccount {
     ///      granted the `https://identity.mozilla.com/apps/oldsync` scope.
     #[handle_error(Error)]
     pub fn send_single_tab(&self, target_device_id: &str, title: &str, url: &str) -> ApiResult<()> {
-        Ok(self
-            .internal
+        self.internal
             .lock()
             .unwrap()
-            .send_single_tab(target_device_id, title, url)?)
+            .send_single_tab(target_device_id, title, url)
     }
 }
 

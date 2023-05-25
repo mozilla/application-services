@@ -23,6 +23,6 @@ impl FirefoxAccount {
     /// a sync ping, you'll know what to do with the contents of the JSON string.
     #[handle_error(Error)]
     pub fn gather_telemetry(&self) -> ApiResult<String> {
-        Ok(self.internal.lock().unwrap().gather_telemetry()?)
+        self.internal.lock().unwrap().gather_telemetry()
     }
 }

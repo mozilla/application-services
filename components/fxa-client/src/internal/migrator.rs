@@ -41,7 +41,7 @@ impl FirefoxAccount {
     ) -> Result<FxAMigrationResult> {
         // if there is already a session token on account, we error out.
         if self.state.session_token.is_some() {
-            return Err(Error::IllegalState("Session Token is already set.").into());
+            return Err(Error::IllegalState("Session Token is already set."));
         }
 
         self.state.in_flight_migration = Some(MigrationData {
@@ -110,7 +110,7 @@ impl FirefoxAccount {
         let migration_data = match self.state.in_flight_migration {
             Some(ref data) => data.clone(),
             None => {
-                return Err(Error::NoMigrationData.into());
+                return Err(Error::NoMigrationData);
             }
         };
 
@@ -205,8 +205,7 @@ mod tests {
                 error: "server error".to_string(),
                 message: "there was a server error".to_string(),
                 info: "fyi, there was a server error".to_string(),
-            }
-            .into()));
+            }));
         fxa.set_client(Arc::new(client));
 
         let err = fxa
@@ -288,8 +287,7 @@ mod tests {
                 error: "invalid token".to_string(),
                 message: "the token was invalid".to_string(),
                 info: "fyi, the provided token was invalid".to_string(),
-            }
-            .into()));
+            }));
         fxa.set_client(Arc::new(client));
 
         let err = fxa
@@ -330,8 +328,7 @@ mod tests {
                 error: "server error".to_string(),
                 message: "there was a server error".to_string(),
                 info: "fyi, there was a server error".to_string(),
-            }
-            .into()));
+            }));
         fxa.set_client(Arc::new(client));
 
         let err = fxa
@@ -359,8 +356,7 @@ mod tests {
                 error: "server error".to_string(),
                 message: "there was a server error".to_string(),
                 info: "fyi, there was a server error".to_string(),
-            }
-            .into()));
+            }));
         fxa.set_client(Arc::new(client));
 
         let err = fxa.try_migration().unwrap_err();

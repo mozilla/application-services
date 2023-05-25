@@ -157,7 +157,7 @@ impl SendTabKeysPayload {
     pub(crate) fn decrypt(self, scoped_key: &ScopedKey) -> Result<PublicSendTabKeys> {
         let (ksync, kxcs) = extract_oldsync_key_components(scoped_key)?;
         if hex::decode(self.kid)? != kxcs {
-            return Err(Error::MismatchedKeys.into());
+            return Err(Error::MismatchedKeys);
         }
         let key = KeyBundle::from_ksync_bytes(&ksync)?;
         let encrypted_payload = EncryptedPayload {
@@ -232,9 +232,9 @@ pub fn build_send_command(
 
 fn extract_oldsync_key_components(oldsync_key: &ScopedKey) -> Result<(Vec<u8>, Vec<u8>)> {
     if oldsync_key.scope != scopes::OLD_SYNC {
-        return Err(
-            Error::IllegalState("Only oldsync scoped keys are supported at the moment.").into(),
-        );
+        return Err(Error::IllegalState(
+            "Only oldsync scoped keys are supported at the moment.",
+        ));
     }
     let kxcs: &str = oldsync_key.kid.splitn(2, '-').collect::<Vec<_>>()[1];
     let kxcs = base64::decode_config(kxcs, base64::URL_SAFE_NO_PAD)?;

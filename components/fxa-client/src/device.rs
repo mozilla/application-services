@@ -53,11 +53,10 @@ impl FirefoxAccount {
         // UniFFI doesn't have good handling of lists of references, work around it.
         let supported_capabilities: Vec<_> =
             supported_capabilities.into_iter().map(Into::into).collect();
-        Ok(self.internal.lock().unwrap().initialize_device(
-            name,
-            device_type,
-            &supported_capabilities,
-        )?)
+        self.internal
+            .lock()
+            .unwrap()
+            .initialize_device(name, device_type, &supported_capabilities)
     }
 
     /// Get the device id registered for this application.
@@ -71,7 +70,7 @@ impl FirefoxAccount {
     ///      granted the `https://identity.mozilla.com/apps/oldsync` scope.
     #[handle_error(Error)]
     pub fn get_current_device_id(&self) -> ApiResult<String> {
-        Ok(self.internal.lock().unwrap().get_current_device_id()?)
+        self.internal.lock().unwrap().get_current_device_id()
     }
 
     /// Get the list of devices registered on the user's account.
@@ -93,14 +92,13 @@ impl FirefoxAccount {
     ///      granted the `https://identity.mozilla.com/apps/oldsync` scope.
     #[handle_error(Error)]
     pub fn get_devices(&self, ignore_cache: bool) -> ApiResult<Vec<Device>> {
-        Ok(self
-            .internal
+        self.internal
             .lock()
             .unwrap()
             .get_devices(ignore_cache)?
             .into_iter()
             .map(TryInto::try_into)
-            .collect::<Result<_, _>>()?)
+            .collect::<Result<_, _>>()
     }
 
     /// Get the list of all client applications attached to the user's account.
@@ -119,14 +117,13 @@ impl FirefoxAccount {
     ///      granted the `https://identity.mozilla.com/apps/oldsync` scope.
     #[handle_error(Error)]
     pub fn get_attached_clients(&self) -> ApiResult<Vec<AttachedClient>> {
-        Ok(self
-            .internal
+        self.internal
             .lock()
             .unwrap()
             .get_attached_clients()?
             .into_iter()
             .map(TryInto::try_into)
-            .collect::<Result<_, _>>()?)
+            .collect::<Result<_, _>>()
     }
 
     /// Update the display name used for this application instance.
@@ -146,11 +143,7 @@ impl FirefoxAccount {
     ///      granted the `https://identity.mozilla.com/apps/oldsync` scope.
     #[handle_error(Error)]
     pub fn set_device_name(&self, display_name: &str) -> ApiResult<()> {
-        Ok(self
-            .internal
-            .lock()
-            .unwrap()
-            .set_device_name(display_name)?)
+        self.internal.lock().unwrap().set_device_name(display_name)
     }
 
     /// Clear any custom display name used for this application instance.
@@ -167,7 +160,7 @@ impl FirefoxAccount {
     ///      granted the `https://identity.mozilla.com/apps/oldsync` scope.
     #[handle_error(Error)]
     pub fn clear_device_name(&self) -> ApiResult<()> {
-        Ok(self.internal.lock().unwrap().clear_device_name()?)
+        self.internal.lock().unwrap().clear_device_name()
     }
 
     /// Ensure that the device record has a specific set of capabilities.
@@ -198,11 +191,10 @@ impl FirefoxAccount {
     ) -> ApiResult<()> {
         let supported_capabilities: Vec<_> =
             supported_capabilities.into_iter().map(Into::into).collect();
-        Ok(self
-            .internal
+        self.internal
             .lock()
             .unwrap()
-            .ensure_capabilities(&supported_capabilities)?)
+            .ensure_capabilities(&supported_capabilities)
     }
 }
 
