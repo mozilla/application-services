@@ -16,7 +16,9 @@ use crate::{ApiResult, Error, FirefoxAccount};
 use error_support::handle_error;
 
 impl FirefoxAccount {
-    /// Get the URL at which to access the user's sync data.
+    /// Get the token server URL
+    ///
+    /// The token server URL can be used to get the URL and access token for the user's sync data.
     ///
     /// **💾 This method alters the persisted account state.**
     #[handle_error(Error)]
