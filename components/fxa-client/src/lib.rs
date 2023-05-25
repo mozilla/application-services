@@ -55,7 +55,8 @@ pub use events::FxaEventHandler;
 pub use migration::{FxAMigrationResult, MigrationState};
 pub use profile::Profile;
 pub use push::{
-    AccountEvent, DevicePushSubscription, IncomingDeviceCommand, SendTabPayload, TabHistoryEntry,
+    AccountEvent, DevicePushSubscription, IncomingDeviceCommand, ParsedPushMessage, PushMessageDisplay, SendTabPayload, TabHistoryEntry,
+    parse_push_message,
 };
 pub use storage::{FxaStorage, SavedState};
 pub use token::{AccessTokenInfo, AuthorizationParameters, ScopedKey};

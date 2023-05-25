@@ -2,7 +2,7 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-use crate::{internal, ApiResult, Device, Error, FirefoxAccount};
+use crate::{internal, ApiResult, Device, Error, FirefoxAccount, FxaConfig};
 use error_support::handle_error;
 
 impl FirefoxAccount {
@@ -35,14 +35,22 @@ impl FirefoxAccount {
     /// Applications should call this method whenever they receive a push notification from the Firefox Accounts server.
     /// Such messages typically indicate a noteworthy change of state on the user's account, such as an update to their profile information
     /// or the disconnection of a client. The [`FirefoxAccount`] struct will update its internal state
-    /// accordingly and return an individual [`AccountEvent`] struct describing the event, which the application
-    /// may use for further processing.
-    ///
-    /// It's important to note if the event is [`AccountEvent::CommandReceived`], the caller should call
-    /// [`FirefoxAccount::poll_device_commands`]
+    /// accordingly and maybe emit events for the application to process.
     #[handle_error(Error)]
-    pub fn handle_push_message(&self, payload: &str) -> ApiResult<AccountEvent> {
-        self.internal.lock().unwrap().handle_push_message(payload)
+    pub fn handle_push_message(&self, payload: &str) -> ApiResult<()> {
+        self.internal.lock().unwrap().handle_push_message(payload)?;
+        Ok(())
+    }
+
+    /// Process and respond to a server-delivered account update message that was parsed in a
+    /// separate process
+    ///
+    /// This is a companion function to `parse_push_message()` intended for applications that
+    /// handle push messages in a separate process (iOS).  It handles the data parsed in the
+    /// separate process.
+    #[handle_error(Error)]
+    pub fn handle_parsed_push_message_data(&self, data: &str) -> ApiResult<()> {
+        unimplemented!()
     }
 
     /// Poll the server for any pending device commands.
@@ -90,6 +98,16 @@ impl FirefoxAccount {
             .unwrap()
             .send_single_tab(target_device_id, title, url)
     }
+}
+
+/// Parse a push message
+///
+/// This is a top-level function intended to be used by applications that use a separate process to
+/// process push messages (iOS).  It decrypts and parses the push message into two optional parts: something
+/// to display to the user from the side process and some data to send to the main process to
+/// update its state.
+pub fn parse_push_message(config: FxaConfig, state: String, payload: &str) -> ParsedPushMessage {
+    unimplemented!()
 }
 
 /// Details of a web-push subscription endpoint.
@@ -160,7 +178,6 @@ pub enum AccountEvent {
         device_id: String,
         is_local_device: bool,
     },
-
     /// An unknown event, most likely an event the client doesn't support yet.
     ///
     /// When receiving this event, the application should gracefully ignore it.
@@ -205,4 +222,20 @@ pub struct SendTabPayload {
 pub struct TabHistoryEntry {
     pub title: String,
     pub url: String,
+}
+
+/// The result of the parse_push_message function()
+#[derive(Debug)]
+pub struct ParsedPushMessage {
+    pub message: Option<PushMessageDisplay>,
+    pub data_for_main_process: Option<Vec<u8>>,
+}
+
+/// A message to display to the user based on a push message
+#[derive(Debug)]
+pub enum PushMessageDisplay {
+    TabSent {
+        title: String,
+        url: String,
+    },
 }
