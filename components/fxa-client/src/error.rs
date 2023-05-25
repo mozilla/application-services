@@ -17,35 +17,21 @@ pub enum FxaError {
     /// FirefoxAccount::check_authorization_status) to see whether it has been disconnected,
     /// or retry the operation with a freshly-generated token.
     #[error("authentication error")]
-    Authentication,
+    AuthError,
     /// Thrown if an operation fails due to network access problems.
     /// The application may retry at a later time once connectivity is restored.
     #[error("network error")]
-    Network,
-    /// Thrown if the application attempts to complete an OAuth flow when no OAuth flow
-    /// has been initiated. This may indicate a user who navigated directly to the OAuth
-    /// `redirect_uri` for the application.
-    ///
-    /// **Note:** This error is currently only thrown in the Swift language bindings.
-    #[error("no authentication flow was active")]
-    NoExistingAuthFlow,
-    /// Thrown if the application attempts to complete an OAuth flow, but the state
-    /// tokens returned from the Firefox Account server do not match with the ones
-    /// expected by the client.
-    /// This may indicate a stale OAuth flow, or potentially an attempted hijacking
-    /// of the flow by an attacker. The signin attempt cannot be completed.
-    ///
-    /// **Note:** This error is currently only thrown in the Swift language bindings.
-    #[error("the requested authentication flow was not active")]
-    WrongAuthFlow,
-    /// Thrown if there is a panic in the underlying Rust code.
-    ///
-    /// **Note:** This error is currently only thrown in the Kotlin language bindings.
-    #[error("panic in native code")]
-    Panic,
+    NetworkError,
+    /// Attempt to call a method that's not valid for this particular state (for example
+    /// `begin_oauth_flow()` when the client is already logged in
+    #[error("{method} can not be called from the {state} state")]
+    InvalidState {
+        method: String,
+        state: String,
+    },
     /// A catch-all for other unspecified errors.
-    #[error("other error")]
-    Other,
+    #[error("unexpected error: {0}")]
+    UnexpectedError(String),
 }
 
 /// FxA internal error type
@@ -188,12 +174,12 @@ impl GetErrorHandling for Error {
             | Error::NoRefreshToken
             | Error::NoScopedKey(_)
             | Error::NoCachedToken(_) => {
-                ErrorHandling::convert(crate::FxaError::Authentication).log_warning()
+                ErrorHandling::convert(crate::FxaError::AuthError).log_warning()
             }
             Error::RequestError(_) => {
-                ErrorHandling::convert(crate::FxaError::Network).log_warning()
+                ErrorHandling::convert(crate::FxaError::NetworkError).log_warning()
             }
-            _ => ErrorHandling::convert(crate::FxaError::Other).log_warning(),
+            _ => ErrorHandling::convert(crate::FxaError::UnexpectedError(self.to_string())).log_warning(),
         }
     }
 }
