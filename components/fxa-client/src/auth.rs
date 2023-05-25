@@ -48,7 +48,7 @@ impl FirefoxAccount {
     ///       - This parameter is used for metrics purposes, to identify the
     ///         UX entrypoint from which the user triggered the signin request.
     ///         For example, the application toolbar, on the onboarding flow.
-    ///   - `metrics` - optionally, additional metrics tracking paramters.
+    ///   - `metrics` - optionally, additional metrics tracking parameters.
     ///       - These will be included as query parameters in the resulting URL.
     #[handle_error(Error)]
     pub fn begin_oauth_flow(
@@ -98,7 +98,7 @@ impl FirefoxAccount {
     ///       - This parameter is used for metrics purposes, to identify the
     ///         UX entrypoint from which the user triggered the signin request.
     ///         For example, the application toolbar, on the onboarding flow.
-    ///   - `metrics` - optionally, additional metrics tracking paramters.
+    ///   - `metrics` - optionally, additional metrics tracking parameters.
     ///       - These will be included as query parameters in the resulting URL.
     #[handle_error(Error)]
     pub fn begin_pairing_flow(
@@ -167,7 +167,7 @@ impl FirefoxAccount {
     ///
     /// The persisted account state after calling this method will contain only the
     /// user's last-seen profile information, if any. This may be useful in helping
-    /// the user to reconnnect to their account. If reconnecting to the same account
+    /// the user to reconnect to their account. If reconnecting to the same account
     /// is not desired then the application should discard the persisted account state.
     pub fn disconnect(&self) {
         self.internal.lock().unwrap().disconnect()
@@ -178,13 +178,11 @@ impl FirefoxAccount {
 ///
 /// This struct represents metadata about whether the application is currently
 /// connected to the user's account.
-///
 pub struct AuthorizationInfo {
     pub active: bool,
 }
 
 /// Additional metrics tracking parameters to include in an OAuth request.
-///
 pub struct MetricsParams {
     pub parameters: HashMap<String, String>,
 }
