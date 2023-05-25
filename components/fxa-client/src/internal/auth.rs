@@ -2,8 +2,9 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-pub use super::oauth::AuthorizationParameters;
-use super::{error::*, http_client, scoped_keys::ScopedKey, util::Xorable, Config};
+use super::{http_client, util::Xorable, Config};
+pub use crate::AuthorizationParameters;
+use crate::{Result, ScopedKey};
 pub use http_client::{
     derive_auth_key_from_session_token, send_authorization_request, send_verification,
     AuthorizationRequestParameters,
