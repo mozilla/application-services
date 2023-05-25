@@ -1,5 +1,11 @@
 # v116.0 (In progress)
 
+## Nimbus FML ⛅️🔬🔭🔧
+
+### ✨ What's New ✨
+
+- Add `validate` command to the FML CLI. This command validates a chosen manifest file, including all its imports, includes, and channels ([#5607](https://github.com/mozilla/application-services/pull/5607)).
+
 [Full Changelog](In progress)
 
 # v115.0 (_2023-06-05_)
