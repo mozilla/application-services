@@ -142,7 +142,6 @@ impl FirefoxAccount {
 /// or service on behalf of the user. For example, accessing the user's data in Firefox Sync
 /// an access token for the scope `https://identity.mozilla.com/apps/sync` along with the
 /// associated encryption key.
-///
 pub struct AccessTokenInfo {
     /// The scope of access granted by token.
     pub scope: String,
@@ -199,7 +198,6 @@ pub struct ScopedKey {
 /// This struct represents parameters obtained from an incoming OAuth request - that is,
 /// the values that an OAuth client would append to the authorization URL when initiating
 /// an OAuth sign-in flow.
-///
 pub struct AuthorizationParameters {
     pub client_id: String,
     pub scope: Vec<String>,

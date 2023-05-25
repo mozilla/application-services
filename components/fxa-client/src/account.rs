@@ -28,7 +28,7 @@ impl FirefoxAccount {
             .get_token_server_endpoint_url()?)
     }
 
-    /// Get a URL which shows a "successfully connceted!" message.
+    /// Get a URL which shows a "successfully connected!" message.
     ///
     /// **💾 This method alters the persisted account state.**
     ///

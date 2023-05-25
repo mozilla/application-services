@@ -40,7 +40,7 @@ impl FirefoxAccount {
     ///    - If unsuccessful this method will throw an error, but you may be able to retry the
     ///      migration again at a later time.
     ///    - Use [is_in_migration_state](FirefoxAccount::is_in_migration_state) to check whether the
-    ///      persisted account state includes a a pending migration that can be retried.
+    ///      persisted account state includes a pending migration that can be retried.
     #[handle_error(Error)]
     pub fn migrate_from_session_token(
         &self,
@@ -85,7 +85,6 @@ impl FirefoxAccount {
 /// migration from legacy sign-in data. A value other than [`None`](MigrationState::None)
 /// indicates that there was a previously-failed migration that should be
 /// retried.
-///
 pub enum MigrationState {
     /// No in-flight migration.
     None,
@@ -100,7 +99,6 @@ pub enum MigrationState {
 /// Applications migrating from legacy sign-in data would typically want to
 /// report telemetry about whether and how that succeeded, and can use the
 /// results reported in this struct to help do so.
-///
 #[derive(Debug)]
 pub struct FxAMigrationResult {
     /// The time taken to migrate, in milliseconds.

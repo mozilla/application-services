@@ -46,7 +46,6 @@ impl FirefoxAccount {
 /// This struct represents details about the user themselves, and would typically be
 /// used to customize account-related UI in the browser so that it is personalize
 /// for the current user.
-///
 pub struct Profile {
     /// The user's account uid
     ///

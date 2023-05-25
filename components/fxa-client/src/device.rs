@@ -24,7 +24,7 @@ impl FirefoxAccount {
     ///
     /// **💾 This method alters the persisted account state.**
     ///
-    /// This method registed a device record for the application, providing basic metadata for
+    /// This method register a device record for the application, providing basic metadata for
     /// the device along with a list of supported [Device Capabilities](DeviceCapability) for
     /// participating in the "device commands" ecosystem.
     ///
@@ -106,11 +106,11 @@ impl FirefoxAccount {
     /// Get the list of all client applications attached to the user's account.
     ///
     /// This method returns a list of [`AttachedClient`] structs representing all the applications
-    /// connected to the user's acount. This includes applications that are registered as a device
+    /// connected to the user's account. This includes applications that are registered as a device
     /// as well as server-side services that the user has connected.
     ///
-    /// This information is really only useful for targetted messaging or marketing purposes,
-    /// e.g. if the application wants to advertize a related product, but first wants to check
+    /// This information is really only useful for targeted messaging or marketing purposes,
+    /// e.g. if the application wants to advertise a related product, but first wants to check
     /// whether the user is already using that product.
     ///
     /// # Notes
@@ -174,7 +174,7 @@ impl FirefoxAccount {
     ///
     /// **💾 This method alters the persisted account state.**
     ///
-    /// This method checks that the currently-registred device record is advertising the
+    /// This method checks that the currently-registered device record is advertising the
     /// given set of capabilities in the FxA "device commands" ecosystem. If not, then it
     /// updates the device record to do so.
     ///
@@ -315,7 +315,6 @@ impl FirefoxAccount {
 /// This struct provides metadata about a device connected to the user's account.
 /// This data would typically be used to display e.g. the list of candidate devices
 /// in a "send tab" menu.
-///
 #[derive(Debug)]
 pub struct Device {
     pub id: String,
@@ -346,14 +345,13 @@ pub struct DevicePushSubscription {
 
 /// A "capability" offered by a device.
 ///
-/// In the FxA ecosystem, connected devices may advertize their ability to respond
+/// In the FxA ecosystem, connected devices may advertise their ability to respond
 /// to various "commands" that can be invoked by other devices. The details of
 /// executing these commands are encapsulated as part of the FxA Client component,
 /// so consumers simply need to select which ones they want to support, and can
 /// use the variants of this enum to do so.
 ///
 /// In practice, the only currently-supported command is the ability to receive a tab.
-///
 #[derive(Debug)]
 pub enum DeviceCapability {
     SendTab,
@@ -367,7 +365,7 @@ pub enum DeviceCapability {
 /// Firefox Account.
 ///
 ///
-/// This data would typically be used for targetted messaging purposes, catering the
+/// This data would typically be used for targeted messaging purposes, catering the
 /// contents of the message to what other applications the user has on their account.
 ///
 pub struct AttachedClient {
@@ -445,7 +443,6 @@ pub enum AccountEvent {
 /// This enum represents all possible commands that can be invoked on
 /// the device. It is the responsibility of the application to interpret
 /// each command.
-///
 #[derive(Debug)]
 pub enum IncomingDeviceCommand {
     /// Indicates that a tab has been sent to this device.
@@ -456,7 +453,6 @@ pub enum IncomingDeviceCommand {
 }
 
 /// The payload sent when invoking a "send tab" command.
-///
 #[derive(Debug)]
 pub struct SendTabPayload {
     /// The navigation history of the sent tab.
@@ -476,7 +472,6 @@ pub struct SendTabPayload {
 }
 
 /// An individual entry in the navigation history of a sent tab.
-///
 #[derive(Debug)]
 pub struct TabHistoryEntry {
     pub title: String,

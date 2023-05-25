@@ -99,7 +99,6 @@ impl FirefoxAccount {
     ///   - `token_server_url_override`: optionally, URL for the user's Sync Tokenserver.
     ///        - This can be used to support users who self-host their sync data.
     ///          If `None` then it will default to the Mozilla-hosted Sync server.
-    ///
     pub fn new(
         content_url: &str,
         client_id: &str,
