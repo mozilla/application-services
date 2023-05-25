@@ -63,7 +63,7 @@ impl FirefoxAccount {
                 Ok(if is_local_account {
                     AccountEvent::AccountDestroyed
                 } else {
-                    return Err(Error::InvalidPushEvent.into());
+                    return Err(Error::InvalidPushEvent);
                 })
             }
             PushPayload::PasswordChanged | PushPayload::PasswordReset => {

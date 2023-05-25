@@ -73,8 +73,7 @@ impl FirefoxAccount {
                     }
                     None => Err(Error::UnrecoverableServerError(
                         "Got a 304 without having sent an eTag.",
-                    )
-                    .into()),
+                    )),
                 }
             }
         }
@@ -182,7 +181,7 @@ mod tests {
                 error: "Unauthorized".to_owned(),
                 message: "Invalid authentication token in request signature".to_owned(),
                 info: "https://github.com/mozilla/fxa-auth-server/blob/master/docs/api.md#response-format".to_owned(),
-            }.into()));
+            }));
         // Then we'll try to get a new access token.
         client
             .expect_create_access_token_using_refresh_token(

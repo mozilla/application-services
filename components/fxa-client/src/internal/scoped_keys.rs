@@ -13,7 +13,7 @@ impl FirefoxAccount {
         self.state
             .scoped_keys
             .get(scope)
-            .ok_or_else(|| Error::NoScopedKey(scope.to_string()).into())
+            .ok_or_else(|| Error::NoScopedKey(scope.to_string()))
     }
 }
 

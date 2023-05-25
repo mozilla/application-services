@@ -82,8 +82,7 @@ impl FirefoxAccount {
                 None => {
                     return Err(Error::IllegalState(
                         "Cannot find send-tab keys. Has initialize_device been called before?",
-                    )
-                    .into());
+                    ));
                 }
             };
         let encrypted_payload: EncryptedSendTabPayload = serde_json::from_value(payload)?;
@@ -144,11 +143,11 @@ impl FirefoxAccount {
         let public_keys_local: PublicSendTabKeys = local_send_tab_key.into();
 
         if public_keys_local.public_key() != public_keys_remote.public_key() {
-            return Err(Error::SendTabDiagnosisError("Mismatch in public key.").into());
+            return Err(Error::SendTabDiagnosisError("Mismatch in public key."));
         }
 
         if public_keys_local.auth_secret() != public_keys_remote.auth_secret() {
-            return Err(Error::SendTabDiagnosisError("Mismatch in auth secret.").into());
+            return Err(Error::SendTabDiagnosisError("Mismatch in auth secret."));
         }
         Ok(())
     }

@@ -59,11 +59,10 @@ impl FirefoxAccount {
     ) -> ApiResult<String> {
         // UniFFI can't represent `&[&str]` yet, so convert it internally here.
         let scopes = scopes.iter().map(String::as_str).collect::<Vec<_>>();
-        Ok(self
-            .internal
+        self.internal
             .lock()
             .unwrap()
-            .begin_oauth_flow(&scopes, entrypoint, metrics)?)
+            .begin_oauth_flow(&scopes, entrypoint, metrics)
     }
 
     /// Get the URL at which to begin a device-pairing signin flow.
@@ -74,7 +73,7 @@ impl FirefoxAccount {
     /// from said QR code can be passed to [`begin_pairing_flow`](FirefoxAccount::begin_pairing_flow).
     #[handle_error(Error)]
     pub fn get_pairing_authority_url(&self) -> ApiResult<String> {
-        Ok(self.internal.lock().unwrap().get_pairing_authority_url()?)
+        self.internal.lock().unwrap().get_pairing_authority_url()
     }
 
     /// Initiate a device-pairing sign-in flow.
@@ -110,12 +109,10 @@ impl FirefoxAccount {
     ) -> ApiResult<String> {
         // UniFFI can't represent `&[&str]` yet, so convert it internally here.
         let scopes = scopes.iter().map(String::as_str).collect::<Vec<_>>();
-        Ok(self.internal.lock().unwrap().begin_pairing_flow(
-            pairing_url,
-            &scopes,
-            entrypoint,
-            metrics,
-        )?)
+        self.internal
+            .lock()
+            .unwrap()
+            .begin_pairing_flow(pairing_url, &scopes, entrypoint, metrics)
     }
 
     /// Complete an OAuth flow.
@@ -133,11 +130,10 @@ impl FirefoxAccount {
     ///   - `state` - the OAuth state parameter obtained from the redirect URI.
     #[handle_error(Error)]
     pub fn complete_oauth_flow(&self, code: &str, state: &str) -> ApiResult<()> {
-        Ok(self
-            .internal
+        self.internal
             .lock()
             .unwrap()
-            .complete_oauth_flow(code, state)?)
+            .complete_oauth_flow(code, state)
     }
 
     /// Check authorization status for this application.

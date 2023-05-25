@@ -14,8 +14,8 @@ use url::Url;
 
 // This crate awkardly uses some internal implementation details of the fxa-client crate,
 // because we haven't worked on exposing those test-only features via UniFFI.
-use fxa_client::internal::{config::Config, error, FirefoxAccount};
-use fxa_client::AccessTokenInfo;
+use fxa_client::internal::{config::Config, FirefoxAccount};
+use fxa_client::{AccessTokenInfo, Error};
 use sync15::client::Sync15StorageClientInit;
 use sync15::KeyBundle;
 
@@ -89,9 +89,9 @@ pub fn get_account_and_token(
     match acct.get_access_token(SYNC_SCOPE, None) {
         Ok(t) => Ok((acct, t.try_into()?)),
         Err(e) => {
-            match e.kind() {
+            match e {
                 // We can retry an auth error.
-                error::ErrorKind::RemoteError { code: 401, .. } => {
+                Error::RemoteError { code: 401, .. } => {
                     println!("Saw an auth error using stored credentials - recreating them...");
                     acct = create_fxa_creds(cred_file, config)?;
                     let token = acct.get_access_token(SYNC_SCOPE, None)?;

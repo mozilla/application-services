@@ -188,7 +188,7 @@ impl FirefoxAccount {
         self.parse_commands_messages(pending_commands.messages, CommandFetchReason::Push(index))?
             .into_iter()
             .next()
-            .ok_or_else(|| Error::CommandNotFound.into())
+            .ok_or_else(|| Error::CommandNotFound)
     }
 
     fn fetch_and_parse_commands(
@@ -254,7 +254,7 @@ impl FirefoxAccount {
             commands::send_tab::COMMAND_NAME => {
                 self.handle_send_tab_command(sender, command_data.payload, telem_reason)
             }
-            _ => Err(Error::UnknownCommand(command_data.command).into()),
+            _ => Err(Error::UnknownCommand(command_data.command)),
         }
     }
 
@@ -353,7 +353,7 @@ impl FirefoxAccount {
     pub fn get_current_device_id(&mut self) -> Result<String> {
         match self.state.current_device_id {
             Some(ref device_id) => Ok(device_id.to_string()),
-            None => Err(Error::NoCurrentDeviceId.into()),
+            None => Err(Error::NoCurrentDeviceId),
         }
     }
 }
@@ -641,8 +641,7 @@ mod tests {
                 error: "server error".to_string(),
                 message: "this will be ignored anyway".to_string(),
                 info: "".to_string(),
-            }
-            .into()));
+            }));
         client
             .expect_get_devices(mockiato::Argument::any, mockiato::Argument::any)
             .returns_once(Err(Error::RemoteError {
@@ -651,8 +650,7 @@ mod tests {
                 error: "server error".to_string(),
                 message: "this will be ignored anyway".to_string(),
                 info: "".to_string(),
-            }
-            .into()));
+            }));
         client
             .expect_destroy_refresh_token(mockiato::Argument::any, mockiato::Argument::any)
             .returns_once(Err(Error::RemoteError {
@@ -661,8 +659,7 @@ mod tests {
                 error: "server error".to_string(),
                 message: "this will be ignored anyway".to_string(),
                 info: "".to_string(),
-            }
-            .into()));
+            }));
         fxa.set_client(Arc::new(client));
 
         fxa.handle_oauth_response(
@@ -719,8 +716,7 @@ mod tests {
                 error: "server error".to_string(),
                 message: "this will be ignored anyway".to_string(),
                 info: "".to_string(),
-            }
-            .into()));
+            }));
         fxa.set_client(Arc::new(client));
 
         fxa.ensure_capabilities(&[Capability::SendTab]).unwrap_err();
@@ -810,8 +806,7 @@ mod tests {
                 error: "Did not work!".to_owned(),
                 message: "Did not work!".to_owned(),
                 info: "Did not work!".to_owned(),
-            }
-            .into()));
+            }));
 
         fxa.set_client(Arc::new(client));
         assert!(fxa.devices_cache.is_none());

@@ -50,6 +50,6 @@ impl FirefoxAccount {
     /// data in a secure fashion, as appropriate for their target platform.
     #[handle_error(Error)]
     pub fn to_json(&self) -> ApiResult<String> {
-        Ok(self.internal.lock().unwrap().to_json()?)
+        self.internal.lock().unwrap().to_json()
     }
 }

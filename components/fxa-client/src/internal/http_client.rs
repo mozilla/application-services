@@ -481,7 +481,7 @@ impl Client {
                 time_since_backoff: Instant::now(),
             };
             self.state.lock().unwrap().insert(path, time_out_state);
-            return Err(Error::BackoffError(retry_after).into());
+            return Err(Error::BackoffError(retry_after));
         }
         Self::default_handle_response_error(resp)
     }
@@ -495,8 +495,7 @@ impl Client {
                 error: json["error"].as_str().unwrap_or("").to_string(),
                 message: json["message"].as_str().unwrap_or("").to_string(),
                 info: json["info"].as_str().unwrap_or("").to_string(),
-            }
-            .into()),
+            }),
             Err(_) => Err(resp.require_success().unwrap_err().into()),
         }
     }
@@ -516,7 +515,7 @@ impl Client {
             let elapsed_time = time_since_backoff.elapsed();
             if elapsed_time < *backoff_end_duration {
                 let remaining = *backoff_end_duration - elapsed_time;
-                return Err(Error::BackoffError(remaining.as_secs()).into());
+                return Err(Error::BackoffError(remaining.as_secs()));
             }
         }
         self.state.lock().unwrap().insert(url, HttpClientState::Ok);

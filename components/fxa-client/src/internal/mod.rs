@@ -218,7 +218,7 @@ impl FirefoxAccount {
     fn get_refresh_token(&self) -> Result<&str> {
         match self.state.refresh_token {
             Some(ref token_info) => Ok(&token_info.token),
-            None => Err(Error::NoRefreshToken.into()),
+            None => Err(Error::NoRefreshToken),
         }
     }
 
@@ -522,8 +522,7 @@ mod tests {
                 error: "Did not work!".to_owned(),
                 message: "Did not work!".to_owned(),
                 info: "Did not work!".to_owned(),
-            }
-            .into()));
+            }));
         fxa.set_client(Arc::new(client));
 
         assert!(fxa.state.refresh_token.is_some());
