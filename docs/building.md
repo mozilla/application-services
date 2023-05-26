@@ -95,8 +95,8 @@ The following instructions assume that you are building `application-services` f
 
 1. Install Android SDK, JAVA, NDK and set required env vars
    1. Clone the [firefox-android](https://github.com/mozilla-mobile/firefox-android) repository (**not** inside the Application Service repository).
-   1. Install [Java **11**](https://www.oracle.com/java/technologies/downloads/#java11) for your system
-   1. Set `JAVA_HOME` to point to the JDK 11 installation directory.
+   1. Install [Java **17**](https://www.oracle.com/java/technologies/downloads/#java17) for your system
+   1. Set `JAVA_HOME` to point to the JDK 17 installation directory.
    1. Download and install [Android Studio](https://developer.android.com/studio/#downloads).
    1. Set `ANDROID_SDK_ROOT` and `ANDROID_HOME` to the Android Studio sdk location and add it to your rc file (either `.zshrc` or `.bashrc` depending on the shell you use for your terminal).
    1. Configure the required versions of NDK
