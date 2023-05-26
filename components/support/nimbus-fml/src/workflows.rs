@@ -167,7 +167,7 @@ pub(crate) fn validate(cmd: &ValidateCmd) -> Result<()> {
     let file_path = files.file_path(filename)?;
     let parser: Parser = Parser::new(files, file_path.clone())?;
     let mut loading = HashSet::new();
-    let fe = parser.load_manifest(&file_path, &mut loading)?;
+    let manifest_front_end = parser.load_manifest(&file_path, &mut loading)?;
 
     println!(
         "Loaded modules: [\n\t{}\n]",
@@ -178,8 +178,8 @@ pub(crate) fn validate(cmd: &ValidateCmd) -> Result<()> {
             .join(",\n\t")
     );
 
-    for channel in fe.channels {
-        print!("Validating manifest for channel \"{}\".", &channel);
+    for channel in manifest_front_end.channels {
+        print!(r#"Validating manifest for channel "{}"."#, &channel);
         let ir = parser.get_intermediate_representation(&channel)?;
         print!(".");
         ir.validate_manifest()?;
@@ -767,11 +767,8 @@ mod test {
 
         match result.err().unwrap() {
             ValidationError(path, error) => {
-                assert_eq!(path, "features/example-feature.enabled".to_string());
-                assert_eq!(
-                    error,
-                    "Mismatch between type Boolean and default 1".to_string()
-                );
+                assert_eq!(path, "features/example-feature.enabled");
+                assert_eq!(error, "Mismatch between type Boolean and default 1");
             }
             _ => panic!("Error is not a ValidationError"),
         };
