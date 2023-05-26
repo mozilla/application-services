@@ -5,6 +5,7 @@
 mod cli;
 mod cmd;
 mod feature_utils;
+mod updater;
 mod value_utils;
 
 use anyhow::{bail, Result};
@@ -23,6 +24,7 @@ fn main() -> Result<()> {
             bail!("Failed");
         }
     }
+    updater::check_for_update();
     Ok(())
 }
 
