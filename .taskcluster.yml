@@ -159,10 +159,11 @@ tasks:
                       routes:
                         $flattenDeep:
                           - checks
-                          - $if: 'level == "3"'
+                          # We check for not pull-request instead of level 3 to support `staging-application-services`.
+                          # This is ok as ${project} uniquely identifies the repo within this trust domain, and each
+                          # project only has scopes to its own index namespace, so namespace collisions shouldn't happen.
+                          - $if: 'tasks_for != "github-pull-request"'
                             then:
-                                # TODO Bug 1601928: Make this scope fork-friendly once ${project} is better defined. This will enable
-                                # staging release promotion on forks.
                                 - $if: 'tasks_for == "github-push"'
                                   then:
                                       - index.project.${project}.v2.branch.${short_head_branch}.latest.taskgraph.decision
