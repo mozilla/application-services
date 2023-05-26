@@ -31,29 +31,6 @@ android {
         }
     }
 
-    // This is required to support new AndroidX support libraries.
-    // See mozilla-mobile/android-components#842
-    compileOptions {
-        sourceCompatibility rootProject.ext.build.jvmTargetCompatibility
-        targetCompatibility rootProject.ext.build.jvmTargetCompatibility
-    }
-
-    // We're told the following is required to support new AndroidX support libraries.
-    // See mozilla-mobile/android-components#842
-    //
-    // tasks.withType(org.jetbrains.kotlin.gradle.tasks.KotlinCompile).all {
-    //    kotlinOptions {
-    //         jvmTarget = rootProject.ext.build.jvmTargetCompatibility
-    //     }
-    // }
-    //
-    // However, it doesn't work when factored out into this script.
-    // So we're doing the below instead. Things don't seem to have broken as
-    // a result of this change, this seems like good news...?
-    kotlinOptions {
-        jvmTarget = rootProject.ext.build.jvmTargetCompatibility
-    }
-
     testOptions {
         unitTests {
             includeAndroidResources = true

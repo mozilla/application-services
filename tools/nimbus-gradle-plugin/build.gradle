@@ -85,17 +85,6 @@ tasks.register("checkMavenArtifacts") {
     }
 }
 
-compileKotlin {
-    kotlinOptions {
-        jvmTarget = rootProject.ext.build.jvmTargetCompatibility
-    }
-}
-compileTestKotlin {
-    kotlinOptions {
-        jvmTarget = rootProject.ext.build.jvmTargetCompatibility
-    }
-}
-
 // Must match the implementation in publish.gradle
 static def getLocalPublicationTimestamp() {
     def date = new Date()
