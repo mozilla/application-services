@@ -70,8 +70,10 @@ pub fn synchronize_with_clients_engine(
         }
     };
 
-    // Should probably add a new `fetch_outgoing()` and only call `apply()` when something was
-    // staged?
+    // Should consider adding a new `fetch_outgoing()` and having `apply()` only apply.
+    // It *might* even make sense to only call `apply()` when something was staged,
+    // but that's not clear - see the discussion at
+    // https://github.com/mozilla/application-services/pull/5441/files/f36274f455a6299f10e7ce56b167882c369aa806#r1189267540
     log::info!("Applying changes");
     let outgoing = engine.apply(coll_state.last_modified, telem_engine)?;
     interruptee.err_if_interrupted()?;

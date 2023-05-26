@@ -7,13 +7,12 @@ use crate::error::*;
 use crate::storage::history::{delete_everything, history_sync::reset};
 use crate::storage::{get_meta, put_meta};
 use interrupt_support::SqlInterruptScope;
-use std::cell::RefCell;
 use std::sync::Arc;
 use sync15::bso::{IncomingBso, OutgoingBso};
 use sync15::engine::{
     CollSyncIds, CollectionRequest, EngineSyncAssociation, RequestOrder, SyncEngine,
 };
-use sync15::{telemetry, ClientData, Guid, ServerTimestamp};
+use sync15::{telemetry, Guid, ServerTimestamp};
 
 use super::plan::{apply_plan, finish_plan, get_planned_outgoing};
 use super::MAX_INCOMING_PLACES;
@@ -62,7 +61,6 @@ pub struct HistorySyncEngine {
     pub db: Arc<SharedPlacesDb>,
     // We should stage these in a temp table! For now though we just hold them
     // in memory.
-    pub staged_incoming: RefCell<Vec<IncomingBso>>,
     // Public because we use it in the [PlacesApi] sync methods.  We can probably make this private
     // once all syncing goes through the sync manager.
     pub(crate) scope: SqlInterruptScope,
@@ -72,7 +70,6 @@ impl HistorySyncEngine {
     pub fn new(db: Arc<SharedPlacesDb>) -> Result<Self> {
         Ok(Self {
             scope: db.begin_interrupt_scope()?,
-            staged_incoming: RefCell::new(Vec::new()),
             db,
         })
     }
@@ -83,37 +80,32 @@ impl SyncEngine for HistorySyncEngine {
         "history".into()
     }
 
-    fn prepare_for_sync(&self, _get_client_data: &dyn Fn() -> ClientData) -> anyhow::Result<()> {
-        // should not be necessary because engine lifetimes should be exactly 1 sync, but...
-        (*self.staged_incoming.borrow_mut()).clear();
-        Ok(())
-    }
-
     fn stage_incoming(
         &self,
-        mut inbound: Vec<IncomingBso>,
-        _telem: &mut telemetry::Engine,
+        inbound: Vec<IncomingBso>,
+        telem: &mut telemetry::Engine,
     ) -> anyhow::Result<()> {
-        self.staged_incoming.borrow_mut().append(&mut inbound);
+        // This is minor abuse of the engine concept, but for each "stage_incoming" call we
+        // just apply it directly. We can't advance our timestamp, which means if we are
+        // interrupted we'll re-download and re-apply them, but that will be fine in practice.
+        let conn = self.db.lock();
+        do_apply_incoming(&conn, &self.scope, inbound, telem)?;
         Ok(())
     }
 
     fn apply(
         &self,
         timestamp: ServerTimestamp,
-        telem: &mut telemetry::Engine,
+        _telem: &mut telemetry::Engine,
     ) -> anyhow::Result<Vec<OutgoingBso>> {
         let conn = self.db.lock();
-        let inbound = self.staged_incoming.replace(vec![]);
-        do_apply_incoming(&conn, &self.scope, inbound, telem)?;
-        // write the timestamp now, so if we are interrupted creating outgoing
-        // BSOs we don't need to re-reconcile what we just did.
+        // We know we've seen everything incoming, so it's safe to write the timestamp now.
+        // If we are interrupted creating outgoing BSOs we won't re-apply what we just did.
         put_meta(&conn, LAST_SYNC_META_KEY, &timestamp.as_millis())?;
         Ok(get_planned_outgoing(&conn)?)
     }
 
     fn set_uploaded(&self, new_timestamp: ServerTimestamp, ids: Vec<Guid>) -> anyhow::Result<()> {
-        // XXX - this is WRONG!
         Ok(do_sync_finished(&self.db.lock(), new_timestamp, ids)?)
     }
 
