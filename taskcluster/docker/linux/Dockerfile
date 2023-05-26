@@ -2,9 +2,7 @@
 # License, v. 2.0. If a copy of the MPL was not distributed with this
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 
-FROM ubuntu:18.04
-
-MAINTAINER Edouard Oger "eoger@mozilla.com"
+FROM ubuntu:22.04
 
 # Add worker user
 
@@ -51,12 +49,12 @@ RUN apt-get update -qq \
         # If you add anything below, please update building.md.
         ####################
         # Android builds
-        openjdk-11-jdk \
+        openjdk-17-jdk \
         # Required by gyp but also CI scripts.
-        python \
-        python-pip \
         python3 \
         python3-pip \
+        # Required by NSS build system until bug 1766767 is fixed.
+        python-is-python3 \
         # libs/ source patching.
         patch \
         # NSS build system.
@@ -85,6 +83,8 @@ RUN apt-get update -qq \
         zip \
         # Required to extract the Android SDK/NDK.
         unzip \
+        # Required to extract tar.bz2 archives.
+        bzip2 \
         # Required by tooltool to extract tar.xz archives.
         xz-utils \
         # For windows cross-compilation.
@@ -159,7 +159,7 @@ ENV CCACHE=sccache \
 RUN \
     curl -sfSL --retry 5 --retry-delay 10 \
          -o /usr/local/bin/tooltool.py \
-         https://raw.githubusercontent.com/mozilla/build-tooltool/36511dae0ead6848017e2d569b1f6f1b36984d40/tooltool.py && \
+         https://raw.githubusercontent.com/mozilla-releng/tooltool/master/client/tooltool.py && \
          chmod +x /usr/local/bin/tooltool.py
 
 # %include-run-task
