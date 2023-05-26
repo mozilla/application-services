@@ -373,9 +373,8 @@ impl EngineIncoming {
 }
 
 /// Outgoing record for an engine's sync.
-/// This telemetry is managed entirely by this crate, so it's not fully public.
 #[derive(Debug, Default, Serialize)]
-pub(crate) struct EngineOutgoing {
+pub struct EngineOutgoing {
     #[serde(skip_serializing_if = "crate::skip_if_default")]
     sent: usize,
 
@@ -383,7 +382,6 @@ pub(crate) struct EngineOutgoing {
     failed: usize,
 }
 
-#[cfg(feature = "sync-client")]
 impl EngineOutgoing {
     pub fn new() -> Self {
         EngineOutgoing {
@@ -448,8 +446,7 @@ impl Engine {
         &self.incoming
     }
 
-    #[cfg(feature = "sync-client")]
-    pub(crate) fn outgoing(&mut self, out: EngineOutgoing) {
+    pub fn outgoing(&mut self, out: EngineOutgoing) {
         self.outgoing.push(out);
     }
 
