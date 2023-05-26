@@ -30,12 +30,12 @@ buildscript {
 
     ext.build = [
         ndkVersion: "25.2.9519653", // Keep it in sync in TC Dockerfile.
+
+        // In general, we should aim to keep these in sync with AC
         compileSdkVersion: 33,
         targetSdkVersion: 33,
-        minSdkVersion: 21, // So that we can publish for aarch64.
-        // This is required to support new AndroidX support libraries.
-        // See mozilla-mobile/android-components#842
-        jvmTargetCompatibility: "11",
+        minSdkVersion: 21,
+        jvmTargetCompatibility: "17",
     ]
 
     repositories {
