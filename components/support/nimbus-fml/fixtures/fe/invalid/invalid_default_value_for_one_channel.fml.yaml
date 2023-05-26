@@ -17,11 +17,9 @@ features:
         type: Boolean
         default: false
     defaults:
-      - value: {
-          "enabled": true
-        }
+      - value:
+          enabled: true
         channel: app-debug
-      - value: {
-          "enabled": 1
-        }
+      - value:
+          enabled: 1
         channel: app-release

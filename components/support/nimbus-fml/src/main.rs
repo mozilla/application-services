@@ -705,10 +705,7 @@ mod cli_tests {
         let cmd = get_command_from_cli([FML_BIN, "validate", TEST_FILE], &cwd)?;
 
         assert!(matches!(cmd, CliCmd::Validate(_)));
-
-        if let CliCmd::Validate(cmd) = cmd {
-            assert!(cmd.manifest.ends_with(TEST_FILE));
-        }
+        assert!(matches!(cmd, CliCmd::Validate(c) if c.manifest.ends_with(TEST_FILE)));
         Ok(())
     }
 }
