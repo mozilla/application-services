@@ -37,6 +37,9 @@ pub trait BridgedEngine: Send + Sync {
     /// Resets the sync ID for this engine's collection, returning the new ID.
     /// As a side effect, implementations should reset all local Sync state,
     /// as in `reset`.
+    /// (Note that bridged engines never maintain the "global" guid - that's all managed
+    /// by the bridged_engine consumer (ie, desktop). bridged_engines only care about
+    /// the per-collection one.)
     fn reset_sync_id(&self) -> Result<String>;
 
     /// Ensures that the locally stored sync ID for this engine's collection
