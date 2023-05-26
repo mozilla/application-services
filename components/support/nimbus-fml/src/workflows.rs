@@ -6,6 +6,7 @@ use glob::MatchOptions;
 use std::collections::HashSet;
 
 use crate::commands::ValidateCmd;
+use crate::error::FMLError::CliError;
 use crate::{
     backends,
     commands::{GenerateExperimenterManifestCmd, GenerateIRCmd, GenerateStructCmd},
@@ -162,6 +163,7 @@ pub(crate) fn fetch_file(files: &LoaderConfig, nm: &str) -> Result<()> {
 
 pub(crate) fn validate(cmd: &ValidateCmd) -> Result<()> {
     let files: FileLoader = TryFrom::try_from(&cmd.loader)?;
+    let cwd = cmd.loader.cwd.to_str().unwrap();
 
     let filename = &cmd.manifest;
     let file_path = files.file_path(filename)?;
@@ -170,23 +172,48 @@ pub(crate) fn validate(cmd: &ValidateCmd) -> Result<()> {
     let manifest_front_end = parser.load_manifest(&file_path, &mut loading)?;
 
     println!(
-        "Loaded modules: [\n\t{}\n]",
+        "Loaded modules:\n- {}\n",
         loading
             .iter()
-            .map(|id| id.to_string())
+            .map(|id| id.to_string().replace(cwd, ""))
             .collect::<Vec<String>>()
-            .join(",\n\t")
+            .join("\n- ")
     );
 
-    for channel in manifest_front_end.channels {
-        print!(r#"Validating manifest for channel "{}"."#, &channel);
-        let ir = parser.get_intermediate_representation(&channel)?;
-        print!(".");
-        ir.validate_manifest()?;
-        println!(".valid!");
+    println!("Validation manifest for different channels:");
+    let results = manifest_front_end
+        .channels
+        .iter()
+        .map(|c| {
+            let intermediate_representation = parser.get_intermediate_representation(c);
+            match intermediate_representation {
+                Ok(ir) => (c, ir.validate_manifest()),
+                Err(e) => (c, Err(e)),
+            }
+        })
+        .collect::<Vec<(&String, Result<_>)>>();
+
+    let mut errors = vec![];
+    for (channel, result) in results {
+        print!(r#"- "{}"..."#, channel);
+        match result {
+            Ok(_) => {
+                println!("valid ✓");
+            }
+            Err(e) => {
+                println!("invalid x");
+                println!("{}", e);
+                errors.push(e);
+            }
+        }
     }
 
-    println!("Manifest {} is valid!", &filename);
+    if !errors.is_empty() {
+        return Err(CliError(format!(
+            "Manifest contains {} error(s)",
+            errors.len()
+        )));
+    }
 
     Ok(())
 }
@@ -202,7 +229,6 @@ mod test {
     use super::*;
     use crate::backends::experimenter_manifest::ExperimenterManifest;
     use crate::backends::{kotlin, swift};
-    use crate::error::FMLError::ValidationError;
     use crate::parser::KotlinAboutBlock;
     use crate::util::{generated_src_dir, join, pkg_dir};
 
@@ -766,9 +792,8 @@ mod test {
         assert!(result.is_err());
 
         match result.err().unwrap() {
-            ValidationError(path, error) => {
-                assert_eq!(path, "features/example-feature.enabled");
-                assert_eq!(error, "Mismatch between type Boolean and default 1");
+            CliError(error) => {
+                assert_eq!(error, "Manifest contains 1 error(s)");
             }
             _ => panic!("Error is not a ValidationError"),
         };
