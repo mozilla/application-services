@@ -217,7 +217,7 @@ executors:
       - image: cimg/rust:1.53.0
   macos:
     macos:
-      xcode: 13.4.1
+      xcode: 14.3.1
     resource_class: macos.x86.medium.gen2
 
 jobs:

@@ -71,7 +71,7 @@ elif action == "run-tests" or action is None:
     -workspace ./Client.xcodeproj/project.xcworkspace \
     -scheme Fennec \
     -sdk iphonesimulator \
-    -destination 'platform=iOS Simulator,name=iPhone 8' \
+    -destination 'platform=iOS Simulator,name=iPhone 14' \
     test | \
     tee raw_xcodetest.log | \
     xcpretty && exit "${PIPESTATUS[0]}"

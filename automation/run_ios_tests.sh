@@ -8,7 +8,7 @@ xcodebuild \
   -workspace ./megazords/ios-rust/MozillaTestServices/MozillaTestServices.xcodeproj/project.xcworkspace \
   -scheme MozillaTestServices \
   -sdk iphonesimulator \
-  -destination 'platform=iOS Simulator,name=iPhone 11' \
+  -destination 'platform=iOS Simulator,name=iPhone 14' \
   test | \
 tee raw_xcodetest.log | \
 xcpretty && exit "${PIPESTATUS[0]}"

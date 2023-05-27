@@ -27,6 +27,10 @@
    - This API does not attempt to retrieve any missing tabs.
    - Users of this API can use it to display the notification, but should use `pollDeviceCommands` after to capture the commands.
 
+## Xcode
+
+- Bumped Xcode version from 13.4.1 -> 14.3.1 ([#5615](https://github.com/mozilla/application-services/pull/5615))
+
 # v114.0 (_2023-05-08_)
 
 [Full Changelog](https://github.com/mozilla/application-services/compare/v97.5.1...v114.0)
