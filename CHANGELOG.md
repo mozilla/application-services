@@ -24,6 +24,7 @@
 - Added a new Remote Settings client component ([#5423](https://github.com/mozilla/application-services/pull/5423)).
 - Added `toJSONObject()` and `getFeatures(featureId)` for Kotlin. This serializes the FML into a `JSONObject` ([#5574](https://github.com/mozilla/application-services/pull/5574)).
 - Added `FmlClient`, additional methods to `FeatureManifest`, and Python UniFFI bindings ([#5557](https://github.com/mozilla/application-services/pull/5557)).
+- Updated FML validation to error when a property name that doesn't exist is applied to a feature ([#5620](https://github.com/mozilla/application-services/pull/5620)).
 
 [Full Changelog](In progress)
 
