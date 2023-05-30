@@ -1915,7 +1915,6 @@ pub mod unit_tests {
     }
 
     /// This functionality is hindered by EXP-3503
-    #[ignore]
     #[test]
     fn test_validate_feature_config_invalid_feature_prop_name() -> Result<()> {
         let fm = get_feature_manifest(
@@ -1925,8 +1924,8 @@ pub mod unit_tests {
                 name: "feature".into(),
                 props: vec![PropDef {
                     name: "prop_1".into(),
-                    typ: TypeRef::String,
-                    default: Value::String("prop_1_value".into()),
+                    typ: TypeRef::Option(Box::new(TypeRef::String)),
+                    default: Value::Null,
                     doc: "".into(),
                 }],
                 ..Default::default()
@@ -1944,7 +1943,7 @@ pub mod unit_tests {
         assert!(result.is_err());
         assert_eq!(
             result.err().unwrap().to_string(),
-            "Prop `prop` not found on feature `feature`".to_string()
+            "Property `prop` not found on feature `feature`"
         );
 
         Ok(())
