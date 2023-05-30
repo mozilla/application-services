@@ -47,6 +47,7 @@ def build_scriptworker_signing_payload(config, task, task_def):
 @payload_builder(
     "scriptworker-beetmover",
     schema={
+        Required("action"): str,
         Required("bucket"): str,
         Required("max-run-time"): int,
         Required("version"): str,
@@ -85,6 +86,6 @@ def build_scriptworker_beetmover_payload(config, task, task_def):
         "{}:beetmover:bucket:{}".format(scope_prefix, worker["bucket"])
     )
     task_def["scopes"].append(
-        f"{scope_prefix}:beetmover:action:push-to-maven"
+        f"{scope_prefix}:beetmover:action:{worker['action']}"
     )
 
