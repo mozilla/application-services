@@ -15,17 +15,23 @@ transforms = TransformSequence()
 @transforms.add
 def build_upstream_artifacts(config, tasks):
     for task in tasks:
-        dep = task.pop("primary-dependency")
         module_info = task["attributes"]["buildconfig"]
-        name = module_info["name"]
         version = get_version(config.params)
 
-        worker_definition = {"upstream-artifacts": [{
-            "taskId": {"task-reference": f"<{dep.kind}>"},
-            "taskType": "build",
-            "paths": publications_to_artifact_paths(version, module_info["publications"]),
-            "formats": ["autograph_gpg"],
-        }]}
+        worker_definition = {
+            "upstream-artifacts": [
+                {
+                    "taskId": {
+                        "task-reference": f"<{task['attributes']['primary-kind-dependency']}>"
+                    },
+                    "taskType": "build",
+                    "paths": publications_to_artifact_paths(
+                        version, module_info["publications"]
+                    ),
+                    "formats": ["autograph_gpg"],
+                }
+            ]
+        }
 
         task.setdefault("worker", {})
         task["worker"].update(worker_definition)
@@ -35,15 +41,15 @@ def build_upstream_artifacts(config, tasks):
 @transforms.add
 def signing_task(config, tasks):
     for task in tasks:
-        task["description"] = task["description"].format(task["attributes"]["buildconfig"]["name"])
-        resolve_keyed_by(task, "worker.cert", item_name=task["name"], **{
-            "level": config.params["level"],
-        })
-        yield task
-
-
-@transforms.add
-def remove_dependent_tasks(config, tasks):
-    for task in tasks:
-        del task["dependent-tasks"]
+        task["description"] = task["description"].format(
+            task["attributes"]["buildconfig"]["name"]
+        )
+        resolve_keyed_by(
+            task,
+            "worker.cert",
+            item_name=task["name"],
+            **{
+                "level": config.params["level"],
+            },
+        )
         yield task

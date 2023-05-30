@@ -2,29 +2,30 @@
 # License, v. 2.0. If a copy of the MPL was not distributed with this
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 ---
-loader: app_services_taskgraph.loader.multi_dep:loader
+loader: taskgraph.loader.transform:loader
 
 transforms:
-  - app_services_taskgraph.transforms.multi_dep:transforms
+  - taskgraph.transforms.from_deps
   - app_services_taskgraph.transforms.deps_complete:alerts
-  - app_services_taskgraph.transforms.beetmover:transforms
-  - taskgraph.transforms.task:transforms
+  - app_services_taskgraph.transforms.beetmover
+  - taskgraph.transforms.task
 
 kind-dependencies:
   - module-build
   - signing
   - build-summary
 
-primary-dependency: module-build
-group-by: component
-
-task-template:
-  attributes:
-    shipping_phase: ship
-  run-on-tasks-for: [github-release, cron]
-  description: 'Publish release module {}'
-  worker-type: beetmover
-  worker:
-    app-name: appservices
-  alerts:
-    email: a-s-ci-failures@mozilla.com
+tasks:
+  push-to-maven:
+    from-deps:
+      group-by: component
+      copy-attributes: true
+    attributes:
+      shipping_phase: ship
+    run-on-tasks-for: [github-release, cron]
+    description: 'Publish release module {}'
+    worker-type: beetmover
+    worker:
+      app-name: appservices
+    alerts:
+      email: a-s-ci-failures@mozilla.com

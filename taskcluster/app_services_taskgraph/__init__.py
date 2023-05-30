@@ -21,7 +21,8 @@ def register(graph_config):
         "branch_builds",
         "job",
         "target_tasks",
-        "worker_types"
+        "transforms",
+        "worker_types",
     ])
 
     extend_parameters_schema({
