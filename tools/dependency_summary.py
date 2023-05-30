@@ -354,6 +354,15 @@ PACKAGE_METADATA_FIXUPS = {
             "fixup": "https://raw.githubusercontent.com/microsoft/windows-rs/master/license-mit",
         },
     },
+    "windows-targets": {
+        "repository": {
+            "check": "https://github.com/microsoft/windows-rs",
+        },
+        "license_file": {
+            "check": None,
+            "fixup": "https://raw.githubusercontent.com/microsoft/windows-rs/master/license-mit",
+        },
+    },
     "windows_x86_64_msvc": {
         "repository": {
             "check": "https://github.com/microsoft/windows-rs",
