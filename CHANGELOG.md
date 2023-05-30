@@ -4,12 +4,18 @@
 
 ### 🦊 What's Changed 🦊
 
-- [`nimbus-cli`](./components/support/nimbus-cli) now has commands: `capture-logs`, `tail-logs`, `test-feature`, `fetch` and `apply-files`. ([#5517](https://github.com/mozilla/application-services/pull/5517))
-- [`nimbus-cli`](./components/support/nimbus-cli) also adds the ability to open deeplinks with the app. ([#5590](https://github.com/mozilla/application-services/pull/5590)).
 - Add additional Cirrus SDK helper methods and add Python testing for the generated Cirrus Python code ([#5478](https://github.com/mozilla/application-services/pull/5478)).
 - Add `user_id` RandomizationUnit (for Cirrus) ([#5564](https://github.com/mozilla/application-services/pull/5564)).
 - Fixed up a bug in `get_experiment_branch` and `get_active_experiments` ([(#5584)](https://github.com/mozilla/application-services/pull/5584)).
 - Renamed `GleanPlumb` classes and protocols to `NimbusMessaging` in Swift. Added more protocols to make it more mockable in application code ([#5604](https://github.com/mozilla/application-services/pull/5604)).
+
+## Nimbus CLI [⛅️🔬🔭👾](./components/support/nimbus-cli)
+
+### ✨ What's New ✨
+
+- Extra commands: `capture-logs`, `tail-logs`, `test-feature`, `fetch` and `apply-files`. ([#5517](https://github.com/mozilla/application-services/pull/5517))
+- Extra commands and options to open deeplinks with the app. ([#5590](https://github.com/mozilla/application-services/pull/5590)).
+- An update checker to keep you and your installation fresh ([#5618](https://github.com/mozilla/application-services/pull/5618)).
 
 ## Nimbus FML ⛅️🔬🔭🔧
 
