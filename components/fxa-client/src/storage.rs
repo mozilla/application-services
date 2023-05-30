@@ -20,7 +20,7 @@ pub trait FxaStorage {
     ///
     /// This method returns a `SavedState` value, which means it can either return the current data
     /// or legacy saved data that needs to be migrated.
-    fn load_state(&self) -> ApiResult<SavedState>;
+    fn load_state(&self) -> ApiResult<Option<SavedState>>;
 
     /// Save the current FxA state
     ///
@@ -31,7 +31,8 @@ pub trait FxaStorage {
 }
 
 pub enum SavedState {
-    // Legacy data from desktop
+    // Legacy data from desktop.  We don't need to define and implement this variant until we want
+    // to use the fxa-client there.
     DesktopLegacy {
         session_token: String,
         // TODO: do we need more fields here?

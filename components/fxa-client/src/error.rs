@@ -29,6 +29,9 @@ pub enum FxaError {
         method: String,
         state: String,
     },
+    /// An operation was cancelled
+    #[error("operation cancelled")]
+    Cancelled(String),
     /// A catch-all for other unspecified errors.
     #[error("unexpected error: {0}")]
     UnexpectedError(String),

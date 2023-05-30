@@ -95,6 +95,12 @@ impl FirefoxAccount {
     /// A async call to the `FxaStorage::load_state` will be queued to restore the state from
     /// before the last shutdown.  The [`FirefoxAccount`] instance will be in the
     /// [FxaState::Loading] state until then.
+    ///
+    /// Note: because `load_state` runs asynchronously, constructing a `FirefoxAccount` does not
+    /// block on any IO.  This means it's safe to construct a `FirefoxAccount` instance early in
+    /// the startup process.  If applications want to delay loading from disk to speed up the
+    /// startup process, they should should add that delay to `load_state()` rather than waiting to
+    /// construct the `FirefoxAccount` instance.
     pub fn new(config: FxaConfig, storage: Box<dyn FxaStorage>, event_handler: Box<dyn FxaEventHandler>) -> FirefoxAccount {
         unimplemented!()
     }
@@ -136,10 +142,14 @@ pub enum FxaState {
     /// User has been logged out by some external event and needs to re-authenticate, for example a
     /// password change from another device
     ReauthenticationNeeded,
-    /// User is currently going through an oauth flow
+    /// User is currently going through an OAuth flow
+    ///
+    /// While in this state, state-changing methods like [FirefoxAccount::begin_oauth_flow()] or
+    /// [FirefoxAccount::disconnect()] will fail with an [FxaError::InvalidState] error.
     Authenticating,
-    /// The client currently logging out
-    LoggingOut,
-    /// The client is waiting for the saved state to load
+    /// The client is waiting for the saved state to load.
+    ///
+    /// While in this state, state-changing methods like [FirefoxAccount::begin_oauth_flow()] or
+    /// [FirefoxAccount::disconnect()] will fail with an [FxaError::InvalidState] error.
     Loading,
 }

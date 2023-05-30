@@ -28,10 +28,15 @@ use error_support::handle_error;
 use std::collections::HashMap;
 
 impl FirefoxAccount {
-    /// Initiate a web-based OAuth sign-in flow.
+    /// Initiate an web-based OAuth sign-in flow.
     ///
-    /// This method initializes some internal state, then calls `begin_flow` on the consumer's
-    /// `OAuthHandler` instance.
+    /// - This method calls `perform_flow` on the `OAuthHandler` instance passed to the constructor.
+    /// - While `perform_flow()` is running, the `FirefoxAccount` instance will be in the
+    ///   [FxaState::Authenticated] state (see the FxaState documentation for details)
+    /// - When `perform_flow()` returns the state will be changed to `Authenticated` on success and
+    ///   `Disconnected` on failure.
+    ///
+    /// Note: `begin_oauth_flow()` currently blocks while the OAuth operation is in-progress.
     ///
     /// # Arguments
     ///
@@ -67,8 +72,8 @@ impl FirefoxAccount {
 
     /// Initiate a device-pairing sign-in flow.
     ///
-    /// Once the user has scanned a pairing QR code, pass the scanned value to this
-    /// method.  It will call `begin_flow` on the consumer's `OAuthHandler` instance.
+    /// This method follows the same general flow as `begin_oauth_flow()`, but uses a pairing URL
+    /// taken from the scanned value of a QR code.
     ///
     /// # Arguments
     ///
@@ -93,11 +98,6 @@ impl FirefoxAccount {
         unimplemented!()
     }
 
-    /// Cancel any in-progress oauth/pairing flows
-    pub fn cancel_oauth_flow(&self) {
-        unimplemented!()
-    }
-
     /// Disconnect from the user's account.
     ///
     /// This method destroys any tokens held by the client, effectively disconnecting
@@ -115,17 +115,25 @@ impl FirefoxAccount {
 
 /// OAuth handler.  These are defined in the foreign code
 pub trait OAuthHandler {
-    /// Start an OAuth flow at a URL
+    /// Perform an OAuth flow at a URL
     ///
     /// When the resulting OAuth flow redirects back to the configured `redirect_uri`,
     /// the query parameters should be extracting from the URL and returned.
-    fn begin_flow(&self, url: String) -> Result<OAuthResult, FxaError>;
+    ///
+    /// Warning: the `FirefoxAccount` instance will be in the `Authorizing` state while this
+    /// method is running.  Consumers must make sure the method eventually returns or the
+    /// `FirefoxAccount` instance will be stuck.  Return `FxaError::Cancelled` for abandoned OAuth
+    /// sessions.
+    fn perform_flow(&self, url: String) -> Result<OAuthResult, FxaError>;
 
     /// Cancel the current OAuth flow
     fn cancel(&self);
 }
 
-// Result of an Oauth flow, each field value should be extracted from the URL query parameters
+// Result of an Oauth flow
+//
+// Normally, the field values are extracted from the URL query parameters when the browser reaches
+// the redirect_uri.
 pub struct OAuthResult {
     pub code: String,
     pub state: String,
