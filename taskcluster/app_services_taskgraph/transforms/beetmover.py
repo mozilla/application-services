@@ -70,6 +70,7 @@ def beetmover_task(config, tasks):
         task["worker"]["max-run-time"] = 600
         task["worker"]["version"] = get_version(config.params)
         task["description"] = task["description"].format(task["attributes"]["buildconfig"]["name"])
+        task["worker"]["action"] = "push-to-maven"
         task["worker"]["bucket"] = get_maven_bucket(config.params)
         yield task
 
