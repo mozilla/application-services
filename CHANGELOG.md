@@ -27,7 +27,8 @@
 
 - Extra commands: `capture-logs`, `tail-logs`, `test-feature`, `fetch` and `apply-files`. ([#5517](https://github.com/mozilla/application-services/pull/5517))
 - Extra commands and options to open deeplinks with the app. ([#5590](https://github.com/mozilla/application-services/pull/5590)).
-- An update checker to keep you and your installation fresh ([#5618](https://github.com/mozilla/application-services/pull/5618)).
+- An update checker to keep you and your installation fresh. ([#5613](https://github.com/mozilla/application-services/pull/5613)).
+- An installation script to make getting `nimbus-cli` easier. ([#5618](https://github.com/mozilla/application-services/pull/5618)).
 
 ## Nimbus FML ⛅️🔬🔭🔧
 
