@@ -4,7 +4,8 @@ namespace fml {};
 enum FMLError {
     "IOError", "JSONError", "YAMLError", "UrlError", "FetchError", "InvalidPath",
     "TemplateProblem", "Fatal", "InternalError", "ValidationError", "TypeParsingError",
-    "InvalidChannelError", "FMLModuleError", "CliError", "ClientError", "InvalidFeatureError"
+    "InvalidChannelError", "FMLModuleError", "CliError", "ClientError", "InvalidFeatureError",
+    "InvalidPropError"
 };
 
 dictionary MergedJsonWithErrors {

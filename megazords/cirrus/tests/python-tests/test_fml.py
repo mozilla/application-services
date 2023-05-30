@@ -62,7 +62,6 @@ def test_merge(fml_client):
     assert result_json["something"] == "wicked"
 
 
-@pytest.mark.skip(reason="This functionality is hindered by EXP-3503")
 def test_merge_error_on_invalid_key(fml_client):
     client = fml_client("test.fml.yml", "developer")
     configs = {"example-feature": {"enabled1": False}}

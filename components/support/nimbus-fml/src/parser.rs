@@ -560,19 +560,19 @@ impl<'object> DefaultsMerger<'object> {
                 let map = merged.as_object().ok_or(FMLError::InternalError(
                     "Map was merged into a different type",
                 ))?;
-                let new_props = res
-                    .props
-                    .iter()
-                    .map(|prop| {
-                        let mut res = prop.clone();
-                        if let Some(default) = map.get(&prop.name).cloned() {
-                            res.default = default
-                        }
-                        res
-                    })
-                    .collect::<Vec<_>>();
 
-                res.props = new_props;
+                res.props = map
+                    .iter()
+                    .map(|(k, v)| -> Result<PropDef> {
+                        if let Some(prop) = res.props.iter().find(|p| &p.name == k) {
+                            let mut res = prop.clone();
+                            res.default = v.clone();
+                            Ok(res)
+                        } else {
+                            Err(FMLError::InvalidPropError(k.clone(), res.name.clone()))
+                        }
+                    })
+                    .collect::<Result<Vec<_>>>()?;
             }
         }
         Ok(())
@@ -2612,6 +2612,37 @@ mod unit_tests {
                 doc: "".into(),
                 typ: TypeRef::String,
             }]
+        );
+        Ok(())
+    }
+
+    #[test]
+    fn test_merge_feature_default_throw_error_if_property_not_found_on_feature() -> Result<()> {
+        let mut feature_def = FeatureDef {
+            name: "feature".into(),
+            props: vec![PropDef {
+                name: "button-color".into(),
+                default: json!("blue"),
+                doc: "".into(),
+                typ: TypeRef::String,
+            }],
+            ..Default::default()
+        };
+        let default_blocks = serde_json::from_value(json!([
+            {
+                "value": {
+                    "secondary-button-color": "dark-green"
+                }
+            }
+        ]))?;
+        let merger =
+            DefaultsMerger::new(Default::default(), vec!["nightly".into()], "nightly".into());
+        let result = merger.merge_feature_defaults(&mut feature_def, &default_blocks);
+
+        assert!(result.is_err());
+        assert_eq!(
+            result.err().unwrap().to_string(),
+            "Property `secondary-button-color` not found on feature `feature`"
         );
         Ok(())
     }
