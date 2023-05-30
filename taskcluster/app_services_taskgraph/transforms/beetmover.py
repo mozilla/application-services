@@ -19,19 +19,18 @@ transforms = TransformSequence()
 def build_upstream_artifacts(config, tasks):
     for task in tasks:
         module_info = task["attributes"]["buildconfig"]
-        name = module_info["name"]
         version = get_version(config.params)
         publications = module_info["publications"]
 
         worker_definition = {"upstream-artifacts": [{
             "taskId": {"task-reference": "<module-build>"},
             "taskType": "build",
-            "paths": (publications_to_artifact_paths(name, version, publications,
+            "paths": (publications_to_artifact_paths(version, publications,
                                                      ("", ".sha1", ".md5"))),
         }, {
             "taskId": {"task-reference": "<signing>"},
             "taskType": "signing",
-            "paths": (publications_to_artifact_paths(name, version, publications, (".asc",))),
+            "paths": (publications_to_artifact_paths(version, publications, (".asc",))),
         }]}
 
         task.setdefault("worker", {})
@@ -43,7 +42,6 @@ def build_upstream_artifacts(config, tasks):
 def build_artifact_map(config, tasks):
     for task in tasks:
         module_info = task["attributes"]["buildconfig"]
-        name = module_info["name"]
         version = get_version(config.params)
 
         publications = module_info["publications"]
@@ -51,13 +49,13 @@ def build_artifact_map(config, tasks):
         artifact_map = [{
             "locale": "en-US",
             "task-id": {"task-reference": "<module-build>"},
-            "paths": (publications_to_artifact_map_paths(name, version, publications,
+            "paths": (publications_to_artifact_map_paths(version, publications,
                                                          config.params.get("preview-build"),
                                                          ("", ".sha1", ".md5")))
         }, {
             "locale": "en-US",
             "task-id": {"task-reference": "<signing>"},
-            "paths": publications_to_artifact_map_paths(name, version, publications,
+            "paths": publications_to_artifact_map_paths(version, publications,
                                                         config.params.get("preview-build"),
                                                         (".asc",))
         }]

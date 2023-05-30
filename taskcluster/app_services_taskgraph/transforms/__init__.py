@@ -14,7 +14,7 @@ def _artifact_filename(name, version, extension):
     return f"{name}-{version}{extension}"
 
 
-def publications_to_artifact_paths(name, version, publications, secondary_extensions=("",)):
+def publications_to_artifact_paths(version, publications, secondary_extensions=("",)):
     paths = []
     for publication in publications:
         for extension in _extensions(publication["type"], secondary_extensions):
@@ -24,7 +24,7 @@ def publications_to_artifact_paths(name, version, publications, secondary_extens
     return paths
 
 
-def publications_to_artifact_map_paths(name, version, publications, preview_build, secondary_extensions):
+def publications_to_artifact_map_paths(version, publications, preview_build, secondary_extensions):
     build_map_paths = {}
     for publication in publications:
         for extension in _extensions(publication["type"], secondary_extensions):
