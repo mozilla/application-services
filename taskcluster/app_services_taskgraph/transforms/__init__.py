@@ -2,6 +2,9 @@
 # License, v. 2.0. If a copy of the MPL was not distributed with this
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 
+import copy
+
+from taskgraph.util.dependencies import group_by
 
 from ..build_config import EXTENSIONS
 
@@ -41,3 +44,28 @@ def publications_to_artifact_map_paths(version, publications, preview_build, sec
             }
 
     return build_map_paths
+
+
+@group_by('component')
+def component_grouping(config, tasks):
+    """Custom group-by function for `from_deps` transforms"""
+    groups = {}
+    for task in tasks:
+        if task.kind not in config.config.get("kind-dependencies", []):
+            continue
+
+        buildconfig = task.attributes["buildconfig"]
+        component = buildconfig["name"]
+        if component == "all":
+            continue
+
+        groups.setdefault(component, []).append(task)
+
+    tasks_for_all_components = [
+        task for task in tasks
+        if task.attributes.get("buildconfig", {}).get("name", "") == "all"
+    ]
+    for _, tasks in groups.items():
+        tasks.extend(copy.deepcopy(tasks_for_all_components))
+
+    return groups.values()

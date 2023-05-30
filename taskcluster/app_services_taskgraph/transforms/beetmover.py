@@ -73,11 +73,3 @@ def beetmover_task(config, tasks):
         task["worker"]["action"] = "push-to-maven"
         task["worker"]["bucket"] = get_maven_bucket(config.params)
         yield task
-
-
-@transforms.add
-def remove_dependent_tasks(config, tasks):
-    for task in tasks:
-        del task["primary-dependency"]
-        del task["dependent-tasks"]
-        yield task
