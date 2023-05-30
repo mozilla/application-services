@@ -1914,7 +1914,6 @@ pub mod unit_tests {
         Ok(())
     }
 
-    /// This functionality is hindered by EXP-3503
     #[test]
     fn test_validate_feature_config_invalid_feature_prop_name() -> Result<()> {
         let fm = get_feature_manifest(
