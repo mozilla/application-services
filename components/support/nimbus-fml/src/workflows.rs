@@ -16,6 +16,7 @@ use crate::{
     util::loaders::{FileLoader, FilePath, LoaderConfig},
     MATCHING_FML_EXTENSION,
 };
+use console::Term;
 use std::path::Path;
 
 #[allow(dead_code)]
@@ -162,8 +163,9 @@ pub(crate) fn fetch_file(files: &LoaderConfig, nm: &str) -> Result<()> {
 }
 
 pub(crate) fn validate(cmd: &ValidateCmd) -> Result<()> {
+    let term = Term::stdout();
+
     let files: FileLoader = TryFrom::try_from(&cmd.loader)?;
-    let cwd = cmd.loader.cwd.to_str().unwrap();
 
     let filename = &cmd.manifest;
     let file_path = files.file_path(filename)?;
@@ -171,18 +173,40 @@ pub(crate) fn validate(cmd: &ValidateCmd) -> Result<()> {
     let mut loading = HashSet::new();
     let manifest_front_end = parser.load_manifest(&file_path, &mut loading)?;
 
-    println!(
+    let iter_includes = loading.iter().map(|id| id.to_string());
+
+    let channels = manifest_front_end.channels();
+    if channels.is_empty() {
+        term.write_line(&format!(
+            "Loaded modules:\n- {}\n",
+            iter_includes.collect::<Vec<String>>().join("\n- ")
+        ))?;
+        term.write_line(&format!(
+            "{}\n{}\n{}",
+            "✓ The manifest is valid for including in other files. To be imported, or used as an app manifest, it requires the following:",
+            "  - A `channels` list",
+            "  - An `about` block",
+        ))?;
+        return Ok(());
+    }
+    let intermediate_representation = parser.get_intermediate_representation(&channels[0])?;
+
+    term.write_line(&format!(
         "Loaded modules:\n- {}\n",
-        loading
-            .iter()
-            .map(|id| id.to_string().replace(cwd, ""))
+        iter_includes
+            .chain(
+                intermediate_representation
+                    .all_imports
+                    .keys()
+                    .map(|m| m.to_string())
+            )
             .collect::<Vec<String>>()
             .join("\n- ")
-    );
+    ))?;
 
-    println!("Validation manifest for different channels:");
-    let results = manifest_front_end
-        .channels
+    term.write_line("Validating manifest for different channels:")?;
+
+    let results = channels
         .iter()
         .map(|c| {
             let intermediate_representation = parser.get_intermediate_representation(c);
@@ -193,25 +217,23 @@ pub(crate) fn validate(cmd: &ValidateCmd) -> Result<()> {
         })
         .collect::<Vec<(&String, Result<_>)>>();
 
-    let mut errors = vec![];
+    let mut error_count = 0;
     for (channel, result) in results {
-        print!(r#"- "{}"..."#, channel);
-        match result {
-            Ok(_) => {
-                println!("valid ✓");
-            }
+        let status = match result {
+            Ok(_) => "✓ valid".to_string(),
             Err(e) => {
-                println!("invalid x");
-                println!("{}", e);
-                errors.push(e);
+                error_count += 1;
+                format!("x invalid - {}", e)
             }
-        }
+        };
+        term.write_line(&format!("- {channel:.<15} {status}"))?;
     }
 
-    if !errors.is_empty() {
+    if error_count > 0 {
         return Err(CliError(format!(
-            "Manifest contains {} error(s)",
-            errors.len()
+            "Manifest contains error(s) in {} channel{}",
+            error_count,
+            if error_count > 1 { "s" } else { "" }
         )));
     }
 
@@ -765,16 +787,18 @@ mod test {
 
     #[test]
     fn test_validate_command() -> Result<()> {
-        for path in MANIFEST_PATHS {
-            if path.ends_with(".yaml") {
-                println!("{}", path);
-                let manifest = join(pkg_dir(), path);
-                let cmd = ValidateCmd {
-                    loader: Default::default(),
-                    manifest,
-                };
-                validate(&cmd)?;
-            }
+        let paths = MANIFEST_PATHS
+            .iter()
+            .filter(|p| p.ends_with(".yaml"))
+            .chain([&"fixtures/fe/no_about_no_channels.yaml"])
+            .collect::<Vec<&&str>>();
+        for path in paths {
+            let manifest = join(pkg_dir(), path);
+            let cmd = ValidateCmd {
+                loader: Default::default(),
+                manifest,
+            };
+            validate(&cmd)?;
         }
         Ok(())
     }
@@ -793,7 +817,7 @@ mod test {
 
         match result.err().unwrap() {
             CliError(error) => {
-                assert_eq!(error, "Manifest contains 1 error(s)");
+                assert_eq!(error, "Manifest contains error(s) in 1 channel");
             }
             _ => panic!("Error is not a ValidationError"),
         };
