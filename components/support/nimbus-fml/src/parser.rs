@@ -145,7 +145,7 @@ pub struct ManifestFrontEnd {
     imports: Vec<ImportBlock>,
 
     #[serde(default)]
-    pub channels: Vec<String>,
+    channels: Vec<String>,
 
     // If a types attribute isn't explicitly expressed,
     // then we should assume that we use the flattened version.
@@ -155,6 +155,10 @@ pub struct ManifestFrontEnd {
 }
 
 impl ManifestFrontEnd {
+    pub fn channels(&self) -> Vec<String> {
+        self.channels.clone()
+    }
+
     /// Retrieves all the types represented in the Manifest
     ///
     /// # Returns
@@ -786,6 +790,7 @@ impl Parser {
         current: &FilePath,
         channel: &str,
         imports: &mut HashMap<ModuleId, FeatureManifest>,
+        // includes: &mut HashSet<ModuleId>,
     ) -> Result<ModuleId> {
         let id = current.try_into()?;
         if imports.contains_key(&id) {

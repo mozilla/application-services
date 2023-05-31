@@ -2380,6 +2380,7 @@ dependencies = [
  "askama 0.10.5",
  "cfg-if 1.0.0",
  "clap 2.34.0",
+ "console 0.15.5",
  "glob",
  "heck 0.3.3",
  "jsonschema",
