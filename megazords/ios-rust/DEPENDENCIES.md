@@ -26,8 +26,9 @@ the details of which are reproduced below.
 * [MIT License: scroll](#mit-license-scroll)
 * [MIT License: scroll_derive](#mit-license-scroll_derive)
 * [MIT License: slab](#mit-license-slab)
-* [MIT License: tokio, tokio-util](#mit-license-tokio-tokio-util)
+* [MIT License: tokio](#mit-license-tokio)
 * [MIT License: tokio-native-tls, tracing, tracing-core](#mit-license-tokio-native-tls-tracing-tracing-core)
+* [MIT License: tokio-util](#mit-license-tokio-util)
 * [MIT License: tower-service](#mit-license-tower-service)
 * [MIT License: try-lock](#mit-license-try-lock)
 * [MIT License: want](#mit-license-want)
@@ -1393,14 +1394,13 @@ DEALINGS IN THE SOFTWARE.
 
 ```
 -------------
-## MIT License: tokio, tokio-util
+## MIT License: tokio
 
 The following text applies to code linked from these dependencies:
-[tokio-util](https://github.com/tokio-rs/tokio),
 [tokio](https://github.com/tokio-rs/tokio)
 
 ```
-Copyright (c) 2022 Tokio Contributors
+Copyright (c) 2023 Tokio Contributors
 
 Permission is hereby granted, free of charge, to any
 person obtaining a copy of this software and associated
@@ -1437,6 +1437,40 @@ The following text applies to code linked from these dependencies:
 
 ```
 Copyright (c) 2019 Tokio Contributors
+
+Permission is hereby granted, free of charge, to any
+person obtaining a copy of this software and associated
+documentation files (the "Software"), to deal in the
+Software without restriction, including without
+limitation the rights to use, copy, modify, merge,
+publish, distribute, sublicense, and/or sell copies of
+the Software, and to permit persons to whom the Software
+is furnished to do so, subject to the following
+conditions:
+
+The above copyright notice and this permission notice
+shall be included in all copies or substantial portions
+of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF
+ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED
+TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A
+PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT
+SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY
+CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION
+OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR
+IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
+DEALINGS IN THE SOFTWARE.
+
+```
+-------------
+## MIT License: tokio-util
+
+The following text applies to code linked from these dependencies:
+[tokio-util](https://github.com/tokio-rs/tokio)
+
+```
+Copyright (c) 2022 Tokio Contributors
 
 Permission is hereby granted, free of charge, to any
 person obtaining a copy of this software and associated
