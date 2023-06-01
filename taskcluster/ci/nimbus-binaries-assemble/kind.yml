@@ -35,13 +35,13 @@ tasks:
     attributes:
       nimbus-binary: "nimbus-fml"
       release-routes:
-        - index.project.application-services.v2.nimbus-fml.{appservices_version}
+        - index.project.{project}.v2.nimbus-fml.{appservices_version}
     description: "Assemble nimbus-fml"
 
   nimbus-cli:
     attributes:
       nimbus-binary: "nimbus-cli"
       release-routes:
-        - index.project.application-services.v2.nimbus-cli.{appservices_version}
-        - index.project.application-services.v2.nimbus-cli.latest
+        - index.project.{project}.v2.nimbus-cli.{appservices_version}
+        - index.project.{project}.v2.nimbus-cli.latest
     description: "Assemble nimbus-cli"

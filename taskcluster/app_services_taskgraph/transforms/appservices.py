@@ -24,7 +24,7 @@ def transform_routes(config, tasks):
     version = get_version(config.params)
     for task in tasks:
         task["routes"] = [
-            route.replace("{appservices_version}", version)
+            route.format(appservices_version=version, **config.params)
             for route in task.get("routes", [])
         ]
         yield task
