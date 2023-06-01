@@ -214,6 +214,7 @@ tasks:
                                     REPOSITORIES: {$json: {appservices: "Application Services"}}
                                     ANDROID_SDK_ROOT: /builds/worker/android-sdk
                                     MOZ_FETCHES_DIR: /builds/worker/fetches
+                                    TASKCLUSTER_CACHES: /builds/worker/checkouts
                                   - $if: 'tasks_for in ["github-pull-request"]'
                                     then:
                                         APPSERVICES_PULL_REQUEST_TITLE: '${event.pull_request.title}'
@@ -224,6 +225,8 @@ tasks:
                                       ACTION_TASK_ID: {$json: {$eval: 'taskId'}}
                                       ACTION_INPUT: {$json: {$eval: 'input'}}
                                       ACTION_CALLBACK: '${action.cb_name}'
+                          cache:
+                              "${trustDomain}-level-${level}-checkouts-v1": /builds/worker/checkouts
 
                           features:
                               taskclusterProxy: true
