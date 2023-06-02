@@ -37,6 +37,7 @@ def target_tasks_nightly(full_task_graph, parameters, graph_config):
         pass
     else:
         # We already ran the nightly decision task and tried to build the nightly.  Don't try again.
+        logger.info(f"Nightly already ran for {head_rev}, skipping")
         return []
     return full_task_graph.tasks
 
