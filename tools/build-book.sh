@@ -9,9 +9,10 @@
 
 set -xe
 
-# Genarate the Rust docs and
-# move them over to the book
-cargo doc --no-deps
+# Genarate the Rust docs and move them over to the book.
+# We document all features. Ideally we'd leverage https://docs.rs/document-features/latest/document_features/
+# so the features themselves are documented, but that's another dependency or another yak, so for another day.
+cargo doc --all-features --no-deps
 echo '<meta http-equiv=refresh content=0;url=fxa_client>' > target/doc/index.html
 mkdir -p docs/rust-docs
 cp -rf target/doc/* docs/rust-docs

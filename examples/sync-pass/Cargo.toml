@@ -18,7 +18,7 @@ sync-guid = { path = "../../components/support/guid" }
 log = "0.4"
 sql-support = { path = "../../components/support/sql" }
 anyhow = "1.0"
-prettytable-rs = "0.8"
+prettytable-rs = "0.10"
 fxa-client = { path = "../../components/fxa-client" }
 chrono = "0.4"
 clap = "2.33"
