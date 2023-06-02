@@ -6,7 +6,6 @@
 
 : "${BINARY_NAME:=nimbus-cli}"
 : "${TASKCLUSTER_HOST:=https://firefox-ci-tc.services.mozilla.com}"
-: "${USE_SUDO:=false}"
 : "${SHELL:=bash}"
 : "${DEBUG:=false}"
 : "${NIMBUS_INSTALL_DIR:=""}"
@@ -16,6 +15,9 @@
 
 HAS_CURL="$(type "curl" &> /dev/null && echo true || echo false)"
 HAS_WGET="$(type "wget" &> /dev/null && echo true || echo false)"
+HAS_UNZIP="$(type "unzip" &> /dev/null && echo true || echo false)"
+
+USE_SUDO="false"
 
 # echoProgress displays a message to the user.
 echoProgress() {
@@ -59,7 +61,11 @@ initOS() {
 # binary builds, as well whether or not necessary tools are present.
 verifySupported() {
   if [ "${HAS_CURL}" != "true" ] && [ "${HAS_WGET}" != "true" ]; then
-    echoError "Either curl or wget is required"
+    echoError "Either curl or wget is required to be installed and on the PATH"
+    exit 1
+  fi
+  if [ "${HAS_UNZIP}" != "true" ]; then
+    echoError "unzip is required to be installed and on the PATH"
     exit 1
   fi
   initFileSuffix
@@ -208,7 +214,6 @@ help () {
   echo -e "\t./install-nimbus-cli.sh [OPTIONS]"
   echo
   echo "Accepted cli options are:"
-  echo -e "\t--no-sudo                install without sudo"
   echo -e "\t--directory DIRECTORY    install into the given directory"
   echo -e "\t--host HOST              get from the given taskcluster host"
   echo
@@ -247,10 +252,6 @@ set -u
 
 while (( "$#" )); do
   case "$1" in
-    '--no-sudo')
-       USE_SUDO="false"
-       shift
-       ;;
     '--host')
        TASKCLUSTER_HOST="$2"
        shift 2
