@@ -37,6 +37,10 @@
 - Added `toJSONObject()` and `getFeatures(featureId)` for Kotlin. This serializes the FML into a `JSONObject` ([#5574](https://github.com/mozilla/application-services/pull/5574)).
 - Added `FmlClient`, additional methods to `FeatureManifest`, and Python UniFFI bindings ([#5557](https://github.com/mozilla/application-services/pull/5557)).
 
+### What's fixed
+
+- Updated the FML downloader plugin to correctly download the release artifacts from the GitHub release
+
 [Full Changelog](In progress)
 
 ## FxA Client
