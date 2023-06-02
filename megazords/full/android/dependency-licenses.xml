@@ -97,10 +97,6 @@ the details of which are reproduced below.
     <url>https://github.com/marshallpierce/rust-base64/blob/master/LICENSE-APACHE</url>
   </license>
   <license>
-    <name>Apache License 2.0: base64</name>
-    <url>https://github.com/marshallpierce/rust-base64/blob/master/LICENSE-APACHE</url>
-  </license>
-  <license>
     <name>Apache License 2.0: bitflags</name>
     <url>https://github.com/bitflags/bitflags/blob/main/LICENSE-APACHE</url>
   </license>
@@ -119,10 +115,6 @@ the details of which are reproduced below.
   <license>
     <name>Apache License 2.0: cc</name>
     <url>https://github.com/alexcrichton/cc-rs/blob/main/LICENSE-APACHE</url>
-  </license>
-  <license>
-    <name>Apache License 2.0: cfg-if</name>
-    <url>https://github.com/alexcrichton/cfg-if/blob/main/LICENSE-APACHE</url>
   </license>
   <license>
     <name>Apache License 2.0: cfg-if</name>
@@ -493,19 +485,7 @@ the details of which are reproduced below.
     <url>https://github.com/microsoft/windows-rs/blob/master/license-mit</url>
   </license>
   <license>
-    <name>Apache License 2.0: windows-sys</name>
-    <url>https://github.com/microsoft/windows-rs/blob/master/license-mit</url>
-  </license>
-  <license>
     <name>Apache License 2.0: windows_x86_64_gnu</name>
-    <url>https://github.com/microsoft/windows-rs/blob/master/license-mit</url>
-  </license>
-  <license>
-    <name>Apache License 2.0: windows_x86_64_gnu</name>
-    <url>https://github.com/microsoft/windows-rs/blob/master/license-mit</url>
-  </license>
-  <license>
-    <name>Apache License 2.0: windows_x86_64_msvc</name>
     <url>https://github.com/microsoft/windows-rs/blob/master/license-mit</url>
   </license>
   <license>
