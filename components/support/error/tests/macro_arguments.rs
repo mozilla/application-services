@@ -59,6 +59,11 @@ fn func() -> ::std::result::Result<String, ExternalError> {
     Err(Error{})
 }
 
+#[handle_error(A, B)] // too many args.
+fn func() -> ::std::result::Result<String, ExternalError> {
+    Err(Error{})
+}
+
 #[handle_error(Key="Value")] // unknown args.
 fn func() -> ::std::result::Result<String, ExternalError> {
     Err(Error{})
