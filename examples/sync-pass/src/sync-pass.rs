@@ -13,7 +13,7 @@ use logins::{
     EncryptedLogin, LoginEntry, LoginFields, LoginStore, LoginsSyncEngine, SecureLoginFields,
     ValidateAndFixup,
 };
-use prettytable::{cell, row, Cell, Row, Table};
+use prettytable::{row, Cell, Row, Table};
 use rusqlite::OptionalExtension;
 use std::sync::Arc;
 use sync15::engine::{EngineSyncAssociation, SyncEngine};

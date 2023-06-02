@@ -126,7 +126,7 @@ pub trait ConnExt {
             .ok_or(rusqlite::Error::QueryReturnedNoRows)?)
     }
 
-    /// Helper for when you'd like to get a Vec<T> of all the rows returned by a
+    /// Helper for when you'd like to get a `Vec<T>` of all the rows returned by a
     /// query that takes named arguments. See also
     /// `query_rows_and_then_cached`.
     fn query_rows_and_then<T, E, P, F>(&self, sql: &str, params: P, mapper: F) -> Result<Vec<T>, E>
@@ -139,7 +139,7 @@ pub trait ConnExt {
         query_rows_and_then_cachable(self.conn(), sql, params, mapper, false)
     }
 
-    /// Helper for when you'd like to get a Vec<T> of all the rows returned by a
+    /// Helper for when you'd like to get a `Vec<T>` of all the rows returned by a
     /// query that takes named arguments.
     fn query_rows_and_then_cached<T, E, P, F>(
         &self,

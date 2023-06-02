@@ -9,6 +9,7 @@
   - [How to test Rust Components](howtos/testing-a-rust-component.md)
     - [How to integration (smoke) test application-services](howtos/smoke-testing-app-services.md)
     - [Writing efficient tests](design/test-faster.md)
+    - [How to debug SQL/sqlite](howtos/debug-sql.md)
   - [Dependency management](dependency-management.md)
   - [How to add a new component](howtos/adding-a-new-component.md)
     - [How to build a new syncable component](howtos/building-a-rust-component.md)
