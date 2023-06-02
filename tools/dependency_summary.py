@@ -1402,8 +1402,12 @@ def print_dependency_summary_pom(deps, file=sys.stdout):
     sections = group_dependencies_for_printing(deps)
 
     for section in sections:
-        # For the .pom file we want to list each dependency separately.
-        for dep in section["dependencies"]:
+        # For the .pom file we want to list each dependency separately unless the name/license/url are identical.
+        # First collapse to a tuple as that's hashable, and put it in a set
+        deps = sorted(set(map(lambda d: (d["name"], d["license"], d["license_url"]), section["dependencies"])))
+
+        for (name, license, license_url) in deps:
+            dep = {"name": name, "license": license, "license_url": license_url}
             pf("  <license>")
             pf("    <name>{}</name>", saxutils.escape(make_license_title(dep["license"], [dep])))
             pf("    <url>{}</url>", saxutils.escape(dep["license_url"]))
