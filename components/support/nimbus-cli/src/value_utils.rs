@@ -23,7 +23,7 @@ impl CliUtils for Value {
     fn get_str<'a>(&'a self, key: &str) -> Result<&'a str> {
         let v = self
             .get(key)
-            .ok_or_else(|| anyhow::Error::msg("Expected a string in the JSONObject"))?
+            .ok_or_else(|| anyhow::Error::msg(format!("Expected a string with key '{key}' in the JSONObject")))?
             .as_str()
             .ok_or_else(|| anyhow::Error::msg("value is not a string"))?;
 
@@ -33,7 +33,7 @@ impl CliUtils for Value {
     fn get_bool(&self, key: &str) -> Result<bool> {
         let v = self
             .get(key)
-            .ok_or_else(|| anyhow::Error::msg("Expected a string in the JSONObject"))?
+            .ok_or_else(|| anyhow::Error::msg(format!("Expected a string with key '{key}' in the JSONObject")))?
             .as_bool()
             .ok_or_else(|| anyhow::Error::msg("value is not a string"))?;
 
@@ -43,7 +43,7 @@ impl CliUtils for Value {
     fn get_array<'a>(&'a self, key: &str) -> Result<&'a Vec<Value>> {
         let v = self
             .get(key)
-            .ok_or_else(|| anyhow::Error::msg("Expected an array in the JSONObject"))?
+            .ok_or_else(|| anyhow::Error::msg(format!("Expected an array with key '{key}' in the JSONObject")))?
             .as_array()
             .ok_or_else(|| anyhow::Error::msg("value is not a array"))?;
         Ok(v)
@@ -52,7 +52,7 @@ impl CliUtils for Value {
     fn get_mut_array<'a>(&'a mut self, key: &str) -> Result<&'a mut Vec<Value>> {
         let v = self
             .get_mut(key)
-            .ok_or_else(|| anyhow::Error::msg("Expected an array in the JSONObject"))?
+            .ok_or_else(|| anyhow::Error::msg(format!("Expected an array with key '{key}' in the JSONObject")))?
             .as_array_mut()
             .ok_or_else(|| anyhow::Error::msg("value is not a array"))?;
         Ok(v)
@@ -61,7 +61,7 @@ impl CliUtils for Value {
     fn get_mut_object<'a>(&'a mut self, key: &str) -> Result<&'a mut Value> {
         let v = self
             .get_mut(key)
-            .ok_or_else(|| anyhow::Error::msg("Expected an array in the JSONObject"))?;
+            .ok_or_else(|| anyhow::Error::msg(format!("Expected an object with key '{key}' in the JSONObject")))?;
         Ok(v)
     }
 
@@ -97,6 +97,20 @@ pub(crate) fn try_find_experiment(value: &Value, slug: &str) -> Result<Value> {
 pub(crate) fn try_extract_data_list(value: &Value) -> Result<Vec<Value>> {
     assert!(value.is_object());
     Ok(value.get_array("data")?.to_vec())
+}
+
+pub(crate) fn try_find_branches(value: &Value) -> Result<Vec<Value>> {
+    Ok(value.get_array("branches")?.to_vec())
+}
+
+pub(crate) fn try_find_features(value: &Value) -> Result<Vec<Value>> {
+    let features = value.get_array("features");
+    Ok(if features.is_ok() {
+        features?.to_vec()
+    } else {
+        let feature = value.get("feature").expect("Expected a feature or features in a branch");
+        vec![feature.clone()]
+    })
 }
 
 fn prepare_recipe(
