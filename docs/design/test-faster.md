@@ -162,7 +162,7 @@ for all submodules, and finally by referencing that "root" in the Cargo.toml
 This would work, and on the surface, using `tests/*.rs` and `benches/*.rs` seems
 more consistent, so it seems weird to use `src/*.rs` for these files.
 
-My reasoning is as follows: Almost universally, `tests/*.rs`, `examples/*.rs,
+My reasoning is as follows: Almost universally, `tests/*.rs`, `examples/*.rs`,
 `benches/*.rs`, etc. are automatic. If you add a test into the tests folder, it
 will run without anything else.
 
