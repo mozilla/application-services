@@ -2,11 +2,14 @@
 // License, v. 2.0. If a copy of the MPL was not distributed with this
 // file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
-use anyhow::{Result, bail};
+use anyhow::{bail, Result};
 use serde_json::Value;
-use std::path::{PathBuf, Path};
+use std::path::{Path, PathBuf};
 
-use crate::{NimbusApp, cli::{Cli, CliCommand}, value_utils, feature_utils};
+use crate::{
+    cli::{Cli, CliCommand},
+    feature_utils, value_utils, NimbusApp,
+};
 
 use super::ExperimentListSource;
 
@@ -70,18 +73,18 @@ impl TryFrom<&Cli> for ExperimentSource {
 
     fn try_from(value: &Cli) -> Result<Self> {
         Ok(match &value.command {
-            CliCommand::Enroll { experiment, file, .. } => {
-                match file.clone() {
-                    Some(file) => Self::try_from_file(&file, experiment)?,
-                    _ => Self::try_from(experiment.as_str())?,
-                }
+            CliCommand::Enroll {
+                experiment, file, ..
+            } => match file.clone() {
+                Some(file) => Self::try_from_file(&file, experiment)?,
+                _ => Self::try_from(experiment.as_str())?,
             },
-            CliCommand::TestFeature { feature_id, files, .. } => {
-                Self::FromFeatureFiles {
-                    app: value.into(),
-                    feature_id: feature_id.clone(),
-                    files: files.clone(),
-                }
+            CliCommand::TestFeature {
+                feature_id, files, ..
+            } => Self::FromFeatureFiles {
+                app: value.into(),
+                feature_id: feature_id.clone(),
+                files: files.clone(),
             },
             _ => unreachable!("Cli Arg not supporting getting an experiment source"),
         })
