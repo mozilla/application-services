@@ -32,6 +32,9 @@
 ### ✨ What's New ✨
 
 - Extra commands: `capture-logs`, `tail-logs`, `test-feature`, `fetch` and `apply-files`. ([#5517](https://github.com/mozilla/application-services/pull/5517))
+- Extra commands: `validate` to validate experiments against a feature manifest. ([#5638](https://github.com/mozilla/application-services/pull/5638))
+  - This is on by default for `test-feature` and `enroll`
+  - The version of the manifest may be tweaked with the `--version`, `--ref` and `--manifest` options.
 - Extra commands and options to open deeplinks with the app. ([#5590](https://github.com/mozilla/application-services/pull/5590)).
 - An update checker to keep you and your installation fresh. ([#5613](https://github.com/mozilla/application-services/pull/5613)).
 - An installation script to make getting `nimbus-cli` easier. ([#5618](https://github.com/mozilla/application-services/pull/5618)).
