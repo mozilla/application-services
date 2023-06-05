@@ -1978,4 +1978,52 @@ pub mod unit_tests {
 
         Ok(())
     }
+
+    #[test]
+    fn test_validate_feature_config_errors_on_invalid_object_prop() -> Result<()> {
+        let obj_defs = vec![ObjectDef {
+            name: "SampleObj".into(),
+            props: vec![PropDef {
+                name: "string".into(),
+                typ: TypeRef::String,
+                doc: "".into(),
+                default: json!("a string"),
+            }],
+            ..Default::default()
+        }];
+        let fm = get_feature_manifest(
+            obj_defs,
+            vec![],
+            vec![FeatureDef {
+                name: "feature".into(),
+                props: vec![PropDef {
+                    name: "prop_1".into(),
+                    typ: TypeRef::Object("SampleObj".into()),
+                    default: json!({
+                        "string": "a value"
+                    }),
+                    doc: "".into(),
+                }],
+                ..Default::default()
+            }],
+            HashMap::new(),
+        );
+
+        let result = fm.validate_feature_config(
+            "feature",
+            json!({
+                "prop_1": {
+                    "invalid-prop": "invalid-prop value"
+                }
+            }),
+        );
+
+        assert!(result.is_err());
+        assert_eq!(
+            result.err().unwrap().to_string(),
+            "Validation Error at features/feature.prop_1#SampleObj: Default includes key invalid-prop that doesn't exist in SampleObj's object definition"
+        );
+
+        Ok(())
+    }
 }
