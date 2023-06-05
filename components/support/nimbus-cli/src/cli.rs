@@ -181,4 +181,31 @@ pub(crate) enum CliCommand {
 
     /// Unenroll from all experiments and rollouts
     Unenroll,
+
+    /// Validate an experiment against a feature manifest
+    Validate {
+        /// The experiment slug, including the server and collection.
+        #[arg(value_name = "SLUG")]
+        experiment: String,
+
+        /// An optional file from which to get the experiment
+        #[arg(long, value_name = "EXPERIMENTS_FILE")]
+        file: Option<PathBuf>,
+
+        /// An optional manifest file
+        #[arg(long, value_name = "MANIFEST_FILE")]
+        manifest: Option<String>,
+
+        /// An optional version of the app.
+        /// If present, constructs the `ref` from an app specific template.
+        /// Due to inconsistencies in branching names, this isn't always
+        /// reliable.
+        #[arg(long, value_name = "APP_VERSION")]
+        version: Option<String>,
+
+        /// The branch/tag/commit for the version of the manifest
+        /// to get from Github.
+        #[arg(long, value_name = "APP_VERSION", default_value = "main")]
+        ref_: String,
+    },
 }

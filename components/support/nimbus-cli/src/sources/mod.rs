@@ -4,6 +4,8 @@
 
 mod experiment;
 mod experiment_list;
+mod manifest;
 
 pub(crate) use experiment::ExperimentSource;
 pub(crate) use experiment_list::ExperimentListSource;
+pub(crate) use manifest::ManifestSource;

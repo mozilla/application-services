@@ -2360,6 +2360,7 @@ dependencies = [
  "console 0.15.5",
  "glob",
  "heck 0.4.1",
+ "nimbus-fml",
  "remote_settings",
  "reqwest",
  "serde",

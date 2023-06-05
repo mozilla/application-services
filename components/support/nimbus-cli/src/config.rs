@@ -2,6 +2,8 @@
 // License, v. 2.0. If a copy of the MPL was not distributed with this
 // file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
+use std::path::PathBuf;
+
 use crate::{cli::Cli, LaunchableApp, NimbusApp};
 use anyhow::{bail, Result};
 
@@ -111,6 +113,44 @@ impl TryFrom<&Cli> for LaunchableApp {
     }
 }
 
+impl NimbusApp {
+    pub(crate) fn ref_from_version(&self, version: &Option<String>, ref_: &String) -> String {
+        if version.is_none() {
+            return ref_.to_string();
+        }
+        let version = version.as_ref().unwrap();
+        match self.app_name.as_str() {
+            // Fenix and Focus are both in the same repo, so should have the
+            // same branching structure.
+            "fenix" | "focus_android" => format!("releases_v{version}"),
+            "firefox_ios" => format!("release/v{version}"),
+            "focus_ios" => format!("releases_v{version}"),
+
+            _ => unreachable!("{} is not defined", self.app_name),
+        }
+    }
+
+    pub(crate) fn github_repo<'a>(&self) -> &'a str {
+        match self.app_name.as_str() {
+            // Fenix and Focus are both in the same repo
+            "fenix" | "focus_android" => "mozilla-mobile/firefox-android",
+            "firefox_ios" => "mozilla-mobile/firefox-ios",
+            "focus_ios" => "mozilla-mobile/focus-ios",
+            _ => unreachable!("{} is not defined", self.app_name),
+        }
+    }
+
+    pub(crate) fn manifest_location<'a>(&self) -> &'a str {
+        match self.app_name.as_str() {
+            "fenix" => "fenix/app/nimbus.fml.yaml",
+            "focus_android" => "focus-android/app/nimbus.fml.yaml",
+            "firefox_ios" => "nimbus.fml.yaml",
+            "focus_ios" => "nimbus.fml.yaml",
+            _ => unreachable!("{} is not defined", self.app_name),
+        }
+    }
+}
+
 pub(crate) fn release_server() -> String {
     std::env::var("NIMBUS_URL")
         .unwrap_or_else(|_| "https://firefox.settings.services.mozilla.com".to_string())
@@ -119,4 +159,14 @@ pub(crate) fn release_server() -> String {
 pub(crate) fn stage_server() -> String {
     std::env::var("NIMBUS_URL_STAGE")
         .unwrap_or_else(|_| "https://firefox.settings.services.allizom.org".to_string())
+}
+
+pub(crate) fn manifest_cache_dir() -> PathBuf {
+    match std::env::var("NIMBUS_MANIFEST_CACHE") {
+        Ok(s) => {
+            let cwd = std::env::current_dir().expect("Current Working Directory is not set");
+            cwd.join(s)
+        }
+        _ => std::env::temp_dir(),
+    }
 }

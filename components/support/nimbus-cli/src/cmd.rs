@@ -3,14 +3,16 @@
 // file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
 use crate::{
-    feature_utils,
+    sources::ManifestSource,
     value_utils::{
-        prepare_experiment, prepare_rollout, try_extract_data_list, try_find_experiment, CliUtils,
+        prepare_experiment, prepare_rollout, try_extract_data_list, try_find_branches,
+        try_find_features, CliUtils,
     },
     AppCommand, ExperimentListSource, ExperimentSource, LaunchableApp, NimbusApp,
 };
 use anyhow::{bail, Result};
 use console::Term;
+use nimbus_fml::intermediate_representation::FeatureManifest;
 use serde_json::{json, Value};
 use std::{path::PathBuf, process::Command};
 
@@ -56,6 +58,11 @@ pub(crate) fn process_cmd(cmd: &AppCommand) -> Result<bool> {
         AppCommand::Reset { app } => app.reset_app()?,
         AppCommand::TailLogs { app } => app.tail_logs()?,
         AppCommand::Unenroll { app } => app.unenroll_all()?,
+        AppCommand::ValidateExperiment {
+            params,
+            manifest,
+            experiment,
+        } => params.validate_experiment(manifest, experiment)?,
     };
 
     Ok(status)
@@ -69,6 +76,18 @@ fn prompt(term: &Term, command: &str) -> Result<()> {
         prompt.apply_to("$"),
         style.apply_to(command)
     ))?;
+    Ok(())
+}
+
+fn output_ok(term: &Term, title: &str) -> Result<()> {
+    let style = term.style().green();
+    term.write_line(&format!("✅ {}", style.apply_to(title)))?;
+    Ok(())
+}
+
+fn output_err(term: &Term, title: &str, detail: &str) -> Result<()> {
+    let style = term.style().red();
+    term.write_line(&format!("❎ {}: {detail}", style.apply_to(title),))?;
     Ok(())
 }
 
@@ -591,6 +610,53 @@ impl NimbusApp {
                 features.join(", "),
                 branches.join(", ")
             ))?;
+        }
+        Ok(true)
+    }
+
+    fn validate_experiment(
+        &self,
+        manifest_source: &ManifestSource,
+        experiment: &ExperimentSource,
+    ) -> Result<bool> {
+        let term = Term::stdout();
+        let value: Value = experiment.try_into()?;
+
+        let manifest = match TryInto::<FeatureManifest>::try_into(manifest_source) {
+            Ok(manifest) => {
+                output_ok(&term, &format!("Loaded manifest from {manifest_source}"))?;
+                manifest
+            }
+            Err(err) => {
+                output_err(
+                    &term,
+                    &format!("Problem with manifest from {manifest_source}"),
+                    &err.to_string(),
+                )?;
+                bail!("Error when loading and validating the manifest");
+            }
+        };
+
+        let mut is_valid = true;
+        for b in try_find_branches(&value)? {
+            let branch = b.get_str("slug")?;
+            for f in try_find_features(&b)? {
+                let id = f.get_str("featureId")?;
+                let value = f
+                    .get("value")
+                    .unwrap_or_else(|| panic!("Branch {branch} feature {id} has no value"));
+                let res = manifest.validate_feature_config(id, value.clone());
+                match res {
+                    Ok(_) => output_ok(&term, &format!("{branch: <15} {id}"))?,
+                    Err(err) => {
+                        is_valid = false;
+                        output_err(&term, &format!("{branch: <15} {id}"), &err.to_string())?
+                    }
+                }
+            }
+        }
+        if !is_valid {
+            bail!("At least one error detected");
         }
         Ok(true)
     }

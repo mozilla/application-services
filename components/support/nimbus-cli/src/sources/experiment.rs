@@ -73,7 +73,10 @@ impl TryFrom<&Cli> for ExperimentSource {
 
     fn try_from(value: &Cli) -> Result<Self> {
         Ok(match &value.command {
-            CliCommand::Enroll {
+            CliCommand::Validate {
+                experiment, file, ..
+            }
+            | CliCommand::Enroll {
                 experiment, file, ..
             } => match file.clone() {
                 Some(file) => Self::try_from_file(&file, experiment)?,

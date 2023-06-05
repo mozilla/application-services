@@ -13,7 +13,7 @@ mod value_utils;
 use anyhow::{bail, Result};
 use clap::Parser;
 use cli::{Cli, CliCommand};
-use sources::{ExperimentListSource, ExperimentSource};
+use sources::{ExperimentListSource, ExperimentSource, ManifestSource};
 use std::{
     ffi::OsString,
     path::{Path, PathBuf},
@@ -147,6 +147,12 @@ enum AppCommand {
     Unenroll {
         app: LaunchableApp,
     },
+
+    ValidateExperiment {
+        params: NimbusApp,
+        manifest: ManifestSource,
+        experiment: ExperimentSource,
+    },
 }
 
 impl AppCommand {
@@ -258,6 +264,15 @@ impl AppCommand {
                 }
             }
             CliCommand::Unenroll => AppCommand::Unenroll { app },
+            CliCommand::Validate { .. } => {
+                let experiment = ExperimentSource::try_from(cli)?;
+                let manifest = ManifestSource::try_from(cli)?;
+                AppCommand::ValidateExperiment {
+                    params,
+                    experiment,
+                    manifest,
+                }
+            }
         })
     }
 }
@@ -268,7 +283,8 @@ impl CliCommand {
             Self::List { .. }
             | Self::CaptureLogs { .. }
             | Self::TailLogs { .. }
-            | Self::Fetch { .. } => false,
+            | Self::Fetch { .. }
+            | Self::Validate { .. } => false,
             Self::Open { no_clobber, .. } => !*no_clobber,
             _ => true,
         }
