@@ -78,13 +78,8 @@ pub(crate) enum CliCommand {
         #[arg(long, default_value = "false")]
         preserve_bucketing: bool,
 
-        /// Optional deeplink. If present, launch with this link.
-        #[arg(long, value_name = "DEEPLINK")]
-        deeplink: Option<String>,
-
-        /// Resets the app back to its initial state before launching
-        #[arg(long, default_value = "false")]
-        reset_app: bool,
+        #[command(flatten)]
+        open: OpenArgs,
 
         /// Keeps existing enrollments and experiments before enrolling.
         ///
@@ -140,16 +135,8 @@ pub(crate) enum CliCommand {
 
     /// Open the app without changing the state of experiment enrollments.
     Open {
-        /// Optional deeplink.
-        ///
-        /// Instead of mimicking the app launcher, send open a URL to the device,
-        /// which may or may not be handled by the app.
-        #[arg(long, value_name = "DEEPLINK")]
-        deeplink: Option<String>,
-
-        /// Resets the app back to its initial state before launching
-        #[arg(long, default_value = "false")]
-        reset_app: bool,
+        #[command(flatten)]
+        open: OpenArgs,
 
         /// By default, the app is terminated before sending the a deeplink.
         ///
@@ -177,16 +164,8 @@ pub(crate) enum CliCommand {
         /// One or more files containing a feature config for the feature.
         files: Vec<PathBuf>,
 
-        /// Resets the app back to its initial state before launching
-        #[arg(long, default_value = "false")]
-        reset_app: bool,
-
-        /// Optional deeplink.
-        ///
-        /// Instead of mimicking the app launcher, send open a URL to the device,
-        /// which may or may not be handled by the app.
-        #[arg(long, value_name = "DEEPLINK")]
-        deeplink: Option<String>,
+        #[command(flatten)]
+        open: OpenArgs,
 
         /// Don't validate the feature config files before enrolling
         #[arg(long, default_value = "false")]
@@ -231,4 +210,15 @@ pub(crate) struct ManifestArgs {
     /// to get from Github.
     #[arg(long, value_name = "APP_VERSION", default_value = "main")]
     pub(crate) ref_: String,
+}
+
+#[derive(Args, Clone, Debug, Default)]
+pub(crate) struct OpenArgs {
+    /// Optional deeplink. If present, launch with this link.
+    #[arg(long, value_name = "DEEPLINK")]
+    pub(crate) deeplink: Option<String>,
+
+    /// Resets the app back to its initial state before launching
+    #[arg(long, default_value = "false")]
+    pub(crate) reset_app: bool,
 }

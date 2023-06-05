@@ -222,7 +222,7 @@ impl TryFrom<&Cli> for AppCommand {
                 preserve_bucketing,
                 preserve_nimbus_db,
                 file,
-                deeplink,
+                open,
                 ..
             } => {
                 let experiment = ExperimentSource::try_from(cli)?;
@@ -243,7 +243,7 @@ impl TryFrom<&Cli> for AppCommand {
                     preserve_targeting,
                     preserve_bucketing,
                     preserve_nimbus_db,
-                    deeplink,
+                    deeplink: open.deeplink,
                 }
             }
             CliCommand::Fetch {
@@ -282,12 +282,13 @@ impl TryFrom<&Cli> for AppCommand {
                 AppCommand::List { params, list }
             }
             CliCommand::LogState => AppCommand::LogState { app },
-            CliCommand::Open { deeplink, .. } => AppCommand::Open { app, deeplink },
+            CliCommand::Open { open, .. } => AppCommand::Open {
+                app,
+                deeplink: open.deeplink,
+            },
             CliCommand::ResetApp => AppCommand::Reset { app },
             CliCommand::TailLogs => AppCommand::TailLogs { app },
-            CliCommand::TestFeature {
-                files, deeplink, ..
-            } => {
+            CliCommand::TestFeature { files, open, .. } => {
                 let experiment = ExperimentSource::try_from(cli)?;
                 let first = files
                     .first()
@@ -300,7 +301,7 @@ impl TryFrom<&Cli> for AppCommand {
                     experiment,
                     branch,
                     rollouts: Default::default(),
-                    deeplink,
+                    deeplink: open.deeplink,
                     preserve_targeting: false,
                     preserve_bucketing: false,
                     preserve_nimbus_db: false,
@@ -327,9 +328,9 @@ impl CliCommand {
 
     fn should_reset(&self) -> bool {
         match self {
-            Self::Enroll { reset_app, .. }
-            | Self::Open { reset_app, .. }
-            | Self::TestFeature { reset_app, .. } => *reset_app,
+            Self::Enroll { open, .. }
+            | Self::Open { open, .. }
+            | Self::TestFeature { open, .. } => open.reset_app,
             _ => false,
         }
     }
