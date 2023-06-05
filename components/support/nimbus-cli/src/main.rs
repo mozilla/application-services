@@ -237,9 +237,7 @@ impl AppCommand {
             CliCommand::ResetApp => AppCommand::Reset { app },
             CliCommand::TailLogs => AppCommand::TailLogs { app },
             CliCommand::TestFeature {
-                files,
-                deeplink,
-                ..
+                files, deeplink, ..
             } => {
                 let experiment = ExperimentSource::try_from(cli)?;
                 let first = files

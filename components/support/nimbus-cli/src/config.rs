@@ -3,7 +3,7 @@
 // file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
 use crate::{cli::Cli, LaunchableApp, NimbusApp};
-use anyhow::{Result, bail};
+use anyhow::{bail, Result};
 
 impl TryFrom<&Cli> for LaunchableApp {
     type Error = anyhow::Error;
