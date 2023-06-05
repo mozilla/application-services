@@ -644,7 +644,7 @@ impl FeatureManifest {
     /// If the value is valid for the feature, it will return an Ok result with a new FeatureDef
     /// with the supplied feature value applied to the feature's property defaults.
     #[allow(unused)]
-    pub(crate) fn validate_feature_config(
+    pub fn validate_feature_config(
         &self,
         feature_name: &str,
         feature_value: Value,

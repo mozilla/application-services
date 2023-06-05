@@ -225,7 +225,7 @@ impl FileLoader {
         };
 
         for (k, v) in config {
-            self.add_repo(file, k, v)?;
+            self.add_repo_relative(file, &k, &v)?;
         }
 
         Ok(())
@@ -238,7 +238,12 @@ impl FileLoader {
     /// 2. A URL
     /// 3. A relative path (to the current working directory) to a directory on the local disk.
     /// 4. An absolute path to a directory on the local disk.
-    fn add_repo(&mut self, cwd: &FilePath, repo_id: String, loc: String) -> Result<()> {
+    #[allow(dead_code)]
+    pub fn add_repo(&mut self, repo_id: &str, loc: &str) -> Result<()> {
+        self.add_repo_relative(&FilePath::Local(self.cwd.clone()), repo_id, loc)
+    }
+
+    fn add_repo_relative(&mut self, cwd: &FilePath, repo_id: &str, loc: &str) -> Result<()> {
         // We're building up a mapping of repo_ids to `FilePath`s; recall: `FilePath` is an enum that is an
         // absolute path or URL.
 
@@ -250,7 +255,7 @@ impl FileLoader {
         // A trailing slash ensures it gets treated like a directoy, rather than a file.
         // See Url::join.
         let loc = if loc.ends_with('/') {
-            loc
+            loc.to_string()
         } else {
             format!("{}/", loc)
         };
@@ -488,11 +493,7 @@ mod unit_tests {
 
         // A source file asks for a file in another repo. The loader uses an absolute
         // URL as the base URL.
-        files.add_repo(
-            &cwd,
-            "@repos/url".to_string(),
-            "https://example.com/remote/directory/path".to_string(),
-        )?;
+        files.add_repo("@repos/url", "https://example.com/remote/directory/path")?;
 
         let obs = files.join(&src_file, "@repos/url/a/file.txt")?;
         assert!(matches!(obs, FilePath::Remote(_)));
@@ -518,7 +519,7 @@ mod unit_tests {
 
         // A source file asks for a file in another repo. The loader uses the branch/tag/ref
         // specified.
-        files.add_repo(&cwd, "@repos/branch".to_string(), "develop".to_string())?;
+        files.add_repo("@repos/branch", "develop")?;
         let obs = files.join(&src_file, "@repos/branch/a/file.txt")?;
         assert!(matches!(obs, FilePath::Remote(_)));
         assert_eq!(
@@ -544,7 +545,7 @@ mod unit_tests {
         // A source file asks for a file in another repo. The loader is configured to
         // give a file in a directory on the local filesystem.
         let rel_dir = "../directory/path";
-        files.add_repo(&cwd, "@repos/local".to_string(), rel_dir.to_string())?;
+        files.add_repo("@repos/local", rel_dir)?;
 
         let obs = files.join(&src_file, "@repos/local/a/file.txt")?;
         assert!(matches!(obs, FilePath::Local(_)));
