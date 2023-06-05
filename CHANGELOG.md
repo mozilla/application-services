@@ -1,5 +1,7 @@
 # v115.0 (In progress)
 
+[Full Changelog](In progress)
+
 ## Push
 ### ⚠️ Breaking Changes ⚠️
   - The constructor for the Push Manager has changed. ([#5389](https://github.com/mozilla/application-services/pull/5389))
@@ -41,8 +43,6 @@
 ### What's fixed
 
 - Updated the FML downloader plugin to correctly download the release artifacts from the GitHub release
-
-[Full Changelog](In progress)
 
 ## FxA Client
 ### ⚠️ Breaking Changes ⚠️
