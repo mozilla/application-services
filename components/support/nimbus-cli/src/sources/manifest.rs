@@ -11,11 +11,12 @@ use nimbus_fml::{
 
 use crate::{cli::ManifestArgs, config, NimbusApp};
 
+#[derive(Debug, PartialEq)]
 pub(crate) struct ManifestSource {
-    github_repo: String,
-    ref_: String,
-    manifest_file: String,
-    channel: String,
+    pub(crate) github_repo: String,
+    pub(crate) ref_: String,
+    pub(crate) manifest_file: String,
+    pub(crate) channel: String,
 }
 
 impl ManifestSource {

@@ -14,13 +14,10 @@ use anyhow::{bail, Result};
 use clap::Parser;
 use cli::{Cli, CliCommand};
 use sources::{ExperimentListSource, ExperimentSource, ManifestSource};
-use std::{
-    ffi::OsString,
-    path::{Path, PathBuf},
-};
+use std::{ffi::OsString, path::PathBuf};
 
 fn main() -> Result<()> {
-    let cmds = get_commands_from_cli(std::env::args_os(), &std::env::current_dir()?)?;
+    let cmds = get_commands_from_cli(std::env::args_os())?;
     for c in cmds {
         let success = cmd::process_cmd(&c)?;
         if !success {
@@ -31,7 +28,7 @@ fn main() -> Result<()> {
     Ok(())
 }
 
-fn get_commands_from_cli<I, T>(args: I, _cwd: &Path) -> Result<Vec<AppCommand>>
+fn get_commands_from_cli<I, T>(args: I) -> Result<Vec<AppCommand>>
 where
     I: IntoIterator<Item = T>,
     T: Into<OsString> + Clone,
@@ -84,6 +81,7 @@ impl From<&Cli> for NimbusApp {
     }
 }
 
+#[derive(Debug, PartialEq)]
 enum AppCommand {
     ApplyFile {
         app: LaunchableApp,
@@ -431,6 +429,417 @@ mod unit_tests {
                 None,
             )
         );
+
+        Ok(())
+    }
+
+    fn fenix() -> LaunchableApp {
+        LaunchableApp::Android {
+            package_name: "org.mozilla.fenix.debug".to_string(),
+            activity_name: ".App".to_string(),
+            device_id: None,
+            scheme: Some("fenix-dev".to_string()),
+        }
+    }
+
+    fn fenix_params() -> NimbusApp {
+        NimbusApp {
+            app_name: "fenix".to_string(),
+            channel: "developer".to_string(),
+        }
+    }
+
+    fn fenix_manifest() -> ManifestSource {
+        ManifestSource {
+            github_repo: "mozilla-mobile/firefox-android".to_string(),
+            ref_: "main".to_string(),
+            manifest_file: "@mozilla-mobile/firefox-android/fenix/app/nimbus.fml.yaml".to_string(),
+            channel: "developer".to_string(),
+        }
+    }
+
+    fn experiment(slug: &str) -> ExperimentSource {
+        let release = config::release_server();
+        ExperimentSource::FromList {
+            slug: slug.to_string(),
+            list: ExperimentListSource::FromRemoteSettings {
+                endpoint: release,
+                is_preview: false,
+            },
+        }
+    }
+
+    #[test]
+    fn test_enroll() -> Result<()> {
+        let observed = get_commands_from_cli([
+            "nimbus-cli",
+            "--app",
+            "fenix",
+            "--channel",
+            "developer",
+            "enroll",
+            "my-experiment",
+            "--branch",
+            "my-branch",
+            "--no-validate",
+        ])?;
+
+        let expected = vec![
+            AppCommand::NoOp,
+            AppCommand::Kill { app: fenix() },
+            AppCommand::Enroll {
+                app: fenix(),
+                params: fenix_params(),
+                experiment: experiment("my-experiment"),
+                rollouts: Default::default(),
+                branch: "my-branch".to_string(),
+                preserve_targeting: false,
+                preserve_bucketing: false,
+                preserve_nimbus_db: false,
+                deeplink: None,
+            },
+        ];
+        assert_eq!(expected, observed);
+        Ok(())
+    }
+
+    #[test]
+    fn test_enroll_with_reset_app() -> Result<()> {
+        let observed = get_commands_from_cli([
+            "nimbus-cli",
+            "--app",
+            "fenix",
+            "--channel",
+            "developer",
+            "enroll",
+            "my-experiment",
+            "--branch",
+            "my-branch",
+            "--reset-app",
+            "--no-validate",
+        ])?;
+
+        let expected = vec![
+            AppCommand::NoOp,
+            AppCommand::Kill { app: fenix() },
+            AppCommand::Reset { app: fenix() },
+            AppCommand::Enroll {
+                app: fenix(),
+                params: fenix_params(),
+                experiment: experiment("my-experiment"),
+                rollouts: Default::default(),
+                branch: "my-branch".to_string(),
+                preserve_targeting: false,
+                preserve_bucketing: false,
+                preserve_nimbus_db: false,
+                deeplink: None,
+            },
+        ];
+        assert_eq!(expected, observed);
+        Ok(())
+    }
+
+    #[test]
+    fn test_enroll_with_validate() -> Result<()> {
+        let observed = get_commands_from_cli([
+            "nimbus-cli",
+            "--app",
+            "fenix",
+            "--channel",
+            "developer",
+            "enroll",
+            "my-experiment",
+            "--branch",
+            "my-branch",
+            "--reset-app",
+        ])?;
+
+        let expected = vec![
+            AppCommand::ValidateExperiment {
+                params: fenix_params(),
+                manifest: fenix_manifest(),
+                experiment: experiment("my-experiment"),
+            },
+            AppCommand::Kill { app: fenix() },
+            AppCommand::Reset { app: fenix() },
+            AppCommand::Enroll {
+                app: fenix(),
+                params: fenix_params(),
+                experiment: experiment("my-experiment"),
+                rollouts: Default::default(),
+                branch: "my-branch".to_string(),
+                preserve_targeting: false,
+                preserve_bucketing: false,
+                preserve_nimbus_db: false,
+                deeplink: None,
+            },
+        ];
+        assert_eq!(expected, observed);
+        Ok(())
+    }
+
+    #[test]
+    fn test_validate() -> Result<()> {
+        let observed = get_commands_from_cli([
+            "nimbus-cli",
+            "--app",
+            "fenix",
+            "--channel",
+            "developer",
+            "validate",
+            "my-experiment",
+        ])?;
+
+        let expected = vec![
+            AppCommand::ValidateExperiment {
+                params: fenix_params(),
+                manifest: fenix_manifest(),
+                experiment: experiment("my-experiment"),
+            },
+            AppCommand::NoOp,
+        ];
+        assert_eq!(expected, observed);
+
+        // With a specific version of the manifest.
+        let observed = get_commands_from_cli([
+            "nimbus-cli",
+            "--app",
+            "fenix",
+            "--channel",
+            "developer",
+            "validate",
+            "my-experiment",
+            "--version",
+            "114",
+        ])?;
+
+        let expected = vec![
+            AppCommand::ValidateExperiment {
+                params: fenix_params(),
+                manifest: ManifestSource {
+                    ref_: "releases_v114".to_string(),
+                    ..fenix_manifest()
+                },
+                experiment: experiment("my-experiment"),
+            },
+            AppCommand::NoOp,
+        ];
+        assert_eq!(expected, observed);
+
+        // With a specific version of the manifest, via a ref.
+        let observed = get_commands_from_cli([
+            "nimbus-cli",
+            "--app",
+            "fenix",
+            "--channel",
+            "developer",
+            "validate",
+            "my-experiment",
+            "--ref",
+            "my-tag",
+        ])?;
+
+        let expected = vec![
+            AppCommand::ValidateExperiment {
+                params: fenix_params(),
+                manifest: ManifestSource {
+                    ref_: "my-tag".to_string(),
+                    ..fenix_manifest()
+                },
+                experiment: experiment("my-experiment"),
+            },
+            AppCommand::NoOp,
+        ];
+        assert_eq!(expected, observed);
+
+        // With a file on disk
+        let observed = get_commands_from_cli([
+            "nimbus-cli",
+            "--app",
+            "fenix",
+            "--channel",
+            "developer",
+            "validate",
+            "my-experiment",
+            "--manifest",
+            "./manifest.fml.yaml",
+        ])?;
+
+        let expected = vec![
+            AppCommand::ValidateExperiment {
+                params: fenix_params(),
+                manifest: ManifestSource {
+                    manifest_file: "./manifest.fml.yaml".to_string(),
+                    ..fenix_manifest()
+                },
+                experiment: experiment("my-experiment"),
+            },
+            AppCommand::NoOp,
+        ];
+        assert_eq!(expected, observed);
+
+        Ok(())
+    }
+
+    #[test]
+    fn test_test_feature() -> Result<()> {
+        fn experiment(feature_id: &str) -> ExperimentSource {
+            ExperimentSource::FromFeatureFiles {
+                app: fenix_params(),
+                feature_id: feature_id.to_string(),
+                files: vec!["./my-branch.json".into(), "./my-treatment.json".into()],
+            }
+        }
+
+        let observed = get_commands_from_cli([
+            "nimbus-cli",
+            "--app",
+            "fenix",
+            "--channel",
+            "developer",
+            "test-feature",
+            "my-feature",
+            "./my-branch.json",
+            "./my-treatment.json",
+        ])?;
+
+        let expected = vec![
+            AppCommand::ValidateExperiment {
+                params: fenix_params(),
+                manifest: fenix_manifest(),
+                experiment: experiment("my-feature"),
+            },
+            AppCommand::Kill { app: fenix() },
+            AppCommand::Enroll {
+                app: fenix(),
+                params: fenix_params(),
+                experiment: experiment("my-feature"),
+                rollouts: Default::default(),
+                branch: "my-branch".to_string(),
+                preserve_targeting: false,
+                preserve_bucketing: false,
+                preserve_nimbus_db: false,
+                deeplink: None,
+            },
+        ];
+        assert_eq!(expected, observed);
+
+        // With a specific version of the manifest.
+        let observed = get_commands_from_cli([
+            "nimbus-cli",
+            "--app",
+            "fenix",
+            "--channel",
+            "developer",
+            "test-feature",
+            "my-feature",
+            "./my-branch.json",
+            "./my-treatment.json",
+            "--version",
+            "114",
+        ])?;
+
+        let expected = vec![
+            AppCommand::ValidateExperiment {
+                params: fenix_params(),
+                manifest: ManifestSource {
+                    ref_: "releases_v114".to_string(),
+                    ..fenix_manifest()
+                },
+                experiment: experiment("my-feature"),
+            },
+            AppCommand::Kill { app: fenix() },
+            AppCommand::Enroll {
+                app: fenix(),
+                params: fenix_params(),
+                experiment: experiment("my-feature"),
+                rollouts: Default::default(),
+                branch: "my-branch".to_string(),
+                preserve_targeting: false,
+                preserve_bucketing: false,
+                preserve_nimbus_db: false,
+                deeplink: None,
+            },
+        ];
+        assert_eq!(expected, observed);
+
+        // With a specific version of the manifest, via a ref.
+        let observed = get_commands_from_cli([
+            "nimbus-cli",
+            "--app",
+            "fenix",
+            "--channel",
+            "developer",
+            "test-feature",
+            "my-feature",
+            "./my-branch.json",
+            "./my-treatment.json",
+            "--ref",
+            "my-tag",
+        ])?;
+
+        let expected = vec![
+            AppCommand::ValidateExperiment {
+                params: fenix_params(),
+                manifest: ManifestSource {
+                    ref_: "my-tag".to_string(),
+                    ..fenix_manifest()
+                },
+                experiment: experiment("my-feature"),
+            },
+            AppCommand::Kill { app: fenix() },
+            AppCommand::Enroll {
+                app: fenix(),
+                params: fenix_params(),
+                experiment: experiment("my-feature"),
+                rollouts: Default::default(),
+                branch: "my-branch".to_string(),
+                preserve_targeting: false,
+                preserve_bucketing: false,
+                preserve_nimbus_db: false,
+                deeplink: None,
+            },
+        ];
+        assert_eq!(expected, observed);
+
+        // With a file on disk
+        let observed = get_commands_from_cli([
+            "nimbus-cli",
+            "--app",
+            "fenix",
+            "--channel",
+            "developer",
+            "test-feature",
+            "my-feature",
+            "./my-branch.json",
+            "./my-treatment.json",
+            "--manifest",
+            "./manifest.fml.yaml",
+        ])?;
+
+        let expected = vec![
+            AppCommand::ValidateExperiment {
+                params: fenix_params(),
+                manifest: ManifestSource {
+                    manifest_file: "./manifest.fml.yaml".to_string(),
+                    ..fenix_manifest()
+                },
+                experiment: experiment("my-feature"),
+            },
+            AppCommand::Kill { app: fenix() },
+            AppCommand::Enroll {
+                app: fenix(),
+                params: fenix_params(),
+                experiment: experiment("my-feature"),
+                rollouts: Default::default(),
+                branch: "my-branch".to_string(),
+                preserve_targeting: false,
+                preserve_bucketing: false,
+                preserve_nimbus_db: false,
+                deeplink: None,
+            },
+        ];
+        assert_eq!(expected, observed);
 
         Ok(())
     }
