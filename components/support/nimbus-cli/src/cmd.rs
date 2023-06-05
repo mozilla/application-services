@@ -510,58 +510,6 @@ fn logcat_args<'a>() -> Vec<&'a str> {
     vec!["logcat", "-b", "main"]
 }
 
-impl TryFrom<&ExperimentSource> for Value {
-    type Error = anyhow::Error;
-
-    fn try_from(value: &ExperimentSource) -> Result<Value> {
-        Ok(match value {
-            ExperimentSource::FromList { slug, list } => {
-                let value = Value::try_from(list)?;
-                try_find_experiment(&value, slug)?
-            }
-            ExperimentSource::FromFeatureFiles {
-                app,
-                feature_id,
-                files,
-            } => feature_utils::create_experiment(app, feature_id, files)?,
-        })
-    }
-}
-
-impl TryFrom<&ExperimentListSource> for Value {
-    type Error = anyhow::Error;
-
-    fn try_from(value: &ExperimentListSource) -> Result<Value> {
-        Ok(match value {
-            ExperimentListSource::FromRemoteSettings {
-                endpoint,
-                is_preview,
-            } => {
-                use remote_settings::{Client, RemoteSettingsConfig};
-                viaduct_reqwest::use_reqwest_backend();
-                let collection_name = if *is_preview {
-                    "nimbus-preview".to_string()
-                } else {
-                    "nimbus-mobile-experiments".to_string()
-                };
-                let config = RemoteSettingsConfig {
-                    server_url: Some(endpoint.clone()),
-                    bucket_name: None,
-                    collection_name,
-                };
-                let client = Client::new(config)?;
-
-                let response = client.get_records_raw()?;
-                response.json::<Value>()?
-            }
-            ExperimentListSource::FromFile { file } => {
-                let string = std::fs::read_to_string(file)?;
-                serde_json::from_str(&string)?
-            }
-        })
-    }
-}
-
 impl NimbusApp {
     fn fetch_list(&self, list: &ExperimentListSource, file: &PathBuf) -> Result<bool> {
         let value: Value = list.try_into()?;
