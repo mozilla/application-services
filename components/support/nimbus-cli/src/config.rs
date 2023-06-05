@@ -110,3 +110,13 @@ impl TryFrom<&Cli> for LaunchableApp {
         })
     }
 }
+
+pub(crate) fn release_server() -> String {
+    std::env::var("NIMBUS_URL")
+        .unwrap_or_else(|_| "https://firefox.settings.services.mozilla.com".to_string())
+}
+
+pub(crate) fn stage_server() -> String {
+    std::env::var("NIMBUS_URL_STAGE")
+        .unwrap_or_else(|_| "https://firefox.settings.services.allizom.org".to_string())
+}

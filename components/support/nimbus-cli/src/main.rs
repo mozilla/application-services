@@ -4,13 +4,16 @@
 
 mod cli;
 mod cmd;
+mod config;
 mod feature_utils;
+mod sources;
 mod updater;
 mod value_utils;
 
 use anyhow::{bail, Result};
 use clap::Parser;
 use cli::{Cli, CliCommand};
+use sources::{ExperimentListSource, ExperimentSource};
 use std::{
     ffi::OsString,
     path::{Path, PathBuf},
@@ -173,7 +176,7 @@ impl AppCommand {
                 deeplink,
                 ..
             } => {
-                let experiment = ExperimentSource::try_from_cli_args(&params, &cli.command)?;
+                let experiment = ExperimentSource::try_from(cli)?;
                 let mut recipes = Vec::new();
                 for r in rollouts {
                     recipes.push(match file.clone() {
@@ -238,7 +241,7 @@ impl AppCommand {
                 deeplink,
                 ..
             } => {
-                let experiment = ExperimentSource::try_from_cli_args(&params, &cli.command)?;
+                let experiment = ExperimentSource::try_from(cli)?;
                 let first = files
                     .first()
                     .ok_or_else(|| anyhow::Error::msg("Need at least one file to make a branch"))?;
@@ -283,312 +286,9 @@ impl CliCommand {
     }
 }
 
-#[derive(Clone, Debug, PartialEq)]
-enum ExperimentListSource {
-    FromRemoteSettings { endpoint: String, is_preview: bool },
-    FromFile { file: PathBuf },
-}
-
-impl ExperimentListSource {
-    fn try_from_pair(server: &str, preview: &str) -> Result<Self> {
-        let release = Self::release_server();
-        let stage = Self::stage_server();
-        let is_preview = preview == "preview";
-
-        let endpoint = match server {
-            "" | "release" | "production" | "prod" => release,
-            "stage" => stage,
-            _ => bail!("Only stage or release currently supported"),
-        };
-
-        Ok(Self::FromRemoteSettings {
-            endpoint,
-            is_preview,
-        })
-    }
-
-    fn release_server() -> String {
-        std::env::var("NIMBUS_URL")
-            .unwrap_or_else(|_| "https://firefox.settings.services.mozilla.com".to_string())
-    }
-
-    fn stage_server() -> String {
-        std::env::var("NIMBUS_URL_STAGE")
-            .unwrap_or_else(|_| "https://firefox.settings.services.allizom.org".to_string())
-    }
-}
-
-impl TryFrom<&str> for ExperimentListSource {
-    type Error = anyhow::Error;
-
-    fn try_from(value: &str) -> Result<Self> {
-        let tokens: Vec<&str> = value.splitn(3, '/').collect();
-        let tokens = tokens.as_slice();
-        Ok(match tokens {
-            [""] => Self::try_from_pair("", "")?,
-            ["preview"] => Self::try_from_pair("", "preview")?,
-            [server] => Self::try_from_pair(server, "")?,
-            [server, "preview"] => Self::try_from_pair(server, "preview")?,
-            _ => bail!(format!("Can't unpack '{}' into an experiment; try preview, release, stage, or stage/preview", value)),
-        })
-    }
-}
-
-impl TryFrom<&Path> for ExperimentListSource {
-    type Error = anyhow::Error;
-
-    fn try_from(value: &Path) -> Result<Self> {
-        Ok(Self::FromFile {
-            file: value.to_path_buf(),
-        })
-    }
-}
-
-#[derive(Clone, Debug, PartialEq)]
-enum ExperimentSource {
-    FromList {
-        slug: String,
-        list: ExperimentListSource,
-    },
-    FromFeatureFiles {
-        app: NimbusApp,
-        feature_id: String,
-        files: Vec<PathBuf>,
-    },
-}
-
-impl TryFrom<&str> for ExperimentSource {
-    type Error = anyhow::Error;
-
-    fn try_from(value: &str) -> Result<Self> {
-        let tokens: Vec<&str> = value.splitn(3, '/').collect();
-        let tokens = tokens.as_slice();
-        Ok(match tokens {
-            [slug] => Self::FromList {
-                slug: slug.to_string(),
-                list: ExperimentListSource::try_from_pair("", "")?,
-            },
-            ["preview", slug] => Self::FromList {
-                slug: slug.to_string(),
-                list: ExperimentListSource::try_from_pair("", "preview")?,
-            },
-            [server, slug] => Self::FromList {
-                slug: slug.to_string(),
-                list: ExperimentListSource::try_from_pair(server, "")?,
-            },
-            [server, "preview", slug] => Self::FromList {
-                slug: slug.to_string(),
-                list: ExperimentListSource::try_from_pair(server, "preview")?,
-            },
-            _ => bail!(format!(
-                "Can't unpack '{}' into an experiment; try preview/SLUG or stage/SLUG, or stage/preview/SLUG",
-                value
-            )),
-        })
-    }
-}
-
-impl ExperimentSource {
-    fn try_from_file(file: &Path, slug: &str) -> Result<Self> {
-        Ok(ExperimentSource::FromList {
-            slug: slug.to_string(),
-            list: file.try_into()?,
-        })
-    }
-
-    fn try_from_cli_args(params: &NimbusApp, value: &CliCommand) -> Result<Self> {
-        Ok(match value {
-            CliCommand::Enroll { experiment, file, .. } |
-            CliCommand::Validate { experiment, file, .. } => {
-                match file.clone() {
-                    Some(file) => Self::try_from_file(&file, &experiment)?,
-                    _ => Self::try_from(experiment.as_str())?,
-                }
-            },
-            CliCommand::TestFeature { feature_id, files, .. } => {
-                Self::FromFeatureFiles {
-                    app: params.clone(),
-                    feature_id: feature_id.clone(),
-                    files: files.clone(),
-                }
-            },
-            _ => unreachable!("Cli Arg not supporting getting an experiment source"),
-        })
-
-    }
-}
-
 #[cfg(test)]
-mod tests {
+mod unit_tests {
     use super::*;
-
-    #[test]
-    fn test_experiment_list_from_pair() -> Result<()> {
-        let release = ExperimentListSource::release_server();
-        let stage = ExperimentListSource::stage_server();
-        assert_eq!(
-            ExperimentListSource::try_from_pair("", "")?,
-            ExperimentListSource::FromRemoteSettings {
-                endpoint: release.clone(),
-                is_preview: false
-            }
-        );
-        assert_eq!(
-            ExperimentListSource::try_from_pair("", "preview")?,
-            ExperimentListSource::FromRemoteSettings {
-                endpoint: release.clone(),
-                is_preview: true
-            }
-        );
-        assert_eq!(
-            ExperimentListSource::try_from_pair("release", "")?,
-            ExperimentListSource::FromRemoteSettings {
-                endpoint: release.clone(),
-                is_preview: false
-            }
-        );
-        assert_eq!(
-            ExperimentListSource::try_from_pair("release", "preview")?,
-            ExperimentListSource::FromRemoteSettings {
-                endpoint: release.clone(),
-                is_preview: true
-            }
-        );
-        assert_eq!(
-            ExperimentListSource::try_from_pair("stage", "")?,
-            ExperimentListSource::FromRemoteSettings {
-                endpoint: stage.clone(),
-                is_preview: false
-            }
-        );
-        assert_eq!(
-            ExperimentListSource::try_from_pair("stage", "preview")?,
-            ExperimentListSource::FromRemoteSettings {
-                endpoint: stage,
-                is_preview: true
-            }
-        );
-        assert_eq!(
-            ExperimentListSource::try_from_pair("release", "preview")?,
-            ExperimentListSource::FromRemoteSettings {
-                endpoint: release,
-                is_preview: true
-            }
-        );
-
-        assert!(ExperimentListSource::try_from_pair("not-real", "preview").is_err());
-
-        Ok(())
-    }
-
-    #[test]
-    fn test_experiment_list_from_str() -> Result<()> {
-        let release = ExperimentListSource::release_server();
-        let stage = ExperimentListSource::stage_server();
-        assert_eq!(
-            ExperimentListSource::try_from("")?,
-            ExperimentListSource::FromRemoteSettings {
-                endpoint: release.clone(),
-                is_preview: false
-            }
-        );
-        assert_eq!(
-            ExperimentListSource::try_from("release")?,
-            ExperimentListSource::FromRemoteSettings {
-                endpoint: release.clone(),
-                is_preview: false
-            }
-        );
-        assert_eq!(
-            ExperimentListSource::try_from("stage")?,
-            ExperimentListSource::FromRemoteSettings {
-                endpoint: stage.clone(),
-                is_preview: false
-            }
-        );
-        assert_eq!(
-            ExperimentListSource::try_from("preview")?,
-            ExperimentListSource::FromRemoteSettings {
-                endpoint: release.clone(),
-                is_preview: true
-            }
-        );
-        assert_eq!(
-            ExperimentListSource::try_from("release/preview")?,
-            ExperimentListSource::FromRemoteSettings {
-                endpoint: release,
-                is_preview: true
-            }
-        );
-        assert_eq!(
-            ExperimentListSource::try_from("stage/preview")?,
-            ExperimentListSource::FromRemoteSettings {
-                endpoint: stage,
-                is_preview: true
-            }
-        );
-
-        assert!(ExperimentListSource::try_from("not-real/preview").is_err());
-        assert!(ExperimentListSource::try_from("release/not-real").is_err());
-
-        Ok(())
-    }
-
-    #[test]
-    fn test_experiment_source_from_str() -> Result<()> {
-        let release = ExperimentListSource::try_from("")?;
-        let stage = ExperimentListSource::try_from("stage")?;
-        let release_preview = ExperimentListSource::try_from("preview")?;
-        let stage_preview = ExperimentListSource::try_from("stage/preview")?;
-        let slug = "my-slug".to_string();
-        assert_eq!(
-            ExperimentSource::try_from("my-slug")?,
-            ExperimentSource::FromList {
-                list: release.clone(),
-                slug: slug.clone()
-            }
-        );
-        assert_eq!(
-            ExperimentSource::try_from("release/my-slug")?,
-            ExperimentSource::FromList {
-                list: release,
-                slug: slug.clone()
-            }
-        );
-        assert_eq!(
-            ExperimentSource::try_from("stage/my-slug")?,
-            ExperimentSource::FromList {
-                list: stage,
-                slug: slug.clone()
-            }
-        );
-        assert_eq!(
-            ExperimentSource::try_from("preview/my-slug")?,
-            ExperimentSource::FromList {
-                list: release_preview.clone(),
-                slug: slug.clone()
-            }
-        );
-        assert_eq!(
-            ExperimentSource::try_from("release/preview/my-slug")?,
-            ExperimentSource::FromList {
-                list: release_preview,
-                slug: slug.clone()
-            }
-        );
-        assert_eq!(
-            ExperimentSource::try_from("stage/preview/my-slug")?,
-            ExperimentSource::FromList {
-                list: stage_preview,
-                slug
-            }
-        );
-
-        assert!(ExperimentListSource::try_from("not-real/preview/my-slug").is_err());
-        assert!(ExperimentListSource::try_from("release/not-real/my-slug").is_err());
-
-        Ok(())
-    }
 
     #[test]
     fn test_launchable_app() -> Result<()> {
