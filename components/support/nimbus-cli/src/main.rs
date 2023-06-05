@@ -39,16 +39,18 @@ where
     let cli = Cli::parse_from(args);
 
     let app = LaunchableApp::try_from(&cli)?;
-    let cmd = AppCommand::try_from(&app, &cli)?;
-
     let mut commands: Vec<AppCommand> = Default::default();
+
+    commands.push(AppCommand::try_validate(&cli)?);
+
     if cli.command.should_kill() {
         commands.push(AppCommand::Kill { app: app.clone() });
     }
     if cli.command.should_reset() {
         commands.push(AppCommand::Reset { app });
     }
-    commands.push(cmd);
+    commands.push(AppCommand::try_from(&cli)?);
+
     Ok(commands)
 }
 
@@ -131,6 +133,9 @@ enum AppCommand {
         app: LaunchableApp,
     },
 
+    // No Op, does nothing.
+    NoOp,
+
     Open {
         app: LaunchableApp,
         deeplink: Option<String>,
@@ -156,8 +161,46 @@ enum AppCommand {
 }
 
 impl AppCommand {
-    fn try_from(app: &LaunchableApp, cli: &Cli) -> Result<Self> {
-        let app = app.clone();
+    fn try_validate(cli: &Cli) -> Result<Self> {
+        let params = cli.into();
+        Ok(match &cli.command {
+            CliCommand::Enroll {
+                no_validate,
+                manifest,
+                ..
+            }
+            | CliCommand::TestFeature {
+                no_validate,
+                manifest,
+                ..
+            } if !no_validate => {
+                let experiment = ExperimentSource::try_from(cli)?;
+                let manifest = ManifestSource::try_from(&params, manifest)?;
+                AppCommand::ValidateExperiment {
+                    params,
+                    experiment,
+                    manifest,
+                }
+            }
+            CliCommand::Validate { manifest, .. } => {
+                let experiment = ExperimentSource::try_from(cli)?;
+                let manifest = ManifestSource::try_from(&params, manifest)?;
+                AppCommand::ValidateExperiment {
+                    params,
+                    experiment,
+                    manifest,
+                }
+            }
+            _ => Self::NoOp,
+        })
+    }
+}
+
+impl TryFrom<&Cli> for AppCommand {
+    type Error = anyhow::Error;
+
+    fn try_from(cli: &Cli) -> Result<Self> {
+        let app = LaunchableApp::try_from(cli)?;
         let params = NimbusApp::from(cli);
         Ok(match cli.command.clone() {
             CliCommand::ApplyFile {
@@ -264,15 +307,7 @@ impl AppCommand {
                 }
             }
             CliCommand::Unenroll => AppCommand::Unenroll { app },
-            CliCommand::Validate { .. } => {
-                let experiment = ExperimentSource::try_from(cli)?;
-                let manifest = ManifestSource::try_from(cli)?;
-                AppCommand::ValidateExperiment {
-                    params,
-                    experiment,
-                    manifest,
-                }
-            }
+            _ => Self::NoOp,
         })
     }
 }
