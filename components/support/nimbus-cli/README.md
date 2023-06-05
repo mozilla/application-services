@@ -33,6 +33,7 @@ Commands:
   tail-logs     Follow the logs for the given app
   test-feature  Configure an application feature with one or more feature config files
   unenroll      Unenroll from all experiments and rollouts
+  validate      Validate an experiment against a feature manifest
   help          Print this message or the help of the given subcommand(s)
 
 Options:
@@ -82,11 +83,25 @@ Options:
 
       --preserve-nimbus-db
           Keeps existing enrollments and experiments before enrolling.
-
+          
           This is unlikely what you want to do.
 
   -f, --file <FILE>
           Instead of fetching from the server, use a file instead
+
+      --no-validate
+          Don't validate the feature config files before enrolling
+
+      --manifest <MANIFEST_FILE>
+          An optional manifest file
+
+      --version <APP_VERSION>
+          An optional version of the app. If present, constructs the `ref` from an app specific template. Due to inconsistencies in branching names, this isn't always reliable
+
+      --ref <APP_VERSION>
+          The branch/tag/commit for the version of the manifest to get from Github
+
+          [default: main]
 
   -h, --help
           Print help (see a summary with '-h')
@@ -142,3 +157,4 @@ Options:
 - `ADB_PATH` the path to `adb`.
 - `NIMBUS_URL` the URL to the RemoteSettings server; a default is supplied.
 - `NIMBUS_URL_STAGE` the URL to the staging RemoteSettings server; a default is supplied.
+- `NIMBUS_MANIFEST_CACHE` the directory where remote Feature Manifests are cached. A temp directory is used as default.
