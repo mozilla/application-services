@@ -58,6 +58,7 @@ def get_decision_parameters(graph_config, parameters):
                 "Cannot run github-release if tag {} is different than in-tree "
                 "{version} from buildconfig.yml".format(head_tag[1:], version)
             )
+        parameters["target_tasks_method"] = "full"
     elif parameters["tasks_for"] == "github-pull-request":
         pr_title = os.environ.get("APPSERVICES_PULL_REQUEST_TITLE", "")
         preview_match = PREVIEW_RE.search(pr_title)
