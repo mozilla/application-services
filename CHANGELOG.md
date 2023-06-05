@@ -1,6 +1,10 @@
-# v115.0 (In progress)
+# v116.0 (In progress)
 
 [Full Changelog](In progress)
+
+# v115.0 (_2023-06-05_)
+
+[Full Changelog](https://github.com/mozilla/application-services/compare/v114.0...v115.0)
 
 ## Push
 ### ⚠️ Breaking Changes ⚠️
