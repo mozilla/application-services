@@ -22,6 +22,8 @@ def main():
           "follow the listed steps to resolve that issue")
     print(" - Run `./mach cargo vet` to manually vet any new dependencies")
     print(" - Commit any changes and submit a phabricator patch")
+    print()
+    print("Details here: https://github.com/mozilla/application-services/blob/main/docs/howtos/vendoring-into-mozilla-central.md")
 
 def parse_args():
     parser = argparse.ArgumentParser()

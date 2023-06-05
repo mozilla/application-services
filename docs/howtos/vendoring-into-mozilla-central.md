@@ -7,6 +7,17 @@ The general process for [vendoring rust code into mozilla-central has its own
 documentation](https://firefox-source-docs.mozilla.org/build/buildsystem/rust.html) -
 please make sure you read that before continuing.
 
+### When to vendor
+
+We want to keep our versions in moz-central relatively up-to-date, but it takes some manual effort
+to do.  The main possibility of breakage is from a dependency mismatch, so our current vendoring
+policy is:
+
+  - Whenever a 3rd-party dependency is added or updated, the dev who made the change is responsible
+    for vendoring.
+  - At the start of the [release cycle](https://wiki.mozilla.org/Release_Management/Calendar) the
+    triage owner is response for vendoring.
+
 ### Updating existing components.
 
 To update components which are already in mozilla-central, follow these steps:
@@ -15,20 +26,15 @@ To update components which are already in mozilla-central, follow these steps:
    "non-artifact" builds - check you can get a full working build before
    starting this process.
 
-1. The exact version of each component is specified [in the top-level Cargo.toml
-  ](https://searchfox.org/mozilla-central/search?q=application-services+overrides&path=Cargo.toml) -
-  just edit these lines.
+1. Run `./tools/update-moz-central-vendoring.py [path-to-moz-central]` from the application-services
+   root directory.
 
-1. From the root of the mozilla-central tree, execute `./mach vendor rust`.
-   If this generates errors regarding duplicate crates, you will enter a world
+1. If this generates errors regarding duplicate crates, you will enter a world
    of pain, and probably need to ask for advice from the application-services
    team, and/or the [`#build` channel on matrix](https://matrix.to/#/#build:mozilla.org).
 
-1. Verify that `git status` shows the crates you are trying to update have
-   matching changes in the `third_party/rust` directory - that directory will
-   should exactly match the application-services changes you are making. If
-   that directory shows no changes, the `./mach vendor rust` command probably
-   failed, so check its output.
+1. Run `./mach cargo vet` to check if there any any new dependencies that need to be vetted.  If
+   there are ask for advice from the application-services team.
 
 1. Build and test your tree. Ideally make a try run.
 
@@ -39,22 +45,6 @@ To update components which are already in mozilla-central, follow these steps:
    most recent update and ask the same reviewer in that patch.
 
 1. Profit!
-
-Notes:
-
-* While not strictly required, it is best-practice to ensure all
-  application-services components are on the same revision. This makes it
-  easier to rationalize dependencies etc.
-
-* The specified revision you vendor generally doesn't correspond to a specific
-  release - we tend to not make releases just to update the vendored version.
-
-* If the current `main` branch of application-services can't be taken due to
-  breaking changes, but `mozilla-central` requires a new version for reasons
-  internal to that repo (eg, maybe a tweak to dependencies, or because of
-  the Rust version requirements etc), you will probably need to make a new
-  branch on application-services and vendor from that - but even in that
-  scenario, you specify the hash of the revision rather than the branch name.
 
 ### Adding a new component
 
