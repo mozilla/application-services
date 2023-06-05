@@ -4,7 +4,7 @@
 
 use std::path::PathBuf;
 
-use clap::{Parser, Subcommand};
+use clap::{Args, Parser, Subcommand};
 
 #[derive(Parser)]
 #[command(
@@ -95,6 +95,13 @@ pub(crate) enum CliCommand {
         /// Instead of fetching from the server, use a file instead
         #[arg(short, long, value_name = "FILE")]
         file: Option<PathBuf>,
+
+        /// Don't validate the feature config files before enrolling
+        #[arg(long, default_value = "false")]
+        no_validate: bool,
+
+        #[command(flatten)]
+        manifest: ManifestArgs,
     },
 
     /// Fetch one or more experiments and put it in a file.
@@ -160,6 +167,9 @@ pub(crate) enum CliCommand {
     /// Configure an application feature with one or more feature config files.
     ///
     /// One file per branch. The branch slugs will correspond to the file names.
+    ///
+    /// By default, the files are validated against the manifest; this can be
+    /// overridden with `--no-validate`.
     TestFeature {
         /// The identifier of the feature to configure
         feature_id: String,
@@ -177,6 +187,13 @@ pub(crate) enum CliCommand {
         /// which may or may not be handled by the app.
         #[arg(long, value_name = "DEEPLINK")]
         deeplink: Option<String>,
+
+        /// Don't validate the feature config files before enrolling
+        #[arg(long, default_value = "false")]
+        no_validate: bool,
+
+        #[command(flatten)]
+        manifest: ManifestArgs,
     },
 
     /// Unenroll from all experiments and rollouts
@@ -192,20 +209,26 @@ pub(crate) enum CliCommand {
         #[arg(long, value_name = "EXPERIMENTS_FILE")]
         file: Option<PathBuf>,
 
-        /// An optional manifest file
-        #[arg(long, value_name = "MANIFEST_FILE")]
-        manifest: Option<String>,
-
-        /// An optional version of the app.
-        /// If present, constructs the `ref` from an app specific template.
-        /// Due to inconsistencies in branching names, this isn't always
-        /// reliable.
-        #[arg(long, value_name = "APP_VERSION")]
-        version: Option<String>,
-
-        /// The branch/tag/commit for the version of the manifest
-        /// to get from Github.
-        #[arg(long, value_name = "APP_VERSION", default_value = "main")]
-        ref_: String,
+        #[command(flatten)]
+        manifest: ManifestArgs,
     },
+}
+
+#[derive(Args, Clone, Debug, Default)]
+pub(crate) struct ManifestArgs {
+    /// An optional manifest file
+    #[arg(long, value_name = "MANIFEST_FILE")]
+    pub(crate) manifest: Option<String>,
+
+    /// An optional version of the app.
+    /// If present, constructs the `ref` from an app specific template.
+    /// Due to inconsistencies in branching names, this isn't always
+    /// reliable.
+    #[arg(long, value_name = "APP_VERSION")]
+    pub(crate) version: Option<String>,
+
+    /// The branch/tag/commit for the version of the manifest
+    /// to get from Github.
+    #[arg(long, value_name = "APP_VERSION", default_value = "main")]
+    pub(crate) ref_: String,
 }

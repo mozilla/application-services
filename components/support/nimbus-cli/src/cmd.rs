@@ -54,6 +54,7 @@ pub(crate) fn process_cmd(cmd: &AppCommand) -> Result<bool> {
         AppCommand::Kill { app } => app.kill_app()?,
         AppCommand::List { params, list } => params.list(list)?,
         AppCommand::LogState { app } => app.log_state()?,
+        AppCommand::NoOp => true,
         AppCommand::Open { app, deeplink, .. } => app.open(deeplink.as_ref())?,
         AppCommand::Reset { app } => app.reset_app()?,
         AppCommand::TailLogs { app } => app.tail_logs()?,

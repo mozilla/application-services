@@ -9,10 +9,7 @@ use nimbus_fml::{
     intermediate_representation::FeatureManifest, parser::Parser, util::loaders::FileLoader,
 };
 
-use crate::{
-    cli::{Cli, CliCommand},
-    config, NimbusApp,
-};
+use crate::{cli::ManifestArgs, config, NimbusApp};
 
 pub(crate) struct ManifestSource {
     github_repo: String,
@@ -28,6 +25,22 @@ impl ManifestSource {
         files.add_repo(self.github_repo.as_str(), &self.ref_)?;
         Ok(files)
     }
+
+    pub(crate) fn try_from(params: &NimbusApp, value: &ManifestArgs) -> Result<Self> {
+        let github_repo = params.github_repo().to_string();
+        let ref_ = params.ref_from_version(&value.version, &value.ref_);
+        let manifest_file = value
+            .manifest
+            .clone()
+            .unwrap_or_else(|| format!("@{}/{}", github_repo, params.manifest_location(),));
+        let channel = params.channel.clone();
+        Ok(Self {
+            github_repo,
+            ref_,
+            channel,
+            manifest_file,
+        })
+    }
 }
 
 impl Display for ManifestSource {
@@ -35,35 +48,6 @@ impl Display for ManifestSource {
         let files = self.manifest_loader().unwrap();
         let path = files.file_path(&self.manifest_file).unwrap();
         f.write_str(&path.to_string())
-    }
-}
-
-impl TryFrom<&Cli> for ManifestSource {
-    type Error = anyhow::Error;
-
-    fn try_from(value: &Cli) -> Result<Self> {
-        let params: NimbusApp = value.into();
-        Ok(match value.command.clone() {
-            CliCommand::Validate {
-                manifest,
-                version,
-                ref_,
-                ..
-            } => {
-                let github_repo = params.github_repo().to_string();
-                let ref_ = params.ref_from_version(&version, &ref_);
-                let manifest_file = manifest
-                    .unwrap_or_else(|| format!("@{}/{}", github_repo, params.manifest_location(),));
-                let channel = params.channel;
-                Self {
-                    github_repo,
-                    ref_,
-                    channel,
-                    manifest_file,
-                }
-            }
-            _ => unreachable!("Manifest not required for any other command"),
-        })
     }
 }
 
