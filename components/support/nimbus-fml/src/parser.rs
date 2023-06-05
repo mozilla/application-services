@@ -569,7 +569,7 @@ impl<'object> DefaultsMerger<'object> {
                             res.default = v.clone();
                             Ok(res)
                         } else {
-                            Err(FMLError::InvalidPropError(k.clone(), res.name.clone()))
+                            Err(FMLError::InvalidPropertyError(k.clone(), res.name.clone()))
                         }
                     })
                     .collect::<Result<Vec<_>>>()?;

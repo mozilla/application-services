@@ -49,7 +49,7 @@ pub enum FMLError {
     #[error("Feature `{0}` not found on manifest")]
     InvalidFeatureError(String),
     #[error("Property `{0}` not found on feature `{1}`")]
-    InvalidPropError(String, String),
+    InvalidPropertyError(String, String),
 }
 
 #[cfg(feature = "client-lib")]
