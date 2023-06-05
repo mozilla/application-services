@@ -578,9 +578,10 @@ impl NimbusApp {
         let array = try_extract_data_list(&value)?;
         let term = Term::stdout();
         let style = term.style().italic().underlined();
+        let slug = style.apply_to("Experiment slug");
+        let channel = style.apply_to(" Channel");
         term.write_line(&format!(
-            "{0: <66}|{1: <31}|{2: <20}",
-            style.apply_to("Experiment slug"),
+            "{slug: <66}|{channel: <11}|{0: <31}|{1: <20}",
             style.apply_to(" Features"),
             style.apply_to(" Branches")
         ))?;
@@ -590,6 +591,9 @@ impl NimbusApp {
             if app_name != self.app_name {
                 continue;
             }
+
+            let channel = exp.get_str("channel")?;
+
             let features: Vec<_> = exp
                 .get_array("featureIds")?
                 .iter()
@@ -606,8 +610,7 @@ impl NimbusApp {
                 .collect();
 
             term.write_line(&format!(
-                " {0: <65}| {1: <30}| {2}",
-                slug,
+                " {slug: <65}| {channel: <10}| {0: <30}| {1}",
                 features.join(", "),
                 branches.join(", ")
             ))?;
