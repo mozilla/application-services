@@ -827,6 +827,7 @@ mod tests {
             [],
         )
         .expect("should insert");
+        crate::storage::delete_pending_temp_tables(&conn).expect("should work");
 
         let _ = search_frecent(
             &conn,

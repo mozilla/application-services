@@ -393,6 +393,12 @@ pub fn delete_pending_temp_tables(conn: &PlacesDb) -> Result<()> {
 mod tests {
     use super::*;
     use crate::api::places_api::test::new_mem_connection;
+    use crate::observation::VisitObservation;
+    use bookmarks::{
+        delete_bookmark, insert_bookmark, BookmarkPosition, BookmarkRootGuid, InsertableBookmark,
+        InsertableItem,
+    };
+    use history::apply_observation;
 
     #[test]
     fn test_meta() {
@@ -414,5 +420,134 @@ mod tests {
             .expect("should get non-existing")
             .is_none());
         delete_meta(&conn, "foo").expect("delete non-existing should work");
+    }
+
+    // Here we try and test that we replicate desktop behaviour, which isn't that obvious.
+    // * create a bookmark
+    // * remove the bookmark - this doesn't remove the place or origin - probably because in
+    //   real browsers there will be visits for the URL existing, but this still smells like
+    //   a bug - see https://bugzilla.mozilla.org/show_bug.cgi?id=1650511#c34
+    // * Arrange for history for that item to be removed, via various means
+    // At this point the origin and place should be removed. The only code (in desktop and here) which
+    // removes places with a foreign_count of zero is that history removal!
+
+    #[test]
+    fn test_removal_delete_visits_between() {
+        do_test_removal_places_and_origins(|conn: &PlacesDb, _guid: &SyncGuid| {
+            Ok(history::delete_visits_between(
+                conn,
+                Timestamp::EARLIEST,
+                Timestamp::now(),
+            )?)
+        })
+    }
+
+    #[test]
+    fn test_removal_delete_visits_for() {
+        do_test_removal_places_and_origins(|conn: &PlacesDb, guid: &SyncGuid| {
+            Ok(history::delete_visits_for(conn, guid)?)
+        })
+    }
+
+    #[test]
+    fn test_removal_prune() {
+        do_test_removal_places_and_origins(|conn: &PlacesDb, _guid: &SyncGuid| {
+            Ok(history::prune_older_visits(conn)?)
+        })
+    }
+
+    #[test]
+    fn test_removal_visit_at_time() {
+        do_test_removal_places_and_origins(|conn: &PlacesDb, _guid: &SyncGuid| {
+            let url = Url::parse("http://example.com/foo").unwrap();
+            let visit = Timestamp::from(727_747_200_001);
+            Ok(history::delete_place_visit_at_time(conn, &url, visit)?)
+        })
+    }
+
+    #[test]
+    fn test_removal_everything() {
+        do_test_removal_places_and_origins(|conn: &PlacesDb, _guid: &SyncGuid| {
+            Ok(history::delete_everything(conn)?)
+        })
+    }
+
+    // The core test - takes a function which deletes history.
+    fn do_test_removal_places_and_origins<F>(removal_fn: F)
+    where
+        F: FnOnce(&PlacesDb, &SyncGuid) -> Result<()>,
+    {
+        let conn = new_mem_connection();
+        let url = Url::parse("http://example.com/foo").unwrap();
+        let bm = InsertableItem::Bookmark {
+            b: InsertableBookmark {
+                parent_guid: BookmarkRootGuid::Unfiled.into(),
+                position: BookmarkPosition::Append,
+                date_added: None,
+                last_modified: None,
+                guid: None,
+                url: url.clone(),
+                title: Some("the title".into()),
+            },
+        };
+        assert_eq!(
+            conn.query_one::<i64>("SELECT COUNT(*) FROM moz_bookmarks;")
+                .unwrap(),
+            5
+        ); // our 5 roots.
+        let bookmark_guid = insert_bookmark(&conn, bm).unwrap();
+        let place_guid = fetch_page_info(&conn, &url)
+            .expect("should work")
+            .expect("must exist")
+            .page
+            .guid;
+        // the place should exist with a foreign_count of 1.
+        assert_eq!(
+            conn.query_one::<i64>("SELECT COUNT(*) FROM moz_bookmarks;")
+                .unwrap(),
+            6
+        ); // our 5 roots + new bookmark
+        assert_eq!(
+            conn.query_one::<i64>(
+                "SELECT foreign_count FROM moz_places WHERE url = \"http://example.com/foo\";"
+            )
+            .unwrap(),
+            1
+        );
+        // visit the bookmark.
+        assert!(apply_observation(
+            &conn,
+            VisitObservation::new(url)
+                .with_at(Timestamp::from(727_747_200_001))
+                .with_visit_type(VisitTransition::Link)
+        )
+        .unwrap()
+        .is_some());
+
+        delete_bookmark(&conn, &bookmark_guid).unwrap();
+        assert_eq!(
+            conn.query_one::<i64>("SELECT COUNT(*) FROM moz_bookmarks;")
+                .unwrap(),
+            5
+        ); // our 5 roots
+           // the place should have no foreign references, but still exists.
+        assert_eq!(
+            conn.query_one::<i64>(
+                "SELECT foreign_count FROM moz_places WHERE url = \"http://example.com/foo\";"
+            )
+            .unwrap(),
+            0
+        );
+        removal_fn(&conn, &place_guid).expect("removal function should work");
+        assert_eq!(
+            conn.query_one::<i64>("SELECT COUNT(*) FROM moz_places;")
+                .unwrap(),
+            0
+        );
+        assert_eq!(
+            conn.query_one::<i64>("SELECT COUNT(*) FROM moz_origins;")
+                .unwrap(),
+            0
+        );
     }
 }
