@@ -17,9 +17,10 @@ kind-dependencies:
 
 transforms:
   - app_services_taskgraph.transforms.nimbus:assemble
-  - app_services_taskgraph.transforms.appservices:transforms
-  - taskgraph.transforms.job:transforms
-  - taskgraph.transforms.task:transforms
+  - app_services_taskgraph.transforms.release_artifacts
+  - app_services_taskgraph.transforms.appservices
+  - taskgraph.transforms.job
+  - taskgraph.transforms.task
 
 task-defaults:
   attributes:
