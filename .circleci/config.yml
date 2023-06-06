@@ -122,11 +122,13 @@ commands:
       - run: sudo apt-get install python3-venv
       - run:
           name: Install NSS build system dependencies
-          command: sudo apt-get install ninja-build gyp zlib1g-dev
+          command: sudo apt-get install ninja-build gyp zlib1g-dev pip
       - build-libs:
           platform: desktop
   build-ios-libs:
     steps:
+      # this is a problem with Mac OSX?
+      - run: pip install --ignore-installed six
       - run:
           name: Install NSS build system dependencies
           command: |
