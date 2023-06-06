@@ -6,7 +6,6 @@
 from taskgraph.transforms.base import TransformSequence
 
 from ..build_config import get_version
-from ..beetmover import get_maven_bucket
 
 transforms = TransformSequence()
 
