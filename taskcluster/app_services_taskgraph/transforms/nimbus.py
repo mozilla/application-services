@@ -114,43 +114,30 @@ def setup_assemble_tasks(config, tasks):
             for dep in build_task_deps
         }
 
+        artifact_path = '/builds/worker/artifacts'
         if binary == 'nimbus-fml':
             # For nimbus-fml, we zip all binaries together and include the sha256
-            task['worker']['artifacts'] = [
-                {
-                    'name': f'public/build/{binary}.{ext}',
-                    'path': f'/builds/worker/checkouts/vcs/build/{binary}.{ext}',
-                    'type': 'file',
-                }
-                for ext in ('zip', 'sha256')
+            task['release-artifacts'] = [
+                f'{binary}.{ext}' for ext in ('zip', 'sha256')
             ]
 
             task['run'] = {
                 'using': 'run-commands',
                 'commands': [
-                    ['mkdir', '-p', 'build'],
+                    ['mkdir', '-p', artifact_path],
                     ['cd', '/builds/worker/fetches/nimbus-fml'],
-                    ['zip', '/builds/worker/checkouts/vcs/build/nimbus-fml.zip', '-r', '.'],
-                    ['cd', '/builds/worker/checkouts/vcs/build'],
+                    ['zip', f'{artifact_path}/nimbus-fml.zip', '-r', '.'],
+                    ['cd', artifact_path],
                     ['eval', 'sha256sum', 'nimbus-fml.zip', '>', 'nimbus-fml.sha256'],
                 ]
             }
         elif binary == "nimbus-cli":
             # For nimbus-cli, we just publish the binaries separately
-            task['worker']['artifacts'] = [
-                {
-                    'name': f'public/build/{binary}-{dep.target}.zip',
-                    'path': f'/builds/worker/checkouts/vcs/build/{binary}-{dep.target}.zip',
-                    'type': 'file',
-                }
-                for dep in build_task_deps
+            task['release-artifacts'] = [
+                f'{binary}-{dep.target}.zip' for dep in build_task_deps
             ]
             # Publish a JSON file with information about the build
-            task['worker']['artifacts'].append({
-                    'name': f'public/build/nimbus-cli.json',
-                    'path': f'/builds/worker/checkouts/vcs/build/nimbus-cli.json',
-                    'type': 'file',
-            })
+            task['release-artifacts'].append('nimbus-cli.json')
 
             sources = [
                 f'/builds/worker/fetches/{binary}/{binary}-{dep.target}.zip'
@@ -160,9 +147,9 @@ def setup_assemble_tasks(config, tasks):
             task['run'] = {
                 'using': 'run-commands',
                 'commands': [
-                    ['mkdir', '-p', 'build'],
-                    ['cp'] + sources + ['build'],
-                    ['taskcluster/scripts/generate-nimbus-cli-json.py', 'build/nimbus-cli.json'],
+                    ['mkdir', '-p', artifact_path],
+                    ['cp'] + sources + [artifact_path],
+                    ['taskcluster/scripts/generate-nimbus-cli-json.py', f'{artifact_path}/nimbus-cli.json'],
                 ]
             }
 
