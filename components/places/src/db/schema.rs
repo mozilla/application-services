@@ -757,6 +757,42 @@ mod tests {
         .expect_err("changing the guid should fail");
     }
 
+    #[test]
+    fn test_origin_triggers_simple_removal() {
+        let conn = PlacesDb::open_in_memory(ConnectionType::ReadWrite).expect("no memory db");
+        let guid = SyncGuid::random();
+        let url = String::from(Url::parse("http://example.com").expect("valid url"));
+
+        conn.execute(
+            "INSERT INTO moz_places (guid, url, url_hash) VALUES (:guid, :url, hash(:url))",
+            rusqlite::named_params! {
+                ":guid": &guid,
+                ":url": &url,
+            },
+        )
+        .expect("should work");
+        // origins are maintained via triggers, so make sure they are done.
+        crate::storage::delete_pending_temp_tables(&conn).expect("should work");
+
+        // We should have inserted the origin.
+        assert_eq!(
+            select_simple_int(
+                &conn,
+                "SELECT count(*) FROM moz_origins WHERE host = 'example.com'"
+            ),
+            1
+        );
+
+        // delete the place, ensure triggers have run, and check origin has gone.
+        conn.execute("DELETE FROM moz_places", [])
+            .expect("should work");
+        crate::storage::delete_pending_temp_tables(&conn).expect("should work");
+        assert_eq!(
+            select_simple_int(&conn, "SELECT count(*) FROM moz_origins"),
+            0
+        );
+    }
+
     const CREATE_V15_DB: &str = include_str!("../../sql/tests/create_v15_db.sql");
 
     #[test]

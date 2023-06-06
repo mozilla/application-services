@@ -1235,6 +1235,16 @@ mod tests {
         assert_eq!(get_pos(&conn, &guid3), 1);
         assert!(global_change_tracker.changed());
 
+        // Should be no moz_origin entries left for the deleted bookmarks.
+        // For better or worse, origins are only cleaned up after history is cleared.
+        crate::storage::history::delete_everything(&conn)?;
+        assert_eq!(
+            conn.query_one::<i64>(
+                "SELECT COUNT(*) FROM moz_origins WHERE host='www.example2.com';"
+            )?,
+            0
+        );
+
         Ok(())
     }
 

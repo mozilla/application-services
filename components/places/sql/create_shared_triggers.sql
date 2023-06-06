@@ -4,13 +4,20 @@
 
 -- This file defines triggers shared between the main and Sync connections.
 
+-- markh doesn't understand why this trigger is needed. It seems to be doing roughly
+-- the same work as moz_updateoriginsinsert_afterdelete_trigger and so we have 2 very
+-- similar triggers for the same insert. A difference between them though is some
+-- frecency stuff - and if you remove this filter, all tests pass except one obscure
+-- one in matcher.rs, where a test site ends up with a frecency of zero rather than the
+-- expected 1999. Both triggers exist in desktop too.
+-- So if anyone can explain this, please update this comment :)
 CREATE TEMP TRIGGER moz_places_afterinsert_trigger
 AFTER INSERT ON moz_places FOR EACH ROW
 BEGIN
     INSERT OR IGNORE INTO moz_origins(prefix, host, rev_host, frecency)
     VALUES(get_prefix(NEW.url), get_host_and_port(NEW.url), reverse_host(get_host_and_port(NEW.url)), NEW.frecency);
 
-    -- This is temporary.
+    -- This is temporary (well, given that was written in 2018, as of 2023 I think we can declate it's not :)
     UPDATE moz_places SET
       origin_id = (SELECT id FROM moz_origins
                    WHERE prefix = get_prefix(NEW.url) AND

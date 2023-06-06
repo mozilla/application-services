@@ -43,6 +43,7 @@ features = ["functions", "window", "bundled", "unlock_notify"]
 pretty_assertions = "0.6"
 tempfile = "3.1"
 env_logger = {version = "0.7", default-features = false}
+sql-support = { path = "../support/sql" }
 
 [build-dependencies]
 uniffi = { version = "0.23", features = ["build"] }
