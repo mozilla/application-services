@@ -162,6 +162,24 @@ pub(crate) fn fetch_file(files: &LoaderConfig, nm: &str) -> Result<()> {
     Ok(())
 }
 
+fn output_ok(term: &Term, title: &str) -> Result<()> {
+    let style = term.style().green();
+    term.write_line(&format!("✅ {}", style.apply_to(title)))?;
+    Ok(())
+}
+
+fn output_note(term: &Term, title: &str) -> Result<()> {
+    let style = term.style().yellow();
+    term.write_line(&format!("ℹ️ {}", style.apply_to(title)))?;
+    Ok(())
+}
+
+fn output_err(term: &Term, title: &str, detail: &str) -> Result<()> {
+    let style = term.style().red();
+    term.write_line(&format!("❎ {}: {detail}", style.apply_to(title),))?;
+    Ok(())
+}
+
 pub(crate) fn validate(cmd: &ValidateCmd) -> Result<()> {
     let term = Term::stdout();
 
@@ -177,32 +195,38 @@ pub(crate) fn validate(cmd: &ValidateCmd) -> Result<()> {
 
     let channels = manifest_front_end.channels();
     if channels.is_empty() {
-        term.write_line(&format!(
-            "Loaded modules:\n- {}\n",
-            iter_includes.collect::<Vec<String>>().join("\n- ")
-        ))?;
-        term.write_line(&format!(
+        output_note(
+            &term,
+            &format!(
+                "Loaded modules:\n- {}\n",
+                iter_includes.collect::<Vec<String>>().join("\n- ")
+            ),
+        )?;
+        output_ok(&term, &format!(
             "{}\n{}\n{}",
-            "✓ The manifest is valid for including in other files. To be imported, or used as an app manifest, it requires the following:",
-            "  - A `channels` list",
-            "  - An `about` block",
+            "The manifest is valid for including in other files. To be imported, or used as an app manifest, it requires the following:",
+            "- A `channels` list",
+            "- An `about` block",
         ))?;
         return Ok(());
     }
     let intermediate_representation = parser.get_intermediate_representation(&channels[0])?;
 
-    term.write_line(&format!(
-        "Loaded modules:\n- {}\n",
-        iter_includes
-            .chain(
-                intermediate_representation
-                    .all_imports
-                    .keys()
-                    .map(|m| m.to_string())
-            )
-            .collect::<Vec<String>>()
-            .join("\n- ")
-    ))?;
+    output_note(
+        &term,
+        &format!(
+            "Loaded modules:\n- {}\n",
+            iter_includes
+                .chain(
+                    intermediate_representation
+                        .all_imports
+                        .keys()
+                        .map(|m| m.to_string())
+                )
+                .collect::<Vec<String>>()
+                .join("\n- ")
+        ),
+    )?;
 
     term.write_line("Validating manifest for different channels:")?;
 
@@ -219,14 +243,15 @@ pub(crate) fn validate(cmd: &ValidateCmd) -> Result<()> {
 
     let mut error_count = 0;
     for (channel, result) in results {
-        let status = match result {
-            Ok(_) => "✓ valid".to_string(),
+        match result {
+            Ok(_) => {
+                output_ok(&term, &format!("{channel:.<20}valid"))?;
+            }
             Err(e) => {
                 error_count += 1;
-                format!("x invalid - {}", e)
+                output_err(&term, &format!("{channel:.<20}invalid"), &e.to_string())?;
             }
         };
-        term.write_line(&format!("- {channel:.<15} {status}"))?;
     }
 
     if error_count > 0 {
