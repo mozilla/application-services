@@ -25,6 +25,7 @@ with open(BUILDCONFIG_FILE, "r") as stream:
 
 cur_version = build_config[BUILDCONFIG_VERSION_FIELD]
 major_version_number = int(cur_version.split('.')[0])
+next_version_number = major_version_number + 1
 release_version = f"{major_version_number}.0"
 refs = RefNames(major_version_number, 0)
 
@@ -86,14 +87,14 @@ run_cmd_checked(["git", "checkout", refs.main])
 run_cmd_checked(["git", "checkout", "-b", refs.start_release_pr])
 
 step_msg(f"Bumping version in {BUILDCONFIG_FILE}")
-build_config[BUILDCONFIG_VERSION_FIELD] = f"{major_version_number}.0a1"
+build_config[BUILDCONFIG_VERSION_FIELD] = f"{next_version_number}.0a1"
 
 with open(BUILDCONFIG_FILE, "w") as stream:
     yaml.dump(build_config, stream, sort_keys=False)
 
 step_msg(f"UPDATING {CHANGELOG_FILE}")
 changelog[0:0] = [
-    f"# v{major_version_number+1}.0 (In progress)",
+    f"# v{next_version_number}.0 (In progress)",
     "",
     "[Full Changelog](In progress)",
     ""
@@ -104,7 +105,7 @@ with open(CHANGELOG_FILE, "w") as stream:
 
 step_msg(f"Creating a commit with the changes")
 run_cmd_checked(["git", "add", CHANGELOG_FILE])
-run_cmd_checked(["git", "commit", "-m", f"Start release v{major_version_number+1}"])
+run_cmd_checked(["git", "commit", "-m", f"Start release v{next_version_number}"])
 
 print()
 response = input("Great! Would you like to push and open the two pull-requests? ([Y]/N)").lower()
