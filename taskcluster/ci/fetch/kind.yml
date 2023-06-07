@@ -33,3 +33,11 @@ tasks:
             url: https://github.com/nicklockwood/SwiftFormat/releases/download/0.51.9/swiftformat.zip
             sha256: f5db4d7e1cc0e0daf77266983bad5931fb95f6ffcecf08fa1aa19fdbb7c53fc4
             size: 1656725
+    nss-artifact:
+        description: fetches the built NSS artifacts from NSS CI
+        fetch:  
+            type: static-url
+            url: https://firefox-ci-tc.services.mozilla.com/api/queue/v1/task/_enROqNsT52PqGPSbGzRzQ/runs/0/artifacts/public/dist.tar.bz2
+            sha256: 1f667d17cd1f9c869de413c3f9797378af5b49314738d2364ca178b651eacd29
+            size: 22594389
+
