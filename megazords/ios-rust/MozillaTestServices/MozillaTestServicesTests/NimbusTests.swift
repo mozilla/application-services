@@ -10,28 +10,8 @@ import XCTest
 
 class NimbusTests: XCTestCase {
     override func setUp() {
-        // TODO(jan-erik): Figure out what is the right clearStores here.
-        Glean.shared.resetGlean(clearStores: false)
+        Glean.shared.resetGlean(clearStores: true)
         Glean.shared.enableTestingMode()
-        let buildDate = DateComponents(
-            calendar: Calendar.current,
-            timeZone: TimeZone(abbreviation: "UTC"),
-            year: 2019,
-            month: 10,
-            day: 23,
-            hour: 12,
-            minute: 52,
-            second: 8
-        )
-        let buildInfo = BuildInfo(buildDate: buildDate)
-        Glean.shared.initialize(
-            uploadEnabled: true,
-            configuration: Configuration(
-                channel: "test",
-                serverEndpoint: "https://example.com"
-            ),
-            buildInfo: buildInfo
-        )
     }
 
     func emptyExperimentJSON() -> String {
