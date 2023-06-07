@@ -503,6 +503,20 @@ mod tests {
         assert_eq!(get_foreign_count(&conn, &guid1), 0);
         assert_eq!(get_foreign_count(&conn, &guid2), 0);
 
+        // record visits for both URLs, otherwise the place itself will be removed with the bookmark
+        conn.execute_cached(
+            "INSERT INTO moz_historyvisits (place_id, visit_date, visit_type, is_local)
+             VALUES (:place, 10000000, 1, 0);",
+            &[(":place", &place_id1)],
+        )
+        .expect("should work");
+        conn.execute_cached(
+            "INSERT INTO moz_historyvisits (place_id, visit_date, visit_type, is_local)
+             VALUES (:place, 10000000, 1, 1);",
+            &[(":place", &place_id2)],
+        )
+        .expect("should work");
+
         // create a bookmark pointing at it.
         conn.execute_cached(
             "INSERT INTO moz_bookmarks
@@ -642,7 +656,65 @@ mod tests {
             0
         );
 
-        // Place should remain.
+        // Place should also be gone as bookmark url had no visits.
+        assert_eq!(
+            select_simple_int(
+                &conn,
+                "SELECT COUNT(*) from moz_places WHERE guid = 'place_guid__';"
+            ),
+            0
+        );
+    }
+
+    #[test]
+    fn test_bookmark_auto_deletes_place_remains() {
+        let conn = PlacesDb::open_in_memory(ConnectionType::ReadWrite).expect("no memory db");
+
+        conn.execute_all(&[
+            // A folder to hold a bookmark.
+            "INSERT INTO moz_bookmarks
+                (type, parent, position, dateAdded, lastModified, guid)
+            VALUES
+                (3, 1, 0, 1, 1, 'folder_guid_')",
+            // A place for the bookmark.
+            "INSERT INTO moz_places
+                (guid, url, url_hash, foreign_count) -- here we pretend it has a foreign count.
+            VALUES ('place_guid__', 'http://example.com/', hash('http://example.com/'), 1)",
+            // The bookmark.
+            "INSERT INTO moz_bookmarks
+                (fk, type, parent, position, dateAdded, lastModified, guid)
+            VALUES
+                --fk,                  type
+                (last_insert_rowid(), 1,
+                -- parent
+                 (SELECT id FROM moz_bookmarks WHERE guid = 'folder_guid_'),
+                -- positon, dateAdded, lastModified, guid
+                   0,       1,         1,           'bookmarkguid')",
+        ])
+        .expect("inserts should work");
+
+        // Delete the folder - the bookmark should cascade delete.
+        conn.execute("DELETE FROM moz_bookmarks WHERE guid = 'folder_guid_';", [])
+            .expect("should work");
+
+        // folder should be gone.
+        assert_eq!(
+            select_simple_int(
+                &conn,
+                "SELECT count(*) FROM moz_bookmarks WHERE guid = 'folder_guid_'"
+            ),
+            0
+        );
+        // bookmark should be gone.
+        assert_eq!(
+            select_simple_int(
+                &conn,
+                "SELECT count(*) FROM moz_bookmarks WHERE guid = 'bookmarkguid';"
+            ),
+            0
+        );
+
+        // Place should remain as we pretended it has a foreign reference.
         assert_eq!(
             select_simple_int(
                 &conn,

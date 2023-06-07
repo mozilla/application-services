@@ -268,6 +268,20 @@ BEGIN
     WHERE id = OLD.placeId;
 END;
 
+-- Similar to cleanup_pages, if the origin/place remains with no foreign references
+-- and no visits it should be deleted.
+-- This approach may not be suitable for desktop but seems to be for us - see
+-- https://bugzilla.mozilla.org/show_bug.cgi?id=1650511#c41 for more discussion.
+CREATE TEMP TRIGGER moz_cleanup_origin_bookmark_deleted_trigger
+AFTER DELETE ON moz_bookmarks
+BEGIN
+    DELETE FROM moz_places
+        WHERE id = OLD.fk
+        AND foreign_count = 0
+        AND last_visit_date_local = 0
+        AND last_visit_date_remote = 0;
+END;
+
 -- These triggers adjust the foreign count for tagged URLs, and bump the
 -- tag's last modified time when a URL is tagged or untagged. These are
 -- split out from the main connection's tag triggers because we also want
