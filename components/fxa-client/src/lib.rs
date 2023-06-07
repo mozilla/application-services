@@ -101,12 +101,12 @@ impl FirefoxAccount {
     /// the startup process.  If applications want to delay loading from disk to speed up the
     /// startup process, they should should add that delay to `load_state()` rather than waiting to
     /// construct the `FirefoxAccount` instance.
-    pub fn new(config: FxaConfig, storage: Box<dyn FxaStorage>, event_handler: Box<dyn FxaEventHandler>) -> FirefoxAccount {
+    pub fn new(config: FxaConfig, storage: Box<dyn FxaStorage>, event_handlers: Vec<Box<dyn FxaEventHandler>>) -> FirefoxAccount {
         unimplemented!()
     }
 
     /// Get the current state of the client
-    pub fn get_state(&self) -> FxaState {
+    pub fn get_state(&self) -> FxaStateInfo {
         unimplemented!()
     }
 }
@@ -133,7 +133,16 @@ pub struct FxaConfig {
     pub device_record: DeviceRecord,
 }
 
-/// Current state of the FxA client
+pub struct FxaStateInfo {
+    /// The current state of the FxA client
+    pub state: FxaState,
+    /// Are we in the middle of a transition to another state?
+    ///
+    /// If this is not None, state-changing methods like [FirefoxAccount::begin_oauth_flow()] or
+    /// [FirefoxAccount::disconnect()] will fail with an [FxaError::InvalidState] error.
+    pub transition: Option<FxaStateTransition>,
+}
+
 pub enum FxaState {
     /// User is logged out
     Disconnected,
@@ -142,14 +151,11 @@ pub enum FxaState {
     /// User has been logged out by some external event and needs to re-authenticate, for example a
     /// password change from another device
     ReauthenticationNeeded,
+}
+
+pub enum FxaStateTransition {
     /// User is currently going through an OAuth flow
-    ///
-    /// While in this state, state-changing methods like [FirefoxAccount::begin_oauth_flow()] or
-    /// [FirefoxAccount::disconnect()] will fail with an [FxaError::InvalidState] error.
     Authenticating,
     /// The client is waiting for the saved state to load.
-    ///
-    /// While in this state, state-changing methods like [FirefoxAccount::begin_oauth_flow()] or
-    /// [FirefoxAccount::disconnect()] will fail with an [FxaError::InvalidState] error.
     Loading,
 }

@@ -28,13 +28,13 @@ use error_support::handle_error;
 use std::collections::HashMap;
 
 impl FirefoxAccount {
-    /// Initiate an web-based OAuth sign-in flow.
+    /// Initiate a web-based OAuth sign-in flow.
     ///
     /// - This method calls `perform_flow` on the `OAuthHandler` instance passed to the constructor.
     /// - While `perform_flow()` is running, the `FirefoxAccount` instance will be in the
-    ///   [FxaState::Authenticated] state (see the FxaState documentation for details)
-    /// - When `perform_flow()` returns the state will be changed to `Authenticated` on success and
-    ///   `Disconnected` on failure.
+    ///   [FxaState::Authenticating] state (see the FxaState documentation for details)
+    /// - When `perform_flow()` returns the state will be changed to [FxaState::Connected] on
+    ///   success and [FxaState::Disconnected] on failure.
     ///
     /// Note: `begin_oauth_flow()` currently blocks while the OAuth operation is in-progress.
     ///

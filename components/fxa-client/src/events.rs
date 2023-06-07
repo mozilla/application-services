@@ -2,20 +2,19 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-use crate::FxaState;
+use crate::FxaStateInfo;
 use crate::Device;
 
 /// FxA event handler trait
 pub trait FxaEventHandler {
     fn on_event(&self, event: FxaEvent);
-    fn on_command(&self, command: FxaCommand);
 }
 
 /// FxA event that the app may want to respond to
 pub enum FxaEvent {
     /// The FxA client state changed
     StateChanged {
-        state: FxaState,
+        state: FxaStateInfo,
     },
     /// The account itself was deleted
     AccountDeleted,
@@ -32,6 +31,9 @@ pub enum FxaEvent {
         /// Device record for all other known clients
         other_devices: Vec<Device>,
     },
+    FxaCommand {
+        command: FxaCommand,
+    },
     // I don't think we need these:
     // DeviceConnected
     // DeviceDisconnected
@@ -43,7 +45,7 @@ pub enum FxaEvent {
 
 /// Received FxA command
 pub enum FxaCommand {
-    SendTab{
+    SendTab {
         title: String,
         url: String,
     }
