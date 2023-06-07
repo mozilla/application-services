@@ -550,4 +550,60 @@ mod tests {
             0
         );
     }
+
+    // Similar to the above, but if the bookmark has no visits the place/origin should die
+    // without requiring history removal
+    #[test]
+    fn test_visitless_removal_places_and_origins() {
+        let conn = new_mem_connection();
+        let url = Url::parse("http://example.com/foo").unwrap();
+        let bm = InsertableItem::Bookmark {
+            b: InsertableBookmark {
+                parent_guid: BookmarkRootGuid::Unfiled.into(),
+                position: BookmarkPosition::Append,
+                date_added: None,
+                last_modified: None,
+                guid: None,
+                url: url.clone(),
+                title: Some("the title".into()),
+            },
+        };
+        assert_eq!(
+            conn.query_one::<i64>("SELECT COUNT(*) FROM moz_bookmarks;")
+                .unwrap(),
+            5
+        ); // our 5 roots.
+        let bookmark_guid = insert_bookmark(&conn, bm).unwrap();
+        // the place should exist with a foreign_count of 1.
+        assert_eq!(
+            conn.query_one::<i64>("SELECT COUNT(*) FROM moz_bookmarks;")
+                .unwrap(),
+            6
+        ); // our 5 roots + new bookmark
+        assert_eq!(
+            conn.query_one::<i64>(
+                "SELECT foreign_count FROM moz_places WHERE url = \"http://example.com/foo\";"
+            )
+            .unwrap(),
+            1
+        );
+        // Delete it.
+        delete_bookmark(&conn, &bookmark_guid).unwrap();
+        assert_eq!(
+            conn.query_one::<i64>("SELECT COUNT(*) FROM moz_bookmarks;")
+                .unwrap(),
+            5
+        ); // our 5 roots
+        // should be gone from places and origins.
+        assert_eq!(
+            conn.query_one::<i64>("SELECT COUNT(*) FROM moz_places;")
+                .unwrap(),
+            0
+        );
+        assert_eq!(
+            conn.query_one::<i64>("SELECT COUNT(*) FROM moz_origins;")
+                .unwrap(),
+            0
+        );
+    }
 }
