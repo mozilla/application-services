@@ -57,8 +57,8 @@ fi
 # We do not know how to cross compile these, so we pull pre-built versions from NSS CI
 # https://github.com/mozilla/application-services/issues/962
 if [[ "${CROSS_COMPILE_TARGET}" =~ "darwin" ]]; then
-  #https://treeherder.mozilla.org/jobs?repo=nss&revision=7f352e7b7ab682c1245a2dc02b723cc2bf527c47
-  curl -sfSL --retry 5 --retry-delay 10 -O "https://firefox-ci-tc.services.mozilla.com/api/queue/v1/task/_enROqNsT52PqGPSbGzRzQ/runs/0/artifacts/public/dist.tar.bz2"
+  #From https://firefox-ci-tc.services.mozilla.com/tasks/index/app-services.cache.level-3.content.v1.nss-artifact/latest
+  curl -sfSL --retry 5 --retry-delay 10 -O "https://firefox-ci-tc.services.mozilla.com/api/index/v1/task/app-services.cache.level-3.content.v1.nss-artifact.latest/artifacts/public/dist.tar.bz2"
   SHA256="1f667d17cd1f9c869de413c3f9797378af5b49314738d2364ca178b651eacd29"
   echo "${SHA256}  dist.tar.bz2" | shasum -a 256 -c - || exit 2
   tar xvjf dist.tar.bz2 && rm -rf dist.tar.bz2
