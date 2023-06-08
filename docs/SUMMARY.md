@@ -37,7 +37,7 @@
   - [Metrics - (Glean Telemetry)](design/metrics.md)
   - [Rust Version Policy](design/rust-versions.md)
   - [Sqlite Database Pragma Usage](design/db-pragmas.md)
-- [How to cut a new release](howtos/cut-a-new-release.md)
+- [Releases](howtos/releases.md)
   - [CI Publishing tools and flow](build-and-publish-pipeline.md)
   - [How to upgrade NSS](howtos/upgrading-nss-guide.md)
 - [Rustdocs for components](rust-docs/fxa_client/index.html)
