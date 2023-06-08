@@ -21,14 +21,7 @@ The key points:
   tests via gradle.
 * [CircleCI](../.circleci/config.yml) runs on every branch, pull-request (including forks), and release,
   to execute lint checks and automated tests at the Rust and Swift level.
-* Releases are made by [manually creating a new release](./howtos/cut-a-new-release.md) via github,
-  which triggers various CI jobs:
-    * [CircleCI](../.circleci/config.yml) is used to build an iOS binary release on every release,
-      and publish it as GitHub release artifacts.
-    * [TaskCluster](../automation/taskcluster/README.md) is used to:
-        * Build an Android binary release.
-        * Upload Android library symbols to [Socorro](https://wiki.mozilla.org/Socorro).
-        * Publish it to the [maven.mozilla.org](https://maven.mozilla.org).
+* Releases align with the Firefox Releases schedules, and nightly releases are automated to run daily see the [releases](./howtos/releases.md) for more information
 * Notifications about build failures are sent to a mailing list at
   [a-s-ci-failures@mozilla.com](https://groups.google.com/a/mozilla.com/forum/#!forum/a-s-ci-failures)
 * Our Taskcluster implementation is almost entirely maintained by the Release Engineering team.
