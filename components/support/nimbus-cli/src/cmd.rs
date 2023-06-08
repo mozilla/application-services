@@ -5,7 +5,7 @@
 use crate::{
     sources::ManifestSource,
     value_utils::{
-        prepare_experiment, prepare_rollout, try_extract_data_list, try_find_branches,
+        self, prepare_experiment, prepare_rollout, try_extract_data_list, try_find_branches,
         try_find_features, CliUtils,
     },
     AppCommand, ExperimentListSource, ExperimentSource, LaunchableApp, NimbusApp,
@@ -14,7 +14,10 @@ use anyhow::{bail, Result};
 use console::Term;
 use nimbus_fml::intermediate_representation::FeatureManifest;
 use serde_json::{json, Value};
-use std::{path::PathBuf, process::Command};
+use std::{
+    path::{Path, PathBuf},
+    process::Command,
+};
 
 pub(crate) fn process_cmd(cmd: &AppCommand) -> Result<bool> {
     let status = match cmd {
@@ -531,7 +534,7 @@ fn logcat_args<'a>() -> Vec<&'a str> {
 }
 
 impl NimbusApp {
-    fn fetch_list(&self, list: &ExperimentListSource, file: &PathBuf) -> Result<bool> {
+    fn fetch_list(&self, list: &ExperimentListSource, file: &Path) -> Result<bool> {
         let value: Value = list.try_into()?;
         let array = try_extract_data_list(&value)?;
         let mut data = Vec::new();
@@ -548,7 +551,7 @@ impl NimbusApp {
         Ok(true)
     }
 
-    fn fetch_recipes(&self, recipes: &Vec<ExperimentSource>, file: &PathBuf) -> Result<bool> {
+    fn fetch_recipes(&self, recipes: &Vec<ExperimentSource>, file: &Path) -> Result<bool> {
         let mut data = Vec::new();
 
         for exp in recipes {
@@ -565,11 +568,11 @@ impl NimbusApp {
         Ok(true)
     }
 
-    fn write_experiments_to_file(&self, data: &Vec<Value>, file: &PathBuf) -> Result<()> {
+    fn write_experiments_to_file(&self, data: &Vec<Value>, file: &Path) -> Result<()> {
         let contents = json!({
             "data": data,
         });
-        std::fs::write(file, serde_json::to_string_pretty(&contents)?)?;
+        value_utils::write_to_file(file, &contents)?;
         Ok(())
     }
 

@@ -1,3 +1,5 @@
+use std::path::Path;
+
 // This Source Code Form is subject to the terms of the Mozilla Public
 // License, v. 2.0. If a copy of the MPL was not distributed with this
 // file, You can obtain one at https://mozilla.org/MPL/2.0/.
@@ -202,6 +204,30 @@ pub(crate) fn prepare_experiment(
         }
     }
     Ok(experiment)
+}
+
+fn is_yaml(file: &Path) -> bool {
+    let ext = file.extension().unwrap_or_default();
+    ext == "yaml" || ext == "yml"
+}
+
+pub(crate) fn read_from_file(file: &Path) -> Result<Value> {
+    let s = std::fs::read_to_string(file)?;
+    Ok(if is_yaml(file) {
+        serde_yaml::from_str(&s)?
+    } else {
+        serde_json::from_str(&s)?
+    })
+}
+
+pub(crate) fn write_to_file(file: &Path, contents: &Value) -> Result<()> {
+    let s = if is_yaml(file) {
+        serde_yaml::to_string(&contents)?
+    } else {
+        serde_json::to_string_pretty(&contents)?
+    };
+    std::fs::write(file, s)?;
+    Ok(())
 }
 
 #[cfg(test)]
