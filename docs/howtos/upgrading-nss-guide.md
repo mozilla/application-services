@@ -11,7 +11,9 @@ Because it makes unit testing easier on Android, and helps startup performance o
 
 The build code is located in the [`libs/`](https://github.com/mozilla/application-services/tree/main/libs) folder.
 
-The version string is located in the beginning of [`build-all.sh`](https://github.com/mozilla/application-services/blob/b0b3daa6580d04906fc53e9e479e8bebb464cf78/libs/build-all.sh#L8-L11). For most NSS upgrades, the only action needed is to bump the version number in this file and update the downloaded archive checksum.  The actual build invocations are located in platform-specific script files (e.g. [`build-nss-ios.sh`](https://github.com/mozilla/application-services/blob/b0b3daa6580d04906fc53e9e479e8bebb464cf78/libs/build-nss-ios.sh)) but usually don't require any changes.
+The version string is located in the beginning of [`build-all.sh`](https://github.com/mozilla/application-services/blob/b0b3daa6580d04906fc53e9e479e8bebb464cf78/libs/build-all.sh#L8-L11).
+
+ For most NSS upgrades, you'll need to bump the version number in this file and update the downloaded archive checksum. Then follow the steps for [Updating the cross-compiled NSS Artifacts](#updating-the-cross-compiled-nss-artifacts) below. The actual build invocations are located in platform-specific script files (e.g. [`build-nss-ios.sh`](https://github.com/mozilla/application-services/blob/b0b3daa6580d04906fc53e9e479e8bebb464cf78/libs/build-nss-ios.sh)) but usually don't require any changes.
 
 To test out updating NSS version:
 
@@ -26,11 +28,13 @@ To test out updating NSS version:
 
 We use a Linux TC worker for cross-compiling NSS for iOS, Android and Linux desktop machines. However, due to the complexity of the NSS build process, there is no easy way for cross-compiling MacOS and Windows -- so we currently use pre-built artifacts for MacOS desktop machines (ref [#5210](https://github.com/mozilla/application-services/issues/5210)).
 
-1. Look for the tagged version Taskcluster builds from the [NSS CI](https://treeherder.mozilla.org/jobs?repo=nss) and pull the appropiate build (usually the first task with the title "B"):
+1. Look for the tagged version from the [NSS CI](https://treeherder.mozilla.org/jobs?repo=nss)
+    > usually a description with something like _`Added tag NSS_3_90_RTM`_
+2. Select the build for the following system(s) (first task with the title "B"):
     * For Intel MacOS: `mac opt-static`
-2. You'll then need to copy the link to the artifact `dist.tar.bz2` and update the URLs and corresponding checksums in
-[build-nss-desktop.sh](https://github.com/mozilla/application-services/blob/main/libs/build-nss-desktop.sh#L61-L62).
-    * Note: _To get the checksum, you can run `shasum -a 256 {path-to-artifact}` or you can make a PR and see the output of the failed log._
+3. Update [taskcluster/ci/fetch/kind.yml](https://github.com/mozilla/application-services/blob/main/taskcluster/ci/fetch/kind.yml), specifically `nss-artifact` task to the appropiate `url` and `checksum` and `size`
+    > Note: _To get the checksum, you can run `shasum -a 256 {path-to-artifact}` or you can make a PR and see the output of the failed log._
+4. Open a pull request with these changes and it should update the [Taskcluster artifact](https://firefox-ci-tc.services.mozilla.com/tasks/index/app-services.cache.level-1.content.v1.nss-artifact/latest)
 
 ---
 
