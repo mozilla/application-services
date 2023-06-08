@@ -210,7 +210,12 @@ pub(crate) fn validate(cmd: &ValidateCmd) -> Result<()> {
         ))?;
         return Ok(());
     }
-    let intermediate_representation = parser.get_intermediate_representation(&channels[0])?;
+    let intermediate_representation = parser
+        .get_intermediate_representation(&channels[0])
+        .map_err(|e| {
+            output_err(&term, "Manifest is invalid", &e.to_string()).unwrap();
+            e
+        })?;
 
     output_note(
         &term,
