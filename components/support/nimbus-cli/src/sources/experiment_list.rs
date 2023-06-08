@@ -4,7 +4,7 @@
 
 use crate::{
     config,
-    value_utils,
+    value_utils::{self, CliUtils},
 };
 use anyhow::{bail, Result};
 use serde_json::Value;
@@ -88,7 +88,19 @@ impl TryFrom<&ExperimentListSource> for Value {
                 response.json::<Value>()?
             }
             ExperimentListSource::FromFile { file } => {
-                value_utils::read_from_file(file)?
+                let v: Value = value_utils::read_from_file(file)?;
+                if v.is_array() {
+                    serde_json::json!({ "data": v })
+                } else if v.get_array("data").is_ok() {
+                    v
+                } else if v.get_array("branches").is_ok() {
+                    serde_json::json!({ "data": [v] })
+                } else {
+                    bail!(
+                        "An unrecognized experiments JSON file: {}",
+                        file.as_path().to_str().unwrap_or_default()
+                    );
+                }
             }
         })
     }
