@@ -22,3 +22,4 @@ heck = "0.4.1"
 whoami = "1.4.0"
 update-informer = { version = "1.0.0", default_features = false }
 reqwest = { version = "0.11.18", default_features = false, features = ["blocking", "native-tls-vendored", "gzip", "json"] }
+serde_yaml = "0.9.21"

@@ -2,7 +2,10 @@
 // License, v. 2.0. If a copy of the MPL was not distributed with this
 // file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
-use crate::config;
+use crate::{
+    config,
+    value_utils,
+};
 use anyhow::{bail, Result};
 use serde_json::Value;
 use std::path::{Path, PathBuf};
@@ -85,8 +88,7 @@ impl TryFrom<&ExperimentListSource> for Value {
                 response.json::<Value>()?
             }
             ExperimentListSource::FromFile { file } => {
-                let string = std::fs::read_to_string(file)?;
-                serde_json::from_str(&string)?
+                value_utils::read_from_file(file)?
             }
         })
     }

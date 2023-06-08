@@ -11,7 +11,7 @@ use anyhow::Result;
 use heck::ToKebabCase;
 use serde_json::{json, Value};
 
-use crate::NimbusApp;
+use crate::{value_utils, NimbusApp};
 
 pub(crate) fn create_experiment(
     app: &NimbusApp,
@@ -85,8 +85,7 @@ pub(crate) fn slug(path: &Path) -> Result<String> {
 }
 
 fn branch(feature_id: &str, file: &Path) -> Result<Value> {
-    let string = std::fs::read_to_string(file)?;
-    let value = serde_json::from_str::<Value>(&string)?;
+    let value = value_utils::read_from_file(file)?;
 
     let config = value.as_object().ok_or_else(|| {
         anyhow::Error::msg(format!(
