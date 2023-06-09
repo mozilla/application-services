@@ -23,7 +23,7 @@ workers:
       provisioner: releng-hardware
       implementation: generic-worker
       os: macosx
-      worker-type: applicationservices-b-1-osx1015
+      worker-type: applicationservices-b-{level}-osx1015
     images:
       provisioner: 'app-services-{level}'
       implementation: docker-worker
