@@ -151,14 +151,24 @@ impl NimbusApp {
     }
 }
 
-pub(crate) fn release_server() -> String {
+pub(crate) fn rs_production_server() -> String {
     std::env::var("NIMBUS_URL")
         .unwrap_or_else(|_| "https://firefox.settings.services.mozilla.com".to_string())
 }
 
-pub(crate) fn stage_server() -> String {
+pub(crate) fn rs_stage_server() -> String {
     std::env::var("NIMBUS_URL_STAGE")
         .unwrap_or_else(|_| "https://firefox.settings.services.allizom.org".to_string())
+}
+
+pub(crate) fn api_v6_production_server() -> String {
+    std::env::var("NIMBUS_V6_URL")
+        .unwrap_or_else(|_| "https://experimenter.services.mozilla.com".to_string())
+}
+
+pub(crate) fn api_v6_stage_server() -> String {
+    std::env::var("NIMBUS_V6_URL_STAGE")
+        .unwrap_or_else(|_| "https://stage.experimenter.nonprod.dataops.mozgcp.net".to_string())
 }
 
 pub(crate) fn manifest_cache_dir() -> Option<PathBuf> {

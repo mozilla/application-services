@@ -12,7 +12,7 @@ mod value_utils;
 
 use anyhow::{bail, Result};
 use clap::Parser;
-use cli::{Cli, CliCommand};
+use cli::{Cli, CliCommand, ExperimentArgs};
 use sources::{ExperimentListSource, ExperimentSource, ManifestSource};
 use std::{ffi::OsString, path::PathBuf};
 
@@ -219,18 +219,21 @@ impl TryFrom<&Cli> for AppCommand {
                 preserve_targeting,
                 preserve_bucketing,
                 preserve_nimbus_db,
-                file,
+                experiment,
                 open,
                 ..
             } => {
-                let experiment = ExperimentSource::try_from(cli)?;
-                let mut recipes = Vec::new();
+                // Ensure we get the rollouts from the same place we get the experiment from.
+                let mut recipes: Vec<ExperimentSource> = Vec::new();
                 for r in rollouts {
-                    recipes.push(match file.clone() {
-                        Some(file) => ExperimentSource::try_from_file(&file, r.as_str())?,
-                        _ => ExperimentSource::try_from(r.as_str())?,
-                    });
+                    let rollout = ExperimentArgs {
+                        experiment: r,
+                        ..experiment.clone()
+                    };
+                    recipes.push(ExperimentSource::try_from(&rollout)?);
                 }
+
+                let experiment = ExperimentSource::try_from(cli)?;
 
                 Self::Enroll {
                     app,
@@ -459,13 +462,10 @@ mod unit_tests {
     }
 
     fn experiment(slug: &str) -> ExperimentSource {
-        let release = config::release_server();
-        ExperimentSource::FromList {
+        let endpoint = config::api_v6_production_server();
+        ExperimentSource::FromApiV6 {
             slug: slug.to_string(),
-            list: ExperimentListSource::FromRemoteSettings {
-                endpoint: release,
-                is_preview: false,
-            },
+            endpoint,
         }
     }
 

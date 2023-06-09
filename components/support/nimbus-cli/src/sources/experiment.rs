@@ -7,11 +7,13 @@ use serde_json::Value;
 use std::path::{Path, PathBuf};
 
 use crate::{
-    cli::{Cli, CliCommand},
-    feature_utils, value_utils, NimbusApp,
+    cli::{Cli, CliCommand, ExperimentArgs},
+    config, feature_utils, value_utils, NimbusApp,
 };
 
 use super::ExperimentListSource;
+
+static USER_AGENT: &str = concat!(env!("CARGO_PKG_NAME"), "/", env!("CARGO_PKG_VERSION"),);
 
 #[derive(Clone, Debug, PartialEq)]
 pub(crate) enum ExperimentSource {
@@ -24,6 +26,10 @@ pub(crate) enum ExperimentSource {
         feature_id: String,
         files: Vec<PathBuf>,
     },
+    FromApiV6 {
+        slug: String,
+        endpoint: String,
+    },
 }
 
 // Create ExperimentSources from &str and Cli.
@@ -32,6 +38,45 @@ impl TryFrom<&str> for ExperimentSource {
     type Error = anyhow::Error;
 
     fn try_from(value: &str) -> Result<Self> {
+        let tokens: Vec<&str> = value.splitn(3, '/').collect();
+        let tokens = tokens.as_slice();
+        Ok(match tokens {
+            [slug] => Self::FromApiV6 {
+                slug: slug.to_string(),
+                endpoint: config::api_v6_production_server(),
+            },
+            [server, slug] => {
+                let endpoint = match *server {
+                    "production" | "release" | "preview" => config::api_v6_production_server(),
+                    "stage" => config::api_v6_stage_server(),
+                    _ => bail!(format!("Can't unpack {server}; try production or stage")),
+                };
+                Self::FromApiV6 {
+                    slug: slug.to_string(),
+                    endpoint,
+                }
+            }
+            [server, "preview", slug] => {
+                let endpoint = match *server {
+                    "production" | "release" => config::api_v6_production_server(),
+                    "stage" => config::api_v6_stage_server(),
+                    _ => bail!(format!("Can't unpack {server}; try production or stage")),
+                };
+                Self::FromApiV6 {
+                    slug: slug.to_string(),
+                    endpoint,
+                }
+            }
+            _ => bail!(format!(
+                "Can't unpack '{}' into an experiment; try stage/SLUG, or SLUG",
+                value
+            )),
+        })
+    }
+}
+
+impl ExperimentSource {
+    fn try_from_rs(value: &str) -> Result<Self> {
         let tokens: Vec<&str> = value.splitn(3, '/').collect();
         let tokens = tokens.as_slice();
         Ok(match tokens {
@@ -68,20 +113,27 @@ impl ExperimentSource {
     }
 }
 
+impl TryFrom<&ExperimentArgs> for ExperimentSource {
+    type Error = anyhow::Error;
+
+    fn try_from(value: &ExperimentArgs) -> Result<Self> {
+        let experiment = &value.experiment;
+        Ok(match &value.file {
+            Some(file) => Self::try_from_file(file, experiment)?,
+            _ if value.use_rs => Self::try_from_rs(experiment)?,
+            _ => Self::try_from(experiment.as_str())?,
+        })
+    }
+}
+
 impl TryFrom<&Cli> for ExperimentSource {
     type Error = anyhow::Error;
 
     fn try_from(value: &Cli) -> Result<Self> {
         Ok(match &value.command {
-            CliCommand::Validate {
-                experiment, file, ..
+            CliCommand::Validate { experiment, .. } | CliCommand::Enroll { experiment, .. } => {
+                experiment.try_into()?
             }
-            | CliCommand::Enroll {
-                experiment, file, ..
-            } => match file.clone() {
-                Some(file) => Self::try_from_file(&file, experiment)?,
-                _ => Self::try_from(experiment.as_str())?,
-            },
             CliCommand::TestFeature {
                 feature_id, files, ..
             } => Self::FromFeatureFiles {
@@ -105,6 +157,16 @@ impl TryFrom<&ExperimentSource> for Value {
                 let value = Value::try_from(list)?;
                 value_utils::try_find_experiment(&value, slug)?
             }
+            ExperimentSource::FromApiV6 { slug, endpoint } => {
+                let url = format!("{endpoint}/api/v6/experiments/{slug}/");
+                let req = reqwest::blocking::Client::builder()
+                    .user_agent(USER_AGENT)
+                    .gzip(true)
+                    .build()?
+                    .get(url);
+
+                req.send()?.json()?
+            }
             ExperimentSource::FromFeatureFiles {
                 app,
                 feature_id,
@@ -125,42 +187,42 @@ mod unit_tests {
         let stage_preview = ExperimentListSource::try_from("stage/preview")?;
         let slug = "my-slug".to_string();
         assert_eq!(
-            ExperimentSource::try_from("my-slug")?,
+            ExperimentSource::try_from_rs("my-slug")?,
             ExperimentSource::FromList {
                 list: release.clone(),
                 slug: slug.clone()
             }
         );
         assert_eq!(
-            ExperimentSource::try_from("release/my-slug")?,
+            ExperimentSource::try_from_rs("release/my-slug")?,
             ExperimentSource::FromList {
                 list: release,
                 slug: slug.clone()
             }
         );
         assert_eq!(
-            ExperimentSource::try_from("stage/my-slug")?,
+            ExperimentSource::try_from_rs("stage/my-slug")?,
             ExperimentSource::FromList {
                 list: stage,
                 slug: slug.clone()
             }
         );
         assert_eq!(
-            ExperimentSource::try_from("preview/my-slug")?,
+            ExperimentSource::try_from_rs("preview/my-slug")?,
             ExperimentSource::FromList {
                 list: release_preview.clone(),
                 slug: slug.clone()
             }
         );
         assert_eq!(
-            ExperimentSource::try_from("release/preview/my-slug")?,
+            ExperimentSource::try_from_rs("release/preview/my-slug")?,
             ExperimentSource::FromList {
                 list: release_preview,
                 slug: slug.clone()
             }
         );
         assert_eq!(
-            ExperimentSource::try_from("stage/preview/my-slug")?,
+            ExperimentSource::try_from_rs("stage/preview/my-slug")?,
             ExperimentSource::FromList {
                 list: stage_preview,
                 slug
