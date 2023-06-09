@@ -101,21 +101,7 @@ interface FirefoxAccount {
   //
   // This method constructs as new [`FirefoxAccount`] instance configured to connect
   // the application to a user's account.
-  //
-  // # Arguments
-  //
-  //   - `content_url` - the URL of the Firefox Accounts server to use
-  //       - For example, use `https://accounts.firefox.com` for the main
-  //         Mozilla-hosted service.
-  //   - `client_id` - the registered OAuth client id of the application.
-  //   - `redirect_uri` - the registered OAuth redirect URI of the application.
-  //   - `token_server_url_override`: optionally, URL for the user's Sync Tokenserver.
-  //        - This can be used to support users who self-host their sync data.
-  //          If `None` then it will default to the Mozilla-hosted Sync server.
-  //
-  
-  constructor([ByRef] string content_url, [ByRef] string client_id, [ByRef] string redirect_uri, [ByRef] string? token_server_url_override );
-  
+  constructor(FxaConfig config);
 
   // Restore a [`FirefoxAccount`] instance from serialized state.
   //
@@ -128,7 +114,7 @@ interface FirefoxAccount {
   // produce unexpected behaviour.
   //
   [Throws=FxaError,Name=from_json]
-  constructor([ByRef] string data );
+  constructor([ByRef] string data);
   
 
   // Save current state to a JSON string.
@@ -721,6 +707,27 @@ interface FirefoxAccount {
   //
   MigrationState is_in_migration_state();
   
+};
+
+dictionary FxaConfig {
+    // FxaServer to connect with
+    FxaServer server;
+    // Registered OAuth client id of the application.
+    string client_id;
+    // `redirect_uri` - the registered OAuth redirect URI of the application.
+    string redirect_uri;
+    //  URL for the user's Sync Tokenserver. This can be used to support users who self-host their
+    //  sync data. If `None` then it will default to the Mozilla-hosted Sync server.
+    string? token_server_url_override;
+};
+
+// FxA server to connect to
+enum FxaServer {
+    "Release",
+    "Stable",
+    "Stage",
+    "China",
+    "LocalDev",
 };
 
 // Information about the authorization state of the application.
