@@ -3,7 +3,7 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
 use super::http_client;
-use crate::Result;
+use crate::{FxaConfig, FxaServer, Result};
 use serde_derive::{Deserialize, Serialize};
 use std::{cell::RefCell, sync::Arc};
 use url::Url;
@@ -23,6 +23,9 @@ pub struct Config {
 /// `/.well-known/fxa-client-configuration` and the
 /// `/.well-known/openid-configuration` endpoints.
 #[derive(Debug)]
+// allow(dead_code) since we want the struct to match the API data, even if some fields aren't
+// currently used.
+#[allow(dead_code)]
 pub struct RemoteConfig {
     auth_url: String,
     oauth_url: String,
@@ -40,57 +43,6 @@ pub(crate) const CONTENT_URL_RELEASE: &str = "https://accounts.firefox.com";
 pub(crate) const CONTENT_URL_CHINA: &str = "https://accounts.firefox.com.cn";
 
 impl Config {
-    pub fn release(client_id: &str, redirect_uri: &str) -> Self {
-        Self::new(CONTENT_URL_RELEASE, client_id, redirect_uri)
-    }
-
-    pub fn stable_dev(client_id: &str, redirect_uri: &str) -> Self {
-        Self::new("https://stable.dev.lcip.org", client_id, redirect_uri)
-    }
-
-    pub fn stage_dev(client_id: &str, redirect_uri: &str) -> Self {
-        Self::new("https://accounts.stage.mozaws.net", client_id, redirect_uri)
-    }
-
-    pub fn china(client_id: &str, redirect_uri: &str) -> Self {
-        Self::new(CONTENT_URL_CHINA, client_id, redirect_uri)
-    }
-
-    pub fn localdev(client_id: &str, redirect_uri: &str) -> Self {
-        Self::new("http://127.0.0.1:3030", client_id, redirect_uri)
-    }
-
-    pub fn new(content_url: &str, client_id: &str, redirect_uri: &str) -> Self {
-        Self {
-            content_url: content_url.to_string(),
-            client_id: client_id.to_string(),
-            redirect_uri: redirect_uri.to_string(),
-            remote_config: RefCell::new(None),
-            token_server_url_override: None,
-        }
-    }
-
-    /// Override the token server URL that would otherwise be provided by the
-    /// FxA .well-known/fxa-client-configuration endpoint.
-    /// This is used by self-hosters that still use the product FxA servers
-    /// for authentication purposes but use their own Sync storage backend.
-    pub fn override_token_server_url<'a>(
-        &'a mut self,
-        token_server_url_override: &str,
-    ) -> &'a mut Self {
-        // In self-hosting setups it is common to specify the `/1.0/sync/1.5` suffix on the
-        // tokenserver URL. Accept and strip this form as a convenience for users.
-        // (ideally we'd use `strip_suffix`, but we currently target a rust version
-        // where this doesn't exist - `trim_end_matches` will repeatedly remove
-        // the suffix, but that seems fine for this use-case)
-        self.token_server_url_override = Some(
-            token_server_url_override
-                .trim_end_matches("/1.0/sync/1.5")
-                .to_owned(),
-        );
-        self
-    }
-
     fn remote_config(&self) -> Result<Arc<RemoteConfig>> {
         if let Some(remote_config) = self.remote_config.borrow().clone() {
             return Ok(remote_config);
@@ -175,14 +127,6 @@ impl Config {
         self.auth_url()?.join(path).map_err(Into::into)
     }
 
-    pub fn profile_url(&self) -> Result<Url> {
-        Url::parse(&self.remote_config()?.profile_url).map_err(Into::into)
-    }
-
-    pub fn profile_url_path(&self, path: &str) -> Result<Url> {
-        self.profile_url()?.join(path).map_err(Into::into)
-    }
-
     pub fn oauth_url(&self) -> Result<Url> {
         Url::parse(&self.remote_config()?.oauth_url).map_err(Into::into)
     }
@@ -204,14 +148,6 @@ impl Config {
         Url::parse(&self.remote_config()?.authorization_endpoint).map_err(Into::into)
     }
 
-    pub fn issuer(&self) -> Result<Url> {
-        Url::parse(&self.remote_config()?.issuer).map_err(Into::into)
-    }
-
-    pub fn jwks_uri(&self) -> Result<Url> {
-        Url::parse(&self.remote_config()?.jwks_uri).map_err(Into::into)
-    }
-
     pub fn token_endpoint(&self) -> Result<Url> {
         Url::parse(&self.remote_config()?.token_endpoint).map_err(Into::into)
     }
@@ -222,6 +158,74 @@ impl Config {
 
     pub fn userinfo_endpoint(&self) -> Result<Url> {
         Url::parse(&self.remote_config()?.userinfo_endpoint).map_err(Into::into)
+    }
+}
+
+impl From<FxaConfig> for Config {
+    fn from(fxa_config: FxaConfig) -> Self {
+        let content_url = match fxa_config.server {
+            FxaServer::Release => "https://accounts.firefox.com",
+            FxaServer::Stable => "https://stable.dev.lcip.org",
+            FxaServer::Stage => "https://accounts.stage.mozaws.net",
+            FxaServer::China => "https://accounts.firefox.com.cn",
+            FxaServer::LocalDev => "http://127.0.0.1:3030",
+        }
+        .to_string();
+
+        Self {
+            content_url,
+            client_id: fxa_config.client_id,
+            redirect_uri: fxa_config.redirect_uri,
+            token_server_url_override: fxa_config.token_server_url_override,
+            remote_config: RefCell::new(None),
+        }
+    }
+}
+
+#[cfg(test)]
+/// Testing functionality
+impl Config {
+    pub fn release(client_id: &str, redirect_uri: &str) -> Self {
+        Self::new(CONTENT_URL_RELEASE, client_id, redirect_uri)
+    }
+
+    pub fn stable_dev(client_id: &str, redirect_uri: &str) -> Self {
+        Self::new("https://stable.dev.lcip.org", client_id, redirect_uri)
+    }
+
+    pub fn china(client_id: &str, redirect_uri: &str) -> Self {
+        Self::new(CONTENT_URL_CHINA, client_id, redirect_uri)
+    }
+
+    pub fn new(content_url: &str, client_id: &str, redirect_uri: &str) -> Self {
+        Self {
+            content_url: content_url.to_string(),
+            client_id: client_id.to_string(),
+            redirect_uri: redirect_uri.to_string(),
+            remote_config: RefCell::new(None),
+            token_server_url_override: None,
+        }
+    }
+
+    /// Override the token server URL that would otherwise be provided by the
+    /// FxA .well-known/fxa-client-configuration endpoint.
+    /// This is used by self-hosters that still use the product FxA servers
+    /// for authentication purposes but use their own Sync storage backend.
+    pub fn override_token_server_url<'a>(
+        &'a mut self,
+        token_server_url_override: &str,
+    ) -> &'a mut Self {
+        // In self-hosting setups it is common to specify the `/1.0/sync/1.5` suffix on the
+        // tokenserver URL. Accept and strip this form as a convenience for users.
+        // (ideally we'd use `strip_suffix`, but we currently target a rust version
+        // where this doesn't exist - `trim_end_matches` will repeatedly remove
+        // the suffix, but that seems fine for this use-case)
+        self.token_server_url_override = Some(
+            token_server_url_override
+                .trim_end_matches("/1.0/sync/1.5")
+                .to_owned(),
+        );
+        self
     }
 }
 
@@ -260,10 +264,6 @@ mod tests {
         assert_eq!(
             config.oauth_url_path("v1/token").unwrap().to_string(),
             "https://oauth-stable.dev.lcip.org/v1/token"
-        );
-        assert_eq!(
-            config.profile_url_path("v1/profile").unwrap().to_string(),
-            "https://stable.dev.lcip.org/profile/v1/profile"
         );
         assert_eq!(
             config.content_url_path("oauth/signin").unwrap().to_string(),

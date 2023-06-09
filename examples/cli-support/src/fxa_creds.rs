@@ -14,8 +14,7 @@ use url::Url;
 
 // This crate awkardly uses some internal implementation details of the fxa-client crate,
 // because we haven't worked on exposing those test-only features via UniFFI.
-use fxa_client::internal::{config::Config, FirefoxAccount as InternalAccount};
-use fxa_client::{AccessTokenInfo, FirefoxAccount, FxaError};
+use fxa_client::{AccessTokenInfo, FirefoxAccount, FxaConfig, FxaError};
 use sync15::client::Sync15StorageClientInit;
 use sync15::KeyBundle;
 
@@ -34,7 +33,7 @@ fn load_fxa_creds(path: &str) -> Result<FirefoxAccount> {
     Ok(FirefoxAccount::from_json(&s)?)
 }
 
-fn load_or_create_fxa_creds(path: &str, cfg: Config) -> Result<FirefoxAccount> {
+fn load_or_create_fxa_creds(path: &str, cfg: FxaConfig) -> Result<FirefoxAccount> {
     load_fxa_creds(path).or_else(|e| {
         log::info!(
             "Failed to load existing FxA credentials from {:?} (error: {}), launching OAuth flow",
@@ -45,9 +44,9 @@ fn load_or_create_fxa_creds(path: &str, cfg: Config) -> Result<FirefoxAccount> {
     })
 }
 
-fn create_fxa_creds(path: &str, cfg: Config) -> Result<FirefoxAccount> {
-    let acct = FirefoxAccount::with_internal(InternalAccount::with_config(cfg));
-    let oauth_uri = acct.begin_oauth_flow(&[SYNC_SCOPE.to_string()], "fxa_creds", None)?;
+fn create_fxa_creds(path: &str, cfg: FxaConfig) -> Result<FirefoxAccount> {
+    let acct = FirefoxAccount::new(cfg);
+    let oauth_uri = acct.begin_oauth_flow(&[SYNC_SCOPE], "fxa_creds", None)?;
 
     if webbrowser::open(oauth_uri.as_ref()).is_err() {
         log::warn!("Failed to open a web browser D:");
@@ -75,12 +74,12 @@ fn create_fxa_creds(path: &str, cfg: Config) -> Result<FirefoxAccount> {
 // Our public functions. It would be awesome if we could somehow integrate
 // better with clap, so we could automagically support various args (such as
 // the config to use or filenames to read), but this will do for now.
-pub fn get_default_fxa_config() -> Config {
-    Config::release(CLIENT_ID, REDIRECT_URI)
+pub fn get_default_fxa_config() -> FxaConfig {
+    FxaConfig::release(CLIENT_ID, REDIRECT_URI)
 }
 
 pub fn get_account_and_token(
-    config: Config,
+    config: FxaConfig,
     cred_file: &str,
 ) -> Result<(FirefoxAccount, AccessTokenInfo)> {
     // TODO: we should probably set a persist callback on acct?
@@ -103,7 +102,7 @@ pub fn get_account_and_token(
     }
 }
 
-pub fn get_cli_fxa(config: Config, cred_file: &str) -> Result<CliFxa> {
+pub fn get_cli_fxa(config: FxaConfig, cred_file: &str) -> Result<CliFxa> {
     let (account, token_info) = match get_account_and_token(config, cred_file) {
         Ok(v) => v,
         Err(e) => anyhow::bail!("Failed to use saved credentials. {}", e),

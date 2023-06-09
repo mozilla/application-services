@@ -13,9 +13,6 @@ publish = false
 name = "fxa-devices-api"
 path = "src/devices-api.rs"
 [[example]]
-name = "fxa-migration"
-path = "src/migration.rs"
-[[example]]
 name = "fxa-oauth-flow"
 path = "src/oauth-flow.rs"
 

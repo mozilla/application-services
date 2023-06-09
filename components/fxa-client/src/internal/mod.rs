@@ -4,14 +4,13 @@
 
 //! # Internal implementation details for the fxa_client crate.
 
-use crate::{Error, Result};
-// Currently public for use by example crates, but should be made private eventually.
-pub use self::{commands::IncomingDeviceCommand, config::Config};
 use self::{
+    config::Config,
     oauth::{AuthCircuitBreaker, OAuthFlow, OAUTH_WEBCHANNEL_REDIRECT},
     state_persistence::State,
     telemetry::FxaTelemetry,
 };
+use crate::{Error, FxaConfig, Result};
 use serde_derive::*;
 use std::{
     cell::RefCell,
@@ -74,8 +73,6 @@ impl FirefoxAccount {
     }
 
     /// Create a new `FirefoxAccount` instance using a `Config`.
-    ///
-    /// **💾 This method alters the persisted account state.**
     pub fn with_config(config: Config) -> Self {
         Self::from_state(State {
             config,
@@ -93,25 +90,8 @@ impl FirefoxAccount {
     }
 
     /// Create a new `FirefoxAccount` instance.
-    ///
-    /// * `content_url` - The Firefox Account content server URL.
-    /// * `client_id` - The OAuth `client_id`.
-    /// * `redirect_uri` - The OAuth `redirect_uri`.
-    /// * `token_server_url_override` - Override the Token Server URL provided
-    ///                                 by the FxA's autoconfig endpoint.
-    ///
-    /// **💾 This method alters the persisted account state.**
-    pub fn new(
-        content_url: &str,
-        client_id: &str,
-        redirect_uri: &str,
-        token_server_url_override: Option<&str>,
-    ) -> Self {
-        let mut config = Config::new(content_url, client_id, redirect_uri);
-        if let Some(token_server_url_override) = token_server_url_override {
-            config.override_token_server_url(token_server_url_override.as_ref());
-        }
-        Self::with_config(config)
+    pub fn new(config: FxaConfig) -> Self {
+        Self::with_config(config.into())
     }
 
     #[cfg(test)]
