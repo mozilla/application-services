@@ -35,7 +35,7 @@ buildscript {
         compileSdkVersion: 33,
         targetSdkVersion: 33,
         minSdkVersion: 21,
-        jvmTargetCompatibility: 11,
+        jvmTargetCompatibility: 17,
     ]
 
     repositories {
