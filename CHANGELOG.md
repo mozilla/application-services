@@ -1,5 +1,11 @@
 # v116.0 (In progress)
 
+## General
+
+### 🦊 What's Changed 🦊
+- Android: The JVM compatibility target is now version 17 ([#5651](https://github.com/mozilla/application-services/pull/5651))
+  - _NOTE: This is technically a breaking change, but all existing downstream projects have already made the necessary changes._
+
 ## Nimbus FML ⛅️🔬🔭🔧
 
 ### ✨ What's New ✨
