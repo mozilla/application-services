@@ -97,7 +97,7 @@ pub(crate) enum CliCommand {
     /// Fetch one or more experiments and put it in a file.
     Fetch {
         /// The file to download the recipes to.
-        file: PathBuf,
+        output: PathBuf,
 
         #[command(flatten)]
         experiment: ExperimentArgs,
@@ -108,14 +108,14 @@ pub(crate) enum CliCommand {
         /// fetch file.json -r preview/my-experiment -r my-rollout
         ///
         /// Cannot be used with the server option.
-        #[arg(long = "recipe", short, value_name = "RECIPE")]
+        #[arg(value_name = "RECIPE")]
         recipes: Vec<String>,
     },
 
     /// Fetch one or more experiments and put it in a file.
     FetchList {
         /// The file to download the recipes to.
-        file: PathBuf,
+        output: PathBuf,
 
         #[command(flatten)]
         list: ExperimentListArgs,
@@ -245,4 +245,13 @@ pub(crate) struct ExperimentListArgs {
     /// An optional file
     #[arg(short, long, value_name = "FILE")]
     pub(crate) file: Option<PathBuf>,
+
+    /// Use the v6 API to fetch the experiment recipes.
+    ///
+    /// By default, the file is fetched from the Remote Settings.
+    ///
+    /// The API contains *all* launched experiments, past and present,
+    /// so this is considerably slower and longer than Remote Settings.
+    #[arg(long, default_value = "false")]
+    pub(crate) use_api: bool,
 }

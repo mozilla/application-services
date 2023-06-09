@@ -8,11 +8,12 @@ use std::path::{Path, PathBuf};
 
 use crate::{
     cli::{Cli, CliCommand, ExperimentArgs},
-    config, feature_utils, value_utils, NimbusApp,
+    config, feature_utils,
+    sources::ExperimentListSource,
+    value_utils, NimbusApp, USER_AGENT,
 };
 
-static USER_AGENT: &str = concat!(env!("CARGO_PKG_NAME"), "/", env!("CARGO_PKG_VERSION"),);
-use super::{experiment_list::decode_list_slug, ExperimentListSource};
+use super::experiment_list::decode_list_slug;
 
 #[derive(Clone, Debug, PartialEq)]
 pub(crate) enum ExperimentSource {
