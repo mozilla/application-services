@@ -434,25 +434,21 @@ mod tests {
     #[test]
     fn test_removal_delete_visits_between() {
         do_test_removal_places_and_origins(|conn: &PlacesDb, _guid: &SyncGuid| {
-            Ok(history::delete_visits_between(
-                conn,
-                Timestamp::EARLIEST,
-                Timestamp::now(),
-            )?)
+            history::delete_visits_between(conn, Timestamp::EARLIEST, Timestamp::now())
         })
     }
 
     #[test]
     fn test_removal_delete_visits_for() {
         do_test_removal_places_and_origins(|conn: &PlacesDb, guid: &SyncGuid| {
-            Ok(history::delete_visits_for(conn, guid)?)
+            history::delete_visits_for(conn, guid)
         })
     }
 
     #[test]
     fn test_removal_prune() {
         do_test_removal_places_and_origins(|conn: &PlacesDb, _guid: &SyncGuid| {
-            Ok(history::prune_older_visits(conn)?)
+            history::prune_older_visits(conn)
         })
     }
 
@@ -461,14 +457,14 @@ mod tests {
         do_test_removal_places_and_origins(|conn: &PlacesDb, _guid: &SyncGuid| {
             let url = Url::parse("http://example.com/foo").unwrap();
             let visit = Timestamp::from(727_747_200_001);
-            Ok(history::delete_place_visit_at_time(conn, &url, visit)?)
+            history::delete_place_visit_at_time(conn, &url, visit)
         })
     }
 
     #[test]
     fn test_removal_everything() {
         do_test_removal_places_and_origins(|conn: &PlacesDb, _guid: &SyncGuid| {
-            Ok(history::delete_everything(conn)?)
+            history::delete_everything(conn)
         })
     }
 
@@ -564,7 +560,7 @@ mod tests {
                 date_added: None,
                 last_modified: None,
                 guid: None,
-                url: url.clone(),
+                url,
                 title: Some("the title".into()),
             },
         };
@@ -594,7 +590,7 @@ mod tests {
                 .unwrap(),
             5
         ); // our 5 roots
-        // should be gone from places and origins.
+           // should be gone from places and origins.
         assert_eq!(
             conn.query_one::<i64>("SELECT COUNT(*) FROM moz_places;")
                 .unwrap(),
