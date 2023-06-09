@@ -48,6 +48,20 @@ pub(crate) enum CliCommand {
         file: PathBuf,
     },
 
+    /// Print the defaults for the manifest.
+    Defaults {
+        /// An optional feature-id
+        #[arg(short, long = "feature")]
+        feature_id: Option<String>,
+
+        /// An optional file to print the manifest defaults.
+        #[arg(short, long, value_name = "OUTPUT_FILE")]
+        output: Option<PathBuf>,
+
+        #[command(flatten)]
+        manifest: ManifestArgs,
+    },
+
     /// Enroll into an experiment or a rollout.
     ///
     /// The experiment slug is a combination of the actual slug, and the server it came from.
