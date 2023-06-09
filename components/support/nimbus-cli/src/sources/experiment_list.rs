@@ -6,6 +6,7 @@ use crate::{
     cli::{Cli, CliCommand, ExperimentListArgs},
     config,
     value_utils::{self, CliUtils},
+    USER_AGENT,
 };
 use anyhow::{bail, Result};
 use serde_json::Value;
@@ -13,6 +14,7 @@ use std::path::{Path, PathBuf};
 
 #[derive(Clone, Debug, PartialEq)]
 pub(crate) enum ExperimentListSource {
+    FromApiV6 { endpoint: String },
     FromRemoteSettings { endpoint: String, is_preview: bool },
     FromFile { file: PathBuf },
 }
@@ -39,6 +41,15 @@ impl ExperimentListSource {
             is_preview,
         })
     }
+
+    pub(crate) fn try_from_api(value: &str) -> Result<Self> {
+        let p = config::api_v6_production_server();
+        let s = config::api_v6_stage_server();
+        let (endpoint, _) = Self::try_from_slug(value, &p, &s)?;
+        Ok(Self::FromApiV6 {
+            endpoint: endpoint.to_string(),
+        })
+    }
 }
 
 // Returns (is_production, is_preview)
@@ -63,7 +74,9 @@ fn is_production_server(slug: &str) -> Result<bool> {
     Ok(match slug {
         "production" | "release" | "prod" | "" => true,
         "stage" | "staging" => false,
-        _ => bail!(format!("Cannot translate {slug} into production or stage")),
+        _ => bail!(format!(
+            "Cannot translate '{slug}' into production or stage"
+        )),
     })
 }
 
@@ -98,6 +111,7 @@ impl TryFrom<&ExperimentListArgs> for ExperimentListSource {
             ExperimentListArgs {
                 server,
                 file: Some(file),
+                ..
             } => {
                 if !server.is_empty() {
                     bail!("Cannot load a list from a file AND a server")
@@ -108,7 +122,14 @@ impl TryFrom<&ExperimentListArgs> for ExperimentListSource {
             ExperimentListArgs {
                 server: s,
                 file: None,
-            } => Self::try_from_rs(s)?,
+                use_api,
+            } => {
+                if *use_api {
+                    Self::try_from_api(s)?
+                } else {
+                    Self::try_from_rs(s)?
+                }
+            }
         })
     }
 }
@@ -165,6 +186,39 @@ impl TryFrom<&ExperimentListSource> for Value {
                         file.as_path().to_str().unwrap_or_default()
                     );
                 }
+            }
+            ExperimentListSource::FromApiV6 { endpoint } => {
+                let url = format!("{endpoint}/api/v6/experiments/");
+
+                let req = reqwest::blocking::Client::builder()
+                    .user_agent(USER_AGENT)
+                    .gzip(true)
+                    .build()?
+                    .get(url);
+
+                let resp = req.send()?;
+                let data: Value = resp.json()?;
+
+                fn start_date(v: &Value) -> &str {
+                    let zero = "1970-01-01";
+                    match v.get("startDate") {
+                        Some(v) => v.as_str().unwrap_or(zero),
+                        _ => zero,
+                    }
+                }
+
+                let data = match data {
+                    Value::Array(mut array) => {
+                        array.sort_by(|p, q| {
+                            let p_time = start_date(p);
+                            let q_time = start_date(q);
+                            p_time.cmp(q_time)
+                        });
+                        Value::Array(array)
+                    }
+                    _ => data,
+                };
+                serde_json::json!({ "data": data })
             }
         })
     }
