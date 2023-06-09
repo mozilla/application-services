@@ -249,37 +249,31 @@ impl TryFrom<&Cli> for AppCommand {
             }
             CliCommand::Fetch {
                 file,
-                server,
+                experiment,
                 recipes,
             } => {
-                if !server.is_empty() && !recipes.is_empty() {
-                    anyhow::bail!("Cannot fetch experiments AND from a server");
-                }
+                let mut sources = vec![ExperimentSource::try_from(&experiment)?];
 
-                let mut sources = Vec::new();
-                if !recipes.is_empty() {
-                    for r in recipes {
-                        sources.push(ExperimentSource::try_from(r.as_str())?);
-                    }
-                    AppCommand::FetchRecipes {
-                        recipes: sources,
-                        file,
-                        params,
-                    }
-                } else {
-                    let list = ExperimentListSource::try_from(server.as_str())?;
-                    AppCommand::FetchList { list, file, params }
+                let args = experiment;
+                for r in recipes {
+                    let recipe = ExperimentArgs {
+                        experiment: r,
+                        ..args.clone()
+                    };
+                    sources.push(ExperimentSource::try_from(&recipe)?);
+                }
+                AppCommand::FetchRecipes {
+                    recipes: sources,
+                    file,
+                    params,
                 }
             }
-            CliCommand::List { server, file } => {
-                if server.is_some() && file.is_some() {
-                    bail!("list supports only a file or a server at the same time")
-                }
-                let list = if file.is_some() {
-                    file.unwrap().as_path().try_into()?
-                } else {
-                    server.unwrap_or_default().as_str().try_into()?
-                };
+            CliCommand::FetchList { file, .. } => {
+                let list = ExperimentListSource::try_from(cli)?;
+                AppCommand::FetchList { list, file, params }
+            }
+            CliCommand::List { .. } => {
+                let list = ExperimentListSource::try_from(cli)?;
                 AppCommand::List { params, list }
             }
             CliCommand::LogState => AppCommand::LogState { app },

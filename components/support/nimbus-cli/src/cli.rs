@@ -99,9 +99,8 @@ pub(crate) enum CliCommand {
         /// The file to download the recipes to.
         file: PathBuf,
 
-        /// An optional server slug, e.g. release or stage/preview.
-        #[arg(long, short, value_name = "SERVER", default_value = "")]
-        server: String,
+        #[command(flatten)]
+        experiment: ExperimentArgs,
 
         /// The recipe slugs, including server.
         ///
@@ -113,14 +112,19 @@ pub(crate) enum CliCommand {
         recipes: Vec<String>,
     },
 
+    /// Fetch one or more experiments and put it in a file.
+    FetchList {
+        /// The file to download the recipes to.
+        file: PathBuf,
+
+        #[command(flatten)]
+        list: ExperimentListArgs,
+    },
+
     /// List the experiments from a server
     List {
-        /// A server slug e.g. preview, release, stage, stage/preview
-        server: Option<String>,
-
-        /// An optional file
-        #[arg(short, long, value_name = "FILE")]
-        file: Option<PathBuf>,
+        #[command(flatten)]
+        list: ExperimentListArgs,
     },
 
     /// Print the state of the Nimbus database to logs.
@@ -230,4 +234,15 @@ pub(crate) struct ExperimentArgs {
     /// By default, the file is fetched from the v6 api of experimenter.
     #[arg(long, default_value = "false")]
     pub(crate) use_rs: bool,
+}
+
+#[derive(Args, Clone, Debug, Default)]
+pub(crate) struct ExperimentListArgs {
+    /// A server slug e.g. preview, release, stage, stage/preview
+    #[arg(default_value = "")]
+    pub(crate) server: String,
+
+    /// An optional file
+    #[arg(short, long, value_name = "FILE")]
+    pub(crate) file: Option<PathBuf>,
 }

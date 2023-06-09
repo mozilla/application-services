@@ -11,9 +11,8 @@ use crate::{
     config, feature_utils, value_utils, NimbusApp,
 };
 
-use super::ExperimentListSource;
-
 static USER_AGENT: &str = concat!(env!("CARGO_PKG_NAME"), "/", env!("CARGO_PKG_VERSION"),);
+use super::{experiment_list::decode_list_slug, ExperimentListSource};
 
 #[derive(Clone, Debug, PartialEq)]
 pub(crate) enum ExperimentSource {
@@ -34,77 +33,54 @@ pub(crate) enum ExperimentSource {
 
 // Create ExperimentSources from &str and Cli.
 
-impl TryFrom<&str> for ExperimentSource {
-    type Error = anyhow::Error;
-
-    fn try_from(value: &str) -> Result<Self> {
+impl ExperimentSource {
+    fn try_from_slug<'a>(
+        value: &'a str,
+        production: &'a str,
+        stage: &'a str,
+    ) -> Result<(&'a str, &'a str, bool)> {
         let tokens: Vec<&str> = value.splitn(3, '/').collect();
-        let tokens = tokens.as_slice();
-        Ok(match tokens {
-            [slug] => Self::FromApiV6 {
-                slug: slug.to_string(),
-                endpoint: config::api_v6_production_server(),
-            },
-            [server, slug] => {
-                let endpoint = match *server {
-                    "production" | "release" | "preview" => config::api_v6_production_server(),
-                    "stage" => config::api_v6_stage_server(),
-                    _ => bail!(format!("Can't unpack {server}; try production or stage")),
-                };
-                Self::FromApiV6 {
-                    slug: slug.to_string(),
-                    endpoint,
-                }
-            }
-            [server, "preview", slug] => {
-                let endpoint = match *server {
-                    "production" | "release" => config::api_v6_production_server(),
-                    "stage" => config::api_v6_stage_server(),
-                    _ => bail!(format!("Can't unpack {server}; try production or stage")),
-                };
-                Self::FromApiV6 {
-                    slug: slug.to_string(),
-                    endpoint,
-                }
-            }
+
+        let (is_production, is_preview) = match tokens.as_slice() {
+            [_] => decode_list_slug("")?,
+            [first, _] => decode_list_slug(first)?,
+            [first, second, _] => decode_list_slug(&format!("{first}/{second}"))?,
+            _ => unreachable!(),
+        };
+
+        let endpoint = if is_production { production } else { stage };
+
+        Ok(match tokens.last() {
+            Some(slug) => (slug, endpoint, is_preview),
             _ => bail!(format!(
-                "Can't unpack '{}' into an experiment; try stage/SLUG, or SLUG",
-                value
+                "Can't unpack '{value}' into an experiment; try stage/SLUG, or SLUG"
             )),
         })
     }
-}
 
-impl ExperimentSource {
     fn try_from_rs(value: &str) -> Result<Self> {
-        let tokens: Vec<&str> = value.splitn(3, '/').collect();
-        let tokens = tokens.as_slice();
-        Ok(match tokens {
-            [slug] => Self::FromList {
-                slug: slug.to_string(),
-                list: ExperimentListSource::try_from_pair("", "")?,
+        let p = config::rs_production_server();
+        let s = config::rs_stage_server();
+        let (slug, endpoint, is_preview) = Self::try_from_slug(value, &p, &s)?;
+        Ok(Self::FromList {
+            slug: slug.to_string(),
+            list: ExperimentListSource::FromRemoteSettings {
+                endpoint: endpoint.to_string(),
+                is_preview,
             },
-            ["preview", slug] => Self::FromList {
-                slug: slug.to_string(),
-                list: ExperimentListSource::try_from_pair("", "preview")?,
-            },
-            [server, slug] => Self::FromList {
-                slug: slug.to_string(),
-                list: ExperimentListSource::try_from_pair(server, "")?,
-            },
-            [server, "preview", slug] => Self::FromList {
-                slug: slug.to_string(),
-                list: ExperimentListSource::try_from_pair(server, "preview")?,
-            },
-            _ => bail!(format!(
-                "Can't unpack '{}' into an experiment; try preview/SLUG or stage/SLUG, or stage/preview/SLUG",
-                value
-            )),
         })
     }
-}
 
-impl ExperimentSource {
+    fn try_from_api(value: &str) -> Result<Self> {
+        let p = config::api_v6_production_server();
+        let s = config::api_v6_stage_server();
+        let (slug, endpoint, _) = Self::try_from_slug(value, &p, &s)?;
+        Ok(Self::FromApiV6 {
+            slug: slug.to_string(),
+            endpoint: endpoint.to_string(),
+        })
+    }
+
     pub(crate) fn try_from_file(file: &Path, slug: &str) -> Result<Self> {
         Ok(ExperimentSource::FromList {
             slug: slug.to_string(),
@@ -121,7 +97,7 @@ impl TryFrom<&ExperimentArgs> for ExperimentSource {
         Ok(match &value.file {
             Some(file) => Self::try_from_file(file, experiment)?,
             _ if value.use_rs => Self::try_from_rs(experiment)?,
-            _ => Self::try_from(experiment.as_str())?,
+            _ => Self::try_from_api(experiment.as_str())?,
         })
     }
 }
@@ -180,11 +156,11 @@ impl TryFrom<&ExperimentSource> for Value {
 mod unit_tests {
     use super::*;
     #[test]
-    fn test_experiment_source_from_str() -> Result<()> {
-        let release = ExperimentListSource::try_from("")?;
-        let stage = ExperimentListSource::try_from("stage")?;
-        let release_preview = ExperimentListSource::try_from("preview")?;
-        let stage_preview = ExperimentListSource::try_from("stage/preview")?;
+    fn test_experiment_source_from_rs() -> Result<()> {
+        let release = ExperimentListSource::try_from_rs("")?;
+        let stage = ExperimentListSource::try_from_rs("stage")?;
+        let release_preview = ExperimentListSource::try_from_rs("preview")?;
+        let stage_preview = ExperimentListSource::try_from_rs("stage/preview")?;
         let slug = "my-slug".to_string();
         assert_eq!(
             ExperimentSource::try_from_rs("my-slug")?,
@@ -229,8 +205,59 @@ mod unit_tests {
             }
         );
 
-        assert!(ExperimentListSource::try_from("not-real/preview/my-slug").is_err());
-        assert!(ExperimentListSource::try_from("release/not-real/my-slug").is_err());
+        assert!(ExperimentSource::try_from_rs("not-real/preview/my-slug").is_err());
+        assert!(ExperimentSource::try_from_rs("release/not-real/my-slug").is_err());
+
+        Ok(())
+    }
+
+    #[test]
+    fn test_experiment_source_from_api() -> Result<()> {
+        let release = config::api_v6_production_server();
+        let stage = config::api_v6_stage_server();
+        let slug = "my-slug".to_string();
+        assert_eq!(
+            ExperimentSource::try_from_api("my-slug")?,
+            ExperimentSource::FromApiV6 {
+                slug: slug.to_string(),
+                endpoint: release.clone()
+            }
+        );
+        assert_eq!(
+            ExperimentSource::try_from_api("release/my-slug")?,
+            ExperimentSource::FromApiV6 {
+                slug: slug.to_string(),
+                endpoint: release.clone()
+            }
+        );
+        assert_eq!(
+            ExperimentSource::try_from_api("stage/my-slug")?,
+            ExperimentSource::FromApiV6 {
+                slug: slug.to_string(),
+                endpoint: stage.clone()
+            }
+        );
+        assert_eq!(
+            ExperimentSource::try_from_api("preview/my-slug")?,
+            ExperimentSource::FromApiV6 {
+                slug: slug.to_string(),
+                endpoint: release.clone()
+            }
+        );
+        assert_eq!(
+            ExperimentSource::try_from_api("release/preview/my-slug")?,
+            ExperimentSource::FromApiV6 {
+                slug: slug.to_string(),
+                endpoint: release
+            }
+        );
+        assert_eq!(
+            ExperimentSource::try_from_api("stage/preview/my-slug")?,
+            ExperimentSource::FromApiV6 {
+                slug,
+                endpoint: stage
+            }
+        );
 
         Ok(())
     }
