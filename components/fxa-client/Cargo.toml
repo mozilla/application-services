@@ -11,6 +11,7 @@ base64 = "0.13"
 hex = "0.4"
 lazy_static = "1.4"
 log = "0.4"
+parking_lot = ">=0.11,<=0.12"
 rate-limiter = { path = "../support/rate-limiter" }
 serde = { version = "1", features = ["rc"] }
 serde_derive = "1"

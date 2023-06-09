@@ -23,10 +23,7 @@ impl FirefoxAccount {
     /// **💾 This method alters the persisted account state.**
     #[handle_error(Error)]
     pub fn get_token_server_endpoint_url(&self) -> ApiResult<String> {
-        self.internal
-            .lock()
-            .unwrap()
-            .get_token_server_endpoint_url()
+        self.internal.lock().get_token_server_endpoint_url()
     }
 
     /// Get a URL which shows a "successfully connected!" message.
@@ -38,7 +35,7 @@ impl FirefoxAccount {
     /// implement their own native success UI.
     #[handle_error(Error)]
     pub fn get_connection_success_url(&self) -> ApiResult<String> {
-        self.internal.lock().unwrap().get_connection_success_url()
+        self.internal.lock().get_connection_success_url()
     }
 
     /// Get a URL at which the user can manage their account and profile data.
@@ -55,10 +52,7 @@ impl FirefoxAccount {
     ///         UX entrypoint from which the user followed the link.
     #[handle_error(Error)]
     pub fn get_manage_account_url(&self, entrypoint: &str) -> ApiResult<String> {
-        self.internal
-            .lock()
-            .unwrap()
-            .get_manage_account_url(entrypoint)
+        self.internal.lock().get_manage_account_url(entrypoint)
     }
 
     /// Get a URL at which the user can manage the devices connected to their account.
@@ -76,9 +70,6 @@ impl FirefoxAccount {
     ///         UX entrypoint from which the user followed the link.
     #[handle_error(Error)]
     pub fn get_manage_devices_url(&self, entrypoint: &str) -> ApiResult<String> {
-        self.internal
-            .lock()
-            .unwrap()
-            .get_manage_devices_url(entrypoint)
+        self.internal.lock().get_manage_devices_url(entrypoint)
     }
 }

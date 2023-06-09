@@ -32,12 +32,7 @@ impl FirefoxAccount {
     ///      [`Authentication`](FxaError::Authentication) error.
     #[handle_error(Error)]
     pub fn get_profile(&self, ignore_cache: bool) -> ApiResult<Profile> {
-        Ok(self
-            .internal
-            .lock()
-            .unwrap()
-            .get_profile(ignore_cache)?
-            .into())
+        Ok(self.internal.lock().get_profile(ignore_cache)?.into())
     }
 }
 

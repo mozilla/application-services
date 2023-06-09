@@ -51,6 +51,7 @@ pub use auth::{AuthorizationInfo, MetricsParams};
 pub use device::{AttachedClient, Device, DeviceCapability};
 pub use error::{Error, FxaError};
 pub use migration::{FxAMigrationResult, MigrationState};
+use parking_lot::Mutex;
 pub use profile::Profile;
 pub use push::{
     AccountEvent, DevicePushSubscription, IncomingDeviceCommand, SendTabPayload, TabHistoryEntry,
@@ -79,7 +80,7 @@ type ApiResult<T> = std::result::Result<T, FxaError>;
 pub struct FirefoxAccount {
     // For now, we serialize all access on a single `Mutex` for thread safety across
     // the FFI. We should make the locking more granular in future.
-    internal: std::sync::Mutex<internal::FirefoxAccount>,
+    internal: Mutex<internal::FirefoxAccount>,
 }
 
 impl FirefoxAccount {
@@ -107,7 +108,7 @@ impl FirefoxAccount {
         token_server_url_override: &Option<String>,
     ) -> FirefoxAccount {
         FirefoxAccount {
-            internal: std::sync::Mutex::new(internal::FirefoxAccount::new(
+            internal: Mutex::new(internal::FirefoxAccount::new(
                 content_url,
                 client_id,
                 redirect_uri,

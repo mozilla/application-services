@@ -19,6 +19,7 @@
 
 use crate::{internal, ApiResult, Error, FirefoxAccount};
 use error_support::handle_error;
+use parking_lot::Mutex;
 
 impl FirefoxAccount {
     /// Restore a [`FirefoxAccount`] instance from serialized state.
@@ -33,7 +34,7 @@ impl FirefoxAccount {
     #[handle_error(Error)]
     pub fn from_json(data: &str) -> ApiResult<FirefoxAccount> {
         Ok(FirefoxAccount {
-            internal: std::sync::Mutex::new(internal::FirefoxAccount::from_json(data)?),
+            internal: Mutex::new(internal::FirefoxAccount::from_json(data)?),
         })
     }
 
@@ -50,6 +51,6 @@ impl FirefoxAccount {
     /// data in a secure fashion, as appropriate for their target platform.
     #[handle_error(Error)]
     pub fn to_json(&self) -> ApiResult<String> {
-        self.internal.lock().unwrap().to_json()
+        self.internal.lock().to_json()
     }
 }
