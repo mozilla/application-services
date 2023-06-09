@@ -97,6 +97,7 @@ pub(crate) enum CliCommand {
     /// Fetch one or more experiments and put it in a file.
     Fetch {
         /// The file to download the recipes to.
+        #[arg(short, long, value_name = "OUTPUT_FILE")]
         output: PathBuf,
 
         #[command(flatten)]
@@ -105,9 +106,9 @@ pub(crate) enum CliCommand {
         /// The recipe slugs, including server.
         ///
         /// Use once per recipe to download. e.g.
-        /// fetch file.json -r preview/my-experiment -r my-rollout
+        /// fetch --output file.json preview/my-experiment my-rollout
         ///
-        /// Cannot be used with the server option.
+        /// Cannot be used with the server option: use `fetch-list` instead.
         #[arg(value_name = "RECIPE")]
         recipes: Vec<String>,
     },
@@ -115,6 +116,7 @@ pub(crate) enum CliCommand {
     /// Fetch one or more experiments and put it in a file.
     FetchList {
         /// The file to download the recipes to.
+        #[arg(short, long, value_name = "OUTPUT_FILE")]
         output: PathBuf,
 
         #[command(flatten)]
@@ -220,7 +222,7 @@ pub(crate) struct OpenArgs {
 #[derive(Args, Clone, Debug, Default)]
 pub(crate) struct ExperimentArgs {
     /// The experiment slug, including the server and collection.
-    #[arg(value_name = "SLUG")]
+    #[arg(value_name = "EXPERIMENT_SLUG")]
     pub(crate) experiment: String,
 
     /// An optional file from which to get the experiment.
