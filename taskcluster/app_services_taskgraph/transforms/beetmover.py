@@ -203,9 +203,11 @@ def add_remaining_beetmover_config(config, tasks):
 
         else:
             task["description"] = task["description"].format(task["name"])
-            task["worker"]["action"] = (
-                "push-to-releases" if shipping_phase == "ship" else "push-to-candidates"
-            )
             task["worker"]["bucket"] = "release" if level == "3" else "dep"
+
+            if shipping_phase == "ship":
+                task["worker"]["action"] = "direct-push-to-bucket"
+            else:
+                task["worker"]["action"] = "push-to-candidates"
 
         yield task
