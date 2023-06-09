@@ -49,7 +49,7 @@ impl FirefoxAccount {
         k_xcs: &str,
         copy_session_token: bool,
     ) -> ApiResult<FxAMigrationResult> {
-        self.internal.lock().unwrap().migrate_from_session_token(
+        self.internal.lock().migrate_from_session_token(
             session_token,
             k_sync,
             k_xcs,
@@ -66,7 +66,7 @@ impl FirefoxAccount {
     /// in order to execute such a retry.
     #[handle_error(Error)]
     pub fn retry_migrate_from_session_token(&self) -> ApiResult<FxAMigrationResult> {
-        self.internal.lock().unwrap().try_migration()
+        self.internal.lock().try_migration()
     }
 
     /// Check for a previously failed migration from legacy session-token state.
@@ -75,7 +75,7 @@ impl FirefoxAccount {
     /// failed, it may have stored the provided state for retrying at a later time. Call this method
     /// in check whether such state exists, then retry at an appropriate time.
     pub fn is_in_migration_state(&self) -> MigrationState {
-        self.internal.lock().unwrap().is_in_migration_state()
+        self.internal.lock().is_in_migration_state()
     }
 }
 

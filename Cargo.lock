@@ -1457,6 +1457,7 @@ dependencies = [
  "log",
  "mockiato",
  "mockito",
+ "parking_lot",
  "rate-limiter",
  "rc_crypto",
  "serde",

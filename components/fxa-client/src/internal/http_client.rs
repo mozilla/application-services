@@ -10,6 +10,7 @@
 
 use super::{config::Config, util};
 use crate::{Error, Result};
+use parking_lot::Mutex;
 use rc_crypto::{
     digest,
     hawk::{Credentials, Key, PayloadHasher, RequestBuilder, SHA256},
@@ -19,7 +20,6 @@ use serde_derive::{Deserialize, Serialize};
 use serde_json::json;
 use std::{
     collections::HashMap,
-    sync::Mutex,
     time::{Duration, Instant},
 };
 use sync15::DeviceType;
@@ -480,7 +480,7 @@ impl Client {
                 backoff_end_duration: Duration::from_secs(retry_after),
                 time_since_backoff: Instant::now(),
             };
-            self.state.lock().unwrap().insert(path, time_out_state);
+            self.state.lock().insert(path, time_out_state);
             return Err(Error::BackoffError(retry_after));
         }
         Self::default_handle_response_error(resp)
@@ -505,12 +505,7 @@ impl Client {
         if let HttpClientState::Backoff {
             backoff_end_duration,
             time_since_backoff,
-        } = self
-            .state
-            .lock()
-            .unwrap()
-            .get(&url)
-            .unwrap_or(&HttpClientState::Ok)
+        } = self.state.lock().get(&url).unwrap_or(&HttpClientState::Ok)
         {
             let elapsed_time = time_since_backoff.elapsed();
             if elapsed_time < *backoff_end_duration {
@@ -518,7 +513,7 @@ impl Client {
                 return Err(Error::BackoffError(remaining.as_secs()));
             }
         }
-        self.state.lock().unwrap().insert(url, HttpClientState::Ok);
+        self.state.lock().insert(url, HttpClientState::Ok);
         let resp = request.send()?;
         if resp.is_success() || resp.status == status_codes::NOT_MODIFIED {
             Ok(resp)
@@ -1046,7 +1041,7 @@ mod tests {
         let path = url.path().to_string();
         let request = Request::post(url);
         assert!(client.make_request(request.clone()).is_err());
-        let state = client.state.lock().unwrap();
+        let state = client.state.lock();
         if let HttpClientState::Backoff {
             backoff_end_duration,
             time_since_backoff: _,
@@ -1093,7 +1088,7 @@ mod tests {
         let path = url.path().to_string();
         let request = Request::post(url);
         assert!(client.make_request(request.clone()).is_err());
-        let state = client.state.lock().unwrap();
+        let state = client.state.lock();
         if let HttpClientState::Backoff {
             backoff_end_duration,
             time_since_backoff: _,
@@ -1155,7 +1150,7 @@ mod tests {
         let path = url.path().to_string();
         let request = Request::post(url);
         assert!(client.make_request(request).is_err());
-        let state = client.state.lock().unwrap();
+        let state = client.state.lock();
         if let HttpClientState::Backoff {
             backoff_end_duration,
             time_since_backoff: _,

@@ -28,7 +28,6 @@ impl FirefoxAccount {
     pub fn set_push_subscription(&self, subscription: DevicePushSubscription) -> ApiResult<()> {
         self.internal
             .lock()
-            .unwrap()
             .set_push_subscription(subscription.into())
     }
 
@@ -46,7 +45,7 @@ impl FirefoxAccount {
     /// [`FirefoxAccount::poll_device_commands`]
     #[handle_error(Error)]
     pub fn handle_push_message(&self, payload: &str) -> ApiResult<AccountEvent> {
-        self.internal.lock().unwrap().handle_push_message(payload)
+        self.internal.lock().handle_push_message(payload)
     }
 
     /// Poll the server for any pending device commands.
@@ -68,7 +67,6 @@ impl FirefoxAccount {
     pub fn poll_device_commands(&self) -> ApiResult<Vec<IncomingDeviceCommand>> {
         self.internal
             .lock()
-            .unwrap()
             .poll_device_commands(internal::device::CommandFetchReason::Poll)?
             .into_iter()
             .map(TryFrom::try_from)
@@ -95,7 +93,6 @@ impl FirefoxAccount {
     pub fn send_single_tab(&self, target_device_id: &str, title: &str, url: &str) -> ApiResult<()> {
         self.internal
             .lock()
-            .unwrap()
             .send_single_tab(target_device_id, title, url)
     }
 }

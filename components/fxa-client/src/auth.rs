@@ -61,7 +61,6 @@ impl FirefoxAccount {
         let scopes = scopes.iter().map(String::as_str).collect::<Vec<_>>();
         self.internal
             .lock()
-            .unwrap()
             .begin_oauth_flow(&scopes, entrypoint, metrics)
     }
 
@@ -73,7 +72,7 @@ impl FirefoxAccount {
     /// from said QR code can be passed to [`begin_pairing_flow`](FirefoxAccount::begin_pairing_flow).
     #[handle_error(Error)]
     pub fn get_pairing_authority_url(&self) -> ApiResult<String> {
-        self.internal.lock().unwrap().get_pairing_authority_url()
+        self.internal.lock().get_pairing_authority_url()
     }
 
     /// Initiate a device-pairing sign-in flow.
@@ -111,7 +110,6 @@ impl FirefoxAccount {
         let scopes = scopes.iter().map(String::as_str).collect::<Vec<_>>();
         self.internal
             .lock()
-            .unwrap()
             .begin_pairing_flow(pairing_url, &scopes, entrypoint, metrics)
     }
 
@@ -130,10 +128,7 @@ impl FirefoxAccount {
     ///   - `state` - the OAuth state parameter obtained from the redirect URI.
     #[handle_error(Error)]
     pub fn complete_oauth_flow(&self, code: &str, state: &str) -> ApiResult<()> {
-        self.internal
-            .lock()
-            .unwrap()
-            .complete_oauth_flow(code, state)
+        self.internal.lock().complete_oauth_flow(code, state)
     }
 
     /// Check authorization status for this application.
@@ -145,12 +140,7 @@ impl FirefoxAccount {
     /// with details about whether the tokens are still active.
     #[handle_error(Error)]
     pub fn check_authorization_status(&self) -> ApiResult<AuthorizationInfo> {
-        Ok(self
-            .internal
-            .lock()
-            .unwrap()
-            .check_authorization_status()?
-            .into())
+        Ok(self.internal.lock().check_authorization_status()?.into())
     }
 
     /// Disconnect from the user's account.
@@ -166,7 +156,7 @@ impl FirefoxAccount {
     /// the user to reconnect to their account. If reconnecting to the same account
     /// is not desired then the application should discard the persisted account state.
     pub fn disconnect(&self) {
-        self.internal.lock().unwrap().disconnect()
+        self.internal.lock().disconnect()
     }
 }
 

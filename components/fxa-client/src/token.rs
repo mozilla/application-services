@@ -50,7 +50,6 @@ impl FirefoxAccount {
         let ttl = ttl.map(|ttl| u64::try_from(ttl).unwrap_or_default());
         self.internal
             .lock()
-            .unwrap()
             .get_access_token(scope, ttl)?
             .try_into()
     }
@@ -72,7 +71,7 @@ impl FirefoxAccount {
     ///      `https://identity.mozilla.com/tokens/session` scope.
     #[handle_error(Error)]
     pub fn get_session_token(&self) -> ApiResult<String> {
-        self.internal.lock().unwrap().get_session_token()
+        self.internal.lock().get_session_token()
     }
 
     /// Update the stored session token for the user's account.
@@ -91,7 +90,6 @@ impl FirefoxAccount {
     pub fn handle_session_token_change(&self, session_token: &str) -> ApiResult<()> {
         self.internal
             .lock()
-            .unwrap()
             .handle_session_token_change(session_token)
     }
 
@@ -113,7 +111,6 @@ impl FirefoxAccount {
     ) -> ApiResult<String> {
         self.internal
             .lock()
-            .unwrap()
             .authorize_code_using_session_token(params)
     }
 
@@ -125,7 +122,7 @@ impl FirefoxAccount {
     /// should call this method before creating a new token and retrying the failed operation.
     /// It ensures that the expired token is removed and a fresh one generated.
     pub fn clear_access_token_cache(&self) {
-        self.internal.lock().unwrap().clear_access_token_cache()
+        self.internal.lock().clear_access_token_cache()
     }
 }
 
