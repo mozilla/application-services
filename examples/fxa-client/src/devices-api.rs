@@ -4,7 +4,7 @@
 
 use cli_support::prompt::prompt_string;
 use dialoguer::Select;
-use fxa_client::internal::{device, Config, FirefoxAccount, IncomingDeviceCommand};
+use fxa_client::{DeviceCapability, FirefoxAccount, FxaConfig, IncomingDeviceCommand};
 use std::{
     collections::HashMap,
     fs,
@@ -15,7 +15,6 @@ use std::{
 use url::Url;
 
 static CREDENTIALS_PATH: &str = "credentials.json";
-static CONTENT_SERVER: &str = "https://accounts.firefox.com";
 static CLIENT_ID: &str = "a2270f727f45f648";
 static REDIRECT_URI: &str = "https://accounts.firefox.com/oauth/success/a2270f727f45f648";
 static SCOPES: &[&str] = &["profile", "https://identity.mozilla.com/apps/oldsync"];
@@ -30,7 +29,7 @@ fn load_fxa_creds() -> Result<FirefoxAccount> {
     Ok(FirefoxAccount::from_json(&s)?)
 }
 
-fn load_or_create_fxa_creds(cfg: Config) -> Result<FirefoxAccount> {
+fn load_or_create_fxa_creds(cfg: FxaConfig) -> Result<FirefoxAccount> {
     let acct = load_fxa_creds().or_else(|_e| create_fxa_creds(cfg))?;
     persist_fxa_state(&acct);
     Ok(acct)
@@ -49,8 +48,8 @@ fn persist_fxa_state(acct: &FirefoxAccount) {
     file.flush().unwrap();
 }
 
-fn create_fxa_creds(cfg: Config) -> Result<FirefoxAccount> {
-    let mut acct = FirefoxAccount::with_config(cfg);
+fn create_fxa_creds(cfg: FxaConfig) -> Result<FirefoxAccount> {
+    let acct = FirefoxAccount::new(cfg);
     let oauth_uri = acct.begin_oauth_flow(SCOPES, "device_api_example", None)?;
 
     if webbrowser::open(oauth_uri.as_ref()).is_err() {
@@ -72,14 +71,14 @@ fn create_fxa_creds(cfg: Config) -> Result<FirefoxAccount> {
 
 fn main() -> Result<()> {
     viaduct_reqwest::use_reqwest_backend();
-    let cfg = Config::new(CONTENT_SERVER, CLIENT_ID, REDIRECT_URI);
-    let mut acct = load_or_create_fxa_creds(cfg)?;
+    let cfg = FxaConfig::release(CLIENT_ID, REDIRECT_URI);
+    let acct = load_or_create_fxa_creds(cfg)?;
 
     // Make sure the device and the send-tab command are registered.
     acct.initialize_device(
         DEFAULT_DEVICE_NAME,
         sync15::DeviceType::Desktop,
-        &[device::Capability::SendTab],
+        vec![DeviceCapability::SendTab],
     )
     .unwrap();
     persist_fxa_state(&acct);
@@ -92,7 +91,7 @@ fn main() -> Result<()> {
                 let evts = acct
                     .lock()
                     .unwrap()
-                    .poll_device_commands(device::CommandFetchReason::Poll)
+                    .poll_device_commands()
                     .unwrap_or_default(); // Ignore 404 errors for now.
                 persist_fxa_state(&acct.lock().unwrap());
                 for e in evts {

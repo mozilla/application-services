@@ -51,14 +51,14 @@ impl FirefoxAccount {
     ///   - `metrics` - optionally, additional metrics tracking parameters.
     ///       - These will be included as query parameters in the resulting URL.
     #[handle_error(Error)]
-    pub fn begin_oauth_flow(
+    pub fn begin_oauth_flow<T: AsRef<str>>(
         &self,
-        scopes: &[String],
+        // Allow both &[String] and &[&str] since UniFFI can't represent `&[&str]` yet,
+        scopes: &[T],
         entrypoint: &str,
         metrics: Option<MetricsParams>,
     ) -> ApiResult<String> {
-        // UniFFI can't represent `&[&str]` yet, so convert it internally here.
-        let scopes = scopes.iter().map(String::as_str).collect::<Vec<_>>();
+        let scopes = scopes.iter().map(T::as_ref).collect::<Vec<_>>();
         self.internal
             .lock()
             .begin_oauth_flow(&scopes, entrypoint, metrics)
