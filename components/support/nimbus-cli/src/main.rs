@@ -97,6 +97,13 @@ enum AppCommand {
         file: PathBuf,
     },
 
+    Defaults {
+        params: NimbusApp,
+        manifest: ManifestSource,
+        feature_id: Option<String>,
+        output: Option<PathBuf>,
+    },
+
     Enroll {
         app: LaunchableApp,
         params: NimbusApp,
@@ -216,6 +223,19 @@ impl TryFrom<&Cli> for AppCommand {
                 }
             }
             CliCommand::CaptureLogs { file } => AppCommand::CaptureLogs { app, file },
+            CliCommand::Defaults {
+                feature_id,
+                output,
+                manifest,
+            } => {
+                let manifest = ManifestSource::try_from(&params, &manifest)?;
+                AppCommand::Defaults {
+                    params,
+                    manifest,
+                    feature_id,
+                    output,
+                }
+            }
             CliCommand::Enroll {
                 branch,
                 rollouts,

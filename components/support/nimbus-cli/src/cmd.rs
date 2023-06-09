@@ -27,6 +27,12 @@ pub(crate) fn process_cmd(cmd: &AppCommand) -> Result<bool> {
             preserve_nimbus_db,
         } => app.apply_list(list, preserve_nimbus_db)?,
         AppCommand::CaptureLogs { app, file } => app.capture_logs(file)?,
+        AppCommand::Defaults {
+            params,
+            manifest,
+            feature_id,
+            output,
+        } => params.print_defaults(manifest, feature_id.as_ref(), output.as_ref())?,
         AppCommand::Enroll {
             app,
             params,
@@ -572,7 +578,7 @@ impl NimbusApp {
         let contents = json!({
             "data": data,
         });
-        value_utils::write_to_file(file, &contents)?;
+        value_utils::write_to_file(Some(file), &contents)?;
         Ok(())
     }
 
@@ -666,5 +672,33 @@ impl NimbusApp {
             bail!("At least one error detected");
         }
         Ok(true)
+    }
+
+    fn print_defaults(
+        &self,
+        manifest_source: &ManifestSource,
+        feature_id: Option<&String>,
+        output: Option<&PathBuf>,
+    ) -> Result<bool> {
+        let manifest: FeatureManifest = manifest_source.try_into()?;
+        let json = self.get_defaults_json(&manifest, feature_id)?;
+        value_utils::write_to_file(output.map(|f| f.as_path()), &json)?;
+        Ok(true)
+    }
+
+    fn get_defaults_json(
+        &self,
+        fm: &FeatureManifest,
+        feature_id: Option<&String>,
+    ) -> Result<Value> {
+        Ok(match feature_id {
+            Some(id) => {
+                let (_, feature) = fm.find_feature(id).ok_or_else(|| {
+                    anyhow::Error::msg(format!("Feature '{id}' does not exist in this manifest"))
+                })?;
+                feature.default_json()
+            }
+            _ => fm.default_json(),
+        })
     }
 }

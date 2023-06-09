@@ -220,13 +220,19 @@ pub(crate) fn read_from_file(file: &Path) -> Result<Value> {
     })
 }
 
-pub(crate) fn write_to_file(file: &Path, contents: &Value) -> Result<()> {
-    let s = if is_yaml(file) {
-        serde_yaml::to_string(&contents)?
-    } else {
-        serde_json::to_string_pretty(&contents)?
-    };
-    std::fs::write(file, s)?;
+pub(crate) fn write_to_file(file: Option<&Path>, contents: &Value) -> Result<()> {
+    match file {
+        Some(file) => {
+            let s = if is_yaml(file) {
+                serde_yaml::to_string(&contents)?
+            } else {
+                serde_json::to_string_pretty(&contents)?
+            };
+            std::fs::write(file, s)?;
+        }
+        _ => println!("{}", serde_json::to_string_pretty(&contents)?),
+    }
+
     Ok(())
 }
 
