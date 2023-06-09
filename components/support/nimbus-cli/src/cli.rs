@@ -58,9 +58,8 @@ pub(crate) enum CliCommand {
     ///
     /// These can be further combined: e.g. $slug, preview/$slug, stage/$slug, stage/preview/$slug
     Enroll {
-        /// The experiment slug, including the server and collection.
-        #[arg(value_name = "SLUG")]
-        experiment: String,
+        #[command(flatten)]
+        experiment: ExperimentArgs,
 
         /// The branch slug.
         #[arg(short, long, value_name = "BRANCH")]
@@ -86,10 +85,6 @@ pub(crate) enum CliCommand {
         /// This is unlikely what you want to do.
         #[arg(long, default_value = "false")]
         preserve_nimbus_db: bool,
-
-        /// Instead of fetching from the server, use a file instead
-        #[arg(short, long, value_name = "FILE")]
-        file: Option<PathBuf>,
 
         /// Don't validate the feature config files before enrolling
         #[arg(long, default_value = "false")]
@@ -180,13 +175,8 @@ pub(crate) enum CliCommand {
 
     /// Validate an experiment against a feature manifest
     Validate {
-        /// The experiment slug, including the server and collection.
-        #[arg(value_name = "SLUG")]
-        experiment: String,
-
-        /// An optional file from which to get the experiment
-        #[arg(long, value_name = "EXPERIMENTS_FILE")]
-        file: Option<PathBuf>,
+        #[command(flatten)]
+        experiment: ExperimentArgs,
 
         #[command(flatten)]
         manifest: ManifestArgs,
@@ -221,4 +211,23 @@ pub(crate) struct OpenArgs {
     /// Resets the app back to its initial state before launching
     #[arg(long, default_value = "false")]
     pub(crate) reset_app: bool,
+}
+
+#[derive(Args, Clone, Debug, Default)]
+pub(crate) struct ExperimentArgs {
+    /// The experiment slug, including the server and collection.
+    #[arg(value_name = "SLUG")]
+    pub(crate) experiment: String,
+
+    /// An optional file from which to get the experiment.
+    ///
+    /// By default, the file is fetched from the server.
+    #[arg(long, value_name = "EXPERIMENTS_FILE")]
+    pub(crate) file: Option<PathBuf>,
+
+    /// Use remote settings to fetch the experiment recipe.
+    ///
+    /// By default, the file is fetched from the v6 api of experimenter.
+    #[arg(long, default_value = "false")]
+    pub(crate) use_rs: bool,
 }

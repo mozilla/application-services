@@ -21,8 +21,8 @@ impl ExperimentListSource {
         let is_preview = preview == "preview";
 
         let endpoint = match server {
-            "" | "release" | "production" | "prod" => config::release_server(),
-            "stage" => config::stage_server(),
+            "" | "release" | "production" | "prod" => config::rs_production_server(),
+            "stage" => config::rs_stage_server(),
             _ => bail!("Only stage or release currently supported"),
         };
 
@@ -112,8 +112,8 @@ mod unit_tests {
 
     #[test]
     fn test_experiment_list_from_pair() -> Result<()> {
-        let release = config::release_server();
-        let stage = config::stage_server();
+        let release = config::rs_production_server();
+        let stage = config::rs_stage_server();
         assert_eq!(
             ExperimentListSource::try_from_pair("", "")?,
             ExperimentListSource::FromRemoteSettings {
@@ -171,8 +171,8 @@ mod unit_tests {
 
     #[test]
     fn test_experiment_list_from_str() -> Result<()> {
-        let release = config::release_server();
-        let stage = config::stage_server();
+        let release = config::rs_production_server();
+        let stage = config::rs_stage_server();
         assert_eq!(
             ExperimentListSource::try_from("")?,
             ExperimentListSource::FromRemoteSettings {
