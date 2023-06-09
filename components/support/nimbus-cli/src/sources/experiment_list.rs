@@ -200,10 +200,10 @@ impl TryFrom<&ExperimentListSource> for Value {
                 let data: Value = resp.json()?;
 
                 fn start_date(v: &Value) -> &str {
-                    let zero = "1970-01-01";
+                    let later = "9999-99-99";
                     match v.get("startDate") {
-                        Some(v) => v.as_str().unwrap_or(zero),
-                        _ => zero,
+                        Some(v) => v.as_str().unwrap_or(later),
+                        _ => later,
                     }
                 }
 
@@ -229,7 +229,7 @@ mod unit_tests {
     use super::*;
 
     #[test]
-    fn test_experiment_list_from_pair() -> Result<()> {
+    fn test_experiment_list_from_rs() -> Result<()> {
         let release = config::rs_production_server();
         let stage = config::rs_stage_server();
         assert_eq!(

@@ -288,7 +288,6 @@ impl TryFrom<&Cli> for AppCommand {
                 app,
                 deeplink: open.deeplink,
             },
-            CliCommand::ResetApp => AppCommand::Reset { app },
             CliCommand::TailLogs => AppCommand::TailLogs { app },
             CliCommand::TestFeature { files, open, .. } => {
                 let experiment = ExperimentSource::try_from(cli)?;
@@ -318,14 +317,14 @@ impl TryFrom<&Cli> for AppCommand {
 impl CliCommand {
     fn should_kill(&self) -> bool {
         match self {
-            Self::List { .. }
-            | Self::CaptureLogs { .. }
-            | Self::TailLogs { .. }
-            | Self::Fetch { .. }
-            | Self::FetchList { .. }
-            | Self::Validate { .. } => false,
+            Self::ApplyFile { .. }
+            | Self::Enroll { .. }
+            | Self::LogState
+            | Self::ResetApp
+            | Self::TestFeature { .. }
+            | Self::Unenroll => true,
             Self::Open { no_clobber, .. } => !*no_clobber,
-            _ => true,
+            _ => false,
         }
     }
 
@@ -334,6 +333,7 @@ impl CliCommand {
             Self::Enroll { open, .. }
             | Self::Open { open, .. }
             | Self::TestFeature { open, .. } => open.reset_app,
+            Self::ResetApp => true,
             _ => false,
         }
     }
@@ -856,6 +856,7 @@ mod unit_tests {
             "--channel",
             "developer",
             "fetch",
+            "--output",
             "./archived.json",
             "my-experiment",
         ])?;
@@ -877,6 +878,7 @@ mod unit_tests {
             "--channel",
             "developer",
             "fetch",
+            "--output",
             "./archived.json",
             "my-experiment-1",
             "my-experiment-2",
@@ -904,6 +906,7 @@ mod unit_tests {
             "--channel",
             "developer",
             "fetch-list",
+            "--output",
             "./archived.json",
         ])?;
 
@@ -927,6 +930,7 @@ mod unit_tests {
             "--channel",
             "developer",
             "fetch-list",
+            "--output",
             "./archived.json",
             "stage",
         ])?;
@@ -951,6 +955,7 @@ mod unit_tests {
             "--channel",
             "developer",
             "fetch-list",
+            "--output",
             "./archived.json",
             "preview",
         ])?;
@@ -975,6 +980,7 @@ mod unit_tests {
             "--channel",
             "developer",
             "fetch-list",
+            "--output",
             "./archived.json",
             "--use-api",
         ])?;
@@ -999,6 +1005,7 @@ mod unit_tests {
             "developer",
             "fetch-list",
             "--use-api",
+            "--output",
             "./archived.json",
             "stage",
         ])?;
