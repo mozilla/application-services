@@ -54,6 +54,25 @@ pub(crate) fn process_cmd(cmd: &AppCommand) -> Result<bool> {
             preserve_nimbus_db,
             deeplink,
         )?,
+        AppCommand::ExtractFeatures {
+            params,
+            experiment,
+            branch,
+            manifest,
+            feature_id,
+            partial,
+            single,
+            output,
+        } => params.print_experiment_features(
+            experiment,
+            branch,
+            manifest,
+            feature_id.as_ref(),
+            *partial,
+            *single,
+            output.as_ref(),
+        )?,
+
         AppCommand::FetchList { params, list, file } => params.fetch_list(list, file)?,
         AppCommand::FetchRecipes {
             params,
@@ -699,6 +718,102 @@ impl NimbusApp {
                 feature.default_json()
             }
             _ => fm.default_json(),
+        })
+    }
+
+    #[allow(clippy::too_many_arguments)]
+    fn print_experiment_features(
+        &self,
+        experiment: &ExperimentSource,
+        branch: &String,
+        manifest_source: &ManifestSource,
+        feature_id: Option<&String>,
+        partial: bool,
+        single: bool,
+        output: Option<&PathBuf>,
+    ) -> Result<bool> {
+        let json = self.get_experimental_json(
+            manifest_source,
+            feature_id,
+            experiment,
+            branch,
+            partial,
+            single,
+        )?;
+        value_utils::write_to_file(output.map(|f| f.as_path()), &json)?;
+        Ok(true)
+    }
+
+    fn get_experimental_json(
+        &self,
+        manifest_source: &ManifestSource,
+        feature_id: Option<&String>,
+        experiment: &ExperimentSource,
+        branch: &String,
+        partial: bool,
+        single: bool,
+    ) -> Result<Value> {
+        let value = experiment.try_into()?;
+
+        let branches = try_find_branches(&value)?;
+        let b = branches
+            .iter()
+            .find(|b| b.get_str("slug").unwrap() == branch)
+            .ok_or_else(|| anyhow::format_err!("Branch '{branch}' does not exist"))?;
+
+        let feature_values = try_find_features(b)?;
+        let use_feature = feature_values.len() == 1 && single;
+
+        let mut result = serde_json::value::Map::new();
+
+        for f in feature_values {
+            let id = f.get_str("featureId")?;
+            let value = f
+                .get("value")
+                .ok_or_else(|| anyhow::format_err!("Branch {branch} feature {id} has no value"))?;
+
+            if use_feature {
+                result.insert(id.to_string(), value.clone());
+            } else {
+                match feature_id {
+                    Some(feature_id) if feature_id == id => {
+                        result.insert(id.to_string(), value.clone());
+                    }
+                    None => {
+                        result.insert(id.to_string(), value.clone());
+                    }
+                    _ => continue,
+                }
+            }
+        }
+
+        if !partial {
+            let fm: FeatureManifest = manifest_source.try_into()?;
+            let mut new = serde_json::value::Map::new();
+            for (id, value) in result {
+                let def = fm.validate_feature_config(&id, value)?;
+                new.insert(id.to_owned(), def.default_json());
+            }
+            result = new;
+        }
+
+        Ok(if use_feature {
+            let v = result.values().find(|_| true).ok_or_else(|| {
+                anyhow::format_err!("No features available in '{branch}' branch of '{experiment}'")
+            })?;
+            v.to_owned()
+        } else {
+            match feature_id {
+                Some(id) => {
+                    let v = result.get(id).ok_or_else(|| {
+                        anyhow::format_err!(
+                            "Feature '{id}' is not involved in the '{experiment}' experiment"
+                        )
+                    })?;
+                    v.to_owned()
+                }
+                _ => Value::Object(result),
+            }
         })
     }
 }

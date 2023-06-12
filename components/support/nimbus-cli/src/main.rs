@@ -116,6 +116,19 @@ enum AppCommand {
         deeplink: Option<String>,
     },
 
+    ExtractFeatures {
+        params: NimbusApp,
+        experiment: ExperimentSource,
+        branch: String,
+        manifest: ManifestSource,
+
+        feature_id: Option<String>,
+        partial: bool,
+        single: bool,
+
+        output: Option<PathBuf>,
+    },
+
     FetchList {
         params: NimbusApp,
         list: ExperimentListSource,
@@ -268,6 +281,28 @@ impl TryFrom<&Cli> for AppCommand {
                     preserve_bucketing,
                     preserve_nimbus_db,
                     deeplink: open.deeplink,
+                }
+            }
+            CliCommand::Features {
+                manifest,
+                branch,
+                feature_id,
+                output,
+                partial,
+                single,
+                ..
+            } => {
+                let manifest = ManifestSource::try_from(&params, &manifest)?;
+                let experiment = ExperimentSource::try_from(cli)?;
+                AppCommand::ExtractFeatures {
+                    params,
+                    experiment,
+                    branch,
+                    manifest,
+                    feature_id,
+                    partial,
+                    single,
+                    output,
                 }
             }
             CliCommand::Fetch {

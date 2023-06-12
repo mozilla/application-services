@@ -4,7 +4,10 @@
 
 use anyhow::{bail, Result};
 use serde_json::Value;
-use std::path::{Path, PathBuf};
+use std::{
+    fmt::Display,
+    path::{Path, PathBuf},
+};
 
 use crate::{
     cli::{Cli, CliCommand, ExperimentArgs},
@@ -108,9 +111,9 @@ impl TryFrom<&Cli> for ExperimentSource {
 
     fn try_from(value: &Cli) -> Result<Self> {
         Ok(match &value.command {
-            CliCommand::Validate { experiment, .. } | CliCommand::Enroll { experiment, .. } => {
-                experiment.try_into()?
-            }
+            CliCommand::Validate { experiment, .. }
+            | CliCommand::Enroll { experiment, .. }
+            | CliCommand::Features { experiment, .. } => experiment.try_into()?,
             CliCommand::TestFeature {
                 feature_id, files, ..
             } => Self::FromFeatureFiles {
@@ -124,6 +127,17 @@ impl TryFrom<&Cli> for ExperimentSource {
 }
 
 // Get the experiment itself from the experiment source.
+
+impl Display for ExperimentSource {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Self::FromList { slug, .. } | Self::FromApiV6 { slug, .. } => f.write_str(slug),
+            Self::FromFeatureFiles { feature_id, .. } => {
+                f.write_str(&format!("{feature_id}-experiment"))
+            }
+        }
+    }
+}
 
 impl TryFrom<&ExperimentSource> for Value {
     type Error = anyhow::Error;
