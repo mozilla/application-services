@@ -16,6 +16,22 @@
 
 - When a cache directory is not specified, now spin up a temporary directory instead of using the (sometimes) long lived system one ([#5662](https://github.com/mozilla/application-services/pull/5662)).
 
+## Nimbus CLI [⛅️🔬🔭👾](./components/support/nimbus-cli)
+
+### 🦊 What's Changed 🦊
+
+- Fixed several paper cut usability issues ([#5654](https://github.com/mozilla/application-services/pull/5654)):
+  - Experiments by default are fetched from the API v6, eliminating latency between making changes on experimenter and syncing with remote settings.
+  - Separated `fetch` and `fetch-list`: experiment lists, by default still come from Remote Settings, but the slower API v6 `/api/v6/experiments` can be queried.
+
+### ✨ What's New ✨
+
+- Fixed several paper cut usability issues ([#5654](https://github.com/mozilla/application-services/pull/5654)):
+  - Added a `defaults` command to output the feature configuration from the manifest.
+  - Added a `features` command to output the experiment branch features and optionally merged with the manifest defaults.
+  - Now supports reading and writing YAML files.
+  - Single experiment files can be used as an experiment list file.
+
 [Full Changelog](In progress)
 
 # v115.0 (_2023-06-05_)
