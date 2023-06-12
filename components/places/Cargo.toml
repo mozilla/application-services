@@ -36,7 +36,7 @@ anyhow = "1.0"
 uniffi = "0.23"
 
 [dependencies.rusqlite]
-version = "0.28.0"
+version = "0.29.0"
 features = ["functions", "window", "bundled", "unlock_notify"]
 
 [dev-dependencies]
