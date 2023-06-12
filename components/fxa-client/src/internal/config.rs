@@ -159,6 +159,17 @@ impl Config {
     pub fn userinfo_endpoint(&self) -> Result<Url> {
         Url::parse(&self.remote_config()?.userinfo_endpoint).map_err(Into::into)
     }
+
+    fn normalize_token_server_url(token_server_url_override: &str) -> String {
+        // In self-hosting setups it is common to specify the `/1.0/sync/1.5` suffix on the
+        // tokenserver URL. Accept and strip this form as a convenience for users.
+        // (ideally we'd use `strip_suffix`, but we currently target a rust version
+        // where this doesn't exist - `trim_end_matches` will repeatedly remove
+        // the suffix, but that seems fine for this use-case)
+        token_server_url_override
+            .trim_end_matches("/1.0/sync/1.5")
+            .to_owned()
+    }
 }
 
 impl From<FxaConfig> for Config {
@@ -172,11 +183,16 @@ impl From<FxaConfig> for Config {
         }
         .to_string();
 
+        let token_server_url_override = fxa_config
+            .token_server_url_override
+            .as_deref()
+            .map(Self::normalize_token_server_url);
+
         Self {
             content_url,
             client_id: fxa_config.client_id,
             redirect_uri: fxa_config.redirect_uri,
-            token_server_url_override: fxa_config.token_server_url_override,
+            token_server_url_override,
             remote_config: RefCell::new(None),
         }
     }
@@ -215,16 +231,8 @@ impl Config {
         &'a mut self,
         token_server_url_override: &str,
     ) -> &'a mut Self {
-        // In self-hosting setups it is common to specify the `/1.0/sync/1.5` suffix on the
-        // tokenserver URL. Accept and strip this form as a convenience for users.
-        // (ideally we'd use `strip_suffix`, but we currently target a rust version
-        // where this doesn't exist - `trim_end_matches` will repeatedly remove
-        // the suffix, but that seems fine for this use-case)
-        self.token_server_url_override = Some(
-            token_server_url_override
-                .trim_end_matches("/1.0/sync/1.5")
-                .to_owned(),
-        );
+        self.token_server_url_override =
+            Some(Self::normalize_token_server_url(token_server_url_override));
         self
     }
 }
