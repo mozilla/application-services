@@ -108,6 +108,39 @@ pub(crate) enum CliCommand {
         manifest: ManifestArgs,
     },
 
+    /// Print the feature configuration involved in the branch of an experiment.
+    ///
+    /// By default, this is the complete feature configuration: including the defaults
+    /// merged from the feature manifest.
+    Features {
+        #[command(flatten)]
+        manifest: ManifestArgs,
+
+        #[command(flatten)]
+        experiment: ExperimentArgs,
+
+        /// The branch of the experiment
+        #[arg(short, long)]
+        branch: String,
+
+        /// Output the value in the experiment, rather than the merged values.
+        #[arg(short, long, default_value = "false")]
+        partial: bool,
+
+        /// An optional feature-id
+        #[arg(short, long = "feature")]
+        feature_id: Option<String>,
+
+        /// Instead of specifying a feature, with single featured experiments,
+        /// output just the feature config for the only feature available.
+        #[arg(short, long = "single", default_value = "false")]
+        single: bool,
+
+        /// An optional file to print the output.
+        #[arg(short, long, value_name = "OUTPUT_FILE")]
+        output: Option<PathBuf>,
+    },
+
     /// Fetch one or more experiments and put it in a file.
     Fetch {
         /// The file to download the recipes to.
