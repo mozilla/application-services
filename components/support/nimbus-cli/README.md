@@ -24,8 +24,11 @@ Usage: nimbus-cli [OPTIONS] --app <APP> --channel <CHANNEL> <COMMAND>
 Commands:
   apply-file    Send a complete JSON file to the Nimbus SDK and apply it immediately
   capture-logs  Capture the logs into a file
+  defaults      Print the defaults for the manifest
   enroll        Enroll into an experiment or a rollout
-  fetch         Fetch one or more experiments and put it in a file
+  features      Print the feature configuration involved in the branch of an experiment
+  fetch         Fetch one or more named experiments and rollouts and put them in a file
+  fetch-list    Fetch a list of experiments and put it in a file
   list          List the experiments from a server
   log-state     Print the state of the Nimbus database to logs
   open          Open the app without changing the state of experiment enrollments
@@ -66,6 +69,16 @@ Arguments:
           Optional rollout slugs, including the server and collection
 
 Options:
+      --file <EXPERIMENTS_FILE>
+          An optional file from which to get the experiment.
+          
+          By default, the file is fetched from the server.
+
+      --use-rs
+          Use remote settings to fetch the experiment recipe.
+          
+          By default, the file is fetched from the v6 api of experimenter.
+
   -b, --branch <BRANCH>
           The branch slug
 
@@ -86,9 +99,6 @@ Options:
           
           This is unlikely what you want to do.
 
-  -f, --file <FILE>
-          Instead of fetching from the server, use a file instead
-
       --no-validate
           Don't validate the feature config files before enrolling
 
@@ -100,7 +110,7 @@ Options:
 
       --ref <APP_VERSION>
           The branch/tag/commit for the version of the manifest to get from Github
-
+          
           [default: main]
 
   -h, --help
@@ -115,11 +125,24 @@ List the experiments from a server
 Usage: nimbus-cli --app <APP> --channel <CHANNEL> list [OPTIONS] [SERVER]
 
 Arguments:
-  [SERVER]  A server slug e.g. preview, release, stage, stage/preview
+  [SERVER]
+          A server slug e.g. preview, release, stage, stage/preview
+          
+          [default: ]
 
 Options:
-  -f, --file <FILE>  An optional file
-  -h, --help         Print help
+  -f, --file <FILE>
+          An optional file
+
+      --use-api
+          Use the v6 API to fetch the experiment recipes.
+          
+          By default, the file is fetched from the Remote Settings.
+          
+          The API contains *all* launched experiments, past and present, so this is considerably slower and longer than Remote Settings.
+
+  -h, --help
+          Print help (see a summary with '-h')
 ```
 
 ### Test Feature
@@ -157,4 +180,6 @@ Options:
 - `ADB_PATH` the path to `adb`.
 - `NIMBUS_URL` the URL to the RemoteSettings server; a default is supplied.
 - `NIMBUS_URL_STAGE` the URL to the staging RemoteSettings server; a default is supplied.
+- `NIMBUS_V6_URL` the host for the Experimenter, used as a basis for the calls to `/api/v6`; a default is supplied.
+- `NIMBUS_V6_URL_STAGE` the host for the staging Experimenter, used as a basis for the calls to `/api/v6`; a default is supplied.
 - `NIMBUS_MANIFEST_CACHE` the directory where remote Feature Manifests are cached. A temp directory is used as default.
