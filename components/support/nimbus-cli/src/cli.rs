@@ -141,7 +141,7 @@ pub(crate) enum CliCommand {
         output: Option<PathBuf>,
     },
 
-    /// Fetch one or more experiments and put it in a file.
+    /// Fetch one or more named experiments and rollouts and put them in a file.
     Fetch {
         /// The file to download the recipes to.
         #[arg(short, long, value_name = "OUTPUT_FILE")]
@@ -160,7 +160,7 @@ pub(crate) enum CliCommand {
         recipes: Vec<String>,
     },
 
-    /// Fetch one or more experiments and put it in a file.
+    /// Fetch a list of experiments and put it in a file.
     FetchList {
         /// The file to download the recipes to.
         #[arg(short, long, value_name = "OUTPUT_FILE")]
