@@ -17,7 +17,7 @@
 //! the modified account state and persist the resulting string in application
 //! settings.
 
-use crate::{internal, ApiResult, Error, FirefoxAccount};
+use crate::{internal, ApiResult, Error, FirefoxAccount, OAuthHandler};
 use error_support::handle_error;
 use parking_lot::Mutex;
 
@@ -32,9 +32,13 @@ impl FirefoxAccount {
     /// in multiple live objects sharing the same access tokens and is likely to
     /// produce unexpected behaviour.
     #[handle_error(Error)]
-    pub fn from_json(data: &str) -> ApiResult<FirefoxAccount> {
+    pub fn from_json(
+        data: &str,
+        oauth_handler: Box<dyn OAuthHandler>,
+    ) -> ApiResult<FirefoxAccount> {
         Ok(FirefoxAccount {
             internal: Mutex::new(internal::FirefoxAccount::from_json(data)?),
+            oauth_handler,
         })
     }
 

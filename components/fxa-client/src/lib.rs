@@ -22,10 +22,8 @@
 //!       calling [`FirefoxAccount::from_json`].
 //!
 //! * When the user wants to sign in to your application, direct them through
-//!   a web-based OAuth flow using [`begin_oauth_flow`](FirefoxAccount::begin_oauth_flow)
-//!   or [`begin_pairing_flow`](FirefoxAccount::begin_pairing_flow); when they return
-//!   to your registered `redirect_uri`, pass the resulting authorization state back to
-//!   [`complete_oauth_flow`](FirefoxAccount::complete_oauth_flow) to sign them in.
+//!   a web-based OAuth flow using [`connect_with_oauth`](FirefoxAccount::connect_with_oauth)
+//!   or [`connect_with_pairing`](FirefoxAccount::connect_with_pairing).
 //!
 //! * Display information about the signed-in user by using the data from
 //!   [`get_profile`](FirefoxAccount::get_profile).
@@ -48,9 +46,9 @@ mod storage;
 mod telemetry;
 mod token;
 
-pub use auth::{AuthorizationInfo, MetricsParams};
+pub use auth::{AuthorizationInfo, MetricsParams, OAuthHandler, OAuthResult};
 pub use device::{AttachedClient, Device, DeviceCapability};
-pub use error::{Error, FxaError};
+pub use error::{CallbackError, Error, FxaError};
 pub use migration::{FxAMigrationResult, MigrationState};
 use parking_lot::Mutex;
 pub use profile::Profile;
@@ -63,6 +61,8 @@ pub use token::{AccessTokenInfo, AuthorizationParameters, ScopedKey};
 type Result<T> = std::result::Result<T, Error>;
 /// Result returned by public-facing API functions
 type ApiResult<T> = std::result::Result<T, FxaError>;
+/// Result returned by a callback interface method
+type CallbackResult<T> = std::result::Result<T, CallbackError>;
 
 /// Object representing the signed-in state of an application.
 ///
@@ -75,6 +75,8 @@ pub struct FirefoxAccount {
     // For now, we serialize all access on a single `Mutex` for thread safety across
     // the FFI. We should make the locking more granular in future.
     internal: Mutex<internal::FirefoxAccount>,
+
+    oauth_handler: Box<dyn OAuthHandler>,
 }
 
 impl FirefoxAccount {
@@ -84,9 +86,10 @@ impl FirefoxAccount {
     ///
     /// This method constructs as new [`FirefoxAccount`] instance configured to connect
     /// the application to a user's account.
-    pub fn new(config: FxaConfig) -> FirefoxAccount {
+    pub fn new(config: FxaConfig, oauth_handler: Box<dyn OAuthHandler>) -> FirefoxAccount {
         FirefoxAccount {
             internal: Mutex::new(internal::FirefoxAccount::new(config)),
+            oauth_handler,
         }
     }
 }
