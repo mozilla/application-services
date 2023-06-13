@@ -176,9 +176,16 @@ public class NimbusBuilder {
                     onApplyCallback?(nimbus)
                 }
             }
+
+            // Is the app being built locally, and the nimbus-cli
+            // hasn't been used before this run.
+            func isLocalBuild() -> Bool {
+                serverSettings == nil && nimbus.isFetchEnabled()
+            }
+
             if let args = ArgumentProcessor.createCommandLineArgs(args: commandLineArgs) {
                 ArgumentProcessor.initializeTooling(nimbus: nimbus, args: args)
-            } else if let file = initialExperiments, isFirstRun || serverSettings == nil {
+            } else if let file = initialExperiments, isFirstRun || isLocalBuild() {
                 let job = nimbus.applyLocalExperiments(fileURL: file)
                 _ = job.joinOrTimeout(timeout: timeoutLoadingExperiment)
             } else {
