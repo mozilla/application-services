@@ -1,6 +1,7 @@
+# JUST TESTING MACOS CI
 <a href="https://codecov.io/gh/mozilla/application-services"> <img src="https://codecov.io/gh/mozilla/application-services/branch/main/graph/badge.svg?token=HxeUysUWqx"/> </a>
 
-# Firefox Application Services
+## Firefox Application Services
 
 Application Services (a-s) is a collection of Rust Components that are used to enable Firefox applications to integrate with Firefox accounts, sync, experimentation, etc. Each component is built using a core of shared code written in Rust, wrapped with native language bindings for different platforms.
 
