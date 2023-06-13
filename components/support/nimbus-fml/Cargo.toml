@@ -30,6 +30,7 @@ glob = "0.3.0"
 uniffi = { version = "0.23", optional = true }
 cfg-if = "1.0.0"
 console = "0.15.5"
+lazy_static = "1.4"
 
 [build-dependencies]
 uniffi = { version = "0.23", features = ["build"], optional = true }

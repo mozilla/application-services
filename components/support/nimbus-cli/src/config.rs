@@ -161,12 +161,13 @@ pub(crate) fn stage_server() -> String {
         .unwrap_or_else(|_| "https://firefox.settings.services.allizom.org".to_string())
 }
 
-pub(crate) fn manifest_cache_dir() -> PathBuf {
+pub(crate) fn manifest_cache_dir() -> Option<PathBuf> {
     match std::env::var("NIMBUS_MANIFEST_CACHE") {
         Ok(s) => {
             let cwd = std::env::current_dir().expect("Current Working Directory is not set");
-            cwd.join(s)
+            Some(cwd.join(s))
         }
-        _ => std::env::temp_dir(),
+        // We let the Nimbus FML define its own cache.
+        _ => None,
     }
 }
