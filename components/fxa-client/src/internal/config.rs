@@ -3,7 +3,7 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
 use super::http_client;
-use crate::{FxaConfig, FxaServer, Result};
+use crate::{FxaConfig, Result};
 use serde_derive::{Deserialize, Serialize};
 use std::{cell::RefCell, sync::Arc};
 use url::Url;
@@ -174,15 +174,7 @@ impl Config {
 
 impl From<FxaConfig> for Config {
     fn from(fxa_config: FxaConfig) -> Self {
-        let content_url = match fxa_config.server {
-            FxaServer::Release => "https://accounts.firefox.com",
-            FxaServer::Stable => "https://stable.dev.lcip.org",
-            FxaServer::Stage => "https://accounts.stage.mozaws.net",
-            FxaServer::China => "https://accounts.firefox.com.cn",
-            FxaServer::LocalDev => "http://127.0.0.1:3030",
-        }
-        .to_string();
-
+        let content_url = fxa_config.server.content_url().to_string();
         let token_server_url_override = fxa_config
             .token_server_url_override
             .as_deref()

@@ -722,12 +722,14 @@ dictionary FxaConfig {
 };
 
 // FxA server to connect to
-enum FxaServer {
-    "Release",
-    "Stable",
-    "Stage",
-    "China",
-    "LocalDev",
+[Enum]
+interface FxaServer {
+    Release();
+    Stable();
+    Stage();
+    China();
+    LocalDev();
+    Custom(string content_url);
 };
 
 // Information about the authorization state of the application.

@@ -4,8 +4,7 @@ http://creativecommons.org/publicdomain/zero/1.0/ */
 use anyhow::Result;
 use autofill::db::store::Store as AutofillStore;
 use cli_support::fxa_creds::CliFxa;
-use fxa_client::internal::{config::Config as FxaConfig};
-use fxa_client::Device;
+use fxa_client::{Device, FxaConfig, FxaServer};
 use logins::LoginStore;
 use std::collections::HashMap;
 use std::sync::Arc;
@@ -156,11 +155,15 @@ pub enum FxaConfigUrl {
 impl FxaConfigUrl {
     pub fn to_config(&self, client_id: &str, redirect: &str) -> FxaConfig {
         match self {
-            FxaConfigUrl::StableDev => FxaConfig::stable_dev(client_id, redirect),
-            FxaConfigUrl::Stage => FxaConfig::stage_dev(client_id, redirect),
+            FxaConfigUrl::StableDev => FxaConfig::stable(client_id, redirect),
+            FxaConfigUrl::Stage => FxaConfig::stage(client_id, redirect),
             FxaConfigUrl::Release => FxaConfig::release(client_id, redirect),
-            //FxaConfigUrl::Custom(url) => FxaConfig::new(url.as_str(), client_id, redirect),
-            _ => todo!(),
+            FxaConfigUrl::Custom(url) => FxaConfig {
+                server: FxaServer::Custom { content_url: url.to_string() },
+                client_id: client_id.to_string(),
+                redirect_uri: redirect.to_string(),
+                token_server_url_override: None,
+            },
         }
     }
 }
