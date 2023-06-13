@@ -212,8 +212,8 @@ fn create_loader(matches: &ArgMatches, cwd: &Path) -> Result<LoaderConfig> {
     let cwd = cwd.to_path_buf();
     let cache_dir = matches
         .value_of("cache-dir")
-        .map(|f| cwd.join(f))
-        .unwrap_or_else(std::env::temp_dir);
+        .map(|f| Some(cwd.join(f)))
+        .unwrap_or_default();
 
     let files = matches.values_of("repo-file").unwrap_or_default();
     let repo_files = files.into_iter().map(|s| s.to_string()).collect();

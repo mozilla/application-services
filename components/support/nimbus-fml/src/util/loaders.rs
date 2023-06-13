@@ -22,14 +22,14 @@ pub(crate) const GITHUB_USER_CONTENT_DOTCOM: &str = "https://raw.githubuserconte
 pub struct LoaderConfig {
     pub cwd: PathBuf,
     pub repo_files: Vec<String>,
-    pub cache_dir: PathBuf,
+    pub cache_dir: Option<PathBuf>,
 }
 
 impl Default for LoaderConfig {
     fn default() -> Self {
         Self {
             repo_files: Default::default(),
-            cache_dir: env::temp_dir(),
+            cache_dir: None,
             cwd: env::current_dir().expect("Current Working Directory is not set"),
         }
     }
@@ -137,7 +137,7 @@ static USER_AGENT: &str = concat!(env!("CARGO_PKG_NAME"), "/", env!("CARGO_PKG_V
 /// Config files can be loaded
 #[derive(Clone, Debug)]
 pub struct FileLoader {
-    cache_dir: PathBuf,
+    cache_dir: Option<PathBuf>,
     fetch_client: Client,
 
     config: BTreeMap<String, FilePath>,
@@ -168,16 +168,9 @@ impl TryFrom<&LoaderConfig> for FileLoader {
 impl FileLoader {
     pub fn new(
         cwd: PathBuf,
-        cache_dir: PathBuf,
+        cache_dir: Option<PathBuf>,
         config: BTreeMap<String, FilePath>,
     ) -> Result<Self> {
-        if cache_dir.exists() && !cache_dir.is_dir() {
-            return Err(FMLError::InvalidPath(format!(
-                "Cache directory exists and is not a directory: {:?}",
-                cache_dir
-            )));
-        }
-
         let http_client = ClientBuilder::new()
             .https_only(true)
             .user_agent(USER_AGENT)
@@ -198,8 +191,8 @@ impl FileLoader {
         let cwd = std::env::current_dir()?;
         let cache_path = cwd.join("build/app/fml-cache");
         Self::new(
-            cache_path,
             std::env::current_dir().expect("Current Working Directory not set"),
+            Some(cache_path),
             Default::default(),
         )
     }
@@ -338,7 +331,27 @@ impl FileLoader {
         // not crazily long.
         let filename = format!("{:x}_{}", (checksum & 0x000000000000FFFF) as u16, filename,);
 
-        self.cache_dir.join(filename)
+        self.cache_dir().join(filename)
+    }
+
+    fn cache_dir(&self) -> &Path {
+        match &self.cache_dir {
+            Some(d) => d,
+            _ => self.tmp_cache_dir(),
+        }
+    }
+
+    fn tmp_cache_dir<'a>(&self) -> &'a Path {
+        use std::time::SystemTime;
+        lazy_static::lazy_static! {
+            static ref CACHE_DIR_NAME: String = format!("nimbus-fml-manifests-{:x}", match SystemTime::now().duration_since(SystemTime::UNIX_EPOCH) {
+                Ok(n) => n.as_micros() & 0x00ffffff,
+                Err(_) => 0,
+            });
+
+            static ref TMP_CACHE_DIR: PathBuf = std::env::temp_dir().join(CACHE_DIR_NAME.as_str());
+        }
+        &TMP_CACHE_DIR
     }
 
     /// Joins a path to a string, to make a new path.
@@ -404,6 +417,15 @@ impl FileLoader {
     fn lookup_repo_path(&self, user: &str, repo: &str) -> Option<&FilePath> {
         let key = format!("{}/{}", user, repo);
         self.config.get(&key)
+    }
+}
+
+impl Drop for FileLoader {
+    fn drop(&mut self) {
+        let cache_dir = self.tmp_cache_dir();
+        if cache_dir.exists() {
+            _ = std::fs::remove_dir_all(cache_dir);
+        }
     }
 }
 
@@ -568,18 +590,17 @@ mod unit_tests {
         let cache_dir = PathBuf::from(format!("{}/cache", build_dir()));
         let config = Default::default();
         let cwd = PathBuf::from(format!("{}/fixtures/", pkg_dir()));
-        let loader = FileLoader::new(cwd, cache_dir, config)?;
+        let loader = FileLoader::new(cwd, Some(cache_dir), config)?;
         Ok(loader)
     }
 
     #[test]
     fn test_at_shorthand_from_config_file() -> Result<()> {
         let cwd = PathBuf::from(pkg_dir());
-        let cache_dir = std::env::temp_dir();
 
         let config = &LoaderConfig {
             cwd,
-            cache_dir,
+            cache_dir: None,
             repo_files: vec![
                 "fixtures/loaders/config_files/remote.json".to_string(),
                 "fixtures/loaders/config_files/local.yaml".to_string(),

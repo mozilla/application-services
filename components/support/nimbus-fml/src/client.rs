@@ -46,7 +46,7 @@ impl FmlClient {
     pub fn new(manifest_path: String, channel: String) -> Result<Self> {
         let files = FileLoader::new(
             std::env::current_dir().expect("Current Working Directory is not set"),
-            std::env::temp_dir(),
+            None,
             Default::default(),
         )?;
         let path = files.file_path(&manifest_path)?;
