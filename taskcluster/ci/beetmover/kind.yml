@@ -34,6 +34,7 @@ tasks:
       copy-attributes: true
     attributes:
       shipping_phase: ship
+      nightly: true
     worker:
       action: push-to-maven
 

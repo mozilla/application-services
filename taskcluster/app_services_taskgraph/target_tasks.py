@@ -10,6 +10,17 @@ from taskgraph.util import taskcluster
 
 logger = logging.getLogger(__name__)
 
+
+def filter_out_shipping_phase(task):
+    """Return False for "release" tasks, i.e. tasks with a promote/ship
+    "shipping_phase" attribute unless they also have the "nightly" attribute.
+    """
+    return (
+        task.attributes.get("nightly")
+        or task.attributes.get("shipping_phase") in {None, "build"}
+    )
+
+
 @_target_task('pr-skip')
 def target_tasks_pr_skip(full_task_graph, parameters, graph_config):
     return []
@@ -39,7 +50,7 @@ def target_tasks_nightly(full_task_graph, parameters, graph_config):
         # We already ran the nightly decision task and tried to build the nightly.  Don't try again.
         logger.info(f"Nightly already ran for {head_rev}, skipping")
         return []
-    return full_task_graph.tasks
+    return [l for l, task in full_task_graph.tasks.items() if filter_out_shipping_phase(task)]
 
 @_target_task('pr-full')
 def target_tasks_all(full_task_graph, parameters, graph_config):
