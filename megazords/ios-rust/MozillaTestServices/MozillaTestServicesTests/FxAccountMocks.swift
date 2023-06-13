@@ -22,7 +22,7 @@ class MockFxAccount: PersistedFirefoxAccount {
     }
 
     init() {
-        super.init(inner: FirefoxAccount(contentUrl: "", clientId: "", redirectUri: "", tokenServerUrlOverride: nil))
+        super.init(inner: FirefoxAccount(config: FxaConfig(server: FxaServer.custom(contentUrl: ""), clientId: "", redirectUri: "", tokenServerUrlOverride: nil)))
     }
 
     required convenience init(fromJsonState _: String) throws {

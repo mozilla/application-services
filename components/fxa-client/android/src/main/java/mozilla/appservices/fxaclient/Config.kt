@@ -9,17 +9,17 @@ package mozilla.appservices.fxaclient
  * authentication flow.
  */
 class Config constructor(
-    val contentUrl: String,
+    val server: FxaServer,
     val clientId: String,
     val redirectUri: String,
     val tokenServerUrlOverride: String? = null,
 ) {
-    enum class Server(val contentUrl: String) {
-        RELEASE("https://accounts.firefox.com"),
-        STABLE("https://stable.dev.lcip.org"),
-        STAGE("https://accounts.stage.mozaws.net"),
-        CHINA("https://accounts.firefox.com.cn"),
-        LOCALDEV("http://127.0.0.1:3030"),
+    enum class Server(val rustServer: FxaServer) {
+        RELEASE(FxaServer.Release),
+        STABLE(FxaServer.Stable),
+        STAGE(FxaServer.Stage),
+        CHINA(FxaServer.China),
+        LOCALDEV(FxaServer.LocalDev),
     }
 
     constructor(
@@ -27,5 +27,10 @@ class Config constructor(
         clientId: String,
         redirectUri: String,
         tokenServerUrlOverride: String? = null,
-    ) : this(server.contentUrl, clientId, redirectUri, tokenServerUrlOverride)
+    ) : this(server.rustServer, clientId, redirectUri, tokenServerUrlOverride)
+
+    // Rust defines a config and server class that's virtually identically to these.  We should
+    // remove the wrapper soon, but let's wait until we have a batch of breaking changes and do them
+    // all at once.
+    fun intoRustConfig() = FxaConfig(server, clientId, redirectUri, tokenServerUrlOverride)
 }

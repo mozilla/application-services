@@ -4,19 +4,23 @@
 
 import Foundation
 
+// Compatibility wrapper around the `FxaConfig` struct.  Let's keep this around for a bit to avoid
+// too many breaking changes for the consumer, but at some point soon we should switch them to using
+// the standard class
+//
+// Note: FxAConfig and FxAServer, with an upper-case "A" are the wrapper classes.  FxaConfig and
+// FxaServer are the classes from Rust.
 open class FxAConfig {
     public enum Server: String {
-        case release = "https://accounts.firefox.com"
-        case stable = "https://stable.dev.lcip.org"
-        case stage = "https://accounts.stage.mozaws.net"
-        case china = "https://accounts.firefox.com.cn"
-        case localdev = "http://127.0.0.1:3030"
+        case release
+        case stable
+        case stage
+        case china
+        case localdev
     }
 
-    let contentUrl: String
-    let clientId: String
-    let redirectUri: String
-    let tokenServerUrlOverride: String?
+    // FxaConfig with lowercase "a" is the version the Rust code uses
+    let rustConfig: FxaConfig
 
     public init(
         contentUrl: String,
@@ -24,10 +28,12 @@ open class FxAConfig {
         redirectUri: String,
         tokenServerUrlOverride: String? = nil
     ) {
-        self.contentUrl = contentUrl
-        self.clientId = clientId
-        self.redirectUri = redirectUri
-        self.tokenServerUrlOverride = tokenServerUrlOverride
+        rustConfig = FxaConfig(
+            server: FxaServer.custom(contentUrl: contentUrl),
+            clientId: clientId,
+            redirectUri: redirectUri,
+            tokenServerUrlOverride: tokenServerUrlOverride
+        )
     }
 
     public init(
@@ -36,9 +42,25 @@ open class FxAConfig {
         redirectUri: String,
         tokenServerUrlOverride: String? = nil
     ) {
-        contentUrl = server.rawValue
-        self.clientId = clientId
-        self.redirectUri = redirectUri
-        self.tokenServerUrlOverride = tokenServerUrlOverride
+        let rustServer: FxaServer
+        switch server {
+        case .release:
+            rustServer = FxaServer.release
+        case .stable:
+            rustServer = FxaServer.stable
+        case .stage:
+            rustServer = FxaServer.stage
+        case .china:
+            rustServer = FxaServer.china
+        case .localdev:
+            rustServer = FxaServer.localDev
+        }
+
+        rustConfig = FxaConfig(
+            server: rustServer,
+            clientId: clientId,
+            redirectUri: redirectUri,
+            tokenServerUrlOverride: tokenServerUrlOverride
+        )
     }
 }
