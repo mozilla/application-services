@@ -85,13 +85,17 @@ abstract class AbstractNimbusBuilder<T : NimbusInterface>(val context: Context) 
             null
         }
 
+        // Is the app being built locally, and the nimbus-cli
+        // hasn't been used before this run.
+        fun NimbusInterface.isLocalBuild() = url.isNullOrBlank() && isFetchEnabled()
+
         @Suppress("TooGenericExceptionCaught")
         return try {
             newNimbus(appInfo, serverSettings).apply {
                 // Apply any experiment recipes we downloaded last time, or
                 // if this is the first time, we load the ones bundled in the res/raw
                 // directory.
-                val job = if ((isFirstRun || url.isNullOrBlank()) && initialExperiments != null) {
+                val job = if (initialExperiments != null && (isFirstRun || isLocalBuild())) {
                     applyLocalExperiments(initialExperiments!!)
                 } else {
                     applyPendingExperiments()

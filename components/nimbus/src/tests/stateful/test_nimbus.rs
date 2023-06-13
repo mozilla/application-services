@@ -950,3 +950,24 @@ fn test_ios_rollout() -> Result<()> {
     client.dump_state_to_log()?;
     Ok(())
 }
+
+#[test]
+fn test_fetch_enabled() -> Result<()> {
+    let ctx = AppContext {
+        app_name: "firefox_ios".to_string(),
+        channel: "release".to_string(),
+        locale: Some("en-GB".to_string()),
+        app_version: Some("114.0".to_string()),
+        ..Default::default()
+    };
+    let tmp_dir = TempDir::new()?;
+    let client = NimbusClient::new(ctx.clone(), tmp_dir.path(), None, Default::default())?;
+    client.set_fetch_enabled(false)?;
+
+    assert!(!client.is_fetch_enabled()?);
+    drop(client);
+
+    let client = NimbusClient::new(ctx, tmp_dir.path(), None, Default::default())?;
+    assert!(!client.is_fetch_enabled()?);
+    Ok(())
+}
