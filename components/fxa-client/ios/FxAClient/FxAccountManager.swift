@@ -618,7 +618,7 @@ open class FxAccountManager {
     }
 
     internal func createAccount() -> PersistedFirefoxAccount {
-        return PersistedFirefoxAccount(config: config)
+        return PersistedFirefoxAccount(config: config.rustConfig)
     }
 
     internal func tryRestoreAccount() -> PersistedFirefoxAccount? {

@@ -30,11 +30,8 @@ class PersistedFirefoxAccount {
         self.inner = inner
     }
 
-    public convenience init(config: FxAConfig) {
-        self.init(inner: FirefoxAccount(contentUrl: config.contentUrl,
-                                        clientId: config.clientId,
-                                        redirectUri: config.redirectUri,
-                                        tokenServerUrlOverride: config.tokenServerUrlOverride))
+    public convenience init(config: FxaConfig) {
+        self.init(inner: FirefoxAccount(config: config))
     }
 
     /// Registers a persistance callback. The callback will get called every time

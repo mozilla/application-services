@@ -108,13 +108,27 @@ pub struct FxaConfig {
     pub token_server_url_override: Option<String>,
 }
 
-#[derive(Clone, Copy, Debug)]
+#[derive(Clone, Debug)]
 pub enum FxaServer {
     Release,
     Stable,
     Stage,
     China,
     LocalDev,
+    Custom { content_url: String },
+}
+
+impl FxaServer {
+    fn content_url(&self) -> &str {
+        match self {
+            Self::Release => "https://accounts.firefox.com",
+            Self::Stable => "https://stable.dev.lcip.org",
+            Self::Stage => "https://accounts.stage.mozaws.net",
+            Self::China => "https://accounts.firefox.com.cn",
+            Self::LocalDev => "http://127.0.0.1:3030",
+            Self::Custom { content_url } => content_url,
+        }
+    }
 }
 
 impl FxaConfig {
