@@ -12,32 +12,23 @@
 //!
 //!    - A traditional OAuth flow, where the user is directed to a webpage to enter
 //!      their account credentials and then redirected back to the application.
-//!      This is exposed by the [`begin_oauth_flow`](FirefoxAccount::begin_oauth_flow)
+//!      This is exposed by the [`connect_with_oauth`](FirefoxAccount::connect_with_oauth)
 //!      method.
 //!
 //!    - A device pairing flow, where the user scans a QRCode presented by another
 //!      app that is already connected to the account, which then directs them to
 //!      a webpage for a simplified signing flow. This is exposed by the
-//!      [`begin_pairing_flow`](FirefoxAccount::begin_pairing_flow) method.
+//!      [`connect_with_pairing`](FirefoxAccount::connect_with_pairing) method.
 //!
 //! Technical details of the pairing flow can be found in the [Firefox Accounts
 //! documentation hub](https://mozilla.github.io/ecosystem-platform/docs/features/firefox-accounts/pairing).
 
-use crate::{ApiResult, Error, FirefoxAccount};
+use crate::{ApiResult, CallbackResult, Error, FirefoxAccount};
 use error_support::handle_error;
 use std::collections::HashMap;
 
 impl FirefoxAccount {
-    /// Initiate a web-based OAuth sign-in flow.
-    ///
-    /// This method initializes some internal state and then returns a URL at which the
-    /// user may perform a web-based authorization flow to connect the application to
-    /// their account. The application should direct the user to the provided URL.
-    ///
-    /// When the resulting OAuth flow redirects back to the configured `redirect_uri`,
-    /// the query parameters should be extracting from the URL and passed to the
-    /// [`complete_oauth_flow`](FirefoxAccount::complete_oauth_flow) method to finalize
-    /// the signin.
+    /// Connect to FxA using a web-based OAuth sign-in flow.
     ///
     /// # Arguments
     ///
@@ -51,17 +42,27 @@ impl FirefoxAccount {
     ///   - `metrics` - optionally, additional metrics tracking parameters.
     ///       - These will be included as query parameters in the resulting URL.
     #[handle_error(Error)]
-    pub fn begin_oauth_flow<T: AsRef<str>>(
+    pub fn connect_with_oauth<T: AsRef<str>>(
         &self,
         // Allow both &[String] and &[&str] since UniFFI can't represent `&[&str]` yet,
         scopes: &[T],
         entrypoint: &str,
         metrics: Option<MetricsParams>,
-    ) -> ApiResult<String> {
+    ) -> ApiResult<()> {
         let scopes = scopes.iter().map(T::as_ref).collect::<Vec<_>>();
-        self.internal
-            .lock()
-            .begin_oauth_flow(&scopes, entrypoint, metrics)
+
+        // Lock self.internal to determine the oauth URL
+        let mut internal = self.internal.lock();
+        let url = internal.begin_oauth_flow(&scopes, entrypoint, metrics)?;
+
+        // Release the lock and send the URL to the OAuth handler
+        drop(internal);
+        let result = self.oauth_handler.perform_flow(url)?;
+
+        // Take the lock again to complete the flow
+        let mut internal = self.internal.lock();
+        internal.complete_oauth_flow(&result.code, &result.state)?;
+        Ok(())
     }
 
     /// Get the URL at which to begin a device-pairing signin flow.
@@ -69,22 +70,18 @@ impl FirefoxAccount {
     /// If the user wants to sign in using device pairing, call this method and then
     /// direct them to visit the resulting URL on an already-signed-in device. Doing
     /// so will trigger the other device to show a QR code to be scanned, and the result
-    /// from said QR code can be passed to [`begin_pairing_flow`](FirefoxAccount::begin_pairing_flow).
+    /// from said QR code can be passed to
+    /// [`connect_with_pairing`](FirefoxAccount::connect_with_pairing).
     #[handle_error(Error)]
     pub fn get_pairing_authority_url(&self) -> ApiResult<String> {
         self.internal.lock().get_pairing_authority_url()
     }
 
-    /// Initiate a device-pairing sign-in flow.
+    /// Connect to FxA using a device-pairing sign-in flow.
     ///
     /// Once the user has scanned a pairing QR code, pass the scanned value to this
     /// method. It will return a URL to which the application should redirect the user
     /// in order to continue the sign-in flow.
-    ///
-    /// When the resulting flow redirects back to the configured `redirect_uri`,
-    /// the resulting OAuth parameters should be extracting from the URL and passed
-    /// to [`complete_oauth_flow`](FirefoxAccount::complete_oauth_flow) to finalize
-    /// the signin.
     ///
     /// # Arguments
     ///
@@ -99,36 +96,28 @@ impl FirefoxAccount {
     ///   - `metrics` - optionally, additional metrics tracking parameters.
     ///       - These will be included as query parameters in the resulting URL.
     #[handle_error(Error)]
-    pub fn begin_pairing_flow(
+    pub fn connect_with_pairing<T: AsRef<str>>(
         &self,
         pairing_url: &str,
-        scopes: &[String],
+        // Allow both &[String] and &[&str] since UniFFI can't represent `&[&str]` yet,
+        scopes: &[T],
         entrypoint: &str,
         metrics: Option<MetricsParams>,
-    ) -> ApiResult<String> {
-        // UniFFI can't represent `&[&str]` yet, so convert it internally here.
-        let scopes = scopes.iter().map(String::as_str).collect::<Vec<_>>();
-        self.internal
-            .lock()
-            .begin_pairing_flow(pairing_url, &scopes, entrypoint, metrics)
-    }
+    ) -> ApiResult<()> {
+        let scopes = scopes.iter().map(T::as_ref).collect::<Vec<_>>();
 
-    /// Complete an OAuth flow.
-    ///
-    /// **💾 This method alters the persisted account state.**
-    ///
-    /// At the conclusion of an OAuth flow, the user will be redirect to the
-    /// application's registered `redirect_uri`. It should extract the `code`
-    /// and `state` parameters from the resulting URL and pass them to this
-    /// method in order to complete the sign-in.
-    ///
-    /// # Arguments
-    ///
-    ///   - `code` - the OAuth authorization code obtained from the redirect URI.
-    ///   - `state` - the OAuth state parameter obtained from the redirect URI.
-    #[handle_error(Error)]
-    pub fn complete_oauth_flow(&self, code: &str, state: &str) -> ApiResult<()> {
-        self.internal.lock().complete_oauth_flow(code, state)
+        // Lock self.internal to determine the oauth URL
+        let mut internal = self.internal.lock();
+        let url = internal.begin_pairing_flow(pairing_url, &scopes, entrypoint, metrics)?;
+
+        // Release the lock and send the URL to the OAuth handler
+        drop(internal);
+        let result = self.oauth_handler.perform_flow(url)?;
+
+        // Take the lock again to complete the flow
+        let mut internal = self.internal.lock();
+        internal.complete_oauth_flow(&result.code, &result.state)?;
+        Ok(())
     }
 
     /// Check authorization status for this application.
@@ -166,6 +155,29 @@ impl FirefoxAccount {
 /// connected to the user's account.
 pub struct AuthorizationInfo {
     pub active: bool,
+}
+
+/// OAuth handler.  These are defined in the foreign code
+pub trait OAuthHandler: Send + Sync {
+    /// Perform an OAuth flow at a URL
+    ///
+    /// When the resulting OAuth flow redirects back to the configured `redirect_uri`,
+    /// the query parameters should be extracting from the URL and returned.
+    ///
+    /// Warning: the `FirefoxAccount` instance will be in the `Authorizing` state while this
+    /// method is running.  Consumers must make sure the method eventually returns or the
+    /// `FirefoxAccount` instance will be stuck.  Return `FxaError::Cancelled` for abandoned OAuth
+    /// sessions.
+    fn perform_flow(&self, url: String) -> CallbackResult<OAuthResult>;
+}
+
+// Result of an Oauth flow
+//
+// Normally, the field values are extracted from the URL query parameters when the browser reaches
+// the redirect_uri.
+pub struct OAuthResult {
+    pub code: String,
+    pub state: String,
 }
 
 /// Additional metrics tracking parameters to include in an OAuth request.

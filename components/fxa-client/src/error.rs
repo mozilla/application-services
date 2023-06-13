@@ -175,6 +175,10 @@ pub enum Error {
 
     #[error("Invalid Push Event")]
     InvalidPushEvent,
+
+    // Error from a callback interface call
+    #[error("CallbackError: {0}")]
+    CallbackError(#[from] CallbackError),
 }
 
 // Define how our internal errors are handled and converted to external errors
@@ -193,7 +197,28 @@ impl GetErrorHandling for Error {
             Error::RequestError(_) => {
                 ErrorHandling::convert(crate::FxaError::Network).log_warning()
             }
+            // Callback errors should be handled by the calling code, for example
+            // `CallbackError::Cancelled`.  Report any that reach this stage
+            Error::CallbackError(_) => {
+                ErrorHandling::convert(crate::FxaError::Other).report_error("fxa-callback-error")
+            }
             _ => ErrorHandling::convert(crate::FxaError::Other).log_warning(),
         }
+    }
+}
+
+/// Errors thrown by by callback interfaces
+#[derive(Debug, thiserror::Error)]
+pub enum CallbackError {
+    #[error("Cancelled")]
+    Cancelled,
+
+    #[error("CallbackError: {reason}")]
+    Other { reason: String },
+}
+
+impl From<uniffi::UnexpectedUniFFICallbackError> for CallbackError {
+    fn from(e: uniffi::UnexpectedUniFFICallbackError) -> Self {
+        Self::Other { reason: e.reason }
     }
 }

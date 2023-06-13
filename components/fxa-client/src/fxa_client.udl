@@ -18,10 +18,8 @@
 //       calling [`FirefoxAccount::from_json`].
 //
 // * When the user wants to sign in to your application, direct them through
-//   a web-based OAuth flow using [`begin_oauth_flow`](FirefoxAccount::begin_oauth_flow)
-//   or [`begin_pairing_flow`](FirefoxAccount::begin_pairing_flow); when they return
-//   to your registered `redirect_uri`, pass the resulting authorization state back to
-//   [`complete_oauth_flow`](FirefoxAccount::complete_oauth_flow) to sign them in.
+//   a web-based OAuth flow using [`connect_with_oauth`](FirefoxAccount::connect_with_oauth)
+//   or [`connect_with_pairing`](FirefoxAccount::connect_with_pairing);
 //
 // * Display information about the signed-in user by using the data from
 //   [`get_profile`](FirefoxAccount::get_profile).
@@ -85,6 +83,15 @@ enum FxaError {
 };
 
 
+[Error]
+interface CallbackError {
+  // An operation was cancelled by the user
+  Cancelled();
+
+  // Some other, unexpected, error occurred
+  Other(string reason);
+};
+
 
 // Object representing the signed-in state of an application.
 //
@@ -101,7 +108,7 @@ interface FirefoxAccount {
   //
   // This method constructs as new [`FirefoxAccount`] instance configured to connect
   // the application to a user's account.
-  constructor(FxaConfig config);
+  constructor(FxaConfig config, OAuthHandler oauth_handler);
 
   // Restore a [`FirefoxAccount`] instance from serialized state.
   //
@@ -114,7 +121,7 @@ interface FirefoxAccount {
   // produce unexpected behaviour.
   //
   [Throws=FxaError,Name=from_json]
-  constructor([ByRef] string data);
+  constructor([ByRef] string data, OAuthHandler oauth_handler);
   
 
   // Save current state to a JSON string.
@@ -133,16 +140,7 @@ interface FirefoxAccount {
   string to_json();
   
 
-  // Initiate a web-based OAuth sign-in flow.
-  //
-  // This method initializes some internal state and then returns a URL at which the
-  // user may perform a web-based authorization flow to connect the application to
-  // their account. The application should direct the user to the provided URL.
-  //
-  // When the resulting OAuth flow redirects back to the configured `redirect_uri`,
-  // the query parameters should be extracting from the URL and passed to the
-  // [`complete_oauth_flow`](FirefoxAccount::complete_oauth_flow) method to finalize
-  // the signin.
+  // Connect to FxA using a web-based OAuth sign-in flow.
   //
   // # Arguments
   //
@@ -157,7 +155,7 @@ interface FirefoxAccount {
   //       - These will be included as query parameters in the resulting URL.
   //
   [Throws=FxaError]
-  string begin_oauth_flow([ByRef] sequence<string> scopes, [ByRef] string entrypoint,  MetricsParams? metrics );
+  void connect_with_oauth([ByRef] sequence<string> scopes, [ByRef] string entrypoint,  MetricsParams? metrics );
   
 
   // Get the URL at which to begin a device-pairing signin flow.
@@ -165,22 +163,14 @@ interface FirefoxAccount {
   // If the user wants to sign in using device pairing, call this method and then
   // direct them to visit the resulting URL on an already-signed-in device. Doing
   // so will trigger the other device to show a QR code to be scanned, and the result
-  // from said QR code can be passed to [`begin_pairing_flow`](FirefoxAccount::begin_pairing_flow).
+  // from said QR code can be passed to
+  // [`connect_with_pairing`](FirefoxAccount::connect_with_pairing).
   //
   [Throws=FxaError]
   string get_pairing_authority_url();
   
 
-  // Initiate a device-pairing sign-in flow.
-  //
-  // Once the user has scanned a pairing QR code, pass the scanned value to this
-  // method. It will return a URL to which the application should redirect the user
-  // in order to continue the sign-in flow.
-  //
-  // When the resulting flow redirects back to the configured `redirect_uri`,
-  // the resulting OAuth parameters should be extracting from the URL and passed
-  // to [`complete_oauth_flow`](FirefoxAccount::complete_oauth_flow) to finalize
-  // the signin.
+  // Get the URL at which to begin a device-pairing signin flow.
   //
   // # Arguments
   //
@@ -196,27 +186,8 @@ interface FirefoxAccount {
   //       - These will be included as query parameters in the resulting URL.
   //
   [Throws=FxaError]
-  string begin_pairing_flow([ByRef] string pairing_url, [ByRef] sequence<string> scopes, [ByRef] string entrypoint,  MetricsParams? metrics );
+  void connect_with_pairing([ByRef] string pairing_url, [ByRef] sequence<string> scopes, [ByRef] string entrypoint,  MetricsParams? metrics );
   
-
-  // Complete an OAuth flow.
-  //
-  // **💾 This method alters the persisted account state.**
-  //
-  // At the conclusion of an OAuth flow, the user will be redirect to the
-  // application's registered `redirect_uri`. It should extract the `code`
-  // and `state` parameters from the resulting URL and pass them to this
-  // method in order to complete the sign-in.
-  //
-  // # Arguments
-  //
-  //   - `code` - the OAuth authorization code obtained from the redirect URI.
-  //   - `state` - the OAuth state parameter obtained from the redirect URI.
-  //
-  [Throws=FxaError]
-  void complete_oauth_flow([ByRef] string code, [ByRef] string state );
-  
-
   // Check authorization status for this application.
   //
   // **💾 This method alters the persisted account state.**
@@ -1031,6 +1002,24 @@ interface AccountEvent {
   Unknown();
 };
 
+callback interface OAuthHandler {
+    // Perform an OAuth flow at a URL
+    //
+    // When the resulting OAuth flow redirects back to the configured `redirect_uri`,
+    // the query parameters should be extracting from the URL and returned.
+    //
+    // Warning: the `FirefoxAccount` instance will be in the `Authorizing` state while this
+    // method is running.  Consumers must make sure the method eventually returns or the
+    // `FirefoxAccount` instance will be stuck.  Return `CallbackError::Cancelled` for abandoned
+    // OAuth sessions.
+    [Throws=CallbackError]
+    OAuthResult perform_flow(string url);
+};
+
+dictionary OAuthResult {
+    string code;
+    string state;
+};
 
 // A command invoked by another device.
 //
