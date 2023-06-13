@@ -422,6 +422,9 @@ impl FileLoader {
 
 impl Drop for FileLoader {
     fn drop(&mut self) {
+        if self.cache_dir.is_some() {
+            return;
+        }
         let cache_dir = self.tmp_cache_dir();
         if cache_dir.exists() {
             _ = std::fs::remove_dir_all(cache_dir);
@@ -431,6 +434,8 @@ impl Drop for FileLoader {
 
 #[cfg(test)]
 mod unit_tests {
+    use std::fs;
+
     use crate::util::{build_dir, pkg_dir};
 
     use super::*;
@@ -653,5 +658,25 @@ mod unit_tests {
             chars.next_back();
         }
         chars.as_str().to_string()
+    }
+
+    #[test]
+    fn test_dropping_tmp_cache_dir() -> Result<()> {
+        let cwd = PathBuf::from(pkg_dir());
+        let config = &LoaderConfig {
+            cwd,
+            cache_dir: None,
+            repo_files: Default::default(),
+        };
+
+        let files: FileLoader = config.try_into()?;
+        let cache_dir = files.tmp_cache_dir();
+        fs::create_dir_all(cache_dir)?;
+
+        assert!(cache_dir.exists());
+        drop(files);
+
+        assert!(!cache_dir.exists());
+        Ok(())
     }
 }
