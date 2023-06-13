@@ -4,7 +4,7 @@ buildscript {
 
     ext {
         kotlin_version = '1.8.21'
-        kotlin_coroutines_version = '1.6.4'
+        kotlin_coroutines_version = '1.7.1'
         jna_version = '5.13.0'
         android_gradle_plugin_version = '7.4.2'
         android_components_version = '112.2.0'
