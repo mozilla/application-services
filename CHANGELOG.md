@@ -12,6 +12,10 @@
 
 - Add `validate` command to the FML CLI. This command validates a chosen manifest file, including all its imports, includes, and channels ([#5607](https://github.com/mozilla/application-services/pull/5607)).
 
+### 🦊 What's Changed 🦊
+
+- When a cache directory is not specified, now spin up a temporary directory instead of using the (sometimes) long lived system one ([#5662](https://github.com/mozilla/application-services/pull/5662)).
+
 [Full Changelog](In progress)
 
 # v115.0 (_2023-06-05_)
