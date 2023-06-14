@@ -31,6 +31,7 @@
   - Added a `features` command to output the experiment branch features and optionally merged with the manifest defaults.
   - Now supports reading and writing YAML files.
   - Single experiment files can be used as an experiment list file.
+- Add passthrough parameters for the `open`, `enroll` and `test-feature` commands. ([#5669](https://github.com/mozilla/application-services/pull/5669))
 
 [Full Changelog](In progress)
 
