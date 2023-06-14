@@ -410,15 +410,14 @@ impl LaunchableApp {
         log_state: bool,
         open: &AppOpenArgs,
     ) -> Result<bool> {
-        let deeplink = self.create_deeplink(open)?;
         Ok(match self {
             Self::Android { .. } => self
-                .android_start(reset_db, payload, log_state, deeplink.as_ref())?
+                .android_start(reset_db, payload, log_state, open)?
                 .spawn()?
                 .wait()?
                 .success(),
             Self::Ios { .. } => self
-                .ios_start(reset_db, payload, log_state, deeplink.as_ref())?
+                .ios_start(reset_db, payload, log_state, open)?
                 .spawn()?
                 .wait()?
                 .success(),
@@ -430,7 +429,7 @@ impl LaunchableApp {
         reset_db: bool,
         json: Option<&Value>,
         log_state: bool,
-        deeplink: Option<&String>,
+        open: &AppOpenArgs,
     ) -> Result<Command> {
         if let Self::Android {
             package_name,
@@ -440,7 +439,10 @@ impl LaunchableApp {
         {
             let mut args: Vec<String> = Vec::new();
 
-            if let Some(deeplink) = deeplink {
+            let (start_args, ending_args) = open.args();
+            args.extend_from_slice(start_args);
+
+            if let Some(deeplink) = self.create_deeplink(open)? {
                 args.extend([
                     "-a android.intent.action.VIEW".to_string(),
                     "-c android.intent.category.DEFAULT".to_string(),
@@ -467,9 +469,9 @@ impl LaunchableApp {
             if log_state {
                 args.push("--ez log-state true".to_string());
             };
+            args.extend_from_slice(ending_args);
 
             let mut cmd = self.exe()?;
-            // TODO add adb pass through args for debugger, wait for debugger etc.
             let sh = format!(r#"am start {}"#, args.join(" \\\n        "),);
             cmd.arg("shell").arg(&sh);
             let term = Term::stdout();
@@ -485,27 +487,25 @@ impl LaunchableApp {
         reset_db: bool,
         json: Option<&Value>,
         log_state: bool,
-        deeplink: Option<&String>,
+        open: &AppOpenArgs,
     ) -> Result<Command> {
         if let Self::Ios {
             app_id, device_id, ..
         } = self
         {
-            let mut args: Vec<String> = Default::default();
+            let mut args: Vec<String> = Vec::new();
+
+            let (starting_args, ending_args) = open.args();
 
             let mut is_launch = false;
-            if let Some(deeplink) = deeplink {
-                args.extend([
-                    "openurl".to_string(),
-                    device_id.to_string(),
-                    deeplink.to_string(),
-                ]);
+            if let Some(deeplink) = self.create_deeplink(open)? {
+                args.push("openurl".to_string());
+                args.extend_from_slice(starting_args);
+                args.extend([device_id.to_string(), deeplink]);
             } else {
-                args.extend([
-                    "launch".to_string(),
-                    device_id.to_string(),
-                    app_id.to_string(),
-                ]);
+                args.push("launch".to_string());
+                args.extend_from_slice(starting_args);
+                args.extend([device_id.to_string(), app_id.to_string()]);
                 is_launch = true;
             }
 
@@ -519,7 +519,7 @@ impl LaunchableApp {
                 }
             };
 
-            if is_launch {
+            if log_state || json.is_some() || reset_db {
                 args.extend([
                     "--nimbus-cli".to_string(),
                     "--version".to_string(),
@@ -543,6 +543,7 @@ impl LaunchableApp {
                 disallowed_by_openurl("log-state")?;
                 args.push("--log-state".to_string());
             }
+            args.extend_from_slice(ending_args);
 
             let mut cmd = self.exe()?;
             cmd.args(args.clone());

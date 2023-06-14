@@ -397,12 +397,25 @@ impl CliCommand {
 #[derive(Debug, Default, PartialEq)]
 pub(crate) struct AppOpenArgs {
     deeplink: Option<String>,
+    passthrough: Vec<String>,
 }
 
 impl From<OpenArgs> for AppOpenArgs {
     fn from(value: OpenArgs) -> Self {
         Self {
             deeplink: value.deeplink,
+            passthrough: value.passthrough,
+        }
+    }
+}
+
+impl AppOpenArgs {
+    fn args(&self) -> (&[String], &[String]) {
+        let splits = &mut self.passthrough.splitn(2, |item| item == "{}");
+        match (splits.next(), splits.next()) {
+            (Some(first), Some(last)) => (first, last),
+            (None, Some(last)) | (Some(last), None) => (&[], last),
+            _ => (&[], &[]),
         }
     }
 }
@@ -506,6 +519,51 @@ mod unit_tests {
         Ok(())
     }
 
+    #[test]
+    fn test_split_args() -> Result<()> {
+        let mut open = AppOpenArgs {
+            passthrough: vec![],
+            ..Default::default()
+        };
+        let empty: &[String] = &[];
+        let expected = (empty, empty);
+        let observed = open.args();
+        assert_eq!(observed.0, expected.0);
+        assert_eq!(observed.1, expected.1);
+
+        open.passthrough = vec!["{}".to_string()];
+        let expected = (empty, empty);
+        let observed = open.args();
+        assert_eq!(observed.0, expected.0);
+        assert_eq!(observed.1, expected.1);
+
+        open.passthrough = vec!["foo".to_string(), "bar".to_string()];
+        let expected: (&[String], &[String]) = (empty, &["foo".to_string(), "bar".to_string()]);
+        let observed = open.args();
+        assert_eq!(observed.0, expected.0);
+        assert_eq!(observed.1, expected.1);
+
+        open.passthrough = vec!["foo".to_string(), "bar".to_string(), "{}".to_string()];
+        let expected: (&[String], &[String]) = (&["foo".to_string(), "bar".to_string()], empty);
+        let observed = open.args();
+        assert_eq!(observed.0, expected.0);
+        assert_eq!(observed.1, expected.1);
+
+        open.passthrough = vec!["foo".to_string(), "{}".to_string(), "bar".to_string()];
+        let expected: (&[String], &[String]) = (&["foo".to_string()], &["bar".to_string()]);
+        let observed = open.args();
+        assert_eq!(observed.0, expected.0);
+        assert_eq!(observed.1, expected.1);
+
+        open.passthrough = vec!["{}".to_string(), "foo".to_string(), "bar".to_string()];
+        let expected: (&[String], &[String]) = (empty, &["foo".to_string(), "bar".to_string()]);
+        let observed = open.args();
+        assert_eq!(observed.0, expected.0);
+        assert_eq!(observed.1, expected.1);
+
+        Ok(())
+    }
+
     fn fenix() -> LaunchableApp {
         LaunchableApp::Android {
             package_name: "org.mozilla.fenix.debug".to_string(),
@@ -550,6 +608,14 @@ mod unit_tests {
     fn with_deeplink(link: &str) -> AppOpenArgs {
         AppOpenArgs {
             deeplink: Some(link.to_string()),
+            ..Default::default()
+        }
+    }
+
+    fn with_passthrough(params: &[&str]) -> AppOpenArgs {
+        AppOpenArgs {
+            passthrough: params.iter().map(|s| s.to_string()).collect(),
+            ..Default::default()
         }
     }
 
@@ -692,6 +758,52 @@ mod unit_tests {
                 preserve_bucketing: false,
                 preserve_nimbus_db: false,
                 open: with_deeplink("host/path?key=value"),
+            },
+        ];
+        assert_eq!(expected, observed);
+        Ok(())
+    }
+
+    #[test]
+    fn test_enroll_with_passthrough() -> Result<()> {
+        let observed = get_commands_from_cli([
+            "nimbus-cli",
+            "--app",
+            "fenix",
+            "--channel",
+            "developer",
+            "enroll",
+            "my-experiment",
+            "--branch",
+            "my-branch",
+            "--no-validate",
+            "--",
+            "--start-profiler",
+            "./profile.file",
+            "{}",
+            "--esn",
+            "TEST_FLAG",
+        ])?;
+
+        let expected = vec![
+            AppCommand::NoOp,
+            AppCommand::Kill { app: fenix() },
+            AppCommand::Enroll {
+                app: fenix(),
+                params: fenix_params(),
+                experiment: experiment("my-experiment"),
+                rollouts: Default::default(),
+                branch: "my-branch".to_string(),
+                preserve_targeting: false,
+                preserve_bucketing: false,
+                preserve_nimbus_db: false,
+                open: with_passthrough(&[
+                    "--start-profiler",
+                    "./profile.file",
+                    "{}",
+                    "--esn",
+                    "TEST_FLAG",
+                ]),
             },
         ];
         assert_eq!(expected, observed);
@@ -1035,7 +1147,11 @@ mod unit_tests {
             },
         ];
         assert_eq!(expected, observed);
+        Ok(())
+    }
 
+    #[test]
+    fn test_open_with_reset() -> Result<()> {
         let observed = get_commands_from_cli([
             "nimbus-cli",
             "--app",
@@ -1056,7 +1172,11 @@ mod unit_tests {
             },
         ];
         assert_eq!(expected, observed);
+        Ok(())
+    }
 
+    #[test]
+    fn test_open_with_deeplink() -> Result<()> {
         let observed = get_commands_from_cli([
             "nimbus-cli",
             "--app",
@@ -1078,6 +1198,41 @@ mod unit_tests {
         ];
         assert_eq!(expected, observed);
 
+        Ok(())
+    }
+
+    #[test]
+    fn test_open_with_passthrough_params() -> Result<()> {
+        let observed = get_commands_from_cli([
+            "nimbus-cli",
+            "--app",
+            "fenix",
+            "--channel",
+            "developer",
+            "open",
+            "--",
+            "--start-profiler",
+            "./profile.file",
+            "{}",
+            "--esn",
+            "TEST_FLAG",
+            ])?;
+
+        let expected = vec![
+            AppCommand::NoOp,
+            AppCommand::Kill { app: fenix() },
+            AppCommand::Open {
+                app: fenix(),
+                open: with_passthrough(&[
+                    "--start-profiler",
+                    "./profile.file",
+                    "{}",
+                    "--esn",
+                    "TEST_FLAG",
+                ]),
+            },
+        ];
+        assert_eq!(expected, observed);
         Ok(())
     }
 
