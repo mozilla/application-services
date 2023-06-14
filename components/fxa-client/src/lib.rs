@@ -75,7 +75,6 @@ pub struct FirefoxAccount {
     // For now, we serialize all access on a single `Mutex` for thread safety across
     // the FFI. We should make the locking more granular in future.
     internal: Mutex<internal::FirefoxAccount>,
-
     oauth_handler: Box<dyn OAuthHandler>,
 }
 

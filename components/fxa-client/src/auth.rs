@@ -53,15 +53,15 @@ impl FirefoxAccount {
 
         // Lock self.internal to determine the oauth URL
         let mut internal = self.internal.lock();
-        let url = internal.begin_oauth_flow(&scopes, entrypoint, metrics)?;
+        let (url, flow) = internal.begin_oauth_flow(&scopes, entrypoint, metrics)?;
 
-        // Release the lock and send the URL to the OAuth handler
+        // Release the lock while blocking on the OAuth handler
         drop(internal);
         let result = self.oauth_handler.perform_flow(url)?;
 
         // Take the lock again to complete the flow
         let mut internal = self.internal.lock();
-        internal.complete_oauth_flow(&result.code, &result.state)?;
+        internal.complete_oauth_flow(flow, result)?;
         Ok(())
     }
 
@@ -108,15 +108,15 @@ impl FirefoxAccount {
 
         // Lock self.internal to determine the oauth URL
         let mut internal = self.internal.lock();
-        let url = internal.begin_pairing_flow(pairing_url, &scopes, entrypoint, metrics)?;
+        let (url, flow) = internal.begin_pairing_flow(pairing_url, &scopes, entrypoint, metrics)?;
 
-        // Release the lock and send the URL to the OAuth handler
+        // Release the lock while blocking on the OAuth handler
         drop(internal);
         let result = self.oauth_handler.perform_flow(url)?;
 
         // Take the lock again to complete the flow
         let mut internal = self.internal.lock();
-        internal.complete_oauth_flow(&result.code, &result.state)?;
+        internal.complete_oauth_flow(flow, result)?;
         Ok(())
     }
 

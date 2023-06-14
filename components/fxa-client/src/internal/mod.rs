@@ -50,7 +50,6 @@ unsafe impl<'a> Sync for http_client::FxAClientMock<'a> {}
 pub struct FirefoxAccount {
     client: Arc<FxAClient>,
     state: State,
-    flow_store: HashMap<String, OAuthFlow>,
     attached_clients_cache: Option<CachedResponse<Vec<http_client::GetAttachedClientResponse>>>,
     devices_cache: Option<CachedResponse<Vec<http_client::GetDeviceResponse>>>,
     auth_circuit_breaker: AuthCircuitBreaker,
@@ -64,7 +63,6 @@ impl FirefoxAccount {
         Self {
             client: Arc::new(http_client::Client::new()),
             state,
-            flow_store: HashMap::new(),
             attached_clients_cache: None,
             devices_cache: None,
             auth_circuit_breaker: Default::default(),
@@ -122,7 +120,6 @@ impl FirefoxAccount {
     /// enough information to eventually reconnect to the same user account later.
     pub fn start_over(&mut self) {
         self.state = self.state.start_over();
-        self.flow_store.clear();
         self.clear_devices_and_attached_clients_cache();
         self.telemetry.replace(FxaTelemetry::new());
     }

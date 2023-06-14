@@ -11,7 +11,7 @@ use super::{
     scoped_keys::ScopedKeysFlow,
     util, FirefoxAccount,
 };
-use crate::{AuthorizationParameters, Error, MetricsParams, Result, ScopedKey};
+use crate::{AuthorizationParameters, Error, MetricsParams, OAuthResult, Result, ScopedKey};
 use jwcrypto::{EncryptionAlgorithm, EncryptionParameters};
 use rate_limiter::RateLimiter;
 use rc_crypto::digest;
@@ -116,13 +116,16 @@ impl FirefoxAccount {
     /// * `scopes` - Space-separated list of requested scopes by the pairing supplicant.
     /// * `entrypoint` - The entrypoint to be used for data collection
     /// * `metrics` - Optional parameters for metrics
+    ///
+    /// Returns an URL string to send to the `OAuthHandler` and an OAuthFlow to send to
+    /// `complete_oauth_flow` once that's done.
     pub fn begin_pairing_flow(
         &mut self,
         pairing_url: &str,
         scopes: &[&str],
         entrypoint: &str,
         metrics: Option<MetricsParams>,
-    ) -> Result<String> {
+    ) -> Result<(String, OAuthFlow)> {
         let mut url = self.state.config.pair_supp_url()?;
         url.query_pairs_mut().append_pair("entrypoint", entrypoint);
         if let Some(metrics) = metrics {
@@ -141,12 +144,15 @@ impl FirefoxAccount {
     /// * `scopes` - Space-separated list of requested scopes.
     /// * `entrypoint` - The entrypoint to be used for metrics
     /// * `metrics` - Optional metrics parameters
+    ///
+    /// Returns an URL string to send to the `OAuthHandler` and an OAuthFlow to send to
+    /// `complete_oauth_flow` once that's done.
     pub fn begin_oauth_flow(
         &mut self,
         scopes: &[&str],
         entrypoint: &str,
         metrics: Option<MetricsParams>,
-    ) -> Result<String> {
+    ) -> Result<(String, OAuthFlow)> {
         let mut url = if self.state.last_seen_profile.is_some() {
             self.state.config.oauth_force_auth_url()?
         } else {
@@ -264,7 +270,7 @@ impl FirefoxAccount {
         Ok(resp.code)
     }
 
-    fn oauth_flow(&mut self, mut url: Url, scopes: &[&str]) -> Result<String> {
+    fn oauth_flow(&mut self, mut url: Url, scopes: &[&str]) -> Result<(String, OAuthFlow)> {
         self.clear_access_token_cache();
         let state = util::random_base64_url_string(16)?;
         let code_verifier = util::random_base64_url_string(43)?;
@@ -291,14 +297,12 @@ impl FirefoxAccount {
                 .append_pair("redirect_uri", &self.state.config.redirect_uri);
         }
 
-        self.flow_store.insert(
-            state, // Since state is supposed to be unique, we use it to key our flows.
-            OAuthFlow {
-                scoped_keys_flow: Some(scoped_keys_flow),
-                code_verifier,
-            },
-        );
-        Ok(url.to_string())
+        let oauth_flow = OAuthFlow {
+            sent_state: state,
+            scoped_keys_flow: Some(scoped_keys_flow),
+            code_verifier,
+        };
+        Ok((url.to_string(), oauth_flow))
     }
 
     /// Complete an OAuth flow initiated in `begin_oauth_flow` or `begin_pairing_flow`.
@@ -306,18 +310,18 @@ impl FirefoxAccount {
     /// redirect URL after a successful login.
     ///
     /// **💾 This method alters the persisted account state.**
-    pub fn complete_oauth_flow(&mut self, code: &str, state: &str) -> Result<()> {
+    pub fn complete_oauth_flow(&mut self, flow: OAuthFlow, result: OAuthResult) -> Result<()> {
         self.clear_access_token_cache();
-        let oauth_flow = match self.flow_store.remove(state) {
-            Some(oauth_flow) => oauth_flow,
-            None => return Err(Error::UnknownOAuthState),
-        };
+        // Double check that the `state` query param we got back matches the one we sent out.
+        if flow.sent_state != result.state {
+            return Err(Error::UnknownOAuthState);
+        }
         let resp = self.client.create_refresh_token_using_authorization_code(
             &self.state.config,
-            code,
-            &oauth_flow.code_verifier,
+            &result.code,
+            &flow.code_verifier,
         )?;
-        self.handle_oauth_response(resp, oauth_flow.scoped_keys_flow)
+        self.handle_oauth_response(resp, flow.scoped_keys_flow)
     }
 
     pub(crate) fn handle_oauth_response(
@@ -544,6 +548,12 @@ impl std::fmt::Debug for RefreshToken {
 }
 
 pub struct OAuthFlow {
+    // Copy of the `state` query param that we sent to the server.  We double check that the
+    // `state` query param in the final URL matches this.  This is generally best practice
+    // (https://datatracker.ietf.org/doc/html/rfc6749#section-10.12), although it's not clear that
+    // we need it since we're not operating a stateless web server and therefore don't have to deal
+    // with oauth completion requests that were not initiated by us.
+    pub sent_state: String,
     pub scoped_keys_flow: Option<ScopedKeysFlow>,
     pub code_verifier: String,
 }
@@ -617,7 +627,7 @@ mod tests {
         params.insert("flow_id".to_string(), "87654321".to_string());
         let metrics_params = MetricsParams { parameters: params };
         let mut fxa = FirefoxAccount::with_config(config);
-        let url = fxa
+        let (url, _) = fxa
             .begin_oauth_flow(&["profile"], "test_oauth_flow_url", Some(metrics_params))
             .unwrap();
         let flow_url = Url::parse(&url).unwrap();
@@ -691,7 +701,7 @@ mod tests {
         let mut fxa = FirefoxAccount::with_config(config);
         let email = "test@example.com";
         fxa.add_cached_profile("123", email);
-        let url = fxa
+        let (url, _) = fxa
             .begin_oauth_flow(&["profile"], "test_force_auth_url", None)
             .unwrap();
         let url = Url::parse(&url).unwrap();
@@ -714,7 +724,7 @@ mod tests {
             "urn:ietf:wg:oauth:2.0:oob:oauth-redirect-webchannel",
         );
         let mut fxa = FirefoxAccount::with_config(config);
-        let url = fxa
+        let (url, _) = fxa
             .begin_oauth_flow(SCOPES, "test_webchannel_context_url", None)
             .unwrap();
         let url = Url::parse(&url).unwrap();
@@ -735,7 +745,7 @@ mod tests {
             "urn:ietf:wg:oauth:2.0:oob:oauth-redirect-webchannel",
         );
         let mut fxa = FirefoxAccount::with_config(config);
-        let url = fxa
+        let (url, _) = fxa
             .begin_pairing_flow(
                 PAIRING_URL,
                 SCOPES,
@@ -766,7 +776,7 @@ mod tests {
         let metrics_params = MetricsParams { parameters: params };
 
         let mut fxa = FirefoxAccount::with_config(config);
-        let url = fxa
+        let (url, _) = fxa
             .begin_pairing_flow(
                 PAIRING_URL,
                 SCOPES,
