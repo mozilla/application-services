@@ -621,6 +621,7 @@ dependencies = [
  "fxa-client",
  "log",
  "sync15",
+ "sync_manager",
  "url",
  "webbrowser",
 ]

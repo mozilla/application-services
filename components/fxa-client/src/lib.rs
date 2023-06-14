@@ -116,6 +116,13 @@ impl FirefoxAccount {
             )),
         }
     }
+
+    /// A temporary helper while we convert some of our test utilities from using the internal account.
+    pub fn with_internal(internal: internal::FirefoxAccount) -> FirefoxAccount {
+        FirefoxAccount {
+            internal: Mutex::new(internal),
+        }
+    }
 }
 
 uniffi::include_scaffolding!("fxa_client");
