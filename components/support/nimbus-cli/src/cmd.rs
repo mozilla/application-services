@@ -8,7 +8,7 @@ use crate::{
         self, prepare_experiment, prepare_rollout, try_extract_data_list, try_find_branches,
         try_find_features, CliUtils,
     },
-    AppCommand, ExperimentListSource, ExperimentSource, LaunchableApp, NimbusApp,
+    AppCommand, AppOpenArgs, ExperimentListSource, ExperimentSource, LaunchableApp, NimbusApp,
 };
 use anyhow::{bail, Result};
 use console::Term;
@@ -42,7 +42,7 @@ pub(crate) fn process_cmd(cmd: &AppCommand) -> Result<bool> {
             preserve_targeting,
             preserve_bucketing,
             preserve_nimbus_db,
-            deeplink,
+            open,
             ..
         } => app.enroll(
             params,
@@ -52,7 +52,7 @@ pub(crate) fn process_cmd(cmd: &AppCommand) -> Result<bool> {
             preserve_targeting,
             preserve_bucketing,
             preserve_nimbus_db,
-            deeplink,
+            open,
         )?,
         AppCommand::ExtractFeatures {
             params,
@@ -83,7 +83,9 @@ pub(crate) fn process_cmd(cmd: &AppCommand) -> Result<bool> {
         AppCommand::List { params, list } => params.list(list)?,
         AppCommand::LogState { app } => app.log_state()?,
         AppCommand::NoOp => true,
-        AppCommand::Open { app, deeplink, .. } => app.open(deeplink.as_ref())?,
+        AppCommand::Open {
+            app, open: args, ..
+        } => app.open(args)?,
         AppCommand::Reset { app } => app.reset_app()?,
         AppCommand::TailLogs { app } => app.tail_logs()?,
         AppCommand::Unenroll { app } => app.unenroll_all()?,
@@ -171,7 +173,7 @@ impl LaunchableApp {
 
     fn unenroll_all(&self) -> Result<bool> {
         let payload = json! {{ "data": [] }};
-        self.start_app(false, Some(&payload), true, None)
+        self.start_app(false, Some(&payload), true, &Default::default())
     }
 
     fn reset_app(&self) -> Result<bool> {
@@ -285,7 +287,7 @@ impl LaunchableApp {
     }
 
     fn log_state(&self) -> Result<bool> {
-        self.start_app(false, None, true, None)
+        self.start_app(false, None, true, &Default::default())
     }
 
     #[allow(clippy::too_many_arguments)]
@@ -298,7 +300,7 @@ impl LaunchableApp {
         preserve_targeting: &bool,
         preserve_bucketing: &bool,
         preserve_nimbus_db: &bool,
-        deeplink: &Option<String>,
+        open: &AppOpenArgs,
     ) -> Result<bool> {
         let term = Term::stdout();
 
@@ -330,13 +332,13 @@ impl LaunchableApp {
         }
 
         let payload = json! {{ "data": recipes }};
-        self.start_app(!preserve_nimbus_db, Some(&payload), true, deeplink.as_ref())
+        self.start_app(!preserve_nimbus_db, Some(&payload), true, open)
     }
 
     fn apply_list(&self, list: &ExperimentListSource, preserve_nimbus_db: &bool) -> Result<bool> {
         let value: Value = list.try_into()?;
 
-        self.start_app(!preserve_nimbus_db, Some(&value), true, None)
+        self.start_app(!preserve_nimbus_db, Some(&value), true, &Default::default())
     }
 
     fn ios_app_container(&self, container: &str) -> Result<String> {
@@ -380,15 +382,16 @@ impl LaunchableApp {
         Ok(true)
     }
 
-    fn open(&self, deeplink: Option<&String>) -> Result<bool> {
-        self.start_app(false, None, false, deeplink)
+    fn open(&self, open: &AppOpenArgs) -> Result<bool> {
+        self.start_app(false, None, false, open)
     }
 
-    fn create_deeplink(&self, deeplink: Option<&String>) -> Result<Option<String>> {
+    fn create_deeplink(&self, open: &AppOpenArgs) -> Result<Option<String>> {
+        let deeplink = &open.deeplink;
         if deeplink.is_none() {
             return Ok(None);
         }
-        let deeplink = deeplink.unwrap();
+        let deeplink = deeplink.as_ref().unwrap();
         Ok(if deeplink.contains("://") {
             Some(deeplink.clone())
         } else if let Some(scheme) = match self {
@@ -405,9 +408,9 @@ impl LaunchableApp {
         reset_db: bool,
         payload: Option<&Value>,
         log_state: bool,
-        deeplink: Option<&String>,
+        open: &AppOpenArgs,
     ) -> Result<bool> {
-        let deeplink = self.create_deeplink(deeplink)?;
+        let deeplink = self.create_deeplink(open)?;
         Ok(match self {
             Self::Android { .. } => self
                 .android_start(reset_db, payload, log_state, deeplink.as_ref())?

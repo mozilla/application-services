@@ -12,7 +12,7 @@ mod value_utils;
 
 use anyhow::{bail, Result};
 use clap::Parser;
-use cli::{Cli, CliCommand, ExperimentArgs};
+use cli::{Cli, CliCommand, ExperimentArgs, OpenArgs};
 use sources::{ExperimentListSource, ExperimentSource, ManifestSource};
 use std::{ffi::OsString, path::PathBuf};
 
@@ -113,7 +113,7 @@ enum AppCommand {
         preserve_targeting: bool,
         preserve_bucketing: bool,
         preserve_nimbus_db: bool,
-        deeplink: Option<String>,
+        open: AppOpenArgs,
     },
 
     ExtractFeatures {
@@ -159,7 +159,7 @@ enum AppCommand {
 
     Open {
         app: LaunchableApp,
-        deeplink: Option<String>,
+        open: AppOpenArgs,
     },
 
     Reset {
@@ -280,7 +280,7 @@ impl TryFrom<&Cli> for AppCommand {
                     preserve_targeting,
                     preserve_bucketing,
                     preserve_nimbus_db,
-                    deeplink: open.deeplink,
+                    open: open.into(),
                 }
             }
             CliCommand::Features {
@@ -341,7 +341,7 @@ impl TryFrom<&Cli> for AppCommand {
             CliCommand::LogState => AppCommand::LogState { app },
             CliCommand::Open { open, .. } => AppCommand::Open {
                 app,
-                deeplink: open.deeplink,
+                open: open.into(),
             },
             CliCommand::TailLogs => AppCommand::TailLogs { app },
             CliCommand::TestFeature { files, open, .. } => {
@@ -357,7 +357,7 @@ impl TryFrom<&Cli> for AppCommand {
                     experiment,
                     branch,
                     rollouts: Default::default(),
-                    deeplink: open.deeplink,
+                    open: open.into(),
                     preserve_targeting: false,
                     preserve_bucketing: false,
                     preserve_nimbus_db: false,
@@ -390,6 +390,19 @@ impl CliCommand {
             | Self::TestFeature { open, .. } => open.reset_app,
             Self::ResetApp => true,
             _ => false,
+        }
+    }
+}
+
+#[derive(Debug, Default, PartialEq)]
+pub(crate) struct AppOpenArgs {
+    deeplink: Option<String>,
+}
+
+impl From<OpenArgs> for AppOpenArgs {
+    fn from(value: OpenArgs) -> Self {
+        Self {
+            deeplink: value.deeplink,
         }
     }
 }
@@ -526,6 +539,20 @@ mod unit_tests {
         }
     }
 
+    fn feature_experiment(feature_id: &str, files: &[&str]) -> ExperimentSource {
+        ExperimentSource::FromFeatureFiles {
+            app: fenix_params(),
+            feature_id: feature_id.to_string(),
+            files: files.iter().map(|f| f.into()).collect(),
+        }
+    }
+
+    fn with_deeplink(link: &str) -> AppOpenArgs {
+        AppOpenArgs {
+            deeplink: Some(link.to_string()),
+        }
+    }
+
     #[test]
     fn test_enroll() -> Result<()> {
         let observed = get_commands_from_cli([
@@ -553,7 +580,7 @@ mod unit_tests {
                 preserve_targeting: false,
                 preserve_bucketing: false,
                 preserve_nimbus_db: false,
-                deeplink: None,
+                open: Default::default(),
             },
         ];
         assert_eq!(expected, observed);
@@ -589,7 +616,7 @@ mod unit_tests {
                 preserve_targeting: false,
                 preserve_bucketing: false,
                 preserve_nimbus_db: false,
-                deeplink: None,
+                open: Default::default(),
             },
         ];
         assert_eq!(expected, observed);
@@ -628,7 +655,43 @@ mod unit_tests {
                 preserve_targeting: false,
                 preserve_bucketing: false,
                 preserve_nimbus_db: false,
-                deeplink: None,
+                open: Default::default(),
+            },
+        ];
+        assert_eq!(expected, observed);
+        Ok(())
+    }
+
+    #[test]
+    fn test_enroll_with_deeplink() -> Result<()> {
+        let observed = get_commands_from_cli([
+            "nimbus-cli",
+            "--app",
+            "fenix",
+            "--channel",
+            "developer",
+            "enroll",
+            "my-experiment",
+            "--branch",
+            "my-branch",
+            "--no-validate",
+            "--deeplink",
+            "host/path?key=value",
+        ])?;
+
+        let expected = vec![
+            AppCommand::NoOp,
+            AppCommand::Kill { app: fenix() },
+            AppCommand::Enroll {
+                app: fenix(),
+                params: fenix_params(),
+                experiment: experiment("my-experiment"),
+                rollouts: Default::default(),
+                branch: "my-branch".to_string(),
+                preserve_targeting: false,
+                preserve_bucketing: false,
+                preserve_nimbus_db: false,
+                open: with_deeplink("host/path?key=value"),
             },
         ];
         assert_eq!(expected, observed);
@@ -740,14 +803,6 @@ mod unit_tests {
 
     #[test]
     fn test_test_feature() -> Result<()> {
-        fn experiment(feature_id: &str) -> ExperimentSource {
-            ExperimentSource::FromFeatureFiles {
-                app: fenix_params(),
-                feature_id: feature_id.to_string(),
-                files: vec!["./my-branch.json".into(), "./my-treatment.json".into()],
-            }
-        }
-
         let observed = get_commands_from_cli([
             "nimbus-cli",
             "--app",
@@ -764,19 +819,25 @@ mod unit_tests {
             AppCommand::ValidateExperiment {
                 params: fenix_params(),
                 manifest: fenix_manifest(),
-                experiment: experiment("my-feature"),
+                experiment: feature_experiment(
+                    "my-feature",
+                    &["./my-branch.json", "./my-treatment.json"],
+                ),
             },
             AppCommand::Kill { app: fenix() },
             AppCommand::Enroll {
                 app: fenix(),
                 params: fenix_params(),
-                experiment: experiment("my-feature"),
+                experiment: feature_experiment(
+                    "my-feature",
+                    &["./my-branch.json", "./my-treatment.json"],
+                ),
                 rollouts: Default::default(),
                 branch: "my-branch".to_string(),
                 preserve_targeting: false,
                 preserve_bucketing: false,
                 preserve_nimbus_db: false,
-                deeplink: None,
+                open: Default::default(),
             },
         ];
         assert_eq!(expected, observed);
@@ -803,19 +864,25 @@ mod unit_tests {
                     ref_: "releases_v114".to_string(),
                     ..fenix_manifest()
                 },
-                experiment: experiment("my-feature"),
+                experiment: feature_experiment(
+                    "my-feature",
+                    &["./my-branch.json", "./my-treatment.json"],
+                ),
             },
             AppCommand::Kill { app: fenix() },
             AppCommand::Enroll {
                 app: fenix(),
                 params: fenix_params(),
-                experiment: experiment("my-feature"),
+                experiment: feature_experiment(
+                    "my-feature",
+                    &["./my-branch.json", "./my-treatment.json"],
+                ),
                 rollouts: Default::default(),
                 branch: "my-branch".to_string(),
                 preserve_targeting: false,
                 preserve_bucketing: false,
                 preserve_nimbus_db: false,
-                deeplink: None,
+                open: Default::default(),
             },
         ];
         assert_eq!(expected, observed);
@@ -842,19 +909,25 @@ mod unit_tests {
                     ref_: "my-tag".to_string(),
                     ..fenix_manifest()
                 },
-                experiment: experiment("my-feature"),
+                experiment: feature_experiment(
+                    "my-feature",
+                    &["./my-branch.json", "./my-treatment.json"],
+                ),
             },
             AppCommand::Kill { app: fenix() },
             AppCommand::Enroll {
                 app: fenix(),
                 params: fenix_params(),
-                experiment: experiment("my-feature"),
+                experiment: feature_experiment(
+                    "my-feature",
+                    &["./my-branch.json", "./my-treatment.json"],
+                ),
                 rollouts: Default::default(),
                 branch: "my-branch".to_string(),
                 preserve_targeting: false,
                 preserve_bucketing: false,
                 preserve_nimbus_db: false,
-                deeplink: None,
+                open: Default::default(),
             },
         ];
         assert_eq!(expected, observed);
@@ -881,19 +954,126 @@ mod unit_tests {
                     manifest_file: "./manifest.fml.yaml".to_string(),
                     ..fenix_manifest()
                 },
-                experiment: experiment("my-feature"),
+                experiment: feature_experiment(
+                    "my-feature",
+                    &["./my-branch.json", "./my-treatment.json"],
+                ),
             },
             AppCommand::Kill { app: fenix() },
             AppCommand::Enroll {
                 app: fenix(),
                 params: fenix_params(),
-                experiment: experiment("my-feature"),
+                experiment: feature_experiment(
+                    "my-feature",
+                    &["./my-branch.json", "./my-treatment.json"],
+                ),
                 rollouts: Default::default(),
                 branch: "my-branch".to_string(),
                 preserve_targeting: false,
                 preserve_bucketing: false,
                 preserve_nimbus_db: false,
-                deeplink: None,
+                open: Default::default(),
+            },
+        ];
+        assert_eq!(expected, observed);
+
+        let observed = get_commands_from_cli([
+            "nimbus-cli",
+            "--app",
+            "fenix",
+            "--channel",
+            "developer",
+            "test-feature",
+            "my-feature",
+            "./my-branch.json",
+            "./my-treatment.json",
+            "--no-validate",
+            "--deeplink",
+            "host/path?key=value",
+        ])?;
+
+        let expected = vec![
+            AppCommand::NoOp,
+            AppCommand::Kill { app: fenix() },
+            AppCommand::Enroll {
+                app: fenix(),
+                params: fenix_params(),
+                experiment: feature_experiment(
+                    "my-feature",
+                    &["./my-branch.json", "./my-treatment.json"],
+                ),
+                rollouts: Default::default(),
+                branch: "my-branch".to_string(),
+                preserve_targeting: false,
+                preserve_bucketing: false,
+                preserve_nimbus_db: false,
+                open: with_deeplink("host/path?key=value"),
+            },
+        ];
+        assert_eq!(expected, observed);
+
+        Ok(())
+    }
+
+    #[test]
+    fn test_open() -> Result<()> {
+        let observed = get_commands_from_cli([
+            "nimbus-cli",
+            "--app",
+            "fenix",
+            "--channel",
+            "developer",
+            "open",
+        ])?;
+
+        let expected = vec![
+            AppCommand::NoOp,
+            AppCommand::Kill { app: fenix() },
+            AppCommand::Open {
+                app: fenix(),
+                open: Default::default(),
+            },
+        ];
+        assert_eq!(expected, observed);
+
+        let observed = get_commands_from_cli([
+            "nimbus-cli",
+            "--app",
+            "fenix",
+            "--channel",
+            "developer",
+            "open",
+            "--reset-app",
+        ])?;
+
+        let expected = vec![
+            AppCommand::NoOp,
+            AppCommand::Kill { app: fenix() },
+            AppCommand::Reset { app: fenix() },
+            AppCommand::Open {
+                app: fenix(),
+                open: Default::default(),
+            },
+        ];
+        assert_eq!(expected, observed);
+
+        let observed = get_commands_from_cli([
+            "nimbus-cli",
+            "--app",
+            "fenix",
+            "--channel",
+            "developer",
+            "open",
+            "--deeplink",
+            "host/path",
+        ])?;
+
+        let expected = vec![
+            AppCommand::NoOp,
+            AppCommand::Kill { app: fenix() },
+            AppCommand::Open {
+                app: fenix(),
+                open: with_deeplink("host/path"),
             },
         ];
         assert_eq!(expected, observed);
