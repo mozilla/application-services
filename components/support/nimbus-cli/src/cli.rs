@@ -257,7 +257,7 @@ pub(crate) struct ManifestArgs {
     pub(crate) ref_: String,
 }
 
-#[derive(Args, Clone, Debug, Default)]
+#[derive(Args, Clone, Debug, Default, PartialEq)]
 pub(crate) struct OpenArgs {
     /// Optional deeplink. If present, launch with this link.
     #[arg(long, value_name = "DEEPLINK")]
@@ -266,6 +266,9 @@ pub(crate) struct OpenArgs {
     /// Resets the app back to its initial state before launching
     #[arg(long, default_value = "false")]
     pub(crate) reset_app: bool,
+
+    #[arg(last = true, value_name = "PASSTHROUGH_ARGS")]
+    pub(crate) passthrough: Vec<String>,
 }
 
 #[derive(Args, Clone, Debug, Default)]
