@@ -457,7 +457,9 @@ impl LaunchableApp {
                 ]);
             }
 
-            args.extend(["--esn nimbus-cli".to_string(), "--ei version 1".to_string()]);
+            if log_state || json.is_some() || reset_db {
+                args.extend(["--esn nimbus-cli".to_string(), "--ei version 1".to_string()]);
+            }
 
             if reset_db {
                 args.push("--ez reset-db true".to_string());
