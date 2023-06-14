@@ -56,7 +56,7 @@ fn main() -> Result<()> {
         base64::URL_SAFE_NO_PAD,
     );
 
-    let mut cli_fxa = get_cli_fxa(get_default_fxa_config(), &opts.creds_file)?;
+    let cli_fxa = get_cli_fxa(get_default_fxa_config(), &opts.creds_file)?;
     let device_id = cli_fxa.account.get_current_device_id()?;
 
     let store = Arc::new(TabsStore::new(Path::new(&opts.db_path)));

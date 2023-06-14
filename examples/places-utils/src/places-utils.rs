@@ -233,7 +233,7 @@ fn sync(
             &mut global_state,
             &mut mem_cached_state,
             &cli_fxa.client_init.clone(),
-            &cli_fxa.root_sync_key,
+            &cli_fxa.as_key_bundle()?,
             &interrupt_support::ShutdownInterruptee,
             None,
         );

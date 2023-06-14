@@ -15,7 +15,7 @@ use serde_derive::*;
 use std::cell::{Cell, RefCell};
 use std::mem;
 use sync15::bso::{IncomingBso, OutgoingBso};
-use sync15::client::{sync_multiple, MemoryCachedState, Sync15StorageClientInit};
+use sync15::client::{sync_multiple, MemoryCachedState};
 use sync15::engine::{
     CollectionRequest, EngineSyncAssociation, SyncEngine,
 };
@@ -144,17 +144,6 @@ impl SyncEngine for TestEngine {
 }
 
 fn sync_client(c: &mut TestClient, desc: &str, engine: &dyn SyncEngine) {
-    let (auth_info, _device_settings) = c
-        .get_sync_data()
-        .expect("Should have data for syncing first client");
-
-    let storage_init = &Sync15StorageClientInit {
-        key_id: auth_info.kid,
-        access_token: auth_info.fxa_access_token,
-        tokenserver_url: url::Url::parse(auth_info.tokenserver_url.as_str()).unwrap(),
-    };
-    let root_sync_key = &sync15::KeyBundle::from_ksync_base64(auth_info.sync_key.as_str()).unwrap();
-
     let mut persisted_global_state = None;
     let mut mem_cached_state = MemoryCachedState::default();
 
@@ -162,8 +151,8 @@ fn sync_client(c: &mut TestClient, desc: &str, engine: &dyn SyncEngine) {
         &[engine],
         &mut persisted_global_state,
         &mut mem_cached_state,
-        storage_init,
-        root_sync_key,
+        &c.cli.client_init,
+        &c.cli.as_key_bundle().unwrap(),
         &NeverInterrupts,
         None,
     );

@@ -5,7 +5,6 @@ use crate::auth::TestClient;
 use crate::testing::TestGroup;
 use anyhow::Result;
 use std::collections::HashMap;
-use sync15::DeviceType;
 use tabs::{ClientRemoteTabs, RemoteTabRecord, TabsStore};
 // helpers...
 
@@ -61,9 +60,9 @@ fn test_tabs(c0: &mut TestClient, c1: &mut TestClient) {
     verify_tabs(
         &c1.tabs_store,
         &ClientRemoteTabs {
-            client_id: c0.fxa.get_current_device_id().unwrap(),
-            client_name: String::new(),
-            device_type: DeviceType::Mobile,
+            client_id: c0.device.id.clone(),
+            client_name: c0.device.display_name.clone(),
+            device_type: c0.device.device_type,
             remote_tabs: vec![t0],
             last_modified: 0,
         },
@@ -90,9 +89,9 @@ fn test_tabs(c0: &mut TestClient, c1: &mut TestClient) {
     verify_tabs(
         &c0.tabs_store,
         &ClientRemoteTabs {
-            client_id: c1.fxa.get_current_device_id().unwrap(),
-            client_name: String::new(),
-            device_type: DeviceType::Mobile,
+            client_id: c1.device.id.clone(),
+            client_name: c1.device.display_name.clone(),
+            device_type: c1.device.device_type,
             remote_tabs: vec![t1, t2],
             last_modified: 0,
         },
