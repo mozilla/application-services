@@ -85,7 +85,7 @@ pub(crate) fn slug(path: &Path) -> Result<String> {
 }
 
 fn branch(feature_id: &str, file: &Path) -> Result<Value> {
-    let value = value_utils::read_from_file(file)?;
+    let value: Value = value_utils::read_from_file(file)?;
 
     let config = value.as_object().ok_or_else(|| {
         anyhow::Error::msg(format!(

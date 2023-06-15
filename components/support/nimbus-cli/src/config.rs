@@ -162,12 +162,12 @@ pub(crate) fn rs_stage_server() -> String {
 }
 
 pub(crate) fn api_v6_production_server() -> String {
-    std::env::var("NIMBUS_V6_URL")
+    std::env::var("NIMBUS_API_URL")
         .unwrap_or_else(|_| "https://experimenter.services.mozilla.com".to_string())
 }
 
 pub(crate) fn api_v6_stage_server() -> String {
-    std::env::var("NIMBUS_V6_URL_STAGE")
+    std::env::var("NIMBUS_API_URL_STAGE")
         .unwrap_or_else(|_| "https://stage.experimenter.nonprod.dataops.mozgcp.net".to_string())
 }
 

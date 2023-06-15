@@ -4,7 +4,7 @@ use std::path::Path;
 // License, v. 2.0. If a copy of the MPL was not distributed with this
 // file, You can obtain one at https://mozilla.org/MPL/2.0/.
 use anyhow::Result;
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
 use serde_json::Value;
 
 use crate::NimbusApp;
@@ -211,7 +211,10 @@ fn is_yaml(file: &Path) -> bool {
     ext == "yaml" || ext == "yml"
 }
 
-pub(crate) fn read_from_file(file: &Path) -> Result<Value> {
+pub(crate) fn read_from_file<T>(file: &Path) -> Result<T>
+where
+    for<'a> T: Deserialize<'a>,
+{
     let s = std::fs::read_to_string(file)?;
     Ok(if is_yaml(file) {
         serde_yaml::from_str(&s)?
@@ -220,7 +223,10 @@ pub(crate) fn read_from_file(file: &Path) -> Result<Value> {
     })
 }
 
-pub(crate) fn write_to_file(file: Option<&Path>, contents: &Value) -> Result<()> {
+pub(crate) fn write_to_file_or_print<T>(file: Option<&Path>, contents: &T) -> Result<()>
+where
+    T: Serialize,
+{
     match file {
         Some(file) => {
             let s = if is_yaml(file) {

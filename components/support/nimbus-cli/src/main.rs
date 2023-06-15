@@ -124,7 +124,7 @@ enum AppCommand {
 
         feature_id: Option<String>,
         partial: bool,
-        single: bool,
+        multi: bool,
 
         output: Option<PathBuf>,
     },
@@ -289,7 +289,7 @@ impl TryFrom<&Cli> for AppCommand {
                 feature_id,
                 output,
                 partial,
-                single,
+                multi,
                 ..
             } => {
                 let manifest = ManifestSource::try_from(&params, &manifest)?;
@@ -301,7 +301,7 @@ impl TryFrom<&Cli> for AppCommand {
                     manifest,
                     feature_id,
                     partial,
-                    single,
+                    multi,
                     output,
                 }
             }
