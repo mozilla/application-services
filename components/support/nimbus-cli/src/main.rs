@@ -123,7 +123,7 @@ enum AppCommand {
         manifest: ManifestSource,
 
         feature_id: Option<String>,
-        partial: bool,
+        validate: bool,
         multi: bool,
 
         output: Option<PathBuf>,
@@ -288,7 +288,7 @@ impl TryFrom<&Cli> for AppCommand {
                 branch,
                 feature_id,
                 output,
-                partial,
+                validate,
                 multi,
                 ..
             } => {
@@ -300,7 +300,7 @@ impl TryFrom<&Cli> for AppCommand {
                     branch,
                     manifest,
                     feature_id,
-                    partial,
+                    validate,
                     multi,
                     output,
                 }

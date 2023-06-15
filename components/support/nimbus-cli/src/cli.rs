@@ -110,8 +110,7 @@ pub(crate) enum CliCommand {
 
     /// Print the feature configuration involved in the branch of an experiment.
     ///
-    /// By default, this is the complete feature configuration: including the defaults
-    /// merged from the feature manifest.
+    /// This can be optionally merged with the defaults from the feature manifest.
     Features {
         #[command(flatten)]
         manifest: ManifestArgs,
@@ -123,9 +122,9 @@ pub(crate) enum CliCommand {
         #[arg(short, long)]
         branch: String,
 
-        /// Output the value in the experiment, rather than the merged values.
+        /// If set, then merge the experimental configuration with the defaults from the manifest
         #[arg(short, long, default_value = "false")]
-        partial: bool,
+        validate: bool,
 
         /// An optional feature-id: if it exists in this branch, print this feature
         /// on its own.

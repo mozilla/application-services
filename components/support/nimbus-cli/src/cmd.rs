@@ -60,7 +60,7 @@ pub(crate) fn process_cmd(cmd: &AppCommand) -> Result<bool> {
             branch,
             manifest,
             feature_id,
-            partial,
+            validate,
             multi,
             output,
         } => params.print_experiment_features(
@@ -68,7 +68,7 @@ pub(crate) fn process_cmd(cmd: &AppCommand) -> Result<bool> {
             branch,
             manifest,
             feature_id.as_ref(),
-            *partial,
+            *validate,
             *multi,
             output.as_ref(),
         )?,
@@ -728,7 +728,7 @@ impl NimbusApp {
         branch: &String,
         manifest_source: &ManifestSource,
         feature_id: Option<&String>,
-        partial: bool,
+        validate: bool,
         multi: bool,
         output: Option<&PathBuf>,
     ) -> Result<bool> {
@@ -737,7 +737,7 @@ impl NimbusApp {
             feature_id,
             experiment,
             branch,
-            partial,
+            validate,
             multi,
         )?;
         value_utils::write_to_file_or_print(output.map(|f| f.as_path()), &json)?;
@@ -750,7 +750,7 @@ impl NimbusApp {
         feature_id: Option<&String>,
         experiment: &ExperimentSource,
         branch: &String,
-        partial: bool,
+        validate: bool,
         multi: bool,
     ) -> Result<Value> {
         let value = experiment.try_into()?;
@@ -788,9 +788,9 @@ impl NimbusApp {
 
         // By now: we have all the features that we need, and no more.
 
-        // If partial, then nothing more is needed to be done: we're delivering the partial feature configuration.
-        // If not partial, then we should merge with the defaults from the manifest.
-        if !partial {
+        // If validating, then we should merge with the defaults from the manifest.
+        // If not, then nothing more is needed to be done: we're delivering the partial feature configuration.
+        if validate {
             let fm: FeatureManifest = manifest_source.try_into()?;
             let mut new = serde_json::value::Map::new();
             for (id, value) in result {
