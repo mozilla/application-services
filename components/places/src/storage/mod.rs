@@ -382,9 +382,9 @@ pub(crate) fn delete_meta(db: &PlacesDb, key: &str) -> Result<()> {
 /// Delete all items in the temp tables we use for staging changes.
 pub fn delete_pending_temp_tables(conn: &PlacesDb) -> Result<()> {
     conn.execute_batch(
-        "DELETE FROM moz_updateoriginsupdate_temp;
-         DELETE FROM moz_updateoriginsdelete_temp;
-         DELETE FROM moz_updateoriginsinsert_temp;",
+        "DELETE FROM moz_updateoriginsinsert_temp;
+         DELETE FROM moz_updateoriginsupdate_temp;
+         DELETE FROM moz_updateoriginsdelete_temp;",
     )?;
     Ok(())
 }
