@@ -745,7 +745,7 @@ mod tests {
                 url: Url::parse("http://example.com/").unwrap(),
                 title: "example.com/".into(),
                 icon_url: None,
-                frecency: 1999,
+                frecency: 2000,
                 reasons: vec![MatchReason::Origin],
             }]
         );
