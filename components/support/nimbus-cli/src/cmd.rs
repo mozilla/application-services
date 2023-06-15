@@ -61,7 +61,7 @@ pub(crate) fn process_cmd(cmd: &AppCommand) -> Result<bool> {
             manifest,
             feature_id,
             partial,
-            single,
+            multi,
             output,
         } => params.print_experiment_features(
             experiment,
@@ -69,7 +69,7 @@ pub(crate) fn process_cmd(cmd: &AppCommand) -> Result<bool> {
             manifest,
             feature_id.as_ref(),
             *partial,
-            *single,
+            *multi,
             output.as_ref(),
         )?,
 
@@ -597,7 +597,7 @@ impl NimbusApp {
         let contents = json!({
             "data": data,
         });
-        value_utils::write_to_file(Some(file), &contents)?;
+        value_utils::write_to_file_or_print(Some(file), &contents)?;
         Ok(())
     }
 
@@ -701,7 +701,7 @@ impl NimbusApp {
     ) -> Result<bool> {
         let manifest: FeatureManifest = manifest_source.try_into()?;
         let json = self.get_defaults_json(&manifest, feature_id)?;
-        value_utils::write_to_file(output.map(|f| f.as_path()), &json)?;
+        value_utils::write_to_file_or_print(output.map(|f| f.as_path()), &json)?;
         Ok(true)
     }
 
@@ -729,7 +729,7 @@ impl NimbusApp {
         manifest_source: &ManifestSource,
         feature_id: Option<&String>,
         partial: bool,
-        single: bool,
+        multi: bool,
         output: Option<&PathBuf>,
     ) -> Result<bool> {
         let json = self.get_experimental_json(
@@ -738,9 +738,9 @@ impl NimbusApp {
             experiment,
             branch,
             partial,
-            single,
+            multi,
         )?;
-        value_utils::write_to_file(output.map(|f| f.as_path()), &json)?;
+        value_utils::write_to_file_or_print(output.map(|f| f.as_path()), &json)?;
         Ok(true)
     }
 
@@ -751,42 +751,45 @@ impl NimbusApp {
         experiment: &ExperimentSource,
         branch: &String,
         partial: bool,
-        single: bool,
+        multi: bool,
     ) -> Result<Value> {
         let value = experiment.try_into()?;
 
+        // Find the named branch.
         let branches = try_find_branches(&value)?;
         let b = branches
             .iter()
             .find(|b| b.get_str("slug").unwrap() == branch)
             .ok_or_else(|| anyhow::format_err!("Branch '{branch}' does not exist"))?;
 
+        // Find the features for this branch: there may be more than one.
         let feature_values = try_find_features(b)?;
-        let use_feature = feature_values.len() == 1 && single;
 
+        // Now extract the relevant features out of the branches.
         let mut result = serde_json::value::Map::new();
-
         for f in feature_values {
             let id = f.get_str("featureId")?;
             let value = f
                 .get("value")
                 .ok_or_else(|| anyhow::format_err!("Branch {branch} feature {id} has no value"))?;
-
-            if use_feature {
-                result.insert(id.to_string(), value.clone());
-            } else {
-                match feature_id {
-                    Some(feature_id) if feature_id == id => {
-                        result.insert(id.to_string(), value.clone());
-                    }
-                    None => {
-                        result.insert(id.to_string(), value.clone());
-                    }
-                    _ => continue,
+            match feature_id {
+                None => {
+                    // If the user hasn't specified a feature, then just add it.
+                    result.insert(id.to_string(), value.clone());
                 }
+                Some(feature_id) if feature_id == id => {
+                    // If the user has specified a feature, and this is it, then also add it.
+                    result.insert(id.to_string(), value.clone());
+                }
+                // Otherwise, the user has specified a feature, and this wasn't it.
+                _ => continue,
             }
         }
 
+        // By now: we have all the features that we need, and no more.
+
+        // If partial, then nothing more is needed to be done: we're delivering the partial feature configuration.
+        // If not partial, then we should merge with the defaults from the manifest.
         if !partial {
             let fm: FeatureManifest = manifest_source.try_into()?;
             let mut new = serde_json::value::Map::new();
@@ -797,23 +800,21 @@ impl NimbusApp {
             result = new;
         }
 
-        Ok(if use_feature {
-            let v = result.values().find(|_| true).ok_or_else(|| {
-                anyhow::format_err!("No features available in '{branch}' branch of '{experiment}'")
-            })?;
-            v.to_owned()
-        } else {
-            match feature_id {
-                Some(id) => {
-                    let v = result.get(id).ok_or_else(|| {
-                        anyhow::format_err!(
-                            "Feature '{id}' is not involved in the '{experiment}' experiment"
-                        )
-                    })?;
-                    v.to_owned()
+        Ok(if !multi && result.len() == 1 {
+            // By default, if only a single feature is being displayed,
+            // we can output just the feature config.
+            match (result.values().find(|_| true), feature_id) {
+                (Some(v), _) => v.to_owned(),
+                (_, Some(id)) => anyhow::bail!(
+                    "The '{id}' feature is not involved in '{branch}' branch of '{experiment}'"
+                ),
+                (_, _) => {
+                    anyhow::bail!("No features available in '{branch}' branch of '{experiment}'")
                 }
-                _ => Value::Object(result),
             }
+        } else {
+            // Otherwise, we can output the `{ featureId: featureValue }` in its entirety.
+            Value::Object(result)
         })
     }
 }

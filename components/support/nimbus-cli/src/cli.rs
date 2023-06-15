@@ -127,14 +127,17 @@ pub(crate) enum CliCommand {
         #[arg(short, long, default_value = "false")]
         partial: bool,
 
-        /// An optional feature-id
+        /// An optional feature-id: if it exists in this branch, print this feature
+        /// on its own.
         #[arg(short, long = "feature")]
         feature_id: Option<String>,
 
-        /// Instead of specifying a feature, with single featured experiments,
-        /// output just the feature config for the only feature available.
-        #[arg(short, long = "single", default_value = "false")]
-        single: bool,
+        /// Print out the features involved in this branch as in a format:
+        /// `{ $feature_id: $value }`.
+        ///
+        /// Automated tools should use this, since the output is predictable.
+        #[arg(short, long = "multi", default_value = "false")]
+        multi: bool,
 
         /// An optional file to print the output.
         #[arg(short, long, value_name = "OUTPUT_FILE")]
