@@ -1216,7 +1216,7 @@ mod unit_tests {
             "{}",
             "--esn",
             "TEST_FLAG",
-            ])?;
+        ])?;
 
         let expected = vec![
             AppCommand::NoOp,
