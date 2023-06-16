@@ -22,12 +22,12 @@ class Feature(val string: String): FMLFeatureInterface {
 
 val holder = FeatureHolder<Feature>({ api }, featureId = "test-feature-holder") { Feature("NO CRASH") }
 
-for (i in 0..10000) {
+repeat(10000) {
     scope.submit {
         holder.value()
     }
 }
-for (i in 0..2000) {
+repeat(2000) {
     scope.submit {
         holder.value()
     }
