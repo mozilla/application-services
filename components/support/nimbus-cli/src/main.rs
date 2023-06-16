@@ -99,7 +99,6 @@ enum AppCommand {
     },
 
     Defaults {
-        params: NimbusApp,
         manifest: ManifestSource,
         feature_id: Option<String>,
         output: Option<PathBuf>,
@@ -118,7 +117,6 @@ enum AppCommand {
     },
 
     ExtractFeatures {
-        params: NimbusApp,
         experiment: ExperimentSource,
         branch: String,
         manifest: ManifestSource,
@@ -249,7 +247,6 @@ impl TryFrom<&Cli> for AppCommand {
             } => {
                 let manifest = ManifestSource::try_from(&params, &manifest)?;
                 AppCommand::Defaults {
-                    params,
                     manifest,
                     feature_id,
                     output,
@@ -301,7 +298,6 @@ impl TryFrom<&Cli> for AppCommand {
                 let manifest = ManifestSource::try_from(&params, &manifest)?;
                 let experiment = ExperimentSource::try_from(cli)?;
                 AppCommand::ExtractFeatures {
-                    params,
                     experiment,
                     branch,
                     manifest,
