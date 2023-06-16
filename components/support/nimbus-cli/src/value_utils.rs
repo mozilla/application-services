@@ -15,6 +15,8 @@ pub(crate) trait CliUtils {
     fn get_array<'a>(&'a self, key: &str) -> Result<&'a Vec<Value>>;
     fn get_mut_array<'a>(&'a mut self, key: &str) -> Result<&'a mut Vec<Value>>;
     fn get_mut_object<'a>(&'a mut self, key: &str) -> Result<&'a mut Value>;
+    fn get_object<'a>(&'a self, key: &str) -> Result<&'a Value>;
+    fn get_u64(&self, key: &str) -> Result<u64>;
 
     fn set<V>(&mut self, key: &str, value: V) -> Result<()>
     where
@@ -76,12 +78,34 @@ impl CliUtils for Value {
         Ok(v)
     }
 
+    fn get_object<'a>(&'a self, key: &str) -> Result<&'a Value> {
+        let v = self.get(key).ok_or_else(|| {
+            anyhow::Error::msg(format!(
+                "Expected an object with key '{key}' in the JSONObject"
+            ))
+        })?;
+        Ok(v)
+    }
+
     fn get_mut_object<'a>(&'a mut self, key: &str) -> Result<&'a mut Value> {
         let v = self.get_mut(key).ok_or_else(|| {
             anyhow::Error::msg(format!(
                 "Expected an object with key '{key}' in the JSONObject"
             ))
         })?;
+        Ok(v)
+    }
+
+    fn get_u64(&self, key: &str) -> Result<u64> {
+        let v = self
+            .get(key)
+            .ok_or_else(|| {
+                anyhow::Error::msg(format!(
+                    "Expected an array with key '{key}' in the JSONObject"
+                ))
+            })?
+            .as_u64()
+            .ok_or_else(|| anyhow::Error::msg("value is not a array"))?;
         Ok(v)
     }
 
