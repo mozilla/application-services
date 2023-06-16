@@ -6,22 +6,11 @@ license = "MPL-2.0"
 edition = "2021"
 publish = false
 
-# These three all have the same deps, and not a ton of them, so just bundle them
-# as 3 examples in 1 crate.
-
-[[example]]
-name = "fxa-devices-api"
-path = "src/devices-api.rs"
-[[example]]
-name = "fxa-oauth-flow"
-path = "src/oauth-flow.rs"
-
-[dev-dependencies]
+[dependencies]
 viaduct-reqwest = { path = "../../components/support/viaduct-reqwest" }
+clap = {version = "4.2", features = ["derive"]}
 cli-support = { path = "../cli-support" }
 fxa-client = { path = "../../components/fxa-client" }
 anyhow = "1.0"
-dialoguer = "0.10"
-webbrowser = "0.5"
 url = "2.2"
 sync15 = { path = "../../components/sync15" }

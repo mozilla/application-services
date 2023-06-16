@@ -60,9 +60,9 @@ pub use push::{
 pub use token::{AccessTokenInfo, AuthorizationParameters, ScopedKey};
 
 /// Result returned by internal functions
-type Result<T> = std::result::Result<T, Error>;
+pub type Result<T> = std::result::Result<T, Error>;
 /// Result returned by public-facing API functions
-type ApiResult<T> = std::result::Result<T, FxaError>;
+pub type ApiResult<T> = std::result::Result<T, FxaError>;
 
 /// Object representing the signed-in state of an application.
 ///
