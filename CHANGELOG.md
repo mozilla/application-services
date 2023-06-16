@@ -20,12 +20,14 @@
 
 ### 🦊 What's Changed 🦊
 
+- Added isRollout and bucketing info to the `list` command ([#5672](https://github.com/mozilla/application-services/pull/5672)).
 - Fixed several paper cut usability issues ([#5654](https://github.com/mozilla/application-services/pull/5654)):
   - Experiments by default are fetched from the API v6, eliminating latency between making changes on experimenter and syncing with remote settings.
   - Separated `fetch` and `fetch-list`: experiment lists, by default still come from Remote Settings, but the slower API v6 `/api/v6/experiments` can be queried.
 
 ### ✨ What's New ✨
 
+- Added an `info` command ([#5672](https://github.com/mozilla/application-services/pull/5672)).
 - Fixed several paper cut usability issues ([#5654](https://github.com/mozilla/application-services/pull/5654)):
   - Added a `defaults` command to output the feature configuration from the manifest.
   - Added a `features` command to output the experiment branch features and optionally merged with the manifest defaults.
