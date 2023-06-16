@@ -75,6 +75,26 @@ impl ExperimentSource {
         })
     }
 
+    fn try_from_url(value: &str) -> Result<Self> {
+        if !value.contains("://") {
+            anyhow::bail!("A URL must start with https://, '{value}' does not");
+        }
+        let value = value.replacen("://", "/", 1);
+
+        let parts: Vec<&str> = value.split('/').collect();
+
+        Ok(match parts.as_slice() {
+            [scheme, endpoint, "nimbus", slug]
+            | [scheme, endpoint, "nimbus", slug, _]
+            | [scheme, endpoint, "nimbus", slug, _, ""]
+            | [scheme, endpoint, "api", "v6", "experiments", slug, ""] => Self::FromApiV6 {
+                slug: slug.to_string(),
+                endpoint: format!("{scheme}://{endpoint}"),
+            },
+            _ => anyhow::bail!("Unrecognized URL from which to to get an experiment"),
+        })
+    }
+
     fn try_from_api(value: &str) -> Result<Self> {
         let p = config::api_v6_production_server();
         let s = config::api_v6_stage_server();
@@ -98,7 +118,12 @@ impl TryFrom<&ExperimentArgs> for ExperimentSource {
 
     fn try_from(value: &ExperimentArgs) -> Result<Self> {
         let experiment = &value.experiment;
+        let is_urlish = experiment.contains("://");
         Ok(match &value.file {
+            Some(_) if is_urlish => {
+                anyhow::bail!("Cannot load an experiment from a file and a URL at the same time")
+            }
+            None if is_urlish => Self::try_from_url(experiment.as_str())?,
             Some(file) => Self::try_from_file(file, experiment)?,
             _ if value.use_rs => Self::try_from_rs(experiment)?,
             _ => Self::try_from_api(experiment.as_str())?,
@@ -271,6 +296,57 @@ mod unit_tests {
             ExperimentSource::FromApiV6 {
                 slug,
                 endpoint: stage
+            }
+        );
+
+        Ok(())
+    }
+
+    #[test]
+    fn test_experiment_source_from_url() -> Result<()> {
+        let endpoint = "https://example.com";
+        let slug = "my-slug";
+        assert_eq!(
+            ExperimentSource::try_from_url("https://example.com/nimbus/my-slug/summary")?,
+            ExperimentSource::FromApiV6 {
+                slug: slug.to_string(),
+                endpoint: endpoint.to_string(),
+            }
+        );
+        assert_eq!(
+            ExperimentSource::try_from_url("https://example.com/nimbus/my-slug/summary/")?,
+            ExperimentSource::FromApiV6 {
+                slug: slug.to_string(),
+                endpoint: endpoint.to_string(),
+            }
+        );
+        assert_eq!(
+            ExperimentSource::try_from_url("https://example.com/nimbus/my-slug/results#overview")?,
+            ExperimentSource::FromApiV6 {
+                slug: slug.to_string(),
+                endpoint: endpoint.to_string(),
+            }
+        );
+        assert_eq!(
+            ExperimentSource::try_from_url("https://example.com/api/v6/experiments/my-slug/")?,
+            ExperimentSource::FromApiV6 {
+                slug: slug.to_string(),
+                endpoint: endpoint.to_string(),
+            }
+        );
+        let endpoint = "http://localhost:8080";
+        assert_eq!(
+            ExperimentSource::try_from_url("http://localhost:8080/nimbus/my-slug/summary")?,
+            ExperimentSource::FromApiV6 {
+                slug: slug.to_string(),
+                endpoint: endpoint.to_string(),
+            }
+        );
+        assert_eq!(
+            ExperimentSource::try_from_url("http://localhost:8080/api/v6/experiments/my-slug/")?,
+            ExperimentSource::FromApiV6 {
+                slug: slug.to_string(),
+                endpoint: endpoint.to_string(),
             }
         );
 

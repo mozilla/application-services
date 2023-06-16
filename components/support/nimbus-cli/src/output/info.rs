@@ -172,6 +172,10 @@ impl ExperimentSource {
             value_utils::write_to_file_or_print(output, &info)?;
             return Ok(true);
         }
+        let url = match self {
+            Self::FromApiV6 { slug, endpoint } => Some(format!("{endpoint}/nimbus/{slug}/summary")),
+            _ => None,
+        };
         let term = Term::stdout();
         let t_style = term.style().italic();
         let d_style = term.style().bold().cyan();
@@ -208,6 +212,9 @@ impl ExperimentSource {
         line("Slug", info.slug);
         line("Name", info.user_facing_name);
         line("Description", info.user_facing_description);
+        if let Some(url) = url {
+            line("URL", &url);
+        }
         line("App", info.app_name);
         line("Channel", info.channel);
         line("E/R", &is_rollout);
