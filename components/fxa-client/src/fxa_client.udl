@@ -729,7 +729,7 @@ interface FxaServer {
     Stage();
     China();
     LocalDev();
-    Custom(string content_url);
+    Custom(string url);
 };
 
 // Information about the authorization state of the application.
