@@ -40,10 +40,6 @@ mod account;
 mod auth;
 mod device;
 mod error;
-// We need to make the `internal` mod public for `sync-test` to work
-#[cfg(feature = "integration_test")]
-pub mod internal;
-#[cfg(not(feature = "integration_test"))]
 mod internal;
 mod migration;
 mod profile;

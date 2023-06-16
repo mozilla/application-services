@@ -38,4 +38,3 @@ mockito = "0.31"
 [features]
 default = []
 gecko = [ "rc_crypto/gecko" ]
-integration_test = []
