@@ -14,7 +14,7 @@ sync15 = { path = "../../components/sync15" }
 sync_manager = { path = "../../components/sync_manager" }
 restmail-client = { path = "../../components/support/restmail-client" }
 tabs = { path = "../../components/tabs", features = ["full-sync"] }
-fxa-client = { path = "../../components/fxa-client", features = ["integration_test"] }
+fxa-client = { path = "../../components/fxa-client" }
 sync-guid = { path = "../../components/support/guid", features = ["rusqlite_support", "random"]}
 interrupt-support = { path = "../../components/support/interrupt" }
 url = "2.2"

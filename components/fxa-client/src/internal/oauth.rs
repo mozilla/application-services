@@ -452,20 +452,6 @@ impl FirefoxAccount {
     pub fn clear_access_token_cache(&mut self) {
         self.state.access_token_cache.clear();
     }
-
-    #[cfg(feature = "integration_test")]
-    pub fn new_logged_in(
-        config: super::Config,
-        session_token: &str,
-        scoped_keys: HashMap<String, ScopedKey>,
-    ) -> Self {
-        let mut fxa = FirefoxAccount::with_config(config);
-        fxa.state.session_token = Some(session_token.to_owned());
-        scoped_keys.iter().for_each(|(key, val)| {
-            fxa.state.scoped_keys.insert(key.to_string(), val.clone());
-        });
-        fxa
-    }
 }
 
 const AUTH_CIRCUIT_BREAKER_CAPACITY: u8 = 5;
