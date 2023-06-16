@@ -120,7 +120,7 @@ pub enum FxaServer {
     Stage,
     China,
     LocalDev,
-    Custom { content_url: String },
+    Custom { url: String },
 }
 
 impl FxaServer {
@@ -131,7 +131,7 @@ impl FxaServer {
             Self::Stage => "https://accounts.stage.mozaws.net",
             Self::China => "https://accounts.firefox.com.cn",
             Self::LocalDev => "http://127.0.0.1:3030",
-            Self::Custom { content_url } => content_url,
+            Self::Custom { url } => url,
         }
     }
 }
