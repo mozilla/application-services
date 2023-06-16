@@ -5,8 +5,7 @@
 use crate::{
     sources::ManifestSource,
     value_utils::{
-        self, prepare_experiment, prepare_rollout, try_extract_data_list, try_find_branches,
-        try_find_features, CliUtils,
+        prepare_experiment, prepare_rollout, try_find_branches, try_find_features, CliUtils,
     },
     AppCommand, AppOpenArgs, ExperimentListSource, ExperimentSource, LaunchableApp, NimbusApp,
 };
@@ -14,10 +13,7 @@ use anyhow::{bail, Result};
 use console::Term;
 use nimbus_fml::intermediate_representation::FeatureManifest;
 use serde_json::{json, Value};
-use std::{
-    path::{Path, PathBuf},
-    process::Command,
-};
+use std::{path::PathBuf, process::Command};
 
 pub(crate) fn process_cmd(cmd: &AppCommand) -> Result<bool> {
     let status = match cmd {
@@ -70,13 +66,13 @@ pub(crate) fn process_cmd(cmd: &AppCommand) -> Result<bool> {
             output.as_ref(),
         )?,
 
-        AppCommand::FetchList { params, list, file } => params.fetch_list(list, file)?,
+        AppCommand::FetchList { params, list, file } => params.fetch_list(list, file.as_ref())?,
         AppCommand::FetchRecipes {
             params,
             recipes,
             file,
-        } => params.fetch_recipes(recipes, file)?,
-        AppCommand::Info { experiment, output } => experiment.print_info(output.as_deref())?,
+        } => params.fetch_recipes(recipes, file.as_ref())?,
+        AppCommand::Info { experiment, output } => experiment.print_info(output.as_ref())?,
         AppCommand::Kill { app } => app.kill_app()?,
         AppCommand::List { params, list } => list.print_list(params)?,
         AppCommand::LogState { app } => app.log_state()?,
@@ -563,48 +559,6 @@ fn logcat_args<'a>() -> Vec<&'a str> {
 }
 
 impl NimbusApp {
-    fn fetch_list(&self, list: &ExperimentListSource, file: &Path) -> Result<bool> {
-        let value: Value = list.try_into()?;
-        let array = try_extract_data_list(&value)?;
-        let mut data = Vec::new();
-
-        for exp in array {
-            let app_name = exp.get_str("appName")?;
-            if app_name != self.app_name {
-                continue;
-            }
-
-            data.push(exp);
-        }
-        self.write_experiments_to_file(&data, file)?;
-        Ok(true)
-    }
-
-    fn fetch_recipes(&self, recipes: &Vec<ExperimentSource>, file: &Path) -> Result<bool> {
-        let mut data = Vec::new();
-
-        for exp in recipes {
-            let exp: Value = exp.try_into()?;
-            let app_name = exp.get_str("appName")?;
-            if app_name != self.app_name {
-                continue;
-            }
-
-            data.push(exp);
-        }
-
-        self.write_experiments_to_file(&data, file)?;
-        Ok(true)
-    }
-
-    fn write_experiments_to_file(&self, data: &Vec<Value>, file: &Path) -> Result<()> {
-        let contents = json!({
-            "data": data,
-        });
-        value_utils::write_to_file_or_print(Some(file), &contents)?;
-        Ok(())
-    }
-
     fn validate_experiment(
         &self,
         manifest_source: &ManifestSource,

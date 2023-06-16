@@ -2,7 +2,7 @@
 // License, v. 2.0. If a copy of the MPL was not distributed with this
 // file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
-use std::path::PathBuf;
+use std::path::Path;
 
 use anyhow::Result;
 use nimbus_fml::intermediate_representation::FeatureManifest;
@@ -14,14 +14,17 @@ use crate::{
 };
 
 impl ManifestSource {
-    pub(crate) fn print_defaults(
+    pub(crate) fn print_defaults<P>(
         &self,
         feature_id: Option<&String>,
-        output: Option<&PathBuf>,
-    ) -> Result<bool> {
+        output: Option<P>,
+    ) -> Result<bool>
+    where
+        P: AsRef<Path>,
+    {
         let manifest: FeatureManifest = self.try_into()?;
         let json = self.get_defaults_json(&manifest, feature_id)?;
-        value_utils::write_to_file_or_print(output.map(|f| f.as_path()), &json)?;
+        value_utils::write_to_file_or_print(output, &json)?;
         Ok(true)
     }
 
@@ -44,17 +47,20 @@ impl ManifestSource {
 
 impl ExperimentSource {
     #[allow(clippy::too_many_arguments)]
-    pub(crate) fn print_features(
+    pub(crate) fn print_features<P>(
         &self,
         branch: &String,
         manifest_source: &ManifestSource,
         feature_id: Option<&String>,
         validate: bool,
         multi: bool,
-        output: Option<&PathBuf>,
-    ) -> Result<bool> {
+        output: Option<P>,
+    ) -> Result<bool>
+    where
+        P: AsRef<Path>,
+    {
         let json = self.get_features_json(manifest_source, feature_id, branch, validate, multi)?;
-        value_utils::write_to_file_or_print(output.map(|f| f.as_path()), &json)?;
+        value_utils::write_to_file_or_print(output, &json)?;
         Ok(true)
     }
 

@@ -147,7 +147,7 @@ pub(crate) enum CliCommand {
     Fetch {
         /// The file to download the recipes to.
         #[arg(short, long, value_name = "OUTPUT_FILE")]
-        output: PathBuf,
+        output: Option<PathBuf>,
 
         #[command(flatten)]
         experiment: ExperimentArgs,
@@ -166,7 +166,7 @@ pub(crate) enum CliCommand {
     FetchList {
         /// The file to download the recipes to.
         #[arg(short, long, value_name = "OUTPUT_FILE")]
-        output: PathBuf,
+        output: Option<PathBuf>,
 
         #[command(flatten)]
         list: ExperimentListArgs,
