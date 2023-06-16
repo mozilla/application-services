@@ -172,6 +172,16 @@ pub(crate) enum CliCommand {
         list: ExperimentListArgs,
     },
 
+    /// Displays information about an experiment
+    Info {
+        #[command(flatten)]
+        experiment: ExperimentArgs,
+
+        /// An optional file to print the output.
+        #[arg(short, long, value_name = "OUTPUT_FILE")]
+        output: Option<PathBuf>,
+    },
+
     /// List the experiments from a server
     List {
         #[command(flatten)]

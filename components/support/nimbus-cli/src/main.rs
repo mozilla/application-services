@@ -6,6 +6,7 @@ mod cli;
 mod cmd;
 mod config;
 mod feature_utils;
+mod output;
 mod sources;
 mod updater;
 mod value_utils;
@@ -139,6 +140,11 @@ enum AppCommand {
         params: NimbusApp,
         recipes: Vec<ExperimentSource>,
         file: PathBuf,
+    },
+
+    Info {
+        experiment: ExperimentSource,
+        output: Option<PathBuf>,
     },
 
     Kill {
@@ -334,6 +340,10 @@ impl TryFrom<&Cli> for AppCommand {
                     params,
                 }
             }
+            CliCommand::Info { experiment, output } => AppCommand::Info {
+                experiment: ExperimentSource::try_from(&experiment)?,
+                output,
+            },
             CliCommand::List { .. } => {
                 let list = ExperimentListSource::try_from(cli)?;
                 AppCommand::List { params, list }

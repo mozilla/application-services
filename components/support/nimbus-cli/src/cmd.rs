@@ -79,8 +79,9 @@ pub(crate) fn process_cmd(cmd: &AppCommand) -> Result<bool> {
             recipes,
             file,
         } => params.fetch_recipes(recipes, file)?,
+        AppCommand::Info { experiment, output } => experiment.print_info(output.as_deref())?,
         AppCommand::Kill { app } => app.kill_app()?,
-        AppCommand::List { params, list } => params.list(list)?,
+        AppCommand::List { params, list } => list.print_list(params)?,
         AppCommand::LogState { app } => app.log_state()?,
         AppCommand::NoOp => true,
         AppCommand::Open {
@@ -605,51 +606,6 @@ impl NimbusApp {
         });
         value_utils::write_to_file_or_print(Some(file), &contents)?;
         Ok(())
-    }
-
-    fn list(&self, list: &ExperimentListSource) -> Result<bool> {
-        let value: Value = list.try_into()?;
-        let array = try_extract_data_list(&value)?;
-        let term = Term::stdout();
-        let style = term.style().italic().underlined();
-        let slug = style.apply_to("Experiment slug");
-        let channel = style.apply_to(" Channel");
-        term.write_line(&format!(
-            "{slug: <66}|{channel: <11}|{0: <31}|{1: <20}",
-            style.apply_to(" Features"),
-            style.apply_to(" Branches")
-        ))?;
-        for exp in array {
-            let slug = exp.get_str("slug")?;
-            let app_name = exp.get_str("appName")?;
-            if app_name != self.app_name {
-                continue;
-            }
-
-            let channel = exp.get_str("channel")?;
-
-            let features: Vec<_> = exp
-                .get_array("featureIds")?
-                .iter()
-                .flat_map(|f| f.as_str())
-                .collect();
-            let branches: Vec<_> = exp
-                .get_array("branches")?
-                .iter()
-                .flat_map(|b| {
-                    b.get("slug")
-                        .expect("Expecting a branch with a slug")
-                        .as_str()
-                })
-                .collect();
-
-            term.write_line(&format!(
-                " {slug: <65}| {channel: <10}| {0: <30}| {1}",
-                features.join(", "),
-                branches.join(", ")
-            ))?;
-        }
-        Ok(true)
     }
 
     fn validate_experiment(
