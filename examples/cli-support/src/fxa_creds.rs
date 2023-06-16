@@ -14,7 +14,10 @@ use url::Url;
 
 // This crate awkardly uses some internal implementation details of the fxa-client crate,
 // because we haven't worked on exposing those test-only features via UniFFI.
-use fxa_client::{AccessTokenInfo, FirefoxAccount, FxaConfig, FxaError};
+use fxa_client::{
+    AccessTokenInfo, CallbackError, CallbackResult, FirefoxAccount, FxaConfig, FxaError,
+    OAuthHandler, OAuthResult,
+};
 use sync15::client::Sync15StorageClientInit;
 use sync15::KeyBundle;
 
@@ -30,7 +33,10 @@ fn load_fxa_creds(path: &str) -> Result<FirefoxAccount> {
     let mut file = fs::File::open(path)?;
     let mut s = String::new();
     file.read_to_string(&mut s)?;
-    Ok(FirefoxAccount::from_json(&s)?)
+    Ok(FirefoxAccount::from_json(
+        &s,
+        Box::new(ConsoleOAuthHandler),
+    )?)
 }
 
 fn load_or_create_fxa_creds(path: &str, cfg: FxaConfig) -> Result<FirefoxAccount> {
@@ -44,25 +50,46 @@ fn load_or_create_fxa_creds(path: &str, cfg: FxaConfig) -> Result<FirefoxAccount
     })
 }
 
-fn create_fxa_creds(path: &str, cfg: FxaConfig) -> Result<FirefoxAccount> {
-    let acct = FirefoxAccount::new(cfg);
-    let oauth_uri = acct.begin_oauth_flow(&[SYNC_SCOPE], "fxa_creds", None)?;
+struct ConsoleOAuthHandler;
 
-    if webbrowser::open(oauth_uri.as_ref()).is_err() {
-        log::warn!("Failed to open a web browser D:");
-        println!("Please visit this URL, sign in, and then copy-paste the final URL below.");
-        println!("\n    {}\n", oauth_uri);
-    } else {
-        println!("Please paste the final URL below:\n");
+impl OAuthHandler for ConsoleOAuthHandler {
+    fn perform_flow(&self, oauth_uri: String) -> CallbackResult<OAuthResult> {
+        if webbrowser::open(oauth_uri.as_ref()).is_err() {
+            log::warn!("Failed to open a web browser D:");
+            println!("Please visit this URL, sign in, and then copy-paste the final URL below.");
+            println!("\n    {}\n", oauth_uri);
+        } else {
+            println!("Please paste the final URL below:\n");
+        }
+
+        let final_url =
+            url::Url::parse(&prompt_string("Final URL").unwrap_or_default()).map_err(|_| {
+                CallbackError::Other {
+                    reason: "Invalid final URL".into(),
+                }
+            })?;
+        let mut query_params = final_url
+            .query_pairs()
+            .into_owned()
+            .collect::<HashMap<String, String>>();
+        let state = query_params
+            .remove("state")
+            .ok_or_else(|| CallbackError::Other {
+                reason: "Invalid final URL".into(),
+            })?;
+        let code = query_params
+            .remove("code")
+            .ok_or_else(|| CallbackError::Other {
+                reason: "Invalid final URL".into(),
+            })?;
+        Ok(OAuthResult { state, code })
     }
+}
 
-    let final_url = url::Url::parse(&prompt_string("Final URL").unwrap_or_default())?;
-    let query_params = final_url
-        .query_pairs()
-        .into_owned()
-        .collect::<HashMap<String, String>>();
+fn create_fxa_creds(path: &str, cfg: FxaConfig) -> Result<FirefoxAccount> {
+    let acct = FirefoxAccount::new(cfg, Box::new(ConsoleOAuthHandler));
+    acct.connect_with_oauth(&[SYNC_SCOPE], "fxa_creds", None)?;
 
-    acct.complete_oauth_flow(&query_params["code"], &query_params["state"])?;
     // Device registration.
     acct.initialize_device("CLI Device", sync15::DeviceType::Desktop, vec![])?;
     let mut file = fs::File::create(path)?;
