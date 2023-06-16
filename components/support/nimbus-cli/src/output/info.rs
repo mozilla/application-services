@@ -162,7 +162,10 @@ impl ExperimentListSource {
 }
 
 impl ExperimentSource {
-    pub(crate) fn print_info(&self, output: Option<&Path>) -> Result<bool> {
+    pub(crate) fn print_info<P>(&self, output: Option<P>) -> Result<bool>
+    where
+        P: AsRef<Path>,
+    {
         let value = self.try_into()?;
         let info: ExperimentInfo = ExperimentInfo::try_from(&value)?;
         if output.is_some() {

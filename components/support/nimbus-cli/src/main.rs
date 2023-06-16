@@ -131,13 +131,13 @@ enum AppCommand {
     FetchList {
         params: NimbusApp,
         list: ExperimentListSource,
-        file: PathBuf,
+        file: Option<PathBuf>,
     },
 
     FetchRecipes {
         params: NimbusApp,
         recipes: Vec<ExperimentSource>,
-        file: PathBuf,
+        file: Option<PathBuf>,
     },
 
     Info {
@@ -1244,7 +1244,7 @@ mod unit_tests {
 
     #[test]
     fn test_fetch() -> Result<()> {
-        let file = PathBuf::from("./archived.json");
+        let file = Some(PathBuf::from("./archived.json"));
         let observed = get_commands_from_cli([
             "nimbus-cli",
             "--app",
@@ -1294,7 +1294,7 @@ mod unit_tests {
 
     #[test]
     fn test_fetch_list() -> Result<()> {
-        let file = PathBuf::from("./archived.json");
+        let file = Some(PathBuf::from("./archived.json"));
         let observed = get_commands_from_cli([
             "nimbus-cli",
             "--app",

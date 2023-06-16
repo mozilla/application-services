@@ -1,11 +1,11 @@
-use std::path::Path;
-
 // This Source Code Form is subject to the terms of the Mozilla Public
 // License, v. 2.0. If a copy of the MPL was not distributed with this
 // file, You can obtain one at https://mozilla.org/MPL/2.0/.
+
 use anyhow::Result;
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
+use std::path::Path;
 
 use crate::NimbusApp;
 
@@ -230,30 +230,35 @@ pub(crate) fn prepare_experiment(
     Ok(experiment)
 }
 
-fn is_yaml(file: &Path) -> bool {
-    let ext = file.extension().unwrap_or_default();
+fn is_yaml<P>(file: P) -> bool
+where
+    P: AsRef<Path>,
+{
+    let ext = file.as_ref().extension().unwrap_or_default();
     ext == "yaml" || ext == "yml"
 }
 
-pub(crate) fn read_from_file<T>(file: &Path) -> Result<T>
+pub(crate) fn read_from_file<P, T>(file: P) -> Result<T>
 where
+    P: AsRef<Path>,
     for<'a> T: Deserialize<'a>,
 {
-    let s = std::fs::read_to_string(file)?;
-    Ok(if is_yaml(file) {
+    let s = std::fs::read_to_string(&file)?;
+    Ok(if is_yaml(&file) {
         serde_yaml::from_str(&s)?
     } else {
         serde_json::from_str(&s)?
     })
 }
 
-pub(crate) fn write_to_file_or_print<T>(file: Option<&Path>, contents: &T) -> Result<()>
+pub(crate) fn write_to_file_or_print<P, T>(file: Option<P>, contents: &T) -> Result<()>
 where
+    P: AsRef<Path>,
     T: Serialize,
 {
     match file {
         Some(file) => {
-            let s = if is_yaml(file) {
+            let s = if is_yaml(&file) {
                 serde_yaml::to_string(&contents)?
             } else {
                 serde_json::to_string_pretty(&contents)?
