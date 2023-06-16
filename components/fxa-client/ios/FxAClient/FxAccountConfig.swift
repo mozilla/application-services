@@ -29,7 +29,7 @@ open class FxAConfig {
         tokenServerUrlOverride: String? = nil
     ) {
         rustConfig = FxaConfig(
-            server: FxaServer.custom(contentUrl: contentUrl),
+            server: FxaServer.custom(url: contentUrl),
             clientId: clientId,
             redirectUri: redirectUri,
             tokenServerUrlOverride: tokenServerUrlOverride

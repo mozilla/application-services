@@ -159,7 +159,7 @@ impl FxaConfigUrl {
             FxaConfigUrl::Stage => FxaConfig::stage(client_id, redirect),
             FxaConfigUrl::Release => FxaConfig::release(client_id, redirect),
             FxaConfigUrl::Custom(url) => FxaConfig {
-                server: FxaServer::Custom { content_url: url.to_string() },
+                server: FxaServer::Custom { url: url.to_string() },
                 client_id: client_id.to_string(),
                 redirect_uri: redirect.to_string(),
                 token_server_url_override: None,
