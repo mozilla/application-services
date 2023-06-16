@@ -54,6 +54,7 @@ struct ConsoleOAuthHandler;
 
 impl OAuthHandler for ConsoleOAuthHandler {
     fn perform_flow(&self, oauth_uri: String) -> CallbackResult<OAuthResult> {
+        println!("Firefox account is disconnected, please login");
         if webbrowser::open(oauth_uri.as_ref()).is_err() {
             log::warn!("Failed to open a web browser D:");
             println!("Please visit this URL, sign in, and then copy-paste the final URL below.");
