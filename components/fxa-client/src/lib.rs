@@ -105,6 +105,11 @@ pub struct FxaConfig {
     pub redirect_uri: String,
     ///  URL for the user's Sync Tokenserver. This can be used to support users who self-host their
     ///  sync data. If `None` then it will default to the Mozilla-hosted Sync server.
+    ///
+    ///  Note: this lives here for historical reasons, but probably shouldn't.  Applications pass
+    ///  the token server URL they get from `fxa-client` to `SyncManager`.  It would be simpler to
+    ///  cut out `fxa-client` out of the middle and have applications send the overridden URL
+    ///  directly to `SyncManager`.
     pub token_server_url_override: Option<String>,
 }
 
