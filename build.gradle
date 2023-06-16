@@ -18,7 +18,7 @@ buildscript {
         androidx_work_testing_version = '2.7.1'
         espresso_core_version = '3.5.1'
 
-        detekt_version = '1.21.0'
+        detekt_version = '1.23.0'
         gradle_download_task_version = '5.2.1'
         junit_version = '4.13.2'
         mockito_core_version = '5.3.1'
@@ -302,7 +302,6 @@ detekt {
     )
     buildUponDefaultConfig = true
     config = files("${projectDir}/.detekt.yml")
-    failFast = false
     reports {
         xml.enabled = false
     }
