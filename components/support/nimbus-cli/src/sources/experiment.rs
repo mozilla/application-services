@@ -33,6 +33,10 @@ pub(crate) enum ExperimentSource {
         slug: String,
         endpoint: String,
     },
+    #[cfg(test)]
+    FromTestFixture {
+        file: PathBuf,
+    },
 }
 
 // Create ExperimentSources from &str and Cli.
@@ -111,6 +115,13 @@ impl ExperimentSource {
             list: file.try_into()?,
         })
     }
+
+    #[cfg(test)]
+    pub(crate) fn from_fixture(filename: &str) -> Self {
+        let dir = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
+        let file = dir.join("test/fixtures").join(filename);
+        Self::FromTestFixture { file }
+    }
 }
 
 impl TryFrom<&ExperimentArgs> for ExperimentSource {
@@ -160,6 +171,8 @@ impl Display for ExperimentSource {
             Self::FromFeatureFiles { feature_id, .. } => {
                 f.write_str(&format!("{feature_id}-experiment"))
             }
+            #[cfg(test)]
+            Self::FromTestFixture { file } => f.write_str(&format!("{file:?}")),
         }
     }
 }
@@ -188,6 +201,9 @@ impl TryFrom<&ExperimentSource> for Value {
                 feature_id,
                 files,
             } => feature_utils::create_experiment(app, feature_id, files)?,
+
+            #[cfg(test)]
+            ExperimentSource::FromTestFixture { file } => value_utils::read_from_file(file)?,
         })
     }
 }
