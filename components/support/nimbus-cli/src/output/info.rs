@@ -228,3 +228,90 @@ impl ExperimentSource {
         Ok(true)
     }
 }
+
+#[cfg(test)]
+mod unit_tests {
+    use serde_json::json;
+
+    use super::*;
+
+    #[test]
+    fn test_date_range_to_string() -> Result<()> {
+        let from = json!("2023-06-01");
+        let to = json!("2023-06-19");
+        let null = json!(null);
+        let days28 = json!(28);
+
+        let dr = DateRange::new(Some(&null), Some(&null), Some(&null));
+        let expected = "unknown".to_string();
+        let observed = dr.to_string();
+        assert_eq!(expected, observed);
+
+        let dr = DateRange::new(Some(&null), Some(&null), Some(&days28));
+        let expected = "unknown".to_string();
+        let observed = dr.to_string();
+        assert_eq!(expected, observed);
+
+        let dr = DateRange::new(Some(&null), Some(&to), Some(&null));
+        let expected = "ending 2023-06-19".to_string();
+        let observed = dr.to_string();
+        assert_eq!(expected, observed);
+
+        let dr = DateRange::new(Some(&null), Some(&to), Some(&days28));
+        let expected = "ending 2023-06-19, started 28 days before".to_string();
+        let observed = dr.to_string();
+        assert_eq!(expected, observed);
+
+        let dr = DateRange::new(Some(&from), Some(&null), Some(&null));
+        let expected = "2023-06-01 ➞ ?".to_string();
+        let observed = dr.to_string();
+        assert_eq!(expected, observed);
+
+        let dr = DateRange::new(Some(&from), Some(&null), Some(&days28));
+        let expected = "2023-06-01, proposed ending after 28 days".to_string();
+        let observed = dr.to_string();
+        assert_eq!(expected, observed);
+
+        let dr = DateRange::new(Some(&from), Some(&to), Some(&null));
+        let expected = "2023-06-01 ➞ 2023-06-19".to_string();
+        let observed = dr.to_string();
+        assert_eq!(expected, observed);
+
+        let dr = DateRange::new(Some(&from), Some(&to), Some(&days28));
+        let expected = "2023-06-01 ➞ 2023-06-19".to_string();
+        let observed = dr.to_string();
+        assert_eq!(expected, observed);
+        Ok(())
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_experiment_info() -> Result<()> {
+        let exp = ExperimentSource::from_fixture("fenix-nimbus-validation-v3.json");
+        let value: Value = Value::try_from(&exp)?;
+
+        let info = ExperimentInfo::try_from(&value)?;
+
+        assert_eq!("fenix-nimbus-validation-v3", info.slug);
+        assert_eq!("Fenix Nimbus Validation v3", info.user_facing_name);
+        assert_eq!(
+            "Verify we can run A/A experiments and bucket.",
+            info.user_facing_description
+        );
+        assert_eq!("fenix", info.app_name);
+        assert_eq!("nightly", info.channel);
+        assert!(!info.is_rollout);
+        assert!(!info.is_enrollment_paused);
+        assert_eq!("true", info.targeting);
+        assert_eq!(8000, info.bucketing);
+        assert_eq!(" 80 %", info.bucketing_percent());
+        assert_eq!(vec!["a1", "a2"], info.branches);
+        assert_eq!(vec!["no-feature-fenix"], info.features);
+
+        Ok(())
+    }
+}
