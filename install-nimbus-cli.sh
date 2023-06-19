@@ -18,6 +18,7 @@ HAS_WGET="$(type "wget" &> /dev/null && echo true || echo false)"
 HAS_UNZIP="$(type "unzip" &> /dev/null && echo true || echo false)"
 
 USE_SUDO="false"
+IS_UPGRADE="false"
 
 # echoProgress displays a message to the user.
 echoProgress() {
@@ -105,6 +106,7 @@ initInstallDirectory() {
     # Follow the softlinks to where the file actually sites.
     existing=$(readlink -f "$existing")
     my_dir=$(dirname "$existing")
+    IS_UPGRADE="true"
   else
     # Otherwise, we need to find some place on the existing PATH.
     my_path=$(echo "$PATH" | tr ':' '\n')
@@ -167,6 +169,9 @@ cleanup() {
 
 success() {
   echoProgress "Success!"
+  if [[ "$IS_UPGRADE" == "true" ]] ; then
+    echoInfo "To see What's New, visit: https://experimenter.info/nimbus-cli/whats-new"
+  fi
 }
 
 # runs the given command as root (detects if we are root already)
