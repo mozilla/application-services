@@ -2333,7 +2333,7 @@ checksum = "a629868a433328c35d654e1e1fb4648a68a042e3c71de4e507a9bcf4602c5635"
 
 [[package]]
 name = "nimbus-cli"
-version = "0.2.0"
+version = "0.3.0"
 dependencies = [
  "anyhow",
  "clap 4.2.2",
