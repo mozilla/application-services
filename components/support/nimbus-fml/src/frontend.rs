@@ -20,35 +20,34 @@ use crate::{
 #[derive(Debug, Deserialize, Serialize, Clone)]
 #[serde(deny_unknown_fields)]
 pub(crate) struct EnumVariantBody {
-    description: String,
+    pub(crate) description: String,
 }
 
 #[derive(Debug, Deserialize, Serialize, Clone)]
 #[serde(deny_unknown_fields)]
 pub(crate) struct EnumBody {
-    description: String,
-    variants: HashMap<String, EnumVariantBody>,
+    pub(crate) description: String,
+    pub(crate) variants: HashMap<String, EnumVariantBody>,
 }
 
 #[derive(Debug, Deserialize, Serialize, Clone)]
 #[serde(deny_unknown_fields)]
 pub(crate) struct FieldBody {
-    description: String,
+    pub(crate) description: String,
     #[serde(default)]
-    required: bool,
+    pub(crate) required: bool,
     #[serde(rename = "type")]
-    variable_type: String,
-    default: Option<serde_json::Value>,
+    pub(crate) variable_type: String,
+    pub(crate) default: Option<serde_json::Value>,
 }
 
 #[derive(Debug, Deserialize, Serialize, Clone)]
 #[serde(deny_unknown_fields)]
 pub(crate) struct ObjectBody {
-    description: String,
-    failable: Option<bool>,
+    pub(crate) description: String,
     // We need these in a deterministic order, so they are stable across multiple
     // runs of the same manifests.
-    fields: BTreeMap<String, FieldBody>,
+    pub(crate) fields: BTreeMap<String, FieldBody>,
 }
 
 #[derive(Debug, Deserialize, Serialize, Clone, Default)]
@@ -112,14 +111,14 @@ pub(crate) struct ImportBlock {
 #[derive(Debug, Deserialize, Serialize, Clone)]
 #[serde(deny_unknown_fields)]
 pub(crate) struct FeatureBody {
-    description: String,
+    pub(crate) description: String,
     // We need these in a deterministic order, so they are stable across multiple
     // runs of the same manifests:
     // 1. Swift insists on args in the same order they were declared.
     // 2. imported features are declared and constructed in different runs of the tool.
-    variables: BTreeMap<String, FieldBody>,
+    pub(crate) variables: BTreeMap<String, FieldBody>,
     #[serde(alias = "defaults")]
-    default: Option<Vec<DefaultBlock>>,
+    pub(crate) default: Option<Vec<DefaultBlock>>,
 }
 #[derive(Debug, Deserialize, Serialize, Clone, Default)]
 #[serde(deny_unknown_fields)]

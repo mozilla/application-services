@@ -64,7 +64,6 @@ types:
   objects:
     Button:
       description: This is a button object
-      failable: true
       fields:
         label:
           description: This is the label for the button
