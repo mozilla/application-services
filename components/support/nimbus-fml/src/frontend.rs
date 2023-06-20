@@ -8,12 +8,13 @@ use serde::{Deserialize, Serialize};
 use serde_json::json;
 
 use crate::{
+    defaults_merger::DefaultsMerger,
     error::Result,
     intermediate_representation::{
         EnumDef, FeatureDef, FeatureManifest, ModuleId, ObjectDef, PropDef, TargetLanguage,
         TypeRef, VariantDef,
     },
-    parser::{get_typeref_from_string, DefaultsMerger},
+    parser::get_typeref_from_string,
 };
 
 #[derive(Debug, Deserialize, Serialize, Clone)]

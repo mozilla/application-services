@@ -7,6 +7,7 @@ extern crate clap;
 
 mod backends;
 mod commands;
+mod defaults_merger;
 mod error;
 #[cfg(test)]
 #[allow(dead_code)]
