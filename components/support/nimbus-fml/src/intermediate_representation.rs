@@ -3,7 +3,8 @@
 * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 use crate::error::FMLError::InvalidFeatureError;
 use crate::error::{FMLError, Result};
-use crate::parser::{AboutBlock, DefaultsMerger};
+use crate::frontend::AboutBlock;
+use crate::parser::DefaultsMerger;
 use crate::util::loaders::FilePath;
 use anyhow::{bail, Error, Result as AnyhowResult};
 use serde::{Deserialize, Serialize};

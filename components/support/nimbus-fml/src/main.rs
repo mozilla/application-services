@@ -11,6 +11,7 @@ mod error;
 #[cfg(test)]
 #[allow(dead_code)]
 mod fixtures;
+mod frontend;
 mod intermediate_representation;
 mod parser;
 mod util;
@@ -19,8 +20,8 @@ mod workflows;
 use anyhow::{bail, Result};
 use clap::{App, ArgMatches};
 use commands::{CliCmd, GenerateExperimenterManifestCmd, GenerateIRCmd, GenerateStructCmd};
+use frontend::{AboutBlock, KotlinAboutBlock, SwiftAboutBlock};
 use intermediate_representation::TargetLanguage;
-use parser::{AboutBlock, KotlinAboutBlock, SwiftAboutBlock};
 use util::loaders::LoaderConfig;
 
 use crate::commands::ValidateCmd;

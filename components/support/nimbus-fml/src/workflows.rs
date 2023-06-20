@@ -11,8 +11,9 @@ use crate::{
     backends,
     commands::{GenerateExperimenterManifestCmd, GenerateIRCmd, GenerateStructCmd},
     error::{FMLError, Result},
+    frontend::AboutBlock,
     intermediate_representation::{FeatureManifest, TargetLanguage},
-    parser::{AboutBlock, Parser},
+    parser::Parser,
     util::loaders::{FileLoader, FilePath, LoaderConfig},
     MATCHING_FML_EXTENSION,
 };
@@ -281,7 +282,7 @@ mod test {
     use super::*;
     use crate::backends::experimenter_manifest::ExperimenterManifest;
     use crate::backends::{kotlin, swift};
-    use crate::parser::KotlinAboutBlock;
+    use crate::frontend::KotlinAboutBlock;
     use crate::util::{generated_src_dir, join, pkg_dir};
 
     const MANIFEST_PATHS: &[&str] = &[
