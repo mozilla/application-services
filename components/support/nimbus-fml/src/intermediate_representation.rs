@@ -92,6 +92,24 @@ pub enum TypeRef {
     Option(Box<TypeRef>),
 }
 
+impl Display for TypeRef {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Self::String => f.write_str("String"),
+            Self::Int => f.write_str("Int"),
+            Self::Boolean => f.write_str("Boolean"),
+            Self::BundleImage(_) => f.write_str("Image"),
+            Self::BundleText(_) => f.write_str("Text"),
+            Self::Enum(v) => f.write_str(v),
+            Self::Object(v) => f.write_str(v),
+            Self::Option(v) => f.write_fmt(format_args!("Option<{v}>")),
+            Self::List(v) => f.write_fmt(format_args!("List<{v}>")),
+            Self::StringMap(v) => f.write_fmt(format_args!("Map<String, {v}>")),
+            Self::EnumMap(k, v) => f.write_fmt(format_args!("Map<{k}, {v}>")),
+        }
+    }
+}
+
 /**
  * An identifier derived from a `FilePath` of a top-level or importable FML file.
  *
