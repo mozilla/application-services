@@ -4,8 +4,8 @@
 
 use crate::commands::GenerateStructCmd;
 use crate::error::{FMLError, Result};
+use crate::frontend::AboutBlock;
 use crate::intermediate_representation::FeatureManifest;
-use crate::parser::AboutBlock;
 use askama::Template;
 
 mod gen_structs;
