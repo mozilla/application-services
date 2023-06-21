@@ -11,6 +11,7 @@
 ### ✨ What's New ✨
 
 - Add `validate` command to the FML CLI. This command validates a chosen manifest file, including all its imports, includes, and channels ([#5607](https://github.com/mozilla/application-services/pull/5607)).
+- Add `single-file` command to the FML CLI. This command rationalizes a manifest file– including all of its imports and includes– into a single file, suitable for bundling into a secure environment ([#5676](https://github.com/mozilla/application-services/pull/5676)).
 
 ### 🦊 What's Changed 🦊
 
