@@ -5,7 +5,7 @@
 use glob::MatchOptions;
 use std::collections::HashSet;
 
-use crate::commands::{ValidateCmd, GenerateSingleFileManifestCmd};
+use crate::commands::{GenerateSingleFileManifestCmd, ValidateCmd};
 use crate::error::FMLError::CliError;
 use crate::frontend::ManifestFrontEnd;
 use crate::{
@@ -877,7 +877,7 @@ mod test {
 
         fs::create_dir_all(generated_src_dir())?;
 
-        let output = format!("{}.yaml", join(generated_src_dir(), filestem)).into();
+        let output = join(generated_src_dir(), &format!("{filestem}.yaml")).into();
         let load_from_ir = if let Some(ext) = file.extension() {
             TargetLanguage::ExperimenterJSON == ext.try_into()?
         } else {
@@ -892,5 +892,66 @@ mod test {
             channel: "release".into(),
             loader,
         })
+    }
+
+    fn test_single_merged_manifest_file(path: &str, channel: &str) -> Result<()> {
+        let manifest = join(pkg_dir(), path);
+        let file = Path::new(&manifest);
+        let filestem = file
+            .file_stem()
+            .ok_or_else(|| anyhow!("Manifest file path isn't a file"))?
+            .to_str()
+            .ok_or_else(|| anyhow!("Manifest file path isn't a file with a sensible name"))?;
+
+        fs::create_dir_all(generated_src_dir())?;
+
+        let output: PathBuf =
+            join(generated_src_dir(), &format!("single-file-{filestem}.yaml")).into();
+        let loader = Default::default();
+
+        // Load the source file, and get the default_json()
+        let files: FileLoader = TryFrom::try_from(&loader)?;
+        let src = files.file_path(&manifest)?;
+        let fm = load_feature_manifest(files, src, false, channel)?;
+        let expected = fm.default_json();
+
+        // Generate the merged file
+        let cmd = GenerateSingleFileManifestCmd {
+            loader: Default::default(),
+            manifest,
+            output: output.clone(),
+            channel: channel.to_string(),
+        };
+        generate_single_file_manifest(&cmd)?;
+
+        // Reload the generated file, and get the default_json()
+        let dest = FilePath::Local(output);
+        let files: FileLoader = TryFrom::try_from(&loader)?;
+        let fm = load_feature_manifest(files, dest, false, channel)?;
+        let observed = fm.default_json();
+
+        // They should be the same.
+        assert_eq!(expected, observed);
+
+        Ok(())
+    }
+
+    #[test]
+    fn test_single_file_command() -> Result<()> {
+        test_single_merged_manifest_file("fixtures/fe/browser.yaml", "release")?;
+        test_single_merged_manifest_file(
+            "fixtures/fe/importing/including-imports/ui.fml.yaml",
+            "none",
+        )?;
+        test_single_merged_manifest_file(
+            "fixtures/fe/importing/including-imports/app.fml.yaml",
+            "release",
+        )?;
+        test_single_merged_manifest_file("fixtures/fe/importing/overrides/app.fml.yaml", "debug")?;
+        test_single_merged_manifest_file("fixtures/fe/importing/overrides/lib.fml.yaml", "debug")?;
+        test_single_merged_manifest_file("fixtures/fe/importing/diamond/00-app.yaml", "debug")?;
+        test_single_merged_manifest_file("fixtures/fe/importing/diamond/01-lib.yaml", "debug")?;
+        test_single_merged_manifest_file("fixtures/fe/importing/diamond/02-sublib.yaml", "debug")?;
+        Ok(())
     }
 }

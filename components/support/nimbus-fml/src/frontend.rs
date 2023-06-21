@@ -94,7 +94,7 @@ impl AboutBlock {
             description: self.description.clone(),
             kotlin_about: None,
             swift_about: None,
-         }
+        }
     }
 }
 
