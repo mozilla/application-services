@@ -34,8 +34,6 @@ pub(crate) struct EnumBody {
 #[serde(deny_unknown_fields)]
 pub(crate) struct FieldBody {
     pub(crate) description: String,
-    #[serde(default)]
-    pub(crate) required: bool,
     #[serde(rename = "type")]
     pub(crate) variable_type: String,
     pub(crate) default: Option<serde_json::Value>,
@@ -47,6 +45,7 @@ pub(crate) struct ObjectBody {
     pub(crate) description: String,
     // We need these in a deterministic order, so they are stable across multiple
     // runs of the same manifests.
+    #[serde(skip_serializing_if = "BTreeMap::is_empty")]
     pub(crate) fields: BTreeMap<String, FieldBody>,
 }
 
@@ -54,8 +53,10 @@ pub(crate) struct ObjectBody {
 #[serde(deny_unknown_fields)]
 pub(crate) struct Types {
     #[serde(default)]
+    #[serde(skip_serializing_if = "BTreeMap::is_empty")]
     pub(crate) enums: BTreeMap<String, EnumBody>,
     #[serde(default)]
+    #[serde(skip_serializing_if = "BTreeMap::is_empty")]
     pub(crate) objects: BTreeMap<String, ObjectBody>,
 }
 
@@ -85,6 +86,15 @@ impl AboutBlock {
             TargetLanguage::ExperimenterYAML => true,
             TargetLanguage::ExperimenterJSON => true,
         }
+    }
+
+    #[allow(unused)]
+    pub fn description_only(&self) -> Self {
+        AboutBlock {
+            description: self.description.clone(),
+            kotlin_about: None,
+            swift_about: None,
+         }
     }
 }
 
@@ -116,8 +126,10 @@ pub(crate) struct FeatureBody {
     // runs of the same manifests:
     // 1. Swift insists on args in the same order they were declared.
     // 2. imported features are declared and constructed in different runs of the tool.
+    #[serde(skip_serializing_if = "BTreeMap::is_empty")]
     pub(crate) variables: BTreeMap<String, FieldBody>,
     #[serde(alias = "defaults")]
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub(crate) default: Option<Vec<DefaultBlock>>,
 }
 
@@ -129,24 +141,30 @@ pub struct ManifestFrontEnd {
     #[serde(default)]
     pub(crate) about: Option<AboutBlock>,
 
-    // We'd like to get rid of the `types` property,
-    // but we need to keep supporting it.
     #[serde(default)]
-    #[serde(rename = "types")]
-    pub(crate) legacy_types: Option<Types>,
-    #[serde(default)]
-    pub(crate) features: BTreeMap<String, FeatureBody>,
+    #[serde(skip_serializing_if = "Vec::is_empty")]
+    pub(crate) channels: Vec<String>,
 
     #[serde(default)]
     #[serde(alias = "include")]
+    #[serde(skip_serializing_if = "Vec::is_empty")]
     pub(crate) includes: Vec<String>,
 
     #[serde(default)]
     #[serde(alias = "import")]
+    #[serde(skip_serializing_if = "Vec::is_empty")]
     pub(crate) imports: Vec<ImportBlock>,
 
     #[serde(default)]
-    pub(crate) channels: Vec<String>,
+    #[serde(skip_serializing_if = "BTreeMap::is_empty")]
+    pub(crate) features: BTreeMap<String, FeatureBody>,
+
+    // We'd like to get rid of the `types` property,
+    // but we need to keep supporting it.
+    #[serde(default)]
+    #[serde(rename = "types")]
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub(crate) legacy_types: Option<Types>,
 
     // If a types attribute isn't explicitly expressed,
     // then we should assume that we use the flattened version.

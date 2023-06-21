@@ -69,7 +69,6 @@ types:
           description: This is the label for the button
           type: String
           default: REQUIRED FIELD
-          required: true
         color:
           description: This is the color of the button
           type: Option<String>
