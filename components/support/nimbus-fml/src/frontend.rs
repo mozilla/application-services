@@ -120,6 +120,7 @@ pub(crate) struct FeatureBody {
     #[serde(alias = "defaults")]
     pub(crate) default: Option<Vec<DefaultBlock>>,
 }
+
 #[derive(Debug, Deserialize, Serialize, Clone, Default)]
 #[serde(deny_unknown_fields)]
 pub struct ManifestFrontEnd {
@@ -312,7 +313,6 @@ impl ManifestFrontEnd {
             about,
             enum_defs: enums,
             obj_defs: objects,
-            hints: HashMap::new(),
             feature_defs: features,
 
             ..Default::default()

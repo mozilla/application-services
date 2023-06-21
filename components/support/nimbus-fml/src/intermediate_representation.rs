@@ -201,9 +201,6 @@ pub struct FeatureManifest {
     #[serde(rename = "objects")]
     #[serde(default)]
     pub obj_defs: Vec<ObjectDef>,
-    // `hints` are useful for things that will be constructed from strings
-    // such as images and display text.
-    pub hints: HashMap<StringId, FromStringDef>,
     #[serde(rename = "features")]
     pub feature_defs: Vec<FeatureDef>,
     #[serde(default)]
