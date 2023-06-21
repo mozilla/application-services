@@ -14,6 +14,7 @@ pub(crate) enum CliCmd {
     DeprecatedGenerate(GenerateStructCmd, AboutBlock),
     GenerateExperimenter(GenerateExperimenterManifestCmd),
     GenerateIR(GenerateIRCmd),
+    GenerateSingleFileManifest(GenerateSingleFileManifestCmd),
     FetchFile(LoaderConfig, String),
     Validate(ValidateCmd),
 }
@@ -41,6 +42,13 @@ pub(crate) struct GenerateIRCmd {
     pub(crate) manifest: String,
     pub(crate) output: PathBuf,
     pub(crate) load_from_ir: bool,
+    pub(crate) channel: String,
+    pub(crate) loader: LoaderConfig,
+}
+
+pub(crate) struct GenerateSingleFileManifestCmd {
+    pub(crate) manifest: String,
+    pub(crate) output: PathBuf,
     pub(crate) channel: String,
     pub(crate) loader: LoaderConfig,
 }

@@ -20,7 +20,7 @@ mod workflows;
 
 use anyhow::{bail, Result};
 use clap::{App, ArgMatches};
-use commands::{CliCmd, GenerateExperimenterManifestCmd, GenerateIRCmd, GenerateStructCmd};
+use commands::{CliCmd, GenerateExperimenterManifestCmd, GenerateIRCmd, GenerateStructCmd, GenerateSingleFileManifestCmd};
 use frontend::{AboutBlock, KotlinAboutBlock, SwiftAboutBlock};
 use intermediate_representation::TargetLanguage;
 use util::loaders::LoaderConfig;
@@ -49,6 +49,7 @@ fn process_command(cmd: &CliCmd) -> Result<()> {
         CliCmd::Generate(params) => workflows::generate_struct(params)?,
         CliCmd::GenerateExperimenter(params) => workflows::generate_experimenter_manifest(params)?,
         CliCmd::GenerateIR(params) => workflows::generate_ir(params)?,
+        CliCmd::GenerateSingleFileManifest(params) => workflows::generate_single_file_manifest(params)?,
         CliCmd::FetchFile(files, nm) => workflows::fetch_file(files, nm)?,
         CliCmd::Validate(params) => workflows::validate(params)?,
     };
@@ -134,6 +135,9 @@ where
         ("fetch", Some(matches)) => {
             CliCmd::FetchFile(create_loader(matches, cwd)?, input_file(matches)?)
         }
+        ("single-file", Some(matches)) =>
+            CliCmd::GenerateSingleFileManifest(create_single_file_from_cli(matches, cwd)?
+        ),
         ("validate", Some(matches)) => {
             CliCmd::Validate(create_validate_command_from_cli(matches, cwd)?)
         }
@@ -155,6 +159,23 @@ fn create_generate_ir_command_from_cli(matches: &ArgMatches, cwd: &Path) -> Resu
             .unwrap_or_else(|| RELEASE_CHANNEL.into()),
         loader: create_loader(matches, cwd)?,
     })
+}
+
+fn create_single_file_from_cli(
+    matches: &ArgMatches,
+    cwd: &Path,
+) -> Result<GenerateSingleFileManifestCmd> {
+    let manifest = input_file(matches)?;
+    let output =
+        file_path("output", matches, cwd).or_else(|_| file_path("OUTPUT", matches, cwd))?;
+    let channel = matches
+        .value_of("channel")
+        .map(str::to_string)
+        .unwrap_or_else(|| RELEASE_CHANNEL.into());
+    let loader = create_loader(matches, cwd)?;
+    Ok(
+        GenerateSingleFileManifestCmd { manifest, output, channel, loader }
+    )
 }
 
 fn create_generate_command_experimenter_from_cli(

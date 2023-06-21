@@ -97,8 +97,6 @@ subcommands:
             #     long: channel
             #     takes_value: true
 
-            # These next two flags aren't wired up yet.
-            # This will be done in EXP-2573.
             - cache-dir:
                 help: The directory where downloaded files are cached
                 long: cache-dir
@@ -115,6 +113,34 @@ subcommands:
                 help: Sets the input file to use
                 required: true
                 index: 1
+            - cache-dir:
+                help: The directory where downloaded files are cached
+                long: cache-dir
+                takes_value: true
+            - repo-file:
+                help: The file containing the version/refs/locations for other repos
+                long: repo-file
+                takes_value: true
+                multiple: true
+    - single-file:
+        about: Create a single file out of the given manifest,
+            suited for production environments where only one file is
+            allowed, and only one channel is needed.
+        args:
+            - INPUT:
+                help: Sets the input file to use
+                required: true
+                index: 1
+            - OUTPUT:
+                help: The file or directory where generated code is created
+                required: true
+                index: 2
+            # This will move to the generate command when deprecated commands are removed.
+            # - channel:
+            #     help: The channel to generate the defaults for
+            #     long: channel
+            #     takes_value: true
+
             - cache-dir:
                 help: The directory where downloaded files are cached
                 long: cache-dir

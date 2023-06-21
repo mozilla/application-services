@@ -2,7 +2,7 @@
 * License, v. 2.0. If a copy of the MPL was not distributed with this
 * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-use std::collections::{BTreeSet, HashMap, HashSet};
+use std::collections::{BTreeMap, BTreeSet, HashMap, HashSet};
 
 use crate::{
     defaults_merger::DefaultsMerger,
@@ -428,12 +428,12 @@ impl Parser {
 }
 
 fn merge_map<T: Clone>(
-    a: &HashMap<String, T>,
-    b: &HashMap<String, T>,
+    a: &BTreeMap<String, T>,
+    b: &BTreeMap<String, T>,
     display_key: &str,
     key: &str,
     child_path: &FilePath,
-) -> Result<HashMap<String, T>> {
+) -> Result<BTreeMap<String, T>> {
     let mut set = HashSet::new();
 
     let (a, b) = if a.len() < b.len() { (a, b) } else { (b, a) };

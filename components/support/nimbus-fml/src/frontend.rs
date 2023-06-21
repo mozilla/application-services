@@ -54,9 +54,9 @@ pub(crate) struct ObjectBody {
 #[serde(deny_unknown_fields)]
 pub(crate) struct Types {
     #[serde(default)]
-    pub(crate) enums: HashMap<String, EnumBody>,
+    pub(crate) enums: BTreeMap<String, EnumBody>,
     #[serde(default)]
-    pub(crate) objects: HashMap<String, ObjectBody>,
+    pub(crate) objects: BTreeMap<String, ObjectBody>,
 }
 
 #[derive(Debug, Deserialize, Serialize, Clone, Default, PartialEq, Eq)]
@@ -135,7 +135,7 @@ pub struct ManifestFrontEnd {
     #[serde(rename = "types")]
     pub(crate) legacy_types: Option<Types>,
     #[serde(default)]
-    pub(crate) features: HashMap<String, FeatureBody>,
+    pub(crate) features: BTreeMap<String, FeatureBody>,
 
     #[serde(default)]
     #[serde(alias = "include")]
@@ -310,6 +310,7 @@ impl ManifestFrontEnd {
 
         Ok(FeatureManifest {
             id: id.clone(),
+            channel: channel.to_string(),
             about,
             enum_defs: enums,
             obj_defs: objects,

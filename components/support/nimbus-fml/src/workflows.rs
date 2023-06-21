@@ -5,8 +5,9 @@
 use glob::MatchOptions;
 use std::collections::HashSet;
 
-use crate::commands::ValidateCmd;
+use crate::commands::{ValidateCmd, GenerateSingleFileManifestCmd};
 use crate::error::FMLError::CliError;
+use crate::frontend::ManifestFrontEnd;
 use crate::{
     backends,
     commands::{GenerateExperimenterManifestCmd, GenerateIRCmd, GenerateStructCmd},
@@ -133,6 +134,15 @@ pub(crate) fn generate_ir(cmd: &GenerateIRCmd) -> Result<()> {
     let path = files.file_path(&cmd.manifest)?;
     let ir = load_feature_manifest(files, path, cmd.load_from_ir, &cmd.channel)?;
     std::fs::write(&cmd.output, serde_json::to_string_pretty(&ir)?)?;
+    Ok(())
+}
+
+pub(crate) fn generate_single_file_manifest(cmd: &GenerateSingleFileManifestCmd) -> Result<()> {
+    let files: FileLoader = TryFrom::try_from(&cmd.loader)?;
+    let path = files.file_path(&cmd.manifest)?;
+    let fm = load_feature_manifest(files, path, false, &cmd.channel)?;
+    let frontend: ManifestFrontEnd = fm.into();
+    std::fs::write(&cmd.output, serde_yaml::to_string(&frontend)?)?;
     Ok(())
 }
 
