@@ -24,7 +24,6 @@ pub(crate) fn get_simple_nimbus_validation_feature() -> FeatureManifest {
             ],
         }],
         obj_defs: Default::default(),
-        hints: Default::default(),
         feature_defs: vec![FeatureDef::new(
             "nimbus-validation",
             "A simple validation feature",
@@ -125,7 +124,6 @@ pub(crate) fn get_with_objects_feature() -> FeatureManifest {
                 }],
             ),
         ],
-        hints: Default::default(),
         feature_defs: vec![FeatureDef::new(
             "with-objects-feature",
             "A feature with objects feature",
@@ -171,7 +169,6 @@ pub(crate) fn get_simple_homescreen_feature() -> FeatureManifest {
             ],
         }],
         obj_defs: Default::default(),
-        hints: Default::default(),
         feature_defs: vec![FeatureDef::new(
             "homescreen",
             "Represents the homescreen feature",
@@ -209,7 +206,6 @@ pub(crate) fn get_full_homescreen_feature() -> FeatureManifest {
             ],
         }],
         obj_defs: Default::default(),
-        hints: Default::default(),
         feature_defs: vec![FeatureDef::new(
             "homescreen",
             "Represents the homescreen feature",
