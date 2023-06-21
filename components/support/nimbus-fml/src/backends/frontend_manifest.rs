@@ -4,7 +4,6 @@
 
 use std::collections::{BTreeMap, HashMap};
 
-use crate::error::{FMLError, Result};
 use crate::frontend::{
     EnumBody, EnumVariantBody, FeatureBody, FieldBody, ManifestFrontEnd, ObjectBody, Types,
 };
@@ -12,27 +11,28 @@ use crate::intermediate_representation::{
     EnumDef, FeatureDef, FeatureManifest, ObjectDef, PropDef, VariantDef,
 };
 
-impl TryFrom<FeatureManifest> for ManifestFrontEnd {
-    type Error = FMLError;
+impl From<FeatureManifest> for ManifestFrontEnd {
+    fn from(value: FeatureManifest) -> Self {
+        let features = merge(&value, |fm| fm.feature_defs.clone(), |f| &f.name);
+        let objects = merge(&value, |fm| fm.obj_defs.clone(), |o| &o.name);
+        let enums = merge(&value, |fm| fm.enum_defs.clone(), |e| &e.name);
 
-    fn try_from(value: FeatureManifest) -> Result<Self> {
-        Ok(ManifestFrontEnd {
-            about: Some(value.about),
+        let about = value.about.description_only();
+
+        ManifestFrontEnd {
+            about: Some(about),
             version: "1.0.0".to_string(),
-            legacy_types: None,
-            features: Default::default(),
-            types: Types {
-                enums: Default::default(),
-                objects: Default::default(),
-            },
+            channels: vec![value.channel],
             includes: Default::default(),
             imports: Default::default(),
-            channels: vec!["production".to_string()],
-        })
+            features,
+            legacy_types: None,
+            types: Types { enums, objects },
+        }
     }
 }
 
-fn _merge<ListGetter, NameGetter, S, T>(
+fn merge<ListGetter, NameGetter, S, T>(
     root: &FeatureManifest,
     list_getter: ListGetter,
     name_getter: NameGetter,

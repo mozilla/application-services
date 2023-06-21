@@ -195,6 +195,10 @@ pub struct FeatureManifest {
     #[serde(skip)]
     pub(crate) id: ModuleId,
 
+    #[serde(skip_serializing_if="String::is_empty")]
+    #[serde(default)]
+    pub(crate) channel: String,
+
     #[serde(rename = "enums")]
     #[serde(default)]
     pub enum_defs: Vec<EnumDef>,
