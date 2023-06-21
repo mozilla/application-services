@@ -111,7 +111,6 @@ impl From<PropDef> for FieldBody {
     fn from(value: PropDef) -> Self {
         Self {
             description: value.doc,
-            required: false,
             variable_type: value.typ.to_string(),
             default: Some(value.default),
         }
