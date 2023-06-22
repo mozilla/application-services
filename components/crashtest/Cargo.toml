@@ -9,7 +9,7 @@ exclude = ["/android", "/ios"]
 [dependencies]
 log = "0.4"
 thiserror = "1.0"
-uniffi = "0.23"
+uniffi = "0.24.1"
 
 [build-dependencies]
-uniffi = { version = "0.23", features = ["build"] }
+uniffi = { version = "0.24.1", features = ["build"] }
