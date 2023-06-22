@@ -61,10 +61,7 @@ jobs:
             #                       version of `yaml-rust`, which will be released in `v3` and additionally,
             #                       reading https://github.com/rustsec/advisory-db/issues/288, this is a false
             #                       positive for clap and based on our dependency tree, we only use `yaml-rust` in `clap`.
-            #  * RUSTSEC-2023-0034: `h2` is being used by `reqwest`, via `viaduct-reqwest`; reading
-            #                       https://github.com/hyperium/hyper/issues/2877#issuecomment-1505146275 and because we control all the URLs
-            #                       and servers that we talk to via viaduct, this seems safe to ignore.
-            cargo audit --ignore RUSTSEC-2020-0071 --ignore RUSTSEC-2018-0006 --ignore RUSTSEC-2023-0034
+            cargo audit --ignore RUSTSEC-2020-0071 --ignore RUSTSEC-2018-0006
       - name: Check for any unrecorded changes in our dependency trees
         run: |
             cargo metadata --locked > /dev/null
