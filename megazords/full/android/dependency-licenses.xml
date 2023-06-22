@@ -85,16 +85,16 @@ the details of which are reproduced below.
     <url>https://github.com/djc/askama/blob/main/LICENSE-APACHE</url>
   </license>
   <license>
-    <name>Apache License 2.0: askama_shared</name>
-    <url>https://github.com/djc/askama/blob/main/LICENSE-APACHE</url>
-  </license>
-  <license>
     <name>Apache License 2.0: autocfg</name>
     <url>https://github.com/cuviper/autocfg/blob/master/LICENSE-APACHE</url>
   </license>
   <license>
     <name>Apache License 2.0: base64</name>
     <url>https://github.com/marshallpierce/rust-base64/blob/master/LICENSE-APACHE</url>
+  </license>
+  <license>
+    <name>Apache License 2.0: basic-toml</name>
+    <url>https://github.com/dtolnay/basic-toml/blob/master/LICENSE-APACHE</url>
   </license>
   <license>
     <name>Apache License 2.0: bitflags</name>
