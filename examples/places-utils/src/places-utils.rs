@@ -5,6 +5,7 @@
 #![warn(rust_2018_idioms)]
 
 use cli_support::fxa_creds::{get_cli_fxa, get_default_fxa_config};
+use interrupt_support::Interruptee;
 use places::storage::bookmarks::{
     json_tree::{
         fetch_tree, insert_tree, BookmarkNode, BookmarkTreeNode, FetchDepth, FolderNode,
@@ -17,6 +18,7 @@ use places::{ConnectionType, PlacesApi, PlacesDb};
 use serde_derive::*;
 use std::fs::File;
 use std::io::{BufReader, BufWriter};
+use std::time::{Duration, SystemTime};
 use structopt::StructOpt;
 use sync15::client::{sync_multiple, MemoryCachedState, SetupStorageClient, Sync15StorageClient};
 use sync15::engine::{EngineSyncAssociation, SyncEngine, SyncEngineId};
@@ -26,6 +28,16 @@ use url::Url;
 use viaduct_reqwest::use_reqwest_backend;
 
 use anyhow::Result;
+
+fn format_duration(d: &Duration) -> String {
+    let mins = d.as_secs() / 60;
+    let secs = d.as_secs() - mins * 60;
+    if mins == 0 {
+        format!("{secs}s")
+    } else {
+        format!("{mins}m {secs}s")
+    }
+}
 
 // A struct in the format of desktop with a union of all fields.
 #[derive(Debug, Default, Deserialize)]
@@ -166,6 +178,50 @@ fn run_maintenance(conn: &PlacesDb, db_size_limit: u32, count: u32) -> Result<()
         println!("Maintenance complete");
         println!("Prune metrics: {prune_metrics:?}");
     }
+    Ok(())
+}
+
+fn create_fake_visits(db: &PlacesDb, num_sites: usize, num_visits: usize) -> Result<()> {
+    let tx = db.begin_transaction()?;
+    let start = SystemTime::now();
+    let mut this_batch = start;
+    for site_num in 0..num_sites {
+        let url = Url::parse(&format!("https://example{site_num}.com"))?;
+        let mut st = SystemTime::now();
+        for visit_num in 0..num_visits {
+            let obs = places::VisitObservation::new(url.clone())
+                .with_at(Some(st.into()))
+                .with_visit_type(places::VisitTransition::Link);
+            st = st.checked_sub(Duration::new(1, 0)).unwrap();
+            places::storage::history::apply_observation_direct(db, obs)?;
+            if interrupt_support::ShutdownInterruptee.was_interrupted() {
+                println!("Interrupted");
+                return Ok(());
+            }
+            if SystemTime::now().duration_since(this_batch)?.as_secs() > 15 {
+                let total = format_duration(&SystemTime::now().duration_since(start)?);
+                println!("Site number {site_num} ({visit_num} visits) - {total}...");
+                this_batch = SystemTime::now();
+            }
+        }
+    }
+    places::storage::delete_pending_temp_tables(db)?;
+    tx.commit()?;
+
+    println!("Added them");
+    Ok(())
+}
+
+fn delete_history(db: &PlacesDb) -> Result<()> {
+    places::storage::history::delete_everything(db)?;
+    Ok(())
+}
+
+fn show_stats(db: &PlacesDb) -> Result<()> {
+    db.execute("ANALYZE;", [])?;
+    println!("Left most column in `stat` is the record count in the table/index");
+    println!("See the sqlite docs for `sqlite_stat1` for more info.");
+    sql_support::debug_tools::print_query(db, "SELECT * from sqlite_stat1")?;
     Ok(())
 }
 
@@ -364,6 +420,21 @@ enum Command {
         input_file: String,
     },
 
+    #[structopt(name = "create-fake-visits")]
+    /// Create a lot of fake visits to a lot of fake sites.
+    CreateFakeVisits {
+        #[structopt(name = "num-sites", long)]
+        /// The number of `exampleX.com` sites to use.
+        num_sites: usize,
+        #[structopt(name = "num-visits", long)]
+        /// The number of visits per site to create
+        num_visits: usize,
+    },
+
+    #[structopt(name = "delete-history")]
+    /// Remove history
+    DeleteHistory,
+
     #[structopt(name = "run-maintenance")]
     /// Run maintenence on the database
     RunMaintenance {
@@ -374,6 +445,10 @@ enum Command {
         /// Repeat the operation N times
         count: u32,
     },
+
+    #[structopt(name = "show-stats")]
+    /// Show statistics about the database
+    ShowStats,
 }
 
 fn main() -> Result<()> {
@@ -416,9 +491,15 @@ fn main() -> Result<()> {
         Command::ImportBookmarks { input_file } => run_native_import(&db, input_file),
         Command::ImportDesktopBookmarks { input_file } => run_desktop_import(&db, input_file),
         Command::ImportIosHistory { input_file } => run_ios_import_history(&db, input_file),
+        Command::CreateFakeVisits {
+            num_sites,
+            num_visits,
+        } => create_fake_visits(&db, num_sites, num_visits),
+        Command::DeleteHistory => delete_history(&db),
         Command::RunMaintenance {
             db_size_limit,
             count,
         } => run_maintenance(&db, db_size_limit, count),
+        Command::ShowStats => show_stats(&db),
     }
 }

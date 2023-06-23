@@ -16,7 +16,7 @@ sync-guid = { path = "../../components/support/guid" }
 types = { path = "../../components/support/types" }
 error-support = { path = "../../components/support/error" }
 interrupt-support = { path = "../../components/support/interrupt" }
-sql-support = { path = "../../components/support/sql" }
+sql-support = { path = "../../components/support/sql", features = ["debug-tools"] }
 sync15 = { path = "../../components/sync15" }
 viaduct-reqwest = { path = "../../components/support/viaduct-reqwest" }
 serde = "1"
