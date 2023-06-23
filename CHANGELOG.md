@@ -20,6 +20,7 @@
 
 ### 🦊 What's Changed 🦊
 
+- Version bump to `0.3.0` ([#5674](https://github.com/mozilla/application-services/pull/5674)). User facing changelog: https://experimenter.info/nimbus-cli/whats-new
 - Added isRollout and bucketing info to the `list` command ([#5672](https://github.com/mozilla/application-services/pull/5672)).
 - Fixed several paper cut usability issues ([#5654](https://github.com/mozilla/application-services/pull/5654)):
   - Experiments by default are fetched from the API v6, eliminating latency between making changes on experimenter and syncing with remote settings.
