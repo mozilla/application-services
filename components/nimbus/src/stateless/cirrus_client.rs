@@ -80,6 +80,7 @@ pub struct CirrusMutableState {
 #[derive(Default)]
 pub struct CirrusClient {
     app_context: AppContext,
+    coenrolling_feature_ids: Vec<String>,
     state: Mutex<CirrusMutableState>,
 }
 
@@ -88,6 +89,10 @@ impl CirrusClient {
         let app_context: AppContext = serde_json::from_str(&app_context)?;
         Ok(Self {
             app_context,
+            // As it currently stands, with no coenrolling feature ids, cirrus cannot
+            // support coenrolling features.
+            // This is the subject of https://mozilla-hub.atlassian.net/browse/EXP-3623
+            coenrolling_feature_ids: Default::default(),
             state: Default::default(),
         })
     }
@@ -137,8 +142,17 @@ impl CirrusClient {
             AvailableRandomizationUnits::with_user_id(user_id.as_str());
         let ta = TargetingAttributes::new(self.app_context.clone(), request_context);
         let th = NimbusTargetingHelper::new(ta);
-        let enrollments_evolver =
-            EnrollmentsEvolver::new(&nimbus_id, &available_randomization_units, &th);
+        let coenrolling_ids = self
+            .coenrolling_feature_ids
+            .iter()
+            .map(|s| s.as_str())
+            .collect();
+        let enrollments_evolver = EnrollmentsEvolver::new(
+            &nimbus_id,
+            &available_randomization_units,
+            &th,
+            &coenrolling_ids,
+        );
         let state = self.state.lock().unwrap();
 
         let (enrollments, events) = enrollments_evolver
@@ -150,7 +164,7 @@ impl CirrusClient {
             )?;
 
         let enrolled_feature_config_map =
-            map_features_by_feature_id(&enrollments, &state.experiments);
+            map_features_by_feature_id(&enrollments, &state.experiments, &coenrolling_ids);
 
         Ok(EnrollmentResponse {
             enrolled_feature_config_map,

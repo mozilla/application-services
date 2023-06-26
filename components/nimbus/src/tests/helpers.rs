@@ -2,8 +2,16 @@
 * License, v. 2.0. If a copy of the MPL was not distributed with this
 * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-use crate::{AppContext, Experiment, NimbusTargetingHelper, TargetingAttributes};
-use serde_json::json;
+use crate::enrollment::{
+    EnrolledFeatureConfig, EnrolledReason, ExperimentEnrollment, NotEnrolledReason,
+};
+use crate::{
+    AppContext, EnrollmentStatus, Experiment, FeatureConfig, NimbusTargetingHelper,
+    TargetingAttributes,
+};
+use serde_json::{json, Value};
+use std::collections::HashSet;
+use uuid::Uuid;
 
 cfg_if::cfg_if! {
     if #[cfg(feature = "stateful")] {
@@ -194,4 +202,145 @@ pub fn get_ios_rollout_experiment() -> Experiment {
       "userFacingName": "iOS Coordinators Rollout"
     }))
     .unwrap()
+}
+
+impl FeatureConfig {
+    fn new(feature_id: &str, value: Value) -> Self {
+        Self {
+            feature_id: feature_id.to_string(),
+            value: value.as_object().unwrap().to_owned(),
+        }
+    }
+}
+
+impl EnrolledFeatureConfig {
+    pub(crate) fn new(feature_id: &str, value: Value, exp: &str, branch: Option<&str>) -> Self {
+        Self {
+            feature_id: feature_id.to_string(),
+            feature: FeatureConfig::new(feature_id, value),
+            slug: exp.to_string(),
+            branch: branch.map(ToString::to_string),
+        }
+    }
+}
+
+// Helper constructors for enrollments.
+impl ExperimentEnrollment {
+    pub(crate) fn enrolled(slug: &str) -> Self {
+        Self {
+            slug: slug.to_string(),
+            status: EnrollmentStatus::Enrolled {
+                branch: "control".to_string(),
+                enrollment_id: Uuid::new_v4(),
+                reason: EnrolledReason::Qualified,
+            },
+        }
+    }
+    pub(crate) fn not_enrolled(slug: &str) -> Self {
+        Self {
+            slug: slug.to_string(),
+            status: EnrollmentStatus::NotEnrolled {
+                reason: NotEnrolledReason::NotSelected,
+            },
+        }
+    }
+}
+
+pub fn get_single_feature_experiment(slug: &str, feature_id: &str, config: Value) -> Experiment {
+    serde_json::from_value(json!(
+        {
+        "schemaVersion": "1.0.0",
+        "slug": slug,
+        "endDate": null,
+        "branches":[
+            {
+                "slug": "control",
+                "ratio": 1,
+                "feature": {
+                    "featureId": feature_id,
+                    "enabled": true,
+                    "value": config,
+                }
+            },
+        ],
+        "featureIds": [feature_id],
+        "channel": "nightly",
+        "probeSets":[],
+        "startDate":null,
+        "appName":"fenix",
+        "appId":"org.mozilla.fenix",
+        "bucketConfig":{
+            // Also enroll everyone.
+            "count":10_000,
+            "start":0,
+            "total":10_000,
+            "namespace":"secure-silver",
+            "randomizationUnit":"nimbus_id"
+        },
+        "userFacingName":"",
+        "referenceBranch":"control",
+        "isEnrollmentPaused":false,
+        "proposedEnrollment":7,
+        "userFacingDescription":"",
+    }
+    ))
+    .unwrap()
+}
+
+pub fn get_multi_feature_experiment(
+    slug: &str,
+    f1: &str,
+    v1: Value,
+    f2: &str,
+    v2: Value,
+) -> Experiment {
+    serde_json::from_value(json!(
+        {
+        "schemaVersion": "1.0.0",
+        "slug": slug,
+        "endDate": null,
+        "branches":[
+            {
+                "slug": "control",
+                "ratio": 1,
+                "features": [
+                    {
+                        "featureId": f1,
+                        "enabled": true,
+                        "value": v1,
+                    },
+                    {
+                        "featureId": f2,
+                        "enabled": true,
+                        "value": v2,
+                    }
+                ]
+            },
+        ],
+        "featureIds": [f1, f2],
+        "channel": "nightly",
+        "probeSets":[],
+        "startDate":null,
+        "appName":"fenix",
+        "appId":"org.mozilla.fenix",
+        "bucketConfig":{
+            // Also enroll everyone.
+            "count":10_000,
+            "start":0,
+            "total":10_000,
+            "namespace":"secure-silver",
+            "randomizationUnit":"nimbus_id"
+        },
+        "userFacingName":"",
+        "referenceBranch":"control",
+        "isEnrollmentPaused":false,
+        "proposedEnrollment":7,
+        "userFacingDescription":"",
+    }
+    ))
+    .unwrap()
+}
+
+pub fn no_coenrolling_features() -> HashSet<&'static str> {
+    Default::default()
 }

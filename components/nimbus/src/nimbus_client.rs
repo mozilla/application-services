@@ -60,6 +60,7 @@ pub struct NimbusClient {
     // without doing (or waiting for) IO.
     database_cache: DatabaseCache,
     db_path: PathBuf,
+    coenrolling_feature_ids: Vec<String>,
     event_store: Arc<Mutex<EventStore>>,
 }
 
@@ -85,6 +86,10 @@ impl NimbusClient {
             app_context,
             database_cache: Default::default(),
             db_path: db_path.into(),
+            // With this being default, i.e. empty, Nimbus doesn't support coenrolling ids.
+            // Once the API is connected with Swift/Kotlin it will.
+            // This is the subject of https://mozilla-hub.atlassian.net/browse/EXP-3623
+            coenrolling_feature_ids: Default::default(),
             db: OnceCell::default(),
             event_store: Arc::default(),
         })
@@ -134,7 +139,13 @@ impl NimbusClient {
         state: &mut MutexGuard<InternalMutableState>,
     ) -> Result<()> {
         self.update_ta_active_experiments(db, &writer, state)?;
-        self.database_cache.commit_and_update(db, writer)?;
+        let coenrolling_ids = self
+            .coenrolling_feature_ids
+            .iter()
+            .map(|s| s.as_str())
+            .collect();
+        self.database_cache
+            .commit_and_update(db, writer, &coenrolling_ids)?;
         Ok(())
     }
 
@@ -339,10 +350,16 @@ impl NimbusClient {
         let nimbus_id = self.read_or_create_nimbus_id(db, writer)?;
         let targeting_helper =
             NimbusTargetingHelper::new(&state.targeting_attributes, self.event_store.clone());
+        let coenrolling_feature_ids = self
+            .coenrolling_feature_ids
+            .iter()
+            .map(|s| s.as_str())
+            .collect();
         let evolver = EnrollmentsEvolver::new(
             &nimbus_id,
             &state.available_randomization_units,
             &targeting_helper,
+            &coenrolling_feature_ids,
         );
         evolver.evolve_enrollments_in_db(db, writer, experiments)
     }

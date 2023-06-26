@@ -8,7 +8,10 @@ use crate::{
     defaults::Defaults,
     enrollment::*,
     error::Result,
-    tests::helpers::{get_ios_rollout_experiment, get_test_experiments},
+    tests::helpers::{
+        get_ios_rollout_experiment, get_multi_feature_experiment, get_single_feature_experiment,
+        get_test_experiments, no_coenrolling_features,
+    },
     AppContext, AvailableRandomizationUnits, Branch, BucketConfig, Experiment, FeatureConfig,
     NimbusTargetingHelper, TargetingAttributes,
 };
@@ -403,8 +406,9 @@ fn enrollment_evolver<'a>(
     nimbus_id: &'a Uuid,
     targeting_helper: &'a NimbusTargetingHelper,
     aru: &'a AvailableRandomizationUnits,
+    ids: &'a HashSet<&str>,
 ) -> EnrollmentsEvolver<'a> {
-    EnrollmentsEvolver::new(nimbus_id, aru, targeting_helper)
+    EnrollmentsEvolver::new(nimbus_id, aru, targeting_helper, ids)
 }
 
 #[test]
@@ -418,7 +422,8 @@ fn test_ios_rollout_experiment() -> Result<()> {
         ..app_ctx
     };
     let th = app_ctx.into();
-    let evolver = enrollment_evolver(&nimbus_id, &th, &aru);
+    let ids = no_coenrolling_features();
+    let evolver = enrollment_evolver(&nimbus_id, &th, &aru, &ids);
     let mut events = vec![];
     let enrollment = evolver
         .evolve_enrollment::<Experiment>(true, None, Some(exp), None, &mut events)?
@@ -436,7 +441,8 @@ fn test_evolver_new_experiment_enrolled() -> Result<()> {
     let exp = &get_test_experiments()[0];
     let (nimbus_id, app_ctx, aru) = local_ctx();
     let th = app_ctx.into();
-    let evolver = enrollment_evolver(&nimbus_id, &th, &aru);
+    let ids = no_coenrolling_features();
+    let evolver = enrollment_evolver(&nimbus_id, &th, &aru, &ids);
     let mut events = vec![];
     let enrollment = evolver
         .evolve_enrollment::<Experiment>(true, None, Some(exp), None, &mut events)?
@@ -457,7 +463,8 @@ fn test_evolver_new_experiment_not_enrolled() -> Result<()> {
     exp.bucket_config.count = 0; // Make the experiment bucketing fail.
     let (nimbus_id, app_ctx, aru) = local_ctx();
     let th = app_ctx.into();
-    let evolver = enrollment_evolver(&nimbus_id, &th, &aru);
+    let ids = no_coenrolling_features();
+    let evolver = enrollment_evolver(&nimbus_id, &th, &aru, &ids);
     let mut events = vec![];
     let enrollment = evolver
         .evolve_enrollment::<Experiment>(true, None, Some(&exp), None, &mut events)?
@@ -477,7 +484,8 @@ fn test_evolver_new_experiment_globally_opted_out() -> Result<()> {
     let exp = get_test_experiments()[0].clone();
     let (nimbus_id, app_ctx, aru) = local_ctx();
     let th = app_ctx.into();
-    let evolver = enrollment_evolver(&nimbus_id, &th, &aru);
+    let ids = no_coenrolling_features();
+    let evolver = enrollment_evolver(&nimbus_id, &th, &aru, &ids);
     let mut events = vec![];
     let enrollment = evolver
         .evolve_enrollment::<Experiment>(false, None, Some(&exp), None, &mut events)?
@@ -498,7 +506,8 @@ fn test_evolver_new_experiment_enrollment_paused() -> Result<()> {
     exp.is_enrollment_paused = true;
     let (nimbus_id, app_ctx, aru) = local_ctx();
     let th = app_ctx.into();
-    let evolver = enrollment_evolver(&nimbus_id, &th, &aru);
+    let ids = no_coenrolling_features();
+    let evolver = enrollment_evolver(&nimbus_id, &th, &aru, &ids);
     let mut events = vec![];
     let enrollment = evolver
         .evolve_enrollment::<Experiment>(true, None, Some(&exp), None, &mut events)?
@@ -518,7 +527,8 @@ fn test_evolver_experiment_update_not_enrolled_opted_out() -> Result<()> {
     let exp = get_test_experiments()[0].clone();
     let (nimbus_id, app_ctx, aru) = local_ctx();
     let th = app_ctx.into();
-    let evolver = enrollment_evolver(&nimbus_id, &th, &aru);
+    let ids = no_coenrolling_features();
+    let evolver = enrollment_evolver(&nimbus_id, &th, &aru, &ids);
     let mut events = vec![];
     let existing_enrollment = ExperimentEnrollment {
         slug: exp.slug.clone(),
@@ -546,7 +556,8 @@ fn test_evolver_experiment_update_not_enrolled_enrollment_paused() -> Result<()>
     exp.is_enrollment_paused = true;
     let (nimbus_id, app_ctx, aru) = local_ctx();
     let th = app_ctx.into();
-    let evolver = enrollment_evolver(&nimbus_id, &th, &aru);
+    let ids = no_coenrolling_features();
+    let evolver = enrollment_evolver(&nimbus_id, &th, &aru, &ids);
     let mut events = vec![];
     let existing_enrollment = ExperimentEnrollment {
         slug: exp.slug.clone(),
@@ -574,7 +585,8 @@ fn test_evolver_experiment_update_not_enrolled_resuming_not_selected() -> Result
     exp.bucket_config.count = 0; // Make the experiment bucketing fail.
     let (nimbus_id, app_ctx, aru) = local_ctx();
     let th = app_ctx.into();
-    let evolver = enrollment_evolver(&nimbus_id, &th, &aru);
+    let ids = no_coenrolling_features();
+    let evolver = enrollment_evolver(&nimbus_id, &th, &aru, &ids);
     let mut events = vec![];
     let existing_enrollment = ExperimentEnrollment {
         slug: exp.slug.clone(),
@@ -606,7 +618,8 @@ fn test_evolver_experiment_update_not_enrolled_resuming_selected() -> Result<()>
     let exp = get_test_experiments()[0].clone();
     let (nimbus_id, app_ctx, aru) = local_ctx();
     let th = app_ctx.into();
-    let evolver = enrollment_evolver(&nimbus_id, &th, &aru);
+    let ids = no_coenrolling_features();
+    let evolver = enrollment_evolver(&nimbus_id, &th, &aru, &ids);
     let mut events = vec![];
     let existing_enrollment = ExperimentEnrollment {
         slug: exp.slug.clone(),
@@ -641,7 +654,8 @@ fn test_evolver_experiment_update_enrolled_then_opted_out() -> Result<()> {
     let exp = get_test_experiments()[0].clone();
     let (nimbus_id, app_ctx, aru) = local_ctx();
     let th = app_ctx.into();
-    let evolver = enrollment_evolver(&nimbus_id, &th, &aru);
+    let ids = no_coenrolling_features();
+    let evolver = enrollment_evolver(&nimbus_id, &th, &aru, &ids);
     let mut events = vec![];
     let enrollment_id = Uuid::new_v4();
     let existing_enrollment = ExperimentEnrollment {
@@ -686,7 +700,8 @@ fn test_evolver_experiment_update_enrolled_then_experiment_paused() -> Result<()
     exp.is_enrollment_paused = true;
     let (nimbus_id, app_ctx, aru) = local_ctx();
     let th = app_ctx.into();
-    let evolver = enrollment_evolver(&nimbus_id, &th, &aru);
+    let ids = no_coenrolling_features();
+    let evolver = enrollment_evolver(&nimbus_id, &th, &aru, &ids);
     let mut events = vec![];
     let enrollment_id = Uuid::new_v4();
     let existing_enrollment = ExperimentEnrollment {
@@ -729,7 +744,8 @@ fn test_evolver_experiment_update_enrolled_then_targeting_changed() -> Result<()
     let (nimbus_id, mut app_ctx, aru) = local_ctx();
     app_ctx.app_name = "foobar".to_owned(); // Make the experiment targeting fail.
     let th = app_ctx.into();
-    let evolver = enrollment_evolver(&nimbus_id, &th, &aru);
+    let ids = no_coenrolling_features();
+    let evolver = enrollment_evolver(&nimbus_id, &th, &aru, &ids);
     let mut events = vec![];
     let enrollment_id = Uuid::new_v4();
     let existing_enrollment = ExperimentEnrollment {
@@ -779,7 +795,8 @@ fn test_evolver_experiment_update_enrolled_then_bucketing_changed() -> Result<()
     exp.bucket_config.count = 0; // Make the experiment bucketing fail.
     let (nimbus_id, app_ctx, aru) = local_ctx();
     let th = app_ctx.into();
-    let evolver = enrollment_evolver(&nimbus_id, &th, &aru);
+    let ids = no_coenrolling_features();
+    let evolver = enrollment_evolver(&nimbus_id, &th, &aru, &ids);
     let mut events = vec![];
     let enrollment_id = Uuid::new_v4();
     let existing_enrollment = ExperimentEnrollment {
@@ -823,7 +840,8 @@ fn test_evolver_experiment_update_enrolled_then_branches_changed() -> Result<()>
     ];
     let (nimbus_id, app_ctx, aru) = local_ctx();
     let th = app_ctx.into();
-    let evolver = enrollment_evolver(&nimbus_id, &th, &aru);
+    let ids = no_coenrolling_features();
+    let evolver = enrollment_evolver(&nimbus_id, &th, &aru, &ids);
     let mut events = vec![];
     let enrollment_id = Uuid::new_v4();
     let existing_enrollment = ExperimentEnrollment {
@@ -859,7 +877,8 @@ fn test_evolver_experiment_update_enrolled_then_branch_disappears() -> Result<()
     }];
     let (nimbus_id, app_ctx, aru) = local_ctx();
     let th = app_ctx.into();
-    let evolver = enrollment_evolver(&nimbus_id, &th, &aru);
+    let ids = no_coenrolling_features();
+    let evolver = enrollment_evolver(&nimbus_id, &th, &aru, &ids);
     let mut events = vec![];
     let enrollment_id = Uuid::new_v4();
     let existing_enrollment = ExperimentEnrollment {
@@ -902,7 +921,8 @@ fn test_evolver_experiment_update_disqualified_then_opted_out() -> Result<()> {
     let exp = get_test_experiments()[0].clone();
     let (nimbus_id, app_ctx, aru) = local_ctx();
     let th = app_ctx.into();
-    let evolver = enrollment_evolver(&nimbus_id, &th, &aru);
+    let ids = no_coenrolling_features();
+    let evolver = enrollment_evolver(&nimbus_id, &th, &aru, &ids);
     let mut events = vec![];
     let enrollment_id = Uuid::new_v4();
     let existing_enrollment = ExperimentEnrollment {
@@ -938,7 +958,8 @@ fn test_evolver_experiment_update_disqualified_then_bucketing_ok() -> Result<()>
     let exp = get_test_experiments()[0].clone();
     let (nimbus_id, app_ctx, aru) = local_ctx();
     let th = app_ctx.into();
-    let evolver = enrollment_evolver(&nimbus_id, &th, &aru);
+    let ids = no_coenrolling_features();
+    let evolver = enrollment_evolver(&nimbus_id, &th, &aru, &ids);
     let mut events = vec![];
     let enrollment_id = Uuid::new_v4();
     let existing_enrollment = ExperimentEnrollment {
@@ -969,7 +990,8 @@ fn test_evolver_feature_can_have_only_one_experiment() -> Result<()> {
 
     let (nimbus_id, app_ctx, aru) = local_ctx();
     let th = app_ctx.into();
-    let evolver = enrollment_evolver(&nimbus_id, &th, &aru);
+    let ids = no_coenrolling_features();
+    let evolver = enrollment_evolver(&nimbus_id, &th, &aru, &ids);
     // Let's go from no experiments, to some experiments.
     let existing_experiments: Vec<Experiment> = vec![];
     let existing_enrollments: Vec<ExperimentEnrollment> = vec![];
@@ -994,7 +1016,11 @@ fn test_evolver_feature_can_have_only_one_experiment() -> Result<()> {
 
     // Test to ensure that features are being de-serialized and copied into EnrolledFeatureConfig and mapped
     // properly to the feature id.
-    let features = map_features_by_feature_id(&enrollments, &updated_experiments);
+    let features = map_features_by_feature_id(
+        &enrollments,
+        &updated_experiments,
+        &no_coenrolling_features(),
+    );
     assert_eq!(features.len(), 1);
     assert!(features.contains_key("about_welcome"));
 
@@ -1124,7 +1150,8 @@ fn test_evolver_experiment_not_enrolled_feature_conflict() -> Result<()> {
     test_experiments.push(get_conflicting_experiment());
     let (nimbus_id, app_ctx, aru) = local_ctx();
     let th = app_ctx.into();
-    let evolver = EnrollmentsEvolver::new(&nimbus_id, &aru, &th);
+    let ids = no_coenrolling_features();
+    let evolver = EnrollmentsEvolver::new(&nimbus_id, &aru, &th, &ids);
     let (enrollments, events) =
         evolver.evolve_enrollments::<Experiment>(true, &[], &test_experiments, &[])?;
 
@@ -1185,7 +1212,8 @@ fn test_multi_feature_per_branch_conflict() -> Result<()> {
     test_experiments.push(get_experiment_with_different_features_same_branch());
     let (nimbus_id, app_ctx, aru) = local_ctx();
     let targeting_attributes = app_ctx.into();
-    let evolver = EnrollmentsEvolver::new(&nimbus_id, &aru, &targeting_attributes);
+    let ids = no_coenrolling_features();
+    let evolver = EnrollmentsEvolver::new(&nimbus_id, &aru, &targeting_attributes, &ids);
     let (enrollments, events) =
         evolver.evolve_enrollments::<Experiment>(true, &[], &test_experiments, &[])?;
 
@@ -1224,7 +1252,8 @@ fn test_evolver_feature_id_reuse() -> Result<()> {
     let test_experiments = get_test_experiments();
     let (nimbus_id, app_ctx, aru) = local_ctx();
     let targeting_attributes = app_ctx.into();
-    let evolver = EnrollmentsEvolver::new(&nimbus_id, &aru, &targeting_attributes);
+    let ids = no_coenrolling_features();
+    let evolver = EnrollmentsEvolver::new(&nimbus_id, &aru, &targeting_attributes, &ids);
     let (enrollments, _) =
         evolver.evolve_enrollments::<Experiment>(true, &[], &test_experiments, &[])?;
 
@@ -1278,7 +1307,8 @@ fn test_evolver_multi_feature_experiments() -> Result<()> {
 
     let (nimbus_id, app_ctx, aru) = local_ctx();
     let th = app_ctx.into();
-    let evolver = EnrollmentsEvolver::new(&nimbus_id, &aru, &th);
+    let ids = no_coenrolling_features();
+    let evolver = EnrollmentsEvolver::new(&nimbus_id, &aru, &th, &ids);
 
     let aboutwelcome_experiment = get_experiment_with_aboutwelcome_feature_branches();
     let newtab_experiment = get_experiment_with_newtab_feature_branches();
@@ -1290,7 +1320,8 @@ fn test_evolver_multi_feature_experiments() -> Result<()> {
     let (enrollments, _) =
         evolver.evolve_enrollments::<Experiment>(true, &[], &next_experiments, &[])?;
 
-    let feature_map = map_features_by_feature_id(&enrollments, &next_experiments);
+    let feature_map =
+        map_features_by_feature_id(&enrollments, &next_experiments, &no_coenrolling_features());
     assert_eq!(feature_map.len(), 2);
     assert_eq!(
         feature_map.get("about_welcome").unwrap().slug,
@@ -1337,7 +1368,8 @@ fn test_evolver_multi_feature_experiments() -> Result<()> {
         "A single EnrollFailed recorded due to the feature-conflict"
     );
 
-    let feature_map = map_features_by_feature_id(&enrollments, &next_experiments);
+    let feature_map =
+        map_features_by_feature_id(&enrollments, &next_experiments, &no_coenrolling_features());
     assert_eq!(feature_map.len(), 2);
     assert_eq!(
         feature_map.get("about_welcome").unwrap().slug,
@@ -1374,7 +1406,8 @@ fn test_evolver_multi_feature_experiments() -> Result<()> {
         &prev_enrollments,
     )?;
 
-    let feature_map = map_features_by_feature_id(&enrollments, &next_experiments);
+    let feature_map =
+        map_features_by_feature_id(&enrollments, &next_experiments, &no_coenrolling_features());
     assert_eq!(feature_map.len(), 1);
     assert!(feature_map.get("about_welcome").is_none());
     assert_eq!(
@@ -1405,7 +1438,8 @@ fn test_evolver_multi_feature_experiments() -> Result<()> {
         &prev_enrollments,
     )?;
 
-    let feature_map = map_features_by_feature_id(&enrollments, &next_experiments);
+    let feature_map =
+        map_features_by_feature_id(&enrollments, &next_experiments, &no_coenrolling_features());
     assert_eq!(feature_map.len(), 2);
     assert_eq!(
         feature_map.get("about_welcome").unwrap().slug,
@@ -1460,7 +1494,8 @@ fn test_evolver_multi_feature_experiments() -> Result<()> {
         2,
         "Exactly two EnrollFailed events should be recorded"
     );
-    let feature_map = map_features_by_feature_id(&enrollments, &next_experiments);
+    let feature_map =
+        map_features_by_feature_id(&enrollments, &next_experiments, &no_coenrolling_features());
     assert_eq!(feature_map.len(), 2);
     assert_eq!(
         feature_map.get("about_welcome").unwrap().slug,
@@ -1500,7 +1535,8 @@ fn test_evolver_multi_feature_experiments() -> Result<()> {
         1,
         "Exactly one EnrollFailed event should be recorded"
     );
-    let feature_map = map_features_by_feature_id(&enrollments, &next_experiments);
+    let feature_map =
+        map_features_by_feature_id(&enrollments, &next_experiments, &no_coenrolling_features());
     assert_eq!(feature_map.len(), 2);
     assert_eq!(
         feature_map.get("about_welcome").unwrap().slug,
@@ -1534,7 +1570,8 @@ fn test_evolver_multi_feature_experiments() -> Result<()> {
         &prev_enrollments,
     )?;
 
-    let feature_map = map_features_by_feature_id(&enrollments, &next_experiments);
+    let feature_map =
+        map_features_by_feature_id(&enrollments, &next_experiments, &no_coenrolling_features());
     assert_eq!(feature_map.len(), 3);
     assert_eq!(
         feature_map.get("about_welcome").unwrap().slug,
@@ -1570,7 +1607,8 @@ fn test_evolver_experiment_update_was_enrolled() -> Result<()> {
     let exp = get_test_experiments()[0].clone();
     let (nimbus_id, app_ctx, aru) = local_ctx();
     let th = app_ctx.into();
-    let evolver = enrollment_evolver(&nimbus_id, &th, &aru);
+    let ids = no_coenrolling_features();
+    let evolver = enrollment_evolver(&nimbus_id, &th, &aru, &ids);
     let mut events = vec![];
     let enrollment_id = Uuid::new_v4();
     let existing_enrollment = ExperimentEnrollment {
@@ -1596,6 +1634,367 @@ fn test_evolver_experiment_update_was_enrolled() -> Result<()> {
 }
 
 #[test]
+fn test_map_features_by_feature_id_with_coenrollment() -> Result<()> {
+    let exp1 = get_single_feature_experiment("exp1", "colliding", json!({"x": 1 }));
+    let exp2 = get_single_feature_experiment("exp2", "coenrolling", json!({ "a": 1, "b": 2 }));
+    let exp3 = get_single_feature_experiment("exp3", "coenrolling", json!({ "b": 3, "c": 4 }));
+
+    let ids = HashSet::from(["coenrolling"]);
+    let exps = [exp1, exp2, exp3];
+
+    let observed = map_features_by_feature_id(&[], &exps, &ids);
+    let expected = Default::default();
+    assert_eq!(observed, expected);
+
+    let enr1 = ExperimentEnrollment::not_enrolled("exp1");
+    let enr2 = ExperimentEnrollment::not_enrolled("exp2");
+    let enr3 = ExperimentEnrollment::not_enrolled("exp3");
+    let enrollments = [enr1, enr2, enr3];
+
+    let observed = map_features_by_feature_id(&enrollments, &exps, &ids);
+    let expected = Default::default();
+    assert_eq!(observed, expected);
+
+    let enr1 = ExperimentEnrollment::enrolled("exp1");
+    let enr2 = ExperimentEnrollment::not_enrolled("exp2");
+    let enr3 = ExperimentEnrollment::not_enrolled("exp3");
+    let enrollments = [enr1, enr2, enr3];
+
+    let observed = map_features_by_feature_id(&enrollments, &exps, &ids);
+    let expected = HashMap::from([(
+        "colliding".to_string(),
+        EnrolledFeatureConfig::new("colliding", json!({"x": 1 }), "exp1", Some("control")),
+    )]);
+    assert_eq!(observed, expected);
+
+    let enr1 = ExperimentEnrollment::enrolled("exp1");
+    let enr2 = ExperimentEnrollment::enrolled("exp2");
+    let enr3 = ExperimentEnrollment::not_enrolled("exp3");
+    let enrollments = [enr1, enr2, enr3];
+
+    let observed = map_features_by_feature_id(&enrollments, &exps, &ids);
+    let expected = HashMap::from([
+        (
+            "colliding".to_string(),
+            EnrolledFeatureConfig::new("colliding", json!({"x": 1 }), "exp1", Some("control")),
+        ),
+        (
+            "coenrolling".to_string(),
+            EnrolledFeatureConfig::new(
+                "coenrolling",
+                json!({"a": 1, "b": 2, }),
+                "exp2",
+                Some("control"),
+            ),
+        ),
+    ]);
+    assert_eq!(observed, expected);
+
+    let enr1 = ExperimentEnrollment::enrolled("exp1");
+    let enr2 = ExperimentEnrollment::enrolled("exp2");
+    let enr3 = ExperimentEnrollment::enrolled("exp3");
+    let enrollments = [enr1, enr2, enr3];
+
+    let observed = map_features_by_feature_id(&enrollments, &exps, &ids);
+    let expected = HashMap::from([
+        (
+            "colliding".to_string(),
+            EnrolledFeatureConfig::new("colliding", json!({"x": 1 }), "exp1", Some("control")),
+        ),
+        (
+            "coenrolling".to_string(),
+            EnrolledFeatureConfig::new(
+                "coenrolling",
+                json!({
+                    "a": 1, // from exp2
+                    "b": 3, // from exp3
+                    "c": 4, // from exp3
+                }),
+                "exp2+exp3",
+                None,
+            ),
+        ),
+    ]);
+    assert_eq!(observed, expected);
+    Ok(())
+}
+
+#[test]
+fn test_map_features_by_feature_id_with_coenrolling_multifeature() -> Result<()> {
+    let exp1 = get_multi_feature_experiment(
+        "exp1",
+        "colliding1",
+        json!({"x": 1 }),
+        "coenrolling",
+        json!({ "a": 1, "b": 2 }),
+    );
+    let exp2 = get_single_feature_experiment("exp2", "coenrolling", json!({ "b": 3, "c": 4 }));
+    let exp3 = get_multi_feature_experiment(
+        "exp3",
+        "colliding2",
+        json!({"y": 1 }),
+        "coenrolling",
+        json!({ "c": 5, "d": 6 }),
+    );
+
+    let ids = HashSet::from(["coenrolling"]);
+    let exps = [exp1, exp2, exp3];
+
+    let enr1 = ExperimentEnrollment::enrolled("exp1");
+    let enr2 = ExperimentEnrollment::not_enrolled("exp2");
+    let enr3 = ExperimentEnrollment::not_enrolled("exp3");
+    let enrollments = [enr1, enr2, enr3];
+
+    let observed = map_features_by_feature_id(&enrollments, &exps, &ids);
+    let expected = HashMap::from([
+        (
+            "colliding1".to_string(),
+            EnrolledFeatureConfig::new("colliding1", json!({"x": 1 }), "exp1", Some("control")),
+        ),
+        (
+            "coenrolling".to_string(),
+            EnrolledFeatureConfig::new(
+                "coenrolling",
+                json!({"a": 1, "b": 2, }),
+                "exp1",
+                Some("control"),
+            ),
+        ),
+    ]);
+    assert_eq!(observed, expected);
+
+    let enr1 = ExperimentEnrollment::enrolled("exp1");
+    let enr2 = ExperimentEnrollment::enrolled("exp2");
+    let enr3 = ExperimentEnrollment::not_enrolled("exp3");
+    let enrollments = [enr1, enr2, enr3];
+
+    let observed = map_features_by_feature_id(&enrollments, &exps, &ids);
+    let expected = HashMap::from([
+        (
+            "colliding1".to_string(),
+            EnrolledFeatureConfig::new("colliding1", json!({"x": 1 }), "exp1", Some("control")),
+        ),
+        (
+            "coenrolling".to_string(),
+            EnrolledFeatureConfig::new(
+                "coenrolling",
+                json!({
+                    "a": 1, // from exp1
+                    "b": 3, // from exp2
+                    "c": 4, // from exp2
+                }),
+                "exp1+exp2",
+                None,
+            ),
+        ),
+    ]);
+    assert_eq!(observed, expected);
+
+    let enr1 = ExperimentEnrollment::enrolled("exp1");
+    let enr2 = ExperimentEnrollment::enrolled("exp2");
+    let enr3 = ExperimentEnrollment::enrolled("exp3");
+    let enrollments = [enr1, enr2, enr3];
+
+    let observed = map_features_by_feature_id(&enrollments, &exps, &ids);
+    let expected = HashMap::from([
+        (
+            "colliding1".to_string(),
+            EnrolledFeatureConfig::new("colliding1", json!({"x": 1 }), "exp1", Some("control")),
+        ),
+        (
+            "coenrolling".to_string(),
+            EnrolledFeatureConfig::new(
+                "coenrolling",
+                json!({
+                    "a": 1, // from exp1
+                    "b": 3, // from exp2
+                    "c": 5, // from exp3
+                    "d": 6, // from exp3
+                }),
+                "exp1+exp2+exp3",
+                None,
+            ),
+        ),
+        (
+            "colliding2".to_string(),
+            EnrolledFeatureConfig::new("colliding2", json!({"y": 1 }), "exp3", Some("control")),
+        ),
+    ]);
+    assert_eq!(observed, expected);
+
+    Ok(())
+}
+
+#[test]
+fn test_evolve_enrollments_with_coenrolling_features() -> Result<()> {
+    let _ = env_logger::try_init();
+    let (nimbus_id, app_ctx, aru) = local_ctx();
+    let th = app_ctx.into();
+    let ids = HashSet::from(["coenrolling"]);
+    let evolver = EnrollmentsEvolver::new(&nimbus_id, &aru, &th, &ids);
+
+    let exp1 = get_single_feature_experiment("exp1", "colliding", json!({"x": 1 }));
+    let exp2 = get_single_feature_experiment("exp2", "coenrolling", json!({ "a": 1, "b": 2 }));
+    let exp3 = get_single_feature_experiment("exp3", "coenrolling", json!({ "b": 3, "c": 4 }));
+    let exp4 = get_single_feature_experiment("exp4", "colliding", json!({"x": 2 }));
+
+    let all_experiments = [exp1, exp2, exp3.clone(), exp4.clone()];
+    let no_experiments: [Experiment; 0] = [];
+
+    let (enrollments, _) =
+        evolver.evolve_enrollment_recipes(true, &no_experiments, &all_experiments, &[])?;
+
+    let observed = map_features_by_feature_id(&enrollments, &all_experiments, &ids);
+    let expected = HashMap::from([
+        (
+            "colliding".to_string(),
+            EnrolledFeatureConfig::new("colliding", json!({"x": 1 }), "exp1", Some("control")),
+        ),
+        (
+            "coenrolling".to_string(),
+            EnrolledFeatureConfig::new(
+                "coenrolling",
+                json!({
+                    "a": 1, // from exp2
+                    "b": 3, // from exp3
+                    "c": 4, // from exp3
+                }),
+                "exp2+exp3",
+                None,
+            ),
+        ),
+    ]);
+    assert_eq!(observed, expected);
+
+    let experiments = [exp3, exp4];
+    let (enrollments, _) =
+        evolver.evolve_enrollment_recipes(true, &all_experiments, &experiments, &enrollments)?;
+
+    let observed = map_features_by_feature_id(&enrollments, &all_experiments, &ids);
+    let expected = HashMap::from([
+        (
+            "colliding".to_string(),
+            EnrolledFeatureConfig::new("colliding", json!({"x": 2 }), "exp4", Some("control")),
+        ),
+        (
+            "coenrolling".to_string(),
+            EnrolledFeatureConfig::new(
+                "coenrolling",
+                json!({
+                    "b": 3, // from exp3
+                    "c": 4, // from exp3
+                }),
+                "exp3",
+                Some("control"),
+            ),
+        ),
+    ]);
+    assert_eq!(observed, expected);
+    Ok(())
+}
+
+#[test]
+fn test_evolve_enrollments_with_coenrolling_multi_features() -> Result<()> {
+    let _ = env_logger::try_init();
+    let (nimbus_id, app_ctx, aru) = local_ctx();
+    let th = app_ctx.into();
+    let ids = HashSet::from(["coenrolling"]);
+    let evolver = EnrollmentsEvolver::new(&nimbus_id, &aru, &th, &ids);
+
+    let exp1 = get_multi_feature_experiment(
+        "exp1",
+        "colliding",
+        json!({"x": 1 }),
+        "coenrolling",
+        json!({ "a": 1, "b": 2 }),
+    );
+    let exp2 = get_single_feature_experiment("exp2", "coenrolling", json!({ "b": 3, "c": 4 }));
+    let exp3 = get_multi_feature_experiment(
+        "exp3",
+        "colliding",
+        json!({"y": 1 }),
+        "coenrolling",
+        json!({ "c": 5, "d": 6 }),
+    );
+    let exp4 = get_multi_feature_experiment(
+        "exp4",
+        "another",
+        json!({"p": 1 }),
+        "coenrolling",
+        json!({ "d": 7, "e": 8 }),
+    );
+
+    let all_experiments = [exp1, exp2, exp3.clone(), exp4.clone()];
+    let no_experiments: [Experiment; 0] = [];
+
+    let (enrollments, _) =
+        evolver.evolve_enrollment_recipes(true, &no_experiments, &all_experiments, &[])?;
+
+    let observed = map_features_by_feature_id(&enrollments, &all_experiments, &ids);
+    let expected = HashMap::from([
+        (
+            "colliding".to_string(),
+            EnrolledFeatureConfig::new("colliding", json!({"x": 1 }), "exp1", Some("control")),
+        ),
+        (
+            "another".to_string(),
+            EnrolledFeatureConfig::new("another", json!({"p": 1 }), "exp4", Some("control")),
+        ),
+        (
+            "coenrolling".to_string(),
+            EnrolledFeatureConfig::new(
+                "coenrolling",
+                json!({
+                    "a": 1, // from exp1
+                    "b": 3, // from exp2
+                    "c": 4, // from exp2
+                    "d": 7, // from exp4
+                    "e": 8, // from exp4
+                }),
+                "exp1+exp2+exp4",
+                None,
+            ),
+        ),
+    ]);
+    assert_eq!(observed, expected);
+
+    let experiments = [exp3, exp4];
+    let (enrollments, _) =
+        evolver.evolve_enrollment_recipes(true, &all_experiments, &experiments, &enrollments)?;
+
+    let observed = map_features_by_feature_id(&enrollments, &all_experiments, &ids);
+    let expected = HashMap::from([
+        (
+            "colliding".to_string(),
+            EnrolledFeatureConfig::new("colliding", json!({"y": 1 }), "exp3", Some("control")),
+        ),
+        (
+            "another".to_string(),
+            EnrolledFeatureConfig::new("another", json!({"p": 1 }), "exp4", Some("control")),
+        ),
+        (
+            "coenrolling".to_string(),
+            EnrolledFeatureConfig::new(
+                "coenrolling",
+                json!({
+                    "c": 5, // from exp3
+                    "d": 6, // from exp4
+                    "e": 8, // from exp4
+                }),
+                // This appears strange and non-deterministic, but is not:
+                // the existing enrollments (i.e. for 'exp4') are processed first, then the ones that
+                // are not yet enrolled (i.e. 'exp3').
+                "exp4+exp3",
+                None,
+            ),
+        ),
+    ]);
+    assert_eq!(observed, expected);
+
+    Ok(())
+}
+
+#[test]
 fn test_evolve_enrollments_error_handling() -> Result<()> {
     let existing_enrollments = vec![ExperimentEnrollment {
         slug: "secure-gold".to_owned(),
@@ -1609,7 +2008,8 @@ fn test_evolve_enrollments_error_handling() -> Result<()> {
     let _ = env_logger::try_init();
     let (nimbus_id, app_ctx, aru) = local_ctx();
     let th = app_ctx.into();
-    let evolver = EnrollmentsEvolver::new(&nimbus_id, &aru, &th);
+    let ids = no_coenrolling_features();
+    let evolver = EnrollmentsEvolver::new(&nimbus_id, &aru, &th, &ids);
 
     // test that evolve_enrollments correctly handles the case where a
     // record without a previous enrollment gets dropped
@@ -1660,7 +2060,8 @@ fn test_evolve_enrollments_is_already_enrolled_targeting() -> Result<()> {
     let _ = env_logger::try_init();
     let (nimbus_id, mut app_ctx, aru) = local_ctx();
     let th = app_ctx.clone().into();
-    let evolver = EnrollmentsEvolver::new(&nimbus_id, &aru, &th);
+    let ids = no_coenrolling_features();
+    let evolver = EnrollmentsEvolver::new(&nimbus_id, &aru, &th, &ids);
 
     // The targeting for this experiment is
     // "app_id == 'org.mozilla.fenix' || is_already_enrolled"
@@ -1682,7 +2083,8 @@ fn test_evolve_enrollments_is_already_enrolled_targeting() -> Result<()> {
     // against the `is_already_enrolled`
     app_ctx.app_id = "org.mozilla.bobo".into();
     let th = app_ctx.into();
-    let evolver = EnrollmentsEvolver::new(&nimbus_id, &aru, &th);
+    let ids = no_coenrolling_features();
+    let evolver = EnrollmentsEvolver::new(&nimbus_id, &aru, &th, &ids);
 
     // The user should still be enrolled, since the targeting is OR'ing the app_id == 'org.mozilla.fenix'
     // and the 'is_already_enrolled'
@@ -1707,7 +2109,8 @@ fn test_evolver_experiment_update_error() -> Result<()> {
     let exp = get_test_experiments()[0].clone();
     let (nimbus_id, app_ctx, aru) = local_ctx();
     let th = app_ctx.into();
-    let evolver = enrollment_evolver(&nimbus_id, &th, &aru);
+    let ids = no_coenrolling_features();
+    let evolver = enrollment_evolver(&nimbus_id, &th, &aru, &ids);
     let mut events = vec![];
     let existing_enrollment = ExperimentEnrollment {
         slug: exp.slug.clone(),
@@ -1738,7 +2141,8 @@ fn test_evolver_experiment_ended_was_enrolled() -> Result<()> {
     let exp = get_test_experiments()[0].clone();
     let (nimbus_id, app_ctx, aru) = local_ctx();
     let th = app_ctx.into();
-    let evolver = enrollment_evolver(&nimbus_id, &th, &aru);
+    let ids = no_coenrolling_features();
+    let evolver = enrollment_evolver(&nimbus_id, &th, &aru, &ids);
     let mut events = vec![];
     let enrollment_id = Uuid::new_v4();
     let existing_enrollment = ExperimentEnrollment {
@@ -1782,7 +2186,8 @@ fn test_evolver_experiment_ended_was_disqualified() -> Result<()> {
     let exp = get_test_experiments()[0].clone();
     let (nimbus_id, app_ctx, aru) = local_ctx();
     let th = app_ctx.into();
-    let evolver = enrollment_evolver(&nimbus_id, &th, &aru);
+    let ids = no_coenrolling_features();
+    let evolver = enrollment_evolver(&nimbus_id, &th, &aru, &ids);
     let mut events = vec![];
     let enrollment_id = Uuid::new_v4();
     let existing_enrollment = ExperimentEnrollment {
@@ -1826,7 +2231,8 @@ fn test_evolver_experiment_ended_was_not_enrolled() -> Result<()> {
     let exp = get_test_experiments()[0].clone();
     let (nimbus_id, app_ctx, aru) = local_ctx();
     let th = app_ctx.into();
-    let evolver = enrollment_evolver(&nimbus_id, &th, &aru);
+    let ids = no_coenrolling_features();
+    let evolver = enrollment_evolver(&nimbus_id, &th, &aru, &ids);
     let mut events = vec![];
     let existing_enrollment = ExperimentEnrollment {
         slug: exp.slug.clone(),
@@ -1850,7 +2256,8 @@ fn test_evolver_experiment_ended_was_not_enrolled() -> Result<()> {
 fn test_evolver_garbage_collection_before_threshold() -> Result<()> {
     let (nimbus_id, app_ctx, aru) = local_ctx();
     let th = app_ctx.into();
-    let evolver = enrollment_evolver(&nimbus_id, &th, &aru);
+    let ids = no_coenrolling_features();
+    let evolver = enrollment_evolver(&nimbus_id, &th, &aru, &ids);
     let mut events = vec![];
     let existing_enrollment = ExperimentEnrollment {
         slug: "secure-gold".to_owned(),
@@ -1876,7 +2283,8 @@ fn test_evolver_garbage_collection_before_threshold() -> Result<()> {
 fn test_evolver_garbage_collection_after_threshold() -> Result<()> {
     let (nimbus_id, app_ctx, aru) = local_ctx();
     let th = app_ctx.into();
-    let evolver = enrollment_evolver(&nimbus_id, &th, &aru);
+    let ids = no_coenrolling_features();
+    let evolver = enrollment_evolver(&nimbus_id, &th, &aru, &ids);
     let mut events = vec![];
     let existing_enrollment = ExperimentEnrollment {
         slug: "secure-gold".to_owned(),
@@ -1911,7 +2319,8 @@ fn test_evolver_new_experiment_enrollment_already_exists() {
     };
     let (nimbus_id, app_ctx, aru) = local_ctx();
     let th = app_ctx.into();
-    let evolver = enrollment_evolver(&nimbus_id, &th, &aru);
+    let ids = no_coenrolling_features();
+    let evolver = enrollment_evolver(&nimbus_id, &th, &aru, &ids);
     let res = evolver.evolve_enrollment::<Experiment>(
         true,
         None,
@@ -1927,7 +2336,8 @@ fn test_evolver_existing_experiment_has_no_enrollment() {
     let exp = get_test_experiments()[0].clone();
     let (nimbus_id, app_ctx, aru) = local_ctx();
     let th = app_ctx.into();
-    let evolver = enrollment_evolver(&nimbus_id, &th, &aru);
+    let ids = no_coenrolling_features();
+    let evolver = enrollment_evolver(&nimbus_id, &th, &aru, &ids);
     let res = evolver.evolve_enrollment(true, Some(&exp), Some(&exp), None, &mut vec![]);
     assert!(res.is_err());
 }
@@ -1937,7 +2347,8 @@ fn test_evolver_existing_experiment_has_no_enrollment() {
 fn test_evolver_no_experiments_no_enrollment() {
     let (nimbus_id, app_ctx, aru) = local_ctx();
     let th = app_ctx.into();
-    let evolver = enrollment_evolver(&nimbus_id, &th, &aru);
+    let ids = no_coenrolling_features();
+    let evolver = enrollment_evolver(&nimbus_id, &th, &aru, &ids);
     evolver
         .evolve_enrollment::<Experiment>(true, None, None, None, &mut vec![])
         .unwrap();
@@ -1978,7 +2389,8 @@ fn test_evolver_rollouts_do_not_conflict_with_experiments() -> Result<()> {
 
     let (nimbus_id, app_ctx, aru) = local_ctx();
     let th = app_ctx.into();
-    let evolver = enrollment_evolver(&nimbus_id, &th, &aru);
+    let ids = no_coenrolling_features();
+    let evolver = enrollment_evolver(&nimbus_id, &th, &aru, &ids);
     let (enrollments, events) =
         evolver.evolve_enrollments::<Experiment>(true, &[], recipes, &[])?;
     assert_eq!(enrollments.len(), 2);
@@ -2038,7 +2450,8 @@ fn test_evolver_rollouts_do_not_conflict_with_rollouts() -> Result<()> {
 
     let (nimbus_id, app_ctx, aru) = local_ctx();
     let th = app_ctx.into();
-    let evolver = enrollment_evolver(&nimbus_id, &th, &aru);
+    let ids = no_coenrolling_features();
+    let evolver = enrollment_evolver(&nimbus_id, &th, &aru, &ids);
     let (enrollments, events) =
         evolver.evolve_enrollments::<Experiment>(true, &[], recipes, &[])?;
     assert_eq!(enrollments.len(), 3);
@@ -2251,7 +2664,7 @@ fn test_evolver_map_features_by_feature_id_merges_rollouts() -> Result<()> {
     };
     let enrollments = &[ro_enrollment, exp_enrollment];
     let experiments = &[experiment, rollout];
-    let features = map_features_by_feature_id(enrollments, experiments);
+    let features = map_features_by_feature_id(enrollments, experiments, &no_coenrolling_features());
 
     assert_alice_bob_charlie(&features);
     Ok(())
@@ -2264,12 +2677,13 @@ fn test_rollouts_end_to_end() -> Result<()> {
 
     let (nimbus_id, app_ctx, aru) = local_ctx();
     let th = app_ctx.into();
-    let evolver = enrollment_evolver(&nimbus_id, &th, &aru);
+    let ids = no_coenrolling_features();
+    let evolver = enrollment_evolver(&nimbus_id, &th, &aru, &ids);
 
     let (enrollments, _events) =
         evolver.evolve_enrollments::<Experiment>(true, &[], recipes, &[])?;
 
-    let features = map_features_by_feature_id(&enrollments, recipes);
+    let features = map_features_by_feature_id(&enrollments, recipes, &no_coenrolling_features());
 
     assert_alice_bob_charlie(&features);
 

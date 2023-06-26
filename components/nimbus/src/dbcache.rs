@@ -9,7 +9,7 @@ use crate::error::{NimbusError, Result};
 use crate::persistence::{Database, StoreId, Writer};
 use crate::EnrolledExperiment;
 use crate::{enrollment::ExperimentEnrollment, Experiment};
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 use std::sync::RwLock;
 
 // This module manages an in-memory cache of the database, so that some
@@ -44,7 +44,12 @@ impl DatabaseCache {
     //    and thus prevent the possibility of caching stale data.
     //  * By taking ownership of the `Writer`, we ensure that the calling code
     //    updates the cache after all of its writes have been performed.
-    pub fn commit_and_update(&self, db: &Database, writer: Writer) -> Result<()> {
+    pub fn commit_and_update(
+        &self,
+        db: &Database,
+        writer: Writer,
+        coenrolling_ids: &HashSet<&str>,
+    ) -> Result<()> {
         // By passing in the active `writer` we read the state of enrollments
         // as written by the calling code, before it's committed to the db.
         let enrollments = get_enrollments(db, &writer)?;
@@ -61,7 +66,8 @@ impl DatabaseCache {
         let experiments: Vec<Experiment> =
             db.get_store(StoreId::Experiments).collect_all(&writer)?;
 
-        let features_by_feature_id = map_features_by_feature_id(&enrollments, &experiments);
+        let features_by_feature_id =
+            map_features_by_feature_id(&enrollments, &experiments, coenrolling_ids);
 
         // This is where testing tools would override i.e. replace experimental feature configurations.
         // i.e. testing tools would cause custom feature configs to be stored in a Store.

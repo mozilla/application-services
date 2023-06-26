@@ -14,7 +14,7 @@ use crate::{
         NotEnrolledReason,
     },
     persistence::{Database, Readable, StoreId},
-    tests::helpers::get_test_experiments,
+    tests::helpers::{get_test_experiments, no_coenrolling_features},
     AppContext, NimbusTargetingHelper, Result,
 };
 use std::sync::{Arc, Mutex};
@@ -52,7 +52,8 @@ fn test_enrollments() -> Result<()> {
     .into();
     assert_eq!(get_enrollments(&db, &writer)?.len(), 0);
 
-    let evolver = EnrollmentsEvolver::new(&nimbus_id, &aru, &targeting_attributes);
+    let ids = no_coenrolling_features();
+    let evolver = EnrollmentsEvolver::new(&nimbus_id, &aru, &targeting_attributes, &ids);
     let events = evolver.evolve_enrollments_in_db(&db, &mut writer, &[exp1])?;
 
     let enrollments = get_enrollments(&db, &writer)?;
@@ -134,7 +135,8 @@ fn test_updates() -> Result<()> {
     assert_eq!(get_enrollments(&db, &writer)?.len(), 0);
     let exps = get_test_experiments();
 
-    let evolver = EnrollmentsEvolver::new(&nimbus_id, &aru, &th);
+    let ids = no_coenrolling_features();
+    let evolver = EnrollmentsEvolver::new(&nimbus_id, &aru, &th, &ids);
     let events = evolver.evolve_enrollments_in_db(&db, &mut writer, &exps)?;
 
     let enrollments = get_enrollments(&db, &writer)?;
@@ -143,7 +145,7 @@ fn test_updates() -> Result<()> {
 
     // pretend we just updated from the server and one of the 2 is missing.
     let exps = &[exps[1].clone()];
-    let evolver = EnrollmentsEvolver::new(&nimbus_id, &aru, &th);
+    let evolver = EnrollmentsEvolver::new(&nimbus_id, &aru, &th, &ids);
     let events = evolver.evolve_enrollments_in_db(&db, &mut writer, exps)?;
 
     // should only have 1 now.
@@ -183,7 +185,8 @@ fn test_global_opt_out() -> Result<()> {
     // User has opted out of new experiments.
     set_global_user_participation(&db, &mut writer, false)?;
 
-    let evolver = EnrollmentsEvolver::new(&nimbus_id, &aru, &th);
+    let ids = no_coenrolling_features();
+    let evolver = EnrollmentsEvolver::new(&nimbus_id, &aru, &th, &ids);
     let events = evolver.evolve_enrollments_in_db(&db, &mut writer, &exps)?;
 
     let enrollments = get_enrollments(&db, &writer)?;
@@ -207,7 +210,7 @@ fn test_global_opt_out() -> Result<()> {
     // User opts in, and updating should enroll us in 2 experiments.
     set_global_user_participation(&db, &mut writer, true)?;
 
-    let evolver = EnrollmentsEvolver::new(&nimbus_id, &aru, &th);
+    let evolver = EnrollmentsEvolver::new(&nimbus_id, &aru, &th, &ids);
     let events = evolver.evolve_enrollments_in_db(&db, &mut writer, &exps)?;
 
     let enrollments = get_enrollments(&db, &writer)?;
@@ -224,7 +227,7 @@ fn test_global_opt_out() -> Result<()> {
     // Opting out and updating should give us two disqualified enrollments
     set_global_user_participation(&db, &mut writer, false)?;
 
-    let evolver = EnrollmentsEvolver::new(&nimbus_id, &aru, &th);
+    let evolver = EnrollmentsEvolver::new(&nimbus_id, &aru, &th, &ids);
     let events = evolver.evolve_enrollments_in_db(&db, &mut writer, &exps)?;
 
     let enrollments = get_enrollments(&db, &writer)?;
@@ -252,7 +255,7 @@ fn test_global_opt_out() -> Result<()> {
     // Opting in again and updating SHOULD NOT enroll us again (we've been disqualified).
     set_global_user_participation(&db, &mut writer, true)?;
 
-    let evolver = EnrollmentsEvolver::new(&nimbus_id, &aru, &th);
+    let evolver = EnrollmentsEvolver::new(&nimbus_id, &aru, &th, &ids);
     let events = evolver.evolve_enrollments_in_db(&db, &mut writer, &exps)?;
 
     let enrollments = get_enrollments(&db, &writer)?;
