@@ -1048,7 +1048,7 @@ fn test_active_enrollment_in_targeting() -> Result<()> {
     let targeting_helper = client.create_targeting_helper(None)?;
     assert!(targeting_helper.eval_jexl("'test-1' in active_experiments".to_string())?);
 
-    // Apply experiment that targets the above experiment is in previous_experiments
+    // Apply experiment that targets the above experiment is in enrollments
     let experiment_json = serde_json::to_string(&json!({
         "data": [{
             "schemaVersion": "1.0.0",
@@ -1189,7 +1189,7 @@ fn test_previous_enrollment_in_targeting() -> Result<()> {
     assert!(!targeting_helper.eval_jexl("'test-1' in active_experiments".into())?);
     assert!(targeting_helper.eval_jexl("'test-1' in enrollments".into())?);
 
-    // Apply experiment that targets the above experiment is in previous_experiments
+    // Apply experiment that targets the above experiment is in enrollments
     let experiment_json = serde_json::to_string(&json!({
         "data": [{
             "schemaVersion": "1.0.0",
