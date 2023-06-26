@@ -234,6 +234,7 @@
           }
         }
       ],
+      "allow_coenrollment": false,
       "default": null
     }
   ]

@@ -131,6 +131,8 @@ pub(crate) struct FeatureBody {
     #[serde(alias = "defaults")]
     #[serde(skip_serializing_if = "Option::is_none")]
     pub(crate) default: Option<Vec<DefaultBlock>>,
+    #[serde(default)]
+    pub(crate) allow_coenrollment: bool,
 }
 
 #[derive(Debug, Deserialize, Serialize, Clone, Default)]
@@ -251,6 +253,7 @@ impl ManifestFrontEnd {
                         .iter()
                         .map(|v| self.get_prop_def_from_field(v))
                         .collect(),
+                    allow_coenrollment: body.allow_coenrollment.clone(),
                 };
 
                 merger.merge_feature_defaults(&mut def, &body.default)?;

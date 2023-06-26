@@ -28,6 +28,7 @@ features:
         value: {
            "something": "wicked"
         }
+    allow-coenrollment: false
 
 types:
   objects: {}

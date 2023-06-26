@@ -113,7 +113,8 @@
           ]
         }
       ],
-      "default": null
+      "default": null,
+      "allow_coenrollment": false
     }
   ]
 }
