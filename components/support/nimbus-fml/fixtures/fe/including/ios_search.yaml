@@ -22,6 +22,7 @@ features:
             "keep-for-days": 100
           }
     defaults: null
+    allow_coenrollment: false
 objects:
   AwesomeBar:
     description: "Represents the awesome bar object"
