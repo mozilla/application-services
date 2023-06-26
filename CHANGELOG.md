@@ -6,6 +6,12 @@
 - Android: The JVM compatibility target is now version 17 ([#5651](https://github.com/mozilla/application-services/pull/5651))
   - _NOTE: This is technically a breaking change, but all existing downstream projects have already made the necessary changes._
 
+## Nimbus ⛅️🔬🔭
+
+### 🦊 What's Changed 🦊
+
+- Add `enrollments` value to `TargetingAttributes` (Nimbus only) — it is a set of strings containing all enrollments, past and present ([#5685](https://github.com/mozilla/application-services/pull/5685)).
+
 ## Nimbus FML ⛅️🔬🔭🔧
 
 ### ✨ What's New ✨
