@@ -28,7 +28,7 @@ cfg_if::cfg_if! {
 
 #[cfg_attr(not(feature = "stateful"), allow(unused))]
 const DEFAULT_GLOBAL_USER_PARTICIPATION: bool = true;
-pub(crate) const PREVIOUS_ENROLLMENTS_GC_TIME: Duration = Duration::from_secs(30 * 24 * 3600);
+pub(crate) const PREVIOUS_ENROLLMENTS_GC_TIME: Duration = Duration::from_secs(365 * 24 * 3600);
 
 // These are types we use internally for managing enrollments.
 // ⚠️ Attention : Changes to this type should be accompanied by a new test  ⚠️

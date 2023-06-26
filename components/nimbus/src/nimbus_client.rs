@@ -308,14 +308,20 @@ impl NimbusClient {
         let enrollments_store = db.get_store(StoreId::Enrollments);
         let prev_enrollments: Vec<ExperimentEnrollment> = enrollments_store.collect_all(writer)?;
 
-        let mut set = HashSet::<String>::new();
+        let mut is_enrolled_set = HashSet::<String>::new();
+        let mut all_enrolled_set = HashSet::<String>::new();
         for ee in prev_enrollments {
             if let EnrollmentStatus::Enrolled { .. } = ee.status {
-                set.insert(ee.slug.clone());
+                is_enrolled_set.insert(ee.slug.clone());
+                all_enrolled_set.insert(ee.slug.clone());
+            }
+            if let EnrollmentStatus::WasEnrolled { .. } = ee.status {
+                all_enrolled_set.insert(ee.slug.clone());
             }
         }
 
-        state.targeting_attributes.active_experiments = set;
+        state.targeting_attributes.active_experiments = is_enrolled_set;
+        state.targeting_attributes.enrollments = all_enrolled_set;
 
         Ok(())
     }

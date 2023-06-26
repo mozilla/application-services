@@ -43,6 +43,7 @@ pub struct TargetingAttributes {
     pub days_since_install: Option<i32>,
     pub days_since_update: Option<i32>,
     pub active_experiments: HashSet<String>,
+    pub enrollments: HashSet<String>,
 }
 
 #[cfg(not(feature = "stateful"))]
