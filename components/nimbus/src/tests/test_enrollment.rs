@@ -4,6 +4,7 @@
 
 // Testing enrollment.rs
 
+use crate::tests::helpers::get_bucketed_rollout;
 use crate::{
     defaults::Defaults,
     enrollment::*,
@@ -791,8 +792,7 @@ fn test_evolver_experiment_update_enrolled_then_targeting_changed() -> Result<()
 
 #[test]
 fn test_evolver_experiment_update_enrolled_then_bucketing_changed() -> Result<()> {
-    let mut exp = get_test_experiments()[0].clone();
-    exp.bucket_config.count = 0; // Make the experiment bucketing fail.
+    let exp = get_bucketed_rollout("test-rollout", 0);
     let (nimbus_id, app_ctx, aru) = local_ctx();
     let th = app_ctx.into();
     let ids = no_coenrolling_features();
@@ -807,7 +807,7 @@ fn test_evolver_experiment_update_enrolled_then_bucketing_changed() -> Result<()
             reason: EnrolledReason::Qualified,
         },
     };
-    let enrollment = evolver
+    let observed = evolver
         .evolve_enrollment(
             true,
             Some(&exp),
@@ -816,8 +816,69 @@ fn test_evolver_experiment_update_enrolled_then_bucketing_changed() -> Result<()
             &mut events,
         )?
         .unwrap();
-    assert_eq!(enrollment, existing_enrollment);
-    assert!(events.is_empty());
+    assert!(matches!(
+        observed,
+        ExperimentEnrollment {
+            status: EnrollmentStatus::WasEnrolled { .. },
+            ..
+        }
+    ));
+    assert_eq!(1, events.len());
+    Ok(())
+}
+
+#[test]
+fn test_rollout_unenrolls_when_bucketing_changes() -> Result<()> {
+    let (nimbus_id, app_ctx, aru) = local_ctx();
+    let th = app_ctx.into();
+    let ids = no_coenrolling_features();
+    let evolver = enrollment_evolver(&nimbus_id, &th, &aru, &ids);
+
+    let slug = "my-rollout";
+
+    // Start at 0%
+    let ro = get_bucketed_rollout(slug, 0);
+    let recipes = [ro];
+
+    let (enrollments, _) = evolver.evolve_enrollments::<Experiment>(true, &[], &recipes, &[])?;
+
+    assert_eq!(enrollments.len(), 1);
+    let enr = enrollments.get(0).unwrap();
+    assert_eq!(&enr.slug, slug);
+    assert!(matches!(&enr.status, EnrollmentStatus::NotEnrolled { .. }));
+
+    // Up to 100%
+    let prev_recipes = recipes;
+    let ro = get_bucketed_rollout(slug, 10_000);
+    let recipes = [ro];
+
+    let (enrollments, _) = evolver.evolve_enrollments::<Experiment>(
+        true,
+        &prev_recipes,
+        &recipes,
+        enrollments.as_slice(),
+    )?;
+    assert_eq!(enrollments.len(), 1);
+    let enr = enrollments.get(0).unwrap();
+    assert_eq!(&enr.slug, slug);
+    assert!(matches!(&enr.status, EnrollmentStatus::Enrolled { .. }));
+
+    // Back to zero again
+    let prev_recipes = recipes;
+    let ro = get_bucketed_rollout(slug, 0);
+    let recipes = [ro];
+
+    let (enrollments, _) = evolver.evolve_enrollments::<Experiment>(
+        true,
+        &prev_recipes,
+        &recipes,
+        enrollments.as_slice(),
+    )?;
+    assert_eq!(enrollments.len(), 1);
+    let enr = enrollments.get(0).unwrap();
+    assert_eq!(&enr.slug, slug);
+    assert!(matches!(&enr.status, EnrollmentStatus::WasEnrolled { .. }));
+
     Ok(())
 }
 
