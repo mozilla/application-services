@@ -1,0 +1,16 @@
+version: 1.0
+about:
+  description: A small test for coenrolling features
+  ios:
+    class: AppNimbus
+    module: App
+  android:
+    class: .nimbus.AppNimbus
+    package: com.example.app
+channels:
+  - debug
+  - release
+import:
+  - path: ./ui.fml.yaml
+    # `test-embedding` is defined in `lib.yaml`. We'll use it as the base case.
+    channel: test-embedding

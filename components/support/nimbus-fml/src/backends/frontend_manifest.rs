@@ -68,7 +68,7 @@ impl From<FeatureDef> for FeatureBody {
             description: value.doc,
             variables,
             default: None,
-            allow_coenrollment: false,
+            allow_coenrollment: value.allow_coenrollment,
         }
     }
 }

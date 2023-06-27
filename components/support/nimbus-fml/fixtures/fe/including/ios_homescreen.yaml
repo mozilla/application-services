@@ -28,7 +28,6 @@ features:
             "library-shortcuts": true
           }
         }
-    allow_coenrollment: false
 enums:
   HomeScreenSection:
     description: The identifiers for the sections of the homescreen.

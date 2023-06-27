@@ -954,4 +954,28 @@ mod test {
         test_single_merged_manifest_file("fixtures/fe/importing/diamond/02-sublib.yaml", "debug")?;
         Ok(())
     }
+
+    #[test]
+    fn test_with_coenrolled_features_and_imports_kotlin() -> Result<()> {
+        generate_multiple_and_assert(
+            "test/allow_coenrolling.kts",
+            &[
+                ("fixtures/fe/importing/coenrolling/app.fml.yaml", "release"),
+                ("fixtures/fe/importing/coenrolling/ui.fml.yaml", "release"),
+            ],
+        )?;
+        Ok(())
+    }
+
+    #[test]
+    fn test_with_coenrolled_features_and_imports_swift() -> Result<()> {
+        generate_multiple_and_assert(
+            "test/allow_coenrolling.swift",
+            &[
+                ("fixtures/fe/importing/coenrolling/app.fml.yaml", "release"),
+                ("fixtures/fe/importing/coenrolling/ui.fml.yaml", "release"),
+            ],
+        )?;
+        Ok(())
+    }
 }

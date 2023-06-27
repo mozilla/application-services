@@ -120,6 +120,7 @@ pub(crate) struct ImportBlock {
 
 #[derive(Debug, Deserialize, Serialize, Clone)]
 #[serde(deny_unknown_fields)]
+#[serde(rename_all = "kebab-case")]
 pub(crate) struct FeatureBody {
     pub(crate) description: String,
     // We need these in a deterministic order, so they are stable across multiple
@@ -132,6 +133,7 @@ pub(crate) struct FeatureBody {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub(crate) default: Option<Vec<DefaultBlock>>,
     #[serde(default)]
+    #[serde(skip_serializing_if = "std::ops::Not::not")]
     pub(crate) allow_coenrollment: bool,
 }
 
@@ -253,7 +255,7 @@ impl ManifestFrontEnd {
                         .iter()
                         .map(|v| self.get_prop_def_from_field(v))
                         .collect(),
-                    allow_coenrollment: body.allow_coenrollment.clone(),
+                    allow_coenrollment: body.allow_coenrollment,
                 };
 
                 merger.merge_feature_defaults(&mut def, &body.default)?;
