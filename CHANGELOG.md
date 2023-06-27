@@ -1,5 +1,12 @@
 # v117.0 (In progress)
 
+## Nimbus FML ⛅️🔬🔭🔧
+
+### ✨ What's New ✨
+
+- Add `allow-coenrollment` property for features in the Feature Manifest Language. This relaxes the feature exclusion rules for features marked with `allow-coenrollment: true`. ([#5688](https://github.com/mozilla/application-services/pull/5688)).
+  - This adds a non-user-facing method to the `FeatureManifestInterface`, `getCoenrollingFeatureIds`, in both Kotlin and Swift.
+
 [Full Changelog](In progress)
 
 # v116.0 (_2023-07-03_)

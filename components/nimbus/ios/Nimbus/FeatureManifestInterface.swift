@@ -31,4 +31,6 @@ public protocol FeatureManifestInterface {
     ///
     /// This happens automatically if you use the `NimbusBuilder` pattern of initialization.
     func invalidateCachedValues()
+
+    func getCoenrollingFeatureIds() -> [String]
 }

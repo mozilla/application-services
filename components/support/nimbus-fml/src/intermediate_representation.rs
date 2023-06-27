@@ -640,9 +640,10 @@ impl FeatureManifest {
         self.iter_feature_defs().find(|f| f.name() == nm)
     }
 
-    pub fn get_coenrolling_feature_ids(&self) -> Vec<&FeatureDef> {
-        self.iter_feature_defs()
-            .filter(|f| f.allow_coenrollment())
+    pub fn get_coenrolling_feature_ids(&self) -> Vec<String> {
+        self.iter_all_feature_defs()
+            .filter(|(_, f)| f.allow_coenrollment())
+            .map(|(_, f)| f.name())
             .collect()
     }
 
@@ -725,7 +726,7 @@ impl FeatureDef {
         self.props.clone()
     }
     pub fn allow_coenrollment(&self) -> bool {
-        self.allow_coenrollment.clone()
+        self.allow_coenrollment
     }
 
     pub fn default_json(&self) -> Value {
@@ -963,6 +964,27 @@ pub mod unit_tests {
         ];
         fm.validate_manifest()
             .expect_err("Should fail on duplicate obj_defs");
+        Ok(())
+    }
+
+    #[test]
+    fn validate_allow_coenrollment() -> Result<()> {
+        let mut fm = get_simple_homescreen_feature();
+        fm.feature_defs.push(FeatureDef::new(
+            "some_def",
+            "my lovely qtest doc",
+            vec![PropDef {
+                name: "some prop".into(),
+                doc: "some prop doc".into(),
+                typ: TypeRef::String,
+                default: json!("default"),
+            }],
+            true,
+        ));
+        fm.validate_manifest()?;
+        let coenrolling_ids = fm.get_coenrolling_feature_ids();
+        assert_eq!(coenrolling_ids, vec!["some_def".to_string()]);
+
         Ok(())
     }
 
@@ -1841,6 +1863,95 @@ pub mod unit_tests {
         let feature = fm.find_feature("feature_i");
 
         assert!(feature.is_some());
+
+        Ok(())
+    }
+
+    #[test]
+    fn test_get_coenrolling_feature_finds_across_all_imports() -> Result<()> {
+        let fm_i = get_feature_manifest(
+            vec![],
+            vec![],
+            vec![
+                FeatureDef {
+                    name: "coenrolling_import_1".into(),
+                    allow_coenrollment: true,
+                    ..Default::default()
+                },
+                FeatureDef {
+                    name: "coenrolling_import_2".into(),
+                    allow_coenrollment: true,
+                    ..Default::default()
+                },
+            ],
+            HashMap::new(),
+        );
+
+        let fm = get_feature_manifest(
+            vec![],
+            vec![],
+            vec![
+                FeatureDef {
+                    name: "coenrolling_feature".into(),
+                    allow_coenrollment: true,
+                    ..Default::default()
+                },
+                FeatureDef {
+                    name: "non_coenrolling_feature".into(),
+                    allow_coenrollment: false,
+                    ..Default::default()
+                },
+            ],
+            HashMap::from([(ModuleId::Local("test".into()), fm_i)]),
+        );
+
+        let coenrolling_features = fm.get_coenrolling_feature_ids();
+        let expected = vec![
+            "coenrolling_feature".to_string(),
+            "coenrolling_import_1".to_string(),
+            "coenrolling_import_2".to_string(),
+        ];
+
+        assert_eq!(coenrolling_features, expected);
+
+        Ok(())
+    }
+
+    #[test]
+    fn test_no_coenrolling_feature_finds_across_all_imports() -> Result<()> {
+        let fm_i = get_feature_manifest(
+            vec![],
+            vec![],
+            vec![FeatureDef {
+                name: "not_coenrolling_import".into(),
+                allow_coenrollment: false,
+                ..Default::default()
+            }],
+            HashMap::new(),
+        );
+
+        let fm = get_feature_manifest(
+            vec![],
+            vec![],
+            vec![
+                FeatureDef {
+                    name: "non_coenrolling_feature_1".into(),
+                    allow_coenrollment: false,
+                    ..Default::default()
+                },
+                FeatureDef {
+                    name: "non_coenrolling_feature_2".into(),
+                    allow_coenrollment: false,
+                    ..Default::default()
+                },
+            ],
+            HashMap::from([(ModuleId::Local("test".into()), fm_i)]),
+        );
+
+        let coenrolling_features = fm.get_coenrolling_feature_ids();
+        let expected: Vec<String> = vec![];
+
+        assert_eq!(coenrolling_features, expected);
 
         Ok(())
     }

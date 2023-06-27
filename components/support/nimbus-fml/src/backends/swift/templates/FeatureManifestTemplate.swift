@@ -47,6 +47,14 @@ public class {{ nimbus_object }} : FeatureManifestInterface {
     public let features = Features()
 
     {% let blocks = self.initialization_code() -%}
+
+    public func getCoenrollingFeatureIds() -> [String] {
+        [{%- for f in self.fm.get_coenrolling_feature_ids() %}
+            {{- f|quoted }}
+            {%- if !loop.last %}, {% endif %}
+            {%- endfor %}]
+    }
+
     ///
     /// All generated initialization code. Clients shouldn't need to override or call
     /// this.
@@ -104,4 +112,4 @@ public class {{ features_object }} {
 {{- code }}
 {%- endfor %}
 
-{% import "macros.kt" as kt %}
+{% import "macros.swift" as swift %}

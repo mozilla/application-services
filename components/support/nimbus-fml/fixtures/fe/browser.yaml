@@ -39,6 +39,7 @@ features:
             "pocket": true
           }
         }
+    allow-coenrollment: true
   nimbus-validation:
     description: "A feature that does not correspond to an application feature suitable for showing
     that Nimbus is working."
