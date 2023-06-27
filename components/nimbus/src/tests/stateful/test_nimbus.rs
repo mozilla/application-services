@@ -972,6 +972,47 @@ fn test_fetch_enabled() -> Result<()> {
     Ok(())
 }
 
+fn generate_experiment(slug: &str, targeting: &str) -> Result<String> {
+    Ok(serde_json::to_string(&json!({
+        "data": [{
+            "schemaVersion": "1.0.0",
+            "slug": slug,
+            "endDate": null,
+            "featureIds": ["some-feature-1"],
+            "branches": [
+                {
+                "slug": "control",
+                "ratio": 1
+                },
+                {
+                "slug": "treatment",
+                "ratio": 1
+                }
+            ],
+            "channel": "nightly",
+            "probeSets": [],
+            "startDate": null,
+            "appName": "fenix",
+            "appId": "org.mozilla.fenix",
+            "bucketConfig": {
+                "count": 10000,
+                "start": 0,
+                "total": 10000,
+                "namespace": "secure-gold",
+                "randomizationUnit": "nimbus_id"
+            },
+            "targeting": targeting,
+            "userFacingName": "test experiment",
+            "referenceBranch": "control",
+            "isEnrollmentPaused": false,
+            "proposedEnrollment": 7,
+            "userFacingDescription": "This is a test experiment for testing purposes.",
+            "id": "secure-copper",
+            "last_modified": 1_602_197_324_372i64,
+        }
+    ]}))?)
+}
+
 #[test]
 fn test_active_enrollment_in_targeting() -> Result<()> {
     let mock_client_id = "client-1".to_string();
@@ -1001,44 +1042,7 @@ fn test_active_enrollment_in_targeting() -> Result<()> {
     client.initialize()?;
 
     // Apply an initial experiment
-    let experiment_json = serde_json::to_string(&json!({
-        "data": [{
-            "schemaVersion": "1.0.0",
-            "slug": "test-1",
-            "endDate": null,
-            "featureIds": ["some-feature-1"],
-            "branches": [
-                {
-                "slug": "control",
-                "ratio": 1
-                },
-                {
-                "slug": "treatment",
-                "ratio": 1
-                }
-            ],
-            "channel": "nightly",
-            "probeSets": [],
-            "startDate": null,
-            "appName": "fenix",
-            "appId": "org.mozilla.fenix",
-            "bucketConfig": {
-                "count": 10000,
-                "start": 0,
-                "total": 10000,
-                "namespace": "secure-gold",
-                "randomizationUnit": "nimbus_id"
-            },
-            "targeting": "true",
-            "userFacingName": "test experiment",
-            "referenceBranch": "control",
-            "isEnrollmentPaused": false,
-            "proposedEnrollment": 7,
-            "userFacingDescription": "This is a test experiment for testing purposes.",
-            "id": "secure-copper",
-            "last_modified": 1_602_197_324_372i64,
-        }
-    ]}))?;
+    let experiment_json = generate_experiment("test-1", "true")?;
     client.set_experiments_locally(experiment_json)?;
     client.apply_pending_experiments()?;
 
@@ -1049,44 +1053,7 @@ fn test_active_enrollment_in_targeting() -> Result<()> {
     assert!(targeting_helper.eval_jexl("'test-1' in active_experiments".to_string())?);
 
     // Apply experiment that targets the above experiment is in enrollments
-    let experiment_json = serde_json::to_string(&json!({
-        "data": [{
-            "schemaVersion": "1.0.0",
-            "slug": "test-2",
-            "endDate": null,
-            "featureIds": ["some-feature-1"],
-            "branches": [
-                {
-                "slug": "control",
-                "ratio": 1
-                },
-                {
-                "slug": "treatment",
-                "ratio": 1
-                }
-            ],
-            "channel": "nightly",
-            "probeSets": [],
-            "startDate": null,
-            "appName": "fenix",
-            "appId": "org.mozilla.fenix",
-            "bucketConfig": {
-                "count": 10000,
-                "start": 0,
-                "total": 10000,
-                "namespace": "secure-gold",
-                "randomizationUnit": "nimbus_id"
-            },
-            "targeting": "'test-1' in enrollments",
-            "userFacingName": "test experiment",
-            "referenceBranch": "control",
-            "isEnrollmentPaused": false,
-            "proposedEnrollment": 7,
-            "userFacingDescription": "This is a test experiment for testing purposes.",
-            "id": "secure-copper",
-            "last_modified": 1_602_197_324_372i64,
-        }
-    ]}))?;
+    let experiment_json = generate_experiment("test-2", "'test-1' in enrollments")?;
     client.set_experiments_locally(experiment_json)?;
     client.apply_pending_experiments()?;
 
@@ -1131,44 +1098,7 @@ fn test_previous_enrollment_in_targeting() -> Result<()> {
     client.initialize()?;
 
     // Apply an initial experiment
-    let experiment_json = serde_json::to_string(&json!({
-        "data": [{
-            "schemaVersion": "1.0.0",
-            "slug": "test-1",
-            "endDate": null,
-            "featureIds": ["some-feature-1"],
-            "branches": [
-                {
-                "slug": "control",
-                "ratio": 1
-                },
-                {
-                "slug": "treatment",
-                "ratio": 1
-                }
-            ],
-            "channel": "nightly",
-            "probeSets": [],
-            "startDate": null,
-            "appName": "fenix",
-            "appId": "org.mozilla.fenix",
-            "bucketConfig": {
-                "count": 10000,
-                "start": 0,
-                "total": 10000,
-                "namespace": "secure-gold",
-                "randomizationUnit": "nimbus_id"
-            },
-            "targeting": "true",
-            "userFacingName": "test experiment",
-            "referenceBranch": "control",
-            "isEnrollmentPaused": false,
-            "proposedEnrollment": 7,
-            "userFacingDescription": "This is a test experiment for testing purposes.",
-            "id": "secure-copper",
-            "last_modified": 1_602_197_324_372i64,
-        }
-    ]}))?;
+    let experiment_json = generate_experiment("test-1", "true")?;
     client.set_experiments_locally(experiment_json)?;
     client.apply_pending_experiments()?;
 
@@ -1191,44 +1121,7 @@ fn test_previous_enrollment_in_targeting() -> Result<()> {
     assert!(targeting_helper.eval_jexl("'test-1' in enrollments".into())?);
 
     // Apply experiment that targets the above experiment is in enrollments
-    let experiment_json = serde_json::to_string(&json!({
-        "data": [{
-            "schemaVersion": "1.0.0",
-            "slug": "test-2",
-            "endDate": null,
-            "featureIds": ["some-feature-1"],
-            "branches": [
-                {
-                "slug": "control",
-                "ratio": 1
-                },
-                {
-                "slug": "treatment",
-                "ratio": 1
-                }
-            ],
-            "channel": "nightly",
-            "probeSets": [],
-            "startDate": null,
-            "appName": "fenix",
-            "appId": "org.mozilla.fenix",
-            "bucketConfig": {
-                "count": 10000,
-                "start": 0,
-                "total": 10000,
-                "namespace": "secure-gold",
-                "randomizationUnit": "nimbus_id"
-            },
-            "targeting": "'test-1' in enrollments",
-            "userFacingName": "test experiment",
-            "referenceBranch": "control",
-            "isEnrollmentPaused": false,
-            "proposedEnrollment": 7,
-            "userFacingDescription": "This is a test experiment for testing purposes.",
-            "id": "secure-copper",
-            "last_modified": 1_602_197_324_372i64,
-        }
-    ]}))?;
+    let experiment_json = generate_experiment("test-2", "'test-1' in enrollments")?;
     client.set_experiments_locally(experiment_json)?;
     client.apply_pending_experiments()?;
 

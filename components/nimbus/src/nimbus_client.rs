@@ -311,12 +311,15 @@ impl NimbusClient {
         let mut is_enrolled_set = HashSet::<String>::new();
         let mut all_enrolled_set = HashSet::<String>::new();
         for ee in prev_enrollments {
-            if let EnrollmentStatus::Enrolled { .. } = ee.status {
-                is_enrolled_set.insert(ee.slug.clone());
-                all_enrolled_set.insert(ee.slug.clone());
-            }
-            if let EnrollmentStatus::WasEnrolled { .. } = ee.status {
-                all_enrolled_set.insert(ee.slug.clone());
+            match ee.status {
+                EnrollmentStatus::Enrolled { .. } => {
+                    is_enrolled_set.insert(ee.slug.clone());
+                    all_enrolled_set.insert(ee.slug.clone());
+                }
+                EnrollmentStatus::WasEnrolled { .. } => {
+                    all_enrolled_set.insert(ee.slug.clone());
+                }
+                _ => {}
             }
         }
 
