@@ -237,6 +237,14 @@ impl ExperimentEnrollment {
                             out_enrollment_events.push(updated_enrollment.get_change_event());
                             updated_enrollment
                         }
+                        EnrollmentStatus::NotEnrolled {
+                            reason: NotEnrolledReason::NotSelected,
+                        } => {
+                            // In the case of a rollout being scaled back, we should end with WasEnrolled.
+                            //
+                            self.on_experiment_ended(out_enrollment_events)
+                                .ok_or_else(|| NimbusError::InternalError("An unexpected None happened while ending an experiment prematurely"))?
+                        }
                         EnrollmentStatus::NotEnrolled { .. }
                         | EnrollmentStatus::Enrolled { .. }
                         | EnrollmentStatus::Disqualified { .. }

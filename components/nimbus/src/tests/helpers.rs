@@ -266,14 +266,55 @@ pub fn get_single_feature_experiment(slug: &str, feature_id: &str, config: Value
         "featureIds": [feature_id],
         "channel": "nightly",
         "probeSets":[],
-        "startDate":null,
-        "appName":"fenix",
+        "startDate":null,"appName":"fenix",
         "appId":"org.mozilla.fenix",
         "bucketConfig":{
             // Also enroll everyone.
             "count":10_000,
             "start":0,
             "total":10_000,
+            "namespace":"secure-silver",
+            "randomizationUnit":"nimbus_id"
+        },
+        "userFacingName":"",
+        "referenceBranch":"control",
+        "isEnrollmentPaused":false,
+        "proposedEnrollment":7,
+        "userFacingDescription":"",
+    }
+    ))
+    .unwrap()
+}
+
+pub fn get_bucketed_rollout(slug: &str, count: i64) -> Experiment {
+    let feature_id = "a-feature";
+    serde_json::from_value(json!(
+        {
+        "schemaVersion": "1.0.0",
+        "slug": slug,
+        "endDate": null,
+        "branches":[
+            {
+                "slug": "control",
+                "ratio": 1,
+                "feature": {
+                    "featureId": feature_id,
+                    "enabled": true,
+                    "value": {},
+                }
+            },
+        ],
+        "isRollout": true,
+        "featureIds": [feature_id],
+        "channel": "nightly",
+        "probeSets": [],
+        "startDate": null,
+        "appName":"fenix",
+        "appId":"org.mozilla.fenix",
+        "bucketConfig":{
+            "count": count,
+            "start": 0,
+            "total": 10_000,
             "namespace":"secure-silver",
             "randomizationUnit":"nimbus_id"
         },
