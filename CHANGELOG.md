@@ -10,6 +10,8 @@
 
 ### 🦊 What's Changed 🦊
 
+- When a rollout audience size decreases, the enrollment is re-evaluated and the client is unenrolled if no longer in the bucket. ([#5687](https://github.com/mozilla/application-services/pull/5687)).
+  - The record of enrollment will be available in the new `enrollments` targeting attribute.
 - Add `enrollments` value to `TargetingAttributes` — it is a set of strings containing all enrollments, past and present ([#5685](https://github.com/mozilla/application-services/pull/5685)).
   - _Note: This change only applies to stateful uses of the Nimbus SDK, e.g. mobile_
 - Add ability to enroll selected features multiple times (coenrollment) ([#5684](https://github.com/mozilla/application-services/pull/5684)).
