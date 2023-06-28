@@ -17,20 +17,21 @@ abstract class DeviceManager {
     /**
      * Set name of the current device.
      * @param name New device name.
-     * @throwns FxaException.Authentication
+     * @throws FxaException.Authentication if the account is not connected
      */
     abstract suspend fun setDeviceName(name: String)
 
     /**
      * Get the current device list. May be incomplete if state was never queried.
      * @return [DeviceList] describes current and other known devices
+     * @throws FxaException.Authentication if the account is not connected
      */
     abstract fun getKnownDevices(): DeviceList
 
     /**
      * Set a [DevicePushSubscription] for the current device.
      * @param subscription A new [DevicePushSubscription].
-     * @throwns FxaException.Authentication
+     * @throws FxaException.Authentication if the account is not connected
      */
     abstract suspend fun setDevicePushSubscription(subscription: DevicePushSubscription)
 
@@ -39,14 +40,14 @@ abstract class DeviceManager {
      * @param targetDeviceId A device ID of the recipient.
      * @param title tab title
      * @param url tab URL
-     * @throwns FxaException.Authentication
+     * @throws FxaException.Authentication if the account is not connected
      */
     abstract suspend fun sendSingleTab(targetDeviceId: String, title: String, url: String)
 
     /**
      * Refreshes [DeviceList]. Registered [AccountEventsObserver] observers will be notified.
      *
-     * @throwns FxaException.Authentication
+     * @throws FxaException.Authentication if the account is not connected
      */
     abstract suspend fun refreshDevices()
 
@@ -54,7 +55,7 @@ abstract class DeviceManager {
      * Polls for any pending [DeviceCommandIncoming] commands.
      * In case of new commands, registered [AccountEventsObserver] observers will be notified.
      *
-     * @throwns FxaException.Authentication
+     * @throws FxaException.Authentication if the account is not connected
      */
     abstract suspend fun pollForDeviceCommands()
 }

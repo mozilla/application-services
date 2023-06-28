@@ -26,10 +26,10 @@ import kotlin.coroutines.CoroutineContext
  *     `Devices.kt` and available from the `deviceManager()` method.
  */
 abstract class FirefoxAccount(
-    private val config: FxaConfig,
-    private val deviceConfig: DeviceConfig,
-    private val storageHandler: StorageHandler,
-    private val applicationScopes: List<Scope> = listOf(),
+    val config: FxaConfig,
+    val deviceConfig: DeviceConfig,
+    val storageHandler: StorageHandler,
+    val applicationScopes: List<Scope> = listOf(),
 ) {
     /**
      * Tries to fetch an access token for the given scope.
@@ -37,24 +37,27 @@ abstract class FirefoxAccount(
      * @param singleScope Single OAuth scope (no spaces) for which the client wants access
      * @return [AccessTokenInfo] that stores the token, along with its scope, key and
      *                           expiration timestamp (in seconds) since epoch when complete
+     * @throws FxaException.Authentication if the account is not connected
      */
-    abstract suspend fun getAccessToken(singleScope: String): AccessTokenInfo?
+    abstract suspend fun getAccessToken(singleScope: String): AccessTokenInfo
 
     /**
      * Fetches the profile object for the current client either from the existing cached state
      * or from the server (requires the client to have access to the profile scope).
      *
      * @param ignoreCache Fetch the profile information directly from the server
-     * @return Profile (optional, if successfully retrieved) representing the user's basic profile info
+     * @return Profile representing the user's basic profile info
+     * @throws FxaException.Authentication if the account is not connected
      */
-    abstract suspend fun getProfile(ignoreCache: Boolean = false): Profile?
+    abstract suspend fun getProfile(ignoreCache: Boolean = false): Profile
 
     /**
      * Fetches the token server endpoint, for authentication using the SAML bearer flow.
      *
-     * @return Token server endpoint URL string, `null` if it couldn't be obtained.
+     * @return Token server endpoint URL string
+     * @throws FxaException.Authentication if the account is not connected
      */
-    abstract suspend fun getTokenServerEndpointURL(): String?
+    abstract suspend fun getTokenServerEndpointURL(): String
 
     /**
      * Get the pairing URL to navigate to on the Authority side (typically a computer).
@@ -66,16 +69,18 @@ abstract class FirefoxAccount(
     /**
      * Returns current FxA Device ID for an authenticated account.
      *
-     * @return Current device's FxA ID, if available. `null` otherwise.
+     * @return Current device's FxA ID
+     * @throws FxaException.Authentication if the account is not connected
      */
-    abstract fun getCurrentDeviceId(): String?
+    abstract fun getCurrentDeviceId(): String
 
     /**
      * Returns session token for an authenticated account.
      *
-     * @return Current account's session token, if available. `null` otherwise.
+     * @return Current account's session token
+     * @throws FxaException.Authentication if the account is not connected
      */
-    abstract fun getSessionToken(): String?
+    abstract fun getSessionToken(): String
 
     /**
      * Indicates if account needs to be re-authenticated via [beginAuthentication].
@@ -129,7 +134,7 @@ sealed class AccountEvent  {
     data class DeviceCommandIncoming(val command: IncomingDeviceCommand) : AccountEvent()
 
     /** Another device connected to the account */
-    data class devicesChanged(val deviceList: DeviceList) : AccountEvent()
+    data class DevicesChanged(val deviceList: DeviceList) : AccountEvent()
 }
 
 interface StorageHandler {
