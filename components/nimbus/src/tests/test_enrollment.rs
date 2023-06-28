@@ -2833,3 +2833,88 @@ fn test_filter_experiments_by_closure() -> Result<()> {
 
     Ok(())
 }
+
+#[test]
+fn test_populate_feature_maps() -> Result<()> {
+    let coenrolling_ids = HashSet::from(["coenrolling"]);
+    let mut colliding_map = Default::default();
+    let mut coenrolling_map = Default::default();
+
+    populate_feature_maps(
+        EnrolledFeatureConfig::new("colliding", json!({}), "exp1", None),
+        &coenrolling_ids,
+        &mut colliding_map,
+        &mut coenrolling_map,
+    );
+
+    assert!(colliding_map.contains_key("colliding"));
+    assert!(!coenrolling_map.contains_key("colliding"));
+
+    // Add a config for 'coenrolling' feature
+    let added = EnrolledFeatureConfig::new(
+        "coenrolling",
+        json!({
+            "a": 1,
+            "b": 2,
+        }),
+        "exp2",
+        None,
+    );
+    populate_feature_maps(
+        added.clone(),
+        &coenrolling_ids,
+        &mut colliding_map,
+        &mut coenrolling_map,
+    );
+
+    let expected = added;
+
+    assert!(!colliding_map.contains_key("coenrolling"));
+    assert!(coenrolling_map.contains_key("coenrolling"));
+
+    let observed = coenrolling_map.get("coenrolling");
+    assert!(observed.is_some());
+
+    let observed = observed.unwrap();
+    assert_eq!(&expected, observed);
+
+    // Add a second config for the 'coenrolling' feature.
+    let added = EnrolledFeatureConfig::new(
+        "coenrolling",
+        json!({
+            "b": 3,
+            "c": 4,
+        }),
+        "exp3",
+        None,
+    );
+
+    populate_feature_maps(
+        added,
+        &coenrolling_ids,
+        &mut colliding_map,
+        &mut coenrolling_map,
+    );
+
+    let expected = EnrolledFeatureConfig::new(
+        "coenrolling",
+        json!({
+            "a": 1, // from 'exp2'
+            "b": 3, // from 'exp3'
+            "c": 4, // from 'exp3'
+        }),
+        "exp2+exp3",
+        None,
+    );
+
+    assert!(!colliding_map.contains_key("coenrolling"));
+    assert!(coenrolling_map.contains_key("coenrolling"));
+
+    let observed = coenrolling_map.get("coenrolling");
+    assert!(observed.is_some());
+
+    let observed = observed.unwrap();
+    assert_eq!(&expected, observed);
+
+    Ok(())
+}
