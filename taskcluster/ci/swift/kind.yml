@@ -7,22 +7,23 @@
 loader: taskgraph.loader.transform:loader
 
 transforms:
-  - app_services_taskgraph.transforms.worker:transforms
-  - app_services_taskgraph.transforms.appservices:transforms
-  - taskgraph.transforms.job:transforms
-  - taskgraph.transforms.task:transforms
+  - app_services_taskgraph.transforms.worker
+  - app_services_taskgraph.transforms.release_artifacts
+  - app_services_taskgraph.transforms.appservices
+  - taskgraph.transforms.job
+  - taskgraph.transforms.task
 
 kind-dependencies:
   - fetch
   - toolchain
 
 tasks:
-  build:
+  swift-build:
     attributes:
       run-on-pr-type: full-ci
       resource-monitor: true
       release-routes:
-        - index.project.application-services.v2.swift.{appservices_version}
+        - index.project.{project}.v2.swift.{appservices_version}
     needs-sccache: false # TODO: Bug 1623426 deal with this once we're in prod
     run-on-tasks-for: [github-pull-request, github-release, cron]
     description: Build and test (Swift)
@@ -45,6 +46,10 @@ tasks:
         # - name: "public/build/raw_xcodetest.log"
         #   path: "checkouts/vcs/logs/raw_xcodetest.log"
         #   type: "file"
+    release-artifacts:
+      - swift-components.tar.xz
+      - MozillaRustComponents.xcframework.zip
+      - FocusRustComponents.xcframework.zip
     run:
       pre-commands:
         - ["source", "taskcluster/scripts/setup-mac-worker.sh"]

@@ -15,6 +15,7 @@ kind-dependencies:
   - signing
   - build-summary
   - nimbus-binaries-assemble
+  - swift
 
 task-defaults:
   run-on-tasks-for: []
@@ -41,7 +42,9 @@ tasks:
   nimbus:
     description: 'Publish {} to archive.mozilla.org'
     from-deps:
-      kinds: [nimbus-binaries-assemble]
+      kinds:
+         - nimbus-binaries-assemble
+         - swift
       copy-attributes: true
     attributes:
       build-type: "multi"
