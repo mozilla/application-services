@@ -17,6 +17,8 @@ def setup_worker(_, tasks):
         if worker_type == 'b-linux':
             worker = task.setdefault('worker', {})
             worker['docker-image'] = {'in-tree': 'linux'}
+        elif worker_type == 'b-osx':
+            pass # nothing to do here except avoid raising a ValueError
         else:
             raise ValueError(f"Unknown worker type for {task_name} ({worker_type})")
         yield task
