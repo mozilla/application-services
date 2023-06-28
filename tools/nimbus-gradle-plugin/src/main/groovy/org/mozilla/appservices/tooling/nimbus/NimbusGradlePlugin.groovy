@@ -200,7 +200,10 @@ class NimbusPlugin implements Plugin<Project> {
             println("Downloading nimbus-fml cli version $asVersion")
 
             def successfulHost = tryDownload(archive.getParentFile(), archive.getName(),
-                // Try a github release first
+                // Try archive.mozilla.org release first
+                "https://archive.mozilla.org/pub/app-services/$asVersion",
+                // Try a github release next (TODO: remove this once we verify that publishing to
+                // archive.mozilla.org is working).
                 "https://github.com/mozilla/application-services/releases/download/v$asVersion",
                 // Fall back to a nightly release
                 "https://firefox-ci-tc.services.mozilla.com/api/index/v1/task/project.application-services.v2.nimbus-fml.$asVersion/artifacts/public/build"
