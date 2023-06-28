@@ -711,7 +711,7 @@ impl<'a> EnrollmentsEvolver<'a> {
         E: ExperimentMetadata + Clone,
     {
         let mut enrollment_events = vec![];
-        let prev_experiments = map_experiments(prev_experiments);
+        let prev_experiments_map = map_experiments(prev_experiments);
         let next_experiments_map = map_experiments(next_experiments);
         let prev_enrollments_map = map_enrollments(prev_enrollments);
 
@@ -741,7 +741,7 @@ impl<'a> EnrollmentsEvolver<'a> {
 
             let next_enrollment = match self.evolve_enrollment(
                 is_user_participating,
-                prev_experiments.get(slug).copied(),
+                prev_experiments_map.get(slug).copied(),
                 next_experiments_map.get(slug).copied(),
                 Some(prev_enrollment),
                 &mut enrollment_events,
@@ -833,7 +833,7 @@ impl<'a> EnrollmentsEvolver<'a> {
             {
                 let next_enrollment = match self.evolve_enrollment(
                     is_user_participating,
-                    prev_experiments.get(slug).copied(),
+                    prev_experiments_map.get(slug).copied(),
                     Some(next_experiment),
                     prev_enrollment,
                     &mut enrollment_events,
@@ -1042,8 +1042,8 @@ fn map_features(
     experiments: &HashMap<String, &Experiment>,
     coenrolling_ids: &HashSet<&str>,
 ) -> HashMap<String, EnrolledFeatureConfig> {
-    let mut map1 = HashMap::with_capacity(enrollments.len());
-    let mut map2 = HashMap::with_capacity(enrollments.len());
+    let mut colliding_features = HashMap::with_capacity(enrollments.len());
+    let mut coenrolling_features = HashMap::with_capacity(enrollments.len());
     for enrolled_feature_config in enrollments
         .iter()
         .flat_map(|e| get_enrolled_feature_configs(e, experiments))
@@ -1051,13 +1051,13 @@ fn map_features(
         populate_feature_maps(
             enrolled_feature_config,
             coenrolling_ids,
-            &mut map1,
-            &mut map2,
+            &mut colliding_features,
+            &mut coenrolling_features,
         );
     }
-    map1.extend(map2.drain());
+    colliding_features.extend(coenrolling_features.drain());
 
-    map1
+    colliding_features
 }
 
 pub fn map_features_by_feature_id(
@@ -1089,17 +1089,17 @@ pub fn map_features_by_feature_id(
         .unwrap()
 }
 
-fn populate_feature_maps(
+pub(crate) fn populate_feature_maps(
     enrolled_feature: EnrolledFeatureConfig,
     coenrolling_feature_ids: &HashSet<&str>,
-    enrolled_features: &mut HashMap<String, EnrolledFeatureConfig>,
+    colliding_features: &mut HashMap<String, EnrolledFeatureConfig>,
     coenrolling_features: &mut HashMap<String, EnrolledFeatureConfig>,
 ) {
     let feature_id = &enrolled_feature.feature_id;
     if !coenrolling_feature_ids.contains(feature_id.as_str()) {
         // If we're not allowing co-enrollment for this feature, then add it to enrolled_features.
         // We'll use this map to prevent collisions.
-        enrolled_features.insert(feature_id.clone(), enrolled_feature);
+        colliding_features.insert(feature_id.clone(), enrolled_feature);
     } else if let Some(existing) = coenrolling_features.get(feature_id) {
         // Otherwise, we'll add to the coenrolling_features map.
         // In this branch, we've enrolled in one experiment already before this one.
@@ -1383,95 +1383,4 @@ pub(crate) fn now_secs() -> u64 {
         .duration_since(UNIX_EPOCH)
         .expect("Current date before Unix Epoch.")
         .as_secs()
-}
-
-#[cfg(test)]
-mod unit_tests {
-    use super::*;
-    use serde_json::json;
-
-    #[test]
-    fn test_populate_feature_maps() -> Result<()> {
-        let coenrolling_ids = HashSet::from(["coenrolling"]);
-        let mut colliding_map = Default::default();
-        let mut coenrolling_map = Default::default();
-
-        populate_feature_maps(
-            EnrolledFeatureConfig::new("colliding", json!({}), "exp1", None),
-            &coenrolling_ids,
-            &mut colliding_map,
-            &mut coenrolling_map,
-        );
-
-        assert!(colliding_map.contains_key("colliding"));
-        assert!(!coenrolling_map.contains_key("colliding"));
-
-        // Add a config for 'coenrolling' feature
-        let added = EnrolledFeatureConfig::new(
-            "coenrolling",
-            json!({
-                "a": 1,
-                "b": 2,
-            }),
-            "exp2",
-            None,
-        );
-        populate_feature_maps(
-            added.clone(),
-            &coenrolling_ids,
-            &mut colliding_map,
-            &mut coenrolling_map,
-        );
-
-        let expected = added;
-
-        assert!(!colliding_map.contains_key("coenrolling"));
-        assert!(coenrolling_map.contains_key("coenrolling"));
-
-        let observed = coenrolling_map.get("coenrolling");
-        assert!(observed.is_some());
-
-        let observed = observed.unwrap();
-        assert_eq!(&expected, observed);
-
-        // Add a second config for the 'coenrolling' feature.
-        let added = EnrolledFeatureConfig::new(
-            "coenrolling",
-            json!({
-                "b": 3,
-                "c": 4,
-            }),
-            "exp3",
-            None,
-        );
-
-        populate_feature_maps(
-            added,
-            &coenrolling_ids,
-            &mut colliding_map,
-            &mut coenrolling_map,
-        );
-
-        let expected = EnrolledFeatureConfig::new(
-            "coenrolling",
-            json!({
-                "a": 1, // from 'exp2'
-                "b": 3, // from 'exp3'
-                "c": 4, // from 'exp3'
-            }),
-            "exp2+exp3",
-            None,
-        );
-
-        assert!(!colliding_map.contains_key("coenrolling"));
-        assert!(coenrolling_map.contains_key("coenrolling"));
-
-        let observed = coenrolling_map.get("coenrolling");
-        assert!(observed.is_some());
-
-        let observed = observed.unwrap();
-        assert_eq!(&expected, observed);
-
-        Ok(())
-    }
 }
