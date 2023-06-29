@@ -656,57 +656,6 @@ interface FirefoxAccount {
   //
   [Throws=FxaError]
   string gather_telemetry();
-  
-
-  // Sign in by using legacy session-token state.
-  //
-  // **💾 This method alters the persisted account state.**
-  //
-  // When migrating to use the FxA client component, create a [`FirefoxAccount`] instance
-  // and then pass any legacy sign-in state to this method. It will attempt to use the
-  // session token to bootstrap a full internal state of OAuth tokens, and will store the
-  // provided credentials internally in case it needs to retry after e.g. a network failure.
-  //
-  // # Arguments
-  //
-  //    - `session_token` - the session token from legacy sign-in state
-  //    - `k_sync` - the Firefox Sync encryption key from legacy sign-in state
-  //    - `k_xcs` - the Firefox Sync "X-Client-State: value from legacy sign-in state
-  //    - `copy_session_token` - if true, copy the given session token rather than using it directly
-  //
-  // # Notes
-  //
-  //    - If successful, this method will return an [`FxAMigrationResult`] with some statistics
-  //      about the migration process.
-  //    - If unsuccessful this method will throw an error, but you may be able to retry the
-  //      migration again at a later time.
-  //    - Use [is_in_migration_state](FirefoxAccount::is_in_migration_state) to check whether the
-  //      persisted account state includes a a pending migration that can be retried.
-  //
-  [Throws=FxaError]
-  FxAMigrationResult migrate_from_session_token([ByRef] string session_token, [ByRef] string k_sync, [ByRef] string k_xcs,  boolean copy_session_token );
-  
-
-  // Retry a previously failed migration from legacy session-token state.
-  //
-  // **💾 This method alters the persisted account state.**
-  //
-  // If an earlier call to [`migrate_from_session_token`](FirefoxAccount::migrate_from_session_token)
-  // failed, it may have stored the provided state for retrying at a later time. Call this method
-  // in order to execute such a retry.
-  //
-  [Throws=FxaError]
-  FxAMigrationResult retry_migrate_from_session_token();
-  
-
-  // Check for a previously failed migration from legacy session-token state.
-  //
-  // If an earlier call to [`migrate_from_session_token`](FirefoxAccount::migrate_from_session_token)
-  // failed, it may have stored the provided state for retrying at a later time. Call this method
-  // in check whether such state exists, then retry at an appropriate time.
-  //
-  MigrationState is_in_migration_state();
-  
 };
 
 dictionary FxaConfig {
@@ -942,22 +891,6 @@ dictionary Profile {
   boolean is_default_avatar;
 };
 
-// Statistics about the completion of a migration from legacy sign-in data.
-//
-// Applications migrating from legacy sign-in data would typically want to
-// report telemetry about whether and how that succeeded, and can use the
-// results reported in this struct to help do so.
-//
-dictionary FxAMigrationResult {
-
-  // The time taken to migrate, in milliseconds.
-  //
-  // Note that this is a signed integer, for compatibility with languages
-  // that do not have unsigned integers.
-  i64 total_duration;
-};
-
-
 // A "capability" offered by a device.
 //
 // In the FxA ecosystem, connected devices may advertize their ability to respond
@@ -1043,24 +976,4 @@ interface IncomingDeviceCommand {
 
   // Indicates that a tab has been sent to this device.
   TabReceived(Device? sender, SendTabPayload payload );
-};
-
-
-// The current state migration from legacy sign-in data.
-//
-// This enum distinguishes the different states of a potential in-flight
-// migration from legacy sign-in data. A value other than [`None`](MigrationState::None)
-// indicates that there was a previously-failed migration that should be
-// retried.
-//
-enum MigrationState {
-
-  // No in-flight migration.
-  "None",
-
-  // An in-flight migration that will copy the sessionToken.
-  "CopySessionToken",
-
-  // An in-flight migration that will re-use the sessionToken.
-  "ReuseSessionToken",
 };
