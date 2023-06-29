@@ -6,7 +6,6 @@ package mozilla.appservices.fxaclient
 
 import android.util.Log
 import mozilla.appservices.sync15.DeviceType
-import org.json.JSONObject
 
 /**
  * PersistedFirefoxAccount represents the authentication state of a client.
@@ -287,75 +286,6 @@ class PersistedFirefoxAccount(inner: FirefoxAccount, persistCallback: PersistCal
      */
     fun clearAccessTokenCache() {
         this.inner.clearAccessTokenCache()
-    }
-
-    /**
-     * Migrate from a logged-in Firefox Account, takes ownership of the provided session token.
-     *
-     * Modifies the FirefoxAccount state.
-     * @param sessionToken 64 character string of hex-encoded bytes
-     * @param kSync 128 character string of hex-encoded bytes
-     * @param kXCS 32 character string of hex-encoded bytes
-     * @return JSONObject JSON object with the result of the migration
-     * This performs network requests, and should not be used on the main thread.
-     */
-    fun migrateFromSessionToken(sessionToken: String, kSync: String, kXCS: String): JSONObject {
-        try {
-            val res = this.inner.migrateFromSessionToken(sessionToken, kSync, kXCS, false)
-            return JSONObject(mapOf("total_duration" to res.totalDuration))
-        } finally {
-            // Even a failed migration might alter the persisted account state, if it's able to be retried.
-            // It's safe to call this unconditionally, as the underlying code will not leave partial states.
-            this.tryPersistState()
-        }
-    }
-
-    /**
-     * Migrate from a logged-in Firefox Account, takes ownership of the provided session token.
-     *
-     * @return bool Returns a boolean if we are in a migration state
-     */
-    fun isInMigrationState(): MigrationState {
-        return this.inner.isInMigrationState()
-    }
-
-    /**
-     * Copy a logged-in session of a Firefox Account, creates a new session token in the process.
-     *
-     * Modifies the FirefoxAccount state.
-     * @param sessionToken 64 character string of hex-encoded bytes
-     * @param kSync 128 character string of hex-encoded bytes
-     * @param kXCS 32 character string of hex-encoded bytes
-     * @return JSONObject JSON object with the result of the migration
-     * This performs network requests, and should not be used on the main thread.
-     */
-    fun copyFromSessionToken(sessionToken: String, kSync: String, kXCS: String): JSONObject {
-        try {
-            val res = this.inner.migrateFromSessionToken(sessionToken, kSync, kXCS, true)
-            return JSONObject(mapOf("total_duration" to res.totalDuration))
-        } finally {
-            // Even a failed migration might alter the persisted account state, if it's able to be retried.
-            // It's safe to call this unconditionally, as the underlying code will not leave partial states.
-            this.tryPersistState()
-        }
-    }
-
-    /**
-     * Retry migration from a logged-in Firefox Account.
-     *
-     * Modifies the FirefoxAccount state.
-     * @return JSONObject JSON object with the result of the migration
-     * This performs network requests, and should not be used on the main thread.
-     */
-    fun retryMigrateFromSessionToken(): JSONObject {
-        try {
-            val res = this.inner.retryMigrateFromSessionToken()
-            return JSONObject(mapOf("total_duration" to res.totalDuration))
-        } finally {
-            // A failure her might alter the persisted account state, if we discover a permanent migration failure.
-            // It's safe to call this unconditionally, as the underlying code will not leave partial states.
-            this.tryPersistState()
-        }
     }
 
     /**

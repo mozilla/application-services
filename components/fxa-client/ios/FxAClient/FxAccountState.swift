@@ -13,7 +13,6 @@ internal enum AccountState {
     case authenticationProblem
     case authenticatedNoProfile
     case authenticatedWithProfile
-    case canAutoretryMigration
 }
 
 /**
@@ -24,29 +23,18 @@ internal enum Event {
     case initialize
     case accountNotFound
     case accountRestored
-    case authenticateViaMigration(
-        sessionToken: String,
-        kSync: String,
-        kXCS: String
-    )
     case changedPassword(newSessionToken: String)
     case authenticated(authData: FxaAuthData)
-    case authenticatedViaMigration
     case authenticationError /* (error: AuthException) */
     case recoveredFromAuthenticationProblem
     case fetchProfile(ignoreCache: Bool)
     case fetchedProfile
     case failedToFetchProfile
     case logout
-    case inFlightMigration
-    case retryMigrationLater
-    case retryMigration
-    case migrationFailure
 }
 
 extension FxAccountManager {
     // State transition matrix. Returns nil if there's no transition.
-    // swiftlint:disable function_body_length
     static func nextState(state: AccountState, event: Event) -> AccountState? {
         switch state {
         case .start:
@@ -54,24 +42,11 @@ extension FxAccountManager {
             case .initialize: return .start
             case .accountNotFound: return .notAuthenticated
             case .accountRestored: return .authenticatedNoProfile
-            case .inFlightMigration: return .canAutoretryMigration
             default: return nil
             }
         case .notAuthenticated:
             switch event {
             case .authenticated: return .authenticatedNoProfile
-            case .authenticateViaMigration: return .notAuthenticated
-            case .authenticatedViaMigration: return .authenticatedNoProfile
-            case .retryMigrationLater: return .canAutoretryMigration
-            default: return nil
-            }
-        case .canAutoretryMigration:
-            switch event {
-            case .retryMigration: return .canAutoretryMigration
-            case .authenticatedViaMigration: return .authenticatedNoProfile
-            case .retryMigrationLater: return .canAutoretryMigration
-            case .logout: return .notAuthenticated
-            case .migrationFailure: return .notAuthenticated
             default: return nil
             }
         case .authenticatedNoProfile:
@@ -102,6 +77,4 @@ extension FxAccountManager {
             }
         }
     }
-
-    // swiftlint:enable function_body_length
 }

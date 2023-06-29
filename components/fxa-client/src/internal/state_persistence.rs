@@ -35,7 +35,6 @@ use std::collections::{HashMap, HashSet};
 use super::{
     config::Config,
     device::Capability as DeviceCapability,
-    migrator::MigrationData,
     oauth::{AccessTokenInfo, RefreshToken},
     profile::Profile,
     CachedResponse, Result,
@@ -106,7 +105,6 @@ pub(crate) struct StateV2 {
     pub(crate) access_token_cache: HashMap<String, AccessTokenInfo>,
     pub(crate) session_token: Option<String>, // Hex-formatted string.
     pub(crate) last_seen_profile: Option<CachedResponse<Profile>>,
-    pub(crate) in_flight_migration: Option<MigrationData>,
 }
 
 impl StateV2 {
@@ -129,7 +127,6 @@ impl StateV2 {
             access_token_cache: HashMap::new(),
             device_capabilities: HashSet::new(),
             session_token: None,
-            in_flight_migration: None,
         }
     }
 }
