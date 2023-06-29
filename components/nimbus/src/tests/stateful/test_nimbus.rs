@@ -30,6 +30,7 @@ fn test_telemetry_reset() -> Result<()> {
     let tmp_dir = tempfile::tempdir()?;
     let client = NimbusClient::new(
         AppContext::default(),
+        Default::default(),
         tmp_dir.path(),
         None,
         AvailableRandomizationUnits {
@@ -107,6 +108,7 @@ fn test_installation_date() -> Result<()> {
     };
     let client = NimbusClient::new(
         app_context.clone(),
+        Default::default(),
         tmp_dir.path(),
         None,
         AvailableRandomizationUnits {
@@ -143,6 +145,7 @@ fn test_installation_date() -> Result<()> {
     app_context.installation_date = None;
     let client = NimbusClient::new(
         app_context.clone(),
+        Default::default(),
         tmp_dir.path(),
         None,
         AvailableRandomizationUnits {
@@ -166,6 +169,7 @@ fn test_installation_date() -> Result<()> {
     // we wipe any non-persistent memory
     let client = NimbusClient::new(
         app_context.clone(),
+        Default::default(),
         tmp_dir.path(),
         None,
         AvailableRandomizationUnits {
@@ -197,6 +201,7 @@ fn test_installation_date() -> Result<()> {
     // Step 4: We test that if the storage is clear, we will fallback to the
     let client = NimbusClient::new(
         app_context,
+        Default::default(),
         tmp_dir.path(),
         None,
         AvailableRandomizationUnits {
@@ -228,6 +233,7 @@ fn test_days_since_calculation_happens_at_startup() -> Result<()> {
     };
     let client = NimbusClient::new(
         app_context.clone(),
+        Default::default(),
         tmp_dir.path(),
         None,
         Default::default(),
@@ -251,7 +257,13 @@ fn test_days_since_calculation_happens_at_startup() -> Result<()> {
     // 2. This is the new case: exactly one of initialize() or apply_pending_experiments()
     // is called during start up.
     // This case ensures that dates are available after apply_pending_experiments().
-    let client = NimbusClient::new(app_context, tmp_dir.path(), None, Default::default())?;
+    let client = NimbusClient::new(
+        app_context,
+        Default::default(),
+        tmp_dir.path(),
+        None,
+        Default::default(),
+    )?;
     client.apply_pending_experiments()?;
     let targeting_attributes = client.get_targeting_attributes();
     assert!(matches!(targeting_attributes.days_since_install, Some(3)));
@@ -266,6 +278,7 @@ fn test_days_since_update_changes_with_context() -> Result<()> {
     let tmp_dir = tempfile::tempdir()?;
     let client = NimbusClient::new(
         AppContext::default(),
+        Default::default(),
         tmp_dir.path(),
         None,
         AvailableRandomizationUnits {
@@ -287,6 +300,7 @@ fn test_days_since_update_changes_with_context() -> Result<()> {
     };
     let client = NimbusClient::new(
         app_context.clone(),
+        Default::default(),
         tmp_dir.path(),
         None,
         AvailableRandomizationUnits {
@@ -315,6 +329,7 @@ fn test_days_since_update_changes_with_context() -> Result<()> {
     // the update_date should not change
     let client = NimbusClient::new(
         app_context.clone(),
+        Default::default(),
         tmp_dir.path(),
         None,
         AvailableRandomizationUnits {
@@ -349,6 +364,7 @@ fn test_days_since_update_changes_with_context() -> Result<()> {
     app_context.app_version = Some("v94.0.1".into()); // A different version
     let client = NimbusClient::new(
         app_context,
+        Default::default(),
         tmp_dir.path(),
         None,
         AvailableRandomizationUnits {
@@ -391,6 +407,7 @@ fn test_days_since_install() -> Result<()> {
     };
     let mut client = NimbusClient::new(
         app_context.clone(),
+        Default::default(),
         temp_dir.path(),
         None,
         AvailableRandomizationUnits {
@@ -469,6 +486,7 @@ fn test_days_since_install_failed_targeting() -> Result<()> {
     };
     let mut client = NimbusClient::new(
         app_context.clone(),
+        Default::default(),
         temp_dir.path(),
         None,
         AvailableRandomizationUnits {
@@ -546,6 +564,7 @@ fn test_days_since_update() -> Result<()> {
     };
     let mut client = NimbusClient::new(
         app_context.clone(),
+        Default::default(),
         temp_dir.path(),
         None,
         AvailableRandomizationUnits {
@@ -624,6 +643,7 @@ fn test_days_since_update_failed_targeting() -> Result<()> {
     };
     let mut client = NimbusClient::new(
         app_context.clone(),
+        Default::default(),
         temp_dir.path(),
         None,
         AvailableRandomizationUnits {
@@ -714,6 +734,7 @@ fn event_store_exists_for_apply_pending_experiments() -> Result<()> {
     };
     let mut client = NimbusClient::new(
         app_context.clone(),
+        Default::default(),
         temp_dir.path(),
         None,
         AvailableRandomizationUnits {
@@ -836,6 +857,7 @@ fn event_store_on_targeting_attributes_is_updated_after_an_event_is_recorded() -
     };
     let mut client = NimbusClient::new(
         app_context.clone(),
+        Default::default(),
         temp_dir.path(),
         None,
         AvailableRandomizationUnits {
@@ -934,7 +956,7 @@ fn test_ios_rollout() -> Result<()> {
         ..Default::default()
     };
     let tmp_dir = TempDir::new()?;
-    let client = NimbusClient::new(ctx, tmp_dir.path(), None, aru)?;
+    let client = NimbusClient::new(ctx, Default::default(), tmp_dir.path(), None, aru)?;
 
     let exp = get_ios_rollout_experiment();
     let data = json!({
@@ -961,13 +983,25 @@ fn test_fetch_enabled() -> Result<()> {
         ..Default::default()
     };
     let tmp_dir = TempDir::new()?;
-    let client = NimbusClient::new(ctx.clone(), tmp_dir.path(), None, Default::default())?;
+    let client = NimbusClient::new(
+        ctx.clone(),
+        Default::default(),
+        tmp_dir.path(),
+        None,
+        Default::default(),
+    )?;
     client.set_fetch_enabled(false)?;
 
     assert!(!client.is_fetch_enabled()?);
     drop(client);
 
-    let client = NimbusClient::new(ctx, tmp_dir.path(), None, Default::default())?;
+    let client = NimbusClient::new(
+        ctx,
+        Default::default(),
+        tmp_dir.path(),
+        None,
+        Default::default(),
+    )?;
     assert!(!client.is_fetch_enabled()?);
     Ok(())
 }
@@ -1027,6 +1061,7 @@ fn test_active_enrollment_in_targeting() -> Result<()> {
     };
     let mut client = NimbusClient::new(
         app_context.clone(),
+        Default::default(),
         temp_dir.path(),
         None,
         AvailableRandomizationUnits {
@@ -1083,6 +1118,7 @@ fn test_previous_enrollment_in_targeting() -> Result<()> {
     };
     let mut client = NimbusClient::new(
         app_context.clone(),
+        Default::default(),
         temp_dir.path(),
         None,
         AvailableRandomizationUnits {

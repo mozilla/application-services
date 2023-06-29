@@ -91,6 +91,7 @@ interface NimbusClient {
     [Throws=NimbusError]
     constructor(
         AppContext app_ctx,
+        optional sequence<string> coenrolling_feature_ids = [],
         string dbpath,
         RemoteSettingsConfig? remote_settings_config,
         AvailableRandomizationUnits available_randomization_units
