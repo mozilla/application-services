@@ -43,7 +43,7 @@ fn new_test_client_internal(
         locale: Some("en-GB".to_string()),
         ..Default::default()
     };
-    NimbusClient::new(ctx, tmp_dir.path(), Some(config), aru)
+    NimbusClient::new(ctx, Default::default(), tmp_dir.path(), Some(config), aru)
 }
 
 use nimbus::persistence::{Database, SingleStore};

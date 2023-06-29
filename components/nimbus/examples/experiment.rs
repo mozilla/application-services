@@ -202,7 +202,13 @@ fn main() -> Result<()> {
     let aru = AvailableRandomizationUnits::with_client_id(&client_id);
 
     // Here we initialize our main `NimbusClient` struct
-    let nimbus_client = NimbusClient::new(context.clone(), db_path, Some(config), aru)?;
+    let nimbus_client = NimbusClient::new(
+        context.clone(),
+        Default::default(),
+        db_path,
+        Some(config),
+        aru,
+    )?;
     log::info!("Nimbus ID is {}", nimbus_client.nimbus_id()?);
 
     // Explicitly update experiments at least once for init purposes

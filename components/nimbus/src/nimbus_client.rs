@@ -69,6 +69,7 @@ impl NimbusClient {
     // thread in the gecko Javascript stack, hence the use of OnceCell for the db.
     pub fn new<P: Into<PathBuf>>(
         app_context: AppContext,
+        coenrolling_feature_ids: Vec<String>,
         db_path: P,
         config: Option<RemoteSettingsConfig>,
         available_randomization_units: AvailableRandomizationUnits,
@@ -86,10 +87,7 @@ impl NimbusClient {
             app_context,
             database_cache: Default::default(),
             db_path: db_path.into(),
-            // With this being default, i.e. empty, Nimbus doesn't support coenrolling ids.
-            // Once the API is connected with Swift/Kotlin it will.
-            // This is the subject of https://mozilla-hub.atlassian.net/browse/EXP-3623
-            coenrolling_feature_ids: Default::default(),
+            coenrolling_feature_ids,
             db: OnceCell::default(),
             event_store: Arc::default(),
         })

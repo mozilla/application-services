@@ -111,6 +111,7 @@ open class Nimbus(
 
         nimbusClient = NimbusClient(
             experimentContext,
+            listOf(),
             dataDir.path,
             remoteSettingsConfig,
             // The "dummy" field here is required for obscure reasons when generating code on desktop,
