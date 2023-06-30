@@ -32,24 +32,12 @@ tasks:
     worker-type: b-osx
     worker:
       max-run-time: 1800
-      artifacts:
-        - name: "public/build/swift-components.tar.xz"
-          path: "checkouts/vcs/build/swift-components.tar.xz"
-          type: "file"
-        - name: "public/build/MozillaRustComponents.xcframework.zip"
-          path: "checkouts/vcs/build/MozillaRustComponents.xcframework.zip"
-          type: "file"
-        - name: "public/build/FocusRustComponents.xcframework.zip"
-          path: "checkouts/vcs/build/FocusRustComponents.xcframework.zip"
-          type: "file"
-        # TODO: re-enable once we get tests working
-        # - name: "public/build/raw_xcodetest.log"
-        #   path: "checkouts/vcs/logs/raw_xcodetest.log"
-        #   type: "file"
     release-artifacts:
       - swift-components.tar.xz
       - MozillaRustComponents.xcframework.zip
       - FocusRustComponents.xcframework.zip
+      # TODO: re-enable once we get tests working
+      # - raw_xcodetest.log
     run:
       pre-commands:
         - ["source", "taskcluster/scripts/setup-mac-worker.sh"]
