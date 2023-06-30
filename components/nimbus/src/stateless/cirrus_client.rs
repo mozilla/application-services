@@ -85,14 +85,11 @@ pub struct CirrusClient {
 }
 
 impl CirrusClient {
-    pub fn new(app_context: String) -> Result<Self> {
+    pub fn new(app_context: String, coenrolling_feature_ids: Vec<String>) -> Result<Self> {
         let app_context: AppContext = serde_json::from_str(&app_context)?;
         Ok(Self {
             app_context,
-            // As it currently stands, with no coenrolling feature ids, cirrus cannot
-            // support coenrolling features.
-            // This is the subject of https://mozilla-hub.atlassian.net/browse/EXP-3623
-            coenrolling_feature_ids: Default::default(),
+            coenrolling_feature_ids,
             state: Default::default(),
         })
     }

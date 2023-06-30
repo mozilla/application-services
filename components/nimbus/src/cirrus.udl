@@ -13,7 +13,7 @@ enum NimbusError {
 
 interface CirrusClient {
     [Throws=NimbusError]
-    constructor(string app_context);
+    constructor(string app_context, optional sequence<string> coenrolling_feature_ids = []);
 
     // Handles an enrollment request string and returns an enrollment response string.
     [Throws=NimbusError]
