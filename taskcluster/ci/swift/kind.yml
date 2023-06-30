@@ -31,6 +31,7 @@ tasks:
       - project:releng:services/tooltool/api/download/internal
     worker-type: b-osx
     worker:
+      chain-of-trust: true
       max-run-time: 1800
     release-artifacts:
       - swift-components.tar.xz
