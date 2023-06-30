@@ -18,7 +18,12 @@
   - The record of enrollment will be available in the new `enrollments` targeting attribute.
 - Add `enrollments` value to `TargetingAttributes` — it is a set of strings containing all enrollments, past and present ([#5685](https://github.com/mozilla/application-services/pull/5685)).
   - _Note: This change only applies to stateful uses of the Nimbus SDK, e.g. mobile_
-- Add ability to enroll selected features multiple times (coenrollment) ([#5684](https://github.com/mozilla/application-services/pull/5684)).
+- Add ability to enroll selected features multiple times (coenrollment) ([#5684](https://github.com/mozilla/application-services/pull/5684), [#5697](https://github.com/mozilla/application-services/pull/5697)).
+
+### ⚠️ Breaking Changes ⚠️
+
+- Several changes to the NimbusBuilder mean that this is a breaking change for Firefox for Android [#5697](https://github.com/mozilla/application-services/pull/5697).
+  - These changes are fixed by [firefox-android#2682](https://github.com/mozilla-mobile/firefox-android/pull/2682).
 
 ## Nimbus FML ⛅️🔬🔭🔧
 
