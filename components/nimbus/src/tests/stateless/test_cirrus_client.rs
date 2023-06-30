@@ -20,6 +20,7 @@ fn create_client() -> Result<CirrusClient> {
             custom_targeting_attributes: None,
         })
         .unwrap(),
+        Default::default(),
     )
 }
 
