@@ -9,7 +9,6 @@ import android.net.Uri
 import androidx.annotation.RawRes
 import kotlinx.coroutines.runBlocking
 import org.mozilla.experiments.nimbus.internal.FeatureManifestInterface
-import java.util.Locale
 
 private const val TIME_OUT_LOADING_EXPERIMENT_FROM_DISK_MS = 200L
 
@@ -58,6 +57,26 @@ abstract class AbstractNimbusBuilder<T : NimbusInterface>(val context: Context) 
      * to be used.
      */
     var onCreateCallback: (T) -> Unit = {}
+
+    /**
+     * Optional callback to be called everytime experiments have been applied.
+     *
+     * Experiment recipes are usually fetched shortly after startup, and those pending recipes are
+     * applied at the following startup.
+     *
+     * This is not usually needed.
+     */
+    var onApplyCallback: () -> Unit = {}
+
+    /**
+     * Optional callback to be called everytime experiments have been fetched.
+     *
+     * Experiment recipes are usually fetched shortly after startup, and those pending recipes are
+     * applied at the following startup.
+     *
+     * This is not usually needed.
+     */
+    var onFetchCallback: () -> Unit = {}
 
     /**
      * The `object` generated from the `nimbus.fml.yaml` file and the nimbus-gradle-plugin.
@@ -140,6 +159,51 @@ abstract class AbstractNimbusBuilder<T : NimbusInterface>(val context: Context) 
      * [NimbusInterface] object, then construct a dummy object.
      */
     protected abstract fun newNimbusDisabled(): T
+
+    /**
+     * Creates the [NimbusDeviceInfo] for each Nimbus object built.
+     */
+    protected open fun createDeviceInfo() = NimbusDeviceInfo.default()
+
+    /**
+     * Creates the [NimbusDelegate] for each Nimbus instance built.
+     *
+     * The delegate is the main low-level interface between the embedding apps and the SDK.
+     *
+     * Override this if you want to customize the threading, error reporting or logging used
+     * by the [NimbusInterface] instance.
+     */
+    protected open fun createDelegate() = NimbusDelegate.default()
+
+    /**
+     * Creates the observer used to tie together the feature manifest and the SDK. Implementers of
+     * [newNimbus] should use this to register this observer with the [NimbusInterface] object.
+     */
+    protected fun createObserver(): NimbusInterface.Observer =
+        Observer(featureManifest, onFetchCallback, onApplyCallback)
+
+    /**
+     * Returns a list of feature ids that support coenrollment. Implementers of [newNimbus] should
+     * use this to pass into the [NimbusInterface] instance.
+     */
+    protected fun getCoenrollingFeatureIds(): List<String> =
+        // This will be changed to use the feature manifest in EXP-3265
+        listOf()
+}
+
+private class Observer(
+    val featureManifest: FeatureManifestInterface<*>?,
+    val onFetchCallback: () -> Unit,
+    val onApplyCallback: () -> Unit,
+) : NimbusInterface.Observer {
+    override fun onExperimentsFetched() {
+        onFetchCallback.invoke()
+    }
+
+    override fun onUpdatesApplied(updated: List<EnrolledExperiment>) {
+        featureManifest?.invalidateCachedValues()
+        onApplyCallback.invoke()
+    }
 }
 
 class DefaultNimbusBuilder(context: Context) : AbstractNimbusBuilder<NimbusInterface>(context) {
@@ -147,9 +211,11 @@ class DefaultNimbusBuilder(context: Context) : AbstractNimbusBuilder<NimbusInter
         Nimbus(
             context,
             appInfo = appInfo,
+            coenrollingFeatureIds = getCoenrollingFeatureIds(),
             server = serverSettings,
-            deviceInfo = NimbusDeviceInfo(Locale.getDefault().toLanguageTag()),
-            delegate = NimbusDelegate.default(),
+            deviceInfo = createDeviceInfo(),
+            delegate = createDelegate(),
+            observer = createObserver(),
         )
 
     override fun newNimbusDisabled() = NullNimbus(context)
