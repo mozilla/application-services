@@ -54,6 +54,7 @@ FOCUS_SOURCE_TO_COPY = [
 def main():
     args = parse_args()
     ensure_dir(args.out_dir)
+    ensure_dir(args.xcframework_dir)
     run_tests(args)
     xcframework_build(args, "MozillaRustComponents.xcframework.zip")
     xcframework_build(args, "FocusRustComponents.xcframework.zip")

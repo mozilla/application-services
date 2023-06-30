@@ -45,8 +45,12 @@ tasks:
         - ["source", "taskcluster/scripts/toolchain/setup-libs-ios.sh"]
       commands:
         - ["taskcluster/scripts/build-and-test-swift.sh"]
-        - [ "cd", "build/" ]
+        - [ "pushd", "build/" ]
         - [ "tar", "acf", "swift-components.tar.xz", "swift-components" ]
+        - [ "popd"]
+        - [ "mv", "build/swift-components.tar.xz", "artifacts/"]
+        - [ "pwd"]
+        - [ "mv", "artifacts", "../../"]
       using: run-commands
       run-task-command: ["/usr/local/bin/python3", "run-task"]
       use-caches: true

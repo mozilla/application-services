@@ -6,4 +6,4 @@ set -ex
 # setup the enviroment in a script.
 
 mv "$MOZ_FETCHES_DIR/swiftformat" "$HOME/bin/swiftformat"
-taskcluster/scripts/build-and-test-swift.py build/swift-components build/ build/glean-workdir
+taskcluster/scripts/build-and-test-swift.py build/swift-components artifacts/ build/glean-workdir
