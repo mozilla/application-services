@@ -5,6 +5,7 @@
 package org.mozilla.experiments.nimbus
 
 import org.json.JSONObject
+import java.util.Locale
 
 /**
  * This class represents the client application name and channel for filtering purposes
@@ -43,4 +44,8 @@ data class NimbusAppInfo(
  */
 data class NimbusDeviceInfo(
     val localeTag: String,
-)
+) {
+    companion object {
+        fun default() = NimbusDeviceInfo(Locale.getDefault().toLanguageTag())
+    }
+}

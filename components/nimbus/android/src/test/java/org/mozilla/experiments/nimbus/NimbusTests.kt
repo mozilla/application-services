@@ -66,6 +66,7 @@ class NimbusTests {
     private val nimbus = Nimbus(
         context = context,
         appInfo = appInfo,
+        coenrollingFeatureIds = listOf(),
         server = null,
         deviceInfo = deviceInfo,
         observer = null,
@@ -435,6 +436,7 @@ class NimbusTests {
         val nimbus = Nimbus(
             context = context,
             appInfo = developmentAppInfo,
+            coenrollingFeatureIds = listOf(),
             server = null,
             deviceInfo = deviceInfo,
             delegate = nimbusDelegate,
@@ -455,6 +457,7 @@ class NimbusTests {
         val nimbus = Nimbus(
             context = context,
             appInfo = developmentAppInfo,
+            coenrollingFeatureIds = listOf(),
             server = null,
             deviceInfo = deviceInfo,
             delegate = nimbusDelegate,
@@ -545,6 +548,7 @@ class NimbusTests {
         val nimbus = Nimbus(
             context = context,
             appInfo = appInfo,
+            coenrollingFeatureIds = listOf(),
             server = null,
             deviceInfo = deviceInfo,
             observer = observer,
@@ -575,6 +579,7 @@ class NimbusTests {
         val nimbus = Nimbus(
             context = context,
             appInfo = appInfo,
+            coenrollingFeatureIds = listOf(),
             server = null,
             deviceInfo = deviceInfo,
             observer = observer,

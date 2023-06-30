@@ -59,6 +59,7 @@ data class NimbusServerSettings(
 open class Nimbus(
     override val context: Context,
     appInfo: NimbusAppInfo,
+    coenrollingFeatureIds: List<String>,
     server: NimbusServerSettings?,
     deviceInfo: NimbusDeviceInfo,
     private val observer: NimbusInterface.Observer? = null,
@@ -111,7 +112,7 @@ open class Nimbus(
 
         nimbusClient = NimbusClient(
             experimentContext,
-            listOf(),
+            coenrollingFeatureIds,
             dataDir.path,
             remoteSettingsConfig,
             // The "dummy" field here is required for obscure reasons when generating code on desktop,
