@@ -97,7 +97,7 @@ public class NimbusBuilder {
     var onCreateCallback: ((NimbusInterface) -> Void)?
 
     /**
-     * Optional callback to be called after the calculatoin of new enrollments and applying of changes to
+     * Optional callback to be called after the calculation of new enrollments and applying of changes to
      * experiments recipes.
      */
     @discardableResult
@@ -107,6 +107,18 @@ public class NimbusBuilder {
     }
 
     var onApplyCallback: ((NimbusInterface) -> Void)?
+
+    /**
+     * Optional callback to be called after the fetch of new experiments has completed.
+     * experiments recipes.
+     */
+    @discardableResult
+    public func onFetch(callback: @escaping (NimbusInterface) -> Void) -> NimbusBuilder {
+        onApplyCallback = callback
+        return self
+    }
+
+    var onFetchCallback: ((NimbusInterface) -> Void)?
 
     /**
      * Resource bundles used to look up bundled text and images. Defaults to `[Bundle.main]`.
@@ -141,6 +153,7 @@ public class NimbusBuilder {
 
     var commandLineArgs: [String]?
 
+    // swiftlint:disable function_body_length
     /**
      * Build a [Nimbus] singleton for the given [NimbusAppSettings]. Instances built with this method
      * have been initialized, and are ready for use by the app.
@@ -177,6 +190,15 @@ public class NimbusBuilder {
                 }
             }
 
+            if let callback = onFetchCallback {
+                NotificationCenter.default.addObserver(forName: .nimbusExperimentsFetched,
+                                                       object: nil,
+                                                       queue: nil)
+                { _ in
+                    callback(nimbus)
+                }
+            }
+
             // Is the app being built locally, and the nimbus-cli
             // hasn't been used before this run.
             func isLocalBuild() -> Bool {
@@ -206,9 +228,20 @@ public class NimbusBuilder {
         }
     }
 
+    // swiftlint:enable function_body_length
+
+    func getCoenrollingFeatureIds() -> [String] {
+        // This will be changed to use the feature manifest in EXP-3265
+        []
+    }
+
     func newNimbus(_ appInfo: NimbusAppSettings, serverSettings: NimbusServerSettings?) throws -> NimbusInterface {
-        try Nimbus.create(serverSettings, appSettings: appInfo, dbPath: dbFilePath,
-                          resourceBundles: resourceBundles, errorReporter: errorReporter)
+        try Nimbus.create(serverSettings,
+                          appSettings: appInfo,
+                          coenrollingFeatureIds: getCoenrollingFeatureIds(),
+                          dbPath: dbFilePath,
+                          resourceBundles: resourceBundles,
+                          errorReporter: errorReporter)
     }
 
     func newNimbusDisabled() -> NimbusInterface {
