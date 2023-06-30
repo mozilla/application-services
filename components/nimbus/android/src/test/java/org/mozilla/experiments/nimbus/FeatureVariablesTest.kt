@@ -249,8 +249,7 @@ class FeatureVariablesTest {
     }
 }
 
-// ktlint-disable enum-entry-name-case
-@Suppress("EnumNaming")
+@Suppress("EnumNaming", "ktlint:standard:enum-entry-name-case")
 enum class MenuItemId {
     settings,
     bookmarks,
@@ -260,8 +259,7 @@ enum class MenuItemId {
 
 data class MenuItem(val deepLink: String, val label: String)
 
-// ktlint-disable enum-entry-name-case
-@Suppress("EnumNaming")
+@Suppress("EnumNaming", "ktlint:standard:enum-entry-name-case")
 enum class NumKey {
     one,
     two,
