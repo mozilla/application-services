@@ -44,6 +44,7 @@
 		1BE9B61027C9CD770029D11A /* logins.udl in Sources */ = {isa = PBXBuildFile; fileRef = 1B58D8A627AE12850075168B /* logins.udl */; };
 		1BE9B61127C9CD770029D11A /* fxa_client.udl in Sources */ = {isa = PBXBuildFile; fileRef = 1BB9C31F27B4924D001E5BBF /* fxa_client.udl */; };
 		1BF50F0C27B1E17B00A9C8A5 /* KeychainWrapper+.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1BBAC56727AE085F00DAFEF2 /* KeychainWrapper+.swift */; };
+		1BF50F0D27B1E17B00A9C8A5 /* FxAccountMigration.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1BBAC56E27AE085F00DAFEF2 /* FxAccountMigration.swift */; };
 		1BF50F0E27B1E17B00A9C8A5 /* FxAccountLogging.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1BBAC56C27AE085F00DAFEF2 /* FxAccountLogging.swift */; };
 		1BF50F0F27B1E17B00A9C8A5 /* FxAccountOAuth.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1BBAC56827AE085F00DAFEF2 /* FxAccountOAuth.swift */; };
 		1BF50F1027B1E17B00A9C8A5 /* FxAccountStorage.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1BBAC56927AE085F00DAFEF2 /* FxAccountStorage.swift */; };
@@ -167,6 +168,7 @@
 		1BBAC56B27AE085F00DAFEF2 /* FxAccountManager.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; name = FxAccountManager.swift; path = "../../../components/fxa-client/ios/FxAClient/FxAccountManager.swift"; sourceTree = SOURCE_ROOT; };
 		1BBAC56C27AE085F00DAFEF2 /* FxAccountLogging.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; name = FxAccountLogging.swift; path = "../../../components/fxa-client/ios/FxAClient/FxAccountLogging.swift"; sourceTree = SOURCE_ROOT; };
 		1BBAC56D27AE085F00DAFEF2 /* FxAccountConfig.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; name = FxAccountConfig.swift; path = "../../../components/fxa-client/ios/FxAClient/FxAccountConfig.swift"; sourceTree = SOURCE_ROOT; };
+		1BBAC56E27AE085F00DAFEF2 /* FxAccountMigration.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; name = FxAccountMigration.swift; path = "../../../components/fxa-client/ios/FxAClient/FxAccountMigration.swift"; sourceTree = SOURCE_ROOT; };
 		1BBAC58627AE09C600DAFEF2 /* LoginsStorage.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; name = LoginsStorage.swift; path = ../../../components/logins/ios/Logins/LoginsStorage.swift; sourceTree = SOURCE_ROOT; };
 		1BBAC5A527AE0F2E00DAFEF2 /* Bookmark.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; name = Bookmark.swift; path = ../../../components/places/ios/Places/Bookmark.swift; sourceTree = SOURCE_ROOT; };
 		1BBAC5A627AE0F2E00DAFEF2 /* HistoryMetadata.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; name = HistoryMetadata.swift; path = ../../../components/places/ios/Places/HistoryMetadata.swift; sourceTree = SOURCE_ROOT; };
@@ -410,6 +412,7 @@
 				1BBAC56B27AE085F00DAFEF2 /* FxAccountManager.swift */,
 				1BBAC56C27AE085F00DAFEF2 /* FxAccountLogging.swift */,
 				1BBAC56D27AE085F00DAFEF2 /* FxAccountConfig.swift */,
+				1BBAC56E27AE085F00DAFEF2 /* FxAccountMigration.swift */,
 			);
 			name = FxAClient;
 			path = "../../../components/fxa-client/ios/FxAClient";
@@ -788,6 +791,7 @@
 				1BF50F1127B1E17B00A9C8A5 /* FxAccountDeviceConstellation.swift in Sources */,
 				1BF50F0F27B1E17B00A9C8A5 /* FxAccountOAuth.swift in Sources */,
 				1BF50F0C27B1E17B00A9C8A5 /* KeychainWrapper+.swift in Sources */,
+				1BF50F0D27B1E17B00A9C8A5 /* FxAccountMigration.swift in Sources */,
 				1B3BC94527B1D6A500229CF6 /* SyncUnlockInfo.swift in Sources */,
 				F8BEFFDA299C4F1100776186 /* RustSyncTelemetryPing.swift in Sources */,
 				1B3BC94B27B1D79B00229CF6 /* LoginsStorage.swift in Sources */,
