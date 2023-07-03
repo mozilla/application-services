@@ -12,10 +12,6 @@ if (gradle.hasProperty("localProperties.autoPublish.application-services.dir")) 
     // This version string will selected the latest build package
     version = '0.0.1-SNAPSHOT-+'
 
-} else if (gradle.hasProperty("localProperties.branchBuild.application-services.version")) {
-    //  We're running a branch build.  Here the version is set to the git commit id in
-    //  local.properties
-    version = gradle.getProperty("localProperties.branchBuild.application-services.version")
 } else {
     throw new Exception("substitute-local-appservices.gradle called from unexpected context")
 }

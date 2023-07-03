@@ -27,8 +27,14 @@ def register(graph_config):
 
     extend_parameters_schema({
         Optional('branch-build'): {
-            Optional('firefox-android-owner'): str,
-            Optional('firefox-android-branch'): str,
+            Optional('firefox-android'): {
+                Optional('owner'): str,
+                Optional('branch'): str,
+            },
+            Optional('firefox-ios'): {
+                Optional('owner'): str,
+                Optional('branch'): str,
+            },
         },
         # Publish a "preview build" for a future version.  This is set to
         # "nightly" for the nightly builds.  Other strings indicate making a

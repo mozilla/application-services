@@ -8,19 +8,26 @@ import re
 from taskgraph.filter_tasks import filter_task
 
 REPO_RE = r'((?P<owner>[\.\w-]+)[/:])?(?P<branch>[\.\w-]+)'
+FIREFOX_IOS_BRANCH_RE = re.compile(r'\[firefox-ios:\s*' + REPO_RE + r'\]')
 FIREFOX_ANDROID_BRANCH_RE = re.compile(r'\[firefox-android:\s*' + REPO_RE + r'\]')
-
-def update_decision_parameters(parameters):
-    parameters['branch-build'] = calc_branch_build_param(parameters)
 
 def calc_branch_build_param(parameters):
     title = os.environ.get("APPSERVICES_PULL_REQUEST_TITLE", "")
     branch_build = {}
 
-    ac_branch_match = FIREFOX_ANDROID_BRANCH_RE.search(title)
-    if ac_branch_match:
-        branch_build['firefox-android-owner'] = calc_owner(ac_branch_match)
-        branch_build['firefox-android-branch'] = ac_branch_match.group('branch')
+    firefox_android_branch_match = FIREFOX_ANDROID_BRANCH_RE.search(title)
+    if firefox_android_branch_match:
+        branch_build['firefox-android'] = {
+            'owner': calc_owner(firefox_android_branch_match),
+            'branch': firefox_android_branch_match.group('branch'),
+        }
+
+    firefox_ios_branch_match = FIREFOX_IOS_BRANCH_RE.search(title)
+    if firefox_ios_branch_match:
+        branch_build['firefox-ios'] = {
+            'owner': calc_owner(firefox_ios_branch_match),
+            'branch': firefox_ios_branch_match.group('branch'),
+        }
 
     return branch_build
 
@@ -32,13 +39,13 @@ def calc_owner(match):
 
 @filter_task("branch-build")
 def filter_branch_build_tasks(full_task_graph, parameters, graph_config):
-    if parameters.get('branch-build'):
-        # If the branch_build param is set, don't filter anything
-        return full_task_graph.tasks.keys()
-    else:
-        # If the branch_build param is unset, remove the branch-build tasks
-        return [
-            label
-            for label, task in full_task_graph.tasks.items()
-            if 'branch-build' not in task.attributes
-        ]
+    def should_keep_task(task):
+        task_branch_build = task.attributes.get("branch-build")
+        if task_branch_build is None:
+            # Don't filter out tasks without a `branch-build` attribute
+            return True
+        else:
+            # For tasks with a `branch-build` attribute, include them if there's a matching
+            # parameter
+            return task_branch_build in parameters.get('branch-build', {})
+    return [l for l, task in full_task_graph.tasks.items() if should_keep_task(task)]
