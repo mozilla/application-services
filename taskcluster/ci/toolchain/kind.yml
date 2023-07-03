@@ -32,5 +32,4 @@ tasks-from:
     - desktop.yml
     - ios.yml
     - resourcemonitor.yml
-    - robolectric.yml
     - rust.yml

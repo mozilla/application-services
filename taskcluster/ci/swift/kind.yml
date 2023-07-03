@@ -60,4 +60,4 @@ tasks:
         - rust-osx
         - libs-ios
       fetch:
-          - swiftformat
+        - swiftformat

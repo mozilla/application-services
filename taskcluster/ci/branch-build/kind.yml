@@ -1,0 +1,73 @@
+# This Source Code Form is subject to the terms of the Mozilla Public
+# License, v. 2.0. If a copy of the MPL was not distributed with this
+# file, You can obtain one at http://mozilla.org/MPL/2.0/.
+---
+loader: taskgraph.loader.transform:loader
+
+kind-dependencies:
+  - fetch
+  - toolchain
+
+transforms:
+  - app_services_taskgraph.transforms.worker
+  - app_services_taskgraph.transforms.branch_build
+  - taskgraph.transforms.job
+  - taskgraph.transforms.task
+
+tasks:
+  firefox-android:
+    attributes:
+      branch-build: firefox-android
+      resource-monitor: true
+    description: "Build against a firefox-android branch"
+    worker-type: b-linux
+    worker:
+      max-run-time: 1800
+      artifacts:
+        - "name": "public/branch-build/app-x86-debug.apk"
+          "path": "/builds/worker/checkouts/vcs/firefox-android/fenix/app/build/outputs/apk/fenix/debug/app-fenix-x86-debug.apk"
+          "type": "file"
+        - "name": "public/branch-build/app-arm64-debug.apk"
+          "path": "/builds/worker/checkouts/vcs/firefox-android/fenix/app/build/outputs/apk/fenix/debug/app-fenix-arm64-v8a-debug.apk"
+          "type": "file"
+    fetches:
+      toolchain:
+        - android-libs
+        - desktop-linux-libs
+        - desktop-macos-libs
+        - rust
+    run:
+      using: gradlew
+      pre-gradlew:
+        - ["git", "submodule", "update", "--init"]
+        - ["source", "taskcluster/scripts/toolchain/setup-fetched-rust-toolchain.sh"]
+        - ["source", "taskcluster/scripts/toolchain/copy-libs-dir.sh", "libs"]
+        - "setup-branch-build-firefox-android"
+        - ["cd", "firefox-android/fenix"]
+      gradlew:
+        - assembleDebug
+  firefox-ios:
+    attributes:
+      branch-build: firefox-ios
+      resource-monitor: true
+    description: "Build against a firefox-ios branch"
+    worker-type: b-osx
+    worker:
+      max-run-time: 1800
+    fetches:
+      toolchain:
+        - rust-osx
+        - libs-ios
+      fetch:
+        - swiftformat
+    run:
+      using: run-commands
+      run-task-command: ["/usr/local/bin/python3", "run-task"]
+      pre-commands:
+        - ["source", "taskcluster/scripts/setup-mac-worker.sh"]
+        - ["source", "taskcluster/scripts/toolchain/setup-fetched-rust-toolchain.sh"]
+        - ["source", "taskcluster/scripts/toolchain/setup-libs-ios.sh"]
+        - "setup-branch-build-firefox-ios"
+      commands:
+        - ["cd", "firefox-ios"]
+        - ["xcodebuild", "-resolvePackageDependencies"]
