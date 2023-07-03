@@ -1,4 +1,8 @@
-# v116.0 (In progress)
+# v117.0 (In progress)
+
+[Full Changelog](In progress)
+
+# v116.0 (_2023-07-03_)
 
 ## General
 
@@ -47,7 +51,7 @@
   - Single experiment files can be used as an experiment list file.
 - Add passthrough parameters for the `open`, `enroll` and `test-feature` commands. ([#5669](https://github.com/mozilla/application-services/pull/5669))
 
-[Full Changelog](In progress)
+[Full Changelog](https://github.com/mozilla/application-services/compare/v115.0...v116.0)
 
 # v115.0 (_2023-06-05_)
 
