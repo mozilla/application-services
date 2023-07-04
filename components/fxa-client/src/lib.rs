@@ -41,6 +41,7 @@ mod auth;
 mod device;
 mod error;
 mod internal;
+mod migration;
 mod profile;
 mod push;
 mod storage;
@@ -50,6 +51,7 @@ mod token;
 pub use auth::{AuthorizationInfo, MetricsParams};
 pub use device::{AttachedClient, Device, DeviceCapability};
 pub use error::{Error, FxaError};
+pub use migration::{FxAMigrationResult, MigrationState};
 use parking_lot::Mutex;
 pub use profile::Profile;
 pub use push::{

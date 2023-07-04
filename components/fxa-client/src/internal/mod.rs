@@ -25,6 +25,7 @@ mod commands;
 pub mod config;
 pub mod device;
 mod http_client;
+mod migrator;
 mod oauth;
 mod profile;
 mod push;
@@ -84,6 +85,7 @@ impl FirefoxAccount {
             current_device_id: None,
             last_seen_profile: None,
             access_token_cache: HashMap::new(),
+            in_flight_migration: None,
         })
     }
 

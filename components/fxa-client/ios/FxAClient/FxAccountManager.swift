@@ -9,11 +9,8 @@ public extension Notification.Name {
     static let accountAuthProblems = Notification.Name("accountAuthProblems")
     static let accountAuthenticated = Notification.Name("accountAuthenticated")
     static let accountProfileUpdate = Notification.Name("accountProfileUpdate")
+    static let accountMigrationFailed = Notification.Name("accountMigrationFailed")
 }
-
-// A place-holder for now removed migration support. This can be removed once
-// https://github.com/mozilla-mobile/firefox-ios/issues/15258 has been resolved.
-public enum MigrationResult {}
 
 // swiftlint:disable type_body_length
 open class FxAccountManager {
@@ -71,7 +68,8 @@ open class FxAccountManager {
     public func hasAccount() -> Bool {
         return state == .authenticatedWithProfile ||
             state == .authenticatedNoProfile ||
-            state == .authenticationProblem
+            state == .authenticationProblem ||
+            state == .canAutoretryMigration
     }
 
     /// Resets the inner Persisted Account based on the persisted state
@@ -88,6 +86,12 @@ open class FxAccountManager {
     /// Your app should present the option to start a new OAuth flow.
     public func accountNeedsReauth() -> Bool {
         return state == .authenticationProblem
+    }
+
+    /// Returns true if there is a migration in-flight.
+    /// The caller should then call `retryMigration`.
+    public func accountMigrationInFlight() -> Bool {
+        return state == .canAutoretryMigration
     }
 
     /// Begins a new authentication flow.
@@ -158,19 +162,36 @@ open class FxAccountManager {
         }
     }
 
-    // A no-op place-holder for now removed support for migrating from a pre-rust
-    // session token into a rust fxa-client. This stub remains to avoid causing
-    // a breaking change for iOS and can be removed after https://github.com/mozilla-mobile/firefox-ios/issues/15258
-    // has been resolved.
+    /// Use the provided user account information to sign-in without any user interaction.
     public func authenticateViaMigration(
-        sessionToken _: String,
-        kSync _: String,
-        kXCS _: String,
-        completionHandler _: @escaping (MigrationResult) -> Void
+        sessionToken: String,
+        kSync: String,
+        kXCS: String,
+        completionHandler: @escaping (MigrationResult) -> Void
     ) {
-        // This will almost certainly never be called in practice. If it is, I guess
-        // trying to force iOS into a "needs auth" state is the right thing to do...
-        processEvent(event: .authenticationError) {}
+        processEvent(event: .authenticateViaMigration(sessionToken: sessionToken, kSync: kSync, kXCS: kXCS)) {
+            if self.accountMigrationInFlight() {
+                completionHandler(.willRetry)
+            } else if self.hasAccount() {
+                completionHandler(.success)
+            } else {
+                completionHandler(.failure)
+            }
+        }
+    }
+
+    /// If `accountMigrationInFlight` returns true, this function should be called
+    /// on a regular basic by the caller.
+    public func retryMigration(completionHandler: @escaping (MigrationResult) -> Void) {
+        processEvent(event: .retryMigration) {
+            if self.accountMigrationInFlight() {
+                completionHandler(.willRetry)
+            } else if self.hasAccount() {
+                completionHandler(.success)
+            } else {
+                completionHandler(.failure)
+            }
+        }
     }
 
     /// Finish an authentication flow.
@@ -347,7 +368,13 @@ open class FxAccountManager {
                 case .initialize: do {
                         if let acct = tryRestoreAccount() {
                             account = acct
-                            return .accountRestored
+                            if !acct.isInMigrationState() {
+                                return .accountRestored
+                            } else {
+                                // We may have attempted a migration previously, which failed
+                                // in a way that allows us to retry it.
+                                return .inFlightMigration
+                            }
                         } else {
                             return .accountNotFound
                         }
@@ -376,7 +403,45 @@ open class FxAccountManager {
                 case .accountNotFound: do {
                         account = createAccount()
                     }
+                case let .authenticateViaMigration(sessionToken, kSync, kXCS): do {
+                        let acct = requireAccount()
+                        FxALog.info("Registering persistence callback")
+                        acct.registerPersistCallback(statePersistenceCallback)
+
+                        if acct.migrateFromSessionToken(
+                            sessionToken: sessionToken,
+                            kSync: kSync,
+                            kXCS: kXCS,
+                            copySessionToken: false
+                        ) {
+                            return .authenticatedViaMigration
+                        }
+                        if acct.isInMigrationState() {
+                            return .retryMigrationLater
+                        }
+                    }
                 default: break // Do nothing
+                }
+            }
+        case .canAutoretryMigration: do {
+                switch via {
+                case .retryMigration, .inFlightMigration: do {
+                        let acct = requireAccount()
+                        FxALog.info("Registering persistence callback")
+                        acct.registerPersistCallback(statePersistenceCallback)
+
+                        // Case 1: Success!
+                        if acct.retryMigrateFromSessionToken() {
+                            return .authenticatedViaMigration
+                        }
+                        // Case 2: Transient error, we can still retry later.
+                        if acct.isInMigrationState() {
+                            return .retryMigrationLater
+                        }
+                        // Case 3: Non-recoverable error, at this point there's nothing we can do.
+                        return .migrationFailure
+                    }
+                default: break // Do Nothing
                 }
             }
         case .authenticatedNoProfile: do {
@@ -415,6 +480,19 @@ open class FxAccountManager {
                         requireConstellation().ensureCapabilities(capabilities: deviceConfig.capabilities)
 
                         postAuthenticated(authType: .existingAccount)
+
+                        return Event.fetchProfile(ignoreCache: false)
+                    }
+                case .authenticatedViaMigration: do {
+                        // Note that we are not registering an account persistence callback here like
+                        // we do in other `.authenticatedNoProfile` cases, because it would have been
+                        // already registered while handling any of the precursor events, such as
+                        // `.authenticateViaMigration`, `.retryMigration` or `.inFlightMigration`
+                        FxALog.info("Ensuring device capabilities...")
+                        // At the minimum, we need to ensure the device capabilities.
+                        requireConstellation().ensureCapabilities(capabilities: deviceConfig.capabilities)
+
+                        postAuthenticated(authType: .migrated)
 
                         return Event.fetchProfile(ignoreCache: false)
                     }
@@ -625,6 +703,7 @@ public enum FxaAuthType {
     case signup
     case pairing
     case recovered
+    case migrated
     case other(reason: String)
 
     internal static func fromActionQueryParam(_ action: String) -> FxaAuthType {
