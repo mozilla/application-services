@@ -740,11 +740,6 @@ impl<'a> DeviceUpdateRequestBuilder<'a> {
         self
     }
 
-    pub fn clear_available_commands(mut self) -> Self {
-        self.available_commands = Some(None);
-        self
-    }
-
     pub fn display_name(mut self, display_name: &'a str) -> Self {
         self.display_name = Some(Some(display_name));
         self

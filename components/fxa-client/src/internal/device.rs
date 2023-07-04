@@ -43,7 +43,9 @@ impl FirefoxAccount {
         }
 
         let refresh_token = self.get_refresh_token()?;
-        let response = self.client.get_devices(&self.state.config, refresh_token)?;
+        let response = self
+            .client
+            .get_devices(self.state.config(), refresh_token)?;
 
         self.devices_cache = Some(CachedResponse {
             response: response.clone(),
@@ -85,7 +87,8 @@ impl FirefoxAccount {
         // Remember what capabilities we've registered, so we don't register the same ones again.
         // We write this to internal state before we've actually written the new device record,
         // but roll it back if the server update fails.
-        self.state.device_capabilities = capabilities_set;
+        self.state
+            .update_last_sent_device_capabilities(capabilities_set);
         Ok(commands)
     }
 
@@ -121,11 +124,11 @@ impl FirefoxAccount {
         // we can't tell the difference between "have never registered capabilities" and
         // have "explicitly registered an empty set of capabilities", so it's simpler to
         // just always re-register in that case.
-        if !self.state.device_capabilities.is_empty()
-            && self.state.device_capabilities.len() == capabilities.len()
+        if !self.state.last_sent_device_capabilities().is_empty()
+            && self.state.last_sent_device_capabilities().len() == capabilities.len()
             && capabilities
                 .iter()
-                .all(|c| self.state.device_capabilities.contains(c))
+                .all(|c| self.state.last_sent_device_capabilities().contains(c))
         {
             return Ok(());
         }
@@ -138,8 +141,12 @@ impl FirefoxAccount {
 
     /// Re-register the device capabilities, this should only be used internally.
     pub(crate) fn reregister_current_capabilities(&mut self) -> Result<()> {
-        let current_capabilities: Vec<Capability> =
-            self.state.device_capabilities.clone().into_iter().collect();
+        let current_capabilities: Vec<Capability> = self
+            .state
+            .last_sent_device_capabilities()
+            .clone()
+            .into_iter()
+            .collect();
         let commands = self.register_capabilities(&current_capabilities)?;
         let update = DeviceUpdateRequestBuilder::new()
             .available_commands(&commands)
@@ -156,7 +163,7 @@ impl FirefoxAccount {
     ) -> Result<()> {
         let refresh_token = self.get_refresh_token()?;
         self.client.invoke_command(
-            &self.state.config,
+            self.state.config(),
             refresh_token,
             command,
             &target.id,
@@ -175,7 +182,7 @@ impl FirefoxAccount {
         &mut self,
         reason: CommandFetchReason,
     ) -> Result<Vec<IncomingDeviceCommand>> {
-        let last_command_index = self.state.last_handled_command.unwrap_or(0);
+        let last_command_index = self.state.last_handled_command_index().unwrap_or(0);
         // We increment last_command_index by 1 because the server response includes the current index.
         self.fetch_and_parse_commands(last_command_index + 1, None, reason)
     }
@@ -184,7 +191,7 @@ impl FirefoxAccount {
         let refresh_token = self.get_refresh_token()?;
         let pending_commands =
             self.client
-                .get_pending_commands(&self.state.config, refresh_token, index, Some(1))?;
+                .get_pending_commands(self.state.config(), refresh_token, index, Some(1))?;
         self.parse_commands_messages(pending_commands.messages, CommandFetchReason::Push(index))?
             .into_iter()
             .next()
@@ -200,13 +207,14 @@ impl FirefoxAccount {
         let refresh_token = self.get_refresh_token()?;
         let pending_commands =
             self.client
-                .get_pending_commands(&self.state.config, refresh_token, index, limit)?;
+                .get_pending_commands(self.state.config(), refresh_token, index, limit)?;
         if pending_commands.messages.is_empty() {
             return Ok(Vec::new());
         }
         log::info!("Handling {} messages", pending_commands.messages.len());
         let device_commands = self.parse_commands_messages(pending_commands.messages, reason)?;
-        self.state.last_handled_command = Some(pending_commands.index);
+        self.state
+            .set_last_handled_command_index(pending_commands.index);
         Ok(device_commands)
     }
 
@@ -277,41 +285,6 @@ impl FirefoxAccount {
         self.update_device(update)
     }
 
-    // TODO: this currently overwrites every other registered command
-    // for the device because the server does not have a `PATCH commands`
-    // endpoint yet.
-    #[allow(dead_code)]
-    pub(crate) fn register_command(&mut self, command: &str, value: &str) -> Result<()> {
-        self.state.device_capabilities.clear();
-        let mut commands = HashMap::new();
-        commands.insert(command.to_owned(), value.to_owned());
-        let update = DeviceUpdateRequestBuilder::new()
-            .available_commands(&commands)
-            .build();
-        self.update_device(update)
-    }
-
-    // TODO: this currently deletes every command registered for the device
-    // because the server does not have a `PATCH commands` endpoint yet.
-    #[allow(dead_code)]
-    pub(crate) fn unregister_command(&mut self, _: &str) -> Result<()> {
-        self.state.device_capabilities.clear();
-        let commands = HashMap::new();
-        let update = DeviceUpdateRequestBuilder::new()
-            .available_commands(&commands)
-            .build();
-        self.update_device(update)
-    }
-
-    #[allow(dead_code)]
-    pub(crate) fn clear_commands(&mut self) -> Result<()> {
-        self.state.device_capabilities.clear();
-        let update = DeviceUpdateRequestBuilder::new()
-            .clear_available_commands()
-            .build();
-        self.update_device(update)
-    }
-
     pub(crate) fn replace_device(
         &mut self,
         display_name: &str,
@@ -319,7 +292,7 @@ impl FirefoxAccount {
         push_subscription: &Option<PushSubscription>,
         commands: &HashMap<String, String>,
     ) -> Result<()> {
-        self.state.device_capabilities.clear();
+        self.state.clear_last_sent_device_capabilities();
         let mut builder = DeviceUpdateRequestBuilder::new()
             .display_name(display_name)
             .device_type(device_type)
@@ -334,16 +307,16 @@ impl FirefoxAccount {
         let refresh_token = self.get_refresh_token()?;
         let res = self
             .client
-            .update_device_record(&self.state.config, refresh_token, update);
+            .update_device_record(self.state.config(), refresh_token, update);
         match res {
             Ok(resp) => {
-                self.state.current_device_id = Option::from(resp.id);
+                self.state.set_current_device_id(resp.id);
                 Ok(())
             }
             Err(err) => {
                 // We failed to write an update to the server.
                 // Clear local state so that we'll be sure to retry later.
-                self.state.device_capabilities.clear();
+                self.state.clear_last_sent_device_capabilities();
                 Err(err)
             }
         }
@@ -351,7 +324,7 @@ impl FirefoxAccount {
 
     /// Retrieve the current device id from state
     pub fn get_current_device_id(&mut self) -> Result<String> {
-        match self.state.current_device_id {
+        match self.state.current_device_id() {
             Some(ref device_id) => Ok(device_id.to_string()),
             None => Err(Error::NoCurrentDeviceId),
         }
@@ -419,11 +392,11 @@ mod tests {
         // but can't work out how to do that within the typesystem.
         let config = Config::stable_dev("12345678", "https://foo.bar");
         let mut fxa = FirefoxAccount::with_config(config);
-        fxa.state.refresh_token = Some(RefreshToken {
+        fxa.state.force_refresh_token(RefreshToken {
             token: "refreshtok".to_string(),
             scopes: HashSet::default(),
         });
-        fxa.state.scoped_keys.insert("https://identity.mozilla.com/apps/oldsync".to_string(), ScopedKey {
+        fxa.state.insert_scoped_key("https://identity.mozilla.com/apps/oldsync", ScopedKey {
             kty: "oct".to_string(),
             scope: "https://identity.mozilla.com/apps/oldsync".to_string(),
             k: "kMtwpVC0ZaYFJymPza8rXK_0CgCp3KMwRStwGfBRBDtL6hXRDVJgQFaoOQ2dimw0Bko5WVv2gNTy7RX5zFYZHg".to_string(),
@@ -675,7 +648,7 @@ mod tests {
         )
         .unwrap();
 
-        assert!(fxa.state.device_capabilities.is_empty());
+        assert!(fxa.state.last_sent_device_capabilities().is_empty());
 
         // Do another call with the same capabilities.
         // It should re-register, as server-side state may have changed.
