@@ -201,7 +201,7 @@ class NimbusPlugin implements Plugin<Project> {
 
             def successfulHost = tryDownload(archive.getParentFile(), archive.getName(),
                 // Try archive.mozilla.org release first
-                "https://archive.mozilla.org/pub/app-services/$asVersion",
+                "https://archive.mozilla.org/pub/app-services/releases/$asVersion",
                 // Try a github release next (TODO: remove this once we verify that publishing to
                 // archive.mozilla.org is working).
                 "https://github.com/mozilla/application-services/releases/download/v$asVersion",
