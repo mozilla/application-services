@@ -7,13 +7,13 @@
 use self::{
     config::Config,
     oauth::{AuthCircuitBreaker, OAuthFlow, OAUTH_WEBCHANNEL_REDIRECT},
-    state_persistence::State,
+    state_manager::StateManager,
+    state_persistence::PersistedState,
     telemetry::FxaTelemetry,
 };
 use crate::{Error, FxaConfig, Result};
 use serde_derive::*;
 use std::{
-    cell::RefCell,
     collections::{HashMap, HashSet},
     sync::Arc,
 };
@@ -31,6 +31,7 @@ mod push;
 mod scoped_keys;
 mod scopes;
 mod send_tab;
+mod state_manager;
 mod state_persistence;
 mod telemetry;
 mod util;
@@ -48,32 +49,28 @@ unsafe impl<'a> Sync for http_client::FxAClientMock<'a> {}
 // to be modified.
 pub struct FirefoxAccount {
     client: Arc<FxAClient>,
-    state: State,
-    flow_store: HashMap<String, OAuthFlow>,
+    state: StateManager,
     attached_clients_cache: Option<CachedResponse<Vec<http_client::GetAttachedClientResponse>>>,
     devices_cache: Option<CachedResponse<Vec<http_client::GetDeviceResponse>>>,
     auth_circuit_breaker: AuthCircuitBreaker,
-    // 'telemetry' is only currently used by `&mut self` functions, but that's
-    // not something we want to insist on going forward, so RefCell<> it.
-    telemetry: RefCell<FxaTelemetry>,
+    telemetry: FxaTelemetry,
 }
 
 impl FirefoxAccount {
-    fn from_state(state: State) -> Self {
+    fn from_state(state: PersistedState) -> Self {
         Self {
             client: Arc::new(http_client::Client::new()),
-            state,
-            flow_store: HashMap::new(),
+            state: StateManager::new(state),
             attached_clients_cache: None,
             devices_cache: None,
             auth_circuit_breaker: Default::default(),
-            telemetry: RefCell::new(FxaTelemetry::new()),
+            telemetry: FxaTelemetry::new(),
         }
     }
 
     /// Create a new `FirefoxAccount` instance using a `Config`.
     pub fn with_config(config: Config) -> Self {
-        Self::from_state(State {
+        Self::from_state(PersistedState {
             config,
             refresh_token: None,
             scoped_keys: HashMap::new(),
@@ -107,7 +104,7 @@ impl FirefoxAccount {
     /// Serialize a `FirefoxAccount` instance internal state
     /// to be restored later using `from_json`.
     pub fn to_json(&self) -> Result<String> {
-        state_persistence::state_to_json(&self.state)
+        self.state.serialize_persisted_state()
     }
 
     /// Clear the attached clients and devices cache
@@ -116,32 +113,23 @@ impl FirefoxAccount {
         self.devices_cache = None;
     }
 
-    /// Clear the whole persisted/cached state of the account, but keep just
-    /// enough information to eventually reconnect to the same user account later.
-    pub fn start_over(&mut self) {
-        self.state = self.state.start_over();
-        self.flow_store.clear();
-        self.clear_devices_and_attached_clients_cache();
-        self.telemetry.replace(FxaTelemetry::new());
-    }
-
     /// Get the Sync Token Server endpoint URL.
     pub fn get_token_server_endpoint_url(&self) -> Result<String> {
-        Ok(self.state.config.token_server_endpoint_url()?.into())
+        Ok(self.state.config().token_server_endpoint_url()?.into())
     }
 
     /// Get the pairing URL to navigate to on the Auth side (typically
     /// a computer).
     pub fn get_pairing_authority_url(&self) -> Result<String> {
         // Special case for the production server, we use the shorter firefox.com/pair URL.
-        if self.state.config.content_url()? == Url::parse(config::CONTENT_URL_RELEASE)? {
+        if self.state.config().content_url()? == Url::parse(config::CONTENT_URL_RELEASE)? {
             return Ok("https://firefox.com/pair".to_owned());
         }
         // Similarly special case for the China server.
-        if self.state.config.content_url()? == Url::parse(config::CONTENT_URL_CHINA)? {
+        if self.state.config().content_url()? == Url::parse(config::CONTENT_URL_CHINA)? {
             return Ok("https://firefox.com.cn/pair".to_owned());
         }
-        Ok(self.state.config.pair_url()?.into())
+        Ok(self.state.config().pair_url()?.into())
     }
 
     /// Get the "connection succeeded" page URL.
@@ -149,7 +137,7 @@ impl FirefoxAccount {
     /// having intercepted the OAuth login-flow state/code
     /// redirection.
     pub fn get_connection_success_url(&self) -> Result<String> {
-        let mut url = self.state.config.connect_another_device_url()?;
+        let mut url = self.state.config().connect_another_device_url()?;
         url.query_pairs_mut()
             .append_pair("showSuccessMessage", "true");
         Ok(url.into())
@@ -163,9 +151,9 @@ impl FirefoxAccount {
     /// * `entrypoint` - Application-provided string identifying the UI touchpoint
     ///                  through which the page was accessed, for metrics purposes.
     pub fn get_manage_account_url(&mut self, entrypoint: &str) -> Result<String> {
-        let mut url = self.state.config.settings_url()?;
+        let mut url = self.state.config().settings_url()?;
         url.query_pairs_mut().append_pair("entrypoint", entrypoint);
-        if self.state.config.redirect_uri == OAUTH_WEBCHANNEL_REDIRECT {
+        if self.state.config().redirect_uri == OAUTH_WEBCHANNEL_REDIRECT {
             url.query_pairs_mut()
                 .append_pair("context", "oauth_webchannel_v1");
         }
@@ -180,7 +168,7 @@ impl FirefoxAccount {
     /// * `entrypoint` - Application-provided string identifying the UI touchpoint
     ///                  through which the page was accessed, for metrics purposes.
     pub fn get_manage_devices_url(&mut self, entrypoint: &str) -> Result<String> {
-        let mut url = self.state.config.settings_clients_url()?;
+        let mut url = self.state.config().settings_clients_url()?;
         url.query_pairs_mut().append_pair("entrypoint", entrypoint);
         self.add_account_identifiers_to_url(url)
     }
@@ -194,8 +182,8 @@ impl FirefoxAccount {
     }
 
     fn get_refresh_token(&self) -> Result<&str> {
-        match self.state.refresh_token {
-            Some(ref token_info) => Ok(&token_info.token),
+        match self.state.refresh_token() {
+            Some(token_info) => Ok(&token_info.token),
             None => Err(Error::NoRefreshToken),
         }
     }
@@ -212,26 +200,28 @@ impl FirefoxAccount {
             current_device_result = self.get_current_device();
         }
 
-        if let Some(ref refresh_token) = self.state.refresh_token {
+        if let Some(refresh_token) = self.state.refresh_token() {
             // Delete the current device (which deletes the refresh token), or
             // the refresh token directly if we don't have a device.
             let destroy_result = match current_device_result {
                 // If we get an error trying to fetch our device record we'll at least
                 // still try to delete the refresh token itself.
                 Ok(Some(device)) => self.client.destroy_device_record(
-                    &self.state.config,
+                    self.state.config(),
                     &refresh_token.token,
                     &device.id,
                 ),
                 _ => self
                     .client
-                    .destroy_refresh_token(&self.state.config, &refresh_token.token),
+                    .destroy_refresh_token(self.state.config(), &refresh_token.token),
             };
             if let Err(e) = destroy_result {
                 log::warn!("Error while destroying the device: {}", e);
             }
         }
-        self.start_over();
+        self.state.disconnect();
+        self.clear_devices_and_attached_clients_cache();
+        self.telemetry = FxaTelemetry::new();
     }
 }
 
@@ -351,9 +341,9 @@ mod tests {
         let client = FxAClientMock::new();
         fxa.set_client(Arc::new(client));
 
-        assert!(!fxa.state.access_token_cache.is_empty());
+        assert!(!fxa.state.is_access_token_cache_empty());
         fxa.disconnect();
-        assert!(fxa.state.access_token_cache.is_empty());
+        assert!(fxa.state.is_access_token_cache_empty());
     }
 
     #[test]
@@ -361,7 +351,7 @@ mod tests {
         let config = Config::stable_dev("12345678", "https://foo.bar");
         let mut fxa = FirefoxAccount::with_config(config);
 
-        fxa.state.refresh_token = Some(RefreshToken {
+        fxa.state.force_refresh_token(RefreshToken {
             token: "refreshtok".to_string(),
             scopes: HashSet::default(),
         });
@@ -420,9 +410,9 @@ mod tests {
             .returns_once(Ok(()));
         fxa.set_client(Arc::new(client));
 
-        assert!(fxa.state.refresh_token.is_some());
+        assert!(fxa.state.refresh_token().is_some());
         fxa.disconnect();
-        assert!(fxa.state.refresh_token.is_none());
+        assert!(fxa.state.refresh_token().is_none());
     }
 
     #[test]
@@ -430,7 +420,7 @@ mod tests {
         let config = Config::stable_dev("12345678", "https://foo.bar");
         let mut fxa = FirefoxAccount::with_config(config);
 
-        fxa.state.refresh_token = Some(RefreshToken {
+        fxa.state.force_refresh_token(RefreshToken {
             token: "refreshtok".to_string(),
             scopes: HashSet::default(),
         });
@@ -467,9 +457,9 @@ mod tests {
             .returns_once(Ok(()));
         fxa.set_client(Arc::new(client));
 
-        assert!(fxa.state.refresh_token.is_some());
+        assert!(fxa.state.refresh_token().is_some());
         fxa.disconnect();
-        assert!(fxa.state.refresh_token.is_none());
+        assert!(fxa.state.refresh_token().is_none());
     }
 
     #[test]
@@ -477,7 +467,7 @@ mod tests {
         let config = Config::stable_dev("12345678", "https://foo.bar");
         let mut fxa = FirefoxAccount::with_config(config);
 
-        fxa.state.refresh_token = Some(RefreshToken {
+        fxa.state.force_refresh_token(RefreshToken {
             token: "refreshtok".to_string(),
             scopes: HashSet::default(),
         });
@@ -503,9 +493,9 @@ mod tests {
             }));
         fxa.set_client(Arc::new(client));
 
-        assert!(fxa.state.refresh_token.is_some());
+        assert!(fxa.state.refresh_token().is_some());
         fxa.disconnect();
-        assert!(fxa.state.refresh_token.is_none());
+        assert!(fxa.state.refresh_token().is_none());
     }
 
     #[test]

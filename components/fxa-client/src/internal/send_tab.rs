@@ -27,7 +27,7 @@ impl FirefoxAccount {
     }
 
     fn load_or_generate_keys(&mut self) -> Result<PrivateSendTabKeys> {
-        if let Some(s) = self.state.commands_data.get(send_tab::COMMAND_NAME) {
+        if let Some(s) = self.state.send_tab_key() {
             match PrivateSendTabKeys::deserialize(s) {
                 Ok(keys) => return Ok(keys),
                 Err(_) => {
@@ -39,9 +39,7 @@ impl FirefoxAccount {
             }
         }
         let keys = PrivateSendTabKeys::from_random()?;
-        self.state
-            .commands_data
-            .insert(send_tab::COMMAND_NAME.to_owned(), keys.serialize()?);
+        self.state.set_send_tab_key(keys.serialize()?);
         Ok(keys)
     }
 
@@ -66,7 +64,7 @@ impl FirefoxAccount {
         let oldsync_key = self.get_scoped_key(scopes::OLD_SYNC)?;
         let command_payload = send_tab::build_send_command(oldsync_key, target, &payload)?;
         self.invoke_command(send_tab::COMMAND_NAME, target, &command_payload)?;
-        self.telemetry.borrow_mut().record_tab_sent(sent_telemetry);
+        self.telemetry.record_tab_sent(sent_telemetry);
         Ok(())
     }
 
@@ -76,15 +74,14 @@ impl FirefoxAccount {
         payload: serde_json::Value,
         reason: telemetry::ReceivedReason,
     ) -> Result<IncomingDeviceCommand> {
-        let send_tab_key: PrivateSendTabKeys =
-            match self.state.commands_data.get(send_tab::COMMAND_NAME) {
-                Some(s) => PrivateSendTabKeys::deserialize(s)?,
-                None => {
-                    return Err(Error::IllegalState(
-                        "Cannot find send-tab keys. Has initialize_device been called before?",
-                    ));
-                }
-            };
+        let send_tab_key: PrivateSendTabKeys = match self.state.send_tab_key() {
+            Some(s) => PrivateSendTabKeys::deserialize(s)?,
+            None => {
+                return Err(Error::IllegalState(
+                    "Cannot find send-tab keys. Has initialize_device been called before?",
+                ));
+            }
+        };
         let encrypted_payload: EncryptedSendTabPayload = serde_json::from_value(payload)?;
         match encrypted_payload.decrypt(&send_tab_key) {
             Ok(payload) => {
@@ -94,9 +91,7 @@ impl FirefoxAccount {
                     stream_id: payload.stream_id.clone(),
                     reason,
                 };
-                self.telemetry
-                    .borrow_mut()
-                    .record_tab_received(recd_telemetry);
+                self.telemetry.record_tab_received(recd_telemetry);
                 // The telemetry IDs escape to the consumer, but that's OK...
                 Ok(IncomingDeviceCommand::TabReceived { sender, payload })
             }
@@ -118,7 +113,7 @@ impl FirefoxAccount {
                     }
                 };
                 // Reset the Send Tab keys.
-                self.state.commands_data.remove(send_tab::COMMAND_NAME);
+                self.state.clear_send_tab_key();
                 self.reregister_current_capabilities()?;
                 Err(e)
             }
