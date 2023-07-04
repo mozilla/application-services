@@ -18,7 +18,7 @@ impl FirefoxAccount {
     /// forgivingly (eg, be tolerant of things not existing) to try and avoid
     /// too many changes as telemetry comes and goes.
     pub fn gather_telemetry(&mut self) -> Result<String> {
-        let telem = self.telemetry.replace(FxaTelemetry::new());
+        let telem = std::mem::replace(&mut self.telemetry, FxaTelemetry::new());
         Ok(serde_json::to_string(&telem)?)
     }
 }

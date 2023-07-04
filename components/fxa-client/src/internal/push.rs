@@ -33,7 +33,7 @@ impl FirefoxAccount {
                 })
             }
             PushPayload::ProfileUpdated => {
-                self.state.last_seen_profile = None;
+                self.state.clear_last_seen_profile();
                 Ok(AccountEvent::ProfileUpdated)
             }
             PushPayload::DeviceConnected(DeviceConnectedPushPayload { device_name }) => {
@@ -56,7 +56,7 @@ impl FirefoxAccount {
                 })
             }
             PushPayload::AccountDestroyed(AccountDestroyedPushPayload { account_uid }) => {
-                let is_local_account = match &self.state.last_seen_profile {
+                let is_local_account = match self.state.last_seen_profile() {
                     None => false,
                     Some(profile) => profile.response.uid == account_uid,
                 };
@@ -160,7 +160,7 @@ mod tests {
         fxa.add_cached_profile("123", "test@example.com");
         let json = "{\"version\":1,\"command\":\"fxaccounts:profile_updated\"}";
         let event = fxa.handle_push_message(json).unwrap();
-        assert!(fxa.state.last_seen_profile.is_none());
+        assert!(fxa.state.last_seen_profile().is_none());
         assert!(matches!(event, AccountEvent::ProfileUpdated));
     }
 
@@ -169,14 +169,15 @@ mod tests {
         let mut fxa =
             FirefoxAccount::with_config(Config::stable_dev("12345678", "https://foo.bar"));
         let refresh_token_scopes = std::collections::HashSet::new();
-        fxa.state.refresh_token = Some(crate::internal::oauth::RefreshToken {
-            token: "refresh_token".to_owned(),
-            scopes: refresh_token_scopes,
-        });
-        fxa.state.current_device_id = Some("my_id".to_owned());
+        fxa.state
+            .force_refresh_token(crate::internal::oauth::RefreshToken {
+                token: "refresh_token".to_owned(),
+                scopes: refresh_token_scopes,
+            });
+        fxa.state.force_current_device_id("my_id");
         let json = "{\"version\":1,\"command\":\"fxaccounts:device_disconnected\",\"data\":{\"id\":\"my_id\"}}";
         let event = fxa.handle_push_message(json).unwrap();
-        assert!(fxa.state.refresh_token.is_none());
+        assert!(fxa.state.refresh_token().is_none());
         match event {
             AccountEvent::DeviceDisconnected {
                 device_id,
@@ -202,11 +203,11 @@ mod tests {
             .returns_once(Ok(IntrospectResponse { active: false }));
         fxa.set_client(Arc::new(client));
         let refresh_token_scopes = std::collections::HashSet::new();
-        fxa.state.refresh_token = Some(RefreshToken {
+        fxa.state.force_refresh_token(RefreshToken {
             token: "refresh_token".to_owned(),
             scopes: refresh_token_scopes,
         });
-        fxa.state.current_device_id = Some("my_id".to_owned());
+        fxa.state.force_current_device_id("my_id");
         fxa.devices_cache = Some(CachedResponse {
             response: vec![],
             cached_at: 0,
@@ -232,11 +233,11 @@ mod tests {
             .returns_once(Ok(IntrospectResponse { active: true }));
         fxa.set_client(Arc::new(client));
         let refresh_token_scopes = std::collections::HashSet::new();
-        fxa.state.refresh_token = Some(RefreshToken {
+        fxa.state.force_refresh_token(RefreshToken {
             token: "refresh_token".to_owned(),
             scopes: refresh_token_scopes,
         });
-        fxa.state.current_device_id = Some("my_id".to_owned());
+        fxa.state.force_current_device_id("my_id");
         fxa.devices_cache = Some(CachedResponse {
             response: vec![],
             cached_at: 0,

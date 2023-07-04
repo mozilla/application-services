@@ -20,7 +20,7 @@ impl FirefoxAccount {
         let session_token = self.get_session_token()?;
         let response = self
             .client
-            .get_attached_clients(&self.state.config, &session_token)?;
+            .get_attached_clients(self.state.config(), &session_token)?;
 
         self.attached_clients_cache = Some(CachedResponse {
             response: response.clone(),

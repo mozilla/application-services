@@ -38,7 +38,7 @@ impl FirefoxAccount {
 
     fn get_profile_helper(&mut self, ignore_cache: bool) -> Result<Profile> {
         let mut etag = None;
-        if let Some(ref cached_profile) = self.state.last_seen_profile {
+        if let Some(cached_profile) = self.state.last_seen_profile() {
             if !ignore_cache && util::now() < cached_profile.cached_at + PROFILE_FRESHNESS_THRESHOLD
             {
                 return Ok(cached_profile.response.clone());
@@ -48,11 +48,11 @@ impl FirefoxAccount {
         let profile_access_token = self.get_access_token(scopes::PROFILE, None)?.token;
         match self
             .client
-            .get_profile(&self.state.config, &profile_access_token, etag)?
+            .get_profile(self.state.config(), &profile_access_token, etag)?
         {
             Some(response_and_etag) => {
                 if let Some(etag) = response_and_etag.etag {
-                    self.state.last_seen_profile = Some(CachedResponse {
+                    self.state.set_last_seen_profile(CachedResponse {
                         response: response_and_etag.response.clone(),
                         cached_at: util::now(),
                         etag,
@@ -61,17 +61,19 @@ impl FirefoxAccount {
                 Ok(response_and_etag.response)
             }
             None => {
-                match self.state.last_seen_profile.take() {
-                    Some(ref cached_profile) => {
+                match self.state.last_seen_profile() {
+                    Some(cached_profile) => {
+                        let response = cached_profile.response.clone();
                         // Update `cached_at` timestamp.
-                        self.state.last_seen_profile.replace(CachedResponse {
+                        let new_cached_profile = CachedResponse {
                             response: cached_profile.response.clone(),
                             cached_at: util::now(),
                             etag: cached_profile.etag.clone(),
-                        });
-                        Ok(cached_profile.response.clone())
+                        };
+                        self.state.set_last_seen_profile(new_cached_profile);
+                        Ok(response)
                     }
-                    None => Err(Error::UnrecoverableServerError(
+                    None => Err(Error::ApiClientError(
                         "Got a 304 without having sent an eTag.",
                     )),
                 }
@@ -92,7 +94,7 @@ mod tests {
 
     impl FirefoxAccount {
         pub fn add_cached_profile(&mut self, uid: &str, email: &str) {
-            self.state.last_seen_profile = Some(CachedResponse {
+            self.state.set_last_seen_profile(CachedResponse {
                 response: Profile {
                     uid: uid.into(),
                     email: email.into(),
@@ -161,7 +163,7 @@ mod tests {
         );
         let mut refresh_token_scopes = std::collections::HashSet::new();
         refresh_token_scopes.insert("profile".to_owned());
-        fxa.state.refresh_token = Some(RefreshToken {
+        fxa.state.force_refresh_token(RefreshToken {
             token: "refreshtok".to_owned(),
             scopes: refresh_token_scopes,
         });

@@ -82,8 +82,8 @@ pub enum Error {
     #[error("Device target is unknown (Device ID: {0})")]
     UnknownTargetDevice(String),
 
-    #[error("Unrecoverable server error {0}")]
-    UnrecoverableServerError(&'static str),
+    #[error("Api client error {0}")]
+    ApiClientError(&'static str),
 
     #[error("Illegal state: {0}")]
     IllegalState(&'static str),
