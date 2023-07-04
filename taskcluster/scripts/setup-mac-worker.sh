@@ -12,4 +12,4 @@ export PATH="$HOME/bin:$HOME/Library/Python/3.7/bin:$PATH"
 export UPLOAD_DIR="${PWD}/../public/build"
 
 # delete the artifacts directory if it's left over from previous runs
-rm -fr artifacts
+rm -fr ../../artifacts
