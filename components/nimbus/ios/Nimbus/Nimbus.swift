@@ -102,7 +102,15 @@ extension Nimbus: NimbusEventStore {
 }
 
 extension Nimbus: FeaturesInterface {
-    public func recordExposureEvent(featureId: String) {
+    public func recordExposureEvent(featureId: String, experimentSlug: String? = nil) {
+        if let experimentSlug = experimentSlug {
+            recordExposureFromExperiment(featureId: featureId, experimentSlug: experimentSlug)
+        } else {
+            recordExposureFromFeature(featureId: featureId)
+        }
+    }
+
+    func recordExposureFromFeature(featureId: String) {
         // First, we get the enrolled feature, if there is one, for this id.
         if let enrollment = getEnrollmentByFeature(featureId: featureId),
            // If branch is nil, this is a rollout, and we're not interested in recording
@@ -114,7 +122,18 @@ extension Nimbus: FeaturesInterface {
             // for an experiment without an active enrollment.
             GleanMetrics.NimbusEvents.exposure.record(GleanMetrics.NimbusEvents.ExposureExtra(
                 branch: branch,
-                experiment: enrollment.slug
+                experiment: enrollment.slug,
+                featureId: featureId
+            ))
+        }
+    }
+
+    func recordExposureFromExperiment(featureId: String, experimentSlug: String) {
+        if let branch = getExperimentBranch(experimentId: experimentSlug) {
+            GleanMetrics.NimbusEvents.exposure.record(GleanMetrics.NimbusEvents.ExposureExtra(
+                branch: branch,
+                experiment: experimentSlug,
+                featureId: featureId
             ))
         }
     }
@@ -504,7 +523,7 @@ public extension NimbusDisabled {
 
     func resetTelemetryIdentifiers() {}
 
-    func recordExposureEvent(featureId _: String) {}
+    func recordExposureEvent(featureId _: String, experimentSlug _: String? = nil) {}
 
     func recordMalformedConfiguration(featureId _: String, with _: String) {}
 

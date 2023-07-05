@@ -82,7 +82,7 @@ extension HardcodedNimbusFeatures: FeaturesInterface {
         return NilVariables.instance
     }
 
-    public func recordExposureEvent(featureId: String) {
+    public func recordExposureEvent(featureId: String, experimentSlug _: String? = nil) {
         if features[featureId] != nil {
             exposureCounts[featureId] = getExposureCount(featureId: featureId) + 1
         }

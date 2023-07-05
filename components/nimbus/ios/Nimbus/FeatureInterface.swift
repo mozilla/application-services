@@ -46,7 +46,7 @@ public protocol FeaturesInterface: AnyObject {
     /// - Parameter featureId string representing the id of the feature for which to record the exposure
     ///     event.
     ///
-    func recordExposureEvent(featureId: String)
+    func recordExposureEvent(featureId: String, experimentSlug: String?)
 
     /// Records an event signifying a malformed feature configuration, or part of one.
     ///

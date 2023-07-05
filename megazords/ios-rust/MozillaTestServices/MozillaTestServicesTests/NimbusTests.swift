@@ -287,7 +287,7 @@ class NimbusTests: XCTestCase {
         XCTAssertEqual("test-enrollment-id", disqualificationEventExtras!["enrollment_id"], "Disqualification event enrollment id must match")
     }
 
-    func testRecordExposure() throws {
+    func testRecordExposureFromFeature() throws {
         let appSettings = NimbusAppSettings(appName: "NimbusUnitTest", channel: "test")
         let nimbus = try Nimbus.create(nil, appSettings: appSettings, dbPath: createDatabasePath()) as! Nimbus
 
@@ -317,6 +317,49 @@ class NimbusTests: XCTestCase {
         // Attempt to record an event for a non-existent or feature we are not enrolled in an
         // experiment in to ensure nothing is recorded.
         nimbus.recordExposureEvent(featureId: "not-a-feature")
+
+        // Verify the invalid event was ignored by checking again that the valid event is still the only
+        // event, and that it hasn't changed any of its extra properties.
+        let exposureEventsTryTwo = GleanMetrics.NimbusEvents.exposure.testGetValue()!
+        XCTAssertEqual(1, exposureEventsTryTwo.count, "Event count must match")
+        let exposureEventExtrasTryTwo = exposureEventsTryTwo.first!.extra
+        XCTAssertEqual("secure-gold", exposureEventExtrasTryTwo!["experiment"], "Experiment slug must match")
+        XCTAssertTrue(
+            exposureEventExtrasTryTwo!["branch"] == "control" || exposureEventExtrasTryTwo!["branch"] == "treatment",
+            "Experiment branch must match"
+        )
+    }
+
+    func testRecordExposureFromExperiment() throws {
+        let appSettings = NimbusAppSettings(appName: "NimbusUnitTest", channel: "test")
+        let nimbus = try Nimbus.create(nil, appSettings: appSettings, dbPath: createDatabasePath()) as! Nimbus
+
+        // Load an experiment in nimbus that we will record an event in. The experiment bucket configuration
+        // is set so that it will be guaranteed to be active. This is necessary because the SDK checks for
+        // active experiments before recording.
+        try nimbus.setExperimentsLocallyOnThisThread(minimalExperimentJSON())
+        try nimbus.applyPendingExperimentsOnThisThread()
+
+        // Assert that there are no events to start with
+        XCTAssertNil(GleanMetrics.NimbusEvents.exposure.testGetValue(), "Event must not have a value")
+
+        // Record a valid exposure event in Glean that matches the featureId from the test experiment
+        nimbus.recordExposureEvent(featureId: "aboutwelcome", experimentSlug: "secure-gold")
+
+        // Use the Glean test API to check that the valid event is present
+        XCTAssertNotNil(GleanMetrics.NimbusEvents.exposure.testGetValue(), "Event must have a value")
+        let exposureEvents = GleanMetrics.NimbusEvents.exposure.testGetValue()!
+        XCTAssertEqual(1, exposureEvents.count, "Event count must match")
+        let exposureEventExtras = exposureEvents.first!.extra
+        XCTAssertEqual("secure-gold", exposureEventExtras!["experiment"], "Experiment slug must match")
+        XCTAssertTrue(
+            exposureEventExtras!["branch"] == "control" || exposureEventExtras!["branch"] == "treatment",
+            "Experiment branch must match"
+        )
+
+        // Attempt to record an event for a non-existent or feature we are not enrolled in an
+        // experiment in to ensure nothing is recorded.
+        nimbus.recordExposureEvent(featureId: "aboutwelcome", experimentSlug: "not-an-experiment")
 
         // Verify the invalid event was ignored by checking again that the valid event is still the only
         // event, and that it hasn't changed any of its extra properties.
