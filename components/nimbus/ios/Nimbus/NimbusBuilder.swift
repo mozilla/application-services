@@ -114,7 +114,7 @@ public class NimbusBuilder {
      */
     @discardableResult
     public func onFetch(callback: @escaping (NimbusInterface) -> Void) -> NimbusBuilder {
-        onApplyCallback = callback
+        onFetchCallback = callback
         return self
     }
 
