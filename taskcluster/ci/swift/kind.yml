@@ -25,7 +25,7 @@ tasks:
       release-routes:
         - index.project.{project}.v2.swift.{appservices_version}
     needs-sccache: false # TODO: Bug 1623426 deal with this once we're in prod
-    run-on-tasks-for: [github-pull-request, github-release, cron]
+    run-on-tasks-for: [github-push, github-pull-request, github-release, cron]
     description: Build and test (Swift)
     scopes:
       - project:releng:services/tooltool/api/download/internal
