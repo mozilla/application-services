@@ -377,8 +377,8 @@ open class Nimbus(
         }
     }
 
-    override fun recordExposureEvent(featureId: String) {
-        recordExposureOnThisThread(featureId)
+    override fun recordExposureEvent(featureId: String, experimentSlug: String?) {
+        recordExposureOnThisThread(featureId, experimentSlug)
     }
 
     override fun recordMalformedConfiguration(featureId: String, partId: String) {
@@ -484,9 +484,18 @@ open class Nimbus(
 
     // The exposure event should be recorded when the expected treatment (or no-treatment, such as
     // for a "control" branch) is applied or shown to the user.
+    // If the experiment slug is known, then use that to look up the enrollment.
     @VisibleForTesting(otherwise = VisibleForTesting.PRIVATE)
     @AnyThread
-    internal fun recordExposureOnThisThread(featureId: String) = withCatchAll("recordExposure") {
+    internal fun recordExposureOnThisThread(featureId: String, experimentSlug: String? = null) {
+        if (experimentSlug.isNullOrEmpty()) {
+            recordExposureFromFeature(featureId)
+        } else {
+            recordExposureFromExperiment(featureId, experimentSlug)
+        }
+    }
+
+    private fun recordExposureFromFeature(featureId: String) = withCatchAll("recordExposureFromFeature") {
         // First, we get the enrolled feature, if there is one, for this id.
         val enrollment = nimbusClient.getEnrollmentByFeature(featureId) ?: return@withCatchAll
         // If branch is null, this is a rollout, and we're not interested in recording
@@ -502,6 +511,18 @@ open class Nimbus(
                 featureId = featureId,
             ),
         )
+    }
+
+    private fun recordExposureFromExperiment(featureId: String, slug: String) = withCatchAll("recordExposureFromExperiment") {
+        nimbusClient.getExperimentBranch(slug)?.let { branch ->
+            NimbusEvents.exposure.record(
+                NimbusEvents.ExposureExtra(
+                    experiment = slug,
+                    branch = branch,
+                    featureId = featureId,
+                ),
+            )
+        }
     }
 
     // The malformed feature event is recorded by app developers, if the configuration is
