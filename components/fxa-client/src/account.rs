@@ -19,16 +19,12 @@ impl FirefoxAccount {
     /// Get the token server URL
     ///
     /// The token server URL can be used to get the URL and access token for the user's sync data.
-    ///
-    /// **💾 This method alters the persisted account state.**
     #[handle_error(Error)]
     pub fn get_token_server_endpoint_url(&self) -> ApiResult<String> {
         self.internal.lock().get_token_server_endpoint_url()
     }
 
     /// Get a URL which shows a "successfully connected!" message.
-    ///
-    /// **💾 This method alters the persisted account state.**
     ///
     /// Applications can use this method after a successful signin, to redirect the
     /// user to a success message displayed in web content rather than having to
@@ -39,8 +35,6 @@ impl FirefoxAccount {
     }
 
     /// Get a URL at which the user can manage their account and profile data.
-    ///
-    /// **💾 This method alters the persisted account state.**
     ///
     /// Applications should link the user out to this URL from an appropriate place
     /// in their signed-in settings UI.
@@ -56,8 +50,6 @@ impl FirefoxAccount {
     }
 
     /// Get a URL at which the user can manage the devices connected to their account.
-    ///
-    /// **💾 This method alters the persisted account state.**
     ///
     /// Applications should link the user out to this URL from an appropriate place
     /// in their signed-in settings UI. For example, "Manage your devices..." may be

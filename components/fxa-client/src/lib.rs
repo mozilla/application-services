@@ -17,9 +17,11 @@
 //!   signed-in state of the application.
 //!     * On first startup, a new [`FirefoxAccount`] can be created by calling
 //!       [`FirefoxAccount::new`] and passing the application's `client_id`.
-//!     * For subsequent startups the object can be persisted using the
-//!       [`to_json`](FirefoxAccount::to_json) method and re-created by
-//!       calling [`FirefoxAccount::from_json`].
+//!     * For subsequent startups the object can be re-created by calling [`FirefoxAccount::from_json`].
+//!
+//! * Register a StorageHandler with the `register_storage_handler()` method.  The `save_state` method
+//!   will be called whenever the persistent state changes.
+//!
 //!
 //! * When the user wants to sign in to your application, direct them through
 //!   a web-based OAuth flow using [`begin_oauth_flow`](FirefoxAccount::begin_oauth_flow)
@@ -51,18 +53,21 @@ pub use sync15::DeviceType;
 
 pub use auth::{AuthorizationInfo, MetricsParams};
 pub use device::{AttachedClient, Device, DeviceCapability};
-pub use error::{Error, FxaError};
+pub use error::{CallbackError, Error, FxaError};
 use parking_lot::Mutex;
 pub use profile::Profile;
 pub use push::{
     AccountEvent, DevicePushSubscription, IncomingDeviceCommand, SendTabPayload, TabHistoryEntry,
 };
+pub use storage::StorageHandler;
 pub use token::{AccessTokenInfo, AuthorizationParameters, ScopedKey};
 
 /// Result returned by internal functions
 pub type Result<T> = std::result::Result<T, Error>;
 /// Result returned by public-facing API functions
 pub type ApiResult<T> = std::result::Result<T, FxaError>;
+/// Result returned by callback interfaces
+pub type CallbackResult<T> = std::result::Result<T, CallbackError>;
 
 /// Object representing the signed-in state of an application.
 ///
@@ -79,8 +84,6 @@ pub struct FirefoxAccount {
 
 impl FirefoxAccount {
     /// Create a new [`FirefoxAccount`] instance, not connected to any account.
-    ///
-    /// **💾 This method alters the persisted account state.**
     ///
     /// This method constructs as new [`FirefoxAccount`] instance configured to connect
     /// the application to a user's account.

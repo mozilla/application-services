@@ -302,8 +302,6 @@ impl FirefoxAccount {
     /// Complete an OAuth flow initiated in `begin_oauth_flow` or `begin_pairing_flow`.
     /// The `code` and `state` parameters can be obtained by parsing out the
     /// redirect URL after a successful login.
-    ///
-    /// **💾 This method alters the persisted account state.**
     pub fn complete_oauth_flow(&mut self, code: &str, state: &str) -> Result<()> {
         self.clear_access_token_cache();
         let oauth_flow = match self.state.pop_oauth_flow(state) {
@@ -417,8 +415,6 @@ impl FirefoxAccount {
     /// Because the old refresh token is not valid anymore, we can't do like `handle_oauth_response`
     /// and re-create the device, so it is the responsibility of the caller to do so after we're
     /// done.
-    ///
-    /// **💾 This method alters the persisted account state.**
     pub fn handle_session_token_change(&mut self, session_token: &str) -> Result<()> {
         let old_refresh_token = self.state.refresh_token().ok_or(Error::NoRefreshToken)?;
         let scopes: Vec<&str> = old_refresh_token.scopes.iter().map(AsRef::as_ref).collect();

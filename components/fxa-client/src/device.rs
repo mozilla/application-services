@@ -22,8 +22,6 @@ use sync15::DeviceType;
 impl FirefoxAccount {
     /// Create a new device record for this application.
     ///
-    /// **💾 This method alters the persisted account state.**
-    ///
     /// This method register a device record for the application, providing basic metadata for
     /// the device along with a list of supported [Device Capabilities](DeviceCapability) for
     /// participating in the "device commands" ecosystem.
@@ -74,8 +72,6 @@ impl FirefoxAccount {
 
     /// Get the list of devices registered on the user's account.
     ///
-    /// **💾 This method alters the persisted account state.**
-    ///
     /// This method returns a list of [`Device`] structs representing all the devices
     /// currently attached to the user's account (including the current device).
     /// The application might use this information to e.g. display a list of appropriate
@@ -125,8 +121,6 @@ impl FirefoxAccount {
 
     /// Update the display name used for this application instance.
     ///
-    /// **💾 This method alters the persisted account state.**
-    ///
     /// This method modifies the name of the current application's device record, as seen by
     /// other applications and in the user's account management pages.
     ///
@@ -145,8 +139,6 @@ impl FirefoxAccount {
 
     /// Clear any custom display name used for this application instance.
     ///
-    /// **💾 This method alters the persisted account state.**
-    ///
     /// This method clears the name of the current application's device record, causing other
     /// applications or the user's account management pages to have to fill in some sort of
     /// default name when displaying this device.
@@ -161,8 +153,6 @@ impl FirefoxAccount {
     }
 
     /// Ensure that the device record has a specific set of capabilities.
-    ///
-    /// **💾 This method alters the persisted account state.**
     ///
     /// This method checks that the currently-registered device record is advertising the
     /// given set of capabilities in the FxA "device commands" ecosystem. If not, then it

@@ -8,23 +8,22 @@
 //! either by restoring a previously-saved state via [`FirefoxAccount::from_json`]
 //! or by starting afresh with [`FirefoxAccount::new`].
 //!
-//! The application must persist the signed-in state after calling any methods
-//! that may alter it. Such methods are marked in the documentation as follows:
-//!
-//! **💾 This method alters the persisted account state.**
+//! Applications can register for state changes using the [FirefoxAccount::register_storage_handler]
+//! method.  After that, whenever the account state changes, the [StorageHandler::save_state]
+//! method will be called.
 //!
 //! After calling any such method, use [`FirefoxAccount::to_json`] to serialize
 //! the modified account state and persist the resulting string in application
 //! settings.
 
-use crate::{internal, ApiResult, Error, FirefoxAccount};
+use crate::{internal, ApiResult, CallbackResult, Error, FirefoxAccount};
 use error_support::handle_error;
 use parking_lot::Mutex;
 
 impl FirefoxAccount {
     /// Restore a [`FirefoxAccount`] instance from serialized state.
     ///
-    /// Given a JSON string previously obtained from [`FirefoxAccount::to_json`], this
+    /// Given a JSON string previously passed to [StorageHandler.saved_state()], this
     /// method will deserialize it and return a live [`FirefoxAccount`] instance.
     ///
     /// **⚠️ Warning:** since the serialized state contains access tokens, you should
@@ -38,12 +37,17 @@ impl FirefoxAccount {
         })
     }
 
-    /// Save current state to a JSON string.
+    /// Register a StorageHandler callback
     ///
-    /// This method serializes the current account state into a JSON string, which
-    /// the application can use to persist the user's signed-in state across restarts.
-    /// The application should call this method and update its persisted state after
-    /// any potentially-state-changing operation.
+    /// Any previously registered storage handler will be replaced.  Pass in None to clear out any
+    /// storage handler.
+    pub fn register_storage_handler(&self, handler: Option<Box<dyn StorageHandler>>) {
+        self.internal.lock().state.register_storage_handler(handler)
+    }
+
+    /// Save current state to a JSON string
+    ///
+    /// **Deprecated**: Use the [FirefoxAccount::register_storage_handler()] method instead.
     ///
     /// **⚠️ Warning:** the serialized state may contain encryption keys and access
     /// tokens that let anyone holding them access the user's data in Firefox Sync
@@ -53,4 +57,18 @@ impl FirefoxAccount {
     pub fn to_json(&self) -> ApiResult<String> {
         self.internal.lock().to_json()
     }
+}
+
+/// Handles storage for a FirefoxAccount.  This is implemented by the consumer application which
+/// typically saves the FirefoxAccount state to secure storage on the device.
+pub trait StorageHandler: Send + Sync {
+    // This is called whenever the saved state changes.  The StorageHandler should ensure that the
+    // state is saved to disk.  The next time the FirefoxAccount is constructed, it should be
+    // through `from_json()` with this json data.
+    //
+    // **⚠️ Warning:** the serialized state may contain encryption keys and access
+    // tokens that let anyone holding them access the user's data in Firefox Sync
+    // and/or other FxA services. Applications should take care to store the resulting
+    // data in a secure fashion, as appropriate for their target platform.
+    fn save_state(&self, json: String) -> CallbackResult<()>;
 }

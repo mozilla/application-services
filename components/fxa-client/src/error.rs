@@ -197,3 +197,19 @@ impl GetErrorHandling for Error {
         }
     }
 }
+
+/// Error type thrown by [FirefoxAccount] callback interfaces
+///
+/// This error is thrown by the application code that implements the callback interfaces
+#[derive(Debug, thiserror::Error)]
+pub enum CallbackError {
+    /// An unexpected error occurred, right now this is the only type of callback error we support
+    #[error("CallbackError: {reason}")]
+    Other { reason: String },
+}
+
+impl From<uniffi::UnexpectedUniFFICallbackError> for CallbackError {
+    fn from(e: uniffi::UnexpectedUniFFICallbackError) -> Self {
+        Self::Other { reason: e.reason }
+    }
+}

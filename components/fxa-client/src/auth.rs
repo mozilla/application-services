@@ -115,8 +115,6 @@ impl FirefoxAccount {
 
     /// Complete an OAuth flow.
     ///
-    /// **💾 This method alters the persisted account state.**
-    ///
     /// At the conclusion of an OAuth flow, the user will be redirect to the
     /// application's registered `redirect_uri`. It should extract the `code`
     /// and `state` parameters from the resulting URL and pass them to this
@@ -133,8 +131,6 @@ impl FirefoxAccount {
 
     /// Check authorization status for this application.
     ///
-    /// **💾 This method alters the persisted account state.**
-    ///
     /// Applications may call this method to check with the FxA server about the status
     /// of their authentication tokens. It returns an [`AuthorizationInfo`] struct
     /// with details about whether the tokens are still active.
@@ -144,8 +140,6 @@ impl FirefoxAccount {
     }
 
     /// Disconnect from the user's account.
-    ///
-    /// **💾 This method alters the persisted account state.**
     ///
     /// This method destroys any tokens held by the client, effectively disconnecting
     /// from the user's account. Applications should call this when the user opts to

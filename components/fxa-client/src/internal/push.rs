@@ -14,8 +14,6 @@ impl FirefoxAccount {
     /// This API is useful for when the app would like to get the AccountEvent associated
     /// with the push message, but would **not** like to retrieve missed commands while doing so.
     ///
-    /// **💾 This method alters the persisted account state.**
-    ///
     /// **⚠️ This API does not increment the command index if a command was received**
     pub fn handle_push_message(&mut self, payload: &str) -> Result<AccountEvent> {
         let payload = serde_json::from_str(payload).or_else(|err| {

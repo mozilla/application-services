@@ -12,8 +12,6 @@ use error_support::handle_error;
 impl FirefoxAccount {
     /// Get profile information for the signed-in user, if any.
     ///
-    /// **💾 This method alters the persisted account state.**
-    ///
     /// This method fetches a [`Profile`] struct with information about the currently-signed-in
     /// user, either by using locally-cached profile information or by fetching fresh data from
     /// the server.

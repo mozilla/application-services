@@ -12,7 +12,7 @@ use crate::{
         state_persistence::state_to_json,
         CachedResponse, Config, OAuthFlow, PersistedState,
     },
-    Result, ScopedKey,
+    Result, ScopedKey, StorageHandler,
 };
 
 /// Stores and manages the current state of the FxA client
@@ -24,6 +24,8 @@ pub struct StateManager {
     persisted_state: PersistedState,
     /// In-progress OAuth flows
     flow_store: HashMap<String, OAuthFlow>,
+    /// Application-supplied storage handlers
+    storage_handler: Option<Box<dyn StorageHandler>>,
 }
 
 impl StateManager {
@@ -31,7 +33,12 @@ impl StateManager {
         Self {
             persisted_state,
             flow_store: HashMap::new(),
+            storage_handler: None,
         }
+    }
+
+    pub fn register_storage_handler(&mut self, handler: Option<Box<dyn StorageHandler>>) {
+        self.storage_handler = handler;
     }
 
     pub fn serialize_persisted_state(&self) -> Result<String> {
@@ -61,6 +68,7 @@ impl StateManager {
         capabilities_set: HashSet<device::Capability>,
     ) {
         self.persisted_state.device_capabilities = capabilities_set;
+        self.save_state();
     }
 
     /// Clear out the last known set of device_capabilities.  This means that the next call to
@@ -70,6 +78,7 @@ impl StateManager {
     /// capabilities, for example replacing our device info.
     pub fn clear_last_sent_device_capabilities(&mut self) {
         self.persisted_state.device_capabilities = HashSet::new();
+        self.save_state();
     }
 
     pub fn send_tab_key(&self) -> Option<&str> {
@@ -83,12 +92,14 @@ impl StateManager {
         self.persisted_state
             .commands_data
             .insert(commands::send_tab::COMMAND_NAME.into(), key);
+        self.save_state();
     }
 
     pub fn clear_send_tab_key(&mut self) {
         self.persisted_state
             .commands_data
             .remove(commands::send_tab::COMMAND_NAME);
+        self.save_state();
     }
 
     pub fn last_handled_command_index(&self) -> Option<u64> {
@@ -96,7 +107,8 @@ impl StateManager {
     }
 
     pub fn set_last_handled_command_index(&mut self, idx: u64) {
-        self.persisted_state.last_handled_command = Some(idx)
+        self.persisted_state.last_handled_command = Some(idx);
+        self.save_state();
     }
 
     pub fn current_device_id(&self) -> Option<&str> {
@@ -105,6 +117,7 @@ impl StateManager {
 
     pub fn set_current_device_id(&mut self, device_id: String) {
         self.persisted_state.current_device_id = Some(device_id);
+        self.save_state();
     }
 
     pub fn get_scoped_key(&self, scope: &str) -> Option<&ScopedKey> {
@@ -116,11 +129,13 @@ impl StateManager {
     }
 
     pub(crate) fn set_last_seen_profile(&mut self, profile: CachedResponse<Profile>) {
-        self.persisted_state.last_seen_profile = Some(profile)
+        self.persisted_state.last_seen_profile = Some(profile);
+        self.save_state();
     }
 
     pub fn clear_last_seen_profile(&mut self) {
-        self.persisted_state.last_seen_profile = None
+        self.persisted_state.last_seen_profile = None;
+        self.save_state();
     }
 
     pub fn get_cached_access_token(&mut self, scope: &str) -> Option<&AccessTokenInfo> {
@@ -131,16 +146,19 @@ impl StateManager {
         self.persisted_state
             .access_token_cache
             .insert(scope.into(), token);
+        self.save_state();
     }
 
     pub fn clear_access_token_cache(&mut self) {
-        self.persisted_state.access_token_cache.clear()
+        self.persisted_state.access_token_cache.clear();
+        self.save_state();
     }
 
     /// Begin an OAuth flow.  This saves the OAuthFlow for later.  `state` must be unique to this
     /// oauth flow process.
     pub fn begin_oauth_flow(&mut self, state: impl Into<String>, flow: OAuthFlow) {
         self.flow_store.insert(state.into(), flow);
+        // Note: no need to save the state, since `flow_store` isn't persisted to disk
     }
 
     /// Get an OAuthFlow from a previous `begin_oauth_flow()` call
@@ -149,6 +167,7 @@ impl StateManager {
     /// per `state` value.
     pub fn pop_oauth_flow(&mut self, state: &str) -> Option<OAuthFlow> {
         self.flow_store.remove(state)
+        // Note: no need to save the state, since `flow_store` isn't persisted to disk
     }
 
     /// Complete an OAuth flow.
@@ -168,6 +187,7 @@ impl StateManager {
         self.persisted_state.refresh_token = Some(refresh_token);
         self.persisted_state.session_token = session_token;
         self.flow_store.clear();
+        self.save_state();
     }
 
     /// Called when the account is disconnected.  This clears most of the auth state, but keeps
@@ -175,6 +195,7 @@ impl StateManager {
     pub fn disconnect(&mut self) {
         self.persisted_state = self.persisted_state.start_over();
         self.flow_store.clear();
+        self.save_state();
     }
 
     /// Handle the auth tokens changing
@@ -186,6 +207,31 @@ impl StateManager {
         self.persisted_state.refresh_token = Some(refresh_token);
         self.persisted_state.access_token_cache.clear();
         self.persisted_state.device_capabilities.clear();
+        self.save_state();
+    }
+
+    /// Save the state via our [StorageHandler], if one is registered
+    ///
+    /// This should be called after every &mut function that changes the persisted state
+    fn save_state(&self) {
+        if let Some(storage_handler) = &self.storage_handler {
+            match state_to_json(&self.persisted_state) {
+                Ok(json) => {
+                    if let Err(e) = storage_handler.save_state(json) {
+                        error_support::report_error!(
+                            "fxaclient-persist-state",
+                            "Error saving state: {e}"
+                        );
+                    }
+                }
+                Err(e) => {
+                    error_support::report_error!(
+                        "fxaclient-persist-state",
+                        "Error converting state to JSON: {e}"
+                    );
+                }
+            }
+        }
     }
 }
 

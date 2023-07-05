@@ -94,8 +94,6 @@ impl FirefoxAccount {
 
     /// Initalizes our own device, most of the time this will be called right after logging-in
     /// for the first time.
-    ///
-    /// **💾 This method alters the persisted account state.**
     pub fn initialize_device(
         &mut self,
         name: &str,
@@ -116,8 +114,6 @@ impl FirefoxAccount {
     /// As the only capability is Send Tab now, its command is registered with the server.
     /// Don't forget to also call this if the Sync Keys change as they
     /// encrypt the Send Tab command data.
-    ///
-    /// **💾 This method alters the persisted account state.**
     pub fn ensure_capabilities(&mut self, capabilities: &[Capability]) -> Result<()> {
         // Don't re-register if we already have exactly those capabilities.
         // Because of the way that our state object defaults `device_capabilities` to empty,
@@ -176,8 +172,6 @@ impl FirefoxAccount {
     /// commands delivery (push) can sometimes be unreliable on mobile devices.
     /// Typically called even when a push notification is received, so that
     /// any prior messages for which a push didn't arrive are still handled.
-    ///
-    /// **💾 This method alters the persisted account state.**
     pub fn poll_device_commands(
         &mut self,
         reason: CommandFetchReason,

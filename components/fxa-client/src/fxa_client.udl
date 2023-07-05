@@ -13,9 +13,10 @@
 //   signed-in state of the application.
 //     * On first startup, a new [`FirefoxAccount`] can be created by calling
 //       [`FirefoxAccount::new`] and passing the application's `client_id`.
-//     * For subsequent startups the object can be persisted using the
-//       [`to_json`](FirefoxAccount::to_json) method and re-created by
-//       calling [`FirefoxAccount::from_json`].
+//     * For subsequent startups the object can be re-created by calling [`FirefoxAccount::from_json`].
+//
+// * Register a StorageHandler with the `register_storage_handler()` method.  The `save_state` method
+//   will be called whenever the persistent state changes.
 //
 // * When the user wants to sign in to your application, direct them through
 //   a web-based OAuth flow using [`begin_oauth_flow`](FirefoxAccount::begin_oauth_flow)
@@ -45,7 +46,6 @@ namespace fxa_client {
 // Precise details of the error are hidden from consumers, mostly due to limitations of
 // how we expose this API to other languages. The type of the error indicates how the
 // calling code should respond.
-//
 [Error]
 enum FxaError {
 
@@ -84,7 +84,14 @@ enum FxaError {
   "Other",
 };
 
-
+// Error type thrown by [FirefoxAccount] callback interfaces
+//
+// This error is thrown by the application code that implements the callback interfaces
+[Error]
+interface CallbackError {
+  // An unexpected error occurred, right now this is the only type of callback error we support
+  Other(string reason);
+};
 
 // Object representing the signed-in state of an application.
 //
@@ -97,15 +104,13 @@ interface FirefoxAccount {
 
   // Create a new [`FirefoxAccount`] instance, not connected to any account.
   //
-  // **💾 This method alters the persisted account state.**
-  //
   // This method constructs as new [`FirefoxAccount`] instance configured to connect
   // the application to a user's account.
   constructor(FxaConfig config);
 
   // Restore a [`FirefoxAccount`] instance from serialized state.
   //
-  // Given a JSON string previously obtained from [`FirefoxAccount::to_json`], this
+  // Given a JSON string previously passed to [StorageHandler.saved_state()], this
   // method will deserialize it and return a live [`FirefoxAccount`] instance.
   //
   // **⚠️ Warning:** since the serialized state contains access tokens, you should
@@ -115,14 +120,16 @@ interface FirefoxAccount {
   //
   [Throws=FxaError,Name=from_json]
   constructor([ByRef] string data);
-  
 
-  // Save current state to a JSON string.
+  // Register a StorageHandler callback
   //
-  // This method serializes the current account state into a JSON string, which
-  // the application can use to persist the user's signed-in state across restarts.
-  // The application should call this method and update its persisted state after
-  // any potentially-state-changing operation.
+  // Any previously registered storage handler will be replaced.  Pass in None to clear out any
+  // storage handler.
+  void register_storage_handler(StorageHandler? handler);
+
+  // Save current state to a JSON string
+  //
+  // **Deprecated**: Use the [FirefoxAccount::register_storage_handler()] method instead.
   //
   // **⚠️ Warning:** the serialized state may contain encryption keys and access
   // tokens that let anyone holding them access the user's data in Firefox Sync
@@ -201,8 +208,6 @@ interface FirefoxAccount {
 
   // Complete an OAuth flow.
   //
-  // **💾 This method alters the persisted account state.**
-  //
   // At the conclusion of an OAuth flow, the user will be redirect to the
   // application's registered `redirect_uri`. It should extract the `code`
   // and `state` parameters from the resulting URL and pass them to this
@@ -219,8 +224,6 @@ interface FirefoxAccount {
 
   // Check authorization status for this application.
   //
-  // **💾 This method alters the persisted account state.**
-  //
   // Applications may call this method to check with the FxA server about the status
   // of their authentication tokens. It returns an [`AuthorizationInfo`] struct
   // with details about whether the tokens are still active.
@@ -230,8 +233,6 @@ interface FirefoxAccount {
   
 
   // Disconnect from the user's account.
-  //
-  // **💾 This method alters the persisted account state.**
   //
   // This method destroys any tokens held by the client, effectively disconnecting
   // from the user's account. Applications should call this when the user opts to
@@ -246,8 +247,6 @@ interface FirefoxAccount {
   
 
   // Get profile information for the signed-in user, if any.
-  //
-  // **💾 This method alters the persisted account state.**
   //
   // This method fetches a [`Profile`] struct with information about the currently-signed-in
   // user, either by using locally-cached profile information or by fetching fresh data from
@@ -271,8 +270,6 @@ interface FirefoxAccount {
   
 
   // Create a new device record for this application.
-  //
-  // **💾 This method alters the persisted account state.**
   //
   // This method registed a device record for the application, providing basic metadata for
   // the device along with a list of supported [Device Capabilities](DeviceCapability) for
@@ -314,8 +311,6 @@ interface FirefoxAccount {
 
   // Get the list of devices registered on the user's account.
   //
-  // **💾 This method alters the persisted account state.**
-  //
   // This method returns a list of [`Device`] structs representing all the devices
   // currently attached to the user's account (including the current device).
   // The application might use this information to e.g. display a list of appropriate
@@ -355,8 +350,6 @@ interface FirefoxAccount {
 
   // Update the display name used for this application instance.
   //
-  // **💾 This method alters the persisted account state.**
-  //
   // This method modifies the name of the current application's device record, as seen by
   // other applications and in the user's account management pages.
   //
@@ -375,8 +368,6 @@ interface FirefoxAccount {
 
   // Clear any custom display name used for this application instance.
   //
-  // **💾 This method alters the persisted account state.**
-  //
   // This method clears the name of the current application's device record, causing other
   // applications or the user's account management pages to have to fill in some sort of
   // default name when displaying this device.
@@ -391,8 +382,6 @@ interface FirefoxAccount {
   
 
   // Ensure that the device record has a specific set of capabilities.
-  //
-  // **💾 This method alters the persisted account state.**
   //
   // This method checks that the currently-registred device record is advertising the
   // given set of capabilities in the FxA "device commands" ecosystem. If not, then it
@@ -418,8 +407,6 @@ interface FirefoxAccount {
 
   // Set or update a push subscription endpoint for this device.
   //
-  // **💾 This method alters the persisted account state.**
-  //
   // This method registers the given webpush subscription with the FxA server, requesting
   // that is send notifications in the event of any significant changes to the user's
   // account. When the application receives a push message at the registered subscription
@@ -441,8 +428,6 @@ interface FirefoxAccount {
 
   // Process and respond to a server-delivered account update message
   //
-  // **💾 This method alters the persisted account state.**
-  //
   // Applications should call this method whenever they receive a push notification from the Firefox Accounts server.
   // Such messages typically indicate a noteworthy change of state on the user's account, such as an update to their profile information
   // or the disconnection of a client. The [`FirefoxAccount`] struct will update its internal state
@@ -457,8 +442,6 @@ interface FirefoxAccount {
 
 
   // Poll the server for any pending device commands.
-  //
-  // **💾 This method alters the persisted account state.**
   //
   // Applications that have registered one or more [`DeviceCapability`]s with the server can use
   // this method to check whether other devices on the account have sent them any commands.
@@ -477,8 +460,6 @@ interface FirefoxAccount {
   
 
   // Use device commands to send a single tab to another device.
-  //
-  // **💾 This method alters the persisted account state.**
   //
   // If a device on the account has registered the [`SendTab`](DeviceCapability::SendTab)
   // capability, this method can be used to send it a tab.
@@ -499,15 +480,11 @@ interface FirefoxAccount {
 
   // Get the URL at which to access the user's sync data.
   //
-  // **💾 This method alters the persisted account state.**
-  //
   [Throws=FxaError]
   string get_token_server_endpoint_url();
   
 
   // Get a URL which shows a "successfully connceted!" message.
-  //
-  // **💾 This method alters the persisted account state.**
   //
   // Applications can use this method after a successful signin, to redirect the
   // user to a success message displayed in web content rather than having to
@@ -518,8 +495,6 @@ interface FirefoxAccount {
   
 
   // Get a URL at which the user can manage their account and profile data.
-  //
-  // **💾 This method alters the persisted account state.**
   //
   // Applications should link the user out to this URL from an appropriate place
   // in their signed-in settings UI.
@@ -536,8 +511,6 @@ interface FirefoxAccount {
 
   // Get a URL at which the user can manage the devices connected to their account.
   //
-  // **💾 This method alters the persisted account state.**
-  //
   // Applications should link the user out to this URL from an appropriate place
   // in their signed-in settings UI. For example, "Manage your devices..." may be
   // a useful link to place somewhere near the device list in the send-tab UI.
@@ -553,8 +526,6 @@ interface FirefoxAccount {
   
 
   // Get a short-lived OAuth access token for the user's account.
-  //
-  // **💾 This method alters the persisted account state.**
   //
   // Applications that need to access resources on behalf of the user must obtain an
   // `access_token` in order to do so. For example, an access token is required when
@@ -582,8 +553,6 @@ interface FirefoxAccount {
 
   // Get the session token for the user's account, if one is available.
   //
-  // **💾 This method alters the persisted account state.**
-  //
   // Applications that function as a web browser may need to hold on to a session token
   // on behalf of Firefox Accounts web content. This method exists so that they can retreive
   // it an pass it back to said web content when required.
@@ -601,8 +570,6 @@ interface FirefoxAccount {
   
 
   // Update the stored session token for the user's account.
-  //
-  // **💾 This method alters the persisted account state.**
   //
   // Applications that function as a web browser may need to hold on to a session token
   // on behalf of Firefox Accounts web content. This method exists so that said web content
@@ -634,8 +601,6 @@ interface FirefoxAccount {
   
 
   // Clear the access token cache in response to an auth failure.
-  //
-  // **💾 This method alters the persisted account state.**
   //
   // Applications that receive an authentication error when trying to use an access token,
   // should call this method before creating a new token and retrying the failed operation.
@@ -976,4 +941,17 @@ interface IncomingDeviceCommand {
 
   // Indicates that a tab has been sent to this device.
   TabReceived(Device? sender, SendTabPayload payload );
+};
+
+callback interface StorageHandler {
+    // This is called whenever the saved state changes.  The StorageHandler should ensure that the
+    // state is saved to disk.  The next time the FirefoxAccount is constructed, it should be
+    // through `from_json()` with this json data.
+    //
+    // **⚠️ Warning:** the serialized state may contain encryption keys and access
+    // tokens that let anyone holding them access the user's data in Firefox Sync
+    // and/or other FxA services. Applications should take care to store the resulting
+    // data in a secure fashion, as appropriate for their target platform.
+    [Throws=CallbackError]
+    void save_state(string json);
 };

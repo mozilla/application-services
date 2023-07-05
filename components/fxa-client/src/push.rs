@@ -8,8 +8,6 @@ use error_support::handle_error;
 impl FirefoxAccount {
     /// Set or update a push subscription endpoint for this device.
     ///
-    /// **💾 This method alters the persisted account state.**
-    ///
     /// This method registers the given webpush subscription with the FxA server, requesting
     /// that is send notifications in the event of any significant changes to the user's
     /// account. When the application receives a push message at the registered subscription
@@ -33,8 +31,6 @@ impl FirefoxAccount {
 
     /// Process and respond to a server-delivered account update message
     ///
-    /// **💾 This method alters the persisted account state.**
-    ///
     /// Applications should call this method whenever they receive a push notification from the Firefox Accounts server.
     /// Such messages typically indicate a noteworthy change of state on the user's account, such as an update to their profile information
     /// or the disconnection of a client. The [`FirefoxAccount`] struct will update its internal state
@@ -49,8 +45,6 @@ impl FirefoxAccount {
     }
 
     /// Poll the server for any pending device commands.
-    ///
-    /// **💾 This method alters the persisted account state.**
     ///
     /// Applications that have registered one or more [`DeviceCapability`]s with the server can use
     /// this method to check whether other devices on the account have sent them any commands.
@@ -74,8 +68,6 @@ impl FirefoxAccount {
     }
 
     /// Use device commands to send a single tab to another device.
-    ///
-    /// **💾 This method alters the persisted account state.**
     ///
     /// If a device on the account has registered the [`SendTab`](DeviceCapability::SendTab)
     /// capability, this method can be used to send it a tab.

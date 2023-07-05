@@ -49,7 +49,7 @@ unsafe impl<'a> Sync for http_client::FxAClientMock<'a> {}
 // to be modified.
 pub struct FirefoxAccount {
     client: Arc<FxAClient>,
-    state: StateManager,
+    pub state: StateManager,
     attached_clients_cache: Option<CachedResponse<Vec<http_client::GetAttachedClientResponse>>>,
     devices_cache: Option<CachedResponse<Vec<http_client::GetDeviceResponse>>>,
     auth_circuit_breaker: AuthCircuitBreaker,
@@ -192,8 +192,6 @@ impl FirefoxAccount {
     /// leave the account object in a state where it can eventually reconnect to the same user.
     /// This is a "best effort" infallible method: e.g. if the network is unreachable,
     /// the device could still be in the FxA devices manager.
-    ///
-    /// **💾 This method alters the persisted account state.**
     pub fn disconnect(&mut self) {
         let current_device_result;
         {
