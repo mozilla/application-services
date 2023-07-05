@@ -96,6 +96,11 @@ impl FmlClient {
     pub fn get_default_json(&self) -> Result<String> {
         Ok(serde_json::to_string(&self.default_json)?)
     }
+
+    /// Returns a list of feature ids that support coenrollment.
+    pub fn get_coenrolling_feature_ids(&self) -> Result<Vec<String>> {
+        Ok(&self.manifest.get_coenrolling_feature_ids())
+    }
 }
 
 type JsonObject = serde_json::Map<String, serde_json::Value>;
@@ -170,6 +175,7 @@ mod unit_tests {
                     default: Value::String("prop_1_value".into()),
                     doc: "".into(),
                 }],
+                allow_coenrollment: true,
                 ..Default::default()
             }],
             HashMap::from([(ModuleId::Local("test".into()), fm_i)]),
@@ -235,6 +241,16 @@ mod unit_tests {
         );
         assert_eq!(result.errors.len(), 1);
         assert_eq!(result.errors[0].to_string(), "Validation Error at features/feature_i.prop_i_1: Mismatch between type String and default 1".to_string());
+
+        Ok(())
+    }
+
+    #[test]
+    fn test_get_coenrolling_feature_ids() -> Result<()> {
+        let client: FmlClient = create_manifest().into();
+        let result = client.get_coenrolling_feature_ids();
+
+        assert_eq!(result, vec!["feature"]);
 
         Ok(())
     }
