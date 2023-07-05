@@ -54,7 +54,20 @@ public class FeatureHolder<T> {
     /// Send an exposure event for this feature. This should be done when the user is shown the feature, and may change
     /// their behavior because of it.
     public func recordExposure() {
-        getSdk()?.recordExposureEvent(featureId: featureId)
+        getSdk()?.recordExposureEvent(featureId: featureId, experimentSlug: nil)
+    }
+
+    /// Send an exposure event for this feature, in the given experiment.
+    ///
+    /// If the experiment does not exist, or the client is not enrolled in that experiment, then no exposure event
+    /// is recorded.
+    ///
+    /// If you are not sure of the experiment slug, then this is _not_ the API you need: you should use
+    /// {recordExposure} instead.
+    ///
+    /// - Parameter slug the experiment identifier, likely derived from the {value}.
+    public func recordExperimentExposure(slug: String) {
+        getSdk()?.recordExposureEvent(featureId: featureId, experimentSlug: slug)
     }
 
     /// Send a malformed feature event for this feature.
