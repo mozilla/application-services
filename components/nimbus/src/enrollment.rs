@@ -5,7 +5,8 @@ use crate::{
     defaults::Defaults,
     error::{NimbusError, Result},
     evaluator::evaluate_enrollment,
-    AvailableRandomizationUnits, Experiment, FeatureConfig, NimbusTargetingHelper,
+    json, AvailableRandomizationUnits, Experiment, FeatureConfig, NimbusTargetingHelper,
+    SLUG_REPLACEMENT_PATTERN,
 };
 
 use ::uuid::Uuid;
@@ -1150,12 +1151,16 @@ fn get_enrolled_feature_configs(
 
     // Get the branch from the experiment, and then get the feature configs
     // from there.
-    let branch_features = match &experiment.get_branch(branch_slug) {
+    let mut branch_features = match &experiment.get_branch(branch_slug) {
         Some(branch) => branch.get_feature_configs(),
         _ => Default::default(),
     };
 
-    let branch_feature_ids = branch_features
+    branch_features.iter_mut().for_each(|f| {
+        json::replace_str_in_map(&mut f.value, SLUG_REPLACEMENT_PATTERN, experiment_slug);
+    });
+
+    let branch_feature_ids = &branch_features
         .iter()
         .map(|f| &f.feature_id)
         .collect::<HashSet<_>>();
