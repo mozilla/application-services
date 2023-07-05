@@ -326,37 +326,37 @@ impl FirefoxAccount {
         scoped_keys_flow: Option<ScopedKeysFlow>,
     ) -> Result<()> {
         let sync_scope_granted = resp.scope.split(' ').any(|s| s == scopes::OLD_SYNC);
-        if let Some(ref jwe) = resp.keys_jwe {
-            let scoped_keys_flow = scoped_keys_flow.ok_or({
-                Error::UnrecoverableServerError("Got a JWE but have no JWK to decrypt it.")
-            })?;
-            let decrypted_keys = scoped_keys_flow.decrypt_keys_jwe(jwe)?;
-            let scoped_keys: serde_json::Map<String, serde_json::Value> =
-                serde_json::from_str(&decrypted_keys)?;
-            if sync_scope_granted && !scoped_keys.contains_key(scopes::OLD_SYNC) {
-                error_support::report_error!(
-                    "fxaclient-scoped-key",
-                    "Sync scope granted, but no sync scoped key (scope granted: {}, key scopes: {})",
-                    resp.scope,
-                    scoped_keys.keys().map(|s| s.as_ref()).collect::<Vec<&str>>().join(", ")
-                );
+        let scoped_keys = match resp.keys_jwe {
+            Some(ref jwe) => {
+                let scoped_keys_flow = scoped_keys_flow.ok_or({
+                    Error::UnrecoverableServerError("Got a JWE but have no JWK to decrypt it.")
+                })?;
+                let decrypted_keys = scoped_keys_flow.decrypt_keys_jwe(jwe)?;
+                let scoped_keys: serde_json::Map<String, serde_json::Value> =
+                    serde_json::from_str(&decrypted_keys)?;
+                if sync_scope_granted && !scoped_keys.contains_key(scopes::OLD_SYNC) {
+                    error_support::report_error!(
+                        "fxaclient-scoped-key",
+                        "Sync scope granted, but no sync scoped key (scope granted: {}, key scopes: {})",
+                        resp.scope,
+                        scoped_keys.keys().map(|s| s.as_ref()).collect::<Vec<&str>>().join(", ")
+                    );
+                }
+                scoped_keys.
+                    into_iter()
+                    .map(|(scope, key)| Ok((scope, serde_json::from_value(key)?)))
+                    .collect::<Result<Vec<_>>>()?
             }
-            for (scope, key) in scoped_keys {
-                let scoped_key: ScopedKey = serde_json::from_value(key)?;
-                self.state.scoped_keys.insert(scope, scoped_key);
+            None => {
+                if sync_scope_granted {
+                    error_support::report_error!(
+                        "fxaclient-scoped-key",
+                        "Sync scope granted, but keys_jwe is None"
+                    );
+                }
+                vec![]
             }
-        } else if sync_scope_granted {
-            error_support::report_error!(
-                "fxaclient-scoped-key",
-                "Sync scope granted, but keys_jwe is None"
-            );
-        }
-
-        // If the client requested a 'tokens/session' OAuth scope then as part of the code
-        // exchange this will get a session_token in the response.
-        if resp.session_token.is_some() {
-            self.state.session_token = resp.session_token;
-        }
+        };
 
         // We are only interested in the refresh token at this time because we
         // don't want to return an over-scoped access token.
@@ -383,10 +383,6 @@ impl FirefoxAccount {
             },
             None => None,
         };
-        self.state.refresh_token = Some(RefreshToken {
-            token: new_refresh_token,
-            scopes: resp.scope.split(' ').map(ToString::to_string).collect(),
-        });
         // In order to keep 1 and only 1 refresh token alive per client instance,
         // we also destroy the existing refresh token.
         if let Some(ref refresh_token) = old_refresh_token {
@@ -410,6 +406,19 @@ impl FirefoxAccount {
         // When our keys change, we might need to re-register device capabilities with the server.
         // Ensure that this happens on the next call to ensure_capabilities.
         self.state.device_capabilities.clear();
+
+        for (scope, key) in scoped_keys {
+            self.state.scoped_keys.insert(scope, key);
+        }
+        // If the client requested a 'tokens/session' OAuth scope then as part of the code
+        // exchange this will get a session_token in the response.
+        if resp.session_token.is_some() {
+            self.state.session_token = resp.session_token;
+        }
+        self.state.refresh_token = Some(RefreshToken {
+            token: new_refresh_token,
+            scopes: resp.scope.split(' ').map(ToString::to_string).collect(),
+        });
         Ok(())
     }
 
