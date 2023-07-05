@@ -49,6 +49,10 @@ release-promotion:
       target-tasks-method: promote
     ship:
       target-tasks-method: ship
+  rebuild-kinds:
+    - docker-image
+    - fetch
+    - toolchain
 
 scriptworker:
   scope-prefix: project:mozilla:app-services:releng
