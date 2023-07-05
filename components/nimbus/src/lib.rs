@@ -5,6 +5,7 @@
 mod defaults;
 mod enrollment;
 mod evaluator;
+mod json;
 mod matcher;
 mod sampling;
 mod strings;
@@ -45,6 +46,8 @@ cfg_if::cfg_if! {
 
 // Exposed for Example only
 pub use evaluator::TargetingAttributes;
+
+pub(crate) const SLUG_REPLACEMENT_PATTERN: &str = "{experiment}";
 
 #[cfg(test)]
 mod tests;

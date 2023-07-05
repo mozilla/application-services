@@ -2056,6 +2056,84 @@ fn test_evolve_enrollments_with_coenrolling_multi_features() -> Result<()> {
 }
 
 #[test]
+fn test_map_features_by_feature_id_with_slug_replacement() -> Result<()> {
+    let exp1 =
+        get_single_feature_experiment("exp1", "colliding", json!({ "experiment": "{experiment}" }));
+    let exp2 = get_single_feature_experiment(
+        "exp2",
+        "coenrolling",
+        json!(
+            {
+                "merging": {
+                    "m2": {
+                        // 👀The user types "{experiment}"…
+                        "slug": "{experiment}",
+                    }
+                }
+            }
+        ),
+    );
+    let exp3 = get_single_feature_experiment(
+        "exp3",
+        "coenrolling",
+        json!(
+            {
+                "merging": {
+                    "m3": {
+                        "slug": "{experiment}",
+                    }
+                }
+            }
+        ),
+    );
+
+    let ids = HashSet::from(["coenrolling"]);
+    let exps = [exp1, exp2, exp3];
+
+    let enr1 = ExperimentEnrollment::enrolled("exp1");
+    let enr2 = ExperimentEnrollment::enrolled("exp2");
+    let enr3 = ExperimentEnrollment::enrolled("exp3");
+    let enrs = [enr1, enr2, enr3];
+
+    let observed = map_features_by_feature_id(&enrs, &exps, &ids);
+    let expected = HashMap::from([
+        (
+            "colliding".to_string(),
+            EnrolledFeatureConfig::new(
+                "colliding",
+                json!({"experiment": "exp1"}),
+                "exp1",
+                Some("control"),
+            ),
+        ),
+        (
+            "coenrolling".to_string(),
+            EnrolledFeatureConfig::new(
+                "coenrolling",
+                json!({
+                    "merging": {
+                        "m2": {
+                            // 👀… and it gets replaced by the actual experiment slug,
+                            "slug": "exp2",
+                        },
+                        "m3": {
+                            // 👀… so that the different parts of the configuration coming from
+                            // different experiments can identify those experiments.
+                            "slug": "exp3",
+                        }
+                    }
+                }),
+                "exp2+exp3",
+                None,
+            ),
+        ),
+    ]);
+    assert_eq!(observed, expected);
+
+    Ok(())
+}
+
+#[test]
 fn test_evolve_enrollments_error_handling() -> Result<()> {
     let existing_enrollments = vec![ExperimentEnrollment {
         slug: "secure-gold".to_owned(),
