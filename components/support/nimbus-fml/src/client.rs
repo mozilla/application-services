@@ -99,7 +99,7 @@ impl FmlClient {
 
     /// Returns a list of feature ids that support coenrollment.
     pub fn get_coenrolling_feature_ids(&self) -> Result<Vec<String>> {
-        Ok(&self.manifest.get_coenrolling_feature_ids())
+        Ok(self.manifest.get_coenrolling_feature_ids())
     }
 }
 
@@ -250,7 +250,7 @@ mod unit_tests {
         let client: FmlClient = create_manifest().into();
         let result = client.get_coenrolling_feature_ids();
 
-        assert_eq!(result, vec!["feature"]);
+        assert_eq!(Value::Object(result), vec!["feature"]);
 
         Ok(())
     }
