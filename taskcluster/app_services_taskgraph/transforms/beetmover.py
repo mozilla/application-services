@@ -6,7 +6,7 @@ import posixpath
 from copy import deepcopy
 
 from taskgraph.transforms.base import TransformSequence
-from taskgraph.util.dependencies import get_primary_dependency
+from taskgraph.util.dependencies import get_dependencies, get_primary_dependency
 from taskgraph.util.schema import resolve_keyed_by
 
 from . import publications_to_artifact_paths, publications_to_artifact_map_paths
@@ -43,10 +43,7 @@ def resolve_keys(config, tasks):
 def _build_upstream_artifacts(config, task):
     upstream_artifacts = []
 
-    for label, dep in config.kind_dependencies_tasks.items():
-        if label not in task["dependencies"].values():
-            continue
-
+    for dep in get_dependencies(config, task):
         paths = sorted(
             artifact["name"] for artifact in dep.attributes.get("release-artifacts", [])
         )
