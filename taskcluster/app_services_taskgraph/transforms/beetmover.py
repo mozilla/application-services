@@ -6,6 +6,7 @@ import posixpath
 from copy import deepcopy
 
 from taskgraph.transforms.base import TransformSequence
+from taskgraph.util.dependencies import get_primary_dependency
 from taskgraph.util.schema import resolve_keyed_by
 
 from . import publications_to_artifact_paths, publications_to_artifact_map_paths
@@ -18,6 +19,15 @@ DESTINATION_PATHS = {
     "promote": ["pub/app-services/candidates/candidates-{version}/build{build}"],
     "ship": ["pub/app-services/releases/{version}"],
 }
+
+
+@transforms.add
+def adjust_name(config, tasks):
+    for task in tasks:
+        dep = get_primary_dependency(config, task)
+        if dep.kind == "swift":
+            task["name"] = "swift-build"
+        yield task
 
 
 @transforms.add

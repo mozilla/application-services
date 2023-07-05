@@ -18,7 +18,7 @@ kind-dependencies:
   - toolchain
 
 tasks:
-  swift-build:
+  build:
     attributes:
       run-on-pr-type: full-ci
       resource-monitor: true
