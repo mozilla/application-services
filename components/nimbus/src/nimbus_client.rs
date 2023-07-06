@@ -2,6 +2,7 @@
 // License, v. 2.0. If a copy of the MPL was not distributed with this
 // file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
+use crate::enrollment::DisqualifiedReason;
 use crate::{
     behavior::EventStore,
     client::{create_client, SettingsClient},
@@ -325,7 +326,15 @@ impl NimbusClient {
                     is_enrolled_set.insert(ee.slug.clone());
                     all_enrolled_set.insert(ee.slug.clone());
                 }
-                EnrollmentStatus::WasEnrolled { .. } => {
+                EnrollmentStatus::WasEnrolled { .. }
+                | EnrollmentStatus::Disqualified {
+                    reason: DisqualifiedReason::NotSelected,
+                    ..
+                }
+                | EnrollmentStatus::Disqualified {
+                    reason: DisqualifiedReason::NotTargeted,
+                    ..
+                } => {
                     all_enrolled_set.insert(ee.slug.clone());
                 }
                 _ => {}
