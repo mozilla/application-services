@@ -24,6 +24,7 @@ features:
         description: Another variable
         type: Option<String>
         default: null
+    allow-coenrollment: true
     defaults:
       - channel: nightly
         value: {

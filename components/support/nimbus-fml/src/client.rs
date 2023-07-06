@@ -250,7 +250,7 @@ mod unit_tests {
         let client: FmlClient = create_manifest().into();
         let result = client.get_coenrolling_feature_ids();
 
-        assert_eq!(Value::Object(result), vec!["feature"]);
+        assert_eq!(result.unwrap(), vec!["feature"]);
 
         Ok(())
     }
