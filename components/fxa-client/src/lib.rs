@@ -49,10 +49,11 @@ mod storage;
 mod telemetry;
 mod token;
 
+use error_support::handle_error;
 pub use sync15::DeviceType;
 
 pub use auth::{AuthorizationInfo, MetricsParams};
-pub use device::{AttachedClient, Device, DeviceCapability};
+pub use device::{AttachedClient, Device, DeviceCapability, DeviceList};
 pub use error::{CallbackError, Error, FxaError};
 use parking_lot::Mutex;
 pub use profile::Profile;
@@ -92,6 +93,22 @@ impl FirefoxAccount {
             internal: Mutex::new(internal::FirefoxAccount::new(config)),
         }
     }
+}
+
+/// Parse a push message out-of-band
+///
+/// This function parses a push message without constructing a FirefoxAccount instance.  This is
+/// useful for platforms like iOS, where push message handling needs to happen in a secondary
+/// process.  In particular, using parse_push_message avoids any possibility of saving the state to
+/// disk, which could result in data corruption if both the main and secondary process write the
+/// state at the same time.#
+#[handle_error(Error)]
+fn parse_push_message(account_state: &str, payload: &str) -> ApiResult<AccountEvent> {
+    // Note: we need to create a mutable account, since handle_push_message() does things like
+    // update the device cache.  However, we won't actually mutate the account state and if we did
+    // it wouldn't get saved, since we never register a storage handler.
+    let mut account = internal::FirefoxAccount::from_json(account_state)?;
+    account.handle_push_message(payload)
 }
 
 #[derive(Clone, Debug)]

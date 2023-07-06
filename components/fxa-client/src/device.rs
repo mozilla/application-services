@@ -70,7 +70,30 @@ impl FirefoxAccount {
         self.internal.lock().get_current_device_id()
     }
 
+    /// Get the list of known devices registered on the user's account.
+    ///
+    /// The application might use this information to e.g. display a list of appropriate
+    /// send-tab targets.
+    ///
+    /// # Notes
+    ///
+    ///    - Device metadata is only visible to applications that have been
+    ///      granted the `https://identity.mozilla.com/apps/oldsync` scope.
+    #[handle_error(Error)]
+    pub fn get_device_list(&self) -> ApiResult<DeviceList> {
+        self.internal.lock().get_device_list(false)
+    }
+
+    /// Like `get_device_list()`, but always fetch a new device list rather than using cached data.
+    #[handle_error(Error)]
+    pub fn refresh_device_list(&self) -> ApiResult<DeviceList> {
+        self.internal.lock().get_device_list(true)
+    }
+
     /// Get the list of devices registered on the user's account.
+    ///
+    /// **Deprecated**: use [FirefoxAccount::get_device_list] or
+    /// [FirefoxAccount::refresh_device_list] instead.
     ///
     /// This method returns a list of [`Device`] structs representing all the devices
     /// currently attached to the user's account (including the current device).
@@ -184,12 +207,21 @@ impl FirefoxAccount {
     }
 }
 
+/// List of known devices registered to the user's account
+#[derive(Debug, PartialEq, Eq)]
+pub struct DeviceList {
+    /// The device using the FxA client
+    pub local_device: Device,
+    /// All other known devices
+    pub remote_devices: Vec<Device>,
+}
+
 /// A device connected to the user's account.
 ///
 /// This struct provides metadata about a device connected to the user's account.
 /// This data would typically be used to display e.g. the list of candidate devices
 /// in a "send tab" menu.
-#[derive(Debug)]
+#[derive(Debug, PartialEq, Eq)]
 pub struct Device {
     pub id: String,
     pub display_name: String,
@@ -210,7 +242,7 @@ pub struct Device {
 /// use the variants of this enum to do so.
 ///
 /// In practice, the only currently-supported command is the ability to receive a tab.
-#[derive(Debug)]
+#[derive(Debug, PartialEq, Eq)]
 pub enum DeviceCapability {
     SendTab,
 }

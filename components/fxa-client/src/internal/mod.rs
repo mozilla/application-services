@@ -361,7 +361,7 @@ mod tests {
             })
             .times(1)
             .returns_once(Ok(vec![
-                Device {
+                GetDeviceResponse {
                     common: http_client::DeviceResponseCommon {
                         id: "1234a".to_owned(),
                         display_name: "My Device".to_owned(),
@@ -379,7 +379,7 @@ mod tests {
                     },
                     last_access_time: None,
                 },
-                Device {
+                GetDeviceResponse {
                     common: http_client::DeviceResponseCommon {
                         id: "a4321".to_owned(),
                         display_name: "My Other Device".to_owned(),
@@ -429,7 +429,7 @@ mod tests {
                 token.partial_eq("refreshtok")
             })
             .times(1)
-            .returns_once(Ok(vec![Device {
+            .returns_once(Ok(vec![GetDeviceResponse {
                 common: http_client::DeviceResponseCommon {
                     id: "a4321".to_owned(),
                     display_name: "My Other Device".to_owned(),

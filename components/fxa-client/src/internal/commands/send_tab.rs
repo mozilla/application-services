@@ -18,7 +18,7 @@ use serde_derive::*;
 use rc_crypto::ece::{self, EcKeyComponents};
 use sync15::{EncryptedPayload, KeyBundle};
 
-use super::super::{device::Device, scopes, telemetry};
+use super::super::{http_client::GetDeviceResponse, scopes, telemetry};
 use crate::{Error, Result, ScopedKey};
 
 pub const COMMAND_NAME: &str = "https://identity.mozilla.com/cmd/open-uri";
@@ -217,7 +217,7 @@ impl From<PrivateSendTabKeys> for PublicSendTabKeys {
 
 pub fn build_send_command(
     scoped_key: &ScopedKey,
-    target: &Device,
+    target: &GetDeviceResponse,
     send_tab_payload: &SendTabPayload,
 ) -> Result<serde_json::Value> {
     let command = target

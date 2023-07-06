@@ -37,9 +37,16 @@
 typedef extern DeviceType;
 
 namespace fxa_client {
+  // Parse a push message out-of-band
+  //
+  // This function parses a push message without constructing a FirefoxAccount instance.  This is
+  // useful for platforms like iOS, where push message handling needs to happen in a secondary
+  // process.  In particular, using parse_push_message avoids any possibility of saving the state to
+  // disk, which could result in data corruption if both the main and secondary process write the
+  // state at the same time.
+  [Throws=FxaError]
+  AccountEvent parse_push_message([ByRef]string account_state, [ByRef] string payload);
 };
-
-
 
 // Generic error type thrown by many [`FirefoxAccount`] operations.
 //
@@ -89,7 +96,9 @@ enum FxaError {
 // This error is thrown by the application code that implements the callback interfaces
 [Error]
 interface CallbackError {
-  // An unexpected error occurred, right now this is the only type of callback error we support
+  // An unexpected error occurred
+  //
+  // Right now this is the only type of callback error we support
   Other(string reason);
 };
 
@@ -307,9 +316,27 @@ interface FirefoxAccount {
   //
   [Throws=FxaError]
   string get_current_device_id();
-  
+
+  // Get the list of known devices registered on the user's account.
+  //
+  // The application might use this information to e.g. display a list of appropriate
+  // send-tab targets.
+  //
+  // # Notes
+  //
+  //    - Device metadata is only visible to applications that have been
+  //      granted the `https://identity.mozilla.com/apps/oldsync` scope.
+  [Throws=FxaError]
+  DeviceList get_device_list();
+
+  // Like `get_device_list()`, but always fetch a new device list rather than using cached data.
+  [Throws=FxaError]
+  DeviceList refresh_device_list();
 
   // Get the list of devices registered on the user's account.
+  //
+  // **Deprecated**: use [FirefoxAccount::get_device_list] or [FirefoxAccount::refresh_device_list]
+  // instead.
   //
   // This method returns a list of [`Device`] structs representing all the devices
   // currently attached to the user's account (including the current device).
@@ -740,6 +767,12 @@ dictionary AuthorizationParameters {
   string? code_challenge;
   string? code_challenge_method;
   string? keys_jwk;
+};
+
+// List of known devices registered to the user's account
+dictionary DeviceList {
+    Device local_device;
+    sequence<Device> remote_devices;
 };
 
 // A device connected to the user's account.

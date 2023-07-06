@@ -5,14 +5,14 @@
 pub mod send_tab;
 pub use send_tab::SendTabPayload;
 
-use super::device::Device;
+use super::http_client::GetDeviceResponse;
 use crate::{Error, Result};
 
 // Currently public for use by example crates, but should be made private eventually.
 #[derive(Clone, Debug)]
 pub enum IncomingDeviceCommand {
     TabReceived {
-        sender: Option<Device>,
+        sender: Option<GetDeviceResponse>,
         payload: SendTabPayload,
     },
 }

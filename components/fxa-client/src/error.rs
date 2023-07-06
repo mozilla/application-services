@@ -82,6 +82,9 @@ pub enum Error {
     #[error("Device target is unknown (Device ID: {0})")]
     UnknownTargetDevice(String),
 
+    #[error("Invalid device data: {0}")]
+    InvalidDeviceData(String),
+
     #[error("Unrecoverable server error {0}")]
     UnrecoverableServerError(&'static str),
 
@@ -203,7 +206,9 @@ impl GetErrorHandling for Error {
 /// This error is thrown by the application code that implements the callback interfaces
 #[derive(Debug, thiserror::Error)]
 pub enum CallbackError {
-    /// An unexpected error occurred, right now this is the only type of callback error we support
+    /// An unexpected error occurred.
+    ///
+    /// Right now this is the only type of callback error we support
     #[error("CallbackError: {reason}")]
     Other { reason: String },
 }

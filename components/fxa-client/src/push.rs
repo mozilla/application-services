@@ -98,7 +98,7 @@ impl FirefoxAccount {
 ///
 /// Managing a web-push subscription is outside of the scope of this component.
 ///
-#[derive(Debug)]
+#[derive(Debug, PartialEq, Eq)]
 pub struct DevicePushSubscription {
     pub endpoint: String,
     pub public_key: String,

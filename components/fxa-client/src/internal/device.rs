@@ -6,15 +6,13 @@ use std::collections::{HashMap, HashSet};
 
 use serde_derive::*;
 
-pub use super::http_client::{
-    DeviceLocation as Location, GetDeviceResponse as Device, PushSubscription,
-};
+pub use super::http_client::{DeviceLocation as Location, GetDeviceResponse, PushSubscription};
 use super::{
     commands::{self, IncomingDeviceCommand},
     http_client::{DeviceUpdateRequest, DeviceUpdateRequestBuilder, PendingCommand},
     telemetry, util, CachedResponse, FirefoxAccount,
 };
-use crate::{Error, Result};
+use crate::{Device, DeviceList, Error, Result};
 use sync15::DeviceType;
 
 // An devices response is considered fresh for `DEVICES_FRESHNESS_THRESHOLD` ms.
@@ -35,7 +33,7 @@ impl FirefoxAccount {
     ///
     /// * `ignore_cache` - If set to true, bypass the in-memory cache
     /// and fetch devices from the server.
-    pub fn get_devices(&mut self, ignore_cache: bool) -> Result<Vec<Device>> {
+    pub fn get_devices(&mut self, ignore_cache: bool) -> Result<Vec<GetDeviceResponse>> {
         if let Some(d) = &self.devices_cache {
             if !ignore_cache && util::now() < d.cached_at + DEVICES_FRESHNESS_THRESHOLD {
                 return Ok(d.response.clone());
@@ -56,7 +54,28 @@ impl FirefoxAccount {
         Ok(response)
     }
 
-    pub fn get_current_device(&mut self) -> Result<Option<Device>> {
+    /// Fetches the list of devices from the current account
+    ///
+    /// * `ignore_cache` - If set to true, bypass the in-memory cache
+    /// and fetch devices from the server.
+    pub fn get_device_list(&mut self, ignore_cache: bool) -> Result<DeviceList> {
+        let devices = self
+            .get_devices(ignore_cache)?
+            .into_iter()
+            .map(TryInto::try_into)
+            .collect::<Result<Vec<Device>>>()?;
+        let (local, remote): (Vec<Device>, Vec<Device>) =
+            devices.into_iter().partition(|d| d.is_current_device);
+        match local.len() {
+            1 => Ok(DeviceList {
+                local_device: local.into_iter().next().unwrap(),
+                remote_devices: remote,
+            }),
+            n => Err(Error::InvalidDeviceData(format!("{n} local devices"))),
+        }
+    }
+
+    pub fn get_current_device(&mut self) -> Result<Option<GetDeviceResponse>> {
         Ok(self
             .get_devices(false)?
             .into_iter()
@@ -154,7 +173,7 @@ impl FirefoxAccount {
     pub(crate) fn invoke_command(
         &self,
         command: &str,
-        target: &Device,
+        target: &GetDeviceResponse,
         payload: &serde_json::Value,
     ) -> Result<()> {
         let refresh_token = self.get_refresh_token()?;
@@ -238,7 +257,7 @@ impl FirefoxAccount {
     fn parse_command(
         &mut self,
         command: PendingCommand,
-        devices: &[Device],
+        devices: &[GetDeviceResponse],
         reason: CommandFetchReason,
     ) -> Result<IncomingDeviceCommand> {
         let telem_reason = match reason {
@@ -381,9 +400,9 @@ impl From<Capability> for crate::DeviceCapability {
     }
 }
 
-impl TryFrom<Device> for crate::Device {
+impl TryFrom<GetDeviceResponse> for Device {
     type Error = Error;
-    fn try_from(d: Device) -> Result<Self> {
+    fn try_from(d: GetDeviceResponse) -> Result<Self> {
         let capabilities: Vec<_> = d
             .available_commands
             .keys()
@@ -393,7 +412,7 @@ impl TryFrom<Device> for crate::Device {
             })
             .map(Into::into)
             .collect();
-        Ok(crate::Device {
+        Ok(Device {
             id: d.common.id,
             display_name: d.common.display_name,
             device_type: d.common.device_type,
@@ -751,7 +770,7 @@ mod tests {
         client
             .expect_get_devices(mockiato::Argument::any, mockiato::Argument::any)
             .times(1)
-            .returns_once(Ok(vec![Device {
+            .returns_once(Ok(vec![GetDeviceResponse {
                 common: DeviceResponseCommon {
                     id: "device1".into(),
                     display_name: "".to_string(),
@@ -793,6 +812,111 @@ mod tests {
         assert_eq!(cache.cached_at, cache2.cached_at);
         assert_eq!(cached_devices.len(), cached_devices2.len());
         assert_eq!(cached_devices[0].id, cached_devices2[0].id);
+    }
+
+    #[test]
+    fn test_get_device_list() {
+        let mut fxa = setup();
+        let mut client = FxAClientMock::new();
+        client
+            .expect_get_devices(mockiato::Argument::any, mockiato::Argument::any)
+            .times(1)
+            .returns_once(Ok(vec![
+                GetDeviceResponse {
+                    common: DeviceResponseCommon {
+                        id: "remote-device1".into(),
+                        display_name: "My Phone".to_string(),
+                        device_type: DeviceType::Mobile,
+                        push_subscription: None,
+                        available_commands: HashMap::new(),
+                        push_endpoint_expired: true,
+                    },
+                    is_current_device: false,
+                    location: DeviceLocation {
+                        city: None,
+                        country: None,
+                        state: None,
+                        state_code: None,
+                    },
+                    last_access_time: None,
+                },
+                GetDeviceResponse {
+                    common: DeviceResponseCommon {
+                        id: "local-device".into(),
+                        display_name: "My Tablet".to_string(),
+                        device_type: DeviceType::Tablet,
+                        push_subscription: None,
+                        available_commands: HashMap::new(),
+                        push_endpoint_expired: true,
+                    },
+                    is_current_device: true,
+                    location: DeviceLocation {
+                        city: None,
+                        country: None,
+                        state: None,
+                        state_code: None,
+                    },
+                    last_access_time: None,
+                },
+                GetDeviceResponse {
+                    common: DeviceResponseCommon {
+                        id: "remote-device2".into(),
+                        display_name: "My Desktop".to_string(),
+                        device_type: DeviceType::Desktop,
+                        push_subscription: None,
+                        available_commands: HashMap::new(),
+                        push_endpoint_expired: true,
+                    },
+                    is_current_device: false,
+                    location: DeviceLocation {
+                        city: None,
+                        country: None,
+                        state: None,
+                        state_code: None,
+                    },
+                    last_access_time: None,
+                },
+            ]));
+
+        fxa.set_client(Arc::new(client));
+
+        assert_eq!(
+            fxa.get_device_list(false).unwrap(),
+            DeviceList {
+                local_device: Device {
+                    id: "local-device".into(),
+                    display_name: "My Tablet".into(),
+                    device_type: DeviceType::Tablet,
+                    capabilities: vec![],
+                    push_subscription: None,
+                    push_endpoint_expired: true,
+                    is_current_device: true,
+                    last_access_time: None,
+                },
+                remote_devices: vec![
+                    Device {
+                        id: "remote-device1".into(),
+                        display_name: "My Phone".into(),
+                        device_type: DeviceType::Mobile,
+                        capabilities: vec![],
+                        push_subscription: None,
+                        push_endpoint_expired: true,
+                        is_current_device: false,
+                        last_access_time: None,
+                    },
+                    Device {
+                        id: "remote-device2".into(),
+                        display_name: "My Desktop".into(),
+                        device_type: DeviceType::Desktop,
+                        capabilities: vec![],
+                        push_subscription: None,
+                        push_endpoint_expired: true,
+                        is_current_device: false,
+                        last_access_time: None,
+                    },
+                ]
+            }
+        );
     }
 
     #[test]
