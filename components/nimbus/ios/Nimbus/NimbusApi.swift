@@ -167,12 +167,6 @@ public protocol NimbusUserConfiguration {
     /// - Returns  A list of `AvailableExperiment`s
     ///
     func getAvailableExperiments() -> [AvailableExperiment]
-
-    /// Get a list of feature ids where the feature allows co-enrollment.
-    ///
-    /// - Returns  A list of experiment ids that allow co-enrollment.
-    ///
-    func getCoenrollingFeatureIds() -> [String]
 }
 
 public protocol NimbusEventStore {

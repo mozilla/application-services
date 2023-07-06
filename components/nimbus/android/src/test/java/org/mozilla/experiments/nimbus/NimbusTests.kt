@@ -644,29 +644,6 @@ class NimbusTests {
 
         assertTrue(observed)
     }
-
-    @Test
-    fun `test coenrolling features list is returned`() {
-        val expected = listOf("abc", "def", "ghi")
-        val observer = object : NimbusInterface.Observer {
-            override fun onUpdatesApplied(updated: List<org.mozilla.experiments.nimbus.internal.EnrolledExperiment>) {
-                runBlocking {
-                    delay(250)
-                }
-            }
-        }
-        val nimbus = Nimbus(
-            context = context,
-            appInfo = appInfo,
-            coenrollingFeatureIds = expected,
-            server = null,
-            deviceInfo = deviceInfo,
-            observer = observer,
-            delegate = nimbusDelegate,
-        )
-
-        assertEquals(expected, nimbus.getCoenrollingFeatureIds())
-    }
 }
 
 // Mocking utilities, from mozilla.components.support.test

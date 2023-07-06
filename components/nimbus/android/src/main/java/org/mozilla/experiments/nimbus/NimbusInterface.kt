@@ -183,13 +183,6 @@ interface NimbusInterface : FeaturesInterface, GleanPlumbInterface, NimbusEventS
     fun resetTelemetryIdentifiers() = Unit
 
     /**
-     * Get a list of feature ids where the feature allows co-enrollment.
-     *
-     * @return A list of experiment ids that allow co-enrollment.
-     */
-    fun getCoenrollingFeatureIds(): List<String> = listOf()
-
-    /**
      * Control the opt out for all experiments at once. This is likely a user action.
      */
     var globalUserParticipation: Boolean
