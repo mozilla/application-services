@@ -2,6 +2,7 @@
 * License, v. 2.0. If a copy of the MPL was not distributed with this
 * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
+use crate::tests::helpers::get_bucketed_rollout;
 use crate::{
     behavior::{
         EventStore, Interval, IntervalConfig, IntervalData, MultiIntervalCounter,
@@ -1006,45 +1007,47 @@ fn test_fetch_enabled() -> Result<()> {
     Ok(())
 }
 
-fn generate_experiment(slug: &str, targeting: &str) -> Result<String> {
-    Ok(serde_json::to_string(&json!({
-        "data": [{
-            "schemaVersion": "1.0.0",
-            "slug": slug,
-            "endDate": null,
-            "featureIds": ["some-feature-1"],
-            "branches": [
-                {
-                "slug": "control",
-                "ratio": 1
-                },
-                {
-                "slug": "treatment",
-                "ratio": 1
-                }
-            ],
-            "channel": "nightly",
-            "probeSets": [],
-            "startDate": null,
-            "appName": "fenix",
-            "appId": "org.mozilla.fenix",
-            "bucketConfig": {
-                "count": 10000,
-                "start": 0,
-                "total": 10000,
-                "namespace": "secure-gold",
-                "randomizationUnit": "nimbus_id"
+fn generate_experiment(slug: &str, targeting: &str) -> serde_json::Value {
+    json!({
+        "schemaVersion": "1.0.0",
+        "slug": slug,
+        "endDate": null,
+        "featureIds": ["some-feature-1"],
+        "branches": [
+            {
+            "slug": "control",
+            "ratio": 1
             },
-            "targeting": targeting,
-            "userFacingName": "test experiment",
-            "referenceBranch": "control",
-            "isEnrollmentPaused": false,
-            "proposedEnrollment": 7,
-            "userFacingDescription": "This is a test experiment for testing purposes.",
-            "id": "secure-copper",
-            "last_modified": 1_602_197_324_372i64,
-        }
-    ]}))?)
+            {
+            "slug": "treatment",
+            "ratio": 1
+            }
+        ],
+        "channel": "nightly",
+        "probeSets": [],
+        "startDate": null,
+        "appName": "fenix",
+        "appId": "org.mozilla.fenix",
+        "bucketConfig": {
+            "count": 10000,
+            "start": 0,
+            "total": 10000,
+            "namespace": "secure-gold",
+            "randomizationUnit": "nimbus_id"
+        },
+        "targeting": targeting,
+        "userFacingName": "test experiment",
+        "referenceBranch": "control",
+        "isEnrollmentPaused": false,
+        "proposedEnrollment": 7,
+        "userFacingDescription": "This is a test experiment for testing purposes.",
+        "id": "secure-copper",
+        "last_modified": 1_602_197_324_372i64,
+    })
+}
+
+fn experiments_to_nimbus_string(experiments: Vec<serde_json::Value>) -> Result<String> {
+    Ok(serde_json::to_string(&json!({ "data": experiments }))?)
 }
 
 #[test]
@@ -1077,8 +1080,8 @@ fn test_active_enrollment_in_targeting() -> Result<()> {
     client.initialize()?;
 
     // Apply an initial experiment
-    let experiment_json = generate_experiment("test-1", "true")?;
-    client.set_experiments_locally(experiment_json)?;
+    let exp = generate_experiment("test-1", "true");
+    client.set_experiments_locally(experiments_to_nimbus_string(vec![exp])?)?;
     client.apply_pending_experiments()?;
 
     let active_experiments = client.get_active_experiments()?;
@@ -1088,8 +1091,8 @@ fn test_active_enrollment_in_targeting() -> Result<()> {
     assert!(targeting_helper.eval_jexl("'test-1' in active_experiments".to_string())?);
 
     // Apply experiment that targets the above experiment is in enrollments
-    let experiment_json = generate_experiment("test-2", "'test-1' in enrollments")?;
-    client.set_experiments_locally(experiment_json)?;
+    let exp = generate_experiment("test-2", "'test-1' in enrollments");
+    client.set_experiments_locally(experiments_to_nimbus_string(vec![exp])?)?;
     client.apply_pending_experiments()?;
 
     let active_experiments = client.get_active_experiments()?;
@@ -1105,10 +1108,14 @@ fn test_active_enrollment_in_targeting() -> Result<()> {
 }
 
 #[test]
-fn test_previous_enrollment_in_targeting() -> Result<()> {
+fn test_previous_enrollments_in_targeting() -> Result<()> {
     let mock_client_id = "client-1".to_string();
 
     let temp_dir = tempfile::tempdir()?;
+
+    let slug_1 = "test-1";
+    let slug_2 = "test-2";
+    let slug_3 = "ro-1";
 
     let app_context = AppContext {
         app_name: "fenix".to_string(),
@@ -1134,18 +1141,29 @@ fn test_previous_enrollment_in_targeting() -> Result<()> {
     client.initialize()?;
 
     // Apply an initial experiment
-    let experiment_json = generate_experiment("test-1", "true")?;
-    client.set_experiments_locally(experiment_json)?;
+    let exp_1 = generate_experiment(slug_1, "true");
+    let exp_2 = generate_experiment(slug_2, "true");
+    let ro_1 = get_bucketed_rollout(slug_3, 10_000);
+    client.set_experiments_locally(experiments_to_nimbus_string(vec![
+        exp_1,
+        exp_2,
+        serde_json::to_value(ro_1)?,
+    ])?)?;
     client.apply_pending_experiments()?;
 
     let active_experiments = client.get_active_experiments()?;
-    assert_eq!(active_experiments.len(), 1);
+    assert_eq!(active_experiments.len(), 3);
 
     let targeting_helper = client.create_targeting_helper(None)?;
-    assert!(targeting_helper.eval_jexl("'test-1' in active_experiments".to_string())?);
+    assert!(targeting_helper.eval_jexl(format!("'{}' in active_experiments", slug_1))?);
+    assert!(targeting_helper.eval_jexl(format!("'{}' in active_experiments", slug_2))?);
+    assert!(targeting_helper.eval_jexl(format!("'{}' in active_experiments", slug_3))?);
 
-    // Apply empty experiment list
-    let experiment_json = serde_json::to_string(&json!({"data": []}))?;
+    // Apply empty first experiment, disqualifying second experiment, and decreased bucket rollout
+    let exp_2 = generate_experiment(slug_2, "false");
+    let ro_1 = get_bucketed_rollout(slug_3, 0);
+    let experiment_json =
+        serde_json::to_string(&json!({"data": [exp_2, serde_json::to_value(ro_1)?]}))?;
     client.set_experiments_locally(experiment_json)?;
     client.apply_pending_experiments()?;
 
@@ -1153,22 +1171,12 @@ fn test_previous_enrollment_in_targeting() -> Result<()> {
     assert_eq!(active_experiments.len(), 0);
 
     let targeting_helper = client.create_targeting_helper(None)?;
-    assert!(!targeting_helper.eval_jexl("'test-1' in active_experiments".into())?);
-    assert!(targeting_helper.eval_jexl("'test-1' in enrollments".into())?);
-
-    // Apply experiment that targets the above experiment is in enrollments
-    let experiment_json = generate_experiment("test-2", "'test-1' in enrollments")?;
-    client.set_experiments_locally(experiment_json)?;
-    client.apply_pending_experiments()?;
-
-    let active_experiments = client.get_active_experiments()?;
-    assert_eq!(active_experiments.len(), 1);
-
-    let targeting_helper = client.create_targeting_helper(None)?;
-    assert!(!targeting_helper.eval_jexl("'test-1' in active_experiments".to_string())?);
-    assert!(targeting_helper.eval_jexl("'test-2' in active_experiments".to_string())?);
-    assert!(targeting_helper.eval_jexl("'test-1' in enrollments".to_string())?);
-    assert!(targeting_helper.eval_jexl("'test-2' in enrollments".to_string())?);
+    assert!(!targeting_helper.eval_jexl(format!("'{}' in active_experiments", slug_1))?);
+    assert!(!targeting_helper.eval_jexl(format!("'{}' in active_experiments", slug_2))?);
+    assert!(!targeting_helper.eval_jexl(format!("'{}' in active_experiments", slug_3))?);
+    assert!(targeting_helper.eval_jexl(format!("'{}' in enrollments", slug_1))?);
+    assert!(targeting_helper.eval_jexl(format!("'{}' in enrollments", slug_2))?);
+    assert!(targeting_helper.eval_jexl(format!("'{}' in enrollments", slug_3))?);
 
     Ok(())
 }

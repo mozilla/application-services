@@ -71,6 +71,8 @@ pub enum DisqualifiedReason {
     OptOut,
     /// The targeting has changed for an experiment.
     NotTargeted,
+    /// The bucketing has changed for an experiment.
+    NotSelected,
 }
 
 // Every experiment has an ExperimentEnrollment, even when we aren't enrolled.
@@ -167,8 +169,8 @@ impl ExperimentEnrollment {
         targeting_helper: &NimbusTargetingHelper,
         out_enrollment_events: &mut Vec<EnrollmentChangeEvent>,
     ) -> Result<Self> {
-        Ok(match self.status {
-            EnrollmentStatus::NotEnrolled { .. } | EnrollmentStatus::Error { .. } => {
+        Ok(match (updated_experiment.is_rollout, self.status.clone()) {
+            (_, EnrollmentStatus::NotEnrolled { .. }) | (_, EnrollmentStatus::Error { .. }) => {
                 if !is_user_participating || updated_experiment.is_enrollment_paused {
                     self.clone()
                 } else {
@@ -190,11 +192,14 @@ impl ExperimentEnrollment {
                     updated_enrollment
                 }
             }
-            EnrollmentStatus::Enrolled {
-                ref branch,
-                ref reason,
-                ..
-            } => {
+            (
+                _,
+                EnrollmentStatus::Enrolled {
+                    ref branch,
+                    ref reason,
+                    ..
+                },
+            ) => {
                 if !is_user_participating {
                     log::debug!(
                         "Existing experiment enrollment '{}' is now disqualified (global opt-out)",
@@ -240,10 +245,12 @@ impl ExperimentEnrollment {
                         EnrollmentStatus::NotEnrolled {
                             reason: NotEnrolledReason::NotSelected,
                         } => {
-                            // In the case of a rollout being scaled back, we should end with WasEnrolled.
+                            // In the case of a rollout being scaled back, we should be disqualified with NotSelected.
                             //
-                            self.on_experiment_ended(out_enrollment_events)
-                                .ok_or_else(|| NimbusError::InternalError("An unexpected None happened while ending an experiment prematurely"))?
+                            let updated_enrollment =
+                                self.disqualify_from_enrolled(DisqualifiedReason::NotSelected);
+                            out_enrollment_events.push(updated_enrollment.get_change_event());
+                            updated_enrollment
                         }
                         EnrollmentStatus::NotEnrolled { .. }
                         | EnrollmentStatus::Enrolled { .. }
@@ -252,11 +259,32 @@ impl ExperimentEnrollment {
                     }
                 }
             }
-            EnrollmentStatus::Disqualified {
-                ref branch,
-                enrollment_id,
-                ..
-            } => {
+            (
+                true,
+                EnrollmentStatus::Disqualified {
+                    reason: DisqualifiedReason::NotSelected | DisqualifiedReason::NotTargeted,
+                    ..
+                },
+            ) => {
+                let evaluated_enrollment = evaluate_enrollment(
+                    nimbus_id,
+                    available_randomization_units,
+                    updated_experiment,
+                    targeting_helper,
+                )?;
+                match evaluated_enrollment.status {
+                    EnrollmentStatus::Enrolled { .. } => evaluated_enrollment,
+                    _ => self.clone(),
+                }
+            }
+            (
+                _,
+                EnrollmentStatus::Disqualified {
+                    ref branch,
+                    enrollment_id,
+                    ..
+                },
+            ) => {
                 if !is_user_participating {
                     log::debug!(
                         "Disqualified experiment enrollment '{}' has been reset to not-enrolled (global opt-out)",
@@ -274,7 +302,7 @@ impl ExperimentEnrollment {
                     self.clone()
                 }
             }
-            EnrollmentStatus::WasEnrolled { .. } => self.clone(),
+            (_, EnrollmentStatus::WasEnrolled { .. }) => self.clone(),
         })
     }
 
@@ -432,6 +460,7 @@ impl ExperimentEnrollment {
                 enrollment_id,
                 branch,
                 match reason {
+                    DisqualifiedReason::NotSelected => Some("bucketing"),
                     DisqualifiedReason::NotTargeted => Some("targeting"),
                     DisqualifiedReason::OptOut => Some("optout"),
                     DisqualifiedReason::Error => Some("error"),

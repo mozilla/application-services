@@ -819,7 +819,10 @@ fn test_evolver_experiment_update_enrolled_then_bucketing_changed() -> Result<()
     assert!(matches!(
         observed,
         ExperimentEnrollment {
-            status: EnrollmentStatus::WasEnrolled { .. },
+            status: EnrollmentStatus::Disqualified {
+                reason: DisqualifiedReason::NotSelected,
+                ..
+            },
             ..
         }
     ));
@@ -877,7 +880,144 @@ fn test_rollout_unenrolls_when_bucketing_changes() -> Result<()> {
     assert_eq!(enrollments.len(), 1);
     let enr = enrollments.get(0).unwrap();
     assert_eq!(&enr.slug, slug);
-    assert!(matches!(&enr.status, EnrollmentStatus::WasEnrolled { .. }));
+    assert!(matches!(
+        &enr.status,
+        EnrollmentStatus::Disqualified {
+            reason: DisqualifiedReason::NotSelected,
+            ..
+        }
+    ));
+
+    Ok(())
+}
+
+#[test]
+fn test_rollout_unenrolls_then_reenrolls_when_bucketing_changes() -> Result<()> {
+    let (nimbus_id, app_ctx, aru) = local_ctx();
+    let th = app_ctx.into();
+    let ids = no_coenrolling_features();
+    let evolver = enrollment_evolver(&nimbus_id, &th, &aru, &ids);
+
+    let slug = "my-rollout";
+
+    // Start at 0%
+    let ro = get_bucketed_rollout(slug, 0);
+    let recipes = [ro];
+
+    let (enrollments, _) = evolver.evolve_enrollments::<Experiment>(true, &[], &recipes, &[])?;
+
+    assert_eq!(enrollments.len(), 1);
+    let enr = enrollments.get(0).unwrap();
+    assert_eq!(&enr.slug, slug);
+    assert!(matches!(&enr.status, EnrollmentStatus::NotEnrolled { .. }));
+
+    // Up to 100%
+    let prev_recipes = recipes;
+    let ro = get_bucketed_rollout(slug, 10_000);
+    let recipes = [ro];
+
+    let (enrollments, _) = evolver.evolve_enrollments::<Experiment>(
+        true,
+        &prev_recipes,
+        &recipes,
+        enrollments.as_slice(),
+    )?;
+    assert_eq!(enrollments.len(), 1);
+    let enr = enrollments.get(0).unwrap();
+    assert_eq!(&enr.slug, slug);
+    assert!(matches!(&enr.status, EnrollmentStatus::Enrolled { .. }));
+
+    // Back to zero again
+    let prev_recipes = recipes;
+    let ro = get_bucketed_rollout(slug, 0);
+    let recipes = [ro];
+
+    let (enrollments, _) = evolver.evolve_enrollments::<Experiment>(
+        true,
+        &prev_recipes,
+        &recipes,
+        enrollments.as_slice(),
+    )?;
+    assert_eq!(enrollments.len(), 1);
+    let enr = enrollments.get(0).unwrap();
+    assert_eq!(&enr.slug, slug);
+    assert!(matches!(
+        &enr.status,
+        EnrollmentStatus::Disqualified {
+            reason: DisqualifiedReason::NotSelected,
+            ..
+        }
+    ));
+
+    // Back up to 100%
+    let prev_recipes = recipes;
+    let ro = get_bucketed_rollout(slug, 10_000);
+    let recipes = [ro];
+
+    let (enrollments, _) = evolver.evolve_enrollments::<Experiment>(
+        true,
+        &prev_recipes,
+        &recipes,
+        enrollments.as_slice(),
+    )?;
+    assert_eq!(enrollments.len(), 1);
+    let enr = enrollments.get(0).unwrap();
+    assert_eq!(&enr.slug, slug);
+    assert!(matches!(&enr.status, EnrollmentStatus::Enrolled { .. }));
+
+    Ok(())
+}
+
+#[test]
+fn test_experiment_does_not_reenroll_from_disqualified_not_selected_or_not_targeted() -> Result<()>
+{
+    let (nimbus_id, app_ctx, aru) = local_ctx();
+    let th = app_ctx.into();
+    let ids = no_coenrolling_features();
+    let evolver = enrollment_evolver(&nimbus_id, &th, &aru, &ids);
+
+    let slug_1 = "my-experiment-1";
+    let slug_2 = "my-experiment-2";
+
+    let exp_1 =
+        get_single_feature_experiment(slug_1, "feature_1", Value::Object(Default::default()));
+    let exp_2 =
+        get_single_feature_experiment(slug_2, "feature_2", Value::Object(Default::default()));
+    let recipes = [exp_1, exp_2];
+
+    let (enrollments, _) = evolver.evolve_enrollments::<Experiment>(
+        true,
+        &recipes,
+        &recipes,
+        &[
+            ExperimentEnrollment {
+                slug: slug_1.into(),
+                status: EnrollmentStatus::Disqualified {
+                    reason: DisqualifiedReason::NotSelected,
+                    branch: "control".into(),
+                    enrollment_id: Uuid::new_v4(),
+                },
+            },
+            ExperimentEnrollment {
+                slug: slug_2.into(),
+                status: EnrollmentStatus::Disqualified {
+                    reason: DisqualifiedReason::NotTargeted,
+                    branch: "control".into(),
+                    enrollment_id: Uuid::new_v4(),
+                },
+            },
+        ],
+    )?;
+
+    assert_eq!(enrollments.len(), 2);
+
+    let enr = enrollments.get(0).unwrap();
+    assert_eq!(&enr.slug, slug_1);
+    assert!(matches!(&enr.status, EnrollmentStatus::Disqualified { .. }));
+
+    let enr = enrollments.get(1).unwrap();
+    assert_eq!(&enr.slug, slug_2);
+    assert!(matches!(&enr.status, EnrollmentStatus::Disqualified { .. }));
 
     Ok(())
 }
