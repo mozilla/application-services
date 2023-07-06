@@ -1,5 +1,13 @@
 # v117.0 (In progress)
 
+## Nimbus SDK ⛅️🔬🔭
+
+### ✨ What's New ✨
+
+- Add `recordExperimentExposure` to `FeatureHolder`, and substitute `{experiment}` for experiment slugs at enrollment in the feature configuration [#5715](https://github.com/mozilla/application-services/pull/5715).
+  - This is to enable exposure events to be assigned to the correct experiment in coenrolled features.
+  - Android and iOS are both supported.
+
 ## Nimbus FML ⛅️🔬🔭🔧
 
 ### ✨ What's New ✨
