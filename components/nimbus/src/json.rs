@@ -5,39 +5,73 @@
 use serde_json::{Map, Value};
 use std::collections::HashMap;
 
-pub(crate) fn replace_str(value: &mut Value, pattern: &str, slug: &str) {
+/// Replace any instance of [from] with [to] in any string within the [serde_json::Value].
+///
+/// This recursively descends into the object, looking at string values and keys.
+#[allow(dead_code)]
+pub(crate) fn replace_str(value: &mut Value, from: &str, to: &str) {
+    let replacer = |s: &str| -> Option<String> {
+        if s.contains(from) {
+            Some(s.replace(from, to))
+        } else {
+            None
+        }
+    };
+    replace_str_with(value, &replacer);
+}
+
+/// Replace any instance of [from] with [to] in any string within the [serde_json::Value::Map].
+///
+/// This recursively descends into the object, looking at string values and keys.
+pub(crate) fn replace_str_in_map(map: &mut Map<String, Value>, from: &str, to: &str) {
+    let replacer = |s: &str| -> Option<String> {
+        if s.contains(from) {
+            Some(s.replace(from, to))
+        } else {
+            None
+        }
+    };
+    replace_str_in_map_with(map, &replacer);
+}
+
+fn replace_str_with<F>(value: &mut Value, replacer: &F)
+where
+    F: Fn(&str) -> Option<String> + ?Sized,
+{
     match value {
         Value::String(s) => {
-            if s.contains(pattern) {
-                *s = s.replace(pattern, slug);
+            if let Some(r) = replacer(s) {
+                *s = r;
             }
         }
 
         Value::Array(list) => {
             for item in list.iter_mut() {
-                replace_str(item, pattern, slug)
+                replace_str_with(item, replacer);
             }
         }
 
         Value::Object(map) => {
-            replace_str_in_map(map, pattern, slug);
+            replace_str_in_map_with(map, replacer);
         }
 
         _ => (),
     };
 }
 
-pub(crate) fn replace_str_in_map(map: &mut Map<String, Value>, pattern: &str, slug: &str) {
+pub(crate) fn replace_str_in_map_with<F>(map: &mut Map<String, Value>, replacer: &F)
+where
+    F: Fn(&str) -> Option<String> + ?Sized,
+{
     // Replace values in place.
     for v in map.values_mut() {
-        replace_str(v, pattern, slug);
+        replace_str_with(v, replacer);
     }
 
     // Replacing keys in place is a little trickier.
     let mut changes = HashMap::new();
     for k in map.keys() {
-        if k.contains(pattern) {
-            let new = k.replace(pattern, slug);
+        if let Some(new) = replacer(k) {
             changes.insert(k.to_owned(), new);
         }
     }
