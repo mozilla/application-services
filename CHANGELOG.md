@@ -41,6 +41,7 @@
 - Add `enrollments` value to `TargetingAttributes` — it is a set of strings containing all enrollments, past and present ([#5685](https://github.com/mozilla/application-services/pull/5685)).
   - _Note: This change only applies to stateful uses of the Nimbus SDK, e.g. mobile_
 - Add ability to enroll selected features multiple times (coenrollment) ([#5684](https://github.com/mozilla/application-services/pull/5684), [#5697](https://github.com/mozilla/application-services/pull/5697)).
+- Update enrollment logic to re-evaluate enrollment for rollouts ([#5716](https://github.com/mozilla/application-services/pull/5716)).
 
 ### ⚠️ Breaking Changes ⚠️
 
