@@ -231,8 +231,7 @@ public class NimbusBuilder {
     // swiftlint:enable function_body_length
 
     func getCoenrollingFeatureIds() -> [String] {
-        // This will be changed to use the feature manifest in EXP-3265
-        []
+        featureManifest?.getCoenrollingFeatureIds() ?? []
     }
 
     func newNimbus(_ appInfo: NimbusAppSettings, serverSettings: NimbusServerSettings?) throws -> NimbusInterface {
