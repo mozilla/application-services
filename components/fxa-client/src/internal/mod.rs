@@ -11,7 +11,7 @@ use self::{
     state_persistence::PersistedState,
     telemetry::FxaTelemetry,
 };
-use crate::{Error, FxaConfig, Result};
+use crate::{Error, EventListener, FxaConfig, FxaEvent, Result};
 use serde_derive::*;
 use std::{
     collections::{HashMap, HashSet},
@@ -54,6 +54,11 @@ pub struct FirefoxAccount {
     devices_cache: Option<CachedResponse<Vec<http_client::GetDeviceResponse>>>,
     auth_circuit_breaker: AuthCircuitBreaker,
     telemetry: FxaTelemetry,
+    /// Application-supplied event listener.  Wrapped with an Arc since it's shared with StateManager.
+    ///
+    /// Arc<Box<dyn T>> is kind of silly, but I couldn't figure out how to properly move the inner
+    /// value out of a Box and into an Arc.
+    pub event_listener: Option<Arc<Box<dyn EventListener>>>,
 }
 
 impl FirefoxAccount {
@@ -66,6 +71,7 @@ impl FirefoxAccount {
             devices_cache: None,
             auth_circuit_breaker: Default::default(),
             telemetry: FxaTelemetry::new(),
+            event_listener: None,
         }
     }
 
@@ -95,6 +101,33 @@ impl FirefoxAccount {
     /// to be restored later using `from_json`.
     pub fn to_json(&self) -> Result<String> {
         self.state.serialize_persisted_state()
+    }
+
+    fn notify_listener(&self, event: FxaEvent) {
+        if let Some(listener) = &self.event_listener {
+            if let Err(e) = listener.on_event(event) {
+                error_support::report_error!(
+                    "fxaclient-on-event",
+                    "Error calling EventListener.on_event(): {e}"
+                );
+            }
+        }
+    }
+
+    pub fn register_event_listener(&mut self, listener: Option<Box<dyn EventListener>>) {
+        match listener {
+            Some(listener) => {
+                // Move the listener out of the Box and into an Arc so it' can be shared between us
+                // and StateManager
+                let listener = Arc::new(listener);
+                self.event_listener = Some(Arc::clone(&listener));
+                self.state.event_listener = Some(listener)
+            }
+            None => {
+                self.event_listener = None;
+                self.state.event_listener = None;
+            }
+        }
     }
 
     /// Clear the attached clients and devices cache

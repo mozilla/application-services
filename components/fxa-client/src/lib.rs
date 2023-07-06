@@ -22,6 +22,8 @@
 //! * Register a StorageHandler with the `register_storage_handler()` method.  The `save_state` method
 //!   will be called whenever the persistent state changes.
 //!
+//! * Register an EventListener with the `register_event_listener()` method.  The `on_event` method
+//!   will be called when on account events.
 //!
 //! * When the user wants to sign in to your application, direct them through
 //!   a web-based OAuth flow using [`begin_oauth_flow`](FirefoxAccount::begin_oauth_flow)
@@ -42,6 +44,7 @@ mod account;
 mod auth;
 mod device;
 mod error;
+mod events;
 mod internal;
 mod profile;
 mod push;
@@ -55,6 +58,7 @@ pub use sync15::DeviceType;
 pub use auth::{AuthState, AuthorizationInfo, MetricsParams};
 pub use device::{AttachedClient, Device, DeviceCapability, DeviceList};
 pub use error::{CallbackError, Error, FxaError};
+pub use events::{EventListener, FxaEvent};
 use parking_lot::Mutex;
 pub use profile::Profile;
 pub use push::{

@@ -18,6 +18,9 @@
 // * Register a StorageHandler with the `register_storage_handler()` method.  The `save_state` method
 //   will be called whenever the persistent state changes.
 //
+// * Register an EventListener with the `register_event_listener()` method.  The `on_event` method
+//   will be called when on account events.
+//
 // * When the user wants to sign in to your application, direct them through
 //   a web-based OAuth flow using [`begin_oauth_flow`](FirefoxAccount::begin_oauth_flow)
 //   or [`begin_pairing_flow`](FirefoxAccount::begin_pairing_flow); when they return
@@ -156,6 +159,12 @@ interface FirefoxAccount {
   //
   [Throws=FxaError]
   string to_json();
+
+  // Register to receive FxaEvent notifications
+  //
+  // If there is EventListener already registered, it will be unregistered.  Pass in None to
+  // remove the current listener
+  void register_event_listener(EventListener? listener);
 
   // Initialize an uninitialized account
   //
@@ -482,6 +491,8 @@ interface FirefoxAccount {
 
   // Process and respond to a server-delivered account update message
   //
+  // **Deprecated: use [FirefoxAccount::process_push_message] instead.
+  //
   // Applications should call this method whenever they receive a push notification from the Firefox Accounts server.
   // Such messages typically indicate a noteworthy change of state on the user's account, such as an update to their profile information
   // or the disconnection of a client. The [`FirefoxAccount`] struct will update its internal state
@@ -492,8 +503,13 @@ interface FirefoxAccount {
   // [`FirefoxAccount::poll_device_commands`]
   //
   [Throws=FxaError]
-  AccountEvent handle_push_message([ByRef] string payload );
+  AccountEvent handle_push_message([ByRef] string payload);
 
+  // Process a server-delivered account update message
+  //
+  // This will usually end up in a [crate::FxaEvent] being sent to the current [crate::EventListener]
+  [Throws=FxaError]
+  void process_push_message([ByRef] string payload);
 
   // Poll the server for any pending device commands.
   //
@@ -988,6 +1004,29 @@ interface AccountEvent {
   //
   // When receiving this event, the application should gracefully ignore it.
   Unknown();
+};
+
+/// Implemented by a foreign callback interface to listen for FxA events.
+/// Use `FirefoxAccount::register_event_listener()` to receive these events.
+callback interface EventListener {
+    [Throws=CallbackError]
+    void on_event(FxaEvent event);
+};
+
+// Event trigged by the FirefoxAccount client.  Use `FirefoxAccount::register_event_listener()` to
+// receive these events.
+[Enum]
+interface FxaEvent {
+    /// The account's profile was updated
+    ProfileUpdated();
+    /// Account auth state changed
+    AuthStateChanged(AuthState state);
+    /// The account itself was destroyed
+    AccountDestroyed();
+    /// An command from another device was received
+    DeviceCommandIncoming(IncomingDeviceCommand command);
+    /// The list of devices was changed
+    DeviceListChanged(DeviceList device_list);
 };
 
 // High-level view of the client authorization state

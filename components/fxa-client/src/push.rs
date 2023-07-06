@@ -31,6 +31,8 @@ impl FirefoxAccount {
 
     /// Process and respond to a server-delivered account update message
     ///
+    /// **Deprecated: use [FirefoxAccount::process_push_message] instead.
+    ///
     /// Applications should call this method whenever they receive a push notification from the Firefox Accounts server.
     /// Such messages typically indicate a noteworthy change of state on the user's account, such as an update to their profile information
     /// or the disconnection of a client. The [`FirefoxAccount`] struct will update its internal state
@@ -42,6 +44,14 @@ impl FirefoxAccount {
     #[handle_error(Error)]
     pub fn handle_push_message(&self, payload: &str) -> ApiResult<AccountEvent> {
         self.internal.lock().handle_push_message(payload)
+    }
+
+    /// Process a server-delivered account update message
+    ///
+    /// This will usually end up in a [crate::FxaEvent] being sent to the current [crate::EventListener]
+    #[handle_error(Error)]
+    pub fn process_push_message(&self, payload: &str) -> ApiResult<()> {
+        self.internal.lock().process_push_message(payload)
     }
 
     /// Poll the server for any pending device commands.

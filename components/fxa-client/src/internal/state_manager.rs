@@ -2,7 +2,10 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-use std::collections::{HashMap, HashSet};
+use std::{
+    collections::{HashMap, HashSet},
+    sync::Arc,
+};
 
 use crate::{
     internal::{
@@ -12,7 +15,7 @@ use crate::{
         state_persistence::{state_from_json, state_to_json},
         CachedResponse, Config, OAuthFlow, PersistedState,
     },
-    AuthState, Error, Result, ScopedKey, StorageHandler,
+    AuthState, Error, EventListener, FxaEvent, Result, ScopedKey, StorageHandler,
 };
 
 /// Stores and manages the current state of the FxA client
@@ -28,6 +31,9 @@ pub struct StateManager {
     auth_state: AuthState,
     /// Application-supplied storage handlers
     storage_handler: Option<Box<dyn StorageHandler>>,
+    /// Application-supplied event listener.  Wrapped with an Arc since it's shared with
+    /// FirefoxAccount
+    pub event_listener: Option<Arc<Box<dyn EventListener>>>,
 }
 
 impl StateManager {
@@ -41,6 +47,7 @@ impl StateManager {
             persisted_state,
             flow_store: HashMap::new(),
             storage_handler: None,
+            event_listener: None,
         }
     }
 
@@ -249,7 +256,7 @@ impl StateManager {
             let state = state_from_json(&json)?;
             self.persisted_state = state;
         };
-        self.auth_state = Self::initial_auth_state(&self.persisted_state, false);
+        self.update_auth_state(Self::initial_auth_state(&self.persisted_state, false));
         Ok(())
     }
 
@@ -260,10 +267,10 @@ impl StateManager {
             AuthState::Disconnected {
                 from_auth_issues, ..
             } => {
-                self.auth_state = AuthState::Disconnected {
+                self.update_auth_state(AuthState::Disconnected {
                     from_auth_issues,
                     connecting: true,
-                }
+                });
             }
             AuthState::Uninitialized => {
                 return Err(Error::AuthState(
@@ -309,7 +316,7 @@ impl StateManager {
         self.persisted_state.refresh_token = Some(refresh_token);
         self.persisted_state.session_token = session_token;
         self.persisted_state.disconnected_from_auth_issues = false;
-        self.auth_state = AuthState::Connected;
+        self.update_auth_state(AuthState::Connected);
         self.flow_store.clear();
         self.save_state();
         Ok(())
@@ -322,10 +329,10 @@ impl StateManager {
             connecting: true,
         } = self.auth_state
         {
-            self.auth_state = AuthState::Disconnected {
+            self.update_auth_state(AuthState::Disconnected {
                 from_auth_issues,
                 connecting: false,
-            }
+            });
         }
     }
 
@@ -336,10 +343,10 @@ impl StateManager {
         self.persisted_state = self.persisted_state.start_over();
         self.persisted_state.disconnected_from_auth_issues = from_auth_issues;
         self.flow_store.clear();
-        self.auth_state = AuthState::Disconnected {
+        self.update_auth_state(AuthState::Disconnected {
             from_auth_issues,
             connecting: false,
-        };
+        });
         self.save_state();
         Ok(())
     }
@@ -382,6 +389,19 @@ impl StateManager {
                         "Error converting state to JSON: {e}"
                     );
                 }
+            }
+        }
+    }
+
+    fn update_auth_state(&mut self, state: AuthState) {
+        self.auth_state = state.clone();
+        if let Some(listener) = &self.event_listener {
+            let event = FxaEvent::AuthStateChanged { state };
+            if let Err(e) = listener.on_event(event) {
+                error_support::report_error!(
+                    "fxaclient-on-event",
+                    "Error calling EventListener.on_event(): {e}"
+                );
             }
         }
     }

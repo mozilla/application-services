@@ -4,8 +4,8 @@
 
 use std::convert::TryInto;
 
-use super::FirefoxAccount;
-use crate::{AccountEvent, Error, Result};
+use super::{device::CommandFetchReason, FirefoxAccount};
+use crate::{AccountEvent, Error, FxaEvent, Result};
 use serde_derive::Deserialize;
 
 impl FirefoxAccount {
@@ -79,6 +79,69 @@ impl FirefoxAccount {
                 Ok(AccountEvent::Unknown)
             }
         }
+    }
+
+    /// Process a push message, updating the internal state and emit FxaEvent
+    pub fn process_push_message(&mut self, payload: &str) -> Result<()> {
+        let payload = serde_json::from_str(payload).or_else(|err| {
+            let v: serde_json::Value = serde_json::from_str(payload)?;
+            match v.get("command") {
+                Some(_) => Ok(PushPayload::Unknown),
+                None => Err(err),
+            }
+        })?;
+        match payload {
+            PushPayload::CommandReceived(CommandReceivedPushPayload { index, .. }) => {
+                for command in self.poll_device_commands(CommandFetchReason::Push(index))? {
+                    self.notify_listener(FxaEvent::DeviceCommandIncoming {
+                        command: command.try_into()?,
+                    })
+                }
+            }
+            PushPayload::ProfileUpdated => {
+                self.state.clear_last_seen_profile()?;
+                self.notify_listener(FxaEvent::ProfileUpdated);
+            }
+            PushPayload::DeviceConnected(DeviceConnectedPushPayload { .. }) => {
+                self.clear_devices_and_attached_clients_cache();
+                // TODO: update the device cache based on the event data rather than always getting
+                // a fresh list
+                let device_list = self.get_device_list(false)?;
+                self.notify_listener(FxaEvent::DeviceListChanged { device_list });
+            }
+            PushPayload::DeviceDisconnected(DeviceDisconnectedPushPayload { device_id }) => {
+                let local_device = self.get_current_device_id();
+                let is_local_device = match local_device {
+                    Err(_) => false,
+                    Ok(id) => id == device_id,
+                };
+                if is_local_device {
+                    self.disconnect(false)?;
+                }
+                // TODO: update the device cache based on the event data rather than always getting
+                // a fresh list
+                let device_list = self.get_device_list(false)?;
+                self.notify_listener(FxaEvent::DeviceListChanged { device_list });
+            }
+            PushPayload::AccountDestroyed(AccountDestroyedPushPayload { account_uid }) => {
+                let is_local_account = match self.state.last_seen_profile() {
+                    None => false,
+                    Some(profile) => profile.response.uid == account_uid,
+                };
+                if is_local_account {
+                    self.notify_listener(FxaEvent::AccountDestroyed);
+                } else {
+                    return Err(Error::InvalidPushEvent);
+                }
+            }
+            PushPayload::PasswordChanged | PushPayload::PasswordReset => {
+                self.check_auth_state();
+            }
+            PushPayload::Unknown => {
+                log::info!("Unknown Push command.");
+            }
+        }
+        Ok(())
     }
 }
 
