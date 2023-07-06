@@ -187,8 +187,7 @@ abstract class AbstractNimbusBuilder<T : NimbusInterface>(val context: Context) 
      * use this to pass into the [NimbusInterface] instance.
      */
     protected fun getCoenrollingFeatureIds(): List<String> =
-        // This will be changed to use the feature manifest in EXP-3265
-        listOf()
+        featureManifest?.getCoenrollingFeatureIds() ?: listOf()
 }
 
 private class Observer(
