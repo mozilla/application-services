@@ -6,6 +6,7 @@
 
 - Add `allow-coenrollment` property for features in the Feature Manifest Language. This relaxes the feature exclusion rules for features marked with `allow-coenrollment: true`. ([#5688](https://github.com/mozilla/application-services/pull/5688)).
   - This adds a non-user-facing method to the `FeatureManifestInterface`, `getCoenrollingFeatureIds`, in both Kotlin and Swift.
+- Exposes a method, `get_coenrolling_feature_ids`, in the FML client ([#5714](https://github.com/mozilla/application-services/pull/5714)).
 
 [Full Changelog](In progress)
 
