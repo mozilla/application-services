@@ -169,8 +169,8 @@ impl ExperimentEnrollment {
         targeting_helper: &NimbusTargetingHelper,
         out_enrollment_events: &mut Vec<EnrollmentChangeEvent>,
     ) -> Result<Self> {
-        Ok(match (updated_experiment.is_rollout, self.status.clone()) {
-            (_, EnrollmentStatus::NotEnrolled { .. }) | (_, EnrollmentStatus::Error { .. }) => {
+        Ok(match self.status {
+            EnrollmentStatus::NotEnrolled { .. } | EnrollmentStatus::Error { .. } => {
                 if !is_user_participating || updated_experiment.is_enrollment_paused {
                     self.clone()
                 } else {
@@ -192,14 +192,12 @@ impl ExperimentEnrollment {
                     updated_enrollment
                 }
             }
-            (
-                _,
-                EnrollmentStatus::Enrolled {
-                    ref branch,
-                    ref reason,
-                    ..
-                },
-            ) => {
+
+            EnrollmentStatus::Enrolled {
+                ref branch,
+                ref reason,
+                ..
+            } => {
                 if !is_user_participating {
                     log::debug!(
                         "Existing experiment enrollment '{}' is now disqualified (global opt-out)",
@@ -259,32 +257,11 @@ impl ExperimentEnrollment {
                     }
                 }
             }
-            (
-                true,
-                EnrollmentStatus::Disqualified {
-                    reason: DisqualifiedReason::NotSelected | DisqualifiedReason::NotTargeted,
-                    ..
-                },
-            ) => {
-                let evaluated_enrollment = evaluate_enrollment(
-                    nimbus_id,
-                    available_randomization_units,
-                    updated_experiment,
-                    targeting_helper,
-                )?;
-                match evaluated_enrollment.status {
-                    EnrollmentStatus::Enrolled { .. } => evaluated_enrollment,
-                    _ => self.clone(),
-                }
-            }
-            (
-                _,
-                EnrollmentStatus::Disqualified {
-                    ref branch,
-                    enrollment_id,
-                    ..
-                },
-            ) => {
+            EnrollmentStatus::Disqualified {
+                ref branch,
+                enrollment_id,
+                ..
+            } => {
                 if !is_user_participating {
                     log::debug!(
                         "Disqualified experiment enrollment '{}' has been reset to not-enrolled (global opt-out)",
@@ -298,11 +275,31 @@ impl ExperimentEnrollment {
                             branch: branch.clone(),
                         },
                     }
+                } else if updated_experiment.is_rollout
+                    && matches!(
+                        self.status,
+                        EnrollmentStatus::Disqualified {
+                            reason: DisqualifiedReason::NotSelected
+                                | DisqualifiedReason::NotTargeted,
+                            ..
+                        }
+                    )
+                {
+                    let evaluated_enrollment = evaluate_enrollment(
+                        nimbus_id,
+                        available_randomization_units,
+                        updated_experiment,
+                        targeting_helper,
+                    )?;
+                    match evaluated_enrollment.status {
+                        EnrollmentStatus::Enrolled { .. } => evaluated_enrollment,
+                        _ => self.clone(),
+                    }
                 } else {
                     self.clone()
                 }
             }
-            (_, EnrollmentStatus::WasEnrolled { .. }) => self.clone(),
+            EnrollmentStatus::WasEnrolled { .. } => self.clone(),
         })
     }
 

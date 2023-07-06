@@ -328,11 +328,7 @@ impl NimbusClient {
                 }
                 EnrollmentStatus::WasEnrolled { .. }
                 | EnrollmentStatus::Disqualified {
-                    reason: DisqualifiedReason::NotSelected,
-                    ..
-                }
-                | EnrollmentStatus::Disqualified {
-                    reason: DisqualifiedReason::NotTargeted,
+                    reason: DisqualifiedReason::NotSelected | DisqualifiedReason::NotTargeted,
                     ..
                 } => {
                     all_enrolled_set.insert(ee.slug.clone());
