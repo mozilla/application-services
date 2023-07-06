@@ -25,7 +25,7 @@ impl FirefoxAccount {
                     log::warn!(
                         "Access token rejected, clearing the tokens cache and trying again."
                     );
-                    self.clear_access_token_cache();
+                    self.clear_access_token_cache()?;
                     self.clear_devices_and_attached_clients_cache();
                     self.get_profile_helper(ignore_cache)
                 }
@@ -54,7 +54,7 @@ impl FirefoxAccount {
                         response: response_and_etag.response.clone(),
                         cached_at: util::now(),
                         etag,
-                    });
+                    })?;
                 }
                 Ok(response_and_etag.response)
             }
@@ -68,7 +68,7 @@ impl FirefoxAccount {
                             cached_at: util::now(),
                             etag: cached_profile.etag.clone(),
                         };
-                        self.state.set_last_seen_profile(new_cached_profile);
+                        self.state.set_last_seen_profile(new_cached_profile)?;
                         Ok(response)
                     }
                     None => Err(Error::UnrecoverableServerError(
@@ -92,17 +92,19 @@ mod tests {
 
     impl FirefoxAccount {
         pub fn add_cached_profile(&mut self, uid: &str, email: &str) {
-            self.state.set_last_seen_profile(CachedResponse {
-                response: Profile {
-                    uid: uid.into(),
-                    email: email.into(),
-                    display_name: None,
-                    avatar: "".into(),
-                    avatar_default: true,
-                },
-                cached_at: util::now(),
-                etag: "fake etag".into(),
-            });
+            self.state
+                .set_last_seen_profile(CachedResponse {
+                    response: Profile {
+                        uid: uid.into(),
+                        email: email.into(),
+                        display_name: None,
+                        avatar: "".into(),
+                        avatar_default: true,
+                    },
+                    cached_at: util::now(),
+                    etag: "fake etag".into(),
+                })
+                .unwrap();
         }
     }
 

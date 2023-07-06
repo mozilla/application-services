@@ -57,10 +57,11 @@ pub struct FirefoxAccount {
 }
 
 impl FirefoxAccount {
-    fn from_state(state: PersistedState) -> Self {
+    /// Create a new `FirefoxAccount` instance.
+    fn from_state(state: PersistedState, uninitialized: bool) -> Self {
         Self {
             client: Arc::new(http_client::Client::new()),
-            state: StateManager::new(state),
+            state: StateManager::new(state, uninitialized),
             attached_clients_cache: None,
             devices_cache: None,
             auth_circuit_breaker: Default::default(),
@@ -68,25 +69,14 @@ impl FirefoxAccount {
         }
     }
 
-    /// Create a new `FirefoxAccount` instance using a `Config`.
-    pub fn with_config(config: Config) -> Self {
-        Self::from_state(PersistedState {
-            config,
-            refresh_token: None,
-            scoped_keys: HashMap::new(),
-            last_handled_command: None,
-            commands_data: HashMap::new(),
-            device_capabilities: HashSet::new(),
-            session_token: None,
-            current_device_id: None,
-            last_seen_profile: None,
-            access_token_cache: HashMap::new(),
-        })
+    pub fn new(config: FxaConfig, uninitialized: bool) -> Self {
+        Self::from_state(config.into(), uninitialized)
     }
 
-    /// Create a new `FirefoxAccount` instance.
-    pub fn new(config: FxaConfig) -> Self {
-        Self::with_config(config.into())
+    /// Create a new `FirefoxAccount` instance using a `Config`.
+    #[cfg(test)]
+    pub fn with_config(config: Config) -> Self {
+        Self::from_state(config.into(), false)
     }
 
     #[cfg(test)]
@@ -98,7 +88,7 @@ impl FirefoxAccount {
     /// created using `to_json`.
     pub fn from_json(data: &str) -> Result<Self> {
         let state = state_persistence::state_from_json(data)?;
-        Ok(Self::from_state(state))
+        Ok(Self::from_state(state, false))
     }
 
     /// Serialize a `FirefoxAccount` instance internal state
@@ -192,34 +182,62 @@ impl FirefoxAccount {
     /// leave the account object in a state where it can eventually reconnect to the same user.
     /// This is a "best effort" infallible method: e.g. if the network is unreachable,
     /// the device could still be in the FxA devices manager.
-    pub fn disconnect(&mut self) {
-        let current_device_result;
-        {
-            current_device_result = self.get_current_device();
-        }
+    pub fn disconnect(&mut self, from_auth_issues: bool) -> Result<()> {
+        self.state.check_connected("disconnect")?;
+        if !from_auth_issues {
+            let current_device_result;
+            {
+                current_device_result = self.get_current_device();
+            }
 
-        if let Some(refresh_token) = self.state.refresh_token() {
-            // Delete the current device (which deletes the refresh token), or
-            // the refresh token directly if we don't have a device.
-            let destroy_result = match current_device_result {
-                // If we get an error trying to fetch our device record we'll at least
-                // still try to delete the refresh token itself.
-                Ok(Some(device)) => self.client.destroy_device_record(
-                    self.state.config(),
-                    &refresh_token.token,
-                    &device.id,
-                ),
-                _ => self
-                    .client
-                    .destroy_refresh_token(self.state.config(), &refresh_token.token),
-            };
-            if let Err(e) = destroy_result {
-                log::warn!("Error while destroying the device: {}", e);
+            if let Some(refresh_token) = self.state.refresh_token() {
+                // Delete the current device (which deletes the refresh token), or
+                // the refresh token directly if we don't have a device.
+                let destroy_result = match current_device_result {
+                    // If we get an error trying to fetch our device record we'll at least
+                    // still try to delete the refresh token itself.
+                    Ok(Some(device)) => self.client.destroy_device_record(
+                        self.state.config(),
+                        &refresh_token.token,
+                        &device.id,
+                    ),
+                    _ => self
+                        .client
+                        .destroy_refresh_token(self.state.config(), &refresh_token.token),
+                };
+                if let Err(e) = destroy_result {
+                    log::warn!("Error while destroying the device: {}", e);
+                }
             }
         }
-        self.state.disconnect();
+        self.state.disconnect(from_auth_issues)?;
         self.clear_devices_and_attached_clients_cache();
         self.telemetry = FxaTelemetry::new();
+        Ok(())
+    }
+}
+
+impl From<Config> for PersistedState {
+    fn from(config: Config) -> PersistedState {
+        PersistedState {
+            config,
+            refresh_token: None,
+            scoped_keys: HashMap::new(),
+            last_handled_command: None,
+            commands_data: HashMap::new(),
+            device_capabilities: HashSet::new(),
+            session_token: None,
+            current_device_id: None,
+            last_seen_profile: None,
+            access_token_cache: HashMap::new(),
+            disconnected_from_auth_issues: false,
+        }
+    }
+}
+
+impl From<FxaConfig> for PersistedState {
+    fn from(config: FxaConfig) -> PersistedState {
+        PersistedState::from(Config::from(config))
     }
 }
 
@@ -326,6 +344,7 @@ mod tests {
         let config = Config::new("https://stable.dev.lcip.org", "12345678", "https://foo.bar");
         let mut fxa = FirefoxAccount::with_config(config);
 
+        fxa.state.force_connected();
         fxa.add_cached_token(
             "profile",
             AccessTokenInfo {
@@ -340,7 +359,7 @@ mod tests {
         fxa.set_client(Arc::new(client));
 
         assert!(!fxa.state.is_access_token_cache_empty());
-        fxa.disconnect();
+        fxa.disconnect(false).unwrap();
         assert!(fxa.state.is_access_token_cache_empty());
     }
 
@@ -409,7 +428,7 @@ mod tests {
         fxa.set_client(Arc::new(client));
 
         assert!(fxa.state.refresh_token().is_some());
-        fxa.disconnect();
+        fxa.disconnect(false).unwrap();
         assert!(fxa.state.refresh_token().is_none());
     }
 
@@ -456,7 +475,7 @@ mod tests {
         fxa.set_client(Arc::new(client));
 
         assert!(fxa.state.refresh_token().is_some());
-        fxa.disconnect();
+        fxa.disconnect(false).unwrap();
         assert!(fxa.state.refresh_token().is_none());
     }
 
@@ -492,7 +511,7 @@ mod tests {
         fxa.set_client(Arc::new(client));
 
         assert!(fxa.state.refresh_token().is_some());
-        fxa.disconnect();
+        fxa.disconnect(false).unwrap();
         assert!(fxa.state.refresh_token().is_none());
     }
 

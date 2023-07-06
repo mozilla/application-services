@@ -11,7 +11,7 @@ use super::{
     scoped_keys::ScopedKeysFlow,
     util, FirefoxAccount,
 };
-use crate::{AuthorizationParameters, Error, MetricsParams, Result, ScopedKey};
+use crate::{AuthState, AuthorizationParameters, Error, MetricsParams, Result, ScopedKey};
 use jwcrypto::{EncryptionAlgorithm, EncryptionParameters};
 use rate_limiter::RateLimiter;
 use rc_crypto::digest;
@@ -43,7 +43,7 @@ impl FirefoxAccount {
         if scope.contains(' ') {
             return Err(Error::MultipleScopesRequested);
         }
-        if let Some(oauth_info) = self.state.get_cached_access_token(scope) {
+        if let Some(oauth_info) = self.state.get_cached_access_token(scope)? {
             if oauth_info.expires_at > util::now_secs() + OAUTH_MIN_TIME_LEFT {
                 return Ok(oauth_info.clone());
             }
@@ -81,7 +81,7 @@ impl FirefoxAccount {
             expires_at,
         };
         self.state
-            .add_cached_access_token(scope, token_info.clone());
+            .add_cached_access_token(scope, token_info.clone())?;
         Ok(token_info)
     }
 
@@ -91,6 +91,37 @@ impl FirefoxAccount {
             Some(session_token) => Ok(session_token.to_string()),
             None => Err(Error::NoSessionToken),
         }
+    }
+
+    /// Check whether user is authorized using our refresh token.
+    pub fn check_auth_state(&mut self) -> AuthState {
+        if self.state.is_connected() {
+            match self.check_authorization_status() {
+                Ok(info) => {
+                    if !info.active {
+                        if let Err(e) = self.disconnect(true) {
+                            error_support::report_error!(
+                                "fxaclient-check-auth",
+                                "Error disconnecting {e}"
+                            );
+                        }
+                    }
+                }
+                Err(e) => {
+                    error_support::report_error!(
+                        "fxaclient-check-auth",
+                        "Error checking authorization status: {e}"
+                    );
+                    if let Err(e) = self.disconnect(true) {
+                        error_support::report_error!(
+                            "fxaclient-check-auth",
+                            "Error disconnecting {e}"
+                        );
+                    }
+                }
+            }
+        };
+        self.state.get_auth_state()
     }
 
     /// Check whether user is authorized using our refresh token.
@@ -122,6 +153,7 @@ impl FirefoxAccount {
         entrypoint: &str,
         metrics: Option<MetricsParams>,
     ) -> Result<String> {
+        self.state.check_disconnected("begin_pairing_flow")?;
         let mut url = self.state.config().pair_supp_url()?;
         url.query_pairs_mut().append_pair("entrypoint", entrypoint);
         if let Some(metrics) = metrics {
@@ -146,6 +178,7 @@ impl FirefoxAccount {
         entrypoint: &str,
         metrics: Option<MetricsParams>,
     ) -> Result<String> {
+        self.state.check_disconnected("begin_oauth_flow")?;
         let mut url = if self.state.last_seen_profile().is_some() {
             self.state.config().oauth_force_auth_url()?
         } else {
@@ -263,7 +296,7 @@ impl FirefoxAccount {
     }
 
     fn oauth_flow(&mut self, mut url: Url, scopes: &[&str]) -> Result<String> {
-        self.clear_access_token_cache();
+        self.clear_access_token_cache()?;
         let state = util::random_base64_url_string(16)?;
         let code_verifier = util::random_base64_url_string(43)?;
         let code_challenge = digest::digest(&digest::SHA256, code_verifier.as_bytes())?;
@@ -295,7 +328,7 @@ impl FirefoxAccount {
                 scoped_keys_flow: Some(scoped_keys_flow),
                 code_verifier,
             },
-        );
+        )?;
         Ok(url.to_string())
     }
 
@@ -303,8 +336,9 @@ impl FirefoxAccount {
     /// The `code` and `state` parameters can be obtained by parsing out the
     /// redirect URL after a successful login.
     pub fn complete_oauth_flow(&mut self, code: &str, state: &str) -> Result<()> {
-        self.clear_access_token_cache();
-        let oauth_flow = match self.state.pop_oauth_flow(state) {
+        self.state.check_disconnected("complete_oauth_flow")?;
+        self.clear_access_token_cache()?;
+        let oauth_flow = match self.state.pop_oauth_flow(state)? {
             Some(oauth_flow) => oauth_flow,
             None => return Err(Error::UnknownOAuthState),
         };
@@ -406,7 +440,7 @@ impl FirefoxAccount {
                 scopes: resp.scope.split(' ').map(ToString::to_string).collect(),
             },
             resp.session_token,
-        );
+        )?;
         Ok(())
     }
 
@@ -432,14 +466,14 @@ impl FirefoxAccount {
                 token: new_refresh_token,
                 scopes: resp.scope.split(' ').map(ToString::to_string).collect(),
             },
-        );
+        )?;
         self.clear_devices_and_attached_clients_cache();
         Ok(())
     }
 
     /// **💾 This method may alter the persisted account state.**
-    pub fn clear_access_token_cache(&mut self) {
-        self.state.clear_access_token_cache();
+    pub fn clear_access_token_cache(&mut self) -> Result<()> {
+        self.state.clear_access_token_cache()
     }
 }
 
@@ -583,7 +617,9 @@ mod tests {
 
     impl FirefoxAccount {
         pub fn add_cached_token(&mut self, scope: &str, token_info: AccessTokenInfo) {
-            self.state.add_cached_access_token(scope, token_info);
+            self.state
+                .add_cached_access_token(scope, token_info)
+                .unwrap();
         }
 
         pub fn set_session_token(&mut self, session_token: &str) {

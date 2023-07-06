@@ -28,6 +28,11 @@ use error_support::handle_error;
 use std::collections::HashMap;
 
 impl FirefoxAccount {
+    /// Get the current auth state
+    pub fn get_auth_state(&self) -> AuthState {
+        self.internal.lock().state.get_auth_state()
+    }
+
     /// Initiate a web-based OAuth sign-in flow.
     ///
     /// This method initializes some internal state and then returns a URL at which the
@@ -129,14 +134,31 @@ impl FirefoxAccount {
         self.internal.lock().complete_oauth_flow(code, state)
     }
 
+    /// Cancels all in-progress OAuth flows
+    pub fn cancel_oauth_flow(&self) {
+        self.internal.lock().state.cancel_oauth_flow()
+    }
+
     /// Check authorization status for this application.
     ///
+    // **Deprecated**: Use [FirefoxAccount::check_auth_state] instead.
+    //
     /// Applications may call this method to check with the FxA server about the status
     /// of their authentication tokens. It returns an [`AuthorizationInfo`] struct
     /// with details about whether the tokens are still active.
     #[handle_error(Error)]
     pub fn check_authorization_status(&self) -> ApiResult<AuthorizationInfo> {
         Ok(self.internal.lock().check_authorization_status()?.into())
+    }
+
+    /// Check the authorization state of the FxA client
+    ///
+    /// This method checks if the current auth tokens are still valid.  If not, it changes the client
+    /// to [AuthState::Disconnected].
+    ///
+    /// After the check, the updated [AuthState] is returned
+    pub fn check_auth_state(&self) -> AuthState {
+        self.internal.lock().check_auth_state()
     }
 
     /// Disconnect from the user's account.
@@ -149,8 +171,9 @@ impl FirefoxAccount {
     /// user's last-seen profile information, if any. This may be useful in helping
     /// the user to reconnect to their account. If reconnecting to the same account
     /// is not desired then the application should discard the persisted account state.
-    pub fn disconnect(&self) {
-        self.internal.lock().disconnect()
+    #[handle_error(Error)]
+    pub fn disconnect(&self) -> ApiResult<()> {
+        self.internal.lock().disconnect(false)
     }
 }
 
@@ -165,4 +188,20 @@ pub struct AuthorizationInfo {
 /// Additional metrics tracking parameters to include in an OAuth request.
 pub struct MetricsParams {
     pub parameters: HashMap<String, String>,
+}
+
+/// High-level view of the client authorization state
+#[derive(Debug, Clone)]
+pub enum AuthState {
+    /// Client is waiting for the `initialize()` call
+    Uninitialized,
+    /// Client is disconnected from FxA
+    Disconnected {
+        /// Was the client disconnected because of auth issues?
+        from_auth_issues: bool,
+        /// Is the client currently in the middle of an OAuth flow?
+        connecting: bool,
+    },
+    /// Client is connected to FxA
+    Connected,
 }

@@ -107,7 +107,7 @@ impl FirefoxAccount {
         // We write this to internal state before we've actually written the new device record,
         // but roll it back if the server update fails.
         self.state
-            .update_last_sent_device_capabilities(capabilities_set);
+            .update_last_sent_device_capabilities(capabilities_set)?;
         Ok(commands)
     }
 
@@ -227,7 +227,7 @@ impl FirefoxAccount {
         log::info!("Handling {} messages", pending_commands.messages.len());
         let device_commands = self.parse_commands_messages(pending_commands.messages, reason)?;
         self.state
-            .set_last_handled_command_index(pending_commands.index);
+            .set_last_handled_command_index(pending_commands.index)?;
         Ok(device_commands)
     }
 
@@ -303,7 +303,7 @@ impl FirefoxAccount {
     // endpoint yet.
     #[allow(dead_code)]
     pub(crate) fn register_command(&mut self, command: &str, value: &str) -> Result<()> {
-        self.state.clear_last_sent_device_capabilities();
+        self.state.clear_last_sent_device_capabilities()?;
         let mut commands = HashMap::new();
         commands.insert(command.to_owned(), value.to_owned());
         let update = DeviceUpdateRequestBuilder::new()
@@ -316,7 +316,7 @@ impl FirefoxAccount {
     // because the server does not have a `PATCH commands` endpoint yet.
     #[allow(dead_code)]
     pub(crate) fn unregister_command(&mut self, _: &str) -> Result<()> {
-        self.state.clear_last_sent_device_capabilities();
+        self.state.clear_last_sent_device_capabilities()?;
         let commands = HashMap::new();
         let update = DeviceUpdateRequestBuilder::new()
             .available_commands(&commands)
@@ -326,7 +326,7 @@ impl FirefoxAccount {
 
     #[allow(dead_code)]
     pub(crate) fn clear_commands(&mut self) -> Result<()> {
-        self.state.clear_last_sent_device_capabilities();
+        self.state.clear_last_sent_device_capabilities()?;
         let update = DeviceUpdateRequestBuilder::new()
             .clear_available_commands()
             .build();
@@ -340,7 +340,7 @@ impl FirefoxAccount {
         push_subscription: &Option<PushSubscription>,
         commands: &HashMap<String, String>,
     ) -> Result<()> {
-        self.state.clear_last_sent_device_capabilities();
+        self.state.clear_last_sent_device_capabilities()?;
         let mut builder = DeviceUpdateRequestBuilder::new()
             .display_name(display_name)
             .device_type(device_type)
@@ -358,13 +358,13 @@ impl FirefoxAccount {
             .update_device_record(self.state.config(), refresh_token, update);
         match res {
             Ok(resp) => {
-                self.state.set_current_device_id(resp.id);
+                self.state.set_current_device_id(resp.id)?;
                 Ok(())
             }
             Err(err) => {
                 // We failed to write an update to the server.
                 // Clear local state so that we'll be sure to retry later.
-                self.state.clear_last_sent_device_capabilities();
+                self.state.clear_last_sent_device_capabilities()?;
                 Err(err)
             }
         }
@@ -450,6 +450,7 @@ mod tests {
             k: "kMtwpVC0ZaYFJymPza8rXK_0CgCp3KMwRStwGfBRBDtL6hXRDVJgQFaoOQ2dimw0Bko5WVv2gNTy7RX5zFYZHg".to_string(),
             kid: "1542236016429-Ox1FbJfFfwTe5t-xq4v2hQ".to_string(),
         });
+        fxa.state.force_connected();
         fxa
     }
 
@@ -682,6 +683,8 @@ mod tests {
                 info: "".to_string(),
             }));
         fxa.set_client(Arc::new(client));
+
+        fxa.state.force_disconnected();
 
         fxa.handle_oauth_response(
             OAuthTokenResponse {

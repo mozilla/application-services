@@ -31,7 +31,7 @@ impl FirefoxAccount {
                 })
             }
             PushPayload::ProfileUpdated => {
-                self.state.clear_last_seen_profile();
+                self.state.clear_last_seen_profile()?;
                 Ok(AccountEvent::ProfileUpdated)
             }
             PushPayload::DeviceConnected(DeviceConnectedPushPayload { device_name }) => {
@@ -45,8 +45,7 @@ impl FirefoxAccount {
                     Ok(id) => id == device_id,
                 };
                 if is_local_device {
-                    // Note: self.disconnect calls self.start_over which clears the state for the FirefoxAccount instance
-                    self.disconnect();
+                    self.disconnect(false)?;
                 }
                 Ok(AccountEvent::DeviceDisconnected {
                     device_id,

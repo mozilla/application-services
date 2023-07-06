@@ -105,6 +105,8 @@ pub(crate) struct StateV2 {
     pub(crate) access_token_cache: HashMap<String, AccessTokenInfo>,
     pub(crate) session_token: Option<String>, // Hex-formatted string.
     pub(crate) last_seen_profile: Option<CachedResponse<Profile>>,
+    #[serde(default)]
+    pub(crate) disconnected_from_auth_issues: bool,
 }
 
 impl StateV2 {
@@ -127,6 +129,7 @@ impl StateV2 {
             access_token_cache: HashMap::new(),
             device_capabilities: HashSet::new(),
             session_token: None,
+            disconnected_from_auth_issues: false,
         }
     }
 }

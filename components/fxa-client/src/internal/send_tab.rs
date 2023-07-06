@@ -37,7 +37,7 @@ impl FirefoxAccount {
             }
         }
         let keys = PrivateSendTabKeys::from_random()?;
-        self.state.set_send_tab_key(keys.serialize()?);
+        self.state.set_send_tab_key(keys.serialize()?)?;
         Ok(keys)
     }
 
@@ -111,7 +111,7 @@ impl FirefoxAccount {
                     }
                 };
                 // Reset the Send Tab keys.
-                self.state.clear_send_tab_key();
+                self.state.clear_send_tab_key()?;
                 self.reregister_current_capabilities()?;
                 Err(e)
             }

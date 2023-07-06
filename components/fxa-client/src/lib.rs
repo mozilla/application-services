@@ -52,7 +52,7 @@ mod token;
 use error_support::handle_error;
 pub use sync15::DeviceType;
 
-pub use auth::{AuthorizationInfo, MetricsParams};
+pub use auth::{AuthState, AuthorizationInfo, MetricsParams};
 pub use device::{AttachedClient, Device, DeviceCapability, DeviceList};
 pub use error::{CallbackError, Error, FxaError};
 use parking_lot::Mutex;
@@ -90,8 +90,28 @@ impl FirefoxAccount {
     /// the application to a user's account.
     pub fn new(config: FxaConfig) -> FirefoxAccount {
         FirefoxAccount {
-            internal: Mutex::new(internal::FirefoxAccount::new(config)),
+            internal: Mutex::new(internal::FirefoxAccount::new(config, false)),
         }
+    }
+
+    /// Create a new [FirefoxAccount] instance in the `AuthState::Uninitialized` state
+    ///
+    /// This allows consumers to create an account early in the startup process, but wait to
+    /// initialize it later on.  This is useful for deferring disk IO until after early startup.
+    ///
+    /// Call [FirefoxAccount::initialize] before using the account
+    pub fn new_uninitialized(config: FxaConfig) -> FirefoxAccount {
+        FirefoxAccount {
+            internal: Mutex::new(internal::FirefoxAccount::new(config, true)),
+        }
+    }
+
+    /// Initialize an uninitialized account
+    ///
+    /// saved_state can contain a JSON string previously passed to [StorageHandler.saved_state()].
+    #[handle_error(Error)]
+    pub fn initialize(&self, saved_state: Option<String>) -> ApiResult<()> {
+        self.internal.lock().state.initialize(saved_state)
     }
 }
 

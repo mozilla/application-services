@@ -130,6 +130,15 @@ interface FirefoxAccount {
   [Throws=FxaError,Name=from_json]
   constructor([ByRef] string data);
 
+  // Create a new [FirefoxAccount] instance in the `AuthState::Uninitialized` state
+  //
+  // This allows consumers to create an account early in the startup process, but wait to
+  // initialize it later on.  This is useful for deferring disk IO until after early startup.
+  //
+  // Call [FirefoxAccount::initialize] before using the account
+  [Name=new_uninitialized]
+  constructor(FxaConfig config);
+
   // Register a StorageHandler callback
   //
   // Any previously registered storage handler will be replaced.  Pass in None to clear out any
@@ -147,7 +156,15 @@ interface FirefoxAccount {
   //
   [Throws=FxaError]
   string to_json();
-  
+
+  // Initialize an uninitialized account
+  //
+  // saved_state can contain a JSON string previously passed to [StorageHandler.saved_state()].
+  [Throws=FxaError]
+  void initialize(string? saved_state);
+
+  // Get the current auth state
+  AuthState get_auth_state();
 
   // Initiate a web-based OAuth sign-in flow.
   //
@@ -230,8 +247,12 @@ interface FirefoxAccount {
   [Throws=FxaError]
   void complete_oauth_flow([ByRef] string code, [ByRef] string state );
   
+  // Cancels all in-progress OAuth flows
+  void cancel_oauth_flow();
 
   // Check authorization status for this application.
+  //
+  // **Deprecated**: Use [FirefoxAccount::check_auth_state] instead.
   //
   // Applications may call this method to check with the FxA server about the status
   // of their authentication tokens. It returns an [`AuthorizationInfo`] struct
@@ -239,7 +260,6 @@ interface FirefoxAccount {
   //
   [Throws=FxaError]
   AuthorizationInfo check_authorization_status();
-  
 
   // Disconnect from the user's account.
   //
@@ -251,9 +271,16 @@ interface FirefoxAccount {
   // user's last-seen profile information, if any. This may be useful in helping
   // the user to reconnnect to their account. If reconnecting to the same account
   // is not desired then the application should discard the persisted account state.
-  //
+  [Throws=FxaError]
   void disconnect();
-  
+
+  // Check the authorization state of the FxA client
+  //
+  // This method checks if the current auth tokens are still valid.  If not, it changes the client
+  // to [AuthState::Disconnected].
+  //
+  // After the check, the updated [AuthState] is returned
+  AuthState check_auth_state();
 
   // Get profile information for the signed-in user, if any.
   //
@@ -633,6 +660,7 @@ interface FirefoxAccount {
   // should call this method before creating a new token and retrying the failed operation.
   // It ensures that the expired token is removed and a fresh one generated.
   //
+  [Throws=FxaError]
   void clear_access_token_cache();
   
 
@@ -962,6 +990,21 @@ interface AccountEvent {
   Unknown();
 };
 
+// High-level view of the client authorization state
+[Enum]
+interface AuthState {
+  // Client is waiting for the `initialize()` call
+  Uninitialized();
+  // Client is disconnected from FxA
+  Disconnected(
+      // Was the client disconnected because of auth issues?
+      boolean from_auth_issues,
+      // Is the client currently in the middle of an OAuth flow?
+      boolean connecting
+  );
+  // Client is connected to FxA
+  Connected();
+};
 
 // A command invoked by another device.
 //

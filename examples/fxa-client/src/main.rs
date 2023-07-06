@@ -59,7 +59,7 @@ fn main() -> Result<()> {
         Command::Devices(args) => devices::run(&account, args),
         Command::SendTab(args) => send_tab::run(&account, args),
         Command::Disconnect => {
-            account.disconnect();
+            account.disconnect()?;
             Ok(())
         }
     }?;

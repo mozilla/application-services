@@ -113,7 +113,8 @@ impl FirefoxAccount {
     /// Applications that receive an authentication error when trying to use an access token,
     /// should call this method before creating a new token and retrying the failed operation.
     /// It ensures that the expired token is removed and a fresh one generated.
-    pub fn clear_access_token_cache(&self) {
+    #[handle_error(Error)]
+    pub fn clear_access_token_cache(&self) -> ApiResult<()> {
         self.internal.lock().clear_access_token_cache()
     }
 }

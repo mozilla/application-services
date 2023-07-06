@@ -55,6 +55,9 @@ pub enum Error {
     #[error("Server asked the client to back off, please wait {0} seconds to try again")]
     BackoffError(u64),
 
+    #[error("Auth state error: {0}")]
+    AuthState(String),
+
     #[error("Unknown OAuth State")]
     UnknownOAuthState,
 
@@ -195,6 +198,9 @@ impl GetErrorHandling for Error {
             }
             Error::RequestError(_) => {
                 ErrorHandling::convert(crate::FxaError::Network).log_warning()
+            }
+            Error::AuthState(_) => {
+                ErrorHandling::convert(crate::FxaError::Other).report_error("fxa-auth-state")
             }
             _ => ErrorHandling::convert(crate::FxaError::Other).log_warning(),
         }
