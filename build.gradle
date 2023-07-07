@@ -3,11 +3,11 @@
 buildscript {
 
     ext {
-        kotlin_version = '1.8.21'
-        kotlin_coroutines_version = '1.7.1'
+        kotlin_version = '1.8.22'
+        kotlin_coroutines_version = '1.7.2'
         jna_version = '5.13.0'
         android_gradle_plugin_version = '7.4.2'
-        android_components_version = '114.1.1'
+        android_components_version = '115.0.1'
         glean_version = '53.0.0'
 
         // NOTE: AndroidX libraries should be synced with AC to avoid compatibility issues
@@ -22,8 +22,8 @@ buildscript {
         ktlint_version = '0.50.0'
         gradle_download_task_version = '5.2.1'
         junit_version = '4.13.2'
-        mockito_core_version = '5.3.1'
-        robolectric_core_version = '4.10.1'
+        mockito_core_version = '5.4.0'
+        robolectric_core_version = '4.10.3'
         rust_android_gradle_version = '0.9.3'
         protobuf_version = '3.21.10'
         gradle_protobuf_version = '0.9.3'
