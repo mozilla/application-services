@@ -10,13 +10,7 @@ use std::collections::HashMap;
 /// This recursively descends into the object, looking at string values and keys.
 #[allow(dead_code)]
 pub(crate) fn replace_str(value: &mut Value, from: &str, to: &str) {
-    let replacer = |s: &str| -> Option<String> {
-        if s.contains(from) {
-            Some(s.replace(from, to))
-        } else {
-            None
-        }
-    };
+    let replacer = create_str_replacer(from, to);
     replace_str_with(value, &replacer);
 }
 
@@ -24,13 +18,7 @@ pub(crate) fn replace_str(value: &mut Value, from: &str, to: &str) {
 ///
 /// This recursively descends into the object, looking at string values and keys.
 pub(crate) fn replace_str_in_map(map: &mut Map<String, Value>, from: &str, to: &str) {
-    let replacer = |s: &str| -> Option<String> {
-        if s.contains(from) {
-            Some(s.replace(from, to))
-        } else {
-            None
-        }
-    };
+    let replacer = create_str_replacer(from, to);
     replace_str_in_map_with(map, &replacer);
 }
 
@@ -79,6 +67,16 @@ where
     for (k, new) in changes {
         let v = map.remove(&k).unwrap();
         _ = map.insert(new, v);
+    }
+}
+
+fn create_str_replacer<'a>(from: &'a str, to: &'a str) -> impl Fn(&str) -> Option<String> + 'a {
+    move |s: &str| -> Option<String> {
+        if s.contains(from) {
+            Some(s.replace(from, to))
+        } else {
+            None
+        }
     }
 }
 
