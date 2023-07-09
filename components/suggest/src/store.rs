@@ -1,7 +1,6 @@
 use std::{
     ops::Deref,
     path::{Path, PathBuf},
-    sync::Arc,
 };
 
 use once_cell::sync::OnceCell;
@@ -11,8 +10,7 @@ use serde_derive::*;
 use crate::{
     db::{ConnectionType, SuggestDb, LAST_FETCH_META_KEY},
     error::SuggestApiError,
-    query::SuggestionQuery,
-    RemoteRecordId, RemoteSuggestion, Result,
+    RemoteRecordId, RemoteSuggestion, Result, Suggestion, SuggestionQuery,
 };
 
 const REMOTE_SETTINGS_SERVER_URL: &str = "https://firefox.settings.services.mozilla.com/v1";
@@ -73,14 +71,26 @@ impl SuggestStore {
 
     /// Returns this provider's database connections, initializing them if
     /// they're not already open.
-    pub(crate) fn dbs(&self) -> Result<&SuggestStoreDbs> {
+    fn dbs(&self) -> Result<&SuggestStoreDbs> {
         self.dbs
             .get_or_try_init(|| SuggestStoreDbs::open(&self.path))
     }
 
-    /// Returns a builder for querying the database.
-    pub fn query(self: Arc<Self>) -> Arc<SuggestionQuery> {
-        Arc::new(SuggestionQuery::with_store(self))
+    /// Queries the database for suggestions that match the `keyword`.
+    pub fn query(&self, query: &SuggestionQuery) -> Result<Vec<Suggestion>, SuggestApiError> {
+        if query.keyword.is_empty() {
+            return Ok(Vec::new());
+        }
+        Ok(self
+            .dbs()?
+            .reader
+            .fetch_by_keyword(&query.keyword)?
+            .into_iter()
+            .filter(|suggestion| {
+                (suggestion.is_sponsored && query.include_sponsored)
+                    || (!suggestion.is_sponsored && query.include_non_sponsored)
+            })
+            .collect())
     }
 
     /// Interrupts any ongoing queries. This should be called when the
@@ -188,11 +198,11 @@ impl SuggestStore {
     }
 }
 
-pub(crate) struct SuggestStoreDbs {
+struct SuggestStoreDbs {
     /// A read-write connection used to update the database with new data.
-    pub(crate) writer: SuggestDb,
+    writer: SuggestDb,
     /// A read-only connection used to query the database.
-    pub(crate) reader: SuggestDb,
+    reader: SuggestDb,
 }
 
 impl SuggestStoreDbs {
