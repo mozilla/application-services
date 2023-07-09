@@ -24,7 +24,7 @@ dictionary Suggestion {
     string? click_url;
 };
 
-interface SuggestionProvider {
+interface SuggestStore {
     [Throws=SuggestApiError]
     constructor([ByRef] string path);
 
