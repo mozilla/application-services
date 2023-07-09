@@ -13,8 +13,6 @@ use crate::{
     RemoteRecordId, RemoteSuggestion, Result, Suggestion, SuggestionQuery,
 };
 
-const REMOTE_SETTINGS_SERVER_URL: &str = "https://firefox.settings.services.mozilla.com/v1";
-const REMOTE_SETTINGS_DEFAULT_BUCKET: &str = "main";
 const RS_COLLECTION: &str = "quicksuggest";
 
 /// The store is the entry point to the Suggest component. It incrementally
@@ -52,16 +50,24 @@ pub struct IngestLimits {
 
 impl SuggestStore {
     /// Creates a suggestion provider.
-    pub fn new(path: &str) -> Result<Self, SuggestApiError> {
-        Ok(Self::new_inner(path)?)
+    pub fn new(
+        path: &str,
+        settings_config: Option<RemoteSettingsConfig>,
+    ) -> Result<Self, SuggestApiError> {
+        Ok(Self::new_inner(path, settings_config)?)
     }
 
-    fn new_inner(path: impl AsRef<Path>) -> Result<Self> {
-        let settings_client = remote_settings::Client::new(RemoteSettingsConfig {
-            server_url: Some(REMOTE_SETTINGS_SERVER_URL.into()),
-            bucket_name: Some(REMOTE_SETTINGS_DEFAULT_BUCKET.into()),
-            collection_name: RS_COLLECTION.into(),
-        })?;
+    fn new_inner(
+        path: impl AsRef<Path>,
+        settings_config: Option<RemoteSettingsConfig>,
+    ) -> Result<Self> {
+        let settings_client = remote_settings::Client::new(settings_config.unwrap_or_else(|| {
+            RemoteSettingsConfig {
+                server_url: None,
+                bucket_name: None,
+                collection_name: RS_COLLECTION.into(),
+            }
+        }))?;
         Ok(Self {
             path: path.as_ref().into(),
             dbs: OnceCell::new(),
@@ -277,20 +283,128 @@ struct SuggestAttachmentData(OneOrMany<RemoteSuggestion>);
 mod tests {
     use super::*;
 
+    use std::sync::Once;
+
+    use mockito::{mock, Matcher};
+    use serde_json::json;
+
+    fn before_each() {
+        static ONCE: Once = Once::new();
+        ONCE.call_once(|| {
+            env_logger::init();
+        });
+    }
+
     #[test]
     fn is_thread_safe() {
-        // Ensure that `SuggestionProvider` is usable with UniFFI, which
-        // requires exposed interfaces to be `Send` and `Sync`.
+        before_each();
+
+        // Ensure that `SuggestStore` is usable with UniFFI, which requires
+        // exposed interfaces to be `Send` and `Sync`.
         fn is_send_sync<T: Send + Sync>() {}
         is_send_sync::<SuggestStore>();
     }
 
     #[test]
     fn ingest() -> anyhow::Result<()> {
+        before_each();
+
         viaduct_reqwest::use_reqwest_backend();
 
-        let provider = SuggestStore::new("file:ingest?mode=memory&cache=shared")?;
-        provider.ingest(&IngestLimits { records: Some(3) })?;
+        let server_info_m = mock("GET", "/")
+            .with_body(serde_json::to_vec(&attachment_metadata(&mockito::server_url())).unwrap())
+            .with_status(200)
+            .with_header("content-type", "application/json")
+            .create();
+
+        let records = json!({
+            "data": [{
+                "id": "1234",
+                "type": "data",
+                "last_modified": 15,
+                "attachment": {
+                    "filename": "data-1.json",
+                    "mimetype": "application/json",
+                    "location": "data-1.json",
+                    "hash": "",
+                    "size": 0,
+                },
+            }],
+        });
+        let records_m = mock("GET", "/v1/buckets/main/collections/quicksuggest/records")
+            .match_query(Matcher::Any)
+            .with_body(serde_json::to_vec(&records).unwrap())
+            .with_status(200)
+            .with_header("content-type", "application/json")
+            .create();
+
+        let attachment = json!([{
+            "id": 0,
+            "advertiser": "Los Pollos Hermanos",
+            "iab_category": "8 - Food & Drink",
+            "keywords": ["lo", "los", "los p", "los pollos", "los pollos h", "los pollos hermanos"],
+            "title": "Los Pollos Hermanos - Albuquerque",
+            "url": "https://www.lph-nm.biz",
+            "icon": "5678",
+        }]);
+        let attachment_m = mock("GET", "/attachments/data-1.json")
+            .with_body(serde_json::to_vec(&attachment).unwrap())
+            .with_status(200)
+            .with_header("content-type", "application/json")
+            .create();
+
+        let settings_config = RemoteSettingsConfig {
+            server_url: Some(mockito::server_url()),
+            bucket_name: None,
+            collection_name: "quicksuggest".into(),
+        };
+
+        let store = SuggestStore::new_inner(
+            "file:ingest?mode=memory&cache=shared",
+            Some(settings_config),
+        )?;
+        store.ingest(&IngestLimits { records: None })?;
+
+        server_info_m.expect(1).assert();
+        records_m.expect(1).assert();
+        attachment_m.expect(1).assert();
+
+        assert_eq!(
+            store.dbs()?.reader.get_meta(LAST_FETCH_META_KEY)?,
+            Some(15u64)
+        );
+
+        let suggestions = store.query(&SuggestionQuery {
+            keyword: "lo".into(),
+            include_sponsored: true,
+            ..Default::default()
+        })?;
+        assert_eq!(
+            suggestions,
+            &[Suggestion {
+                block_id: 0,
+                advertiser: "Los Pollos Hermanos".into(),
+                iab_category: "8 - Food & Drink".into(),
+                is_sponsored: true,
+                full_keyword: "los".into(),
+                title: "Los Pollos Hermanos - Albuquerque".into(),
+                url: "https://www.lph-nm.biz".into(),
+                icon: None,
+                impression_url: None,
+                click_url: None,
+            }]
+        );
+
         Ok(())
+    }
+
+    fn attachment_metadata(base_url: &str) -> serde_json::Value {
+        json!({
+            "capabilities": {
+                "attachments": {
+                    "base_url": format!("{}/attachments/", base_url),
+                },
+            },
+        })
     }
 }
