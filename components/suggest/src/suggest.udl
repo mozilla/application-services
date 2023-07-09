@@ -24,12 +24,26 @@ dictionary Suggestion {
     string? click_url;
 };
 
+interface SuggestionQuery {
+    [Self=ByArc]
+    SuggestionQuery keyword([ByRef] string keyword);
+
+    [Self=ByArc]
+    SuggestionQuery include_sponsored(boolean include_sponsored);
+
+    [Self=ByArc]
+    SuggestionQuery include_non_sponsored(boolean include_non_sponsored);
+
+    [Throws=SuggestApiError]
+    sequence<Suggestion> results();
+};
+
 interface SuggestStore {
     [Throws=SuggestApiError]
     constructor([ByRef] string path);
 
-    [Throws=SuggestApiError]
-    sequence<Suggestion> query([ByRef] string keyword);
+    [Self=ByArc]
+    SuggestionQuery query();
 
     void interrupt();
 

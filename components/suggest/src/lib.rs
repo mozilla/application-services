@@ -2,10 +2,12 @@ use serde_derive::*;
 
 mod db;
 mod error;
+mod query;
 mod schema;
 mod store;
 
 pub use error::SuggestApiError;
+pub use query::SuggestionQuery;
 pub use store::{IngestLimits, SuggestStore};
 
 pub type Result<T, E = error::Error> = std::result::Result<T, E>;
