@@ -24,26 +24,18 @@ dictionary Suggestion {
     string? click_url;
 };
 
-interface SuggestionQuery {
-    [Self=ByArc]
-    SuggestionQuery keyword([ByRef] string keyword);
-
-    [Self=ByArc]
-    SuggestionQuery include_sponsored(boolean include_sponsored);
-
-    [Self=ByArc]
-    SuggestionQuery include_non_sponsored(boolean include_non_sponsored);
-
-    [Throws=SuggestApiError]
-    sequence<Suggestion> results();
+dictionary SuggestionQuery {
+    string keyword = "";
+    boolean include_sponsored = false;
+    boolean include_non_sponsored = false;
 };
 
 interface SuggestStore {
     [Throws=SuggestApiError]
     constructor([ByRef] string path);
 
-    [Self=ByArc]
-    SuggestionQuery query();
+    [Throws=SuggestApiError]
+    sequence<Suggestion> query([ByRef] SuggestionQuery query);
 
     void interrupt();
 

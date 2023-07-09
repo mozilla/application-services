@@ -2,12 +2,10 @@ use serde_derive::*;
 
 mod db;
 mod error;
-mod query;
 mod schema;
 mod store;
 
 pub use error::SuggestApiError;
-pub use query::SuggestionQuery;
 pub use store::{IngestLimits, SuggestStore};
 
 pub type Result<T, E = error::Error> = std::result::Result<T, E>;
@@ -53,6 +51,13 @@ pub struct Suggestion {
     pub icon: Option<Vec<u8>>,
     pub impression_url: Option<String>,
     pub click_url: Option<String>,
+}
+
+#[derive(Debug, Default)]
+pub struct SuggestionQuery {
+    pub keyword: String,
+    pub include_sponsored: bool,
+    pub include_non_sponsored: bool,
 }
 
 uniffi::include_scaffolding!("suggest");
