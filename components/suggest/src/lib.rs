@@ -1,12 +1,12 @@
-mod db;
-mod error;
-mod provider;
-mod schema;
-
 use serde_derive::*;
 
+mod db;
+mod error;
+mod schema;
+mod store;
+
 pub use error::SuggestApiError;
-pub use provider::{IngestLimits, SuggestionProvider};
+pub use store::{IngestLimits, SuggestStore};
 
 pub type Result<T, E = error::Error> = std::result::Result<T, E>;
 

@@ -17,30 +17,29 @@ const REMOTE_SETTINGS_SERVER_URL: &str = "https://firefox.settings.services.mozi
 const REMOTE_SETTINGS_DEFAULT_BUCKET: &str = "main";
 const RS_COLLECTION: &str = "quicksuggest";
 
-/// The provider is the entry point to the Suggest component. It incrementally
+/// The store is the entry point to the Suggest component. It incrementally
 /// fetches suggestions from the Remote Settings service, stores them in a local
 /// database, and returns them in response to user queries.
 ///
-/// Your application should create a single provider, and manage it as a
-/// singleton. The provider is thread-safe, and supports concurrent fetches and
-/// ingests. We expect that your application will call `fetch` to show
-/// suggestions as the user types into the address bar, and periodically call
-/// `ingest` in the background to update the database with new suggestions from
-/// Remote Settings.
+/// Your application should create a single store, and manage it as a singleton.
+/// The store is thread-safe, and supports concurrent fetches and ingests. We
+/// expect that your application will call `query` to show suggestions as the
+/// user types into the address bar, and periodically call `ingest` in the
+/// background to update the database with new suggestions from Remote Settings.
 ///
-/// The provider keeps track of the state needed to support incremental
-/// ingestion, but doesn't schedule the ingestion work itself, because the
-/// primitives for scheduling background work vary across platforms: Desktop
-/// might use an idle timer to poll for changes, Android has `WorkManager`, and
-/// iOS has `BGTaskScheduler`.
+/// The store keeps track of the state needed to support incremental ingestion,
+/// but doesn't schedule the ingestion work itself, because the primitives for
+/// scheduling background work vary across platforms: Desktop might use an idle
+/// timer to poll for changes, Android has `WorkManager`, and iOS has
+/// `BGTaskScheduler`.
 ///
 /// Ingestion limits can vary between platforms, too: a mobile browser on a
 /// metered connection might want to request a small subset of the Suggest data
 /// and fetch the rest later, while a Desktop browser on a fast link might
 /// request the entire dataset on first launch.
-pub struct SuggestionProvider {
+pub struct SuggestStore {
     path: PathBuf,
-    dbs: OnceCell<SuggestionProviderDbs>,
+    dbs: OnceCell<SuggestStoreDbs>,
     settings_client: remote_settings::Client,
 }
 
@@ -51,7 +50,7 @@ pub struct IngestLimits {
     pub records: Option<u64>,
 }
 
-impl SuggestionProvider {
+impl SuggestStore {
     /// Creates a suggestion provider.
     pub fn new(path: &str) -> Result<Self, SuggestApiError> {
         Ok(Self::new_inner(path)?)
@@ -72,9 +71,9 @@ impl SuggestionProvider {
 
     /// Returns this provider's database connections, initializing them if
     /// they're not already open.
-    fn dbs(&self) -> Result<&SuggestionProviderDbs> {
+    fn dbs(&self) -> Result<&SuggestStoreDbs> {
         self.dbs
-            .get_or_try_init(|| SuggestionProviderDbs::open(&self.path))
+            .get_or_try_init(|| SuggestStoreDbs::open(&self.path))
     }
 
     /// Queries the database for suggestions that match the `keyword`.
@@ -187,14 +186,14 @@ impl SuggestionProvider {
     }
 }
 
-struct SuggestionProviderDbs {
+struct SuggestStoreDbs {
     /// A read-write connection used to update the database with new data.
     writer: SuggestDb,
     /// A read-only connection used to query the database.
     reader: SuggestDb,
 }
 
-impl SuggestionProviderDbs {
+impl SuggestStoreDbs {
     fn open(path: &Path) -> Result<Self> {
         // Order is important here: the writer must be opened first, so that it
         // can set up the database and run any migrations.
@@ -271,14 +270,14 @@ mod tests {
         // Ensure that `SuggestionProvider` is usable with UniFFI, which
         // requires exposed interfaces to be `Send` and `Sync`.
         fn is_send_sync<T: Send + Sync>() {}
-        is_send_sync::<SuggestionProvider>();
+        is_send_sync::<SuggestStore>();
     }
 
     #[test]
     fn ingest() -> anyhow::Result<()> {
         viaduct_reqwest::use_reqwest_backend();
 
-        let provider = SuggestionProvider::new("file:ingest?mode=memory&cache=shared")?;
+        let provider = SuggestStore::new("file:ingest?mode=memory&cache=shared")?;
         provider.ingest(&IngestLimits { records: Some(3) })?;
         Ok(())
     }
