@@ -41,7 +41,7 @@ pub struct RemoteSuggestion {
 
 #[derive(Clone, Debug, Eq, Hash, PartialEq)]
 pub struct Suggestion {
-    pub block_id: String,
+    pub block_id: i64,
     pub advertiser: String,
     pub iab_category: String,
     pub is_sponsored: bool,

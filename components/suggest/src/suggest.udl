@@ -12,7 +12,7 @@ dictionary IngestLimits {
 };
 
 dictionary Suggestion {
-    string block_id;
+    i64 block_id;
     string advertiser;
     string iab_category;
     boolean is_sponsored;
