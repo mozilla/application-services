@@ -21,7 +21,7 @@ pub const SQL: &str = "
     CREATE TABLE suggestions(
         id INTEGER PRIMARY KEY,
         record_id TEXT NOT NULL,
-        block_id TEXT NOT NULL,
+        block_id INTEGER NOT NULL,
         advertiser TEXT NOT NULL,
         iab_category TEXT NOT NULL,
         title TEXT NOT NULL,
