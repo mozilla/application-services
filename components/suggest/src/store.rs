@@ -1,6 +1,7 @@
 use std::{
     ops::Deref,
     path::{Path, PathBuf},
+    sync::Arc,
 };
 
 use once_cell::sync::OnceCell;
@@ -10,7 +11,8 @@ use serde_derive::*;
 use crate::{
     db::{ConnectionType, SuggestDb, LAST_FETCH_META_KEY},
     error::SuggestApiError,
-    RemoteRecordId, RemoteSuggestion, Result, Suggestion,
+    query::SuggestionQuery,
+    RemoteRecordId, RemoteSuggestion, Result,
 };
 
 const REMOTE_SETTINGS_SERVER_URL: &str = "https://firefox.settings.services.mozilla.com/v1";
@@ -71,14 +73,14 @@ impl SuggestStore {
 
     /// Returns this provider's database connections, initializing them if
     /// they're not already open.
-    fn dbs(&self) -> Result<&SuggestStoreDbs> {
+    pub(crate) fn dbs(&self) -> Result<&SuggestStoreDbs> {
         self.dbs
             .get_or_try_init(|| SuggestStoreDbs::open(&self.path))
     }
 
-    /// Queries the database for suggestions that match the `keyword`.
-    pub fn query(&self, keyword: &str) -> Result<Vec<Suggestion>, SuggestApiError> {
-        Ok(self.dbs()?.reader.fetch_by_keyword(keyword)?)
+    /// Returns a builder for querying the database.
+    pub fn query(self: Arc<Self>) -> Arc<SuggestionQuery> {
+        Arc::new(SuggestionQuery::with_store(self))
     }
 
     /// Interrupts any ongoing queries. This should be called when the
@@ -186,11 +188,11 @@ impl SuggestStore {
     }
 }
 
-struct SuggestStoreDbs {
+pub(crate) struct SuggestStoreDbs {
     /// A read-write connection used to update the database with new data.
-    writer: SuggestDb,
+    pub(crate) writer: SuggestDb,
     /// A read-only connection used to query the database.
-    reader: SuggestDb,
+    pub(crate) reader: SuggestDb,
 }
 
 impl SuggestStoreDbs {
