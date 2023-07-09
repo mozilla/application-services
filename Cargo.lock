@@ -3810,7 +3810,9 @@ name = "suggest"
 version = "0.1.0"
 dependencies = [
  "anyhow",
+ "env_logger 0.7.1",
  "interrupt-support",
+ "mockito",
  "once_cell",
  "remote_settings",
  "rusqlite",

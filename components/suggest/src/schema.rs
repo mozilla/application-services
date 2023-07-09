@@ -54,6 +54,7 @@ impl ConnectionInitializer for SuggestConnectionInitializer {
             PRAGMA foreign_keys = ON;
         ";
         conn.execute_batch(initial_pragmas)?;
+        sql_support::debug_tools::define_debug_functions(conn)?;
 
         Ok(())
     }

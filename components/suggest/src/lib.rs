@@ -1,3 +1,4 @@
+use remote_settings::RemoteSettingsConfig;
 use serde_derive::*;
 
 mod db;

@@ -1,3 +1,6 @@
+[External="remote_settings"]
+typedef extern RemoteSettingsConfig;
+
 namespace suggest {
 
 };
@@ -32,7 +35,7 @@ dictionary SuggestionQuery {
 
 interface SuggestStore {
     [Throws=SuggestApiError]
-    constructor([ByRef] string path);
+    constructor([ByRef] string path, optional RemoteSettingsConfig? settings_config = null);
 
     [Throws=SuggestApiError]
     sequence<Suggestion> query([ByRef] SuggestionQuery query);
