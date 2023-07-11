@@ -75,14 +75,14 @@ impl ExperimentSource {
         let value = self.try_into()?;
 
         // Find the named branch.
-        let branches = value_utils::try_find_branches(&value)?;
+        let branches = value_utils::try_find_branches_from_experiment(&value)?;
         let b = branches
             .iter()
             .find(|b| b.get_str("slug").unwrap() == branch)
             .ok_or_else(|| anyhow::format_err!("Branch '{branch}' does not exist"))?;
 
         // Find the features for this branch: there may be more than one.
-        let feature_values = value_utils::try_find_features(b)?;
+        let feature_values = value_utils::try_find_features_from_branch(b)?;
 
         // Now extract the relevant features out of the branches.
         let mut result = serde_json::value::Map::new();

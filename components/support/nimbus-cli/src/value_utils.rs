@@ -4,7 +4,8 @@
 
 use anyhow::Result;
 use serde::{Deserialize, Serialize};
-use serde_json::Value;
+use serde_json::{Map, Value};
+use std::collections::HashMap;
 use std::path::Path;
 
 use crate::NimbusApp;
@@ -18,6 +19,7 @@ pub(crate) trait CliUtils {
     fn get_object<'a>(&'a self, key: &str) -> Result<&'a Value>;
     fn get_u64(&self, key: &str) -> Result<u64>;
 
+    fn has(&self, key: &str) -> bool;
     fn set<V>(&mut self, key: &str, value: V) -> Result<()>
     where
         V: Serialize;
@@ -120,6 +122,10 @@ impl CliUtils for Value {
         };
         Ok(())
     }
+
+    fn has(&self, key: &str) -> bool {
+        self.get(key).is_some()
+    }
 }
 
 pub(crate) fn try_find_experiment(value: &Value, slug: &str) -> Result<Value> {
@@ -143,11 +149,11 @@ pub(crate) fn try_extract_data_list(value: &Value) -> Result<Vec<Value>> {
     Ok(value.get_array("data")?.to_vec())
 }
 
-pub(crate) fn try_find_branches(value: &Value) -> Result<Vec<Value>> {
+pub(crate) fn try_find_branches_from_experiment(value: &Value) -> Result<Vec<Value>> {
     Ok(value.get_array("branches")?.to_vec())
 }
 
-pub(crate) fn try_find_features(value: &Value) -> Result<Vec<Value>> {
+pub(crate) fn try_find_features_from_branch(value: &Value) -> Result<Vec<Value>> {
     let features = value.get_array("features");
     Ok(if features.is_ok() {
         features?.to_vec()
@@ -157,6 +163,63 @@ pub(crate) fn try_find_features(value: &Value) -> Result<Vec<Value>> {
             .expect("Expected a feature or features in a branch");
         vec![feature.clone()]
     })
+}
+
+pub(crate) fn try_find_mut_features_from_branch<'a>(
+    value: &'a mut Value,
+) -> Result<HashMap<String, &'a mut Value>> {
+    let mut res = HashMap::new();
+    if value.has("features") {
+        let features = value.get_mut_array("features")?;
+        for f in features {
+            res.insert(
+                f.get_str("featureId")?.to_string(),
+                f.get_mut_object("value")?,
+            );
+        }
+    } else {
+        let f: &'a mut Value = value.get_mut_object("feature")?;
+        res.insert(
+            f.get_str("featureId")?.to_string(),
+            f.get_mut_object("value")?,
+        );
+    }
+    Ok(res)
+}
+
+pub(crate) fn patch_value(this: &mut Value, patch: &Value) -> bool {
+    match (this, patch) {
+        (Value::Object(t), Value::Object(p)) => patch_map(t, p),
+        (Value::String(t), Value::String(p)) => *t = p.clone(),
+        (Value::Bool(t), Value::Bool(p)) => *t = *p,
+        (Value::Number(t), Value::Number(p)) => *t = p.clone(),
+        (Value::Array(t), Value::Array(p)) => *t = p.clone(),
+        (Value::Null, Value::Null) => (),
+        _ => return false,
+    };
+    true
+}
+
+fn patch_map(this: &mut Map<String, Value>, patch: &Map<String, Value>) {
+    for (k, v) in patch {
+        match (this.get_mut(k), v) {
+            (Some(_), Value::Null) => {
+                this.remove(k);
+            }
+            (_, Value::Null) => {
+                // If the patch is null, then don't add it to this value.
+            }
+            (Some(t), p) => {
+                if !patch_value(t, p) {
+                    println!("Warning: the patched key '{k}' has different types: {t} != {p}");
+                    this.insert(k.clone(), v.clone());
+                }
+            }
+            (None, _) => {
+                this.insert(k.clone(), v.clone());
+            }
+        }
+    }
 }
 
 fn prepare_recipe(
@@ -410,6 +473,68 @@ mod tests {
             }),
             prepare_experiment(&src, &params, "a-branch", true, true)?
         );
+        Ok(())
+    }
+
+    #[test]
+    fn test_patch_value() -> Result<()> {
+        let mut v1 = json!({
+            "string": "string",
+            "obj": {
+                "string": "string",
+                "num": 1,
+                "bool": false,
+            },
+            "num": 1,
+            "bool": false,
+        });
+        let ov1 = json!({
+            "string": "patched",
+            "obj": {
+                "string": "patched",
+            },
+            "num": 2,
+            "bool": true,
+        });
+
+        patch_value(&mut v1, &ov1);
+
+        let expected = json!({
+            "string": "patched",
+            "obj": {
+                "string": "patched",
+                "num": 1,
+                "bool": false,
+            },
+            "num": 2,
+            "bool": true,
+        });
+
+        assert_eq!(&expected, &v1);
+
+        let mut v1 = json!({
+            "string": "string",
+            "obj": {
+                "string": "string",
+                "num": 1,
+                "bool": false,
+            },
+            "num": 1,
+            "bool": false,
+        });
+        let ov1 = json!({
+            "obj": null,
+            "never": null,
+        });
+        patch_value(&mut v1, &ov1);
+        let expected = json!({
+            "string": "string",
+            "num": 1,
+            "bool": false,
+        });
+
+        assert_eq!(&expected, &v1);
+
         Ok(())
     }
 }
