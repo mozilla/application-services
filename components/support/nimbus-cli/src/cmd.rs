@@ -5,7 +5,8 @@
 use crate::{
     sources::ManifestSource,
     value_utils::{
-        prepare_experiment, prepare_rollout, try_find_branches, try_find_features, CliUtils,
+        prepare_experiment, prepare_rollout, try_find_branches_from_experiment,
+        try_find_features_from_branch, CliUtils,
     },
     AppCommand, AppOpenArgs, ExperimentListSource, ExperimentSource, LaunchableApp, NimbusApp,
 };
@@ -583,9 +584,9 @@ impl NimbusApp {
         };
 
         let mut is_valid = true;
-        for b in try_find_branches(&value)? {
+        for b in try_find_branches_from_experiment(&value)? {
             let branch = b.get_str("slug")?;
-            for f in try_find_features(&b)? {
+            for f in try_find_features_from_branch(&b)? {
                 let id = f.get_str("featureId")?;
                 let value = f
                     .get("value")

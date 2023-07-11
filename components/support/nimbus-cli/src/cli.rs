@@ -224,6 +224,13 @@ pub(crate) enum CliCommand {
         /// One or more files containing a feature config for the feature.
         files: Vec<PathBuf>,
 
+        /// An optional patch file, used to patch feature configurations
+        ///
+        /// This is of the format that comes from the
+        /// `features --multi` or `defaults` commands.
+        #[arg(long, value_name = "PATCH_FILE")]
+        patch: Option<PathBuf>,
+
         #[command(flatten)]
         open: OpenArgs,
 
@@ -305,6 +312,13 @@ pub(crate) struct ExperimentArgs {
     /// By default, the file is fetched from the v6 api of experimenter.
     #[arg(long, default_value = "false")]
     pub(crate) use_rs: bool,
+
+    /// An optional patch file, used to patch feature configurations
+    ///
+    /// This is of the format that comes from the
+    /// `features --multi` or `defaults` commands.
+    #[arg(long, value_name = "PATCH_FILE")]
+    pub(crate) patch: Option<PathBuf>,
 }
 
 #[derive(Args, Clone, Debug, Default)]

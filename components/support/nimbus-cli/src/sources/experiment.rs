@@ -3,12 +3,17 @@
 // file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
 use anyhow::{bail, Result};
+use serde::{Deserialize, Serialize};
 use serde_json::Value;
+use std::collections::BTreeMap;
 use std::{
     fmt::Display,
     path::{Path, PathBuf},
 };
 
+use crate::value_utils::{
+    patch_value, read_from_file, try_find_mut_features_from_branch, CliUtils,
+};
 use crate::{
     cli::{Cli, CliCommand, ExperimentArgs},
     config, feature_utils,
@@ -32,6 +37,10 @@ pub(crate) enum ExperimentSource {
     FromApiV6 {
         slug: String,
         endpoint: String,
+    },
+    WithPatchFile {
+        patch: PathBuf,
+        inner: Box<ExperimentSource>,
     },
     #[cfg(test)]
     FromTestFixture {
@@ -130,7 +139,7 @@ impl TryFrom<&ExperimentArgs> for ExperimentSource {
     fn try_from(value: &ExperimentArgs) -> Result<Self> {
         let experiment = &value.experiment;
         let is_urlish = experiment.contains("://");
-        Ok(match &value.file {
+        let experiment = match &value.file {
             Some(_) if is_urlish => {
                 anyhow::bail!("Cannot load an experiment from a file and a URL at the same time")
             }
@@ -138,6 +147,13 @@ impl TryFrom<&ExperimentArgs> for ExperimentSource {
             Some(file) => Self::try_from_file(file, experiment)?,
             _ if value.use_rs => Self::try_from_rs(experiment)?,
             _ => Self::try_from_api(experiment.as_str())?,
+        };
+        Ok(match &value.patch {
+            Some(file) => Self::WithPatchFile {
+                patch: file.clone(),
+                inner: Box::new(experiment),
+            },
+            _ => experiment,
         })
     }
 }
@@ -151,12 +167,24 @@ impl TryFrom<&Cli> for ExperimentSource {
             | CliCommand::Enroll { experiment, .. }
             | CliCommand::Features { experiment, .. } => experiment.try_into()?,
             CliCommand::TestFeature {
-                feature_id, files, ..
-            } => Self::FromFeatureFiles {
-                app: value.into(),
-                feature_id: feature_id.clone(),
-                files: files.clone(),
-            },
+                feature_id,
+                files,
+                patch,
+                ..
+            } => {
+                let experiment = Self::FromFeatureFiles {
+                    app: value.into(),
+                    feature_id: feature_id.clone(),
+                    files: files.clone(),
+                };
+                match patch {
+                    Some(f) => Self::WithPatchFile {
+                        patch: f.clone(),
+                        inner: Box::new(experiment),
+                    },
+                    _ => experiment,
+                }
+            }
             _ => unreachable!("Cli Arg not supporting getting an experiment source"),
         })
     }
@@ -171,6 +199,7 @@ impl Display for ExperimentSource {
             Self::FromFeatureFiles { feature_id, .. } => {
                 f.write_str(&format!("{feature_id}-experiment"))
             }
+            Self::WithPatchFile { inner, .. } => f.write_str(&format!("{inner} (patched)")),
             #[cfg(test)]
             Self::FromTestFixture { file } => f.write_str(&format!("{file:?}")),
         }
@@ -202,10 +231,34 @@ impl TryFrom<&ExperimentSource> for Value {
                 files,
             } => feature_utils::create_experiment(app, feature_id, files)?,
 
+            ExperimentSource::WithPatchFile { patch, inner } => patch_experiment(inner, patch)?,
+
             #[cfg(test)]
             ExperimentSource::FromTestFixture { file } => value_utils::read_from_file(file)?,
         })
     }
+}
+
+fn patch_experiment(experiment: &ExperimentSource, patch: &PathBuf) -> Result<Value> {
+    let mut value: Value = experiment.try_into()?;
+
+    let patch: FeatureDefaults = read_from_file(patch)?;
+
+    for b in value.get_mut_array("branches")? {
+        for (feature_id, value) in try_find_mut_features_from_branch(b)? {
+            match patch.features.get(&feature_id) {
+                Some(v) => patch_value(value, v),
+                _ => true,
+            };
+        }
+    }
+    Ok(value)
+}
+
+#[derive(Deserialize, Serialize)]
+struct FeatureDefaults {
+    #[serde(flatten)]
+    features: BTreeMap<String, Value>,
 }
 
 #[cfg(test)]
