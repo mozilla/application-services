@@ -172,8 +172,8 @@
 		1BBAC5A627AE0F2E00DAFEF2 /* HistoryMetadata.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; name = HistoryMetadata.swift; path = ../../../components/places/ios/Places/HistoryMetadata.swift; sourceTree = SOURCE_ROOT; };
 		1BBAC5A727AE0F2E00DAFEF2 /* Places.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; name = Places.swift; path = ../../../components/places/ios/Places/Places.swift; sourceTree = SOURCE_ROOT; };
 		1BBAC5AB27AE101400DAFEF2 /* places.udl */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; name = places.udl; path = ../../../components/places/src/places.udl; sourceTree = SOURCE_ROOT; };
-		1BBAC5B027AE11AA00DAFEF2 /* SyncUnlockInfo.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; name = SyncUnlockInfo.swift; path = ../../../components/sync15/ios/SyncUnlockInfo.swift; sourceTree = SOURCE_ROOT; };
-		1BBAC5B127AE11AA00DAFEF2 /* ResultError.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; name = ResultError.swift; path = ../../../components/sync15/ios/ResultError.swift; sourceTree = SOURCE_ROOT; };
+		1BBAC5B027AE11AA00DAFEF2 /* SyncUnlockInfo.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; name = SyncUnlockInfo.swift; path = ../../../components/sync15/ios/Sync15/SyncUnlockInfo.swift; sourceTree = SOURCE_ROOT; };
+		1BBAC5B127AE11AA00DAFEF2 /* ResultError.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; name = ResultError.swift; path = ../../../components/sync15/ios/Sync15/ResultError.swift; sourceTree = SOURCE_ROOT; };
 		1BF50EEE27B1DBD900A9C8A5 /* crashtestFFI.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = crashtestFFI.h; path = ../../../components/crashtest/ios/Generated/crashtestFFI.h; sourceTree = SOURCE_ROOT; };
 		1BF50EEF27B1DBD900A9C8A5 /* crashtest.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; name = crashtest.swift; path = ../../../components/crashtest/ios/Generated/crashtest.swift; sourceTree = SOURCE_ROOT; };
 		1BF50EF527B1DD7D00A9C8A5 /* nimbusFFI.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = nimbusFFI.h; path = ../../../components/nimbus/ios/Generated/nimbusFFI.h; sourceTree = SOURCE_ROOT; };
@@ -211,7 +211,7 @@
 		F81C7B9929DE309C00FAF8F9 /* SyncManagerComponent.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; name = SyncManagerComponent.swift; path = ../../../components/sync_manager/ios/SyncManager/SyncManagerComponent.swift; sourceTree = SOURCE_ROOT; };
 		F85ED648299C1F49005EEF36 /* RustSyncTelemetryPingTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RustSyncTelemetryPingTests.swift; sourceTree = "<group>"; };
 		F8AAC1CC298B41FC000BCDEC /* syncmanager.udl */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; name = syncmanager.udl; path = ../../../components/sync_manager/src/syncmanager.udl; sourceTree = SOURCE_ROOT; };
-		F8BEFFD9299C4F1100776186 /* RustSyncTelemetryPing.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; name = RustSyncTelemetryPing.swift; path = ../../../components/sync15/ios/RustSyncTelemetryPing.swift; sourceTree = SOURCE_ROOT; };
+		F8BEFFD9299C4F1100776186 /* RustSyncTelemetryPing.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; name = RustSyncTelemetryPing.swift; path = ../../../components/sync15/ios/Sync15/RustSyncTelemetryPing.swift; sourceTree = SOURCE_ROOT; };
 		F8C88394298B4EC00006E9E9 /* syncmanagerFFI.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = syncmanagerFFI.h; path = ../../../components/sync_manager/ios/Generated/syncmanagerFFI.h; sourceTree = SOURCE_ROOT; };
 		F8C88395298B4EC00006E9E9 /* syncmanager.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; name = syncmanager.swift; path = ../../../components/sync_manager/ios/Generated/syncmanager.swift; sourceTree = SOURCE_ROOT; };
 /* End PBXFileReference section */
@@ -462,11 +462,9 @@
 		1BBAC5AF27AE112D00DAFEF2 /* Sync15 */ = {
 			isa = PBXGroup;
 			children = (
-				F8BEFFD9299C4F1100776186 /* RustSyncTelemetryPing.swift */,
+				45A2ACC02A5DB0FD00CE1622 /* Sync15 */,
 				F4FCED2D2976605400BA127E /* Generated */,
 				F40A9DCB29765DCB0033D10E /* sync15.udl */,
-				1BBAC5B127AE11AA00DAFEF2 /* ResultError.swift */,
-				1BBAC5B027AE11AA00DAFEF2 /* SyncUnlockInfo.swift */,
 			);
 			name = Sync15;
 			path = ../../../../components/sync15/ios;
@@ -538,6 +536,16 @@
 			name = Generated;
 			path = MozillaTestServices/Generated;
 			sourceTree = SOURCE_ROOT;
+		};
+		45A2ACC02A5DB0FD00CE1622 /* Sync15 */ = {
+			isa = PBXGroup;
+			children = (
+				F8BEFFD9299C4F1100776186 /* RustSyncTelemetryPing.swift */,
+				1BBAC5B127AE11AA00DAFEF2 /* ResultError.swift */,
+				1BBAC5B027AE11AA00DAFEF2 /* SyncUnlockInfo.swift */,
+			);
+			path = Sync15;
+			sourceTree = "<group>";
 		};
 		45CC574328AD9BC8006D55AA /* ErrorSupport */ = {
 			isa = PBXGroup;
