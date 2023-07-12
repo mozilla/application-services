@@ -2,7 +2,10 @@
 * License, v. 2.0. If a copy of the MPL was not distributed with this
 * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-use crate::tests::helpers::get_bucketed_rollout;
+use crate::enrollment::DisqualifiedReason;
+use crate::tests::helpers::{
+    get_bucketed_rollout, get_targeted_experiment, to_local_experiments_string,
+};
 use crate::{
     behavior::{
         EventStore, Interval, IntervalConfig, IntervalData, MultiIntervalCounter,
@@ -1007,49 +1010,6 @@ fn test_fetch_enabled() -> Result<()> {
     Ok(())
 }
 
-fn generate_experiment(slug: &str, targeting: &str) -> serde_json::Value {
-    json!({
-        "schemaVersion": "1.0.0",
-        "slug": slug,
-        "endDate": null,
-        "featureIds": ["some-feature-1"],
-        "branches": [
-            {
-            "slug": "control",
-            "ratio": 1
-            },
-            {
-            "slug": "treatment",
-            "ratio": 1
-            }
-        ],
-        "channel": "nightly",
-        "probeSets": [],
-        "startDate": null,
-        "appName": "fenix",
-        "appId": "org.mozilla.fenix",
-        "bucketConfig": {
-            "count": 10000,
-            "start": 0,
-            "total": 10000,
-            "namespace": "secure-gold",
-            "randomizationUnit": "nimbus_id"
-        },
-        "targeting": targeting,
-        "userFacingName": "test experiment",
-        "referenceBranch": "control",
-        "isEnrollmentPaused": false,
-        "proposedEnrollment": 7,
-        "userFacingDescription": "This is a test experiment for testing purposes.",
-        "id": "secure-copper",
-        "last_modified": 1_602_197_324_372i64,
-    })
-}
-
-fn experiments_to_nimbus_string(experiments: Vec<serde_json::Value>) -> Result<String> {
-    Ok(serde_json::to_string(&json!({ "data": experiments }))?)
-}
-
 #[test]
 fn test_active_enrollment_in_targeting() -> Result<()> {
     let mock_client_id = "client-1".to_string();
@@ -1080,8 +1040,8 @@ fn test_active_enrollment_in_targeting() -> Result<()> {
     client.initialize()?;
 
     // Apply an initial experiment
-    let exp = generate_experiment("test-1", "true");
-    client.set_experiments_locally(experiments_to_nimbus_string(vec![exp])?)?;
+    let exp = get_targeted_experiment("test-1", "true");
+    client.set_experiments_locally(to_local_experiments_string(&[exp])?)?;
     client.apply_pending_experiments()?;
 
     let active_experiments = client.get_active_experiments()?;
@@ -1091,8 +1051,8 @@ fn test_active_enrollment_in_targeting() -> Result<()> {
     assert!(targeting_helper.eval_jexl("'test-1' in active_experiments".to_string())?);
 
     // Apply experiment that targets the above experiment is in enrollments
-    let exp = generate_experiment("test-2", "'test-1' in enrollments");
-    client.set_experiments_locally(experiments_to_nimbus_string(vec![exp])?)?;
+    let exp = get_targeted_experiment("test-2", "'test-1' in enrollments");
+    client.set_experiments_locally(to_local_experiments_string(&[exp])?)?;
     client.apply_pending_experiments()?;
 
     let active_experiments = client.get_active_experiments()?;
@@ -1113,9 +1073,11 @@ fn test_previous_enrollments_in_targeting() -> Result<()> {
 
     let temp_dir = tempfile::tempdir()?;
 
-    let slug_1 = "test-1";
-    let slug_2 = "test-2";
-    let slug_3 = "ro-1";
+    let slug_1 = "experiment-1-was-enrolled";
+    let slug_2 = "experiment-2-dq-not-targeted";
+    let slug_3 = "experiment-3-dq-error";
+    let slug_4 = "experiment-4-dq-opt-out";
+    let slug_5 = "rollout-1-dq-not-selected";
 
     let app_context = AppContext {
         app_name: "fenix".to_string(),
@@ -1133,6 +1095,7 @@ fn test_previous_enrollments_in_targeting() -> Result<()> {
             ..AvailableRandomizationUnits::default()
         },
     )?;
+
     let targeting_attributes = TargetingAttributes {
         app_context,
         ..Default::default()
@@ -1141,42 +1104,113 @@ fn test_previous_enrollments_in_targeting() -> Result<()> {
     client.initialize()?;
 
     // Apply an initial experiment
-    let exp_1 = generate_experiment(slug_1, "true");
-    let exp_2 = generate_experiment(slug_2, "true");
-    let ro_1 = get_bucketed_rollout(slug_3, 10_000);
-    client.set_experiments_locally(experiments_to_nimbus_string(vec![
+    let exp_1 = get_targeted_experiment(slug_1, "true");
+    let exp_2 = get_targeted_experiment(slug_2, "true");
+    let exp_3 = get_targeted_experiment(slug_3, "true");
+    let exp_4 = get_targeted_experiment(slug_4, "true");
+    let ro_1 = get_bucketed_rollout(slug_5, 10_000);
+    client.set_experiments_locally(to_local_experiments_string(&[
         exp_1,
         exp_2,
+        exp_3,
+        exp_4,
         serde_json::to_value(ro_1)?,
     ])?)?;
     client.apply_pending_experiments()?;
 
     let active_experiments = client.get_active_experiments()?;
-    assert_eq!(active_experiments.len(), 3);
+    assert_eq!(active_experiments.len(), 5);
 
     let targeting_helper = client.create_targeting_helper(None)?;
     assert!(targeting_helper.eval_jexl(format!("'{}' in active_experiments", slug_1))?);
     assert!(targeting_helper.eval_jexl(format!("'{}' in active_experiments", slug_2))?);
     assert!(targeting_helper.eval_jexl(format!("'{}' in active_experiments", slug_3))?);
+    assert!(targeting_helper.eval_jexl(format!("'{}' in active_experiments", slug_4))?);
+    assert!(targeting_helper.eval_jexl(format!("'{}' in active_experiments", slug_5))?);
+    assert!(targeting_helper.eval_jexl(format!("'{}' in enrollments", slug_1))?);
+    assert!(targeting_helper.eval_jexl(format!("'{}' in enrollments", slug_2))?);
+    assert!(targeting_helper.eval_jexl(format!("'{}' in enrollments", slug_3))?);
+    assert!(targeting_helper.eval_jexl(format!("'{}' in enrollments", slug_4))?);
+    assert!(targeting_helper.eval_jexl(format!("'{}' in enrollments", slug_5))?);
 
     // Apply empty first experiment, disqualifying second experiment, and decreased bucket rollout
-    let exp_2 = generate_experiment(slug_2, "false");
-    let ro_1 = get_bucketed_rollout(slug_3, 0);
-    let experiment_json =
-        serde_json::to_string(&json!({"data": [exp_2, serde_json::to_value(ro_1)?]}))?;
+    let exp_2 = get_targeted_experiment(slug_2, "false");
+    let exp_3 = get_targeted_experiment(slug_3, "error_out");
+    let exp_4 = get_targeted_experiment(slug_4, "true");
+    let ro_1 = get_bucketed_rollout(slug_5, 0);
+    let experiment_json = serde_json::to_string(
+        &json!({"data": [exp_2, exp_3, exp_4, serde_json::to_value(ro_1)?]}),
+    )?;
     client.set_experiments_locally(experiment_json)?;
     client.apply_pending_experiments()?;
+    client.opt_out(slug_4.to_string())?;
 
     let active_experiments = client.get_active_experiments()?;
     assert_eq!(active_experiments.len(), 0);
+    let db = client.db()?;
+    let enrollments: Vec<ExperimentEnrollment> = db
+        .get_store(StoreId::Enrollments)
+        .collect_all(&db.write()?)?;
+    assert_eq!(enrollments.len(), 5);
+    assert!(matches!(
+        enrollments.get(0).unwrap(),
+        ExperimentEnrollment {
+            slug: _slug_1,
+            status: EnrollmentStatus::WasEnrolled { .. }
+        }
+    ));
+    assert!(matches!(
+        enrollments.get(1).unwrap(),
+        ExperimentEnrollment {
+            slug: _slug_2,
+            status: EnrollmentStatus::Disqualified {
+                reason: DisqualifiedReason::NotTargeted,
+                ..
+            }
+        }
+    ));
+    assert!(matches!(
+        enrollments.get(2).unwrap(),
+        ExperimentEnrollment {
+            slug: _slug_3,
+            status: EnrollmentStatus::Disqualified {
+                reason: DisqualifiedReason::Error,
+                ..
+            }
+        }
+    ));
+    assert!(matches!(
+        enrollments.get(3).unwrap(),
+        ExperimentEnrollment {
+            slug: _slug_4,
+            status: EnrollmentStatus::Disqualified {
+                reason: DisqualifiedReason::OptOut,
+                ..
+            }
+        }
+    ));
+    assert!(matches!(
+        enrollments.get(4).unwrap(),
+        ExperimentEnrollment {
+            slug: _slug_5,
+            status: EnrollmentStatus::Disqualified {
+                reason: DisqualifiedReason::NotSelected,
+                ..
+            }
+        }
+    ));
 
     let targeting_helper = client.create_targeting_helper(None)?;
     assert!(!targeting_helper.eval_jexl(format!("'{}' in active_experiments", slug_1))?);
     assert!(!targeting_helper.eval_jexl(format!("'{}' in active_experiments", slug_2))?);
     assert!(!targeting_helper.eval_jexl(format!("'{}' in active_experiments", slug_3))?);
+    assert!(!targeting_helper.eval_jexl(format!("'{}' in active_experiments", slug_4))?);
+    assert!(!targeting_helper.eval_jexl(format!("'{}' in active_experiments", slug_5))?);
     assert!(targeting_helper.eval_jexl(format!("'{}' in enrollments", slug_1))?);
     assert!(targeting_helper.eval_jexl(format!("'{}' in enrollments", slug_2))?);
     assert!(targeting_helper.eval_jexl(format!("'{}' in enrollments", slug_3))?);
+    assert!(targeting_helper.eval_jexl(format!("'{}' in enrollments", slug_4))?);
+    assert!(targeting_helper.eval_jexl(format!("'{}' in enrollments", slug_5))?);
 
     Ok(())
 }
