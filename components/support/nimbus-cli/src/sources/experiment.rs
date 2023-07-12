@@ -11,9 +11,7 @@ use std::{
     path::{Path, PathBuf},
 };
 
-use crate::value_utils::{
-    patch_value, read_from_file, try_find_mut_features_from_branch, CliUtils,
-};
+use crate::value_utils::{read_from_file, try_find_mut_features_from_branch, CliUtils, Patch};
 use crate::{
     cli::{Cli, CliCommand, ExperimentArgs},
     config, feature_utils,
@@ -240,14 +238,17 @@ impl TryFrom<&ExperimentSource> for Value {
 }
 
 fn patch_experiment(experiment: &ExperimentSource, patch: &PathBuf) -> Result<Value> {
-    let mut value: Value = experiment.try_into()?;
+    let mut value: Value = experiment
+        .try_into()
+        .map_err(|e| anyhow::Error::msg(format!("Problem loading experiment: {e}")))?;
 
-    let patch: FeatureDefaults = read_from_file(patch)?;
+    let patch: FeatureDefaults = read_from_file(patch)
+        .map_err(|e| anyhow::Error::msg(format!("Problem loading patch file: {e}")))?;
 
     for b in value.get_mut_array("branches")? {
         for (feature_id, value) in try_find_mut_features_from_branch(b)? {
             match patch.features.get(&feature_id) {
-                Some(v) => patch_value(value, v),
+                Some(v) => value.patch(v),
                 _ => true,
             };
         }

@@ -59,25 +59,37 @@ The experiment slug is a combination of the actual slug, and the server it came 
 
 These can be further combined: e.g. $slug, preview/$slug, stage/$slug, stage/preview/$slug
 
-Usage: nimbus-cli --app <APP> --channel <CHANNEL> enroll [OPTIONS] --branch <BRANCH> <SLUG> [ROLLOUTS]...
+Usage: nimbus-cli --app <APP> --channel <CHANNEL> enroll [OPTIONS] --branch <BRANCH> <EXPERIMENT_SLUG> [ROLLOUTS]... [-- <PASSTHROUGH_ARGS>...]
 
 Arguments:
-  <SLUG>
+  <EXPERIMENT_SLUG>
           The experiment slug, including the server and collection
 
   [ROLLOUTS]...
           Optional rollout slugs, including the server and collection
 
+  [PASSTHROUGH_ARGS]...
+          Optionally, add platform specific arguments to the adb or xcrun command.
+
+          By default, arguments are added to the end of the command, likely to be passed directly to the app.
+
+          Arguments before a special placeholder `{}` are passed to `adb am start` or `xcrun simctl launch` commands directly.
+
 Options:
       --file <EXPERIMENTS_FILE>
           An optional file from which to get the experiment.
-          
+
           By default, the file is fetched from the server.
 
       --use-rs
           Use remote settings to fetch the experiment recipe.
-          
+
           By default, the file is fetched from the v6 api of experimenter.
+
+      --patch <PATCH_FILE>
+          An optional patch file, used to patch feature configurations
+
+          This is of the format that comes from the `features --multi` or `defaults` commands.
 
   -b, --branch <BRANCH>
           The branch slug
@@ -96,7 +108,7 @@ Options:
 
       --preserve-nimbus-db
           Keeps existing enrollments and experiments before enrolling.
-          
+
           This is unlikely what you want to do.
 
       --no-validate
@@ -110,7 +122,7 @@ Options:
 
       --ref <APP_VERSION>
           The branch/tag/commit for the version of the manifest to get from Github
-          
+
           [default: main]
 
   -h, --help
@@ -152,7 +164,9 @@ Configure an application feature with one or more feature config files.
 
 One file per branch. The branch slugs will correspond to the file names.
 
-Usage: nimbus-cli --app <APP> --channel <CHANNEL> test-feature [OPTIONS] <FEATURE_ID> [FILES]...
+By default, the files are validated against the manifest; this can be overridden with `--no-validate`.
+
+Usage: nimbus-cli --app <APP> --channel <CHANNEL> test-feature [OPTIONS] <FEATURE_ID> [FILES]... [-- <PASSTHROUGH_ARGS>...]
 
 Arguments:
   <FEATURE_ID>
@@ -161,14 +175,38 @@ Arguments:
   [FILES]...
           One or more files containing a feature config for the feature
 
+  [PASSTHROUGH_ARGS]...
+          Optionally, add platform specific arguments to the adb or xcrun command.
+          
+          By default, arguments are added to the end of the command, likely to be passed directly to the app.
+          
+          Arguments before a special placeholder `{}` are passed to `adb am start` or `xcrun simctl launch` commands directly.
+
 Options:
+      --patch <PATCH_FILE>
+          An optional patch file, used to patch feature configurations
+          
+          This is of the format that comes from the `features --multi` or `defaults` commands.
+
+      --deeplink <DEEPLINK>
+          Optional deeplink. If present, launch with this link
+
       --reset-app
           Resets the app back to its initial state before launching
 
-      --deeplink <DEEPLINK>
-          Optional deeplink.
+      --no-validate
+          Don't validate the feature config files before enrolling
 
-          Instead of mimicking the app launcher, send open a URL to the device, which may or may not be handled by the app.
+      --manifest <MANIFEST_FILE>
+          An optional manifest file
+
+      --version <APP_VERSION>
+          An optional version of the app. If present, constructs the `ref` from an app specific template. Due to inconsistencies in branching names, this isn't always reliable
+
+      --ref <APP_VERSION>
+          The branch/tag/commit for the version of the manifest to get from Github
+          
+          [default: main]
 
   -h, --help
           Print help (see a summary with '-h')
