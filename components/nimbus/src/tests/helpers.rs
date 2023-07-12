@@ -9,6 +9,7 @@ use crate::{
     AppContext, EnrollmentStatus, Experiment, FeatureConfig, NimbusTargetingHelper,
     TargetingAttributes,
 };
+use serde::Serialize;
 use serde_json::{json, Value};
 use std::collections::HashSet;
 use uuid::Uuid;
@@ -384,4 +385,52 @@ pub fn get_multi_feature_experiment(
 
 pub fn no_coenrolling_features() -> HashSet<&'static str> {
     Default::default()
+}
+
+#[cfg_attr(not(feature = "stateful"), allow(unused))]
+pub fn to_local_experiments_string<S>(experiments: &[S]) -> crate::Result<String>
+where
+    S: Serialize,
+{
+    Ok(serde_json::to_string(&json!({ "data": experiments }))?)
+}
+
+#[cfg_attr(not(feature = "stateful"), allow(unused))]
+pub fn get_targeted_experiment(slug: &str, targeting: &str) -> serde_json::Value {
+    json!({
+        "schemaVersion": "1.0.0",
+        "slug": slug,
+        "endDate": null,
+        "featureIds": ["some-feature-1"],
+        "branches": [
+            {
+            "slug": "control",
+            "ratio": 1
+            },
+            {
+            "slug": "treatment",
+            "ratio": 1
+            }
+        ],
+        "channel": "nightly",
+        "probeSets": [],
+        "startDate": null,
+        "appName": "fenix",
+        "appId": "org.mozilla.fenix",
+        "bucketConfig": {
+            "count": 10000,
+            "start": 0,
+            "total": 10000,
+            "namespace": "secure-gold",
+            "randomizationUnit": "nimbus_id"
+        },
+        "targeting": targeting,
+        "userFacingName": "test experiment",
+        "referenceBranch": "control",
+        "isEnrollmentPaused": false,
+        "proposedEnrollment": 7,
+        "userFacingDescription": "This is a test experiment for testing purposes.",
+        "id": "secure-copper",
+        "last_modified": 1_602_197_324_372i64,
+    })
 }

@@ -169,7 +169,7 @@ impl ExperimentEnrollment {
         targeting_helper: &NimbusTargetingHelper,
         out_enrollment_events: &mut Vec<EnrollmentChangeEvent>,
     ) -> Result<Self> {
-        Ok(match self.status {
+        Ok(match &self.status {
             EnrollmentStatus::NotEnrolled { .. } | EnrollmentStatus::Error { .. } => {
                 if !is_user_participating || updated_experiment.is_enrollment_paused {
                     self.clone()
@@ -260,6 +260,7 @@ impl ExperimentEnrollment {
             EnrollmentStatus::Disqualified {
                 ref branch,
                 enrollment_id,
+                reason,
                 ..
             } => {
                 if !is_user_participating {
@@ -271,18 +272,14 @@ impl ExperimentEnrollment {
                         slug: self.slug.clone(),
                         status: EnrollmentStatus::Disqualified {
                             reason: DisqualifiedReason::OptOut,
-                            enrollment_id,
+                            enrollment_id: *enrollment_id,
                             branch: branch.clone(),
                         },
                     }
                 } else if updated_experiment.is_rollout
                     && matches!(
-                        self.status,
-                        EnrollmentStatus::Disqualified {
-                            reason: DisqualifiedReason::NotSelected
-                                | DisqualifiedReason::NotTargeted,
-                            ..
-                        }
+                        reason,
+                        DisqualifiedReason::NotSelected | DisqualifiedReason::NotTargeted,
                     )
                 {
                     let evaluated_enrollment = evaluate_enrollment(
