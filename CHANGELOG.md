@@ -16,6 +16,12 @@
   - This adds a non-user-facing method to the `FeatureManifestInterface`, `getCoenrollingFeatureIds`, in both Kotlin and Swift.
 - Exposes a method to get the coenrolling feature ids in the FML client ([#5714](https://github.com/mozilla/application-services/pull/5714)), as well as the NimbusBuilders for both Kotlin and Swift ([#5718](https://github.com/mozilla/application-services/pull/5718)).
 
+## Nimbus CLI [⛅️🔬🔭👾](./components/support/nimbus-cli)
+
+### 🦊 What's Changed 🦊
+
+- Added a `--patch` option to all commands that accept an experiment. ([#5721](https://github.com/mozilla/application-services/pull/5721))
+
 [Full Changelog](In progress)
 
 # v116.0 (_2023-07-03_)

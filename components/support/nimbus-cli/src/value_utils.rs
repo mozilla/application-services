@@ -187,38 +187,49 @@ pub(crate) fn try_find_mut_features_from_branch<'a>(
     Ok(res)
 }
 
-pub(crate) fn patch_value(this: &mut Value, patch: &Value) -> bool {
-    match (this, patch) {
-        (Value::Object(t), Value::Object(p)) => patch_map(t, p),
-        (Value::String(t), Value::String(p)) => *t = p.clone(),
-        (Value::Bool(t), Value::Bool(p)) => *t = *p,
-        (Value::Number(t), Value::Number(p)) => *t = p.clone(),
-        (Value::Array(t), Value::Array(p)) => *t = p.clone(),
-        (Value::Null, Value::Null) => (),
-        _ => return false,
-    };
-    true
+pub(crate) trait Patch {
+    fn patch(&mut self, patch: &Self) -> bool;
 }
 
-fn patch_map(this: &mut Map<String, Value>, patch: &Map<String, Value>) {
-    for (k, v) in patch {
-        match (this.get_mut(k), v) {
-            (Some(_), Value::Null) => {
-                this.remove(k);
+impl Patch for Value {
+    fn patch(&mut self, patch: &Self) -> bool {
+        match (self, patch) {
+            (Value::Object(t), Value::Object(p)) => {
+                t.patch(p);
             }
-            (_, Value::Null) => {
-                // If the patch is null, then don't add it to this value.
-            }
-            (Some(t), p) => {
-                if !patch_value(t, p) {
-                    println!("Warning: the patched key '{k}' has different types: {t} != {p}");
-                    this.insert(k.clone(), v.clone());
+            (Value::String(t), Value::String(p)) => *t = p.clone(),
+            (Value::Bool(t), Value::Bool(p)) => *t = *p,
+            (Value::Number(t), Value::Number(p)) => *t = p.clone(),
+            (Value::Array(t), Value::Array(p)) => *t = p.clone(),
+            (Value::Null, Value::Null) => (),
+            _ => return false,
+        };
+        true
+    }
+}
+
+impl Patch for Map<String, Value> {
+    fn patch(&mut self, patch: &Self) -> bool {
+        for (k, v) in patch {
+            match (self.get_mut(k), v) {
+                (Some(_), Value::Null) => {
+                    self.remove(k);
+                }
+                (_, Value::Null) => {
+                    // If the patch is null, then don't add it to this value.
+                }
+                (Some(t), p) => {
+                    if !t.patch(p) {
+                        println!("Warning: the patched key '{k}' has different types: {t} != {p}");
+                        self.insert(k.clone(), v.clone());
+                    }
+                }
+                (None, _) => {
+                    self.insert(k.clone(), v.clone());
                 }
             }
-            (None, _) => {
-                this.insert(k.clone(), v.clone());
-            }
         }
+        true
     }
 }
 
@@ -497,7 +508,7 @@ mod tests {
             "bool": true,
         });
 
-        patch_value(&mut v1, &ov1);
+        v1.patch(&ov1);
 
         let expected = json!({
             "string": "patched",
@@ -526,7 +537,7 @@ mod tests {
             "obj": null,
             "never": null,
         });
-        patch_value(&mut v1, &ov1);
+        v1.patch(&ov1);
         let expected = json!({
             "string": "string",
             "num": 1,
