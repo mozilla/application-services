@@ -3,6 +3,7 @@
 // file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
 use crate::{
+    protocol::StartAppProtocol,
     sources::ManifestSource,
     value_utils::{
         prepare_experiment, prepare_rollout, try_find_branches_from_experiment,
@@ -168,7 +169,12 @@ impl LaunchableApp {
 
     fn unenroll_all(&self) -> Result<bool> {
         let payload = json! {{ "data": [] }};
-        self.start_app(false, Some(&payload), true, &Default::default())
+        let protocol = StartAppProtocol {
+            log_state: true,
+            experiments: Some(&payload),
+            ..Default::default()
+        };
+        self.start_app(protocol, &Default::default())
     }
 
     fn reset_app(&self) -> Result<bool> {
@@ -282,7 +288,11 @@ impl LaunchableApp {
     }
 
     fn log_state(&self) -> Result<bool> {
-        self.start_app(false, None, true, &Default::default())
+        let protocol = StartAppProtocol {
+            log_state: true,
+            ..Default::default()
+        };
+        self.start_app(protocol, &Default::default())
     }
 
     #[allow(clippy::too_many_arguments)]
@@ -327,13 +337,23 @@ impl LaunchableApp {
         }
 
         let payload = json! {{ "data": recipes }};
-        self.start_app(!preserve_nimbus_db, Some(&payload), true, open)
+        let protocol = StartAppProtocol {
+            reset_db: !preserve_nimbus_db,
+            experiments: Some(&payload),
+            log_state: true,
+        };
+        self.start_app(protocol, open)
     }
 
     fn apply_list(&self, list: &ExperimentListSource, preserve_nimbus_db: &bool) -> Result<bool> {
         let value: Value = list.try_into()?;
 
-        self.start_app(!preserve_nimbus_db, Some(&value), true, &Default::default())
+        let protocol = StartAppProtocol {
+            reset_db: !preserve_nimbus_db,
+            experiments: Some(&value),
+            log_state: true,
+        };
+        self.start_app(protocol, &Default::default())
     }
 
     fn ios_app_container(&self, container: &str) -> Result<String> {
@@ -378,37 +398,25 @@ impl LaunchableApp {
     }
 
     fn open(&self, open: &AppOpenArgs) -> Result<bool> {
-        self.start_app(false, None, false, open)
+        self.start_app(Default::default(), open)
     }
 
-    fn start_app(
-        &self,
-        reset_db: bool,
-        payload: Option<&Value>,
-        log_state: bool,
-        open: &AppOpenArgs,
-    ) -> Result<bool> {
+    fn start_app(&self, app_protocol: StartAppProtocol, open: &AppOpenArgs) -> Result<bool> {
         Ok(match self {
             Self::Android { .. } => self
-                .android_start(reset_db, payload, log_state, open)?
+                .android_start(app_protocol, open)?
                 .spawn()?
                 .wait()?
                 .success(),
             Self::Ios { .. } => self
-                .ios_start(reset_db, payload, log_state, open)?
+                .ios_start(app_protocol, open)?
                 .spawn()?
                 .wait()?
                 .success(),
         })
     }
 
-    fn android_start(
-        &self,
-        reset_db: bool,
-        json: Option<&Value>,
-        log_state: bool,
-        open: &AppOpenArgs,
-    ) -> Result<Command> {
+    fn android_start(&self, app_protocol: StartAppProtocol, open: &AppOpenArgs) -> Result<Command> {
         if let Self::Android {
             package_name,
             activity_name,
@@ -435,14 +443,20 @@ impl LaunchableApp {
                 ]);
             }
 
-            if log_state || json.is_some() || reset_db {
+            let StartAppProtocol {
+                reset_db,
+                experiments,
+                log_state,
+            } = app_protocol;
+
+            if log_state || experiments.is_some() || reset_db {
                 args.extend(["--esn nimbus-cli".to_string(), "--ei version 1".to_string()]);
             }
 
             if reset_db {
                 args.push("--ez reset-db true".to_string());
             }
-            if let Some(s) = json {
+            if let Some(s) = experiments {
                 let json = s.to_string().replace('\'', "&apos;");
                 args.push(format!("--es experiments '{}'", json))
             }
@@ -462,13 +476,7 @@ impl LaunchableApp {
         }
     }
 
-    fn ios_start(
-        &self,
-        reset_db: bool,
-        json: Option<&Value>,
-        log_state: bool,
-        open: &AppOpenArgs,
-    ) -> Result<Command> {
+    fn ios_start(&self, app_protocol: StartAppProtocol, open: &AppOpenArgs) -> Result<Command> {
         if let Self::Ios {
             app_id, device_id, ..
         } = self
@@ -478,7 +486,7 @@ impl LaunchableApp {
             let (starting_args, ending_args) = open.args();
 
             if let Some(deeplink) = self.create_deeplink(open)? {
-                let deeplink = self.longform_deeplink_url(&deeplink, reset_db, json, log_state)?;
+                let deeplink = self.longform_deeplink_url(&deeplink, app_protocol)?;
                 if deeplink.len() >= 2047 {
                     println!("{deeplink}");
                     anyhow::bail!("Deeplink is too long for xcrun simctl openurl. Pasting the URL into the device itself may work.")
@@ -491,7 +499,13 @@ impl LaunchableApp {
                 args.extend_from_slice(starting_args);
                 args.extend([device_id.to_string(), app_id.to_string()]);
 
-                if log_state || json.is_some() || reset_db {
+                let StartAppProtocol {
+                    log_state,
+                    experiments,
+                    reset_db,
+                } = app_protocol;
+
+                if log_state || experiments.is_some() || reset_db {
                     args.extend([
                         "--nimbus-cli".to_string(),
                         "--version".to_string(),
@@ -504,7 +518,7 @@ impl LaunchableApp {
                     // without enroll.
                     args.push("--reset-db".to_string());
                 }
-                if let Some(s) = json {
+                if let Some(s) = experiments {
                     args.extend([
                         "--experiments".to_string(),
                         s.to_string().replace('\'', "&apos;"),

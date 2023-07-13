@@ -3,8 +3,8 @@
 // file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
 use anyhow::{anyhow, Result};
-use serde_json::Value;
 
+use crate::protocol::StartAppProtocol;
 use crate::{AppOpenArgs, LaunchableApp};
 
 impl LaunchableApp {
@@ -37,9 +37,7 @@ impl LaunchableApp {
     pub(crate) fn longform_deeplink_url(
         &self,
         deeplink: &str,
-        reset_db: bool,
-        json: Option<&Value>,
-        log_state: bool,
+        app_protocol: StartAppProtocol,
     ) -> Result<String> {
         use percent_encoding::{AsciiSet, CONTROLS};
         const QUERY: &AsciiSet = &CONTROLS
@@ -59,12 +57,18 @@ impl LaunchableApp {
             .add(b'/')
             .add(b'?')
             .add(b'&');
-        if !reset_db && json.is_none() && !log_state {
+
+        let StartAppProtocol {
+            reset_db,
+            experiments,
+            log_state,
+        } = app_protocol;
+        if !reset_db && experiments.is_none() && !log_state {
             return Ok(deeplink.to_string());
         }
 
         let mut parts: Vec<_> = vec!["--nimbus-cli".to_string()];
-        if let Some(v) = json {
+        if let Some(v) = experiments {
             let json = serde_json::to_string(v)?;
             let string = percent_encoding::utf8_percent_encode(&json, QUERY).to_string();
             parts.push(format!("--experiments={string}"));
