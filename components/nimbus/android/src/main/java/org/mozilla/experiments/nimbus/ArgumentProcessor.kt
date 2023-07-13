@@ -6,6 +6,8 @@ package org.mozilla.experiments.nimbus
 
 import android.content.Context
 import android.content.Intent
+import android.net.Uri
+import androidx.annotation.VisibleForTesting
 import kotlinx.coroutines.runBlocking
 import org.json.JSONException
 import org.json.JSONObject
@@ -50,7 +52,7 @@ fun NimbusInterface.initializeTooling(context: Context, intent: Intent) {
 private fun createCommandLineArgs(intent: Intent): CliArgs? {
     // This incurs almost zero runtime cost in the release path.
     if (!intent.hasExtra(NIMBUS_FLAG)) {
-        return null
+        return intent.data?.let(::createCommandLineArgs)
     }
 
     if (intent.getIntExtra(VERSION_KEY, 0) != 1) {
@@ -61,23 +63,47 @@ private fun createCommandLineArgs(intent: Intent): CliArgs? {
         // There is a quoting within quoting problem meaning apostrophes don't get sent
         // through the multiple shells properly. This steps around this issue completely.
         ?.replace("&apos;", "'")
-        ?.let { string ->
-            // We do some rudimentary taint checking of the string:
-            // we make sure it looks like a JSON object, with a `data` key
-            // and an array value.
-            try {
-                val jsonObject = JSONObject(string)
-                jsonObject.optJSONArray(DATA_KEY) ?: return@let null
-                string
-            } catch (e: JSONException) {
-                null
-            }
-        }
 
     val resetDatabase = intent.getBooleanExtra(RESET_DB_KEY, false)
     val logState = intent.getBooleanExtra(LOG_STATE_KEY, false)
 
-    return CliArgs(resetDatabase, experiments, logState)
+    return check(CliArgs(resetDatabase, experiments, logState))
+}
+
+@Suppress("ReturnCount")
+private fun check(args: CliArgs): CliArgs? {
+    // We do some rudimentary taint checking of the string:
+    // we make sure it looks like a JSON object, with a `data` key
+    // and an array value.
+    val string = args.experiments
+    if (string != null) {
+        try {
+            val jsonObject = JSONObject(string)
+            jsonObject.optJSONArray(DATA_KEY) ?: return null
+        } catch (e: JSONException) {
+            return null
+        }
+    }
+    return args
+}
+
+@VisibleForTesting(otherwise = VisibleForTesting.PRIVATE)
+@Suppress("ReturnCount")
+fun createCommandLineArgs(uri: Uri): CliArgs? {
+    if (setOf("http", "https").contains(uri.scheme ?: "")) {
+        return null
+    }
+    val isForUs = uri.getBooleanQueryParameter("--$NIMBUS_FLAG", false)
+    if (!isForUs) {
+        return null
+    }
+
+    // Percent decoding happens transparently here:
+    val experiments = uri.getQueryParameter("--$EXPERIMENTS_KEY")
+    val resetDatabase = uri.getBooleanQueryParameter("--$RESET_DB_KEY", false)
+    val logState = uri.getBooleanQueryParameter("--$LOG_STATE_KEY", false)
+
+    return check(CliArgs(resetDatabase, experiments, logState))
 }
 
 data class CliArgs(val resetDatabase: Boolean, val experiments: String?, val logState: Boolean)
