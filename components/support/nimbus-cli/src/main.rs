@@ -7,6 +7,7 @@ mod cmd;
 mod config;
 mod feature_utils;
 mod output;
+mod protocol;
 mod sources;
 mod updater;
 mod value_utils;
