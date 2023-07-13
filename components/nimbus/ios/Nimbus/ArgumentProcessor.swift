@@ -22,6 +22,49 @@ enum ArgumentProcessor {
         }
     }
 
+    static func createCommandLineArgs(url: URL) -> CliArgs? {
+        guard let components = URLComponents(url: url, resolvingAgainstBaseURL: false),
+              let scheme = components.scheme,
+              let queryItems = components.queryItems,
+              !["http", "https"].contains(scheme)
+        else {
+            return nil
+        }
+
+        var experiments: String?
+        var resetDatabase = false
+        var logState = false
+        var meantForUs = false
+
+        func flag(_ v: String?) -> Bool {
+            guard let v = v else {
+                return true
+            }
+            return ["1", "true"].contains(v.lowercased())
+        }
+
+        queryItems.forEach { item in
+            switch item.name {
+            case "--nimbus-cli":
+                meantForUs = flag(item.value)
+            case "--experiments":
+                experiments = item.value?.removingPercentEncoding
+            case "--reset-db":
+                resetDatabase = flag(item.value)
+            case "--log-state":
+                logState = flag(item.value)
+            default:
+                () // NOOP
+            }
+        }
+
+        if !meantForUs {
+            return nil
+        }
+
+        return check(args: CliArgs(resetDatabase: resetDatabase, experiments: experiments, logState: logState))
+    }
+
     static func createCommandLineArgs(args: [String]?) -> CliArgs? {
         guard let args = args else {
             return nil
@@ -61,14 +104,19 @@ enum ArgumentProcessor {
             return nil
         }
 
-        let experiments = argMap["experiments"]?.map { (string: String) -> String? in
-            guard let payload = try? Dictionary.parse(jsonString: string), payload["data"] is [Any] else {
+        let experiments = argMap["experiments"]
+
+        return check(args: CliArgs(resetDatabase: resetDatabase, experiments: experiments, logState: logState))
+    }
+
+    static func check(args: CliArgs) -> CliArgs? {
+        if let string = args.experiments {
+            guard let payload = try? Dictionary.parse(jsonString: string), payload["data"] is [Any]
+            else {
                 return nil
             }
-            return string
         }
-
-        return CliArgs(resetDatabase: resetDatabase, experiments: experiments, logState: logState)
+        return args
     }
 }
 
@@ -76,4 +124,15 @@ struct CliArgs: Equatable {
     let resetDatabase: Bool
     let experiments: String?
     let logState: Bool
+}
+
+public extension NimbusInterface {
+    func initializeTooling(url: URL?) {
+        guard let url = url,
+              let args = ArgumentProcessor.createCommandLineArgs(url: url)
+        else {
+            return
+        }
+        ArgumentProcessor.initializeTooling(nimbus: self, args: args)
+    }
 }
