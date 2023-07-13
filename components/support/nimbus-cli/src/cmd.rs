@@ -3,6 +3,7 @@
 // file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
 use crate::{
+    output::deeplink,
     protocol::StartAppProtocol,
     sources::ManifestSource,
     value_utils::{
@@ -402,17 +403,27 @@ impl LaunchableApp {
     }
 
     fn start_app(&self, app_protocol: StartAppProtocol, open: &AppOpenArgs) -> Result<bool> {
-        Ok(match self {
-            Self::Android { .. } => self
-                .android_start(app_protocol, open)?
-                .spawn()?
-                .wait()?
-                .success(),
-            Self::Ios { .. } => self
-                .ios_start(app_protocol, open)?
-                .spawn()?
-                .wait()?
-                .success(),
+        Ok(if open.pbcopy {
+            let term = Term::stdout();
+            let len = self.copy_to_clipboard(app_protocol, open)?;
+            prompt(
+                &term,
+                &format!("# Copied a deeplink URL ({len} characters) in to the clipboard"),
+            )?;
+            true
+        } else {
+            match self {
+                Self::Android { .. } => self
+                    .android_start(app_protocol, open)?
+                    .spawn()?
+                    .wait()?
+                    .success(),
+                Self::Ios { .. } => self
+                    .ios_start(app_protocol, open)?
+                    .spawn()?
+                    .wait()?
+                    .success(),
+            }
         })
     }
 
@@ -428,7 +439,7 @@ impl LaunchableApp {
             let (start_args, ending_args) = open.args();
             args.extend_from_slice(start_args);
 
-            if let Some(deeplink) = self.create_deeplink(open)? {
+            if let Some(deeplink) = self.deeplink(open)? {
                 args.extend([
                     "-a android.intent.action.VIEW".to_string(),
                     "-c android.intent.category.DEFAULT".to_string(),
@@ -465,11 +476,11 @@ impl LaunchableApp {
             };
             args.extend_from_slice(ending_args);
 
-            let mut cmd = self.exe()?;
             let sh = format!(r#"am start {}"#, args.join(" \\\n        "),);
-            cmd.arg("shell").arg(&sh);
             let term = Term::stdout();
             prompt(&term, &format!("adb shell \"{}\"", sh))?;
+            let mut cmd = self.exe()?;
+            cmd.arg("shell").arg(&sh);
             Ok(cmd)
         } else {
             unreachable!();
@@ -485,11 +496,10 @@ impl LaunchableApp {
 
             let (starting_args, ending_args) = open.args();
 
-            if let Some(deeplink) = self.create_deeplink(open)? {
-                let deeplink = self.longform_deeplink_url(&deeplink, app_protocol)?;
+            if let Some(deeplink) = self.deeplink(open)? {
+                let deeplink = deeplink::longform_deeplink_url(&deeplink, app_protocol)?;
                 if deeplink.len() >= 2047 {
-                    println!("{deeplink}");
-                    anyhow::bail!("Deeplink is too long for xcrun simctl openurl. Pasting the URL into the device itself may work.")
+                    anyhow::bail!("Deeplink is too long for xcrun simctl openurl. Use --pbcopy to copy the URL to the clipboard")
                 }
                 args.push("openurl".to_string());
                 args.extend_from_slice(starting_args);

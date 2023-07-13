@@ -91,12 +91,14 @@ impl TryFrom<&Cli> for LaunchableApp {
                 activity_name: ".App".to_string(),
                 device_id,
                 scheme,
+                open_deeplink: Some("open".to_string()),
             },
             ("focus_android", Some(prefix), Some(suffix)) => Self::Android {
                 package_name: format!("{}.{}", prefix, suffix),
                 activity_name: "org.mozilla.focus.activity.MainActivity".to_string(),
                 device_id,
                 scheme,
+                open_deeplink: None,
             },
             ("firefox_ios", Some(prefix), Some(suffix)) => Self::Ios {
                 app_id: format!("{}.{}", prefix, suffix),

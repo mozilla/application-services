@@ -284,6 +284,13 @@ pub(crate) struct OpenArgs {
     #[arg(long, default_value = "false")]
     pub(crate) reset_app: bool,
 
+    /// Instead of opening via adb or xcrun simctl, construct a deeplink
+    /// and put it into the pastebuffer.
+    ///
+    /// This does not work with `--reset-app` or passthrough arguments.
+    #[arg(long, default_value = "false")]
+    pub(crate) pbcopy: bool,
+
     /// Optionally, add platform specific arguments to the adb or xcrun command.
     ///
     /// By default, arguments are added to the end of the command, likely to be passed
