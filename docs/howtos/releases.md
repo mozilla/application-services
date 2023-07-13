@@ -29,17 +29,16 @@ Release builds are generated from the `release-vXXX` branches and published with
 2. Run the `automation/prepare-release.py` script.  This should:
 
  * Create a new branch named `release-vXXX`
- * Create a PR against that branch that updates `.buildconfig-android.yml` like this:
+ * Create a PR against that branch that updates `version.txt` like this:
 
-```
-diff --git a/.buildconfig-android.yml b/.buildconfig-android.yml
+```diff
+diff --git a/version.txt b/version.txt
 index 8cd923873..6482018e0 100644
---- a/.buildconfig-android.yml
-+++ b/.buildconfig-android.yml
+--- a/version.txt
++++ b/version.txt
 @@ -1,4 +1,4 @@
--libraryVersion: 114.0a1
-+libraryVersion: 114.0
- groupId: org.mozilla.appservices
+-114.0a1
++114.0
 ```
 
  * Create a PR on `main` that starts a new CHANGELOG header.
@@ -60,7 +59,7 @@ If you want to uplift changes into the a previous release:
 
 * Make sure the changes are present in `main` and have been thoroughly tested.
 * Checkout the `release-vXXX` branch, where `XXX` is the major version number.
-* Bump `libraryVersion` in `build-config-android.yml`
+* Bump the version in `version.txt`
 * Cherry-pick any commits that you want to uplift
 * Create a PR for the changes
 * Trigger release-promotion for the branch once the PRs are approved, merged, and CI has completed

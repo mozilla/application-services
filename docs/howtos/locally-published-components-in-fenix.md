@@ -63,11 +63,11 @@ above. But if the auto-publishing workflow fails then it's important to know how
 on `android-components`, this procedure involves three separate repos:
 
 1. Inside the `application-services` repository root:
-    1. In [`.buildconfig-android.yml`](https://github.com/mozilla/application-services/blob/main/.buildconfig-android.yml), change
-       `libraryVersion` to end in `-TESTING$N` <sup><a href="#note1">1</a></sup>,
+    1. In [`version.txt`](https://github.com/mozilla/application-services/blob/main/version.txt), change
+       the version to end in `-TESTING$N` <sup><a href="#note1">1</a></sup>,
        where `$N` is some number that you haven't used for this before.
 
-       Example: `libraryVersion: 0.27.0-TESTING3`
+       Example: `0.27.0-TESTING3`
 
     2. Run `./gradlew publishToMavenLocal`. This may take between 5 and 10 minutes.
 
