@@ -381,23 +381,6 @@ impl LaunchableApp {
         self.start_app(false, None, false, open)
     }
 
-    fn create_deeplink(&self, open: &AppOpenArgs) -> Result<Option<String>> {
-        let deeplink = &open.deeplink;
-        if deeplink.is_none() {
-            return Ok(None);
-        }
-        let deeplink = deeplink.as_ref().unwrap();
-        Ok(if deeplink.contains("://") {
-            Some(deeplink.clone())
-        } else if let Some(scheme) = match self {
-            Self::Android { scheme, .. } | Self::Ios { scheme, .. } => scheme,
-        } {
-            Some(format!("{}://{}", scheme, deeplink))
-        } else {
-            anyhow::bail!("Cannot use a deeplink without a scheme for this app")
-        })
-    }
-
     fn start_app(
         &self,
         reset_db: bool,
@@ -494,8 +477,12 @@ impl LaunchableApp {
 
             let (starting_args, ending_args) = open.args();
 
-            let mut is_launch = false;
             if let Some(deeplink) = self.create_deeplink(open)? {
+                let deeplink = self.longform_deeplink_url(&deeplink, reset_db, json, log_state)?;
+                if deeplink.len() >= 2047 {
+                    println!("{deeplink}");
+                    anyhow::bail!("Deeplink is too long for xcrun simctl openurl. Pasting the URL into the device itself may work.")
+                }
                 args.push("openurl".to_string());
                 args.extend_from_slice(starting_args);
                 args.extend([device_id.to_string(), deeplink]);
@@ -503,42 +490,29 @@ impl LaunchableApp {
                 args.push("launch".to_string());
                 args.extend_from_slice(starting_args);
                 args.extend([device_id.to_string(), app_id.to_string()]);
-                is_launch = true;
-            }
 
-            // Doing this here because we may be able to change the mechanism of passing
-            // arguments to the iOS apps at a later stage.
-            let disallowed_by_openurl = |msg: &str| -> Result<()> {
-                if !is_launch {
-                    bail!(format!("The iOS simulator's openurl command doesn't support command line arguments which {} relies upon", msg));
-                } else {
-                    Ok(())
+                if log_state || json.is_some() || reset_db {
+                    args.extend([
+                        "--nimbus-cli".to_string(),
+                        "--version".to_string(),
+                        "1".to_string(),
+                    ]);
                 }
-            };
 
-            if log_state || json.is_some() || reset_db {
-                args.extend([
-                    "--nimbus-cli".to_string(),
-                    "--version".to_string(),
-                    "1".to_string(),
-                ]);
-            }
-
-            if reset_db {
-                // We don't check launch here, because reset-db is never used
-                // without enroll.
-                args.push("--reset-db".to_string());
-            }
-            if let Some(s) = json {
-                disallowed_by_openurl("enroll and test-feature")?;
-                args.extend([
-                    "--experiments".to_string(),
-                    s.to_string().replace('\'', "&apos;"),
-                ]);
-            }
-            if log_state {
-                disallowed_by_openurl("log-state")?;
-                args.push("--log-state".to_string());
+                if reset_db {
+                    // We don't check launch here, because reset-db is never used
+                    // without enroll.
+                    args.push("--reset-db".to_string());
+                }
+                if let Some(s) = json {
+                    args.extend([
+                        "--experiments".to_string(),
+                        s.to_string().replace('\'', "&apos;"),
+                    ]);
+                }
+                if log_state {
+                    args.push("--log-state".to_string());
+                }
             }
             args.extend_from_slice(ending_args);
 
