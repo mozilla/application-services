@@ -6,24 +6,21 @@
 
 from datetime import datetime
 import webbrowser
-import yaml
 
 from shared import (RefNames, get_moz_remote, step_msg, fatal_err, run_cmd_checked,
                     ensure_working_tree_clean, check_output)
 
 # Constants
-BUILDCONFIG_FILE = ".buildconfig-android.yml"
-BUILDCONFIG_VERSION_FIELD = "libraryVersion"
+VERSION_FILE = "version.txt"
 CHANGELOG_FILE = "CHANGELOG.md"
 
 # 1. Figure out which remote to push to
 moz_remote = get_moz_remote()
 
 # 2. Figure out the current version
-with open(BUILDCONFIG_FILE, "r") as stream:
-    build_config = yaml.safe_load(stream)
+with open(VERSION_FILE, "r") as stream:
+    cur_version = stream.read().strip()
 
-cur_version = build_config[BUILDCONFIG_VERSION_FIELD]
 major_version_number = int(cur_version.split('.')[0])
 next_version_number = major_version_number + 1
 release_version = f"{major_version_number}.0"
@@ -44,11 +41,11 @@ run_cmd_checked(["git", "push", moz_remote, refs.release])
 step_msg(f"checkout {refs.release_pr}")
 run_cmd_checked(["git", "checkout", "-b", refs.release_pr])
 
-step_msg(f"Bumping version in {BUILDCONFIG_FILE}")
-build_config[BUILDCONFIG_VERSION_FIELD] = f"{major_version_number}.0"
+step_msg(f"Bumping version in {VERSION_FILE}")
+new_version = f"{major_version_number}.0"
 
-with open(BUILDCONFIG_FILE, "w") as stream:
-    yaml.dump(build_config, stream, sort_keys=False)
+with open(VERSION_FILE, "w") as stream:
+    stream.write(new_version)
 
 step_msg(f"updating {CHANGELOG_FILE}")
 with open(CHANGELOG_FILE, "r") as stream:
@@ -66,16 +63,16 @@ for i in range(10):
         )
         break
 else:
-    fatal_err(f"Can't find `[Full Changelog](In progress)` line in CHANGELOG.md")
+    fatal_err("Can't find `[Full Changelog](In progress)` line in CHANGELOG.md")
 
 changelog[0] = f"# v{major_version_number}.0 (_{today_date}_)"
 with open(CHANGELOG_FILE, "w") as stream:
     stream.write("\n".join(changelog))
     stream.write("\n")
 
-step_msg(f"Creating a commit with the changes")
+step_msg("Creating a commit with the changes")
 run_cmd_checked(["git", "add", CHANGELOG_FILE])
-run_cmd_checked(["git", "add", BUILDCONFIG_FILE])
+run_cmd_checked(["git", "add", VERSION_FILE])
 run_cmd_checked(["git", "commit", "-m", f"Cut release v{release_version}"])
 
 step_msg(f"Pushing {refs.release_pr}")
@@ -86,11 +83,11 @@ step_msg(f"checkout {refs.main}")
 run_cmd_checked(["git", "checkout", refs.main])
 run_cmd_checked(["git", "checkout", "-b", refs.start_release_pr])
 
-step_msg(f"Bumping version in {BUILDCONFIG_FILE}")
-build_config[BUILDCONFIG_VERSION_FIELD] = f"{next_version_number}.0a1"
+step_msg(f"Bumping version in {VERSION_FILE}")
+new_version = f"{next_version_number}.0a1"
 
-with open(BUILDCONFIG_FILE, "w") as stream:
-    yaml.dump(build_config, stream, sort_keys=False)
+with open(VERSION_FILE, "w") as stream:
+    stream.write(new_version)
 
 step_msg(f"UPDATING {CHANGELOG_FILE}")
 changelog[0:0] = [
@@ -103,7 +100,7 @@ with open(CHANGELOG_FILE, "w") as stream:
     stream.write("\n".join(changelog))
     stream.write("\n")
 
-step_msg(f"Creating a commit with the changes")
+step_msg("Creating a commit with the changes")
 run_cmd_checked(["git", "add", CHANGELOG_FILE])
 run_cmd_checked(["git", "commit", "-m", f"Start release v{next_version_number}"])
 

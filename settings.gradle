@@ -66,6 +66,7 @@ if (file('local.properties').canRead()) {
 
 def calcVersion(buildconfig) {
     def local = gradle.rootProject.findProperty("local")
+    def version = new File(rootDir, 'version.txt').getText().trim()
 
     if (gradle.rootProject.hasProperty("nightlyVersion")) {
         return gradle.rootProject.nightlyVersion
@@ -76,7 +77,7 @@ def calcVersion(buildconfig) {
     } else if(local) {
         return '0.0.1-SNAPSHOT'
     } else {
-        return buildconfig.libraryVersion
+        return version
     }
 }
 
