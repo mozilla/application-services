@@ -1226,6 +1226,7 @@ dependencies = [
  "sync-guid",
  "sync15",
  "tempfile",
+ "url",
  "viaduct-reqwest",
 ]
 
@@ -1237,10 +1238,13 @@ dependencies = [
  "base64 0.13.0",
  "chrono",
  "cli-support",
+ "interrupt-support",
  "log",
  "serde_json",
  "structopt",
+ "sync15",
  "tabs",
+ "url",
  "viaduct-reqwest",
 ]
 

@@ -26,32 +26,9 @@ open class TabsStorage {
         }
     }
 
-    open func reset() throws {
-        try queue.sync {
-            try self.store.reset()
-        }
-    }
-
     open func registerWithSyncManager() {
         queue.sync {
             self.store.registerWithSyncManager()
-        }
-    }
-
-    open func sync(unlockInfo: SyncUnlockInfo) throws -> String {
-        guard let tabsLocalId = unlockInfo.tabsLocalId else {
-            throw TabsApiError.UnexpectedTabsError(reason: "tabs local ID was not provided")
-        }
-
-        return try queue.sync {
-            try self.store
-                .sync(
-                    keyId: unlockInfo.kid,
-                    accessToken: unlockInfo.fxaAccessToken,
-                    syncKey: unlockInfo.syncKey,
-                    tokenserverUrl: unlockInfo.tokenserverURL,
-                    localId: tabsLocalId
-                )
         }
     }
 }

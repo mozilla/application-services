@@ -1,5 +1,11 @@
 # v117.0 (In progress)
 
+## General
+
+### 🦊 What's Changed 🦊
+
+- Removed obsolete sync functions that were exposed for Firefox iOS prior to the sync manager component integration ([#5725](https://github.com/mozilla/application-services/pull/5725)).
+
 ## Nimbus SDK ⛅️🔬🔭
 
 ### ✨ What's New ✨

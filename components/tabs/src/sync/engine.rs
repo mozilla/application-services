@@ -108,7 +108,8 @@ impl RemoteTab {
 // (We hope to get these 2 engines even closer in the future, but for now, we suck this up)
 pub struct TabsEngine {
     pub(super) store: Arc<TabsStore>,
-    pub(super) local_id: RwLock<String>,
+    // local_id is made public for use in examples/tabs-sync
+    pub local_id: RwLock<String>,
 }
 
 impl TabsEngine {

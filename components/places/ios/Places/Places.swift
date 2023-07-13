@@ -70,105 +70,6 @@ public class PlacesAPI {
         }
     }
 
-    /**
-     * Sync the bookmarks collection.
-     *
-     * - Returns: A JSON string representing a telemetry ping for this sync. The
-     *            string contains the ping payload, and should be sent to the
-     *            telemetry submission endpoint.
-     *
-     * - Throws:
-     *     - `PlacesApiError.databaseInterrupted`: If a call is made to `interrupt()` on this
-     *                                             object from another thread.
-     *     - `PlacesApiError.unexpected`: When an error that has not specifically been exposed
-     *                                    to Swift is encountered (for example IO errors from
-     *                                    the database code, etc).
-     *     - `PlacesApiError.panic`: If the rust code panics while completing this
-     *                               operation. (If this occurs, please let us know).
-     */
-    open func syncBookmarks(unlockInfo: SyncUnlockInfo) throws -> String {
-        return try queue.sync {
-            try self.api.bookmarksSync(
-                keyId: unlockInfo.kid,
-                accessToken: unlockInfo.fxaAccessToken,
-                syncKey: unlockInfo.syncKey,
-                tokenserverUrl: unlockInfo.tokenserverURL
-            )
-        }
-    }
-
-    /**
-     * Sync the History collection.
-     *
-     * - Returns: A JSON string representing a telemetry ping for this sync. The
-     *            string contains the ping payload, and should be sent to the
-     *            telemetry submission endpoint.
-     *
-     * - Throws:
-     *     - `PlacesApiError.databaseInterrupted`: If a call is made to `interrupt()` on this
-     *                                             object from another thread.
-     *     - `PlacesApiError.unexpected`: When an error that has not specifically been exposed
-     *                                    to Swift is encountered (for example IO errors from
-     *                                    the database code, etc).
-     *     - `PlacesApiError.panic`: If the rust code panics while completing this
-     *                               operation. (If this occurs, please let us know).
-     */
-    open func syncHistory(unlockInfo: SyncUnlockInfo) throws -> String {
-        return try queue.sync {
-            try self.api.historySync(
-                keyId: unlockInfo.kid,
-                accessToken: unlockInfo.fxaAccessToken,
-                syncKey: unlockInfo.syncKey,
-                tokenserverUrl: unlockInfo.tokenserverURL
-            )
-        }
-    }
-
-    /**
-     * Resets all sync metadata for history, including change flags,
-     * sync statuses, and last sync time. The next sync after reset
-     * will behave the same way as a first sync when connecting a new
-     * device.
-     *
-     * This method only needs to be called when the user disconnects
-     * from Sync. There are other times when Places resets sync metadata,
-     * but those are handled internally in the Rust code.
-     *
-     * - Throws:
-     *     - `PlacesApiError.databaseInterrupted`: If a call is made to `interrupt()` on this
-     *                                             object from another thread.
-     *     - `PlacesApiError.unexpected`: When an error that has not specifically been exposed
-     *                                    to Swift is encountered (for example IO errors from
-     *                                    the database code, etc).
-     *     - `PlacesApiError.panic`: If the rust code panics while completing this
-     *                               operation. (If this occurs, please let us know).
-     */
-    open func resetHistorySyncMetadata() throws {
-        return try queue.sync {
-            try self.api.resetHistory()
-        }
-    }
-
-    /**
-     * Resets all sync metadata for bookmarks, including change flags, sync statuses, and
-     * last sync time. The next sync after reset will behave the same way as a first sync
-     * when connecting a new device.
-     *
-     * - Throws:
-     *     - `PlacesApiError.databaseInterrupted`: If a call is made to `interrupt()` on this
-     *                                             object from another thread.
-     *     - `PlacesApiError.unexpected`: When an error that has not specifically been exposed
-     *                                    to Swift is encountered (for example IO errors from
-     *                                    the database code, etc).
-     *     - `PlacesApiError.panic`: If the rust code panics while completing this
-     *                               operation. (If this occurs, please let us know).
-     */
-    open func resetBookmarkSyncMetadata() throws {
-        return try queue.sync {
-            try self.api.bookmarksReset()
-        }
-    }
-
     open func registerWithSyncManager() {
         queue.sync {
             self.api.registerWithSyncManager()
@@ -874,13 +775,6 @@ public class PlacesWriteConnection: PlacesReadConnection {
         try queue.sync {
             try self.checkApi()
             try self.conn.deleteVisit(url: url, timestamp: timestamp)
-        }
-    }
-
-    open func wipeLocalHistory() throws {
-        try queue.sync {
-            try self.checkApi()
-            try self.conn.wipeLocalHistory()
         }
     }
 
