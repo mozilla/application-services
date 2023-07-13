@@ -43,6 +43,11 @@ where
     let app = LaunchableApp::try_from(&cli)?;
     let mut commands: Vec<AppCommand> = Default::default();
 
+    // Validating the command line args. Most of this should be done with clap,
+    // but for everything else there's:
+    cli.command.check_valid()?;
+
+    // Validating experiments against manifests
     commands.push(AppCommand::try_validate(&cli)?);
 
     if cli.command.should_kill() {
@@ -63,6 +68,7 @@ enum LaunchableApp {
         activity_name: String,
         device_id: Option<String>,
         scheme: Option<String>,
+        open_deeplink: Option<String>,
     },
     Ios {
         device_id: String,
@@ -377,26 +383,45 @@ impl TryFrom<&Cli> for AppCommand {
 }
 
 impl CliCommand {
+    fn check_valid(&self) -> Result<()> {
+        if let Some(open) = self.open_args() {
+            if open.pbcopy && (open.reset_app || !open.passthrough.is_empty()) {
+                bail!("--pbcopy is not compatible with --reset-app or passthrough args");
+            }
+        }
+        Ok(())
+    }
+
+    fn open_args(&self) -> Option<&OpenArgs> {
+        if let Self::Open { open, .. }
+        | Self::Enroll { open, .. }
+        | Self::TestFeature { open, .. } = self
+        {
+            Some(open)
+        } else {
+            None
+        }
+    }
+
     fn should_kill(&self) -> bool {
-        match self {
-            Self::ApplyFile { .. }
-            | Self::Enroll { .. }
-            | Self::LogState
-            | Self::ResetApp
-            | Self::TestFeature { .. }
-            | Self::Unenroll => true,
-            Self::Open { no_clobber, .. } => !*no_clobber,
-            _ => false,
+        if let Some(open) = self.open_args() {
+            let pbcopy = open.pbcopy;
+            let no_clobber = if let Self::Open { no_clobber, .. } = self {
+                *no_clobber
+            } else {
+                false
+            };
+            !pbcopy && !no_clobber
+        } else {
+            matches!(self, Self::ResetApp)
         }
     }
 
     fn should_reset(&self) -> bool {
-        match self {
-            Self::Enroll { open, .. }
-            | Self::Open { open, .. }
-            | Self::TestFeature { open, .. } => open.reset_app,
-            Self::ResetApp => true,
-            _ => false,
+        if let Some(open) = self.open_args() {
+            open.reset_app
+        } else {
+            matches!(self, Self::ResetApp)
         }
     }
 }
@@ -405,6 +430,7 @@ impl CliCommand {
 pub(crate) struct AppOpenArgs {
     deeplink: Option<String>,
     passthrough: Vec<String>,
+    pbcopy: bool,
 }
 
 impl From<OpenArgs> for AppOpenArgs {
@@ -412,6 +438,7 @@ impl From<OpenArgs> for AppOpenArgs {
         Self {
             deeplink: value.deeplink,
             passthrough: value.passthrough,
+            pbcopy: value.pbcopy,
         }
     }
 }
@@ -441,12 +468,18 @@ mod unit_tests {
                 command: CliCommand::ResetApp,
             }
         }
-        fn android(package: &str, activity: &str, scheme: Option<&str>) -> LaunchableApp {
+        fn android(
+            package: &str,
+            activity: &str,
+            scheme: Option<&str>,
+            open_deeplink: Option<&str>,
+        ) -> LaunchableApp {
             LaunchableApp::Android {
                 package_name: package.to_string(),
                 activity_name: activity.to_string(),
                 device_id: None,
                 scheme: scheme.map(str::to_string),
+                open_deeplink: open_deeplink.map(str::to_string),
             }
         }
         fn ios(id: &str, scheme: Option<&str>) -> LaunchableApp {
@@ -460,19 +493,34 @@ mod unit_tests {
         // Firefox for Android, a.k.a. fenix
         assert_eq!(
             LaunchableApp::try_from(&cli("fenix", "developer"))?,
-            android("org.mozilla.fenix.debug", ".App", Some("fenix-dev"))
+            android(
+                "org.mozilla.fenix.debug",
+                ".App",
+                Some("fenix-dev"),
+                Some("open")
+            )
         );
         assert_eq!(
             LaunchableApp::try_from(&cli("fenix", "nightly"))?,
-            android("org.mozilla.fenix", ".App", Some("fenix-nightly"))
+            android(
+                "org.mozilla.fenix",
+                ".App",
+                Some("fenix-nightly"),
+                Some("open")
+            )
         );
         assert_eq!(
             LaunchableApp::try_from(&cli("fenix", "beta"))?,
-            android("org.mozilla.firefox_beta", ".App", Some("fenix-beta"))
+            android(
+                "org.mozilla.firefox_beta",
+                ".App",
+                Some("fenix-beta"),
+                Some("open")
+            )
         );
         assert_eq!(
             LaunchableApp::try_from(&cli("fenix", "release"))?,
-            android("org.mozilla.firefox", ".App", Some("fenix"))
+            android("org.mozilla.firefox", ".App", Some("fenix"), Some("open"))
         );
 
         // Firefox for iOS
@@ -496,6 +544,7 @@ mod unit_tests {
                 "org.mozilla.focus.debug",
                 "org.mozilla.focus.activity.MainActivity",
                 None,
+                None,
             )
         );
         assert_eq!(
@@ -503,6 +552,7 @@ mod unit_tests {
             android(
                 "org.mozilla.focus.nightly",
                 "org.mozilla.focus.activity.MainActivity",
+                None,
                 None,
             )
         );
@@ -512,6 +562,7 @@ mod unit_tests {
                 "org.mozilla.focus.beta",
                 "org.mozilla.focus.activity.MainActivity",
                 None,
+                None,
             )
         );
         assert_eq!(
@@ -519,6 +570,7 @@ mod unit_tests {
             android(
                 "org.mozilla.focus",
                 "org.mozilla.focus.activity.MainActivity",
+                None,
                 None,
             )
         );
@@ -577,6 +629,7 @@ mod unit_tests {
             activity_name: ".App".to_string(),
             device_id: None,
             scheme: Some("fenix-dev".to_string()),
+            open_deeplink: Some("open".to_string()),
         }
     }
 
@@ -615,6 +668,13 @@ mod unit_tests {
     fn with_deeplink(link: &str) -> AppOpenArgs {
         AppOpenArgs {
             deeplink: Some(link.to_string()),
+            ..Default::default()
+        }
+    }
+
+    fn with_pbcopy() -> AppOpenArgs {
+        AppOpenArgs {
+            pbcopy: true,
             ..Default::default()
         }
     }
@@ -811,6 +871,40 @@ mod unit_tests {
                     "--esn",
                     "TEST_FLAG",
                 ]),
+            },
+        ];
+        assert_eq!(expected, observed);
+        Ok(())
+    }
+
+    #[test]
+    fn test_enroll_with_pbcopy() -> Result<()> {
+        let observed = get_commands_from_cli([
+            "nimbus-cli",
+            "--app",
+            "fenix",
+            "--channel",
+            "developer",
+            "enroll",
+            "my-experiment",
+            "--branch",
+            "my-branch",
+            "--no-validate",
+            "--pbcopy",
+        ])?;
+
+        let expected = vec![
+            AppCommand::NoOp,
+            AppCommand::Enroll {
+                app: fenix(),
+                params: fenix_params(),
+                experiment: experiment("my-experiment"),
+                rollouts: Default::default(),
+                branch: "my-branch".to_string(),
+                preserve_targeting: false,
+                preserve_bucketing: false,
+                preserve_nimbus_db: false,
+                open: with_pbcopy(),
             },
         ];
         assert_eq!(expected, observed);
@@ -1237,6 +1331,52 @@ mod unit_tests {
                     "--esn",
                     "TEST_FLAG",
                 ]),
+            },
+        ];
+        assert_eq!(expected, observed);
+        Ok(())
+    }
+
+    #[test]
+    fn test_open_with_noclobber() -> Result<()> {
+        let observed = get_commands_from_cli([
+            "nimbus-cli",
+            "--app",
+            "fenix",
+            "--channel",
+            "developer",
+            "open",
+            "--no-clobber",
+        ])?;
+
+        let expected = vec![
+            AppCommand::NoOp,
+            AppCommand::Open {
+                app: fenix(),
+                open: Default::default(),
+            },
+        ];
+        assert_eq!(expected, observed);
+        Ok(())
+    }
+
+    #[test]
+    fn test_open_with_pbcopy() -> Result<()> {
+        let observed = get_commands_from_cli([
+            "nimbus-cli",
+            "--app",
+            "fenix",
+            "--channel",
+            "developer",
+            "open",
+            "--pbcopy",
+        ])?;
+
+        let expected = vec![
+            AppCommand::NoOp,
+            AppCommand::Open {
+                app: fenix(),
+                open: with_pbcopy(),
             },
         ];
         assert_eq!(expected, observed);

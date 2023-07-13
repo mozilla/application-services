@@ -3,12 +3,50 @@
 // file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
 use anyhow::{anyhow, Result};
+use percent_encoding::{AsciiSet, CONTROLS};
 
 use crate::protocol::StartAppProtocol;
 use crate::{AppOpenArgs, LaunchableApp};
 
 impl LaunchableApp {
-    pub(crate) fn create_deeplink(&self, open: &AppOpenArgs) -> Result<Option<String>> {
+    pub(crate) fn copy_to_clipboard(
+        &self,
+        app_protocol: StartAppProtocol,
+        open: &AppOpenArgs,
+    ) -> Result<usize> {
+        let url = self.longform_url(app_protocol, open)?;
+        let len = url.len();
+        if let Err(e) = set_clipboard(url) {
+            anyhow::bail!("Can't copy URL to clipboard: {}", e)
+        };
+
+        Ok(len)
+    }
+
+    pub(crate) fn longform_url(
+        &self,
+        app_protocol: StartAppProtocol,
+        open: &AppOpenArgs,
+    ) -> Result<String> {
+        let deeplink = match (&open.deeplink, self.app_opening_deeplink()) {
+            (Some(deeplink), _) => deeplink.as_ref(),
+            (_, Some(deeplink)) => deeplink,
+            _ => anyhow::bail!("A deeplink must be provided"),
+        };
+
+        let url = longform_deeplink_url(deeplink, app_protocol)?;
+
+        self.prepend_scheme(url.as_str())
+    }
+
+    fn app_opening_deeplink(&self) -> Option<&str> {
+        match self {
+            Self::Android { open_deeplink, .. } => open_deeplink.as_deref(),
+            Self::Ios { .. } => Some("noop"),
+        }
+    }
+
+    pub(crate) fn deeplink(&self, open: &AppOpenArgs) -> Result<Option<String>> {
         let deeplink = &open.deeplink;
         if deeplink.is_none() {
             return Ok(None);
@@ -33,56 +71,144 @@ impl LaunchableApp {
                 .ok_or_else(|| anyhow!("A scheme is not defined for this app")),
         }
     }
+}
 
-    pub(crate) fn longform_deeplink_url(
-        &self,
-        deeplink: &str,
-        app_protocol: StartAppProtocol,
-    ) -> Result<String> {
-        use percent_encoding::{AsciiSet, CONTROLS};
-        const QUERY: &AsciiSet = &CONTROLS
-            // The following are the special query percent encode set.
-            // https://url.spec.whatwg.org/#query-percent-encode-set
-            .add(b' ')
-            .add(b'"')
-            .add(b'<')
-            .add(b'>')
-            .add(b'#')
-            .add(b'\'')
-            // Additionally, we've added '{' and '}' to make  sure iOS simctl works with it.
-            .add(b'{')
-            .add(b'}')
-            // Then some belt and braces: we're quoting a single query attribute value.
-            .add(b':')
-            .add(b'/')
-            .add(b'?')
-            .add(b'&');
+// The following are the special query percent encode set.
+// https://url.spec.whatwg.org/#query-percent-encode-set
+const QUERY: &AsciiSet = &CONTROLS
+    .add(b' ')
+    .add(b'"')
+    .add(b'<')
+    .add(b'>')
+    .add(b'#')
+    .add(b'\'')
+    // Additionally, we've added '{' and '}' to make  sure iOS simctl works with it.
+    .add(b'{')
+    .add(b'}')
+    // Then some belt and braces: we're quoting a single query attribute value.
+    .add(b':')
+    .add(b'/')
+    .add(b'?')
+    .add(b'&');
 
-        let StartAppProtocol {
-            reset_db,
-            experiments,
-            log_state,
-        } = app_protocol;
-        if !reset_db && experiments.is_none() && !log_state {
-            return Ok(deeplink.to_string());
-        }
+/// Construct a URL from the deeplink and the protocol object.
+pub(crate) fn longform_deeplink_url(
+    deeplink: &str,
+    app_protocol: StartAppProtocol,
+) -> Result<String> {
+    let StartAppProtocol {
+        reset_db,
+        experiments,
+        log_state,
+    } = app_protocol;
+    if !reset_db && experiments.is_none() && !log_state {
+        return Ok(deeplink.to_string());
+    }
 
-        let mut parts: Vec<_> = vec!["--nimbus-cli".to_string()];
-        if let Some(v) = experiments {
-            let json = serde_json::to_string(v)?;
-            let string = percent_encoding::utf8_percent_encode(&json, QUERY).to_string();
-            parts.push(format!("--experiments={string}"));
-        }
+    let mut parts: Vec<_> = vec!["--nimbus-cli".to_string()];
+    if let Some(v) = experiments {
+        let json = serde_json::to_string(v)?;
+        let string = percent_encoding::utf8_percent_encode(&json, QUERY).to_string();
+        parts.push(format!("--experiments={string}"));
+    }
 
-        if reset_db {
-            parts.push("--reset-db".to_string());
-        }
-        if log_state {
-            parts.push("--log-state".to_string());
-        }
+    if reset_db {
+        parts.push("--reset-db".to_string());
+    }
+    if log_state {
+        parts.push("--log-state".to_string());
+    }
 
-        let suffix = if deeplink.contains('?') { '&' } else { '?' };
+    let suffix = if deeplink.contains('?') { '&' } else { '?' };
 
-        Ok(format!("{deeplink}{suffix}{args}", args = parts.join("&")))
+    Ok(format!("{deeplink}{suffix}{args}", args = parts.join("&")))
+}
+
+fn set_clipboard(contents: String) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
+    use copypasta::{ClipboardContext, ClipboardProvider};
+    let mut ctx = ClipboardContext::new()?;
+    ctx.set_contents(contents)?;
+    Ok(())
+}
+
+#[cfg(test)]
+mod unit_tests {
+    use super::*;
+    use serde_json::json;
+
+    #[test]
+    fn test_url_noop() -> Result<()> {
+        let p = StartAppProtocol {
+            reset_db: false,
+            experiments: None,
+            log_state: false,
+        };
+        assert_eq!(
+            "host".to_string(),
+            longform_deeplink_url("host", p.clone())?
+        );
+        assert_eq!(
+            "host?query=1".to_string(),
+            longform_deeplink_url("host?query=1", p)?
+        );
+        Ok(())
+    }
+
+    #[test]
+    fn test_url_reset_db() -> Result<()> {
+        let p = StartAppProtocol {
+            reset_db: true,
+            experiments: None,
+            log_state: false,
+        };
+        assert_eq!(
+            "host?--nimbus-cli&--reset-db".to_string(),
+            longform_deeplink_url("host", p.clone())?
+        );
+        assert_eq!(
+            "host?query=1&--nimbus-cli&--reset-db".to_string(),
+            longform_deeplink_url("host?query=1", p)?
+        );
+
+        Ok(())
+    }
+
+    #[test]
+    fn test_url_log_state() -> Result<()> {
+        let p = StartAppProtocol {
+            reset_db: false,
+            experiments: None,
+            log_state: true,
+        };
+        assert_eq!(
+            "host?--nimbus-cli&--log-state".to_string(),
+            longform_deeplink_url("host", p.clone())?
+        );
+        assert_eq!(
+            "host?query=1&--nimbus-cli&--log-state".to_string(),
+            longform_deeplink_url("host?query=1", p)?
+        );
+
+        Ok(())
+    }
+
+    #[test]
+    fn test_url_experiments() -> Result<()> {
+        let v = json!({"data": []});
+        let p = StartAppProtocol {
+            reset_db: false,
+            experiments: Some(&v),
+            log_state: false,
+        };
+        assert_eq!(
+            "host?--nimbus-cli&--experiments=%7B%22data%22%3A[]%7D".to_string(),
+            longform_deeplink_url("host", p.clone())?
+        );
+        assert_eq!(
+            "host?query=1&--nimbus-cli&--experiments=%7B%22data%22%3A[]%7D".to_string(),
+            longform_deeplink_url("host?query=1", p.clone())?
+        );
+
+        Ok(())
     }
 }

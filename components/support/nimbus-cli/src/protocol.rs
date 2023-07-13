@@ -10,7 +10,7 @@ use serde_json::Value;
 ///
 /// Any change to this protocol requires changing the Kotlin and Swift code,
 /// and perhaps the app code itself.
-#[derive(Debug, Default)]
+#[derive(Clone, Debug, Default)]
 pub(crate) struct StartAppProtocol<'a> {
     pub(crate) reset_db: bool,
     pub(crate) experiments: Option<&'a Value>,
