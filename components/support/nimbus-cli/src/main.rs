@@ -96,6 +96,7 @@ impl From<&Cli> for NimbusApp {
 enum AppCommand {
     ApplyFile {
         app: LaunchableApp,
+        open: AppOpenArgs,
         list: ExperimentListSource,
         preserve_nimbus_db: bool,
     },
@@ -163,6 +164,7 @@ enum AppCommand {
 
     LogState {
         app: LaunchableApp,
+        open: AppOpenArgs,
     },
 
     // No Op, does nothing.
@@ -183,6 +185,7 @@ enum AppCommand {
 
     Unenroll {
         app: LaunchableApp,
+        open: AppOpenArgs,
     },
 
     ValidateExperiment {
@@ -238,10 +241,12 @@ impl TryFrom<&Cli> for AppCommand {
             CliCommand::ApplyFile {
                 file,
                 preserve_nimbus_db,
+                open,
             } => {
                 let list = ExperimentListSource::try_from(file.as_path())?;
                 AppCommand::ApplyFile {
                     app,
+                    open: open.into(),
                     list,
                     preserve_nimbus_db,
                 }
@@ -351,7 +356,10 @@ impl TryFrom<&Cli> for AppCommand {
                 let list = ExperimentListSource::try_from(cli)?;
                 AppCommand::List { params, list }
             }
-            CliCommand::LogState => AppCommand::LogState { app },
+            CliCommand::LogState { open } => AppCommand::LogState {
+                app,
+                open: open.into(),
+            },
             CliCommand::Open { open, .. } => AppCommand::Open {
                 app,
                 open: open.into(),
@@ -376,7 +384,10 @@ impl TryFrom<&Cli> for AppCommand {
                     preserve_nimbus_db: false,
                 }
             }
-            CliCommand::Unenroll => AppCommand::Unenroll { app },
+            CliCommand::Unenroll { open } => AppCommand::Unenroll {
+                app,
+                open: open.into(),
+            },
             _ => Self::NoOp,
         })
     }
@@ -393,9 +404,12 @@ impl CliCommand {
     }
 
     fn open_args(&self) -> Option<&OpenArgs> {
-        if let Self::Open { open, .. }
+        if let Self::ApplyFile { open, .. }
+        | Self::Open { open, .. }
         | Self::Enroll { open, .. }
-        | Self::TestFeature { open, .. } = self
+        | Self::LogState { open, .. }
+        | Self::TestFeature { open, .. }
+        | Self::Unenroll { open, .. } = self
         {
             Some(open)
         } else {
