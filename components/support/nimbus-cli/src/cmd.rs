@@ -22,9 +22,10 @@ pub(crate) fn process_cmd(cmd: &AppCommand) -> Result<bool> {
     let status = match cmd {
         AppCommand::ApplyFile {
             app,
+            open,
             list,
             preserve_nimbus_db,
-        } => app.apply_list(list, preserve_nimbus_db)?,
+        } => app.apply_list(open, list, preserve_nimbus_db)?,
         AppCommand::CaptureLogs { app, file } => app.capture_logs(file)?,
         AppCommand::Defaults {
             manifest,
@@ -78,14 +79,14 @@ pub(crate) fn process_cmd(cmd: &AppCommand) -> Result<bool> {
         AppCommand::Info { experiment, output } => experiment.print_info(output.as_ref())?,
         AppCommand::Kill { app } => app.kill_app()?,
         AppCommand::List { params, list } => list.print_list(params)?,
-        AppCommand::LogState { app } => app.log_state()?,
+        AppCommand::LogState { app, open } => app.log_state(open)?,
         AppCommand::NoOp => true,
         AppCommand::Open {
             app, open: args, ..
         } => app.open(args)?,
         AppCommand::Reset { app } => app.reset_app()?,
         AppCommand::TailLogs { app } => app.tail_logs()?,
-        AppCommand::Unenroll { app } => app.unenroll_all()?,
+        AppCommand::Unenroll { app, open } => app.unenroll_all(open)?,
         AppCommand::ValidateExperiment {
             params,
             manifest,
@@ -168,14 +169,14 @@ impl LaunchableApp {
         })
     }
 
-    fn unenroll_all(&self) -> Result<bool> {
+    fn unenroll_all(&self, open: &AppOpenArgs) -> Result<bool> {
         let payload = json! {{ "data": [] }};
         let protocol = StartAppProtocol {
             log_state: true,
             experiments: Some(&payload),
             ..Default::default()
         };
-        self.start_app(protocol, &Default::default())
+        self.start_app(protocol, open)
     }
 
     fn reset_app(&self) -> Result<bool> {
@@ -288,12 +289,12 @@ impl LaunchableApp {
         }
     }
 
-    fn log_state(&self) -> Result<bool> {
+    fn log_state(&self, open: &AppOpenArgs) -> Result<bool> {
         let protocol = StartAppProtocol {
             log_state: true,
             ..Default::default()
         };
-        self.start_app(protocol, &Default::default())
+        self.start_app(protocol, open)
     }
 
     #[allow(clippy::too_many_arguments)]
@@ -346,7 +347,12 @@ impl LaunchableApp {
         self.start_app(protocol, open)
     }
 
-    fn apply_list(&self, list: &ExperimentListSource, preserve_nimbus_db: &bool) -> Result<bool> {
+    fn apply_list(
+        &self,
+        open: &AppOpenArgs,
+        list: &ExperimentListSource,
+        preserve_nimbus_db: &bool,
+    ) -> Result<bool> {
         let value: Value = list.try_into()?;
 
         let protocol = StartAppProtocol {
@@ -354,7 +360,7 @@ impl LaunchableApp {
             experiments: Some(&value),
             log_state: true,
         };
-        self.start_app(protocol, &Default::default())
+        self.start_app(protocol, open)
     }
 
     fn ios_app_container(&self, container: &str) -> Result<String> {

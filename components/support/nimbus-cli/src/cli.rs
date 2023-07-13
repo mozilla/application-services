@@ -40,6 +40,9 @@ pub(crate) enum CliCommand {
         /// This is unlikely what you want to do.
         #[arg(long, default_value = "false")]
         preserve_nimbus_db: bool,
+
+        #[command(flatten)]
+        open: OpenArgs,
     },
 
     /// Capture the logs into a file.
@@ -191,7 +194,10 @@ pub(crate) enum CliCommand {
     /// Print the state of the Nimbus database to logs.
     ///
     /// This causes a restart of the app.
-    LogState,
+    LogState {
+        #[command(flatten)]
+        open: OpenArgs,
+    },
 
     /// Open the app without changing the state of experiment enrollments.
     Open {
@@ -243,7 +249,10 @@ pub(crate) enum CliCommand {
     },
 
     /// Unenroll from all experiments and rollouts
-    Unenroll,
+    Unenroll {
+        #[command(flatten)]
+        open: OpenArgs,
+    },
 
     /// Validate an experiment against a feature manifest
     Validate {
