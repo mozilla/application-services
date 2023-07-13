@@ -9,7 +9,6 @@ use crate::LoginsSyncEngine;
 use parking_lot::Mutex;
 use std::path::Path;
 use std::sync::{Arc, Weak};
-use sync15::client::{sync_multiple, MemoryCachedState, Sync15StorageClientInit};
 use sync15::engine::{EngineSyncAssociation, SyncEngine, SyncEngineId};
 
 // Our "sync manager" will use whatever is stashed here.
@@ -148,63 +147,6 @@ impl LoginStore {
     pub fn add_or_update(&self, entry: LoginEntry, enc_key: &str) -> ApiResult<EncryptedLogin> {
         let encdec = EncryptorDecryptor::new(enc_key)?;
         self.db.lock().add_or_update(entry, &encdec)
-    }
-
-    /// A convenience wrapper around sync_multiple.
-    // Unfortunately, iOS still uses this until they use the sync manager
-    // This can almost die later - consumers should never call it (they should
-    // use the sync manager) and any of our examples probably can too!
-    // Once this dies, `mem_cached_state` can die too.
-    #[handle_error(Error)]
-    pub fn sync(
-        self: Arc<Self>,
-        key_id: String,
-        access_token: String,
-        sync_key: String,
-        tokenserver_url: String,
-        local_encryption_key: String,
-    ) -> ApiResult<String> {
-        let mut engine = LoginsSyncEngine::new(Arc::clone(&self))?;
-        engine
-            .set_local_encryption_key(&local_encryption_key)
-            .unwrap();
-
-        // This is a bit hacky but iOS still uses sync() and we can only pass strings over ffi
-        // Below was ported from the "C" ffi code that does essentially the same thing
-        let storage_init = &Sync15StorageClientInit {
-            key_id,
-            access_token,
-            tokenserver_url: url::Url::parse(tokenserver_url.as_str())?,
-        };
-        let root_sync_key = &sync15::KeyBundle::from_ksync_base64(sync_key.as_str())?;
-
-        let mut disk_cached_state = engine.get_global_state()?;
-        let mut mem_cached_state = MemoryCachedState::default();
-
-        let mut result = sync_multiple(
-            &[&engine],
-            &mut disk_cached_state,
-            &mut mem_cached_state,
-            storage_init,
-            root_sync_key,
-            &engine.scope,
-            None,
-        );
-        // We always update the state - sync_multiple does the right thing
-        // if it needs to be dropped (ie, they will be None or contain Nones etc)
-        engine.set_global_state(&disk_cached_state)?;
-
-        // for b/w compat reasons, we do some dances with the result.
-        // XXX - note that this means telemetry isn't going to be reported back
-        // to the app - we need to check with lockwise about whether they really
-        // need these failures to be reported or whether we can loosen this.
-        if let Err(e) = result.result {
-            return Err(e.into());
-        }
-        match result.engine_results.remove("passwords") {
-            None | Some(Ok(())) => Ok(serde_json::to_string(&result.telemetry).unwrap()),
-            Some(Err(e)) => Err(e.into()),
-        }
     }
 
     // This allows the embedding app to say "make this instance available to
