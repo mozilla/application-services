@@ -655,12 +655,20 @@ mod unit_tests {
     }
 
     fn fenix_manifest() -> ManifestSource {
-        ManifestSource {
+        fenix_manifest_with_ref("main")
+    }
+
+    fn fenix_manifest_with_ref(ref_: &str) -> ManifestSource {
+        ManifestSource::FromGithub {
             github_repo: "mozilla-mobile/firefox-android".to_string(),
-            ref_: "main".to_string(),
+            ref_: ref_.to_string(),
             manifest_file: "@mozilla-mobile/firefox-android/fenix/app/nimbus.fml.yaml".to_string(),
             channel: "developer".to_string(),
         }
+    }
+
+    fn manifest_from_file(file: &str) -> ManifestSource {
+        ManifestSource::FromFile { channel: "developer".to_string(), manifest_file: file.to_string() }
     }
 
     fn experiment(slug: &str) -> ExperimentSource {
@@ -963,10 +971,7 @@ mod unit_tests {
         let expected = vec![
             AppCommand::ValidateExperiment {
                 params: fenix_params(),
-                manifest: ManifestSource {
-                    ref_: "releases_v114".to_string(),
-                    ..fenix_manifest()
-                },
+                manifest: fenix_manifest_with_ref("releases_v114"),
                 experiment: experiment("my-experiment"),
             },
             AppCommand::NoOp,
@@ -989,10 +994,7 @@ mod unit_tests {
         let expected = vec![
             AppCommand::ValidateExperiment {
                 params: fenix_params(),
-                manifest: ManifestSource {
-                    ref_: "my-tag".to_string(),
-                    ..fenix_manifest()
-                },
+                manifest: fenix_manifest_with_ref("my-tag"),
                 experiment: experiment("my-experiment"),
             },
             AppCommand::NoOp,
@@ -1015,10 +1017,7 @@ mod unit_tests {
         let expected = vec![
             AppCommand::ValidateExperiment {
                 params: fenix_params(),
-                manifest: ManifestSource {
-                    manifest_file: "./manifest.fml.yaml".to_string(),
-                    ..fenix_manifest()
-                },
+                manifest: manifest_from_file("./manifest.fml.yaml"),
                 experiment: experiment("my-experiment"),
             },
             AppCommand::NoOp,
@@ -1087,10 +1086,7 @@ mod unit_tests {
         let expected = vec![
             AppCommand::ValidateExperiment {
                 params: fenix_params(),
-                manifest: ManifestSource {
-                    ref_: "releases_v114".to_string(),
-                    ..fenix_manifest()
-                },
+                manifest: fenix_manifest_with_ref("releases_v114"),
                 experiment: feature_experiment(
                     "my-feature",
                     &["./my-branch.json", "./my-treatment.json"],
@@ -1132,10 +1128,7 @@ mod unit_tests {
         let expected = vec![
             AppCommand::ValidateExperiment {
                 params: fenix_params(),
-                manifest: ManifestSource {
-                    ref_: "my-tag".to_string(),
-                    ..fenix_manifest()
-                },
+                manifest: fenix_manifest_with_ref("my-tag"),
                 experiment: feature_experiment(
                     "my-feature",
                     &["./my-branch.json", "./my-treatment.json"],
@@ -1177,10 +1170,7 @@ mod unit_tests {
         let expected = vec![
             AppCommand::ValidateExperiment {
                 params: fenix_params(),
-                manifest: ManifestSource {
-                    manifest_file: "./manifest.fml.yaml".to_string(),
-                    ..fenix_manifest()
-                },
+                manifest: manifest_from_file("./manifest.fml.yaml"),
                 experiment: feature_experiment(
                     "my-feature",
                     &["./my-branch.json", "./my-treatment.json"],
