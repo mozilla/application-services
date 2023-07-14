@@ -16,9 +16,14 @@ use crate::{
     Result, Suggestion,
 };
 
+/// The metadata key whose value is the timestamp of the last ingested Remote
+/// Settings record.
 pub const LAST_FETCH_META_KEY: &str = "last_fetch";
+
+/// A list of IAB categories that contain non-sponsored suggestions.
 pub const NONSPONSORED_IAB_CATEGORIES: &[&str] = &["5 - Education"];
 
+/// The database connection type.
 #[derive(Clone, Copy)]
 pub(crate) enum ConnectionType {
     ReadOnly,
@@ -40,12 +45,20 @@ impl From<ConnectionType> for OpenFlags {
     }
 }
 
+/// A thread-safe "data mapper" that wraps an SQLite connection to the Suggest
+/// database with methods for reading, writing, and deleting suggestions and
+/// metadata.
 pub(crate) struct SuggestDb {
     conn: Mutex<Connection>,
+
+    /// An object that's used to interrupt an ongoing data mapper operation from
+    /// a different thread.
     pub interrupt_handle: Arc<SqlInterruptHandle>,
 }
 
 impl SuggestDb {
+    /// Opens a read-only or read-write connection to a Suggest database at the
+    /// given path.
     pub fn open(path: impl AsRef<Path>, type_: ConnectionType) -> Result<Self> {
         let conn = open_database_with_flags(path, type_.into(), &SuggestConnectionInitializer)?;
         Ok(Self::with_connection(conn))
@@ -59,6 +72,7 @@ impl SuggestDb {
         }
     }
 
+    /// Fetches all suggestions that match the given keyword from the database.
     pub fn fetch_by_keyword(&self, keyword: &str) -> Result<Vec<Suggestion>> {
         let conn = self.conn.lock().unwrap();
         conn.query_rows_and_then_cached(
@@ -101,7 +115,9 @@ impl SuggestDb {
         )
     }
 
-    pub fn ingest(
+    /// Inserts all suggestions associated with a Remote Settings record into
+    /// the database.
+    pub fn insert_suggestions(
         &self,
         record_id: &RemoteRecordId,
         suggestions: &[RemoteSuggestion],
@@ -173,8 +189,8 @@ impl SuggestDb {
         Ok(())
     }
 
-    // ...
-    pub fn put_icon(&self, icon_id: &str, data: &[u8]) -> Result<()> {
+    /// Inserts an icon for a suggestion into the database.
+    pub fn insert_icon(&self, icon_id: &str, data: &[u8]) -> Result<()> {
         self.conn.lock().unwrap().execute(
             "INSERT INTO icons(
                  id,
@@ -192,8 +208,9 @@ impl SuggestDb {
         Ok(())
     }
 
-    // ...
-    pub fn drop(&self, record_id: &RemoteRecordId) -> Result<()> {
+    /// Deletes all suggestions associated with a Remote Settings record from
+    /// the database.
+    pub fn drop_suggestions(&self, record_id: &RemoteRecordId) -> Result<()> {
         self.conn.lock().unwrap().execute_cached(
             "DELETE FROM suggestions WHERE record_id = :record_id",
             named_params! { ":record_id": record_id.as_str() },
@@ -201,7 +218,7 @@ impl SuggestDb {
         Ok(())
     }
 
-    // ...
+    /// Deletes an icon for a suggestion from the database.
     pub fn drop_icon(&self, icon_id: &str) -> Result<()> {
         self.conn.lock().unwrap().execute_cached(
             "DELETE FROM icons WHERE id = :id",
@@ -220,6 +237,7 @@ impl SuggestDb {
         Ok(())
     }
 
+    /// Returns the value associated with a metadata key.
     pub fn get_meta<T: FromSql>(&self, key: &str) -> Result<Option<T>> {
         Ok(self.conn.lock().unwrap().try_query_one(
             "SELECT value FROM meta WHERE key = :key",
@@ -228,6 +246,7 @@ impl SuggestDb {
         )?)
     }
 
+    /// Sets the value for a metadata key.
     pub fn put_meta(&self, key: &str, value: impl ToSql) -> Result<()> {
         self.conn.lock().unwrap().execute_cached(
             "REPLACE INTO meta(key, value) VALUES(:key, :value)",

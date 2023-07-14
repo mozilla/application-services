@@ -25,15 +25,17 @@ const RS_COLLECTION: &str = "quicksuggest";
 /// background to update the database with new suggestions from Remote Settings.
 ///
 /// The store keeps track of the state needed to support incremental ingestion,
-/// but doesn't schedule the ingestion work itself, because the primitives for
-/// scheduling background work vary across platforms: Desktop might use an idle
-/// timer to poll for changes, Android has `WorkManager`, and iOS has
-/// `BGTaskScheduler`.
+/// but doesn't schedule the ingestion work itself, or decide how many
+/// suggestions to ingest at once. This is for two reasons:
 ///
-/// Ingestion limits can vary between platforms, too: a mobile browser on a
-/// metered connection might want to request a small subset of the Suggest data
-/// and fetch the rest later, while a Desktop browser on a fast link might
-/// request the entire dataset on first launch.
+/// 1. The primitives for scheduling background work vary between platforms. You
+///    might use an idle timer on Desktop, `WorkManager` on Android, or
+///    `BGTaskScheduler` on iOS.
+/// 2. Ingestion limits can change, depending on the platform and the needs of
+///    the application. A mobile device on a metered connection might want to
+///    request a small subset of the Suggest data and fetch the rest later,
+///    while a desktop on a fast link might request the entire dataset on first
+///    launch.
 pub struct SuggestStore {
     path: PathBuf,
     dbs: OnceCell<SuggestStoreDbs>,
@@ -48,7 +50,7 @@ pub struct IngestLimits {
 }
 
 impl SuggestStore {
-    /// Creates a suggestion provider.
+    /// Creates a Suggest store.
     pub fn new(
         path: &str,
         settings_config: Option<RemoteSettingsConfig>,
@@ -151,7 +153,7 @@ impl SuggestStore {
                     // stable identifier, and determining which suggestions in
                     // the attachment actually changed is more complicated than
                     // dropping and re-ingesting all of them.
-                    writer.drop(record_id)?;
+                    writer.drop_suggestions(record_id)?;
 
                     // Ingest (or re-ingest) all suggestions in the attachment.
                     scope.err_if_interrupted()?;
@@ -160,7 +162,7 @@ impl SuggestStore {
                         .get_attachment(&attachment.location)?
                         .json::<SuggestAttachmentData>()?
                         .0;
-                    writer.ingest(record_id, &suggestions)?;
+                    writer.insert_suggestions(record_id, &suggestions)?;
 
                     // Advance the last fetch time, so that we can resume
                     // fetching after this record if we're interrupted.
@@ -175,7 +177,7 @@ impl SuggestStore {
                     // suggestions and advance the last fetch time.
                     match record_id.as_icon_id() {
                         Some(icon_id) => writer.drop_icon(icon_id)?,
-                        None => writer.drop(record_id)?,
+                        None => writer.drop_suggestions(record_id)?,
                     };
                     writer.put_meta(LAST_FETCH_META_KEY, last_modified)?
                 }
@@ -192,7 +194,7 @@ impl SuggestStore {
                         .settings_client
                         .get_attachment(&attachment.location)?
                         .body;
-                    writer.put_icon(icon_id, &data)?;
+                    writer.insert_icon(icon_id, &data)?;
                     writer.put_meta(LAST_FETCH_META_KEY, last_modified)?;
                 }
                 _ => continue,

@@ -39,6 +39,8 @@ pub const SQL: &str = "
     ) WITHOUT ROWID;
 ";
 
+/// Initializes an SQLite connection to the Suggest database, performing
+/// migrations as needed.
 pub struct SuggestConnectionInitializer;
 
 impl ConnectionInitializer for SuggestConnectionInitializer {
