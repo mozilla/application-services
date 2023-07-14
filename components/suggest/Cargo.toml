@@ -4,6 +4,7 @@ version = "0.1.0"
 edition = "2021"
 description = "Manages sponsored and web suggestions for Firefox Suggest"
 readme = "README.md"
+license = "MPL-2.0"
 exclude = ["/android"]
 
 [dependencies]

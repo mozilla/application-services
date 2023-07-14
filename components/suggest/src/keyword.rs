@@ -1,3 +1,8 @@
+/* This Source Code Form is subject to the terms of the Mozilla Public
+ * License, v. 2.0. If a copy of the MPL was not distributed with this
+ * file, You can obtain one at http://mozilla.org/MPL/2.0/.
+ */
+
 /// Given a list of keywords for a suggestion, returns a phrase that best
 /// completes the user's query. This function uses two heuristics to pick the
 /// best match:
