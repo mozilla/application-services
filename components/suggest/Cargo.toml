@@ -2,9 +2,9 @@
 name = "suggest"
 version = "0.1.0"
 edition = "2021"
+description = "Manages sponsored and web suggestions for Firefox Suggest"
+readme = "README.md"
 exclude = ["/android"]
-
-# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
 anyhow = "1.0"
