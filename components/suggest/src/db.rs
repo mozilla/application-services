@@ -212,9 +212,11 @@ impl SuggestDb {
         Ok(())
     }
 
+    /// Clears the database, removing all suggestions, icons, and metadata.
     pub fn clear(&self) -> Result<()> {
         self.conn.lock().unwrap().execute_batch(
             "DELETE FROM suggestions;
+             DELETE FROM icons;
              DELETE FROM meta;",
         )?;
         Ok(())

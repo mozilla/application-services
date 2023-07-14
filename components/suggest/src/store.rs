@@ -202,6 +202,11 @@ impl SuggestStore {
 
         Ok(())
     }
+
+    pub fn clear(&self) -> Result<(), SuggestApiError> {
+        let writer = &self.dbs()?.writer;
+        Ok(writer.clear()?)
+    }
 }
 
 struct SuggestStoreDbs {
