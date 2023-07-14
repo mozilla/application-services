@@ -44,4 +44,7 @@ interface SuggestStore {
 
     [Throws=SuggestApiError]
     void ingest([ByRef] IngestLimits limits);
+
+    [Throws=SuggestApiError]
+    void clear();
 };
