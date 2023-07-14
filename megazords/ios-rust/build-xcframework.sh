@@ -77,7 +77,9 @@ cargo_build () {
   case $TARGET in
     x86_64*)
       LIBS_DIR="$REPO_ROOT/libs/ios/x86_64";;
-    aarch64*)
+    aarch64-apple-ios-sim)
+      LIBS_DIR="$REPO_ROOT/libs/ios/arm64-sim";;
+    aarch64-apple-ios)
       LIBS_DIR="$REPO_ROOT/libs/ios/arm64";;
     *)
       echo "Unexpected target architecture: $TARGET" && exit 1;;
