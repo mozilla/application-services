@@ -25,10 +25,21 @@ if [[ "${ARCH}" == "x86_64" ]]; then
   OS_COMPILER="iPhoneSimulator"
   TARGET="x86_64-apple-darwin"
   GYP_ARCH="x64"
+  EXTRA_TARGET="x86_64-apple-ios-simulator"
 elif [[ "${ARCH}" == "arm64" ]]; then
   OS_COMPILER="iPhoneOS"
   TARGET="aarch64-apple-darwin"
   GYP_ARCH="arm64"
+  EXTRA_TARGET="arm64-apple-ios"
+elif [[ "${ARCH}" == "arm64-sim" ]]; then
+  # We need to build nss for M1 sims ahead of time
+  OS_COMPILER="iPhoneSimulator"
+  TARGET="aarch64-apple-darwin"
+  GYP_ARCH="arm64"
+  # ARCH is used further down the line, but arm64-sim doesn't exist so we swap it back
+  # to the original 
+  ARCH="arm64"
+  EXTRA_TARGET="arm64-apple-ios-simulator"
 else
   echo "Unsupported architecture"
   exit 1
@@ -39,7 +50,7 @@ CROSS_TOP="${DEVELOPER}/Platforms/${OS_COMPILER}.platform/Developer"
 CROSS_SDK="${OS_COMPILER}.sdk"
 TOOLCHAIN_BIN="${DEVELOPER}/Toolchains/XcodeDefault.xctoolchain/usr/bin"
 ISYSROOT="${CROSS_TOP}/SDKs/${CROSS_SDK}"
-CC="${TOOLCHAIN_BIN}/clang -arch ${ARCH} -isysroot ${ISYSROOT} -mios-version-min=${IOS_MIN_SDK_VERSION}"
+CC="${TOOLCHAIN_BIN}/clang -target ${EXTRA_TARGET} -arch ${ARCH} -isysroot ${ISYSROOT} -mios-version-min=${IOS_MIN_SDK_VERSION}"
 
 # Build NSPR
 NSPR_BUILD_DIR=$(mktemp -d)

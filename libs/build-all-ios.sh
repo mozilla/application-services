@@ -2,9 +2,10 @@
 
 set -euvx
 
+# This probably needs to be updated, but also includes the toolchain?
 IOS_MIN_SDK_VERSION="11.0"
 # Our short-names for the architectures.
-TARGET_ARCHS=("x86_64" "arm64")
+TARGET_ARCHS=("x86_64" "arm64" "arm64-sim")
 
 if [[ "${#}" -ne 1 ]]
 then
@@ -25,7 +26,9 @@ function universal_lib() {
     mkdir -p "${UNIVERSAL_DIR}/lib"
     CMD="lipo"
     for ARCH in "${@}"; do
-      CMD="${CMD} -arch ${ARCH} ios/${ARCH}/${DIR_NAME}/lib/${LIB_NAME}"
+      if [[ "${ARCH}" != "arm64-sim" ]]; then
+        CMD="${CMD} -arch ${ARCH} ios/${ARCH}/${DIR_NAME}/lib/${LIB_NAME}"
+      fi
     done
     CMD="${CMD} -output ${LIB_PATH} -create"
     ${CMD}
