@@ -3,6 +3,7 @@ use serde_derive::*;
 
 mod db;
 mod error;
+mod keyword;
 mod schema;
 mod store;
 

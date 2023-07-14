@@ -12,7 +12,8 @@ use rusqlite::{
 use sql_support::{open_database::open_database_with_flags, ConnExt};
 
 use crate::{
-    schema::SuggestConnectionInitializer, RemoteRecordId, RemoteSuggestion, Result, Suggestion,
+    keyword::full_keyword, schema::SuggestConnectionInitializer, RemoteRecordId, RemoteSuggestion,
+    Result, Suggestion,
 };
 
 pub const LAST_FETCH_META_KEY: &str = "last_fetch";
@@ -76,7 +77,8 @@ impl SuggestDb {
             |row| -> Result<Suggestion> {
                 let keywords: Vec<String> = conn.query_rows_and_then(
                     "SELECT keyword FROM keywords
-                     WHERE suggestion_id = :suggestion_id AND rank >= :rank",
+                     WHERE suggestion_id = :suggestion_id AND rank >= :rank
+                     ORDER BY rank ASC",
                     named_params! {
                         ":suggestion_id": row.get::<_, i64>("id")?,
                         ":rank": row.get::<_, i64>("rank")?,
@@ -233,34 +235,4 @@ impl SuggestDb {
         )?;
         Ok(())
     }
-}
-
-fn full_keyword(query: &str, keywords: &[impl AsRef<str>]) -> String {
-    let mut longer_phrase: Option<&str> = None;
-    let query_words_len = query.split_whitespace().count();
-    for phrase in keywords
-        .iter()
-        .filter(|phrase| phrase.as_ref().starts_with(query))
-    {
-        let trimmed_phrase = phrase.as_ref().trim();
-        let phrase_words = trimmed_phrase.split_whitespace().collect::<Vec<_>>();
-        let len = if query.ends_with(char::is_whitespace) {
-            query_words_len + 1
-        } else {
-            query_words_len
-        };
-        if len < phrase_words.len() {
-            return phrase_words[..len].join(" ");
-        }
-        if query.len() < phrase.as_ref().len()
-            && longer_phrase
-                .map(|p| p.len() < trimmed_phrase.len())
-                .unwrap_or(true)
-        {
-            longer_phrase = Some(trimmed_phrase);
-        }
-    }
-    longer_phrase
-        .map(ToOwned::to_owned)
-        .unwrap_or_else(|| query.to_owned())
 }
