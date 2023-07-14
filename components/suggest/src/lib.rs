@@ -10,11 +10,12 @@ mod store;
 pub use error::SuggestApiError;
 pub use store::{IngestLimits, SuggestStore};
 
-pub type Result<T, E = error::Error> = std::result::Result<T, E>;
+pub(crate) type Result<T> = std::result::Result<T, error::Error>;
+pub type SuggestApiResult<T> = std::result::Result<T, error::SuggestApiError>;
 
 #[derive(Clone, Debug, Deserialize, Eq, Hash, Ord, PartialEq, PartialOrd)]
 #[serde(transparent)]
-pub struct RemoteRecordId(String);
+pub(crate) struct RemoteRecordId(String);
 
 impl RemoteRecordId {
     pub fn as_str(&self) -> &str {
@@ -27,7 +28,7 @@ impl RemoteRecordId {
 }
 
 #[derive(Debug, Deserialize)]
-pub struct RemoteSuggestion {
+pub(crate) struct RemoteSuggestion {
     #[serde(rename = "id")]
     pub block_id: i64,
     pub advertiser: String,

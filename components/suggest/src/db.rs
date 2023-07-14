@@ -20,7 +20,7 @@ pub const LAST_FETCH_META_KEY: &str = "last_fetch";
 pub const NONSPONSORED_IAB_CATEGORIES: &[&str] = &["5 - Education"];
 
 #[derive(Clone, Copy)]
-pub enum ConnectionType {
+pub(crate) enum ConnectionType {
     ReadOnly,
     ReadWrite,
 }
@@ -40,23 +40,21 @@ impl From<ConnectionType> for OpenFlags {
     }
 }
 
-pub struct SuggestDb {
+pub(crate) struct SuggestDb {
     conn: Mutex<Connection>,
-    pub type_: ConnectionType,
     pub interrupt_handle: Arc<SqlInterruptHandle>,
 }
 
 impl SuggestDb {
     pub fn open(path: impl AsRef<Path>, type_: ConnectionType) -> Result<Self> {
         let conn = open_database_with_flags(path, type_.into(), &SuggestConnectionInitializer)?;
-        Ok(Self::with_connection(conn, type_))
+        Ok(Self::with_connection(conn))
     }
 
-    fn with_connection(conn: Connection, type_: ConnectionType) -> Self {
+    fn with_connection(conn: Connection) -> Self {
         let interrupt_handle = Arc::new(SqlInterruptHandle::new(&conn));
         Self {
             conn: Mutex::new(conn),
-            type_,
             interrupt_handle,
         }
     }

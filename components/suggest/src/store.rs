@@ -9,8 +9,7 @@ use serde_derive::*;
 
 use crate::{
     db::{ConnectionType, SuggestDb, LAST_FETCH_META_KEY},
-    error::SuggestApiError,
-    RemoteRecordId, RemoteSuggestion, Result, Suggestion, SuggestionQuery,
+    RemoteRecordId, RemoteSuggestion, Result, SuggestApiResult, Suggestion, SuggestionQuery,
 };
 
 const RS_COLLECTION: &str = "quicksuggest";
@@ -53,7 +52,7 @@ impl SuggestStore {
     pub fn new(
         path: &str,
         settings_config: Option<RemoteSettingsConfig>,
-    ) -> Result<Self, SuggestApiError> {
+    ) -> SuggestApiResult<Self> {
         Ok(Self::new_inner(path, settings_config)?)
     }
 
@@ -83,7 +82,7 @@ impl SuggestStore {
     }
 
     /// Queries the database for suggestions that match the `keyword`.
-    pub fn query(&self, query: &SuggestionQuery) -> Result<Vec<Suggestion>, SuggestApiError> {
+    pub fn query(&self, query: &SuggestionQuery) -> SuggestApiResult<Vec<Suggestion>> {
         if query.keyword.is_empty() {
             return Ok(Vec::new());
         }
@@ -111,7 +110,7 @@ impl SuggestStore {
 
     /// Ingests new suggestions from Remote Settings. `limits` can be used to
     /// constrain the amount of work done.
-    pub fn ingest(&self, limits: &IngestLimits) -> Result<(), SuggestApiError> {
+    pub fn ingest(&self, limits: &IngestLimits) -> SuggestApiResult<()> {
         Ok(self.ingest_inner(limits)?)
     }
 
@@ -203,7 +202,7 @@ impl SuggestStore {
         Ok(())
     }
 
-    pub fn clear(&self) -> Result<(), SuggestApiError> {
+    pub fn clear(&self) -> SuggestApiResult<()> {
         let writer = &self.dbs()?.writer;
         Ok(writer.clear()?)
     }

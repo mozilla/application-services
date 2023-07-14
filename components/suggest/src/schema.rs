@@ -1,5 +1,5 @@
 use rusqlite::{Connection, Transaction};
-use sql_support::open_database::{ConnectionInitializer, Error, Result};
+use sql_support::open_database::{self, ConnectionInitializer};
 
 pub const VERSION: u32 = 1;
 
@@ -45,7 +45,7 @@ impl ConnectionInitializer for SuggestConnectionInitializer {
     const NAME: &'static str = "suggest db";
     const END_VERSION: u32 = VERSION;
 
-    fn prepare(&self, conn: &Connection, _db_empty: bool) -> Result<()> {
+    fn prepare(&self, conn: &Connection, _db_empty: bool) -> open_database::Result<()> {
         let initial_pragmas = "
             -- Use in-memory storage for TEMP tables.
             PRAGMA temp_store = 2;
@@ -59,11 +59,11 @@ impl ConnectionInitializer for SuggestConnectionInitializer {
         Ok(())
     }
 
-    fn init(&self, db: &Transaction<'_>) -> Result<()> {
+    fn init(&self, db: &Transaction<'_>) -> open_database::Result<()> {
         Ok(db.execute_batch(SQL)?)
     }
 
-    fn upgrade_from(&self, _db: &Transaction<'_>, version: u32) -> Result<()> {
-        Err(Error::IncompatibleVersion(version))
+    fn upgrade_from(&self, _db: &Transaction<'_>, version: u32) -> open_database::Result<()> {
+        Err(open_database::Error::IncompatibleVersion(version))
     }
 }
