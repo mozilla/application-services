@@ -41,29 +41,37 @@ impl ManifestSource {
     fn manifest_loader(&self) -> Result<FileLoader> {
         let cwd = std::env::current_dir().expect("Current Working Directory is not set");
         let mut files = FileLoader::new(cwd, config::manifest_cache_dir(), Default::default())?;
-        if let Self::FromGithub { ref_, github_repo, .. } = self {
+        if let Self::FromGithub {
+            ref_, github_repo, ..
+        } = self
+        {
             files.add_repo(github_repo, ref_)?;
         }
         Ok(files)
     }
 
     pub(crate) fn try_from(params: &NimbusApp, value: &ManifestArgs) -> Result<Self> {
-        Ok(if value.manifest.is_some() {
-            Self::FromFile {
-                channel: params.channel.clone(),
-                manifest_file: value.manifest.clone().unwrap(),
-            }
-        } else {
-            let github_repo = params.github_repo().to_string();
-            let ref_ = params.ref_from_version(&value.version, &value.ref_);
-            let manifest_file = format!("@{}/{}", github_repo, params.manifest_location(),);
-            Self::FromGithub {
-                channel: params.channel.clone(),
-                manifest_file,
-                ref_,
-                github_repo,
-            }
-        })
+        Ok(
+            match (value.manifest.clone(), params.channel(), params.app_name()) {
+                (Some(manifest_file), Some(channel), _) => Self::FromFile {
+                    channel,
+                    manifest_file,
+                },
+                (_, Some(channel), Some(_)) => {
+                    let github_repo = params.github_repo()?.to_string();
+                    let ref_ = params.ref_from_version(&value.version, &value.ref_)?;
+                    let manifest_file =
+                        format!("@{}/{}", github_repo, params.manifest_location()?,);
+                    Self::FromGithub {
+                        channel,
+                        manifest_file,
+                        ref_,
+                        github_repo,
+                    }
+                }
+                _ => anyhow::bail!("A channel and either a manifest or an app is expected"),
+            },
+        )
     }
 }
 

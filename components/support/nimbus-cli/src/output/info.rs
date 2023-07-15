@@ -135,9 +135,10 @@ impl ExperimentListSource {
             is_rollout = style.apply_to("   "),
             branches = style.apply_to(" Branches"),
         ))?;
+        let filter = params.app_name.as_deref();
         for exp in array {
-            let app_name = exp.get_str("appName").ok().unwrap_or_default();
-            if app_name != params.app_name {
+            let app_name = exp.get_str("appName").unwrap_or_default();
+            if filter.is_some() && Some(app_name) != filter {
                 continue;
             }
 

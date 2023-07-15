@@ -39,10 +39,13 @@ pub(crate) fn create_experiment(
     )
     .to_kebab_case();
 
+    let app_name = app
+        .app_name()
+        .expect("An app name is expected. This is a bug in nimbus-cli");
     Ok(json!({
-        "appId": app.app_name,
-        "appName": app.app_name,
-        "application": app.app_name,
+        "appId": &app_name,
+        "appName": &app_name,
+        "application": &app_name,
         "arguments": {},
         "branches": branches,
         "bucketConfig": {

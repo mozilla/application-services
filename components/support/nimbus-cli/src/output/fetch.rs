@@ -21,10 +21,10 @@ impl NimbusApp {
         let value: Value = list.try_into()?;
         let array = value_utils::try_extract_data_list(&value)?;
         let mut data = Vec::new();
-
+        let filter = self.app_name.as_deref();
         for exp in array {
-            let app_name = exp.get_str("appName")?;
-            if app_name != self.app_name {
+            let app_name = exp.get_str("appName").unwrap_or_default();
+            if filter.is_some() && Some(app_name) != filter {
                 continue;
             }
 
@@ -46,10 +46,11 @@ impl NimbusApp {
     {
         let mut data = Vec::new();
 
+        let filter = self.app_name.as_deref();
         for exp in recipes {
             let exp: Value = exp.try_into()?;
-            let app_name = exp.get_str("appName")?;
-            if app_name != self.app_name {
+            let app_name = exp.get_str("appName").unwrap_or_default();
+            if filter.is_some() && Some(app_name) != filter {
                 continue;
             }
 
