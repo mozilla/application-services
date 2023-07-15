@@ -40,8 +40,14 @@ where
 {
     let cli = Cli::parse_from(args);
 
-    let app = LaunchableApp::try_from(&cli)?;
     let mut commands: Vec<AppCommand> = Default::default();
+
+    // We do this here to ensure that all the command line is valid
+    // with respect to the main command. We do this here becasue
+    // as the cli has expanded, we've changed when we need `--app`
+    // and `--channel`. We catch those types of errors early by doing this
+    // here.
+    let main_command = AppCommand::try_from(&cli)?;
 
     // Validating the command line args. Most of this should be done with clap,
     // but for everything else there's:
@@ -51,12 +57,14 @@ where
     commands.push(AppCommand::try_validate(&cli)?);
 
     if cli.command.should_kill() {
-        commands.push(AppCommand::Kill { app: app.clone() });
+        let app = LaunchableApp::try_from(&cli)?;
+        commands.push(AppCommand::Kill { app });
     }
     if cli.command.should_reset() {
+        let app = LaunchableApp::try_from(&cli)?;
         commands.push(AppCommand::Reset { app });
     }
-    commands.push(AppCommand::try_from(&cli)?);
+    commands.push(main_command);
 
     Ok(commands)
 }
@@ -79,8 +87,25 @@ enum LaunchableApp {
 
 #[derive(Clone, Debug, PartialEq)]
 pub(crate) struct NimbusApp {
-    app_name: String,
-    channel: String,
+    app_name: Option<String>,
+    channel: Option<String>,
+}
+
+impl NimbusApp {
+    #[cfg(test)]
+    fn new(app: &str, channel: &str) -> Self {
+        Self {
+            app_name: Some(app.to_string()),
+            channel: Some(channel.to_string()),
+        }
+    }
+
+    fn channel(&self) -> Option<String> {
+        self.channel.clone()
+    }
+    fn app_name(&self) -> Option<String> {
+        self.app_name.clone()
+    }
 }
 
 impl From<&Cli> for NimbusApp {
@@ -235,7 +260,6 @@ impl TryFrom<&Cli> for AppCommand {
     type Error = anyhow::Error;
 
     fn try_from(cli: &Cli) -> Result<Self> {
-        let app = LaunchableApp::try_from(cli)?;
         let params = NimbusApp::from(cli);
         Ok(match cli.command.clone() {
             CliCommand::ApplyFile {
@@ -243,6 +267,7 @@ impl TryFrom<&Cli> for AppCommand {
                 preserve_nimbus_db,
                 open,
             } => {
+                let app = LaunchableApp::try_from(cli)?;
                 let list = ExperimentListSource::try_from(file.as_path())?;
                 AppCommand::ApplyFile {
                     app,
@@ -251,7 +276,10 @@ impl TryFrom<&Cli> for AppCommand {
                     preserve_nimbus_db,
                 }
             }
-            CliCommand::CaptureLogs { file } => AppCommand::CaptureLogs { app, file },
+            CliCommand::CaptureLogs { file } => {
+                let app = LaunchableApp::try_from(cli)?;
+                AppCommand::CaptureLogs { app, file }
+            }
             CliCommand::Defaults {
                 feature_id,
                 output,
@@ -274,6 +302,7 @@ impl TryFrom<&Cli> for AppCommand {
                 open,
                 ..
             } => {
+                let app = LaunchableApp::try_from(cli)?;
                 // Ensure we get the rollouts from the same place we get the experiment from.
                 let mut recipes: Vec<ExperimentSource> = Vec::new();
                 for r in rollouts {
@@ -356,16 +385,26 @@ impl TryFrom<&Cli> for AppCommand {
                 let list = ExperimentListSource::try_from(cli)?;
                 AppCommand::List { params, list }
             }
-            CliCommand::LogState { open } => AppCommand::LogState {
-                app,
-                open: open.into(),
-            },
-            CliCommand::Open { open, .. } => AppCommand::Open {
-                app,
-                open: open.into(),
-            },
-            CliCommand::TailLogs => AppCommand::TailLogs { app },
+            CliCommand::LogState { open } => {
+                let app = LaunchableApp::try_from(cli)?;
+                AppCommand::LogState {
+                    app,
+                    open: open.into(),
+                }
+            }
+            CliCommand::Open { open, .. } => {
+                let app = LaunchableApp::try_from(cli)?;
+                AppCommand::Open {
+                    app,
+                    open: open.into(),
+                }
+            }
+            CliCommand::TailLogs => {
+                let app = LaunchableApp::try_from(cli)?;
+                AppCommand::TailLogs { app }
+            }
             CliCommand::TestFeature { files, open, .. } => {
+                let app = LaunchableApp::try_from(cli)?;
                 let experiment = ExperimentSource::try_from(cli)?;
                 let first = files
                     .first()
@@ -384,10 +423,13 @@ impl TryFrom<&Cli> for AppCommand {
                     preserve_nimbus_db: false,
                 }
             }
-            CliCommand::Unenroll { open } => AppCommand::Unenroll {
-                app,
-                open: open.into(),
-            },
+            CliCommand::Unenroll { open } => {
+                let app = LaunchableApp::try_from(cli)?;
+                AppCommand::Unenroll {
+                    app,
+                    open: open.into(),
+                }
+            }
             _ => Self::NoOp,
         })
     }
@@ -476,8 +518,8 @@ mod unit_tests {
     fn test_launchable_app() -> Result<()> {
         fn cli(app: &str, channel: &str) -> Cli {
             Cli {
-                app: app.to_string(),
-                channel: channel.to_string(),
+                app: Some(app.to_string()),
+                channel: Some(channel.to_string()),
                 device_id: None,
                 command: CliCommand::ResetApp,
             }
@@ -648,10 +690,7 @@ mod unit_tests {
     }
 
     fn fenix_params() -> NimbusApp {
-        NimbusApp {
-            app_name: "fenix".to_string(),
-            channel: "developer".to_string(),
-        }
+        NimbusApp::new("fenix", "developer")
     }
 
     fn fenix_manifest() -> ManifestSource {
@@ -668,7 +707,10 @@ mod unit_tests {
     }
 
     fn manifest_from_file(file: &str) -> ManifestSource {
-        ManifestSource::FromFile { channel: "developer".to_string(), manifest_file: file.to_string() }
+        ManifestSource::FromFile {
+            channel: "developer".to_string(),
+            manifest_file: file.to_string(),
+        }
     }
 
     fn experiment(slug: &str) -> ExperimentSource {
@@ -1004,8 +1046,6 @@ mod unit_tests {
         // With a file on disk
         let observed = get_commands_from_cli([
             "nimbus-cli",
-            "--app",
-            "fenix",
             "--channel",
             "developer",
             "validate",
@@ -1016,7 +1056,10 @@ mod unit_tests {
 
         let expected = vec![
             AppCommand::ValidateExperiment {
-                params: fenix_params(),
+                params: NimbusApp {
+                    channel: Some("developer".to_string()),
+                    app_name: None,
+                },
                 manifest: manifest_from_file("./manifest.fml.yaml"),
                 experiment: experiment("my-experiment"),
             },

@@ -241,8 +241,12 @@ fn prepare_recipe(
 ) -> Result<Value> {
     let mut recipe = recipe.clone();
     let slug = recipe.get_str("slug")?;
-    if params.app_name != recipe.get_str("appName")? {
-        anyhow::bail!(format!("'{}' is not for app {}", slug, params.app_name));
+    let app_name = params
+        .app_name
+        .as_deref()
+        .expect("An app name is expected. This is a bug in nimbus-cli");
+    if app_name != recipe.get_str("appName")? {
+        anyhow::bail!(format!("'{slug}' is not for {app_name} app"));
     }
     recipe.set("channel", &params.channel)?;
     recipe.set("isEnrollmentPaused", false)?;
@@ -390,10 +394,7 @@ mod tests {
             }
         });
 
-        let params = NimbusApp {
-            app_name: "an-app".to_string(),
-            channel: "developer".to_string(),
-        };
+        let params = NimbusApp::new("an-app", "developer");
 
         assert_eq!(
             json!({

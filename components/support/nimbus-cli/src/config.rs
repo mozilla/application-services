@@ -10,16 +10,24 @@ use anyhow::{bail, Result};
 impl TryFrom<&Cli> for LaunchableApp {
     type Error = anyhow::Error;
     fn try_from(value: &Cli) -> Result<Self> {
-        let app = value.app.as_str();
-        let channel = value.channel.as_str();
         let device_id = value.device_id.clone();
+
+        match (&value.app, &value.channel) {
+            (None, None) => anyhow::bail!("A value for --app and --channel must be specified. Supported apps are: fenix, focus_android, firefox_ios and focus_ios"),
+            (None, _) => anyhow::bail!("A value for --app must be specified. One of: fenix, focus_android, firefox_ios and focus_ios are currently supported"),
+            (_, None) => anyhow::bail!("A value for --channel must be specified. Supported channels are: developer, nightly, beta and release"),
+            _ => (),
+        }
+
+        let app = value.app.as_deref().unwrap();
+        let channel = value.channel.as_deref().unwrap();
 
         let prefix = match app {
             "fenix" => Some("org.mozilla"),
             "focus_android" => Some("org.mozilla"),
             "firefox_ios" => Some("org.mozilla.ios"),
             "focus_ios" => Some("org.mozilla.ios"),
-            _ => None,
+            _ => anyhow::bail!("Only --app values of fenix, focus_android, firefox_ios and focus_ios are currently supported"),
         };
 
         let suffix = match app {
@@ -110,46 +118,59 @@ impl TryFrom<&Cli> for LaunchableApp {
                 device_id: device_id.unwrap_or_else(|| "booted".to_string()),
                 scheme,
             },
-            _ => unimplemented!(),
+            _ => unreachable!(),
         })
     }
 }
 
 impl NimbusApp {
-    pub(crate) fn ref_from_version(&self, version: &Option<String>, ref_: &String) -> String {
+    pub(crate) fn ref_from_version(
+        &self,
+        version: &Option<String>,
+        ref_: &String,
+    ) -> Result<String> {
         if version.is_none() {
-            return ref_.to_string();
+            return Ok(ref_.to_string());
         }
         let version = version.as_ref().unwrap();
-        match self.app_name.as_str() {
+        let app_name = self
+            .app_name()
+            .ok_or_else(|| anyhow::anyhow!("Either an --app or a --manifest must be specified"))?;
+        Ok(match app_name.as_str() {
             // Fenix and Focus are both in the same repo, so should have the
             // same branching structure.
             "fenix" | "focus_android" => format!("releases_v{version}"),
             "firefox_ios" => format!("release/v{version}"),
             "focus_ios" => format!("releases_v{version}"),
 
-            _ => unreachable!("{} is not defined", self.app_name),
-        }
+            _ => anyhow::bail!("{} is not defined", app_name),
+        })
     }
 
-    pub(crate) fn github_repo<'a>(&self) -> &'a str {
-        match self.app_name.as_str() {
+    pub(crate) fn github_repo<'a>(&self) -> Result<&'a str> {
+        let app_name = self
+            .app_name()
+            .ok_or_else(|| anyhow::anyhow!("Either an --app or a --manifest must be specified"))?;
+        Ok(match app_name.as_str() {
             // Fenix and Focus are both in the same repo
             "fenix" | "focus_android" => "mozilla-mobile/firefox-android",
             "firefox_ios" => "mozilla-mobile/firefox-ios",
             "focus_ios" => "mozilla-mobile/focus-ios",
-            _ => unreachable!("{} is not defined", self.app_name),
-        }
+            _ => unreachable!("{} is not defined", app_name),
+        })
     }
 
-    pub(crate) fn manifest_location<'a>(&self) -> &'a str {
-        match self.app_name.as_str() {
+    pub(crate) fn manifest_location<'a>(&self) -> Result<&'a str> {
+        let app_name = self
+            .app_name()
+            .ok_or_else(|| anyhow::anyhow!("Either an --app or a --manifest must be specified"))?;
+        Ok(match app_name.as_str() {
             "fenix" => "fenix/app/nimbus.fml.yaml",
             "focus_android" => "focus-android/app/nimbus.fml.yaml",
             "firefox_ios" => "nimbus.fml.yaml",
             "focus_ios" => "nimbus.fml.yaml",
-            _ => unreachable!("{} is not defined", self.app_name),
-        }
+            _ => anyhow::bail!("{} is not defined", app_name),
+        })
     }
 }
 

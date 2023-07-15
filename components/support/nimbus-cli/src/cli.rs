@@ -14,11 +14,11 @@ use clap::{Args, Parser, Subcommand};
 pub(crate) struct Cli {
     /// The app name according to Nimbus.
     #[arg(short, long, value_name = "APP")]
-    pub(crate) app: String,
+    pub(crate) app: Option<String>,
 
     /// The channel according to Nimbus. This determines which app to talk to.
     #[arg(short, long, value_name = "CHANNEL")]
-    pub(crate) channel: String,
+    pub(crate) channel: Option<String>,
 
     /// The device id of the simulator, emulator or device.
     #[arg(short, long, value_name = "DEVICE_ID")]
