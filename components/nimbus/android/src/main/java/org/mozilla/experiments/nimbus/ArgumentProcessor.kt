@@ -93,8 +93,8 @@ fun createCommandLineArgs(uri: Uri): CliArgs? {
     if (setOf("http", "https").contains(uri.scheme ?: "")) {
         return null
     }
-    val isForUs = uri.getBooleanQueryParameter("--$NIMBUS_FLAG", false)
-    if (!isForUs) {
+    val isMeantForUs = uri.getBooleanQueryParameter("--$NIMBUS_FLAG", false)
+    if (!isMeantForUs) {
         return null
     }
 
