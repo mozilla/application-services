@@ -26,7 +26,7 @@ buildscript {
         robolectric_core_version = '4.10.3'
         rust_android_gradle_version = '0.9.3'
         protobuf_version = '3.21.10'
-        gradle_protobuf_version = '0.9.3'
+        gradle_protobuf_version = '0.9.4'
     }
 
     ext.build = [
