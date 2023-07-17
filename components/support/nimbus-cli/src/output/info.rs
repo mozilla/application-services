@@ -11,21 +11,20 @@ use serde_json::Value;
 use crate::{
     sources::{ExperimentListSource, ExperimentSource},
     value_utils::{self, CliUtils},
-    NimbusApp,
 };
 
 #[derive(serde::Serialize, Debug)]
-struct ExperimentInfo<'a> {
-    slug: &'a str,
-    app_name: &'a str,
-    channel: &'a str,
-    branches: Vec<&'a str>,
-    features: Vec<&'a str>,
-    targeting: &'a str,
-    bucketing: u64,
-    is_rollout: bool,
-    user_facing_name: &'a str,
-    user_facing_description: &'a str,
+pub(crate) struct ExperimentInfo<'a> {
+    pub(crate) slug: &'a str,
+    pub(crate) app_name: &'a str,
+    pub(crate) channel: &'a str,
+    pub(crate) branches: Vec<&'a str>,
+    pub(crate) features: Vec<&'a str>,
+    pub(crate) targeting: &'a str,
+    pub(crate) bucketing: u64,
+    pub(crate) is_rollout: bool,
+    pub(crate) user_facing_name: &'a str,
+    pub(crate) user_facing_description: &'a str,
     enrollment: DateRange<'a>,
     is_enrollment_paused: bool,
     duration: DateRange<'a>,
@@ -120,7 +119,7 @@ impl<'a> TryFrom<&'a Value> for ExperimentInfo<'a> {
 }
 
 impl ExperimentListSource {
-    pub(crate) fn print_list(&self, params: &NimbusApp) -> Result<bool> {
+    pub(crate) fn print_list(&self) -> Result<bool> {
         let value: Value = self.try_into()?;
         let array = value_utils::try_extract_data_list(&value)?;
 
@@ -135,13 +134,7 @@ impl ExperimentListSource {
             is_rollout = style.apply_to("   "),
             branches = style.apply_to(" Branches"),
         ))?;
-        let filter = params.app_name.as_deref();
         for exp in array {
-            let app_name = exp.get_str("appName").unwrap_or_default();
-            if filter.is_some() && Some(app_name) != filter {
-                continue;
-            }
-
             let info = match ExperimentInfo::try_from(&exp) {
                 Ok(e) => e,
                 _ => continue,

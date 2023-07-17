@@ -9,3 +9,6 @@ mod manifest;
 pub(crate) use experiment::ExperimentSource;
 pub(crate) use experiment_list::ExperimentListSource;
 pub(crate) use manifest::ManifestSource;
+
+#[cfg(test)]
+pub(crate) use experiment_list::ExperimentListFilter;

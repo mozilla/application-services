@@ -3,7 +3,7 @@
 // file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
 use crate::{
-    cli::{Cli, CliCommand, ExperimentListArgs},
+    cli::{Cli, CliCommand, ExperimentArgs, ExperimentListArgs},
     config,
     value_utils::{self, CliUtils},
     USER_AGENT,
@@ -12,11 +12,28 @@ use anyhow::{bail, Result};
 use serde_json::Value;
 use std::path::{Path, PathBuf};
 
+use super::ExperimentSource;
+
 #[derive(Clone, Debug, PartialEq)]
 pub(crate) enum ExperimentListSource {
-    FromApiV6 { endpoint: String },
-    FromRemoteSettings { endpoint: String, is_preview: bool },
-    FromFile { file: PathBuf },
+    Empty,
+    Filtered {
+        filter: ExperimentListFilter,
+        inner: Box<ExperimentListSource>,
+    },
+    FromApiV6 {
+        endpoint: String,
+    },
+    FromFile {
+        file: PathBuf,
+    },
+    FromRemoteSettings {
+        endpoint: String,
+        is_preview: bool,
+    },
+    FromRecipes {
+        recipes: Vec<ExperimentSource>,
+    },
 }
 
 impl ExperimentListSource {
@@ -94,11 +111,37 @@ impl TryFrom<&Cli> for ExperimentListSource {
     type Error = anyhow::Error;
 
     fn try_from(value: &Cli) -> Result<Self> {
-        Ok(match &value.command {
+        let app = value.app.clone();
+        let list = match &value.command {
             CliCommand::FetchList { list, .. } | CliCommand::List { list } => {
                 ExperimentListSource::try_from(list)?
             }
+            CliCommand::Fetch {
+                experiment,
+                recipes: slugs,
+                ..
+            } => {
+                let mut recipes = vec![ExperimentSource::try_from(experiment)?];
+
+                for r in slugs {
+                    let recipe = ExperimentArgs {
+                        experiment: r.clone(),
+                        ..experiment.clone()
+                    };
+                    recipes.push(ExperimentSource::try_from(&recipe)?);
+                }
+                ExperimentListSource::FromRecipes { recipes }
+            }
             _ => unreachable!(),
+        };
+
+        Ok(if app.is_some() {
+            ExperimentListSource::Filtered {
+                filter: ExperimentListFilter { app },
+                inner: Box::new(list),
+            }
+        } else {
+            list
         })
     }
 }
@@ -151,6 +194,18 @@ impl TryFrom<&ExperimentListSource> for Value {
 
     fn try_from(value: &ExperimentListSource) -> Result<Value> {
         Ok(match value {
+            ExperimentListSource::Empty => serde_json::json!({ "data": [] }),
+            ExperimentListSource::Filtered { filter, inner } => filter.filter_list(inner)?,
+            ExperimentListSource::FromRecipes { recipes } => {
+                let mut data: Vec<Value> = Default::default();
+
+                for r in recipes {
+                    if let Ok(v) = r.try_into() {
+                        data.push(v);
+                    }
+                }
+                serde_json::json!({ "data": data })
+            }
             ExperimentListSource::FromRemoteSettings {
                 endpoint,
                 is_preview,
@@ -182,13 +237,13 @@ impl TryFrom<&ExperimentListSource> for Value {
                     serde_json::json!({ "data": [v] })
                 } else {
                     bail!(
-                        "An unrecognized experiments JSON file: {}",
+                        "An unrecognized recipes JSON file: {}",
                         file.as_path().to_str().unwrap_or_default()
                     );
                 }
             }
             ExperimentListSource::FromApiV6 { endpoint } => {
-                let url = format!("{endpoint}/api/v6/experiments/");
+                let url = format!("{endpoint}/api/v6/recipes/");
 
                 let req = reqwest::blocking::Client::builder()
                     .user_agent(USER_AGENT)
@@ -221,6 +276,41 @@ impl TryFrom<&ExperimentListSource> for Value {
                 serde_json::json!({ "data": data })
             }
         })
+    }
+}
+
+#[derive(Clone, Debug, PartialEq)]
+pub(crate) struct ExperimentListFilter {
+    pub(crate) app: Option<String>,
+}
+
+impl ExperimentListFilter {
+    fn matches(&self, value: &Value) -> Result<bool> {
+        use crate::output::info::ExperimentInfo;
+        let info: ExperimentInfo = match value.try_into() {
+            Ok(e) => e,
+            _ => return Ok(false),
+        };
+
+        match self.app.as_deref() {
+            Some(app) if app != info.app_name => return Ok(false),
+            _ => (),
+        };
+
+        Ok(true)
+    }
+
+    fn filter_list(&self, list: &ExperimentListSource) -> Result<Value> {
+        let v: Value = list.try_into()?;
+        let data = v.get_array("data")?;
+        let mut array: Vec<Value> = Default::default();
+        for exp in data {
+            if let Ok(true) = self.matches(exp) {
+                array.push(exp.to_owned());
+            }
+        }
+
+        Ok(serde_json::json!({ "data": array }))
     }
 }
 
