@@ -3814,6 +3814,7 @@ dependencies = [
  "interrupt-support",
  "mockito",
  "once_cell",
+ "parking_lot",
  "remote_settings",
  "rusqlite",
  "serde",

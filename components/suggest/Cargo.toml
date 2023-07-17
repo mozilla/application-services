@@ -11,6 +11,7 @@ exclude = ["/android"]
 anyhow = "1.0"
 interrupt-support = { path = "../support/interrupt" }
 once_cell = "1.5"
+parking_lot = ">=0.11,<=0.12"
 remote_settings = { path = "../remote_settings" }
 serde = "1"
 serde_derive = "1"

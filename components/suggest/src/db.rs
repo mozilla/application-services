@@ -3,12 +3,10 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
  */
 
-use std::{
-    path::Path,
-    sync::{Arc, Mutex},
-};
+use std::{path::Path, sync::Arc};
 
 use interrupt_support::SqlInterruptHandle;
+use parking_lot::Mutex;
 use rusqlite::{
     named_params,
     types::{FromSql, ToSql},
@@ -54,7 +52,7 @@ impl From<ConnectionType> for OpenFlags {
 /// database with methods for reading, writing, and deleting suggestions and
 /// metadata.
 pub(crate) struct SuggestDb {
-    conn: Mutex<Connection>,
+    pub conn: Mutex<Connection>,
 
     /// An object that's used to interrupt an ongoing data mapper operation from
     /// a different thread.
@@ -79,7 +77,7 @@ impl SuggestDb {
 
     /// Fetches all suggestions that match the given keyword from the database.
     pub fn fetch_by_keyword(&self, keyword: &str) -> Result<Vec<Suggestion>> {
-        let conn = self.conn.lock().unwrap();
+        let conn = self.conn.lock();
         conn.query_rows_and_then_cached(
             "SELECT s.id, k.rank, s.block_id, s.advertiser, s.iab_category,
                     s.title, s.url, s.impression_url, s.click_url,
@@ -128,7 +126,7 @@ impl SuggestDb {
         suggestions: &[RemoteSuggestion],
     ) -> Result<()> {
         let scope = self.interrupt_handle.begin_interrupt_scope()?;
-        let mut conn = self.conn.lock().unwrap();
+        let mut conn = self.conn.lock();
         let tx = conn.transaction()?;
         for suggestion in suggestions {
             scope.err_if_interrupted()?;
@@ -196,7 +194,7 @@ impl SuggestDb {
 
     /// Inserts an icon for a suggestion into the database.
     pub fn insert_icon(&self, icon_id: &str, data: &[u8]) -> Result<()> {
-        self.conn.lock().unwrap().execute(
+        self.conn.lock().execute(
             "INSERT INTO icons(
                  id,
                  data
@@ -216,7 +214,7 @@ impl SuggestDb {
     /// Deletes all suggestions associated with a Remote Settings record from
     /// the database.
     pub fn drop_suggestions(&self, record_id: &RemoteRecordId) -> Result<()> {
-        self.conn.lock().unwrap().execute_cached(
+        self.conn.lock().execute_cached(
             "DELETE FROM suggestions WHERE record_id = :record_id",
             named_params! { ":record_id": record_id.as_str() },
         )?;
@@ -225,7 +223,7 @@ impl SuggestDb {
 
     /// Deletes an icon for a suggestion from the database.
     pub fn drop_icon(&self, icon_id: &str) -> Result<()> {
-        self.conn.lock().unwrap().execute_cached(
+        self.conn.lock().execute_cached(
             "DELETE FROM icons WHERE id = :id",
             named_params! { ":id": icon_id },
         )?;
@@ -234,7 +232,7 @@ impl SuggestDb {
 
     /// Clears the database, removing all suggestions, icons, and metadata.
     pub fn clear(&self) -> Result<()> {
-        self.conn.lock().unwrap().execute_batch(
+        self.conn.lock().execute_batch(
             "DELETE FROM suggestions;
              DELETE FROM icons;
              DELETE FROM meta;",
@@ -244,7 +242,7 @@ impl SuggestDb {
 
     /// Returns the value associated with a metadata key.
     pub fn get_meta<T: FromSql>(&self, key: &str) -> Result<Option<T>> {
-        Ok(self.conn.lock().unwrap().try_query_one(
+        Ok(self.conn.lock().try_query_one(
             "SELECT value FROM meta WHERE key = :key",
             named_params! { ":key": key },
             true,
@@ -253,7 +251,7 @@ impl SuggestDb {
 
     /// Sets the value for a metadata key.
     pub fn put_meta(&self, key: &str, value: impl ToSql) -> Result<()> {
-        self.conn.lock().unwrap().execute_cached(
+        self.conn.lock().execute_cached(
             "REPLACE INTO meta(key, value) VALUES(:key, :value)",
             named_params! { ":key": key, ":value": value },
         )?;
