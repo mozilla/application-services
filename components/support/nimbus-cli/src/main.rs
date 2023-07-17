@@ -162,14 +162,7 @@ enum AppCommand {
     },
 
     FetchList {
-        params: NimbusApp,
         list: ExperimentListSource,
-        file: Option<PathBuf>,
-    },
-
-    FetchRecipes {
-        params: NimbusApp,
-        recipes: Vec<ExperimentSource>,
         file: Option<PathBuf>,
     },
 
@@ -348,34 +341,10 @@ impl TryFrom<&Cli> for AppCommand {
                     output,
                 }
             }
-            CliCommand::Fetch {
-                output,
-                experiment,
-                recipes,
-            } => {
-                let mut sources = vec![ExperimentSource::try_from(&experiment)?];
-
-                let args = experiment;
-                for r in recipes {
-                    let recipe = ExperimentArgs {
-                        experiment: r,
-                        ..args.clone()
-                    };
-                    sources.push(ExperimentSource::try_from(&recipe)?);
-                }
-                AppCommand::FetchRecipes {
-                    recipes: sources,
-                    file: output,
-                    params,
-                }
-            }
-            CliCommand::FetchList { output, .. } => {
+            CliCommand::Fetch { output, .. } | CliCommand::FetchList { output, .. } => {
                 let list = ExperimentListSource::try_from(cli)?;
-                AppCommand::FetchList {
-                    list,
-                    file: output,
-                    params,
-                }
+
+                AppCommand::FetchList { list, file: output }
             }
             CliCommand::Info { experiment, output } => AppCommand::Info {
                 experiment: ExperimentSource::try_from(&experiment)?,
@@ -512,6 +481,8 @@ impl AppOpenArgs {
 
 #[cfg(test)]
 mod unit_tests {
+    use crate::sources::ExperimentListFilter;
+
     use super::*;
 
     #[test]
@@ -747,6 +718,15 @@ mod unit_tests {
         AppOpenArgs {
             passthrough: params.iter().map(|s| s.to_string()).collect(),
             ..Default::default()
+        }
+    }
+
+    fn filtered_list(app: &str, list: ExperimentListSource) -> ExperimentListSource {
+        ExperimentListSource::Filtered {
+            filter: ExperimentListFilter {
+                app: Some(app.to_string()),
+            },
+            inner: Box::new(list),
         }
     }
 
@@ -1447,9 +1427,13 @@ mod unit_tests {
 
         let expected = vec![
             AppCommand::NoOp,
-            AppCommand::FetchRecipes {
-                params: fenix_params(),
-                recipes: vec![experiment("my-experiment")],
+            AppCommand::FetchList {
+                list: filtered_list(
+                    "fenix",
+                    ExperimentListSource::FromRecipes {
+                        recipes: vec![experiment("my-experiment")],
+                    },
+                ),
                 file: file.clone(),
             },
         ];
@@ -1470,9 +1454,13 @@ mod unit_tests {
 
         let expected = vec![
             AppCommand::NoOp,
-            AppCommand::FetchRecipes {
-                params: fenix_params(),
-                recipes: vec![experiment("my-experiment-1"), experiment("my-experiment-2")],
+            AppCommand::FetchList {
+                list: filtered_list(
+                    "fenix",
+                    ExperimentListSource::FromRecipes {
+                        recipes: vec![experiment("my-experiment-1"), experiment("my-experiment-2")],
+                    },
+                ),
                 file,
             },
         ];
@@ -1483,21 +1471,12 @@ mod unit_tests {
     #[test]
     fn test_fetch_list() -> Result<()> {
         let file = Some(PathBuf::from("./archived.json"));
-        let observed = get_commands_from_cli([
-            "nimbus-cli",
-            "--app",
-            "fenix",
-            "--channel",
-            "developer",
-            "fetch-list",
-            "--output",
-            "./archived.json",
-        ])?;
+        let observed =
+            get_commands_from_cli(["nimbus-cli", "fetch-list", "--output", "./archived.json"])?;
 
         let expected = vec![
             AppCommand::NoOp,
             AppCommand::FetchList {
-                params: fenix_params(),
                 list: ExperimentListSource::FromRemoteSettings {
                     endpoint: config::rs_production_server(),
                     is_preview: false,
@@ -1511,8 +1490,28 @@ mod unit_tests {
             "nimbus-cli",
             "--app",
             "fenix",
-            "--channel",
-            "developer",
+            "fetch-list",
+            "--output",
+            "./archived.json",
+        ])?;
+
+        let expected = vec![
+            AppCommand::NoOp,
+            AppCommand::FetchList {
+                list: filtered_list(
+                    "fenix",
+                    ExperimentListSource::FromRemoteSettings {
+                        endpoint: config::rs_production_server(),
+                        is_preview: false,
+                    },
+                ),
+                file: file.clone(),
+            },
+        ];
+        assert_eq!(expected, observed);
+
+        let observed = get_commands_from_cli([
+            "nimbus-cli",
             "fetch-list",
             "--output",
             "./archived.json",
@@ -1522,7 +1521,6 @@ mod unit_tests {
         let expected = vec![
             AppCommand::NoOp,
             AppCommand::FetchList {
-                params: fenix_params(),
                 list: ExperimentListSource::FromRemoteSettings {
                     endpoint: config::rs_stage_server(),
                     is_preview: false,
@@ -1534,10 +1532,6 @@ mod unit_tests {
 
         let observed = get_commands_from_cli([
             "nimbus-cli",
-            "--app",
-            "fenix",
-            "--channel",
-            "developer",
             "fetch-list",
             "--output",
             "./archived.json",
@@ -1547,7 +1541,6 @@ mod unit_tests {
         let expected = vec![
             AppCommand::NoOp,
             AppCommand::FetchList {
-                params: fenix_params(),
                 list: ExperimentListSource::FromRemoteSettings {
                     endpoint: config::rs_production_server(),
                     is_preview: true,
@@ -1559,10 +1552,6 @@ mod unit_tests {
 
         let observed = get_commands_from_cli([
             "nimbus-cli",
-            "--app",
-            "fenix",
-            "--channel",
-            "developer",
             "fetch-list",
             "--output",
             "./archived.json",
@@ -1572,7 +1561,6 @@ mod unit_tests {
         let expected = vec![
             AppCommand::NoOp,
             AppCommand::FetchList {
-                params: fenix_params(),
                 list: ExperimentListSource::FromApiV6 {
                     endpoint: config::api_v6_production_server(),
                 },
@@ -1583,10 +1571,6 @@ mod unit_tests {
 
         let observed = get_commands_from_cli([
             "nimbus-cli",
-            "--app",
-            "fenix",
-            "--channel",
-            "developer",
             "fetch-list",
             "--use-api",
             "--output",
@@ -1597,7 +1581,6 @@ mod unit_tests {
         let expected = vec![
             AppCommand::NoOp,
             AppCommand::FetchList {
-                params: fenix_params(),
                 list: ExperimentListSource::FromApiV6 {
                     endpoint: config::api_v6_stage_server(),
                 },

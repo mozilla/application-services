@@ -70,15 +70,10 @@ pub(crate) fn process_cmd(cmd: &AppCommand) -> Result<bool> {
             output.as_ref(),
         )?,
 
-        AppCommand::FetchList { params, list, file } => params.fetch_list(list, file.as_ref())?,
-        AppCommand::FetchRecipes {
-            params,
-            recipes,
-            file,
-        } => params.fetch_recipes(recipes, file.as_ref())?,
+        AppCommand::FetchList { list, file } => list.fetch_list(file.as_ref())?,
         AppCommand::Info { experiment, output } => experiment.print_info(output.as_ref())?,
         AppCommand::Kill { app } => app.kill_app()?,
-        AppCommand::List { params, list } => list.print_list(params)?,
+        AppCommand::List { list, .. } => list.print_list()?,
         AppCommand::LogState { app, open } => app.log_state(open)?,
         AppCommand::NoOp => true,
         AppCommand::Open {
@@ -170,7 +165,7 @@ impl LaunchableApp {
     }
 
     fn unenroll_all(&self, open: &AppOpenArgs) -> Result<bool> {
-        let payload = json! {{ "data": [] }};
+        let payload = TryFrom::try_from(&ExperimentListSource::Empty)?;
         let protocol = StartAppProtocol {
             log_state: true,
             experiments: Some(&payload),

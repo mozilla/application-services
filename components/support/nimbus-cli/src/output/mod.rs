@@ -5,4 +5,4 @@
 pub(crate) mod deeplink;
 mod features;
 mod fetch;
-mod info;
+pub(crate) mod info;
