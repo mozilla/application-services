@@ -38,7 +38,7 @@ where
     I: IntoIterator<Item = T>,
     T: Into<OsString> + Clone,
 {
-    let cli = Cli::parse_from(args);
+    let cli = Cli::try_parse_from(args)?;
 
     let mut commands: Vec<AppCommand> = Default::default();
 
@@ -176,7 +176,6 @@ enum AppCommand {
     },
 
     List {
-        params: NimbusApp,
         list: ExperimentListSource,
     },
 
@@ -352,7 +351,7 @@ impl TryFrom<&Cli> for AppCommand {
             },
             CliCommand::List { .. } => {
                 let list = ExperimentListSource::try_from(cli)?;
-                AppCommand::List { params, list }
+                AppCommand::List { list }
             }
             CliCommand::LogState { open } => {
                 let app = LaunchableApp::try_from(cli)?;
@@ -721,11 +720,30 @@ mod unit_tests {
         }
     }
 
-    fn filtered_list(app: &str, list: ExperimentListSource) -> ExperimentListSource {
+    fn for_app(app: &str, list: ExperimentListSource) -> ExperimentListSource {
         ExperimentListSource::Filtered {
-            filter: ExperimentListFilter {
-                app: Some(app.to_string()),
-            },
+            filter: ExperimentListFilter::for_app(app),
+            inner: Box::new(list),
+        }
+    }
+
+    fn for_feature(feature: &str, list: ExperimentListSource) -> ExperimentListSource {
+        ExperimentListSource::Filtered {
+            filter: ExperimentListFilter::for_feature(feature),
+            inner: Box::new(list),
+        }
+    }
+
+    fn for_active_on_date(date: &str, list: ExperimentListSource) -> ExperimentListSource {
+        ExperimentListSource::Filtered {
+            filter: ExperimentListFilter::for_active_on(date),
+            inner: Box::new(list),
+        }
+    }
+
+    fn for_enrolling_on_date(date: &str, list: ExperimentListSource) -> ExperimentListSource {
+        ExperimentListSource::Filtered {
+            filter: ExperimentListFilter::for_enrolling_on(date),
             inner: Box::new(list),
         }
     }
@@ -1428,7 +1446,7 @@ mod unit_tests {
         let expected = vec![
             AppCommand::NoOp,
             AppCommand::FetchList {
-                list: filtered_list(
+                list: for_app(
                     "fenix",
                     ExperimentListSource::FromRecipes {
                         recipes: vec![experiment("my-experiment")],
@@ -1455,7 +1473,7 @@ mod unit_tests {
         let expected = vec![
             AppCommand::NoOp,
             AppCommand::FetchList {
-                list: filtered_list(
+                list: for_app(
                     "fenix",
                     ExperimentListSource::FromRecipes {
                         recipes: vec![experiment("my-experiment-1"), experiment("my-experiment-2")],
@@ -1498,7 +1516,7 @@ mod unit_tests {
         let expected = vec![
             AppCommand::NoOp,
             AppCommand::FetchList {
-                list: filtered_list(
+                list: for_app(
                     "fenix",
                     ExperimentListSource::FromRemoteSettings {
                         endpoint: config::rs_production_server(),
@@ -1585,6 +1603,179 @@ mod unit_tests {
                     endpoint: config::api_v6_stage_server(),
                 },
                 file,
+            },
+        ];
+        assert_eq!(expected, observed);
+
+        Ok(())
+    }
+
+    #[test]
+    fn test_list() -> Result<()> {
+        let observed = get_commands_from_cli(["nimbus-cli", "list"])?;
+        let expected = vec![
+            AppCommand::NoOp,
+            AppCommand::List {
+                list: ExperimentListSource::FromRemoteSettings {
+                    endpoint: config::rs_production_server(),
+                    is_preview: false,
+                },
+            },
+        ];
+        assert_eq!(expected, observed);
+
+        let observed = get_commands_from_cli(["nimbus-cli", "list", "preview"])?;
+        let expected = vec![
+            AppCommand::NoOp,
+            AppCommand::List {
+                list: ExperimentListSource::FromRemoteSettings {
+                    endpoint: config::rs_production_server(),
+                    is_preview: true,
+                },
+            },
+        ];
+        assert_eq!(expected, observed);
+
+        let observed = get_commands_from_cli(["nimbus-cli", "list", "stage"])?;
+        let expected = vec![
+            AppCommand::NoOp,
+            AppCommand::List {
+                list: ExperimentListSource::FromRemoteSettings {
+                    endpoint: config::rs_stage_server(),
+                    is_preview: false,
+                },
+            },
+        ];
+        assert_eq!(expected, observed);
+
+        let observed = get_commands_from_cli(["nimbus-cli", "list", "--use-api", "stage"])?;
+        let expected = vec![
+            AppCommand::NoOp,
+            AppCommand::List {
+                list: ExperimentListSource::FromApiV6 {
+                    endpoint: config::api_v6_stage_server(),
+                },
+            },
+        ];
+        assert_eq!(expected, observed);
+
+        let observed = get_commands_from_cli(["nimbus-cli", "list", "--use-api"])?;
+        let expected = vec![
+            AppCommand::NoOp,
+            AppCommand::List {
+                list: ExperimentListSource::FromApiV6 {
+                    endpoint: config::api_v6_production_server(),
+                },
+            },
+        ];
+        assert_eq!(expected, observed);
+        Ok(())
+    }
+
+    #[test]
+    fn test_list_filter() -> Result<()> {
+        let observed = get_commands_from_cli(["nimbus-cli", "--app", "my-app", "list"])?;
+        let expected = vec![
+            AppCommand::NoOp,
+            AppCommand::List {
+                list: for_app(
+                    "my-app",
+                    ExperimentListSource::FromRemoteSettings {
+                        endpoint: config::rs_production_server(),
+                        is_preview: false,
+                    },
+                ),
+            },
+        ];
+        assert_eq!(expected, observed);
+
+        let observed = get_commands_from_cli(["nimbus-cli", "list", "--feature", "messaging"])?;
+        let expected = vec![
+            AppCommand::NoOp,
+            AppCommand::List {
+                list: for_feature(
+                    "messaging",
+                    ExperimentListSource::FromRemoteSettings {
+                        endpoint: config::rs_production_server(),
+                        is_preview: false,
+                    },
+                ),
+            },
+        ];
+        assert_eq!(expected, observed);
+
+        let observed = get_commands_from_cli([
+            "nimbus-cli",
+            "--app",
+            "my-app",
+            "list",
+            "--feature",
+            "messaging",
+        ])?;
+        let expected = vec![
+            AppCommand::NoOp,
+            AppCommand::List {
+                list: for_app(
+                    "my-app",
+                    for_feature(
+                        "messaging",
+                        ExperimentListSource::FromRemoteSettings {
+                            endpoint: config::rs_production_server(),
+                            is_preview: false,
+                        },
+                    ),
+                ),
+            },
+        ];
+        assert_eq!(expected, observed);
+
+        Ok(())
+    }
+
+    #[test]
+    fn test_list_filter_by_date_with_error() -> Result<()> {
+        let observed = get_commands_from_cli(["nimbus-cli", "list", "--active-on", "FOO"]);
+        assert!(observed.is_err());
+        let err = observed.unwrap_err();
+        assert!(err.to_string().contains("Date string must be yyyy-mm-dd"));
+
+        let observed = get_commands_from_cli(["nimbus-cli", "list", "--enrolling-on", "FOO"]);
+        assert!(observed.is_err());
+        let err = observed.unwrap_err();
+        assert!(err.to_string().contains("Date string must be yyyy-mm-dd"));
+        Ok(())
+    }
+
+    #[test]
+    fn test_list_filter_by_dates() -> Result<()> {
+        let today = "1970-01-01";
+
+        let observed = get_commands_from_cli(["nimbus-cli", "list", "--active-on", today])?;
+        let expected = vec![
+            AppCommand::NoOp,
+            AppCommand::List {
+                list: for_active_on_date(
+                    today,
+                    ExperimentListSource::FromRemoteSettings {
+                        endpoint: config::rs_production_server(),
+                        is_preview: false,
+                    },
+                ),
+            },
+        ];
+        assert_eq!(expected, observed);
+
+        let observed = get_commands_from_cli(["nimbus-cli", "list", "--enrolling-on", today])?;
+        let expected = vec![
+            AppCommand::NoOp,
+            AppCommand::List {
+                list: for_enrolling_on_date(
+                    today,
+                    ExperimentListSource::FromRemoteSettings {
+                        endpoint: config::rs_production_server(),
+                        is_preview: false,
+                    },
+                ),
             },
         ];
         assert_eq!(expected, observed);

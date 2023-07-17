@@ -13,7 +13,7 @@ use crate::{
     value_utils::{self, CliUtils},
 };
 
-#[derive(serde::Serialize, Debug)]
+#[derive(serde::Serialize, Debug, Default)]
 pub(crate) struct ExperimentInfo<'a> {
     pub(crate) slug: &'a str,
     pub(crate) app_name: &'a str,
@@ -25,19 +25,27 @@ pub(crate) struct ExperimentInfo<'a> {
     pub(crate) is_rollout: bool,
     pub(crate) user_facing_name: &'a str,
     pub(crate) user_facing_description: &'a str,
-    enrollment: DateRange<'a>,
-    is_enrollment_paused: bool,
-    duration: DateRange<'a>,
+    pub(crate) enrollment: DateRange<'a>,
+    pub(crate) is_enrollment_paused: bool,
+    pub(crate) duration: DateRange<'a>,
 }
 
-impl ExperimentInfo<'_> {
+impl<'a> ExperimentInfo<'a> {
+    pub(crate) fn enrollment(&self) -> &DateRange<'a> {
+        &self.enrollment
+    }
+
+    pub(crate) fn active(&self) -> &DateRange<'a> {
+        &self.duration
+    }
+
     fn bucketing_percent(&self) -> String {
         format!("{: >3.0} %", self.bucketing / 100)
     }
 }
 
-#[derive(serde::Serialize, Debug)]
-struct DateRange<'a> {
+#[derive(serde::Serialize, Debug, Default)]
+pub(crate) struct DateRange<'a> {
     start: Option<&'a str>,
     end: Option<&'a str>,
     proposed: Option<i64>,
@@ -53,6 +61,13 @@ impl<'a> DateRange<'a> {
             end,
             proposed,
         }
+    }
+
+    pub(crate) fn contains(&self, date: &str) -> bool {
+        let start = self.start.unwrap_or("9999-99-99");
+        let end = self.end.unwrap_or("9999-99-99");
+
+        start <= date && date <= end
     }
 }
 
@@ -229,6 +244,16 @@ mod unit_tests {
 
     use super::*;
 
+    impl<'a> DateRange<'a> {
+        pub(crate) fn from_str(start: &'a str, end: &'a str, duration: i64) -> Self {
+            Self {
+                start: Some(start),
+                end: Some(end),
+                proposed: Some(duration),
+            }
+        }
+    }
+
     #[test]
     fn test_date_range_to_string() -> Result<()> {
         let from = json!("2023-06-01");
@@ -275,6 +300,39 @@ mod unit_tests {
         let expected = "2023-06-01 ➞ 2023-06-19".to_string();
         let observed = dr.to_string();
         assert_eq!(expected, observed);
+        Ok(())
+    }
+
+    #[test]
+    fn test_date_range_contains() -> Result<()> {
+        let from = json!("2023-06-01");
+        let to = json!("2023-06-19");
+        let null = json!(null);
+
+        let before = "2023-05-01";
+        let during = "2023-06-03";
+        let after = "2023-06-20";
+
+        let dr = DateRange::new(Some(&null), Some(&null), Some(&null));
+        assert!(!dr.contains(before));
+        assert!(!dr.contains(during));
+        assert!(!dr.contains(after));
+
+        let dr = DateRange::new(Some(&null), Some(&to), Some(&null));
+        assert!(!dr.contains(before));
+        assert!(!dr.contains(during));
+        assert!(!dr.contains(after));
+
+        let dr = DateRange::new(Some(&from), Some(&null), Some(&null));
+        assert!(!dr.contains(before));
+        assert!(dr.contains(during));
+        assert!(dr.contains(after));
+
+        let dr = DateRange::new(Some(&from), Some(&to), Some(&null));
+        assert!(!dr.contains(before));
+        assert!(dr.contains(during));
+        assert!(!dr.contains(after));
+
         Ok(())
     }
 }

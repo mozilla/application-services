@@ -4,6 +4,7 @@
 
 use std::path::PathBuf;
 
+use chrono::Utc;
 use clap::{Args, Parser, Subcommand};
 
 #[derive(Parser)]
@@ -339,6 +340,15 @@ pub(crate) struct ExperimentArgs {
 
 #[derive(Args, Clone, Debug, Default)]
 pub(crate) struct ExperimentListArgs {
+    #[command(flatten)]
+    pub(crate) source: ExperimentListSourceArgs,
+
+    #[command(flatten)]
+    pub(crate) filter: ExperimentListFilterArgs,
+}
+
+#[derive(Args, Clone, Debug, Default)]
+pub(crate) struct ExperimentListSourceArgs {
     /// A server slug e.g. preview, release, stage, stage/preview
     #[arg(default_value = "")]
     pub(crate) server: String,
@@ -355,4 +365,53 @@ pub(crate) struct ExperimentListArgs {
     /// so this is considerably slower and longer than Remote Settings.
     #[arg(long, default_value = "false")]
     pub(crate) use_api: bool,
+}
+
+#[derive(Args, Clone, Debug, Default)]
+pub(crate) struct ExperimentListFilterArgs {
+    #[arg(short = 'S', long, value_name = "SLUG_PATTERN")]
+    pub(crate) slug: Option<String>,
+
+    #[arg(short = 'F', long, value_name = "FEATURE_PATTERN")]
+    pub(crate) feature: Option<String>,
+
+    #[arg(short = 'A', long, value_name = "DATE", value_parser=validate_date)]
+    pub(crate) active_on: Option<String>,
+
+    #[arg(short = 'E', long, value_name = "DATE", value_parser=validate_date)]
+    pub(crate) enrolling_on: Option<String>,
+
+    #[arg(short = 'C', long, value_name = "CHANNEL")]
+    pub(crate) channel: Option<String>,
+
+    #[arg(short = 'R', long, value_name = "FLAG")]
+    pub(crate) is_rollout: Option<bool>,
+}
+
+fn validate_num(s: &str, l: usize) -> Result<(), &'static str> {
+    if !s.chars().all(char::is_numeric) {
+        Err("String contains non-numeric characters")
+    } else if s.len() != l {
+        Err("String is the wrong length")
+    } else {
+        Ok(())
+    }
+}
+
+fn validate_date_parts(yyyy: &str, mm: &str, dd: &str) -> Result<(), &'static str> {
+    validate_num(yyyy, 4)?;
+    validate_num(mm, 2)?;
+    validate_num(dd, 2)?;
+    Ok(())
+}
+
+fn validate_date(s: &str) -> Result<String, String> {
+    if s == "today" {
+        let now = Utc::now();
+        return Ok(format!("{}", now.format("%Y-%m-%d")));
+    }
+    match s.splitn(3, '-').collect::<Vec<_>>().as_slice() {
+        [yyyy, mm, dd] if validate_date_parts(yyyy, mm, dd).is_ok() => Ok(s.to_string()),
+        _ => Err("Date string must be yyyy-mm-dd".to_string()),
+    }
 }
