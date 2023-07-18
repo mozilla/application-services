@@ -29,6 +29,8 @@
 - Added a `--patch` option to all commands that accept an experiment. ([#5721](https://github.com/mozilla/application-services/pull/5721))
 - Added a `--pbcopy` option to all commands that open the app. ([#5727](https://github.com/mozilla/application-services/pull/5727)).
   - with associated in-app tooling to enroll into experiments via a deeplink URL.
+- Added filters to the `list` and `fetch-list` commands ([#5730](https://github.com/mozilla/application-services/pull/5730))
+  - Also, made `--app` and `--channel` non-mandatory for commands that don't need them.
 
 [Full Changelog](In progress)
 

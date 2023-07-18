@@ -65,6 +65,10 @@ the details of which are reproduced below.
     <url>https://github.com/tkaitchuck/ahash/blob/master/LICENSE-APACHE</url>
   </license>
   <license>
+    <name>Apache License 2.0: android-tzdata</name>
+    <url>https://github.com/RumovZ/android-tzdata/blob/main/LICENSE-APACHE</url>
+  </license>
+  <license>
     <name>Apache License 2.0: android_system_properties</name>
     <url>https://github.com/nical/android_system_properties/blob/main/LICENSE-APACHE</url>
   </license>
@@ -263,10 +267,6 @@ the details of which are reproduced below.
   <license>
     <name>Apache License 2.0: minimal-lexical</name>
     <url>https://github.com/Alexhuszagh/minimal-lexical/blob/main/LICENSE-APACHE</url>
-  </license>
-  <license>
-    <name>Apache License 2.0: num-integer</name>
-    <url>https://github.com/rust-num/num-integer/blob/master/LICENSE-APACHE</url>
   </license>
   <license>
     <name>Apache License 2.0: num-traits</name>
