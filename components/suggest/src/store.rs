@@ -93,10 +93,11 @@ impl SuggestStore {
         if query.keyword.is_empty() {
             return Ok(Vec::new());
         }
-        Ok(self
+        let suggestions = self
             .dbs()?
             .reader
-            .fetch_by_keyword(&query.keyword)?
+            .read(|dao| dao.fetch_by_keyword(&query.keyword))?;
+        Ok(suggestions
             .into_iter()
             .filter(|suggestion| {
                 (suggestion.is_sponsored && query.include_sponsored)
@@ -123,14 +124,13 @@ impl SuggestStore {
 
     fn ingest_inner(&self, limits: &IngestLimits) -> Result<()> {
         let writer = &self.dbs()?.writer;
-        let scope = writer.interrupt_handle.begin_interrupt_scope()?;
 
         let mut options = GetItemsOptions::new();
         // Remote Settings returns records in descending modification order
         // (newest first), but we want them in ascending order (oldest first),
         // so that we can eventually resume fetching where we left off.
         options.sort("last_modified", SortOrder::Ascending);
-        if let Some(last_fetch) = writer.get_meta::<u64>(LAST_FETCH_META_KEY)? {
+        if let Some(last_fetch) = writer.read(|dao| dao.get_meta::<u64>(LAST_FETCH_META_KEY))? {
             // Only fetch changes since our last fetch. If our last fetch was
             // interrupted, we'll pick up where we left off.
             options.gt("last_modified", last_fetch.to_string());
@@ -139,39 +139,41 @@ impl SuggestStore {
             options.limit(*records);
         }
 
-        scope.err_if_interrupted()?;
         let records = self
             .settings_client
             .get_records_raw_with_options(&options)?
             .json::<SuggestRecordsResponse>()?
             .data;
         for record in &records {
-            scope.err_if_interrupted()?;
             match record {
                 FetchedChange::Record(SuggestRecord::Data {
                     id: record_id,
                     last_modified,
                     attachment,
                 }) => {
-                    // Drop any suggestions that we previously ingested from
-                    // this record's attachment. Suggestions don't have a
-                    // stable identifier, and determining which suggestions in
-                    // the attachment actually changed is more complicated than
-                    // dropping and re-ingesting all of them.
-                    writer.drop_suggestions(record_id)?;
-
-                    // Ingest (or re-ingest) all suggestions in the attachment.
-                    scope.err_if_interrupted()?;
                     let suggestions = self
                         .settings_client
                         .get_attachment(&attachment.location)?
                         .json::<SuggestAttachmentData>()?
                         .0;
-                    writer.insert_suggestions(record_id, &suggestions)?;
 
-                    // Advance the last fetch time, so that we can resume
-                    // fetching after this record if we're interrupted.
-                    writer.put_meta(LAST_FETCH_META_KEY, last_modified)?;
+                    writer.write(|dao| {
+                        // Drop any suggestions that we previously ingested from
+                        // this record's attachment. Suggestions don't have a
+                        // stable identifier, and determining which suggestions in
+                        // the attachment actually changed is more complicated than
+                        // dropping and re-ingesting all of them.
+                        dao.drop_suggestions(record_id)?;
+
+                        // Ingest (or re-ingest) all suggestions in the attachment.
+                        dao.insert_suggestions(record_id, &suggestions)?;
+
+                        // Advance the last fetch time, so that we can resume
+                        // fetching after this record if we're interrupted.
+                        dao.put_meta(LAST_FETCH_META_KEY, last_modified)?;
+
+                        Ok(())
+                    })?;
                 }
                 FetchedChange::Unknown {
                     id: record_id,
@@ -180,11 +182,14 @@ impl SuggestStore {
                 } if *deleted => {
                     // If the entire record was deleted, drop all its
                     // suggestions and advance the last fetch time.
-                    match record_id.as_icon_id() {
-                        Some(icon_id) => writer.drop_icon(icon_id)?,
-                        None => writer.drop_suggestions(record_id)?,
-                    };
-                    writer.put_meta(LAST_FETCH_META_KEY, last_modified)?
+                    writer.write(|dao| {
+                        match record_id.as_icon_id() {
+                            Some(icon_id) => dao.drop_icon(icon_id)?,
+                            None => dao.drop_suggestions(record_id)?,
+                        };
+                        dao.put_meta(LAST_FETCH_META_KEY, last_modified)?;
+                        Ok(())
+                    })?;
                 }
                 FetchedChange::Record(SuggestRecord::Icon {
                     id: record_id,
@@ -194,13 +199,15 @@ impl SuggestStore {
                     let Some(icon_id) = record_id.as_icon_id() else {
                         continue
                     };
-                    scope.err_if_interrupted()?;
                     let data = self
                         .settings_client
                         .get_attachment(&attachment.location)?
                         .body;
-                    writer.insert_icon(icon_id, &data)?;
-                    writer.put_meta(LAST_FETCH_META_KEY, last_modified)?;
+                    writer.write(|dao| {
+                        dao.insert_icon(icon_id, &data)?;
+                        dao.put_meta(LAST_FETCH_META_KEY, last_modified)?;
+                        Ok(())
+                    })?;
                 }
                 _ => continue,
             }
@@ -210,8 +217,7 @@ impl SuggestStore {
     }
 
     pub fn clear(&self) -> SuggestApiResult<()> {
-        let writer = &self.dbs()?.writer;
-        Ok(writer.clear()?)
+        Ok(self.dbs()?.writer.write(|dao| dao.clear())?)
     }
 }
 
@@ -381,8 +387,11 @@ mod tests {
         attachment_m.expect(1).assert();
 
         assert_eq!(
-            store.dbs()?.reader.get_meta(LAST_FETCH_META_KEY)?,
-            Some(15u64)
+            Some(15u64),
+            store
+                .dbs()?
+                .reader
+                .read(|dao| dao.get_meta(LAST_FETCH_META_KEY))?,
         );
 
         let suggestions = store.query(&SuggestionQuery {

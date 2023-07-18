@@ -5,7 +5,7 @@
 
 use std::{path::Path, sync::Arc};
 
-use interrupt_support::SqlInterruptHandle;
+use interrupt_support::{SqlInterruptHandle, SqlInterruptScope};
 use parking_lot::Mutex;
 use rusqlite::{
     named_params,
@@ -48,14 +48,16 @@ impl From<ConnectionType> for OpenFlags {
     }
 }
 
-/// A thread-safe "data mapper" that wraps an SQLite connection to the Suggest
-/// database with methods for reading, writing, and deleting suggestions and
-/// metadata.
+/// A thread-safe wrapper around an SQLite connection to the Suggest database,
+/// and its interrupt handle.
 pub(crate) struct SuggestDb {
     pub conn: Mutex<Connection>,
 
-    /// An object that's used to interrupt an ongoing data mapper operation from
-    /// a different thread.
+    /// An object that's used to interrupt an ongoing database operation.
+    ///
+    /// When this handle is interrupted, the thread that's currently running the
+    /// database operation will be told to abort and release the `conn` lock as
+    /// soon as possible.
     pub interrupt_handle: Arc<SqlInterruptHandle>,
 }
 
@@ -75,10 +77,45 @@ impl SuggestDb {
         }
     }
 
+    /// Accesses the Suggest database for reading.
+    pub fn read<T>(&self, op: impl FnOnce(&SuggestDao) -> Result<T>) -> Result<T> {
+        let conn = self.conn.lock();
+        let scope = self.interrupt_handle.begin_interrupt_scope()?;
+        let dao = SuggestDao::new(&conn, scope);
+        op(&dao)
+    }
+
+    /// Accesses the Suggest database in a transaction for reading and writing.
+    pub fn write<T>(&self, op: impl FnOnce(&mut SuggestDao) -> Result<T>) -> Result<T> {
+        let mut conn = self.conn.lock();
+        let scope = self.interrupt_handle.begin_interrupt_scope()?;
+        let tx = conn.transaction()?;
+        let mut dao = SuggestDao::new(&tx, scope);
+        let result = op(&mut dao)?;
+        tx.commit()?;
+        Ok(result)
+    }
+}
+
+/// A data access object (DAO) that wraps a connection to the Suggest database
+/// with methods for reading and writing suggestions, icons, and metadata.
+///
+/// Methods that only read from the database take an immutable reference to
+/// `self` (`&self`), and methods that write to the database take a mutable
+/// reference (`&mut self`).
+pub(crate) struct SuggestDao<'a> {
+    conn: &'a Connection,
+    scope: SqlInterruptScope,
+}
+
+impl<'a> SuggestDao<'a> {
+    fn new(conn: &'a Connection, scope: SqlInterruptScope) -> Self {
+        Self { conn, scope }
+    }
+
     /// Fetches all suggestions that match the given keyword from the database.
     pub fn fetch_by_keyword(&self, keyword: &str) -> Result<Vec<Suggestion>> {
-        let conn = self.conn.lock();
-        conn.query_rows_and_then_cached(
+        self.conn.query_rows_and_then_cached(
             "SELECT s.id, k.rank, s.block_id, s.advertiser, s.iab_category,
                     s.title, s.url, s.impression_url, s.click_url,
                     (SELECT i.data FROM icons i WHERE i.id = s.icon_id) AS icon
@@ -90,7 +127,7 @@ impl SuggestDb {
                 ":keyword": keyword,
             },
             |row| -> Result<Suggestion> {
-                let keywords: Vec<String> = conn.query_rows_and_then(
+                let keywords: Vec<String> = self.conn.query_rows_and_then(
                     "SELECT keyword FROM keywords
                      WHERE suggestion_id = :suggestion_id AND rank >= :rank
                      ORDER BY rank ASC",
@@ -121,16 +158,13 @@ impl SuggestDb {
     /// Inserts all suggestions associated with a Remote Settings record into
     /// the database.
     pub fn insert_suggestions(
-        &self,
+        &mut self,
         record_id: &RemoteRecordId,
         suggestions: &[RemoteSuggestion],
     ) -> Result<()> {
-        let scope = self.interrupt_handle.begin_interrupt_scope()?;
-        let mut conn = self.conn.lock();
-        let tx = conn.transaction()?;
         for suggestion in suggestions {
-            scope.err_if_interrupted()?;
-            let suggestion_id: i64 = tx.query_row_and_then_cachable(
+            self.scope.err_if_interrupted()?;
+            let suggestion_id: i64 = self.conn.query_row_and_then_cachable(
                 "INSERT INTO suggestions(
                      record_id,
                      block_id,
@@ -169,7 +203,7 @@ impl SuggestDb {
                 true,
             )?;
             for (index, keyword) in suggestion.keywords.iter().enumerate() {
-                tx.execute(
+                self.conn.execute(
                     "INSERT INTO keywords(
                          keyword,
                          suggestion_id,
@@ -188,13 +222,12 @@ impl SuggestDb {
                 )?;
             }
         }
-        tx.commit()?;
         Ok(())
     }
 
     /// Inserts an icon for a suggestion into the database.
-    pub fn insert_icon(&self, icon_id: &str, data: &[u8]) -> Result<()> {
-        self.conn.lock().execute(
+    pub fn insert_icon(&mut self, icon_id: &str, data: &[u8]) -> Result<()> {
+        self.conn.execute(
             "INSERT INTO icons(
                  id,
                  data
@@ -213,8 +246,8 @@ impl SuggestDb {
 
     /// Deletes all suggestions associated with a Remote Settings record from
     /// the database.
-    pub fn drop_suggestions(&self, record_id: &RemoteRecordId) -> Result<()> {
-        self.conn.lock().execute_cached(
+    pub fn drop_suggestions(&mut self, record_id: &RemoteRecordId) -> Result<()> {
+        self.conn.execute_cached(
             "DELETE FROM suggestions WHERE record_id = :record_id",
             named_params! { ":record_id": record_id.as_str() },
         )?;
@@ -222,8 +255,8 @@ impl SuggestDb {
     }
 
     /// Deletes an icon for a suggestion from the database.
-    pub fn drop_icon(&self, icon_id: &str) -> Result<()> {
-        self.conn.lock().execute_cached(
+    pub fn drop_icon(&mut self, icon_id: &str) -> Result<()> {
+        self.conn.execute_cached(
             "DELETE FROM icons WHERE id = :id",
             named_params! { ":id": icon_id },
         )?;
@@ -231,8 +264,8 @@ impl SuggestDb {
     }
 
     /// Clears the database, removing all suggestions, icons, and metadata.
-    pub fn clear(&self) -> Result<()> {
-        self.conn.lock().execute_batch(
+    pub fn clear(&mut self) -> Result<()> {
+        self.conn.execute_batch(
             "DELETE FROM suggestions;
              DELETE FROM icons;
              DELETE FROM meta;",
@@ -242,7 +275,7 @@ impl SuggestDb {
 
     /// Returns the value associated with a metadata key.
     pub fn get_meta<T: FromSql>(&self, key: &str) -> Result<Option<T>> {
-        Ok(self.conn.lock().try_query_one(
+        Ok(self.conn.try_query_one(
             "SELECT value FROM meta WHERE key = :key",
             named_params! { ":key": key },
             true,
@@ -250,8 +283,8 @@ impl SuggestDb {
     }
 
     /// Sets the value for a metadata key.
-    pub fn put_meta(&self, key: &str, value: impl ToSql) -> Result<()> {
-        self.conn.lock().execute_cached(
+    pub fn put_meta(&mut self, key: &str, value: impl ToSql) -> Result<()> {
+        self.conn.execute_cached(
             "REPLACE INTO meta(key, value) VALUES(:key, :value)",
             named_params! { ":key": key, ":value": value },
         )?;
