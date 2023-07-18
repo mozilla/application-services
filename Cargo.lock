@@ -3818,7 +3818,6 @@ dependencies = [
  "remote_settings",
  "rusqlite",
  "serde",
- "serde_derive",
  "serde_json",
  "sql-support",
  "thiserror",

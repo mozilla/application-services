@@ -10,7 +10,7 @@ use std::{
 
 use once_cell::sync::OnceCell;
 use remote_settings::{self, Attachment, GetItemsOptions, RemoteSettingsConfig, SortOrder};
-use serde_derive::*;
+use serde::Deserialize;
 
 use crate::{
     db::{ConnectionType, SuggestDb, LAST_FETCH_META_KEY},
