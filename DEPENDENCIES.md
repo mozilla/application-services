@@ -460,7 +460,6 @@ The following text applies to code linked from these dependencies:
 [cc](https://github.com/alexcrichton/cc-rs),
 [cfg-if](https://github.com/alexcrichton/cfg-if),
 [chrono](https://github.com/chronotope/chrono),
-[copypasta](https://github.com/alacritty/copypasta),
 [core-foundation-sys](https://github.com/servo/core-foundation-rs),
 [core-foundation](https://github.com/servo/core-foundation-rs),
 [cpufeatures](https://github.com/RustCrypto/utils),
