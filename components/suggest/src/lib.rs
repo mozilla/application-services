@@ -4,7 +4,7 @@
  */
 
 use remote_settings::RemoteSettingsConfig;
-use serde_derive::*;
+use serde::Deserialize;
 
 mod db;
 mod error;
