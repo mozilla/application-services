@@ -487,7 +487,6 @@ The following text applies to code linked from these dependencies:
 [mime](https://github.com/hyperium/mime),
 [minimal-lexical](https://github.com/Alexhuszagh/minimal-lexical),
 [native-tls](https://github.com/sfackler/rust-native-tls),
-[num-integer](https://github.com/rust-num/num-integer),
 [num-traits](https://github.com/rust-num/num-traits),
 [num_cpus](https://github.com/seanmonstar/num_cpus),
 [once_cell](https://github.com/matklad/once_cell),

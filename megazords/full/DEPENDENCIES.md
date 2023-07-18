@@ -428,6 +428,7 @@ Exhibit B - "Incompatible With Secondary Licenses" Notice
 
 The following text applies to code linked from these dependencies:
 [ahash](https://github.com/tkaitchuck/ahash),
+[android-tzdata](https://github.com/RumovZ/android-tzdata),
 [android_system_properties](https://github.com/nical/android_system_properties),
 [anyhow](https://github.com/dtolnay/anyhow),
 [askama](https://github.com/djc/askama),
@@ -478,7 +479,6 @@ The following text applies to code linked from these dependencies:
 [log](https://github.com/rust-lang/log),
 [mime](https://github.com/hyperium/mime),
 [minimal-lexical](https://github.com/Alexhuszagh/minimal-lexical),
-[num-integer](https://github.com/rust-num/num-integer),
 [num-traits](https://github.com/rust-num/num-traits),
 [once_cell](https://github.com/matklad/once_cell),
 [opaque-debug](https://github.com/RustCrypto/utils),
