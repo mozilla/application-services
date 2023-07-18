@@ -45,7 +45,7 @@ class ArgumentProcessorTest {
     }
 
     @Test
-    fun `test createCliArgsFromUri experiments`() {
+    fun `test createCliArgsFromUri experiments JSON`() {
         val unenrollAll = "{\"data\":[]}"
         val obs = createCommandLineArgs(
             Uri.parse("my-app://foo?--nimbus-cli&--experiments=$unenrollAll"),
@@ -64,7 +64,7 @@ class ArgumentProcessorTest {
     }
 
     @Test
-    fun `test createCliArgsFromUri experiments sanity check`() {
+    fun `test createCliArgsFromUri experiments JSON sanity check`() {
         val good = "{\"data\":[]}"
         val obs = createCommandLineArgs(
             Uri.parse("my-app://foo?--nimbus-cli&--experiments=$good"),
@@ -82,5 +82,43 @@ class ArgumentProcessorTest {
         isInvalid("{}")
         isInvalid("[]")
         isInvalid("{\"data\": 1}")
+    }
+
+    @Test
+    fun `test createCliArgsFromUri with badly formed URL safely fails`() {
+        val experiments = "{\"data\":[]}"
+        val encoded = URLEncoder.encode(experiments, "UTF-8")
+        fun isNotForNimbus(bad: String) {
+            val obs0 = createCommandLineArgs(
+                Uri.parse("$bad?--nimbus-cli&--experiments=$encoded"),
+            )
+            assertNull(obs0)
+        }
+
+        isNotForNimbus("")
+        isNotForNimbus("host")
+        isNotForNimbus("host.tld")
+        isNotForNimbus("mailto:foo")
+        isNotForNimbus("mailto:me@there.com")
+
+        isNotForNimbus("https://example.com/webpage")
+    }
+
+    @Test
+    fun `test createCliArgsFromUri with normal URLs safely fails`() {
+        fun isNotForNimbus(bad: String) {
+            val obs0 = createCommandLineArgs(
+                Uri.parse(bad),
+            )
+            assertNull(obs0)
+        }
+
+        isNotForNimbus("")
+        isNotForNimbus("host")
+        isNotForNimbus("host.tld")
+        isNotForNimbus("mailto:foo")
+        isNotForNimbus("mailto:me@there.com")
+
+        isNotForNimbus("https://example.com/webpage")
     }
 }

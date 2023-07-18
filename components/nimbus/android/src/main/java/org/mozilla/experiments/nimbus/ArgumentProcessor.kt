@@ -90,6 +90,9 @@ private fun check(args: CliArgs): CliArgs? {
 @VisibleForTesting(otherwise = VisibleForTesting.PRIVATE)
 @Suppress("ReturnCount")
 fun createCommandLineArgs(uri: Uri): CliArgs? {
+    if (!uri.isHierarchical || !uri.isAbsolute) {
+        return null
+    }
     if (setOf("http", "https").contains(uri.scheme ?: "")) {
         return null
     }
