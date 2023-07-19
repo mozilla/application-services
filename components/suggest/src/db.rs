@@ -37,10 +37,13 @@ impl From<ConnectionType> for OpenFlags {
     fn from(type_: ConnectionType) -> Self {
         match type_ {
             ConnectionType::ReadOnly => {
-                OpenFlags::SQLITE_OPEN_URI | OpenFlags::SQLITE_OPEN_READ_ONLY
+                OpenFlags::SQLITE_OPEN_URI
+                    | OpenFlags::SQLITE_OPEN_NO_MUTEX
+                    | OpenFlags::SQLITE_OPEN_READ_ONLY
             }
             ConnectionType::ReadWrite => {
                 OpenFlags::SQLITE_OPEN_URI
+                    | OpenFlags::SQLITE_OPEN_NO_MUTEX
                     | OpenFlags::SQLITE_OPEN_CREATE
                     | OpenFlags::SQLITE_OPEN_READ_WRITE
             }
