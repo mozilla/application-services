@@ -13,7 +13,7 @@ mod schema;
 mod store;
 
 pub use error::SuggestApiError;
-pub use store::{IngestLimits, SuggestStore};
+pub use store::{SuggestIngestionConstraints, SuggestStore};
 
 pub(crate) type Result<T> = std::result::Result<T, error::Error>;
 pub type SuggestApiResult<T> = std::result::Result<T, error::SuggestApiError>;
