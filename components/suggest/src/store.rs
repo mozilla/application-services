@@ -18,6 +18,7 @@ use crate::{
 };
 
 const RS_COLLECTION: &str = "quicksuggest";
+const SUGGESTIONS_PER_ATTACHMENT: u64 = 200;
 
 /// The store is the entry point to the Suggest component. It incrementally
 /// fetches suggestions from the Remote Settings service, stores them in a local
@@ -47,11 +48,15 @@ pub struct SuggestStore {
     settings_client: remote_settings::Client,
 }
 
-/// Limits for an ingestion from Remote Settings.
-pub struct IngestLimits {
-    /// The maximum number of records to request from Remote Settings.
-    /// Each record has about 200 suggestions.
-    pub records: Option<u64>,
+/// Limits which suggestions to ingest from Remote Settings.
+#[derive(Clone, Default, Debug)]
+pub struct SuggestIngestionConstraints {
+    /// The approximate maximum number of suggestions to ingest. Set to `None`
+    /// for "no limit".
+    ///
+    /// Because of how suggestions are partitioned in Remote Settings, this is a
+    /// soft limit, and the store might ingest more than requested.
+    pub max_suggestions: Option<u64>,
 }
 
 impl SuggestStore {
@@ -116,13 +121,12 @@ impl SuggestStore {
         }
     }
 
-    /// Ingests new suggestions from Remote Settings. `limits` can be used to
-    /// constrain the amount of work done.
-    pub fn ingest(&self, limits: &IngestLimits) -> SuggestApiResult<()> {
-        Ok(self.ingest_inner(limits)?)
+    /// Ingests new suggestions from Remote Settings.
+    pub fn ingest(&self, constraints: SuggestIngestionConstraints) -> SuggestApiResult<()> {
+        Ok(self.ingest_inner(constraints)?)
     }
 
-    fn ingest_inner(&self, limits: &IngestLimits) -> Result<()> {
+    fn ingest_inner(&self, constraints: SuggestIngestionConstraints) -> Result<()> {
         let writer = &self.dbs()?.writer;
 
         let mut options = GetItemsOptions::new();
@@ -135,8 +139,11 @@ impl SuggestStore {
             // interrupted, we'll pick up where we left off.
             options.gt("last_modified", last_fetch.to_string());
         }
-        if let Some(records) = &limits.records {
-            options.limit(*records);
+        if let Some(max_suggestions) = constraints.max_suggestions {
+            // Each record's attachment has 200 suggestions, so fetch enough
+            // records to cover the requested maximum.
+            let max_records = (max_suggestions.saturating_sub(1) / SUGGESTIONS_PER_ATTACHMENT) + 1;
+            options.limit(max_records);
         }
 
         let records = self
@@ -380,7 +387,7 @@ mod tests {
             "file:ingest?mode=memory&cache=shared",
             Some(settings_config),
         )?;
-        store.ingest(&IngestLimits { records: None })?;
+        store.ingest(SuggestIngestionConstraints::default())?;
 
         server_info_m.expect(1).assert();
         records_m.expect(1).assert();

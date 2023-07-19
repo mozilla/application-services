@@ -15,10 +15,6 @@ interface SuggestApiError {
     Other(string reason);
 };
 
-dictionary IngestLimits {
-    u64? records;
-};
-
 dictionary Suggestion {
     i64 block_id;
     string advertiser;
@@ -38,6 +34,10 @@ dictionary SuggestionQuery {
     boolean include_non_sponsored = false;
 };
 
+dictionary SuggestIngestionConstraints {
+    u64? max_suggestions = null;
+};
+
 interface SuggestStore {
     [Throws=SuggestApiError]
     constructor([ByRef] string path, optional RemoteSettingsConfig? settings_config = null);
@@ -48,7 +48,7 @@ interface SuggestStore {
     void interrupt();
 
     [Throws=SuggestApiError]
-    void ingest([ByRef] IngestLimits limits);
+    void ingest(SuggestIngestionConstraints constraints);
 
     [Throws=SuggestApiError]
     void clear();
