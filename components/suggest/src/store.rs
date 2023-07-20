@@ -13,7 +13,7 @@ use remote_settings::{self, Attachment, GetItemsOptions, RemoteSettingsConfig, S
 use serde::Deserialize;
 
 use crate::{
-    db::{ConnectionType, SuggestDb, LAST_FETCH_META_KEY},
+    db::{ConnectionType, SuggestDb, LAST_INGEST_META_KEY},
     RemoteRecordId, RemoteSuggestion, Result, SuggestApiResult, Suggestion, SuggestionQuery,
 };
 
@@ -21,11 +21,11 @@ const RS_COLLECTION: &str = "quicksuggest";
 const SUGGESTIONS_PER_ATTACHMENT: u64 = 200;
 
 /// The store is the entry point to the Suggest component. It incrementally
-/// fetches suggestions from the Remote Settings service, stores them in a local
-/// database, and returns them in response to user queries.
+/// downloads suggestions from the Remote Settings service, stores them in a
+/// local database, and returns them in response to user queries.
 ///
 /// Your application should create a single store, and manage it as a singleton.
-/// The store is thread-safe, and supports concurrent fetches and ingests. We
+/// The store is thread-safe, and supports concurrent queries and ingests. We
 /// expect that your application will call `query` to show suggestions as the
 /// user types into the address bar, and periodically call `ingest` in the
 /// background to update the database with new suggestions from Remote Settings.
@@ -39,7 +39,7 @@ const SUGGESTIONS_PER_ATTACHMENT: u64 = 200;
 ///    `BGTaskScheduler` on iOS.
 /// 2. Ingestion limits can change, depending on the platform and the needs of
 ///    the application. A mobile device on a metered connection might want to
-///    request a small subset of the Suggest data and fetch the rest later,
+///    request a small subset of the Suggest data and download the rest later,
 ///    while a desktop on a fast link might request the entire dataset on first
 ///    launch.
 pub struct SuggestStore {
@@ -132,15 +132,15 @@ impl SuggestStore {
         let mut options = GetItemsOptions::new();
         // Remote Settings returns records in descending modification order
         // (newest first), but we want them in ascending order (oldest first),
-        // so that we can eventually resume fetching where we left off.
+        // so that we can eventually resume downloading where we left off.
         options.sort("last_modified", SortOrder::Ascending);
-        if let Some(last_fetch) = writer.read(|dao| dao.get_meta::<u64>(LAST_FETCH_META_KEY))? {
-            // Only fetch changes since our last fetch. If our last fetch was
-            // interrupted, we'll pick up where we left off.
-            options.gt("last_modified", last_fetch.to_string());
+        if let Some(last_ingest) = writer.read(|dao| dao.get_meta::<u64>(LAST_INGEST_META_KEY))? {
+            // Only download changes since our last ingest. If our last ingest
+            // was interrupted, we'll pick up where we left off.
+            options.gt("last_modified", last_ingest.to_string());
         }
         if let Some(max_suggestions) = constraints.max_suggestions {
-            // Each record's attachment has 200 suggestions, so fetch enough
+            // Each record's attachment has 200 suggestions, so download enough
             // records to cover the requested maximum.
             let max_records = (max_suggestions.saturating_sub(1) / SUGGESTIONS_PER_ATTACHMENT) + 1;
             options.limit(max_records);
@@ -149,11 +149,11 @@ impl SuggestStore {
         let records = self
             .settings_client
             .get_records_raw_with_options(&options)?
-            .json::<SuggestRecordsResponse>()?
+            .json::<SuggestRemoteSettingsResponse>()?
             .data;
         for record in &records {
             match record {
-                FetchedChange::Record(SuggestRecord::Data {
+                SuggestRecord::Typed(TypedSuggestRecord::Data {
                     id: record_id,
                     last_modified,
                     attachment,
@@ -177,12 +177,12 @@ impl SuggestStore {
 
                         // Advance the last fetch time, so that we can resume
                         // fetching after this record if we're interrupted.
-                        dao.put_meta(LAST_FETCH_META_KEY, last_modified)?;
+                        dao.put_meta(LAST_INGEST_META_KEY, last_modified)?;
 
                         Ok(())
                     })?;
                 }
-                FetchedChange::Unknown {
+                SuggestRecord::Untyped {
                     id: record_id,
                     last_modified,
                     deleted,
@@ -194,11 +194,11 @@ impl SuggestStore {
                             Some(icon_id) => dao.drop_icon(icon_id)?,
                             None => dao.drop_suggestions(record_id)?,
                         };
-                        dao.put_meta(LAST_FETCH_META_KEY, last_modified)?;
+                        dao.put_meta(LAST_INGEST_META_KEY, last_modified)?;
                         Ok(())
                     })?;
                 }
-                FetchedChange::Record(SuggestRecord::Icon {
+                SuggestRecord::Typed(TypedSuggestRecord::Icon {
                     id: record_id,
                     last_modified,
                     attachment,
@@ -212,7 +212,7 @@ impl SuggestStore {
                         .body;
                     writer.write(|dao| {
                         dao.insert_icon(icon_id, &data)?;
-                        dao.put_meta(LAST_FETCH_META_KEY, last_modified)?;
+                        dao.put_meta(LAST_INGEST_META_KEY, last_modified)?;
                         Ok(())
                     })?;
                 }
@@ -245,14 +245,44 @@ impl SuggestStoreDbs {
     }
 }
 
+/// The response body for a Suggest Remote Settings collection request.
 #[derive(Debug, Deserialize)]
-struct SuggestRecordsResponse {
-    data: Vec<FetchedChange>,
+struct SuggestRemoteSettingsResponse {
+    data: Vec<SuggestRecord>,
 }
 
+/// A record with a known or an unknown type, or a tombstone, in the Suggest
+/// Remote Settings collection.
+///
+/// Because `#[serde(other)]` doesn't support associated data
+/// (serde-rs/serde#1973), we can't define variants for all the known types and
+/// the unknown type in the same enum. Instead, we have this "outer", untagged
+/// `SuggestRecord` with the "unknown type" variant, and an "inner", internally
+/// tagged `TypedSuggestRecord` with all the "known type" variants.
+#[derive(Debug, Deserialize, PartialEq)]
+#[serde(untagged)]
+enum SuggestRecord {
+    /// A record with a known type.
+    Typed(TypedSuggestRecord),
+
+    /// A tombstone, or a record with an unknown type, that we don't know how
+    /// to ingest.
+    ///
+    /// Tombstones only have these three fields, with `deleted` set to `true`.
+    /// Records with unknown types have `deleted` set to `false`, and may
+    /// contain other fields that we ignore.
+    Untyped {
+        id: RemoteRecordId,
+        last_modified: u64,
+        #[serde(default)]
+        deleted: bool,
+    },
+}
+
+/// A record that we know how to ingest from Remote Settings.
 #[derive(Debug, Deserialize, PartialEq)]
 #[serde(tag = "type")]
-enum SuggestRecord {
+enum TypedSuggestRecord {
     #[serde(rename = "icon")]
     Icon {
         id: RemoteRecordId,
@@ -264,18 +294,6 @@ enum SuggestRecord {
         id: RemoteRecordId,
         last_modified: u64,
         attachment: Attachment,
-    },
-}
-
-#[derive(Debug, Deserialize, PartialEq)]
-#[serde(untagged)]
-enum FetchedChange {
-    Record(SuggestRecord),
-    Unknown {
-        id: RemoteRecordId,
-        last_modified: u64,
-        #[serde(default)]
-        deleted: bool,
     },
 }
 
@@ -398,7 +416,7 @@ mod tests {
             store
                 .dbs()?
                 .reader
-                .read(|dao| dao.get_meta(LAST_FETCH_META_KEY))?,
+                .read(|dao| dao.get_meta(LAST_INGEST_META_KEY))?,
         );
 
         let suggestions = store.query(&SuggestionQuery {

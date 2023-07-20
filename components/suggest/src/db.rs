@@ -21,7 +21,7 @@ use crate::{
 
 /// The metadata key whose value is the timestamp of the last ingested Remote
 /// Settings record.
-pub const LAST_FETCH_META_KEY: &str = "last_fetch";
+pub const LAST_INGEST_META_KEY: &str = "last_ingest";
 
 /// A list of IAB categories that contain non-sponsored suggestions.
 pub const NONSPONSORED_IAB_CATEGORIES: &[&str] = &["5 - Education"];
