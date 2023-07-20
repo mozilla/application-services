@@ -17,7 +17,8 @@ use crate::{
     RemoteRecordId, RemoteSuggestion, Result, SuggestApiResult, Suggestion, SuggestionQuery,
 };
 
-const RS_COLLECTION: &str = "quicksuggest";
+/// The Suggest Remote Settings collection.
+const REMOTE_SETTINGS_COLLECTION: &str = "quicksuggest";
 const SUGGESTIONS_PER_ATTACHMENT: u64 = 200;
 
 /// The store is the entry point to the Suggest component. It incrementally
@@ -76,7 +77,7 @@ impl SuggestStore {
             RemoteSettingsConfig {
                 server_url: None,
                 bucket_name: None,
-                collection_name: RS_COLLECTION.into(),
+                collection_name: REMOTE_SETTINGS_COLLECTION.into(),
             }
         }))?;
         Ok(Self {
