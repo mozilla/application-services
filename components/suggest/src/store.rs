@@ -17,8 +17,13 @@ use crate::{
     RemoteRecordId, RemoteSuggestion, Result, SuggestApiResult, Suggestion, SuggestionQuery,
 };
 
-/// The Suggest Remote Settings collection.
+/// The Suggest Remote Settings collection name.
 const REMOTE_SETTINGS_COLLECTION: &str = "quicksuggest";
+
+/// The maximum number of suggestions in a Suggest record's attachment.
+///
+/// This should be the same as the `BUCKET_SIZE` constant in the
+/// `mozilla-services/quicksuggest-rs` repo.
 const SUGGESTIONS_PER_ATTACHMENT: u64 = 200;
 
 /// The store is the entry point to the Suggest component. It incrementally
@@ -27,32 +32,38 @@ const SUGGESTIONS_PER_ATTACHMENT: u64 = 200;
 ///
 /// Your application should create a single store, and manage it as a singleton.
 /// The store is thread-safe, and supports concurrent queries and ingests. We
-/// expect that your application will call `query` to show suggestions as the
-/// user types into the address bar, and periodically call `ingest` in the
-/// background to update the database with new suggestions from Remote Settings.
+/// expect that your application will call [`SuggestStore::query()`] to show
+/// suggestions as the user types into the address bar, and periodically call
+/// [`SuggestStore::ingest()`] in the background to update the database with
+/// new suggestions from Remote Settings.
+///
+/// For responsiveness, we recommend always calling `query()` on a worker
+/// thread. When the user types new input into the address bar, call
+/// [`SuggestStore::interrupt()`] on the main thread to cancel the query
+/// for the old input, and unblock the worker thread for the new query.
 ///
 /// The store keeps track of the state needed to support incremental ingestion,
 /// but doesn't schedule the ingestion work itself, or decide how many
 /// suggestions to ingest at once. This is for two reasons:
 ///
-/// 1. The primitives for scheduling background work vary between platforms. You
-///    might use an idle timer on Desktop, `WorkManager` on Android, or
-///    `BGTaskScheduler` on iOS.
-/// 2. Ingestion limits can change, depending on the platform and the needs of
-///    the application. A mobile device on a metered connection might want to
-///    request a small subset of the Suggest data and download the rest later,
-///    while a desktop on a fast link might request the entire dataset on first
-///    launch.
+/// 1. The primitives for scheduling background work vary between platforms, and
+///    aren't available to the lower-level Rust layer. You might use an idle
+///    timer on Desktop, `WorkManager` on Android, or `BGTaskScheduler` on iOS.
+/// 2. Ingestion constraints can change, depending on the platform and the needs
+///    of your application. A mobile device on a metered connection might want
+///    to request a small subset of the Suggest data and download the rest
+///    later, while a desktop on a fast link might download the entire dataset
+///    on the first launch.
 pub struct SuggestStore {
     path: PathBuf,
     dbs: OnceCell<SuggestStoreDbs>,
     settings_client: remote_settings::Client,
 }
 
-/// Limits which suggestions to ingest from Remote Settings.
+/// Constraints limit which suggestions to ingest from Remote Settings.
 #[derive(Clone, Default, Debug)]
 pub struct SuggestIngestionConstraints {
-    /// The approximate maximum number of suggestions to ingest. Set to `None`
+    /// The approximate maximum number of suggestions to ingest. Set to [`None`]
     /// for "no limit".
     ///
     /// Because of how suggestions are partitioned in Remote Settings, this is a
@@ -87,14 +98,14 @@ impl SuggestStore {
         })
     }
 
-    /// Returns this provider's database connections, initializing them if
+    /// Returns this store's database connections, initializing them if
     /// they're not already open.
     fn dbs(&self) -> Result<&SuggestStoreDbs> {
         self.dbs
             .get_or_try_init(|| SuggestStoreDbs::open(&self.path))
     }
 
-    /// Queries the database for suggestions that match the `keyword`.
+    /// Queries the database for suggestions.
     pub fn query(&self, query: SuggestionQuery) -> SuggestApiResult<Vec<Suggestion>> {
         if query.keyword.is_empty() {
             return Ok(Vec::new());
@@ -112,9 +123,11 @@ impl SuggestStore {
             .collect())
     }
 
-    /// Interrupts any ongoing queries. This should be called when the
-    /// user types a new keyword into the address bar, to ensure that they
-    /// see fresh suggestions as they type.
+    /// Interrupts any ongoing queries.
+    ///
+    /// This should be called when the user types new input into the address
+    /// bar, to ensure that they see fresh suggestions as they type. This
+    /// method does not interrupt any ongoing ingests.
     pub fn interrupt(&self) {
         if let Some(dbs) = self.dbs.get() {
             // Only interrupt if the databases are already open.
@@ -162,7 +175,7 @@ impl SuggestStore {
                     let suggestions = self
                         .settings_client
                         .get_attachment(&attachment.location)?
-                        .json::<SuggestAttachmentData>()?
+                        .json::<SuggestDataAttachmentContents>()?
                         .0;
 
                     writer.write(|dao| {
@@ -224,11 +237,13 @@ impl SuggestStore {
         Ok(())
     }
 
+    /// Removes all content from the database.
     pub fn clear(&self) -> SuggestApiResult<()> {
         Ok(self.dbs()?.writer.write(|dao| dao.clear())?)
     }
 }
 
+/// Holds a store's open connections to the Suggest database.
 struct SuggestStoreDbs {
     /// A read-write connection used to update the database with new data.
     writer: SuggestDb,
@@ -299,7 +314,7 @@ enum TypedSuggestRecord {
 }
 
 /// Represents either a single value, or a list of values. This is used to
-/// deserialize suggestion attachment bodies.
+/// deserialize attachment contents.
 #[derive(Debug, Deserialize)]
 #[serde(untagged)]
 enum OneOrMany<T> {
@@ -318,9 +333,10 @@ impl<T> Deref for OneOrMany<T> {
     }
 }
 
+/// The contents of a [`TypedSuggestRecord::Data`] attachment.
 #[derive(Debug, Deserialize)]
 #[serde(transparent)]
-struct SuggestAttachmentData(OneOrMany<RemoteSuggestion>);
+struct SuggestDataAttachmentContents(OneOrMany<RemoteSuggestion>);
 
 #[cfg(test)]
 mod tests {

@@ -23,7 +23,8 @@ use crate::{
 /// from the Suggest Remote Settings collection.
 pub const LAST_INGEST_META_KEY: &str = "last_quicksuggest_ingest";
 
-/// A list of IAB categories that contain non-sponsored suggestions.
+/// A list of [`Suggestion::iab_category`] values used to distinguish
+/// non-sponsored suggestions.
 pub const NONSPONSORED_IAB_CATEGORIES: &[&str] = &["5 - Education"];
 
 /// The database connection type.
@@ -58,9 +59,9 @@ pub(crate) struct SuggestDb {
 
     /// An object that's used to interrupt an ongoing database operation.
     ///
-    /// When this handle is interrupted, the thread that's currently running the
-    /// database operation will be told to abort and release the `conn` lock as
-    /// soon as possible.
+    /// When this handle is interrupted, the thread that's currently accessing
+    /// the database will be told to stop and release the `conn` lock as soon
+    /// as possible.
     pub interrupt_handle: Arc<SqlInterruptHandle>,
 }
 
@@ -116,7 +117,7 @@ impl<'a> SuggestDao<'a> {
         Self { conn, scope }
     }
 
-    /// Fetches all suggestions that match the given keyword from the database.
+    /// Fetches suggestions that match the given keyword from the database.
     pub fn fetch_by_keyword(&self, keyword: &str) -> Result<Vec<Suggestion>> {
         self.conn.query_rows_and_then_cached(
             "SELECT s.id, k.rank, s.block_id, s.advertiser, s.iab_category,
