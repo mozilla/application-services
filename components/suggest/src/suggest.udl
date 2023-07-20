@@ -29,9 +29,9 @@ dictionary Suggestion {
 };
 
 dictionary SuggestionQuery {
-    string keyword = "";
-    boolean include_sponsored = false;
-    boolean include_non_sponsored = false;
+    string keyword;
+    boolean include_sponsored;
+    boolean include_non_sponsored;
 };
 
 dictionary SuggestIngestionConstraints {
