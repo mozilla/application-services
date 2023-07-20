@@ -2,7 +2,7 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-use std::collections::{BTreeMap, HashMap};
+use std::collections::BTreeMap;
 
 use crate::frontend::{
     EnumBody, EnumVariantBody, FeatureBody, FieldBody, ManifestFrontEnd, ObjectBody, Types,
@@ -89,7 +89,7 @@ impl From<ObjectDef> for ObjectBody {
 
 impl From<EnumDef> for EnumBody {
     fn from(value: EnumDef) -> Self {
-        let mut variants = HashMap::new();
+        let mut variants = BTreeMap::new();
         for v in value.variants {
             variants.insert(v.name.clone(), v.into());
         }

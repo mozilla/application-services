@@ -27,7 +27,7 @@ pub(crate) struct EnumVariantBody {
 #[serde(deny_unknown_fields)]
 pub(crate) struct EnumBody {
     pub(crate) description: String,
-    pub(crate) variants: HashMap<String, EnumVariantBody>,
+    pub(crate) variants: BTreeMap<String, EnumVariantBody>,
 }
 
 #[derive(Debug, Deserialize, Serialize, Clone)]
@@ -115,7 +115,7 @@ pub(crate) struct ImportBlock {
     pub(crate) path: String,
     pub(crate) channel: String,
     #[serde(default)]
-    pub(crate) features: HashMap<String, Vec<DefaultBlock>>,
+    pub(crate) features: BTreeMap<String, Vec<DefaultBlock>>,
 }
 
 #[derive(Debug, Deserialize, Serialize, Clone)]
