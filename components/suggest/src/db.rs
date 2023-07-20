@@ -15,8 +15,8 @@ use rusqlite::{
 use sql_support::{open_database::open_database_with_flags, ConnExt};
 
 use crate::{
-    keyword::full_keyword, schema::SuggestConnectionInitializer, RemoteRecordId, RemoteSuggestion,
-    Result, Suggestion,
+    keyword::full_keyword, schema::SuggestConnectionInitializer, DownloadedSuggestion, Result,
+    SuggestRecordId, Suggestion,
 };
 
 /// The metadata key whose value is the timestamp of the last record ingested
@@ -163,8 +163,8 @@ impl<'a> SuggestDao<'a> {
     /// the database.
     pub fn insert_suggestions(
         &mut self,
-        record_id: &RemoteRecordId,
-        suggestions: &[RemoteSuggestion],
+        record_id: &SuggestRecordId,
+        suggestions: &[DownloadedSuggestion],
     ) -> Result<()> {
         for suggestion in suggestions {
             self.scope.err_if_interrupted()?;
@@ -250,7 +250,7 @@ impl<'a> SuggestDao<'a> {
 
     /// Deletes all suggestions associated with a Remote Settings record from
     /// the database.
-    pub fn drop_suggestions(&mut self, record_id: &RemoteRecordId) -> Result<()> {
+    pub fn drop_suggestions(&mut self, record_id: &SuggestRecordId) -> Result<()> {
         self.conn.execute_cached(
             "DELETE FROM suggestions WHERE record_id = :record_id",
             named_params! { ":record_id": record_id.as_str() },

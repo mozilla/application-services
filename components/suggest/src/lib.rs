@@ -18,22 +18,29 @@ pub use store::{SuggestIngestionConstraints, SuggestStore};
 pub(crate) type Result<T> = std::result::Result<T, error::Error>;
 pub type SuggestApiResult<T> = std::result::Result<T, error::SuggestApiError>;
 
+/// The ID of a record in the Suggest Remote Settings collection.
 #[derive(Clone, Debug, Deserialize, Eq, Hash, Ord, PartialEq, PartialOrd)]
 #[serde(transparent)]
-pub(crate) struct RemoteRecordId(String);
+pub(crate) struct SuggestRecordId(String);
 
-impl RemoteRecordId {
+impl SuggestRecordId {
     pub fn as_str(&self) -> &str {
         &self.0
     }
 
+    /// If this ID is for an icon record, extracts and returns the icon ID.
+    ///
+    /// The icon ID is the primary key for an ingested icon. Downloaded
+    /// suggestions also reference these icon IDs, in
+    /// [`DownloadedSuggestion::icon_id`].
     pub fn as_icon_id(&self) -> Option<&str> {
         self.0.strip_prefix("icon-")
     }
 }
 
+/// A suggestion to ingest from a downloaded Remote Settings attachment.
 #[derive(Debug, Deserialize)]
-pub(crate) struct RemoteSuggestion {
+pub(crate) struct DownloadedSuggestion {
     #[serde(rename = "id")]
     pub block_id: i64,
     pub advertiser: String,
@@ -47,6 +54,7 @@ pub(crate) struct RemoteSuggestion {
     pub click_url: Option<String>,
 }
 
+/// A suggestion from the database to show in the address bar.
 #[derive(Clone, Debug, Eq, Hash, PartialEq)]
 pub struct Suggestion {
     pub block_id: i64,
@@ -61,6 +69,7 @@ pub struct Suggestion {
     pub click_url: Option<String>,
 }
 
+/// A query for suggestions to show in the address bar.
 #[derive(Debug, Default)]
 pub struct SuggestionQuery {
     pub keyword: String,

@@ -14,7 +14,7 @@ use serde::Deserialize;
 
 use crate::{
     db::{ConnectionType, SuggestDb, LAST_INGEST_META_KEY},
-    RemoteRecordId, RemoteSuggestion, Result, SuggestApiResult, Suggestion, SuggestionQuery,
+    DownloadedSuggestion, Result, SuggestApiResult, SuggestRecordId, Suggestion, SuggestionQuery,
 };
 
 /// The Suggest Remote Settings collection name.
@@ -175,7 +175,7 @@ impl SuggestStore {
                     let suggestions = self
                         .settings_client
                         .get_attachment(&attachment.location)?
-                        .json::<SuggestDataAttachmentContents>()?
+                        .json::<DownloadedSuggestDataAttachment>()?
                         .0;
 
                     writer.write(|dao| {
@@ -288,7 +288,7 @@ enum SuggestRecord {
     /// Records with unknown types have `deleted` set to `false`, and may
     /// contain other fields that we ignore.
     Untyped {
-        id: RemoteRecordId,
+        id: SuggestRecordId,
         last_modified: u64,
         #[serde(default)]
         deleted: bool,
@@ -301,20 +301,20 @@ enum SuggestRecord {
 enum TypedSuggestRecord {
     #[serde(rename = "icon")]
     Icon {
-        id: RemoteRecordId,
+        id: SuggestRecordId,
         last_modified: u64,
         attachment: Attachment,
     },
     #[serde(rename = "data")]
     Data {
-        id: RemoteRecordId,
+        id: SuggestRecordId,
         last_modified: u64,
         attachment: Attachment,
     },
 }
 
 /// Represents either a single value, or a list of values. This is used to
-/// deserialize attachment contents.
+/// deserialize downloaded data attachments.
 #[derive(Debug, Deserialize)]
 #[serde(untagged)]
 enum OneOrMany<T> {
@@ -333,10 +333,10 @@ impl<T> Deref for OneOrMany<T> {
     }
 }
 
-/// The contents of a [`TypedSuggestRecord::Data`] attachment.
+/// The contents of a downloaded [`TypedSuggestRecord::Data`] attachment.
 #[derive(Debug, Deserialize)]
 #[serde(transparent)]
-struct SuggestDataAttachmentContents(OneOrMany<RemoteSuggestion>);
+struct DownloadedSuggestDataAttachment(OneOrMany<DownloadedSuggestion>);
 
 #[cfg(test)]
 mod tests {
