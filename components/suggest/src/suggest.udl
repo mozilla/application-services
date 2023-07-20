@@ -43,7 +43,7 @@ interface SuggestStore {
     constructor([ByRef] string path, optional RemoteSettingsConfig? settings_config = null);
 
     [Throws=SuggestApiError]
-    sequence<Suggestion> query([ByRef] SuggestionQuery query);
+    sequence<Suggestion> query(SuggestionQuery query);
 
     void interrupt();
 

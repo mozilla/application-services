@@ -94,7 +94,7 @@ impl SuggestStore {
     }
 
     /// Queries the database for suggestions that match the `keyword`.
-    pub fn query(&self, query: &SuggestionQuery) -> SuggestApiResult<Vec<Suggestion>> {
+    pub fn query(&self, query: SuggestionQuery) -> SuggestApiResult<Vec<Suggestion>> {
         if query.keyword.is_empty() {
             return Ok(Vec::new());
         }
@@ -419,7 +419,7 @@ mod tests {
                 .read(|dao| dao.get_meta(LAST_INGEST_META_KEY))?,
         );
 
-        let suggestions = store.query(&SuggestionQuery {
+        let suggestions = store.query(SuggestionQuery {
             keyword: "lo".into(),
             include_sponsored: true,
             ..Default::default()
