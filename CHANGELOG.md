@@ -6,6 +6,10 @@
 
 - Removed obsolete sync functions that were exposed for Firefox iOS prior to the sync manager component integration ([#5725](https://github.com/mozilla/application-services/pull/5725)).
 
+### ✨ What's New ✨
+
+- Added a new Firefox Suggest component ([#5723](https://github.com/mozilla/application-services/pull/5723)).
+
 ## Nimbus SDK ⛅️🔬🔭
 
 ### ✨ What's New ✨
