@@ -42,6 +42,11 @@ workers:
       implementation: scriptworker-beetmover
       os: scriptworker
       worker-type: 'app-services-{level}-beetmover'
+    shipit:
+      provisioner: scriptworker-k8s
+      implementation: scriptworker-shipit
+      os: scriptworker
+      worker-type: 'app-services-{level}-shipit'
 
 release-promotion:
   flavors:
@@ -53,6 +58,10 @@ release-promotion:
     - docker-image
     - fetch
     - toolchain
+
+shipit:
+  product: App-services
+  scope-prefix: project:app-services:releng:ship-it
 
 scriptworker:
   scope-prefix: project:mozilla:app-services:releng
