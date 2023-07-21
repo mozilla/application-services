@@ -4,4 +4,5 @@
 arrow
 pyyaml
 taskcluster
-taskcluster-taskgraph>=5.2.1
+taskcluster-taskgraph >= 5.2.1
+mozilla-taskgraph >= 1.0

@@ -2,18 +2,18 @@
 # License, v. 2.0. If a copy of the MPL was not distributed with this
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 
-
 from importlib import import_module
 from voluptuous import Optional
 import os
 import re
 
 from taskgraph.parameters import extend_parameters_schema
+from mozilla_taskgraph import register as mozilla_taskgraph_register
+
 from . import branch_builds
 from .build_config import get_version_from_version_txt
 
 PREVIEW_RE = re.compile(r'\[preview ([\w-]+)\]')
-
 def register(graph_config):
     # Import modules to register decorated functions
     _import_modules([
@@ -37,6 +37,10 @@ def register(graph_config):
         # Release type.  Set to `release` or `nightly` when we're building release artifacts.
         'release-type': Optional(str),
     })
+
+    # Register mozilla-taskgraph extensions
+    mozilla_taskgraph_register(graph_config)
+
 
 def _import_modules(modules):
     for module in modules:

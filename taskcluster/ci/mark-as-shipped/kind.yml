@@ -1,0 +1,22 @@
+# This Source Code Form is subject to the terms of the Mozilla Public
+# License, v. 2.0. If a copy of the MPL was not distributed with this
+# file, You can obtain one at http://mozilla.org/MPL/2.0/.
+---
+loader: taskgraph.loader.transform:loader
+
+transforms:
+    - taskgraph.transforms.from_deps
+    - mozilla_taskgraph.transforms.scriptworker.shipit.mark_as_shipped
+    - taskgraph.transforms.task
+
+kind-dependencies:
+    - beetmover
+
+tasks:
+    mark-as-shipped:
+        worker-type: shipit
+        from-deps:
+            group-by: all
+            unique-kinds: false
+        run-on-tasks-for: []
+        shipping-phase: ship
