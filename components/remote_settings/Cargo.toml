@@ -16,7 +16,7 @@ serde = "1"
 serde_json = "1"
 parking_lot = "0.12"
 viaduct = { path = "../viaduct" }
-url = "2.2"
+url = "2.1" # mozilla-central can't yet take 2.2 (see bug 1734538)
 
 [build-dependencies]
 uniffi = { version = "0.24.1", features = ["build"] }
