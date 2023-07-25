@@ -212,6 +212,10 @@ pub(crate) enum CliCommand {
         no_clobber: bool,
     },
 
+    /// Start a server
+    #[cfg(feature = "server")]
+    StartServer,
+
     /// Reset the app back to its just installed state
     ResetApp,
 
@@ -300,6 +304,13 @@ pub(crate) struct OpenArgs {
     /// This does not work with `--reset-app` or passthrough arguments.
     #[arg(long, default_value = "false")]
     pub(crate) pbcopy: bool,
+
+    /// Instead of opening via adb or xcrun simctl, construct a deeplink
+    /// and put it into the pastebuffer.
+    ///
+    /// This does not work with `--reset-app` or passthrough arguments.
+    #[arg(long, default_value = "false")]
+    pub(crate) pbpaste: bool,
 
     /// Optionally, add platform specific arguments to the adb or xcrun command.
     ///

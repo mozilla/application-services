@@ -11,7 +11,7 @@ use crate::{AppOpenArgs, LaunchableApp};
 impl LaunchableApp {
     pub(crate) fn copy_to_clipboard(
         &self,
-        app_protocol: StartAppProtocol,
+        app_protocol: &StartAppProtocol,
         open: &AppOpenArgs,
     ) -> Result<usize> {
         let url = self.longform_url(app_protocol, open)?;
@@ -25,7 +25,7 @@ impl LaunchableApp {
 
     pub(crate) fn longform_url(
         &self,
-        app_protocol: StartAppProtocol,
+        app_protocol: &StartAppProtocol,
         open: &AppOpenArgs,
     ) -> Result<String> {
         let deeplink = match (&open.deeplink, self.app_opening_deeplink()) {
@@ -94,7 +94,7 @@ const QUERY: &AsciiSet = &CONTROLS
 /// Construct a URL from the deeplink and the protocol object.
 pub(crate) fn longform_deeplink_url(
     deeplink: &str,
-    app_protocol: StartAppProtocol,
+    app_protocol: &StartAppProtocol,
 ) -> Result<String> {
     let StartAppProtocol {
         reset_db,
@@ -115,10 +115,10 @@ pub(crate) fn longform_deeplink_url(
         parts.push(format!("--experiments={string}"));
     }
 
-    if reset_db {
+    if *reset_db {
         parts.push("--reset-db".to_string());
     }
-    if log_state {
+    if *log_state {
         parts.push("--log-state".to_string());
     }
 
@@ -150,13 +150,10 @@ mod unit_tests {
             experiments: None,
             log_state: false,
         };
-        assert_eq!(
-            "host".to_string(),
-            longform_deeplink_url("host", p.clone())?
-        );
+        assert_eq!("host".to_string(), longform_deeplink_url("host", &p)?);
         assert_eq!(
             "host?query=1".to_string(),
-            longform_deeplink_url("host?query=1", p)?
+            longform_deeplink_url("host?query=1", &p)?
         );
         Ok(())
     }
@@ -170,11 +167,11 @@ mod unit_tests {
         };
         assert_eq!(
             "host?--nimbus-cli&--reset-db".to_string(),
-            longform_deeplink_url("host", p.clone())?
+            longform_deeplink_url("host", &p)?
         );
         assert_eq!(
             "host?query=1&--nimbus-cli&--reset-db".to_string(),
-            longform_deeplink_url("host?query=1", p)?
+            longform_deeplink_url("host?query=1", &p)?
         );
 
         Ok(())
@@ -189,11 +186,11 @@ mod unit_tests {
         };
         assert_eq!(
             "host?--nimbus-cli&--log-state".to_string(),
-            longform_deeplink_url("host", p.clone())?
+            longform_deeplink_url("host", &p)?
         );
         assert_eq!(
             "host?query=1&--nimbus-cli&--log-state".to_string(),
-            longform_deeplink_url("host?query=1", p)?
+            longform_deeplink_url("host?query=1", &p)?
         );
 
         Ok(())
@@ -209,11 +206,11 @@ mod unit_tests {
         };
         assert_eq!(
             "host?--nimbus-cli&--experiments=%7B%22data%22%3A[]%7D".to_string(),
-            longform_deeplink_url("host", p.clone())?
+            longform_deeplink_url("host", &p)?
         );
         assert_eq!(
             "host?query=1&--nimbus-cli&--experiments=%7B%22data%22%3A[]%7D".to_string(),
-            longform_deeplink_url("host?query=1", p.clone())?
+            longform_deeplink_url("host?query=1", &p)?
         );
 
         Ok(())
@@ -229,7 +226,7 @@ mod unit_tests {
         let open: AppOpenArgs = Default::default();
         assert_eq!(
             "fenix-dev://open?--nimbus-cli&--is-launcher".to_string(),
-            app.longform_url(payload.clone(), &open)?
+            app.longform_url(&payload, &open)?
         );
 
         // A command line param for deeplink.
@@ -239,7 +236,7 @@ mod unit_tests {
         };
         assert_eq!(
             "fenix-dev://deeplink".to_string(),
-            app.longform_url(payload, &open)?
+            app.longform_url(&payload, &open)?
         );
 
         // A parameter from the payload, but no deeplink.
@@ -249,7 +246,7 @@ mod unit_tests {
         };
         assert_eq!(
             "fenix-dev://open?--nimbus-cli&--is-launcher&--log-state".to_string(),
-            app.longform_url(payload.clone(), &Default::default())?
+            app.longform_url(&payload, &Default::default())?
         );
 
         // A deeplink from the command line, and an extra param from the payload.
@@ -259,7 +256,7 @@ mod unit_tests {
         };
         assert_eq!(
             "fenix-dev://deeplink?--nimbus-cli&--log-state".to_string(),
-            app.longform_url(payload, &open)?
+            app.longform_url(&payload, &open)?
         );
 
         Ok(())
