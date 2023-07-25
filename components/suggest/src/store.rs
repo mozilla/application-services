@@ -3,28 +3,19 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
  */
 
-use std::{
-    ops::Deref,
-    path::{Path, PathBuf},
-};
+use std::path::{Path, PathBuf};
 
 use once_cell::sync::OnceCell;
-use remote_settings::{self, Attachment, GetItemsOptions, RemoteSettingsConfig, SortOrder};
-use serde::Deserialize;
+use remote_settings::{self, GetItemsOptions, RemoteSettingsConfig, SortOrder};
 
 use crate::{
     db::{ConnectionType, SuggestDb, LAST_INGEST_META_KEY},
-    DownloadedSuggestion, Result, SuggestApiResult, SuggestRecordId, Suggestion, SuggestionQuery,
+    rs::{
+        DownloadedSuggestDataAttachment, SuggestRecord, SuggestRemoteSettingsResponse,
+        TypedSuggestRecord, REMOTE_SETTINGS_COLLECTION, SUGGESTIONS_PER_ATTACHMENT,
+    },
+    Result, SuggestApiResult, Suggestion, SuggestionQuery,
 };
-
-/// The Suggest Remote Settings collection name.
-const REMOTE_SETTINGS_COLLECTION: &str = "quicksuggest";
-
-/// The maximum number of suggestions in a Suggest record's attachment.
-///
-/// This should be the same as the `BUCKET_SIZE` constant in the
-/// `mozilla-services/quicksuggest-rs` repo.
-const SUGGESTIONS_PER_ATTACHMENT: u64 = 200;
 
 /// The store is the entry point to the Suggest component. It incrementally
 /// downloads suggestions from the Remote Settings service, stores them in a
@@ -260,83 +251,6 @@ impl SuggestStoreDbs {
         Ok(Self { writer, reader })
     }
 }
-
-/// The response body for a Suggest Remote Settings collection request.
-#[derive(Debug, Deserialize)]
-struct SuggestRemoteSettingsResponse {
-    data: Vec<SuggestRecord>,
-}
-
-/// A record with a known or an unknown type, or a tombstone, in the Suggest
-/// Remote Settings collection.
-///
-/// Because `#[serde(other)]` doesn't support associated data
-/// (serde-rs/serde#1973), we can't define variants for all the known types and
-/// the unknown type in the same enum. Instead, we have this "outer", untagged
-/// `SuggestRecord` with the "unknown type" variant, and an "inner", internally
-/// tagged `TypedSuggestRecord` with all the "known type" variants.
-#[derive(Debug, Deserialize, PartialEq)]
-#[serde(untagged)]
-enum SuggestRecord {
-    /// A record with a known type.
-    Typed(TypedSuggestRecord),
-
-    /// A tombstone, or a record with an unknown type, that we don't know how
-    /// to ingest.
-    ///
-    /// Tombstones only have these three fields, with `deleted` set to `true`.
-    /// Records with unknown types have `deleted` set to `false`, and may
-    /// contain other fields that we ignore.
-    Untyped {
-        id: SuggestRecordId,
-        last_modified: u64,
-        #[serde(default)]
-        deleted: bool,
-    },
-}
-
-/// A record that we know how to ingest from Remote Settings.
-#[derive(Debug, Deserialize, PartialEq)]
-#[serde(tag = "type")]
-enum TypedSuggestRecord {
-    #[serde(rename = "icon")]
-    Icon {
-        id: SuggestRecordId,
-        last_modified: u64,
-        attachment: Attachment,
-    },
-    #[serde(rename = "data")]
-    Data {
-        id: SuggestRecordId,
-        last_modified: u64,
-        attachment: Attachment,
-    },
-}
-
-/// Represents either a single value, or a list of values. This is used to
-/// deserialize downloaded data attachments.
-#[derive(Debug, Deserialize)]
-#[serde(untagged)]
-enum OneOrMany<T> {
-    One(T),
-    Many(Vec<T>),
-}
-
-impl<T> Deref for OneOrMany<T> {
-    type Target = [T];
-
-    fn deref(&self) -> &Self::Target {
-        match self {
-            OneOrMany::One(value) => std::slice::from_ref(value),
-            OneOrMany::Many(values) => values,
-        }
-    }
-}
-
-/// The contents of a downloaded [`TypedSuggestRecord::Data`] attachment.
-#[derive(Debug, Deserialize)]
-#[serde(transparent)]
-struct DownloadedSuggestDataAttachment(OneOrMany<DownloadedSuggestion>);
 
 #[cfg(test)]
 mod tests {
