@@ -15,8 +15,10 @@ use rusqlite::{
 use sql_support::{open_database::open_database_with_flags, ConnExt};
 
 use crate::{
-    keyword::full_keyword, schema::SuggestConnectionInitializer, DownloadedSuggestion, Result,
-    SuggestRecordId, Suggestion,
+    keyword::full_keyword,
+    rs::{DownloadedSuggestion, SuggestRecordId},
+    schema::SuggestConnectionInitializer,
+    Result, Suggestion,
 };
 
 /// The metadata key whose value is the timestamp of the last record ingested
