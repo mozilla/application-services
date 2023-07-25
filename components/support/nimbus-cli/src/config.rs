@@ -216,3 +216,23 @@ pub(crate) fn manifest_cache_dir() -> Option<PathBuf> {
         _ => None,
     }
 }
+
+#[cfg(feature = "server")]
+pub(crate) fn server_port() -> String {
+    match std::env::var("NIMBUS_CLI_SERVER_PORT") {
+        Ok(s) => s,
+        _ => "8080".to_string(),
+    }
+}
+
+#[cfg(feature = "server")]
+pub(crate) fn server_host() -> String {
+    match std::env::var("NIMBUS_CLI_SERVER_HOST") {
+        Ok(s) => s,
+        _ => {
+            use local_ip_address::local_ip;
+            let ip = local_ip().unwrap();
+            ip.to_string()
+        }
+    }
+}

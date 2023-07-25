@@ -2,6 +2,8 @@
 // License, v. 2.0. If a copy of the MPL was not distributed with this
 // file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
+#[cfg(feature = "server")]
+use crate::output::server;
 use crate::{
     output::deeplink,
     protocol::StartAppProtocol,
@@ -80,6 +82,8 @@ pub(crate) fn process_cmd(cmd: &AppCommand) -> Result<bool> {
             app, open: args, ..
         } => app.open(args)?,
         AppCommand::Reset { app } => app.reset_app()?,
+        #[cfg(feature = "server")]
+        AppCommand::StartServer => server::start_server()?,
         AppCommand::TailLogs { app } => app.tail_logs()?,
         AppCommand::Unenroll { app, open } => app.unenroll_all(open)?,
         AppCommand::ValidateExperiment {
@@ -116,6 +120,14 @@ fn output_err(term: &Term, title: &str, detail: &str) -> Result<()> {
 }
 
 impl LaunchableApp {
+    #[cfg(feature = "server")]
+    fn platform(&self) -> &str {
+        match self {
+            Self::Android { .. } => "android",
+            Self::Ios { .. } => "ios",
+        }
+    }
+
     fn exe(&self) -> Result<Command> {
         Ok(match self {
             Self::Android { device_id, .. } => {
@@ -404,27 +416,42 @@ impl LaunchableApp {
     }
 
     fn start_app(&self, app_protocol: StartAppProtocol, open: &AppOpenArgs) -> Result<bool> {
-        Ok(if open.pbcopy {
-            let term = Term::stdout();
-            let len = self.copy_to_clipboard(app_protocol, open)?;
+        let term = Term::stdout();
+        if open.pbcopy {
+            let len = self.copy_to_clipboard(&app_protocol, open)?;
             prompt(
                 &term,
                 &format!("# Copied a deeplink URL ({len} characters) in to the clipboard"),
             )?;
-            true
-        } else {
-            match self {
-                Self::Android { .. } => self
-                    .android_start(app_protocol, open)?
-                    .spawn()?
-                    .wait()?
-                    .success(),
-                Self::Ios { .. } => self
-                    .ios_start(app_protocol, open)?
-                    .spawn()?
-                    .wait()?
-                    .success(),
-            }
+        }
+        #[cfg(feature = "server")]
+        if open.pbpaste {
+            let url = self.longform_url(&app_protocol, open)?;
+            let addr = server::get_address()?;
+            match server::post_deeplink(self.platform(), &url) {
+                Err(_) => output_err(
+                    &term,
+                    "Cannot post to the server",
+                    "Start the server with `nimbus-cli start-server`",
+                )?,
+                _ => output_ok(&term, &format!("Posted to server at http://{addr}"))?,
+            };
+        }
+        if open.pbcopy || open.pbpaste {
+            return Ok(true);
+        }
+
+        Ok(match self {
+            Self::Android { .. } => self
+                .android_start(app_protocol, open)?
+                .spawn()?
+                .wait()?
+                .success(),
+            Self::Ios { .. } => self
+                .ios_start(app_protocol, open)?
+                .spawn()?
+                .wait()?
+                .success(),
         })
     }
 
@@ -498,7 +525,7 @@ impl LaunchableApp {
             let (starting_args, ending_args) = open.args();
 
             if let Some(deeplink) = self.deeplink(open)? {
-                let deeplink = deeplink::longform_deeplink_url(&deeplink, app_protocol)?;
+                let deeplink = deeplink::longform_deeplink_url(&deeplink, &app_protocol)?;
                 if deeplink.len() >= 2047 {
                     anyhow::bail!("Deeplink is too long for xcrun simctl openurl. Use --pbcopy to copy the URL to the clipboard")
                 }

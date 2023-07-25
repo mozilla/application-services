@@ -196,6 +196,9 @@ enum AppCommand {
         app: LaunchableApp,
     },
 
+    #[cfg(feature = "server")]
+    StartServer,
+
     TailLogs {
         app: LaunchableApp,
     },
@@ -367,6 +370,8 @@ impl TryFrom<&Cli> for AppCommand {
                     open: open.into(),
                 }
             }
+            #[cfg(feature = "server")]
+            CliCommand::StartServer => AppCommand::StartServer,
             CliCommand::TailLogs => {
                 let app = LaunchableApp::try_from(cli)?;
                 AppCommand::TailLogs { app }
@@ -406,8 +411,9 @@ impl TryFrom<&Cli> for AppCommand {
 impl CliCommand {
     fn check_valid(&self) -> Result<()> {
         if let Some(open) = self.open_args() {
-            if open.pbcopy && (open.reset_app || !open.passthrough.is_empty()) {
-                bail!("--pbcopy is not compatible with --reset-app or passthrough args");
+            let using_links = open.pbcopy || open.pbpaste;
+            if using_links && (open.reset_app || !open.passthrough.is_empty()) {
+                bail!("--pbcopy and --pbpaste are not compatible with --reset-app or passthrough args");
             }
         }
         Ok(())
@@ -429,13 +435,13 @@ impl CliCommand {
 
     fn should_kill(&self) -> bool {
         if let Some(open) = self.open_args() {
-            let pbcopy = open.pbcopy;
+            let using_links = open.pbcopy || open.pbpaste;
             let no_clobber = if let Self::Open { no_clobber, .. } = self {
                 *no_clobber
             } else {
                 false
             };
-            !pbcopy && !no_clobber
+            !using_links && !no_clobber
         } else {
             matches!(self, Self::ResetApp)
         }
@@ -455,6 +461,7 @@ pub(crate) struct AppOpenArgs {
     deeplink: Option<String>,
     passthrough: Vec<String>,
     pbcopy: bool,
+    pbpaste: bool,
 }
 
 impl From<OpenArgs> for AppOpenArgs {
@@ -463,6 +470,7 @@ impl From<OpenArgs> for AppOpenArgs {
             deeplink: value.deeplink,
             passthrough: value.passthrough,
             pbcopy: value.pbcopy,
+            pbpaste: value.pbpaste,
         }
     }
 }

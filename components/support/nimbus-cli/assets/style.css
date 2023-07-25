@@ -1,0 +1,17 @@
+.wrapper {
+    height: 100%;
+    width: 100%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.wrapper button {
+    height: 80%;
+    width: 80%;
+    font-size: 18rem;
+}
+
+ul#platform-list {
+    display: none;
+}

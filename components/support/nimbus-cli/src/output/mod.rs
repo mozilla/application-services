@@ -6,3 +6,5 @@ pub(crate) mod deeplink;
 mod features;
 mod fetch;
 pub(crate) mod info;
+#[cfg(feature = "server")]
+pub(crate) mod server;

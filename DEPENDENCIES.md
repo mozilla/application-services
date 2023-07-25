@@ -509,6 +509,7 @@ The following text applies to code linked from these dependencies:
 [lmdb-rkv-sys](https://github.com/mozilla/lmdb-rs.git),
 [lmdb-rkv](https://github.com/mozilla/lmdb-rs.git),
 [lock_api](https://github.com/Amanieu/parking_lot),
+[local-ip-address](https://github.com/EstebanBorai/local-ip-address),
 [log](https://github.com/rust-lang/log),
 [mime](https://github.com/hyperium/mime),
 [minimal-lexical](https://github.com/Alexhuszagh/minimal-lexical),

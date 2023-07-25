@@ -35,11 +35,13 @@
 ### ✨ What's New ✨
 
 - Added a `--patch` option to all commands that accept an experiment. ([#5721](https://github.com/mozilla/application-services/pull/5721))
-- Added a `--pbcopy` option to all commands that open the app. ([#5727](https://github.com/mozilla/application-services/pull/5727)).
-  - with associated in-app tooling to enroll into experiments via a deeplink URL.
+- Added a `--pbpaste` and `start-server` command for testing on iOS devices. ([#5751](https://github.com/mozilla/application-services/pull/5751)).
+  - Use by `start-server` which directs you to open a URL on your device. Device commands sync with the server, and then on to the device.
+  - Added a `--pbcopy` option to all commands that open the app. These URLs are used to open the app on device ([#5727](https://github.com/mozilla/application-services/pull/5727)).
+    - with associated in-app tooling to enroll into experiments via a deeplink URL.
+  - Added `--is-launcher` to the protocol between the cli and the apps, so apps detecting the launcher intent can work from the generated deeplinks ([#5748](https://github.com/mozilla/application-services/pull/5748)).
 - Added filters to the `list` and `fetch-list` commands ([#5730](https://github.com/mozilla/application-services/pull/5730))
   - Also, made `--app` and `--channel` non-mandatory for commands that don't need them.
-- Added `--is-launcher` to the protocol between the cli and the apps, so apps detecting the launcher intent can work from the generated deeplinks ([#5748](https://github.com/mozilla/application-services/pull/5748)).
 
 [Full Changelog](In progress)
 
