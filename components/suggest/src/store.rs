@@ -11,8 +11,8 @@ use remote_settings::{self, GetItemsOptions, RemoteSettingsConfig, SortOrder};
 use crate::{
     db::{ConnectionType, SuggestDb, LAST_INGEST_META_KEY},
     rs::{
-        DownloadedSuggestDataAttachment, SuggestRecord, SuggestRemoteSettingsResponse,
-        TypedSuggestRecord, REMOTE_SETTINGS_COLLECTION, SUGGESTIONS_PER_ATTACHMENT,
+        SuggestRecord, SuggestRemoteSettingsClient, TypedSuggestRecord, REMOTE_SETTINGS_COLLECTION,
+        SUGGESTIONS_PER_ATTACHMENT,
     },
     Result, SuggestApiResult, Suggestion, SuggestionQuery,
 };
@@ -46,9 +46,52 @@ use crate::{
 ///    later, while a desktop on a fast link might download the entire dataset
 ///    on the first launch.
 pub struct SuggestStore {
-    path: PathBuf,
-    dbs: OnceCell<SuggestStoreDbs>,
-    settings_client: remote_settings::Client,
+    inner: SuggestStoreInner<remote_settings::Client>,
+}
+
+impl SuggestStore {
+    /// Creates a Suggest store.
+    pub fn new(
+        path: &str,
+        settings_config: Option<RemoteSettingsConfig>,
+    ) -> SuggestApiResult<Self> {
+        let settings_client = || -> Result<_> {
+            Ok(remote_settings::Client::new(
+                settings_config.unwrap_or_else(|| RemoteSettingsConfig {
+                    server_url: None,
+                    bucket_name: None,
+                    collection_name: REMOTE_SETTINGS_COLLECTION.into(),
+                }),
+            )?)
+        }()?;
+        Ok(Self {
+            inner: SuggestStoreInner::new(path, settings_client),
+        })
+    }
+
+    /// Queries the database for suggestions.
+    pub fn query(&self, query: SuggestionQuery) -> SuggestApiResult<Vec<Suggestion>> {
+        Ok(self.inner.query(query)?)
+    }
+
+    /// Interrupts any ongoing queries.
+    ///
+    /// This should be called when the user types new input into the address
+    /// bar, to ensure that they see fresh suggestions as they type. This
+    /// method does not interrupt any ongoing ingests.
+    pub fn interrupt(&self) {
+        self.inner.interrupt()
+    }
+
+    /// Ingests new suggestions from Remote Settings.
+    pub fn ingest(&self, constraints: SuggestIngestionConstraints) -> SuggestApiResult<()> {
+        Ok(self.inner.ingest(constraints)?)
+    }
+
+    /// Removes all content from the database.
+    pub fn clear(&self) -> SuggestApiResult<()> {
+        Ok(self.inner.clear()?)
+    }
 }
 
 /// Constraints limit which suggestions to ingest from Remote Settings.
@@ -62,31 +105,22 @@ pub struct SuggestIngestionConstraints {
     pub max_suggestions: Option<u64>,
 }
 
-impl SuggestStore {
-    /// Creates a Suggest store.
-    pub fn new(
-        path: &str,
-        settings_config: Option<RemoteSettingsConfig>,
-    ) -> SuggestApiResult<Self> {
-        Ok(Self::new_inner(path, settings_config)?)
-    }
+/// The implementation of the store. This is generic over the Remote Settings
+/// client, and is split out from the concrete [`SuggestStore`] for testing
+/// with a mock client.
+pub(crate) struct SuggestStoreInner<S> {
+    path: PathBuf,
+    dbs: OnceCell<SuggestStoreDbs>,
+    settings_client: S,
+}
 
-    fn new_inner(
-        path: impl AsRef<Path>,
-        settings_config: Option<RemoteSettingsConfig>,
-    ) -> Result<Self> {
-        let settings_client = remote_settings::Client::new(settings_config.unwrap_or_else(|| {
-            RemoteSettingsConfig {
-                server_url: None,
-                bucket_name: None,
-                collection_name: REMOTE_SETTINGS_COLLECTION.into(),
-            }
-        }))?;
-        Ok(Self {
+impl<S> SuggestStoreInner<S> {
+    fn new(path: impl AsRef<Path>, settings_client: S) -> Self {
+        Self {
             path: path.as_ref().into(),
             dbs: OnceCell::new(),
             settings_client,
-        })
+        }
     }
 
     /// Returns this store's database connections, initializing them if
@@ -96,8 +130,7 @@ impl SuggestStore {
             .get_or_try_init(|| SuggestStoreDbs::open(&self.path))
     }
 
-    /// Queries the database for suggestions.
-    pub fn query(&self, query: SuggestionQuery) -> SuggestApiResult<Vec<Suggestion>> {
+    fn query(&self, query: SuggestionQuery) -> Result<Vec<Suggestion>> {
         if query.keyword.is_empty() {
             return Ok(Vec::new());
         }
@@ -114,24 +147,23 @@ impl SuggestStore {
             .collect())
     }
 
-    /// Interrupts any ongoing queries.
-    ///
-    /// This should be called when the user types new input into the address
-    /// bar, to ensure that they see fresh suggestions as they type. This
-    /// method does not interrupt any ongoing ingests.
-    pub fn interrupt(&self) {
+    fn interrupt(&self) {
         if let Some(dbs) = self.dbs.get() {
             // Only interrupt if the databases are already open.
             dbs.reader.interrupt_handle.interrupt();
         }
     }
 
-    /// Ingests new suggestions from Remote Settings.
-    pub fn ingest(&self, constraints: SuggestIngestionConstraints) -> SuggestApiResult<()> {
-        Ok(self.ingest_inner(constraints)?)
+    fn clear(&self) -> Result<()> {
+        self.dbs()?.writer.write(|dao| dao.clear())
     }
+}
 
-    fn ingest_inner(&self, constraints: SuggestIngestionConstraints) -> Result<()> {
+impl<S> SuggestStoreInner<S>
+where
+    S: SuggestRemoteSettingsClient,
+{
+    fn ingest(&self, constraints: SuggestIngestionConstraints) -> Result<()> {
         let writer = &self.dbs()?.writer;
 
         let mut options = GetItemsOptions::new();
@@ -153,8 +185,7 @@ impl SuggestStore {
 
         let records = self
             .settings_client
-            .get_records_raw_with_options(&options)?
-            .json::<SuggestRemoteSettingsResponse>()?
+            .get_records_with_options(&options)?
             .data;
         for record in &records {
             match record {
@@ -165,8 +196,7 @@ impl SuggestStore {
                 }) => {
                     let suggestions = self
                         .settings_client
-                        .get_attachment(&attachment.location)?
-                        .json::<DownloadedSuggestDataAttachment>()?
+                        .get_data_attachment(&attachment.location)?
                         .0;
 
                     writer.write(|dao| {
@@ -213,8 +243,7 @@ impl SuggestStore {
                     };
                     let data = self
                         .settings_client
-                        .get_attachment(&attachment.location)?
-                        .body;
+                        .get_icon_attachment(&attachment.location)?;
                     writer.write(|dao| {
                         dao.insert_icon(icon_id, &data)?;
                         dao.put_meta(LAST_INGEST_META_KEY, last_modified)?;
@@ -226,11 +255,6 @@ impl SuggestStore {
         }
 
         Ok(())
-    }
-
-    /// Removes all content from the database.
-    pub fn clear(&self) -> SuggestApiResult<()> {
-        Ok(self.dbs()?.writer.write(|dao| dao.clear())?)
     }
 }
 
@@ -332,7 +356,7 @@ mod tests {
             collection_name: "quicksuggest".into(),
         };
 
-        let store = SuggestStore::new_inner(
+        let store = SuggestStore::new(
             "file:ingest?mode=memory&cache=shared",
             Some(settings_config),
         )?;
@@ -345,6 +369,7 @@ mod tests {
         assert_eq!(
             Some(15u64),
             store
+                .inner
                 .dbs()?
                 .reader
                 .read(|dao| dao.get_meta(LAST_INGEST_META_KEY))?,

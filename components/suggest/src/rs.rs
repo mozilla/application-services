@@ -1,7 +1,9 @@
 use std::ops::Deref;
 
-use remote_settings::Attachment;
+use remote_settings::{Attachment, GetItemsOptions};
 use serde::Deserialize;
+
+use crate::Result;
 
 /// The Suggest Remote Settings collection name.
 pub(crate) const REMOTE_SETTINGS_COLLECTION: &str = "quicksuggest";
@@ -12,9 +14,44 @@ pub(crate) const REMOTE_SETTINGS_COLLECTION: &str = "quicksuggest";
 /// `mozilla-services/quicksuggest-rs` repo.
 pub(crate) const SUGGESTIONS_PER_ATTACHMENT: u64 = 200;
 
+/// A trait for a client that downloads suggestions from Remote Settings.
+///
+/// This trait lets tests use a mock client.
+pub(crate) trait SuggestRemoteSettingsClient {
+    /// Fetches records from the Suggest Remote Settings collection.
+    fn get_records_with_options(
+        &self,
+        options: &GetItemsOptions,
+    ) -> Result<SuggestRemoteSettingsRecords>;
+
+    /// Fetches a data attachment with suggestions to ingest from the Suggest
+    /// Remote Settings collection.
+    fn get_data_attachment(&self, location: &str) -> Result<DownloadedSuggestDataAttachment>;
+
+    /// Fetches an icon attachment from the Suggest Remote Settings collection.
+    fn get_icon_attachment(&self, location: &str) -> Result<Vec<u8>>;
+}
+
+impl SuggestRemoteSettingsClient for remote_settings::Client {
+    fn get_records_with_options(
+        &self,
+        options: &GetItemsOptions,
+    ) -> Result<SuggestRemoteSettingsRecords> {
+        Ok(self.get_records_raw_with_options(options)?.json()?)
+    }
+
+    fn get_data_attachment(&self, location: &str) -> Result<DownloadedSuggestDataAttachment> {
+        Ok(self.get_attachment(location)?.json()?)
+    }
+
+    fn get_icon_attachment(&self, location: &str) -> Result<Vec<u8>> {
+        Ok(self.get_attachment(location)?.body)
+    }
+}
+
 /// The response body for a Suggest Remote Settings collection request.
 #[derive(Debug, Deserialize)]
-pub(crate) struct SuggestRemoteSettingsResponse {
+pub(crate) struct SuggestRemoteSettingsRecords {
     pub data: Vec<SuggestRecord>,
 }
 
