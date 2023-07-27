@@ -1268,6 +1268,16 @@ dependencies = [
 ]
 
 [[package]]
+name = "expect-test"
+version = "1.4.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "30d9eafeadd538e68fb28016364c9732d78e420b9ff8853fa5e4058861e9f8d3"
+dependencies = [
+ "dissimilar",
+ "once_cell",
+]
+
+[[package]]
 name = "fallible-iterator"
 version = "0.2.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -3811,6 +3821,7 @@ version = "0.1.0"
 dependencies = [
  "anyhow",
  "env_logger 0.7.1",
+ "expect-test",
  "interrupt-support",
  "once_cell",
  "parking_lot",

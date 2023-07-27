@@ -283,6 +283,7 @@ mod tests {
     use std::{cell::RefCell, collections::HashMap};
 
     use anyhow::{anyhow, Context};
+    use expect_test::expect;
     use parking_lot::Once;
     use serde_json::json;
     use sql_support::ConnExt;
@@ -470,21 +471,23 @@ mod tests {
 
         store.dbs()?.reader.read(|dao| {
             assert_eq!(dao.get_meta::<u64>(LAST_INGEST_META_KEY)?, Some(15));
-            assert_eq!(
-                dao.fetch_by_keyword("lo")?,
-                &[Suggestion {
-                    block_id: 0,
-                    advertiser: "Los Pollos Hermanos".into(),
-                    iab_category: "8 - Food & Drink".into(),
-                    is_sponsored: true,
-                    full_keyword: "los".into(),
-                    title: "Los Pollos Hermanos - Albuquerque".into(),
-                    url: "https://www.lph-nm.biz".into(),
-                    icon: None,
-                    impression_url: None,
-                    click_url: None,
-                }]
-            );
+            expect![[r#"
+                [
+                    Suggestion {
+                        block_id: 0,
+                        advertiser: "Los Pollos Hermanos",
+                        iab_category: "8 - Food & Drink",
+                        is_sponsored: true,
+                        full_keyword: "los",
+                        title: "Los Pollos Hermanos - Albuquerque",
+                        url: "https://www.lph-nm.biz",
+                        icon: None,
+                        impression_url: None,
+                        click_url: None,
+                    },
+                ]
+            "#]]
+            .assert_debug_eq(&dao.fetch_by_keyword("lo")?);
 
             Ok(())
         })?;
@@ -552,36 +555,70 @@ mod tests {
         store.ingest(SuggestIngestionConstraints::default())?;
 
         store.dbs()?.reader.read(|dao| {
-            assert_eq!(
-                dao.fetch_by_keyword("la")?,
-                &[Suggestion {
-                    block_id: 0,
-                    advertiser: "Good Place Eats".into(),
-                    iab_category: "8 - Food & Drink".into(),
-                    is_sponsored: true,
-                    full_keyword: "lasagna".into(),
-                    title: "Lasagna Come Out Tomorrow".into(),
-                    url: "https://www.lasagna.restaurant".into(),
-                    icon: Some("i-am-an-icon".as_bytes().into()),
-                    impression_url: None,
-                    click_url: None,
-                },]
-            );
-            assert_eq!(
-                dao.fetch_by_keyword("pe")?,
-                &[Suggestion {
-                    block_id: 0,
-                    advertiser: "Good Place Eats".into(),
-                    iab_category: "8 - Food & Drink".into(),
-                    is_sponsored: true,
-                    full_keyword: "penne".into(),
-                    title: "Penne for Your Thoughts".into(),
-                    url: "https://penne.biz".into(),
-                    icon: Some("i-am-an-icon".as_bytes().into()),
-                    impression_url: None,
-                    click_url: None,
-                },]
-            );
+            expect![[r#"
+                [
+                    Suggestion {
+                        block_id: 0,
+                        advertiser: "Good Place Eats",
+                        iab_category: "8 - Food & Drink",
+                        is_sponsored: true,
+                        full_keyword: "lasagna",
+                        title: "Lasagna Come Out Tomorrow",
+                        url: "https://www.lasagna.restaurant",
+                        icon: Some(
+                            [
+                                105,
+                                45,
+                                97,
+                                109,
+                                45,
+                                97,
+                                110,
+                                45,
+                                105,
+                                99,
+                                111,
+                                110,
+                            ],
+                        ),
+                        impression_url: None,
+                        click_url: None,
+                    },
+                ]
+            "#]]
+            .assert_debug_eq(&dao.fetch_by_keyword("la")?);
+            expect![[r#"
+                [
+                    Suggestion {
+                        block_id: 0,
+                        advertiser: "Good Place Eats",
+                        iab_category: "8 - Food & Drink",
+                        is_sponsored: true,
+                        full_keyword: "penne",
+                        title: "Penne for Your Thoughts",
+                        url: "https://penne.biz",
+                        icon: Some(
+                            [
+                                105,
+                                45,
+                                97,
+                                109,
+                                45,
+                                97,
+                                110,
+                                45,
+                                105,
+                                99,
+                                111,
+                                110,
+                            ],
+                        ),
+                        impression_url: None,
+                        click_url: None,
+                    },
+                ]
+            "#]]
+            .assert_debug_eq(&dao.fetch_by_keyword("pe")?);
 
             Ok(())
         })?;
@@ -630,21 +667,23 @@ mod tests {
         store.ingest(SuggestIngestionConstraints::default())?;
 
         store.dbs()?.reader.read(|dao| {
-            assert_eq!(
-                dao.fetch_by_keyword("la")?,
-                &[Suggestion {
-                    block_id: 0,
-                    advertiser: "Good Place Eats".into(),
-                    iab_category: "8 - Food & Drink".into(),
-                    is_sponsored: true,
-                    full_keyword: "lasagna".into(),
-                    title: "Lasagna Come Out Tomorrow".into(),
-                    url: "https://www.lasagna.restaurant".into(),
-                    icon: None,
-                    impression_url: None,
-                    click_url: None,
-                }]
-            );
+            expect![[r#"
+                [
+                    Suggestion {
+                        block_id: 0,
+                        advertiser: "Good Place Eats",
+                        iab_category: "8 - Food & Drink",
+                        is_sponsored: true,
+                        full_keyword: "lasagna",
+                        title: "Lasagna Come Out Tomorrow",
+                        url: "https://www.lasagna.restaurant",
+                        icon: None,
+                        impression_url: None,
+                        click_url: None,
+                    },
+                ]
+            "#]]
+            .assert_debug_eq(&dao.fetch_by_keyword("la")?);
 
             Ok(())
         })?;
@@ -702,21 +741,23 @@ mod tests {
 
         store.dbs()?.reader.read(|dao| {
             assert_eq!(dao.get_meta(LAST_INGEST_META_KEY)?, Some(15u64));
-            assert_eq!(
-                dao.fetch_by_keyword("la")?,
-                &[Suggestion {
-                    block_id: 0,
-                    advertiser: "Good Place Eats".into(),
-                    iab_category: "8 - Food & Drink".into(),
-                    is_sponsored: true,
-                    full_keyword: "lasagna".into(),
-                    title: "Lasagna Come Out Tomorrow".into(),
-                    url: "https://www.lasagna.restaurant".into(),
-                    icon: None,
-                    impression_url: None,
-                    click_url: None,
-                },]
-            );
+            expect![[r#"
+                [
+                    Suggestion {
+                        block_id: 0,
+                        advertiser: "Good Place Eats",
+                        iab_category: "8 - Food & Drink",
+                        is_sponsored: true,
+                        full_keyword: "lasagna",
+                        title: "Lasagna Come Out Tomorrow",
+                        url: "https://www.lasagna.restaurant",
+                        icon: None,
+                        impression_url: None,
+                        click_url: None,
+                    },
+                ]
+            "#]]
+            .assert_debug_eq(&dao.fetch_by_keyword("la")?);
             Ok(())
         })?;
 
@@ -761,37 +802,41 @@ mod tests {
 
         store.dbs()?.reader.read(|dao| {
             assert_eq!(dao.get_meta(LAST_INGEST_META_KEY)?, Some(30u64));
-            assert_eq!(dao.fetch_by_keyword("la")?, &[]);
-            assert_eq!(
-                dao.fetch_by_keyword("los ")?,
-                &[Suggestion {
-                    block_id: 0,
-                    advertiser: "Los Pollos Hermanos".into(),
-                    iab_category: "8 - Food & Drink".into(),
-                    is_sponsored: true,
-                    full_keyword: "los pollos".into(),
-                    title: "Los Pollos Hermanos - Now Serving at 14 Locations!".into(),
-                    url: "https://www.lph-nm.biz".into(),
-                    icon: None,
-                    impression_url: None,
-                    click_url: None,
-                },]
-            );
-            assert_eq!(
-                dao.fetch_by_keyword("pe")?,
-                &[Suggestion {
-                    block_id: 0,
-                    advertiser: "Good Place Eats".into(),
-                    iab_category: "8 - Food & Drink".into(),
-                    is_sponsored: true,
-                    full_keyword: "penne".into(),
-                    title: "Penne for Your Thoughts".into(),
-                    url: "https://penne.biz".into(),
-                    icon: None,
-                    impression_url: None,
-                    click_url: None,
-                },]
-            );
+            assert!(dao.fetch_by_keyword("la")?.is_empty());
+            expect![[r#"
+                [
+                    Suggestion {
+                        block_id: 0,
+                        advertiser: "Los Pollos Hermanos",
+                        iab_category: "8 - Food & Drink",
+                        is_sponsored: true,
+                        full_keyword: "los pollos",
+                        title: "Los Pollos Hermanos - Now Serving at 14 Locations!",
+                        url: "https://www.lph-nm.biz",
+                        icon: None,
+                        impression_url: None,
+                        click_url: None,
+                    },
+                ]
+            "#]]
+            .assert_debug_eq(&dao.fetch_by_keyword("los ")?);
+            expect![[r#"
+                [
+                    Suggestion {
+                        block_id: 0,
+                        advertiser: "Good Place Eats",
+                        iab_category: "8 - Food & Drink",
+                        is_sponsored: true,
+                        full_keyword: "penne",
+                        title: "Penne for Your Thoughts",
+                        url: "https://penne.biz",
+                        icon: None,
+                        impression_url: None,
+                        click_url: None,
+                    },
+                ]
+            "#]]
+            .assert_debug_eq(&dao.fetch_by_keyword("pe")?);
             Ok(())
         })?;
 
@@ -1015,6 +1060,273 @@ mod tests {
 
             Ok(())
         })?;
+
+        Ok(())
+    }
+
+    /// Tests querying suggestions.
+    #[test]
+    fn query() -> anyhow::Result<()> {
+        before_each();
+
+        let snapshot = Snapshot::with_records(json!({
+            "data": [{
+                "id": "data-1",
+                "type": "data",
+                "last_modified": 15,
+                "attachment": {
+                    "filename": "data-1.json",
+                    "mimetype": "application/json",
+                    "location": "data-1.json",
+                    "hash": "",
+                    "size": 0,
+                },
+            }, {
+                "id": "icon-2",
+                "type": "icon",
+                "last_modified": 20,
+                "attachment": {
+                    "filename": "icon-2.png",
+                    "mimetype": "image/png",
+                    "location": "icon-2.png",
+                    "hash": "",
+                    "size": 0,
+                },
+            }, {
+                "id": "icon-3",
+                "type": "icon",
+                "last_modified": 25,
+                "attachment": {
+                    "filename": "icon-3.png",
+                    "mimetype": "image/png",
+                    "location": "icon-3.png",
+                    "hash": "",
+                    "size": 0,
+                },
+            }],
+        }))?
+        .with_data(
+            "data-1.json",
+            json!([{
+                "id": 0,
+                "advertiser": "Good Place Eats",
+                "iab_category": "8 - Food & Drink",
+                "keywords": ["la", "las", "lasa", "lasagna", "lasagna come out tomorrow"],
+                "title": "Lasagna Come Out Tomorrow",
+                "url": "https://www.lasagna.restaurant",
+                "icon": "2",
+            }, {
+                "id": 0,
+                "advertiser": "Wikipedia",
+                "iab_category": "5 - Education",
+                "keywords": ["cal", "cali", "california"],
+                "title": "California",
+                "url": "https://wikipedia.org/California",
+                "icon": "3",
+            }]),
+        )?
+        .with_icon("icon-2.png", "i-am-an-icon".as_bytes().into())
+        .with_icon("icon-3.png", "also-an-icon".as_bytes().into());
+
+        let store = SuggestStoreInner::new(
+            "file:query?mode=memory&cache=shared",
+            SnapshotSettingsClient::with_snapshot(snapshot),
+        );
+
+        store.ingest(SuggestIngestionConstraints::default())?;
+
+        let table = [
+            (
+                "empty keyword",
+                SuggestionQuery {
+                    keyword: String::new(),
+                    include_sponsored: true,
+                    include_non_sponsored: true,
+                },
+                expect![[r#"
+                    []
+                "#]],
+            ),
+            (
+                "keyword = `la`; sponsored and non-sponsored",
+                SuggestionQuery {
+                    keyword: "la".into(),
+                    include_sponsored: true,
+                    include_non_sponsored: true,
+                },
+                expect![[r#"
+                    [
+                        Suggestion {
+                            block_id: 0,
+                            advertiser: "Good Place Eats",
+                            iab_category: "8 - Food & Drink",
+                            is_sponsored: true,
+                            full_keyword: "lasagna",
+                            title: "Lasagna Come Out Tomorrow",
+                            url: "https://www.lasagna.restaurant",
+                            icon: Some(
+                                [
+                                    105,
+                                    45,
+                                    97,
+                                    109,
+                                    45,
+                                    97,
+                                    110,
+                                    45,
+                                    105,
+                                    99,
+                                    111,
+                                    110,
+                                ],
+                            ),
+                            impression_url: None,
+                            click_url: None,
+                        },
+                    ]
+                "#]],
+            ),
+            (
+                "keyword = `la`; sponsored only",
+                SuggestionQuery {
+                    keyword: "la".into(),
+                    include_sponsored: true,
+                    include_non_sponsored: false,
+                },
+                expect![[r#"
+                    [
+                        Suggestion {
+                            block_id: 0,
+                            advertiser: "Good Place Eats",
+                            iab_category: "8 - Food & Drink",
+                            is_sponsored: true,
+                            full_keyword: "lasagna",
+                            title: "Lasagna Come Out Tomorrow",
+                            url: "https://www.lasagna.restaurant",
+                            icon: Some(
+                                [
+                                    105,
+                                    45,
+                                    97,
+                                    109,
+                                    45,
+                                    97,
+                                    110,
+                                    45,
+                                    105,
+                                    99,
+                                    111,
+                                    110,
+                                ],
+                            ),
+                            impression_url: None,
+                            click_url: None,
+                        },
+                    ]
+                "#]],
+            ),
+            (
+                "keyword = `la`; non-sponsored only",
+                SuggestionQuery {
+                    keyword: "la".into(),
+                    include_sponsored: false,
+                    include_non_sponsored: true,
+                },
+                expect![[r#"
+                    []
+                "#]],
+            ),
+            (
+                "keyword = `la`; no types",
+                SuggestionQuery {
+                    keyword: "la".into(),
+                    include_sponsored: false,
+                    include_non_sponsored: false,
+                },
+                expect![[r#"
+                    []
+                "#]],
+            ),
+            (
+                "keyword = `cal`; sponsored and non-sponsored",
+                SuggestionQuery {
+                    keyword: "cal".into(),
+                    include_sponsored: true,
+                    include_non_sponsored: false,
+                },
+                expect![[r#"
+                    []
+                "#]],
+            ),
+            (
+                "keyword = `cal`; sponsored only",
+                SuggestionQuery {
+                    keyword: "cal".into(),
+                    include_sponsored: true,
+                    include_non_sponsored: false,
+                },
+                expect![[r#"
+                    []
+                "#]],
+            ),
+            (
+                "keyword = `cal`; non-sponsored only",
+                SuggestionQuery {
+                    keyword: "cal".into(),
+                    include_sponsored: false,
+                    include_non_sponsored: true,
+                },
+                expect![[r#"
+                    [
+                        Suggestion {
+                            block_id: 0,
+                            advertiser: "Wikipedia",
+                            iab_category: "5 - Education",
+                            is_sponsored: false,
+                            full_keyword: "california",
+                            title: "California",
+                            url: "https://wikipedia.org/California",
+                            icon: Some(
+                                [
+                                    97,
+                                    108,
+                                    115,
+                                    111,
+                                    45,
+                                    97,
+                                    110,
+                                    45,
+                                    105,
+                                    99,
+                                    111,
+                                    110,
+                                ],
+                            ),
+                            impression_url: None,
+                            click_url: None,
+                        },
+                    ]
+                "#]],
+            ),
+            (
+                "keyword = `cal`; no types",
+                SuggestionQuery {
+                    keyword: "cal".into(),
+                    include_sponsored: false,
+                    include_non_sponsored: false,
+                },
+                expect![[r#"
+                    []
+                "#]],
+            ),
+        ];
+        for (what, query, expect) in table {
+            expect.assert_debug_eq(
+                &store
+                    .query(query)
+                    .with_context(|| format!("Couldn't query store for {}", what))?,
+            );
+        }
 
         Ok(())
     }
