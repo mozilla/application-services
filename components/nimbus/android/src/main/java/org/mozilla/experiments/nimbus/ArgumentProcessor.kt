@@ -16,6 +16,7 @@ private const val NIMBUS_FLAG = "nimbus-cli"
 private const val EXPERIMENTS_KEY = "experiments"
 private const val LOG_STATE_KEY = "log-state"
 private const val RESET_DB_KEY = "reset-db"
+private const val IS_LAUNCHER_KEY = "is-launcher"
 private const val VERSION_KEY = "version"
 private const val DATA_KEY = "data"
 
@@ -46,6 +47,11 @@ fun NimbusInterface.initializeTooling(context: Context, intent: Intent) {
     if (args.logState) {
         dumpStateToLog()
     }
+
+    if (args.isLauncher) {
+        intent.action = Intent.ACTION_MAIN
+        intent.addCategory(Intent.CATEGORY_LAUNCHER)
+    }
 }
 
 @Suppress("ReturnCount")
@@ -67,7 +73,7 @@ private fun createCommandLineArgs(intent: Intent): CliArgs? {
     val resetDatabase = intent.getBooleanExtra(RESET_DB_KEY, false)
     val logState = intent.getBooleanExtra(LOG_STATE_KEY, false)
 
-    return check(CliArgs(resetDatabase, experiments, logState))
+    return check(CliArgs(resetDatabase, experiments, logState, false))
 }
 
 @Suppress("ReturnCount")
@@ -105,8 +111,9 @@ fun createCommandLineArgs(uri: Uri): CliArgs? {
     val experiments = uri.getQueryParameter("--$EXPERIMENTS_KEY")
     val resetDatabase = uri.getBooleanQueryParameter("--$RESET_DB_KEY", false)
     val logState = uri.getBooleanQueryParameter("--$LOG_STATE_KEY", false)
+    val isLauncher = uri.getBooleanQueryParameter("--$IS_LAUNCHER_KEY", false)
 
-    return check(CliArgs(resetDatabase, experiments, logState))
+    return check(CliArgs(resetDatabase, experiments, logState, isLauncher))
 }
 
-data class CliArgs(val resetDatabase: Boolean, val experiments: String?, val logState: Boolean)
+data class CliArgs(val resetDatabase: Boolean, val experiments: String?, val logState: Boolean, val isLauncher: Boolean)
