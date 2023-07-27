@@ -35,6 +35,7 @@
   - with associated in-app tooling to enroll into experiments via a deeplink URL.
 - Added filters to the `list` and `fetch-list` commands ([#5730](https://github.com/mozilla/application-services/pull/5730))
   - Also, made `--app` and `--channel` non-mandatory for commands that don't need them.
+- Added `--is-launcher` to the protocol between the cli and the apps, so apps detecting the launcher intent can work from the generated deeplinks ([#5748](https://github.com/mozilla/application-services/pull/5748)).
 
 [Full Changelog](In progress)
 
