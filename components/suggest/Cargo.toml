@@ -19,12 +19,9 @@ serde_json = "1"
 sql-support = { path = "../support/sql" }
 thiserror = "1"
 uniffi = "0.24.1"
-viaduct = { path = "../viaduct" }
 
 [dev-dependencies]
 env_logger = { version = "0.7", default-features = false }
-mockito = "0.31"
-viaduct-reqwest = { path = "../support/viaduct-reqwest" }
 
 [build-dependencies]
 uniffi = { version = "0.24.1", features = ["build"] }
