@@ -282,9 +282,10 @@ mod tests {
 
     use std::{cell::RefCell, collections::HashMap};
 
-    use anyhow::Context;
+    use anyhow::{anyhow, Context};
     use parking_lot::Once;
     use serde_json::json;
+    use sql_support::ConnExt;
 
     use crate::rs::{DownloadedSuggestDataAttachment, SuggestRemoteSettingsRecords};
 
@@ -294,6 +295,7 @@ mod tests {
     struct Snapshot {
         records: SuggestRemoteSettingsRecords,
         data: HashMap<&'static str, DownloadedSuggestDataAttachment>,
+        icons: HashMap<&'static str, Vec<u8>>,
     }
 
     impl Snapshot {
@@ -309,6 +311,7 @@ mod tests {
                 records: serde_json::from_value(value)
                     .context("Couldn't create snapshot with Remote Settings records")?,
                 data: HashMap::new(),
+                icons: HashMap::new(),
             })
         }
 
@@ -325,6 +328,12 @@ mod tests {
             );
             Ok(self)
         }
+
+        /// Adds an icon attachment to the snapshot.
+        fn with_icon(mut self, location: &'static str, bytes: Vec<u8>) -> Self {
+            self.icons.insert(location, bytes);
+            self
+        }
     }
 
     /// A fake Remote Settings client that returns records and attachments from
@@ -333,6 +342,10 @@ mod tests {
         /// The current snapshot. You can modify it using
         /// [`RefCell::borrow_mut()`] to simulate remote updates in tests.
         snapshot: RefCell<Snapshot>,
+
+        /// The options passed to the last [`Self::get_records_with_options()`]
+        /// call.
+        last_get_records_options: RefCell<Option<GetItemsOptions>>,
     }
 
     impl SnapshotSettingsClient {
@@ -340,15 +353,31 @@ mod tests {
         fn with_snapshot(snapshot: Snapshot) -> Self {
             Self {
                 snapshot: RefCell::new(snapshot),
+                last_get_records_options: RefCell::default(),
             }
+        }
+
+        /// Returns the most recent value of an option passed to
+        /// [`Self::get_records_with_options()`].
+        fn last_get_records_option(&self, option: &str) -> Option<String> {
+            self.last_get_records_options
+                .borrow()
+                .as_ref()
+                .and_then(|options| {
+                    options
+                        .iter_query_pairs()
+                        .find(|(key, _)| key == option)
+                        .map(|(_, value)| value.into())
+                })
         }
     }
 
     impl SuggestRemoteSettingsClient for SnapshotSettingsClient {
         fn get_records_with_options(
             &self,
-            _options: &GetItemsOptions,
+            options: &GetItemsOptions,
         ) -> Result<SuggestRemoteSettingsRecords> {
+            *self.last_get_records_options.borrow_mut() = Some(options.clone());
             Ok(self.snapshot.borrow().records.clone())
         }
 
@@ -365,7 +394,15 @@ mod tests {
         }
 
         fn get_icon_attachment(&self, location: &str) -> Result<Vec<u8>> {
-            unreachable!("Unexpected request for icon attachment `{}`", location)
+            Ok(self
+                .snapshot
+                .borrow()
+                .icons
+                .get(location)
+                .unwrap_or_else(|| {
+                    unreachable!("Unexpected request for icon attachment `{}`", location)
+                })
+                .clone())
         }
     }
 
@@ -376,18 +413,19 @@ mod tests {
         });
     }
 
+    /// Tests that `SuggestStore` is usable with UniFFI, which requires exposed
+    /// interfaces to be `Send` and `Sync`.
     #[test]
     fn is_thread_safe() {
         before_each();
 
-        // Ensure that `SuggestStore` is usable with UniFFI, which requires
-        // exposed interfaces to be `Send` and `Sync`.
         fn is_send_sync<T: Send + Sync>() {}
         is_send_sync::<SuggestStore>();
     }
 
+    /// Tests ingesting suggestions into an empty database.
     #[test]
-    fn ingest() -> anyhow::Result<()> {
+    fn ingest_suggestions() -> anyhow::Result<()> {
         before_each();
 
         let snapshot = Snapshot::with_records(json!({
@@ -417,8 +455,14 @@ mod tests {
             }]),
         )?;
 
+        // We use SQLite's URI filename syntax to open a named in-memory
+        // database in shared-cache mode, so that it can be accessed by the
+        // store's reader and writer.
+        //
+        // The database name should be unique for each test, to avoid
+        // cross-contamination.
         let store = SuggestStoreInner::new(
-            "file:ingest?mode=memory&cache=shared",
+            "file:ingest_suggestions?mode=memory&cache=shared",
             SnapshotSettingsClient::with_snapshot(snapshot),
         );
 
@@ -440,6 +484,533 @@ mod tests {
                     impression_url: None,
                     click_url: None,
                 }]
+            );
+
+            Ok(())
+        })?;
+
+        Ok(())
+    }
+
+    /// Tests ingesting suggestions with icons.
+    #[test]
+    fn ingest_icons() -> anyhow::Result<()> {
+        before_each();
+
+        let snapshot = Snapshot::with_records(json!({
+            "data": [{
+                "id": "data-1",
+                "type": "data",
+                "last_modified": 15,
+                "attachment": {
+                    "filename": "data-1.json",
+                    "mimetype": "application/json",
+                    "location": "data-1.json",
+                    "hash": "",
+                    "size": 0,
+                },
+            }, {
+                "id": "icon-2",
+                "type": "icon",
+                "last_modified": 20,
+                "attachment": {
+                    "filename": "icon-2.png",
+                    "mimetype": "image/png",
+                    "location": "icon-2.png",
+                    "hash": "",
+                    "size": 0,
+                },
+            }],
+        }))?
+        .with_data(
+            "data-1.json",
+            json!([{
+                "id": 0,
+                "advertiser": "Good Place Eats",
+                "iab_category": "8 - Food & Drink",
+                "keywords": ["la", "las", "lasa", "lasagna", "lasagna come out tomorrow"],
+                "title": "Lasagna Come Out Tomorrow",
+                "url": "https://www.lasagna.restaurant",
+                "icon": "2",
+            }, {
+                "id": 0,
+                "advertiser": "Good Place Eats",
+                "iab_category": "8 - Food & Drink",
+                "keywords": ["pe", "pen", "penne", "penne for your thoughts"],
+                "title": "Penne for Your Thoughts",
+                "url": "https://penne.biz",
+                "icon": "2",
+            }]),
+        )?
+        .with_icon("icon-2.png", "i-am-an-icon".as_bytes().into());
+
+        let store = SuggestStoreInner::new(
+            "file:ingest_icons?mode=memory&cache=shared",
+            SnapshotSettingsClient::with_snapshot(snapshot),
+        );
+
+        store.ingest(SuggestIngestionConstraints::default())?;
+
+        store.dbs()?.reader.read(|dao| {
+            assert_eq!(
+                dao.fetch_by_keyword("la")?,
+                &[Suggestion {
+                    block_id: 0,
+                    advertiser: "Good Place Eats".into(),
+                    iab_category: "8 - Food & Drink".into(),
+                    is_sponsored: true,
+                    full_keyword: "lasagna".into(),
+                    title: "Lasagna Come Out Tomorrow".into(),
+                    url: "https://www.lasagna.restaurant".into(),
+                    icon: Some("i-am-an-icon".as_bytes().into()),
+                    impression_url: None,
+                    click_url: None,
+                },]
+            );
+            assert_eq!(
+                dao.fetch_by_keyword("pe")?,
+                &[Suggestion {
+                    block_id: 0,
+                    advertiser: "Good Place Eats".into(),
+                    iab_category: "8 - Food & Drink".into(),
+                    is_sponsored: true,
+                    full_keyword: "penne".into(),
+                    title: "Penne for Your Thoughts".into(),
+                    url: "https://penne.biz".into(),
+                    icon: Some("i-am-an-icon".as_bytes().into()),
+                    impression_url: None,
+                    click_url: None,
+                },]
+            );
+
+            Ok(())
+        })?;
+
+        Ok(())
+    }
+
+    /// Tests ingesting a data attachment containing a single suggestion,
+    /// instead of an array of suggestions.
+    #[test]
+    fn ingest_one_suggestion_in_data_attachment() -> anyhow::Result<()> {
+        before_each();
+
+        let snapshot = Snapshot::with_records(json!({
+            "data": [{
+                "id": "data-1",
+                "type": "data",
+                "last_modified": 15,
+                "attachment": {
+                    "filename": "data-1.json",
+                    "mimetype": "application/json",
+                    "location": "data-1.json",
+                    "hash": "",
+                    "size": 0,
+                },
+            }],
+        }))?
+        .with_data(
+            "data-1.json",
+            json!({
+                "id": 0,
+                 "advertiser": "Good Place Eats",
+                 "iab_category": "8 - Food & Drink",
+                 "keywords": ["la", "las", "lasa", "lasagna", "lasagna come out tomorrow"],
+                 "title": "Lasagna Come Out Tomorrow",
+                 "url": "https://www.lasagna.restaurant",
+                 "icon": "2",
+            }),
+        )?;
+
+        let store = SuggestStoreInner::new(
+            "file:ingest_one_suggestion_in_data_attachment?mode=memory&cache=shared",
+            SnapshotSettingsClient::with_snapshot(snapshot),
+        );
+
+        store.ingest(SuggestIngestionConstraints::default())?;
+
+        store.dbs()?.reader.read(|dao| {
+            assert_eq!(
+                dao.fetch_by_keyword("la")?,
+                &[Suggestion {
+                    block_id: 0,
+                    advertiser: "Good Place Eats".into(),
+                    iab_category: "8 - Food & Drink".into(),
+                    is_sponsored: true,
+                    full_keyword: "lasagna".into(),
+                    title: "Lasagna Come Out Tomorrow".into(),
+                    url: "https://www.lasagna.restaurant".into(),
+                    icon: None,
+                    impression_url: None,
+                    click_url: None,
+                }]
+            );
+
+            Ok(())
+        })?;
+
+        Ok(())
+    }
+
+    /// Tests re-ingesting suggestions from an updated attachment.
+    #[test]
+    fn reingest() -> anyhow::Result<()> {
+        before_each();
+
+        // Ingest suggestions from the initial snapshot.
+        let initial_snapshot = Snapshot::with_records(json!({
+            "data": [{
+                "id": "data-1",
+                "type": "data",
+                "last_modified": 15,
+                "attachment": {
+                    "filename": "data-1.json",
+                    "mimetype": "application/json",
+                    "location": "data-1.json",
+                    "hash": "",
+                    "size": 0,
+                },
+            }],
+        }))?
+        .with_data(
+            "data-1.json",
+            json!([{
+                "id": 0,
+                "advertiser": "Good Place Eats",
+                "iab_category": "8 - Food & Drink",
+                "keywords": ["la", "las", "lasa", "lasagna", "lasagna come out tomorrow"],
+                "title": "Lasagna Come Out Tomorrow",
+                "url": "https://www.lasagna.restaurant",
+                "icon": "1",
+            }, {
+                "id": 0,
+                "advertiser": "Los Pollos Hermanos",
+                "iab_category": "8 - Food & Drink",
+                "keywords": ["lo", "los p", "los pollos h"],
+                "title": "Los Pollos Hermanos - Albuquerque",
+                "url": "https://www.lph-nm.biz",
+                "icon": "2",
+            }]),
+        )?;
+
+        let store = SuggestStoreInner::new(
+            "file:reingest?mode=memory&cache=shared",
+            SnapshotSettingsClient::with_snapshot(initial_snapshot),
+        );
+
+        store.ingest(SuggestIngestionConstraints::default())?;
+
+        store.dbs()?.reader.read(|dao| {
+            assert_eq!(dao.get_meta(LAST_INGEST_META_KEY)?, Some(15u64));
+            assert_eq!(
+                dao.fetch_by_keyword("la")?,
+                &[Suggestion {
+                    block_id: 0,
+                    advertiser: "Good Place Eats".into(),
+                    iab_category: "8 - Food & Drink".into(),
+                    is_sponsored: true,
+                    full_keyword: "lasagna".into(),
+                    title: "Lasagna Come Out Tomorrow".into(),
+                    url: "https://www.lasagna.restaurant".into(),
+                    icon: None,
+                    impression_url: None,
+                    click_url: None,
+                },]
+            );
+            Ok(())
+        })?;
+
+        // Update the snapshot with new suggestions: drop Lasagna, update Los
+        // Pollos, and add Penne.
+        *store.settings_client.snapshot.borrow_mut() = Snapshot::with_records(json!({
+            "data": [{
+                "id": "data-1",
+                "type": "data",
+                "last_modified": 30,
+                "attachment": {
+                    "filename": "data-1-1.json",
+                    "mimetype": "application/json",
+                    "location": "data-1-1.json",
+                    "hash": "",
+                    "size": 0,
+                },
+            }],
+        }))?
+        .with_data(
+            "data-1-1.json",
+            json!([{
+                "id": 0,
+                "advertiser": "Los Pollos Hermanos",
+                "iab_category": "8 - Food & Drink",
+                "keywords": ["los ", "los pollos", "los pollos hermanos"],
+                "title": "Los Pollos Hermanos - Now Serving at 14 Locations!",
+                "url": "https://www.lph-nm.biz",
+                "icon": "2",
+            }, {
+                "id": 0,
+                "advertiser": "Good Place Eats",
+                "iab_category": "8 - Food & Drink",
+                "keywords": ["pe", "pen", "penne", "penne for your thoughts"],
+                "title": "Penne for Your Thoughts",
+                "url": "https://penne.biz",
+                "icon": "2",
+            }]),
+        )?;
+
+        store.ingest(SuggestIngestionConstraints::default())?;
+
+        store.dbs()?.reader.read(|dao| {
+            assert_eq!(dao.get_meta(LAST_INGEST_META_KEY)?, Some(30u64));
+            assert_eq!(dao.fetch_by_keyword("la")?, &[]);
+            assert_eq!(
+                dao.fetch_by_keyword("los ")?,
+                &[Suggestion {
+                    block_id: 0,
+                    advertiser: "Los Pollos Hermanos".into(),
+                    iab_category: "8 - Food & Drink".into(),
+                    is_sponsored: true,
+                    full_keyword: "los pollos".into(),
+                    title: "Los Pollos Hermanos - Now Serving at 14 Locations!".into(),
+                    url: "https://www.lph-nm.biz".into(),
+                    icon: None,
+                    impression_url: None,
+                    click_url: None,
+                },]
+            );
+            assert_eq!(
+                dao.fetch_by_keyword("pe")?,
+                &[Suggestion {
+                    block_id: 0,
+                    advertiser: "Good Place Eats".into(),
+                    iab_category: "8 - Food & Drink".into(),
+                    is_sponsored: true,
+                    full_keyword: "penne".into(),
+                    title: "Penne for Your Thoughts".into(),
+                    url: "https://penne.biz".into(),
+                    icon: None,
+                    impression_url: None,
+                    click_url: None,
+                },]
+            );
+            Ok(())
+        })?;
+
+        Ok(())
+    }
+
+    /// Tests ingesting tombstones for previously-ingested suggestions and
+    /// icons.
+    #[test]
+    fn ingest_tombstones() -> anyhow::Result<()> {
+        before_each();
+
+        // Ingest suggestions and icons from the initial snapshot.
+        let initial_snapshot = Snapshot::with_records(json!({
+            "data": [{
+                "id": "data-1",
+                "type": "data",
+                "last_modified": 15,
+                "attachment": {
+                    "filename": "data-1.json",
+                    "mimetype": "application/json",
+                    "location": "data-1.json",
+                    "hash": "",
+                    "size": 0,
+                },
+            }, {
+                "id": "icon-2",
+                "type": "icon",
+                "last_modified": 20,
+                "attachment": {
+                    "filename": "icon-2.png",
+                    "mimetype": "image/png",
+                    "location": "icon-2.png",
+                    "hash": "",
+                    "size": 0,
+                },
+            }],
+        }))?
+        .with_data(
+            "data-1.json",
+            json!([{
+                "id": 0,
+                "advertiser": "Good Place Eats",
+                "iab_category": "8 - Food & Drink",
+                "keywords": ["la", "las", "lasa", "lasagna", "lasagna come out tomorrow"],
+                "title": "Lasagna Come Out Tomorrow",
+                "url": "https://www.lasagna.restaurant",
+                "icon": "2",
+            }]),
+        )?
+        .with_icon("icon-2.png", "i-am-an-icon".as_bytes().into());
+
+        let store = SuggestStoreInner::new(
+            "file:ingest_tombstones?mode=memory&cache=shared",
+            SnapshotSettingsClient::with_snapshot(initial_snapshot),
+        );
+
+        store.ingest(SuggestIngestionConstraints::default())?;
+
+        store.dbs()?.reader.read(|dao| {
+            assert_eq!(dao.get_meta::<u64>(LAST_INGEST_META_KEY)?, Some(20));
+            assert_eq!(
+                dao.conn
+                    .query_one::<i64>("SELECT count(*) FROM suggestions")?,
+                1
+            );
+            assert_eq!(dao.conn.query_one::<i64>("SELECT count(*) FROM icons")?, 1);
+
+            Ok(())
+        })?;
+
+        // Replace the records with tombstones. Ingesting these should remove
+        // all their suggestions and icons.
+        *store.settings_client.snapshot.borrow_mut() = Snapshot::with_records(json!({
+            "data": [{
+                "id": "data-1",
+                "last_modified": 25,
+                "deleted": true,
+            }, {
+                "id": "icon-2",
+                "last_modified": 30,
+                "deleted": true,
+            }],
+        }))?;
+
+        store.ingest(SuggestIngestionConstraints::default())?;
+
+        store.dbs()?.reader.read(|dao| {
+            assert_eq!(dao.get_meta::<u64>(LAST_INGEST_META_KEY)?, Some(30));
+            assert_eq!(
+                dao.conn
+                    .query_one::<i64>("SELECT count(*) FROM suggestions")?,
+                0
+            );
+            assert_eq!(dao.conn.query_one::<i64>("SELECT count(*) FROM icons")?, 0);
+
+            Ok(())
+        })?;
+
+        Ok(())
+    }
+
+    /// Tests ingesting suggestions with constraints.
+    #[test]
+    fn ingest_with_constraints() -> anyhow::Result<()> {
+        before_each();
+
+        let snapshot = Snapshot::with_records(json!({
+            "data": [],
+        }))?;
+
+        let store = SuggestStoreInner::new(
+            "file:ingest_with_constraints?mode=memory&cache=shared",
+            SnapshotSettingsClient::with_snapshot(snapshot),
+        );
+
+        store.ingest(SuggestIngestionConstraints::default())?;
+        assert_eq!(
+            store.settings_client.last_get_records_option("_limit"),
+            None,
+        );
+
+        // 200 suggestions per record, so test with numbers around that
+        // boundary.
+        let table = [
+            (0, "1"),
+            (199, "1"),
+            (200, "1"),
+            (201, "2"),
+            (300, "2"),
+            (400, "2"),
+            (401, "3"),
+        ];
+        for (max_suggestions, expected_limit) in table {
+            store.ingest(SuggestIngestionConstraints {
+                max_suggestions: Some(max_suggestions),
+            })?;
+            let actual_limit = store
+                .settings_client
+                .last_get_records_option("_limit")
+                .ok_or_else(|| {
+                    anyhow!("Want limit = {} for {}", expected_limit, max_suggestions)
+                })?;
+            assert_eq!(
+                actual_limit, expected_limit,
+                "Want limit = {} for {}; got limit = {}",
+                expected_limit, max_suggestions, actual_limit
+            );
+        }
+
+        Ok(())
+    }
+
+    /// Tests clearing the store.
+    #[test]
+    fn clear() -> anyhow::Result<()> {
+        before_each();
+
+        let snapshot = Snapshot::with_records(json!({
+            "data": [{
+                "id": "data-1",
+                "type": "data",
+                "last_modified": 15,
+                "attachment": {
+                    "filename": "data-1.json",
+                    "mimetype": "application/json",
+                    "location": "data-1.json",
+                    "hash": "",
+                    "size": 0,
+                },
+            }],
+        }))?
+        .with_data(
+            "data-1.json",
+            json!([{
+                "id": 0,
+                "advertiser": "Los Pollos Hermanos",
+                "iab_category": "8 - Food & Drink",
+                "keywords": ["lo", "los", "los p", "los pollos", "los pollos h", "los pollos hermanos"],
+                "title": "Los Pollos Hermanos - Albuquerque",
+                "url": "https://www.lph-nm.biz",
+                "icon": "2",
+            }]),
+        )?;
+
+        let store = SuggestStoreInner::new(
+            "file:clear?mode=memory&cache=shared",
+            SnapshotSettingsClient::with_snapshot(snapshot),
+        );
+
+        store.ingest(SuggestIngestionConstraints::default())?;
+
+        store.dbs()?.reader.read(|dao| {
+            assert_eq!(dao.get_meta::<u64>(LAST_INGEST_META_KEY)?, Some(15));
+            assert_eq!(
+                dao.conn
+                    .query_one::<i64>("SELECT count(*) FROM suggestions")?,
+                1
+            );
+            assert_eq!(
+                dao.conn.query_one::<i64>("SELECT count(*) FROM keywords")?,
+                6
+            );
+
+            Ok(())
+        })?;
+
+        store.clear()?;
+
+        store.dbs()?.reader.read(|dao| {
+            assert_eq!(dao.get_meta::<u64>(LAST_INGEST_META_KEY)?, None);
+            assert_eq!(
+                dao.conn
+                    .query_one::<i64>("SELECT count(*) FROM suggestions")?,
+                0
+            );
+            assert_eq!(
+                dao.conn.query_one::<i64>("SELECT count(*) FROM keywords")?,
+                0
             );
 
             Ok(())
