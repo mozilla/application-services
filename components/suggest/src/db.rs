@@ -110,7 +110,7 @@ impl SuggestDb {
 /// `self` (`&self`), and methods that write to the database take a mutable
 /// reference (`&mut self`).
 pub(crate) struct SuggestDao<'a> {
-    conn: &'a Connection,
+    pub conn: &'a Connection,
     scope: SqlInterruptScope,
 }
 
