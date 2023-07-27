@@ -280,10 +280,94 @@ impl SuggestStoreDbs {
 mod tests {
     use super::*;
 
-    use std::sync::Once;
+    use std::{cell::RefCell, collections::HashMap};
 
-    use mockito::{mock, Matcher};
+    use anyhow::Context;
+    use parking_lot::Once;
     use serde_json::json;
+
+    use crate::rs::{DownloadedSuggestDataAttachment, SuggestRemoteSettingsRecords};
+
+    /// A snapshot containing fake Remote Settings records and attachments for
+    /// the store to ingest. We use snapshots to test the store's behavior in a
+    /// data-driven way.
+    struct Snapshot {
+        records: SuggestRemoteSettingsRecords,
+        data: HashMap<&'static str, DownloadedSuggestDataAttachment>,
+    }
+
+    impl Snapshot {
+        /// Creates a snapshot from a JSON value that represents a collection of
+        /// Suggest Remote Settings records.
+        ///
+        /// You can use the [`serde_json::json!`] macro to construct the JSON
+        /// value, then pass it to this function. It's easier to use the
+        /// `Snapshot::with_records(json!(...))` idiom than to construct the
+        /// nested `SuggestRemoteSettingsRecords` structure by hand.
+        fn with_records(value: serde_json::Value) -> anyhow::Result<Self> {
+            Ok(Self {
+                records: serde_json::from_value(value)
+                    .context("Couldn't create snapshot with Remote Settings records")?,
+                data: HashMap::new(),
+            })
+        }
+
+        /// Adds a data attachment with one or more suggestions to the snapshot.
+        fn with_data(
+            mut self,
+            location: &'static str,
+            value: serde_json::Value,
+        ) -> anyhow::Result<Self> {
+            self.data.insert(
+                location,
+                serde_json::from_value(value)
+                    .context("Couldn't add data attachment to snapshot")?,
+            );
+            Ok(self)
+        }
+    }
+
+    /// A fake Remote Settings client that returns records and attachments from
+    /// a snapshot.
+    struct SnapshotSettingsClient {
+        /// The current snapshot. You can modify it using
+        /// [`RefCell::borrow_mut()`] to simulate remote updates in tests.
+        snapshot: RefCell<Snapshot>,
+    }
+
+    impl SnapshotSettingsClient {
+        /// Creates a client with an initial snapshot.
+        fn with_snapshot(snapshot: Snapshot) -> Self {
+            Self {
+                snapshot: RefCell::new(snapshot),
+            }
+        }
+    }
+
+    impl SuggestRemoteSettingsClient for SnapshotSettingsClient {
+        fn get_records_with_options(
+            &self,
+            _options: &GetItemsOptions,
+        ) -> Result<SuggestRemoteSettingsRecords> {
+            Ok(self.snapshot.borrow().records.clone())
+        }
+
+        fn get_data_attachment(&self, location: &str) -> Result<DownloadedSuggestDataAttachment> {
+            Ok(self
+                .snapshot
+                .borrow()
+                .data
+                .get(location)
+                .unwrap_or_else(|| {
+                    unreachable!("Unexpected request for data attachment `{}`", location)
+                })
+                .clone())
+        }
+
+        fn get_icon_attachment(&self, location: &str) -> Result<Vec<u8>> {
+            unreachable!("Unexpected request for icon attachment `{}`", location)
+        }
+    }
 
     fn before_each() {
         static ONCE: Once = Once::new();
@@ -306,15 +390,7 @@ mod tests {
     fn ingest() -> anyhow::Result<()> {
         before_each();
 
-        viaduct_reqwest::use_reqwest_backend();
-
-        let server_info_m = mock("GET", "/")
-            .with_body(serde_json::to_vec(&attachment_metadata(&mockito::server_url())).unwrap())
-            .with_status(200)
-            .with_header("content-type", "application/json")
-            .create();
-
-        let records = json!({
+        let snapshot = Snapshot::with_records(json!({
             "data": [{
                 "id": "1234",
                 "type": "data",
@@ -327,85 +403,48 @@ mod tests {
                     "size": 0,
                 },
             }],
-        });
-        let records_m = mock("GET", "/v1/buckets/main/collections/quicksuggest/records")
-            .match_query(Matcher::Any)
-            .with_body(serde_json::to_vec(&records).unwrap())
-            .with_status(200)
-            .with_header("content-type", "application/json")
-            .create();
-
-        let attachment = json!([{
-            "id": 0,
-            "advertiser": "Los Pollos Hermanos",
-            "iab_category": "8 - Food & Drink",
-            "keywords": ["lo", "los", "los p", "los pollos", "los pollos h", "los pollos hermanos"],
-            "title": "Los Pollos Hermanos - Albuquerque",
-            "url": "https://www.lph-nm.biz",
-            "icon": "5678",
-        }]);
-        let attachment_m = mock("GET", "/attachments/data-1.json")
-            .with_body(serde_json::to_vec(&attachment).unwrap())
-            .with_status(200)
-            .with_header("content-type", "application/json")
-            .create();
-
-        let settings_config = RemoteSettingsConfig {
-            server_url: Some(mockito::server_url()),
-            bucket_name: None,
-            collection_name: "quicksuggest".into(),
-        };
-
-        let store = SuggestStore::new(
-            "file:ingest?mode=memory&cache=shared",
-            Some(settings_config),
+        }))?
+        .with_data(
+            "data-1.json",
+            json!([{
+                "id": 0,
+                "advertiser": "Los Pollos Hermanos",
+                "iab_category": "8 - Food & Drink",
+                "keywords": ["lo", "los", "los p", "los pollos", "los pollos h", "los pollos hermanos"],
+                "title": "Los Pollos Hermanos - Albuquerque",
+                "url": "https://www.lph-nm.biz",
+                "icon": "5678",
+            }]),
         )?;
+
+        let store = SuggestStoreInner::new(
+            "file:ingest?mode=memory&cache=shared",
+            SnapshotSettingsClient::with_snapshot(snapshot),
+        );
+
         store.ingest(SuggestIngestionConstraints::default())?;
 
-        server_info_m.expect(1).assert();
-        records_m.expect(1).assert();
-        attachment_m.expect(1).assert();
+        store.dbs()?.reader.read(|dao| {
+            assert_eq!(dao.get_meta::<u64>(LAST_INGEST_META_KEY)?, Some(15));
+            assert_eq!(
+                dao.fetch_by_keyword("lo")?,
+                &[Suggestion {
+                    block_id: 0,
+                    advertiser: "Los Pollos Hermanos".into(),
+                    iab_category: "8 - Food & Drink".into(),
+                    is_sponsored: true,
+                    full_keyword: "los".into(),
+                    title: "Los Pollos Hermanos - Albuquerque".into(),
+                    url: "https://www.lph-nm.biz".into(),
+                    icon: None,
+                    impression_url: None,
+                    click_url: None,
+                }]
+            );
 
-        assert_eq!(
-            Some(15u64),
-            store
-                .inner
-                .dbs()?
-                .reader
-                .read(|dao| dao.get_meta(LAST_INGEST_META_KEY))?,
-        );
-
-        let suggestions = store.query(SuggestionQuery {
-            keyword: "lo".into(),
-            include_sponsored: true,
-            ..Default::default()
+            Ok(())
         })?;
-        assert_eq!(
-            suggestions,
-            &[Suggestion {
-                block_id: 0,
-                advertiser: "Los Pollos Hermanos".into(),
-                iab_category: "8 - Food & Drink".into(),
-                is_sponsored: true,
-                full_keyword: "los".into(),
-                title: "Los Pollos Hermanos - Albuquerque".into(),
-                url: "https://www.lph-nm.biz".into(),
-                icon: None,
-                impression_url: None,
-                click_url: None,
-            }]
-        );
 
         Ok(())
-    }
-
-    fn attachment_metadata(base_url: &str) -> serde_json::Value {
-        json!({
-            "capabilities": {
-                "attachments": {
-                    "base_url": format!("{}/attachments/", base_url),
-                },
-            },
-        })
     }
 }

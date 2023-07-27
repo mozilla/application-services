@@ -50,7 +50,7 @@ impl SuggestRemoteSettingsClient for remote_settings::Client {
 }
 
 /// The response body for a Suggest Remote Settings collection request.
-#[derive(Debug, Deserialize)]
+#[derive(Clone, Debug, Deserialize)]
 pub(crate) struct SuggestRemoteSettingsRecords {
     pub data: Vec<SuggestRecord>,
 }
@@ -63,7 +63,7 @@ pub(crate) struct SuggestRemoteSettingsRecords {
 /// the unknown type in the same enum. Instead, we have this "outer", untagged
 /// `SuggestRecord` with the "unknown type" variant, and an "inner", internally
 /// tagged `TypedSuggestRecord` with all the "known type" variants.
-#[derive(Debug, Deserialize, PartialEq)]
+#[derive(Clone, Debug, Deserialize, PartialEq)]
 #[serde(untagged)]
 pub(crate) enum SuggestRecord {
     /// A record with a known type.
@@ -84,7 +84,7 @@ pub(crate) enum SuggestRecord {
 }
 
 /// A record that we know how to ingest from Remote Settings.
-#[derive(Debug, Deserialize, PartialEq)]
+#[derive(Clone, Debug, Deserialize, PartialEq)]
 #[serde(tag = "type")]
 pub(crate) enum TypedSuggestRecord {
     #[serde(rename = "icon")]
@@ -103,7 +103,7 @@ pub(crate) enum TypedSuggestRecord {
 
 /// Represents either a single value, or a list of values. This is used to
 /// deserialize downloaded data attachments.
-#[derive(Debug, Deserialize)]
+#[derive(Clone, Debug, Deserialize)]
 #[serde(untagged)]
 pub(crate) enum OneOrMany<T> {
     One(T),
@@ -122,7 +122,7 @@ impl<T> Deref for OneOrMany<T> {
 }
 
 /// The contents of a downloaded [`TypedSuggestRecord::Data`] attachment.
-#[derive(Debug, Deserialize)]
+#[derive(Clone, Debug, Deserialize)]
 #[serde(transparent)]
 pub(crate) struct DownloadedSuggestDataAttachment(pub OneOrMany<DownloadedSuggestion>);
 
@@ -147,7 +147,7 @@ impl SuggestRecordId {
 }
 
 /// A suggestion to ingest from a downloaded Remote Settings attachment.
-#[derive(Debug, Deserialize)]
+#[derive(Clone, Debug, Deserialize)]
 pub(crate) struct DownloadedSuggestion {
     #[serde(rename = "id")]
     pub block_id: i64,

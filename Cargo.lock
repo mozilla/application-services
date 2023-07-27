@@ -3812,7 +3812,6 @@ dependencies = [
  "anyhow",
  "env_logger 0.7.1",
  "interrupt-support",
- "mockito",
  "once_cell",
  "parking_lot",
  "remote_settings",
@@ -3822,8 +3821,6 @@ dependencies = [
  "sql-support",
  "thiserror",
  "uniffi",
- "viaduct",
- "viaduct-reqwest",
 ]
 
 [[package]]
