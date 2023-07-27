@@ -29,12 +29,12 @@ impl LaunchableApp {
         open: &AppOpenArgs,
     ) -> Result<String> {
         let deeplink = match (&open.deeplink, self.app_opening_deeplink()) {
-            (Some(deeplink), _) => deeplink.as_ref(),
-            (_, Some(deeplink)) => deeplink,
+            (Some(deeplink), _) => deeplink.to_owned(),
+            (_, Some(deeplink)) => join_query(deeplink, "--nimbus-cli&--is-launcher"),
             _ => anyhow::bail!("A deeplink must be provided"),
         };
 
-        let url = longform_deeplink_url(deeplink, app_protocol)?;
+        let url = longform_deeplink_url(deeplink.as_str(), app_protocol)?;
 
         self.prepend_scheme(url.as_str())
     }
@@ -105,7 +105,10 @@ pub(crate) fn longform_deeplink_url(
         return Ok(deeplink.to_string());
     }
 
-    let mut parts: Vec<_> = vec!["--nimbus-cli".to_string()];
+    let mut parts: Vec<_> = Default::default();
+    if !deeplink.contains("--nimbus-cli") {
+        parts.push("--nimbus-cli".to_string());
+    }
     if let Some(v) = experiments {
         let json = serde_json::to_string(v)?;
         let string = percent_encoding::utf8_percent_encode(&json, QUERY).to_string();
@@ -119,9 +122,12 @@ pub(crate) fn longform_deeplink_url(
         parts.push("--log-state".to_string());
     }
 
-    let suffix = if deeplink.contains('?') { '&' } else { '?' };
+    Ok(join_query(deeplink, &parts.join("&")))
+}
 
-    Ok(format!("{deeplink}{suffix}{args}", args = parts.join("&")))
+fn join_query(url: &str, item: &str) -> String {
+    let suffix = if url.contains('?') { '&' } else { '?' };
+    format!("{url}{suffix}{item}")
 }
 
 fn set_clipboard(contents: String) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
@@ -133,6 +139,7 @@ fn set_clipboard(contents: String) -> Result<(), Box<dyn std::error::Error + Sen
 
 #[cfg(test)]
 mod unit_tests {
+
     use super::*;
     use serde_json::json;
 
@@ -207,6 +214,52 @@ mod unit_tests {
         assert_eq!(
             "host?query=1&--nimbus-cli&--experiments=%7B%22data%22%3A[]%7D".to_string(),
             longform_deeplink_url("host?query=1", p.clone())?
+        );
+
+        Ok(())
+    }
+
+    #[test]
+    fn test_deeplink_has_is_launcher_param_if_no_deeplink_is_specified() -> Result<()> {
+        let app =
+            LaunchableApp::try_from_app_channel_device(Some("fenix"), Some("developer"), None)?;
+
+        // No payload, or command line param for deeplink.
+        let payload: StartAppProtocol = Default::default();
+        let open: AppOpenArgs = Default::default();
+        assert_eq!(
+            "fenix-dev://open?--nimbus-cli&--is-launcher".to_string(),
+            app.longform_url(payload.clone(), &open)?
+        );
+
+        // A command line param for deeplink.
+        let open = AppOpenArgs {
+            deeplink: Some("deeplink".to_string()),
+            ..Default::default()
+        };
+        assert_eq!(
+            "fenix-dev://deeplink".to_string(),
+            app.longform_url(payload, &open)?
+        );
+
+        // A parameter from the payload, but no deeplink.
+        let payload = StartAppProtocol {
+            log_state: true,
+            ..Default::default()
+        };
+        assert_eq!(
+            "fenix-dev://open?--nimbus-cli&--is-launcher&--log-state".to_string(),
+            app.longform_url(payload.clone(), &Default::default())?
+        );
+
+        // A deeplink from the command line, and an extra param from the payload.
+        let open = AppOpenArgs {
+            deeplink: Some("deeplink".to_string()),
+            ..Default::default()
+        };
+        assert_eq!(
+            "fenix-dev://deeplink?--nimbus-cli&--log-state".to_string(),
+            app.longform_url(payload, &open)?
         );
 
         Ok(())

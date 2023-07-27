@@ -29,22 +29,22 @@ final class NimbusArgumentProcessorTests: XCTestCase {
 
         XCTAssertEqual(
             ArgumentProcessor.createCommandLineArgs(args: ["--nimbus-cli", "--version", "1", "--experiments", unenrollExperiments]),
-            CliArgs(resetDatabase: false, experiments: unenrollExperiments, logState: false)
+            CliArgs(resetDatabase: false, experiments: unenrollExperiments, logState: false, isLauncher: false)
         )
 
         XCTAssertEqual(
             ArgumentProcessor.createCommandLineArgs(args: ["--nimbus-cli", "--version", "1", "--experiments", unenrollExperiments, "--reset-db"]),
-            CliArgs(resetDatabase: true, experiments: unenrollExperiments, logState: false)
+            CliArgs(resetDatabase: true, experiments: unenrollExperiments, logState: false, isLauncher: false)
         )
 
         XCTAssertEqual(
             ArgumentProcessor.createCommandLineArgs(args: ["--nimbus-cli", "--version", "1", "--reset-db"]),
-            CliArgs(resetDatabase: true, experiments: nil, logState: false)
+            CliArgs(resetDatabase: true, experiments: nil, logState: false, isLauncher: false)
         )
 
         XCTAssertEqual(
             ArgumentProcessor.createCommandLineArgs(args: ["--nimbus-cli", "--version", "1", "--log-state"]),
-            CliArgs(resetDatabase: false, experiments: nil, logState: true)
+            CliArgs(resetDatabase: false, experiments: nil, logState: true, isLauncher: false)
         )
     }
 
@@ -56,15 +56,19 @@ final class NimbusArgumentProcessorTests: XCTestCase {
         let percentEncoded = experiments.addingPercentEncoding(withAllowedCharacters: CharacterSet.alphanumerics)!
         let arg0 = ArgumentProcessor.createCommandLineArgs(url: URL(string: "my-app://deeplink?--nimbus-cli&--experiments=\(percentEncoded)&--reset-db")!)
         XCTAssertNotNil(arg0)
-        XCTAssertEqual(arg0, CliArgs(resetDatabase: true, experiments: experiments, logState: false))
+        XCTAssertEqual(arg0, CliArgs(resetDatabase: true, experiments: experiments, logState: false, isLauncher: false))
 
         let arg1 = ArgumentProcessor.createCommandLineArgs(url: URL(string: "my-app://deeplink?--nimbus-cli=1&--experiments=\(percentEncoded)&--reset-db=1")!)
         XCTAssertNotNil(arg1)
-        XCTAssertEqual(arg1, CliArgs(resetDatabase: true, experiments: experiments, logState: false))
+        XCTAssertEqual(arg1, CliArgs(resetDatabase: true, experiments: experiments, logState: false, isLauncher: false))
 
         let arg2 = ArgumentProcessor.createCommandLineArgs(url: URL(string: "my-app://deeplink?--nimbus-cli=true&--experiments=\(percentEncoded)&--reset-db=true")!)
-        XCTAssertNotNil(arg1)
-        XCTAssertEqual(arg1, CliArgs(resetDatabase: true, experiments: experiments, logState: false))
+        XCTAssertNotNil(arg2)
+        XCTAssertEqual(arg2, CliArgs(resetDatabase: true, experiments: experiments, logState: false, isLauncher: false))
+
+        let arg3 = ArgumentProcessor.createCommandLineArgs(url: URL(string: "my-app://deeplink?--nimbus-cli&--is-launcher")!)
+        XCTAssertNotNil(arg3)
+        XCTAssertEqual(arg3, CliArgs(resetDatabase: false, experiments: nil, logState: false, isLauncher: true))
 
         let httpArgs = ArgumentProcessor.createCommandLineArgs(url: URL(string: "https://example.com?--nimbus-cli=true&--experiments=\(percentEncoded)&--reset-db=true")!)
         XCTAssertNil(httpArgs)

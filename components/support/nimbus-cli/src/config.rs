@@ -10,17 +10,29 @@ use anyhow::{bail, Result};
 impl TryFrom<&Cli> for LaunchableApp {
     type Error = anyhow::Error;
     fn try_from(value: &Cli) -> Result<Self> {
-        let device_id = value.device_id.clone();
+        Self::try_from_app_channel_device(
+            value.app.as_deref(),
+            value.channel.as_deref(),
+            value.device_id.as_deref(),
+        )
+    }
+}
 
-        match (&value.app, &value.channel) {
+impl LaunchableApp {
+    pub(crate) fn try_from_app_channel_device(
+        app: Option<&str>,
+        channel: Option<&str>,
+        device_id: Option<&str>,
+    ) -> Result<Self> {
+        match (&app, &channel) {
             (None, None) => anyhow::bail!("A value for --app and --channel must be specified. Supported apps are: fenix, focus_android, firefox_ios and focus_ios"),
             (None, _) => anyhow::bail!("A value for --app must be specified. One of: fenix, focus_android, firefox_ios and focus_ios are currently supported"),
             (_, None) => anyhow::bail!("A value for --channel must be specified. Supported channels are: developer, nightly, beta and release"),
             _ => (),
         }
 
-        let app = value.app.as_deref().unwrap();
-        let channel = value.channel.as_deref().unwrap();
+        let app = app.unwrap();
+        let channel = channel.unwrap();
 
         let prefix = match app {
             "fenix" => Some("org.mozilla"),
@@ -97,25 +109,25 @@ impl TryFrom<&Cli> for LaunchableApp {
             ("fenix", Some(prefix), Some(suffix)) => Self::Android {
                 package_name: format!("{}.{}", prefix, suffix),
                 activity_name: ".App".to_string(),
-                device_id,
+                device_id: device_id.map(str::to_string),
                 scheme,
                 open_deeplink: Some("open".to_string()),
             },
             ("focus_android", Some(prefix), Some(suffix)) => Self::Android {
                 package_name: format!("{}.{}", prefix, suffix),
                 activity_name: "org.mozilla.focus.activity.MainActivity".to_string(),
-                device_id,
+                device_id: device_id.map(str::to_string),
                 scheme,
                 open_deeplink: None,
             },
             ("firefox_ios", Some(prefix), Some(suffix)) => Self::Ios {
                 app_id: format!("{}.{}", prefix, suffix),
-                device_id: device_id.unwrap_or_else(|| "booted".to_string()),
+                device_id: device_id.unwrap_or("booted").to_string(),
                 scheme,
             },
             ("focus_ios", Some(prefix), Some(suffix)) => Self::Ios {
                 app_id: format!("{}.{}", prefix, suffix),
-                device_id: device_id.unwrap_or_else(|| "booted".to_string()),
+                device_id: device_id.unwrap_or("booted").to_string(),
                 scheme,
             },
             _ => unreachable!(),

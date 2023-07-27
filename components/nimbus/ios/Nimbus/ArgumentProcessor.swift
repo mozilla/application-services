@@ -20,6 +20,11 @@ enum ArgumentProcessor {
         if args.logState {
             nimbus.dumpStateToLog()
         }
+        // We have isLauncher here doing nothing; this is to match the Android implementation.
+        // There is nothing to do at this point, because we're unable to affect the flow of the app.
+        if args.isLauncher {
+            () // NOOP.
+        }
     }
 
     static func createCommandLineArgs(url: URL) -> CliArgs? {
@@ -34,6 +39,7 @@ enum ArgumentProcessor {
         var experiments: String?
         var resetDatabase = false
         var logState = false
+        var isLauncher = false
         var meantForUs = false
 
         func flag(_ v: String?) -> Bool {
@@ -53,6 +59,8 @@ enum ArgumentProcessor {
                 resetDatabase = flag(item.value)
             case "--log-state":
                 logState = flag(item.value)
+            case "--is-launcher":
+                isLauncher = flag(item.value)
             default:
                 () // NOOP
             }
@@ -62,7 +70,12 @@ enum ArgumentProcessor {
             return nil
         }
 
-        return check(args: CliArgs(resetDatabase: resetDatabase, experiments: experiments, logState: logState))
+        return check(args: CliArgs(
+            resetDatabase: resetDatabase,
+            experiments: experiments,
+            logState: logState,
+            isLauncher: isLauncher
+        ))
     }
 
     static func createCommandLineArgs(args: [String]?) -> CliArgs? {
@@ -106,7 +119,12 @@ enum ArgumentProcessor {
 
         let experiments = argMap["experiments"]
 
-        return check(args: CliArgs(resetDatabase: resetDatabase, experiments: experiments, logState: logState))
+        return check(args: CliArgs(
+            resetDatabase: resetDatabase,
+            experiments: experiments,
+            logState: logState,
+            isLauncher: false
+        ))
     }
 
     static func check(args: CliArgs) -> CliArgs? {
@@ -124,6 +142,7 @@ struct CliArgs: Equatable {
     let resetDatabase: Bool
     let experiments: String?
     let logState: Bool
+    let isLauncher: Bool
 }
 
 public extension NimbusInterface {
