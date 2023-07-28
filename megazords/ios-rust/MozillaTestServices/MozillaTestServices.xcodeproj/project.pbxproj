@@ -71,6 +71,9 @@
 		45CC574A28AD9C86006D55AA /* errorsupport.udl in Sources */ = {isa = PBXBuildFile; fileRef = 45CC574828AD9C31006D55AA /* errorsupport.udl */; };
 		AB9C392E2A0DA61900AF5ADE /* remote_settings.udl in Sources */ = {isa = PBXBuildFile; fileRef = AB65933B2A0C524E00DBF059 /* remote_settings.udl */; };
 		F40A9DCD29765EB20033D10E /* sync15.udl in Sources */ = {isa = PBXBuildFile; fileRef = F40A9DCB29765DCB0033D10E /* sync15.udl */; };
+		F54D38102A5862E4005087FB /* OhttpTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = F54D380F2A5862E4005087FB /* OhttpTests.swift */; };
+		F54D38112A5E09F4005087FB /* as_ohttp_client.udl in Sources */ = {isa = PBXBuildFile; fileRef = F54D380C2A5732A3005087FB /* as_ohttp_client.udl */; };
+		F596D2E02A68922100C8A817 /* OhttpManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = F596D2DF2A68922100C8A817 /* OhttpManager.swift */; };
 		F814DE8029DF762800FD26F5 /* SyncManagerTelemetryTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = F814DE7F29DF762800FD26F5 /* SyncManagerTelemetryTests.swift */; };
 		F81C7B9829DE305C00FAF8F9 /* SyncManagerTelemetry.swift in Sources */ = {isa = PBXBuildFile; fileRef = F81C7B9729DE305C00FAF8F9 /* SyncManagerTelemetry.swift */; };
 		F81C7B9A29DE309C00FAF8F9 /* SyncManagerComponent.swift in Sources */ = {isa = PBXBuildFile; fileRef = F81C7B9929DE309C00FAF8F9 /* SyncManagerComponent.swift */; };
@@ -206,6 +209,11 @@
 		F40A9DCB29765DCB0033D10E /* sync15.udl */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; name = sync15.udl; path = ../../../components/sync15/src/sync15.udl; sourceTree = SOURCE_ROOT; };
 		F4FCED2E2976605400BA127E /* sync15FFI.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = sync15FFI.h; path = ../../../components/sync15/ios/Generated/sync15FFI.h; sourceTree = SOURCE_ROOT; };
 		F4FCED2F2976605400BA127E /* sync15.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; name = sync15.swift; path = ../../../components/sync15/ios/Generated/sync15.swift; sourceTree = SOURCE_ROOT; };
+		F54D38072A564EC9005087FB /* as_ohttp_client.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = as_ohttp_client.swift; path = ../../ios/Generated/as_ohttp_client.swift; sourceTree = "<group>"; };
+		F54D38082A564EC9005087FB /* as_ohttp_clientFFI.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; name = as_ohttp_clientFFI.h; path = ../../ios/Generated/as_ohttp_clientFFI.h; sourceTree = "<group>"; };
+		F54D380C2A5732A3005087FB /* as_ohttp_client.udl */ = {isa = PBXFileReference; lastKnownFileType = text; name = as_ohttp_client.udl; path = ../src/as_ohttp_client.udl; sourceTree = "<group>"; };
+		F54D380F2A5862E4005087FB /* OhttpTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OhttpTests.swift; sourceTree = "<group>"; };
+		F596D2DF2A68922100C8A817 /* OhttpManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = OhttpManager.swift; path = ASOhttpClient/OhttpManager.swift; sourceTree = "<group>"; };
 		F814DE7F29DF762800FD26F5 /* SyncManagerTelemetryTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SyncManagerTelemetryTests.swift; sourceTree = "<group>"; };
 		F81C7B9729DE305C00FAF8F9 /* SyncManagerTelemetry.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; name = SyncManagerTelemetry.swift; path = ../../../components/sync_manager/ios/SyncManager/SyncManagerTelemetry.swift; sourceTree = SOURCE_ROOT; };
 		F81C7B9929DE309C00FAF8F9 /* SyncManagerComponent.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; name = SyncManagerComponent.swift; path = ../../../components/sync_manager/ios/SyncManager/SyncManagerComponent.swift; sourceTree = SOURCE_ROOT; };
@@ -337,6 +345,7 @@
 		1BBAC4FA27AE049500DAFEF2 /* MozillaTestServices */ = {
 			isa = PBXGroup;
 			children = (
+				F54D38032A564653005087FB /* ASOhttpClient */,
 				AB65933A2A0C51F300DBF059 /* RemoteSettings */,
 				F8AAC1CB298B40B8000BCDEC /* SyncManager */,
 				15DAE2082944142000DB06FE /* Autofill */,
@@ -372,6 +381,7 @@
 				F85ED648299C1F49005EEF36 /* RustSyncTelemetryPingTests.swift */,
 				F814DE7F29DF762800FD26F5 /* SyncManagerTelemetryTests.swift */,
 				39EE00FE29F6DBBA001E7758 /* NimbusArgumentProcessorTests.swift */,
+				F54D380F2A5862E4005087FB /* OhttpTests.swift */,
 			);
 			path = MozillaTestServicesTests;
 			sourceTree = SOURCE_ROOT;
@@ -586,6 +596,26 @@
 			path = Generated;
 			sourceTree = "<group>";
 		};
+		F54D38032A564653005087FB /* ASOhttpClient */ = {
+			isa = PBXGroup;
+			children = (
+				F54D38042A564653005087FB /* Generated */,
+				F54D380C2A5732A3005087FB /* as_ohttp_client.udl */,
+				F596D2DF2A68922100C8A817 /* OhttpManager.swift */,
+			);
+			name = ASOhttpClient;
+			path = "../../../components/as-ohttp-client/ios";
+			sourceTree = SOURCE_ROOT;
+		};
+		F54D38042A564653005087FB /* Generated */ = {
+			isa = PBXGroup;
+			children = (
+				F54D38072A564EC9005087FB /* as_ohttp_client.swift */,
+				F54D38082A564EC9005087FB /* as_ohttp_clientFFI.h */,
+			);
+			path = Generated;
+			sourceTree = "<group>";
+		};
 		F8AAC1CB298B40B8000BCDEC /* SyncManager */ = {
 			isa = PBXGroup;
 			children = (
@@ -742,6 +772,7 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				F54D38112A5E09F4005087FB /* as_ohttp_client.udl in Sources */,
 				AB9C392E2A0DA61900AF5ADE /* remote_settings.udl in Sources */,
 				39AD326F2988468B00E42E13 /* FeatureManifestInterface.swift in Sources */,
 				F8C88393298B4BF80006E9E9 /* syncmanager.udl in Sources */,
@@ -771,6 +802,7 @@
 				1B3BC94627B1D6A500229CF6 /* ResultError.swift in Sources */,
 				1B3BC98327B1D9B700229CF6 /* FeatureHolder.swift in Sources */,
 				1B3BC98527B1D9B800229CF6 /* NimbusMessagingHelpers.swift in Sources */,
+				F596D2E02A68922100C8A817 /* OhttpManager.swift in Sources */,
 				395EFD6E2966EB6D00D24B97 /* Bundle+.swift in Sources */,
 				1BF50F1427B1E17B00A9C8A5 /* PersistedFirefoxAccount.swift in Sources */,
 				1BF50F1027B1E17B00A9C8A5 /* FxAccountStorage.swift in Sources */,
@@ -817,6 +849,7 @@
 				1B3BC94F27B1D92800229CF6 /* NimbusTests.swift in Sources */,
 				1BF50F1927B1E19500A9C8A5 /* FxAccountManagerTests.swift in Sources */,
 				39083AAB29561E2400FDD302 /* OperationTests.swift in Sources */,
+				F54D38102A5862E4005087FB /* OhttpTests.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

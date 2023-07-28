@@ -227,7 +227,7 @@ PACKAGE_METADATA_FIXUPS = {
             "fixup": "https://raw.githubusercontent.com/tokio-rs/tracing/master/LICENSE"
         }
     },
-    # These packages do not unambiguously delcare their licensing file.
+    # These packages do not unambiguously declare their licensing file.
     "publicsuffix": {
         "license": {
             "check": "MIT/Apache-2.0"
@@ -262,6 +262,51 @@ PACKAGE_METADATA_FIXUPS = {
         "license_file": {
             "check": None,
             "fixup": "LICENSE-APACHE",
+        }
+    },
+    "ohttp": {
+        "license": {
+            "check": "MIT OR Apache-2.0"
+        },
+        "license_file": {
+            "check": None,
+            "fixup": "https://raw.githubusercontent.com/martinthomson/ohttp/main/LICENSE-APACHE",
+        }
+    },
+    "bhttp": {
+        "license": {
+            "check": "MIT OR Apache-2.0"
+        },
+        "license_file": {
+            "check": None,
+            "fixup": "https://raw.githubusercontent.com/martinthomson/ohttp/main/LICENSE-APACHE",
+        }
+    },
+    "zeroize_derive": {
+        "license": {
+            "check": "Apache-2.0 OR MIT"
+        },
+        "license_file": {
+            "check": None,
+            "fixup": "https://raw.githubusercontent.com/RustCrypto/utils/master/zeroize/derive/LICENSE-APACHE"
+        }
+    },
+    "ctr": {
+        "license": {
+            "check": "MIT OR Apache-2.0"
+        },
+        "license_file": {
+            "check": None,
+            "fixup": "https://raw.githubusercontent.com/RustCrypto/block-modes/master/ctr/LICENSE-APACHE",
+        }
+    },
+    "crypto-mac": {
+        "license": {
+             "check": "MIT OR Apache-2.0"
+        },
+        "license_file": {
+            "check": None,
+            "fixup": "https://raw.githubusercontent.com/RustCrypto/traits/master/digest/LICENSE-APACHE",
         }
     },
     # These packages do not include their license file in their release distributions,

@@ -1,0 +1,70 @@
+namespace as_ohttp_client {
+};
+
+[Error]
+enum OhttpError {
+    "KeyFetchFailed",
+    "MalformedKeyConfig",
+    "UnsupportedKeyConfig",
+    "InvalidSession",
+    "RelayFailed",
+    "CannotEncodeMessage",
+    "MalformedMessage",
+    "DuplicateHeaders",
+};
+
+// The decrypted response from the Gateway/Target
+dictionary OhttpResponse {
+    u16 status_code;
+    record<string, string> headers;
+    sequence<u8> payload;
+};
+
+// Each OHTTP request-reply exchange needs to create an OhttpSession
+// object to manage encryption state.
+interface OhttpSession {
+    // Initialize encryption state based on specific Gateway key config
+    [Throws=OhttpError]
+    constructor([ByRef] sequence<u8> config);
+
+    // Encapsulate an HTTP request as Binary HTTP and then encrypt that
+    // payload using HPKE. The caller is reponsible for sending the
+    // resulting message to the Relay.
+    [Throws=OhttpError]
+    sequence<u8> encapsulate([ByRef] string method,
+                             [ByRef] string scheme,
+                             [ByRef] string server,
+                             [ByRef] string endpoint,
+                             record<string, string> headers,
+                             [ByRef] sequence<u8> payload);
+
+    // Decypt and unpack the response from the Relay for the previously
+    // encapsulated request. You must use the same OhttpSession that
+    // generated the request message.
+    [Throws=OhttpError]
+    OhttpResponse decapsulate([ByRef] sequence<u8> encoded);
+};
+
+dictionary TestServerRequest {
+    string method;
+    string scheme;
+    string server;
+    string endpoint;
+    record<string, string> headers;
+    sequence<u8> payload;
+};
+
+// A testing interface for decrypting and responding to OHTTP messages. This
+// should only be used for testing.
+interface OhttpTestServer {
+    constructor();
+
+    // Return the unique encryption key config for this instance of test server.
+    sequence<u8> get_config();
+
+    [Throws=OhttpError]
+    TestServerRequest receive([ByRef] sequence<u8> message);
+
+    [Throws=OhttpError]
+    sequence<u8> respond(OhttpResponse response);
+};
