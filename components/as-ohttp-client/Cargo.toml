@@ -1,0 +1,19 @@
+[package]
+name = "as-ohttp-client"
+version = "0.1.0"
+edition = "2021"
+authors = ["Ted Campbell <tcampbell@mozilla.com>"]
+description = "An Oblivious HTTP client for iOS applications"
+license = "MPL-2.0"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+uniffi = "0.24.1"
+thiserror = "1.0"
+bhttp = "0.3"
+ohttp = { version = "0.3", default-features = false, features = ["client", "server", "rust-hpke"]}
+parking_lot = "0.12"
+
+[build-dependencies]
+uniffi = { version = "0.24.1", features=["build"]}

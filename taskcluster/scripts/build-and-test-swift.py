@@ -10,6 +10,7 @@ import os
 ROOT_DIR = pathlib.Path(__file__).parent.parent.parent
 # List of udl_paths to generate bindings for
 BINDINGS_UDL_PATHS = [
+    "components/as-ohttp-client/src/as_ohttp_client.udl",
     "components/autofill/src/autofill.udl",
     "components/fxa-client/src/fxa_client.udl",
     "components/logins/src/logins.udl",
@@ -32,6 +33,7 @@ FOCUS_UDL_PATHS = [
 
 # List of globs to copy the sources from
 SOURCE_TO_COPY = [
+    "components/as-ohttp-client/ios/ASOhttpClient",
     "components/nimbus/ios/Nimbus",
     "components/fxa-client/ios/FxAClient",
     "components/logins/ios/Logins",

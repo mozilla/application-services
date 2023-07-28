@@ -2,6 +2,12 @@
 
 [Full Changelog](In progress)
 
+## General
+
+### ✨ What's New ✨
+
+- Added an OHTTP client library for iOS based on `ohttp` Rust crate ([#5749](https://github.com/mozilla/application-services/pull/5749)). This allows iOS products to use the same OHTTP libraries as Gecko-based products.
+
 # v117.0 (_2023-07-31_)
 
 ## General
