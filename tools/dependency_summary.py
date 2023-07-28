@@ -647,11 +647,11 @@ PACKAGE_METADATA_FIXUPS = {
         # The current head of "mime" repo has been re-licensed from MIT/Apache-2.0 to MIT,
         # meaning that the expected "LICENSE-APACHE" file is not available on master.
         "version": {
-            "check": "0.3.16",
+            "check": "0.3.17",
         },
         "license_url": {
             "check": None,
-            "fixup": "https://github.com/hyperium/mime/blob/v0.3.16/LICENSE-APACHE"
+            "fixup": "https://github.com/hyperium/mime/blob/v0.3.17/LICENSE-APACHE"
         },
     },
     "ppv-lite86": {
