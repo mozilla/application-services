@@ -1,5 +1,7 @@
 #!/bin/bash
-source "../common.sh"
+dir=$(dirname "$0")
+# shellcheck disable=SC1091
+source "${dir}/../common.sh"
 
 clear
 display_comment "Reinstalling the app"
@@ -57,7 +59,7 @@ waitrun "nimbus-cli --app firefox_ios --channel developer enroll release-ios-on-
 anykey
 clear
 display_comment "Let's try the other treatment branch"
-app_terminate $app_id
+app_terminate
 display_subcomment "Note to presenter: We need to get Safari back to foreground"
 anykey
 launch_safari
