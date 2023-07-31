@@ -2,9 +2,6 @@
 
 set -euvx
 
-SQLCIPHER_VERSION="4.5.4"
-SQLCIPHER_SHA256="bb333b1dfa58d66634f263328a81d07d96395ca17f4e147ede4b723ea83ce5f8"
-
 NSS="nss-3.93"
 NSS_ARCHIVE="nss-3.93-with-nspr-4.35.tar.gz"
 NSS_URL="https://ftp.mozilla.org/pub/security/nss/releases/NSS_3_93_RTM/src/${NSS_ARCHIVE}"
@@ -39,30 +36,6 @@ if ! [[ -x "$(command -v ninja)" ]]; then
   echo 'Error: ninja needs to be installed and executable. See https://github.com/ninja-build/ninja/wiki/Pre-built-Ninja-packages for install instructions.' >&2
   exit 1
 fi
-
-# SQLCipher needs TCL.
-if ! [[ -x "$(command -v tclsh)" ]]; then
-  echo 'Error: tclsh needs to be installed and executable. See https://www.tcl.tk/software/tcltk/.' >&2
-  exit 1
-fi
-
-SQLCIPHER="sqlcipher-${SQLCIPHER_VERSION}"
-rm -rf "${SQLCIPHER}"
-if [[ ! -e "${SQLCIPHER}.zip" ]]; then
- echo "Downloading ${SQLCIPHER}.zip"
- curl -sfSL --retry 5 --retry-delay 10 -O "https://www.zetetic.net/sqlcipher/verify/${SQLCIPHER_VERSION}/${SQLCIPHER}.zip"
-else
- echo "Using ${SQLCIPHER}.zip"
-fi
-# Integrity check for SQLCIPHER
-if ! echo "${SQLCIPHER_SHA256}  ${SQLCIPHER}.zip" | shasum -a 256 -c - 
-then
-    echo "Error: ${SQLCIPHER}.zip was corrupted. Please try running this build script again."
-    rm -f "${SQLCIPHER}.zip" # remove corrupted file
-    exit 2
-fi
-unzip "${SQLCIPHER}.zip"
-SQLCIPHER_SRC_PATH=$(abspath "sqlcipher-${SQLCIPHER_VERSION}")
 
 rm -rf "${NSS}"
 if [[ ! -e "${NSS_ARCHIVE}" ]]; then
@@ -130,25 +103,22 @@ echo $'\
 
 if [[ "${PLATFORM}" == "ios" ]]
 then
-  ./build-all-ios.sh "${SQLCIPHER_SRC_PATH}" "${NSS_SRC_PATH}"
+  ./build-all-ios.sh "${NSS_SRC_PATH}"
 elif [[ "${PLATFORM}" == "android" ]]
 then
-  ./build-all-android.sh "${SQLCIPHER_SRC_PATH}" "${NSS_SRC_PATH}"
+  ./build-all-android.sh "${NSS_SRC_PATH}"
 elif [[ "${PLATFORM}" == "desktop" ]]
 then
   ./build-nss-desktop.sh "${NSS_SRC_PATH}"
-  ./build-sqlcipher-desktop.sh "${SQLCIPHER_SRC_PATH}"
 elif [[ "${PLATFORM}" == "darwin" ]]
 then
   ./build-nss-desktop.sh "${NSS_SRC_PATH}" "${PLATFORM}"
-  ./build-sqlcipher-desktop.sh "${SQLCIPHER_SRC_PATH}" "${PLATFORM}"
 else
   echo "Unrecognized platform"
   exit 1
 fi
 
 echo "Cleaning up"
-rm -rf "${SQLCIPHER_SRC_PATH}"
 rm -rf "${NSS_SRC_PATH}"
 
 echo "Done"

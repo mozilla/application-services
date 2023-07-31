@@ -19,6 +19,11 @@
 ### ✨ What's New ✨
 
 - The Suggest component now has Swift bindings for Firefox for iOS ([#5806](https://github.com/mozilla/application-services/pull/5806)).
+## Logins
+
+### ⚠️ Breaking Changes ⚠️
+
+- Removal of SQLCipher migration API call and the SQLCipher library. While not technically a breaking change, it's listed here given that we're removing a large library.
 
 # v118.0 (_2023-08-28_)
 

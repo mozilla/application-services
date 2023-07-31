@@ -68,7 +68,7 @@ fi
 
 # CI just downloads these libs anyway.
 if [[ -z "${CI}" ]]; then
-  if [[ ! -d "${PWD}/libs/android/arm64-v8a/nss" ]] || [[ ! -d "${PWD}/libs/android/arm64-v8a/sqlcipher" ]]; then
+  if [[ ! -d "${PWD}/libs/android/arm64-v8a/nss" ]]; then
     pushd libs || exit 1
     ./build-all.sh android
     popd || exit 1

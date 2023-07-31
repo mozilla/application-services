@@ -597,10 +597,6 @@ the details of which are reproduced below.
     <url>https://github.com/protocolbuffers/protobuf/blob/master/LICENSE</url>
   </license>
   <license>
-    <name>BSD-3-Clause License: sqlcipher</name>
-    <url>https://github.com/sqlcipher/sqlcipher/blob/master/LICENSE</url>
-  </license>
-  <license>
     <name>Optional Notice: SQLite</name>
     <url>https://sqlite.org/copyright.html</url>
   </license>

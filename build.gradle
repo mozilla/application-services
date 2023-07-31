@@ -282,16 +282,6 @@ ext.cargoExec = { spec, toolchain ->
     spec.environment("NSS_STATIC", "1")
     spec.environment("NSS_DIR",               new File(rootProject.ext.libsRootDir, "libs/${toolchain.folder}/nss").absolutePath)
 }
-// Strictly speaking, we could always specify `SQLCIPHER_LIB_DIR` and
-// `SQLCIPHER_INCLUDE_DIR`, and so long as everything else is configured right,
-// we wouldn't bring it in. That said, by only specifying it when we expect it
-// to be needed, we force a compilation (well, linking) failure if the
-// configuration is otherwise wrong.
-ext.cargoExecWithSQLCipher = { spec, toolchain ->
-    ext.cargoExec(spec, toolchain)
-    spec.environment("SQLCIPHER_LIB_DIR",     new File(rootProject.ext.libsRootDir, "libs/${toolchain.folder}/sqlcipher/lib").absolutePath)
-    spec.environment("SQLCIPHER_INCLUDE_DIR", new File(rootProject.ext.libsRootDir, "libs/${toolchain.folder}/sqlcipher/include").absolutePath)
-}
 
 detekt {
     toolVersion = "$detekt_version"

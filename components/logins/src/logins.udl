@@ -32,15 +32,6 @@ namespace logins {
     // Check that key is still valid using the output of `create_canary`.  `text` much match the text you initially passed to `create_canary()`
     [Throws=LoginsApiError]
     boolean check_canary([ByRef]string canary, [ByRef]string text, [ByRef]string encryption_key);
-
-    [Throws=LoginsApiError]
-    void migrate_logins(
-        [ByRef]string path,
-        [ByRef]string new_encryption_key,
-        [ByRef]string sqlcipher_path,
-        [ByRef]string sqlcipher_key,
-        string? salt
-    );
 };
 
 // The fields you can add or update.

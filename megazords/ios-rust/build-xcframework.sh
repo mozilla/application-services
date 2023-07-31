@@ -85,9 +85,6 @@ cargo_build () {
   env -i \
     NSS_STATIC=1 \
     NSS_DIR="$LIBS_DIR/nss" \
-    SQLCIPHER_STATIC=1 \
-    SQLCIPHER_LIB_DIR="${LIBS_DIR}/sqlcipher/lib" \
-    SQLCIPHER_INCLUDE_DIR="${LIBS_DIR}/sqlcipher/include" \
     PATH="${PATH}" \
     RUSTC_WRAPPER="${RUSTC_WRAPPER:-}" \
     SCCACHE_IDLE_TIMEOUT="${SCCACHE_IDLE_TIMEOUT:-}" \

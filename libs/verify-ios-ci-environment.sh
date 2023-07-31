@@ -27,7 +27,7 @@ if ! [[ -x "$(command -v xcpretty)" ]]; then
   exit 1
 fi
 
-if [[ ! -d "${PWD}/libs/ios/universal/nss" ]] || [[ ! -d "${PWD}/libs/ios/universal/sqlcipher" ]]; then
+if [[ ! -d "${PWD}/libs/ios/universal/nss" ]]; then
   pushd libs || exit 1
   ./build-all.sh ios
   popd || exit 1
