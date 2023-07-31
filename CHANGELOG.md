@@ -111,6 +111,7 @@
 
 ### ✨ What's New ✨
 
+- Updated the version number to 0.4.0 ([#5757](https://github.com/mozilla/application-services/pull/5757)).
 - Added a `--patch` option to all commands that accept an experiment. ([#5721](https://github.com/mozilla/application-services/pull/5721))
 - Added a `--pbpaste` and `start-server` command for testing on iOS devices. ([#5751](https://github.com/mozilla/application-services/pull/5751)).
   - Use by `start-server` which directs you to open a URL on your device. Device commands sync with the server, and then on to the device.
