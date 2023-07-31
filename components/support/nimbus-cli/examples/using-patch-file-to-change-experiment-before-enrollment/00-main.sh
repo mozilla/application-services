@@ -1,5 +1,7 @@
 #!/bin/bash
-source "../common.sh"
+dir=$(dirname "$0")
+# shellcheck disable=SC1091
+source "${dir}/../common.sh"
 
 app=firefox_ios
 channel=developer
