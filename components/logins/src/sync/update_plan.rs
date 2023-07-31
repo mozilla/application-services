@@ -376,7 +376,6 @@ mod tests {
             local_updates: vec![MirrorLogin {
                 login: enc_login("login", "new-password"),
                 server_modified: ServerTimestamp(10000),
-                is_overridden: false,
             }],
             ..UpdatePlan::default()
         }

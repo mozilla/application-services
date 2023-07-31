@@ -26,12 +26,10 @@ else
   APPSERVICES_PLATFORM_DIR="$(pwd)/libs/desktop/linux-x86-64"
 fi
 
-if [[ -z "${SQLCIPHER_LIB_DIR}" ]] || [[ -z "${SQLCIPHER_INCLUDE_DIR}" ]] || [[ -z "${NSS_DIR}" ]] || [[ -z "${NSS_STATIC}" ]]; then
+if [[ -z "${NSS_DIR}" ]] || [[ -z "${NSS_STATIC}" ]]; then
   echo "Some necessary environment variables are not set."
   echo "Please export or add to your shell initialization file (.zshenv, .bashrc etc.) the following:"
   echo ""
-  echo "export SQLCIPHER_LIB_DIR=${APPSERVICES_PLATFORM_DIR}/sqlcipher/lib"
-  echo "export SQLCIPHER_INCLUDE_DIR=${APPSERVICES_PLATFORM_DIR}/sqlcipher/include"
   echo "export NSS_DIR=${APPSERVICES_PLATFORM_DIR}/nss"
   echo "export NSS_STATIC=1"
   exit 1
@@ -44,14 +42,12 @@ if [[ -z "${CI}" ]] && [[ "$(uname -s)" == "Darwin" ]] && [[ "${NSS_DIR}" != *"d
   echo -e "${YELLOW}!! Your environment variables are outdated! Please use the updated values below !!"
   echo -e "Please export or add to your shell initialization file (.zshenv, .bashrc etc.) the following ${NC}"
   echo ""
-  echo "export SQLCIPHER_LIB_DIR=${APPSERVICES_PLATFORM_DIR}/sqlcipher/lib"
-  echo "export SQLCIPHER_INCLUDE_DIR=${APPSERVICES_PLATFORM_DIR}/sqlcipher/include"
   echo "export NSS_DIR=${APPSERVICES_PLATFORM_DIR}/nss"
   echo "export NSS_STATIC=1"
   exit 1
 fi
 
-if [[ ! -d "${SQLCIPHER_LIB_DIR}" ]] || [[ ! -d "${NSS_DIR}" ]]; then
+if [[ ! -d "${NSS_DIR}" ]]; then
   pushd libs
   ./build-all.sh desktop
   popd

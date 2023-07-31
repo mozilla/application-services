@@ -89,25 +89,3 @@ open class LoginsStorage {
         }
     }
 }
-
-public func migrateLoginsFromSqlcipher(
-    path: String,
-    newEncryptionKey: String,
-    sqlcipherPath: String,
-    sqlcipherKey: String,
-    salt: String
-) -> Bool {
-    var didMigrationSucceed = false
-
-    if (try? migrateLogins(
-        path: path,
-        newEncryptionKey: newEncryptionKey,
-        sqlcipherPath: sqlcipherPath,
-        sqlcipherKey: sqlcipherKey,
-        salt: salt
-    )) != nil {
-        didMigrationSucceed = true
-    }
-
-    return didMigrationSucceed
-}

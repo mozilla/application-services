@@ -3,7 +3,7 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
 // Merging for Sync.
-use super::{IncomingLogin, LoginPayload, SyncStatus};
+use super::{IncomingLogin, LoginPayload};
 use crate::encryption::EncryptorDecryptor;
 use crate::error::*;
 use crate::login::EncryptedLogin;
@@ -17,7 +17,6 @@ use sync_guid::Guid;
 #[derive(Clone, Debug)]
 pub(crate) struct MirrorLogin {
     pub login: EncryptedLogin,
-    pub is_overridden: bool,
     pub server_modified: ServerTimestamp,
 }
 
@@ -30,7 +29,6 @@ impl MirrorLogin {
     pub(crate) fn from_row(row: &Row<'_>) -> Result<MirrorLogin> {
         Ok(MirrorLogin {
             login: EncryptedLogin::from_row(row)?,
-            is_overridden: row.get("is_overridden")?,
             server_modified: ServerTimestamp(row.get::<_, i64>("server_modified")?),
         })
     }
@@ -39,8 +37,6 @@ impl MirrorLogin {
 #[derive(Clone, Debug)]
 pub(crate) struct LocalLogin {
     pub login: EncryptedLogin,
-    pub sync_status: SyncStatus,
-    pub is_deleted: bool,
     pub local_modified: SystemTime,
 }
 
@@ -53,8 +49,6 @@ impl LocalLogin {
     pub(crate) fn from_row(row: &Row<'_>) -> Result<LocalLogin> {
         Ok(LocalLogin {
             login: EncryptedLogin::from_row(row)?,
-            sync_status: SyncStatus::from_u8(row.get("sync_status")?)?,
-            is_deleted: row.get("is_deleted")?,
             local_modified: util::system_time_millis_from_row(row, "local_modified")?,
         })
     }
@@ -93,13 +87,10 @@ macro_rules! impl_login {
 }
 
 impl_login!(LocalLogin {
-    sync_status: SyncStatus::New,
-    is_deleted: false,
     local_modified: time::UNIX_EPOCH
 });
 
 impl_login!(MirrorLogin {
-    is_overridden: false,
     server_modified: ServerTimestamp(0)
 });
 

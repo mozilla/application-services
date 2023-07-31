@@ -140,8 +140,6 @@ commands:
       - run: |
           echo 'export NSS_STATIC=1' >> $BASH_ENV
           echo 'export NSS_DIR=$(pwd)/libs/desktop/linux-x86-64/nss' >> $BASH_ENV
-          echo 'export SQLCIPHER_LIB_DIR=$(pwd)/libs/desktop/linux-x86-64/sqlcipher/lib' >> $BASH_ENV
-          echo 'export SQLCIPHER_INCLUDE_DIR=$(pwd)/libs/desktop/linux-x86-64/sqlcipher/include' >> $BASH_ENV
           echo 'export RUST_LOG=trace' >> $BASH_ENV
       - run: pip install pytest
       - run:

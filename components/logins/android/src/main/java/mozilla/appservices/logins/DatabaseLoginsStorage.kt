@@ -131,16 +131,6 @@ class DatabaseLoginsStorage(dbPath: String) : AutoCloseable {
     }
 }
 
-fun migrateLoginsWithMetrics(newDbPath: String, newDbEncKey: String, sqlCipherDbPath: String, sqlCipherEncKey: String) {
-    try {
-        // last param is the "salt" which is only used on iOS.
-        migrateLogins(newDbPath, newDbEncKey, sqlCipherDbPath, sqlCipherEncKey, null)
-    } catch (e: LoginsApiException) {
-        // Ignore all migration errors. There's nothing the consuming app can
-        // do about it, and we are never going to retry.
-    }
-}
-
 enum class KeyRegenerationEventReason {
     Lost, Corrupt, Other,
 }

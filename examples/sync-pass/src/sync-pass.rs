@@ -9,7 +9,6 @@ use base64::{engine::general_purpose::URL_SAFE_NO_PAD, Engine};
 use cli_support::fxa_creds::{get_account_and_token, get_cli_fxa, get_default_fxa_config};
 use cli_support::prompt::{prompt_char, prompt_string, prompt_usize};
 use logins::encryption::{create_key, EncryptorDecryptor};
-use logins::migrate_sqlcipher_db::migrate_logins;
 use logins::{
     EncryptedLogin, LoginEntry, LoginFields, LoginStore, LoginsSyncEngine, SecureLoginFields,
     ValidateAndFixup,
@@ -23,7 +22,7 @@ use sync15::{
 };
 
 // I'm completely punting on good error handling here.
-use anyhow::{bail, Result};
+use anyhow::Result;
 
 fn read_login() -> LoginEntry {
     let login = loop {
@@ -284,61 +283,23 @@ fn prompt_record_id(
     Ok(Some(index_to_id[input].as_str().into()))
 }
 
-fn open_database(
-    db_path: &str,
-    sqlcipher_path: Option<&str>,
-    sqlcipher_encryption_key: Option<&str>,
-) -> Result<(LoginStore, EncryptorDecryptor, String)> {
-    Ok(match (sqlcipher_path, sqlcipher_encryption_key) {
-        (None, None) => {
-            let store = LoginStore::new(db_path)?;
-            // Get or create an encryption key to use
-            let encryption_key = match get_encryption_key(&store) {
-                Some(s) => s,
-                None => {
-                    log::warn!("Creating new encryption key");
-                    let encryption_key = create_key()?;
-                    set_encryption_key(&store, &encryption_key)?;
-                    encryption_key
-                }
-            };
-            (
-                store,
-                EncryptorDecryptor::new(&encryption_key)?,
-                encryption_key,
-            )
-        }
-        (Some(sqlcipher_path), Some(sqlcipher_encryption_key)) => {
+fn open_database(db_path: &str) -> Result<(LoginStore, EncryptorDecryptor, String)> {
+    let store = LoginStore::new(db_path)?;
+    // Get or create an encryption key to use
+    let encryption_key = match get_encryption_key(&store) {
+        Some(s) => s,
+        None => {
+            log::warn!("Creating new encryption key");
             let encryption_key = create_key()?;
-            let metrics = migrate_logins(
-                db_path,
-                &encryption_key,
-                sqlcipher_path,
-                sqlcipher_encryption_key,
-                None,
-            );
-            let store = LoginStore::new(db_path)?;
-            log::info!("Migration metrics: {:?}", metrics);
-
-            // For new migrations, we want to set the encryption key.  But it's also possible that
-            // the migration already happened, in that use the encryption key from that migration.
-            let encryption_key = match get_encryption_key(&store) {
-                Some(s) => s,
-                None => {
-                    set_encryption_key(&store, &encryption_key)?;
-                    encryption_key
-                }
-            };
-            (
-                store,
-                EncryptorDecryptor::new(&encryption_key)?,
-                encryption_key,
-            )
+            set_encryption_key(&store, &encryption_key)?;
+            encryption_key
         }
-        _ => {
-            bail!("--sqlcipher-database and --sqlcipher-key must be specified together");
-        }
-    })
+    };
+    Ok((
+        store,
+        EncryptorDecryptor::new(&encryption_key)?,
+        encryption_key,
+    ))
 }
 
 // Use loginsSyncMeta as a quick and dirty solution to store the encryption key
@@ -418,7 +379,7 @@ fn main() -> Result<()> {
     viaduct_reqwest::use_reqwest_backend();
 
     let matches = clap::App::new("sync_pass_sql")
-        .about("CLI login syncing tool (backed by sqlcipher)")
+        .about("CLI login syncing tool")
         .arg(
             clap::Arg::with_name("database_path")
                 .short("d")
@@ -437,39 +398,20 @@ fn main() -> Result<()> {
                     "Path to store our cached fxa credentials (defaults to \"./credentials.json\"",
                 ),
         )
-        .arg(
-            clap::Arg::with_name("sqlcipher_database_path")
-                .long("sqlcipher-database")
-                .value_name("SQLCIPHER_DATABASE")
-                .takes_value(true)
-                .help("Path to a sqlcipher database to migrate"),
-        )
-        .arg(
-            clap::Arg::with_name("sqlcipher_key")
-                .long("sqlcipher-key")
-                .value_name("SQLCIPHER_KEY")
-                .takes_value(true)
-                .help("Encryption key for the sql cipher database"),
-        )
         .get_matches();
 
     let cred_file = matches
         .value_of("credential_file")
         .unwrap_or("./credentials.json");
     let db_path = matches.value_of("database_path").unwrap_or("./logins.db");
-    let sqlcipher_database_path = matches.value_of("sqlcipher_database_path");
-    let sqlcipher_key = matches.value_of("sqlcipher_key");
 
     log::debug!("credential file: {:?}", cred_file);
     log::debug!("db: {:?}", db_path);
-    log::debug!("sqlcipher_database_path: {:?}", sqlcipher_database_path);
-    log::debug!("sqlcipher_key: {:?}", sqlcipher_key);
     // Lets not log the encryption key, it's just not a good habit to be in.
 
     // TODO: allow users to use stage/etc.
     let cli_fxa = get_cli_fxa(get_default_fxa_config(), cred_file)?;
-    let (store, encdec, encryption_key) =
-        open_database(db_path, sqlcipher_database_path, sqlcipher_key)?;
+    let (store, encdec, encryption_key) = open_database(db_path)?;
     let store = Arc::new(store);
 
     log::info!("Store has {} passwords", store.list()?.len());

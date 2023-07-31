@@ -157,12 +157,6 @@ EXTRA_PACKAGE_METADATA = {
             CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
         """)
     },
-    "ext-sqlcipher": {
-        "name": "sqlcipher",
-        "repository": "https://github.com/sqlcipher/sqlcipher",
-        "license": "BSD-3-Clause",
-        "license_file": "https://raw.githubusercontent.com/sqlcipher/sqlcipher/master/LICENSE",
-    },
     "ext-sqlite": {
         "name": "sqlite",
         "repository": "https://www.sqlite.org/",
@@ -182,10 +176,6 @@ PACKAGES_WITH_EXTRA_DEPENDENCIES = {
     # Our `rc_crypto` crate copies the API of `ring`, so take a fake dependnecy
     # in order to reflect accurate license information.
     "rc_crypto": ["ext-ring"],
-    # As a special case, we know that the "logins" crate is the only thing that enables SQLCipher.
-    # In a future iteration we could check the cargo build-plan output to see whether anything is
-    # enabling the sqlcipher feature, but this will do for now.
-    "logins": ["ext-sqlcipher"],
 }
 
 # Hand-audited tweaks to package metadata, for cases where the data given to us by cargo is insufficient.

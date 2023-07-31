@@ -909,8 +909,9 @@ pub mod test_utils {
 mod tests {
     use super::*;
     use crate::encryption::test_utils::TEST_ENCRYPTOR;
-    use crate::sync::LocalLogin;
+    use crate::sync::merge::LocalLogin;
     use crate::SecureLoginFields;
+    use std::{thread, time};
 
     #[test]
     fn test_username_dupe_semantics() {
@@ -1217,6 +1218,8 @@ mod tests {
                 &TEST_ENCRYPTOR,
             )
             .unwrap();
+        // Simulate touch happening at another "time"
+        thread::sleep(time::Duration::from_millis(50));
         db.touch(&login.record.id).unwrap();
         let login2 = db.get_by_id(&login.record.id).unwrap().unwrap();
         assert!(login2.record.time_last_used > login.record.time_last_used);
@@ -1252,7 +1255,6 @@ mod tests {
                 |row| Ok(LocalLogin::from_row(row).unwrap()),
             )
             .unwrap();
-        assert!(local_login.is_deleted);
         assert_eq!(local_login.login.fields.http_realm, None);
         assert_eq!(local_login.login.fields.form_action_origin, None);
 

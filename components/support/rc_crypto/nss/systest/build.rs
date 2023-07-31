@@ -5,15 +5,6 @@
 use std::{env, ffi::OsString, path::Path};
 
 fn main() {
-    // NSS links against SQLite3, so...
-    println!("cargo:rustc-link-lib=static=sqlcipher");
-    println!("cargo:rerun-if-env-changed=SQLCIPHER_LIB_DIR");
-    let sqlcipher_lib_dir: OsString = env::var_os("SQLCIPHER_LIB_DIR").unwrap();
-    println!(
-        "cargo:rustc-link-search=native={}",
-        sqlcipher_lib_dir.to_string_lossy()
-    );
-
     let mut cfg = ctest2::TestGenerator::new();
     cfg.header("blapit.h")
         .header("cert.h")
