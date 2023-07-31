@@ -1,9 +1,12 @@
 use std::ops::Deref;
 
 use remote_settings::{Attachment, GetItemsOptions};
+use rusqlite::types::{FromSql, FromSqlError, FromSqlResult, ToSql, ToSqlOutput, ValueRef};
+use rusqlite::Result as RusqliteResult;
 use serde::Deserialize;
 
 use crate::Result;
+use serde::Deserializer;
 
 /// The Suggest Remote Settings collection name.
 pub(crate) const REMOTE_SETTINGS_COLLECTION: &str = "quicksuggest";
@@ -146,18 +149,128 @@ impl SuggestRecordId {
     }
 }
 
-/// A suggestion to ingest from a downloaded Remote Settings attachment.
-#[derive(Clone, Debug, Deserialize)]
-pub(crate) struct DownloadedSuggestion {
-    #[serde(rename = "id")]
-    pub block_id: i64,
-    pub advertiser: String,
-    pub iab_category: String,
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq)]
+pub(crate) struct DownloadedSuggestionCommonDetails {
     pub keywords: Vec<String>,
     pub title: String,
     pub url: String,
     #[serde(rename = "icon")]
     pub icon_id: String,
-    pub impression_url: Option<String>,
-    pub click_url: Option<String>,
+}
+
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq)]
+pub(crate) struct DownloadedAmpSuggestion {
+    #[serde(flatten)]
+    pub common_details: DownloadedSuggestionCommonDetails,
+    pub advertiser: String,
+    #[serde(rename = "id")]
+    pub block_id: i32,
+    pub iab_category: String,
+    pub click_url: String,
+    pub impression_url: String,
+}
+
+/// Provider Types
+#[derive(Clone, Copy, Debug, Eq, PartialEq, Hash)]
+#[repr(u8)]
+pub enum SuggestionProvider {
+    Amp = 1,
+    Wikipedia = 2,
+}
+
+impl FromSql for SuggestionProvider {
+    fn column_result(value: ValueRef<'_>) -> FromSqlResult<Self> {
+        let v = value.as_i64()?;
+        u8::try_from(v)
+            .ok()
+            .and_then(SuggestionProvider::from_u8)
+            .ok_or_else(|| FromSqlError::OutOfRange(v))
+    }
+}
+
+impl SuggestionProvider {
+    #[inline]
+    pub fn from_u8(v: u8) -> Option<Self> {
+        match v {
+            1 => Some(SuggestionProvider::Amp),
+            2 => Some(SuggestionProvider::Wikipedia),
+            _ => None,
+        }
+    }
+}
+
+impl ToSql for SuggestionProvider {
+    fn to_sql(&self) -> RusqliteResult<ToSqlOutput<'_>> {
+        Ok(ToSqlOutput::from(*self as u8))
+    }
+}
+
+/// A suggestion to ingest from a downloaded Remote Settings attachment.
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub(crate) enum DownloadedSuggestion {
+    Amp(DownloadedAmpSuggestion),
+    Wikipedia(DownloadedSuggestionCommonDetails),
+}
+
+impl DownloadedSuggestion {
+    /// Returns the suggestion fields that are common to AMP and
+    /// Wikipedia suggestions.
+    pub fn common_details(&self) -> &DownloadedSuggestionCommonDetails {
+        match self {
+            Self::Amp(DownloadedAmpSuggestion { common_details, .. }) => common_details,
+            Self::Wikipedia(common_details) => common_details,
+        }
+    }
+
+    pub fn provider(&self) -> SuggestionProvider {
+        match self {
+            DownloadedSuggestion::Amp(_) => SuggestionProvider::Amp,
+            DownloadedSuggestion::Wikipedia(_) => SuggestionProvider::Wikipedia,
+        }
+    }
+}
+
+impl<'de> Deserialize<'de> for DownloadedSuggestion {
+    fn deserialize<D>(deserializer: D) -> std::result::Result<DownloadedSuggestion, D::Error>
+    where
+        D: Deserializer<'de>,
+    {
+        // AMP and Wikipedia suggestions conform to the same JSON schema, but
+        // we want to represent them separately. To distinguish between the two,
+        // we use an "untagged" outer enum and a "tagged" inner enum.
+        //
+        // Wikipedia suggestions always use the `"Wikipedia"` advertiser, so
+        // they'll deserialize successfully into the `KnownTag` variant.
+        // AMP suggestions will try the `KnownTag` variant first, fail, then
+        // try the `UnknownTag` variant and succeed.
+        //
+        // This strategy is an implementation detail, so we turn the nested
+        // enums into a friendlier `DownloadedAmpSuggestion` enum after
+        // deserializing.
+
+        #[derive(Deserialize)]
+        #[serde(untagged)]
+        enum UntaggedDownloadedSuggestion {
+            KnownTag(TaggedDownloadedSuggestion),
+            UnknownTag(DownloadedAmpSuggestion),
+        }
+
+        #[derive(Deserialize)]
+        #[serde(tag = "advertiser")]
+        enum TaggedDownloadedSuggestion {
+            #[serde(rename = "Wikipedia")]
+            Wikipedia(DownloadedSuggestionCommonDetails),
+        }
+
+        Ok(
+            match UntaggedDownloadedSuggestion::deserialize(deserializer)? {
+                UntaggedDownloadedSuggestion::KnownTag(TaggedDownloadedSuggestion::Wikipedia(
+                    common_details,
+                )) => Self::Wikipedia(common_details),
+                UntaggedDownloadedSuggestion::UnknownTag(common_details) => {
+                    Self::Amp(common_details)
+                }
+            },
+        )
+    }
 }

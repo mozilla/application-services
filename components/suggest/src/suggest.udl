@@ -15,6 +15,12 @@ interface SuggestApiError {
     Other(string reason);
 };
 
+
+enum SuggestionProvider {
+    "Amp",
+    "Wikipedia",
+};
+
 dictionary Suggestion {
     i64 block_id;
     string advertiser;
@@ -26,6 +32,7 @@ dictionary Suggestion {
     sequence<u8>? icon;
     string? impression_url;
     string? click_url;
+    SuggestionProvider provider;
 };
 
 dictionary SuggestionQuery {

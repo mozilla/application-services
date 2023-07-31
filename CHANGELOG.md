@@ -3,6 +3,9 @@
 [Full Changelog](In progress)
 
 ## General
+### 🦊 What's Changed 🦊
+
+- Changes to Suggestion schema to accomodate custom details for providers. ([#5745](https://github.com/mozilla/application-services/pull/5745)) 
 
 ### ✨ What's New ✨
 
