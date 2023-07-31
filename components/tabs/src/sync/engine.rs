@@ -211,7 +211,10 @@ impl SyncEngine for TabsEngine {
         };
 
         let local_id = &*self.local_id.read().unwrap();
-        self.set_last_sync(timestamp)?;
+        // Timestamp will be zero when used as a "bridged" engine.
+        if timestamp.0 != 0 {
+            self.set_last_sync(timestamp)?;
+        }
         // XXX - outgoing telem?
         let outgoing = if let Some(local_tabs) = local_tabs {
             let (client_name, device_type) = remote_clients
@@ -477,5 +480,44 @@ pub mod test {
         // dropping the registered object should drop the registration.
         drop(store);
         assert!(STORE_FOR_MANAGER.lock().unwrap().upgrade().is_none());
+    }
+
+    #[test]
+    fn test_apply_timestamp() {
+        env_logger::try_init().ok();
+
+        let engine = TabsEngine::new(Arc::new(TabsStore::new_with_mem_path(
+            "test-apply-timestamp",
+        )));
+
+        let records = vec![json!({
+            "id": "device-no-tabs",
+            "clientName": "device with no tabs",
+            "tabs": [],
+        })];
+
+        let mut telem = telemetry::Engine::new("tabs");
+        engine
+            .set_last_sync(ServerTimestamp::from_millis(123))
+            .unwrap();
+        let incoming = records
+            .into_iter()
+            .map(IncomingBso::from_test_content)
+            .collect();
+        engine
+            .stage_incoming(incoming, &mut telem)
+            .expect("Should apply incoming and stage outgoing records");
+        engine
+            .apply(ServerTimestamp(0), &mut telem)
+            .expect("should apply");
+
+        assert_eq!(
+            engine
+                .get_last_sync()
+                .expect("should work")
+                .expect("should have a value"),
+            ServerTimestamp::from_millis(123),
+            "didn't set a zero timestamp"
+        )
     }
 }
