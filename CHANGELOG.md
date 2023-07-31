@@ -1,4 +1,8 @@
-# v117.0 (In progress)
+# v118.0 (In Progress)
+
+[Full Changelog](In progress)
+
+# v117.0 (_2023-07-31_)
 
 ## General
 
@@ -41,7 +45,7 @@
   - Also, made `--app` and `--channel` non-mandatory for commands that don't need them.
 - Added `--is-launcher` to the protocol between the cli and the apps, so apps detecting the launcher intent can work from the generated deeplinks ([#5748](https://github.com/mozilla/application-services/pull/5748)).
 
-[Full Changelog](In progress)
+[Full Changelog](https://github.com/mozilla/application-services/compare/v116.0...v117.0)
 
 # v116.0 (_2023-07-03_)
 
