@@ -453,6 +453,8 @@ mod tests {
                 "title": "Los Pollos Hermanos - Albuquerque",
                 "url": "https://www.lph-nm.biz",
                 "icon": "5678",
+                "impression_url": "https://example.com/impression_url",
+                "click_url": "https://example.com/click_url",
             }]),
         )?;
 
@@ -482,8 +484,13 @@ mod tests {
                         title: "Los Pollos Hermanos - Albuquerque",
                         url: "https://www.lph-nm.biz",
                         icon: None,
-                        impression_url: None,
-                        click_url: None,
+                        impression_url: Some(
+                            "https://example.com/impression_url",
+                        ),
+                        click_url: Some(
+                            "https://example.com/click_url",
+                        ),
+                        provider: Amp,
                     },
                 ]
             "#]]
@@ -535,6 +542,8 @@ mod tests {
                 "title": "Lasagna Come Out Tomorrow",
                 "url": "https://www.lasagna.restaurant",
                 "icon": "2",
+                "impression_url": "https://example.com/impression_url",
+                "click_url": "https://example.com/click_url"
             }, {
                 "id": 0,
                 "advertiser": "Good Place Eats",
@@ -543,6 +552,8 @@ mod tests {
                 "title": "Penne for Your Thoughts",
                 "url": "https://penne.biz",
                 "icon": "2",
+                "impression_url": "https://example.com/impression_url",
+                "click_url": "https://example.com/click_url"
             }]),
         )?
         .with_icon("icon-2.png", "i-am-an-icon".as_bytes().into());
@@ -581,8 +592,13 @@ mod tests {
                                 110,
                             ],
                         ),
-                        impression_url: None,
-                        click_url: None,
+                        impression_url: Some(
+                            "https://example.com/impression_url",
+                        ),
+                        click_url: Some(
+                            "https://example.com/click_url",
+                        ),
+                        provider: Amp,
                     },
                 ]
             "#]]
@@ -613,8 +629,13 @@ mod tests {
                                 110,
                             ],
                         ),
-                        impression_url: None,
-                        click_url: None,
+                        impression_url: Some(
+                            "https://example.com/impression_url",
+                        ),
+                        click_url: Some(
+                            "https://example.com/click_url",
+                        ),
+                        provider: Amp,
                     },
                 ]
             "#]]
@@ -656,6 +677,8 @@ mod tests {
                  "title": "Lasagna Come Out Tomorrow",
                  "url": "https://www.lasagna.restaurant",
                  "icon": "2",
+                 "impression_url": "https://example.com/impression_url",
+                 "click_url": "https://example.com/click_url"
             }),
         )?;
 
@@ -678,8 +701,13 @@ mod tests {
                         title: "Lasagna Come Out Tomorrow",
                         url: "https://www.lasagna.restaurant",
                         icon: None,
-                        impression_url: None,
-                        click_url: None,
+                        impression_url: Some(
+                            "https://example.com/impression_url",
+                        ),
+                        click_url: Some(
+                            "https://example.com/click_url",
+                        ),
+                        provider: Amp,
                     },
                 ]
             "#]]
@@ -721,6 +749,8 @@ mod tests {
                 "title": "Lasagna Come Out Tomorrow",
                 "url": "https://www.lasagna.restaurant",
                 "icon": "1",
+                "impression_url": "https://example.com/impression_url",
+                "click_url": "https://example.com/click_url"
             }, {
                 "id": 0,
                 "advertiser": "Los Pollos Hermanos",
@@ -729,6 +759,8 @@ mod tests {
                 "title": "Los Pollos Hermanos - Albuquerque",
                 "url": "https://www.lph-nm.biz",
                 "icon": "2",
+                "impression_url": "https://example.com/impression_url",
+                "click_url": "https://example.com/click_url"
             }]),
         )?;
 
@@ -752,8 +784,13 @@ mod tests {
                         title: "Lasagna Come Out Tomorrow",
                         url: "https://www.lasagna.restaurant",
                         icon: None,
-                        impression_url: None,
-                        click_url: None,
+                        impression_url: Some(
+                            "https://example.com/impression_url",
+                        ),
+                        click_url: Some(
+                            "https://example.com/click_url",
+                        ),
+                        provider: Amp,
                     },
                 ]
             "#]]
@@ -787,6 +824,8 @@ mod tests {
                 "title": "Los Pollos Hermanos - Now Serving at 14 Locations!",
                 "url": "https://www.lph-nm.biz",
                 "icon": "2",
+                "impression_url": "https://example.com/impression_url",
+                "click_url": "https://example.com/click_url"
             }, {
                 "id": 0,
                 "advertiser": "Good Place Eats",
@@ -795,6 +834,8 @@ mod tests {
                 "title": "Penne for Your Thoughts",
                 "url": "https://penne.biz",
                 "icon": "2",
+                "impression_url": "https://example.com/impression_url",
+                "click_url": "https://example.com/click_url"
             }]),
         )?;
 
@@ -814,8 +855,13 @@ mod tests {
                         title: "Los Pollos Hermanos - Now Serving at 14 Locations!",
                         url: "https://www.lph-nm.biz",
                         icon: None,
-                        impression_url: None,
-                        click_url: None,
+                        impression_url: Some(
+                            "https://example.com/impression_url",
+                        ),
+                        click_url: Some(
+                            "https://example.com/click_url",
+                        ),
+                        provider: Amp,
                     },
                 ]
             "#]]
@@ -831,8 +877,13 @@ mod tests {
                         title: "Penne for Your Thoughts",
                         url: "https://penne.biz",
                         icon: None,
-                        impression_url: None,
-                        click_url: None,
+                        impression_url: Some(
+                            "https://example.com/impression_url",
+                        ),
+                        click_url: Some(
+                            "https://example.com/click_url",
+                        ),
+                        provider: Amp,
                     },
                 ]
             "#]]
@@ -885,6 +936,8 @@ mod tests {
                 "title": "Lasagna Come Out Tomorrow",
                 "url": "https://www.lasagna.restaurant",
                 "icon": "2",
+                "impression_url": "https://example.com/impression_url",
+                "click_url": "https://example.com/click_url"
             }]),
         )?
         .with_icon("icon-2.png", "i-am-an-icon".as_bytes().into());
@@ -1019,6 +1072,8 @@ mod tests {
                 "title": "Los Pollos Hermanos - Albuquerque",
                 "url": "https://www.lph-nm.biz",
                 "icon": "2",
+                "impression_url": "https://example.com",
+                "click_url": "https://example.com",
             }]),
         )?;
 
@@ -1115,6 +1170,8 @@ mod tests {
                 "title": "Lasagna Come Out Tomorrow",
                 "url": "https://www.lasagna.restaurant",
                 "icon": "2",
+                "impression_url": "https://example.com/impression_url",
+                "click_url": "https://example.com/click_url",
             }, {
                 "id": 0,
                 "advertiser": "Wikipedia",
@@ -1122,7 +1179,7 @@ mod tests {
                 "keywords": ["cal", "cali", "california"],
                 "title": "California",
                 "url": "https://wikipedia.org/California",
-                "icon": "3",
+                "icon": "3"
             }]),
         )?
         .with_icon("icon-2.png", "i-am-an-icon".as_bytes().into())
@@ -1180,8 +1237,13 @@ mod tests {
                                     110,
                                 ],
                             ),
-                            impression_url: None,
-                            click_url: None,
+                            impression_url: Some(
+                                "https://example.com/impression_url",
+                            ),
+                            click_url: Some(
+                                "https://example.com/click_url",
+                            ),
+                            provider: Amp,
                         },
                     ]
                 "#]],
@@ -1219,8 +1281,13 @@ mod tests {
                                     110,
                                 ],
                             ),
-                            impression_url: None,
-                            click_url: None,
+                            impression_url: Some(
+                                "https://example.com/impression_url",
+                            ),
+                            click_url: Some(
+                                "https://example.com/click_url",
+                            ),
+                            provider: Amp,
                         },
                     ]
                 "#]],
@@ -1304,6 +1371,7 @@ mod tests {
                             ),
                             impression_url: None,
                             click_url: None,
+                            provider: Wikipedia,
                         },
                     ]
                 "#]],

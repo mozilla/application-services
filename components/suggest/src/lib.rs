@@ -4,7 +4,6 @@
  */
 
 use remote_settings::RemoteSettingsConfig;
-
 mod db;
 mod error;
 mod keyword;
@@ -13,6 +12,7 @@ mod schema;
 mod store;
 
 pub use error::SuggestApiError;
+use rs::SuggestionProvider;
 pub use store::{SuggestIngestionConstraints, SuggestStore};
 
 pub(crate) type Result<T> = std::result::Result<T, error::Error>;
@@ -31,6 +31,7 @@ pub struct Suggestion {
     pub icon: Option<Vec<u8>>,
     pub impression_url: Option<String>,
     pub click_url: Option<String>,
+    pub provider: SuggestionProvider,
 }
 
 /// A query for suggestions to show in the address bar.

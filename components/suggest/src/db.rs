@@ -16,7 +16,7 @@ use sql_support::{open_database::open_database_with_flags, ConnExt};
 
 use crate::{
     keyword::full_keyword,
-    rs::{DownloadedSuggestion, SuggestRecordId},
+    rs::{DownloadedSuggestion, SuggestRecordId, SuggestionProvider},
     schema::SuggestConnectionInitializer,
     Result, Suggestion,
 };
@@ -122,41 +122,78 @@ impl<'a> SuggestDao<'a> {
     /// Fetches suggestions that match the given keyword from the database.
     pub fn fetch_by_keyword(&self, keyword: &str) -> Result<Vec<Suggestion>> {
         self.conn.query_rows_and_then_cached(
-            "SELECT s.id, k.rank, s.block_id, s.advertiser, s.iab_category,
-                    s.title, s.url, s.impression_url, s.click_url,
-                    (SELECT i.data FROM icons i WHERE i.id = s.icon_id) AS icon
-             FROM suggestions s
-             JOIN keywords k ON k.suggestion_id = s.id
-             WHERE k.keyword = :keyword
-             LIMIT 1",
+            "SELECT s.id, k.rank, s.title, s.url, s.provider,
+                        (SELECT i.data FROM icons i WHERE i.id = s.icon_id) AS icon
+                  FROM suggestions s
+                  JOIN keywords k ON k.suggestion_id = s.id
+                  WHERE k.keyword = :keyword
+                  LIMIT 1",
             named_params! {
                 ":keyword": keyword,
             },
-            |row| -> Result<Suggestion> {
-                let keywords: Vec<String> = self.conn.query_rows_and_then(
+            |row| -> Result<Suggestion>{
+                let suggestion_id: i64 = row.get("id")?;
+                let title = row.get("title")?;
+                let url = row.get("url")?;
+                let icon = row.get("icon")?;
+                let provider = row.get("provider")?;
+
+                let keywords: Vec<String> = self.conn.query_rows_and_then_cached(
                     "SELECT keyword FROM keywords
                      WHERE suggestion_id = :suggestion_id AND rank >= :rank
                      ORDER BY rank ASC",
                     named_params! {
-                        ":suggestion_id": row.get::<_, i64>("id")?,
+                        ":suggestion_id": suggestion_id,
                         ":rank": row.get::<_, i64>("rank")?,
                     },
                     |row| row.get(0),
                 )?;
-                let iab_category = row.get::<_, String>("iab_category")?;
-                let is_sponsored = !NONSPONSORED_IAB_CATEGORIES.contains(&iab_category.as_str());
-                Ok(Suggestion {
-                    block_id: row.get("block_id")?,
-                    advertiser: row.get("advertiser")?,
-                    iab_category,
-                    is_sponsored,
-                    title: row.get("title")?,
-                    url: row.get("url")?,
-                    full_keyword: full_keyword(keyword, &keywords),
-                    icon: row.get("icon")?,
-                    impression_url: row.get("impression_url")?,
-                    click_url: row.get("click_url")?,
-                })
+
+                match provider {
+                    SuggestionProvider::Amp => {
+                        self.conn.query_row_and_then(
+                            "SELECT amp.advertiser, amp.block_id, amp.iab_category, amp.impression_url, amp.click_url
+                            FROM amp_custom_details amp WHERE amp.suggestion_id = :suggestion_id", 
+                            named_params! {
+                                ":suggestion_id": suggestion_id
+                            },
+                            |row|{
+                                let iab_category = row.get::<_, String>("iab_category")?;
+                                let is_sponsored = !NONSPONSORED_IAB_CATEGORIES.contains(&iab_category.as_str());
+                                Ok(Suggestion {
+                                    block_id: row.get("block_id")?,
+                                    advertiser: row.get("advertiser")?,
+                                    iab_category,
+                                    is_sponsored,
+                                    title,
+                                    url,
+                                    full_keyword: full_keyword(keyword, &keywords),
+                                    icon,
+                                    impression_url: row.get("impression_url")?,
+                                    click_url: row.get("click_url")?,
+                                    provider
+                                })
+                            }
+                        )
+                    },
+                    SuggestionProvider::Wikipedia =>{
+                        Ok(Suggestion {
+                            block_id: 0,
+                            advertiser: "Wikipedia".to_string(),
+                            iab_category: "5 - Education".to_string(),
+                            is_sponsored: false,
+                            title,
+                            url,
+                            full_keyword: full_keyword(keyword, &keywords),
+                            icon,
+                            impression_url: None,
+                            click_url: None,
+                            provider
+                        })
+                    }
+                }
+
+
             },
         )
     }
@@ -170,45 +207,69 @@ impl<'a> SuggestDao<'a> {
     ) -> Result<()> {
         for suggestion in suggestions {
             self.scope.err_if_interrupted()?;
+            let common_details = suggestion.common_details();
+            let provider = suggestion.provider();
             let suggestion_id: i64 = self.conn.query_row_and_then_cachable(
                 "INSERT INTO suggestions(
                      record_id,
-                     block_id,
-                     advertiser,
-                     iab_category,
+                     provider,
                      title,
                      url,
-                     icon_id,
-                     impression_url,
-                     click_url
+                     icon_id
                  )
                  VALUES(
                      :record_id,
-                     :block_id,
-                     :advertiser,
-                     :iab_category,
+                     :provider,
                      :title,
                      :url,
-                     :icon_id,
-                     :impression_url,
-                     :click_url
+                     :icon_id
                  )
-                 RETURNING id",
+                 RETURNING id
+                 ",
                 named_params! {
                     ":record_id": record_id.as_str(),
-                    ":block_id": suggestion.block_id,
-                    ":advertiser": suggestion.advertiser,
-                    ":iab_category": suggestion.iab_category,
-                    ":title": suggestion.title,
-                    ":url": suggestion.url,
-                    ":icon_id": suggestion.icon_id,
-                    ":impression_url": suggestion.impression_url,
-                    ":click_url": suggestion.click_url,
+                    ":provider": &provider,
+                    ":title": common_details.title,
+                    ":url": common_details.url,
+                    ":icon_id": common_details.icon_id
+
                 },
                 |row| row.get(0),
                 true,
             )?;
-            for (index, keyword) in suggestion.keywords.iter().enumerate() {
+            match suggestion {
+                DownloadedSuggestion::Amp(amp) => {
+                    self.conn.execute(
+                        "INSERT INTO amp_custom_details(
+                             suggestion_id,
+                             advertiser,
+                             block_id,
+                             iab_category,
+                             impression_url,
+                             click_url
+                         )
+                         VALUES(
+                             :suggestion_id,
+                             :advertiser,
+                             :block_id,
+                             :iab_category,
+                             :impression_url,
+                             :click_url
+                         )",
+                        named_params! {
+                            ":suggestion_id": suggestion_id,
+                            ":advertiser": amp.advertiser,
+                            ":block_id": amp.block_id,
+                            ":iab_category": amp.iab_category,
+                            ":impression_url": amp.impression_url,
+                            ":click_url": amp.click_url
+
+                        },
+                    )?;
+                }
+                DownloadedSuggestion::Wikipedia(_) => {}
+            }
+            for (index, keyword) in common_details.keywords.iter().enumerate() {
                 self.conn.execute(
                     "INSERT INTO keywords(
                          keyword,
