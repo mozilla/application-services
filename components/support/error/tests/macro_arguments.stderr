@@ -10,21 +10,21 @@ error: Expected #[handle_error(path::to::Error)]
 47 | #[handle_error(2)] // bad type.
    |                ^
 
-error: Expected #[handle_error(path::to::Error)]
+error: custom attribute panicked
   --> macro_arguments.rs:52:1
    |
 52 | #[handle_error] // No args.
    | ^^^^^^^^^^^^^^^
    |
-   = note: this error originates in the attribute macro `handle_error` (in Nightly builds, run with -Z macro-backtrace for more info)
+   = help: message: called `Option::unwrap()` on a `None` value
 
-error: Expected #[handle_error(path::to::Error)]
+error: custom attribute panicked
   --> macro_arguments.rs:57:1
    |
 57 | #[handle_error()] // empty args.
    | ^^^^^^^^^^^^^^^^^
    |
-   = note: this error originates in the attribute macro `handle_error` (in Nightly builds, run with -Z macro-backtrace for more info)
+   = help: message: called `Option::unwrap()` on a `None` value
 
 error: Expected #[handle_error(path::to::Error)]
   --> macro_arguments.rs:62:17
