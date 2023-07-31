@@ -19,7 +19,7 @@ The apps currently supported are:
 ## Usage
 
 ```sh
-Usage: nimbus-cli [OPTIONS] --app <APP> --channel <CHANNEL> <COMMAND>
+Usage: nimbus-cli [OPTIONS] <COMMAND>
 
 Commands:
   apply-file    Send a complete JSON file to the Nimbus SDK and apply it immediately
@@ -29,9 +29,11 @@ Commands:
   features      Print the feature configuration involved in the branch of an experiment
   fetch         Fetch one or more named experiments and rollouts and put them in a file
   fetch-list    Fetch a list of experiments and put it in a file
+  info          Displays information about an experiment
   list          List the experiments from a server
   log-state     Print the state of the Nimbus database to logs
   open          Open the app without changing the state of experiment enrollments
+  start-server  Start a server
   reset-app     Reset the app back to its just installed state
   tail-logs     Follow the logs for the given app
   test-feature  Configure an application feature with one or more feature config files
@@ -221,3 +223,5 @@ Options:
 - `NIMBUS_V6_URL` the host for the Experimenter, used as a basis for the calls to `/api/v6`; a default is supplied.
 - `NIMBUS_V6_URL_STAGE` the host for the staging Experimenter, used as a basis for the calls to `/api/v6`; a default is supplied.
 - `NIMBUS_MANIFEST_CACHE` the directory where remote Feature Manifests are cached. A temp directory is used as default.
+- `NIMBUS_CLI_SERVER_HOST` the IP address the server is on; defaults to the local IP address derived from the network interface.
+- `NIMBUS_CLI_SERVER_PORT` the port the server is on; defaults to 8080.
