@@ -103,21 +103,26 @@ impl Client {
     /// guarantees about a maximum size, so use care when fetching potentially
     /// large attachments.
     pub fn get_attachment(&self, attachment_location: &str) -> Result<Response> {
-        let mut current_remote_state = self.remote_state.lock();
-        self.ensure_no_backoff(&mut current_remote_state.backoff)?;
-        let attachments_base_url = match &current_remote_state.attachments_base_url {
-            Some(url) => url.clone(),
+        // Important: We use a `let` binding here to ensure that the mutex is
+        // unlocked immediately after cloning the URL. If we matched directly on
+        // the `.lock()` expression, the mutex would stay locked until the end
+        // of the `match`, causing a deadlock.
+        let maybe_attachments_base_url = self.remote_state.lock().attachments_base_url.clone();
+
+        let attachments_base_url = match maybe_attachments_base_url {
+            Some(attachments_base_url) => attachments_base_url,
             None => {
-                let req = Request::get(self.base_url.clone());
-                let server_info = req.send()?.json::<ServerInfo>()?;
-                match server_info.capabilities.attachments {
+                let server_info = self
+                    .make_request(self.base_url.clone())?
+                    .json::<ServerInfo>()?;
+                let attachments_base_url = match server_info.capabilities.attachments {
                     Some(capability) => Url::parse(&capability.base_url)?,
                     None => Err(RemoteSettingsError::AttachmentsUnsupportedError)?,
-                }
+                };
+                self.remote_state.lock().attachments_base_url = Some(attachments_base_url.clone());
+                attachments_base_url
             }
         };
-        current_remote_state.attachments_base_url = Some(attachments_base_url.clone());
-        drop(current_remote_state);
 
         self.make_request(attachments_base_url.join(attachment_location)?)
     }
@@ -528,11 +533,13 @@ mod test {
         };
 
         let client = Client::new(config).unwrap();
-        let resp = client.get_attachment(attachment_location).unwrap();
+        let first_resp = client.get_attachment(attachment_location).unwrap();
+        let second_resp = client.get_attachment(attachment_location).unwrap();
 
         server_info_m.expect(1).assert();
-        attachment_m.expect(1).assert();
-        assert_eq!(resp.body, attachment_bytes);
+        attachment_m.expect(2).assert();
+        assert_eq!(first_resp.body, attachment_bytes);
+        assert_eq!(second_resp.body, attachment_bytes);
     }
 
     #[test]
