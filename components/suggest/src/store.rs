@@ -203,11 +203,18 @@ where
                 continue;
             }
             let Ok(fields) = serde_json::from_value(serde_json::Value::Object(record.fields.clone())) else {
+                // We don't recognize this record's type, so we don't know how
+                // to ingest its suggestions. Skip to the next record.
+                writer.write(|dao| dao.put_meta(LAST_INGEST_META_KEY, record.last_modified))?;
                 continue;
             };
             match fields {
                 SuggestRecord::Data => {
                     let Some(attachment) = record.attachment.as_ref() else {
+                        // A data record should always have an attachment with
+                        // suggestions. If it doesn't, it's malformed, so skip
+                        // to the next record.
+                        writer.write(|dao| dao.put_meta(LAST_INGEST_META_KEY, record.last_modified))?;
                         continue;
                     };
 
@@ -236,6 +243,10 @@ where
                 }
                 SuggestRecord::Icon => {
                     let (Some(icon_id), Some(attachment)) = (record_id.as_icon_id(), record.attachment.as_ref()) else {
+                        // An icon record should have an icon ID and an
+                        // attachment. Icons that don't have these are
+                        // malformed, so skip to the next record.
+                        writer.write(|dao| dao.put_meta(LAST_INGEST_META_KEY, record.last_modified))?;
                         continue;
                     };
                     let data = self.settings_client.get_attachment(&attachment.location)?;
@@ -1360,6 +1371,94 @@ mod tests {
                     .with_context(|| format!("Couldn't query store for {}", what))?,
             );
         }
+
+        Ok(())
+    }
+
+    /// Tests ingesting malformed Remote Settings records that we understand,
+    /// but that are missing fields, or aren't in the format we expect.
+    #[test]
+    fn ingest_malformed() -> anyhow::Result<()> {
+        before_each();
+
+        let snapshot = Snapshot::with_records(json!([{
+            // Data record without an attachment.
+            "id": "missing-data-attachment",
+            "type": "data",
+            "last_modified": 15,
+        }, {
+            // Icon record without an attachment.
+            "id": "missing-icon-attachment",
+            "type": "icon",
+            "last_modified": 30,
+        }, {
+            // Icon record with an ID that's not `icon-{id}`, so suggestions in
+            // the data attachment won't be able to reference it.
+            "id": "bad-icon-id",
+            "type": "icon",
+            "last_modified": 45,
+            "attachment": {
+                "filename": "icon-1.png",
+                "mimetype": "image/png",
+                "location": "icon-1.png",
+                "hash": "",
+                "size": 0,
+            },
+        }]))?
+        .with_icon("icon-1.png", "i-am-an-icon".as_bytes().into());
+
+        let store = SuggestStoreInner::new(
+            "file:ingest_malformed?mode=memory&cache=shared",
+            SnapshotSettingsClient::with_snapshot(snapshot),
+        );
+
+        store.ingest(SuggestIngestionConstraints::default())?;
+
+        store.dbs()?.reader.read(|dao| {
+            assert_eq!(dao.get_meta::<u64>(LAST_INGEST_META_KEY)?, Some(45));
+            assert_eq!(
+                dao.conn
+                    .query_one::<i64>("SELECT count(*) FROM suggestions")?,
+                0
+            );
+            assert_eq!(dao.conn.query_one::<i64>("SELECT count(*) FROM icons")?, 0);
+
+            Ok(())
+        })?;
+
+        Ok(())
+    }
+
+    /// Tests unknown Remote Settings records, which we don't know how to ingest
+    /// at all.
+    #[test]
+    fn ingest_unknown() -> anyhow::Result<()> {
+        before_each();
+
+        let snapshot = Snapshot::with_records(json!([{
+            "id": "fancy-new-suggestions-1",
+            "type": "fancy-new-suggestions",
+            "last_modified": 15,
+        }, {
+            "id": "clippy-2",
+            "type": "clippy",
+            "last_modified": 30,
+        }]))?;
+
+        let store = SuggestStoreInner::new(
+            "file:ingest_unknown?mode=memory&cache=shared",
+            SnapshotSettingsClient::with_snapshot(snapshot),
+        );
+
+        store.ingest(SuggestIngestionConstraints::default())?;
+
+        store.dbs()?.reader.read(|dao| {
+            // Unknown records should still advance the last ingest time, but
+            // we don't try to store or ingest any suggestions from them.
+            assert_eq!(dao.get_meta::<u64>(LAST_INGEST_META_KEY)?, Some(30));
+
+            Ok(())
+        })?;
 
         Ok(())
     }
