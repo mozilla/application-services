@@ -22,5 +22,6 @@ url = "2.1" # mozilla-central can't yet take 2.2 (see bug 1734538)
 uniffi = { version = "0.24.1", features = ["build"] }
 
 [dev-dependencies]
+expect-test = "1.4"
 viaduct-reqwest = { path = "../support/viaduct-reqwest" }
 mockito = "0.31"
