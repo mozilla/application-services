@@ -1,12 +1,13 @@
-use std::ops::Deref;
+use std::{borrow::Cow, ops::Deref};
 
-use remote_settings::{Attachment, GetItemsOptions};
-use rusqlite::types::{FromSql, FromSqlError, FromSqlResult, ToSql, ToSqlOutput, ValueRef};
-use rusqlite::Result as RusqliteResult;
-use serde::Deserialize;
+use remote_settings::{GetItemsOptions, RemoteSettingsResponse};
+use rusqlite::{
+    types::{FromSql, FromSqlError, FromSqlResult, ToSql, ToSqlOutput, ValueRef},
+    Result as RusqliteResult,
+};
+use serde::{Deserialize, Deserializer};
 
 use crate::Result;
-use serde::Deserializer;
 
 /// The Suggest Remote Settings collection name.
 pub(crate) const REMOTE_SETTINGS_COLLECTION: &str = "quicksuggest";
@@ -22,86 +23,40 @@ pub(crate) const SUGGESTIONS_PER_ATTACHMENT: u64 = 200;
 /// This trait lets tests use a mock client.
 pub(crate) trait SuggestRemoteSettingsClient {
     /// Fetches records from the Suggest Remote Settings collection.
-    fn get_records_with_options(
-        &self,
-        options: &GetItemsOptions,
-    ) -> Result<SuggestRemoteSettingsRecords>;
+    fn get_records_with_options(&self, options: &GetItemsOptions)
+        -> Result<RemoteSettingsResponse>;
 
-    /// Fetches a data attachment with suggestions to ingest from the Suggest
-    /// Remote Settings collection.
-    fn get_data_attachment(&self, location: &str) -> Result<DownloadedSuggestDataAttachment>;
-
-    /// Fetches an icon attachment from the Suggest Remote Settings collection.
-    fn get_icon_attachment(&self, location: &str) -> Result<Vec<u8>>;
+    /// Fetches a record's attachment from the Suggest Remote Settings
+    /// collection.
+    fn get_attachment(&self, location: &str) -> Result<Vec<u8>>;
 }
 
 impl SuggestRemoteSettingsClient for remote_settings::Client {
     fn get_records_with_options(
         &self,
         options: &GetItemsOptions,
-    ) -> Result<SuggestRemoteSettingsRecords> {
-        Ok(self.get_records_raw_with_options(options)?.json()?)
+    ) -> Result<RemoteSettingsResponse> {
+        Ok(remote_settings::Client::get_records_with_options(
+            self, options,
+        )?)
     }
 
-    fn get_data_attachment(&self, location: &str) -> Result<DownloadedSuggestDataAttachment> {
-        Ok(self.get_attachment(location)?.json()?)
-    }
-
-    fn get_icon_attachment(&self, location: &str) -> Result<Vec<u8>> {
-        Ok(self.get_attachment(location)?.body)
+    fn get_attachment(&self, location: &str) -> Result<Vec<u8>> {
+        Ok(remote_settings::Client::get_attachment(self, location)?)
     }
 }
 
-/// The response body for a Suggest Remote Settings collection request.
-#[derive(Clone, Debug, Deserialize)]
-pub(crate) struct SuggestRemoteSettingsRecords {
-    pub data: Vec<SuggestRecord>,
-}
-
-/// A record with a known or an unknown type, or a tombstone, in the Suggest
-/// Remote Settings collection.
+/// A record in the Suggest Remote Settings collection.
 ///
-/// Because `#[serde(other)]` doesn't support associated data
-/// (serde-rs/serde#1973), we can't define variants for all the known types and
-/// the unknown type in the same enum. Instead, we have this "outer", untagged
-/// `SuggestRecord` with the "unknown type" variant, and an "inner", internally
-/// tagged `TypedSuggestRecord` with all the "known type" variants.
-#[derive(Clone, Debug, Deserialize, PartialEq)]
-#[serde(untagged)]
-pub(crate) enum SuggestRecord {
-    /// A record with a known type.
-    Typed(TypedSuggestRecord),
-
-    /// A tombstone, or a record with an unknown type, that we don't know how
-    /// to ingest.
-    ///
-    /// Tombstones only have these three fields, with `deleted` set to `true`.
-    /// Records with unknown types have `deleted` set to `false`, and may
-    /// contain other fields that we ignore.
-    Untyped {
-        id: SuggestRecordId,
-        last_modified: u64,
-        #[serde(default)]
-        deleted: bool,
-    },
-}
-
-/// A record that we know how to ingest from Remote Settings.
+/// Except for the type, Suggest records don't carry additional fields. All
+/// suggestions are stored in each record's attachment.
 #[derive(Clone, Debug, Deserialize, PartialEq)]
 #[serde(tag = "type")]
-pub(crate) enum TypedSuggestRecord {
+pub(crate) enum SuggestRecord {
     #[serde(rename = "icon")]
-    Icon {
-        id: SuggestRecordId,
-        last_modified: u64,
-        attachment: Attachment,
-    },
+    Icon,
     #[serde(rename = "data")]
-    Data {
-        id: SuggestRecordId,
-        last_modified: u64,
-        attachment: Attachment,
-    },
+    Data,
 }
 
 /// Represents either a single value, or a list of values. This is used to
@@ -132,9 +87,9 @@ pub(crate) struct DownloadedSuggestDataAttachment(pub OneOrMany<DownloadedSugges
 /// The ID of a record in the Suggest Remote Settings collection.
 #[derive(Clone, Debug, Deserialize, Eq, Hash, Ord, PartialEq, PartialOrd)]
 #[serde(transparent)]
-pub(crate) struct SuggestRecordId(String);
+pub(crate) struct SuggestRecordId<'a>(Cow<'a, str>);
 
-impl SuggestRecordId {
+impl<'a> SuggestRecordId<'a> {
     pub fn as_str(&self) -> &str {
         &self.0
     }
@@ -146,6 +101,15 @@ impl SuggestRecordId {
     /// [`DownloadedSuggestion::icon_id`].
     pub fn as_icon_id(&self) -> Option<&str> {
         self.0.strip_prefix("icon-")
+    }
+}
+
+impl<'a, T> From<T> for SuggestRecordId<'a>
+where
+    T: Into<Cow<'a, str>>,
+{
+    fn from(value: T) -> Self {
+        Self(value.into())
     }
 }
 

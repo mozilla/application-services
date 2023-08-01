@@ -11,8 +11,8 @@ use remote_settings::{self, GetItemsOptions, RemoteSettingsConfig, SortOrder};
 use crate::{
     db::{ConnectionType, SuggestDb, LAST_INGEST_META_KEY},
     rs::{
-        SuggestRecord, SuggestRemoteSettingsClient, TypedSuggestRecord, REMOTE_SETTINGS_COLLECTION,
-        SUGGESTIONS_PER_ATTACHMENT,
+        DownloadedSuggestDataAttachment, SuggestRecord, SuggestRecordId,
+        SuggestRemoteSettingsClient, REMOTE_SETTINGS_COLLECTION, SUGGESTIONS_PER_ATTACHMENT,
     },
     Result, SuggestApiResult, Suggestion, SuggestionQuery,
 };
@@ -186,18 +186,35 @@ where
         let records = self
             .settings_client
             .get_records_with_options(&options)?
-            .data;
+            .records;
         for record in &records {
-            match record {
-                SuggestRecord::Typed(TypedSuggestRecord::Data {
-                    id: record_id,
-                    last_modified,
-                    attachment,
-                }) => {
-                    let suggestions = self
-                        .settings_client
-                        .get_data_attachment(&attachment.location)?
-                        .0;
+            let record_id = SuggestRecordId::from(&record.id);
+            if record.deleted {
+                // If the entire record was deleted, drop all its suggestions
+                // and advance the last ingest time.
+                writer.write(|dao| {
+                    match record_id.as_icon_id() {
+                        Some(icon_id) => dao.drop_icon(icon_id)?,
+                        None => dao.drop_suggestions(&record_id)?,
+                    };
+                    dao.put_meta(LAST_INGEST_META_KEY, record.last_modified)?;
+                    Ok(())
+                })?;
+                continue;
+            }
+            let Ok(fields) = serde_json::from_value(serde_json::Value::Object(record.fields.clone())) else {
+                continue;
+            };
+            match fields {
+                SuggestRecord::Data => {
+                    let Some(attachment) = record.attachment.as_ref() else {
+                        continue;
+                    };
+
+                    let suggestions = serde_json::from_slice::<DownloadedSuggestDataAttachment>(
+                        &self.settings_client.get_attachment(&attachment.location)?,
+                    )?
+                    .0;
 
                     writer.write(|dao| {
                         // Drop any suggestions that we previously ingested from
@@ -205,52 +222,29 @@ where
                         // stable identifier, and determining which suggestions in
                         // the attachment actually changed is more complicated than
                         // dropping and re-ingesting all of them.
-                        dao.drop_suggestions(record_id)?;
+                        dao.drop_suggestions(&record_id)?;
 
                         // Ingest (or re-ingest) all suggestions in the attachment.
-                        dao.insert_suggestions(record_id, &suggestions)?;
+                        dao.insert_suggestions(&record_id, &suggestions)?;
 
                         // Advance the last fetch time, so that we can resume
                         // fetching after this record if we're interrupted.
-                        dao.put_meta(LAST_INGEST_META_KEY, last_modified)?;
+                        dao.put_meta(LAST_INGEST_META_KEY, record.last_modified)?;
 
                         Ok(())
                     })?;
                 }
-                SuggestRecord::Untyped {
-                    id: record_id,
-                    last_modified,
-                    deleted,
-                } if *deleted => {
-                    // If the entire record was deleted, drop all its
-                    // suggestions and advance the last fetch time.
-                    writer.write(|dao| {
-                        match record_id.as_icon_id() {
-                            Some(icon_id) => dao.drop_icon(icon_id)?,
-                            None => dao.drop_suggestions(record_id)?,
-                        };
-                        dao.put_meta(LAST_INGEST_META_KEY, last_modified)?;
-                        Ok(())
-                    })?;
-                }
-                SuggestRecord::Typed(TypedSuggestRecord::Icon {
-                    id: record_id,
-                    last_modified,
-                    attachment,
-                }) => {
-                    let Some(icon_id) = record_id.as_icon_id() else {
-                        continue
+                SuggestRecord::Icon => {
+                    let (Some(icon_id), Some(attachment)) = (record_id.as_icon_id(), record.attachment.as_ref()) else {
+                        continue;
                     };
-                    let data = self
-                        .settings_client
-                        .get_icon_attachment(&attachment.location)?;
+                    let data = self.settings_client.get_attachment(&attachment.location)?;
                     writer.write(|dao| {
                         dao.insert_icon(icon_id, &data)?;
-                        dao.put_meta(LAST_INGEST_META_KEY, last_modified)?;
+                        dao.put_meta(LAST_INGEST_META_KEY, record.last_modified)?;
                         Ok(())
                     })?;
                 }
-                _ => continue,
             }
         }
 
@@ -285,18 +279,16 @@ mod tests {
     use anyhow::{anyhow, Context};
     use expect_test::expect;
     use parking_lot::Once;
+    use remote_settings::{RemoteSettingsRecord, RemoteSettingsResponse};
     use serde_json::json;
     use sql_support::ConnExt;
-
-    use crate::rs::{DownloadedSuggestDataAttachment, SuggestRemoteSettingsRecords};
 
     /// A snapshot containing fake Remote Settings records and attachments for
     /// the store to ingest. We use snapshots to test the store's behavior in a
     /// data-driven way.
     struct Snapshot {
-        records: SuggestRemoteSettingsRecords,
-        data: HashMap<&'static str, DownloadedSuggestDataAttachment>,
-        icons: HashMap<&'static str, Vec<u8>>,
+        records: Vec<RemoteSettingsRecord>,
+        attachments: HashMap<&'static str, Vec<u8>>,
     }
 
     impl Snapshot {
@@ -306,13 +298,12 @@ mod tests {
         /// You can use the [`serde_json::json!`] macro to construct the JSON
         /// value, then pass it to this function. It's easier to use the
         /// `Snapshot::with_records(json!(...))` idiom than to construct the
-        /// nested `SuggestRemoteSettingsRecords` structure by hand.
+        /// records by hand.
         fn with_records(value: serde_json::Value) -> anyhow::Result<Self> {
             Ok(Self {
                 records: serde_json::from_value(value)
                     .context("Couldn't create snapshot with Remote Settings records")?,
-                data: HashMap::new(),
-                icons: HashMap::new(),
+                attachments: HashMap::new(),
             })
         }
 
@@ -322,17 +313,16 @@ mod tests {
             location: &'static str,
             value: serde_json::Value,
         ) -> anyhow::Result<Self> {
-            self.data.insert(
+            self.attachments.insert(
                 location,
-                serde_json::from_value(value)
-                    .context("Couldn't add data attachment to snapshot")?,
+                serde_json::to_vec(&value).context("Couldn't add data attachment to snapshot")?,
             );
             Ok(self)
         }
 
         /// Adds an icon attachment to the snapshot.
         fn with_icon(mut self, location: &'static str, bytes: Vec<u8>) -> Self {
-            self.icons.insert(location, bytes);
+            self.attachments.insert(location, bytes);
             self
         }
     }
@@ -377,32 +367,27 @@ mod tests {
         fn get_records_with_options(
             &self,
             options: &GetItemsOptions,
-        ) -> Result<SuggestRemoteSettingsRecords> {
+        ) -> Result<RemoteSettingsResponse> {
             *self.last_get_records_options.borrow_mut() = Some(options.clone());
-            Ok(self.snapshot.borrow().records.clone())
+            let records = self.snapshot.borrow().records.clone();
+            let last_modified = records
+                .iter()
+                .map(|record| record.last_modified)
+                .max()
+                .unwrap_or(0);
+            Ok(RemoteSettingsResponse {
+                records,
+                last_modified,
+            })
         }
 
-        fn get_data_attachment(&self, location: &str) -> Result<DownloadedSuggestDataAttachment> {
+        fn get_attachment(&self, location: &str) -> Result<Vec<u8>> {
             Ok(self
                 .snapshot
                 .borrow()
-                .data
+                .attachments
                 .get(location)
-                .unwrap_or_else(|| {
-                    unreachable!("Unexpected request for data attachment `{}`", location)
-                })
-                .clone())
-        }
-
-        fn get_icon_attachment(&self, location: &str) -> Result<Vec<u8>> {
-            Ok(self
-                .snapshot
-                .borrow()
-                .icons
-                .get(location)
-                .unwrap_or_else(|| {
-                    unreachable!("Unexpected request for icon attachment `{}`", location)
-                })
+                .unwrap_or_else(|| unreachable!("Unexpected request for attachment `{}`", location))
                 .clone())
         }
     }
@@ -429,20 +414,18 @@ mod tests {
     fn ingest_suggestions() -> anyhow::Result<()> {
         before_each();
 
-        let snapshot = Snapshot::with_records(json!({
-            "data": [{
-                "id": "1234",
-                "type": "data",
-                "last_modified": 15,
-                "attachment": {
-                    "filename": "data-1.json",
-                    "mimetype": "application/json",
-                    "location": "data-1.json",
-                    "hash": "",
-                    "size": 0,
-                },
-            }],
-        }))?
+        let snapshot = Snapshot::with_records(json!([{
+            "id": "1234",
+            "type": "data",
+            "last_modified": 15,
+            "attachment": {
+                "filename": "data-1.json",
+                "mimetype": "application/json",
+                "location": "data-1.json",
+                "hash": "",
+                "size": 0,
+            },
+        }]))?
         .with_data(
             "data-1.json",
             json!([{
@@ -507,31 +490,29 @@ mod tests {
     fn ingest_icons() -> anyhow::Result<()> {
         before_each();
 
-        let snapshot = Snapshot::with_records(json!({
-            "data": [{
-                "id": "data-1",
-                "type": "data",
-                "last_modified": 15,
-                "attachment": {
-                    "filename": "data-1.json",
-                    "mimetype": "application/json",
-                    "location": "data-1.json",
-                    "hash": "",
-                    "size": 0,
-                },
-            }, {
-                "id": "icon-2",
-                "type": "icon",
-                "last_modified": 20,
-                "attachment": {
-                    "filename": "icon-2.png",
-                    "mimetype": "image/png",
-                    "location": "icon-2.png",
-                    "hash": "",
-                    "size": 0,
-                },
-            }],
-        }))?
+        let snapshot = Snapshot::with_records(json!([{
+            "id": "data-1",
+            "type": "data",
+            "last_modified": 15,
+            "attachment": {
+                "filename": "data-1.json",
+                "mimetype": "application/json",
+                "location": "data-1.json",
+                "hash": "",
+                "size": 0,
+            },
+        }, {
+            "id": "icon-2",
+            "type": "icon",
+            "last_modified": 20,
+            "attachment": {
+                "filename": "icon-2.png",
+                "mimetype": "image/png",
+                "location": "icon-2.png",
+                "hash": "",
+                "size": 0,
+            },
+        }]))?
         .with_data(
             "data-1.json",
             json!([{
@@ -653,20 +634,18 @@ mod tests {
     fn ingest_one_suggestion_in_data_attachment() -> anyhow::Result<()> {
         before_each();
 
-        let snapshot = Snapshot::with_records(json!({
-            "data": [{
-                "id": "data-1",
-                "type": "data",
-                "last_modified": 15,
-                "attachment": {
-                    "filename": "data-1.json",
-                    "mimetype": "application/json",
-                    "location": "data-1.json",
-                    "hash": "",
-                    "size": 0,
-                },
-            }],
-        }))?
+        let snapshot = Snapshot::with_records(json!([{
+            "id": "data-1",
+            "type": "data",
+            "last_modified": 15,
+            "attachment": {
+                "filename": "data-1.json",
+                "mimetype": "application/json",
+                "location": "data-1.json",
+                "hash": "",
+                "size": 0,
+            },
+        }]))?
         .with_data(
             "data-1.json",
             json!({
@@ -725,20 +704,18 @@ mod tests {
         before_each();
 
         // Ingest suggestions from the initial snapshot.
-        let initial_snapshot = Snapshot::with_records(json!({
-            "data": [{
-                "id": "data-1",
-                "type": "data",
-                "last_modified": 15,
-                "attachment": {
-                    "filename": "data-1.json",
-                    "mimetype": "application/json",
-                    "location": "data-1.json",
-                    "hash": "",
-                    "size": 0,
-                },
-            }],
-        }))?
+        let initial_snapshot = Snapshot::with_records(json!([{
+            "id": "data-1",
+            "type": "data",
+            "last_modified": 15,
+            "attachment": {
+                "filename": "data-1.json",
+                "mimetype": "application/json",
+                "location": "data-1.json",
+                "hash": "",
+                "size": 0,
+            },
+        }]))?
         .with_data(
             "data-1.json",
             json!([{
@@ -800,20 +777,18 @@ mod tests {
 
         // Update the snapshot with new suggestions: drop Lasagna, update Los
         // Pollos, and add Penne.
-        *store.settings_client.snapshot.borrow_mut() = Snapshot::with_records(json!({
-            "data": [{
-                "id": "data-1",
-                "type": "data",
-                "last_modified": 30,
-                "attachment": {
-                    "filename": "data-1-1.json",
-                    "mimetype": "application/json",
-                    "location": "data-1-1.json",
-                    "hash": "",
-                    "size": 0,
-                },
-            }],
-        }))?
+        *store.settings_client.snapshot.borrow_mut() = Snapshot::with_records(json!([{
+            "id": "data-1",
+            "type": "data",
+            "last_modified": 30,
+            "attachment": {
+                "filename": "data-1-1.json",
+                "mimetype": "application/json",
+                "location": "data-1-1.json",
+                "hash": "",
+                "size": 0,
+            },
+        }]))?
         .with_data(
             "data-1-1.json",
             json!([{
@@ -901,31 +876,29 @@ mod tests {
         before_each();
 
         // Ingest suggestions and icons from the initial snapshot.
-        let initial_snapshot = Snapshot::with_records(json!({
-            "data": [{
-                "id": "data-1",
-                "type": "data",
-                "last_modified": 15,
-                "attachment": {
-                    "filename": "data-1.json",
-                    "mimetype": "application/json",
-                    "location": "data-1.json",
-                    "hash": "",
-                    "size": 0,
-                },
-            }, {
-                "id": "icon-2",
-                "type": "icon",
-                "last_modified": 20,
-                "attachment": {
-                    "filename": "icon-2.png",
-                    "mimetype": "image/png",
-                    "location": "icon-2.png",
-                    "hash": "",
-                    "size": 0,
-                },
-            }],
-        }))?
+        let initial_snapshot = Snapshot::with_records(json!([{
+            "id": "data-1",
+            "type": "data",
+            "last_modified": 15,
+            "attachment": {
+                "filename": "data-1.json",
+                "mimetype": "application/json",
+                "location": "data-1.json",
+                "hash": "",
+                "size": 0,
+            },
+        }, {
+            "id": "icon-2",
+            "type": "icon",
+            "last_modified": 20,
+            "attachment": {
+                "filename": "icon-2.png",
+                "mimetype": "image/png",
+                "location": "icon-2.png",
+                "hash": "",
+                "size": 0,
+            },
+        }]))?
         .with_data(
             "data-1.json",
             json!([{
@@ -963,17 +936,15 @@ mod tests {
 
         // Replace the records with tombstones. Ingesting these should remove
         // all their suggestions and icons.
-        *store.settings_client.snapshot.borrow_mut() = Snapshot::with_records(json!({
-            "data": [{
-                "id": "data-1",
-                "last_modified": 25,
-                "deleted": true,
-            }, {
-                "id": "icon-2",
-                "last_modified": 30,
-                "deleted": true,
-            }],
-        }))?;
+        *store.settings_client.snapshot.borrow_mut() = Snapshot::with_records(json!([{
+            "id": "data-1",
+            "last_modified": 25,
+            "deleted": true,
+        }, {
+            "id": "icon-2",
+            "last_modified": 30,
+            "deleted": true,
+        }]))?;
 
         store.ingest(SuggestIngestionConstraints::default())?;
 
@@ -997,9 +968,7 @@ mod tests {
     fn ingest_with_constraints() -> anyhow::Result<()> {
         before_each();
 
-        let snapshot = Snapshot::with_records(json!({
-            "data": [],
-        }))?;
+        let snapshot = Snapshot::with_records(json!([]))?;
 
         let store = SuggestStoreInner::new(
             "file:ingest_with_constraints?mode=memory&cache=shared",
@@ -1048,20 +1017,18 @@ mod tests {
     fn clear() -> anyhow::Result<()> {
         before_each();
 
-        let snapshot = Snapshot::with_records(json!({
-            "data": [{
-                "id": "data-1",
-                "type": "data",
-                "last_modified": 15,
-                "attachment": {
-                    "filename": "data-1.json",
-                    "mimetype": "application/json",
-                    "location": "data-1.json",
-                    "hash": "",
-                    "size": 0,
-                },
-            }],
-        }))?
+        let snapshot = Snapshot::with_records(json!([{
+            "id": "data-1",
+            "type": "data",
+            "last_modified": 15,
+            "attachment": {
+                "filename": "data-1.json",
+                "mimetype": "application/json",
+                "location": "data-1.json",
+                "hash": "",
+                "size": 0,
+            },
+        }]))?
         .with_data(
             "data-1.json",
             json!([{
@@ -1124,42 +1091,40 @@ mod tests {
     fn query() -> anyhow::Result<()> {
         before_each();
 
-        let snapshot = Snapshot::with_records(json!({
-            "data": [{
-                "id": "data-1",
-                "type": "data",
-                "last_modified": 15,
-                "attachment": {
-                    "filename": "data-1.json",
-                    "mimetype": "application/json",
-                    "location": "data-1.json",
-                    "hash": "",
-                    "size": 0,
-                },
-            }, {
-                "id": "icon-2",
-                "type": "icon",
-                "last_modified": 20,
-                "attachment": {
-                    "filename": "icon-2.png",
-                    "mimetype": "image/png",
-                    "location": "icon-2.png",
-                    "hash": "",
-                    "size": 0,
-                },
-            }, {
-                "id": "icon-3",
-                "type": "icon",
-                "last_modified": 25,
-                "attachment": {
-                    "filename": "icon-3.png",
-                    "mimetype": "image/png",
-                    "location": "icon-3.png",
-                    "hash": "",
-                    "size": 0,
-                },
-            }],
-        }))?
+        let snapshot = Snapshot::with_records(json!([{
+            "id": "data-1",
+            "type": "data",
+            "last_modified": 15,
+            "attachment": {
+                "filename": "data-1.json",
+                "mimetype": "application/json",
+                "location": "data-1.json",
+                "hash": "",
+                "size": 0,
+            },
+        }, {
+            "id": "icon-2",
+            "type": "icon",
+            "last_modified": 20,
+            "attachment": {
+                "filename": "icon-2.png",
+                "mimetype": "image/png",
+                "location": "icon-2.png",
+                "hash": "",
+                "size": 0,
+            },
+        }, {
+            "id": "icon-3",
+            "type": "icon",
+            "last_modified": 25,
+            "attachment": {
+                "filename": "icon-3.png",
+                "mimetype": "image/png",
+                "location": "icon-3.png",
+                "hash": "",
+                "size": 0,
+            },
+        }]))?
         .with_data(
             "data-1.json",
             json!([{
