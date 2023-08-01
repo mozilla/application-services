@@ -48,16 +48,7 @@ impl Client {
     /// bucket, and collection defined by the [ClientConfig] used to generate
     /// this [Client].
     pub fn get_records(&self) -> Result<RemoteSettingsResponse> {
-        let resp = self.get_records_raw()?;
-        let records = resp.json::<RecordsResponse>()?.data;
-        let last_modified = resp
-            .headers
-            .get_as("etag")
-            .ok_or_else(|| RemoteSettingsError::ResponseError("no etag header".into()))??;
-        Ok(RemoteSettingsResponse {
-            records,
-            last_modified,
-        })
+        self.get_records_with_options(&GetItemsOptions::new())
     }
 
     /// Fetches all records for a collection that can be found in the server,
@@ -71,9 +62,17 @@ impl Client {
     /// for a collection that can be found in the server, bucket, and
     /// collection defined by the [ClientConfig] used to generate this [Client].
     pub fn get_records_since(&self, timestamp: u64) -> Result<RemoteSettingsResponse> {
-        let resp = self.get_records_raw_with_options(
+        self.get_records_with_options(
             GetItemsOptions::new().gt("last_modified", timestamp.to_string()),
-        )?;
+        )
+    }
+
+    /// Fetches records from this client's collection with the given options.
+    pub fn get_records_with_options(
+        &self,
+        options: &GetItemsOptions,
+    ) -> Result<RemoteSettingsResponse> {
+        let resp = self.get_records_raw_with_options(options)?;
         let records = resp.json::<RecordsResponse>()?.data;
         let last_modified = resp
             .headers
@@ -192,6 +191,7 @@ impl Client {
 
 /// Data structure representing the top-level response from the Remote Settings.
 /// [last_modified] will be extracted from the etag header of the response.
+#[derive(Clone, Debug, Eq, PartialEq)]
 pub struct RemoteSettingsResponse {
     pub records: Vec<RemoteSettingsRecord>,
     pub last_modified: u64,
@@ -490,6 +490,7 @@ impl Sort {
 #[cfg(test)]
 mod test {
     use super::*;
+    use expect_test::expect;
     use mockito::{mock, Matcher};
     #[test]
     fn test_defaults() {
@@ -666,28 +667,100 @@ mod test {
             bucket_name: Some(String::from("the-bucket")),
         };
         let http_client = Client::new(config).unwrap();
-        assert!(http_client
-            .get_records_raw_with_options(
-                GetItemsOptions::new()
-                    .field("a")
-                    .field("c")
-                    .field("b")
-                    .eq("a", "b")
-                    .lt("c.d", "5")
-                    .gt("e", "15")
-                    .max("f", "20")
-                    .min("g", "10")
-                    .not("h", "i")
-                    .like("j", "*k*")
-                    .has("l")
-                    .has_not("m")
-                    .contains("n", "o")
-                    .sort("b", SortOrder::Descending)
-                    .sort("a", SortOrder::Ascending)
-                    .limit(3)
-            )
-            .is_ok());
-        m.expect(1).assert();
+        let mut options = GetItemsOptions::new();
+        options
+            .field("a")
+            .field("c")
+            .field("b")
+            .eq("a", "b")
+            .lt("c.d", "5")
+            .gt("e", "15")
+            .max("f", "20")
+            .min("g", "10")
+            .not("h", "i")
+            .like("j", "*k*")
+            .has("l")
+            .has_not("m")
+            .contains("n", "o")
+            .sort("b", SortOrder::Descending)
+            .sort("a", SortOrder::Ascending)
+            .limit(3);
+
+        assert!(http_client.get_records_raw_with_options(&options).is_ok());
+        expect![[r#"
+            RemoteSettingsResponse {
+                records: [
+                    RemoteSettingsRecord {
+                        id: "c5dcd1da-7126-4abb-846b-ec85b0d4d0d7",
+                        last_modified: 1677694949407,
+                        attachment: Some(
+                            Attachment {
+                                filename: "jgp-attachment.jpg",
+                                mimetype: "image/jpeg",
+                                location: "the-bucket/the-collection/d3a5eccc-f0ca-42c3-b0bb-c0d4408c21c9.jpg",
+                                hash: "2cbd593f3fd5f1585f92265433a6696a863bc98726f03e7222135ff0d8e83543",
+                                size: 1374325,
+                            },
+                        ),
+                        fields: {
+                            "content": String(
+                                "content",
+                            ),
+                            "schema": Number(
+                                1677694447771,
+                            ),
+                            "title": String(
+                                "jpg-attachment",
+                            ),
+                        },
+                    },
+                    RemoteSettingsRecord {
+                        id: "ff301910-6bf5-4cfe-bc4c-5c80308661a5",
+                        last_modified: 1677694470354,
+                        attachment: Some(
+                            Attachment {
+                                filename: "pdf-attachment.pdf",
+                                mimetype: "application/pdf",
+                                location: "the-bucket/the-collection/5f7347c2-af92-411d-a65b-f794f9b5084c.pdf",
+                                hash: "de1cde3571ef3faa77ea0493276de9231acaa6f6651602e93aa1036f51181e9b",
+                                size: 157,
+                            },
+                        ),
+                        fields: {
+                            "content": String(
+                                "content",
+                            ),
+                            "schema": Number(
+                                1677694447771,
+                            ),
+                            "title": String(
+                                "with-attachment",
+                            ),
+                        },
+                    },
+                    RemoteSettingsRecord {
+                        id: "7403c6f9-79be-4e0c-a37a-8f2b5bd7ad58",
+                        last_modified: 1677694455368,
+                        attachment: None,
+                        fields: {
+                            "content": String(
+                                "content",
+                            ),
+                            "schema": Number(
+                                1677694447771,
+                            ),
+                            "title": String(
+                                "no-attachment",
+                            ),
+                        },
+                    },
+                ],
+                last_modified: 1000,
+            }
+        "#]].assert_debug_eq(&http_client
+            .get_records_with_options(&options)
+            .unwrap());
+        m.expect(2).assert();
     }
 
     #[test]
