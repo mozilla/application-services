@@ -6,6 +6,7 @@
 ### 🦊 What's Changed 🦊
 
 - Backward-incompatible changes to the Suggest database schema to accommodate custom details for providers ([#5745](https://github.com/mozilla/application-services/pull/5745)) and future suggestion types ([#5766](https://github.com/mozilla/application-services/pull/5766)). This only affects prototyping, because we aren't consuming Suggest in any of our products yet.
+- The `Suggestion` type in the Suggest component has changed from a dictionary to an enum ([#5766](https://github.com/mozilla/application-services/pull/5766)). This only affects prototyping, because we aren't consuming Suggest in any of our products yet.
 - The Remote Settings `Client::get_attachment()` method now returns a `Vec<u8>` instead of a Viaduct `Response` ([#5764](https://github.com/mozilla/application-services/pull/5764)). You can use the new `Client::get_attachment_raw()` method if you need the `Response`. This is a backward-incompatible change for Rust consumers only; Swift and Kotlin are unaffected.
 - The Remote Settings client now parses `ETag` response headers from Remote Settings correctly ([#5764](https://github.com/mozilla/application-services/pull/5764)).
 
