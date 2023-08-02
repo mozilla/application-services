@@ -213,6 +213,8 @@ struct RecordsResponse {
 pub struct RemoteSettingsRecord {
     pub id: String,
     pub last_modified: u64,
+    #[serde(default)]
+    pub deleted: bool,
     pub attachment: Option<Attachment>,
     #[serde(flatten)]
     pub fields: RsJsonObject,
@@ -698,6 +700,7 @@ mod test {
                     RemoteSettingsRecord {
                         id: "c5dcd1da-7126-4abb-846b-ec85b0d4d0d7",
                         last_modified: 1677694949407,
+                        deleted: false,
                         attachment: Some(
                             Attachment {
                                 filename: "jgp-attachment.jpg",
@@ -722,6 +725,7 @@ mod test {
                     RemoteSettingsRecord {
                         id: "ff301910-6bf5-4cfe-bc4c-5c80308661a5",
                         last_modified: 1677694470354,
+                        deleted: false,
                         attachment: Some(
                             Attachment {
                                 filename: "pdf-attachment.pdf",
@@ -746,6 +750,7 @@ mod test {
                     RemoteSettingsRecord {
                         id: "7403c6f9-79be-4e0c-a37a-8f2b5bd7ad58",
                         last_modified: 1677694455368,
+                        deleted: false,
                         attachment: None,
                         fields: {
                             "content": String(
@@ -758,6 +763,13 @@ mod test {
                                 "no-attachment",
                             ),
                         },
+                    },
+                    RemoteSettingsRecord {
+                        id: "9320f53c-0a39-4997-9120-62ff597ffb26",
+                        last_modified: 1690921847416,
+                        deleted: true,
+                        attachment: None,
+                        fields: {},
                     },
                 ],
                 last_modified: 1000,
@@ -808,6 +820,109 @@ mod test {
         m.expect(1).assert();
     }
 
+    #[test]
+    fn test_record_fields() {
+        viaduct_reqwest::use_reqwest_backend();
+        let m = mock(
+            "GET",
+            "/v1/buckets/the-bucket/collections/the-collection/records",
+        )
+        .with_body(response_body())
+        .with_status(200)
+        .with_header("content-type", "application/json")
+        .with_header("etag", "1000")
+        .create();
+        let config = RemoteSettingsConfig {
+            server_url: Some(mockito::server_url()),
+            collection_name: String::from("the-collection"),
+            bucket_name: Some(String::from("the-bucket")),
+        };
+        let http_client = Client::new(config).unwrap();
+        let response = http_client.get_records().unwrap();
+        expect![[r#"
+            RemoteSettingsResponse {
+                records: [
+                    RemoteSettingsRecord {
+                        id: "c5dcd1da-7126-4abb-846b-ec85b0d4d0d7",
+                        last_modified: 1677694949407,
+                        deleted: false,
+                        attachment: Some(
+                            Attachment {
+                                filename: "jgp-attachment.jpg",
+                                mimetype: "image/jpeg",
+                                location: "the-bucket/the-collection/d3a5eccc-f0ca-42c3-b0bb-c0d4408c21c9.jpg",
+                                hash: "2cbd593f3fd5f1585f92265433a6696a863bc98726f03e7222135ff0d8e83543",
+                                size: 1374325,
+                            },
+                        ),
+                        fields: {
+                            "content": String(
+                                "content",
+                            ),
+                            "schema": Number(
+                                1677694447771,
+                            ),
+                            "title": String(
+                                "jpg-attachment",
+                            ),
+                        },
+                    },
+                    RemoteSettingsRecord {
+                        id: "ff301910-6bf5-4cfe-bc4c-5c80308661a5",
+                        last_modified: 1677694470354,
+                        deleted: false,
+                        attachment: Some(
+                            Attachment {
+                                filename: "pdf-attachment.pdf",
+                                mimetype: "application/pdf",
+                                location: "the-bucket/the-collection/5f7347c2-af92-411d-a65b-f794f9b5084c.pdf",
+                                hash: "de1cde3571ef3faa77ea0493276de9231acaa6f6651602e93aa1036f51181e9b",
+                                size: 157,
+                            },
+                        ),
+                        fields: {
+                            "content": String(
+                                "content",
+                            ),
+                            "schema": Number(
+                                1677694447771,
+                            ),
+                            "title": String(
+                                "with-attachment",
+                            ),
+                        },
+                    },
+                    RemoteSettingsRecord {
+                        id: "7403c6f9-79be-4e0c-a37a-8f2b5bd7ad58",
+                        last_modified: 1677694455368,
+                        deleted: false,
+                        attachment: None,
+                        fields: {
+                            "content": String(
+                                "content",
+                            ),
+                            "schema": Number(
+                                1677694447771,
+                            ),
+                            "title": String(
+                                "no-attachment",
+                            ),
+                        },
+                    },
+                    RemoteSettingsRecord {
+                        id: "9320f53c-0a39-4997-9120-62ff597ffb26",
+                        last_modified: 1690921847416,
+                        deleted: true,
+                        attachment: None,
+                        fields: {},
+                    },
+                ],
+                last_modified: 1000,
+            }
+        "#]].assert_debug_eq(&response);
+        m.expect(1).assert();
+    }
+
     fn attachment_metadata(base_url: String) -> String {
         format!(
             r#"
@@ -850,10 +965,11 @@ mod test {
             "data": [
                 {},
                 {},
+                {},
                 {}
             ]
           }}"#,
-            JPG_ATTACHMENT, PDF_ATTACHMENT, NO_ATTACHMENT
+            JPG_ATTACHMENT, PDF_ATTACHMENT, NO_ATTACHMENT, TOMBSTONE
         )
     }
 
@@ -900,4 +1016,12 @@ mod test {
         "last_modified": 1677694455368
       }
     "#;
+
+    const TOMBSTONE: &str = r#"
+    {
+      "id": "9320f53c-0a39-4997-9120-62ff597ffb26",
+      "last_modified": 1690921847416,
+      "deleted": true
+    }
+  "#;
 }
