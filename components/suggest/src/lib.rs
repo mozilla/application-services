@@ -7,13 +7,14 @@ use remote_settings::RemoteSettingsConfig;
 mod db;
 mod error;
 mod keyword;
+mod provider;
 mod rs;
 mod schema;
 mod store;
 mod suggestion;
 
 pub use error::SuggestApiError;
-use rs::SuggestionProvider;
+pub use provider::SuggestionProvider;
 pub use store::{SuggestIngestionConstraints, SuggestStore};
 pub use suggestion::Suggestion;
 

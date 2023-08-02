@@ -1,13 +1,9 @@
 use std::borrow::Cow;
 
 use remote_settings::{GetItemsOptions, RemoteSettingsResponse};
-use rusqlite::{
-    types::{FromSql, FromSqlError, FromSqlResult, ToSql, ToSqlOutput, ValueRef},
-    Result as RusqliteResult,
-};
 use serde::{Deserialize, Deserializer};
 
-use crate::Result;
+use crate::{provider::SuggestionProvider, Result};
 
 /// The Suggest Remote Settings collection name.
 pub(crate) const REMOTE_SETTINGS_COLLECTION: &str = "quicksuggest";
@@ -142,41 +138,6 @@ pub(crate) struct DownloadedWikipediaSuggestion {
     pub common_details: DownloadedSuggestionCommonDetails,
     #[serde(rename = "icon")]
     pub icon_id: String,
-}
-
-/// Provider Types
-#[derive(Clone, Copy, Debug, Eq, PartialEq, Hash)]
-#[repr(u8)]
-pub enum SuggestionProvider {
-    Amp = 1,
-    Wikipedia = 2,
-}
-
-impl FromSql for SuggestionProvider {
-    fn column_result(value: ValueRef<'_>) -> FromSqlResult<Self> {
-        let v = value.as_i64()?;
-        u8::try_from(v)
-            .ok()
-            .and_then(SuggestionProvider::from_u8)
-            .ok_or_else(|| FromSqlError::OutOfRange(v))
-    }
-}
-
-impl SuggestionProvider {
-    #[inline]
-    pub fn from_u8(v: u8) -> Option<Self> {
-        match v {
-            1 => Some(SuggestionProvider::Amp),
-            2 => Some(SuggestionProvider::Wikipedia),
-            _ => None,
-        }
-    }
-}
-
-impl ToSql for SuggestionProvider {
-    fn to_sql(&self) -> RusqliteResult<ToSqlOutput<'_>> {
-        Ok(ToSqlOutput::from(*self as u8))
-    }
 }
 
 /// A suggestion to ingest from an AMP-Wikipedia attachment downloaded from
