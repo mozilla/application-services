@@ -1,4 +1,4 @@
-use std::{borrow::Cow, ops::Deref};
+use std::borrow::Cow;
 
 use remote_settings::{GetItemsOptions, RemoteSettingsResponse};
 use rusqlite::{
@@ -56,33 +56,32 @@ pub(crate) enum SuggestRecord {
     #[serde(rename = "icon")]
     Icon,
     #[serde(rename = "data")]
-    Data,
+    AmpWikipedia,
 }
 
 /// Represents either a single value, or a list of values. This is used to
-/// deserialize downloaded data attachments.
+/// deserialize downloaded attachments.
 #[derive(Clone, Debug, Deserialize)]
 #[serde(untagged)]
-pub(crate) enum OneOrMany<T> {
+enum OneOrMany<T> {
     One(T),
     Many(Vec<T>),
 }
 
-impl<T> Deref for OneOrMany<T> {
-    type Target = [T];
+/// A downloaded Remote Settings attachment that contains suggestions.
+#[derive(Clone, Debug, Deserialize)]
+#[serde(transparent)]
+pub(crate) struct SuggestAttachment<T>(OneOrMany<T>);
 
-    fn deref(&self) -> &Self::Target {
-        match self {
+impl<T> SuggestAttachment<T> {
+    /// Returns a slice of suggestions to ingest from the downloaded attachment.
+    pub fn suggestions(&self) -> &[T] {
+        match &self.0 {
             OneOrMany::One(value) => std::slice::from_ref(value),
             OneOrMany::Many(values) => values,
         }
     }
 }
-
-/// The contents of a downloaded [`TypedSuggestRecord::Data`] attachment.
-#[derive(Clone, Debug, Deserialize)]
-#[serde(transparent)]
-pub(crate) struct DownloadedSuggestDataAttachment(pub OneOrMany<DownloadedSuggestion>);
 
 /// The ID of a record in the Suggest Remote Settings collection.
 #[derive(Clone, Debug, Deserialize, Eq, Hash, Ord, PartialEq, PartialOrd)]
@@ -113,15 +112,15 @@ where
     }
 }
 
+/// Fields that are common to all downloaded suggestions.
 #[derive(Clone, Debug, Deserialize, Eq, PartialEq)]
 pub(crate) struct DownloadedSuggestionCommonDetails {
     pub keywords: Vec<String>,
     pub title: String,
     pub url: String,
-    #[serde(rename = "icon")]
-    pub icon_id: String,
 }
 
+/// An AMP suggestion to ingest from an AMP-Wikipedia attachment.
 #[derive(Clone, Debug, Deserialize, Eq, PartialEq)]
 pub(crate) struct DownloadedAmpSuggestion {
     #[serde(flatten)]
@@ -132,6 +131,17 @@ pub(crate) struct DownloadedAmpSuggestion {
     pub iab_category: String,
     pub click_url: String,
     pub impression_url: String,
+    #[serde(rename = "icon")]
+    pub icon_id: String,
+}
+
+/// A Wikipedia suggestion to ingest from an AMP-Wikipedia attachment.
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq)]
+pub(crate) struct DownloadedWikipediaSuggestion {
+    #[serde(flatten)]
+    pub common_details: DownloadedSuggestionCommonDetails,
+    #[serde(rename = "icon")]
+    pub icon_id: String,
 }
 
 /// Provider Types
@@ -169,72 +179,66 @@ impl ToSql for SuggestionProvider {
     }
 }
 
-/// A suggestion to ingest from a downloaded Remote Settings attachment.
+/// A suggestion to ingest from an AMP-Wikipedia attachment downloaded from
+/// Remote Settings.
 #[derive(Clone, Debug, Eq, PartialEq)]
-pub(crate) enum DownloadedSuggestion {
+pub(crate) enum DownloadedAmpWikipediaSuggestion {
     Amp(DownloadedAmpSuggestion),
-    Wikipedia(DownloadedSuggestionCommonDetails),
+    Wikipedia(DownloadedWikipediaSuggestion),
 }
 
-impl DownloadedSuggestion {
-    /// Returns the suggestion fields that are common to AMP and
-    /// Wikipedia suggestions.
+impl DownloadedAmpWikipediaSuggestion {
+    /// Returns the details that are common to AMP and Wikipedia suggestions.
     pub fn common_details(&self) -> &DownloadedSuggestionCommonDetails {
         match self {
             Self::Amp(DownloadedAmpSuggestion { common_details, .. }) => common_details,
-            Self::Wikipedia(common_details) => common_details,
+            Self::Wikipedia(DownloadedWikipediaSuggestion { common_details, .. }) => common_details,
         }
     }
 
+    /// Returns the provider of this suggestion.
     pub fn provider(&self) -> SuggestionProvider {
         match self {
-            DownloadedSuggestion::Amp(_) => SuggestionProvider::Amp,
-            DownloadedSuggestion::Wikipedia(_) => SuggestionProvider::Wikipedia,
+            DownloadedAmpWikipediaSuggestion::Amp(_) => SuggestionProvider::Amp,
+            DownloadedAmpWikipediaSuggestion::Wikipedia(_) => SuggestionProvider::Wikipedia,
         }
     }
 }
 
-impl<'de> Deserialize<'de> for DownloadedSuggestion {
-    fn deserialize<D>(deserializer: D) -> std::result::Result<DownloadedSuggestion, D::Error>
+impl<'de> Deserialize<'de> for DownloadedAmpWikipediaSuggestion {
+    fn deserialize<D>(
+        deserializer: D,
+    ) -> std::result::Result<DownloadedAmpWikipediaSuggestion, D::Error>
     where
         D: Deserializer<'de>,
     {
-        // AMP and Wikipedia suggestions conform to the same JSON schema, but
-        // we want to represent them separately. To distinguish between the two,
-        // we use an "untagged" outer enum and a "tagged" inner enum.
+        // AMP and Wikipedia suggestions use the same schema. To separate them,
+        // we use a "maybe tagged" outer enum with tagged and untagged variants,
+        // and a "tagged" inner enum.
         //
-        // Wikipedia suggestions always use the `"Wikipedia"` advertiser, so
-        // they'll deserialize successfully into the `KnownTag` variant.
-        // AMP suggestions will try the `KnownTag` variant first, fail, then
-        // try the `UnknownTag` variant and succeed.
+        // Wikipedia suggestions will deserialize successfully into the tagged
+        // variant. AMP suggestions will try the tagged variant, fail, and fall
+        // back to the untagged variant.
         //
-        // This strategy is an implementation detail, so we turn the nested
-        // enums into a friendlier `DownloadedAmpSuggestion` enum after
-        // deserializing.
+        // This approach works around serde-rs/serde#912.
 
         #[derive(Deserialize)]
         #[serde(untagged)]
-        enum UntaggedDownloadedSuggestion {
-            KnownTag(TaggedDownloadedSuggestion),
-            UnknownTag(DownloadedAmpSuggestion),
+        enum MaybeTagged {
+            Tagged(Tagged),
+            Untagged(DownloadedAmpSuggestion),
         }
 
         #[derive(Deserialize)]
         #[serde(tag = "advertiser")]
-        enum TaggedDownloadedSuggestion {
+        enum Tagged {
             #[serde(rename = "Wikipedia")]
-            Wikipedia(DownloadedSuggestionCommonDetails),
+            Wikipedia(DownloadedWikipediaSuggestion),
         }
 
-        Ok(
-            match UntaggedDownloadedSuggestion::deserialize(deserializer)? {
-                UntaggedDownloadedSuggestion::KnownTag(TaggedDownloadedSuggestion::Wikipedia(
-                    common_details,
-                )) => Self::Wikipedia(common_details),
-                UntaggedDownloadedSuggestion::UnknownTag(common_details) => {
-                    Self::Amp(common_details)
-                }
-            },
-        )
+        Ok(match MaybeTagged::deserialize(deserializer)? {
+            MaybeTagged::Tagged(Tagged::Wikipedia(wikipedia)) => Self::Wikipedia(wikipedia),
+            MaybeTagged::Untagged(amp) => Self::Amp(amp),
+        })
     }
 }

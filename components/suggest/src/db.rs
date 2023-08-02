@@ -16,7 +16,7 @@ use sql_support::{open_database::open_database_with_flags, ConnExt};
 
 use crate::{
     keyword::full_keyword,
-    rs::{DownloadedSuggestion, SuggestRecordId, SuggestionProvider},
+    rs::{DownloadedAmpWikipediaSuggestion, SuggestRecordId, SuggestionProvider},
     schema::SuggestConnectionInitializer,
     Result, Suggestion,
 };
@@ -122,12 +122,11 @@ impl<'a> SuggestDao<'a> {
     /// Fetches suggestions that match the given keyword from the database.
     pub fn fetch_by_keyword(&self, keyword: &str) -> Result<Vec<Suggestion>> {
         self.conn.query_rows_and_then_cached(
-            "SELECT s.id, k.rank, s.title, s.url, s.provider,
-                        (SELECT i.data FROM icons i WHERE i.id = s.icon_id) AS icon
-                  FROM suggestions s
-                  JOIN keywords k ON k.suggestion_id = s.id
-                  WHERE k.keyword = :keyword
-                  LIMIT 1",
+            "SELECT s.id, k.rank, s.title, s.url, s.provider
+             FROM suggestions s
+             JOIN keywords k ON k.suggestion_id = s.id
+             WHERE k.keyword = :keyword
+             LIMIT 1",
             named_params! {
                 ":keyword": keyword,
             },
@@ -135,7 +134,6 @@ impl<'a> SuggestDao<'a> {
                 let suggestion_id: i64 = row.get("id")?;
                 let title = row.get("title")?;
                 let url = row.get("url")?;
-                let icon = row.get("icon")?;
                 let provider = row.get("provider")?;
 
                 let keywords: Vec<String> = self.conn.query_rows_and_then_cached(
@@ -152,12 +150,14 @@ impl<'a> SuggestDao<'a> {
                 match provider {
                     SuggestionProvider::Amp => {
                         self.conn.query_row_and_then(
-                            "SELECT amp.advertiser, amp.block_id, amp.iab_category, amp.impression_url, amp.click_url
-                            FROM amp_custom_details amp WHERE amp.suggestion_id = :suggestion_id", 
+                            "SELECT amp.advertiser, amp.block_id, amp.iab_category, amp.impression_url, amp.click_url,
+                                    (SELECT i.data FROM icons i WHERE i.id = amp.icon_id) AS icon
+                             FROM amp_custom_details amp
+                             WHERE amp.suggestion_id = :suggestion_id",
                             named_params! {
                                 ":suggestion_id": suggestion_id
                             },
-                            |row|{
+                            |row| {
                                 let iab_category = row.get::<_, String>("iab_category")?;
                                 let is_sponsored = !NONSPONSORED_IAB_CATEGORIES.contains(&iab_category.as_str());
                                 Ok(Suggestion {
@@ -168,7 +168,7 @@ impl<'a> SuggestDao<'a> {
                                     title,
                                     url,
                                     full_keyword: full_keyword(keyword, &keywords),
-                                    icon,
+                                    icon: row.get("icon")?,
                                     impression_url: row.get("impression_url")?,
                                     click_url: row.get("click_url")?,
                                     provider
@@ -176,7 +176,17 @@ impl<'a> SuggestDao<'a> {
                             }
                         )
                     },
-                    SuggestionProvider::Wikipedia =>{
+                    SuggestionProvider::Wikipedia => {
+                        let icon = self.conn.try_query_one(
+                            "SELECT i.data
+                             FROM icons i
+                             JOIN wikipedia_custom_details s ON s.icon_id = i.id
+                             WHERE s.suggestion_id = :suggestion_id",
+                            named_params! {
+                                ":suggestion_id": suggestion_id
+                            },
+                            true,
+                        )?;
                         Ok(Suggestion {
                             block_id: 0,
                             advertiser: "Wikipedia".to_string(),
@@ -192,18 +202,16 @@ impl<'a> SuggestDao<'a> {
                         })
                     }
                 }
-
-
             },
         )
     }
 
-    /// Inserts all suggestions associated with a Remote Settings record into
+    /// Inserts all suggestions from a downloaded AMP-Wikipedia attachment into
     /// the database.
-    pub fn insert_suggestions(
+    pub fn insert_amp_wikipedia_suggestions(
         &mut self,
         record_id: &SuggestRecordId,
-        suggestions: &[DownloadedSuggestion],
+        suggestions: &[DownloadedAmpWikipediaSuggestion],
     ) -> Result<()> {
         for suggestion in suggestions {
             self.scope.err_if_interrupted()?;
@@ -214,15 +222,13 @@ impl<'a> SuggestDao<'a> {
                      record_id,
                      provider,
                      title,
-                     url,
-                     icon_id
+                     url
                  )
                  VALUES(
                      :record_id,
                      :provider,
                      :title,
-                     :url,
-                     :icon_id
+                     :url
                  )
                  RETURNING id
                  ",
@@ -231,14 +237,13 @@ impl<'a> SuggestDao<'a> {
                     ":provider": &provider,
                     ":title": common_details.title,
                     ":url": common_details.url,
-                    ":icon_id": common_details.icon_id
 
                 },
                 |row| row.get(0),
                 true,
             )?;
             match suggestion {
-                DownloadedSuggestion::Amp(amp) => {
+                DownloadedAmpWikipediaSuggestion::Amp(amp) => {
                     self.conn.execute(
                         "INSERT INTO amp_custom_details(
                              suggestion_id,
@@ -246,7 +251,8 @@ impl<'a> SuggestDao<'a> {
                              block_id,
                              iab_category,
                              impression_url,
-                             click_url
+                             click_url,
+                             icon_id
                          )
                          VALUES(
                              :suggestion_id,
@@ -254,7 +260,8 @@ impl<'a> SuggestDao<'a> {
                              :block_id,
                              :iab_category,
                              :impression_url,
-                             :click_url
+                             :click_url,
+                             :icon_id
                          )",
                         named_params! {
                             ":suggestion_id": suggestion_id,
@@ -262,12 +269,27 @@ impl<'a> SuggestDao<'a> {
                             ":block_id": amp.block_id,
                             ":iab_category": amp.iab_category,
                             ":impression_url": amp.impression_url,
-                            ":click_url": amp.click_url
-
+                            ":click_url": amp.click_url,
+                            ":icon_id": amp.icon_id,
                         },
                     )?;
                 }
-                DownloadedSuggestion::Wikipedia(_) => {}
+                DownloadedAmpWikipediaSuggestion::Wikipedia(wikipedia) => {
+                    self.conn.execute(
+                        "INSERT INTO wikipedia_custom_details(
+                             suggestion_id,
+                             icon_id
+                         )
+                         VALUES(
+                             :suggestion_id,
+                             :icon_id
+                         )",
+                        named_params! {
+                            ":suggestion_id": suggestion_id,
+                            ":icon_id": wikipedia.icon_id,
+                        },
+                    )?;
+                }
             }
             for (index, keyword) in common_details.keywords.iter().enumerate() {
                 self.conn.execute(
