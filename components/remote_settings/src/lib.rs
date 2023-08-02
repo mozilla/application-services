@@ -45,7 +45,7 @@ impl RemoteSettings {
     ) -> Result<()> {
         let resp = self.client.get_attachment(&attachment_location)?;
         let mut file = File::create(path)?;
-        file.write_all(&resp.body)?;
+        file.write_all(&resp)?;
         Ok(())
     }
 }
