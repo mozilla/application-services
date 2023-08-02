@@ -1,5 +1,6 @@
 extern crate bhttp;
 extern crate ohttp;
+extern crate rusqlite;
 
 use parking_lot::Mutex;
 use std::collections::HashMap;
@@ -76,7 +77,9 @@ fn headers_to_map(message: &bhttp::Message) -> Result<HashMap<String, String>, O
 impl OhttpSession {
     /// Create a new encryption session for use with specific key configuration
     pub fn new(config: &[u8]) -> Result<Self, OhttpError> {
-        let request = ohttp::ClientRequest::new(config).map_err(|e| match e {
+        ohttp::init();
+
+        let request = ohttp::ClientRequest::from_encoded_config(config).map_err(|e| match e {
             ohttp::Error::Unsupported => OhttpError::UnsupportedKeyConfig,
             _ => OhttpError::MalformedKeyConfig,
         })?;
@@ -171,6 +174,8 @@ impl OhttpTestServer {
     /// Create a simple OHTTP server to decrypt and respond to OHTTP messages in
     /// testing. The key is randomly generated.
     fn new() -> Self {
+        ohttp::init();
+
         let key = ohttp::KeyConfig::new(
             0x01,
             ohttp::hpke::Kem::X25519Sha256,
