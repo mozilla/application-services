@@ -16,7 +16,8 @@ use sql_support::{open_database::open_database_with_flags, ConnExt};
 
 use crate::{
     keyword::full_keyword,
-    rs::{DownloadedAmpWikipediaSuggestion, SuggestRecordId, SuggestionProvider},
+    provider::SuggestionProvider,
+    rs::{DownloadedAmpWikipediaSuggestion, SuggestRecordId},
     schema::SuggestConnectionInitializer,
     Result, Suggestion,
 };
