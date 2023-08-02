@@ -101,7 +101,12 @@ impl Client {
     /// Downloads an attachment from [attachment_location]. NOTE: there are no
     /// guarantees about a maximum size, so use care when fetching potentially
     /// large attachments.
-    pub fn get_attachment(&self, attachment_location: &str) -> Result<Response> {
+    pub fn get_attachment(&self, attachment_location: &str) -> Result<Vec<u8>> {
+        Ok(self.get_attachment_raw(attachment_location)?.body)
+    }
+
+    /// Fetches a raw network [Response] for an attachment.
+    pub fn get_attachment_raw(&self, attachment_location: &str) -> Result<Response> {
         // Important: We use a `let` binding here to ensure that the mutex is
         // unlocked immediately after cloning the URL. If we matched directly on
         // the `.lock()` expression, the mutex would stay locked until the end
@@ -539,8 +544,8 @@ mod test {
 
         server_info_m.expect(1).assert();
         attachment_m.expect(2).assert();
-        assert_eq!(first_resp.body, attachment_bytes);
-        assert_eq!(second_resp.body, attachment_bytes);
+        assert_eq!(first_resp, attachment_bytes);
+        assert_eq!(second_resp, attachment_bytes);
     }
 
     #[test]

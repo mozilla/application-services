@@ -6,6 +6,7 @@
 ### 🦊 What's Changed 🦊
 
 - Changes to Suggestion schema to accomodate custom details for providers. ([#5745](https://github.com/mozilla/application-services/pull/5745)) 
+- The Remote Settings `Client::get_attachment()` method now returns a `Vec<u8>` instead of a Viaduct `Response` ([#5764](https://github.com/mozilla/application-services/pull/5764)). You can use the new `Client::get_attachment_raw()` method if you need the `Response`. This is a backward-incompatible change for Rust consumers only; Swift and Kotlin are unaffected.
 
 ### ✨ What's New ✨
 
