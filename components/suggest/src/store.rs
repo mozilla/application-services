@@ -11,8 +11,8 @@ use remote_settings::{self, GetItemsOptions, RemoteSettingsConfig, SortOrder};
 use crate::{
     db::{ConnectionType, SuggestDb, LAST_INGEST_META_KEY},
     rs::{
-        DownloadedSuggestDataAttachment, SuggestRecord, SuggestRecordId,
-        SuggestRemoteSettingsClient, REMOTE_SETTINGS_COLLECTION, SUGGESTIONS_PER_ATTACHMENT,
+        SuggestAttachment, SuggestRecord, SuggestRecordId, SuggestRemoteSettingsClient,
+        REMOTE_SETTINGS_COLLECTION, SUGGESTIONS_PER_ATTACHMENT,
     },
     Result, SuggestApiResult, Suggestion, SuggestionQuery,
 };
@@ -209,19 +209,18 @@ where
                 continue;
             };
             match fields {
-                SuggestRecord::Data => {
+                SuggestRecord::AmpWikipedia => {
                     let Some(attachment) = record.attachment.as_ref() else {
-                        // A data record should always have an attachment with
-                        // suggestions. If it doesn't, it's malformed, so skip
-                        // to the next record.
+                        // An AMP-Wikipedia record should always have an
+                        // attachment with suggestions. If it doesn't, it's
+                        // malformed, so skip to the next record.
                         writer.write(|dao| dao.put_meta(LAST_INGEST_META_KEY, record.last_modified))?;
                         continue;
                     };
 
-                    let suggestions = serde_json::from_slice::<DownloadedSuggestDataAttachment>(
+                    let attachment: SuggestAttachment<_> = serde_json::from_slice(
                         &self.settings_client.get_attachment(&attachment.location)?,
-                    )?
-                    .0;
+                    )?;
 
                     writer.write(|dao| {
                         // Drop any suggestions that we previously ingested from
@@ -231,8 +230,9 @@ where
                         // dropping and re-ingesting all of them.
                         dao.drop_suggestions(&record_id)?;
 
-                        // Ingest (or re-ingest) all suggestions in the attachment.
-                        dao.insert_suggestions(&record_id, &suggestions)?;
+                        // Ingest (or re-ingest) all suggestions in the
+                        // attachment.
+                        dao.insert_amp_wikipedia_suggestions(&record_id, attachment.suggestions())?;
 
                         // Advance the last fetch time, so that we can resume
                         // fetching after this record if we're interrupted.
