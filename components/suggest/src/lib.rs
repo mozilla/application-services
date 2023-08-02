@@ -10,29 +10,15 @@ mod keyword;
 mod rs;
 mod schema;
 mod store;
+mod suggestion;
 
 pub use error::SuggestApiError;
 use rs::SuggestionProvider;
 pub use store::{SuggestIngestionConstraints, SuggestStore};
+pub use suggestion::Suggestion;
 
 pub(crate) type Result<T> = std::result::Result<T, error::Error>;
 pub type SuggestApiResult<T> = std::result::Result<T, error::SuggestApiError>;
-
-/// A suggestion from the database to show in the address bar.
-#[derive(Clone, Debug, Eq, Hash, PartialEq)]
-pub struct Suggestion {
-    pub block_id: i64,
-    pub advertiser: String,
-    pub iab_category: String,
-    pub is_sponsored: bool,
-    pub full_keyword: String,
-    pub title: String,
-    pub url: String,
-    pub icon: Option<Vec<u8>>,
-    pub impression_url: Option<String>,
-    pub click_url: Option<String>,
-    pub provider: SuggestionProvider,
-}
 
 /// A query for suggestions to show in the address bar.
 #[derive(Debug, Default)]

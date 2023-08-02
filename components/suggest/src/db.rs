@@ -25,10 +25,6 @@ use crate::{
 /// from the Suggest Remote Settings collection.
 pub const LAST_INGEST_META_KEY: &str = "last_quicksuggest_ingest";
 
-/// A list of [`Suggestion::iab_category`] values used to distinguish
-/// non-sponsored suggestions.
-pub const NONSPONSORED_IAB_CATEGORIES: &[&str] = &["5 - Education"];
-
 /// The database connection type.
 #[derive(Clone, Copy)]
 pub(crate) enum ConnectionType {
@@ -158,20 +154,16 @@ impl<'a> SuggestDao<'a> {
                                 ":suggestion_id": suggestion_id
                             },
                             |row| {
-                                let iab_category = row.get::<_, String>("iab_category")?;
-                                let is_sponsored = !NONSPONSORED_IAB_CATEGORIES.contains(&iab_category.as_str());
-                                Ok(Suggestion {
+                                Ok(Suggestion::Amp {
                                     block_id: row.get("block_id")?,
                                     advertiser: row.get("advertiser")?,
-                                    iab_category,
-                                    is_sponsored,
+                                    iab_category: row.get("iab_category")?,
                                     title,
                                     url,
                                     full_keyword: full_keyword(keyword, &keywords),
                                     icon: row.get("icon")?,
                                     impression_url: row.get("impression_url")?,
                                     click_url: row.get("click_url")?,
-                                    provider
                                 })
                             }
                         )
@@ -187,18 +179,11 @@ impl<'a> SuggestDao<'a> {
                             },
                             true,
                         )?;
-                        Ok(Suggestion {
-                            block_id: 0,
-                            advertiser: "Wikipedia".to_string(),
-                            iab_category: "5 - Education".to_string(),
-                            is_sponsored: false,
+                        Ok(Suggestion::Wikipedia {
                             title,
                             url,
                             full_keyword: full_keyword(keyword, &keywords),
                             icon,
-                            impression_url: None,
-                            click_url: None,
-                            provider
                         })
                     }
                 }

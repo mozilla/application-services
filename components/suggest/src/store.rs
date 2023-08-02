@@ -141,8 +141,8 @@ impl<S> SuggestStoreInner<S> {
         Ok(suggestions
             .into_iter()
             .filter(|suggestion| {
-                (suggestion.is_sponsored && query.include_sponsored)
-                    || (!suggestion.is_sponsored && query.include_non_sponsored)
+                (suggestion.is_sponsored() && query.include_sponsored)
+                    || (!suggestion.is_sponsored() && query.include_non_sponsored)
             })
             .collect())
     }
@@ -469,22 +469,16 @@ mod tests {
             assert_eq!(dao.get_meta::<u64>(LAST_INGEST_META_KEY)?, Some(15));
             expect![[r#"
                 [
-                    Suggestion {
-                        block_id: 0,
-                        advertiser: "Los Pollos Hermanos",
-                        iab_category: "8 - Food & Drink",
-                        is_sponsored: true,
-                        full_keyword: "los",
+                    Amp {
                         title: "Los Pollos Hermanos - Albuquerque",
                         url: "https://www.lph-nm.biz",
                         icon: None,
-                        impression_url: Some(
-                            "https://example.com/impression_url",
-                        ),
-                        click_url: Some(
-                            "https://example.com/click_url",
-                        ),
-                        provider: Amp,
+                        full_keyword: "los",
+                        block_id: 0,
+                        advertiser: "Los Pollos Hermanos",
+                        iab_category: "8 - Food & Drink",
+                        impression_url: "https://example.com/impression_url",
+                        click_url: "https://example.com/click_url",
                     },
                 ]
             "#]]
@@ -560,12 +554,7 @@ mod tests {
         store.dbs()?.reader.read(|dao| {
             expect![[r#"
                 [
-                    Suggestion {
-                        block_id: 0,
-                        advertiser: "Good Place Eats",
-                        iab_category: "8 - Food & Drink",
-                        is_sponsored: true,
-                        full_keyword: "lasagna",
+                    Amp {
                         title: "Lasagna Come Out Tomorrow",
                         url: "https://www.lasagna.restaurant",
                         icon: Some(
@@ -584,25 +573,19 @@ mod tests {
                                 110,
                             ],
                         ),
-                        impression_url: Some(
-                            "https://example.com/impression_url",
-                        ),
-                        click_url: Some(
-                            "https://example.com/click_url",
-                        ),
-                        provider: Amp,
+                        full_keyword: "lasagna",
+                        block_id: 0,
+                        advertiser: "Good Place Eats",
+                        iab_category: "8 - Food & Drink",
+                        impression_url: "https://example.com/impression_url",
+                        click_url: "https://example.com/click_url",
                     },
                 ]
             "#]]
             .assert_debug_eq(&dao.fetch_by_keyword("la")?);
             expect![[r#"
                 [
-                    Suggestion {
-                        block_id: 0,
-                        advertiser: "Good Place Eats",
-                        iab_category: "8 - Food & Drink",
-                        is_sponsored: true,
-                        full_keyword: "penne",
+                    Amp {
                         title: "Penne for Your Thoughts",
                         url: "https://penne.biz",
                         icon: Some(
@@ -621,13 +604,12 @@ mod tests {
                                 110,
                             ],
                         ),
-                        impression_url: Some(
-                            "https://example.com/impression_url",
-                        ),
-                        click_url: Some(
-                            "https://example.com/click_url",
-                        ),
-                        provider: Amp,
+                        full_keyword: "penne",
+                        block_id: 0,
+                        advertiser: "Good Place Eats",
+                        iab_category: "8 - Food & Drink",
+                        impression_url: "https://example.com/impression_url",
+                        click_url: "https://example.com/click_url",
                     },
                 ]
             "#]]
@@ -682,22 +664,16 @@ mod tests {
         store.dbs()?.reader.read(|dao| {
             expect![[r#"
                 [
-                    Suggestion {
-                        block_id: 0,
-                        advertiser: "Good Place Eats",
-                        iab_category: "8 - Food & Drink",
-                        is_sponsored: true,
-                        full_keyword: "lasagna",
+                    Amp {
                         title: "Lasagna Come Out Tomorrow",
                         url: "https://www.lasagna.restaurant",
                         icon: None,
-                        impression_url: Some(
-                            "https://example.com/impression_url",
-                        ),
-                        click_url: Some(
-                            "https://example.com/click_url",
-                        ),
-                        provider: Amp,
+                        full_keyword: "lasagna",
+                        block_id: 0,
+                        advertiser: "Good Place Eats",
+                        iab_category: "8 - Food & Drink",
+                        impression_url: "https://example.com/impression_url",
+                        click_url: "https://example.com/click_url",
                     },
                 ]
             "#]]
@@ -763,22 +739,16 @@ mod tests {
             assert_eq!(dao.get_meta(LAST_INGEST_META_KEY)?, Some(15u64));
             expect![[r#"
                 [
-                    Suggestion {
-                        block_id: 0,
-                        advertiser: "Good Place Eats",
-                        iab_category: "8 - Food & Drink",
-                        is_sponsored: true,
-                        full_keyword: "lasagna",
+                    Amp {
                         title: "Lasagna Come Out Tomorrow",
                         url: "https://www.lasagna.restaurant",
                         icon: None,
-                        impression_url: Some(
-                            "https://example.com/impression_url",
-                        ),
-                        click_url: Some(
-                            "https://example.com/click_url",
-                        ),
-                        provider: Amp,
+                        full_keyword: "lasagna",
+                        block_id: 0,
+                        advertiser: "Good Place Eats",
+                        iab_category: "8 - Food & Drink",
+                        impression_url: "https://example.com/impression_url",
+                        click_url: "https://example.com/click_url",
                     },
                 ]
             "#]]
@@ -832,44 +802,32 @@ mod tests {
             assert!(dao.fetch_by_keyword("la")?.is_empty());
             expect![[r#"
                 [
-                    Suggestion {
-                        block_id: 0,
-                        advertiser: "Los Pollos Hermanos",
-                        iab_category: "8 - Food & Drink",
-                        is_sponsored: true,
-                        full_keyword: "los pollos",
+                    Amp {
                         title: "Los Pollos Hermanos - Now Serving at 14 Locations!",
                         url: "https://www.lph-nm.biz",
                         icon: None,
-                        impression_url: Some(
-                            "https://example.com/impression_url",
-                        ),
-                        click_url: Some(
-                            "https://example.com/click_url",
-                        ),
-                        provider: Amp,
+                        full_keyword: "los pollos",
+                        block_id: 0,
+                        advertiser: "Los Pollos Hermanos",
+                        iab_category: "8 - Food & Drink",
+                        impression_url: "https://example.com/impression_url",
+                        click_url: "https://example.com/click_url",
                     },
                 ]
             "#]]
             .assert_debug_eq(&dao.fetch_by_keyword("los ")?);
             expect![[r#"
                 [
-                    Suggestion {
-                        block_id: 0,
-                        advertiser: "Good Place Eats",
-                        iab_category: "8 - Food & Drink",
-                        is_sponsored: true,
-                        full_keyword: "penne",
+                    Amp {
                         title: "Penne for Your Thoughts",
                         url: "https://penne.biz",
                         icon: None,
-                        impression_url: Some(
-                            "https://example.com/impression_url",
-                        ),
-                        click_url: Some(
-                            "https://example.com/click_url",
-                        ),
-                        provider: Amp,
+                        full_keyword: "penne",
+                        block_id: 0,
+                        advertiser: "Good Place Eats",
+                        iab_category: "8 - Food & Drink",
+                        impression_url: "https://example.com/impression_url",
+                        click_url: "https://example.com/click_url",
                     },
                 ]
             "#]]
@@ -998,12 +956,7 @@ mod tests {
             assert_eq!(dao.get_meta(LAST_INGEST_META_KEY)?, Some(35u64));
             expect![[r#"
                 [
-                    Suggestion {
-                        block_id: 0,
-                        advertiser: "Good Place Eats",
-                        iab_category: "8 - Food & Drink",
-                        is_sponsored: true,
-                        full_keyword: "lasagna",
+                    Amp {
                         title: "Lasagna Come Out Tomorrow",
                         url: "https://www.lasagna.restaurant",
                         icon: Some(
@@ -1026,25 +979,19 @@ mod tests {
                                 110,
                             ],
                         ),
-                        impression_url: Some(
-                            "https://example.com/impression_url",
-                        ),
-                        click_url: Some(
-                            "https://example.com/click_url",
-                        ),
-                        provider: Amp,
+                        full_keyword: "lasagna",
+                        block_id: 0,
+                        advertiser: "Good Place Eats",
+                        iab_category: "8 - Food & Drink",
+                        impression_url: "https://example.com/impression_url",
+                        click_url: "https://example.com/click_url",
                     },
                 ]
             "#]]
             .assert_debug_eq(&dao.fetch_by_keyword("la")?);
             expect![[r#"
                 [
-                    Suggestion {
-                        block_id: 0,
-                        advertiser: "Los Pollos Hermanos",
-                        iab_category: "8 - Food & Drink",
-                        is_sponsored: true,
-                        full_keyword: "los",
+                    Amp {
                         title: "Los Pollos Hermanos - Albuquerque",
                         url: "https://www.lph-nm.biz",
                         icon: Some(
@@ -1066,13 +1013,12 @@ mod tests {
                                 110,
                             ],
                         ),
-                        impression_url: Some(
-                            "https://example.com/impression_url",
-                        ),
-                        click_url: Some(
-                            "https://example.com/click_url",
-                        ),
-                        provider: Amp,
+                        full_keyword: "los",
+                        block_id: 0,
+                        advertiser: "Los Pollos Hermanos",
+                        iab_category: "8 - Food & Drink",
+                        impression_url: "https://example.com/impression_url",
+                        click_url: "https://example.com/click_url",
                     },
                 ]
             "#]]
@@ -1392,12 +1338,7 @@ mod tests {
                 },
                 expect![[r#"
                     [
-                        Suggestion {
-                            block_id: 0,
-                            advertiser: "Good Place Eats",
-                            iab_category: "8 - Food & Drink",
-                            is_sponsored: true,
-                            full_keyword: "lasagna",
+                        Amp {
                             title: "Lasagna Come Out Tomorrow",
                             url: "https://www.lasagna.restaurant",
                             icon: Some(
@@ -1416,13 +1357,12 @@ mod tests {
                                     110,
                                 ],
                             ),
-                            impression_url: Some(
-                                "https://example.com/impression_url",
-                            ),
-                            click_url: Some(
-                                "https://example.com/click_url",
-                            ),
-                            provider: Amp,
+                            full_keyword: "lasagna",
+                            block_id: 0,
+                            advertiser: "Good Place Eats",
+                            iab_category: "8 - Food & Drink",
+                            impression_url: "https://example.com/impression_url",
+                            click_url: "https://example.com/click_url",
                         },
                     ]
                 "#]],
@@ -1436,12 +1376,7 @@ mod tests {
                 },
                 expect![[r#"
                     [
-                        Suggestion {
-                            block_id: 0,
-                            advertiser: "Good Place Eats",
-                            iab_category: "8 - Food & Drink",
-                            is_sponsored: true,
-                            full_keyword: "lasagna",
+                        Amp {
                             title: "Lasagna Come Out Tomorrow",
                             url: "https://www.lasagna.restaurant",
                             icon: Some(
@@ -1460,13 +1395,12 @@ mod tests {
                                     110,
                                 ],
                             ),
-                            impression_url: Some(
-                                "https://example.com/impression_url",
-                            ),
-                            click_url: Some(
-                                "https://example.com/click_url",
-                            ),
-                            provider: Amp,
+                            full_keyword: "lasagna",
+                            block_id: 0,
+                            advertiser: "Good Place Eats",
+                            iab_category: "8 - Food & Drink",
+                            impression_url: "https://example.com/impression_url",
+                            click_url: "https://example.com/click_url",
                         },
                     ]
                 "#]],
@@ -1524,12 +1458,7 @@ mod tests {
                 },
                 expect![[r#"
                     [
-                        Suggestion {
-                            block_id: 0,
-                            advertiser: "Wikipedia",
-                            iab_category: "5 - Education",
-                            is_sponsored: false,
-                            full_keyword: "california",
+                        Wikipedia {
                             title: "California",
                             url: "https://wikipedia.org/California",
                             icon: Some(
@@ -1548,9 +1477,7 @@ mod tests {
                                     110,
                                 ],
                             ),
-                            impression_url: None,
-                            click_url: None,
-                            provider: Wikipedia,
+                            full_keyword: "california",
                         },
                     ]
                 "#]],
