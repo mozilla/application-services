@@ -12,6 +12,7 @@
 
 - Added an OHTTP client library for iOS based on `ohttp` Rust crate ([#5749](https://github.com/mozilla/application-services/pull/5749)). This allows iOS products to use the same OHTTP libraries as Gecko-based products.
 - The Remote Settings client has a new `Client::get_records_with_options()` method ([#5764](https://github.com/mozilla/application-services/pull/5764)). This is for Rust consumers only; it's not exposed to Swift or Kotlin.
+- `RemoteSettingsRecord` objects have a new `deleted` property that indicates if the record is a tombstone ([#5764](https://github.com/mozilla/application-services/pull/5764)).
 
 
 ## Rust log forwarder

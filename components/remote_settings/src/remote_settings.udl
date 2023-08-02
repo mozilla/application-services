@@ -21,6 +21,7 @@ dictionary RemoteSettingsResponse {
 dictionary RemoteSettingsRecord {
     string id;
     u64 last_modified;
+    boolean deleted;
     Attachment? attachment;
     RsJsonObject fields;
 };
