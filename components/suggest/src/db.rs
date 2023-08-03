@@ -292,10 +292,10 @@ impl<'a> SuggestDao<'a> {
         Ok(())
     }
 
-    /// Inserts an icon for a suggestion into the database.
-    pub fn insert_icon(&mut self, icon_id: &str, data: &[u8]) -> Result<()> {
+    /// Inserts or replaces an icon for a suggestion into the database.
+    pub fn put_icon(&mut self, icon_id: &str, data: &[u8]) -> Result<()> {
         self.conn.execute(
-            "INSERT INTO icons(
+            "INSERT OR REPLACE INTO icons(
                  id,
                  data
              )
