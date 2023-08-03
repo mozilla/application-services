@@ -240,7 +240,7 @@ where
                     };
                     let data = self.settings_client.get_attachment(&attachment.location)?;
                     writer.write(|dao| {
-                        dao.insert_icon(icon_id, &data)?;
+                        dao.put_icon(icon_id, &data)?;
                         dao.put_meta(LAST_INGEST_META_KEY, record.last_modified)?;
                         Ok(())
                     })?;
@@ -700,7 +700,7 @@ mod tests {
 
     /// Tests re-ingesting suggestions from an updated attachment.
     #[test]
-    fn reingest() -> anyhow::Result<()> {
+    fn reingest_suggestions() -> anyhow::Result<()> {
         before_each();
 
         // Ingest suggestions from the initial snapshot.
@@ -742,7 +742,7 @@ mod tests {
         )?;
 
         let store = SuggestStoreInner::new(
-            "file:reingest?mode=memory&cache=shared",
+            "file:reingest_suggestions?mode=memory&cache=shared",
             SnapshotSettingsClient::with_snapshot(initial_snapshot),
         );
 
@@ -863,6 +863,209 @@ mod tests {
                 ]
             "#]]
             .assert_debug_eq(&dao.fetch_by_keyword("pe")?);
+            Ok(())
+        })?;
+
+        Ok(())
+    }
+
+    /// Tests re-ingesting icons from an updated attachment.
+    #[test]
+    fn reingest_icons() -> anyhow::Result<()> {
+        before_each();
+
+        // Ingest suggestions and icons from the initial snapshot.
+        let initial_snapshot = Snapshot::with_records(json!([{
+            "id": "data-1",
+            "type": "data",
+            "last_modified": 15,
+            "attachment": {
+                "filename": "data-1.json",
+                "mimetype": "application/json",
+                "location": "data-1.json",
+                "hash": "",
+                "size": 0,
+            },
+        }, {
+            "id": "icon-2",
+            "type": "icon",
+            "last_modified": 20,
+            "attachment": {
+                "filename": "icon-2.png",
+                "mimetype": "image/png",
+                "location": "icon-2.png",
+                "hash": "",
+                "size": 0,
+            },
+        }, {
+            "id": "icon-3",
+            "type": "icon",
+            "last_modified": 25,
+            "attachment": {
+                "filename": "icon-3.png",
+                "mimetype": "image/png",
+                "location": "icon-3.png",
+                "hash": "",
+                "size": 0,
+            },
+        }]))?
+        .with_data(
+            "data-1.json",
+            json!([{
+                "id": 0,
+                "advertiser": "Good Place Eats",
+                "iab_category": "8 - Food & Drink",
+                "keywords": ["la", "las", "lasa", "lasagna", "lasagna come out tomorrow"],
+                "title": "Lasagna Come Out Tomorrow",
+                "url": "https://www.lasagna.restaurant",
+                "icon": "2",
+                "impression_url": "https://example.com/impression_url",
+                "click_url": "https://example.com/click_url"
+            }, {
+                "id": 0,
+                "advertiser": "Los Pollos Hermanos",
+                "iab_category": "8 - Food & Drink",
+                "keywords": ["lo", "los", "los pollos", "los pollos hermanos"],
+                "title": "Los Pollos Hermanos - Albuquerque",
+                "url": "https://www.lph-nm.biz",
+                "icon": "3",
+                "impression_url": "https://example.com/impression_url",
+                "click_url": "https://example.com/click_url"
+            }]),
+        )?
+        .with_icon("icon-2.png", "lasagna-icon".as_bytes().into())
+        .with_icon("icon-3.png", "pollos-icon".as_bytes().into());
+
+        let store = SuggestStoreInner::new(
+            "file:reingest_icons?mode=memory&cache=shared",
+            SnapshotSettingsClient::with_snapshot(initial_snapshot),
+        );
+
+        store.ingest(SuggestIngestionConstraints::default())?;
+
+        store.dbs()?.reader.read(|dao| {
+            assert_eq!(dao.get_meta(LAST_INGEST_META_KEY)?, Some(25u64));
+            assert_eq!(
+                dao.conn
+                    .query_one::<i64>("SELECT count(*) FROM suggestions")?,
+                2
+            );
+            assert_eq!(dao.conn.query_one::<i64>("SELECT count(*) FROM icons")?, 2);
+            Ok(())
+        })?;
+
+        // Update the snapshot with new icons.
+        *store.settings_client.snapshot.borrow_mut() = Snapshot::with_records(json!([{
+            "id": "icon-2",
+            "type": "icon",
+            "last_modified": 30,
+            "attachment": {
+                "filename": "icon-2.png",
+                "mimetype": "image/png",
+                "location": "icon-2.png",
+                "hash": "",
+                "size": 0,
+            },
+        }, {
+            "id": "icon-3",
+            "type": "icon",
+            "last_modified": 35,
+            "attachment": {
+                "filename": "icon-3.png",
+                "mimetype": "image/png",
+                "location": "icon-3.png",
+                "hash": "",
+                "size": 0,
+            }
+        }]))?
+        .with_icon("icon-2.png", "new-lasagna-icon".as_bytes().into())
+        .with_icon("icon-3.png", "new-pollos-icon".as_bytes().into());
+
+        store.ingest(SuggestIngestionConstraints::default())?;
+
+        store.dbs()?.reader.read(|dao| {
+            assert_eq!(dao.get_meta(LAST_INGEST_META_KEY)?, Some(35u64));
+            expect![[r#"
+                [
+                    Suggestion {
+                        block_id: 0,
+                        advertiser: "Good Place Eats",
+                        iab_category: "8 - Food & Drink",
+                        is_sponsored: true,
+                        full_keyword: "lasagna",
+                        title: "Lasagna Come Out Tomorrow",
+                        url: "https://www.lasagna.restaurant",
+                        icon: Some(
+                            [
+                                110,
+                                101,
+                                119,
+                                45,
+                                108,
+                                97,
+                                115,
+                                97,
+                                103,
+                                110,
+                                97,
+                                45,
+                                105,
+                                99,
+                                111,
+                                110,
+                            ],
+                        ),
+                        impression_url: Some(
+                            "https://example.com/impression_url",
+                        ),
+                        click_url: Some(
+                            "https://example.com/click_url",
+                        ),
+                        provider: Amp,
+                    },
+                ]
+            "#]]
+            .assert_debug_eq(&dao.fetch_by_keyword("la")?);
+            expect![[r#"
+                [
+                    Suggestion {
+                        block_id: 0,
+                        advertiser: "Los Pollos Hermanos",
+                        iab_category: "8 - Food & Drink",
+                        is_sponsored: true,
+                        full_keyword: "los",
+                        title: "Los Pollos Hermanos - Albuquerque",
+                        url: "https://www.lph-nm.biz",
+                        icon: Some(
+                            [
+                                110,
+                                101,
+                                119,
+                                45,
+                                112,
+                                111,
+                                108,
+                                108,
+                                111,
+                                115,
+                                45,
+                                105,
+                                99,
+                                111,
+                                110,
+                            ],
+                        ),
+                        impression_url: Some(
+                            "https://example.com/impression_url",
+                        ),
+                        click_url: Some(
+                            "https://example.com/click_url",
+                        ),
+                        provider: Amp,
+                    },
+                ]
+            "#]]
+            .assert_debug_eq(&dao.fetch_by_keyword("lo")?);
             Ok(())
         })?;
 
