@@ -11,6 +11,12 @@
 
 - Added an OHTTP client library for iOS based on `ohttp` Rust crate ([#5749](https://github.com/mozilla/application-services/pull/5749)). This allows iOS products to use the same OHTTP libraries as Gecko-based products.
 
+
+## Rust log forwarder
+### 🦊 What's Changed 🦊
+
+- Renamed `Logger` to `AppServicesLogger` to avoid a name conflict on Swift.
+
 # v117.0 (_2023-07-31_)
 
 ## General

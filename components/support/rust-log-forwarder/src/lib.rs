@@ -6,14 +6,14 @@ use std::sync::atomic::{AtomicBool, Ordering};
 mod foreign_logger;
 mod rust_logger;
 
-pub use foreign_logger::{Level, Logger, Record};
+pub use foreign_logger::{AppServicesLogger, Level, Record};
 
 static HAVE_SET_MAX_LEVEL: AtomicBool = AtomicBool::new(false);
 
 /// Set the logger to forward to.
 ///
 /// Pass in None to disable logging.
-pub fn set_logger(logger: Option<Box<dyn Logger>>) {
+pub fn set_logger(logger: Option<Box<dyn AppServicesLogger>>) {
     // Set a default max level, if none has already been set
     if !HAVE_SET_MAX_LEVEL.load(Ordering::Relaxed) {
         set_max_level(Level::Debug);
@@ -55,7 +55,7 @@ mod test {
         }
     }
 
-    impl Logger for TestLogger {
+    impl AppServicesLogger for TestLogger {
         fn log(&self, record: Record) {
             self.records.lock().unwrap().push(record)
         }
