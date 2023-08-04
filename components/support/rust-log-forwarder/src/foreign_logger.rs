@@ -17,7 +17,7 @@ pub struct Record {
     pub message: String,
 }
 
-pub trait Logger: Sync + Send {
+pub trait AppServicesLogger: Sync + Send {
     fn log(&self, record: Record);
 }
 

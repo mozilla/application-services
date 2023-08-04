@@ -7,7 +7,7 @@
 //! This is responsible for taking logs from the rust log crate and forwarding them to a
 //! foreign_logger::Logger instance.
 
-use crate::foreign_logger::Logger as ForeignLogger;
+use crate::foreign_logger::AppServicesLogger as ForeignLogger;
 use parking_lot::RwLock;
 use std::sync::{
     atomic::{AtomicBool, Ordering},
