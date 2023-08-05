@@ -1,3 +1,34 @@
+/* This Source Code Form is subject to the terms of the Mozilla Public
+ * License, v. 2.0. If a copy of the MPL was not distributed with this
+ * file, You can obtain one at http://mozilla.org/MPL/2.0/.
+ */
+
+//! Crate-internal types for interacting with Remote Settings (`rs`). Types in
+//! this module describe records and attachments in the Suggest Remote Settings
+//! collection.
+//!
+//! To add a new suggestion `T` to this component, you'll generally need to:
+//!
+//!  1. Add a variant named `T` to [`SuggestRecord`]. The variant must have a
+//!     `#[serde(rename)]` attribute that matches the suggestion record's
+//!     `type` field.
+//!  2. Define a `DownloadedTSuggestion` type with the new suggestion's fields,
+//!     matching their attachment's schema. Your new type must derive or
+//!     implement [`serde::Deserialize`].
+//!  3. Update the database schema in the [`schema`] module to store the new
+//!     suggestion.
+//!  4. Add an `insert_t_suggestions()` method to [`db::SuggestDao`] that
+//!     inserts `DownloadedTSuggestion`s into the database.
+//!  5. Update [`store::SuggestStoreInner::ingest()`] to download, deserialize,
+//!     and store the new suggestion.
+//!  6. Add a variant named `T` to [`suggestion::Suggestion`], with the fields
+//!     that you'd like to expose to the application. These can be the same
+//!     fields as `DownloadedTSuggestion`, or slightly different, depending on
+//!     what the application needs to show the suggestion.
+//!  7. Update any [`db::SuggestDao`] methods that query the database to include
+//!     the new suggestion in their results, and return `Suggestion::T` variants
+//!     as needed.
+
 use std::borrow::Cow;
 
 use remote_settings::{GetItemsOptions, RemoteSettingsResponse};
