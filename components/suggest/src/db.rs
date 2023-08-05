@@ -352,7 +352,7 @@ impl<'a> SuggestDao<'a> {
     /// Sets the value for a metadata key.
     pub fn put_meta(&mut self, key: &str, value: impl ToSql) -> Result<()> {
         self.conn.execute_cached(
-            "REPLACE INTO meta(key, value) VALUES(:key, :value)",
+            "INSERT OR REPLACE INTO meta(key, value) VALUES(:key, :value)",
             named_params! { ":key": key, ":value": value },
         )?;
         Ok(())
