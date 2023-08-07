@@ -31,7 +31,7 @@ class RemoteSettingsTest {
 
     private var fakeUrl = ""
     private var fakeStatus = 200
-    private var fakeHeaders: Headers = MutableHeaders("etag" to "1000")
+    private var fakeHeaders: Headers = MutableHeaders("etag" to "\"1000\"")
     private var fakeBodyStream = "".byteInputStream()
     private var fakeContentType = ""
     private var fakeBody = Response.Body(fakeBodyStream, fakeContentType)

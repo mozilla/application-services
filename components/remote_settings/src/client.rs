@@ -15,6 +15,7 @@ use url::Url;
 use viaduct::{Request, Response};
 
 const HEADER_BACKOFF: &str = "Backoff";
+const HEADER_ETAG: &str = "ETag";
 const HEADER_RETRY_AFTER: &str = "Retry-After";
 
 /// A simple HTTP client that can retrieve Remote Settings data using the properties by [ClientConfig].
@@ -74,10 +75,19 @@ impl Client {
     ) -> Result<RemoteSettingsResponse> {
         let resp = self.get_records_raw_with_options(options)?;
         let records = resp.json::<RecordsResponse>()?.data;
-        let last_modified = resp
+        let etag = resp
             .headers
-            .get_as("etag")
-            .ok_or_else(|| RemoteSettingsError::ResponseError("no etag header".into()))??;
+            .get(HEADER_ETAG)
+            .ok_or_else(|| RemoteSettingsError::ResponseError("no etag header".into()))?;
+        // Per https://docs.kinto-storage.org/en/stable/api/1.x/timestamps.html,
+        // the `ETag` header value is a quoted integer. Trim the quotes before
+        // parsing.
+        let last_modified = etag.trim_matches('"').parse().map_err(|_| {
+            RemoteSettingsError::ResponseError(format!(
+                "expected quoted integer in etag header; got `{}`",
+                etag
+            ))
+        })?;
         Ok(RemoteSettingsResponse {
             records,
             last_modified,
@@ -597,7 +607,7 @@ mod test {
         .with_status(200)
         .with_header("content-type", "application/json")
         .with_header("Backoff", "60")
-        .with_header("etag", "1000")
+        .with_header("etag", "\"1000\"")
         .create();
         let config = RemoteSettingsConfig {
             server_url: Some(mockito::server_url()),
@@ -666,7 +676,7 @@ mod test {
         .with_body(response_body())
         .with_status(200)
         .with_header("content-type", "application/json")
-        .with_header("etag", "1000")
+        .with_header("etag", "\"1000\"")
         .create();
         let config = RemoteSettingsConfig {
             server_url: Some(mockito::server_url()),
@@ -790,7 +800,7 @@ mod test {
         .with_body(response_body())
         .with_status(200)
         .with_header("content-type", "application/json")
-        .with_header("etag", "1000")
+        .with_header("etag", "\"1000\"")
         .create();
         let config = RemoteSettingsConfig {
             server_url: Some(mockito::server_url()),
@@ -830,7 +840,7 @@ mod test {
         .with_body(response_body())
         .with_status(200)
         .with_header("content-type", "application/json")
-        .with_header("etag", "1000")
+        .with_header("etag", "\"1000\"")
         .create();
         let config = RemoteSettingsConfig {
             server_url: Some(mockito::server_url()),
@@ -920,6 +930,63 @@ mod test {
                 last_modified: 1000,
             }
         "#]].assert_debug_eq(&response);
+        m.expect(1).assert();
+    }
+
+    #[test]
+    fn test_missing_etag() {
+        viaduct_reqwest::use_reqwest_backend();
+        let m = mock(
+            "GET",
+            "/v1/buckets/the-bucket/collections/the-collection/records",
+        )
+        .with_body(response_body())
+        .with_status(200)
+        .with_header("content-type", "application/json")
+        .create();
+
+        let config = RemoteSettingsConfig {
+            server_url: Some(mockito::server_url()),
+            bucket_name: Some(String::from("the-bucket")),
+            collection_name: String::from("the-collection"),
+        };
+        let client = Client::new(config).unwrap();
+
+        let err = client.get_records().unwrap_err();
+        assert!(
+            matches!(err, RemoteSettingsError::ResponseError(_)),
+            "Want response error for missing `ETag`; got {}",
+            err
+        );
+        m.expect(1).assert();
+    }
+
+    #[test]
+    fn test_invalid_etag() {
+        viaduct_reqwest::use_reqwest_backend();
+        let m = mock(
+            "GET",
+            "/v1/buckets/the-bucket/collections/the-collection/records",
+        )
+        .with_body(response_body())
+        .with_status(200)
+        .with_header("content-type", "application/json")
+        .with_header("etag", "bad!")
+        .create();
+
+        let config = RemoteSettingsConfig {
+            server_url: Some(mockito::server_url()),
+            bucket_name: Some(String::from("the-bucket")),
+            collection_name: String::from("the-collection"),
+        };
+        let client = Client::new(config).unwrap();
+
+        let err = client.get_records().unwrap_err();
+        assert!(
+            matches!(err, RemoteSettingsError::ResponseError(_)),
+            "Want response error for invalid `ETag`; got {}",
+            err
+        );
         m.expect(1).assert();
     }
 

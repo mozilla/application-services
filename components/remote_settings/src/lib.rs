@@ -66,7 +66,7 @@ mod test {
         .with_body(response_body())
         .with_status(200)
         .with_header("content-type", "application/json")
-        .with_header("etag", "1000")
+        .with_header("etag", "\"1000\"")
         .create();
 
         let config = RemoteSettingsConfig {
@@ -94,7 +94,7 @@ mod test {
         .with_body(response_body())
         .with_status(200)
         .with_header("content-type", "application/json")
-        .with_header("etag", "1000")
+        .with_header("etag", "\"1000\"")
         .create();
 
         let config = RemoteSettingsConfig {
