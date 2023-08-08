@@ -24,14 +24,24 @@ def transform_commands(branch_build_params, command_list):
 
 def transform_command(branch_build_params, command):
     if command == "setup-branch-build-firefox-android":
-        firefox_android_params = branch_build_params["firefox-android"]
+        try:
+            firefox_android_params = branch_build_params["firefox-android"]
+        except KeyError:
+            # No branch build params to use for the transform, this task should be filtered out by
+            # filter_branch_build_tasks.  In the meantime, return an placeholder value.
+            return ["/bin/false"]
         return [
             'taskcluster/scripts/setup-branch-build-firefox-android.py',
             firefox_android_params.get('owner', 'mozilla-mobile'),
             firefox_android_params.get('branch', 'main'),
         ]
     elif command == "setup-branch-build-firefox-ios":
-        firefox_ios_params = branch_build_params["firefox-ios"]
+        try:
+            firefox_ios_params = branch_build_params["firefox-ios"]
+        except KeyError:
+            # No branch build params to use for the transform, this task should be filtered out by
+            # filter_branch_build_tasks.  In the meantime, return an placeholder value.
+            return ["/bin/false"]
         return [
             'taskcluster/scripts/setup-branch-build-firefox-ios.py',
             firefox_ios_params.get('owner', 'mozilla-mobile'),
