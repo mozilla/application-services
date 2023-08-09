@@ -83,6 +83,14 @@ impl ConnectionInitializer for SuggestConnectionInitializer {
     }
 
     fn upgrade_from(&self, _db: &Transaction<'_>, version: u32) -> open_database::Result<()> {
-        Err(open_database::Error::IncompatibleVersion(version))
+        match version {
+            1..=2 => {
+                // These schema versions were used during development, and never
+                // shipped in any applications. Treat these databases as
+                // corrupt, so that they'll be replaced.
+                Err(open_database::Error::Corrupt)
+            }
+            _ => Err(open_database::Error::IncompatibleVersion(version)),
+        }
     }
 }
