@@ -117,7 +117,7 @@ open class Nimbus(
             remoteSettingsConfig,
             // The "dummy" field here is required for obscure reasons when generating code on desktop,
             // so we just automatically set it to a dummy value.
-            AvailableRandomizationUnits(clientId = null, userId = null, nimbusId = null dummy = 0),
+            AvailableRandomizationUnits(clientId = null, userId = null, nimbusId = null, dummy = 0),
         )
     }
 
