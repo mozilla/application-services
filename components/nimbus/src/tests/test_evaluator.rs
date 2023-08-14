@@ -474,8 +474,12 @@ fn test_qualified_enrollment() {
 
     let id = uuid::Uuid::new_v4();
 
-    let enrollment =
-        evaluate_enrollment(&id, &Default::default(), &experiment, &ctx.clone().into()).unwrap();
+    let enrollment = evaluate_enrollment(
+        &AvailableRandomizationUnits::with_nimbus_id(&id),
+        &experiment,
+        &ctx.clone().into(),
+    )
+    .unwrap();
     println!("Uh oh!  {:#?}", enrollment.status);
     assert!(matches!(
         enrollment.status,
@@ -490,8 +494,12 @@ fn test_qualified_enrollment() {
     ctx.channel = "Nightly".to_string();
 
     // Now we will be enrolled in the experiment because we have the right channel, but with different capitalization
-    let enrollment =
-        evaluate_enrollment(&id, &Default::default(), &experiment, &ctx.into()).unwrap();
+    let enrollment = evaluate_enrollment(
+        &AvailableRandomizationUnits::with_nimbus_id(&id),
+        &experiment,
+        &ctx.into(),
+    )
+    .unwrap();
     assert!(matches!(
         enrollment.status,
         EnrollmentStatus::Enrolled {
@@ -549,8 +557,7 @@ fn test_wrong_randomization_units() {
     // experiment is requesting the `ClientId` and the `Default::default()` here will just have the
     // NimbusId.
     let enrollment = evaluate_enrollment(
-        &uuid::Uuid::new_v4(),
-        &Default::default(),
+        &AvailableRandomizationUnits::with_nimbus_id(&uuid::Uuid::new_v4()),
         &experiment,
         &ctx.clone().into(),
     )
@@ -562,8 +569,7 @@ fn test_wrong_randomization_units() {
     let available_randomization_units = AvailableRandomizationUnits::with_client_id("bobo");
     let id = uuid::Uuid::parse_str("542213c0-9aef-47eb-bc6b-3b8529736ba2").unwrap();
     let enrollment = evaluate_enrollment(
-        &id,
-        &available_randomization_units,
+        &available_randomization_units.apply_nimbus_id(&id),
         &experiment,
         &ctx.into(),
     )
@@ -624,8 +630,12 @@ fn test_not_targeted_for_enrollment() {
     };
 
     // We won't be enrolled in the experiment because we don't have the right app_name
-    let enrollment =
-        evaluate_enrollment(&id, &Default::default(), &experiment, &ctx.clone().into()).unwrap();
+    let enrollment = evaluate_enrollment(
+        &AvailableRandomizationUnits::with_nimbus_id(&id),
+        &experiment,
+        &ctx.clone().into(),
+    )
+    .unwrap();
     assert!(matches!(
         enrollment.status,
         EnrollmentStatus::NotEnrolled {
@@ -639,8 +649,12 @@ fn test_not_targeted_for_enrollment() {
 
     // Now we won't be enrolled in the experiment because we don't have the right channel, but with the same
     // `NotTargeted` reason
-    let enrollment =
-        evaluate_enrollment(&id, &Default::default(), &experiment, &ctx.into()).unwrap();
+    let enrollment = evaluate_enrollment(
+        &AvailableRandomizationUnits::with_nimbus_id(&id),
+        &experiment,
+        &ctx.into(),
+    )
+    .unwrap();
     assert!(matches!(
         enrollment.status,
         EnrollmentStatus::NotEnrolled {
@@ -685,7 +699,7 @@ fn test_enrollment_bucketing() {
         ..Default::default()
     };
 
-    let available_randomization_units = Default::default();
+    let available_randomization_units: AvailableRandomizationUnits = Default::default();
     // 299eed1e-be6d-457d-9e53-da7b1a03f10d uuid fits in start: 0, count: 2000, total: 10000 with the example namespace, to the treatment-variation-b branch
     // Tested against the desktop implementation
     let id = uuid::Uuid::parse_str("299eed1e-be6d-457d-9e53-da7b1a03f10d").unwrap();
@@ -697,8 +711,7 @@ fn test_enrollment_bucketing() {
     };
 
     let enrollment = evaluate_enrollment(
-        &id,
-        &available_randomization_units,
+        &available_randomization_units.apply_nimbus_id(&id),
         &experiment,
         &ctx.into(),
     )

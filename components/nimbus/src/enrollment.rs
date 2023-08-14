@@ -91,7 +91,6 @@ impl ExperimentEnrollment {
     /// we are seeing for the first time.
     fn from_new_experiment(
         is_user_participating: bool,
-        nimbus_id: &Uuid,
         available_randomization_units: &AvailableRandomizationUnits,
         experiment: &Experiment,
         targeting_helper: &NimbusTargetingHelper,
@@ -112,12 +111,8 @@ impl ExperimentEnrollment {
                 },
             }
         } else {
-            let enrollment = evaluate_enrollment(
-                nimbus_id,
-                available_randomization_units,
-                experiment,
-                targeting_helper,
-            )?;
+            let enrollment =
+                evaluate_enrollment(available_randomization_units, experiment, targeting_helper)?;
             log::debug!(
                 "Experiment '{}' is new - enrollment status is {:?}",
                 &enrollment.slug,
@@ -164,7 +159,6 @@ impl ExperimentEnrollment {
     fn on_experiment_updated(
         &self,
         is_user_participating: bool,
-        nimbus_id: &Uuid,
         available_randomization_units: &AvailableRandomizationUnits,
         updated_experiment: &Experiment,
         targeting_helper: &NimbusTargetingHelper,
@@ -176,7 +170,6 @@ impl ExperimentEnrollment {
                     self.clone()
                 } else {
                     let updated_enrollment = evaluate_enrollment(
-                        nimbus_id,
                         available_randomization_units,
                         updated_experiment,
                         targeting_helper,
@@ -220,7 +213,6 @@ impl ExperimentEnrollment {
                     self.clone()
                 } else {
                     let evaluated_enrollment = evaluate_enrollment(
-                        nimbus_id,
                         available_randomization_units,
                         updated_experiment,
                         targeting_helper,
@@ -284,7 +276,6 @@ impl ExperimentEnrollment {
                     )
                 {
                     let evaluated_enrollment = evaluate_enrollment(
-                        nimbus_id,
                         available_randomization_units,
                         updated_experiment,
                         targeting_helper,
@@ -610,7 +601,6 @@ pub fn get_enrollments<'r>(
 }
 
 pub(crate) struct EnrollmentsEvolver<'a> {
-    nimbus_id: &'a Uuid,
     available_randomization_units: &'a AvailableRandomizationUnits,
     targeting_helper: &'a NimbusTargetingHelper,
     coenrolling_feature_ids: &'a HashSet<&'a str>,
@@ -618,13 +608,11 @@ pub(crate) struct EnrollmentsEvolver<'a> {
 
 impl<'a> EnrollmentsEvolver<'a> {
     pub(crate) fn new(
-        nimbus_id: &'a Uuid,
         available_randomization_units: &'a AvailableRandomizationUnits,
         targeting_helper: &'a NimbusTargetingHelper,
         coenrolling_feature_ids: &'a HashSet<&str>,
     ) -> Self {
         Self {
-            nimbus_id,
             available_randomization_units,
             targeting_helper,
             coenrolling_feature_ids,
@@ -975,7 +963,6 @@ impl<'a> EnrollmentsEvolver<'a> {
             // New experiment.
             (None, Some(experiment), None) => Some(ExperimentEnrollment::from_new_experiment(
                 is_user_participating,
-                self.nimbus_id,
                 self.available_randomization_units,
                 experiment,
                 &th,
@@ -989,7 +976,6 @@ impl<'a> EnrollmentsEvolver<'a> {
             (Some(_), Some(experiment), Some(enrollment)) => {
                 Some(enrollment.on_experiment_updated(
                     is_user_participating,
-                    self.nimbus_id,
                     self.available_randomization_units,
                     experiment,
                     &th,

@@ -136,7 +136,7 @@ impl CirrusClient {
         // part of https://mozilla-hub.atlassian.net/browse/EXP-3401
         let nimbus_id = Uuid::new_v4();
         let available_randomization_units =
-            AvailableRandomizationUnits::with_user_id(user_id.as_str());
+            AvailableRandomizationUnits::with_user_id(user_id.as_str()).apply_nimbus_id(&nimbus_id);
         let ta = TargetingAttributes::new(self.app_context.clone(), request_context);
         let th = NimbusTargetingHelper::new(ta);
         let coenrolling_ids = self
@@ -144,12 +144,8 @@ impl CirrusClient {
             .iter()
             .map(|s| s.as_str())
             .collect();
-        let enrollments_evolver = EnrollmentsEvolver::new(
-            &nimbus_id,
-            &available_randomization_units,
-            &th,
-            &coenrolling_ids,
-        );
+        let enrollments_evolver =
+            EnrollmentsEvolver::new(&available_randomization_units, &th, &coenrolling_ids);
         let state = self.state.lock().unwrap();
 
         let (enrollments, events) = enrollments_evolver
