@@ -123,6 +123,8 @@ impl NimbusClient {
         writer: &mut Writer,
         state: &mut MutexGuard<InternalMutableState>,
     ) -> Result<()> {
+        let id = self.read_or_create_nimbus_id(db, writer)?;
+        state.available_randomization_units.nimbus_id = Some(id.to_string());
         self.update_ta_install_dates(db, writer, state)?;
         self.event_store.lock().unwrap().read_from_db(db)?;
         Ok(())
@@ -345,7 +347,6 @@ impl NimbusClient {
         state: &mut InternalMutableState,
         experiments: &[Experiment],
     ) -> Result<Vec<EnrollmentChangeEvent>> {
-        let nimbus_id = self.read_or_create_nimbus_id(db, writer)?;
         let targeting_helper =
             NimbusTargetingHelper::new(&state.targeting_attributes, self.event_store.clone());
         let coenrolling_feature_ids = self
@@ -354,7 +355,6 @@ impl NimbusClient {
             .map(|s| s.as_str())
             .collect();
         let evolver = EnrollmentsEvolver::new(
-            &nimbus_id,
             &state.available_randomization_units,
             &targeting_helper,
             &coenrolling_feature_ids,
