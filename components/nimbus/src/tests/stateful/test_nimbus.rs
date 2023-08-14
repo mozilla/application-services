@@ -1214,3 +1214,60 @@ fn test_previous_enrollments_in_targeting() -> Result<()> {
 
     Ok(())
 }
+
+#[test]
+fn test_opt_out_multiple_experiments_same_feature_does_not_re_enroll() -> Result<()> {
+    let mock_client_id = "client-1".to_string();
+
+    let temp_dir = tempfile::tempdir()?;
+
+    let slug_1 = "experiment-1";
+    let slug_2 = "experiment-2";
+
+    let app_context = AppContext {
+        app_name: "fenix".to_string(),
+        app_id: "org.mozilla.fenix".to_string(),
+        channel: "nightly".to_string(),
+        ..Default::default()
+    };
+    let mut client = NimbusClient::new(
+        app_context.clone(),
+        Default::default(),
+        temp_dir.path(),
+        None,
+        AvailableRandomizationUnits {
+            client_id: Some(mock_client_id),
+            ..AvailableRandomizationUnits::default()
+        },
+    )?;
+
+    let targeting_attributes = TargetingAttributes {
+        app_context,
+        ..Default::default()
+    };
+    client.with_targeting_attributes(targeting_attributes);
+    client.initialize()?;
+
+    let exp_1 = get_targeted_experiment(slug_1, "true");
+    let exp_2 = get_targeted_experiment(slug_2, "true");
+    client.set_experiments_locally(to_local_experiments_string(&[exp_1, exp_2])?)?;
+    client.apply_pending_experiments()?;
+
+    let targeting_helper = client.create_targeting_helper(None)?;
+    assert!(targeting_helper.eval_jexl(format!("'{}' in active_experiments", slug_1))?);
+    assert!(targeting_helper.eval_jexl(format!("'{}' in active_experiments", slug_2))?);
+
+    client.opt_out(slug_1.into())?;
+
+    let targeting_helper = client.create_targeting_helper(None)?;
+    assert!(!targeting_helper.eval_jexl(format!("'{}' in active_experiments", slug_1))?);
+    assert!(targeting_helper.eval_jexl(format!("'{}' in active_experiments", slug_2))?);
+
+    client.opt_out(slug_2.into())?;
+
+    let targeting_helper = client.create_targeting_helper(None)?;
+    assert!(!targeting_helper.eval_jexl(format!("'{}' in active_experiments", slug_1))?);
+    assert!(!targeting_helper.eval_jexl(format!("'{}' in active_experiments", slug_2))?);
+
+    Ok(())
+}
