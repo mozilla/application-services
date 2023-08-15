@@ -13,7 +13,7 @@ def setup_build_tasks(config, tasks):
     for task in tasks:
         binary = task['attributes']['binary']
         target = task['attributes']['target']
-        if target in ('x86_64-unknown-linux-gnu', 'x86_64-pc-windows-gnu'):
+        if target in ('x86_64-unknown-linux-gnu', 'x86_64-pc-windows-gnu', 'x86_64-unknown-linux-musl'):
             setup_linux_build_task(task, target, binary)
         elif target in ('x86_64-apple-darwin', 'aarch64-apple-darwin'):
             setup_mac_build_task(task, target, binary)

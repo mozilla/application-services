@@ -29,6 +29,7 @@ rustup --version
 # cross-compilation targets
 rustup target add x86_64-apple-darwin
 rustup target add x86_64-pc-windows-gnu
+rustup target add x86_64-unknown-linux-musl
 
 # Tar everything into UPLOAD_DIR
 cd "$HOME"
