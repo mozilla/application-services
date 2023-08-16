@@ -130,14 +130,14 @@ public class DeviceConstellation {
 
     /// This allows us to be helpful in certain circumstances e.g. refreshing the device list
     /// if we see a "device disconnected" push notification.
-    internal func processAccountEvent(_ event: AccountEvent) {
+    func processAccountEvent(_ event: AccountEvent) {
         switch event {
         case .deviceDisconnected, .deviceConnected: refreshState()
         default: return
         }
     }
 
-    internal func initDevice(name: String, type: DeviceType, capabilities: [DeviceCapability]) {
+    func initDevice(name: String, type: DeviceType, capabilities: [DeviceCapability]) {
         // This method is called by `FxAccountManager` on its own asynchronous queue, hence
         // no wrapping in a `DispatchQueue.global().async`.
         assert(!Thread.isMainThread)
@@ -148,7 +148,7 @@ public class DeviceConstellation {
         }
     }
 
-    internal func ensureCapabilities(capabilities: [DeviceCapability]) {
+    func ensureCapabilities(capabilities: [DeviceCapability]) {
         // This method is called by `FxAccountManager` on its own asynchronous queue, hence
         // no wrapping in a `DispatchQueue.global().async`.
         assert(!Thread.isMainThread)

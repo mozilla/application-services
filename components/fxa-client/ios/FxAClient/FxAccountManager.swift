@@ -317,7 +317,7 @@ open class FxAccountManager {
 
     let fxaFsmQueue = DispatchQueue(label: "com.mozilla.fxa-mgr-queue")
 
-    internal func processEvent(event: Event, completionHandler: @escaping () -> Void) {
+    func processEvent(event: Event, completionHandler: @escaping () -> Void) {
         fxaFsmQueue.async {
             var toProcess: Event? = event
             while let evt = toProcess {
@@ -340,7 +340,7 @@ open class FxAccountManager {
     }
 
     // swiftlint:disable function_body_length
-    internal func stateActions(forState: AccountState, via: Event) -> Event? {
+    func stateActions(forState: AccountState, via: Event) -> Event? {
         switch forState {
         case .start: do {
                 switch via {
@@ -539,19 +539,19 @@ open class FxAccountManager {
         return nil
     }
 
-    internal func createAccount() -> PersistedFirefoxAccount {
+    func createAccount() -> PersistedFirefoxAccount {
         return PersistedFirefoxAccount(config: config.rustConfig)
     }
 
-    internal func tryRestoreAccount() -> PersistedFirefoxAccount? {
+    func tryRestoreAccount() -> PersistedFirefoxAccount? {
         return accountStorage.read()
     }
 
-    internal func makeDeviceConstellation(account: PersistedFirefoxAccount) -> DeviceConstellation {
+    func makeDeviceConstellation(account: PersistedFirefoxAccount) -> DeviceConstellation {
         return DeviceConstellation(account: account)
     }
 
-    internal func postAuthenticated(authType: FxaAuthType) {
+    func postAuthenticated(authType: FxaAuthType) {
         DispatchQueue.main.async {
             NotificationCenter.default.post(
                 name: .accountAuthenticated,
@@ -562,7 +562,7 @@ open class FxAccountManager {
         requireConstellation().refreshState()
     }
 
-    internal func setupInternalListeners() {
+    func setupInternalListeners() {
         // Handle auth exceptions caught in classes that don't hold a reference to the manager.
         _ = NotificationCenter.default.addObserver(forName: .accountAuthException, object: nil, queue: nil) { _ in
             self.processEvent(event: .authenticationError) {}
@@ -584,14 +584,14 @@ open class FxAccountManager {
         }
     }
 
-    internal func requireAccount() -> PersistedFirefoxAccount {
+    func requireAccount() -> PersistedFirefoxAccount {
         if let acct = account {
             return acct
         }
         preconditionFailure("initialize() must be called first.")
     }
 
-    internal func requireConstellation() -> DeviceConstellation {
+    func requireConstellation() -> DeviceConstellation {
         if let cstl = constellation {
             return cstl
         }
@@ -627,7 +627,7 @@ public enum FxaAuthType {
     case recovered
     case other(reason: String)
 
-    internal static func fromActionQueryParam(_ action: String) -> FxaAuthType {
+    static func fromActionQueryParam(_ action: String) -> FxaAuthType {
         switch action {
         case "signin": return .signin
         case "signup": return .signup
