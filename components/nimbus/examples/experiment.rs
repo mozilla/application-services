@@ -299,10 +299,10 @@ fn main() -> Result<()> {
             }
 
             let mut num_tries = 0;
-            let mut aru = AvailableRandomizationUnits::with_client_id(&client_id);
+            let aru = AvailableRandomizationUnits::with_client_id(&client_id);
             'outer: loop {
                 let uuid = uuid::Uuid::new_v4();
-                aru.nimbus_id = Some(uuid.to_string());
+                let aru = aru.apply_nimbus_id(&uuid);
                 let mut num_of_experiments_enrolled = 0;
                 let event_store = nimbus_client.event_store();
                 let th = NimbusTargetingHelper::new(&context, event_store.clone());
