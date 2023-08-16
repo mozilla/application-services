@@ -5,8 +5,8 @@
 import Foundation
 import os.log
 
-internal typealias UniffiPlacesApi = PlacesApi
-internal typealias UniffiPlacesConnection = PlacesConnection
+typealias UniffiPlacesApi = PlacesApi
+typealias UniffiPlacesConnection = PlacesConnection
 
 /**
  * This is specifically for throwing when there is

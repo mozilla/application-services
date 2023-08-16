@@ -26,7 +26,7 @@ public protocol NimbusMessagingProtocol {
 // Deprecated the name GleanPlumb.
 public typealias GleanPlumbProtocol = NimbusMessagingProtocol
 public typealias GleanPlumbMessageHelper = NimbusMessagingHelper
-public typealias NimbusMessagingHelperProtocol = NimbusTargetingHelperProtocol & NimbusStringHelperProtocol
+public typealias NimbusMessagingHelperProtocol = NimbusStringHelperProtocol & NimbusTargetingHelperProtocol
 
 /**
  * A helper object to make working with Strings uniform across multiple implementations of the messaging
@@ -61,7 +61,7 @@ public class NimbusMessagingHelper: NimbusMessagingHelperProtocol {
 
 // MARK: Dummy implementations
 
-internal class AlwaysConstantTargetingHelper: NimbusTargetingHelperProtocol {
+class AlwaysConstantTargetingHelper: NimbusTargetingHelperProtocol {
     private let constant: Bool
 
     public init(constant: Bool = false) {
@@ -73,7 +73,7 @@ internal class AlwaysConstantTargetingHelper: NimbusTargetingHelperProtocol {
     }
 }
 
-internal class EchoStringHelper: NimbusStringHelperProtocol {
+class EchoStringHelper: NimbusStringHelperProtocol {
     public func getUuid(template _: String) -> String? {
         nil
     }

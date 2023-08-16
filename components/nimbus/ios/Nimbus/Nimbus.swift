@@ -26,9 +26,9 @@ public class Nimbus: NimbusInterface {
         return queue
     }()
 
-    internal init(nimbusClient: NimbusClientProtocol,
-                  resourceBundles: [Bundle],
-                  errorReporter: @escaping NimbusErrorReporter)
+    init(nimbusClient: NimbusClientProtocol,
+         resourceBundles: [Bundle],
+         errorReporter: @escaping NimbusErrorReporter)
     {
         self.errorReporter = errorReporter
         self.nimbusClient = nimbusClient
@@ -151,13 +151,13 @@ extension Nimbus: FeaturesInterface {
         ))
     }
 
-    internal func getEnrollmentByFeature(featureId: String) -> EnrolledFeature? {
+    func getEnrollmentByFeature(featureId: String) -> EnrolledFeature? {
         return catchAll {
             try nimbusClient.getEnrollmentByFeature(featureId: featureId)
         }
     }
 
-    internal func postEnrollmentCalculation(_ events: [EnrollmentChangeEvent]) {
+    func postEnrollmentCalculation(_ events: [EnrollmentChangeEvent]) {
         // We need to update the experiment enrollment annotations in Glean
         // regardless of whether we recieved any events. Calling the
         // `setExperimentActive` function multiple times with the same
@@ -172,7 +172,7 @@ extension Nimbus: FeaturesInterface {
         notifyOnExperimentsApplied(experiments)
     }
 
-    internal func recordExperimentTelemetry(_ experiments: [EnrolledExperiment]) {
+    func recordExperimentTelemetry(_ experiments: [EnrolledExperiment]) {
         for experiment in experiments {
             Glean.shared.setExperimentActive(
                 experiment.slug,
@@ -182,7 +182,7 @@ extension Nimbus: FeaturesInterface {
         }
     }
 
-    internal func recordExperimentEvents(_ events: [EnrollmentChangeEvent]) {
+    func recordExperimentEvents(_ events: [EnrollmentChangeEvent]) {
         for event in events {
             switch event.change {
             case .enrollment:
@@ -219,7 +219,7 @@ extension Nimbus: FeaturesInterface {
         }
     }
 
-    internal func getFeatureConfigVariablesJson(featureId: String) -> [String: Any]? {
+    func getFeatureConfigVariablesJson(featureId: String) -> [String: Any]? {
         do {
             guard let string = try nimbusClient.getFeatureConfigVariables(featureId: featureId) else {
                 return nil
@@ -264,7 +264,7 @@ private extension Nimbus {
 /*
  * Methods split out onto a separate internal extension for testing purposes.
  */
-internal extension Nimbus {
+extension Nimbus {
     func setGlobalUserParticipationOnThisThread(_ value: Bool) throws {
         let changes = try nimbusClient.setGlobalUserParticipation(optIn: value)
         postEnrollmentCalculation(changes)
