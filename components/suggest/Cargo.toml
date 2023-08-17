@@ -23,6 +23,8 @@ uniffi = "0.24.1"
 [dev-dependencies]
 env_logger = { version = "0.7", default-features = false }
 expect-test = "1.4"
+hex = "0.4"
+rc_crypto = { path = "../support/rc_crypto" }
 
 [build-dependencies]
 uniffi = { version = "0.24.1", features = ["build"] }

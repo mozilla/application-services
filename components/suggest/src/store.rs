@@ -290,9 +290,29 @@ mod tests {
     use anyhow::{anyhow, Context};
     use expect_test::expect;
     use parking_lot::Once;
+    use rc_crypto::rand;
     use remote_settings::{RemoteSettingsRecord, RemoteSettingsResponse};
     use serde_json::json;
     use sql_support::ConnExt;
+
+    /// Creates a unique in-memory Suggest store.
+    fn unique_test_store<S>(settings_client: S) -> SuggestStoreInner<S>
+    where
+        S: SuggestRemoteSettingsClient,
+    {
+        let mut unique_suffix = [0u8; 8];
+        rand::fill(&mut unique_suffix).expect("Failed to generate unique suffix for test store");
+        // A store opens separate connections to the same database for reading
+        // and writing, so we must give our in-memory database a name, and open
+        // it in shared-cache mode so that both connections can access it.
+        SuggestStoreInner::new(
+            format!(
+                "file:test_store_{}?mode=memory&cache=shared",
+                hex::encode(unique_suffix),
+            ),
+            settings_client,
+        )
+    }
 
     /// A snapshot containing fake Remote Settings records and attachments for
     /// the store to ingest. We use snapshots to test the store's behavior in a
@@ -452,16 +472,7 @@ mod tests {
             }]),
         )?;
 
-        // We use SQLite's URI filename syntax to open a named in-memory
-        // database in shared-cache mode, so that it can be accessed by the
-        // store's reader and writer.
-        //
-        // The database name should be unique for each test, to avoid
-        // cross-contamination.
-        let store = SuggestStoreInner::new(
-            "file:ingest_suggestions?mode=memory&cache=shared",
-            SnapshotSettingsClient::with_snapshot(snapshot),
-        );
+        let store = unique_test_store(SnapshotSettingsClient::with_snapshot(snapshot));
 
         store.ingest(SuggestIngestionConstraints::default())?;
 
@@ -544,10 +555,7 @@ mod tests {
         )?
         .with_icon("icon-2.png", "i-am-an-icon".as_bytes().into());
 
-        let store = SuggestStoreInner::new(
-            "file:ingest_icons?mode=memory&cache=shared",
-            SnapshotSettingsClient::with_snapshot(snapshot),
-        );
+        let store = unique_test_store(SnapshotSettingsClient::with_snapshot(snapshot));
 
         store.ingest(SuggestIngestionConstraints::default())?;
 
@@ -654,10 +662,7 @@ mod tests {
             }),
         )?;
 
-        let store = SuggestStoreInner::new(
-            "file:ingest_one_suggestion_in_data_attachment?mode=memory&cache=shared",
-            SnapshotSettingsClient::with_snapshot(snapshot),
-        );
+        let store = unique_test_store(SnapshotSettingsClient::with_snapshot(snapshot));
 
         store.ingest(SuggestIngestionConstraints::default())?;
 
@@ -728,10 +733,7 @@ mod tests {
             }]),
         )?;
 
-        let store = SuggestStoreInner::new(
-            "file:reingest_suggestions?mode=memory&cache=shared",
-            SnapshotSettingsClient::with_snapshot(initial_snapshot),
-        );
+        let store = unique_test_store(SnapshotSettingsClient::with_snapshot(initial_snapshot));
 
         store.ingest(SuggestIngestionConstraints::default())?;
 
@@ -905,10 +907,7 @@ mod tests {
         .with_icon("icon-2.png", "lasagna-icon".as_bytes().into())
         .with_icon("icon-3.png", "pollos-icon".as_bytes().into());
 
-        let store = SuggestStoreInner::new(
-            "file:reingest_icons?mode=memory&cache=shared",
-            SnapshotSettingsClient::with_snapshot(initial_snapshot),
-        );
+        let store = unique_test_store(SnapshotSettingsClient::with_snapshot(initial_snapshot));
 
         store.ingest(SuggestIngestionConstraints::default())?;
 
@@ -1075,10 +1074,7 @@ mod tests {
         )?
         .with_icon("icon-2.png", "i-am-an-icon".as_bytes().into());
 
-        let store = SuggestStoreInner::new(
-            "file:ingest_tombstones?mode=memory&cache=shared",
-            SnapshotSettingsClient::with_snapshot(initial_snapshot),
-        );
+        let store = unique_test_store(SnapshotSettingsClient::with_snapshot(initial_snapshot));
 
         store.ingest(SuggestIngestionConstraints::default())?;
 
@@ -1130,10 +1126,7 @@ mod tests {
 
         let snapshot = Snapshot::with_records(json!([]))?;
 
-        let store = SuggestStoreInner::new(
-            "file:ingest_with_constraints?mode=memory&cache=shared",
-            SnapshotSettingsClient::with_snapshot(snapshot),
-        );
+        let store = unique_test_store(SnapshotSettingsClient::with_snapshot(snapshot));
 
         store.ingest(SuggestIngestionConstraints::default())?;
         assert_eq!(
@@ -1204,10 +1197,7 @@ mod tests {
             }]),
         )?;
 
-        let store = SuggestStoreInner::new(
-            "file:clear?mode=memory&cache=shared",
-            SnapshotSettingsClient::with_snapshot(snapshot),
-        );
+        let store = unique_test_store(SnapshotSettingsClient::with_snapshot(snapshot));
 
         store.ingest(SuggestIngestionConstraints::default())?;
 
@@ -1310,10 +1300,7 @@ mod tests {
         .with_icon("icon-2.png", "i-am-an-icon".as_bytes().into())
         .with_icon("icon-3.png", "also-an-icon".as_bytes().into());
 
-        let store = SuggestStoreInner::new(
-            "file:query?mode=memory&cache=shared",
-            SnapshotSettingsClient::with_snapshot(snapshot),
-        );
+        let store = unique_test_store(SnapshotSettingsClient::with_snapshot(snapshot));
 
         store.ingest(SuggestIngestionConstraints::default())?;
 
@@ -1537,10 +1524,7 @@ mod tests {
         }]))?
         .with_icon("icon-1.png", "i-am-an-icon".as_bytes().into());
 
-        let store = SuggestStoreInner::new(
-            "file:ingest_malformed?mode=memory&cache=shared",
-            SnapshotSettingsClient::with_snapshot(snapshot),
-        );
+        let store = unique_test_store(SnapshotSettingsClient::with_snapshot(snapshot));
 
         store.ingest(SuggestIngestionConstraints::default())?;
 
@@ -1575,10 +1559,7 @@ mod tests {
             "last_modified": 30,
         }]))?;
 
-        let store = SuggestStoreInner::new(
-            "file:ingest_unknown?mode=memory&cache=shared",
-            SnapshotSettingsClient::with_snapshot(snapshot),
-        );
+        let store = unique_test_store(SnapshotSettingsClient::with_snapshot(snapshot));
 
         store.ingest(SuggestIngestionConstraints::default())?;
 
