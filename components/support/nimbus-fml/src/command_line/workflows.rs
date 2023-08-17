@@ -5,23 +5,23 @@
 use glob::MatchOptions;
 use std::collections::HashSet;
 
-use crate::commands::{GenerateSingleFileManifestCmd, ValidateCmd};
+use super::commands::{GenerateExperimenterManifestCmd, GenerateIRCmd, GenerateStructCmd, GenerateSingleFileManifestCmd, ValidateCmd,};
 use crate::error::FMLError::CliError;
 use crate::frontend::ManifestFrontEnd;
 use crate::{
     backends,
-    commands::{GenerateExperimenterManifestCmd, GenerateIRCmd, GenerateStructCmd},
     error::{FMLError, Result},
     frontend::AboutBlock,
     intermediate_representation::{FeatureManifest, TargetLanguage},
     parser::Parser,
     util::loaders::{FileLoader, FilePath, LoaderConfig},
-    MATCHING_FML_EXTENSION,
 };
 use console::Term;
 use std::path::Path;
 
-#[allow(dead_code)]
+/// Use this when recursively looking for files.
+const MATCHING_FML_EXTENSION: &str = ".fml.yaml";
+
 pub(crate) fn generate_struct(cmd: &GenerateStructCmd) -> Result<()> {
     let files: FileLoader = TryFrom::try_from(&cmd.loader)?;
 

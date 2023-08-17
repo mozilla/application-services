@@ -6,13 +6,11 @@ use std::{env, path::PathBuf};
 
 pub mod loaders;
 
-#[allow(dead_code)]
 pub(crate) fn pkg_dir() -> String {
     env::var("CARGO_MANIFEST_DIR")
         .expect("Missing $CARGO_MANIFEST_DIR, cannot build tests for generated bindings")
 }
 
-#[allow(dead_code)]
 pub(crate) fn join(base: String, suffix: &str) -> String {
     [base, suffix.to_string()]
         .iter()

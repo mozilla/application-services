@@ -62,7 +62,7 @@ pub trait CodeType {
     ///
     /// /// All the propertis follow this general pattern:
     ///
-    /// ```
+    /// ```kt
     /// variables?.{{ value_getter }}
     ///         ?.{{ value_mapper }}
     ///         ?.{{ value_merger }}
@@ -238,7 +238,6 @@ pub trait CodeDeclaration {
 /// This is the `Variables` object. This enum gives the underlying types that the `Variables` object supports.
 pub enum VariablesType {
     Bool,
-    #[allow(dead_code)]
     Image,
     Int,
     String,

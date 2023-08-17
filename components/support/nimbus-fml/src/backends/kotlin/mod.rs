@@ -2,7 +2,7 @@
 * License, v. 2.0. If a copy of the MPL was not distributed with this
 * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-use crate::commands::GenerateStructCmd;
+use crate::command_line::commands::GenerateStructCmd;
 use crate::error::{FMLError, Result};
 use crate::frontend::AboutBlock;
 use crate::intermediate_representation::FeatureManifest;
