@@ -22,6 +22,18 @@
 
 - Renamed `Logger` to `AppServicesLogger` to avoid a name conflict on Swift.
 
+## Nimbus CLI [⛅️🔬🔭👾](./components/support/nimbus-cli)
+
+### ✨ What's New ✨
+
+- Added passthrough to FML command line ([#5784](https://github.com/mozilla/application-services/pull/5784)), effectively unifying the two command line tools.
+
+## Nimbus FML ⛅️🔬🔭🔧
+
+### 🦊 What's Changed 🦊
+
+- Removed previously deprecated commands `experimenter`, `ios`, `android`, `intermediate-repr` ([#5784](https://github.com/mozilla/application-services/pull/5784)).
+
 # v117.0 (_2023-07-31_)
 
 ## General
