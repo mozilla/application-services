@@ -5,13 +5,14 @@
 use glob::MatchOptions;
 use std::collections::HashSet;
 
-use super::commands::{GenerateExperimenterManifestCmd, GenerateIRCmd, GenerateStructCmd, GenerateSingleFileManifestCmd, ValidateCmd,};
+use super::commands::{
+    GenerateExperimenterManifestCmd, GenerateSingleFileManifestCmd, GenerateStructCmd, ValidateCmd,
+};
 use crate::error::FMLError::CliError;
 use crate::frontend::ManifestFrontEnd;
 use crate::{
     backends,
     error::{FMLError, Result},
-    frontend::AboutBlock,
     intermediate_representation::{FeatureManifest, TargetLanguage},
     parser::Parser,
     util::loaders::{FileLoader, FilePath, LoaderConfig},
@@ -78,31 +79,6 @@ fn generate_struct_single(
     generate_struct_from_ir(&ir, cmd)
 }
 
-pub(crate) fn generate_struct_cli_overrides(
-    from_cli: AboutBlock,
-    cmd: &GenerateStructCmd,
-) -> Result<()> {
-    let files: FileLoader = TryFrom::try_from(&cmd.loader)?;
-    let path = files.file_path(&cmd.manifest)?;
-    let mut ir = load_feature_manifest(files, path, cmd.load_from_ir, &cmd.channel)?;
-
-    // We do a dance here to make sure that we can override class names and package names during tests,
-    // and while we still have to support setting those options from the commmand line.
-    // We will deprecate setting classnames, package names etc, then we can simplify.
-    let from_file = ir.about;
-    let from_cli = from_cli;
-    let kotlin_about = from_cli.kotlin_about.or(from_file.kotlin_about);
-    let swift_about = from_cli.swift_about.or(from_file.swift_about);
-    let about = AboutBlock {
-        kotlin_about,
-        swift_about,
-        ..Default::default()
-    };
-    ir.about = about;
-
-    generate_struct_from_ir(&ir, cmd)
-}
-
 fn generate_struct_from_ir(ir: &FeatureManifest, cmd: &GenerateStructCmd) -> Result<()> {
     let language = &cmd.language;
     ir.validate_manifest_for_lang(language)?;
@@ -126,14 +102,6 @@ pub(crate) fn generate_experimenter_manifest(cmd: &GenerateExperimenterManifestC
     let path = files.file_path(&cmd.manifest)?;
     let ir = load_feature_manifest(files, path, cmd.load_from_ir, &cmd.channel)?;
     backends::experimenter_manifest::generate_manifest(ir, cmd)?;
-    Ok(())
-}
-
-pub(crate) fn generate_ir(cmd: &GenerateIRCmd) -> Result<()> {
-    let files: FileLoader = TryFrom::try_from(&cmd.loader)?;
-    let path = files.file_path(&cmd.manifest)?;
-    let ir = load_feature_manifest(files, path, cmd.load_from_ir, &cmd.channel)?;
-    std::fs::write(&cmd.output, serde_json::to_string_pretty(&ir)?)?;
     Ok(())
 }
 
@@ -292,7 +260,7 @@ mod test {
     use super::*;
     use crate::backends::experimenter_manifest::ExperimenterManifest;
     use crate::backends::{kotlin, swift};
-    use crate::frontend::KotlinAboutBlock;
+    use crate::frontend::{AboutBlock, KotlinAboutBlock};
     use crate::util::{generated_src_dir, join, pkg_dir};
 
     const MANIFEST_PATHS: &[&str] = &[
@@ -318,6 +286,28 @@ mod test {
             test_script,
         )?;
         Ok(())
+    }
+
+    fn generate_struct_cli_overrides(from_cli: AboutBlock, cmd: &GenerateStructCmd) -> Result<()> {
+        let files: FileLoader = TryFrom::try_from(&cmd.loader)?;
+        let path = files.file_path(&cmd.manifest)?;
+        let mut ir = load_feature_manifest(files, path, cmd.load_from_ir, &cmd.channel)?;
+
+        // We do a dance here to make sure that we can override class names and package names during tests,
+        // and while we still have to support setting those options from the commmand line.
+        // We will deprecate setting classnames, package names etc, then we can simplify.
+        let from_file = ir.about;
+        let from_cli = from_cli;
+        let kotlin_about = from_cli.kotlin_about.or(from_file.kotlin_about);
+        let swift_about = from_cli.swift_about.or(from_file.swift_about);
+        let about = AboutBlock {
+            kotlin_about,
+            swift_about,
+            ..Default::default()
+        };
+        ir.about = about;
+
+        generate_struct_from_ir(&ir, cmd)
     }
 
     // Given a manifest.fml and script.kts in the tests directory generate
