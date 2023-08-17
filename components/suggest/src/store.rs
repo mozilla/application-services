@@ -3,19 +3,33 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
  */
 
-use std::path::{Path, PathBuf};
+use std::{
+    collections::BTreeMap,
+    path::{Path, PathBuf},
+};
 
 use once_cell::sync::OnceCell;
-use remote_settings::{self, GetItemsOptions, RemoteSettingsConfig, SortOrder};
+use remote_settings::{
+    self, GetItemsOptions, RemoteSettingsConfig, RemoteSettingsRecord, SortOrder,
+};
+use rusqlite::{
+    types::{FromSql, ToSqlOutput},
+    ToSql,
+};
+use serde::{Deserialize, Serialize};
 
 use crate::{
-    db::{ConnectionType, SuggestDb, LAST_INGEST_META_KEY},
+    db::{ConnectionType, SuggestDb, LAST_INGEST_META_KEY, UNKNOWN_RECORDS_META_KEY},
     rs::{
         SuggestAttachment, SuggestRecord, SuggestRecordId, SuggestRemoteSettingsClient,
         REMOTE_SETTINGS_COLLECTION, SUGGESTIONS_PER_ATTACHMENT,
     },
+    schema::VERSION,
     Result, SuggestApiResult, Suggestion, SuggestionQuery,
 };
+
+/// The chunk size used to request unparsable records.
+pub const UNPARSABLE_IDS_PER_REQUEST: usize = 150;
 
 /// The store is the entry point to the Suggest component. It incrementally
 /// downloads suggestions from the Remote Settings service, stores them in a
@@ -47,6 +61,35 @@ use crate::{
 ///    on the first launch.
 pub struct SuggestStore {
     inner: SuggestStoreInner<remote_settings::Client>,
+}
+
+/// For records that aren't currently parsable,
+/// the record ID and the schema version it's first seen in
+/// is recorded in the meta table using `UNKNOWN_RECORDS_META_KEY` as its key.
+/// On the first ingest after an upgrade, re-request those records from Remote Settings,
+/// and try to ingest them again.
+#[derive(Deserialize, Serialize, Default, Debug)]
+#[serde(transparent)]
+pub(crate) struct UnparsableRecords(pub BTreeMap<String, UnparsableRecord>);
+
+impl FromSql for UnparsableRecords {
+    fn column_result(value: rusqlite::types::ValueRef<'_>) -> rusqlite::types::FromSqlResult<Self> {
+        serde_json::from_str(value.as_str()?)
+            .map_err(|err| rusqlite::types::FromSqlError::Other(Box::new(err)))
+    }
+}
+
+impl ToSql for UnparsableRecords {
+    fn to_sql(&self) -> rusqlite::Result<rusqlite::types::ToSqlOutput<'_>> {
+        Ok(ToSqlOutput::from(serde_json::to_string(self).map_err(
+            |err| rusqlite::Error::ToSqlConversionFailure(Box::new(err)),
+        )?))
+    }
+}
+
+#[derive(Deserialize, Serialize, Debug)]
+pub(crate) struct UnparsableRecord {
+    pub schema_version: u32,
 }
 
 impl SuggestStore {
@@ -166,6 +209,29 @@ where
     fn ingest(&self, constraints: SuggestIngestionConstraints) -> Result<()> {
         let writer = &self.dbs()?.writer;
 
+        if let Some(unknown_records) =
+            writer.read(|dao| dao.get_meta::<UnparsableRecords>(UNKNOWN_RECORDS_META_KEY))?
+        {
+            let all_unparsable_ids = unknown_records
+                .0
+                .iter()
+                .filter(|(_, unparsable_record)| unparsable_record.schema_version < VERSION)
+                .map(|(record_id, _)| record_id)
+                .collect::<Vec<_>>();
+            for unparsable_ids in all_unparsable_ids.chunks(UNPARSABLE_IDS_PER_REQUEST) {
+                let mut options = GetItemsOptions::new();
+                for unparsable_id in unparsable_ids {
+                    options.eq("id", *unparsable_id);
+                }
+                let records_chunk = self
+                    .settings_client
+                    .get_records_with_options(&options)?
+                    .records;
+
+                self.ingest_records(writer, &records_chunk)?;
+            }
+        }
+
         let mut options = GetItemsOptions::new();
         // Remote Settings returns records in descending modification order
         // (newest first), but we want them in ascending order (oldest first),
@@ -176,6 +242,7 @@ where
             // was interrupted, we'll pick up where we left off.
             options.gt("last_modified", last_ingest.to_string());
         }
+
         if let Some(max_suggestions) = constraints.max_suggestions {
             // Each record's attachment has 200 suggestions, so download enough
             // records to cover the requested maximum.
@@ -187,7 +254,13 @@ where
             .settings_client
             .get_records_with_options(&options)?
             .records;
-        for record in &records {
+        self.ingest_records(writer, &records)?;
+
+        Ok(())
+    }
+
+    fn ingest_records(&self, writer: &SuggestDb, records: &[RemoteSettingsRecord]) -> Result<()> {
+        for record in records {
             let record_id = SuggestRecordId::from(&record.id);
             if record.deleted {
                 // If the entire record was deleted, drop all its suggestions
@@ -197,7 +270,10 @@ where
                         Some(icon_id) => dao.drop_icon(icon_id)?,
                         None => dao.drop_suggestions(&record_id)?,
                     };
-                    dao.put_meta(LAST_INGEST_META_KEY, record.last_modified)?;
+                    // Remove this `record.id` from unknowns.
+                    dao.drop_unknown_record_id(&record_id)?;
+                    dao.put_last_ingest_if_newer(record.last_modified)?;
+
                     Ok(())
                 })?;
                 continue;
@@ -206,8 +282,12 @@ where
                 serde_json::from_value(serde_json::Value::Object(record.fields.clone()))
             else {
                 // We don't recognize this record's type, so we don't know how
-                // to ingest its suggestions. Skip to the next record.
-                writer.write(|dao| dao.put_meta(LAST_INGEST_META_KEY, record.last_modified))?;
+                // to ingest its suggestions. Record this in the meta table.
+                writer.write(|dao| {
+                    dao.put_unknown_record_id(&record_id)?;
+                    dao.put_last_ingest_if_newer(record.last_modified)?;
+                    Ok(())
+                })?;
                 continue;
             };
             match fields {
@@ -216,9 +296,7 @@ where
                         // An AMP-Wikipedia record should always have an
                         // attachment with suggestions. If it doesn't, it's
                         // malformed, so skip to the next record.
-                        writer.write(|dao| {
-                            dao.put_meta(LAST_INGEST_META_KEY, record.last_modified)
-                        })?;
+                        writer.write(|dao| dao.put_last_ingest_if_newer(record.last_modified))?;
                         continue;
                     };
 
@@ -238,9 +316,13 @@ where
                         // attachment.
                         dao.insert_amp_wikipedia_suggestions(&record_id, attachment.suggestions())?;
 
+                        // Remove this `record.id` from unknowns, since we
+                        // understand it now.
+                        dao.drop_unknown_record_id(&record_id)?;
+
                         // Advance the last fetch time, so that we can resume
                         // fetching after this record if we're interrupted.
-                        dao.put_meta(LAST_INGEST_META_KEY, record.last_modified)?;
+                        dao.put_last_ingest_if_newer(record.last_modified)?;
 
                         Ok(())
                     })?;
@@ -252,21 +334,22 @@ where
                         // An icon record should have an icon ID and an
                         // attachment. Icons that don't have these are
                         // malformed, so skip to the next record.
-                        writer.write(|dao| {
-                            dao.put_meta(LAST_INGEST_META_KEY, record.last_modified)
-                        })?;
+                        writer.write(|dao| dao.put_last_ingest_if_newer(record.last_modified))?;
                         continue;
                     };
                     let data = self.settings_client.get_attachment(&attachment.location)?;
                     writer.write(|dao| {
                         dao.put_icon(icon_id, &data)?;
-                        dao.put_meta(LAST_INGEST_META_KEY, record.last_modified)?;
+                        dao.put_last_ingest_if_newer(record.last_modified)?;
+                        // Remove this `record.id` from unknowns, since we
+                        // understand it now.
+                        dao.drop_unknown_record_id(&record_id)?;
+
                         Ok(())
                     })?;
                 }
             }
         }
-
         Ok(())
     }
 }
@@ -1572,10 +1655,199 @@ mod tests {
         store.ingest(SuggestIngestionConstraints::default())?;
 
         store.dbs()?.reader.read(|dao| {
+            assert_eq!(dao.get_meta::<u64>(LAST_INGEST_META_KEY)?, Some(30));
+            expect![[r#"
+                Some(
+                    UnparsableRecords(
+                        {
+                            "clippy-2": UnparsableRecord {
+                                schema_version: 3,
+                            },
+                            "fancy-new-suggestions-1": UnparsableRecord {
+                                schema_version: 3,
+                            },
+                        },
+                    ),
+                )
+            "#]]
+            .assert_debug_eq(&dao.get_meta::<UnparsableRecords>(UNKNOWN_RECORDS_META_KEY)?);
+            Ok(())
+        })?;
+
+        Ok(())
+    }
+
+    #[test]
+    fn ingest_mixed_known_unknown_records() -> anyhow::Result<()> {
+        before_each();
+
+        let snapshot = Snapshot::with_records(json!([{
+            "id": "fancy-new-suggestions-1",
+            "type": "fancy-new-suggestions",
+            "last_modified": 15,
+        },
+        {
+            "id": "data-1",
+            "type": "data",
+            "last_modified": 15,
+            "attachment": {
+                "filename": "data-1.json",
+                "mimetype": "application/json",
+                "location": "data-1.json",
+                "hash": "",
+                "size": 0,
+            },
+        },
+        {
+            "id": "clippy-2",
+            "type": "clippy",
+            "last_modified": 30,
+        }]))?
+        .with_data(
+            "data-1.json",
+            json!([{
+                "id": 0,
+                "advertiser": "Los Pollos Hermanos",
+                "iab_category": "8 - Food & Drink",
+                "keywords": ["lo", "los", "los p", "los pollos", "los pollos h", "los pollos hermanos"],
+                "title": "Los Pollos Hermanos - Albuquerque",
+                "url": "https://www.lph-nm.biz",
+                "icon": "5678",
+                "impression_url": "https://example.com/impression_url",
+                "click_url": "https://example.com/click_url",
+            }]),
+        )?;
+
+        let store = unique_test_store(SnapshotSettingsClient::with_snapshot(snapshot));
+
+        store.ingest(SuggestIngestionConstraints::default())?;
+
+        store.dbs()?.reader.read(|dao| {
             // Unknown records should still advance the last ingest time, but
             // we don't try to store or ingest any suggestions from them.
             assert_eq!(dao.get_meta::<u64>(LAST_INGEST_META_KEY)?, Some(30));
+            expect![[r#"
+                Some(
+                    UnparsableRecords(
+                        {
+                            "clippy-2": UnparsableRecord {
+                                schema_version: 3,
+                            },
+                            "fancy-new-suggestions-1": UnparsableRecord {
+                                schema_version: 3,
+                            },
+                        },
+                    ),
+                )
+            "#]]
+            .assert_debug_eq(&dao.get_meta::<UnparsableRecords>(UNKNOWN_RECORDS_META_KEY)?);
+            Ok(())
+        })?;
 
+        Ok(())
+    }
+
+    /// Tests meta update field isn't updated for an old unknown Remote Settings records.
+    #[test]
+    fn ingest_unknown_and_meta_update_stays_the_same() -> anyhow::Result<()> {
+        before_each();
+
+        let snapshot = Snapshot::with_records(json!([{
+            "id": "fancy-new-suggestions-1",
+            "type": "fancy-new-suggestions",
+            "last_modified": 15,
+        }]))?;
+
+        let store = unique_test_store(SnapshotSettingsClient::with_snapshot(snapshot));
+        store.dbs()?.writer.write(|dao| {
+            dao.put_meta(LAST_INGEST_META_KEY, 30)?;
+            Ok(())
+        })?;
+        store.ingest(SuggestIngestionConstraints::default())?;
+
+        store.dbs()?.reader.read(|dao| {
+            assert_eq!(dao.get_meta::<u64>(LAST_INGEST_META_KEY)?, Some(30));
+            Ok(())
+        })?;
+
+        Ok(())
+    }
+
+    #[test]
+    fn remove_known_records_out_of_meta_table() -> anyhow::Result<()> {
+        before_each();
+
+        let snapshot = Snapshot::with_records(json!([{
+            "id": "fancy-new-suggestions-1",
+            "type": "fancy-new-suggestions",
+            "last_modified": 15,
+        },
+        {
+            "id": "data-1",
+            "type": "data",
+            "last_modified": 15,
+            "attachment": {
+                "filename": "data-1.json",
+                "mimetype": "application/json",
+                "location": "data-1.json",
+                "hash": "",
+                "size": 0,
+            },
+        },
+        {
+            "id": "clippy-2",
+            "type": "clippy",
+            "last_modified": 15,
+        }]))?
+        .with_data(
+            "data-1.json",
+            json!([{
+                "id": 0,
+                "advertiser": "Los Pollos Hermanos",
+                "iab_category": "8 - Food & Drink",
+                "keywords": ["lo", "los", "los p", "los pollos", "los pollos h", "los pollos hermanos"],
+                "title": "Los Pollos Hermanos - Albuquerque",
+                "url": "https://www.lph-nm.biz",
+                "icon": "5678",
+                "impression_url": "https://example.com/impression_url",
+                "click_url": "https://example.com/click_url",
+            }]),
+        )?;
+
+        let store = unique_test_store(SnapshotSettingsClient::with_snapshot(snapshot));
+        let mut initial_data = UnparsableRecords::default();
+        initial_data
+            .0
+            .insert("data-1".to_string(), UnparsableRecord { schema_version: 1 });
+        initial_data.0.insert(
+            "clippy-2".to_string(),
+            UnparsableRecord { schema_version: 1 },
+        );
+        store.dbs()?.writer.write(|dao| {
+            dao.put_meta(UNKNOWN_RECORDS_META_KEY, initial_data)?;
+            Ok(())
+        })?;
+
+        store.ingest(SuggestIngestionConstraints::default())?;
+
+        store.dbs()?.reader.read(|dao| {
+            // Unknown records should still advance the last ingest time, but
+            // we don't try to store or ingest any suggestions from them.
+            expect![[r#"
+                Some(
+                    UnparsableRecords(
+                        {
+                            "clippy-2": UnparsableRecord {
+                                schema_version: 3,
+                            },
+                            "fancy-new-suggestions-1": UnparsableRecord {
+                                schema_version: 3,
+                            },
+                        },
+                    ),
+                )
+            "#]]
+            .assert_debug_eq(&dao.get_meta::<UnparsableRecords>(UNKNOWN_RECORDS_META_KEY)?);
             Ok(())
         })?;
 
