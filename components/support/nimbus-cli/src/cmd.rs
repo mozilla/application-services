@@ -5,7 +5,7 @@
 #[cfg(feature = "server")]
 use crate::output::server;
 use crate::{
-    output::deeplink,
+    output::{deeplink, fml_cli},
     protocol::StartAppProtocol,
     sources::ManifestSource,
     value_utils::{
@@ -73,6 +73,7 @@ pub(crate) fn process_cmd(cmd: &AppCommand) -> Result<bool> {
         )?,
 
         AppCommand::FetchList { list, file } => list.fetch_list(file.as_ref())?,
+        AppCommand::FmlPassthrough { args, cwd } => fml_cli(args, cwd)?,
         AppCommand::Info { experiment, output } => experiment.print_info(output.as_ref())?,
         AppCommand::Kill { app } => app.kill_app()?,
         AppCommand::List { list, .. } => list.print_list()?,
