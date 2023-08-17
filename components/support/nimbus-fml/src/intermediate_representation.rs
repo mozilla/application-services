@@ -707,7 +707,6 @@ pub struct FeatureDef {
 }
 
 impl FeatureDef {
-    #[allow(dead_code)]
     pub fn new(name: &str, doc: &str, props: Vec<PropDef>, allow_coenrollment: bool) -> Self {
         Self {
             name: name.into(),
@@ -785,7 +784,6 @@ pub struct VariantDef {
     pub(crate) doc: String,
 }
 impl VariantDef {
-    #[allow(dead_code)]
     pub fn new(name: &str, doc: &str) -> Self {
         Self {
             name: name.into(),

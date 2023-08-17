@@ -8,7 +8,7 @@ use std::fmt::Display;
 use serde::{Deserialize, Serialize};
 
 use crate::{
-    commands::GenerateExperimenterManifestCmd,
+    command_line::commands::GenerateExperimenterManifestCmd,
     error::{FMLError, Result},
     intermediate_representation::{FeatureDef, FeatureManifest, PropDef, TargetLanguage, TypeRef},
 };

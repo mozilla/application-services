@@ -6,7 +6,7 @@ use crate::error::{FMLError, Result};
 use crate::frontend::AboutBlock;
 use askama::Template;
 
-use crate::commands::GenerateStructCmd;
+use crate::command_line::commands::GenerateStructCmd;
 use crate::intermediate_representation::FeatureManifest;
 
 mod gen_structs;
