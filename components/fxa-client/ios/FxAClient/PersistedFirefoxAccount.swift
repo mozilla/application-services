@@ -257,7 +257,7 @@ class PersistedFirefoxAccount {
         }
     }
 
-    internal func notifyAuthErrors<T>(_ cb: () throws -> T) rethrows -> T {
+    func notifyAuthErrors<T>(_ cb: () throws -> T) rethrows -> T {
         do {
             return try cb()
         } catch let error as FxaError {
@@ -269,7 +269,7 @@ class PersistedFirefoxAccount {
         }
     }
 
-    internal func notifyAuthError() {
+    func notifyAuthError() {
         NotificationCenter.default.post(name: .accountAuthException, object: nil)
     }
 }

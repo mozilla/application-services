@@ -4,7 +4,7 @@
 
 import Foundation
 
-internal extension Dictionary where Key == String, Value == Any {
+extension Dictionary where Key == String, Value == Any {
     func stringify() throws -> String {
         let data = try JSONSerialization.data(withJSONObject: self)
         guard let s = String(data: data, encoding: .utf8) else {

@@ -11,15 +11,15 @@ class FxALog {
         category: "FxAccountManager"
     )
 
-    internal static func info(_ msg: String) {
+    static func info(_ msg: String) {
         log(msg, type: .info)
     }
 
-    internal static func debug(_ msg: String) {
+    static func debug(_ msg: String) {
         log(msg, type: .debug)
     }
 
-    internal static func error(_ msg: String) {
+    static func error(_ msg: String) {
         log(msg, type: .error)
     }
 
