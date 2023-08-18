@@ -429,7 +429,7 @@ impl LaunchableApp {
         if open.pbpaste {
             let url = self.longform_url(&app_protocol, open)?;
             let addr = server::get_address()?;
-            match server::post_deeplink(self.platform(), &url) {
+            match server::post_deeplink(self.platform(), &url, app_protocol.experiments) {
                 Err(_) => output_err(
                     &term,
                     "Cannot post to the server",

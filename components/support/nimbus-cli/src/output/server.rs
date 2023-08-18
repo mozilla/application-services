@@ -16,13 +16,14 @@ use crate::config;
 
 use anyhow::anyhow;
 use axum::{
-    extract::State,
+    extract::{Path, State},
     http,
     response::{Html, IntoResponse},
     routing::{get, post, IntoMakeService},
     Json, Router, Server,
 };
 use hyper::server::conn::AddrIncoming;
+use serde_json::Value;
 use tower::layer::util::Stack;
 use tower_http::set_header::SetResponseHeaderLayer;
 use tower_livereload::{LiveReloadLayer, Reloader};
@@ -47,6 +48,11 @@ fn create_app(livereload: LiveReloadLayer, state: Db) -> Router {
         .route("/style.css", get(style))
         .route("/script.js", get(script))
         .route("/post", post(post_handler))
+        .route("/buckets/:bucket/collections/:collection/records", get(rs))
+        .route(
+            "/v1/buckets/:bucket/collections/:collection/records",
+            get(rs),
+        )
         .layer(livereload)
         .layer(no_cache_layer())
         .with_state(state)
@@ -66,8 +72,12 @@ pub(crate) async fn start_server() -> Result<bool> {
     Ok(true)
 }
 
-pub(crate) fn post_deeplink(platform: &str, deeplink: &str) -> Result<bool> {
-    let payload = StartAppPostPayload::new(platform, deeplink);
+pub(crate) fn post_deeplink(
+    platform: &str,
+    deeplink: &str,
+    experiments: Option<&Value>,
+) -> Result<bool> {
+    let payload = StartAppPostPayload::new(platform, deeplink, experiments);
     let addr = get_address()?;
     let _ret = post_payload(&payload, &addr.to_string())?;
     Ok(true)
@@ -122,6 +132,28 @@ async fn script(State(_): State<Db>) -> &'static str {
     include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/assets/script.js"))
 }
 
+async fn rs(
+    State(db): State<Db>,
+    Path((_bucket, _collection)): Path<(String, String)>,
+) -> impl IntoResponse {
+    let state = db.write().unwrap();
+
+    let latest = state.latest();
+    if let Some(latest) = latest {
+        if let Some(e) = &latest.experiments {
+            (StatusCode::OK, Json(e.clone()))
+        } else {
+            // The server's latest content has no experiments; e.g.
+            // nimbus-cli open --pbpaste
+            (StatusCode::NOT_MODIFIED, Json(Value::Null))
+        }
+    } else {
+        // The server is up and running, but the first invocation of a --pbpaste
+        // has not come in yet.
+        (StatusCode::SERVICE_UNAVAILABLE, Json(Value::Null))
+    }
+}
+
 async fn post_handler(
     State(db): State<Db>,
     Json(payload): Json<StartAppPostPayload>,
@@ -138,13 +170,15 @@ async fn post_handler(
 struct StartAppPostPayload {
     platform: String,
     url: String,
+    experiments: Option<Value>,
 }
 
 impl StartAppPostPayload {
-    fn new(platform: &str, url: &str) -> Self {
+    fn new(platform: &str, url: &str, experiments: Option<&Value>) -> Self {
         Self {
             platform: platform.to_string(),
             url: url.to_string(),
+            experiments: experiments.cloned(),
         }
     }
 }
@@ -165,6 +199,7 @@ fn post_payload<T: Serialize>(payload: &T, addr: &str) -> Result<String> {
 struct InMemoryDb {
     reloader: Reloader,
     payloads: HashMap<String, StartAppPostPayload>,
+    latest: Option<String>,
 }
 
 impl InMemoryDb {
@@ -172,6 +207,7 @@ impl InMemoryDb {
         Self {
             reloader,
             payloads: Default::default(),
+            latest: None,
         }
     }
 
@@ -180,8 +216,14 @@ impl InMemoryDb {
     }
 
     fn update(&mut self, payload: StartAppPostPayload) {
+        self.latest = Some(payload.platform.clone());
         self.payloads.insert(payload.platform.clone(), payload);
         self.reloader.reload();
+    }
+
+    fn latest(&self) -> Option<&StartAppPostPayload> {
+        let key = self.latest.as_ref()?;
+        self.payloads.get(key)
     }
 }
 
@@ -209,6 +251,7 @@ fn no_cache_layer() -> Stack<Srhl, Stack<Srhl, Srhl>> {
 #[cfg(test)]
 mod tests {
     use hyper::{Body, Method, Request, Response};
+    use serde_json::json;
     use std::net::TcpListener;
     use tokio::sync::oneshot::Sender;
 
@@ -237,7 +280,7 @@ mod tests {
     }
 
     async fn get(port: u32, endpoint: &str) -> Result<String> {
-        let url = format!("http://127.0.0.1:{port}/{endpoint}");
+        let url = format!("http://127.0.0.1:{port}{endpoint}");
 
         let client = hyper::Client::new();
         let response = client
@@ -270,7 +313,7 @@ mod tests {
         let port = 1234;
         let (_db, tx) = start_test_server(port)?;
 
-        let s = get(port, "").await?;
+        let s = get(port, "/").await?;
         assert!(s.contains("<html>"));
 
         let _ = tx.send(());
@@ -285,7 +328,7 @@ mod tests {
         let platform = "android";
         let deeplink = "fenix-dev-test://open-now";
 
-        let payload = StartAppPostPayload::new(platform, deeplink);
+        let payload = StartAppPostPayload::new(platform, deeplink, None);
         let _ = post_payload(&payload, &format!("127.0.0.1:{port}")).await?;
 
         // Check the internal state
@@ -305,12 +348,65 @@ mod tests {
         let platform = "android";
         let deeplink = "fenix-dev-test://open-now";
 
-        let payload = StartAppPostPayload::new(platform, deeplink);
+        let payload = StartAppPostPayload::new(platform, deeplink, None);
         let _ = post_payload(&payload, &format!("127.0.0.1:{port}")).await?;
 
         // Check the index.html page
-        let s = get(port, "").await?;
+        let s = get(port, "/").await?;
         assert!(s.contains(deeplink));
+
+        let _ = tx.send(());
+        Ok(())
+    }
+
+    #[tokio::test]
+    async fn test_posting_value_to_fake_remote_settings() -> Result<()> {
+        let port = 1237;
+        let (_, tx) = start_test_server(port)?;
+
+        let platform = "android";
+        let deeplink = "fenix-dev-test://open-now";
+        let value = json!({
+            "int": 1,
+            "boolean": true,
+            "object": {},
+            "array": [],
+            "null": null,
+        });
+        let payload = StartAppPostPayload::new(platform, deeplink, Some(&value));
+        let _ = post_payload(&payload, &format!("127.0.0.1:{port}")).await?;
+
+        // Check the fake Remote Settings page
+        let s = get(port, "/v1/buckets/BUCKET/collections/COLLECTION/records").await?;
+        assert_eq!(s, serde_json::to_string(&value)?);
+
+        let s = get(port, "/buckets/BUCKET/collections/COLLECTION/records").await?;
+        assert_eq!(s, serde_json::to_string(&value)?);
+
+        let _ = tx.send(());
+        Ok(())
+    }
+
+    #[tokio::test]
+    async fn test_getting_null_values_from_fake_remote_settings() -> Result<()> {
+        let port = 1238;
+        let (_, tx) = start_test_server(port)?;
+
+        // Part 1: get from remote settings page before anything has been posted yet.
+        let s = get(port, "/v1/buckets/BUCKET/collections/COLLECTION/records").await?;
+        assert_eq!(s, "null".to_string());
+
+        // Part 2: Post a payload, but not with any experiments.
+        let platform = "android";
+        let deeplink = "fenix-dev-test://open-now";
+
+        let payload = StartAppPostPayload::new(platform, deeplink, None);
+        let _ = post_payload(&payload, &format!("127.0.0.1:{port}")).await?;
+
+        // Check the fake Remote Settings page, should be empty, since an experiments payload
+        // wasn't posted
+        let s = get(port, "/v1/buckets/BUCKET/collections/COLLECTION/records").await?;
+        assert_eq!(s, "".to_string());
 
         let _ = tx.send(());
         Ok(())
