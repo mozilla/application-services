@@ -95,9 +95,6 @@ struct UpdateRequest<'a> {
 /// A new communication link to the Autopush server
 #[cfg_attr(test, mockall::automock)]
 pub trait Connection: Sized {
-    /// Create a new instance of a [`Connection`]
-    fn connect(options: PushConfiguration) -> Self;
-
     /// Sends this client's very first subscription request. Note that the `uaid` is not available at this stage
     /// the server will assign and return a uaid. Subsequent subscriptions will call [`Connection::subscribe_with_uaid`]
     ///
@@ -168,6 +165,10 @@ pub struct ConnectHttp {
 }
 
 impl ConnectHttp {
+    pub fn new(options: PushConfiguration) -> ConnectHttp {
+        ConnectHttp { options }
+    }
+
     fn auth_headers(&self, auth: &str) -> error::Result<Headers> {
         let mut headers = Headers::new();
         headers
@@ -243,10 +244,6 @@ impl ConnectHttp {
 }
 
 impl Connection for ConnectHttp {
-    fn connect(options: PushConfiguration) -> ConnectHttp {
-        ConnectHttp { options }
-    }
-
     fn register(
         &self,
         registration_id: &str,
@@ -420,7 +417,7 @@ mod test {
                 .with_header("content-type", "application/json")
                 .with_body(body)
                 .create();
-            let conn = ConnectHttp::connect(config.clone());
+            let conn = ConnectHttp::new(config.clone());
             let response = conn.register(SENDER_ID, &None).unwrap();
             ap_mock.assert();
             assert_eq!(response.uaid, DUMMY_UAID);
@@ -440,7 +437,7 @@ mod test {
                 .with_header("content-type", "application/json")
                 .with_body(body)
                 .create();
-            let conn = ConnectHttp::connect(config.clone());
+            let conn = ConnectHttp::new(config.clone());
             let response = conn.register(SENDER_ID, &None).unwrap();
             ap_mock.assert();
             assert_eq!(response.uaid, DUMMY_UAID);
@@ -487,7 +484,7 @@ mod test {
             .with_header("content-type", "application/json")
             .with_body("{}")
             .create();
-            let conn = ConnectHttp::connect(config.clone());
+            let conn = ConnectHttp::new(config.clone());
             conn.unsubscribe(DUMMY_CHID, DUMMY_UAID, SECRET).unwrap();
             ap_mock.assert();
         }
@@ -502,7 +499,7 @@ mod test {
             .with_header("content-type", "application/json")
             .with_body("{}")
             .create();
-            let conn = ConnectHttp::connect(config.clone());
+            let conn = ConnectHttp::new(config.clone());
             conn.unsubscribe_all(DUMMY_UAID, SECRET).unwrap();
             ap_mock.assert();
         }
@@ -517,7 +514,7 @@ mod test {
             .with_header("content-type", "application/json")
             .with_body("{}")
             .create();
-            let conn = ConnectHttp::connect(config.clone());
+            let conn = ConnectHttp::new(config.clone());
 
             conn.update("NewTokenValue", DUMMY_UAID, SECRET).unwrap();
             ap_mock.assert();
@@ -538,7 +535,7 @@ mod test {
             .with_header("content-type", "application/json")
             .with_body(body_cl_success)
             .create();
-            let conn = ConnectHttp::connect(config);
+            let conn = ConnectHttp::new(config);
             let response = conn.channel_list(DUMMY_UAID, SECRET).unwrap();
             ap_mock.assert();
             assert!(response == [DUMMY_CHID.to_owned()]);
@@ -567,7 +564,7 @@ mod test {
                 .with_header("content-type", "application/json")
                 .with_body(body)
                 .create();
-            let conn = ConnectHttp::connect(config);
+            let conn = ConnectHttp::new(config);
             let err = conn.register(SENDER_ID, &None).unwrap_err();
             ap_mock.assert();
             assert!(matches!(err, error::PushError::AlreadyRegisteredError));

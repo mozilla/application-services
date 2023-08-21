@@ -226,8 +226,13 @@ impl PushManager {
             config.server_host,
             config.http_protocol
         );
+        let store = Store::open(&config.database_path)?;
+        let connection = ConnectHttp::new(config.clone());
+        let crypto = Crypto::default();
         Ok(Self {
-            internal: Mutex::new(internal::PushManager::new(config)?),
+            internal: Mutex::new(internal::PushManager::new(
+                config, crypto, connection, store,
+            )?),
         })
     }
 

@@ -279,7 +279,9 @@ mod test {
             chid,
             &format!("https://example.com/update/{}", chid),
             "https://example.com/",
-            Crypto::generate_key().expect("Couldn't generate_key"),
+            Crypto::default()
+                .generate_key()
+                .expect("Couldn't generate_key"),
         )
         .unwrap()
     }

@@ -116,17 +116,18 @@ impl Key {
 }
 
 #[cfg_attr(test, mockall::automock)]
-pub trait Cryptography: Default {
+pub trait Cryptography {
     /// generate a new local EC p256 key
-    fn generate_key() -> error::Result<Key>;
+    fn generate_key(&self) -> error::Result<Key>;
 
     /// General decrypt function. Calls to decrypt_aesgcm or decrypt_aes128gcm as needed.
     #[allow(clippy::needless_lifetimes)]
     // Clippy complains here although the lifetime is needed, seems like a bug with automock
-    fn decrypt<'a>(key: &Key, push_payload: PushPayload<'a>) -> error::Result<Decrypted>;
+    fn decrypt<'a>(&self, key: &Key, push_payload: PushPayload<'a>) -> error::Result<Decrypted>;
 
     /// Decrypt the obsolete "aesgcm" format (which is still used by a number of providers)
     fn decrypt_aesgcm(
+        &self,
         key: &Key,
         content: &[u8],
         salt: Option<Vec<u8>>,
@@ -134,7 +135,7 @@ pub trait Cryptography: Default {
     ) -> error::Result<Decrypted>;
 
     /// Decrypt the RFC 8188 format.
-    fn decrypt_aes128gcm(key: &Key, content: &[u8]) -> error::Result<Decrypted>;
+    fn decrypt_aes128gcm(&self, key: &Key, content: &[u8]) -> error::Result<Decrypted>;
 }
 
 #[derive(Default)]
@@ -180,7 +181,7 @@ fn extract_value(val: &str, target: &str) -> Option<Vec<u8>> {
 }
 
 impl Cryptography for Crypto {
-    fn generate_key() -> error::Result<Key> {
+    fn generate_key(&self) -> error::Result<Key> {
         rc_crypto::ensure_initialized();
 
         let key = RcCryptoLocalKeyPair::generate_random()?;
@@ -192,7 +193,7 @@ impl Cryptography for Crypto {
         })
     }
 
-    fn decrypt(key: &Key, push_payload: PushPayload<'_>) -> error::Result<Decrypted> {
+    fn decrypt(&self, key: &Key, push_payload: PushPayload<'_>) -> error::Result<Decrypted> {
         rc_crypto::ensure_initialized();
         // convert the private key into something useful.
         let d_salt = extract_value(push_payload.salt, "salt");
@@ -200,12 +201,13 @@ impl Cryptography for Crypto {
         let d_body = base64::decode_config(push_payload.body, base64::URL_SAFE_NO_PAD)?;
 
         match CryptoEncoding::from_str(push_payload.encoding)? {
-            CryptoEncoding::Aesgcm => Self::decrypt_aesgcm(key, &d_body, d_salt, d_dh),
-            CryptoEncoding::Aes128gcm => Self::decrypt_aes128gcm(key, &d_body),
+            CryptoEncoding::Aesgcm => self.decrypt_aesgcm(key, &d_body, d_salt, d_dh),
+            CryptoEncoding::Aes128gcm => self.decrypt_aes128gcm(key, &d_body),
         }
     }
 
     fn decrypt_aesgcm(
+        &self,
         key: &Key,
         content: &[u8],
         salt: Option<Vec<u8>>,
@@ -222,7 +224,7 @@ impl Cryptography for Crypto {
         )?)
     }
 
-    fn decrypt_aes128gcm(key: &Key, content: &[u8]) -> error::Result<Vec<u8>> {
+    fn decrypt_aes128gcm(&self, key: &Key, content: &[u8]) -> error::Result<Vec<u8>> {
         Ok(ece::decrypt(key.key_pair(), key.auth_secret(), content)?)
     }
 }
@@ -286,7 +288,7 @@ mod crypto_tests {
         let pub_key_raw = "BBcJdfs1GtMyymFTtty6lIGWRFXrEtJP40Df0gOvRDR4D8CKVgqE6vlYR7tCYksIRdKD1MxDPhQVmKLnzuife50";
 
         let key = test_key(priv_key_d, pub_key_raw, auth_raw);
-        Crypto::decrypt(
+        Crypto::default().decrypt(
             &key,
             PushPayload {
                 channel_id: "channel_id",

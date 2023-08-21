@@ -63,7 +63,7 @@ pub struct DecryptResponse {
 }
 
 pub struct PushManager<Co, Cr, S> {
-    _crypo: Cr,
+    crypto: Cr,
     connection: Co,
     uaid: Option<String>,
     auth: Option<String>,
@@ -74,8 +74,7 @@ pub struct PushManager<Co, Cr, S> {
 }
 
 impl<Co: Connection, Cr: Cryptography, S: Storage> PushManager<Co, Cr, S> {
-    pub fn new(config: PushConfiguration) -> Result<Self> {
-        let store = S::open(&config.database_path)?;
+    pub fn new(config: PushConfiguration, crypto: Cr, connection: Co, store: S) -> Result<Self> {
         let uaid = store.get_uaid()?;
         let auth = store.get_auth()?;
         let registration_id = store.get_registration_id()?;
@@ -94,8 +93,8 @@ impl<Co: Connection, Cr: Cryptography, S: Storage> PushManager<Co, Cr, S> {
         );
 
         Ok(Self {
-            connection: Co::connect(config),
-            _crypo: Default::default(),
+            connection,
+            crypto,
             uaid,
             auth,
             registration_id,
@@ -276,7 +275,7 @@ impl<Co: Connection, Cr: Cryptography, S: Storage> PushManager<Co, Cr, S> {
             .get_record(payload.channel_id)?
             .ok_or_else(|| PushError::RecordNotFoundError(payload.channel_id.to_string()))?;
         let key = Key::deserialize(&val.key)?;
-        let decrypted = Cr::decrypt(&key, payload)?;
+        let decrypted = self.crypto.decrypt(&key, payload)?;
         // NOTE: this returns a `Vec<i8>` since the kotlin consumer is expecting
         // signed bytes.
         Ok(DecryptResponse {
@@ -318,7 +317,7 @@ impl<Co: Connection, Cr: Cryptography, S: Storage> PushManager<Co, Cr, S> {
         let subscription_response =
             self.connection
                 .subscribe(uaid, auth, registration_id, &app_server_key)?;
-        let subscription_key = Cr::generate_key()?;
+        let subscription_key = self.crypto.generate_key()?;
         let mut record = crate::internal::storage::PushRecord::new(
             &subscription_response.channel_id,
             &subscription_response.endpoint,
@@ -351,7 +350,7 @@ impl<Co: Connection, Cr: Cryptography, S: Storage> PushManager<Co, Cr, S> {
         self.uaid = Some(register_response.uaid.clone());
         self.auth = Some(register_response.secret.clone());
 
-        let subscription_key = Cr::generate_key()?;
+        let subscription_key = self.crypto.generate_key()?;
         let mut record = crate::internal::storage::PushRecord::new(
             &register_response.channel_id,
             &register_response.endpoint,
@@ -382,24 +381,7 @@ mod test {
     };
 
     use super::*;
-    use lazy_static::lazy_static;
-    use std::sync::{Mutex, MutexGuard};
-
     use crate::Store;
-
-    lazy_static! {
-        static ref MTX: Mutex<()> = Mutex::new(());
-    }
-
-    // we need to run our tests in sequence. The tests mock static
-    // methods. Mocked static methods are global are susceptible to data races
-    // see: https://docs.rs/mockall/latest/mockall/#static-methods
-    fn get_lock(m: &'static Mutex<()>) -> MutexGuard<'static, ()> {
-        match m.lock() {
-            Ok(guard) => guard,
-            Err(poisoned) => poisoned.into_inner(),
-        }
-    }
 
     const TEST_UAID: &str = "abad1d3a00000000aabbccdd00000000";
     const DATA: &[u8] = b"Mary had a little lamb, with some nice mint jelly";
@@ -421,18 +403,27 @@ mod test {
             ..Default::default()
         };
 
-        let mut pm: PushManager<MockConnection, MockCryptography, Store> =
-            PushManager::new(test_config)?;
+        let mock_connection = MockConnection::new();
+        let mut mock_crypto = MockCryptography::default();
+        let mock_store = Store::open(test_config.database_path.as_str()).unwrap();
+        mock_crypto.expect_generate_key().returning(|| {
+            let components = EcKeyComponents::new(
+                base64::decode_config(PRIV_KEY_D, base64::URL_SAFE_NO_PAD).unwrap(),
+                base64::decode_config(PUB_KEY_RAW, base64::URL_SAFE_NO_PAD).unwrap(),
+            );
+            let auth = base64::decode_config(TEST_AUTH, base64::URL_SAFE_NO_PAD).unwrap();
+            Ok(Key {
+                p256key: components,
+                auth,
+            })
+        });
+        let mut pm = PushManager::new(test_config, mock_crypto, mock_connection, mock_store)?;
         pm.store.set_registration_id("native-id")?;
         pm.registration_id = Some("native-id".to_string());
         Ok(pm)
     }
     #[test]
     fn basic() -> Result<()> {
-        let _m = get_lock(&MTX);
-        let ctx = MockConnection::connect_context();
-        ctx.expect().returning(|_| Default::default());
-
         let mut pm = get_test_manager()?;
         pm.connection
             .expect_register()
@@ -447,18 +438,7 @@ mod test {
                     sender_id: Some("test".to_string()),
                 })
             });
-        let crypto_ctx = MockCryptography::generate_key_context();
-        crypto_ctx.expect().returning(|| {
-            let components = EcKeyComponents::new(
-                base64::decode_config(PRIV_KEY_D, base64::URL_SAFE_NO_PAD).unwrap(),
-                base64::decode_config(PUB_KEY_RAW, base64::URL_SAFE_NO_PAD).unwrap(),
-            );
-            let auth = base64::decode_config(TEST_AUTH, base64::URL_SAFE_NO_PAD).unwrap();
-            Ok(Key {
-                p256key: components,
-                auth,
-            })
-        });
+
         let resp = pm.subscribe("test-scope", None)?;
         // verify that a subsequent request for the same channel ID returns the same subscription
         let resp2 = pm.subscribe("test-scope", None)?;
@@ -489,10 +469,7 @@ mod test {
 
     #[test]
     fn full() -> Result<()> {
-        let _m = get_lock(&MTX);
         rc_crypto::ensure_initialized();
-        let ctx = MockConnection::connect_context();
-        ctx.expect().returning(|_| Default::default());
         let data_string = b"Mary had a little lamb, with some nice mint jelly";
         let mut pm = get_test_manager()?;
         pm.connection
@@ -508,18 +485,6 @@ mod test {
                     sender_id: Some("test".to_string()),
                 })
             });
-        let crypto_ctx = MockCryptography::generate_key_context();
-        crypto_ctx.expect().returning(|| {
-            let components = EcKeyComponents::new(
-                base64::decode_config(PRIV_KEY_D, base64::URL_SAFE_NO_PAD).unwrap(),
-                base64::decode_config(PUB_KEY_RAW, base64::URL_SAFE_NO_PAD).unwrap(),
-            );
-            let auth = base64::decode_config(TEST_AUTH, base64::URL_SAFE_NO_PAD).unwrap();
-            Ok(Key {
-                p256key: components,
-                auth,
-            })
-        });
 
         let resp = pm.subscribe("test-scope", None)?;
         let key_info = resp.subscription_info.keys;
@@ -529,10 +494,9 @@ mod test {
         let ciphertext = ece::encrypt(&remote_pub, &auth, data_string).unwrap();
         let body = base64::encode_config(ciphertext, base64::URL_SAFE_NO_PAD);
 
-        let decryp_ctx = MockCryptography::decrypt_context();
         let body_clone = body.clone();
-        decryp_ctx
-            .expect()
+        pm.crypto
+            .expect_decrypt()
             .withf(move |key, push_payload| {
                 *key == Key {
                     p256key: EcKeyComponents::new(
@@ -563,11 +527,7 @@ mod test {
 
     #[test]
     fn test_aesgcm_decryption() -> Result<()> {
-        let _m = get_lock(&MTX);
         rc_crypto::ensure_initialized();
-
-        let ctx = MockConnection::connect_context();
-        ctx.expect().returning(|_| Default::default());
 
         let mut pm = get_test_manager()?;
 
@@ -584,18 +544,7 @@ mod test {
                     sender_id: Some("test".to_string()),
                 })
             });
-        let crypto_ctx = MockCryptography::generate_key_context();
-        crypto_ctx.expect().returning(|| {
-            let components = EcKeyComponents::new(
-                base64::decode_config(PRIV_KEY_D, base64::URL_SAFE_NO_PAD).unwrap(),
-                base64::decode_config(PUB_KEY_RAW, base64::URL_SAFE_NO_PAD).unwrap(),
-            );
-            let auth = base64::decode_config(TEST_AUTH, base64::URL_SAFE_NO_PAD).unwrap();
-            Ok(Key {
-                p256key: components,
-                auth,
-            })
-        });
+
         let resp = pm.subscribe("test-scope", None)?;
         let key_info = resp.subscription_info.keys;
         let remote_pub = base64::decode_config(&key_info.p256dh, base64::URL_SAFE_NO_PAD).unwrap();
@@ -604,10 +553,9 @@ mod test {
         let ciphertext = ece::encrypt(&remote_pub, &auth, DATA).unwrap();
         let body = base64::encode_config(ciphertext, base64::URL_SAFE_NO_PAD);
 
-        let decryp_ctx = MockCryptography::decrypt_context();
         let body_clone = body.clone();
-        decryp_ctx
-            .expect()
+        pm.crypto
+            .expect_decrypt()
             .withf(move |key, push_payload| {
                 *key == Key {
                     p256key: EcKeyComponents::new(
@@ -638,11 +586,7 @@ mod test {
 
     #[test]
     fn test_duplicate_subscription_requests() -> Result<()> {
-        let _m = get_lock(&MTX);
         rc_crypto::ensure_initialized();
-
-        let ctx = MockConnection::connect_context();
-        ctx.expect().returning(|_| Default::default());
 
         let mut pm = get_test_manager()?;
 
@@ -659,18 +603,7 @@ mod test {
                     sender_id: Some("test".to_string()),
                 })
             });
-        let crypto_ctx = MockCryptography::generate_key_context();
-        crypto_ctx.expect().returning(|| {
-            let components = EcKeyComponents::new(
-                base64::decode_config(PRIV_KEY_D, base64::URL_SAFE_NO_PAD).unwrap(),
-                base64::decode_config(PUB_KEY_RAW, base64::URL_SAFE_NO_PAD).unwrap(),
-            );
-            let auth = base64::decode_config(TEST_AUTH, base64::URL_SAFE_NO_PAD).unwrap();
-            Ok(Key {
-                p256key: components,
-                auth,
-            })
-        });
+
         let sub_1 = pm.subscribe("test-scope", None)?;
         let sub_2 = pm.subscribe("test-scope", None)?;
         assert_eq!(sub_1, sub_2);
@@ -678,10 +611,6 @@ mod test {
     }
     #[test]
     fn test_verify_wipe_uaid_if_mismatch() -> Result<()> {
-        let _m = get_lock(&MTX);
-        let ctx = MockConnection::connect_context();
-        ctx.expect().returning(|_| Default::default());
-
         let mut pm = get_test_manager()?;
         pm.connection
             .expect_register()
@@ -697,18 +626,6 @@ mod test {
                 })
             });
 
-        let crypto_ctx = MockCryptography::generate_key_context();
-        crypto_ctx.expect().returning(|| {
-            let components = EcKeyComponents::new(
-                base64::decode_config(PRIV_KEY_D, base64::URL_SAFE_NO_PAD).unwrap(),
-                base64::decode_config(PUB_KEY_RAW, base64::URL_SAFE_NO_PAD).unwrap(),
-            );
-            let auth = base64::decode_config(TEST_AUTH, base64::URL_SAFE_NO_PAD).unwrap();
-            Ok(Key {
-                p256key: components,
-                auth,
-            })
-        });
         pm.connection
             .expect_channel_list()
             .with(eq(TEST_UAID), eq(TEST_AUTH))
@@ -751,10 +668,6 @@ mod test {
 
     #[test]
     fn test_verify_server_lost_uaid_not_error() -> Result<()> {
-        let _m = get_lock(&MTX);
-        let ctx = MockConnection::connect_context();
-        ctx.expect().returning(|_| Default::default());
-
         let mut pm = get_test_manager()?;
         pm.connection
             .expect_register()
@@ -770,18 +683,6 @@ mod test {
                 })
             });
 
-        let crypto_ctx = MockCryptography::generate_key_context();
-        crypto_ctx.expect().returning(|| {
-            let components = EcKeyComponents::new(
-                base64::decode_config(PRIV_KEY_D, base64::URL_SAFE_NO_PAD).unwrap(),
-                base64::decode_config(PUB_KEY_RAW, base64::URL_SAFE_NO_PAD).unwrap(),
-            );
-            let auth = base64::decode_config(TEST_AUTH, base64::URL_SAFE_NO_PAD).unwrap();
-            Ok(Key {
-                p256key: components,
-                auth,
-            })
-        });
         pm.connection
             .expect_channel_list()
             .with(eq(TEST_UAID), eq(TEST_AUTH))
@@ -812,10 +713,6 @@ mod test {
 
     #[test]
     fn test_verify_server_hard_error() -> Result<()> {
-        let _m = get_lock(&MTX);
-        let ctx = MockConnection::connect_context();
-        ctx.expect().returning(|_| Default::default());
-
         let mut pm = get_test_manager()?;
         pm.connection
             .expect_register()
@@ -830,19 +727,6 @@ mod test {
                     sender_id: Some("test".to_string()),
                 })
             });
-
-        let crypto_ctx = MockCryptography::generate_key_context();
-        crypto_ctx.expect().returning(|| {
-            let components = EcKeyComponents::new(
-                base64::decode_config(PRIV_KEY_D, base64::URL_SAFE_NO_PAD).unwrap(),
-                base64::decode_config(PUB_KEY_RAW, base64::URL_SAFE_NO_PAD).unwrap(),
-            );
-            let auth = base64::decode_config(TEST_AUTH, base64::URL_SAFE_NO_PAD).unwrap();
-            Ok(Key {
-                p256key: components,
-                auth,
-            })
-        });
         pm.connection
             .expect_channel_list()
             .with(eq(TEST_UAID), eq(TEST_AUTH))
@@ -870,10 +754,6 @@ mod test {
 
     #[test]
     fn test_second_subscribe_hits_subscribe_endpoint() -> Result<()> {
-        let _m = get_lock(&MTX);
-        let ctx = MockConnection::connect_context();
-        ctx.expect().returning(|_| Default::default());
-
         let mut pm = get_test_manager()?;
         pm.connection
             .expect_register()
@@ -901,19 +781,6 @@ mod test {
                 })
             });
 
-        let crypto_ctx = MockCryptography::generate_key_context();
-        crypto_ctx.expect().returning(|| {
-            let components = EcKeyComponents::new(
-                base64::decode_config(PRIV_KEY_D, base64::URL_SAFE_NO_PAD).unwrap(),
-                base64::decode_config(PUB_KEY_RAW, base64::URL_SAFE_NO_PAD).unwrap(),
-            );
-            let auth = base64::decode_config(TEST_AUTH, base64::URL_SAFE_NO_PAD).unwrap();
-            Ok(Key {
-                p256key: components,
-                auth,
-            })
-        });
-
         let resp_1 = pm.subscribe("test-scope", None)?;
         let resp_2 = pm.subscribe("another-scope", None)?;
         assert_eq!(
@@ -929,10 +796,6 @@ mod test {
 
     #[test]
     fn test_verify_connection_rate_limiter() -> Result<()> {
-        let _m = get_lock(&MTX);
-        let ctx = MockConnection::connect_context();
-        ctx.expect().returning(|_| Default::default());
-
         let mut pm = get_test_manager()?;
         pm.connection
             .expect_register()
@@ -947,18 +810,6 @@ mod test {
                     sender_id: Some("test".to_string()),
                 })
             });
-        let crypto_ctx = MockCryptography::generate_key_context();
-        crypto_ctx.expect().returning(|| {
-            let components = EcKeyComponents::new(
-                base64::decode_config(PRIV_KEY_D, base64::URL_SAFE_NO_PAD).unwrap(),
-                base64::decode_config(PUB_KEY_RAW, base64::URL_SAFE_NO_PAD).unwrap(),
-            );
-            let auth = base64::decode_config(TEST_AUTH, base64::URL_SAFE_NO_PAD).unwrap();
-            Ok(Key {
-                p256key: components,
-                auth,
-            })
-        });
         let _ = pm.subscribe("test-scope", None)?;
         pm.connection
             .expect_channel_list()

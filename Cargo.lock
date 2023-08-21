@@ -3476,7 +3476,6 @@ dependencies = [
  "env_logger 0.8.4",
  "error-support",
  "hex",
- "lazy_static",
  "log",
  "mockall",
  "mockito",
