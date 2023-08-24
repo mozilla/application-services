@@ -25,7 +25,7 @@ task-defaults:
 tasks:
   fml-linux:
     attributes:
-      target: x86_64-unknown-linux-gnu
+      target: x86_64-unknown-linux-musl
       binary: nimbus-fml
 
   fml-windows:
@@ -43,9 +43,14 @@ tasks:
       target: aarch64-apple-darwin
       binary: nimbus-fml
 
-  cli-linux:
+  cli-linux-gnu:
     attributes:
       target: x86_64-unknown-linux-gnu
+      binary: nimbus-cli
+
+  cli-linux-musl:
+    attributes:
+      target: x86_64-unknown-linux-musl
       binary: nimbus-cli
 
   cli-windows:

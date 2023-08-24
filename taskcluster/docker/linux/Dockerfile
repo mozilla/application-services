@@ -89,6 +89,8 @@ RUN apt-get update -qq \
         xz-utils \
         # For windows cross-compilation.
         mingw-w64 \
+        # Required to cross compile for linux-musl
+        musl-tools \
         # <TODO: Delete p7zip once NSS windows is actually compiled instead of downloaded>.
         p7zip-full \
         # Required to rsync the `libs` folder after fetch (see taskcluster/ci/android-build/kind.yml)

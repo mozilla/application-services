@@ -9,6 +9,7 @@
 : "${SHELL:=bash}"
 : "${DEBUG:=false}"
 : "${NIMBUS_INSTALL_DIR:=""}"
+: "${TARGET:=""}"
 
 # This is largely inspired by the MIT-licensed get-helm-3 install script
 # https://github.com/helm/helm/blob/main/scripts/get-helm-3
@@ -69,25 +70,53 @@ verifySupported() {
     echoError "unzip is required to be installed and on the PATH"
     exit 1
   fi
-  initFileSuffix
+  initTargetBinary
 }
 
-# initFileSuffix maps the ARCH/OS onto a zip file as built on taskcluster.
-initFileSuffix() {
+# initTargetBinary maps the ARCH/OS onto a zip file as built on taskcluster.
+initTargetBinary() {
+  if [ -n "$TARGET" ] ; then
+    check_target "$TARGET"
+    return
+  fi
   local file=""
   case "$ARCH-$OS" in
     "x86_64-darwin") file="x86_64-apple-darwin" ;;
     "aarch64-darwin") file="aarch64-apple-darwin" ;;
     "x86_64-windows") file="x86_64-pc-windows-gnu" ;;
-    "x86_64-linux") file="x86_64-unknown-linux-gnu" ;;
+    "x86_64-linux") file="x86_64-unknown-linux-musl" ;;
     *)
-        echoError "No prebuilt binary for ${ARCH}-${OS}."
-        echoError "To build from source, go to https://experimenter.info/nimbus-cli/install"
-        exit 1
-        ;;
+      fail_target "$ARCH-$OS"
+      ;;
   esac
 
-  SUFFIX="$file"
+  TARGET="$file"
+}
+
+check_target() {
+  case "$TARGET" in
+    "x86_64-apple-darwin" |\
+    "aarch64-apple-darwin" |\
+    "x86_64-pc-windows-gnu" |\
+    "x86_64-unknown-linux-gnu" |\
+    "x86_64-unknown-linux-musl")
+      ;;
+    *)
+      fail_target "$TARGET"
+      ;;
+  esac
+}
+
+fail_target() {
+  echoError "No pre-built binary for $1."
+  echo -e "   Available pre-built binaries are:"
+  echo -e "      aarch64-apple-darwin"
+  echo -e "      x86_64-apple-darwin"
+  echo -e "      x86_64-pc-windows-gnu"
+  echo -e "      x86_64-unknown-linux-gnu"
+  echo -e "      x86_64-unknown-linux-musl"
+  echo -e "   To build from source, go to https://experimenter.info/nimbus-cli/install"
+  exit 1
 }
 
 initInstallDirectory() {
@@ -148,7 +177,7 @@ initInstallDirectory() {
 # downloadFile downloads the latest binary package and also the checksum
 # for that binary.
 downloadFile() {
-  FILENAME="$BINARY_NAME-$SUFFIX.zip"
+  FILENAME="$BINARY_NAME-$TARGET.zip"
   DOWNLOAD_URL="$TASKCLUSTER_HOST/api/index/v1/task/project.application-services.v2.${BINARY_NAME}.latest/artifacts/public/build/$FILENAME"
   NIMBUS_TMP_ROOT=$(mktemp -dt "$BINARY_NAME-installer-XXXXXX")
   NIMBUS_TMP_FILE="$NIMBUS_TMP_ROOT/$FILENAME"
@@ -221,6 +250,9 @@ help () {
   echo "Accepted cli options are:"
   echo -e "\t--directory DIRECTORY    install into the given directory"
   echo -e "\t--host HOST              get from the given taskcluster host"
+  echo -e "\t--binary|-B BINARY       the binary that is installed, leave blank to derive a default"
+  echo -e "                           try: x86_64-unknown-linux-gnu, x86_64-unknown-linux-musl,"
+  echo -e "                                x86_64-pc-windows-gnu, x86_64-apple-darwin, aarch64-apple-darwin"
   echo
   echo -e "\t--debug                  be verbose in output"
   echo -e "\t--help|-h                prints this help"
@@ -263,6 +295,10 @@ while (( "$#" )); do
        ;;
     '--directory')
        NIMBUS_INSTALL_DIR="$2"
+       shift 2
+       ;;
+    '--binary'|'-B')
+       TARGET="$2"
        shift 2
        ;;
     '--debug')
