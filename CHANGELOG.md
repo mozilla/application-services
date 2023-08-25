@@ -1,4 +1,4 @@
-# v118.0 (In Progress)
+# v118.0 (In progress)
 
 [Full Changelog](In progress)
 
