@@ -53,7 +53,7 @@ commands:
       - run:
           name: Install grcov
           command: |
-            cargo install grcov
+            cargo install --locked grcov@0.8.19
       # Run in a different shell to source $BASH_ENV
       - run: |
           grcov --version
