@@ -226,7 +226,6 @@ pub fn fetch_tree_with_depth(
     item_guid: &SyncGuid,
     target_depth: &FetchDepth,
 ) -> Result<Option<Item>> {
-    let _tx = db.begin_transaction()?;
     let (tree, parent_guid, position) = if let Some((tree, parent_guid, position)) =
         json_tree::fetch_tree(db, item_guid, target_depth)?
     {
