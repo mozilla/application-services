@@ -2,6 +2,12 @@
 
 [Full Changelog](In progress)
 
+## Places
+
+### 🦊 What's Changed 🦊
+
+- `fetch_tree_with_depth` no longer starts a transaction when reading from the database. The transaction causes issues with concurrent calls, and isn't needed for consistency anymore ([#5790](https://github.com/mozilla/application-services/pull/5790)).
+
 # v118.0 (_2023-08-28_)
 
 ## General
