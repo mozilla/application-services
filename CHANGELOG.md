@@ -1,6 +1,8 @@
-# v118.0 (In progress)
+# v119.0 (In progress)
 
 [Full Changelog](In progress)
+
+# v118.0 (_2023-08-28_)
 
 ## General
 ### 🦊 What's Changed 🦊
@@ -33,6 +35,8 @@
 ### 🦊 What's Changed 🦊
 
 - Removed previously deprecated commands `experimenter`, `ios`, `android`, `intermediate-repr` ([#5784](https://github.com/mozilla/application-services/pull/5784)).
+
+[Full Changelog](https://github.com/mozilla/application-services/compare/v117.0...v118.0)
 
 # v117.0 (_2023-07-31_)
 
