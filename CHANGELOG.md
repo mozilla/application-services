@@ -1,8 +1,7 @@
-# v118.0 (In progress)
-
-[Full Changelog](In progress)
+# v118.0 (_2023-08-28_)
 
 ## General
+
 ### 🦊 What's Changed 🦊
 
 - Backward-incompatible changes to the Suggest database schema to accommodate custom details for providers ([#5745](https://github.com/mozilla/application-services/pull/5745)) and future suggestion types ([#5766](https://github.com/mozilla/application-services/pull/5766)). This only affects prototyping, because we aren't consuming Suggest in any of our products yet.
@@ -15,7 +14,6 @@
 - Added an OHTTP client library for iOS based on `ohttp` Rust crate ([#5749](https://github.com/mozilla/application-services/pull/5749)). This allows iOS products to use the same OHTTP libraries as Gecko-based products.
 - The Remote Settings client has a new `Client::get_records_with_options()` method ([#5764](https://github.com/mozilla/application-services/pull/5764)). This is for Rust consumers only; it's not exposed to Swift or Kotlin.
 - `RemoteSettingsRecord` objects have a new `deleted` property that indicates if the record is a tombstone ([#5764](https://github.com/mozilla/application-services/pull/5764)).
-
 
 ## Rust log forwarder
 ### 🦊 What's Changed 🦊
@@ -33,6 +31,8 @@
 ### 🦊 What's Changed 🦊
 
 - Removed previously deprecated commands `experimenter`, `ios`, `android`, `intermediate-repr` ([#5784](https://github.com/mozilla/application-services/pull/5784)).
+
+[Full Changelog](https://github.com/mozilla/application-services/compare/v117.0...v118.0)
 
 # v117.0 (_2023-07-31_)
 
