@@ -58,11 +58,16 @@ fi
 # https://github.com/mozilla/application-services/issues/962
 if [[ "${CROSS_COMPILE_TARGET}" =~ "darwin" ]]; then
   #From https://firefox-ci-tc.services.mozilla.com/tasks/index/app-services.cache.level-3.content.v1.nss-artifact/latest
-  curl -sfSL --retry 5 --retry-delay 10 -O "https://firefox-ci-tc.services.mozilla.com/api/index/v1/task/app-services.cache.level-3.content.v1.nss-artifact.latest/artifacts/public/dist.tar.bz2"
-  SHA256="15e8cab63a4e0484564231a24d23d8be349217ba6add53b56609c339bb306829"
-  echo "${SHA256}  dist.tar.bz2" | shasum -a 256 -c - || exit 2
-  tar xvjf dist.tar.bz2 && rm -rf dist.tar.bz2
-  NSS_DIST_DIR=$(abspath "dist")
+  if [[ "${MOZ_AUTOMATION}" == "1" ]]; then
+    # run-task has already downloaded + extracted the dependency
+    NSS_DIST_DIR="${MOZ_FETCHES_DIR}/dist"
+  else
+    curl -sfSL --retry 5 --retry-delay 10 -O "https://firefox-ci-tc.services.mozilla.com/api/index/v1/task/app-services.cache.level-3.content.v1.nss-artifact.latest/artifacts/public/dist.tar.bz2"
+    SHA256="15e8cab63a4e0484564231a24d23d8be349217ba6add53b56609c339bb306829"
+    echo "${SHA256}  dist.tar.bz2" | shasum -a 256 -c - || exit 2
+    tar xvjf dist.tar.bz2 && rm -rf dist.tar.bz2
+    NSS_DIST_DIR=$(abspath "dist")
+  fi
 elif [[ "$(uname -s)" == "Darwin" ]] || [[ "$(uname -s)" == "Linux" ]]; then
   "${NSS_SRC_DIR}"/nss/build.sh \
     -v \
