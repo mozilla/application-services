@@ -40,17 +40,18 @@ mod account;
 mod auth;
 mod device;
 mod error;
-mod migration;
+mod internal;
 mod profile;
 mod push;
 mod storage;
 mod telemetry;
 mod token;
 
+pub use sync15::DeviceType;
+
 pub use auth::{AuthorizationInfo, MetricsParams};
 pub use device::{AttachedClient, Device, DeviceCapability};
 pub use error::{Error, FxaError};
-pub use migration::{FxAMigrationResult, MigrationState};
 use parking_lot::Mutex;
 pub use profile::Profile;
 pub use push::{
@@ -58,17 +59,10 @@ pub use push::{
 };
 pub use token::{AccessTokenInfo, AuthorizationParameters, ScopedKey};
 
-// All the implementation details live in this "internal" module.
-// Aspirationally, I'd like to make it private, so that the public API of the crate
-// is entirely the same as the API exposed to consumers via UniFFI. That's not
-// possible right now because some of our tests/example use features that we do
-// not currently expose to consumers. But we should figure out how to expose them!
-pub mod internal;
-
 /// Result returned by internal functions
-type Result<T> = std::result::Result<T, Error>;
+pub type Result<T> = std::result::Result<T, Error>;
 /// Result returned by public-facing API functions
-type ApiResult<T> = std::result::Result<T, FxaError>;
+pub type ApiResult<T> = std::result::Result<T, FxaError>;
 
 /// Object representing the signed-in state of an application.
 ///
@@ -90,30 +84,97 @@ impl FirefoxAccount {
     ///
     /// This method constructs as new [`FirefoxAccount`] instance configured to connect
     /// the application to a user's account.
-    ///
-    /// # Arguments
-    ///
-    ///   - `content_url` - the URL of the Firefox Accounts server to use
-    ///       - For example, use `https://accounts.firefox.com` for the main
-    ///         Mozilla-hosted service.
-    ///   - `client_id` - the registered OAuth client id of the application.
-    ///   - `redirect_uri` - the registered OAuth redirect URI of the application.
-    ///   - `token_server_url_override`: optionally, URL for the user's Sync Tokenserver.
-    ///        - This can be used to support users who self-host their sync data.
-    ///          If `None` then it will default to the Mozilla-hosted Sync server.
-    pub fn new(
-        content_url: &str,
-        client_id: &str,
-        redirect_uri: &str,
-        token_server_url_override: &Option<String>,
-    ) -> FirefoxAccount {
+    pub fn new(config: FxaConfig) -> FirefoxAccount {
         FirefoxAccount {
-            internal: Mutex::new(internal::FirefoxAccount::new(
-                content_url,
-                client_id,
-                redirect_uri,
-                token_server_url_override.as_deref(),
-            )),
+            internal: Mutex::new(internal::FirefoxAccount::new(config)),
+        }
+    }
+}
+
+#[derive(Clone, Debug)]
+pub struct FxaConfig {
+    /// FxaServer to connect with
+    pub server: FxaServer,
+    /// registered OAuth client id of the application.
+    pub client_id: String,
+    /// `redirect_uri` - the registered OAuth redirect URI of the application.
+    pub redirect_uri: String,
+    ///  URL for the user's Sync Tokenserver. This can be used to support users who self-host their
+    ///  sync data. If `None` then it will default to the Mozilla-hosted Sync server.
+    ///
+    ///  Note: this lives here for historical reasons, but probably shouldn't.  Applications pass
+    ///  the token server URL they get from `fxa-client` to `SyncManager`.  It would be simpler to
+    ///  cut out `fxa-client` out of the middle and have applications send the overridden URL
+    ///  directly to `SyncManager`.
+    pub token_server_url_override: Option<String>,
+}
+
+#[derive(Clone, Debug)]
+pub enum FxaServer {
+    Release,
+    Stable,
+    Stage,
+    China,
+    LocalDev,
+    Custom { url: String },
+}
+
+impl FxaServer {
+    fn content_url(&self) -> &str {
+        match self {
+            Self::Release => "https://accounts.firefox.com",
+            Self::Stable => "https://stable.dev.lcip.org",
+            Self::Stage => "https://accounts.stage.mozaws.net",
+            Self::China => "https://accounts.firefox.com.cn",
+            Self::LocalDev => "http://127.0.0.1:3030",
+            Self::Custom { url } => url,
+        }
+    }
+}
+
+impl FxaConfig {
+    pub fn release(client_id: impl ToString, redirect_uri: impl ToString) -> Self {
+        Self {
+            server: FxaServer::Release,
+            client_id: client_id.to_string(),
+            redirect_uri: redirect_uri.to_string(),
+            token_server_url_override: None,
+        }
+    }
+
+    pub fn stable(client_id: impl ToString, redirect_uri: impl ToString) -> Self {
+        Self {
+            server: FxaServer::Stable,
+            client_id: client_id.to_string(),
+            redirect_uri: redirect_uri.to_string(),
+            token_server_url_override: None,
+        }
+    }
+
+    pub fn stage(client_id: impl ToString, redirect_uri: impl ToString) -> Self {
+        Self {
+            server: FxaServer::Stage,
+            client_id: client_id.to_string(),
+            redirect_uri: redirect_uri.to_string(),
+            token_server_url_override: None,
+        }
+    }
+
+    pub fn china(client_id: impl ToString, redirect_uri: impl ToString) -> Self {
+        Self {
+            server: FxaServer::China,
+            client_id: client_id.to_string(),
+            redirect_uri: redirect_uri.to_string(),
+            token_server_url_override: None,
+        }
+    }
+
+    pub fn dev(client_id: impl ToString, redirect_uri: impl ToString) -> Self {
+        Self {
+            server: FxaServer::LocalDev,
+            client_id: client_id.to_string(),
+            redirect_uri: redirect_uri.to_string(),
+            token_server_url_override: None,
         }
     }
 }

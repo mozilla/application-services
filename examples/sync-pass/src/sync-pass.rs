@@ -16,7 +16,10 @@ use logins::{
 use prettytable::{row, Cell, Row, Table};
 use rusqlite::OptionalExtension;
 use std::sync::Arc;
-use sync15::engine::{EngineSyncAssociation, SyncEngine};
+use sync15::{
+    client::{sync_multiple, MemoryCachedState, Sync15StorageClientInit},
+    engine::{EngineSyncAssociation, SyncEngine},
+};
 
 // I'm completely punting on good error handling here.
 use anyhow::{bail, Result};
@@ -365,6 +368,49 @@ fn set_encryption_key(store: &LoginStore, key: &str) -> rusqlite::Result<()> {
         .map(|_| ())
 }
 
+fn do_sync(
+    store: Arc<LoginStore>,
+    key_id: String,
+    access_token: String,
+    sync_key: String,
+    tokenserver_url: url::Url,
+    local_encryption_key: String,
+) -> Result<String> {
+    let mut engine = LoginsSyncEngine::new(Arc::clone(&store))?;
+    engine
+        .set_local_encryption_key(&local_encryption_key)
+        .unwrap();
+
+    let storage_init = &Sync15StorageClientInit {
+        key_id,
+        access_token,
+        tokenserver_url,
+    };
+    let root_sync_key = &sync15::KeyBundle::from_ksync_base64(sync_key.as_str())?;
+
+    let mut disk_cached_state = engine.get_global_state()?;
+    let mut mem_cached_state = MemoryCachedState::default();
+
+    let mut result = sync_multiple(
+        &[&engine],
+        &mut disk_cached_state,
+        &mut mem_cached_state,
+        storage_init,
+        root_sync_key,
+        &engine.scope,
+        None,
+    );
+    engine.set_global_state(&disk_cached_state)?;
+
+    if let Err(e) = result.result {
+        return Err(e.into());
+    }
+    match result.engine_results.remove("passwords") {
+        None | Some(Ok(())) => Ok(serde_json::to_string(&result.telemetry).unwrap()),
+        Some(Err(e)) => Err(e.into()),
+    }
+}
+
 #[allow(clippy::cognitive_complexity)] // FIXME
 fn main() -> Result<()> {
     cli_support::init_trace_logging();
@@ -499,13 +545,14 @@ fn main() -> Result<()> {
                     token_info.key.unwrap().key_bytes()?,
                     base64::URL_SAFE_NO_PAD,
                 );
-                match Arc::clone(&store).sync(
-                                    cli_fxa.client_init.key_id.clone(),
-                                    cli_fxa.client_init.access_token.clone(),
-                                    sync_key,
-                                    cli_fxa.client_init.tokenserver_url.to_string(),
-                                    encryption_key.clone(),
-                                ) {
+                match do_sync(
+                    Arc::clone(&store),
+                    cli_fxa.client_init.key_id.clone(),
+                    cli_fxa.client_init.access_token.clone(),
+                    sync_key,
+                    cli_fxa.client_init.tokenserver_url.clone(),
+                    encryption_key.clone(),
+                ) {
                     Err(e) => {
                         log::warn!("Sync failed! {}", e);
                     },

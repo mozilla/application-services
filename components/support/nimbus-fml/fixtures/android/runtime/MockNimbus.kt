@@ -27,7 +27,7 @@ class MockNimbus(override val context: Context, val map: Map<String, JSONObject>
 
     private var exposureCounts = mutableMapOf<String, Int>()
 
-    override fun recordExposureEvent(featureId: String) {
+    override fun recordExposureEvent(featureId: String, experimentSlug: String?) {
         if (map[featureId] != null) {
             exposureCounts[featureId] = getExposureCount(featureId) + 1
         }

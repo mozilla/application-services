@@ -11,7 +11,7 @@ use anyhow::Result;
 use heck::ToKebabCase;
 use serde_json::{json, Value};
 
-use crate::NimbusApp;
+use crate::{value_utils, NimbusApp};
 
 pub(crate) fn create_experiment(
     app: &NimbusApp,
@@ -39,10 +39,13 @@ pub(crate) fn create_experiment(
     )
     .to_kebab_case();
 
+    let app_name = app
+        .app_name()
+        .expect("An app name is expected. This is a bug in nimbus-cli");
     Ok(json!({
-        "appId": app.app_name,
-        "appName": app.app_name,
-        "application": app.app_name,
+        "appId": &app_name,
+        "appName": &app_name,
+        "application": &app_name,
         "arguments": {},
         "branches": branches,
         "bucketConfig": {
@@ -85,8 +88,7 @@ pub(crate) fn slug(path: &Path) -> Result<String> {
 }
 
 fn branch(feature_id: &str, file: &Path) -> Result<Value> {
-    let string = std::fs::read_to_string(file)?;
-    let value = serde_json::from_str::<Value>(&string)?;
+    let value: Value = value_utils::read_from_file(file)?;
 
     let config = value.as_object().ok_or_else(|| {
         anyhow::Error::msg(format!(

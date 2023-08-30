@@ -1235,6 +1235,13 @@ mod tests {
         assert_eq!(get_pos(&conn, &guid3), 1);
         assert!(global_change_tracker.changed());
 
+        assert_eq!(
+            conn.query_one::<i64>(
+                "SELECT COUNT(*) FROM moz_origins WHERE host='www.example2.com';"
+            )?,
+            0
+        );
+
         Ok(())
     }
 

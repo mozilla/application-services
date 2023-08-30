@@ -5,7 +5,8 @@ use crate::{
     defaults::Defaults,
     error::{NimbusError, Result},
     evaluator::evaluate_enrollment,
-    AvailableRandomizationUnits, Experiment, FeatureConfig, NimbusTargetingHelper,
+    json, AvailableRandomizationUnits, Experiment, FeatureConfig, NimbusTargetingHelper,
+    SLUG_REPLACEMENT_PATTERN,
 };
 
 use ::uuid::Uuid;
@@ -28,7 +29,7 @@ cfg_if::cfg_if! {
 
 #[cfg_attr(not(feature = "stateful"), allow(unused))]
 const DEFAULT_GLOBAL_USER_PARTICIPATION: bool = true;
-pub(crate) const PREVIOUS_ENROLLMENTS_GC_TIME: Duration = Duration::from_secs(30 * 24 * 3600);
+pub(crate) const PREVIOUS_ENROLLMENTS_GC_TIME: Duration = Duration::from_secs(365 * 24 * 3600);
 
 // These are types we use internally for managing enrollments.
 // ⚠️ Attention : Changes to this type should be accompanied by a new test  ⚠️
@@ -71,6 +72,8 @@ pub enum DisqualifiedReason {
     OptOut,
     /// The targeting has changed for an experiment.
     NotTargeted,
+    /// The bucketing has changed for an experiment.
+    NotSelected,
 }
 
 // Every experiment has an ExperimentEnrollment, even when we aren't enrolled.
@@ -88,7 +91,6 @@ impl ExperimentEnrollment {
     /// we are seeing for the first time.
     fn from_new_experiment(
         is_user_participating: bool,
-        nimbus_id: &Uuid,
         available_randomization_units: &AvailableRandomizationUnits,
         experiment: &Experiment,
         targeting_helper: &NimbusTargetingHelper,
@@ -109,12 +111,8 @@ impl ExperimentEnrollment {
                 },
             }
         } else {
-            let enrollment = evaluate_enrollment(
-                nimbus_id,
-                available_randomization_units,
-                experiment,
-                targeting_helper,
-            )?;
+            let enrollment =
+                evaluate_enrollment(available_randomization_units, experiment, targeting_helper)?;
             log::debug!(
                 "Experiment '{}' is new - enrollment status is {:?}",
                 &enrollment.slug,
@@ -161,19 +159,17 @@ impl ExperimentEnrollment {
     fn on_experiment_updated(
         &self,
         is_user_participating: bool,
-        nimbus_id: &Uuid,
         available_randomization_units: &AvailableRandomizationUnits,
         updated_experiment: &Experiment,
         targeting_helper: &NimbusTargetingHelper,
         out_enrollment_events: &mut Vec<EnrollmentChangeEvent>,
     ) -> Result<Self> {
-        Ok(match self.status {
+        Ok(match &self.status {
             EnrollmentStatus::NotEnrolled { .. } | EnrollmentStatus::Error { .. } => {
                 if !is_user_participating || updated_experiment.is_enrollment_paused {
                     self.clone()
                 } else {
                     let updated_enrollment = evaluate_enrollment(
-                        nimbus_id,
                         available_randomization_units,
                         updated_experiment,
                         targeting_helper,
@@ -190,6 +186,7 @@ impl ExperimentEnrollment {
                     updated_enrollment
                 }
             }
+
             EnrollmentStatus::Enrolled {
                 ref branch,
                 ref reason,
@@ -216,7 +213,6 @@ impl ExperimentEnrollment {
                     self.clone()
                 } else {
                     let evaluated_enrollment = evaluate_enrollment(
-                        nimbus_id,
                         available_randomization_units,
                         updated_experiment,
                         targeting_helper,
@@ -237,6 +233,16 @@ impl ExperimentEnrollment {
                             out_enrollment_events.push(updated_enrollment.get_change_event());
                             updated_enrollment
                         }
+                        EnrollmentStatus::NotEnrolled {
+                            reason: NotEnrolledReason::NotSelected,
+                        } => {
+                            // In the case of a rollout being scaled back, we should be disqualified with NotSelected.
+                            //
+                            let updated_enrollment =
+                                self.disqualify_from_enrolled(DisqualifiedReason::NotSelected);
+                            out_enrollment_events.push(updated_enrollment.get_change_event());
+                            updated_enrollment
+                        }
                         EnrollmentStatus::NotEnrolled { .. }
                         | EnrollmentStatus::Enrolled { .. }
                         | EnrollmentStatus::Disqualified { .. }
@@ -247,6 +253,7 @@ impl ExperimentEnrollment {
             EnrollmentStatus::Disqualified {
                 ref branch,
                 enrollment_id,
+                reason,
                 ..
             } => {
                 if !is_user_participating {
@@ -258,9 +265,24 @@ impl ExperimentEnrollment {
                         slug: self.slug.clone(),
                         status: EnrollmentStatus::Disqualified {
                             reason: DisqualifiedReason::OptOut,
-                            enrollment_id,
+                            enrollment_id: *enrollment_id,
                             branch: branch.clone(),
                         },
+                    }
+                } else if updated_experiment.is_rollout
+                    && matches!(
+                        reason,
+                        DisqualifiedReason::NotSelected | DisqualifiedReason::NotTargeted,
+                    )
+                {
+                    let evaluated_enrollment = evaluate_enrollment(
+                        available_randomization_units,
+                        updated_experiment,
+                        targeting_helper,
+                    )?;
+                    match evaluated_enrollment.status {
+                        EnrollmentStatus::Enrolled { .. } => evaluated_enrollment,
+                        _ => self.clone(),
                     }
                 } else {
                     self.clone()
@@ -424,6 +446,7 @@ impl ExperimentEnrollment {
                 enrollment_id,
                 branch,
                 match reason {
+                    DisqualifiedReason::NotSelected => Some("bucketing"),
                     DisqualifiedReason::NotTargeted => Some("targeting"),
                     DisqualifiedReason::OptOut => Some("optout"),
                     DisqualifiedReason::Error => Some("error"),
@@ -578,21 +601,21 @@ pub fn get_enrollments<'r>(
 }
 
 pub(crate) struct EnrollmentsEvolver<'a> {
-    nimbus_id: &'a Uuid,
     available_randomization_units: &'a AvailableRandomizationUnits,
     targeting_helper: &'a NimbusTargetingHelper,
+    coenrolling_feature_ids: &'a HashSet<&'a str>,
 }
 
 impl<'a> EnrollmentsEvolver<'a> {
     pub(crate) fn new(
-        nimbus_id: &'a Uuid,
         available_randomization_units: &'a AvailableRandomizationUnits,
         targeting_helper: &'a NimbusTargetingHelper,
+        coenrolling_feature_ids: &'a HashSet<&str>,
     ) -> Self {
         Self {
-            nimbus_id,
             available_randomization_units,
             targeting_helper,
+            coenrolling_feature_ids,
         }
     }
 
@@ -708,13 +731,14 @@ impl<'a> EnrollmentsEvolver<'a> {
         E: ExperimentMetadata + Clone,
     {
         let mut enrollment_events = vec![];
-        let prev_experiments = map_experiments(prev_experiments);
-        let next_experiments = map_experiments(next_experiments);
-        let prev_enrollments = map_enrollments(prev_enrollments);
+        let prev_experiments_map = map_experiments(prev_experiments);
+        let next_experiments_map = map_experiments(next_experiments);
+        let prev_enrollments_map = map_enrollments(prev_enrollments);
 
         // Step 1. Build an initial active_features to keep track of
         // the features that are being experimented upon.
         let mut enrolled_features = HashMap::with_capacity(next_experiments.len());
+        let mut coenrolling_features = HashMap::with_capacity(next_experiments.len());
 
         let mut next_enrollments = Vec::with_capacity(next_experiments.len());
 
@@ -724,7 +748,7 @@ impl<'a> EnrollmentsEvolver<'a> {
         // start building up active_features, the map of feature_ids under
         // experiment to EnrolledFeatureConfigs, and next_enrollments.
 
-        for prev_enrollment in prev_enrollments.values() {
+        for prev_enrollment in prev_enrollments {
             if matches!(
                 prev_enrollment.status,
                 EnrollmentStatus::NotEnrolled {
@@ -737,8 +761,8 @@ impl<'a> EnrollmentsEvolver<'a> {
 
             let next_enrollment = match self.evolve_enrollment(
                 is_user_participating,
-                prev_experiments.get(slug).copied(),
-                next_experiments.get(slug).copied(),
+                prev_experiments_map.get(slug).copied(),
+                next_experiments_map.get(slug).copied(),
                 Some(prev_enrollment),
                 &mut enrollment_events,
             ) {
@@ -756,15 +780,16 @@ impl<'a> EnrollmentsEvolver<'a> {
 
             self.reserve_enrolled_features(
                 next_enrollment,
-                &next_experiments,
+                &next_experiments_map,
                 &mut enrolled_features,
+                &mut coenrolling_features,
                 &mut next_enrollments,
             );
         }
 
         // Step 3. Evolve the remaining enrollments with the previous and
         // next data.
-        for next_experiment in next_experiments.values() {
+        for next_experiment in next_experiments {
             let slug = &next_experiment.slug;
 
             // Check that the feature ids that this experiment needs are available.  If not, then declare
@@ -816,7 +841,7 @@ impl<'a> EnrollmentsEvolver<'a> {
             // But we evolved all the existing enrollments in step 2,
             // (except the feature conflicted ones)
             // so we should be mindful that we don't evolve them a second time.
-            let prev_enrollment = prev_enrollments.get(slug).copied();
+            let prev_enrollment = prev_enrollments_map.get(slug).copied();
 
             if prev_enrollment.is_none()
                 || matches!(
@@ -828,7 +853,7 @@ impl<'a> EnrollmentsEvolver<'a> {
             {
                 let next_enrollment = match self.evolve_enrollment(
                     is_user_participating,
-                    prev_experiments.get(slug).copied(),
+                    prev_experiments_map.get(slug).copied(),
                     Some(next_experiment),
                     prev_enrollment,
                     &mut enrollment_events,
@@ -847,17 +872,24 @@ impl<'a> EnrollmentsEvolver<'a> {
 
                 self.reserve_enrolled_features(
                     next_enrollment,
-                    &next_experiments,
+                    &next_experiments_map,
                     &mut enrolled_features,
+                    &mut coenrolling_features,
                     &mut next_enrollments,
                 );
             }
         }
 
+        enrolled_features.extend(coenrolling_features);
+
         // Check that we generate the enrolled feature map from the new
         // enrollments and new experiments.  Perhaps this should just be an
         // assert.
-        let updated_enrolled_features = map_features(&next_enrollments, &next_experiments);
+        let updated_enrolled_features = map_features(
+            &next_enrollments,
+            &next_experiments_map,
+            self.coenrolling_feature_ids,
+        );
         if enrolled_features != updated_enrolled_features {
             Err(NimbusError::InternalError(
                 "Next enrollment calculation error",
@@ -873,14 +905,20 @@ impl<'a> EnrollmentsEvolver<'a> {
         latest_enrollment: Option<ExperimentEnrollment>,
         experiments: &HashMap<String, &Experiment>,
         enrolled_features: &mut HashMap<String, EnrolledFeatureConfig>,
+        coenrolling_features: &mut HashMap<String, EnrolledFeatureConfig>,
         enrollments: &mut Vec<ExperimentEnrollment>,
     ) {
         if let Some(enrollment) = latest_enrollment {
             // Now we have an enrollment object!
             // If it's an enrolled enrollment, then get the FeatureConfigs
-            // from the experiment and store them in the active_features map.
+            // from the experiment and store them in the enrolled_features or coenrolling_features maps.
             for enrolled_feature in get_enrolled_feature_configs(&enrollment, experiments) {
-                enrolled_features.insert(enrolled_feature.feature_id.clone(), enrolled_feature);
+                populate_feature_maps(
+                    enrolled_feature,
+                    self.coenrolling_feature_ids,
+                    enrolled_features,
+                    coenrolling_features,
+                );
             }
             // Also, record the enrollment for our return value
             enrollments.push(enrollment);
@@ -925,7 +963,6 @@ impl<'a> EnrollmentsEvolver<'a> {
             // New experiment.
             (None, Some(experiment), None) => Some(ExperimentEnrollment::from_new_experiment(
                 is_user_participating,
-                self.nimbus_id,
                 self.available_randomization_units,
                 experiment,
                 &th,
@@ -939,7 +976,6 @@ impl<'a> EnrollmentsEvolver<'a> {
             (Some(_), Some(experiment), Some(enrollment)) => {
                 Some(enrollment.on_experiment_updated(
                     is_user_participating,
-                    self.nimbus_id,
                     self.available_randomization_units,
                     experiment,
                     &th,
@@ -1022,24 +1058,30 @@ where
 fn map_features(
     enrollments: &[ExperimentEnrollment],
     experiments: &HashMap<String, &Experiment>,
+    coenrolling_ids: &HashSet<&str>,
 ) -> HashMap<String, EnrolledFeatureConfig> {
-    let mut map = HashMap::with_capacity(enrollments.len());
+    let mut colliding_features = HashMap::with_capacity(enrollments.len());
+    let mut coenrolling_features = HashMap::with_capacity(enrollments.len());
     for enrolled_feature_config in enrollments
         .iter()
         .flat_map(|e| get_enrolled_feature_configs(e, experiments))
     {
-        map.insert(
-            enrolled_feature_config.feature_id.clone(),
+        populate_feature_maps(
             enrolled_feature_config,
+            coenrolling_ids,
+            &mut colliding_features,
+            &mut coenrolling_features,
         );
     }
+    colliding_features.extend(coenrolling_features.drain());
 
-    map
+    colliding_features
 }
 
 pub fn map_features_by_feature_id(
     enrollments: &[ExperimentEnrollment],
     experiments: &[Experiment],
+    coenrolling_ids: &HashSet<&str>,
 ) -> HashMap<String, EnrolledFeatureConfig> {
     let (rollouts, ro_enrollments) = filter_experiments_and_enrollments(
         experiments,
@@ -1049,12 +1091,54 @@ pub fn map_features_by_feature_id(
     let (experiments, exp_enrollments) =
         filter_experiments_and_enrollments(experiments, enrollments, |exp| !exp.is_rollout());
 
-    let features_under_rollout = map_features(&ro_enrollments, &map_experiments(&rollouts));
-    let features_under_experiment = map_features(&exp_enrollments, &map_experiments(&experiments));
+    let features_under_rollout = map_features(
+        &ro_enrollments,
+        &map_experiments(&rollouts),
+        coenrolling_ids,
+    );
+    let features_under_experiment = map_features(
+        &exp_enrollments,
+        &map_experiments(&experiments),
+        coenrolling_ids,
+    );
 
     features_under_experiment
         .defaults(&features_under_rollout)
         .unwrap()
+}
+
+pub(crate) fn populate_feature_maps(
+    enrolled_feature: EnrolledFeatureConfig,
+    coenrolling_feature_ids: &HashSet<&str>,
+    colliding_features: &mut HashMap<String, EnrolledFeatureConfig>,
+    coenrolling_features: &mut HashMap<String, EnrolledFeatureConfig>,
+) {
+    let feature_id = &enrolled_feature.feature_id;
+    if !coenrolling_feature_ids.contains(feature_id.as_str()) {
+        // If we're not allowing co-enrollment for this feature, then add it to enrolled_features.
+        // We'll use this map to prevent collisions.
+        colliding_features.insert(feature_id.clone(), enrolled_feature);
+    } else if let Some(existing) = coenrolling_features.get(feature_id) {
+        // Otherwise, we'll add to the coenrolling_features map.
+        // In this branch, we've enrolled in one experiment already before this one.
+        // We take care to merge this one with the existing one.
+        let merged = enrolled_feature
+            .defaults(existing)
+            .expect("A feature config hasn't been able to merge; this is a bug in Nimbus");
+
+        // We change the branch to None, so we don't send exposure events from this feature.
+        // This is the subject of the ADR for https://mozilla-hub.atlassian.net/browse/EXP-3630.
+        let merged = EnrolledFeatureConfig {
+            // We make up the slug by appending. This is only for debugging reasons.
+            slug: format!("{}+{}", &existing.slug, &enrolled_feature.slug),
+            branch: None,
+            ..merged
+        };
+        coenrolling_features.insert(feature_id.clone(), merged);
+    } else {
+        // In this branch, this is the first time we've added this feature to the coenrolling_features map.
+        coenrolling_features.insert(feature_id.clone(), enrolled_feature);
+    }
 }
 
 fn get_enrolled_feature_configs(
@@ -1076,12 +1160,16 @@ fn get_enrolled_feature_configs(
 
     // Get the branch from the experiment, and then get the feature configs
     // from there.
-    let branch_features = match &experiment.get_branch(branch_slug) {
+    let mut branch_features = match &experiment.get_branch(branch_slug) {
         Some(branch) => branch.get_feature_configs(),
         _ => Default::default(),
     };
 
-    let branch_feature_ids = branch_features
+    branch_features.iter_mut().for_each(|f| {
+        json::replace_str_in_map(&mut f.value, SLUG_REPLACEMENT_PATTERN, experiment_slug);
+    });
+
+    let branch_feature_ids = &branch_features
         .iter()
         .map(|f| &f.feature_id)
         .collect::<HashSet<_>>();

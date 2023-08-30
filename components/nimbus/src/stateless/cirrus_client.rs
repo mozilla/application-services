@@ -16,7 +16,6 @@ use serde_json::{Map, Value};
 use std::collections::HashMap;
 use std::fmt;
 use std::sync::Mutex;
-use uuid::Uuid;
 
 /// EnrollmentResponse is a DTO for the response from handling enrollment for a given client.
 ///
@@ -80,14 +79,16 @@ pub struct CirrusMutableState {
 #[derive(Default)]
 pub struct CirrusClient {
     app_context: AppContext,
+    coenrolling_feature_ids: Vec<String>,
     state: Mutex<CirrusMutableState>,
 }
 
 impl CirrusClient {
-    pub fn new(app_context: String) -> Result<Self> {
+    pub fn new(app_context: String, coenrolling_feature_ids: Vec<String>) -> Result<Self> {
         let app_context: AppContext = serde_json::from_str(&app_context)?;
         Ok(Self {
             app_context,
+            coenrolling_feature_ids,
             state: Default::default(),
         })
     }
@@ -129,16 +130,17 @@ impl CirrusClient {
         is_user_participating: bool,
         prev_enrollments: &[ExperimentEnrollment],
     ) -> Result<EnrollmentResponse> {
-        // nimbus_id is set randomly here because all applications using the CirrusClient will not
-        // be using nimbus_id as the bucket randomization unit. This will be refactored out as a
-        // part of https://mozilla-hub.atlassian.net/browse/EXP-3401
-        let nimbus_id = Uuid::new_v4();
         let available_randomization_units =
             AvailableRandomizationUnits::with_user_id(user_id.as_str());
         let ta = TargetingAttributes::new(self.app_context.clone(), request_context);
         let th = NimbusTargetingHelper::new(ta);
+        let coenrolling_ids = self
+            .coenrolling_feature_ids
+            .iter()
+            .map(|s| s.as_str())
+            .collect();
         let enrollments_evolver =
-            EnrollmentsEvolver::new(&nimbus_id, &available_randomization_units, &th);
+            EnrollmentsEvolver::new(&available_randomization_units, &th, &coenrolling_ids);
         let state = self.state.lock().unwrap();
 
         let (enrollments, events) = enrollments_evolver
@@ -150,7 +152,7 @@ impl CirrusClient {
             )?;
 
         let enrolled_feature_config_map =
-            map_features_by_feature_id(&enrollments, &state.experiments);
+            map_features_by_feature_id(&enrollments, &state.experiments, &coenrolling_ids);
 
         Ok(EnrollmentResponse {
             enrolled_feature_config_map,

@@ -1,9 +1,10 @@
 /* This Source Code Form is subject to the terms of the Mozilla Public
 * License, v. 2.0. If a copy of the MPL was not distributed with this
 * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
+use crate::defaults_merger::DefaultsMerger;
 use crate::error::FMLError::InvalidFeatureError;
 use crate::error::{FMLError, Result};
-use crate::parser::{AboutBlock, DefaultsMerger};
+use crate::frontend::AboutBlock;
 use crate::util::loaders::FilePath;
 use anyhow::{bail, Error, Result as AnyhowResult};
 use serde::{Deserialize, Serialize};
@@ -91,6 +92,24 @@ pub enum TypeRef {
     Option(Box<TypeRef>),
 }
 
+impl Display for TypeRef {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Self::String => f.write_str("String"),
+            Self::Int => f.write_str("Int"),
+            Self::Boolean => f.write_str("Boolean"),
+            Self::BundleImage(_) => f.write_str("Image"),
+            Self::BundleText(_) => f.write_str("Text"),
+            Self::Enum(v) => f.write_str(v),
+            Self::Object(v) => f.write_str(v),
+            Self::Option(v) => f.write_fmt(format_args!("Option<{v}>")),
+            Self::List(v) => f.write_fmt(format_args!("List<{v}>")),
+            Self::StringMap(v) => f.write_fmt(format_args!("Map<String, {v}>")),
+            Self::EnumMap(k, v) => f.write_fmt(format_args!("Map<{k}, {v}>")),
+        }
+    }
+}
+
 /**
  * An identifier derived from a `FilePath` of a top-level or importable FML file.
  *
@@ -176,15 +195,16 @@ pub struct FeatureManifest {
     #[serde(skip)]
     pub(crate) id: ModuleId,
 
+    #[serde(skip_serializing_if = "String::is_empty")]
+    #[serde(default)]
+    pub(crate) channel: String,
+
     #[serde(rename = "enums")]
     #[serde(default)]
     pub enum_defs: Vec<EnumDef>,
     #[serde(rename = "objects")]
     #[serde(default)]
     pub obj_defs: Vec<ObjectDef>,
-    // `hints` are useful for things that will be constructed from strings
-    // such as images and display text.
-    pub hints: HashMap<StringId, FromStringDef>,
     #[serde(rename = "features")]
     pub feature_defs: Vec<FeatureDef>,
     #[serde(default)]
@@ -620,6 +640,13 @@ impl FeatureManifest {
         self.iter_feature_defs().find(|f| f.name() == nm)
     }
 
+    pub fn get_coenrolling_feature_ids(&self) -> Vec<String> {
+        self.iter_all_feature_defs()
+            .filter(|(_, f)| f.allow_coenrollment())
+            .map(|(_, f)| f.name())
+            .collect()
+    }
+
     pub fn find_feature(&self, nm: &str) -> Option<(&FeatureManifest, &FeatureDef)> {
         self.iter_all_feature_defs().find(|(_, f)| f.name() == nm)
     }
@@ -676,14 +703,16 @@ pub struct FeatureDef {
     pub(crate) name: String,
     pub(crate) doc: String,
     pub(crate) props: Vec<PropDef>,
+    pub(crate) allow_coenrollment: bool,
 }
+
 impl FeatureDef {
-    #[allow(dead_code)]
-    pub fn new(name: &str, doc: &str, props: Vec<PropDef>) -> Self {
+    pub fn new(name: &str, doc: &str, props: Vec<PropDef>, allow_coenrollment: bool) -> Self {
         Self {
             name: name.into(),
             doc: doc.into(),
             props,
+            allow_coenrollment,
         }
     }
     pub fn name(&self) -> String {
@@ -694,6 +723,9 @@ impl FeatureDef {
     }
     pub fn props(&self) -> Vec<PropDef> {
         self.props.clone()
+    }
+    pub fn allow_coenrollment(&self) -> bool {
+        self.allow_coenrollment
     }
 
     pub fn default_json(&self) -> Value {
@@ -752,7 +784,6 @@ pub struct VariantDef {
     pub(crate) doc: String,
 }
 impl VariantDef {
-    #[allow(dead_code)]
     pub fn new(name: &str, doc: &str) -> Self {
         Self {
             name: name.into(),
@@ -935,6 +966,27 @@ pub mod unit_tests {
     }
 
     #[test]
+    fn validate_allow_coenrollment() -> Result<()> {
+        let mut fm = get_simple_homescreen_feature();
+        fm.feature_defs.push(FeatureDef::new(
+            "some_def",
+            "my lovely qtest doc",
+            vec![PropDef {
+                name: "some prop".into(),
+                doc: "some prop doc".into(),
+                typ: TypeRef::String,
+                default: json!("default"),
+            }],
+            true,
+        ));
+        fm.validate_manifest()?;
+        let coenrolling_ids = fm.get_coenrolling_feature_ids();
+        assert_eq!(coenrolling_ids, vec!["some_def".to_string()]);
+
+        Ok(())
+    }
+
+    #[test]
     fn validate_duplicate_feature_defs_fails() -> Result<()> {
         let mut fm = get_simple_homescreen_feature();
         fm.feature_defs.push(FeatureDef::new(
@@ -953,6 +1005,7 @@ pub mod unit_tests {
                     "recently-saved": false,
                 }),
             }],
+            false,
         ));
         fm.validate_manifest()
             .expect_err("Should fail on duplicate feature defs");
@@ -993,6 +1046,7 @@ pub mod unit_tests {
                     }),
                 },
             ],
+            false,
         ));
         fm.validate_manifest()
             .expect_err("Should fail on duplicate props in the same feature");
@@ -1011,6 +1065,7 @@ pub mod unit_tests {
                 typ: TypeRef::Enum("EnumDoesntExist".into()),
                 default: json!(null),
             }],
+            false,
         ));
         fm.validate_manifest().expect_err(
             "Should fail since EnumDoesntExist isn't a an enum defined in the manifest",
@@ -1030,6 +1085,7 @@ pub mod unit_tests {
                 typ: TypeRef::Object("ObjDoesntExist".into()),
                 default: json!(null),
             }],
+            false,
         ));
         fm.validate_manifest().expect_err(
             "Should fail since ObjDoesntExist isn't a an Object defined in the manifest",
@@ -1049,6 +1105,7 @@ pub mod unit_tests {
                 typ: TypeRef::EnumMap(Box::new(TypeRef::String), Box::new(TypeRef::String)),
                 default: json!(null),
             }],
+            false,
         ));
         fm.validate_manifest()
             .expect_err("Should fail since the key on an EnumMap must be an Enum");
@@ -1067,6 +1124,7 @@ pub mod unit_tests {
                 typ: TypeRef::List(Box::new(TypeRef::Enum("EnumDoesntExist".into()))),
                 default: json!(null),
             }],
+            false,
         ));
         fm.validate_manifest()
             .expect_err("Should fail EnumDoesntExist isn't a an enum defined in the manifest");
@@ -1088,6 +1146,7 @@ pub mod unit_tests {
                 ),
                 default: json!(null),
             }],
+            false,
         ));
         fm.validate_manifest().expect_err(
             "Should fail since EnumDoesntExist isn't a an enum defined in the manifest",
@@ -1110,6 +1169,7 @@ pub mod unit_tests {
                 ),
                 default: json!(null),
             }],
+            false,
         ));
         fm.validate_manifest()
             .expect_err("Should fail since ObjDoesntExist isn't an Object defined in the manifest");
@@ -1128,6 +1188,7 @@ pub mod unit_tests {
                 typ: TypeRef::StringMap(Box::new(TypeRef::Enum("EnumDoesntExist".into()))),
                 default: json!(null),
             }],
+            false,
         ));
         fm.validate_manifest()
             .expect_err("Should fail since ObjDoesntExist isn't an Object defined in the manifest");
@@ -1146,6 +1207,7 @@ pub mod unit_tests {
                 typ: TypeRef::Option(Box::new(TypeRef::Option(Box::new(TypeRef::String)))),
                 default: json!(null),
             }],
+            false,
         ));
         fm.validate_manifest()
             .expect_err("Should fail since we can't have nested optionals");
@@ -1799,6 +1861,95 @@ pub mod unit_tests {
         let feature = fm.find_feature("feature_i");
 
         assert!(feature.is_some());
+
+        Ok(())
+    }
+
+    #[test]
+    fn test_get_coenrolling_feature_finds_across_all_imports() -> Result<()> {
+        let fm_i = get_feature_manifest(
+            vec![],
+            vec![],
+            vec![
+                FeatureDef {
+                    name: "coenrolling_import_1".into(),
+                    allow_coenrollment: true,
+                    ..Default::default()
+                },
+                FeatureDef {
+                    name: "coenrolling_import_2".into(),
+                    allow_coenrollment: true,
+                    ..Default::default()
+                },
+            ],
+            HashMap::new(),
+        );
+
+        let fm = get_feature_manifest(
+            vec![],
+            vec![],
+            vec![
+                FeatureDef {
+                    name: "coenrolling_feature".into(),
+                    allow_coenrollment: true,
+                    ..Default::default()
+                },
+                FeatureDef {
+                    name: "non_coenrolling_feature".into(),
+                    allow_coenrollment: false,
+                    ..Default::default()
+                },
+            ],
+            HashMap::from([(ModuleId::Local("test".into()), fm_i)]),
+        );
+
+        let coenrolling_features = fm.get_coenrolling_feature_ids();
+        let expected = vec![
+            "coenrolling_feature".to_string(),
+            "coenrolling_import_1".to_string(),
+            "coenrolling_import_2".to_string(),
+        ];
+
+        assert_eq!(coenrolling_features, expected);
+
+        Ok(())
+    }
+
+    #[test]
+    fn test_no_coenrolling_feature_finds_across_all_imports() -> Result<()> {
+        let fm_i = get_feature_manifest(
+            vec![],
+            vec![],
+            vec![FeatureDef {
+                name: "not_coenrolling_import".into(),
+                allow_coenrollment: false,
+                ..Default::default()
+            }],
+            HashMap::new(),
+        );
+
+        let fm = get_feature_manifest(
+            vec![],
+            vec![],
+            vec![
+                FeatureDef {
+                    name: "non_coenrolling_feature_1".into(),
+                    allow_coenrollment: false,
+                    ..Default::default()
+                },
+                FeatureDef {
+                    name: "non_coenrolling_feature_2".into(),
+                    allow_coenrollment: false,
+                    ..Default::default()
+                },
+            ],
+            HashMap::from([(ModuleId::Local("test".into()), fm_i)]),
+        );
+
+        let coenrolling_features = fm.get_coenrolling_feature_ids();
+        let expected: Vec<String> = vec![];
+
+        assert_eq!(coenrolling_features, expected);
 
         Ok(())
     }

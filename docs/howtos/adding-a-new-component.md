@@ -200,8 +200,12 @@ Use the Xcode Test Navigator to run your tests and check whether
 they're passing.
 
 ## Distribute your component with `rust-components-swift`
+The Swift source code and generated UniFFI bindings are distributed to consumers (eg: Firefox iOS) through [`rust-components-swift`](https://github.com/mozilla/rust-components-swift).
 
-To distribute your component with `rust-components-swift`, you need to add logic for dynamically generating any swift code to the [`generate.sh` script in the `rust-components-swift` repo](https://github.com/mozilla/rust-components-swift/blob/main/generate.sh). You can use that script to:
-    - Generate `uniffi` bindings
-    - Generate `Glean` metrics
-    - Copy over any handwritten code
+A nightly taskcluster job prepares the `rust-component-swift` packages from the source code in the application-services repository. To distribute your component with `rust-component-swift`, add the following to the taskcluster script in `taskcluster/scripts/build-and-test-swift.py`:
+- Add the path to the `<your_crate_name>.udl` file to `BINDINGS_UDL_PATHS`
+  - Optionally also to `FOCUS_UDL_PATHS` if your component is also targeting Firefox Focus
+- Add the path to the directory containing any hand-written swift code to `SOURCE_TO_COPY`
+  - Optionally also to `FOCUS_SOURCE_TO_COPY` if your component is also targeting Firefox Focus
+
+Your component should now automatically get included in the next `rust-component-swift` nightly release.

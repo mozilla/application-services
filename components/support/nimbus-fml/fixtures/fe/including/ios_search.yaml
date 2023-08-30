@@ -30,7 +30,6 @@ objects:
         description: "Whether or not to use page content"
         type: Boolean
         default: false
-        required: true
   Spotlight:
     description: "An object representing the spotlight"
     fields:
@@ -38,17 +37,14 @@ objects:
         type: Boolean
         description: "Describes whether spotlight is enabled"
         default: false
-        required: true
       description:
         type: String
         default: ""
         description: "Is the description of spotlight"
-        required: true
       use-html-content:
         type: Boolean
         default: true
         description: "Describes whether spotlight should use html content"
-        required: true
       icon:
         type: IconType
         default: letter
@@ -57,7 +53,6 @@ objects:
         type: Int
         default: 100
         description: "Number of days to keep"
-        required: true
 enums:
   IconType:
     description: The different types of icons

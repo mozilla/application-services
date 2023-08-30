@@ -86,19 +86,44 @@ class NimbusBuilderTest {
 
         // Local development operation, subsequent
         val devBuild2 = NimbusBuilder(context).apply {
-            isFirstRun = true
+            isFirstRun = false
             initialExperiments = bundledExperiments
         }.build(appInfo) as DummyNimbus
         assertEquals(bundledExperiments, devBuild2.initialExperiments)
     }
+
+    @Test
+    fun `test use not used when nimbus-cli is in use`() {
+        val bundledExperiments = Random.nextInt()
+        // Local development operation, first run
+        val devBuild1 = NimbusBuilder(context).apply {
+            url = null
+            isFirstRun = true
+            initialExperiments = bundledExperiments
+        }.build(appInfo) as DummyNimbus
+        assertEquals(bundledExperiments, devBuild1.initialExperiments)
+
+        // Local development operation, subsequent runs, but with isFetchEnabled = false
+        // Note that isFetchEnabled is part of the testing framework, passed directly to DummyNimbus
+        // then checked by the NimbusBuilder to work out whether to apply the local initial_experiments.
+        val devBuild2 = NimbusBuilder(context, isFetchEnabled = false).apply {
+            url = null
+            isFirstRun = false
+            initialExperiments = bundledExperiments
+        }.build(appInfo) as DummyNimbus
+        assertNull(devBuild2.initialExperiments)
+    }
 }
 
-class NimbusBuilder(context: Context) : AbstractNimbusBuilder<NimbusInterface>(context) {
+class NimbusBuilder(
+    context: Context,
+    val isFetchEnabled: Boolean = true,
+) : AbstractNimbusBuilder<NimbusInterface>(context) {
     override fun newNimbus(
         appInfo: NimbusAppInfo,
         serverSettings: NimbusServerSettings?,
     ): NimbusInterface =
-        DummyNimbus(context, appInfo = appInfo, serverSettings = serverSettings)
+        DummyNimbus(context, appInfo = appInfo, serverSettings = serverSettings, isFetchEnabled = isFetchEnabled)
 
     override fun newNimbusDisabled(): NimbusInterface =
         NullNimbus(context)
@@ -108,6 +133,7 @@ class DummyNimbus(
     override val context: Context,
     val serverSettings: NimbusServerSettings?,
     val appInfo: NimbusAppInfo,
+    private val isFetchEnabled: Boolean,
 ) : NimbusInterface {
 
     var initialExperiments: Int? = null
@@ -118,5 +144,9 @@ class DummyNimbus(
     override fun applyLocalExperiments(file: Int): Job {
         initialExperiments = file
         return super.applyLocalExperiments(file)
+    }
+
+    override fun isFetchEnabled(): Boolean {
+        return isFetchEnabled
     }
 }

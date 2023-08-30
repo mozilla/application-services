@@ -105,3 +105,10 @@ def test_merge_included_and_imported_features(fml_client):
         "imported-module-1-included-feature-1"
     ]
     assert imported_module_1_included_feature_1["enabled"] is True
+
+
+def test_get_coenrolling_feature_ids(fml_client):
+    client = fml_client("test-include-import.fml.yml", "developer")
+    result = client.get_coenrolling_feature_ids()
+
+    assert result == ["example-feature","imported-module-1-included-feature-1"]

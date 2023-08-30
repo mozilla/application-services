@@ -47,7 +47,7 @@ class HardcodedNimbusFeatures(
             JSONVariables(context, json)
         } ?: NullVariables.instance
 
-    override fun recordExposureEvent(featureId: String) {
+    override fun recordExposureEvent(featureId: String, experimentSlug: String?) {
         if (features[featureId] != null) {
             exposureCounts[featureId] = getExposureCount(featureId) + 1
         }

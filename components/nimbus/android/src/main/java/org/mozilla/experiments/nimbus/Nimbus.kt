@@ -59,6 +59,7 @@ data class NimbusServerSettings(
 open class Nimbus(
     override val context: Context,
     appInfo: NimbusAppInfo,
+    coenrollingFeatureIds: List<String>,
     server: NimbusServerSettings?,
     deviceInfo: NimbusDeviceInfo,
     private val observer: NimbusInterface.Observer? = null,
@@ -111,11 +112,12 @@ open class Nimbus(
 
         nimbusClient = NimbusClient(
             experimentContext,
+            coenrollingFeatureIds,
             dataDir.path,
             remoteSettingsConfig,
             // The "dummy" field here is required for obscure reasons when generating code on desktop,
             // so we just automatically set it to a dummy value.
-            AvailableRandomizationUnits(clientId = null, userId = null, dummy = 0),
+            AvailableRandomizationUnits(clientId = null, userId = null, nimbusId = null, dummy = 0),
         )
     }
 
@@ -357,7 +359,7 @@ open class Nimbus(
     override fun resetTelemetryIdentifiers() {
         // The "dummy" field here is required for obscure reasons when generating code on desktop,
         // so we just automatically set it to a dummy value.
-        val aru = AvailableRandomizationUnits(clientId = null, userId = null, dummy = 0)
+        val aru = AvailableRandomizationUnits(clientId = null, userId = null, nimbusId = null, dummy = 0)
         dbScope.launch {
             withCatchAll("resetTelemetryIdentifiers") {
                 nimbusClient.resetTelemetryIdentifiers(aru).also { enrollmentChangeEvents ->
@@ -375,8 +377,8 @@ open class Nimbus(
         }
     }
 
-    override fun recordExposureEvent(featureId: String) {
-        recordExposureOnThisThread(featureId)
+    override fun recordExposureEvent(featureId: String, experimentSlug: String?) {
+        recordExposureOnThisThread(featureId, experimentSlug)
     }
 
     override fun recordMalformedConfiguration(featureId: String, partId: String) {
@@ -482,9 +484,18 @@ open class Nimbus(
 
     // The exposure event should be recorded when the expected treatment (or no-treatment, such as
     // for a "control" branch) is applied or shown to the user.
+    // If the experiment slug is known, then use that to look up the enrollment.
     @VisibleForTesting(otherwise = VisibleForTesting.PRIVATE)
     @AnyThread
-    internal fun recordExposureOnThisThread(featureId: String) = withCatchAll("recordExposure") {
+    internal fun recordExposureOnThisThread(featureId: String, experimentSlug: String? = null) {
+        if (experimentSlug.isNullOrEmpty()) {
+            recordExposureFromFeature(featureId)
+        } else {
+            recordExposureFromExperiment(featureId, experimentSlug)
+        }
+    }
+
+    private fun recordExposureFromFeature(featureId: String) = withCatchAll("recordExposureFromFeature") {
         // First, we get the enrolled feature, if there is one, for this id.
         val enrollment = nimbusClient.getEnrollmentByFeature(featureId) ?: return@withCatchAll
         // If branch is null, this is a rollout, and we're not interested in recording
@@ -500,6 +511,18 @@ open class Nimbus(
                 featureId = featureId,
             ),
         )
+    }
+
+    private fun recordExposureFromExperiment(featureId: String, slug: String) = withCatchAll("recordExposureFromExperiment") {
+        nimbusClient.getExperimentBranch(slug)?.let { branch ->
+            NimbusEvents.exposure.record(
+                NimbusEvents.ExposureExtra(
+                    experiment = slug,
+                    branch = branch,
+                    featureId = featureId,
+                ),
+            )
+        }
     }
 
     // The malformed feature event is recorded by app developers, if the configuration is

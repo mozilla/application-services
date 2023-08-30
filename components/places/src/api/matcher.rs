@@ -745,7 +745,7 @@ mod tests {
                 url: Url::parse("http://example.com/").unwrap(),
                 title: "example.com/".into(),
                 icon_url: None,
-                frecency: 1999,
+                frecency: 2000,
                 reasons: vec![MatchReason::Origin],
             }]
         );
@@ -827,6 +827,7 @@ mod tests {
             [],
         )
         .expect("should insert");
+        crate::storage::delete_pending_temp_tables(&conn).expect("should work");
 
         let _ = search_frecent(
             &conn,

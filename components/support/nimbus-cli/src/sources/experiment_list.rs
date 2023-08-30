@@ -2,46 +2,186 @@
 // License, v. 2.0. If a copy of the MPL was not distributed with this
 // file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
-use crate::config;
+use crate::{
+    cli::{Cli, CliCommand, ExperimentArgs, ExperimentListArgs, ExperimentListSourceArgs},
+    config,
+    value_utils::{self, CliUtils},
+    USER_AGENT,
+};
 use anyhow::{bail, Result};
 use serde_json::Value;
 use std::path::{Path, PathBuf};
 
+use super::{ExperimentListFilter, ExperimentSource};
+
 #[derive(Clone, Debug, PartialEq)]
 pub(crate) enum ExperimentListSource {
-    FromRemoteSettings { endpoint: String, is_preview: bool },
-    FromFile { file: PathBuf },
+    Empty,
+    Filtered {
+        filter: ExperimentListFilter,
+        inner: Box<ExperimentListSource>,
+    },
+    FromApiV6 {
+        endpoint: String,
+    },
+    FromFile {
+        file: PathBuf,
+    },
+    FromRemoteSettings {
+        endpoint: String,
+        is_preview: bool,
+    },
+    FromRecipes {
+        recipes: Vec<ExperimentSource>,
+    },
 }
 
 impl ExperimentListSource {
-    pub(crate) fn try_from_pair(server: &str, preview: &str) -> Result<Self> {
-        let is_preview = preview == "preview";
+    fn try_from_slug<'a>(
+        slug: &'a str,
+        production: &'a str,
+        stage: &'a str,
+    ) -> Result<(&'a str, bool)> {
+        let (is_production, is_preview) = decode_list_slug(slug)?;
 
-        let endpoint = match server {
-            "" | "release" | "production" | "prod" => config::release_server(),
-            "stage" => config::stage_server(),
-            _ => bail!("Only stage or release currently supported"),
-        };
+        let endpoint = if is_production { production } else { stage };
 
+        Ok((endpoint, is_preview))
+    }
+
+    pub(crate) fn try_from_rs(value: &str) -> Result<Self> {
+        let p = config::rs_production_server();
+        let s = config::rs_stage_server();
+        let (endpoint, is_preview) = Self::try_from_slug(value, &p, &s)?;
         Ok(Self::FromRemoteSettings {
-            endpoint,
+            endpoint: endpoint.to_string(),
             is_preview,
+        })
+    }
+
+    pub(crate) fn try_from_api(value: &str) -> Result<Self> {
+        let p = config::api_v6_production_server();
+        let s = config::api_v6_stage_server();
+        let (endpoint, _) = Self::try_from_slug(value, &p, &s)?;
+        Ok(Self::FromApiV6 {
+            endpoint: endpoint.to_string(),
         })
     }
 }
 
-impl TryFrom<&str> for ExperimentListSource {
+// Returns (is_production, is_preview)
+pub(crate) fn decode_list_slug(slug: &str) -> Result<(bool, bool)> {
+    let tokens: Vec<&str> = slug.splitn(3, '/').collect();
+
+    Ok(match tokens.as_slice() {
+        [""] => (true, false),
+        ["preview"] => (true, true),
+        [server] => (is_production_server(server)?, false),
+        [server, preview] => (
+            is_production_server(server)?,
+            is_preview_collection(preview)?,
+        ),
+        _ => bail!(format!(
+            "Can't unpack '{slug}' into an experiment; try stage/SLUG, or SLUG"
+        )),
+    })
+}
+
+fn is_production_server(slug: &str) -> Result<bool> {
+    Ok(match slug {
+        "production" | "release" | "prod" | "" => true,
+        "stage" | "staging" => false,
+        _ => bail!(format!(
+            "Cannot translate '{slug}' into production or stage"
+        )),
+    })
+}
+
+fn is_preview_collection(slug: &str) -> Result<bool> {
+    Ok(match slug {
+        "preview" => true,
+        "" => false,
+        _ => bail!(format!(
+            "Cannot translate '{slug}' into preview or release collection"
+        )),
+    })
+}
+
+impl TryFrom<&Cli> for ExperimentListSource {
     type Error = anyhow::Error;
 
-    fn try_from(value: &str) -> Result<Self> {
-        let tokens: Vec<&str> = value.splitn(3, '/').collect();
-        let tokens = tokens.as_slice();
-        Ok(match tokens {
-            [""] => Self::try_from_pair("", "")?,
-            ["preview"] => Self::try_from_pair("", "preview")?,
-            [server] => Self::try_from_pair(server, "")?,
-            [server, "preview"] => Self::try_from_pair(server, "preview")?,
-            _ => bail!(format!("Can't unpack '{}' into an experiment; try preview, release, stage, or stage/preview", value)),
+    fn try_from(value: &Cli) -> Result<Self> {
+        let list = match &value.command {
+            CliCommand::FetchList { list, .. } | CliCommand::List { list } => {
+                ExperimentListSource::try_from(list)?
+            }
+            CliCommand::Fetch {
+                experiment,
+                recipes: slugs,
+                ..
+            } => {
+                let mut recipes = vec![ExperimentSource::try_from(experiment)?];
+
+                for r in slugs {
+                    let recipe = ExperimentArgs {
+                        experiment: r.clone(),
+                        ..experiment.clone()
+                    };
+                    recipes.push(ExperimentSource::try_from(&recipe)?);
+                }
+                ExperimentListSource::FromRecipes { recipes }
+            }
+            _ => unreachable!(),
+        };
+
+        let app = value.app.clone();
+        Ok(if let Some(app) = app {
+            ExperimentListSource::Filtered {
+                filter: ExperimentListFilter::for_app(app.as_str()),
+                inner: Box::new(list),
+            }
+        } else {
+            list
+        })
+    }
+}
+
+impl TryFrom<&ExperimentListArgs> for ExperimentListSource {
+    type Error = anyhow::Error;
+
+    fn try_from(value: &ExperimentListArgs) -> Result<Self> {
+        let source = match &value.source {
+            ExperimentListSourceArgs {
+                server,
+                file: Some(file),
+                ..
+            } => {
+                if !server.is_empty() {
+                    bail!("Cannot load a list from a file AND a server")
+                } else {
+                    Self::FromFile { file: file.clone() }
+                }
+            }
+            ExperimentListSourceArgs {
+                server: s,
+                file: None,
+                use_api,
+            } => {
+                if *use_api {
+                    Self::try_from_api(s)?
+                } else {
+                    Self::try_from_rs(s)?
+                }
+            }
+        };
+        let filter: ExperimentListFilter = From::from(&value.filter);
+        Ok(if !filter.is_empty() {
+            ExperimentListSource::Filtered {
+                filter,
+                inner: Box::new(source),
+            }
+        } else {
+            source
         })
     }
 }
@@ -63,6 +203,18 @@ impl TryFrom<&ExperimentListSource> for Value {
 
     fn try_from(value: &ExperimentListSource) -> Result<Value> {
         Ok(match value {
+            ExperimentListSource::Empty => serde_json::json!({ "data": [] }),
+            ExperimentListSource::Filtered { filter, inner } => filter_list(filter, inner)?,
+            ExperimentListSource::FromRecipes { recipes } => {
+                let mut data: Vec<Value> = Default::default();
+
+                for r in recipes {
+                    if let Ok(v) = r.try_into() {
+                        data.push(v);
+                    }
+                }
+                serde_json::json!({ "data": data })
+            }
             ExperimentListSource::FromRemoteSettings {
                 endpoint,
                 is_preview,
@@ -85,11 +237,68 @@ impl TryFrom<&ExperimentListSource> for Value {
                 response.json::<Value>()?
             }
             ExperimentListSource::FromFile { file } => {
-                let string = std::fs::read_to_string(file)?;
-                serde_json::from_str(&string)?
+                let v: Value = value_utils::read_from_file(file)?;
+                if v.is_array() {
+                    serde_json::json!({ "data": v })
+                } else if v.get_array("data").is_ok() {
+                    v
+                } else if v.get_array("branches").is_ok() {
+                    serde_json::json!({ "data": [v] })
+                } else {
+                    bail!(
+                        "An unrecognized recipes JSON file: {}",
+                        file.as_path().to_str().unwrap_or_default()
+                    );
+                }
+            }
+            ExperimentListSource::FromApiV6 { endpoint } => {
+                let url = format!("{endpoint}/api/v6/experiments/");
+
+                let req = reqwest::blocking::Client::builder()
+                    .user_agent(USER_AGENT)
+                    .gzip(true)
+                    .build()?
+                    .get(url);
+
+                let resp = req.send()?;
+                let data: Value = resp.json()?;
+
+                fn start_date(v: &Value) -> &str {
+                    let later = "9999-99-99";
+                    match v.get("startDate") {
+                        Some(v) => v.as_str().unwrap_or(later),
+                        _ => later,
+                    }
+                }
+
+                let data = match data {
+                    Value::Array(mut array) => {
+                        array.sort_by(|p, q| {
+                            let p_time = start_date(p);
+                            let q_time = start_date(q);
+                            p_time.cmp(q_time)
+                        });
+                        Value::Array(array)
+                    }
+                    _ => data,
+                };
+                serde_json::json!({ "data": data })
             }
         })
     }
+}
+
+fn filter_list(filter: &ExperimentListFilter, inner: &ExperimentListSource) -> Result<Value> {
+    let v: Value = Value::try_from(inner)?;
+    let data = v.get_array("data")?;
+    let mut array: Vec<Value> = Default::default();
+    for exp in data {
+        if let Ok(true) = filter.matches(exp) {
+            array.push(exp.to_owned());
+        }
+    }
+
+    Ok(serde_json::json!({ "data": array }))
 }
 
 #[cfg(test)]
@@ -97,113 +306,61 @@ mod unit_tests {
     use super::*;
 
     #[test]
-    fn test_experiment_list_from_pair() -> Result<()> {
-        let release = config::release_server();
-        let stage = config::stage_server();
+    fn test_experiment_list_from_rs() -> Result<()> {
+        let release = config::rs_production_server();
+        let stage = config::rs_stage_server();
         assert_eq!(
-            ExperimentListSource::try_from_pair("", "")?,
+            ExperimentListSource::try_from_rs("")?,
             ExperimentListSource::FromRemoteSettings {
                 endpoint: release.clone(),
                 is_preview: false
             }
         );
         assert_eq!(
-            ExperimentListSource::try_from_pair("", "preview")?,
+            ExperimentListSource::try_from_rs("preview")?,
             ExperimentListSource::FromRemoteSettings {
                 endpoint: release.clone(),
                 is_preview: true
             }
         );
         assert_eq!(
-            ExperimentListSource::try_from_pair("release", "")?,
+            ExperimentListSource::try_from_rs("release")?,
             ExperimentListSource::FromRemoteSettings {
                 endpoint: release.clone(),
                 is_preview: false
             }
         );
         assert_eq!(
-            ExperimentListSource::try_from_pair("release", "preview")?,
+            ExperimentListSource::try_from_rs("release/preview")?,
             ExperimentListSource::FromRemoteSettings {
                 endpoint: release.clone(),
                 is_preview: true
             }
         );
         assert_eq!(
-            ExperimentListSource::try_from_pair("stage", "")?,
+            ExperimentListSource::try_from_rs("stage")?,
             ExperimentListSource::FromRemoteSettings {
                 endpoint: stage.clone(),
                 is_preview: false
             }
         );
         assert_eq!(
-            ExperimentListSource::try_from_pair("stage", "preview")?,
+            ExperimentListSource::try_from_rs("stage/preview")?,
             ExperimentListSource::FromRemoteSettings {
                 endpoint: stage,
                 is_preview: true
             }
         );
         assert_eq!(
-            ExperimentListSource::try_from_pair("release", "preview")?,
+            ExperimentListSource::try_from_rs("release/preview")?,
             ExperimentListSource::FromRemoteSettings {
                 endpoint: release,
                 is_preview: true
             }
         );
 
-        assert!(ExperimentListSource::try_from_pair("not-real", "preview").is_err());
-
-        Ok(())
-    }
-
-    #[test]
-    fn test_experiment_list_from_str() -> Result<()> {
-        let release = config::release_server();
-        let stage = config::stage_server();
-        assert_eq!(
-            ExperimentListSource::try_from("")?,
-            ExperimentListSource::FromRemoteSettings {
-                endpoint: release.clone(),
-                is_preview: false
-            }
-        );
-        assert_eq!(
-            ExperimentListSource::try_from("release")?,
-            ExperimentListSource::FromRemoteSettings {
-                endpoint: release.clone(),
-                is_preview: false
-            }
-        );
-        assert_eq!(
-            ExperimentListSource::try_from("stage")?,
-            ExperimentListSource::FromRemoteSettings {
-                endpoint: stage.clone(),
-                is_preview: false
-            }
-        );
-        assert_eq!(
-            ExperimentListSource::try_from("preview")?,
-            ExperimentListSource::FromRemoteSettings {
-                endpoint: release.clone(),
-                is_preview: true
-            }
-        );
-        assert_eq!(
-            ExperimentListSource::try_from("release/preview")?,
-            ExperimentListSource::FromRemoteSettings {
-                endpoint: release,
-                is_preview: true
-            }
-        );
-        assert_eq!(
-            ExperimentListSource::try_from("stage/preview")?,
-            ExperimentListSource::FromRemoteSettings {
-                endpoint: stage,
-                is_preview: true
-            }
-        );
-
-        assert!(ExperimentListSource::try_from("not-real/preview").is_err());
-        assert!(ExperimentListSource::try_from("release/not-real").is_err());
+        assert!(ExperimentListSource::try_from_rs("not-real/preview").is_err());
+        assert!(ExperimentListSource::try_from_rs("release/not-real").is_err());
 
         Ok(())
     }

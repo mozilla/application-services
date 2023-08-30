@@ -1,6 +1,7 @@
 [workspace]
 # Note: Any additions here should be repeated in default-members below.
 members = [
+    "components/as-ohttp-client",
     "components/autofill",
     "components/crashtest",
     "components/fxa-client",
@@ -10,6 +11,7 @@ members = [
     "components/push",
     "components/remote_settings",
     "components/rc_log",
+    "components/suggest",
     "components/support/error",
     "components/support/error/tests",
     "components/support/guid",
@@ -76,6 +78,7 @@ exclude = [
 # To be clear: passing the `--all` or `--workspace` arg to cargo will make it
 # use the full member set.
 default-members = [
+    "components/as-ohttp-client",
     "components/autofill",
     "components/crashtest",
     "components/fxa-client",

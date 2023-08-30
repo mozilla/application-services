@@ -35,7 +35,6 @@
     }
   ],
   "objects": [],
-  "hints": {},
   "features": [
     {
       "name": "homescreen",
@@ -75,7 +74,8 @@
           ]
         }
       ],
-      "default": null
+      "default": null,
+      "allow_coenrollment": false
     }
   ]
 }

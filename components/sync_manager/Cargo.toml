@@ -11,7 +11,7 @@ autofill = { path = "../autofill" }
 sync15 = { path = "../sync15", features = ["sync-client"] }
 places = { path = "../places" }
 logins = { path = "../logins" }
-tabs = { path = "../tabs", features = ["full-sync"] }
+tabs = { path = "../tabs" }
 thiserror = "1.0"
 anyhow = "1.0"
 lazy_static = "1.4"
@@ -24,7 +24,7 @@ serde_derive = "1"
 serde_json = "1"
 parking_lot = ">=0.11,<=0.12"
 interrupt-support = { path = "../support/interrupt" }
-uniffi = "0.23"
+uniffi = "0.24.1"
 
 [build-dependencies]
-uniffi = { version = "0.23", features = ["build"] }
+uniffi = { version = "0.24.1", features = ["build"] }

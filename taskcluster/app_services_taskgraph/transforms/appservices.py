@@ -13,7 +13,7 @@ transforms = TransformSequence()
 def add_release_routes(config, tasks):
     for task in tasks:
         # Add routes listed in `release-routes` if we're building for a release
-        release_routes = task['attributes'].get('release-routes')
+        release_routes = task.get('attributes', {}).get('release-routes')
         release_type = config.params.get('release-type')
         if release_type and release_routes:
             task.setdefault('routes', []).extend(release_routes)

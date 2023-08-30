@@ -2,7 +2,11 @@
 * License, v. 2.0. If a copy of the MPL was not distributed with this
 * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
+mod backends;
+pub mod command_line;
+pub(crate) mod defaults_merger;
 pub mod error;
+pub(crate) mod frontend;
 pub mod intermediate_representation;
 pub mod parser;
 pub mod util;
@@ -15,7 +19,6 @@ cfg_if::cfg_if! {
 }
 
 #[cfg(test)]
-#[allow(dead_code)]
 pub mod fixtures;
 
 const SUPPORT_URL_LOADING: bool = true;

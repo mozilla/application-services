@@ -19,9 +19,10 @@ fxa-client = { path = "../../components/fxa-client" }
 logins = { path = "../../components/logins" }
 autofill = { path = "../../components/autofill" }
 push = { path = "../../components/push" }
-tabs = { path = "../../components/tabs", features = ["full-sync"] }
+tabs = { path = "../../components/tabs" }
 places = {path = "../../components/places" }
 remote_settings = { path = "../../components/remote_settings" }
 sync15 = {path = "../../components/sync15"}
 error-support = { path = "../../components/support/error" }
 sync_manager = { path = "../../components/sync_manager" }
+as-ohttp-client = { path = "../../components/as-ohttp-client" }

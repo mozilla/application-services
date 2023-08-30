@@ -166,7 +166,7 @@ RUN \
 
 ENV SHELL=/bin/bash \
     HOME=/builds/worker \
-    PATH=/builds/worker/.local/bin:/builds/worker/.cargo/bin:$PATH
+    PATH=/builds/worker/.local/bin:$PATH
 
 VOLUME /builds/worker/checkouts
 VOLUME /builds/worker/.cache

@@ -20,5 +20,9 @@ repository_type: git
 target_tasks_method: pr-normal
 tasks_for: github-pull-request
 branch-build:
-  firefox-android-owner: somebody
-  firefox-android-branch: some-commit-id
+  firefox-android:
+    owner: somebody
+    branch: some-branch
+  firefox-ios:
+    owner: somebody
+    branch: some-branch

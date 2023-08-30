@@ -18,6 +18,9 @@ curl -sfSL --retry 5 --retry-delay 10 -O "https://static.rust-lang.org/rustup/ar
 echo "${RUSTUP_SHA256} *rustup-init" | sha256sum -c -
 chmod +x rustup-init
 ./rustup-init -y --no-modify-path --default-toolchain none
+rm rustup-init
+# shellcheck source=/dev/null
+source "$HOME"/.cargo/env
 
 # cd to the app-services directory, so that rustup will see our `rust-toolchain.toml` file
 cd "$VCS_PATH"

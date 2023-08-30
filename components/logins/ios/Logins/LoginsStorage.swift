@@ -21,21 +21,6 @@ open class LoginsStorage {
         store = try LoginStore(path: databasePath)
     }
 
-    /// Delete all locally stored login sync metadata. It's unclear if
-    /// there's ever a reason for users to call this
-    open func reset() throws {
-        try queue.sync {
-            try self.store.reset()
-        }
-    }
-
-    /// Delete all locally stored login data.
-    open func wipe() throws {
-        try queue.sync {
-            try self.store.wipe()
-        }
-    }
-
     open func wipeLocal() throws {
         try queue.sync {
             try self.store.wipeLocal()
@@ -101,19 +86,6 @@ open class LoginsStorage {
     open func registerWithSyncManager() {
         return queue.sync {
             self.store.registerWithSyncManager()
-        }
-    }
-
-    open func sync(unlockInfo: SyncUnlockInfo) throws -> String {
-        return try queue.sync {
-            try self.store
-                .sync(
-                    keyId: unlockInfo.kid,
-                    accessToken: unlockInfo.fxaAccessToken,
-                    syncKey: unlockInfo.syncKey,
-                    tokenserverUrl: unlockInfo.tokenserverURL,
-                    localEncryptionKey: unlockInfo.loginEncryptionKey
-                )
         }
     }
 }

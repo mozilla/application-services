@@ -37,4 +37,8 @@ interface FmlClient {
     // Returns the default feature JSON for the loaded FML's selected channel.
     [Throws=FMLError]
     string get_default_json();
+
+    // Returns a list of feature ids that support coenrollment.
+    [Throws=FMLError]
+    sequence<string> get_coenrolling_feature_ids();
 };

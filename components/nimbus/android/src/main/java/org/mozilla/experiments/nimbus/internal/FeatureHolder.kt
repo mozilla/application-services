@@ -63,6 +63,19 @@ class FeatureHolder<T : FMLFeatureInterface>(
     }
 
     /**
+     * Send an exposure event for this feature, in the given experiment.
+     *
+     * If the experiment does not exist, or the client is not enrolled in that experiment, then no exposure event
+     * is recorded.
+     *
+     * If you are not sure of the experiment slug, then this is _not_ the API you need: you should use
+     * [recordExposure] instead.
+     */
+    fun recordExperimentExposure(slug: String) {
+        getSdk()?.recordExposureEvent(featureId, slug)
+    }
+
+    /**
      * A convenience method for calling [value()].[toJSONObject()].
      *
      * This is likely only useful for integrations that are going to serialize the configuration.

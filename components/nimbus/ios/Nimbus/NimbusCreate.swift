@@ -34,6 +34,7 @@ public extension Nimbus {
     static func create(
         _ server: NimbusServerSettings?,
         appSettings: NimbusAppSettings,
+        coenrollingFeatureIds: [String] = [],
         dbPath: String,
         resourceBundles: [Bundle] = [Bundle.main],
         enabled: Bool = true,
@@ -52,11 +53,17 @@ public extension Nimbus {
         }
         let nimbusClient = try NimbusClient(
             appCtx: context,
+            coenrollingFeatureIds: coenrollingFeatureIds,
             dbpath: dbPath,
             remoteSettingsConfig: remoteSettings,
             // The "dummy" field here is required for obscure reasons when generating code on desktop,
             // so we just automatically set it to a dummy value.
-            availableRandomizationUnits: AvailableRandomizationUnits(clientId: nil, userId: nil, dummy: 0)
+            availableRandomizationUnits: AvailableRandomizationUnits(
+                clientId: nil,
+                userId: nil,
+                nimbusId: nil,
+                dummy: 0
+            )
         )
 
         return Nimbus(nimbusClient: nimbusClient, resourceBundles: resourceBundles, errorReporter: errorReporter)

@@ -1,4 +1,97 @@
-# v116.0 (In progress)
+# v119.0 (In progress)
+
+[Full Changelog](In progress)
+
+## Places
+
+### 🦊 What's Changed 🦊
+
+- `fetch_tree_with_depth` no longer starts a transaction when reading from the database. The transaction causes issues with concurrent calls, and isn't needed for consistency anymore ([#5790](https://github.com/mozilla/application-services/pull/5790)).
+
+# v118.0 (_2023-08-28_)
+
+## General
+### 🦊 What's Changed 🦊
+
+- Backward-incompatible changes to the Suggest database schema to accommodate custom details for providers ([#5745](https://github.com/mozilla/application-services/pull/5745)) and future suggestion types ([#5766](https://github.com/mozilla/application-services/pull/5766)). This only affects prototyping, because we aren't consuming Suggest in any of our products yet.
+- The `Suggestion` type in the Suggest component has changed from a dictionary to an enum ([#5766](https://github.com/mozilla/application-services/pull/5766)). This only affects prototyping, because we aren't consuming Suggest in any of our products yet.
+- The Remote Settings `Client::get_attachment()` method now returns a `Vec<u8>` instead of a Viaduct `Response` ([#5764](https://github.com/mozilla/application-services/pull/5764)). You can use the new `Client::get_attachment_raw()` method if you need the `Response`. This is a backward-incompatible change for Rust consumers only; Swift and Kotlin are unaffected.
+- The Remote Settings client now parses `ETag` response headers from Remote Settings correctly ([#5764](https://github.com/mozilla/application-services/pull/5764)).
+
+### ✨ What's New ✨
+
+- Added an OHTTP client library for iOS based on `ohttp` Rust crate ([#5749](https://github.com/mozilla/application-services/pull/5749)). This allows iOS products to use the same OHTTP libraries as Gecko-based products.
+- The Remote Settings client has a new `Client::get_records_with_options()` method ([#5764](https://github.com/mozilla/application-services/pull/5764)). This is for Rust consumers only; it's not exposed to Swift or Kotlin.
+- `RemoteSettingsRecord` objects have a new `deleted` property that indicates if the record is a tombstone ([#5764](https://github.com/mozilla/application-services/pull/5764)).
+
+
+## Rust log forwarder
+### 🦊 What's Changed 🦊
+
+- Renamed `Logger` to `AppServicesLogger` to avoid a name conflict on Swift.
+
+## Nimbus CLI [⛅️🔬🔭👾](./components/support/nimbus-cli)
+
+### ✨ What's New ✨
+
+- Added passthrough to FML command line ([#5784](https://github.com/mozilla/application-services/pull/5784)), effectively unifying the two command line tools.
+
+## Nimbus FML ⛅️🔬🔭🔧
+
+### 🦊 What's Changed 🦊
+
+- Removed previously deprecated commands `experimenter`, `ios`, `android`, `intermediate-repr` ([#5784](https://github.com/mozilla/application-services/pull/5784)).
+
+[Full Changelog](https://github.com/mozilla/application-services/compare/v117.0...v118.0)
+
+# v117.0 (_2023-07-31_)
+
+## General
+
+### 🦊 What's Changed 🦊
+
+- Removed obsolete sync functions that were exposed for Firefox iOS prior to the sync manager component integration ([#5725](https://github.com/mozilla/application-services/pull/5725)).
+
+### ✨ What's New ✨
+
+- Added a new Firefox Suggest component ([#5723](https://github.com/mozilla/application-services/pull/5723)).
+
+## Nimbus SDK ⛅️🔬🔭
+
+### ✨ What's New ✨
+
+- Add `recordExperimentExposure` to `FeatureHolder`, and substitute `{experiment}` for experiment slugs at enrollment in the feature configuration [#5715](https://github.com/mozilla/application-services/pull/5715).
+  - This is to enable exposure events to be assigned to the correct experiment in coenrolled features.
+  - Android and iOS are both supported.
+
+## Nimbus FML ⛅️🔬🔭🔧
+
+### ✨ What's New ✨
+
+- Add `allow-coenrollment` property for features in the Feature Manifest Language. This relaxes the feature exclusion rules for features marked with `allow-coenrollment: true`. ([#5688](https://github.com/mozilla/application-services/pull/5688)).
+  - This adds a non-user-facing method to the `FeatureManifestInterface`, `getCoenrollingFeatureIds`, in both Kotlin and Swift.
+- Exposes a method to get the coenrolling feature ids in the FML client ([#5714](https://github.com/mozilla/application-services/pull/5714)), as well as the NimbusBuilders for both Kotlin and Swift ([#5718](https://github.com/mozilla/application-services/pull/5718)).
+
+### 🦊 What's Changed 🦊
+
+- Make sure deterministic builds of downstream consumers are not broken ([#5736](https://github.com/mozilla/application-services/pull/5736)).
+
+## Nimbus CLI [⛅️🔬🔭👾](./components/support/nimbus-cli)
+
+### ✨ What's New ✨
+
+- Added a `--patch` option to all commands that accept an experiment. ([#5721](https://github.com/mozilla/application-services/pull/5721))
+- Added a `--pbpaste` and `start-server` command for testing on iOS devices. ([#5751](https://github.com/mozilla/application-services/pull/5751)).
+  - Use by `start-server` which directs you to open a URL on your device. Device commands sync with the server, and then on to the device.
+  - Added a `--pbcopy` option to all commands that open the app. These URLs are used to open the app on device ([#5727](https://github.com/mozilla/application-services/pull/5727)).
+    - with associated in-app tooling to enroll into experiments via a deeplink URL.
+  - Added `--is-launcher` to the protocol between the cli and the apps, so apps detecting the launcher intent can work from the generated deeplinks ([#5748](https://github.com/mozilla/application-services/pull/5748)).
+- Added filters to the `list` and `fetch-list` commands ([#5730](https://github.com/mozilla/application-services/pull/5730))
+  - Also, made `--app` and `--channel` non-mandatory for commands that don't need them.
+
+[Full Changelog](https://github.com/mozilla/application-services/compare/v116.0...v117.0)
+
+# v116.0 (_2023-07-03_)
 
 ## General
 
@@ -6,13 +99,53 @@
 - Android: The JVM compatibility target is now version 17 ([#5651](https://github.com/mozilla/application-services/pull/5651))
   - _NOTE: This is technically a breaking change, but all existing downstream projects have already made the necessary changes._
 
+## Nimbus SDK ⛅️🔬🔭
+
+### 🦊 What's Changed 🦊
+
+- When a rollout audience size changes, the enrollment is re-evaluated and the client is un-enrolled if no longer in the bucket or re-enrolled if they had previously been disqualified from bucketing. ([#5687](https://github.com/mozilla/application-services/pull/5687), [#5716](https://github.com/mozilla/application-services/pull/5716)).
+  - The record of enrollment will be available in the new `enrollments` targeting attribute.
+- Add `enrollments` value to `TargetingAttributes` — it is a set of strings containing all enrollments, past and present ([#5685](https://github.com/mozilla/application-services/pull/5685)).
+  - _Note: This change only applies to stateful uses of the Nimbus SDK, e.g. mobile_
+- Add ability to enroll selected features multiple times (coenrollment) ([#5684](https://github.com/mozilla/application-services/pull/5684), [#5697](https://github.com/mozilla/application-services/pull/5697)).
+
+### ⚠️ Breaking Changes ⚠️
+
+- Several changes to the NimbusBuilder mean that this is a breaking change for Firefox for Android [#5697](https://github.com/mozilla/application-services/pull/5697).
+  - These changes are fixed by [firefox-android#2682](https://github.com/mozilla-mobile/firefox-android/pull/2682).
+
 ## Nimbus FML ⛅️🔬🔭🔧
 
 ### ✨ What's New ✨
 
 - Add `validate` command to the FML CLI. This command validates a chosen manifest file, including all its imports, includes, and channels ([#5607](https://github.com/mozilla/application-services/pull/5607)).
+- Add `single-file` command to the FML CLI. This command rationalizes a manifest file– including all of its imports and includes– into a single file, suitable for bundling into a secure environment ([#5676](https://github.com/mozilla/application-services/pull/5676)).
 
-[Full Changelog](In progress)
+### 🦊 What's Changed 🦊
+
+- When a cache directory is not specified, now spin up a temporary directory instead of using the (sometimes) long lived system one ([#5662](https://github.com/mozilla/application-services/pull/5662)).
+
+## Nimbus CLI [⛅️🔬🔭👾](./components/support/nimbus-cli)
+
+### 🦊 What's Changed 🦊
+
+- Version bump to `0.3.0` ([#5674](https://github.com/mozilla/application-services/pull/5674)). User facing changelog: https://experimenter.info/nimbus-cli/whats-new
+- Added isRollout and bucketing info to the `list` command ([#5672](https://github.com/mozilla/application-services/pull/5672)).
+- Fixed several paper cut usability issues ([#5654](https://github.com/mozilla/application-services/pull/5654)):
+  - Experiments by default are fetched from the API v6, eliminating latency between making changes on experimenter and syncing with remote settings.
+  - Separated `fetch` and `fetch-list`: experiment lists, by default still come from Remote Settings, but the slower API v6 `/api/v6/experiments` can be queried.
+
+### ✨ What's New ✨
+
+- Added an `info` command ([#5672](https://github.com/mozilla/application-services/pull/5672)).
+- Fixed several paper cut usability issues ([#5654](https://github.com/mozilla/application-services/pull/5654)):
+  - Added a `defaults` command to output the feature configuration from the manifest.
+  - Added a `features` command to output the experiment branch features and optionally merged with the manifest defaults.
+  - Now supports reading and writing YAML files.
+  - Single experiment files can be used as an experiment list file.
+- Add passthrough parameters for the `open`, `enroll` and `test-feature` commands. ([#5669](https://github.com/mozilla/application-services/pull/5669))
+
+[Full Changelog](https://github.com/mozilla/application-services/compare/v115.0...v116.0)
 
 # v115.0 (_2023-06-05_)
 

@@ -11,8 +11,7 @@ use crate::{Error, Result, ScopedKey};
 impl FirefoxAccount {
     pub(crate) fn get_scoped_key(&self, scope: &str) -> Result<&ScopedKey> {
         self.state
-            .scoped_keys
-            .get(scope)
+            .get_scoped_key(scope)
             .ok_or_else(|| Error::NoScopedKey(scope.to_string()))
     }
 }

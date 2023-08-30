@@ -4,8 +4,11 @@ http://creativecommons.org/publicdomain/zero/1.0/ */
 #![allow(unknown_lints)]
 #![warn(rust_2018_idioms)]
 
+use cli_support::fxa_creds::{get_cli_fxa, get_default_fxa_config};
 use std::{collections::HashSet, process};
+use std::sync::Arc;
 use structopt::StructOpt;
+
 
 mod auth;
 mod autofill;
@@ -68,7 +71,17 @@ pub fn run_test_groups(opts: &Opts, groups: Vec<TestGroup>) {
 }
 
 pub fn run_test_group(opts: &Opts, group: TestGroup) {
-    let mut user = TestUser::new(opts, 2).expect("Failed to get test user.");
+    if opts.helper_debug {
+        // What are these used for?
+        std::env::set_var("DEBUG", "nightmare");
+        std::env::set_var("HELPER_SHOW_BROWSER", "1");
+    }
+
+    let cfg = get_default_fxa_config();
+    let cli_fxa = get_cli_fxa(cfg, &opts.credential_file).expect("can't initialize cli");
+    let acct = Arc::new(cli_fxa);
+
+    let mut user = TestUser::new(acct, 2).expect("Failed to get test user.");
     let (c0, c1) = {
         let (c0s, c1s) = user.clients.split_at_mut(1);
         (&mut c0s[0], &mut c1s[0])
@@ -107,15 +120,8 @@ pub struct Opts {
     /// Either 'release', 'stage', 'stable-dev', or a URL.
     pub fxa_stack: FxaConfigUrl,
 
-    #[structopt(name = "force-username", long)]
-    /// Force the username portion of the restmail email. Must be a valid username,
-    /// note that the username is also used for the password. See also
-    /// `--no-delete-account`, which is useful in combination with this.
-    pub force_username: Option<String>,
-
-    #[structopt(name = "no-delete-account", long)]
-    /// Disable deleting the fx account after use. Incompatible with oauth-retries.
-    pub no_delete_account: bool,
+    #[structopt(name = "credentials", long, default_value = "./credentials.json")]
+    credential_file: String,
 
     #[structopt(name = "helper-debug", long)]
     /// Run the helper browser as non-headless, and enable extra logging

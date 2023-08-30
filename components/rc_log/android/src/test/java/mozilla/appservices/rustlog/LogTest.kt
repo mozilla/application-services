@@ -72,7 +72,7 @@ class LogTest {
         assertEquals(logs.size, 3)
         assert(!wasCalled)
 
-        for (i in 0..15) {
+        repeat(15) {
             Thread.sleep(10)
             @Suppress("ExplicitGarbageCollectionCall")
             System.gc()
@@ -167,7 +167,7 @@ class LogTest {
         RustLogAdapter.disable()
 
         // Make sure the GC can now collect the background threads.
-        for (i in 0..15) {
+        repeat(15) {
             Thread.sleep(10)
             @Suppress("ExplicitGarbageCollectionCall")
             System.gc()

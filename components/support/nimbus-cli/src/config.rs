@@ -10,16 +10,36 @@ use anyhow::{bail, Result};
 impl TryFrom<&Cli> for LaunchableApp {
     type Error = anyhow::Error;
     fn try_from(value: &Cli) -> Result<Self> {
-        let app = value.app.as_str();
-        let channel = value.channel.as_str();
-        let device_id = value.device_id.clone();
+        Self::try_from_app_channel_device(
+            value.app.as_deref(),
+            value.channel.as_deref(),
+            value.device_id.as_deref(),
+        )
+    }
+}
+
+impl LaunchableApp {
+    pub(crate) fn try_from_app_channel_device(
+        app: Option<&str>,
+        channel: Option<&str>,
+        device_id: Option<&str>,
+    ) -> Result<Self> {
+        match (&app, &channel) {
+            (None, None) => anyhow::bail!("A value for --app and --channel must be specified. Supported apps are: fenix, focus_android, firefox_ios and focus_ios"),
+            (None, _) => anyhow::bail!("A value for --app must be specified. One of: fenix, focus_android, firefox_ios and focus_ios are currently supported"),
+            (_, None) => anyhow::bail!("A value for --channel must be specified. Supported channels are: developer, nightly, beta and release"),
+            _ => (),
+        }
+
+        let app = app.unwrap();
+        let channel = channel.unwrap();
 
         let prefix = match app {
             "fenix" => Some("org.mozilla"),
             "focus_android" => Some("org.mozilla"),
             "firefox_ios" => Some("org.mozilla.ios"),
             "focus_ios" => Some("org.mozilla.ios"),
-            _ => None,
+            _ => anyhow::bail!("Only --app values of fenix, focus_android, firefox_ios and focus_ios are currently supported"),
         };
 
         let suffix = match app {
@@ -89,84 +109,130 @@ impl TryFrom<&Cli> for LaunchableApp {
             ("fenix", Some(prefix), Some(suffix)) => Self::Android {
                 package_name: format!("{}.{}", prefix, suffix),
                 activity_name: ".App".to_string(),
-                device_id,
+                device_id: device_id.map(str::to_string),
                 scheme,
+                open_deeplink: Some("open".to_string()),
             },
             ("focus_android", Some(prefix), Some(suffix)) => Self::Android {
                 package_name: format!("{}.{}", prefix, suffix),
                 activity_name: "org.mozilla.focus.activity.MainActivity".to_string(),
-                device_id,
+                device_id: device_id.map(str::to_string),
                 scheme,
+                open_deeplink: None,
             },
             ("firefox_ios", Some(prefix), Some(suffix)) => Self::Ios {
                 app_id: format!("{}.{}", prefix, suffix),
-                device_id: device_id.unwrap_or_else(|| "booted".to_string()),
+                device_id: device_id.unwrap_or("booted").to_string(),
                 scheme,
             },
             ("focus_ios", Some(prefix), Some(suffix)) => Self::Ios {
                 app_id: format!("{}.{}", prefix, suffix),
-                device_id: device_id.unwrap_or_else(|| "booted".to_string()),
+                device_id: device_id.unwrap_or("booted").to_string(),
                 scheme,
             },
-            _ => unimplemented!(),
+            _ => unreachable!(),
         })
     }
 }
 
 impl NimbusApp {
-    pub(crate) fn ref_from_version(&self, version: &Option<String>, ref_: &String) -> String {
+    pub(crate) fn ref_from_version(
+        &self,
+        version: &Option<String>,
+        ref_: &String,
+    ) -> Result<String> {
         if version.is_none() {
-            return ref_.to_string();
+            return Ok(ref_.to_string());
         }
         let version = version.as_ref().unwrap();
-        match self.app_name.as_str() {
+        let app_name = self
+            .app_name()
+            .ok_or_else(|| anyhow::anyhow!("Either an --app or a --manifest must be specified"))?;
+        Ok(match app_name.as_str() {
             // Fenix and Focus are both in the same repo, so should have the
             // same branching structure.
             "fenix" | "focus_android" => format!("releases_v{version}"),
             "firefox_ios" => format!("release/v{version}"),
             "focus_ios" => format!("releases_v{version}"),
 
-            _ => unreachable!("{} is not defined", self.app_name),
-        }
+            _ => anyhow::bail!("{} is not defined", app_name),
+        })
     }
 
-    pub(crate) fn github_repo<'a>(&self) -> &'a str {
-        match self.app_name.as_str() {
+    pub(crate) fn github_repo<'a>(&self) -> Result<&'a str> {
+        let app_name = self
+            .app_name()
+            .ok_or_else(|| anyhow::anyhow!("Either an --app or a --manifest must be specified"))?;
+        Ok(match app_name.as_str() {
             // Fenix and Focus are both in the same repo
             "fenix" | "focus_android" => "mozilla-mobile/firefox-android",
             "firefox_ios" => "mozilla-mobile/firefox-ios",
             "focus_ios" => "mozilla-mobile/focus-ios",
-            _ => unreachable!("{} is not defined", self.app_name),
-        }
+            _ => unreachable!("{} is not defined", app_name),
+        })
     }
 
-    pub(crate) fn manifest_location<'a>(&self) -> &'a str {
-        match self.app_name.as_str() {
+    pub(crate) fn manifest_location<'a>(&self) -> Result<&'a str> {
+        let app_name = self
+            .app_name()
+            .ok_or_else(|| anyhow::anyhow!("Either an --app or a --manifest must be specified"))?;
+        Ok(match app_name.as_str() {
             "fenix" => "fenix/app/nimbus.fml.yaml",
             "focus_android" => "focus-android/app/nimbus.fml.yaml",
             "firefox_ios" => "nimbus.fml.yaml",
             "focus_ios" => "nimbus.fml.yaml",
-            _ => unreachable!("{} is not defined", self.app_name),
-        }
+            _ => anyhow::bail!("{} is not defined", app_name),
+        })
     }
 }
 
-pub(crate) fn release_server() -> String {
+pub(crate) fn rs_production_server() -> String {
     std::env::var("NIMBUS_URL")
         .unwrap_or_else(|_| "https://firefox.settings.services.mozilla.com".to_string())
 }
 
-pub(crate) fn stage_server() -> String {
+pub(crate) fn rs_stage_server() -> String {
     std::env::var("NIMBUS_URL_STAGE")
         .unwrap_or_else(|_| "https://firefox.settings.services.allizom.org".to_string())
 }
 
-pub(crate) fn manifest_cache_dir() -> PathBuf {
+pub(crate) fn api_v6_production_server() -> String {
+    std::env::var("NIMBUS_API_URL")
+        .unwrap_or_else(|_| "https://experimenter.services.mozilla.com".to_string())
+}
+
+pub(crate) fn api_v6_stage_server() -> String {
+    std::env::var("NIMBUS_API_URL_STAGE")
+        .unwrap_or_else(|_| "https://stage.experimenter.nonprod.dataops.mozgcp.net".to_string())
+}
+
+pub(crate) fn manifest_cache_dir() -> Option<PathBuf> {
     match std::env::var("NIMBUS_MANIFEST_CACHE") {
         Ok(s) => {
             let cwd = std::env::current_dir().expect("Current Working Directory is not set");
-            cwd.join(s)
+            Some(cwd.join(s))
         }
-        _ => std::env::temp_dir(),
+        // We let the Nimbus FML define its own cache.
+        _ => None,
+    }
+}
+
+#[cfg(feature = "server")]
+pub(crate) fn server_port() -> String {
+    match std::env::var("NIMBUS_CLI_SERVER_PORT") {
+        Ok(s) => s,
+        _ => "8080".to_string(),
+    }
+}
+
+#[cfg(feature = "server")]
+pub(crate) fn server_host() -> String {
+    match std::env::var("NIMBUS_CLI_SERVER_HOST") {
+        Ok(s) => s,
+        _ => {
+            use local_ip_address::local_ip;
+            let ip = local_ip().unwrap();
+            ip.to_string()
+        }
     }
 }

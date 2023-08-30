@@ -15,6 +15,11 @@ style:
     active: false
   UnusedPrivateMember:
     active: false
+  WildcardImport:
+    excludeImports:
+      - com.example.app.nimbus.*
+      - com.example.lib.nimbus.*
+      - com.example.sublib.nimbus.*
 
 exceptions:
   RethrowCaughtException:

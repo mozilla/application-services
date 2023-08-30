@@ -14,7 +14,6 @@ use crate::{matcher::AppContext, sampling};
 use crate::{Branch, Experiment, NimbusTargetingHelper};
 use serde_derive::*;
 use serde_json::Value;
-use uuid::Uuid;
 
 #[cfg(feature = "stateful")]
 use std::collections::HashSet;
@@ -43,6 +42,7 @@ pub struct TargetingAttributes {
     pub days_since_install: Option<i32>,
     pub days_since_update: Option<i32>,
     pub active_experiments: HashSet<String>,
+    pub enrollments: HashSet<String>,
 }
 
 #[cfg(not(feature = "stateful"))]
@@ -119,7 +119,6 @@ fn split_locale(locale: String) -> (Option<String>, Option<String>) {
 /// Determine the enrolment status for an experiment.
 ///
 /// # Arguments:
-/// - `nimbus_id` The auto-generated nimbus_id
 /// - `available_randomization_units` The app provded available randomization units
 /// - `targeting_attributes` The attributes to use when evaluating targeting
 /// - `exp` The `Experiment` to evaluate.
@@ -135,7 +134,6 @@ fn split_locale(locale: String) -> (Option<String>, Option<String>) {
 /// - If the bucket sampling failed (i.e we could not find if the user should or should not be enrolled in the experiment based on the bucketing)
 /// - If an error occurs while determining the branch the user should be enrolled in any of the experiments
 pub fn evaluate_enrollment(
-    nimbus_id: &Uuid,
     available_randomization_units: &AvailableRandomizationUnits,
     exp: &Experiment,
     th: &NimbusTargetingHelper,
@@ -163,9 +161,7 @@ pub fn evaluate_enrollment(
         slug: exp.slug.clone(),
         status: {
             let bucket_config = exp.bucket_config.clone();
-            match available_randomization_units
-                .get_value(&nimbus_id.to_string(), &bucket_config.randomization_unit)
-            {
+            match available_randomization_units.get_value(&bucket_config.randomization_unit) {
                 Some(id) => {
                     if sampling::bucket_sample(
                         vec![id.to_owned(), bucket_config.namespace],

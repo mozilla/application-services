@@ -132,6 +132,7 @@ impl FirefoxAccount {
 /// or service on behalf of the user. For example, accessing the user's data in Firefox Sync
 /// an access token for the scope `https://identity.mozilla.com/apps/sync` along with the
 /// associated encryption key.
+#[derive(Debug)]
 pub struct AccessTokenInfo {
     /// The scope of access granted by token.
     pub scope: String,

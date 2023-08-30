@@ -22,7 +22,7 @@ class MockFxAccount: PersistedFirefoxAccount {
     }
 
     init() {
-        super.init(inner: FirefoxAccount(contentUrl: "", clientId: "", redirectUri: "", tokenServerUrlOverride: nil))
+        super.init(inner: FirefoxAccount(config: FxaConfig(server: FxaServer.custom(url: ""), clientId: "", redirectUri: "", tokenServerUrlOverride: nil)))
     }
 
     required convenience init(fromJsonState _: String) throws {
@@ -31,10 +31,6 @@ class MockFxAccount: PersistedFirefoxAccount {
 
     required convenience init(config _: FxAConfig) {
         fatalError("init(config:) has not been implemented")
-    }
-
-    override func isInMigrationState() -> Bool {
-        return false
     }
 
     override func initializeDevice(name _: String, deviceType _: DeviceType, supportedCapabilities _: [DeviceCapability]) throws {

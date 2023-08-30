@@ -9,17 +9,20 @@ package mozilla.appservices.fxaclient
  * authentication flow.
  */
 class Config constructor(
-    val contentUrl: String,
+    val server: FxaServer,
     val clientId: String,
     val redirectUri: String,
     val tokenServerUrlOverride: String? = null,
 ) {
-    enum class Server(val contentUrl: String) {
-        RELEASE("https://accounts.firefox.com"),
-        STABLE("https://stable.dev.lcip.org"),
-        STAGE("https://accounts.stage.mozaws.net"),
-        CHINA("https://accounts.firefox.com.cn"),
-        LOCALDEV("http://127.0.0.1:3030"),
+    enum class Server(val rustServer: FxaServer) {
+        RELEASE(FxaServer.Release),
+        STABLE(FxaServer.Stable),
+        STAGE(FxaServer.Stage),
+        CHINA(FxaServer.China),
+        LOCALDEV(FxaServer.LocalDev),
+        ;
+
+        val contentUrl get() = this.rustServer.contentUrl
     }
 
     constructor(
@@ -27,5 +30,29 @@ class Config constructor(
         clientId: String,
         redirectUri: String,
         tokenServerUrlOverride: String? = null,
-    ) : this(server.contentUrl, clientId, redirectUri, tokenServerUrlOverride)
+    ) : this(server.rustServer, clientId, redirectUri, tokenServerUrlOverride)
+
+    constructor(
+        contentUrl: String,
+        clientId: String,
+        redirectUri: String,
+        tokenServerUrlOverride: String? = null,
+    ) : this(FxaServer.Custom(contentUrl), clientId, redirectUri, tokenServerUrlOverride)
+
+    val contentUrl get() = this.server.contentUrl
+
+    // Rust defines a config and server class that's virtually identically to these.  We should
+    // remove the wrapper soon, but let's wait until we have a batch of breaking changes and do them
+    // all at once.
+    fun intoRustConfig() = FxaConfig(server, clientId, redirectUri, tokenServerUrlOverride)
 }
+
+val FxaServer.contentUrl: String
+    get() = when (this) {
+        is FxaServer.Release -> "https://accounts.firefox.com"
+        is FxaServer.Stable -> "https://stable.dev.lcip.org"
+        is FxaServer.Stage -> "https://accounts.stage.mozaws.net"
+        is FxaServer.China -> "https://accounts.firefox.com.cn"
+        is FxaServer.LocalDev -> "http://127.0.0.1:3030"
+        is FxaServer.Custom -> this.url
+    }

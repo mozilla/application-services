@@ -26,7 +26,6 @@ pub enum FMLError {
     #[error("Fatal error: {0}")]
     Fatal(#[from] anyhow::Error),
 
-    #[allow(dead_code)]
     #[error("Internal error: {0}")]
     InternalError(&'static str),
     #[error("Validation Error at {0}: {1}")]

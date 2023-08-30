@@ -5,9 +5,9 @@
 import Foundation
 
 class KeyChainAccountStorage {
-    internal var keychainWrapper: MZKeychainWrapper
-    internal static var keychainKey: String = "accountJSON"
-    internal static var accessibility: MZKeychainItemAccessibility = .afterFirstUnlock
+    var keychainWrapper: MZKeychainWrapper
+    static var keychainKey: String = "accountJSON"
+    static var accessibility: MZKeychainItemAccessibility = .afterFirstUnlock
 
     init(keychainAccessGroup: String?) {
         keychainWrapper = MZKeychainWrapper.sharedAppContainerKeychain(keychainAccessGroup: keychainAccessGroup)

@@ -27,14 +27,14 @@ error-support = { path = "../support/error" }
 sync-guid = { path = "../support/guid", features = ["rusqlite_support", "random"] }
 thiserror = "1.0"
 anyhow = "1.0"
-uniffi = "0.23"
+uniffi = "0.24.1"
 
 [dependencies.rusqlite]
 version = "0.29.0"
 features = ["sqlcipher", "limits", "unlock_notify"]
 
 [build-dependencies]
-uniffi = { version = "0.23", features = ["build"] }
+uniffi = { version = "0.24.1", features = ["build"] }
 
 [dev-dependencies]
 more-asserts = "0.2"

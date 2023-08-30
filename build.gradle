@@ -3,29 +3,30 @@
 buildscript {
 
     ext {
-        kotlin_version = '1.8.21'
-        kotlin_coroutines_version = '1.7.1'
+        kotlin_version = '1.8.22'
+        kotlin_coroutines_version = '1.7.2'
         jna_version = '5.13.0'
         android_gradle_plugin_version = '7.4.2'
-        android_components_version = '112.2.0'
-        glean_version = '52.7.0'
+        android_components_version = '115.0.1'
+        glean_version = '53.2.0'
 
         // NOTE: AndroidX libraries should be synced with AC to avoid compatibility issues
         androidx_annotation_version = '1.6.0'
-        androidx_core_version = '1.10.0'
+        androidx_core_version = '1.10.1'
         androidx_test_version = '1.5.0'
         androidx_test_junit_version = '1.1.5'
         androidx_work_testing_version = '2.7.1'
         espresso_core_version = '3.5.1'
 
-        detekt_version = '1.21.0'
+        detekt_version = '1.23.0'
+        ktlint_version = '0.50.0'
         gradle_download_task_version = '5.2.1'
         junit_version = '4.13.2'
-        mockito_core_version = '4.8.0'
-        robolectric_core_version = '4.10.1'
+        mockito_core_version = '5.4.0'
+        robolectric_core_version = '4.10.3'
         rust_android_gradle_version = '0.9.3'
         protobuf_version = '3.21.10'
-        gradle_protobuf_version = '0.9.3'
+        gradle_protobuf_version = '0.9.4'
     }
 
     ext.build = [
@@ -41,7 +42,6 @@ buildscript {
     repositories {
         mavenCentral()
         google()
-        jcenter()
         maven {
             url "https://plugins.gradle.org/m2/"
         }
@@ -302,7 +302,6 @@ detekt {
     )
     buildUponDefaultConfig = true
     config = files("${projectDir}/.detekt.yml")
-    failFast = false
     reports {
         xml.enabled = false
     }
@@ -317,11 +316,11 @@ configurations {
 }
 
 dependencies {
-    ktlint("com.pinterest:ktlint:0.48.2") {
+    ktlint("com.pinterest:ktlint:$ktlint_version") {
         attributes {
             attribute(Bundling.BUNDLING_ATTRIBUTE, getObjects().named(Bundling, Bundling.EXTERNAL))
         }
-        
+
     }
 }
 

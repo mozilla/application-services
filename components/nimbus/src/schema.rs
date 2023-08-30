@@ -6,6 +6,7 @@ use crate::{defaults::Defaults, enrollment::ExperimentMetadata, NimbusError, Res
 use serde_derive::*;
 use serde_json::{Map, Value};
 use std::collections::HashSet;
+use uuid::Uuid;
 
 const DEFAULT_TOTAL_BUCKETS: u32 = 10000;
 
@@ -259,6 +260,7 @@ impl Default for RandomizationUnit {
 pub struct AvailableRandomizationUnits {
     pub client_id: Option<String>,
     pub user_id: Option<String>,
+    pub nimbus_id: Option<String>,
     #[allow(dead_code)]
     pub(crate) dummy: i8, // See comments in nimbus.udl for why this hacky item exists.
 }
@@ -270,6 +272,7 @@ impl AvailableRandomizationUnits {
         Self {
             client_id: Some(client_id.to_string()),
             user_id: None,
+            nimbus_id: None,
             dummy: 0,
         }
     }
@@ -280,17 +283,32 @@ impl AvailableRandomizationUnits {
         Self {
             client_id: None,
             user_id: Some(user_id.to_string()),
+            nimbus_id: None,
             dummy: 0,
         }
     }
 
-    pub fn get_value<'a>(
-        &'a self,
-        nimbus_id: &'a str,
-        wanted: &'a RandomizationUnit,
-    ) -> Option<&'a str> {
+    pub fn with_nimbus_id(nimbus_id: &Uuid) -> Self {
+        Self {
+            client_id: None,
+            user_id: None,
+            nimbus_id: Some(nimbus_id.to_string()),
+            dummy: 0,
+        }
+    }
+
+    pub fn apply_nimbus_id(&self, nimbus_id: &Uuid) -> Self {
+        Self {
+            client_id: self.client_id.clone(),
+            user_id: self.user_id.clone(),
+            nimbus_id: Some(nimbus_id.to_string()),
+            dummy: 0,
+        }
+    }
+
+    pub fn get_value<'a>(&'a self, wanted: &'a RandomizationUnit) -> Option<&'a str> {
         match wanted {
-            RandomizationUnit::NimbusId => Some(nimbus_id),
+            RandomizationUnit::NimbusId => self.nimbus_id.as_deref(),
             RandomizationUnit::ClientId => self.client_id.as_deref(),
             RandomizationUnit::UserId => self.user_id.as_deref(),
         }

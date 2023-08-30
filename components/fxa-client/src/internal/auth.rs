@@ -13,6 +13,7 @@ use jwcrypto::{EncryptionAlgorithm, EncryptionParameters};
 use rc_crypto::{digest, hkdf, hmac, pbkdf2};
 use serde_derive::{Deserialize, Serialize};
 use std::collections::HashMap;
+
 pub fn get_sync_keys(
     config: &Config,
     key_fetch_token: &str,

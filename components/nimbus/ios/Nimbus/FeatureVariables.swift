@@ -303,9 +303,9 @@ extension VariablesWithBundle {
 
 /// A thin wrapper around the JSON produced by the `get_feature_variables_json(feature_id)` call, useful
 /// for configuring a feature, but without needing the developer to know about experiment specifics.
-internal class JSONVariables: VariablesWithBundle {
+class JSONVariables: VariablesWithBundle {
     private let json: [String: Any]
-    internal let resourceBundles: [Bundle]
+    let resourceBundles: [Bundle]
 
     init(with json: [String: Any], in bundles: [Bundle] = [Bundle.main]) {
         self.json = json

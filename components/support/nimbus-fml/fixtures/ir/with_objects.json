@@ -53,7 +53,6 @@
       ]
     }
   ],
-  "hints": {},
   "features": [
     {
       "name": "with-objects-feature",
@@ -106,7 +105,8 @@
         "an-object-with-feature-defaults": {
           "a-string": "YES: overridden from the FEATURE"
         }
-      }
+      },
+      "allow_coenrollment": false
     }
   ]
 }

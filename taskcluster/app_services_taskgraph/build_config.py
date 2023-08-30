@@ -32,7 +32,7 @@ def get_components():
 
 
 def get_version(params):
-    version = get_version_from_build_config()
+    version = get_version_from_version_txt()
     preview_build = params.get('preview-build')
     if preview_build == 'nightly':
         components = version.split('.')
@@ -44,8 +44,13 @@ def get_version(params):
     else:
         return version
 
-def get_version_from_build_config():
-    return _read_build_config()["libraryVersion"]
+@memoize
+def get_version_from_version_txt():
+    current_dir = os.path.dirname(os.path.realpath(__file__))
+    project_dir = os.path.realpath(os.path.join(current_dir, '..', '..'))
+
+    with open(os.path.join(project_dir, 'version.txt'), 'r') as f:
+        return f.read().strip()
 
 def get_extensions(module_name):
     publications = _read_build_config()["projects"][module_name]['publications']

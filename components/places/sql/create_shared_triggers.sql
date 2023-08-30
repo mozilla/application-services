@@ -4,21 +4,6 @@
 
 -- This file defines triggers shared between the main and Sync connections.
 
-CREATE TEMP TRIGGER moz_places_afterinsert_trigger
-AFTER INSERT ON moz_places FOR EACH ROW
-BEGIN
-    INSERT OR IGNORE INTO moz_origins(prefix, host, rev_host, frecency)
-    VALUES(get_prefix(NEW.url), get_host_and_port(NEW.url), reverse_host(get_host_and_port(NEW.url)), NEW.frecency);
-
-    -- This is temporary.
-    UPDATE moz_places SET
-      origin_id = (SELECT id FROM moz_origins
-                   WHERE prefix = get_prefix(NEW.url) AND
-                         host = get_host_and_port(NEW.url) AND
-                         rev_host = reverse_host(get_host_and_port(NEW.url)))
-    WHERE id = NEW.id;
-END;
-
 -- Note that while we create tombstones manually, we rely on this trigger to
 -- delete any which might exist when a new record is written to moz_places.
 CREATE TEMP TRIGGER moz_places_afterinsert_trigger_tombstone
@@ -259,6 +244,20 @@ BEGIN
     UPDATE moz_places SET
         foreign_count = foreign_count - 1
     WHERE id = OLD.placeId;
+END;
+
+-- Similar to cleanup_pages, if the origin/place remains with no foreign references
+-- and no visits it should be deleted.
+-- This approach may not be suitable for desktop but seems to be for us - see
+-- https://bugzilla.mozilla.org/show_bug.cgi?id=1650511#c41 for more discussion.
+CREATE TEMP TRIGGER moz_cleanup_origin_bookmark_deleted_trigger
+AFTER DELETE ON moz_bookmarks
+BEGIN
+    DELETE FROM moz_places
+        WHERE id = OLD.fk
+        AND foreign_count = 0
+        AND last_visit_date_local = 0
+        AND last_visit_date_remote = 0;
 END;
 
 -- These triggers adjust the foreign count for tagged URLs, and bump the

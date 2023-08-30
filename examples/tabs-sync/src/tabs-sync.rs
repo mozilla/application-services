@@ -6,10 +6,15 @@
 
 use cli_support::fxa_creds::{get_account_and_token, get_cli_fxa, get_default_fxa_config};
 use cli_support::prompt::{prompt_char, prompt_string};
+use interrupt_support::NeverInterrupts;
 use std::path::Path;
 use std::sync::Arc;
 use structopt::StructOpt;
-use tabs::{RemoteTabRecord, TabsStore};
+use sync15::{
+    client::{sync_multiple, MemoryCachedState, Sync15StorageClientInit},
+    KeyBundle,
+};
+use tabs::{RemoteTabRecord, TabsEngine, TabsStore};
 
 use anyhow::Result;
 
@@ -45,6 +50,50 @@ fn ms_to_string(ms: i64) -> String {
     dtl.format("%F %r").to_string()
 }
 
+fn do_sync(
+    store: Arc<TabsStore>,
+    key_id: String,
+    access_token: String,
+    sync_key: String,
+    tokenserver_url: url::Url,
+    local_id: String,
+) -> Result<String> {
+    let mut mem_cached_state = MemoryCachedState::default();
+    let engine = TabsEngine::new(Arc::clone(&store));
+
+    // Since we are syncing without the sync manager, there's no
+    // command processor, therefore no clients engine, and in
+    // consequence `TabsStore::prepare_for_sync` is never called
+    // which means our `local_id` will never be set.
+    // Do it here.
+    *engine.local_id.write().unwrap() = local_id;
+
+    let storage_init = &Sync15StorageClientInit {
+        key_id,
+        access_token,
+        tokenserver_url: url::Url::parse(tokenserver_url.as_str())?,
+    };
+    let root_sync_key = &KeyBundle::from_ksync_base64(sync_key.as_str())?;
+
+    let mut result = sync_multiple(
+        &[&engine],
+        &mut None,
+        &mut mem_cached_state,
+        storage_init,
+        root_sync_key,
+        &NeverInterrupts,
+        None,
+    );
+
+    if let Err(e) = result.result {
+        return Err(e.into());
+    }
+    match result.engine_results.remove("tabs") {
+        None | Some(Ok(())) => Ok(serde_json::to_string(&result.telemetry)?),
+        Some(Err(e)) => Err(e.into()),
+    }
+}
+
 fn main() -> Result<()> {
     viaduct_reqwest::use_reqwest_backend();
     cli_support::init_logging();
@@ -56,7 +105,7 @@ fn main() -> Result<()> {
         base64::URL_SAFE_NO_PAD,
     );
 
-    let mut cli_fxa = get_cli_fxa(get_default_fxa_config(), &opts.creds_file)?;
+    let cli_fxa = get_cli_fxa(get_default_fxa_config(), &opts.creds_file)?;
     let device_id = cli_fxa.account.get_current_device_id()?;
 
     let store = Arc::new(TabsStore::new(Path::new(&opts.db_path)));
@@ -121,11 +170,12 @@ fn main() -> Result<()> {
             }
             'S' | 's' => {
                 log::info!("Syncing!");
-                match Arc::clone(&store).sync(
+                match do_sync(
+                    Arc::clone(&store),
                     cli_fxa.client_init.clone().key_id,
                     cli_fxa.client_init.clone().access_token,
                     sync_key.clone(),
-                    cli_fxa.client_init.tokenserver_url.to_string(),
+                    cli_fxa.client_init.tokenserver_url.clone(),
                     device_id.clone(),
                 ) {
                     Err(e) => {

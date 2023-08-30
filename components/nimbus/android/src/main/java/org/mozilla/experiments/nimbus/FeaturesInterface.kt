@@ -58,7 +58,7 @@ interface FeaturesInterface {
      * @param featureId string representing the id of the feature for which to record the exposure
      *     event.
      */
-    fun recordExposureEvent(featureId: String) = Unit
+    fun recordExposureEvent(featureId: String, experimentSlug: String? = null) = Unit
 
     /**
      * Records the `malformedFeature` event in telemetry.

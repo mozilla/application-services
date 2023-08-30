@@ -16,6 +16,7 @@ kind-dependencies:
   - build-summary
 
 transforms:
+  - app_services_taskgraph.transforms.worker:transforms
   - app_services_taskgraph.transforms.release_publish:transforms
   - taskgraph.transforms.job:transforms
   - taskgraph.transforms.task:transforms
@@ -26,11 +27,10 @@ tasks:
       release-type: release-only
     label: "Build publish task"
     description: "Publish build artifacts"
-    run-on-tasks-for: [github-release, cron]
+    run-on-tasks-for: [cron]
     worker-type: b-linux
     worker:
       chain-of-trust: true
-      docker-image: { in-tree: linux }
       max-run-time: 1800
       env: {}
     run:

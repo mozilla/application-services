@@ -22,7 +22,7 @@ sync-guid = { path = "../support/guid", features = ["rusqlite_support", "random"
 sync15 = { path = "../sync15", features = ["sync-engine"] }
 thiserror = "1.0"
 types = { path = "../support/types" }
-uniffi = "0.23"
+uniffi = "0.24.1"
 url = { version = "2.2", features = ["serde"] }
 
 [dependencies.rusqlite]
@@ -35,4 +35,4 @@ libsqlite3-sys = "0.26.0"
 
 [build-dependencies]
 nss_build_common = { path = "../support/rc_crypto/nss/nss_build_common" }
-uniffi = { version = "0.23", features = ["build"] }
+uniffi = { version = "0.24.1", features = ["build"] }

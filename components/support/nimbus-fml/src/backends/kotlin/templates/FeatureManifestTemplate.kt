@@ -96,6 +96,15 @@ object {{ nimbus_object }} : FeatureManifestInterface<{{ nimbus_object }}.Featur
     }
 
     /**
+     * Get a list of feature ids where the feature allows co-enrollment.
+     */
+    override fun getCoenrollingFeatureIds(): List<String> =
+        listOf(
+            {%- for f in self.fm.get_coenrolling_feature_ids() %}
+            {{- f|quoted }}
+            {%- if !loop.last %}, {% endif %}
+            {%- endfor %})
+    /**
      * Accessor object for generated configuration classes extracted from Nimbus, with built-in
      * default values.
      */

@@ -12,11 +12,14 @@ path = "src/tabs-sync.rs"
 
 [dev-dependencies]
 base64 = "0.13"
-tabs = { path = "../../components/tabs", features=["full-sync"] }
+tabs = { path = "../../components/tabs" }
 serde_json = "1"
 log = "0.4"
 anyhow = "1.0"
 chrono = "0.4"
 structopt = "0.3"
 cli-support = { path = "../cli-support" }
+url = "2.2"
+interrupt-support = { path = "../../components/support/interrupt" }
+sync15 = { path = "../../components/sync15", features = ["sync-engine"] }
 viaduct-reqwest = { path = "../../components/support/viaduct-reqwest" }

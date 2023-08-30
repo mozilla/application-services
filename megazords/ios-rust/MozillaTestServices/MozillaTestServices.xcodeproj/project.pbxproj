@@ -44,7 +44,6 @@
 		1BE9B61027C9CD770029D11A /* logins.udl in Sources */ = {isa = PBXBuildFile; fileRef = 1B58D8A627AE12850075168B /* logins.udl */; };
 		1BE9B61127C9CD770029D11A /* fxa_client.udl in Sources */ = {isa = PBXBuildFile; fileRef = 1BB9C31F27B4924D001E5BBF /* fxa_client.udl */; };
 		1BF50F0C27B1E17B00A9C8A5 /* KeychainWrapper+.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1BBAC56727AE085F00DAFEF2 /* KeychainWrapper+.swift */; };
-		1BF50F0D27B1E17B00A9C8A5 /* FxAccountMigration.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1BBAC56E27AE085F00DAFEF2 /* FxAccountMigration.swift */; };
 		1BF50F0E27B1E17B00A9C8A5 /* FxAccountLogging.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1BBAC56C27AE085F00DAFEF2 /* FxAccountLogging.swift */; };
 		1BF50F0F27B1E17B00A9C8A5 /* FxAccountOAuth.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1BBAC56827AE085F00DAFEF2 /* FxAccountOAuth.swift */; };
 		1BF50F1027B1E17B00A9C8A5 /* FxAccountStorage.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1BBAC56927AE085F00DAFEF2 /* FxAccountStorage.swift */; };
@@ -72,6 +71,9 @@
 		45CC574A28AD9C86006D55AA /* errorsupport.udl in Sources */ = {isa = PBXBuildFile; fileRef = 45CC574828AD9C31006D55AA /* errorsupport.udl */; };
 		AB9C392E2A0DA61900AF5ADE /* remote_settings.udl in Sources */ = {isa = PBXBuildFile; fileRef = AB65933B2A0C524E00DBF059 /* remote_settings.udl */; };
 		F40A9DCD29765EB20033D10E /* sync15.udl in Sources */ = {isa = PBXBuildFile; fileRef = F40A9DCB29765DCB0033D10E /* sync15.udl */; };
+		F54D38102A5862E4005087FB /* OhttpTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = F54D380F2A5862E4005087FB /* OhttpTests.swift */; };
+		F54D38112A5E09F4005087FB /* as_ohttp_client.udl in Sources */ = {isa = PBXBuildFile; fileRef = F54D380C2A5732A3005087FB /* as_ohttp_client.udl */; };
+		F596D2E02A68922100C8A817 /* OhttpManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = F596D2DF2A68922100C8A817 /* OhttpManager.swift */; };
 		F814DE8029DF762800FD26F5 /* SyncManagerTelemetryTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = F814DE7F29DF762800FD26F5 /* SyncManagerTelemetryTests.swift */; };
 		F81C7B9829DE305C00FAF8F9 /* SyncManagerTelemetry.swift in Sources */ = {isa = PBXBuildFile; fileRef = F81C7B9729DE305C00FAF8F9 /* SyncManagerTelemetry.swift */; };
 		F81C7B9A29DE309C00FAF8F9 /* SyncManagerComponent.swift in Sources */ = {isa = PBXBuildFile; fileRef = F81C7B9929DE309C00FAF8F9 /* SyncManagerComponent.swift */; };
@@ -168,14 +170,13 @@
 		1BBAC56B27AE085F00DAFEF2 /* FxAccountManager.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; name = FxAccountManager.swift; path = "../../../components/fxa-client/ios/FxAClient/FxAccountManager.swift"; sourceTree = SOURCE_ROOT; };
 		1BBAC56C27AE085F00DAFEF2 /* FxAccountLogging.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; name = FxAccountLogging.swift; path = "../../../components/fxa-client/ios/FxAClient/FxAccountLogging.swift"; sourceTree = SOURCE_ROOT; };
 		1BBAC56D27AE085F00DAFEF2 /* FxAccountConfig.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; name = FxAccountConfig.swift; path = "../../../components/fxa-client/ios/FxAClient/FxAccountConfig.swift"; sourceTree = SOURCE_ROOT; };
-		1BBAC56E27AE085F00DAFEF2 /* FxAccountMigration.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; name = FxAccountMigration.swift; path = "../../../components/fxa-client/ios/FxAClient/FxAccountMigration.swift"; sourceTree = SOURCE_ROOT; };
 		1BBAC58627AE09C600DAFEF2 /* LoginsStorage.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; name = LoginsStorage.swift; path = ../../../components/logins/ios/Logins/LoginsStorage.swift; sourceTree = SOURCE_ROOT; };
 		1BBAC5A527AE0F2E00DAFEF2 /* Bookmark.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; name = Bookmark.swift; path = ../../../components/places/ios/Places/Bookmark.swift; sourceTree = SOURCE_ROOT; };
 		1BBAC5A627AE0F2E00DAFEF2 /* HistoryMetadata.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; name = HistoryMetadata.swift; path = ../../../components/places/ios/Places/HistoryMetadata.swift; sourceTree = SOURCE_ROOT; };
 		1BBAC5A727AE0F2E00DAFEF2 /* Places.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; name = Places.swift; path = ../../../components/places/ios/Places/Places.swift; sourceTree = SOURCE_ROOT; };
 		1BBAC5AB27AE101400DAFEF2 /* places.udl */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; name = places.udl; path = ../../../components/places/src/places.udl; sourceTree = SOURCE_ROOT; };
-		1BBAC5B027AE11AA00DAFEF2 /* SyncUnlockInfo.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; name = SyncUnlockInfo.swift; path = ../../../components/sync15/ios/SyncUnlockInfo.swift; sourceTree = SOURCE_ROOT; };
-		1BBAC5B127AE11AA00DAFEF2 /* ResultError.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; name = ResultError.swift; path = ../../../components/sync15/ios/ResultError.swift; sourceTree = SOURCE_ROOT; };
+		1BBAC5B027AE11AA00DAFEF2 /* SyncUnlockInfo.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; name = SyncUnlockInfo.swift; path = ../../../components/sync15/ios/Sync15/SyncUnlockInfo.swift; sourceTree = SOURCE_ROOT; };
+		1BBAC5B127AE11AA00DAFEF2 /* ResultError.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; name = ResultError.swift; path = ../../../components/sync15/ios/Sync15/ResultError.swift; sourceTree = SOURCE_ROOT; };
 		1BF50EEE27B1DBD900A9C8A5 /* crashtestFFI.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = crashtestFFI.h; path = ../../../components/crashtest/ios/Generated/crashtestFFI.h; sourceTree = SOURCE_ROOT; };
 		1BF50EEF27B1DBD900A9C8A5 /* crashtest.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; name = crashtest.swift; path = ../../../components/crashtest/ios/Generated/crashtest.swift; sourceTree = SOURCE_ROOT; };
 		1BF50EF527B1DD7D00A9C8A5 /* nimbusFFI.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = nimbusFFI.h; path = ../../../components/nimbus/ios/Generated/nimbusFFI.h; sourceTree = SOURCE_ROOT; };
@@ -208,12 +209,17 @@
 		F40A9DCB29765DCB0033D10E /* sync15.udl */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; name = sync15.udl; path = ../../../components/sync15/src/sync15.udl; sourceTree = SOURCE_ROOT; };
 		F4FCED2E2976605400BA127E /* sync15FFI.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = sync15FFI.h; path = ../../../components/sync15/ios/Generated/sync15FFI.h; sourceTree = SOURCE_ROOT; };
 		F4FCED2F2976605400BA127E /* sync15.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; name = sync15.swift; path = ../../../components/sync15/ios/Generated/sync15.swift; sourceTree = SOURCE_ROOT; };
+		F54D38072A564EC9005087FB /* as_ohttp_client.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = as_ohttp_client.swift; path = ../../ios/Generated/as_ohttp_client.swift; sourceTree = "<group>"; };
+		F54D38082A564EC9005087FB /* as_ohttp_clientFFI.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; name = as_ohttp_clientFFI.h; path = ../../ios/Generated/as_ohttp_clientFFI.h; sourceTree = "<group>"; };
+		F54D380C2A5732A3005087FB /* as_ohttp_client.udl */ = {isa = PBXFileReference; lastKnownFileType = text; name = as_ohttp_client.udl; path = ../src/as_ohttp_client.udl; sourceTree = "<group>"; };
+		F54D380F2A5862E4005087FB /* OhttpTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OhttpTests.swift; sourceTree = "<group>"; };
+		F596D2DF2A68922100C8A817 /* OhttpManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = OhttpManager.swift; path = ASOhttpClient/OhttpManager.swift; sourceTree = "<group>"; };
 		F814DE7F29DF762800FD26F5 /* SyncManagerTelemetryTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SyncManagerTelemetryTests.swift; sourceTree = "<group>"; };
 		F81C7B9729DE305C00FAF8F9 /* SyncManagerTelemetry.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; name = SyncManagerTelemetry.swift; path = ../../../components/sync_manager/ios/SyncManager/SyncManagerTelemetry.swift; sourceTree = SOURCE_ROOT; };
 		F81C7B9929DE309C00FAF8F9 /* SyncManagerComponent.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; name = SyncManagerComponent.swift; path = ../../../components/sync_manager/ios/SyncManager/SyncManagerComponent.swift; sourceTree = SOURCE_ROOT; };
 		F85ED648299C1F49005EEF36 /* RustSyncTelemetryPingTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RustSyncTelemetryPingTests.swift; sourceTree = "<group>"; };
 		F8AAC1CC298B41FC000BCDEC /* syncmanager.udl */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; name = syncmanager.udl; path = ../../../components/sync_manager/src/syncmanager.udl; sourceTree = SOURCE_ROOT; };
-		F8BEFFD9299C4F1100776186 /* RustSyncTelemetryPing.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; name = RustSyncTelemetryPing.swift; path = ../../../components/sync15/ios/RustSyncTelemetryPing.swift; sourceTree = SOURCE_ROOT; };
+		F8BEFFD9299C4F1100776186 /* RustSyncTelemetryPing.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; name = RustSyncTelemetryPing.swift; path = ../../../components/sync15/ios/Sync15/RustSyncTelemetryPing.swift; sourceTree = SOURCE_ROOT; };
 		F8C88394298B4EC00006E9E9 /* syncmanagerFFI.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = syncmanagerFFI.h; path = ../../../components/sync_manager/ios/Generated/syncmanagerFFI.h; sourceTree = SOURCE_ROOT; };
 		F8C88395298B4EC00006E9E9 /* syncmanager.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; name = syncmanager.swift; path = ../../../components/sync_manager/ios/Generated/syncmanager.swift; sourceTree = SOURCE_ROOT; };
 /* End PBXFileReference section */
@@ -339,6 +345,7 @@
 		1BBAC4FA27AE049500DAFEF2 /* MozillaTestServices */ = {
 			isa = PBXGroup;
 			children = (
+				F54D38032A564653005087FB /* ASOhttpClient */,
 				AB65933A2A0C51F300DBF059 /* RemoteSettings */,
 				F8AAC1CB298B40B8000BCDEC /* SyncManager */,
 				15DAE2082944142000DB06FE /* Autofill */,
@@ -374,6 +381,7 @@
 				F85ED648299C1F49005EEF36 /* RustSyncTelemetryPingTests.swift */,
 				F814DE7F29DF762800FD26F5 /* SyncManagerTelemetryTests.swift */,
 				39EE00FE29F6DBBA001E7758 /* NimbusArgumentProcessorTests.swift */,
+				F54D380F2A5862E4005087FB /* OhttpTests.swift */,
 			);
 			path = MozillaTestServicesTests;
 			sourceTree = SOURCE_ROOT;
@@ -412,7 +420,6 @@
 				1BBAC56B27AE085F00DAFEF2 /* FxAccountManager.swift */,
 				1BBAC56C27AE085F00DAFEF2 /* FxAccountLogging.swift */,
 				1BBAC56D27AE085F00DAFEF2 /* FxAccountConfig.swift */,
-				1BBAC56E27AE085F00DAFEF2 /* FxAccountMigration.swift */,
 			);
 			name = FxAClient;
 			path = "../../../components/fxa-client/ios/FxAClient";
@@ -465,11 +472,9 @@
 		1BBAC5AF27AE112D00DAFEF2 /* Sync15 */ = {
 			isa = PBXGroup;
 			children = (
-				F8BEFFD9299C4F1100776186 /* RustSyncTelemetryPing.swift */,
+				45A2ACC02A5DB0FD00CE1622 /* Sync15 */,
 				F4FCED2D2976605400BA127E /* Generated */,
 				F40A9DCB29765DCB0033D10E /* sync15.udl */,
-				1BBAC5B127AE11AA00DAFEF2 /* ResultError.swift */,
-				1BBAC5B027AE11AA00DAFEF2 /* SyncUnlockInfo.swift */,
 			);
 			name = Sync15;
 			path = ../../../../components/sync15/ios;
@@ -542,6 +547,16 @@
 			path = MozillaTestServices/Generated;
 			sourceTree = SOURCE_ROOT;
 		};
+		45A2ACC02A5DB0FD00CE1622 /* Sync15 */ = {
+			isa = PBXGroup;
+			children = (
+				F8BEFFD9299C4F1100776186 /* RustSyncTelemetryPing.swift */,
+				1BBAC5B127AE11AA00DAFEF2 /* ResultError.swift */,
+				1BBAC5B027AE11AA00DAFEF2 /* SyncUnlockInfo.swift */,
+			);
+			path = Sync15;
+			sourceTree = "<group>";
+		};
 		45CC574328AD9BC8006D55AA /* ErrorSupport */ = {
 			isa = PBXGroup;
 			children = (
@@ -585,6 +600,26 @@
 			children = (
 				F4FCED2E2976605400BA127E /* sync15FFI.h */,
 				F4FCED2F2976605400BA127E /* sync15.swift */,
+			);
+			path = Generated;
+			sourceTree = "<group>";
+		};
+		F54D38032A564653005087FB /* ASOhttpClient */ = {
+			isa = PBXGroup;
+			children = (
+				F54D38042A564653005087FB /* Generated */,
+				F54D380C2A5732A3005087FB /* as_ohttp_client.udl */,
+				F596D2DF2A68922100C8A817 /* OhttpManager.swift */,
+			);
+			name = ASOhttpClient;
+			path = "../../../components/as-ohttp-client/ios";
+			sourceTree = SOURCE_ROOT;
+		};
+		F54D38042A564653005087FB /* Generated */ = {
+			isa = PBXGroup;
+			children = (
+				F54D38072A564EC9005087FB /* as_ohttp_client.swift */,
+				F54D38082A564EC9005087FB /* as_ohttp_clientFFI.h */,
 			);
 			path = Generated;
 			sourceTree = "<group>";
@@ -745,6 +780,7 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				F54D38112A5E09F4005087FB /* as_ohttp_client.udl in Sources */,
 				AB9C392E2A0DA61900AF5ADE /* remote_settings.udl in Sources */,
 				39AD326F2988468B00E42E13 /* FeatureManifestInterface.swift in Sources */,
 				F8C88393298B4BF80006E9E9 /* syncmanager.udl in Sources */,
@@ -774,6 +810,7 @@
 				1B3BC94627B1D6A500229CF6 /* ResultError.swift in Sources */,
 				1B3BC98327B1D9B700229CF6 /* FeatureHolder.swift in Sources */,
 				1B3BC98527B1D9B800229CF6 /* NimbusMessagingHelpers.swift in Sources */,
+				F596D2E02A68922100C8A817 /* OhttpManager.swift in Sources */,
 				395EFD6E2966EB6D00D24B97 /* Bundle+.swift in Sources */,
 				1BF50F1427B1E17B00A9C8A5 /* PersistedFirefoxAccount.swift in Sources */,
 				1BF50F1027B1E17B00A9C8A5 /* FxAccountStorage.swift in Sources */,
@@ -791,7 +828,6 @@
 				1BF50F1127B1E17B00A9C8A5 /* FxAccountDeviceConstellation.swift in Sources */,
 				1BF50F0F27B1E17B00A9C8A5 /* FxAccountOAuth.swift in Sources */,
 				1BF50F0C27B1E17B00A9C8A5 /* KeychainWrapper+.swift in Sources */,
-				1BF50F0D27B1E17B00A9C8A5 /* FxAccountMigration.swift in Sources */,
 				1B3BC94527B1D6A500229CF6 /* SyncUnlockInfo.swift in Sources */,
 				F8BEFFDA299C4F1100776186 /* RustSyncTelemetryPing.swift in Sources */,
 				1B3BC94B27B1D79B00229CF6 /* LoginsStorage.swift in Sources */,
@@ -821,6 +857,7 @@
 				1B3BC94F27B1D92800229CF6 /* NimbusTests.swift in Sources */,
 				1BF50F1927B1E19500A9C8A5 /* FxAccountManagerTests.swift in Sources */,
 				39083AAB29561E2400FDD302 /* OperationTests.swift in Sources */,
+				F54D38102A5862E4005087FB /* OhttpTests.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -1094,7 +1131,7 @@
 			repositoryURL = "https://github.com/mozilla/glean-swift";
 			requirement = {
 				kind = upToNextMajorVersion;
-				minimumVersion = 52.7.0;
+				minimumVersion = 53.2.0;
 			};
 		};
 /* End XCRemoteSwiftPackageReference section */

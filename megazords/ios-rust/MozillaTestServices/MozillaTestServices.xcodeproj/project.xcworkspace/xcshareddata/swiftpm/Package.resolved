@@ -5,8 +5,8 @@
       "kind" : "remoteSourceControl",
       "location" : "https://github.com/mozilla/glean-swift",
       "state" : {
-        "revision" : "dd626f0fb051ffc70179846a0b75a04f997b63b7",
-        "version" : "52.7.0"
+        "revision" : "825dae1db051576cd04b70e68b6258891ced7556",
+        "version" : "53.2.0"
       }
     }
   ],

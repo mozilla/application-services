@@ -31,7 +31,13 @@ fn test_simple() -> Result<()> {
 
     let tmp_dir = tempfile::tempdir()?;
     let aru = Default::default();
-    let client = NimbusClient::new(Default::default(), tmp_dir.path(), Some(config), aru)?;
+    let client = NimbusClient::new(
+        Default::default(),
+        Default::default(),
+        tmp_dir.path(),
+        Some(config),
+        aru,
+    )?;
     client.fetch_experiments()?;
     client.apply_pending_experiments()?;
 

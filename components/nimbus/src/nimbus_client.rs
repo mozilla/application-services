@@ -60,6 +60,7 @@ pub struct NimbusClient {
     // without doing (or waiting for) IO.
     database_cache: DatabaseCache,
     db_path: PathBuf,
+    coenrolling_feature_ids: Vec<String>,
     event_store: Arc<Mutex<EventStore>>,
 }
 
@@ -68,6 +69,7 @@ impl NimbusClient {
     // thread in the gecko Javascript stack, hence the use of OnceCell for the db.
     pub fn new<P: Into<PathBuf>>(
         app_context: AppContext,
+        coenrolling_feature_ids: Vec<String>,
         db_path: P,
         config: Option<RemoteSettingsConfig>,
         available_randomization_units: AvailableRandomizationUnits,
@@ -85,6 +87,7 @@ impl NimbusClient {
             app_context,
             database_cache: Default::default(),
             db_path: db_path.into(),
+            coenrolling_feature_ids,
             db: OnceCell::default(),
             event_store: Arc::default(),
         })
@@ -120,6 +123,8 @@ impl NimbusClient {
         writer: &mut Writer,
         state: &mut MutexGuard<InternalMutableState>,
     ) -> Result<()> {
+        let id = self.read_or_create_nimbus_id(db, writer)?;
+        state.available_randomization_units.nimbus_id = Some(id.to_string());
         self.update_ta_install_dates(db, writer, state)?;
         self.event_store.lock().unwrap().read_from_db(db)?;
         Ok(())
@@ -134,7 +139,13 @@ impl NimbusClient {
         state: &mut MutexGuard<InternalMutableState>,
     ) -> Result<()> {
         self.update_ta_active_experiments(db, &writer, state)?;
-        self.database_cache.commit_and_update(db, writer)?;
+        let coenrolling_ids = self
+            .coenrolling_feature_ids
+            .iter()
+            .map(|s| s.as_str())
+            .collect();
+        self.database_cache
+            .commit_and_update(db, writer, &coenrolling_ids)?;
         Ok(())
     }
 
@@ -250,7 +261,7 @@ impl NimbusClient {
         Ok(())
     }
 
-    fn is_fetch_enabled(&self) -> Result<bool> {
+    pub(crate) fn is_fetch_enabled(&self) -> Result<bool> {
         let db = self.db()?;
         let reader = db.read()?;
         let enabled = db
@@ -308,14 +319,23 @@ impl NimbusClient {
         let enrollments_store = db.get_store(StoreId::Enrollments);
         let prev_enrollments: Vec<ExperimentEnrollment> = enrollments_store.collect_all(writer)?;
 
-        let mut set = HashSet::<String>::new();
+        let mut is_enrolled_set = HashSet::<String>::new();
+        let mut all_enrolled_set = HashSet::<String>::new();
         for ee in prev_enrollments {
-            if let EnrollmentStatus::Enrolled { .. } = ee.status {
-                set.insert(ee.slug.clone());
+            match ee.status {
+                EnrollmentStatus::Enrolled { .. } => {
+                    is_enrolled_set.insert(ee.slug.clone());
+                    all_enrolled_set.insert(ee.slug.clone());
+                }
+                EnrollmentStatus::WasEnrolled { .. } | EnrollmentStatus::Disqualified { .. } => {
+                    all_enrolled_set.insert(ee.slug.clone());
+                }
+                _ => {}
             }
         }
 
-        state.targeting_attributes.active_experiments = set;
+        state.targeting_attributes.active_experiments = is_enrolled_set;
+        state.targeting_attributes.enrollments = all_enrolled_set;
 
         Ok(())
     }
@@ -327,13 +347,17 @@ impl NimbusClient {
         state: &mut InternalMutableState,
         experiments: &[Experiment],
     ) -> Result<Vec<EnrollmentChangeEvent>> {
-        let nimbus_id = self.read_or_create_nimbus_id(db, writer)?;
         let targeting_helper =
             NimbusTargetingHelper::new(&state.targeting_attributes, self.event_store.clone());
+        let coenrolling_feature_ids = self
+            .coenrolling_feature_ids
+            .iter()
+            .map(|s| s.as_str())
+            .collect();
         let evolver = EnrollmentsEvolver::new(
-            &nimbus_id,
             &state.available_randomization_units,
             &targeting_helper,
+            &coenrolling_feature_ids,
         );
         evolver.evolve_enrollments_in_db(db, writer, experiments)
     }

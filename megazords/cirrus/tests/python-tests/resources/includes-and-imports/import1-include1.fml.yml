@@ -10,3 +10,4 @@ features:
         description: If the feature is enabled
         type: Boolean
         default: false
+    allow-coenrollment: true

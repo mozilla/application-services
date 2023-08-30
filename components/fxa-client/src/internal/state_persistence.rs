@@ -16,7 +16,7 @@
 //!
 //! Data migration is handled by explicitly naming different versions of the state struct to
 //! correspond to different incompatible changes to the data representation, e.g. `StateV1` and
-//! `StateV2`. We then wrap this in a `PersistedState` enum whose serialization gets explicitly
+//! `StateV2`. We then wrap this in a `PersistedStateTagged` enum whose serialization gets explicitly
 //! tagged with the corresponding state version number.
 //!
 //! For backwards-compatible changes to the data (such as adding a new field that has a sensible
@@ -35,7 +35,6 @@ use std::collections::{HashMap, HashSet};
 use super::{
     config::Config,
     device::Capability as DeviceCapability,
-    migrator::MigrationData,
     oauth::{AccessTokenInfo, RefreshToken},
     profile::Profile,
     CachedResponse, Result,
@@ -44,35 +43,35 @@ use crate::ScopedKey;
 
 // These are the public API for working with the persisted state.
 
-pub(crate) type State = StateV2;
+pub(crate) type PersistedState = StateV2;
 
 /// Parse a `State` from a JSON string, performing migrations if necessary.
 ///
-pub(crate) fn state_from_json(data: &str) -> Result<State> {
-    let stored_state: PersistedState = serde_json::from_str(data)?;
+pub(crate) fn state_from_json(data: &str) -> Result<PersistedState> {
+    let stored_state: PersistedStateTagged = serde_json::from_str(data)?;
     upgrade_state(stored_state)
 }
 
 /// Serialize a `State` to a JSON string.
 ///
-pub(crate) fn state_to_json(state: &State) -> Result<String> {
-    let state = PersistedState::V2(state.clone());
+pub(crate) fn state_to_json(state: &PersistedState) -> Result<String> {
+    let state = PersistedStateTagged::V2(state.clone());
     serde_json::to_string(&state).map_err(Into::into)
 }
 
-fn upgrade_state(in_state: PersistedState) -> Result<State> {
+fn upgrade_state(in_state: PersistedStateTagged) -> Result<PersistedState> {
     match in_state {
-        PersistedState::V2(state) => Ok(state),
+        PersistedStateTagged::V2(state) => Ok(state),
     }
 }
 
-/// `PersistedState` is a tagged container for one of the state versions.
+/// `PersistedStateTagged` is a tagged container for one of the state versions.
 /// Serde picks the right `StructVX` to deserialized based on the schema_version tag.
 ///
 #[derive(Serialize, Deserialize)]
 #[serde(tag = "schema_version")]
 #[allow(clippy::large_enum_variant)]
-enum PersistedState {
+enum PersistedStateTagged {
     V2(StateV2),
 }
 
@@ -106,7 +105,6 @@ pub(crate) struct StateV2 {
     pub(crate) access_token_cache: HashMap<String, AccessTokenInfo>,
     pub(crate) session_token: Option<String>, // Hex-formatted string.
     pub(crate) last_seen_profile: Option<CachedResponse<Profile>>,
-    pub(crate) in_flight_migration: Option<MigrationData>,
 }
 
 impl StateV2 {
@@ -129,7 +127,6 @@ impl StateV2 {
             access_token_cache: HashMap::new(),
             device_capabilities: HashSet::new(),
             session_token: None,
-            in_flight_migration: None,
         }
     }
 }

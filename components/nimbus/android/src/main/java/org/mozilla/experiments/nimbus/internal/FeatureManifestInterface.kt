@@ -41,4 +41,6 @@ interface FeatureManifestInterface<T> {
      * is quite useful for introspection.
      */
     fun getFeature(featureId: String): FeatureHolder<*>?
+
+    fun getCoenrollingFeatureIds(): List<String>
 }

@@ -68,7 +68,6 @@
       ]
     }
   ],
-  "hints": {},
   "features": [
     {
       "name": "app-menu",
@@ -235,6 +234,7 @@
           }
         }
       ],
+      "allow_coenrollment": false,
       "default": null
     }
   ]

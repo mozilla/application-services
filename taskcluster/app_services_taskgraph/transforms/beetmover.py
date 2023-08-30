@@ -6,6 +6,7 @@ import posixpath
 from copy import deepcopy
 
 from taskgraph.transforms.base import TransformSequence
+from taskgraph.util.dependencies import get_dependencies, get_primary_dependency
 from taskgraph.util.schema import resolve_keyed_by
 
 from . import publications_to_artifact_paths, publications_to_artifact_map_paths
@@ -21,6 +22,15 @@ DESTINATION_PATHS = {
 
 
 @transforms.add
+def adjust_name(config, tasks):
+    for task in tasks:
+        dep = get_primary_dependency(config, task)
+        if dep.kind == "swift":
+            task["name"] = "swift-build"
+        yield task
+
+
+@transforms.add
 def resolve_keys(config, tasks):
     for task in tasks:
         for key in ("worker.action",):
@@ -33,10 +43,7 @@ def resolve_keys(config, tasks):
 def _build_upstream_artifacts(config, task):
     upstream_artifacts = []
 
-    for label, dep in config.kind_dependencies_tasks.items():
-        if label not in task["dependencies"].values():
-            continue
-
+    for dep in get_dependencies(config, task):
         paths = sorted(
             artifact["name"] for artifact in dep.attributes.get("release-artifacts", [])
         )
@@ -203,9 +210,11 @@ def add_remaining_beetmover_config(config, tasks):
 
         else:
             task["description"] = task["description"].format(task["name"])
-            task["worker"]["action"] = (
-                "push-to-releases" if shipping_phase == "ship" else "push-to-candidates"
-            )
             task["worker"]["bucket"] = "release" if level == "3" else "dep"
+
+            if shipping_phase == "ship":
+                task["worker"]["action"] = "direct-push-to-bucket"
+            else:
+                task["worker"]["action"] = "push-to-candidates"
 
         yield task

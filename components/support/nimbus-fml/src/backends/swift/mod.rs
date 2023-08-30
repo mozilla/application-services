@@ -3,10 +3,10 @@
 * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
 use crate::error::{FMLError, Result};
-use crate::parser::AboutBlock;
+use crate::frontend::AboutBlock;
 use askama::Template;
 
-use crate::commands::GenerateStructCmd;
+use crate::command_line::commands::GenerateStructCmd;
 use crate::intermediate_representation::FeatureManifest;
 
 mod gen_structs;

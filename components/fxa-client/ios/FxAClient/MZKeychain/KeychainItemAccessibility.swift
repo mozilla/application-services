@@ -1,5 +1,5 @@
 //
-//  KeychainOptions.swift
+//  KeychainItemAccessibility.swift
 //  SwiftKeychainWrapper
 //
 //  Created by James Blair on 4/24/16.

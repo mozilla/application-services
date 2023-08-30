@@ -202,7 +202,13 @@ fn main() -> Result<()> {
     let aru = AvailableRandomizationUnits::with_client_id(&client_id);
 
     // Here we initialize our main `NimbusClient` struct
-    let nimbus_client = NimbusClient::new(context.clone(), db_path, Some(config), aru)?;
+    let nimbus_client = NimbusClient::new(
+        context.clone(),
+        Default::default(),
+        db_path,
+        Some(config),
+        aru,
+    )?;
     log::info!("Nimbus ID is {}", nimbus_client.nimbus_id()?);
 
     // Explicitly update experiments at least once for init purposes
@@ -296,11 +302,12 @@ fn main() -> Result<()> {
             let aru = AvailableRandomizationUnits::with_client_id(&client_id);
             'outer: loop {
                 let uuid = uuid::Uuid::new_v4();
+                let aru = aru.apply_nimbus_id(&uuid);
                 let mut num_of_experiments_enrolled = 0;
                 let event_store = nimbus_client.event_store();
                 let th = NimbusTargetingHelper::new(&context, event_store.clone());
                 for exp in &all_experiments {
-                    let enr = nimbus::evaluate_enrollment(&uuid, &aru, exp, &th)?;
+                    let enr = nimbus::evaluate_enrollment(&aru, exp, &th)?;
                     if enr.status.is_enrolled() {
                         num_of_experiments_enrolled += 1;
                         if num_of_experiments_enrolled >= num {
@@ -354,9 +361,10 @@ fn main() -> Result<()> {
                 // by the experiment just generate a new uuid for all possible
                 // options.
                 let uuid = uuid::Uuid::new_v4();
-                let aru = AvailableRandomizationUnits::with_client_id(&client_id);
+                let aru =
+                    AvailableRandomizationUnits::with_client_id(&client_id).apply_nimbus_id(&uuid);
                 let th = NimbusTargetingHelper::new(&context, event_store.clone());
-                let enrollment = nimbus::evaluate_enrollment(&uuid, &aru, &exp, &th)?;
+                let enrollment = nimbus::evaluate_enrollment(&aru, &exp, &th)?;
                 let key = match enrollment.status.clone() {
                     EnrollmentStatus::Enrolled { .. } => "Enrolled",
                     EnrollmentStatus::NotEnrolled { .. } => "NotEnrolled",

@@ -10,6 +10,9 @@
 
 set -ex
 
+# UPLOAD_DIR is not set for the generic worker, so we need to set it ourselves
+# FIXME: what's the right way to get this value?
+UPLOAD_DIR="${PWD}/../public/build"
 # Clear out any existing Rust files
 rm -fr ~/.cargo ~/.rustup
 # Install rustup
@@ -26,8 +29,8 @@ source "$HOME"/.cargo/env
 # So long as this is executed after the checkout it will use the version specified in rust-toolchain.yaml
 rustup update
 rustup target add aarch64-apple-darwin
-# TODO: re-enable this once we split out the toolchain tasks from swift-build
-# # Tar everything into UPLOAD_DIR
-# cd "$HOME"
-# mkdir -p "$UPLOAD_DIR"
-# tar -czf "$UPLOAD_DIR"/rust.tar.gz .rustup .cargo
+
+# Tar everything into UPLOAD_DIR
+cd "$HOME"
+mkdir -p "$UPLOAD_DIR"
+tar -czf "$UPLOAD_DIR"/rust-osx.tar.gz .rustup .cargo

@@ -2,13 +2,17 @@
 // License, v. 2.0. If a copy of the MPL was not distributed with this
 // file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
+#[cfg(feature = "server")]
+use crate::output::server;
 use crate::{
+    output::{deeplink, fml_cli},
+    protocol::StartAppProtocol,
     sources::ManifestSource,
     value_utils::{
-        prepare_experiment, prepare_rollout, try_extract_data_list, try_find_branches,
-        try_find_features, CliUtils,
+        prepare_experiment, prepare_rollout, try_find_branches_from_experiment,
+        try_find_features_from_branch, CliUtils,
     },
-    AppCommand, ExperimentListSource, ExperimentSource, LaunchableApp, NimbusApp,
+    AppCommand, AppOpenArgs, ExperimentListSource, ExperimentSource, LaunchableApp, NimbusApp,
 };
 use anyhow::{bail, Result};
 use console::Term;
@@ -20,10 +24,16 @@ pub(crate) fn process_cmd(cmd: &AppCommand) -> Result<bool> {
     let status = match cmd {
         AppCommand::ApplyFile {
             app,
+            open,
             list,
             preserve_nimbus_db,
-        } => app.apply_list(list, preserve_nimbus_db)?,
+        } => app.apply_list(open, list, preserve_nimbus_db)?,
         AppCommand::CaptureLogs { app, file } => app.capture_logs(file)?,
+        AppCommand::Defaults {
+            manifest,
+            feature_id,
+            output,
+        } => manifest.print_defaults(feature_id.as_ref(), output.as_ref())?,
         AppCommand::Enroll {
             app,
             params,
@@ -33,7 +43,7 @@ pub(crate) fn process_cmd(cmd: &AppCommand) -> Result<bool> {
             preserve_targeting,
             preserve_bucketing,
             preserve_nimbus_db,
-            deeplink,
+            open,
             ..
         } => app.enroll(
             params,
@@ -43,22 +53,40 @@ pub(crate) fn process_cmd(cmd: &AppCommand) -> Result<bool> {
             preserve_targeting,
             preserve_bucketing,
             preserve_nimbus_db,
-            deeplink,
+            open,
         )?,
-        AppCommand::FetchList { params, list, file } => params.fetch_list(list, file)?,
-        AppCommand::FetchRecipes {
-            params,
-            recipes,
-            file,
-        } => params.fetch_recipes(recipes, file)?,
+        AppCommand::ExtractFeatures {
+            experiment,
+            branch,
+            manifest,
+            feature_id,
+            validate,
+            multi,
+            output,
+        } => experiment.print_features(
+            branch,
+            manifest,
+            feature_id.as_ref(),
+            *validate,
+            *multi,
+            output.as_ref(),
+        )?,
+
+        AppCommand::FetchList { list, file } => list.fetch_list(file.as_ref())?,
+        AppCommand::FmlPassthrough { args, cwd } => fml_cli(args, cwd)?,
+        AppCommand::Info { experiment, output } => experiment.print_info(output.as_ref())?,
         AppCommand::Kill { app } => app.kill_app()?,
-        AppCommand::List { params, list } => params.list(list)?,
-        AppCommand::LogState { app } => app.log_state()?,
+        AppCommand::List { list, .. } => list.print_list()?,
+        AppCommand::LogState { app, open } => app.log_state(open)?,
         AppCommand::NoOp => true,
-        AppCommand::Open { app, deeplink, .. } => app.open(deeplink.as_ref())?,
+        AppCommand::Open {
+            app, open: args, ..
+        } => app.open(args)?,
         AppCommand::Reset { app } => app.reset_app()?,
+        #[cfg(feature = "server")]
+        AppCommand::StartServer => server::start_server()?,
         AppCommand::TailLogs { app } => app.tail_logs()?,
-        AppCommand::Unenroll { app } => app.unenroll_all()?,
+        AppCommand::Unenroll { app, open } => app.unenroll_all(open)?,
         AppCommand::ValidateExperiment {
             params,
             manifest,
@@ -93,6 +121,14 @@ fn output_err(term: &Term, title: &str, detail: &str) -> Result<()> {
 }
 
 impl LaunchableApp {
+    #[cfg(feature = "server")]
+    fn platform(&self) -> &str {
+        match self {
+            Self::Android { .. } => "android",
+            Self::Ios { .. } => "ios",
+        }
+    }
+
     fn exe(&self) -> Result<Command> {
         Ok(match self {
             Self::Android { device_id, .. } => {
@@ -141,9 +177,14 @@ impl LaunchableApp {
         })
     }
 
-    fn unenroll_all(&self) -> Result<bool> {
-        let payload = json! {{ "data": [] }};
-        self.start_app(false, Some(&payload), true, None)
+    fn unenroll_all(&self, open: &AppOpenArgs) -> Result<bool> {
+        let payload = TryFrom::try_from(&ExperimentListSource::Empty)?;
+        let protocol = StartAppProtocol {
+            log_state: true,
+            experiments: Some(&payload),
+            ..Default::default()
+        };
+        self.start_app(protocol, open)
     }
 
     fn reset_app(&self) -> Result<bool> {
@@ -256,8 +297,12 @@ impl LaunchableApp {
         }
     }
 
-    fn log_state(&self) -> Result<bool> {
-        self.start_app(false, None, true, None)
+    fn log_state(&self, open: &AppOpenArgs) -> Result<bool> {
+        let protocol = StartAppProtocol {
+            log_state: true,
+            ..Default::default()
+        };
+        self.start_app(protocol, open)
     }
 
     #[allow(clippy::too_many_arguments)]
@@ -270,7 +315,7 @@ impl LaunchableApp {
         preserve_targeting: &bool,
         preserve_bucketing: &bool,
         preserve_nimbus_db: &bool,
-        deeplink: &Option<String>,
+        open: &AppOpenArgs,
     ) -> Result<bool> {
         let term = Term::stdout();
 
@@ -302,13 +347,28 @@ impl LaunchableApp {
         }
 
         let payload = json! {{ "data": recipes }};
-        self.start_app(!preserve_nimbus_db, Some(&payload), true, deeplink.as_ref())
+        let protocol = StartAppProtocol {
+            reset_db: !preserve_nimbus_db,
+            experiments: Some(&payload),
+            log_state: true,
+        };
+        self.start_app(protocol, open)
     }
 
-    fn apply_list(&self, list: &ExperimentListSource, preserve_nimbus_db: &bool) -> Result<bool> {
+    fn apply_list(
+        &self,
+        open: &AppOpenArgs,
+        list: &ExperimentListSource,
+        preserve_nimbus_db: &bool,
+    ) -> Result<bool> {
         let value: Value = list.try_into()?;
 
-        self.start_app(!preserve_nimbus_db, Some(&value), true, None)
+        let protocol = StartAppProtocol {
+            reset_db: !preserve_nimbus_db,
+            experiments: Some(&value),
+            log_state: true,
+        };
+        self.start_app(protocol, open)
     }
 
     fn ios_app_container(&self, container: &str) -> Result<String> {
@@ -352,55 +412,51 @@ impl LaunchableApp {
         Ok(true)
     }
 
-    fn open(&self, deeplink: Option<&String>) -> Result<bool> {
-        self.start_app(false, None, false, deeplink)
+    fn open(&self, open: &AppOpenArgs) -> Result<bool> {
+        self.start_app(Default::default(), open)
     }
 
-    fn create_deeplink(&self, deeplink: Option<&String>) -> Result<Option<String>> {
-        if deeplink.is_none() {
-            return Ok(None);
+    fn start_app(&self, app_protocol: StartAppProtocol, open: &AppOpenArgs) -> Result<bool> {
+        let term = Term::stdout();
+        if open.pbcopy {
+            let len = self.copy_to_clipboard(&app_protocol, open)?;
+            prompt(
+                &term,
+                &format!("# Copied a deeplink URL ({len} characters) in to the clipboard"),
+            )?;
         }
-        let deeplink = deeplink.unwrap();
-        Ok(if deeplink.contains("://") {
-            Some(deeplink.clone())
-        } else if let Some(scheme) = match self {
-            Self::Android { scheme, .. } | Self::Ios { scheme, .. } => scheme,
-        } {
-            Some(format!("{}://{}", scheme, deeplink))
-        } else {
-            anyhow::bail!("Cannot use a deeplink without a scheme for this app")
-        })
-    }
+        #[cfg(feature = "server")]
+        if open.pbpaste {
+            let url = self.longform_url(&app_protocol, open)?;
+            let addr = server::get_address()?;
+            match server::post_deeplink(self.platform(), &url) {
+                Err(_) => output_err(
+                    &term,
+                    "Cannot post to the server",
+                    "Start the server with `nimbus-cli start-server`",
+                )?,
+                _ => output_ok(&term, &format!("Posted to server at http://{addr}"))?,
+            };
+        }
+        if open.pbcopy || open.pbpaste {
+            return Ok(true);
+        }
 
-    fn start_app(
-        &self,
-        reset_db: bool,
-        payload: Option<&Value>,
-        log_state: bool,
-        deeplink: Option<&String>,
-    ) -> Result<bool> {
-        let deeplink = self.create_deeplink(deeplink)?;
         Ok(match self {
             Self::Android { .. } => self
-                .android_start(reset_db, payload, log_state, deeplink.as_ref())?
+                .android_start(app_protocol, open)?
                 .spawn()?
                 .wait()?
                 .success(),
             Self::Ios { .. } => self
-                .ios_start(reset_db, payload, log_state, deeplink.as_ref())?
+                .ios_start(app_protocol, open)?
                 .spawn()?
                 .wait()?
                 .success(),
         })
     }
 
-    fn android_start(
-        &self,
-        reset_db: bool,
-        json: Option<&Value>,
-        log_state: bool,
-        deeplink: Option<&String>,
-    ) -> Result<Command> {
+    fn android_start(&self, app_protocol: StartAppProtocol, open: &AppOpenArgs) -> Result<Command> {
         if let Self::Android {
             package_name,
             activity_name,
@@ -409,7 +465,10 @@ impl LaunchableApp {
         {
             let mut args: Vec<String> = Vec::new();
 
-            if let Some(deeplink) = deeplink {
+            let (start_args, ending_args) = open.args();
+            args.extend_from_slice(start_args);
+
+            if let Some(deeplink) = self.deeplink(open)? {
                 args.extend([
                     "-a android.intent.action.VIEW".to_string(),
                     "-c android.intent.category.DEFAULT".to_string(),
@@ -424,94 +483,91 @@ impl LaunchableApp {
                 ]);
             }
 
-            args.extend(["--esn nimbus-cli".to_string(), "--ei version 1".to_string()]);
+            let StartAppProtocol {
+                reset_db,
+                experiments,
+                log_state,
+            } = app_protocol;
+
+            if log_state || experiments.is_some() || reset_db {
+                args.extend(["--esn nimbus-cli".to_string(), "--ei version 1".to_string()]);
+            }
 
             if reset_db {
                 args.push("--ez reset-db true".to_string());
             }
-            if let Some(s) = json {
+            if let Some(s) = experiments {
                 let json = s.to_string().replace('\'', "&apos;");
                 args.push(format!("--es experiments '{}'", json))
             }
             if log_state {
                 args.push("--ez log-state true".to_string());
             };
+            args.extend_from_slice(ending_args);
 
-            let mut cmd = self.exe()?;
-            // TODO add adb pass through args for debugger, wait for debugger etc.
             let sh = format!(r#"am start {}"#, args.join(" \\\n        "),);
-            cmd.arg("shell").arg(&sh);
             let term = Term::stdout();
             prompt(&term, &format!("adb shell \"{}\"", sh))?;
+            let mut cmd = self.exe()?;
+            cmd.arg("shell").arg(&sh);
             Ok(cmd)
         } else {
             unreachable!();
         }
     }
 
-    fn ios_start(
-        &self,
-        reset_db: bool,
-        json: Option<&Value>,
-        log_state: bool,
-        deeplink: Option<&String>,
-    ) -> Result<Command> {
+    fn ios_start(&self, app_protocol: StartAppProtocol, open: &AppOpenArgs) -> Result<Command> {
         if let Self::Ios {
             app_id, device_id, ..
         } = self
         {
-            let mut args: Vec<String> = Default::default();
+            let mut args: Vec<String> = Vec::new();
 
-            let mut is_launch = false;
-            if let Some(deeplink) = deeplink {
-                args.extend([
-                    "openurl".to_string(),
-                    device_id.to_string(),
-                    deeplink.to_string(),
-                ]);
-            } else {
-                args.extend([
-                    "launch".to_string(),
-                    device_id.to_string(),
-                    app_id.to_string(),
-                ]);
-                is_launch = true;
-            }
+            let (starting_args, ending_args) = open.args();
 
-            // Doing this here because we may be able to change the mechanism of passing
-            // arguments to the iOS apps at a later stage.
-            let disallowed_by_openurl = |msg: &str| -> Result<()> {
-                if !is_launch {
-                    bail!(format!("The iOS simulator's openurl command doesn't support command line arguments which {} relies upon", msg));
-                } else {
-                    Ok(())
+            if let Some(deeplink) = self.deeplink(open)? {
+                let deeplink = deeplink::longform_deeplink_url(&deeplink, &app_protocol)?;
+                if deeplink.len() >= 2047 {
+                    anyhow::bail!("Deeplink is too long for xcrun simctl openurl. Use --pbcopy to copy the URL to the clipboard")
                 }
-            };
+                args.push("openurl".to_string());
+                args.extend_from_slice(starting_args);
+                args.extend([device_id.to_string(), deeplink]);
+            } else {
+                args.push("launch".to_string());
+                args.extend_from_slice(starting_args);
+                args.extend([device_id.to_string(), app_id.to_string()]);
 
-            if is_launch {
-                args.extend([
-                    "--nimbus-cli".to_string(),
-                    "--version".to_string(),
-                    "1".to_string(),
-                ]);
-            }
+                let StartAppProtocol {
+                    log_state,
+                    experiments,
+                    reset_db,
+                } = app_protocol;
 
-            if reset_db {
-                // We don't check launch here, because reset-db is never used
-                // without enroll.
-                args.push("--reset-db".to_string());
+                if log_state || experiments.is_some() || reset_db {
+                    args.extend([
+                        "--nimbus-cli".to_string(),
+                        "--version".to_string(),
+                        "1".to_string(),
+                    ]);
+                }
+
+                if reset_db {
+                    // We don't check launch here, because reset-db is never used
+                    // without enroll.
+                    args.push("--reset-db".to_string());
+                }
+                if let Some(s) = experiments {
+                    args.extend([
+                        "--experiments".to_string(),
+                        s.to_string().replace('\'', "&apos;"),
+                    ]);
+                }
+                if log_state {
+                    args.push("--log-state".to_string());
+                }
             }
-            if let Some(s) = json {
-                disallowed_by_openurl("enroll and test-feature")?;
-                args.extend([
-                    "--experiments".to_string(),
-                    s.to_string().replace('\'', "&apos;"),
-                ]);
-            }
-            if log_state {
-                disallowed_by_openurl("log-state")?;
-                args.push("--log-state".to_string());
-            }
+            args.extend_from_slice(ending_args);
 
             let mut cmd = self.exe()?;
             cmd.args(args.clone());
@@ -531,93 +587,6 @@ fn logcat_args<'a>() -> Vec<&'a str> {
 }
 
 impl NimbusApp {
-    fn fetch_list(&self, list: &ExperimentListSource, file: &PathBuf) -> Result<bool> {
-        let value: Value = list.try_into()?;
-        let array = try_extract_data_list(&value)?;
-        let mut data = Vec::new();
-
-        for exp in array {
-            let app_name = exp.get_str("appName")?;
-            if app_name != self.app_name {
-                continue;
-            }
-
-            data.push(exp);
-        }
-        self.write_experiments_to_file(&data, file)?;
-        Ok(true)
-    }
-
-    fn fetch_recipes(&self, recipes: &Vec<ExperimentSource>, file: &PathBuf) -> Result<bool> {
-        let mut data = Vec::new();
-
-        for exp in recipes {
-            let exp: Value = exp.try_into()?;
-            let app_name = exp.get_str("appName")?;
-            if app_name != self.app_name {
-                continue;
-            }
-
-            data.push(exp);
-        }
-
-        self.write_experiments_to_file(&data, file)?;
-        Ok(true)
-    }
-
-    fn write_experiments_to_file(&self, data: &Vec<Value>, file: &PathBuf) -> Result<()> {
-        let contents = json!({
-            "data": data,
-        });
-        std::fs::write(file, serde_json::to_string_pretty(&contents)?)?;
-        Ok(())
-    }
-
-    fn list(&self, list: &ExperimentListSource) -> Result<bool> {
-        let value: Value = list.try_into()?;
-        let array = try_extract_data_list(&value)?;
-        let term = Term::stdout();
-        let style = term.style().italic().underlined();
-        let slug = style.apply_to("Experiment slug");
-        let channel = style.apply_to(" Channel");
-        term.write_line(&format!(
-            "{slug: <66}|{channel: <11}|{0: <31}|{1: <20}",
-            style.apply_to(" Features"),
-            style.apply_to(" Branches")
-        ))?;
-        for exp in array {
-            let slug = exp.get_str("slug")?;
-            let app_name = exp.get_str("appName")?;
-            if app_name != self.app_name {
-                continue;
-            }
-
-            let channel = exp.get_str("channel")?;
-
-            let features: Vec<_> = exp
-                .get_array("featureIds")?
-                .iter()
-                .flat_map(|f| f.as_str())
-                .collect();
-            let branches: Vec<_> = exp
-                .get_array("branches")?
-                .iter()
-                .flat_map(|b| {
-                    b.get("slug")
-                        .expect("Expecting a branch with a slug")
-                        .as_str()
-                })
-                .collect();
-
-            term.write_line(&format!(
-                " {slug: <65}| {channel: <10}| {0: <30}| {1}",
-                features.join(", "),
-                branches.join(", ")
-            ))?;
-        }
-        Ok(true)
-    }
-
     fn validate_experiment(
         &self,
         manifest_source: &ManifestSource,
@@ -642,9 +611,9 @@ impl NimbusApp {
         };
 
         let mut is_valid = true;
-        for b in try_find_branches(&value)? {
+        for b in try_find_branches_from_experiment(&value)? {
             let branch = b.get_str("slug")?;
-            for f in try_find_features(&b)? {
+            for f in try_find_features_from_branch(&b)? {
                 let id = f.get_str("featureId")?;
                 let value = f
                     .get("value")

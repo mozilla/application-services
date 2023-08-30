@@ -108,6 +108,7 @@ impl ConnectionInitializer for PlacesInitializer {
         ";
         conn.execute_batch(initial_pragmas)?;
         define_functions(conn, self.api_id)?;
+        sql_support::debug_tools::define_debug_functions(conn)?;
         conn.set_prepared_statement_cache_capacity(128);
         Ok(())
     }

@@ -10,3 +10,14 @@ rust:
         script: build-rust-toolchain.sh
         toolchain-alias: rust
         toolchain-artifact: public/build/rust.tar.gz
+
+rust-osx:
+    description: 'Build the OSX Rust toolchain'
+    run:
+        resources:
+            - rust-toolchain.toml
+        script: build-rust-toolchain-macosx.sh
+        toolchain-alias: rust-osx
+        toolchain-artifact: public/build/rust-osx.tar.gz
+        run-task-command: ["/usr/local/bin/python3", "run-task"]
+    worker-type: b-osx

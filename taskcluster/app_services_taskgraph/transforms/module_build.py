@@ -24,22 +24,6 @@ def rustup_setup(config, tasks):
         )
         yield task
 
-@transforms.add
-def release_upload_symbols(config, tasks):
-    for task in tasks:
-        if (config.params["tasks_for"] == "github-release" and
-            task["attributes"]["buildconfig"]["uploadSymbols"]):
-                task["run"].setdefault("post-gradlew", [])
-                task["run"]["post-gradlew"].append(
-                    [
-                        "source",
-                        "automation/upload_android_symbols.sh",
-                        task["attributes"]["buildconfig"]["path"]
-                    ]
-                )
-
-        yield task
-
 
 @transforms.add
 def build_task(config, tasks):

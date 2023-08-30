@@ -1,0 +1,318 @@
+// This Source Code Form is subject to the terms of the Mozilla Public
+// License, v. 2.0. If a copy of the MPL was not distributed with this
+// file, You can obtain one at https://mozilla.org/MPL/2.0/.
+
+use anyhow::Result;
+use reqwest::StatusCode;
+use serde::{Deserialize, Serialize};
+use std::sync::RwLock;
+use std::{
+    collections::HashMap,
+    net::{IpAddr, SocketAddr},
+    sync::Arc,
+};
+
+use crate::config;
+
+use anyhow::anyhow;
+use axum::{
+    extract::State,
+    http,
+    response::{Html, IntoResponse},
+    routing::{get, post, IntoMakeService},
+    Json, Router, Server,
+};
+use hyper::server::conn::AddrIncoming;
+use tower::layer::util::Stack;
+use tower_http::set_header::SetResponseHeaderLayer;
+use tower_livereload::{LiveReloadLayer, Reloader};
+
+fn create_server(
+    livereload: LiveReloadLayer,
+    state: Db,
+) -> Result<Server<AddrIncoming, IntoMakeService<Router>>, anyhow::Error> {
+    let app = create_app(livereload, state);
+
+    let addr = get_address()?;
+    eprintln!("Copy the address http://{}/ into your mobile browser", addr);
+
+    let server = Server::try_bind(&addr)?.serve(app.into_make_service());
+
+    Ok(server)
+}
+
+fn create_app(livereload: LiveReloadLayer, state: Db) -> Router {
+    Router::new()
+        .route("/", get(index))
+        .route("/style.css", get(style))
+        .route("/script.js", get(script))
+        .route("/post", post(post_handler))
+        .layer(livereload)
+        .layer(no_cache_layer())
+        .with_state(state)
+}
+
+fn create_state(livereload: &LiveReloadLayer) -> Db {
+    let reloader = livereload.reloader();
+    Arc::new(RwLock::new(InMemoryDb::new(reloader)))
+}
+
+#[tokio::main]
+pub(crate) async fn start_server() -> Result<bool> {
+    let livereload = LiveReloadLayer::new();
+    let state = create_state(&livereload);
+    let server = create_server(livereload, state)?;
+    server.await?;
+    Ok(true)
+}
+
+pub(crate) fn post_deeplink(platform: &str, deeplink: &str) -> Result<bool> {
+    let payload = StartAppPostPayload::new(platform, deeplink);
+    let addr = get_address()?;
+    let _ret = post_payload(&payload, &addr.to_string())?;
+    Ok(true)
+}
+
+type Db = Arc<RwLock<InMemoryDb>>;
+
+pub(crate) fn get_address() -> Result<SocketAddr> {
+    let host = config::server_host();
+    let port = config::server_port();
+
+    let port = port
+        .parse::<u16>()
+        .map_err(|_| anyhow!("NIMBUS_CLI_SERVER_PORT must be numeric"))?;
+    let host = host
+        .parse::<IpAddr>()
+        .map_err(|_| anyhow!("NIMBUS_CLI_SERVER_HOST must be an IP address"))?;
+
+    Ok((host, port).into())
+}
+
+async fn index(State(db): State<Db>) -> Html<String> {
+    let mut html =
+        include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/assets/index.html")).to_string();
+    let li_template = include_str!(concat!(
+        env!("CARGO_MANIFEST_DIR"),
+        "/assets/li-template.html"
+    ));
+
+    let state = db.write().unwrap();
+    for p in ["android", "ios", "web"] {
+        let ppat = format!("{{{p}}}");
+        match state.url(p) {
+            Some(url) => {
+                let li = li_template.replace("{platform}", p).replace("{url}", url);
+                html = html.replace(&ppat, &li);
+            }
+            _ => {
+                html = html.replace(&ppat, "");
+            }
+        }
+    }
+
+    Html(html)
+}
+
+async fn style(State(_): State<Db>) -> &'static str {
+    include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/assets/style.css"))
+}
+
+async fn script(State(_): State<Db>) -> &'static str {
+    include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/assets/script.js"))
+}
+
+async fn post_handler(
+    State(db): State<Db>,
+    Json(payload): Json<StartAppPostPayload>,
+) -> impl IntoResponse {
+    eprintln!("Updating {platform} URL", platform = payload.platform);
+    let mut state = db.write().unwrap();
+    state.update(payload);
+    // This will be converted into a JSON response
+    // with a status code of `201 Created`
+    (StatusCode::CREATED, Json(()))
+}
+
+#[derive(Deserialize, Serialize)]
+struct StartAppPostPayload {
+    platform: String,
+    url: String,
+}
+
+impl StartAppPostPayload {
+    fn new(platform: &str, url: &str) -> Self {
+        Self {
+            platform: platform.to_string(),
+            url: url.to_string(),
+        }
+    }
+}
+
+fn post_payload<T: Serialize>(payload: &T, addr: &str) -> Result<String> {
+    let url = format!("http://{addr}/post");
+    let body = serde_json::to_string(payload)?;
+    let req = reqwest::blocking::Client::new()
+        .post(url)
+        .header("Content-type", "application/json; charset=UTF-8")
+        .header("accept", "application/json")
+        .body(body);
+    let resp = req.send()?;
+
+    Ok(resp.text()?)
+}
+
+struct InMemoryDb {
+    reloader: Reloader,
+    payloads: HashMap<String, StartAppPostPayload>,
+}
+
+impl InMemoryDb {
+    fn new(reloader: Reloader) -> Self {
+        Self {
+            reloader,
+            payloads: Default::default(),
+        }
+    }
+
+    fn url(&self, platform: &str) -> Option<&str> {
+        Some(self.payloads.get(platform)?.url.as_str())
+    }
+
+    fn update(&mut self, payload: StartAppPostPayload) {
+        self.payloads.insert(payload.platform.clone(), payload);
+        self.reloader.reload();
+    }
+}
+
+type Srhl = SetResponseHeaderLayer<http::HeaderValue>;
+
+fn no_cache_layer() -> Stack<Srhl, Stack<Srhl, Srhl>> {
+    Stack::new(
+        SetResponseHeaderLayer::overriding(
+            http::header::CACHE_CONTROL,
+            http::HeaderValue::from_static("no-cache, no-store, must-revalidate"),
+        ),
+        Stack::new(
+            SetResponseHeaderLayer::overriding(
+                http::header::PRAGMA,
+                http::HeaderValue::from_static("no-cache"),
+            ),
+            SetResponseHeaderLayer::overriding(
+                http::header::EXPIRES,
+                http::HeaderValue::from_static("0"),
+            ),
+        ),
+    )
+}
+
+#[cfg(test)]
+mod tests {
+    use hyper::{Body, Method, Request, Response};
+    use std::net::TcpListener;
+    use tokio::sync::oneshot::Sender;
+
+    use super::*;
+
+    fn start_test_server(port: u32) -> Result<(Db, Sender<()>)> {
+        let livereload = LiveReloadLayer::new();
+        let state = create_state(&livereload);
+
+        let app = create_app(livereload, state.clone());
+        let addr = format!("127.0.0.1:{port}");
+        let listener = TcpListener::bind(addr)?;
+        let (tx, rx) = tokio::sync::oneshot::channel::<()>();
+        tokio::spawn(async move {
+            Server::from_tcp(listener)
+                .unwrap()
+                .serve(app.into_make_service())
+                .with_graceful_shutdown(async {
+                    rx.await.ok();
+                })
+                .await
+                .unwrap();
+        });
+
+        Ok((state, tx))
+    }
+
+    async fn get(port: u32, endpoint: &str) -> Result<String> {
+        let url = format!("http://127.0.0.1:{port}/{endpoint}");
+
+        let client = hyper::Client::new();
+        let response = client
+            .request(Request::builder().uri(url).body(Body::empty()).unwrap())
+            .await
+            .unwrap();
+
+        let body = hyper::body::to_bytes(response.into_body()).await.unwrap();
+        let s = std::str::from_utf8(&body)?;
+
+        Ok(s.to_string())
+    }
+
+    async fn post_payload<T: Serialize>(payload: &T, addr: &str) -> Result<Response<Body>> {
+        let url = format!("http://{addr}/post");
+        let body = serde_json::to_string(payload)?;
+        let request = Request::builder()
+            .method(Method::POST)
+            .uri(url)
+            .header("accept", "application/json")
+            .header("Content-type", "application/json; charset=UTF-8")
+            .body(Body::from(body))
+            .unwrap();
+        let client = hyper::Client::new();
+        Ok(client.request(request).await?)
+    }
+
+    #[tokio::test]
+    async fn test_smoke_test() -> Result<()> {
+        let port = 1234;
+        let (_db, tx) = start_test_server(port)?;
+
+        let s = get(port, "").await?;
+        assert!(s.contains("<html>"));
+
+        let _ = tx.send(());
+        Ok(())
+    }
+
+    #[tokio::test]
+    async fn test_posting_platform_url() -> Result<()> {
+        let port = 1235;
+        let (db, tx) = start_test_server(port)?;
+
+        let platform = "android";
+        let deeplink = "fenix-dev-test://open-now";
+
+        let payload = StartAppPostPayload::new(platform, deeplink);
+        let _ = post_payload(&payload, &format!("127.0.0.1:{port}")).await?;
+
+        // Check the internal state
+        let state = db.write().unwrap();
+        let url = state.url(platform);
+        assert_eq!(url, Some(deeplink));
+
+        let _ = tx.send(());
+        Ok(())
+    }
+
+    #[tokio::test]
+    async fn test_posting_platform_url_from_index_page() -> Result<()> {
+        let port = 1236;
+        let (_, tx) = start_test_server(port)?;
+
+        let platform = "android";
+        let deeplink = "fenix-dev-test://open-now";
+
+        let payload = StartAppPostPayload::new(platform, deeplink);
+        let _ = post_payload(&payload, &format!("127.0.0.1:{port}")).await?;
+
+        // Check the index.html page
+        let s = get(port, "").await?;
+        assert!(s.contains(deeplink));
+
+        let _ = tx.send(());
+        Ok(())
+    }
+}

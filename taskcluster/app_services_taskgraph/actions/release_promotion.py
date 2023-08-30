@@ -36,6 +36,16 @@ RELEASE_PROMOTION_PROJECTS = (
                 "default": "promote",
                 "enum": sorted(graph_config["release-promotion"]["flavors"]),
             },
+            "build_number": {
+                "type": "integer",
+                "default": 1,
+                "minimum": 1,
+                "title": "The release build number",
+                "description": (
+                    "The release build number. Starts at 1 per "
+                    "release version, and increments on rebuild."
+                ),
+            },
             "do_not_optimize": {
                 "type": "array",
                 "description": (
@@ -52,6 +62,7 @@ RELEASE_PROMOTION_PROJECTS = (
                     "Optional: an array of kinds to ignore from the previous "
                     "graph(s)."
                 ),
+                "default": graph_config["release-promotion"].get("rebuild-kinds", []),
                 "items": {
                     "type": "string",
                 },
@@ -70,6 +81,7 @@ RELEASE_PROMOTION_PROJECTS = (
         },
         "required": [
             "release_promotion_flavor",
+            "build_number",
         ],
     },
 )
@@ -82,11 +94,11 @@ def release_promotion_action(parameters, graph_config, input, task_group_id, tas
     target_tasks_method = promotion_config["target-tasks-method"].format(
         project=parameters["project"]
     )
-    rebuild_kinds = input.get("rebuild_kinds") or promotion_config.get(
-        "rebuild-kinds", []
+    rebuild_kinds = input.get(
+        "rebuild_kinds", promotion_config.get("rebuild-kinds", [])
     )
-    do_not_optimize = input.get("do_not_optimize") or promotion_config.get(
-        "do-not-optimize", []
+    do_not_optimize = input.get(
+        "do_not_optimize", promotion_config.get("do-not-optimize", [])
     )
 
     # make parameters read-write
@@ -114,6 +126,7 @@ def release_promotion_action(parameters, graph_config, input, task_group_id, tas
     )
     parameters["do_not_optimize"] = do_not_optimize
     parameters["target_tasks_method"] = target_tasks_method
+    parameters["build_number"] = int(input["build_number"])
 
     # When doing staging releases, we still want to re-use tasks from previous
     # graphs.

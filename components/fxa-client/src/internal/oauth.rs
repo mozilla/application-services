@@ -43,16 +43,16 @@ impl FirefoxAccount {
         if scope.contains(' ') {
             return Err(Error::MultipleScopesRequested);
         }
-        if let Some(oauth_info) = self.state.access_token_cache.get(scope) {
+        if let Some(oauth_info) = self.state.get_cached_access_token(scope) {
             if oauth_info.expires_at > util::now_secs() + OAUTH_MIN_TIME_LEFT {
                 return Ok(oauth_info.clone());
             }
         }
-        let resp = match self.state.refresh_token {
-            Some(ref refresh_token) => {
+        let resp = match self.state.refresh_token() {
+            Some(refresh_token) => {
                 if refresh_token.scopes.contains(scope) {
                     self.client.create_access_token_using_refresh_token(
-                        &self.state.config,
+                        self.state.config(),
                         &refresh_token.token,
                         ttl,
                         &[scope],
@@ -61,9 +61,9 @@ impl FirefoxAccount {
                     return Err(Error::NoCachedToken(scope.to_string()));
                 }
             }
-            None => match self.state.session_token {
-                Some(ref session_token) => self.client.create_access_token_using_session_token(
-                    &self.state.config,
+            None => match self.state.session_token() {
+                Some(session_token) => self.client.create_access_token_using_session_token(
+                    self.state.config(),
                     session_token,
                     &[scope],
                 )?,
@@ -77,30 +77,29 @@ impl FirefoxAccount {
         let token_info = AccessTokenInfo {
             scope: resp.scope,
             token: resp.access_token,
-            key: self.state.scoped_keys.get(scope).cloned(),
+            key: self.state.get_scoped_key(scope).cloned(),
             expires_at,
         };
         self.state
-            .access_token_cache
-            .insert(scope.to_string(), token_info.clone());
+            .add_cached_access_token(scope, token_info.clone());
         Ok(token_info)
     }
 
     /// Retrieve the current session token from state
     pub fn get_session_token(&self) -> Result<String> {
-        match self.state.session_token {
-            Some(ref session_token) => Ok(session_token.to_string()),
+        match self.state.session_token() {
+            Some(session_token) => Ok(session_token.to_string()),
             None => Err(Error::NoSessionToken),
         }
     }
 
     /// Check whether user is authorized using our refresh token.
     pub fn check_authorization_status(&mut self) -> Result<IntrospectInfo> {
-        let resp = match self.state.refresh_token {
-            Some(ref refresh_token) => {
+        let resp = match self.state.refresh_token() {
+            Some(refresh_token) => {
                 self.auth_circuit_breaker.check()?;
                 self.client
-                    .check_refresh_token_status(&self.state.config, &refresh_token.token)?
+                    .check_refresh_token_status(self.state.config(), &refresh_token.token)?
             }
             None => return Err(Error::NoRefreshToken),
         };
@@ -123,7 +122,7 @@ impl FirefoxAccount {
         entrypoint: &str,
         metrics: Option<MetricsParams>,
     ) -> Result<String> {
-        let mut url = self.state.config.pair_supp_url()?;
+        let mut url = self.state.config().pair_supp_url()?;
         url.query_pairs_mut().append_pair("entrypoint", entrypoint);
         if let Some(metrics) = metrics {
             metrics.append_params_to_url(&mut url);
@@ -147,10 +146,10 @@ impl FirefoxAccount {
         entrypoint: &str,
         metrics: Option<MetricsParams>,
     ) -> Result<String> {
-        let mut url = if self.state.last_seen_profile.is_some() {
-            self.state.config.oauth_force_auth_url()?
+        let mut url = if self.state.last_seen_profile().is_some() {
+            self.state.config().oauth_force_auth_url()?
         } else {
-            self.state.config.authorization_endpoint()?
+            self.state.config().authorization_endpoint()?
         };
 
         url.query_pairs_mut()
@@ -161,13 +160,13 @@ impl FirefoxAccount {
             metrics.append_params_to_url(&mut url);
         }
 
-        if let Some(ref cached_profile) = self.state.last_seen_profile {
+        if let Some(cached_profile) = self.state.last_seen_profile() {
             url.query_pairs_mut()
                 .append_pair("email", &cached_profile.response.email);
         }
 
-        let scopes: Vec<String> = match self.state.refresh_token {
-            Some(ref refresh_token) => {
+        let scopes: Vec<String> = match self.state.refresh_token() {
+            Some(refresh_token) => {
                 // Union of the already held scopes and the one requested.
                 let mut all_scopes: Vec<String> = vec![];
                 all_scopes.extend(scopes.iter().map(ToString::to_string));
@@ -201,7 +200,7 @@ impl FirefoxAccount {
         // Validate request to ensure that the client is actually allowed to request
         // the scopes they requested
         let allowed_scopes = self.client.get_scoped_key_data(
-            &self.state.config,
+            self.state.config(),
             &session_token,
             &auth_params.client_id,
             &auth_params.scope.join(" "),
@@ -226,8 +225,7 @@ impl FirefoxAccount {
                     scoped_keys.insert(
                         scope,
                         self.state
-                            .scoped_keys
-                            .get(scope)
+                            .get_scoped_key(scope)
                             .ok_or_else(|| Error::NoScopedKey(scope.clone()))?,
                     );
                     Ok(())
@@ -256,7 +254,7 @@ impl FirefoxAccount {
         };
 
         let resp = self.client.create_authorization_code_using_session_token(
-            &self.state.config,
+            self.state.config(),
             &session_token,
             auth_request_params,
         )?;
@@ -275,7 +273,7 @@ impl FirefoxAccount {
         let jwk_json = serde_json::to_string(&jwk)?;
         let keys_jwk = base64::encode_config(jwk_json, base64::URL_SAFE_NO_PAD);
         url.query_pairs_mut()
-            .append_pair("client_id", &self.state.config.client_id)
+            .append_pair("client_id", &self.state.config().client_id)
             .append_pair("scope", &scopes.join(" "))
             .append_pair("state", &state)
             .append_pair("code_challenge_method", "S256")
@@ -283,16 +281,16 @@ impl FirefoxAccount {
             .append_pair("access_type", "offline")
             .append_pair("keys_jwk", &keys_jwk);
 
-        if self.state.config.redirect_uri == OAUTH_WEBCHANNEL_REDIRECT {
+        if self.state.config().redirect_uri == OAUTH_WEBCHANNEL_REDIRECT {
             url.query_pairs_mut()
                 .append_pair("context", "oauth_webchannel_v1");
         } else {
             url.query_pairs_mut()
-                .append_pair("redirect_uri", &self.state.config.redirect_uri);
+                .append_pair("redirect_uri", &self.state.config().redirect_uri);
         }
 
-        self.flow_store.insert(
-            state, // Since state is supposed to be unique, we use it to key our flows.
+        self.state.begin_oauth_flow(
+            state,
             OAuthFlow {
                 scoped_keys_flow: Some(scoped_keys_flow),
                 code_verifier,
@@ -308,12 +306,12 @@ impl FirefoxAccount {
     /// **💾 This method alters the persisted account state.**
     pub fn complete_oauth_flow(&mut self, code: &str, state: &str) -> Result<()> {
         self.clear_access_token_cache();
-        let oauth_flow = match self.flow_store.remove(state) {
+        let oauth_flow = match self.state.pop_oauth_flow(state) {
             Some(oauth_flow) => oauth_flow,
             None => return Err(Error::UnknownOAuthState),
         };
         let resp = self.client.create_refresh_token_using_authorization_code(
-            &self.state.config,
+            self.state.config(),
             code,
             &oauth_flow.code_verifier,
         )?;
@@ -326,51 +324,51 @@ impl FirefoxAccount {
         scoped_keys_flow: Option<ScopedKeysFlow>,
     ) -> Result<()> {
         let sync_scope_granted = resp.scope.split(' ').any(|s| s == scopes::OLD_SYNC);
-        if let Some(ref jwe) = resp.keys_jwe {
-            let scoped_keys_flow = scoped_keys_flow.ok_or({
-                Error::UnrecoverableServerError("Got a JWE but have no JWK to decrypt it.")
-            })?;
-            let decrypted_keys = scoped_keys_flow.decrypt_keys_jwe(jwe)?;
-            let scoped_keys: serde_json::Map<String, serde_json::Value> =
-                serde_json::from_str(&decrypted_keys)?;
-            if sync_scope_granted && !scoped_keys.contains_key(scopes::OLD_SYNC) {
-                error_support::report_error!(
-                    "fxaclient-scoped-key",
-                    "Sync scope granted, but no sync scoped key (scope granted: {}, key scopes: {})",
-                    resp.scope,
-                    scoped_keys.keys().map(|s| s.as_ref()).collect::<Vec<&str>>().join(", ")
-                );
+        let scoped_keys = match resp.keys_jwe {
+            Some(ref jwe) => {
+                let scoped_keys_flow = scoped_keys_flow.ok_or(Error::ApiClientError(
+                    "Got a JWE but have no JWK to decrypt it.",
+                ))?;
+                let decrypted_keys = scoped_keys_flow.decrypt_keys_jwe(jwe)?;
+                let scoped_keys: serde_json::Map<String, serde_json::Value> =
+                    serde_json::from_str(&decrypted_keys)?;
+                if sync_scope_granted && !scoped_keys.contains_key(scopes::OLD_SYNC) {
+                    error_support::report_error!(
+                        "fxaclient-scoped-key",
+                        "Sync scope granted, but no sync scoped key (scope granted: {}, key scopes: {})",
+                        resp.scope,
+                        scoped_keys.keys().map(|s| s.as_ref()).collect::<Vec<&str>>().join(", ")
+                    );
+                }
+                scoped_keys
+                    .into_iter()
+                    .map(|(scope, key)| Ok((scope, serde_json::from_value(key)?)))
+                    .collect::<Result<Vec<_>>>()?
             }
-            for (scope, key) in scoped_keys {
-                let scoped_key: ScopedKey = serde_json::from_value(key)?;
-                self.state.scoped_keys.insert(scope, scoped_key);
+            None => {
+                if sync_scope_granted {
+                    error_support::report_error!(
+                        "fxaclient-scoped-key",
+                        "Sync scope granted, but keys_jwe is None"
+                    );
+                }
+                vec![]
             }
-        } else if sync_scope_granted {
-            error_support::report_error!(
-                "fxaclient-scoped-key",
-                "Sync scope granted, but keys_jwe is None"
-            );
-        }
-
-        // If the client requested a 'tokens/session' OAuth scope then as part of the code
-        // exchange this will get a session_token in the response.
-        if resp.session_token.is_some() {
-            self.state.session_token = resp.session_token;
-        }
+        };
 
         // We are only interested in the refresh token at this time because we
         // don't want to return an over-scoped access token.
         // Let's be good citizens and destroy this access token.
         if let Err(err) = self
             .client
-            .destroy_access_token(&self.state.config, &resp.access_token)
+            .destroy_access_token(self.state.config(), &resp.access_token)
         {
             log::warn!("Access token destruction failure: {:?}", err);
         }
-        let old_refresh_token = self.state.refresh_token.clone();
-        let new_refresh_token = resp.refresh_token.ok_or(Error::UnrecoverableServerError(
-            "No refresh token in response",
-        ))?;
+        let old_refresh_token = self.state.refresh_token().cloned();
+        let new_refresh_token = resp
+            .refresh_token
+            .ok_or(Error::ApiClientError("No refresh token in response"))?;
         // Destroying a refresh token also destroys its associated device,
         // grab the device information for replication later.
         let old_device_info = match old_refresh_token {
@@ -383,16 +381,12 @@ impl FirefoxAccount {
             },
             None => None,
         };
-        self.state.refresh_token = Some(RefreshToken {
-            token: new_refresh_token,
-            scopes: resp.scope.split(' ').map(ToString::to_string).collect(),
-        });
         // In order to keep 1 and only 1 refresh token alive per client instance,
         // we also destroy the existing refresh token.
         if let Some(ref refresh_token) = old_refresh_token {
             if let Err(err) = self
                 .client
-                .destroy_refresh_token(&self.state.config, &refresh_token.token)
+                .destroy_refresh_token(self.state.config(), &refresh_token.token)
             {
                 log::warn!("Refresh token destruction failure: {:?}", err);
             }
@@ -407,9 +401,14 @@ impl FirefoxAccount {
                 log::warn!("Device information restoration failed: {:?}", err);
             }
         }
-        // When our keys change, we might need to re-register device capabilities with the server.
-        // Ensure that this happens on the next call to ensure_capabilities.
-        self.state.device_capabilities.clear();
+        self.state.complete_oauth_flow(
+            scoped_keys,
+            RefreshToken {
+                token: new_refresh_token,
+                scopes: resp.scope.split(' ').map(ToString::to_string).collect(),
+            },
+            resp.session_token,
+        );
         Ok(())
     }
 
@@ -421,50 +420,30 @@ impl FirefoxAccount {
     ///
     /// **💾 This method alters the persisted account state.**
     pub fn handle_session_token_change(&mut self, session_token: &str) -> Result<()> {
-        let old_refresh_token = self
-            .state
-            .refresh_token
-            .as_ref()
-            .ok_or(Error::NoRefreshToken)?;
+        let old_refresh_token = self.state.refresh_token().ok_or(Error::NoRefreshToken)?;
         let scopes: Vec<&str> = old_refresh_token.scopes.iter().map(AsRef::as_ref).collect();
         let resp = self.client.create_refresh_token_using_session_token(
-            &self.state.config,
+            self.state.config(),
             session_token,
             &scopes,
         )?;
-        let new_refresh_token = resp.refresh_token.ok_or(Error::UnrecoverableServerError(
-            "No refresh token in response",
-        ))?;
-        self.state.refresh_token = Some(RefreshToken {
-            token: new_refresh_token,
-            scopes: resp.scope.split(' ').map(ToString::to_string).collect(),
-        });
-        self.state.session_token = Some(session_token.to_owned());
-        self.clear_access_token_cache();
+        let new_refresh_token = resp
+            .refresh_token
+            .ok_or(Error::ApiClientError("No refresh token in response"))?;
+        self.state.update_tokens(
+            session_token.to_owned(),
+            RefreshToken {
+                token: new_refresh_token,
+                scopes: resp.scope.split(' ').map(ToString::to_string).collect(),
+            },
+        );
         self.clear_devices_and_attached_clients_cache();
-        // When our keys change, we might need to re-register device capabilities with the server.
-        // Ensure that this happens on the next call to ensure_capabilities.
-        self.state.device_capabilities.clear();
         Ok(())
     }
 
     /// **💾 This method may alter the persisted account state.**
     pub fn clear_access_token_cache(&mut self) {
-        self.state.access_token_cache.clear();
-    }
-
-    #[cfg(feature = "integration_test")]
-    pub fn new_logged_in(
-        config: super::Config,
-        session_token: &str,
-        scoped_keys: HashMap<String, ScopedKey>,
-    ) -> Self {
-        let mut fxa = FirefoxAccount::with_config(config);
-        fxa.state.session_token = Some(session_token.to_owned());
-        scoped_keys.iter().for_each(|(key, val)| {
-            fxa.state.scoped_keys.insert(key.to_string(), val.clone());
-        });
-        fxa
+        self.state.clear_access_token_cache();
     }
 }
 
@@ -608,13 +587,11 @@ mod tests {
 
     impl FirefoxAccount {
         pub fn add_cached_token(&mut self, scope: &str, token_info: AccessTokenInfo) {
-            self.state
-                .access_token_cache
-                .insert(scope.to_string(), token_info);
+            self.state.add_cached_access_token(scope, token_info);
         }
 
         pub fn set_session_token(&mut self, session_token: &str) {
-            self.state.session_token = Some(session_token.to_owned());
+            self.state.force_session_token(session_token.to_owned());
         }
     }
 
@@ -881,7 +858,7 @@ mod tests {
         let mut fxa = FirefoxAccount::with_config(config);
 
         let refresh_token_scopes = std::collections::HashSet::new();
-        fxa.state.refresh_token = Some(RefreshToken {
+        fxa.state.force_refresh_token(RefreshToken {
             token: "refresh_token".to_owned(),
             scopes: refresh_token_scopes,
         });
@@ -905,7 +882,7 @@ mod tests {
         let mut fxa = FirefoxAccount::with_config(config);
 
         let refresh_token_scopes = std::collections::HashSet::new();
-        fxa.state.refresh_token = Some(RefreshToken {
+        fxa.state.force_refresh_token(RefreshToken {
             token: "refresh_token".to_owned(),
             scopes: refresh_token_scopes,
         });

@@ -20,12 +20,9 @@ tasks:
                   else:
                       $if: 'tasks_for == "github-pull-request"'
                       then: '${event.pull_request.user.login}@users.noreply.github.com'
-                      else:
-                          $if: 'tasks_for == "github-release"'
-                          then: '${event.sender.login}@users.noreply.github.com'
 
           baseRepoUrl:
-              $if: 'tasks_for in ["github-push", "github-release"]'
+              $if: 'tasks_for == "github-push"'
               then: '${event.repository.html_url}'
               else:
                   $if: 'tasks_for == "github-pull-request"'
@@ -34,7 +31,7 @@ tasks:
                       $if: 'tasks_for in ["cron", "action"]'
                       then: '${repository.url}'
           repoUrl:
-              $if: 'tasks_for in ["github-push", "github-release"]'
+              $if: 'tasks_for == "github-push"'
               then: '${event.repository.html_url}'
               else:
                   $if: 'tasks_for == "github-pull-request"'
@@ -43,7 +40,7 @@ tasks:
                       $if: 'tasks_for in ["cron", "action"]'
                       then: '${repository.url}'
           project:
-              $if: 'tasks_for in ["github-push", "github-release"]'
+              $if: 'tasks_for == "github-push"'
               then: '${event.repository.name}'
               else:
                   $if: 'tasks_for == "github-pull-request"'
@@ -58,11 +55,8 @@ tasks:
                   $if: 'tasks_for == "github-push"'
                   then: ${event.ref}
                   else:
-                      $if: 'tasks_for == "github-release"'
-                      then: '${event.release.target_commitish}'
-                      else:
-                          $if: 'tasks_for in ["cron", "action"]'
-                          then: '${push.branch}'
+                      $if: 'tasks_for in ["cron", "action"]'
+                      then: '${push.branch}'
           head_sha:
               $if: 'tasks_for == "github-push"'
               then: '${event.after}'
@@ -70,15 +64,8 @@ tasks:
                   $if: 'tasks_for == "github-pull-request"'
                   then: '${event.pull_request.head.sha}'
                   else:
-                      $if: 'tasks_for == "github-release"'
-                      then: '${event.release.tag_name}'
-                      else:
-                          $if: 'tasks_for in ["cron", "action"]'
-                          then: '${push.revision}'
-          head_tag:
-              $if: 'tasks_for == "github-release"'
-              then: '${event.release.tag_name}'
-              else: ''
+                      $if: 'tasks_for in ["cron", "action"]'
+                      then: '${push.revision}'
           ownTaskId:
               $if: '"github" in tasks_for'
               then: {$eval: as_slugid("decision_task")}
@@ -89,20 +76,15 @@ tasks:
               $if: 'tasks_for == "github-pull-request"'
               then: ${event.action}
               else: 'UNDEFINED'
-          releaseAction:
-              $if: 'tasks_for == "github-release"'
-              then: ${event.action}
-              else: 'UNDEFINED'
       in:
           $if: >
             tasks_for in ["action", "cron"]
             || (tasks_for == "github-pull-request" && pullRequestAction in ["opened", "reopened", "synchronize"])
             || (tasks_for == "github-push" && (head_branch == "refs/heads/main" || head_branch[:19] == "refs/heads/release-"))
-            || (tasks_for == "github-release" && releaseAction == "published")
           then:
               $let:
                   level:
-                      $if: 'tasks_for in ["github-push", "github-release", "action", "cron"] && repoUrl == "https://github.com/mozilla/application-services"'
+                      $if: 'tasks_for in ["github-push", "action", "cron"] && repoUrl == "https://github.com/mozilla/application-services"'
                       then: '3'
                       else: '1'
                   short_head_branch:
@@ -127,7 +109,7 @@ tasks:
                           $merge:
                               - owner: "${ownerEmail}"
                                 source: '${repoUrl}/raw/${head_sha}/.taskcluster.yml'
-                              - $if: 'tasks_for in ["github-push", "github-pull-request", "github-release"]'
+                              - $if: 'tasks_for in ["github-push", "github-pull-request"]'
                                 then:
                                     name: "Decision Task"
                                     description: 'The task that creates all of the other tasks in the task graph'
@@ -185,16 +167,12 @@ tasks:
                               then:
                                   - 'assume:repo:github.com/${event.pull_request.base.repo.full_name}:pull-request'
                               else:
-                                  $if: 'tasks_for == "github-release"'
+                                  $if: 'tasks_for == "action"'
                                   then:
-                                      - 'assume:repo:${repoUrl[8:]}:release:${releaseAction}'
+                                      # when all actions are hooks, we can calculate this directly rather than using a variable
+                                      - '${action.repo_scope}'
                                   else:
-                                      $if: 'tasks_for == "action"'
-                                      then:
-                                          # when all actions are hooks, we can calculate this directly rather than using a variable
-                                          - '${action.repo_scope}'
-                                      else:
-                                          - 'assume:repo:${repoUrl[8:]}:cron:${cron.job_name}'
+                                      - 'assume:repo:${repoUrl[8:]}:cron:${cron.job_name}'
                       requires: all-completed
                       priority: lowest
                       retries: 5
@@ -208,7 +186,6 @@ tasks:
                                     APPSERVICES_HEAD_REPOSITORY: '${repoUrl}'
                                     APPSERVICES_HEAD_REF: '${head_branch}'
                                     APPSERVICES_HEAD_REV: '${head_sha}'
-                                    APPSERVICES_HEAD_TAG: '${head_tag}'
                                     APPSERVICES_PIP_REQUIREMENTS: taskcluster/requirements.txt
                                     APPSERVICES_REPOSITORY_TYPE: git
                                     REPOSITORIES: {$json: {appservices: "Application Services"}}
@@ -265,7 +242,6 @@ tasks:
                                     --head-repository="$APPSERVICES_HEAD_REPOSITORY"
                                     --head-ref="$APPSERVICES_HEAD_REF"
                                     --head-rev="$APPSERVICES_HEAD_REV"
-                                    --head-tag="$APPSERVICES_HEAD_TAG"
                                     --repository-type="$APPSERVICES_REPOSITORY_TYPE"
                                     --tasks-for='${tasks_for}'
                                     ${extraArgs}
@@ -292,15 +268,11 @@ tasks:
                                           then:
                                               symbol: D
                                           else:
-                                              $if: 'tasks_for == "github-release"'
+                                              $if: 'tasks_for == "action"'
                                               then:
-                                                  symbol: 'ship_app_services'
-                                              else:
-                                                  $if: 'tasks_for == "action"'
-                                                  then:
-                                                      groupName: 'action-callback'
-                                                      groupSymbol: AC
-                                                      symbol: "${action.symbol}"
+                                                  groupName: 'action-callback'
+                                                  groupSymbol: AC
+                                                  symbol: "${action.symbol}"
                               - $if: 'tasks_for == "action"'
                                 then:
                                     parent: '${action.taskGroupId}'

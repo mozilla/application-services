@@ -2,6 +2,10 @@
 * License, v. 2.0. If a copy of the MPL was not distributed with this
 * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
+use crate::enrollment::DisqualifiedReason;
+use crate::tests::helpers::{
+    get_bucketed_rollout, get_targeted_experiment, to_local_experiments_string,
+};
 use crate::{
     behavior::{
         EventStore, Interval, IntervalConfig, IntervalData, MultiIntervalCounter,
@@ -30,6 +34,7 @@ fn test_telemetry_reset() -> Result<()> {
     let tmp_dir = tempfile::tempdir()?;
     let client = NimbusClient::new(
         AppContext::default(),
+        Default::default(),
         tmp_dir.path(),
         None,
         AvailableRandomizationUnits {
@@ -107,6 +112,7 @@ fn test_installation_date() -> Result<()> {
     };
     let client = NimbusClient::new(
         app_context.clone(),
+        Default::default(),
         tmp_dir.path(),
         None,
         AvailableRandomizationUnits {
@@ -143,6 +149,7 @@ fn test_installation_date() -> Result<()> {
     app_context.installation_date = None;
     let client = NimbusClient::new(
         app_context.clone(),
+        Default::default(),
         tmp_dir.path(),
         None,
         AvailableRandomizationUnits {
@@ -166,6 +173,7 @@ fn test_installation_date() -> Result<()> {
     // we wipe any non-persistent memory
     let client = NimbusClient::new(
         app_context.clone(),
+        Default::default(),
         tmp_dir.path(),
         None,
         AvailableRandomizationUnits {
@@ -197,6 +205,7 @@ fn test_installation_date() -> Result<()> {
     // Step 4: We test that if the storage is clear, we will fallback to the
     let client = NimbusClient::new(
         app_context,
+        Default::default(),
         tmp_dir.path(),
         None,
         AvailableRandomizationUnits {
@@ -228,6 +237,7 @@ fn test_days_since_calculation_happens_at_startup() -> Result<()> {
     };
     let client = NimbusClient::new(
         app_context.clone(),
+        Default::default(),
         tmp_dir.path(),
         None,
         Default::default(),
@@ -251,7 +261,13 @@ fn test_days_since_calculation_happens_at_startup() -> Result<()> {
     // 2. This is the new case: exactly one of initialize() or apply_pending_experiments()
     // is called during start up.
     // This case ensures that dates are available after apply_pending_experiments().
-    let client = NimbusClient::new(app_context, tmp_dir.path(), None, Default::default())?;
+    let client = NimbusClient::new(
+        app_context,
+        Default::default(),
+        tmp_dir.path(),
+        None,
+        Default::default(),
+    )?;
     client.apply_pending_experiments()?;
     let targeting_attributes = client.get_targeting_attributes();
     assert!(matches!(targeting_attributes.days_since_install, Some(3)));
@@ -266,6 +282,7 @@ fn test_days_since_update_changes_with_context() -> Result<()> {
     let tmp_dir = tempfile::tempdir()?;
     let client = NimbusClient::new(
         AppContext::default(),
+        Default::default(),
         tmp_dir.path(),
         None,
         AvailableRandomizationUnits {
@@ -287,6 +304,7 @@ fn test_days_since_update_changes_with_context() -> Result<()> {
     };
     let client = NimbusClient::new(
         app_context.clone(),
+        Default::default(),
         tmp_dir.path(),
         None,
         AvailableRandomizationUnits {
@@ -315,6 +333,7 @@ fn test_days_since_update_changes_with_context() -> Result<()> {
     // the update_date should not change
     let client = NimbusClient::new(
         app_context.clone(),
+        Default::default(),
         tmp_dir.path(),
         None,
         AvailableRandomizationUnits {
@@ -349,6 +368,7 @@ fn test_days_since_update_changes_with_context() -> Result<()> {
     app_context.app_version = Some("v94.0.1".into()); // A different version
     let client = NimbusClient::new(
         app_context,
+        Default::default(),
         tmp_dir.path(),
         None,
         AvailableRandomizationUnits {
@@ -391,6 +411,7 @@ fn test_days_since_install() -> Result<()> {
     };
     let mut client = NimbusClient::new(
         app_context.clone(),
+        Default::default(),
         temp_dir.path(),
         None,
         AvailableRandomizationUnits {
@@ -469,6 +490,7 @@ fn test_days_since_install_failed_targeting() -> Result<()> {
     };
     let mut client = NimbusClient::new(
         app_context.clone(),
+        Default::default(),
         temp_dir.path(),
         None,
         AvailableRandomizationUnits {
@@ -546,6 +568,7 @@ fn test_days_since_update() -> Result<()> {
     };
     let mut client = NimbusClient::new(
         app_context.clone(),
+        Default::default(),
         temp_dir.path(),
         None,
         AvailableRandomizationUnits {
@@ -624,6 +647,7 @@ fn test_days_since_update_failed_targeting() -> Result<()> {
     };
     let mut client = NimbusClient::new(
         app_context.clone(),
+        Default::default(),
         temp_dir.path(),
         None,
         AvailableRandomizationUnits {
@@ -714,6 +738,7 @@ fn event_store_exists_for_apply_pending_experiments() -> Result<()> {
     };
     let mut client = NimbusClient::new(
         app_context.clone(),
+        Default::default(),
         temp_dir.path(),
         None,
         AvailableRandomizationUnits {
@@ -836,6 +861,7 @@ fn event_store_on_targeting_attributes_is_updated_after_an_event_is_recorded() -
     };
     let mut client = NimbusClient::new(
         app_context.clone(),
+        Default::default(),
         temp_dir.path(),
         None,
         AvailableRandomizationUnits {
@@ -934,7 +960,7 @@ fn test_ios_rollout() -> Result<()> {
         ..Default::default()
     };
     let tmp_dir = TempDir::new()?;
-    let client = NimbusClient::new(ctx, tmp_dir.path(), None, aru)?;
+    let client = NimbusClient::new(ctx, Default::default(), tmp_dir.path(), None, aru)?;
 
     let exp = get_ios_rollout_experiment();
     let data = json!({
@@ -948,5 +974,243 @@ fn test_ios_rollout() -> Result<()> {
     let branch = client.get_experiment_branch(exp.slug)?;
     assert_eq!(branch, Some("control".to_string()));
     client.dump_state_to_log()?;
+    Ok(())
+}
+
+#[test]
+fn test_fetch_enabled() -> Result<()> {
+    let ctx = AppContext {
+        app_name: "firefox_ios".to_string(),
+        channel: "release".to_string(),
+        locale: Some("en-GB".to_string()),
+        app_version: Some("114.0".to_string()),
+        ..Default::default()
+    };
+    let tmp_dir = TempDir::new()?;
+    let client = NimbusClient::new(
+        ctx.clone(),
+        Default::default(),
+        tmp_dir.path(),
+        None,
+        Default::default(),
+    )?;
+    client.set_fetch_enabled(false)?;
+
+    assert!(!client.is_fetch_enabled()?);
+    drop(client);
+
+    let client = NimbusClient::new(
+        ctx,
+        Default::default(),
+        tmp_dir.path(),
+        None,
+        Default::default(),
+    )?;
+    assert!(!client.is_fetch_enabled()?);
+    Ok(())
+}
+
+#[test]
+fn test_active_enrollment_in_targeting() -> Result<()> {
+    let mock_client_id = "client-1".to_string();
+
+    let temp_dir = tempfile::tempdir()?;
+
+    let app_context = AppContext {
+        app_name: "fenix".to_string(),
+        app_id: "org.mozilla.fenix".to_string(),
+        channel: "nightly".to_string(),
+        ..Default::default()
+    };
+    let mut client = NimbusClient::new(
+        app_context.clone(),
+        Default::default(),
+        temp_dir.path(),
+        None,
+        AvailableRandomizationUnits {
+            client_id: Some(mock_client_id),
+            ..AvailableRandomizationUnits::default()
+        },
+    )?;
+    let targeting_attributes = TargetingAttributes {
+        app_context,
+        ..Default::default()
+    };
+    client.with_targeting_attributes(targeting_attributes);
+    client.initialize()?;
+
+    // Apply an initial experiment
+    let exp = get_targeted_experiment("test-1", "true");
+    client.set_experiments_locally(to_local_experiments_string(&[exp])?)?;
+    client.apply_pending_experiments()?;
+
+    let active_experiments = client.get_active_experiments()?;
+    assert_eq!(active_experiments.len(), 1);
+
+    let targeting_helper = client.create_targeting_helper(None)?;
+    assert!(targeting_helper.eval_jexl("'test-1' in active_experiments".to_string())?);
+
+    // Apply experiment that targets the above experiment is in enrollments
+    let exp = get_targeted_experiment("test-2", "'test-1' in enrollments");
+    client.set_experiments_locally(to_local_experiments_string(&[exp])?)?;
+    client.apply_pending_experiments()?;
+
+    let active_experiments = client.get_active_experiments()?;
+    assert_eq!(active_experiments.len(), 1);
+
+    let targeting_helper = client.create_targeting_helper(None)?;
+    assert!(!targeting_helper.eval_jexl("'test-1' in active_experiments".to_string())?);
+    assert!(targeting_helper.eval_jexl("'test-2' in active_experiments".to_string())?);
+    assert!(targeting_helper.eval_jexl("'test-1' in enrollments".to_string())?);
+    assert!(targeting_helper.eval_jexl("'test-2' in enrollments".to_string())?);
+
+    Ok(())
+}
+
+#[test]
+fn test_previous_enrollments_in_targeting() -> Result<()> {
+    let mock_client_id = "client-1".to_string();
+
+    let temp_dir = tempfile::tempdir()?;
+
+    let slug_1 = "experiment-1-was-enrolled";
+    let slug_2 = "experiment-2-dq-not-targeted";
+    let slug_3 = "experiment-3-dq-error";
+    let slug_4 = "experiment-4-dq-opt-out";
+    let slug_5 = "rollout-1-dq-not-selected";
+
+    let app_context = AppContext {
+        app_name: "fenix".to_string(),
+        app_id: "org.mozilla.fenix".to_string(),
+        channel: "nightly".to_string(),
+        ..Default::default()
+    };
+    let mut client = NimbusClient::new(
+        app_context.clone(),
+        Default::default(),
+        temp_dir.path(),
+        None,
+        AvailableRandomizationUnits {
+            client_id: Some(mock_client_id),
+            ..AvailableRandomizationUnits::default()
+        },
+    )?;
+
+    let targeting_attributes = TargetingAttributes {
+        app_context,
+        ..Default::default()
+    };
+    client.with_targeting_attributes(targeting_attributes);
+    client.initialize()?;
+
+    // Apply an initial experiment
+    let exp_1 = get_targeted_experiment(slug_1, "true");
+    let exp_2 = get_targeted_experiment(slug_2, "true");
+    let exp_3 = get_targeted_experiment(slug_3, "true");
+    let exp_4 = get_targeted_experiment(slug_4, "true");
+    let ro_1 = get_bucketed_rollout(slug_5, 10_000);
+    client.set_experiments_locally(to_local_experiments_string(&[
+        exp_1,
+        exp_2,
+        exp_3,
+        exp_4,
+        serde_json::to_value(ro_1)?,
+    ])?)?;
+    client.apply_pending_experiments()?;
+
+    let active_experiments = client.get_active_experiments()?;
+    assert_eq!(active_experiments.len(), 5);
+
+    let targeting_helper = client.create_targeting_helper(None)?;
+    assert!(targeting_helper.eval_jexl(format!("'{}' in active_experiments", slug_1))?);
+    assert!(targeting_helper.eval_jexl(format!("'{}' in active_experiments", slug_2))?);
+    assert!(targeting_helper.eval_jexl(format!("'{}' in active_experiments", slug_3))?);
+    assert!(targeting_helper.eval_jexl(format!("'{}' in active_experiments", slug_4))?);
+    assert!(targeting_helper.eval_jexl(format!("'{}' in active_experiments", slug_5))?);
+    assert!(targeting_helper.eval_jexl(format!("'{}' in enrollments", slug_1))?);
+    assert!(targeting_helper.eval_jexl(format!("'{}' in enrollments", slug_2))?);
+    assert!(targeting_helper.eval_jexl(format!("'{}' in enrollments", slug_3))?);
+    assert!(targeting_helper.eval_jexl(format!("'{}' in enrollments", slug_4))?);
+    assert!(targeting_helper.eval_jexl(format!("'{}' in enrollments", slug_5))?);
+
+    // Apply empty first experiment, disqualifying second experiment, and decreased bucket rollout
+    let exp_2 = get_targeted_experiment(slug_2, "false");
+    let exp_3 = get_targeted_experiment(slug_3, "error_out");
+    let exp_4 = get_targeted_experiment(slug_4, "true");
+    let ro_1 = get_bucketed_rollout(slug_5, 0);
+    let experiment_json = serde_json::to_string(
+        &json!({"data": [exp_2, exp_3, exp_4, serde_json::to_value(ro_1)?]}),
+    )?;
+    client.set_experiments_locally(experiment_json)?;
+    client.apply_pending_experiments()?;
+    client.opt_out(slug_4.to_string())?;
+
+    let active_experiments = client.get_active_experiments()?;
+    assert_eq!(active_experiments.len(), 0);
+    let db = client.db()?;
+    let enrollments: Vec<ExperimentEnrollment> = db
+        .get_store(StoreId::Enrollments)
+        .collect_all(&db.write()?)?;
+    assert_eq!(enrollments.len(), 5);
+    assert!(matches!(
+        enrollments.get(0).unwrap(),
+        ExperimentEnrollment {
+            slug: _slug_1,
+            status: EnrollmentStatus::WasEnrolled { .. }
+        }
+    ));
+    assert!(matches!(
+        enrollments.get(1).unwrap(),
+        ExperimentEnrollment {
+            slug: _slug_2,
+            status: EnrollmentStatus::Disqualified {
+                reason: DisqualifiedReason::NotTargeted,
+                ..
+            }
+        }
+    ));
+    assert!(matches!(
+        enrollments.get(2).unwrap(),
+        ExperimentEnrollment {
+            slug: _slug_3,
+            status: EnrollmentStatus::Disqualified {
+                reason: DisqualifiedReason::Error,
+                ..
+            }
+        }
+    ));
+    assert!(matches!(
+        enrollments.get(3).unwrap(),
+        ExperimentEnrollment {
+            slug: _slug_4,
+            status: EnrollmentStatus::Disqualified {
+                reason: DisqualifiedReason::OptOut,
+                ..
+            }
+        }
+    ));
+    assert!(matches!(
+        enrollments.get(4).unwrap(),
+        ExperimentEnrollment {
+            slug: _slug_5,
+            status: EnrollmentStatus::Disqualified {
+                reason: DisqualifiedReason::NotSelected,
+                ..
+            }
+        }
+    ));
+
+    let targeting_helper = client.create_targeting_helper(None)?;
+    assert!(!targeting_helper.eval_jexl(format!("'{}' in active_experiments", slug_1))?);
+    assert!(!targeting_helper.eval_jexl(format!("'{}' in active_experiments", slug_2))?);
+    assert!(!targeting_helper.eval_jexl(format!("'{}' in active_experiments", slug_3))?);
+    assert!(!targeting_helper.eval_jexl(format!("'{}' in active_experiments", slug_4))?);
+    assert!(!targeting_helper.eval_jexl(format!("'{}' in active_experiments", slug_5))?);
+    assert!(targeting_helper.eval_jexl(format!("'{}' in enrollments", slug_1))?);
+    assert!(targeting_helper.eval_jexl(format!("'{}' in enrollments", slug_2))?);
+    assert!(targeting_helper.eval_jexl(format!("'{}' in enrollments", slug_3))?);
+    assert!(targeting_helper.eval_jexl(format!("'{}' in enrollments", slug_4))?);
+    assert!(targeting_helper.eval_jexl(format!("'{}' in enrollments", slug_5))?);
+
     Ok(())
 }

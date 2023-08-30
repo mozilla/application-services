@@ -47,6 +47,7 @@ class GleanPlumbTests {
         val nimbus = Nimbus(
             context = context,
             appInfo = developmentAppInfo,
+            coenrollingFeatureIds = listOf(),
             server = null,
             deviceInfo = deviceInfo,
             delegate = nimbusDelegate,
@@ -72,6 +73,7 @@ class GleanPlumbTests {
         val nimbus = Nimbus(
             context = context,
             appInfo = developmentAppInfo,
+            coenrollingFeatureIds = listOf(),
             server = null,
             deviceInfo = deviceInfo,
             delegate = nimbusDelegate,
@@ -107,6 +109,7 @@ class GleanPlumbTests {
         val nimbus = Nimbus(
             context = context,
             appInfo = developmentAppInfo,
+            coenrollingFeatureIds = listOf(),
             server = null,
             deviceInfo = deviceInfo,
             delegate = nimbusDelegate,

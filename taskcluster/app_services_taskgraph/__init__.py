@@ -2,18 +2,18 @@
 # License, v. 2.0. If a copy of the MPL was not distributed with this
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 
-
 from importlib import import_module
 from voluptuous import Optional
 import os
 import re
 
 from taskgraph.parameters import extend_parameters_schema
+from mozilla_taskgraph import register as mozilla_taskgraph_register
+
 from . import branch_builds
-from .build_config import get_version_from_build_config
+from .build_config import get_version_from_version_txt
 
 PREVIEW_RE = re.compile(r'\[preview ([\w-]+)\]')
-
 def register(graph_config):
     # Import modules to register decorated functions
     _import_modules([
@@ -27,8 +27,14 @@ def register(graph_config):
 
     extend_parameters_schema({
         Optional('branch-build'): {
-            Optional('firefox-android-owner'): str,
-            Optional('firefox-android-branch'): str,
+            Optional('firefox-android'): {
+                Optional('owner'): str,
+                Optional('branch'): str,
+            },
+            Optional('firefox-ios'): {
+                Optional('owner'): str,
+                Optional('branch'): str,
+            },
         },
         # Publish a "preview build" for a future version.  This is set to
         # "nightly" for the nightly builds.  Other strings indicate making a
@@ -38,28 +44,16 @@ def register(graph_config):
         'release-type': Optional(str),
     })
 
+    # Register mozilla-taskgraph extensions
+    mozilla_taskgraph_register(graph_config)
+
+
 def _import_modules(modules):
     for module in modules:
         import_module(f".{module}", package=__name__)
 
 def get_decision_parameters(graph_config, parameters):
-    if parameters["tasks_for"] == "github-release":
-        head_tag = parameters["head_tag"]
-        if not head_tag:
-            raise ValueError(
-                "Cannot run github-release if `head_tag` is not defined. Got {}".format(
-                    head_tag
-                )
-            )
-        version = get_version_from_build_config()
-        # XXX: tags are in the format of `v<semver>`
-        if head_tag[1:] != version:
-            raise ValueError(
-                "Cannot run github-release if tag {} is different than in-tree "
-                "{version} from buildconfig.yml".format(head_tag[1:], version)
-            )
-        parameters["target_tasks_method"] = "full"
-    elif parameters["tasks_for"] == "github-pull-request":
+    if parameters["tasks_for"] == "github-pull-request":
         pr_title = os.environ.get("APPSERVICES_PULL_REQUEST_TITLE", "")
         preview_match = PREVIEW_RE.search(pr_title)
         if preview_match is not None:

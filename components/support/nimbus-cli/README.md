@@ -19,16 +19,21 @@ The apps currently supported are:
 ## Usage
 
 ```sh
-Usage: nimbus-cli [OPTIONS] --app <APP> --channel <CHANNEL> <COMMAND>
+Usage: nimbus-cli [OPTIONS] <COMMAND>
 
 Commands:
   apply-file    Send a complete JSON file to the Nimbus SDK and apply it immediately
   capture-logs  Capture the logs into a file
+  defaults      Print the defaults for the manifest
   enroll        Enroll into an experiment or a rollout
-  fetch         Fetch one or more experiments and put it in a file
+  features      Print the feature configuration involved in the branch of an experiment
+  fetch         Fetch one or more named experiments and rollouts and put them in a file
+  fetch-list    Fetch a list of experiments and put it in a file
+  info          Displays information about an experiment
   list          List the experiments from a server
   log-state     Print the state of the Nimbus database to logs
   open          Open the app without changing the state of experiment enrollments
+  start-server  Start a server
   reset-app     Reset the app back to its just installed state
   tail-logs     Follow the logs for the given app
   test-feature  Configure an application feature with one or more feature config files
@@ -56,16 +61,38 @@ The experiment slug is a combination of the actual slug, and the server it came 
 
 These can be further combined: e.g. $slug, preview/$slug, stage/$slug, stage/preview/$slug
 
-Usage: nimbus-cli --app <APP> --channel <CHANNEL> enroll [OPTIONS] --branch <BRANCH> <SLUG> [ROLLOUTS]...
+Usage: nimbus-cli --app <APP> --channel <CHANNEL> enroll [OPTIONS] --branch <BRANCH> <EXPERIMENT_SLUG> [ROLLOUTS]... [-- <PASSTHROUGH_ARGS>...]
 
 Arguments:
-  <SLUG>
+  <EXPERIMENT_SLUG>
           The experiment slug, including the server and collection
 
   [ROLLOUTS]...
           Optional rollout slugs, including the server and collection
 
+  [PASSTHROUGH_ARGS]...
+          Optionally, add platform specific arguments to the adb or xcrun command.
+
+          By default, arguments are added to the end of the command, likely to be passed directly to the app.
+
+          Arguments before a special placeholder `{}` are passed to `adb am start` or `xcrun simctl launch` commands directly.
+
 Options:
+      --file <EXPERIMENTS_FILE>
+          An optional file from which to get the experiment.
+
+          By default, the file is fetched from the server.
+
+      --use-rs
+          Use remote settings to fetch the experiment recipe.
+
+          By default, the file is fetched from the v6 api of experimenter.
+
+      --patch <PATCH_FILE>
+          An optional patch file, used to patch feature configurations
+
+          This is of the format that comes from the `features --multi` or `defaults` commands.
+
   -b, --branch <BRANCH>
           The branch slug
 
@@ -83,11 +110,8 @@ Options:
 
       --preserve-nimbus-db
           Keeps existing enrollments and experiments before enrolling.
-          
-          This is unlikely what you want to do.
 
-  -f, --file <FILE>
-          Instead of fetching from the server, use a file instead
+          This is unlikely what you want to do.
 
       --no-validate
           Don't validate the feature config files before enrolling
@@ -115,11 +139,24 @@ List the experiments from a server
 Usage: nimbus-cli --app <APP> --channel <CHANNEL> list [OPTIONS] [SERVER]
 
 Arguments:
-  [SERVER]  A server slug e.g. preview, release, stage, stage/preview
+  [SERVER]
+          A server slug e.g. preview, release, stage, stage/preview
+          
+          [default: ]
 
 Options:
-  -f, --file <FILE>  An optional file
-  -h, --help         Print help
+  -f, --file <FILE>
+          An optional file
+
+      --use-api
+          Use the v6 API to fetch the experiment recipes.
+          
+          By default, the file is fetched from the Remote Settings.
+          
+          The API contains *all* launched experiments, past and present, so this is considerably slower and longer than Remote Settings.
+
+  -h, --help
+          Print help (see a summary with '-h')
 ```
 
 ### Test Feature
@@ -129,7 +166,9 @@ Configure an application feature with one or more feature config files.
 
 One file per branch. The branch slugs will correspond to the file names.
 
-Usage: nimbus-cli --app <APP> --channel <CHANNEL> test-feature [OPTIONS] <FEATURE_ID> [FILES]...
+By default, the files are validated against the manifest; this can be overridden with `--no-validate`.
+
+Usage: nimbus-cli --app <APP> --channel <CHANNEL> test-feature [OPTIONS] <FEATURE_ID> [FILES]... [-- <PASSTHROUGH_ARGS>...]
 
 Arguments:
   <FEATURE_ID>
@@ -138,14 +177,38 @@ Arguments:
   [FILES]...
           One or more files containing a feature config for the feature
 
+  [PASSTHROUGH_ARGS]...
+          Optionally, add platform specific arguments to the adb or xcrun command.
+          
+          By default, arguments are added to the end of the command, likely to be passed directly to the app.
+          
+          Arguments before a special placeholder `{}` are passed to `adb am start` or `xcrun simctl launch` commands directly.
+
 Options:
+      --patch <PATCH_FILE>
+          An optional patch file, used to patch feature configurations
+          
+          This is of the format that comes from the `features --multi` or `defaults` commands.
+
+      --deeplink <DEEPLINK>
+          Optional deeplink. If present, launch with this link
+
       --reset-app
           Resets the app back to its initial state before launching
 
-      --deeplink <DEEPLINK>
-          Optional deeplink.
+      --no-validate
+          Don't validate the feature config files before enrolling
 
-          Instead of mimicking the app launcher, send open a URL to the device, which may or may not be handled by the app.
+      --manifest <MANIFEST_FILE>
+          An optional manifest file
+
+      --version <APP_VERSION>
+          An optional version of the app. If present, constructs the `ref` from an app specific template. Due to inconsistencies in branching names, this isn't always reliable
+
+      --ref <APP_VERSION>
+          The branch/tag/commit for the version of the manifest to get from Github
+          
+          [default: main]
 
   -h, --help
           Print help (see a summary with '-h')
@@ -157,4 +220,8 @@ Options:
 - `ADB_PATH` the path to `adb`.
 - `NIMBUS_URL` the URL to the RemoteSettings server; a default is supplied.
 - `NIMBUS_URL_STAGE` the URL to the staging RemoteSettings server; a default is supplied.
+- `NIMBUS_V6_URL` the host for the Experimenter, used as a basis for the calls to `/api/v6`; a default is supplied.
+- `NIMBUS_V6_URL_STAGE` the host for the staging Experimenter, used as a basis for the calls to `/api/v6`; a default is supplied.
 - `NIMBUS_MANIFEST_CACHE` the directory where remote Feature Manifests are cached. A temp directory is used as default.
+- `NIMBUS_CLI_SERVER_HOST` the IP address the server is on; defaults to the local IP address derived from the network interface.
+- `NIMBUS_CLI_SERVER_PORT` the port the server is on; defaults to 8080.

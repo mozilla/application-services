@@ -7,8 +7,6 @@ import Foundation
     import MozillaRustComponents
 #endif
 
-// swiftlint:disable type_body_length
-
 /// This class inherits from the Rust `FirefoxAccount` and adds:
 /// - Automatic state persistence through `PersistCallback`.
 /// - Auth error signaling through observer notifications.
@@ -30,11 +28,8 @@ class PersistedFirefoxAccount {
         self.inner = inner
     }
 
-    public convenience init(config: FxAConfig) {
-        self.init(inner: FirefoxAccount(contentUrl: config.contentUrl,
-                                        clientId: config.clientId,
-                                        redirectUri: config.redirectUri,
-                                        tokenServerUrlOverride: config.tokenServerUrlOverride))
+    public convenience init(config: FxaConfig) {
+        self.init(inner: FirefoxAccount(config: config))
     }
 
     /// Registers a persistance callback. The callback will get called every time
@@ -248,58 +243,6 @@ class PersistedFirefoxAccount {
         }
     }
 
-    // TODO: not sure why we switched to returning a bool for the Swift wrapper here,
-    // we should review and see if we can make it consistent with Rust and Kotlin.
-
-    public func migrateFromSessionToken(
-        sessionToken: String,
-        kSync: String,
-        kXCS: String,
-        copySessionToken: Bool
-    ) -> Bool {
-        defer { tryPersistState() }
-        do {
-            _ = try inner.migrateFromSessionToken(sessionToken: sessionToken,
-                                                  kSync: kSync,
-                                                  kXcs: kXCS,
-                                                  copySessionToken: copySessionToken)
-            return true
-        } catch {
-            FxALog.error("migrateFromSessionToken error: \(error).")
-            reportAccountMigrationError(error)
-            return false
-        }
-    }
-
-    public func retryMigrateFromSessionToken() -> Bool {
-        defer { tryPersistState() }
-        do {
-            _ = try inner.retryMigrateFromSessionToken()
-            return true
-        } catch {
-            FxALog.error("retryMigrateFromSessionToken error: \(error).")
-            reportAccountMigrationError(error)
-            return false
-        }
-    }
-
-    internal func reportAccountMigrationError(_ error: Error) {
-        // Not in migration state after throwing during migration == unrecoverable error.
-        if isInMigrationState() {
-            DispatchQueue.main.async {
-                NotificationCenter.default.post(
-                    name: .accountMigrationFailed,
-                    object: nil,
-                    userInfo: ["error": error]
-                )
-            }
-        }
-    }
-
-    public func isInMigrationState() -> Bool {
-        return inner.isInMigrationState() != .none
-    }
-
     private func tryPersistState() {
         guard let cb = persistCallback else {
             return
@@ -314,7 +257,7 @@ class PersistedFirefoxAccount {
         }
     }
 
-    internal func notifyAuthErrors<T>(_ cb: () throws -> T) rethrows -> T {
+    func notifyAuthErrors<T>(_ cb: () throws -> T) rethrows -> T {
         do {
             return try cb()
         } catch let error as FxaError {
@@ -326,7 +269,7 @@ class PersistedFirefoxAccount {
         }
     }
 
-    internal func notifyAuthError() {
+    func notifyAuthError() {
         NotificationCenter.default.post(name: .accountAuthException, object: nil)
     }
 }
@@ -334,5 +277,3 @@ class PersistedFirefoxAccount {
 public protocol PersistCallback {
     func persist(json: String)
 }
-
-// swiftlint:enable type_body_length

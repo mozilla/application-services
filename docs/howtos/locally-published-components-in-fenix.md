@@ -25,7 +25,7 @@ that comma separated list:
 
 ## Using the auto-publishing workflow
 
-Some consumers (notably [Fenix](https://github.com/mozilla-mobile/fenix/)) have support for
+Some consumers (notably [Fenix](https://github.com/mozilla-mobile/firefox-android/tree/main/fenix)) have support for
 automatically publishing and including a local development version of application-services
 in their build. The workflow is:
 
@@ -37,6 +37,9 @@ in their build. The workflow is:
 
    Note that the path should be relative from `local.properties`. For example, if `application-services`
    and `firefox-android` are at the same level, the relative path would be `../../application-services`
+1. Do the same for `android-components/local.properties` - so yes, your local checkout of `firefox-android`
+   requires 2 copies of `local.properties`, both with identical values for `autoPublish.application-services.dir`
+   (and probably identical in every other way too)
 1. Build the consuming project following its usual build procedure, e.g. via `./gradlew assembleDebug` or `./gradlew
    test`.
 
@@ -60,11 +63,11 @@ above. But if the auto-publishing workflow fails then it's important to know how
 on `android-components`, this procedure involves three separate repos:
 
 1. Inside the `application-services` repository root:
-    1. In [`.buildconfig-android.yml`](https://github.com/mozilla/application-services/blob/main/.buildconfig-android.yml), change
-       `libraryVersion` to end in `-TESTING$N` <sup><a href="#note1">1</a></sup>,
+    1. In [`version.txt`](https://github.com/mozilla/application-services/blob/main/version.txt), change
+       the version to end in `-TESTING$N` <sup><a href="#note1">1</a></sup>,
        where `$N` is some number that you haven't used for this before.
 
-       Example: `libraryVersion: 0.27.0-TESTING3`
+       Example: `0.27.0-TESTING3`
 
     2. Run `./gradlew publishToMavenLocal`. This may take between 5 and 10 minutes.
 

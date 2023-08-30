@@ -9,6 +9,8 @@ pub mod error;
 pub mod manager;
 mod types;
 
+pub use sync15::DeviceType;
+
 pub use error::{Result, SyncManagerError};
 pub use types::*;
 

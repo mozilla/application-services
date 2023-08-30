@@ -6,15 +6,20 @@ mod cli;
 mod cmd;
 mod config;
 mod feature_utils;
+mod output;
+mod protocol;
 mod sources;
 mod updater;
 mod value_utils;
 
 use anyhow::{bail, Result};
 use clap::Parser;
-use cli::{Cli, CliCommand};
+use cli::{Cli, CliCommand, ExperimentArgs, OpenArgs};
 use sources::{ExperimentListSource, ExperimentSource, ManifestSource};
 use std::{ffi::OsString, path::PathBuf};
+
+pub(crate) static USER_AGENT: &str =
+    concat!(env!("CARGO_PKG_NAME"), "/", env!("CARGO_PKG_VERSION"),);
 
 fn main() -> Result<()> {
     let cmds = get_commands_from_cli(std::env::args_os())?;
@@ -33,20 +38,33 @@ where
     I: IntoIterator<Item = T>,
     T: Into<OsString> + Clone,
 {
-    let cli = Cli::parse_from(args);
+    let cli = Cli::try_parse_from(args)?;
 
-    let app = LaunchableApp::try_from(&cli)?;
     let mut commands: Vec<AppCommand> = Default::default();
 
+    // We do this here to ensure that all the command line is valid
+    // with respect to the main command. We do this here becasue
+    // as the cli has expanded, we've changed when we need `--app`
+    // and `--channel`. We catch those types of errors early by doing this
+    // here.
+    let main_command = AppCommand::try_from(&cli)?;
+
+    // Validating the command line args. Most of this should be done with clap,
+    // but for everything else there's:
+    cli.command.check_valid()?;
+
+    // Validating experiments against manifests
     commands.push(AppCommand::try_validate(&cli)?);
 
     if cli.command.should_kill() {
-        commands.push(AppCommand::Kill { app: app.clone() });
+        let app = LaunchableApp::try_from(&cli)?;
+        commands.push(AppCommand::Kill { app });
     }
     if cli.command.should_reset() {
+        let app = LaunchableApp::try_from(&cli)?;
         commands.push(AppCommand::Reset { app });
     }
-    commands.push(AppCommand::try_from(&cli)?);
+    commands.push(main_command);
 
     Ok(commands)
 }
@@ -58,6 +76,7 @@ enum LaunchableApp {
         activity_name: String,
         device_id: Option<String>,
         scheme: Option<String>,
+        open_deeplink: Option<String>,
     },
     Ios {
         device_id: String,
@@ -68,8 +87,25 @@ enum LaunchableApp {
 
 #[derive(Clone, Debug, PartialEq)]
 pub(crate) struct NimbusApp {
-    app_name: String,
-    channel: String,
+    app_name: Option<String>,
+    channel: Option<String>,
+}
+
+impl NimbusApp {
+    #[cfg(test)]
+    fn new(app: &str, channel: &str) -> Self {
+        Self {
+            app_name: Some(app.to_string()),
+            channel: Some(channel.to_string()),
+        }
+    }
+
+    fn channel(&self) -> Option<String> {
+        self.channel.clone()
+    }
+    fn app_name(&self) -> Option<String> {
+        self.app_name.clone()
+    }
 }
 
 impl From<&Cli> for NimbusApp {
@@ -85,6 +121,7 @@ impl From<&Cli> for NimbusApp {
 enum AppCommand {
     ApplyFile {
         app: LaunchableApp,
+        open: AppOpenArgs,
         list: ExperimentListSource,
         preserve_nimbus_db: bool,
     },
@@ -92,6 +129,12 @@ enum AppCommand {
     CaptureLogs {
         app: LaunchableApp,
         file: PathBuf,
+    },
+
+    Defaults {
+        manifest: ManifestSource,
+        feature_id: Option<String>,
+        output: Option<PathBuf>,
     },
 
     Enroll {
@@ -103,19 +146,34 @@ enum AppCommand {
         preserve_targeting: bool,
         preserve_bucketing: bool,
         preserve_nimbus_db: bool,
-        deeplink: Option<String>,
+        open: AppOpenArgs,
+    },
+
+    ExtractFeatures {
+        experiment: ExperimentSource,
+        branch: String,
+        manifest: ManifestSource,
+
+        feature_id: Option<String>,
+        validate: bool,
+        multi: bool,
+
+        output: Option<PathBuf>,
     },
 
     FetchList {
-        params: NimbusApp,
         list: ExperimentListSource,
-        file: PathBuf,
+        file: Option<PathBuf>,
     },
 
-    FetchRecipes {
-        params: NimbusApp,
-        recipes: Vec<ExperimentSource>,
-        file: PathBuf,
+    FmlPassthrough {
+        args: Vec<OsString>,
+        cwd: PathBuf,
+    },
+
+    Info {
+        experiment: ExperimentSource,
+        output: Option<PathBuf>,
     },
 
     Kill {
@@ -123,12 +181,12 @@ enum AppCommand {
     },
 
     List {
-        params: NimbusApp,
         list: ExperimentListSource,
     },
 
     LogState {
         app: LaunchableApp,
+        open: AppOpenArgs,
     },
 
     // No Op, does nothing.
@@ -136,12 +194,15 @@ enum AppCommand {
 
     Open {
         app: LaunchableApp,
-        deeplink: Option<String>,
+        open: AppOpenArgs,
     },
 
     Reset {
         app: LaunchableApp,
     },
+
+    #[cfg(feature = "server")]
+    StartServer,
 
     TailLogs {
         app: LaunchableApp,
@@ -149,6 +210,7 @@ enum AppCommand {
 
     Unenroll {
         app: LaunchableApp,
+        open: AppOpenArgs,
     },
 
     ValidateExperiment {
@@ -198,39 +260,60 @@ impl TryFrom<&Cli> for AppCommand {
     type Error = anyhow::Error;
 
     fn try_from(cli: &Cli) -> Result<Self> {
-        let app = LaunchableApp::try_from(cli)?;
         let params = NimbusApp::from(cli);
         Ok(match cli.command.clone() {
             CliCommand::ApplyFile {
                 file,
                 preserve_nimbus_db,
+                open,
             } => {
+                let app = LaunchableApp::try_from(cli)?;
                 let list = ExperimentListSource::try_from(file.as_path())?;
                 AppCommand::ApplyFile {
                     app,
+                    open: open.into(),
                     list,
                     preserve_nimbus_db,
                 }
             }
-            CliCommand::CaptureLogs { file } => AppCommand::CaptureLogs { app, file },
+            CliCommand::CaptureLogs { file } => {
+                let app = LaunchableApp::try_from(cli)?;
+                AppCommand::CaptureLogs { app, file }
+            }
+            CliCommand::Defaults {
+                feature_id,
+                output,
+                manifest,
+            } => {
+                let manifest = ManifestSource::try_from(&params, &manifest)?;
+                AppCommand::Defaults {
+                    manifest,
+                    feature_id,
+                    output,
+                }
+            }
             CliCommand::Enroll {
                 branch,
                 rollouts,
                 preserve_targeting,
                 preserve_bucketing,
                 preserve_nimbus_db,
-                file,
+                experiment,
                 open,
                 ..
             } => {
-                let experiment = ExperimentSource::try_from(cli)?;
-                let mut recipes = Vec::new();
+                let app = LaunchableApp::try_from(cli)?;
+                // Ensure we get the rollouts from the same place we get the experiment from.
+                let mut recipes: Vec<ExperimentSource> = Vec::new();
                 for r in rollouts {
-                    recipes.push(match file.clone() {
-                        Some(file) => ExperimentSource::try_from_file(&file, r.as_str())?,
-                        _ => ExperimentSource::try_from(r.as_str())?,
-                    });
+                    let rollout = ExperimentArgs {
+                        experiment: r,
+                        ..experiment.clone()
+                    };
+                    recipes.push(ExperimentSource::try_from(&rollout)?);
                 }
+
+                let experiment = ExperimentSource::try_from(cli)?;
 
                 Self::Enroll {
                     app,
@@ -241,52 +324,69 @@ impl TryFrom<&Cli> for AppCommand {
                     preserve_targeting,
                     preserve_bucketing,
                     preserve_nimbus_db,
-                    deeplink: open.deeplink,
+                    open: open.into(),
                 }
             }
-            CliCommand::Fetch {
-                file,
-                server,
-                recipes,
+            CliCommand::Features {
+                manifest,
+                branch,
+                feature_id,
+                output,
+                validate,
+                multi,
+                ..
             } => {
-                if !server.is_empty() && !recipes.is_empty() {
-                    anyhow::bail!("Cannot fetch experiments AND from a server");
+                let manifest = ManifestSource::try_from(&params, &manifest)?;
+                let experiment = ExperimentSource::try_from(cli)?;
+                AppCommand::ExtractFeatures {
+                    experiment,
+                    branch,
+                    manifest,
+                    feature_id,
+                    validate,
+                    multi,
+                    output,
                 }
+            }
+            CliCommand::Fetch { output, .. } | CliCommand::FetchList { output, .. } => {
+                let list = ExperimentListSource::try_from(cli)?;
 
-                let mut sources = Vec::new();
-                if !recipes.is_empty() {
-                    for r in recipes {
-                        sources.push(ExperimentSource::try_from(r.as_str())?);
-                    }
-                    AppCommand::FetchRecipes {
-                        recipes: sources,
-                        file,
-                        params,
-                    }
-                } else {
-                    let list = ExperimentListSource::try_from(server.as_str())?;
-                    AppCommand::FetchList { list, file, params }
-                }
+                AppCommand::FetchList { list, file: output }
             }
-            CliCommand::List { server, file } => {
-                if server.is_some() && file.is_some() {
-                    bail!("list supports only a file or a server at the same time")
-                }
-                let list = if file.is_some() {
-                    file.unwrap().as_path().try_into()?
-                } else {
-                    server.unwrap_or_default().as_str().try_into()?
-                };
-                AppCommand::List { params, list }
+            CliCommand::Fml { args } => {
+                let cwd = std::env::current_dir().expect("Current Working Directory is not set");
+                AppCommand::FmlPassthrough { args, cwd }
             }
-            CliCommand::LogState => AppCommand::LogState { app },
-            CliCommand::Open { open, .. } => AppCommand::Open {
-                app,
-                deeplink: open.deeplink,
+            CliCommand::Info { experiment, output } => AppCommand::Info {
+                experiment: ExperimentSource::try_from(&experiment)?,
+                output,
             },
-            CliCommand::ResetApp => AppCommand::Reset { app },
-            CliCommand::TailLogs => AppCommand::TailLogs { app },
+            CliCommand::List { .. } => {
+                let list = ExperimentListSource::try_from(cli)?;
+                AppCommand::List { list }
+            }
+            CliCommand::LogState { open } => {
+                let app = LaunchableApp::try_from(cli)?;
+                AppCommand::LogState {
+                    app,
+                    open: open.into(),
+                }
+            }
+            CliCommand::Open { open, .. } => {
+                let app = LaunchableApp::try_from(cli)?;
+                AppCommand::Open {
+                    app,
+                    open: open.into(),
+                }
+            }
+            #[cfg(feature = "server")]
+            CliCommand::StartServer => AppCommand::StartServer,
+            CliCommand::TailLogs => {
+                let app = LaunchableApp::try_from(cli)?;
+                AppCommand::TailLogs { app }
+            }
             CliCommand::TestFeature { files, open, .. } => {
+                let app = LaunchableApp::try_from(cli)?;
                 let experiment = ExperimentSource::try_from(cli)?;
                 let first = files
                     .first()
@@ -299,61 +399,130 @@ impl TryFrom<&Cli> for AppCommand {
                     experiment,
                     branch,
                     rollouts: Default::default(),
-                    deeplink: open.deeplink,
+                    open: open.into(),
                     preserve_targeting: false,
                     preserve_bucketing: false,
                     preserve_nimbus_db: false,
                 }
             }
-            CliCommand::Unenroll => AppCommand::Unenroll { app },
+            CliCommand::Unenroll { open } => {
+                let app = LaunchableApp::try_from(cli)?;
+                AppCommand::Unenroll {
+                    app,
+                    open: open.into(),
+                }
+            }
             _ => Self::NoOp,
         })
     }
 }
 
 impl CliCommand {
+    fn check_valid(&self) -> Result<()> {
+        if let Some(open) = self.open_args() {
+            let using_links = open.pbcopy || open.pbpaste;
+            if using_links && (open.reset_app || !open.passthrough.is_empty()) {
+                bail!("--pbcopy and --pbpaste are not compatible with --reset-app or passthrough args");
+            }
+        }
+        Ok(())
+    }
+
+    fn open_args(&self) -> Option<&OpenArgs> {
+        if let Self::ApplyFile { open, .. }
+        | Self::Open { open, .. }
+        | Self::Enroll { open, .. }
+        | Self::LogState { open, .. }
+        | Self::TestFeature { open, .. }
+        | Self::Unenroll { open, .. } = self
+        {
+            Some(open)
+        } else {
+            None
+        }
+    }
+
     fn should_kill(&self) -> bool {
-        match self {
-            Self::List { .. }
-            | Self::CaptureLogs { .. }
-            | Self::TailLogs { .. }
-            | Self::Fetch { .. }
-            | Self::Validate { .. } => false,
-            Self::Open { no_clobber, .. } => !*no_clobber,
-            _ => true,
+        if let Some(open) = self.open_args() {
+            let using_links = open.pbcopy || open.pbpaste;
+            let no_clobber = if let Self::Open { no_clobber, .. } = self {
+                *no_clobber
+            } else {
+                false
+            };
+            !using_links && !no_clobber
+        } else {
+            matches!(self, Self::ResetApp)
         }
     }
 
     fn should_reset(&self) -> bool {
-        match self {
-            Self::Enroll { open, .. }
-            | Self::Open { open, .. }
-            | Self::TestFeature { open, .. } => open.reset_app,
-            _ => false,
+        if let Some(open) = self.open_args() {
+            open.reset_app
+        } else {
+            matches!(self, Self::ResetApp)
+        }
+    }
+}
+
+#[derive(Debug, Default, PartialEq)]
+pub(crate) struct AppOpenArgs {
+    deeplink: Option<String>,
+    passthrough: Vec<String>,
+    pbcopy: bool,
+    pbpaste: bool,
+}
+
+impl From<OpenArgs> for AppOpenArgs {
+    fn from(value: OpenArgs) -> Self {
+        Self {
+            deeplink: value.deeplink,
+            passthrough: value.passthrough,
+            pbcopy: value.pbcopy,
+            pbpaste: value.pbpaste,
+        }
+    }
+}
+
+impl AppOpenArgs {
+    fn args(&self) -> (&[String], &[String]) {
+        let splits = &mut self.passthrough.splitn(2, |item| item == "{}");
+        match (splits.next(), splits.next()) {
+            (Some(first), Some(last)) => (first, last),
+            (None, Some(last)) | (Some(last), None) => (&[], last),
+            _ => (&[], &[]),
         }
     }
 }
 
 #[cfg(test)]
 mod unit_tests {
+    use crate::sources::ExperimentListFilter;
+
     use super::*;
 
     #[test]
     fn test_launchable_app() -> Result<()> {
         fn cli(app: &str, channel: &str) -> Cli {
             Cli {
-                app: app.to_string(),
-                channel: channel.to_string(),
+                app: Some(app.to_string()),
+                channel: Some(channel.to_string()),
                 device_id: None,
                 command: CliCommand::ResetApp,
             }
         }
-        fn android(package: &str, activity: &str, scheme: Option<&str>) -> LaunchableApp {
+        fn android(
+            package: &str,
+            activity: &str,
+            scheme: Option<&str>,
+            open_deeplink: Option<&str>,
+        ) -> LaunchableApp {
             LaunchableApp::Android {
                 package_name: package.to_string(),
                 activity_name: activity.to_string(),
                 device_id: None,
                 scheme: scheme.map(str::to_string),
+                open_deeplink: open_deeplink.map(str::to_string),
             }
         }
         fn ios(id: &str, scheme: Option<&str>) -> LaunchableApp {
@@ -367,19 +536,34 @@ mod unit_tests {
         // Firefox for Android, a.k.a. fenix
         assert_eq!(
             LaunchableApp::try_from(&cli("fenix", "developer"))?,
-            android("org.mozilla.fenix.debug", ".App", Some("fenix-dev"))
+            android(
+                "org.mozilla.fenix.debug",
+                ".App",
+                Some("fenix-dev"),
+                Some("open")
+            )
         );
         assert_eq!(
             LaunchableApp::try_from(&cli("fenix", "nightly"))?,
-            android("org.mozilla.fenix", ".App", Some("fenix-nightly"))
+            android(
+                "org.mozilla.fenix",
+                ".App",
+                Some("fenix-nightly"),
+                Some("open")
+            )
         );
         assert_eq!(
             LaunchableApp::try_from(&cli("fenix", "beta"))?,
-            android("org.mozilla.firefox_beta", ".App", Some("fenix-beta"))
+            android(
+                "org.mozilla.firefox_beta",
+                ".App",
+                Some("fenix-beta"),
+                Some("open")
+            )
         );
         assert_eq!(
             LaunchableApp::try_from(&cli("fenix", "release"))?,
-            android("org.mozilla.firefox", ".App", Some("fenix"))
+            android("org.mozilla.firefox", ".App", Some("fenix"), Some("open"))
         );
 
         // Firefox for iOS
@@ -403,6 +587,7 @@ mod unit_tests {
                 "org.mozilla.focus.debug",
                 "org.mozilla.focus.activity.MainActivity",
                 None,
+                None,
             )
         );
         assert_eq!(
@@ -410,6 +595,7 @@ mod unit_tests {
             android(
                 "org.mozilla.focus.nightly",
                 "org.mozilla.focus.activity.MainActivity",
+                None,
                 None,
             )
         );
@@ -419,6 +605,7 @@ mod unit_tests {
                 "org.mozilla.focus.beta",
                 "org.mozilla.focus.activity.MainActivity",
                 None,
+                None,
             )
         );
         assert_eq!(
@@ -427,8 +614,54 @@ mod unit_tests {
                 "org.mozilla.focus",
                 "org.mozilla.focus.activity.MainActivity",
                 None,
+                None,
             )
         );
+
+        Ok(())
+    }
+
+    #[test]
+    fn test_split_args() -> Result<()> {
+        let mut open = AppOpenArgs {
+            passthrough: vec![],
+            ..Default::default()
+        };
+        let empty: &[String] = &[];
+        let expected = (empty, empty);
+        let observed = open.args();
+        assert_eq!(observed.0, expected.0);
+        assert_eq!(observed.1, expected.1);
+
+        open.passthrough = vec!["{}".to_string()];
+        let expected = (empty, empty);
+        let observed = open.args();
+        assert_eq!(observed.0, expected.0);
+        assert_eq!(observed.1, expected.1);
+
+        open.passthrough = vec!["foo".to_string(), "bar".to_string()];
+        let expected: (&[String], &[String]) = (empty, &["foo".to_string(), "bar".to_string()]);
+        let observed = open.args();
+        assert_eq!(observed.0, expected.0);
+        assert_eq!(observed.1, expected.1);
+
+        open.passthrough = vec!["foo".to_string(), "bar".to_string(), "{}".to_string()];
+        let expected: (&[String], &[String]) = (&["foo".to_string(), "bar".to_string()], empty);
+        let observed = open.args();
+        assert_eq!(observed.0, expected.0);
+        assert_eq!(observed.1, expected.1);
+
+        open.passthrough = vec!["foo".to_string(), "{}".to_string(), "bar".to_string()];
+        let expected: (&[String], &[String]) = (&["foo".to_string()], &["bar".to_string()]);
+        let observed = open.args();
+        assert_eq!(observed.0, expected.0);
+        assert_eq!(observed.1, expected.1);
+
+        open.passthrough = vec!["{}".to_string(), "foo".to_string(), "bar".to_string()];
+        let expected: (&[String], &[String]) = (empty, &["foo".to_string(), "bar".to_string()]);
+        let observed = open.args();
+        assert_eq!(observed.0, expected.0);
+        assert_eq!(observed.1, expected.1);
 
         Ok(())
     }
@@ -439,33 +672,96 @@ mod unit_tests {
             activity_name: ".App".to_string(),
             device_id: None,
             scheme: Some("fenix-dev".to_string()),
+            open_deeplink: Some("open".to_string()),
         }
     }
 
     fn fenix_params() -> NimbusApp {
-        NimbusApp {
-            app_name: "fenix".to_string(),
-            channel: "developer".to_string(),
-        }
+        NimbusApp::new("fenix", "developer")
     }
 
     fn fenix_manifest() -> ManifestSource {
-        ManifestSource {
+        fenix_manifest_with_ref("main")
+    }
+
+    fn fenix_manifest_with_ref(ref_: &str) -> ManifestSource {
+        ManifestSource::FromGithub {
             github_repo: "mozilla-mobile/firefox-android".to_string(),
-            ref_: "main".to_string(),
+            ref_: ref_.to_string(),
             manifest_file: "@mozilla-mobile/firefox-android/fenix/app/nimbus.fml.yaml".to_string(),
             channel: "developer".to_string(),
         }
     }
 
+    fn manifest_from_file(file: &str) -> ManifestSource {
+        ManifestSource::FromFile {
+            channel: "developer".to_string(),
+            manifest_file: file.to_string(),
+        }
+    }
+
     fn experiment(slug: &str) -> ExperimentSource {
-        let release = config::release_server();
-        ExperimentSource::FromList {
+        let endpoint = config::api_v6_production_server();
+        ExperimentSource::FromApiV6 {
             slug: slug.to_string(),
-            list: ExperimentListSource::FromRemoteSettings {
-                endpoint: release,
-                is_preview: false,
-            },
+            endpoint,
+        }
+    }
+
+    fn feature_experiment(feature_id: &str, files: &[&str]) -> ExperimentSource {
+        ExperimentSource::FromFeatureFiles {
+            app: fenix_params(),
+            feature_id: feature_id.to_string(),
+            files: files.iter().map(|f| f.into()).collect(),
+        }
+    }
+
+    fn with_deeplink(link: &str) -> AppOpenArgs {
+        AppOpenArgs {
+            deeplink: Some(link.to_string()),
+            ..Default::default()
+        }
+    }
+
+    fn with_pbcopy() -> AppOpenArgs {
+        AppOpenArgs {
+            pbcopy: true,
+            ..Default::default()
+        }
+    }
+
+    fn with_passthrough(params: &[&str]) -> AppOpenArgs {
+        AppOpenArgs {
+            passthrough: params.iter().map(|s| s.to_string()).collect(),
+            ..Default::default()
+        }
+    }
+
+    fn for_app(app: &str, list: ExperimentListSource) -> ExperimentListSource {
+        ExperimentListSource::Filtered {
+            filter: ExperimentListFilter::for_app(app),
+            inner: Box::new(list),
+        }
+    }
+
+    fn for_feature(feature: &str, list: ExperimentListSource) -> ExperimentListSource {
+        ExperimentListSource::Filtered {
+            filter: ExperimentListFilter::for_feature(feature),
+            inner: Box::new(list),
+        }
+    }
+
+    fn for_active_on_date(date: &str, list: ExperimentListSource) -> ExperimentListSource {
+        ExperimentListSource::Filtered {
+            filter: ExperimentListFilter::for_active_on(date),
+            inner: Box::new(list),
+        }
+    }
+
+    fn for_enrolling_on_date(date: &str, list: ExperimentListSource) -> ExperimentListSource {
+        ExperimentListSource::Filtered {
+            filter: ExperimentListFilter::for_enrolling_on(date),
+            inner: Box::new(list),
         }
     }
 
@@ -496,7 +792,7 @@ mod unit_tests {
                 preserve_targeting: false,
                 preserve_bucketing: false,
                 preserve_nimbus_db: false,
-                deeplink: None,
+                open: Default::default(),
             },
         ];
         assert_eq!(expected, observed);
@@ -532,7 +828,7 @@ mod unit_tests {
                 preserve_targeting: false,
                 preserve_bucketing: false,
                 preserve_nimbus_db: false,
-                deeplink: None,
+                open: Default::default(),
             },
         ];
         assert_eq!(expected, observed);
@@ -571,7 +867,123 @@ mod unit_tests {
                 preserve_targeting: false,
                 preserve_bucketing: false,
                 preserve_nimbus_db: false,
-                deeplink: None,
+                open: Default::default(),
+            },
+        ];
+        assert_eq!(expected, observed);
+        Ok(())
+    }
+
+    #[test]
+    fn test_enroll_with_deeplink() -> Result<()> {
+        let observed = get_commands_from_cli([
+            "nimbus-cli",
+            "--app",
+            "fenix",
+            "--channel",
+            "developer",
+            "enroll",
+            "my-experiment",
+            "--branch",
+            "my-branch",
+            "--no-validate",
+            "--deeplink",
+            "host/path?key=value",
+        ])?;
+
+        let expected = vec![
+            AppCommand::NoOp,
+            AppCommand::Kill { app: fenix() },
+            AppCommand::Enroll {
+                app: fenix(),
+                params: fenix_params(),
+                experiment: experiment("my-experiment"),
+                rollouts: Default::default(),
+                branch: "my-branch".to_string(),
+                preserve_targeting: false,
+                preserve_bucketing: false,
+                preserve_nimbus_db: false,
+                open: with_deeplink("host/path?key=value"),
+            },
+        ];
+        assert_eq!(expected, observed);
+        Ok(())
+    }
+
+    #[test]
+    fn test_enroll_with_passthrough() -> Result<()> {
+        let observed = get_commands_from_cli([
+            "nimbus-cli",
+            "--app",
+            "fenix",
+            "--channel",
+            "developer",
+            "enroll",
+            "my-experiment",
+            "--branch",
+            "my-branch",
+            "--no-validate",
+            "--",
+            "--start-profiler",
+            "./profile.file",
+            "{}",
+            "--esn",
+            "TEST_FLAG",
+        ])?;
+
+        let expected = vec![
+            AppCommand::NoOp,
+            AppCommand::Kill { app: fenix() },
+            AppCommand::Enroll {
+                app: fenix(),
+                params: fenix_params(),
+                experiment: experiment("my-experiment"),
+                rollouts: Default::default(),
+                branch: "my-branch".to_string(),
+                preserve_targeting: false,
+                preserve_bucketing: false,
+                preserve_nimbus_db: false,
+                open: with_passthrough(&[
+                    "--start-profiler",
+                    "./profile.file",
+                    "{}",
+                    "--esn",
+                    "TEST_FLAG",
+                ]),
+            },
+        ];
+        assert_eq!(expected, observed);
+        Ok(())
+    }
+
+    #[test]
+    fn test_enroll_with_pbcopy() -> Result<()> {
+        let observed = get_commands_from_cli([
+            "nimbus-cli",
+            "--app",
+            "fenix",
+            "--channel",
+            "developer",
+            "enroll",
+            "my-experiment",
+            "--branch",
+            "my-branch",
+            "--no-validate",
+            "--pbcopy",
+        ])?;
+
+        let expected = vec![
+            AppCommand::NoOp,
+            AppCommand::Enroll {
+                app: fenix(),
+                params: fenix_params(),
+                experiment: experiment("my-experiment"),
+                rollouts: Default::default(),
+                branch: "my-branch".to_string(),
+                preserve_targeting: false,
+                preserve_bucketing: false,
+                preserve_nimbus_db: false,
+                open: with_pbcopy(),
             },
         ];
         assert_eq!(expected, observed);
@@ -616,10 +1028,7 @@ mod unit_tests {
         let expected = vec![
             AppCommand::ValidateExperiment {
                 params: fenix_params(),
-                manifest: ManifestSource {
-                    ref_: "releases_v114".to_string(),
-                    ..fenix_manifest()
-                },
+                manifest: fenix_manifest_with_ref("releases_v114"),
                 experiment: experiment("my-experiment"),
             },
             AppCommand::NoOp,
@@ -642,10 +1051,7 @@ mod unit_tests {
         let expected = vec![
             AppCommand::ValidateExperiment {
                 params: fenix_params(),
-                manifest: ManifestSource {
-                    ref_: "my-tag".to_string(),
-                    ..fenix_manifest()
-                },
+                manifest: fenix_manifest_with_ref("my-tag"),
                 experiment: experiment("my-experiment"),
             },
             AppCommand::NoOp,
@@ -655,8 +1061,6 @@ mod unit_tests {
         // With a file on disk
         let observed = get_commands_from_cli([
             "nimbus-cli",
-            "--app",
-            "fenix",
             "--channel",
             "developer",
             "validate",
@@ -667,11 +1071,11 @@ mod unit_tests {
 
         let expected = vec![
             AppCommand::ValidateExperiment {
-                params: fenix_params(),
-                manifest: ManifestSource {
-                    manifest_file: "./manifest.fml.yaml".to_string(),
-                    ..fenix_manifest()
+                params: NimbusApp {
+                    channel: Some("developer".to_string()),
+                    app_name: None,
                 },
+                manifest: manifest_from_file("./manifest.fml.yaml"),
                 experiment: experiment("my-experiment"),
             },
             AppCommand::NoOp,
@@ -683,14 +1087,6 @@ mod unit_tests {
 
     #[test]
     fn test_test_feature() -> Result<()> {
-        fn experiment(feature_id: &str) -> ExperimentSource {
-            ExperimentSource::FromFeatureFiles {
-                app: fenix_params(),
-                feature_id: feature_id.to_string(),
-                files: vec!["./my-branch.json".into(), "./my-treatment.json".into()],
-            }
-        }
-
         let observed = get_commands_from_cli([
             "nimbus-cli",
             "--app",
@@ -707,19 +1103,25 @@ mod unit_tests {
             AppCommand::ValidateExperiment {
                 params: fenix_params(),
                 manifest: fenix_manifest(),
-                experiment: experiment("my-feature"),
+                experiment: feature_experiment(
+                    "my-feature",
+                    &["./my-branch.json", "./my-treatment.json"],
+                ),
             },
             AppCommand::Kill { app: fenix() },
             AppCommand::Enroll {
                 app: fenix(),
                 params: fenix_params(),
-                experiment: experiment("my-feature"),
+                experiment: feature_experiment(
+                    "my-feature",
+                    &["./my-branch.json", "./my-treatment.json"],
+                ),
                 rollouts: Default::default(),
                 branch: "my-branch".to_string(),
                 preserve_targeting: false,
                 preserve_bucketing: false,
                 preserve_nimbus_db: false,
-                deeplink: None,
+                open: Default::default(),
             },
         ];
         assert_eq!(expected, observed);
@@ -742,23 +1144,26 @@ mod unit_tests {
         let expected = vec![
             AppCommand::ValidateExperiment {
                 params: fenix_params(),
-                manifest: ManifestSource {
-                    ref_: "releases_v114".to_string(),
-                    ..fenix_manifest()
-                },
-                experiment: experiment("my-feature"),
+                manifest: fenix_manifest_with_ref("releases_v114"),
+                experiment: feature_experiment(
+                    "my-feature",
+                    &["./my-branch.json", "./my-treatment.json"],
+                ),
             },
             AppCommand::Kill { app: fenix() },
             AppCommand::Enroll {
                 app: fenix(),
                 params: fenix_params(),
-                experiment: experiment("my-feature"),
+                experiment: feature_experiment(
+                    "my-feature",
+                    &["./my-branch.json", "./my-treatment.json"],
+                ),
                 rollouts: Default::default(),
                 branch: "my-branch".to_string(),
                 preserve_targeting: false,
                 preserve_bucketing: false,
                 preserve_nimbus_db: false,
-                deeplink: None,
+                open: Default::default(),
             },
         ];
         assert_eq!(expected, observed);
@@ -781,23 +1186,26 @@ mod unit_tests {
         let expected = vec![
             AppCommand::ValidateExperiment {
                 params: fenix_params(),
-                manifest: ManifestSource {
-                    ref_: "my-tag".to_string(),
-                    ..fenix_manifest()
-                },
-                experiment: experiment("my-feature"),
+                manifest: fenix_manifest_with_ref("my-tag"),
+                experiment: feature_experiment(
+                    "my-feature",
+                    &["./my-branch.json", "./my-treatment.json"],
+                ),
             },
             AppCommand::Kill { app: fenix() },
             AppCommand::Enroll {
                 app: fenix(),
                 params: fenix_params(),
-                experiment: experiment("my-feature"),
+                experiment: feature_experiment(
+                    "my-feature",
+                    &["./my-branch.json", "./my-treatment.json"],
+                ),
                 rollouts: Default::default(),
                 branch: "my-branch".to_string(),
                 preserve_targeting: false,
                 preserve_bucketing: false,
                 preserve_nimbus_db: false,
-                deeplink: None,
+                open: Default::default(),
             },
         ];
         assert_eq!(expected, observed);
@@ -820,23 +1228,571 @@ mod unit_tests {
         let expected = vec![
             AppCommand::ValidateExperiment {
                 params: fenix_params(),
-                manifest: ManifestSource {
-                    manifest_file: "./manifest.fml.yaml".to_string(),
-                    ..fenix_manifest()
-                },
-                experiment: experiment("my-feature"),
+                manifest: manifest_from_file("./manifest.fml.yaml"),
+                experiment: feature_experiment(
+                    "my-feature",
+                    &["./my-branch.json", "./my-treatment.json"],
+                ),
             },
             AppCommand::Kill { app: fenix() },
             AppCommand::Enroll {
                 app: fenix(),
                 params: fenix_params(),
-                experiment: experiment("my-feature"),
+                experiment: feature_experiment(
+                    "my-feature",
+                    &["./my-branch.json", "./my-treatment.json"],
+                ),
                 rollouts: Default::default(),
                 branch: "my-branch".to_string(),
                 preserve_targeting: false,
                 preserve_bucketing: false,
                 preserve_nimbus_db: false,
-                deeplink: None,
+                open: Default::default(),
+            },
+        ];
+        assert_eq!(expected, observed);
+
+        let observed = get_commands_from_cli([
+            "nimbus-cli",
+            "--app",
+            "fenix",
+            "--channel",
+            "developer",
+            "test-feature",
+            "my-feature",
+            "./my-branch.json",
+            "./my-treatment.json",
+            "--no-validate",
+            "--deeplink",
+            "host/path?key=value",
+        ])?;
+
+        let expected = vec![
+            AppCommand::NoOp,
+            AppCommand::Kill { app: fenix() },
+            AppCommand::Enroll {
+                app: fenix(),
+                params: fenix_params(),
+                experiment: feature_experiment(
+                    "my-feature",
+                    &["./my-branch.json", "./my-treatment.json"],
+                ),
+                rollouts: Default::default(),
+                branch: "my-branch".to_string(),
+                preserve_targeting: false,
+                preserve_bucketing: false,
+                preserve_nimbus_db: false,
+                open: with_deeplink("host/path?key=value"),
+            },
+        ];
+        assert_eq!(expected, observed);
+
+        Ok(())
+    }
+
+    #[test]
+    fn test_open() -> Result<()> {
+        let observed = get_commands_from_cli([
+            "nimbus-cli",
+            "--app",
+            "fenix",
+            "--channel",
+            "developer",
+            "open",
+        ])?;
+
+        let expected = vec![
+            AppCommand::NoOp,
+            AppCommand::Kill { app: fenix() },
+            AppCommand::Open {
+                app: fenix(),
+                open: Default::default(),
+            },
+        ];
+        assert_eq!(expected, observed);
+        Ok(())
+    }
+
+    #[test]
+    fn test_open_with_reset() -> Result<()> {
+        let observed = get_commands_from_cli([
+            "nimbus-cli",
+            "--app",
+            "fenix",
+            "--channel",
+            "developer",
+            "open",
+            "--reset-app",
+        ])?;
+
+        let expected = vec![
+            AppCommand::NoOp,
+            AppCommand::Kill { app: fenix() },
+            AppCommand::Reset { app: fenix() },
+            AppCommand::Open {
+                app: fenix(),
+                open: Default::default(),
+            },
+        ];
+        assert_eq!(expected, observed);
+        Ok(())
+    }
+
+    #[test]
+    fn test_open_with_deeplink() -> Result<()> {
+        let observed = get_commands_from_cli([
+            "nimbus-cli",
+            "--app",
+            "fenix",
+            "--channel",
+            "developer",
+            "open",
+            "--deeplink",
+            "host/path",
+        ])?;
+
+        let expected = vec![
+            AppCommand::NoOp,
+            AppCommand::Kill { app: fenix() },
+            AppCommand::Open {
+                app: fenix(),
+                open: with_deeplink("host/path"),
+            },
+        ];
+        assert_eq!(expected, observed);
+
+        Ok(())
+    }
+
+    #[test]
+    fn test_open_with_passthrough_params() -> Result<()> {
+        let observed = get_commands_from_cli([
+            "nimbus-cli",
+            "--app",
+            "fenix",
+            "--channel",
+            "developer",
+            "open",
+            "--",
+            "--start-profiler",
+            "./profile.file",
+            "{}",
+            "--esn",
+            "TEST_FLAG",
+        ])?;
+
+        let expected = vec![
+            AppCommand::NoOp,
+            AppCommand::Kill { app: fenix() },
+            AppCommand::Open {
+                app: fenix(),
+                open: with_passthrough(&[
+                    "--start-profiler",
+                    "./profile.file",
+                    "{}",
+                    "--esn",
+                    "TEST_FLAG",
+                ]),
+            },
+        ];
+        assert_eq!(expected, observed);
+        Ok(())
+    }
+
+    #[test]
+    fn test_open_with_noclobber() -> Result<()> {
+        let observed = get_commands_from_cli([
+            "nimbus-cli",
+            "--app",
+            "fenix",
+            "--channel",
+            "developer",
+            "open",
+            "--no-clobber",
+        ])?;
+
+        let expected = vec![
+            AppCommand::NoOp,
+            AppCommand::Open {
+                app: fenix(),
+                open: Default::default(),
+            },
+        ];
+        assert_eq!(expected, observed);
+        Ok(())
+    }
+
+    #[test]
+    fn test_open_with_pbcopy() -> Result<()> {
+        let observed = get_commands_from_cli([
+            "nimbus-cli",
+            "--app",
+            "fenix",
+            "--channel",
+            "developer",
+            "open",
+            "--pbcopy",
+        ])?;
+
+        let expected = vec![
+            AppCommand::NoOp,
+            AppCommand::Open {
+                app: fenix(),
+                open: with_pbcopy(),
+            },
+        ];
+        assert_eq!(expected, observed);
+        Ok(())
+    }
+
+    #[test]
+    fn test_fetch() -> Result<()> {
+        let file = Some(PathBuf::from("./archived.json"));
+        let observed = get_commands_from_cli([
+            "nimbus-cli",
+            "--app",
+            "fenix",
+            "--channel",
+            "developer",
+            "fetch",
+            "--output",
+            "./archived.json",
+            "my-experiment",
+        ])?;
+
+        let expected = vec![
+            AppCommand::NoOp,
+            AppCommand::FetchList {
+                list: for_app(
+                    "fenix",
+                    ExperimentListSource::FromRecipes {
+                        recipes: vec![experiment("my-experiment")],
+                    },
+                ),
+                file: file.clone(),
+            },
+        ];
+        assert_eq!(expected, observed);
+
+        let observed = get_commands_from_cli([
+            "nimbus-cli",
+            "--app",
+            "fenix",
+            "--channel",
+            "developer",
+            "fetch",
+            "--output",
+            "./archived.json",
+            "my-experiment-1",
+            "my-experiment-2",
+        ])?;
+
+        let expected = vec![
+            AppCommand::NoOp,
+            AppCommand::FetchList {
+                list: for_app(
+                    "fenix",
+                    ExperimentListSource::FromRecipes {
+                        recipes: vec![experiment("my-experiment-1"), experiment("my-experiment-2")],
+                    },
+                ),
+                file,
+            },
+        ];
+        assert_eq!(expected, observed);
+        Ok(())
+    }
+
+    #[test]
+    fn test_fetch_list() -> Result<()> {
+        let file = Some(PathBuf::from("./archived.json"));
+        let observed =
+            get_commands_from_cli(["nimbus-cli", "fetch-list", "--output", "./archived.json"])?;
+
+        let expected = vec![
+            AppCommand::NoOp,
+            AppCommand::FetchList {
+                list: ExperimentListSource::FromRemoteSettings {
+                    endpoint: config::rs_production_server(),
+                    is_preview: false,
+                },
+                file: file.clone(),
+            },
+        ];
+        assert_eq!(expected, observed);
+
+        let observed = get_commands_from_cli([
+            "nimbus-cli",
+            "--app",
+            "fenix",
+            "fetch-list",
+            "--output",
+            "./archived.json",
+        ])?;
+
+        let expected = vec![
+            AppCommand::NoOp,
+            AppCommand::FetchList {
+                list: for_app(
+                    "fenix",
+                    ExperimentListSource::FromRemoteSettings {
+                        endpoint: config::rs_production_server(),
+                        is_preview: false,
+                    },
+                ),
+                file: file.clone(),
+            },
+        ];
+        assert_eq!(expected, observed);
+
+        let observed = get_commands_from_cli([
+            "nimbus-cli",
+            "fetch-list",
+            "--output",
+            "./archived.json",
+            "stage",
+        ])?;
+
+        let expected = vec![
+            AppCommand::NoOp,
+            AppCommand::FetchList {
+                list: ExperimentListSource::FromRemoteSettings {
+                    endpoint: config::rs_stage_server(),
+                    is_preview: false,
+                },
+                file: file.clone(),
+            },
+        ];
+        assert_eq!(expected, observed);
+
+        let observed = get_commands_from_cli([
+            "nimbus-cli",
+            "fetch-list",
+            "--output",
+            "./archived.json",
+            "preview",
+        ])?;
+
+        let expected = vec![
+            AppCommand::NoOp,
+            AppCommand::FetchList {
+                list: ExperimentListSource::FromRemoteSettings {
+                    endpoint: config::rs_production_server(),
+                    is_preview: true,
+                },
+                file: file.clone(),
+            },
+        ];
+        assert_eq!(expected, observed);
+
+        let observed = get_commands_from_cli([
+            "nimbus-cli",
+            "fetch-list",
+            "--output",
+            "./archived.json",
+            "--use-api",
+        ])?;
+
+        let expected = vec![
+            AppCommand::NoOp,
+            AppCommand::FetchList {
+                list: ExperimentListSource::FromApiV6 {
+                    endpoint: config::api_v6_production_server(),
+                },
+                file: file.clone(),
+            },
+        ];
+        assert_eq!(expected, observed);
+
+        let observed = get_commands_from_cli([
+            "nimbus-cli",
+            "fetch-list",
+            "--use-api",
+            "--output",
+            "./archived.json",
+            "stage",
+        ])?;
+
+        let expected = vec![
+            AppCommand::NoOp,
+            AppCommand::FetchList {
+                list: ExperimentListSource::FromApiV6 {
+                    endpoint: config::api_v6_stage_server(),
+                },
+                file,
+            },
+        ];
+        assert_eq!(expected, observed);
+
+        Ok(())
+    }
+
+    #[test]
+    fn test_list() -> Result<()> {
+        let observed = get_commands_from_cli(["nimbus-cli", "list"])?;
+        let expected = vec![
+            AppCommand::NoOp,
+            AppCommand::List {
+                list: ExperimentListSource::FromRemoteSettings {
+                    endpoint: config::rs_production_server(),
+                    is_preview: false,
+                },
+            },
+        ];
+        assert_eq!(expected, observed);
+
+        let observed = get_commands_from_cli(["nimbus-cli", "list", "preview"])?;
+        let expected = vec![
+            AppCommand::NoOp,
+            AppCommand::List {
+                list: ExperimentListSource::FromRemoteSettings {
+                    endpoint: config::rs_production_server(),
+                    is_preview: true,
+                },
+            },
+        ];
+        assert_eq!(expected, observed);
+
+        let observed = get_commands_from_cli(["nimbus-cli", "list", "stage"])?;
+        let expected = vec![
+            AppCommand::NoOp,
+            AppCommand::List {
+                list: ExperimentListSource::FromRemoteSettings {
+                    endpoint: config::rs_stage_server(),
+                    is_preview: false,
+                },
+            },
+        ];
+        assert_eq!(expected, observed);
+
+        let observed = get_commands_from_cli(["nimbus-cli", "list", "--use-api", "stage"])?;
+        let expected = vec![
+            AppCommand::NoOp,
+            AppCommand::List {
+                list: ExperimentListSource::FromApiV6 {
+                    endpoint: config::api_v6_stage_server(),
+                },
+            },
+        ];
+        assert_eq!(expected, observed);
+
+        let observed = get_commands_from_cli(["nimbus-cli", "list", "--use-api"])?;
+        let expected = vec![
+            AppCommand::NoOp,
+            AppCommand::List {
+                list: ExperimentListSource::FromApiV6 {
+                    endpoint: config::api_v6_production_server(),
+                },
+            },
+        ];
+        assert_eq!(expected, observed);
+        Ok(())
+    }
+
+    #[test]
+    fn test_list_filter() -> Result<()> {
+        let observed = get_commands_from_cli(["nimbus-cli", "--app", "my-app", "list"])?;
+        let expected = vec![
+            AppCommand::NoOp,
+            AppCommand::List {
+                list: for_app(
+                    "my-app",
+                    ExperimentListSource::FromRemoteSettings {
+                        endpoint: config::rs_production_server(),
+                        is_preview: false,
+                    },
+                ),
+            },
+        ];
+        assert_eq!(expected, observed);
+
+        let observed = get_commands_from_cli(["nimbus-cli", "list", "--feature", "messaging"])?;
+        let expected = vec![
+            AppCommand::NoOp,
+            AppCommand::List {
+                list: for_feature(
+                    "messaging",
+                    ExperimentListSource::FromRemoteSettings {
+                        endpoint: config::rs_production_server(),
+                        is_preview: false,
+                    },
+                ),
+            },
+        ];
+        assert_eq!(expected, observed);
+
+        let observed = get_commands_from_cli([
+            "nimbus-cli",
+            "--app",
+            "my-app",
+            "list",
+            "--feature",
+            "messaging",
+        ])?;
+        let expected = vec![
+            AppCommand::NoOp,
+            AppCommand::List {
+                list: for_app(
+                    "my-app",
+                    for_feature(
+                        "messaging",
+                        ExperimentListSource::FromRemoteSettings {
+                            endpoint: config::rs_production_server(),
+                            is_preview: false,
+                        },
+                    ),
+                ),
+            },
+        ];
+        assert_eq!(expected, observed);
+
+        Ok(())
+    }
+
+    #[test]
+    fn test_list_filter_by_date_with_error() -> Result<()> {
+        let observed = get_commands_from_cli(["nimbus-cli", "list", "--active-on", "FOO"]);
+        assert!(observed.is_err());
+        let err = observed.unwrap_err();
+        assert!(err.to_string().contains("Date string must be yyyy-mm-dd"));
+
+        let observed = get_commands_from_cli(["nimbus-cli", "list", "--enrolling-on", "FOO"]);
+        assert!(observed.is_err());
+        let err = observed.unwrap_err();
+        assert!(err.to_string().contains("Date string must be yyyy-mm-dd"));
+        Ok(())
+    }
+
+    #[test]
+    fn test_list_filter_by_dates() -> Result<()> {
+        let today = "1970-01-01";
+
+        let observed = get_commands_from_cli(["nimbus-cli", "list", "--active-on", today])?;
+        let expected = vec![
+            AppCommand::NoOp,
+            AppCommand::List {
+                list: for_active_on_date(
+                    today,
+                    ExperimentListSource::FromRemoteSettings {
+                        endpoint: config::rs_production_server(),
+                        is_preview: false,
+                    },
+                ),
+            },
+        ];
+        assert_eq!(expected, observed);
+
+        let observed = get_commands_from_cli(["nimbus-cli", "list", "--enrolling-on", today])?;
+        let expected = vec![
+            AppCommand::NoOp,
+            AppCommand::List {
+                list: for_enrolling_on_date(
+                    today,
+                    ExperimentListSource::FromRemoteSettings {
+                        endpoint: config::rs_production_server(),
+                        is_preview: false,
+                    },
+                ),
             },
         ];
         assert_eq!(expected, observed);
