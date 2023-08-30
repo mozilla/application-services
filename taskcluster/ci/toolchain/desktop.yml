@@ -7,8 +7,8 @@ task-defaults:
         resources:
             - 'libs'
     fetches:
-      toolchain:
-        - rust
+        toolchain:
+            - rust
 
 desktop-linux:
     description: 'Desktop libs (Linux): build'
@@ -21,6 +21,9 @@ desktop-macos:
     description: 'Desktop libs (macOS): build'
     scopes:
         - project:releng:services/tooltool/api/download/internal
+    fetches:
+        fetch:
+            - nss-artifact
     worker:
         docker-image: {in-tree: linux}
     run:
