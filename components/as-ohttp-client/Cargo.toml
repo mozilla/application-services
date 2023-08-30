@@ -12,8 +12,15 @@ license = "MPL-2.0"
 uniffi = "0.24.1"
 thiserror = "1.0"
 bhttp = "0.3"
-ohttp = { version = "0.3", default-features = false, features = ["client", "server", "rust-hpke"]}
 parking_lot = "0.12"
+rusqlite = { version = "0.29.0", features=["sqlcipher"] }
+
+[dependencies.ohttp]
+version = "0.4"
+default-features = false
+git = "https://github.com/martinthomson/ohttp.git"
+revision = "fc3f4c787d1f6a6a87bf5194f7152cc906b02973"
+features = ["client", "server", "app-svc", "external-sqlite"]
 
 [build-dependencies]
 uniffi = { version = "0.24.1", features=["build"]}

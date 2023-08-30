@@ -282,33 +282,6 @@ PACKAGE_METADATA_FIXUPS = {
             "fixup": "https://raw.githubusercontent.com/martinthomson/ohttp/main/LICENSE-APACHE",
         }
     },
-    "zeroize_derive": {
-        "license": {
-            "check": "Apache-2.0 OR MIT"
-        },
-        "license_file": {
-            "check": None,
-            "fixup": "https://raw.githubusercontent.com/RustCrypto/utils/master/zeroize/derive/LICENSE-APACHE"
-        }
-    },
-    "ctr": {
-        "license": {
-            "check": "MIT OR Apache-2.0"
-        },
-        "license_file": {
-            "check": None,
-            "fixup": "https://raw.githubusercontent.com/RustCrypto/block-modes/master/ctr/LICENSE-APACHE",
-        }
-    },
-    "crypto-mac": {
-        "license": {
-             "check": "MIT OR Apache-2.0"
-        },
-        "license_file": {
-            "check": None,
-            "fixup": "https://raw.githubusercontent.com/RustCrypto/traits/master/digest/LICENSE-APACHE",
-        }
-    },
     # These packages do not include their license file in their release distributions,
     # so we have to fetch it over the network. Each has been manually checked and resolved
     # to a final URL from which the file can be fetched (typically based on the *name* of

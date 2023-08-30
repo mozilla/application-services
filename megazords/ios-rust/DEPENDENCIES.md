@@ -35,12 +35,11 @@ the details of which are reproduced below.
 * [MIT License: weedle2](#mit-license-weedle2)
 * [MIT License: xshell-venv](#mit-license-xshell-venv)
 * [CC0-1.0 License: base16](#cc0-10-license-base16)
+* [ISC License: libloading](#isc-license-libloading)
 * [ISC License: ring](#isc-license-ring)
 * [BSD-2-Clause License: arrayref](#bsd-2-clause-license-arrayref)
-* [BSD-3-Clause License: curve25519-dalek](#bsd-3-clause-license-curve25519-dalek)
+* [BSD-3-Clause License: bindgen](#bsd-3-clause-license-bindgen)
 * [BSD-3-Clause License: sqlcipher](#bsd-3-clause-license-sqlcipher)
-* [BSD-3-Clause License: subtle](#bsd-3-clause-license-subtle)
-* [BSD-3-Clause License: x25519-dalek](#bsd-3-clause-license-x25519-dalek)
 * [Optional Notice: SQLite](#optional-notice-sqlite)
 * [(Apache-2.0 OR MIT) AND BSD-3-Clause License: encoding_rs](#(apache-20-or-mit)-and-bsd-3-clause-license-encoding_rs)
 -------------
@@ -442,9 +441,6 @@ Exhibit B - "Incompatible With Secondary Licenses" Notice
 ## Apache License 2.0
 
 The following text applies to code linked from these dependencies:
-[aead](https://github.com/RustCrypto/traits),
-[aes-gcm](https://github.com/RustCrypto/AEADs),
-[aes](https://github.com/RustCrypto/block-ciphers),
 [ahash](https://github.com/tkaitchuck/ahash),
 [anyhow](https://github.com/dtolnay/anyhow),
 [askama](https://github.com/djc/askama),
@@ -459,16 +455,13 @@ The following text applies to code linked from these dependencies:
 [camino](https://github.com/camino-rs/camino),
 [cargo-platform](https://github.com/rust-lang/cargo),
 [cc](https://github.com/alexcrichton/cc-rs),
+[cexpr](https://github.com/jethrogb/rust-cexpr),
 [cfg-if](https://github.com/alexcrichton/cfg-if),
-[chacha20](https://github.com/RustCrypto/stream-ciphers),
-[chacha20poly1305](https://github.com/RustCrypto/AEADs),
 [chrono](https://github.com/chronotope/chrono),
-[cipher](https://github.com/RustCrypto/traits),
+[clang-sys](https://github.com/KyleMayes/clang-sys),
 [core-foundation-sys](https://github.com/servo/core-foundation-rs),
 [core-foundation](https://github.com/servo/core-foundation-rs),
 [cpufeatures](https://github.com/RustCrypto/utils),
-[crypto-mac](https://github.com/RustCrypto/traits),
-[ctr](https://github.com/RustCrypto/stream-ciphers),
 [digest](https://github.com/RustCrypto/traits),
 [dogear](https://github.com/mozilla/dogear),
 [either](https://github.com/bluss/either),
@@ -487,15 +480,11 @@ The following text applies to code linked from these dependencies:
 [futures-task](https://github.com/rust-lang/futures-rs),
 [futures-util](https://github.com/rust-lang/futures-rs),
 [getrandom](https://github.com/rust-random/getrandom),
-[ghash](https://github.com/RustCrypto/universal-hashes),
 [glob](https://github.com/rust-lang/glob),
 [hashbrown](https://github.com/rust-lang/hashbrown),
 [hashlink](https://github.com/kyren/hashlink),
 [heck](https://github.com/withoutboats/heck),
 [hex](https://github.com/KokaKiwi/rust-hex),
-[hkdf](https://github.com/RustCrypto/KDFs/),
-[hmac](https://github.com/RustCrypto/MACs),
-[hpke](https://github.com/rozbb/rust-hpke),
 [http](https://github.com/hyperium/http),
 [httparse](https://github.com/seanmonstar/httparse),
 [httpdate](https://github.com/pyfisch/httpdate),
@@ -510,6 +499,7 @@ The following text applies to code linked from these dependencies:
 [itoa](https://github.com/dtolnay/itoa),
 [lalrpop-util](https://github.com/lalrpop/lalrpop),
 [lazy_static](https://github.com/rust-lang-nursery/lazy-static.rs),
+[lazycell](https://github.com/indiv0/lazycell),
 [libc](https://github.com/rust-lang/libc),
 [lmdb-rkv-sys](https://github.com/mozilla/lmdb-rs.git),
 [lmdb-rkv](https://github.com/mozilla/lmdb-rs.git),
@@ -526,13 +516,12 @@ The following text applies to code linked from these dependencies:
 [parking_lot](https://github.com/Amanieu/parking_lot),
 [parking_lot_core](https://github.com/Amanieu/parking_lot),
 [paste](https://github.com/dtolnay/paste),
+[peeking_take_while](https://github.com/fitzgen/peeking_take_while),
 [percent-encoding](https://github.com/servo/rust-url/),
 [pin-project-lite](https://github.com/taiki-e/pin-project-lite),
 [pin-utils](https://github.com/rust-lang-nursery/pin-utils),
 [pkg-config](https://github.com/rust-lang/pkg-config-rs),
 [plain](https://github.com/randomites/plain),
-[poly1305](https://github.com/RustCrypto/universal-hashes),
-[polyval](https://github.com/RustCrypto/universal-hashes),
 [ppv-lite86](https://github.com/cryptocorrosion/cryptocorrosion),
 [proc-macro2](https://github.com/dtolnay/proc-macro2),
 [prost-derive](https://github.com/tokio-rs/prost),
@@ -545,6 +534,7 @@ The following text applies to code linked from these dependencies:
 [regex](https://github.com/rust-lang/regex),
 [reqwest](https://github.com/seanmonstar/reqwest),
 [rkv](https://github.com/mozilla/rkv),
+[rustc-hash](https://github.com/rust-lang-nursery/rustc-hash),
 [rustix](https://github.com/bytecodealliance/rustix),
 [ryu](https://github.com/dtolnay/ryu),
 [scopeguard](https://github.com/bluss/scopeguard),
@@ -557,6 +547,7 @@ The following text applies to code linked from these dependencies:
 [serde_path_to_error](https://github.com/dtolnay/path-to-error),
 [serde_urlencoded](https://github.com/nox/serde_urlencoded),
 [sha2](https://github.com/RustCrypto/hashes),
+[shlex](https://github.com/comex/rust-shlex),
 [siphasher](https://github.com/jedisct1/rust-siphash),
 [smallbitvec](https://github.com/servo/smallbitvec),
 [smallvec](https://github.com/servo/rust-smallvec),
@@ -576,15 +567,12 @@ The following text applies to code linked from these dependencies:
 [unicode-ident](https://github.com/dtolnay/unicode-ident),
 [unicode-normalization](https://github.com/unicode-rs/unicode-normalization),
 [unicode-segmentation](https://github.com/unicode-rs/unicode-segmentation),
-[universal-hash](https://github.com/RustCrypto/traits),
 [url](https://github.com/servo/rust-url),
 [uuid](https://github.com/uuid-rs/uuid),
 [vcpkg](https://github.com/mcgoo/vcpkg-rs),
 [version_check](https://github.com/SergioBenitez/version_check),
 [xshell-macros](https://github.com/matklad/xshell),
-[xshell](https://github.com/matklad/xshell),
-[zeroize](https://github.com/RustCrypto/utils/tree/master/zeroize),
-[zeroize_derive](https://github.com/RustCrypto/utils/tree/master/zeroize/derive)
+[xshell](https://github.com/matklad/xshell)
 
 ```
                               Apache License
@@ -781,14 +769,13 @@ Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
 You may obtain a copy of the License at
 
-   http://www.apache.org/licenses/LICENSE-2.0
+	http://www.apache.org/licenses/LICENSE-2.0
 
 Unless required by applicable law or agreed to in writing, software
 distributed under the License is distributed on an "AS IS" BASIS,
 WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 See the License for the specific language governing permissions and
 limitations under the License.
-
 
 ```
 -------------
@@ -1798,6 +1785,27 @@ express Statement of Purpose.
 
 ```
 -------------
+## ISC License: libloading
+
+The following text applies to code linked from these dependencies:
+[libloading](https://github.com/nagisa/rust_libloading/)
+
+```
+Copyright © 2015, Simonas Kazlauskas
+
+Permission to use, copy, modify, and/or distribute this software for any purpose with or without
+fee is hereby granted, provided that the above copyright notice and this permission notice appear
+in all copies.
+
+THE SOFTWARE IS PROVIDED "AS IS" AND THE AUTHOR DISCLAIMS ALL WARRANTIES WITH REGARD TO THIS
+SOFTWARE INCLUDING ALL IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS. IN NO EVENT SHALL THE
+AUTHOR BE LIABLE FOR ANY SPECIAL, DIRECT, INDIRECT, OR CONSEQUENTIAL DAMAGES OR ANY DAMAGES
+WHATSOEVER RESULTING FROM LOSS OF USE, DATA OR PROFITS, WHETHER IN AN ACTION OF CONTRACT,
+NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT OF OR IN CONNECTION WITH THE USE OR PERFORMANCE OF
+THIS SOFTWARE.
+
+```
+-------------
 ## ISC License: ring
 
 The following text applies to code linked from these dependencies:
@@ -1856,77 +1864,41 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 ```
 -------------
-## BSD-3-Clause License: curve25519-dalek
+## BSD-3-Clause License: bindgen
 
 The following text applies to code linked from these dependencies:
-[curve25519-dalek](https://github.com/dalek-cryptography/curve25519-dalek)
+[bindgen](https://github.com/rust-lang/rust-bindgen)
 
 ```
-Copyright (c) 2016-2021 isis agora lovecruft. All rights reserved.
-Copyright (c) 2016-2021 Henry de Valence. All rights reserved.
+BSD 3-Clause License
+
+Copyright (c) 2013, Jyun-Yan You
+All rights reserved.
 
 Redistribution and use in source and binary forms, with or without
-modification, are permitted provided that the following conditions are
-met:
+modification, are permitted provided that the following conditions are met:
 
-1. Redistributions of source code must retain the above copyright
-notice, this list of conditions and the following disclaimer.
+* Redistributions of source code must retain the above copyright notice, this
+  list of conditions and the following disclaimer.
 
-2. Redistributions in binary form must reproduce the above copyright
-notice, this list of conditions and the following disclaimer in the
-documentation and/or other materials provided with the distribution.
+* Redistributions in binary form must reproduce the above copyright notice,
+  this list of conditions and the following disclaimer in the documentation
+  and/or other materials provided with the distribution.
 
-3. Neither the name of the copyright holder nor the names of its
-contributors may be used to endorse or promote products derived from
-this software without specific prior written permission.
+* Neither the name of the copyright holder nor the names of its
+  contributors may be used to endorse or promote products derived from
+  this software without specific prior written permission.
 
-THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS
-IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED
-TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A
-PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT
-HOLDER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL,
-SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED
-TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR
-PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF
-LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING
-NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
-SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE. 
-
-========================================================================
-
-Portions of curve25519-dalek were originally derived from Adam Langley's
-Go ed25519 implementation, found at <https://github.com/agl/ed25519/>,
-under the following licence:
-
-========================================================================
-
-Copyright (c) 2012 The Go Authors. All rights reserved.
-
-Redistribution and use in source and binary forms, with or without
-modification, are permitted provided that the following conditions are
-met:
-
-   * Redistributions of source code must retain the above copyright
-notice, this list of conditions and the following disclaimer.
-   * Redistributions in binary form must reproduce the above
-copyright notice, this list of conditions and the following disclaimer
-in the documentation and/or other materials provided with the
-distribution.
-   * Neither the name of Google Inc. nor the names of its
-contributors may be used to endorse or promote products derived from
-this software without specific prior written permission.
-
-THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS
-IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED
-TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A
-PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT OWNER
-OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL,
-EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO,
-PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR
-PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF
-LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING
-NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
-SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
+AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
+IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE
+DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE LIABLE
+FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL
+DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR
+SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER
+CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY,
+OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
+OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 ```
 -------------
@@ -1960,81 +1932,6 @@ LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND
 ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
 (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
 SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
-
-```
--------------
-## BSD-3-Clause License: subtle
-
-The following text applies to code linked from these dependencies:
-[subtle](https://github.com/dalek-cryptography/subtle)
-
-```
-Copyright (c) 2016-2017 Isis Agora Lovecruft, Henry de Valence. All rights reserved.
-
-Redistribution and use in source and binary forms, with or without
-modification, are permitted provided that the following conditions are
-met:
-
-1. Redistributions of source code must retain the above copyright
-notice, this list of conditions and the following disclaimer.
-
-2. Redistributions in binary form must reproduce the above copyright
-notice, this list of conditions and the following disclaimer in the
-documentation and/or other materials provided with the distribution.
-
-3. Neither the name of the copyright holder nor the names of its
-contributors may be used to endorse or promote products derived from
-this software without specific prior written permission.
-
-THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS
-IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED
-TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A
-PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT
-HOLDER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL,
-SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED
-TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR
-PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF
-LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING
-NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
-SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE. 
-
-```
--------------
-## BSD-3-Clause License: x25519-dalek
-
-The following text applies to code linked from these dependencies:
-[x25519-dalek](https://github.com/dalek-cryptography/x25519-dalek)
-
-```
-Copyright (c) 2017-2021 isis agora lovecruft. All rights reserved.
-Copyright (c) 2019-2021 DebugSteven. All rights reserved.
-
-Redistribution and use in source and binary forms, with or without
-modification, are permitted provided that the following conditions are
-met:
-
-1. Redistributions of source code must retain the above copyright
-notice, this list of conditions and the following disclaimer.
-
-2. Redistributions in binary form must reproduce the above copyright
-notice, this list of conditions and the following disclaimer in the
-documentation and/or other materials provided with the distribution.
-
-3. Neither the name of the copyright holder nor the names of its
-contributors may be used to endorse or promote products derived from
-this software without specific prior written permission.
-
-THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS
-IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED
-TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A
-PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT
-HOLDER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL,
-SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED
-TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR
-PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF
-LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING
-NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
-SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE. 
 
 ```
 -------------
