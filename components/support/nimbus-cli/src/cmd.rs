@@ -9,7 +9,7 @@ use crate::{
     protocol::StartAppProtocol,
     sources::ManifestSource,
     value_utils::{
-        prepare_experiment, prepare_rollout, try_find_branches_from_experiment,
+        self, prepare_experiment, prepare_rollout, try_find_branches_from_experiment,
         try_find_features_from_branch, CliUtils,
     },
     AppCommand, AppOpenArgs, ExperimentListSource, ExperimentSource, LaunchableApp, NimbusApp,
@@ -438,7 +438,26 @@ impl LaunchableApp {
                 _ => output_ok(&term, &format!("Posted to server at http://{addr}"))?,
             };
         }
-        if open.pbcopy || open.pbpaste {
+        if let Some(file) = &open.output {
+            let ex = app_protocol.experiments;
+            if let Some(contents) = ex {
+                value_utils::write_to_file_or_print(Some(file), contents)?;
+                output_ok(
+                    &term,
+                    &format!(
+                        "Written to JSON to file {}",
+                        file.to_str().unwrap_or_default()
+                    ),
+                )?;
+            } else {
+                output_err(
+                    &term,
+                    "No content",
+                    &format!("File {} not written", file.to_str().unwrap_or_default()),
+                )?;
+            }
+        }
+        if open.pbcopy || open.pbpaste || open.output.is_some() {
             return Ok(true);
         }
 

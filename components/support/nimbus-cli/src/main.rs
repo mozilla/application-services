@@ -419,10 +419,25 @@ impl TryFrom<&Cli> for AppCommand {
 
 impl CliCommand {
     fn check_valid(&self) -> Result<()> {
+        // Check validity of the OpenArgs.
         if let Some(open) = self.open_args() {
-            let using_links = open.pbcopy || open.pbpaste;
-            if using_links && (open.reset_app || !open.passthrough.is_empty()) {
-                bail!("--pbcopy and --pbpaste are not compatible with --reset-app or passthrough args");
+            if open.reset_app || !open.passthrough.is_empty() {
+                const ERR: &str = "does not work with --reset-app or passthrough args";
+                if open.pbcopy {
+                    bail!(format!("{} {}", "--pbcopy", ERR));
+                }
+                if open.pbpaste {
+                    bail!(format!("{} {}", "--pbpaste", ERR));
+                }
+                if open.output.is_some() {
+                    bail!(format!("{} {}", "--output", ERR));
+                }
+            }
+            if open.deeplink.is_some() {
+                const ERR: &str = "does not work with --deeplink";
+                if open.output.is_some() {
+                    bail!(format!("{} {}", "--output", ERR));
+                }
             }
         }
         Ok(())
@@ -445,12 +460,13 @@ impl CliCommand {
     fn should_kill(&self) -> bool {
         if let Some(open) = self.open_args() {
             let using_links = open.pbcopy || open.pbpaste;
+            let output_to_file = open.output.is_some();
             let no_clobber = if let Self::Open { no_clobber, .. } = self {
                 *no_clobber
             } else {
                 false
             };
-            !using_links && !no_clobber
+            !using_links && !no_clobber && !output_to_file
         } else {
             matches!(self, Self::ResetApp)
         }
@@ -471,6 +487,8 @@ pub(crate) struct AppOpenArgs {
     passthrough: Vec<String>,
     pbcopy: bool,
     pbpaste: bool,
+
+    output: Option<PathBuf>,
 }
 
 impl From<OpenArgs> for AppOpenArgs {
@@ -480,6 +498,7 @@ impl From<OpenArgs> for AppOpenArgs {
             passthrough: value.passthrough,
             pbcopy: value.pbcopy,
             pbpaste: value.pbpaste,
+            output: value.output,
         }
     }
 }
@@ -737,6 +756,13 @@ mod unit_tests {
         }
     }
 
+    fn with_output(filename: &str) -> AppOpenArgs {
+        AppOpenArgs {
+            output: Some(PathBuf::from(filename)),
+            ..Default::default()
+        }
+    }
+
     fn for_app(app: &str, list: ExperimentListSource) -> ExperimentListSource {
         ExperimentListSource::Filtered {
             filter: ExperimentListFilter::for_app(app),
@@ -984,6 +1010,41 @@ mod unit_tests {
                 preserve_bucketing: false,
                 preserve_nimbus_db: false,
                 open: with_pbcopy(),
+            },
+        ];
+        assert_eq!(expected, observed);
+        Ok(())
+    }
+
+    #[test]
+    fn test_enroll_with_output() -> Result<()> {
+        let observed = get_commands_from_cli([
+            "nimbus-cli",
+            "--app",
+            "fenix",
+            "--channel",
+            "developer",
+            "enroll",
+            "my-experiment",
+            "--branch",
+            "my-branch",
+            "--no-validate",
+            "--output",
+            "./file.json",
+        ])?;
+
+        let expected = vec![
+            AppCommand::NoOp,
+            AppCommand::Enroll {
+                app: fenix(),
+                params: fenix_params(),
+                experiment: experiment("my-experiment"),
+                rollouts: Default::default(),
+                branch: "my-branch".to_string(),
+                preserve_targeting: false,
+                preserve_bucketing: false,
+                preserve_nimbus_db: false,
+                open: with_output("./file.json"),
             },
         ];
         assert_eq!(expected, observed);
