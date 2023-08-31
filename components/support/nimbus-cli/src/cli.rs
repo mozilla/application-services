@@ -308,14 +308,16 @@ pub(crate) struct OpenArgs {
     /// Instead of opening via adb or xcrun simctl, construct a deeplink
     /// and put it into the pastebuffer.
     ///
-    /// This does not work with `--reset-app` or passthrough arguments.
+    /// If present, then the app is not launched, so this option does not work with
+    /// `--reset-app` or passthrough arguments.
     #[arg(long, default_value = "false")]
     pub(crate) pbcopy: bool,
 
     /// Instead of opening via adb or xcrun simctl, construct a deeplink
     /// and put it into the pastebuffer.
     ///
-    /// This does not work with `--reset-app` or passthrough arguments.
+    /// If present, then the app is not launched, so this option does not work with
+    /// `--reset-app` or passthrough arguments.
     #[arg(long, default_value = "false")]
     pub(crate) pbpaste: bool,
 
@@ -328,6 +330,13 @@ pub(crate) struct OpenArgs {
     /// `adb am start` or `xcrun simctl launch` commands directly.
     #[arg(last = true, value_name = "PASSTHROUGH_ARGS")]
     pub(crate) passthrough: Vec<String>,
+
+    /// An optional file to dump experiments into.
+    ///
+    /// If present, then the app is not launched, so this option does not work with
+    /// `--reset-app` or passthrough arguments.
+    #[arg(long, value_name = "OUTPUT_FILE")]
+    pub(crate) output: Option<PathBuf>,
 }
 
 #[derive(Args, Clone, Debug, Default)]
