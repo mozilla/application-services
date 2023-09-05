@@ -1,0 +1,39 @@
+# This Source Code Form is subject to the terms of the Mozilla Public
+# License, v. 2.0. If a copy of the MPL was not distributed with this
+# file, You can obtain one at http://mozilla.org/MPL/2.0/.
+
+# ⚠️ If you add, rename or delete a task here, please also update .mergify.yml! ⚠️
+---
+loader: taskgraph.loader.transform:loader
+
+transforms:
+  - app_services_taskgraph.transforms.appservices:transforms
+  - app_services_taskgraph.transforms.server_megazord:build
+  - taskgraph.transforms.job:transforms
+  - taskgraph.transforms.task:transforms
+
+kind-dependencies:
+  - toolchain
+
+task-defaults:
+  attributes:
+    run-on-pr-type: full-ci
+    resource-monitor: true
+  scopes:
+    - project:releng:services/tooltool/api/download/internal
+
+tasks:
+  nimbus-experimenter-linux:
+    attributes:
+      megazord: nimbus-experimenter
+      target: x86_64-unknown-linux-musl
+
+  nimbus-experimenter-macos:
+    attributes:
+      megazord: nimbus-experimenter
+      target: aarch64-apple-darwin
+
+  cirrus-linux:
+    attributes:
+      megazord: cirrus
+      target: x86_64-unknown-linux-musl

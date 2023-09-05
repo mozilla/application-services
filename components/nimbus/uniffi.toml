@@ -21,4 +21,7 @@ ffi_module_filename = "nimbusFFI"
 generate_module_map = false
 
 [bindings.python]
+# This can be commented out, and the `--library` argument of `bindgen-uniffi` should be used instead.
+# We won't comment this out until cirrus— which a) does not use `--library` b) is not in this repo— uses the pre-built
+# binaries built by `server-megazord-build.py`. Until then, it comments out the line programmatically.
 cdylib_name = "cirrus"

@@ -1,0 +1,12 @@
+[package]
+name = "nimbus-experimenter"
+edition = "2021"
+version = "0.1.0"
+authors = ["application-services <application-services@mozilla.com>"]
+license = "MPL-2.0"
+
+[lib]
+crate-type = ["cdylib"]
+
+[dependencies]
+nimbus-fml = { path = "../../components/support/nimbus-fml", features = ["uniffi-bindings"] }
