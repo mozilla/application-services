@@ -12,8 +12,7 @@ Nightly builds are automatically generated using a taskcluster cron task.
 
 ## Release builds
 
-Release builds are generated from the `release-vXXX` branches and published with the
-`release-promotion` action, which has several phases:
+Release builds are generated from the `release-vXXX` branches and triggered in Ship-it
 
 - Whenever a commit is pushed to a release branch, we build candidate artifacts. These artifacts are
   shippable -- if we decide that the release is ready, they just need to be copied to the correct
@@ -22,14 +21,83 @@ Release builds are generated from the `release-vXXX` branches and published with
   be tested.
 - The `ship` phase of `release-promotion` copies the candidate to their final, published, location.
 
-## What to do at the end of a nightly cycle
+## [Release management] Creating a new release
+> This part is 100% covered by the Release Management team. The dev team should not perform these steps.
 
-1. Start this 2 workdays before the nightly cycle ends
+On Merge Day we take a snapshot of the current `main`, and prepare a release. See [Firefox Release Calendar](https://whattrainisitnow.com/calendar/).
 
-2. Run the `automation/prepare-release.py` script.  This should:
+1. Create a branch name with the format `releases-v[release_version]` off of the `main` branch (for example, `release-v118`) through the GitHub UI.
+`[release_version]` should follow the Firefox release number. See [Firefox Release Calendar](https://whattrainisitnow.com/calendar/).
 
- * Create a new branch named `release-vXXX`
- * Create a PR against that branch that updates `version.txt` like this:
+2. Create a PR against the release branch that updates `version.txt` and updates the `CHANGELOG.md` as follows:
+  * In [version.txt](https://github.com/mozilla/application-services/blob/main/version.txt), update the version from [release_version].0a1 to [release_version].0. 
+```diff
+diff --git a/version.txt b/version.txt
+--- a/version.txt
++++ b/version.txt
+@@ -1 +1 @@
+-118.0a1
++118.0
+```
+  * In [CHANGELOG.md](https://github.com/mozilla/application-services/blob/main/CHANGELOG.md), change `In progress` to `_YYY-MM-DD_` to match the Merge Day date. 
+```diff
+diff --git a/CHANGELOG.md b/CHANGELOG.md
+--- a/CHANGELOG.md
++++ b/CHANGELOG.md
+@@ -1,8 +1,7 @@
+- v118.0 (In progress)
++# v118.0 (_2023-08-28_)
+```
+  * Create a commit named 'Cut release v[release_version].0` and a PR for this change.
+  * See [example PR](https://github.com/mozilla/application-services/pull/5792)
+
+3. Create a PR against the release branch that updates `version.txt` and updates the `CHANGELOG.md` as follows:
+  * In [version.txt](https://github.com/mozilla/application-services/blob/main/version.txt), update the version from [previous_release_version].0a1 to [release_version].0. 
+```diff
+diff --git a/version.txt b/version.txt
+--- a/version.txt
++++ b/version.txt
+@@ -1 +1@@
+-118.0a1
++119.0a1
+```
+  * In [CHANGELOG.md](https://github.com/mozilla/application-services/blob/main/CHANGELOG.md), change the in progress version from [previous_release_version].0a1 to [release_version].0, add a header for the previous release version, and add a URL to the previous release version change log.
+``` diff
+diff --git a/CHANGELOG.md b/CHANGELOG.md
+--- a/CHANGELOG.md
++++ b/CHANGELOG.md
+@@ -1,8 +1,7 @@
+-# v118.0 (In progress)
++# v119.0 (In progress)
+
+[Full Changelog](In progress)
+
++# v118.0 (_2023-08-28_)
+@@ -34,6 +36,8 @@
++[Full Changelog](https://github.com/mozilla/application-services/compare/v117.0...v118.0)
++
+# v117.0 (_2023-07-31_)
+```
+  * Create a commit named 'Start release v[release_version].0` and a PR for this change.
+  * See [example PR](https://github.com/mozilla/application-services/pull/5793)
+
+4. Once all of the above PRs have landed, create a new Application Services release in Ship-It.
+  * Promote and Ship the release.
+
+5. Tag the release in the Application Services repo.
+
+6. Inform the Application Services team to cut a release of [rust-components-swift](https://github.com/mozilla/rust-components-swift)
+  * The team will tag the repo and let you know the git hash to use when updating the consumer applications
+  
+8. Update consumer applications
+  * firefox-android: Follow the directions in the [release checklist](https://mozac.org/contributing/release-checklist)
+  * firefox-ios: Follow the directions in the [release checklist](https://github.com/mozilla-mobile/firefox-ios/wiki/Release-Checklist)
+
+
+### [Release management] Creating a new release via scripts:
+1. Run the `automation/prepare-release.py` script.  This should:
+  * Create a new branch named `release-vXXX`
+  * Create a PR against that branch that updates `version.txt` like this:
 
 ```diff
 diff --git a/version.txt b/version.txt
@@ -40,18 +108,11 @@ index 8cd923873..6482018e0 100644
 -114.0a1
 +114.0
 ```
+  * Create a PR on `main` that starts a new CHANGELOG header.
 
- * Create a PR on `main` that starts a new CHANGELOG header.
+2. Tag the release with `automation/tag-release.py [major-version-number]`
 
-3. Ask releng to trigger release-promotion once the PRs are approved, merged, and CI has completed
 
-4. Tag the release with `automation/tag-release.py [major-version-number]`
-
-5. Update consumer applications
-  * firefox-android: Create a PR that updates
-     `android-components/plugins/dependencies/src/main/java/ApplicationServices.kt` following the
-      directions in the [release checklist](https://github.com/mozilla-mobile/firefox-android/blob/main/docs/contribute/release_checklist.md)
-  * firefox-ios: TODO
 
 ### Cutting patch releases for uplifted changes
 
