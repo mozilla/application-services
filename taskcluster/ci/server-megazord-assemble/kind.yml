@@ -1,0 +1,47 @@
+# This Source Code Form is subject to the terms of the Mozilla Public
+# License, v. 2.0. If a copy of the MPL was not distributed with this
+# file, You can obtain one at http://mozilla.org/MPL/2.0/.
+---
+# release-publish: publish artifacts for successful nightly/release builds
+#
+# This task publishes a JSON file for the nightly/release builds. The JSON file is used by consumer
+# apps for app-services version bumps.
+#
+# This task only runs if build-summary succeeds, which implies that all other
+# tasks suceeded.  This task should not fail, since that could leave the
+# build artifacts in an inconsistent state.
+loader: taskgraph.loader.transform:loader
+
+kind-dependencies:
+  - server-megazord-build
+
+transforms:
+  - app_services_taskgraph.transforms.worker:transforms
+  - app_services_taskgraph.transforms.server_megazord:assemble
+  - app_services_taskgraph.transforms.release_artifacts
+  - app_services_taskgraph.transforms.appservices
+  - taskgraph.transforms.job
+  - taskgraph.transforms.task
+
+task-defaults:
+  attributes:
+    run-on-pr-type: full-ci
+  worker-type: b-linux
+  worker:
+    chain-of-trust: true
+    max-run-time: 1800
+
+tasks:
+  nimbus-experimenter-megazord:
+    attributes:
+      megazord: "nimbus-experimenter"
+      release-routes:
+        - index.project.{project}.v2.nimbus-experimenter.latest
+    description: "Assemble nimbus-experimenter megazord"
+
+  cirrus-megazord:
+    attributes:
+      megazord: "cirrus"
+      release-routes:
+        - index.project.{project}.v2.cirrus.latest
+    description: "Assemble cirrus megazord"

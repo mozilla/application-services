@@ -103,9 +103,12 @@ RUN apt-get update -qq \
 
 RUN pip3 install --upgrade pip
 RUN pip3 install \
+    pytest \
     pyyaml \
     toml \
     taskcluster \
+    # For formatting uniffi generated python code
+    yapf \
     # Required to manipulate archiving operations for upcoming monitoring work
     zstandard
 

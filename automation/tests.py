@@ -94,6 +94,11 @@ def parse_args():
 def on_darwin():
     return platform.system() == 'Darwin'
 
+def get_default_target():
+    toolchain = get_output(['rustup', 'default'])
+    s = toolchain.split(' ')[0]
+    return '-'.join(s.split('-')[1:])
+
 class BranchChanges:
     """
     Tracks which files have been changed in this branch
@@ -310,7 +315,9 @@ def run_ios_tests():
         print("WARNING: skipping iOS tests on non-Darwin host")
 
 def run_python_tests():
-    run_command([PROJECT_ROOT / 'megazords/cirrus/tests/run_python_tests.sh'])
+    target=get_default_target()
+    run_command([PROJECT_ROOT / 'taskcluster/scripts/server-megazord-build.py', 'cirrus', target])
+    run_command([PROJECT_ROOT / 'taskcluster/scripts/server-megazord-build.py', 'nimbus-experimenter', target])
 
 def cargo_fmt(package=None, fix_issues=False):
     cmdline = ['cargo', 'fmt']

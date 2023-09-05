@@ -2606,6 +2606,13 @@ dependencies = [
 ]
 
 [[package]]
+name = "nimbus-experimenter"
+version = "0.1.0"
+dependencies = [
+ "nimbus-fml",
+]
+
+[[package]]
 name = "nimbus-fml"
 version = "0.1.0"
 dependencies = [

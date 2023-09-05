@@ -38,6 +38,7 @@ members = [
     "components/webext-storage",
     "components/webext-storage/ffi",
     "megazords/cirrus",
+    "megazords/nimbus-experimenter",
     "megazords/full",
     "megazords/ios-rust",
     "megazords/ios-rust/focus",

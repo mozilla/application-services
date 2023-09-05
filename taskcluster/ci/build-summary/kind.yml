@@ -8,6 +8,8 @@ kind-dependencies:
   - module-build
   - signing
   - swift
+  - server-megazord-build
+  - server-megazord-assemble
   - nimbus-build
   - nimbus-binaries-assemble
 
