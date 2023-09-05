@@ -18,6 +18,7 @@ BINDINGS_UDL_PATHS = [
     "components/places/src/places.udl",
     "components/push/src/push.udl",
     "components/remote_settings/src/remote_settings.udl",
+    "components/suggest/src/suggest.udl",
     "components/support/error/src/errorsupport.udl",
     "components/sync15/src/sync15.udl",
     "components/sync_manager/src/syncmanager.udl",

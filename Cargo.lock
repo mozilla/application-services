@@ -2353,6 +2353,7 @@ dependencies = [
  "rc_log_ffi",
  "remote_settings",
  "rust-log-forwarder",
+ "suggest",
  "sync15",
  "sync_manager",
  "tabs",

@@ -5,7 +5,7 @@ edition = "2021"
 description = "Manages sponsored and web suggestions for Firefox Suggest"
 readme = "README.md"
 license = "MPL-2.0"
-exclude = ["/android"]
+exclude = ["/android", "/ios"]
 
 [dependencies]
 anyhow = "1.0"
