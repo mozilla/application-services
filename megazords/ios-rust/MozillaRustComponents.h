@@ -20,3 +20,4 @@
 #import "syncmanagerFFI.h"
 #import "remote_settingsFFI.h"
 #import "as_ohttp_clientFFI.h"
+#import "suggestFFI.h"

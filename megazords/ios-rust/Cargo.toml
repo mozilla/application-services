@@ -22,6 +22,7 @@ push = { path = "../../components/push" }
 tabs = { path = "../../components/tabs" }
 places = {path = "../../components/places" }
 remote_settings = { path = "../../components/remote_settings" }
+suggest = { path = "../../components/suggest" }
 sync15 = {path = "../../components/sync15"}
 error-support = { path = "../../components/support/error" }
 sync_manager = { path = "../../components/sync_manager" }
