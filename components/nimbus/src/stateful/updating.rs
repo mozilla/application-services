@@ -6,7 +6,7 @@
 //! safe updating from the server.
 
 use crate::error::Result;
-use crate::persistence::{Database, StoreId, Writer};
+use crate::stateful::persistence::{Database, StoreId, Writer};
 use crate::Experiment;
 
 const KEY_PENDING_UPDATES: &str = "pending-experiment-updates";

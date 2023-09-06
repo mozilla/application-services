@@ -3,12 +3,12 @@
 * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
 use crate::{
-    behavior::{
+    enrollment::NotEnrolledReason,
+    evaluator::targeting,
+    stateful::behavior::{
         EventStore, Interval, IntervalConfig, IntervalData, MultiIntervalCounter,
         SingleIntervalCounter,
     },
-    enrollment::NotEnrolledReason,
-    evaluator::targeting,
     AppContext, EnrollmentStatus, TargetingAttributes,
 };
 use chrono::Utc;

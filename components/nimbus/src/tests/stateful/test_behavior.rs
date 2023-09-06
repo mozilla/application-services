@@ -4,12 +4,12 @@
 
 // cargo test --package nimbus-sdk --lib --all-features -- tests::test_behavior --nocapture
 
-use crate::behavior::{
+use crate::error::Result;
+use crate::stateful::behavior::{
     EventQueryType, EventStore, Interval, IntervalConfig, IntervalData, MultiIntervalCounter,
     SingleIntervalCounter,
 };
-use crate::error::Result;
-use crate::persistence::Database;
+use crate::stateful::persistence::Database;
 use chrono::{DateTime, Utc};
 use std::collections::VecDeque;
 

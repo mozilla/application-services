@@ -1,14 +1,18 @@
-// This Source Code Form is subject to the terms of the Mozilla Public
-// License, v. 2.0. If a copy of the MPL was not distributed with this
-// file, You can obtain one at https://mozilla.org/MPL/2.0/.
+/* This Source Code Form is subject to the terms of the Mozilla Public
+ * License, v. 2.0. If a copy of the MPL was not distributed with this
+ * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-use crate::enrollment::{
-    get_enrollments, map_features_by_feature_id, EnrolledFeature, EnrolledFeatureConfig,
+use crate::{
+    enrollment::{
+        map_features_by_feature_id, EnrolledFeature, EnrolledFeatureConfig, ExperimentEnrollment,
+    },
+    error::{NimbusError, Result},
+    stateful::{
+        enrollment::get_enrollments,
+        persistence::{Database, StoreId, Writer},
+    },
+    EnrolledExperiment, Experiment,
 };
-use crate::error::{NimbusError, Result};
-use crate::persistence::{Database, StoreId, Writer};
-use crate::EnrolledExperiment;
-use crate::{enrollment::ExperimentEnrollment, Experiment};
 use std::collections::{HashMap, HashSet};
 use std::sync::RwLock;
 

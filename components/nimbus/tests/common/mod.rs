@@ -46,7 +46,7 @@ fn new_test_client_internal(
     NimbusClient::new(ctx, Default::default(), tmp_dir.path(), Some(config), aru)
 }
 
-use nimbus::persistence::{Database, SingleStore};
+use nimbus::stateful::persistence::{Database, SingleStore};
 use std::path::Path;
 
 #[allow(dead_code)] //  work around https://github.com/rust-lang/rust/issues/46379

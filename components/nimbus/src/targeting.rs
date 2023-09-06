@@ -9,7 +9,7 @@ use serde_json::{json, Value};
 
 cfg_if::cfg_if! {
     if #[cfg(feature = "stateful")] {
-        use crate::behavior::{EventStore, EventQueryType};
+        use crate::stateful::behavior::{EventStore, EventQueryType, query_event_store};
         use std::sync::{Arc, Mutex};
     }
 }
@@ -140,21 +140,4 @@ fn version_compare(args: &[Value]) -> Result<Value> {
     } else {
         0
     }))
-}
-
-#[cfg(feature = "stateful")]
-fn query_event_store(
-    event_store: Arc<Mutex<EventStore>>,
-    query_type: EventQueryType,
-    args: &[Value],
-) -> Result<Value> {
-    let (event, interval, num_buckets, starting_bucket) = query_type.validate_arguments(args)?;
-
-    Ok(json!(event_store.lock().unwrap().query(
-        &event,
-        interval,
-        num_buckets,
-        starting_bucket,
-        query_type,
-    )?))
 }

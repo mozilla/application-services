@@ -2,16 +2,19 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-use crate::error::{BehaviorError, NimbusError, Result};
-use crate::persistence::{Database, StoreId};
+use crate::{
+    error::{BehaviorError, NimbusError, Result},
+    stateful::persistence::{Database, StoreId},
+};
 use chrono::{DateTime, Datelike, Duration, TimeZone, Utc};
 use serde::{Deserialize, Serialize};
-use serde_json::Value;
+use serde_json::{json, Value};
 use std::collections::vec_deque::Iter;
 use std::collections::{HashMap, VecDeque};
 use std::fmt;
 use std::hash::{Hash, Hasher};
 use std::str::FromStr;
+use std::sync::{Arc, Mutex};
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub enum Interval {
@@ -568,4 +571,20 @@ impl EventStore {
         }
         Ok(query_type.error_value())
     }
+}
+
+pub fn query_event_store(
+    event_store: Arc<Mutex<EventStore>>,
+    query_type: EventQueryType,
+    args: &[Value],
+) -> Result<Value> {
+    let (event, interval, num_buckets, starting_bucket) = query_type.validate_arguments(args)?;
+
+    Ok(json!(event_store.lock().unwrap().query(
+        &event,
+        interval,
+        num_buckets,
+        starting_bucket,
+        query_type,
+    )?))
 }
