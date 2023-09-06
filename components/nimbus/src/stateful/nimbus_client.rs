@@ -5,8 +5,8 @@
 use crate::{
     defaults::Defaults,
     enrollment::{
-        EnrolledFeature, EnrollmentChangeEvent, EnrollmentStatus, EnrollmentsEvolver,
-        ExperimentEnrollment,
+        EnrolledFeature, EnrollmentChangeEvent, EnrollmentChangeEventType, EnrollmentStatus,
+        EnrollmentsEvolver, ExperimentEnrollment,
     },
     error::BehaviorError,
     evaluator::{is_experiment_available, TargetingAttributes},
