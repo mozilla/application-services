@@ -24,6 +24,6 @@ dependencies {
     testImplementation "org.mozilla.telemetry:glean-native-forUnitTests:$glean_version"
 }
 
-ext.configureUniFFIBindgen("../src/syncmanager.udl")
+ext.configureUniFFIBindgen("sync_manager")
 ext.dependsOnTheMegazord()
 ext.configurePublish()

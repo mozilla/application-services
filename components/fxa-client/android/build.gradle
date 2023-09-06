@@ -6,6 +6,6 @@ dependencies {
     api project(':sync15')
 }
 
-ext.configureUniFFIBindgen("../src/fxa_client.udl")
+ext.configureUniFFIBindgen("fxa_client")
 ext.dependsOnTheMegazord()
 ext.configurePublish()

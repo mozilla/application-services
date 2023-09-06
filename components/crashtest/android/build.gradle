@@ -2,6 +2,6 @@
 apply from: "$rootDir/build-scripts/component-common.gradle"
 apply from: "$rootDir/publish.gradle"
 
-ext.configureUniFFIBindgen("../src/crashtest.udl")
+ext.configureUniFFIBindgen("crashtest")
 ext.dependsOnTheMegazord()
 ext.configurePublish()

@@ -5,14 +5,16 @@
 
 set -e
 
-cargo uniffi-bindgen generate components/nimbus/src/cirrus.udl --language python -o .
-cargo uniffi-bindgen generate components/support/nimbus-fml/src/fml.udl --language python -o .
+if [[ "$OSTYPE" == "darwin"* ]]; then
+  LIBCIRRUS_PATH=target/release/libcirrus.dylib
+else
+  LIBCIRRUS_PATH=target/release/libcirrus.so
+fi
+
 cargo build --manifest-path megazords/cirrus/Cargo.toml --release
 
-if [[ "$OSTYPE" == "darwin"* ]]; then
-  mv target/release/libcirrus.dylib ./
-else
-  mv target/release/libcirrus.so ./
-fi
+cargo uniffi-bindgen generate --library $LIBCIRRUS_PATH --language python -o .
+
+cp $LIBCIRRUS_PATH ./
 
 PYTHONPATH=$PYTHONPATH:$(pwd) pytest -s megazords/cirrus/tests/python-tests
