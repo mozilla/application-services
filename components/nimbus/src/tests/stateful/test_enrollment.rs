@@ -6,14 +6,18 @@
 // XXX: make them less complicated (since the transitions are covered in crate::tests::test_enrollment), just see if we write to the DB properly.
 
 use crate::{
-    behavior::EventStore,
     enrollment::{
-        get_enrollments, opt_in_with_branch, opt_out, reset_telemetry_identifiers,
-        set_global_user_participation, DisqualifiedReason, EnrolledReason, EnrollmentChangeEvent,
-        EnrollmentChangeEventType, EnrollmentStatus, EnrollmentsEvolver, ExperimentEnrollment,
-        NotEnrolledReason,
+        DisqualifiedReason, EnrolledReason, EnrollmentChangeEvent, EnrollmentChangeEventType,
+        EnrollmentStatus, EnrollmentsEvolver, ExperimentEnrollment, NotEnrolledReason,
     },
-    persistence::{Database, Readable, StoreId},
+    stateful::{
+        behavior::EventStore,
+        enrollment::{
+            get_enrollments, opt_in_with_branch, opt_out, reset_telemetry_identifiers,
+            set_global_user_participation,
+        },
+        persistence::{Database, Readable, StoreId},
+    },
     tests::helpers::{get_test_experiments, no_coenrolling_features},
     AppContext, AvailableRandomizationUnits, NimbusTargetingHelper, Result,
 };

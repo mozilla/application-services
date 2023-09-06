@@ -7,14 +7,15 @@ use crate::tests::helpers::{
     get_bucketed_rollout, get_targeted_experiment, to_local_experiments_string,
 };
 use crate::{
-    behavior::{
-        EventStore, Interval, IntervalConfig, IntervalData, MultiIntervalCounter,
-        SingleIntervalCounter,
-    },
     enrollment::{EnrolledReason, EnrollmentStatus, ExperimentEnrollment},
     error::Result,
-    persistence::Database,
-    persistence::StoreId,
+    stateful::{
+        behavior::{
+            EventStore, Interval, IntervalConfig, IntervalData, MultiIntervalCounter,
+            SingleIntervalCounter,
+        },
+        persistence::{Database, StoreId},
+    },
     tests::helpers::get_ios_rollout_experiment,
     AppContext, AvailableRandomizationUnits, Experiment, NimbusClient, TargetingAttributes,
     DB_KEY_APP_VERSION, DB_KEY_UPDATE_DATE,

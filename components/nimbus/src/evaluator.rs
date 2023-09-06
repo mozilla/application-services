@@ -3,23 +3,21 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
  */
 
-use crate::enrollment::{
-    EnrolledReason, EnrollmentStatus, ExperimentEnrollment, NotEnrolledReason,
-};
 use crate::{
+    enrollment::{EnrolledReason, EnrollmentStatus, ExperimentEnrollment, NotEnrolledReason},
     error::{NimbusError, Result},
-    AvailableRandomizationUnits,
+    sampling, AvailableRandomizationUnits, Branch, Experiment, NimbusTargetingHelper,
 };
-use crate::{matcher::AppContext, sampling};
-use crate::{Branch, Experiment, NimbusTargetingHelper};
 use serde_derive::*;
 use serde_json::Value;
 
-#[cfg(feature = "stateful")]
-use std::collections::HashSet;
-
-#[cfg(not(feature = "stateful"))]
-use serde_json::Map;
+cfg_if::cfg_if! {
+    if #[cfg(feature = "stateful")] {
+        pub use crate::stateful::evaluator::*;
+    } else {
+        pub use crate::stateless::evaluator::*;
+    }
+}
 
 #[derive(Serialize, Deserialize, Debug, Clone, Default)]
 pub struct Bucket {}
@@ -28,70 +26,6 @@ impl Bucket {
     #[allow(unused)]
     pub fn new() -> Self {
         unimplemented!();
-    }
-}
-
-#[cfg(feature = "stateful")]
-#[derive(Serialize, Deserialize, Debug, Clone, Default)]
-pub struct TargetingAttributes {
-    #[serde(flatten)]
-    pub app_context: AppContext,
-    pub language: Option<String>,
-    pub region: Option<String>,
-    pub is_already_enrolled: bool,
-    pub days_since_install: Option<i32>,
-    pub days_since_update: Option<i32>,
-    pub active_experiments: HashSet<String>,
-    pub enrollments: HashSet<String>,
-}
-
-#[cfg(not(feature = "stateful"))]
-#[derive(Serialize, Deserialize, Debug, Clone, Default)]
-pub struct TargetingAttributes {
-    #[serde(flatten)]
-    pub app_context: AppContext,
-    #[serde(flatten)]
-    pub request_context: Map<String, Value>,
-    pub language: Option<String>,
-    pub region: Option<String>,
-}
-
-#[cfg(not(feature = "stateful"))]
-impl TargetingAttributes {
-    pub fn new(app_context: AppContext, request_context: Map<String, Value>) -> Self {
-        let (language, region) = match request_context
-            .get("locale")
-            .unwrap_or(&Value::Null)
-            .as_str()
-        {
-            Some(locale) => split_locale(locale.to_string()),
-            _ => (None, None),
-        };
-
-        Self {
-            app_context,
-            request_context,
-            language,
-            region,
-        }
-    }
-}
-
-#[cfg(feature = "stateful")]
-impl From<AppContext> for TargetingAttributes {
-    fn from(app_context: AppContext) -> Self {
-        let (language, region) = app_context
-            .locale
-            .clone()
-            .map(split_locale)
-            .unwrap_or_else(|| (None, None));
-
-        Self {
-            app_context,
-            language,
-            region,
-            ..Default::default()
-        }
     }
 }
 
@@ -104,7 +38,7 @@ fn prefer_none_to_empty(s: Option<&str>) -> Option<String> {
     }
 }
 
-fn split_locale(locale: String) -> (Option<String>, Option<String>) {
+pub fn split_locale(locale: String) -> (Option<String>, Option<String>) {
     if locale.contains('-') {
         let mut parts = locale.split('-');
         (

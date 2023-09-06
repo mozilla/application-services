@@ -13,9 +13,9 @@
 //!
 //! But the simple subset implemented here meets our needs for now.
 
-use crate::client::{Experiment, SettingsClient};
 use crate::error::Result;
 use crate::schema::parse_experiments;
+use crate::stateful::client::{Experiment, SettingsClient};
 use remote_settings::Client;
 
 impl SettingsClient for Client {

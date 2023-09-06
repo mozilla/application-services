@@ -16,7 +16,7 @@ use uuid::Uuid;
 
 cfg_if::cfg_if! {
     if #[cfg(feature = "stateful")] {
-        use crate::behavior::EventStore;
+        use crate::stateful::behavior::EventStore;
         use std::sync::{Arc, Mutex};
     }
 }

@@ -1,24 +1,29 @@
-// This Source Code Form is subject to the terms of the Mozilla Public
-// License, v. 2.0. If a copy of the MPL was not distributed with this
-// file, You can obtain one at https://mozilla.org/MPL/2.0/.
+/* This Source Code Form is subject to the terms of the Mozilla Public
+ * License, v. 2.0. If a copy of the MPL was not distributed with this
+ * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
 use crate::{
-    behavior::EventStore,
-    client::{create_client, SettingsClient},
-    dbcache::DatabaseCache,
     defaults::Defaults,
     enrollment::{
-        get_global_user_participation, opt_in_with_branch, opt_out, reset_telemetry_identifiers,
-        set_global_user_participation, EnrolledFeature, EnrollmentChangeEvent,
-        EnrollmentChangeEventType, EnrollmentStatus, EnrollmentsEvolver, ExperimentEnrollment,
+        EnrolledFeature, EnrollmentChangeEvent, EnrollmentStatus, EnrollmentsEvolver,
+        ExperimentEnrollment,
     },
     error::BehaviorError,
     evaluator::{is_experiment_available, TargetingAttributes},
-    matcher::AppContext,
-    persistence::{Database, StoreId, Writer},
     schema::parse_experiments,
+    stateful::{
+        behavior::EventStore,
+        client::{create_client, SettingsClient},
+        dbcache::DatabaseCache,
+        enrollment::{
+            get_global_user_participation, opt_in_with_branch, opt_out,
+            reset_telemetry_identifiers, set_global_user_participation,
+        },
+        matcher::AppContext,
+        persistence::{Database, StoreId, Writer},
+        updating::{read_and_remove_pending_experiments, write_pending_experiments},
+    },
     strings::fmt_with_map,
-    updating::{read_and_remove_pending_experiments, write_pending_experiments},
     AvailableExperiment, AvailableRandomizationUnits, EnrolledExperiment, Experiment,
     ExperimentBranch, NimbusError, NimbusTargetingHelper, Result,
 };
