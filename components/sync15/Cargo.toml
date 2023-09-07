@@ -47,7 +47,7 @@ standalone-sync = ["sync-client"]
 [dependencies]
 anyhow = "1.0"
 base16 = { version = "0.2", optional = true }
-base64 = { version = "0.13", optional = true }
+base64 = { version = "0.21", optional = true }
 error-support = { path = "../support/error" }
 ffi-support = "0.4"
 interrupt-support = { path = "../support/interrupt" }

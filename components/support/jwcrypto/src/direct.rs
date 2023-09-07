@@ -10,6 +10,7 @@ use crate::{
     error::{JwCryptoError, Result},
     Algorithm, CompactJwe, EncryptionAlgorithm, JweHeader, Jwk, JwkKeyParameters,
 };
+use base64::{engine::general_purpose::URL_SAFE_NO_PAD, Engine};
 use rc_crypto::rand;
 
 impl Jwk {
@@ -22,7 +23,7 @@ impl Jwk {
         Ok(Jwk {
             kid,
             key_parameters: JwkKeyParameters::Direct {
-                k: base64::encode_config(&bytes, base64::URL_SAFE_NO_PAD),
+                k: URL_SAFE_NO_PAD.encode(&bytes),
             },
         })
     }
@@ -35,7 +36,7 @@ impl Jwk {
         Jwk {
             kid,
             key_parameters: JwkKeyParameters::Direct {
-                k: base64::encode_config(key, base64::URL_SAFE_NO_PAD),
+                k: URL_SAFE_NO_PAD.encode(key),
             },
         }
     }
@@ -57,7 +58,7 @@ pub(crate) fn encrypt_to_jwe(
         apv: None,
     };
     let secret = match &jwk.key_parameters {
-        JwkKeyParameters::Direct { k } => base64::decode_config(k, base64::URL_SAFE_NO_PAD)?,
+        JwkKeyParameters::Direct { k } => URL_SAFE_NO_PAD.decode(k)?,
         _ => return Err(JwCryptoError::IllegalState("Not a Direct key")),
     };
     aes::aes_gcm_encrypt(data, protected_header, &secret)
@@ -65,7 +66,7 @@ pub(crate) fn encrypt_to_jwe(
 
 pub(crate) fn decrypt_jwe(jwe: &CompactJwe, jwk: Jwk) -> Result<String> {
     let secret = match jwk.key_parameters {
-        JwkKeyParameters::Direct { k } => base64::decode_config(k, base64::URL_SAFE_NO_PAD)?,
+        JwkKeyParameters::Direct { k } => URL_SAFE_NO_PAD.decode(k)?,
         _ => return Err(JwCryptoError::IllegalState("Not a Direct key")),
     };
     // `alg="dir"` mandates no encrypted key.

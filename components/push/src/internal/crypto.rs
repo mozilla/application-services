@@ -21,6 +21,7 @@ use std::fmt::Display;
 use std::str::FromStr;
 
 use crate::{error, PushError};
+use base64::{engine::general_purpose::URL_SAFE_NO_PAD, Engine};
 use rc_crypto::ece::{self, EcKeyComponents, LocalKeyPair};
 use rc_crypto::ece_crypto::RcCryptoLocalKeyPair;
 use rc_crypto::rand;
@@ -161,7 +162,7 @@ fn extract_value(val: &str, target: &str) -> Option<Vec<u8>> {
         let mut kv = item.split('=');
         if kv.next() == Some(target) {
             if let Some(val) = kv.next() {
-                return match base64::decode_config(val, base64::URL_SAFE_NO_PAD) {
+                return match URL_SAFE_NO_PAD.decode(val) {
                     Ok(v) => Some(v),
                     Err(e) => {
                         error_support::report_error!(
@@ -197,7 +198,7 @@ impl Cryptography for Crypto {
         // convert the private key into something useful.
         let d_salt = extract_value(push_payload.salt, "salt");
         let d_dh = extract_value(push_payload.dh, "dh");
-        let d_body = base64::decode_config(push_payload.body, base64::URL_SAFE_NO_PAD)?;
+        let d_body = URL_SAFE_NO_PAD.decode(push_payload.body)?;
 
         match CryptoEncoding::from_str(push_payload.encoding)? {
             CryptoEncoding::Aesgcm => Self::decrypt_aesgcm(key, &d_body, d_salt, d_dh),
@@ -266,10 +267,10 @@ mod crypto_tests {
     // generate unit test key
     fn test_key(priv_key: &str, pub_key: &str, auth: &str) -> Key {
         let components = EcKeyComponents::new(
-            base64::decode_config(priv_key, base64::URL_SAFE_NO_PAD).unwrap(),
-            base64::decode_config(pub_key, base64::URL_SAFE_NO_PAD).unwrap(),
+            URL_SAFE_NO_PAD.decode(priv_key).unwrap(),
+            URL_SAFE_NO_PAD.decode(pub_key).unwrap(),
         );
-        let auth = base64::decode_config(auth, base64::URL_SAFE_NO_PAD).unwrap();
+        let auth = URL_SAFE_NO_PAD.decode(auth).unwrap();
         Key {
             p256key: components,
             auth,

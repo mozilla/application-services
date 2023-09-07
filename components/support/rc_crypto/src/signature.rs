@@ -69,22 +69,20 @@ impl<'a> UnparsedPublicKey<'a> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use base64::{engine::general_purpose::URL_SAFE_NO_PAD, Engine};
 
     #[test]
     fn test_ecdsa_p384_sha384_verify() {
         // Test generated with JS DOM's WebCrypto.
-        let pub_key_bytes = base64::decode_config(
+        let pub_key_bytes = URL_SAFE_NO_PAD.decode(
             "BMZj_xHOfLQn5DIEQcYUkyASDWo8O30gWdkWXHHHWN5owKhGWplYHEb4PLf3DkFTg_smprr-ApdULy3NV10x8IZ0EfVaUZdXvTquH1kiw2PxD7fhqiozMXUaSuZI5KBE6w",
-            base64::URL_SAFE_NO_PAD
         ).unwrap();
-        let message = base64::decode_config(
+        let message = URL_SAFE_NO_PAD.decode(
             "F9MQDmEEdvOfm-NkCRrXqG-aVA9kq0xqtjvtWLndmmt6bO2gfLE2CVDDLzJYds0n88uz27c5JkzdsLpm5HP3aLFgD8bgnGm-EgdBpm99CRiIm7mAMbb0-NRAyUxeoGmdgJPVQLWFNoHRwzKV2wZ0Bk-Bq7jkeDHmDfnx-CJKVMQ",
-            base64::URL_SAFE_NO_PAD,
         )
         .unwrap();
-        let signature = base64::decode_config(
+        let signature = URL_SAFE_NO_PAD.decode(
             "XLZmtJweW4qx0u0l6EpfmB5z-S-CNj4mrl9d7U0MuftdNPhmlNacV4AKR-i4uNn0TUIycU7GsfIjIqxuiL9WdAnfq_KH_SJ95mduqXgWNKlyt8JgMLd4h-jKOllh4erh",
-            base64::URL_SAFE_NO_PAD,
         )
         .unwrap();
         let public_key =

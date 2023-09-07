@@ -10,6 +10,7 @@ use crate::{
     error::{JwCryptoError, Result},
     CompactJwe, EncryptionAlgorithm, JweHeader,
 };
+use base64::{engine::general_purpose::URL_SAFE_NO_PAD, Engine};
 use rc_crypto::{aead, rand};
 
 /// Does the AES-encrypt heavy-lifting for the schemes supported by this crate.
@@ -21,8 +22,7 @@ pub(crate) fn aes_gcm_encrypt(
     assert_eq!(protected_header.enc, EncryptionAlgorithm::A256GCM);
     let sealing_key = aead::SealingKey::new(&aead::AES_256_GCM, content_encryption_key)?;
     let additional_data = serde_json::to_string(&protected_header)?;
-    let additional_data =
-        base64::encode_config(additional_data.as_bytes(), base64::URL_SAFE_NO_PAD);
+    let additional_data = URL_SAFE_NO_PAD.encode(additional_data.as_bytes());
     let additional_data = additional_data.as_bytes();
     let aad = aead::Aad::from(additional_data);
     // Note that RFC7518 specifies an IV of 96 bits == 12 bytes - which means

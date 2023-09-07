@@ -2,6 +2,7 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
+use base64::{engine::general_purpose::URL_SAFE_NO_PAD, Engine};
 use jwcrypto::{self, DecryptionParameters, Jwk};
 use rc_crypto::{agreement, agreement::EphemeralKeyPair};
 
@@ -18,7 +19,7 @@ impl FirefoxAccount {
 
 impl ScopedKey {
     pub fn key_bytes(&self) -> Result<Vec<u8>> {
-        Ok(base64::decode_config(&self.k, base64::URL_SAFE_NO_PAD)?)
+        Ok(URL_SAFE_NO_PAD.decode(&self.k)?)
     }
 }
 
@@ -70,21 +71,15 @@ mod tests {
 
     #[test]
     fn test_flow() {
-        let x = base64::decode_config(
-            "ARvGIPJ5eIFdp6YTM-INVDqwfun2R9FfCUvXbH7QCIU",
-            base64::URL_SAFE_NO_PAD,
-        )
-        .unwrap();
-        let y = base64::decode_config(
-            "hk8gP0Po8nBh-WSiTsvsyesC5c1L6fGOEVuX8FHsvTs",
-            base64::URL_SAFE_NO_PAD,
-        )
-        .unwrap();
-        let d = base64::decode_config(
-            "UayD4kn_4QHvLvLLSSaANfDUp9AcQndQu_TohQKoyn8",
-            base64::URL_SAFE_NO_PAD,
-        )
-        .unwrap();
+        let x = URL_SAFE_NO_PAD
+            .decode("ARvGIPJ5eIFdp6YTM-INVDqwfun2R9FfCUvXbH7QCIU")
+            .unwrap();
+        let y = URL_SAFE_NO_PAD
+            .decode("hk8gP0Po8nBh-WSiTsvsyesC5c1L6fGOEVuX8FHsvTs")
+            .unwrap();
+        let d = URL_SAFE_NO_PAD
+            .decode("UayD4kn_4QHvLvLLSSaANfDUp9AcQndQu_TohQKoyn8")
+            .unwrap();
         let ec_key =
             agreement::EcKey::from_coordinates(agreement::Curve::P256, &d, &x, &y).unwrap();
         let private_key = PrivateKey::<rc_crypto::agreement::Static>::import(&ec_key).unwrap();
