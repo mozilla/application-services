@@ -3,6 +3,7 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
 use crate::{Error, Result};
+use base64::{engine::general_purpose::URL_SAFE_NO_PAD, Engine};
 use rc_crypto::rand;
 use std::time::{SystemTime, UNIX_EPOCH};
 
@@ -30,7 +31,7 @@ pub fn past_timestamp(days: u64) -> u64 {
 pub fn random_base64_url_string(len: usize) -> Result<String> {
     let mut out = vec![0u8; len];
     rand::fill(&mut out)?;
-    Ok(base64::encode_config(&out, base64::URL_SAFE_NO_PAD))
+    Ok(URL_SAFE_NO_PAD.encode(&out))
 }
 
 pub trait Xorable {

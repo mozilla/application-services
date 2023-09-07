@@ -12,6 +12,7 @@
 //! - Update native tokens with autopush server
 //! - routinely check subscriptions to make sure they are in a good state.
 
+use base64::{engine::general_purpose::URL_SAFE_NO_PAD, Engine};
 use std::collections::{HashMap, HashSet};
 
 use crate::error::{self, PushError, Result};
@@ -28,8 +29,8 @@ const UPDATE_RATE_LIMITER_MAX_CALLS: u16 = 500; // 500
 impl From<Key> for KeyInfo {
     fn from(key: Key) -> Self {
         KeyInfo {
-            auth: base64::encode_config(key.auth_secret(), base64::URL_SAFE_NO_PAD),
-            p256dh: base64::encode_config(key.public_key(), base64::URL_SAFE_NO_PAD),
+            auth: URL_SAFE_NO_PAD.encode(key.auth_secret()),
+            p256dh: URL_SAFE_NO_PAD.encode(key.public_key()),
         }
     }
 }
@@ -450,10 +451,10 @@ mod test {
         let crypto_ctx = MockCryptography::generate_key_context();
         crypto_ctx.expect().returning(|| {
             let components = EcKeyComponents::new(
-                base64::decode_config(PRIV_KEY_D, base64::URL_SAFE_NO_PAD).unwrap(),
-                base64::decode_config(PUB_KEY_RAW, base64::URL_SAFE_NO_PAD).unwrap(),
+                URL_SAFE_NO_PAD.decode(PRIV_KEY_D).unwrap(),
+                URL_SAFE_NO_PAD.decode(PUB_KEY_RAW).unwrap(),
             );
-            let auth = base64::decode_config(TEST_AUTH, base64::URL_SAFE_NO_PAD).unwrap();
+            let auth = URL_SAFE_NO_PAD.decode(TEST_AUTH).unwrap();
             Ok(Key {
                 p256key: components,
                 auth,
@@ -511,10 +512,10 @@ mod test {
         let crypto_ctx = MockCryptography::generate_key_context();
         crypto_ctx.expect().returning(|| {
             let components = EcKeyComponents::new(
-                base64::decode_config(PRIV_KEY_D, base64::URL_SAFE_NO_PAD).unwrap(),
-                base64::decode_config(PUB_KEY_RAW, base64::URL_SAFE_NO_PAD).unwrap(),
+                URL_SAFE_NO_PAD.decode(PRIV_KEY_D).unwrap(),
+                URL_SAFE_NO_PAD.decode(PUB_KEY_RAW).unwrap(),
             );
-            let auth = base64::decode_config(TEST_AUTH, base64::URL_SAFE_NO_PAD).unwrap();
+            let auth = URL_SAFE_NO_PAD.decode(TEST_AUTH).unwrap();
             Ok(Key {
                 p256key: components,
                 auth,
@@ -523,11 +524,11 @@ mod test {
 
         let resp = pm.subscribe("test-scope", None)?;
         let key_info = resp.subscription_info.keys;
-        let remote_pub = base64::decode_config(&key_info.p256dh, base64::URL_SAFE_NO_PAD).unwrap();
-        let auth = base64::decode_config(&key_info.auth, base64::URL_SAFE_NO_PAD).unwrap();
+        let remote_pub = URL_SAFE_NO_PAD.decode(&key_info.p256dh).unwrap();
+        let auth = URL_SAFE_NO_PAD.decode(&key_info.auth).unwrap();
         // Act like a subscription provider, so create a "local" key to encrypt the data
         let ciphertext = ece::encrypt(&remote_pub, &auth, data_string).unwrap();
-        let body = base64::encode_config(ciphertext, base64::URL_SAFE_NO_PAD);
+        let body = URL_SAFE_NO_PAD.encode(ciphertext);
 
         let decryp_ctx = MockCryptography::decrypt_context();
         let body_clone = body.clone();
@@ -536,10 +537,10 @@ mod test {
             .withf(move |key, push_payload| {
                 *key == Key {
                     p256key: EcKeyComponents::new(
-                        base64::decode_config(PRIV_KEY_D, base64::URL_SAFE_NO_PAD).unwrap(),
-                        base64::decode_config(PUB_KEY_RAW, base64::URL_SAFE_NO_PAD).unwrap(),
+                        URL_SAFE_NO_PAD.decode(PRIV_KEY_D).unwrap(),
+                        URL_SAFE_NO_PAD.decode(PUB_KEY_RAW).unwrap(),
                     ),
-                    auth: base64::decode_config(TEST_AUTH, base64::URL_SAFE_NO_PAD).unwrap(),
+                    auth: URL_SAFE_NO_PAD.decode(TEST_AUTH).unwrap(),
                 } && push_payload.body == body_clone
                     && push_payload.encoding == "aes128gcm"
                     && push_payload.dh.is_empty()
@@ -587,10 +588,10 @@ mod test {
         let crypto_ctx = MockCryptography::generate_key_context();
         crypto_ctx.expect().returning(|| {
             let components = EcKeyComponents::new(
-                base64::decode_config(PRIV_KEY_D, base64::URL_SAFE_NO_PAD).unwrap(),
-                base64::decode_config(PUB_KEY_RAW, base64::URL_SAFE_NO_PAD).unwrap(),
+                URL_SAFE_NO_PAD.decode(PRIV_KEY_D).unwrap(),
+                URL_SAFE_NO_PAD.decode(PUB_KEY_RAW).unwrap(),
             );
-            let auth = base64::decode_config(TEST_AUTH, base64::URL_SAFE_NO_PAD).unwrap();
+            let auth = URL_SAFE_NO_PAD.decode(TEST_AUTH).unwrap();
             Ok(Key {
                 p256key: components,
                 auth,
@@ -598,11 +599,11 @@ mod test {
         });
         let resp = pm.subscribe("test-scope", None)?;
         let key_info = resp.subscription_info.keys;
-        let remote_pub = base64::decode_config(&key_info.p256dh, base64::URL_SAFE_NO_PAD).unwrap();
-        let auth = base64::decode_config(&key_info.auth, base64::URL_SAFE_NO_PAD).unwrap();
+        let remote_pub = URL_SAFE_NO_PAD.decode(&key_info.p256dh).unwrap();
+        let auth = URL_SAFE_NO_PAD.decode(&key_info.auth).unwrap();
         // Act like a subscription provider, so create a "local" key to encrypt the data
         let ciphertext = ece::encrypt(&remote_pub, &auth, DATA).unwrap();
-        let body = base64::encode_config(ciphertext, base64::URL_SAFE_NO_PAD);
+        let body = URL_SAFE_NO_PAD.encode(ciphertext);
 
         let decryp_ctx = MockCryptography::decrypt_context();
         let body_clone = body.clone();
@@ -611,10 +612,10 @@ mod test {
             .withf(move |key, push_payload| {
                 *key == Key {
                     p256key: EcKeyComponents::new(
-                        base64::decode_config(PRIV_KEY_D, base64::URL_SAFE_NO_PAD).unwrap(),
-                        base64::decode_config(PUB_KEY_RAW, base64::URL_SAFE_NO_PAD).unwrap(),
+                        URL_SAFE_NO_PAD.decode(PRIV_KEY_D).unwrap(),
+                        URL_SAFE_NO_PAD.decode(PUB_KEY_RAW).unwrap(),
                     ),
-                    auth: base64::decode_config(TEST_AUTH, base64::URL_SAFE_NO_PAD).unwrap(),
+                    auth: URL_SAFE_NO_PAD.decode(TEST_AUTH).unwrap(),
                 } && push_payload.body == body_clone
                     && push_payload.encoding == "aesgcm"
                     && push_payload.dh.is_empty()
@@ -662,10 +663,10 @@ mod test {
         let crypto_ctx = MockCryptography::generate_key_context();
         crypto_ctx.expect().returning(|| {
             let components = EcKeyComponents::new(
-                base64::decode_config(PRIV_KEY_D, base64::URL_SAFE_NO_PAD).unwrap(),
-                base64::decode_config(PUB_KEY_RAW, base64::URL_SAFE_NO_PAD).unwrap(),
+                URL_SAFE_NO_PAD.decode(PRIV_KEY_D).unwrap(),
+                URL_SAFE_NO_PAD.decode(PUB_KEY_RAW).unwrap(),
             );
-            let auth = base64::decode_config(TEST_AUTH, base64::URL_SAFE_NO_PAD).unwrap();
+            let auth = URL_SAFE_NO_PAD.decode(TEST_AUTH).unwrap();
             Ok(Key {
                 p256key: components,
                 auth,
@@ -700,10 +701,10 @@ mod test {
         let crypto_ctx = MockCryptography::generate_key_context();
         crypto_ctx.expect().returning(|| {
             let components = EcKeyComponents::new(
-                base64::decode_config(PRIV_KEY_D, base64::URL_SAFE_NO_PAD).unwrap(),
-                base64::decode_config(PUB_KEY_RAW, base64::URL_SAFE_NO_PAD).unwrap(),
+                URL_SAFE_NO_PAD.decode(PRIV_KEY_D).unwrap(),
+                URL_SAFE_NO_PAD.decode(PUB_KEY_RAW).unwrap(),
             );
-            let auth = base64::decode_config(TEST_AUTH, base64::URL_SAFE_NO_PAD).unwrap();
+            let auth = URL_SAFE_NO_PAD.decode(TEST_AUTH).unwrap();
             Ok(Key {
                 p256key: components,
                 auth,
@@ -773,10 +774,10 @@ mod test {
         let crypto_ctx = MockCryptography::generate_key_context();
         crypto_ctx.expect().returning(|| {
             let components = EcKeyComponents::new(
-                base64::decode_config(PRIV_KEY_D, base64::URL_SAFE_NO_PAD).unwrap(),
-                base64::decode_config(PUB_KEY_RAW, base64::URL_SAFE_NO_PAD).unwrap(),
+                URL_SAFE_NO_PAD.decode(PRIV_KEY_D).unwrap(),
+                URL_SAFE_NO_PAD.decode(PUB_KEY_RAW).unwrap(),
             );
-            let auth = base64::decode_config(TEST_AUTH, base64::URL_SAFE_NO_PAD).unwrap();
+            let auth = URL_SAFE_NO_PAD.decode(TEST_AUTH).unwrap();
             Ok(Key {
                 p256key: components,
                 auth,
@@ -834,10 +835,10 @@ mod test {
         let crypto_ctx = MockCryptography::generate_key_context();
         crypto_ctx.expect().returning(|| {
             let components = EcKeyComponents::new(
-                base64::decode_config(PRIV_KEY_D, base64::URL_SAFE_NO_PAD).unwrap(),
-                base64::decode_config(PUB_KEY_RAW, base64::URL_SAFE_NO_PAD).unwrap(),
+                URL_SAFE_NO_PAD.decode(PRIV_KEY_D).unwrap(),
+                URL_SAFE_NO_PAD.decode(PUB_KEY_RAW).unwrap(),
             );
-            let auth = base64::decode_config(TEST_AUTH, base64::URL_SAFE_NO_PAD).unwrap();
+            let auth = URL_SAFE_NO_PAD.decode(TEST_AUTH).unwrap();
             Ok(Key {
                 p256key: components,
                 auth,
@@ -904,10 +905,10 @@ mod test {
         let crypto_ctx = MockCryptography::generate_key_context();
         crypto_ctx.expect().returning(|| {
             let components = EcKeyComponents::new(
-                base64::decode_config(PRIV_KEY_D, base64::URL_SAFE_NO_PAD).unwrap(),
-                base64::decode_config(PUB_KEY_RAW, base64::URL_SAFE_NO_PAD).unwrap(),
+                URL_SAFE_NO_PAD.decode(PRIV_KEY_D).unwrap(),
+                URL_SAFE_NO_PAD.decode(PUB_KEY_RAW).unwrap(),
             );
-            let auth = base64::decode_config(TEST_AUTH, base64::URL_SAFE_NO_PAD).unwrap();
+            let auth = URL_SAFE_NO_PAD.decode(TEST_AUTH).unwrap();
             Ok(Key {
                 p256key: components,
                 auth,
@@ -950,10 +951,10 @@ mod test {
         let crypto_ctx = MockCryptography::generate_key_context();
         crypto_ctx.expect().returning(|| {
             let components = EcKeyComponents::new(
-                base64::decode_config(PRIV_KEY_D, base64::URL_SAFE_NO_PAD).unwrap(),
-                base64::decode_config(PUB_KEY_RAW, base64::URL_SAFE_NO_PAD).unwrap(),
+                URL_SAFE_NO_PAD.decode(PRIV_KEY_D).unwrap(),
+                URL_SAFE_NO_PAD.decode(PUB_KEY_RAW).unwrap(),
             );
-            let auth = base64::decode_config(TEST_AUTH, base64::URL_SAFE_NO_PAD).unwrap();
+            let auth = URL_SAFE_NO_PAD.decode(TEST_AUTH).unwrap();
             Ok(Key {
                 p256key: components,
                 auth,

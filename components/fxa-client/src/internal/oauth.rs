@@ -12,6 +12,7 @@ use super::{
     util, FirefoxAccount,
 };
 use crate::{AuthorizationParameters, Error, MetricsParams, Result, ScopedKey};
+use base64::{engine::general_purpose::URL_SAFE_NO_PAD, Engine};
 use jwcrypto::{EncryptionAlgorithm, EncryptionParameters};
 use rate_limiter::RateLimiter;
 use rc_crypto::digest;
@@ -231,7 +232,7 @@ impl FirefoxAccount {
                     Ok(())
                 })?;
             let scoped_keys = serde_json::to_string(&scoped_keys)?;
-            let keys_jwk = base64::decode_config(keys_jwk, base64::URL_SAFE_NO_PAD)?;
+            let keys_jwk = URL_SAFE_NO_PAD.decode(keys_jwk)?;
             let jwk = serde_json::from_slice(&keys_jwk)?;
             Some(jwcrypto::encrypt_to_jwe(
                 scoped_keys.as_bytes(),
@@ -267,11 +268,11 @@ impl FirefoxAccount {
         let state = util::random_base64_url_string(16)?;
         let code_verifier = util::random_base64_url_string(43)?;
         let code_challenge = digest::digest(&digest::SHA256, code_verifier.as_bytes())?;
-        let code_challenge = base64::encode_config(code_challenge, base64::URL_SAFE_NO_PAD);
+        let code_challenge = URL_SAFE_NO_PAD.encode(code_challenge);
         let scoped_keys_flow = ScopedKeysFlow::with_random_key()?;
         let jwk = scoped_keys_flow.get_public_key_jwk()?;
         let jwk_json = serde_json::to_string(&jwk)?;
-        let keys_jwk = base64::encode_config(jwk_json, base64::URL_SAFE_NO_PAD);
+        let keys_jwk = URL_SAFE_NO_PAD.encode(jwk_json);
         url.query_pairs_mut()
             .append_pair("client_id", &self.state.config().client_id)
             .append_pair("scope", &scopes.join(" "))

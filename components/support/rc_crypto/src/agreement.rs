@@ -21,6 +21,7 @@
 
 use crate::error::*;
 use core::marker::PhantomData;
+
 pub use ec::{Curve, EcKey};
 use nss::{ec, ecdh};
 
@@ -252,6 +253,7 @@ impl InputKeyMaterial {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use base64::{engine::general_purpose::URL_SAFE_NO_PAD, Engine};
 
     // Test vectors copied from:
     // https://chromium.googlesource.com/chromium/src/+/56f1232/components/test/data/webcrypto/ecdh.json#5
@@ -270,9 +272,9 @@ mod tests {
         "163FAA3FC4815D47345C8E959F707B2F1D3537E7B2EA1DAEC23CA8D0A242CFF3";
 
     fn load_priv_key_1() -> PrivateKey<Static> {
-        let private_key = base64::decode_config(PRIV_KEY_1_JWK_D, base64::URL_SAFE_NO_PAD).unwrap();
-        let x = base64::decode_config(PRIV_KEY_1_JWK_X, base64::URL_SAFE_NO_PAD).unwrap();
-        let y = base64::decode_config(PRIV_KEY_1_JWK_Y, base64::URL_SAFE_NO_PAD).unwrap();
+        let private_key = URL_SAFE_NO_PAD.decode(PRIV_KEY_1_JWK_D).unwrap();
+        let x = URL_SAFE_NO_PAD.decode(PRIV_KEY_1_JWK_X).unwrap();
+        let y = URL_SAFE_NO_PAD.decode(PRIV_KEY_1_JWK_Y).unwrap();
         PrivateKey::<Static>::import(
             &EcKey::from_coordinates(Curve::P256, &private_key, &x, &y).unwrap(),
         )
@@ -280,9 +282,9 @@ mod tests {
     }
 
     fn load_priv_key_2() -> PrivateKey<Static> {
-        let private_key = base64::decode_config(PRIV_KEY_2_JWK_D, base64::URL_SAFE_NO_PAD).unwrap();
-        let x = base64::decode_config(PRIV_KEY_2_JWK_X, base64::URL_SAFE_NO_PAD).unwrap();
-        let y = base64::decode_config(PRIV_KEY_2_JWK_Y, base64::URL_SAFE_NO_PAD).unwrap();
+        let private_key = URL_SAFE_NO_PAD.decode(PRIV_KEY_2_JWK_D).unwrap();
+        let x = URL_SAFE_NO_PAD.decode(PRIV_KEY_2_JWK_X).unwrap();
+        let y = URL_SAFE_NO_PAD.decode(PRIV_KEY_2_JWK_Y).unwrap();
         PrivateKey::<Static>::import(
             &EcKey::from_coordinates(Curve::P256, &private_key, &x, &y).unwrap(),
         )
@@ -291,7 +293,7 @@ mod tests {
 
     #[test]
     fn test_static_agreement() {
-        let pub_key_raw = base64::decode_config(PUB_KEY_1_B64, base64::URL_SAFE_NO_PAD).unwrap();
+        let pub_key_raw = URL_SAFE_NO_PAD.decode(PUB_KEY_1_B64).unwrap();
         let peer_pub_key = UnparsedPublicKey::new(&ECDH_P256, &pub_key_raw);
         let prv_key = load_priv_key_2();
         let ikm = prv_key.agree_static(&peer_pub_key).unwrap();
@@ -336,7 +338,7 @@ mod tests {
     #[test]
     fn test_compute_public_key_known_values() {
         let prv_key = load_priv_key_1();
-        let pub_key = base64::decode_config(PUB_KEY_1_B64, base64::URL_SAFE_NO_PAD).unwrap();
+        let pub_key = URL_SAFE_NO_PAD.decode(PUB_KEY_1_B64).unwrap();
         let computed_pub_key = prv_key.compute_public_key().unwrap();
         assert_eq!(computed_pub_key.to_bytes().unwrap(), pub_key.as_slice());
 
@@ -367,22 +369,19 @@ mod tests {
     fn test_agreement_rejects_invalid_pubkeys() {
         let prv_key = load_priv_key_2();
 
-        let mut invalid_pub_key =
-            base64::decode_config(PUB_KEY_1_B64, base64::URL_SAFE_NO_PAD).unwrap();
+        let mut invalid_pub_key = URL_SAFE_NO_PAD.decode(PUB_KEY_1_B64).unwrap();
         invalid_pub_key[0] = invalid_pub_key[0].wrapping_add(1);
         assert!(prv_key
             .agree_static(&UnparsedPublicKey::new(&ECDH_P256, &invalid_pub_key))
             .is_err());
 
-        let mut invalid_pub_key =
-            base64::decode_config(PUB_KEY_1_B64, base64::URL_SAFE_NO_PAD).unwrap();
+        let mut invalid_pub_key = URL_SAFE_NO_PAD.decode(PUB_KEY_1_B64).unwrap();
         invalid_pub_key[0] = 0x02;
         assert!(prv_key
             .agree_static(&UnparsedPublicKey::new(&ECDH_P256, &invalid_pub_key))
             .is_err());
 
-        let mut invalid_pub_key =
-            base64::decode_config(PUB_KEY_1_B64, base64::URL_SAFE_NO_PAD).unwrap();
+        let mut invalid_pub_key = URL_SAFE_NO_PAD.decode(PUB_KEY_1_B64).unwrap();
         invalid_pub_key[64] = invalid_pub_key[0].wrapping_add(1);
         assert!(prv_key
             .agree_static(&UnparsedPublicKey::new(&ECDH_P256, &invalid_pub_key))
@@ -394,9 +393,7 @@ mod tests {
             .is_err());
         invalid_pub_key[0] = 0x04;
 
-        let mut invalid_pub_key = base64::decode_config(PUB_KEY_1_B64, base64::URL_SAFE_NO_PAD)
-            .unwrap()
-            .to_vec();
+        let mut invalid_pub_key = URL_SAFE_NO_PAD.decode(PUB_KEY_1_B64).unwrap().to_vec();
         invalid_pub_key = invalid_pub_key[0..64].to_vec();
         assert!(prv_key
             .agree_static(&UnparsedPublicKey::new(&ECDH_P256, &invalid_pub_key))
@@ -405,8 +402,7 @@ mod tests {
         // From FxA tests at https://github.com/mozilla/fxa-crypto-relier/blob/04f61dc/test/deriver/DeriverUtils.js#L78
         // We trust that NSS will do the right thing here, but it seems worthwhile to confirm for completeness.
         let invalid_pub_key_b64 = "BEogZ-rnm44oJkKsOE6Tc7NwFMgmntf7Btm_Rc4atxcqq99Xq1RWNTFpk99pdQOSjUvwELss51PkmAGCXhLfMV0";
-        let invalid_pub_key =
-            base64::decode_config(invalid_pub_key_b64, base64::URL_SAFE_NO_PAD).unwrap();
+        let invalid_pub_key = URL_SAFE_NO_PAD.decode(invalid_pub_key_b64).unwrap();
         assert!(prv_key
             .agree_static(&UnparsedPublicKey::new(&ECDH_P256, &invalid_pub_key))
             .is_err());

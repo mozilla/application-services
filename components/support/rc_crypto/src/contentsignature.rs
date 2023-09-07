@@ -4,6 +4,11 @@
 
 use std::str;
 
+use base64::{
+    engine::general_purpose::{STANDARD, URL_SAFE},
+    Engine,
+};
+
 use crate::error::*;
 use crate::signature;
 
@@ -51,7 +56,7 @@ fn split_pem(pem_content: &[u8]) -> Result<Vec<Vec<u8>>> {
             read = true;
         } else if line.contains("-----END CERTIFICATE") {
             read = false;
-            let decoded = match base64::decode(&block) {
+            let decoded = match STANDARD.decode(&block) {
                 Ok(v) => v,
                 Err(e) => return Err(ErrorKind::PEMFormatError(e.to_string()).into()),
             };
@@ -115,7 +120,7 @@ pub fn verify(
         Err(err) => return Err(ErrorKind::CertificateContentError(err.to_string()).into()),
     };
 
-    let signature_bytes = match base64::decode_config(signature, base64::URL_SAFE) {
+    let signature_bytes = match URL_SAFE.decode(signature) {
         Ok(b) => b,
         Err(err) => return Err(ErrorKind::SignatureContentError(err.to_string()).into()),
     };

@@ -15,6 +15,7 @@
 /// then sent to the target device.
 use serde_derive::*;
 
+use base64::{engine::general_purpose::URL_SAFE_NO_PAD, Engine};
 use rc_crypto::ece::{self, EcKeyComponents};
 use sync15::{EncryptedPayload, KeyBundle};
 
@@ -32,7 +33,7 @@ pub struct EncryptedSendTabPayload {
 impl EncryptedSendTabPayload {
     pub(crate) fn decrypt(self, keys: &PrivateSendTabKeysV1) -> Result<SendTabPayload> {
         rc_crypto::ensure_initialized();
-        let encrypted = base64::decode_config(self.encrypted, base64::URL_SAFE_NO_PAD)?;
+        let encrypted = URL_SAFE_NO_PAD.decode(self.encrypted)?;
         let decrypted = ece::decrypt(&keys.p256key, &keys.auth_secret, &encrypted)?;
         Ok(serde_json::from_slice(&decrypted)?)
     }
@@ -75,10 +76,10 @@ impl SendTabPayload {
     fn encrypt(&self, keys: PublicSendTabKeys) -> Result<EncryptedSendTabPayload> {
         rc_crypto::ensure_initialized();
         let bytes = serde_json::to_vec(&self)?;
-        let public_key = base64::decode_config(&keys.public_key, base64::URL_SAFE_NO_PAD)?;
-        let auth_secret = base64::decode_config(&keys.auth_secret, base64::URL_SAFE_NO_PAD)?;
+        let public_key = URL_SAFE_NO_PAD.decode(&keys.public_key)?;
+        let auth_secret = URL_SAFE_NO_PAD.decode(&keys.auth_secret)?;
         let encrypted = ece::encrypt(&public_key, &auth_secret, &bytes)?;
-        let encrypted = base64::encode_config(encrypted, base64::URL_SAFE_NO_PAD);
+        let encrypted = URL_SAFE_NO_PAD.encode(encrypted);
         Ok(EncryptedSendTabPayload { encrypted })
     }
 }
@@ -206,11 +207,8 @@ impl PublicSendTabKeys {
 impl From<PrivateSendTabKeys> for PublicSendTabKeys {
     fn from(internal: PrivateSendTabKeys) -> Self {
         Self {
-            public_key: base64::encode_config(
-                internal.p256key.public_key(),
-                base64::URL_SAFE_NO_PAD,
-            ),
-            auth_secret: base64::encode_config(&internal.auth_secret, base64::URL_SAFE_NO_PAD),
+            public_key: URL_SAFE_NO_PAD.encode(internal.p256key.public_key()),
+            auth_secret: URL_SAFE_NO_PAD.encode(&internal.auth_secret),
         }
     }
 }
@@ -237,7 +235,7 @@ fn extract_oldsync_key_components(oldsync_key: &ScopedKey) -> Result<(Vec<u8>, V
         ));
     }
     let kxcs: &str = oldsync_key.kid.splitn(2, '-').collect::<Vec<_>>()[1];
-    let kxcs = base64::decode_config(kxcs, base64::URL_SAFE_NO_PAD)?;
+    let kxcs = URL_SAFE_NO_PAD.decode(kxcs)?;
     let ksync = oldsync_key.key_bytes()?;
     Ok((ksync, kxcs))
 }

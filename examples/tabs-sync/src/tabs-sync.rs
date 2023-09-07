@@ -4,6 +4,7 @@
 
 #![warn(rust_2018_idioms)]
 
+use base64::{engine::general_purpose::URL_SAFE_NO_PAD, Engine};
 use cli_support::fxa_creds::{get_account_and_token, get_cli_fxa, get_default_fxa_config};
 use cli_support::prompt::{prompt_char, prompt_string};
 use interrupt_support::NeverInterrupts;
@@ -100,10 +101,7 @@ fn main() -> Result<()> {
     let opts = Opts::from_args();
 
     let (_, token_info) = get_account_and_token(get_default_fxa_config(), &opts.creds_file)?;
-    let sync_key = base64::encode_config(
-        token_info.key.unwrap().key_bytes()?,
-        base64::URL_SAFE_NO_PAD,
-    );
+    let sync_key = URL_SAFE_NO_PAD.encode(token_info.key.unwrap().key_bytes()?);
 
     let cli_fxa = get_cli_fxa(get_default_fxa_config(), &opts.creds_file)?;
     let device_id = cli_fxa.account.get_current_device_id()?;

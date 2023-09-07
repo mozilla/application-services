@@ -5,6 +5,7 @@
 use super::{http_client, util::Xorable, Config};
 pub use crate::AuthorizationParameters;
 use crate::{Result, ScopedKey};
+use base64::{engine::general_purpose::URL_SAFE_NO_PAD, Engine};
 pub use http_client::{
     derive_auth_key_from_session_token, send_authorization_request, send_verification,
     AuthorizationRequestParameters,
@@ -101,8 +102,8 @@ fn get_key_for_scope(
     acct_keys: (&[u8], &[u8]),
 ) -> anyhow::Result<ScopedKey> {
     let (sync_key, xcs_key) = acct_keys;
-    let sync_key = base64::encode_config(sync_key, base64::URL_SAFE_NO_PAD);
-    let xcs_key = base64::encode_config(xcs_key, base64::URL_SAFE_NO_PAD);
+    let sync_key = URL_SAFE_NO_PAD.encode(sync_key);
+    let xcs_key = URL_SAFE_NO_PAD.encode(xcs_key);
     let kid = format!(
         "{}-{}",
         val.as_object()

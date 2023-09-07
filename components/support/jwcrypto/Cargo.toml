@@ -9,7 +9,7 @@ license = "MPL-2.0"
 crate-type = ["lib"]
 
 [dependencies]
-base64 = "0.13"
+base64 = "0.21"
 log = "0.4"
 error-support = { path = "../error" }
 rc_crypto = { path = "../rc_crypto" }

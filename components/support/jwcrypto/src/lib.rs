@@ -17,6 +17,7 @@
 // against: jansson, openssl and cjose itself.
 // So now, this *is* our JWT library.
 
+use base64::{engine::general_purpose::URL_SAFE_NO_PAD, Engine};
 use error::Result;
 pub use error::{EncryptorDecryptorError, JwCryptoError};
 use rc_crypto::agreement::EphemeralKeyPair;
@@ -139,20 +140,20 @@ impl CompactJwe {
             .as_ref()
             .map(|h| serde_json::to_string(&h))
             .transpose()?
-            .map(|h| base64::encode_config(h, base64::URL_SAFE_NO_PAD))
+            .map(|h| URL_SAFE_NO_PAD.encode(h))
             .unwrap_or_default();
         let encrypted_key = encrypted_key
             .as_ref()
-            .map(|k| base64::encode_config(k, base64::URL_SAFE_NO_PAD))
+            .map(|k| URL_SAFE_NO_PAD.encode(k))
             .unwrap_or_default();
         let iv = iv
             .as_ref()
-            .map(|iv| base64::encode_config(iv, base64::URL_SAFE_NO_PAD))
+            .map(|iv| URL_SAFE_NO_PAD.encode(iv))
             .unwrap_or_default();
-        let ciphertext = base64::encode_config(ciphertext, base64::URL_SAFE_NO_PAD);
+        let ciphertext = URL_SAFE_NO_PAD.encode(ciphertext);
         let auth_tag = auth_tag
             .as_ref()
-            .map(|t| base64::encode_config(t, base64::URL_SAFE_NO_PAD))
+            .map(|t| URL_SAFE_NO_PAD.encode(t))
             .unwrap_or_default();
         let jwe_segments = vec![protected_header, encrypted_key, iv, ciphertext, auth_tag];
         Ok(Self { jwe_segments })
@@ -189,10 +190,7 @@ impl CompactJwe {
     fn try_deserialize_base64_segment(&self, index: usize) -> Result<Option<Vec<u8>>> {
         Ok(match self.jwe_segments[index].is_empty() {
             true => None,
-            false => Some(base64::decode_config(
-                &self.jwe_segments[index],
-                base64::URL_SAFE_NO_PAD,
-            )?),
+            false => Some(URL_SAFE_NO_PAD.decode(&self.jwe_segments[index])?),
         })
     }
 }

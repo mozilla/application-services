@@ -11,6 +11,7 @@ use crate::{
     error::{JwCryptoError, Result},
     Algorithm, CompactJwe, EncryptionAlgorithm, JweHeader, Jwk, JwkKeyParameters,
 };
+use base64::{engine::general_purpose::URL_SAFE_NO_PAD, Engine};
 use rc_crypto::{
     agreement::{self, EphemeralKeyPair, InputKeyMaterial, UnparsedPublicKey},
     digest,
@@ -108,8 +109,8 @@ fn derive_shared_secret(
 }
 
 fn public_key_from_ec_params(jwk: &ECKeysParameters) -> Result<Vec<u8>> {
-    let x = base64::decode_config(&jwk.x, base64::URL_SAFE_NO_PAD)?;
-    let y = base64::decode_config(&jwk.y, base64::URL_SAFE_NO_PAD)?;
+    let x = URL_SAFE_NO_PAD.decode(&jwk.x)?;
+    let y = URL_SAFE_NO_PAD.decode(&jwk.y)?;
     if jwk.crv != "P-256" {
         return Err(JwCryptoError::PartialImplementation(
             "Only P-256 curves are supported.",
@@ -160,9 +161,9 @@ pub fn extract_pub_key_jwk(key_pair: &EphemeralKeyPair) -> Result<Jwk> {
     assert_eq!(pub_key_bytes.len(), 1 + 32 + 32);
     assert_eq!(pub_key_bytes[0], 0x04);
     let x = Vec::from(&pub_key_bytes[1..33]);
-    let x = base64::encode_config(x, base64::URL_SAFE_NO_PAD);
+    let x = URL_SAFE_NO_PAD.encode(x);
     let y = Vec::from(&pub_key_bytes[33..]);
-    let y = base64::encode_config(y, base64::URL_SAFE_NO_PAD);
+    let y = URL_SAFE_NO_PAD.encode(y);
     Ok(Jwk {
         kid: None,
         key_parameters: JwkKeyParameters::EC(ECKeysParameters {

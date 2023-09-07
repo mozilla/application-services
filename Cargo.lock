@@ -1339,7 +1339,7 @@ name = "example-sync-pass"
 version = "0.1.0"
 dependencies = [
  "anyhow",
- "base64 0.13.0",
+ "base64 0.21.2",
  "chrono",
  "clap 2.34.0",
  "cli-support",
@@ -1362,7 +1362,7 @@ name = "example-tabs-sync"
 version = "0.1.0"
 dependencies = [
  "anyhow",
- "base64 0.13.0",
+ "base64 0.21.2",
  "chrono",
  "cli-support",
  "interrupt-support",
@@ -1587,7 +1587,7 @@ name = "fxa-client"
 version = "0.1.0"
 dependencies = [
  "anyhow",
- "base64 0.13.0",
+ "base64 0.21.2",
  "error-support",
  "hex",
  "jwcrypto",
@@ -2088,7 +2088,7 @@ dependencies = [
 name = "jwcrypto"
 version = "0.1.0"
 dependencies = [
- "base64 0.13.0",
+ "base64 0.21.2",
  "error-support",
  "log",
  "rc_crypto",
@@ -2705,7 +2705,7 @@ checksum = "61807f77802ff30975e01f4f071c8ba10c022052f98b3294119f3e615d13e5be"
 name = "nss"
 version = "0.1.0"
 dependencies = [
- "base64 0.13.0",
+ "base64 0.21.2",
  "error-support",
  "nss_sys",
  "serde",
@@ -3344,7 +3344,7 @@ dependencies = [
 name = "push"
 version = "0.1.0"
 dependencies = [
- "base64 0.13.0",
+ "base64 0.21.2",
  "bincode",
  "env_logger 0.8.4",
  "error-support",
@@ -3459,7 +3459,7 @@ dependencies = [
 name = "rc_crypto"
 version = "0.1.0"
 dependencies = [
- "base64 0.13.0",
+ "base64 0.21.2",
  "ece",
  "error-support",
  "hawk",
@@ -4111,7 +4111,7 @@ dependencies = [
 name = "sync-guid"
 version = "0.1.0"
 dependencies = [
- "base64 0.13.0",
+ "base64 0.21.2",
  "rand",
  "rusqlite",
  "serde",
@@ -4124,7 +4124,7 @@ version = "0.1.0"
 dependencies = [
  "anyhow",
  "base16",
- "base64 0.13.0",
+ "base64 0.21.2",
  "env_logger 0.7.1",
  "error-support",
  "ffi-support",
