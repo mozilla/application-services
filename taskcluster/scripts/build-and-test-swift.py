@@ -1,4 +1,4 @@
-#!/usr/bin/python3
+#!/usr/bin/env python3
 
 from collections import namedtuple
 import argparse
@@ -135,7 +135,7 @@ def generate_glean_metrics(args):
     env = {
         'SOURCE_ROOT': str(args.glean_work_dir),
         'PROJECT': "MozillaAppServices",
-        'GLEAN_PYTHON': '/usr/bin/python3',
+        'GLEAN_PYTHON': '/usr/bin/env python3',
         'LC_ALL': 'C.UTF-8',
         'LANG': 'C.UTF-8',
     }
