@@ -138,6 +138,7 @@ def generate_glean_metrics(args):
         'GLEAN_PYTHON': '/usr/bin/env python3',
         'LC_ALL': 'C.UTF-8',
         'LANG': 'C.UTF-8',
+        'PATH': os.environ['PATH'],
     }
     glean_script = ROOT_DIR / "components/external/glean/glean-core/ios/sdk_generator.sh"
     out_dir = args.out_dir / 'all' / 'Generated' / 'Metrics'
