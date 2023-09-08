@@ -33,7 +33,7 @@ buildscript {
         ndkVersion: "25.2.9519653", // Keep it in sync in TC Dockerfile.
 
         // In general, we should aim to keep these in sync with AC
-        compileSdkVersion: 33,
+        compileSdkVersion: 34,
         targetSdkVersion: 33,
         minSdkVersion: 21,
         jvmTargetCompatibility: 17,
