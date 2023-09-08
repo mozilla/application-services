@@ -3,6 +3,7 @@
 // file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
 use crate::enrollment::{EnrollmentChangeEventType, ExperimentEnrollment, NotEnrolledReason};
+use crate::tests::stateless::test_cirrus_client::helpers::get_experiment_with_newtab_feature_branches;
 use crate::{
     AppContext, CirrusClient, EnrollmentRequest, EnrollmentResponse, EnrollmentStatus, Result,
 };
@@ -139,6 +140,32 @@ fn test_handle_enrollment_errors_on_no_client_id() -> Result<()> {
     let result = client.handle_enrollment(to_string(&request)?);
 
     assert!(result.is_err());
+
+    Ok(())
+}
+
+#[test]
+fn test_only_writes_experiments_matching_configured_app_name_and_channel() -> Result<()> {
+    let client = create_client()?;
+
+    let mut exp_app_name_mismatch = get_experiment_with_newtab_feature_branches();
+    exp_app_name_mismatch.app_name = Some("mismatched name".into());
+    let mut exp_channel_mismatch = get_experiment_with_newtab_feature_branches();
+    exp_channel_mismatch.channel = Some("mismatched channel".into());
+
+    client.set_experiments(
+        to_string(&HashMap::from([(
+            "data",
+            &[
+                exp_app_name_mismatch,
+                exp_channel_mismatch,
+                get_experiment_with_newtab_feature_branches(),
+            ],
+        )]))
+        .unwrap(),
+    )?;
+
+    assert_eq!(client.get_experiments()?.len(), 1);
 
     Ok(())
 }

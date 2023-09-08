@@ -163,12 +163,31 @@ impl CirrusClient {
 
     /// Sets the `experiments` value in the internal mutable state.
     ///
-    /// This method accepts and parses a JSON string, writing the resulting value to the client's
-    /// internal mutable state.
+    /// This method does the following:
+    /// 1) accepts and parses a JSON string into a list of Experiments
+    /// 2) filters the list of experiments down to only experiments matching the client's `app_name`
+    ///    and `channel`
+    /// 3) writes the resulting value to the client's internal mutable state
     pub fn set_experiments(&self, experiments: String) -> Result<()> {
         let mut state = self.state.lock().unwrap();
-        state.experiments = parse_experiments(&experiments)?;
+        let mut exps: Vec<_> = Default::default();
+        for exp in parse_experiments(&experiments)? {
+            if exp.app_name.as_deref() == Some(&self.app_context.app_name)
+                && exp.channel.as_deref() == Some(&self.app_context.channel)
+            {
+                exps.push(exp);
+            }
+        }
+        state.experiments = exps;
         Ok(())
+    }
+
+    /// Retrieves `experiments` value from the internal mutable state.
+    ///
+    /// Currently only used in tests.
+    pub fn get_experiments(&self) -> Result<Vec<Experiment>> {
+        let state = self.state.lock().unwrap();
+        Ok(state.experiments.clone())
     }
 }
 
