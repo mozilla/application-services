@@ -35,6 +35,10 @@ subcommands:
                 long: repo-file
                 takes_value: true
                 multiple: true
+            - ref:
+                help: If INPUT is a remote file, then use this as the tag or branch name.
+                long: ref
+                takes_value: true
     - generate-experimenter:
         about: Generate a version of this manifest compatible with Experimenter's format.
         args:
@@ -59,6 +63,10 @@ subcommands:
                 long: repo-file
                 takes_value: true
                 multiple: true
+            - ref:
+                help: If INPUT is a remote file, then use this as the tag or branch name.
+                long: ref
+                takes_value: true
     - fetch:
         about: Get the input file, with the same rules that govern how FilePaths work.
         args:
@@ -75,6 +83,10 @@ subcommands:
                 long: repo-file
                 takes_value: true
                 multiple: true
+            - ref:
+                help: If INPUT is a remote file, then use this as the tag or branch name.
+                long: ref
+                takes_value: true
     - single-file:
         about: Create a single file out of the given manifest,
             suited for production environments where only one file is
@@ -101,19 +113,27 @@ subcommands:
                 long: repo-file
                 takes_value: true
                 multiple: true
+            - ref:
+                help: If INPUT is a remote file, then use this as the tag or branch name.
+                long: ref
+                takes_value: true
     - validate:
-          about: Validate an FML configuration and all of its channels.
-          args:
-              - INPUT:
-                    help: Sets the input file to use
-                    required: true
-                    index: 1
-              - cache-dir:
-                    help: The directory where downloaded files are cached
-                    long: cache-dir
-                    takes_value: true
-              - repo-file:
-                    help: The file containing the version/refs/locations for other repos
-                    long: repo-file
-                    takes_value: true
-                    multiple: true
+        about: Validate an FML configuration and all of its channels.
+        args:
+            - INPUT:
+                help: Sets the input file to use
+                required: true
+                index: 1
+            - cache-dir:
+                help: The directory where downloaded files are cached
+                long: cache-dir
+                takes_value: true
+            - repo-file:
+                help: The file containing the version/refs/locations for other repos
+                long: repo-file
+                takes_value: true
+                multiple: true
+            - ref:
+                help: If INPUT is a remote file, then use this as the tag or branch name.
+                long: ref
+                takes_value: true

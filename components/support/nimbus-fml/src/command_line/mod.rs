@@ -15,6 +15,7 @@ use commands::{
 };
 
 use std::{
+    collections::BTreeMap,
     ffi::OsString,
     path::{Path, PathBuf},
 };
@@ -154,10 +155,21 @@ fn create_loader(matches: &ArgMatches, cwd: &Path) -> Result<LoaderConfig> {
     let files = matches.values_of("repo-file").unwrap_or_default();
     let repo_files = files.into_iter().map(|s| s.to_string()).collect();
 
+    let manifest = input_file(matches)?;
+
+    let _ref = matches.value_of("ref").map(String::from);
+
+    let mut refs: BTreeMap<_, _> = Default::default();
+    match (LoaderConfig::repo_and_path(&manifest), _ref) {
+        (Some((repo, _)), Some(ref_)) => refs.insert(repo, ref_),
+        _ => None,
+    };
+
     Ok(LoaderConfig {
         cache_dir,
         repo_files,
         cwd,
+        refs,
     })
 }
 
@@ -502,6 +514,29 @@ mod cli_tests {
 
         assert!(matches!(cmd, CliCmd::Validate(_)));
         assert!(matches!(cmd, CliCmd::Validate(c) if c.manifest.ends_with(TEST_FILE)));
+        Ok(())
+    }
+
+    ///////////////////////////////////////////////////////////////////////////
+    #[test]
+    fn test_cli_add_ref_arg() -> Result<()> {
+        let cwd = package_dir()?;
+        let cmd = get_command_from_cli(
+            [
+                FML_BIN,
+                "generate-experimenter",
+                "--ref",
+                "my-tag",
+                "@foo/bar/baz.fml.yaml",
+                "./baz.yaml",
+            ],
+            &cwd,
+        )?;
+
+        assert!(matches!(cmd, CliCmd::GenerateExperimenter(_)));
+        assert!(
+            matches!(cmd, CliCmd::GenerateExperimenter(c) if c.loader.refs["@foo/bar"] == "my-tag")
+        );
         Ok(())
     }
 }
