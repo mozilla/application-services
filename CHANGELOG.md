@@ -2,6 +2,12 @@
 
 [Full Changelog](In progress)
 
+## Nimbus SDK ⛅️🔬🔭
+
+### ✨ What's New ✨
+
+- The `set_experiments` method has been updated to filter down the list of experiments to only those that match the configured `app_name` and `channel` ([#5813](https://github.com/mozilla/application-services/pull/5813)). 
+
 ## Places
 
 ### 🦊 What's Changed 🦊
