@@ -23,6 +23,21 @@ pub struct LoaderConfig {
     pub cwd: PathBuf,
     pub repo_files: Vec<String>,
     pub cache_dir: Option<PathBuf>,
+    pub refs: BTreeMap<String, String>,
+}
+
+impl LoaderConfig {
+    pub(crate) fn repo_and_path(f: &str) -> Option<(String, String)> {
+        if f.starts_with('@') {
+            let parts = f.splitn(3, '/').collect::<Vec<&str>>();
+            match parts.as_slice() {
+                [user, repo, path] => Some((format!("{user}/{repo}"), path.to_string())),
+                _ => None,
+            }
+        } else {
+            None
+        }
+    }
 }
 
 impl Default for LoaderConfig {
@@ -31,6 +46,7 @@ impl Default for LoaderConfig {
             repo_files: Default::default(),
             cache_dir: None,
             cwd: env::current_dir().expect("Current Working Directory is not set"),
+            refs: Default::default(),
         }
     }
 }
@@ -156,6 +172,10 @@ impl TryFrom<&LoaderConfig> for FileLoader {
 
         let mut files = Self::new(cwd, cache_dir, Default::default())?;
 
+        for (k, v) in &value.refs {
+            files.add_repo(k, v)?;
+        }
+
         for f in &value.repo_files {
             let path = files.file_path(f)?;
             files.add_repo_file(&path)?;
@@ -231,7 +251,6 @@ impl FileLoader {
     /// 2. A URL
     /// 3. A relative path (to the current working directory) to a directory on the local disk.
     /// 4. An absolute path to a directory on the local disk.
-    #[allow(dead_code)]
     pub fn add_repo(&mut self, repo_id: &str, loc: &str) -> Result<()> {
         self.add_repo_relative(&FilePath::Local(self.cwd.clone()), repo_id, loc)
     }
@@ -610,6 +629,7 @@ mod unit_tests {
                 "fixtures/loaders/config_files/remote.json".to_string(),
                 "fixtures/loaders/config_files/local.yaml".to_string(),
             ],
+            refs: Default::default(),
         };
 
         let files: FileLoader = config.try_into()?;
@@ -661,12 +681,38 @@ mod unit_tests {
     }
 
     #[test]
+    fn test_at_shorthand_override_via_cli() -> Result<()> {
+        let cwd = PathBuf::from(pkg_dir());
+
+        let config = &LoaderConfig {
+            cwd,
+            cache_dir: None,
+            repo_files: Default::default(),
+            refs: BTreeMap::from([("@my-remote/repo".to_string(), "cli-branch".to_string())]),
+        };
+
+        let files: FileLoader = config.try_into()?;
+
+        // This is a file from the remote repo
+        let tfr = files.file_path("@my-remote/repo/path/to/file.txt")?;
+        assert_eq!(
+            tfr.to_string(),
+            // We're going to fetch it from the `cli-branch` of the repo.
+            "https://raw.githubusercontent.com/my-remote/repo/cli-branch/path/to/file.txt"
+                .to_string()
+        );
+
+        Ok(())
+    }
+
+    #[test]
     fn test_dropping_tmp_cache_dir() -> Result<()> {
         let cwd = PathBuf::from(pkg_dir());
         let config = &LoaderConfig {
             cwd,
             cache_dir: None,
             repo_files: Default::default(),
+            refs: Default::default(),
         };
 
         let files: FileLoader = config.try_into()?;
