@@ -3,7 +3,7 @@
 * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 use crate::defaults_merger::DefaultsMerger;
 use crate::error::FMLError::InvalidFeatureError;
-use crate::error::{FMLError, Result};
+use crate::error::{did_you_mean, FMLError, Result};
 use crate::frontend::AboutBlock;
 use crate::util::loaders::FilePath;
 use anyhow::{bail, Error, Result as AnyhowResult};
@@ -453,21 +453,36 @@ impl FeatureManifest {
     fn validate_feature_def(&self, feature_def: &FeatureDef) -> Result<()> {
         for prop in &feature_def.props {
             let path = format!("features/{}.{}", feature_def.name, prop.name);
-            self.validate_prop_defaults(&path, prop)?;
+            let literals = vec![prop.name.to_string()];
+            self.validate_default_by_typ(&path, &literals, &prop.typ, &prop.default)?;
         }
         Ok(())
     }
 
     fn validate_prop_defaults(&self, path: &str, prop: &PropDef) -> Result<()> {
-        self.validate_default_by_typ(path, &prop.typ, &prop.default)
+        let literals = Default::default();
+        self.validate_default_by_typ(path, &literals, &prop.typ, &prop.default)
     }
 
     pub fn validate_default_by_typ(
         &self,
         path: &str,
+        literals: &Vec<String>,
         type_ref: &TypeRef,
         default: &Value,
     ) -> Result<()> {
+        let add_literals = |new: &[String]| -> Vec<String> {
+            let mut clone = literals.clone();
+            for s in new {
+                clone.push(s.clone());
+            }
+            clone
+        };
+        let add_literal = |new: String| -> Vec<String> {
+            let mut clone = literals.clone();
+            clone.push(new);
+            clone
+        };
         match (type_ref, default) {
             (TypeRef::Boolean, Value::Bool(_))
             | (TypeRef::BundleImage(_), Value::String(_))
@@ -482,28 +497,28 @@ impl FeatureManifest {
                         "Nested options".into(),
                     ));
                 }
-                self.validate_default_by_typ(path, inner, v)
+                self.validate_default_by_typ(path, literals, inner, v)
             }
             (TypeRef::Enum(enum_name), Value::String(s)) => {
                 let enum_def = self.find_enum(enum_name).ok_or_else(|| {
                     FMLError::ValidationError(
                         path.to_string(),
-                        format!("Type `{}` is not a type. Perhaps you need to declare an enum of that name.", enum_name)
+                        format!("Type `{enum_name}` is not a type. Perhaps you need to declare an enum of that name.")
                     )
                 })?;
+                let mut valid = HashSet::new();
                 for variant in enum_def.variants() {
-                    if *s == variant.name() {
+                    let name = variant.name();
+                    if *s == name {
                         return Ok(());
                     }
+                    valid.insert(name);
                 }
-                Err(FMLError::ValidationError(
-                    path.to_string(),
-                    format!(
-                        "Default value `{value}` is not declared a variant of {enum_type}",
-                        value = s,
-                        enum_type = enum_name
-                    ),
-                ))
+                Err(FMLError::FeatureValidationError {
+                    path: path.to_string(),
+                    message: format!("\"{s}\" is not a valid {enum_name}{}", did_you_mean(valid)),
+                    literals: add_literal(format!("\"{s}\"")),
+                })
             }
             (TypeRef::EnumMap(enum_type, map_type), Value::Object(map)) => {
                 let enum_name = if let TypeRef::Enum(name) = enum_type.as_ref() {
@@ -520,48 +535,59 @@ impl FeatureManifest {
                 })?;
                 let mut seen = HashSet::new();
                 let mut unseen = HashSet::new();
+                let mut valid = HashSet::new();
                 for variant in enum_def.variants() {
-                    let map_value = map.get(&variant.name());
+                    let nm = variant.name();
+                    valid.insert(nm.clone());
+
+                    let map_value = map.get(&nm);
                     match (map_type.as_ref(), map_value) {
                         (TypeRef::Option(_), None) => (),
                         (_, None) => {
                             unseen.insert(variant.name());
                         }
                         (_, Some(inner)) => {
-                            let path = format!("{}[{}#{}]", path, enum_def.name, variant.name);
-                            self.validate_default_by_typ(&path, map_type, inner)?;
-                            seen.insert(variant.name());
+                            let path = format!("{path}[{}#{nm}]", enum_def.name);
+                            let literals = add_literals(&["{".to_string(), format!("\"{nm}\"")]);
+                            self.validate_default_by_typ(&path, &literals, map_type, inner)?;
+                            seen.insert(nm);
                         }
                     }
                 }
 
                 if !unseen.is_empty() {
-                    return Err(FMLError::ValidationError(
-                        path.to_string(),
-                        format!(
-                            "Default for enum map {} doesn't contain variant(s) {:?}",
-                            enum_name, unseen
-                        ),
-                    ));
+                    return Err(FMLError::FeatureValidationError {
+                        path: path.to_string(),
+                        message: format!("Enum map {enum_name} is missing values for {unseen:?}"),
+                        // Can we be more specific that just the opening brace?
+                        literals: add_literal("{".to_string()),
+                    });
                 }
                 for map_key in map.keys() {
                     if !seen.contains(map_key) {
-                        return Err(FMLError::ValidationError(path.to_string(), format!("Enum map default contains key {} that doesn't exist in the enum definition", map_key)));
+                        return Err(FMLError::FeatureValidationError {
+                            path: path.to_string(),
+                            message: format!("Invalid key \"{map_key}\"{}", did_you_mean(valid)),
+                            literals: add_literals(&["{".to_string(), format!("\"{map_key}\"")]),
+                        });
                     }
                 }
                 Ok(())
             }
             (TypeRef::StringMap(map_type), Value::Object(map)) => {
                 for (key, value) in map {
-                    let path = format!("{}['{}']", path, key);
-                    self.validate_default_by_typ(&path, map_type, value)?;
+                    let path = format!("{path}['{key}']");
+                    let literals = add_literals(&["{".to_string(), format!("\"{key}\"")]);
+                    self.validate_default_by_typ(&path, &literals, map_type, value)?;
                 }
                 Ok(())
             }
             (TypeRef::List(list_type), Value::Array(arr)) => {
+                let mut literals = add_literal("[".to_string());
                 for (index, value) in arr.iter().enumerate() {
-                    let path = format!("{}['{}']", path, index);
-                    self.validate_default_by_typ(&path, list_type, value)?;
+                    let path = format!("{path}['{index}']");
+                    self.validate_default_by_typ(&path, &literals, list_type, value)?;
+                    literals.push(",".to_string());
                 }
                 Ok(())
             }
@@ -569,43 +595,48 @@ impl FeatureManifest {
                 let obj_def = self.find_object(obj_name).ok_or_else(|| {
                     FMLError::ValidationError(
                         path.to_string(),
-                        format!("Object {} is not defined in the manifest", obj_name),
+                        format!("Object {obj_name} is not defined in the manifest"),
                     )
                 })?;
-                let mut seen = HashSet::new();
-                let path = format!("{}#{}", path, obj_name);
+                let mut valid = HashSet::new();
+                let mut unseen = HashSet::new();
+                let path = format!("{path}#{obj_name}");
                 for prop in &obj_def.props {
                     // We only check the defaults overriding the property defaults
                     // from the object's own property defaults.
                     // We check the object property defaults previously.
-                    if let Some(map_val) = map.get(&prop.name) {
-                        let path = format!("{}.{}", path, prop.name);
-                        self.validate_default_by_typ(&path, &prop.typ, map_val)?;
+                    let nm = prop.name();
+                    if let Some(map_val) = map.get(&nm) {
+                        let path = format!("{path}.{}", prop.name);
+                        let literals =
+                            add_literals(&["{".to_string(), format!("\"{}\"", &prop.name)]);
+                        self.validate_default_by_typ(&path, &literals, &prop.typ, map_val)?;
+                    } else {
+                        unseen.insert(nm.clone());
                     }
 
-                    seen.insert(prop.name());
+                    valid.insert(nm);
                 }
                 for map_key in map.keys() {
-                    if !seen.contains(map_key) {
-                        return Err(FMLError::ValidationError(
+                    if !valid.contains(map_key) {
+                        return Err(FMLError::FeatureValidationError {
                             path,
-                            format!(
-                            "Default includes key {} that doesn't exist in {}'s object definition",
-                            map_key, obj_name
-                        ),
-                        ));
+                            message: format!(
+                                "Invalid key \"{map_key}\" for object {obj_name}{}",
+                                did_you_mean(valid)
+                            ),
+                            literals: add_literal(format!("\"{map_key}\"")),
+                        });
                     }
                 }
 
                 Ok(())
             }
-            _ => Err(FMLError::ValidationError(
-                path.to_string(),
-                format!(
-                    "Mismatch between type {:?} and default {}",
-                    type_ref, default
-                ),
-            )),
+            _ => Err(FMLError::FeatureValidationError {
+                path: path.to_string(),
+                message: format!("Mismatch between type {type_ref:?} and default {default}"),
+                literals: add_literal(default.to_string()),
+            }),
         }
     }
 
@@ -2130,7 +2161,7 @@ pub mod unit_tests {
         assert!(result.is_err());
         assert_eq!(
             result.err().unwrap().to_string(),
-            "Property `prop` not found on feature `feature`"
+            "Validation Error at features/feature: Invalid property \"prop\"; did you mean \"prop_1\"?"
         );
 
         Ok(())
@@ -2209,7 +2240,7 @@ pub mod unit_tests {
         assert!(result.is_err());
         assert_eq!(
             result.err().unwrap().to_string(),
-            "Validation Error at features/feature.prop_1#SampleObj: Default includes key invalid-prop that doesn't exist in SampleObj's object definition"
+            "Validation Error at features/feature.prop_1#SampleObj: Invalid key \"invalid-prop\" for object SampleObj; did you mean \"string\"?"
         );
 
         Ok(())

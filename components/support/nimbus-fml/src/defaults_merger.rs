@@ -7,7 +7,7 @@ use std::collections::{BTreeMap, HashMap};
 use serde_json::json;
 
 use crate::{
-    error::{FMLError, Result},
+    error::{did_you_mean, FMLError, Result},
     frontend::DefaultBlock,
     intermediate_representation::{FeatureDef, ObjectDef, PropDef, TypeRef},
 };
@@ -192,7 +192,12 @@ impl<'object> DefaultsMerger<'object> {
                             res.default = v.clone();
                             Ok(res)
                         } else {
-                            Err(FMLError::InvalidPropertyError(k.clone(), res.name.clone()))
+                            let valid = res.props.iter().map(|p| p.name()).collect();
+                            Err(FMLError::FeatureValidationError {
+                                literals: vec![format!("\"{k}\"")],
+                                path: format!("features/{}", res.name),
+                                message: format!("Invalid property \"{k}\"{}", did_you_mean(valid)),
+                            })
                         }
                     })
                     .collect::<Result<Vec<_>>>()?;
@@ -1232,7 +1237,7 @@ mod unit_tests {
         assert!(result.is_err());
         assert_eq!(
             result.err().unwrap().to_string(),
-            "Property `secondary-button-color` not found on feature `feature`"
+            "Validation Error at features/feature: Invalid property \"secondary-button-color\"; did you mean \"button-color\"?"
         );
         Ok(())
     }

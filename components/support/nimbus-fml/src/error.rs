@@ -4,6 +4,7 @@
  * */
 
 use crate::intermediate_representation::ModuleId;
+use std::collections::HashSet;
 
 #[derive(Debug, thiserror::Error)]
 pub enum FMLError {
@@ -30,6 +31,12 @@ pub enum FMLError {
     InternalError(&'static str),
     #[error("Validation Error at {0}: {1}")]
     ValidationError(String, String),
+    #[error("Validation Error at {path}: {message}")]
+    FeatureValidationError {
+        literals: Vec<String>,
+        path: String,
+        message: String,
+    },
     #[error("Type Parsing Error: {0}")]
     TypeParsingError(String),
     #[error("Invalid Channel error: The channel `{0}` is specified, but only {1:?} are supported for the file")]
@@ -47,8 +54,6 @@ pub enum FMLError {
 
     #[error("Feature `{0}` not found on manifest")]
     InvalidFeatureError(String),
-    #[error("Property `{0}` not found on feature `{1}`")]
-    InvalidPropertyError(String, String),
 }
 
 #[cfg(feature = "client-lib")]
@@ -65,3 +70,18 @@ pub enum ClientError {
 }
 
 pub type Result<T, E = FMLError> = std::result::Result<T, E>;
+
+pub(crate) fn did_you_mean(words: HashSet<String>) -> String {
+    if words.is_empty() {
+        "".to_string()
+    } else if words.len() == 1 {
+        format!("; did you mean \"{}\"?", words.iter().next().unwrap())
+    } else {
+        let mut words = words.into_iter().collect::<Vec<_>>();
+        let last = words.remove(words.len() - 1);
+        format!(
+            "; did you mean one of \"{}\" or \"{last}\"?",
+            words.join("\", \"")
+        )
+    }
+}

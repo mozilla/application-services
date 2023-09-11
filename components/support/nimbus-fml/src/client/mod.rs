@@ -1,20 +1,24 @@
 /* This Source Code Form is subject to the terms of the Mozilla Public
 * License, v. 2.0. If a copy of the MPL was not distributed with this
 * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
-#![allow(unused)]
 
-use crate::error::ClientError::{
-    InvalidFeatureConfig, InvalidFeatureId, InvalidFeatureValue, JsonMergeError,
-};
-use crate::error::FMLError::ClientError;
-use crate::intermediate_representation::FeatureDef;
+mod descriptor;
+mod inspector;
+#[cfg(test)]
+mod test_helper;
+
+pub use descriptor::FmlFeatureDescriptor;
+pub use inspector::{FmlEditorError, FmlFeatureInspector};
+use serde_json::Value;
+
 use crate::{
-    error::{FMLError, Result},
-    intermediate_representation::{FeatureManifest, TypeRef},
+    error::{ClientError::JsonMergeError, FMLError, Result},
+    intermediate_representation::FeatureManifest,
     parser::Parser,
-    util::loaders::FileLoader,
+    util::loaders::{FileLoader, LoaderConfig},
 };
-use std::collections::{BTreeMap, BTreeSet, HashMap};
+use std::collections::HashMap;
+
 use std::sync::Arc;
 
 pub struct MergedJsonWithErrors {
@@ -27,16 +31,14 @@ pub struct FmlClient {
     pub(crate) default_json: serde_json::Map<String, serde_json::Value>,
 }
 
-fn get_default_json_for_manifest(
-    manifest: &FeatureManifest,
-) -> Result<serde_json::Map<String, serde_json::Value>> {
-    Ok(manifest
-        .default_json()
-        .as_object()
-        .ok_or(ClientError(JsonMergeError(
+fn get_default_json_for_manifest(manifest: &FeatureManifest) -> Result<JsonObject> {
+    if let Value::Object(json) = manifest.default_json() {
+        Ok(json)
+    } else {
+        Err(FMLError::ClientError(JsonMergeError(
             "Manifest default json is not an object".to_string(),
-        )))?
-        .to_owned())
+        )))
+    }
 }
 
 impl FmlClient {
@@ -103,47 +105,9 @@ impl FmlClient {
     pub fn get_coenrolling_feature_ids(&self) -> Result<Vec<String>> {
         Ok(self.manifest.get_coenrolling_feature_ids())
     }
-
-    pub fn get_feature_ids(&self) -> Vec<String> {
-        let mut res: BTreeSet<String> = Default::default();
-        for (_, f) in self.manifest.iter_all_feature_defs() {
-            res.insert(f.name());
-        }
-        res.into_iter().collect()
-    }
-
-    pub fn get_feature_descriptor(&self, id: String) -> Option<FmlFeatureDescriptor> {
-        let (_, f) = self.manifest.find_feature(&id)?;
-        Some(f.into())
-    }
-
-    pub fn get_feature_descriptors(&self) -> Vec<FmlFeatureDescriptor> {
-        let mut res: Vec<_> = Default::default();
-        for (_, f) in self.manifest.iter_all_feature_defs() {
-            res.push(f.into());
-        }
-        res
-    }
 }
 
-#[derive(Debug, PartialEq)]
-pub struct FmlFeatureDescriptor {
-    id: String,
-    description: String,
-    is_coenrolling: bool,
-}
-
-impl From<&FeatureDef> for FmlFeatureDescriptor {
-    fn from(f: &FeatureDef) -> Self {
-        Self {
-            id: f.name(),
-            description: f.doc(),
-            is_coenrolling: f.allow_coenrollment,
-        }
-    }
-}
-
-type JsonObject = serde_json::Map<String, serde_json::Value>;
+pub(crate) type JsonObject = serde_json::Map<String, serde_json::Value>;
 
 #[cfg(feature = "uniffi-bindings")]
 impl UniffiCustomTypeConverter for JsonObject {
