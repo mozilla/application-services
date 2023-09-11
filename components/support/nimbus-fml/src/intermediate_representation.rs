@@ -9,7 +9,7 @@ use crate::util::loaders::FilePath;
 use anyhow::{bail, Error, Result as AnyhowResult};
 use serde::{Deserialize, Serialize};
 use serde_json::{Map, Value};
-use std::collections::{BTreeSet, HashMap, HashSet};
+use std::collections::{BTreeMap, BTreeSet, HashMap, HashSet};
 use std::fmt::Display;
 use std::slice::Iter;
 
@@ -201,7 +201,7 @@ pub struct FeatureManifest {
 
     #[serde(rename = "enums")]
     #[serde(default)]
-    pub enum_defs: Vec<EnumDef>,
+    pub(crate) enum_defs: BTreeMap<String, EnumDef>,
     #[serde(rename = "objects")]
     #[serde(default)]
     pub obj_defs: Vec<ObjectDef>,
@@ -219,7 +219,7 @@ pub struct FeatureManifest {
 
 impl TypeFinder for FeatureManifest {
     fn find_types(&self, types: &mut HashSet<TypeRef>) {
-        for e in &self.enum_defs {
+        for e in self.enum_defs.values() {
             e.find_types(types);
         }
         for o in &self.obj_defs {
@@ -228,6 +228,18 @@ impl TypeFinder for FeatureManifest {
         for f in &self.feature_defs {
             f.find_types(types);
         }
+    }
+}
+
+impl FeatureManifest {
+    pub(crate) fn enum_defs(&self) -> Vec<&EnumDef> {
+        self.enum_defs.values().collect()
+    }
+    pub(crate) fn object_defs(&self) -> Vec<&ObjectDef> {
+        self.obj_defs.iter().collect()
+    }
+    pub(crate) fn feature_defs(&self) -> Vec<&FeatureDef> {
+        self.feature_defs.iter().collect()
     }
 }
 
@@ -345,13 +357,13 @@ impl FeatureManifest {
     }
 
     fn validate_enum_defs(&self, enum_names: &mut HashSet<String>) -> Result<()> {
-        for enum_def in &self.enum_defs {
-            if !enum_names.insert(enum_def.name.clone()) {
+        for nm in self.enum_defs.keys() {
+            if !enum_names.insert(nm.clone()) {
                 return Err(FMLError::ValidationError(
-                    format!("enums/{}", enum_def.name),
+                    format!("enums/{}", nm),
                     format!(
                         "EnumDef names must be unique. Found two EnumDefs with the same name: {}",
-                        enum_def.name
+                        nm
                     ),
                 ));
             }
@@ -583,10 +595,6 @@ impl FeatureManifest {
         }
     }
 
-    pub fn iter_enum_defs(&self) -> Iter<EnumDef> {
-        self.enum_defs.iter()
-    }
-
     pub fn iter_object_defs(&self) -> Iter<ObjectDef> {
         self.obj_defs.iter()
     }
@@ -633,7 +641,7 @@ impl FeatureManifest {
     }
 
     pub fn find_enum(&self, nm: &str) -> Option<&EnumDef> {
-        self.iter_enum_defs().find(|e| e.name() == nm)
+        self.enum_defs.get(nm)
     }
 
     pub fn get_feature(&self, nm: &str) -> Option<&FeatureDef> {
@@ -681,11 +689,7 @@ impl FeatureManifest {
             .iter_all_object_defs()
             .map(|(_, o)| (o.name(), o))
             .collect();
-        let merger = DefaultsMerger::new(
-            objects.into_iter().map(|(k, o)| (k, o)).collect(),
-            vec![dummy_channel.clone()],
-            dummy_channel,
-        );
+        let merger = DefaultsMerger::new(objects, vec![dummy_channel.clone()], dummy_channel);
 
         if let Some((manifest, feature_def)) = self.find_feature(feature_name) {
             let mut feature_def = feature_def.clone();
@@ -931,15 +935,18 @@ pub mod unit_tests {
     #[test]
     fn validate_duplicate_enum_defs_fail() -> Result<()> {
         let mut fm = get_simple_homescreen_feature();
-        fm.enum_defs.push(EnumDef {
-            name: "HomeScreenSection".into(),
-            doc: "The sections of the homescreen".into(),
-            variants: vec![
-                VariantDef::new("top-sites", "The original frecency sorted sites"),
-                VariantDef::new("jump-back-in", "Jump back in section"),
-                VariantDef::new("recently-saved", "Tabs that have been bookmarked recently"),
-            ],
-        });
+        fm.enum_defs.insert(
+            "HomeScreenSection".into(),
+            EnumDef {
+                name: "HomeScreenSection".into(),
+                doc: "The sections of the homescreen".into(),
+                variants: vec![
+                    VariantDef::new("top-sites", "The original frecency sorted sites"),
+                    VariantDef::new("jump-back-in", "Jump back in section"),
+                    VariantDef::new("recently-saved", "Tabs that have been bookmarked recently"),
+                ],
+            },
+        );
         fm.validate_manifest()
             .expect_err("Should fail on duplicate enum_defs");
         Ok(())
@@ -1221,7 +1228,7 @@ pub mod unit_tests {
         all_imports: HashMap<ModuleId, FeatureManifest>,
     ) -> FeatureManifest {
         FeatureManifest {
-            enum_defs,
+            enum_defs: map_from(enum_defs, |e| e.name()),
             obj_defs,
             feature_defs,
             all_imports,
@@ -1235,7 +1242,7 @@ pub mod unit_tests {
         prop: &PropDef,
     ) -> FeatureManifest {
         FeatureManifest {
-            enum_defs,
+            enum_defs: map_from(enum_defs, |e| e.name()),
             obj_defs,
             feature_defs: vec![FeatureDef {
                 props: vec![prop.clone()],
@@ -1252,7 +1259,7 @@ pub mod unit_tests {
         all_imports: HashMap<ModuleId, FeatureManifest>,
     ) -> FeatureManifest {
         FeatureManifest {
-            enum_defs,
+            enum_defs: map_from(enum_defs, |e| e.name()),
             obj_defs,
             all_imports,
             feature_defs: vec![FeatureDef {
@@ -1261,6 +1268,21 @@ pub mod unit_tests {
             }],
             ..Default::default()
         }
+    }
+
+    fn map_from<T, F, K>(list: Vec<T>, key: F) -> BTreeMap<K, T>
+    where
+        K: Ord,
+        F: Fn(&T) -> K,
+    {
+        let mut res: BTreeMap<K, T> = Default::default();
+
+        for t in list {
+            let k = key(&t);
+            res.insert(k, t);
+        }
+
+        res
     }
 
     #[test]

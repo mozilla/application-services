@@ -10,8 +10,8 @@
       "module": "App"
     }
   },
-  "enums": [
-    {
+  "enums": {
+    "MenuItemId": {
       "name": "MenuItemId",
       "doc": "The menu items id",
       "variants": [
@@ -33,7 +33,7 @@
         }
       ]
     },
-    {
+    "PlayerProfile": {
       "name": "PlayerProfile",
       "doc": "The sections of the homescreen",
       "variants": [
@@ -47,7 +47,7 @@
         }
       ]
     }
-  ],
+  },
   "objects": [
     {
       "name": "MenuItem",

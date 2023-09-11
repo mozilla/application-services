@@ -13,9 +13,9 @@ use crate::intermediate_representation::{
 
 impl From<FeatureManifest> for ManifestFrontEnd {
     fn from(value: FeatureManifest) -> Self {
-        let features = merge(&value, |fm| fm.feature_defs.clone(), |f| &f.name);
-        let objects = merge(&value, |fm| fm.obj_defs.clone(), |o| &o.name);
-        let enums = merge(&value, |fm| fm.enum_defs.clone(), |e| &e.name);
+        let features = merge(&value, |fm| fm.feature_defs(), |f| &f.name);
+        let objects = merge(&value, |fm| fm.object_defs(), |o| &o.name);
+        let enums = merge(&value, |fm| fm.enum_defs(), |e| &e.name);
 
         let about = value.about.description_only();
 
@@ -38,19 +38,20 @@ fn merge<ListGetter, NameGetter, S, T>(
     name_getter: NameGetter,
 ) -> BTreeMap<String, T>
 where
+    S: Clone,
     T: From<S>,
-    ListGetter: Fn(&FeatureManifest) -> Vec<S>,
+    ListGetter: Fn(&FeatureManifest) -> Vec<&S>,
     NameGetter: Fn(&S) -> &str,
 {
     let mut dest: BTreeMap<String, T> = BTreeMap::new();
 
     for s in list_getter(root) {
-        dest.insert(name_getter(&s).to_string(), s.into());
+        dest.insert(name_getter(s).to_string(), s.to_owned().into());
     }
 
     for fm in root.all_imports.values() {
         for s in list_getter(fm) {
-            dest.insert(name_getter(&s).to_string(), s.into());
+            dest.insert(name_getter(s).to_string(), s.to_owned().into());
         }
     }
 

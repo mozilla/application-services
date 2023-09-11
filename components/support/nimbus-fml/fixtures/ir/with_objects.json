@@ -10,7 +10,7 @@
       "module": "Megazord"
     }
   },
-  "enums": [],
+  "enums": {},
   "objects": [
     {
       "name": "ExampleObject",

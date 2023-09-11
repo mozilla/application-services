@@ -10,8 +10,8 @@
       "module": "Megazord"
     }
   },
-  "enums": [
-    {
+  "enums": {
+    "Position": {
       "name": "Position",
       "doc": "Where to put the menu bar?",
       "variants": [
@@ -25,7 +25,7 @@
         }
       ]
     }
-  ],
+  },
   "objects": [],
   "features": [
     {

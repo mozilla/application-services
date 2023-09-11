@@ -6,8 +6,8 @@
       "package": "com.example.app"
     }
   },
-  "enums": [
-    {
+  "enums": {
+    "HomeScreenSection": {
       "name": "HomeScreenSection",
       "doc": "The sections of the homescreen",
       "variants": [
@@ -33,7 +33,7 @@
         }
       ]
     }
-  ],
+  },
   "objects": [],
   "features": [
     {

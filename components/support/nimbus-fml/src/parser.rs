@@ -477,9 +477,7 @@ fn merge_import_block(a: &ImportBlock, b: &ImportBlock) -> Result<ImportBlock> {
 /// Check if this parent can import this child.
 fn check_can_import_manifest(parent: &FeatureManifest, child: &FeatureManifest) -> Result<()> {
     check_can_import_list(parent, child, "enum", |fm: &FeatureManifest| {
-        fm.iter_enum_defs()
-            .map(|e| &e.name)
-            .collect::<HashSet<&String>>()
+        fm.enum_defs.keys().collect()
     })?;
     check_can_import_list(parent, child, "objects", |fm: &FeatureManifest| {
         fm.iter_object_defs()
@@ -545,7 +543,7 @@ mod unit_tests {
 
         // Validate parsed enums
         assert!(ir.enum_defs.len() == 1);
-        let enum_def = ir.enum_defs.first().unwrap();
+        let enum_def = &ir.enum_defs["PlayerProfile"];
         assert!(enum_def.name == *"PlayerProfile");
         assert!(enum_def.doc == *"This is an enum type");
         assert!(enum_def.variants.contains(&VariantDef {
