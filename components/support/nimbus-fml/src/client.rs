@@ -7,13 +7,15 @@ use crate::error::ClientError::{
     InvalidFeatureConfig, InvalidFeatureId, InvalidFeatureValue, JsonMergeError,
 };
 use crate::error::FMLError::ClientError;
+use crate::intermediate_representation::FeatureDef;
 use crate::{
     error::{FMLError, Result},
     intermediate_representation::{FeatureManifest, TypeRef},
     parser::Parser,
     util::loaders::FileLoader,
 };
-use std::collections::HashMap;
+use std::collections::{BTreeMap, BTreeSet, HashMap};
+use std::sync::Arc;
 
 pub struct MergedJsonWithErrors {
     pub json: String,
@@ -21,7 +23,7 @@ pub struct MergedJsonWithErrors {
 }
 
 pub struct FmlClient {
-    pub(crate) manifest: FeatureManifest,
+    pub(crate) manifest: Arc<FeatureManifest>,
     pub(crate) default_json: serde_json::Map<String, serde_json::Value>,
 }
 
@@ -55,8 +57,8 @@ impl FmlClient {
         ir.validate_manifest();
 
         Ok(FmlClient {
-            manifest: ir.clone(),
             default_json: get_default_json_for_manifest(&ir)?,
+            manifest: Arc::new(ir),
         })
     }
 
@@ -101,6 +103,44 @@ impl FmlClient {
     pub fn get_coenrolling_feature_ids(&self) -> Result<Vec<String>> {
         Ok(self.manifest.get_coenrolling_feature_ids())
     }
+
+    pub fn get_feature_ids(&self) -> Vec<String> {
+        let mut res: BTreeSet<String> = Default::default();
+        for (_, f) in self.manifest.iter_all_feature_defs() {
+            res.insert(f.name());
+        }
+        res.into_iter().collect()
+    }
+
+    pub fn get_feature_descriptor(&self, id: String) -> Option<FmlFeatureDescriptor> {
+        let (_, f) = self.manifest.find_feature(&id)?;
+        Some(f.into())
+    }
+
+    pub fn get_feature_descriptors(&self) -> Vec<FmlFeatureDescriptor> {
+        let mut res: Vec<_> = Default::default();
+        for (_, f) in self.manifest.iter_all_feature_defs() {
+            res.push(f.into());
+        }
+        res
+    }
+}
+
+#[derive(Debug, PartialEq)]
+pub struct FmlFeatureDescriptor {
+    id: String,
+    description: String,
+    is_coenrolling: bool,
+}
+
+impl From<&FeatureDef> for FmlFeatureDescriptor {
+    fn from(f: &FeatureDef) -> Self {
+        Self {
+            id: f.name(),
+            description: f.doc(),
+            is_coenrolling: f.allow_coenrollment,
+        }
+    }
 }
 
 type JsonObject = serde_json::Map<String, serde_json::Value>;
@@ -141,8 +181,8 @@ mod unit_tests {
         fn from(manifest: FeatureManifest) -> Self {
             manifest.validate_manifest().ok();
             FmlClient {
-                manifest: manifest.clone(),
                 default_json: get_default_json_for_manifest(&manifest).ok().unwrap(),
+                manifest: Arc::new(manifest),
             }
         }
     }
@@ -159,6 +199,7 @@ mod unit_tests {
                     default: Value::String("prop_i_1_value".into()),
                     doc: "".into(),
                 }],
+                doc: "feature_i description".to_string(),
                 ..Default::default()
             }],
             HashMap::new(),
@@ -175,8 +216,8 @@ mod unit_tests {
                     default: Value::String("prop_1_value".into()),
                     doc: "".into(),
                 }],
+                doc: "feature description".to_string(),
                 allow_coenrollment: true,
-                ..Default::default()
             }],
             HashMap::from([(ModuleId::Local("test".into()), fm_i)]),
         )
@@ -251,6 +292,44 @@ mod unit_tests {
         let result = client.get_coenrolling_feature_ids();
 
         assert_eq!(result.unwrap(), vec!["feature"]);
+
+        Ok(())
+    }
+
+    #[test]
+    fn test_feature_ids() -> Result<()> {
+        let client: FmlClient = create_manifest().into();
+        let result = client.get_feature_ids();
+
+        assert_eq!(result, vec!["feature", "feature_i"]);
+        Ok(())
+    }
+
+    #[test]
+    fn test_get_feature() -> Result<()> {
+        let client: FmlClient = create_manifest().into();
+
+        let result = client.get_feature_descriptor("feature".to_string());
+        assert!(result.is_some());
+        assert_eq!(
+            result.unwrap(),
+            FmlFeatureDescriptor {
+                id: "feature".to_string(),
+                description: "feature description".to_string(),
+                is_coenrolling: true
+            }
+        );
+
+        let result = client.get_feature_descriptor("feature_i".to_string());
+        assert!(result.is_some());
+        assert_eq!(
+            result.unwrap(),
+            FmlFeatureDescriptor {
+                id: "feature_i".to_string(),
+                description: "feature_i description".to_string(),
+                is_coenrolling: false
+            }
+        );
 
         Ok(())
     }
