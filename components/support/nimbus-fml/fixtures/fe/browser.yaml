@@ -68,7 +68,7 @@ features:
         type: Option<IconType>
         default: letter
         description: "Describes the icon of spotlight"
-      eum-map:
+      enum-map:
         description: A enum map that was causing problem
         type: Map<IconType, Int>
         default:

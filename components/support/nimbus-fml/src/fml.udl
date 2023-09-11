@@ -5,7 +5,7 @@ enum FMLError {
     "IOError", "JSONError", "YAMLError", "UrlError", "FetchError", "InvalidPath",
     "TemplateProblem", "Fatal", "InternalError", "ValidationError", "TypeParsingError",
     "InvalidChannelError", "FMLModuleError", "CliError", "ClientError", "InvalidFeatureError",
-    "InvalidPropertyError"
+    "FeatureValidationError",
 };
 
 dictionary MergedJsonWithErrors {
@@ -52,10 +52,32 @@ interface FmlClient {
     // Returns a description of the given feature.
     // If no feature exists, returns None.
     sequence<FmlFeatureDescriptor> get_feature_descriptors();
+
+    FmlFeatureInspector? get_feature_inspector(string id);
 };
 
 dictionary FmlFeatureDescriptor {
     string id;
     string description;
     boolean is_coenrolling;
+};
+
+interface FmlFeatureInspector {
+    // Parses the string and returns a list of errors.
+    // Current implementation will only return one error.
+    sequence<FmlEditorError>? get_errors(string src);
+
+    // Returns the default JSON for the feature for this channel.
+    [Throws=FMLError]
+    JsonObject get_default_json();
+};
+
+dictionary FmlEditorError {
+    string message;
+    // zero indexed line number for the error.
+    u32 line;
+    // zero indexed column number for the error.
+    u32 col;
+    // the text to hightlight.
+    string? hightlight;
 };
