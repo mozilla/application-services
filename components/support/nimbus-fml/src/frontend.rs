@@ -289,27 +289,28 @@ impl ManifestFrontEnd {
     /// Retrieves all the Enum type definitions represented in the manifest
     ///
     /// # Returns
-    /// Returns a [`std::vec::Vec<EnumDef>`]
-    fn get_enums(&self) -> Vec<EnumDef> {
+    /// Returns a [`std::collections::BTreeMap<String, EnumDef>`]
+    fn get_enums(&self) -> BTreeMap<String, EnumDef> {
         let types = self.legacy_types.as_ref().unwrap_or(&self.types);
-        types
-            .enums
-            .clone()
-            .into_iter()
-            .map(|t| EnumDef {
-                name: t.0,
-                doc: t.1.description,
-                variants: t
-                    .1
-                    .variants
-                    .iter()
-                    .map(|v| VariantDef {
-                        name: v.0.clone(),
-                        doc: v.1.description.clone(),
-                    })
-                    .collect(),
-            })
-            .collect()
+        let mut enums: BTreeMap<_, _> = Default::default();
+        for (name, body) in &types.enums {
+            let mut variants: Vec<_> = Default::default();
+            for (v_name, v_body) in &body.variants {
+                variants.push(VariantDef {
+                    name: v_name.clone(),
+                    doc: v_body.description.clone(),
+                });
+            }
+            enums.insert(
+                name.to_owned(),
+                EnumDef {
+                    name: name.clone(),
+                    doc: body.description.clone(),
+                    variants,
+                },
+            );
+        }
+        enums
     }
 
     pub(crate) fn get_intermediate_representation(
