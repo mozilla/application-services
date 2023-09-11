@@ -41,4 +41,21 @@ interface FmlClient {
     // Returns a list of feature ids that support coenrollment.
     [Throws=FMLError]
     sequence<string> get_coenrolling_feature_ids();
+
+    // Returns a list of feature ids.
+    sequence<string> get_feature_ids();
+
+    // Returns a description of the given feature.
+    // If no feature exists, returns None.
+    FmlFeatureDescriptor? get_feature_descriptor(string id);
+
+    // Returns a description of the given feature.
+    // If no feature exists, returns None.
+    sequence<FmlFeatureDescriptor> get_feature_descriptors();
+};
+
+dictionary FmlFeatureDescriptor {
+    string id;
+    string description;
+    boolean is_coenrolling;
 };
