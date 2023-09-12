@@ -26,26 +26,29 @@ pub(crate) fn get_simple_homescreen_feature() -> FeatureManifest {
             },
         )]),
         obj_defs: Default::default(),
-        feature_defs: vec![FeatureDef::new(
-            "homescreen",
-            "Represents the homescreen feature",
-            vec![PropDef {
-                name: "sections-enabled".into(),
-                doc: "A map of booleans".into(),
-                typ: TypeRef::EnumMap(
-                    Box::new(TypeRef::Enum("HomeScreenSection".into())),
-                    Box::new(TypeRef::Boolean),
-                ),
-                default: json!({
-                    "top-sites": true,
-                    "jump-back-in": false,
-                    "recently-saved": false,
-                    "recent-explorations": false,
-                    "pocket": false,
-                }),
-            }],
-            false,
-        )],
+        feature_defs: BTreeMap::from([(
+            "homescreen".to_string(),
+            FeatureDef::new(
+                "homescreen",
+                "Represents the homescreen feature",
+                vec![PropDef {
+                    name: "sections-enabled".into(),
+                    doc: "A map of booleans".into(),
+                    typ: TypeRef::EnumMap(
+                        Box::new(TypeRef::Enum("HomeScreenSection".into())),
+                        Box::new(TypeRef::Boolean),
+                    ),
+                    default: json!({
+                        "top-sites": true,
+                        "jump-back-in": false,
+                        "recently-saved": false,
+                        "recent-explorations": false,
+                        "pocket": false,
+                    }),
+                }],
+                false,
+            ),
+        )]),
         ..Default::default()
     }
 }

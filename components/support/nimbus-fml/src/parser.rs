@@ -8,7 +8,7 @@ use crate::{
     defaults_merger::DefaultsMerger,
     error::{FMLError, Result},
     frontend::{ImportBlock, ManifestFrontEnd, Types},
-    intermediate_representation::{FeatureDef, FeatureManifest, ModuleId, TypeRef},
+    intermediate_representation::{FeatureManifest, ModuleId, TypeRef},
     util::loaders::{FileLoader, FilePath},
 };
 
@@ -265,11 +265,7 @@ impl Parser {
             // b. Prepare a feature map that we'll alter in place.
             //    EXP- 2540 If we want to support re-exporting/encapsulating features then we will need to change
             //    this to be a more recursive look up. e.g. change `FeatureManifest.feature_defs` to be a `BTreeMap`.
-            let mut feature_map: HashMap<String, &mut FeatureDef> = child_manifest
-                .feature_defs
-                .iter_mut()
-                .map(|o| (o.name(), o))
-                .collect();
+            let feature_map = &mut child_manifest.feature_defs;
 
             // c. Iterate over the features we want to override
             for (f, default_blocks) in &block.features {
@@ -482,9 +478,7 @@ fn check_can_import_manifest(parent: &FeatureManifest, child: &FeatureManifest) 
         fm.obj_defs.keys().collect()
     })?;
     check_can_import_list(parent, child, "features", |fm: &FeatureManifest| {
-        fm.iter_feature_defs()
-            .map(|f| &f.name)
-            .collect::<HashSet<&String>>()
+        fm.feature_defs.keys().collect()
     })?;
 
     Ok(())
@@ -572,8 +566,7 @@ mod unit_tests {
 
         // Validate parsed features
         assert!(ir.feature_defs.len() == 1);
-        // assert!(ir.feature_defs.contains(parser.features.first().unwrap()));
-        let feature_def = ir.feature_defs.first().unwrap();
+        let feature_def = ir.get_feature("dialog-appearance").unwrap();
         assert!(feature_def.name == *"dialog-appearance");
         assert!(feature_def.doc == *"This is the appearance of the dialog");
         let positive_button = feature_def
@@ -645,7 +638,7 @@ mod unit_tests {
         let files = FileLoader::default()?;
         let parser = Parser::new(files, path.into())?;
         let ir = parser.get_intermediate_representation("release")?;
-        let feature_def = ir.feature_defs.first().unwrap();
+        let feature_def = ir.get_feature("dialog-appearance").unwrap();
         let positive_button = feature_def
             .props
             .iter()
@@ -687,7 +680,7 @@ mod unit_tests {
         let files = FileLoader::default()?;
         let parser = Parser::new(files, path.into())?;
         let ir = parser.get_intermediate_representation("nightly")?;
-        let feature_def = ir.feature_defs.first().unwrap();
+        let feature_def = ir.get_feature("dialog-appearance").unwrap();
         let positive_button = feature_def
             .props
             .iter()

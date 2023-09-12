@@ -27,8 +27,8 @@
     }
   },
   "objects": {},
-  "features": [
-    {
+  "features": {
+    "nimbus-validation": {
       "name": "nimbus-validation",
       "doc": "A simple validation feature",
       "props": [
@@ -116,5 +116,5 @@
       "default": null,
       "allow_coenrollment": false
     }
-  ]
+  }
 }
