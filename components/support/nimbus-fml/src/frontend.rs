@@ -214,54 +214,49 @@ impl ManifestFrontEnd {
     ///
     /// # Returns
     /// return the IR [`PropDef`]
-    fn get_prop_def_from_field(&self, field: (&String, &FieldBody)) -> PropDef {
+    fn get_prop_def_from_field(&self, nm: &String, body: &FieldBody) -> PropDef {
         let types = self.get_types();
         PropDef {
-            name: field.0.into(),
-            doc: field.1.description.clone(),
-            typ: match get_typeref_from_string(
-                field.1.variable_type.to_owned(),
-                Some(types.clone()),
-            ) {
+            name: nm.into(),
+            doc: body.description.clone(),
+            typ: match get_typeref_from_string(body.variable_type.to_owned(), Some(types.clone())) {
                 Ok(type_ref) => type_ref,
                 Err(e) => {
                     // Try matching against the user defined types
-                    match types.get(&field.1.variable_type) {
+                    match types.get(&body.variable_type) {
                         Some(type_ref) => type_ref.to_owned(),
                         None => panic!(
                             "{}\n{} is not a valid FML type or user defined type",
-                            e, field.1.variable_type
+                            e, body.variable_type
                         ),
                     }
                 }
             },
-            default: json!(field.1.default),
+            default: json!(body.default),
         }
     }
 
     /// Retrieves all the feature definitions represented in the manifest
     ///
     /// # Returns
-    /// Returns a [`std::vec::Vec<FeatureDef>`]
-    fn get_feature_defs(&self, merger: &DefaultsMerger) -> Result<Vec<FeatureDef>> {
-        self.features
-            .iter()
-            .map(|(name, body)| {
-                let mut def = FeatureDef {
-                    name: name.clone(),
-                    doc: body.description.clone(),
-                    props: body
-                        .variables
-                        .iter()
-                        .map(|v| self.get_prop_def_from_field(v))
-                        .collect(),
-                    allow_coenrollment: body.allow_coenrollment,
-                };
-
-                merger.merge_feature_defaults(&mut def, &body.default)?;
-                Ok(def)
-            })
-            .collect()
+    /// Returns a [`std::collections::BTreeMap<String, FeatureDef>`]
+    fn get_feature_defs(&self, merger: &DefaultsMerger) -> Result<BTreeMap<String, FeatureDef>> {
+        let mut features: BTreeMap<_, _> = Default::default();
+        for (nm, body) in &self.features {
+            let mut fields: Vec<_> = Default::default();
+            for (fnm, field) in &body.variables {
+                fields.push(self.get_prop_def_from_field(fnm, field));
+            }
+            let mut def = FeatureDef {
+                name: nm.clone(),
+                doc: body.description.clone(),
+                props: fields,
+                allow_coenrollment: body.allow_coenrollment,
+            };
+            merger.merge_feature_defaults(&mut def, &body.default)?;
+            features.insert(nm.to_owned(), def);
+        }
+        Ok(features)
     }
 
     /// Retrieves all the Object type definitions represented in the manifest
@@ -274,7 +269,7 @@ impl ManifestFrontEnd {
         for (nm, body) in &types.objects {
             let mut fields: Vec<_> = Default::default();
             for (fnm, field) in &body.fields {
-                fields.push(self.get_prop_def_from_field((fnm, field)));
+                fields.push(self.get_prop_def_from_field(fnm, field));
             }
             objs.insert(
                 nm.to_owned(),

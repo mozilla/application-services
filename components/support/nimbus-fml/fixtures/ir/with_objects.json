@@ -53,8 +53,8 @@
       ]
     }
   },
-  "features": [
-    {
+  "features": {
+    "with-objects-feature": {
       "name": "with-objects-feature",
       "doc": "A feature with objects feature",
       "props": [
@@ -108,5 +108,5 @@
       },
       "allow_coenrollment": false
     }
-  ]
+  }
 }

@@ -28,8 +28,8 @@
     }
   },
   "objects": {},
-  "features": [
-    {
+  "features": {
+    "homescreen": {
       "name": "homescreen",
       "doc": "Represents the homescreen feature",
       "props": [
@@ -55,5 +55,5 @@
       ],
       "default": null
     }
-  ]
+  }
 }

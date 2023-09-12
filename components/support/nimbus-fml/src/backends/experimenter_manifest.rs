@@ -41,14 +41,8 @@ pub(crate) struct ExperimenterFeatureProperty {
 impl TryFrom<FeatureManifest> for ExperimenterManifest {
     type Error = crate::error::FMLError;
     fn try_from(fm: FeatureManifest) -> Result<Self> {
-        fm.all_imports
-            .values()
-            .chain(vec![&fm])
-            .flat_map(|fm| {
-                fm.feature_defs
-                    .iter()
-                    .map(|f| Ok((f.name(), fm.create_experimenter_feature(f)?)))
-            })
+        fm.iter_all_feature_defs()
+            .map(|(fm, f)| Ok((f.name(), fm.create_experimenter_feature(f)?)))
             .collect()
     }
 }

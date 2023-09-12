@@ -68,8 +68,8 @@
       ]
     }
   },
-  "features": [
-    {
+  "features": {
+    "app-menu": {
       "name": "app-menu",
       "doc": "Represents the app-menu feature",
       "props": [
@@ -237,5 +237,5 @@
       "allow_coenrollment": false,
       "default": null
     }
-  ]
+  }
 }
