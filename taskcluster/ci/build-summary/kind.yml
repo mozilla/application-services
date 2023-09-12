@@ -9,9 +9,7 @@ kind-dependencies:
   - signing
   - swift
   - server-megazord-build
-  - server-megazord-assemble
   - nimbus-build
-  - nimbus-binaries-assemble
 
 transforms:
   - app_services_taskgraph.transforms.deps_complete:transforms
