@@ -230,18 +230,6 @@ impl TypeFinder for FeatureManifest {
     }
 }
 
-impl FeatureManifest {
-    pub(crate) fn enum_defs(&self) -> Vec<&EnumDef> {
-        self.enum_defs.values().collect()
-    }
-    pub(crate) fn object_defs(&self) -> Vec<&ObjectDef> {
-        self.obj_defs.values().collect()
-    }
-    pub(crate) fn feature_defs(&self) -> Vec<&FeatureDef> {
-        self.feature_defs.values().collect()
-    }
-}
-
 #[cfg(test)]
 impl FeatureManifest {
     pub(crate) fn add_feature(&mut self, feature: FeatureDef) {
@@ -250,6 +238,26 @@ impl FeatureManifest {
 }
 
 impl FeatureManifest {
+    pub(crate) fn new(
+        id: ModuleId,
+        channel: &str,
+        features: BTreeMap<String, FeatureDef>,
+        enums: BTreeMap<String, EnumDef>,
+        objects: BTreeMap<String, ObjectDef>,
+        about: AboutBlock,
+    ) -> Self {
+        Self {
+            id,
+            channel: channel.to_string(),
+            about,
+            enum_defs: enums,
+            obj_defs: objects,
+            feature_defs: features,
+
+            ..Default::default()
+        }
+    }
+
     #[allow(unused)]
     pub(crate) fn validate_manifest_for_lang(&self, lang: &TargetLanguage) -> Result<()> {
         if !&self.about.supports(lang) {
@@ -601,18 +609,32 @@ impl FeatureManifest {
         }
     }
 
+    pub fn iter_enum_defs(&self) -> impl Iterator<Item = &EnumDef> {
+        self.enum_defs.values()
+    }
+
+    pub fn iter_all_enum_defs(&self) -> impl Iterator<Item = (&FeatureManifest, &EnumDef)> {
+        let enums = self.iter_enum_defs().map(move |o| (self, o));
+        let imported: Vec<_> = self
+            .all_imports
+            .values()
+            .flat_map(|fm| fm.iter_all_enum_defs())
+            .collect();
+        enums.chain(imported)
+    }
+
     pub fn iter_object_defs(&self) -> impl Iterator<Item = &ObjectDef> {
         self.obj_defs.values()
     }
 
     pub fn iter_all_object_defs(&self) -> impl Iterator<Item = (&FeatureManifest, &ObjectDef)> {
         let objects = self.iter_object_defs().map(move |o| (self, o));
-        let imported_objects: Vec<(&FeatureManifest, &ObjectDef)> = self
+        let imported: Vec<_> = self
             .all_imports
-            .iter()
-            .flat_map(|(_, fm)| fm.iter_all_object_defs())
+            .values()
+            .flat_map(|fm| fm.iter_all_object_defs())
             .collect();
-        objects.chain(imported_objects)
+        objects.chain(imported)
     }
 
     pub fn iter_feature_defs(&self) -> impl Iterator<Item = &FeatureDef> {
@@ -621,12 +643,12 @@ impl FeatureManifest {
 
     pub fn iter_all_feature_defs(&self) -> impl Iterator<Item = (&FeatureManifest, &FeatureDef)> {
         let features = self.iter_feature_defs().map(move |f| (self, f));
-        let imported_features: Vec<(&FeatureManifest, &FeatureDef)> = self
+        let imported: Vec<_> = self
             .all_imports
-            .iter()
-            .flat_map(|(_, fm)| fm.iter_all_feature_defs())
+            .values()
+            .flat_map(|fm| fm.iter_all_feature_defs())
             .collect();
-        features.chain(imported_features)
+        features.chain(imported)
     }
 
     #[allow(unused)]
