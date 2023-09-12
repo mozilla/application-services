@@ -13,6 +13,7 @@
 loader: taskgraph.loader.transform:loader
 
 kind-dependencies:
+  - build-summary
   - server-megazord-build
 
 transforms:

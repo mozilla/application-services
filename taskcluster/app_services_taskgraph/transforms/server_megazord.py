@@ -82,7 +82,7 @@ def setup_mac_build_task(task, target, binary):
         ]
     }
 
-# Transform for the nimbus-assemble task
+# Transform for the server-megazord-assemble task
 #
 # This task produces a single zip file + checksum that combines the binaries from each individual
 # build task.
@@ -94,7 +94,7 @@ MegazordBuildDep = namedtuple("MegazordBuildDep", "label target")
 @assemble.add
 def setup_assemble_tasks(config, tasks):
     for task in tasks:
-        # Which nimbus binary are we assembling?
+        # Which megazord binary are we assembling?
         binary = task['attributes']['megazord']
 
         # Find server-megazord-build task dependencies for our binary.
@@ -113,7 +113,7 @@ def setup_assemble_tasks(config, tasks):
                 {
                     'artifact': f'{binary}-{dep.target}.zip',
                     'dest': binary,
-                    'extract': True, # if binary == 'nimbus-fml' else False
+                    'extract': True,
                 }
             ]
             for dep in build_task_deps
