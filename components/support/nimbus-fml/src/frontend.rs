@@ -326,16 +326,14 @@ impl ManifestFrontEnd {
             None => Default::default(),
         };
 
-        Ok(FeatureManifest {
-            id: id.clone(),
-            channel: channel.to_string(),
+        Ok(FeatureManifest::new(
+            id.clone(),
+            channel,
+            features,
+            enums,
+            objects,
             about,
-            enum_defs: enums,
-            obj_defs: objects,
-            feature_defs: features,
-
-            ..Default::default()
-        })
+        ))
     }
 }
 

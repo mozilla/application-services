@@ -13,9 +13,9 @@ use crate::intermediate_representation::{
 
 impl From<FeatureManifest> for ManifestFrontEnd {
     fn from(value: FeatureManifest) -> Self {
-        let features = merge(&value, |fm| fm.feature_defs(), |f| &f.name);
-        let objects = merge(&value, |fm| fm.object_defs(), |o| &o.name);
-        let enums = merge(&value, |fm| fm.enum_defs(), |e| &e.name);
+        let features = merge(&value, |fm| fm.iter_feature_defs().collect(), |f| &f.name);
+        let objects = merge(&value, |fm| fm.iter_object_defs().collect(), |o| &o.name);
+        let enums = merge(&value, |fm| fm.iter_enum_defs().collect(), |e| &e.name);
 
         let about = value.about.description_only();
 
