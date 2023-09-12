@@ -8,6 +8,14 @@
 
 - Added the `enrollment_status` metric and defined a host metric callback handler interface ([#5857](https://github.com/mozilla/application-services/pull/5857)).
 
+## FxA Client
+
+### What's changed
+
+- Major changes to the Kotlin wrappers.  They now present a higher-level action/event system.  The
+  goal here is to allow new consumers to use this directly, without a lot of extra code like
+  android-components needed.
+
 ## Rust log forwarder
 
 ### 🦊 What's Changed 🦊

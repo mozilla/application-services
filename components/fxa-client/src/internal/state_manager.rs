@@ -191,6 +191,19 @@ impl StateManager {
         self.persisted_state.access_token_cache.clear();
         self.persisted_state.server_local_device_info = None;
     }
+
+    pub fn simulate_temporary_auth_token_issue(&mut self) {
+        for (_, access_token) in self.persisted_state.access_token_cache.iter_mut() {
+            access_token.token = "invalid-data".to_owned()
+        }
+    }
+
+    /// Used by the application to test auth token issues
+    pub fn simulate_permanent_auth_token_issue(&mut self) {
+        self.persisted_state.session_token = None;
+        self.persisted_state.refresh_token = None;
+        self.persisted_state.access_token_cache.clear();
+    }
 }
 
 #[cfg(test)]

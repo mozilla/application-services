@@ -670,6 +670,12 @@ interface FirefoxAccount {
   //
   [Throws=FxaError]
   string gather_telemetry();
+
+  // Used by the application to test auth token issues
+  void simulate_temporary_auth_token_issue();
+
+  // Used by the application to test auth token issues
+  void simulate_permanent_auth_token_issue();
 };
 
 dictionary FxaConfig {

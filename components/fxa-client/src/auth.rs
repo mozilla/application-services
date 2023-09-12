@@ -173,6 +173,16 @@ impl FirefoxAccount {
     pub fn disconnect_from_auth_issues(&self) {
         self.internal.lock().disconnect(true)
     }
+
+    /// Used by the application to test auth token issues
+    pub fn simulate_temporary_auth_token_issue(&self) {
+        self.internal.lock().simulate_temporary_auth_token_issue()
+    }
+
+    /// Used by the application to test auth token issues
+    pub fn simulate_permanent_auth_token_issue(&self) {
+        self.internal.lock().simulate_permanent_auth_token_issue()
+    }
 }
 
 /// Information about the authorization state of the application.

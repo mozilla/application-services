@@ -225,6 +225,14 @@ impl FirefoxAccount {
         self.clear_devices_and_attached_clients_cache();
         self.telemetry = FxaTelemetry::new();
     }
+
+    pub fn simulate_temporary_auth_token_issue(&mut self) {
+        self.state.simulate_temporary_auth_token_issue()
+    }
+
+    pub fn simulate_permanent_auth_token_issue(&mut self) {
+        self.state.simulate_permanent_auth_token_issue()
+    }
 }
 
 #[derive(Debug, Clone, Deserialize, Serialize)]

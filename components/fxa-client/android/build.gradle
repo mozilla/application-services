@@ -13,8 +13,11 @@ dependencies {
     api project(':sync15')
 
     implementation "org.mozilla.telemetry:glean:$glean_version"
+    implementation "org.jetbrains.kotlinx:kotlinx-coroutines-android:$kotlin_coroutines_version"
 
     testImplementation "org.mozilla.telemetry:glean-native-forUnitTests:$glean_version"
+    testImplementation("io.mockk:mockk:${mockk_version}")
+    testImplementation "org.jetbrains.kotlinx:kotlinx-coroutines-test:$kotlin_coroutines_version"
 }
 
 ext.configureUniFFIBindgen("../src/fxa_client.udl")
