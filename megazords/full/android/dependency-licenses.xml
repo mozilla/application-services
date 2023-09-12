@@ -341,6 +341,10 @@ the details of which are reproduced below.
     <url>https://github.com/rust-lang/regex/blob/master/LICENSE-APACHE</url>
   </license>
   <license>
+    <name>Apache License 2.0: regex-automata</name>
+    <url>https://github.com/rust-lang/regex/blob/master/LICENSE-APACHE</url>
+  </license>
+  <license>
     <name>Apache License 2.0: regex-syntax</name>
     <url>https://github.com/rust-lang/regex/blob/master/LICENSE-APACHE</url>
   </license>
