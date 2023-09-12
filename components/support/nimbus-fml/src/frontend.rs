@@ -267,23 +267,25 @@ impl ManifestFrontEnd {
     /// Retrieves all the Object type definitions represented in the manifest
     ///
     /// # Returns
-    /// Returns a [`std::vec::Vec<ObjectDef>`]
-    fn get_objects(&self) -> Vec<ObjectDef> {
+    /// Returns a [`std::collections::BTreeMap<String. ObjectDef>`]
+    fn get_objects(&self) -> BTreeMap<String, ObjectDef> {
         let types = self.legacy_types.as_ref().unwrap_or(&self.types);
-        types
-            .objects
-            .iter()
-            .map(|t| ObjectDef {
-                name: t.0.clone(),
-                doc: t.1.description.clone(),
-                props: t
-                    .1
-                    .fields
-                    .iter()
-                    .map(|v| self.get_prop_def_from_field(v))
-                    .collect(),
-            })
-            .collect()
+        let mut objs: BTreeMap<_, _> = Default::default();
+        for (nm, body) in &types.objects {
+            let mut fields: Vec<_> = Default::default();
+            for (fnm, field) in &body.fields {
+                fields.push(self.get_prop_def_from_field((fnm, field)));
+            }
+            objs.insert(
+                nm.to_owned(),
+                ObjectDef {
+                    name: nm.clone(),
+                    doc: body.description.clone(),
+                    props: fields,
+                },
+            );
+        }
+        objs
     }
 
     /// Retrieves all the Enum type definitions represented in the manifest
@@ -320,10 +322,7 @@ impl ManifestFrontEnd {
     ) -> Result<FeatureManifest> {
         let enums = self.get_enums();
         let objects = self.get_objects();
-
-        let object_map: HashMap<String, &ObjectDef> =
-            objects.iter().map(|o| (o.name(), o)).collect();
-        let merger = DefaultsMerger::new(object_map, self.channels.clone(), channel.to_owned());
+        let merger = DefaultsMerger::new(&objects, self.channels.clone(), channel.to_owned());
 
         let features = self.get_feature_defs(&merger)?;
 
