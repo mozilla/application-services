@@ -8,7 +8,7 @@ use crate::{
     defaults_merger::DefaultsMerger,
     error::{FMLError, Result},
     frontend::{ImportBlock, ManifestFrontEnd, Types},
-    intermediate_representation::{FeatureDef, FeatureManifest, ModuleId, ObjectDef, TypeRef},
+    intermediate_representation::{FeatureDef, FeatureManifest, ModuleId, TypeRef},
     util::loaders::{FileLoader, FilePath},
 };
 
@@ -256,12 +256,11 @@ impl Parser {
             // 3. For each of the features in each of the imported files, the user can specify new defaults that should
             //    merge into/overwrite the defaults specified in the imported file. Let's do that now:
             // a. Prepare a DefaultsMerger, with an object map.
-            let object_map: HashMap<String, &ObjectDef> = child_manifest
-                .obj_defs
-                .iter()
-                .map(|o| (o.name(), o))
-                .collect();
-            let merger = DefaultsMerger::new(object_map, frontend.channels.clone(), channel.into());
+            let merger = DefaultsMerger::new(
+                &child_manifest.obj_defs,
+                frontend.channels.clone(),
+                channel.into(),
+            );
 
             // b. Prepare a feature map that we'll alter in place.
             //    EXP- 2540 If we want to support re-exporting/encapsulating features then we will need to change
@@ -480,9 +479,7 @@ fn check_can_import_manifest(parent: &FeatureManifest, child: &FeatureManifest) 
         fm.enum_defs.keys().collect()
     })?;
     check_can_import_list(parent, child, "objects", |fm: &FeatureManifest| {
-        fm.iter_object_defs()
-            .map(|o| &o.name)
-            .collect::<HashSet<&String>>()
+        fm.obj_defs.keys().collect()
     })?;
     check_can_import_list(parent, child, "features", |fm: &FeatureManifest| {
         fm.iter_feature_defs()
@@ -557,7 +554,7 @@ mod unit_tests {
 
         // Validate parsed objects
         assert!(ir.obj_defs.len() == 1);
-        let obj_def = ir.obj_defs.first().unwrap();
+        let obj_def = &ir.obj_defs["Button"];
         assert!(obj_def.name == *"Button");
         assert!(obj_def.doc == *"This is a button object");
         assert!(obj_def.props.contains(&PropDef {

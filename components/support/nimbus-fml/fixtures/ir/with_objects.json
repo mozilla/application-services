@@ -11,8 +11,8 @@
     }
   },
   "enums": {},
-  "objects": [
-    {
+  "objects": {
+    "ExampleObject": {
       "name": "ExampleObject",
       "doc": "An example object",
       "props": [
@@ -40,7 +40,7 @@
         }
       ]
     },
-    {
+    "Nested": {
       "name": "Nested",
       "doc": "An object for nesting in others",
       "props": [
@@ -52,7 +52,7 @@
         }
       ]
     }
-  ],
+  },
   "features": [
     {
       "name": "with-objects-feature",

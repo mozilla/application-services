@@ -48,8 +48,8 @@
       ]
     }
   },
-  "objects": [
-    {
+  "objects": {
+    "MenuItem": {
       "name": "MenuItem",
       "doc": "An object defining a menu item",
       "props": [
@@ -67,7 +67,7 @@
         }
       ]
     }
-  ],
+  },
   "features": [
     {
       "name": "app-menu",

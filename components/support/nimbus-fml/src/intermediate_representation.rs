@@ -204,7 +204,7 @@ pub struct FeatureManifest {
     pub(crate) enum_defs: BTreeMap<String, EnumDef>,
     #[serde(rename = "objects")]
     #[serde(default)]
-    pub obj_defs: Vec<ObjectDef>,
+    pub(crate) obj_defs: BTreeMap<String, ObjectDef>,
     #[serde(rename = "features")]
     pub feature_defs: Vec<FeatureDef>,
     #[serde(default)]
@@ -222,7 +222,7 @@ impl TypeFinder for FeatureManifest {
         for e in self.enum_defs.values() {
             e.find_types(types);
         }
-        for o in &self.obj_defs {
+        for o in self.iter_object_defs() {
             o.find_types(types);
         }
         for f in &self.feature_defs {
@@ -236,7 +236,7 @@ impl FeatureManifest {
         self.enum_defs.values().collect()
     }
     pub(crate) fn object_defs(&self) -> Vec<&ObjectDef> {
-        self.obj_defs.iter().collect()
+        self.obj_defs.values().collect()
     }
     pub(crate) fn feature_defs(&self) -> Vec<&FeatureDef> {
         self.feature_defs.iter().collect()
@@ -372,13 +372,13 @@ impl FeatureManifest {
     }
 
     fn validate_obj_defs(&self, obj_names: &mut HashSet<String>) -> Result<()> {
-        for obj_def in &self.obj_defs {
-            if !obj_names.insert(obj_def.name.clone()) {
+        for nm in self.obj_defs.keys() {
+            if !obj_names.insert(nm.clone()) {
                 return Err(FMLError::ValidationError(
-                    format!("objects/{}", obj_def.name),
+                    format!("objects/{}", nm),
                     format!(
                     "ObjectDef names must be unique. Found two ObjectDefs with the same name: {}",
-                    obj_def.name
+                    nm
                 ),
                 ));
             }
@@ -424,7 +424,7 @@ impl FeatureManifest {
     }
 
     fn validate_defaults(&self) -> Result<()> {
-        for object in &self.obj_defs {
+        for object in self.iter_object_defs() {
             for prop in &object.props {
                 let path = format!("objects/{}.{}", object.name, prop.name);
                 self.validate_prop_defaults(&path, prop)?;
@@ -595,12 +595,12 @@ impl FeatureManifest {
         }
     }
 
-    pub fn iter_object_defs(&self) -> Iter<ObjectDef> {
-        self.obj_defs.iter()
+    pub fn iter_object_defs(&self) -> impl Iterator<Item = &ObjectDef> {
+        self.obj_defs.values()
     }
 
     pub fn iter_all_object_defs(&self) -> impl Iterator<Item = (&FeatureManifest, &ObjectDef)> {
-        let objects = self.obj_defs.iter().map(move |o| (self, o));
+        let objects = self.iter_object_defs().map(move |o| (self, o));
         let imported_objects: Vec<(&FeatureManifest, &ObjectDef)> = self
             .all_imports
             .iter()
@@ -637,7 +637,7 @@ impl FeatureManifest {
     }
 
     pub fn find_object(&self, nm: &str) -> Option<&ObjectDef> {
-        self.iter_object_defs().find(|o| o.name() == nm)
+        self.obj_defs.get(nm)
     }
 
     pub fn find_enum(&self, nm: &str) -> Option<&EnumDef> {
@@ -678,27 +678,26 @@ impl FeatureManifest {
     ///
     /// If the value is valid for the feature, it will return an Ok result with a new FeatureDef
     /// with the supplied feature value applied to the feature's property defaults.
-    #[allow(unused)]
     pub fn validate_feature_config(
         &self,
         feature_name: &str,
         feature_value: Value,
     ) -> Result<FeatureDef> {
-        let dummy_channel = "dummy".to_string();
-        let objects: HashMap<String, &ObjectDef> = self
-            .iter_all_object_defs()
-            .map(|(_, o)| (o.name(), o))
-            .collect();
-        let merger = DefaultsMerger::new(objects, vec![dummy_channel.clone()], dummy_channel);
+        let (manifest, feature_def) = self
+            .find_feature(feature_name)
+            .ok_or_else(|| InvalidFeatureError(feature_name.to_string()))?;
 
-        if let Some((manifest, feature_def)) = self.find_feature(feature_name) {
-            let mut feature_def = feature_def.clone();
-            merger.merge_feature_defaults(&mut feature_def, &Some(vec![feature_value.into()]))?;
-            manifest.validate_feature_def(&feature_def)?;
-            Ok(feature_def.clone())
-        } else {
-            Err(InvalidFeatureError(feature_name.to_string()))
-        }
+        let dummy_channel = "dummy".to_string();
+        let merger = DefaultsMerger::new(
+            &manifest.obj_defs,
+            vec![dummy_channel.clone()],
+            dummy_channel,
+        );
+
+        let mut feature_def = feature_def.clone();
+        merger.merge_feature_defaults(&mut feature_def, &Some(vec![feature_value.into()]))?;
+        manifest.validate_feature_def(&feature_def)?;
+        Ok(feature_def)
     }
 }
 
@@ -949,26 +948,6 @@ pub mod unit_tests {
         );
         fm.validate_manifest()
             .expect_err("Should fail on duplicate enum_defs");
-        Ok(())
-    }
-
-    #[test]
-    fn validate_duplicate_obj_defs_fails() -> Result<()> {
-        let mut fm = get_simple_homescreen_feature();
-        fm.obj_defs = vec![
-            ObjectDef {
-                name: "SimpleObjDef".into(),
-                doc: "Simpel doc".into(),
-                props: vec![],
-            },
-            ObjectDef {
-                name: "SimpleObjDef".into(),
-                doc: "Simpel doc".into(),
-                props: vec![],
-            },
-        ];
-        fm.validate_manifest()
-            .expect_err("Should fail on duplicate obj_defs");
         Ok(())
     }
 
@@ -1229,7 +1208,7 @@ pub mod unit_tests {
     ) -> FeatureManifest {
         FeatureManifest {
             enum_defs: map_from(enum_defs, |e| e.name()),
-            obj_defs,
+            obj_defs: map_from(obj_defs, |o| o.name()),
             feature_defs,
             all_imports,
             ..Default::default()
@@ -1243,7 +1222,7 @@ pub mod unit_tests {
     ) -> FeatureManifest {
         FeatureManifest {
             enum_defs: map_from(enum_defs, |e| e.name()),
-            obj_defs,
+            obj_defs: map_from(obj_defs, |o| o.name()),
             feature_defs: vec![FeatureDef {
                 props: vec![prop.clone()],
                 ..Default::default()
@@ -1260,7 +1239,7 @@ pub mod unit_tests {
     ) -> FeatureManifest {
         FeatureManifest {
             enum_defs: map_from(enum_defs, |e| e.name()),
-            obj_defs,
+            obj_defs: map_from(obj_defs, |o| o.name()),
             all_imports,
             feature_defs: vec![FeatureDef {
                 props: vec![prop.clone()],

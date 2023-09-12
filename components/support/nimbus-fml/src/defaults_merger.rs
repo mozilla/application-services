@@ -2,7 +2,7 @@
 * License, v. 2.0. If a copy of the MPL was not distributed with this
 * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-use std::collections::HashMap;
+use std::collections::{BTreeMap, HashMap};
 
 use serde_json::json;
 
@@ -13,7 +13,7 @@ use crate::{
 };
 
 pub struct DefaultsMerger<'object> {
-    objects: HashMap<String, &'object ObjectDef>,
+    objects: &'object BTreeMap<String, ObjectDef>,
 
     supported_channels: Vec<String>,
     channel: String,
@@ -21,7 +21,7 @@ pub struct DefaultsMerger<'object> {
 
 impl<'object> DefaultsMerger<'object> {
     pub fn new(
-        objects: HashMap<String, &'object ObjectDef>,
+        objects: &'object BTreeMap<String, ObjectDef>,
         supported_channels: Vec<String>,
         channel: String,
     ) -> Self {
@@ -959,8 +959,9 @@ mod unit_tests {
     #[test]
     fn test_merge_feature_default_unsupported_channel() -> Result<()> {
         let mut feature_def: FeatureDef = Default::default();
+        let objects = Default::default();
         let merger = DefaultsMerger::new(
-            Default::default(),
+            &objects,
             vec!["release".into(), "beta".into()],
             "nightly".into(),
         );
@@ -1009,8 +1010,9 @@ mod unit_tests {
                 }
             },
         ]))?;
+        let objects = Default::default();
         let merger = DefaultsMerger::new(
-            Default::default(),
+            &objects,
             vec!["release".into(), "beta".into(), "nightly".into()],
             "nightly".into(),
         );
@@ -1051,8 +1053,9 @@ mod unit_tests {
                 "button-color": "light-green"
             }
         }]))?;
+        let objects = Default::default();
         let merger = DefaultsMerger::new(
-            Default::default(),
+            &objects,
             vec!["release".into(), "beta".into(), "nightly".into()],
             "nightly".into(),
         );
@@ -1124,8 +1127,9 @@ mod unit_tests {
                 }
             },
         ]))?;
+        let objects = Default::default();
         let merger = DefaultsMerger::new(
-            Default::default(),
+            &objects,
             vec!["release".into(), "beta".into(), "nightly".into()],
             "release".into(),
         );
@@ -1183,8 +1187,9 @@ mod unit_tests {
                 }
             },
         ]))?;
+        let objects = Default::default();
         let merger = DefaultsMerger::new(
-            Default::default(),
+            &objects,
             vec!["release".into(), "beta".into(), "nightly".into()],
             "nightly".into(),
         );
@@ -1220,8 +1225,8 @@ mod unit_tests {
                 }
             }
         ]))?;
-        let merger =
-            DefaultsMerger::new(Default::default(), vec!["nightly".into()], "nightly".into());
+        let objects = Default::default();
+        let merger = DefaultsMerger::new(&objects, vec!["nightly".into()], "nightly".into());
         let result = merger.merge_feature_defaults(&mut feature_def, &default_blocks);
 
         assert!(result.is_err());
