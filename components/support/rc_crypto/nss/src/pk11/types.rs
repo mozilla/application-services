@@ -143,7 +143,7 @@ impl PrivateKey {
             }
         }
         let template_len = c_int::try_from(template.len())?;
-        let mut id_attr: &mut nss_sys::CK_ATTRIBUTE = template
+        let id_attr: &mut nss_sys::CK_ATTRIBUTE = template
             .iter_mut()
             .find(|&&mut attr| {
                 attr.type_ == (nss_sys::CKA_ID as nss_sys::CK_ATTRIBUTE_TYPE)

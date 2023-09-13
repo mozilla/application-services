@@ -885,6 +885,7 @@ mod tests {
             )
             .unwrap()
             .unwrap();
+            #[allow(clippy::redundant_closure_call)]
             $assertion(m);
         }
     }

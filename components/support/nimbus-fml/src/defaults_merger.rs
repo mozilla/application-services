@@ -174,7 +174,7 @@ impl<'object> DefaultsMerger<'object> {
             ));
         }
         let variable_defaults = self.collect_feature_defaults(feature_def)?;
-        let mut res = feature_def;
+        let res = feature_def;
 
         if let Some(defaults) = defaults {
             let merged_defaults = collect_channel_defaults(defaults, supported_channels)?;

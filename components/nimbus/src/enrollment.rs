@@ -590,8 +590,8 @@ impl<'a> EnrollmentsEvolver<'a> {
             &ro_enrollments,
         )?;
 
-        enrollments.extend(next_ro_enrollments.into_iter());
-        events.extend(ro_events.into_iter());
+        enrollments.extend(next_ro_enrollments);
+        events.extend(ro_events);
 
         let ro_slugs: HashSet<String> = ro_enrollments.iter().map(|e| e.slug.clone()).collect();
 
@@ -614,8 +614,8 @@ impl<'a> EnrollmentsEvolver<'a> {
             &prev_enrollments,
         )?;
 
-        enrollments.extend(next_exp_enrollments.into_iter());
-        events.extend(exp_events.into_iter());
+        enrollments.extend(next_exp_enrollments);
+        events.extend(exp_events);
 
         Ok((enrollments, events))
     }

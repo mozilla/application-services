@@ -439,7 +439,7 @@ pub struct EventStore {
 impl From<Vec<(String, MultiIntervalCounter)>> for EventStore {
     fn from(event_store: Vec<(String, MultiIntervalCounter)>) -> Self {
         Self {
-            events: HashMap::from_iter(event_store.into_iter()),
+            events: HashMap::from_iter(event_store),
             datum: None,
         }
     }
@@ -485,11 +485,11 @@ impl EventStore {
     pub fn read_from_db(&mut self, db: &Database) -> Result<()> {
         let reader = db.read()?;
 
-        self.events = HashMap::from_iter(
-            db.get_store(StoreId::EventCounts)
-                .collect_all::<(String, MultiIntervalCounter), _>(&reader)?
-                .into_iter(),
-        );
+        self.events =
+            HashMap::from_iter(
+                db.get_store(StoreId::EventCounts)
+                    .collect_all::<(String, MultiIntervalCounter), _>(&reader)?,
+            );
 
         Ok(())
     }

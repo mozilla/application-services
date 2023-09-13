@@ -361,7 +361,7 @@ impl CodeType for MapCodeType {
 
         let merger = Some("org.mozilla.experiments.nimbus.internal.mergeWith".to_string());
         Some(
-            vec![mapper, json_mapper, merger]
+            [mapper, json_mapper, merger]
                 .iter()
                 .filter_map(|i| i.to_owned())
                 .collect(),

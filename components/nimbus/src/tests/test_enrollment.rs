@@ -1335,7 +1335,7 @@ fn test_experiment_get_feature_ids() -> Result<()> {
     let experiment = get_experiment_with_different_feature_branches();
     assert_eq!(
         experiment.get_feature_ids().iter().collect::<HashSet<_>>(),
-        vec!["newtab".to_string(), "about_welcome".to_string()]
+        ["newtab".to_string(), "about_welcome".to_string()]
             .iter()
             .collect::<HashSet<_>>()
     );
@@ -1538,7 +1538,7 @@ fn test_evolver_multi_feature_experiments() -> Result<()> {
             .filter(|&e| matches!(e.status, EnrollmentStatus::Enrolled { .. }))
             .map(|e| e.slug.clone())
             .collect::<HashSet<_>>(),
-        vec![
+        [
             "newtab-feature-experiment",
             "about_welcome-feature-experiment"
         ]
@@ -1586,7 +1586,7 @@ fn test_evolver_multi_feature_experiments() -> Result<()> {
             .filter(|&e| matches!(e.status, EnrollmentStatus::Enrolled { .. }))
             .map(|e| e.slug.clone())
             .collect::<HashSet<_>>(),
-        vec![
+        [
             "newtab-feature-experiment",
             "about_welcome-feature-experiment"
         ]
@@ -1621,7 +1621,7 @@ fn test_evolver_multi_feature_experiments() -> Result<()> {
             .filter(|&e| matches!(e.status, EnrollmentStatus::Enrolled { .. }))
             .map(|e| e.slug.clone())
             .collect::<HashSet<_>>(),
-        vec!["newtab-feature-experiment"]
+        ["newtab-feature-experiment"]
             .iter()
             .map(|s| s.to_string())
             .collect::<HashSet<_>>()
@@ -1656,7 +1656,7 @@ fn test_evolver_multi_feature_experiments() -> Result<()> {
             .filter(|&e| matches!(e.status, EnrollmentStatus::Enrolled { .. }))
             .map(|e| e.slug.clone())
             .collect::<HashSet<_>>(),
-        vec!["mixed-feature-experiment"]
+        ["mixed-feature-experiment"]
             .iter()
             .map(|s| s.to_string())
             .collect::<HashSet<_>>()
@@ -1712,7 +1712,7 @@ fn test_evolver_multi_feature_experiments() -> Result<()> {
             .filter(|&e| matches!(e.status, EnrollmentStatus::Enrolled { .. }))
             .map(|e| e.slug.clone())
             .collect::<HashSet<_>>(),
-        vec!["mixed-feature-experiment"]
+        ["mixed-feature-experiment"]
             .iter()
             .map(|s| s.to_string())
             .collect::<HashSet<_>>()
@@ -1753,7 +1753,7 @@ fn test_evolver_multi_feature_experiments() -> Result<()> {
             .filter(|&e| matches!(e.status, EnrollmentStatus::Enrolled { .. }))
             .map(|e| e.slug.clone())
             .collect::<HashSet<_>>(),
-        vec!["mixed-feature-experiment"]
+        ["mixed-feature-experiment"]
             .iter()
             .map(|s| s.to_string())
             .collect::<HashSet<_>>()
@@ -1793,7 +1793,7 @@ fn test_evolver_multi_feature_experiments() -> Result<()> {
             .filter(|&e| matches!(e.status, EnrollmentStatus::Enrolled { .. }))
             .map(|e| e.slug.clone())
             .collect::<HashSet<_>>(),
-        vec!["multi-feature-experiment"]
+        ["multi-feature-experiment"]
             .iter()
             .map(|s| s.to_string())
             .collect::<HashSet<_>>()

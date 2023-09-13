@@ -416,7 +416,7 @@ pub(crate) mod tests {
             retrieved_credit_cards.len()
         );
 
-        let retrieved_credit_card_guids = vec![
+        let retrieved_credit_card_guids = [
             retrieved_credit_cards[0].guid.as_str(),
             retrieved_credit_cards[1].guid.as_str(),
         ];
