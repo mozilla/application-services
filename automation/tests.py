@@ -21,6 +21,7 @@ Changes Mode:
 
 Other Modes:
     - rust-tests
+    - rust-min-version-tests
     - rust-clippy
     - rust-fmt
     - ktlint
@@ -98,6 +99,16 @@ def get_default_target():
     toolchain = get_output(['rustup', 'default'])
     s = toolchain.split(' ')[0]
     return '-'.join(s.split('-')[1:])
+
+def should_run_rust_tests(package, min_version):
+    # There are no tests in examples/ packages, so don't waste time on them.
+    if "examples" in package.manifest_path.parts:
+        return False
+    # Skip the error support trybuild tests when running the min version tests, since we keep the
+    # trybuild output files pinned to the latest rust version.
+    if min_version and package.name == "error-support-tests":
+        return False
+    return True
 
 class BranchChanges:
     """
@@ -383,8 +394,15 @@ def calc_steps(args):
         print_rust_environment()
         yield Step('cargo clean', cargo_clean)
         for package, features in calc_rust_items():
-            # There are no tests in examples/ packages, so don't waste time on them.
-            if "examples" not in package.manifest_path.parts:
+            if should_run_rust_tests(package, False):
+                yield Step(
+                    'tests for {} ({})'.format(package.name, features.label()),
+                    run_rust_test, package, features)
+    elif args.mode == 'rust-min-version-tests':
+        print_rust_environment()
+        yield Step('cargo clean', cargo_clean)
+        for package, features in calc_rust_items():
+            if should_run_rust_tests(package, True):
                 yield Step(
                     'tests for {} ({})'.format(package.name, features.label()),
                     run_rust_test, package, features)
