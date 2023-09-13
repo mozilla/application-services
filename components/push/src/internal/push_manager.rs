@@ -548,16 +548,13 @@ mod test {
             })
             .returning(|_, _| Ok(data_string.to_vec()));
 
-        let payload = HashMap::from_iter(
-            vec![
-                ("chid".to_string(), resp.channel_id),
-                ("body".to_string(), body),
-                ("con".to_string(), "aes128gcm".to_string()),
-                ("enc".to_string(), "".to_string()),
-                ("cryptokey".to_string(), "".to_string()),
-            ]
-            .into_iter(),
-        );
+        let payload = HashMap::from_iter(vec![
+            ("chid".to_string(), resp.channel_id),
+            ("body".to_string(), body),
+            ("con".to_string(), "aes128gcm".to_string()),
+            ("enc".to_string(), "".to_string()),
+            ("cryptokey".to_string(), "".to_string()),
+        ]);
         pm.decrypt(payload).unwrap();
         Ok(())
     }
@@ -623,16 +620,13 @@ mod test {
             })
             .returning(|_, _| Ok(DATA.to_vec()));
 
-        let payload = HashMap::from_iter(
-            vec![
-                ("chid".to_string(), resp.channel_id),
-                ("body".to_string(), body),
-                ("con".to_string(), "aesgcm".to_string()),
-                ("enc".to_string(), "".to_string()),
-                ("cryptokey".to_string(), "".to_string()),
-            ]
-            .into_iter(),
-        );
+        let payload = HashMap::from_iter(vec![
+            ("chid".to_string(), resp.channel_id),
+            ("body".to_string(), body),
+            ("con".to_string(), "aesgcm".to_string()),
+            ("enc".to_string(), "".to_string()),
+            ("cryptokey".to_string(), "".to_string()),
+        ]);
         pm.decrypt(payload).unwrap();
         Ok(())
     }

@@ -136,9 +136,8 @@ impl Parser {
         parent
             .includes()
             .iter()
-            .fold(Ok(parent), |parent: Result<ManifestFrontEnd>, f| {
+            .try_fold(parent, |parent: ManifestFrontEnd, f| {
                 let src_path = files.join(path, f)?;
-                let parent = parent?;
                 let child_id = ModuleId::try_from(&src_path)?;
                 Ok(if !loading.contains(&child_id) {
                     let manifest = self.load_manifest(&src_path, loading)?;

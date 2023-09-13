@@ -202,7 +202,9 @@ where
                 })?;
                 continue;
             }
-            let Ok(fields) = serde_json::from_value(serde_json::Value::Object(record.fields.clone())) else {
+            let Ok(fields) =
+                serde_json::from_value(serde_json::Value::Object(record.fields.clone()))
+            else {
                 // We don't recognize this record's type, so we don't know how
                 // to ingest its suggestions. Skip to the next record.
                 writer.write(|dao| dao.put_meta(LAST_INGEST_META_KEY, record.last_modified))?;
@@ -214,7 +216,9 @@ where
                         // An AMP-Wikipedia record should always have an
                         // attachment with suggestions. If it doesn't, it's
                         // malformed, so skip to the next record.
-                        writer.write(|dao| dao.put_meta(LAST_INGEST_META_KEY, record.last_modified))?;
+                        writer.write(|dao| {
+                            dao.put_meta(LAST_INGEST_META_KEY, record.last_modified)
+                        })?;
                         continue;
                     };
 
@@ -242,11 +246,15 @@ where
                     })?;
                 }
                 SuggestRecord::Icon => {
-                    let (Some(icon_id), Some(attachment)) = (record_id.as_icon_id(), record.attachment.as_ref()) else {
+                    let (Some(icon_id), Some(attachment)) =
+                        (record_id.as_icon_id(), record.attachment.as_ref())
+                    else {
                         // An icon record should have an icon ID and an
                         // attachment. Icons that don't have these are
                         // malformed, so skip to the next record.
-                        writer.write(|dao| dao.put_meta(LAST_INGEST_META_KEY, record.last_modified))?;
+                        writer.write(|dao| {
+                            dao.put_meta(LAST_INGEST_META_KEY, record.last_modified)
+                        })?;
                         continue;
                     };
                     let data = self.settings_client.get_attachment(&attachment.location)?;

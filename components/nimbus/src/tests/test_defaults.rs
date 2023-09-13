@@ -55,31 +55,26 @@ fn test_defaults_optional() -> Result<()> {
 
 #[test]
 fn test_defaults_hashmap() -> Result<()> {
-    let a = HashMap::<String, &str>::from_iter(
-        [("a".to_string(), "A from a"), ("b".to_string(), "B from a")].into_iter(),
-    );
+    let a = HashMap::<String, &str>::from_iter([
+        ("a".to_string(), "A from a"),
+        ("b".to_string(), "B from a"),
+    ]);
 
-    let b = HashMap::<String, &str>::from_iter(
-        [
-            ("a".to_string(), "AA not replaced"),
-            ("b".to_string(), "errBB merge failed, so omitting"),
-            ("c".to_string(), "CC added"),
-            ("d".to_string(), "errDD not merged, but added"),
-        ]
-        .into_iter(),
-    );
+    let b = HashMap::<String, &str>::from_iter([
+        ("a".to_string(), "AA not replaced"),
+        ("b".to_string(), "errBB merge failed, so omitting"),
+        ("c".to_string(), "CC added"),
+        ("d".to_string(), "errDD not merged, but added"),
+    ]);
 
-    let exp = HashMap::<String, &str>::from_iter(
-        [
-            ("a".to_string(), "A from a"),
-            // we tried to merge the defaults, but it failed, so we
-            // we keep the original (i.e. the experiment rather than the rollout)
-            ("b".to_string(), "B from a"),
-            ("c".to_string(), "CC added"),
-            ("d".to_string(), "errDD not merged, but added"),
-        ]
-        .into_iter(),
-    );
+    let exp = HashMap::<String, &str>::from_iter([
+        ("a".to_string(), "A from a"),
+        // we tried to merge the defaults, but it failed, so we
+        // we keep the original (i.e. the experiment rather than the rollout)
+        ("b".to_string(), "B from a"),
+        ("c".to_string(), "CC added"),
+        ("d".to_string(), "errDD not merged, but added"),
+    ]);
 
     assert_eq!(a.defaults(&b)?, exp);
 

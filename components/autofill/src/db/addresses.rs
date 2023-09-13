@@ -421,7 +421,7 @@ mod tests {
         let expected_number_of_addresses = 2;
         assert_eq!(expected_number_of_addresses, retrieved_addresses.len());
 
-        let retrieved_address_guids = vec![
+        let retrieved_address_guids = [
             retrieved_addresses[0].guid.as_str(),
             retrieved_addresses[1].guid.as_str(),
         ];

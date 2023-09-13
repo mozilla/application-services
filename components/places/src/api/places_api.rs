@@ -17,7 +17,6 @@ use parking_lot::Mutex;
 use rusqlite::OpenFlags;
 use std::cell::Cell;
 use std::collections::HashMap;
-use std::mem;
 use std::path::{Path, PathBuf};
 use std::sync::{
     atomic::{AtomicUsize, Ordering},
@@ -221,7 +220,7 @@ impl PlacesApi {
             ConnectionType::ReadWrite => {
                 // We only allow one of these.
                 let mut guard = self.write_connection.lock();
-                match mem::replace(&mut *guard, None) {
+                match guard.take() {
                     None => Err(Error::ConnectionAlreadyOpen),
                     Some(db) => Ok(db),
                 }
