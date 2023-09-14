@@ -19,7 +19,7 @@ use rusqlite::{
 use serde::{Deserialize, Serialize};
 
 use crate::{
-    db::{ConnectionType, SuggestDb, LAST_INGEST_META_KEY, UNKNOWN_RECORDS_META_KEY},
+    db::{ConnectionType, SuggestDb, LAST_INGEST_META_KEY, UNPARSABLE_RECORDS_META_KEY},
     rs::{
         SuggestAttachment, SuggestRecord, SuggestRecordId, SuggestRemoteSettingsClient,
         REMOTE_SETTINGS_COLLECTION, SUGGESTIONS_PER_ATTACHMENT,
@@ -65,7 +65,7 @@ pub struct SuggestStore {
 
 /// For records that aren't currently parsable,
 /// the record ID and the schema version it's first seen in
-/// is recorded in the meta table using `UNKNOWN_RECORDS_META_KEY` as its key.
+/// is recorded in the meta table using `UNPARSABLE_RECORDS_META_KEY` as its key.
 /// On the first ingest after an upgrade, re-request those records from Remote Settings,
 /// and try to ingest them again.
 #[derive(Deserialize, Serialize, Default, Debug)]
@@ -209,10 +209,10 @@ where
     fn ingest(&self, constraints: SuggestIngestionConstraints) -> Result<()> {
         let writer = &self.dbs()?.writer;
 
-        if let Some(unknown_records) =
-            writer.read(|dao| dao.get_meta::<UnparsableRecords>(UNKNOWN_RECORDS_META_KEY))?
+        if let Some(unparsable_records) =
+            writer.read(|dao| dao.get_meta::<UnparsableRecords>(UNPARSABLE_RECORDS_META_KEY))?
         {
-            let all_unparsable_ids = unknown_records
+            let all_unparsable_ids = unparsable_records
                 .0
                 .iter()
                 .filter(|(_, unparsable_record)| unparsable_record.schema_version < VERSION)
@@ -270,8 +270,7 @@ where
                         Some(icon_id) => dao.drop_icon(icon_id)?,
                         None => dao.drop_suggestions(&record_id)?,
                     };
-                    // Remove this `record.id` from unknowns.
-                    dao.drop_unknown_record_id(&record_id)?;
+                    dao.drop_unparsable_record_id(&record_id)?;
                     dao.put_last_ingest_if_newer(record.last_modified)?;
 
                     Ok(())
@@ -284,7 +283,7 @@ where
                 // We don't recognize this record's type, so we don't know how
                 // to ingest its suggestions. Record this in the meta table.
                 writer.write(|dao| {
-                    dao.put_unknown_record_id(&record_id)?;
+                    dao.put_unparsable_record_id(&record_id)?;
                     dao.put_last_ingest_if_newer(record.last_modified)?;
                     Ok(())
                 })?;
@@ -316,9 +315,9 @@ where
                         // attachment.
                         dao.insert_amp_wikipedia_suggestions(&record_id, attachment.suggestions())?;
 
-                        // Remove this `record.id` from unknowns, since we
-                        // understand it now.
-                        dao.drop_unknown_record_id(&record_id)?;
+                        // Remove this record's ID from the list of unparsable
+                        // records, since we understand it now.
+                        dao.drop_unparsable_record_id(&record_id)?;
 
                         // Advance the last fetch time, so that we can resume
                         // fetching after this record if we're interrupted.
@@ -341,9 +340,9 @@ where
                     writer.write(|dao| {
                         dao.put_icon(icon_id, &data)?;
                         dao.put_last_ingest_if_newer(record.last_modified)?;
-                        // Remove this `record.id` from unknowns, since we
-                        // understand it now.
-                        dao.drop_unknown_record_id(&record_id)?;
+                        // Remove this record's ID from the list of unparsable
+                        // records, since we understand it now.
+                        dao.drop_unparsable_record_id(&record_id)?;
 
                         Ok(())
                     })?;
@@ -1634,10 +1633,10 @@ mod tests {
         Ok(())
     }
 
-    /// Tests unknown Remote Settings records, which we don't know how to ingest
-    /// at all.
+    /// Tests unparsable Remote Settings records, which we don't know how to
+    /// ingest at all.
     #[test]
-    fn ingest_unknown() -> anyhow::Result<()> {
+    fn ingest_unparsable() -> anyhow::Result<()> {
         before_each();
 
         let snapshot = Snapshot::with_records(json!([{
@@ -1670,7 +1669,7 @@ mod tests {
                     ),
                 )
             "#]]
-            .assert_debug_eq(&dao.get_meta::<UnparsableRecords>(UNKNOWN_RECORDS_META_KEY)?);
+            .assert_debug_eq(&dao.get_meta::<UnparsableRecords>(UNPARSABLE_RECORDS_META_KEY)?);
             Ok(())
         })?;
 
@@ -1678,7 +1677,7 @@ mod tests {
     }
 
     #[test]
-    fn ingest_mixed_known_unknown_records() -> anyhow::Result<()> {
+    fn ingest_mixed_parsable_unparsable_records() -> anyhow::Result<()> {
         before_each();
 
         let snapshot = Snapshot::with_records(json!([{
@@ -1723,8 +1722,6 @@ mod tests {
         store.ingest(SuggestIngestionConstraints::default())?;
 
         store.dbs()?.reader.read(|dao| {
-            // Unknown records should still advance the last ingest time, but
-            // we don't try to store or ingest any suggestions from them.
             assert_eq!(dao.get_meta::<u64>(LAST_INGEST_META_KEY)?, Some(30));
             expect![[r#"
                 Some(
@@ -1740,16 +1737,17 @@ mod tests {
                     ),
                 )
             "#]]
-            .assert_debug_eq(&dao.get_meta::<UnparsableRecords>(UNKNOWN_RECORDS_META_KEY)?);
+            .assert_debug_eq(&dao.get_meta::<UnparsableRecords>(UNPARSABLE_RECORDS_META_KEY)?);
             Ok(())
         })?;
 
         Ok(())
     }
 
-    /// Tests meta update field isn't updated for an old unknown Remote Settings records.
+    /// Tests meta update field isn't updated for old unparsable Remote Settings
+    /// records.
     #[test]
-    fn ingest_unknown_and_meta_update_stays_the_same() -> anyhow::Result<()> {
+    fn ingest_unparsable_and_meta_update_stays_the_same() -> anyhow::Result<()> {
         before_each();
 
         let snapshot = Snapshot::with_records(json!([{
@@ -1824,15 +1822,13 @@ mod tests {
             UnparsableRecord { schema_version: 1 },
         );
         store.dbs()?.writer.write(|dao| {
-            dao.put_meta(UNKNOWN_RECORDS_META_KEY, initial_data)?;
+            dao.put_meta(UNPARSABLE_RECORDS_META_KEY, initial_data)?;
             Ok(())
         })?;
 
         store.ingest(SuggestIngestionConstraints::default())?;
 
         store.dbs()?.reader.read(|dao| {
-            // Unknown records should still advance the last ingest time, but
-            // we don't try to store or ingest any suggestions from them.
             expect![[r#"
                 Some(
                     UnparsableRecords(
@@ -1847,7 +1843,7 @@ mod tests {
                     ),
                 )
             "#]]
-            .assert_debug_eq(&dao.get_meta::<UnparsableRecords>(UNKNOWN_RECORDS_META_KEY)?);
+            .assert_debug_eq(&dao.get_meta::<UnparsableRecords>(UNPARSABLE_RECORDS_META_KEY)?);
             Ok(())
         })?;
 

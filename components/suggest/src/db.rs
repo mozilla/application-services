@@ -28,7 +28,7 @@ use crate::{
 pub const LAST_INGEST_META_KEY: &str = "last_quicksuggest_ingest";
 /// The metadata key whose value keeps track of records of suggestions
 /// that aren't parsable and which schema version it was first seen in.
-pub const UNKNOWN_RECORDS_META_KEY: &str = "unknown_records";
+pub const UNPARSABLE_RECORDS_META_KEY: &str = "unparsable_records";
 
 /// The database connection type.
 #[derive(Clone, Copy)]
@@ -383,32 +383,40 @@ impl<'a> SuggestDao<'a> {
         Ok(())
     }
 
-    /// Insert unknown record into the unknown records meta field.
-    pub fn put_unknown_record_id(&mut self, record_id: &SuggestRecordId) -> Result<()> {
-        let mut unknown_records = self
-            .get_meta::<UnparsableRecords>(UNKNOWN_RECORDS_META_KEY)?
+    /// Adds an entry for a Suggest Remote Settings record to the list of
+    /// unparsable records.
+    ///
+    /// This is used to note records that we don't understand how to parse and
+    /// ingest yet.
+    pub fn put_unparsable_record_id(&mut self, record_id: &SuggestRecordId) -> Result<()> {
+        let mut unparsable_records = self
+            .get_meta::<UnparsableRecords>(UNPARSABLE_RECORDS_META_KEY)?
             .unwrap_or_default();
-        unknown_records.0.insert(
+        unparsable_records.0.insert(
             record_id.as_str().to_string(),
             UnparsableRecord {
                 schema_version: VERSION,
             },
         );
-        self.put_meta(UNKNOWN_RECORDS_META_KEY, unknown_records)?;
+        self.put_meta(UNPARSABLE_RECORDS_META_KEY, unparsable_records)?;
         Ok(())
     }
 
-    /// Remove the record id from the unknown records meta field.
-    pub fn drop_unknown_record_id(&mut self, record_id: &SuggestRecordId) -> Result<()> {
-        let Some(mut unknown_records) =
-            self.get_meta::<UnparsableRecords>(UNKNOWN_RECORDS_META_KEY)?
+    /// Removes an entry for a Suggest Remote Settings record from the list of
+    /// unparsable records. Does nothing if the record was not previously marked
+    /// as unparsable.
+    ///
+    /// This indicates that we now understand how to parse and ingest the
+    /// record, or that the record was deleted.
+    pub fn drop_unparsable_record_id(&mut self, record_id: &SuggestRecordId) -> Result<()> {
+        let Some(mut unparsable_records) =
+            self.get_meta::<UnparsableRecords>(UNPARSABLE_RECORDS_META_KEY)?
         else {
-            // We don't have any unknown record IDs, so nothing to drop.
             return Ok(());
         };
-        if unknown_records.0.remove(record_id.as_str()).is_none() {
+        if unparsable_records.0.remove(record_id.as_str()).is_none() {
             return Ok(());
         };
-        self.put_meta(UNKNOWN_RECORDS_META_KEY, unknown_records)
+        self.put_meta(UNPARSABLE_RECORDS_META_KEY, unparsable_records)
     }
 }
