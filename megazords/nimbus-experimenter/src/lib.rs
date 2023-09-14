@@ -2,4 +2,8 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
+// We use this for the feature configuration editor.
 pub use nimbus_fml as fml;
+
+// We use this for testing the JEXL targeting.
+pub use nimbus;
