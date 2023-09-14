@@ -38,6 +38,7 @@ tasks:
       megazord: "nimbus-experimenter"
       release-routes:
         - index.project.{project}.v2.nimbus-experimenter.latest
+        - index.project.{project}.v2.nimbus-experimenter.{appservices_version}
     description: "Assemble nimbus-experimenter megazord"
 
   cirrus-megazord:
@@ -45,4 +46,5 @@ tasks:
       megazord: "cirrus"
       release-routes:
         - index.project.{project}.v2.cirrus.latest
+        - index.project.{project}.v2.cirrus.{appservices_version}
     description: "Assemble cirrus megazord"

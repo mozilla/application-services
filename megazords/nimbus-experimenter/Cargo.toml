@@ -10,3 +10,4 @@ crate-type = ["cdylib"]
 
 [dependencies]
 nimbus-fml = { path = "../../components/support/nimbus-fml", features = ["uniffi-bindings"] }
+nimbus-sdk = { path = "../../components/nimbus" }

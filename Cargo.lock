@@ -2610,6 +2610,7 @@ name = "nimbus-experimenter"
 version = "0.1.0"
 dependencies = [
  "nimbus-fml",
+ "nimbus-sdk",
 ]
 
 [[package]]
