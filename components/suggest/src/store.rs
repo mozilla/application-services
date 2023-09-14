@@ -1660,10 +1660,10 @@ mod tests {
                     UnparsableRecords(
                         {
                             "clippy-2": UnparsableRecord {
-                                schema_version: 3,
+                                schema_version: 4,
                             },
                             "fancy-new-suggestions-1": UnparsableRecord {
-                                schema_version: 3,
+                                schema_version: 4,
                             },
                         },
                     ),
@@ -1728,10 +1728,10 @@ mod tests {
                     UnparsableRecords(
                         {
                             "clippy-2": UnparsableRecord {
-                                schema_version: 3,
+                                schema_version: 4,
                             },
                             "fancy-new-suggestions-1": UnparsableRecord {
-                                schema_version: 3,
+                                schema_version: 4,
                             },
                         },
                     ),
@@ -1834,10 +1834,10 @@ mod tests {
                     UnparsableRecords(
                         {
                             "clippy-2": UnparsableRecord {
-                                schema_version: 3,
+                                schema_version: 4,
                             },
                             "fancy-new-suggestions-1": UnparsableRecord {
-                                schema_version: 3,
+                                schema_version: 4,
                             },
                         },
                     ),
