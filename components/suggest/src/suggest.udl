@@ -8,13 +8,14 @@ typedef extern RemoteSettingsConfig;
 
 namespace suggest {
 
+boolean raw_suggestion_url_matches([ByRef] string raw_url, [ByRef] string url);
+
 };
 
 [Error]
 interface SuggestApiError {
     Other(string reason);
 };
-
 
 enum SuggestionProvider {
     "Amp",
@@ -26,13 +27,15 @@ interface Suggestion {
     Amp(
         string title,
         string url,
+        string? raw_url,
         sequence<u8>? icon,
         string full_keyword,
         i64 block_id,
         string advertiser,
         string iab_category,
         string impression_url,
-        string click_url
+        string click_url,
+        string? raw_click_url
     );
     Wikipedia(
         string title,

@@ -32,6 +32,11 @@
 ### ✨ What's New ✨
 
 - The Suggest component now has Swift bindings for Firefox for iOS ([#5806](https://github.com/mozilla/application-services/pull/5806)).
+
+### 🦊 What's Changed 🦊
+
+- AMP suggestions now replace all template parameters in their `url` and `click_url` fields, and carry the original "raw" URLs in the `raw_url` and `raw_click_url` fields. Consumers can use the `raw_suggestion_url_matches()` function to determine if a `raw_url` or `raw_click_url` matches a URL string with replacements. This is a source-breaking change in Swift only, and doesn't affect Firefox for iOS, because iOS isn't consuming the Suggest component yet ([#5826](https://github.com/mozilla/application-services/pull/5826)).
+
 ## Logins
 
 ### ⚠️ Breaking Changes ⚠️
