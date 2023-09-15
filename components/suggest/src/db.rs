@@ -20,7 +20,8 @@ use crate::{
     rs::{DownloadedAmpWikipediaSuggestion, SuggestRecordId},
     schema::{SuggestConnectionInitializer, VERSION},
     store::{UnparsableRecord, UnparsableRecords},
-    Result, Suggestion,
+    suggestion::{cook_raw_suggestion_url, Suggestion},
+    Result,
 };
 
 /// The metadata key whose value is the timestamp of the last record ingested
@@ -134,7 +135,7 @@ impl<'a> SuggestDao<'a> {
             |row| -> Result<Suggestion>{
                 let suggestion_id: i64 = row.get("id")?;
                 let title = row.get("title")?;
-                let url = row.get("url")?;
+                let raw_url = row.get::<_, String>("url")?;
                 let provider = row.get("provider")?;
 
                 let keywords: Vec<String> = self.conn.query_rows_and_then_cached(
@@ -159,16 +160,29 @@ impl<'a> SuggestDao<'a> {
                                 ":suggestion_id": suggestion_id
                             },
                             |row| {
+                                let cooked_url = cook_raw_suggestion_url(&raw_url);
+                                let raw_click_url = row.get::<_, String>("click_url")?;
+                                let cooked_click_url = cook_raw_suggestion_url(&raw_click_url);
                                 Ok(Suggestion::Amp {
                                     block_id: row.get("block_id")?,
                                     advertiser: row.get("advertiser")?,
                                     iab_category: row.get("iab_category")?,
                                     title,
-                                    url,
+                                    // If we have a cooked URL, use it; if not,
+                                    // fall back to the raw URL.
+                                    url: cooked_url.clone().unwrap_or_else(|| raw_url.clone()),
+                                    // Only include the raw URL if we have a
+                                    // cooked URL. Otherwise, `raw_url` would be
+                                    // the same as `url`, and there's no need to
+                                    // include it twice.
+                                    raw_url: cooked_url.map(|_| raw_url),
                                     full_keyword: full_keyword(keyword, &keywords),
                                     icon: row.get("icon")?,
                                     impression_url: row.get("impression_url")?,
-                                    click_url: row.get("click_url")?,
+                                    // We handle `{raw_}click_url` the same way
+                                    // as `{raw_}url`.
+                                    click_url: cooked_click_url.clone().unwrap_or_else(|| raw_click_url.clone()),
+                                    raw_click_url: cooked_click_url.map(|_| raw_click_url)
                                 })
                             }
                         )
@@ -186,7 +200,7 @@ impl<'a> SuggestDao<'a> {
                         )?;
                         Ok(Suggestion::Wikipedia {
                             title,
-                            url,
+                            url: raw_url,
                             full_keyword: full_keyword(keyword, &keywords),
                             icon,
                         })

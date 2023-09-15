@@ -4089,6 +4089,7 @@ name = "suggest"
 version = "0.1.0"
 dependencies = [
  "anyhow",
+ "chrono",
  "env_logger 0.7.1",
  "expect-test",
  "hex",

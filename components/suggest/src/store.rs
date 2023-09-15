@@ -573,6 +573,7 @@ mod tests {
                     Amp {
                         title: "Los Pollos Hermanos - Albuquerque",
                         url: "https://www.lph-nm.biz",
+                        raw_url: None,
                         icon: None,
                         full_keyword: "los",
                         block_id: 0,
@@ -580,6 +581,7 @@ mod tests {
                         iab_category: "8 - Food & Drink",
                         impression_url: "https://example.com/impression_url",
                         click_url: "https://example.com/click_url",
+                        raw_click_url: None,
                     },
                 ]
             "#]]
@@ -655,6 +657,7 @@ mod tests {
                     Amp {
                         title: "Lasagna Come Out Tomorrow",
                         url: "https://www.lasagna.restaurant",
+                        raw_url: None,
                         icon: Some(
                             [
                                 105,
@@ -677,6 +680,7 @@ mod tests {
                         iab_category: "8 - Food & Drink",
                         impression_url: "https://example.com/impression_url",
                         click_url: "https://example.com/click_url",
+                        raw_click_url: None,
                     },
                 ]
             "#]]
@@ -686,6 +690,7 @@ mod tests {
                     Amp {
                         title: "Penne for Your Thoughts",
                         url: "https://penne.biz",
+                        raw_url: None,
                         icon: Some(
                             [
                                 105,
@@ -708,6 +713,7 @@ mod tests {
                         iab_category: "8 - Food & Drink",
                         impression_url: "https://example.com/impression_url",
                         click_url: "https://example.com/click_url",
+                        raw_click_url: None,
                     },
                 ]
             "#]]
@@ -762,6 +768,7 @@ mod tests {
                     Amp {
                         title: "Lasagna Come Out Tomorrow",
                         url: "https://www.lasagna.restaurant",
+                        raw_url: None,
                         icon: None,
                         full_keyword: "lasagna",
                         block_id: 0,
@@ -769,6 +776,7 @@ mod tests {
                         iab_category: "8 - Food & Drink",
                         impression_url: "https://example.com/impression_url",
                         click_url: "https://example.com/click_url",
+                        raw_click_url: None,
                     },
                 ]
             "#]]
@@ -834,6 +842,7 @@ mod tests {
                     Amp {
                         title: "Lasagna Come Out Tomorrow",
                         url: "https://www.lasagna.restaurant",
+                        raw_url: None,
                         icon: None,
                         full_keyword: "lasagna",
                         block_id: 0,
@@ -841,6 +850,7 @@ mod tests {
                         iab_category: "8 - Food & Drink",
                         impression_url: "https://example.com/impression_url",
                         click_url: "https://example.com/click_url",
+                        raw_click_url: None,
                     },
                 ]
             "#]]
@@ -897,6 +907,7 @@ mod tests {
                     Amp {
                         title: "Los Pollos Hermanos - Now Serving at 14 Locations!",
                         url: "https://www.lph-nm.biz",
+                        raw_url: None,
                         icon: None,
                         full_keyword: "los pollos",
                         block_id: 0,
@@ -904,6 +915,7 @@ mod tests {
                         iab_category: "8 - Food & Drink",
                         impression_url: "https://example.com/impression_url",
                         click_url: "https://example.com/click_url",
+                        raw_click_url: None,
                     },
                 ]
             "#]]
@@ -913,6 +925,7 @@ mod tests {
                     Amp {
                         title: "Penne for Your Thoughts",
                         url: "https://penne.biz",
+                        raw_url: None,
                         icon: None,
                         full_keyword: "penne",
                         block_id: 0,
@@ -920,6 +933,7 @@ mod tests {
                         iab_category: "8 - Food & Drink",
                         impression_url: "https://example.com/impression_url",
                         click_url: "https://example.com/click_url",
+                        raw_click_url: None,
                     },
                 ]
             "#]]
@@ -1048,6 +1062,7 @@ mod tests {
                     Amp {
                         title: "Lasagna Come Out Tomorrow",
                         url: "https://www.lasagna.restaurant",
+                        raw_url: None,
                         icon: Some(
                             [
                                 110,
@@ -1074,6 +1089,7 @@ mod tests {
                         iab_category: "8 - Food & Drink",
                         impression_url: "https://example.com/impression_url",
                         click_url: "https://example.com/click_url",
+                        raw_click_url: None,
                     },
                 ]
             "#]]
@@ -1083,6 +1099,7 @@ mod tests {
                     Amp {
                         title: "Los Pollos Hermanos - Albuquerque",
                         url: "https://www.lph-nm.biz",
+                        raw_url: None,
                         icon: Some(
                             [
                                 110,
@@ -1108,6 +1125,7 @@ mod tests {
                         iab_category: "8 - Food & Drink",
                         impression_url: "https://example.com/impression_url",
                         click_url: "https://example.com/click_url",
+                        raw_click_url: None,
                     },
                 ]
             "#]]
@@ -1418,6 +1436,7 @@ mod tests {
                         Amp {
                             title: "Lasagna Come Out Tomorrow",
                             url: "https://www.lasagna.restaurant",
+                            raw_url: None,
                             icon: Some(
                                 [
                                     105,
@@ -1440,6 +1459,7 @@ mod tests {
                             iab_category: "8 - Food & Drink",
                             impression_url: "https://example.com/impression_url",
                             click_url: "https://example.com/click_url",
+                            raw_click_url: None,
                         },
                     ]
                 "#]],
@@ -1456,6 +1476,7 @@ mod tests {
                         Amp {
                             title: "Lasagna Come Out Tomorrow",
                             url: "https://www.lasagna.restaurant",
+                            raw_url: None,
                             icon: Some(
                                 [
                                     105,
@@ -1478,6 +1499,7 @@ mod tests {
                             iab_category: "8 - Food & Drink",
                             impression_url: "https://example.com/impression_url",
                             click_url: "https://example.com/click_url",
+                            raw_click_url: None,
                         },
                     ]
                 "#]],
