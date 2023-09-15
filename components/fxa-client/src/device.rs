@@ -15,9 +15,11 @@
 //! [Firefox Accounts Device Registration docs](
 //! https://github.com/mozilla/fxa/blob/main/packages/fxa-auth-server/docs/device_registration.md).
 
-use crate::{ApiResult, DevicePushSubscription, Error, FirefoxAccount};
 use error_support::handle_error;
+use serde::{Deserialize, Serialize};
 use sync15::DeviceType;
+
+use crate::{ApiResult, DevicePushSubscription, Error, FirefoxAccount};
 
 impl FirefoxAccount {
     /// Create a new device record for this application.
@@ -220,7 +222,7 @@ pub struct Device {
 /// use the variants of this enum to do so.
 ///
 /// In practice, the only currently-supported command is the ability to receive a tab.
-#[derive(Debug)]
+#[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq, Hash)]
 pub enum DeviceCapability {
     SendTab,
 }

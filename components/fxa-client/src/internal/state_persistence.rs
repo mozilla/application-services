@@ -34,12 +34,11 @@ use std::collections::{HashMap, HashSet};
 
 use super::{
     config::Config,
-    device::Capability as DeviceCapability,
     oauth::{AccessTokenInfo, RefreshToken},
     profile::Profile,
     CachedResponse, Result,
 };
-use crate::ScopedKey;
+use crate::{DeviceCapability, ScopedKey};
 
 // These are the public API for working with the persisted state.
 

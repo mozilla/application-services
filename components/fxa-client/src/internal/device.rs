@@ -4,8 +4,6 @@
 
 use std::collections::{HashMap, HashSet};
 
-use serde_derive::*;
-
 pub use super::http_client::{
     DeviceLocation as Location, GetDeviceResponse as Device, PushSubscription,
 };
@@ -14,7 +12,7 @@ use super::{
     http_client::{DeviceUpdateRequest, DeviceUpdateRequestBuilder, PendingCommand},
     telemetry, util, CachedResponse, FirefoxAccount,
 };
-use crate::{Error, Result};
+use crate::{DeviceCapability, Error, Result};
 use sync15::DeviceType;
 
 // An devices response is considered fresh for `DEVICES_FRESHNESS_THRESHOLD` ms.
@@ -68,19 +66,19 @@ impl FirefoxAccount {
     /// server.
     fn register_capabilities(
         &mut self,
-        capabilities: &[Capability],
+        capabilities: &[DeviceCapability],
     ) -> Result<HashMap<String, String>> {
         let mut capabilities_set = HashSet::new();
         let mut commands = HashMap::new();
         for capability in capabilities {
             match capability {
-                Capability::SendTab => {
+                DeviceCapability::SendTab => {
                     let send_tab_command = self.generate_send_tab_command_data()?;
                     commands.insert(
                         commands::send_tab::COMMAND_NAME.to_owned(),
                         send_tab_command.to_owned(),
                     );
-                    capabilities_set.insert(Capability::SendTab);
+                    capabilities_set.insert(DeviceCapability::SendTab);
                 }
             }
         }
@@ -100,7 +98,7 @@ impl FirefoxAccount {
         &mut self,
         name: &str,
         device_type: DeviceType,
-        capabilities: &[Capability],
+        capabilities: &[DeviceCapability],
     ) -> Result<()> {
         let commands = self.register_capabilities(capabilities)?;
         let update = DeviceUpdateRequestBuilder::new()
@@ -118,7 +116,7 @@ impl FirefoxAccount {
     /// encrypt the Send Tab command data.
     ///
     /// **💾 This method alters the persisted account state.**
-    pub fn ensure_capabilities(&mut self, capabilities: &[Capability]) -> Result<()> {
+    pub fn ensure_capabilities(&mut self, capabilities: &[DeviceCapability]) -> Result<()> {
         // Don't re-register if we already have exactly those capabilities.
         // Because of the way that our state object defaults `device_capabilities` to empty,
         // we can't tell the difference between "have never registered capabilities" and
@@ -141,7 +139,7 @@ impl FirefoxAccount {
 
     /// Re-register the device capabilities, this should only be used internally.
     pub(crate) fn reregister_current_capabilities(&mut self) -> Result<()> {
-        let current_capabilities: Vec<Capability> = self
+        let current_capabilities: Vec<DeviceCapability> = self
             .state
             .last_sent_device_capabilities()
             .clone()
@@ -331,27 +329,6 @@ impl FirefoxAccount {
     }
 }
 
-#[derive(Clone, Serialize, Deserialize, PartialEq, Eq, Hash)]
-pub enum Capability {
-    SendTab,
-}
-
-impl From<crate::DeviceCapability> for Capability {
-    fn from(cap: crate::DeviceCapability) -> Self {
-        match cap {
-            crate::DeviceCapability::SendTab => Capability::SendTab,
-        }
-    }
-}
-
-impl From<Capability> for crate::DeviceCapability {
-    fn from(cap: Capability) -> Self {
-        match cap {
-            Capability::SendTab => crate::DeviceCapability::SendTab,
-        }
-    }
-}
-
 impl TryFrom<Device> for crate::Device {
     type Error = Error;
     fn try_from(d: Device) -> Result<Self> {
@@ -359,7 +336,7 @@ impl TryFrom<Device> for crate::Device {
             .available_commands
             .keys()
             .filter_map(|k| match k.as_str() {
-                commands::send_tab::COMMAND_NAME => Some(Capability::SendTab),
+                commands::send_tab::COMMAND_NAME => Some(DeviceCapability::SendTab),
                 _ => None,
             })
             .map(Into::into)
@@ -426,19 +403,21 @@ mod tests {
                 push_endpoint_expired: false,
             }));
         fxa.set_client(Arc::new(client));
-        fxa.ensure_capabilities(&[Capability::SendTab]).unwrap();
+        fxa.ensure_capabilities(&[DeviceCapability::SendTab])
+            .unwrap();
         let saved = fxa.to_json().unwrap();
 
         // Do another call with the same capabilities.
         // The FxAClientMock will panic if it tries to hit the network again, which it shouldn't.
-        fxa.ensure_capabilities(&[Capability::SendTab]).unwrap();
+        fxa.ensure_capabilities(&[DeviceCapability::SendTab])
+            .unwrap();
 
         // Do another call with the same capabilities , after restoring from disk.
         // The FxAClientMock will panic if it tries to hit the network, which it shouldn't.
         let mut restored = FirefoxAccount::from_json(&saved).unwrap();
         restored.set_client(Arc::new(FxAClientMock::new()));
         restored
-            .ensure_capabilities(&[Capability::SendTab])
+            .ensure_capabilities(&[DeviceCapability::SendTab])
             .unwrap();
     }
 
@@ -485,7 +464,8 @@ mod tests {
             }));
         fxa.set_client(Arc::new(client));
 
-        fxa.ensure_capabilities(&[Capability::SendTab]).unwrap();
+        fxa.ensure_capabilities(&[DeviceCapability::SendTab])
+            .unwrap();
 
         // Do another call with the same capabilities , after restoring from disk.
         // The FxAClientMock will panic if it tries to hit the network, which it shouldn't.
@@ -508,7 +488,7 @@ mod tests {
         restored.set_client(Arc::new(client));
 
         restored
-            .ensure_capabilities(&[Capability::SendTab])
+            .ensure_capabilities(&[DeviceCapability::SendTab])
             .unwrap();
     }
 
@@ -534,7 +514,8 @@ mod tests {
             }));
         fxa.set_client(Arc::new(client));
 
-        fxa.ensure_capabilities(&[Capability::SendTab]).unwrap();
+        fxa.ensure_capabilities(&[DeviceCapability::SendTab])
+            .unwrap();
         let saved = fxa.to_json().unwrap();
 
         // Do another call with reduced capabilities.
@@ -601,7 +582,8 @@ mod tests {
                 push_endpoint_expired: false,
             }));
         fxa.set_client(Arc::new(client));
-        fxa.ensure_capabilities(&[Capability::SendTab]).unwrap();
+        fxa.ensure_capabilities(&[DeviceCapability::SendTab])
+            .unwrap();
 
         // Fake that we've completed a new login flow.
         // (which annoyingly makes a bunch of network requests)
@@ -668,7 +650,8 @@ mod tests {
                 push_endpoint_expired: false,
             }));
         fxa.set_client(Arc::new(client));
-        fxa.ensure_capabilities(&[Capability::SendTab]).unwrap();
+        fxa.ensure_capabilities(&[DeviceCapability::SendTab])
+            .unwrap();
     }
 
     #[test]
@@ -692,7 +675,8 @@ mod tests {
             }));
         fxa.set_client(Arc::new(client));
 
-        fxa.ensure_capabilities(&[Capability::SendTab]).unwrap_err();
+        fxa.ensure_capabilities(&[DeviceCapability::SendTab])
+            .unwrap_err();
 
         // Do another call, which should re-attempt the update.
         let mut client = FxAClientMock::new();
@@ -712,7 +696,8 @@ mod tests {
             }));
         fxa.set_client(Arc::new(client));
 
-        fxa.ensure_capabilities(&[Capability::SendTab]).unwrap();
+        fxa.ensure_capabilities(&[DeviceCapability::SendTab])
+            .unwrap();
     }
 
     #[test]
