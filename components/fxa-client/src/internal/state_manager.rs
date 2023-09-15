@@ -6,13 +6,12 @@ use std::collections::{HashMap, HashSet};
 
 use crate::{
     internal::{
-        device,
         oauth::{AccessTokenInfo, RefreshToken},
         profile::Profile,
         state_persistence::state_to_json,
         CachedResponse, Config, OAuthFlow, PersistedState,
     },
-    Result, ScopedKey,
+    DeviceCapability, Result, ScopedKey,
 };
 
 /// Stores and manages the current state of the FxA client
@@ -51,14 +50,14 @@ impl StateManager {
     }
 
     /// Get the last known set of device capabilities that we sent to the server
-    pub fn last_sent_device_capabilities(&self) -> &HashSet<device::Capability> {
+    pub fn last_sent_device_capabilities(&self) -> &HashSet<DeviceCapability> {
         &self.persisted_state.device_capabilities
     }
 
     /// Update the last known set of device capabilities that we sent to the server
     pub fn update_last_sent_device_capabilities(
         &mut self,
-        capabilities_set: HashSet<device::Capability>,
+        capabilities_set: HashSet<DeviceCapability>,
     ) {
         self.persisted_state.device_capabilities = capabilities_set;
     }
