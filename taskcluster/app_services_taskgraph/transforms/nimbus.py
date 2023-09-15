@@ -8,14 +8,26 @@ from taskgraph.transforms.base import TransformSequence
 # Transform for the nimbus-build tasks
 build = TransformSequence()
 
+LINUX_BUILD_TARGETS = (
+    'aarch64-unknown-linux-musl',
+    'x86_64-unknown-linux-gnu',
+    'x86_64-unknown-linux-musl',
+    'x86_64-pc-windows-gnu',
+)
+
+MAC_BUILD_TARGETS = (
+    'x86_64-apple-darwin',
+    'aarch64-apple-darwin',
+)
+
 @build.add
 def setup_build_tasks(config, tasks):
     for task in tasks:
         binary = task['attributes']['binary']
         target = task['attributes']['target']
-        if target in ('x86_64-unknown-linux-gnu', 'x86_64-unknown-linux-musl', 'x86_64-pc-windows-gnu'):
+        if target in LINUX_BUILD_TARGETS:
             setup_linux_build_task(task, target, binary)
-        elif target in ('x86_64-apple-darwin', 'aarch64-apple-darwin'):
+        elif target in MAC_BUILD_TARGETS:
             setup_mac_build_task(task, target, binary)
         else:
             raise ValueError(f"Unknown target for nimbus build task: {target}")

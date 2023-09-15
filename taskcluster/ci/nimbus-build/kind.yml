@@ -28,6 +28,11 @@ tasks:
       target: x86_64-unknown-linux-musl
       binary: nimbus-fml
 
+  fml-linux-aarch64:
+    attributes:
+      target: aarch64-unknown-linux-musl
+      binary: nimbus-fml
+
   fml-windows:
     attributes:
       target: x86_64-pc-windows-gnu
@@ -51,6 +56,11 @@ tasks:
   cli-linux-musl:
     attributes:
       target: x86_64-unknown-linux-musl
+      binary: nimbus-cli
+
+  cli-linux-aarch64-musl:
+    attributes:
+      target: aarch64-unknown-linux-musl
       binary: nimbus-cli
 
   cli-windows:

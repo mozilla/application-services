@@ -85,6 +85,7 @@ initTargetBinary() {
     "aarch64-darwin") file="aarch64-apple-darwin" ;;
     "x86_64-windows") file="x86_64-pc-windows-gnu" ;;
     "x86_64-linux") file="x86_64-unknown-linux-musl" ;;
+    "aarch64-linux") file="aarch64-unknown-linux-musl" ;;
     *)
       fail_target "$ARCH-$OS"
       ;;
@@ -99,7 +100,8 @@ check_target() {
     "aarch64-apple-darwin" |\
     "x86_64-pc-windows-gnu" |\
     "x86_64-unknown-linux-gnu" |\
-    "x86_64-unknown-linux-musl")
+    "x86_64-unknown-linux-musl" |\
+    "aarch64-unkown-linux-musl")
       ;;
     *)
       fail_target "$TARGET"
@@ -111,6 +113,7 @@ fail_target() {
   echoError "No pre-built binary for $1."
   echo -e "   Available pre-built binaries are:"
   echo -e "      aarch64-apple-darwin"
+  echo -e "      aarch64-unknown-linux-musl"
   echo -e "      x86_64-apple-darwin"
   echo -e "      x86_64-pc-windows-gnu"
   echo -e "      x86_64-unknown-linux-gnu"
@@ -252,7 +255,8 @@ help () {
   echo -e "\t--host HOST              get from the given taskcluster host"
   echo -e "\t--binary|-B BINARY       the binary that is installed, leave blank to derive a default"
   echo -e "                           try: x86_64-unknown-linux-gnu, x86_64-unknown-linux-musl,"
-  echo -e "                                x86_64-pc-windows-gnu, x86_64-apple-darwin, aarch64-apple-darwin"
+  echo -e "                                x86_64-pc-windows-gnu, x86_64-apple-darwin, aarch64-apple-darwin,"
+  echo -e "                                aarch64-unknown-linux-musl"
   echo
   echo -e "\t--debug                  be verbose in output"
   echo -e "\t--help|-h                prints this help"
