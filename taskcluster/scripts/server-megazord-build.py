@@ -17,7 +17,8 @@ SRC_ROOT = pathlib.Path(
 ).resolve()
 PATH_NOT_SPECIFIED = pathlib.Path('/not specified').resolve()
 PWD = pathlib.Path().resolve()
-DEBUG=False
+DEBUG = False
+TARGET_DETECTOR_SCRIPT = SRC_ROOT / 'taskcluster' / 'scripts'/ 'detect-target.sh'
 
 def main():
     args = parse_args()
@@ -38,13 +39,13 @@ def main():
         dist_dir = pathlib.Path(temp_dir.name)
 
     try:
-        _build_shared_library(megazord, target, dist_dir)
+        filename = _build_shared_library(megazord, target, dist_dir)
         if _target_matches_host(target):
             _run_python_tests(megazord, dist_dir)
 
         if str(out_dir) != str(PATH_NOT_SPECIFIED):
             os.makedirs(out_dir, exist_ok=True)
-            _prepare_artifact(megazord, target, dist_dir, out_dir)
+            _prepare_artifact(megazord, target, filename, dist_dir, out_dir)
     finally:
         if not DEBUG:
             temp_dir.cleanup()
@@ -66,6 +67,17 @@ def _build_shared_library(megazord, target, dist_dir):
         env["RUSTFLAGS"] = (
             env.get("RUSTFLAGS", "") + " -C target-feature=-crt-static"
         )
+        if _host_os() == 'unknown-linux':
+            env["RUSTFLAGS"] = (
+                env.get("RUSTFLAGS", "") + " -C link-arg=-lgcc"
+            )
+        elif _host_os() == 'apple-darwin':
+            if "x86_64" in target:
+                env["CARGO_TARGET_X86_64_UNKNOWN_LINUX_MUSL_LINKER"] = "x86_64-linux-musl-gcc"
+                env["TARGET_CC"] = "x86_64-linux-musl-gcc"
+            elif "aarch64" in target:
+                env["CARGO_TARGET_AARCH64_UNKNOWN_LINUX_MUSL_LINKER"] = "aarch64-linux-musl-gcc"
+
     if target == "i686-pc-windows-gnu":
         env["RUSTFLAGS"] = env.get("RUSTFLAGS", "") + " -C panic=abort"
 
@@ -83,6 +95,8 @@ def _build_shared_library(megazord, target, dist_dir):
     subprocess.check_call([
         'cargo', 'uniffi-bindgen', 'generate', '--library', dist_dir / filename, '--language', 'python', '--out-dir', dist_dir,
     ], env=env, cwd=SRC_ROOT)
+
+    return filename
 
 def _patch_uniffi_tomls():
     _replace_text(SRC_ROOT / 'components' / 'support' / 'nimbus-fml' / 'uniffi.toml', '\ncdylib_name', '\n# cdylib_name')
@@ -144,10 +158,21 @@ def _python_tests(megazord):
 def _dirs(prefix, list):
     return [f'{prefix}/{f}' for f in list if os.path.isdir(f'{prefix}/{f}')]
 
-def _prepare_artifact(megazord, target, dist_dir, out_dir):
+def _prepare_artifact(megazord, target, filename, dist_dir, out_dir):
     archive = out_dir / f'{megazord}-{target}.zip'
     for f in _python_sources(megazord):
         shutil.copytree(f, dist_dir)
+
+    # Move the binary into a target specific directory.
+    # This is so shared libraries for the same OS, but different architectures
+    # don't overwrite one another.
+    target_dir = dist_dir / target
+    os.makedirs(target_dir, exist_ok=True)
+    shutil.move(dist_dir / filename, target_dir / filename)
+
+    scripts_dir = dist_dir / 'scripts'
+    os.makedirs(scripts_dir, exist_ok=True)
+    shutil.copy(TARGET_DETECTOR_SCRIPT, scripts_dir)
 
     subprocess.check_call([
         'zip', archive,

@@ -96,9 +96,7 @@ def on_darwin():
     return platform.system() == 'Darwin'
 
 def get_default_target():
-    toolchain = get_output(['rustup', 'default'])
-    s = toolchain.split(' ')[0]
-    return '-'.join(s.split('-')[1:])
+    return get_output([PROJECT_ROOT / 'taskcluster' / 'scripts' / 'detect-target.sh', '--use-rustc'])
 
 def should_run_rust_tests(package, min_version):
     # There are no tests in examples/ packages, so don't waste time on them.

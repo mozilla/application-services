@@ -23,7 +23,7 @@ task-defaults:
     - project:releng:services/tooltool/api/download/internal
 
 tasks:
-  nimbus-experimenter-linux:
+  nimbus-experimenter-linux-x86_64:
     attributes:
       megazord: nimbus-experimenter
       target: x86_64-unknown-linux-musl
