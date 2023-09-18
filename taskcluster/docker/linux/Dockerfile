@@ -99,6 +99,8 @@ RUN apt-get update -qq \
         python3-venv \
         # Used by gradle and the robolectric toolchain task
         maven \
+        # used by aarch64 linux builds
+        gcc-aarch64-linux-gnu \
     && apt-get clean
 
 RUN pip3 install --upgrade pip
