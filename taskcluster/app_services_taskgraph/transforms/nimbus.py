@@ -47,6 +47,13 @@ def setup_linux_build_task(task, target, binary):
             }
         ]
     }
+
+    if target == "aarch64-unknown-linux-musl":
+        task['worker']['env'] = {
+            'CARGO_TARGET_AARCH64_UNKNOWN_LINUX_MUSL_LINKER': 'aarch64-linux-gnu-gcc',
+            'CC': 'aarch64-linux-gnu-gcc',
+        }
+
     task['run'] = {
         'using': 'run-commands',
         'pre-commands': [
