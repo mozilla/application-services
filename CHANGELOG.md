@@ -6,8 +6,21 @@
 
 ### ✨ What's New ✨
 
-- The `set_experiments` method has been updated to filter down the list of experiments to only those that match the configured `app_name` and `channel` ([#5813](https://github.com/mozilla/application-services/pull/5813)). 
+- The `set_experiments` method has been updated to filter down the list of experiments to only those that match the configured `app_name` and `channel` ([#5813](https://github.com/mozilla/application-services/pull/5813)).
 
+## Nimbus FML ⛅️🔬🔭🔧
+
+### ✨ What's New ✨
+
+- Added support to fetch different versions of a manifest to the `FmlClient` ([#5827](https://github.com/mozilla/application-services/pull/5827)).
+- Added a `FmlFeatureInspector` to the `FmlClient` ([#5827](https://github.com/mozilla/application-services/pull/5827)).
+  - This adds methods to parse a feature configuration and return errors.
+- Added a `FmlFeatureDescriptor` to the `FmlClient` ([#5815](https://github.com/mozilla/application-services/pull/5815)).
+  - This adds methods to get the feature_ids and descriptions from a loaded manifest.
+
+### ✨ What's New ✨
+
+- The `set_experiments` method has been updated to filter down the list of experiments to only those that match the configured `app_name` and `channel` ([#5813](https://github.com/mozilla/application-services/pull/5813)).
 ## Places
 
 ### 🦊 What's Changed 🦊
