@@ -38,6 +38,9 @@ pub enum FxaError {
     /// **Note:** This error is currently only thrown in the Swift language bindings.
     #[error("the requested authentication flow was not active")]
     WrongAuthFlow,
+    /// A scoped key was missing in the server response when requesting the OLD_SYNC scope.
+    #[error("The sync scoped key was missing")]
+    SyncScopedKeyMissingInServerResponse,
     /// Thrown if there is a panic in the underlying Rust code.
     ///
     /// **Note:** This error is currently only thrown in the Kotlin language bindings.
@@ -102,6 +105,9 @@ pub enum Error {
 
     #[error("Remote key and local key mismatch")]
     MismatchedKeys,
+
+    #[error("The sync scoped key was missing in the server response")]
+    SyncScopedKeyMissingInServerResponse,
 
     #[error("Client: {0} is not allowed to request scope: {1}")]
     ScopeNotAllowed(String, String),
@@ -193,7 +199,12 @@ impl GetErrorHandling for Error {
             Error::RequestError(_) => {
                 ErrorHandling::convert(crate::FxaError::Network).log_warning()
             }
-            _ => ErrorHandling::convert(crate::FxaError::Other).log_warning(),
+            Error::SyncScopedKeyMissingInServerResponse => {
+                ErrorHandling::convert(crate::FxaError::SyncScopedKeyMissingInServerResponse)
+                    .report_error("fxa-client-scoped-key-missing")
+            }
+            _ => ErrorHandling::convert(crate::FxaError::Other)
+                .report_error("fxa-client-other-error"),
         }
     }
 }

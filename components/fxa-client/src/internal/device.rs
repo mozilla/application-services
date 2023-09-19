@@ -9,10 +9,12 @@ pub use super::http_client::{
 };
 use super::{
     commands::{self, IncomingDeviceCommand},
-    http_client::{DeviceUpdateRequest, DeviceUpdateRequestBuilder, PendingCommand},
+    http_client::{
+        DeviceUpdateRequest, DeviceUpdateRequestBuilder, PendingCommand, UpdateDeviceResponse,
+    },
     telemetry, util, CachedResponse, FirefoxAccount,
 };
-use crate::{DeviceCapability, Error, Result};
+use crate::{DeviceCapability, Error, LocalDevice, Result};
 use sync15::DeviceType;
 
 // An devices response is considered fresh for `DEVICES_FRESHNESS_THRESHOLD` ms.
@@ -82,11 +84,6 @@ impl FirefoxAccount {
                 }
             }
         }
-        // Remember what capabilities we've registered, so we don't register the same ones again.
-        // We write this to internal state before we've actually written the new device record,
-        // but roll it back if the server update fails.
-        self.state
-            .update_last_sent_device_capabilities(capabilities_set);
         Ok(commands)
     }
 
@@ -99,7 +96,9 @@ impl FirefoxAccount {
         name: &str,
         device_type: DeviceType,
         capabilities: &[DeviceCapability],
-    ) -> Result<()> {
+    ) -> Result<LocalDevice> {
+        self.state
+            .set_device_capabilities(capabilities.iter().cloned());
         let commands = self.register_capabilities(capabilities)?;
         let update = DeviceUpdateRequestBuilder::new()
             .display_name(name)
@@ -116,19 +115,17 @@ impl FirefoxAccount {
     /// encrypt the Send Tab command data.
     ///
     /// **💾 This method alters the persisted account state.**
-    pub fn ensure_capabilities(&mut self, capabilities: &[DeviceCapability]) -> Result<()> {
+    pub fn ensure_capabilities(
+        &mut self,
+        capabilities: &[DeviceCapability],
+    ) -> Result<LocalDevice> {
+        self.state
+            .set_device_capabilities(capabilities.iter().cloned());
         // Don't re-register if we already have exactly those capabilities.
-        // Because of the way that our state object defaults `device_capabilities` to empty,
-        // we can't tell the difference between "have never registered capabilities" and
-        // have "explicitly registered an empty set of capabilities", so it's simpler to
-        // just always re-register in that case.
-        if !self.state.last_sent_device_capabilities().is_empty()
-            && self.state.last_sent_device_capabilities().len() == capabilities.len()
-            && capabilities
-                .iter()
-                .all(|c| self.state.last_sent_device_capabilities().contains(c))
-        {
-            return Ok(());
+        if let Some(local_device) = self.state.server_local_device_info() {
+            if capabilities == local_device.capabilities {
+                return Ok(local_device.clone());
+            }
         }
         let commands = self.register_capabilities(capabilities)?;
         let update = DeviceUpdateRequestBuilder::new()
@@ -139,13 +136,8 @@ impl FirefoxAccount {
 
     /// Re-register the device capabilities, this should only be used internally.
     pub(crate) fn reregister_current_capabilities(&mut self) -> Result<()> {
-        let current_capabilities: Vec<DeviceCapability> = self
-            .state
-            .last_sent_device_capabilities()
-            .clone()
-            .into_iter()
-            .collect();
-        let commands = self.register_capabilities(&current_capabilities)?;
+        let capabilities: Vec<_> = self.state.device_capabilities().iter().cloned().collect();
+        let commands = self.register_capabilities(&capabilities)?;
         let update = DeviceUpdateRequestBuilder::new()
             .available_commands(&commands)
             .build();
@@ -264,7 +256,7 @@ impl FirefoxAccount {
         }
     }
 
-    pub fn set_device_name(&mut self, name: &str) -> Result<()> {
+    pub fn set_device_name(&mut self, name: &str) -> Result<LocalDevice> {
         let update = DeviceUpdateRequestBuilder::new().display_name(name).build();
         self.update_device(update)
     }
@@ -273,10 +265,14 @@ impl FirefoxAccount {
         let update = DeviceUpdateRequestBuilder::new()
             .clear_display_name()
             .build();
-        self.update_device(update)
+        self.update_device(update)?;
+        Ok(())
     }
 
-    pub fn set_push_subscription(&mut self, push_subscription: PushSubscription) -> Result<()> {
+    pub fn set_push_subscription(
+        &mut self,
+        push_subscription: PushSubscription,
+    ) -> Result<LocalDevice> {
         let update = DeviceUpdateRequestBuilder::new()
             .push_subscription(&push_subscription)
             .build();
@@ -290,7 +286,7 @@ impl FirefoxAccount {
         push_subscription: &Option<PushSubscription>,
         commands: &HashMap<String, String>,
     ) -> Result<()> {
-        self.state.clear_last_sent_device_capabilities();
+        self.state.clear_server_local_device_info();
         let mut builder = DeviceUpdateRequestBuilder::new()
             .display_name(display_name)
             .device_type(device_type)
@@ -298,23 +294,27 @@ impl FirefoxAccount {
         if let Some(push_subscription) = push_subscription {
             builder = builder.push_subscription(push_subscription)
         }
-        self.update_device(builder.build())
+        self.update_device(builder.build())?;
+        Ok(())
     }
 
-    fn update_device(&mut self, update: DeviceUpdateRequest<'_>) -> Result<()> {
+    fn update_device(&mut self, update: DeviceUpdateRequest<'_>) -> Result<LocalDevice> {
         let refresh_token = self.get_refresh_token()?;
         let res = self
             .client
             .update_device_record(self.state.config(), refresh_token, update);
         match res {
             Ok(resp) => {
-                self.state.set_current_device_id(resp.id);
-                Ok(())
+                self.state.set_current_device_id(resp.id.clone());
+                let local_device = LocalDevice::from(resp);
+                self.state
+                    .update_server_local_device_info(local_device.clone());
+                Ok(local_device)
             }
             Err(err) => {
                 // We failed to write an update to the server.
                 // Clear local state so that we'll be sure to retry later.
-                self.state.clear_last_sent_device_capabilities();
+                self.state.clear_server_local_device_info();
                 Err(err)
             }
         }
@@ -325,6 +325,40 @@ impl FirefoxAccount {
         match self.state.current_device_id() {
             Some(ref device_id) => Ok(device_id.to_string()),
             None => Err(Error::NoCurrentDeviceId),
+        }
+    }
+}
+
+impl TryFrom<String> for DeviceCapability {
+    type Error = Error;
+
+    fn try_from(command: String) -> Result<Self> {
+        match command.as_str() {
+            commands::send_tab::COMMAND_NAME => Ok(DeviceCapability::SendTab),
+            _ => Err(Error::UnknownCommand(command)),
+        }
+    }
+}
+
+impl From<UpdateDeviceResponse> for LocalDevice {
+    fn from(resp: UpdateDeviceResponse) -> Self {
+        Self {
+            id: resp.id,
+            display_name: resp.display_name,
+            device_type: resp.device_type,
+            capabilities: resp
+                .available_commands
+                .into_keys()
+                .filter_map(|command| match command.try_into() {
+                    Ok(capability) => Some(capability),
+                    Err(e) => {
+                        log::warn!("While parsing UpdateDeviceResponse: {e}");
+                        None
+                    }
+                })
+                .collect(),
+            push_subscription: resp.push_subscription.map(Into::into),
+            push_endpoint_expired: resp.push_endpoint_expired,
         }
     }
 }
@@ -399,7 +433,10 @@ mod tests {
                 display_name: "".to_string(),
                 device_type: DeviceType::Desktop,
                 push_subscription: None,
-                available_commands: HashMap::default(),
+                available_commands: HashMap::from([(
+                    commands::send_tab::COMMAND_NAME.to_owned(),
+                    "fake-command-data".to_owned(),
+                )]),
                 push_endpoint_expired: false,
             }));
         fxa.set_client(Arc::new(client));
@@ -459,7 +496,10 @@ mod tests {
                 display_name: "".to_string(),
                 device_type: DeviceType::Desktop,
                 push_subscription: None,
-                available_commands: HashMap::default(),
+                available_commands: HashMap::from([(
+                    commands::send_tab::COMMAND_NAME.to_owned(),
+                    "fake-command-data".to_owned(),
+                )]),
                 push_endpoint_expired: false,
             }));
         fxa.set_client(Arc::new(client));
@@ -482,7 +522,10 @@ mod tests {
                 display_name: "".to_string(),
                 device_type: DeviceType::Desktop,
                 push_subscription: None,
-                available_commands: HashMap::default(),
+                available_commands: HashMap::from([(
+                    commands::send_tab::COMMAND_NAME.to_owned(),
+                    "fake-command-data".to_owned(),
+                )]),
                 push_endpoint_expired: false,
             }));
         restored.set_client(Arc::new(client));
@@ -509,7 +552,10 @@ mod tests {
                 display_name: "".to_string(),
                 device_type: DeviceType::Desktop,
                 push_subscription: None,
-                available_commands: HashMap::default(),
+                available_commands: HashMap::from([(
+                    commands::send_tab::COMMAND_NAME.to_owned(),
+                    "fake-command-data".to_owned(),
+                )]),
                 push_endpoint_expired: false,
             }));
         fxa.set_client(Arc::new(client));
@@ -578,7 +624,10 @@ mod tests {
                 display_name: "".to_string(),
                 device_type: DeviceType::Desktop,
                 push_subscription: None,
-                available_commands: HashMap::default(),
+                available_commands: HashMap::from([(
+                    commands::send_tab::COMMAND_NAME.to_owned(),
+                    "fake-command-data".to_owned(),
+                )]),
                 push_endpoint_expired: false,
             }));
         fxa.set_client(Arc::new(client));
@@ -630,7 +679,7 @@ mod tests {
         )
         .unwrap();
 
-        assert!(fxa.state.last_sent_device_capabilities().is_empty());
+        assert!(fxa.state.server_local_device_info().is_none());
 
         // Do another call with the same capabilities.
         // It should re-register, as server-side state may have changed.
@@ -646,7 +695,10 @@ mod tests {
                 display_name: "".to_string(),
                 device_type: DeviceType::Desktop,
                 push_subscription: None,
-                available_commands: HashMap::default(),
+                available_commands: HashMap::from([(
+                    commands::send_tab::COMMAND_NAME.to_owned(),
+                    "fake-command-data".to_owned(),
+                )]),
                 push_endpoint_expired: false,
             }));
         fxa.set_client(Arc::new(client));
@@ -691,7 +743,10 @@ mod tests {
                 display_name: "".to_string(),
                 device_type: DeviceType::Desktop,
                 push_subscription: None,
-                available_commands: HashMap::default(),
+                available_commands: HashMap::from([(
+                    commands::send_tab::COMMAND_NAME.to_owned(),
+                    "fake-command-data".to_owned(),
+                )]),
                 push_endpoint_expired: false,
             }));
         fxa.set_client(Arc::new(client));
