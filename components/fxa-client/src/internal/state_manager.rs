@@ -11,7 +11,7 @@ use crate::{
         state_persistence::state_to_json,
         CachedResponse, Config, OAuthFlow, PersistedState,
     },
-    DeviceCapability, Result, ScopedKey,
+    DeviceCapability, FxaRustAuthState, Result, ScopedKey,
 };
 
 /// Stores and manages the current state of the FxA client
@@ -169,9 +169,19 @@ impl StateManager {
 
     /// Called when the account is disconnected.  This clears most of the auth state, but keeps
     /// some information in order to eventually reconnect to the same user account later.
-    pub fn disconnect(&mut self) {
-        self.persisted_state = self.persisted_state.start_over();
+    pub fn disconnect(&mut self, from_auth_issues: bool) {
+        self.persisted_state = self.persisted_state.start_over(from_auth_issues);
         self.flow_store.clear();
+    }
+
+    pub fn get_auth_state(&self) -> FxaRustAuthState {
+        if self.persisted_state.refresh_token.is_some() {
+            FxaRustAuthState::Connected
+        } else {
+            FxaRustAuthState::Disconnected {
+                from_auth_issues: self.persisted_state.disconnected_from_auth_issues,
+            }
+        }
     }
 
     /// Handle the auth tokens changing

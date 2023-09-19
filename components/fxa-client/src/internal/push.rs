@@ -48,7 +48,7 @@ impl FirefoxAccount {
                 };
                 if is_local_device {
                     // Note: self.disconnect calls self.start_over which clears the state for the FirefoxAccount instance
-                    self.disconnect();
+                    self.disconnect(false);
                 }
                 Ok(AccountEvent::DeviceDisconnected {
                     device_id,

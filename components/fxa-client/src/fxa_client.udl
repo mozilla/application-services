@@ -243,7 +243,17 @@ interface FirefoxAccount {
   // is not desired then the application should discard the persisted account state.
   //
   void disconnect();
-  
+
+  // Disconnect because of auth issues.
+  //
+  // **💾 This method alters the persisted account state.**
+  //
+  // This works exactly like `disconnect`, except the
+  // `AuthState::Disconnected::from_auth_issues` flag will be set when get_auth_state() is called.
+  void disconnect_from_auth_issues();
+
+  // Get the high-level authentication state of the client
+  FxaRustAuthState get_auth_state();
 
   // Get profile information for the signed-in user, if any.
   //
@@ -889,6 +899,12 @@ dictionary Profile {
 
   // Whether the `avatar` URL represents the default avatar image.
   boolean is_default_avatar;
+};
+
+[Enum]
+interface FxaRustAuthState {
+  Disconnected(boolean from_auth_issues);
+  Connected();
 };
 
 // A "capability" offered by a device.

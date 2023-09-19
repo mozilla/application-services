@@ -28,6 +28,11 @@ use error_support::handle_error;
 use std::collections::HashMap;
 
 impl FirefoxAccount {
+    /// Get the high-level authentication state of the client
+    pub fn get_auth_state(&self) -> FxaRustAuthState {
+        self.internal.lock().get_auth_state()
+    }
+
     /// Initiate a web-based OAuth sign-in flow.
     ///
     /// This method initializes some internal state and then returns a URL at which the
@@ -156,7 +161,17 @@ impl FirefoxAccount {
     /// the user to reconnect to their account. If reconnecting to the same account
     /// is not desired then the application should discard the persisted account state.
     pub fn disconnect(&self) {
-        self.internal.lock().disconnect()
+        self.internal.lock().disconnect(false)
+    }
+
+    /// Disconnect because of auth issues.
+    ///
+    /// **💾 This method alters the persisted account state.**
+    ///
+    /// This works exactly like `disconnect`, except the
+    /// `AuthState::Disconnected::from_auth_issues` flag will be set when get_auth_state() is called.
+    pub fn disconnect_from_auth_issues(&self) {
+        self.internal.lock().disconnect(true)
     }
 }
 
@@ -171,4 +186,18 @@ pub struct AuthorizationInfo {
 /// Additional metrics tracking parameters to include in an OAuth request.
 pub struct MetricsParams {
     pub parameters: HashMap<String, String>,
+}
+
+/// High-level view of the authorization state
+///
+/// This is named `FxaRustAuthState` because it doesn't track everything we want yet and needs help
+/// from the wrapper code.  The wrapper code defines the actual `FxaAuthState` type based on this,
+/// adding the extra data.
+///
+/// In the long-term, we should track that data in Rust, remove the wrapper, and rename this to
+/// `FxaAuthState`.
+#[derive(Debug, PartialEq, Eq)]
+pub enum FxaRustAuthState {
+    Disconnected { from_auth_issues: bool },
+    Connected,
 }

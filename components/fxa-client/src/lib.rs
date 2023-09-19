@@ -49,7 +49,7 @@ mod token;
 
 pub use sync15::DeviceType;
 
-pub use auth::{AuthorizationInfo, MetricsParams};
+pub use auth::{AuthorizationInfo, FxaRustAuthState, MetricsParams};
 pub use device::{AttachedClient, Device, DeviceCapability};
 pub use error::{Error, FxaError};
 use parking_lot::Mutex;
