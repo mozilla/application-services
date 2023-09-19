@@ -11,7 +11,7 @@ use crate::{
         state_persistence::state_to_json,
         CachedResponse, Config, OAuthFlow, PersistedState,
     },
-    DeviceCapability, Result, ScopedKey,
+    DeviceCapability, FxaRustAuthState, LocalDevice, Result, ScopedKey,
 };
 
 /// Stores and manages the current state of the FxA client
@@ -49,26 +49,38 @@ impl StateManager {
         self.persisted_state.session_token.as_deref()
     }
 
-    /// Get the last known set of device capabilities that we sent to the server
-    pub fn last_sent_device_capabilities(&self) -> &HashSet<DeviceCapability> {
+    /// Get our device capabilities
+    ///
+    /// This is the last set of capabilities passed to `initialize_device` or `ensure_capabilities`
+    pub fn device_capabilities(&self) -> &HashSet<DeviceCapability> {
         &self.persisted_state.device_capabilities
     }
 
-    /// Update the last known set of device capabilities that we sent to the server
-    pub fn update_last_sent_device_capabilities(
+    /// Set our device capabilities
+    pub fn set_device_capabilities(
         &mut self,
-        capabilities_set: HashSet<DeviceCapability>,
+        capabilities_set: impl IntoIterator<Item = DeviceCapability>,
     ) {
-        self.persisted_state.device_capabilities = capabilities_set;
+        self.persisted_state.device_capabilities = HashSet::from_iter(capabilities_set);
     }
 
-    /// Clear out the last known set of device_capabilities.  This means that the next call to
+    /// Get the last known LocalDevice info sent back from the server
+    pub fn server_local_device_info(&self) -> Option<&LocalDevice> {
+        self.persisted_state.server_local_device_info.as_ref()
+    }
+
+    /// Update the last known LocalDevice info when getting one back from the server
+    pub fn update_server_local_device_info(&mut self, local_device: LocalDevice) {
+        self.persisted_state.server_local_device_info = Some(local_device)
+    }
+
+    /// Clear out the last known LocalDevice info. This means that the next call to
     /// `ensure_capabilities()` will re-send our capabilities to the server
     ///
     /// This is typically called when something may invalidate the server's knowledge of our
-    /// capabilities, for example replacing our device info.
-    pub fn clear_last_sent_device_capabilities(&mut self) {
-        self.persisted_state.device_capabilities = HashSet::new();
+    /// local device capabilities, for example replacing our device info.
+    pub fn clear_server_local_device_info(&mut self) {
+        self.persisted_state.server_local_device_info = None
     }
 
     pub fn get_commands_data(&self, key: &str) -> Option<&str> {
@@ -157,21 +169,61 @@ impl StateManager {
     ) {
         // When our keys change, we might need to re-register device capabilities with the server.
         // Ensure that this happens on the next call to ensure_capabilities.
-        self.persisted_state.device_capabilities.clear();
+        self.clear_server_local_device_info();
 
         for (scope, key) in scoped_keys {
             self.persisted_state.scoped_keys.insert(scope, key);
         }
         self.persisted_state.refresh_token = Some(refresh_token);
         self.persisted_state.session_token = session_token;
+        self.persisted_state.logged_out_from_auth_issues = false;
         self.flow_store.clear();
     }
 
     /// Called when the account is disconnected.  This clears most of the auth state, but keeps
     /// some information in order to eventually reconnect to the same user account later.
     pub fn disconnect(&mut self) {
-        self.persisted_state = self.persisted_state.start_over();
+        self.persisted_state.current_device_id = None;
+        self.persisted_state.refresh_token = None;
+        self.persisted_state.scoped_keys = HashMap::new();
+        self.persisted_state.last_handled_command = None;
+        self.persisted_state.commands_data = HashMap::new();
+        self.persisted_state.access_token_cache = HashMap::new();
+        self.persisted_state.device_capabilities = HashSet::new();
+        self.persisted_state.server_local_device_info = None;
+        self.persisted_state.session_token = None;
+        self.persisted_state.logged_out_from_auth_issues = false;
         self.flow_store.clear();
+    }
+
+    /// Called when we notice authentication issues with the account state.
+    ///
+    /// This clears the auth state, but leaves some fields untouched. That way, if the user
+    /// re-authenticates they can continue using the account without unexpected behavior.  The
+    /// fields that don't change compared to `disconnect()` are:
+    ///
+    ///   * `current_device_id`
+    ///   * `device_capabilities`
+    ///   * `last_handled_command`
+    pub fn on_auth_issues(&mut self) {
+        self.persisted_state.refresh_token = None;
+        self.persisted_state.scoped_keys = HashMap::new();
+        self.persisted_state.commands_data = HashMap::new();
+        self.persisted_state.access_token_cache = HashMap::new();
+        self.persisted_state.server_local_device_info = None;
+        self.persisted_state.session_token = None;
+        self.persisted_state.logged_out_from_auth_issues = true;
+        self.flow_store.clear();
+    }
+
+    pub fn get_auth_state(&self) -> FxaRustAuthState {
+        if self.persisted_state.refresh_token.is_some() {
+            FxaRustAuthState::Connected
+        } else if self.persisted_state.logged_out_from_auth_issues {
+            FxaRustAuthState::AuthIssues
+        } else {
+            FxaRustAuthState::Disconnected
+        }
     }
 
     /// Handle the auth tokens changing
@@ -182,7 +234,20 @@ impl StateManager {
         self.persisted_state.session_token = Some(session_token);
         self.persisted_state.refresh_token = Some(refresh_token);
         self.persisted_state.access_token_cache.clear();
-        self.persisted_state.device_capabilities.clear();
+        self.persisted_state.server_local_device_info = None;
+    }
+
+    pub fn simulate_temporary_auth_token_issue(&mut self) {
+        for (_, access_token) in self.persisted_state.access_token_cache.iter_mut() {
+            access_token.token = "invalid-data".to_owned()
+        }
+    }
+
+    /// Used by the application to test auth token issues
+    pub fn simulate_permanent_auth_token_issue(&mut self) {
+        self.persisted_state.session_token = None;
+        self.persisted_state.refresh_token = None;
+        self.persisted_state.access_token_cache.clear();
     }
 }
 

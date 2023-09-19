@@ -46,7 +46,10 @@ impl FirefoxAccount {
         }
         if let Some(oauth_info) = self.state.get_cached_access_token(scope) {
             if oauth_info.expires_at > util::now_secs() + OAUTH_MIN_TIME_LEFT {
-                return Ok(oauth_info.clone());
+                // If the cached key is missing the required sync scoped key, try to fetch it again
+                if oauth_info.check_missing_sync_scoped_key().is_ok() {
+                    return Ok(oauth_info.clone());
+                }
             }
         }
         let resp = match self.state.refresh_token() {
@@ -83,6 +86,7 @@ impl FirefoxAccount {
         };
         self.state
             .add_cached_access_token(scope, token_info.clone());
+        token_info.check_missing_sync_scoped_key()?;
         Ok(token_info)
     }
 
@@ -548,6 +552,16 @@ pub struct AccessTokenInfo {
     pub token: String,
     pub key: Option<ScopedKey>,
     pub expires_at: u64, // seconds since epoch
+}
+
+impl AccessTokenInfo {
+    pub fn check_missing_sync_scoped_key(&self) -> Result<()> {
+        if self.scope == scopes::OLD_SYNC && self.key.is_none() {
+            Err(Error::SyncScopedKeyMissingInServerResponse)
+        } else {
+            Ok(())
+        }
+    }
 }
 
 impl TryFrom<AccessTokenInfo> for crate::AccessTokenInfo {

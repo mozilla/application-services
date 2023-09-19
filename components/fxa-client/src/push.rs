@@ -2,8 +2,10 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-use crate::{internal, ApiResult, Device, Error, FirefoxAccount};
 use error_support::handle_error;
+use serde::{Deserialize, Serialize};
+
+use crate::{internal, ApiResult, Device, Error, FirefoxAccount, LocalDevice};
 
 impl FirefoxAccount {
     /// Set or update a push subscription endpoint for this device.
@@ -25,7 +27,10 @@ impl FirefoxAccount {
     ///    - Device registration is only available to applications that have been
     ///      granted the `https://identity.mozilla.com/apps/oldsync` scope.
     #[handle_error(Error)]
-    pub fn set_push_subscription(&self, subscription: DevicePushSubscription) -> ApiResult<()> {
+    pub fn set_push_subscription(
+        &self,
+        subscription: DevicePushSubscription,
+    ) -> ApiResult<LocalDevice> {
         self.internal
             .lock()
             .set_push_subscription(subscription.into())
@@ -106,7 +111,7 @@ impl FirefoxAccount {
 ///
 /// Managing a web-push subscription is outside of the scope of this component.
 ///
-#[derive(Debug)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct DevicePushSubscription {
     pub endpoint: String,
     pub public_key: String,

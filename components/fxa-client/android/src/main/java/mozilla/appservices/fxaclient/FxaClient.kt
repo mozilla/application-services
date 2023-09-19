@@ -9,7 +9,7 @@ import mozilla.appservices.sync15.DeviceType
 import org.mozilla.appservices.fxaclient.GleanMetrics.FxaClient as FxaClientMetrics
 
 /**
- * PersistedFirefoxAccount represents the authentication state of a client.
+ * FxaClient represents the authentication state of a client.
  *
  * This is a thin wrapper around the `FirefoxAccount` object exposed from Rust.
  * Its main job is to transparently manage persistence of the account state by
@@ -19,18 +19,18 @@ import org.mozilla.appservices.fxaclient.GleanMetrics.FxaClient as FxaClientMetr
  * once UniFFI's support for callback interfaces is a little more battle-tested.
  *
  */
-class PersistedFirefoxAccount(inner: FirefoxAccount, persistCallback: PersistCallback?) : AutoCloseable {
+class FxaClient(inner: FirefoxAccount, persistCallback: PersistCallback?) : AutoCloseable {
     private var inner: FirefoxAccount = inner
     private var persistCallback: PersistCallback? = persistCallback
 
     /**
-     * Create a PersistedFirefoxAccount using the given config.
+     * Create a FxaClient using the given config.
      *
      * This does not make network requests, and can be used on the main thread.
      *
      */
-    constructor(config: Config, persistCallback: PersistCallback? = null) : this(
-        FirefoxAccount(config.intoRustConfig()),
+    constructor(config: FxaConfig, persistCallback: PersistCallback? = null) : this(
+        FirefoxAccount(config),
         persistCallback,
     ) {
         // Persist the newly created instance state.
@@ -40,14 +40,14 @@ class PersistedFirefoxAccount(inner: FirefoxAccount, persistCallback: PersistCal
     companion object {
         /**
          * Restores the account's authentication state from a JSON string produced by
-         * [PersistedFirefoxAccount.toJSONString].
+         * [FxaClient.toJSONString].
          *
          * This does not make network requests, and can be used on the main thread.
          *
-         * @return [PersistedFirefoxAccount] representing the authentication state
+         * @return [FxaClient] representing the authentication state
          */
-        fun fromJSONString(json: String, persistCallback: PersistCallback? = null): PersistedFirefoxAccount {
-            return PersistedFirefoxAccount(FirefoxAccount.fromJson(json), persistCallback)
+        fun fromJSONString(json: String, persistCallback: PersistCallback? = null): FxaClient {
+            return FxaClient(FirefoxAccount.fromJson(json), persistCallback)
         }
     }
 

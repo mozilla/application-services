@@ -28,6 +28,11 @@ use error_support::handle_error;
 use std::collections::HashMap;
 
 impl FirefoxAccount {
+    /// Get the high-level authentication state of the client
+    pub fn get_auth_state(&self) -> FxaRustAuthState {
+        self.internal.lock().get_auth_state()
+    }
+
     /// Initiate a web-based OAuth sign-in flow.
     ///
     /// This method initializes some internal state and then returns a URL at which the
@@ -158,6 +163,26 @@ impl FirefoxAccount {
     pub fn disconnect(&self) {
         self.internal.lock().disconnect()
     }
+
+    /// Update the state based on authentication issues.
+    ///
+    /// **💾 This method alters the persisted account state.**
+    ///
+    /// Call this if you know there's an authentication / authorization issue that requires the
+    /// user to re-authenticated.  It transitions the user to the [FxaRustAuthState.AuthIssues] state.
+    pub fn on_auth_issues(&self) {
+        self.internal.lock().on_auth_issues()
+    }
+
+    /// Used by the application to test auth token issues
+    pub fn simulate_temporary_auth_token_issue(&self) {
+        self.internal.lock().simulate_temporary_auth_token_issue()
+    }
+
+    /// Used by the application to test auth token issues
+    pub fn simulate_permanent_auth_token_issue(&self) {
+        self.internal.lock().simulate_permanent_auth_token_issue()
+    }
 }
 
 /// Information about the authorization state of the application.
@@ -171,4 +196,19 @@ pub struct AuthorizationInfo {
 /// Additional metrics tracking parameters to include in an OAuth request.
 pub struct MetricsParams {
     pub parameters: HashMap<String, String>,
+}
+
+/// High-level view of the authorization state
+///
+/// This is named `FxaRustAuthState` because it doesn't track all the states we want yet and needs
+/// help from the wrapper code.  The wrapper code defines the actual `FxaAuthState` type based on
+/// this, adding the extra data.
+///
+/// In the long-term, we should track that data in Rust, remove the wrapper, and rename this to
+/// `FxaAuthState`.
+#[derive(Debug, PartialEq, Eq)]
+pub enum FxaRustAuthState {
+    Disconnected,
+    Connected,
+    AuthIssues,
 }

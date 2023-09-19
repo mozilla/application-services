@@ -75,6 +75,9 @@ enum FxaError {
   // **Note:** This error is currently only thrown in the Swift language bindings.
   "WrongAuthFlow",
 
+  // The sync scoped key was missing in the server response
+  "SyncScopedKeyMissingInServerResponse",
+
   // Thrown if there is a panic in the underlying Rust code.
   //
   // **Note:** This error is currently only thrown in the Kotlin language bindings.
@@ -243,7 +246,17 @@ interface FirefoxAccount {
   // is not desired then the application should discard the persisted account state.
   //
   void disconnect();
-  
+
+  // Update the state based on authentication issues.
+  //
+  // **💾 This method alters the persisted account state.**
+  //
+  // Call this if you know there's an authentication / authorization issue that requires the
+  // user to re-authenticated.  It transitions the user to the [FxaRustAuthState.AuthIssues] state.
+  void on_auth_issues();
+
+  // Get the high-level authentication state of the client
+  FxaRustAuthState get_auth_state();
 
   // Get profile information for the signed-in user, if any.
   //
@@ -295,7 +308,7 @@ interface FirefoxAccount {
   //      granted the `https://identity.mozilla.com/apps/oldsync` scope.
   //
   [Throws=FxaError]
-  void initialize_device([ByRef] string name,  DeviceType device_type,  sequence<DeviceCapability> supported_capabilities );
+  LocalDevice initialize_device([ByRef] string name,  DeviceType device_type,  sequence<DeviceCapability> supported_capabilities );
   
 
   // Get the device id registered for this application.
@@ -370,7 +383,7 @@ interface FirefoxAccount {
   //      granted the `https://identity.mozilla.com/apps/oldsync` scope.
   //
   [Throws=FxaError]
-  void set_device_name([ByRef] string display_name );
+  LocalDevice set_device_name([ByRef] string display_name );
   
 
   // Clear any custom display name used for this application instance.
@@ -413,7 +426,7 @@ interface FirefoxAccount {
   //      granted the `https://identity.mozilla.com/apps/oldsync` scope.
   //
   [Throws=FxaError]
-  void ensure_capabilities( sequence<DeviceCapability> supported_capabilities );
+  LocalDevice ensure_capabilities( sequence<DeviceCapability> supported_capabilities );
   
 
   // Set or update a push subscription endpoint for this device.
@@ -436,7 +449,7 @@ interface FirefoxAccount {
   //      granted the `https://identity.mozilla.com/apps/oldsync` scope.
   //
   [Throws=FxaError]
-  void set_push_subscription( DevicePushSubscription subscription );
+  LocalDevice set_push_subscription( DevicePushSubscription subscription );
 
 
   // Process and respond to a server-delivered account update message
@@ -577,8 +590,7 @@ interface FirefoxAccount {
   //      before requesting a fresh token.
   //
   [Throws=FxaError]
-  AccessTokenInfo get_access_token([ByRef] string scope,  i64? ttl );
-  
+  AccessTokenInfo get_access_token([ByRef] string scope,  optional i64? ttl = null);
 
   // Get the session token for the user's account, if one is available.
   //
@@ -656,6 +668,12 @@ interface FirefoxAccount {
   //
   [Throws=FxaError]
   string gather_telemetry();
+
+  // Used by the application to test auth token issues
+  void simulate_temporary_auth_token_issue();
+
+  // Used by the application to test auth token issues
+  void simulate_permanent_auth_token_issue();
 };
 
 dictionary FxaConfig {
@@ -667,7 +685,7 @@ dictionary FxaConfig {
     string redirect_uri;
     //  URL for the user's Sync Tokenserver. This can be used to support users who self-host their
     //  sync data. If `None` then it will default to the Mozilla-hosted Sync server.
-    string? token_server_url_override;
+    string? token_server_url_override = null;
 };
 
 // FxA server to connect to
@@ -794,6 +812,19 @@ dictionary Device {
   i64? last_access_time;
 };
 
+// Local device that's connecting to FxA
+//
+// This is returned by the device update methods and represents the server's view of the local
+// device.
+dictionary LocalDevice {
+  string id;
+  string display_name;
+  DeviceType device_type;
+  sequence<DeviceCapability> capabilities;
+  DevicePushSubscription? push_subscription;
+  boolean push_endpoint_expired;
+};
+
 // Details of a web-push subscription endpoint.
 //
 // This struct encapsulates the details of a web-push subscription endpoint,
@@ -889,6 +920,12 @@ dictionary Profile {
 
   // Whether the `avatar` URL represents the default avatar image.
   boolean is_default_avatar;
+};
+
+enum FxaRustAuthState {
+  "Disconnected",
+  "Connected",
+  "AuthIssues",
 };
 
 // A "capability" offered by a device.

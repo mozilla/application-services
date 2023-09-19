@@ -4,6 +4,16 @@
 
 # v120.0 (_2023-10-23_)
 
+## FxA-Client
+
+### 🦊 What's Changed 🦊
+
+- Added the `LocalDevice` struct, tracks the server's knowledge of the local device.  Many
+  device-related methods now return this.
+- Check for missing sync scoped keys and return an error if they're not present
+- Began implementing functionality to track the authorization state
+- Added methods to simulate auth errors
+
 ## Nimbus SDK ⛅️🔬🔭
 
 ### ✨ What's New ✨
