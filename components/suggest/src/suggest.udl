@@ -27,7 +27,7 @@ interface Suggestion {
     Amp(
         string title,
         string url,
-        string? raw_url,
+        string raw_url,
         sequence<u8>? icon,
         string full_keyword,
         i64 block_id,
@@ -35,7 +35,7 @@ interface Suggestion {
         string iab_category,
         string impression_url,
         string click_url,
-        string? raw_click_url
+        string raw_click_url
     );
     Wikipedia(
         string title,

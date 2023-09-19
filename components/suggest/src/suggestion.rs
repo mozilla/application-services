@@ -3,9 +3,7 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
  */
 
-use std::fmt::Write;
-
-use chrono::{Datelike, Local, Timelike};
+use chrono::Local;
 
 /// The template parameter for a timestamp in a "raw" sponsored suggestion URL.
 const TIMESTAMP_TEMPLATE: &str = "%YYYYMMDDHH%";
@@ -22,7 +20,7 @@ pub enum Suggestion {
     Amp {
         title: String,
         url: String,
-        raw_url: Option<String>,
+        raw_url: String,
         icon: Option<Vec<u8>>,
         full_keyword: String,
         block_id: i64,
@@ -30,7 +28,7 @@ pub enum Suggestion {
         iab_category: String,
         impression_url: String,
         click_url: String,
-        raw_click_url: Option<String>,
+        raw_click_url: String,
     },
     Wikipedia {
         title: String,
@@ -48,30 +46,11 @@ impl Suggestion {
 }
 
 /// Replaces all template parameters in a "raw" sponsored suggestion URL,
-/// producing a "cooked" URL with real values. Returns `None` if the raw
-/// URL doesn't contain any template parameters.
-pub(crate) fn cook_raw_suggestion_url(raw_url: &str) -> Option<String> {
-    let now = Local::now();
-    let mut cooked_url = String::new();
-    let mut last_index = 0;
-    for (index, _) in raw_url.match_indices(TIMESTAMP_TEMPLATE) {
-        cooked_url.push_str(&raw_url[last_index..index]);
-        write!(
-            &mut cooked_url,
-            "{:04}{:02}{:02}{:02}",
-            now.year(),
-            now.month(),
-            now.day(),
-            now.hour()
-        )
-        .expect("Failed to replace timestamp template parameter");
-        last_index = index + TIMESTAMP_TEMPLATE.len();
-    }
-    if cooked_url.is_empty() {
-        return None;
-    }
-    cooked_url.push_str(&raw_url[last_index..]);
-    Some(cooked_url)
+/// producing a "cooked" URL with real values.
+pub(crate) fn cook_raw_suggestion_url(raw_url: &str) -> String {
+    let replacement = Local::now().format("%Y%m%d%H").to_string();
+    debug_assert!(replacement.len() == TIMESTAMP_LENGTH);
+    raw_url.replace(TIMESTAMP_TEMPLATE, &replacement)
 }
 
 /// Determines whether a "raw" sponsored suggestion URL is equivalent to a
@@ -119,8 +98,7 @@ mod tests {
     #[test]
     fn cook_url_with_template_parameters() {
         let raw_url_with_one_timestamp = "https://example.com?a=%YYYYMMDDHH%";
-        let cooked_url_with_one_timestamp = cook_raw_suggestion_url(raw_url_with_one_timestamp)
-            .expect("Should cook URL with 1 timestamp template parameter");
+        let cooked_url_with_one_timestamp = cook_raw_suggestion_url(raw_url_with_one_timestamp);
         assert_eq!(
             cooked_url_with_one_timestamp.len(),
             raw_url_with_one_timestamp.len() - 2
@@ -129,8 +107,7 @@ mod tests {
 
         let raw_url_with_trailing_segment = "https://example.com?a=%YYYYMMDDHH%&b=c";
         let cooked_url_with_trailing_segment =
-            cook_raw_suggestion_url(raw_url_with_trailing_segment)
-                .expect("Should cook URL with 1 parameter and trailing segment");
+            cook_raw_suggestion_url(raw_url_with_trailing_segment);
         assert_eq!(
             cooked_url_with_trailing_segment.len(),
             raw_url_with_trailing_segment.len() - 2
@@ -141,8 +118,7 @@ mod tests {
         );
 
         let raw_url_with_two_timestamps = "https://example.com?a=%YYYYMMDDHH%&b=%YYYYMMDDHH%";
-        let cooked_url_with_two_timestamps = cook_raw_suggestion_url(raw_url_with_two_timestamps)
-            .expect("Should cook URL with 2 timestamp template parameters");
+        let cooked_url_with_two_timestamps = cook_raw_suggestion_url(raw_url_with_two_timestamps);
         assert_eq!(
             cooked_url_with_two_timestamps.len(),
             raw_url_with_two_timestamps.len() - 4
@@ -152,7 +128,10 @@ mod tests {
 
     #[test]
     fn cook_url_without_template_parameters() {
-        assert!(cook_raw_suggestion_url("http://example.com/123").is_none());
+        assert_eq!(
+            cook_raw_suggestion_url("http://example.com/123"),
+            "http://example.com/123"
+        );
     }
 
     #[test]
