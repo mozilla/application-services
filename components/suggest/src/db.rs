@@ -168,21 +168,13 @@ impl<'a> SuggestDao<'a> {
                                     advertiser: row.get("advertiser")?,
                                     iab_category: row.get("iab_category")?,
                                     title,
-                                    // If we have a cooked URL, use it; if not,
-                                    // fall back to the raw URL.
-                                    url: cooked_url.clone().unwrap_or_else(|| raw_url.clone()),
-                                    // Only include the raw URL if we have a
-                                    // cooked URL. Otherwise, `raw_url` would be
-                                    // the same as `url`, and there's no need to
-                                    // include it twice.
-                                    raw_url: cooked_url.map(|_| raw_url),
+                                    url: cooked_url,
+                                    raw_url,
                                     full_keyword: full_keyword(keyword, &keywords),
                                     icon: row.get("icon")?,
                                     impression_url: row.get("impression_url")?,
-                                    // We handle `{raw_}click_url` the same way
-                                    // as `{raw_}url`.
-                                    click_url: cooked_click_url.clone().unwrap_or_else(|| raw_click_url.clone()),
-                                    raw_click_url: cooked_click_url.map(|_| raw_click_url)
+                                    click_url: cooked_click_url,
+                                    raw_click_url,
                                 })
                             }
                         )
