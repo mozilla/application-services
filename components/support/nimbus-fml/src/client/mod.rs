@@ -2,11 +2,13 @@
 * License, v. 2.0. If a copy of the MPL was not distributed with this
 * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
+mod config;
 mod descriptor;
 mod inspector;
 #[cfg(test)]
 mod test_helper;
 
+pub use config::FmlLoaderConfig;
 pub use descriptor::FmlFeatureDescriptor;
 pub use inspector::{FmlEditorError, FmlFeatureInspector};
 use serde_json::Value;
@@ -48,20 +50,56 @@ impl FmlClient {
     /// - `manifest_path`: The path (relative to the current working directory) to the fml.yml that should be loaded.
     /// - `channel`: The channel that should be loaded for the manifest.
     pub fn new(manifest_path: String, channel: String) -> Result<Self> {
-        let files = FileLoader::new(
-            std::env::current_dir().expect("Current Working Directory is not set"),
-            None,
-            Default::default(),
-        )?;
+        Self::new_with_ref(manifest_path, channel, None)
+    }
+
+    pub fn new_with_ref(
+        manifest_path: String,
+        channel: String,
+        ref_: Option<String>,
+    ) -> Result<Self> {
+        let config = Self::create_loader(&manifest_path, ref_.as_deref());
+        Self::new_with_config(manifest_path, channel, config)
+    }
+
+    pub fn new_with_config(
+        manifest_path: String,
+        channel: String,
+        config: FmlLoaderConfig,
+    ) -> Result<Self> {
+        let config: LoaderConfig = config.into();
+        let files = FileLoader::try_from(&config)?;
         let path = files.file_path(&manifest_path)?;
         let parser: Parser = Parser::new(files, path)?;
         let ir = parser.get_intermediate_representation(&channel)?;
-        ir.validate_manifest();
+        ir.validate_manifest()?;
 
         Ok(FmlClient {
             default_json: get_default_json_for_manifest(&ir)?,
             manifest: Arc::new(ir),
         })
+    }
+
+    #[cfg(test)]
+    pub fn new_from_manifest(manifest: FeatureManifest) -> Self {
+        manifest.validate_manifest().ok();
+        Self {
+            default_json: get_default_json_for_manifest(&manifest).ok().unwrap(),
+            manifest: Arc::new(manifest),
+        }
+    }
+
+    fn create_loader(manifest_path: &str, ref_: Option<&str>) -> FmlLoaderConfig {
+        let mut refs: HashMap<_, _> = Default::default();
+        match (LoaderConfig::repo_and_path(manifest_path), ref_) {
+            (Some((repo, _)), Some(ref_)) => refs.insert(repo, ref_.to_string()),
+            _ => None,
+        };
+
+        FmlLoaderConfig {
+            refs,
+            ..Default::default()
+        }
     }
 
     /// Validates a supplied feature configuration. Returns true or an FMLError.
@@ -136,20 +174,10 @@ uniffi::include_scaffolding!("fml");
 mod unit_tests {
     use super::*;
     use crate::intermediate_representation::{
-        unit_tests::get_feature_manifest, FeatureDef, ModuleId, PropDef,
+        unit_tests::get_feature_manifest, FeatureDef, ModuleId, PropDef, TypeRef,
     };
     use serde_json::{json, Map, Number, Value};
     use std::collections::HashMap;
-
-    impl From<FeatureManifest> for FmlClient {
-        fn from(manifest: FeatureManifest) -> Self {
-            manifest.validate_manifest().ok();
-            FmlClient {
-                default_json: get_default_json_for_manifest(&manifest).ok().unwrap(),
-                manifest: Arc::new(manifest),
-            }
-        }
-    }
 
     fn create_manifest() -> FeatureManifest {
         let fm_i = get_feature_manifest(
@@ -256,44 +284,6 @@ mod unit_tests {
         let result = client.get_coenrolling_feature_ids();
 
         assert_eq!(result.unwrap(), vec!["feature"]);
-
-        Ok(())
-    }
-
-    #[test]
-    fn test_feature_ids() -> Result<()> {
-        let client: FmlClient = create_manifest().into();
-        let result = client.get_feature_ids();
-
-        assert_eq!(result, vec!["feature", "feature_i"]);
-        Ok(())
-    }
-
-    #[test]
-    fn test_get_feature() -> Result<()> {
-        let client: FmlClient = create_manifest().into();
-
-        let result = client.get_feature_descriptor("feature".to_string());
-        assert!(result.is_some());
-        assert_eq!(
-            result.unwrap(),
-            FmlFeatureDescriptor {
-                id: "feature".to_string(),
-                description: "feature description".to_string(),
-                is_coenrolling: true
-            }
-        );
-
-        let result = client.get_feature_descriptor("feature_i".to_string());
-        assert!(result.is_some());
-        assert_eq!(
-            result.unwrap(),
-            FmlFeatureDescriptor {
-                id: "feature_i".to_string(),
-                description: "feature_i description".to_string(),
-                is_coenrolling: false
-            }
-        );
 
         Ok(())
     }
