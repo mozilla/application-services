@@ -1,5 +1,8 @@
 namespace fml {};
 
+[Custom]
+typedef string JsonObject;
+
 [Error]
 enum FMLError {
     "IOError", "JSONError", "YAMLError", "UrlError", "FetchError", "InvalidPath",
@@ -13,8 +16,11 @@ dictionary MergedJsonWithErrors {
     sequence<FMLError> errors;
 };
 
-[Custom]
-typedef string JsonObject;
+dictionary FmlLoaderConfig {
+    string? cache;
+    record<DOMString, string> refs;
+    sequence<string> ref_files;
+};
 
 interface FmlClient {
     // Constructs a new FmlClient object.
@@ -24,6 +30,12 @@ interface FmlClient {
     // - `channel`: The channel that should be loaded for the manifest.
     [Throws=FMLError]
     constructor(string manifest, string channel);
+
+    [Name=new_with_ref, Throws=FMLError]
+    constructor(string manifest, string channel, string? ref_);
+
+    [Name=new_with_config, Throws=FMLError]
+    constructor(string manifest, string channel, FmlLoaderConfig config);
 
     // Validates a supplied feature configuration. Returns true or an FMLError.
     [Throws=FMLError]
