@@ -5,6 +5,18 @@
 from collections import namedtuple
 from taskgraph.transforms.base import TransformSequence
 
+LINUX_BUILD_TARGETS = (
+    'aarch64-unknown-linux-gnu',
+    'x86_64-unknown-linux-gnu',
+    'x86_64-unknown-linux-musl',
+    'x86_64-pc-windows-gnu',
+)
+
+MAC_BUILD_TARGETS = (
+    'x86_64-apple-darwin',
+    'aarch64-apple-darwin',
+)
+
 # Transform for the nimbus-build tasks
 build = TransformSequence()
 
@@ -13,20 +25,25 @@ def setup_build_tasks(config, tasks):
     for task in tasks:
         binary = task['attributes']['binary']
         target = task['attributes']['target']
-        if target in ('x86_64-unknown-linux-gnu', 'x86_64-unknown-linux-musl', 'x86_64-pc-windows-gnu'):
+        if target in LINUX_BUILD_TARGETS:
             setup_linux_build_task(task, target, binary)
-        elif target in ('x86_64-apple-darwin', 'aarch64-apple-darwin'):
+        elif target in MAC_BUILD_TARGETS:
             setup_mac_build_task(task, target, binary)
         else:
             raise ValueError(f"Unknown target for nimbus build task: {target}")
         yield task
 
 def setup_linux_build_task(task, target, binary):
+    docker_image = 'linux'
+
+    if target in ('aarch64-unknown-linux-gnu', 'x86_64-unknown-linux-gnu'):
+        docker_image = 'linux2004'
+
     task['description'] = f'Build {binary} ({target})'
     task['worker-type'] = 'b-linux'
     task['worker'] = {
         'max-run-time': 1800,
-        'docker-image': { 'in-tree': 'linux' },
+        'docker-image': { 'in-tree': docker_image },
         'artifacts': [
             {
                 'name': f'public/build/{binary}-{target}.zip',

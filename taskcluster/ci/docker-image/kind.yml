@@ -12,3 +12,4 @@ transforms:
 
 tasks:
     linux: {}
+    linux2004: {}

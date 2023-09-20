@@ -14,9 +14,15 @@ def main():
     os.makedirs(args.out_dir, exist_ok=True)
     filename = f'{binary}.exe' if '-windows-' in target else binary
 
+    env = os.environ
+
+    if target == 'aarch64-unknown-linux-gnu':
+        env = os.environ.copy()
+        env['RUSTFLAGS'] = '-C linker=aarch64-linux-gnu-gcc'
+
     subprocess.check_call([
         'cargo', 'build', '--bin', binary, '--release', '--target', target,
-    ])
+    ], env=env)
     subprocess.check_call([
         'zip', '-r', f'../build/{binary}-{target}.zip',
         pathlib.Path(target).joinpath('release', filename),

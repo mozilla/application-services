@@ -23,9 +23,14 @@ task-defaults:
     - project:releng:services/tooltool/api/download/internal
 
 tasks:
-  fml-linux:
+  fml-linux-x86_64-musl:
     attributes:
       target: x86_64-unknown-linux-musl
+      binary: nimbus-fml
+
+  fml-linux-aarch64-gnu:
+    attributes:
+      target: aarch64-unknown-linux-gnu
       binary: nimbus-fml
 
   fml-windows:
@@ -43,12 +48,17 @@ tasks:
       target: aarch64-apple-darwin
       binary: nimbus-fml
 
-  cli-linux-gnu:
+  cli-linux-aarch64-gnu:
+    attributes:
+      target: aarch64-unknown-linux-gnu
+      binary: nimbus-cli
+
+  cli-linux-x86_64-gnu:
     attributes:
       target: x86_64-unknown-linux-gnu
       binary: nimbus-cli
 
-  cli-linux-musl:
+  cli-linux-x86_64-musl:
     attributes:
       target: x86_64-unknown-linux-musl
       binary: nimbus-cli
