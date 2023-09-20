@@ -20,6 +20,7 @@ interface SuggestApiError {
 enum SuggestionProvider {
     "Amp",
     "Wikipedia",
+    "Amo",
 };
 
 [Enum]
@@ -42,6 +43,16 @@ interface Suggestion {
         string url,
         sequence<u8>? icon,
         string full_keyword
+    );
+    Amo(
+        string title,
+        string url,
+        string icon_url,
+        string description,
+        string? rating,
+        i64 number_of_ratings,
+        string guid,
+        f64 score
     );
 };
 

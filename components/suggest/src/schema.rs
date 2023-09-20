@@ -6,7 +6,7 @@
 use rusqlite::{Connection, Transaction};
 use sql_support::open_database::{self, ConnectionInitializer};
 
-pub const VERSION: u32 = 4;
+pub const VERSION: u32 = 5;
 
 pub const SQL: &str = "
     CREATE TABLE meta(
@@ -48,6 +48,18 @@ pub const SQL: &str = "
         icon_id TEXT NOT NULL
     );
 
+    CREATE TABLE amo_custom_details(
+        suggestion_id INTEGER PRIMARY KEY,
+        description TEXT NOT NULL,
+        guid TEXT NOT NULL,
+        icon_url TEXT NOT NULL,
+        rating TEXT,
+        number_of_ratings INTEGER NOT NULL,
+        score REAL NOT NULL,
+        FOREIGN KEY(suggestion_id) REFERENCES suggestions(id)
+        ON DELETE CASCADE
+    );
+
     CREATE INDEX suggestions_record_id ON suggestions(record_id);
 
     CREATE TABLE icons(
@@ -84,7 +96,7 @@ impl ConnectionInitializer for SuggestConnectionInitializer {
 
     fn upgrade_from(&self, _db: &Transaction<'_>, version: u32) -> open_database::Result<()> {
         match version {
-            1..=3 => {
+            1..=4 => {
                 // These schema versions were used during development, and never
                 // shipped in any applications. Treat these databases as
                 // corrupt, so that they'll be replaced.

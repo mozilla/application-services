@@ -15,7 +15,7 @@ const TIMESTAMP_TEMPLATE: &str = "%YYYYMMDDHH%";
 const TIMESTAMP_LENGTH: usize = 10;
 
 /// A suggestion from the database to show in the address bar.
-#[derive(Clone, Debug, Eq, Hash, PartialEq)]
+#[derive(Clone, Debug, PartialEq)]
 pub enum Suggestion {
     Amp {
         title: String,
@@ -35,6 +35,16 @@ pub enum Suggestion {
         url: String,
         icon: Option<Vec<u8>>,
         full_keyword: String,
+    },
+    Amo {
+        title: String,
+        url: String,
+        icon_url: String,
+        description: String,
+        rating: Option<String>,
+        number_of_ratings: i64,
+        guid: String,
+        score: f64,
     },
 }
 
