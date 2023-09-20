@@ -14,6 +14,7 @@ use rusqlite::{
 };
 use sql_support::{open_database::open_database_with_flags, ConnExt};
 
+use crate::rs::DownloadedAmoSuggestion;
 use crate::{
     keyword::full_keyword,
     provider::SuggestionProvider,
@@ -197,9 +198,115 @@ impl<'a> SuggestDao<'a> {
                             icon,
                         })
                     }
+                    SuggestionProvider::Amo => {
+                        self.conn.query_row_and_then(
+                            "SELECT amo.description, amo.guid, amo.rating, amo.icon_url, amo.number_of_ratings, amo.score
+                             FROM amo_custom_details amo
+                             WHERE amo.suggestion_id = :suggestion_id",
+                            named_params! {
+                                ":suggestion_id": suggestion_id
+                            },
+                            |row| {
+                                    Ok(Suggestion::Amo{
+                                        title,
+                                        url: raw_url,
+                                        icon_url: row.get("icon_url")?,
+                                        description: row.get("description")?,
+                                        rating: row.get("rating")?,
+                                        number_of_ratings: row.get("number_of_ratings")?,
+                                        guid: row.get("guid")?,
+                                        score: row.get("score")?,
+                                    })
+                            })
+                    },
                 }
             },
         )
+    }
+
+    /// Inserts all suggestions from a downloaded AMO attachment into
+    /// the database.
+    pub fn insert_amo_suggestions(
+        &mut self,
+        record_id: &SuggestRecordId,
+        suggestions: &[DownloadedAmoSuggestion],
+    ) -> Result<()> {
+        for suggestion in suggestions {
+            self.scope.err_if_interrupted()?;
+            let suggestion_id: i64 = self.conn.query_row_and_then_cachable(
+                "INSERT INTO suggestions(
+                     record_id,
+                     provider,
+                     title,
+                     url
+                 )
+                 VALUES(
+                     :record_id,
+                     :provider,
+                     :title,
+                     :url
+                 )
+                 RETURNING id
+                 ",
+                named_params! {
+                    ":record_id": record_id.as_str(),
+                    ":provider": SuggestionProvider::Amo,
+                    ":title": suggestion.title,
+                    ":url": suggestion.url,
+                },
+                |row| row.get(0),
+                true,
+            )?;
+            self.conn.execute(
+                "INSERT INTO amo_custom_details(
+                             suggestion_id,
+                             description,
+                             guid,
+                             icon_url,
+                             rating,
+                             number_of_ratings,
+                             score
+                         )
+                         VALUES(
+                             :suggestion_id,
+                             :description,
+                             :guid,
+                             :icon_url,
+                             :rating,
+                             :number_of_ratings,
+                             :score
+                         )",
+                named_params! {
+                    ":suggestion_id": suggestion_id,
+                    ":description": suggestion.description,
+                    ":guid": suggestion.guid,
+                    ":icon_url": suggestion.icon_url,
+                    ":rating": suggestion.rating,
+                    ":number_of_ratings": suggestion.number_of_ratings,
+                    ":score": suggestion.score,
+                },
+            )?;
+            for (index, keyword) in suggestion.keywords.iter().enumerate() {
+                self.conn.execute(
+                    "INSERT INTO keywords(
+                         keyword,
+                         suggestion_id,
+                         rank
+                     )
+                     VALUES(
+                         :keyword,
+                         :suggestion_id,
+                         :rank
+                     )",
+                    named_params! {
+                        ":keyword": keyword,
+                        ":rank": index,
+                        ":suggestion_id": suggestion_id,
+                    },
+                )?;
+            }
+        }
+        Ok(())
     }
 
     /// Inserts all suggestions from a downloaded AMP-Wikipedia attachment into

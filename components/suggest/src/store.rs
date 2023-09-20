@@ -347,6 +347,28 @@ where
                         Ok(())
                     })?;
                 }
+                SuggestRecord::Amo => {
+                    let Some(attachment) = record.attachment.as_ref() else {
+                        writer.write(|dao| dao.put_last_ingest_if_newer(record.last_modified))?;
+                        continue;
+                    };
+
+                    let attachment: SuggestAttachment<_> = serde_json::from_slice(
+                        &self.settings_client.get_attachment(&attachment.location)?,
+                    )?;
+
+                    writer.write(|dao| {
+                        dao.drop_suggestions(&record_id)?;
+
+                        dao.insert_amo_suggestions(&record_id, attachment.suggestions())?;
+
+                        dao.drop_unparsable_record_id(&record_id)?;
+
+                        dao.put_last_ingest_if_newer(record.last_modified)?;
+
+                        Ok(())
+                    })?;
+                }
             }
         }
         Ok(())
@@ -1360,6 +1382,18 @@ mod tests {
                 "hash": "",
                 "size": 0,
             },
+
+        }, {
+            "id": "data-2",
+            "type": "amo-suggestions",
+            "last_modified": 15,
+            "attachment": {
+                "filename": "data-2.json",
+                "mimetype": "application/json",
+                "location": "data-2.json",
+                "hash": "",
+                "size": 0,
+            },
         }, {
             "id": "icon-2",
             "type": "icon",
@@ -1403,6 +1437,20 @@ mod tests {
                 "title": "California",
                 "url": "https://wikipedia.org/California",
                 "icon": "3"
+            }]),
+        )?
+            .with_data(
+                "data-2.json",
+                json!([{
+                "description": "amo suggestion",
+                "url": "https://addons.mozilla.org/en-US/firefox/addon/example",
+                "guid": "{b9db16a4-6edc-47ec-a1f4-b86292ed211d}",
+                "keywords": ["relay", "spam", "masking", "alias"],
+                "title": "Firefox Relay",
+                "icon": "https://addons.mozilla.org/user-media/addon_icons/2633/2633704-64.png?modified=2c11a80b",
+                "rating": "4.9",
+                "number_of_ratings": 888,
+                "score": 0.25
             }]),
         )?
         .with_icon("icon-2.png", "i-am-an-icon".as_bytes().into())
@@ -1592,6 +1640,30 @@ mod tests {
                     []
                 "#]],
             ),
+            (
+                "keyword = `masking`; non-sponsored only",
+                SuggestionQuery {
+                    keyword: "masking".into(),
+                    include_sponsored: false,
+                    include_non_sponsored: true,
+                },
+                expect![[r#"
+                [
+                    Amo {
+                        title: "Firefox Relay",
+                        url: "https://addons.mozilla.org/en-US/firefox/addon/example",
+                        icon_url: "https://addons.mozilla.org/user-media/addon_icons/2633/2633704-64.png?modified=2c11a80b",
+                        description: "amo suggestion",
+                        rating: Some(
+                            "4.9",
+                        ),
+                        number_of_ratings: 888,
+                        guid: "{b9db16a4-6edc-47ec-a1f4-b86292ed211d}",
+                        score: 0.25,
+                    },
+                ]
+                "#]],
+            ),
         ];
         for (what, query, expect) in table {
             expect.assert_debug_eq(
@@ -1682,10 +1754,10 @@ mod tests {
                     UnparsableRecords(
                         {
                             "clippy-2": UnparsableRecord {
-                                schema_version: 4,
+                                schema_version: 5,
                             },
                             "fancy-new-suggestions-1": UnparsableRecord {
-                                schema_version: 4,
+                                schema_version: 5,
                             },
                         },
                     ),
@@ -1750,10 +1822,10 @@ mod tests {
                     UnparsableRecords(
                         {
                             "clippy-2": UnparsableRecord {
-                                schema_version: 4,
+                                schema_version: 5,
                             },
                             "fancy-new-suggestions-1": UnparsableRecord {
-                                schema_version: 4,
+                                schema_version: 5,
                             },
                         },
                     ),
@@ -1856,10 +1928,10 @@ mod tests {
                     UnparsableRecords(
                         {
                             "clippy-2": UnparsableRecord {
-                                schema_version: 4,
+                                schema_version: 5,
                             },
                             "fancy-new-suggestions-1": UnparsableRecord {
-                                schema_version: 4,
+                                schema_version: 5,
                             },
                         },
                     ),
