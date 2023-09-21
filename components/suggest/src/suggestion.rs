@@ -68,7 +68,12 @@ pub fn raw_suggestion_url_matches(raw_url: &str, cooked_url: &str) -> bool {
     ) else {
         return false;
     };
-    raw_url_prefix == cooked_url_prefix && raw_url_suffix == cooked_url_suffix
+    if raw_url_prefix != cooked_url_prefix || raw_url_suffix != cooked_url_suffix {
+        return false;
+    }
+    let maybe_timestamp =
+        &cooked_url[raw_url_prefix.len()..raw_url_prefix.len() + TIMESTAMP_LENGTH];
+    maybe_timestamp.bytes().all(|b| b.is_ascii_digit())
 }
 
 #[cfg(test)]
@@ -146,6 +151,16 @@ mod tests {
         assert!(!raw_suggestion_url_matches(
             raw_url_with_trailing_segment,          // `a&b`.
             "https://example.com?a=5555555555&c=c"  // `a&c`.
+        ));
+
+        // Not a timestamp.
+        assert!(!raw_suggestion_url_matches(
+            raw_url_with_one_timestamp,
+            "https://example.com?a=bcdefghijk"
+        ));
+        assert!(!raw_suggestion_url_matches(
+            raw_url_with_trailing_segment,
+            "https://example.com?a=bcdefghijk&b=c"
         ));
     }
 
