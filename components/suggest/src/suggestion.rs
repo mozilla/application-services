@@ -30,6 +30,12 @@ pub enum Suggestion {
         click_url: String,
         raw_click_url: String,
     },
+    Pocket {
+        title: String,
+        url: String,
+        score: f64,
+        is_top_pick: bool,
+    },
     Wikipedia {
         title: String,
         url: String,

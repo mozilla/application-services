@@ -19,6 +19,7 @@ interface SuggestApiError {
 
 enum SuggestionProvider {
     "Amp",
+    "Pocket",
     "Wikipedia",
     "Amo",
 };
@@ -37,6 +38,12 @@ interface Suggestion {
         string impression_url,
         string click_url,
         string raw_click_url
+    );
+    Pocket(
+        string title,
+        string url,
+        f64 score,
+        boolean is_top_pick
     );
     Wikipedia(
         string title,

@@ -88,6 +88,8 @@ pub(crate) enum SuggestRecord {
     AmpWikipedia,
     #[serde(rename = "amo-suggestions")]
     Amo,
+    #[serde(rename = "pocket-suggestions")]
+    Pocket,
 }
 
 /// Represents either a single value, or a list of values. This is used to
@@ -251,5 +253,16 @@ pub(crate) struct DownloadedAmoSuggestion {
     pub number_of_ratings: i64,
     pub title: String,
     pub keywords: Vec<String>,
+    pub score: f64,
+}
+/// A Pocket suggestion to ingest from a Pocket Suggestion Attachment
+#[derive(Clone, Debug, Deserialize)]
+pub(crate) struct DownloadedPocketSuggestion {
+    pub url: String,
+    pub title: String,
+    #[serde(rename = "lowConfidenceKeywords")]
+    pub low_confidence_keywords: Vec<String>,
+    #[serde(rename = "highConfidenceKeywords")]
+    pub high_confidence_keywords: Vec<String>,
     pub score: f64,
 }

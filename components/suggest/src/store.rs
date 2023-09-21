@@ -16,10 +16,12 @@ use rusqlite::{
     types::{FromSql, ToSqlOutput},
     ToSql,
 };
-use serde::{Deserialize, Serialize};
+use serde::{de::DeserializeOwned, Deserialize, Serialize};
 
 use crate::{
-    db::{ConnectionType, SuggestDb, LAST_INGEST_META_KEY, UNPARSABLE_RECORDS_META_KEY},
+    db::{
+        ConnectionType, SuggestDao, SuggestDb, LAST_INGEST_META_KEY, UNPARSABLE_RECORDS_META_KEY,
+    },
     rs::{
         SuggestAttachment, SuggestRecord, SuggestRecordId, SuggestRemoteSettingsClient,
         REMOTE_SETTINGS_COLLECTION, SUGGESTIONS_PER_ATTACHMENT,
@@ -291,40 +293,13 @@ where
             };
             match fields {
                 SuggestRecord::AmpWikipedia => {
-                    let Some(attachment) = record.attachment.as_ref() else {
-                        // An AMP-Wikipedia record should always have an
-                        // attachment with suggestions. If it doesn't, it's
-                        // malformed, so skip to the next record.
-                        writer.write(|dao| dao.put_last_ingest_if_newer(record.last_modified))?;
-                        continue;
-                    };
-
-                    let attachment: SuggestAttachment<_> = serde_json::from_slice(
-                        &self.settings_client.get_attachment(&attachment.location)?,
+                    self.ingest_suggestions_from_record(
+                        writer,
+                        record,
+                        |dao, record_id, suggestions| {
+                            dao.insert_amp_wikipedia_suggestions(record_id, suggestions)
+                        },
                     )?;
-
-                    writer.write(|dao| {
-                        // Drop any suggestions that we previously ingested from
-                        // this record's attachment. Suggestions don't have a
-                        // stable identifier, and determining which suggestions in
-                        // the attachment actually changed is more complicated than
-                        // dropping and re-ingesting all of them.
-                        dao.drop_suggestions(&record_id)?;
-
-                        // Ingest (or re-ingest) all suggestions in the
-                        // attachment.
-                        dao.insert_amp_wikipedia_suggestions(&record_id, attachment.suggestions())?;
-
-                        // Remove this record's ID from the list of unparsable
-                        // records, since we understand it now.
-                        dao.drop_unparsable_record_id(&record_id)?;
-
-                        // Advance the last fetch time, so that we can resume
-                        // fetching after this record if we're interrupted.
-                        dao.put_last_ingest_if_newer(record.last_modified)?;
-
-                        Ok(())
-                    })?;
                 }
                 SuggestRecord::Icon => {
                     let (Some(icon_id), Some(attachment)) =
@@ -348,30 +323,72 @@ where
                     })?;
                 }
                 SuggestRecord::Amo => {
-                    let Some(attachment) = record.attachment.as_ref() else {
-                        writer.write(|dao| dao.put_last_ingest_if_newer(record.last_modified))?;
-                        continue;
-                    };
-
-                    let attachment: SuggestAttachment<_> = serde_json::from_slice(
-                        &self.settings_client.get_attachment(&attachment.location)?,
+                    self.ingest_suggestions_from_record(
+                        writer,
+                        record,
+                        |dao, record_id, suggestions| {
+                            dao.insert_amo_suggestions(record_id, suggestions)
+                        },
                     )?;
-
-                    writer.write(|dao| {
-                        dao.drop_suggestions(&record_id)?;
-
-                        dao.insert_amo_suggestions(&record_id, attachment.suggestions())?;
-
-                        dao.drop_unparsable_record_id(&record_id)?;
-
-                        dao.put_last_ingest_if_newer(record.last_modified)?;
-
-                        Ok(())
-                    })?;
+                }
+                SuggestRecord::Pocket => {
+                    self.ingest_suggestions_from_record(
+                        writer,
+                        record,
+                        |dao, record_id, suggestions| {
+                            dao.insert_pocket_suggestions(record_id, suggestions)
+                        },
+                    )?;
                 }
             }
         }
         Ok(())
+    }
+
+    fn ingest_suggestions_from_record<T>(
+        &self,
+        writer: &SuggestDb,
+        record: &RemoteSettingsRecord,
+        ingestion_handler: impl FnOnce(&mut SuggestDao<'_>, &SuggestRecordId, &[T]) -> Result<()>,
+    ) -> Result<()>
+    where
+        T: DeserializeOwned,
+    {
+        let record_id = SuggestRecordId::from(&record.id);
+
+        let Some(attachment) = record.attachment.as_ref() else {
+            // A record should always have an
+            // attachment with suggestions. If it doesn't, it's
+            // malformed, so skip to the next record.
+            writer.write(|dao| dao.put_last_ingest_if_newer(record.last_modified))?;
+            return Ok(());
+        };
+
+        let attachment: SuggestAttachment<T> =
+            serde_json::from_slice(&self.settings_client.get_attachment(&attachment.location)?)?;
+
+        writer.write(|dao| {
+            // Drop any suggestions that we previously ingested from
+            // this record's attachment. Suggestions don't have a
+            // stable identifier, and determining which suggestions in
+            // the attachment actually changed is more complicated than
+            // dropping and re-ingesting all of them.
+            dao.drop_suggestions(&record_id)?;
+
+            // Ingest (or re-ingest) all suggestions in the
+            // attachment.
+            ingestion_handler(dao, &record_id, attachment.suggestions())?;
+
+            // Remove this record's ID from the list of unparsable
+            // records, since we understand it now.
+            dao.drop_unparsable_record_id(&record_id)?;
+
+            // Advance the last fetch time, so that we can resume
+            // fetching after this record if we're interrupted.
+            dao.put_last_ingest_if_newer(record.last_modified)?;
+
+            Ok(())
+        })
     }
 }
 
@@ -1395,6 +1412,17 @@ mod tests {
                 "size": 0,
             },
         }, {
+            "id": "data-3",
+            "type": "pocket-suggestions",
+            "last_modified": 15,
+            "attachment": {
+                "filename": "data-3.json",
+                "mimetype": "application/json",
+                "location": "data-3.json",
+                "hash": "",
+                "size": 0,
+            },
+        }, {
             "id": "icon-2",
             "type": "icon",
             "last_modified": 20,
@@ -1450,6 +1478,17 @@ mod tests {
                 "icon": "https://addons.mozilla.org/user-media/addon_icons/2633/2633704-64.png?modified=2c11a80b",
                 "rating": "4.9",
                 "number_of_ratings": 888,
+                "score": 0.25
+            }]),
+        )?
+            .with_data(
+            "data-3.json",
+            json!([{
+                "description": "pocket suggestion",
+                "url": "https://getpocket.com/collections/its-not-just-burnout-how-grind-culture-failed-women",
+                "lowConfidenceKeywords": ["soft life", "workaholism", "toxic work culture", "work-life balance"],
+                "highConfidenceKeywords": ["burnout women", "grind culture", "women burnout"],
+                "title": "‘It’s Not Just Burnout:’ How Grind Culture Fails Women",
                 "score": 0.25
             }]),
         )?
@@ -1664,6 +1703,82 @@ mod tests {
                 ]
                 "#]],
             ),
+            (
+                "keyword = `soft`; non-sponsored only",
+                SuggestionQuery {
+                    keyword: "soft".into(),
+                    include_sponsored: false,
+                    include_non_sponsored: true,
+                },
+                expect![[r#"
+                [
+                    Pocket {
+                        title: "‘It’s Not Just Burnout:’ How Grind Culture Fails Women",
+                        url: "https://getpocket.com/collections/its-not-just-burnout-how-grind-culture-failed-women",
+                        score: 0.25,
+                        is_top_pick: false,
+                    },
+                ]
+                "#]],
+            ),
+            (
+                "keyword = `soft l`; non-sponsored only",
+                SuggestionQuery {
+                    keyword: "soft l".into(),
+                    include_sponsored: false,
+                    include_non_sponsored: true,
+                },
+                expect![[r#"
+                [
+                    Pocket {
+                        title: "‘It’s Not Just Burnout:’ How Grind Culture Fails Women",
+                        url: "https://getpocket.com/collections/its-not-just-burnout-how-grind-culture-failed-women",
+                        score: 0.25,
+                        is_top_pick: false,
+                    },
+                ]
+                "#]],
+            ),
+            (
+                "keyword = `sof`; non-sponsored only",
+                SuggestionQuery {
+                    keyword: "sof".into(),
+                    include_sponsored: false,
+                    include_non_sponsored: true,
+                },
+                expect![[r#"
+                    []
+                "#]],
+            ),
+            (
+                "keyword = `burnout women`; non-sponsored only",
+                SuggestionQuery {
+                    keyword: "burnout women".into(),
+                    include_sponsored: false,
+                    include_non_sponsored: true,
+                },
+                expect![[r#"
+                [
+                    Pocket {
+                        title: "‘It’s Not Just Burnout:’ How Grind Culture Fails Women",
+                        url: "https://getpocket.com/collections/its-not-just-burnout-how-grind-culture-failed-women",
+                        score: 0.25,
+                        is_top_pick: true,
+                    },
+                ]
+                "#]],
+            ),
+            (
+                "keyword = `burnout person`; non-sponsored only",
+                SuggestionQuery {
+                    keyword: "burnout person".into(),
+                    include_sponsored: false,
+                    include_non_sponsored: true,
+                },
+                expect![[r#"
+                []
+                "#]],
+            ),
         ];
         for (what, query, expect) in table {
             expect.assert_debug_eq(
@@ -1754,10 +1869,10 @@ mod tests {
                     UnparsableRecords(
                         {
                             "clippy-2": UnparsableRecord {
-                                schema_version: 5,
+                                schema_version: 6,
                             },
                             "fancy-new-suggestions-1": UnparsableRecord {
-                                schema_version: 5,
+                                schema_version: 6,
                             },
                         },
                     ),
@@ -1822,10 +1937,10 @@ mod tests {
                     UnparsableRecords(
                         {
                             "clippy-2": UnparsableRecord {
-                                schema_version: 5,
+                                schema_version: 6,
                             },
                             "fancy-new-suggestions-1": UnparsableRecord {
-                                schema_version: 5,
+                                schema_version: 6,
                             },
                         },
                     ),
@@ -1928,10 +2043,10 @@ mod tests {
                     UnparsableRecords(
                         {
                             "clippy-2": UnparsableRecord {
-                                schema_version: 5,
+                                schema_version: 6,
                             },
                             "fancy-new-suggestions-1": UnparsableRecord {
-                                schema_version: 5,
+                                schema_version: 6,
                             },
                         },
                     ),
