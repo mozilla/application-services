@@ -14,7 +14,8 @@ use rusqlite::{
 };
 use sql_support::{open_database::open_database_with_flags, ConnExt};
 
-use crate::rs::DownloadedAmoSuggestion;
+use crate::pocket::{split_keyword, KeywordConfidence};
+use crate::rs::{DownloadedAmoSuggestion, DownloadedPocketSuggestion};
 use crate::{
     keyword::full_keyword,
     provider::SuggestionProvider,
@@ -124,16 +125,22 @@ impl<'a> SuggestDao<'a> {
 
     /// Fetches suggestions that match the given keyword from the database.
     pub fn fetch_by_keyword(&self, keyword: &str) -> Result<Vec<Suggestion>> {
-        self.conn.query_rows_and_then_cached(
-            "SELECT s.id, k.rank, s.title, s.url, s.provider
+        let (keyword_prefix, keyword_suffix) = split_keyword(keyword);
+        Ok(self.conn.query_rows_and_then_cached(
+            "SELECT s.id, k.rank, s.title, s.url, s.provider, NULL as confidence, NULL as keyword_suffix
              FROM suggestions s
              JOIN keywords k ON k.suggestion_id = s.id
              WHERE k.keyword = :keyword
-             LIMIT 1",
+             UNION ALL
+             SELECT s.id, k.rank, s.title, s.url, s.provider, k.confidence, k.keyword_suffix
+             FROM suggestions s
+             JOIN pocket_keywords k ON k.suggestion_id = s.id
+             WHERE k.keyword_prefix = :keyword_prefix",
             named_params! {
                 ":keyword": keyword,
+                ":keyword_prefix": keyword_prefix,
             },
-            |row| -> Result<Suggestion>{
+            |row| -> Result<Option<Suggestion>> {
                 let suggestion_id: i64 = row.get("id")?;
                 let title = row.get("title")?;
                 let raw_url = row.get::<_, String>("url")?;
@@ -164,7 +171,7 @@ impl<'a> SuggestDao<'a> {
                                 let cooked_url = cook_raw_suggestion_url(&raw_url);
                                 let raw_click_url = row.get::<_, String>("click_url")?;
                                 let cooked_click_url = cook_raw_suggestion_url(&raw_click_url);
-                                Ok(Suggestion::Amp {
+                                Ok(Some(Suggestion::Amp {
                                     block_id: row.get("block_id")?,
                                     advertiser: row.get("advertiser")?,
                                     iab_category: row.get("iab_category")?,
@@ -176,7 +183,7 @@ impl<'a> SuggestDao<'a> {
                                     impression_url: row.get("impression_url")?,
                                     click_url: cooked_click_url,
                                     raw_click_url,
-                                })
+                                }))
                             }
                         )
                     },
@@ -191,12 +198,12 @@ impl<'a> SuggestDao<'a> {
                             },
                             true,
                         )?;
-                        Ok(Suggestion::Wikipedia {
+                        Ok(Some(Suggestion::Wikipedia {
                             title,
                             url: raw_url,
                             full_keyword: full_keyword(keyword, &keywords),
                             icon,
-                        })
+                        }))
                     }
                     SuggestionProvider::Amo => {
                         self.conn.query_row_and_then(
@@ -207,7 +214,7 @@ impl<'a> SuggestDao<'a> {
                                 ":suggestion_id": suggestion_id
                             },
                             |row| {
-                                    Ok(Suggestion::Amo{
+                                    Ok(Some(Suggestion::Amo{
                                         title,
                                         url: raw_url,
                                         icon_url: row.get("icon_url")?,
@@ -216,12 +223,42 @@ impl<'a> SuggestDao<'a> {
                                         number_of_ratings: row.get("number_of_ratings")?,
                                         guid: row.get("guid")?,
                                         score: row.get("score")?,
-                                    })
+                                    }))
                             })
                     },
+                    SuggestionProvider::Pocket => {
+                        let confidence = row.get("confidence")?;
+                        let suffixes_match = match confidence {
+                            KeywordConfidence::Low => row.get::<_, String>("keyword_suffix")?.starts_with(keyword_suffix),
+                            KeywordConfidence::High => row.get::<_, String>("keyword_suffix")? == keyword_suffix,
+                        };
+                        if suffixes_match {
+                            self.conn.query_row_and_then(
+                                "SELECT p.score
+                                FROM pocket_custom_details p
+                                WHERE p.suggestion_id = :suggestion_id",
+                                named_params! {
+                                    ":suggestion_id": suggestion_id
+                                },
+                                |row| {
+                                    Ok(Some(Suggestion::Pocket {
+                                        title,
+                                        url: raw_url,
+                                        score: row.get("score")?,
+                                        is_top_pick: matches!(
+                                            confidence,
+                                            KeywordConfidence::High
+                                        )
+                                    }))
+                                }
+                            )
+                        } else {
+                            Ok(None)
+                        }
+                    }
                 }
-            },
-        )
+            }
+        )?.into_iter().flatten().collect())
     }
 
     /// Inserts all suggestions from a downloaded AMO attachment into
@@ -409,6 +446,95 @@ impl<'a> SuggestDao<'a> {
                     named_params! {
                         ":keyword": keyword,
                         ":rank": index,
+                        ":suggestion_id": suggestion_id,
+                    },
+                )?;
+            }
+        }
+        Ok(())
+    }
+
+    /// Inserts all suggestions from a downloaded Pocket attachment into
+    /// the database.
+    pub fn insert_pocket_suggestions(
+        &mut self,
+        record_id: &SuggestRecordId,
+        suggestions: &[DownloadedPocketSuggestion],
+    ) -> Result<()> {
+        for suggestion in suggestions {
+            self.scope.err_if_interrupted()?;
+            let suggestion_id: i64 = self.conn.query_row_and_then_cachable(
+                "INSERT INTO suggestions(
+                     record_id,
+                     provider,
+                     title,
+                     url
+                 )
+                 VALUES(
+                     :record_id,
+                     :provider,
+                     :title,
+                     :url
+                 )
+                 RETURNING id
+                 ",
+                named_params! {
+                    ":record_id": record_id.as_str(),
+                    ":provider": SuggestionProvider::Pocket,
+                    ":title": suggestion.title,
+                    ":url": suggestion.url,
+                },
+                |row| row.get(0),
+                true,
+            )?;
+            self.conn.execute(
+                "INSERT INTO pocket_custom_details(
+                             suggestion_id,
+                             score
+                         )
+                         VALUES(
+                             :suggestion_id,
+                             :score
+                         )",
+                named_params! {
+                    ":suggestion_id": suggestion_id,
+                    ":score": suggestion.score,
+                },
+            )?;
+            for ((rank, keyword), confidence) in suggestion
+                .high_confidence_keywords
+                .iter()
+                .enumerate()
+                .zip(std::iter::repeat(KeywordConfidence::High))
+                .chain(
+                    suggestion
+                        .low_confidence_keywords
+                        .iter()
+                        .enumerate()
+                        .zip(std::iter::repeat(KeywordConfidence::Low)),
+                )
+            {
+                let (keyword_prefix, keyword_suffix) = split_keyword(keyword);
+                self.conn.execute(
+                    "INSERT INTO pocket_keywords(
+                             keyword_prefix,
+                             keyword_suffix,
+                             confidence,
+                             rank,
+                             suggestion_id
+                         )
+                         VALUES(
+                             :keyword_prefix,
+                             :keyword_suffix,
+                             :confidence,
+                             :rank,
+                             :suggestion_id
+                         )",
+                    named_params! {
+                        ":keyword_prefix": keyword_prefix,
+                        ":keyword_suffix": keyword_suffix,
+                        ":confidence": confidence,
+                        ":rank": rank,
                         ":suggestion_id": suggestion_id,
                     },
                 )?;

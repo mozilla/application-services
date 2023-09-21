@@ -7,6 +7,7 @@ use remote_settings::RemoteSettingsConfig;
 mod db;
 mod error;
 mod keyword;
+pub mod pocket;
 mod provider;
 mod rs;
 mod schema;
