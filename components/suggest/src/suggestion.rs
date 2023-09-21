@@ -48,47 +48,27 @@ impl Suggestion {
 /// Replaces all template parameters in a "raw" sponsored suggestion URL,
 /// producing a "cooked" URL with real values.
 pub(crate) fn cook_raw_suggestion_url(raw_url: &str) -> String {
-    let replacement = Local::now().format("%Y%m%d%H").to_string();
-    debug_assert!(replacement.len() == TIMESTAMP_LENGTH);
-    raw_url.replace(TIMESTAMP_TEMPLATE, &replacement)
+    let timestamp = Local::now().format("%Y%m%d%H").to_string();
+    debug_assert!(timestamp.len() == TIMESTAMP_LENGTH);
+    // "Raw" sponsored suggestion URLs must not contain more than one timestamp
+    // template parameter, so we replace just the first occurrence.
+    raw_url.replacen(TIMESTAMP_TEMPLATE, &timestamp, 1)
 }
 
 /// Determines whether a "raw" sponsored suggestion URL is equivalent to a
 /// "cooked" URL. The two URLs are equivalent if they are identical except for
 /// their replaced template parameters, which can be different.
 pub fn raw_suggestion_url_matches(raw_url: &str, cooked_url: &str) -> bool {
-    let mut last_raw_url_index = 0;
-
-    // The running difference between indices in the raw URL and the
-    // corresponding indices in the cooked URL.
-    let mut cooked_url_diff = 0;
-
-    // Ensure that the segments between the timestamps are the same.
-    for (raw_url_index, _) in raw_url.match_indices(TIMESTAMP_TEMPLATE) {
-        let raw_url_segment = &raw_url[last_raw_url_index..raw_url_index];
-        let Some(cooked_url_segment) =
-            cooked_url.get(last_raw_url_index - cooked_url_diff..raw_url_index - cooked_url_diff)
-        else {
-            // The corresponding indices in the cooked URL are out-of-bounds,
-            // so the URLs can't match.
-            return false;
-        };
-        if raw_url_segment != cooked_url_segment {
-            // The corresponding segments between the last timestamp and this
-            // timestamp are different, so the URLs can't match.
-            return false;
-        }
-        last_raw_url_index = raw_url_index + TIMESTAMP_TEMPLATE.len();
-        cooked_url_diff += TIMESTAMP_TEMPLATE.len() - TIMESTAMP_LENGTH;
-    }
-
-    // Ensure that the last corresponding segments, after the last timestamp,
-    // are the same.
-    let last_raw_url_segment = &raw_url[last_raw_url_index..];
-    match cooked_url.get(last_raw_url_index - cooked_url_diff..) {
-        Some(last_cooked_url_segment) => last_raw_url_segment == last_cooked_url_segment,
-        None => false,
-    }
+    let Some((raw_url_prefix, raw_url_suffix)) = raw_url.split_once(TIMESTAMP_TEMPLATE) else {
+        return raw_url == cooked_url;
+    };
+    let (Some(cooked_url_prefix), Some(cooked_url_suffix)) = (
+        cooked_url.get(..raw_url_prefix.len()),
+        cooked_url.get(raw_url_prefix.len() + TIMESTAMP_LENGTH..),
+    ) else {
+        return false;
+    };
+    raw_url_prefix == cooked_url_prefix && raw_url_suffix == cooked_url_suffix
 }
 
 #[cfg(test)]
@@ -116,29 +96,19 @@ mod tests {
             raw_url_with_trailing_segment,
             cooked_url_with_trailing_segment
         );
-
-        let raw_url_with_two_timestamps = "https://example.com?a=%YYYYMMDDHH%&b=%YYYYMMDDHH%";
-        let cooked_url_with_two_timestamps = cook_raw_suggestion_url(raw_url_with_two_timestamps);
-        assert_eq!(
-            cooked_url_with_two_timestamps.len(),
-            raw_url_with_two_timestamps.len() - 4
-        );
-        assert_ne!(raw_url_with_two_timestamps, cooked_url_with_two_timestamps);
     }
 
     #[test]
     fn cook_url_without_template_parameters() {
-        assert_eq!(
-            cook_raw_suggestion_url("http://example.com/123"),
-            "http://example.com/123"
-        );
+        let raw_url_without_timestamp = "https://example.com?b=c";
+        let cooked_url_without_timestamp = cook_raw_suggestion_url(raw_url_without_timestamp);
+        assert_eq!(raw_url_without_timestamp, cooked_url_without_timestamp);
     }
 
     #[test]
     fn url_with_template_parameters_matches() {
         let raw_url_with_one_timestamp = "https://example.com?a=%YYYYMMDDHH%";
         let raw_url_with_trailing_segment = "https://example.com?a=%YYYYMMDDHH%&b=c";
-        let raw_url_with_two_timestamps = "https://example.com?a=%YYYYMMDDHH%&b=%YYYYMMDDHH%";
 
         // Equivalent, except for their replaced template parameters.
         assert!(raw_suggestion_url_matches(
@@ -148,10 +118,6 @@ mod tests {
         assert!(raw_suggestion_url_matches(
             raw_url_with_trailing_segment,
             "https://example.com?a=1111111111&b=c"
-        ));
-        assert!(raw_suggestion_url_matches(
-            raw_url_with_two_timestamps,
-            "https://example.com?a=2222222222&b=3333333333"
         ));
 
         // Different lengths.
@@ -171,10 +137,6 @@ mod tests {
             raw_url_with_trailing_segment,
             "https://example.com?a=0987654321&b=c&d=e"
         ));
-        assert!(!raw_suggestion_url_matches(
-            raw_url_with_two_timestamps,
-            "https://example.com?a=456123789"
-        ));
 
         // Different query parameter names.
         assert!(!raw_suggestion_url_matches(
@@ -185,28 +147,27 @@ mod tests {
             raw_url_with_trailing_segment,          // `a&b`.
             "https://example.com?a=5555555555&c=c"  // `a&c`.
         ));
-        assert!(!raw_suggestion_url_matches(
-            raw_url_with_two_timestamps,                     // `a&b`.
-            "https://example.com?a=6666666666&c=7777777777"  // `a&c`.
-        ));
     }
 
     #[test]
     fn url_without_template_parameters_matches() {
-        let raw_url = "http://example.com/123";
+        let raw_url_without_timestamp = "https://example.com?b=c";
 
         assert!(raw_suggestion_url_matches(
-            raw_url,
-            "http://example.com/123"
-        ));
-        assert!(!raw_suggestion_url_matches(raw_url, "http://example.com"));
-        assert!(!raw_suggestion_url_matches(
-            raw_url,
-            "http://example.com/456"
+            raw_url_without_timestamp,
+            "https://example.com?b=c"
         ));
         assert!(!raw_suggestion_url_matches(
-            raw_url,
-            "http://example.com/123456"
+            raw_url_without_timestamp,
+            "http://example.com"
+        ));
+        assert!(!raw_suggestion_url_matches(
+            raw_url_without_timestamp, // `a`.
+            "http://example.com?a=c"   // `b`.
+        ));
+        assert!(!raw_suggestion_url_matches(
+            raw_url_without_timestamp,
+            "https://example.com?b=c&d=e"
         ));
     }
 }
