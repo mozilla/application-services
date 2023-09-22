@@ -130,9 +130,11 @@ places_manager:
     data_reviews:
       - https://github.com/mozilla/application-services/issues/5122
       - https://github.com/mozilla/application-services/issues/5387
+      - https://github.com/mozilla/application-services/issues/5830
     notification_emails:
       - synced-client-integrations@mozilla.com
-    expires: 2023-10-01
+      - bdk@mozilla.com
+    expires: "never"
     data_sensitivity:
       - technical
 
@@ -146,9 +148,11 @@ places_manager:
     data_reviews:
       - https://github.com/mozilla/application-services/issues/5247
       - https://github.com/mozilla/application-services/issues/5387
+      - https://github.com/mozilla/application-services/issues/5830
     notification_emails:
       - synced-client-integrations@mozilla.com
-    expires: 2023-10-01
+      - bdk@mozilla.com
+    expires: "never"
     data_sensitivity:
       - technical
 
@@ -161,9 +165,11 @@ places_manager:
     data_reviews:
       - https://github.com/mozilla/application-services/issues/5247
       - https://github.com/mozilla/application-services/issues/5387
+      - https://github.com/mozilla/application-services/issues/5830
     notification_emails:
       - synced-client-integrations@mozilla.com
-    expires: 2023-10-01
+      - bdk@mozilla.com
+    expires: "never"
     data_sensitivity:
       - technical
 
@@ -177,9 +183,11 @@ places_manager:
     data_reviews:
       - https://github.com/mozilla/application-services/issues/5247
       - https://github.com/mozilla/application-services/issues/5387
+      - https://github.com/mozilla/application-services/issues/5830
     notification_emails:
       - synced-client-integrations@mozilla.com
-    expires: 2023-10-01
+      - bdk@mozilla.com
+    expires: "never"
     data_sensitivity:
       - technical
 
@@ -193,9 +201,11 @@ places_manager:
     data_reviews:
       - https://github.com/mozilla/application-services/issues/5247
       - https://github.com/mozilla/application-services/issues/5387
+      - https://github.com/mozilla/application-services/issues/5830
     notification_emails:
       - synced-client-integrations@mozilla.com
-    expires: 2023-10-01
+      - bdk@mozilla.com
+    expires: "never"
     data_sensitivity:
       - technical
 
@@ -209,8 +219,10 @@ places_manager:
     data_reviews:
       - https://github.com/mozilla/application-services/issues/5122
       - https://github.com/mozilla/application-services/issues/5387
+      - https://github.com/mozilla/application-services/issues/5830
     notification_emails:
       - synced-client-integrations@mozilla.com
-    expires: 2023-10-01
+      - bdk@mozilla.com
+    expires: "never"
     data_sensitivity:
       - technical
