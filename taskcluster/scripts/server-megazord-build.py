@@ -43,9 +43,11 @@ def main():
         if _target_matches_host(target):
             _run_python_tests(megazord, dist_dir)
 
+        _prepare_artifact(megazord, target, filename, dist_dir)
+
         if str(out_dir) != str(PATH_NOT_SPECIFIED):
             os.makedirs(out_dir, exist_ok=True)
-            _prepare_artifact(megazord, target, filename, dist_dir, out_dir)
+            _create_artifact(megazord, target, dist_dir, out_dir)
     finally:
         if not DEBUG:
             temp_dir.cleanup()
@@ -78,7 +80,7 @@ def _build_shared_library(megazord, target, dist_dir):
             elif "aarch64" in target:
                 env["CARGO_TARGET_AARCH64_UNKNOWN_LINUX_MUSL_LINKER"] = "aarch64-linux-musl-gcc"
 
-    if target == "i686-pc-windows-gnu":
+    if target == "x86_64-pc-windows-gnu":
         env["RUSTFLAGS"] = env.get("RUSTFLAGS", "") + " -C panic=abort"
     elif target == 'aarch64-unknown-linux-gnu':
         env["CARGO_TARGET_AARCH64_UNKNOWN_LINUX_GNU_LINKER"] = 'aarch64-linux-gnu-gcc'
@@ -160,8 +162,7 @@ def _python_tests(megazord):
 def _dirs(prefix, list):
     return [f'{prefix}/{f}' for f in list if os.path.isdir(f'{prefix}/{f}')]
 
-def _prepare_artifact(megazord, target, filename, dist_dir, out_dir):
-    archive = out_dir / f'{megazord}-{target}.zip'
+def _prepare_artifact(megazord, target, filename, dist_dir):
     for f in _python_sources(megazord):
         shutil.copytree(f, dist_dir)
 
@@ -176,6 +177,8 @@ def _prepare_artifact(megazord, target, filename, dist_dir, out_dir):
     os.makedirs(scripts_dir, exist_ok=True)
     shutil.copy(TARGET_DETECTOR_SCRIPT, scripts_dir)
 
+def _create_artifact(megazord, target, dist_dir, out_dir):
+    archive = out_dir / f'{megazord}-{target}.zip'
     subprocess.check_call([
         'zip', archive,
         '-r',  '.',
