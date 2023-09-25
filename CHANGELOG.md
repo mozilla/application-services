@@ -43,6 +43,8 @@
 
 - Removal of SQLCipher migration API call and the SQLCipher library. While not technically a breaking change, it's listed here given that we're removing a large library.
 
+[Full Changelog](https://github.com/mozilla/application-services/compare/v117.0...v118.0)
+
 # v118.0 (_2023-08-28_)
 
 ## General
