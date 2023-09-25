@@ -2,7 +2,12 @@
 
 [Full Changelog](In progress)
 
-v119.0 (_2023-09-25_)
+## Rust log forwarder
+
+### 🦊 What's Changed 🦊
+- Exposed rust-log-forwarder for iOS ([#5840](https://github.com/mozilla/application-services/pull/5840)).
+
+# v119.0 (_2023-09-25_)
 
 ## Nimbus SDK ⛅️🔬🔭
 

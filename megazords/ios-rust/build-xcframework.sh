@@ -147,6 +147,7 @@ cp "$REPO_ROOT/components/viaduct/ios/RustViaductFFI.h" "$COMMON/Headers"
 $CARGO uniffi-bindgen generate "$REPO_ROOT/components/remote_settings/src/remote_settings.udl" -l swift -o "$COMMON/Headers"
 $CARGO uniffi-bindgen generate "$REPO_ROOT/components/nimbus/src/nimbus.udl" -l swift -o "$COMMON/Headers"
 $CARGO uniffi-bindgen generate "$REPO_ROOT/components/support/error/src/errorsupport.udl" -l swift -o "$COMMON/Headers"
+$CARGO uniffi-bindgen generate "$REPO_ROOT/components/support/rust-log-forwarder/src/rust_log_forwarder.udl" -l swift -o "$COMMON/Headers"
 
 
 

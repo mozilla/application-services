@@ -23,6 +23,7 @@ BINDINGS_UDL_PATHS = [
     "components/sync15/src/sync15.udl",
     "components/sync_manager/src/syncmanager.udl",
     "components/tabs/src/tabs.udl",
+    "components/support/rust-log-forwarder/src/rust_log_forwarder.udl",
 ]
 
 # List of udl_paths to generate bindings for
@@ -30,6 +31,7 @@ FOCUS_UDL_PATHS = [
     "components/nimbus/src/nimbus.udl",
     "components/remote_settings/src/remote_settings.udl",
     "components/support/error/src/errorsupport.udl",
+    "components/support/rust-log-forwarder/src/rust_log_forwarder.udl",
 ]
 
 # List of globs to copy the sources from

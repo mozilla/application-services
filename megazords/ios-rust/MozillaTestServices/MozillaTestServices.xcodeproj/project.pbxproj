@@ -78,6 +78,7 @@
 		F814DE8029DF762800FD26F5 /* SyncManagerTelemetryTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = F814DE7F29DF762800FD26F5 /* SyncManagerTelemetryTests.swift */; };
 		F81C7B9829DE305C00FAF8F9 /* SyncManagerTelemetry.swift in Sources */ = {isa = PBXBuildFile; fileRef = F81C7B9729DE305C00FAF8F9 /* SyncManagerTelemetry.swift */; };
 		F81C7B9A29DE309C00FAF8F9 /* SyncManagerComponent.swift in Sources */ = {isa = PBXBuildFile; fileRef = F81C7B9929DE309C00FAF8F9 /* SyncManagerComponent.swift */; };
+		F8368DB02AC1189000182381 /* rust_log_forwarder.udl in Sources */ = {isa = PBXBuildFile; fileRef = F8368DAF2AC1181900182381 /* rust_log_forwarder.udl */; };
 		F85ED649299C1F49005EEF36 /* RustSyncTelemetryPingTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = F85ED648299C1F49005EEF36 /* RustSyncTelemetryPingTests.swift */; };
 		F8BEFFDA299C4F1100776186 /* RustSyncTelemetryPing.swift in Sources */ = {isa = PBXBuildFile; fileRef = F8BEFFD9299C4F1100776186 /* RustSyncTelemetryPing.swift */; };
 		F8C88393298B4BF80006E9E9 /* syncmanager.udl in Sources */ = {isa = PBXBuildFile; fileRef = F8AAC1CC298B41FC000BCDEC /* syncmanager.udl */; };
@@ -208,6 +209,7 @@
 		AB65933B2A0C524E00DBF059 /* remote_settings.udl */ = {isa = PBXFileReference; lastKnownFileType = text; name = remote_settings.udl; path = ../src/remote_settings.udl; sourceTree = "<group>"; };
 		AB65933E2A0C52A000DBF059 /* remote_settingsFFI.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = remote_settingsFFI.h; sourceTree = "<group>"; };
 		AB9C392C2A0D9E2D00AF5ADE /* remote_settings.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = remote_settings.swift; sourceTree = "<group>"; };
+		D8C96FB4B97E950644E8ADA0 /* suggestFFI.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = suggestFFI.h; sourceTree = "<group>"; };
 		F40A9DCB29765DCB0033D10E /* sync15.udl */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; name = sync15.udl; path = ../../../components/sync15/src/sync15.udl; sourceTree = SOURCE_ROOT; };
 		F4FCED2E2976605400BA127E /* sync15FFI.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = sync15FFI.h; path = ../../../components/sync15/ios/Generated/sync15FFI.h; sourceTree = SOURCE_ROOT; };
 		F4FCED2F2976605400BA127E /* sync15.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; name = sync15.swift; path = ../../../components/sync15/ios/Generated/sync15.swift; sourceTree = SOURCE_ROOT; };
@@ -219,13 +221,15 @@
 		F814DE7F29DF762800FD26F5 /* SyncManagerTelemetryTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SyncManagerTelemetryTests.swift; sourceTree = "<group>"; };
 		F81C7B9729DE305C00FAF8F9 /* SyncManagerTelemetry.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; name = SyncManagerTelemetry.swift; path = ../../../components/sync_manager/ios/SyncManager/SyncManagerTelemetry.swift; sourceTree = SOURCE_ROOT; };
 		F81C7B9929DE309C00FAF8F9 /* SyncManagerComponent.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; name = SyncManagerComponent.swift; path = ../../../components/sync_manager/ios/SyncManager/SyncManagerComponent.swift; sourceTree = SOURCE_ROOT; };
+		F8368DAF2AC1181900182381 /* rust_log_forwarder.udl */ = {isa = PBXFileReference; lastKnownFileType = text; name = rust_log_forwarder.udl; path = "../../../../components/support/rust-log-forwarder/src/rust_log_forwarder.udl"; sourceTree = "<group>"; };
+		F8368DB22AC1197C00182381 /* rust_log_forwarder.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = rust_log_forwarder.swift; path = "../../../../components/support/rust-log-forwarder/ios/Generated/rust_log_forwarder.swift"; sourceTree = "<group>"; };
+		F8368DB32AC1197C00182381 /* rustlogforwarderFFI.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; name = rustlogforwarderFFI.h; path = "../../../../components/support/rust-log-forwarder/ios/Generated/rustlogforwarderFFI.h"; sourceTree = "<group>"; };
 		F85ED648299C1F49005EEF36 /* RustSyncTelemetryPingTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RustSyncTelemetryPingTests.swift; sourceTree = "<group>"; };
 		F8AAC1CC298B41FC000BCDEC /* syncmanager.udl */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; name = syncmanager.udl; path = ../../../components/sync_manager/src/syncmanager.udl; sourceTree = SOURCE_ROOT; };
 		F8BEFFD9299C4F1100776186 /* RustSyncTelemetryPing.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; name = RustSyncTelemetryPing.swift; path = ../../../components/sync15/ios/Sync15/RustSyncTelemetryPing.swift; sourceTree = SOURCE_ROOT; };
 		F8C88394298B4EC00006E9E9 /* syncmanagerFFI.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = syncmanagerFFI.h; path = ../../../components/sync_manager/ios/Generated/syncmanagerFFI.h; sourceTree = SOURCE_ROOT; };
 		F8C88395298B4EC00006E9E9 /* syncmanager.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; name = syncmanager.swift; path = ../../../components/sync_manager/ios/Generated/syncmanager.swift; sourceTree = SOURCE_ROOT; };
 		FA3C4E62BAEBB59E7D1EC881 /* suggest.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = suggest.swift; sourceTree = "<group>"; };
-		D8C96FB4B97E950644E8ADA0 /* suggestFFI.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = suggestFFI.h; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -349,6 +353,7 @@
 		1BBAC4FA27AE049500DAFEF2 /* MozillaTestServices */ = {
 			isa = PBXGroup;
 			children = (
+				F8368DAE2AC1178000182381 /* RustLogForwarder */,
 				F54D38032A564653005087FB /* ASOhttpClient */,
 				AB65933A2A0C51F300DBF059 /* RemoteSettings */,
 				F8AAC1CB298B40B8000BCDEC /* SyncManager */,
@@ -580,6 +585,15 @@
 			name = Generated;
 			sourceTree = "<group>";
 		};
+		9D2D69255AD5D783D9458AFE /* Generated */ = {
+			isa = PBXGroup;
+			children = (
+				FA3C4E62BAEBB59E7D1EC881 /* suggest.swift */,
+				D8C96FB4B97E950644E8ADA0 /* suggestFFI.h */,
+			);
+			path = Generated;
+			sourceTree = "<group>";
+		};
 		AB65933A2A0C51F300DBF059 /* RemoteSettings */ = {
 			isa = PBXGroup;
 			children = (
@@ -629,6 +643,24 @@
 			path = Generated;
 			sourceTree = "<group>";
 		};
+		F8368DAE2AC1178000182381 /* RustLogForwarder */ = {
+			isa = PBXGroup;
+			children = (
+				F8368DB12AC118E800182381 /* Generated */,
+				F8368DAF2AC1181900182381 /* rust_log_forwarder.udl */,
+			);
+			name = RustLogForwarder;
+			sourceTree = "<group>";
+		};
+		F8368DB12AC118E800182381 /* Generated */ = {
+			isa = PBXGroup;
+			children = (
+				F8368DB22AC1197C00182381 /* rust_log_forwarder.swift */,
+				F8368DB32AC1197C00182381 /* rustlogforwarderFFI.h */,
+			);
+			name = Generated;
+			sourceTree = "<group>";
+		};
 		F8AAC1CB298B40B8000BCDEC /* SyncManager */ = {
 			isa = PBXGroup;
 			children = (
@@ -660,15 +692,6 @@
 			name = Suggest;
 			path = ../../../components/suggest/ios;
 			sourceTree = SOURCE_ROOT;
-		};
-		9D2D69255AD5D783D9458AFE /* Generated */ = {
-			isa = PBXGroup;
-			children = (
-				FA3C4E62BAEBB59E7D1EC881 /* suggest.swift */,
-				D8C96FB4B97E950644E8ADA0 /* suggestFFI.h */,
-			);
-			path = Generated;
-			sourceTree = "<group>";
 		};
 /* End PBXGroup section */
 
@@ -804,6 +827,7 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				F8368DB02AC1189000182381 /* rust_log_forwarder.udl in Sources */,
 				BCFF93E82AA7E1ED005B5B71 /* suggest.udl in Sources */,
 				F54D38112A5E09F4005087FB /* as_ohttp_client.udl in Sources */,
 				AB9C392E2A0DA61900AF5ADE /* remote_settings.udl in Sources */,
