@@ -39,20 +39,44 @@ diff --git a/version.txt b/version.txt
 -118.0a1
 +118.0
 ```
-  * In [CHANGELOG.md](https://github.com/mozilla/application-services/blob/main/CHANGELOG.md), change `In progress` to `_YYY-MM-DD_` to match the Merge Day date. 
+  * In [CHANGELOG.md](https://github.com/mozilla/application-services/blob/main/CHANGELOG.md), change `In progress` to `_YYYY-MM-DD_` to match the Merge Day date and add a URL to the release version change log.
 ```diff
 diff --git a/CHANGELOG.md b/CHANGELOG.md
+index 7f2c07a1a8..06688fdcab 100644
 --- a/CHANGELOG.md
 +++ b/CHANGELOG.md
 @@ -1,8 +1,7 @@
-- v118.0 (In progress)
+-# v118.0 (In progress)
+-
+-[Full Changelog](In progress)
 +# v118.0 (_2023-08-28_)
+ 
+ ## General
++
+ ### 🦊 What's Changed 🦊
+ 
+ - Backward-incompatible changes to the Suggest database schema to accommodate custom details for providers ([#5745](https://github.com/mozilla/application-services/pull/5745)) and future suggestion types ([#5766](https://github.com/mozilla/application-services/pull/5766)). This only affects prototyping, because we aren't consuming Suggest in any of our products yet.
+@@ -16,7 +15,6 @@
+ - The Remote Settings client has a new `Client::get_records_with_options()` method ([#5764](https://github.com/mozilla/application-services/pull/5764)). This is for Rust consumers only; it's not exposed to Swift or Kotlin.
+ - `RemoteSettingsRecord` objects have a new `deleted` property that indicates if the record is a tombstone ([#5764](https://github.com/mozilla/application-services/pull/5764)).
+ 
+-
+ ## Rust log forwarder
+ ### 🦊 What's Changed 🦊
+ 
+@@ -34,6 +32,8 @@
+ 
+ - Removed previously deprecated commands `experimenter`, `ios`, `android`, `intermediate-repr` ([#5784](https://github.com/mozilla/application-services/pull/5784)).
+ 
++[Full Changelog](https://github.com/mozilla/application-services/compare/v117.0...v118.0)
++
+ # v117.0 (_2023-07-31_)
 ```
   * Create a commit named 'Cut release v[release_version].0` and a PR for this change.
   * See [example PR](https://github.com/mozilla/application-services/pull/5792)
 
-3. Create a PR against the release branch that updates `version.txt` and updates the `CHANGELOG.md` as follows:
-  * In [version.txt](https://github.com/mozilla/application-services/blob/main/version.txt), update the version from [previous_release_version].0a1 to [release_version].0. 
+3. Create a PR against the main branch that updates `version.txt` and updates the `CHANGELOG.md` as follows:
+  * In [version.txt](https://github.com/mozilla/application-services/blob/main/version.txt), update the version from [release_version].0a1 to [next_release_version].0a1. 
 ```diff
 diff --git a/version.txt b/version.txt
 --- a/version.txt
@@ -61,7 +85,7 @@ diff --git a/version.txt b/version.txt
 -118.0a1
 +119.0a1
 ```
-  * In [CHANGELOG.md](https://github.com/mozilla/application-services/blob/main/CHANGELOG.md), change the in progress version from [previous_release_version].0a1 to [release_version].0, add a header for the previous release version, and add a URL to the previous release version change log.
+  * In [CHANGELOG.md](https://github.com/mozilla/application-services/blob/main/CHANGELOG.md), change the in progress version from [release_version].0 to [next_release_version].0, add a header for the previous release version, and add a URL to the previous release version change log.
 ``` diff
 diff --git a/CHANGELOG.md b/CHANGELOG.md
 --- a/CHANGELOG.md
@@ -78,7 +102,7 @@ diff --git a/CHANGELOG.md b/CHANGELOG.md
 +
 # v117.0 (_2023-07-31_)
 ```
-  * Create a commit named 'Start release v[release_version].0` and a PR for this change.
+  * Create a commit named 'Start release v[next_release_version].0` and a PR for this change.
   * See [example PR](https://github.com/mozilla/application-services/pull/5793)
 
 4. Once all of the above PRs have landed, create a new Application Services release in Ship-It.
