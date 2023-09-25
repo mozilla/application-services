@@ -1,6 +1,8 @@
-# v119.0 (In progress)
+# v120.0 (In progress)
 
 [Full Changelog](In progress)
+
+v119.0 (_2023-09-25_)
 
 ## Nimbus SDK ⛅️🔬🔭
 
@@ -42,6 +44,8 @@
 ### ⚠️ Breaking Changes ⚠️
 
 - Removal of SQLCipher migration API call and the SQLCipher library. While not technically a breaking change, it's listed here given that we're removing a large library.
+
+[Full Changelog](https://github.com/mozilla/application-services/compare/v118.0...v119.0)
 
 # v118.0 (_2023-08-28_)
 
