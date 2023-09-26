@@ -6,7 +6,8 @@ use glob::MatchOptions;
 use std::collections::HashSet;
 
 use super::commands::{
-    GenerateExperimenterManifestCmd, GenerateSingleFileManifestCmd, GenerateStructCmd, ValidateCmd,
+    GenerateExperimenterManifestCmd, GenerateSingleFileManifestCmd, GenerateStructCmd,
+    PrintChannelsCmd, ValidateCmd,
 };
 use crate::error::FMLError::CliError;
 use crate::frontend::ManifestFrontEnd;
@@ -246,6 +247,19 @@ pub(crate) fn validate(cmd: &ValidateCmd) -> Result<()> {
         )));
     }
 
+    Ok(())
+}
+
+pub(crate) fn print_channels(cmd: &PrintChannelsCmd) -> Result<()> {
+    let files = TryFrom::try_from(&cmd.loader)?;
+    let manifest = Parser::load_frontend(files, &cmd.manifest)?;
+    let channels = manifest.channels();
+    if cmd.as_json {
+        let json = serde_json::Value::from(channels);
+        println!("{}", json);
+    } else {
+        println!("{}", channels.join("\n"));
+    }
     Ok(())
 }
 

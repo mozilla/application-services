@@ -14,6 +14,7 @@ pub(crate) enum CliCmd {
     GenerateSingleFileManifest(GenerateSingleFileManifestCmd),
     FetchFile(LoaderConfig, String),
     Validate(ValidateCmd),
+    PrintChannels(PrintChannelsCmd),
 }
 
 #[derive(Clone)]
@@ -45,6 +46,12 @@ pub(crate) struct GenerateSingleFileManifestCmd {
 pub(crate) struct ValidateCmd {
     pub(crate) manifest: String,
     pub(crate) loader: LoaderConfig,
+}
+
+pub(crate) struct PrintChannelsCmd {
+    pub(crate) manifest: String,
+    pub(crate) loader: LoaderConfig,
+    pub(crate) as_json: bool,
 }
 
 impl TryFrom<&std::ffi::OsStr> for TargetLanguage {

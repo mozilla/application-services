@@ -11,7 +11,7 @@ use anyhow::{bail, Result};
 use clap::{App, ArgMatches};
 use commands::{
     CliCmd, GenerateExperimenterManifestCmd, GenerateSingleFileManifestCmd, GenerateStructCmd,
-    ValidateCmd,
+    PrintChannelsCmd, ValidateCmd,
 };
 
 use std::{
@@ -40,6 +40,7 @@ fn process_command(cmd: &CliCmd) -> Result<()> {
         }
         CliCmd::FetchFile(files, nm) => workflows::fetch_file(files, nm)?,
         CliCmd::Validate(params) => workflows::validate(params)?,
+        CliCmd::PrintChannels(params) => workflows::print_channels(params)?,
     };
     Ok(())
 }
@@ -67,6 +68,9 @@ where
         }
         ("validate", Some(matches)) => {
             CliCmd::Validate(create_validate_command_from_cli(matches, cwd)?)
+        }
+        ("channels", Some(matches)) => {
+            CliCmd::PrintChannels(create_print_channels_from_cli(matches, cwd)?)
         }
         (word, _) => unimplemented!("Command {} not implemented", word),
     })
@@ -177,6 +181,17 @@ fn create_validate_command_from_cli(matches: &ArgMatches, cwd: &Path) -> Result<
     let manifest = input_file(matches)?;
     let loader = create_loader(matches, cwd)?;
     Ok(ValidateCmd { manifest, loader })
+}
+
+fn create_print_channels_from_cli(matches: &ArgMatches, cwd: &Path) -> Result<PrintChannelsCmd> {
+    let manifest = input_file(matches)?;
+    let loader = create_loader(matches, cwd)?;
+    let as_json = matches.is_present("json");
+    Ok(PrintChannelsCmd {
+        manifest,
+        loader,
+        as_json,
+    })
 }
 
 fn input_file(args: &ArgMatches) -> Result<String> {
@@ -514,6 +529,24 @@ mod cli_tests {
 
         assert!(matches!(cmd, CliCmd::Validate(_)));
         assert!(matches!(cmd, CliCmd::Validate(c) if c.manifest.ends_with(TEST_FILE)));
+        Ok(())
+    }
+
+    ///////////////////////////////////////////////////////////////////////////
+    #[test]
+    fn test_cli_print_command() -> Result<()> {
+        let cwd = package_dir()?;
+        let cmd = get_command_from_cli([FML_BIN, "channels", TEST_FILE], &cwd)?;
+
+        assert!(matches!(&cmd, CliCmd::PrintChannels(_)));
+        assert!(matches!(&cmd, CliCmd::PrintChannels(c) if c.manifest.ends_with(TEST_FILE)));
+        assert!(matches!(&cmd, CliCmd::PrintChannels(c) if !c.as_json));
+
+        let cmd = get_command_from_cli([FML_BIN, "channels", TEST_FILE, "--json"], &cwd)?;
+
+        assert!(matches!(&cmd, CliCmd::PrintChannels(_)));
+        assert!(matches!(&cmd, CliCmd::PrintChannels(c) if c.manifest.ends_with(TEST_FILE)));
+        assert!(matches!(&cmd, CliCmd::PrintChannels(c) if c.as_json));
         Ok(())
     }
 
