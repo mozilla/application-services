@@ -63,7 +63,7 @@ public class {{ nimbus_object }} : FeatureManifestInterface {
     ///
     private func reinitialize() {
         {%- if !blocks.is_empty() %}
-        {%- for code in blocks %}
+        {%- for code in blocks.iter() %}
         {{ code }}
         {%- endfor %}
         {%- else %}
