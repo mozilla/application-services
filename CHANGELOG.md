@@ -20,9 +20,11 @@ v119.0 (_2023-09-25_)
 - Added a `FmlFeatureDescriptor` to the `FmlClient` ([#5815](https://github.com/mozilla/application-services/pull/5815)).
   - This adds methods to get the feature_ids and descriptions from a loaded manifest.
 
-### ✨ What's New ✨
+### 🦊 What's Changed 🦊
 
-- The `set_experiments` method has been updated to filter down the list of experiments to only those that match the configured `app_name` and `channel` ([#5813](https://github.com/mozilla/application-services/pull/5813)).
+- Removed the `channel` argument from the `generate-experimenter` command ([#5843](https://github.com/mozilla/application-services/pull/5843)).
+  - This cleans up some design issues/technical debt deep within the internal representation of the FML compiler.
+
 ## Places
 
 ### 🦊 What's Changed 🦊
