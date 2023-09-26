@@ -71,7 +71,7 @@ impl FmlClient {
         let files = FileLoader::try_from(&config)?;
         let path = files.file_path(&manifest_path)?;
         let parser: Parser = Parser::new(files, path)?;
-        let ir = parser.get_intermediate_representation(&channel)?;
+        let ir = parser.get_intermediate_representation(Some(&channel))?;
         ir.validate_manifest()?;
 
         Ok(FmlClient {

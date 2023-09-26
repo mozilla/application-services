@@ -313,11 +313,12 @@ impl ManifestFrontEnd {
     pub(crate) fn get_intermediate_representation(
         &self,
         id: &ModuleId,
-        channel: &str,
+        channel: Option<&str>,
     ) -> Result<FeatureManifest> {
         let enums = self.get_enums();
         let objects = self.get_objects();
-        let merger = DefaultsMerger::new(&objects, self.channels.clone(), channel.to_owned());
+        let merger =
+            DefaultsMerger::new(&objects, self.channels.clone(), channel.map(str::to_string));
 
         let features = self.get_feature_defs(&merger)?;
 

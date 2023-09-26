@@ -106,17 +106,13 @@ fn create_generate_command_experimenter_from_cli(
     let output =
         file_path("output", matches, cwd).or_else(|_| file_path("OUTPUT", matches, cwd))?;
     let language = output.as_path().try_into()?;
-    let channel = matches
-        .value_of("channel")
-        .map(str::to_string)
-        .unwrap_or_else(|| RELEASE_CHANNEL.into());
+    let _channel = matches.value_of("channel").map(str::to_string);
     let loader = create_loader(matches, cwd)?;
     let cmd = GenerateExperimenterManifestCmd {
         manifest,
         output,
         language,
         load_from_ir,
-        channel,
         loader,
     };
     Ok(cmd)
@@ -400,7 +396,6 @@ mod cli_tests {
         assert!(matches!(cmd, CliCmd::GenerateExperimenter(_)));
 
         if let CliCmd::GenerateExperimenter(cmd) = cmd {
-            assert_eq!(cmd.channel, "release");
             assert_eq!(cmd.language, TargetLanguage::ExperimenterYAML);
             assert!(!cmd.load_from_ir);
             assert!(cmd.output.ends_with(".experimenter.yaml"));
@@ -427,7 +422,6 @@ mod cli_tests {
         assert!(matches!(cmd, CliCmd::GenerateExperimenter(_)));
 
         if let CliCmd::GenerateExperimenter(cmd) = cmd {
-            assert_eq!(cmd.channel, "test-channel");
             assert_eq!(cmd.language, TargetLanguage::ExperimenterYAML);
             assert!(!cmd.load_from_ir);
             assert!(cmd.output.ends_with(".experimenter.yaml"));
@@ -452,7 +446,6 @@ mod cli_tests {
         assert!(matches!(cmd, CliCmd::GenerateExperimenter(_)));
 
         if let CliCmd::GenerateExperimenter(cmd) = cmd {
-            assert_eq!(cmd.channel, "release");
             assert_eq!(cmd.language, TargetLanguage::ExperimenterJSON);
             assert!(!cmd.load_from_ir);
             assert!(cmd.output.ends_with(".experimenter.json"));
@@ -483,7 +476,6 @@ mod cli_tests {
         assert!(matches!(cmd, CliCmd::GenerateExperimenter(_)));
 
         if let CliCmd::GenerateExperimenter(cmd) = cmd {
-            assert_eq!(cmd.channel, "release");
             assert_eq!(cmd.language, TargetLanguage::ExperimenterJSON);
             assert!(!cmd.load_from_ir);
             assert!(cmd.output.ends_with(".experimenter.json"));

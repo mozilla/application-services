@@ -51,7 +51,9 @@ subcommands:
                 required: true
                 index: 2
             - channel:
-                help: The channel to generate the defaults for
+                # This is no longer needed, but we keep it for backward compatibility.
+                required: false
+                help: "Deprecated: The channel to generate the defaults for. This can be omitted."
                 long: channel
                 takes_value: true
             - cache-dir:

@@ -32,7 +32,6 @@ pub(crate) struct GenerateExperimenterManifestCmd {
     pub(crate) output: PathBuf,
     pub(crate) language: TargetLanguage,
     pub(crate) load_from_ir: bool,
-    pub(crate) channel: String,
     pub(crate) loader: LoaderConfig,
 }
 
