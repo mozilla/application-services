@@ -137,3 +137,27 @@ subcommands:
                 help: If INPUT is a remote file, then use this as the tag or branch name.
                 long: ref
                 takes_value: true
+    - channels:
+        about: Print out all the channels to stdout, as JSON or one-per-line
+        args:
+            - INPUT:
+                help: Sets the input file to use
+                required: true
+                index: 1
+            - cache-dir:
+                help: The directory where downloaded files are cached
+                long: cache-dir
+                takes_value: true
+            - repo-file:
+                help: The file containing the version/refs/locations for other repos
+                long: repo-file
+                takes_value: true
+                multiple: true
+            - ref:
+                help: If INPUT is a remote file, then use this as the tag or branch name.
+                long: ref
+                takes_value: true
+            - json:
+                long: json
+                help: If present, then print the channels as JSON. If not, then print one per line.
+                takes_value: false

@@ -109,6 +109,13 @@ impl Parser {
         Ok(Parser { source, files })
     }
 
+    pub fn load_frontend(files: FileLoader, source: &str) -> Result<ManifestFrontEnd> {
+        let source = files.file_path(source)?;
+        let parser: Parser = Parser::new(files, source)?;
+        let mut loading = HashSet::new();
+        parser.load_manifest(&parser.source, &mut loading)
+    }
+
     // This method loads a manifest, including resolving the includes and merging the included files
     // into this top level one.
     // It recursively calls itself and then calls `merge_manifest`.
