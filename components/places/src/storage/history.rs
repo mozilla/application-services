@@ -18,7 +18,7 @@ use crate::storage::{
     delete_meta, delete_pending_temp_tables, get_meta, history_metadata, put_meta,
 };
 use crate::types::{
-    serialize_unknown_fields, SyncStatus, UnknownFields, VisitTransition, VisitTransitionSet,
+    serialize_unknown_fields, SyncStatus, UnknownFields, VisitTransitionSet, VisitType,
 };
 use actions::*;
 use rusqlite::types::ToSql;
@@ -101,7 +101,7 @@ pub fn apply_observation_direct(
             if !visit_ob.get_is_hidden() {
                 updates.push(("hidden", ":hidden", &false));
             }
-            if visit_type == VisitTransition::Typed {
+            if visit_type == VisitType::Typed {
                 page_info.typed += 1;
                 updates.push(("typed", ":typed", &page_info.typed));
             }
@@ -199,7 +199,7 @@ fn add_visit(
     page_id: RowId,
     from_visit: Option<RowId>,
     visit_date: Timestamp,
-    visit_type: VisitTransition,
+    visit_type: VisitType,
     is_local: bool,
     unknown_fields: Option<String>,
 ) -> Result<RowId> {
@@ -487,7 +487,7 @@ fn find_exotic_visits_to_prune(
         ",
         rusqlite::named_params! {
             ":visit_date_cuttoff": visit_date_cutoff,
-            ":download_visit_type": VisitTransition::Download,
+            ":download_visit_type": VisitType::Download,
             ":limit": limit,
         },
         VisitToDelete::from_row,
@@ -795,7 +795,7 @@ pub mod history_sync {
     pub struct FetchedVisit {
         pub is_local: bool,
         pub visit_date: Timestamp,
-        pub visit_type: Option<VisitTransition>,
+        pub visit_type: Option<VisitType>,
     }
 
     impl FetchedVisit {
@@ -805,7 +805,7 @@ pub mod history_sync {
                 visit_date: row
                     .get::<_, Option<Timestamp>>("visit_date")?
                     .unwrap_or_default(),
-                visit_type: VisitTransition::from_primitive(
+                visit_type: VisitType::from_primitive(
                     row.get::<_, Option<u8>>("visit_type")?.unwrap_or(0),
                 ),
             })
@@ -965,7 +965,7 @@ pub mod history_sync {
                 if visits_to_skip.contains(&timestamp) {
                     continue;
                 }
-                let transition = VisitTransition::from_primitive(visit.transition)
+                let transition = VisitType::from_primitive(visit.transition)
                     .expect("these should already be validated");
                 add_visit(
                     db,
@@ -1345,12 +1345,12 @@ pub fn get_top_frecent_site_infos(
 ) -> Result<Vec<TopFrecentSiteInfo>> {
     // Get the complement of the visit types that should be excluded.
     let allowed_types = VisitTransitionSet::for_specific(&[
-        VisitTransition::Download,
-        VisitTransition::Embed,
-        VisitTransition::RedirectPermanent,
-        VisitTransition::RedirectTemporary,
-        VisitTransition::FramedLink,
-        VisitTransition::Reload,
+        VisitType::Download,
+        VisitType::Embed,
+        VisitType::RedirectPermanent,
+        VisitType::RedirectTemporary,
+        VisitType::FramedLink,
+        VisitType::Reload,
     ])
     .complement();
 
@@ -1573,7 +1573,7 @@ mod tests {
                 VisitObservation::new(Url::parse(url).unwrap())
                     .with_at(Timestamp(when))
                     .with_is_remote(remote)
-                    .with_visit_type(VisitTransition::Link),
+                    .with_visit_type(VisitType::Link),
             )
             .expect("Should apply visit");
         }
@@ -1621,7 +1621,7 @@ mod tests {
         F: Fn(VisitObservation) -> VisitObservation,
     {
         let u = Url::parse(url)?;
-        let obs = VisitObservation::new(u.clone()).with_visit_type(VisitTransition::Link);
+        let obs = VisitObservation::new(u.clone()).with_visit_type(VisitType::Link);
         apply_observation(conn, custom(obs))?;
         Ok(fetch_page_info(conn, &u)?
             .expect("should have the page")
@@ -1656,7 +1656,7 @@ mod tests {
         let rid1 = apply_observation(
             &conn,
             VisitObservation::new(url.clone())
-                .with_visit_type(VisitTransition::Link)
+                .with_visit_type(VisitType::Link)
                 .with_at(Some(late_time.into())),
         )?
         .expect("should get a rowid");
@@ -1664,7 +1664,7 @@ mod tests {
         let rid2 = apply_observation(
             &conn,
             VisitObservation::new(url.clone())
-                .with_visit_type(VisitTransition::Link)
+                .with_visit_type(VisitType::Link)
                 .with_at(Some(early_time.into())),
         )?
         .expect("should get a rowid");
@@ -1679,7 +1679,7 @@ mod tests {
         let rid3 = apply_observation(
             &conn,
             VisitObservation::new(url.clone())
-                .with_visit_type(VisitTransition::Link)
+                .with_visit_type(VisitType::Link)
                 .with_at(Some(early_time.into()))
                 .with_is_remote(true),
         )?
@@ -1688,7 +1688,7 @@ mod tests {
         let rid4 = apply_observation(
             &conn,
             VisitObservation::new(url.clone())
-                .with_visit_type(VisitTransition::Link)
+                .with_visit_type(VisitType::Link)
                 .with_at(Some(late_time.into()))
                 .with_is_remote(true),
         )?
@@ -1760,8 +1760,7 @@ mod tests {
         for item in &to_add {
             apply_observation(
                 &conn,
-                VisitObservation::new(Url::parse(item).unwrap())
-                    .with_visit_type(VisitTransition::Link),
+                VisitObservation::new(Url::parse(item).unwrap()).with_visit_type(VisitType::Link),
             )?;
         }
 
@@ -1827,7 +1826,7 @@ mod tests {
         for &item in &to_add {
             apply_observation(
                 &conn,
-                VisitObservation::new(item.clone()).with_visit_type(VisitTransition::Link),
+                VisitObservation::new(item.clone()).with_visit_type(VisitType::Link),
             )
             .unwrap();
         }
@@ -1893,7 +1892,7 @@ mod tests {
                 &conn,
                 VisitObservation::new(url.clone())
                     .with_at(when)
-                    .with_visit_type(VisitTransition::Link),
+                    .with_visit_type(VisitType::Link),
             )
             .expect("Should apply visit");
         }
@@ -2138,7 +2137,7 @@ mod tests {
         for page in pages {
             let url = Url::parse(page.href)?;
             let obs = VisitObservation::new(url.clone())
-                .with_visit_type(VisitTransition::Link)
+                .with_visit_type(VisitType::Link)
                 .with_at(Some(SystemTime::now().into()));
             apply_observation(&db, obs)?;
 
@@ -2262,7 +2261,7 @@ mod tests {
         let db = PlacesDb::open_in_memory(ConnectionType::ReadWrite)?;
         let url = Url::parse("https://example.com")?;
         let obs = VisitObservation::new(url.clone())
-            .with_visit_type(VisitTransition::Link)
+            .with_visit_type(VisitType::Link)
             .with_at(Some(SystemTime::now().into()));
         apply_observation(&db, obs)?;
         let guid = url_to_guid(&db, &url)?.expect("should exist");
@@ -2273,7 +2272,7 @@ mod tests {
         assert_eq!(get_tombstone_count(&db), 0);
 
         let obs = VisitObservation::new(url.clone())
-            .with_visit_type(VisitTransition::Link)
+            .with_visit_type(VisitType::Link)
             .with_at(Some(SystemTime::now().into()));
         apply_observation(&db, obs)?;
         let new_guid = url_to_guid(&db, &url)?.expect("should exist");
@@ -2481,7 +2480,7 @@ mod tests {
             &[FetchedVisit {
                 is_local: true,
                 visit_date: dates[0],
-                visit_type: Some(VisitTransition::Link)
+                visit_type: Some(VisitType::Link)
             },]
         );
 
@@ -2500,12 +2499,12 @@ mod tests {
                 FetchedVisit {
                     is_local: true,
                     visit_date: dates[0],
-                    visit_type: Some(VisitTransition::Link)
+                    visit_type: Some(VisitType::Link)
                 },
                 FetchedVisit {
                     is_local: true,
                     visit_date: dates[1],
-                    visit_type: Some(VisitTransition::Link)
+                    visit_type: Some(VisitType::Link)
                 },
             ]
         );
@@ -2521,7 +2520,7 @@ mod tests {
                 .iter()
                 .map(|&d| HistoryRecordVisit {
                     date: d.into(),
-                    transition: VisitTransition::Link as u8,
+                    transition: VisitType::Link as u8,
                     unknown_fields: UnknownFields::new(),
                 })
                 .collect::<Vec<_>>(),
@@ -2535,7 +2534,7 @@ mod tests {
             &[FetchedVisit {
                 is_local: true,
                 visit_date: dates[0],
-                visit_type: Some(VisitTransition::Link)
+                visit_type: Some(VisitType::Link)
             }]
         );
 
@@ -2781,13 +2780,13 @@ mod tests {
                 HistoryRecordVisit {
                     // This should make it in
                     date: Timestamp::now().into(),
-                    transition: VisitTransition::Link as u8,
+                    transition: VisitType::Link as u8,
                     unknown_fields: UnknownFields::new(),
                 },
                 HistoryRecordVisit {
                     // This should not.
                     date: start.into(),
-                    transition: VisitTransition::Link as u8,
+                    transition: VisitType::Link as u8,
                     unknown_fields: UnknownFields::new(),
                 },
             ],
@@ -2814,7 +2813,7 @@ mod tests {
             &None,
             &[HistoryRecordVisit {
                 date: start.into(),
-                transition: VisitTransition::Link as u8,
+                transition: VisitType::Link as u8,
                 unknown_fields: UnknownFields::new(),
             }],
             &UnknownFields::new(),
@@ -2841,7 +2840,7 @@ mod tests {
         let u = Url::parse("https://www.reddit.com/r/climbing").expect("Should parse URL");
         let ts = Timestamp::now().0 - 5_000_000;
         let obs = VisitObservation::new(u)
-            .with_visit_type(VisitTransition::Link)
+            .with_visit_type(VisitType::Link)
             .with_at(Timestamp(ts));
         apply_observation(&conn, obs).expect("Should apply observation");
 
@@ -2861,14 +2860,14 @@ mod tests {
         let obs_for_a = VisitObservation::new(
             Url::parse("https://example1.com/a").expect("Should parse URL A"),
         )
-        .with_visit_type(VisitTransition::Link)
+        .with_visit_type(VisitType::Link)
         .with_at(Timestamp(Timestamp::now().0 - 5_000_000));
         apply_observation(&conn, obs_for_a).expect("Should apply observation for A");
 
         let obs_for_b = VisitObservation::new(
             Url::parse("https://example2.com/b").expect("Should parse URL B"),
         )
-        .with_visit_type(VisitTransition::Link)
+        .with_visit_type(VisitType::Link)
         .with_at(Timestamp(Timestamp::now().0 - 2_500_000));
         apply_observation(&conn, obs_for_b).expect("Should apply observation for B");
 
@@ -2915,7 +2914,7 @@ mod tests {
         // Observing a visit afterwards doesn't erase a preview url.
         let visit_id = apply_observation(
             &conn,
-            VisitObservation::new(url1).with_visit_type(VisitTransition::Link),
+            VisitObservation::new(url1).with_visit_type(VisitType::Link),
         )
         .unwrap();
         assert!(visit_id.is_some());
@@ -2940,7 +2939,7 @@ mod tests {
                 .with_preview_image_url(Some(
                     Url::parse("https://www.example.com/funky/image.png").unwrap(),
                 ))
-                .with_visit_type(VisitTransition::Link),
+                .with_visit_type(VisitType::Link),
         )
         .unwrap();
         assert!(another_visit_id.is_some());
@@ -2970,7 +2969,7 @@ mod tests {
         let maybe_row = apply_observation(
             &conn,
             VisitObservation::new(Url::parse(&url).unwrap())
-                .with_visit_type(VisitTransition::Link)
+                .with_visit_type(VisitType::Link)
                 .with_at(Timestamp::now()),
         )
         .unwrap();
@@ -2979,7 +2978,7 @@ mod tests {
         let maybe_row_preview = apply_observation(
             &conn,
             VisitObservation::new(Url::parse("https://www.example.com/").unwrap())
-                .with_visit_type(VisitTransition::Link)
+                .with_visit_type(VisitType::Link)
                 .with_preview_image_url(Url::parse(&url).unwrap()),
         )
         .unwrap();
@@ -2997,7 +2996,7 @@ mod tests {
             &conn,
             VisitObservation::new(Url::parse("http://www.example.com/123").unwrap())
                 .with_title(title.clone())
-                .with_visit_type(VisitTransition::Link)
+                .with_visit_type(VisitType::Link)
                 .with_at(Timestamp::now()),
         )
         .unwrap();
@@ -3118,7 +3117,7 @@ mod tests {
                     .with_title(title.to_owned())
                     .with_at(Timestamp(when))
                     .with_is_remote(remote)
-                    .with_visit_type(VisitTransition::Link),
+                    .with_visit_type(VisitType::Link),
             )
             .expect("Should apply visit");
         }
@@ -3207,7 +3206,7 @@ mod tests {
                     &conn,
                     VisitObservation::new(url.clone())
                         .with_at(now.checked_sub(one_day * i))
-                        .with_visit_type(VisitTransition::Link),
+                        .with_visit_type(VisitType::Link),
                 )
                 .unwrap()
                 .unwrap()
@@ -3248,7 +3247,7 @@ mod tests {
             &conn,
             VisitObservation::new(long_url.clone())
                 .with_at(now.checked_sub(one_month * 2))
-                .with_visit_type(VisitTransition::Link),
+                .with_visit_type(VisitType::Link),
         )
         .unwrap()
         .unwrap();
@@ -3257,7 +3256,7 @@ mod tests {
             &conn,
             VisitObservation::new(short_url)
                 .with_at(now.checked_sub(one_month * 3))
-                .with_visit_type(VisitTransition::Download),
+                .with_visit_type(VisitType::Download),
         )
         .unwrap()
         .unwrap();
@@ -3267,7 +3266,7 @@ mod tests {
             &conn,
             VisitObservation::new(long_url)
                 .with_at(now.checked_sub(one_month))
-                .with_visit_type(VisitTransition::Download),
+                .with_visit_type(VisitType::Download),
         )
         .unwrap()
         .unwrap();
@@ -3312,7 +3311,7 @@ mod tests {
             &conn,
             VisitObservation::new(long_url)
                 .with_at(now.checked_sub(one_month * 3))
-                .with_visit_type(VisitTransition::Link),
+                .with_visit_type(VisitType::Link),
         )
         .unwrap()
         .unwrap();
@@ -3322,7 +3321,7 @@ mod tests {
             &conn,
             VisitObservation::new(short_url.clone())
                 .with_at(now.checked_sub(one_month * 4))
-                .with_visit_type(VisitTransition::Link),
+                .with_visit_type(VisitType::Link),
         )
         .unwrap()
         .unwrap();
@@ -3330,7 +3329,7 @@ mod tests {
             &conn,
             VisitObservation::new(short_url.clone())
                 .with_at(now.checked_sub(one_month * 12))
-                .with_visit_type(VisitTransition::Link),
+                .with_visit_type(VisitType::Link),
         )
         .unwrap()
         .unwrap();
@@ -3340,7 +3339,7 @@ mod tests {
             &conn,
             VisitObservation::new(short_url)
                 .with_at(now.checked_sub(Duration::from_secs(100)))
-                .with_visit_type(VisitTransition::Link),
+                .with_visit_type(VisitType::Link),
         )
         .unwrap()
         .unwrap();

@@ -14,7 +14,7 @@ use crate::storage::{
         fetch_visits, finish_outgoing, FetchedVisit, FetchedVisitPage,
     },
 };
-use crate::types::{UnknownFields, VisitTransition};
+use crate::types::{UnknownFields, VisitType};
 use interrupt_support::Interruptee;
 use std::collections::HashSet;
 use std::time::{SystemTime, UNIX_EPOCH};
@@ -103,7 +103,7 @@ fn plan_incoming_record(conn: &PlacesDb, record: HistoryRecord, max_visits: usiz
         None => false,
     };
 
-    let mut cur_visit_map: HashSet<(VisitTransition, Timestamp)> =
+    let mut cur_visit_map: HashSet<(VisitType, Timestamp)> =
         HashSet::with_capacity(existing_visits.len());
     for visit in &existing_visits {
         // it should be impossible for us to have invalid visits locally, but...
@@ -135,7 +135,7 @@ fn plan_incoming_record(conn: &PlacesDb, record: HistoryRecord, max_visits: usiz
     // work out which of the incoming visits we should apply.
     let mut to_apply = Vec::with_capacity(record.visits.len());
     for incoming_visit in record.visits {
-        let transition = match VisitTransition::from_primitive(incoming_visit.transition) {
+        let transition = match VisitType::from_primitive(incoming_visit.transition) {
             Some(v) => v,
             None => continue,
         };
@@ -425,7 +425,7 @@ mod tests {
         let url = Url::parse("https://example.com").expect("is valid");
         // add it locally
         let obs = VisitObservation::new(url.clone())
-            .with_visit_type(VisitTransition::Link)
+            .with_visit_type(VisitType::Link)
             .with_at(Some(now.into()));
         apply_observation(&conn, obs).expect("should apply");
         // should be New with a change counter.
@@ -461,7 +461,7 @@ mod tests {
         let url = Url::parse("https://example.com").expect("is valid");
         // add it locally
         let obs = VisitObservation::new(url.clone())
-            .with_visit_type(VisitTransition::Link)
+            .with_visit_type(VisitType::Link)
             .with_at(Some(now.into()));
         apply_observation(&conn, obs).expect("should apply");
 
@@ -563,7 +563,7 @@ mod tests {
 
         let ts_local: Timestamp = (SystemTime::now() - Duration::new(10, 0)).into();
         let obs = VisitObservation::new(url.clone())
-            .with_visit_type(VisitTransition::Link)
+            .with_visit_type(VisitType::Link)
             .with_at(Some(ts_local));
         apply_observation(&db, obs)?;
 
@@ -614,7 +614,7 @@ mod tests {
 
         let ts_local: Timestamp = (SystemTime::now() - Duration::new(10, 0)).into();
         let obs = VisitObservation::new(url.clone())
-            .with_visit_type(VisitTransition::Link)
+            .with_visit_type(VisitType::Link)
             .with_at(Some(ts_local));
         apply_observation(&db, obs)?;
 
@@ -759,7 +759,7 @@ mod tests {
         let url = Url::parse("https://example.com")?;
         let now = SystemTime::now();
         let obs = VisitObservation::new(url)
-            .with_visit_type(VisitTransition::Link)
+            .with_visit_type(VisitType::Link)
             .with_at(Some(now.into()));
         apply_observation(&db, obs)?;
 
@@ -778,7 +778,7 @@ mod tests {
 
         // First add a local visit with the timestamp.
         let obs = VisitObservation::new(url.clone())
-            .with_visit_type(VisitTransition::Link)
+            .with_visit_type(VisitType::Link)
             .with_at(Some(ts));
         apply_observation(&db, obs)?;
         // Sync status should be "new" and have a change recorded.
@@ -815,7 +815,7 @@ mod tests {
 
         // First add a local visit with ts1.
         let obs = VisitObservation::new(url.clone())
-            .with_visit_type(VisitTransition::Link)
+            .with_visit_type(VisitType::Link)
             .with_at(Some(ts1));
         apply_observation(&db, obs)?;
 
@@ -859,7 +859,7 @@ mod tests {
         let db = PlacesDb::open_in_memory(ConnectionType::Sync)?;
         let url = Url::parse("https://example.com")?;
         let obs = VisitObservation::new(url.clone())
-            .with_visit_type(VisitTransition::Link)
+            .with_visit_type(VisitType::Link)
             .with_at(Some(SystemTime::now().into()));
         apply_observation(&db, obs)?;
         assert_eq!(get_sync(&db, &url), (SyncStatus::New, 1));
@@ -883,7 +883,7 @@ mod tests {
         let db = PlacesDb::open_in_memory(ConnectionType::Sync)?;
         let url = Url::parse("https://example.com")?;
         let obs = VisitObservation::new(url.clone())
-            .with_visit_type(VisitTransition::Link)
+            .with_visit_type(VisitType::Link)
             .with_at(Some(SystemTime::now().into()));
         apply_observation(&db, obs)?;
         let guid = get_existing_guid(&db, &url);
@@ -910,7 +910,7 @@ mod tests {
         let db = PlacesDb::open_in_memory(ConnectionType::Sync)?;
         let url = Url::parse("https://example.com")?;
         let obs = VisitObservation::new(url.clone())
-            .with_visit_type(VisitTransition::Link)
+            .with_visit_type(VisitType::Link)
             .with_at(Some(SystemTime::now().into()));
         apply_observation(&db, obs)?;
         let guid = get_existing_guid(&db, &url);

@@ -165,7 +165,7 @@ mod tests {
     use crate::observation::VisitObservation;
     use crate::storage::bookmarks::*;
     use crate::storage::history::apply_observation;
-    use crate::types::VisitTransition;
+    use crate::types::VisitType;
     use crate::{frecency, ConnectionType, SyncStatus};
     use rusqlite::params;
     use rusqlite::types::{FromSql, ToSql};
@@ -242,7 +242,7 @@ mod tests {
                     apply_observation(
                         conn,
                         VisitObservation::new(url.clone())
-                            .with_visit_type(VisitTransition::Link)
+                            .with_visit_type(VisitType::Link)
                             .with_at(*date),
                     )
                     .unwrap()

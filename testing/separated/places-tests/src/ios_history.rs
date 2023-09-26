@@ -5,7 +5,7 @@ use places::{
     api::places_api::{ConnectionType, PlacesApi},
     apply_observation,
     storage::history::{self, get_visit_infos},
-    Result, VisitObservation, VisitTransition, VisitTransitionSet,
+    Result, VisitObservation, VisitTransitionSet, VisitType,
 };
 use rusqlite::Connection;
 use std::path::Path;
@@ -327,19 +327,19 @@ fn test_update_missing_title() -> Result<()> {
     apply_observation(
         &mut conn,
         VisitObservation::new(Url::parse("https://example.com/").unwrap())
-            .with_visit_type(Some(VisitTransition::Link)),
+            .with_visit_type(Some(VisitType::Link)),
     )?;
     apply_observation(
         &mut conn,
         VisitObservation::new(Url::parse("https://mozilla.org/").unwrap())
             .with_title(Some("Mozilla!".to_string()))
-            .with_visit_type(Some(VisitTransition::Link)),
+            .with_visit_type(Some(VisitType::Link)),
     )?;
     apply_observation(
         &mut conn,
         VisitObservation::new(Url::parse("https://firefox.com/").unwrap())
             .with_title(Some("Firefox!".to_string()))
-            .with_visit_type(Some(VisitTransition::Link)),
+            .with_visit_type(Some(VisitType::Link)),
     )?;
     let visit_infos = get_visit_infos(
         &conn,

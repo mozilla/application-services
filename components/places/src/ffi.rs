@@ -23,7 +23,7 @@ use crate::types::VisitTransitionSet;
 use crate::ConnectionType;
 use crate::UniffiCustomTypeConverter;
 use crate::VisitObservation;
-use crate::VisitTransition;
+use crate::VisitType;
 use crate::{PlacesApi, PlacesDb};
 use error_support::handle_error;
 use interrupt_support::register_interrupt;
@@ -599,7 +599,7 @@ pub struct HistoryVisitInfo {
     pub url: Url,
     pub title: Option<String>,
     pub timestamp: PlacesTimestamp,
-    pub visit_type: VisitTransition,
+    pub visit_type: VisitType,
     pub is_hidden: bool,
     pub preview_image_url: Option<Url>,
     pub is_remote: bool,

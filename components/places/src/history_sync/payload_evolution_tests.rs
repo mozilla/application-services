@@ -10,7 +10,7 @@ use crate::{
     history_sync::{record::HistoryRecord, HistorySyncEngine},
     observation::VisitObservation,
     storage::history::apply_observation,
-    types::{UnknownFields, VisitTransition},
+    types::{UnknownFields, VisitType},
 };
 use serde_json::{json, Value};
 use std::collections::{HashMap, HashSet};
@@ -431,7 +431,7 @@ fn assert_outgoing_unknown_fields_eq(
 fn visit(url: &'static str, timestamp: i64) -> VisitObservation {
     let timestamp = (timestamp / 1000) as u64;
     VisitObservation::new(url.parse().unwrap())
-        .with_visit_type(VisitTransition::Link)
+        .with_visit_type(VisitType::Link)
         .with_at(Some(timestamp.into()))
 }
 

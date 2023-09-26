@@ -34,7 +34,7 @@ pub struct AddablePlaceInfo {
 #[derive(Debug)]
 pub struct AddableVisit {
     pub date: Timestamp,
-    pub transition: VisitTransition,
+    pub transition: VisitType,
     pub referrer: Option<Url>,
     pub is_local: bool,
 }
@@ -67,7 +67,7 @@ mod tests {
         let date = Timestamp::now();
         let visits = vec![AddableVisit {
             date,
-            transition: VisitTransition::Link,
+            transition: VisitType::Link,
             referrer: None,
             is_local: true,
         }];
@@ -143,17 +143,17 @@ pub enum RedirectSourceType {
 // nsIHistory::VisitURI - this is the main interface used by the browser
 // itself to record visits.
 // This differs from the desktop implementation in one major way - instead
-// of using various browser-specific heuristics to compute the VisitTransition
+// of using various browser-specific heuristics to compute the VisitType
 // we assume the caller has already done this and passed the correct transition
 // flags in.
 pub fn visit_uri(
     conn: &mut PlacesDb,
     url: &Url,
     last_url: Option<Url>,
-    // To be more honest, this would *not* take a VisitTransition,
+    // To be more honest, this would *not* take a VisitType,
     // but instead other "internal" nsIHistory flags, from which
-    // it would deduce the VisitTransition.
-    transition: VisitTransition,
+    // it would deduce the VisitType.
+    transition: VisitType,
     redirect_source: Option<RedirectSourceType>,
     is_error_page: bool,
 ) -> Result<()> {
@@ -164,7 +164,7 @@ pub fn visit_uri(
     // Do not save a reloaded uri if we have visited the same URI recently.
     // (Note that desktop implies `reload` based of the "is it the same as last
     // and is it recent" check below) - but here we are asking for the
-    // VisitTransition to be passed in, which explicity has a value for reload.
+    // VisitType to be passed in, which explicity has a value for reload.
     // Note clear if we should try and unify these.
     // (and note that if we can, we can drop the recently_visited cache)
     if let Some(ref last) = last_url {
@@ -185,7 +185,7 @@ pub fn visit_uri(
 
     // EMBED visits are session-persistent and should not go through the database.
     // They exist only to keep track of isVisited status during the session.
-    if transition == VisitTransition::Embed {
+    if transition == VisitType::Embed {
         log::warn!("Embed visit, but in-memory storage of these isn't done yet");
         return Ok(());
     }

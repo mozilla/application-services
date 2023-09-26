@@ -258,7 +258,8 @@ enum DocumentType {
     "Media",
 };
 
-enum VisitTransition {
+// Mimics https://searchfox.org/mozilla-central/rev/57f94ca1d57ab745242daafc8926690377579b83/toolkit/components/places/nsINavHistoryService.idl#922
+enum VisitType {
     // This transition type means the user followed a link.
     "Link",
     // This transition type means that the user typed the page's URL in the
@@ -271,6 +272,8 @@ enum VisitTransition {
     "Download",
     "FramedLink",
     "Reload",
+     // Internal visit type used for meta data updates. Doesn't represent an actual page visit
+    "UpdatePlace",
 };
 
 // This is used as an "input" to the api.
@@ -313,7 +316,7 @@ dictionary HistoryVisitInfo {
     Url url;
     string? title;
     PlacesTimestamp timestamp;
-    VisitTransition visit_type;
+    VisitType visit_type;
     boolean is_hidden;
     Url? preview_image_url;
     boolean is_remote;
@@ -332,7 +335,7 @@ dictionary HistoryVisitInfosWithBound {
 dictionary VisitObservation {
     Url url;
     string? title = null;
-    VisitTransition? visit_type;
+    VisitType? visit_type;
     boolean? is_error = null;
     boolean? is_redirect_source = null;
     boolean? is_permanent_redirect_source = null;
