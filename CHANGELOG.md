@@ -19,6 +19,8 @@ v119.0 (_2023-09-25_)
   - This adds methods to parse a feature configuration and return errors.
 - Added a `FmlFeatureDescriptor` to the `FmlClient` ([#5815](https://github.com/mozilla/application-services/pull/5815)).
   - This adds methods to get the feature_ids and descriptions from a loaded manifest.
+- Added a `channels` subcommmand to the command line ([#5844](https://github.com/mozilla/application-services/pull/5844)).
+  - This prints the channels for the given manifest.
 
 ### ✨ What's New ✨
 
