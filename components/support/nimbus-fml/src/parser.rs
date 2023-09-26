@@ -201,7 +201,7 @@ impl Parser {
     fn load_imports(
         &self,
         current: &FilePath,
-        channel: &str,
+        channel: Option<&str>,
         imports: &mut HashMap<ModuleId, FeatureManifest>,
         // includes: &mut HashSet<ModuleId>,
     ) -> Result<ModuleId> {
@@ -220,7 +220,7 @@ impl Parser {
         // we use it. This helps with globbing directories where the app wants to keep the feature definition
         // away from the feature configuration.
         let channel = if frontend.channels.len() == 1 {
-            frontend.channels.first().unwrap()
+            frontend.channels.first().map(String::as_str)
         } else {
             channel
         };
@@ -238,7 +238,7 @@ impl Parser {
             // 1. Load the imported manifests in to the hash map.
             let path = self.files.join(current, &block.path)?;
             // The channel comes from the importer, rather than the command or the imported file.
-            let child_id = self.load_imports(&path, &block.channel, imports)?;
+            let child_id = self.load_imports(&path, Some(&block.channel), imports)?;
             let child_manifest = imports.get_mut(&child_id).expect("just loaded this file");
 
             // We detect that there are no name collisions after the loading has finished, with `check_can_import_manifest`.
@@ -259,7 +259,7 @@ impl Parser {
             let merger = DefaultsMerger::new(
                 &child_manifest.obj_defs,
                 frontend.channels.clone(),
-                channel.into(),
+                channel.map(str::to_string),
             );
 
             // b. Prepare a feature map that we'll alter in place.
@@ -299,7 +299,7 @@ impl Parser {
 
     pub fn get_intermediate_representation(
         &self,
-        channel: &str,
+        channel: Option<&str>,
     ) -> Result<FeatureManifest, FMLError> {
         let mut manifests = HashMap::new();
         let id = self.load_imports(&self.source, channel, &mut manifests)?;
@@ -530,7 +530,7 @@ mod unit_tests {
         let path = Path::new(&path);
         let files = FileLoader::default()?;
         let parser = Parser::new(files, path.into())?;
-        let ir = parser.get_intermediate_representation("release")?;
+        let ir = parser.get_intermediate_representation(Some("release"))?;
 
         // Validate parsed enums
         assert!(ir.enum_defs.len() == 1);
@@ -637,7 +637,7 @@ mod unit_tests {
         let path = Path::new(&path);
         let files = FileLoader::default()?;
         let parser = Parser::new(files, path.into())?;
-        let ir = parser.get_intermediate_representation("release")?;
+        let ir = parser.get_intermediate_representation(Some("release"))?;
         let feature_def = ir.get_feature("dialog-appearance").unwrap();
         let positive_button = feature_def
             .props
@@ -679,7 +679,7 @@ mod unit_tests {
         // We now re-run this, but merge back the nightly channel instead
         let files = FileLoader::default()?;
         let parser = Parser::new(files, path.into())?;
-        let ir = parser.get_intermediate_representation("nightly")?;
+        let ir = parser.get_intermediate_representation(Some("nightly"))?;
         let feature_def = ir.get_feature("dialog-appearance").unwrap();
         let positive_button = feature_def
             .props
@@ -1077,7 +1077,7 @@ mod unit_tests {
 
         let files = FileLoader::default()?;
         let parser = Parser::new(files, path.as_path().into())?;
-        let ir = parser.get_intermediate_representation("release");
+        let ir = parser.get_intermediate_representation(Some("release"));
         assert!(ir.is_ok());
 
         Ok(())
@@ -1093,7 +1093,7 @@ mod unit_tests {
         let files = FileLoader::default()?;
         let parser = Parser::new(files, path_buf.as_path().into())?;
 
-        let ir = parser.get_intermediate_representation("release")?;
+        let ir = parser.get_intermediate_representation(Some("release"))?;
         assert_eq!(ir.feature_defs.len(), 1);
 
         Ok(())

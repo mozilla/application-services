@@ -18,11 +18,12 @@ impl From<FeatureManifest> for ManifestFrontEnd {
         let enums = merge(&value, |fm| fm.iter_enum_defs().collect(), |e| &e.name);
 
         let about = value.about.description_only();
+        let channels = value.channel.into_iter().collect();
 
         ManifestFrontEnd {
             about: Some(about),
             version: "1.0.0".to_string(),
-            channels: vec![value.channel],
+            channels,
             includes: Default::default(),
             imports: Default::default(),
             features,

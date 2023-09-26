@@ -194,9 +194,9 @@ pub struct FeatureManifest {
     #[serde(skip)]
     pub(crate) id: ModuleId,
 
-    #[serde(skip_serializing_if = "String::is_empty")]
+    #[serde(skip_serializing_if = "Option::is_none")]
     #[serde(default)]
-    pub(crate) channel: String,
+    pub(crate) channel: Option<String>,
 
     #[serde(rename = "enums")]
     #[serde(default)]
@@ -240,7 +240,7 @@ impl FeatureManifest {
 impl FeatureManifest {
     pub(crate) fn new(
         id: ModuleId,
-        channel: &str,
+        channel: Option<&str>,
         features: BTreeMap<String, FeatureDef>,
         enums: BTreeMap<String, EnumDef>,
         objects: BTreeMap<String, ObjectDef>,
@@ -248,7 +248,7 @@ impl FeatureManifest {
     ) -> Self {
         Self {
             id,
-            channel: channel.to_string(),
+            channel: channel.map(str::to_string),
             about,
             enum_defs: enums,
             obj_defs: objects,
@@ -750,12 +750,7 @@ impl FeatureManifest {
             .find_feature(feature_name)
             .ok_or_else(|| InvalidFeatureError(feature_name.to_string()))?;
 
-        let dummy_channel = "dummy".to_string();
-        let merger = DefaultsMerger::new(
-            &manifest.obj_defs,
-            vec![dummy_channel.clone()],
-            dummy_channel,
-        );
+        let merger = DefaultsMerger::new(&manifest.obj_defs, Default::default(), None);
 
         let mut feature_def = feature_def.clone();
         merger.merge_feature_defaults(&mut feature_def, &Some(vec![feature_value.into()]))?;

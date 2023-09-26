@@ -75,7 +75,12 @@ fn generate_struct_single(
     manifest_path: FilePath,
     cmd: &GenerateStructCmd,
 ) -> Result<()> {
-    let ir = load_feature_manifest(files.clone(), manifest_path, cmd.load_from_ir, &cmd.channel)?;
+    let ir = load_feature_manifest(
+        files.clone(),
+        manifest_path,
+        cmd.load_from_ir,
+        Some(&cmd.channel),
+    )?;
     generate_struct_from_ir(&ir, cmd)
 }
 
@@ -100,7 +105,7 @@ fn generate_struct_from_ir(ir: &FeatureManifest, cmd: &GenerateStructCmd) -> Res
 pub(crate) fn generate_experimenter_manifest(cmd: &GenerateExperimenterManifestCmd) -> Result<()> {
     let files: FileLoader = TryFrom::try_from(&cmd.loader)?;
     let path = files.file_path(&cmd.manifest)?;
-    let ir = load_feature_manifest(files, path, cmd.load_from_ir, &cmd.channel)?;
+    let ir = load_feature_manifest(files, path, cmd.load_from_ir, None)?;
     backends::experimenter_manifest::generate_manifest(ir, cmd)?;
     Ok(())
 }
@@ -108,7 +113,7 @@ pub(crate) fn generate_experimenter_manifest(cmd: &GenerateExperimenterManifestC
 pub(crate) fn generate_single_file_manifest(cmd: &GenerateSingleFileManifestCmd) -> Result<()> {
     let files: FileLoader = TryFrom::try_from(&cmd.loader)?;
     let path = files.file_path(&cmd.manifest)?;
-    let fm = load_feature_manifest(files, path, false, &cmd.channel)?;
+    let fm = load_feature_manifest(files, path, false, Some(&cmd.channel))?;
     let frontend: ManifestFrontEnd = fm.into();
     std::fs::write(&cmd.output, serde_yaml::to_string(&frontend)?)?;
     Ok(())
@@ -118,7 +123,7 @@ fn load_feature_manifest(
     files: FileLoader,
     path: FilePath,
     load_from_ir: bool,
-    channel: &str,
+    channel: Option<&str>,
 ) -> Result<FeatureManifest> {
     let ir = if !load_from_ir {
         let parser: Parser = Parser::new(files, path)?;
@@ -189,9 +194,8 @@ pub(crate) fn validate(cmd: &ValidateCmd) -> Result<()> {
         ))?;
         return Ok(());
     }
-    let intermediate_representation = parser
-        .get_intermediate_representation(&channels[0])
-        .map_err(|e| {
+    let intermediate_representation =
+        parser.get_intermediate_representation(None).map_err(|e| {
             output_err(&term, "Manifest is invalid", &e.to_string()).unwrap();
             e
         })?;
@@ -217,7 +221,7 @@ pub(crate) fn validate(cmd: &ValidateCmd) -> Result<()> {
     let results = channels
         .iter()
         .map(|c| {
-            let intermediate_representation = parser.get_intermediate_representation(c);
+            let intermediate_representation = parser.get_intermediate_representation(Some(c));
             match intermediate_representation {
                 Ok(ir) => (c, ir.validate_manifest()),
                 Err(e) => (c, Err(e)),
@@ -291,7 +295,7 @@ mod test {
     fn generate_struct_cli_overrides(from_cli: AboutBlock, cmd: &GenerateStructCmd) -> Result<()> {
         let files: FileLoader = TryFrom::try_from(&cmd.loader)?;
         let path = files.file_path(&cmd.manifest)?;
-        let mut ir = load_feature_manifest(files, path, cmd.load_from_ir, &cmd.channel)?;
+        let mut ir = load_feature_manifest(files, path, cmd.load_from_ir, Some(&cmd.channel))?;
 
         // We do a dance here to make sure that we can override class names and package names during tests,
         // and while we still have to support setting those options from the commmand line.
@@ -748,7 +752,7 @@ mod test {
         let cmd = create_experimenter_manifest_cmd("fixtures/fe/importing/simple/app.yaml")?;
         let files = FileLoader::default()?;
         let path = files.file_path(&cmd.manifest)?;
-        let fm = load_feature_manifest(files, path, cmd.load_from_ir, &cmd.channel)?;
+        let fm = load_feature_manifest(files, path, cmd.load_from_ir, None)?;
         let m: ExperimenterManifest = fm.try_into()?;
 
         assert!(m.contains_key("homescreen"));
@@ -879,7 +883,6 @@ mod test {
             output,
             language: TargetLanguage::ExperimenterYAML,
             load_from_ir,
-            channel: "release".into(),
             loader,
         })
     }
@@ -902,7 +905,7 @@ mod test {
         // Load the source file, and get the default_json()
         let files: FileLoader = TryFrom::try_from(&loader)?;
         let src = files.file_path(&manifest)?;
-        let fm = load_feature_manifest(files, src, false, channel)?;
+        let fm = load_feature_manifest(files, src, false, Some(channel))?;
         let expected = fm.default_json();
 
         // Generate the merged file
@@ -917,7 +920,7 @@ mod test {
         // Reload the generated file, and get the default_json()
         let dest = FilePath::Local(output);
         let files: FileLoader = TryFrom::try_from(&loader)?;
-        let fm = load_feature_manifest(files, dest, false, channel)?;
+        let fm = load_feature_manifest(files, dest, false, Some(channel))?;
         let observed = fm.default_json();
 
         // They should be the same.

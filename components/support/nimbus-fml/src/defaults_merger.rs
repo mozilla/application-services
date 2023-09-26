@@ -16,20 +16,29 @@ pub struct DefaultsMerger<'object> {
     objects: &'object BTreeMap<String, ObjectDef>,
 
     supported_channels: Vec<String>,
-    channel: String,
+    channel: Option<String>,
 }
 
 impl<'object> DefaultsMerger<'object> {
     pub fn new(
         objects: &'object BTreeMap<String, ObjectDef>,
         supported_channels: Vec<String>,
-        channel: String,
+        channel: Option<String>,
     ) -> Self {
         Self {
             objects,
             supported_channels,
             channel,
         }
+    }
+
+    #[cfg(test)]
+    pub fn new_with_channel(
+        objects: &'object BTreeMap<String, ObjectDef>,
+        supported_channels: Vec<String>,
+        channel: String,
+    ) -> Self {
+        Self::new(objects, supported_channels, Some(channel.to_string()))
     }
 
     fn collect_feature_defaults(&self, feature: &FeatureDef) -> Result<serde_json::Value> {
@@ -167,17 +176,23 @@ impl<'object> DefaultsMerger<'object> {
     ) -> Result<(), FMLError> {
         let supported_channels = self.supported_channels.as_slice();
         let channel = &self.channel;
-        if !supported_channels.iter().any(|c| c == channel) {
-            return Err(FMLError::InvalidChannelError(
-                channel.into(),
-                supported_channels.into(),
-            ));
+        if let Some(channel) = channel {
+            if !supported_channels.iter().any(|c| c == channel) {
+                return Err(FMLError::InvalidChannelError(
+                    channel.into(),
+                    supported_channels.into(),
+                ));
+            }
         }
         let variable_defaults = self.collect_feature_defaults(feature_def)?;
         let res = feature_def;
 
         if let Some(defaults) = defaults {
-            let merged_defaults = collect_channel_defaults(defaults, supported_channels)?;
+            // No channel is represented by an unlikely string.
+            let no_channel = "NO CHANNEL SPECIFIED".to_string();
+            let merged_defaults =
+                collect_channel_defaults(defaults, supported_channels, &no_channel)?;
+            let channel = self.channel.as_ref().unwrap_or(&no_channel);
             if let Some(default_to_merged) = merged_defaults.get(channel) {
                 let merged = merge_two_defaults(&variable_defaults, default_to_merged);
                 let map = merged.as_object().ok_or(FMLError::InternalError(
@@ -263,12 +278,14 @@ fn merge_two_defaults(
 fn collect_channel_defaults(
     defaults: &[DefaultBlock],
     channels: &[String],
+    no_channel: &str,
 ) -> Result<HashMap<String, serde_json::Value>> {
     // We initialize the map to have an entry for every valid channel
     let mut channel_map = channels
         .iter()
         .map(|channel_name| (channel_name.clone(), json!({})))
         .collect::<HashMap<_, _>>();
+    channel_map.insert(no_channel.to_string(), json!({}));
     for default in defaults {
         if let Some(channels_for_default) = &default.merge_channels() {
             for channel in channels_for_default {
@@ -475,6 +492,7 @@ mod unit_tests {
                 "nightly".to_string(),
                 "beta".to_string(),
             ],
+            "",
         )?;
         assert_eq!(
             vec![
@@ -495,7 +513,8 @@ mod unit_tests {
                     json!({
                         "button-color": "light-green"
                     })
-                )
+                ),
+                ("".to_string(), json!({}),),
             ]
             .into_iter()
             .collect::<HashMap<_, _>>(),
@@ -547,6 +566,7 @@ mod unit_tests {
                 "nightly".to_string(),
                 "beta".to_string(),
             ],
+            "",
         )?;
         assert_eq!(
             vec![
@@ -570,7 +590,8 @@ mod unit_tests {
                         "button-color": "light-green",
                         "title": "hello there"
                     })
-                )
+                ),
+                ("".to_string(), json!({}),),
             ]
             .into_iter()
             .collect::<HashMap<_, _>>(),
@@ -613,6 +634,7 @@ mod unit_tests {
                 "nightly".to_string(),
                 "beta".to_string(),
             ],
+            "",
         )?;
         assert_eq!(
             vec![
@@ -636,6 +658,12 @@ mod unit_tests {
                         "button-color": "light-green",
                         "title": "heya"
                     })
+                ),
+                (
+                    "".to_string(),
+                    json!({
+                        "title": "heya",
+                    }),
                 )
             ]
             .into_iter()
@@ -679,6 +707,7 @@ mod unit_tests {
                 "nightly".to_string(),
                 "beta".to_string(),
             ],
+            "",
         )?;
         assert_eq!(
             vec![
@@ -699,6 +728,12 @@ mod unit_tests {
                     json!({
                         "button-color": "red"
                     })
+                ),
+                (
+                    "".to_string(),
+                    json!({
+                        "button-color": "red",
+                    }),
                 )
             ]
             .into_iter()
@@ -748,6 +783,7 @@ mod unit_tests {
                 "nightly".to_string(),
                 "beta".to_string(),
             ],
+            "",
         )?;
         assert_eq!(
             vec![
@@ -768,6 +804,12 @@ mod unit_tests {
                     json!({
                         "button-color": "red"
                     })
+                ),
+                (
+                    "".to_string(),
+                    json!({
+                        "button-color": "red",
+                    }),
                 )
             ]
             .into_iter()
@@ -787,7 +829,8 @@ mod unit_tests {
                 }
             },
         ]))?;
-        let res = collect_channel_defaults(&input, &["release".to_string(), "beta".to_string()])?;
+        let res =
+            collect_channel_defaults(&input, &["release".to_string(), "beta".to_string()], "")?;
         assert_eq!(
             vec![
                 (
@@ -801,7 +844,8 @@ mod unit_tests {
                     json!({
                         "button-color": "green"
                     })
-                )
+                ),
+                ("".to_string(), json!({}),)
             ]
             .into_iter()
             .collect::<HashMap<_, _>>(),
@@ -829,6 +873,7 @@ mod unit_tests {
                 "nightly".to_string(),
                 "debug".to_string(),
             ],
+            "",
         )?;
         assert_eq!(
             vec![
@@ -855,7 +900,8 @@ mod unit_tests {
                     json!({
                         "button-color": "green"
                     })
-                )
+                ),
+                ("".to_string(), json!({}),)
             ]
             .into_iter()
             .collect::<HashMap<_, _>>(),
@@ -899,6 +945,7 @@ mod unit_tests {
                 "nightly".to_string(),
                 "beta".to_string(),
             ],
+            "",
         )
         .expect_err("Should return error");
         if let FMLError::InvalidChannelError(channel, _supported) = res {
@@ -937,6 +984,7 @@ mod unit_tests {
                 "nightly".to_string(),
                 "beta".to_string(),
             ],
+            "",
         )?;
         assert_eq!(
             vec![
@@ -952,7 +1000,8 @@ mod unit_tests {
                         "button-color": "dark-green"
                     })
                 ),
-                ("beta".to_string(), json!({}))
+                ("beta".to_string(), json!({})),
+                ("".to_string(), json!({}),)
             ]
             .into_iter()
             .collect::<HashMap<_, _>>(),
@@ -965,7 +1014,7 @@ mod unit_tests {
     fn test_merge_feature_default_unsupported_channel() -> Result<()> {
         let mut feature_def: FeatureDef = Default::default();
         let objects = Default::default();
-        let merger = DefaultsMerger::new(
+        let merger = DefaultsMerger::new_with_channel(
             &objects,
             vec!["release".into(), "beta".into()],
             "nightly".into(),
@@ -1016,7 +1065,7 @@ mod unit_tests {
             },
         ]))?;
         let objects = Default::default();
-        let merger = DefaultsMerger::new(
+        let merger = DefaultsMerger::new_with_channel(
             &objects,
             vec!["release".into(), "beta".into(), "nightly".into()],
             "nightly".into(),
@@ -1059,7 +1108,7 @@ mod unit_tests {
             }
         }]))?;
         let objects = Default::default();
-        let merger = DefaultsMerger::new(
+        let merger = DefaultsMerger::new_with_channel(
             &objects,
             vec!["release".into(), "beta".into(), "nightly".into()],
             "nightly".into(),
@@ -1133,7 +1182,7 @@ mod unit_tests {
             },
         ]))?;
         let objects = Default::default();
-        let merger = DefaultsMerger::new(
+        let merger = DefaultsMerger::new_with_channel(
             &objects,
             vec!["release".into(), "beta".into(), "nightly".into()],
             "release".into(),
@@ -1193,7 +1242,7 @@ mod unit_tests {
             },
         ]))?;
         let objects = Default::default();
-        let merger = DefaultsMerger::new(
+        let merger = DefaultsMerger::new_with_channel(
             &objects,
             vec!["release".into(), "beta".into(), "nightly".into()],
             "nightly".into(),
@@ -1231,7 +1280,8 @@ mod unit_tests {
             }
         ]))?;
         let objects = Default::default();
-        let merger = DefaultsMerger::new(&objects, vec!["nightly".into()], "nightly".into());
+        let merger =
+            DefaultsMerger::new_with_channel(&objects, vec!["nightly".into()], "nightly".into());
         let result = merger.merge_feature_defaults(&mut feature_def, &default_blocks);
 
         assert!(result.is_err());

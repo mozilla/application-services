@@ -90,7 +90,7 @@ impl TryFrom<&ManifestSource> for FeatureManifest {
         let files = value.manifest_loader()?;
         let path = files.file_path(value.manifest_file())?;
         let parser: Parser = Parser::new(files, path)?;
-        let manifest = parser.get_intermediate_representation(value.channel())?;
+        let manifest = parser.get_intermediate_representation(Some(value.channel()))?;
         manifest.validate_manifest()?;
         Ok(manifest)
     }
