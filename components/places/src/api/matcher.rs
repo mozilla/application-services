@@ -611,7 +611,7 @@ mod tests {
     use crate::api::places_api::test::new_mem_connection;
     use crate::observation::VisitObservation;
     use crate::storage::history::apply_observation;
-    use crate::types::VisitTransition;
+    use crate::types::VisitType;
     use types::Timestamp;
 
     #[test]
@@ -666,7 +666,7 @@ mod tests {
         let url = Url::parse("http://example.com/123").unwrap();
         let visit = VisitObservation::new(url.clone())
             .with_title("Example page 123".to_string())
-            .with_visit_type(VisitTransition::Typed)
+            .with_visit_type(VisitType::Typed)
             .with_at(Timestamp::now());
 
         apply_observation(&conn, visit).expect("Should apply visit");
@@ -757,7 +757,7 @@ mod tests {
         let url = Url::parse("http://exämple.com/123").unwrap();
         let visit = VisitObservation::new(url)
             .with_title("Example page 123".to_string())
-            .with_visit_type(VisitTransition::Typed)
+            .with_visit_type(VisitType::Typed)
             .with_at(Timestamp::now());
 
         apply_observation(&conn, visit).expect("Should apply visit");

@@ -754,7 +754,7 @@ mod tests {
         apply_observation, delete_visits_between, delete_visits_for, get_visit_count, url_to_guid,
         wipe_local,
     };
-    use crate::types::VisitTransition;
+    use crate::types::VisitType;
     use crate::VisitTransitionSet;
     use pretty_assertions::assert_eq;
     use std::{thread, time};
@@ -1266,7 +1266,7 @@ mod tests {
             VisitObservation::new(
                 Url::parse("https://www.reddit.com/r/climbing").expect("Should parse URL"),
             )
-            .with_visit_type(VisitTransition::Link)
+            .with_visit_type(VisitType::Link)
             .with_at(Timestamp::now()),
         )
         .expect("Should apply observation");
@@ -1410,7 +1410,7 @@ mod tests {
                 .with_title(Some(String::from("Budget vows to build &#x27;for the long term&#x27; as it promises child care cash, projects massive deficits | CBC News")))
                 .with_preview_image_url(Some(Url::parse("https://i.cbc.ca/1.5993583.1618861792!/cpImage/httpImage/image.jpg_gen/derivatives/16x9_620/fedbudget-20210419.jpg").unwrap()))
                 .with_is_remote(false)
-                .with_visit_type(VisitTransition::Link);
+                .with_visit_type(VisitType::Link);
         apply_observation(&conn, observation1).unwrap();
 
         note_observation!(
@@ -1783,7 +1783,7 @@ mod tests {
             title: Some("bookmarked page".to_string()),
         };
         insert_bookmark(&conn, InsertableItem::Bookmark { b: bm }).expect("bookmark should insert");
-        let obs = VisitObservation::new(url.clone()).with_visit_type(VisitTransition::Link);
+        let obs = VisitObservation::new(url.clone()).with_visit_type(VisitType::Link);
         apply_observation(&conn, obs).expect("Should apply visit");
         note_observation!(
             &conn,
@@ -1823,7 +1823,7 @@ mod tests {
         let conn = PlacesDb::open_in_memory(ConnectionType::ReadWrite).expect("memory db");
         // Item is not bookmarked, but has regular visit and a metadata observation.
         let url = Url::parse("https://www.mozilla.org/not-bookmarked").unwrap();
-        let obs = VisitObservation::new(url.clone()).with_visit_type(VisitTransition::Link);
+        let obs = VisitObservation::new(url.clone()).with_visit_type(VisitType::Link);
         apply_observation(&conn, obs).expect("Should apply visit");
         note_observation!(
             &conn,
@@ -1899,13 +1899,13 @@ mod tests {
             .with_at(start_timestamp)
             .with_title(Some(String::from("Test page 0")))
             .with_is_remote(false)
-            .with_visit_type(VisitTransition::Link);
+            .with_visit_type(VisitType::Link);
 
         let observation2 = VisitObservation::new(other_url)
             .with_at(end_timestamp)
             .with_title(Some(String::from("Test page 1")))
             .with_is_remote(false)
-            .with_visit_type(VisitTransition::Link);
+            .with_visit_type(VisitType::Link);
 
         apply_observation(&conn, observation1).expect("Should apply visit");
         apply_observation(&conn, observation2).expect("Should apply visit");
@@ -1943,13 +1943,13 @@ mod tests {
             .with_at(now)
             .with_title(Some(String::from("Test page 0")))
             .with_is_remote(false)
-            .with_visit_type(VisitTransition::Link);
+            .with_visit_type(VisitType::Link);
 
         let observation2 = VisitObservation::new(parent_url.clone())
             .with_at(now)
             .with_title(Some(String::from("Test page 1")))
             .with_is_remote(false)
-            .with_visit_type(VisitTransition::Link);
+            .with_visit_type(VisitType::Link);
 
         apply_observation(&conn, observation1).expect("Should apply visit");
         apply_observation(&conn, observation2).expect("Should apply visit");
@@ -2022,19 +2022,19 @@ mod tests {
             .with_at(now)
             .with_title(Some(String::from("Test page 1")))
             .with_is_remote(false)
-            .with_visit_type(VisitTransition::Link);
+            .with_visit_type(VisitType::Link);
         let observation2 =
             VisitObservation::new(Url::parse("https://www.mozilla.org/another/").unwrap())
                 .with_at(Timestamp(now.as_millis() + 10000))
                 .with_title(Some(String::from("Test page 3")))
                 .with_is_remote(false)
-                .with_visit_type(VisitTransition::Link);
+                .with_visit_type(VisitType::Link);
         let observation3 =
             VisitObservation::new(Url::parse("https://www.mozilla.org/first/").unwrap())
                 .with_at(Timestamp(now.as_millis() - 10000))
                 .with_title(Some(String::from("Test page 0")))
                 .with_is_remote(true)
-                .with_visit_type(VisitTransition::Link);
+                .with_visit_type(VisitType::Link);
         apply_observation(&conn, observation1).expect("Should apply visit");
         apply_observation(&conn, observation2).expect("Should apply visit");
         apply_observation(&conn, observation3).expect("Should apply visit");

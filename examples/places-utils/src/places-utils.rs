@@ -191,7 +191,7 @@ fn create_fake_visits(db: &PlacesDb, num_sites: usize, num_visits: usize) -> Res
         for visit_num in 0..num_visits {
             let obs = places::VisitObservation::new(url.clone())
                 .with_at(Some(st.into()))
-                .with_visit_type(places::VisitTransition::Link);
+                .with_visit_type(places::VisitType::Link);
             st = st.checked_sub(Duration::new(1, 0)).unwrap();
             places::storage::history::apply_observation_direct(db, obs)?;
             if interrupt_support::ShutdownInterruptee.was_interrupted() {

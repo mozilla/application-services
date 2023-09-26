@@ -15,7 +15,7 @@ use crate::error::{Error, InvalidPlaceInfo, Result};
 use crate::ffi::HistoryVisitInfo;
 use crate::ffi::TopFrecentSiteInfo;
 use crate::frecency::{calculate_frecency, DEFAULT_FRECENCY_SETTINGS};
-use crate::types::{SyncStatus, UnknownFields, VisitTransition};
+use crate::types::{SyncStatus, UnknownFields, VisitType};
 use interrupt_support::SqlInterruptScope;
 use rusqlite::types::{FromSql, FromSqlResult, ToSql, ToSqlOutput, ValueRef};
 use rusqlite::Result as RusqliteResult;
@@ -196,11 +196,11 @@ fn new_page_info(db: &PlacesDb, url: &Url, new_guid: Option<SyncGuid>) -> Result
 
 impl HistoryVisitInfo {
     fn from_row(row: &rusqlite::Row<'_>) -> Result<Self> {
-        let visit_type = VisitTransition::from_primitive(row.get::<_, u8>("visit_type")?)
+        let visit_type = VisitType::from_primitive(row.get::<_, u8>("visit_type")?)
             // Do we have an existing error we use for this? For now they
-            // probably don't care too much about VisitTransition, so this
+            // probably don't care too much about VisitType, so this
             // is fine.
-            .unwrap_or(VisitTransition::Link);
+            .unwrap_or(VisitType::Link);
         let visit_date: Timestamp = row.get("visit_date")?;
         let url: String = row.get("url")?;
         let preview_image_url: Option<String> = row.get("preview_image_url")?;
@@ -515,7 +515,7 @@ mod tests {
             &conn,
             VisitObservation::new(url)
                 .with_at(Timestamp::from(727_747_200_001))
-                .with_visit_type(VisitTransition::Link)
+                .with_visit_type(VisitType::Link)
         )
         .unwrap()
         .is_some());

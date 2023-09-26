@@ -19,6 +19,12 @@
 ### ⚠️ Breaking Changes ⚠️
 
 * The `include_sponsored` and `include_non_sponsored` Boolean options in `SuggestionQuery` have been replaced with a `providers` list. Consumers must now explicitly pass the providers they want to query ([#5867](https://github.com/mozilla/application-services/pull/5867)).
+## Places
+
+### ⚠️ Breaking Changes ⚠️
+
+- VisitTransition has been renamed to VisitType to match Desktop and reduce the amount of conversions needed in consumer APIs.
+
 
 # v119.0 (_2023-09-25_)
 
