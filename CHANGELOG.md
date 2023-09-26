@@ -27,9 +27,11 @@
 - Added a `channels` subcommmand to the command line ([#5844](https://github.com/mozilla/application-services/pull/5844)).
   - This prints the channels for the given manifest.
 
-### ✨ What's New ✨
+### 🦊 What's Changed 🦊
 
-- The `set_experiments` method has been updated to filter down the list of experiments to only those that match the configured `app_name` and `channel` ([#5813](https://github.com/mozilla/application-services/pull/5813)).
+- Removed the `channel` argument from the `generate-experimenter` command ([#5843](https://github.com/mozilla/application-services/pull/5843)).
+  - This cleans up some design issues/technical debt deep within the internal representation of the FML compiler.
+
 ## Places
 
 ### 🦊 What's Changed 🦊
