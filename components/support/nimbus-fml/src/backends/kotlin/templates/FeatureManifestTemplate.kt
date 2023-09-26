@@ -137,7 +137,7 @@ object {{ nimbus_object }} : FeatureManifestInterface<{{ nimbus_object }}.Featur
      */
     private fun reinitialize() {
         {%- if !blocks.is_empty() %}
-        {%- for code in blocks %}
+        {%- for code in blocks.iter() %}
         {{ code }}
         {%- endfor %}
         {%- else %}

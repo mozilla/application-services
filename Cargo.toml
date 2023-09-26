@@ -1,4 +1,6 @@
 [workspace]
+resolver = "2"
+
 # Note: Any additions here should be repeated in default-members below.
 members = [
     "components/as-ohttp-client",
