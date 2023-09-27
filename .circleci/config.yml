@@ -212,8 +212,6 @@ jobs:
     executor: macos
     steps:
       - full-checkout
-      # swiftlint moved? See https://github.com/Homebrew/discussions/discussions/691
-      - run: brew update-reset
       - run: brew install swiftlint swiftformat
       - run: ./automation/tests.py swiftlint
       - run: ./automation/tests.py swiftformat
