@@ -575,7 +575,7 @@ mod unit_tests {
         assert!(ir.feature_defs.len() == 1);
         let feature_def = ir.get_feature("dialog-appearance").unwrap();
         assert!(feature_def.name == *"dialog-appearance");
-        assert!(feature_def.doc == *"This is the appearance of the dialog");
+        assert!(feature_def.doc() == *"This is the appearance of the dialog");
         let positive_button = feature_def
             .props
             .iter()

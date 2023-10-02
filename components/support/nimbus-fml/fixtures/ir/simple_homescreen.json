@@ -31,7 +31,7 @@
   "features": {
     "homescreen": {
       "name": "homescreen",
-      "doc": "Represents the homescreen feature",
+      "description": "Represents the homescreen feature",
       "props": [
         {
           "name": "sections-enabled",

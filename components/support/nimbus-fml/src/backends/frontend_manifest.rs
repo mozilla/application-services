@@ -68,7 +68,7 @@ impl From<FeatureDef> for FeatureBody {
         }
 
         Self {
-            description: value.doc,
+            metadata: value.metadata,
             variables,
             default: None,
             allow_coenrollment: value.allow_coenrollment,
