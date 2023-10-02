@@ -134,7 +134,8 @@ pub(crate) struct ImportBlock {
 #[serde(deny_unknown_fields)]
 #[serde(rename_all = "kebab-case")]
 pub(crate) struct FeatureBody {
-    pub(crate) description: String,
+    #[serde(flatten)]
+    pub(crate) metadata: FeatureMetadata,
     // We need these in a deterministic order, so they are stable across multiple
     // runs of the same manifests:
     // 1. Swift insists on args in the same order they were declared.
@@ -147,6 +148,13 @@ pub(crate) struct FeatureBody {
     #[serde(default)]
     #[serde(skip_serializing_if = "std::ops::Not::not")]
     pub(crate) allow_coenrollment: bool,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, Default)]
+#[serde(deny_unknown_fields)]
+#[serde(rename_all = "kebab-case")]
+pub(crate) struct FeatureMetadata {
+    pub(crate) description: String,
 }
 
 #[derive(Debug, Deserialize, Serialize, Clone, Default)]
@@ -268,7 +276,7 @@ impl ManifestFrontEnd {
             }
             let mut def = FeatureDef {
                 name: nm.clone(),
-                doc: body.description.clone(),
+                metadata: body.metadata.clone(),
                 props: fields,
                 allow_coenrollment: body.allow_coenrollment,
             };

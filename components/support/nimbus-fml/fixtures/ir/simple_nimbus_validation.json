@@ -30,7 +30,7 @@
   "features": {
     "nimbus-validation": {
       "name": "nimbus-validation",
-      "doc": "A simple validation feature",
+      "description": "A simple validation feature",
       "props": [
         {
           "name": "enabled",

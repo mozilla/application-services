@@ -56,7 +56,7 @@
   "features": {
     "with-objects-feature": {
       "name": "with-objects-feature",
-      "doc": "A feature with objects feature",
+      "description": "A feature with objects feature",
       "props": [
         {
           "name": "an-object",
