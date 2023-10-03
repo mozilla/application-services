@@ -13,10 +13,7 @@ use self::{
 };
 use crate::{Error, FxaConfig, FxaRustAuthState, Result};
 use serde_derive::*;
-use std::{
-    collections::{HashMap, HashSet},
-    sync::Arc,
-};
+use std::{collections::HashMap, sync::Arc};
 use url::Url;
 
 #[cfg(feature = "integration_test")]
@@ -76,7 +73,7 @@ impl FirefoxAccount {
             scoped_keys: HashMap::new(),
             last_handled_command: None,
             commands_data: HashMap::new(),
-            device_capabilities: HashSet::new(),
+            server_local_device_info: None,
             session_token: None,
             current_device_id: None,
             last_seen_profile: None,
@@ -243,6 +240,7 @@ mod tests {
     use crate::internal::device::*;
     use crate::internal::http_client::FxAClientMock;
     use crate::internal::oauth::*;
+    use std::collections::HashSet;
 
     #[test]
     fn test_fxa_is_send() {

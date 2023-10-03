@@ -51,7 +51,7 @@ impl FirefoxAccount {
         name: &str,
         device_type: DeviceType,
         supported_capabilities: Vec<DeviceCapability>,
-    ) -> ApiResult<()> {
+    ) -> ApiResult<LocalDevice> {
         // UniFFI doesn't have good handling of lists of references, work around it.
         let supported_capabilities: Vec<_> =
             supported_capabilities.into_iter().map(Into::into).collect();
@@ -141,7 +141,7 @@ impl FirefoxAccount {
     ///    - Device registration is only available to applications that have been
     ///      granted the `https://identity.mozilla.com/apps/oldsync` scope.
     #[handle_error(Error)]
-    pub fn set_device_name(&self, display_name: &str) -> ApiResult<()> {
+    pub fn set_device_name(&self, display_name: &str) -> ApiResult<LocalDevice> {
         self.internal.lock().set_device_name(display_name)
     }
 
@@ -187,13 +187,24 @@ impl FirefoxAccount {
     pub fn ensure_capabilities(
         &self,
         supported_capabilities: Vec<DeviceCapability>,
-    ) -> ApiResult<()> {
+    ) -> ApiResult<LocalDevice> {
         let supported_capabilities: Vec<_> =
             supported_capabilities.into_iter().map(Into::into).collect();
         self.internal
             .lock()
             .ensure_capabilities(&supported_capabilities)
     }
+}
+
+/// Local device that's connecting to FxA
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct LocalDevice {
+    pub id: String,
+    pub display_name: String,
+    pub device_type: sync15::DeviceType,
+    pub capabilities: Vec<DeviceCapability>,
+    pub push_subscription: Option<DevicePushSubscription>,
+    pub push_endpoint_expired: bool,
 }
 
 /// A device connected to the user's account.

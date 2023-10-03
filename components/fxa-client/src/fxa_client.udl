@@ -308,7 +308,7 @@ interface FirefoxAccount {
   //      granted the `https://identity.mozilla.com/apps/oldsync` scope.
   //
   [Throws=FxaError]
-  void initialize_device([ByRef] string name,  DeviceType device_type,  sequence<DeviceCapability> supported_capabilities );
+  LocalDevice initialize_device([ByRef] string name,  DeviceType device_type,  sequence<DeviceCapability> supported_capabilities );
   
 
   // Get the device id registered for this application.
@@ -383,7 +383,7 @@ interface FirefoxAccount {
   //      granted the `https://identity.mozilla.com/apps/oldsync` scope.
   //
   [Throws=FxaError]
-  void set_device_name([ByRef] string display_name );
+  LocalDevice set_device_name([ByRef] string display_name );
   
 
   // Clear any custom display name used for this application instance.
@@ -426,7 +426,7 @@ interface FirefoxAccount {
   //      granted the `https://identity.mozilla.com/apps/oldsync` scope.
   //
   [Throws=FxaError]
-  void ensure_capabilities( sequence<DeviceCapability> supported_capabilities );
+  LocalDevice ensure_capabilities( sequence<DeviceCapability> supported_capabilities );
   
 
   // Set or update a push subscription endpoint for this device.
@@ -449,7 +449,7 @@ interface FirefoxAccount {
   //      granted the `https://identity.mozilla.com/apps/oldsync` scope.
   //
   [Throws=FxaError]
-  void set_push_subscription( DevicePushSubscription subscription );
+  LocalDevice set_push_subscription( DevicePushSubscription subscription );
 
 
   // Process and respond to a server-delivered account update message
@@ -806,6 +806,19 @@ dictionary Device {
   boolean push_endpoint_expired;
   boolean is_current_device;
   i64? last_access_time;
+};
+
+// Local device that's connecting to FxA
+//
+// This is returned by the device update methods and represents the server's view of the local
+// device.
+dictionary LocalDevice {
+  string id;
+  string display_name;
+  DeviceType device_type;
+  sequence<DeviceCapability> capabilities;
+  DevicePushSubscription? push_subscription;
+  boolean push_endpoint_expired;
 };
 
 // Details of a web-push subscription endpoint.
