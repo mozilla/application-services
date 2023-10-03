@@ -75,6 +75,9 @@ enum FxaError {
   // **Note:** This error is currently only thrown in the Swift language bindings.
   "WrongAuthFlow",
 
+  // A required scoped key was missing in the server response
+  "ScopedKeyMissing",
+
   // Thrown if there is a panic in the underlying Rust code.
   //
   // **Note:** This error is currently only thrown in the Kotlin language bindings.
@@ -579,6 +582,8 @@ interface FirefoxAccount {
   //        - This must be one of the scopes requested during the signin flow.
   //        - Only a single scope is supported; for multiple scopes request multiple tokens.
   //    - `ttl` - optionally, the time for which the token should be valid, in seconds.
+  //    - `require_scoped_key` - optionally, throw [FxaError.ScopedKeyMissing] if the scoped_key
+  //        is not present in the server response.
   //
   // # Notes
   //
@@ -587,8 +592,7 @@ interface FirefoxAccount {
   //      before requesting a fresh token.
   //
   [Throws=FxaError]
-  AccessTokenInfo get_access_token([ByRef] string scope,  i64? ttl );
-  
+  AccessTokenInfo get_access_token([ByRef] string scope,  optional i64? ttl = null, optional boolean require_scoped_key = false);
 
   // Get the session token for the user's account, if one is available.
   //

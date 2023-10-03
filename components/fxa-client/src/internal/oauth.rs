@@ -38,14 +38,24 @@ impl FirefoxAccount {
     ///
     /// * `scopes` - Space-separated list of requested scopes.
     /// * `ttl` - the ttl in seconds of the token requested from the server.
+    /// * `require_scpoed_key` - return [Error.ScopedKeyMissing] if the scoped_key is not present
+    ///   in the server response.
     ///
     /// **💾 This method may alter the persisted account state.**
-    pub fn get_access_token(&mut self, scope: &str, ttl: Option<u64>) -> Result<AccessTokenInfo> {
+    pub fn get_access_token(
+        &mut self,
+        scope: &str,
+        ttl: Option<u64>,
+        require_scoped_key: bool,
+    ) -> Result<AccessTokenInfo> {
         if scope.contains(' ') {
             return Err(Error::MultipleScopesRequested);
         }
         if let Some(oauth_info) = self.state.get_cached_access_token(scope) {
             if oauth_info.expires_at > util::now_secs() + OAUTH_MIN_TIME_LEFT {
+                if require_scoped_key {
+                    oauth_info.check_scoped_key_present()?
+                }
                 return Ok(oauth_info.clone());
             }
         }
@@ -83,6 +93,9 @@ impl FirefoxAccount {
         };
         self.state
             .add_cached_access_token(scope, token_info.clone());
+        if require_scoped_key {
+            token_info.check_scoped_key_present()?
+        }
         Ok(token_info)
     }
 
@@ -548,6 +561,16 @@ pub struct AccessTokenInfo {
     pub token: String,
     pub key: Option<ScopedKey>,
     pub expires_at: u64, // seconds since epoch
+}
+
+impl AccessTokenInfo {
+    pub fn check_scoped_key_present(&self) -> Result<()> {
+        if self.key.is_none() {
+            Err(Error::ScopedKeyMissing)
+        } else {
+            Ok(())
+        }
+    }
 }
 
 impl TryFrom<AccessTokenInfo> for crate::AccessTokenInfo {
