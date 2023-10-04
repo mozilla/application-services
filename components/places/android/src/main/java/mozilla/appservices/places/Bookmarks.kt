@@ -119,6 +119,19 @@ interface ReadableBookmarksConnection : InterruptibleConnection {
      * has its `interrupt()` method called on another thread.
      */
     fun getRecentBookmarks(limit: Int): List<BookmarkItem>
+
+    /**
+     * Counts the number of bookmark items in the bookmark trees under the specified GUIDs.
+
+     * @param guids The guids of folders to query.
+     * @return Count of all bookmark items (ie, not folders or separators) in all specified folders recursively.
+     * Empty folders, non-existing GUIDs and non-existing items will return zero.
+     * The result is implementation dependant if the trees overlap.
+     *
+     * @throws OperationInterrupted if this database implements [InterruptibleConnection] and
+     * has its `interrupt()` method called on another thread.
+     */
+    fun countBookmarksInTrees(guids: List<Guid>): UInt
 }
 
 /**

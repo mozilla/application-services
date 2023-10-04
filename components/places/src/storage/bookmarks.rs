@@ -14,7 +14,7 @@ use crate::types::{BookmarkType, SyncStatus};
 use rusqlite::{self, Connection, Row};
 #[cfg(test)]
 use serde_json::{self, json};
-use sql_support::{self, ConnExt};
+use sql_support::{self, repeat_sql_vars, ConnExt};
 use std::cmp::{max, min};
 use sync15::engine::EngineSyncAssociation;
 use sync_guid::Guid as SyncGuid;
@@ -784,6 +784,32 @@ pub fn bookmarks_get_url_for_keyword(db: &PlacesDb, keyword: &str) -> Result<Opt
         },
         None => Ok(None),
     }
+}
+
+// Counts the number of bookmark items in the bookmark trees under the specified GUIDs.
+// Does not count folder items, separators. A set of empty folders will return zero, as will
+// a set of non-existing GUIDs or guids of a non-folder item.
+// The result is implementation dependant if the trees overlap.
+pub fn count_bookmarks_in_trees(db: &PlacesDb, item_guids: &[SyncGuid]) -> Result<u32> {
+    if item_guids.is_empty() {
+        return Ok(0);
+    }
+    let vars = repeat_sql_vars(item_guids.len());
+    let sql = format!(
+        r#"
+        WITH RECURSIVE bookmark_tree(id, parent, type)
+        AS (
+            SELECT id, parent, type FROM moz_bookmarks
+            WHERE parent IN (SELECT id from moz_bookmarks WHERE guid IN ({vars}))
+            UNION ALL
+            SELECT bm.id, bm.parent, bm.type FROM moz_bookmarks bm, bookmark_tree bt WHERE bm.parent = bt.id
+        )
+    SELECT COUNT(*) from bookmark_tree WHERE type = {};
+    "#,
+        BookmarkType::Bookmark as u8
+    );
+    let params = rusqlite::params_from_iter(item_guids);
+    Ok(db.try_query_one(&sql, params, true)?.unwrap_or_default())
 }
 
 /// Erases all bookmarks and resets all Sync metadata.
@@ -1917,6 +1943,99 @@ mod tests {
         let since = get_meta::<i64>(&conn, LAST_SYNC_META_KEY)?;
         assert_eq!(since, Some(0));
 
+        Ok(())
+    }
+
+    #[test]
+    fn test_count_tree() -> Result<()> {
+        let conn = new_mem_connection();
+        let unfiled = BookmarkRootGuid::Unfiled.as_guid();
+
+        insert_json_tree(
+            &conn,
+            json!({
+                "guid": &unfiled,
+                "children": [
+                    {
+                        "guid": "folder1_____",
+                        "title": "A folder",
+                        "children": [
+                            {
+                                "guid": "bookmark1___",
+                                "title": "bookmark in A folder",
+                                "url": "https://www.example2.com/"
+                            },
+                            {
+                                "guid": "separator1__",
+                                "type": BookmarkType::Separator,
+                            },
+                            {
+                                "guid": "bookmark2___",
+                                "title": "next bookmark in A folder",
+                                "url": "https://www.example3.com/"
+                            },
+                        ]
+                    },
+                    {
+                        "guid": "folder2_____",
+                        "title": "folder 2",
+                    },
+                    {
+                        "guid": "folder3_____",
+                        "title": "Another folder",
+                        "children": [
+                            {
+                                "guid": "bookmark3___",
+                                "title": "bookmark in folder 3",
+                                "url": "https://www.example2.com/"
+                            },
+                            {
+                                "guid": "separator2__",
+                                "type": BookmarkType::Separator,
+                            },
+                            {
+                                "guid": "bookmark4___",
+                                "title": "next bookmark in folder 3",
+                                "url": "https://www.example3.com/"
+                            },
+                        ]
+                    },
+                ]
+            }),
+        );
+        assert_eq!(count_bookmarks_in_trees(&conn, &[])?, 0);
+        // A folder with sub-folders
+        assert_eq!(count_bookmarks_in_trees(&conn, &[unfiled])?, 4);
+        // A folder with items but no folders.
+        assert_eq!(
+            count_bookmarks_in_trees(&conn, &[SyncGuid::from("folder1_____")])?,
+            2
+        );
+        // Asking for a bookmark (ie, not a folder) or an invalid guid gives zero.
+        assert_eq!(
+            count_bookmarks_in_trees(&conn, &[SyncGuid::from("bookmark1___")])?,
+            0
+        );
+        assert_eq!(
+            count_bookmarks_in_trees(&conn, &[SyncGuid::from("no_such_guid")])?,
+            0
+        );
+        // empty folder also zero.
+        assert_eq!(
+            count_bookmarks_in_trees(&conn, &[SyncGuid::from("folder2_____")])?,
+            0
+        );
+        // multiple folders
+        assert_eq!(
+            count_bookmarks_in_trees(
+                &conn,
+                &[
+                    SyncGuid::from("folder1_____"),
+                    SyncGuid::from("folder3_____")
+                ]
+            )?,
+            4
+        );
         Ok(())
     }
 }

@@ -385,6 +385,40 @@ class PlacesConnectionTest {
     }
 
     @Test
+    fun testCountBookmarks() {
+        assertEquals(db.countBookmarksInTrees(listOf(BookmarkRoot.Unfiled.id)), 0U)
+
+        db.createBookmarkItem(
+            parentGUID = BookmarkRoot.Unfiled.id,
+            url = "https://www.example.com/",
+            title = "example",
+        )
+        assertEquals(db.countBookmarksInTrees(listOf(BookmarkRoot.Unfiled.id)), 1U)
+
+        val folderGUID = db.createFolder(
+            parentGUID = BookmarkRoot.Unfiled.id,
+            title = "example folder",
+        )
+        // Folders don't get counted.
+        assertEquals(db.countBookmarksInTrees(listOf(BookmarkRoot.Unfiled.id)), 1U)
+
+        // new item in the child folder does.
+        db.createBookmarkItem(
+            parentGUID = folderGUID,
+            url = "https://www.example.com/",
+            title = "example",
+        )
+        assertEquals(db.countBookmarksInTrees(listOf(BookmarkRoot.Unfiled.id)), 2U)
+
+        // A separator is not counted.
+        db.createSeparator(
+            parentGUID = BookmarkRoot.Unfiled.id,
+            position = 0u,
+        )
+        assertEquals(db.countBookmarksInTrees(listOf(BookmarkRoot.Unfiled.id)), 2U)
+    }
+
+    @Test
     fun testHistoryMetricsGathering() {
         assertNull(PlacesManagerMetrics.writeQueryCount.testGetValue())
         assertNull(PlacesManagerMetrics.writeQueryErrorCount["url_parse_failed"].testGetValue())
