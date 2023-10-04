@@ -574,6 +574,11 @@ impl PlacesConnection {
     }
 
     #[handle_error(crate::Error)]
+    pub fn bookmarks_count_bookmarks_in_trees(&self, guids: &[Guid]) -> ApiResult<u32> {
+        self.with_conn(|conn| bookmarks::count_bookmarks_in_trees(conn, guids))
+    }
+
+    #[handle_error(crate::Error)]
     pub fn places_history_import_from_ios(
         &self,
         db_path: String,

@@ -262,6 +262,12 @@ open class PlacesReaderConnection internal constructor(conn: UniffiPlacesConnect
         }
     }
 
+    override fun countBookmarksInTrees(guids: List<Guid>): UInt {
+        return readQueryCounters.measure {
+            this.conn.bookmarksCountBookmarksInTrees(guids)
+        }
+    }
+
     private val readQueryCounters: PlacesManagerCounterMetrics by lazy {
         PlacesManagerCounterMetrics(
             PlacesManagerMetrics.readQueryCount,

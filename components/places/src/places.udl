@@ -204,6 +204,13 @@ interface PlacesConnection {
     [Throws=PlacesApiError]
     Guid bookmarks_insert(InsertableBookmarkItem bookmark);
 
+    // Counts the number of bookmarks in the bookmark tree under the specified GUID. Does not count
+    // the passed item, so an empty folder will return zero, as will a non-existing GUID or the
+    // guid of a non-folder item.
+    // Counts only bookmark items - ie, sub-folders and separators are not counted.
+    [Throws=PlacesApiError]
+    u32 bookmarks_count_bookmarks_in_trees([ByRef] sequence<Guid> folder_guids);
+
     [Throws=PlacesApiError]
     HistoryMigrationResult places_history_import_from_ios(string db_path, i64 last_sync_timestamp);
 };
