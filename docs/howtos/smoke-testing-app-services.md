@@ -3,6 +3,10 @@
 This is a great way of finding integration bugs with `application-services`.
 The testing can be done manually using substitution scripts, but we also have scripts that will do the smoke-testing for you.
 
+## Dependencies
+
+Run `pip3 install -r automation/requirements.txt` to install the required Python packages.
+
 ## Android Components
 
 The `automation/smoke-test-android-components.py` script will clone (or use a local version) of
