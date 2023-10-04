@@ -716,7 +716,7 @@ impl FeatureManifest {
             .iter()
             .filter_map(|(id, features)| {
                 let fm = map.get(id).to_owned()?;
-                Some(ImportedModule::new(id.clone(), fm, features))
+                Some(ImportedModule::new(fm, features))
             })
             .collect()
     }
@@ -976,22 +976,15 @@ impl TypeFinder for PropDef {
 
 pub type Literal = Value;
 
-#[allow(unused)]
 #[derive(Debug, Clone)]
 pub(crate) struct ImportedModule<'a> {
-    pub(crate) id: ModuleId,
     pub(crate) fm: &'a FeatureManifest,
     features: &'a BTreeSet<String>,
 }
 
-#[allow(unused)]
 impl<'a> ImportedModule<'a> {
-    pub(crate) fn new(
-        id: ModuleId,
-        fm: &'a FeatureManifest,
-        features: &'a BTreeSet<String>,
-    ) -> Self {
-        Self { id, fm, features }
+    pub(crate) fn new(fm: &'a FeatureManifest, features: &'a BTreeSet<String>) -> Self {
+        Self { fm, features }
     }
 
     pub(crate) fn about(&self) -> &AboutBlock {
