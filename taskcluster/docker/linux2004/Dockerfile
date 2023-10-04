@@ -2,8 +2,9 @@
 # License, v. 2.0. If a copy of the MPL was not distributed with this
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 
-# This is intended to be a minimal Dockerfile only to build nimbus-fml and
-# nimbus-cli with an older version of glibc.
+# This is intended to be a minimal Dockerfile only to build nimbus-fml,
+# nimbus-cli, and the nimbus-experimenter megazord with an older version of
+# glibc.
 
 FROM ubuntu:20.04
 
@@ -58,13 +59,16 @@ RUN apt-get update -qq \
         gcc-aarch64-linux-gnu \
         libc6-dev-arm64-cross \
         binutils-aarch64-linux-gnu \
+        # Required to build nimbus-experimenter megazord
     && apt-get clean
 
 RUN pip3 install --upgrade pip
 RUN pip3 install \
+    pytest \
     pyyaml \
     toml \
-    taskcluster
+    taskcluster \
+    yapf
 
 # tooltool
 RUN \

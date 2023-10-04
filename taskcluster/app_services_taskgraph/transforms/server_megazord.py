@@ -9,7 +9,7 @@ from taskgraph.transforms.base import TransformSequence
 build = TransformSequence()
 
 LINUX_BUILD_TARGETS = (
-    'aarch64-unknown-linux-musl',
+    'aarch64-unknown-linux-gnu',
     'x86_64-unknown-linux-gnu',
     'x86_64-unknown-linux-musl',
     'x86_64-pc-windows-gnu',
@@ -36,9 +36,12 @@ def setup_build_tasks(config, tasks):
 def setup_linux_build_task(task, target, binary):
     task['description'] = f'Build {binary} ({target})'
     task['worker-type'] = 'b-linux'
+    docker_image = 'linux'
+    if target in ('aarch64-unknown-linux-gnu', 'x86_64-unknown-linux-gnu'):
+        docker_image = 'linux2004'
     task['worker'] = {
         'max-run-time': 1800,
-        'docker-image': { 'in-tree': 'linux' },
+        'docker-image': { 'in-tree': docker_image },
         'artifacts': [
             {
                 'name': f'public/build/{binary}-{target}.zip',
