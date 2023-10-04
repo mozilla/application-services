@@ -67,38 +67,55 @@ internal class FxaActionProcessor(
 
     @Suppress("ComplexMethod")
     internal suspend fun processAction(action: FxaAction) {
-        val currentState = currentState
-        // Match on the current state since many actions are only valid from a particular state
-        try {
+        val isValid = when (action) {
+            // Auth flow actions are valid if you're disconnected and also if you're already
+            // authenticating.  If a consumer accidentally starts multiple flows we should not
+            // create extra issues for them.
+            is FxaAction.BeginOAuthFlow,
+            is FxaAction.BeginPairingFlow,
+            is FxaAction.CompleteOAuthFlow,
+            is FxaAction.CancelOAuthFlow,
+            -> currentState in listOf(FxaAuthState.DISCONNECTED, FxaAuthState.AUTHENTICATING)
+            // These actions require the user to be connected
+            FxaAction.CheckAuthorization,
+            is FxaAction.InitializeDevice,
+            is FxaAction.EnsureCapabilities,
+            is FxaAction.SetDeviceName,
+            is FxaAction.SetDevicePushSubscription,
+            is FxaAction.SendSingleTab,
+            -> currentState.isConnected()
+            // These are always valid, although they're no-op if you're already in the
+            // DISCONNECTED/AUTH_ISSUES state
+            FxaAction.Disconnect,
+            FxaAction.LogoutFromAuthIssues,
+            -> true
+        }
+        if (isValid) {
             FxaClientMetrics.operationCount.add()
-            when (currentState) {
-                is FxaAuthState.Connected -> when (action) {
-                    is FxaAction.Disconnect -> handleDisconnect(action)
-                    FxaAction.CheckAuthorization -> handleCheckAuthorization(currentState)
+            try {
+                when (action) {
+                    is FxaAction.BeginOAuthFlow -> handleBeginOAuthFlow(action)
+                    is FxaAction.BeginPairingFlow -> handleBeginPairingFlow(action)
+                    is FxaAction.CompleteOAuthFlow -> handleCompleteFlow(action)
+                    is FxaAction.CancelOAuthFlow -> handleCancelFlow()
                     is FxaAction.InitializeDevice -> handleInitializeDevice(action)
                     is FxaAction.EnsureCapabilities -> handleEnsureCapabilities(action)
                     is FxaAction.SetDeviceName -> handleSetDeviceName(action)
                     is FxaAction.SetDevicePushSubscription -> handleSetDevicePushSubscription(action)
                     is FxaAction.SendSingleTab -> handleSendSingleTab(action)
-                    else -> Log.e(LOG_TAG, "Invalid $action (state: $currentState)")
+                    FxaAction.CheckAuthorization -> handleCheckAuthorization()
+                    FxaAction.Disconnect -> handleDisconnect()
+                    FxaAction.LogoutFromAuthIssues -> handleLogoutFromAuthIssues()
                 }
-                is FxaAuthState.Disconnected -> when (action) {
-                    is FxaAction.BeginOAuthFlow -> handleBeginOAuthFlow(currentState, action)
-                    is FxaAction.BeginPairingFlow -> handleBeginPairingFlow(currentState, action)
-                    is FxaAction.CompleteOAuthFlow -> handleCompleteFlow(currentState, action)
-                    is FxaAction.CancelOAuthFlow -> handleCancelFlow(currentState)
-                    // If we see Disconnect or CheckAuthorization from the Disconnected state, just ignore it
-                    FxaAction.CheckAuthorization -> Unit
-                    is FxaAction.Disconnect -> Unit
-                    else -> Log.e(LOG_TAG, "Invalid $action (state: $currentState)")
-                }
+            } catch (e: FxaException) {
+                FxaClientMetrics.errorCount["fxa_other"].add()
+                throw e
+            } catch (@Suppress("TooGenericExceptionCaught")e: Throwable) {
+                FxaClientMetrics.errorCount["unexpected"].add()
+                throw e
             }
-        } catch (e: FxaException) {
-            FxaClientMetrics.errorCount["fxa_other"].add()
-            throw e
-        } catch (@Suppress("TooGenericExceptionCaught")e: Throwable) {
-            FxaClientMetrics.errorCount["unexpected"].add()
-            throw e
+        } else {
+            Log.e(LOG_TAG, "Invalid $action (state: $currentState)")
         }
     }
 
@@ -112,10 +129,12 @@ internal class FxaActionProcessor(
         }
     }
 
-    private suspend fun changeState(newState: FxaAuthState, transition: FxaAuthStateTransition) {
-        Log.d(LOG_TAG, "Changing state from $currentState to $newState")
-        currentState = newState
-        sendEvent(FxaEvent.AuthStateChanged(newState, transition))
+    private suspend fun sendAuthEvent(kind: FxaAuthEventKind, newState: FxaAuthState?) {
+        if (newState != null && newState != currentState) {
+            Log.d(LOG_TAG, "Changing state from $currentState to $newState")
+            currentState = newState
+        }
+        sendEvent(FxaEvent.AuthEvent(kind, currentState))
     }
 
     // Perform an operation, retrying after network errors
@@ -148,23 +167,21 @@ internal class FxaActionProcessor(
                 return withNetworkRetry(operation)
             } catch (e: FxaException.Authentication) {
                 FxaClientMetrics.errorCount["authentication"].add()
-                val currentState = currentState
-
-                if (currentState !is FxaAuthState.Connected) {
+                if (!currentState.isConnected()) {
                     throw e
                 }
 
                 if (retryLogic.shouldRecheckAuthStatus()) {
                     Log.d(LOG_TAG, "Auth error: re-checking")
-                    handleCheckAuthorization(currentState)
+                    handleCheckAuthorization()
                 } else {
                     Log.d(LOG_TAG, "Auth error: disconnecting")
-                    inner.disconnectFromAuthIssues()
+                    inner.logoutFromAuthIssues()
                     persistState()
-                    changeState(FxaAuthState.Disconnected(true), FxaAuthStateTransition.AUTH_CHECK_FAILED)
+                    sendAuthEvent(FxaAuthEventKind.AUTH_CHECK_FAILED, FxaAuthState.AUTH_ISSUES)
                 }
 
-                if (this.currentState is FxaAuthState.Connected) {
+                if (currentState.isConnected()) {
                     continue
                 } else {
                     throw e
@@ -173,51 +190,55 @@ internal class FxaActionProcessor(
         }
     }
 
-    private suspend fun handleBeginOAuthFlow(currentState: FxaAuthState.Disconnected, action: FxaAction.BeginOAuthFlow) {
-        handleBeginEitherOAuthFlow(currentState, action.result) {
+    private suspend fun handleBeginOAuthFlow(action: FxaAction.BeginOAuthFlow) {
+        handleBeginEitherOAuthFlow(action.result) {
             inner.beginOauthFlow(action.scopes.toList(), action.entrypoint, MetricsParams(mapOf()))
         }
     }
 
-    private suspend fun handleBeginPairingFlow(currentState: FxaAuthState.Disconnected, action: FxaAction.BeginPairingFlow) {
-        handleBeginEitherOAuthFlow(currentState, action.result) {
+    private suspend fun handleBeginPairingFlow(action: FxaAction.BeginPairingFlow) {
+        handleBeginEitherOAuthFlow(action.result) {
             inner.beginPairingFlow(action.pairingUrl, action.scopes.toList(), action.entrypoint, MetricsParams(mapOf()))
         }
     }
 
-    private suspend fun handleBeginEitherOAuthFlow(currentState: FxaAuthState.Disconnected, result: CompletableDeferred<String?>?, operation: () -> String) {
+    private suspend fun handleBeginEitherOAuthFlow(result: CompletableDeferred<String?>?, operation: () -> String) {
         try {
             val url = withRetry { operation() }
             persistState()
-            changeState(currentState.copy(connecting = true), FxaAuthStateTransition.OAUTH_STARTED)
+            sendAuthEvent(FxaAuthEventKind.OAUTH_STARTED, FxaAuthState.AUTHENTICATING)
             sendEvent(FxaEvent.BeginOAuthFlow(url))
             result?.complete(url)
         } catch (e: FxaException) {
             FxaClientMetrics.errorCount["fxa_other"].add()
             Log.e(LOG_TAG, "Exception when handling BeginOAuthFlow", e)
             persistState()
-            changeState(currentState.copy(connecting = false), FxaAuthStateTransition.OAUTH_FAILED_TO_BEGIN)
+            // Stay in the AUTHENTICATING if we were in that state , since there may be another
+            // oauth flow in progress.  We only switch to DISCONNECTED if we see CancelOAuthFlow.
+            sendAuthEvent(FxaAuthEventKind.OAUTH_FAILED_TO_BEGIN, null)
             result?.complete(null)
         }
     }
 
-    private suspend fun handleCompleteFlow(currentState: FxaAuthState.Disconnected, action: FxaAction.CompleteOAuthFlow) {
+    private suspend fun handleCompleteFlow(action: FxaAction.CompleteOAuthFlow) {
         try {
             withRetry { inner.completeOauthFlow(action.code, action.state) }
             persistState()
-            changeState(FxaAuthState.Connected(), FxaAuthStateTransition.OAUTH_COMPLETE)
+            sendAuthEvent(FxaAuthEventKind.OAUTH_COMPLETE, FxaAuthState.CONNECTED)
         } catch (e: FxaException) {
             FxaClientMetrics.errorCount["fxa_other"].add()
             persistState()
             Log.e(LOG_TAG, "Exception when handling CompleteOAuthFlow", e)
-            changeState(currentState, FxaAuthStateTransition.OAUTH_FAILED_TO_COMPLETE)
+            // Stay in the AUTHENTICATING, since there may be another oauth flow in progress.  We
+            // only switch to DISCONNECTED if we see CancelOAuthFlow.
+            sendAuthEvent(FxaAuthEventKind.OAUTH_FAILED_TO_COMPLETE, null)
         }
     }
 
-    private suspend fun handleCancelFlow(currentState: FxaAuthState.Disconnected) {
+    private suspend fun handleCancelFlow() {
         // No need to call an inner method or persist the state, since the connecting flag is
-        // handled soley in this layer
-        changeState(currentState.copy(connecting = false), FxaAuthStateTransition.OAUTH_CANCELLED)
+        // handled in this layer only.
+        sendAuthEvent(FxaAuthEventKind.OAUTH_CANCELLED, FxaAuthState.DISCONNECTED)
     }
 
     private suspend fun handleInitializeDevice(action: FxaAction.InitializeDevice) {
@@ -273,20 +294,29 @@ internal class FxaActionProcessor(
         }
     }
 
-    private suspend fun handleDisconnect(action: FxaAction.Disconnect) {
-        if (action.fromAuthIssues) {
-            inner.disconnectFromAuthIssues()
-            persistState()
-            changeState(FxaAuthState.Disconnected(fromAuthIssues = true), FxaAuthStateTransition.AUTH_CHECK_FAILED)
-        } else {
-            inner.disconnect()
-            persistState()
-            changeState(FxaAuthState.Disconnected(), FxaAuthStateTransition.DISCONNECTED)
+    private suspend fun handleDisconnect() {
+        if (currentState == FxaAuthState.DISCONNECTED) {
+            return
         }
+        inner.disconnect()
+        persistState()
+        sendAuthEvent(FxaAuthEventKind.DISCONNECTED, FxaAuthState.DISCONNECTED)
     }
 
-    private suspend fun handleCheckAuthorization(currentState: FxaAuthState.Connected) {
-        changeState(currentState.copy(authCheckInProgress = true), FxaAuthStateTransition.AUTH_CHECK_STARTED)
+    private suspend fun handleLogoutFromAuthIssues() {
+        if (currentState in listOf(FxaAuthState.AUTH_ISSUES, FxaAuthState.DISCONNECTED)) {
+            return
+        }
+        inner.logoutFromAuthIssues()
+        persistState()
+        sendAuthEvent(FxaAuthEventKind.LOGOUT_FROM_AUTH_ISSUES, FxaAuthState.AUTH_ISSUES)
+    }
+
+    private suspend fun handleCheckAuthorization() {
+        if (currentState in listOf(FxaAuthState.DISCONNECTED, FxaAuthState.AUTH_ISSUES)) {
+            return
+        }
+        sendAuthEvent(FxaAuthEventKind.AUTH_CHECK_STARTED, FxaAuthState.CHECKING_AUTH)
         val success = try {
             val status = withNetworkRetry { inner.checkAuthorizationStatus() }
             status.active
@@ -305,11 +335,11 @@ internal class FxaActionProcessor(
         }
         if (success) {
             persistState()
-            changeState(currentState.copy(authCheckInProgress = false), FxaAuthStateTransition.AUTH_CHECK_SUCCESS)
+            sendAuthEvent(FxaAuthEventKind.AUTH_CHECK_SUCCESS, FxaAuthState.CONNECTED)
         } else {
-            inner.disconnectFromAuthIssues()
+            inner.logoutFromAuthIssues()
             persistState()
-            changeState(FxaAuthState.Disconnected(true), FxaAuthStateTransition.AUTH_CHECK_FAILED)
+            sendAuthEvent(FxaAuthEventKind.AUTH_CHECK_FAILED, FxaAuthState.AUTH_ISSUES)
         }
     }
 }

@@ -45,58 +45,60 @@ val setDeviceNameAction = FxaAction.SetDeviceName("My Phone")
 val setDevicePushSubscriptionAction = FxaAction.SetDevicePushSubscription("endpoint", "public-key", "auth-key")
 val sendSingleTabAction = FxaAction.SendSingleTab("my-other-device", "My page", "http://example.com/sent-tab")
 
+fun mockFirefoxAccount() = mockk<FirefoxAccount>(relaxed = true).apply {
+    every { getAuthState() } returns FxaRustAuthState.DISCONNECTED
+    every { beginOauthFlow(any(), any(), any()) } returns "http://example.com/oauth-flow-start"
+    every { beginPairingFlow(any(), any(), any(), any()) } returns "http://example.com/pairing-flow-start"
+    every { initializeDevice(any(), any(), any()) } returns testLocalDevice
+    every { ensureCapabilities(any()) } returns testLocalDevice
+    every { setDeviceName(any()) } returns testLocalDevice
+    every { setPushSubscription(any()) } returns testLocalDevice
+    every { checkAuthorizationStatus() } returns AuthorizationInfo(active = true)
+}
+
+fun mockThrowingFirefoxAccount() = mockk<FirefoxAccount>(relaxed = true).apply {
+    every { beginOauthFlow(any(), any(), any()) } throws testException
+    every { beginPairingFlow(any(), any(), any(), any()) } throws testException
+    every { completeOauthFlow(any(), any()) } throws testException
+    every { disconnect() } throws testException
+    every { initializeDevice(any(), any(), any()) } throws testException
+    every { ensureCapabilities(any()) } throws testException
+    every { setDeviceName(any()) } throws testException
+    every { setPushSubscription(any()) } throws testException
+    every { checkAuthorizationStatus() } throws testException
+    every { sendSingleTab(any(), any(), any()) } throws testException
+}
+
+fun mockEventHandler() = mockk<FxaEventHandler>(relaxed = true)
+
+fun mockPersistState() = mockk<() -> Unit>(relaxed = true, name = "persistState")
+
+typealias VerifyFunc = suspend (FxaAuthState, FirefoxAccount, FxaEventHandler, () -> Unit) -> FxaAuthState
+
 internal data class Mocks(
     val firefoxAccount: FirefoxAccount,
     val eventHandler: FxaEventHandler,
     val persistState: () -> Unit,
     val actionProcessor: FxaActionProcessor,
 ) {
-    // Verify the effects of an action
+    // Verify the effects of processAction
     //
-    // verifyBlock should verify all mock interactions, than return the expect new state of the
-    // actionProcessor.  Pass in null (AKA NoEffects) to verify that there were no mock interactions
-    // and the state didn't change
-    suspend fun verifyAction(action: FxaAction, verifyBlock: ActionVerifier) {
-        if (verifyBlock == NeverHappens) {
-            return
-        }
+    // verifyBlock should verify all mock interactions, then return the expect new state of the actionProcessor.
+    suspend fun verifyAction(action: FxaAction, verifyFunc: VerifyFunc) {
         val initialState = actionProcessor.currentState
         actionProcessor.processAction(action)
-        when (verifyBlock) {
-            NoEffects -> assertEquals(initialState, actionProcessor.currentState)
-            else -> {
-                val expectedState = verifyBlock(firefoxAccount, eventHandler, persistState)
-                assertEquals(expectedState, actionProcessor.currentState)
-            }
-        }
+        val expectedState = verifyFunc(initialState, firefoxAccount, eventHandler, persistState)
         confirmVerified(firefoxAccount, eventHandler, persistState)
+        assertEquals(actionProcessor.currentState, expectedState)
         clearMocks(firefoxAccount, eventHandler, persistState, answers = false, recordedCalls = true, verificationMarks = true)
     }
 
     companion object {
         fun create(initialState: FxaAuthState, throwing: Boolean = false): Mocks {
-            val firefoxAccount = mockk<FirefoxAccount>(relaxed = true).apply {
-                if (!throwing) {
-                    every { getAuthState() } returns FxaRustAuthState.Disconnected(fromAuthIssues = false)
-                    every { beginOauthFlow(any(), any(), any()) } returns "http://example.com/oauth-flow-start"
-                    every { beginPairingFlow(any(), any(), any(), any()) } returns "http://example.com/pairing-flow-start"
-                    every { initializeDevice(any(), any(), any()) } returns testLocalDevice
-                    every { ensureCapabilities(any()) } returns testLocalDevice
-                    every { setDeviceName(any()) } returns testLocalDevice
-                    every { setPushSubscription(any()) } returns testLocalDevice
-                    every { checkAuthorizationStatus() } returns AuthorizationInfo(active = true)
-                } else {
-                    every { beginOauthFlow(any(), any(), any()) } throws testException
-                    every { beginPairingFlow(any(), any(), any(), any()) } throws testException
-                    every { completeOauthFlow(any(), any()) } throws testException
-                    every { disconnect() } throws testException
-                    every { initializeDevice(any(), any(), any()) } throws testException
-                    every { ensureCapabilities(any()) } throws testException
-                    every { setDeviceName(any()) } throws testException
-                    every { setPushSubscription(any()) } throws testException
-                    every { checkAuthorizationStatus() } throws testException
-                    every { sendSingleTab(any(), any(), any()) } throws testException
-                }
+            val firefoxAccount = if (throwing) {
+                mockThrowingFirefoxAccount()
+            } else {
+                mockFirefoxAccount()
             }
             val eventHandler = mockk<FxaEventHandler>(relaxed = true)
             val persistState = mockk<() -> Unit>(relaxed = true, name = "tryPersistState")
@@ -104,40 +106,35 @@ internal data class Mocks(
             return Mocks(firefoxAccount, eventHandler, persistState, actionProcessor)
         }
 
-        // Check the effects processAction() calls for each possible state
-        //
-        // This checks each combination of:
-        //   - connected / disconnected
+        // Verify the effects processAction() for all combinations of:
+        //   - Each possible state
         //   - Rust returns Ok() / Err()
-        //
-        // Note: this doesn't differentiate based on the FxaAuthState fields values, like
-        // `fromAuthIssues`. FxaActionProcessor sets these fields, but otherwise ignores them.
         @Suppress("LongParameterList")
-        internal suspend fun verifyAction(
+        suspend fun verifyAll(
             action: FxaAction,
-            whenDisconnected: ActionVerifier,
-            whenDisconnectedIfThrows: ActionVerifier,
-            whenConnected: ActionVerifier,
-            whenConnectedIfThrows: ActionVerifier,
-            initialStateDisconnected: FxaAuthState = FxaAuthState.Disconnected(),
-            initialStateConnected: FxaAuthState = FxaAuthState.Connected(),
+            statesWhereTheActionShouldRun: List<FxaAuthState>,
+            verify: VerifyFunc,
+            verifyWhenThrows: VerifyFunc,
         ) {
-            create(initialStateDisconnected, false).verifyAction(action, whenDisconnected)
-            create(initialStateDisconnected, true).verifyAction(action, whenDisconnectedIfThrows)
-            create(initialStateConnected, false).verifyAction(action, whenConnected)
-            create(initialStateConnected, true).verifyAction(action, whenConnectedIfThrows)
+            for (state in FxaAuthState.values()) {
+                println("verifying for $state")
+                if (statesWhereTheActionShouldRun.contains(state)) {
+                    create(state, false).verifyAction(action, verify)
+                    if (verifyWhenThrows != NeverThrows) {
+                        create(state, true).verifyAction(action, verifyWhenThrows)
+                    }
+                } else {
+                    // If the action shouldn't run don't coVerify any actions and check that the final state
+                    // is the same as the initial state
+                    create(state, false).verifyAction(action, { _, _, _, _ -> state })
+                }
+            }
         }
     }
 }
 
-typealias ActionVerifier = suspend (FirefoxAccount, FxaEventHandler, () -> Unit) -> FxaAuthState
-
-// Used when an action should have no effects at all
-val NoEffects: ActionVerifier = { _, _, _ -> FxaAuthState.Disconnected() }
-
-// Used when an action should never happen, for example FxaAction.Disconnect should never throw, so
-// we use this rather than making a verifier to test an impossible pathe
-val NeverHappens: ActionVerifier = { _, _, _ -> FxaAuthState.Disconnected() }
+// Special case for verifyAll to indicate that an action will never throw
+val NeverThrows: VerifyFunc = { _, _, _, _ -> FxaAuthState.CONNECTED }
 
 /**
  * This is the main unit test for the FxaActionProcessor.  The goal here is to take every action and
@@ -163,16 +160,17 @@ val NeverHappens: ActionVerifier = { _, _, _ -> FxaAuthState.Disconnected() }
 class FxaActionProcessorTest {
     @Test
     fun `FxaActionProcessor handles BeginOAuthFlow`() = runTest {
-        Mocks.verifyAction(
+        Mocks.verifyAll(
             beginOAuthFlowAction,
-            whenDisconnected = { inner, eventHandler, persistState ->
+            listOf(FxaAuthState.DISCONNECTED, FxaAuthState.AUTHENTICATING),
+            { _, inner, eventHandler, persistState ->
                 coVerifySequence {
                     inner.beginOauthFlow(listOf("scope1"), "test-entrypoint", any())
                     persistState()
                     eventHandler.onFxaEvent(
-                        FxaEvent.AuthStateChanged(
-                            newState = FxaAuthState.Disconnected(connecting = true),
-                            transition = FxaAuthStateTransition.OAUTH_STARTED,
+                        FxaEvent.AuthEvent(
+                            FxaAuthEventKind.OAUTH_STARTED,
+                            FxaAuthState.AUTHENTICATING,
                         ),
                     )
                     eventHandler.onFxaEvent(
@@ -181,38 +179,37 @@ class FxaActionProcessorTest {
                         ),
                     )
                 }
-                FxaAuthState.Disconnected(connecting = true)
+                FxaAuthState.AUTHENTICATING
             },
-            whenDisconnectedIfThrows = { inner, eventHandler, persistState ->
+            { initialState, inner, eventHandler, persistState ->
                 coVerifySequence {
                     inner.beginOauthFlow(listOf("scope1"), "test-entrypoint", any())
                     persistState()
                     eventHandler.onFxaEvent(
-                        FxaEvent.AuthStateChanged(
-                            newState = FxaAuthState.Disconnected(),
-                            transition = FxaAuthStateTransition.OAUTH_FAILED_TO_BEGIN,
+                        FxaEvent.AuthEvent(
+                            FxaAuthEventKind.OAUTH_FAILED_TO_BEGIN,
+                            initialState,
                         ),
                     )
                 }
-                FxaAuthState.Disconnected()
+                initialState
             },
-            whenConnected = NoEffects,
-            whenConnectedIfThrows = NeverHappens,
         )
     }
 
     @Test
     fun `FxaActionProcessor handles BeginPairingFlow`() = runTest {
-        Mocks.verifyAction(
+        Mocks.verifyAll(
             beginPairingFlowAction,
-            whenDisconnected = { inner, eventHandler, persistState ->
+            listOf(FxaAuthState.DISCONNECTED, FxaAuthState.AUTHENTICATING),
+            { _, inner, eventHandler, persistState ->
                 coVerifySequence {
                     inner.beginPairingFlow("http:://example.com/pairing", listOf("scope1"), "test-entrypoint", any())
                     persistState()
                     eventHandler.onFxaEvent(
-                        FxaEvent.AuthStateChanged(
-                            newState = FxaAuthState.Disconnected(connecting = true),
-                            transition = FxaAuthStateTransition.OAUTH_STARTED,
+                        FxaEvent.AuthEvent(
+                            FxaAuthEventKind.OAUTH_STARTED,
+                            FxaAuthState.AUTHENTICATING,
                         ),
                     )
                     eventHandler.onFxaEvent(
@@ -221,45 +218,43 @@ class FxaActionProcessorTest {
                         ),
                     )
                 }
-                FxaAuthState.Disconnected(connecting = true)
+                FxaAuthState.AUTHENTICATING
             },
-            whenDisconnectedIfThrows = { inner, eventHandler, persistState ->
+            { initialState, inner, eventHandler, persistState ->
                 coVerifySequence {
                     inner.beginPairingFlow("http:://example.com/pairing", listOf("scope1"), "test-entrypoint", any())
                     persistState()
                     eventHandler.onFxaEvent(
-                        FxaEvent.AuthStateChanged(
-                            newState = FxaAuthState.Disconnected(connecting = false),
-                            transition = FxaAuthStateTransition.OAUTH_FAILED_TO_BEGIN,
+                        FxaEvent.AuthEvent(
+                            FxaAuthEventKind.OAUTH_FAILED_TO_BEGIN,
+                            initialState,
                         ),
                     )
                 }
-                FxaAuthState.Disconnected(connecting = false)
+                initialState
             },
-            whenConnected = NoEffects,
-            whenConnectedIfThrows = NeverHappens,
         )
     }
 
     @Test
     fun `FxaActionProcessor handles CompleteOauthFlow`() = runTest {
-        Mocks.verifyAction(
+        Mocks.verifyAll(
             completeAuthFlowAction,
-            initialStateDisconnected = FxaAuthState.Disconnected(connecting = true),
-            whenDisconnected = { inner, eventHandler, persistState ->
+            listOf(FxaAuthState.DISCONNECTED, FxaAuthState.AUTHENTICATING),
+            { _, inner, eventHandler, persistState ->
                 coVerifySequence {
                     inner.completeOauthFlow("test-code", "test-state")
                     persistState()
                     eventHandler.onFxaEvent(
-                        FxaEvent.AuthStateChanged(
-                            newState = FxaAuthState.Connected(),
-                            transition = FxaAuthStateTransition.OAUTH_COMPLETE,
+                        FxaEvent.AuthEvent(
+                            FxaAuthEventKind.OAUTH_COMPLETE,
+                            FxaAuthState.CONNECTED,
                         ),
                     )
                 }
-                FxaAuthState.Connected()
+                FxaAuthState.CONNECTED
             },
-            whenDisconnectedIfThrows = { inner, eventHandler, persistState ->
+            { initialState, inner, eventHandler, persistState ->
                 coVerifySequence {
                     inner.completeOauthFlow("test-code", "test-state")
                     persistState()
@@ -267,409 +262,414 @@ class FxaActionProcessorTest {
                     // progress.  In order to unset it, the application needs to send
                     // CancelOAuthFlow
                     eventHandler.onFxaEvent(
-                        FxaEvent.AuthStateChanged(
-                            newState = FxaAuthState.Disconnected(connecting = true),
-                            transition = FxaAuthStateTransition.OAUTH_FAILED_TO_COMPLETE,
+                        FxaEvent.AuthEvent(
+                            FxaAuthEventKind.OAUTH_FAILED_TO_COMPLETE,
+                            initialState,
                         ),
                     )
                 }
-                FxaAuthState.Disconnected(connecting = true)
+                initialState
             },
-            whenConnected = NoEffects,
-            whenConnectedIfThrows = NeverHappens,
         )
     }
 
     @Test
     fun `FxaActionProcessor handles a failed oauth complete, then a successful one`() = runTest {
-        val mocks = Mocks.create(FxaAuthState.Disconnected(connecting = true))
+        val mocks = Mocks.create(FxaAuthState.AUTHENTICATING)
         every { mocks.firefoxAccount.completeOauthFlow(any(), any()) } throws oauthStateException
-
-        mocks.verifyAction(completeAuthFlowInvalidAction) { inner, eventHandler, persistState ->
+        mocks.verifyAction(completeAuthFlowInvalidAction) { _, inner, eventHandler, persistState ->
             coVerifySequence {
                 inner.completeOauthFlow("test-code", "bad-state")
                 persistState()
                 eventHandler.onFxaEvent(
-                    FxaEvent.AuthStateChanged(
-                        newState = FxaAuthState.Disconnected(connecting = true),
-                        transition = FxaAuthStateTransition.OAUTH_FAILED_TO_COMPLETE,
+                    FxaEvent.AuthEvent(
+                        FxaAuthEventKind.OAUTH_FAILED_TO_COMPLETE,
+                        FxaAuthState.AUTHENTICATING,
                     ),
                 )
             }
-            FxaAuthState.Disconnected(connecting = true)
+            FxaAuthState.AUTHENTICATING
         }
 
         every { mocks.firefoxAccount.completeOauthFlow(any(), any()) } just runs
-        mocks.verifyAction(completeAuthFlowAction) { inner, eventHandler, persistState ->
+        mocks.verifyAction(completeAuthFlowAction) { _, inner, eventHandler, persistState ->
             coVerifySequence {
                 inner.completeOauthFlow("test-code", "test-state")
                 persistState()
                 eventHandler.onFxaEvent(
-                    FxaEvent.AuthStateChanged(
-                        newState = FxaAuthState.Connected(),
-                        transition = FxaAuthStateTransition.OAUTH_COMPLETE,
+                    FxaEvent.AuthEvent(
+                        FxaAuthEventKind.OAUTH_COMPLETE,
+                        FxaAuthState.CONNECTED,
                     ),
                 )
             }
-            FxaAuthState.Connected()
+            FxaAuthState.CONNECTED
         }
     }
 
     @Test
     fun `FxaActionProcessor handles CancelOauthFlow`() = runTest {
-        Mocks.verifyAction(
+        Mocks.verifyAll(
             FxaAction.CancelOAuthFlow,
-            initialStateDisconnected = FxaAuthState.Disconnected(connecting = true),
-            whenDisconnected = { _, eventHandler, _ ->
+            listOf(FxaAuthState.DISCONNECTED, FxaAuthState.AUTHENTICATING),
+            { _, _, eventHandler, _ ->
                 coVerifySequence {
                     eventHandler.onFxaEvent(
-                        FxaEvent.AuthStateChanged(
-                            newState = FxaAuthState.Disconnected(connecting = false),
-                            transition = FxaAuthStateTransition.OAUTH_CANCELLED,
+                        FxaEvent.AuthEvent(
+                            FxaAuthEventKind.OAUTH_CANCELLED,
+                            FxaAuthState.DISCONNECTED,
                         ),
                     )
                 }
-                FxaAuthState.Disconnected(connecting = false)
+                FxaAuthState.DISCONNECTED
             },
-            whenDisconnectedIfThrows = NeverHappens,
-            whenConnected = NoEffects,
-            whenConnectedIfThrows = NeverHappens,
+            NeverThrows,
         )
     }
 
     @Test
     fun `FxaActionProcessor handles Disconnect`() = runTest {
-        Mocks.verifyAction(
-            FxaAction.Disconnect(),
-            whenDisconnected = NoEffects,
-            whenDisconnectedIfThrows = NeverHappens,
-            whenConnected = { inner, eventHandler, persistState ->
+        Mocks.verifyAll(
+            FxaAction.Disconnect,
+            listOf(FxaAuthState.AUTHENTICATING, FxaAuthState.CONNECTED, FxaAuthState.CHECKING_AUTH, FxaAuthState.AUTH_ISSUES),
+            { _, inner, eventHandler, persistState ->
                 coVerifySequence {
                     inner.disconnect()
                     persistState()
                     eventHandler.onFxaEvent(
-                        FxaEvent.AuthStateChanged(
-                            newState = FxaAuthState.Disconnected(),
-                            transition = FxaAuthStateTransition.DISCONNECTED,
+                        FxaEvent.AuthEvent(
+                            FxaAuthEventKind.DISCONNECTED,
+                            FxaAuthState.DISCONNECTED,
                         ),
                     )
                 }
-                FxaAuthState.Disconnected()
+                FxaAuthState.DISCONNECTED
             },
-            whenConnectedIfThrows = NeverHappens,
+            NeverThrows,
         )
     }
 
     @Test
-    fun `FxaActionProcessor handles Disconnect(fromAuthIssues=true)`() = runTest {
-        Mocks.verifyAction(
-            FxaAction.Disconnect(fromAuthIssues = true),
-            whenDisconnected = NoEffects,
-            whenDisconnectedIfThrows = NeverHappens,
-            whenConnected = { inner, eventHandler, persistState ->
+    fun `FxaActionProcessor handles LogoutFromAuthIssues`() = runTest {
+        Mocks.verifyAll(
+            FxaAction.LogoutFromAuthIssues,
+            // Note: DISCONNECTED is not listed below.  If the client is already disconnected, then
+            // it doesn't make sense to handle logoutFromAuthIssues() and transition them to the
+            // AUTH_ISSUES state.
+            listOf(FxaAuthState.AUTHENTICATING, FxaAuthState.CONNECTED, FxaAuthState.CHECKING_AUTH),
+            { _, inner, eventHandler, persistState ->
                 coVerifySequence {
-                    inner.disconnectFromAuthIssues()
+                    inner.logoutFromAuthIssues()
                     persistState()
                     eventHandler.onFxaEvent(
-                        FxaEvent.AuthStateChanged(
-                            newState = FxaAuthState.Disconnected(fromAuthIssues = true),
-                            transition = FxaAuthStateTransition.AUTH_CHECK_FAILED,
+                        FxaEvent.AuthEvent(
+                            FxaAuthEventKind.LOGOUT_FROM_AUTH_ISSUES,
+                            FxaAuthState.AUTH_ISSUES,
                         ),
                     )
                 }
-                FxaAuthState.Disconnected(fromAuthIssues = true)
+                FxaAuthState.AUTH_ISSUES
             },
-            whenConnectedIfThrows = NeverHappens,
+            NeverThrows,
         )
     }
 
     @Test
     fun `FxaActionProcessor handles CheckAuthorization`() = runTest {
-        Mocks.verifyAction(
+        Mocks.verifyAll(
             FxaAction.CheckAuthorization,
-            whenDisconnected = NoEffects,
-            whenDisconnectedIfThrows = NeverHappens,
-            whenConnected = { inner, eventHandler, persistState ->
+            listOf(FxaAuthState.CONNECTED),
+            { _, inner, eventHandler, persistState ->
                 coVerifySequence {
                     eventHandler.onFxaEvent(
-                        FxaEvent.AuthStateChanged(
-                            newState = FxaAuthState.Connected(authCheckInProgress = true),
-                            transition = FxaAuthStateTransition.AUTH_CHECK_STARTED,
+                        FxaEvent.AuthEvent(
+                            FxaAuthEventKind.AUTH_CHECK_STARTED,
+                            FxaAuthState.CHECKING_AUTH,
                         ),
                     )
                     inner.checkAuthorizationStatus()
                     persistState()
                     eventHandler.onFxaEvent(
-                        FxaEvent.AuthStateChanged(
-                            newState = FxaAuthState.Connected(),
-                            transition = FxaAuthStateTransition.AUTH_CHECK_SUCCESS,
+                        FxaEvent.AuthEvent(
+                            FxaAuthEventKind.AUTH_CHECK_SUCCESS,
+                            FxaAuthState.CONNECTED,
                         ),
                     )
                 }
-                FxaAuthState.Connected()
+                FxaAuthState.CONNECTED
             },
             // If the auth check throws FxaException.Other, then then we currently consider that a
             // success, rather than kicking the user out of the account.  Other failure models are
             // tested in the test cases below
-            whenConnectedIfThrows = { inner, eventHandler, persistState ->
+            { _, inner, eventHandler, persistState ->
                 coVerifySequence {
                     eventHandler.onFxaEvent(
-                        FxaEvent.AuthStateChanged(
-                            newState = FxaAuthState.Connected(authCheckInProgress = true),
-                            transition = FxaAuthStateTransition.AUTH_CHECK_STARTED,
+                        FxaEvent.AuthEvent(
+                            FxaAuthEventKind.AUTH_CHECK_STARTED,
+                            FxaAuthState.CHECKING_AUTH,
                         ),
                     )
                     inner.checkAuthorizationStatus()
                     persistState()
                     eventHandler.onFxaEvent(
-                        FxaEvent.AuthStateChanged(
-                            newState = FxaAuthState.Connected(),
-                            transition = FxaAuthStateTransition.AUTH_CHECK_SUCCESS,
+                        FxaEvent.AuthEvent(
+                            FxaAuthEventKind.AUTH_CHECK_SUCCESS,
+                            FxaAuthState.CONNECTED,
                         ),
                     )
                 }
-                FxaAuthState.Connected()
+                FxaAuthState.CONNECTED
             },
         )
     }
 
     @Test
     fun `FxaActionProcessor disconnects if checkAuthorizationStatus returns active=false`() = runTest {
-        val mocks = Mocks.create(FxaAuthState.Connected())
+        val mocks = Mocks.create(FxaAuthState.CONNECTED)
         every { mocks.firefoxAccount.checkAuthorizationStatus() } returns AuthorizationInfo(active = false)
-        mocks.verifyAction(FxaAction.CheckAuthorization) { inner, eventHandler, persistState ->
+
+        mocks.verifyAction(FxaAction.CheckAuthorization) {
+                _, inner, eventHandler, persistState ->
             coVerifySequence {
                 eventHandler.onFxaEvent(
-                    FxaEvent.AuthStateChanged(
-                        newState = FxaAuthState.Connected(authCheckInProgress = true),
-                        transition = FxaAuthStateTransition.AUTH_CHECK_STARTED,
+                    FxaEvent.AuthEvent(
+                        FxaAuthEventKind.AUTH_CHECK_STARTED,
+                        FxaAuthState.CHECKING_AUTH,
                     ),
                 )
                 inner.checkAuthorizationStatus()
-                inner.disconnectFromAuthIssues()
+                inner.logoutFromAuthIssues()
                 persistState()
                 eventHandler.onFxaEvent(
-                    FxaEvent.AuthStateChanged(
-                        newState = FxaAuthState.Disconnected(fromAuthIssues = true),
-                        transition = FxaAuthStateTransition.AUTH_CHECK_FAILED,
+                    FxaEvent.AuthEvent(
+                        FxaAuthEventKind.AUTH_CHECK_FAILED,
+                        FxaAuthState.AUTH_ISSUES,
                     ),
                 )
             }
-            FxaAuthState.Disconnected(fromAuthIssues = true)
+            FxaAuthState.AUTH_ISSUES
         }
     }
 
     @Test
     fun `FxaActionProcessor disconnects if checkAuthorizationStatus throwns an auth exception`() = runTest {
-        val mocks = Mocks.create(FxaAuthState.Connected())
+        val mocks = Mocks.create(FxaAuthState.CONNECTED)
         every { mocks.firefoxAccount.checkAuthorizationStatus() } throws authException
-        mocks.verifyAction(FxaAction.CheckAuthorization) { inner, eventHandler, persistState ->
+        mocks.verifyAction(FxaAction.CheckAuthorization) {
+                _, inner, eventHandler, persistState ->
             coVerifySequence {
                 eventHandler.onFxaEvent(
-                    FxaEvent.AuthStateChanged(
-                        newState = FxaAuthState.Connected(authCheckInProgress = true),
-                        transition = FxaAuthStateTransition.AUTH_CHECK_STARTED,
+                    FxaEvent.AuthEvent(
+                        FxaAuthEventKind.AUTH_CHECK_STARTED,
+                        FxaAuthState.CHECKING_AUTH,
                     ),
                 )
                 inner.checkAuthorizationStatus()
-                inner.disconnectFromAuthIssues()
+                inner.logoutFromAuthIssues()
                 persistState()
                 eventHandler.onFxaEvent(
-                    FxaEvent.AuthStateChanged(
-                        newState = FxaAuthState.Disconnected(fromAuthIssues = true),
-                        transition = FxaAuthStateTransition.AUTH_CHECK_FAILED,
+                    FxaEvent.AuthEvent(
+                        FxaAuthEventKind.AUTH_CHECK_FAILED,
+                        FxaAuthState.AUTH_ISSUES,
                     ),
                 )
             }
-            FxaAuthState.Disconnected(fromAuthIssues = true)
+            FxaAuthState.AUTH_ISSUES
         }
     }
 
     @Test
     fun `FxaActionProcessor handles InitializeDevice`() = runTest {
-        Mocks.verifyAction(
+        Mocks.verifyAll(
             initializeDeviceAction,
-            whenDisconnected = NoEffects,
-            whenDisconnectedIfThrows = NeverHappens,
-            whenConnected = { inner, eventHandler, _ ->
+            listOf(FxaAuthState.CONNECTED),
+            { _, inner, eventHandler, _ ->
                 coVerifySequence {
                     inner.initializeDevice("My Phone", DeviceType.MOBILE, listOf(DeviceCapability.SEND_TAB))
                     eventHandler.onFxaEvent(FxaEvent.DeviceOperationComplete(FxaDeviceOperation.INITIALIZE_DEVICE, testLocalDevice))
                 }
-                FxaAuthState.Connected()
+                FxaAuthState.CONNECTED
             },
-            whenConnectedIfThrows = { inner, eventHandler, _ ->
+            { _, inner, eventHandler, _ ->
                 coVerifySequence {
                     inner.initializeDevice("My Phone", DeviceType.MOBILE, listOf(DeviceCapability.SEND_TAB))
                     eventHandler.onFxaEvent(FxaEvent.DeviceOperationFailed(FxaDeviceOperation.INITIALIZE_DEVICE))
                 }
-                FxaAuthState.Connected()
+                FxaAuthState.CONNECTED
             },
         )
     }
 
     @Test
     fun `FxaActionProcessor handles EnsureCapabilities`() = runTest {
-        Mocks.verifyAction(
+        Mocks.verifyAll(
             ensureCapabilitiesAction,
-            whenDisconnected = NoEffects,
-            whenDisconnectedIfThrows = NeverHappens,
-            whenConnected = { inner, eventHandler, _ ->
+            listOf(FxaAuthState.CONNECTED),
+            { _, inner, eventHandler, _ ->
                 coVerifySequence {
                     inner.ensureCapabilities(listOf(DeviceCapability.SEND_TAB))
                     eventHandler.onFxaEvent(
                         FxaEvent.DeviceOperationComplete(FxaDeviceOperation.ENSURE_CAPABILITIES, testLocalDevice),
                     )
                 }
-                FxaAuthState.Connected()
+                FxaAuthState.CONNECTED
             },
-            whenConnectedIfThrows = { inner, eventHandler, _ ->
+            { _, inner, eventHandler, _ ->
                 coVerifySequence {
                     inner.ensureCapabilities(listOf(DeviceCapability.SEND_TAB))
                     eventHandler.onFxaEvent(
                         FxaEvent.DeviceOperationFailed(FxaDeviceOperation.ENSURE_CAPABILITIES),
                     )
                 }
-                FxaAuthState.Connected()
+                FxaAuthState.CONNECTED
             },
         )
     }
 
     @Test
     fun `FxaActionProcessor handles SetDeviceName`() = runTest {
-        Mocks.verifyAction(
+        Mocks.verifyAll(
             setDeviceNameAction,
-            whenDisconnected = NoEffects,
-            whenDisconnectedIfThrows = NeverHappens,
-            whenConnected = { inner, eventHandler, _ ->
+            listOf(FxaAuthState.CONNECTED),
+            { _, inner, eventHandler, _ ->
                 coVerifySequence {
                     inner.setDeviceName("My Phone")
                     eventHandler.onFxaEvent(
                         FxaEvent.DeviceOperationComplete(FxaDeviceOperation.SET_DEVICE_NAME, testLocalDevice),
                     )
                 }
-                FxaAuthState.Connected()
+                FxaAuthState.CONNECTED
             },
-            whenConnectedIfThrows = { inner, eventHandler, _ ->
+            { _, inner, eventHandler, _ ->
                 coVerifySequence {
                     inner.setDeviceName("My Phone")
                     eventHandler.onFxaEvent(
                         FxaEvent.DeviceOperationFailed(FxaDeviceOperation.SET_DEVICE_NAME),
                     )
                 }
-                FxaAuthState.Connected()
+                FxaAuthState.CONNECTED
             },
         )
     }
 
     @Test
     fun `FxaActionProcessor handles SetDevicePushSubscription`() = runTest {
-        Mocks.verifyAction(
+        Mocks.verifyAll(
             setDevicePushSubscriptionAction,
-            whenDisconnected = NoEffects,
-            whenDisconnectedIfThrows = NeverHappens,
-            whenConnected = { inner, eventHandler, _ ->
+            listOf(FxaAuthState.CONNECTED),
+            { _, inner, eventHandler, _ ->
                 coVerifySequence {
                     inner.setPushSubscription(
                         DevicePushSubscription("endpoint", "public-key", "auth-key"),
                     )
                     eventHandler.onFxaEvent(FxaEvent.DeviceOperationComplete(FxaDeviceOperation.SET_DEVICE_PUSH_SUBSCRIPTION, testLocalDevice))
                 }
-                FxaAuthState.Connected()
+                FxaAuthState.CONNECTED
             },
-            whenConnectedIfThrows = { inner, eventHandler, _ ->
+            { _, inner, eventHandler, _ ->
                 coVerifySequence {
                     inner.setPushSubscription(
                         DevicePushSubscription("endpoint", "public-key", "auth-key"),
                     )
                     eventHandler.onFxaEvent(FxaEvent.DeviceOperationFailed(FxaDeviceOperation.SET_DEVICE_PUSH_SUBSCRIPTION))
                 }
-                FxaAuthState.Connected()
+                FxaAuthState.CONNECTED
             },
         )
     }
 
     @Test
     fun `FxaActionProcessor handles SendSingleTab`() = runTest {
-        Mocks.verifyAction(
+        Mocks.verifyAll(
             sendSingleTabAction,
-            whenDisconnected = NoEffects,
-            whenDisconnectedIfThrows = NeverHappens,
-            whenConnected = { inner, _, _ ->
+            listOf(FxaAuthState.CONNECTED),
+            { _, inner, _, _ ->
                 coVerifySequence {
                     inner.sendSingleTab("my-other-device", "My page", "http://example.com/sent-tab")
                 }
-                FxaAuthState.Connected()
+                FxaAuthState.CONNECTED
             },
-            whenConnectedIfThrows = { inner, _, _ ->
+            { _, inner, _, _ ->
                 coVerifySequence {
                     inner.sendSingleTab("my-other-device", "My page", "http://example.com/sent-tab")
                     // Should we notify clients if this fails?  There doesn't seem like there's much
                     // they can do about it.
                 }
-                FxaAuthState.Connected()
+                FxaAuthState.CONNECTED
             },
         )
     }
 
     @Test
     fun `FxaActionProcessor sends OAuth results to the deferred`() = runTest {
-        val mocks = Mocks.create(FxaAuthState.Disconnected())
+        val firefoxAccount = mockFirefoxAccount()
+        val actionProcessor = FxaActionProcessor(
+            firefoxAccount,
+            mockEventHandler(),
+            mockPersistState(),
+            FxaAuthState.DISCONNECTED,
+        )
 
         CompletableDeferred<String?>().let {
-            mocks.actionProcessor.processAction(beginOAuthFlowAction.copy(result = it))
+            actionProcessor.processAction(beginOAuthFlowAction.copy(result = it))
             assertEquals(it.await(), "http://example.com/oauth-flow-start")
         }
 
         CompletableDeferred<String?>().let {
-            mocks.actionProcessor.processAction(beginPairingFlowAction.copy(result = it))
+            actionProcessor.processAction(beginPairingFlowAction.copy(result = it))
             assertEquals(it.await(), "http://example.com/pairing-flow-start")
         }
 
-        every { mocks.firefoxAccount.beginOauthFlow(any(), any(), any()) } throws testException
-        every { mocks.firefoxAccount.beginPairingFlow(any(), any(), any(), any()) } throws testException
+        every { firefoxAccount.beginOauthFlow(any(), any(), any()) } throws testException
+        every { firefoxAccount.beginPairingFlow(any(), any(), any(), any()) } throws testException
 
         CompletableDeferred<String?>().let {
-            mocks.actionProcessor.processAction(beginOAuthFlowAction.copy(result = it))
+            actionProcessor.processAction(beginOAuthFlowAction.copy(result = it))
             assertEquals(it.await(), null)
         }
 
         CompletableDeferred<String?>().let {
-            mocks.actionProcessor.processAction(beginPairingFlowAction.copy(result = it))
+            actionProcessor.processAction(beginPairingFlowAction.copy(result = it))
             assertEquals(it.await(), null)
         }
     }
 
     @Test
     fun `FxaActionProcessor sends Device operation results to the deferred`() = runTest {
-        val mocks = Mocks.create(FxaAuthState.Connected())
+        val firefoxAccount = mockFirefoxAccount()
+        val actionProcessor = FxaActionProcessor(
+            firefoxAccount,
+            mockEventHandler(),
+            mockPersistState(),
+            FxaAuthState.CONNECTED,
+        )
 
         CompletableDeferred<Boolean>().let {
-            mocks.actionProcessor.processAction(initializeDeviceAction.copy(result = it))
+            actionProcessor.processAction(initializeDeviceAction.copy(result = it))
             assertEquals(it.await(), true)
         }
 
         CompletableDeferred<Boolean>().let {
-            mocks.actionProcessor.processAction(ensureCapabilitiesAction.copy(result = it))
+            actionProcessor.processAction(ensureCapabilitiesAction.copy(result = it))
             assertEquals(it.await(), true)
         }
 
         CompletableDeferred<Boolean>().let {
-            mocks.actionProcessor.processAction(setDeviceNameAction.copy(result = it))
+            actionProcessor.processAction(setDeviceNameAction.copy(result = it))
             assertEquals(it.await(), true)
         }
 
         CompletableDeferred<Boolean>().let {
-            mocks.actionProcessor.processAction(setDevicePushSubscriptionAction.copy(result = it))
+            actionProcessor.processAction(setDevicePushSubscriptionAction.copy(result = it))
             assertEquals(it.await(), true)
         }
 
         CompletableDeferred<Boolean>().let {
-            mocks.actionProcessor.processAction(sendSingleTabAction.copy(result = it))
+            actionProcessor.processAction(sendSingleTabAction.copy(result = it))
             assertEquals(it.await(), true)
         }
 
-        mocks.firefoxAccount.apply {
+        firefoxAccount.apply {
             every { initializeDevice(any(), any(), any()) } throws testException
             every { ensureCapabilities(any()) } throws testException
             every { setDeviceName(any()) } throws testException
@@ -678,27 +678,27 @@ class FxaActionProcessorTest {
         }
 
         CompletableDeferred<Boolean>().let {
-            mocks.actionProcessor.processAction(initializeDeviceAction.copy(result = it))
+            actionProcessor.processAction(initializeDeviceAction.copy(result = it))
             assertEquals(it.await(), false)
         }
 
         CompletableDeferred<Boolean>().let {
-            mocks.actionProcessor.processAction(ensureCapabilitiesAction.copy(result = it))
+            actionProcessor.processAction(ensureCapabilitiesAction.copy(result = it))
             assertEquals(it.await(), false)
         }
 
         CompletableDeferred<Boolean>().let {
-            mocks.actionProcessor.processAction(setDeviceNameAction.copy(result = it))
+            actionProcessor.processAction(setDeviceNameAction.copy(result = it))
             assertEquals(it.await(), false)
         }
 
         CompletableDeferred<Boolean>().let {
-            mocks.actionProcessor.processAction(setDevicePushSubscriptionAction.copy(result = it))
+            actionProcessor.processAction(setDevicePushSubscriptionAction.copy(result = it))
             assertEquals(it.await(), false)
         }
 
         CompletableDeferred<Boolean>().let {
-            mocks.actionProcessor.processAction(sendSingleTabAction.copy(result = it))
+            actionProcessor.processAction(sendSingleTabAction.copy(result = it))
             assertEquals(it.await(), false)
         }
     }
@@ -710,10 +710,10 @@ class FxaActionProcessorTest {
                 throw testException
             }
         }
-        FxaActionProcessor(mockk(), eventHandler, mockk(), initialState = FxaAuthState.Connected()).sendEvent(
-            FxaEvent.AuthStateChanged(
-                newState = FxaAuthState.Disconnected(fromAuthIssues = true),
-                transition = FxaAuthStateTransition.AUTH_CHECK_FAILED,
+        FxaActionProcessor(mockk(), eventHandler, mockk(), initialState = FxaAuthState.CONNECTED).sendEvent(
+            FxaEvent.AuthEvent(
+                FxaAuthEventKind.AUTH_CHECK_FAILED,
+                FxaAuthState.AUTH_ISSUES,
             ),
         )
         // Check that the handler was called and threw an exception, but sendEvent caught it
@@ -748,12 +748,10 @@ class FxaActionProcessorTest {
 class FxaRetryTest {
     @Test
     fun `FxaActionProcessor retries after network errors`() = runTest {
-        val mocks = Mocks.create(FxaAuthState.Connected())
-        every {
-            mocks.firefoxAccount.setDeviceName(any())
-        } throws networkException andThen testLocalDevice
+        val mocks = Mocks.create(FxaAuthState.CONNECTED)
+        every { mocks.firefoxAccount.setDeviceName(any()) } throws networkException andThen testLocalDevice
 
-        mocks.verifyAction(setDeviceNameAction) { inner, eventHandler, _ ->
+        mocks.verifyAction(setDeviceNameAction) { _, inner, eventHandler, _ ->
             coVerifySequence {
                 // This throws FxaException.Network, we should retry
                 inner.setDeviceName("My Phone")
@@ -763,16 +761,16 @@ class FxaRetryTest {
                     FxaEvent.DeviceOperationComplete(FxaDeviceOperation.SET_DEVICE_NAME, testLocalDevice),
                 )
             }
-            FxaAuthState.Connected()
+            FxaAuthState.CONNECTED
         }
     }
 
     @Test
     fun `FxaActionProcessor fails after 2 network errors`() = runTest {
-        val mocks = Mocks.create(FxaAuthState.Connected())
+        val mocks = Mocks.create(FxaAuthState.CONNECTED)
         every { mocks.firefoxAccount.setDeviceName(any()) } throws networkException
 
-        mocks.verifyAction(setDeviceNameAction) { inner, eventHandler, _ ->
+        mocks.verifyAction(setDeviceNameAction) { _, inner, eventHandler, _ ->
             coVerifySequence {
                 // This throws FxaException.Network, we should retry
                 inner.setDeviceName("My Phone")
@@ -780,18 +778,16 @@ class FxaRetryTest {
                 inner.setDeviceName("My Phone")
                 eventHandler.onFxaEvent(FxaEvent.DeviceOperationFailed(FxaDeviceOperation.SET_DEVICE_NAME))
             }
-            FxaAuthState.Connected()
+            FxaAuthState.CONNECTED
         }
     }
 
     @Test
     fun `FxaActionProcessor fails after multiple network errors in a short time`() = runTest {
-        val mocks = Mocks.create(FxaAuthState.Connected())
-        every {
-            mocks.firefoxAccount.setDeviceName(any())
-        } throws networkException andThen testLocalDevice
+        val mocks = Mocks.create(FxaAuthState.CONNECTED)
+        every { mocks.firefoxAccount.setDeviceName(any()) } throws networkException andThen testLocalDevice
 
-        mocks.verifyAction(setDeviceNameAction) { inner, eventHandler, _ ->
+        mocks.verifyAction(setDeviceNameAction) { _, inner, eventHandler, _ ->
             coVerifySequence {
                 // This fails with FxaException.Network, we should retry
                 inner.setDeviceName("My Phone")
@@ -801,7 +797,7 @@ class FxaRetryTest {
                     FxaEvent.DeviceOperationComplete(FxaDeviceOperation.SET_DEVICE_NAME, testLocalDevice),
                 )
             }
-            FxaAuthState.Connected()
+            FxaAuthState.CONNECTED
         }
 
         mocks.actionProcessor.retryLogic.fastForward(29.seconds)
@@ -809,7 +805,7 @@ class FxaRetryTest {
             mocks.firefoxAccount.setDeviceName(any())
         } throws networkException andThen testLocalDevice
 
-        mocks.verifyAction(setDeviceNameAction) { inner, eventHandler, _ ->
+        mocks.verifyAction(setDeviceNameAction) { _, inner, eventHandler, _ ->
             coVerifySequence {
                 // This throws again and the timeout period is still active, we should fail
                 inner.setDeviceName("My Phone")
@@ -817,18 +813,16 @@ class FxaRetryTest {
                     FxaEvent.DeviceOperationFailed(FxaDeviceOperation.SET_DEVICE_NAME),
                 )
             }
-            FxaAuthState.Connected()
+            FxaAuthState.CONNECTED
         }
     }
 
     @Test
     fun `FxaActionProcessor retrys network errors again after a timeout period`() = runTest {
-        val mocks = Mocks.create(FxaAuthState.Connected())
-        every {
-            mocks.firefoxAccount.setDeviceName(any())
-        } throws networkException andThen testLocalDevice
+        val mocks = Mocks.create(FxaAuthState.CONNECTED)
+        every { mocks.firefoxAccount.setDeviceName(any()) } throws networkException andThen testLocalDevice
 
-        mocks.verifyAction(setDeviceNameAction) { inner, eventHandler, _ ->
+        mocks.verifyAction(setDeviceNameAction) { _, inner, eventHandler, _ ->
             coVerifySequence {
                 // This fails with FxaException.Network, we should retry
                 inner.setDeviceName("My Phone")
@@ -838,15 +832,13 @@ class FxaRetryTest {
                     FxaEvent.DeviceOperationComplete(FxaDeviceOperation.SET_DEVICE_NAME, testLocalDevice),
                 )
             }
-            FxaAuthState.Connected()
+            FxaAuthState.CONNECTED
         }
 
         mocks.actionProcessor.retryLogic.fastForward(31.seconds)
-        every {
-            mocks.firefoxAccount.setDeviceName(any())
-        } throws networkException andThen testLocalDevice
+        every { mocks.firefoxAccount.setDeviceName(any()) } throws networkException andThen testLocalDevice
 
-        mocks.verifyAction(setDeviceNameAction) { inner, eventHandler, _ ->
+        mocks.verifyAction(setDeviceNameAction) { _, inner, eventHandler, _ ->
             coVerifySequence {
                 // Timeout period over, we should retry this time
                 inner.setDeviceName("My Phone")
@@ -856,154 +848,145 @@ class FxaRetryTest {
                     FxaEvent.DeviceOperationComplete(FxaDeviceOperation.SET_DEVICE_NAME, testLocalDevice),
                 )
             }
-            FxaAuthState.Connected()
+            FxaAuthState.CONNECTED
         }
     }
 
     @Test
     fun `FxaActionProcessor calls checkAuthorizationStatus after auth errors`() = runTest {
-        val mocks = Mocks.create(FxaAuthState.Connected())
-        every {
-            mocks.firefoxAccount.setDeviceName(any())
-        } throws authException andThen testLocalDevice
+        val mocks = Mocks.create(FxaAuthState.CONNECTED)
+        every { mocks.firefoxAccount.setDeviceName(any()) } throws authException andThen testLocalDevice
 
-        mocks.verifyAction(setDeviceNameAction) { inner, eventHandler, persistState ->
+        mocks.verifyAction(setDeviceNameAction) { _, inner, eventHandler, persistState ->
             coVerifySequence {
                 // This throws FxaException.Authentication, we should recheck the auth status
                 inner.setDeviceName("My Phone")
                 // The auth check works
                 eventHandler.onFxaEvent(
-                    FxaEvent.AuthStateChanged(
-                        newState = FxaAuthState.Connected(authCheckInProgress = true),
-                        transition = FxaAuthStateTransition.AUTH_CHECK_STARTED,
+                    FxaEvent.AuthEvent(
+                        FxaAuthEventKind.AUTH_CHECK_STARTED,
+                        FxaAuthState.CHECKING_AUTH,
                     ),
                 )
                 inner.checkAuthorizationStatus()
                 persistState()
                 eventHandler.onFxaEvent(
-                    FxaEvent.AuthStateChanged(
-                        newState = FxaAuthState.Connected(),
-                        transition = FxaAuthStateTransition.AUTH_CHECK_SUCCESS,
+                    FxaEvent.AuthEvent(
+                        FxaAuthEventKind.AUTH_CHECK_SUCCESS,
+                        FxaAuthState.CONNECTED,
                     ),
                 )
                 // .. continue on
                 inner.setDeviceName("My Phone")
                 eventHandler.onFxaEvent(FxaEvent.DeviceOperationComplete(FxaDeviceOperation.SET_DEVICE_NAME, testLocalDevice))
             }
-            FxaAuthState.Connected()
+            FxaAuthState.CONNECTED
         }
     }
 
     @Test
     fun `FxaActionProcessor fails after 2 auth errors`() = runTest {
-        val mocks = Mocks.create(FxaAuthState.Connected())
-        every {
-            mocks.firefoxAccount.setDeviceName(any())
-        } throws authException
+        val mocks = Mocks.create(FxaAuthState.CONNECTED)
+        every { mocks.firefoxAccount.setDeviceName(any()) } throws authException
 
-        mocks.verifyAction(setDeviceNameAction) { inner, eventHandler, persistState ->
+        mocks.verifyAction(setDeviceNameAction) { _, inner, eventHandler, persistState ->
             coVerifySequence {
                 // This throws FxaException.Authentication, we should recheck the auth status
                 inner.setDeviceName("My Phone")
                 // The auth check works
                 eventHandler.onFxaEvent(
-                    FxaEvent.AuthStateChanged(
-                        newState = FxaAuthState.Connected(authCheckInProgress = true),
-                        transition = FxaAuthStateTransition.AUTH_CHECK_STARTED,
+                    FxaEvent.AuthEvent(
+                        FxaAuthEventKind.AUTH_CHECK_STARTED,
+                        FxaAuthState.CHECKING_AUTH,
                     ),
                 )
                 inner.checkAuthorizationStatus()
                 persistState()
                 eventHandler.onFxaEvent(
-                    FxaEvent.AuthStateChanged(
-                        newState = FxaAuthState.Connected(),
-                        transition = FxaAuthStateTransition.AUTH_CHECK_SUCCESS,
+                    FxaEvent.AuthEvent(
+                        FxaAuthEventKind.AUTH_CHECK_SUCCESS,
+                        FxaAuthState.CONNECTED,
                     ),
                 )
                 // .. but this throws again,
                 inner.setDeviceName("My Phone")
                 // ..so save the state, transition to disconnected, and make the operation fail
-                inner.disconnectFromAuthIssues()
+                inner.logoutFromAuthIssues()
                 persistState()
                 eventHandler.onFxaEvent(
-                    FxaEvent.AuthStateChanged(
-                        newState = FxaAuthState.Disconnected(fromAuthIssues = true),
-                        transition = FxaAuthStateTransition.AUTH_CHECK_FAILED,
+                    FxaEvent.AuthEvent(
+                        FxaAuthEventKind.AUTH_CHECK_FAILED,
+                        FxaAuthState.AUTH_ISSUES,
                     ),
                 )
                 eventHandler.onFxaEvent(FxaEvent.DeviceOperationFailed(FxaDeviceOperation.SET_DEVICE_NAME))
             }
-            FxaAuthState.Disconnected(fromAuthIssues = true)
+            FxaAuthState.AUTH_ISSUES
         }
     }
 
     @Test
     fun `FxaActionProcessor fails if the auth check fails`() = runTest {
-        val mocks = Mocks.create(FxaAuthState.Connected())
-        every {
-            mocks.firefoxAccount.setDeviceName(any())
-        } throws authException andThen testLocalDevice
-
+        val mocks = Mocks.create(FxaAuthState.CONNECTED)
+        every { mocks.firefoxAccount.setDeviceName(any()) } throws authException andThen testLocalDevice
         every { mocks.firefoxAccount.checkAuthorizationStatus() } returns AuthorizationInfo(active = false)
 
-        mocks.verifyAction(setDeviceNameAction) { inner, eventHandler, persistState ->
+        mocks.verifyAction(setDeviceNameAction) { _, inner, eventHandler, persistState ->
             coVerify {
                 // This throws FxaException.Authentication, we should recheck the auth status
                 inner.setDeviceName("My Phone")
                 // The auth check fails
                 eventHandler.onFxaEvent(
-                    FxaEvent.AuthStateChanged(
-                        newState = FxaAuthState.Connected(authCheckInProgress = true),
-                        transition = FxaAuthStateTransition.AUTH_CHECK_STARTED,
+                    FxaEvent.AuthEvent(
+                        FxaAuthEventKind.AUTH_CHECK_STARTED,
+                        FxaAuthState.CHECKING_AUTH,
                     ),
                 )
                 inner.checkAuthorizationStatus()
-                inner.disconnectFromAuthIssues()
+                inner.logoutFromAuthIssues()
                 persistState()
                 eventHandler.onFxaEvent(
-                    FxaEvent.AuthStateChanged(
-                        newState = FxaAuthState.Disconnected(fromAuthIssues = true),
-                        transition = FxaAuthStateTransition.AUTH_CHECK_FAILED,
+                    FxaEvent.AuthEvent(
+                        FxaAuthEventKind.AUTH_CHECK_FAILED,
+                        FxaAuthState.AUTH_ISSUES,
                     ),
                 )
                 // .. so the operation fails
                 eventHandler.onFxaEvent(FxaEvent.DeviceOperationFailed(FxaDeviceOperation.SET_DEVICE_NAME))
             }
-            FxaAuthState.Disconnected(fromAuthIssues = true)
+            FxaAuthState.AUTH_ISSUES
         }
     }
 
     @Test
     fun `FxaActionProcessor fails after multiple auth errors in a short time`() = runTest {
-        val mocks = Mocks.create(FxaAuthState.Connected())
-        every {
-            mocks.firefoxAccount.setDeviceName(any())
-        } throws authException andThen testLocalDevice
+        val mocks = Mocks.create(FxaAuthState.CONNECTED)
+        every { mocks.firefoxAccount.setDeviceName(any()) } throws authException andThen testLocalDevice
 
-        mocks.verifyAction(setDeviceNameAction) { inner, eventHandler, persistState ->
+        mocks.verifyAction(setDeviceNameAction) { _, inner, eventHandler, persistState ->
             coVerify {
                 // This throws FxaException.Authentication, we should recheck the auth status
                 inner.setDeviceName("My Phone")
                 // The auth check works
                 eventHandler.onFxaEvent(
-                    FxaEvent.AuthStateChanged(
-                        newState = FxaAuthState.Connected(authCheckInProgress = true),
-                        transition = FxaAuthStateTransition.AUTH_CHECK_STARTED,
+                    FxaEvent.AuthEvent(
+                        FxaAuthEventKind.AUTH_CHECK_STARTED,
+                        FxaAuthState.CHECKING_AUTH,
                     ),
                 )
                 inner.checkAuthorizationStatus()
                 persistState()
                 eventHandler.onFxaEvent(
-                    FxaEvent.AuthStateChanged(
-                        newState = FxaAuthState.Connected(),
-                        transition = FxaAuthStateTransition.AUTH_CHECK_SUCCESS,
+                    FxaEvent.AuthEvent(
+                        FxaAuthEventKind.AUTH_CHECK_SUCCESS,
+                        FxaAuthState.CONNECTED,
                     ),
                 )
                 // .. continue on
                 inner.setDeviceName("My Phone")
                 eventHandler.onFxaEvent(FxaEvent.DeviceOperationComplete(FxaDeviceOperation.SET_DEVICE_NAME, testLocalDevice))
             }
-            FxaAuthState.Connected()
+            FxaAuthState.CONNECTED
         }
 
         mocks.actionProcessor.retryLogic.fastForward(59.seconds)
@@ -1011,56 +994,56 @@ class FxaRetryTest {
             mocks.firefoxAccount.setDeviceName(any())
         } throws authException andThen testLocalDevice
 
-        mocks.verifyAction(setDeviceNameAction) { inner, eventHandler, persistState ->
+        mocks.verifyAction(setDeviceNameAction) { _, inner, eventHandler, persistState ->
             coVerify {
                 // This throws,
                 inner.setDeviceName("My Phone")
                 // ..so save the state, transition to disconnected, and make the operation fail
-                inner.disconnectFromAuthIssues()
+                inner.logoutFromAuthIssues()
                 persistState()
                 eventHandler.onFxaEvent(
-                    FxaEvent.AuthStateChanged(
-                        newState = FxaAuthState.Disconnected(fromAuthIssues = true),
-                        transition = FxaAuthStateTransition.AUTH_CHECK_FAILED,
+                    FxaEvent.AuthEvent(
+                        FxaAuthEventKind.AUTH_CHECK_FAILED,
+                        FxaAuthState.AUTH_ISSUES,
                     ),
                 )
                 eventHandler.onFxaEvent(FxaEvent.DeviceOperationFailed(FxaDeviceOperation.SET_DEVICE_NAME))
             }
-            FxaAuthState.Disconnected(fromAuthIssues = true)
+            FxaAuthState.AUTH_ISSUES
         }
     }
 
     @Test
     fun `FxaActionProcessor checks authorization again after timeout period passes`() = runTest {
-        val mocks = Mocks.create(FxaAuthState.Connected())
+        val mocks = Mocks.create(FxaAuthState.CONNECTED)
         every {
             mocks.firefoxAccount.setDeviceName(any())
         } throws authException andThen testLocalDevice
 
-        mocks.verifyAction(setDeviceNameAction) { inner, eventHandler, persistState ->
+        mocks.verifyAction(setDeviceNameAction) { _, inner, eventHandler, persistState ->
             coVerify {
                 // This throws FxaException.Authentication, we should recheck the auth status
                 inner.setDeviceName("My Phone")
                 // The auth check works
                 eventHandler.onFxaEvent(
-                    FxaEvent.AuthStateChanged(
-                        newState = FxaAuthState.Connected(authCheckInProgress = true),
-                        transition = FxaAuthStateTransition.AUTH_CHECK_STARTED,
+                    FxaEvent.AuthEvent(
+                        FxaAuthEventKind.AUTH_CHECK_STARTED,
+                        FxaAuthState.CHECKING_AUTH,
                     ),
                 )
                 inner.checkAuthorizationStatus()
                 persistState()
                 eventHandler.onFxaEvent(
-                    FxaEvent.AuthStateChanged(
-                        newState = FxaAuthState.Connected(),
-                        transition = FxaAuthStateTransition.AUTH_CHECK_SUCCESS,
+                    FxaEvent.AuthEvent(
+                        FxaAuthEventKind.AUTH_CHECK_SUCCESS,
+                        FxaAuthState.CONNECTED,
                     ),
                 )
                 // .. continue on
                 inner.setDeviceName("My Phone")
                 eventHandler.onFxaEvent(FxaEvent.DeviceOperationComplete(FxaDeviceOperation.SET_DEVICE_NAME, testLocalDevice))
             }
-            FxaAuthState.Connected()
+            FxaAuthState.CONNECTED
         }
 
         mocks.actionProcessor.retryLogic.fastForward(61.seconds)
@@ -1068,36 +1051,36 @@ class FxaRetryTest {
             mocks.firefoxAccount.setDeviceName(any())
         } throws authException andThen testLocalDevice
 
-        mocks.verifyAction(setDeviceNameAction) { inner, eventHandler, persistState ->
+        mocks.verifyAction(setDeviceNameAction) { _, inner, eventHandler, persistState ->
             coVerify {
                 // Timeout period over, we should recheck the auth status this time
                 inner.setDeviceName("My Phone")
                 // The auth check works
                 eventHandler.onFxaEvent(
-                    FxaEvent.AuthStateChanged(
-                        newState = FxaAuthState.Connected(authCheckInProgress = true),
-                        transition = FxaAuthStateTransition.AUTH_CHECK_STARTED,
+                    FxaEvent.AuthEvent(
+                        FxaAuthEventKind.AUTH_CHECK_STARTED,
+                        FxaAuthState.CHECKING_AUTH,
                     ),
                 )
                 inner.checkAuthorizationStatus()
                 persistState()
                 eventHandler.onFxaEvent(
-                    FxaEvent.AuthStateChanged(
-                        newState = FxaAuthState.Connected(),
-                        transition = FxaAuthStateTransition.AUTH_CHECK_SUCCESS,
+                    FxaEvent.AuthEvent(
+                        FxaAuthEventKind.AUTH_CHECK_SUCCESS,
+                        FxaAuthState.CONNECTED,
                     ),
                 )
                 // .. continue on
                 inner.setDeviceName("My Phone")
                 eventHandler.onFxaEvent(FxaEvent.DeviceOperationComplete(FxaDeviceOperation.SET_DEVICE_NAME, testLocalDevice))
             }
-            FxaAuthState.Connected()
+            FxaAuthState.CONNECTED
         }
     }
 
     @Test
     fun `FxaActionProcessor retries after an auth + network exception`() = runTest {
-        val mocks = Mocks.create(FxaAuthState.Connected())
+        val mocks = Mocks.create(FxaAuthState.CONNECTED)
         every {
             mocks.firefoxAccount.setDeviceName(any())
         } throws authException andThen testLocalDevice
@@ -1106,14 +1089,14 @@ class FxaRetryTest {
             mocks.firefoxAccount.checkAuthorizationStatus()
         } throws networkException andThen AuthorizationInfo(active = true)
 
-        mocks.verifyAction(setDeviceNameAction) { inner, eventHandler, persistState ->
+        mocks.verifyAction(setDeviceNameAction) { _, inner, eventHandler, persistState ->
             coVerify {
                 // This throws FxaException.Authentication, we should recheck the auth status
                 inner.setDeviceName("My Phone")
                 eventHandler.onFxaEvent(
-                    FxaEvent.AuthStateChanged(
-                        newState = FxaAuthState.Connected(authCheckInProgress = true),
-                        transition = FxaAuthStateTransition.AUTH_CHECK_STARTED,
+                    FxaEvent.AuthEvent(
+                        FxaAuthEventKind.AUTH_CHECK_STARTED,
+                        FxaAuthState.CHECKING_AUTH,
                     ),
                 )
                 // This throws a network error, we should retry
@@ -1122,22 +1105,22 @@ class FxaRetryTest {
                 inner.checkAuthorizationStatus()
                 persistState()
                 eventHandler.onFxaEvent(
-                    FxaEvent.AuthStateChanged(
-                        newState = FxaAuthState.Connected(),
-                        transition = FxaAuthStateTransition.AUTH_CHECK_SUCCESS,
+                    FxaEvent.AuthEvent(
+                        FxaAuthEventKind.AUTH_CHECK_SUCCESS,
+                        FxaAuthState.CONNECTED,
                     ),
                 )
                 // .. continue on
                 inner.setDeviceName("My Phone")
                 eventHandler.onFxaEvent(FxaEvent.DeviceOperationComplete(FxaDeviceOperation.SET_DEVICE_NAME, testLocalDevice))
             }
-            FxaAuthState.Connected()
+            FxaAuthState.CONNECTED
         }
     }
 
     @Test
     fun `FxaActionProcessor retries after a network + auth exception`() = runTest {
-        val mocks = Mocks.create(FxaAuthState.Connected())
+        val mocks = Mocks.create(FxaAuthState.CONNECTED)
         every {
             mocks.firefoxAccount.setDeviceName(any())
         } throws authException andThen testLocalDevice
@@ -1146,32 +1129,32 @@ class FxaRetryTest {
             mocks.firefoxAccount.checkAuthorizationStatus()
         } throws networkException andThen AuthorizationInfo(active = true)
 
-        mocks.verifyAction(setDeviceNameAction) { inner, eventHandler, persistState ->
+        mocks.verifyAction(setDeviceNameAction) { _, inner, eventHandler, persistState ->
             coVerify {
                 // This throws FxaException.Network should try again
                 inner.setDeviceName("My Phone")
                 // This throws FxaException.Authentication, we should recheck the auth status
                 inner.setDeviceName("My Phone")
                 eventHandler.onFxaEvent(
-                    FxaEvent.AuthStateChanged(
-                        newState = FxaAuthState.Connected(authCheckInProgress = true),
-                        transition = FxaAuthStateTransition.AUTH_CHECK_STARTED,
+                    FxaEvent.AuthEvent(
+                        FxaAuthEventKind.AUTH_CHECK_STARTED,
+                        FxaAuthState.CHECKING_AUTH,
                     ),
                 )
                 // This works
                 inner.checkAuthorizationStatus()
                 persistState()
                 eventHandler.onFxaEvent(
-                    FxaEvent.AuthStateChanged(
-                        newState = FxaAuthState.Connected(),
-                        transition = FxaAuthStateTransition.AUTH_CHECK_SUCCESS,
+                    FxaEvent.AuthEvent(
+                        FxaAuthEventKind.AUTH_CHECK_SUCCESS,
+                        FxaAuthState.CONNECTED,
                     ),
                 )
                 // .. continue on
                 inner.setDeviceName("My Phone")
                 eventHandler.onFxaEvent(FxaEvent.DeviceOperationComplete(FxaDeviceOperation.SET_DEVICE_NAME, testLocalDevice))
             }
-            FxaAuthState.Connected()
+            FxaAuthState.CONNECTED
         }
     }
 }

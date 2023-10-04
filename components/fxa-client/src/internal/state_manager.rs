@@ -161,23 +161,52 @@ impl StateManager {
         }
         self.persisted_state.refresh_token = Some(refresh_token);
         self.persisted_state.session_token = session_token;
+        self.persisted_state.logged_out_from_auth_issues = false;
         self.flow_store.clear();
     }
 
     /// Called when the account is disconnected.  This clears most of the auth state, but keeps
     /// some information in order to eventually reconnect to the same user account later.
-    pub fn disconnect(&mut self, from_auth_issues: bool) {
-        self.persisted_state = self.persisted_state.start_over(from_auth_issues);
+    pub fn disconnect(&mut self) {
+        // Clear (almost all of) the persisted state of the account.
+        //
+        // This method keep just enough information to be able to eventually reconnect
+        // to the same user account later. To completely forget the previously-signed-in
+        // user, simply discard the persisted data.
+
+        self.persisted_state.current_device_id = None;
+        self.persisted_state.refresh_token = None;
+        self.persisted_state.scoped_keys = HashMap::new();
+        self.persisted_state.last_handled_command = None;
+        self.persisted_state.commands_data = HashMap::new();
+        self.persisted_state.access_token_cache = HashMap::new();
+        self.persisted_state.server_local_device_info = None;
+        self.persisted_state.session_token = None;
+        self.persisted_state.logged_out_from_auth_issues = false;
+        self.flow_store.clear();
+    }
+
+    /// Called when the account is logged out because of auth issues.  This clears some of the auth
+    /// state, but less than disconnect().
+    pub fn logout_from_auth_issues(&mut self) {
+        self.persisted_state.refresh_token = None;
+        self.persisted_state.scoped_keys = HashMap::new();
+        self.persisted_state.last_handled_command = None;
+        self.persisted_state.commands_data = HashMap::new();
+        self.persisted_state.access_token_cache = HashMap::new();
+        self.persisted_state.server_local_device_info = None;
+        self.persisted_state.session_token = None;
+        self.persisted_state.logged_out_from_auth_issues = true;
         self.flow_store.clear();
     }
 
     pub fn get_auth_state(&self) -> FxaRustAuthState {
         if self.persisted_state.refresh_token.is_some() {
             FxaRustAuthState::Connected
+        } else if self.persisted_state.logged_out_from_auth_issues {
+            FxaRustAuthState::AuthIssues
         } else {
-            FxaRustAuthState::Disconnected {
-                from_auth_issues: self.persisted_state.disconnected_from_auth_issues,
-            }
+            FxaRustAuthState::Disconnected
         }
     }
 

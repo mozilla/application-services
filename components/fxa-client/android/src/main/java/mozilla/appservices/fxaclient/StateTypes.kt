@@ -31,6 +31,11 @@ sealed class FxaAction {
     /**
      * Begin an OAuth flow
      *
+     * BeginOAuthFlow can be sent in either the DISCONNECTED or AUTHENTICATING state.  If the
+     * operation fails the state will not change.  AuthEvent(OAUTH_FAILED_TO_BEGIN) will be sent to
+     * the event handler, which can respond by sending CancelOAuthFlow if the application wants to
+     * move back to the DISCONNECTED state.
+     *
      * @param scopes OAuth scopes to request
      * @param entrypoint OAuth entrypoint
      * @param result If present, will be completed with the OAuth URL to navigate users too
@@ -43,6 +48,11 @@ sealed class FxaAction {
 
     /**
      * Begin an OAuth flow using a paring code URL
+     *
+     * BeginPairingFlow can be sent in either the DISCONNECTED or AUTHENTICATING state.  If the
+     * operation fails the state will not change.  AuthEvent(OAUTH_FAILED_TO_BEGIN) will be sent to
+     * the event handler, which can respond by sending CancelOAuthFlow if the application wants to
+     * move back to the DISCONNECTED state.
      *
      * @param pairingUrl the url to initialize the paring flow with
      * @param scopes OAuth scopes to request
@@ -143,12 +153,16 @@ sealed class FxaAction {
 
     /**
      * Disconnect from the FxA server and destroy our device record.
-     *
-     * @param fromAuthIssues: are we disconnecting because of auth issues?  Setting this flag
-     * changes `FxaEvent.AuthStateChanged` so that the `fromAuthIssues` flag is will set and the
-     * transition is `AUTH_CHECK_FAILED`
      */
-    data class Disconnect(val fromAuthIssues: Boolean = false) : FxaAction()
+    object Disconnect : FxaAction()
+
+    /**
+     * Logout because of authentication / authorization issues
+     *
+     * Send this action if the user has gotten into a unathorized state without logging out, for
+     * example because of a password reset.  The sure will need to re-authenticate to login.
+     */
+    object LogoutFromAuthIssues : FxaAction()
 
     /**
      * Check the FxA authorization status.
@@ -164,11 +178,15 @@ sealed class FxaAction {
  */
 sealed class FxaEvent {
     /**
-     * Called when the auth state changes.  Applications should use this to update their UI.
+     * Sent on login, logout, auth checks, etc.  See [FxaAuthEventKind] for a list of all auth events.
+     * `state` is the current auth state of the client.  All auth state transitions are accompanied
+     * by an AuthEvent, although some AuthEvents don't correspond to a state transition.
+     *
+     * Applications should use this to update their UI.
      */
-    data class AuthStateChanged(
-        val newState: FxaAuthState,
-        val transition: FxaAuthStateTransition,
+    data class AuthEvent(
+        val kind: FxaAuthEventKind,
+        val state: FxaAuthState,
     ) : FxaEvent()
 
     /**
@@ -196,43 +214,30 @@ sealed class FxaEvent {
 /**
  * Kotlin authorization state class
  *
- * This is [FxaRustAuthState] with added data that Rust doesn't track yet.
+ * This is [FxaRustAuthState] with added states that Rust doesn't track yet.
  */
-sealed class FxaAuthState {
-    /**
-     * Client has disconnected
-     *
-     * @property fromAuthIssues client was disconnected because of invalid auth tokens, for
-     *   example because of a password reset on another device
-     * @property connecting is there an OAuth flow in progress?
-     */
-    data class Disconnected(
-        val fromAuthIssues: Boolean = false,
-        val connecting: Boolean = false,
-    ) : FxaAuthState()
+enum class FxaAuthState {
+    DISCONNECTED,
+    AUTHENTICATING,
+    CONNECTED,
+    CHECKING_AUTH,
+    AUTH_ISSUES,
+    ;
 
-    /**
-     * Client is currently connected
-     *
-     * @property authCheckInProgress Client is checking the auth tokens and may disconnect soon
-     */
-    data class Connected(
-        val authCheckInProgress: Boolean = false,
-    ) : FxaAuthState()
+    fun isConnected() = (this == CONNECTED)
 
     companion object {
         fun fromRust(authState: FxaRustAuthState): FxaAuthState {
             return when (authState) {
-                is FxaRustAuthState.Connected -> FxaAuthState.Connected()
-                is FxaRustAuthState.Disconnected -> {
-                    FxaAuthState.Disconnected(authState.fromAuthIssues)
-                }
+                FxaRustAuthState.CONNECTED -> FxaAuthState.CONNECTED
+                FxaRustAuthState.DISCONNECTED -> FxaAuthState.DISCONNECTED
+                FxaRustAuthState.AUTH_ISSUES -> FxaAuthState.AUTH_ISSUES
             }
         }
     }
 }
 
-enum class FxaAuthStateTransition {
+enum class FxaAuthEventKind {
     OAUTH_STARTED,
     OAUTH_COMPLETE,
     OAUTH_CANCELLED,
@@ -242,6 +247,8 @@ enum class FxaAuthStateTransition {
     AUTH_CHECK_STARTED,
     AUTH_CHECK_FAILED,
     AUTH_CHECK_SUCCESS,
+    // This is sent back when the consumer sends the `LogoutFromAuthIssues` action
+    LOGOUT_FROM_AUTH_ISSUES,
 }
 
 enum class FxaDeviceOperation {

@@ -161,17 +161,18 @@ impl FirefoxAccount {
     /// the user to reconnect to their account. If reconnecting to the same account
     /// is not desired then the application should discard the persisted account state.
     pub fn disconnect(&self) {
-        self.internal.lock().disconnect(false)
+        self.internal.lock().disconnect()
     }
 
-    /// Disconnect because of auth issues.
+    /// Log out because of authorization / authentication issues
+    ///
     ///
     /// **💾 This method alters the persisted account state.**
     ///
-    /// This works exactly like `disconnect`, except the
-    /// `AuthState::Disconnected::from_auth_issues` flag will be set when get_auth_state() is called.
-    pub fn disconnect_from_auth_issues(&self) {
-        self.internal.lock().disconnect(true)
+    /// Call this if you know there's an authentication / authorization issue that requires the
+    /// user to re-authenticated.  It transitions the user to the [FxaRustAuthState.AuthIssues] state.
+    pub fn logout_from_auth_issues(&self) {
+        self.internal.lock().logout_from_auth_issues()
     }
 
     /// Used by the application to test auth token issues
@@ -200,14 +201,15 @@ pub struct MetricsParams {
 
 /// High-level view of the authorization state
 ///
-/// This is named `FxaRustAuthState` because it doesn't track everything we want yet and needs help
-/// from the wrapper code.  The wrapper code defines the actual `FxaAuthState` type based on this,
-/// adding the extra data.
+/// This is named `FxaRustAuthState` because it doesn't track all the states we want yet and needs
+/// help from the wrapper code.  The wrapper code defines the actual `FxaAuthState` type based on
+/// this, adding the extra data.
 ///
 /// In the long-term, we should track that data in Rust, remove the wrapper, and rename this to
 /// `FxaAuthState`.
 #[derive(Debug, PartialEq, Eq)]
 pub enum FxaRustAuthState {
-    Disconnected { from_auth_issues: bool },
+    Disconnected,
     Connected,
+    AuthIssues,
 }

@@ -247,13 +247,14 @@ interface FirefoxAccount {
   //
   void disconnect();
 
-  // Disconnect because of auth issues.
+  // Log out because of authorization / authentication issues
+  //
   //
   // **💾 This method alters the persisted account state.**
   //
-  // This works exactly like `disconnect`, except the
-  // `AuthState::Disconnected::from_auth_issues` flag will be set when get_auth_state() is called.
-  void disconnect_from_auth_issues();
+  // Call this if you know there's an authentication / authorization issue that requires the
+  // user to re-authenticated.  It transitions the user to the [FxaRustAuthState.AuthIssues] state.
+  void logout_from_auth_issues();
 
   // Get the high-level authentication state of the client
   FxaRustAuthState get_auth_state();
@@ -924,10 +925,10 @@ dictionary Profile {
   boolean is_default_avatar;
 };
 
-[Enum]
-interface FxaRustAuthState {
-  Disconnected(boolean from_auth_issues);
-  Connected();
+enum FxaRustAuthState {
+  "Disconnected",
+  "Connected",
+  "AuthIssues",
 };
 
 // A "capability" offered by a device.

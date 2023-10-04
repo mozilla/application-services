@@ -78,7 +78,7 @@ impl FirefoxAccount {
             current_device_id: None,
             last_seen_profile: None,
             access_token_cache: HashMap::new(),
-            disconnected_from_auth_issues: false,
+            logged_out_from_auth_issues: false,
         })
     }
 
@@ -196,7 +196,7 @@ impl FirefoxAccount {
     /// the device could still be in the FxA devices manager.
     ///
     /// **💾 This method alters the persisted account state.**
-    pub fn disconnect(&mut self, from_auth_issues: bool) {
+    pub fn disconnect(&mut self) {
         let current_device_result;
         {
             current_device_result = self.get_current_device();
@@ -221,7 +221,20 @@ impl FirefoxAccount {
                 log::warn!("Error while destroying the device: {}", e);
             }
         }
-        self.state.disconnect(from_auth_issues);
+        self.state.disconnect();
+        self.clear_devices_and_attached_clients_cache();
+        self.telemetry = FxaTelemetry::new();
+    }
+
+    /// Log out because of authorization / authentication issues
+    ///
+    ///
+    /// **💾 This method alters the persisted account state.**
+    ///
+    /// Call this if you know there's an authentication / authorization issue that requires the
+    /// user to re-authenticated.  It transitions the user to the [FxaRustAuthState.AuthIssues] state.
+    pub fn logout_from_auth_issues(&mut self) {
+        self.state.logout_from_auth_issues();
         self.clear_devices_and_attached_clients_cache();
         self.telemetry = FxaTelemetry::new();
     }
@@ -353,7 +366,7 @@ mod tests {
         fxa.set_client(Arc::new(client));
 
         assert!(!fxa.state.is_access_token_cache_empty());
-        fxa.disconnect(false);
+        fxa.disconnect();
         assert!(fxa.state.is_access_token_cache_empty());
     }
 
@@ -422,7 +435,7 @@ mod tests {
         fxa.set_client(Arc::new(client));
 
         assert!(fxa.state.refresh_token().is_some());
-        fxa.disconnect(false);
+        fxa.disconnect();
         assert!(fxa.state.refresh_token().is_none());
     }
 
@@ -469,7 +482,7 @@ mod tests {
         fxa.set_client(Arc::new(client));
 
         assert!(fxa.state.refresh_token().is_some());
-        fxa.disconnect(false);
+        fxa.disconnect();
         assert!(fxa.state.refresh_token().is_none());
     }
 
@@ -505,7 +518,7 @@ mod tests {
         fxa.set_client(Arc::new(client));
 
         assert!(fxa.state.refresh_token().is_some());
-        fxa.disconnect(false);
+        fxa.disconnect();
         assert!(fxa.state.refresh_token().is_none());
     }
 
@@ -522,12 +535,7 @@ mod tests {
         }
 
         // The state starts as disconnected
-        assert_auth_state(
-            &fxa,
-            FxaRustAuthState::Disconnected {
-                from_auth_issues: false,
-            },
-        );
+        assert_auth_state(&fxa, FxaRustAuthState::Disconnected);
 
         // When we get the refresh tokens the state changes to connected
         fxa.state.force_refresh_token(RefreshToken {
@@ -536,21 +544,11 @@ mod tests {
         });
         assert_auth_state(&fxa, FxaRustAuthState::Connected);
 
-        fxa.disconnect(true);
-        assert_auth_state(
-            &fxa,
-            FxaRustAuthState::Disconnected {
-                from_auth_issues: true,
-            },
-        );
+        fxa.disconnect();
+        assert_auth_state(&fxa, FxaRustAuthState::Disconnected);
 
-        fxa.disconnect(false);
-        assert_auth_state(
-            &fxa,
-            FxaRustAuthState::Disconnected {
-                from_auth_issues: false,
-            },
-        );
+        fxa.disconnect();
+        assert_auth_state(&fxa, FxaRustAuthState::Disconnected);
     }
 
     #[test]

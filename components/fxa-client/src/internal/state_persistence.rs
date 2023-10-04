@@ -83,8 +83,9 @@ enum PersistedStateTagged {
 ///     If so then you'll need to tell serde how to fill in a suitable default.
 ///     If not then you'll need to make a new `StateV3` and implement an explicit migration.
 ///
-///   * Does the new field need to be modified when the user disconnects from the account?
-///    If so then you'll need to update `StateV2.start_over` function.
+///   * How does the new field need to be modified when the user disconnects from the account or is
+///     logged out from auth issues? Update [state_manager.disconnect] and
+///     [state_manager.logout_from_auth_issues].
 ///
 #[derive(Clone, Serialize, Deserialize)]
 pub(crate) struct StateV2 {
@@ -106,32 +107,7 @@ pub(crate) struct StateV2 {
     #[serde(default)]
     pub(crate) server_local_device_info: Option<LocalDevice>,
     #[serde(default)]
-    pub(crate) disconnected_from_auth_issues: bool,
-}
-
-impl StateV2 {
-    /// Clear (almost all of) the persisted state of the account.
-    ///
-    /// This method keep just enough information to be able to eventually reconnect
-    /// to the same user account later. To completely forget the previously-signed-in
-    /// user, simply discard the persisted data.
-    ///
-    pub(crate) fn start_over(&self, disconnected_from_auth_issues: bool) -> StateV2 {
-        StateV2 {
-            config: self.config.clone(),
-            current_device_id: None,
-            // Leave the profile cache untouched so we can reconnect later.
-            last_seen_profile: self.last_seen_profile.clone(),
-            refresh_token: None,
-            scoped_keys: HashMap::new(),
-            last_handled_command: None,
-            commands_data: HashMap::new(),
-            access_token_cache: HashMap::new(),
-            server_local_device_info: None,
-            session_token: None,
-            disconnected_from_auth_issues,
-        }
-    }
+    pub(crate) logged_out_from_auth_issues: bool,
 }
 
 #[cfg(test)]

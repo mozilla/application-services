@@ -281,7 +281,7 @@ class FxaClient private constructor(
     /**
      * Saves the current account's authentication state as a JSON string, for persistence in
      * the Android KeyStore/shared preferences. The authentication state can be restored using
-     * [FirefoxAccount.fromJSONString].
+     * [FirefoxAccount.fromJson].
      *
      * FIXME: https://github.com/mozilla/application-services/issues/5819
      *
