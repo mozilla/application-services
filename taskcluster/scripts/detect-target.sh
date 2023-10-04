@@ -64,7 +64,7 @@ guess_target() {
   local DOUBLE=""
   case "$OS" in
     "darwin") DOUBLE="apple-darwin" ;;
-    "linux") DOUBLE="unknown-linux-musl" ;;
+    "linux") DOUBLE="unknown-linux-gnu" ;;
     "windows") DOUBLE="pc-windows-gnu" ;;
   esac
   TARGET="$ARCH-$DOUBLE"

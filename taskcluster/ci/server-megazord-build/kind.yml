@@ -23,10 +23,16 @@ task-defaults:
     - project:releng:services/tooltool/api/download/internal
 
 tasks:
-  nimbus-experimenter-linux-x86_64:
+  nimbus-experimenter-linux-x86_64-gnu:
     attributes:
       megazord: nimbus-experimenter
-      target: x86_64-unknown-linux-musl
+      target: x86_64-unknown-linux-gnu
+
+  nimbus-experimenter-linux-aarch64-gnu:
+    attributes:
+      megazord: nimbus-experimenter
+      target: aarch64-unknown-linux-gnu
+
 
   nimbus-experimenter-macos:
     attributes:

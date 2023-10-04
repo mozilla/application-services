@@ -80,6 +80,8 @@ def _build_shared_library(megazord, target, dist_dir):
 
     if target == "i686-pc-windows-gnu":
         env["RUSTFLAGS"] = env.get("RUSTFLAGS", "") + " -C panic=abort"
+    elif target == 'aarch64-unknown-linux-gnu':
+        env["CARGO_TARGET_AARCH64_UNKNOWN_LINUX_GNU_LINKER"] = 'aarch64-linux-gnu-gcc'
 
     subprocess.check_call([
         'cargo', 'build', '--manifest-path', f'{SRC_ROOT}/megazords/{megazord}/Cargo.toml', '--release', '--target', target,
