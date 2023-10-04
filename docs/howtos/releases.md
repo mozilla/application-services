@@ -119,7 +119,8 @@ diff --git a/CHANGELOG.md b/CHANGELOG.md
 
 
 ### [Release management] Creating a new release via scripts:
-1. Run the `automation/prepare-release.py` script.  This should:
+1. Run `pip3 install -r automation/requirements.txt` to install the required Python packages.
+2. Run the `automation/prepare-release.py` script.  This should:
   * Create a new branch named `release-vXXX`
   * Create a PR against that branch that updates `version.txt` like this:
 
@@ -134,7 +135,7 @@ index 8cd923873..6482018e0 100644
 ```
   * Create a PR on `main` that starts a new CHANGELOG header.
 
-2. Tag the release with `automation/tag-release.py [major-version-number]`
+3. Tag the release with `automation/tag-release.py [major-version-number]`
 
 
 
