@@ -159,6 +159,12 @@ fn output_note(term: &Term, title: &str) -> Result<()> {
     Ok(())
 }
 
+fn output_warn(term: &Term, title: &str, detail: &str) -> Result<()> {
+    let style = term.style().yellow();
+    term.write_line(&format!("⚠️ {}: {detail}", style.apply_to(title)))?;
+    Ok(())
+}
+
 fn output_err(term: &Term, title: &str, detail: &str) -> Result<()> {
     let style = term.style().red();
     term.write_line(&format!("❎ {}: {detail}", style.apply_to(title),))?;
@@ -216,6 +222,50 @@ pub(crate) fn validate(cmd: &ValidateCmd) -> Result<()> {
                 .join("\n- ")
         ),
     )?;
+
+    term.write_line("Validating feature metadata:")?;
+    let mut features_with_warnings = 0;
+    for (_, f) in intermediate_representation.iter_all_feature_defs() {
+        let fm = &f.metadata;
+        let mut missing = vec![];
+        if fm.meta_bug.is_none() {
+            missing.push("'meta-bug'");
+        }
+        if fm.documentation.is_empty() {
+            missing.push("'documentation'");
+        }
+        if fm.contacts.is_empty() {
+            missing.push("'contacts'");
+        }
+        if !missing.is_empty() {
+            output_warn(
+                &term,
+                &format!("'{}' missing metadata", &f.name),
+                &missing.join(", "),
+            )?;
+            features_with_warnings += 1;
+        }
+    }
+
+    if features_with_warnings == 0 {
+        output_ok(&term, "All feature metadata ok\n")?;
+    } else {
+        let features = if features_with_warnings == 1 {
+            "feature"
+        } else {
+            "features"
+        };
+        term.write_line("Each feature should have entries for at least:")?;
+        term.write_line("  - meta-bug: a URL where to file bugs")?;
+        term.write_line("  - documentation: a list of one or more URLs documenting the feature")?;
+        term.write_line("      e.g. QA docs, user docs")?;
+        term.write_line("  - contacts: a list of one or more email addresses")?;
+        term.write_line("      (with Mozilla Jira accounts)")?;
+
+        term.write_line(&format!(
+            "Metadata warnings detected in {features_with_warnings} {features}\n"
+        ))?;
+    }
 
     term.write_line("Validating manifest for different channels:")?;
 
