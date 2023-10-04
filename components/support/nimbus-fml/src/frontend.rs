@@ -4,8 +4,10 @@
 
 use std::collections::{BTreeMap, HashMap, HashSet};
 
+use email_address::EmailAddress;
 use serde::{Deserialize, Serialize};
 use serde_json::json;
+use url::Url;
 
 use crate::{
     defaults_merger::DefaultsMerger,
@@ -155,6 +157,38 @@ pub(crate) struct FeatureBody {
 #[serde(rename_all = "kebab-case")]
 pub(crate) struct FeatureMetadata {
     pub(crate) description: String,
+    /// A list of named URLs to documentation for this feature.
+    #[serde(default)]
+    #[serde(skip_serializing_if = "Vec::is_empty")]
+    pub(crate) documentation: Vec<DocumentationLink>,
+    /// A list of contacts (engineers, product owners) who can be contacted for
+    /// help with this feature. Specifically for QA questions.
+    #[serde(default)]
+    #[serde(alias = "owners", alias = "owner")]
+    #[serde(skip_serializing_if = "Vec::is_empty")]
+    pub(crate) contacts: Vec<EmailAddress>,
+    /// Where should QA file issues for this feature?
+    #[serde(default)]
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub(crate) meta_bug: Option<Url>,
+    /// What Glean events can the feature produce?
+    /// These should be links to a Glean dictionary.
+    #[serde(default)]
+    #[serde(skip_serializing_if = "Vec::is_empty")]
+    pub(crate) events: Vec<Url>,
+    /// A link to a Web based configuration UI for this feature.
+    /// This UI should produce the valid JSON instead of typing it
+    /// by hand.
+    #[serde(default)]
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub(crate) configurator: Option<Url>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(deny_unknown_fields)]
+pub(crate) struct DocumentationLink {
+    pub(crate) name: String,
+    pub(crate) url: Url,
 }
 
 #[derive(Debug, Deserialize, Serialize, Clone, Default)]
@@ -494,5 +528,142 @@ mod default_block {
         let res = res.unwrap();
         assert!(res.contains(&"a".to_string()));
         assert!(res.len() == 1)
+    }
+}
+
+#[cfg(test)]
+mod feature_metadata {
+    use super::*;
+    use std::str::FromStr;
+
+    impl DocumentationLink {
+        fn new(nm: &str, url: &str) -> Result<Self> {
+            Ok(Self {
+                name: nm.to_string(),
+                url: Url::from_str(url)?,
+            })
+        }
+    }
+
+    #[test]
+    fn test_happy_path() -> Result<()> {
+        let fm = serde_json::from_str::<FeatureMetadata>(
+            r#"{
+            "description": "A description",
+            "meta-bug": "https://example.com/EXP-23",
+            "contacts": [
+                "jdoe@example.com"
+            ],
+            "documentation": [
+                {
+                    "name": "User documentation",
+                    "url": "https://example.info/my-feature"
+                }
+            ],
+            "events": [
+                "https://example.com/glean/dictionary/button-pressed"
+            ],
+            "configurator": "https://auth.example.com/my-feature/configuration-ui"
+        }"#,
+        )?;
+        assert_eq!(
+            fm,
+            FeatureMetadata {
+                description: "A description".to_string(),
+                meta_bug: Some(Url::from_str("https://example.com/EXP-23")?),
+                contacts: vec![EmailAddress::from_str("jdoe@example.com")?],
+                documentation: vec![DocumentationLink::new(
+                    "User documentation",
+                    "https://example.info/my-feature"
+                )?],
+                configurator: Some(Url::from_str(
+                    "https://auth.example.com/my-feature/configuration-ui"
+                )?),
+                events: vec![Url::from_str(
+                    "https://example.com/glean/dictionary/button-pressed"
+                )?,],
+            }
+        );
+
+        let fm = serde_json::from_str::<FeatureMetadata>(
+            r#"{
+            "description": "A description",
+            "meta-bug": "https://example.com/EXP-23",
+            "documentation": [
+                {
+                    "name": "User documentation",
+                    "url": "https://example.info/my-feature"
+                }
+            ]
+        }"#,
+        )?;
+        assert_eq!(
+            fm,
+            FeatureMetadata {
+                description: "A description".to_string(),
+                meta_bug: Some(Url::from_str("https://example.com/EXP-23")?),
+                contacts: Default::default(),
+                documentation: vec![DocumentationLink::new(
+                    "User documentation",
+                    "https://example.info/my-feature"
+                )?],
+                ..Default::default()
+            }
+        );
+
+        let fm = serde_json::from_str::<FeatureMetadata>(
+            r#"{
+            "description": "A description",
+            "contacts": [
+                "jdoe@example.com"
+            ]
+        }"#,
+        )?;
+        assert_eq!(
+            fm,
+            FeatureMetadata {
+                description: "A description".to_string(),
+                contacts: vec![EmailAddress::from_str("jdoe@example.com")?],
+                ..Default::default()
+            }
+        );
+
+        Ok(())
+    }
+
+    #[test]
+    fn test_invalid_email_addresses() -> Result<()> {
+        let fm = serde_json::from_str::<FeatureMetadata>(
+            r#"{
+            "description": "A description",
+            "contacts": [
+                "Not an email address"
+            ],
+        }"#,
+        );
+        assert!(fm.is_err());
+        Ok(())
+    }
+
+    #[test]
+    fn test_invalid_urls() -> Result<()> {
+        let fm = serde_json::from_str::<FeatureMetadata>(
+            r#"{
+            "description": "A description",
+            "documentation": [
+                "Not a url"
+            ],
+        }"#,
+        );
+        assert!(fm.is_err());
+
+        let fm = serde_json::from_str::<FeatureMetadata>(
+            r#"{
+            "description": "A description",
+            "meta-bug": "Not a url"
+        }"#,
+        );
+        assert!(fm.is_err());
+        Ok(())
     }
 }

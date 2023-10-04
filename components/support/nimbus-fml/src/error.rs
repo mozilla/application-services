@@ -16,6 +16,9 @@ pub enum FMLError {
     YAMLError(#[from] serde_yaml::Error),
     #[error("URL Error: {0}")]
     UrlError(#[from] url::ParseError),
+    #[error("Email Error: {0}")]
+    EmailError(#[from] email_address::Error),
+
     #[error("Fetch Error: {0}")]
     FetchError(#[from] reqwest::Error),
     #[error("Can't find file: {0}")]
