@@ -10,6 +10,7 @@ use crate::{
     },
     error::BehaviorError,
     evaluator::{is_experiment_available, TargetingAttributes},
+    metrics::{EnrollmentStatusExtraDef, MetricsHandler},
     schema::parse_experiments,
     stateful::{
         behavior::EventStore,
@@ -32,6 +33,7 @@ use once_cell::sync::OnceCell;
 use remote_settings::RemoteSettingsConfig;
 use serde_json::{Map, Value};
 use std::collections::HashSet;
+use std::fmt::Debug;
 use std::path::{Path, PathBuf};
 use std::sync::{Arc, Mutex, MutexGuard};
 use uuid::Uuid;
@@ -67,6 +69,7 @@ pub struct NimbusClient {
     db_path: PathBuf,
     coenrolling_feature_ids: Vec<String>,
     event_store: Arc<Mutex<EventStore>>,
+    metrics_handler: Arc<Box<dyn MetricsHandler>>,
 }
 
 impl NimbusClient {
@@ -78,6 +81,7 @@ impl NimbusClient {
         db_path: P,
         config: Option<RemoteSettingsConfig>,
         available_randomization_units: AvailableRandomizationUnits,
+        host_metrics: Box<dyn MetricsHandler>,
     ) -> Result<Self> {
         let settings_client = Mutex::new(create_client(config)?);
 
@@ -95,6 +99,7 @@ impl NimbusClient {
             coenrolling_feature_ids,
             db: OnceCell::default(),
             event_store: Arc::default(),
+            metrics_handler: Arc::new(host_metrics),
         })
     }
 
@@ -151,6 +156,7 @@ impl NimbusClient {
             .collect();
         self.database_cache
             .commit_and_update(db, writer, &coenrolling_ids)?;
+        self.record_enrollment_status_telemetry()?;
         Ok(())
     }
 
@@ -682,6 +688,17 @@ impl NimbusClient {
                 &exp.branch_slug
             );
         }
+        Ok(())
+    }
+
+    fn record_enrollment_status_telemetry(&self) -> Result<()> {
+        self.metrics_handler.record_enrollment_statuses(
+            self.database_cache
+                .get_enrollments()?
+                .into_iter()
+                .map(|e| e.into())
+                .collect(),
+        );
         Ok(())
     }
 }

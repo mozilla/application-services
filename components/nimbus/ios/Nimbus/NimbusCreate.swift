@@ -3,6 +3,7 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
 import Foundation
+import Glean
 import UIKit
 
 private let logTag = "Nimbus.swift"
@@ -15,6 +16,22 @@ public let defaultErrorReporter: NimbusErrorReporter = { err in
         logger.error("Nimbus error: \(description)")
     default:
         logger.error("Nimbus error: \(err)")
+    }
+}
+
+class GleanMetricsHandler: MetricsHandler {
+    func recordEnrollmentStatuses(enrollmentStatusExtras: [EnrollmentStatusExtraDef]) {
+        for extra in enrollmentStatusExtras {
+            GleanMetrics.NimbusEvents.enrollmentStatus
+                .record(GleanMetrics.NimbusEvents.EnrollmentStatusExtra(
+                    branch: extra.branch,
+                    conflictSlug: extra.conflictSlug,
+                    errorString: extra.errorString,
+                    reason: extra.reason,
+                    slug: extra.slug,
+                    status: extra.status
+                ))
+        }
     }
 }
 
@@ -63,7 +80,8 @@ public extension Nimbus {
                 userId: nil,
                 nimbusId: nil,
                 dummy: 0
-            )
+            ),
+            metricsHandler: GleanMetricsHandler()
         )
 
         return Nimbus(nimbusClient: nimbusClient, resourceBundles: resourceBundles, errorReporter: errorReporter)

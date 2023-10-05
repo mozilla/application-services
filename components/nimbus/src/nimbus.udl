@@ -77,6 +77,19 @@ enum EnrollmentChangeEventType {
     "UnenrollFailed",
 };
 
+callback interface MetricsHandler {
+    void record_enrollment_statuses(sequence<EnrollmentStatusExtraDef> enrollment_status_extras);
+};
+
+dictionary EnrollmentStatusExtraDef {
+    string? branch;
+    string? conflict_slug;
+    string? error_string;
+    string? reason;
+    string? slug;
+    string? status;
+};
+
 [Error]
 enum NimbusError {
     "InvalidPersistedData", "RkvError", "IOError",
@@ -85,7 +98,7 @@ enum NimbusError {
     "UuidError", "InvalidExperimentFormat",
     "InvalidPath", "InternalError", "NoSuchExperiment", "NoSuchBranch",
     "DatabaseNotReady", "VersionParsingError", "BehaviorError", "TryFromIntError",
-    "ParseIntError", "TransformParameterError", "ClientError",
+    "ParseIntError", "TransformParameterError", "ClientError", "UniFFICallbackError",
 };
 
 interface NimbusClient {
@@ -95,7 +108,8 @@ interface NimbusClient {
         optional sequence<string> coenrolling_feature_ids = [],
         string dbpath,
         RemoteSettingsConfig? remote_settings_config,
-        AvailableRandomizationUnits available_randomization_units
+        AvailableRandomizationUnits available_randomization_units,
+        MetricsHandler metrics_handler
     );
 
     // Initializes the database and caches enough information so that the

@@ -2,12 +2,9 @@
 * License, v. 2.0. If a copy of the MPL was not distributed with this
 * file, You can obtain one at https://mozilla.org/MPL/2.0/. */
 
-use crate::enrollment::DisqualifiedReason;
-use crate::tests::helpers::{
-    get_bucketed_rollout, get_targeted_experiment, to_local_experiments_string,
-};
+use crate::metrics::EnrollmentStatusExtraDef;
 use crate::{
-    enrollment::{EnrolledReason, EnrollmentStatus, ExperimentEnrollment},
+    enrollment::{DisqualifiedReason, EnrolledReason, EnrollmentStatus, ExperimentEnrollment},
     error::Result,
     stateful::{
         behavior::{
@@ -16,7 +13,13 @@ use crate::{
         },
         persistence::{Database, StoreId},
     },
-    tests::helpers::get_ios_rollout_experiment,
+    tests::{
+        helpers::{
+            get_bucketed_rollout, get_ios_rollout_experiment, get_targeted_experiment,
+            to_local_experiments_string,
+        },
+        stateful::helpers::TestMetrics,
+    },
     AppContext, AvailableRandomizationUnits, Experiment, NimbusClient, TargetingAttributes,
     DB_KEY_APP_VERSION, DB_KEY_UPDATE_DATE,
 };
@@ -24,10 +27,13 @@ use chrono::{DateTime, Duration, Utc};
 use serde_json::json;
 use std::io::Write;
 use std::path::Path;
+use std::str::FromStr;
 use tempfile::TempDir;
+use uuid::Uuid;
 
 #[test]
 fn test_telemetry_reset() -> Result<()> {
+    let metrics = TestMetrics::new();
     let mock_client_id = "client-1".to_string();
     let mock_exp_slug = "exp-1".to_string();
     let mock_exp_branch = "branch-1".to_string();
@@ -42,6 +48,7 @@ fn test_telemetry_reset() -> Result<()> {
             client_id: Some(mock_client_id.clone()),
             ..AvailableRandomizationUnits::default()
         },
+        Box::new(metrics),
     )?;
 
     let get_client_id = || {
@@ -100,6 +107,7 @@ fn test_telemetry_reset() -> Result<()> {
 
 #[test]
 fn test_installation_date() -> Result<()> {
+    let metrics = TestMetrics::new();
     let mock_client_id = "client-1".to_string();
     let tmp_dir = tempfile::tempdir()?;
     // Step 1: We first test that the SDK will default to using the
@@ -120,6 +128,7 @@ fn test_installation_date() -> Result<()> {
             client_id: Some(mock_client_id.clone()),
             ..AvailableRandomizationUnits::default()
         },
+        Box::new(metrics.clone()),
     )?;
 
     client.initialize()?;
@@ -157,6 +166,7 @@ fn test_installation_date() -> Result<()> {
             client_id: Some(mock_client_id.clone()),
             ..AvailableRandomizationUnits::default()
         },
+        Box::new(metrics.clone()),
     )?;
     delete_test_creation_date(tmp_dir.path()).ok();
     // When we check the filesystem, we will fail. We haven't `set_test_creation_date`
@@ -181,6 +191,7 @@ fn test_installation_date() -> Result<()> {
             client_id: Some(mock_client_id.clone()),
             ..AvailableRandomizationUnits::default()
         },
+        Box::new(metrics.clone()),
     )?;
     client.initialize()?;
     // We now store a date for days ago in our file system
@@ -213,6 +224,7 @@ fn test_installation_date() -> Result<()> {
             client_id: Some(mock_client_id),
             ..AvailableRandomizationUnits::default()
         },
+        Box::new(metrics),
     )?;
     client.initialize()?;
     // now that the store is clear, we will fallback again to the
@@ -225,6 +237,7 @@ fn test_installation_date() -> Result<()> {
 
 #[test]
 fn test_days_since_calculation_happens_at_startup() -> Result<()> {
+    let metrics = TestMetrics::new();
     // Set up a client with an install date.
     // We'll need two of these, to test the two scenarios.
     let tmp_dir = tempfile::tempdir()?;
@@ -242,6 +255,7 @@ fn test_days_since_calculation_happens_at_startup() -> Result<()> {
         tmp_dir.path(),
         None,
         Default::default(),
+        Box::new(metrics.clone()),
     )?;
 
     // 0. We haven't initialized anything yet, so dates won't be available.
@@ -268,6 +282,7 @@ fn test_days_since_calculation_happens_at_startup() -> Result<()> {
         tmp_dir.path(),
         None,
         Default::default(),
+        Box::new(metrics),
     )?;
     client.apply_pending_experiments()?;
     let targeting_attributes = client.get_targeting_attributes();
@@ -279,6 +294,7 @@ fn test_days_since_calculation_happens_at_startup() -> Result<()> {
 
 #[test]
 fn test_days_since_update_changes_with_context() -> Result<()> {
+    let metrics = TestMetrics::new();
     let mock_client_id = "client-1".to_string();
     let tmp_dir = tempfile::tempdir()?;
     let client = NimbusClient::new(
@@ -290,6 +306,7 @@ fn test_days_since_update_changes_with_context() -> Result<()> {
             client_id: Some(mock_client_id.clone()),
             ..AvailableRandomizationUnits::default()
         },
+        Box::new(metrics.clone()),
     )?;
     client.initialize()?;
 
@@ -312,6 +329,7 @@ fn test_days_since_update_changes_with_context() -> Result<()> {
             client_id: Some(mock_client_id.clone()),
             ..AvailableRandomizationUnits::default()
         },
+        Box::new(metrics.clone()),
     )?;
     client.initialize()?;
     client.apply_pending_experiments()?;
@@ -341,6 +359,7 @@ fn test_days_since_update_changes_with_context() -> Result<()> {
             client_id: Some(mock_client_id.clone()),
             ..AvailableRandomizationUnits::default()
         },
+        Box::new(metrics.clone()),
     )?;
     client.initialize()?;
     client.apply_pending_experiments()?;
@@ -376,6 +395,7 @@ fn test_days_since_update_changes_with_context() -> Result<()> {
             client_id: Some(mock_client_id),
             ..AvailableRandomizationUnits::default()
         },
+        Box::new(metrics),
     )?;
     client.initialize()?;
     client.apply_pending_experiments()?;
@@ -401,6 +421,7 @@ fn test_days_since_update_changes_with_context() -> Result<()> {
 
 #[test]
 fn test_days_since_install() -> Result<()> {
+    let metrics = TestMetrics::new();
     let mock_client_id = "client-1".to_string();
 
     let temp_dir = tempfile::tempdir()?;
@@ -419,6 +440,7 @@ fn test_days_since_install() -> Result<()> {
             client_id: Some(mock_client_id),
             ..AvailableRandomizationUnits::default()
         },
+        Box::new(metrics),
     )?;
     let targeting_attributes = TargetingAttributes {
         app_context,
@@ -480,6 +502,7 @@ fn test_days_since_install() -> Result<()> {
 
 #[test]
 fn test_days_since_install_failed_targeting() -> Result<()> {
+    let metrics = TestMetrics::new();
     let mock_client_id = "client-1".to_string();
 
     let temp_dir = tempfile::tempdir()?;
@@ -498,6 +521,7 @@ fn test_days_since_install_failed_targeting() -> Result<()> {
             client_id: Some(mock_client_id),
             ..AvailableRandomizationUnits::default()
         },
+        Box::new(metrics),
     )?;
     let targeting_attributes = TargetingAttributes {
         app_context,
@@ -558,6 +582,7 @@ fn test_days_since_install_failed_targeting() -> Result<()> {
 
 #[test]
 fn test_days_since_update() -> Result<()> {
+    let metrics = TestMetrics::new();
     let mock_client_id = "client-1".to_string();
 
     let temp_dir = tempfile::tempdir()?;
@@ -576,6 +601,7 @@ fn test_days_since_update() -> Result<()> {
             client_id: Some(mock_client_id),
             ..AvailableRandomizationUnits::default()
         },
+        Box::new(metrics),
     )?;
     let targeting_attributes = TargetingAttributes {
         app_context,
@@ -637,6 +663,7 @@ fn test_days_since_update() -> Result<()> {
 
 #[test]
 fn test_days_since_update_failed_targeting() -> Result<()> {
+    let metrics = TestMetrics::new();
     let mock_client_id = "client-1".to_string();
 
     let temp_dir = tempfile::tempdir()?;
@@ -655,6 +682,7 @@ fn test_days_since_update_failed_targeting() -> Result<()> {
             client_id: Some(mock_client_id),
             ..AvailableRandomizationUnits::default()
         },
+        Box::new(metrics),
     )?;
     let targeting_attributes = TargetingAttributes {
         app_context,
@@ -715,6 +743,7 @@ fn test_days_since_update_failed_targeting() -> Result<()> {
 
 #[test]
 fn event_store_exists_for_apply_pending_experiments() -> Result<()> {
+    let metrics = TestMetrics::new();
     let mock_client_id = "client-1".to_string();
 
     let temp_dir = tempfile::tempdir()?;
@@ -746,6 +775,7 @@ fn event_store_exists_for_apply_pending_experiments() -> Result<()> {
             client_id: Some(mock_client_id),
             ..AvailableRandomizationUnits::default()
         },
+        Box::new(metrics),
     )?;
     let targeting_attributes = TargetingAttributes {
         app_context,
@@ -838,6 +868,7 @@ fn event_store_exists_for_apply_pending_experiments() -> Result<()> {
 
 #[test]
 fn event_store_on_targeting_attributes_is_updated_after_an_event_is_recorded() -> Result<()> {
+    let metrics = TestMetrics::new();
     let mock_client_id = "client-1".to_string();
 
     let temp_dir = tempfile::tempdir()?;
@@ -869,6 +900,7 @@ fn event_store_on_targeting_attributes_is_updated_after_an_event_is_recorded() -
             client_id: Some(mock_client_id),
             ..AvailableRandomizationUnits::default()
         },
+        Box::new(metrics),
     )?;
     let targeting_attributes = TargetingAttributes {
         app_context,
@@ -952,6 +984,7 @@ fn delete_test_creation_date<P: AsRef<Path>>(path: P) -> Result<()> {
 
 #[test]
 fn test_ios_rollout() -> Result<()> {
+    let metrics = TestMetrics::new();
     let aru = Default::default();
     let ctx = AppContext {
         app_name: "firefox_ios".to_string(),
@@ -961,7 +994,14 @@ fn test_ios_rollout() -> Result<()> {
         ..Default::default()
     };
     let tmp_dir = TempDir::new()?;
-    let client = NimbusClient::new(ctx, Default::default(), tmp_dir.path(), None, aru)?;
+    let client = NimbusClient::new(
+        ctx,
+        Default::default(),
+        tmp_dir.path(),
+        None,
+        aru,
+        Box::new(metrics),
+    )?;
 
     let exp = get_ios_rollout_experiment();
     let data = json!({
@@ -980,6 +1020,7 @@ fn test_ios_rollout() -> Result<()> {
 
 #[test]
 fn test_fetch_enabled() -> Result<()> {
+    let metrics = TestMetrics::new();
     let ctx = AppContext {
         app_name: "firefox_ios".to_string(),
         channel: "release".to_string(),
@@ -994,6 +1035,7 @@ fn test_fetch_enabled() -> Result<()> {
         tmp_dir.path(),
         None,
         Default::default(),
+        Box::new(metrics.clone()),
     )?;
     client.set_fetch_enabled(false)?;
 
@@ -1006,6 +1048,7 @@ fn test_fetch_enabled() -> Result<()> {
         tmp_dir.path(),
         None,
         Default::default(),
+        Box::new(metrics),
     )?;
     assert!(!client.is_fetch_enabled()?);
     Ok(())
@@ -1013,6 +1056,7 @@ fn test_fetch_enabled() -> Result<()> {
 
 #[test]
 fn test_active_enrollment_in_targeting() -> Result<()> {
+    let metrics = TestMetrics::new();
     let mock_client_id = "client-1".to_string();
 
     let temp_dir = tempfile::tempdir()?;
@@ -1032,6 +1076,7 @@ fn test_active_enrollment_in_targeting() -> Result<()> {
             client_id: Some(mock_client_id),
             ..AvailableRandomizationUnits::default()
         },
+        Box::new(metrics),
     )?;
     let targeting_attributes = TargetingAttributes {
         app_context,
@@ -1070,6 +1115,7 @@ fn test_active_enrollment_in_targeting() -> Result<()> {
 
 #[test]
 fn test_previous_enrollments_in_targeting() -> Result<()> {
+    let metrics = TestMetrics::new();
     let mock_client_id = "client-1".to_string();
 
     let temp_dir = tempfile::tempdir()?;
@@ -1095,6 +1141,7 @@ fn test_previous_enrollments_in_targeting() -> Result<()> {
             client_id: Some(mock_client_id),
             ..AvailableRandomizationUnits::default()
         },
+        Box::new(metrics),
     )?;
 
     let targeting_attributes = TargetingAttributes {
@@ -1218,6 +1265,7 @@ fn test_previous_enrollments_in_targeting() -> Result<()> {
 
 #[test]
 fn test_opt_out_multiple_experiments_same_feature_does_not_re_enroll() -> Result<()> {
+    let metrics = TestMetrics::new();
     let mock_client_id = "client-1".to_string();
 
     let temp_dir = tempfile::tempdir()?;
@@ -1240,6 +1288,7 @@ fn test_opt_out_multiple_experiments_same_feature_does_not_re_enroll() -> Result
             client_id: Some(mock_client_id),
             ..AvailableRandomizationUnits::default()
         },
+        Box::new(metrics),
     )?;
 
     let targeting_attributes = TargetingAttributes {
@@ -1269,6 +1318,112 @@ fn test_opt_out_multiple_experiments_same_feature_does_not_re_enroll() -> Result
     let targeting_helper = client.create_targeting_helper(None)?;
     assert!(!targeting_helper.eval_jexl(format!("'{}' in active_experiments", slug_1))?);
     assert!(!targeting_helper.eval_jexl(format!("'{}' in active_experiments", slug_2))?);
+
+    Ok(())
+}
+
+#[test]
+fn test_enrollment_status_metrics_recorded() -> Result<()> {
+    let metrics = TestMetrics::new();
+    let mock_client_id = "client-1".to_string();
+
+    let temp_dir = tempfile::tempdir()?;
+
+    let app_context = AppContext {
+        app_name: "fenix".to_string(),
+        app_id: "org.mozilla.fenix".to_string(),
+        channel: "nightly".to_string(),
+        ..Default::default()
+    };
+
+    let mut client = NimbusClient::new(
+        app_context.clone(),
+        Default::default(),
+        temp_dir.path(),
+        None,
+        AvailableRandomizationUnits {
+            client_id: Some(mock_client_id),
+            ..AvailableRandomizationUnits::default()
+        },
+        Box::new(metrics.clone()),
+    )?;
+    client.set_nimbus_id(&Uuid::from_str("53baafb3-b800-42ac-878c-c3451e250928")?)?;
+
+    let targeting_attributes = TargetingAttributes {
+        app_context,
+        ..Default::default()
+    };
+    client.with_targeting_attributes(targeting_attributes);
+    client.initialize()?;
+
+    let slug_1 = "experiment-1";
+    let slug_2 = "experiment-2";
+    let slug_3 = "rollout-1";
+    let exp_1 = get_targeted_experiment(slug_1, "true");
+    let exp_2 = get_targeted_experiment(slug_2, "true");
+    let ro_1 = get_bucketed_rollout(slug_3, 10_000);
+    client.set_experiments_locally(to_local_experiments_string(&[
+        exp_1.clone(),
+        exp_2,
+        serde_json::to_value(ro_1)?,
+    ])?)?;
+
+    client.apply_pending_experiments()?;
+
+    let metric_records: Vec<EnrollmentStatusExtraDef> =
+        serde_json::from_value(metrics.assert_get_vec_value("enrollment_status"))?;
+    assert_eq!(metric_records.len(), 3);
+
+    assert_eq!(metric_records[0].slug(), slug_1);
+    assert_eq!(metric_records[0].status(), "Enrolled");
+    assert_eq!(metric_records[0].reason(), "Qualified");
+    assert_eq!(metric_records[0].branch(), "treatment");
+
+    assert_eq!(metric_records[1].slug(), slug_2);
+    assert_eq!(metric_records[1].status(), "Enrolled");
+    assert_eq!(metric_records[1].reason(), "Qualified");
+    assert_eq!(metric_records[1].branch(), "control");
+
+    assert_eq!(metric_records[2].slug(), slug_3);
+    assert_eq!(metric_records[2].status(), "Enrolled");
+    assert_eq!(metric_records[2].reason(), "Qualified");
+    assert_eq!(metric_records[2].branch(), "control");
+
+    let slug_4 = "experiment-3";
+    let exp_2 = get_targeted_experiment(slug_2, "false");
+    let ro_1 = get_bucketed_rollout(slug_3, 0);
+    let exp_4 = get_targeted_experiment(slug_4, "blah");
+    client.set_experiments_locally(to_local_experiments_string(&[
+        exp_2,
+        serde_json::to_value(ro_1)?,
+        exp_4,
+    ])?)?;
+    client.apply_pending_experiments()?;
+
+    let metric_records: Vec<EnrollmentStatusExtraDef> =
+        serde_json::from_value(metrics.assert_get_vec_value("enrollment_status"))?;
+    assert_eq!(metric_records.len(), 7);
+
+    assert_eq!(metric_records[3].slug(), slug_1);
+    assert_eq!(metric_records[3].status(), "WasEnrolled");
+    assert_eq!(metric_records[3].branch(), "treatment");
+
+    assert_eq!(metric_records[4].slug(), slug_2);
+    assert_eq!(metric_records[4].status(), "Disqualified");
+    assert_eq!(metric_records[4].reason(), "NotTargeted");
+    assert_eq!(metric_records[4].branch(), "control");
+
+    assert_eq!(metric_records[5].slug(), slug_4);
+    assert_eq!(metric_records[5].status(), "Error");
+    assert_eq!(
+        metric_records[5].error_string(),
+        "EvaluationError: Identifier 'blah' is undefined"
+    );
+
+    assert_eq!(metric_records[6].slug(), slug_3);
+    assert_eq!(metric_records[6].status(), "Disqualified");
+    assert_eq!(metric_records[6].reason(), "NotSelected");
+    assert_eq!(metric_records[6].branch(), "control");
 
     Ok(())
 }

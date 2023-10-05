@@ -6,12 +6,14 @@
 #![allow(unused_imports)]
 
 use crate::error::Result;
+use crate::tests::stateful::helpers::TestMetrics;
 
 #[cfg(feature = "rkv-safe-mode")]
 #[test]
 fn test_null_client() -> Result<()> {
     use crate::NimbusClient;
 
+    let metrics = TestMetrics::new();
     let _ = env_logger::try_init();
 
     let tmp_dir = tempfile::tempdir()?;
@@ -23,6 +25,7 @@ fn test_null_client() -> Result<()> {
         tmp_dir.path(),
         None,
         aru,
+        Box::new(metrics),
     )?;
     client.fetch_experiments()?;
     client.apply_pending_experiments()?;

@@ -1,10 +1,10 @@
 /* This Source Code Form is subject to the terms of the Mozilla Public
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
+#![cfg(feature = "rkv-safe-mode")]
 
 // Testing get_experiment_branch semantics.
 
-#[cfg(feature = "rkv-safe-mode")]
 mod common;
 
 #[allow(unused_imports)]
@@ -12,7 +12,6 @@ mod common;
 #[macro_use]
 use nimbus::error::Result;
 
-#[cfg(feature = "rkv-safe-mode")]
 #[cfg(test)]
 mod message_tests {
 

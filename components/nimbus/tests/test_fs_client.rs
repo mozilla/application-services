@@ -1,17 +1,19 @@
 /* This Source Code Form is subject to the terms of the Mozilla Public
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
+#![cfg(feature = "rkv-safe-mode")]
 
 // Simple tests for our file-system client
 
-#[cfg(feature = "rkv-safe-mode")]
 use nimbus::error::Result;
+
+mod common;
 
 // This test crashes lmdb for reasons that make no sense, so only run it
 // in the "safe mode" backend.
-#[cfg(feature = "rkv-safe-mode")]
 #[test]
 fn test_simple() -> Result<()> {
+    use common::NoopMetricsHandler;
     use nimbus::{NimbusClient, RemoteSettingsConfig};
     use std::path::PathBuf;
     use url::Url;
@@ -37,6 +39,7 @@ fn test_simple() -> Result<()> {
         tmp_dir.path(),
         Some(config),
         aru,
+        Box::new(NoopMetricsHandler),
     )?;
     client.fetch_experiments()?;
     client.apply_pending_experiments()?;

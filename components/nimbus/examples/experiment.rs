@@ -12,11 +12,20 @@ fn main() -> Result<()> {
     use clap::{App, Arg, SubCommand};
     use env_logger::Env;
     use nimbus::{
+        metrics::{EnrollmentStatusExtraDef, MetricsHandler},
         AppContext, AvailableRandomizationUnits, EnrollmentStatus, NimbusClient,
         NimbusTargetingHelper, RemoteSettingsConfig,
     };
     use std::collections::HashMap;
     use std::io::prelude::*;
+
+    pub struct NoopMetricsHandler;
+
+    impl MetricsHandler for NoopMetricsHandler {
+        fn record_enrollment_statuses(&self, _: Vec<EnrollmentStatusExtraDef>) {
+            // do nothing
+        }
+    }
 
     // We set the logging level to be `warn` here, meaning that only
     // logs of `warn` or higher will be actually be shown, any other
@@ -208,6 +217,7 @@ fn main() -> Result<()> {
         db_path,
         Some(config),
         aru,
+        Box::new(NoopMetricsHandler),
     )?;
     log::info!("Nimbus ID is {}", nimbus_client.nimbus_id()?);
 

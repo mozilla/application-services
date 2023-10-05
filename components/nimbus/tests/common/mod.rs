@@ -1,13 +1,25 @@
 /* This Source Code Form is subject to the terms of the Mozilla Public
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
+#![cfg(feature = "rkv-safe-mode")]
 
-#[cfg(feature = "rkv-safe-mode")]
 use rkv::StoreOptions;
 
 // utilities shared between tests
 
-use nimbus::{error::Result, AppContext, NimbusClient, RemoteSettingsConfig};
+use nimbus::{
+    error::Result,
+    metrics::{EnrollmentStatusExtraDef, MetricsHandler},
+    AppContext, NimbusClient, RemoteSettingsConfig,
+};
+
+pub struct NoopMetricsHandler;
+
+impl MetricsHandler for NoopMetricsHandler {
+    fn record_enrollment_statuses(&self, _: Vec<EnrollmentStatusExtraDef>) {
+        // do nothing
+    }
+}
 
 #[allow(dead_code)] // work around https://github.com/rust-lang/rust/issues/46379
 pub fn new_test_client(_identifier: &str) -> Result<NimbusClient> {
@@ -43,7 +55,14 @@ fn new_test_client_internal(
         locale: Some("en-GB".to_string()),
         ..Default::default()
     };
-    NimbusClient::new(ctx, Default::default(), tmp_dir.path(), Some(config), aru)
+    NimbusClient::new(
+        ctx,
+        Default::default(),
+        tmp_dir.path(),
+        Some(config),
+        aru,
+        Box::new(NoopMetricsHandler),
+    )
 }
 
 use nimbus::stateful::persistence::{Database, SingleStore};

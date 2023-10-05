@@ -33,6 +33,8 @@ import org.mozilla.experiments.nimbus.internal.AvailableRandomizationUnits
 import org.mozilla.experiments.nimbus.internal.EnrolledExperiment
 import org.mozilla.experiments.nimbus.internal.EnrollmentChangeEvent
 import org.mozilla.experiments.nimbus.internal.EnrollmentChangeEventType
+import org.mozilla.experiments.nimbus.internal.EnrollmentStatusExtraDef
+import org.mozilla.experiments.nimbus.internal.MetricsHandler
 import org.mozilla.experiments.nimbus.internal.NimbusClient
 import org.mozilla.experiments.nimbus.internal.NimbusClientInterface
 import org.mozilla.experiments.nimbus.internal.NimbusException
@@ -77,6 +79,23 @@ open class Nimbus(
 
     private val logger = delegate.logger
 
+    private val metricsHandler = object : MetricsHandler {
+        override fun recordEnrollmentStatuses(enrollmentStatusExtras: List<EnrollmentStatusExtraDef>) {
+            for (extra in enrollmentStatusExtras) {
+                NimbusEvents.enrollmentStatus.record(
+                    NimbusEvents.EnrollmentStatusExtra(
+                        branch = extra.branch,
+                        slug = extra.slug,
+                        status = extra.status,
+                        reason = extra.reason,
+                        errorString = extra.errorString,
+                        conflictSlug = extra.conflictSlug,
+                    ),
+                )
+            }
+        }
+    }
+
     private val nimbusClient: NimbusClientInterface
 
     override var globalUserParticipation: Boolean
@@ -118,6 +137,7 @@ open class Nimbus(
             // The "dummy" field here is required for obscure reasons when generating code on desktop,
             // so we just automatically set it to a dummy value.
             AvailableRandomizationUnits(clientId = null, userId = null, nimbusId = null, dummy = 0),
+            metricsHandler,
         )
     }
 

@@ -644,6 +644,31 @@ class NimbusTests {
 
         assertTrue(observed)
     }
+
+    @Test
+    fun `Nimbus records EnrollmentStatus metrics`() {
+        suspend fun getString(): String {
+            return testExperimentsJsonString(appInfo, packageName)
+        }
+
+        val job = nimbus.applyLocalExperiments(::getString)
+        runBlocking {
+            job.join()
+        }
+
+        assertEquals(1, nimbus.getAvailableExperiments().size)
+        assertNotNull("Event must have a value", NimbusEvents.enrollmentStatus.testGetValue())
+        val enrollmentStatusEvents = NimbusEvents.enrollmentStatus.testGetValue()!!
+        assertEquals("Event count must match", enrollmentStatusEvents.count(), 1)
+
+        val enrolledExtra = enrollmentStatusEvents[0].extra!!
+        assertEquals("branch must match", "test-branch", enrolledExtra["branch"])
+        assertEquals("slug must match", "test-experiment", enrolledExtra["slug"])
+        assertEquals("status must match", "Enrolled", enrolledExtra["status"])
+        assertEquals("reason must match", "Qualified", enrolledExtra["reason"])
+        assertEquals("errorString must match", null, enrolledExtra["error_string"])
+        assertEquals("conflictSlug must match", null, enrolledExtra["conflict_slug"])
+    }
 }
 
 // Mocking utilities, from mozilla.components.support.test
