@@ -2,6 +2,8 @@
 // License, v. 2.0. If a copy of the MPL was not distributed with this
 // file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
+extern crate core;
+
 mod defaults;
 mod enrollment;
 mod evaluator;
@@ -23,6 +25,8 @@ pub use targeting::NimbusTargetingHelper;
 
 cfg_if::cfg_if! {
     if #[cfg(feature = "stateful")] {
+        pub mod metrics;
+
         pub mod stateful;
 
         pub use stateful::nimbus_client::*;

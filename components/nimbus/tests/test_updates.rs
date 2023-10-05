@@ -1,15 +1,14 @@
 /* This Source Code Form is subject to the terms of the Mozilla Public
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
+#![cfg(feature = "rkv-safe-mode")]
 
 // Testing the two phase updates.
 // This test crashes lmdb for reasons that make no sense, so only run it
 // in the "safe mode" backend.
 
-#[cfg(feature = "rkv-safe-mode")]
 mod common;
 
-#[cfg(feature = "rkv-safe-mode")]
 #[cfg(test)]
 mod test {
     use super::common::{

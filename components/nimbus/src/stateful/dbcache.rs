@@ -24,6 +24,7 @@ use std::sync::RwLock;
 // This struct is the cached data. This is never mutated, but instead
 // recreated every time the cache is updated.
 struct CachedData {
+    pub enrollments: Vec<ExperimentEnrollment>,
     pub experiments_by_slug: HashMap<String, EnrolledExperiment>,
     pub features_by_feature_id: HashMap<String, EnrolledFeatureConfig>,
 }
@@ -80,6 +81,7 @@ impl DatabaseCache {
         // This is where rollouts (promoted experiments on a given feature) will be merged in to the feature variables.
 
         let data = CachedData {
+            enrollments,
             experiments_by_slug,
             features_by_feature_id,
         };
@@ -150,5 +152,9 @@ impl DatabaseCache {
                 .map(|e| e.to_owned())
                 .collect::<Vec<EnrolledExperiment>>()
         })
+    }
+
+    pub fn get_enrollments(&self) -> Result<Vec<ExperimentEnrollment>> {
+        self.get_data(|data| data.enrollments.to_owned())
     }
 }

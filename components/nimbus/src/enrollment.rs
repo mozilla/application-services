@@ -12,6 +12,7 @@ use ::uuid::Uuid;
 use serde_derive::*;
 use std::{
     collections::{HashMap, HashSet},
+    fmt::{Display, Formatter, Result as FmtResult},
     time::{Duration, SystemTime, UNIX_EPOCH},
 };
 
@@ -26,6 +27,18 @@ pub enum EnrolledReason {
     Qualified,
     /// Explicit opt-in.
     OptIn,
+}
+
+impl Display for EnrolledReason {
+    fn fmt(&self, f: &mut Formatter<'_>) -> FmtResult {
+        Display::fmt(
+            match self {
+                EnrolledReason::Qualified => "Qualified",
+                EnrolledReason::OptIn => "OptIn",
+            },
+            f,
+        )
+    }
 }
 
 // These are types we use internally for managing non-enrollments.
@@ -46,6 +59,21 @@ pub enum NotEnrolledReason {
     FeatureConflict,
 }
 
+impl Display for NotEnrolledReason {
+    fn fmt(&self, f: &mut Formatter<'_>) -> FmtResult {
+        Display::fmt(
+            match self {
+                NotEnrolledReason::OptOut => "OptOut",
+                NotEnrolledReason::NotSelected => "NotSelected",
+                NotEnrolledReason::NotTargeted => "NotTargeted",
+                NotEnrolledReason::EnrollmentsPaused => "EnrollmentsPaused",
+                NotEnrolledReason::FeatureConflict => "FeatureConflict",
+            },
+            f,
+        )
+    }
+}
+
 // These are types we use internally for managing disqualifications.
 
 // ⚠️ Attention : Changes to this type should be accompanied by a new test  ⚠️
@@ -60,6 +88,20 @@ pub enum DisqualifiedReason {
     NotTargeted,
     /// The bucketing has changed for an experiment.
     NotSelected,
+}
+
+impl Display for DisqualifiedReason {
+    fn fmt(&self, f: &mut Formatter<'_>) -> FmtResult {
+        Display::fmt(
+            match self {
+                DisqualifiedReason::Error => "Error",
+                DisqualifiedReason::OptOut => "OptOut",
+                DisqualifiedReason::NotSelected => "NotSelected",
+                DisqualifiedReason::NotTargeted => "NotTargeted",
+            },
+            f,
+        )
+    }
 }
 
 // Every experiment has an ExperimentEnrollment, even when we aren't enrolled.
@@ -439,7 +481,9 @@ impl ExperimentEnrollment {
                 },
                 EnrollmentChangeEventType::Disqualification,
             ),
-            EnrollmentStatus::NotEnrolled { .. } | EnrollmentStatus::Error { .. } => unreachable!(),
+            EnrollmentStatus::NotEnrolled { .. } | EnrollmentStatus::Error { .. } => {
+                unreachable!()
+            }
         }
     }
 
@@ -494,6 +538,19 @@ pub enum EnrollmentStatus {
         // serde compatible, which isn't trivial nor desirable.
         reason: String,
     },
+}
+
+impl EnrollmentStatus {
+    pub fn name(&self) -> String {
+        match self {
+            EnrollmentStatus::Enrolled { .. } => "Enrolled",
+            EnrollmentStatus::NotEnrolled { .. } => "NotEnrolled",
+            EnrollmentStatus::Disqualified { .. } => "Disqualified",
+            EnrollmentStatus::WasEnrolled { .. } => "WasEnrolled",
+            EnrollmentStatus::Error { .. } => "Error",
+        }
+        .into()
+    }
 }
 
 impl EnrollmentStatus {

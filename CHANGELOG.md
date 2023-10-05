@@ -2,6 +2,12 @@
 
 [Full Changelog](In progress)
 
+## Nimbus SDK ⛅️🔬🔭
+
+### ✨ What's New ✨
+
+- Added the `enrollment_status` metric and defined a host metric callback handler interface ([#5857](https://github.com/mozilla/application-services/pull/5857)).
+
 ## Rust log forwarder
 
 ### 🦊 What's Changed 🦊
