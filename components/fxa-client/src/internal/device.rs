@@ -97,6 +97,8 @@ impl FirefoxAccount {
         device_type: DeviceType,
         capabilities: &[DeviceCapability],
     ) -> Result<LocalDevice> {
+        self.state
+            .set_device_capabilities(capabilities.iter().cloned());
         let commands = self.register_capabilities(capabilities)?;
         let update = DeviceUpdateRequestBuilder::new()
             .display_name(name)
@@ -117,6 +119,8 @@ impl FirefoxAccount {
         &mut self,
         capabilities: &[DeviceCapability],
     ) -> Result<LocalDevice> {
+        self.state
+            .set_device_capabilities(capabilities.iter().cloned());
         // Don't re-register if we already have exactly those capabilities.
         if let Some(local_device) = self.state.server_local_device_info() {
             if capabilities == local_device.capabilities {
@@ -132,13 +136,12 @@ impl FirefoxAccount {
 
     /// Re-register the device capabilities, this should only be used internally.
     pub(crate) fn reregister_current_capabilities(&mut self) -> Result<()> {
-        if let Some(local_device) = self.state.server_local_device_info().cloned() {
-            let commands = self.register_capabilities(&local_device.capabilities)?;
-            let update = DeviceUpdateRequestBuilder::new()
-                .available_commands(&commands)
-                .build();
-            self.update_device(update)?;
-        }
+        let capabilities: Vec<_> = self.state.device_capabilities().iter().cloned().collect();
+        let commands = self.register_capabilities(&capabilities)?;
+        let update = DeviceUpdateRequestBuilder::new()
+            .available_commands(&commands)
+            .build();
+        self.update_device(update)?;
         Ok(())
     }
 

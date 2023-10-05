@@ -85,7 +85,7 @@ pub fn get_account_and_token(
     // TODO: we should probably set a persist callback on acct?
     let mut acct = load_or_create_fxa_creds(cred_file, config.clone())?;
     // `scope` could be a param, but I can't see it changing.
-    match acct.get_access_token(SYNC_SCOPE, None, false) {
+    match acct.get_access_token(SYNC_SCOPE, None) {
         Ok(t) => Ok((acct, t)),
         Err(e) => {
             match e {
@@ -93,7 +93,7 @@ pub fn get_account_and_token(
                 FxaError::Authentication => {
                     println!("Saw an auth error using stored credentials - recreating them...");
                     acct = create_fxa_creds(cred_file, config)?;
-                    let token = acct.get_access_token(SYNC_SCOPE, None, false)?;
+                    let token = acct.get_access_token(SYNC_SCOPE, None)?;
                     Ok((acct, token))
                 }
                 _ => Err(e.into()),

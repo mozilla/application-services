@@ -747,13 +747,34 @@ class FxaActionProcessorTest {
 
 class FxaRetryTest {
     @Test
-    fun `FxaActionProcessor retries after network errors`() = runTest {
+    fun `FxaActionProcessor retries 3 times after network errors`() = runTest {
         val mocks = Mocks.create(FxaAuthState.CONNECTED)
-        every { mocks.firefoxAccount.setDeviceName(any()) } throws networkException andThen testLocalDevice
+        every { mocks.firefoxAccount.setDeviceName(any()) } throwsMany listOf(networkException, networkException, networkException) andThen testLocalDevice
 
         mocks.verifyAction(setDeviceNameAction) { _, inner, eventHandler, _ ->
             coVerifySequence {
-                // This throws FxaException.Network, we should retry
+                // These throws FxaException.Network, we should retry
+                inner.setDeviceName("My Phone")
+                inner.setDeviceName("My Phone")
+                inner.setDeviceName("My Phone")
+                // This time it work
+                inner.setDeviceName("My Phone")
+                eventHandler.onFxaEvent(
+                    FxaEvent.DeviceOperationComplete(FxaDeviceOperation.SET_DEVICE_NAME, testLocalDevice),
+                )
+            }
+            FxaAuthState.CONNECTED
+        }
+
+        // Each action gets a fresh retry count.  Test out another action that fails 3 times then
+        // succeeds.
+        every { mocks.firefoxAccount.setDeviceName(any()) } throwsMany listOf(networkException, networkException, networkException) andThen testLocalDevice
+
+        mocks.verifyAction(setDeviceNameAction) { _, inner, eventHandler, _ ->
+            coVerifySequence {
+                // These throws FxaException.Network, we should retry
+                inner.setDeviceName("My Phone")
+                inner.setDeviceName("My Phone")
                 inner.setDeviceName("My Phone")
                 // This time it work
                 inner.setDeviceName("My Phone")
@@ -766,87 +787,19 @@ class FxaRetryTest {
     }
 
     @Test
-    fun `FxaActionProcessor fails after 2 network errors`() = runTest {
+    fun `FxaActionProcessor fails after 4 network errors in a row`() = runTest {
         val mocks = Mocks.create(FxaAuthState.CONNECTED)
         every { mocks.firefoxAccount.setDeviceName(any()) } throws networkException
 
         mocks.verifyAction(setDeviceNameAction) { _, inner, eventHandler, _ ->
             coVerifySequence {
-                // This throws FxaException.Network, we should retry
+                // These throws FxaException.Network and we should retry
                 inner.setDeviceName("My Phone")
-                // This throws again, so the operation fails
+                inner.setDeviceName("My Phone")
+                inner.setDeviceName("My Phone")
+                // On the 4th error, we give up
                 inner.setDeviceName("My Phone")
                 eventHandler.onFxaEvent(FxaEvent.DeviceOperationFailed(FxaDeviceOperation.SET_DEVICE_NAME))
-            }
-            FxaAuthState.CONNECTED
-        }
-    }
-
-    @Test
-    fun `FxaActionProcessor fails after multiple network errors in a short time`() = runTest {
-        val mocks = Mocks.create(FxaAuthState.CONNECTED)
-        every { mocks.firefoxAccount.setDeviceName(any()) } throws networkException andThen testLocalDevice
-
-        mocks.verifyAction(setDeviceNameAction) { _, inner, eventHandler, _ ->
-            coVerifySequence {
-                // This fails with FxaException.Network, we should retry
-                inner.setDeviceName("My Phone")
-                // This time it works
-                inner.setDeviceName("My Phone")
-                eventHandler.onFxaEvent(
-                    FxaEvent.DeviceOperationComplete(FxaDeviceOperation.SET_DEVICE_NAME, testLocalDevice),
-                )
-            }
-            FxaAuthState.CONNECTED
-        }
-
-        mocks.actionProcessor.retryLogic.fastForward(29.seconds)
-        every {
-            mocks.firefoxAccount.setDeviceName(any())
-        } throws networkException andThen testLocalDevice
-
-        mocks.verifyAction(setDeviceNameAction) { _, inner, eventHandler, _ ->
-            coVerifySequence {
-                // This throws again and the timeout period is still active, we should fail
-                inner.setDeviceName("My Phone")
-                eventHandler.onFxaEvent(
-                    FxaEvent.DeviceOperationFailed(FxaDeviceOperation.SET_DEVICE_NAME),
-                )
-            }
-            FxaAuthState.CONNECTED
-        }
-    }
-
-    @Test
-    fun `FxaActionProcessor retrys network errors again after a timeout period`() = runTest {
-        val mocks = Mocks.create(FxaAuthState.CONNECTED)
-        every { mocks.firefoxAccount.setDeviceName(any()) } throws networkException andThen testLocalDevice
-
-        mocks.verifyAction(setDeviceNameAction) { _, inner, eventHandler, _ ->
-            coVerifySequence {
-                // This fails with FxaException.Network, we should retry
-                inner.setDeviceName("My Phone")
-                // This time it works
-                inner.setDeviceName("My Phone")
-                eventHandler.onFxaEvent(
-                    FxaEvent.DeviceOperationComplete(FxaDeviceOperation.SET_DEVICE_NAME, testLocalDevice),
-                )
-            }
-            FxaAuthState.CONNECTED
-        }
-
-        mocks.actionProcessor.retryLogic.fastForward(31.seconds)
-        every { mocks.firefoxAccount.setDeviceName(any()) } throws networkException andThen testLocalDevice
-
-        mocks.verifyAction(setDeviceNameAction) { _, inner, eventHandler, _ ->
-            coVerifySequence {
-                // Timeout period over, we should retry this time
-                inner.setDeviceName("My Phone")
-                // This time it works
-                inner.setDeviceName("My Phone")
-                eventHandler.onFxaEvent(
-                    FxaEvent.DeviceOperationComplete(FxaDeviceOperation.SET_DEVICE_NAME, testLocalDevice),
-                )
             }
             FxaAuthState.CONNECTED
         }
@@ -1156,5 +1109,27 @@ class FxaRetryTest {
             }
             FxaAuthState.CONNECTED
         }
+    }
+}
+
+class MetricsParamsTest {
+    @Test
+    fun `FxaActionProcessor handles BeginOAuthFlow metrics`() = runTest {
+        val mocks = Mocks.create(FxaAuthState.DISCONNECTED)
+        val testMetrics = MetricsParams(
+            parameters = mapOf("foo" to "bar"),
+        )
+        mocks.actionProcessor.processAction(beginOAuthFlowAction.copy(metrics = testMetrics))
+        coVerify { mocks.firefoxAccount.beginOauthFlow(any(), any(), testMetrics) }
+    }
+
+    @Test
+    fun `FxaActionProcessor handles BeginPairingFlow metrics`() = runTest {
+        val mocks = Mocks.create(FxaAuthState.DISCONNECTED)
+        val testMetrics = MetricsParams(
+            parameters = mapOf("foo" to "bar"),
+        )
+        mocks.actionProcessor.processAction(beginPairingFlowAction.copy(metrics = testMetrics))
+        coVerify { mocks.firefoxAccount.beginPairingFlow(any(), any(), any(), testMetrics) }
     }
 }

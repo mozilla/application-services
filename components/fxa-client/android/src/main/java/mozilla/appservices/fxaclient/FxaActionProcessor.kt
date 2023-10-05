@@ -15,6 +15,18 @@ import kotlin.time.Duration.Companion.milliseconds
 import kotlin.time.Duration.Companion.seconds
 import org.mozilla.appservices.fxaclient.GleanMetrics.FxaClient as FxaClientMetrics
 
+// How many items should our channel hold?  This should be big enough that it will never be filled
+// under normal circumstances, but small enough that it will get filled if the `processChannel()`
+// task fails (and therefore we will see exceptions when we call `trySend` rather than failing
+// silently).
+private const val CHANNEL_SIZE = 100
+
+// How many times should we retry in the face of network errors?
+private const val NETWORK_RETRY_MAX = 3
+
+// How often should we try to recover from auth issues?
+private val AUTH_RECOVERY_PERIOD = 60.seconds
+
 /**
  * Processes actions sent to [FxaClient.queueAction] and sends events to the [FxaEventHandler]
  *
@@ -33,7 +45,7 @@ internal class FxaActionProcessor(
 ) {
     // Set a high bound on the channel so that if our the processChannel() task dies, or is never
     // started, we should eventually see error reports.
-    private val channel = Channel<FxaAction>(100)
+    private val channel = Channel<FxaAction>(CHANNEL_SIZE)
     internal val retryLogic = RetryLogic()
     internal var currentState = initialState
 
@@ -42,8 +54,6 @@ internal class FxaActionProcessor(
 
     // Queue a new action for processing
     fun queue(action: FxaAction) {
-        // trySend allows this function to be non-suspend and will never fail since the channel size
-        // is UNLIMITED
         channel.trySend(action)
     }
 
@@ -67,6 +77,7 @@ internal class FxaActionProcessor(
 
     @Suppress("ComplexMethod")
     internal suspend fun processAction(action: FxaAction) {
+        retryLogic.newActionStarted()
         val isValid = when (action) {
             // Auth flow actions are valid if you're disconnected and also if you're already
             // authenticating.  If a consumer accidentally starts multiple flows we should not
@@ -192,13 +203,13 @@ internal class FxaActionProcessor(
 
     private suspend fun handleBeginOAuthFlow(action: FxaAction.BeginOAuthFlow) {
         handleBeginEitherOAuthFlow(action.result) {
-            inner.beginOauthFlow(action.scopes.toList(), action.entrypoint, MetricsParams(mapOf()))
+            inner.beginOauthFlow(action.scopes.toList(), action.entrypoint, action.metrics ?: MetricsParams(mapOf()))
         }
     }
 
     private suspend fun handleBeginPairingFlow(action: FxaAction.BeginPairingFlow) {
         handleBeginEitherOAuthFlow(action.result) {
-            inner.beginPairingFlow(action.pairingUrl, action.scopes.toList(), action.entrypoint, MetricsParams(mapOf()))
+            inner.beginPairingFlow(action.pairingUrl, action.scopes.toList(), action.entrypoint, action.metrics ?: MetricsParams(mapOf()))
         }
     }
 
@@ -345,22 +356,25 @@ internal class FxaActionProcessor(
 }
 
 internal class RetryLogic {
-    private var lastNetworkRetry: Long = 0
+    private var networkRetryCount = 0
     private var lastAuthCheck: Long = 0
 
     fun shouldRetryAfterNetworkError(): Boolean {
-        val elasped = (System.currentTimeMillis() - lastNetworkRetry).milliseconds
-        if (elasped > 30.seconds) {
-            lastNetworkRetry = System.currentTimeMillis()
+        if (networkRetryCount < NETWORK_RETRY_MAX) {
+            networkRetryCount += 1
             return true
         } else {
             return false
         }
     }
 
+    fun newActionStarted() {
+        networkRetryCount = 0
+    }
+
     fun shouldRecheckAuthStatus(): Boolean {
         val elasped = (System.currentTimeMillis() - lastAuthCheck).milliseconds
-        if (elasped > 60.seconds) {
+        if (elasped > AUTH_RECOVERY_PERIOD) {
             lastAuthCheck = System.currentTimeMillis()
             return true
         } else {
@@ -370,7 +384,6 @@ internal class RetryLogic {
 
     // For testing
     fun fastForward(amount: Duration) {
-        lastNetworkRetry -= amount.inWholeMilliseconds
         lastAuthCheck -= amount.inWholeMilliseconds
     }
 }

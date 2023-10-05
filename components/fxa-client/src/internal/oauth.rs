@@ -42,21 +42,16 @@ impl FirefoxAccount {
     ///   in the server response.
     ///
     /// **💾 This method may alter the persisted account state.**
-    pub fn get_access_token(
-        &mut self,
-        scope: &str,
-        ttl: Option<u64>,
-        require_scoped_key: bool,
-    ) -> Result<AccessTokenInfo> {
+    pub fn get_access_token(&mut self, scope: &str, ttl: Option<u64>) -> Result<AccessTokenInfo> {
         if scope.contains(' ') {
             return Err(Error::MultipleScopesRequested);
         }
         if let Some(oauth_info) = self.state.get_cached_access_token(scope) {
             if oauth_info.expires_at > util::now_secs() + OAUTH_MIN_TIME_LEFT {
-                if require_scoped_key {
-                    oauth_info.check_scoped_key_present()?
+                // If the cached key is missing the required sync scoped key, try to fetch it again
+                if oauth_info.check_missing_sync_scoped_key().is_ok() {
+                    return Ok(oauth_info.clone());
                 }
-                return Ok(oauth_info.clone());
             }
         }
         let resp = match self.state.refresh_token() {
@@ -93,9 +88,7 @@ impl FirefoxAccount {
         };
         self.state
             .add_cached_access_token(scope, token_info.clone());
-        if require_scoped_key {
-            token_info.check_scoped_key_present()?
-        }
+        token_info.check_missing_sync_scoped_key()?;
         Ok(token_info)
     }
 
@@ -564,9 +557,9 @@ pub struct AccessTokenInfo {
 }
 
 impl AccessTokenInfo {
-    pub fn check_scoped_key_present(&self) -> Result<()> {
-        if self.key.is_none() {
-            Err(Error::ScopedKeyMissing)
+    pub fn check_missing_sync_scoped_key(&self) -> Result<()> {
+        if self.scope == scopes::OLD_SYNC && self.key.is_none() {
+            Err(Error::SyncScopedKeyMissing)
         } else {
             Ok(())
         }

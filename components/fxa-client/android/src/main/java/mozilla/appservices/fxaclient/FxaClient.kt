@@ -226,9 +226,8 @@ class FxaClient private constructor(
     suspend fun getAccessToken(
         scope: String,
         ttl: Long? = null,
-        requireScopedKey: Boolean = false,
     ): AccessTokenInfo = wrapMethodCallAndPersist("getAccessToken") {
-        inner.getAccessToken(scope, ttl, requireScopedKey)
+        inner.getAccessToken(scope, ttl)
     }
 
     /**

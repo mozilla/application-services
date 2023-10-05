@@ -38,8 +38,6 @@ impl FirefoxAccount {
     ///        - This must be one of the scopes requested during the signin flow.
     ///        - Only a single scope is supported; for multiple scopes request multiple tokens.
     ///    - `ttl` - optionally, the time for which the token should be valid, in seconds.
-    ///    - `require_scoped_key` - optionally, throw [FxaError.ScopedKeyMissing] if the scoped_key
-    ///        is not present in the server response.
     ///
     /// # Notes
     ///
@@ -47,17 +45,12 @@ impl FirefoxAccount {
     ///      token, it should call [`clear_access_token_cache`](FirefoxAccount::clear_access_token_cache)
     ///      before requesting a fresh token.
     #[handle_error(Error)]
-    pub fn get_access_token(
-        &self,
-        scope: &str,
-        ttl: Option<i64>,
-        requre_scoped_key: bool,
-    ) -> ApiResult<AccessTokenInfo> {
+    pub fn get_access_token(&self, scope: &str, ttl: Option<i64>) -> ApiResult<AccessTokenInfo> {
         // Signedness converstion for Kotlin compatibility :-/
         let ttl = ttl.map(|ttl| u64::try_from(ttl).unwrap_or_default());
         self.internal
             .lock()
-            .get_access_token(scope, ttl, requre_scoped_key)?
+            .get_access_token(scope, ttl)?
             .try_into()
     }
 

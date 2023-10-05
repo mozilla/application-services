@@ -39,11 +39,13 @@ sealed class FxaAction {
      * @param scopes OAuth scopes to request
      * @param entrypoint OAuth entrypoint
      * @param result If present, will be completed with the OAuth URL to navigate users too
+     * @param metrics If present, extra metrics trackingquery parameters in the resulting URL
      */
     data class BeginOAuthFlow(
         val scopes: Array<String>,
         val entrypoint: String,
         val result: CompletableDeferred<String?>? = null,
+        val metrics: MetricsParams? = null,
     ) : FxaAction()
 
     /**
@@ -58,12 +60,14 @@ sealed class FxaAction {
      * @param scopes OAuth scopes to request
      * @param entrypoint OAuth entrypoint
      * @param result If present, will be completed with the OAuth URL to navigate users too
+     * @param metrics If present, extra metrics trackingquery parameters in the resulting URL
      */
     data class BeginPairingFlow(
         val pairingUrl: String,
         val scopes: Array<String>,
         val entrypoint: String,
         val result: CompletableDeferred<String?>? = null,
+        val metrics: MetricsParams? = null,
     ) : FxaAction()
 
     /**
@@ -247,6 +251,7 @@ enum class FxaAuthEventKind {
     AUTH_CHECK_STARTED,
     AUTH_CHECK_FAILED,
     AUTH_CHECK_SUCCESS,
+
     // This is sent back when the consumer sends the `LogoutFromAuthIssues` action
     LOGOUT_FROM_AUTH_ISSUES,
 }

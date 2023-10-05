@@ -30,7 +30,7 @@
 //! The code that was deleted demonstrates how we can implement the migration
 
 use serde_derive::*;
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 
 use super::{
     config::Config,
@@ -38,7 +38,7 @@ use super::{
     profile::Profile,
     CachedResponse, Result,
 };
-use crate::{LocalDevice, ScopedKey};
+use crate::{DeviceCapability, LocalDevice, ScopedKey};
 
 // These are the public API for working with the persisted state.
 
@@ -99,6 +99,8 @@ pub(crate) struct StateV2 {
     // We can remove serde(default) when we define a `StateV3`.
     #[serde(default)]
     pub(crate) commands_data: HashMap<String, String>,
+    #[serde(default)]
+    pub(crate) device_capabilities: HashSet<DeviceCapability>,
     #[serde(default)]
     pub(crate) access_token_cache: HashMap<String, AccessTokenInfo>,
     pub(crate) session_token: Option<String>, // Hex-formatted string.

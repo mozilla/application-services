@@ -2,7 +2,7 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 
 use crate::{
     internal::{
@@ -11,7 +11,7 @@ use crate::{
         state_persistence::state_to_json,
         CachedResponse, Config, OAuthFlow, PersistedState,
     },
-    FxaRustAuthState, LocalDevice, Result, ScopedKey,
+    DeviceCapability, FxaRustAuthState, LocalDevice, Result, ScopedKey,
 };
 
 /// Stores and manages the current state of the FxA client
@@ -47,6 +47,21 @@ impl StateManager {
 
     pub fn session_token(&self) -> Option<&str> {
         self.persisted_state.session_token.as_deref()
+    }
+
+    /// Get our device capabilities
+    ///
+    /// This is the last set of capabilities passed to `initialize_device` or `ensure_capabilities`
+    pub fn device_capabilities(&self) -> &HashSet<DeviceCapability> {
+        &self.persisted_state.device_capabilities
+    }
+
+    /// Set our device capabilities
+    pub fn set_device_capabilities(
+        &mut self,
+        capabilities_set: impl IntoIterator<Item = DeviceCapability>,
+    ) {
+        self.persisted_state.device_capabilities = HashSet::from_iter(capabilities_set);
     }
 
     /// Get the last known LocalDevice info sent back from the server
@@ -180,6 +195,7 @@ impl StateManager {
         self.persisted_state.last_handled_command = None;
         self.persisted_state.commands_data = HashMap::new();
         self.persisted_state.access_token_cache = HashMap::new();
+        self.persisted_state.device_capabilities = HashSet::new();
         self.persisted_state.server_local_device_info = None;
         self.persisted_state.session_token = None;
         self.persisted_state.logged_out_from_auth_issues = false;
@@ -194,6 +210,7 @@ impl StateManager {
         self.persisted_state.last_handled_command = None;
         self.persisted_state.commands_data = HashMap::new();
         self.persisted_state.access_token_cache = HashMap::new();
+        self.persisted_state.device_capabilities = HashSet::new();
         self.persisted_state.server_local_device_info = None;
         self.persisted_state.session_token = None;
         self.persisted_state.logged_out_from_auth_issues = true;

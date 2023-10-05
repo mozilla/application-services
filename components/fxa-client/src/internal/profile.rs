@@ -45,7 +45,7 @@ impl FirefoxAccount {
             }
             etag = Some(cached_profile.etag.clone());
         }
-        let profile_access_token = self.get_access_token(scopes::PROFILE, None, false)?.token;
+        let profile_access_token = self.get_access_token(scopes::PROFILE, None)?.token;
         match self
             .client
             .get_profile(self.state.config(), &profile_access_token, etag)?
