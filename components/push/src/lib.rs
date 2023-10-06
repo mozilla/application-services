@@ -381,7 +381,8 @@ impl PushManager {
     }
 }
 
-/// Key Information that can be used to encrypt payloads
+/// Key Information that can be used to encrypt payloads. These are encoded as base64
+/// so will need to be decoded before they can actually be used as keys.
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]
 pub struct KeyInfo {
     pub auth: String,
