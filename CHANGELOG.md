@@ -6,6 +6,7 @@
 
 ### 🦊 What's Changed 🦊
 - Exposed rust-log-forwarder for iOS ([#5840](https://github.com/mozilla/application-services/pull/5840)).
+- Fixed rust-log-forwarder bindings for Focus iOS ([5858](https://github.com/mozilla/application-services/pull/5858)).
 
 # v119.0 (_2023-09-25_)
 

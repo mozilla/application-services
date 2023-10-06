@@ -2268,6 +2268,7 @@ dependencies = [
  "nimbus-sdk",
  "rc_log_ffi",
  "remote_settings",
+ "rust-log-forwarder",
  "viaduct",
  "viaduct-reqwest",
 ]
