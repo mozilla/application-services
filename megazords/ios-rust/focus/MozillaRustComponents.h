@@ -10,3 +10,4 @@
 #import "nimbusFFI.h"
 #import "errorFFI.h"
 #import "remote_settingsFFI.h"
+#import "rustlogforwarderFFI.h"
