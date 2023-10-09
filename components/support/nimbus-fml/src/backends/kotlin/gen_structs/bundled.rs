@@ -6,7 +6,7 @@ use std::fmt::Display;
 
 use super::common::{code_type, quoted};
 use crate::backends::{CodeOracle, CodeType, LiteralRenderer, TypeIdentifier, VariablesType};
-use crate::intermediate_representation::Literal;
+use crate::intermediate_representation::{Literal, TypeRef};
 use heck::SnakeCase;
 use unicode_segmentation::UnicodeSegmentation;
 
@@ -84,6 +84,16 @@ impl CodeType for TextCodeType {
             }
             _ => unreachable!("Expecting a string"),
         }
+    }
+
+    fn preference_getter(
+        &self,
+        oracle: &dyn CodeOracle,
+        prefs: &dyn Display,
+        pref_key: &dyn Display,
+    ) -> Option<String> {
+        let ct = oracle.find(&TypeRef::String);
+        ct.preference_getter(oracle, prefs, pref_key)
     }
 
     fn is_resource_id(&self, literal: &Literal) -> bool {

@@ -145,6 +145,15 @@ pub trait CodeType {
         None
     }
 
+    fn preference_getter(
+        &self,
+        _oracle: &dyn CodeOracle,
+        _prefs: &dyn Display,
+        _pref_key: &dyn Display,
+    ) -> Option<String> {
+        None
+    }
+
     /// Call from the template
     fn as_json(&self, oracle: &dyn CodeOracle, prop: &dyn Display) -> String {
         self.as_json_transform(oracle, prop)

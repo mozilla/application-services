@@ -47,18 +47,28 @@ private constructor(
    {%- let defaults = format!("_defaults.{}", prop_kt) %}
    {%- let getter = p.typ()|property(p.name(), "_variables", defaults) %}
   {{ p.doc()|comment("  ") }}
-   {%- if p.supports_lazy() %}
+   {%- if !p.has_prefs() %}
    val {{ prop_kt }}: {{ type_kt }} by lazy {
       {{ getter }}
    }
    {%- else %}
    val {{ prop_kt }}: {{ type_kt }}
-      get() {
-         fun getter() = {{ getter }}
-         return {% call prefs() %}?.let { _ ->
-            getter()
-         } ?: getter()
-      }
+      get() =
+         {%- let prefs = "it" %}
+         {%- let key = p.pref_key().unwrap() %}
+         {% call prefs() %}?.let {
+            if ({{ prefs }}.contains({{ key|quoted }})) {
+               try {
+                  {{ p.typ()|preference_getter(prefs, key) }}
+               } catch (e:  ClassCastException) {
+                  // This only gets to here if the app has written the
+                  // wrong type to this preference.
+                  null
+               }
+            } else {
+               null
+            }
+         } ?: {{ getter }}
    {%- endif %}
 {% endfor %}
 
