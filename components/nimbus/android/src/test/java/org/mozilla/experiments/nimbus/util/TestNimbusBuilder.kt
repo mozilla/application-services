@@ -19,7 +19,16 @@ class TestNimbusBuilder(context: Context) : AbstractNimbusBuilder<NimbusInterfac
         appInfo: NimbusAppInfo,
         serverSettings: NimbusServerSettings?,
     ): NimbusInterface =
-        Nimbus(context, appInfo, listOf(), serverSettings, NimbusDeviceInfo("en-US"), null, NimbusDelegate.default())
+        Nimbus(
+            context = context,
+            prefs = sharedPreferences,
+            appInfo = appInfo,
+            coenrollingFeatureIds = listOf(),
+            server = serverSettings,
+            deviceInfo = NimbusDeviceInfo("en-US"),
+            observer = null,
+            delegate = NimbusDelegate.default(),
+        )
 
     override fun newNimbusDisabled(): NimbusInterface =
         uninitialized()

@@ -35,3 +35,11 @@ object Resources {
 
     fun getResourceName(resId: Int) = "res:$resId"
 }
+
+@Suppress("UNUSED_PARAMETER", "PACKAGE_OR_CLASSIFIER_REDECLARATION", "FunctionOnlyReturningConstant")
+class SharedPreferences {
+    fun contains(key: String): Boolean = false
+    fun getBoolean(key: String, def: Boolean): Boolean = def
+    fun getString(key: String, def: String): String = def
+    fun getInt(key: String, def: Int): Int = def
+}

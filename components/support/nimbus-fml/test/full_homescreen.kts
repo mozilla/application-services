@@ -20,7 +20,7 @@ val api = MockNimbus("homescreen" to """{
         "pocket": true
     }
 }""")
-val holder = FeatureHolder(getSdk = { api }, featureId = "homescreen") { Homescreen(it) }
+val holder = FeatureHolder(getSdk = { api }, featureId = "homescreen") { v, _ -> Homescreen(v) }
 val feature1 = holder.value()
 assert(feature1.sectionsEnabled[HomeScreenSection.TOP_SITES] == true)
 assert(feature1.sectionsEnabled[HomeScreenSection.JUMP_BACK_IN] == false)

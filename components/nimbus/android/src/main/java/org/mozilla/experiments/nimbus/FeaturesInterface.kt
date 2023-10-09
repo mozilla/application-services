@@ -5,6 +5,7 @@
 package org.mozilla.experiments.nimbus
 
 import android.content.Context
+import android.content.SharedPreferences
 
 /**
  * Small interface to get the feature variables out of the Nimbus SDK.
@@ -14,6 +15,9 @@ import android.content.Context
 interface FeaturesInterface {
 
     val context: Context
+
+    val prefs: SharedPreferences?
+        get() = null
 
     /**
      * Get the variables needed to configure the feature given by `featureId`.

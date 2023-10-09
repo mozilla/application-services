@@ -5,6 +5,7 @@
 package org.mozilla.experiments.nimbus
 
 import android.content.Context
+import android.content.SharedPreferences
 import android.net.Uri
 import androidx.annotation.RawRes
 import kotlinx.coroutines.runBlocking
@@ -82,6 +83,11 @@ abstract class AbstractNimbusBuilder<T : NimbusInterface>(val context: Context) 
      * The `object` generated from the `nimbus.fml.yaml` file and the nimbus-gradle-plugin.
      */
     var featureManifest: FeatureManifestInterface<*>? = null
+
+    /**
+     * The shared preferences used to configure the app.
+     */
+    var sharedPreferences: SharedPreferences? = null
 
     /**
      * Build a [Nimbus] singleton for the given [NimbusAppInfo]. Instances built with this method
@@ -210,6 +216,7 @@ class DefaultNimbusBuilder(context: Context) : AbstractNimbusBuilder<NimbusInter
         Nimbus(
             context,
             appInfo = appInfo,
+            prefs = sharedPreferences,
             coenrollingFeatureIds = getCoenrollingFeatureIds(),
             server = serverSettings,
             deviceInfo = createDeviceInfo(),
