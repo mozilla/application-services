@@ -5,7 +5,8 @@
 use std::collections::BTreeMap;
 
 use crate::frontend::{
-    EnumBody, EnumVariantBody, FeatureBody, FieldBody, ManifestFrontEnd, ObjectBody, Types,
+    EnumBody, EnumVariantBody, FeatureBody, FeatureFieldBody, FieldBody, ManifestFrontEnd,
+    ObjectBody, Types,
 };
 use crate::intermediate_representation::{
     EnumDef, FeatureDef, FeatureManifest, ObjectDef, PropDef, VariantDef,
@@ -116,6 +117,15 @@ impl From<PropDef> for FieldBody {
             description: value.doc,
             variable_type: value.typ.to_string(),
             default: Some(value.default),
+        }
+    }
+}
+
+impl From<PropDef> for FeatureFieldBody {
+    fn from(value: PropDef) -> Self {
+        Self {
+            pref_key: value.pref_key.clone(),
+            field: value.into(),
         }
     }
 }

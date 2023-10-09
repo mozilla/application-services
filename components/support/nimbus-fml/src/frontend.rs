@@ -32,6 +32,18 @@ pub(crate) struct EnumBody {
 
 #[derive(Debug, Deserialize, Serialize, Clone)]
 #[serde(deny_unknown_fields)]
+#[serde(rename_all = "kebab-case")]
+pub(crate) struct FeatureFieldBody {
+    #[serde(flatten)]
+    pub(crate) field: FieldBody,
+
+    #[serde(default)]
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub(crate) pref_key: Option<String>,
+}
+
+#[derive(Debug, Deserialize, Serialize, Clone)]
+#[serde(deny_unknown_fields)]
 pub(crate) struct FieldBody {
     pub(crate) description: String,
     #[serde(rename = "type")]
@@ -128,7 +140,7 @@ pub(crate) struct FeatureBody {
     // 1. Swift insists on args in the same order they were declared.
     // 2. imported features are declared and constructed in different runs of the tool.
     #[serde(skip_serializing_if = "BTreeMap::is_empty")]
-    pub(crate) variables: BTreeMap<String, FieldBody>,
+    pub(crate) variables: BTreeMap<String, FeatureFieldBody>,
     #[serde(alias = "defaults")]
     #[serde(skip_serializing_if = "Option::is_none")]
     pub(crate) default: Option<Vec<DefaultBlock>>,
@@ -206,6 +218,12 @@ impl ManifestFrontEnd {
             .collect()
     }
 
+    fn get_prop_def_from_feature_field(&self, nm: &str, body: &FeatureFieldBody) -> PropDef {
+        let mut prop = self.get_prop_def_from_field(nm, &body.field);
+        prop.pref_key = body.pref_key.clone();
+        prop
+    }
+
     /// Transforms a front-end field definition, a tuple of [`String`] and [`FieldBody`],
     /// into a [`PropDef`]
     ///
@@ -214,7 +232,7 @@ impl ManifestFrontEnd {
     ///
     /// # Returns
     /// return the IR [`PropDef`]
-    fn get_prop_def_from_field(&self, nm: &String, body: &FieldBody) -> PropDef {
+    fn get_prop_def_from_field(&self, nm: &str, body: &FieldBody) -> PropDef {
         let types = self.get_types();
         PropDef {
             name: nm.into(),
@@ -233,6 +251,7 @@ impl ManifestFrontEnd {
                 }
             },
             default: json!(body.default),
+            pref_key: None,
         }
     }
 
@@ -245,7 +264,7 @@ impl ManifestFrontEnd {
         for (nm, body) in &self.features {
             let mut fields: Vec<_> = Default::default();
             for (fnm, field) in &body.variables {
-                fields.push(self.get_prop_def_from_field(fnm, field));
+                fields.push(self.get_prop_def_from_feature_field(fnm, field));
             }
             let mut def = FeatureDef {
                 name: nm.clone(),

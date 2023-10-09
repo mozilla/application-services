@@ -1036,12 +1036,7 @@ mod unit_tests {
     #[test]
     fn test_merge_feature_default_overwrite_field_default_based_on_channel() -> Result<()> {
         let mut feature_def = FeatureDef {
-            props: vec![PropDef {
-                name: "button-color".into(),
-                default: json!("blue"),
-                doc: "".into(),
-                typ: TypeRef::String,
-            }],
+            props: vec![PropDef::new("button-color", TypeRef::String, json!("blue"))],
             ..Default::default()
         };
         let default_blocks = serde_json::from_value(json!([
@@ -1073,12 +1068,11 @@ mod unit_tests {
         merger.merge_feature_defaults(&mut feature_def, &default_blocks)?;
         assert_eq!(
             feature_def.props,
-            vec![PropDef {
-                name: "button-color".into(),
-                default: json!("dark-green"),
-                doc: "".into(),
-                typ: TypeRef::String,
-            }]
+            vec![PropDef::new(
+                "button-color",
+                TypeRef::String,
+                json!("dark-green"),
+            )]
         );
         Ok(())
     }
@@ -1087,12 +1081,7 @@ mod unit_tests {
     fn test_merge_feature_default_field_default_not_overwritten_if_no_feature_default_for_channel(
     ) -> Result<()> {
         let mut feature_def = FeatureDef {
-            props: vec![PropDef {
-                name: "button-color".into(),
-                default: json!("blue"),
-                doc: "".into(),
-                typ: TypeRef::String,
-            }],
+            props: vec![PropDef::new("button-color", TypeRef::String, json!("blue"))],
             ..Default::default()
         };
         let default_blocks = serde_json::from_value(json!([{
@@ -1116,12 +1105,7 @@ mod unit_tests {
         merger.merge_feature_defaults(&mut feature_def, &default_blocks)?;
         assert_eq!(
             feature_def.props,
-            vec![PropDef {
-                name: "button-color".into(),
-                default: json!("blue"),
-                doc: "".into(),
-                typ: TypeRef::String,
-            }]
+            vec![PropDef::new("button-color", TypeRef::String, json!("blue"),)]
         );
         Ok(())
     }
@@ -1129,9 +1113,10 @@ mod unit_tests {
     #[test]
     fn test_merge_feature_default_overwrite_nested_field_default() -> Result<()> {
         let mut feature_def = FeatureDef {
-            props: vec![PropDef {
-                name: "Dialog".into(),
-                default: json!({
+            props: vec![PropDef::new(
+                "Dialog",
+                TypeRef::String,
+                json!({
                     "button-color": "blue",
                     "title": "hello",
                     "inner": {
@@ -1139,9 +1124,7 @@ mod unit_tests {
                         "other-field": "other-value"
                     }
                 }),
-                doc: "".into(),
-                typ: TypeRef::String,
-            }],
+            )],
 
             ..Default::default()
         };
@@ -1190,9 +1173,10 @@ mod unit_tests {
         merger.merge_feature_defaults(&mut feature_def, &default_blocks)?;
         assert_eq!(
             feature_def.props,
-            vec![PropDef {
-                name: "Dialog".into(),
-                default: json!({
+            vec![PropDef::new(
+                "Dialog",
+                TypeRef::String,
+                json!({
                         "button-color": "green",
                         "title": "hello",
                         "inner": {
@@ -1201,9 +1185,7 @@ mod unit_tests {
                             "new-field": "new-value"
                         }
                 }),
-                doc: "".into(),
-                typ: TypeRef::String,
-            }]
+            )]
         );
         Ok(())
     }
@@ -1212,12 +1194,7 @@ mod unit_tests {
     fn test_merge_feature_default_overwrite_field_default_based_on_channel_using_only_no_channel_default(
     ) -> Result<()> {
         let mut feature_def = FeatureDef {
-            props: vec![PropDef {
-                name: "button-color".into(),
-                default: json!("blue"),
-                doc: "".into(),
-                typ: TypeRef::String,
-            }],
+            props: vec![PropDef::new("button-color", TypeRef::String, json!("blue"))],
             ..Default::default()
         };
         let default_blocks = serde_json::from_value(json!([
@@ -1250,12 +1227,11 @@ mod unit_tests {
         merger.merge_feature_defaults(&mut feature_def, &default_blocks)?;
         assert_eq!(
             feature_def.props,
-            vec![PropDef {
-                name: "button-color".into(),
-                default: json!("dark-green"),
-                doc: "".into(),
-                typ: TypeRef::String,
-            }]
+            vec![PropDef::new(
+                "button-color",
+                TypeRef::String,
+                json!("dark-green"),
+            )]
         );
         Ok(())
     }
@@ -1264,12 +1240,7 @@ mod unit_tests {
     fn test_merge_feature_default_throw_error_if_property_not_found_on_feature() -> Result<()> {
         let mut feature_def = FeatureDef {
             name: "feature".into(),
-            props: vec![PropDef {
-                name: "button-color".into(),
-                default: json!("blue"),
-                doc: "".into(),
-                typ: TypeRef::String,
-            }],
+            props: vec![PropDef::new("button-color", TypeRef::String, json!("blue"))],
             ..Default::default()
         };
         let default_blocks = serde_json::from_value(json!([

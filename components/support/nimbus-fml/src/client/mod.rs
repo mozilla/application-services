@@ -185,12 +185,11 @@ mod unit_tests {
             vec![],
             vec![FeatureDef {
                 name: "feature_i".into(),
-                props: vec![PropDef {
-                    name: "prop_i_1".into(),
-                    typ: TypeRef::String,
-                    default: Value::String("prop_i_1_value".into()),
-                    doc: "".into(),
-                }],
+                props: vec![PropDef::new(
+                    "prop_i_1",
+                    TypeRef::String,
+                    Value::String("prop_i_1_value".into()),
+                )],
                 doc: "feature_i description".to_string(),
                 ..Default::default()
             }],
@@ -202,12 +201,11 @@ mod unit_tests {
             vec![],
             vec![FeatureDef {
                 name: "feature".into(),
-                props: vec![PropDef {
-                    name: "prop_1".into(),
-                    typ: TypeRef::String,
-                    default: Value::String("prop_1_value".into()),
-                    doc: "".into(),
-                }],
+                props: vec![PropDef::new(
+                    "prop_1",
+                    TypeRef::String,
+                    Value::String("prop_1_value".into()),
+                )],
                 doc: "feature description".to_string(),
                 allow_coenrollment: true,
             }],
