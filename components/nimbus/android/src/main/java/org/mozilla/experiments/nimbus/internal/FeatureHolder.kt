@@ -4,6 +4,7 @@
 
 package org.mozilla.experiments.nimbus.internal
 
+import android.content.SharedPreferences
 import org.json.JSONObject
 import org.mozilla.experiments.nimbus.FeaturesInterface
 import org.mozilla.experiments.nimbus.HardcodedNimbusFeatures
@@ -22,7 +23,7 @@ import java.util.concurrent.locks.ReentrantLock
 class FeatureHolder<T : FMLFeatureInterface>(
     private var getSdk: () -> FeaturesInterface?,
     private val featureId: String,
-    private var create: (Variables) -> T,
+    private var create: (Variables, SharedPreferences?) -> T,
 ) {
     private val lock = ReentrantLock()
 
@@ -48,7 +49,8 @@ class FeatureHolder<T : FMLFeatureInterface>(
                 val variables = getSdk()?.getVariables(featureId, false) ?: run {
                     NullVariables.instance
                 }
-                create(variables).also { value ->
+                val prefs = getSdk()?.prefs
+                create(variables, prefs).also { value ->
                     cachedValue = value
                 }
             }
@@ -108,7 +110,7 @@ class FeatureHolder<T : FMLFeatureInterface>(
      *
      * This is most likely useful during testing and other generated code.
      */
-    fun withInitializer(create: (Variables) -> T) {
+    fun withInitializer(create: (Variables, SharedPreferences?) -> T) {
         lock.runBlock {
             this.create = create
             this.cachedValue = null

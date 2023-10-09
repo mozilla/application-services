@@ -20,7 +20,7 @@ class Feature(val string: String): FMLFeatureInterface {
         JSONObject(mapOf("string" to string))
 }
 
-val holder = FeatureHolder<Feature>({ api }, featureId = "test-feature-holder") { Feature("NO CRASH") }
+val holder = FeatureHolder<Feature>({ api }, featureId = "test-feature-holder") { v, p -> Feature("NO CRASH") }
 
 repeat(10000) {
     scope.submit {
