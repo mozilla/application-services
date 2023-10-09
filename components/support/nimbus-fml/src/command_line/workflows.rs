@@ -959,6 +959,8 @@ mod test {
         test_single_merged_manifest_file("fixtures/fe/importing/diamond/00-app.yaml", "debug")?;
         test_single_merged_manifest_file("fixtures/fe/importing/diamond/01-lib.yaml", "debug")?;
         test_single_merged_manifest_file("fixtures/fe/importing/diamond/02-sublib.yaml", "debug")?;
+
+        test_single_merged_manifest_file("fixtures/fe/misc-features.yaml", "debug")?;
         Ok(())
     }
 

@@ -558,18 +558,18 @@ mod unit_tests {
         let obj_def = &ir.obj_defs["Button"];
         assert!(obj_def.name == *"Button");
         assert!(obj_def.doc == *"This is a button object");
-        assert!(obj_def.props.contains(&PropDef {
-            name: "label".to_string(),
-            doc: "This is the label for the button".to_string(),
-            typ: TypeRef::String,
-            default: serde_json::Value::String("REQUIRED FIELD".to_string()),
-        }));
-        assert!(obj_def.props.contains(&PropDef {
-            name: "color".to_string(),
-            doc: "This is the color of the button".to_string(),
-            typ: TypeRef::Option(Box::new(TypeRef::String)),
-            default: serde_json::Value::Null,
-        }));
+        assert!(obj_def.props.contains(&PropDef::new_with_doc(
+            "label",
+            "This is the label for the button",
+            TypeRef::String,
+            serde_json::Value::String("REQUIRED FIELD".to_string()),
+        )));
+        assert!(obj_def.props.contains(&PropDef::new_with_doc(
+            "color",
+            "This is the color of the button",
+            TypeRef::Option(Box::new(TypeRef::String)),
+            serde_json::Value::Null,
+        )));
 
         // Validate parsed features
         assert!(ir.feature_defs.len() == 1);

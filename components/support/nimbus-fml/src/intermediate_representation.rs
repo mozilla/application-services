@@ -109,6 +109,18 @@ impl Display for TypeRef {
     }
 }
 
+impl TypeRef {
+    pub(crate) fn supports_prefs(&self) -> bool {
+        match self {
+            Self::Boolean | Self::String | Self::Int | Self::BundleText(_) => true,
+            // There may be a chance that we can get Self::Option to work, but not at this time.
+            // This may be done by adding a branch to this match and adding a `preference_getter` to
+            // the `OptionalCodeType`.
+            _ => false,
+        }
+    }
+}
+
 /**
  * An identifier derived from a `FilePath` of a top-level or importable FML file.
  *
@@ -445,7 +457,21 @@ impl FeatureManifest {
             }
         }
         for feature in self.iter_feature_defs() {
+            self.validate_feature_structure(feature)?;
             self.validate_feature_def(feature)?;
+        }
+        Ok(())
+    }
+
+    fn validate_feature_structure(&self, feature_def: &FeatureDef) -> Result<()> {
+        for v in &feature_def.props {
+            if v.pref_key.is_some() && !v.typ.supports_prefs() {
+                return Err(FMLError::ValidationError(
+                    format!("features/{}/{}", feature_def.name, v.name),
+                    "Pref keys can only be used with Boolean, String, Int and Text variables"
+                        .to_string(),
+                ));
+            }
         }
         Ok(())
     }
@@ -903,11 +929,14 @@ impl TypeFinder for ObjectDef {
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 pub struct PropDef {
-    pub name: String,
-    pub doc: String,
+    pub(crate) name: String,
+    pub(crate) doc: String,
     #[serde(rename = "type")]
-    pub typ: TypeRef,
-    pub default: Literal,
+    pub(crate) typ: TypeRef,
+    pub(crate) default: Literal,
+    #[serde(default)]
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub(crate) pref_key: Option<String>,
 }
 
 impl PropDef {
@@ -922,6 +951,12 @@ impl PropDef {
     }
     pub fn default(&self) -> Literal {
         self.default.clone()
+    }
+    pub fn has_prefs(&self) -> bool {
+        self.pref_key.is_some() && self.typ.supports_prefs()
+    }
+    pub fn pref_key(&self) -> Option<String> {
+        self.pref_key.clone()
     }
 }
 
@@ -972,6 +1007,28 @@ pub mod unit_tests {
     use crate::error::Result;
     use crate::fixtures::intermediate_representation::get_simple_homescreen_feature;
 
+    impl PropDef {
+        pub(crate) fn new(nm: &str, typ: TypeRef, default: Value) -> Self {
+            PropDef {
+                name: nm.into(),
+                doc: format!("{nm} property of type {typ}"),
+                typ,
+                default,
+                pref_key: None,
+            }
+        }
+
+        pub(crate) fn new_with_doc(nm: &str, doc: &str, typ: TypeRef, default: Value) -> Self {
+            PropDef {
+                name: nm.into(),
+                doc: doc.into(),
+                typ,
+                default,
+                pref_key: None,
+            }
+        }
+    }
+
     #[test]
     fn can_ir_represent_smoke_test() -> Result<()> {
         let reference_manifest = get_simple_homescreen_feature();
@@ -1015,12 +1072,7 @@ pub mod unit_tests {
         fm.add_feature(FeatureDef::new(
             "some_def",
             "my lovely qtest doc",
-            vec![PropDef {
-                name: "some prop".into(),
-                doc: "some prop doc".into(),
-                typ: TypeRef::String,
-                default: json!("default"),
-            }],
+            vec![PropDef::new("some prop", TypeRef::String, json!("default"))],
             true,
         ));
         fm.validate_manifest()?;
@@ -1036,19 +1088,18 @@ pub mod unit_tests {
         fm.add_feature(FeatureDef::new(
             "homescreen",
             "Represents the homescreen feature",
-            vec![PropDef {
-                name: "sections-enabled".into(),
-                doc: "A map of booleans".into(),
-                typ: TypeRef::EnumMap(
+            vec![PropDef::new(
+                "sections-enabled",
+                TypeRef::EnumMap(
                     Box::new(TypeRef::Enum("SectionId".into())),
                     Box::new(TypeRef::String),
                 ),
-                default: json!({
+                json!({
                     "top-sites": true,
                     "jump-back-in": false,
                     "recently-saved": false,
                 }),
-            }],
+            )],
             false,
         ));
         fm.validate_manifest()
@@ -1063,32 +1114,30 @@ pub mod unit_tests {
             "otherhomescreen",
             "Represents the homescreen feature",
             vec![
-                PropDef {
-                    name: "duplicate-prop".into(),
-                    doc: "A map of booleans".into(),
-                    typ: TypeRef::EnumMap(
+                PropDef::new(
+                    "duplicate-prop",
+                    TypeRef::EnumMap(
                         Box::new(TypeRef::Enum("SectionId".into())),
                         Box::new(TypeRef::String),
                     ),
-                    default: json!({
+                    json!({
                         "top-sites": true,
                         "jump-back-in": false,
                         "recently-saved": false,
                     }),
-                },
-                PropDef {
-                    name: "duplicate-prop".into(),
-                    doc: "A map of booleans".into(),
-                    typ: TypeRef::EnumMap(
+                ),
+                PropDef::new(
+                    "duplicate-prop",
+                    TypeRef::EnumMap(
                         Box::new(TypeRef::Enum("SectionId".into())),
                         Box::new(TypeRef::String),
                     ),
-                    default: json!({
+                    json!({
                         "top-sites": true,
                         "jump-back-in": false,
                         "recently-saved": false,
                     }),
-                },
+                ),
             ],
             false,
         ));
@@ -1103,12 +1152,11 @@ pub mod unit_tests {
         fm.add_feature(FeatureDef::new(
             "some_def",
             "test doc",
-            vec![PropDef {
-                name: "prop name".into(),
-                doc: "prop doc".into(),
-                typ: TypeRef::Enum("EnumDoesntExist".into()),
-                default: json!(null),
-            }],
+            vec![PropDef::new(
+                "prop name",
+                TypeRef::Enum("EnumDoesntExist".into()),
+                json!(null),
+            )],
             false,
         ));
         fm.validate_manifest().expect_err(
@@ -1123,12 +1171,11 @@ pub mod unit_tests {
         fm.add_feature(FeatureDef::new(
             "some_def",
             "test doc",
-            vec![PropDef {
-                name: "prop name".into(),
-                doc: "prop doc".into(),
-                typ: TypeRef::Object("ObjDoesntExist".into()),
-                default: json!(null),
-            }],
+            vec![PropDef::new(
+                "prop name",
+                TypeRef::Object("ObjDoesntExist".into()),
+                json!(null),
+            )],
             false,
         ));
         fm.validate_manifest().expect_err(
@@ -1143,12 +1190,11 @@ pub mod unit_tests {
         fm.add_feature(FeatureDef::new(
             "some_def",
             "test doc",
-            vec![PropDef {
-                name: "prop name".into(),
-                doc: "prop doc".into(),
-                typ: TypeRef::EnumMap(Box::new(TypeRef::String), Box::new(TypeRef::String)),
-                default: json!(null),
-            }],
+            vec![PropDef::new(
+                "prop name",
+                TypeRef::EnumMap(Box::new(TypeRef::String), Box::new(TypeRef::String)),
+                json!(null),
+            )],
             false,
         ));
         fm.validate_manifest()
@@ -1162,12 +1208,11 @@ pub mod unit_tests {
         fm.add_feature(FeatureDef::new(
             "some_def",
             "test doc",
-            vec![PropDef {
-                name: "prop name".into(),
-                doc: "prop doc".into(),
-                typ: TypeRef::List(Box::new(TypeRef::Enum("EnumDoesntExist".into()))),
-                default: json!(null),
-            }],
+            vec![PropDef::new(
+                "prop name",
+                TypeRef::List(Box::new(TypeRef::Enum("EnumDoesntExist".into()))),
+                json!(null),
+            )],
             false,
         ));
         fm.validate_manifest()
@@ -1181,15 +1226,14 @@ pub mod unit_tests {
         fm.add_feature(FeatureDef::new(
             "some_def",
             "test doc",
-            vec![PropDef {
-                name: "prop name".into(),
-                doc: "prop doc".into(),
-                typ: TypeRef::EnumMap(
+            vec![PropDef::new(
+                "prop name",
+                TypeRef::EnumMap(
                     Box::new(TypeRef::Enum("EnumDoesntExist".into())),
                     Box::new(TypeRef::String),
                 ),
-                default: json!(null),
-            }],
+                json!(null),
+            )],
             false,
         ));
         fm.validate_manifest().expect_err(
@@ -1204,15 +1248,14 @@ pub mod unit_tests {
         fm.add_feature(FeatureDef::new(
             "some_def",
             "test doc",
-            vec![PropDef {
-                name: "prop name".into(),
-                doc: "prop doc".into(),
-                typ: TypeRef::EnumMap(
+            vec![PropDef::new(
+                "prop name",
+                TypeRef::EnumMap(
                     Box::new(TypeRef::Enum("SectionId".into())),
                     Box::new(TypeRef::Object("ObjDoesntExist".into())),
                 ),
-                default: json!(null),
-            }],
+                json!(null),
+            )],
             false,
         ));
         fm.validate_manifest()
@@ -1226,12 +1269,11 @@ pub mod unit_tests {
         fm.add_feature(FeatureDef::new(
             "some_def",
             "test doc",
-            vec![PropDef {
-                name: "prop name".into(),
-                doc: "prop doc".into(),
-                typ: TypeRef::StringMap(Box::new(TypeRef::Enum("EnumDoesntExist".into()))),
-                default: json!(null),
-            }],
+            vec![PropDef::new(
+                "prop name",
+                TypeRef::StringMap(Box::new(TypeRef::Enum("EnumDoesntExist".into()))),
+                json!(null),
+            )],
             false,
         ));
         fm.validate_manifest()
@@ -1245,12 +1287,11 @@ pub mod unit_tests {
         fm.add_feature(FeatureDef::new(
             "some_def",
             "test doc",
-            vec![PropDef {
-                name: "prop name".into(),
-                doc: "prop doc".into(),
-                typ: TypeRef::Option(Box::new(TypeRef::Option(Box::new(TypeRef::String)))),
-                default: json!(null),
-            }],
+            vec![PropDef::new(
+                "prop name",
+                TypeRef::Option(Box::new(TypeRef::Option(Box::new(TypeRef::String)))),
+                json!(null),
+            )],
             false,
         ));
         fm.validate_manifest()
@@ -1328,12 +1369,7 @@ pub mod unit_tests {
 
     #[test]
     fn test_validate_prop_defaults_string() -> Result<()> {
-        let mut prop = PropDef {
-            name: "key".into(),
-            doc: "simple string property".into(),
-            typ: TypeRef::String,
-            default: json!("default!"),
-        };
+        let mut prop = PropDef::new("key", TypeRef::String, json!("default!"));
         let fm = get_one_prop_feature_manifest(vec![], vec![], &prop);
         let path = format!("test_validate_prop_defaults_string.{}", prop.name);
         fm.validate_prop_defaults(&path, &prop)?;
@@ -1346,12 +1382,7 @@ pub mod unit_tests {
 
     #[test]
     fn test_validate_prop_defaults_int() -> Result<()> {
-        let mut prop = PropDef {
-            name: "key".into(),
-            doc: "simple integer property".into(),
-            typ: TypeRef::Int,
-            default: json!(100),
-        };
+        let mut prop = PropDef::new("key", TypeRef::Int, json!(100));
         let fm = get_one_prop_feature_manifest(vec![], vec![], &prop);
         let path = format!("test_validate_prop_defaults_int.{}", prop.name);
         fm.validate_prop_defaults(&path, &prop)?;
@@ -1364,12 +1395,7 @@ pub mod unit_tests {
 
     #[test]
     fn test_validate_prop_defaults_bool() -> Result<()> {
-        let mut prop = PropDef {
-            name: "key".into(),
-            doc: "simple boolean property".into(),
-            typ: TypeRef::Boolean,
-            default: json!(true),
-        };
+        let mut prop = PropDef::new("key", TypeRef::Boolean, json!(true));
         let fm = get_one_prop_feature_manifest(vec![], vec![], &prop);
         let path = format!("test_validate_prop_defaults_bool.{}", prop.name);
         fm.validate_prop_defaults(&path, &prop)?;
@@ -1382,12 +1408,11 @@ pub mod unit_tests {
 
     #[test]
     fn test_validate_prop_defaults_bundle_image() -> Result<()> {
-        let mut prop = PropDef {
-            name: "key".into(),
-            doc: "bundleImage string property".into(),
-            typ: TypeRef::BundleImage("Icon".into()),
-            default: json!("IconBlue"),
-        };
+        let mut prop = PropDef::new(
+            "key",
+            TypeRef::BundleImage("Icon".into()),
+            json!("IconBlue"),
+        );
         let fm = get_one_prop_feature_manifest(vec![], vec![], &prop);
         let path = format!("test_validate_prop_defaults_bundle_image.{}", prop.name);
         fm.validate_prop_defaults(&path, &prop)?;
@@ -1401,12 +1426,11 @@ pub mod unit_tests {
 
     #[test]
     fn test_validate_prop_defaults_bundle_text() -> Result<()> {
-        let mut prop = PropDef {
-            name: "key".into(),
-            doc: "bundleText string property".into(),
-            typ: TypeRef::BundleText("Text".into()),
-            default: json!("BundledText"),
-        };
+        let mut prop = PropDef::new(
+            "key",
+            TypeRef::BundleText("Text".into()),
+            json!("BundledText"),
+        );
         let fm = get_one_prop_feature_manifest(vec![], vec![], &prop);
         let path = format!("test_validate_prop_defaults_bundle_text.{}", prop.name);
         fm.validate_prop_defaults(&path, &prop)?;
@@ -1420,12 +1444,11 @@ pub mod unit_tests {
 
     #[test]
     fn test_validate_prop_defaults_option_null() -> Result<()> {
-        let mut prop = PropDef {
-            name: "key".into(),
-            doc: "Optional boolean property".into(),
-            typ: TypeRef::Option(Box::new(TypeRef::Boolean)),
-            default: json!(null),
-        };
+        let mut prop = PropDef::new(
+            "key",
+            TypeRef::Option(Box::new(TypeRef::Boolean)),
+            json!(null),
+        );
         let fm = get_one_prop_feature_manifest(vec![], vec![], &prop);
         let path = format!("test_validate_prop_defaults_option_null.{}", prop.name);
         fm.validate_prop_defaults(&path, &prop)?;
@@ -1439,12 +1462,11 @@ pub mod unit_tests {
 
     #[test]
     fn test_validate_prop_defaults_nested_options() -> Result<()> {
-        let prop = PropDef {
-            name: "key".into(),
-            doc: "nested boolean optional property".into(),
-            typ: TypeRef::Option(Box::new(TypeRef::Option(Box::new(TypeRef::Boolean)))),
-            default: json!(true),
-        };
+        let prop = PropDef::new(
+            "key",
+            TypeRef::Option(Box::new(TypeRef::Option(Box::new(TypeRef::Boolean)))),
+            json!(true),
+        );
         let fm = get_one_prop_feature_manifest(vec![], vec![], &prop);
         let path = format!("test_validate_prop_defaults_nested_options.{}", prop.name);
         fm.validate_prop_defaults(&path, &prop)
@@ -1454,12 +1476,11 @@ pub mod unit_tests {
 
     #[test]
     fn test_validate_prop_defaults_option_non_null() -> Result<()> {
-        let mut prop = PropDef {
-            name: "key".into(),
-            doc: "optional boolean property".into(),
-            typ: TypeRef::Option(Box::new(TypeRef::Boolean)),
-            default: json!(true),
-        };
+        let mut prop = PropDef::new(
+            "key",
+            TypeRef::Option(Box::new(TypeRef::Boolean)),
+            json!(true),
+        );
         let fm = get_one_prop_feature_manifest(vec![], vec![], &prop);
         let path = format!("test_validate_prop_defaults_option_non_null.{}", prop.name);
         fm.validate_prop_defaults(&path, &prop)?;
@@ -1473,12 +1494,7 @@ pub mod unit_tests {
 
     #[test]
     fn test_validate_prop_defaults_enum() -> Result<()> {
-        let mut prop = PropDef {
-            name: "key".into(),
-            doc: "enum property".into(),
-            typ: TypeRef::Enum("ButtonColor".into()),
-            default: json!("blue"),
-        };
+        let mut prop = PropDef::new("key", TypeRef::Enum("ButtonColor".into()), json!("blue"));
         let enum_defs = vec![EnumDef {
             name: "ButtonColor".into(),
             variants: vec![
@@ -1513,18 +1529,17 @@ pub mod unit_tests {
 
     #[test]
     fn test_validate_prop_defaults_enum_map() -> Result<()> {
-        let mut prop = PropDef {
-            name: "key".into(),
-            doc: "enum map property".into(),
-            typ: TypeRef::EnumMap(
+        let mut prop = PropDef::new(
+            "key",
+            TypeRef::EnumMap(
                 Box::new(TypeRef::Enum("ButtonColor".into())),
                 Box::new(TypeRef::Int),
             ),
-            default: json!({
+            json!({
                 "blue": 1,
                 "green": 22,
             }),
-        };
+        );
         let enum_defs = vec![EnumDef {
             name: "ButtonColor".into(),
             variants: vec![
@@ -1560,15 +1575,14 @@ pub mod unit_tests {
 
     #[test]
     fn test_validate_prop_defaults_string_map() -> Result<()> {
-        let mut prop = PropDef {
-            name: "key".into(),
-            doc: "string map property".into(),
-            typ: TypeRef::StringMap(Box::new(TypeRef::Int)),
-            default: json!({
+        let mut prop = PropDef::new(
+            "key",
+            TypeRef::StringMap(Box::new(TypeRef::Int)),
+            json!({
                 "blue": 1,
                 "green": 22,
             }),
-        };
+        );
         let path = format!("test_validate_prop_defaults_string_map.{}", &prop.name);
         let fm = get_one_prop_feature_manifest(vec![], vec![], &prop);
         fm.validate_prop_defaults(&path, &prop)?;
@@ -1590,12 +1604,11 @@ pub mod unit_tests {
 
     #[test]
     fn test_validate_prop_defaults_list() -> Result<()> {
-        let mut prop = PropDef {
-            name: "key".into(),
-            doc: "list property".into(),
-            typ: TypeRef::List(Box::new(TypeRef::Int)),
-            default: json!([1, 3, 100]),
-        };
+        let mut prop = PropDef::new(
+            "key",
+            TypeRef::List(Box::new(TypeRef::Int)),
+            json!([1, 3, 100]),
+        );
         let path = format!("test_validate_prop_defaults_list.{}", &prop.name);
         let fm = get_one_prop_feature_manifest(vec![], vec![], &prop);
         fm.validate_prop_defaults(&path, &prop)?;
@@ -1608,11 +1621,10 @@ pub mod unit_tests {
 
     #[test]
     fn test_validate_prop_defaults_object() -> Result<()> {
-        let mut prop = PropDef {
-            name: "key".into(),
-            doc: "simple string property".into(),
-            typ: TypeRef::Object("SampleObj".into()),
-            default: json!({
+        let mut prop = PropDef::new(
+            "key",
+            TypeRef::Object("SampleObj".into()),
+            json!({
                 "int": 1,
                 "string": "bobo",
                 "enum": "green",
@@ -1625,68 +1637,49 @@ pub mod unit_tests {
                 },
                 "optional": 2,
             }),
-        };
+        );
         let obj_defs = vec![
             ObjectDef {
                 name: "SampleObj".into(),
                 props: vec![
-                    PropDef {
-                        name: "int".into(),
-                        typ: TypeRef::Int,
-                        doc: "".into(),
-                        default: json!(1),
-                    },
-                    PropDef {
-                        name: "string".into(),
-                        typ: TypeRef::String,
-                        doc: "".into(),
-                        default: json!("a string"),
-                    },
-                    PropDef {
-                        name: "enum".into(),
-                        typ: TypeRef::Enum("ButtonColor".into()),
-                        doc: "".into(),
-                        default: json!("blue"),
-                    },
-                    PropDef {
-                        name: "list".into(),
-                        typ: TypeRef::List(Box::new(TypeRef::Boolean)),
-                        doc: "".into(),
-                        default: json!([true, false]),
-                    },
-                    PropDef {
-                        name: "optional".into(),
-                        typ: TypeRef::Option(Box::new(TypeRef::Int)),
-                        doc: "".into(),
-                        default: json!(null),
-                    },
-                    PropDef {
-                        name: "nestedObj".into(),
-                        typ: TypeRef::Object("NestedObject".into()),
-                        doc: "".into(),
-                        default: json!({
+                    PropDef::new("int", TypeRef::Int, json!(1)),
+                    PropDef::new("string", TypeRef::String, json!("a string")),
+                    PropDef::new("enum", TypeRef::Enum("ButtonColor".into()), json!("blue")),
+                    PropDef::new(
+                        "list",
+                        TypeRef::List(Box::new(TypeRef::Boolean)),
+                        json!([true, false]),
+                    ),
+                    PropDef::new(
+                        "optional",
+                        TypeRef::Option(Box::new(TypeRef::Int)),
+                        json!(null),
+                    ),
+                    PropDef::new(
+                        "nestedObj",
+                        TypeRef::Object("NestedObject".into()),
+                        json!({
                             "enumMap": {
                                 "blue": 1,
                             },
                         }),
-                    },
+                    ),
                 ],
                 ..Default::default()
             },
             ObjectDef {
                 name: "NestedObject".into(),
-                props: vec![PropDef {
-                    name: "enumMap".into(),
-                    typ: TypeRef::EnumMap(
+                props: vec![PropDef::new(
+                    "enumMap",
+                    TypeRef::EnumMap(
                         Box::new(TypeRef::Enum("ButtonColor".into())),
                         Box::new(TypeRef::Int),
                     ),
-                    doc: "".into(),
-                    default: json!({
+                    json!({
                         "blue": 4,
                         "green": 2,
                     }),
-                }],
+                )],
                 ..Default::default()
             },
         ];
@@ -1778,17 +1771,16 @@ pub mod unit_tests {
 
     #[test]
     fn test_validate_prop_defaults_enum_map_optional() -> Result<()> {
-        let prop = PropDef {
-            name: "key".into(),
-            doc: "enum map property".into(),
-            typ: TypeRef::EnumMap(
+        let prop = PropDef::new(
+            "key",
+            TypeRef::EnumMap(
                 Box::new(TypeRef::Enum("ButtonColor".into())),
                 Box::new(TypeRef::Option(Box::new(TypeRef::Int))),
             ),
-            default: json!({
+            json!({
                 "blue": 1,
             }),
-        };
+        );
         let enum_defs = vec![EnumDef {
             name: "ButtonColor".into(),
             variants: vec![
@@ -1812,42 +1804,30 @@ pub mod unit_tests {
 
     #[test]
     fn test_iter_object_defs_deep_iterates_on_all_imports() -> Result<()> {
-        let prop_i = PropDef {
-            name: "key_i".into(),
-            doc: "simple string property".into(),
-            typ: TypeRef::Object("SampleObjImported".into()),
-            default: json!({
+        let prop_i = PropDef::new(
+            "key_i",
+            TypeRef::Object("SampleObjImported".into()),
+            json!({
                 "string": "bobo",
             }),
-        };
+        );
         let obj_defs_i = vec![ObjectDef {
             name: "SampleObjImported".into(),
-            props: vec![PropDef {
-                name: "string".into(),
-                typ: TypeRef::String,
-                doc: "".into(),
-                default: json!("a string"),
-            }],
+            props: vec![PropDef::new("string", TypeRef::String, json!("a string"))],
             ..Default::default()
         }];
         let fm_i = get_one_prop_feature_manifest(obj_defs_i, vec![], &prop_i);
 
-        let prop = PropDef {
-            name: "key".into(),
-            doc: "simple string property".into(),
-            typ: TypeRef::Object("SampleObj".into()),
-            default: json!({
+        let prop = PropDef::new(
+            "key",
+            TypeRef::Object("SampleObj".into()),
+            json!({
                 "string": "bobo",
             }),
-        };
+        );
         let obj_defs = vec![ObjectDef {
             name: "SampleObj".into(),
-            props: vec![PropDef {
-                name: "string".into(),
-                typ: TypeRef::String,
-                doc: "".into(),
-                default: json!("a string"),
-            }],
+            props: vec![PropDef::new("string", TypeRef::String, json!("a string"))],
             ..Default::default()
         }];
         let fm = get_one_prop_feature_manifest_with_imports(
@@ -1867,20 +1847,10 @@ pub mod unit_tests {
 
     #[test]
     fn test_iter_feature_defs_deep_iterates_on_all_imports() -> Result<()> {
-        let prop_i = PropDef {
-            name: "key_i".into(),
-            doc: "simple string property".into(),
-            typ: TypeRef::String,
-            default: json!("string"),
-        };
+        let prop_i = PropDef::new("key_i", TypeRef::String, json!("string"));
         let fm_i = get_one_prop_feature_manifest(vec![], vec![], &prop_i);
 
-        let prop = PropDef {
-            name: "key".into(),
-            doc: "simple string property".into(),
-            typ: TypeRef::String,
-            default: json!("string"),
-        };
+        let prop = PropDef::new("key", TypeRef::String, json!("string"));
         let fm = get_one_prop_feature_manifest_with_imports(
             vec![],
             vec![],
@@ -2024,12 +1994,11 @@ pub mod unit_tests {
             vec![],
             vec![FeatureDef {
                 name: "feature_i".into(),
-                props: vec![PropDef {
-                    name: "prop_i_1".into(),
-                    typ: TypeRef::String,
-                    default: Value::String("prop_i_1_value".into()),
-                    doc: "".into(),
-                }],
+                props: vec![PropDef::new(
+                    "prop_i_1",
+                    TypeRef::String,
+                    Value::String("prop_i_1_value".into()),
+                )],
                 ..Default::default()
             }],
             HashMap::new(),
@@ -2040,12 +2009,11 @@ pub mod unit_tests {
             vec![],
             vec![FeatureDef {
                 name: "feature".into(),
-                props: vec![PropDef {
-                    name: "prop_1".into(),
-                    typ: TypeRef::String,
-                    default: Value::String("prop_1_value".into()),
-                    doc: "".into(),
-                }],
+                props: vec![PropDef::new(
+                    "prop_1",
+                    TypeRef::String,
+                    Value::String("prop_1_value".into()),
+                )],
                 ..Default::default()
             }],
             HashMap::from([(ModuleId::Local("test".into()), fm_i)]),
@@ -2071,12 +2039,11 @@ pub mod unit_tests {
             vec![],
             vec![FeatureDef {
                 name: "feature".into(),
-                props: vec![PropDef {
-                    name: "prop_1".into(),
-                    typ: TypeRef::String,
-                    default: Value::String("prop_1_value".into()),
-                    doc: "".into(),
-                }],
+                props: vec![PropDef::new(
+                    "prop_1",
+                    TypeRef::String,
+                    Value::String("prop_1_value".into()),
+                )],
                 ..Default::default()
             }],
             HashMap::new(),
@@ -2101,12 +2068,11 @@ pub mod unit_tests {
             vec![],
             vec![FeatureDef {
                 name: "feature".into(),
-                props: vec![PropDef {
-                    name: "prop_1".into(),
-                    typ: TypeRef::String,
-                    default: Value::String("prop_1_value".into()),
-                    doc: "".into(),
-                }],
+                props: vec![PropDef::new(
+                    "prop_1",
+                    TypeRef::String,
+                    Value::String("prop_1_value".into()),
+                )],
                 ..Default::default()
             }],
             HashMap::new(),
@@ -2135,12 +2101,11 @@ pub mod unit_tests {
             vec![],
             vec![FeatureDef {
                 name: "feature".into(),
-                props: vec![PropDef {
-                    name: "prop_1".into(),
-                    typ: TypeRef::Option(Box::new(TypeRef::String)),
-                    default: Value::Null,
-                    doc: "".into(),
-                }],
+                props: vec![PropDef::new(
+                    "prop_1",
+                    TypeRef::Option(Box::new(TypeRef::String)),
+                    Value::Null,
+                )],
                 ..Default::default()
             }],
             HashMap::new(),
@@ -2169,12 +2134,11 @@ pub mod unit_tests {
             vec![],
             vec![FeatureDef {
                 name: "feature".into(),
-                props: vec![PropDef {
-                    name: "prop_1".into(),
-                    typ: TypeRef::String,
-                    default: Value::String("prop_1_value".into()),
-                    doc: "".into(),
-                }],
+                props: vec![PropDef::new(
+                    "prop_1",
+                    TypeRef::String,
+                    json!("prop_1_value"),
+                )],
                 ..Default::default()
             }],
             HashMap::new(),
@@ -2197,12 +2161,7 @@ pub mod unit_tests {
     fn test_validate_feature_config_errors_on_invalid_object_prop() -> Result<()> {
         let obj_defs = vec![ObjectDef {
             name: "SampleObj".into(),
-            props: vec![PropDef {
-                name: "string".into(),
-                typ: TypeRef::String,
-                doc: "".into(),
-                default: json!("a string"),
-            }],
+            props: vec![PropDef::new("string", TypeRef::String, json!("a string"))],
             ..Default::default()
         }];
         let fm = get_feature_manifest(
@@ -2210,14 +2169,13 @@ pub mod unit_tests {
             vec![],
             vec![FeatureDef {
                 name: "feature".into(),
-                props: vec![PropDef {
-                    name: "prop_1".into(),
-                    typ: TypeRef::Object("SampleObj".into()),
-                    default: json!({
+                props: vec![PropDef::new(
+                    "prop_1",
+                    TypeRef::Object("SampleObj".into()),
+                    json!({
                         "string": "a value"
                     }),
-                    doc: "".into(),
-                }],
+                )],
                 ..Default::default()
             }],
             HashMap::new(),

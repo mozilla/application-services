@@ -1,0 +1,28 @@
+---
+about:
+  description: A manifest that should round trip
+  android:
+    class: FooNimbus
+    package: com.example.nimbus
+  ios:
+    class: FooNimbus
+    module: App
+channels:
+  - debug
+features:
+  onboarding:
+    description: A feature containing a field with pref-key
+    variables:
+      enabled:
+        description: If true, enable new style onboarding.
+        type: Boolean
+        pref-key: enrollment_enabled
+        default: false
+  messaging:
+    description: A feature allowing coenrollment
+    allow-coenrollment: true
+    variables:
+      enabled:
+        description: If true, enable this feature
+        type: Boolean
+        default: false
