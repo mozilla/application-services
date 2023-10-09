@@ -33,13 +33,22 @@ tasks:
       megazord: nimbus-experimenter
       target: aarch64-unknown-linux-gnu
 
-
   nimbus-experimenter-macos:
     attributes:
       megazord: nimbus-experimenter
       target: aarch64-apple-darwin
 
-  cirrus-linux:
+  cirrus-linux-x86_64-gnu:
     attributes:
       megazord: cirrus
-      target: x86_64-unknown-linux-musl
+      target: x86_64-unknown-linux-gnu
+
+  cirrus-linux-aarch64-gnu:
+    attributes:
+      megazord: cirrus
+      target: aarch64-unknown-linux-gnu
+
+  cirrus-macos:
+    attributes:
+      megazord: cirrus
+      target: aarch64-apple-darwin
