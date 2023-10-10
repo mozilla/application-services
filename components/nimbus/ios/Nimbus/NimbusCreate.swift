@@ -38,6 +38,7 @@ public extension Nimbus {
         dbPath: String,
         resourceBundles: [Bundle] = [Bundle.main],
         enabled: Bool = true,
+        userDefaults: UserDefaults? = nil,
         errorReporter: @escaping NimbusErrorReporter = defaultErrorReporter
     ) throws -> NimbusInterface {
         guard enabled else {
@@ -66,7 +67,7 @@ public extension Nimbus {
             )
         )
 
-        return Nimbus(nimbusClient: nimbusClient, resourceBundles: resourceBundles, errorReporter: errorReporter)
+        return Nimbus(nimbusClient: nimbusClient, resourceBundles: resourceBundles, userDefaults: userDefaults, errorReporter: errorReporter)
     }
 
     static func buildExperimentContext(

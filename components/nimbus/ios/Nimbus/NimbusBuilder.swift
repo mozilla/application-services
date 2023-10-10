@@ -132,7 +132,7 @@ public class NimbusBuilder {
     var resourceBundles: [Bundle] = [.main]
 
     /**
-     * The object generated from the `nimbus.fml.yaml` file and the nimbus-gradle-plugin.
+     * The object generated from the `nimbus.fml.yaml` file.
      */
     @discardableResult
     public func with(featureManifest: FeatureManifestInterface) -> NimbusBuilder {
@@ -141,6 +141,17 @@ public class NimbusBuilder {
     }
 
     var featureManifest: FeatureManifestInterface?
+
+    /**
+     * Main user defaults for the app.
+     */
+    @discardableResult
+    public func with(userDefaults: UserDefaults) -> NimbusBuilder {
+        self.userDefaults = userDefaults
+        return self
+    }
+
+    var userDefaults: UserDefaults = UserDefaults.standard
 
     /**
      * The command line arguments for the app. This is useful for QA, and can be safely left in the app in production.
@@ -240,6 +251,7 @@ public class NimbusBuilder {
                           coenrollingFeatureIds: getCoenrollingFeatureIds(),
                           dbPath: dbFilePath,
                           resourceBundles: resourceBundles,
+                          userDefaults: userDefaults,
                           errorReporter: errorReporter)
     }
 

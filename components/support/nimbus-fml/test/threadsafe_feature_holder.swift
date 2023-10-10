@@ -12,7 +12,7 @@ let queue: OperationQueue = {
 }()
 
 let api: FeaturesInterface = HardcodedNimbusFeatures(with: ["test-feature-holder": "{}"])
-let holder = FeatureHolder<String>({ api }, featureId: "test-feature-holder") { _ in "NO CRASH" }
+let holder = FeatureHolder<String>({ api }, featureId: "test-feature-holder") { _, _ in "NO CRASH" }
 
 for _ in 1 ..< 10000 {
     queue.addOperation {
