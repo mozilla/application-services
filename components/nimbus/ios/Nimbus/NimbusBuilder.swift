@@ -151,7 +151,7 @@ public class NimbusBuilder {
         return self
     }
 
-    var userDefaults: UserDefaults = UserDefaults.standard
+    var userDefaults = UserDefaults.standard
 
     /**
      * The command line arguments for the app. This is useful for QA, and can be safely left in the app in production.

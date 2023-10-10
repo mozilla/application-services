@@ -50,12 +50,35 @@ public class {{class_name}} {
 {# -#}
     {% for p in inner.props() %}
     {%- let prop_swift = p.name()|var_name %}
+    {%- let type_swift = p.typ()|type_label %}
+    {%- let defaults = format!("_defaults.{}", prop_swift) %}
+    {%- let getter = p.typ()|property(p.name(), "self._variables", defaults) %}
     {{ p.doc()|comment("    ") }}
-    public lazy var {{ prop_swift }}: {{ p.typ()|type_label }} = {
-        {%- let defaults = format!("_defaults.{}", prop_swift) %}
-        {{ p.typ()|property(p.name(), "self._variables", defaults)}}
+    {%- if !p.has_prefs() %}
+    public lazy var {{ prop_swift }}: {{ type_swift }} = {
+        {{ getter }}
     }()
-    {%- endfor %}
+    {%- else %}
+    public var {{ prop_swift }}: {{ type_swift }} {
+        {%- let prefs = "prefs" %}
+        {%- let key = p.pref_key().unwrap() %}
+        {#- Using `object(forKey:)` here as it returns an optional that just needs to be cast.
+            `integer(forKey:)` returns zero, `bool(forKey:)` returns `false` if the key is not
+            present.
+
+            Now we only need to use the type label as part of the cast, we don't need to implement
+            separate type specific preference getters.
+
+            `has_prefs()` checks if the type can be got from UserDefaults.
+            #}
+        if let {{ prefs }} = self._prefs,
+            let {{ prop_swift }} = {{ prefs }}.object(forKey: {{ key|quoted }}) as? {{ type_swift }} {
+            return {{ prop_swift }}
+        }
+        return {{ getter }}
+    }
+    {%- endif %}
+    {% endfor %}
 }
 
 {% endmacro %}}

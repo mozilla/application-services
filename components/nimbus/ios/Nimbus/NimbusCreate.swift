@@ -85,7 +85,12 @@ public extension Nimbus {
             metricsHandler: GleanMetricsHandler()
         )
 
-        return Nimbus(nimbusClient: nimbusClient, resourceBundles: resourceBundles, userDefaults: userDefaults, errorReporter: errorReporter)
+        return Nimbus(
+            nimbusClient: nimbusClient,
+            resourceBundles: resourceBundles,
+            userDefaults: userDefaults,
+            errorReporter: errorReporter
+        )
     }
 
     static func buildExperimentContext(
