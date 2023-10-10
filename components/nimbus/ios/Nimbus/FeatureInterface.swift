@@ -61,8 +61,6 @@ public protocol FeaturesInterface: AnyObject {
 
 public extension FeaturesInterface {
     var userDefaults: UserDefaults? {
-        get {
-            nil
-        }
+        nil
     }
 }

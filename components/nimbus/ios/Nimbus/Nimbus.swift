@@ -36,7 +36,7 @@ public class Nimbus: NimbusInterface {
         self.errorReporter = errorReporter
         self.nimbusClient = nimbusClient
         self.resourceBundles = resourceBundles
-        self._userDefaults = userDefaults
+        _userDefaults = userDefaults
         NilVariables.instance.set(bundles: resourceBundles)
     }
 }
@@ -107,9 +107,7 @@ extension Nimbus: NimbusEventStore {
 
 extension Nimbus: FeaturesInterface {
     public var userDefaults: UserDefaults? {
-        get {
-            _userDefaults
-        }
+        _userDefaults
     }
 
     public func recordExposureEvent(featureId: String, experimentSlug: String? = nil) {
