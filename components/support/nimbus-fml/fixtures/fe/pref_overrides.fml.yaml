@@ -4,6 +4,9 @@ about:
   kotlin:
     class: .AppConfig
     package: com.example.nimbus
+  swift:
+    class: AppConfig
+    module: App
 channels:
   - debug
 features:
@@ -24,9 +27,9 @@ features:
         type: String
         description: A String
         pref-key: my-string-pref-key
-        default: manifest
+        default: from manifest
       my-text:
         type: Text
         description: A Text
         pref-key: my-text-pref-key
-        default: the manifest
+        default: from manifest
