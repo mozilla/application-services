@@ -987,4 +987,13 @@ mod test {
         )?;
         Ok(())
     }
+
+    #[test]
+    fn test_with_preference_overrides() -> Result<()> {
+        generate_multiple_and_assert(
+            "test/pref_overrides.kts",
+            &[("fixtures/fe/pref_overrides.fml.yaml", "debug")],
+        )?;
+        Ok(())
+    }
 }
