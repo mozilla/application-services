@@ -100,6 +100,7 @@ impl<'a> FeatureManifestDeclaration<'a> {
                     .flatten(),
             )
             .chain(as_module)
+            .chain(vec!["Foundation".to_string()])
             .filter(|i| i != my_module)
             .collect::<HashSet<String>>()
             .into_iter()
