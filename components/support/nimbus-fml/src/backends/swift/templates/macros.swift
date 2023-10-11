@@ -13,7 +13,7 @@
 {% let class_name = inner.name()|class_name -%}
 
 {{ inner.doc()|comment("") }}
-public class {{class_name}} {
+public class {{class_name}}: FMLObjectInterface {
     private let _variables: Variables
     private let _defaults: Defaults
     private let _prefs: UserDefaults?
@@ -71,7 +71,7 @@ public class {{class_name}} {
 
             `has_prefs()` checks if the type can be got from UserDefaults.
             #}
-        if let {{ prefs }} = self._prefs,
+        if let {{ prefs }} = {% call prefs() %},
             let {{ prop_swift }} = {{ prefs }}.object(forKey: {{ key|quoted }}) as? {{ type_swift }} {
             return {{ prop_swift }}
         }
@@ -81,4 +81,6 @@ public class {{class_name}} {
     {% endfor %}
 }
 
-{% endmacro %}}
+{%- endmacro %}}
+
+{% macro prefs() %}self._prefs{% endmacro %}

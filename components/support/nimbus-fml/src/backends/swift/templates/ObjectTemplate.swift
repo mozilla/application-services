@@ -1,7 +1,7 @@
 {%- import "macros.swift" as swift %}
 {%- let inner = self.inner() %}
 {% call swift::render_class(inner) -%}
-{% let class_name = inner.name()|class_name -%}
+{%- let class_name = inner.name()|class_name %}
 
 public extension {{class_name}} {
     func _mergeWith(_ defaults: {{class_name}}?) -> {{class_name}} {
