@@ -824,6 +824,10 @@ impl FeatureDef {
 
         Value::Object(props)
     }
+
+    pub fn has_prefs(&self) -> bool {
+        self.props.iter().any(|p| p.has_prefs())
+    }
 }
 impl TypeFinder for FeatureDef {
     fn find_types(&self, types: &mut HashSet<TypeRef>) {
