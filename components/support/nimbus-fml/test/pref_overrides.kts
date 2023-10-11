@@ -31,6 +31,17 @@ val nimbusFromRust = HardcodedNimbusFeatures(context,
         "my-text" to "from json"
     ))
 )
+
+// Before initialization with hardcoded, just get values from the manifest.
+val feature0 = AppConfig.features.myFeature.value()
+
+assert(feature0.myBoolean == false)
+assert(feature0.myInt == 0)
+assert(feature0.myString == "from manifest")
+assert(feature0.myText == "from manifest")
+assert(!feature0.isModified())
+
+
 val nimbus = PrefNimbusFeatures(prefs, nimbusFromRust)
 
 AppConfig.initialize { nimbus }
@@ -41,6 +52,7 @@ assert(feature.myBoolean == false)
 assert(feature.myInt == 100)
 assert(feature.myString == "from json")
 assert(feature.myText == "from json")
+assert(!feature.isModified())
 
 prefs.put("my-boolean-pref-key", true)
 prefs.put("my-int-pref-key", 42)
@@ -51,3 +63,4 @@ assert(feature.myBoolean == true)
 assert(feature.myInt == 42)
 assert(feature.myString == "from pref")
 assert(feature.myText == "from pref")
+assert(feature.isModified())

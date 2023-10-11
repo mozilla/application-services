@@ -61,7 +61,9 @@ class FeatureHolder<T : FMLFeatureInterface>(
      * their behavior because of it.
      */
     fun recordExposure() {
-        getSdk()?.recordExposureEvent(featureId)
+        if (!value().isModified()) {
+            getSdk()?.recordExposureEvent(featureId)
+        }
     }
 
     /**
@@ -74,7 +76,9 @@ class FeatureHolder<T : FMLFeatureInterface>(
      * [recordExposure] instead.
      */
     fun recordExperimentExposure(slug: String) {
-        getSdk()?.recordExposureEvent(featureId, slug)
+        if (!value().isModified()) {
+            getSdk()?.recordExposureEvent(featureId, slug)
+        }
     }
 
     /**
@@ -172,8 +176,14 @@ interface FMLObjectInterface {
  *
  * App developers should use the generated concrete classes, which
  * implement this interface.
- *
- * This interface is really only here to allow bridging between Kotlin
- * and other languages.
  */
-interface FMLFeatureInterface : FMLObjectInterface
+interface FMLFeatureInterface : FMLObjectInterface {
+    /**
+     * A test if the feature configuration has been modified somehow, invalidating any experiment
+     * that uses it.
+     *
+     * This may be `true` if a `pref-key` has been set in the feature manifest and the user has
+     * set that preference.
+     */
+    fun isModified(): Boolean = false
+}
