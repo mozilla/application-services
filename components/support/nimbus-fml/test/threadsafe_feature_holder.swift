@@ -5,6 +5,13 @@
 import FeatureManifest
 import Foundation
 
+class Feature: FMLFeatureInterface {
+    let string: String
+    init(_ string: String) {
+        self.string = string
+    }
+}
+
 let queue: OperationQueue = {
     let queue = OperationQueue()
     queue.maxConcurrentOperationCount = 5
@@ -12,7 +19,7 @@ let queue: OperationQueue = {
 }()
 
 let api: FeaturesInterface = HardcodedNimbusFeatures(with: ["test-feature-holder": "{}"])
-let holder = FeatureHolder<String>({ api }, featureId: "test-feature-holder") { _, _ in "NO CRASH" }
+let holder = FeatureHolder<Feature>({ api }, featureId: "test-feature-holder") { _, _ in Feature("NO CRASH") }
 
 for _ in 1 ..< 10000 {
     queue.addOperation {
