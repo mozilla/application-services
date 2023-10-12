@@ -41,7 +41,7 @@ and does not submit any telemetry, so you do not need to request a data-review b
 ### Prerequisites
 
 To use this component, your application must be registered to [integrate with Firefox Accounts
-as an OAuth client](https://mozilla.github.io/ecosystem-platform/docs/process/integration-with-fxa)
+as an OAuth client](https://mozilla.github.io/ecosystem-platform/relying-parties/tutorials/integration-with-fxa)
 and have a unique OAuth `client_id`.
 
 You should also be familiar with how to integrate application-services components
