@@ -27,6 +27,9 @@
   - This adds methods to get the feature_ids and descriptions from a loaded manifest.
 - Added a `channels` subcommmand to the command line ([#5844](https://github.com/mozilla/application-services/pull/5844)).
   - This prints the channels for the given manifest.
+- Added `pref-key` to feature variables schema definition ([#5862](https://github.com/mozilla/application-services/pull/5862)).
+  - This allows developers to override remote and default values of top-level variables with preferences.
+  - Requires setting `userDefaults` and `sharedPreferences` in the call to `NimbusBuilder`.
 
 ### 🦊 What's Changed 🦊
 
