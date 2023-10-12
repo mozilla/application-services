@@ -9,7 +9,15 @@ mod inspector;
 mod test_helper;
 
 pub use config::FmlLoaderConfig;
-pub use descriptor::FmlFeatureDescriptor;
+cfg_if::cfg_if! {
+    if #[cfg(feature = "uniffi-bindings")] {
+    use crate::frontend::DocumentationLink;
+    use url::Url;
+    use std::str::FromStr;
+    use email_address::EmailAddress;
+    use descriptor::FmlFeatureDescriptor;
+    }
+}
 pub use inspector::{FmlEditorError, FmlFeatureInspector};
 use serde_json::Value;
 
@@ -164,6 +172,32 @@ impl UniffiCustomTypeConverter for JsonObject {
 
     fn from_custom(obj: Self) -> Self::Builtin {
         serde_json::Value::Object(obj).to_string()
+    }
+}
+
+#[cfg(feature = "uniffi-bindings")]
+impl UniffiCustomTypeConverter for Url {
+    type Builtin = String;
+
+    fn into_custom(val: Self::Builtin) -> uniffi::Result<Self> {
+        Ok(Self::from_str(&val)?)
+    }
+
+    fn from_custom(obj: Self) -> Self::Builtin {
+        obj.as_str().to_string()
+    }
+}
+
+#[cfg(feature = "uniffi-bindings")]
+impl UniffiCustomTypeConverter for EmailAddress {
+    type Builtin = String;
+
+    fn into_custom(val: Self::Builtin) -> uniffi::Result<Self> {
+        Ok(Self::from_str(val.as_str())?)
+    }
+
+    fn from_custom(obj: Self) -> Self::Builtin {
+        obj.as_str().to_string()
     }
 }
 
