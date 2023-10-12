@@ -99,7 +99,7 @@ public enum MZKeychainItemAccessibility {
     }
 }
 
-private let keychainItemAccessibilityLookup: [MZKeychainItemAccessibility: CFString] = {
+private let keychainItemAccessibilityLookup: [MZKeychainItemAccessibility: CFString] =
     [
         .afterFirstUnlock: kSecAttrAccessibleAfterFirstUnlock,
         .afterFirstUnlockThisDeviceOnly: kSecAttrAccessibleAfterFirstUnlockThisDeviceOnly,
@@ -107,7 +107,6 @@ private let keychainItemAccessibilityLookup: [MZKeychainItemAccessibility: CFStr
         .whenUnlocked: kSecAttrAccessibleWhenUnlocked,
         .whenUnlockedThisDeviceOnly: kSecAttrAccessibleWhenUnlockedThisDeviceOnly,
     ]
-}()
 
 extension MZKeychainItemAccessibility: MZKeychainAttrRepresentable {
     var keychainAttrValue: CFString {
