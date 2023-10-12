@@ -42,6 +42,8 @@
 
 ### ✨ What's New ✨
 
+- Added new optional metadata fields to a feature definition ([#5865](https://github.com/mozilla/application-services/pull/5865)).
+  - This is to open up uses of the FML in experimenter, especially for QA and feature configuration.
 - Added support to fetch different versions of a manifest to the `FmlClient` ([#5827](https://github.com/mozilla/application-services/pull/5827)).
 - Added a `FmlFeatureInspector` to the `FmlClient` ([#5827](https://github.com/mozilla/application-services/pull/5827)).
   - This adds methods to parse a feature configuration and return errors.
