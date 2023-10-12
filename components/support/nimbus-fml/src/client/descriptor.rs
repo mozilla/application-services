@@ -4,13 +4,21 @@
 
 use std::collections::BTreeSet;
 
-use crate::{intermediate_representation::FeatureDef, FmlClient};
+use email_address::EmailAddress;
+use url::Url;
 
-#[derive(Debug, PartialEq)]
+use crate::{frontend::DocumentationLink, intermediate_representation::FeatureDef, FmlClient};
+
+#[derive(Debug, PartialEq, Default)]
 pub struct FmlFeatureDescriptor {
     pub(crate) id: String,
     pub(crate) description: String,
     pub(crate) is_coenrolling: bool,
+    pub(crate) documentation: Vec<DocumentationLink>,
+    pub(crate) contacts: Vec<EmailAddress>,
+    pub(crate) meta_bug: Option<Url>,
+    pub(crate) events: Vec<Url>,
+    pub(crate) configurator: Option<Url>,
 }
 
 impl From<&FeatureDef> for FmlFeatureDescriptor {
@@ -19,6 +27,11 @@ impl From<&FeatureDef> for FmlFeatureDescriptor {
             id: f.name(),
             description: f.doc(),
             is_coenrolling: f.allow_coenrollment,
+            documentation: f.metadata.documentation.clone(),
+            contacts: f.metadata.contacts.clone(),
+            meta_bug: f.metadata.meta_bug.clone(),
+            events: f.metadata.events.clone(),
+            configurator: f.metadata.configurator.clone(),
         }
     }
 }
@@ -71,7 +84,8 @@ mod unit_tests {
             FmlFeatureDescriptor {
                 id: "my_strings".to_string(),
                 description: "Testing all the ways bundled text can work".to_string(),
-                is_coenrolling: false
+                is_coenrolling: false,
+                ..Default::default()
             }
         );
 
@@ -82,7 +96,8 @@ mod unit_tests {
             FmlFeatureDescriptor {
                 id: "my_images".to_string(),
                 description: "Testing all the ways bundled images can work".to_string(),
-                is_coenrolling: false
+                is_coenrolling: false,
+                ..Default::default()
             }
         );
 

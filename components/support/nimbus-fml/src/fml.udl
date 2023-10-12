@@ -2,6 +2,10 @@ namespace fml {};
 
 [Custom]
 typedef string JsonObject;
+[Custom]
+typedef string Url;
+[Custom]
+typedef string EmailAddress;
 
 [Error]
 enum FMLError {
@@ -72,6 +76,23 @@ dictionary FmlFeatureDescriptor {
     string id;
     string description;
     boolean is_coenrolling;
+
+    /// Documentation for this feature.
+    sequence<DocumentationLink> documentation;
+    /// Email addresses of engineers and product owners who can answer questions about this feature
+    sequence<EmailAddress> contacts;
+    /// Where bugs can be filed on this feature
+    Url? meta_bug;
+    /// The Glean events produced by this feature.
+    sequence<Url> events;
+    /// A web based configurator to generate JSON for this feature.
+    Url? configurator;
+};
+
+/// A named document with a link to it
+dictionary DocumentationLink {
+    string name;
+    Url url;
 };
 
 interface FmlFeatureInspector {
