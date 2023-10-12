@@ -28,7 +28,7 @@ pub const SQL: &str = "
         rank INTEGER NOT NULL,
         suggestion_id INTEGER NOT NULL REFERENCES suggestions(id),
         PRIMARY KEY (keyword_prefix, keyword_suffix, suggestion_id) 
-    );
+    ) WITHOUT ROWID;
 
     CREATE UNIQUE INDEX keywords_suggestion_id_rank ON keywords(suggestion_id, rank);
 
