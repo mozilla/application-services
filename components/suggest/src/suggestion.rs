@@ -54,13 +54,6 @@ pub enum Suggestion {
     },
 }
 
-impl Suggestion {
-    /// Returns `true` if the suggestion is sponsored.
-    pub(crate) fn is_sponsored(&self) -> bool {
-        matches!(self, Self::Amp { .. })
-    }
-}
-
 /// Replaces all template parameters in a "raw" sponsored suggestion URL,
 /// producing a "cooked" URL with real values.
 pub(crate) fn cook_raw_suggestion_url(raw_url: &str) -> String {

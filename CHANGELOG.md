@@ -14,6 +14,12 @@
 - Exposed rust-log-forwarder for iOS ([#5840](https://github.com/mozilla/application-services/pull/5840)).
 - Fixed rust-log-forwarder bindings for Focus iOS ([5858](https://github.com/mozilla/application-services/pull/5858)).
 
+## Suggest
+
+### ⚠️ Breaking Changes ⚠️
+
+* The `include_sponsored` and `include_non_sponsored` Boolean options in `SuggestionQuery` have been replaced with a `providers` list. Consumers must now explicitly pass the providers they want to query ([#5867](https://github.com/mozilla/application-services/pull/5867)).
+
 # v119.0 (_2023-09-25_)
 
 ## Nimbus SDK ⛅️🔬🔭

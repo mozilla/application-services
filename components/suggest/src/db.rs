@@ -14,16 +14,16 @@ use rusqlite::{
 };
 use sql_support::{open_database::open_database_with_flags, ConnExt};
 
-use crate::pocket::{split_keyword, KeywordConfidence};
 use crate::rs::{DownloadedAmoSuggestion, DownloadedPocketSuggestion};
 use crate::{
     keyword::full_keyword,
+    pocket::{split_keyword, KeywordConfidence},
     provider::SuggestionProvider,
     rs::{DownloadedAmpWikipediaSuggestion, SuggestRecordId},
     schema::{SuggestConnectionInitializer, VERSION},
     store::{UnparsableRecord, UnparsableRecords},
     suggestion::{cook_raw_suggestion_url, Suggestion},
-    Result,
+    Result, SuggestionQuery,
 };
 
 /// The metadata key whose value is the timestamp of the last record ingested
@@ -123,24 +123,45 @@ impl<'a> SuggestDao<'a> {
         Self { conn, scope }
     }
 
-    /// Fetches suggestions that match the given keyword from the database.
-    pub fn fetch_by_keyword(&self, keyword: &str) -> Result<Vec<Suggestion>> {
-        let (keyword_prefix, keyword_suffix) = split_keyword(keyword);
-        Ok(self.conn.query_rows_and_then_cached(
-            "SELECT s.id, k.rank, s.title, s.url, s.provider, NULL as confidence, NULL as keyword_suffix
-             FROM suggestions s
-             JOIN keywords k ON k.suggestion_id = s.id
-             WHERE k.keyword = :keyword
-             UNION ALL
-             SELECT s.id, k.rank, s.title, s.url, s.provider, k.confidence, k.keyword_suffix
-             FROM suggestions s
-             JOIN pocket_keywords k ON k.suggestion_id = s.id
-             WHERE k.keyword_prefix = :keyword_prefix",
-            named_params! {
-                ":keyword": keyword,
-                ":keyword_prefix": keyword_prefix,
-            },
-            |row| -> Result<Option<Suggestion>> {
+    /// Fetches suggestions that match the given query from the database.
+    pub fn fetch_suggestions(&self, query: &SuggestionQuery) -> Result<Vec<Suggestion>> {
+        let (keyword_prefix, keyword_suffix) = split_keyword(&query.keyword);
+
+        let (mut statement, params) = if query.providers.contains(&SuggestionProvider::Pocket) {
+            (self.conn.prepare_cached(
+                &format!(
+                    "SELECT s.id, k.rank, s.title, s.url, s.provider, NULL as confidence, NULL as keyword_suffix
+                     FROM suggestions s
+                     JOIN keywords k ON k.suggestion_id = s.id
+                     WHERE s.provider IN ({}) AND
+                           k.keyword = :keyword
+                     UNION ALL
+                     SELECT s.id, k.rank, s.title, s.url, s.provider, k.confidence, k.keyword_suffix
+                     FROM suggestions s
+                     JOIN pocket_keywords k ON k.suggestion_id = s.id
+                     WHERE k.keyword_prefix = :keyword_prefix",
+                    providers_to_sql_list(&query.providers),
+                ),
+            )?, vec![
+                (":keyword", &query.keyword as &dyn ToSql),
+                (":keyword_prefix", &keyword_prefix as &dyn ToSql),
+            ])
+        } else {
+            (self.conn.prepare_cached(
+                &format!(
+                    "SELECT s.id, k.rank, s.title, s.url, s.provider, NULL as confidence, NULL as keyword_suffix
+                     FROM suggestions s
+                     JOIN keywords k ON k.suggestion_id = s.id
+                     WHERE s.provider IN ({}) AND
+                           k.keyword = :keyword",
+                    providers_to_sql_list(&query.providers),
+                ),
+            )?, vec![
+                (":keyword", &query.keyword as &dyn ToSql),
+            ])
+        };
+
+        let suggestions = statement.query_and_then(&*params, |row| -> Result<Option<Suggestion>> {
                 let suggestion_id: i64 = row.get("id")?;
                 let title = row.get("title")?;
                 let raw_url = row.get::<_, String>("url")?;
@@ -178,7 +199,7 @@ impl<'a> SuggestDao<'a> {
                                     title,
                                     url: cooked_url,
                                     raw_url,
-                                    full_keyword: full_keyword(keyword, &keywords),
+                                    full_keyword: full_keyword(&query.keyword, &keywords),
                                     icon: row.get("icon")?,
                                     impression_url: row.get("impression_url")?,
                                     click_url: cooked_click_url,
@@ -201,7 +222,7 @@ impl<'a> SuggestDao<'a> {
                         Ok(Some(Suggestion::Wikipedia {
                             title,
                             url: raw_url,
-                            full_keyword: full_keyword(keyword, &keywords),
+                            full_keyword: full_keyword(&query.keyword, &keywords),
                             icon,
                         }))
                     }
@@ -258,7 +279,9 @@ impl<'a> SuggestDao<'a> {
                     }
                 }
             }
-        )?.into_iter().flatten().collect())
+        )?.flat_map(Result::transpose).collect::<Result<_>>()?;
+
+        Ok(suggestions)
     }
 
     /// Inserts all suggestions from a downloaded AMO attachment into
@@ -271,23 +294,24 @@ impl<'a> SuggestDao<'a> {
         for suggestion in suggestions {
             self.scope.err_if_interrupted()?;
             let suggestion_id: i64 = self.conn.query_row_and_then_cachable(
-                "INSERT INTO suggestions(
-                     record_id,
-                     provider,
-                     title,
-                     url
-                 )
-                 VALUES(
-                     :record_id,
-                     :provider,
-                     :title,
-                     :url
-                 )
-                 RETURNING id
-                 ",
+                &format!(
+                    "INSERT INTO suggestions(
+                         record_id,
+                         provider,
+                         title,
+                         url
+                     )
+                     VALUES(
+                         :record_id,
+                         {},
+                         :title,
+                         :url
+                     )
+                     RETURNING id",
+                    SuggestionProvider::Amo as u8
+                ),
                 named_params! {
                     ":record_id": record_id.as_str(),
-                    ":provider": SuggestionProvider::Amo,
                     ":title": suggestion.title,
                     ":url": suggestion.url,
                 },
@@ -358,23 +382,24 @@ impl<'a> SuggestDao<'a> {
             let common_details = suggestion.common_details();
             let provider = suggestion.provider();
             let suggestion_id: i64 = self.conn.query_row_and_then_cachable(
-                "INSERT INTO suggestions(
-                     record_id,
-                     provider,
-                     title,
-                     url
-                 )
-                 VALUES(
-                     :record_id,
-                     :provider,
-                     :title,
-                     :url
-                 )
-                 RETURNING id
-                 ",
+                &format!(
+                    "INSERT INTO suggestions(
+                         record_id,
+                         provider,
+                         title,
+                         url
+                     )
+                     VALUES(
+                         :record_id,
+                         {},
+                         :title,
+                         :url
+                     )
+                     RETURNING id",
+                    provider as u8
+                ),
                 named_params! {
                     ":record_id": record_id.as_str(),
-                    ":provider": &provider,
                     ":title": common_details.title,
                     ":url": common_details.url,
 
@@ -464,23 +489,24 @@ impl<'a> SuggestDao<'a> {
         for suggestion in suggestions {
             self.scope.err_if_interrupted()?;
             let suggestion_id: i64 = self.conn.query_row_and_then_cachable(
-                "INSERT INTO suggestions(
-                     record_id,
-                     provider,
-                     title,
-                     url
-                 )
-                 VALUES(
-                     :record_id,
-                     :provider,
-                     :title,
-                     :url
-                 )
-                 RETURNING id
-                 ",
+                &format!(
+                    "INSERT INTO suggestions(
+                         record_id,
+                         provider,
+                         title,
+                         url
+                     )
+                     VALUES(
+                         :record_id,
+                         {},
+                         :title,
+                         :url
+                     )
+                     RETURNING id",
+                    SuggestionProvider::Pocket as u8
+                ),
                 named_params! {
                     ":record_id": record_id.as_str(),
-                    ":provider": SuggestionProvider::Pocket,
                     ":title": suggestion.title,
                     ":url": suggestion.url,
                 },
@@ -658,4 +684,13 @@ impl<'a> SuggestDao<'a> {
         };
         self.put_meta(UNPARSABLE_RECORDS_META_KEY, unparsable_records)
     }
+}
+
+/// Formats a slice of [`SuggestionProvider`]s as a SQL list.
+fn providers_to_sql_list(providers: &[SuggestionProvider]) -> String {
+    providers
+        .iter()
+        .map(|&provider| (provider as u8).to_string())
+        .collect::<Vec<_>>()
+        .join(",")
 }
