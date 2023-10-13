@@ -176,20 +176,10 @@ impl<S> SuggestStoreInner<S> {
     }
 
     fn query(&self, query: SuggestionQuery) -> Result<Vec<Suggestion>> {
-        if query.keyword.is_empty() {
+        if query.keyword.is_empty() || query.providers.is_empty() {
             return Ok(Vec::new());
         }
-        let suggestions = self
-            .dbs()?
-            .reader
-            .read(|dao| dao.fetch_by_keyword(&query.keyword))?;
-        Ok(suggestions
-            .into_iter()
-            .filter(|suggestion| {
-                (suggestion.is_sponsored() && query.include_sponsored)
-                    || (!suggestion.is_sponsored() && query.include_non_sponsored)
-            })
-            .collect())
+        self.dbs()?.reader.read(|dao| dao.fetch_suggestions(&query))
     }
 
     fn interrupt(&self) {
@@ -424,6 +414,8 @@ mod tests {
     use serde_json::json;
     use sql_support::ConnExt;
 
+    use crate::SuggestionProvider;
+
     /// Creates a unique in-memory Suggest store.
     fn unique_test_store<S>(settings_client: S) -> SuggestStoreInner<S>
     where
@@ -624,7 +616,10 @@ mod tests {
                     },
                 ]
             "#]]
-            .assert_debug_eq(&dao.fetch_by_keyword("lo")?);
+            .assert_debug_eq(&dao.fetch_suggestions(&SuggestionQuery {
+                keyword: "lo".into(),
+                providers: vec![SuggestionProvider::Amp],
+            })?);
 
             Ok(())
         })?;
@@ -723,7 +718,10 @@ mod tests {
                     },
                 ]
             "#]]
-            .assert_debug_eq(&dao.fetch_by_keyword("la")?);
+            .assert_debug_eq(&dao.fetch_suggestions(&SuggestionQuery {
+                keyword: "la".into(),
+                providers: vec![SuggestionProvider::Amp],
+            })?);
             expect![[r#"
                 [
                     Amp {
@@ -756,7 +754,10 @@ mod tests {
                     },
                 ]
             "#]]
-            .assert_debug_eq(&dao.fetch_by_keyword("pe")?);
+            .assert_debug_eq(&dao.fetch_suggestions(&SuggestionQuery {
+                keyword: "pe".into(),
+                providers: vec![SuggestionProvider::Amp],
+            })?);
 
             Ok(())
         })?;
@@ -819,7 +820,10 @@ mod tests {
                     },
                 ]
             "#]]
-            .assert_debug_eq(&dao.fetch_by_keyword("la")?);
+            .assert_debug_eq(&dao.fetch_suggestions(&SuggestionQuery {
+                keyword: "la".into(),
+                providers: vec![SuggestionProvider::Amp],
+            })?);
 
             Ok(())
         })?;
@@ -893,7 +897,10 @@ mod tests {
                     },
                 ]
             "#]]
-            .assert_debug_eq(&dao.fetch_by_keyword("la")?);
+            .assert_debug_eq(&dao.fetch_suggestions(&SuggestionQuery {
+                keyword: "la".into(),
+                providers: vec![SuggestionProvider::Amp],
+            })?);
             Ok(())
         })?;
 
@@ -940,7 +947,12 @@ mod tests {
 
         store.dbs()?.reader.read(|dao| {
             assert_eq!(dao.get_meta(LAST_INGEST_META_KEY)?, Some(30u64));
-            assert!(dao.fetch_by_keyword("la")?.is_empty());
+            assert!(dao
+                .fetch_suggestions(&SuggestionQuery {
+                    keyword: "la".into(),
+                    providers: vec![SuggestionProvider::Amp],
+                })?
+                .is_empty());
             expect![[r#"
                 [
                     Amp {
@@ -958,7 +970,10 @@ mod tests {
                     },
                 ]
             "#]]
-            .assert_debug_eq(&dao.fetch_by_keyword("los ")?);
+            .assert_debug_eq(&dao.fetch_suggestions(&SuggestionQuery {
+                keyword: "los ".into(),
+                providers: vec![SuggestionProvider::Amp],
+            })?);
             expect![[r#"
                 [
                     Amp {
@@ -976,7 +991,10 @@ mod tests {
                     },
                 ]
             "#]]
-            .assert_debug_eq(&dao.fetch_by_keyword("pe")?);
+            .assert_debug_eq(&dao.fetch_suggestions(&SuggestionQuery {
+                keyword: "pe".into(),
+                providers: vec![SuggestionProvider::Amp],
+            })?);
             Ok(())
         })?;
 
@@ -1132,7 +1150,10 @@ mod tests {
                     },
                 ]
             "#]]
-            .assert_debug_eq(&dao.fetch_by_keyword("la")?);
+            .assert_debug_eq(&dao.fetch_suggestions(&SuggestionQuery {
+                keyword: "la".into(),
+                providers: vec![SuggestionProvider::Amp],
+            })?);
             expect![[r#"
                 [
                     Amp {
@@ -1168,7 +1189,10 @@ mod tests {
                     },
                 ]
             "#]]
-            .assert_debug_eq(&dao.fetch_by_keyword("lo")?);
+            .assert_debug_eq(&dao.fetch_suggestions(&SuggestionQuery {
+                keyword: "lo".into(),
+                providers: vec![SuggestionProvider::Amp],
+            })?);
             Ok(())
         })?;
 
@@ -1501,22 +1525,30 @@ mod tests {
 
         let table = [
             (
-                "empty keyword",
+                "empty keyword; all providers",
                 SuggestionQuery {
                     keyword: String::new(),
-                    include_sponsored: true,
-                    include_non_sponsored: true,
+                    providers: vec![
+                        SuggestionProvider::Amp,
+                        SuggestionProvider::Wikipedia,
+                        SuggestionProvider::Amo,
+                        SuggestionProvider::Pocket,
+                    ],
                 },
                 expect![[r#"
                     []
                 "#]],
             ),
             (
-                "keyword = `la`; sponsored and non-sponsored",
+                "keyword = `la`; all providers",
                 SuggestionQuery {
                     keyword: "la".into(),
-                    include_sponsored: true,
-                    include_non_sponsored: true,
+                    providers: vec![
+                        SuggestionProvider::Amp,
+                        SuggestionProvider::Wikipedia,
+                        SuggestionProvider::Amo,
+                        SuggestionProvider::Pocket,
+                    ],
                 },
                 expect![[r#"
                     [
@@ -1552,11 +1584,10 @@ mod tests {
                 "#]],
             ),
             (
-                "keyword = `la`; sponsored only",
+                "keyword = `la`; AMP only",
                 SuggestionQuery {
                     keyword: "la".into(),
-                    include_sponsored: true,
-                    include_non_sponsored: false,
+                    providers: vec![SuggestionProvider::Amp],
                 },
                 expect![[r#"
                     [
@@ -1592,55 +1623,48 @@ mod tests {
                 "#]],
             ),
             (
-                "keyword = `la`; non-sponsored only",
+                "keyword = `la`; Wikipedia, AMO, and Pocket",
                 SuggestionQuery {
                     keyword: "la".into(),
-                    include_sponsored: false,
-                    include_non_sponsored: true,
+                    providers: vec![
+                        SuggestionProvider::Wikipedia,
+                        SuggestionProvider::Amo,
+                        SuggestionProvider::Pocket,
+                    ],
                 },
                 expect![[r#"
                     []
                 "#]],
             ),
             (
-                "keyword = `la`; no types",
+                "keyword = `la`; no providers",
                 SuggestionQuery {
                     keyword: "la".into(),
-                    include_sponsored: false,
-                    include_non_sponsored: false,
+                    providers: vec![],
                 },
                 expect![[r#"
                     []
                 "#]],
             ),
             (
-                "keyword = `cal`; sponsored and non-sponsored",
+                "keyword = `cal`; AMP, AMO, and Pocket",
                 SuggestionQuery {
                     keyword: "cal".into(),
-                    include_sponsored: true,
-                    include_non_sponsored: false,
+                    providers: vec![
+                        SuggestionProvider::Amp,
+                        SuggestionProvider::Amo,
+                        SuggestionProvider::Pocket,
+                    ],
                 },
                 expect![[r#"
                     []
                 "#]],
             ),
             (
-                "keyword = `cal`; sponsored only",
+                "keyword = `cal`; Wikipedia only",
                 SuggestionQuery {
                     keyword: "cal".into(),
-                    include_sponsored: true,
-                    include_non_sponsored: false,
-                },
-                expect![[r#"
-                    []
-                "#]],
-            ),
-            (
-                "keyword = `cal`; non-sponsored only",
-                SuggestionQuery {
-                    keyword: "cal".into(),
-                    include_sponsored: false,
-                    include_non_sponsored: true,
+                    providers: vec![SuggestionProvider::Wikipedia],
                 },
                 expect![[r#"
                     [
@@ -1669,22 +1693,20 @@ mod tests {
                 "#]],
             ),
             (
-                "keyword = `cal`; no types",
+                "keyword = `cal`; no providers",
                 SuggestionQuery {
                     keyword: "cal".into(),
-                    include_sponsored: false,
-                    include_non_sponsored: false,
+                    providers: vec![],
                 },
                 expect![[r#"
                     []
                 "#]],
             ),
             (
-                "keyword = `masking`; non-sponsored only",
+                "keyword = `masking`; AMO only",
                 SuggestionQuery {
                     keyword: "masking".into(),
-                    include_sponsored: false,
-                    include_non_sponsored: true,
+                    providers: vec![SuggestionProvider::Amo],
                 },
                 expect![[r#"
                 [
@@ -1704,58 +1726,68 @@ mod tests {
                 "#]],
             ),
             (
-                "keyword = `soft`; non-sponsored only",
+                "keyword = `soft`; AMP, Wikipedia, and AMO",
                 SuggestionQuery {
                     keyword: "soft".into(),
-                    include_sponsored: false,
-                    include_non_sponsored: true,
-                },
-                expect![[r#"
-                [
-                    Pocket {
-                        title: "‘It’s Not Just Burnout:’ How Grind Culture Fails Women",
-                        url: "https://getpocket.com/collections/its-not-just-burnout-how-grind-culture-failed-women",
-                        score: 0.25,
-                        is_top_pick: false,
-                    },
-                ]
-                "#]],
-            ),
-            (
-                "keyword = `soft l`; non-sponsored only",
-                SuggestionQuery {
-                    keyword: "soft l".into(),
-                    include_sponsored: false,
-                    include_non_sponsored: true,
-                },
-                expect![[r#"
-                [
-                    Pocket {
-                        title: "‘It’s Not Just Burnout:’ How Grind Culture Fails Women",
-                        url: "https://getpocket.com/collections/its-not-just-burnout-how-grind-culture-failed-women",
-                        score: 0.25,
-                        is_top_pick: false,
-                    },
-                ]
-                "#]],
-            ),
-            (
-                "keyword = `sof`; non-sponsored only",
-                SuggestionQuery {
-                    keyword: "sof".into(),
-                    include_sponsored: false,
-                    include_non_sponsored: true,
+                    providers: vec![
+                        SuggestionProvider::Amp,
+                        SuggestionProvider::Wikipedia,
+                        SuggestionProvider::Amo,
+                    ],
                 },
                 expect![[r#"
                     []
                 "#]],
             ),
             (
-                "keyword = `burnout women`; non-sponsored only",
+                "keyword = `soft`; Pocket only",
+                SuggestionQuery {
+                    keyword: "soft".into(),
+                    providers: vec![SuggestionProvider::Pocket],
+                },
+                expect![[r#"
+                [
+                    Pocket {
+                        title: "‘It’s Not Just Burnout:’ How Grind Culture Fails Women",
+                        url: "https://getpocket.com/collections/its-not-just-burnout-how-grind-culture-failed-women",
+                        score: 0.25,
+                        is_top_pick: false,
+                    },
+                ]
+                "#]],
+            ),
+            (
+                "keyword = `soft l`; Pocket only",
+                SuggestionQuery {
+                    keyword: "soft l".into(),
+                    providers: vec![SuggestionProvider::Pocket],
+                },
+                expect![[r#"
+                [
+                    Pocket {
+                        title: "‘It’s Not Just Burnout:’ How Grind Culture Fails Women",
+                        url: "https://getpocket.com/collections/its-not-just-burnout-how-grind-culture-failed-women",
+                        score: 0.25,
+                        is_top_pick: false,
+                    },
+                ]
+                "#]],
+            ),
+            (
+                "keyword = `sof`; Pocket only",
+                SuggestionQuery {
+                    keyword: "sof".into(),
+                    providers: vec![SuggestionProvider::Pocket],
+                },
+                expect![[r#"
+                    []
+                "#]],
+            ),
+            (
+                "keyword = `burnout women`; Pocket only",
                 SuggestionQuery {
                     keyword: "burnout women".into(),
-                    include_sponsored: false,
-                    include_non_sponsored: true,
+                    providers: vec![SuggestionProvider::Pocket],
                 },
                 expect![[r#"
                 [
@@ -1769,11 +1801,10 @@ mod tests {
                 "#]],
             ),
             (
-                "keyword = `burnout person`; non-sponsored only",
+                "keyword = `burnout person`; Pocket only",
                 SuggestionQuery {
                     keyword: "burnout person".into(),
-                    include_sponsored: false,
-                    include_non_sponsored: true,
+                    providers: vec![SuggestionProvider::Pocket],
                 },
                 expect![[r#"
                 []
