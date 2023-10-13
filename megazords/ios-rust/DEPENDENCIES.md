@@ -453,7 +453,7 @@ The following text applies to code linked from these dependencies:
 [block-buffer](https://github.com/RustCrypto/utils),
 [camino](https://github.com/camino-rs/camino),
 [cargo-platform](https://github.com/rust-lang/cargo),
-[cc](https://github.com/alexcrichton/cc-rs),
+[cc](https://github.com/rust-lang/cc-rs),
 [cexpr](https://github.com/jethrogb/rust-cexpr),
 [cfg-if](https://github.com/alexcrichton/cfg-if),
 [chrono](https://github.com/chronotope/chrono),
