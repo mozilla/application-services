@@ -6,6 +6,7 @@ package mozilla.appservices.fxaclient
 
 import android.util.Log
 import mozilla.appservices.sync15.DeviceType
+import org.mozilla.appservices.fxaclient.GleanMetrics.FxaClient as FxaClientMetrics
 
 /**
  * PersistedFirefoxAccount represents the authentication state of a client.
@@ -102,7 +103,9 @@ class PersistedFirefoxAccount(inner: FirefoxAccount, persistCallback: PersistCal
         entrypoint: String,
         metricsParams: MetricsParams = MetricsParams(mapOf()),
     ): String {
-        return this.inner.beginOauthFlow(scopes.toList(), entrypoint, metricsParams)
+        return withMetrics {
+            this.inner.beginOauthFlow(scopes.toList(), entrypoint, metricsParams)
+        }
     }
 
     /**
@@ -122,7 +125,9 @@ class PersistedFirefoxAccount(inner: FirefoxAccount, persistCallback: PersistCal
         entrypoint: String,
         metricsParams: MetricsParams = MetricsParams(mapOf()),
     ): String {
-        return this.inner.beginPairingFlow(pairingUrl, scopes.toList(), entrypoint, metricsParams)
+        return withMetrics {
+            this.inner.beginPairingFlow(pairingUrl, scopes.toList(), entrypoint, metricsParams)
+        }
     }
 
     /**
@@ -134,8 +139,10 @@ class PersistedFirefoxAccount(inner: FirefoxAccount, persistCallback: PersistCal
      * This performs network requests, and should not be used on the main thread.
      */
     fun completeOAuthFlow(code: String, state: String) {
-        this.inner.completeOauthFlow(code, state)
-        this.tryPersistState()
+        withMetrics {
+            this.inner.completeOauthFlow(code, state)
+            this.tryPersistState()
+        }
     }
 
     /**
@@ -150,10 +157,12 @@ class PersistedFirefoxAccount(inner: FirefoxAccount, persistCallback: PersistCal
      * The caller should then start the OAuth Flow again with the "profile" scope.
      */
     fun getProfile(ignoreCache: Boolean): Profile {
-        try {
-            return this.inner.getProfile(ignoreCache)
-        } finally {
-            this.tryPersistState()
+        return withMetrics {
+            try {
+                this.inner.getProfile(ignoreCache)
+            } finally {
+                this.tryPersistState()
+            }
         }
     }
 
@@ -168,7 +177,9 @@ class PersistedFirefoxAccount(inner: FirefoxAccount, persistCallback: PersistCal
      * The caller should then start the OAuth Flow again with the "profile" scope.
      */
     fun getProfile(): Profile {
-        return getProfile(false)
+        return withMetrics {
+            getProfile(false)
+        }
     }
 
     /**
@@ -177,7 +188,9 @@ class PersistedFirefoxAccount(inner: FirefoxAccount, persistCallback: PersistCal
      * This performs network requests, and should not be used on the main thread.
      */
     fun getTokenServerEndpointURL(): String {
-        return this.inner.getTokenServerEndpointUrl()
+        return withMetrics {
+            this.inner.getTokenServerEndpointUrl()
+        }
     }
 
     /**
@@ -186,7 +199,9 @@ class PersistedFirefoxAccount(inner: FirefoxAccount, persistCallback: PersistCal
      * This does not make network requests, and can be used on the main thread.
      */
     fun getPairingAuthorityURL(): String {
-        return this.inner.getPairingAuthorityUrl()
+        return withMetrics {
+            this.inner.getPairingAuthorityUrl()
+        }
     }
 
     /**
@@ -195,7 +210,9 @@ class PersistedFirefoxAccount(inner: FirefoxAccount, persistCallback: PersistCal
      * This does not make network requests, and can be used on the main thread.
      */
     fun getConnectionSuccessURL(): String {
-        return this.inner.getConnectionSuccessUrl()
+        return withMetrics {
+            this.inner.getConnectionSuccessUrl()
+        }
     }
 
     /**
@@ -207,7 +224,9 @@ class PersistedFirefoxAccount(inner: FirefoxAccount, persistCallback: PersistCal
      * The caller should then start the OAuth Flow again with the "profile" scope.
      */
     fun getManageAccountURL(entrypoint: String): String {
-        return this.inner.getManageAccountUrl(entrypoint)
+        return withMetrics {
+            this.inner.getManageAccountUrl(entrypoint)
+        }
     }
 
     /**
@@ -219,7 +238,9 @@ class PersistedFirefoxAccount(inner: FirefoxAccount, persistCallback: PersistCal
      * The caller should then start the OAuth Flow again with the "profile" scope.
      */
     fun getManageDevicesURL(entrypoint: String): String {
-        return this.inner.getManageDevicesUrl(entrypoint)
+        return withMetrics {
+            this.inner.getManageDevicesUrl(entrypoint)
+        }
     }
 
     /**
@@ -236,15 +257,19 @@ class PersistedFirefoxAccount(inner: FirefoxAccount, persistCallback: PersistCal
      * the desired scope.
      */
     fun getAccessToken(scope: String, ttl: Long? = null): AccessTokenInfo {
-        try {
-            return this.inner.getAccessToken(scope, ttl)
-        } finally {
-            this.tryPersistState()
+        return withMetrics {
+            try {
+                this.inner.getAccessToken(scope, ttl)
+            } finally {
+                this.tryPersistState()
+            }
         }
     }
 
     fun checkAuthorizationStatus(): AuthorizationInfo {
-        return this.inner.checkAuthorizationStatus()
+        return withMetrics {
+            this.inner.checkAuthorizationStatus()
+        }
     }
 
     /**
@@ -253,7 +278,9 @@ class PersistedFirefoxAccount(inner: FirefoxAccount, persistCallback: PersistCal
      * @throws FxaException Will send you an exception if there is no session token set
      */
     fun getSessionToken(): String {
-        return this.inner.getSessionToken()
+        return withMetrics {
+            this.inner.getSessionToken()
+        }
     }
 
     /**
@@ -262,7 +289,9 @@ class PersistedFirefoxAccount(inner: FirefoxAccount, persistCallback: PersistCal
      * @throws FxaException Will send you an exception if there is no device id set
      */
     fun getCurrentDeviceId(): String {
-        return this.inner.getCurrentDeviceId()
+        return withMetrics {
+            this.inner.getCurrentDeviceId()
+        }
     }
 
     /**
@@ -274,7 +303,9 @@ class PersistedFirefoxAccount(inner: FirefoxAccount, persistCallback: PersistCal
     fun authorizeOAuthCode(
         authParams: AuthorizationParameters,
     ): String {
-        return this.inner.authorizeCodeUsingSessionToken(authParams)
+        return withMetrics {
+            this.inner.authorizeCodeUsingSessionToken(authParams)
+        }
     }
 
     /**
@@ -285,7 +316,9 @@ class PersistedFirefoxAccount(inner: FirefoxAccount, persistCallback: PersistCal
      * again.
      */
     fun clearAccessTokenCache() {
-        this.inner.clearAccessTokenCache()
+        withMetrics {
+            this.inner.clearAccessTokenCache()
+        }
     }
 
     /**
@@ -312,10 +345,12 @@ class PersistedFirefoxAccount(inner: FirefoxAccount, persistCallback: PersistCal
      * @param authKey Auth key used to encrypt push payloads
      */
     fun setDevicePushSubscription(endpoint: String, publicKey: String, authKey: String) {
-        try {
-            return this.inner.setPushSubscription(DevicePushSubscription(endpoint, publicKey, authKey))
-        } finally {
-            this.tryPersistState()
+        return withMetrics {
+            try {
+                this.inner.setPushSubscription(DevicePushSubscription(endpoint, publicKey, authKey))
+            } finally {
+                this.tryPersistState()
+            }
         }
     }
 
@@ -328,10 +363,12 @@ class PersistedFirefoxAccount(inner: FirefoxAccount, persistCallback: PersistCal
      * @param displayName The current device display name
      */
     fun setDeviceDisplayName(displayName: String) {
-        try {
-            return this.inner.setDeviceName(displayName)
-        } finally {
-            this.tryPersistState()
+        return withMetrics {
+            try {
+                this.inner.setDeviceName(displayName)
+            } finally {
+                this.tryPersistState()
+            }
         }
     }
 
@@ -341,7 +378,9 @@ class PersistedFirefoxAccount(inner: FirefoxAccount, persistCallback: PersistCal
      * This performs network requests, and should not be used on the main thread.
      */
     fun getDevices(ignoreCache: Boolean = false): Array<Device> {
-        return this.inner.getDevices(ignoreCache).toTypedArray()
+        return withMetrics {
+            this.inner.getDevices(ignoreCache).toTypedArray()
+        }
     }
 
     /**
@@ -351,8 +390,10 @@ class PersistedFirefoxAccount(inner: FirefoxAccount, persistCallback: PersistCal
      * This performs network requests, and should not be used on the main thread.
      */
     fun disconnect() {
-        this.inner.disconnect()
-        this.tryPersistState()
+        withMetrics {
+            this.inner.disconnect()
+            this.tryPersistState()
+        }
     }
 
     /**
@@ -367,10 +408,12 @@ class PersistedFirefoxAccount(inner: FirefoxAccount, persistCallback: PersistCal
      * @return A collection of [IncomingDeviceCommand] that should be handled by the caller.
      */
     fun pollDeviceCommands(): Array<IncomingDeviceCommand> {
-        try {
-            return this.inner.pollDeviceCommands().toTypedArray()
-        } finally {
-            this.tryPersistState()
+        return withMetrics {
+            try {
+                this.inner.pollDeviceCommands().toTypedArray()
+            } finally {
+                this.tryPersistState()
+            }
         }
     }
 
@@ -384,10 +427,12 @@ class PersistedFirefoxAccount(inner: FirefoxAccount, persistCallback: PersistCal
      * @return A collection of [AccountEvent] that should be handled by the caller.
      */
     fun handlePushMessage(payload: String): AccountEvent {
-        try {
-            return this.inner.handlePushMessage(payload)
-        } finally {
-            this.tryPersistState()
+        return withMetrics {
+            try {
+                this.inner.handlePushMessage(payload)
+            } finally {
+                this.tryPersistState()
+            }
         }
     }
 
@@ -399,8 +444,10 @@ class PersistedFirefoxAccount(inner: FirefoxAccount, persistCallback: PersistCal
      * This performs network requests, and should not be used on the main thread.
      */
     fun initializeDevice(name: String, deviceType: DeviceType, supportedCapabilities: Set<DeviceCapability>) {
-        this.inner.initializeDevice(name, deviceType, supportedCapabilities.toList())
-        this.tryPersistState()
+        withMetrics {
+            this.inner.initializeDevice(name, deviceType, supportedCapabilities.toList())
+            this.tryPersistState()
+        }
     }
 
     /**
@@ -414,8 +461,10 @@ class PersistedFirefoxAccount(inner: FirefoxAccount, persistCallback: PersistCal
      * This performs network requests, and should not be used on the main thread.
      */
     fun ensureCapabilities(supportedCapabilities: Set<DeviceCapability>) {
-        this.inner.ensureCapabilities(supportedCapabilities.toList())
-        this.tryPersistState()
+        withMetrics {
+            this.inner.ensureCapabilities(supportedCapabilities.toList())
+            this.tryPersistState()
+        }
     }
 
     /**
@@ -428,7 +477,9 @@ class PersistedFirefoxAccount(inner: FirefoxAccount, persistCallback: PersistCal
      * @param url The url of the tab being sent
      */
     fun sendSingleTab(targetDeviceId: String, title: String, url: String) {
-        this.inner.sendSingleTab(targetDeviceId, title, url)
+        withMetrics {
+            this.inner.sendSingleTab(targetDeviceId, title, url)
+        }
     }
 
     /**
@@ -438,7 +489,32 @@ class PersistedFirefoxAccount(inner: FirefoxAccount, persistCallback: PersistCal
      * This does not make network requests, and can be used on the main thread.
      */
     fun gatherTelemetry(): String {
-        return this.inner.gatherTelemetry()
+        return withMetrics {
+            this.inner.gatherTelemetry()
+        }
+    }
+
+    /**
+     * Perform an FxA operation and gather metrics on it
+     */
+    @Suppress("ThrowsCount", "TooGenericExceptionCaught")
+    fun<T> withMetrics(operation: () -> T): T {
+        return try {
+            FxaClientMetrics.operationCount.add()
+            operation()
+        } catch (e: FxaException.Network) {
+            FxaClientMetrics.errorCount["network"].add()
+            throw e
+        } catch (e: FxaException.Authentication) {
+            FxaClientMetrics.errorCount["authentication"].add()
+            throw e
+        } catch (e: FxaException) {
+            FxaClientMetrics.errorCount["fxa_other"].add()
+            throw e
+        } catch (e: Throwable) {
+            FxaClientMetrics.errorCount["unexpected"].add()
+            throw e
+        }
     }
 
     @Synchronized
