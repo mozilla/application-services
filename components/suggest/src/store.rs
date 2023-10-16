@@ -619,6 +619,7 @@ mod tests {
             .assert_debug_eq(&dao.fetch_suggestions(&SuggestionQuery {
                 keyword: "lo".into(),
                 providers: vec![SuggestionProvider::Amp],
+                limit: None,
             })?);
 
             Ok(())
@@ -721,6 +722,7 @@ mod tests {
             .assert_debug_eq(&dao.fetch_suggestions(&SuggestionQuery {
                 keyword: "la".into(),
                 providers: vec![SuggestionProvider::Amp],
+                limit: None,
             })?);
             expect![[r#"
                 [
@@ -757,6 +759,7 @@ mod tests {
             .assert_debug_eq(&dao.fetch_suggestions(&SuggestionQuery {
                 keyword: "pe".into(),
                 providers: vec![SuggestionProvider::Amp],
+                limit: None,
             })?);
 
             Ok(())
@@ -823,6 +826,7 @@ mod tests {
             .assert_debug_eq(&dao.fetch_suggestions(&SuggestionQuery {
                 keyword: "la".into(),
                 providers: vec![SuggestionProvider::Amp],
+                limit: None,
             })?);
 
             Ok(())
@@ -900,6 +904,7 @@ mod tests {
             .assert_debug_eq(&dao.fetch_suggestions(&SuggestionQuery {
                 keyword: "la".into(),
                 providers: vec![SuggestionProvider::Amp],
+                limit: None,
             })?);
             Ok(())
         })?;
@@ -951,6 +956,7 @@ mod tests {
                 .fetch_suggestions(&SuggestionQuery {
                     keyword: "la".into(),
                     providers: vec![SuggestionProvider::Amp],
+                    limit: None,
                 })?
                 .is_empty());
             expect![[r#"
@@ -973,6 +979,7 @@ mod tests {
             .assert_debug_eq(&dao.fetch_suggestions(&SuggestionQuery {
                 keyword: "los ".into(),
                 providers: vec![SuggestionProvider::Amp],
+                limit: None,
             })?);
             expect![[r#"
                 [
@@ -994,6 +1001,7 @@ mod tests {
             .assert_debug_eq(&dao.fetch_suggestions(&SuggestionQuery {
                 keyword: "pe".into(),
                 providers: vec![SuggestionProvider::Amp],
+                limit: None,
             })?);
             Ok(())
         })?;
@@ -1153,6 +1161,7 @@ mod tests {
             .assert_debug_eq(&dao.fetch_suggestions(&SuggestionQuery {
                 keyword: "la".into(),
                 providers: vec![SuggestionProvider::Amp],
+                limit: None,
             })?);
             expect![[r#"
                 [
@@ -1192,6 +1201,7 @@ mod tests {
             .assert_debug_eq(&dao.fetch_suggestions(&SuggestionQuery {
                 keyword: "lo".into(),
                 providers: vec![SuggestionProvider::Amp],
+                limit: None,
             })?);
             Ok(())
         })?;
@@ -1489,32 +1499,71 @@ mod tests {
                 "title": "California",
                 "url": "https://wikipedia.org/California",
                 "icon": "3"
+            }, {
+                "id": 0,
+                "advertiser": "Wikipedia",
+                "iab_category": "5 - Education",
+                "keywords": ["cal", "cali", "california", "institute", "technology"],
+                "title": "California Institute of Technology",
+                "url": "https://wikipedia.org/California_Institute_of_Technology",
+                "icon": "3"
+            },{
+                "id": 0,
+                "advertiser": "Wikipedia",
+                "iab_category": "5 - Education",
+                "keywords": ["multimatch"],
+                "title": "Multimatch",
+                "url": "https://wikipedia.org/Multimatch",
+                "icon": "3"
             }]),
         )?
             .with_data(
                 "data-2.json",
-                json!([{
-                "description": "amo suggestion",
-                "url": "https://addons.mozilla.org/en-US/firefox/addon/example",
-                "guid": "{b9db16a4-6edc-47ec-a1f4-b86292ed211d}",
-                "keywords": ["relay", "spam", "masking", "alias"],
-                "title": "Firefox Relay",
-                "icon": "https://addons.mozilla.org/user-media/addon_icons/2633/2633704-64.png?modified=2c11a80b",
-                "rating": "4.9",
-                "number_of_ratings": 888,
-                "score": 0.25
-            }]),
+                json!([
+                    {
+                        "description": "amo suggestion",
+                        "url": "https://addons.mozilla.org/en-US/firefox/addon/example",
+                        "guid": "{b9db16a4-6edc-47ec-a1f4-b86292ed211d}",
+                        "keywords": ["relay", "spam", "masking", "alias"],
+                        "title": "Firefox Relay",
+                        "icon": "https://addons.mozilla.org/user-media/addon_icons/2633/2633704-64.png?modified=2c11a80b",
+                        "rating": "4.9",
+                        "number_of_ratings": 888,
+                        "score": 0.25
+                    },
+                    {
+                        "description": "amo suggestion multi-match",
+                        "url": "https://addons.mozilla.org/en-US/firefox/addon/multimatch",
+                        "guid": "{b9db16a4-6edc-47ec-a1f4-b86292ed211d}",
+                        "keywords": ["multimatch"],
+                        "title": "Firefox Multimatch",
+                        "icon": "https://addons.mozilla.org/user-media/addon_icons/2633/2633704-64.png?modified=2c11a80b",
+                        "rating": "4.9",
+                        "number_of_ratings": 888,
+                        "score": 0.25
+                    },
+                ]),
         )?
             .with_data(
             "data-3.json",
-            json!([{
-                "description": "pocket suggestion",
-                "url": "https://getpocket.com/collections/its-not-just-burnout-how-grind-culture-failed-women",
-                "lowConfidenceKeywords": ["soft life", "workaholism", "toxic work culture", "work-life balance"],
-                "highConfidenceKeywords": ["burnout women", "grind culture", "women burnout"],
-                "title": "‘It’s Not Just Burnout:’ How Grind Culture Fails Women",
-                "score": 0.25
-            }]),
+            json!([
+                {
+                    "description": "pocket suggestion",
+                    "url": "https://getpocket.com/collections/its-not-just-burnout-how-grind-culture-failed-women",
+                    "lowConfidenceKeywords": ["soft life", "workaholism", "toxic work culture", "work-life balance"],
+                    "highConfidenceKeywords": ["burnout women", "grind culture", "women burnout"],
+                    "title": "‘It’s Not Just Burnout:’ How Grind Culture Fails Women",
+                    "score": 0.25
+                },
+                {
+                    "description": "pocket suggestion multi-match",
+                    "url": "https://getpocket.com/collections/multimatch",
+                    "lowConfidenceKeywords": [],
+                    "highConfidenceKeywords": ["multimatch"],
+                    "title": "Multimatching",
+                    "score": 0.25
+                },
+            ]),
         )?
         .with_icon("icon-2.png", "i-am-an-icon".as_bytes().into())
         .with_icon("icon-3.png", "also-an-icon".as_bytes().into());
@@ -1534,6 +1583,7 @@ mod tests {
                         SuggestionProvider::Amo,
                         SuggestionProvider::Pocket,
                     ],
+                    limit: None,
                 },
                 expect![[r#"
                     []
@@ -1549,6 +1599,7 @@ mod tests {
                         SuggestionProvider::Amo,
                         SuggestionProvider::Pocket,
                     ],
+                    limit: None,
                 },
                 expect![[r#"
                     [
@@ -1584,10 +1635,117 @@ mod tests {
                 "#]],
             ),
             (
+                "multimatch; all providers",
+                SuggestionQuery {
+                    keyword: "multimatch".into(),
+                    providers: vec![
+                        SuggestionProvider::Amp,
+                        SuggestionProvider::Wikipedia,
+                        SuggestionProvider::Amo,
+                        SuggestionProvider::Pocket,
+                    ],
+                    limit: None,
+                },
+                expect![[r#"
+                    [
+                        Wikipedia {
+                            title: "Multimatch",
+                            url: "https://wikipedia.org/Multimatch",
+                            icon: Some(
+                                [
+                                    97,
+                                    108,
+                                    115,
+                                    111,
+                                    45,
+                                    97,
+                                    110,
+                                    45,
+                                    105,
+                                    99,
+                                    111,
+                                    110,
+                                ],
+                            ),
+                            full_keyword: "multimatch",
+                        },
+                        Amo {
+                            title: "Firefox Multimatch",
+                            url: "https://addons.mozilla.org/en-US/firefox/addon/multimatch",
+                            icon_url: "https://addons.mozilla.org/user-media/addon_icons/2633/2633704-64.png?modified=2c11a80b",
+                            description: "amo suggestion multi-match",
+                            rating: Some(
+                                "4.9",
+                            ),
+                            number_of_ratings: 888,
+                            guid: "{b9db16a4-6edc-47ec-a1f4-b86292ed211d}",
+                            score: 0.25,
+                        },
+                        Pocket {
+                            title: "Multimatching",
+                            url: "https://getpocket.com/collections/multimatch",
+                            score: 0.25,
+                            is_top_pick: true,
+                        },
+                    ]
+                "#]],
+            ),
+            (
+                "multimatch; all providers, limit 2",
+                SuggestionQuery {
+                    keyword: "multimatch".into(),
+                    providers: vec![
+                        SuggestionProvider::Amp,
+                        SuggestionProvider::Wikipedia,
+                        SuggestionProvider::Amo,
+                        SuggestionProvider::Pocket,
+                    ],
+                    limit: Some(2),
+                },
+                expect![[r#"
+                    [
+                        Wikipedia {
+                            title: "Multimatch",
+                            url: "https://wikipedia.org/Multimatch",
+                            icon: Some(
+                                [
+                                    97,
+                                    108,
+                                    115,
+                                    111,
+                                    45,
+                                    97,
+                                    110,
+                                    45,
+                                    105,
+                                    99,
+                                    111,
+                                    110,
+                                ],
+                            ),
+                            full_keyword: "multimatch",
+                        },
+                        Amo {
+                            title: "Firefox Multimatch",
+                            url: "https://addons.mozilla.org/en-US/firefox/addon/multimatch",
+                            icon_url: "https://addons.mozilla.org/user-media/addon_icons/2633/2633704-64.png?modified=2c11a80b",
+                            description: "amo suggestion multi-match",
+                            rating: Some(
+                                "4.9",
+                            ),
+                            number_of_ratings: 888,
+                            guid: "{b9db16a4-6edc-47ec-a1f4-b86292ed211d}",
+                            score: 0.25,
+                        },
+                    ]
+                "#]],
+            ),
+            (
                 "keyword = `la`; AMP only",
                 SuggestionQuery {
                     keyword: "la".into(),
                     providers: vec![SuggestionProvider::Amp],
+                    limit: None,
                 },
                 expect![[r#"
                     [
@@ -1631,6 +1789,7 @@ mod tests {
                         SuggestionProvider::Amo,
                         SuggestionProvider::Pocket,
                     ],
+                    limit: None,
                 },
                 expect![[r#"
                     []
@@ -1641,6 +1800,7 @@ mod tests {
                 SuggestionQuery {
                     keyword: "la".into(),
                     providers: vec![],
+                    limit: None,
                 },
                 expect![[r#"
                     []
@@ -1655,6 +1815,7 @@ mod tests {
                         SuggestionProvider::Amo,
                         SuggestionProvider::Pocket,
                     ],
+                    limit: None,
                 },
                 expect![[r#"
                     []
@@ -1665,6 +1826,61 @@ mod tests {
                 SuggestionQuery {
                     keyword: "cal".into(),
                     providers: vec![SuggestionProvider::Wikipedia],
+                    limit: None,
+                },
+                expect![[r#"
+                    [
+                        Wikipedia {
+                            title: "California",
+                            url: "https://wikipedia.org/California",
+                            icon: Some(
+                                [
+                                    97,
+                                    108,
+                                    115,
+                                    111,
+                                    45,
+                                    97,
+                                    110,
+                                    45,
+                                    105,
+                                    99,
+                                    111,
+                                    110,
+                                ],
+                            ),
+                            full_keyword: "california",
+                        },
+                        Wikipedia {
+                            title: "California Institute of Technology",
+                            url: "https://wikipedia.org/California_Institute_of_Technology",
+                            icon: Some(
+                                [
+                                    97,
+                                    108,
+                                    115,
+                                    111,
+                                    45,
+                                    97,
+                                    110,
+                                    45,
+                                    105,
+                                    99,
+                                    111,
+                                    110,
+                                ],
+                            ),
+                            full_keyword: "california",
+                        },
+                    ]
+                "#]],
+            ),
+            (
+                "keyword = `cal`; Wikipedia with limit 1",
+                SuggestionQuery {
+                    keyword: "cal".into(),
+                    providers: vec![SuggestionProvider::Wikipedia],
+                    limit: Some(1),
                 },
                 expect![[r#"
                     [
@@ -1697,6 +1913,7 @@ mod tests {
                 SuggestionQuery {
                     keyword: "cal".into(),
                     providers: vec![],
+                    limit: None,
                 },
                 expect![[r#"
                     []
@@ -1707,6 +1924,7 @@ mod tests {
                 SuggestionQuery {
                     keyword: "masking".into(),
                     providers: vec![SuggestionProvider::Amo],
+                    limit: None,
                 },
                 expect![[r#"
                 [
@@ -1734,6 +1952,7 @@ mod tests {
                         SuggestionProvider::Wikipedia,
                         SuggestionProvider::Amo,
                     ],
+                    limit: None,
                 },
                 expect![[r#"
                     []
@@ -1744,6 +1963,7 @@ mod tests {
                 SuggestionQuery {
                     keyword: "soft".into(),
                     providers: vec![SuggestionProvider::Pocket],
+                    limit: None,
                 },
                 expect![[r#"
                 [
@@ -1761,6 +1981,7 @@ mod tests {
                 SuggestionQuery {
                     keyword: "soft l".into(),
                     providers: vec![SuggestionProvider::Pocket],
+                    limit: None,
                 },
                 expect![[r#"
                 [
@@ -1778,6 +1999,7 @@ mod tests {
                 SuggestionQuery {
                     keyword: "sof".into(),
                     providers: vec![SuggestionProvider::Pocket],
+                    limit: None,
                 },
                 expect![[r#"
                     []
@@ -1788,6 +2010,7 @@ mod tests {
                 SuggestionQuery {
                     keyword: "burnout women".into(),
                     providers: vec![SuggestionProvider::Pocket],
+                    limit: None,
                 },
                 expect![[r#"
                 [
@@ -1805,6 +2028,7 @@ mod tests {
                 SuggestionQuery {
                     keyword: "burnout person".into(),
                     providers: vec![SuggestionProvider::Pocket],
+                    limit: None,
                 },
                 expect![[r#"
                 []

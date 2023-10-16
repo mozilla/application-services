@@ -20,6 +20,10 @@
 
 * The `include_sponsored` and `include_non_sponsored` Boolean options in `SuggestionQuery` have been replaced with a `providers` list. Consumers must now explicitly pass the providers they want to query ([#5867](https://github.com/mozilla/application-services/pull/5867)).
 
+### ✨ What's New ✨
+
+- The `SuggestionQuery` now contains a optional limit that consumers can set to reduce the number of suggestions returned. ([#5870](https://github.com/mozilla/application-services/pull/5870))
+
 # v119.0 (_2023-09-25_)
 
 ## Nimbus SDK ⛅️🔬🔭

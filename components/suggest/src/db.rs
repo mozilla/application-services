@@ -126,6 +126,7 @@ impl<'a> SuggestDao<'a> {
     /// Fetches suggestions that match the given query from the database.
     pub fn fetch_suggestions(&self, query: &SuggestionQuery) -> Result<Vec<Suggestion>> {
         let (keyword_prefix, keyword_suffix) = split_keyword(&query.keyword);
+        let suggestions_limit = query.limit.unwrap_or(-1);
 
         let (mut statement, params) = if query.providers.contains(&SuggestionProvider::Pocket) {
             (self.conn.prepare_cached(
@@ -139,12 +140,15 @@ impl<'a> SuggestDao<'a> {
                      SELECT s.id, k.rank, s.title, s.url, s.provider, k.confidence, k.keyword_suffix
                      FROM suggestions s
                      JOIN pocket_keywords k ON k.suggestion_id = s.id
-                     WHERE k.keyword_prefix = :keyword_prefix",
+                     WHERE k.keyword_prefix = :keyword_prefix
+                     ORDER BY s.provider
+                     LIMIT :suggestions_limit",
                     providers_to_sql_list(&query.providers),
                 ),
             )?, vec![
                 (":keyword", &query.keyword as &dyn ToSql),
                 (":keyword_prefix", &keyword_prefix as &dyn ToSql),
+                (":suggestions_limit", &suggestions_limit as &dyn ToSql),
             ])
         } else {
             (self.conn.prepare_cached(
@@ -153,11 +157,14 @@ impl<'a> SuggestDao<'a> {
                      FROM suggestions s
                      JOIN keywords k ON k.suggestion_id = s.id
                      WHERE s.provider IN ({}) AND
-                           k.keyword = :keyword",
+                           k.keyword = :keyword
+                     ORDER BY s.provider
+                     LIMIT :suggestions_limit",
                     providers_to_sql_list(&query.providers),
                 ),
             )?, vec![
                 (":keyword", &query.keyword as &dyn ToSql),
+                (":suggestions_limit", &suggestions_limit as &dyn ToSql),
             ])
         };
 
