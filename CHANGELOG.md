@@ -26,6 +26,10 @@
 - VisitTransition has been renamed to VisitType to match Desktop and reduce the amount of conversions needed in consumer APIs.
 
 
+### ✨ What's New ✨
+
+- The `SuggestionQuery` now contains a optional limit that consumers can set to reduce the number of suggestions returned. ([#5870](https://github.com/mozilla/application-services/pull/5870))
+
 # v119.0 (_2023-09-25_)
 
 ## Nimbus SDK ⛅️🔬🔭
