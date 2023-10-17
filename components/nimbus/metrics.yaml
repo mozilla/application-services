@@ -57,7 +57,8 @@ nimbus_events:
     bugs:
       - https://mozilla-hub.atlassian.net/browse/EXP-2534
     data_reviews:
-      - TODO
+      - https://bugzilla.mozilla.org/show_bug.cgi?id=1773563#c7
+      - https://github.com/mozilla/application-services/pull/5137#issuecomment-1276562922
     data_sensitivity:
       - technical
     notification_emails:
@@ -110,7 +111,8 @@ nimbus_events:
     bugs:
       - https://mozilla-hub.atlassian.net/browse/EXP-2534
     data_reviews:
-      - TODO
+      - https://bugzilla.mozilla.org/show_bug.cgi?id=1773563#c7
+      - https://github.com/mozilla/application-services/pull/5137#issuecomment-1276562922
     data_sensitivity:
       - technical
     notification_emails:
@@ -229,7 +231,7 @@ nimbus_events:
     bugs:
       - https://mozilla-hub.atlassian.net/browse/EXP-3827
     data_reviews:
-      - ''
+      - https://github.com/mozilla/application-services/pull/5857#issuecomment-1749722071
     data_sensitivity:
       - technical
     notification_emails:
