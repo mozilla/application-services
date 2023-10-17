@@ -15,8 +15,14 @@ You can test this code locally using the autopublish flow ([Android](./locally-p
 ## Merging
 
 Do not merge any PRs until all are approved.  Once they are all approved then:
-  - Merge the `application-services` PR into `main` and manually trigger a nightly build.
-  - On the next day, the application-services nightly bump PRs fail for the `firefox-android` and
-    `firefox-ios` repositories since there are breaking changes.  This is expected and normal.
-  - Merge your branches on `firefox-android` and `firefox-ios` into the branch with the nightly
-    bump.  This should resolve the issues and the nightly can be merged as normal.
+  - Merge the `application-services` PR into `main`
+  - Manually trigger a new nightly build using the taskcluster hook:
+    https://firefox-ci-tc.services.mozilla.com/hooks/project-releng/cron-task-mozilla-application-services%2Fnightly
+  - Once the nightly task completes, trigger a new rust-components-swift build using the github action:
+    https://github.com/mozilla/rust-components-swift/actions/workflows/update-as-nightly.yml
+  - Update the `firefox-android` and `firefox-ios` PRs to use the newly built nightly:
+    * [example of firefox-android changes](https://github.com/mozilla-mobile/firefox-android/pull/4056/files)
+    * [example of firefox-ios changes](https://github.com/mozilla-mobile/firefox-ios/pull/16783/files)
+  - Ideally, get the PRs merged before the firefox-android/firefox-ios nightly bump the next day.
+    If you don't get these merged, then the nightly bump PR will fail.  Add a link to your PR in
+    the nightly bump PR so the mobile teams know how to fix this.
