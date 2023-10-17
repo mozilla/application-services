@@ -91,6 +91,7 @@ impl ToSql for UnparsableRecords {
 
 #[derive(Deserialize, Serialize, Debug)]
 pub(crate) struct UnparsableRecord {
+    #[serde(rename = "v")]
     pub schema_version: u32,
 }
 
@@ -2124,10 +2125,10 @@ mod tests {
                     UnparsableRecords(
                         {
                             "clippy-2": UnparsableRecord {
-                                schema_version: 6,
+                                schema_version: 7,
                             },
                             "fancy-new-suggestions-1": UnparsableRecord {
-                                schema_version: 6,
+                                schema_version: 7,
                             },
                         },
                     ),
@@ -2192,10 +2193,10 @@ mod tests {
                     UnparsableRecords(
                         {
                             "clippy-2": UnparsableRecord {
-                                schema_version: 6,
+                                schema_version: 7,
                             },
                             "fancy-new-suggestions-1": UnparsableRecord {
-                                schema_version: 6,
+                                schema_version: 7,
                             },
                         },
                     ),
@@ -2298,10 +2299,10 @@ mod tests {
                     UnparsableRecords(
                         {
                             "clippy-2": UnparsableRecord {
-                                schema_version: 6,
+                                schema_version: 7,
                             },
                             "fancy-new-suggestions-1": UnparsableRecord {
-                                schema_version: 6,
+                                schema_version: 7,
                             },
                         },
                     ),
@@ -2311,6 +2312,13 @@ mod tests {
             Ok(())
         })?;
 
+        Ok(())
+    }
+
+    #[test]
+    fn unparsable_record_serialized_correctly() -> anyhow::Result<()> {
+        let unparseable_record = UnparsableRecord { schema_version: 1 };
+        assert_eq!(serde_json::to_value(unparseable_record)?, json!({ "v": 1 }),);
         Ok(())
     }
 }
