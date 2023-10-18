@@ -56,11 +56,6 @@ export APP_FML_FILE=$fml_file
 ## Default: build/nimbus/fml-cache
 # export CACHE_DIR=
 
-## Set the path for where the experimenter manifest is generated. This can be json or yaml.
-## This is relative to SOURCE_ROOT.
-## Default: .experimenter.yaml
-# export EXPERIMENTER_MANIFEST=
-
 ## Set the version of the Application Services' Nimbus FML is downloaded from. This version does includes the 'v'
 ## By default, this is derived from the Swift Package Manager.
 # export AS_VERSION=
