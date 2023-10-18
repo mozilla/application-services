@@ -21,13 +21,14 @@ internal const val LOG_TAG = "fxa_client"
 class FxaClient private constructor(
     private val inner: FirefoxAccount,
     private val persistCallback: FxaPersistCallback,
-    // Note that this creates a reference cycle between FxaAccountManager, FxaClient, and FxaHandler
-    // that goes through the Rust code and therefore will never be broken. This is okay for now,
-    // since all of those objects are intended to live forever, but hopefully we can add some sort
-    // of weak reference support to side-step this.
+    // FIXME: if the same application component stores `FxaClient` and implements `FxaHandler`, then
+    // this creates a reference cycle between that component, FxaClient, and FxaHandler that goes
+    // through the Rust code and therefore will never be broken.
     private val eventHandler: FxaEventHandler,
     coroutineContext: CoroutineContext,
 ) : AutoCloseable {
+    private val actionProcessor = FxaActionProcessor(inner, eventHandler, { persistState() })
+
     /**
      * CoroutineContext context to run async tasks in.
      *
@@ -39,7 +40,12 @@ class FxaClient private constructor(
      * This is public so applications can use the same context to run their jobs in.  For example
      * the android-components FxaManager uses it for its startup tasks.
      */
-    public val coroutineContext = coroutineContext + SupervisorJob()
+    private val supervisor = SupervisorJob()
+    public val coroutineContext = coroutineContext + supervisor
+
+    init {
+        runActionProcessorManager(actionProcessor, coroutineContext)
+    }
 
     /**
      * Create a new FxaClient
@@ -59,7 +65,7 @@ class FxaClient private constructor(
         /**
          * Restores a perisisted FxaClient
          *
-         * @param json JSON data sent to FxaEventHandler.persistData
+         * @param json JSON data sent to [persistCallback.persist]
          * @param FxaEventHandler Respond to FxA events
          * @param coroutineContext CoroutineContext for the client.
          * @return [FxaClient] representing the authentication state
@@ -93,22 +99,17 @@ class FxaClient private constructor(
      *   - Actions are processed serially.  For example, there's no chance of CompleteOAuthFlow and
      *     Disconnect being executed at the same time from different threads.
      *   - Application events are also sent serially. If one action causes an [AUTH_CHECK_STARTED]
-     *     state transition change, then the next causes [FxaAuthState.Disconnected], the
-     *     [FxaEventHandler.onStateChange] callback for the second change won't be called until
-     *     after the callback for the first change returns. This allows applications to ensure that
-     *     their UI reflects the current state.
+     *     state transition change, then the next causes [DISCONNECTED], there won't be two
+     *     [FxaEventHandler.onFxaEvent] callbacks executing in parallel.  Executing the callbacks in
+     *     parallel could cause to applications incorrectly showing a `disconnected` message first,
+     *     then showing the `auth-check` message. Executing event handler callbacks serially allows
+     *     applications to ensure that their UI reflects the current state.
      *   - Actions are retried in the face of network errors and checkAuthorizationStatus is called on
      *     authorization errors.  This allows the Rust client to recover when possible, for example
      *     from expired access tokens when it holds a valid refresh token.
      */
     fun queueAction(action: FxaAction) {
         actionProcessor.queue(action)
-    }
-
-    // This handles queueAction for us
-    private val actionProcessor = FxaActionProcessor(inner, eventHandler, { persistState() })
-    init {
-        runActionProcessorManager(actionProcessor, coroutineContext)
     }
 
     /**
@@ -332,7 +333,7 @@ class FxaClient private constructor(
     @Synchronized
     override fun close() {
         this.actionProcessor.close()
-        this.coroutineContext.cancel()
+        this.supervisor.cancel()
         this.inner.destroy()
     }
 
