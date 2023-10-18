@@ -119,7 +119,6 @@ export APP_FML_FILE="$PROJECT/nimbus.fml.yaml"
 export GENERATED_SRC_DIR=
 export MOZ_APPSERVICES_MODULE=MozillaAppServices
 export MODULES=$PROJECT
-export EXPERIMENTER_MANIFEST=".experimenter.yaml"
 
 echo "Using $DIRNAME/nimbus-fml-configuration.sh as config"
 # shellcheck disable=SC1091
@@ -262,13 +261,8 @@ for repo_file in $REPO_FILES ; do
     repo_args="$repo_args --repo-file $repo_file"
 done
 
-# Now generate the YAML that the `experimenter` server will use to keep up to date.
-# This file, `.experimenter.yaml` **must** be checked into source control, and kept up-to-date.
-# Experimenter will download it regularly/nightly.
-CMD="$BINARY_PATH generate-experimenter $repo_args --channel $CHANNEL --cache-dir $CACHE_DIR $APP_FML_FILE $EXPERIMENTER_MANIFEST"
-display=${CMD//"$SOURCE_ROOT"/\$SOURCE_ROOT}
-echo "$display"
-eval "$CMD"
+# Now validate the FML file. This will load the YAML and print warnings or errors for each channel.
+echo_eval "$BINARY_PATH validate $repo_args --cache-dir $CACHE_DIR $APP_FML_FILE"
 
 # We'll generate the command, and output some nice copy/pastable version of the command to the Build console…
 for module in $MODULES ; do
