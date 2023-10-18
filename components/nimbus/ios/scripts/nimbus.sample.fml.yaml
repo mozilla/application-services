@@ -1,0 +1,43 @@
+---
+about:
+  description: A starter FML file
+  ios:
+    class: AppNimbus
+    module: App
+channels:
+  - developer
+  - release
+features:
+  sample-feature:
+    description: A dummy feature for running A/A experiments
+    # # The engineer(s) who implemented this feature.
+    # contacts:
+    #   - engineer@example.com
+    # documentation:
+    #   - name: QA documentation
+    #     url: https://example.info/nimbus-validation
+    # # Where do QA file bugs for this feature?
+    # meta-bug: https://mozilla-hub.atlassian.net/browse/SPACE-0001
+    # # Optionally, what Glean events are emitted by this feature?
+    # events:
+    #   - https://dictionary.telemetry.mozilla.org/apps/MY-APP/metrics/feature-interacted-with
+    variables:
+      flag:
+        description: This is an example of a boolean variable configurable by Nimbus.
+        type: Boolean
+        default: false
+      hello-world:
+        description: This is an example of a string variable configurable by Nimbus.
+        type: String
+        default: Hello Nimbus!
+
+    defaults:
+      - channel: release
+        value:
+          # Set a variation for the release build
+          hello-world: Hello World
+      - channel: developer
+        value:
+          # Set a variation for the developer build
+          flag: true
+          hello-world: Hello Nimbus (Developer)!
