@@ -10,6 +10,13 @@
 
 - Added the `enrollment_status` metric and defined a host metric callback handler interface ([#5857](https://github.com/mozilla/application-services/pull/5857)).
 
+## Nimbus FML ⛅️🔬🔭🔧
+
+### 🦊 What's Changed 🦊
+
+- Changed `.experiment.yaml` generation to a `validate` ([#5877](https://github.com/mozilla/application-services/pull/5877)).
+  - Additionally: moved `nimbus-fml.sh` script from iOS into the application-services directory, replacing it with a `bootstrap.sh` script.
+
 ## Rust log forwarder
 
 ### 🦊 What's Changed 🦊
