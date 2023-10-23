@@ -1,6 +1,4 @@
-# v120.0 (In progress)
-
-[Full Changelog](In progress)
+# v120.0 (_2023-10-23_)
 
 ## Nimbus SDK ⛅️🔬🔭
 
@@ -29,6 +27,8 @@
 ### ✨ What's New ✨
 
 - The `SuggestionQuery` now contains a optional limit that consumers can set to reduce the number of suggestions returned. ([#5870](https://github.com/mozilla/application-services/pull/5870))
+
+[Full Changelog](https://github.com/mozilla/application-services/compare/v119.0...v120.0)
 
 # v119.0 (_2023-09-25_)
 
