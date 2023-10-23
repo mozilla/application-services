@@ -68,24 +68,27 @@ fail_trap() {
 
 #Stop execution on any error
 trap 'fail_trap $? $LINENO' ERR
-set -e
 
-if [ -z "$CONFIGURATION" ] ; then
-    echo "Error: No \$CONFIGURATION defined."
-    echo "Execute this script as a build step in Xcode."
-    exit 2
+if [ -z "${SOURCE_ROOT:-}" ] ; then
+    echo "Warning: No \$SOURCE_ROOT defined."
+    echo "  Execute this script as a build step in Xcode."
+    echo "  Guessing it as CWD"
+    SOURCE_ROOT="$(pwd)"
 fi
 
-if [ -z "$SOURCE_ROOT" ] ; then
-    echo "Error: No \$SOURCE_ROOT defined."
-    echo "Execute this script as a build step in Xcode."
-    exit 2
+if [ -z "${PROJECT:-}" ]; then
+    echo "Warning: No \$PROJECT defined."
+    echo "  Execute this script as a build step in Xcode."
+    xcodeproj=$(ls -d "${SOURCE_ROOT}"/*.xcodeproj || exit 2 | head -n 1 )
+    PROJECT=$(basename -s .xcodeproj "$xcodeproj")
+    echo "  Detected it as $PROJECT"
 fi
 
-if [ -z "$PROJECT" ]; then
-    echo "Error: No \$PROJECT defined."
-    echo "Execute this script as a build step in Xcode."
-    exit 2
+if [ -z "${CONFIGURATION:-}" ] ; then
+    echo "Warning: No \$CONFIGURATION defined."
+    echo "  Execute this script as a build step in Xcode."
+    echo "  Guessing it as Debug"
+    CONFIGURATION=Debug
 fi
 
 find_as_version() {
@@ -118,11 +121,13 @@ export MOZ_APPSERVICES_MODULE=MozillaAppServices
 export MODULES=$PROJECT
 export EXPERIMENTER_MANIFEST=".experimenter.yaml"
 
+echo "Using $DIRNAME/nimbus-fml-configuration.sh as config"
 # shellcheck disable=SC1091
 source "$DIRNAME/nimbus-fml-configuration.sh"
 
 local_config="$DIRNAME/nimbus-fml-configuration.local.sh"
 if [ -f "$local_config" ] ; then
+    echo "Modifying with $local_config"
     # shellcheck disable=SC1090
     source "$local_config"
 fi
@@ -164,10 +169,6 @@ while (( "$#" )); do
     esac
 done
 
-if [ -z "$AS_VERSION" ] ; then
-    find_as_version
-fi
-
 if [ -z "$APP_FML_FILE" ]; then
     if [ -z "$SCRIPT_INPUT_FILE_COUNT" ] || [ "$SCRIPT_INPUT_FILE_COUNT" -eq 0 ]; then
         echo "Error: No input files provided for the Nimbus Feature Manifest."
@@ -181,6 +182,10 @@ if [ -n "$MOZ_APPSERVICES_LOCAL" ] ; then
     LOCAL_FML_DIR="$MOZ_APPSERVICES_LOCAL/components/support/nimbus-fml"
     export BINARY_PATH="$HOME/.cargo/bin/cargo run --manifest-path $LOCAL_FML_DIR/Cargo.toml --"
 else
+    if [ -z "$AS_VERSION" ] ; then
+        find_as_version
+    fi
+
     # Otherwise, we should download a pre-built copy
     AS_DOWNLOAD_URL="https://archive.mozilla.org/pub/app-services/releases/$AS_VERSION"
     CHECKSUM_URL="$AS_DOWNLOAD_URL/nimbus-fml.sha256"

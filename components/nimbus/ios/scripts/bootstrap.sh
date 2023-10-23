@@ -104,6 +104,10 @@ download_file() {
     local filename="$2"
     local url="${BASE_URL}/${url_suffix}"
     curl --fail "${url}" --output "${filename}"
+
+    if [[ "${filename:(-3):3}" == ".sh" ]] ; then
+        chmod +x "$filename"
+    fi
 }
 
 download_once() {
