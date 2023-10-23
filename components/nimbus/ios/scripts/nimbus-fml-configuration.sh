@@ -29,16 +29,20 @@ fml_file=nimbus.fml.yaml
 
 ## Set the list of directories to scan for *.fml.yaml files.
 ## This can have individual files, but are relative to SOURCE_ROOT
+## If an entry is a directory, fml will look for files ending in `.fml.yaml`
+## If you move the default file into a module directly, then this can
+## be simplified to the default value.
 ## Default: $PROJECT
-export MODULES=$PROJECT
+# export MODULES=$PROJECT
+export MODULES="$PROJECT $fml_file"
 
 ## Set the directory where the generated files are placed.
 ## This is relative to SOURCE_ROOT.
 ## By default this is $MODULE/Generated
 # export GENERATED_SRC_DIR=
 
-## Set the root level nimbus.fml.yaml file. This is used to generate the experimenter file for the whole app.
-## This is relative to SOURCE_ROOT.
+## Set the root level nimbus.fml.yaml file. This is the manifest that ties together all the others.
+## This should be included in the MODULES list or one of the directories of the MODULES
 ## Default: $PROJECT/nimbus.fml.yaml
 export APP_FML_FILE=$fml_file
 
