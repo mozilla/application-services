@@ -4,6 +4,8 @@
 # License, v. 2.0. If a copy of the MPL was not distributed with this
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 
+set -euo pipefail
+
 # Local modifications/additions can be made in `nimbus-fml-configuration.local.sh`
 
 ## Set the channel that is used to generate the Swift code.
