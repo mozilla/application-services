@@ -16,6 +16,8 @@
 #
 # In addition, the `nimbus-fml.sh` and `nimbus-fml-configuration.local.sh` are added to `./gitignore`.
 #
+set -euo pipefail
+
 CMDNAME=$(basename "$0")
 AS_BASE="https://raw.githubusercontent.com/mozilla/application-services/main"
 PATH_PREFIX="components/nimbus/ios/scripts"
@@ -61,7 +63,6 @@ fail_trap() {
 
 #Stop execution on any error
 trap 'fail_trap $? $LINENO' ERR
-set -e
 
 # Process the command line args.
 while (( "$#" )); do

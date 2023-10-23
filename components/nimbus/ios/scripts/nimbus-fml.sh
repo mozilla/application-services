@@ -20,6 +20,7 @@
 # 7. Add the "FML.swift" file in the `Generated` folder to your project.
 # 8. Add the same "FML.swift" from the `Generated` folder as Output Files of the newly created "Run Script" step.
 # 9. Start using the generated feature code.
+set -euo pipefail
 
 DIRNAME=$(dirname "$0")
 
@@ -112,6 +113,9 @@ find_as_version() {
     AS_VERSION=${number_string//\.0\./\.} # rust-component-swift tags have a middle `.0.` to force it to align with spm. We remove it
 }
 FRESHEN_FML=
+AS_VERSION=
+MOZ_APPSERVICES_LOCAL=
+REPO_FILES=
 NIMBUS_DIR="$SOURCE_ROOT/build/nimbus"
 
 export CACHE_DIR="$NIMBUS_DIR/fml-cache"
