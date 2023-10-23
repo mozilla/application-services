@@ -1,12 +1,21 @@
-# v120.0 (In progress)
+# v121.0 (In progress)
 
 [Full Changelog](In progress)
+
+# v120.0 (_2023-10-23_)
 
 ## Nimbus SDK ⛅️🔬🔭
 
 ### ✨ What's New ✨
 
 - Added the `enrollment_status` metric and defined a host metric callback handler interface ([#5857](https://github.com/mozilla/application-services/pull/5857)).
+
+## Nimbus FML ⛅️🔬🔭🔧
+
+### 🦊 What's Changed 🦊
+
+- Changed `.experiment.yaml` generation to a `validate` ([#5877](https://github.com/mozilla/application-services/pull/5877)).
+  - Additionally: moved `nimbus-fml.sh` script from iOS into the application-services directory, replacing it with a `bootstrap.sh` script.
 
 ## Rust log forwarder
 
@@ -29,6 +38,8 @@
 ### ✨ What's New ✨
 
 - The `SuggestionQuery` now contains a optional limit that consumers can set to reduce the number of suggestions returned. ([#5870](https://github.com/mozilla/application-services/pull/5870))
+
+[Full Changelog](https://github.com/mozilla/application-services/compare/v119.0...v120.0)
 
 # v119.0 (_2023-09-25_)
 

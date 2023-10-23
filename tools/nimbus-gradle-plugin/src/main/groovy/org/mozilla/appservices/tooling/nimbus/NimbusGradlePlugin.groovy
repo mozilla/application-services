@@ -302,11 +302,9 @@ class NimbusPlugin implements Plugin<Project> {
             def assembleToolsTask = setupAssembleNimbusTools(project, extension)
             oneTimeTasks.add(assembleToolsTask)
 
-            if (!isLibrary) {
-                def experimenterTask = setupExperimenterTasks(project, extension, isLibrary)
-                experimenterTask.dependsOn(assembleToolsTask)
-                oneTimeTasks.add(experimenterTask)
-            }
+            def validateTask = setupValidateTask(project, extension)
+            validateTask.dependsOn(assembleToolsTask)
+            oneTimeTasks.add(validateTask)
         }
 
         // Generating experimenter manifest is cheap, for now.
@@ -392,34 +390,22 @@ class NimbusPlugin implements Plugin<Project> {
         return generateTask
     }
 
-    def setupExperimenterTasks(project, extension, isLibrary = false) {
-        // Experimenter works at the application level, not the library/project
-        // level. The experimenter task for the application should gather up manifests
-        // from its constituent libraries.
-        if (isLibrary) {
-            return null
-        }
-
+    def setupValidateTask(project, extension) {
         String inputFile = extension.getManifestFileActual(project)
-        String experimenterFile = extension.getExperimenterManifestActual(project)
         String cacheDir = extension.getCacheDirActual(project)
         List<String> repoFiles = extension.getRepoFilesActual(project)
 
-        return project.task("nimbusExperimenter", type: Exec) {
-            description = "Generate feature manifest for Nimbus server (Experimenter)"
+        return project.task("nimbusValidate", type: Exec) {
+            description = "Validate the Nimbus feature manifest for the app"
             group = "Nimbus"
 
             doFirst {
                 if (cacheDir != null)
                     ensureDirExists(new File(cacheDir))
-                println("Nimbus FML generating JSON")
+                println("Nimbus FML: validating manifest")
                 println("manifest             $inputFile")
                 println("cache dir            $cacheDir")
                 println("repo file(s)         ${repoFiles.join()}")
-            }
-
-            doLast {
-                println("output    $experimenterFile")
             }
 
             def localAppServices = extension.getApplicationServicesDirActual()
@@ -434,7 +420,7 @@ class NimbusPlugin implements Plugin<Project> {
                 args "--manifest-path", cargoManifest
                 args "--"
             }
-            args "generate-experimenter"
+            args "validate"
             if (cacheDir != null)
                 args "--cache-dir", cacheDir
             for (String file : repoFiles) {
@@ -442,7 +428,6 @@ class NimbusPlugin implements Plugin<Project> {
             }
 
             args inputFile
-            args experimenterFile
         }
     }
 
