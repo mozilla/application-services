@@ -387,35 +387,36 @@ mod tests {
         let mut fxa = setup();
 
         // Do an initial call to ensure_capabilities().
-        let mut client = FxAClientMock::new();
-        client
-            .expect_update_device_record(
-                mockiato::Argument::any,
-                |arg| arg.partial_eq("refreshtok"),
-                mockiato::Argument::any,
-            )
-            .returns_once(Ok(UpdateDeviceResponse {
+        let mut client = MockFxAClient::new();
+            client
+            .expect_update_device_record()
+            .with(always(), eq("refreshtok"), always())
+            .times(1)
+            .returning(|_, _, _| Ok(UpdateDeviceResponse {
                 id: "device1".to_string(),
                 display_name: "".to_string(),
                 device_type: DeviceType::Desktop,
                 push_subscription: None,
                 available_commands: HashMap::default(),
                 push_endpoint_expired: false,
-            }));
+    }));
+
+
+
         fxa.set_client(Arc::new(client));
         fxa.ensure_capabilities(&[DeviceCapability::SendTab])
             .unwrap();
         let saved = fxa.to_json().unwrap();
 
         // Do another call with the same capabilities.
-        // The FxAClientMock will panic if it tries to hit the network again, which it shouldn't.
+        // The MockFxAClient will panic if it tries to hit the network again, which it shouldn't.
         fxa.ensure_capabilities(&[DeviceCapability::SendTab])
             .unwrap();
 
         // Do another call with the same capabilities , after restoring from disk.
-        // The FxAClientMock will panic if it tries to hit the network, which it shouldn't.
+        // The MockFxAClient will panic if it tries to hit the network, which it shouldn't.
         let mut restored = FirefoxAccount::from_json(&saved).unwrap();
-        restored.set_client(Arc::new(FxAClientMock::new()));
+        restored.set_client(Arc::new(MockFxAClient::new()));
         restored
             .ensure_capabilities(&[DeviceCapability::SendTab])
             .unwrap();
@@ -426,58 +427,51 @@ mod tests {
         let mut fxa = setup();
 
         // Do an initial call to ensure_capabilities().
-        let mut client = FxAClientMock::new();
+        let mut client = MockFxAClient::new();
         client
-            .expect_update_device_record(
-                mockiato::Argument::any,
-                |arg| arg.partial_eq("refreshtok"),
-                mockiato::Argument::any,
-            )
-            .returns_once(Ok(UpdateDeviceResponse {
-                id: "device1".to_string(),
-                display_name: "".to_string(),
-                device_type: DeviceType::Desktop,
-                push_subscription: None,
-                available_commands: HashMap::default(),
-                push_endpoint_expired: false,
-            }));
+        .expect_update_device_record()
+        .with(always(), eq("refreshtok"), always())
+        .times(1)
+        .returning(|_, _, _| Ok(UpdateDeviceResponse {
+            id: "device1".to_string(),
+            display_name: "".to_string(),
+            device_type: DeviceType::Desktop,
+            push_subscription: None,
+            available_commands: HashMap::default(),
+            push_endpoint_expired: false,
+        }));
         fxa.set_client(Arc::new(client));
 
         fxa.ensure_capabilities(&[]).unwrap();
         let saved = fxa.to_json().unwrap();
 
         // Do another call with reduced capabilities.
-        let mut client = FxAClientMock::new();
+        let mut client = MockFxAClient::new();
         client
-            .expect_update_device_record(
-                mockiato::Argument::any,
-                |arg| arg.partial_eq("refreshtok"),
-                mockiato::Argument::any,
-            )
-            .returns_once(Ok(UpdateDeviceResponse {
-                id: "device1".to_string(),
-                display_name: "".to_string(),
-                device_type: DeviceType::Desktop,
-                push_subscription: None,
-                available_commands: HashMap::default(),
-                push_endpoint_expired: false,
-            }));
+        .expect_update_device_record()
+        .with(always(), eq("refreshtok"), always())
+        .times(1)
+        .returning(|_, _, _| Ok(UpdateDeviceResponse {
+            id: "device1".to_string(),
+            display_name: "".to_string(),
+            device_type: DeviceType::Desktop,
+            push_subscription: None,
+            available_commands: HashMap::default(),
+            push_endpoint_expired: false,
+        }));
         fxa.set_client(Arc::new(client));
 
         fxa.ensure_capabilities(&[DeviceCapability::SendTab])
             .unwrap();
 
         // Do another call with the same capabilities , after restoring from disk.
-        // The FxAClientMock will panic if it tries to hit the network, which it shouldn't.
+        // The MockFxAClient will panic if it tries to hit the network, which it shouldn't.
         let mut restored = FirefoxAccount::from_json(&saved).unwrap();
-        let mut client = FxAClientMock::new();
+        let mut client = MockFxAClient::new();
         client
-            .expect_update_device_record(
-                mockiato::Argument::any,
-                |arg| arg.partial_eq("refreshtok"),
-                mockiato::Argument::any,
-            )
-            .returns_once(Ok(UpdateDeviceResponse {
+        .expect_update_device_record()
+        .with(eq("refreshtok"), always(), always())
+        .returning(|_, _, _| Ok(UpdateDeviceResponse {
                 id: "device1".to_string(),
                 display_name: "".to_string(),
                 device_type: DeviceType::Desktop,
@@ -497,14 +491,12 @@ mod tests {
         let mut fxa = setup();
 
         // Do an initial call to ensure_capabilities().
-        let mut client = FxAClientMock::new();
+        let mut client = MockFxAClient::new();
         client
-            .expect_update_device_record(
-                mockiato::Argument::any,
-                |arg| arg.partial_eq("refreshtok"),
-                mockiato::Argument::any,
-            )
-            .returns_once(Ok(UpdateDeviceResponse {
+        .expect_update_device_record()
+        .with(always(), eq("refreshtok"), always())
+        .times(1)
+        .returning(|_, _, _| Ok(UpdateDeviceResponse {
                 id: "device1".to_string(),
                 display_name: "".to_string(),
                 device_type: DeviceType::Desktop,
@@ -519,14 +511,12 @@ mod tests {
         let saved = fxa.to_json().unwrap();
 
         // Do another call with reduced capabilities.
-        let mut client = FxAClientMock::new();
+        let mut client = MockFxAClient::new();
         client
-            .expect_update_device_record(
-                mockiato::Argument::any,
-                |arg| arg.partial_eq("refreshtok"),
-                mockiato::Argument::any,
-            )
-            .returns_once(Ok(UpdateDeviceResponse {
+        .expect_update_device_record()
+        .with(always(), eq("refreshtok"), always())
+        .times(1)
+        .returning(|_, _, _| Ok(UpdateDeviceResponse {
                 id: "device1".to_string(),
                 display_name: "".to_string(),
                 device_type: DeviceType::Desktop,
@@ -539,16 +529,14 @@ mod tests {
         fxa.ensure_capabilities(&[]).unwrap();
 
         // Do another call with the same capabilities , after restoring from disk.
-        // The FxAClientMock will panic if it tries to hit the network, which it shouldn't.
+        // The MockFxAClient will panic if it tries to hit the network, which it shouldn't.
         let mut restored = FirefoxAccount::from_json(&saved).unwrap();
-        let mut client = FxAClientMock::new();
+        let mut client = MockFxAClient::new();
         client
-            .expect_update_device_record(
-                mockiato::Argument::any,
-                |arg| arg.partial_eq("refreshtok"),
-                mockiato::Argument::any,
-            )
-            .returns_once(Ok(UpdateDeviceResponse {
+        .expect_update_device_record()
+        .with(always(), eq("refreshtok"), always())
+        .times(1)
+        .returning(|_, _, _| Ok(UpdateDeviceResponse {
                 id: "device1".to_string(),
                 display_name: "".to_string(),
                 device_type: DeviceType::Desktop,
@@ -566,56 +554,70 @@ mod tests {
         let mut fxa = setup();
 
         // Do an initial call to ensure_capabilities().
-        let mut client = FxAClientMock::new();
-        client
-            .expect_update_device_record(
-                mockiato::Argument::any,
-                |arg| arg.partial_eq("refreshtok"),
-                mockiato::Argument::any,
-            )
-            .returns_once(Ok(UpdateDeviceResponse {
-                id: "device1".to_string(),
-                display_name: "".to_string(),
-                device_type: DeviceType::Desktop,
-                push_subscription: None,
-                available_commands: HashMap::default(),
-                push_endpoint_expired: false,
-            }));
+        let mut client = MockFxAClient::new();
+client
+    .expect_update_device_record()
+    .with(always(), eq("refreshtok"), always())
+    .times(1)
+    .returning(|_, _, _| Ok(UpdateDeviceResponse {
+            id: "device1".to_string(),
+            display_name: "".to_string(),
+            device_type: DeviceType::Desktop,
+            push_subscription: None,
+            available_commands: HashMap::default(),
+            push_endpoint_expired: false,
+    }));
+
         fxa.set_client(Arc::new(client));
         fxa.ensure_capabilities(&[DeviceCapability::SendTab])
             .unwrap();
 
         // Fake that we've completed a new login flow.
         // (which annoyingly makes a bunch of network requests)
-        let mut client = FxAClientMock::new();
-        client
-            .expect_destroy_access_token(mockiato::Argument::any, mockiato::Argument::any)
-            .returns_once(Err(Error::RemoteError {
-                code: 500,
-                errno: 999,
-                error: "server error".to_string(),
-                message: "this will be ignored anyway".to_string(),
-                info: "".to_string(),
-            }));
-        client
-            .expect_get_devices(mockiato::Argument::any, mockiato::Argument::any)
-            .returns_once(Err(Error::RemoteError {
-                code: 500,
-                errno: 999,
-                error: "server error".to_string(),
-                message: "this will be ignored anyway".to_string(),
-                info: "".to_string(),
-            }));
-        client
-            .expect_destroy_refresh_token(mockiato::Argument::any, mockiato::Argument::any)
-            .returns_once(Err(Error::RemoteError {
-                code: 500,
-                errno: 999,
-                error: "server error".to_string(),
-                message: "this will be ignored anyway".to_string(),
-                info: "".to_string(),
-            }));
-        fxa.set_client(Arc::new(client));
+    let mut client = MockFxAClient::new();
+    client
+    .expect_destroy_access_token()
+    .with(always(), always())
+    .times(1)
+    .returning(|_, _| {
+        Err(Error::RemoteError {
+            code: 500,
+            errno: 999,
+            error: "server error".to_string(),
+            message: "this will be ignored anyway".to_string(),
+            info: "".to_string(),
+        })
+    });
+
+client
+    .expect_get_devices()
+    .with(always(), always())
+    .times(1)
+    .returning(|_, _| {
+        Err(Error::RemoteError {
+            code: 500,
+            errno: 999,
+            error: "server error".to_string(),
+            message: "this will be ignored anyway".to_string(),
+            info: "".to_string(),
+        })
+    });
+
+client
+    .expect_destroy_refresh_token()
+    .with(always(), always())
+    .times(1)
+    .returning(|_, _| {
+        Err(Error::RemoteError {
+            code: 500,
+            errno: 999,
+            error: "server error".to_string(),
+            message: "this will be ignored anyway".to_string(),
+            info: "".to_string(),
+        })
+    });
+
+fxa.set_client(Arc::new(client));
 
         fxa.handle_oauth_response(
             OAuthTokenResponse {
@@ -634,21 +636,21 @@ mod tests {
 
         // Do another call with the same capabilities.
         // It should re-register, as server-side state may have changed.
-        let mut client = FxAClientMock::new();
-        client
-            .expect_update_device_record(
-                mockiato::Argument::any,
-                |arg| arg.partial_eq("newRefreshTok"),
-                mockiato::Argument::any,
-            )
-            .returns_once(Ok(UpdateDeviceResponse {
-                id: "device1".to_string(),
-                display_name: "".to_string(),
-                device_type: DeviceType::Desktop,
-                push_subscription: None,
-                available_commands: HashMap::default(),
-                push_endpoint_expired: false,
-            }));
+        let mut client = MockFxAClient::new();
+client
+    .expect_update_device_record()
+    .with(always(), eq("newRefreshTok"), always())
+    .times(1)
+    .returning(|_, _, _| {
+        Ok(UpdateDeviceResponse {
+            id: "device1".to_string(),
+            display_name: "".to_string(),
+            device_type: DeviceType::Desktop,
+            push_subscription: None,
+            available_commands: HashMap::default(),
+            push_endpoint_expired: false,
+        })
+    });
         fxa.set_client(Arc::new(client));
         fxa.ensure_capabilities(&[DeviceCapability::SendTab])
             .unwrap();
@@ -659,41 +661,43 @@ mod tests {
         let mut fxa = setup();
 
         // Do an initial call to ensure_capabilities(), that fails.
-        let mut client = FxAClientMock::new();
-        client
-            .expect_update_device_record(
-                mockiato::Argument::any,
-                |arg| arg.partial_eq("refreshtok"),
-                mockiato::Argument::any,
-            )
-            .returns_once(Err(Error::RemoteError {
-                code: 500,
-                errno: 999,
-                error: "server error".to_string(),
-                message: "this will be ignored anyway".to_string(),
-                info: "".to_string(),
-            }));
+        let mut client = MockFxAClient::new();
+client
+    .expect_update_device_record()
+    .with(always(), eq("refreshtok"), always())
+    .times(1)
+    .returning(|_, _, _| {
+        Err(Error::RemoteError {
+            code: 500,
+            errno: 999,
+            error: "server error".to_string(),
+            message: "this will be ignored anyway".to_string(),
+            info: "".to_string(),
+        })
+    });
+
         fxa.set_client(Arc::new(client));
 
         fxa.ensure_capabilities(&[DeviceCapability::SendTab])
             .unwrap_err();
 
         // Do another call, which should re-attempt the update.
-        let mut client = FxAClientMock::new();
-        client
-            .expect_update_device_record(
-                mockiato::Argument::any,
-                |arg| arg.partial_eq("refreshtok"),
-                mockiato::Argument::any,
-            )
-            .returns_once(Ok(UpdateDeviceResponse {
-                id: "device1".to_string(),
-                display_name: "".to_string(),
-                device_type: DeviceType::Desktop,
-                push_subscription: None,
-                available_commands: HashMap::default(),
-                push_endpoint_expired: false,
-            }));
+        let mut client = MockFxAClient::new();
+client
+    .expect_update_device_record()
+    .with(always(), eq("refreshtok"), always())
+    .times(1)
+    .returning(|_, _, _| {
+        Ok(UpdateDeviceResponse {
+            id: "device1".to_string(),
+            display_name: "".to_string(),
+            device_type: DeviceType::Desktop,
+            push_subscription: None,
+            available_commands: HashMap::default(),
+            push_endpoint_expired: false,
+        })
+    });
+
         fxa.set_client(Arc::new(client));
 
         fxa.ensure_capabilities(&[DeviceCapability::SendTab])
@@ -703,28 +707,32 @@ mod tests {
     #[test]
     fn test_get_devices() {
         let mut fxa = setup();
-        let mut client = FxAClientMock::new();
-        client
-            .expect_get_devices(mockiato::Argument::any, mockiato::Argument::any)
-            .times(1)
-            .returns_once(Ok(vec![Device {
-                common: DeviceResponseCommon {
-                    id: "device1".into(),
-                    display_name: "".to_string(),
-                    device_type: DeviceType::Desktop,
-                    push_subscription: None,
-                    available_commands: HashMap::new(),
-                    push_endpoint_expired: true,
-                },
-                is_current_device: true,
-                location: DeviceLocation {
-                    city: None,
-                    country: None,
-                    state: None,
-                    state_code: None,
-                },
-                last_access_time: None,
-            }]));
+        let mut client = MockFxAClient::new();
+client
+    .expect_get_devices()
+    .with(always(), always())
+    .times(1)
+    .returning(|_, _| {
+        Ok(vec![Device {
+            common: DeviceResponseCommon {
+                id: "device1".into(),
+                display_name: "".to_string(),
+                device_type: DeviceType::Desktop,
+                push_subscription: None,
+                available_commands: HashMap::new(),
+                push_endpoint_expired: true,
+            },
+            is_current_device: true,
+            location: DeviceLocation {
+                city: None,
+                country: None,
+                state: None,
+                state_code: None,
+            },
+            last_access_time: None,
+        }])
+    });
+
 
         fxa.set_client(Arc::new(client));
         assert!(fxa.devices_cache.is_none());
@@ -754,17 +762,21 @@ mod tests {
     #[test]
     fn test_get_devices_network_errors() {
         let mut fxa = setup();
-        let mut client = FxAClientMock::new();
-        client
-            .expect_get_devices(mockiato::Argument::any, mockiato::Argument::any)
-            .times(1)
-            .returns_once(Err(Error::RemoteError {
-                code: 500,
-                errno: 101,
-                error: "Did not work!".to_owned(),
-                message: "Did not work!".to_owned(),
-                info: "Did not work!".to_owned(),
-            }));
+        let mut client = MockFxAClient::new();
+client
+    .expect_get_devices()
+    .with(always(), always())
+    .times(1)
+    .returning(|_, _| {
+        Err(Error::RemoteError {
+            code: 500,
+            errno: 101,
+            error: "Did not work!".to_owned(),
+            message: "Did not work!".to_owned(),
+            info: "Did not work!".to_owned(),
+        })
+    });
+
 
         fxa.set_client(Arc::new(client));
         assert!(fxa.devices_cache.is_none());
