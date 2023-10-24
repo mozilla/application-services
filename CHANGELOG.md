@@ -15,6 +15,9 @@
 - Fixed rust-log-forwarder bindings for Focus iOS ([5858](https://github.com/mozilla/application-services/pull/5858)).
 
 ## Suggest
+### ✨ What's New ✨
+
+- Edits to AMO provider keyword matching to match keyword prefix
 
 ### ⚠️ Breaking Changes ⚠️
 
