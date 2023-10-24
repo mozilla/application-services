@@ -388,12 +388,49 @@ fn test_login_deletes(c0: &mut TestClient, c1: &mut TestClient) {
     verify_missing_login(&c0.logins_store, &l2id);
 }
 
+fn test_key_loss_with_records(c0: &mut TestClient, c1: &mut TestClient) {
+    // This test is replicating a scenario in which the key and canary have been lost but encrypted login
+    // records remain in the database.
+    log::info!("Add some logins to client0");
+    let key = create_key().unwrap();
+
+    let login0 = add_login(
+        &c0.logins_store,
+        LoginEntry {
+            fields: LoginFields {
+                origin: "http://www.example.com".into(),
+                form_action_origin: Some("http://login.example.com".into()),
+                username_field: "uname".into(),
+                password_field: "pword".into(),
+                ..Default::default()
+            },
+            sec_fields: SecureLoginFields {
+                username: "cool_username".into(),
+                password: "hunter2".into(),
+            },
+        },
+        &key,
+    )
+    .expect("add l0");
+    let l0id = login0.guid();
+
+    // Sync c0
+    log::info!("Syncing c0");
+
+    // The sync below should fail with the following error:
+    //   "Store error: CryptoError(Crypto error: NSS error: NSS error: -8190  (decrypt SecureLoginFields))"
+    // This test will always fail because of the asserts in the auth crate.
+    let key2 = create_key().unwrap();
+    sync_logins(c0, &key2).expect_err("c0 sync should fail");
+}
+
 pub fn get_test_group() -> TestGroup {
     TestGroup::new(
         "logins",
         vec![
             ("test_login_general", test_login_general),
             ("test_login_deletes", test_login_deletes),
+            ("test_key_loss_with_records", test_key_loss_with_records),
         ],
     )
 }
