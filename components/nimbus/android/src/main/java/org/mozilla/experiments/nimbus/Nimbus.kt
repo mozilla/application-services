@@ -410,7 +410,9 @@ open class Nimbus(
     @AnyThread
     override fun recordEvent(count: Long, eventId: String) {
         dbScope.launch {
-            nimbusClient.recordEvent(eventId, count)
+            withCatchAll("recordEvent") {
+                nimbusClient.recordEvent(eventId, count)
+            }
         }
     }
 
