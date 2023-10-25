@@ -78,7 +78,7 @@ impl FmlFeatureInspector {
                 // serde_json errors are 1 indexed.
                 line: e.line() as u32 - 1,
                 col: if col == 0 { 0 } else { col - 1 } as u32,
-                hightlight: None,
+                highlight: None,
             });
         }
         let json = json.ok().unwrap();
@@ -89,7 +89,7 @@ impl FmlFeatureInspector {
                 message: "Need valid JSON object".to_string(),
                 line: 0,
                 col: 0,
-                hightlight: Some(string.to_string()),
+                highlight: Some(string.to_string()),
             })
         }
     }
@@ -101,13 +101,13 @@ impl FmlFeatureInspector {
                 FMLError::FeatureValidationError {
                     literals, message, ..
                 } => {
-                    let hightlight = literals.last().cloned();
+                    let highlight = literals.last().cloned();
                     let (line, col) = find_err(src, literals.into_iter());
                     FmlEditorError {
                         message,
                         line: line as u32,
                         col: col as u32,
-                        hightlight,
+                        highlight,
                     }
                 }
                 _ => {
@@ -165,7 +165,7 @@ pub struct FmlEditorError {
     pub message: String,
     pub line: u32,
     pub col: u32,
-    pub hightlight: Option<String>,
+    pub highlight: Option<String>,
 }
 
 #[cfg(test)]
@@ -195,7 +195,7 @@ mod unit_tests {
             message: message.to_string(),
             line,
             col,
-            hightlight: token.map(str::to_string),
+            highlight: token.map(str::to_string),
         }
     }
 
@@ -347,7 +347,7 @@ mod unit_tests {
                 .unwrap_or_else(|| unreachable!("No error for \"{input}\""));
 
             assert_eq!(
-                err.hightlight,
+                err.highlight,
                 Some(token.to_string()),
                 "Token {token} not detected in error in {input}"
             );
