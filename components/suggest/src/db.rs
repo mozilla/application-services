@@ -247,7 +247,7 @@ impl<'a> SuggestDao<'a> {
                                 ":suggestion_id": suggestion_id
                             },
                             |row| {
-                                if full_suffix.contains(keyword_suffix) {
+                                if full_suffix.starts_with(keyword_suffix) {
                                     Ok(Some(Suggestion::Amo{
                                         title,
                                         url: raw_url,
@@ -265,9 +265,10 @@ impl<'a> SuggestDao<'a> {
                     },
                     SuggestionProvider::Pocket => {
                         let confidence = row.get("confidence")?;
+                        let full_suffix = row.get::<_, String>("keyword_suffix")?;
                         let suffixes_match = match confidence {
-                            KeywordConfidence::Low => row.get::<_, String>("keyword_suffix")?.starts_with(keyword_suffix),
-                            KeywordConfidence::High => row.get::<_, String>("keyword_suffix")? == keyword_suffix,
+                            KeywordConfidence::Low => full_suffix.starts_with(keyword_suffix),
+                            KeywordConfidence::High => full_suffix == keyword_suffix,
                         };
                         if suffixes_match {
                             self.conn.query_row_and_then(

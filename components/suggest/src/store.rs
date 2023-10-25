@@ -1993,6 +1993,17 @@ mod tests {
                 "#]],
             ),
             (
+                "keyword = `masking s`; AMO only",
+                SuggestionQuery {
+                    keyword: "masking s".into(),
+                    providers: vec![SuggestionProvider::Amo],
+                    limit: None,
+                },
+                expect![[r#"
+                    []
+                "#]],
+            ),
+            (
                 "keyword = `soft`; AMP and Wikipedia",
                 SuggestionQuery {
                     keyword: "soft".into(),
