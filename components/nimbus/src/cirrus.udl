@@ -8,12 +8,26 @@ enum NimbusError {
     "UuidError", "InvalidExperimentFormat",
     "InvalidPath", "InternalError", "NoSuchExperiment", "NoSuchBranch",
     "DatabaseNotReady", "VersionParsingError", "TryFromIntError",
-    "ParseIntError", "TransformParameterError", "CirrusError",
+    "ParseIntError", "TransformParameterError", "CirrusError", "UniFFICallbackError"
+};
+
+callback interface MetricsHandler {
+    void record_enrollment_statuses(sequence<EnrollmentStatusExtraDef> enrollment_status_extras);
+};
+
+dictionary EnrollmentStatusExtraDef {
+    string? branch;
+    string? conflict_slug;
+    string? error_string;
+    string? reason;
+    string? slug;
+    string? status;
+    string? user_id;
 };
 
 interface CirrusClient {
     [Throws=NimbusError]
-    constructor(string app_context, optional sequence<string> coenrolling_feature_ids = []);
+    constructor(string app_context, MetricsHandler metrics_handler, optional sequence<string> coenrolling_feature_ids = []);
 
     // Handles an enrollment request string and returns an enrollment response string.
     [Throws=NimbusError]

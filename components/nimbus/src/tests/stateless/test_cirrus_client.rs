@@ -2,15 +2,20 @@
 // License, v. 2.0. If a copy of the MPL was not distributed with this
 // file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
-use crate::enrollment::{EnrollmentChangeEventType, ExperimentEnrollment, NotEnrolledReason};
-use crate::tests::stateless::test_cirrus_client::helpers::get_experiment_with_newtab_feature_branches;
+use crate::metrics::EnrollmentStatusExtraDef;
 use crate::{
+    enrollment::{EnrollmentChangeEventType, ExperimentEnrollment, NotEnrolledReason},
+    tests::{
+        helpers::TestMetrics,
+        stateless::test_cirrus_client::helpers::get_experiment_with_newtab_feature_branches,
+    },
     AppContext, CirrusClient, EnrollmentRequest, EnrollmentResponse, EnrollmentStatus, Result,
 };
 use serde_json::{from_str, to_string, to_value, Map, Value};
 use std::collections::HashMap;
 
 fn create_client() -> Result<CirrusClient> {
+    let metrics_handler = TestMetrics::new();
     CirrusClient::new(
         to_string(&AppContext {
             app_id: "test app id".to_string(),
@@ -21,6 +26,7 @@ fn create_client() -> Result<CirrusClient> {
             custom_targeting_attributes: None,
         })
         .unwrap(),
+        Box::new(metrics_handler),
         Default::default(),
     )
 }
@@ -166,6 +172,40 @@ fn test_only_writes_experiments_matching_configured_app_name_and_channel() -> Re
     )?;
 
     assert_eq!(client.get_experiments()?.len(), 1);
+
+    Ok(())
+}
+
+#[test]
+fn test_sends_metrics_on_enrollment() -> Result<()> {
+    let metrics_handler = TestMetrics::new();
+    let client = CirrusClient::new(
+        to_string(&AppContext {
+            app_id: "test app id".to_string(),
+            app_name: "test app name".to_string(),
+            channel: "test channel".to_string(),
+            app_version: None,
+            app_build: None,
+            custom_targeting_attributes: None,
+        })
+        .unwrap(),
+        Box::new(metrics_handler.clone()),
+        Default::default(),
+    )?;
+    let exp = helpers::get_experiment_with_newtab_feature_branches();
+    client
+        .set_experiments(to_string(&HashMap::from([("data", &[exp.clone()])])).unwrap())
+        .unwrap();
+    client.enroll("test".to_string(), Default::default(), true, &[])?;
+
+    let metric_records: Vec<EnrollmentStatusExtraDef> =
+        serde_json::from_value(metrics_handler.assert_get_vec_value("enrollment_status"))?;
+    assert_eq!(metric_records.len(), 1);
+    assert_eq!(metric_records[0].slug(), exp.slug);
+    assert_eq!(metric_records[0].status(), "Enrolled");
+    assert_eq!(metric_records[0].reason(), "Qualified");
+    assert_eq!(metric_records[0].branch(), "treatment");
+    assert_eq!(metric_records[0].user_id(), "test");
 
     Ok(())
 }

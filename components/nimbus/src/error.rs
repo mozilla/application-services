@@ -66,7 +66,6 @@ pub enum NimbusError {
     #[cfg(not(feature = "stateful"))]
     #[error("Error in Cirrus: {0}")]
     CirrusError(#[from] CirrusClientError),
-    #[cfg(feature = "stateful")]
     #[error("UniFFI callback error: {0}")]
     UniFFICallbackError(#[from] uniffi::UnexpectedUniFFICallbackError),
 }

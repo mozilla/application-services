@@ -16,6 +16,8 @@ pub struct EnrollmentStatusExtraDef {
     pub reason: Option<String>,
     pub slug: Option<String>,
     pub status: Option<String>,
+    #[cfg(not(feature = "stateful"))]
+    pub user_id: Option<String>,
 }
 
 #[cfg(test)]
@@ -42,6 +44,11 @@ impl EnrollmentStatusExtraDef {
 
     pub fn status(&self) -> &str {
         self.status.as_ref().unwrap()
+    }
+
+    #[cfg(not(feature = "stateful"))]
+    pub fn user_id(&self) -> &str {
+        self.user_id.as_ref().unwrap()
     }
 }
 
@@ -74,6 +81,8 @@ impl From<ExperimentEnrollment> for EnrollmentStatusExtraDef {
             reason: reason_value,
             slug: Some(enrollment.slug),
             status: Some(enrollment.status.name()),
+            #[cfg(not(feature = "stateful"))]
+            user_id: None,
         }
     }
 }

@@ -3,8 +3,16 @@
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 import json
 import pytest
-from cirrus import CirrusClient
+from cirrus import CirrusClient, MetricsHandler, EnrollmentStatusExtraDef
 from fml import FmlClient
+
+
+class TestMetricsHandler(MetricsHandler):
+    recordings = []
+
+    def record_enrollment_statuses(self, enrollment_status_extras: [EnrollmentStatusExtraDef]):
+        self.recordings.clear()
+        self.recordings.extend(enrollment_status_extras)
 
 
 @pytest.fixture
@@ -91,10 +99,11 @@ def req(request_context):
 
 @pytest.fixture
 def client(app_context, experiment):
-    c = CirrusClient(app_context)
+    test_metrics = TestMetricsHandler()
+    client = CirrusClient(app_context, test_metrics)
     data = json.dumps({"data": [experiment]})
-    c.set_experiments(data)
-    return c
+    client.set_experiments(data)
+    return client
 
 
 @pytest.fixture
@@ -136,7 +145,8 @@ def cirrus_client(app_context, bucket_config):
         "featureIds": ["imported-module-1-included-feature-1"],
     }
 
-    client = CirrusClient(app_context)
+    test_metrics = TestMetricsHandler()
+    client = CirrusClient(app_context, test_metrics)
     data = json.dumps({"data": [experiment]})
     client.set_experiments(data)
     return client

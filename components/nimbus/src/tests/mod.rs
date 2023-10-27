@@ -14,7 +14,6 @@ mod test_versioning;
 
 #[cfg(feature = "stateful")]
 mod stateful {
-    mod helpers;
     mod test_behavior;
     mod test_enrollment;
     mod test_evaluator;

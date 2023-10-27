@@ -13,6 +13,7 @@ mod strings;
 mod targeting;
 
 pub mod error;
+pub mod metrics;
 pub mod schema;
 pub mod versioning;
 
@@ -25,7 +26,6 @@ pub use targeting::NimbusTargetingHelper;
 
 cfg_if::cfg_if! {
     if #[cfg(feature = "stateful")] {
-        pub mod metrics;
 
         pub mod stateful;
 

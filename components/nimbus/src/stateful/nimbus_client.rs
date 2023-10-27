@@ -81,7 +81,7 @@ impl NimbusClient {
         db_path: P,
         config: Option<RemoteSettingsConfig>,
         available_randomization_units: AvailableRandomizationUnits,
-        host_metrics: Box<dyn MetricsHandler>,
+        metrics_handler: Box<dyn MetricsHandler>,
     ) -> Result<Self> {
         let settings_client = Mutex::new(create_client(config)?);
 
@@ -99,7 +99,7 @@ impl NimbusClient {
             coenrolling_feature_ids,
             db: OnceCell::default(),
             event_store: Arc::default(),
-            metrics_handler: Arc::new(host_metrics),
+            metrics_handler: Arc::new(metrics_handler),
         })
     }
 
