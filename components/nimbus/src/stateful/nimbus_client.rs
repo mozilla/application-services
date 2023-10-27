@@ -692,11 +692,20 @@ impl NimbusClient {
     }
 
     fn record_enrollment_status_telemetry(&self) -> Result<()> {
+        let experiments = self
+            .database_cache
+            .get_experiments()?
+            .iter()
+            .map(|exp| exp.slug.clone())
+            .collect::<HashSet<String>>();
         self.metrics_handler.record_enrollment_statuses(
             self.database_cache
                 .get_enrollments()?
                 .into_iter()
-                .map(|e| e.into())
+                .filter_map(|e| match experiments.contains(&e.slug) {
+                    true => Some(e.into()),
+                    false => None,
+                })
                 .collect(),
         );
         Ok(())
