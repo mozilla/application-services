@@ -470,7 +470,7 @@ mod tests {
         let mut client = MockFxAClient::new();
         client
         .expect_update_device_record()
-        .with(eq("refreshtok"), always(), always())
+        .with(always(), eq("refreshtok"), always())
         .returning(|_, _, _| Ok(UpdateDeviceResponse {
                 id: "device1".to_string(),
                 display_name: "".to_string(),
