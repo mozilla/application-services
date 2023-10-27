@@ -111,6 +111,6 @@ dictionary FmlEditorError {
     u32 line;
     // zero indexed column number for the error.
     u32 col;
-    // the text to hightlight.
-    string? hightlight;
+    // the text to highlight.
+    string? highlight;
 };

@@ -1402,28 +1402,24 @@ fn test_enrollment_status_metrics_recorded() -> Result<()> {
 
     let metric_records: Vec<EnrollmentStatusExtraDef> =
         serde_json::from_value(metrics.assert_get_vec_value("enrollment_status"))?;
-    assert_eq!(metric_records.len(), 7);
+    assert_eq!(metric_records.len(), 6);
 
-    assert_eq!(metric_records[3].slug(), slug_1);
-    assert_eq!(metric_records[3].status(), "WasEnrolled");
-    assert_eq!(metric_records[3].branch(), "treatment");
+    assert_eq!(metric_records[3].slug(), slug_2);
+    assert_eq!(metric_records[3].status(), "Disqualified");
+    assert_eq!(metric_records[3].reason(), "NotTargeted");
+    assert_eq!(metric_records[3].branch(), "control");
 
-    assert_eq!(metric_records[4].slug(), slug_2);
-    assert_eq!(metric_records[4].status(), "Disqualified");
-    assert_eq!(metric_records[4].reason(), "NotTargeted");
-    assert_eq!(metric_records[4].branch(), "control");
-
-    assert_eq!(metric_records[5].slug(), slug_4);
-    assert_eq!(metric_records[5].status(), "Error");
+    assert_eq!(metric_records[4].slug(), slug_4);
+    assert_eq!(metric_records[4].status(), "Error");
     assert_eq!(
-        metric_records[5].error_string(),
+        metric_records[4].error_string(),
         "EvaluationError: Identifier 'blah' is undefined"
     );
 
-    assert_eq!(metric_records[6].slug(), slug_3);
-    assert_eq!(metric_records[6].status(), "Disqualified");
-    assert_eq!(metric_records[6].reason(), "NotSelected");
-    assert_eq!(metric_records[6].branch(), "control");
+    assert_eq!(metric_records[5].slug(), slug_3);
+    assert_eq!(metric_records[5].status(), "Disqualified");
+    assert_eq!(metric_records[5].reason(), "NotSelected");
+    assert_eq!(metric_records[5].branch(), "control");
 
     Ok(())
 }

@@ -1525,7 +1525,7 @@ mod tests {
                         "description": "amo suggestion",
                         "url": "https://addons.mozilla.org/en-US/firefox/addon/example",
                         "guid": "{b9db16a4-6edc-47ec-a1f4-b86292ed211d}",
-                        "keywords": ["relay", "spam", "masking", "alias"],
+                        "keywords": ["relay", "spam", "masking email", "alias"],
                         "title": "Firefox Relay",
                         "icon": "https://addons.mozilla.org/user-media/addon_icons/2633/2633704-64.png?modified=2c11a80b",
                         "rating": "4.9",
@@ -1921,6 +1921,30 @@ mod tests {
                 "#]],
             ),
             (
+                "keyword = `spam`; AMO only",
+                SuggestionQuery {
+                    keyword: "spam".into(),
+                    providers: vec![SuggestionProvider::Amo],
+                    limit: None,
+                },
+                expect![[r#"
+                [
+                    Amo {
+                        title: "Firefox Relay",
+                        url: "https://addons.mozilla.org/en-US/firefox/addon/example",
+                        icon_url: "https://addons.mozilla.org/user-media/addon_icons/2633/2633704-64.png?modified=2c11a80b",
+                        description: "amo suggestion",
+                        rating: Some(
+                            "4.9",
+                        ),
+                        number_of_ratings: 888,
+                        guid: "{b9db16a4-6edc-47ec-a1f4-b86292ed211d}",
+                        score: 0.25,
+                    },
+                ]
+                "#]],
+            ),
+            (
                 "keyword = `masking`; AMO only",
                 SuggestionQuery {
                     keyword: "masking".into(),
@@ -1945,14 +1969,45 @@ mod tests {
                 "#]],
             ),
             (
-                "keyword = `soft`; AMP, Wikipedia, and AMO",
+                "keyword = `masking e`; AMO only",
+                SuggestionQuery {
+                    keyword: "masking e".into(),
+                    providers: vec![SuggestionProvider::Amo],
+                    limit: None,
+                },
+                expect![[r#"
+                [
+                    Amo {
+                        title: "Firefox Relay",
+                        url: "https://addons.mozilla.org/en-US/firefox/addon/example",
+                        icon_url: "https://addons.mozilla.org/user-media/addon_icons/2633/2633704-64.png?modified=2c11a80b",
+                        description: "amo suggestion",
+                        rating: Some(
+                            "4.9",
+                        ),
+                        number_of_ratings: 888,
+                        guid: "{b9db16a4-6edc-47ec-a1f4-b86292ed211d}",
+                        score: 0.25,
+                    },
+                ]
+                "#]],
+            ),
+            (
+                "keyword = `masking s`; AMO only",
+                SuggestionQuery {
+                    keyword: "masking s".into(),
+                    providers: vec![SuggestionProvider::Amo],
+                    limit: None,
+                },
+                expect![[r#"
+                    []
+                "#]],
+            ),
+            (
+                "keyword = `soft`; AMP and Wikipedia",
                 SuggestionQuery {
                     keyword: "soft".into(),
-                    providers: vec![
-                        SuggestionProvider::Amp,
-                        SuggestionProvider::Wikipedia,
-                        SuggestionProvider::Amo,
-                    ],
+                    providers: vec![SuggestionProvider::Amp, SuggestionProvider::Wikipedia],
                     limit: None,
                 },
                 expect![[r#"
@@ -2125,10 +2180,10 @@ mod tests {
                     UnparsableRecords(
                         {
                             "clippy-2": UnparsableRecord {
-                                schema_version: 7,
+                                schema_version: 8,
                             },
                             "fancy-new-suggestions-1": UnparsableRecord {
-                                schema_version: 7,
+                                schema_version: 8,
                             },
                         },
                     ),
@@ -2193,10 +2248,10 @@ mod tests {
                     UnparsableRecords(
                         {
                             "clippy-2": UnparsableRecord {
-                                schema_version: 7,
+                                schema_version: 8,
                             },
                             "fancy-new-suggestions-1": UnparsableRecord {
-                                schema_version: 7,
+                                schema_version: 8,
                             },
                         },
                     ),
@@ -2299,10 +2354,10 @@ mod tests {
                     UnparsableRecords(
                         {
                             "clippy-2": UnparsableRecord {
-                                schema_version: 7,
+                                schema_version: 8,
                             },
                             "fancy-new-suggestions-1": UnparsableRecord {
-                                schema_version: 7,
+                                schema_version: 8,
                             },
                         },
                     ),
