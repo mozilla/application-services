@@ -6,7 +6,7 @@
 #![allow(unused_imports)]
 
 use crate::error::Result;
-use crate::tests::stateful::helpers::TestMetrics;
+use crate::tests::helpers::TestMetrics;
 
 #[cfg(feature = "rkv-safe-mode")]
 #[test]

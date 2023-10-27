@@ -8,6 +8,7 @@ use crate::{
         EnrollmentsEvolver, ExperimentEnrollment,
     },
     error::CirrusClientError,
+    metrics::{EnrollmentStatusExtraDef, MetricsHandler},
     parse_experiments, AppContext, AvailableRandomizationUnits, Experiment, NimbusError,
     NimbusTargetingHelper, Result, TargetingAttributes,
 };
@@ -15,7 +16,7 @@ use serde_derive::*;
 use serde_json::{Map, Value};
 use std::collections::HashMap;
 use std::fmt;
-use std::sync::Mutex;
+use std::sync::{Arc, Mutex};
 
 /// EnrollmentResponse is a DTO for the response from handling enrollment for a given client.
 ///
@@ -76,20 +77,25 @@ pub struct CirrusMutableState {
     experiments: Vec<Experiment>,
 }
 
-#[derive(Default)]
 pub struct CirrusClient {
     app_context: AppContext,
     coenrolling_feature_ids: Vec<String>,
     state: Mutex<CirrusMutableState>,
+    metrics_handler: Arc<Box<dyn MetricsHandler>>,
 }
 
 impl CirrusClient {
-    pub fn new(app_context: String, coenrolling_feature_ids: Vec<String>) -> Result<Self> {
+    pub fn new(
+        app_context: String,
+        metrics_handler: Box<dyn MetricsHandler>,
+        coenrolling_feature_ids: Vec<String>,
+    ) -> Result<Self> {
         let app_context: AppContext = serde_json::from_str(&app_context)?;
         Ok(Self {
             app_context,
             coenrolling_feature_ids,
             state: Default::default(),
+            metrics_handler: Arc::new(metrics_handler),
         })
     }
 
@@ -150,6 +156,18 @@ impl CirrusClient {
                 &state.experiments,
                 prev_enrollments,
             )?;
+
+        self.metrics_handler.record_enrollment_statuses(
+            enrollments
+                .iter()
+                .cloned()
+                .map(|e| {
+                    let mut extra: EnrollmentStatusExtraDef = e.into();
+                    extra.user_id = Some(user_id.clone());
+                    extra
+                })
+                .collect(),
+        );
 
         let enrolled_feature_config_map =
             map_features_by_feature_id(&enrollments, &state.experiments, &coenrolling_ids);

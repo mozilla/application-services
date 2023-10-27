@@ -13,12 +13,9 @@ use crate::{
         },
         persistence::{Database, StoreId},
     },
-    tests::{
-        helpers::{
-            get_bucketed_rollout, get_ios_rollout_experiment, get_targeted_experiment,
-            to_local_experiments_string,
-        },
-        stateful::helpers::TestMetrics,
+    tests::helpers::{
+        get_bucketed_rollout, get_ios_rollout_experiment, get_targeted_experiment,
+        to_local_experiments_string, TestMetrics,
     },
     AppContext, AvailableRandomizationUnits, Experiment, NimbusClient, TargetingAttributes,
     DB_KEY_APP_VERSION, DB_KEY_UPDATE_DATE,
