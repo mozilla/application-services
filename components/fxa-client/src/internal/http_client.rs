@@ -53,15 +53,15 @@ const DEVICES_FILTER_DAYS: u64 = 21;
 /// it return something called a "refresh token"? Using unambiguous
 /// verbs to start each method helps avoid confusion here.
 ///
-#[cfg_attr(test, for<'a> mockall::automock)]
-pub(crate) trait FxAClient {
+#[cfg_attr(test, mockall::automock<'a>)]
+pub(crate) trait FxAClient<'a> {
     fn create_refresh_token_using_authorization_code(
         &self,
         config: &Config,
         code: &str,
         code_verifier: &str,
     ) -> Result<OAuthTokenResponse>;
-    fn create_refresh_token_using_session_token(
+    fn create_refresh_token_using_session_token<'a>(
         &self,
         config: &Config,
         session_token: &str,
@@ -72,14 +72,14 @@ pub(crate) trait FxAClient {
         config: &Config,
         refresh_token: &str,
     ) -> Result<IntrospectResponse>;
-    fn create_access_token_using_refresh_token(
+    fn create_access_token_using_refresh_token<'a>(
         &self,
         config: &Config,
         refresh_token: &str,
         ttl: Option<u64>,
         scopes: &[&'a str],
     ) -> Result<OAuthTokenResponse>;
-    fn create_access_token_using_session_token(
+    fn create_access_token_using_session_token<'a>(
         &self,
         config: &Config,
         session_token: &str,
@@ -119,7 +119,7 @@ pub(crate) trait FxAClient {
         target: &str,
         payload: &serde_json::Value,
     ) -> Result<()>;
-    fn update_device_record(
+    fn update_device_record<'a>(
         &self,
         config: &Config,
         refresh_token: &str,
