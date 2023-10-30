@@ -23,7 +23,7 @@ buildscript {
         gradle_download_task_version = '5.2.1'
         junit_version = '4.13.2'
         mockito_core_version = '5.5.0'
-        robolectric_core_version = '4.10.3'
+        robolectric_core_version = '4.11'
         rust_android_gradle_version = '0.9.3'
         protobuf_version = '3.21.10'
         gradle_protobuf_version = '0.9.4'
