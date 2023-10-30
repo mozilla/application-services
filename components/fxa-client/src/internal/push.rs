@@ -137,6 +137,8 @@ pub struct AccountDestroyedPushPayload {
 
 #[cfg(test)]
 mod tests {
+    use mockall::predicate::always;
+    use mockall::predicate::eq;
     use super::*;
     use crate::internal::http_client::MockFxAClient;
     use crate::internal::http_client::IntrospectResponse;

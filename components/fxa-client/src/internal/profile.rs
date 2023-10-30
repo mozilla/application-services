@@ -85,6 +85,8 @@ impl FirefoxAccount {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use mockall::predicate::always;
+    use mockall::predicate::eq;
     use crate::internal::{
         http_client::*,
         oauth::{AccessTokenInfo, RefreshToken},

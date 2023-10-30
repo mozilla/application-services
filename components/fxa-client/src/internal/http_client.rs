@@ -53,7 +53,7 @@ const DEVICES_FILTER_DAYS: u64 = 21;
 /// it return something called a "refresh token"? Using unambiguous
 /// verbs to start each method helps avoid confusion here.
 ///
-#[cfg_attr(test, mockall::automock)]
+#[cfg_attr(test, for<'a> mockall::automock)]
 pub(crate) trait FxAClient {
     fn create_refresh_token_using_authorization_code(
         &self,
@@ -65,7 +65,7 @@ pub(crate) trait FxAClient {
         &self,
         config: &Config,
         session_token: &str,
-        scopes: &[&str],
+        scopes: &[&'a str],
     ) -> Result<OAuthTokenResponse>;
     fn check_refresh_token_status(
         &self,
@@ -77,13 +77,13 @@ pub(crate) trait FxAClient {
         config: &Config,
         refresh_token: &str,
         ttl: Option<u64>,
-        scopes: &[&str],
+        scopes: &[&'a str],
     ) -> Result<OAuthTokenResponse>;
     fn create_access_token_using_session_token(
         &self,
         config: &Config,
         session_token: &str,
-        scopes: &[&str],
+        scopes: &[&'a str],
     ) -> Result<OAuthTokenResponse>;
     fn create_authorization_code_using_session_token(
         &self,
@@ -123,7 +123,7 @@ pub(crate) trait FxAClient {
         &self,
         config: &Config,
         refresh_token: &str,
-        update: DeviceUpdateRequest<'_>,
+        update: DeviceUpdateRequest<'a>,
     ) -> Result<UpdateDeviceResponse>;
     fn destroy_device_record(&self, config: &Config, refresh_token: &str, id: &str) -> Result<()>;
     fn get_devices(&self, config: &Config, refresh_token: &str) -> Result<Vec<GetDeviceResponse>>;

@@ -51,6 +51,8 @@ impl TryFrom<AttachedClient> for crate::AttachedClient {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use mockall::predicate::always;
+    use mockall::predicate::eq;
     use crate::internal::{config::Config, http_client::MockFxAClient};
     use std::sync::Arc;
     use sync15::DeviceType;

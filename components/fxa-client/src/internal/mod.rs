@@ -40,9 +40,9 @@ type FxAClient = dyn http_client::FxAClient + Sync + Send;
 
 // FIXME: https://github.com/myelin-ai/mockiato/issues/106.
 #[cfg(test)]
-unsafe impl<'a> Send for http_client::MockFxAClient<'a> {}
+unsafe impl Send for http_client::MockFxAClient<'a> {}
 #[cfg(test)]
-unsafe impl<'a> Sync for http_client::MockFxAClient<'a> {}
+unsafe impl Sync for http_client::MockFxAClient<'a> {}
 
 // It this struct is modified, please check if the
 // `FirefoxAccount.start_over` function also needs
@@ -234,6 +234,8 @@ pub(crate) struct CachedResponse<T> {
 
 #[cfg(test)]
 mod tests {
+    use mockall::predicate::always;
+    use mockall::predicate::eq;
     use super::*;
     use crate::internal::device::*;
     use crate::internal::http_client::MockFxAClient;

@@ -580,6 +580,8 @@ impl From<IntrospectInfo> for crate::AuthorizationInfo {
 
 #[cfg(test)]
 mod tests {
+    use mockall::predicate::always;
+    use mockall::predicate::eq;
     use super::super::{http_client::*, Config};
     use super::*;
     use std::borrow::Cow;
