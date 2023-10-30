@@ -19,8 +19,6 @@ use error_support::handle_error;
 use serde::{Deserialize, Serialize};
 use sync15::DeviceType;
 use crate::{ApiResult, DevicePushSubscription, Error, FirefoxAccount};
-use mockall::predicate::always;
-use mockall::predicate::eq;
 impl FirefoxAccount {
     /// Create a new device record for this application.
     ///

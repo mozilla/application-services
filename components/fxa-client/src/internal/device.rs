@@ -357,6 +357,8 @@ impl TryFrom<Device> for crate::Device {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use mockall::predicate::always;
+    use mockall::predicate::eq;
     use crate::internal::http_client::*;
     use crate::internal::oauth::RefreshToken;
     use crate::internal::Config;
