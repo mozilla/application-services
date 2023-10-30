@@ -154,7 +154,7 @@ enum HttpClientState {
 pub struct Client {
     state: Mutex<HashMap<String, HttpClientState>>,
 }
-impl FxAClient<'_> for Client {
+impl FxAClient for Client {
     fn get_fxa_client_configuration(&self, config: &Config) -> Result<ClientConfigurationResponse> {
         // Why go through two-levels of indirection? It looks kinda dumb.
         // Well, `config:Config` also needs to fetch the config, but does not have access

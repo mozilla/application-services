@@ -36,7 +36,7 @@ mod state_persistence;
 mod telemetry;
 mod util;
 
-type FxAClient = dyn for<'a> http_client::FxAClient<'a> + Sync + Send;
+type FxAClient = dyn http_client::FxAClient + Sync + Send;
 
 // FIXME: https://github.com/myelin-ai/mockiato/issues/106.
 #[cfg(test)]
