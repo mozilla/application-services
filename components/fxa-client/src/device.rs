@@ -18,9 +18,6 @@
 use error_support::handle_error;
 use serde::{Deserialize, Serialize};
 use sync15::DeviceType;
-use mockall::predicate::always;
-use mockall::predicate::eq;
-
 use crate::{ApiResult, DevicePushSubscription, Error, FirefoxAccount};
 
 impl FirefoxAccount {
@@ -47,6 +44,9 @@ impl FirefoxAccount {
     ///
     ///    - Device registration is only available to applications that have been
     ///      granted the `https://identity.mozilla.com/apps/oldsync` scope.
+    use mockall::predicate::always;
+    use mockall::predicate::eq;
+
     #[handle_error(Error)]
     pub fn initialize_device(
         &self,

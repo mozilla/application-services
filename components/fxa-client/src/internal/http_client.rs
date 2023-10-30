@@ -119,7 +119,7 @@ pub(crate) trait FxAClient<'a> {
         target: &str,
         payload: &serde_json::Value,
     ) -> Result<()>;
-    fn update_device_record<'a>(
+    fn update_device_record(
         &self,
         config: &Config,
         refresh_token: &str,
