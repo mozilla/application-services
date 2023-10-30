@@ -40,9 +40,9 @@ type FxAClient = dyn for<'a> http_client::FxAClient<'a> + Sync + Send;
 
 // FIXME: https://github.com/myelin-ai/mockiato/issues/106.
 #[cfg(test)]
-unsafe impl Send for http_client::MockFxAClient<'a> {}
+unsafe impl<'a> Send for http_client::MockFxAClient<'a> {}
 #[cfg(test)]
-unsafe impl Sync for http_client::MockFxAClient<'a> {}
+unsafe impl<'a> Sync for http_client::MockFxAClient<'a> {}
 
 // It this struct is modified, please check if the
 // `FirefoxAccount.start_over` function also needs

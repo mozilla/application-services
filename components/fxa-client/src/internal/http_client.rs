@@ -54,7 +54,7 @@ const DEVICES_FILTER_DAYS: u64 = 21;
 /// verbs to start each method helps avoid confusion here.
 ///
 #[cfg_attr(test, mockall::automock)]
-pub(crate) trait FxAClient<'a> {
+pub(crate) trait FxAClient{
     fn create_refresh_token_using_authorization_code(
         &self,
         config: &Config,
