@@ -53,7 +53,7 @@ const DEVICES_FILTER_DAYS: u64 = 21;
 /// it return something called a "refresh token"? Using unambiguous
 /// verbs to start each method helps avoid confusion here.
 ///
-#[cfg_attr(test, mockall::automock<'a>)]
+#[cfg_attr(test, mockall::automock)]
 pub(crate) trait FxAClient<'a> {
     fn create_refresh_token_using_authorization_code(
         &self,
@@ -61,7 +61,7 @@ pub(crate) trait FxAClient<'a> {
         code: &str,
         code_verifier: &str,
     ) -> Result<OAuthTokenResponse>;
-    fn create_refresh_token_using_session_token<'a>(
+    fn create_refresh_token_using_session_token(
         &self,
         config: &Config,
         session_token: &str,
@@ -72,14 +72,14 @@ pub(crate) trait FxAClient<'a> {
         config: &Config,
         refresh_token: &str,
     ) -> Result<IntrospectResponse>;
-    fn create_access_token_using_refresh_token<'a>(
+    fn create_access_token_using_refresh_token(
         &self,
         config: &Config,
         refresh_token: &str,
         ttl: Option<u64>,
         scopes: &[&'a str],
     ) -> Result<OAuthTokenResponse>;
-    fn create_access_token_using_session_token<'a>(
+    fn create_access_token_using_session_token(
         &self,
         config: &Config,
         session_token: &str,
@@ -154,7 +154,7 @@ enum HttpClientState {
 pub struct Client {
     state: Mutex<HashMap<String, HttpClientState>>,
 }
-impl FxAClient for Client {
+impl FxAClient<'_> for Client {
     fn get_fxa_client_configuration(&self, config: &Config) -> Result<ClientConfigurationResponse> {
         // Why go through two-levels of indirection? It looks kinda dumb.
         // Well, `config:Config` also needs to fetch the config, but does not have access
