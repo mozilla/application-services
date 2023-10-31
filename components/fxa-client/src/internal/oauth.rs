@@ -21,6 +21,8 @@ use std::{
     collections::{HashMap, HashSet},
     iter::FromIterator,
     time::{SystemTime, UNIX_EPOCH},
+    rc::Rc,
+    cell::RefCell,
 };
 use url::Url;
 // If a cached token has less than `OAUTH_MIN_TIME_LEFT` seconds left to live,
@@ -990,8 +992,8 @@ mod tests {
             .chain(std::iter::once(' '))
             .chain(invalid_scope.chars())
             .collect::<String>();
-        let mut server_ret = HashMap::new();
-        server_ret.insert(
+        let server_ret = Rc::new(RefCell::new(HashMap::new()));
+        server_ret.borrow_mut().insert(
             scopes::OLD_SYNC.to_string(),
             ScopedKeyDataResponse {
                 key_rotation_secret: "IamASecret".to_string(),
@@ -1003,7 +1005,7 @@ mod tests {
             .expect_get_scoped_key_data()
             .with(always(), eq("session"), eq("12345678"), eq(expected_scopes))
             .times(1)
-            .returning(|_, _, _, _| Ok(server_ret.clone()));
+            .returning(|_, _, _, _| Ok(Rc::clone(&server_ret).borrow().clone()));
         fxa.set_client(Arc::new(client));
 
         let auth_params = AuthorizationParameters {
@@ -1032,8 +1034,8 @@ mod tests {
         let mut fxa = FirefoxAccount::with_config(config);
         fxa.set_session_token("session");
         let mut client = MockFxAClient::new();
-        let mut server_ret = HashMap::new();
-        server_ret.insert(
+        let server_ret = Rc::new(RefCell::new(HashMap::new()));
+        server_ret.borrow_mut().insert(
             scopes::OLD_SYNC.to_string(),
             ScopedKeyDataResponse {
                 key_rotation_secret: "IamASecret".to_string(),
@@ -1045,7 +1047,7 @@ mod tests {
             .expect_get_scoped_key_data()
             .with(always(), eq("session"), eq("12345678"), eq(scopes::OLD_SYNC))
             .times(1)
-            .returning(|_, _, _, _| Ok(server_ret.clone()));
+            .returning(|_, _, _, _| Ok(Rc::clone(&server_ret).borrow().clone()));
         fxa.set_client(Arc::new(client));
         let auth_params = AuthorizationParameters {
             client_id: "12345678".to_string(),
