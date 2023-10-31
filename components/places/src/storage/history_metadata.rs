@@ -751,8 +751,8 @@ mod tests {
     };
     use crate::storage::fetch_page_info;
     use crate::storage::history::{
-        apply_observation, delete_visits_between, delete_visits_for, get_visit_count, url_to_guid,
-        wipe_local,
+        apply_observation, delete_everything, delete_visits_between, delete_visits_for,
+        get_visit_count, url_to_guid,
     };
     use crate::types::VisitType;
     use crate::VisitTransitionSet;
@@ -2006,7 +2006,7 @@ mod tests {
         assert_table_size!(&conn, "moz_origins", 2);
 
         // this somehow deletes 1 origin record, and our metadata
-        wipe_local(&conn).expect("places wipe succeeds");
+        delete_everything(&conn).expect("places wipe succeeds");
 
         assert_table_size!(&conn, "moz_places_metadata", 0);
         assert_table_size!(&conn, "moz_places_metadata_search_queries", 0);
@@ -2147,7 +2147,7 @@ mod tests {
         );
 
         // now, let's wipe places, and make sure none of the metadata stuff remains.
-        wipe_local(&conn).expect("places wipe succeeds");
+        delete_everything(&conn).expect("places wipe succeeds");
 
         assert_table_size!(&conn, "moz_places_metadata", 0);
         assert_table_size!(&conn, "moz_places_metadata_search_queries", 0);

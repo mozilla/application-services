@@ -10,6 +10,11 @@
   - This was originally thought to be of use, but after running the system for sometime, we have found that this isn't needed.
   - In the spirit of reducing unique identifiers in telemetry and in the spirit of Lean Data, we have removed `enrollment_id` (and the code that generates it).
 
+## Places
+
+### ⚠️ Breaking Changes ⚠️
+  - `wipe_local` and `prune_destructively` have been removed from history API. `delete_everything` or `run_maintenance_*` methods should be used instead.
+
 # v120.0 (_2023-10-23_)
 
 ## FxA-Client
