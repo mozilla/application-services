@@ -912,7 +912,7 @@ mod tests {
             .expect_check_refresh_token_status()
             .with(always(), eq("refresh_token"))
             .returning(|_, _| Ok(IntrospectResponse { active: true }));
-        client.expect_check_refresh_token_status_calls_in_order();
+        //mockall expects calls to be processed in the order they are registered. So, no need for to use a method like expect_check_refresh_token_status_calls_in_order()
         fxa.set_client(Arc::new(client));
 
         for _ in 0..5 {
