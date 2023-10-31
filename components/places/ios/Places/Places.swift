@@ -785,13 +785,6 @@ public class PlacesWriteConnection: PlacesReadConnection {
         }
     }
 
-    open func pruneDestructively() throws {
-        try queue.sync {
-            try self.checkApi()
-            try self.conn.pruneDestructively()
-        }
-    }
-
     open func acceptResult(searchString: String, url: String) throws {
         return try queue.sync {
             try self.checkApi()

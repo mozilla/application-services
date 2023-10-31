@@ -117,20 +117,10 @@ interface PlacesConnection {
     [Throws=PlacesApiError]
     sequence<TopFrecentSiteInfo> get_top_frecent_site_infos(i32 num_items, FrecencyThresholdOption threshold_option);
 
-    // These three methods below are not actively being used by the consumers, we should investigate further
-    // and remove if so https://github.com/mozilla/application-services/issues/4719
-    [Throws=PlacesApiError]
-    void wipe_local_history();
-
     //From a-c: will not remove any history from remote devices, but it will prevent deleted
     // history from returning.
     [Throws=PlacesApiError]
     void delete_everything_history();
-
-    // Exactly the same as wipe_local_history
-    [Throws=PlacesApiError]
-    void prune_destructively();
-
 
     /// Run maintenance on the places DB (prune step)
     ///

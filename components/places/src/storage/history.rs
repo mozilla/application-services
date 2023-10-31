@@ -401,11 +401,6 @@ pub fn delete_place_visit_at_time_by_href(
     Ok(())
 }
 
-pub fn prune_destructively(db: &PlacesDb) -> Result<()> {
-    // For now, just fall back to wipe_local until we decide how this should work.
-    wipe_local(db)
-}
-
 pub fn prune_older_visits(db: &PlacesDb) -> Result<()> {
     let tx = db.begin_transaction()?;
     // Prune 6 items at a time, which matches desktops "small limit" value
@@ -494,15 +489,6 @@ fn find_exotic_visits_to_prune(
     )
 }
 
-pub fn wipe_local(db: &PlacesDb) -> Result<()> {
-    let tx = db.begin_transaction()?;
-    wipe_local_in_tx(db)?;
-    tx.commit()?;
-    // Note: SQLite cannot VACUUM within a transaction.
-    db.execute_batch("VACUUM")?;
-    Ok(())
-}
-
 fn wipe_local_in_tx(db: &PlacesDb) -> Result<()> {
     use crate::frecency::DEFAULT_FRECENCY_SETTINGS;
     db.execute_all(&[
@@ -540,7 +526,6 @@ fn wipe_local_in_tx(db: &PlacesDb) -> Result<()> {
     Ok(())
 }
 
-#[allow(unreachable_code)]
 pub fn delete_everything(db: &PlacesDb) -> Result<()> {
     let tx = db.begin_transaction()?;
 
@@ -2557,7 +2542,7 @@ mod tests {
     }
 
     #[test]
-    fn test_wipe_local() {
+    fn test_delete_local() {
         use crate::frecency::DEFAULT_FRECENCY_SETTINGS;
         use crate::storage::bookmarks::{
             self, BookmarkPosition, BookmarkRootGuid, InsertableBookmark, InsertableItem,
@@ -2641,7 +2626,7 @@ mod tests {
 
         assert!(bookmarks::delete_bookmark(&conn, &b0.0).unwrap());
 
-        wipe_local(&conn).unwrap();
+        delete_everything(&conn).unwrap();
 
         let places = conn
             .query_rows_and_then(

@@ -341,10 +341,6 @@ class PlacesWriterConnection internal constructor(conn: UniffiPlacesConnection, 
         }
     }
 
-    override fun wipeLocal() {
-        this.conn.wipeLocalHistory()
-    }
-
     override fun runMaintenance(dbSizeLimit: UInt) {
         val pruneMetrics = PlacesManagerMetrics.runMaintenanceTime.measure {
             val pruneMetrics = PlacesManagerMetrics.runMaintenancePruneTime.measure {
@@ -365,10 +361,6 @@ class PlacesWriterConnection internal constructor(conn: UniffiPlacesConnection, 
             pruneMetrics
         }
         PlacesManagerMetrics.dbSizeAfterMaintenance.accumulateSamples(listOf(pruneMetrics.dbSizeAfter.toLong() / 1024))
-    }
-
-    override fun pruneDestructively() {
-        this.conn.pruneDestructively()
     }
 
     override fun deleteEverything() {
@@ -794,14 +786,6 @@ interface WritableHistoryConnection : ReadableHistoryConnection {
     fun noteObservation(data: VisitObservation)
 
     /**
-     * Deletes all history visits, without recording tombstones.
-     *
-     * That is, these deletions will not be synced. Any changes which were
-     * pending upload on the next sync are discarded and will be lost.
-     */
-    fun wipeLocal()
-
-    /**
      * Run periodic database maintenance. This might include, but is not limited
      * to:
      *
@@ -823,17 +807,6 @@ interface WritableHistoryConnection : ReadableHistoryConnection {
      * the amount. The default of 0 disables pruning.
      */
     fun runMaintenance(dbSizeLimit: UInt = 0U)
-
-    /**
-     * Aggressively prune history visits. These deletions are not intended
-     * to be synced, however due to the way history sync works, this can
-     * still cause data loss.
-     *
-     * As a result, this should only be called if a low disk space
-     * notification is received from the OS, and things like the network
-     * cache have already been cleared.
-     */
-    fun pruneDestructively()
 
     /**
      * Delete everything locally.
