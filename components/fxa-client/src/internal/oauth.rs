@@ -1003,7 +1003,7 @@ mod tests {
             .expect_get_scoped_key_data()
             .with(always(), eq("session"), eq("12345678"), eq(expected_scopes))
             .times(1)
-            .returning(|_, _, _, _| Ok(server_ret));
+            .returning(|_, _, _, _| Ok(server_ret.clone()));
         fxa.set_client(Arc::new(client));
 
         let auth_params = AuthorizationParameters {
@@ -1045,7 +1045,7 @@ mod tests {
             .expect_get_scoped_key_data()
             .with(always(), eq("session"), eq("12345678"), eq(scopes::OLD_SYNC))
             .times(1)
-            .returning(|_, _, _, _| Ok(server_ret));
+            .returning(|_, _, _, _| Ok(server_ret.clone()));
         fxa.set_client(Arc::new(client));
         let auth_params = AuthorizationParameters {
             client_id: "12345678".to_string(),
