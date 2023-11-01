@@ -3,6 +3,9 @@ use serde_derive::{Deserialize, Serialize};
 
 pub trait MetricsHandler: Send + Sync {
     fn record_enrollment_statuses(&self, enrollment_status_extras: Vec<EnrollmentStatusExtraDef>);
+
+    // #[cfg(feature = "stateful")]
+    // fn record_exposure_event(&self);
 }
 
 #[derive(Serialize, Deserialize, Clone)]

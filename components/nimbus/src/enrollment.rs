@@ -164,7 +164,6 @@ impl ExperimentEnrollment {
             out_enrollment_events.push(EnrollmentChangeEvent {
                 experiment_slug: experiment.slug.to_string(),
                 branch_slug: branch_slug.to_string(),
-                enrollment_id: "N/A".to_string(),
                 reason: Some("does-not-exist".to_string()),
                 change: EnrollmentChangeEventType::EnrollFailed,
             });
@@ -442,36 +441,20 @@ impl ExperimentEnrollment {
     // to the current enrollment state.
     fn get_change_event(&self) -> EnrollmentChangeEvent {
         match &self.status {
-            EnrollmentStatus::Enrolled {
-                enrollment_id,
-                branch,
-                ..
-            } => EnrollmentChangeEvent::new(
+            EnrollmentStatus::Enrolled { branch, .. } => EnrollmentChangeEvent::new(
                 &self.slug,
-                enrollment_id,
                 branch,
                 None,
                 EnrollmentChangeEventType::Enrollment,
             ),
-            EnrollmentStatus::WasEnrolled {
-                enrollment_id,
-                branch,
-                ..
-            } => EnrollmentChangeEvent::new(
+            EnrollmentStatus::WasEnrolled { branch, .. } => EnrollmentChangeEvent::new(
                 &self.slug,
-                enrollment_id,
                 branch,
                 None,
                 EnrollmentChangeEventType::Unenrollment,
             ),
-            EnrollmentStatus::Disqualified {
-                enrollment_id,
-                branch,
-                reason,
-                ..
-            } => EnrollmentChangeEvent::new(
+            EnrollmentStatus::Disqualified { branch, reason, .. } => EnrollmentChangeEvent::new(
                 &self.slug,
-                enrollment_id,
                 branch,
                 match reason {
                     DisqualifiedReason::NotSelected => Some("bucketing"),
@@ -783,7 +766,6 @@ impl<'a> EnrollmentsEvolver<'a> {
                     enrollment_events.push(EnrollmentChangeEvent {
                         experiment_slug: slug.clone(),
                         branch_slug: "N/A".to_string(),
-                        enrollment_id: "N/A".to_string(),
                         reason: Some("feature-conflict".to_string()),
                         change: EnrollmentChangeEventType::EnrollFailed,
                     })
@@ -1231,7 +1213,6 @@ impl From<&EnrolledFeatureConfig> for EnrolledFeature {
 pub struct EnrollmentChangeEvent {
     pub experiment_slug: String,
     pub branch_slug: String,
-    pub enrollment_id: String,
     pub reason: Option<String>,
     pub change: EnrollmentChangeEventType,
 }
@@ -1239,7 +1220,6 @@ pub struct EnrollmentChangeEvent {
 impl EnrollmentChangeEvent {
     pub(crate) fn new(
         slug: &str,
-        enrollment_id: &Uuid,
         branch: &str,
         reason: Option<&str>,
         change: EnrollmentChangeEventType,
@@ -1248,7 +1228,6 @@ impl EnrollmentChangeEvent {
             experiment_slug: slug.to_owned(),
             branch_slug: branch.to_owned(),
             reason: reason.map(|s| s.to_owned()),
-            enrollment_id: enrollment_id.to_string(),
             change,
         }
     }

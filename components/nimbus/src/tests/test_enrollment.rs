@@ -683,7 +683,6 @@ fn test_evolver_experiment_update_enrolled_then_opted_out() -> Result<()> {
         }
     ));
     assert_eq!(events.len(), 1);
-    assert_eq!(events[0].enrollment_id, enrollment_id.to_string());
     assert_eq!(events[0].experiment_slug, exp.slug);
     assert_eq!(events[0].branch_slug, "control");
     assert_eq!(events[0].reason, Some("optout".to_owned()));
@@ -778,7 +777,6 @@ fn test_evolver_experiment_update_enrolled_then_targeting_changed() -> Result<()
         panic!("Wrong variant! \n{:#?}", enrollment.status);
     }
     assert_eq!(events.len(), 1);
-    assert_eq!(events[0].enrollment_id, enrollment_id.to_string());
     assert_eq!(events[0].experiment_slug, exp.slug);
     assert_eq!(events[0].branch_slug, "control");
     assert_eq!(events[0].reason, Some("targeting".to_owned()));
@@ -1110,7 +1108,6 @@ fn test_evolver_experiment_update_enrolled_then_branch_disappears() -> Result<()
         events[0].change,
         EnrollmentChangeEventType::Disqualification
     );
-    assert_eq!(events[0].enrollment_id, enrollment_id.to_string());
     assert_eq!(events[0].experiment_slug, exp.slug);
     assert_eq!(events[0].branch_slug, "control");
     Ok(())
@@ -2452,7 +2449,6 @@ fn test_evolver_experiment_ended_was_enrolled() -> Result<()> {
         panic!("Wrong variant!");
     }
     assert_eq!(events.len(), 1);
-    assert_eq!(events[0].enrollment_id, enrollment_id.to_string());
     assert_eq!(events[0].experiment_slug, exp.slug);
     assert_eq!(events[0].branch_slug, "control");
     assert_eq!(events[0].change, EnrollmentChangeEventType::Unenrollment);
@@ -2497,7 +2493,6 @@ fn test_evolver_experiment_ended_was_disqualified() -> Result<()> {
         panic!("Wrong variant!");
     }
     assert_eq!(events.len(), 1);
-    assert_eq!(events[0].enrollment_id, enrollment_id.to_string());
     assert_eq!(events[0].experiment_slug, exp.slug);
     assert_eq!(events[0].branch_slug, "control");
     assert_eq!(events[0].change, EnrollmentChangeEventType::Unenrollment);

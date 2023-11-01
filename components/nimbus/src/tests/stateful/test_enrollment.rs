@@ -379,11 +379,9 @@ fn test_telemetry_reset() -> Result<()> {
         reason: Some(reason),
         experiment_slug,
         branch_slug,
-        enrollment_id,
     } if reason == "optout"
         && *experiment_slug == mock_exp1_slug
         && *branch_slug == mock_exp1_branch
-        && ! Uuid::parse_str(enrollment_id)?.is_nil()
     ));
 
     Ok(())
