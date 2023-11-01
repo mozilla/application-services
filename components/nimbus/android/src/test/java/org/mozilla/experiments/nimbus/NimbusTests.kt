@@ -123,21 +123,18 @@ class NimbusTests {
             EnrollmentChangeEvent(
                 experimentSlug = "test-experiment",
                 branchSlug = "test-branch",
-                enrollmentId = "test-enrollment-id",
                 reason = "test-reason",
                 change = EnrollmentChangeEventType.ENROLLMENT,
             ),
             EnrollmentChangeEvent(
                 experimentSlug = "test-experiment",
                 branchSlug = "test-branch",
-                enrollmentId = "test-enrollment-id",
                 reason = "test-reason",
                 change = EnrollmentChangeEventType.UNENROLLMENT,
             ),
             EnrollmentChangeEvent(
                 experimentSlug = "test-experiment",
                 branchSlug = "test-branch",
-                enrollmentId = "test-enrollment-id",
                 reason = "test-reason",
                 change = EnrollmentChangeEventType.DISQUALIFICATION,
             ),
@@ -159,11 +156,6 @@ class NimbusTests {
             enrollmentEventExtras["experiment"],
         )
         assertEquals("Experiment branch must match", "test-branch", enrollmentEventExtras["branch"])
-        assertEquals(
-            "Experiment enrollment-id must match",
-            "test-enrollment-id",
-            enrollmentEventExtras["enrollment_id"],
-        )
 
         // Unenrollment
         assertNotNull("Event must have a value", NimbusEvents.unenrollment.testGetValue())
@@ -180,11 +172,6 @@ class NimbusTests {
             "test-branch",
             unenrollmentEventExtras["branch"],
         )
-        assertEquals(
-            "Experiment enrollment-id must match",
-            "test-enrollment-id",
-            unenrollmentEventExtras["enrollment_id"],
-        )
 
         // Disqualification
         assertNotNull("Event must have a value", NimbusEvents.disqualification.testGetValue())
@@ -200,11 +187,6 @@ class NimbusTests {
             "Experiment branch must match",
             "test-branch",
             disqualificationEventExtras["branch"],
-        )
-        assertEquals(
-            "Experiment enrollment-id must match",
-            "test-enrollment-id",
-            disqualificationEventExtras["enrollment_id"],
         )
     }
 
@@ -362,10 +344,6 @@ class NimbusTests {
             enrollmentEventExtras["experiment"],
         )
         assertEquals("Experiment branch must match", "test-branch", enrollmentEventExtras["branch"])
-        assertNotNull(
-            "Experiment enrollment-id must not be null",
-            enrollmentEventExtras["enrollment_id"],
-        )
     }
 
     @Test
@@ -394,10 +372,6 @@ class NimbusTests {
             enrollmentEventExtras["experiment"],
         )
         assertEquals("Experiment branch must match", "test-branch", enrollmentEventExtras["branch"])
-        assertNotNull(
-            "Experiment enrollment-id must not be null",
-            enrollmentEventExtras["enrollment_id"],
-        )
     }
 
     private fun Nimbus.setUpTestExperiments(appId: String, appInfo: NimbusAppInfo) {

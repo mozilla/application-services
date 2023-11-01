@@ -64,7 +64,6 @@ dictionary AvailableRandomizationUnits {
 dictionary EnrollmentChangeEvent {
     string experiment_slug;
     string branch_slug;
-    string enrollment_id;
     string? reason;
     EnrollmentChangeEventType change;
 };

@@ -116,7 +116,6 @@ pub fn opt_in_with_branch(
         events.push(EnrollmentChangeEvent {
             experiment_slug: experiment_slug.to_string(),
             branch_slug: branch.to_string(),
-            enrollment_id: "N/A".to_string(),
             reason: Some("does-not-exist".to_string()),
             change: EnrollmentChangeEventType::EnrollFailed,
         });
@@ -141,7 +140,6 @@ pub fn opt_out(
         events.push(EnrollmentChangeEvent {
             experiment_slug: experiment_slug.to_string(),
             branch_slug: "N/A".to_string(),
-            enrollment_id: "N/A".to_string(),
             reason: Some("does-not-exist".to_string()),
             change: EnrollmentChangeEventType::UnenrollFailed,
         });

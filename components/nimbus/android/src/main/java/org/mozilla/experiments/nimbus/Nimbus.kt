@@ -463,7 +463,6 @@ open class Nimbus(
                         NimbusEvents.EnrollmentExtra(
                             experiment = event.experimentSlug,
                             branch = event.branchSlug,
-                            enrollmentId = event.enrollmentId,
                         ),
                     )
                 }
@@ -472,7 +471,6 @@ open class Nimbus(
                         NimbusEvents.DisqualificationExtra(
                             experiment = event.experimentSlug,
                             branch = event.branchSlug,
-                            enrollmentId = event.enrollmentId,
                         ),
                     )
                 }
@@ -481,7 +479,6 @@ open class Nimbus(
                         NimbusEvents.UnenrollmentExtra(
                             experiment = event.experimentSlug,
                             branch = event.branchSlug,
-                            enrollmentId = event.enrollmentId,
                         ),
                     )
                 }
