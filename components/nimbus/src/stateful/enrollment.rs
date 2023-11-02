@@ -78,7 +78,6 @@ pub fn get_enrollments<'r>(
                         user_facing_name: experiment.user_facing_name,
                         user_facing_description: experiment.user_facing_description,
                         branch_slug: branch.to_string(),
-                        enrollment_id: Default::default(),
                     });
                 }
                 _ => {
