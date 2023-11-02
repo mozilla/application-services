@@ -466,6 +466,7 @@ public class PlacesWriteConnection: PlacesReadConnection {
             try self.conn.runMaintenanceVacuum()
             try self.conn.runMaintenanceOptimize()
             try self.conn.runMaintenanceCheckpoint()
+            try self.conn.runMaintenanceGenerateItems()
         }
     }
 

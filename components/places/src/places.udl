@@ -172,6 +172,9 @@ interface PlacesConnection {
     void run_maintenance_checkpoint();
 
     [Throws=PlacesApiError]
+    void run_maintenance_generate_items();
+
+    [Throws=PlacesApiError]
     BookmarkItem? bookmarks_get_tree([ByRef] Guid item_guid);
 
     [Throws=PlacesApiError]

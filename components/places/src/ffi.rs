@@ -455,6 +455,11 @@ impl PlacesConnection {
     }
 
     #[handle_error(crate::Error)]
+    pub fn run_maintenance_generate_items(&self) -> ApiResult<()> {
+        self.with_conn(storage::run_maintenance_generate_items)
+    }
+
+    #[handle_error(crate::Error)]
     pub fn query_autocomplete(&self, search: String, limit: i32) -> ApiResult<Vec<SearchResult>> {
         self.with_conn(|conn| {
             search_frecent(

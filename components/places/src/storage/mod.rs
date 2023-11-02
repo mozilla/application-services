@@ -303,6 +303,41 @@ pub fn run_maintenance_checkpoint(conn: &PlacesDb) -> Result<()> {
     Ok(())
 }
 
+/// Generate places items to ensure the `run_maintenance_*` functions have something to do.
+///
+/// Hopefully this helps crash the swift code
+pub fn run_maintenance_generate_items(conn: &PlacesDb) -> Result<()> {
+    use std::time::SystemTime;
+    use crate::observation::VisitObservation;
+    use bookmarks::{BookmarkRootGuid, BookmarkPosition, InsertableBookmark};
+    use history::apply_observation;
+
+    let timestamp = SystemTime::now().duration_since(SystemTime::UNIX_EPOCH).unwrap().as_secs();
+    for i in 0..1000 {
+        let href = format!("http://example.com/{timestamp}/{i}");
+        let title = format!("Page {timestamp}-{i}");
+        let url = Url::parse(&href)?;
+        let obs = VisitObservation::new(url.clone())
+            .with_visit_type(VisitType::Link)
+            .with_at(Some(SystemTime::now().into()));
+        apply_observation(&conn, obs)?;
+        bookmarks::insert_bookmark(
+            &conn,
+            InsertableBookmark {
+                parent_guid: BookmarkRootGuid::Unfiled.into(),
+                position: BookmarkPosition::Append,
+                date_added: None,
+                last_modified: None,
+                guid: None,
+                url: url.clone(),
+                title: Some(title.to_owned()),
+            }
+            .into(),
+        )?;
+    }
+    Ok(())
+}
+
 pub fn update_all_frecencies_at_once(db: &PlacesDb, scope: &SqlInterruptScope) -> Result<()> {
     let tx = db.begin_transaction()?;
 
@@ -601,5 +636,16 @@ mod tests {
                 .unwrap(),
             0
         );
+    }
+
+    /// Test that find_visits_to_prune correctly combines find_exotic_visits_to_prune and
+    #[test]
+    fn test_generate_items() {
+        use crate::api::places_api::ConnectionType;
+        let conn = PlacesDb::open_in_memory(ConnectionType::ReadWrite).expect("no memory db");
+        let initial_count = conn.query_one::<i64>("SELECT COUNT(*) FROM moz_places;").unwrap();
+        run_maintenance_generate_items(&conn).unwrap();
+        let new_count = conn.query_one::<i64>("SELECT COUNT(*) FROM moz_places;").unwrap();
+        assert_eq!(new_count, initial_count + 1000);
     }
 }
