@@ -2,6 +2,14 @@
 
 [Full Changelog](In progress)
 
+## Nimbus SDK ⛅️🔬🔭
+
+### 🦊 What's Changed 🦊
+
+- Removed `enrollment_id` from being generated or recorded anywhere in the Nimbus SDK ([#5899](https://github.com/mozilla/application-services/pull/5899)).
+  - This was originally thought to be of use, but after running the system for sometime, we have found that this isn't needed.
+  - In the spirit of reducing unique identifiers in telemetry and in the spirit of Lean Data, we have removed `enrollment_id` (and the code that generates it).
+
 # v120.0 (_2023-10-23_)
 
 ## FxA-Client
