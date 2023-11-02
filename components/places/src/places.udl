@@ -236,16 +236,6 @@ dictionary SearchResult {
     Url url;
     string title;
     i64 frecency;
-    sequence<MatchReason> reasons;
-};
-
-enum MatchReason {
-  "Keyword",
-  "Origin",
-  "UrlMatch",
-  "PreviousUse",
-  "Bookmark",
-  "Tags"
 };
 
 // Some kind of namespacing for uniffi would be ideal. Multiple udl/macro defns?

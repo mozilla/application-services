@@ -4,7 +4,7 @@
 
 use crate::db::PlacesDb;
 use crate::error::Result;
-use crate::ffi::{MatchReason as FfiMatchReason, SearchResult as FfiSearchResult};
+use crate::ffi::SearchResult as FfiSearchResult;
 pub use crate::match_impl::{MatchBehavior, SearchBehavior};
 use rusqlite::Row;
 use serde_derive::*;
@@ -179,19 +179,6 @@ fn looks_like_origin(string: &str) -> bool {
         })
 }
 
-/// The match reason specifies why an autocomplete search result matched a
-/// query. This can be used to filter and sort matches.
-#[derive(Debug, Clone, Serialize, Eq, PartialEq)]
-pub enum MatchReason {
-    Keyword,
-    Origin,
-    Url,
-    PreviousUse,
-    Bookmark,
-    // Hrm... This will probably make this all serialize weird...
-    Tags(String),
-}
-
 #[derive(Debug, Clone, Serialize, Eq, PartialEq)]
 pub struct SearchResult {
     /// The search string for this match.
@@ -211,34 +198,19 @@ pub struct SearchResult {
 
     /// A frecency score for this match.
     pub frecency: i64,
-
-    /// A list of reasons why this matched.
-    pub reasons: Vec<MatchReason>,
 }
 
 impl SearchResult {
     /// Default search behaviors from Desktop: HISTORY, BOOKMARK, OPENPAGE, SEARCHES.
     /// Default match behavior: MATCH_BOUNDARY_ANYWHERE.
     pub fn from_adaptive_row(row: &rusqlite::Row<'_>) -> Result<Self> {
-        let mut reasons = vec![MatchReason::PreviousUse];
-
         let search_string = row.get::<_, String>("searchString")?;
         let _place_id = row.get::<_, i64>("id")?;
         let url = row.get::<_, String>("url")?;
         let history_title = row.get::<_, Option<String>>("title")?;
-        let bookmarked = row.get::<_, bool>("bookmarked")?;
         let bookmark_title = row.get::<_, Option<String>>("btitle")?;
         let frecency = row.get::<_, i64>("frecency")?;
-
         let title = bookmark_title.or(history_title).unwrap_or_default();
-
-        let tags = row.get::<_, Option<String>>("tags")?;
-        if let Some(tags) = tags {
-            reasons.push(MatchReason::Tags(tags));
-        }
-        if bookmarked {
-            reasons.push(MatchReason::Bookmark);
-        }
         let url = Url::parse(&url)?;
 
         Ok(Self {
@@ -247,13 +219,10 @@ impl SearchResult {
             title,
             icon_url: None,
             frecency,
-            reasons,
         })
     }
 
     pub fn from_suggestion_row(row: &rusqlite::Row<'_>) -> Result<Self> {
-        let mut reasons = vec![MatchReason::Bookmark];
-
         let search_string = row.get::<_, String>("searchString")?;
         let url = row.get::<_, String>("url")?;
 
@@ -261,10 +230,6 @@ impl SearchResult {
         let bookmark_title = row.get::<_, Option<String>>("btitle")?;
         let title = bookmark_title.or(history_title).unwrap_or_default();
 
-        let tags = row.get::<_, Option<String>>("tags")?;
-        if let Some(tags) = tags {
-            reasons.push(MatchReason::Tags(tags));
-        }
         let url = Url::parse(&url)?;
 
         let frecency = row.get::<_, i64>("frecency")?;
@@ -275,7 +240,6 @@ impl SearchResult {
             title,
             icon_url: None,
             frecency,
-            reasons,
         })
     }
 
@@ -293,7 +257,6 @@ impl SearchResult {
             title: display_url,
             icon_url: None,
             frecency,
-            reasons: vec![MatchReason::Origin],
         })
     }
 
@@ -302,12 +265,6 @@ impl SearchResult {
         let href = row.get::<_, String>("url")?;
         let stripped_url = row.get::<_, String>("strippedURL")?;
         let frecency = row.get::<_, i64>("frecency")?;
-        let bookmarked = row.get::<_, bool>("bookmarked")?;
-
-        let mut reasons = vec![MatchReason::Url];
-        if bookmarked {
-            reasons.push(MatchReason::Bookmark);
-        }
 
         let (url, display_url) = match href.find(&stripped_url) {
             Some(stripped_url_index) => {
@@ -334,7 +291,6 @@ impl SearchResult {
             title: display_url,
             icon_url: None,
             frecency,
-            reasons,
         })
     }
 }
@@ -345,20 +301,6 @@ impl From<SearchResult> for FfiSearchResult {
             url: res.url,
             title: res.title,
             frecency: res.frecency,
-            reasons: res.reasons.into_iter().map(Into::into).collect::<Vec<_>>(),
-        }
-    }
-}
-
-impl From<MatchReason> for FfiMatchReason {
-    fn from(mr: MatchReason) -> Self {
-        match mr {
-            MatchReason::Keyword => FfiMatchReason::Keyword,
-            MatchReason::Origin => FfiMatchReason::Origin,
-            MatchReason::Url => FfiMatchReason::UrlMatch,
-            MatchReason::PreviousUse => FfiMatchReason::PreviousUse,
-            MatchReason::Bookmark => FfiMatchReason::Bookmark,
-            MatchReason::Tags(_) => FfiMatchReason::Tags,
         }
     }
 }
@@ -683,8 +625,7 @@ mod tests {
             .iter()
             .any(|result| result.search_string == "example.com"
                 && result.title == "example.com/"
-                && result.url.as_str() == "http://example.com/"
-                && result.reasons == [MatchReason::Origin]));
+                && result.url.as_str() == "http://example.com/"));
 
         let by_url_without_path = search_frecent(
             &conn,
@@ -697,8 +638,7 @@ mod tests {
         assert!(by_url_without_path
             .iter()
             .any(|result| result.title == "example.com/"
-                && result.url.as_str() == "http://example.com/"
-                && result.reasons == [MatchReason::Url]));
+                && result.url.as_str() == "http://example.com/"));
 
         let by_url_with_path = search_frecent(
             &conn,
@@ -711,8 +651,7 @@ mod tests {
         assert!(by_url_with_path
             .iter()
             .any(|result| result.title == "example.com/123"
-                && result.url.as_str() == "http://example.com/123"
-                && result.reasons == [MatchReason::Url]));
+                && result.url.as_str() == "http://example.com/123"));
 
         accept_result(&conn, "ample", &url).expect("Should accept input history match");
 
@@ -726,9 +665,7 @@ mod tests {
         .expect("Should search by adaptive input history");
         assert!(by_adaptive
             .iter()
-            .any(|result| result.search_string == "ample"
-                && result.url == url
-                && result.reasons == [MatchReason::PreviousUse]));
+            .any(|result| result.search_string == "ample" && result.url == url));
 
         let with_limit = search_frecent(
             &conn,
@@ -746,7 +683,6 @@ mod tests {
                 title: "example.com/".into(),
                 icon_url: None,
                 frecency: 2000,
-                reasons: vec![MatchReason::Origin],
             }]
         );
     }
@@ -774,8 +710,7 @@ mod tests {
             .iter()
             // Should we consider un-punycoding the title? (firefox desktop doesn't...)
             .any(|result| result.title == "xn--exmple-cua.com/"
-                && result.url.as_str() == "http://xn--exmple-cua.com/"
-                && result.reasons == [MatchReason::Url]));
+                && result.url.as_str() == "http://xn--exmple-cua.com/"));
 
         let by_url_with_path = search_frecent(
             &conn,
@@ -789,8 +724,7 @@ mod tests {
             by_url_with_path
                 .iter()
                 .any(|result| result.title == "xn--exmple-cua.com/123"
-                    && result.url.as_str() == "http://xn--exmple-cua.com/123"
-                    && result.reasons == [MatchReason::Url]),
+                    && result.url.as_str() == "http://xn--exmple-cua.com/123"),
             "{:?}",
             by_url_with_path
         );
