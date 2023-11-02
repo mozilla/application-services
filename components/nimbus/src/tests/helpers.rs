@@ -12,7 +12,6 @@ use crate::{
 use serde::Serialize;
 use serde_json::{json, Value};
 use std::collections::HashSet;
-use uuid::Uuid;
 
 cfg_if::cfg_if! {
     if #[cfg(feature = "stateful")] {
@@ -232,7 +231,6 @@ impl ExperimentEnrollment {
             slug: slug.to_string(),
             status: EnrollmentStatus::Enrolled {
                 branch: "control".to_string(),
-                enrollment_id: Uuid::new_v4(),
                 reason: EnrolledReason::Qualified,
             },
         }
