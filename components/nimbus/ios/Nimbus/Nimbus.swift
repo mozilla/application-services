@@ -185,7 +185,7 @@ extension Nimbus: FeaturesInterface {
             Glean.shared.setExperimentActive(
                 experiment.slug,
                 branch: experiment.branchSlug,
-                extra: ["enrollmentId": experiment.enrollmentId]
+                extra: nil
             )
         }
     }
@@ -196,19 +196,16 @@ extension Nimbus: FeaturesInterface {
             case .enrollment:
                 GleanMetrics.NimbusEvents.enrollment.record(GleanMetrics.NimbusEvents.EnrollmentExtra(
                     branch: event.branchSlug,
-                    enrollmentId: event.enrollmentId,
                     experiment: event.experimentSlug
                 ))
             case .disqualification:
                 GleanMetrics.NimbusEvents.disqualification.record(GleanMetrics.NimbusEvents.DisqualificationExtra(
                     branch: event.branchSlug,
-                    enrollmentId: event.enrollmentId,
                     experiment: event.experimentSlug
                 ))
             case .unenrollment:
                 GleanMetrics.NimbusEvents.unenrollment.record(GleanMetrics.NimbusEvents.UnenrollmentExtra(
                     branch: event.branchSlug,
-                    enrollmentId: event.enrollmentId,
                     experiment: event.experimentSlug
                 ))
 

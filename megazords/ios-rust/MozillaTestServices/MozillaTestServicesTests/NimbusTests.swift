@@ -208,8 +208,7 @@ class NimbusTests: XCTestCase {
             slug: "test-experiment",
             userFacingName: "Test Experiment",
             userFacingDescription: "A test experiment for testing experiments",
-            branchSlug: "test-branch",
-            enrollmentId: "enrollment-id"
+            branchSlug: "test-branch"
         )]
 
         nimbus.recordExperimentTelemetry(enrolledExperiments)
@@ -234,21 +233,18 @@ class NimbusTests: XCTestCase {
             EnrollmentChangeEvent(
                 experimentSlug: "test-experiment",
                 branchSlug: "test-branch",
-                enrollmentId: "test-enrollment-id",
                 reason: "test-reason",
                 change: .enrollment
             ),
             EnrollmentChangeEvent(
                 experimentSlug: "test-experiment",
                 branchSlug: "test-branch",
-                enrollmentId: "test-enrollment-id",
                 reason: "test-reason",
                 change: .unenrollment
             ),
             EnrollmentChangeEvent(
                 experimentSlug: "test-experiment",
                 branchSlug: "test-branch",
-                enrollmentId: "test-enrollment-id",
                 reason: "test-reason",
                 change: .disqualification
             ),
@@ -266,7 +262,6 @@ class NimbusTests: XCTestCase {
         let enrollmentEventExtras = enrollmentEvents.first!.extra
         XCTAssertEqual("test-experiment", enrollmentEventExtras!["experiment"], "Enrollment event experiment must match")
         XCTAssertEqual("test-branch", enrollmentEventExtras!["branch"], "Enrollment event branch must match")
-        XCTAssertEqual("test-enrollment-id", enrollmentEventExtras!["enrollment_id"], "Enrollment event enrollment id must match")
 
         // Unenrollment
         XCTAssertNotNil(GleanMetrics.NimbusEvents.unenrollment.testGetValue(), "Unenrollment event must exist")
@@ -275,7 +270,6 @@ class NimbusTests: XCTestCase {
         let unenrollmentEventExtras = unenrollmentEvents.first!.extra
         XCTAssertEqual("test-experiment", unenrollmentEventExtras!["experiment"], "Unenrollment event experiment must match")
         XCTAssertEqual("test-branch", unenrollmentEventExtras!["branch"], "Unenrollment event branch must match")
-        XCTAssertEqual("test-enrollment-id", unenrollmentEventExtras!["enrollment_id"], "Unenrollment event enrollment id must match")
 
         // Disqualification
         XCTAssertNotNil(GleanMetrics.NimbusEvents.disqualification.testGetValue(), "Disqualification event must exist")
@@ -284,7 +278,6 @@ class NimbusTests: XCTestCase {
         let disqualificationEventExtras = disqualificationEvents.first!.extra
         XCTAssertEqual("test-experiment", disqualificationEventExtras!["experiment"], "Disqualification event experiment must match")
         XCTAssertEqual("test-branch", disqualificationEventExtras!["branch"], "Disqualification event branch must match")
-        XCTAssertEqual("test-enrollment-id", disqualificationEventExtras!["enrollment_id"], "Disqualification event enrollment id must match")
     }
 
     func testRecordExposureFromFeature() throws {
@@ -426,7 +419,6 @@ class NimbusTests: XCTestCase {
             disqualificationEventExtras!["branch"] == "control" || disqualificationEventExtras!["branch"] == "treatment",
             "Experiment branch must match"
         )
-        XCTAssertNotNil(disqualificationEventExtras!["enrollment_id"], "Experiment enrollment id must not be nil")
     }
 
     func testRecordDisqualificationOnGlobalOptOut() throws {
@@ -456,7 +448,6 @@ class NimbusTests: XCTestCase {
             disqualificationEventExtras!["branch"] == "control" || disqualificationEventExtras!["branch"] == "treatment",
             "Experiment branch must match"
         )
-        XCTAssertNotNil(disqualificationEventExtras!["enrollment_id"], "Experiment enrollment id must not be nil")
     }
 
     func testNimbusCreateWithJson() throws {
