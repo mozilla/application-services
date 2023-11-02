@@ -17,7 +17,6 @@ pub struct EnrolledExperiment {
     pub user_facing_name: String,
     pub user_facing_description: String,
     pub branch_slug: String,
-    pub enrollment_id: String,
 }
 
 // ⚠️ Attention : Changes to this type should be accompanied by a new test  ⚠️

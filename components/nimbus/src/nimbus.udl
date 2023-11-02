@@ -29,7 +29,6 @@ dictionary EnrolledExperiment {
     string user_facing_name;
     string user_facing_description;
     string branch_slug;
-    string enrollment_id;
 };
 
 dictionary EnrolledFeature {

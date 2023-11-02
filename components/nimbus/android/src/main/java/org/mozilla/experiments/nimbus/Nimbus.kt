@@ -449,7 +449,6 @@ open class Nimbus(
             Glean.setExperimentActive(
                 experiment.slug,
                 experiment.branchSlug,
-                mapOf("enrollmentId" to experiment.enrollmentId),
             )
         }
     }
