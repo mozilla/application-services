@@ -101,7 +101,7 @@ find_as_version() {
         # We try to resolve that, and find the version from the Package.swift file in that local directory.
         # https://github.com/mozilla-mobile/firefox-ios/issues/12243
         rust_components_path=$(grep -A 3 $'XCRemoteSwiftPackageReference "rust-components-swift"' "$SOURCE_ROOT/$PROJECT.xcodeproj/project.pbxproj" | grep 'repositoryURL = "file://' | grep -o -E '/\w[^"]+')
-        number_string=$(grep 'let version =' "$rust_components_path/Package.swift" | grep -E -o "\d+\.0.\d+")
+        number_string=$(grep 'let version =' "$rust_components_path/Package.swift" | grep -E -o "\d+\.\d+\.\d+")
     fi
 
     if [ -z "$number_string" ]; then
@@ -110,7 +110,26 @@ find_as_version() {
         exit 2
     fi
 
-    AS_VERSION=${number_string//\.0\./\.} # rust-component-swift tags have a middle `.0.` to force it to align with spm. We remove it
+    ## We try and differentiate between two version types.
+    ## Nightlies: 121.0.20231027173509 --> 121.20231027173509
+    ## Releases:  120.0.0 --> 120.0
+    ##            120.0.1 --> 120.0.1
+    ##            120.1.0 --> 120.1.0
+    # Get the last component, i.e. the patch number…
+    local patch=${number_string##*.}
+    # … and check if it's more that 2 digits in length
+    if [[ ${#patch} -gt 2 ]] ; then
+        # If so, then it's likely a date stamp, so a nightly.
+        # We have a middle 0 which we need to get rid of,
+        # because taskcluster's versions are MAJOR.DATETIME
+        AS_VERSION=${number_string//\.0\./\.}
+    else
+        # Otherwise, it's a release!
+        # These versions have rules about zero
+        # minor number and patch numbers, so we
+        # rationalize that.
+        AS_VERSION=${number_string/\.0\.0/.0}
+    fi
 }
 FRESHEN_FML=
 AS_VERSION=
@@ -193,7 +212,7 @@ else
     AS_DOWNLOAD_URL="https://archive.mozilla.org/pub/app-services/releases/$AS_VERSION"
     CHECKSUM_URL="$AS_DOWNLOAD_URL/nimbus-fml.sha256"
     FML_URL="$AS_DOWNLOAD_URL/nimbus-fml.zip"
-    RELEASE_STATUS_CODE=$(curl -L --write-out '%{http_code}' --silent --output /dev/null "$CHECKSUM_URL" >/dev/null)
+    RELEASE_STATUS_CODE=$(curl -L --write-out '%{http_code}' --silent --output /dev/null "$CHECKSUM_URL" )
     if [ "$RELEASE_STATUS_CODE" != "200" ]; then
         AS_DOWNLOAD_URL="https://firefox-ci-tc.services.mozilla.com/api/index/v1/task/project.application-services.v2.nimbus-fml.$AS_VERSION/artifacts/public%2Fbuild%2F"
         CHECKSUM_URL="${AS_DOWNLOAD_URL}nimbus-fml.sha256"
