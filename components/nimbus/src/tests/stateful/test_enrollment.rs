@@ -317,7 +317,6 @@ fn test_telemetry_reset() -> Result<()> {
             status: EnrollmentStatus::Disqualified {
                 reason: DisqualifiedReason::Error,
                 branch: mock_exp2_branch.clone(),
-                enrollment_id: Uuid::new_v4(),
             },
         },
     )?;
@@ -340,26 +339,24 @@ fn test_telemetry_reset() -> Result<()> {
     let enrollments = db.collect_all::<ExperimentEnrollment>(StoreId::Enrollments)?;
     assert_eq!(enrollments.len(), 3);
 
-    // The enrolled experiment should have moved to disqualified with nil enrollment_id.
+    // The enrolled experiment should have moved to disqualified.
     assert_eq!(enrollments[0].slug, mock_exp1_slug);
     assert!(
         matches!(&enrollments[0].status, EnrollmentStatus::Disqualified {
             reason: DisqualifiedReason::OptOut,
             branch,
-            enrollment_id,
             ..
-        } if *branch == mock_exp1_branch && enrollment_id.is_nil())
+        } if *branch == mock_exp1_branch)
     );
 
-    // The disqualified experiment should have stayed disqualified, with nil enrollment_id.
+    // The disqualified experiment should have stayed disqualified.
     assert_eq!(enrollments[1].slug, mock_exp2_slug);
     assert!(
         matches!(&enrollments[1].status, EnrollmentStatus::Disqualified {
             reason: DisqualifiedReason::Error,
             branch,
-            enrollment_id,
             ..
-        } if *branch == mock_exp2_branch && enrollment_id.is_nil())
+        } if *branch == mock_exp2_branch)
     );
 
     // The not-enrolled experiment should have been unchanged.

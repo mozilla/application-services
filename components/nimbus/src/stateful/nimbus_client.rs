@@ -532,7 +532,7 @@ impl NimbusClient {
         // no other experiment state that needs to be reset.
         let store = db.get_store(StoreId::Meta);
         if store.get::<String, _>(&writer, DB_KEY_NIMBUS_ID)?.is_some() {
-            // Each enrollment state includes a unique `enrollment_id` which we need to clear.
+            // Each enrollment state now opts out because we don't want to leak information between resets.
             events = reset_telemetry_identifiers(db, &mut writer)?;
 
             // Remove any stored event counts

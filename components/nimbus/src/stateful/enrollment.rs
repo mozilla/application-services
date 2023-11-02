@@ -66,12 +66,7 @@ pub fn get_enrollments<'r>(
     let mut result = Vec::with_capacity(enrollments.len());
     for enrollment in enrollments {
         log::debug!("Have enrollment: {:?}", enrollment);
-        if let EnrollmentStatus::Enrolled {
-            branch,
-            enrollment_id,
-            ..
-        } = &enrollment.status
-        {
+        if let EnrollmentStatus::Enrolled { branch, .. } = &enrollment.status {
             match db
                 .get_store(StoreId::Experiments)
                 .get::<Experiment, _>(reader, &enrollment.slug)?
@@ -83,7 +78,7 @@ pub fn get_enrollments<'r>(
                         user_facing_name: experiment.user_facing_name,
                         user_facing_description: experiment.user_facing_description,
                         branch_slug: branch.to_string(),
-                        enrollment_id: enrollment_id.to_string(),
+                        enrollment_id: Default::default(),
                     });
                 }
                 _ => {

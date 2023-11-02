@@ -657,11 +657,9 @@ fn test_evolver_experiment_update_enrolled_then_opted_out() -> Result<()> {
     let ids = no_coenrolling_features();
     let evolver = enrollment_evolver(&th, &aru, &ids);
     let mut events = vec![];
-    let enrollment_id = Uuid::new_v4();
     let existing_enrollment = ExperimentEnrollment {
         slug: exp.slug.clone(),
         status: EnrollmentStatus::Enrolled {
-            enrollment_id,
             branch: "control".to_owned(),
             reason: EnrolledReason::Qualified,
         },
@@ -702,11 +700,9 @@ fn test_evolver_experiment_update_enrolled_then_experiment_paused() -> Result<()
     let ids = no_coenrolling_features();
     let evolver = enrollment_evolver(&th, &aru, &ids);
     let mut events = vec![];
-    let enrollment_id = Uuid::new_v4();
     let existing_enrollment = ExperimentEnrollment {
         slug: exp.slug.clone(),
         status: EnrollmentStatus::Enrolled {
-            enrollment_id,
             branch: "control".to_owned(),
             reason: EnrolledReason::Qualified,
         },
@@ -723,13 +719,11 @@ fn test_evolver_experiment_update_enrolled_then_experiment_paused() -> Result<()
     dbg!(&enrollment.status);
     if let EnrollmentStatus::Enrolled {
         reason: EnrolledReason::Qualified,
-        enrollment_id: new_enrollment_id,
         branch,
         ..
     } = enrollment.status
     {
         assert_eq!(branch, "control");
-        assert_eq!(new_enrollment_id, enrollment_id);
     } else {
         panic!("Wrong variant!");
     }
@@ -746,11 +740,9 @@ fn test_evolver_experiment_update_enrolled_then_targeting_changed() -> Result<()
     let ids = no_coenrolling_features();
     let evolver = enrollment_evolver(&th, &aru, &ids);
     let mut events = vec![];
-    let enrollment_id = Uuid::new_v4();
     let existing_enrollment = ExperimentEnrollment {
         slug: exp.slug.clone(),
         status: EnrollmentStatus::Enrolled {
-            enrollment_id,
             branch: "control".to_owned(),
             reason: EnrolledReason::Qualified,
         },
@@ -766,13 +758,11 @@ fn test_evolver_experiment_update_enrolled_then_targeting_changed() -> Result<()
         .unwrap();
     if let EnrollmentStatus::Disqualified {
         reason: DisqualifiedReason::NotTargeted,
-        enrollment_id: new_enrollment_id,
         branch,
         ..
     } = enrollment.status
     {
         assert_eq!(branch, "control");
-        assert_eq!(new_enrollment_id, enrollment_id);
     } else {
         panic!("Wrong variant! \n{:#?}", enrollment.status);
     }
@@ -795,11 +785,9 @@ fn test_evolver_experiment_update_enrolled_then_bucketing_changed() -> Result<()
     let ids = no_coenrolling_features();
     let evolver = enrollment_evolver(&th, &aru, &ids);
     let mut events = vec![];
-    let enrollment_id = Uuid::new_v4();
     let existing_enrollment = ExperimentEnrollment {
         slug: exp.slug.clone(),
         status: EnrollmentStatus::Enrolled {
-            enrollment_id,
             branch: "control".to_owned(),
             reason: EnrolledReason::Qualified,
         },
@@ -992,7 +980,6 @@ fn test_experiment_does_not_reenroll_from_disqualified_not_selected_or_not_targe
                 status: EnrollmentStatus::Disqualified {
                     reason: DisqualifiedReason::NotSelected,
                     branch: "control".into(),
-                    enrollment_id: Uuid::new_v4(),
                 },
             },
             ExperimentEnrollment {
@@ -1000,7 +987,6 @@ fn test_experiment_does_not_reenroll_from_disqualified_not_selected_or_not_targe
                 status: EnrollmentStatus::Disqualified {
                     reason: DisqualifiedReason::NotTargeted,
                     branch: "control".into(),
-                    enrollment_id: Uuid::new_v4(),
                 },
             },
         ],
@@ -1041,11 +1027,9 @@ fn test_evolver_experiment_update_enrolled_then_branches_changed() -> Result<()>
     let ids = no_coenrolling_features();
     let evolver = enrollment_evolver(&th, &aru, &ids);
     let mut events = vec![];
-    let enrollment_id = Uuid::new_v4();
     let existing_enrollment = ExperimentEnrollment {
         slug: exp.slug.clone(),
         status: EnrollmentStatus::Enrolled {
-            enrollment_id,
             branch: "control".to_owned(),
             reason: EnrolledReason::Qualified,
         },
@@ -1078,11 +1062,9 @@ fn test_evolver_experiment_update_enrolled_then_branch_disappears() -> Result<()
     let ids = no_coenrolling_features();
     let evolver = enrollment_evolver(&th, &aru, &ids);
     let mut events = vec![];
-    let enrollment_id = Uuid::new_v4();
     let existing_enrollment = ExperimentEnrollment {
         slug: exp.slug.clone(),
         status: EnrollmentStatus::Enrolled {
-            enrollment_id,
             branch: "control".to_owned(),
             reason: EnrolledReason::Qualified,
         },
@@ -1121,11 +1103,9 @@ fn test_evolver_experiment_update_disqualified_then_opted_out() -> Result<()> {
     let ids = no_coenrolling_features();
     let evolver = enrollment_evolver(&th, &aru, &ids);
     let mut events = vec![];
-    let enrollment_id = Uuid::new_v4();
     let existing_enrollment = ExperimentEnrollment {
         slug: exp.slug.clone(),
         status: EnrollmentStatus::Disqualified {
-            enrollment_id,
             branch: "control".to_owned(),
             reason: DisqualifiedReason::NotTargeted,
         },
@@ -1158,11 +1138,9 @@ fn test_evolver_experiment_update_disqualified_then_bucketing_ok() -> Result<()>
     let ids = no_coenrolling_features();
     let evolver = enrollment_evolver(&th, &aru, &ids);
     let mut events = vec![];
-    let enrollment_id = Uuid::new_v4();
     let existing_enrollment = ExperimentEnrollment {
         slug: exp.slug.clone(),
         status: EnrollmentStatus::Disqualified {
-            enrollment_id,
             branch: "control".to_owned(),
             reason: DisqualifiedReason::NotTargeted,
         },
@@ -1807,11 +1785,9 @@ fn test_evolver_experiment_update_was_enrolled() -> Result<()> {
     let ids = no_coenrolling_features();
     let evolver = enrollment_evolver(&th, &aru, &ids);
     let mut events = vec![];
-    let enrollment_id = Uuid::new_v4();
     let existing_enrollment = ExperimentEnrollment {
         slug: exp.slug.clone(),
         status: EnrollmentStatus::WasEnrolled {
-            enrollment_id,
             branch: "control".to_owned(),
             experiment_ended_at: now_secs(),
         },
@@ -2274,7 +2250,6 @@ fn test_evolve_enrollments_error_handling() -> Result<()> {
     let existing_enrollments = vec![ExperimentEnrollment {
         slug: "secure-gold".to_owned(),
         status: EnrollmentStatus::Enrolled {
-            enrollment_id: Uuid::new_v4(),
             branch: "hello".to_owned(), // XXX this OK?
             reason: EnrolledReason::Qualified,
         },
@@ -2419,11 +2394,9 @@ fn test_evolver_experiment_ended_was_enrolled() -> Result<()> {
     let ids = no_coenrolling_features();
     let evolver = enrollment_evolver(&th, &aru, &ids);
     let mut events = vec![];
-    let enrollment_id = Uuid::new_v4();
     let existing_enrollment = ExperimentEnrollment {
         slug: exp.slug.clone(),
         status: EnrollmentStatus::Enrolled {
-            enrollment_id,
             branch: "control".to_owned(),
             reason: EnrolledReason::Qualified,
         },
@@ -2437,14 +2410,8 @@ fn test_evolver_experiment_ended_was_enrolled() -> Result<()> {
             &mut events,
         )?
         .unwrap();
-    if let EnrollmentStatus::WasEnrolled {
-        branch,
-        enrollment_id: new_enrollment_id,
-        ..
-    } = enrollment.status
-    {
+    if let EnrollmentStatus::WasEnrolled { branch, .. } = enrollment.status {
         assert_eq!(branch, "control");
-        assert_eq!(new_enrollment_id, enrollment_id);
     } else {
         panic!("Wrong variant!");
     }
@@ -2463,11 +2430,9 @@ fn test_evolver_experiment_ended_was_disqualified() -> Result<()> {
     let ids = no_coenrolling_features();
     let evolver = enrollment_evolver(&th, &aru, &ids);
     let mut events = vec![];
-    let enrollment_id = Uuid::new_v4();
     let existing_enrollment = ExperimentEnrollment {
         slug: exp.slug.clone(),
         status: EnrollmentStatus::Disqualified {
-            enrollment_id,
             branch: "control".to_owned(),
             reason: DisqualifiedReason::NotTargeted,
         },
@@ -2481,14 +2446,8 @@ fn test_evolver_experiment_ended_was_disqualified() -> Result<()> {
             &mut events,
         )?
         .unwrap();
-    if let EnrollmentStatus::WasEnrolled {
-        branch,
-        enrollment_id: new_enrollment_id,
-        ..
-    } = enrollment.status
-    {
+    if let EnrollmentStatus::WasEnrolled { branch, .. } = enrollment.status {
         assert_eq!(branch, "control");
-        assert_eq!(new_enrollment_id, enrollment_id);
     } else {
         panic!("Wrong variant!");
     }
@@ -2535,7 +2494,6 @@ fn test_evolver_garbage_collection_before_threshold() -> Result<()> {
     let existing_enrollment = ExperimentEnrollment {
         slug: "secure-gold".to_owned(),
         status: EnrollmentStatus::WasEnrolled {
-            enrollment_id: Uuid::new_v4(),
             branch: "control".to_owned(),
             experiment_ended_at: now_secs(),
         },
@@ -2562,7 +2520,6 @@ fn test_evolver_garbage_collection_after_threshold() -> Result<()> {
     let existing_enrollment = ExperimentEnrollment {
         slug: "secure-gold".to_owned(),
         status: EnrollmentStatus::WasEnrolled {
-            enrollment_id: Uuid::new_v4(),
             branch: "control".to_owned(),
             experiment_ended_at: now_secs() - PREVIOUS_ENROLLMENTS_GC_TIME.as_secs() - 60,
         },
@@ -2585,7 +2542,6 @@ fn test_evolver_new_experiment_enrollment_already_exists() {
     let existing_enrollment = ExperimentEnrollment {
         slug: "secure-gold".to_owned(),
         status: EnrollmentStatus::WasEnrolled {
-            enrollment_id: Uuid::new_v4(),
             branch: "control".to_owned(),
             experiment_ended_at: now_secs(),
         },
@@ -2922,7 +2878,6 @@ fn test_evolver_map_features_by_feature_id_merges_rollouts() -> Result<()> {
         slug: exp_slug.clone(),
         status: EnrollmentStatus::Enrolled {
             branch: exp_slug,
-            enrollment_id: Default::default(),
             reason: EnrolledReason::Qualified,
         },
     };
@@ -2931,7 +2886,6 @@ fn test_evolver_map_features_by_feature_id_merges_rollouts() -> Result<()> {
         slug: ro_slug.clone(),
         status: EnrollmentStatus::Enrolled {
             branch: ro_slug,
-            enrollment_id: Default::default(),
             reason: EnrolledReason::Qualified,
         },
     };
@@ -2995,24 +2949,16 @@ fn test_enrollment_explicit_opt_in_branch_unknown() {
 fn test_enrollment_enrolled_explicit_opt_out() {
     let exp = get_test_experiments()[0].clone();
     let mut events = vec![];
-    let enrollment_id = Uuid::new_v4();
     let existing_enrollment = ExperimentEnrollment {
         slug: exp.slug,
         status: EnrollmentStatus::Enrolled {
-            enrollment_id,
             branch: "control".to_owned(),
             reason: EnrolledReason::Qualified,
         },
     };
     let enrollment = existing_enrollment.on_explicit_opt_out(&mut events);
-    if let EnrollmentStatus::Disqualified {
-        enrollment_id: new_enrollment_id,
-        branch,
-        ..
-    } = enrollment.status
-    {
+    if let EnrollmentStatus::Disqualified { branch, .. } = enrollment.status {
         assert_eq!(branch, "control");
-        assert_eq!(new_enrollment_id, enrollment_id);
     } else {
         panic!("Wrong variant!");
     }
@@ -3051,7 +2997,6 @@ fn test_enrollment_disqualified_explicit_opt_out() {
     let existing_enrollment = ExperimentEnrollment {
         slug: exp.slug,
         status: EnrollmentStatus::Disqualified {
-            enrollment_id: Uuid::new_v4(),
             branch: "control".to_owned(),
             reason: DisqualifiedReason::NotTargeted,
         },

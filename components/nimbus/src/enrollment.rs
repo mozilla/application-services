@@ -8,7 +8,6 @@ use crate::{
     json, AvailableRandomizationUnits, Experiment, FeatureConfig, NimbusTargetingHelper,
     SLUG_REPLACEMENT_PATTERN,
 };
-use ::uuid::Uuid;
 use serde_derive::*;
 use std::{
     collections::{HashMap, HashSet},
@@ -278,10 +277,7 @@ impl ExperimentEnrollment {
                 }
             }
             EnrollmentStatus::Disqualified {
-                ref branch,
-                enrollment_id,
-                reason,
-                ..
+                ref branch, reason, ..
             } => {
                 if !is_user_participating {
                     log::debug!(
@@ -292,7 +288,6 @@ impl ExperimentEnrollment {
                         slug: self.slug.clone(),
                         status: EnrollmentStatus::Disqualified {
                             reason: DisqualifiedReason::OptOut,
-                            enrollment_id: *enrollment_id,
                             branch: branch.clone(),
                         },
                     }
@@ -333,17 +328,9 @@ impl ExperimentEnrollment {
             self.slug,
             self
         );
-        let (branch, enrollment_id) = match self.status {
-            EnrollmentStatus::Enrolled {
-                ref branch,
-                enrollment_id,
-                ..
-            } => (branch, enrollment_id),
-            EnrollmentStatus::Disqualified {
-                ref branch,
-                enrollment_id,
-                ..
-            } => (branch, enrollment_id),
+        let branch = match self.status {
+            EnrollmentStatus::Enrolled { ref branch, .. }
+            | EnrollmentStatus::Disqualified { ref branch, .. } => branch,
             EnrollmentStatus::NotEnrolled { .. }
             | EnrollmentStatus::WasEnrolled { .. }
             | EnrollmentStatus::Error { .. } => return None, // We were never enrolled anyway, simply delete the enrollment record from the DB.
@@ -351,7 +338,6 @@ impl ExperimentEnrollment {
         let enrollment = Self {
             slug: self.slug.clone(),
             status: EnrollmentStatus::WasEnrolled {
-                enrollment_id,
                 branch: branch.to_owned(),
                 experiment_ended_at: now_secs(),
             },
@@ -390,12 +376,7 @@ impl ExperimentEnrollment {
 
     /// Reset identifiers in response to application-level telemetry reset.
     ///
-    /// Each experiment enrollment record contains a unique `enrollment_id`. When the user
-    /// resets their application-level telemetry, we reset each such id to a special nil value,
-    /// creating a clean break between data sent before the reset and any data that might be
-    /// submitted about these enrollments in future.
-    ///
-    /// We also move any enrolled experiments to the "disqualified" state, since their further
+    /// We move any enrolled experiments to the "disqualified" state, since their further
     /// partipation would submit partial data that could skew analysis.
     ///
     #[cfg_attr(not(feature = "stateful"), allow(unused))]
@@ -415,7 +396,7 @@ impl ExperimentEnrollment {
             | EnrollmentStatus::Error { .. } => self.clone(),
         };
         ExperimentEnrollment {
-            status: updated.status.clone_with_nil_enrollment_id(),
+            status: updated.status.clone(),
             ..updated
         }
     }
@@ -473,14 +454,9 @@ impl ExperimentEnrollment {
     /// If the current state is `Enrolled`, move to `Disqualified` with the given reason.
     fn disqualify_from_enrolled(&self, reason: DisqualifiedReason) -> Self {
         match self.status {
-            EnrollmentStatus::Enrolled {
-                ref enrollment_id,
-                ref branch,
-                ..
-            } => ExperimentEnrollment {
+            EnrollmentStatus::Enrolled { ref branch, .. } => ExperimentEnrollment {
                 status: EnrollmentStatus::Disqualified {
                     reason,
-                    enrollment_id: enrollment_id.to_owned(),
                     branch: branch.to_owned(),
                 },
                 ..self.clone()
@@ -498,7 +474,6 @@ impl ExperimentEnrollment {
 #[derive(Deserialize, Serialize, Debug, Clone, Hash, Eq, PartialEq)]
 pub enum EnrollmentStatus {
     Enrolled {
-        enrollment_id: Uuid, // Random ID used for telemetry events correlation.
         reason: EnrolledReason,
         branch: String,
     },
@@ -506,12 +481,10 @@ pub enum EnrollmentStatus {
         reason: NotEnrolledReason,
     },
     Disqualified {
-        enrollment_id: Uuid,
         reason: DisqualifiedReason,
         branch: String,
     },
     WasEnrolled {
-        enrollment_id: Uuid,
         branch: String,
         experiment_ended_at: u64, // unix timestamp in sec, used to GC old enrollments
     },
@@ -543,7 +516,6 @@ impl EnrollmentStatus {
         EnrollmentStatus::Enrolled {
             reason,
             branch: branch.to_owned(),
-            enrollment_id: Uuid::new_v4(),
         }
     }
 
@@ -551,28 +523,6 @@ impl EnrollmentStatus {
     // triggers a dead code warning when building with `--release`.
     pub fn is_enrolled(&self) -> bool {
         matches!(self, EnrollmentStatus::Enrolled { .. })
-    }
-
-    /// Make a clone of this status, but with the special nil enrollment_id.
-    #[cfg_attr(not(feature = "stateful"), allow(unused))]
-    fn clone_with_nil_enrollment_id(&self) -> Self {
-        let mut updated = self.clone();
-        match updated {
-            EnrollmentStatus::Enrolled {
-                ref mut enrollment_id,
-                ..
-            }
-            | EnrollmentStatus::Disqualified {
-                ref mut enrollment_id,
-                ..
-            }
-            | EnrollmentStatus::WasEnrolled {
-                ref mut enrollment_id,
-                ..
-            } => *enrollment_id = Uuid::nil(),
-            EnrollmentStatus::NotEnrolled { .. } | EnrollmentStatus::Error { .. } => (),
-        };
-        updated
     }
 }
 
