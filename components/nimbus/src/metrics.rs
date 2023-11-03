@@ -1,11 +1,11 @@
-use crate::{enrollment::ExperimentEnrollment, EnrollmentStatus};
+use crate::{enrollment::ExperimentEnrollment, EnrolledFeature, EnrollmentStatus};
 use serde_derive::{Deserialize, Serialize};
 
 pub trait MetricsHandler: Send + Sync {
     fn record_enrollment_statuses(&self, enrollment_status_extras: Vec<EnrollmentStatusExtraDef>);
 
-    // #[cfg(feature = "stateful")]
-    // fn record_exposure_event(&self);
+    #[cfg(feature = "stateful")]
+    fn record_feature_activation(&self, activation_event: FeatureExposureExtraDef);
 }
 
 #[derive(Serialize, Deserialize, Clone)]
@@ -83,6 +83,23 @@ impl From<ExperimentEnrollment> for EnrollmentStatusExtraDef {
             status: Some(enrollment.status.name()),
             #[cfg(not(feature = "stateful"))]
             user_id: None,
+        }
+    }
+}
+
+#[derive(Serialize, Deserialize, Clone)]
+pub struct FeatureExposureExtraDef {
+    pub branch: Option<String>,
+    pub slug: String,
+    pub feature_id: String,
+}
+
+impl From<EnrolledFeature> for FeatureExposureExtraDef {
+    fn from(value: EnrolledFeature) -> Self {
+        Self {
+            feature_id: value.feature_id.clone(),
+            branch: value.branch.clone(),
+            slug: value.slug.clone(),
         }
     }
 }

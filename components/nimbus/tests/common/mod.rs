@@ -19,6 +19,11 @@ impl MetricsHandler for NoopMetricsHandler {
     fn record_enrollment_statuses(&self, _: Vec<EnrollmentStatusExtraDef>) {
         // do nothing
     }
+
+    #[cfg(feature = "stateful")]
+    fn record_feature_activation(&self, _activation_event: FeatureExposureExtraDef) {
+        // do nothing
+    }
 }
 
 #[allow(dead_code)] // work around https://github.com/rust-lang/rust/issues/46379
@@ -65,6 +70,7 @@ fn new_test_client_internal(
     )
 }
 
+use nimbus::metrics::FeatureExposureExtraDef;
 use nimbus::stateful::persistence::{Database, SingleStore};
 use std::path::Path;
 
