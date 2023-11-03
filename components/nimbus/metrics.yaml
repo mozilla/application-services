@@ -140,6 +140,31 @@ nimbus_events:
       - tlong@mozilla.com
       - telemetry-team@mozilla.com
     expires: never
+  activation:
+    type: event
+    description: >
+      Recorded when a feature is configured with an experimental
+      configuration for the first time in this session.
+    extra_keys:
+      experiment:
+        type: string
+        description: The slug/unique identifier of the experiment
+      branch:
+        type: string
+        description: The branch slug/identifier that was randomly chosen
+      feature_id:
+        type: string
+        description: The identifier of the feature that is recording an exposure
+    bugs:
+      - https://mozilla-hub.atlassian.net/browse/EXP-3950
+    data_reviews:
+      - https://github.com/mozilla/application-services/pull/5908#pullrequestreview-1718840482
+    data_sensitivity:
+      - technical
+    notification_emails:
+      - jhugman@mozilla.com
+      - project-nimbus@mozilla.com
+    expires: never
   exposure:
     type: event
     description: >

@@ -2,7 +2,6 @@
 * License, v. 2.0. If a copy of the MPL was not distributed with this
 * file, You can obtain one at https://mozilla.org/MPL/2.0/. */
 
-use crate::metrics::EnrollmentStatusExtraDef;
 use crate::{
     enrollment::{DisqualifiedReason, EnrolledReason, EnrollmentStatus, ExperimentEnrollment},
     error::Result,
@@ -14,8 +13,9 @@ use crate::{
         persistence::{Database, StoreId},
     },
     tests::helpers::{
-        get_bucketed_rollout, get_ios_rollout_experiment, get_targeted_experiment,
-        to_local_experiments_string, TestMetrics,
+        get_bucketed_rollout, get_ios_rollout_experiment, get_single_feature_experiment,
+        get_single_feature_rollout, get_targeted_experiment, to_local_experiments_string,
+        TestMetrics,
     },
     AppContext, AvailableRandomizationUnits, Experiment, NimbusClient, TargetingAttributes,
     DB_KEY_APP_VERSION, DB_KEY_UPDATE_DATE,
@@ -1369,8 +1369,7 @@ fn test_enrollment_status_metrics_recorded() -> Result<()> {
 
     client.apply_pending_experiments()?;
 
-    let metric_records: Vec<EnrollmentStatusExtraDef> =
-        serde_json::from_value(metrics.assert_get_vec_value("enrollment_status"))?;
+    let metric_records = metrics.get_enrollment_statuses();
     assert_eq!(metric_records.len(), 3);
 
     assert_eq!(metric_records[0].slug(), slug_1);
@@ -1399,8 +1398,7 @@ fn test_enrollment_status_metrics_recorded() -> Result<()> {
     ])?)?;
     client.apply_pending_experiments()?;
 
-    let metric_records: Vec<EnrollmentStatusExtraDef> =
-        serde_json::from_value(metrics.assert_get_vec_value("enrollment_status"))?;
+    let metric_records = metrics.get_enrollment_statuses();
     assert_eq!(metric_records.len(), 6);
 
     assert_eq!(metric_records[3].slug(), slug_2);
@@ -1463,8 +1461,7 @@ fn test_enrollment_status_metrics_not_recorded_app_name_mismatch() -> Result<()>
 
     client.apply_pending_experiments()?;
 
-    let metric_records: Vec<EnrollmentStatusExtraDef> =
-        serde_json::from_value(metrics.assert_get_vec_value("enrollment_status"))?;
+    let metric_records = metrics.get_enrollment_statuses();
     assert_eq!(metric_records.len(), 0);
 
     Ok(())
@@ -1474,7 +1471,6 @@ fn test_enrollment_status_metrics_not_recorded_app_name_mismatch() -> Result<()>
 fn test_enrollment_status_metrics_not_recorded_channel_mismatch() -> Result<()> {
     let metrics = TestMetrics::new();
     let mock_client_id = "client-1".to_string();
-
     let temp_dir = tempfile::tempdir()?;
 
     let app_context = AppContext {
@@ -1510,9 +1506,117 @@ fn test_enrollment_status_metrics_not_recorded_channel_mismatch() -> Result<()> 
 
     client.apply_pending_experiments()?;
 
-    let metric_records: Vec<EnrollmentStatusExtraDef> =
-        serde_json::from_value(metrics.assert_get_vec_value("enrollment_status"))?;
+    let metric_records = metrics.get_enrollment_statuses();
     assert_eq!(metric_records.len(), 0);
+    Ok(())
+}
+
+fn test_feature_activation_events() -> Result<()> {
+    let metrics = TestMetrics::new();
+
+    let mock_client_id = "client-1".to_string();
+    let aru = AvailableRandomizationUnits {
+        client_id: Some(mock_client_id),
+        ..AvailableRandomizationUnits::default()
+    };
+    let temp_dir = tempfile::tempdir()?;
+
+    let app_context = AppContext {
+        app_name: "fenix".to_string(),
+        app_id: "org.mozilla.fenix".to_string(),
+        channel: "nightly".to_string(),
+        ..Default::default()
+    };
+
+    let client = NimbusClient::new(
+        app_context,
+        vec!["coenrolling-feature".to_string()],
+        temp_dir.path(),
+        None,
+        aru,
+        Box::new(metrics.clone()),
+    )?;
+
+    let slug_exp = "my-experiment";
+    let feature_exp = "experimental-feature";
+    let rec_exp = get_single_feature_experiment(slug_exp, feature_exp, json!({}));
+
+    let slug_ro = "my-rollout";
+    let feature_ro = "rollout-feature";
+    let rec_ro = get_single_feature_rollout(slug_ro, feature_ro, json!({}));
+
+    let slug_coenr = "my-coenrolling";
+    let feature_coenr = "coenrolling-feature";
+    let rec_coenr = get_single_feature_experiment(slug_coenr, feature_coenr, json!({}));
+
+    client.set_experiments_locally(to_local_experiments_string(&[rec_exp, rec_coenr, rec_ro])?)?;
+
+    client.apply_pending_experiments()?;
+
+    let activations = metrics.get_activations();
+    assert!(activations.is_empty());
+
+    // Assert that all the experiments are active.
+    assert_eq!(
+        Some("control".to_string()),
+        client.get_experiment_branch(slug_exp.to_string())?
+    );
+    assert_eq!(
+        Some("control".to_string()),
+        client.get_experiment_branch(slug_coenr.to_string())?
+    );
+    assert_eq!(
+        Some("control".to_string()),
+        client.get_experiment_branch(slug_ro.to_string())?
+    );
+
+    // A feature involved in a rollout doesn't fire activation events.
+    let _ = client.get_feature_config_variables(feature_ro.to_string());
+    let activations = metrics.get_activations();
+    assert!(activations.is_empty());
+
+    // Coenrolled features don't fire activation events.
+    let _ = client.get_feature_config_variables(feature_coenr.to_string());
+    let activations = metrics.get_activations();
+    assert!(activations.is_empty());
+
+    // But features involved in a experiment does!
+    let _ = client.get_feature_config_variables(feature_exp.to_string());
+    let activations = metrics.get_activations();
+    assert!(!activations.is_empty());
+    assert_eq!(1, activations.len());
+    let ev = &activations[0];
+    assert_eq!(Some("control"), ev.branch.as_deref());
+    assert_eq!(slug_exp, &ev.slug);
+    assert_eq!(feature_exp, &ev.feature_id);
+
+    // Next up, check if a feature involved in both a rollout AND an experiment sends an activation event.
+    metrics.clear();
+    let slug_exp = "my-experiment-2";
+    let feature_exp = "experimental-feature";
+    let rec_exp = get_single_feature_experiment(slug_exp, feature_exp, json!({}));
+
+    let slug_ro = "my-rollout-2";
+    let rec_ro = get_single_feature_rollout(slug_ro, feature_exp, json!({}));
+
+    client.set_experiments_locally(to_local_experiments_string(&[rec_exp, rec_ro])?)?;
+
+    client.apply_pending_experiments()?;
+
+    // Prove to ourselves that activations haven't been sent until feature_config_variables is
+    // called.
+    let activations = metrics.get_activations();
+    assert!(activations.is_empty());
+
+    // Now ask for this feature. Recall it's used in both an experiment and a rollout.
+    let _ = client.get_feature_config_variables(feature_exp.to_string());
+    let activations = metrics.get_activations();
+    assert!(!activations.is_empty());
+    assert_eq!(1, activations.len());
+    let ev = &activations[0];
+    assert_eq!(Some("control"), ev.branch.as_deref());
+    assert_eq!(slug_exp, &ev.slug);
+    assert_eq!(feature_exp, &ev.feature_id);
 
     Ok(())
 }

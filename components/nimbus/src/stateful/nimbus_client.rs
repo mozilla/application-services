@@ -10,7 +10,7 @@ use crate::{
     },
     error::BehaviorError,
     evaluator::{is_experiment_available, TargetingAttributes},
-    metrics::{EnrollmentStatusExtraDef, MetricsHandler},
+    metrics::{EnrollmentStatusExtraDef, FeatureExposureExtraDef, MetricsHandler},
     schema::parse_experiments,
     stateful::{
         behavior::EventStore,
@@ -170,8 +170,17 @@ impl NimbusClient {
     }
 
     pub fn get_feature_config_variables(&self, feature_id: String) -> Result<Option<String>> {
-        self.database_cache
-            .get_feature_config_variables(&feature_id)
+        Ok(
+            if let Some(s) = self
+                .database_cache
+                .get_feature_config_variables(&feature_id)?
+            {
+                self.record_feature_activation_if_needed(&feature_id);
+                Some(s)
+            } else {
+                None
+            },
+        )
     }
 
     pub fn get_experiment_branches(&self, slug: String) -> Result<Vec<ExperimentBranch>> {
@@ -694,6 +703,18 @@ impl NimbusClient {
             );
         }
         Ok(())
+    }
+}
+
+impl NimbusClient {
+    /// This is only called from `get_feature_config_variables` which is itself is cached with
+    /// thread safety in the FeatureHolder.kt and FeatureHolder.swift
+    fn record_feature_activation_if_needed(&self, feature_id: &str) {
+        if let Ok(Some(f)) = self.database_cache.get_enrollment_by_feature(feature_id) {
+            if f.branch.is_some() && !self.coenrolling_feature_ids.contains(&f.feature_id) {
+                self.metrics_handler.record_feature_activation(f.into());
+            }
+        }
     }
 
     fn record_enrollment_status_telemetry(

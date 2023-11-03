@@ -12,7 +12,7 @@ fn main() -> Result<()> {
     use clap::{App, Arg, SubCommand};
     use env_logger::Env;
     use nimbus::{
-        metrics::{EnrollmentStatusExtraDef, MetricsHandler},
+        metrics::{EnrollmentStatusExtraDef, FeatureExposureExtraDef, MetricsHandler},
         AppContext, AvailableRandomizationUnits, EnrollmentStatus, NimbusClient,
         NimbusTargetingHelper, RemoteSettingsConfig,
     };
@@ -23,6 +23,10 @@ fn main() -> Result<()> {
 
     impl MetricsHandler for NoopMetricsHandler {
         fn record_enrollment_statuses(&self, _: Vec<EnrollmentStatusExtraDef>) {
+            // do nothing
+        }
+
+        fn record_feature_activation(&self, _activation_event: FeatureExposureExtraDef) {
             // do nothing
         }
     }
