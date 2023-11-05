@@ -51,7 +51,9 @@ impl TryFrom<AttachedClient> for crate::AttachedClient {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::internal::{config::Config, http_client::FxAClientMock};
+    use mockall::predicate::always;
+    use mockall::predicate::eq;
+    use crate::internal::{config::Config, http_client::MockFxAClient};
     use std::sync::Arc;
     use sync15::DeviceType;
 
@@ -61,11 +63,12 @@ mod tests {
         let mut fxa = FirefoxAccount::with_config(config);
         fxa.set_session_token("session");
 
-        let mut client = FxAClientMock::new();
+        let mut client = MockFxAClient::new();
         client
-            .expect_get_attached_clients(mockiato::Argument::any, |arg| arg.partial_eq("session"))
+            .expect_get_attached_clients()
+            .with(always(), eq("session"))
             .times(1)
-            .returns_once(Ok(vec![AttachedClient {
+            .returning(|_, _| Ok(vec![AttachedClient {
                 client_id: Some("12345678".into()),
                 session_token_id: None,
                 refresh_token_id: None,
@@ -105,11 +108,12 @@ mod tests {
         let mut fxa = FirefoxAccount::with_config(config);
         fxa.set_session_token("session");
 
-        let mut client = FxAClientMock::new();
+        let mut client = MockFxAClient::new();
         client
-            .expect_get_attached_clients(mockiato::Argument::any, |arg| arg.partial_eq("session"))
+            .expect_get_attached_clients()
+            .with(always(), eq("session"))
             .times(1)
-            .returns_once(Err(Error::RemoteError {
+            .returning(|_, _| Err(Error::RemoteError {
                 code: 500,
                 errno: 101,
                 error: "Did not work!".to_owned(),

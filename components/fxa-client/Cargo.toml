@@ -26,13 +26,14 @@ thiserror = "1.0"
 anyhow = "1.0"
 sync-guid = { path = "../support/guid", features = ["random"] }
 uniffi = "0.24.1"
+mockall = "0.11"
 
 [build-dependencies]
 uniffi = { version = "0.24.1", features = ["build"] }
 
 [dev-dependencies]
 viaduct-reqwest = { path = "../support/viaduct-reqwest" }
-mockiato = "0.9"
+mockall = "0.11"
 mockito = "0.31"
 
 [features]
