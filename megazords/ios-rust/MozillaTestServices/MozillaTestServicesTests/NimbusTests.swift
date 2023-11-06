@@ -280,6 +280,35 @@ class NimbusTests: XCTestCase {
         XCTAssertEqual("test-branch", disqualificationEventExtras!["branch"], "Disqualification event branch must match")
     }
 
+    func testRecordFeatureActivation() throws {
+        let appSettings = NimbusAppSettings(appName: "NimbusUnitTest", channel: "test")
+        let nimbus = try Nimbus.create(nil, appSettings: appSettings, dbPath: createDatabasePath()) as! Nimbus
+
+        // Load an experiment in nimbus that we will record an event in. The experiment bucket configuration
+        // is set so that it will be guaranteed to be active. This is necessary because the SDK checks for
+        // active experiments before recording.
+        try nimbus.setExperimentsLocallyOnThisThread(minimalExperimentJSON())
+        try nimbus.applyPendingExperimentsOnThisThread()
+
+        // Assert that there are no events to start with
+        XCTAssertNil(GleanMetrics.NimbusEvents.activation.testGetValue(), "Event must not have a value")
+
+        // Record a valid exposure event in Glean that matches the featureId from the test experiment
+        let _ = nimbus.getFeatureConfigVariablesJson(featureId: "aboutwelcome")
+
+        // Use the Glean test API to check that the valid event is present
+        XCTAssertNotNil(GleanMetrics.NimbusEvents.activation.testGetValue(), "Event must have a value")
+        let events = GleanMetrics.NimbusEvents.activation.testGetValue()!
+        XCTAssertEqual(1, events.count, "Event count must match")
+        let extras = events.first!.extra
+        XCTAssertEqual("secure-gold", extras!["experiment"], "Experiment slug must match")
+        XCTAssertTrue(
+            extras!["branch"] == "control" || extras!["branch"] == "treatment",
+            "Experiment branch must match"
+        )
+        XCTAssertEqual("aboutwelcome", extras!["feature_id"], "Feature ID must match")
+    }
+
     func testRecordExposureFromFeature() throws {
         let appSettings = NimbusAppSettings(appName: "NimbusUnitTest", channel: "test")
         let nimbus = try Nimbus.create(nil, appSettings: appSettings, dbPath: createDatabasePath()) as! Nimbus
