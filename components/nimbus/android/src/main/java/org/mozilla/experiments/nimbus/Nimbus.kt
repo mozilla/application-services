@@ -35,6 +35,7 @@ import org.mozilla.experiments.nimbus.internal.EnrolledExperiment
 import org.mozilla.experiments.nimbus.internal.EnrollmentChangeEvent
 import org.mozilla.experiments.nimbus.internal.EnrollmentChangeEventType
 import org.mozilla.experiments.nimbus.internal.EnrollmentStatusExtraDef
+import org.mozilla.experiments.nimbus.internal.FeatureExposureExtraDef
 import org.mozilla.experiments.nimbus.internal.MetricsHandler
 import org.mozilla.experiments.nimbus.internal.NimbusClient
 import org.mozilla.experiments.nimbus.internal.NimbusClientInterface
@@ -95,6 +96,16 @@ open class Nimbus(
                     ),
                 )
             }
+        }
+
+        override fun recordFeatureActivation(event: FeatureExposureExtraDef) {
+            NimbusEvents.activation.record(
+                NimbusEvents.ActivationExtra(
+                    experiment = event.slug,
+                    branch = event.branch,
+                    featureId = event.featureId,
+                ),
+            )
         }
     }
 

@@ -33,6 +33,15 @@ class GleanMetricsHandler: MetricsHandler {
                 ))
         }
     }
+
+    func recordFeatureActivation(event: FeatureExposureExtraDef) {
+        GleanMetrics.NimbusEvents.activation
+            .record(GleanMetrics.NimbusEvents.ActivationExtra(
+                branch: event.branch,
+                experiment: event.slug,
+                featureId: event.featureId
+            ))
+    }
 }
 
 public extension Nimbus {

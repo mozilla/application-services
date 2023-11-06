@@ -63,10 +63,12 @@ class NimbusTests {
         errorReporter = { message, e -> Log.e("NimbusTest", message, e) },
     )
 
-    private val nimbus = Nimbus(
+    private val nimbus = createNimbus()
+
+    private fun createNimbus(coenrollingFeatureIds: List<String> = listOf()) = Nimbus(
         context = context,
         appInfo = appInfo,
-        coenrollingFeatureIds = listOf(),
+        coenrollingFeatureIds = coenrollingFeatureIds,
         server = null,
         deviceInfo = deviceInfo,
         observer = null,
@@ -186,6 +188,68 @@ class NimbusTests {
             "Experiment branch must match",
             "test-branch",
             disqualificationEventExtras["branch"],
+        )
+    }
+
+    @Test
+    fun `getFeatureVariables records activation telemetry`() {
+        // Load the experiment in nimbus so and optIn so that it will be active. This is necessary
+        // because recordExposure checks for active experiments before recording.
+        nimbus.setUpTestExperiments(packageName, appInfo)
+
+        // Assert that there are no events to start with
+        assertNull(
+            "There must not be any pre-existing events",
+            NimbusEvents.activation.testGetValue(),
+        )
+
+        nimbus.getVariables("missing_feature", recordExposureEvent = false)
+        // Missing feature does not call activation event
+        assertNull(
+            "There must not be any events for missing_features",
+            NimbusEvents.activation.testGetValue(),
+        )
+
+        nimbus.getVariables("about_welcome", recordExposureEvent = false)
+        // Existing feature does call activation event
+        val events = NimbusEvents.activation.testGetValue()
+        assertNotNull(
+            "There must be an activation event for a feature under experiment",
+            events,
+        )
+        assertEquals("Exactly one activation event", events!!.size, 1)
+
+        val extras = events.first().extra!!
+        assertEquals("test-branch", extras["branch"])
+        assertEquals("test-experiment", extras["experiment"])
+        assertEquals("about_welcome", extras["feature_id"])
+    }
+
+    @Test
+    fun `getFeatureVariables for coenrolling feature does not record activation telemetry`() {
+        // Load the experiment in nimbus so and optIn so that it will be active. This is necessary
+        // because recordExposure checks for active experiments before recording.
+        val nimbus = createNimbus(coenrollingFeatureIds = listOf("about_welcome"))
+        nimbus.setUpTestExperiments(packageName, appInfo)
+
+        // Assert that there are no events to start with
+        assertNull(
+            "There must not be any pre-existing events",
+            NimbusEvents.activation.testGetValue(),
+        )
+
+        nimbus.getVariables("missing_feature", recordExposureEvent = false)
+        // Missing feature does not call activation event
+        assertNull(
+            "There must not be any events for missing_features",
+            NimbusEvents.activation.testGetValue(),
+        )
+
+        nimbus.getVariables("about_welcome", recordExposureEvent = false)
+        // Coenrolling feature does not call activation event
+        assertNull(
+            "There must not be any events for coenrolling feature",
+            NimbusEvents.activation.testGetValue(),
         )
     }
 
