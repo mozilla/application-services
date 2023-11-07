@@ -24,6 +24,11 @@ impl MetricsHandler for NoopMetricsHandler {
     fn record_feature_activation(&self, _activation_event: FeatureExposureExtraDef) {
         // do nothing
     }
+
+    #[cfg(feature = "stateful")]
+    fn record_feature_exposure(&self, _activation_event: FeatureExposureExtraDef) {
+        // do nothing
+    }
 }
 
 #[allow(dead_code)] // work around https://github.com/rust-lang/rust/issues/46379

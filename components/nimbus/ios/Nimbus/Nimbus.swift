@@ -111,38 +111,8 @@ extension Nimbus: FeaturesInterface {
     }
 
     public func recordExposureEvent(featureId: String, experimentSlug: String? = nil) {
-        if let experimentSlug = experimentSlug {
-            recordExposureFromExperiment(featureId: featureId, experimentSlug: experimentSlug)
-        } else {
-            recordExposureFromFeature(featureId: featureId)
-        }
-    }
-
-    func recordExposureFromFeature(featureId: String) {
-        // First, we get the enrolled feature, if there is one, for this id.
-        if let enrollment = getEnrollmentByFeature(featureId: featureId),
-           // If branch is nil, this is a rollout, and we're not interested in recording
-           // exposure for rollouts.
-           let branch = enrollment.branch
-        {
-            // Finally, if we do have an experiment for the given featureId, we will record the
-            // exposure event in Glean. This is to protect against accidentally recording an event
-            // for an experiment without an active enrollment.
-            GleanMetrics.NimbusEvents.exposure.record(GleanMetrics.NimbusEvents.ExposureExtra(
-                branch: branch,
-                experiment: enrollment.slug,
-                featureId: featureId
-            ))
-        }
-    }
-
-    func recordExposureFromExperiment(featureId: String, experimentSlug: String) {
-        if let branch = getExperimentBranch(experimentId: experimentSlug) {
-            GleanMetrics.NimbusEvents.exposure.record(GleanMetrics.NimbusEvents.ExposureExtra(
-                branch: branch,
-                experiment: experimentSlug,
-                featureId: featureId
-            ))
+        catchAll {
+            nimbusClient.recordFeatureExposure(featureId: featureId, slug: experimentSlug)
         }
     }
 
