@@ -29,6 +29,10 @@ fn main() -> Result<()> {
         fn record_feature_activation(&self, _activation_event: FeatureExposureExtraDef) {
             // do nothing
         }
+
+        fn record_feature_exposure(&self, _exposure_event: FeatureExposureExtraDef) {
+            // do nothing
+        }
     }
 
     // We set the logging level to be `warn` here, meaning that only

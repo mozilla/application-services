@@ -8,6 +8,7 @@ use std::sync::{Arc, Mutex};
 struct MetricState {
     enrollment_statuses: Vec<EnrollmentStatusExtraDef>,
     activations: Vec<FeatureExposureExtraDef>,
+    exposures: Vec<FeatureExposureExtraDef>,
 }
 
 /// A Rust implementation of the MetricsHandler trait
@@ -50,5 +51,10 @@ impl MetricsHandler for TestMetrics {
     fn record_feature_activation(&self, event: FeatureExposureExtraDef) {
         let mut state = self.state.lock().unwrap();
         state.activations.push(event);
+    }
+
+    fn record_feature_exposure(&self, event: FeatureExposureExtraDef) {
+        let mut state = self.state.lock().unwrap();
+        state.exposures.push(event);
     }
 }

@@ -80,6 +80,8 @@ callback interface MetricsHandler {
     // Feature activation is the pre-cursor to feature exposure: it is defined as the first time
     // the feature configuration is asked for.
     void record_feature_activation(FeatureExposureExtraDef event);
+
+    void record_feature_exposure(FeatureExposureExtraDef event);
 };
 
 dictionary EnrollmentStatusExtraDef {
@@ -148,6 +150,17 @@ interface NimbusClient {
     // Returns details of a feature's enrollment.
     [Throws=NimbusError]
     EnrolledFeature? get_enrollment_by_feature(string feature_id);
+
+    // Records a Glean event that this feature has been exposed.
+    // If the feature is not involved in an experiment, then the event is suppressed.
+    // If the feature is only involved in a rollout, then the event is suppressed.
+    // If the feature is involved in an experiment, then record the experiment slug
+    // and branch.
+    // If the feature is involved in an experiment and a rollout, then record only the
+    // experiment slug and branch.
+    // If the slug is specified, then use this as the experiment, and use it to look up
+    // the branch. This is useful for coenrolling features.
+    void record_feature_exposure(string feature_id, string? slug);
 
     // Returns a list of experiments for this `app_name`, as specified in the `AppContext`.
     // It is not intended to be used to be used for user facing applications.

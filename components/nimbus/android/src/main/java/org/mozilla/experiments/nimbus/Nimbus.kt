@@ -107,6 +107,16 @@ open class Nimbus(
                 ),
             )
         }
+
+        override fun recordFeatureExposure(event: FeatureExposureExtraDef) {
+            NimbusEvents.exposure.record(
+                NimbusEvents.ExposureExtra(
+                    experiment = event.slug,
+                    branch = event.branch,
+                    featureId = event.featureId,
+                ),
+            )
+        }
     }
 
     private val nimbusClient: NimbusClientInterface
@@ -518,42 +528,8 @@ open class Nimbus(
     // If the experiment slug is known, then use that to look up the enrollment.
     @VisibleForTesting(otherwise = VisibleForTesting.PRIVATE)
     @AnyThread
-    internal fun recordExposureOnThisThread(featureId: String, experimentSlug: String? = null) {
-        if (experimentSlug.isNullOrEmpty()) {
-            recordExposureFromFeature(featureId)
-        } else {
-            recordExposureFromExperiment(featureId, experimentSlug)
-        }
-    }
-
-    private fun recordExposureFromFeature(featureId: String) = withCatchAll("recordExposureFromFeature") {
-        // First, we get the enrolled feature, if there is one, for this id.
-        val enrollment = nimbusClient.getEnrollmentByFeature(featureId) ?: return@withCatchAll
-        // If branch is null, this is a rollout, and we're not interested in recording
-        // exposure for rollouts.
-        val branch = enrollment.branch ?: return@withCatchAll
-        // Finally, if we do have an experiment for the given featureId, we will record the
-        // exposure event in Glean. This is to protect against accidentally recording an event
-        // for an experiment without an active enrollment.
-        NimbusEvents.exposure.record(
-            NimbusEvents.ExposureExtra(
-                experiment = enrollment.slug,
-                branch = branch,
-                featureId = featureId,
-            ),
-        )
-    }
-
-    private fun recordExposureFromExperiment(featureId: String, slug: String) = withCatchAll("recordExposureFromExperiment") {
-        nimbusClient.getExperimentBranch(slug)?.let { branch ->
-            NimbusEvents.exposure.record(
-                NimbusEvents.ExposureExtra(
-                    experiment = slug,
-                    branch = branch,
-                    featureId = featureId,
-                ),
-            )
-        }
+    internal fun recordExposureOnThisThread(featureId: String, experimentSlug: String? = null) = withCatchAll("recordFeatureExposure") {
+        nimbusClient.recordFeatureExposure(featureId, experimentSlug)
     }
 
     // The malformed feature event is recorded by app developers, if the configuration is

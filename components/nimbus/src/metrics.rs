@@ -5,7 +5,10 @@ pub trait MetricsHandler: Send + Sync {
     fn record_enrollment_statuses(&self, enrollment_status_extras: Vec<EnrollmentStatusExtraDef>);
 
     #[cfg(feature = "stateful")]
-    fn record_feature_activation(&self, activation_event: FeatureExposureExtraDef);
+    fn record_feature_activation(&self, event: FeatureExposureExtraDef);
+
+    #[cfg(feature = "stateful")]
+    fn record_feature_exposure(&self, event: FeatureExposureExtraDef);
 }
 
 #[derive(Serialize, Deserialize, Clone)]
@@ -87,7 +90,7 @@ impl From<ExperimentEnrollment> for EnrollmentStatusExtraDef {
     }
 }
 
-#[derive(Serialize, Deserialize, Clone)]
+#[derive(Clone)]
 pub struct FeatureExposureExtraDef {
     pub branch: Option<String>,
     pub slug: String,
@@ -97,9 +100,12 @@ pub struct FeatureExposureExtraDef {
 impl From<EnrolledFeature> for FeatureExposureExtraDef {
     fn from(value: EnrolledFeature) -> Self {
         Self {
-            feature_id: value.feature_id.clone(),
-            branch: value.branch.clone(),
-            slug: value.slug.clone(),
+            feature_id: value.feature_id,
+            branch: value.branch,
+            slug: value.slug,
+        }
+    }
+}
         }
     }
 }

@@ -717,6 +717,32 @@ impl NimbusClient {
         }
     }
 
+    pub fn record_feature_exposure(&self, feature_id: String, slug: Option<String>) {
+        let event = if let Some(slug) = slug {
+            if let Ok(Some(branch)) = self.database_cache.get_experiment_branch(&slug) {
+                Some(FeatureExposureExtraDef {
+                    feature_id,
+                    branch: Some(branch),
+                    slug,
+                })
+            } else {
+                None
+            }
+        } else if let Ok(Some(f)) = self.database_cache.get_enrollment_by_feature(&feature_id) {
+            if f.branch.is_some() {
+                Some(f.into())
+            } else {
+                None
+            }
+        } else {
+            None
+        };
+
+        if let Some(event) = event {
+            self.metrics_handler.record_feature_exposure(event);
+        }
+    }
+
     fn record_enrollment_status_telemetry(
         &self,
         state: &mut MutexGuard<InternalMutableState>,
