@@ -29,6 +29,11 @@ impl MetricsHandler for NoopMetricsHandler {
     fn record_feature_exposure(&self, _activation_event: FeatureExposureExtraDef) {
         // do nothing
     }
+
+    #[cfg(feature = "stateful")]
+    fn record_malformed_feature_config(&self, _event: MalformedFeatureConfigExtraDef) {
+        // do nothing
+    }
 }
 
 #[allow(dead_code)] // work around https://github.com/rust-lang/rust/issues/46379
@@ -75,7 +80,7 @@ fn new_test_client_internal(
     )
 }
 
-use nimbus::metrics::FeatureExposureExtraDef;
+use nimbus::metrics::{FeatureExposureExtraDef, MalformedFeatureConfigExtraDef};
 use nimbus::stateful::persistence::{Database, SingleStore};
 use std::path::Path;
 

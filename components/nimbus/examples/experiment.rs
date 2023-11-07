@@ -12,7 +12,10 @@ fn main() -> Result<()> {
     use clap::{App, Arg, SubCommand};
     use env_logger::Env;
     use nimbus::{
-        metrics::{EnrollmentStatusExtraDef, FeatureExposureExtraDef, MetricsHandler},
+        metrics::{
+            EnrollmentStatusExtraDef, FeatureExposureExtraDef, MalformedFeatureConfigExtraDef,
+            MetricsHandler,
+        },
         AppContext, AvailableRandomizationUnits, EnrollmentStatus, NimbusClient,
         NimbusTargetingHelper, RemoteSettingsConfig,
     };
@@ -31,6 +34,10 @@ fn main() -> Result<()> {
         }
 
         fn record_feature_exposure(&self, _exposure_event: FeatureExposureExtraDef) {
+            // do nothing
+        }
+
+        fn record_malformed_feature_config(&self, _event: MalformedFeatureConfigExtraDef) {
             // do nothing
         }
     }

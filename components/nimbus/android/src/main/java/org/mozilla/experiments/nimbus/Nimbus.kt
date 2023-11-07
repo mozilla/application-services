@@ -36,6 +36,7 @@ import org.mozilla.experiments.nimbus.internal.EnrollmentChangeEvent
 import org.mozilla.experiments.nimbus.internal.EnrollmentChangeEventType
 import org.mozilla.experiments.nimbus.internal.EnrollmentStatusExtraDef
 import org.mozilla.experiments.nimbus.internal.FeatureExposureExtraDef
+import org.mozilla.experiments.nimbus.internal.MalformedFeatureConfigExtraDef
 import org.mozilla.experiments.nimbus.internal.MetricsHandler
 import org.mozilla.experiments.nimbus.internal.NimbusClient
 import org.mozilla.experiments.nimbus.internal.NimbusClientInterface
@@ -114,6 +115,17 @@ open class Nimbus(
                     experiment = event.slug,
                     branch = event.branch,
                     featureId = event.featureId,
+                ),
+            )
+        }
+
+        override fun recordMalformedFeatureConfig(event: MalformedFeatureConfigExtraDef) {
+            NimbusEvents.malformedFeature.record(
+                NimbusEvents.MalformedFeatureExtra(
+                    experiment = event.slug,
+                    branch = event.branch,
+                    featureId = event.featureId,
+                    partId = event.part,
                 ),
             )
         }
@@ -537,18 +549,7 @@ open class Nimbus(
     @VisibleForTesting(otherwise = VisibleForTesting.PRIVATE)
     @AnyThread
     internal fun recordMalformedConfigurationOnThisThread(featureId: String, partId: String) = withCatchAll("recordMalformedConfiguration") {
-        // First, we get the enrolled feature, if there is one, for this id.
-        val enrollment = nimbusClient.getEnrollmentByFeature(featureId)
-        // If the enrollment is null, then that's the most serious: we've shipped invalid FML,
-        // If the branch is null, then this is also serious: we've shipped an invalid rollout.
-        NimbusEvents.malformedFeature.record(
-            NimbusEvents.MalformedFeatureExtra(
-                experiment = enrollment?.slug,
-                branch = enrollment?.branch,
-                featureId = featureId,
-                partId = partId,
-            ),
-        )
+        nimbusClient.recordMalformedFeatureConfig(featureId, partId)
     }
 
     @VisibleForTesting(otherwise = VisibleForTesting.PRIVATE)

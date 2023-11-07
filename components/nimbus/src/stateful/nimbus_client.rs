@@ -10,7 +10,10 @@ use crate::{
     },
     error::BehaviorError,
     evaluator::{is_experiment_available, TargetingAttributes},
-    metrics::{EnrollmentStatusExtraDef, FeatureExposureExtraDef, MetricsHandler},
+    metrics::{
+        EnrollmentStatusExtraDef, FeatureExposureExtraDef, MalformedFeatureConfigExtraDef,
+        MetricsHandler,
+    },
     schema::parse_experiments,
     stateful::{
         behavior::EventStore,
@@ -741,6 +744,16 @@ impl NimbusClient {
         if let Some(event) = event {
             self.metrics_handler.record_feature_exposure(event);
         }
+    }
+
+    pub fn record_malformed_feature_config(&self, feature_id: String, part_id: String) {
+        let event = if let Ok(Some(f)) = self.database_cache.get_enrollment_by_feature(&feature_id)
+        {
+            MalformedFeatureConfigExtraDef::from(f, part_id)
+        } else {
+            MalformedFeatureConfigExtraDef::new(feature_id, part_id)
+        };
+        self.metrics_handler.record_malformed_feature_config(event);
     }
 
     fn record_enrollment_status_telemetry(

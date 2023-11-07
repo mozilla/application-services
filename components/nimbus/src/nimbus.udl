@@ -31,12 +31,6 @@ dictionary EnrolledExperiment {
     string branch_slug;
 };
 
-dictionary EnrolledFeature {
-    string slug;
-    string? branch;
-    string feature_id;
-};
-
 dictionary AvailableExperiment {
     string slug;
     string user_facing_name;
@@ -82,6 +76,8 @@ callback interface MetricsHandler {
     void record_feature_activation(FeatureExposureExtraDef event);
 
     void record_feature_exposure(FeatureExposureExtraDef event);
+
+    void record_malformed_feature_config(MalformedFeatureConfigExtraDef event);
 };
 
 dictionary EnrollmentStatusExtraDef {
@@ -97,6 +93,13 @@ dictionary FeatureExposureExtraDef {
     string? branch;
     string slug;
     string feature_id;
+};
+
+dictionary MalformedFeatureConfigExtraDef {
+    string? branch;
+    string? slug;
+    string feature_id;
+    string part;
 };
 
 [Error]
@@ -147,10 +150,6 @@ interface NimbusClient {
     [Throws=NimbusError]
     sequence<EnrolledExperiment> get_active_experiments();
 
-    // Returns details of a feature's enrollment.
-    [Throws=NimbusError]
-    EnrolledFeature? get_enrollment_by_feature(string feature_id);
-
     // Records a Glean event that this feature has been exposed.
     // If the feature is not involved in an experiment, then the event is suppressed.
     // If the feature is only involved in a rollout, then the event is suppressed.
@@ -161,6 +160,14 @@ interface NimbusClient {
     // If the slug is specified, then use this as the experiment, and use it to look up
     // the branch. This is useful for coenrolling features.
     void record_feature_exposure(string feature_id, string? slug);
+
+    // Records a Glean event that this feature configuration is malformed.
+    // Accepts a part_id to give the experiment owner or feature implementer
+    // clues where to look.
+    // The Glean event will always fire, but the content of that event will
+    // vary depending on whether then feature is part of an experiment or rollout
+    // or not.
+    void record_malformed_feature_config(string feature_id, string part_id);
 
     // Returns a list of experiments for this `app_name`, as specified in the `AppContext`.
     // It is not intended to be used to be used for user facing applications.
