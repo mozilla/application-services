@@ -85,6 +85,8 @@ impl FirefoxAccount {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use mockall::predicate::always;
+    use mockall::predicate::eq;
     use crate::internal::{
         http_client::*,
         oauth::{AccessTokenInfo, RefreshToken},
@@ -123,15 +125,12 @@ mod tests {
             },
         );
 
-        let mut client = FxAClientMock::new();
+        let mut client = MockFxAClient::new();
         client
-            .expect_get_profile(
-                mockiato::Argument::any,
-                |token| token.partial_eq("profiletok"),
-                mockiato::Argument::any,
-            )
+            .expect_get_profile()
+            .with(always(), eq("profiletok"), always())
             .times(1)
-            .returns_once(Ok(Some(ResponseAndETag {
+            .returning(|_, _, _| Ok(Some(ResponseAndETag {
                 response: ProfileResponse {
                     uid: "12345ab".to_string(),
                     email: "foo@bar.com".to_string(),
@@ -168,16 +167,13 @@ mod tests {
             scopes: refresh_token_scopes,
         });
 
-        let mut client = FxAClientMock::new();
+        let mut client = MockFxAClient::new();
         // First call to profile() we fail with 401.
         client
-            .expect_get_profile(
-                mockiato::Argument::any,
-                |token| token.partial_eq("bad_access_token"),
-                mockiato::Argument::any,
-            )
+            .expect_get_profile()
+            .with(always(), eq("bad_access_token"), always())
             .times(1)
-            .returns_once(Err(Error::RemoteError{
+            .returning(|_, _, _| Err(Error::RemoteError{
                 code: 401,
                 errno: 110,
                 error: "Unauthorized".to_owned(),
@@ -186,14 +182,10 @@ mod tests {
             }));
         // Then we'll try to get a new access token.
         client
-            .expect_create_access_token_using_refresh_token(
-                mockiato::Argument::any,
-                |token| token.partial_eq("refreshtok"),
-                mockiato::Argument::any,
-                mockiato::Argument::any,
-            )
+            .expect_create_access_token_using_refresh_token()
+            .with(always(), eq("refreshtok"), always(), always())
             .times(1)
-            .returns_once(Ok(OAuthTokenResponse {
+            .returning(|_, _, _, _| Ok(OAuthTokenResponse {
                 keys_jwe: None,
                 refresh_token: None,
                 expires_in: 6_000_000,
@@ -203,13 +195,10 @@ mod tests {
             }));
         // Then hooray it works!
         client
-            .expect_get_profile(
-                mockiato::Argument::any,
-                |token| token.partial_eq("good_profile_token"),
-                mockiato::Argument::any,
-            )
+            .expect_get_profile()
+            .with(always(), eq("good_profile_token"), always())
             .times(1)
-            .returns_once(Ok(Some(ResponseAndETag {
+            .returning(|_, _, _| Ok(Some(ResponseAndETag {
                 response: ProfileResponse {
                     uid: "12345ab".to_string(),
                     email: "foo@bar.com".to_string(),

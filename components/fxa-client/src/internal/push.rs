@@ -137,8 +137,10 @@ pub struct AccountDestroyedPushPayload {
 
 #[cfg(test)]
 mod tests {
+    use mockall::predicate::always;
+    use mockall::predicate::eq;
     use super::*;
-    use crate::internal::http_client::FxAClientMock;
+    use crate::internal::http_client::MockFxAClient;
     use crate::internal::http_client::IntrospectResponse;
     use crate::internal::oauth::RefreshToken;
     use crate::internal::CachedResponse;
@@ -194,13 +196,12 @@ mod tests {
     fn test_push_password_reset() {
         let mut fxa =
             FirefoxAccount::with_config(Config::stable_dev("12345678", "https://foo.bar"));
-        let mut client = FxAClientMock::new();
+        let mut client = MockFxAClient::new();
         client
-            .expect_check_refresh_token_status(mockiato::Argument::any, |token| {
-                token.partial_eq("refresh_token")
-            })
+            .expect_check_refresh_token_status()
+            .with(always(), eq("refresh_token"))
             .times(1)
-            .returns_once(Ok(IntrospectResponse { active: false }));
+            .returning(|_, _| Ok(IntrospectResponse { active: false }));
         fxa.set_client(Arc::new(client));
         let refresh_token_scopes = std::collections::HashSet::new();
         fxa.state.force_refresh_token(RefreshToken {
@@ -224,13 +225,12 @@ mod tests {
     fn test_push_password_change() {
         let mut fxa =
             FirefoxAccount::with_config(Config::stable_dev("12345678", "https://foo.bar"));
-        let mut client = FxAClientMock::new();
+        let mut client = MockFxAClient::new();
         client
-            .expect_check_refresh_token_status(mockiato::Argument::any, |token| {
-                token.partial_eq("refresh_token")
-            })
+            .expect_check_refresh_token_status()
+            .with(always(), eq("refresh_token"))
             .times(1)
-            .returns_once(Ok(IntrospectResponse { active: true }));
+            .returning(|_, _| Ok(IntrospectResponse { active: true }));
         fxa.set_client(Arc::new(client));
         let refresh_token_scopes = std::collections::HashSet::new();
         fxa.state.force_refresh_token(RefreshToken {
