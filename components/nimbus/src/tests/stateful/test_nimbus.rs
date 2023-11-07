@@ -1106,6 +1106,8 @@ fn test_active_enrollment_in_targeting() -> Result<()> {
     assert!(targeting_helper.eval_jexl("'test-2' in active_experiments".to_string())?);
     assert!(targeting_helper.eval_jexl("'test-1' in enrollments".to_string())?);
     assert!(targeting_helper.eval_jexl("'test-2' in enrollments".to_string())?);
+    assert!(targeting_helper.eval_jexl("enrollments_map['test-1'] == 'treatment'".to_string())?);
+    assert!(targeting_helper.eval_jexl("enrollments_map['test-2'] == 'control'".to_string())?);
 
     Ok(())
 }
