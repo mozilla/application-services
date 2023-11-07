@@ -198,8 +198,7 @@ fn test_sends_metrics_on_enrollment() -> Result<()> {
         .unwrap();
     client.enroll("test".to_string(), Default::default(), true, &[])?;
 
-    let metric_records: Vec<EnrollmentStatusExtraDef> =
-        serde_json::from_value(metrics_handler.assert_get_vec_value("enrollment_status"))?;
+    let metric_records: Vec<EnrollmentStatusExtraDef> = metrics_handler.get_enrollment_statuses();
     assert_eq!(metric_records.len(), 1);
     assert_eq!(metric_records[0].slug(), exp.slug);
     assert_eq!(metric_records[0].status(), "Enrolled");

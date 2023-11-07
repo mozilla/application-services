@@ -8,9 +8,13 @@ use crate::{
     AppContext, EnrollmentStatus, Experiment, FeatureConfig, NimbusTargetingHelper,
     TargetingAttributes,
 };
+
+#[cfg(feature = "stateful")]
+use crate::metrics::{FeatureExposureExtraDef, MalformedFeatureConfigExtraDef};
+
 use serde::Serialize;
 use serde_json::{json, Value};
-use std::collections::{HashMap, HashSet};
+use std::collections::HashSet;
 use std::sync::{Arc, Mutex};
 
 cfg_if::cfg_if! {
@@ -47,13 +51,24 @@ impl Default for NimbusTargetingHelper {
     }
 }
 
+#[derive(Default)]
+struct MetricState {
+    enrollment_statuses: Vec<EnrollmentStatusExtraDef>,
+    #[cfg(feature = "stateful")]
+    activations: Vec<FeatureExposureExtraDef>,
+    #[cfg(feature = "stateful")]
+    exposures: Vec<FeatureExposureExtraDef>,
+    #[cfg(feature = "stateful")]
+    malformeds: Vec<MalformedFeatureConfigExtraDef>,
+}
+
 /// A Rust implementation of the MetricsHandler trait
 /// Used to test recording of Glean metrics across the FFI within Rust
 ///
 /// *NOTE: Use this struct's `new` method when instantiating it to lock the Glean store*
 #[derive(Clone)]
 pub struct TestMetrics {
-    state: Arc<Mutex<HashMap<String, serde_json::Value>>>,
+    state: Arc<Mutex<MetricState>>,
 }
 
 impl TestMetrics {
@@ -63,34 +78,51 @@ impl TestMetrics {
         }
     }
 
-    pub fn assert_get_vec_value(&self, key: &str) -> serde_json::Value {
-        self.state.lock().unwrap().get(key).unwrap().clone()
+    pub fn get_enrollment_statuses(&self) -> Vec<EnrollmentStatusExtraDef> {
+        self.state.lock().unwrap().enrollment_statuses.clone()
+    }
+}
+
+#[cfg(feature = "stateful")]
+impl TestMetrics {
+    pub fn clear(&self) {
+        let mut state = self.state.lock().unwrap();
+        state.activations.clear();
+        state.enrollment_statuses.clear();
+        state.malformeds.clear();
+    }
+
+    pub fn get_activations(&self) -> Vec<FeatureExposureExtraDef> {
+        self.state.lock().unwrap().activations.clone()
+    }
+
+    pub fn get_malformeds(&self) -> Vec<MalformedFeatureConfigExtraDef> {
+        self.state.lock().unwrap().malformeds.clone()
     }
 }
 
 impl MetricsHandler for TestMetrics {
-    /// In actual implementations of the MetricsHandler trait, this method would record the
-    /// supplied EnrollmentStatusExtraDefs into Glean.
-    ///
-    /// This implementation is explicitly used for testing, and does the following:
-    /// 1. It locks the TestMetrics instance's state
-    /// 2. It looks up the key for `enrollment_status` in the state, extends it if it already
-    ///    exists and inserts it if it does not exist.
-    ///
-    /// This then allows for us to use the `assert_get_vec_value` method above in tests to fetch the
-    /// list of metrics that have been recorded during a given test.
     fn record_enrollment_statuses(&self, enrollment_status_extras: Vec<EnrollmentStatusExtraDef>) {
-        let key = "enrollment_status".to_string();
         let mut state = self.state.lock().unwrap();
-        let new = serde_json::to_value(enrollment_status_extras).unwrap();
-        state
-            .entry(key)
-            .and_modify(|v| {
-                v.as_array_mut()
-                    .unwrap()
-                    .extend(new.as_array().unwrap().iter().cloned());
-            })
-            .or_insert(new);
+        state.enrollment_statuses.extend(enrollment_status_extras);
+    }
+
+    #[cfg(feature = "stateful")]
+    fn record_feature_activation(&self, event: FeatureExposureExtraDef) {
+        let mut state = self.state.lock().unwrap();
+        state.activations.push(event);
+    }
+
+    #[cfg(feature = "stateful")]
+    fn record_feature_exposure(&self, event: FeatureExposureExtraDef) {
+        let mut state = self.state.lock().unwrap();
+        state.exposures.push(event);
+    }
+
+    #[cfg(feature = "stateful")]
+    fn record_malformed_feature_config(&self, event: MalformedFeatureConfigExtraDef) {
+        let mut state = self.state.lock().unwrap();
+        state.malformeds.push(event);
     }
 }
 
