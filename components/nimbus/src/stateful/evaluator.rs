@@ -4,7 +4,7 @@
 
 use crate::{evaluator::split_locale, stateful::matcher::AppContext};
 use serde_derive::*;
-use std::collections::HashSet;
+use std::collections::{HashMap, HashSet};
 
 #[derive(Serialize, Deserialize, Debug, Clone, Default)]
 pub struct TargetingAttributes {
@@ -17,6 +17,7 @@ pub struct TargetingAttributes {
     pub days_since_update: Option<i32>,
     pub active_experiments: HashSet<String>,
     pub enrollments: HashSet<String>,
+    pub enrollments_map: HashMap<String, String>,
 }
 
 #[cfg(feature = "stateful")]
