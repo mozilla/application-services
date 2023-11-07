@@ -40,9 +40,9 @@ type FxAClient = dyn http_client::FxAClient + Sync + Send;
 
 // FIXME: https://github.com/myelin-ai/mockiato/issues/106.
 #[cfg(test)]
-unsafe impl<'a> Send for http_client::FxAClientMock<'a> {}
+unsafe impl Send for http_client::MockFxAClient {}
 #[cfg(test)]
-unsafe impl<'a> Sync for http_client::FxAClientMock<'a> {}
+unsafe impl Sync for http_client::MockFxAClient {}
 
 // It this struct is modified, please check if the
 // `FirefoxAccount.start_over` function also needs
@@ -262,8 +262,10 @@ pub(crate) struct CachedResponse<T> {
 mod tests {
     use super::*;
     use crate::internal::device::*;
-    use crate::internal::http_client::FxAClientMock;
+    use crate::internal::http_client::MockFxAClient;
     use crate::internal::oauth::*;
+    use mockall::predicate::always;
+    use mockall::predicate::eq;
 
     #[test]
     fn test_fxa_is_send() {
@@ -364,7 +366,7 @@ mod tests {
             },
         );
 
-        let client = FxAClientMock::new();
+        let client = MockFxAClient::new();
         fxa.set_client(Arc::new(client));
 
         assert!(!fxa.state.is_access_token_cache_empty());
@@ -382,58 +384,56 @@ mod tests {
             scopes: HashSet::default(),
         });
 
-        let mut client = FxAClientMock::new();
+        let mut client = MockFxAClient::new();
         client
-            .expect_get_devices(mockiato::Argument::any, |token| {
-                token.partial_eq("refreshtok")
-            })
+            .expect_get_devices()
+            .with(always(), eq("refreshtok"))
             .times(1)
-            .returns_once(Ok(vec![
-                Device {
-                    common: http_client::DeviceResponseCommon {
-                        id: "1234a".to_owned(),
-                        display_name: "My Device".to_owned(),
-                        device_type: sync15::DeviceType::Mobile,
-                        push_subscription: None,
-                        available_commands: HashMap::default(),
-                        push_endpoint_expired: false,
+            .returning(|_, _| {
+                Ok(vec![
+                    Device {
+                        common: http_client::DeviceResponseCommon {
+                            id: "1234a".to_owned(),
+                            display_name: "My Device".to_owned(),
+                            device_type: sync15::DeviceType::Mobile,
+                            push_subscription: None,
+                            available_commands: HashMap::default(),
+                            push_endpoint_expired: false,
+                        },
+                        is_current_device: true,
+                        location: http_client::DeviceLocation {
+                            city: None,
+                            country: None,
+                            state: None,
+                            state_code: None,
+                        },
+                        last_access_time: None,
                     },
-                    is_current_device: true,
-                    location: http_client::DeviceLocation {
-                        city: None,
-                        country: None,
-                        state: None,
-                        state_code: None,
+                    Device {
+                        common: http_client::DeviceResponseCommon {
+                            id: "a4321".to_owned(),
+                            display_name: "My Other Device".to_owned(),
+                            device_type: sync15::DeviceType::Desktop,
+                            push_subscription: None,
+                            available_commands: HashMap::default(),
+                            push_endpoint_expired: false,
+                        },
+                        is_current_device: false,
+                        location: http_client::DeviceLocation {
+                            city: None,
+                            country: None,
+                            state: None,
+                            state_code: None,
+                        },
+                        last_access_time: None,
                     },
-                    last_access_time: None,
-                },
-                Device {
-                    common: http_client::DeviceResponseCommon {
-                        id: "a4321".to_owned(),
-                        display_name: "My Other Device".to_owned(),
-                        device_type: sync15::DeviceType::Desktop,
-                        push_subscription: None,
-                        available_commands: HashMap::default(),
-                        push_endpoint_expired: false,
-                    },
-                    is_current_device: false,
-                    location: http_client::DeviceLocation {
-                        city: None,
-                        country: None,
-                        state: None,
-                        state_code: None,
-                    },
-                    last_access_time: None,
-                },
-            ]));
+                ])
+            });
         client
-            .expect_destroy_device_record(
-                mockiato::Argument::any,
-                |token| token.partial_eq("refreshtok"),
-                |device_id| device_id.partial_eq("1234a"),
-            )
+            .expect_destroy_device_record()
+            .with(always(), eq("refreshtok"), eq("1234a"))
             .times(1)
-            .returns_once(Ok(()));
+            .returning(|_, _, _| Ok(()));
         fxa.set_client(Arc::new(client));
 
         assert!(fxa.state.refresh_token().is_some());
@@ -451,36 +451,36 @@ mod tests {
             scopes: HashSet::default(),
         });
 
-        let mut client = FxAClientMock::new();
+        let mut client = MockFxAClient::new();
         client
-            .expect_get_devices(mockiato::Argument::any, |token| {
-                token.partial_eq("refreshtok")
-            })
+            .expect_get_devices()
+            .with(always(), eq("refreshtok"))
             .times(1)
-            .returns_once(Ok(vec![Device {
-                common: http_client::DeviceResponseCommon {
-                    id: "a4321".to_owned(),
-                    display_name: "My Other Device".to_owned(),
-                    device_type: sync15::DeviceType::Desktop,
-                    push_subscription: None,
-                    available_commands: HashMap::default(),
-                    push_endpoint_expired: false,
-                },
-                is_current_device: false,
-                location: http_client::DeviceLocation {
-                    city: None,
-                    country: None,
-                    state: None,
-                    state_code: None,
-                },
-                last_access_time: None,
-            }]));
+            .returning(|_, _| {
+                Ok(vec![Device {
+                    common: http_client::DeviceResponseCommon {
+                        id: "a4321".to_owned(),
+                        display_name: "My Other Device".to_owned(),
+                        device_type: sync15::DeviceType::Desktop,
+                        push_subscription: None,
+                        available_commands: HashMap::default(),
+                        push_endpoint_expired: false,
+                    },
+                    is_current_device: false,
+                    location: http_client::DeviceLocation {
+                        city: None,
+                        country: None,
+                        state: None,
+                        state_code: None,
+                    },
+                    last_access_time: None,
+                }])
+            });
         client
-            .expect_destroy_refresh_token(mockiato::Argument::any, |token| {
-                token.partial_eq("refreshtok")
-            })
+            .expect_destroy_refresh_token()
+            .with(always(), eq("refreshtok"))
             .times(1)
-            .returns_once(Ok(()));
+            .returning(|_, _| Ok(()));
         fxa.set_client(Arc::new(client));
 
         assert!(fxa.state.refresh_token().is_some());
@@ -498,25 +498,25 @@ mod tests {
             scopes: HashSet::default(),
         });
 
-        let mut client = FxAClientMock::new();
+        let mut client = MockFxAClient::new();
         client
-            .expect_get_devices(mockiato::Argument::any, |token| {
-                token.partial_eq("refreshtok")
-            })
+            .expect_get_devices()
+            .with(always(), eq("refreshtok"))
             .times(1)
-            .returns_once(Ok(vec![]));
+            .returning(|_, _| Ok(vec![]));
         client
-            .expect_destroy_refresh_token(mockiato::Argument::any, |token| {
-                token.partial_eq("refreshtok")
-            })
+            .expect_destroy_refresh_token()
+            .with(always(), eq("refreshtok"))
             .times(1)
-            .returns_once(Err(Error::RemoteError {
-                code: 500,
-                errno: 101,
-                error: "Did not work!".to_owned(),
-                message: "Did not work!".to_owned(),
-                info: "Did not work!".to_owned(),
-            }));
+            .returning(|_, _| {
+                Err(Error::RemoteError {
+                    code: 500,
+                    errno: 101,
+                    error: "Did not work!".to_owned(),
+                    message: "Did not work!".to_owned(),
+                    info: "Did not work!".to_owned(),
+                })
+            });
         fxa.set_client(Arc::new(client));
 
         assert!(fxa.state.refresh_token().is_some());

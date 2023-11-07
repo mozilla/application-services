@@ -51,7 +51,9 @@ impl TryFrom<AttachedClient> for crate::AttachedClient {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::internal::{config::Config, http_client::FxAClientMock};
+    use crate::internal::{config::Config, http_client::MockFxAClient};
+    use mockall::predicate::always;
+    use mockall::predicate::eq;
     use std::sync::Arc;
     use sync15::DeviceType;
 
@@ -61,24 +63,27 @@ mod tests {
         let mut fxa = FirefoxAccount::with_config(config);
         fxa.set_session_token("session");
 
-        let mut client = FxAClientMock::new();
+        let mut client = MockFxAClient::new();
         client
-            .expect_get_attached_clients(mockiato::Argument::any, |arg| arg.partial_eq("session"))
+            .expect_get_attached_clients()
+            .with(always(), eq("session"))
             .times(1)
-            .returns_once(Ok(vec![AttachedClient {
-                client_id: Some("12345678".into()),
-                session_token_id: None,
-                refresh_token_id: None,
-                device_id: None,
-                device_type: DeviceType::Desktop,
-                is_current_session: true,
-                name: None,
-                created_time: None,
-                last_access_time: None,
-                scope: None,
-                user_agent: "attachedClientsUserAgent".into(),
-                os: None,
-            }]));
+            .returning(|_, _| {
+                Ok(vec![AttachedClient {
+                    client_id: Some("12345678".into()),
+                    session_token_id: None,
+                    refresh_token_id: None,
+                    device_id: None,
+                    device_type: DeviceType::Desktop,
+                    is_current_session: true,
+                    name: None,
+                    created_time: None,
+                    last_access_time: None,
+                    scope: None,
+                    user_agent: "attachedClientsUserAgent".into(),
+                    os: None,
+                }])
+            });
 
         fxa.set_client(Arc::new(client));
         assert!(fxa.attached_clients_cache.is_none());
@@ -105,17 +110,20 @@ mod tests {
         let mut fxa = FirefoxAccount::with_config(config);
         fxa.set_session_token("session");
 
-        let mut client = FxAClientMock::new();
+        let mut client = MockFxAClient::new();
         client
-            .expect_get_attached_clients(mockiato::Argument::any, |arg| arg.partial_eq("session"))
+            .expect_get_attached_clients()
+            .with(always(), eq("session"))
             .times(1)
-            .returns_once(Err(Error::RemoteError {
-                code: 500,
-                errno: 101,
-                error: "Did not work!".to_owned(),
-                message: "Did not work!".to_owned(),
-                info: "Did not work!".to_owned(),
-            }));
+            .returning(|_, _| {
+                Err(Error::RemoteError {
+                    code: 500,
+                    errno: 101,
+                    error: "Did not work!".to_owned(),
+                    message: "Did not work!".to_owned(),
+                    info: "Did not work!".to_owned(),
+                })
+            });
 
         fxa.set_client(Arc::new(client));
         assert!(fxa.attached_clients_cache.is_none());
