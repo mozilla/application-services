@@ -596,6 +596,8 @@ impl From<IntrospectInfo> for crate::AuthorizationInfo {
 mod tests {
     use super::super::{http_client::*, Config};
     use super::*;
+    use mockall::predicate::always;
+    use mockall::predicate::eq;
     use std::borrow::Cow;
     use std::collections::HashMap;
     use std::sync::Arc;
@@ -878,13 +880,12 @@ mod tests {
             scopes: refresh_token_scopes,
         });
 
-        let mut client = FxAClientMock::new();
+        let mut client = MockFxAClient::new();
         client
-            .expect_check_refresh_token_status(mockiato::Argument::any, |token| {
-                token.partial_eq("refresh_token")
-            })
+            .expect_check_refresh_token_status()
+            .with(always(), eq("refresh_token"))
             .times(1)
-            .returns_once(Ok(IntrospectResponse { active: true }));
+            .returning(|_, _| Ok(IntrospectResponse { active: true }));
         fxa.set_client(Arc::new(client));
 
         let auth_status = fxa.check_authorization_status().unwrap();
@@ -902,35 +903,30 @@ mod tests {
             scopes: refresh_token_scopes,
         });
 
-        let mut client = FxAClientMock::new();
+        let mut client = MockFxAClient::new();
         // This copy-pasta (equivalent to `.returns(..).times(5)`) is there
         // because `Error` is not cloneable :/
         client
-            .expect_check_refresh_token_status(mockiato::Argument::any, |token| {
-                token.partial_eq("refresh_token")
-            })
-            .returns_once(Ok(IntrospectResponse { active: true }));
+            .expect_check_refresh_token_status()
+            .with(always(), eq("refresh_token"))
+            .returning(|_, _| Ok(IntrospectResponse { active: true }));
         client
-            .expect_check_refresh_token_status(mockiato::Argument::any, |token| {
-                token.partial_eq("refresh_token")
-            })
-            .returns_once(Ok(IntrospectResponse { active: true }));
+            .expect_check_refresh_token_status()
+            .with(always(), eq("refresh_token"))
+            .returning(|_, _| Ok(IntrospectResponse { active: true }));
         client
-            .expect_check_refresh_token_status(mockiato::Argument::any, |token| {
-                token.partial_eq("refresh_token")
-            })
-            .returns_once(Ok(IntrospectResponse { active: true }));
+            .expect_check_refresh_token_status()
+            .with(always(), eq("refresh_token"))
+            .returning(|_, _| Ok(IntrospectResponse { active: true }));
         client
-            .expect_check_refresh_token_status(mockiato::Argument::any, |token| {
-                token.partial_eq("refresh_token")
-            })
-            .returns_once(Ok(IntrospectResponse { active: true }));
+            .expect_check_refresh_token_status()
+            .with(always(), eq("refresh_token"))
+            .returning(|_, _| Ok(IntrospectResponse { active: true }));
         client
-            .expect_check_refresh_token_status(mockiato::Argument::any, |token| {
-                token.partial_eq("refresh_token")
-            })
-            .returns_once(Ok(IntrospectResponse { active: true }));
-        client.expect_check_refresh_token_status_calls_in_order();
+            .expect_check_refresh_token_status()
+            .with(always(), eq("refresh_token"))
+            .returning(|_, _| Ok(IntrospectResponse { active: true }));
+        //mockall expects calls to be processed in the order they are registered. So, no need for to use a method like expect_check_refresh_token_status_calls_in_order()
         fxa.set_client(Arc::new(client));
 
         for _ in 0..5 {
@@ -949,7 +945,7 @@ mod tests {
         let config = Config::stable_dev("12345678", "https://foo.bar");
         let mut fxa = FirefoxAccount::with_config(config);
         fxa.set_session_token("session");
-        let mut client = FxAClientMock::new();
+        let mut client = MockFxAClient::new();
         let not_allowed_scope = "https://identity.mozilla.com/apps/lockbox";
         let expected_scopes = scopes::OLD_SYNC
             .chars()
@@ -957,19 +953,18 @@ mod tests {
             .chain(not_allowed_scope.chars())
             .collect::<String>();
         client
-            .expect_get_scoped_key_data(
-                mockiato::Argument::any,
-                |arg| arg.partial_eq("session"),
-                |arg| arg.partial_eq("12345678"),
-                |arg| arg.partial_eq(expected_scopes),
-            )
-            .returns_once(Err(Error::RemoteError {
-                code: 400,
-                errno: 163,
-                error: "Invalid Scopes".to_string(),
-                message: "Not allowed to request scopes".to_string(),
-                info: "fyi, there was a server error".to_string(),
-            }));
+            .expect_get_scoped_key_data()
+            .with(always(), eq("session"), eq("12345678"), eq(expected_scopes))
+            .times(1)
+            .returning(|_, _, _, _| {
+                Err(Error::RemoteError {
+                    code: 400,
+                    errno: 163,
+                    error: "Invalid Scopes".to_string(),
+                    message: "Not allowed to request scopes".to_string(),
+                    info: "fyi, there was a server error".to_string(),
+                })
+            });
         fxa.set_client(Arc::new(client));
         let auth_params = AuthorizationParameters {
             client_id: "12345678".to_string(),
@@ -1003,30 +998,29 @@ mod tests {
         let config = Config::stable_dev("12345678", "https://foo.bar");
         let mut fxa = FirefoxAccount::with_config(config);
         fxa.set_session_token("session");
-        let mut client = FxAClientMock::new();
+        let mut client = MockFxAClient::new();
         let invalid_scope = "IamAnInvalidScope";
         let expected_scopes = scopes::OLD_SYNC
             .chars()
             .chain(std::iter::once(' '))
             .chain(invalid_scope.chars())
             .collect::<String>();
-        let mut server_ret = HashMap::new();
-        server_ret.insert(
-            scopes::OLD_SYNC.to_string(),
-            ScopedKeyDataResponse {
-                key_rotation_secret: "IamASecret".to_string(),
-                key_rotation_timestamp: 100,
-                identifier: "".to_string(),
-            },
-        );
         client
-            .expect_get_scoped_key_data(
-                mockiato::Argument::any,
-                |arg| arg.partial_eq("session"),
-                |arg| arg.partial_eq("12345678"),
-                |arg| arg.partial_eq(expected_scopes),
-            )
-            .returns_once(Ok(server_ret));
+            .expect_get_scoped_key_data()
+            .with(always(), eq("session"), eq("12345678"), eq(expected_scopes))
+            .times(1)
+            .returning(|_, _, _, _| {
+                let mut server_ret = HashMap::new();
+                server_ret.insert(
+                    scopes::OLD_SYNC.to_string(),
+                    ScopedKeyDataResponse {
+                        key_rotation_secret: "IamASecret".to_string(),
+                        key_rotation_timestamp: 100,
+                        identifier: "".to_string(),
+                    },
+                );
+                Ok(server_ret)
+            });
         fxa.set_client(Arc::new(client));
 
         let auth_params = AuthorizationParameters {
@@ -1054,24 +1048,28 @@ mod tests {
         let config = Config::stable_dev("12345678", "https://foo.bar");
         let mut fxa = FirefoxAccount::with_config(config);
         fxa.set_session_token("session");
-        let mut client = FxAClientMock::new();
-        let mut server_ret = HashMap::new();
-        server_ret.insert(
-            scopes::OLD_SYNC.to_string(),
-            ScopedKeyDataResponse {
-                key_rotation_secret: "IamASecret".to_string(),
-                key_rotation_timestamp: 100,
-                identifier: "".to_string(),
-            },
-        );
+        let mut client = MockFxAClient::new();
         client
-            .expect_get_scoped_key_data(
-                mockiato::Argument::any,
-                |arg| arg.partial_eq("session"),
-                |arg| arg.partial_eq("12345678"),
-                |arg| arg.partial_eq(scopes::OLD_SYNC),
+            .expect_get_scoped_key_data()
+            .with(
+                always(),
+                eq("session"),
+                eq("12345678"),
+                eq(scopes::OLD_SYNC),
             )
-            .returns_once(Ok(server_ret));
+            .times(1)
+            .returning(|_, _, _, _| {
+                let mut server_ret = HashMap::new();
+                server_ret.insert(
+                    scopes::OLD_SYNC.to_string(),
+                    ScopedKeyDataResponse {
+                        key_rotation_secret: "IamASecret".to_string(),
+                        key_rotation_timestamp: 100,
+                        identifier: "".to_string(),
+                    },
+                );
+                Ok(server_ret)
+            });
         fxa.set_client(Arc::new(client));
         let auth_params = AuthorizationParameters {
             client_id: "12345678".to_string(),
