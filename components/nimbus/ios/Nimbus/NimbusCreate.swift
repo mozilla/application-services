@@ -51,6 +51,16 @@ class GleanMetricsHandler: MetricsHandler {
                 featureId: event.featureId
             ))
     }
+
+    func recordMalformedFeatureConfig(event: MalformedFeatureConfigExtraDef) {
+        GleanMetrics.NimbusEvents.malformedFeature
+            .record(GleanMetrics.NimbusEvents.MalformedFeatureExtra(
+                branch: event.branch,
+                experiment: event.slug,
+                featureId: event.featureId,
+                partId: event.part
+            ))
+    }
 }
 
 public extension Nimbus {

@@ -9,6 +9,9 @@ pub trait MetricsHandler: Send + Sync {
 
     #[cfg(feature = "stateful")]
     fn record_feature_exposure(&self, event: FeatureExposureExtraDef);
+
+    #[cfg(feature = "stateful")]
+    fn record_malformed_feature_config(&self, event: MalformedFeatureConfigExtraDef);
 }
 
 #[derive(Serialize, Deserialize, Clone)]
@@ -106,6 +109,31 @@ impl From<EnrolledFeature> for FeatureExposureExtraDef {
         }
     }
 }
+
+#[derive(Clone, Debug, Default, PartialEq)]
+pub struct MalformedFeatureConfigExtraDef {
+    pub slug: Option<String>,
+    pub branch: Option<String>,
+    pub feature_id: String,
+    pub part: String,
+}
+
+#[cfg(feature = "stateful")]
+impl MalformedFeatureConfigExtraDef {
+    pub(crate) fn from(value: EnrolledFeature, part: String) -> Self {
+        Self {
+            slug: Some(value.slug),
+            branch: value.branch,
+            feature_id: value.feature_id,
+            part,
+        }
+    }
+
+    pub(crate) fn new(feature_id: String, part: String) -> Self {
+        Self {
+            feature_id,
+            part,
+            ..Default::default()
         }
     }
 }

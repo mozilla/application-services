@@ -1,7 +1,10 @@
 /* This Source Code Form is subject to the terms of the Mozilla Public
 * License, v. 2.0. If a copy of the MPL was not distributed with this
 * file, You can obtain one at https://mozilla.org/MPL/2.0/. */
-use crate::metrics::{EnrollmentStatusExtraDef, FeatureExposureExtraDef, MetricsHandler};
+use crate::metrics::{
+    EnrollmentStatusExtraDef, FeatureExposureExtraDef, MalformedFeatureConfigExtraDef,
+    MetricsHandler,
+};
 use std::sync::{Arc, Mutex};
 
 #[derive(Default)]
@@ -9,6 +12,7 @@ struct MetricState {
     enrollment_statuses: Vec<EnrollmentStatusExtraDef>,
     activations: Vec<FeatureExposureExtraDef>,
     exposures: Vec<FeatureExposureExtraDef>,
+    malformeds: Vec<MalformedFeatureConfigExtraDef>,
 }
 
 /// A Rust implementation of the MetricsHandler trait
@@ -31,6 +35,7 @@ impl TestMetrics {
         let mut state = self.state.lock().unwrap();
         state.activations.clear();
         state.enrollment_statuses.clear();
+        state.malformeds.clear();
     }
 
     pub fn get_enrollment_statuses(&self) -> Vec<EnrollmentStatusExtraDef> {
@@ -39,6 +44,10 @@ impl TestMetrics {
 
     pub fn get_activations(&self) -> Vec<FeatureExposureExtraDef> {
         self.state.lock().unwrap().activations.clone()
+    }
+
+    pub fn get_malformeds(&self) -> Vec<MalformedFeatureConfigExtraDef> {
+        self.state.lock().unwrap().malformeds.clone()
     }
 }
 
@@ -56,5 +65,10 @@ impl MetricsHandler for TestMetrics {
     fn record_feature_exposure(&self, event: FeatureExposureExtraDef) {
         let mut state = self.state.lock().unwrap();
         state.exposures.push(event);
+    }
+
+    fn record_malformed_feature_config(&self, event: MalformedFeatureConfigExtraDef) {
+        let mut state = self.state.lock().unwrap();
+        state.malformeds.push(event);
     }
 }

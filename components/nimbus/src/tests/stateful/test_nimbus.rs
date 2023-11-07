@@ -5,6 +5,7 @@
 use crate::{
     enrollment::{DisqualifiedReason, EnrolledReason, EnrollmentStatus, ExperimentEnrollment},
     error::Result,
+    metrics::MalformedFeatureConfigExtraDef,
     stateful::{
         behavior::{
             EventStore, Interval, IntervalConfig, IntervalData, MultiIntervalCounter,
@@ -22,9 +23,8 @@ use crate::{
 };
 use chrono::{DateTime, Duration, Utc};
 use serde_json::json;
-use std::io::Write;
 use std::path::Path;
-use std::str::FromStr;
+use std::{io::Write, str::FromStr};
 use tempfile::TempDir;
 use uuid::Uuid;
 
@@ -1323,46 +1323,19 @@ fn test_opt_out_multiple_experiments_same_feature_does_not_re_enroll() -> Result
 
 #[test]
 fn test_enrollment_status_metrics_recorded() -> Result<()> {
-    let metrics = TestMetrics::new();
-    let mock_client_id = "client-1".to_string();
-
-    let temp_dir = tempfile::tempdir()?;
-
-    let app_context = AppContext {
-        app_name: "fenix".to_string(),
-        app_id: "org.mozilla.fenix".to_string(),
-        channel: "nightly".to_string(),
-        ..Default::default()
-    };
-
-    let mut client = NimbusClient::new(
-        app_context.clone(),
-        Default::default(),
-        temp_dir.path(),
-        None,
-        AvailableRandomizationUnits {
-            client_id: Some(mock_client_id),
-            ..AvailableRandomizationUnits::default()
-        },
-        Box::new(metrics.clone()),
-    )?;
-    client.set_nimbus_id(&Uuid::from_str("53baafb3-b800-42ac-878c-c3451e250928")?)?;
-
-    let targeting_attributes = TargetingAttributes {
-        app_context,
-        ..Default::default()
-    };
-    client.with_targeting_attributes(targeting_attributes);
-    client.initialize()?;
-
     let slug_1 = "experiment-1";
     let slug_2 = "experiment-2";
     let slug_3 = "rollout-1";
     let exp_1 = get_targeted_experiment(slug_1, "true");
     let exp_2 = get_targeted_experiment(slug_2, "true");
     let ro_1 = get_bucketed_rollout(slug_3, 10_000);
+
+    let metrics = TestMetrics::new();
+    let client = with_metrics(&metrics, "coenrolling-feature")?;
+    // force the nimbus_id to ensure we end up in the right branch.
+    client.set_nimbus_id(&Uuid::from_str("53baafb3-b800-42ac-878c-c3451e250928")?)?;
     client.set_experiments_locally(to_local_experiments_string(&[
-        exp_1.clone(),
+        exp_1,
         exp_2,
         serde_json::to_value(ro_1)?,
     ])?)?;
@@ -1511,9 +1484,7 @@ fn test_enrollment_status_metrics_not_recorded_channel_mismatch() -> Result<()> 
     Ok(())
 }
 
-fn test_feature_activation_events() -> Result<()> {
-    let metrics = TestMetrics::new();
-
+fn with_metrics(metrics: &TestMetrics, coenrolling_feature: &str) -> Result<NimbusClient> {
     let mock_client_id = "client-1".to_string();
     let aru = AvailableRandomizationUnits {
         client_id: Some(mock_client_id),
@@ -1528,15 +1499,18 @@ fn test_feature_activation_events() -> Result<()> {
         ..Default::default()
     };
 
-    let client = NimbusClient::new(
+    NimbusClient::new(
         app_context,
-        vec!["coenrolling-feature".to_string()],
+        vec![coenrolling_feature.to_string()],
         temp_dir.path(),
         None,
         aru,
         Box::new(metrics.clone()),
-    )?;
+    )
+}
 
+#[test]
+fn test_feature_activation_events() -> Result<()> {
     let slug_exp = "my-experiment";
     let feature_exp = "experimental-feature";
     let rec_exp = get_single_feature_experiment(slug_exp, feature_exp, json!({}));
@@ -1549,8 +1523,9 @@ fn test_feature_activation_events() -> Result<()> {
     let feature_coenr = "coenrolling-feature";
     let rec_coenr = get_single_feature_experiment(slug_coenr, feature_coenr, json!({}));
 
+    let metrics = TestMetrics::new();
+    let client = with_metrics(&metrics, feature_coenr)?;
     client.set_experiments_locally(to_local_experiments_string(&[rec_exp, rec_coenr, rec_ro])?)?;
-
     client.apply_pending_experiments()?;
 
     let activations = metrics.get_activations();
@@ -1617,6 +1592,92 @@ fn test_feature_activation_events() -> Result<()> {
     assert_eq!(Some("control"), ev.branch.as_deref());
     assert_eq!(slug_exp, &ev.slug);
     assert_eq!(feature_exp, &ev.feature_id);
+
+    Ok(())
+}
+
+#[test]
+fn test_malformed_feature_events() -> Result<()> {
+    let slug_exp = "my-experiment";
+    let feature_exp = "experimental-feature";
+    let rec_exp = get_single_feature_experiment(slug_exp, feature_exp, json!({}));
+
+    let slug_ro = "my-rollout";
+    let feature_ro = "rollout-feature";
+    let rec_ro = get_single_feature_rollout(slug_ro, feature_ro, json!({}));
+
+    let slug_coenr_1 = "my-coenrolling-1";
+    let feature_coenr = "coenrolling-feature";
+    let rec_coenr_1 = get_single_feature_experiment(slug_coenr_1, feature_coenr, json!({}));
+
+    let slug_coenr_2 = "my-coenrolling-2";
+    let rec_coenr_2 = get_single_feature_experiment(slug_coenr_2, feature_coenr, json!({}));
+
+    let metrics = TestMetrics::new();
+    let client = with_metrics(&metrics, feature_coenr)?;
+    client.set_experiments_locally(to_local_experiments_string(&[
+        rec_exp,
+        rec_coenr_1,
+        rec_coenr_2,
+        rec_ro,
+    ])?)?;
+    client.apply_pending_experiments()?;
+
+    assert!(metrics.get_malformeds().is_empty());
+
+    let part = "my-part";
+
+    // Experiments!
+    client.record_malformed_feature_config(feature_exp.to_string(), part.to_string());
+
+    let events = metrics.get_malformeds();
+    assert_eq!(1, events.len());
+
+    assert_eq!(
+        MalformedFeatureConfigExtraDef {
+            slug: Some(slug_exp.to_string()),
+            branch: Some("control".to_string()),
+            feature_id: feature_exp.to_string(),
+            part: part.to_string()
+        },
+        events[0]
+    );
+
+    metrics.clear();
+
+    // Rollouts!
+    client.record_malformed_feature_config(feature_ro.to_string(), part.to_string());
+    let events = metrics.get_malformeds();
+    assert_eq!(1, events.len());
+
+    assert_eq!(
+        MalformedFeatureConfigExtraDef {
+            slug: Some(slug_ro.to_string()),
+            branch: None,
+            feature_id: feature_ro.to_string(),
+            part: part.to_string()
+        },
+        events[0]
+    );
+
+    metrics.clear();
+
+    // Coenrolling features!
+    client.record_malformed_feature_config(feature_coenr.to_string(), part.to_string());
+    let events = metrics.get_malformeds();
+    assert_eq!(1, events.len());
+
+    assert_eq!(
+        MalformedFeatureConfigExtraDef {
+            // For coenrolling features, we don't know which recipe to blame,
+            // so we send back all the recipes that are involved.
+            slug: Some(format!("{slug_coenr_1}+{slug_coenr_2}")),
+            branch: None,
+            feature_id: feature_coenr.to_string(),
+            part: part.to_string()
+        },
+        events[0]
+    );
 
     Ok(())
 }

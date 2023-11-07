@@ -117,21 +117,8 @@ extension Nimbus: FeaturesInterface {
     }
 
     public func recordMalformedConfiguration(featureId: String, with partId: String) {
-        // First, we get the enrolled feature, if there is one, for this id.
-        let enrollment = getEnrollmentByFeature(featureId: featureId)
-        // If the enrollment is nil, then that's the most serious: we've shipped invalid FML,
-        // If the branch is nil, then this is also serious: we've shipped an invalid rollout.
-        GleanMetrics.NimbusEvents.malformedFeature.record(GleanMetrics.NimbusEvents.MalformedFeatureExtra(
-            branch: enrollment?.branch,
-            experiment: enrollment?.slug,
-            featureId: featureId,
-            partId: partId
-        ))
-    }
-
-    func getEnrollmentByFeature(featureId: String) -> EnrolledFeature? {
-        return catchAll {
-            try nimbusClient.getEnrollmentByFeature(featureId: featureId)
+        catchAll {
+            nimbusClient.recordMalformedFeatureConfig(featureId: featureId, partId: partId)
         }
     }
 
