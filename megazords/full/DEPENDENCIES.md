@@ -11,6 +11,9 @@ the details of which are reproduced below.
 * [MIT License: bytes](#mit-license-bytes)
 * [MIT License: cargo_metadata](#mit-license-cargo_metadata)
 * [MIT License: caseless](#mit-license-caseless)
+* [MIT License: difflib](#mit-license-difflib)
+* [MIT License: downcast](#mit-license-downcast)
+* [MIT License: float-cmp](#mit-license-float-cmp)
 * [MIT License: generic-array](#mit-license-generic-array)
 * [MIT License: goblin](#mit-license-goblin)
 * [MIT License: libsqlite3-sys, rusqlite](#mit-license-libsqlite3-sys-rusqlite)
@@ -20,6 +23,7 @@ the details of which are reproduced below.
 * [MIT License: ordered-float](#mit-license-ordered-float)
 * [MIT License: scroll](#mit-license-scroll)
 * [MIT License: scroll_derive](#mit-license-scroll_derive)
+* [MIT License: termtree](#mit-license-termtree)
 * [MIT License: weedle2](#mit-license-weedle2)
 * [MIT License: xshell-venv](#mit-license-xshell-venv)
 * [CC0-1.0 License: base16](#cc0-10-license-base16)
@@ -454,6 +458,7 @@ The following text applies to code linked from these dependencies:
 [fastrand](https://github.com/smol-rs/fastrand),
 [ffi-support](https://github.com/mozilla/ffi-support),
 [form_urlencoded](https://github.com/servo/rust-url),
+[fragile](https://github.com/mitsuhiko/fragile),
 [fs-err](https://github.com/andrewhickman/fs-err),
 [getrandom](https://github.com/rust-random/getrandom),
 [glob](https://github.com/rust-lang/glob),
@@ -478,6 +483,9 @@ The following text applies to code linked from these dependencies:
 [log](https://github.com/rust-lang/log),
 [mime](https://github.com/hyperium/mime),
 [minimal-lexical](https://github.com/Alexhuszagh/minimal-lexical),
+[mockall](https://github.com/asomers/mockall),
+[mockall_derive](https://github.com/asomers/mockall),
+[normalize-line-endings](https://github.com/derekdreery/normalize-line-endings),
 [num-traits](https://github.com/rust-num/num-traits),
 [once_cell](https://github.com/matklad/once_cell),
 [opaque-debug](https://github.com/RustCrypto/utils),
@@ -488,6 +496,9 @@ The following text applies to code linked from these dependencies:
 [pkg-config](https://github.com/rust-lang/pkg-config-rs),
 [plain](https://github.com/randomites/plain),
 [ppv-lite86](https://github.com/cryptocorrosion/cryptocorrosion),
+[predicates-core](https://github.com/assert-rs/predicates-rs/tree/master/crates/core),
+[predicates-tree](https://github.com/assert-rs/predicates-rs/tree/master/crates/tree),
+[predicates](https://github.com/assert-rs/predicates-rs),
 [proc-macro2](https://github.com/dtolnay/proc-macro2),
 [prost-derive](https://github.com/tokio-rs/prost),
 [prost](https://github.com/tokio-rs/prost),
@@ -902,6 +913,61 @@ WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
 ```
 -------------
+## MIT License: difflib
+
+The following text applies to code linked from these dependencies:
+[difflib](https://github.com/DimaKudosh/difflib)
+
+```
+{"payload":{"allShortcutsEnabled":false,"fileTree":{"":{"items":[{"name":"examples","path":"examples","contentType":"directory"},{"name":"src","path":"src","contentType":"directory"},{"name":"tests","path":"tests","contentType":"directory"},{"name":".travis.yml","path":".travis.yml","contentType":"file"},{"name":"Cargo.toml","path":"Cargo.toml","contentType":"file"},{"name":"LICENSE","path":"LICENSE","contentType":"file"},{"name":"README.md","path":"README.md","contentType":"file"}],"totalCount":7}},"fileTreeProcessingTime":4.87042,"foldersToFetch":[],"reducedMotionEnabled":null,"repo":{"id":51599908,"defaultBranch":"master","name":"difflib","ownerLogin":"DimaKudosh","currentUserCanPush":false,"isFork":false,"isEmpty":false,"createdAt":"2016-02-12T16:14:45.000Z","ownerAvatar":"https://avatars.githubusercontent.com/u/8223315?v=4","public":true,"private":false,"isOrgOwned":false},"symbolsExpanded":false,"treeExpanded":true,"refInfo":{"name":"master","listCacheKey":"v0:1455293881.0","canEdit":false,"refType":"branch","currentOid":"f035fb8e656f27119e23eca9d5b996df14f3885e"},"path":"LICENSE","currentUser":null,"blob":{"rawLines":["The MIT License (MIT)","","Copyright (c) 2015-2016 Kevin B. Knapp","","Permission is hereby granted, free of charge, to any person obtaining a copy","of this software and associated documentation files (the \"Software\"), to deal","in the Software without restriction, including without limitation the rights","to use, copy, modify, merge, publish, distribute, sublicense, and/or sell","copies of the Software, and to permit persons to whom the Software is","furnished to do so, subject to the following conditions:","","The above copyright notice and this permission notice shall be included in all","copies or substantial portions of the Software.","","THE SOFTWARE IS PROVIDED \"AS IS\", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR","IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,","FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE","AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER","LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,","OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE","SOFTWARE."],"stylingDirectives":[[],[],[],[],[],[],[],[],[],[],[],[],[],[],[],[],[],[],[],[],[]],"csv":null,"csvError":null,"dependabotInfo":{"showConfigurationBanner":false,"configFilePath":null,"networkDependabotPath":"/DimaKudosh/difflib/network/updates","dismissConfigurationNoticePath":"/settings/dismiss-notice/dependabot_configuration_notice","configurationNoticeDismissed":null,"repoAlertsPath":"/DimaKudosh/difflib/security/dependabot","repoSecurityAndAnalysisPath":"/DimaKudosh/difflib/settings/security_analysis","repoOwnerIsOrg":false,"currentUserCanAdminRepo":false},"displayName":"LICENSE","displayUrl":"https://github.com/DimaKudosh/difflib/blob/master/LICENSE?raw=true","headerInfo":{"blobSize":"1.06 KB","deleteInfo":{"deleteTooltip":"You must be signed in to make or propose changes"},"editInfo":{"editTooltip":"You must be signed in to make or propose changes"},"ghDesktopPath":"https://desktop.github.com","gitLfsPath":null,"onBranch":true,"shortPath":"5acedf0","siteNavLoginPath":"/login?return_to=https%3A%2F%2Fgithub.com%2FDimaKudosh%2Fdifflib%2Fblob%2Fmaster%2FLICENSE","isCSV":false,"isRichtext":false,"toc":null,"lineInfo":{"truncatedLoc":"21","truncatedSloc":"17"},"mode":"file"},"image":false,"isCodeownersFile":null,"isPlain":false,"isValidLegacyIssueTemplate":false,"issueTemplateHelpUrl":"https://docs.github.com/articles/about-issue-and-pull-request-templates","issueTemplate":null,"discussionTemplate":null,"language":"Text","languageID":372,"large":false,"loggedIn":false,"newDiscussionPath":"/DimaKudosh/difflib/discussions/new","newIssuePath":"/DimaKudosh/difflib/issues/new","planSupportInfo":{"repoIsFork":null,"repoOwnedByCurrentUser":null,"requestFullPath":"/DimaKudosh/difflib/blob/master/LICENSE","showFreeOrgGatedFeatureMessage":null,"showPlanSupportBanner":null,"upgradeDataAttributes":null,"upgradePath":null},"publishBannersInfo":{"dismissActionNoticePath":"/settings/dismiss-notice/publish_action_from_dockerfile","dismissStackNoticePath":"/settings/dismiss-notice/publish_stack_from_file","releasePath":"/DimaKudosh/difflib/releases/new?marketplace=true","showPublishActionBanner":false,"showPublishStackBanner":false},"rawBlobUrl":"https://github.com/DimaKudosh/difflib/raw/master/LICENSE","renderImageOrRaw":false,"richText":null,"renderedFileInfo":null,"shortPath":null,"tabSize":8,"topBannersInfo":{"overridingGlobalFundingFile":false,"globalPreferredFundingPath":null,"repoOwner":"DimaKudosh","repoName":"difflib","showInvalidCitationWarning":false,"citationHelpUrl":"https://docs.github.com/en/github/creating-cloning-and-archiving-repositories/creating-a-repository-on-github/about-citation-files","showDependabotConfigurationBanner":false,"actionsOnboardingTip":null},"truncated":false,"viewable":true,"workflowRedirectUrl":null,"symbols":{"timedOut":false,"notAnalyzed":true,"symbols":[]}},"copilotInfo":null,"copilotAccessAllowed":false,"csrf_tokens":{"/DimaKudosh/difflib/branches":{"post":"WJEJGD6mqtuQLMX4wDXa6ajEEMprQOMlrOG0SS8Kkw0tHDrk2Al9jC8M2rwdzZJSAHIu4aBgxUHQRvyExMjA0Q"},"/repos/preferences":{"post":"dEJNzc2vyt0PeV5TbJwpQL5xOlkH-wnhucqGZToS4ueYOS2CulcHD-CF4Xawdc7mdM3nxSP97M3YCHj1Yk3Hvg"}}},"title":"difflib/LICENSE at master · DimaKudosh/difflib"}
+```
+-------------
+## MIT License: downcast
+
+The following text applies to code linked from these dependencies:
+[downcast](https://github.com/fkoep/downcast-rs)
+
+```
+MIT License (MIT)
+
+Copyright (c) 2017 Felix Köpge
+
+Permission is hereby granted, free of charge, to any person obtaining a copy of this software and associated documentation files (the "Software"), to deal in the Software without restriction, including without limitation the rights to use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies of the Software, and to permit persons to whom the Software is furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
+
+```
+-------------
+## MIT License: float-cmp
+
+The following text applies to code linked from these dependencies:
+[float-cmp](https://github.com/mikedilger/float-cmp)
+
+```
+Copyright (c) 2014-2020 Optimal Computing (NZ) Ltd
+
+Permission is hereby granted, free of charge, to any person obtaining a copy of
+this software and associated documentation files (the "Software"), to deal in
+the Software without restriction, including without limitation the rights to
+use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies
+of the Software, and to permit persons to whom the Software is furnished to do
+so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING
+FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS
+IN THE SOFTWARE.
+
+```
+-------------
 ## MIT License: generic-array
 
 The following text applies to code linked from these dependencies:
@@ -1157,6 +1223,34 @@ The following text applies to code linked from these dependencies:
 MIT License
 
 Copyright (c) 2017 
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+SOFTWARE.
+
+```
+-------------
+## MIT License: termtree
+
+The following text applies to code linked from these dependencies:
+[termtree](https://github.com/rust-cli/termtree)
+
+```
+Copyright (c) Individual contributors
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
 of this software and associated documentation files (the "Software"), to deal

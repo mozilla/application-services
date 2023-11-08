@@ -217,6 +217,24 @@ PACKAGE_METADATA_FIXUPS = {
             "fixup": "https://raw.githubusercontent.com/tokio-rs/tracing/master/LICENSE"
         }
     },
+    "predicates-tree": {
+        "license_file": {
+            "check": None,
+            "fixup": "https://raw.githubusercontent.com/assert-rs/predicates-rs/master/LICENSE-APACHE"
+        }
+    },
+    "predicates-core": {
+        "license_file": {
+            "check": None,
+            "fixup": "https://raw.githubusercontent.com/assert-rs/predicates-rs/master/LICENSE-APACHE"
+        }
+    },
+    "termtree": {
+        "license_file": {
+            "check": None,
+            "fixup": "https://raw.githubusercontent.com/rust-cli/termtree/main/LICENSE-MIT"
+        }
+    },
     # These packages do not unambiguously declare their licensing file.
     "publicsuffix": {
         "license": {
@@ -588,6 +606,15 @@ PACKAGE_METADATA_FIXUPS = {
             "check": None,
             "fixup": "https://raw.githubusercontent.com/myrrlyn/wyz/main/LICENSE.txt",
         },
+    },
+    "difflib": {
+        "license": {
+            "check": "MIT",
+        },
+        "license_file": {
+            "check": None,
+            "fixup": "https://github.com/DimaKudosh/difflib/blob/master/LICENSE"
+        }
     },
     "proc-macro-error": {
         "license": {

@@ -173,6 +173,10 @@ the details of which are reproduced below.
     <url>https://github.com/servo/rust-url/blob/master/LICENSE-APACHE</url>
   </license>
   <license>
+    <name>Apache License 2.0: fragile</name>
+    <url>https://github.com/mitsuhiko/fragile/blob/master/LICENSE</url>
+  </license>
+  <license>
     <name>Apache License 2.0: fs-err</name>
     <url>https://github.com/andrewhickman/fs-err/blob/main/LICENSE-APACHE</url>
   </license>
@@ -269,6 +273,18 @@ the details of which are reproduced below.
     <url>https://github.com/Alexhuszagh/minimal-lexical/blob/main/LICENSE-APACHE</url>
   </license>
   <license>
+    <name>Apache License 2.0: mockall</name>
+    <url>https://github.com/asomers/mockall/blob/master/LICENSE-APACHE</url>
+  </license>
+  <license>
+    <name>Apache License 2.0: mockall_derive</name>
+    <url>https://github.com/asomers/mockall/blob/master/LICENSE-APACHE</url>
+  </license>
+  <license>
+    <name>Apache License 2.0: normalize-line-endings</name>
+    <url>https://github.com/derekdreery/normalize-line-endings/blob/master/LICENSE</url>
+  </license>
+  <license>
     <name>Apache License 2.0: num-traits</name>
     <url>https://github.com/rust-num/num-traits/blob/master/LICENSE-APACHE</url>
   </license>
@@ -307,6 +323,18 @@ the details of which are reproduced below.
   <license>
     <name>Apache License 2.0: ppv-lite86</name>
     <url>https://github.com/cryptocorrosion/cryptocorrosion/blob/master/utils-simd/ppv-lite86/LICENSE-APACHE</url>
+  </license>
+  <license>
+    <name>Apache License 2.0: predicates</name>
+    <url>https://github.com/assert-rs/predicates-rs/blob/master/LICENSE-APACHE</url>
+  </license>
+  <license>
+    <name>Apache License 2.0: predicates-core</name>
+    <url>https://github.com/assert-rs/predicates-rs/blob/master/LICENSE-APACHE</url>
+  </license>
+  <license>
+    <name>Apache License 2.0: predicates-tree</name>
+    <url>https://github.com/assert-rs/predicates-rs/blob/master/LICENSE-APACHE</url>
   </license>
   <license>
     <name>Apache License 2.0: proc-macro2</name>
@@ -533,6 +561,18 @@ the details of which are reproduced below.
     <url>https://github.com/SimonSapin/rust-caseless/blob/master/LICENSE</url>
   </license>
   <license>
+    <name>MIT License: difflib</name>
+    <url>https://github.com/DimaKudosh/difflib/blob/master/LICENSE</url>
+  </license>
+  <license>
+    <name>MIT License: downcast</name>
+    <url>https://github.com/fkoep/downcast-rs/blob/master/LICENSE-MIT</url>
+  </license>
+  <license>
+    <name>MIT License: float-cmp</name>
+    <url>https://github.com/mikedilger/float-cmp/blob/master/LICENSE</url>
+  </license>
+  <license>
     <name>MIT License: generic-array</name>
     <url>https://github.com/fizyk20/generic-array/blob/master/LICENSE</url>
   </license>
@@ -571,6 +611,10 @@ the details of which are reproduced below.
   <license>
     <name>MIT License: scroll_derive</name>
     <url>https://github.com/m4b/scroll/blob/master/LICENSE</url>
+  </license>
+  <license>
+    <name>MIT License: termtree</name>
+    <url>https://github.com/rust-cli/termtree/blob/main/LICENSE-MIT</url>
   </license>
   <license>
     <name>MIT License: weedle2</name>
