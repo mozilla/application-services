@@ -137,14 +137,14 @@ pub struct AccountDestroyedPushPayload {
 
 #[cfg(test)]
 mod tests {
-    use mockall::predicate::always;
-    use mockall::predicate::eq;
     use super::*;
-    use crate::internal::http_client::MockFxAClient;
     use crate::internal::http_client::IntrospectResponse;
+    use crate::internal::http_client::MockFxAClient;
     use crate::internal::oauth::RefreshToken;
     use crate::internal::CachedResponse;
     use crate::internal::Config;
+    use mockall::predicate::always;
+    use mockall::predicate::eq;
     use std::sync::Arc;
 
     #[test]

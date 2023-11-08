@@ -260,12 +260,12 @@ pub(crate) struct CachedResponse<T> {
 
 #[cfg(test)]
 mod tests {
-    use mockall::predicate::always;
-    use mockall::predicate::eq;
     use super::*;
     use crate::internal::device::*;
     use crate::internal::http_client::MockFxAClient;
     use crate::internal::oauth::*;
+    use mockall::predicate::always;
+    use mockall::predicate::eq;
 
     #[test]
     fn test_fxa_is_send() {
@@ -389,44 +389,46 @@ mod tests {
             .expect_get_devices()
             .with(always(), eq("refreshtok"))
             .times(1)
-            .returning(|_, _| Ok(vec![
-                Device {
-                    common: http_client::DeviceResponseCommon {
-                        id: "1234a".to_owned(),
-                        display_name: "My Device".to_owned(),
-                        device_type: sync15::DeviceType::Mobile,
-                        push_subscription: None,
-                        available_commands: HashMap::default(),
-                        push_endpoint_expired: false,
+            .returning(|_, _| {
+                Ok(vec![
+                    Device {
+                        common: http_client::DeviceResponseCommon {
+                            id: "1234a".to_owned(),
+                            display_name: "My Device".to_owned(),
+                            device_type: sync15::DeviceType::Mobile,
+                            push_subscription: None,
+                            available_commands: HashMap::default(),
+                            push_endpoint_expired: false,
+                        },
+                        is_current_device: true,
+                        location: http_client::DeviceLocation {
+                            city: None,
+                            country: None,
+                            state: None,
+                            state_code: None,
+                        },
+                        last_access_time: None,
                     },
-                    is_current_device: true,
-                    location: http_client::DeviceLocation {
-                        city: None,
-                        country: None,
-                        state: None,
-                        state_code: None,
+                    Device {
+                        common: http_client::DeviceResponseCommon {
+                            id: "a4321".to_owned(),
+                            display_name: "My Other Device".to_owned(),
+                            device_type: sync15::DeviceType::Desktop,
+                            push_subscription: None,
+                            available_commands: HashMap::default(),
+                            push_endpoint_expired: false,
+                        },
+                        is_current_device: false,
+                        location: http_client::DeviceLocation {
+                            city: None,
+                            country: None,
+                            state: None,
+                            state_code: None,
+                        },
+                        last_access_time: None,
                     },
-                    last_access_time: None,
-                },
-                Device {
-                    common: http_client::DeviceResponseCommon {
-                        id: "a4321".to_owned(),
-                        display_name: "My Other Device".to_owned(),
-                        device_type: sync15::DeviceType::Desktop,
-                        push_subscription: None,
-                        available_commands: HashMap::default(),
-                        push_endpoint_expired: false,
-                    },
-                    is_current_device: false,
-                    location: http_client::DeviceLocation {
-                        city: None,
-                        country: None,
-                        state: None,
-                        state_code: None,
-                    },
-                    last_access_time: None,
-                },
-            ]));
+                ])
+            });
         client
             .expect_destroy_device_record()
             .with(always(), eq("refreshtok"), eq("1234a"))
@@ -454,24 +456,26 @@ mod tests {
             .expect_get_devices()
             .with(always(), eq("refreshtok"))
             .times(1)
-            .returning(|_, _| Ok(vec![Device {
-                common: http_client::DeviceResponseCommon {
-                    id: "a4321".to_owned(),
-                    display_name: "My Other Device".to_owned(),
-                    device_type: sync15::DeviceType::Desktop,
-                    push_subscription: None,
-                    available_commands: HashMap::default(),
-                    push_endpoint_expired: false,
-                },
-                is_current_device: false,
-                location: http_client::DeviceLocation {
-                    city: None,
-                    country: None,
-                    state: None,
-                    state_code: None,
-                },
-                last_access_time: None,
-            }]));
+            .returning(|_, _| {
+                Ok(vec![Device {
+                    common: http_client::DeviceResponseCommon {
+                        id: "a4321".to_owned(),
+                        display_name: "My Other Device".to_owned(),
+                        device_type: sync15::DeviceType::Desktop,
+                        push_subscription: None,
+                        available_commands: HashMap::default(),
+                        push_endpoint_expired: false,
+                    },
+                    is_current_device: false,
+                    location: http_client::DeviceLocation {
+                        city: None,
+                        country: None,
+                        state: None,
+                        state_code: None,
+                    },
+                    last_access_time: None,
+                }])
+            });
         client
             .expect_destroy_refresh_token()
             .with(always(), eq("refreshtok"))
@@ -504,13 +508,15 @@ mod tests {
             .expect_destroy_refresh_token()
             .with(always(), eq("refreshtok"))
             .times(1)
-            .returning(|_, _| Err(Error::RemoteError {
-                code: 500,
-                errno: 101,
-                error: "Did not work!".to_owned(),
-                message: "Did not work!".to_owned(),
-                info: "Did not work!".to_owned(),
-            }));
+            .returning(|_, _| {
+                Err(Error::RemoteError {
+                    code: 500,
+                    errno: 101,
+                    error: "Did not work!".to_owned(),
+                    message: "Did not work!".to_owned(),
+                    info: "Did not work!".to_owned(),
+                })
+            });
         fxa.set_client(Arc::new(client));
 
         assert!(fxa.state.refresh_token().is_some());

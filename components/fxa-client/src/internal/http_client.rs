@@ -53,6 +53,8 @@ const DEVICES_FILTER_DAYS: u64 = 21;
 /// it return something called a "refresh token"? Using unambiguous
 /// verbs to start each method helps avoid confusion here.
 ///
+// Due to limitations in mockall, we have to add explicit lifetimes that the Rust compiler would have been happy to infer.
+#[allow(clippy::needless_lifetimes)]
 #[cfg_attr(test, mockall::automock)]
 pub(crate) trait FxAClient {
     fn create_refresh_token_using_authorization_code(

@@ -594,10 +594,10 @@ impl From<IntrospectInfo> for crate::AuthorizationInfo {
 
 #[cfg(test)]
 mod tests {
-    use mockall::predicate::always;
-    use mockall::predicate::eq;
     use super::super::{http_client::*, Config};
     use super::*;
+    use mockall::predicate::always;
+    use mockall::predicate::eq;
     use std::borrow::Cow;
     use std::collections::HashMap;
     use std::sync::Arc;
@@ -956,13 +956,15 @@ mod tests {
             .expect_get_scoped_key_data()
             .with(always(), eq("session"), eq("12345678"), eq(expected_scopes))
             .times(1)
-            .returning(|_, _, _, _| Err(Error::RemoteError {
-                code: 400,
-                errno: 163,
-                error: "Invalid Scopes".to_string(),
-                message: "Not allowed to request scopes".to_string(),
-                info: "fyi, there was a server error".to_string(),
-            }));
+            .returning(|_, _, _, _| {
+                Err(Error::RemoteError {
+                    code: 400,
+                    errno: 163,
+                    error: "Invalid Scopes".to_string(),
+                    message: "Not allowed to request scopes".to_string(),
+                    info: "fyi, there was a server error".to_string(),
+                })
+            });
         fxa.set_client(Arc::new(client));
         let auth_params = AuthorizationParameters {
             client_id: "12345678".to_string(),
@@ -1010,14 +1012,15 @@ mod tests {
             .returning(|_, _, _, _| {
                 let mut server_ret = HashMap::new();
                 server_ret.insert(
-                scopes::OLD_SYNC.to_string(),
-                ScopedKeyDataResponse {
-                    key_rotation_secret: "IamASecret".to_string(),
-                    key_rotation_timestamp: 100,
-                    identifier: "".to_string(),
-                });
-            Ok(server_ret)
-        });
+                    scopes::OLD_SYNC.to_string(),
+                    ScopedKeyDataResponse {
+                        key_rotation_secret: "IamASecret".to_string(),
+                        key_rotation_timestamp: 100,
+                        identifier: "".to_string(),
+                    },
+                );
+                Ok(server_ret)
+            });
         fxa.set_client(Arc::new(client));
 
         let auth_params = AuthorizationParameters {
@@ -1048,7 +1051,12 @@ mod tests {
         let mut client = MockFxAClient::new();
         client
             .expect_get_scoped_key_data()
-            .with(always(), eq("session"), eq("12345678"), eq(scopes::OLD_SYNC))
+            .with(
+                always(),
+                eq("session"),
+                eq("12345678"),
+                eq(scopes::OLD_SYNC),
+            )
             .times(1)
             .returning(|_, _, _, _| {
                 let mut server_ret = HashMap::new();
@@ -1058,7 +1066,8 @@ mod tests {
                         key_rotation_secret: "IamASecret".to_string(),
                         key_rotation_timestamp: 100,
                         identifier: "".to_string(),
-                    });
+                    },
+                );
                 Ok(server_ret)
             });
         fxa.set_client(Arc::new(client));

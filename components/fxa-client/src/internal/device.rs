@@ -391,12 +391,12 @@ impl TryFrom<Device> for crate::Device {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use mockall::predicate::always;
-    use mockall::predicate::eq;
     use crate::internal::http_client::*;
     use crate::internal::oauth::RefreshToken;
     use crate::internal::Config;
     use crate::ScopedKey;
+    use mockall::predicate::always;
+    use mockall::predicate::eq;
     use std::collections::HashSet;
     use std::sync::Arc;
 
@@ -428,17 +428,19 @@ mod tests {
             .expect_update_device_record()
             .with(always(), eq("refreshtok"), always())
             .times(1)
-            .returning(|_, _, _| Ok(UpdateDeviceResponse {
-                id: "device1".to_string(),
-                display_name: "".to_string(),
-                device_type: DeviceType::Desktop,
-                push_subscription: None,
-                available_commands: HashMap::from([(
-                    commands::send_tab::COMMAND_NAME.to_owned(),
-                    "fake-command-data".to_owned(),
-                )]),
-                push_endpoint_expired: false,
-            }));
+            .returning(|_, _, _| {
+                Ok(UpdateDeviceResponse {
+                    id: "device1".to_string(),
+                    display_name: "".to_string(),
+                    device_type: DeviceType::Desktop,
+                    push_subscription: None,
+                    available_commands: HashMap::from([(
+                        commands::send_tab::COMMAND_NAME.to_owned(),
+                        "fake-command-data".to_owned(),
+                    )]),
+                    push_endpoint_expired: false,
+                })
+            });
         fxa.set_client(Arc::new(client));
         fxa.ensure_capabilities(&[DeviceCapability::SendTab])
             .unwrap();
@@ -468,14 +470,16 @@ mod tests {
             .expect_update_device_record()
             .with(always(), eq("refreshtok"), always())
             .times(1)
-            .returning(|_, _, _| Ok(UpdateDeviceResponse {
-                id: "device1".to_string(),
-                display_name: "".to_string(),
-                device_type: DeviceType::Desktop,
-                push_subscription: None,
-                available_commands: HashMap::default(),
-                push_endpoint_expired: false,
-            }));
+            .returning(|_, _, _| {
+                Ok(UpdateDeviceResponse {
+                    id: "device1".to_string(),
+                    display_name: "".to_string(),
+                    device_type: DeviceType::Desktop,
+                    push_subscription: None,
+                    available_commands: HashMap::default(),
+                    push_endpoint_expired: false,
+                })
+            });
         fxa.set_client(Arc::new(client));
 
         fxa.ensure_capabilities(&[]).unwrap();
@@ -487,17 +491,19 @@ mod tests {
             .expect_update_device_record()
             .with(always(), eq("refreshtok"), always())
             .times(1)
-            .returning(|_, _, _| Ok(UpdateDeviceResponse {
-                id: "device1".to_string(),
-                display_name: "".to_string(),
-                device_type: DeviceType::Desktop,
-                push_subscription: None,
-                available_commands: HashMap::from([(
-                    commands::send_tab::COMMAND_NAME.to_owned(),
-                    "fake-command-data".to_owned(),
-                )]),
-                push_endpoint_expired: false,
-            }));
+            .returning(|_, _, _| {
+                Ok(UpdateDeviceResponse {
+                    id: "device1".to_string(),
+                    display_name: "".to_string(),
+                    device_type: DeviceType::Desktop,
+                    push_subscription: None,
+                    available_commands: HashMap::from([(
+                        commands::send_tab::COMMAND_NAME.to_owned(),
+                        "fake-command-data".to_owned(),
+                    )]),
+                    push_endpoint_expired: false,
+                })
+            });
         fxa.set_client(Arc::new(client));
 
         fxa.ensure_capabilities(&[DeviceCapability::SendTab])
@@ -510,17 +516,19 @@ mod tests {
         client
             .expect_update_device_record()
             .with(always(), eq("refreshtok"), always())
-            .returning(|_, _, _| Ok(UpdateDeviceResponse {
-                id: "device1".to_string(),
-                display_name: "".to_string(),
-                device_type: DeviceType::Desktop,
-                push_subscription: None,
-                available_commands: HashMap::from([(
-                    commands::send_tab::COMMAND_NAME.to_owned(),
-                    "fake-command-data".to_owned(),
-                )]),
-                push_endpoint_expired: false,
-            }));
+            .returning(|_, _, _| {
+                Ok(UpdateDeviceResponse {
+                    id: "device1".to_string(),
+                    display_name: "".to_string(),
+                    device_type: DeviceType::Desktop,
+                    push_subscription: None,
+                    available_commands: HashMap::from([(
+                        commands::send_tab::COMMAND_NAME.to_owned(),
+                        "fake-command-data".to_owned(),
+                    )]),
+                    push_endpoint_expired: false,
+                })
+            });
         restored.set_client(Arc::new(client));
 
         restored
@@ -538,17 +546,19 @@ mod tests {
             .expect_update_device_record()
             .with(always(), eq("refreshtok"), always())
             .times(1)
-            .returning(|_, _, _| Ok(UpdateDeviceResponse {
-                id: "device1".to_string(),
-                display_name: "".to_string(),
-                device_type: DeviceType::Desktop,
-                push_subscription: None,
-                available_commands: HashMap::from([(
-                    commands::send_tab::COMMAND_NAME.to_owned(),
-                    "fake-command-data".to_owned(),
-                )]),
-                push_endpoint_expired: false,
-            }));
+            .returning(|_, _, _| {
+                Ok(UpdateDeviceResponse {
+                    id: "device1".to_string(),
+                    display_name: "".to_string(),
+                    device_type: DeviceType::Desktop,
+                    push_subscription: None,
+                    available_commands: HashMap::from([(
+                        commands::send_tab::COMMAND_NAME.to_owned(),
+                        "fake-command-data".to_owned(),
+                    )]),
+                    push_endpoint_expired: false,
+                })
+            });
         fxa.set_client(Arc::new(client));
 
         fxa.ensure_capabilities(&[DeviceCapability::SendTab])
@@ -561,14 +571,16 @@ mod tests {
             .expect_update_device_record()
             .with(always(), eq("refreshtok"), always())
             .times(1)
-            .returning(|_, _, _| Ok(UpdateDeviceResponse {
-                id: "device1".to_string(),
-                display_name: "".to_string(),
-                device_type: DeviceType::Desktop,
-                push_subscription: None,
-                available_commands: HashMap::default(),
-                push_endpoint_expired: false,
-            }));
+            .returning(|_, _, _| {
+                Ok(UpdateDeviceResponse {
+                    id: "device1".to_string(),
+                    display_name: "".to_string(),
+                    device_type: DeviceType::Desktop,
+                    push_subscription: None,
+                    available_commands: HashMap::default(),
+                    push_endpoint_expired: false,
+                })
+            });
         fxa.set_client(Arc::new(client));
 
         fxa.ensure_capabilities(&[]).unwrap();
@@ -581,14 +593,16 @@ mod tests {
             .expect_update_device_record()
             .with(always(), eq("refreshtok"), always())
             .times(1)
-            .returning(|_, _, _| Ok(UpdateDeviceResponse {
-                id: "device1".to_string(),
-                display_name: "".to_string(),
-                device_type: DeviceType::Desktop,
-                push_subscription: None,
-                available_commands: HashMap::default(),
-                push_endpoint_expired: false,
-            }));
+            .returning(|_, _, _| {
+                Ok(UpdateDeviceResponse {
+                    id: "device1".to_string(),
+                    display_name: "".to_string(),
+                    device_type: DeviceType::Desktop,
+                    push_subscription: None,
+                    available_commands: HashMap::default(),
+                    push_endpoint_expired: false,
+                })
+            });
         restored.set_client(Arc::new(client));
 
         restored.ensure_capabilities(&[]).unwrap();
@@ -604,17 +618,19 @@ mod tests {
             .expect_update_device_record()
             .with(always(), eq("refreshtok"), always())
             .times(1)
-            .returning(|_, _, _| Ok(UpdateDeviceResponse {
-                id: "device1".to_string(),
-                display_name: "".to_string(),
-                device_type: DeviceType::Desktop,
-                push_subscription: None,
-                available_commands: HashMap::from([(
-                    commands::send_tab::COMMAND_NAME.to_owned(),
-                    "fake-command-data".to_owned(),
-                )]),
-                push_endpoint_expired: false,
-            }));
+            .returning(|_, _, _| {
+                Ok(UpdateDeviceResponse {
+                    id: "device1".to_string(),
+                    display_name: "".to_string(),
+                    device_type: DeviceType::Desktop,
+                    push_subscription: None,
+                    available_commands: HashMap::from([(
+                        commands::send_tab::COMMAND_NAME.to_owned(),
+                        "fake-command-data".to_owned(),
+                    )]),
+                    push_endpoint_expired: false,
+                })
+            });
         fxa.set_client(Arc::new(client));
         fxa.ensure_capabilities(&[DeviceCapability::SendTab])
             .unwrap();
@@ -626,35 +642,41 @@ mod tests {
             .expect_destroy_access_token()
             .with(always(), always())
             .times(1)
-            .returning(|_, _| Err(Error::RemoteError {
-                code: 500,
-                errno: 999,
-                error: "server error".to_string(),
-                message: "this will be ignored anyway".to_string(),
-                info: "".to_string(),
-            }));
+            .returning(|_, _| {
+                Err(Error::RemoteError {
+                    code: 500,
+                    errno: 999,
+                    error: "server error".to_string(),
+                    message: "this will be ignored anyway".to_string(),
+                    info: "".to_string(),
+                })
+            });
         client
             .expect_get_devices()
             .with(always(), always())
             .times(1)
-            .returning(|_, _| Err(Error::RemoteError {
-                code: 500,
-                errno: 999,
-                error: "server error".to_string(),
-                message: "this will be ignored anyway".to_string(),
-                info: "".to_string(),
-            }));
+            .returning(|_, _| {
+                Err(Error::RemoteError {
+                    code: 500,
+                    errno: 999,
+                    error: "server error".to_string(),
+                    message: "this will be ignored anyway".to_string(),
+                    info: "".to_string(),
+                })
+            });
         client
             .expect_destroy_refresh_token()
             .with(always(), always())
             .times(1)
-            .returning(|_, _| Err(Error::RemoteError {
-                code: 500,
-                errno: 999,
-                error: "server error".to_string(),
-                message: "this will be ignored anyway".to_string(),
-                info: "".to_string(),
-            }));
+            .returning(|_, _| {
+                Err(Error::RemoteError {
+                    code: 500,
+                    errno: 999,
+                    error: "server error".to_string(),
+                    message: "this will be ignored anyway".to_string(),
+                    info: "".to_string(),
+                })
+            });
         fxa.set_client(Arc::new(client));
 
         fxa.handle_oauth_response(
@@ -679,17 +701,19 @@ mod tests {
             .expect_update_device_record()
             .with(always(), eq("newRefreshTok"), always())
             .times(1)
-            .returning(|_, _, _| Ok(UpdateDeviceResponse {
-                id: "device1".to_string(),
-                display_name: "".to_string(),
-                device_type: DeviceType::Desktop,
-                push_subscription: None,
-                available_commands: HashMap::from([(
-                    commands::send_tab::COMMAND_NAME.to_owned(),
-                    "fake-command-data".to_owned(),
-                )]),
-                push_endpoint_expired: false,
-            }));
+            .returning(|_, _, _| {
+                Ok(UpdateDeviceResponse {
+                    id: "device1".to_string(),
+                    display_name: "".to_string(),
+                    device_type: DeviceType::Desktop,
+                    push_subscription: None,
+                    available_commands: HashMap::from([(
+                        commands::send_tab::COMMAND_NAME.to_owned(),
+                        "fake-command-data".to_owned(),
+                    )]),
+                    push_endpoint_expired: false,
+                })
+            });
         fxa.set_client(Arc::new(client));
         fxa.ensure_capabilities(&[DeviceCapability::SendTab])
             .unwrap();
@@ -705,13 +729,15 @@ mod tests {
             .expect_update_device_record()
             .with(always(), eq("refreshtok"), always())
             .times(1)
-            .returning(|_, _, _| Err(Error::RemoteError {
-                code: 500,
-                errno: 999,
-                error: "server error".to_string(),
-                message: "this will be ignored anyway".to_string(),
-                info: "".to_string(),
-            }));
+            .returning(|_, _, _| {
+                Err(Error::RemoteError {
+                    code: 500,
+                    errno: 999,
+                    error: "server error".to_string(),
+                    message: "this will be ignored anyway".to_string(),
+                    info: "".to_string(),
+                })
+            });
         fxa.set_client(Arc::new(client));
 
         fxa.ensure_capabilities(&[DeviceCapability::SendTab])
@@ -723,17 +749,19 @@ mod tests {
             .expect_update_device_record()
             .with(always(), eq("refreshtok"), always())
             .times(1)
-            .returning(|_, _, _| Ok(UpdateDeviceResponse {
-                id: "device1".to_string(),
-                display_name: "".to_string(),
-                device_type: DeviceType::Desktop,
-                push_subscription: None,
-                available_commands: HashMap::from([(
-                    commands::send_tab::COMMAND_NAME.to_owned(),
-                    "fake-command-data".to_owned(),
-                )]),
-                push_endpoint_expired: false,
-            }));
+            .returning(|_, _, _| {
+                Ok(UpdateDeviceResponse {
+                    id: "device1".to_string(),
+                    display_name: "".to_string(),
+                    device_type: DeviceType::Desktop,
+                    push_subscription: None,
+                    available_commands: HashMap::from([(
+                        commands::send_tab::COMMAND_NAME.to_owned(),
+                        "fake-command-data".to_owned(),
+                    )]),
+                    push_endpoint_expired: false,
+                })
+            });
         fxa.set_client(Arc::new(client));
 
         fxa.ensure_capabilities(&[DeviceCapability::SendTab])
@@ -748,24 +776,26 @@ mod tests {
             .expect_get_devices()
             .with(always(), always())
             .times(1)
-            .returning(|_, _| Ok(vec![Device {
-                common: DeviceResponseCommon {
-                    id: "device1".into(),
-                    display_name: "".to_string(),
-                    device_type: DeviceType::Desktop,
-                    push_subscription: None,
-                    available_commands: HashMap::new(),
-                    push_endpoint_expired: true,
-                },
-                is_current_device: true,
-                location: DeviceLocation {
-                    city: None,
-                    country: None,
-                    state: None,
-                    state_code: None,
-                },
-                last_access_time: None,
-            }]));
+            .returning(|_, _| {
+                Ok(vec![Device {
+                    common: DeviceResponseCommon {
+                        id: "device1".into(),
+                        display_name: "".to_string(),
+                        device_type: DeviceType::Desktop,
+                        push_subscription: None,
+                        available_commands: HashMap::new(),
+                        push_endpoint_expired: true,
+                    },
+                    is_current_device: true,
+                    location: DeviceLocation {
+                        city: None,
+                        country: None,
+                        state: None,
+                        state_code: None,
+                    },
+                    last_access_time: None,
+                }])
+            });
 
         fxa.set_client(Arc::new(client));
         assert!(fxa.devices_cache.is_none());
@@ -800,13 +830,15 @@ mod tests {
             .expect_get_devices()
             .with(always(), always())
             .times(1)
-            .returning(|_, _| Err(Error::RemoteError {
-                code: 500,
-                errno: 101,
-                error: "Did not work!".to_owned(),
-                message: "Did not work!".to_owned(),
-                info: "Did not work!".to_owned(),
-            }));
+            .returning(|_, _| {
+                Err(Error::RemoteError {
+                    code: 500,
+                    errno: 101,
+                    error: "Did not work!".to_owned(),
+                    message: "Did not work!".to_owned(),
+                    info: "Did not work!".to_owned(),
+                })
+            });
 
         fxa.set_client(Arc::new(client));
         assert!(fxa.devices_cache.is_none());

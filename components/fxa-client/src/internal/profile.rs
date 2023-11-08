@@ -85,13 +85,13 @@ impl FirefoxAccount {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use mockall::predicate::always;
-    use mockall::predicate::eq;
     use crate::internal::{
         http_client::*,
         oauth::{AccessTokenInfo, RefreshToken},
         Config,
     };
+    use mockall::predicate::always;
+    use mockall::predicate::eq;
     use std::sync::Arc;
 
     impl FirefoxAccount {
@@ -130,16 +130,18 @@ mod tests {
             .expect_get_profile()
             .with(always(), eq("profiletok"), always())
             .times(1)
-            .returning(|_, _, _| Ok(Some(ResponseAndETag {
-                response: ProfileResponse {
-                    uid: "12345ab".to_string(),
-                    email: "foo@bar.com".to_string(),
-                    display_name: None,
-                    avatar: "https://foo.avatar".to_string(),
-                    avatar_default: true,
-                },
-                etag: None,
-            })));
+            .returning(|_, _, _| {
+                Ok(Some(ResponseAndETag {
+                    response: ProfileResponse {
+                        uid: "12345ab".to_string(),
+                        email: "foo@bar.com".to_string(),
+                        display_name: None,
+                        avatar: "https://foo.avatar".to_string(),
+                        avatar_default: true,
+                    },
+                    etag: None,
+                }))
+            });
         fxa.set_client(Arc::new(client));
 
         let p = fxa.get_profile(false).unwrap();
@@ -185,29 +187,33 @@ mod tests {
             .expect_create_access_token_using_refresh_token()
             .with(always(), eq("refreshtok"), always(), always())
             .times(1)
-            .returning(|_, _, _, _| Ok(OAuthTokenResponse {
-                keys_jwe: None,
-                refresh_token: None,
-                expires_in: 6_000_000,
-                scope: "profile".to_owned(),
-                access_token: "good_profile_token".to_owned(),
-                session_token: None,
-            }));
+            .returning(|_, _, _, _| {
+                Ok(OAuthTokenResponse {
+                    keys_jwe: None,
+                    refresh_token: None,
+                    expires_in: 6_000_000,
+                    scope: "profile".to_owned(),
+                    access_token: "good_profile_token".to_owned(),
+                    session_token: None,
+                })
+            });
         // Then hooray it works!
         client
             .expect_get_profile()
             .with(always(), eq("good_profile_token"), always())
             .times(1)
-            .returning(|_, _, _| Ok(Some(ResponseAndETag {
-                response: ProfileResponse {
-                    uid: "12345ab".to_string(),
-                    email: "foo@bar.com".to_string(),
-                    display_name: None,
-                    avatar: "https://foo.avatar".to_string(),
-                    avatar_default: true,
-                },
-                etag: None,
-            })));
+            .returning(|_, _, _| {
+                Ok(Some(ResponseAndETag {
+                    response: ProfileResponse {
+                        uid: "12345ab".to_string(),
+                        email: "foo@bar.com".to_string(),
+                        display_name: None,
+                        avatar: "https://foo.avatar".to_string(),
+                        avatar_default: true,
+                    },
+                    etag: None,
+                }))
+            });
         fxa.set_client(Arc::new(client));
 
         let p = fxa.get_profile(false).unwrap();
