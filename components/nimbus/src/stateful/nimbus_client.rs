@@ -32,7 +32,7 @@ use chrono::{DateTime, NaiveDateTime, Utc};
 use once_cell::sync::OnceCell;
 use remote_settings::RemoteSettingsConfig;
 use serde_json::{Map, Value};
-use std::collections::HashSet;
+use std::collections::{HashMap, HashSet};
 use std::fmt::Debug;
 use std::path::{Path, PathBuf};
 use std::sync::{Arc, Mutex, MutexGuard};
@@ -332,14 +332,18 @@ impl NimbusClient {
 
         let mut is_enrolled_set = HashSet::<String>::new();
         let mut all_enrolled_set = HashSet::<String>::new();
+        let mut enrollments_map = HashMap::<String, String>::new();
         for ee in prev_enrollments {
             match ee.status {
-                EnrollmentStatus::Enrolled { .. } => {
+                EnrollmentStatus::Enrolled { branch, .. } => {
                     is_enrolled_set.insert(ee.slug.clone());
                     all_enrolled_set.insert(ee.slug.clone());
+                    enrollments_map.insert(ee.slug.clone(), branch.clone());
                 }
-                EnrollmentStatus::WasEnrolled { .. } | EnrollmentStatus::Disqualified { .. } => {
+                EnrollmentStatus::WasEnrolled { branch, .. }
+                | EnrollmentStatus::Disqualified { branch, .. } => {
                     all_enrolled_set.insert(ee.slug.clone());
+                    enrollments_map.insert(ee.slug.clone(), branch.clone());
                 }
                 _ => {}
             }
@@ -347,6 +351,7 @@ impl NimbusClient {
 
         state.targeting_attributes.active_experiments = is_enrolled_set;
         state.targeting_attributes.enrollments = all_enrolled_set;
+        state.targeting_attributes.enrollments_map = enrollments_map;
 
         Ok(())
     }
