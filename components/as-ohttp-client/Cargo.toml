@@ -10,7 +10,7 @@ exclude = ["/ios"]
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-uniffi = "0.24.1"
+uniffi = "0.25.2"
 thiserror = "1.0"
 bhttp = "0.3"
 parking_lot = "0.12"
@@ -24,4 +24,4 @@ rev = "fc3f4c787d1f6a6a87bf5194f7152cc906b02973"
 features = ["client", "server", "app-svc", "external-sqlite"]
 
 [build-dependencies]
-uniffi = { version = "0.24.1", features=["build"]}
+uniffi = { version = "0.25.2", features=["build"]}

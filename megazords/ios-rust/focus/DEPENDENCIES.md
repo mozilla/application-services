@@ -47,7 +47,8 @@ The following text applies to code linked from these dependencies:
 [uniffi_core](https://github.com/mozilla/uniffi-rs),
 [uniffi_macros](https://github.com/mozilla/uniffi-rs),
 [uniffi_meta](https://github.com/mozilla/uniffi-rs),
-[uniffi_testing](https://github.com/mozilla/uniffi-rs)
+[uniffi_testing](https://github.com/mozilla/uniffi-rs),
+[uniffi_udl](https://github.com/mozilla/uniffi-rs)
 
 ```
 Mozilla Public License Version 2.0
@@ -491,6 +492,7 @@ The following text applies to code linked from these dependencies:
 [num-traits](https://github.com/rust-num/num-traits),
 [num_cpus](https://github.com/seanmonstar/num_cpus),
 [once_cell](https://github.com/matklad/once_cell),
+[oneshot](https://github.com/faern/oneshot),
 [parking_lot](https://github.com/Amanieu/parking_lot),
 [parking_lot_core](https://github.com/Amanieu/parking_lot),
 [paste](https://github.com/dtolnay/paste),

@@ -61,6 +61,10 @@ the details of which are reproduced below.
     <url>https://github.com/mozilla/uniffi-rs/blob/main/LICENSE</url>
   </license>
   <license>
+    <name>Mozilla Public License 2.0: uniffi_udl</name>
+    <url>https://github.com/mozilla/uniffi-rs/blob/main/LICENSE</url>
+  </license>
+  <license>
     <name>Apache License 2.0: ahash</name>
     <url>https://github.com/tkaitchuck/ahash/blob/master/LICENSE-APACHE</url>
   </license>
@@ -279,6 +283,10 @@ the details of which are reproduced below.
   <license>
     <name>Apache License 2.0: once_cell</name>
     <url>https://github.com/matklad/once_cell/blob/master/LICENSE-APACHE</url>
+  </license>
+  <license>
+    <name>Apache License 2.0: oneshot</name>
+    <url>https://www.apache.org/licenses/LICENSE-2.0.txt</url>
   </license>
   <license>
     <name>Apache License 2.0: parking_lot</name>

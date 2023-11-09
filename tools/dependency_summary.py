@@ -353,6 +353,15 @@ PACKAGE_METADATA_FIXUPS = {
             "fixup": "https://raw.githubusercontent.com/taskcluster/rust-hawk/main/LICENSE",
         }
     },
+    "oneshot": {
+        "repository": {
+            "check": "https://github.com/faern/oneshot",
+        },
+        "license_file": {
+            "check": None,
+            "fixup": "https://www.apache.org/licenses/LICENSE-2.0.txt",
+        }
+    },
     "windows-sys": {
         "repository": {
             "check": "https://github.com/microsoft/windows-rs",
@@ -795,6 +804,16 @@ PACKAGE_METADATA_FIXUPS = {
         }
     },
     "uniffi_testing": {
+        "license_url": {
+            "check": None,
+            "fixup": "https://github.com/mozilla/uniffi-rs/blob/main/LICENSE",
+        },
+        "license_file": {
+            "check": None,
+            "fixup": "https://raw.githubusercontent.com/mozilla/uniffi-rs/main/LICENSE",
+        }
+    },
+    "uniffi_udl": {
         "license_url": {
             "check": None,
             "fixup": "https://github.com/mozilla/uniffi-rs/blob/main/LICENSE",
