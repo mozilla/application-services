@@ -100,7 +100,7 @@ def req(request_context):
 @pytest.fixture
 def client(app_context, experiment):
     test_metrics = TestMetricsHandler()
-    client = CirrusClient(app_context, test_metrics)
+    client = CirrusClient(app_context, test_metrics, [])
     data = json.dumps({"data": [experiment]})
     client.set_experiments(data)
     return client
@@ -146,7 +146,7 @@ def cirrus_client(app_context, bucket_config):
     }
 
     test_metrics = TestMetricsHandler()
-    client = CirrusClient(app_context, test_metrics)
+    client = CirrusClient(app_context, test_metrics, [])
     data = json.dumps({"data": [experiment]})
     client.set_experiments(data)
     return client
