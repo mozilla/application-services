@@ -245,11 +245,17 @@ pub struct RunMaintenanceMetrics {
 ///
 /// db_size_limit is the approximate storage limit in bytes.  If the database is using more space
 /// than this, some older visits will be deleted to free up space.  Pass in a 0 to skip this.
-pub fn run_maintenance_prune(conn: &PlacesDb, db_size_limit: u32) -> Result<RunMaintenanceMetrics> {
+///
+/// prune_limit is the maximum number of visits to prune if the database is over db_size_limit
+pub fn run_maintenance_prune(
+    conn: &PlacesDb,
+    db_size_limit: u32,
+    prune_limit: u32,
+) -> Result<RunMaintenanceMetrics> {
     let db_size_before = conn.get_db_size()?;
     let should_prune = db_size_limit > 0 && db_size_before > db_size_limit;
     if should_prune {
-        history::prune_older_visits(conn)?;
+        history::prune_older_visits(conn, prune_limit)?;
     }
     let db_size_after = conn.get_db_size()?;
     Ok(RunMaintenanceMetrics {
@@ -448,7 +454,7 @@ mod tests {
     #[test]
     fn test_removal_prune() {
         do_test_removal_places_and_origins(|conn: &PlacesDb, _guid: &SyncGuid| {
-            history::prune_older_visits(conn)
+            history::prune_older_visits(conn, 6)
         })
     }
 

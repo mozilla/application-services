@@ -344,7 +344,7 @@ class PlacesWriterConnection internal constructor(conn: UniffiPlacesConnection, 
     override fun runMaintenance(dbSizeLimit: UInt) {
         val pruneMetrics = PlacesManagerMetrics.runMaintenanceTime.measure {
             val pruneMetrics = PlacesManagerMetrics.runMaintenancePruneTime.measure {
-                this.conn.runMaintenancePrune(dbSizeLimit)
+                this.conn.runMaintenancePrune(dbSizeLimit, 12U)
             }
 
             PlacesManagerMetrics.runMaintenanceVacuumTime.measure {

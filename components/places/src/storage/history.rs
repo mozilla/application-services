@@ -401,14 +401,16 @@ pub fn delete_place_visit_at_time_by_href(
     Ok(())
 }
 
-pub fn prune_older_visits(db: &PlacesDb) -> Result<()> {
+pub fn prune_older_visits(db: &PlacesDb, limit: u32) -> Result<()> {
     let tx = db.begin_transaction()?;
-    // Prune 6 items at a time, which matches desktops "small limit" value
-    let limit: usize = 6;
 
     let result = DbAction::apply_all(
         db,
-        db_actions_from_visits_to_delete(find_visits_to_prune(db, limit, Timestamp::now())?),
+        db_actions_from_visits_to_delete(find_visits_to_prune(
+            db,
+            limit as usize,
+            Timestamp::now(),
+        )?),
     );
     tx.commit()?;
     result

@@ -462,7 +462,10 @@ public class PlacesWriteConnection: PlacesReadConnection {
     open func runMaintenance(dbSizeLimit: UInt32 = 0) throws {
         return try queue.sync {
             try self.checkApi()
-            _ = try self.conn.runMaintenancePrune(dbSizeLimit: dbSizeLimit)
+            // The Kotlin code uses a higher pruneLimit, while Swift is extra conservative.  The
+            // main reason for this is the v119 places incident.  Once we figure that one out more,
+            // let's increase the prune limit here as well.
+            _ = try self.conn.runMaintenancePrune(dbSizeLimit: dbSizeLimit, pruneLimit: 6)
             try self.conn.runMaintenanceVacuum()
             try self.conn.runMaintenanceOptimize()
             try self.conn.runMaintenanceCheckpoint()

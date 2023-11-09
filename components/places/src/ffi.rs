@@ -419,8 +419,12 @@ impl PlacesConnection {
     }
 
     #[handle_error(crate::Error)]
-    pub fn run_maintenance_prune(&self, db_size_limit: u32) -> ApiResult<RunMaintenanceMetrics> {
-        self.with_conn(|conn| storage::run_maintenance_prune(conn, db_size_limit))
+    pub fn run_maintenance_prune(
+        &self,
+        db_size_limit: u32,
+        prune_limit: u32,
+    ) -> ApiResult<RunMaintenanceMetrics> {
+        self.with_conn(|conn| storage::run_maintenance_prune(conn, db_size_limit, prune_limit))
     }
 
     #[handle_error(crate::Error)]
