@@ -129,9 +129,11 @@ impl From<TypeRef> for ExperimentManifestPropType {
             | TypeRef::List(_) => Self::Json,
             TypeRef::Boolean => Self::Boolean,
             TypeRef::Int => Self::Int,
-            TypeRef::String | TypeRef::BundleImage | TypeRef::BundleText | TypeRef::Enum(_) => {
-                Self::String
-            }
+            TypeRef::String
+            | TypeRef::BundleImage
+            | TypeRef::BundleText
+            | TypeRef::StringAlias(_)
+            | TypeRef::Enum(_) => Self::String,
             TypeRef::Option(inner) => Self::from(inner),
         }
     }

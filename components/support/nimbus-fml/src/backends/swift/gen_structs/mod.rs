@@ -118,7 +118,9 @@ impl ConcreteCodeOracle {
     fn create_code_type(&self, type_: TypeIdentifier) -> Box<dyn CodeType> {
         match type_ {
             TypeIdentifier::Boolean => Box::new(primitives::BooleanCodeType),
-            TypeIdentifier::String => Box::new(primitives::StringCodeType),
+            TypeIdentifier::String | TypeIdentifier::StringAlias(_) => {
+                Box::new(primitives::StringCodeType)
+            }
             TypeIdentifier::Int => Box::new(primitives::IntCodeType),
 
             TypeIdentifier::BundleText => Box::new(bundled::TextCodeType),
