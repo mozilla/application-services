@@ -63,7 +63,8 @@ The following text applies to code linked from these dependencies:
 [uniffi_core](https://github.com/mozilla/uniffi-rs),
 [uniffi_macros](https://github.com/mozilla/uniffi-rs),
 [uniffi_meta](https://github.com/mozilla/uniffi-rs),
-[uniffi_testing](https://github.com/mozilla/uniffi-rs)
+[uniffi_testing](https://github.com/mozilla/uniffi-rs),
+[uniffi_udl](https://github.com/mozilla/uniffi-rs)
 
 ```
 Mozilla Public License Version 2.0
@@ -523,6 +524,7 @@ The following text applies to code linked from these dependencies:
 [num_cpus](https://github.com/seanmonstar/num_cpus),
 [ohttp](https://github.com/martinthomson/ohttp),
 [once_cell](https://github.com/matklad/once_cell),
+[oneshot](https://github.com/faern/oneshot),
 [openssl-macros](https://github.com/sfackler/rust-openssl),
 [openssl-probe](https://github.com/alexcrichton/openssl-probe),
 [openssl-src](https://github.com/alexcrichton/openssl-src-rs),
