@@ -27,7 +27,7 @@ dictionary EnrollmentStatusExtraDef {
 
 interface CirrusClient {
     [Throws=NimbusError]
-    constructor(string app_context, MetricsHandler metrics_handler, optional sequence<string> coenrolling_feature_ids = []);
+    constructor(string app_context, MetricsHandler metrics_handler, sequence<string> coenrolling_feature_ids);
 
     // Handles an enrollment request string and returns an enrollment response string.
     [Throws=NimbusError]
