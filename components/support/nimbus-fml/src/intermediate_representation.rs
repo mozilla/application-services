@@ -71,6 +71,9 @@ pub enum TypeRef {
     Int,
     Boolean,
 
+    // String-alias
+    StringAlias(String),
+
     // Strings can be coerced into a few types.
     // The types here will require the app's bundle or context to look
     // up the final value.
@@ -99,6 +102,7 @@ impl Display for TypeRef {
             Self::Boolean => f.write_str("Boolean"),
             Self::BundleImage => f.write_str("Image"),
             Self::BundleText => f.write_str("Text"),
+            Self::StringAlias(v) => f.write_str(v),
             Self::Enum(v) => f.write_str(v),
             Self::Object(v) => f.write_str(v),
             Self::Option(v) => f.write_fmt(format_args!("Option<{v}>")),
@@ -112,7 +116,9 @@ impl Display for TypeRef {
 impl TypeRef {
     pub(crate) fn supports_prefs(&self) -> bool {
         match self {
-            Self::Boolean | Self::String | Self::Int | Self::BundleText => true,
+            Self::Boolean | Self::String | Self::Int | Self::StringAlias(_) | Self::BundleText => {
+                true
+            }
             // There may be a chance that we can get Self::Option to work, but not at this time.
             // This may be done by adding a branch to this match and adding a `preference_getter` to
             // the `OptionalCodeType`.
@@ -356,17 +362,19 @@ impl FeatureManifest {
                 }
                 Ok(())
             }
-            TypeRef::EnumMap(key_type, value_type) => {
-                if let TypeRef::Enum(_) = key_type.as_ref() {
+            TypeRef::EnumMap(key_type, value_type) => match key_type.as_ref() {
+                TypeRef::StringAlias(_) | TypeRef::Enum(_) => {
                     Self::validate_type_ref(path, key_type, enum_names, obj_names)?;
                     Self::validate_type_ref(path, value_type, enum_names, obj_names)
-                } else {
-                    Err(FMLError::ValidationError(
-                        path.to_string(),
-                        format!("EnumMap key has be an enum, found: {:?}", key_type),
-                    ))
                 }
-            }
+                _ => Err(FMLError::ValidationError(
+                    path.to_string(),
+                    format!(
+                        "Map key must be a String, string-alias or enum, found: {:?}",
+                        key_type
+                    ),
+                )),
+            },
             TypeRef::List(list_type) => {
                 Self::validate_type_ref(path, list_type, enum_names, obj_names)
             }
@@ -467,10 +475,12 @@ impl FeatureManifest {
     }
 
     fn validate_feature_structure(&self, feature_def: &FeatureDef) -> Result<()> {
+        let mut string_aliases: HashSet<_> = Default::default();
         for v in &feature_def.props {
+            let path = format!("features/{}/{}", feature_def.name, v.name);
             if v.pref_key.is_some() && !v.typ.supports_prefs() {
                 return Err(FMLError::ValidationError(
-                    format!("features/{}/{}", feature_def.name, v.name),
+                    path,
                     "Pref keys can only be used with Boolean, String, Int and Text variables"
                         .to_string(),
                 ));
@@ -709,15 +719,7 @@ pub struct ObjectDef {
     pub(crate) props: Vec<PropDef>,
 }
 
-#[allow(unused)]
 impl ObjectDef {
-    pub fn new(name: &str, doc: &str, props: Vec<PropDef>) -> Self {
-        Self {
-            name: name.into(),
-            doc: doc.into(),
-            props,
-        }
-    }
     pub(crate) fn name(&self) -> String {
         self.name.clone()
     }
@@ -779,7 +781,7 @@ impl PropDef {
 
 impl TypeFinder for PropDef {
     fn find_types(&self, types: &mut HashSet<TypeRef>) {
-        types.insert(self.typ());
+        self.typ.find_types(types);
     }
 }
 
@@ -835,6 +837,16 @@ pub mod unit_tests {
                 typ,
                 default,
                 pref_key: None,
+            }
+        }
+    }
+
+    impl ObjectDef {
+        pub(crate) fn new(name: &str, props: &[PropDef]) -> Self {
+            Self {
+                name: name.into(),
+                doc: format!("Documentation for {name}"),
+                props: props.into(),
             }
         }
     }

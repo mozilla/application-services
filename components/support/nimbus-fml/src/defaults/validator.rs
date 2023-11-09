@@ -65,6 +65,7 @@ impl<'a> DefaultsValidator<'a> {
             | (TypeRef::BundleImage, Value::String(_))
             | (TypeRef::BundleText, Value::String(_))
             | (TypeRef::String, Value::String(_))
+            | (TypeRef::StringAlias(_), Value::String(_))
             | (TypeRef::Int, Value::Number(_))
             | (TypeRef::Option(_), Value::Null) => Ok(()),
             (TypeRef::Option(inner), v) => {
@@ -154,7 +155,7 @@ impl<'a> DefaultsValidator<'a> {
                 }
                 Ok(())
             }
-            (TypeRef::EnumMap(_, map_type), Value::Object(map))
+            (TypeRef::EnumMap(_, map_type), Value::Object(map)) // Map<string-alias, T>
             | (TypeRef::StringMap(map_type), Value::Object(map)) => {
                 for (key, value) in map {
                     let path = format!("{path}['{key}']");
@@ -463,7 +464,6 @@ mod test_types {
 
         fm.validate_prop_defaults(&prop)
             .expect_err("Should error out since default is not a valid enum variant");
-
         Ok(())
     }
 
