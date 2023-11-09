@@ -131,8 +131,10 @@ interface PlacesConnection {
     ///
     /// db_size_limit is the approximate storage limit in bytes.  If the database is using more space
     /// than this, some older visits will be deleted to free up space.  Pass in a 0 to skip this.
+    ///
+    /// prune_limit is the maximum number of visits to prune if the database is over db_size_limit
     [Throws=PlacesApiError]
-    RunMaintenanceMetrics run_maintenance_prune(u32 db_size_limit);
+    RunMaintenanceMetrics run_maintenance_prune(u32 db_size_limit, u32 prune_limit);
 
     /// Run maintenance on the places DB (vacuum step)
     ///
