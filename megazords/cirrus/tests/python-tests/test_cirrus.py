@@ -52,7 +52,7 @@ def test_failure_case_no_client_id(client, req):
 
 def test_metrics_handler(app_context, experiment, req):
     test_metrics = TestMetricsHandler()
-    client = CirrusClient(app_context, test_metrics)
+    client = CirrusClient(app_context, test_metrics, [])
     data = json.dumps({"data": [experiment]})
     client.set_experiments(data)
 
