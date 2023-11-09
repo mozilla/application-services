@@ -42,6 +42,10 @@ pub(crate) struct FeatureFieldBody {
     #[serde(default)]
     #[serde(skip_serializing_if = "Option::is_none")]
     pub(crate) pref_key: Option<String>,
+
+    #[serde(default)]
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub(crate) string_alias: Option<String>,
 }
 
 #[derive(Debug, Deserialize, Serialize, Clone)]
@@ -246,23 +250,33 @@ impl ManifestFrontEnd {
     /// Returns a [`std::collections::HashMap<String,TypeRef>`] where
     /// the key is the name of the type, and the TypeRef represents the type itself
     fn get_types(&self) -> HashMap<String, TypeRef> {
+        let mut res: HashMap<_, _> = Default::default();
+
         let types = self.legacy_types.as_ref().unwrap_or(&self.types);
-        types
-            .enums
-            .keys()
-            .map(|s| (s.clone(), TypeRef::Enum(s.clone())))
-            .chain(
-                types
-                    .objects
-                    .keys()
-                    .map(|s| (s.clone(), TypeRef::Object(s.clone()))),
-            )
-            .collect()
+        for s in types.enums.keys() {
+            res.insert(s.clone(), TypeRef::Enum(s.clone()));
+        }
+
+        for s in types.objects.keys() {
+            res.insert(s.clone(), TypeRef::Object(s.clone()));
+        }
+
+        for f in self.features.values() {
+            for p in f.variables.values() {
+                if let Some(s) = &p.string_alias {
+                    res.insert(s.clone(), TypeRef::StringAlias(s.clone()));
+                }
+            }
+        }
+        res
     }
 
     fn get_prop_def_from_feature_field(&self, nm: &str, body: &FeatureFieldBody) -> PropDef {
         let mut prop = self.get_prop_def_from_field(nm, &body.field);
         prop.pref_key = body.pref_key.clone();
+        if let Some(s) = &body.string_alias {
+            prop.string_alias = Some(TypeRef::StringAlias(s.clone()));
+        }
         prop
     }
 
@@ -294,6 +308,7 @@ impl ManifestFrontEnd {
             },
             default: json!(body.default),
             pref_key: None,
+            string_alias: None,
         }
     }
 

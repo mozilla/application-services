@@ -9,7 +9,7 @@ use crate::frontend::{
     ObjectBody, Types,
 };
 use crate::intermediate_representation::{
-    EnumDef, FeatureDef, FeatureManifest, ObjectDef, PropDef, VariantDef,
+    EnumDef, FeatureDef, FeatureManifest, ObjectDef, PropDef, TypeRef, VariantDef,
 };
 
 impl From<FeatureManifest> for ManifestFrontEnd {
@@ -125,6 +125,7 @@ impl From<PropDef> for FeatureFieldBody {
     fn from(value: PropDef) -> Self {
         Self {
             pref_key: value.pref_key.clone(),
+            string_alias: value.string_alias.as_ref().map(TypeRef::to_string),
             field: value.into(),
         }
     }
