@@ -756,6 +756,9 @@ pub struct PropDef {
     #[serde(default)]
     #[serde(skip_serializing_if = "Option::is_none")]
     pub(crate) pref_key: Option<String>,
+    #[serde(default)]
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub(crate) string_alias: Option<TypeRef>,
 }
 
 impl PropDef {
@@ -827,6 +830,7 @@ pub mod unit_tests {
                 typ,
                 default,
                 pref_key: None,
+                string_alias: None,
             }
         }
 
@@ -837,6 +841,7 @@ pub mod unit_tests {
                 typ,
                 default,
                 pref_key: None,
+                string_alias: None,
             }
         }
     }
