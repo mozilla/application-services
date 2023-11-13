@@ -3,5 +3,7 @@
 * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
 mod merger;
+mod validator;
 
 pub(crate) use merger::DefaultsMerger;
+pub(crate) use validator::DefaultsValidator;
