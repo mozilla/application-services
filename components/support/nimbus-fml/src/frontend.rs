@@ -10,7 +10,7 @@ use serde_json::json;
 use url::Url;
 
 use crate::{
-    defaults_merger::DefaultsMerger,
+    defaults::DefaultsMerger,
     error::Result,
     intermediate_representation::{
         EnumDef, FeatureDef, FeatureManifest, ModuleId, ObjectDef, PropDef, TargetLanguage,
