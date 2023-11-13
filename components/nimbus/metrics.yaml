@@ -229,6 +229,7 @@ nimbus_events:
       - chumphreys@mozilla.com
       - project-nimbus@mozilla.com
     expires: never
+    disabled: true
 nimbus_health:
   cache_not_ready_for_feature:
     type: event
