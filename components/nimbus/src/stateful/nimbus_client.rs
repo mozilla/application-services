@@ -156,7 +156,7 @@ impl NimbusClient {
             .collect();
         self.database_cache
             .commit_and_update(db, writer, &coenrolling_ids)?;
-        self.record_enrollment_status_telemetry()?;
+        self.record_enrollment_status_telemetry(state)?;
         Ok(())
     }
 
@@ -691,7 +691,29 @@ impl NimbusClient {
         Ok(())
     }
 
+<<<<<<< HEAD
     fn record_enrollment_status_telemetry(&self) -> Result<()> {
+=======
+    fn record_enrollment_status_telemetry(
+        &self,
+        state: &mut MutexGuard<InternalMutableState>,
+    ) -> Result<()> {
+        let targeting_helper = NimbusTargetingHelper::new(
+            state.targeting_attributes.clone(),
+            self.event_store.clone(),
+        );
+        let experiments = self
+            .database_cache
+            .get_experiments()?
+            .iter()
+            .filter_map(
+                |exp| match is_experiment_available(&targeting_helper, exp, true) {
+                    true => Some(exp.slug.clone()),
+                    false => None,
+                },
+            )
+            .collect::<HashSet<String>>();
+>>>>>>> 643475b22 (update record_enrollment_status_telemetry to only send metrics for available experiments)
         self.metrics_handler.record_enrollment_statuses(
             self.database_cache
                 .get_enrollments()?
