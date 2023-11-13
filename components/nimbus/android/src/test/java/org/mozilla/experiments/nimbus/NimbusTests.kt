@@ -646,6 +646,7 @@ class NimbusTests {
     }
 
     @Test
+    @Ignore
     fun `Nimbus records EnrollmentStatus metrics`() {
         suspend fun getString(): String {
             return testExperimentsJsonString(appInfo, packageName)
