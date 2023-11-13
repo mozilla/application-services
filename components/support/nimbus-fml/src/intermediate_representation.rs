@@ -866,13 +866,6 @@ impl TypeFinder for EnumDef {
     }
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
-pub struct FromStringDef {
-    pub name: String,
-    pub doc: String,
-    pub variants: Vec<VariantDef>,
-}
-
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, Default)]
 pub struct VariantDef {
     pub(crate) name: String,
