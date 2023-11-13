@@ -51,6 +51,11 @@
                BlueprintName = "MozillaTestServicesTests"
                ReferencedContainer = "container:MozillaTestServices.xcodeproj">
             </BuildableReference>
+            <SkippedTests>
+               <Test
+                  Identifier = "NimbusTests/testNimbusRecordsEnrollmentStatusMetrics()">
+               </Test>
+            </SkippedTests>
             <LocationScenarioReference
                identifier = "com.apple.dt.IDEFoundation.CurrentLocationScenarioIdentifier"
                referenceType = "1">
