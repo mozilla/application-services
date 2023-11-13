@@ -5,7 +5,7 @@
 import Foundation
 import os.log
 
-class FxALog {
+enum FxALog {
     private static let log = OSLog(
         subsystem: Bundle.main.bundleIdentifier!,
         category: "FxAccountManager"
