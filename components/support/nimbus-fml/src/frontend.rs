@@ -279,7 +279,7 @@ impl ManifestFrontEnd {
         PropDef {
             name: nm.into(),
             doc: body.description.clone(),
-            typ: match get_typeref_from_string(body.variable_type.to_owned(), Some(types.clone())) {
+            typ: match get_typeref_from_string(body.variable_type.to_owned(), &types) {
                 Ok(type_ref) => type_ref,
                 Err(e) => {
                     // Try matching against the user defined types
