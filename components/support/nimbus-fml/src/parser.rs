@@ -5,7 +5,7 @@
 use std::collections::{BTreeMap, BTreeSet, HashMap, HashSet};
 
 use crate::{
-    defaults_merger::DefaultsMerger,
+    defaults::DefaultsMerger,
     error::{FMLError, Result},
     frontend::{ImportBlock, ManifestFrontEnd, Types},
     intermediate_representation::{FeatureManifest, ModuleId, TypeRef},

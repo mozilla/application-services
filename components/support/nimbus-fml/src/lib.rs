@@ -4,7 +4,7 @@
 
 mod backends;
 pub mod command_line;
-pub(crate) mod defaults_merger;
+pub(crate) mod defaults;
 pub mod error;
 pub(crate) mod frontend;
 pub mod intermediate_representation;
