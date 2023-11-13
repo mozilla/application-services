@@ -128,7 +128,7 @@ impl TypeRef {
 
     pub(crate) fn name(&self) -> Option<&str> {
         match self {
-            Self::Enum(s) | Self::Object(s) => Some(s),
+            Self::Enum(s) | Self::Object(s) | Self::StringAlias(s) => Some(s),
             _ => None,
         }
     }
@@ -485,6 +485,73 @@ impl FeatureManifest {
                         .to_string(),
                 ));
             }
+
+            if let Some(sa) = &v.string_alias {
+                let t = &v.typ;
+                let types = t.all_types();
+                if !types.contains(sa) {
+                    return Err(FMLError::ValidationError(
+                        path,
+                        format!(
+                            "The string-alias {sa} must be part of the {} type declaration",
+                            v.name
+                        ),
+                    ));
+                }
+
+                if !string_aliases.insert(sa) {
+                    return Err(FMLError::ValidationError(
+                        path,
+                        format!("The string-alias {sa} should only be declared once per feature"),
+                    ));
+                }
+            }
+        }
+
+        let types = feature_def.all_types();
+        let nm = &feature_def.name;
+        self.validate_string_alias_declarations(
+            &format!("features/{nm}"),
+            nm,
+            &types,
+            &string_aliases,
+        )?;
+
+        Ok(())
+    }
+
+    fn validate_string_alias_declarations(
+        &self,
+        path: &str,
+        feature: &str,
+        types: &HashSet<TypeRef>,
+        string_aliases: &HashSet<&TypeRef>,
+    ) -> Result<()> {
+        let unaccounted: Vec<_> = types
+            .iter()
+            .filter(|t| matches!(t, TypeRef::StringAlias(_)))
+            .filter(|t| !string_aliases.contains(t))
+            .collect();
+
+        if !unaccounted.is_empty() {
+            let t = unaccounted.get(0).unwrap();
+            return Err(FMLError::ValidationError(
+                path.to_string(),
+                format!("A string-alias {t} is used by– but has not been defined in– the {feature} feature"),
+            ));
+        }
+        for t in types {
+            if let TypeRef::Object(nm) = t {
+                if let Some(obj) = self.find_object(nm) {
+                    let types = obj.all_types();
+                    self.validate_string_alias_declarations(
+                        &format!("objects/{nm}"),
+                        feature,
+                        &types,
+                        string_aliases,
+                    )?;
+                }
+            }
         }
         Ok(())
     }
@@ -658,7 +725,18 @@ impl FeatureDef {
     pub fn has_prefs(&self) -> bool {
         self.props.iter().any(|p| p.has_prefs())
     }
+
+    pub fn get_string_aliases(&self) -> HashMap<&str, &PropDef> {
+        let mut res: HashMap<_, _> = Default::default();
+        for p in &self.props {
+            if let Some(TypeRef::StringAlias(s)) = &p.string_alias {
+                res.insert(s.as_str(), p);
+            }
+        }
+        res
+    }
 }
+
 impl TypeFinder for FeatureDef {
     fn find_types(&self, types: &mut HashSet<TypeRef>) {
         for p in self.props() {
@@ -1587,6 +1665,110 @@ pub mod unit_tests {
             result.err().unwrap().to_string(),
             "Validation Error at features/feature.prop_1#SampleObj: Invalid key \"invalid-prop\" for object SampleObj; did you mean \"string\"?"
         );
+
+        Ok(())
+    }
+}
+
+#[cfg(test)]
+mod string_aliases {
+    use serde_json::json;
+
+    use super::*;
+
+    fn with_objects(props: &[PropDef], objects: &[ObjectDef]) -> FeatureManifest {
+        let mut fm = with_feature(props);
+        let mut obj_defs: BTreeMap<_, _> = Default::default();
+        for o in objects {
+            obj_defs.insert(o.name(), o.clone());
+        }
+        fm.obj_defs = obj_defs;
+        fm
+    }
+
+    fn with_feature(props: &[PropDef]) -> FeatureManifest {
+        let mut fm: FeatureManifest = Default::default();
+        let f = FeatureDef::new("test-feature", "", props.into(), false);
+        fm.add_feature(f);
+        fm
+    }
+
+    #[test]
+    fn test_validate_feature_structure() -> Result<()> {
+        let name = TypeRef::StringAlias("PersonName".to_string());
+        let all_names = {
+            let t = TypeRef::List(Box::new(name.clone()));
+            let v = json!(["Alice", "Bonnie", "Charlie", "Denise", "Elise", "Frankie"]);
+            PropDef::with_string_alias("all-names", &t, &v, &name)
+        };
+
+        let all_names2 = {
+            let t = TypeRef::List(Box::new(name.clone()));
+            let v = json!(["Alice", "Bonnie"]);
+            PropDef::with_string_alias("all-names-duplicate", &t, &v, &name)
+        };
+
+        // -> Verify that only one property per feature can define the same string-alias.
+        let fm = with_feature(&[all_names.clone(), all_names2.clone()]);
+        assert!(fm.validate_defaults().is_err());
+
+        let newest_member = {
+            let t = &name;
+            let v = json!("Alice"); // it doesn't matter for this test what the value is.
+            PropDef::simple("newest-member", t, &v)
+        };
+
+        // -> Verify that a property in a feature can validate against the a string-alias
+        // -> in the same feature.
+        // { all-names: ["Alice"], newest-member: "Alice" }
+        let fm = with_feature(&[all_names.clone(), newest_member.clone()]);
+        fm.validate_defaults()?;
+
+        // { newest-member: "Alice" }
+        // We have a reference to a team mate, but no definitions.
+        // Should error out.
+        let fm = with_feature(&[newest_member.clone()]);
+        assert!(fm.validate_defaults().is_err());
+
+        // -> Validate a property in a nested object can validate against a string-alias
+        // -> in a feature that uses the object.
+        let team_def = ObjectDef::new("Team", &[newest_member.clone()]);
+        let team = {
+            let t = TypeRef::Object("Team".to_string());
+            let v = json!({ "newest-member": "Alice" });
+
+            PropDef::simple("team", &t, &v)
+        };
+
+        // { all-names: ["Alice"], team: { newest-member: "Alice" } }
+        let fm = with_objects(&[all_names.clone(), team.clone()], &[team_def.clone()]);
+        fm.validate_defaults()?;
+
+        // { team: { newest-member: "Alice" } }
+        let fm = with_objects(&[team.clone()], &[team_def.clone()]);
+        assert!(fm.validate_defaults().is_err());
+
+        // -> Validate a property in a deeply nested object can validate against a string-alias
+        // -> in a feature that uses the object.
+
+        let match_def = ObjectDef::new("Match", &[team.clone()]);
+        let match_ = {
+            let t = TypeRef::Object("Match".to_string());
+            let v = json!({ "team": { "newest-member": "Alice" }});
+
+            PropDef::simple("match", &t, &v)
+        };
+
+        // { all-names: ["Alice"], match: { team: { newest-member: "Alice" }} }
+        let fm = with_objects(
+            &[all_names.clone(), match_.clone()],
+            &[team_def.clone(), match_def.clone()],
+        );
+        fm.validate_defaults()?;
+
+        // { match: {team: { newest-member: "Alice" }} }
+        let fm = with_objects(&[match_.clone()], &[team_def.clone(), match_def.clone()]);
+        assert!(fm.validate_defaults().is_err());
 
         Ok(())
     }

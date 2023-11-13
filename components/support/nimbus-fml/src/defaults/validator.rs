@@ -3,13 +3,13 @@
 * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
 use crate::error::{did_you_mean, FMLError};
-use crate::intermediate_representation::{FeatureDef, TypeRef};
+use crate::intermediate_representation::{FeatureDef, PropDef, TypeRef};
 use crate::{
     error::Result,
     intermediate_representation::{EnumDef, ObjectDef},
 };
 use serde_json::Value;
-use std::collections::{BTreeMap, HashSet};
+use std::collections::{BTreeMap, HashMap, HashSet};
 
 pub(crate) struct DefaultsValidator<'a> {
     enum_defs: &'a BTreeMap<String, EnumDef>,
@@ -42,7 +42,28 @@ impl<'a> DefaultsValidator<'a> {
             let error_path = vec![prop.name.to_string()];
             self.validate_types(path.as_str(), &error_path, &prop.typ, &prop.default)?;
         }
-        Ok(())
+
+        let string_aliases = feature_def.get_string_aliases();
+        let mut errors = Default::default();
+        for prop in &feature_def.props {
+            let path = format!("features/{}.{}", feature_def.name, prop.name);
+            let error_path = vec![prop.name.to_string()];
+
+            self.validate_string_aliases(
+                path.as_str(),
+                &error_path,
+                &prop.typ,
+                &prop.default,
+                &string_aliases,
+                &prop.string_alias,
+                &mut errors,
+            );
+        }
+        if errors.is_empty() {
+            Ok(())
+        } else {
+            Err(errors.pop().unwrap())
+        }
     }
 
     fn get_enum(&self, nm: &str) -> Option<&EnumDef> {
@@ -222,6 +243,256 @@ impl<'a> DefaultsValidator<'a> {
                 literals: append1(error_path, &default.to_string()),
             }),
         }
+    }
+
+    #[allow(clippy::too_many_arguments)]
+    fn validate_string_aliases(
+        &self,
+        path: &str,
+        error_path: &[String],
+        typ: &TypeRef,
+        value: &Value,
+        defn: &HashMap<&str, &PropDef>,
+        skip: &Option<TypeRef>,
+        errors: &mut Vec<FMLError>,
+    ) {
+        // As an optimization (to stop validating the definition against itself),
+        // we want to skip validation on the `skip` type ref: this is only set by the property defining
+        // a string-alias.
+        let should_validate = |v: &TypeRef| -> bool { skip.as_ref() != Some(v) };
+        match (typ, value) {
+            (TypeRef::StringAlias(_), Value::String(s)) => {
+                check_string_aliased_property(path, error_path, typ, s, defn, errors)
+            }
+            (TypeRef::Option(_), &Value::Null) => (),
+            (TypeRef::Option(inner), _) => {
+                self.validate_string_aliases(path, error_path, inner, value, defn, skip, errors)
+            }
+            (TypeRef::List(inner), Value::Array(array)) => {
+                if should_validate(inner) {
+                    for value in array {
+                        self.validate_string_aliases(
+                            path, error_path, inner, value, defn, skip, errors,
+                        );
+                    }
+                }
+            }
+            (TypeRef::EnumMap(key_type, value_type), Value::Object(map)) => {
+                if should_validate(key_type) && matches!(**key_type, TypeRef::StringAlias(_)) {
+                    for value in map.keys() {
+                        check_string_aliased_property(
+                            path, error_path, key_type, value, defn, errors,
+                        );
+                    }
+                }
+
+                if should_validate(value_type) {
+                    for (key, value) in map {
+                        let path = format!("{path}['{key}']");
+                        let error_path = append_quoted(error_path, key);
+
+                        self.validate_string_aliases(
+                            &path,
+                            &error_path,
+                            value_type,
+                            value,
+                            defn,
+                            skip,
+                            errors,
+                        );
+                    }
+                }
+            }
+            (TypeRef::StringMap(vt), Value::Object(map)) => {
+                if should_validate(vt) {
+                    for (key, value) in map {
+                        let path = format!("{path}['{key}']");
+                        let error_path = append1(error_path, key);
+
+                        self.validate_string_aliases(
+                            &path,
+                            &error_path,
+                            vt,
+                            value,
+                            defn,
+                            skip,
+                            errors,
+                        );
+                    }
+                }
+            }
+            (TypeRef::Object(obj_nm), Value::Object(map)) => {
+                let path = format!("{path}#{obj_nm}");
+                let error_path = append1(error_path, "{");
+                let obj_def = self.get_object(obj_nm).unwrap();
+
+                for prop in &obj_def.props {
+                    let prop_nm = &prop.name;
+                    if let Some(value) = map.get(prop_nm) {
+                        let path = format!("{path}.{prop_nm}");
+                        let error_path = append_quoted(&error_path, prop_nm);
+                        self.validate_string_aliases(
+                            &path,
+                            &error_path,
+                            &prop.typ,
+                            value,
+                            defn,
+                            // string-alias definitions aren't allowed in Object definitions,
+                            // so `skip` is None.
+                            &None,
+                            errors,
+                        );
+                    } else {
+                        // There is no value in the map, so we need to validate the
+                        // default.
+                        let mut suberrors = Default::default();
+                        self.validate_string_aliases(
+                            "",
+                            Default::default(),
+                            &prop.typ,
+                            &prop.default,
+                            defn,
+                            &None,
+                            &mut suberrors,
+                        );
+
+                        // If the default is invalid, then it doesn't really matter
+                        // what the error is, we can just error out.
+                        if !suberrors.is_empty() {
+                            errors.push(FMLError::FeatureValidationError {
+                                literals: error_path.clone(),
+                                path: path.clone(),
+                                message: format!(
+                                    "A valid value for {prop_nm} of type {} is missing",
+                                    &prop.typ
+                                ),
+                            });
+                        }
+                    }
+                }
+            }
+            _ => {}
+        }
+    }
+}
+
+fn check_string_aliased_property(
+    path: &str,
+    error_path: &[String],
+    alias_type: &TypeRef,
+    value: &str,
+    defn: &HashMap<&str, &PropDef>,
+    errors: &mut Vec<FMLError>,
+) {
+    if let TypeRef::StringAlias(alias_nm) = alias_type {
+        if let Some(prop) = defn.get(alias_nm.as_str()) {
+            if !validate_string_alias_value(value, alias_type, &prop.typ, &prop.default) {
+                let mut valid = Default::default();
+                collect_string_alias_values(alias_type, &prop.typ, &prop.default, &mut valid);
+                errors.push(FMLError::FeatureValidationError {
+                    literals: append_quoted(error_path, value),
+                    path: path.to_string(),
+                    message: format!(
+                        "Invalid value \"{value}\" for type {alias_nm}{}",
+                        did_you_mean(valid)
+                    ),
+                })
+            }
+        }
+    }
+}
+
+/// Takes
+/// - a string-alias type, StringAlias("TeammateName") / TeamMateName
+/// - a type definition of a wider collection of teammates: e.g. Map<TeamMateName, TeamMate>
+/// - an a value for the collection of teammates: e.g. {"Alice": {}, "Bonnie": {}, "Charlie": {}, "Dawn"}
+///
+/// and fills a hash set with the full set of TeamMateNames, in this case: ["Alice", "Bonnie", "Charlie", "Dawn"]
+fn collect_string_alias_values(
+    alias_type: &TypeRef,
+    def_type: &TypeRef,
+    def_value: &Value,
+    set: &mut HashSet<String>,
+) {
+    match (def_type, def_value) {
+        (TypeRef::StringAlias(_), Value::String(s)) if alias_type == def_type => {
+            set.insert(s.clone());
+        }
+        (TypeRef::Option(dt), dv) if dv != &Value::Null => {
+            collect_string_alias_values(alias_type, dt, dv, set);
+        }
+        (TypeRef::EnumMap(kt, _), Value::Object(map)) if alias_type == &**kt => {
+            set.extend(map.keys().cloned());
+        }
+        (TypeRef::EnumMap(_, vt), Value::Object(map))
+        | (TypeRef::StringMap(vt), Value::Object(map)) => {
+            for item in map.values() {
+                collect_string_alias_values(alias_type, vt, item, set);
+            }
+        }
+        (TypeRef::List(vt), Value::Array(array)) => {
+            for item in array {
+                collect_string_alias_values(alias_type, vt, item, set);
+            }
+        }
+        _ => {}
+    }
+}
+
+/// Takes
+/// - a string value e.g. "Alice"
+/// - a string-alias type, StringAlias("TeamMateName") / TeamMateName
+/// - a type definition of a wider collection of teammates: e.g. List<TeamMateName>
+/// - an a value for the collection of teammates: e.g. ["Alice", "Bonnie", "Charlie", "Dawn"]
+///
+/// Given the args, returns a boolean: is the string value in the collection?
+///
+/// This should work with arbitrary collection types, e.g.
+/// - TeamMate,
+/// - Option<TeamMate>,
+/// - List<TeamMate>,
+/// - Map<TeamMate, _>
+/// - Map<_, TeamMate>
+///
+/// and any arbitrary nesting of the collection types.
+fn validate_string_alias_value(
+    value: &str,
+    alias_type: &TypeRef,
+    def_type: &TypeRef,
+    def_value: &Value,
+) -> bool {
+    match (def_type, def_value) {
+        (TypeRef::StringAlias(_), Value::String(s)) if alias_type == def_type => value == s,
+
+        (TypeRef::Option(dt), dv) if dv != &Value::Null => {
+            validate_string_alias_value(value, alias_type, dt, dv)
+        }
+        (TypeRef::EnumMap(kt, _), Value::Object(map)) if alias_type == &**kt => {
+            map.contains_key(value)
+        }
+        (TypeRef::EnumMap(_, vt), Value::Object(map))
+        | (TypeRef::StringMap(vt), Value::Object(map)) => {
+            let mut found = false;
+            for item in map.values() {
+                if validate_string_alias_value(value, alias_type, vt, item) {
+                    found = true;
+                    break;
+                }
+            }
+            found
+        }
+        (TypeRef::List(k), Value::Array(array)) => {
+            let mut found = false;
+            for item in array {
+                if validate_string_alias_value(value, alias_type, k, item) {
+                    found = true;
+                    break;
+                }
+            }
+            found
+        }
+
+        _ => false,
     }
 }
 
@@ -654,6 +925,360 @@ mod test_types {
         let fm = DefaultsValidator::new(&enums1, &objs);
         // OK because the value is optional, and thus it's okay if it's missing (green is missing from the default)
         fm.validate_prop_defaults(&prop)?;
+        Ok(())
+    }
+}
+
+#[cfg(test)]
+mod string_alias {
+
+    use super::*;
+    use serde_json::json;
+
+    fn test_set(alias_type: &TypeRef, def_type: &TypeRef, def_value: &Value, set: &[&str]) {
+        let mut observed = Default::default();
+        collect_string_alias_values(alias_type, def_type, def_value, &mut observed);
+
+        let expected: HashSet<_> = set.iter().map(|s| s.to_string()).collect();
+        assert_eq!(expected, observed);
+    }
+
+    // Does this string belong in the type definition?
+    #[test]
+    fn test_validate_value() -> Result<()> {
+        let sa = TypeRef::StringAlias("Name".to_string());
+
+        // type definition is Name
+        let def = sa.clone();
+        let value = json!("yes");
+        assert!(validate_string_alias_value("yes", &sa, &def, &value));
+        assert!(!validate_string_alias_value("no", &sa, &def, &value));
+        test_set(&sa, &def, &value, &["yes"]);
+
+        // type definition is Name?
+        let def = TypeRef::Option(Box::new(sa.clone()));
+        let value = json!("yes");
+        assert!(validate_string_alias_value("yes", &sa, &def, &value));
+        assert!(!validate_string_alias_value("no", &sa, &def, &value));
+        test_set(&sa, &def, &value, &["yes"]);
+
+        let value = json!(null);
+        assert!(!validate_string_alias_value("no", &sa, &def, &value));
+        test_set(&sa, &def, &value, &[]);
+
+        // type definition is Map<Name, Boolean>
+        let def = TypeRef::EnumMap(Box::new(sa.clone()), Box::new(TypeRef::Boolean));
+        let value = json!({
+            "yes": true,
+            "YES": false,
+        });
+        assert!(validate_string_alias_value("yes", &sa, &def, &value));
+        assert!(validate_string_alias_value("YES", &sa, &def, &value));
+        assert!(!validate_string_alias_value("no", &sa, &def, &value));
+        test_set(&sa, &def, &value, &["yes", "YES"]);
+
+        // type definition is Map<String, Name>
+        let def = TypeRef::EnumMap(Box::new(TypeRef::String), Box::new(sa.clone()));
+        let value = json!({
+            "ok": "yes",
+            "OK": "YES",
+        });
+        assert!(validate_string_alias_value("yes", &sa, &def, &value));
+        assert!(validate_string_alias_value("YES", &sa, &def, &value));
+        assert!(!validate_string_alias_value("no", &sa, &def, &value));
+        test_set(&sa, &def, &value, &["yes", "YES"]);
+
+        // type definition is List<String>
+        let def = TypeRef::List(Box::new(sa.clone()));
+        let value = json!(["yes", "YES"]);
+        assert!(validate_string_alias_value("yes", &sa, &def, &value));
+        assert!(validate_string_alias_value("YES", &sa, &def, &value));
+        assert!(!validate_string_alias_value("no", &sa, &def, &value));
+        test_set(&sa, &def, &value, &["yes", "YES"]);
+
+        // type definition is List<Map<String, Name>>
+        let def = TypeRef::List(Box::new(TypeRef::StringMap(Box::new(sa.clone()))));
+        let value = json!([{"y": "yes"}, {"Y": "YES"}]);
+        assert!(validate_string_alias_value("yes", &sa, &def, &value));
+        assert!(validate_string_alias_value("YES", &sa, &def, &value));
+        assert!(!validate_string_alias_value("no", &sa, &def, &value));
+        test_set(&sa, &def, &value, &["yes", "YES"]);
+
+        // type definition is Map<String, List<Name>>
+        let def = TypeRef::StringMap(Box::new(TypeRef::List(Box::new(sa.clone()))));
+        let value = json!({"y": ["yes"], "Y": ["YES"]});
+        assert!(validate_string_alias_value("yes", &sa, &def, &value));
+        assert!(validate_string_alias_value("YES", &sa, &def, &value));
+        assert!(!validate_string_alias_value("no", &sa, &def, &value));
+        test_set(&sa, &def, &value, &["yes", "YES"]);
+
+        Ok(())
+    }
+
+    impl PropDef {
+        pub(crate) fn simple(nm: &str, typ: &TypeRef, value: &Value) -> Self {
+            Self {
+                name: nm.to_string(),
+                typ: typ.clone(),
+                default: value.clone(),
+                doc: nm.to_string(),
+                pref_key: None,
+                string_alias: None,
+            }
+        }
+
+        pub(crate) fn with_string_alias(
+            nm: &str,
+            typ: &TypeRef,
+            value: &Value,
+            sa: &TypeRef,
+        ) -> Self {
+            PropDef {
+                name: nm.to_string(),
+                typ: typ.clone(),
+                default: value.clone(),
+                doc: nm.to_string(),
+                pref_key: None,
+                string_alias: Some(sa.clone()),
+            }
+        }
+    }
+
+    fn objects(nm: &str, props: &[PropDef]) -> BTreeMap<String, ObjectDef> {
+        let obj1 = ObjectDef {
+            name: nm.to_string(),
+            props: props.into(),
+            ..Default::default()
+        };
+
+        BTreeMap::from([(nm.to_string(), obj1)])
+    }
+
+    fn feature(props: &[PropDef]) -> FeatureDef {
+        FeatureDef {
+            name: "TestFeature".to_string(),
+            props: props.into(),
+            ..Default::default()
+        }
+    }
+
+    #[test]
+    fn test_string_alias() -> Result<()> {
+        let mate = TypeRef::StringAlias("TeamMate".to_string());
+        let the_team = {
+            let team = TypeRef::List(Box::new(mate.clone()));
+            let value = json!(["Alice", "Bonnie", "Charlie", "Deborah", "Eve"]);
+
+            PropDef::with_string_alias("team", &team, &value, &mate)
+        };
+        test_with_simple_string_alias(&mate, &the_team)?;
+        test_with_objects(&mate, &the_team)?;
+
+        let the_team = {
+            let team = TypeRef::EnumMap(Box::new(mate.clone()), Box::new(TypeRef::Boolean));
+            let value = json!({"Alice": true, "Bonnie": true, "Charlie": true, "Deborah": true, "Eve": true});
+
+            PropDef::with_string_alias("team", &team, &value, &mate)
+        };
+        test_with_simple_string_alias(&mate, &the_team)?;
+        test_with_objects(&mate, &the_team)?;
+
+        Ok(())
+    }
+
+    fn test_with_simple_string_alias(mate: &TypeRef, the_team: &PropDef) -> Result<()> {
+        let objs = Default::default();
+        let enums = Default::default();
+        let validator = DefaultsValidator::new(&enums, &objs);
+
+        // For all these tests, the_team defines the set of strings which are valid TeamMate strings.
+
+        // captain is a TeamMate
+        let nm = "captain";
+        let t = mate.clone();
+        let f = {
+            let v = json!("Eve");
+            feature(&[the_team.clone(), PropDef::simple(nm, &t, &v)])
+        };
+
+        validator.validate_feature_def(&f)?;
+
+        let t = mate.clone();
+        let f = {
+            let v = json!("Nope");
+            feature(&[the_team.clone(), PropDef::simple(nm, &t, &v)])
+        };
+        assert!(validator.validate_feature_def(&f).is_err());
+
+        // goalkeeper is an Option<TeamMate>
+        let nm = "goalkeeper";
+        let t = TypeRef::Option(Box::new(mate.clone()));
+        let f = {
+            let v = json!(null);
+            feature(&[the_team.clone(), PropDef::simple(nm, &t, &v)])
+        };
+        validator.validate_feature_def(&f)?;
+
+        let f = {
+            let v = json!("Charlie");
+            feature(&[the_team.clone(), PropDef::simple(nm, &t, &v)])
+        };
+        validator.validate_feature_def(&f)?;
+
+        let f = {
+            let v = json!("Nope");
+            feature(&[the_team.clone(), PropDef::simple(nm, &t, &v)])
+        };
+        assert!(validator.validate_feature_def(&f).is_err());
+
+        // defenders are List<TeamMate>
+        let nm = "defenders";
+        let t = TypeRef::List(Box::new(mate.clone()));
+
+        let f = {
+            let v = json!([]);
+            feature(&[the_team.clone(), PropDef::simple(nm, &t, &v)])
+        };
+        validator.validate_feature_def(&f)?;
+
+        let f = {
+            let v = json!(["Alice", "Charlie"]);
+            feature(&[the_team.clone(), PropDef::simple(nm, &t, &v)])
+        };
+        validator.validate_feature_def(&f)?;
+
+        let f = {
+            let v = json!(["Alice", "Nope"]);
+            feature(&[the_team.clone(), PropDef::simple(nm, &t, &v)])
+        };
+        assert!(validator.validate_feature_def(&f).is_err());
+
+        // injury-status are Map<TeamMate, Boolean>
+        let nm = "injury-status";
+        let t = TypeRef::EnumMap(Box::new(mate.clone()), Box::new(TypeRef::Boolean));
+        let f = {
+            let v = json!({"Bonnie": false, "Deborah": true});
+            feature(&[the_team.clone(), PropDef::simple(nm, &t, &v)])
+        };
+        validator.validate_feature_def(&f)?;
+
+        let f = {
+            let v = json!({"Bonnie": false, "Nope": true});
+            feature(&[the_team.clone(), PropDef::simple(nm, &t, &v)])
+        };
+        assert!(validator.validate_feature_def(&f).is_err());
+
+        // positions are Map<PositionName, List<TeamMate>>
+        let nm = "positions";
+        let position = TypeRef::StringAlias("PositionName".to_string());
+        let t = TypeRef::EnumMap(
+            Box::new(position.clone()),
+            Box::new(TypeRef::List(Box::new(mate.clone()))),
+        );
+        let f = {
+            let v = json!({"DEFENDER": ["Bonnie", "Charlie"], "MIDFIELD": ["Alice", "Deborah"], "FORWARD": ["Eve"]});
+            feature(&[
+                the_team.clone(),
+                PropDef::with_string_alias(nm, &t, &v, &position),
+            ])
+        };
+        validator.validate_feature_def(&f)?;
+
+        let f = {
+            let v = json!({"DEFENDER": ["Bonnie", "Charlie"], "MIDFIELD": ["Alice", "Deborah"], "STRIKER": ["Eve"]});
+            feature(&[
+                the_team.clone(),
+                PropDef::with_string_alias(nm, &t, &v, &position),
+            ])
+        };
+        validator.validate_feature_def(&f)?;
+
+        let f = {
+            let v = json!({"DEFENDER": ["Bonnie", "Charlie"], "MIDFIELD": ["Nope", "Deborah"], "STRIKER": ["Eve"]});
+            feature(&[
+                the_team.clone(),
+                PropDef::with_string_alias(nm, &t, &v, &position),
+            ])
+        };
+        assert!(validator.validate_feature_def(&f).is_err());
+        Ok(())
+    }
+
+    fn test_with_objects(mate: &TypeRef, the_team: &PropDef) -> Result<()> {
+        let position = TypeRef::StringAlias("PositionName".to_string());
+        let positions = {
+            let nm = "positions";
+            let t = TypeRef::EnumMap(
+                Box::new(position.clone()),
+                Box::new(TypeRef::List(Box::new(mate.clone()))),
+            );
+            let v = json!({"DEFENDER": ["Bonnie", "Charlie"], "MIDFIELD": ["Alice", "Deborah"], "FORWARD": ["Eve"]});
+            PropDef::with_string_alias(nm, &t, &v, &position)
+        };
+
+        let objects = objects(
+            "Player",
+            &[
+                PropDef::simple("name", mate, &json!("Untested")),
+                PropDef::simple("position", &position, &json!("Untested")),
+            ],
+        );
+        let enums = Default::default();
+        let validator = DefaultsValidator::new(&enums, &objects);
+
+        // newest-player: Player
+        let nm = "newest-player";
+        let t = TypeRef::Object("Player".to_string());
+        let f = {
+            let v = json!({"name": "Eve", "position": "FORWARD"});
+            feature(&[
+                the_team.clone(),
+                positions.clone(),
+                PropDef::simple(nm, &t, &v),
+            ])
+        };
+        validator.validate_feature_def(&f)?;
+
+        let f = {
+            let v = json!({"name": "Nope", "position": "FORWARD"});
+            feature(&[
+                the_team.clone(),
+                positions.clone(),
+                PropDef::simple(nm, &t, &v),
+            ])
+        };
+        assert!(validator.validate_feature_def(&f).is_err());
+
+        // positions: List<PositionName>
+        // players: Map<TeamMateName, Player>
+        let positions = {
+            let t = TypeRef::List(Box::new(position.clone()));
+            let v = json!(["FORWARD", "DEFENDER"]);
+            PropDef::with_string_alias("positions", &t, &v, &position)
+        };
+        let nm = "players";
+        let t = TypeRef::EnumMap(
+            Box::new(mate.clone()),
+            Box::new(TypeRef::Object("Player".to_string())),
+        );
+        let f = {
+            let v = json!({ "Eve": {"name": "Eve", "position": "FORWARD"}});
+            feature(&[
+                positions.clone(),
+                PropDef::with_string_alias(nm, &t, &v, mate),
+            ])
+        };
+        validator.validate_feature_def(&f)?;
+
+        let f = {
+            let v = json!({ "Nope": {"name": "Eve", "position": "FORWARD"}});
+            feature(&[
+                positions.clone(),
+                PropDef::with_string_alias(nm, &t, &v, mate),
+            ])
+        };
+        assert!(validator.validate_feature_def(&f).is_err());
+
         Ok(())
     }
 }
