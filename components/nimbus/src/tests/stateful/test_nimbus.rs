@@ -1423,3 +1423,97 @@ fn test_enrollment_status_metrics_recorded() -> Result<()> {
 
     Ok(())
 }
+
+#[test]
+fn test_enrollment_status_metrics_not_recorded_app_name_mismatch() -> Result<()> {
+    let metrics = TestMetrics::new();
+    let mock_client_id = "client-1".to_string();
+
+    let temp_dir = tempfile::tempdir()?;
+
+    let app_context = AppContext {
+        app_name: "not-fenix".to_string(),
+        app_id: "org.mozilla.fenix".to_string(),
+        channel: "nightly".to_string(),
+        ..Default::default()
+    };
+
+    let mut client = NimbusClient::new(
+        app_context.clone(),
+        Default::default(),
+        temp_dir.path(),
+        None,
+        AvailableRandomizationUnits {
+            client_id: Some(mock_client_id),
+            ..AvailableRandomizationUnits::default()
+        },
+        Box::new(metrics.clone()),
+    )?;
+    client.set_nimbus_id(&Uuid::from_str("53baafb3-b800-42ac-878c-c3451e250928")?)?;
+
+    let targeting_attributes = TargetingAttributes {
+        app_context,
+        ..Default::default()
+    };
+    client.with_targeting_attributes(targeting_attributes);
+    client.initialize()?;
+
+    let slug_1 = "experiment-1";
+    let exp_1 = get_targeted_experiment(slug_1, "true");
+    client.set_experiments_locally(to_local_experiments_string(&[exp_1])?)?;
+
+    client.apply_pending_experiments()?;
+
+    let metric_records: Vec<EnrollmentStatusExtraDef> =
+        serde_json::from_value(metrics.assert_get_vec_value("enrollment_status"))?;
+    assert_eq!(metric_records.len(), 0);
+
+    Ok(())
+}
+
+#[test]
+fn test_enrollment_status_metrics_not_recorded_channel_mismatch() -> Result<()> {
+    let metrics = TestMetrics::new();
+    let mock_client_id = "client-1".to_string();
+
+    let temp_dir = tempfile::tempdir()?;
+
+    let app_context = AppContext {
+        app_name: "fenix".to_string(),
+        app_id: "org.mozilla.fenix".to_string(),
+        channel: "random-channel".to_string(),
+        ..Default::default()
+    };
+
+    let mut client = NimbusClient::new(
+        app_context.clone(),
+        Default::default(),
+        temp_dir.path(),
+        None,
+        AvailableRandomizationUnits {
+            client_id: Some(mock_client_id),
+            ..AvailableRandomizationUnits::default()
+        },
+        Box::new(metrics.clone()),
+    )?;
+    client.set_nimbus_id(&Uuid::from_str("53baafb3-b800-42ac-878c-c3451e250928")?)?;
+
+    let targeting_attributes = TargetingAttributes {
+        app_context,
+        ..Default::default()
+    };
+    client.with_targeting_attributes(targeting_attributes);
+    client.initialize()?;
+
+    let slug_1 = "experiment-1";
+    let exp_1 = get_targeted_experiment(slug_1, "true");
+    client.set_experiments_locally(to_local_experiments_string(&[exp_1])?)?;
+
+    client.apply_pending_experiments()?;
+
+    let metric_records: Vec<EnrollmentStatusExtraDef> =
+        serde_json::from_value(metrics.assert_get_vec_value("enrollment_status"))?;
+    assert_eq!(metric_records.len(), 0);
+
+    Ok(())
+}
