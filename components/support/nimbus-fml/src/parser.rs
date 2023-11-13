@@ -35,30 +35,30 @@ fn parse_typeref_string(input: String) -> Result<(String, Option<String>)> {
 
 pub(crate) fn get_typeref_from_string(
     input: String,
-    types: Option<HashMap<String, TypeRef>>,
+    types: &HashMap<String, TypeRef>,
 ) -> Result<TypeRef, FMLError> {
     let (type_ref, type_name) = parse_typeref_string(input)?;
 
-    return match type_ref.as_str() {
-        "String" => Ok(TypeRef::String),
-        "Int" => Ok(TypeRef::Int),
-        "Boolean" => Ok(TypeRef::Boolean),
-        "BundleText" | "Text" => Ok(TypeRef::BundleText(
-            type_name.unwrap_or_else(|| "unnamed".to_string()),
-        )),
-        "BundleImage" | "Drawable" | "Image" => Ok(TypeRef::BundleImage(
-            type_name.unwrap_or_else(|| "unnamed".to_string()),
-        )),
-        "Enum" => Ok(TypeRef::Enum(type_name.unwrap())),
-        "Object" => Ok(TypeRef::Object(type_name.unwrap())),
-        "List" => Ok(TypeRef::List(Box::new(get_typeref_from_string(
+    Ok(match type_ref.as_str() {
+        "String" => TypeRef::String,
+        "Int" => TypeRef::Int,
+        "Boolean" => TypeRef::Boolean,
+        "BundleText" | "Text" => {
+            TypeRef::BundleText(type_name.unwrap_or_else(|| "unnamed".to_string()))
+        }
+        "BundleImage" | "Drawable" | "Image" => {
+            TypeRef::BundleImage(type_name.unwrap_or_else(|| "unnamed".to_string()))
+        }
+        "Enum" => TypeRef::Enum(type_name.unwrap()),
+        "Object" => TypeRef::Object(type_name.unwrap()),
+        "List" => TypeRef::List(Box::new(get_typeref_from_string(
             type_name.unwrap(),
             types,
-        )?))),
-        "Option" => Ok(TypeRef::Option(Box::new(get_typeref_from_string(
+        )?)),
+        "Option" => TypeRef::Option(Box::new(get_typeref_from_string(
             type_name.unwrap(),
             types,
-        )?))),
+        )?)),
         "Map" => {
             // Maps take a little extra massaging to get the key and value types
             let type_name = type_name.unwrap();
@@ -68,36 +68,20 @@ pub(crate) fn get_typeref_from_string(
             let value_type = map_type_info_iter.next().unwrap().trim().to_string();
 
             if key_type.eq("String") {
-                Ok(TypeRef::StringMap(Box::new(get_typeref_from_string(
-                    value_type, types,
-                )?)))
+                TypeRef::StringMap(Box::new(get_typeref_from_string(value_type, types)?))
             } else {
-                Ok(TypeRef::EnumMap(
-                    Box::new(get_typeref_from_string(key_type, types.clone())?),
+                TypeRef::EnumMap(
+                    Box::new(get_typeref_from_string(key_type, types)?),
                     Box::new(get_typeref_from_string(value_type, types)?),
-                ))
+                )
             }
         }
-        type_name => {
-            if types.is_none() {
-                return Err(FMLError::TypeParsingError(format!(
-                    "{} is not a recognized FML type",
-                    type_ref
-                )));
-            }
-
-            match types.unwrap().get(type_name) {
-                Some(type_ref) => Ok(type_ref.clone()),
-                None => {
-                    return Err(FMLError::TypeParsingError(format!(
-                        "{} is not a recognized FML type",
-                        type_ref
-                    )));
-                }
-            }
-        }
-    };
+        type_name => types.get(type_name).cloned().ok_or_else(|| {
+            FMLError::TypeParsingError(format!("{type_name} is not a recognized FML type"))
+        })?,
+    })
 }
+
 #[derive(Debug)]
 pub struct Parser {
     files: FileLoader,
@@ -724,12 +708,13 @@ mod unit_tests {
     #[test]
     fn test_convert_to_typeref_string() -> Result<()> {
         // Testing converting to TypeRef::String
+        let types = Default::default();
         assert_eq!(
-            get_typeref_from_string("String".to_string(), None).unwrap(),
+            get_typeref_from_string("String".to_string(), &types).unwrap(),
             TypeRef::String
         );
-        get_typeref_from_string("string".to_string(), None).unwrap_err();
-        get_typeref_from_string("str".to_string(), None).unwrap_err();
+        get_typeref_from_string("string".to_string(), &types).unwrap_err();
+        get_typeref_from_string("str".to_string(), &types).unwrap_err();
 
         Ok(())
     }
@@ -737,12 +722,13 @@ mod unit_tests {
     #[test]
     fn test_convert_to_typeref_int() -> Result<()> {
         // Testing converting to TypeRef::Int
+        let types = Default::default();
         assert_eq!(
-            get_typeref_from_string("Int".to_string(), None).unwrap(),
+            get_typeref_from_string("Int".to_string(), &types).unwrap(),
             TypeRef::Int
         );
-        get_typeref_from_string("integer".to_string(), None).unwrap_err();
-        get_typeref_from_string("int".to_string(), None).unwrap_err();
+        get_typeref_from_string("integer".to_string(), &types).unwrap_err();
+        get_typeref_from_string("int".to_string(), &types).unwrap_err();
 
         Ok(())
     }
@@ -750,12 +736,13 @@ mod unit_tests {
     #[test]
     fn test_convert_to_typeref_boolean() -> Result<()> {
         // Testing converting to TypeRef::Boolean
+        let types = Default::default();
         assert_eq!(
-            get_typeref_from_string("Boolean".to_string(), None).unwrap(),
+            get_typeref_from_string("Boolean".to_string(), &types).unwrap(),
             TypeRef::Boolean
         );
-        get_typeref_from_string("boolean".to_string(), None).unwrap_err();
-        get_typeref_from_string("bool".to_string(), None).unwrap_err();
+        get_typeref_from_string("boolean".to_string(), &types).unwrap_err();
+        get_typeref_from_string("bool".to_string(), &types).unwrap_err();
 
         Ok(())
     }
@@ -763,12 +750,13 @@ mod unit_tests {
     #[test]
     fn test_convert_to_typeref_bundletext() -> Result<()> {
         // Testing converting to TypeRef::BundleText
+        let types = Default::default();
         assert_eq!(
-            get_typeref_from_string("BundleText<test_name>".to_string(), None).unwrap(),
+            get_typeref_from_string("BundleText<test_name>".to_string(), &types).unwrap(),
             TypeRef::BundleText("test_name".to_string())
         );
-        get_typeref_from_string("bundletext(something)".to_string(), None).unwrap_err();
-        get_typeref_from_string("BundleText()".to_string(), None).unwrap_err();
+        get_typeref_from_string("bundletext(something)".to_string(), &types).unwrap_err();
+        get_typeref_from_string("BundleText()".to_string(), &types).unwrap_err();
 
         // The commented out lines below represent areas we need better
         // type checking on, but are ignored for now
@@ -783,12 +771,13 @@ mod unit_tests {
     #[test]
     fn test_convert_to_typeref_bundleimage() -> Result<()> {
         // Testing converting to TypeRef::BundleImage
+        let types = Default::default();
         assert_eq!(
-            get_typeref_from_string("BundleImage<test_name>".to_string(), None).unwrap(),
+            get_typeref_from_string("BundleImage<test_name>".to_string(), &types).unwrap(),
             TypeRef::BundleImage("test_name".to_string())
         );
-        get_typeref_from_string("bundleimage(something)".to_string(), None).unwrap_err();
-        get_typeref_from_string("BundleImage()".to_string(), None).unwrap_err();
+        get_typeref_from_string("bundleimage(something)".to_string(), &types).unwrap_err();
+        get_typeref_from_string("BundleImage()".to_string(), &types).unwrap_err();
 
         // The commented out lines below represent areas we need better
         // type checking on, but are ignored for now
@@ -803,12 +792,13 @@ mod unit_tests {
     #[test]
     fn test_convert_to_typeref_enum() -> Result<()> {
         // Testing converting to TypeRef::Enum
+        let types = Default::default();
         assert_eq!(
-            get_typeref_from_string("Enum<test_name>".to_string(), None).unwrap(),
+            get_typeref_from_string("Enum<test_name>".to_string(), &types).unwrap(),
             TypeRef::Enum("test_name".to_string())
         );
-        get_typeref_from_string("enum(something)".to_string(), None).unwrap_err();
-        get_typeref_from_string("Enum()".to_string(), None).unwrap_err();
+        get_typeref_from_string("enum(something)".to_string(), &types).unwrap_err();
+        get_typeref_from_string("Enum()".to_string(), &types).unwrap_err();
 
         // The commented out lines below represent areas we need better
         // type checking on, but are ignored for now
@@ -823,12 +813,13 @@ mod unit_tests {
     #[test]
     fn test_convert_to_typeref_object() -> Result<()> {
         // Testing converting to TypeRef::Object
+        let types = Default::default();
         assert_eq!(
-            get_typeref_from_string("Object<test_name>".to_string(), None).unwrap(),
+            get_typeref_from_string("Object<test_name>".to_string(), &types).unwrap(),
             TypeRef::Object("test_name".to_string())
         );
-        get_typeref_from_string("object(something)".to_string(), None).unwrap_err();
-        get_typeref_from_string("Object()".to_string(), None).unwrap_err();
+        get_typeref_from_string("object(something)".to_string(), &types).unwrap_err();
+        get_typeref_from_string("Object()".to_string(), &types).unwrap_err();
 
         // The commented out lines below represent areas we need better
         // type checking on, but are ignored for now
@@ -843,21 +834,22 @@ mod unit_tests {
     #[test]
     fn test_convert_to_typeref_list() -> Result<()> {
         // Testing converting to TypeRef::List
+        let types = Default::default();
         assert_eq!(
-            get_typeref_from_string("List<String>".to_string(), None).unwrap(),
+            get_typeref_from_string("List<String>".to_string(), &types).unwrap(),
             TypeRef::List(Box::new(TypeRef::String))
         );
         assert_eq!(
-            get_typeref_from_string("List<Int>".to_string(), None).unwrap(),
+            get_typeref_from_string("List<Int>".to_string(), &types).unwrap(),
             TypeRef::List(Box::new(TypeRef::Int))
         );
         assert_eq!(
-            get_typeref_from_string("List<Boolean>".to_string(), None).unwrap(),
+            get_typeref_from_string("List<Boolean>".to_string(), &types).unwrap(),
             TypeRef::List(Box::new(TypeRef::Boolean))
         );
 
         // Generate a list of user types to validate use of them in a list
-        let mut types = HashMap::new();
+        let mut types: HashMap<_, _> = Default::default();
         types.insert(
             "TestEnum".to_string(),
             TypeRef::Enum("TestEnum".to_string()),
@@ -868,16 +860,16 @@ mod unit_tests {
         );
 
         assert_eq!(
-            get_typeref_from_string("List<TestEnum>".to_string(), Some(types.clone())).unwrap(),
+            get_typeref_from_string("List<TestEnum>".to_string(), &types).unwrap(),
             TypeRef::List(Box::new(TypeRef::Enum("TestEnum".to_string())))
         );
         assert_eq!(
-            get_typeref_from_string("List<TestObject>".to_string(), Some(types)).unwrap(),
+            get_typeref_from_string("List<TestObject>".to_string(), &types).unwrap(),
             TypeRef::List(Box::new(TypeRef::Object("TestObject".to_string())))
         );
 
-        get_typeref_from_string("list(something)".to_string(), None).unwrap_err();
-        get_typeref_from_string("List()".to_string(), None).unwrap_err();
+        get_typeref_from_string("list(something)".to_string(), &types).unwrap_err();
+        get_typeref_from_string("List()".to_string(), &types).unwrap_err();
 
         // The commented out lines below represent areas we need better
         // type checking on, but are ignored for now
@@ -892,16 +884,17 @@ mod unit_tests {
     #[test]
     fn test_convert_to_typeref_option() -> Result<()> {
         // Testing converting to TypeRef::Option
+        let types = Default::default();
         assert_eq!(
-            get_typeref_from_string("Option<String>".to_string(), None).unwrap(),
+            get_typeref_from_string("Option<String>".to_string(), &types).unwrap(),
             TypeRef::Option(Box::new(TypeRef::String))
         );
         assert_eq!(
-            get_typeref_from_string("Option<Int>".to_string(), None).unwrap(),
+            get_typeref_from_string("Option<Int>".to_string(), &types).unwrap(),
             TypeRef::Option(Box::new(TypeRef::Int))
         );
         assert_eq!(
-            get_typeref_from_string("Option<Boolean>".to_string(), None).unwrap(),
+            get_typeref_from_string("Option<Boolean>".to_string(), &types).unwrap(),
             TypeRef::Option(Box::new(TypeRef::Boolean))
         );
 
@@ -916,16 +909,16 @@ mod unit_tests {
             TypeRef::Object("TestObject".to_string()),
         );
         assert_eq!(
-            get_typeref_from_string("Option<TestEnum>".to_string(), Some(types.clone())).unwrap(),
+            get_typeref_from_string("Option<TestEnum>".to_string(), &types).unwrap(),
             TypeRef::Option(Box::new(TypeRef::Enum("TestEnum".to_string())))
         );
         assert_eq!(
-            get_typeref_from_string("Option<TestObject>".to_string(), Some(types)).unwrap(),
+            get_typeref_from_string("Option<TestObject>".to_string(), &types).unwrap(),
             TypeRef::Option(Box::new(TypeRef::Object("TestObject".to_string())))
         );
 
-        get_typeref_from_string("option(something)".to_string(), None).unwrap_err();
-        get_typeref_from_string("Option(Something)".to_string(), None).unwrap_err();
+        get_typeref_from_string("option(something)".to_string(), &types).unwrap_err();
+        get_typeref_from_string("Option(Something)".to_string(), &types).unwrap_err();
 
         // The commented out lines below represent areas we need better
         // type checking on, but are ignored for now
@@ -940,16 +933,17 @@ mod unit_tests {
     #[test]
     fn test_convert_to_typeref_map() -> Result<()> {
         // Testing converting to TypeRef::Map
+        let types = Default::default();
         assert_eq!(
-            get_typeref_from_string("Map<String, String>".to_string(), None).unwrap(),
+            get_typeref_from_string("Map<String, String>".to_string(), &types).unwrap(),
             TypeRef::StringMap(Box::new(TypeRef::String))
         );
         assert_eq!(
-            get_typeref_from_string("Map<String, Int>".to_string(), None).unwrap(),
+            get_typeref_from_string("Map<String, Int>".to_string(), &types).unwrap(),
             TypeRef::StringMap(Box::new(TypeRef::Int))
         );
         assert_eq!(
-            get_typeref_from_string("Map<String, Boolean>".to_string(), None).unwrap(),
+            get_typeref_from_string("Map<String, Boolean>".to_string(), &types).unwrap(),
             TypeRef::StringMap(Box::new(TypeRef::Boolean))
         );
 
@@ -964,34 +958,30 @@ mod unit_tests {
             TypeRef::Object("TestObject".to_string()),
         );
         assert_eq!(
-            get_typeref_from_string("Map<String, TestEnum>".to_string(), Some(types.clone()))
-                .unwrap(),
+            get_typeref_from_string("Map<String, TestEnum>".to_string(), &types).unwrap(),
             TypeRef::StringMap(Box::new(TypeRef::Enum("TestEnum".to_string())))
         );
         assert_eq!(
-            get_typeref_from_string("Map<String, TestObject>".to_string(), Some(types.clone()))
-                .unwrap(),
+            get_typeref_from_string("Map<String, TestObject>".to_string(), &types).unwrap(),
             TypeRef::StringMap(Box::new(TypeRef::Object("TestObject".to_string())))
         );
         assert_eq!(
-            get_typeref_from_string("Map<TestEnum, String>".to_string(), Some(types.clone()))
-                .unwrap(),
+            get_typeref_from_string("Map<TestEnum, String>".to_string(), &types).unwrap(),
             TypeRef::EnumMap(
                 Box::new(TypeRef::Enum("TestEnum".to_string())),
                 Box::new(TypeRef::String)
             )
         );
         assert_eq!(
-            get_typeref_from_string("Map<TestEnum, TestObject>".to_string(), Some(types.clone()))
-                .unwrap(),
+            get_typeref_from_string("Map<TestEnum, TestObject>".to_string(), &types).unwrap(),
             TypeRef::EnumMap(
                 Box::new(TypeRef::Enum("TestEnum".to_string())),
                 Box::new(TypeRef::Object("TestObject".to_string()))
             )
         );
 
-        get_typeref_from_string("map(something)".to_string(), None).unwrap_err();
-        get_typeref_from_string("Map(Something)".to_string(), None).unwrap_err();
+        get_typeref_from_string("map(something)".to_string(), &Default::default()).unwrap_err();
+        get_typeref_from_string("Map(Something)".to_string(), &Default::default()).unwrap_err();
 
         // The commented out lines below represent areas we need better
         // type checking on, but are ignored for now
