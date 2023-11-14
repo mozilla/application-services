@@ -81,6 +81,7 @@ pub(crate) fn did_you_mean(words: HashSet<String>) -> String {
         format!("; did you mean \"{}\"?", words.iter().next().unwrap())
     } else {
         let mut words = words.into_iter().collect::<Vec<_>>();
+        words.sort();
         let last = words.remove(words.len() - 1);
         format!(
             "; did you mean one of \"{}\" or \"{last}\"?",
