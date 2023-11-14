@@ -334,6 +334,29 @@ mod unit_tests {
     }
 
     #[test]
+    fn test_deterministic_errors() -> Result<()> {
+        let client = client("./nimbus_features.yaml", "release")?;
+        let inspector = client
+            .get_feature_inspector("dialog-appearance".to_string())
+            .unwrap();
+
+        let s = r#"{
+            "positive": { "yes" : { "trait": 1 }  }
+        }"#;
+        let err1 = inspector
+            .get_first_error(s.to_string())
+            .unwrap_or_else(|| unreachable!("No error for \"{s}\""));
+
+        let err2 = inspector
+            .get_first_error(s.to_string())
+            .unwrap_or_else(|| unreachable!("No error for \"{s}\""));
+
+        assert_eq!(err1, err2);
+
+        Ok(())
+    }
+
+    #[test]
     fn test_semantic_errors() -> Result<()> {
         let client = client("./browser.yaml", "release")?;
         let inspector = client

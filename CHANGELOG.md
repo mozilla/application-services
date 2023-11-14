@@ -11,6 +11,12 @@
   - In the spirit of reducing unique identifiers in telemetry and in the spirit of Lean Data, we have removed `enrollment_id` (and the code that generates it).
 - Added the feature `activation` event ([#5908](https://github.com/mozilla/application-services/pull/5908)).
 
+## Nimbus FML ⛅️🔬🔭🔧
+
+### 🦊 What's Changed 🦊
+
+- FML errors are now sorted so that they are no longer non-deterministic ([#9741](https://github.com/mozilla/experimenter/issues/9741)).
+
 ## Places
 
 ### ⚠️ Breaking Changes ⚠️
