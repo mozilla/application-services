@@ -513,6 +513,12 @@ class FxaClient(inner: FirefoxAccount, persistCallback: PersistCallback?) : Auto
         } catch (e: FxaException.Authentication) {
             FxaClientMetrics.errorCount["authentication"].add()
             throw e
+        } catch (e: FxaException.NoExistingAuthFlow) {
+            FxaClientMetrics.errorCount["no_existing_auth_flow"].add()
+            throw e
+        } catch (e: FxaException.OriginMismatch) {
+            FxaClientMetrics.errorCount["origin_mismatch"].add()
+            throw e
         } catch (e: FxaException) {
             FxaClientMetrics.errorCount["fxa_other"].add()
             throw e

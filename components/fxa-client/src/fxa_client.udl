@@ -59,11 +59,8 @@ enum FxaError {
   // The application may retry at a later time once connectivity is restored.
   "Network",
 
-  // Thrown if the application attempts to complete an OAuth flow when no OAuth flow
-  // has been initiated. This may indicate a user who navigated directly to the OAuth
-  // `redirect_uri` for the application.
-  //
-  // **Note:** This error is currently only thrown in the Swift language bindings.
+  // Thrown if the application attempts to complete an OAuth flow when no OAuth flow has been initiated for that state.
+  // This may indicate a user who navigated directly to the OAuth `redirect_uri` for the application.
   "NoExistingAuthFlow",
 
   // Thrown if the application attempts to complete an OAuth flow, but the state
@@ -74,6 +71,12 @@ enum FxaError {
   //
   // **Note:** This error is currently only thrown in the Swift language bindings.
   "WrongAuthFlow",
+
+  // Origin mismatch when handling a pairing flow
+  //
+  // The most likely cause of this is that a user tried to pair together two firefox instances
+  // that are configured to use different servers.
+  "OriginMismatch",
 
   // The sync scoped key was missing in the server response
   "SyncScopedKeyMissingInServerResponse",
