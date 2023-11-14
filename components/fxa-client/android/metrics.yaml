@@ -41,6 +41,8 @@ fxa_client:
     labels:
       - network
       - authentication
+      - no_existing_auth_flow
+      - origin_mismatch
       - fxa_other
       - unexpected
     bugs:

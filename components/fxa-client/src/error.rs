@@ -38,6 +38,12 @@ pub enum FxaError {
     /// **Note:** This error is currently only thrown in the Swift language bindings.
     #[error("the requested authentication flow was not active")]
     WrongAuthFlow,
+    /// Origin mismatch when handling a pairing flow
+    ///
+    /// The most likely cause of this is that a user tried to pair together two firefox instances
+    /// that are configured to use different servers.
+    #[error("Origin mismatch")]
+    OriginMismatch,
     /// A scoped key was missing in the server response when requesting the OLD_SYNC scope.
     #[error("The sync scoped key was missing")]
     SyncScopedKeyMissingInServerResponse,
@@ -194,17 +200,21 @@ impl GetErrorHandling for Error {
             | Error::NoRefreshToken
             | Error::NoScopedKey(_)
             | Error::NoCachedToken(_) => {
-                ErrorHandling::convert(crate::FxaError::Authentication).log_warning()
+                ErrorHandling::convert(FxaError::Authentication).log_warning()
             }
-            Error::RequestError(_) => {
-                ErrorHandling::convert(crate::FxaError::Network).log_warning()
-            }
+            Error::RequestError(_) => ErrorHandling::convert(FxaError::Network).log_warning(),
             Error::SyncScopedKeyMissingInServerResponse => {
-                ErrorHandling::convert(crate::FxaError::SyncScopedKeyMissingInServerResponse)
+                ErrorHandling::convert(FxaError::SyncScopedKeyMissingInServerResponse)
                     .report_error("fxa-client-scoped-key-missing")
             }
-            _ => ErrorHandling::convert(crate::FxaError::Other)
-                .report_error("fxa-client-other-error"),
+            Error::UnknownOAuthState => {
+                ErrorHandling::convert(FxaError::NoExistingAuthFlow).log_warning()
+            }
+            Error::BackoffError(_) => {
+                ErrorHandling::convert(FxaError::Other).report_error("fxa-client-backoff")
+            }
+            Error::OriginMismatch => ErrorHandling::convert(FxaError::OriginMismatch),
+            _ => ErrorHandling::convert(FxaError::Other).report_error("fxa-client-other-error"),
         }
     }
 }
