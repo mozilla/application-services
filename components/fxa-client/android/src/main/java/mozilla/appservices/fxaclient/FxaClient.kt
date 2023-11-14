@@ -89,6 +89,11 @@ class FxaClient(inner: FirefoxAccount, persistCallback: PersistCallback?) : Auto
     }
 
     /**
+     * Get the high-level authentication state of the client
+     */
+    fun getAuthState() = this.inner.getAuthState()
+
+    /**
      * Constructs a URL used to begin the OAuth flow for the requested scopes and keys.
      *
      * This performs network requests, and should not be used on the main thread.
