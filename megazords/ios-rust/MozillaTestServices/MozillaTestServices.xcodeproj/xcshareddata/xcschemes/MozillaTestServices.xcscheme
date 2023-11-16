@@ -55,6 +55,9 @@
                <Test
                   Identifier = "NimbusTests/testNimbusRecordsEnrollmentStatusMetrics()">
                </Test>
+               <Test
+                  Identifier = "NimbusTests/testRecordFeatureActivation()">
+               </Test>
             </SkippedTests>
             <LocationScenarioReference
                identifier = "com.apple.dt.IDEFoundation.CurrentLocationScenarioIdentifier"
