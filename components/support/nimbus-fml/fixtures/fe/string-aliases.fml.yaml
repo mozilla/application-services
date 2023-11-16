@@ -1,0 +1,118 @@
+---
+about:
+  description: A coverall for string-alias.
+  swift:
+    class: AppConfig
+    module: application
+  kotlin:
+    package: org.mozilla.examples.nimbus
+    class: .stringalias.AppConfig
+channels:
+  - storms   # names from https://www.metoffice.gov.uk/about-us/press-office/news/weather-and-climate/2023/weather-responders-included-in-2023-24-storm-names
+  - cyclones # names from https://www.nhc.noaa.gov/aboutnames.shtml
+features:
+  my-simple-team:
+    description: |
+      This uses the players in player availability to make up a basic team.
+    variables:
+      player-availability:
+        description: Names of all players with their availability
+        type: Map<PlayerName, Boolean>
+        string-alias: PlayerName
+        default: {}
+      captain:
+        description: The captain of this week's team
+        type: Option<PlayerName>
+        default: null
+      the-team:
+        description: All players in this week's lineup
+        type: List<PlayerName>
+        default: []
+    defaults:
+      - channel: storms
+        value:
+          player-availability:
+            Agnes: true
+            Babet: true
+            Ciarán: true
+            Debi: true
+            Elin: true
+            Fergus: true
+            Gerrit: true
+            Henk: true
+            Isha: true
+            Jocelyn: true
+            Kathleen: true
+            Lilian: true
+          captain: Agnes
+
+  my-sports:
+    description: |
+      A contrived example to show PlayerNames used in objects
+    variables:
+      available-players:
+        description: Describes the list of valid players
+        type: List<PlayerName>
+        string-alias: PlayerName
+        default: []
+      my-favorite-teams:
+        description: My favourite teams in various sports
+        type: Map<SportName, Team>
+        string-alias: SportName
+        default: {}
+    defaults:
+      - channel: storms
+        value:
+          available-players: ["Agnes", "Babet", "Ciarán", "Debi", "Elin", "Fergus", "Gerrit", "Henk", "Isha", "Jocelyn", "Kathleen", "Lilian"]
+      - channel: cyclones
+        value:
+          available-players: ["Aka", "Ekeka", "Hene", "Iolana", "Keoni", "Lino", "Mele", "Nona", "Oliwa", "Pama", "Upana", "Wene"]
+
+  my-fixture:
+    description: Anoter contrived example, showing a deeply nested object within an object.
+    variables:
+      available-players:
+        description: Describes the list of valid players
+        type: List<PlayerName>
+        string-alias: PlayerName
+        default: []
+      the-sport:
+        description: The sport being played
+        type: SportName
+        string-alias: SportName
+        default: MY_DEFAULT
+      the-match:
+        description: The match
+        type: Match
+        default: {}
+    defaults:
+      - channel: storms
+        value:
+          available-players: ["Agnes", "Babet", "Ciarán", "Debi", "Elin", "Fergus", "Gerrit", "Henk", "Isha", "Jocelyn", "Kathleen", "Lilian"]
+      - channel: cyclones
+        value:
+          available-players: ["Aka", "Ekeka", "Hene", "Iolana", "Keoni", "Lino", "Mele", "Nona", "Oliwa", "Pama", "Upana", "Wene"]
+
+objects:
+  Team:
+    description: A group of players
+    fields:
+      players:
+        description: The list of players in this team
+        type: List<PlayerName>
+        default: []
+      sport:
+        description: The sport this team plays
+        type: SportName
+        default: MY_DEFAULT
+  Match:
+    description: A fixture between two teams
+    fields:
+      home:
+        description: The home team
+        type: Team
+        default: {}
+      away:
+        description: The away team
+        type: Team
+        default: {}

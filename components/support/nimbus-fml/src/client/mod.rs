@@ -320,3 +320,294 @@ mod unit_tests {
         Ok(())
     }
 }
+
+#[cfg(test)]
+mod string_aliases {
+    use super::{test_helper::client, *};
+
+    #[test]
+    fn test_simple_feature() -> Result<()> {
+        let client = client("string-aliases.fml.yaml", "storms")?;
+        let inspector = {
+            let i = client.get_feature_inspector("my-simple-team".to_string());
+            assert!(i.is_some());
+            i.unwrap()
+        };
+
+        // -> feature my-sports:
+        //      player-availability: Map<PlayerName, Boolean> (PlayerName is the set of strings in this list)
+        //      captain: Option<PlayerName>
+        //      the-team: List<SportName> (SportName is the set of string that are keys in this map)
+
+        // Happy path. This configuration is internally consistent.
+        let errors = inspector.get_errors(
+            r#"{
+                "captain": "Babet",
+                "the-team": ["Babet", "Elin", "Isha"]
+            }"#
+            .to_string(),
+        );
+        assert_eq!(None, errors);
+
+        // ----------------------------
+        // Donkey cannot be the captain
+        // Donkey is not a key in the default) player-availability map.
+        let errors = inspector.get_errors(
+            r#"{
+                "captain": "Donkey",
+                "the-team": ["Babet", "Elin", "Isha"]
+            }"#
+            .to_string(),
+        );
+        let expected = r#"Invalid value "Donkey" for type PlayerName; did you mean one of "Agnes", "Babet", "Ciarán", "Debi", "Elin", "Fergus", "Gerrit", "Henk", "Isha", "Jocelyn", "Kathleen" or "Lilian"?"#;
+        assert!(errors.is_some());
+        let errors = errors.unwrap();
+        let err = errors.get(0).unwrap();
+        assert_eq!(Some("\"Donkey\""), err.highlight.as_deref());
+        assert_eq!(expected, err.message.as_str());
+
+        // -------------------------------------------
+        // Donkey cannot play as a member of the-team.
+        // Donkey is not a key in the default) player-availability map.
+        let errors = inspector.get_errors(
+            r#"{
+                "captain": "Gerrit",
+                "the-team": ["Babet", "Donkey", "Isha"]
+            }"#
+            .to_string(),
+        );
+        assert!(errors.is_some());
+        let errors = errors.unwrap();
+        let err = errors.get(0).unwrap();
+        assert_eq!(Some("\"Donkey\""), err.highlight.as_deref());
+        assert_eq!(expected, err.message.as_str());
+
+        // -----------------------------------------------------------
+        // Suprise! Donkey is now available!
+        // because we added them to the player-availability map.
+        let errors = inspector.get_errors(
+            r#"{
+                "player-availability": {
+                    "Donkey": true
+                },
+                "captain": "Donkey",
+                "the-team": ["Babet", "Elin", "Isha"]
+            }"#
+            .to_string(),
+        );
+        assert_eq!(None, errors);
+
+        Ok(())
+    }
+
+    #[test]
+    fn test_objects_in_a_feature() -> Result<()> {
+        let client = client("string-aliases.fml.yaml", "cyclones")?;
+        let inspector = {
+            let i = client.get_feature_inspector("my-sports".to_string());
+            assert!(i.is_some());
+            i.unwrap()
+        };
+
+        // -> feature my-sports:
+        //      available-players: List<PlayerName> (PlayerName is the set of strings in this list)
+        //      my-favourite-teams: Map<SportName, Team> (SportName is the set of string that are keys in this map)
+        // -> class Team:
+        //      sport: SportName
+        //      players: List<PlayerName>
+
+        // Happy path test.
+        // Note that neither KABADDI nor CHESS appeared in the manifest.
+        let errors = inspector.get_errors(
+            r#"{
+                "my-favorite-teams": {
+                    "KABADDI": {
+                        "sport": "KABADDI",
+                        "players": ["Aka", "Hene", "Lino"]
+                    },
+                    "CHESS": {
+                        "sport": "CHESS",
+                        "players": ["Mele", "Nona", "Pama"]
+                    }
+                }
+            }"#
+            .to_string(),
+        );
+        assert_eq!(None, errors);
+
+        // ----------------------------------------------------------------
+        // Only CHESS is a valid game in this configuration, not CONNECT-4.
+        let errors = inspector.get_errors(
+            r#"{
+                "my-favorite-teams": {
+                    "CHESS": {
+                        "sport": "CONNECT-4",
+                        "players": ["Mele", "Nona", "Pama"]
+                    }
+                }
+            }"#
+            .to_string(),
+        );
+        assert!(errors.is_some());
+        let errors = errors.unwrap();
+        let err = errors.get(0).unwrap();
+        assert_eq!(Some("\"CONNECT-4\""), err.highlight.as_deref());
+        assert_eq!(
+            "Invalid value \"CONNECT-4\" for type SportName; did you mean \"CHESS\"?",
+            err.message.as_str()
+        );
+
+        // ------------------------------------------------------------------
+        // Only CHESS is a valid game in this configuration, not the default,
+        // which is "MY_DEFAULT"
+        let errors = inspector.get_errors(
+            r#"{
+                "my-favorite-teams": {
+                    "CHESS": {
+                        "players": ["Mele", "Nona", "Pama"]
+                    }
+                }
+            }"#
+            .to_string(),
+        );
+        assert!(errors.is_some());
+        let errors = errors.unwrap();
+        let err = errors.get(0).unwrap();
+        assert_eq!(Some("{"), err.highlight.as_deref());
+        assert_eq!(
+            "A valid value for sport of type SportName is missing",
+            err.message.as_str()
+        );
+
+        // ----------------------------------------------------
+        // Now CONNECT-4 is a valid game, but Donkey can't play
+        let errors = inspector.get_errors(
+            r#"{
+                "my-favorite-teams": {
+                    "CONNECT-4": {
+                        "sport": "CONNECT-4",
+                        "players": ["Nona", "Pama", "Donkey"]
+                    }
+                }
+            }"#
+            .to_string(),
+        );
+        assert!(errors.is_some());
+        let errors = errors.unwrap();
+        let err = errors.get(0).unwrap();
+        assert_eq!(Some("\"Donkey\""), err.highlight.as_deref());
+
+        // ------------------------------------------------------------------
+        // Oh no! Donkey is the only available player, so Aka is highlighted
+        // as in error.
+        let errors = inspector.get_errors(
+            r#"{
+                "available-players": ["Donkey"],
+                "my-favorite-teams": {
+                    "CONNECT-4": {
+                        "sport": "CONNECT-4",
+                        "players": ["Donkey", "Aka"]
+                    }
+                }
+            }"#
+            .to_string(),
+        );
+        assert!(errors.is_some());
+        let errors = errors.unwrap();
+        let err = errors.get(0).unwrap();
+        assert_eq!(Some("\"Aka\""), err.highlight.as_deref());
+
+        // ------------------------------------------------------------
+        // Suprise! Donkey is the only available player, for all games,
+        let errors = inspector.get_errors(
+            r#"{
+                "available-players": ["Donkey"],
+                "my-favorite-teams": {
+                    "CONNECT-4": {
+                        "sport": "CONNECT-4",
+                        "players": ["Donkey", "Donkey", "Donkey"]
+                    },
+                    "CHESS": {
+                        "sport": "CONNECT-4",
+                        "players": ["Donkey", "Donkey"]
+                    },
+                    "GO": {
+                        "sport": "CONNECT-4",
+                        "players": ["Donkey"]
+                    }
+                }
+            }"#
+            .to_string(),
+        );
+        assert_eq!(None, errors);
+
+        Ok(())
+    }
+
+    #[test]
+    fn test_deeply_nested_objects_in_a_feature() -> Result<()> {
+        let client = client("string-aliases.fml.yaml", "cyclones")?;
+        let inspector = {
+            let i = client.get_feature_inspector("my-fixture".to_string());
+            assert!(i.is_some());
+            i.unwrap()
+        };
+
+        // -> feature my-fixture:
+        //      available-players: List<PlayerName> (PlayerName is the set of strings in this list)
+        //      the-sport: SportName (SportName is the set of string containing only this value)
+        //      the-match: Match
+        // -> class Match:
+        //      away: Team
+        //      home: Team
+        // -> class Team:
+        //      sport: SportName
+        //      players: List<PlayerName>
+
+        // Happy path test.
+        // All the sports match the-sport, and the players are all in the
+        // available-players list.
+        let errors = inspector.get_errors(
+            r#"{
+                "the-sport": "Archery",
+                "the-match": {
+                    "home": {
+                        "sport": "Archery",
+                        "players": ["Aka", "Hene", "Lino"]
+                    },
+                    "away": {
+                        "sport": "Archery",
+                        "players": ["Mele", "Nona", "Pama"]
+                    }
+                }
+            }"#
+            .to_string(),
+        );
+        assert_eq!(None, errors);
+
+        // ----------------------------------------------------------------
+        // All the sports need to match, because it's only set by the-sport.
+        let errors = inspector.get_errors(
+            r#"{
+                "the-sport": "Karate",
+                "the-match": {
+                    "home": {
+                        "sport": "Karate",
+                        "players": ["Aka", "Hene", "Lino"]
+                    },
+                    "away": {
+                        "sport": "Archery",
+                        "players": ["Mele", "Nona", "Pama"]
+                    }
+                }
+            }"#
+            .to_string(),
+        );
+        assert!(errors.is_some());
+        let errors = errors.unwrap();
+        let err = errors.get(0).unwrap();
+        assert_eq!(Some("\"Archery\""), err.highlight.as_deref());
+
+        Ok(())
+    }
+}
