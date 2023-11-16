@@ -165,6 +165,8 @@ nimbus_events:
       - jhugman@mozilla.com
       - project-nimbus@mozilla.com
     expires: never
+    # Disabled by default. This needs a server-knobs rollout to ensure the volume is not overwhelming.
+    disabled: true
   exposure:
     type: event
     description: >

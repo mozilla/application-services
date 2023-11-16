@@ -191,6 +191,7 @@ class NimbusTests {
         )
     }
 
+    @Ignore // until the activation event is enabled by default.
     @Test
     fun `getFeatureVariables records activation telemetry`() {
         // Load the experiment in nimbus so and optIn so that it will be active. This is necessary
