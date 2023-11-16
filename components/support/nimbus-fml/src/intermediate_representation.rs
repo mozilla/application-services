@@ -72,10 +72,10 @@ pub enum TypeRef {
     Boolean,
 
     // Strings can be coerced into a few types.
-    // The types here will require the app's bundle or context to look up the final value.
-    // They will likely have
-    BundleText(StringId),
-    BundleImage(StringId),
+    // The types here will require the app's bundle or context to look
+    // up the final value.
+    BundleText,
+    BundleImage,
 
     Enum(String),
     // JSON objects can represent a data class.
@@ -97,8 +97,8 @@ impl Display for TypeRef {
             Self::String => f.write_str("String"),
             Self::Int => f.write_str("Int"),
             Self::Boolean => f.write_str("Boolean"),
-            Self::BundleImage(_) => f.write_str("Image"),
-            Self::BundleText(_) => f.write_str("Text"),
+            Self::BundleImage => f.write_str("Image"),
+            Self::BundleText => f.write_str("Text"),
             Self::Enum(v) => f.write_str(v),
             Self::Object(v) => f.write_str(v),
             Self::Option(v) => f.write_fmt(format_args!("Option<{v}>")),
@@ -112,7 +112,7 @@ impl Display for TypeRef {
 impl TypeRef {
     pub(crate) fn supports_prefs(&self) -> bool {
         match self {
-            Self::Boolean | Self::String | Self::Int | Self::BundleText(_) => true,
+            Self::Boolean | Self::String | Self::Int | Self::BundleText => true,
             // There may be a chance that we can get Self::Option to work, but not at this time.
             // This may be done by adding a branch to this match and adding a `preference_getter` to
             // the `OptionalCodeType`.
@@ -205,8 +205,6 @@ impl TypeFinder for TypeRef {
         }
     }
 }
-
-pub(crate) type StringId = String;
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, Default)]
 pub struct FeatureManifest {
