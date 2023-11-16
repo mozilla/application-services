@@ -43,12 +43,8 @@ pub(crate) fn get_typeref_from_string(
         "String" => TypeRef::String,
         "Int" => TypeRef::Int,
         "Boolean" => TypeRef::Boolean,
-        "BundleText" | "Text" => {
-            TypeRef::BundleText(type_name.unwrap_or_else(|| "unnamed".to_string()))
-        }
-        "BundleImage" | "Drawable" | "Image" => {
-            TypeRef::BundleImage(type_name.unwrap_or_else(|| "unnamed".to_string()))
-        }
+        "BundleText" | "Text" => TypeRef::BundleText,
+        "BundleImage" | "Drawable" | "Image" => TypeRef::BundleImage,
         "Enum" => TypeRef::Enum(type_name.unwrap()),
         "Object" => TypeRef::Object(type_name.unwrap()),
         "List" => TypeRef::List(Box::new(get_typeref_from_string(
@@ -751,10 +747,6 @@ mod unit_tests {
     fn test_convert_to_typeref_bundletext() -> Result<()> {
         // Testing converting to TypeRef::BundleText
         let types = Default::default();
-        assert_eq!(
-            get_typeref_from_string("BundleText<test_name>".to_string(), &types).unwrap(),
-            TypeRef::BundleText("test_name".to_string())
-        );
         get_typeref_from_string("bundletext(something)".to_string(), &types).unwrap_err();
         get_typeref_from_string("BundleText()".to_string(), &types).unwrap_err();
 
@@ -774,7 +766,7 @@ mod unit_tests {
         let types = Default::default();
         assert_eq!(
             get_typeref_from_string("BundleImage<test_name>".to_string(), &types).unwrap(),
-            TypeRef::BundleImage("test_name".to_string())
+            TypeRef::BundleImage
         );
         get_typeref_from_string("bundleimage(something)".to_string(), &types).unwrap_err();
         get_typeref_from_string("BundleImage()".to_string(), &types).unwrap_err();

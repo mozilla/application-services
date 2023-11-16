@@ -62,8 +62,8 @@ impl<'a> DefaultsValidator<'a> {
     ) -> Result<()> {
         match (type_ref, default) {
             (TypeRef::Boolean, Value::Bool(_))
-            | (TypeRef::BundleImage(_), Value::String(_))
-            | (TypeRef::BundleText(_), Value::String(_))
+            | (TypeRef::BundleImage, Value::String(_))
+            | (TypeRef::BundleText, Value::String(_))
             | (TypeRef::String, Value::String(_))
             | (TypeRef::Int, Value::Number(_))
             | (TypeRef::Option(_), Value::Null) => Ok(()),
@@ -367,11 +367,7 @@ mod test_types {
 
     #[test]
     fn test_validate_prop_defaults_bundle_image() -> Result<()> {
-        let mut prop = PropDef::new(
-            "key",
-            TypeRef::BundleImage("Icon".into()),
-            json!("IconBlue"),
-        );
+        let mut prop = PropDef::new("key", TypeRef::BundleImage, json!("IconBlue"));
         let enums1 = Default::default();
         let objs = Default::default();
         let fm = DefaultsValidator::new(&enums1, &objs);
@@ -386,11 +382,7 @@ mod test_types {
 
     #[test]
     fn test_validate_prop_defaults_bundle_text() -> Result<()> {
-        let mut prop = PropDef::new(
-            "key",
-            TypeRef::BundleText("Text".into()),
-            json!("BundledText"),
-        );
+        let mut prop = PropDef::new("key", TypeRef::BundleText, json!("BundledText"));
         let enums1 = Default::default();
         let objs = Default::default();
         let fm = DefaultsValidator::new(&enums1, &objs);

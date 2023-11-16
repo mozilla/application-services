@@ -149,8 +149,8 @@ impl ConcreteCodeOracle {
             TypeIdentifier::String => Box::new(primitives::StringCodeType),
             TypeIdentifier::Int => Box::new(primitives::IntCodeType),
 
-            TypeIdentifier::BundleText(_) => Box::new(bundled::TextCodeType),
-            TypeIdentifier::BundleImage(_) => Box::new(bundled::ImageCodeType),
+            TypeIdentifier::BundleText => Box::new(bundled::TextCodeType),
+            TypeIdentifier::BundleImage => Box::new(bundled::ImageCodeType),
 
             TypeIdentifier::Enum(id) => Box::new(enum_::EnumCodeType::new(id)),
             TypeIdentifier::Object(id) => Box::new(object::ObjectCodeType::new(id)),
