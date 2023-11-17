@@ -15,6 +15,11 @@
 
 ## Nimbus FML ⛅️🔬🔭🔧
 
+### ✨ What's New ✨
+
+- Added `string-alias` capability to feature variables ([#5928](https://github.com/mozilla/application-services/pull/5928)).
+  - This adds quite a lot of type safety around complex features that relied on Strings, e.g. messaging, onboarding.
+
 ### 🦊 What's Changed 🦊
 
 - FML errors are now sorted so that they are no longer non-deterministic ([#9741](https://github.com/mozilla/experimenter/issues/9741)).
