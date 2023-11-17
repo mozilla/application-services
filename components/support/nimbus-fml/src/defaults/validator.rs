@@ -41,6 +41,7 @@ impl<'a> DefaultsValidator<'a> {
         for prop in &feature_def.props {
             self.validate_types(&path.property(&prop.name), &prop.typ, &prop.default)?;
         }
+        self.validate_feature_enum_maps(feature_def)?;
 
         let string_aliases = feature_def.get_string_aliases();
         let mut errors = Default::default();
@@ -67,6 +68,97 @@ impl<'a> DefaultsValidator<'a> {
 
     fn get_object(&self, nm: &str) -> Option<&ObjectDef> {
         self.object_defs.get(nm)
+    }
+
+    fn validate_feature_enum_maps(&self, feature_def: &FeatureDef) -> Result<()> {
+        let path = ErrorPath::feature(&feature_def.name);
+        for prop in &feature_def.props {
+            let path = path.property(&prop.name);
+            self.validate_enum_maps(&path, &prop.typ, &prop.default)?;
+        }
+        Ok(())
+    }
+
+    /// Check enum maps (Map<Enum, T>) have all keys represented.
+    ///
+    /// We split this out because if the FML has all keys, then any feature configs do as well.
+    ///
+    /// Thus, we don't need to do the detection when editing a feature config.
+    fn validate_enum_maps(
+        &self,
+        path: &ErrorPath,
+        type_ref: &TypeRef,
+        default: &Value,
+    ) -> Result<()> {
+        match (type_ref, default) {
+            (TypeRef::Option(inner), v) => {
+                self.validate_enum_maps(path, inner, v)?
+            }
+
+            (TypeRef::EnumMap(enum_type, map_type), Value::Object(map))
+                if matches!(**enum_type, TypeRef::Enum(_)) =>
+            {
+                let enum_name = enum_type.name().unwrap();
+                let enum_def = self
+                    .get_enum(enum_name)
+                    // If this is thrown, there's a problem in validate_type_ref.
+                    .unwrap_or_else(|| {
+                        unreachable!("Enum {enum_name} is not defined in the manifest")
+                    });
+
+                let mut unseen = HashSet::new();
+                if !matches!(**map_type, TypeRef::Option(_)) {
+                    for variant in &enum_def.variants {
+                        if !map.contains_key(&variant.name) {
+                            unseen.insert(variant.name());
+                        }
+                    }
+
+                    if !unseen.is_empty() {
+                        let path = path.open_brace();
+                        return Err(FMLError::ValidationError(
+                            path.path,
+                            format!("Enum map {enum_name} is missing values for {unseen:?}"),
+                        ));
+                    }
+                }
+
+                for (key, value) in map {
+                    self.validate_enum_maps(&path.enum_map_key(enum_name, key), map_type, value)?
+                }
+            }
+
+            (TypeRef::EnumMap(_, map_type), Value::Object(map)) // Map<string-alias, T>
+            | (TypeRef::StringMap(map_type), Value::Object(map)) => {
+                for (key, value) in map {
+                    self.validate_enum_maps(&path.map_key(key), map_type, value)?
+                }
+            }
+
+            (TypeRef::List(list_type), Value::Array(arr)) => {
+                for (index, value) in arr.iter().enumerate() {
+                    self.validate_enum_maps(&path.array_index(index), list_type, value)?
+                }
+            }
+
+            (TypeRef::Object(obj_name), Value::Object(map)) => {
+                let obj_def = self
+                    .get_object(obj_name)
+                    // If this is thrown, there's a problem in validate_type_ref.
+                    .unwrap_or_else(|| {
+                        unreachable!("Object {obj_name} is not defined in the manifest")
+                    });
+                let path = path.object_value(obj_name);
+                for prop in &obj_def.props {
+                    if let Some(value) = map.get(&prop.name) {
+                        self.validate_enum_maps(&path.property(&prop.name), &prop.typ, value)?
+                    }
+                }
+            }
+
+            _ => (),
+        };
+        Ok(())
     }
 
     fn validate_types(&self, path: &ErrorPath, type_ref: &TypeRef, default: &Value) -> Result<()> {
@@ -122,7 +214,6 @@ impl<'a> DefaultsValidator<'a> {
 
                 // We first validate that the keys of the map cover all all the enum variants, and no more or less
                 let mut seen = HashSet::new();
-                let mut unseen = HashSet::new();
                 let mut valid = HashSet::new();
                 for variant in &enum_def.variants {
                     let nm = &variant.name;
@@ -131,25 +222,14 @@ impl<'a> DefaultsValidator<'a> {
                     let map_value = map.get(nm);
                     match (map_type.as_ref(), map_value) {
                         (TypeRef::Option(_), None) => (),
-                        (_, None) => {
-                            unseen.insert(variant.name());
-                        }
                         (_, Some(inner)) => {
                             self.validate_types(&path.enum_map_key(enum_name, nm), map_type, inner)?;
                             seen.insert(nm);
                         }
+                        _ => ()
                     }
                 }
 
-                if !unseen.is_empty() {
-                    let path = path.open_brace();
-                    return Err(FMLError::FeatureValidationError {
-                        path: path.path,
-                        literals: path.literals,
-                        message: format!("Enum map {enum_name} is missing values for {unseen:?}"),
-                        // Can we be more specific that just the opening brace?
-                    });
-                }
                 for map_key in map.keys() {
                     if !seen.contains(map_key) {
                         let path = path.map_key(map_key);
@@ -477,7 +557,8 @@ mod test_types {
     impl DefaultsValidator<'_> {
         fn validate_prop_defaults(&self, prop: &PropDef) -> Result<()> {
             let path = ErrorPath::feature("test");
-            self.validate_types(&path, &prop.typ, &prop.default)
+            self.validate_types(&path, &prop.typ, &prop.default)?;
+            self.validate_enum_maps(&path, &prop.typ, &prop.default)
         }
     }
 
