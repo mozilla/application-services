@@ -447,14 +447,32 @@ impl FeatureManifest {
             .ok_or_else(|| InvalidFeatureError(feature_name.to_string()))?;
 
         let merger = DefaultsMerger::new(&manifest.obj_defs, Default::default(), None);
-
-        let mut feature_def = feature_def.clone();
-        merger.merge_feature_defaults(&mut feature_def, &Some(vec![feature_value.into()]))?;
+        let value = merger.merge_feature_config(feature_def, &feature_value)?;
 
         let validator = DefaultsValidator::new(&manifest.enum_defs, &manifest.obj_defs);
-        validator.validate_feature_def(&feature_def)?;
+        let errors = validator.get_errors(feature_def, &value);
+        validator.guard_errors(feature_def, &value, errors)?;
 
+        let mut feature_def = feature_def.clone();
+        merger.overwrite_defaults(&mut feature_def, &value)?;
         Ok(feature_def)
+    }
+
+    #[allow(dead_code)]
+    #[cfg(feature = "client-lib")]
+    pub(crate) fn get_errors(
+        &self,
+        feature_name: &str,
+        feature_value: &Value,
+    ) -> Result<Vec<crate::editing::FeatureValidationError>> {
+        let (manifest, feature_def) = self
+            .find_feature(feature_name)
+            .ok_or_else(|| InvalidFeatureError(feature_name.to_string()))?;
+        let merger = DefaultsMerger::new(&manifest.obj_defs, Default::default(), None);
+        let value = merger.merge_feature_config(feature_def, feature_value)?;
+
+        let validator = DefaultsValidator::new(&manifest.enum_defs, &manifest.obj_defs);
+        Ok(validator.get_errors(feature_def, &value))
     }
 
     pub fn get_schema_hash(&self, feature_name: &str) -> Result<String> {
@@ -1144,7 +1162,7 @@ mod feature_config_tests {
         assert!(result.is_err());
         assert_eq!(
             result.err().unwrap().to_string(),
-            "Validation Error at features/feature.prop_1#SampleObj: Invalid key \"invalid-prop\" for object SampleObj; did you mean \"string\"?"
+            "Validation Error at features/feature.prop_1#SampleObj: Invalid property \"invalid-prop\"; did you mean \"string\"?"
         );
 
         Ok(())

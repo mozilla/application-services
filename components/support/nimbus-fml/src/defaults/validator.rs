@@ -2,14 +2,14 @@
 * License, v. 2.0. If a copy of the MPL was not distributed with this
 * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-use crate::editing::ErrorPath;
+use crate::editing::{ErrorConverter, ErrorPath, FeatureValidationError};
 use crate::error::{did_you_mean, FMLError};
 use crate::intermediate_representation::{FeatureDef, PropDef, TypeRef};
 use crate::{
     error::Result,
     intermediate_representation::{EnumDef, ObjectDef},
 };
-use serde_json::Value;
+use serde_json::{Map, Value};
 use std::collections::{BTreeMap, HashMap, HashSet};
 
 pub(crate) struct DefaultsValidator<'a> {
@@ -29,37 +29,91 @@ impl<'a> DefaultsValidator<'a> {
     }
 
     pub(crate) fn validate_object_def(&self, object_def: &ObjectDef) -> Result<(), FMLError> {
+        let mut errors = Default::default();
         let path = ErrorPath::object(&object_def.name);
         for prop in &object_def.props {
-            self.validate_types(&path.property(&prop.name), &prop.typ, &prop.default)?;
-        }
-        Ok(())
-    }
-
-    pub(crate) fn validate_feature_def(&self, feature_def: &FeatureDef) -> Result<()> {
-        let path = ErrorPath::feature(&feature_def.name);
-        for prop in &feature_def.props {
-            self.validate_types(&path.property(&prop.name), &prop.typ, &prop.default)?;
-        }
-        self.validate_feature_enum_maps(feature_def)?;
-
-        let string_aliases = feature_def.get_string_aliases();
-        let mut errors = Default::default();
-        for prop in &feature_def.props {
-            self.validate_string_aliases(
+            self.validate_types(
                 &path.property(&prop.name),
                 &prop.typ,
                 &prop.default,
-                &string_aliases,
-                &prop.string_alias,
                 &mut errors,
             );
         }
         if errors.is_empty() {
             Ok(())
         } else {
-            Err(errors.pop().unwrap())
+            let converter = ErrorConverter::new(self.enum_defs, self.object_defs);
+            Err(converter.convert_object_error(errors.pop().unwrap()))
         }
+    }
+
+    /// This is called as part of the _manifest_ validation only, as part of `fm.validate_defaults()`,
+    /// shortly after `fm.validate_schema()`.
+    ///
+    /// It is not called as part of feature validation, i.e. once the manifest has been loaded
+    /// and validated, and now to be used to validate arbitrary JSON.
+    ///
+    /// It bails with the first detected error. The error detection itself occurs with
+    /// the `get_errors` call below.
+    ///
+    /// It does not check if there are spurious keys in a feature than are defined (this is done in the DefaultsMerger).
+    /// It does check if the features enum maps have a complete set of variants as keys.
+    ///
+    pub(crate) fn validate_feature_def(&self, feature_def: &FeatureDef) -> Result<()> {
+        let defaults = feature_def.default_json();
+        let errors = self.get_errors(feature_def, &defaults);
+        self.guard_errors(feature_def, &defaults, errors)?;
+
+        // This is only checking if a Map with an Enum as key has a complete set of keys (i.e. all variants)
+        self.validate_feature_enum_maps(feature_def)?;
+        Ok(())
+    }
+
+    pub(crate) fn guard_errors(
+        &self,
+        feature_def: &FeatureDef,
+        defaults: &Value,
+        mut errors: Vec<FeatureValidationError>,
+    ) -> Result<()> {
+        if !errors.is_empty() {
+            let converter = ErrorConverter::new(self.enum_defs, self.object_defs);
+            Err(converter.convert_feature_error(feature_def, defaults, errors.pop().unwrap()))
+        } else {
+            Ok(())
+        }
+    }
+
+    /// Called as part of validating any feature def against a full JSON defaults (either the default json, or something
+    /// merged on to a default json).
+    pub(crate) fn get_errors(
+        &self,
+        feature_def: &FeatureDef,
+        feature_value: &Value,
+    ) -> Vec<FeatureValidationError> {
+        let mut errors = Default::default();
+        let path = ErrorPath::feature(&feature_def.name);
+        let map = feature_value
+            .as_object()
+            .expect("Assumption: an object is the only type that get here");
+        self.validate_props_types(&path, &feature_def.props, map, &mut errors);
+        if !errors.is_empty() {
+            return errors;
+        }
+
+        let string_aliases = feature_def.get_string_aliases();
+        for prop in &feature_def.props {
+            let value = map.get(&prop.name).unwrap_or(&prop.default);
+            self.validate_string_aliases(
+                &path.property(&prop.name),
+                &prop.typ,
+                value,
+                &string_aliases,
+                feature_value,
+                &prop.string_alias,
+                &mut errors,
+            );
+        }
+        errors
     }
 
     fn get_enum(&self, nm: &str) -> Option<&EnumDef> {
@@ -161,7 +215,13 @@ impl<'a> DefaultsValidator<'a> {
         Ok(())
     }
 
-    fn validate_types(&self, path: &ErrorPath, type_ref: &TypeRef, default: &Value) -> Result<()> {
+    fn validate_types(
+        &self,
+        path: &ErrorPath,
+        type_ref: &TypeRef,
+        default: &Value,
+        errors: &mut Vec<FeatureValidationError>,
+    ) {
         match (type_ref, default) {
             (TypeRef::Boolean, Value::Bool(_))
             | (TypeRef::BundleImage, Value::String(_))
@@ -169,15 +229,9 @@ impl<'a> DefaultsValidator<'a> {
             | (TypeRef::String, Value::String(_))
             | (TypeRef::StringAlias(_), Value::String(_))
             | (TypeRef::Int, Value::Number(_))
-            | (TypeRef::Option(_), Value::Null) => Ok(()),
+            | (TypeRef::Option(_), Value::Null) => (),
             (TypeRef::Option(inner), v) => {
-                if let TypeRef::Option(_) = inner.as_ref() {
-                    return Err(FMLError::ValidationError(
-                        path.path.to_string(),
-                        "Nested options".into(),
-                    ));
-                }
-                self.validate_types(path, inner, v)
+                self.validate_types(path, inner, v, errors)
             }
             (TypeRef::Enum(enum_name), Value::String(s)) => {
                 let enum_def = self
@@ -190,16 +244,16 @@ impl<'a> DefaultsValidator<'a> {
                 for variant in enum_def.variants() {
                     let name = variant.name();
                     if *s == name {
-                        return Ok(());
+                        return;
                     }
                     valid.insert(name);
                 }
                 let path = path.final_error_quoted(s);
-                Err(FMLError::FeatureValidationError {
+                errors.push(FeatureValidationError {
                     path: path.path,
                     literals: path.literals,
                     message: format!("\"{s}\" is not a valid {enum_name}{}", did_you_mean(valid)),
-                })
+                });
             }
             (TypeRef::EnumMap(enum_type, map_type), Value::Object(map))
                 if matches!(**enum_type, TypeRef::Enum(_)) =>
@@ -213,7 +267,6 @@ impl<'a> DefaultsValidator<'a> {
                     });
 
                 // We first validate that the keys of the map cover all all the enum variants, and no more or less
-                let mut seen = HashSet::new();
                 let mut valid = HashSet::new();
                 for variant in &enum_def.variants {
                     let nm = &variant.name;
@@ -223,37 +276,35 @@ impl<'a> DefaultsValidator<'a> {
                     match (map_type.as_ref(), map_value) {
                         (TypeRef::Option(_), None) => (),
                         (_, Some(inner)) => {
-                            self.validate_types(&path.enum_map_key(enum_name, nm), map_type, inner)?;
-                            seen.insert(nm);
+                            self.validate_types(&path.enum_map_key(enum_name, nm), map_type, inner, errors);
                         }
                         _ => ()
                     }
                 }
 
-                for map_key in map.keys() {
-                    if !seen.contains(map_key) {
+                for (map_key, map_value) in map {
+                    if !valid.contains(map_key) {
                         let path = path.map_key(map_key);
-                        return Err(FMLError::FeatureValidationError {
+                        errors.push(FeatureValidationError {
                             path: path.path,
                             literals: path.literals,
                             message: format!("Invalid key \"{map_key}\"{}", did_you_mean(valid.clone())),
                         });
                     }
+
+                    self.validate_types(&path.enum_map_key(map_key, &enum_def.name), map_type, map_value, errors);
                 }
-                Ok(())
             }
             (TypeRef::EnumMap(_, map_type), Value::Object(map)) // Map<string-alias, T>
             | (TypeRef::StringMap(map_type), Value::Object(map)) => {
                 for (key, value) in map {
-                    self.validate_types(&path.map_key(key), map_type, value)?;
+                    self.validate_types(&path.map_key(key), map_type, value, errors);
                 }
-                Ok(())
             }
             (TypeRef::List(list_type), Value::Array(arr)) => {
                 for (index, value) in arr.iter().enumerate() {
-                    self.validate_types(&path.array_index(index), list_type, value)?;
+                    self.validate_types(&path.array_index(index), list_type, value, errors);
                 }
-                Ok(())
             }
             (TypeRef::Object(obj_name), Value::Object(map)) => {
                 let obj_def = self
@@ -262,44 +313,50 @@ impl<'a> DefaultsValidator<'a> {
                     .unwrap_or_else(|| {
                         unreachable!("Object {obj_name} is not defined in the manifest")
                     });
-                let mut valid = HashSet::new();
-                let mut unseen = HashSet::new();
-                let path = path.object_value(obj_name);
-                for prop in &obj_def.props {
-                    // We only check the defaults overriding the property defaults
-                    // from the object's own property defaults.
-                    // We check the object property defaults previously.
-                    let nm = prop.name();
-                    if let Some(map_val) = map.get(&nm) {
-                        self.validate_types(&path.property(&prop.name), &prop.typ, map_val)?;
-                    } else {
-                        unseen.insert(nm.clone());
-                    }
-
-                    valid.insert(nm);
-                }
-                for map_key in map.keys() {
-                    if !valid.contains(map_key) {
-                        let path = path.final_error_quoted(map_key);
-                        return Err(FMLError::FeatureValidationError {
-                            path: path.path,
-                            literals: path.literals,
-                            message: format!(
-                                "Invalid key \"{map_key}\" for object {obj_name}{}",
-                                did_you_mean(valid)
-                            ),
-                        });
-                    }
-                }
-                Ok(())
+                self.validate_props_types(&path.object_value(obj_name), &obj_def.props, map, errors);
             }
             _ => {
                 let path = path.final_error(&default.to_string());
-                Err(FMLError::FeatureValidationError {
+                errors.push(FeatureValidationError {
                     path: path.path,
                     literals: path.literals,
                     message: format!("Mismatch between type {type_ref} and default {default}"),
-                })
+                });
+            }
+        };
+    }
+
+    fn validate_props_types(
+        &self,
+        path: &ErrorPath,
+        props: &Vec<PropDef>,
+        map: &Map<String, Value>,
+        errors: &mut Vec<FeatureValidationError>,
+    ) {
+        let mut valid = HashSet::new();
+
+        for prop in props {
+            // We only check the defaults overriding the property defaults
+            // from the object's own property defaults.
+            // We check the object property defaults previously.
+            let prop_name = &prop.name;
+            if let Some(map_val) = map.get(prop_name) {
+                self.validate_types(&path.property(prop_name), &prop.typ, map_val, errors);
+            }
+
+            valid.insert(prop_name.clone());
+        }
+        for map_key in map.keys() {
+            if !valid.contains(map_key) {
+                let path = path.final_error_quoted(map_key);
+                errors.push(FeatureValidationError {
+                    path: path.path,
+                    literals: path.literals,
+                    message: format!(
+                        "Invalid property \"{map_key}\"{}",
+                        did_you_mean(valid.clone())
+                    ),
+                });
             }
         }
     }
@@ -311,8 +368,9 @@ impl<'a> DefaultsValidator<'a> {
         typ: &TypeRef,
         value: &Value,
         defn: &HashMap<&str, &PropDef>,
+        feature_value: &Value,
         skip: &Option<TypeRef>,
-        errors: &mut Vec<FMLError>,
+        errors: &mut Vec<FeatureValidationError>,
     ) {
         // As an optimization (to stop validating the definition against itself),
         // we want to skip validation on the `skip` type ref: this is only set by the property defining
@@ -320,11 +378,11 @@ impl<'a> DefaultsValidator<'a> {
         let should_validate = |v: &TypeRef| -> bool { skip.as_ref() != Some(v) };
         match (typ, value) {
             (TypeRef::StringAlias(_), Value::String(s)) => {
-                check_string_aliased_property(path, typ, s, defn, errors)
+                check_string_aliased_property(path, typ, s, defn, feature_value, errors)
             }
             (TypeRef::Option(_), &Value::Null) => (),
             (TypeRef::Option(inner), _) => {
-                self.validate_string_aliases(path, inner, value, defn, skip, errors)
+                self.validate_string_aliases(path, inner, value, defn, feature_value, skip, errors)
             }
             (TypeRef::List(inner), Value::Array(array)) => {
                 if should_validate(inner) {
@@ -334,6 +392,7 @@ impl<'a> DefaultsValidator<'a> {
                             inner,
                             value,
                             defn,
+                            feature_value,
                             skip,
                             errors,
                         );
@@ -342,8 +401,15 @@ impl<'a> DefaultsValidator<'a> {
             }
             (TypeRef::EnumMap(key_type, value_type), Value::Object(map)) => {
                 if should_validate(key_type) && matches!(**key_type, TypeRef::StringAlias(_)) {
-                    for value in map.keys() {
-                        check_string_aliased_property(path, key_type, value, defn, errors);
+                    for key in map.keys() {
+                        check_string_aliased_property(
+                            &path.map_key(key),
+                            key_type,
+                            key,
+                            defn,
+                            feature_value,
+                            errors,
+                        );
                     }
                 }
 
@@ -354,6 +420,7 @@ impl<'a> DefaultsValidator<'a> {
                             value_type,
                             value,
                             defn,
+                            feature_value,
                             skip,
                             errors,
                         );
@@ -368,6 +435,7 @@ impl<'a> DefaultsValidator<'a> {
                             vt,
                             value,
                             defn,
+                            feature_value,
                             skip,
                             errors,
                         );
@@ -381,13 +449,14 @@ impl<'a> DefaultsValidator<'a> {
                 for prop in &obj_def.props {
                     let prop_nm = &prop.name;
                     if let Some(value) = map.get(prop_nm) {
+                        // string-alias definitions aren't allowed in Object definitions,
+                        // so `skip` is None.
                         self.validate_string_aliases(
                             &path.property(prop_nm),
                             &prop.typ,
                             value,
                             defn,
-                            // string-alias definitions aren't allowed in Object definitions,
-                            // so `skip` is None.
+                            feature_value,
                             &None,
                             errors,
                         );
@@ -400,6 +469,7 @@ impl<'a> DefaultsValidator<'a> {
                             &prop.typ,
                             &prop.default,
                             defn,
+                            feature_value,
                             &None,
                             &mut suberrors,
                         );
@@ -408,7 +478,7 @@ impl<'a> DefaultsValidator<'a> {
                         // what the error is, we can just error out.
                         if !suberrors.is_empty() {
                             let path = path.open_brace();
-                            errors.push(FMLError::FeatureValidationError {
+                            errors.push(FeatureValidationError {
                                 literals: path.literals,
                                 path: path.path,
                                 message: format!(
@@ -430,15 +500,17 @@ fn check_string_aliased_property(
     alias_type: &TypeRef,
     value: &str,
     defn: &HashMap<&str, &PropDef>,
-    errors: &mut Vec<FMLError>,
+    feature_value: &Value,
+    errors: &mut Vec<FeatureValidationError>,
 ) {
     if let TypeRef::StringAlias(alias_nm) = alias_type {
         if let Some(prop) = defn.get(alias_nm.as_str()) {
-            if !validate_string_alias_value(value, alias_type, &prop.typ, &prop.default) {
+            let def_value = feature_value.get(&prop.name).unwrap();
+            if !validate_string_alias_value(value, alias_type, &prop.typ, def_value) {
                 let mut valid = Default::default();
-                collect_string_alias_values(alias_type, &prop.typ, &prop.default, &mut valid);
+                collect_string_alias_values(alias_type, &prop.typ, def_value, &mut valid);
                 let path = path.final_error_quoted(value);
-                errors.push(FMLError::FeatureValidationError {
+                errors.push(FeatureValidationError {
                     literals: path.literals,
                     path: path.path,
                     message: format!(
@@ -556,8 +628,12 @@ mod test_types {
 
     impl DefaultsValidator<'_> {
         fn validate_prop_defaults(&self, prop: &PropDef) -> Result<()> {
+            let mut errors = Default::default();
             let path = ErrorPath::feature("test");
-            self.validate_types(&path, &prop.typ, &prop.default)?;
+            self.validate_types(&path, &prop.typ, &prop.default, &mut errors);
+            if !errors.is_empty() {
+                return Err(errors.pop().unwrap().into());
+            }
             self.validate_enum_maps(&path, &prop.typ, &prop.default)
         }
     }
@@ -702,21 +778,6 @@ mod test_types {
         fm.validate_prop_defaults(&prop).expect_err(
             "Should error out, default is number when it should be a boolean (Optional boolean)",
         );
-        Ok(())
-    }
-
-    #[test]
-    fn test_validate_prop_defaults_nested_options() -> Result<()> {
-        let prop = PropDef::new(
-            "key",
-            &TypeRef::Option(Box::new(TypeRef::Option(Box::new(TypeRef::Boolean)))),
-            &json!(true),
-        );
-        let enums1 = Default::default();
-        let objs = Default::default();
-        let fm = DefaultsValidator::new(&enums1, &objs);
-        fm.validate_prop_defaults(&prop)
-            .expect_err("Should error out since we have a nested option");
         Ok(())
     }
 
